@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Открытка к 8 Марта</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Georgia', serif;
+      background: linear-gradient(135deg, #ffeef8 0%, #ffe0f0 50%, #ffd4e8 100%);
+    }
+    
+    /* Стили для формы */
+    .form-container {
+      width: 380px;
+      padding: 30px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(255, 105, 180, 0.15);
+      text-align: center;
+    }
+    h2 { color: #c71585; margin-bottom: 20px; }
+    label { display: block; color: #c71585; margin-bottom: 8px; font-weight: bold; text-align: left; }
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ffb6c1;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 1rem;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #c71585, #db7093);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    button:hover { opacity: 0.9; }
+
+    /* Стили для открытки */
+    .card-container {
+      display: none; /* Изначально скрыта */
+      width: 400px;
+      padding: 40px;
+      background: linear-gradient(145deg, #fff5f9, #fff);
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(255, 105, 180, 0.2);
+      text-align: center;
+      border: 2px solid rgba(255, 182, 193, 0.6);
+      animation: fadeIn 1s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    h1 { color: #c71585; font-size: 1.8rem; margin-bottom: 20px; }
+    .greeting {
+      color: #c71585;
+      font-size: 1.3rem;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+    p { color: #555; line-height: 1.8; margin-bottom: 15px; }
+    .flowers { font-size: 2.5rem; margin: 15px 0; }
+  </style>
+</head>
+<body>
+
+  <!-- Блок с формой -->
+  <div class="form-container" id="formSection">
+    <h2>Создать открытку</h2>
+    <label>Имя (кому)</label>
+    <input type="text" id="nameInput" placeholder="Имя получателя (например, Катя)">
+    <button type="button" onclick="generateAndShowCard()">Создать открытку</button>
+  </div>
+
+  <!-- Блок с открыткой -->
+  <div class="card-container" id="cardSection">
+    <div class="flowers">🌸🌷💐🌹</div>
+    <h1>С 8 Марта!</h1>
+    <div class="greeting" id="cardGreeting"></div>
+    <p id="cardText"></p>
+    <div class="flowers">💐🌷🌸</div>
+  </div>
+
+  <script>
+    // Массив с вариантами поздравлений
+    const congratulations = [
+      "Поздравляю с этим прекрасным весенним праздником! Пусть каждый день будет наполнен радостью, улыбками и искренним теплом. Здоровья, счастья и исполнения желаний!",
+      "Пусть в этот весенний день на душе расцветают цветы, а в жизни царят гармония и любовь. С праздником 8 Марта!",
+      "С Международным женским днём! Желаю море улыбок, океан счастья и бесконечного весеннего настроения!",
+      "Пусть каждый день приносит только радость и приятные сюрпризы. С 8 Марта, самым нежным и прекрасным праздником весны!",
+      "С 8 Марта! Пусть в жизни всегда будет место для чуда, а каждый новый день дарит улыбки, вдохновение и тепло близких."
+    ];
+
+    function generateAndShowCard() {
+      const nameValue = document.getElementById('nameInput').value.trim();
+      
+      if (!nameValue) {
+        alert('Пожалуйста, введите имя.');
+        return;
+      }
+
+      // Делаем первую букву заглавной
+      const capitalizedName = nameValue.charAt(0).toUpperCase() + nameValue.slice(1);
+      
+      // Подставляем имя в обращение
+      document.getElementById('cardGreeting').textContent = 'Дорогая ' + capitalizedName + '!';
+
+      // Выбираем случайный текст
+      const randomIndex = Math.floor(Math.random() * congratulations.length);
+      document.getElementById('cardText').textContent = congratulations[randomIndex];
+
+      // Скрываем форму и показываем открытку
+      document.getElementById('formSection').style.display = 'none';
+      document.getElementById('cardSection').style.display = 'block';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тетрис</title>
+    <link rel="stylesheet" href="tetris.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="game-wrapper">
+        <header class="game-header">
+            <h1>ТЕТРИС</h1>
+            <div class="scores">
+                <div class="score-box">
+                    <span class="label">Очки</span>
+                    <span id="score">0</span>
+                </div>
+                <div class="score-box">
+                    <span class="label">Уровень</span>
+                    <span id="level">1</span>
+                </div>
+                <div class="score-box">
+                    <span class="label">Линии</span>
+                    <span id="lines">0</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="game-area">
+            <canvas id="game-canvas" width="300" height="600"></canvas>
+            <aside class="side-panel">
+                <div class="next-block-box">
+                    <span class="panel-label">Следующая</span>
+                    <canvas id="next-canvas" width="120" height="120"></canvas>
+                </div>
+                <div class="controls-info">
+                    <p>← → — движение</p>
+                    <p>↑ — поворот</p>
+                    <p>↓ — ускорить</p>
+                    <p>Пробел — сброс</p>
+                </div>
+                <button id="start-btn" class="btn-start">Старт</button>
+            </aside>
+        </main>
+
+        <div id="game-over-overlay" class="overlay hidden">
+            <div class="overlay-content">
+                <h2>Игра окончена</h2>
+                <p>Очки: <span id="final-score">0</span></p>
+                <button id="restart-btn" class="btn-restart">Играть снова</button>
+            </div>
+        </div>
+
+        <div id="pause-overlay" class="overlay pause-overlay hidden">
+            <div class="overlay-content">
+                <h2>Пауза</h2>
+                <p>Нажмите P для продолжения</p>
+            </div>
+        </div>
+    </div>
+    <script src="tetris.js"></script>
+</body>
+</html>

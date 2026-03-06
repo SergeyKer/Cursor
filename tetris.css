@@ -1,0 +1,223 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    font-family: 'JetBrains Mono', monospace;
+    color: #e0e0e0;
+}
+
+.game-wrapper {
+    position: relative;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 16px;
+    box-shadow: 0 0 60px rgba(100, 80, 200, 0.3),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.game-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.game-header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: 0.4em;
+    background: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradient-shift 4s ease infinite;
+}
+
+@keyframes gradient-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+.scores {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin-top: 12px;
+}
+
+.score-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 20px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.score-box .label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #888;
+}
+
+.score-box span:last-child {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.game-area {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+}
+
+#game-canvas {
+    display: block;
+    background: #0a0a12;
+    border-radius: 8px;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+
+.side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 140px;
+}
+
+.next-block-box {
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.panel-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #888;
+}
+
+#next-canvas {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+
+.controls-info {
+    font-size: 0.75rem;
+    color: #888;
+    line-height: 1.8;
+}
+
+.controls-info p {
+    margin: 0;
+}
+
+.btn-start,
+.btn-restart {
+    padding: 12px 24px;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #fff;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.btn-start:hover,
+.btn-restart:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+}
+
+.btn-start:active,
+.btn-restart:active {
+    transform: translateY(0);
+}
+
+.overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.75);
+    border-radius: 16px;
+    z-index: 10;
+}
+
+.overlay.hidden {
+    display: none;
+}
+
+.pause-overlay {
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.overlay-content {
+    text-align: center;
+    padding: 40px;
+}
+
+.overlay-content h2 {
+    font-size: 1.8rem;
+    margin-bottom: 16px;
+    color: #fff;
+}
+
+.overlay-content p {
+    margin-bottom: 24px;
+    color: #ccc;
+}
+
+#final-score {
+    font-weight: 700;
+    color: #feca57;
+}
+
+.btn-restart {
+    margin-top: 8px;
+}
+
+@media (max-width: 520px) {
+    .game-area {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .game-header h1 {
+        font-size: 1.8rem;
+        letter-spacing: 0.2em;
+    }
+
+    #game-canvas {
+        width: 100%;
+        max-width: 300px;
+        height: auto;
+    }
+}
