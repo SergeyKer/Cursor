@@ -567,7 +567,10 @@ function renderCommunicationTools(tools) {
         });
         titleBlock.appendChild(ul);
       }
-      firstEl.appendChild(titleBlock);
+      const introBlock = document.createElement("div");
+      introBlock.className = "tools-sheet__intro-block";
+      introBlock.appendChild(titleBlock);
+      firstEl.appendChild(introBlock);
     } else {
       const title = document.createElement("h3");
       title.className = "tools-sheet__first-title";
