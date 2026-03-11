@@ -30,6 +30,20 @@ body {
   color: var(--text);
 }
 
+.app-loading {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 12px 20px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+  font-size: 15px;
+  color: var(--text);
+  z-index: 200;
+}
+
 .sidebar-toggle {
   position: fixed;
   left: 12px;
@@ -114,24 +128,25 @@ body {
 }
 
 .nav {
-  display: flex;
-  gap: 3px;
+  display: inline-flex;
+  gap: 4px;
   background: #e5edff;
-  padding: 2px;
+  padding: 4px;
   border-radius: 999px;
   border: 1px solid rgba(129, 140, 248, 0.4);
 }
 
 .nav__item {
-  flex: 1;
+  flex: 0 1 auto;
   border: none;
   cursor: pointer;
   border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 12px;
+  padding: 6px 18px;
+  font-size: 15px;
   background: transparent;
   color: var(--text-muted);
   transition: all 0.18s ease-out;
+  white-space: nowrap;
 }
 
 .nav__item--active {
@@ -177,38 +192,40 @@ body {
   list-style: none;
   padding: 0;
   margin: 0;
-  margin-top: 12px;
+  margin-top: 10px;
   overflow-y: auto;
   overflow-x: hidden;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   min-height: 0;
 }
 
 .process-list__item {
-  padding: 3px 8px;
+  padding: 4px 8px;
   margin: 0 -8px;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.3;
   color: var(--text);
   word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: normal;
-  transition: color 0.15s, background 0.15s;
+  transition: color 0.15s, background 0.15s, text-decoration 0.15s;
 }
 
 .process-list__item:hover {
   color: var(--accent);
   background: rgba(37, 99, 235, 0.06);
+  text-decoration: underline;
 }
 
 .process-list__item--active {
   color: var(--accent);
   background: rgba(37, 99, 235, 0.08);
+  text-decoration: underline;
 }
 
 .process-list__title {
@@ -272,6 +289,30 @@ body {
   color: var(--text);
 }
 
+.sidebar-search__clear {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0 2px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.sidebar-search__clear:hover {
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.06);
+}
+
 .sidebar-search__btn {
   flex-shrink: 0;
   display: flex;
@@ -328,7 +369,7 @@ body {
 .nav--center {
   display: flex;
   justify-content: center;
-  margin: 0 auto;
+  width: 100%;
 }
 
 .view {
@@ -349,17 +390,77 @@ body {
 }
 
 .process-list-main__title {
-  margin: 0 0 20px;
-  font-size: 1.25rem;
+  margin: 0 0 12px;
+  font-size: 1.1rem;
   color: var(--text-primary);
   text-align: left;
 }
 
 .process-list-main {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.process-list-main__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.process-list-main__table thead {
+  background: var(--accent);
+  color: #fff;
+}
+
+.process-list-main__th-name,
+.process-list-main__th-desc {
+  padding: 6px 10px;
   text-align: left;
+  font-weight: 600;
+}
+
+.process-list-main__th-name {
+  width: 32%;
+  min-width: 160px;
+}
+
+.process-list-main__row {
+  border-bottom: 1px dashed var(--border-subtle);
+  transition: background 0.12s;
+}
+
+.process-list-main__row:hover {
+  background: rgba(37, 99, 235, 0.04);
+}
+
+.process-list-main__row td {
+  padding: 6px 10px;
+  vertical-align: top;
+  line-height: 1.35;
+}
+
+.process-list-main__link {
+  display: inline;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+  text-align: left;
+  line-height: 1.35;
+}
+
+.process-list-main__link:hover {
+  color: #0c69c4;
+}
+
+.process-list-main__desc {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .process-list-main__card {
@@ -370,8 +471,8 @@ body {
   font-size: 14px;
   font-family: inherit;
   color: var(--text-primary);
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
@@ -379,7 +480,7 @@ body {
 }
 
 .process-list-main__card:hover {
-  background: var(--bg-hover);
+  background: rgba(37, 99, 235, 0.06);
   border-color: var(--accent);
 }
 
@@ -431,11 +532,94 @@ body {
 }
 
 .card {
+  position: relative;
   background: var(--card-bg);
   border-radius: var(--radius-lg);
   border: 1px solid rgba(148, 163, 184, 0.6);
-  padding: 14px 16px 16px;
+  padding: 14px 16px 36px 16px;
   box-shadow: var(--shadow-soft);
+}
+
+/* Кнопка «вверх» — вариант по умолчанию: акцентный круг */
+.card__scroll-top {
+  position: absolute;
+  bottom: 10px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(15, 123, 220, 0.35);
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.card__scroll-top:hover {
+  background: #0c69c4;
+  box-shadow: 0 4px 12px rgba(15, 123, 220, 0.45);
+  transform: translateY(-1px);
+}
+
+/* Вариант: призрачная (только рамка, без заливки) — заменить класс на card__scroll-top card__scroll-top--ghost */
+.card__scroll-top--ghost {
+  background: var(--card-bg);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  box-shadow: none;
+}
+
+.card__scroll-top--ghost:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+/* Вариант: минимальная (скруглённый квадрат, лёгкая тень) */
+.card__scroll-top--minimal {
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text-muted);
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.card__scroll-top--minimal:hover {
+  color: var(--accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
+}
+
+/* Вариант: круг с обводкой, маленький, чуть заметнее */
+.card__scroll-top--outline {
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+  font-weight: normal;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text-muted);
+  border: 1px solid rgba(15, 23, 42, 0.25);
+  border-radius: 50%;
+  box-shadow: none;
+}
+
+.card__scroll-top--outline:hover {
+  background: rgba(255, 255, 255, 0.98);
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: none;
+  transform: translateY(-1px);
 }
 
 .card__head {
@@ -610,6 +794,42 @@ body {
   margin-bottom: 20px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border-subtle);
+}
+
+.tools-sheet__first-title-block {
+  margin-bottom: 8px;
+  font-weight: normal;
+}
+
+.tools-sheet__first-intro {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: normal;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.tools-sheet__first-theses {
+  margin: 0 0 0 18px;
+  padding: 0;
+  list-style: disc;
+  font-size: 14px;
+  font-weight: normal;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.tools-sheet__first-thesis {
+  margin-bottom: 6px;
+}
+
+.tools-sheet__first-thesis:last-child {
+  margin-bottom: 0;
+}
+
+.tools-sheet__first-title-block .tools-sheet__first-title {
+  font-weight: normal;
+  font-size: 14px;
 }
 
 .tools-sheet__first-title {

@@ -27,7 +27,7 @@ async function loadData() {
   const [meta, processes, tools] = await Promise.all([
     loadJson(`${DATA_BASE_PATH}/processes_meta.json?v=2`),
     loadJson(`${DATA_BASE_PATH}/processes.json`),
-    loadJson(`${DATA_BASE_PATH}/communication_tools.json`),
+    loadJson(`${DATA_BASE_PATH}/communication_tools.json?v=2`),
   ]);
   return { meta, processes, tools };
 }
@@ -53,18 +53,61 @@ function initNavigation(views, onProcessViewSwitch) {
   });
 }
 
-function renderProcessListMain(processesMeta, onSelect) {
+function getProcessDataByMeta(processMeta, processesData) {
+  if (!processesData) return null;
+  const sheetName =
+    processMeta.sheet_name && processesData[processMeta.sheet_name]
+      ? processMeta.sheet_name
+      : Object.keys(processesData).find(
+          (key) => key.toLowerCase().indexOf((processMeta.name || "").toLowerCase()) >= 0
+        );
+  return sheetName ? processesData[sheetName] : null;
+}
+
+function getBusinessGoalDescription(processMeta, processesData) {
+  const processData = getProcessDataByMeta(processMeta, processesData);
+  if (!processData) return (processMeta.short_description || "").trim();
+  const pd = processData.process_description;
+  const businessGoal = stripIncomingCallsBlock((pd && pd.business_goal) || processData.goal || "");
+  if (businessGoal) return businessGoal.replace(/\s+/g, " ").trim();
+  return (processMeta.short_description || "").trim();
+}
+
+function renderProcessListMain(processesMeta, onSelect, processesData) {
   const container = document.getElementById("processListMain");
   if (!container) return;
   container.innerHTML = "";
+  const table = document.createElement("table");
+  table.className = "process-list-main__table";
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th class="process-list-main__th-name">Процесс</th>
+        <th class="process-list-main__th-desc">Бизнес-цель</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `;
+  const tbody = table.querySelector("tbody");
   (processesMeta || []).forEach((process) => {
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "process-list-main__card";
-    card.textContent = process.name || "";
-    card.addEventListener("click", () => onSelect(process));
-    container.appendChild(card);
+    const desc = getBusinessGoalDescription(process, processesData);
+    const tr = document.createElement("tr");
+    tr.className = "process-list-main__row";
+    const nameCell = document.createElement("td");
+    const link = document.createElement("button");
+    link.type = "button";
+    link.className = "process-list-main__link";
+    link.textContent = process.name || "";
+    link.addEventListener("click", () => onSelect(process));
+    nameCell.appendChild(link);
+    const descCell = document.createElement("td");
+    descCell.className = "process-list-main__desc";
+    descCell.textContent = desc;
+    tr.appendChild(nameCell);
+    tr.appendChild(descCell);
+    tbody.appendChild(tr);
   });
+  container.appendChild(table);
 }
 
 function scoreProcessForQuery(processMeta, query) {
@@ -143,6 +186,7 @@ function renderProcessList(processesMeta, onSelect) {
           normalized(p.searchable_text || "").includes(query)
         );
       })
+      .sort((a, b) => (a.name || "").trim().localeCompare((b.name || "").trim(), "ru"))
       .forEach((process) => {
         const li = document.createElement("li");
         li.className = "process-list__item";
@@ -174,15 +218,31 @@ function renderProcessList(processesMeta, onSelect) {
       });
   }
 
-  searchInput.addEventListener("input", () => render(searchInput.value));
+  const searchClear = document.getElementById("searchClear");
+  function updateClearVisibility() {
+    if (searchClear) searchClear.style.display = searchInput.value.trim() ? "" : "none";
+  }
+  searchInput.addEventListener("input", () => {
+    updateClearVisibility();
+    render(searchInput.value);
+  });
   searchInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
       render(searchInput.value);
     }
   });
+  if (searchClear) {
+    searchClear.addEventListener("click", () => {
+      searchInput.value = "";
+      searchInput.focus();
+      updateClearVisibility();
+      render("");
+    });
+  }
   const searchBtn = document.getElementById("searchBtn");
   if (searchBtn) searchBtn.addEventListener("click", () => render(searchInput.value));
+  updateClearVisibility();
   render();
 }
 
@@ -430,6 +490,25 @@ function renderProcessDetails(processMeta, processesData) {
   } else {
     autoReplySection.classList.add("hidden");
   }
+
+  const detailsContainer = document.getElementById("processDetails");
+  if (detailsContainer) {
+    const scrollToTop = () => {
+      detailsContainer.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    detailsContainer.querySelectorAll(".card").forEach((card) => {
+      const existing = card.querySelector(".card__scroll-top");
+      if (existing) existing.remove();
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "card__scroll-top card__scroll-top--outline";
+      btn.setAttribute("aria-label", "В начало страницы");
+      btn.title = "В начало";
+      btn.innerHTML = "<span aria-hidden=\"true\">↑</span>";
+      btn.addEventListener("click", scrollToTop);
+      card.appendChild(btn);
+    });
+  }
 }
 
 function copyToClipboard(text, buttonEl) {
@@ -464,28 +543,58 @@ function renderCommunicationTools(tools) {
   const rest = toShow.slice(1);
 
   if (first && firstEl) {
-    const title = document.createElement("h3");
-    title.className = "tools-sheet__first-title";
-    title.textContent = first.title || "Без названия";
-    firstEl.appendChild(title);
-    const bodyText = (first.body || "").trim();
-    if (bodyText.includes("\n") || first.body_list) {
-      const ul = document.createElement("ul");
-      ul.className = "tools-sheet__first-list";
-      bodyText.split("\n").forEach((line) => {
-        const trimmed = line.replace(/^\s*[-•]\s*/, "").trim();
-        if (!trimmed) return;
-        const li = document.createElement("li");
-        li.className = "tools-sheet__first-list-item";
-        li.textContent = trimmed;
-        ul.appendChild(li);
-      });
-      firstEl.appendChild(ul);
+    const titleText = (first.title || "Без названия").trim();
+    if (titleText.includes("\n")) {
+      const titleBlock = document.createElement("div");
+      titleBlock.className = "tools-sheet__first-title-block";
+      const parts = titleText.split("\n\n");
+      const intro = parts[0].trim();
+      if (intro) {
+        const p = document.createElement("p");
+        p.className = "tools-sheet__first-intro";
+        p.textContent = intro;
+        titleBlock.appendChild(p);
+      }
+      const thesisLines = parts.slice(1).flatMap((s) => s.split("\n").map((l) => l.replace(/^\s*[-•]\s*/, "").trim()).filter(Boolean));
+      if (thesisLines.length) {
+        const ul = document.createElement("ul");
+        ul.className = "tools-sheet__first-theses";
+        thesisLines.forEach((line) => {
+          const li = document.createElement("li");
+          li.className = "tools-sheet__first-thesis";
+          li.textContent = line;
+          ul.appendChild(li);
+        });
+        titleBlock.appendChild(ul);
+      }
+      firstEl.appendChild(titleBlock);
     } else {
-      const body = document.createElement("p");
-      body.className = "tools-sheet__first-body";
-      body.textContent = bodyText;
-      firstEl.appendChild(body);
+      const title = document.createElement("h3");
+      title.className = "tools-sheet__first-title";
+      title.textContent = titleText;
+      firstEl.appendChild(title);
+    }
+    const bodyText = (first.body || "").trim();
+    const skipBody = bodyText === "Информация о Компании" || !bodyText;
+    if (!skipBody) {
+      if (bodyText.includes("\n") || first.body_list) {
+        const ul = document.createElement("ul");
+        ul.className = "tools-sheet__first-list";
+        bodyText.split("\n").forEach((line) => {
+          const trimmed = line.replace(/^\s*[-•]\s*/, "").trim();
+          if (!trimmed) return;
+          const li = document.createElement("li");
+          li.className = "tools-sheet__first-list-item";
+          li.textContent = trimmed;
+          ul.appendChild(li);
+        });
+        firstEl.appendChild(ul);
+      } else {
+        const body = document.createElement("p");
+        body.className = "tools-sheet__first-body";
+        body.textContent = bodyText;
+        firstEl.appendChild(body);
+      }
     }
   }
 
@@ -573,6 +682,8 @@ async function bootstrap() {
   };
   try {
     const { meta, processes, tools } = await loadData();
+    const loadingEl = document.getElementById("appLoading");
+    if (loadingEl) loadingEl.remove();
 
     const placeholder = document.getElementById("processPlaceholder");
     const details = document.getElementById("processDetails");
@@ -600,16 +711,10 @@ async function bootstrap() {
       /Исходящие\s+звонки\s*\([^)]*КЛИЕНТСКИЙ\s+МЕНЕДЖЕР/i.test((p.name || p.code || "").trim());
     const metaFiltered = (meta || [])
       .filter((p) => !isOutgoingCallsClientManager(p))
-      .sort((a, b) => {
-        const nameA = (a.name || "").trim();
-        const nameB = (b.name || "").trim();
-        if (nameA === "Ответ оператора") return -1;
-        if (nameB === "Ответ оператора") return 1;
-        return 0;
-      });
+      .sort((a, b) => (a.name || "").trim().localeCompare((b.name || "").trim(), "ru"));
 
     renderProcessList(metaFiltered, selectProcess);
-    renderProcessListMain(metaFiltered, selectProcess);
+    renderProcessListMain(metaFiltered, selectProcess, processes);
     renderCommunicationTools(tools);
 
     const searchInputEl = document.getElementById("searchInput");
@@ -639,16 +744,31 @@ async function bootstrap() {
     }
   } catch (error) {
     console.error(error);
+    const loadingEl = document.getElementById("appLoading");
+    if (loadingEl) loadingEl.remove();
+    const processView = document.getElementById("processView");
     const placeholder = document.getElementById("processPlaceholder");
     const details = document.getElementById("processDetails");
-    details.classList.add("hidden");
-    placeholder.classList.remove("hidden");
-    placeholder.innerHTML =
-      "<p><strong>Ошибка загрузки данных.</strong></p>" +
-      "<p>Запустите сервер: дважды щёлкните по файлу <code>start_server.bat</code> в папке проекта, " +
-      "затем откройте в браузере: <a href='http://localhost:8080/frontend/'>http://localhost:8080/frontend/</a></p>" +
-      "<p>Либо из терминала в папке проекта: <code>python -m http.server 8080</code></p>" +
-      "<p><small>" + (error.message || "") + "</small></p>";
+    if (details) details.classList.add("hidden");
+    if (placeholder) placeholder.classList.remove("hidden");
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || "");
+    if (isMobile) {
+      placeholder.innerHTML =
+        "<p><strong>Не удалось загрузить данные.</strong></p>" +
+        "<p>Проверьте подключение к интернету и обновите страницу.</p>" +
+        "<p><button type=\"button\" onclick=\"location.reload()\">Обновить</button></p>" +
+        "<p><small>" + (error.message || "") + "</small></p>";
+    } else {
+      placeholder.innerHTML =
+        "<p><strong>Ошибка загрузки данных.</strong></p>" +
+        "<p>Запустите сервер: дважды щёлкните по файлу <code>start_server.bat</code> в папке проекта, " +
+        "затем откройте в браузере: <a href='http://localhost:8080/frontend/'>http://localhost:8080/frontend/</a></p>" +
+        "<p>Либо из терминала в папке проекта: <code>python -m http.server 8080</code></p>" +
+        "<p><small>" + (error.message || "") + "</small></p>";
+    }
+    if (processView) processView.classList.add("view--active");
+    document.querySelectorAll(".view").forEach((v) => { if (v !== processView) v.classList.remove("view--active"); });
+    document.querySelectorAll(".nav__item").forEach((b) => { b.classList.toggle("nav__item--active", b.dataset.view === "processes"); });
   }
 }
 
