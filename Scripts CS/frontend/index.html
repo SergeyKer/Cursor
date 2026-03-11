@@ -11,6 +11,13 @@
     <div id="appLoading" class="app-loading" aria-live="polite">Загрузка…</div>
     <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Открыть меню" title="Меню">☰</button>
     <div class="layout sidebar--open" id="layout">
+      <header class="content__header" id="contentHeader">
+        <nav class="nav nav--center" aria-label="Разделы">
+          <button class="nav__item nav__item--active" data-view="tools">Инструменты</button>
+          <button class="nav__item" data-view="processes">Процессы</button>
+          <button class="nav__item" data-view="assistant">Помощник</button>
+        </nav>
+      </header>
       <aside class="sidebar" id="sidebar">
         <div class="sidebar__inner">
           <div class="sidebar__header">
@@ -29,13 +36,6 @@
       </aside>
 
       <main class="content">
-        <header class="content__header">
-          <nav class="nav nav--center" aria-label="Разделы">
-            <button class="nav__item nav__item--active" data-view="tools">Инструменты</button>
-            <button class="nav__item" data-view="processes">Процессы</button>
-            <button class="nav__item" data-view="assistant">Помощник</button>
-          </nav>
-        </header>
         <section id="processView" class="view">
           <div id="processPlaceholder" class="placeholder">
             <h2 class="process-list-main__title">Выберите процесс</h2>
@@ -129,7 +129,7 @@
 
         <section id="toolsView" class="view view--active">
           <div class="tools-sheet">
-            <h2 class="tools-sheet__title">Инструменты общения</h2>
+            <h2 class="tools-sheet__title">Инструменты общения <span class="tools-sheet__subtitle">Клиентского сервиса</span></h2>
             <div id="toolsSheetFirst" class="tools-sheet__first"></div>
             <div id="toolsContainer" class="tools-grid"></div>
             <section class="tools-recommendations">

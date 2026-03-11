@@ -4,8 +4,9 @@
   --accent: #0f7bdc;
   --accent-soft: rgba(15, 123, 220, 0.12);
   --accent-strong: rgba(15, 123, 220, 0.25);
-  --text: #0f172a;
-  --text-muted: #6b7280;
+  --text: #1e293b;
+  --text-primary: #1e293b;
+  --text-muted: #475569;
   --border-subtle: #d4d4dd;
   --card-bg: #ffffff;
   --danger: #ef4444;
@@ -60,14 +61,25 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow-soft);
-  transition: left 0.25s ease, background 0.2s;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: left 0.25s ease, background 0.2s, box-shadow 0.2s, transform 0.15s;
 }
 .sidebar-toggle:hover {
   background: #0c69c4;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.3) inset,
+    0 3px 8px rgba(0, 0, 0, 0.25);
+}
+.sidebar-toggle:active {
+  box-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.15) inset,
+    0 1px 3px rgba(0, 0, 0, 0.15);
+  transform: translateY(1px);
 }
 .layout.sidebar--open .sidebar-toggle {
-  left: 12px;
+  left: 268px;
   font-size: 0;
 }
 .layout.sidebar--open .sidebar-toggle::after {
@@ -130,10 +142,10 @@ body {
 .nav {
   display: inline-flex;
   gap: 4px;
-  background: #e5edff;
+  background: transparent;
   padding: 4px;
   border-radius: 999px;
-  border: 1px solid rgba(129, 140, 248, 0.4);
+  border: none;
 }
 
 .nav__item {
@@ -143,17 +155,48 @@ body {
   border-radius: 999px;
   padding: 6px 18px;
   font-size: 15px;
-  background: transparent;
+  background: rgba(0, 0, 0, 0.04);
   color: var(--text-muted);
   transition: all 0.18s ease-out;
   white-space: nowrap;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 2px 4px rgba(0, 0, 0, 0.08);
+}
+.nav__item:hover {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 3px 6px rgba(0, 0, 0, 0.1);
+}
+.nav__item:not(.nav__item--active):hover {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(34, 197, 94, 0.22));
+  color: var(--text);
+}
+.nav__item:active {
+  box-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.06) inset,
+    0 1px 2px rgba(0, 0, 0, 0.06);
+  transform: translateY(1px);
 }
 
 .nav__item--active {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.35), rgba(34, 197, 94, 0.35));
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.55), rgba(34, 197, 94, 0.55));
   color: var(--text);
   font-weight: 500;
-  box-shadow: none;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.4) inset,
+    0 2px 6px rgba(0, 0, 0, 0.12);
+}
+.nav__item--active:hover {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 3px 8px rgba(0, 0, 0, 0.14);
+}
+.nav__item--active:active {
+  box-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.1) inset,
+    0 1px 3px rgba(0, 0, 0, 0.08);
+  transform: translateY(1px);
 }
 
 .search {
@@ -218,7 +261,7 @@ body {
 
 .process-list__item:hover {
   color: var(--accent);
-  background: rgba(37, 99, 235, 0.06);
+  background: transparent;
   text-decoration: underline;
 }
 
@@ -253,17 +296,19 @@ body {
 .content__header {
   position: fixed;
   top: 0;
-  left: 56px;
+  left: 0;
   right: 0;
   z-index: 60;
   margin: 0;
   padding: 10px 20px;
   background: linear-gradient(180deg, #f5f7fb 0%, #edf2ff 100%);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
-  transition: left 0.25s ease-out;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
 }
-.layout.sidebar--open .content__header {
-  left: 260px;
+.content__header .nav {
+  pointer-events: auto;
 }
 
 .sidebar-search {
@@ -369,7 +414,6 @@ body {
 .nav--center {
   display: flex;
   justify-content: center;
-  width: 100%;
 }
 
 .view {
@@ -430,7 +474,7 @@ body {
 }
 
 .process-list-main__row:hover {
-  background: rgba(37, 99, 235, 0.04);
+  background: transparent;
 }
 
 .process-list-main__row td {
@@ -784,10 +828,15 @@ body {
   margin: 0 0 16px;
   padding-bottom: 12px;
   border-bottom: 2px solid var(--accent);
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text);
   letter-spacing: 0.02em;
+}
+.tools-sheet__subtitle {
+  font-weight: 500;
+  color: var(--text-muted);
+  font-size: 0.95em;
 }
 
 .tools-sheet__first {
@@ -998,7 +1047,7 @@ body {
 .tools-table tbody tr:hover .tools-table__desc,
 .tools-table tbody tr:hover .tools-table__when,
 .tools-table tbody tr:hover .tools-table__example {
-  background: #f1f5f9;
+  background: transparent;
 }
 
 .tools-table__example {
@@ -1161,9 +1210,6 @@ body {
 @media (max-width: 960px) {
   .layout.sidebar--open .content {
     margin-left: 0;
-  }
-  .layout.sidebar--open .content__header {
-    left: 0;
   }
   .layout.sidebar--open .sidebar {
     box-shadow: var(--shadow-hard);
