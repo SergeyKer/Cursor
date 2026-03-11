@@ -1,0 +1,11 @@
+/.cursor/
+/.vercel/
+/node_modules/
+/dist/
+/build/
+*.log
+*.tmp
+*.swp
+Thumbs.db
+Desktop.ini
+

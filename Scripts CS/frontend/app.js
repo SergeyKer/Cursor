@@ -1,0 +1,656 @@
+// При открытии через file:// используем относительный путь к data
+function getDataBasePath() {
+  if (typeof window === "undefined" || !window.location) return "/data";
+  const p = window.location.protocol;
+  const pathname = window.location.pathname || "";
+  if (p === "file:") return "../data";
+  if (pathname.indexOf("/frontend") !== -1 || pathname.endsWith(".html")) return "/data";
+  return "/data";
+}
+const DATA_BASE_PATH = getDataBasePath();
+
+function stripIncomingCallsBlock(text) {
+  if (!text || typeof text !== "string") return text;
+  const idx = text.indexOf("1. Входящие звонки (ОПЕРАТОР):");
+  return idx >= 0 ? text.slice(0, idx).trim() : text;
+}
+
+async function loadJson(path) {
+  const response = await fetch(path);
+  if (!response.ok) {
+    throw new Error(`Не удалось загрузить ${path}: ${response.status}. Запустите сайт через HTTP (см. инструкцию).`);
+  }
+  return response.json();
+}
+
+async function loadData() {
+  const [meta, processes, tools] = await Promise.all([
+    loadJson(`${DATA_BASE_PATH}/processes_meta.json?v=2`),
+    loadJson(`${DATA_BASE_PATH}/processes.json`),
+    loadJson(`${DATA_BASE_PATH}/communication_tools.json`),
+  ]);
+  return { meta, processes, tools };
+}
+
+function initNavigation(views, onProcessViewSwitch) {
+  const buttons = document.querySelectorAll(".nav__item");
+  const viewMap = views || {
+    processes: document.getElementById("processView"),
+    assistant: document.getElementById("assistantView"),
+    tools: document.getElementById("toolsView"),
+  };
+
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const view = btn.dataset.view;
+      buttons.forEach((b) => b.classList.remove("nav__item--active"));
+      btn.classList.add("nav__item--active");
+      Object.entries(viewMap).forEach(([key, el]) => {
+        if (el) el.classList.toggle("view--active", key === view);
+      });
+      if (view === "processes" && onProcessViewSwitch) onProcessViewSwitch();
+    });
+  });
+}
+
+function renderProcessListMain(processesMeta, onSelect) {
+  const container = document.getElementById("processListMain");
+  if (!container) return;
+  container.innerHTML = "";
+  (processesMeta || []).forEach((process) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "process-list-main__card";
+    card.textContent = process.name || "";
+    card.addEventListener("click", () => onSelect(process));
+    container.appendChild(card);
+  });
+}
+
+function scoreProcessForQuery(processMeta, query) {
+  const text = (
+    (processMeta.name || "") + " " +
+    (processMeta.short_description || "") + " " +
+    (processMeta.searchable_text || "")
+  ).toLowerCase();
+  const words = query.toLowerCase().split(/\s+/).filter((w) => w.length >= 2);
+  if (words.length === 0) return 0;
+  let score = 0;
+  words.forEach((word) => {
+    if (text.indexOf(word) !== -1) score += 1;
+  });
+  return score / words.length;
+}
+
+function runAssistantQuery(processesMeta, query) {
+  const q = (query || "").trim();
+  if (!q) return [];
+  return processesMeta
+    .map((p) => ({ process: p, score: scoreProcessForQuery(p, q) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 7)
+    .map((x) => x.process);
+}
+
+function renderAssistantResults(results, onSelectProcess) {
+  const container = document.getElementById("assistantResults");
+  container.innerHTML = "";
+  if (results.length === 0) {
+    container.innerHTML = '<p class="assistant__empty">По вашему запросу процессы не найдены. Попробуйте другие слова.</p>';
+    return;
+  }
+  results.forEach((processMeta) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "assistant-card";
+    card.innerHTML = `
+      <span class="assistant-card__title">${escapeHtml(processMeta.name || "")}</span>
+      ${processMeta.short_description ? `<span class="assistant-card__desc">${escapeHtml(processMeta.short_description)}</span>` : ""}
+    `;
+    card.addEventListener("click", () => {
+      onSelectProcess(processMeta);
+    });
+    container.appendChild(card);
+  });
+}
+
+function escapeHtml(s) {
+  const div = document.createElement("div");
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+function renderProcessList(processesMeta, onSelect) {
+  const listEl = document.getElementById("processList");
+  const searchInput = document.getElementById("searchInput");
+
+  let currentActiveCode = null;
+
+  function normalized(text) {
+    return (text || "").toString().toLowerCase();
+  }
+
+  function render(filter = "") {
+    const query = normalized(filter);
+    listEl.innerHTML = "";
+    processesMeta
+      .filter((p) => {
+        if (!query) return true;
+        return (
+          normalized(p.name).includes(query) ||
+          normalized(p.short_description).includes(query) ||
+          normalized(p.searchable_text || "").includes(query)
+        );
+      })
+      .forEach((process) => {
+        const li = document.createElement("li");
+        li.className = "process-list__item";
+        li.dataset.code = process.code;
+
+        if (process.code === currentActiveCode) {
+          li.classList.add("process-list__item--active");
+        }
+
+        const title = document.createElement("span");
+        title.className = "process-list__title";
+        title.textContent = process.name;
+        li.appendChild(title);
+
+        li.addEventListener("click", () => {
+          currentActiveCode = process.code;
+          document
+            .querySelectorAll(".process-list__item")
+            .forEach((item) =>
+              item.classList.toggle(
+                "process-list__item--active",
+                item.dataset.code === currentActiveCode
+              )
+            );
+          onSelect(process);
+        });
+
+        listEl.appendChild(li);
+      });
+  }
+
+  searchInput.addEventListener("input", () => render(searchInput.value));
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      render(searchInput.value);
+    }
+  });
+  const searchBtn = document.getElementById("searchBtn");
+  if (searchBtn) searchBtn.addEventListener("click", () => render(searchInput.value));
+  render();
+}
+
+function renderProcessDetails(processMeta, processesData) {
+  const placeholder = document.getElementById("processPlaceholder");
+  const details = document.getElementById("processDetails");
+  const titleEl = document.getElementById("processTitle");
+  const shortDescEl = document.getElementById("processShortDescription");
+  const stagesTableBody = document.querySelector("#stagesTable tbody");
+  const scriptContainer = document.getElementById("scriptContainer");
+  const difficultPhrasesEl = document.getElementById("difficultPhrases");
+  const descriptionSection = document.getElementById("section-description");
+  const descriptionBlock = document.getElementById("processDescriptionBlock");
+  const cheatsheetSection = document.getElementById("section-cheatsheet");
+  const cheatsheetList = document.getElementById("cheatsheetList");
+  const emailSection = document.getElementById("section-email");
+  const emailTemplateEl = document.getElementById("emailTemplate");
+  const autoReplySection = document.getElementById("section-autoreply");
+  const autoReplySubjectEl = document.getElementById("autoReplySubject");
+  const autoReplyEl = document.getElementById("autoReplyTemplate");
+
+  if (placeholder) placeholder.classList.add("hidden");
+  if (details) details.classList.remove("hidden");
+
+  const sheetName =
+    processMeta.sheet_name && processesData[processMeta.sheet_name]
+      ? processMeta.sheet_name
+      : Object.keys(processesData).find(
+          (key) => key.toLowerCase().indexOf(processMeta.name.toLowerCase()) >= 0
+        );
+
+  const processData = sheetName ? processesData[sheetName] : null;
+
+  titleEl.textContent = processMeta.name;
+  shortDescEl.textContent = processMeta.short_description || "";
+
+  if (descriptionBlock && descriptionSection) {
+    const pd = processData && processData.process_description;
+    const businessGoal = stripIncomingCallsBlock((pd && pd.business_goal) || (processData && processData.goal) || "");
+    const processAllows = stripIncomingCallsBlock((pd && pd.process_allows) || (processData && processData.description) || "");
+    if (businessGoal || processAllows) {
+      descriptionSection.classList.remove("hidden");
+      descriptionBlock.innerHTML = "";
+      if (businessGoal) {
+        const h4 = document.createElement("h4");
+        h4.className = "process-description__heading";
+        h4.textContent = "Бизнес-цель процесса:";
+        descriptionBlock.appendChild(h4);
+        const p1 = document.createElement("p");
+        p1.className = "process-description__text";
+        p1.textContent = businessGoal;
+        descriptionBlock.appendChild(p1);
+      }
+      if (processAllows) {
+        const h4 = document.createElement("h4");
+        h4.className = "process-description__heading";
+        h4.textContent = "Процесс позволяет:";
+        descriptionBlock.appendChild(h4);
+        const p2 = document.createElement("p");
+        p2.className = "process-description__text process-description__text--list";
+        p2.textContent = processAllows;
+        p2.style.whiteSpace = "pre-wrap";
+        descriptionBlock.appendChild(p2);
+      }
+    } else {
+      descriptionSection.classList.add("hidden");
+    }
+  }
+
+  stagesTableBody.innerHTML = "";
+  if (processData && Array.isArray(processData.stages)) {
+    processData.stages.forEach((stage) => {
+      const tr = document.createElement("tr");
+      const cells = [
+        stage.stage,
+        stage.description,
+        stage.operator_actions,
+        stage.sla,
+        stage.stage_goal,
+        stage.recommendations,
+      ];
+      cells.forEach((value) => {
+        const td = document.createElement("td");
+        td.textContent = value || "";
+        tr.appendChild(td);
+      });
+      stagesTableBody.appendChild(tr);
+    });
+  }
+
+  scriptContainer.innerHTML = "";
+  if (processData && Array.isArray(processData.script_steps) && processData.script_steps.length > 0) {
+    const conversation = processData.script_steps.filter(
+      (s) => s.type === "conversation"
+    );
+    const complaints = processData.script_steps.filter(
+      (s) => s.type === "complaint"
+    );
+
+    if (conversation.length > 0) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "table-wrapper";
+      const table = document.createElement("table");
+      table.className = "table";
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>Этап разговора</th>
+            <th>Формулировка (пример)</th>
+            <th>Цель</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tbody = table.querySelector("tbody");
+      conversation.forEach((step) => {
+        const tr = document.createElement("tr");
+        const cells = [step.step_name, step.phrase, step.goal];
+        cells.forEach((value) => {
+          const td = document.createElement("td");
+          td.textContent = value || "";
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      wrapper.appendChild(table);
+      scriptContainer.appendChild(wrapper);
+    }
+
+    if (complaints.length > 0) {
+      const title = document.createElement("h4");
+      title.textContent = "Ответы на жалобы клиента";
+      scriptContainer.appendChild(title);
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "table-wrapper";
+      const table = document.createElement("table");
+      table.className = "table";
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>Жалоба клиента</th>
+            <th>Ответ оператора</th>
+            <th>Цель</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tbody = table.querySelector("tbody");
+      complaints.forEach((row) => {
+        const tr = document.createElement("tr");
+        const cells = [row.complaint, row.reply, row.goal];
+        cells.forEach((value) => {
+          const td = document.createElement("td");
+          td.textContent = value || "";
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      wrapper.appendChild(table);
+      scriptContainer.appendChild(wrapper);
+    }
+  } else {
+    const fallback = document.createElement("pre");
+    fallback.className = "text-block text-block--pre";
+    fallback.textContent =
+      (processData && processData.main_script) ||
+      "Скрипт ещё не перенесён из Excel.";
+    scriptContainer.appendChild(fallback);
+  }
+
+  difficultPhrasesEl.innerHTML = "";
+  if (processData && Array.isArray(processData.difficult_phrases) && processData.difficult_phrases.length > 0) {
+    const table = document.createElement("div");
+    table.className = "table-wrapper";
+    table.innerHTML = `
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Тип клиента и сложной ситуации</th>
+            <th>Цель оператора</th>
+            <th>Готовые формулировки</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    `;
+    const tbody = table.querySelector("tbody");
+    processData.difficult_phrases.forEach((item) => {
+      const tr = document.createElement("tr");
+      const phrasesText = Array.isArray(item.phrases) ? item.phrases.join("\n\n") : (item.phrase_text || item.text || "");
+      const cells = [item.situation_type || "", item.operator_goal || "", phrasesText];
+      cells.forEach((value) => {
+        const td = document.createElement("td");
+        td.style.whiteSpace = "pre-wrap";
+        td.textContent = value || "";
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    difficultPhrasesEl.appendChild(table);
+  } else {
+    difficultPhrasesEl.textContent = "Нет данных для этого процесса.";
+  }
+
+  if (processData && processData.cheatsheet && processData.cheatsheet.length > 0) {
+    cheatsheetSection.classList.remove("hidden");
+    cheatsheetList.innerHTML = "";
+    processData.cheatsheet.forEach((phrase) => {
+      const li = document.createElement("li");
+      li.className = "cheatsheet-item";
+      li.textContent = phrase;
+      cheatsheetList.appendChild(li);
+    });
+  } else {
+    cheatsheetSection.classList.add("hidden");
+  }
+
+  if (processData && processData.email_template) {
+    emailSection.classList.remove("hidden");
+    const tpl = processData.email_template;
+    const emailText = typeof tpl === "string" ? tpl : (tpl.body || "");
+    emailTemplateEl.textContent = emailText;
+    const copyEmailBtn = document.getElementById("copyEmailBtn");
+    if (copyEmailBtn) {
+      copyEmailBtn.onclick = () => copyToClipboard(emailText, copyEmailBtn);
+    }
+  } else {
+    emailSection.classList.add("hidden");
+  }
+
+  if (processData && processData.auto_reply_template) {
+    autoReplySection.classList.remove("hidden");
+    const tpl = processData.auto_reply_template;
+    const subj = typeof tpl === "object" && tpl.subject ? tpl.subject : "";
+    const body = typeof tpl === "object" ? tpl.body : String(tpl);
+    autoReplySubjectEl.textContent = subj ? "Тема: " + subj : "";
+    autoReplySubjectEl.classList.toggle("hidden", !subj);
+    autoReplyEl.textContent = body || "";
+    const copyAutoReplyBtn = document.getElementById("copyAutoReplyBtn");
+    if (copyAutoReplyBtn) {
+      const fullText = subj ? "Тема: " + subj + "\n\n" + body : body;
+      copyAutoReplyBtn.onclick = () => copyToClipboard(fullText, copyAutoReplyBtn);
+    }
+  } else {
+    autoReplySection.classList.add("hidden");
+  }
+}
+
+function copyToClipboard(text, buttonEl) {
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const label = buttonEl.textContent;
+    buttonEl.textContent = "Скопировано";
+    buttonEl.disabled = true;
+    setTimeout(() => {
+      buttonEl.textContent = label;
+      buttonEl.disabled = false;
+    }, 1500);
+  }).catch(() => {
+    buttonEl.textContent = "Ошибка";
+    setTimeout(() => { buttonEl.textContent = "Скопировать"; }, 1500);
+  });
+}
+
+function renderCommunicationTools(tools) {
+  const firstEl = document.getElementById("toolsSheetFirst");
+  const container = document.getElementById("toolsContainer");
+  if (firstEl) firstEl.innerHTML = "";
+  if (container) container.innerHTML = "";
+
+  const hasBody = (tool) => tool.body && String(tool.body).trim();
+  const skipBlockTitle = (tool) =>
+    ["Блок", "Инструмент", "ИНСТРУМЕНТЫ КОММУНИКАЦИИ С КЛИЕНТОМ"].includes(
+      (tool.title || "").trim()
+    );
+  const toShow = (tools || []).filter(hasBody).filter((t) => !skipBlockTitle(t));
+  const first = toShow[0];
+  const rest = toShow.slice(1);
+
+  if (first && firstEl) {
+    const title = document.createElement("h3");
+    title.className = "tools-sheet__first-title";
+    title.textContent = first.title || "Без названия";
+    firstEl.appendChild(title);
+    const bodyText = (first.body || "").trim();
+    if (bodyText.includes("\n") || first.body_list) {
+      const ul = document.createElement("ul");
+      ul.className = "tools-sheet__first-list";
+      bodyText.split("\n").forEach((line) => {
+        const trimmed = line.replace(/^\s*[-•]\s*/, "").trim();
+        if (!trimmed) return;
+        const li = document.createElement("li");
+        li.className = "tools-sheet__first-list-item";
+        li.textContent = trimmed;
+        ul.appendChild(li);
+      });
+      firstEl.appendChild(ul);
+    } else {
+      const body = document.createElement("p");
+      body.className = "tools-sheet__first-body";
+      body.textContent = bodyText;
+      firstEl.appendChild(body);
+    }
+  }
+
+  if (rest.length > 0 && container) {
+    const isExtraSectionLine = (s) => /^\d+\.\s+.+:$/.test(s.trim());
+    const parseBody = (bodyText) => {
+      const lines = (bodyText || "")
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => l && !isExtraSectionLine(l));
+      let description = lines[0] || "";
+      let when = "";
+      const exampleParts = [];
+      for (let i = 1; i < lines.length; i++) {
+        if (/^[«"]/.test(lines[i])) {
+          exampleParts.push(lines[i]);
+        } else if (i === 1) {
+          when = lines[i];
+        }
+      }
+      return {
+        description,
+        when,
+        example: exampleParts.join(" "),
+      };
+    };
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "tools-table-wrap";
+    const table = document.createElement("table");
+    table.className = "tools-table";
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th class="tools-table__th-name">Инструмент</th>
+          <th class="tools-table__th-desc">Описание</th>
+          <th class="tools-table__th-when">Когда использовать</th>
+          <th class="tools-table__th-example">Пример фразы/действия</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+    const tbody = table.querySelector("tbody");
+    rest.forEach((tool, index) => {
+      const parsed = parseBody(tool.body);
+      const tr = document.createElement("tr");
+      const tdName = document.createElement("td");
+      tdName.className = "tools-table__name";
+      tdName.textContent = tool.title || "Без названия";
+      const tdDesc = document.createElement("td");
+      tdDesc.className = "tools-table__desc";
+      tdDesc.textContent = stripIncomingCallsBlock(parsed.description);
+      const tdWhen = document.createElement("td");
+      tdWhen.className = "tools-table__when";
+      tdWhen.textContent = stripIncomingCallsBlock(parsed.when);
+      const tdExample = document.createElement("td");
+      tdExample.className = "tools-table__example";
+      tdExample.textContent = stripIncomingCallsBlock(parsed.example);
+      tr.appendChild(tdName);
+      tr.appendChild(tdDesc);
+      tr.appendChild(tdWhen);
+      tr.appendChild(tdExample);
+      tbody.appendChild(tr);
+    });
+    wrapper.appendChild(table);
+    container.appendChild(wrapper);
+  }
+}
+
+async function bootstrap() {
+  const layout = document.getElementById("layout");
+  const sidebarToggle = document.getElementById("sidebarToggle");
+  if (sidebarToggle && layout) {
+    sidebarToggle.setAttribute("aria-label", layout.classList.contains("sidebar--open") ? "Закрыть меню" : "Открыть меню");
+    sidebarToggle.addEventListener("click", () => {
+      layout.classList.toggle("sidebar--open");
+      sidebarToggle.setAttribute("aria-label", layout.classList.contains("sidebar--open") ? "Закрыть меню" : "Открыть меню");
+    });
+  }
+
+  const views = {
+    processes: document.getElementById("processView"),
+    assistant: document.getElementById("assistantView"),
+    tools: document.getElementById("toolsView"),
+  };
+  try {
+    const { meta, processes, tools } = await loadData();
+
+    const placeholder = document.getElementById("processPlaceholder");
+    const details = document.getElementById("processDetails");
+
+    const selectProcess = (processMeta) => {
+      document.querySelectorAll(".nav__item").forEach((b) => {
+        b.classList.toggle("nav__item--active", b.dataset.view === "processes");
+      });
+      Object.entries(views).forEach(([key, el]) => {
+        if (el) el.classList.toggle("view--active", key === "processes");
+      });
+      if (placeholder) placeholder.classList.add("hidden");
+      if (details) details.classList.remove("hidden");
+      renderProcessDetails(processMeta, processes);
+    };
+
+    const showProcessListMain = () => {
+      if (placeholder) placeholder.classList.remove("hidden");
+      if (details) details.classList.add("hidden");
+    };
+
+    initNavigation(views, showProcessListMain);
+
+    const isOutgoingCallsClientManager = (p) =>
+      /Исходящие\s+звонки\s*\([^)]*КЛИЕНТСКИЙ\s+МЕНЕДЖЕР/i.test((p.name || p.code || "").trim());
+    const metaFiltered = (meta || [])
+      .filter((p) => !isOutgoingCallsClientManager(p))
+      .sort((a, b) => {
+        const nameA = (a.name || "").trim();
+        const nameB = (b.name || "").trim();
+        if (nameA === "Ответ оператора") return -1;
+        if (nameB === "Ответ оператора") return 1;
+        return 0;
+      });
+
+    renderProcessList(metaFiltered, selectProcess);
+    renderProcessListMain(metaFiltered, selectProcess);
+    renderCommunicationTools(tools);
+
+    const searchInputEl = document.getElementById("searchInput");
+    const searchPlaceholderText = "Поиск по меню";
+    if (searchInputEl) {
+      searchInputEl.addEventListener("focus", () => {
+        searchInputEl.placeholder = "";
+      });
+      searchInputEl.addEventListener("blur", () => {
+        if (!searchInputEl.value.trim()) searchInputEl.placeholder = searchPlaceholderText;
+      });
+    }
+
+    const assistantInput = document.getElementById("assistantInput");
+    const assistantBtn = document.getElementById("assistantBtn");
+    if (assistantBtn && assistantInput) {
+      assistantBtn.addEventListener("click", () => {
+        const results = runAssistantQuery(metaFiltered, assistantInput.value);
+        renderAssistantResults(results, selectProcess);
+      });
+      assistantInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          assistantBtn.click();
+        }
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    const placeholder = document.getElementById("processPlaceholder");
+    const details = document.getElementById("processDetails");
+    details.classList.add("hidden");
+    placeholder.classList.remove("hidden");
+    placeholder.innerHTML =
+      "<p><strong>Ошибка загрузки данных.</strong></p>" +
+      "<p>Запустите сервер: дважды щёлкните по файлу <code>start_server.bat</code> в папке проекта, " +
+      "затем откройте в браузере: <a href='http://localhost:8080/frontend/'>http://localhost:8080/frontend/</a></p>" +
+      "<p>Либо из терминала в папке проекта: <code>python -m http.server 8080</code></p>" +
+      "<p><small>" + (error.message || "") + "</small></p>";
+  }
+}
+
+bootstrap();
+
