@@ -254,6 +254,7 @@ function renderProcessDetails(processMeta, processesData) {
   const stagesTableBody = document.querySelector("#stagesTable tbody");
   const scriptContainer = document.getElementById("scriptContainer");
   const difficultPhrasesEl = document.getElementById("difficultPhrases");
+  const difficultSection = document.getElementById("section-difficult");
   const descriptionSection = document.getElementById("section-description");
   const descriptionBlock = document.getElementById("processDescriptionBlock");
   const cheatsheetSection = document.getElementById("section-cheatsheet");
@@ -415,7 +416,11 @@ function renderProcessDetails(processMeta, processesData) {
   }
 
   difficultPhrasesEl.innerHTML = "";
-  if (processData && Array.isArray(processData.difficult_phrases) && processData.difficult_phrases.length > 0) {
+  const hideDifficultBlock = processMeta.name === "Ответ оператора";
+  if (difficultSection) difficultSection.classList.toggle("hidden", hideDifficultBlock);
+  const difficultNavLink = document.querySelector('.process-nav__link[href="#section-difficult"]');
+  if (difficultNavLink) difficultNavLink.classList.toggle("hidden", hideDifficultBlock);
+  if (processData && Array.isArray(processData.difficult_phrases) && processData.difficult_phrases.length > 0 && !hideDifficultBlock) {
     const table = document.createElement("div");
     table.className = "table-wrapper";
     table.innerHTML = `
@@ -448,17 +453,25 @@ function renderProcessDetails(processMeta, processesData) {
     difficultPhrasesEl.textContent = "Нет данных для этого процесса.";
   }
 
-  if (processData && processData.cheatsheet && processData.cheatsheet.length > 0) {
-    cheatsheetSection.classList.remove("hidden");
-    cheatsheetList.innerHTML = "";
-    processData.cheatsheet.forEach((phrase) => {
-      const li = document.createElement("li");
-      li.className = "cheatsheet-item";
-      li.textContent = phrase;
-      cheatsheetList.appendChild(li);
-    });
+  const hideCheatsheetBlock = processMeta.name === "Ответ оператора";
+  const cheatsheetNavLink = document.querySelector('.process-nav__link[href="#section-cheatsheet"]');
+  if (hideCheatsheetBlock) {
+    if (cheatsheetSection) cheatsheetSection.classList.add("hidden");
+    if (cheatsheetNavLink) cheatsheetNavLink.classList.add("hidden");
   } else {
-    cheatsheetSection.classList.add("hidden");
+    if (cheatsheetNavLink) cheatsheetNavLink.classList.remove("hidden");
+    if (processData && processData.cheatsheet && processData.cheatsheet.length > 0) {
+      cheatsheetSection.classList.remove("hidden");
+      cheatsheetList.innerHTML = "";
+      processData.cheatsheet.forEach((phrase) => {
+        const li = document.createElement("li");
+        li.className = "cheatsheet-item";
+        li.textContent = phrase;
+        cheatsheetList.appendChild(li);
+      });
+    } else {
+      if (cheatsheetSection) cheatsheetSection.classList.add("hidden");
+    }
   }
 
   if (processData && processData.email_template) {

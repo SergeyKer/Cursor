@@ -317,12 +317,17 @@ def parse_scripts(ws: Worksheet) -> List[Dict[str, Any]]:
                     }
                 )
 
-        # Жалобы клиента / ответы оператора
-        if "жалоба клиента" in headers and "ответ оператора" in headers:
-            idx_complaint = headers.index("жалоба клиента")
-            idx_reply = headers.index("ответ оператора")
-            idx_goal = headers.index("цель") if "цель" in headers else None
+        # Жалобы клиента / ответы оператора (гибкий поиск столбцов)
+        def find_col(pattern: str) -> Optional[int]:
+            for i, h in enumerate(headers):
+                if pattern in h:
+                    return i
+            return None
 
+        idx_complaint = find_col("жалоба клиента") or find_col("жалоба")
+        idx_reply = find_col("ответ оператора") or find_col("ответ")
+        idx_goal = find_col("цель")
+        if idx_complaint is not None and idx_reply is not None:
             for data_row in rows[idx + 1 :]:
                 if all(c is None for c in data_row):
                     break
@@ -650,10 +655,22 @@ def migrate() -> None:
 
     communication_tools = parse_communication_tools(wb)
 
+    def find_process_for_meta(meta: Dict[str, Any]) -> tuple:
+        """Найти (ключ_листа, данные) для meta: точное совпадение или по вхождению имени."""
+        sheet_name = (meta.get("sheet_name") or meta.get("name") or meta.get("code") or "").strip()
+        if not sheet_name:
+            return None, None
+        if sheet_name in processes_data:
+            return sheet_name, processes_data[sheet_name]
+        name_lower = (meta.get("name") or sheet_name).lower()
+        for key in processes_data:
+            if name_lower in key.lower() or key.lower() in name_lower:
+                return key, processes_data[key]
+        return None, None
+
     # Добавляем searchable_text в meta для поиска по содержимому
     for meta in processes_meta:
-        sheet_name = meta.get("sheet_name") or meta.get("name") or meta.get("code")
-        proc = processes_data.get(sheet_name) if sheet_name else None
+        _, proc = find_process_for_meta(meta)
         parts = [meta.get("name", ""), meta.get("short_description", "")]
         if proc:
             pd = proc.get("process_description") or {}
@@ -677,7 +694,7 @@ def migrate() -> None:
     knowledge: List[Dict[str, Any]] = []
     for meta in processes_meta:
         sheet_name = meta.get("sheet_name") or meta.get("name")
-        proc = processes_data.get(sheet_name) if sheet_name else None
+        _, proc = find_process_for_meta(meta)
         if not proc:
             knowledge.append({"name": meta.get("name"), "sheet_name": sheet_name, "goal": "", "stages": [], "script_phrases": [], "difficult_phrases": [], "cheatsheet": []})
             continue
@@ -699,12 +716,26 @@ def migrate() -> None:
             "auto_reply_template": proc.get("auto_reply_template"),
         })
 
+    # processes.json с ключами по имени из списка процессов (чтобы «Ответ оператора» и др. всегда находились)
+    output_processes: Dict[str, Any] = {}
+    matched_data_keys: set = set()
+    for meta in processes_meta:
+        canonical_name = (meta.get("name") or meta.get("sheet_name") or meta.get("code") or "").strip()
+        data_key, proc = find_process_for_meta(meta)
+        if proc is not None and canonical_name:
+            output_processes[canonical_name] = proc
+            if data_key:
+                matched_data_keys.add(data_key)
+    for sheet_name, proc in processes_data.items():
+        if sheet_name not in matched_data_keys:
+            output_processes[sheet_name] = proc
+
     # Write JSON files
     (DATA_DIR / "processes_meta.json").write_text(
         json.dumps(processes_meta, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     (DATA_DIR / "processes.json").write_text(
-        json.dumps(processes_data, ensure_ascii=False, indent=2), encoding="utf-8"
+        json.dumps(output_processes, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     (DATA_DIR / "communication_tools.json").write_text(
         json.dumps(communication_tools, ensure_ascii=False, indent=2), encoding="utf-8"
