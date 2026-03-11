@@ -69,7 +69,7 @@ function getBusinessGoalDescription(processMeta, processesData) {
   if (!processData) return (processMeta.short_description || "").trim();
   const pd = processData.process_description;
   const businessGoal = stripIncomingCallsBlock((pd && pd.business_goal) || processData.goal || "");
-  if (businessGoal) return businessGoal.replace(/\s+/g, " ").trim();
+  if (businessGoal) return businessGoal.replace(/\s*\n\s*/g, " ").trim();
   return (processMeta.short_description || "").trim();
 }
 
@@ -102,7 +102,15 @@ function renderProcessListMain(processesMeta, onSelect, processesData) {
     nameCell.appendChild(link);
     const descCell = document.createElement("td");
     descCell.className = "process-list-main__desc";
-    descCell.textContent = desc;
+    const parts = desc.split(/\s*;\s*-\s*|\s+-\s+/).map((s) => s.trim()).filter(Boolean);
+    if (parts.length > 1) {
+      parts.forEach((part, i) => {
+        if (i > 0) descCell.appendChild(document.createElement("br"));
+        descCell.appendChild(document.createTextNode(part.startsWith("-") ? part : " - " + part));
+      });
+    } else {
+      descCell.textContent = desc;
+    }
     tr.appendChild(nameCell);
     tr.appendChild(descCell);
     tbody.appendChild(tr);
@@ -280,6 +288,30 @@ function renderProcessDetails(processMeta, processesData) {
   titleEl.textContent = processMeta.name;
   shortDescEl.textContent = processMeta.short_description || "";
 
+  function renderDescriptionText(container, text) {
+    if (!text || !container) return;
+    const raw = text.trim();
+    const segments = raw.split(/\n|\s+-\s+/).map((s) => s.replace(/^\s*[;•—]\s*|\s*;\s*$/g, "").trim()).filter(Boolean);
+    if (segments.length > 0) {
+      const ul = document.createElement("ul");
+      ul.className = "process-description__list";
+      segments.forEach((segment) => {
+        const li = document.createElement("li");
+        li.className = "process-description__list-item";
+        const text = segment.replace(/^\s*[-—•]\s*/, "").trim();
+        li.textContent = text;
+        ul.appendChild(li);
+      });
+      container.appendChild(ul);
+    } else {
+      const p = document.createElement("p");
+      p.className = "process-description__text";
+      p.style.whiteSpace = "pre-wrap";
+      p.textContent = text;
+      container.appendChild(p);
+    }
+  }
+
   if (descriptionBlock && descriptionSection) {
     const pd = processData && processData.process_description;
     const businessGoal = stripIncomingCallsBlock((pd && pd.business_goal) || (processData && processData.goal) || "");
@@ -292,21 +324,14 @@ function renderProcessDetails(processMeta, processesData) {
         h4.className = "process-description__heading";
         h4.textContent = "Бизнес-цель процесса:";
         descriptionBlock.appendChild(h4);
-        const p1 = document.createElement("p");
-        p1.className = "process-description__text";
-        p1.textContent = businessGoal;
-        descriptionBlock.appendChild(p1);
+        renderDescriptionText(descriptionBlock, businessGoal);
       }
-      if (processAllows) {
+      if (processAllows && processAllows.trim() !== (businessGoal || "").trim()) {
         const h4 = document.createElement("h4");
         h4.className = "process-description__heading";
         h4.textContent = "Процесс позволяет:";
         descriptionBlock.appendChild(h4);
-        const p2 = document.createElement("p");
-        p2.className = "process-description__text process-description__text--list";
-        p2.textContent = processAllows;
-        p2.style.whiteSpace = "pre-wrap";
-        descriptionBlock.appendChild(p2);
+        renderDescriptionText(descriptionBlock, processAllows);
       }
     } else {
       descriptionSection.classList.add("hidden");
@@ -732,6 +757,63 @@ async function bootstrap() {
     renderProcessList(metaFiltered, selectProcess);
     renderProcessListMain(metaFiltered, selectProcess, processes);
     renderCommunicationTools(tools);
+
+    (function initProcessListMainSearch() {
+      const listSearchInput = document.getElementById("processListSearchInput");
+      const listSearchClear = document.getElementById("processListSearchClear");
+      const listSearchBtn = document.getElementById("processListSearchBtn");
+      const placeholderText = "Поиск по процессам";
+
+      function normalized(text) {
+        return (text || "").toString().toLowerCase();
+      }
+
+      function filterMetaByQuery(meta, query) {
+        const q = normalized(query);
+        if (!q) return meta;
+        return meta.filter(
+          (p) =>
+            normalized(p.name).includes(q) ||
+            normalized(p.short_description || "").includes(q) ||
+            normalized(p.searchable_text || "").includes(q)
+        );
+      }
+
+      function applyMainSearch() {
+        const query = listSearchInput ? listSearchInput.value.trim() : "";
+        const filtered = filterMetaByQuery(metaFiltered, query);
+        renderProcessListMain(filtered, selectProcess, processes);
+        if (listSearchClear) listSearchClear.style.display = query ? "" : "none";
+      }
+
+      if (listSearchInput) {
+        listSearchInput.addEventListener("focus", () => {
+          listSearchInput.placeholder = "";
+        });
+        listSearchInput.addEventListener("blur", () => {
+          if (!listSearchInput.value.trim()) listSearchInput.placeholder = placeholderText;
+        });
+        listSearchInput.addEventListener("input", applyMainSearch);
+        listSearchInput.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            applyMainSearch();
+          }
+        });
+      }
+      if (listSearchClear) {
+        listSearchClear.addEventListener("click", () => {
+          if (listSearchInput) {
+            listSearchInput.value = "";
+            listSearchInput.focus();
+            listSearchInput.placeholder = placeholderText;
+          }
+          applyMainSearch();
+        });
+      }
+      if (listSearchBtn) listSearchBtn.addEventListener("click", applyMainSearch);
+      if (listSearchClear) listSearchClear.style.display = "none";
+    })();
 
     const searchInputEl = document.getElementById("searchInput");
     const searchPlaceholderText = "Поиск по меню";
