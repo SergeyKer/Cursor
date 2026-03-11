@@ -115,9 +115,9 @@ body {
 
 .nav {
   display: flex;
-  gap: 4px;
+  gap: 3px;
   background: #e5edff;
-  padding: 3px;
+  padding: 2px;
   border-radius: 999px;
   border: 1px solid rgba(129, 140, 248, 0.4);
 }
@@ -127,8 +127,8 @@ body {
   border: none;
   cursor: pointer;
   border-radius: 999px;
-  padding: 5px 6px;
-  font-size: 11px;
+  padding: 4px 10px;
+  font-size: 12px;
   background: transparent;
   color: var(--text-muted);
   transition: all 0.18s ease-out;
@@ -177,23 +177,23 @@ body {
   list-style: none;
   padding: 0;
   margin: 0;
-  margin-top: 18px;
+  margin-top: 12px;
   overflow-y: auto;
   overflow-x: hidden;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 2px;
   min-height: 0;
 }
 
 .process-list__item {
-  padding: 4px 8px;
+  padding: 3px 8px;
   margin: 0 -8px;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 13px;
-  line-height: 1.35;
+  font-size: 12px;
+  line-height: 1.3;
   color: var(--text);
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -214,11 +214,15 @@ body {
 .process-list__title {
   font-size: inherit;
   line-height: inherit;
-  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .content {
-  padding: 148px 20px 24px 20px;
+  padding: 56px 20px 24px 20px;
   margin-left: 0;
   background: linear-gradient(180deg, #f5f7fb, #edf2ff);
   overflow: hidden;
@@ -236,7 +240,7 @@ body {
   right: 0;
   z-index: 60;
   margin: 0;
-  padding: 52px 20px 14px;
+  padding: 10px 20px;
   background: linear-gradient(180deg, #f5f7fb 0%, #edf2ff 100%);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
   transition: left 0.25s ease-out;
