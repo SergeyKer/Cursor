@@ -11,13 +11,14 @@ if errorlevel 1 (
 )
 
 echo.
-echo Запуск миграции Excel -^> JSON...
-python migrate_excel_to_json.py
-if errorlevel 1 (
-  echo Ошибка миграции. Проверьте, что файл CS_процессы_и_скрипты.xlsx в этой папке.
-  pause
-  exit /b 1
-)
+REM Миграция Excel отключена — данные правятся только по скриншотам/вручную в JSON.
+REM echo Запуск миграции Excel -^> JSON...
+REM python migrate_excel_to_json.py
+REM if errorlevel 1 (
+REM   echo Ошибка миграции. Проверьте, что файл CS_процессы_и_скрипты.xlsx в этой папке.
+REM   pause
+REM   exit /b 1
+REM )
 
 echo.
 echo Запуск сервера на http://localhost:8080

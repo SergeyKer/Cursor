@@ -146,6 +146,22 @@ def parse_process_list(ws: Worksheet) -> List[Dict[str, Any]]:
             row[idx_sheet] if idx_sheet is not None and idx_sheet < len(row) else None
         )
 
+        # Точечные правила для меню (не меняют процессы, только группировку в сайдбаре)
+        if raw_name.lower() == "ответ оператора":
+            current_group = "incoming_operator"
+        if raw_name.lower() == "вопрос по стоимости":
+            current_group = "incoming_operator"
+        if raw_name.lower() == "вопрос по сотрудничеству":
+            current_group = "incoming_operator"
+        if raw_name.lower() == "уточнение по заявке":
+            current_group = "incoming_operator"
+        if raw_name.lower() in ("изменение условий в рамках дого", "изменение условий в рамках договора"):
+            current_group = "incoming_operator"
+        if raw_name.lower() == "новые клиенты":
+            current_group = "incoming_operator"
+        if raw_name.lower() == "претензии на качество":
+            current_group = "incoming_operator"
+
         processes.append(
             {
                 "code": raw_name,  # can be adjusted later
