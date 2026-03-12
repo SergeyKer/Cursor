@@ -25,8 +25,8 @@ async function loadJson(path) {
 
 async function loadData() {
   const [meta, processes, tools] = await Promise.all([
-    loadJson(`${DATA_BASE_PATH}/processes_meta.json?v=3`),
-    loadJson(`${DATA_BASE_PATH}/processes.json?v=3`),
+    loadJson(`${DATA_BASE_PATH}/processes_meta.json?v=4`),
+    loadJson(`${DATA_BASE_PATH}/processes.json?v=4`),
     loadJson(`${DATA_BASE_PATH}/communication_tools.json?v=2`),
   ]);
   return { meta, processes, tools };
@@ -409,6 +409,10 @@ function renderProcessDetails(processMeta, processesData) {
   const autoReplySection = document.getElementById("section-autoreply");
   const autoReplySubjectEl = document.getElementById("autoReplySubject");
   const autoReplyEl = document.getElementById("autoReplyTemplate");
+  const recommendationsSection = document.getElementById("section-recommendations");
+  const recommendationsTitle = document.getElementById("recommendationsTitle");
+  const recommendationsBlock = document.getElementById("recommendationsBlock");
+  const recommendationsNavLink = document.querySelector('.process-nav__link[href="#section-recommendations"]');
 
   if (placeholder) placeholder.classList.add("hidden");
   if (details) details.classList.remove("hidden");
@@ -626,34 +630,30 @@ function renderProcessDetails(processMeta, processesData) {
     title.textContent = processData.status_script.title || "Скрипт — статус заявки";
     block.appendChild(title);
 
-    const wrapper = document.createElement("div");
-    wrapper.className = "table-wrapper";
-    const table = document.createElement("table");
-    table.className = "table";
-    table.innerHTML = `
-      <thead>
-        <tr>
-          <th>${escapeHtml(cols[0] || "Статус 1")}</th>
-          <th>${escapeHtml(cols[1] || "Статус 2")}</th>
-          <th>${escapeHtml(cols[2] || "Статус 3")}</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    `;
-    const tbody = table.querySelector("tbody");
-    processData.status_script.rows.forEach((row) => {
-      const tr = document.createElement("tr");
-      const cells = Array.isArray(row) ? row : ["", "", ""];
-      for (let i = 0; i < 3; i++) {
-        const td = document.createElement("td");
-        td.style.whiteSpace = "pre-wrap";
-        td.textContent = cells[i] || "";
-        tr.appendChild(td);
-      }
-      tbody.appendChild(tr);
-    });
-    wrapper.appendChild(table);
-    block.appendChild(wrapper);
+    const cardsWrap = document.createElement("div");
+    cardsWrap.className = "status-script-block__cards";
+    const rows = processData.status_script.rows;
+    for (let colIndex = 0; colIndex < 3; colIndex++) {
+      const phrases = rows.map((row) => (Array.isArray(row) ? row[colIndex] : "")).filter((s) => String(s || "").trim());
+      const card = document.createElement("div");
+      card.className = "status-script-block__card";
+      const cardTitle = document.createElement("div");
+      cardTitle.className = "status-script-block__card-title";
+      cardTitle.textContent = cols[colIndex] || `Сценарий ${colIndex + 1}`;
+      card.appendChild(cardTitle);
+      const list = document.createElement("ul");
+      list.className = "status-script-block__card-list";
+      phrases.forEach((text) => {
+        const li = document.createElement("li");
+        li.className = "status-script-block__card-item";
+        li.style.whiteSpace = "pre-wrap";
+        li.textContent = text.trim();
+        list.appendChild(li);
+      });
+      card.appendChild(list);
+      cardsWrap.appendChild(card);
+    }
+    block.appendChild(cardsWrap);
     scriptContainer.appendChild(block);
   }
   const hasScript = processData && (
@@ -754,6 +754,41 @@ function renderProcessDetails(processMeta, processesData) {
     }
   } else {
     autoReplySection.classList.add("hidden");
+  }
+
+  if (processData && processData.operator_recommendations && Array.isArray(processData.operator_recommendations.steps) && processData.operator_recommendations.steps.length > 0) {
+    recommendationsSection.classList.remove("hidden");
+    if (recommendationsTitle) recommendationsTitle.textContent = processData.operator_recommendations.title || "Общие рекомендации";
+    recommendationsBlock.innerHTML = "";
+    const table = document.createElement("table");
+    table.className = "table";
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Шаг</th>
+          <th>Как действовать</th>
+          <th>Формулировки / приемы</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+    const tbody = table.querySelector("tbody");
+    processData.operator_recommendations.steps.forEach((row) => {
+      const tr = document.createElement("tr");
+      const cells = [row.step || "", row.action || "", row.phrases || ""];
+      cells.forEach((value) => {
+        const td = document.createElement("td");
+        td.style.whiteSpace = "pre-wrap";
+        td.textContent = value || "";
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    recommendationsBlock.appendChild(table);
+    if (recommendationsNavLink) recommendationsNavLink.classList.remove("hidden");
+  } else {
+    recommendationsSection.classList.add("hidden");
+    if (recommendationsNavLink) recommendationsNavLink.classList.add("hidden");
   }
 
   const detailsContainer = document.getElementById("processDetails");
