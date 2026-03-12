@@ -1291,6 +1291,11 @@ body {
   min-height: 80px;
 }
 
+.assistant__input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
 .assistant__input:focus {
   outline: none;
   border-color: var(--accent);

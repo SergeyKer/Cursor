@@ -911,6 +911,13 @@ async function bootstrap() {
     const assistantInput = document.getElementById("assistantInput");
     const assistantBtn = document.getElementById("assistantBtn");
     if (assistantBtn && assistantInput) {
+      const assistantPlaceholderText = assistantInput.getAttribute("placeholder") || "";
+      assistantInput.addEventListener("focus", () => {
+        assistantInput.placeholder = "";
+      });
+      assistantInput.addEventListener("blur", () => {
+        if (!assistantInput.value.trim()) assistantInput.placeholder = assistantPlaceholderText;
+      });
       assistantBtn.addEventListener("click", () => {
         const results = runAssistantQuery(metaFiltered, assistantInput.value);
         renderAssistantResults(results, selectProcess);
