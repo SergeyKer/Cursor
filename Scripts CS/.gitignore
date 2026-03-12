@@ -9,3 +9,6 @@
 Thumbs.db
 Desktop.ini
 
+# Временные файлы Excel (lock)
+~$*.xlsx
+~$*.xlsm
