@@ -25,8 +25,8 @@ async function loadJson(path) {
 
 async function loadData() {
   const [meta, processes, tools] = await Promise.all([
-    loadJson(`${DATA_BASE_PATH}/processes_meta.json?v=2`),
-    loadJson(`${DATA_BASE_PATH}/processes.json`),
+    loadJson(`${DATA_BASE_PATH}/processes_meta.json?v=3`),
+    loadJson(`${DATA_BASE_PATH}/processes.json?v=3`),
     loadJson(`${DATA_BASE_PATH}/communication_tools.json?v=2`),
   ]);
   return { meta, processes, tools };
@@ -265,6 +265,8 @@ function renderProcessDetails(processMeta, processesData) {
   const difficultSection = document.getElementById("section-difficult");
   const descriptionSection = document.getElementById("section-description");
   const descriptionBlock = document.getElementById("processDescriptionBlock");
+  const principlesSection = document.getElementById("section-principles");
+  const principlesBlock = document.getElementById("principlesBlock");
   const cheatsheetSection = document.getElementById("section-cheatsheet");
   const cheatsheetList = document.getElementById("cheatsheetList");
   const emailSection = document.getElementById("section-email");
@@ -312,6 +314,12 @@ function renderProcessDetails(processMeta, processesData) {
     }
   }
 
+  const descNavLink = document.querySelector('.process-nav__link[href="#section-description"]');
+  const principlesNavLink = document.querySelector('.process-nav__link[href="#section-principles"]');
+  const stagesNavLink = document.querySelector('.process-nav__link[href="#section-stages"]');
+  const scriptNavLink = document.querySelector('.process-nav__link[href="#section-script"]');
+  const emailNavLink = document.querySelector('.process-nav__link[href="#section-email"]');
+
   if (descriptionBlock && descriptionSection) {
     const pd = processData && processData.process_description;
     const businessGoal = stripIncomingCallsBlock((pd && pd.business_goal) || (processData && processData.goal) || "");
@@ -322,7 +330,7 @@ function renderProcessDetails(processMeta, processesData) {
       if (businessGoal) {
         const h4 = document.createElement("h4");
         h4.className = "process-description__heading";
-        h4.textContent = "Бизнес-цель процесса:";
+        h4.textContent = "Бизнес-цель процесс:";
         descriptionBlock.appendChild(h4);
         renderDescriptionText(descriptionBlock, businessGoal);
       }
@@ -336,10 +344,28 @@ function renderProcessDetails(processMeta, processesData) {
     } else {
       descriptionSection.classList.add("hidden");
     }
+    if (descNavLink) descNavLink.classList.toggle("hidden", descriptionSection.classList.contains("hidden"));
+  }
+
+  if (principlesSection && principlesBlock) {
+    const raw = processData && processData.important_principles;
+    const principlesText = Array.isArray(raw) ? raw.filter(Boolean).join("\n") : (raw || "");
+    if (String(principlesText || "").trim()) {
+      principlesSection.classList.remove("hidden");
+      principlesBlock.innerHTML = "";
+      renderDescriptionText(principlesBlock, principlesText);
+      if (principlesNavLink) principlesNavLink.classList.remove("hidden");
+    } else {
+      principlesSection.classList.add("hidden");
+      if (principlesNavLink) principlesNavLink.classList.add("hidden");
+    }
+  } else {
+    if (principlesNavLink) principlesNavLink.classList.add("hidden");
   }
 
   stagesTableBody.innerHTML = "";
-  if (processData && Array.isArray(processData.stages)) {
+  const hasStages = processData && Array.isArray(processData.stages) && processData.stages.length > 0;
+  if (hasStages) {
     processData.stages.forEach((stage) => {
       const tr = document.createElement("tr");
       const cells = [
@@ -357,6 +383,11 @@ function renderProcessDetails(processMeta, processesData) {
       });
       stagesTableBody.appendChild(tr);
     });
+  }
+  const sectionStages = document.getElementById("section-stages");
+  if (stagesNavLink && sectionStages) {
+    sectionStages.classList.toggle("hidden", !hasStages);
+    stagesNavLink.classList.toggle("hidden", !hasStages);
   }
 
   scriptContainer.innerHTML = "";
@@ -440,12 +471,64 @@ function renderProcessDetails(processMeta, processesData) {
     scriptContainer.appendChild(fallback);
   }
 
+  if (processData && processData.status_script && Array.isArray(processData.status_script.rows) && processData.status_script.rows.length > 0) {
+    const block = document.createElement("div");
+    block.className = "status-script-block";
+
+    const cols = Array.isArray(processData.status_script.columns) ? processData.status_script.columns : [];
+    const title = document.createElement("h4");
+    title.className = "status-script-block__title";
+    title.textContent = processData.status_script.title || "Скрипт — статус заявки";
+    block.appendChild(title);
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "table-wrapper";
+    const table = document.createElement("table");
+    table.className = "table";
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>${escapeHtml(cols[0] || "Статус 1")}</th>
+          <th>${escapeHtml(cols[1] || "Статус 2")}</th>
+          <th>${escapeHtml(cols[2] || "Статус 3")}</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+    const tbody = table.querySelector("tbody");
+    processData.status_script.rows.forEach((row) => {
+      const tr = document.createElement("tr");
+      const cells = Array.isArray(row) ? row : ["", "", ""];
+      for (let i = 0; i < 3; i++) {
+        const td = document.createElement("td");
+        td.style.whiteSpace = "pre-wrap";
+        td.textContent = cells[i] || "";
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    });
+    wrapper.appendChild(table);
+    block.appendChild(wrapper);
+    scriptContainer.appendChild(block);
+  }
+  const hasScript = processData && (
+    (Array.isArray(processData.script_steps) && processData.script_steps.length > 0) ||
+    (processData.main_script && String(processData.main_script).trim()) ||
+    (processData.status_script && Array.isArray(processData.status_script.rows) && processData.status_script.rows.length > 0)
+  );
+  const sectionScript = document.getElementById("section-script");
+  if (scriptNavLink && sectionScript) {
+    sectionScript.classList.toggle("hidden", !hasScript);
+    scriptNavLink.classList.toggle("hidden", !hasScript);
+  }
+
   difficultPhrasesEl.innerHTML = "";
   const hideDifficultBlock = processMeta.name === "Ответ оператора";
-  if (difficultSection) difficultSection.classList.toggle("hidden", hideDifficultBlock);
+  const hasDifficultPhrases = processData && Array.isArray(processData.difficult_phrases) && processData.difficult_phrases.length > 0;
+  if (difficultSection) difficultSection.classList.toggle("hidden", hideDifficultBlock || !hasDifficultPhrases);
   const difficultNavLink = document.querySelector('.process-nav__link[href="#section-difficult"]');
-  if (difficultNavLink) difficultNavLink.classList.toggle("hidden", hideDifficultBlock);
-  if (processData && Array.isArray(processData.difficult_phrases) && processData.difficult_phrases.length > 0 && !hideDifficultBlock) {
+  if (difficultNavLink) difficultNavLink.classList.toggle("hidden", hideDifficultBlock || !hasDifficultPhrases);
+  if (hasDifficultPhrases && !hideDifficultBlock) {
     const table = document.createElement("div");
     table.className = "table-wrapper";
     table.innerHTML = `
@@ -479,24 +562,21 @@ function renderProcessDetails(processMeta, processesData) {
   }
 
   const hideCheatsheetBlock = processMeta.name === "Ответ оператора";
+  const hasCheatsheet = processData && Array.isArray(processData.cheatsheet) && processData.cheatsheet.length > 0;
   const cheatsheetNavLink = document.querySelector('.process-nav__link[href="#section-cheatsheet"]');
-  if (hideCheatsheetBlock) {
+  if (hideCheatsheetBlock || !hasCheatsheet) {
     if (cheatsheetSection) cheatsheetSection.classList.add("hidden");
     if (cheatsheetNavLink) cheatsheetNavLink.classList.add("hidden");
   } else {
+    cheatsheetSection.classList.remove("hidden");
+    cheatsheetList.innerHTML = "";
+    processData.cheatsheet.forEach((phrase) => {
+      const li = document.createElement("li");
+      li.className = "cheatsheet-item";
+      li.textContent = phrase;
+      cheatsheetList.appendChild(li);
+    });
     if (cheatsheetNavLink) cheatsheetNavLink.classList.remove("hidden");
-    if (processData && processData.cheatsheet && processData.cheatsheet.length > 0) {
-      cheatsheetSection.classList.remove("hidden");
-      cheatsheetList.innerHTML = "";
-      processData.cheatsheet.forEach((phrase) => {
-        const li = document.createElement("li");
-        li.className = "cheatsheet-item";
-        li.textContent = phrase;
-        cheatsheetList.appendChild(li);
-      });
-    } else {
-      if (cheatsheetSection) cheatsheetSection.classList.add("hidden");
-    }
   }
 
   if (processData && processData.email_template) {
@@ -508,8 +588,10 @@ function renderProcessDetails(processMeta, processesData) {
     if (copyEmailBtn) {
       copyEmailBtn.onclick = () => copyToClipboard(emailText, copyEmailBtn);
     }
+    if (emailNavLink) emailNavLink.classList.remove("hidden");
   } else {
     emailSection.classList.add("hidden");
+    if (emailNavLink) emailNavLink.classList.add("hidden");
   }
 
   if (processData && processData.auto_reply_template) {

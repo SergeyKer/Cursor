@@ -58,6 +58,7 @@
               <p id="processShortDescription" class="process-header__subtitle"></p>
               <nav class="process-nav" id="processNav" aria-label="Разделы процесса">
                 <a href="#section-description" class="process-nav__link">Описание</a>
+                <a href="#section-principles" class="process-nav__link">Важные принципы</a>
                 <a href="#section-stages" class="process-nav__link">Этапы</a>
                 <a href="#section-script" class="process-nav__link">Скрипт</a>
                 <a href="#section-difficult" class="process-nav__link">Сложные ситуации</a>
@@ -69,6 +70,11 @@
             <section id="section-description" class="card hidden">
               <h3 class="card__title">Описание процесса</h3>
               <div id="processDescriptionBlock" class="process-description"></div>
+            </section>
+
+            <section id="section-principles" class="card hidden">
+              <h3 class="card__title">Важные принципы</h3>
+              <div id="principlesBlock" class="process-description"></div>
             </section>
 
             <section class="card" id="section-stages">
@@ -128,11 +134,12 @@
         <section id="assistantView" class="view">
           <div class="assistant">
             <h2 class="assistant__title">Помощник</h2>
-            <p class="assistant__desc">Опишите ситуацию или вопрос клиента — подберём подходящий процесс и подсказки.</p>
-            <div class="assistant__input-wrap">
-              <label for="assistantInput" class="assistant__label">Ситуация или запрос</label>
-              <textarea id="assistantInput" class="assistant__input" rows="3" placeholder="Например: клиент хочет изменить количество ковров, претензия на качество, запрос документов..."></textarea>
-              <button type="button" class="assistant__btn" id="assistantBtn">Найти процесс</button>
+            <div class="assistant__form-block">
+              <p class="assistant__desc">Опишите ситуацию или вопрос клиента — подберём подходящий процесс и подсказки.</p>
+              <div class="assistant__input-wrap">
+                <textarea id="assistantInput" class="assistant__input" rows="3" placeholder="Например: клиент хочет изменить количество ковров, претензия на качество, запрос документов..."></textarea>
+                <button type="button" class="assistant__btn" id="assistantBtn">Найти процесс</button>
+              </div>
             </div>
             <div id="assistantResults" class="assistant__results"></div>
           </div>
