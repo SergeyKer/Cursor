@@ -429,7 +429,7 @@ body {
 
 .sidebar-search__clear:hover {
   color: var(--text);
-  background: rgba(0, 0, 0, 0.06);
+  font-weight: 700;
 }
 
 .sidebar-search__btn {
@@ -467,7 +467,6 @@ body {
 
 .sidebar-search:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent-soft);
 }
 
 .sidebar-search__input::placeholder {
@@ -568,7 +567,9 @@ body {
 }
 
 .process-list-main__link {
-  display: inline;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 0;
   border: none;
   background: none;
@@ -579,6 +580,13 @@ body {
   cursor: pointer;
   text-align: left;
   line-height: 1.35;
+}
+
+.process-list-main__done {
+  flex-shrink: 0;
+  color: #059669;
+  font-weight: 600;
+  text-decoration: none;
 }
 
 .process-list-main__link:hover {
@@ -595,19 +603,20 @@ body {
   display: flex;
   align-items: center;
   gap: 0;
-  max-width: 400px;
+  width: 267px;
+  max-width: 100%;
   height: 40px;
   margin: 0;
   margin-left: auto;
   border-radius: var(--radius-pill);
   border: 1px solid rgba(148, 163, 184, 0.5);
   background: #fff;
-  position: relative;
+  flex-shrink: 0;
 }
 .process-list-search__input {
   flex: 1;
   min-width: 0;
-  padding: 8px 44px 8px 14px;
+  padding: 8px 12px 8px 14px;
   border: none;
   border-radius: var(--radius-pill) 0 0 var(--radius-pill);
   background: transparent;
@@ -627,7 +636,7 @@ body {
   justify-content: center;
   width: 32px;
   height: 32px;
-  margin: 0 2px 0 0;
+  margin: 0;
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -639,13 +648,9 @@ body {
 }
 .process-list-search__clear:hover {
   color: var(--text);
-  background: rgba(0, 0, 0, 0.06);
+  font-weight: 700;
 }
 .process-list-search__btn {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -674,7 +679,6 @@ body {
 }
 .process-list-search:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent-soft);
 }
 
 .process-list-main__card {
@@ -715,6 +719,19 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.process-header__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.process-header__done {
+  flex-shrink: 0;
+  color: #059669;
+  font-weight: bold;
+  text-decoration: none;
 }
 
 .process-header__subtitle {

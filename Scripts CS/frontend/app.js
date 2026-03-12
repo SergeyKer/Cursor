@@ -97,7 +97,15 @@ function renderProcessListMain(processesMeta, onSelect, processesData) {
     const link = document.createElement("button");
     link.type = "button";
     link.className = "process-list-main__link";
-    link.textContent = process.name || "";
+    const titleSpan = document.createElement("span");
+    titleSpan.textContent = process.name || "";
+    link.appendChild(titleSpan);
+    if (process.menu_done === true) {
+      const doneSpan = document.createElement("span");
+      doneSpan.className = "process-list-main__done";
+      doneSpan.textContent = "✓";
+      link.appendChild(doneSpan);
+    }
     link.addEventListener("click", () => onSelect(process));
     nameCell.appendChild(link);
     const descCell = document.createElement("td");
@@ -415,6 +423,16 @@ function renderProcessDetails(processMeta, processesData) {
   const processData = sheetName ? processesData[sheetName] : null;
 
   titleEl.textContent = processMeta.name;
+  const titleDoneEl = document.getElementById("processTitleDone");
+  if (titleDoneEl) {
+    if (processMeta.menu_done === true) {
+      titleDoneEl.textContent = "✓";
+      titleDoneEl.classList.remove("hidden");
+    } else {
+      titleDoneEl.textContent = "";
+      titleDoneEl.classList.add("hidden");
+    }
+  }
   shortDescEl.textContent = processMeta.short_description || "";
 
   function renderDescriptionText(container, text) {
@@ -996,11 +1014,33 @@ async function bootstrap() {
       }
 
       if (listSearchInput) {
+        // #region agent log
+        const logProcessSearchSize = (eventName) => {
+          const container = listSearchInput.closest(".process-list-search");
+          if (!container) return;
+          const cs = window.getComputedStyle(container);
+          const isInput = window.getComputedStyle(listSearchInput);
+          const clearEl = document.getElementById("processListSearchClear");
+          const data = {
+            event: eventName,
+            containerWidth: container.offsetWidth,
+            inputWidth: listSearchInput.offsetWidth,
+            containerBoxShadow: cs.boxShadow,
+            containerBorderWidth: cs.borderWidth,
+            inputOutline: isInput.outlineWidth + " " + isInput.outlineStyle,
+            placeholderLen: (listSearchInput.placeholder || "").length,
+            clearDisplay: clearEl ? window.getComputedStyle(clearEl).display : ""
+          };
+          fetch("http://127.0.0.1:7604/ingest/1c893e2e-1189-4005-a895-a8c44a156288", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "df5d68" }, body: JSON.stringify({ sessionId: "df5d68", location: "app.js:processListSearch", message: "process search size", data, timestamp: Date.now(), hypothesisId: eventName === "focus" ? "H1" : "H1" }) }).catch(() => {});
+        };
+        // #endregion
         listSearchInput.addEventListener("focus", () => {
           listSearchInput.placeholder = "";
+          setTimeout(() => logProcessSearchSize("focus"), 0);
         });
         listSearchInput.addEventListener("blur", () => {
           if (!listSearchInput.value.trim()) listSearchInput.placeholder = placeholderText;
+          setTimeout(() => logProcessSearchSize("blur"), 0);
         });
         listSearchInput.addEventListener("input", applyMainSearch);
         listSearchInput.addEventListener("keydown", (e) => {
