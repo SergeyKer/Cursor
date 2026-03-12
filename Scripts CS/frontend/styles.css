@@ -636,7 +636,7 @@ body {
   justify-content: center;
   width: 32px;
   height: 32px;
-  margin: 0;
+  margin: 0 2px;
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -645,6 +645,7 @@ body {
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
+  transition: color 0.15s, background 0.15s;
 }
 .process-list-search__clear:hover {
   color: var(--text);
@@ -660,10 +661,12 @@ body {
   height: 38px;
   padding: 0;
   border: none;
+  border-left: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
+  transition: color 0.15s, background 0.15s;
 }
 .process-list-search__btn:hover {
   color: var(--accent);
@@ -1060,9 +1063,9 @@ body {
   letter-spacing: 0.02em;
 }
 .tools-sheet__subtitle {
-  font-weight: 500;
-  color: var(--text-muted);
-  font-size: 0.95em;
+  font-weight: inherit;
+  color: inherit;
+  font-size: inherit;
 }
 
 .tools-sheet__first {
