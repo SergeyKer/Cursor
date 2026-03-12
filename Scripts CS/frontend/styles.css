@@ -292,7 +292,7 @@ body {
 .process-menu-section__chevron {
   flex-shrink: 0;
   color: rgba(11, 53, 92, 0.85);
-  font-size: 12px;
+  font-size: 16px;
 }
 
 .process-menu-section__list {
@@ -500,11 +500,11 @@ body {
 }
 
 .placeholder {
-  margin-top: 40px;
-  padding: 24px;
-  border-radius: var(--radius-lg);
-  border: 1px dashed rgba(148, 163, 184, 0.5);
-  color: var(--text-muted);
+  margin-top: 0;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  background: transparent;
 }
 
 .process-list-main__head {
@@ -1049,6 +1049,17 @@ body {
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-soft);
+  margin-top: 12px;
+  padding: 24px 24px 28px;
+  max-width: 100%;
+}
+
+.process-sheet {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-soft);
+  margin-top: 12px;
   padding: 24px 24px 28px;
   max-width: 100%;
 }
@@ -1332,6 +1343,7 @@ body {
   background: var(--card-bg);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-subtle);
+  margin-top: 12px;
   padding: 24px 24px 28px;
   box-shadow: var(--shadow-soft);
 }
