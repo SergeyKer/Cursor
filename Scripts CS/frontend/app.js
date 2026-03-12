@@ -182,10 +182,83 @@ function renderProcessList(processesMeta, onSelect) {
     return (text || "").toString().toLowerCase();
   }
 
+  const SECTION_DEFS = [
+    { id: "incoming_operator", title: "1. Входящие звонки (ОПЕРАТОР):" },
+    { id: "incoming_manager", title: "2. Входящие звонки (КЛИЕНТСКИЙ МЕНЕДЖЕР):" },
+    { id: "outgoing_manager", title: "3. Исходящие звонки (КЛИЕНТСКИЙ МЕНЕДЖЕР):" },
+    { id: "accounting", title: "4. Бухгалтерия:" },
+  ];
+
+  function isLegacyHeadingItem(p) {
+    const name = (p && (p.name || p.code) ? String(p.name || p.code) : "").trim();
+    const sheet = (p && p.sheet_name ? String(p.sheet_name) : "").trim();
+    return !sheet && /:\s*$/.test(name);
+  }
+
+  function inferMenuGroup(p) {
+    const group = (p && p.menu_group ? String(p.menu_group) : "").trim();
+    if (group) return group;
+    const name = normalized((p && (p.name || p.code)) || "");
+    if (name.includes("бухгалтер")) return "accounting";
+    if (name.includes("исходящ") && name.includes("менедж")) return "outgoing_manager";
+    if (name.includes("входящ") && name.includes("оператор")) return "incoming_operator";
+    if (name.includes("входящ") && name.includes("менедж")) return "incoming_manager";
+    return "other";
+  }
+
+  function getSectionOpen(sectionId) {
+    try {
+      const raw = localStorage.getItem(`menuSection:${sectionId}`);
+      if (raw === null) return true; // default: раскрыто
+      return raw === "1";
+    } catch {
+      return true;
+    }
+  }
+
+  function setSectionOpen(sectionId, isOpen) {
+    try {
+      localStorage.setItem(`menuSection:${sectionId}`, isOpen ? "1" : "0");
+    } catch {
+      // ignore
+    }
+  }
+
+  function createProcessItem(process) {
+    const li = document.createElement("li");
+    li.className = "process-list__item";
+    li.dataset.code = process.code;
+
+    if (process.code === currentActiveCode) {
+      li.classList.add("process-list__item--active");
+    }
+
+    const title = document.createElement("span");
+    title.className = "process-list__title";
+    title.textContent = process.name;
+    li.appendChild(title);
+
+    li.addEventListener("click", () => {
+      currentActiveCode = process.code;
+      document
+        .querySelectorAll(".process-list__item")
+        .forEach((item) =>
+          item.classList.toggle(
+            "process-list__item--active",
+            item.dataset.code === currentActiveCode
+          )
+        );
+      onSelect(process);
+    });
+
+    return li;
+  }
+
   function render(filter = "") {
     const query = normalized(filter);
     listEl.innerHTML = "";
-    processesMeta
+    const filtered = (processesMeta || [])
+      .filter((p) => !isLegacyHeadingItem(p))
       .filter((p) => {
         if (!query) return true;
         return (
@@ -193,37 +266,83 @@ function renderProcessList(processesMeta, onSelect) {
           normalized(p.short_description).includes(query) ||
           normalized(p.searchable_text || "").includes(query)
         );
-      })
-      .sort((a, b) => (a.name || "").trim().localeCompare((b.name || "").trim(), "ru"))
-      .forEach((process) => {
-        const li = document.createElement("li");
-        li.className = "process-list__item";
-        li.dataset.code = process.code;
-
-        if (process.code === currentActiveCode) {
-          li.classList.add("process-list__item--active");
-        }
-
-        const title = document.createElement("span");
-        title.className = "process-list__title";
-        title.textContent = process.name;
-        li.appendChild(title);
-
-        li.addEventListener("click", () => {
-          currentActiveCode = process.code;
-          document
-            .querySelectorAll(".process-list__item")
-            .forEach((item) =>
-              item.classList.toggle(
-                "process-list__item--active",
-                item.dataset.code === currentActiveCode
-              )
-            );
-          onSelect(process);
-        });
-
-        listEl.appendChild(li);
       });
+
+    const groups = new Map();
+    filtered.forEach((p) => {
+      const g = inferMenuGroup(p);
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g).push(p);
+    });
+    for (const [_, items] of groups.entries()) {
+      items.sort((a, b) => (a.name || "").trim().localeCompare((b.name || "").trim(), "ru"));
+    }
+
+    function renderSection(sectionId, title) {
+      const items = groups.get(sectionId) || [];
+      if (query && items.length === 0) return;
+
+      const sectionLi = document.createElement("li");
+      sectionLi.className = "process-menu-section";
+      sectionLi.dataset.sectionId = sectionId;
+
+      const headerBtn = document.createElement("button");
+      headerBtn.type = "button";
+      headerBtn.className = "process-menu-section__header";
+      headerBtn.setAttribute("aria-expanded", "true");
+
+      const titleSpan = document.createElement("span");
+      titleSpan.className = "process-menu-section__title";
+      titleSpan.textContent = title;
+      headerBtn.appendChild(titleSpan);
+
+      const chevron = document.createElement("span");
+      chevron.className = "process-menu-section__chevron";
+      chevron.setAttribute("aria-hidden", "true");
+      chevron.textContent = "▾";
+      headerBtn.appendChild(chevron);
+
+      const innerList = document.createElement("ul");
+      innerList.className = "process-menu-section__list";
+
+      items.forEach((process) => innerList.appendChild(createProcessItem(process)));
+
+      const storedOpen = getSectionOpen(sectionId);
+      const isOpen = query ? true : storedOpen;
+
+      function applyOpenState(open) {
+        headerBtn.setAttribute("aria-expanded", open ? "true" : "false");
+        sectionLi.classList.toggle("process-menu-section--collapsed", !open);
+        innerList.classList.toggle("hidden", !open);
+        chevron.textContent = open ? "▾" : "▸";
+      }
+
+      applyOpenState(isOpen);
+
+      if (items.length === 0) {
+        sectionLi.classList.add("process-menu-section--empty");
+        headerBtn.disabled = true;
+        headerBtn.setAttribute("aria-disabled", "true");
+        applyOpenState(false);
+      } else {
+        headerBtn.addEventListener("click", () => {
+          const nowOpen = headerBtn.getAttribute("aria-expanded") !== "true";
+          applyOpenState(nowOpen);
+          if (!query) setSectionOpen(sectionId, nowOpen);
+        });
+      }
+
+      sectionLi.appendChild(headerBtn);
+      sectionLi.appendChild(innerList);
+      listEl.appendChild(sectionLi);
+    }
+
+    SECTION_DEFS.forEach((s) => renderSection(s.id, s.title));
+    // Прочее: показываем только если что-то осталось без основных групп
+    const otherItems = groups.get("other") || [];
+    if (otherItems.length > 0) {
+      renderSection("other", "Прочее");
+    }
   }
 
   const searchClear = document.getElementById("searchClear");

@@ -10,6 +10,43 @@ ROOT_DIR = Path(__file__).parent
 EXCEL_PATH = ROOT_DIR / "CS_процессы_и_скрипты.xlsx"
 DATA_DIR = ROOT_DIR / "data"
 
+MENU_GROUPS = {
+    "incoming_operator": "1. Входящие звонки (ОПЕРАТОР):",
+    "incoming_manager": "2. Входящие звонки (КЛИЕНТСКИЙ МЕНЕДЖЕР):",
+    "outgoing_manager": "3. Исходящие звонки (КЛИЕНТСКИЙ МЕНЕДЖЕР):",
+    "accounting": "4. Бухгалтерия:",
+    "other": "Прочее",
+}
+
+
+def _normalize_section_title(s: str) -> str:
+    """Нормализовать заголовок раздела из Excel для сопоставления."""
+    low = (s or "").strip().lower()
+    # убираем ведущие номера вида "1.", "2)" и т.п.
+    while low and (low[0].isdigit() or low[0] in ". )\t"):
+        low = low[1:]
+    low = low.strip()
+    return " ".join(low.split())
+
+
+def _infer_menu_group_from_heading(text: str) -> Optional[str]:
+    """
+    Определить menu_group по строке-заголовку из Excel.
+    Ожидаемые заголовки: входящие/исходящие звонки и бухгалтерия (часто с двоеточием).
+    """
+    low = _normalize_section_title(text)
+    if not low:
+        return None
+    if "бухгалтер" in low:
+        return "accounting"
+    if "входящ" in low and "оператор" in low:
+        return "incoming_operator"
+    if "входящ" in low and "клиентск" in low and "менедж" in low:
+        return "incoming_manager"
+    if "исходящ" in low and "клиентск" in low and "менедж" in low:
+        return "outgoing_manager"
+    return None
+
 
 def find_process_list_sheet(wb) -> Worksheet:
     """
@@ -86,12 +123,20 @@ def parse_process_list(ws: Worksheet) -> List[Dict[str, Any]]:
         idx_name = 1
 
     processes: List[Dict[str, Any]] = []
+    current_group: Optional[str] = None
     for row in rows[header_row_index + 1 :]:
         if all(cell is None for cell in row):
             continue
 
         name = row[idx_name] if idx_name is not None and idx_name < len(row) else None
         if not name:
+            continue
+
+        raw_name = str(name).strip()
+        # Заголовки разделов в Excel: "1. Входящие звонки (ОПЕРАТОР):" и т.п.
+        inferred = _infer_menu_group_from_heading(raw_name)
+        if inferred:
+            current_group = inferred
             continue
 
         description = (
@@ -103,10 +148,11 @@ def parse_process_list(ws: Worksheet) -> List[Dict[str, Any]]:
 
         processes.append(
             {
-                "code": str(name).strip(),  # can be adjusted later
-                "name": str(name).strip(),
+                "code": raw_name,  # can be adjusted later
+                "name": raw_name,
                 "short_description": str(description).strip() if description else "",
                 "sheet_name": str(sheet_name).strip() if sheet_name else "",
+                "menu_group": current_group or "other",
             }
         )
 
