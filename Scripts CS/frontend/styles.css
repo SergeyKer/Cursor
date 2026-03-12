@@ -302,6 +302,9 @@ body {
 }
 
 .process-list__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 4px 8px;
   margin: 0 -8px;
   border-radius: 6px;
@@ -333,6 +336,8 @@ body {
 }
 
 .process-list__title {
+  flex: 1;
+  min-width: 0;
   font-size: inherit;
   line-height: inherit;
   overflow: hidden;
@@ -341,6 +346,13 @@ body {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   text-decoration: none;
+}
+
+.process-list__done {
+  flex-shrink: 0;
+  color: #059669;
+  font-size: 14px;
+  font-weight: bold;
 }
 
 .content {

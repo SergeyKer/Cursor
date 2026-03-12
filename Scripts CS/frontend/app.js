@@ -238,6 +238,14 @@ function renderProcessList(processesMeta, onSelect) {
     title.textContent = process.name;
     li.appendChild(title);
 
+    if (process.menu_done === true) {
+      const doneMark = document.createElement("span");
+      doneMark.className = "process-list__done";
+      doneMark.setAttribute("aria-label", "Обработано");
+      doneMark.textContent = "✓";
+      li.appendChild(doneMark);
+    }
+
     li.addEventListener("click", () => {
       currentActiveCode = process.code;
       document
@@ -642,8 +650,8 @@ function renderProcessDetails(processMeta, processesData) {
   }
 
   difficultPhrasesEl.innerHTML = "";
-  const hideDifficultBlock = processMeta.name === "Ответ оператора";
   const hasDifficultPhrases = processData && Array.isArray(processData.difficult_phrases) && processData.difficult_phrases.length > 0;
+  const hideDifficultBlock = !hasDifficultPhrases;
   if (difficultSection) difficultSection.classList.toggle("hidden", hideDifficultBlock || !hasDifficultPhrases);
   const difficultNavLink = document.querySelector('.process-nav__link[href="#section-difficult"]');
   if (difficultNavLink) difficultNavLink.classList.toggle("hidden", hideDifficultBlock || !hasDifficultPhrases);
