@@ -54,7 +54,7 @@ body {
   height: 40px;
   border: none;
   border-radius: var(--radius-md);
-  background: var(--accent);
+  background: #7ba3c4;
   color: #fff;
   font-size: 18px;
   cursor: pointer;
@@ -67,7 +67,7 @@ body {
   transition: left 0.25s ease, background 0.2s, box-shadow 0.2s, transform 0.15s;
 }
 .sidebar-toggle:hover {
-  background: #0c69c4;
+  background: #6b95b5;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.3) inset,
     0 3px 8px rgba(0, 0, 0, 0.25);
@@ -712,22 +712,32 @@ body {
 .process-details {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  max-height: calc(100vh - 80px);
-  overflow-y: auto;
-  padding-right: 4px;
+  gap: 10px;
 }
 
 .process-header {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
+  margin-top: -6px;
+  padding: 0 16px 0 16px;
+}
+
+.process-header .process-header__title-row {
+  margin-bottom: 2px;
+}
+
+.process-header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
 .process-header__title-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .process-header__done {
@@ -738,23 +748,24 @@ body {
 }
 
 .process-header__subtitle {
-  margin: 0;
-  font-size: 13px;
+  margin: 0 0 4px;
+  font-size: 12px;
+  line-height: 1.25;
   color: var(--text-muted);
 }
 
 .process-nav {
-  margin-top: 0;
+  margin-top: 10px;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 3px;
 }
 
 .process-nav__link {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--accent);
   text-decoration: none;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: var(--radius-pill);
   background: var(--accent-soft);
   transition: background 0.15s, color 0.15s;
@@ -763,6 +774,11 @@ body {
 .process-nav__link:hover {
   background: var(--accent-strong);
   color: var(--text);
+}
+
+/* Отступ при скролле по якорю: зазор под верхнюю панель и заголовок процесса */
+.process-details .card {
+  scroll-margin-top: 66px;
 }
 
 .card {

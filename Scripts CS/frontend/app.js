@@ -794,7 +794,7 @@ function renderProcessDetails(processMeta, processesData) {
   const detailsContainer = document.getElementById("processDetails");
   if (detailsContainer) {
     const scrollToTop = () => {
-      detailsContainer.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     };
     detailsContainer.querySelectorAll(".card").forEach((card) => {
       const existing = card.querySelector(".card__scroll-top");
@@ -1001,6 +1001,7 @@ async function bootstrap() {
       if (placeholder) placeholder.classList.add("hidden");
       if (details) details.classList.remove("hidden");
       renderProcessDetails(processMeta, processes);
+      window.scrollTo(0, 0);
     };
 
     const showProcessListMain = () => {
@@ -1009,6 +1010,29 @@ async function bootstrap() {
     };
 
     initNavigation(views, showProcessListMain);
+
+    // Быстрый переход по навигации процесса: прокрутка к разделу (учитывается scroll-margin-top у карточек)
+    const processNav = document.getElementById("processNav");
+    if (processNav) {
+      processNav.addEventListener("click", (e) => {
+        const link = e.target.closest('a[href^="#section-"]');
+        if (!link) return;
+        e.preventDefault();
+        const href = link.getAttribute("href") || "";
+        const id = href.startsWith("#") ? href.slice(1) : "";
+        if (id) {
+          try {
+            window.history.replaceState(null, "", href);
+          } catch (_) {
+            window.location.hash = id;
+          }
+          const target = document.getElementById(id);
+          if (target) {
+            target.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        }
+      });
+    }
 
     const isOutgoingCallsClientManager = (p) =>
       /Исходящие\s+звонки\s*\([^)]*КЛИЕНТСКИЙ\s+МЕНЕДЖЕР/i.test((p.name || p.code || "").trim());
