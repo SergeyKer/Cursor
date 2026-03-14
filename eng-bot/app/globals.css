@@ -32,9 +32,16 @@
   }
 }
 
+html {
+  /* Безопасные зоны для вырезов и жестов на Android */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
 body {
   background: var(--bg);
   color: var(--text);
+  /* Убираем серую подсветку при тапе на Android */
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Кнопки: лёгкий 3D и тени */
@@ -49,4 +56,20 @@ body {
 .btn-3d:active {
   transform: translateY(1px);
   box-shadow: var(--shadow-active);
+}
+
+/* Минимальный размер области нажатия для пальца (Android) */
+@media (pointer: coarse) {
+  .btn-3d,
+  button,
+  [role="button"],
+  select,
+  input[type="text"],
+  input[type="password"] {
+    min-height: 44px;
+  }
+  input[type="text"],
+  input[type="password"] {
+    font-size: 16px; /* Уменьшает зум при фокусе на iOS/Android */
+  }
 }

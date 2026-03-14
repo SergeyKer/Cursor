@@ -24,38 +24,35 @@ npm run dev
 |------------|----------|
 | `OPENROUTER_API_KEY` | Ключ API OpenRouter (обязателен для чата и счётчика запросов) |
 
-## Деплой на Vercel
+## Деплой на Vercel (с нуля)
 
-Репозиторий содержит папку **eng-bot** — при деплое укажи её как корень (без пробела в имени).
+Репозиторий содержит папку **eng-bot** — при деплое укажи её как **Root Directory**.
 
-### Через сайт Vercel
+### Способ 1: Через сайт (рекомендуется)
 
-**Вариант А — импорт с уже заданной папкой (проще всего):**
+1. Открой: **[Import eng-bot на Vercel](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FSergeyKer%2FCursor&root-directory=eng-bot)**.
+2. Войди в Vercel (через GitHub или email).
+3. Проверь:
+   - **Root Directory** = **`eng-bot`** (обязательно, без пробела);
+   - **Framework Preset** = Next.js (подставится сам).
+4. Нажми **Deploy**. Дождись окончания сборки.
+5. Добавь переменную окружения:
+   - В проекте: **Settings** → **Environment Variables**;
+   - **Name:** `OPENROUTER_API_KEY`, **Value:** твой ключ с [OpenRouter](https://openrouter.ai/);
+   - Сохрани, затем **Deployments** → у последнего деплоя **⋯** → **Redeploy**.
 
-1. Открой ссылку: [Import Cursor → eng-bot](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FSergeyKer%2FCursor&root-directory=eng-bot).
-2. Если попросит — выбери аккаунт и репозиторий `SergeyKer/Cursor`.
-3. Убедись, что в поле **Root Directory** указано **`eng-bot`** (без пробела).
-4. Нажми **Deploy**.
+Готово: сайт будет по адресу вида `https://твой-проект.vercel.app`.
 
-**Вариант Б — проект уже создан, нужно указать корень:**
-
-1. Зайди в проект на [vercel.com](https://vercel.com) → выбери проект (например, **cursor**).
-2. В левой колонке открой **Settings**.
-3. Внутри настроек открой раздел **Build and Deployment** (или **Build & Development**).
-4. Прокрути вниз до блока **Root Directory**.
-5. Нажми **Edit** рядом с Root Directory, введи **`eng-bot`** (без пробела), нажми **Save**.
-6. Вкладка **Deployments** → у последнего деплоя нажми **Redeploy**.
-
-По желанию в **Settings → Environment Variables** можно добавить `OPENROUTER_API_KEY` (ключ можно вводить и в приложении в меню).
-
-### Через CLI
+### Способ 2: Через CLI
 
 ```bash
 cd eng-bot
-npx vercel
+npx vercel login   # один раз: откроется браузер для входа
+npx vercel         # деплой (превью)
+npx vercel --prod  # деплой в прод
 ```
 
-При первом запуске войди в аккаунт Vercel и укажи, что деплоишь текущую папку. Для продакшена: `npx vercel --prod`.
+Переменную `OPENROUTER_API_KEY` потом добавь в [vercel.com](https://vercel.com) → проект → **Settings** → **Environment Variables** и сделай **Redeploy**.
 
 ## Функции
 

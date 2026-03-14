@@ -153,7 +153,7 @@ export default function Home() {
 
   return (
     <div className="flex h-screen flex-col">
-      <main className="min-h-0 flex-1 pl-14">
+      <main className="min-h-0 flex-1 pl-[max(3.5rem,calc(env(safe-area-inset-left)+3.5rem))]">
         {!storageLoaded ? (
           <div className="flex h-full items-center justify-center">
             <p className="text-[var(--text-muted)]">Загрузка…</p>

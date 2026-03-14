@@ -73,7 +73,8 @@ export default function SlideOutMenu({
       <button
         type="button"
         onClick={onToggle}
-        className="fixed left-2 top-4 z-[60] flex h-12 w-12 items-center justify-center rounded-r-lg border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-md transition-colors hover:bg-[var(--border)]"
+        className="fixed z-[60] flex h-14 w-14 min-w-[44px] min-h-[44px] items-center justify-center rounded-r-lg border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-md transition-colors hover:bg-[var(--border)] touch-manipulation left-0 top-0"
+        style={{ marginLeft: 'env(safe-area-inset-left)', marginTop: 'env(safe-area-inset-top)' }}
         aria-label={open ? 'Закрыть меню' : 'Открыть меню'}
         title={open ? 'Закрыть меню' : 'Открыть меню'}
       >
@@ -93,7 +94,7 @@ export default function SlideOutMenu({
         }`}
         aria-label="Меню"
       >
-        <div className="flex h-full flex-col p-2.5 pt-24">
+        <div className="flex h-full flex-col p-2.5 pt-[max(5rem,calc(env(safe-area-inset-top)+4rem))]">
           {onNewDialog && (
             <button
               type="button"
@@ -116,7 +117,7 @@ export default function SlideOutMenu({
               <select
                 value={settings.mode}
                 onChange={(e) => update({ mode: e.target.value as Settings['mode'] })}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-xs text-[var(--text)]"
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-2 min-h-[44px] text-sm text-[var(--text)] touch-manipulation"
               >
                 <option value="dialogue">Диалог</option>
                 <option value="translation">Тренировка перевода</option>
@@ -133,7 +134,7 @@ export default function SlideOutMenu({
                   onChange={(e) =>
                     update({ sentenceType: e.target.value as Settings['sentenceType'] })
                   }
-                  className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-xs text-[var(--text)]"
+                  className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-2 min-h-[44px] text-sm text-[var(--text)] touch-manipulation"
                 >
                   {SENTENCE_TYPES.map((t) => (
                     <option key={t.id} value={t.id}>
@@ -151,7 +152,7 @@ export default function SlideOutMenu({
               <select
                 value={settings.topic}
                 onChange={(e) => update({ topic: e.target.value as Settings['topic'] })}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-xs text-[var(--text)]"
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-2 min-h-[44px] text-sm text-[var(--text)] touch-manipulation"
               >
                 {TOPICS.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -168,7 +169,7 @@ export default function SlideOutMenu({
               <select
                 value={settings.level}
                 onChange={(e) => update({ level: e.target.value as Settings['level'] })}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-xs text-[var(--text)]"
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-2 min-h-[44px] text-sm text-[var(--text)] touch-manipulation"
               >
                 {LEVELS.map((l) => (
                   <option key={l.id} value={l.id}>
@@ -185,7 +186,7 @@ export default function SlideOutMenu({
               <select
                 value={settings.tense}
                 onChange={(e) => update({ tense: e.target.value as Settings['tense'] })}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-xs text-[var(--text)]"
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-2 min-h-[44px] text-sm text-[var(--text)] touch-manipulation"
               >
                 {TENSES.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -244,7 +245,7 @@ export default function SlideOutMenu({
                     }}
                     onBlur={handleKeyBlur}
                     placeholder="sk-or-v1-..."
-                    className="min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-xs text-[var(--text)] placeholder:text-[var(--text-muted)]"
+                    className="min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-2 min-h-[44px] text-base text-[var(--text)] placeholder:text-[var(--text-muted)] touch-manipulation"
                     autoComplete="off"
                   />
                   <button

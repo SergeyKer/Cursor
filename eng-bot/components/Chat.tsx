@@ -136,12 +136,12 @@ export default function Chat({
 
       <form
         onSubmit={handleSubmit}
-        className="flex gap-2 border-t border-[var(--border)] bg-[var(--bg-card)] px-3 py-2"
+        className="flex gap-2 border-t border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
       >
         <button
           type="button"
           onClick={listening ? stopListening : startListening}
-          className={`btn-3d flex shrink-0 items-center justify-center rounded-lg p-3 ${
+          className={`btn-3d flex h-12 min-h-[44px] shrink-0 items-center justify-center rounded-lg p-3 touch-manipulation ${
             listening
               ? 'bg-red-500/20 text-red-600'
               : 'bg-[var(--border)] text-[var(--text)] hover:bg-[var(--border)]/80'
@@ -160,13 +160,14 @@ export default function Chat({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Напишите или нажмите микрофон..."
-          className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-2 text-[var(--text)] placeholder:text-[var(--text-muted)]"
+          className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-2 min-h-[44px] text-[var(--text)] placeholder:text-[var(--text-muted)] text-base"
           disabled={loading || atLimit}
+          enterKeyHint="send"
         />
         <button
           type="submit"
           disabled={!input.trim() || loading || atLimit}
-          className="btn-3d rounded-lg bg-[var(--accent)] px-4 py-2 font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:hover:bg-[var(--accent)]"
+          className="btn-3d touch-manipulation rounded-lg bg-[var(--accent)] px-4 py-2 min-h-[44px] font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:hover:bg-[var(--accent)]"
         >
           Отправить
         </button>

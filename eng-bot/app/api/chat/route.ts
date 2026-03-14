@@ -71,7 +71,7 @@ function buildSystemPrompt(params: {
 - Write ONLY the Russian sentence (no English, no instructions in that message). Keep it short.
 - After the student replies with their English translation, give brief feedback: if correct, say so briefly and give the next Russian sentence. If there are errors, use this format first: **Correction:** [what they used / error]. [Correct form]. Example: [example]. Then give the next Russian sentence.
 - Always respond in English when giving feedback; the sentence to translate is in Russian only.
-- One round = either one Russian sentence to translate, OR feedback + next Russian sentence.`
+- One round = either one Russian sentence to translate, OR feedback + next Russian sentence. Keep feedback brief: one short correction block and the next sentence; no long explanations.`
   }
 
   const tenseInstruction =
@@ -82,7 +82,7 @@ function buildSystemPrompt(params: {
 - Topic: ${topicName}. ${levelPrompt}
 - ${tenseInstruction}
 - ${correctionRule}
-- Always respond in English. Keep replies concise. When starting the conversation, say a short greeting or ask a first question according to the topic and level.`
+- CRITICAL: Every reply must be 1–2 short sentences only. Never write multiple paragraphs. Never list options (e.g. "contemporary, hip-hop, ballroom"). Ask only ONE simple question per message. No long introductions.`
 }
 
 function normalizeKey(key: string): string {
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: FREE_MODEL,
         messages: apiMessages,
-        max_tokens: 512,
+        max_tokens: 120,
       }),
     })
 
