@@ -26,10 +26,26 @@ npm run dev
 
 ## Деплой на Vercel
 
-1. Залей проект в Git (GitHub / GitLab).
-2. В [Vercel](https://vercel.com) создай новый проект и импортируй репозиторий.
-3. В настройках проекта → Environment Variables добавь `OPENROUTER_API_KEY`.
-4. Деплой — Vercel сам соберёт Next.js (`npm run build`).
+Репозиторий содержит папку **Eng Bot** — при деплое укажи её как корень.
+
+### Через сайт Vercel
+
+1. Зайди на [vercel.com](https://vercel.com) и войди (например, через GitHub).
+2. **Add New…** → **Project** → импортируй репозиторий `SergeyKer/Cursor` (или свой форк).
+3. В настройках проекта:
+   - **Root Directory** — нажми **Edit**, укажи папку **`Eng Bot`** и подтверди.
+   - **Framework Preset** оставь **Next.js** (определится сам).
+4. По желанию в **Environment Variables** добавь `OPENROUTER_API_KEY` (ключ можно вводить и в приложении в меню).
+5. Нажми **Deploy**. После сборки будет ссылка вида `https://eng-bot-xxx.vercel.app`.
+
+### Через CLI
+
+```bash
+cd "Eng Bot"
+npx vercel
+```
+
+При первом запуске войди в аккаунт Vercel и укажи, что деплоишь текущую папку. Для продакшена: `npx vercel --prod`.
 
 ## Функции
 
