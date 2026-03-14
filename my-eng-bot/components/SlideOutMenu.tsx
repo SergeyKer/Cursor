@@ -13,6 +13,8 @@ interface SlideOutMenuProps {
   usage: UsageInfo
   onKeyChange?: () => void
   onNewDialog?: () => void
+  /** Не рендерить встроенную кнопку (кнопка вынесена в шапку страницы) */
+  hideButton?: boolean
 }
 
 export default function SlideOutMenu({
@@ -23,11 +25,17 @@ export default function SlideOutMenu({
   usage,
   onKeyChange,
   onNewDialog,
+  hideButton = false,
 }: SlideOutMenuProps) {
   const [keyInput, setKeyInput] = React.useState('')
   const [keyFocused, setKeyFocused] = React.useState(false)
   const [keySavedHint, setKeySavedHint] = React.useState(false)
   const [keyFormExpanded, setKeyFormExpanded] = React.useState(false)
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   React.useEffect(() => {
     if (open && !keyFocused) {
@@ -69,17 +77,18 @@ export default function SlideOutMenu({
 
   return (
     <>
-      {/* Одна кнопка открыть/закрыть — всегда в одном месте */}
-      <button
-        type="button"
-        onClick={onToggle}
-        className="fixed z-[60] flex h-14 w-14 min-w-[44px] min-h-[44px] items-center justify-center rounded-r-lg border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-md transition-colors hover:bg-[var(--border)] touch-manipulation left-0 top-0"
-        style={{ marginLeft: 'env(safe-area-inset-left)', marginTop: 'env(safe-area-inset-top)' }}
-        aria-label={open ? 'Закрыть меню' : 'Открыть меню'}
-        title={open ? 'Закрыть меню' : 'Открыть меню'}
-      >
-        <MenuIcon />
-      </button>
+      {!hideButton && (
+        <button
+          type="button"
+          onClick={onToggle}
+          className="fixed z-[60] flex h-14 w-14 min-w-[44px] min-h-[44px] items-center justify-center rounded-r-lg border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-md transition-colors hover:bg-[var(--border)] touch-manipulation left-0 top-0"
+          style={{ marginLeft: 'env(safe-area-inset-left)', marginTop: 'env(safe-area-inset-top)' }}
+          aria-label={open ? 'Закрыть меню' : 'Открыть меню'}
+          title={open ? 'Закрыть меню' : 'Открыть меню'}
+        >
+          <MenuIcon />
+        </button>
+      )}
 
       <div
         className={`fixed inset-0 z-40 bg-black/20 transition-opacity duration-200 ${
@@ -124,7 +133,7 @@ export default function SlideOutMenu({
               </select>
             </div>
 
-            {settings.mode === 'translation' && (
+            {mounted && settings.mode === 'translation' && (
               <div>
                 <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
                   Тип предложений
@@ -324,7 +333,7 @@ function VoiceSelect({
   )
 }
 
-function MenuIcon() {
+export function MenuIcon() {
   return (
     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />

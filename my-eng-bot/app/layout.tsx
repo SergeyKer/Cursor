@@ -20,8 +20,8 @@ export default function RootLayout({
           name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover, interactive-widget=resizes-content"
         />
-        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafafa" />
-        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111" />
+        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f0f0f0" />
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0d0d0d" />
       </head>
       <body className="min-h-screen antialiased">{children}</body>
     </html>

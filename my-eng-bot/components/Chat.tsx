@@ -13,6 +13,8 @@ interface ChatProps {
   onSend: (text: string) => void
   firstMessageError?: string
   onRetryFirstMessage?: () => void
+  lastMessageIsError?: boolean
+  onRetryLastMessage?: () => void
 }
 
 export default function Chat({
@@ -23,8 +25,11 @@ export default function Chat({
   onSend,
   firstMessageError,
   onRetryFirstMessage,
+  lastMessageIsError,
+  onRetryLastMessage,
 }: ChatProps) {
   const [input, setInput] = React.useState('')
+  const [inputFocused, setInputFocused] = React.useState(false)
   const [listening, setListening] = React.useState(false)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
 
@@ -84,8 +89,9 @@ export default function Chat({
   return (
     <div className="flex h-full flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 sm:px-4 sm:py-3">
-        <div className="mx-auto max-w-xl rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-3 shadow-sm min-h-[min(50vh,320px)]">
-        {messages.length === 0 && !loading && (
+        <div className="mx-auto max-w-xl">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-3 shadow-sm min-h-[min(50vh,320px)]">
+        {messages.length === 0 && (
           <p className="text-center text-[var(--text-muted)]">
             Загрузка первого сообщения…
           </p>
@@ -95,6 +101,7 @@ export default function Chat({
             <MessageBubble
               message={msg}
               voiceId={settings.voiceId}
+              mode={settings.mode}
             />
             {firstMessageError &&
               onRetryFirstMessage &&
@@ -121,9 +128,24 @@ export default function Chat({
                   </button>
                 </div>
               )}
+            {i === messages.length - 1 &&
+              lastMessageIsError &&
+              onRetryLastMessage &&
+              !(messages.length === 1 && msg.content === firstMessageError) && (
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={onRetryLastMessage}
+                    disabled={loading}
+                    className="btn-3d rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                  >
+                    Повторить
+                  </button>
+                </div>
+              )}
           </React.Fragment>
         ))}
-        {loading && (
+        {loading && messages.length > 0 && (
           <div className="mt-1.5 flex justify-start">
             <span className="rounded-lg bg-[var(--border)] px-2.5 py-1.5 text-sm text-[var(--text-muted)]" title="Ожидание ответа от ИИ">
               ИИ печатает…
@@ -131,13 +153,12 @@ export default function Chat({
           </div>
         )}
         <div ref={bottomRef} />
-        </div>
-      </div>
+          </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="sticky bottom-0 z-10 flex shrink-0 gap-2 border-t border-[var(--border)] bg-[var(--bg)] px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_-2px_8px_rgba(0,0,0,0.2)]"
-      >
+          <form
+            onSubmit={handleSubmit}
+            className="sticky bottom-0 z-10 mt-3 flex shrink-0 gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_-2px_8px_rgba(0,0,0,0.2)]"
+          >
         <button
           type="button"
           onClick={listening ? stopListening : startListening}
@@ -159,8 +180,10 @@ export default function Chat({
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Напишите или нажмите микрофон..."
-          className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-2 min-h-[44px] text-[var(--text)] placeholder:text-[var(--text-muted)] text-base"
+          onFocus={() => setInputFocused(true)}
+          onBlur={() => setInputFocused(false)}
+          placeholder={inputFocused ? '' : 'Напишите или нажмите микрофон...'}
+          className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-white px-4 py-2 min-h-[44px] text-[var(--text)] placeholder:text-[var(--text-muted)] text-base dark:bg-white dark:text-gray-900 dark:placeholder:text-gray-500"
           disabled={loading || atLimit}
           enterKeyHint="send"
         />
@@ -171,21 +194,38 @@ export default function Chat({
         >
           Отправить
         </button>
-      </form>
+          </form>
+        </div>
+      </div>
     </div>
   )
+}
+
+/** Выделяет приглашение к переводу в конце текста (режим «Тренировка перевода») */
+function splitInvitation(text: string): { main: string; invitation: string | null } {
+  const match = text.match(/\s+((?:Переведи|Переведите)[^.]*\.)\s*$/i)
+  if (!match) return { main: text, invitation: null }
+  const main = text.slice(0, text.length - match[0].length).trimEnd()
+  return { main, invitation: match[1].trim() }
 }
 
 function MessageBubble({
   message,
   voiceId,
+  mode,
 }: {
   message: ChatMessageType
   voiceId: string
+  mode: 'dialogue' | 'translation'
 }) {
   const isUser = message.role === 'user'
   const { correction, rest } =
     message.role === 'assistant' ? parseCorrection(message.content) : { correction: null, rest: message.content }
+
+  const displayText = rest || message.content
+  const isTranslationMode = mode === 'translation' && !isUser
+  const { main: mainText, invitation: invitationText } =
+    isTranslationMode && displayText ? splitInvitation(displayText) : { main: displayText, invitation: null }
 
   const handleSpeak = () => {
     const text = rest || message.content
@@ -219,8 +259,15 @@ function MessageBubble({
                 <strong>Исправление:</strong> {correction}
               </div>
             )}
-            {(rest || message.content) && (
-              <p className="whitespace-pre-wrap">{rest || message.content}</p>
+            {(mainText || invitationText) && (
+              <p className="whitespace-pre-wrap">
+                {mainText}
+                {invitationText && (
+                  <span className="mt-1 block font-serif italic text-[var(--invitation)]">
+                    {invitationText}
+                  </span>
+                )}
+              </p>
             )}
             {hasSpeakableText && (
               <button

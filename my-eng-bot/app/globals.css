@@ -3,14 +3,15 @@
 @tailwind utilities;
 
 :root {
-  --bg: #fafafa;
-  --bg-card: #ffffff;
+  --bg: #f0f0f0;
+  --bg-card: #f8f8f8;
   --text: #1a1a1a;
   --text-muted: #666;
   --accent: #2563eb;
   --accent-hover: #1d4ed8;
   --border: #e5e7eb;
   --correction-bg: #fef3c7;
+  --invitation: #0d9488;
   --shadow: 0 1px 3px rgba(0,0,0,0.08);
   --shadow-hover: 0 4px 12px rgba(0,0,0,0.12);
   --shadow-active: 0 0 0 1px rgba(0,0,0,0.05);
@@ -18,14 +19,15 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #111;
-    --bg-card: #1a1a1a;
+    --bg: #0d0d0d;
+    --bg-card: #141414;
     --text: #f3f4f6;
     --text-muted: #9ca3af;
     --accent: #3b82f6;
     --accent-hover: #2563eb;
     --border: #374151;
     --correction-bg: #422006;
+    --invitation: #2dd4bf;
     --shadow: 0 1px 3px rgba(0,0,0,0.3);
     --shadow-hover: 0 4px 12px rgba(0,0,0,0.4);
     --shadow-active: 0 0 0 1px rgba(255,255,255,0.05);

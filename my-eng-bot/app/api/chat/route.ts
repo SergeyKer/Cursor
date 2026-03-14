@@ -68,10 +68,12 @@ function buildSystemPrompt(params: {
     const tenseInstruction = tense === 'all' ? 'Use any grammar tense.' : `Use grammar tense: ${tenseName}.`
     return `You are an English translation coach. Your role:
 - Give the student ONE sentence in Russian to translate into English. The sentence type must be: ${sentenceTypeName}. Keep topic around: ${topicName}. ${tenseInstruction} ${levelPrompt}
-- Write ONLY the Russian sentence (no English, no instructions in that message). Keep it short.
-- After the student replies with their English translation, give brief feedback: if correct, say so briefly and give the next Russian sentence. If there are errors, use this format first: **Correction:** [what they used / error]. [Correct form]. Example: [example]. Then give the next Russian sentence.
-- Always respond in English when giving feedback; the sentence to translate is in Russian only.
-- One round = either one Russian sentence to translate, OR feedback + next Russian sentence. Keep feedback brief: one short correction block and the next sentence; no long explanations.`
+- CRITICAL — First message only: when there are no messages from the student yet, do NOT greet, do NOT ask "what shall we talk about" or similar. Immediately output ONE sentence in Russian to translate, then "Переведи на английский." Example: "Сегодня хорошая погода. Переведи на английский."
+- When you give a Russian sentence to translate: write only the sentence, then always end with a short invitation in Russian, e.g. "Переведи на английский." No greetings, no extra text.
+- After the student replies with their English translation, reply in plain text (no markers, no blocks):
+  * If the translation is CORRECT: one short praise in English (e.g. "Well done!"), then on a new line the next Russian sentence, then "Переведи на английский."
+  * If the translation has ERRORS: one brief sentence in English with the correct form or a short tip (e.g. "Use 'works' for he/she: He works in the office."), then on a new line the next Russian sentence, then "Переведи на английский."
+- One short comment only. No **Correction:**, no **Right:**, no lists. Just: comment + next sentence + invitation.`
   }
 
   const tenseInstruction =
@@ -82,7 +84,8 @@ function buildSystemPrompt(params: {
 - Topic: ${topicName}. ${levelPrompt}
 - ${tenseInstruction}
 - ${correctionRule}
-- CRITICAL: Every reply must be 1–2 short sentences only. Never write multiple paragraphs. Never list options (e.g. "contemporary, hip-hop, ballroom"). Ask only ONE simple question per message. No long introductions.`
+- CRITICAL: Every reply must be 1–2 short sentences only. Never write multiple paragraphs. Never list options (e.g. "contemporary, hip-hop, ballroom"). Ask only ONE simple question per message. No long introductions.
+- When you start the conversation (your first message): open with one short, friendly question that fits the topic and invites the user to answer. Make it interesting and easy to reply to — so the dialogue gets going naturally.`
 }
 
 function normalizeKey(key: string): string {
@@ -144,8 +147,16 @@ export async function POST(req: NextRequest) {
 
     if (!res.ok) {
       const errText = await res.text()
+      let userMessage: string
+      if (res.status === 401) {
+        userMessage = 'Неверный ключ OpenRouter. Проверьте ключ в меню настроек.'
+      } else if (res.status === 429) {
+        userMessage = 'Превышен лимит запросов. Подождите немного и попробуйте снова.'
+      } else {
+        userMessage = 'Сервис ИИ временно недоступен. Проверьте сеть и ключ в меню, попробуйте позже.'
+      }
       return NextResponse.json(
-        { error: 'OpenRouter error', details: errText },
+        { error: userMessage, details: errText },
         { status: res.status }
       )
     }

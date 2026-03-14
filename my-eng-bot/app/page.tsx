@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
-import SlideOutMenu from '@/components/SlideOutMenu'
+import SlideOutMenu, { MenuIcon } from '@/components/SlideOutMenu'
 import Chat from '@/components/Chat'
 import { loadState, saveState, getOpenRouterKey, getUsageCountToday, incrementUsageToday } from '@/lib/storage'
 import type { ChatMessage, Settings, UsageInfo } from '@/lib/types'
@@ -15,7 +15,9 @@ export default function Home() {
   const [initialized, setInitialized] = useState(false)
   const [dialogStarted, setDialogStarted] = useState(false)
   const [storageLoaded, setStorageLoaded] = useState(false)
-  const prevModeRef = React.useRef<Settings['mode'] | undefined>(undefined)
+  const initialLoadDoneRef = React.useRef(false)
+  const newDialogRef = React.useRef(false)
+  const firstMessageRequestIdRef = React.useRef(0)
 
   const atLimit = usage.limit > 0 && usage.used >= usage.limit
 
@@ -34,29 +36,50 @@ export default function Home() {
     }
   }, [])
 
+  const API_TIMEOUT_MS = 60_000
+
   const sendToApi = useCallback(
     async (apiMessages: ChatMessage[]) => {
       const key = getOpenRouterKey()
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (key) headers['X-OpenRouter-Key'] = key
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          messages: apiMessages.map((m) => ({ role: m.role, content: m.content })),
-          topic: settings.topic,
-          level: settings.level,
-          tense: settings.tense,
-          mode: settings.mode,
-          sentenceType: settings.sentenceType,
-        }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || res.statusText)
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            messages: apiMessages.map((m) => ({ role: m.role, content: m.content })),
+            topic: settings.topic,
+            level: settings.level,
+            tense: settings.tense,
+            mode: settings.mode,
+            sentenceType: settings.sentenceType,
+          }),
+          signal: controller.signal,
+        })
+        clearTimeout(timeoutId)
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err.error || res.statusText)
+        }
+        const data = (await res.json()) as { content?: string }
+        const text = (data.content ?? '').trim()
+        if (text) return text
+        return settings.mode === 'translation'
+          ? 'ИИ не отвечает. Проверьте ключ в меню и сеть, попробуйте снова.'
+          : 'Привет! О чём поговорим?'
+      } catch (e) {
+        clearTimeout(timeoutId)
+        if (e instanceof Error) {
+          if (e.name === 'AbortError') {
+            throw new Error('Ответ занял слишком много времени. Проверьте сеть и попробуйте снова.')
+          }
+          throw e
+        }
+        throw e
       }
-      const data = (await res.json()) as { content: string }
-      return data.content
     },
     [settings]
   )
@@ -64,21 +87,65 @@ export default function Home() {
   const ERROR_FIRST_MESSAGE =
     'Не удалось загрузить ответ. Укажите ключ OpenRouter в меню настроек и проверьте сеть.'
 
-  const ensureFirstMessage = useCallback(async () => {
-    if (messages.length > 0) return
+  const isErrorMessage = useCallback((content: string) => {
+    return (
+      content === ERROR_FIRST_MESSAGE ||
+      content.startsWith('ИИ не отвечает') ||
+      content.startsWith('Ответ занял слишком много времени') ||
+      content.startsWith('Не удалось получить ответ') ||
+      content.startsWith('Неверный ключ') ||
+      content.startsWith('Превышен лимит') ||
+      content.startsWith('Сервис ИИ временно')
+    )
+  }, [])
+
+  const lastMessageIsError =
+    messages.length >= 1 &&
+    messages[messages.length - 1]?.role === 'assistant' &&
+    isErrorMessage(messages[messages.length - 1].content)
+
+  const retryLastMessage = useCallback(async () => {
+    const toSend = messages.slice(0, -1)
+    setMessages(toSend)
     setLoading(true)
     try {
-      const content = await sendToApi([])
+      const content = await sendToApi(toSend)
       incrementUsageToday()
-      setMessages([{ role: 'assistant', content }])
+      setMessages((prev) => [...prev, { role: 'assistant', content }])
       await fetchUsage()
     } catch (e) {
       console.error(e)
-      setMessages([{ role: 'assistant', content: ERROR_FIRST_MESSAGE }])
+      const errText = e instanceof Error ? e.message : 'Не удалось получить ответ. Попробуйте снова.'
+      setMessages((prev) => [...prev, { role: 'assistant', content: errText }])
     } finally {
       setLoading(false)
     }
-  }, [messages.length, sendToApi, fetchUsage])
+  }, [messages, sendToApi, fetchUsage])
+
+  const ensureFirstMessage = useCallback(async () => {
+    const requestId = ++firstMessageRequestIdRef.current
+    setLoading(true)
+    try {
+      const content = await sendToApi([])
+      if (requestId !== firstMessageRequestIdRef.current) return
+      incrementUsageToday()
+      const firstContent = (content ?? '').trim() || (settings.mode === 'translation' ? 'ИИ не отвечает. Проверьте ключ в меню и сеть, попробуйте снова.' : 'Привет! О чём поговорим?')
+      setMessages((prev) =>
+        prev.length > 0 ? prev : [{ role: 'assistant', content: firstContent }]
+      )
+      setDialogStarted(true)
+      await fetchUsage()
+    } catch (e) {
+      console.error(e)
+      if (requestId !== firstMessageRequestIdRef.current) return
+      setMessages((prev) =>
+        prev.length > 0 ? prev : [{ role: 'assistant', content: ERROR_FIRST_MESSAGE }]
+      )
+      setDialogStarted(true)
+    } finally {
+      if (requestId === firstMessageRequestIdRef.current) setLoading(false)
+    }
+  }, [sendToApi, fetchUsage])
 
   const retryFirstMessage = useCallback(async () => {
     setMessages([])
@@ -98,10 +165,12 @@ export default function Home() {
 
   useEffect(() => {
     const state = loadState()
-    setMessages(state.messages)
-    setSettings(state.settings)
-    prevModeRef.current = state.settings.mode
-    setDialogStarted(state.messages.length > 0)
+    if (!initialLoadDoneRef.current) {
+      initialLoadDoneRef.current = true
+      setMessages(state.messages)
+      setSettings(state.settings)
+      setDialogStarted(state.messages.length > 0)
+    }
     fetchUsage()
     setInitialized(true)
     setStorageLoaded(true)
@@ -109,15 +178,9 @@ export default function Home() {
 
   useEffect(() => {
     if (!storageLoaded) return
+    if (newDialogRef.current) return
     if (initialized && dialogStarted && messages.length === 0) ensureFirstMessage()
   }, [storageLoaded, initialized, dialogStarted, messages.length, ensureFirstMessage])
-
-  useEffect(() => {
-    if (prevModeRef.current !== undefined && prevModeRef.current !== settings.mode) {
-      setMessages([])
-    }
-    prevModeRef.current = settings.mode
-  }, [settings.mode])
 
   useEffect(() => {
     if (!storageLoaded) return
@@ -139,7 +202,8 @@ export default function Home() {
         await fetchUsage()
       } catch (e) {
         console.error(e)
-        setMessages((prev) => prev.slice(0, -1))
+        const errText = e instanceof Error ? e.message : 'Не удалось получить ответ. Попробуйте снова.'
+        setMessages((prev) => [...prev, { role: 'assistant', content: errText }])
       } finally {
         setLoading(false)
       }
@@ -148,18 +212,53 @@ export default function Home() {
   )
 
   const handleNewDialog = useCallback(() => {
+    newDialogRef.current = true
     setMessages([])
-  }, [])
+    setTimeout(() => {
+      ensureFirstMessage()
+      newDialogRef.current = false
+    }, 0)
+  }, [ensureFirstMessage])
+
+  const pageTitle = storageLoaded
+    ? settings.mode === 'dialogue'
+      ? 'Разговор с моим другом — Диалог'
+      : 'Разговор с моим другом — Тренировка перевода'
+    : 'My Eng Bot'
 
   return (
     <div className="flex h-screen flex-col">
-      <main className="min-h-0 flex-1 pl-[max(3.5rem,calc(env(safe-area-inset-left)+3.5rem))]">
+      <header
+        className="relative z-[60] flex shrink-0 items-center border-b border-[var(--border)] bg-[var(--bg)]"
+        style={{
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingTop: 'env(safe-area-inset-top)',
+          minHeight: 'calc(2.5rem + env(safe-area-inset-top, 0px))',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setMenuOpen((v) => !v)}
+          className="btn-3d flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-r-md border-[3px] border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] ring-4 ring-neutral-500/80 ring-offset-2 ring-offset-[var(--bg)] hover:bg-[var(--border)] touch-manipulation dark:ring-neutral-400/70"
+          aria-label={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
+          title={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
+        >
+          <MenuIcon />
+        </button>
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <h1 className="text-sm font-medium text-[var(--text)] sm:text-base">
+            {pageTitle}
+          </h1>
+        </div>
+      </header>
+
+      <main className="flex min-h-0 flex-1 flex-col">
         {!storageLoaded ? (
-          <div className="flex h-full items-center justify-center">
+          <div className="flex min-h-0 flex-1 items-center justify-center">
             <p className="text-[var(--text-muted)]">Загрузка…</p>
           </div>
         ) : !dialogStarted ? (
-          <div className="flex h-full flex-col items-center justify-center gap-6 px-4">
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-4">
             <p className="text-center text-[var(--text-muted)]">
               Помощник для практики английского: диалог или тренировка перевода. Настройте тему и уровень в меню.
             </p>
@@ -172,6 +271,7 @@ export default function Home() {
             </button>
           </div>
         ) : (
+          <div className="min-h-0 flex-1">
           <Chat
             messages={messages}
             settings={settings}
@@ -180,13 +280,17 @@ export default function Home() {
             onSend={handleSend}
             firstMessageError={ERROR_FIRST_MESSAGE}
             onRetryFirstMessage={retryFirstMessage}
+            lastMessageIsError={lastMessageIsError}
+            onRetryLastMessage={retryLastMessage}
           />
+          </div>
         )}
       </main>
 
       <SlideOutMenu
         open={menuOpen}
         onToggle={() => setMenuOpen((v) => !v)}
+        hideButton
         settings={settings}
         onSettingsChange={setSettings}
         usage={usage}
