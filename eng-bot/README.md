@@ -26,22 +26,32 @@ npm run dev
 
 ## Деплой на Vercel
 
-Репозиторий содержит папку **Eng Bot** — при деплое укажи её как корень.
+Репозиторий содержит папку **eng-bot** — при деплое укажи её как корень (без пробела в имени).
 
 ### Через сайт Vercel
 
-1. Зайди на [vercel.com](https://vercel.com) и войди (например, через GitHub).
-2. **Add New…** → **Project** → импортируй репозиторий `SergeyKer/Cursor` (или свой форк).
-3. В настройках проекта:
-   - **Root Directory** — нажми **Edit**, укажи папку **`Eng Bot`** и подтверди.
-   - **Framework Preset** оставь **Next.js** (определится сам).
-4. По желанию в **Environment Variables** добавь `OPENROUTER_API_KEY` (ключ можно вводить и в приложении в меню).
-5. Нажми **Deploy**. После сборки будет ссылка вида `https://eng-bot-xxx.vercel.app`.
+**Вариант А — импорт с уже заданной папкой (проще всего):**
+
+1. Открой ссылку: [Import Cursor → eng-bot](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FSergeyKer%2FCursor&root-directory=eng-bot).
+2. Если попросит — выбери аккаунт и репозиторий `SergeyKer/Cursor`.
+3. Убедись, что в поле **Root Directory** указано **`eng-bot`** (без пробела).
+4. Нажми **Deploy**.
+
+**Вариант Б — проект уже создан, нужно указать корень:**
+
+1. Зайди в проект на [vercel.com](https://vercel.com) → выбери проект (например, **cursor**).
+2. В левой колонке открой **Settings**.
+3. Внутри настроек открой раздел **Build and Deployment** (или **Build & Development**).
+4. Прокрути вниз до блока **Root Directory**.
+5. Нажми **Edit** рядом с Root Directory, введи **`eng-bot`** (без пробела), нажми **Save**.
+6. Вкладка **Deployments** → у последнего деплоя нажми **Redeploy**.
+
+По желанию в **Settings → Environment Variables** можно добавить `OPENROUTER_API_KEY` (ключ можно вводить и в приложении в меню).
 
 ### Через CLI
 
 ```bash
-cd "Eng Bot"
+cd eng-bot
 npx vercel
 ```
 
