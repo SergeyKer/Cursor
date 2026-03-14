@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Eng Bot — помощник по английскому',
-    short_name: 'Eng Bot',
+    name: 'My Eng Bot — мой друг по английскому',
+    short_name: 'My Eng Bot',
     description: 'Диалог и тренировка перевода на английском с ИИ',
     start_url: '/',
     display: 'standalone',

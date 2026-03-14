@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Eng Bot — помощник по английскому',
+  title: 'My Eng Bot — мой друг по английскому',
   description: 'Диалог и тренировка перевода на английском с ИИ',
-  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Eng Bot' },
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'My Eng Bot' },
 }
 
 export const viewport: Viewport = {
