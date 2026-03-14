@@ -83,7 +83,7 @@ export default function Chat({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-y-auto px-3 py-2 sm:px-4 sm:py-3">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 sm:px-4 sm:py-3">
         <div className="mx-auto max-w-xl rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-3 shadow-sm min-h-[min(50vh,320px)]">
         {messages.length === 0 && !loading && (
           <p className="text-center text-[var(--text-muted)]">
@@ -136,7 +136,7 @@ export default function Chat({
 
       <form
         onSubmit={handleSubmit}
-        className="flex gap-2 border-t border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        className="sticky bottom-0 z-10 flex shrink-0 gap-2 border-t border-[var(--border)] bg-[var(--bg)] px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_-2px_8px_rgba(0,0,0,0.2)]"
       >
         <button
           type="button"
