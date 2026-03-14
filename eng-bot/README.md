@@ -26,14 +26,14 @@ npm run dev
 
 ## Деплой на Vercel (с нуля)
 
-Репозиторий содержит папку **eng-bot** — при деплое укажи её как **Root Directory**.
+Репозиторий содержит папку **my-eng-bot** — при деплое укажи её как **Root Directory**.
 
 ### Способ 1: Через сайт (рекомендуется)
 
-1. Открой: **[Import eng-bot на Vercel](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FSergeyKer%2FCursor&root-directory=eng-bot)**.
+1. Открой: **[Import my-eng-bot на Vercel](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FSergeyKer%2FCursor&root-directory=my-eng-bot)**.
 2. Войди в Vercel (через GitHub или email).
 3. Проверь:
-   - **Root Directory** = **`eng-bot`** (обязательно, без пробела);
+   - **Root Directory** = **`my-eng-bot`** (обязательно, без пробела);
    - **Framework Preset** = Next.js (подставится сам).
 4. Нажми **Deploy**. Дождись окончания сборки.
 5. Добавь переменную окружения:
@@ -46,7 +46,7 @@ npm run dev
 ### Способ 2: Через CLI
 
 ```bash
-cd eng-bot
+cd my-eng-bot
 npx vercel login   # один раз: откроется браузер для входа
 npx vercel         # деплой (превью)
 npx vercel --prod  # деплой в прод
