@@ -222,14 +222,14 @@ export default function Home() {
 
   const pageTitle = storageLoaded
     ? settings.mode === 'dialogue'
-      ? 'Разговор с моим другом — Диалог'
-      : 'Разговор с моим другом — Тренировка перевода'
+      ? 'Диалог'
+      : 'Тренировка перевода'
     : 'My Eng Bot'
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex min-h-screen min-h-[100dvh] flex-col">
       <header
-        className="relative z-[60] flex shrink-0 items-center border-b border-[var(--border)] bg-[var(--bg)]"
+        className="fixed left-0 right-0 top-0 z-[60] flex shrink-0 items-center border-b border-[var(--border)] bg-[var(--bg)]"
         style={{
           paddingLeft: 'env(safe-area-inset-left)',
           paddingTop: 'env(safe-area-inset-top)',
@@ -239,7 +239,7 @@ export default function Home() {
         <button
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
-          className="btn-3d flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-r-md border-[3px] border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] ring-4 ring-neutral-500/80 ring-offset-2 ring-offset-[var(--bg)] hover:bg-[var(--border)] touch-manipulation dark:ring-neutral-400/70"
+          className="btn-3d flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-r-md border-[3px] border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] ring-4 ring-neutral-500/80 ring-offset-2 ring-offset-[var(--bg)] hover:bg-[var(--border)] touch-manipulation"
           aria-label={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
           title={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
         >
@@ -252,7 +252,10 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="flex min-h-0 flex-1 flex-col">
+      <main
+        className="flex min-h-0 flex-1 flex-col"
+        style={{ paddingTop: 'calc(2.5rem + env(safe-area-inset-top, 0px))' }}
+      >
         {!storageLoaded ? (
           <div className="flex min-h-0 flex-1 items-center justify-center">
             <p className="text-[var(--text-muted)]">Загрузка…</p>

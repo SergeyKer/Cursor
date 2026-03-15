@@ -17,33 +17,22 @@
   --shadow-active: 0 0 0 1px rgba(0,0,0,0.05);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0d0d0d;
-    --bg-card: #141414;
-    --text: #f3f4f6;
-    --text-muted: #9ca3af;
-    --accent: #3b82f6;
-    --accent-hover: #2563eb;
-    --border: #374151;
-    --correction-bg: #422006;
-    --invitation: #2dd4bf;
-    --shadow: 0 1px 3px rgba(0,0,0,0.3);
-    --shadow-hover: 0 4px 12px rgba(0,0,0,0.4);
-    --shadow-active: 0 0 0 1px rgba(255,255,255,0.05);
-  }
-}
-
 html {
-  /* Безопасные зоны для вырезов и жестов на Android */
+  color-scheme: light;
+  /* Безопасные зоны: вырезы и жесты (Android), notch и home indicator (iOS) */
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  /* iOS Safari: высота с учётом скрытия панели браузера */
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 body {
   background: var(--bg);
   color: var(--text);
-  /* Убираем серую подсветку при тапе на Android */
+  /* Убираем серую подсветку при тапе (Android / iOS) */
   -webkit-tap-highlight-color: transparent;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* Кнопки: лёгкий 3D и тени */
@@ -60,7 +49,7 @@ body {
   box-shadow: var(--shadow-active);
 }
 
-/* Минимальный размер области нажатия для пальца (Android) */
+/* Минимальный размер области нажатия для пальца (Android / iOS, Apple HIG 44pt) */
 @media (pointer: coarse) {
   .btn-3d,
   button,
@@ -72,6 +61,6 @@ body {
   }
   input[type="text"],
   input[type="password"] {
-    font-size: 16px; /* Уменьшает зум при фокусе на iOS/Android */
+    font-size: 16px; /* Предотвращает авто-зум при фокусе в Safari (iOS) и Chrome (Android) */
   }
 }

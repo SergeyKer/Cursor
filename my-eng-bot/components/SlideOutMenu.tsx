@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES } from '@/lib/constants'
+import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES, CARD_BG_PRESETS } from '@/lib/constants'
 import { getOpenRouterKey, setOpenRouterKey } from '@/lib/storage'
 import type { Settings, UsageInfo } from '@/lib/types'
 
@@ -98,7 +98,7 @@ export default function SlideOutMenu({
         onClick={onToggle}
       />
       <aside
-        className={`fixed left-0 top-0 z-50 h-full w-56 max-w-[85vw] bg-[var(--bg-card)] border-r border-[var(--border)] shadow-lg transition-transform duration-200 ease-out ${
+        className={`fixed left-0 top-0 z-50 h-full w-56 max-w-[85vw] bg-[var(--bg)] border-r border-[var(--border)] shadow-lg transition-transform duration-200 ease-out ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
         aria-label="Меню"
@@ -126,7 +126,7 @@ export default function SlideOutMenu({
               <select
                 value={settings.mode}
                 onChange={(e) => update({ mode: e.target.value as Settings['mode'] })}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-2 min-h-[44px] text-sm text-[var(--text)] touch-manipulation"
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] touch-manipulation"
               >
                 <option value="dialogue">Диалог</option>
                 <option value="translation">Тренировка перевода</option>
@@ -143,7 +143,7 @@ export default function SlideOutMenu({
                   onChange={(e) =>
                     update({ sentenceType: e.target.value as Settings['sentenceType'] })
                   }
-                  className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-2 min-h-[44px] text-sm text-[var(--text)] touch-manipulation"
+                  className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] touch-manipulation"
                 >
                   {SENTENCE_TYPES.map((t) => (
                     <option key={t.id} value={t.id}>
@@ -161,7 +161,7 @@ export default function SlideOutMenu({
               <select
                 value={settings.topic}
                 onChange={(e) => update({ topic: e.target.value as Settings['topic'] })}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-2 min-h-[44px] text-sm text-[var(--text)] touch-manipulation"
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] touch-manipulation"
               >
                 {TOPICS.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -178,7 +178,7 @@ export default function SlideOutMenu({
               <select
                 value={settings.level}
                 onChange={(e) => update({ level: e.target.value as Settings['level'] })}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-2 min-h-[44px] text-sm text-[var(--text)] touch-manipulation"
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] touch-manipulation"
               >
                 {LEVELS.map((l) => (
                   <option key={l.id} value={l.id}>
@@ -195,7 +195,7 @@ export default function SlideOutMenu({
               <select
                 value={settings.tense}
                 onChange={(e) => update({ tense: e.target.value as Settings['tense'] })}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-2 min-h-[44px] text-sm text-[var(--text)] touch-manipulation"
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] touch-manipulation"
               >
                 {TENSES.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -213,6 +213,25 @@ export default function SlideOutMenu({
                 value={settings.voiceId}
                 onChange={(voiceId) => update({ voiceId })}
               />
+            </div>
+
+            <div>
+              <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
+                Фон карточки
+              </label>
+              <select
+                value={settings.cardBg}
+                onChange={(e) =>
+                  update({ cardBg: e.target.value as Settings['cardBg'] })
+                }
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] touch-manipulation"
+              >
+                {CARD_BG_PRESETS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="rounded bg-[var(--border)]/50 px-2 py-1.5">
@@ -254,7 +273,7 @@ export default function SlideOutMenu({
                     }}
                     onBlur={handleKeyBlur}
                     placeholder="sk-or-v1-..."
-                    className="min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-2 min-h-[44px] text-base text-[var(--text)] placeholder:text-[var(--text-muted)] touch-manipulation"
+                    className="min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-2 min-h-[44px] text-base text-[var(--text)] placeholder:text-[var(--text-muted)] touch-manipulation"
                     autoComplete="off"
                   />
                   <button
@@ -276,7 +295,7 @@ export default function SlideOutMenu({
               <button
                 type="button"
                 onClick={() => setKeyFormExpanded(true)}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-2 text-left text-xs text-[var(--text-muted)] hover:bg-[var(--border)]/30 hover:text-[var(--text)]"
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-2 text-left text-xs text-[var(--text-muted)] hover:bg-[var(--border)]/30 hover:text-[var(--text)]"
               >
                 Ввести ключ
               </button>
@@ -314,7 +333,7 @@ function VoiceSelect({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-xs text-[var(--text)]"
+      className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 text-xs text-[var(--text)]"
     >
       <option value="">Системный по умолчанию</option>
       {list

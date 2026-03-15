@@ -3,7 +3,15 @@
 import React, { useRef, useCallback } from 'react'
 import { parseCorrection } from '@/lib/parseCorrection'
 import { speak } from '@/lib/speech'
-import type { ChatMessage as ChatMessageType, Settings } from '@/lib/types'
+import type { ChatMessage as ChatMessageType, Settings, CardBgId } from '@/lib/types'
+
+const CARD_BG_CLASS: Record<CardBgId, string> = {
+  white: 'bg-white',
+  gray: 'bg-[var(--bg)]',
+  card: 'bg-[var(--bg-card)]',
+  cream: 'bg-[#faf8f5]',
+  blue: 'bg-[#f0f4ff]',
+}
 
 interface ChatProps {
   messages: ChatMessageType[]
@@ -90,7 +98,7 @@ export default function Chat({
     <div className="flex h-full flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 sm:px-4 sm:py-3">
         <div className="mx-auto max-w-xl">
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-3 shadow-sm min-h-[min(50vh,320px)]">
+          <div className={`rounded-xl border border-[var(--border)] p-3 shadow-sm min-h-[min(50vh,320px)] ${CARD_BG_CLASS[settings.cardBg] ?? CARD_BG_CLASS.card}`}>
         {messages.length === 0 && (
           <p className="text-center text-[var(--text-muted)]">
             Загрузка первого сообщения…
@@ -108,7 +116,7 @@ export default function Chat({
               messages.length === 1 &&
               msg.role === 'assistant' &&
               msg.content === firstMessageError && (
-                <div className="mt-2 rounded-lg border border-amber-500/50 bg-amber-50 p-2.5 dark:border-amber-500/30 dark:bg-amber-950/30">
+                <div className="mt-2 rounded-lg border border-amber-500/50 bg-amber-50 p-2.5">
                   <p className="mb-2 text-sm font-medium text-[var(--text)]">
                     Что сделать:
                   </p>
@@ -157,7 +165,7 @@ export default function Chat({
 
           <form
             onSubmit={handleSubmit}
-            className="sticky bottom-0 z-10 mt-3 flex shrink-0 gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_-2px_8px_rgba(0,0,0,0.2)]"
+            className="sticky bottom-0 z-10 mt-3 flex shrink-0 items-center gap-2 rounded-xl border border-[var(--border)] bg-[#f0f4ff] px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
           >
         <button
           type="button"
@@ -183,7 +191,7 @@ export default function Chat({
           onFocus={() => setInputFocused(true)}
           onBlur={() => setInputFocused(false)}
           placeholder={inputFocused ? '' : 'Напишите или нажмите микрофон...'}
-          className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-white px-4 py-2 min-h-[44px] text-[var(--text)] placeholder:text-[var(--text-muted)] text-base dark:bg-white dark:text-gray-900 dark:placeholder:text-gray-500"
+          className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-white px-4 py-2 min-h-[44px] text-[var(--text)] placeholder:text-[var(--text-muted)] text-base leading-[1.5rem]"
           disabled={loading || atLimit}
           enterKeyHint="send"
         />

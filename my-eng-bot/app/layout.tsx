@@ -15,13 +15,12 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <head>
-        {/* При открытии клавиатуры на Android viewport сжимается — строка ввода остаётся видимой */}
+        {/* viewport-fit=cover — safe area на iOS (notch, home indicator). interactive-widget — поведение клавиатуры на Android */}
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover, interactive-widget=resizes-content"
         />
-        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f0f0f0" />
-        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0d0d0d" />
+        <meta name="theme-color" content="#f0f0f0" />
       </head>
       <body className="min-h-screen antialiased">{children}</body>
     </html>
