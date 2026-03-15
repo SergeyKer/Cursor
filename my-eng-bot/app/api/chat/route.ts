@@ -3,8 +3,10 @@ import type { ChatMessage } from '@/lib/types'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const FREE_MODEL = 'openrouter/free'
-/** Максимум сообщений в запросе (user+assistant). У openrouter/free малый контекст — только последний обмен. */
+/** Максимум сообщений в контексте (user+assistant). Для короткой игры хватает последнего обмена. */
 const MAX_MESSAGES_IN_CONTEXT = 2
+/** Лимит токенов ответа. 120 обрезало ответы; для 1–2 коротких фраз хватает 200. */
+const MAX_RESPONSE_TOKENS = 200
 
 const LEVEL_PROMPTS: Record<string, string> = {
   starter:
@@ -64,9 +66,9 @@ function buildSystemPrompt(params: {
   const sentenceTypeName = sentenceType ? SENTENCE_TYPE_NAMES[sentenceType] ?? 'mixed' : 'mixed'
 
   if (mode === 'translation') {
-    return `Translate coach. ${topicName}, ${levelPrompt}, ${sentenceTypeName}. First: one RU sentence + "Переведи на английский." After reply: praise or tip + next RU + "Переведи на английский." Short only.`
+    return `Translate: ${topicName}, ${levelPrompt}, ${sentenceTypeName}. One RU sentence, then "Переведи на английский." Reply: short praise or tip + next sentence. Keep very short.`
   }
-  return `English tutor. ${topicName}. ${levelPrompt}. ${tense === 'all' ? 'Any tense.' : tenseName + '.'} Reply 1–2 sentences. If mistake: **Correction:** [wrong]→[right]. Then reply. First: one short question.`
+  return `English tutor. ${topicName}. ${levelPrompt}. ${tense === 'all' ? 'Any tense.' : tenseName + '.'} Reply in 1–2 short sentences. If error: **Correction:** [wrong]→[right]. Start with one short question.`
 }
 
 function normalizeKey(key: string): string {
@@ -119,7 +121,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: FREE_MODEL,
         messages: apiMessages,
-        max_tokens: 120,
+        max_tokens: MAX_RESPONSE_TOKENS,
       }),
     })
 

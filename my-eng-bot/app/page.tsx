@@ -3,13 +3,13 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import SlideOutMenu, { MenuIcon } from '@/components/SlideOutMenu'
 import Chat from '@/components/Chat'
-import { loadState, saveState, getUsageCountToday, incrementUsageToday } from '@/lib/storage'
+import { loadState, saveState, getUsageCountToday, incrementUsageToday, DEFAULT_SETTINGS } from '@/lib/storage'
 import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES } from '@/lib/constants'
 import type { ChatMessage, Settings, UsageInfo } from '@/lib/types'
 
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [settings, setSettings] = useState<Settings>(() => loadState().settings)
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [menuOpen, setMenuOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [usage, setUsage] = useState<UsageInfo>({ used: 0, limit: 50 })
@@ -19,6 +19,8 @@ export default function Home() {
   const initialLoadDoneRef = React.useRef(false)
   const newDialogRef = React.useRef(false)
   const firstMessageRequestIdRef = React.useRef(0)
+  /** Не запускать второй запрос первого сообщения, пока первый в полёте (защита от двойного вызова из эффекта). */
+  const firstMessageInFlightRef = React.useRef(false)
 
   React.useEffect(() => {
     if (!dialogStarted || typeof window === 'undefined') return
@@ -138,6 +140,8 @@ export default function Home() {
   }, [messages, sendToApi, fetchUsage])
 
   const ensureFirstMessage = useCallback(async () => {
+    if (firstMessageInFlightRef.current) return
+    firstMessageInFlightRef.current = true
     const requestId = ++firstMessageRequestIdRef.current
     const isNewDialog = newDialogRef.current
     setLoading(true)
@@ -158,24 +162,28 @@ export default function Home() {
       setDialogStarted(true)
       if (isNewDialog) newDialogRef.current = false
     } finally {
+      firstMessageInFlightRef.current = false
       if (requestId === firstMessageRequestIdRef.current) setLoading(false)
     }
   }, [sendToApi, fetchUsage])
 
   const retryFirstMessage = useCallback(async () => {
+    const requestId = ++firstMessageRequestIdRef.current
     setMessages([])
     setLoading(true)
     try {
       const content = await sendToApi([])
+      if (requestId !== firstMessageRequestIdRef.current) return
       incrementUsageToday()
       setMessages([{ role: 'assistant', content }])
       await fetchUsage()
     } catch (e) {
       console.error(e)
+      if (requestId !== firstMessageRequestIdRef.current) return
       const errMsg = e instanceof Error ? e.message : ERROR_FIRST_MESSAGE
       setMessages([{ role: 'assistant', content: errMsg }])
     } finally {
-      setLoading(false)
+      if (requestId === firstMessageRequestIdRef.current) setLoading(false)
     }
   }, [sendToApi, fetchUsage])
 
@@ -195,8 +203,9 @@ export default function Home() {
   useEffect(() => {
     if (!storageLoaded) return
     if (newDialogRef.current) return
+    if (loading) return
     if (initialized && dialogStarted && messages.length === 0) ensureFirstMessage()
-  }, [storageLoaded, initialized, dialogStarted, messages.length, ensureFirstMessage])
+  }, [storageLoaded, initialized, dialogStarted, messages.length, loading, ensureFirstMessage])
 
   useEffect(() => {
     if (!storageLoaded) return
