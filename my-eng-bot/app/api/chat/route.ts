@@ -3,8 +3,8 @@ import type { ChatMessage } from '@/lib/types'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const FREE_MODEL = 'openrouter/free'
-/** Максимум сообщений диалога в запросе (user+assistant). Ограничивает длину промпта, чтобы не превысить лимит контекста модели. */
-const MAX_MESSAGES_IN_CONTEXT = 10
+/** Максимум сообщений в запросе (user+assistant). У openrouter/free малый контекст — только последний обмен. */
+const MAX_MESSAGES_IN_CONTEXT = 2
 
 const LEVEL_PROMPTS: Record<string, string> = {
   starter:
@@ -63,31 +63,10 @@ function buildSystemPrompt(params: {
   const topicName = TOPIC_NAMES[topic] ?? 'general'
   const sentenceTypeName = sentenceType ? SENTENCE_TYPE_NAMES[sentenceType] ?? 'mixed' : 'mixed'
 
-  const correctionRule =
-    'When the user makes grammar or tense mistakes, add a short block at the start of your reply in this exact format: **Correction:** [What they used]. [Correct option]. Example: [one short example]. Then continue your normal reply in English.'
-
   if (mode === 'translation') {
-    const tenseInstruction = tense === 'all' ? 'Use any grammar tense.' : `Use grammar tense: ${tenseName}.`
-    return `You are an English translation coach. Your role:
-- Give the student ONE sentence in Russian to translate into English. The sentence type must be: ${sentenceTypeName}. Keep topic around: ${topicName}. ${tenseInstruction} ${levelPrompt}
-- CRITICAL — First message only: when there are no messages from the student yet, do NOT greet, do NOT ask "what shall we talk about" or similar. Immediately output ONE sentence in Russian to translate, then "Переведи на английский." Example: "Сегодня хорошая погода. Переведи на английский."
-- When you give a Russian sentence to translate: write only the sentence, then always end with a short invitation in Russian, e.g. "Переведи на английский." No greetings, no extra text.
-- After the student replies with their English translation, reply in plain text (no markers, no blocks):
-  * If the translation is CORRECT: one short praise in English (e.g. "Well done!"), then on a new line the next Russian sentence, then "Переведи на английский."
-  * If the translation has ERRORS: one brief sentence in English with the correct form or a short tip (e.g. "Use 'works' for he/she: He works in the office."), then on a new line the next Russian sentence, then "Переведи на английский."
-- One short comment only. No **Correction:**, no **Right:**, no lists. Just: comment + next sentence + invitation.`
+    return `Translate coach. ${topicName}, ${levelPrompt}, ${sentenceTypeName}. First: one RU sentence + "Переведи на английский." After reply: praise or tip + next RU + "Переведи на английский." Short only.`
   }
-
-  const tenseInstruction =
-    tense === 'all'
-      ? 'Use any tenses naturally in the conversation; no focus on a specific tense.'
-      : `Focus the conversation so the student naturally uses ${tenseName}; you use it in your replies where natural.`
-  return `You are a friendly English tutor. Have a natural conversation in English with the student.
-- Topic: ${topicName}. ${levelPrompt}
-- ${tenseInstruction}
-- ${correctionRule}
-- CRITICAL: Every reply must be 1–2 short sentences only. Never write multiple paragraphs. Never list options (e.g. "contemporary, hip-hop, ballroom"). Ask only ONE simple question per message. No long introductions.
-- When you start the conversation (your first message): open with one short, friendly question that fits the topic and invites the user to answer. Make it interesting and easy to reply to — so the dialogue gets going naturally.`
+  return `English tutor. ${topicName}. ${levelPrompt}. ${tense === 'all' ? 'Any tense.' : tenseName + '.'} Reply 1–2 sentences. If mistake: **Correction:** [wrong]→[right]. Then reply. First: one short question.`
 }
 
 function normalizeKey(key: string): string {
@@ -154,7 +133,7 @@ export async function POST(req: NextRequest) {
       if (res.status === 401) {
         userMessage = 'Неверный ключ OpenRouter. Проверьте ключ в меню настроек.'
       } else if (res.status === 429) {
-        userMessage = 'Превышен лимит запросов. Подождите немного и попробуйте снова.'
+        userMessage = 'Превышен лимит запросов OpenRouter. На бесплатном тарифе: не более 200 запросов в день и 20 в минуту. Подождите минуту или попробуйте завтра.'
       } else {
         userMessage = 'Сервис ИИ временно недоступен. Проверьте сеть и ключ в меню, попробуйте позже.'
       }

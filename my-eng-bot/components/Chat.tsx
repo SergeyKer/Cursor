@@ -53,6 +53,7 @@ export default function Chat({
     if (recognitionRef.current) {
       recognitionRef.current.abort()
     }
+    setInput('')
     const rec = new SpeechRecognitionAPI()
     rec.lang = 'en-US'
     rec.continuous = false
@@ -60,7 +61,7 @@ export default function Chat({
     rec.onresult = (event: SpeechRecognitionEvent) => {
       const last = event.results.length - 1
       const text = event.results[last]?.[0]?.transcript ?? ''
-      if (text) setInput((prev) => (prev ? prev + ' ' : '') + text)
+      if (text) setInput(text)
     }
     rec.onend = () => setListening(false)
     rec.onerror = () => setListening(false)
@@ -253,10 +254,11 @@ function MessageBubble({
           <>
             {correction && (
               <div
-                className="mb-1.5 rounded-md border border-amber-500/50 bg-[var(--correction-bg)] px-2.5 py-1.5 text-sm"
+                className="mb-1.5 rounded-md border border-amber-400/60 border-l-4 border-l-amber-500 bg-[var(--correction-bg)] px-2.5 py-1.5 text-sm shadow-sm"
                 role="alert"
               >
-                <strong>Исправление:</strong> {correction}
+                <span className="font-semibold text-amber-800">Исправление:</span>{' '}
+                <span className="text-amber-900">{correction}</span>
               </div>
             )}
             {(mainText || invitationText) && (

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import SlideOutMenu, { MenuIcon } from '@/components/SlideOutMenu'
 import Chat from '@/components/Chat'
 import { loadState, saveState, getOpenRouterKey, getUsageCountToday, incrementUsageToday } from '@/lib/storage'
+import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES } from '@/lib/constants'
 import type { ChatMessage, Settings, UsageInfo } from '@/lib/types'
 
 export default function Home() {
@@ -64,11 +65,18 @@ export default function Home() {
           signal: controller.signal,
         })
         clearTimeout(timeoutId)
-        const data = (await res.json()) as { content?: string; error?: string }
+        let data: { content?: string; error?: string }
+        try {
+          data = (await res.json()) as { content?: string; error?: string }
+        } catch {
+          throw new Error(res.ok ? 'Неверный ответ сервера.' : `Ошибка ${res.status}: ${res.statusText}`)
+        }
         const text = (data.content ?? '').trim()
         if (!res.ok) {
-          const err = data as { error?: string }
-          throw new Error(err.error || res.statusText)
+          throw new Error((data as { error?: string }).error || res.statusText)
+        }
+        if (data.error && !text) {
+          throw new Error(data.error)
         }
         if (text) return text
         return EMPTY_RESPONSE_FALLBACK
@@ -77,6 +85,9 @@ export default function Home() {
         if (e instanceof Error) {
           if (e.name === 'AbortError') {
             throw new Error('Ответ занял слишком много времени. Проверьте сеть и попробуйте снова.')
+          }
+          if (e.message === 'Failed to fetch' || e.name === 'TypeError') {
+            throw new Error('Нет связи с сервером. Проверьте интернет и ключ в меню.')
           }
           throw e
         }
@@ -94,6 +105,7 @@ export default function Home() {
       content.startsWith('Диалог слишком длинный') ||
       content.startsWith('Ответ занял слишком много времени') ||
       content.startsWith('Не удалось получить ответ') ||
+      content.startsWith('Укажите ключ') ||
       content.startsWith('Неверный ключ') ||
       content.startsWith('Превышен лимит') ||
       content.startsWith('Сервис ИИ временно')
@@ -139,7 +151,8 @@ export default function Home() {
     } catch (e) {
       console.error(e)
       if (requestId !== firstMessageRequestIdRef.current) return
-      setMessages([{ role: 'assistant', content: ERROR_FIRST_MESSAGE }])
+      const errMsg = e instanceof Error ? e.message : ERROR_FIRST_MESSAGE
+      setMessages([{ role: 'assistant', content: errMsg }])
       setDialogStarted(true)
       if (isNewDialog) newDialogRef.current = false
     } finally {
@@ -157,7 +170,8 @@ export default function Home() {
       await fetchUsage()
     } catch (e) {
       console.error(e)
-      setMessages([{ role: 'assistant', content: ERROR_FIRST_MESSAGE }])
+      const errMsg = e instanceof Error ? e.message : ERROR_FIRST_MESSAGE
+      setMessages([{ role: 'assistant', content: errMsg }])
     } finally {
       setLoading(false)
     }
@@ -240,7 +254,7 @@ export default function Home() {
         <button
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
-          className="btn-3d flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-r-md border-[3px] border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] ring-4 ring-neutral-500/80 ring-offset-2 ring-offset-[var(--bg)] hover:bg-[var(--border)] touch-manipulation"
+          className="flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-r-md border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-sm transition-colors hover:bg-[var(--border)] touch-manipulation"
           aria-label={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
           title={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
         >
@@ -262,16 +276,80 @@ export default function Home() {
             <p className="text-[var(--text-muted)]">Загрузка…</p>
           </div>
         ) : !dialogStarted ? (
-          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-8 px-4">
-            <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-5 shadow-sm">
+          <div className="flex min-h-0 flex-1 flex-col items-center gap-6 bg-white px-4 pt-6 pb-8">
+            <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-4 shadow-sm">
               <p className="text-center text-[var(--text)] text-[15px] leading-relaxed">
-                Помощник для практики английского: диалог или тренировка перевода. Настройте тему и уровень в меню.
+                Помощник для практики английского: диалог или тренировка перевода.
               </p>
+            </div>
+            <div className="w-full max-w-xs rounded-2xl border border-[var(--border)] bg-[#e8ecf0] px-4 py-4 shadow-sm space-y-3">
+              <h2 className="text-sm font-semibold text-[var(--text)] mb-0.5">Выбери режим</h2>
+              <div>
+                <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Режим</label>
+                <select
+                  value={settings.mode}
+                  onChange={(e) => setSettings((s) => ({ ...s, mode: e.target.value as Settings['mode'] }))}
+                  className="w-full rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)]"
+                >
+                  <option value="dialogue">Диалог</option>
+                  <option value="translation">Тренировка перевода</option>
+                </select>
+              </div>
+              {settings.mode === 'translation' && (
+                <div>
+                  <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Тип предложений</label>
+                  <select
+                    value={settings.sentenceType}
+                    onChange={(e) => setSettings((s) => ({ ...s, sentenceType: e.target.value as Settings['sentenceType'] }))}
+                    className="w-full rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)]"
+                  >
+                    {SENTENCE_TYPES.map((t) => (
+                      <option key={t.id} value={t.id}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Тема</label>
+                <select
+                  value={settings.topic}
+                  onChange={(e) => setSettings((s) => ({ ...s, topic: e.target.value as Settings['topic'] }))}
+                  className="w-full rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)]"
+                >
+                  {TOPICS.map((t) => (
+                    <option key={t.id} value={t.id}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Уровень</label>
+                <select
+                  value={settings.level}
+                  onChange={(e) => setSettings((s) => ({ ...s, level: e.target.value as Settings['level'] }))}
+                  className="w-full rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)]"
+                >
+                  {LEVELS.map((l) => (
+                    <option key={l.id} value={l.id}>{l.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Время</label>
+                <select
+                  value={settings.tense}
+                  onChange={(e) => setSettings((s) => ({ ...s, tense: e.target.value as Settings['tense'] }))}
+                  className="w-full rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)]"
+                >
+                  {TENSES.map((t) => (
+                    <option key={t.id} value={t.id}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <button
               type="button"
               onClick={() => setDialogStarted(true)}
-              className="btn-3d rounded-xl bg-[var(--accent)] px-8 py-3 text-lg font-medium text-white hover:bg-[var(--accent-hover)]"
+              className="flex w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-8 py-3 text-lg font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
             >
               {settings.mode === 'dialogue' ? 'Начать диалог' : 'Начать тренировку перевода'}
             </button>

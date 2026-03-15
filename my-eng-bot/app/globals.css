@@ -35,7 +35,7 @@ body {
   min-height: 100dvh;
 }
 
-/* Кнопки: лёгкий 3D и тени */
+/* Кнопки: лёгкий объём — тень и небольшой подъём/нажатие */
 .btn-3d {
   box-shadow: var(--shadow);
   transition: transform 0.15s ease, box-shadow 0.15s ease;

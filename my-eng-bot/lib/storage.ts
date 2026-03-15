@@ -124,7 +124,7 @@ export function getOpenRouterKey(): string {
 export function setOpenRouterKey(key: string): void {
   if (typeof window === 'undefined') return
   try {
-    const trimmed = key.trim()
+    const trimmed = key.trim().split(/[\r\n]/)[0].trim()
     if (trimmed) localStorage.setItem(OPENROUTER_KEY_STORAGE, trimmed)
     else localStorage.removeItem(OPENROUTER_KEY_STORAGE)
   } catch {
