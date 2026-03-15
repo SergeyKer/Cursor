@@ -77,15 +77,11 @@ function normalizeKey(key: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const rawKey =
-      req.headers.get('x-openrouter-key')?.trim() ||
-      process.env.OPENROUTER_API_KEY ||
-      ''
-    const key = normalizeKey(rawKey)
+    const key = normalizeKey(process.env.OPENROUTER_API_KEY ?? '')
     if (!key) {
       return NextResponse.json(
-        { error: 'Укажите ключ OpenRouter в меню настроек или в OPENROUTER_API_KEY' },
-        { status: 400 }
+        { error: 'На сервере не задан OPENROUTER_API_KEY' },
+        { status: 500 }
       )
     }
 

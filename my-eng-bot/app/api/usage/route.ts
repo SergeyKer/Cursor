@@ -13,11 +13,7 @@ function normalizeKey(key: string): string {
 
 export async function GET(req: NextRequest) {
   try {
-    const rawKey =
-      req.headers.get('x-openrouter-key')?.trim() ||
-      process.env.OPENROUTER_API_KEY ||
-      ''
-    const key = normalizeKey(rawKey)
+    const key = normalizeKey(process.env.OPENROUTER_API_KEY ?? '')
     if (!key) {
       return NextResponse.json(
         { used: 0, limit: FREE_LIMIT_NO_CREDITS },

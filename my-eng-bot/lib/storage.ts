@@ -1,11 +1,9 @@
 import type { StoredState, Settings, ChatMessage } from './types'
 
 const STORAGE_KEY = 'my-eng-bot-state'
-export const OPENROUTER_KEY_STORAGE = 'my-eng-bot-openrouter-key'
 const USAGE_COUNT_STORAGE = 'my-eng-bot-usage-today'
 
 const LEGACY_STORAGE_KEY = 'eng-bot-state'
-const LEGACY_OPENROUTER_KEY = 'eng-bot-openrouter-key'
 const LEGACY_USAGE_KEY = 'eng-bot-usage-today'
 
 function migrateStorageIfNeeded(): void {
@@ -16,13 +14,6 @@ function migrateStorageIfNeeded(): void {
       if (legacy) {
         localStorage.setItem(STORAGE_KEY, legacy)
         localStorage.removeItem(LEGACY_STORAGE_KEY)
-      }
-    }
-    if (!localStorage.getItem(OPENROUTER_KEY_STORAGE)) {
-      const legacy = localStorage.getItem(LEGACY_OPENROUTER_KEY)
-      if (legacy) {
-        localStorage.setItem(OPENROUTER_KEY_STORAGE, legacy)
-        localStorage.removeItem(LEGACY_OPENROUTER_KEY)
       }
     }
     if (!localStorage.getItem(USAGE_COUNT_STORAGE)) {
@@ -106,27 +97,6 @@ export function incrementUsageToday(): void {
       if (parsed.date === date) count = typeof parsed.count === 'number' ? parsed.count : 0
     }
     localStorage.setItem(USAGE_COUNT_STORAGE, JSON.stringify({ date, count: count + 1 }))
-  } catch {
-    // ignore
-  }
-}
-
-export function getOpenRouterKey(): string {
-  if (typeof window === 'undefined') return ''
-  try {
-    const raw = localStorage.getItem(OPENROUTER_KEY_STORAGE) ?? ''
-    return raw.trim()
-  } catch {
-    return ''
-  }
-}
-
-export function setOpenRouterKey(key: string): void {
-  if (typeof window === 'undefined') return
-  try {
-    const trimmed = key.trim().split(/[\r\n]/)[0].trim()
-    if (trimmed) localStorage.setItem(OPENROUTER_KEY_STORAGE, trimmed)
-    else localStorage.removeItem(OPENROUTER_KEY_STORAGE)
   } catch {
     // ignore
   }

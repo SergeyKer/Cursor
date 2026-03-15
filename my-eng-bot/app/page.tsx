@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import SlideOutMenu, { MenuIcon } from '@/components/SlideOutMenu'
 import Chat from '@/components/Chat'
-import { loadState, saveState, getOpenRouterKey, getUsageCountToday, incrementUsageToday } from '@/lib/storage'
+import { loadState, saveState, getUsageCountToday, incrementUsageToday } from '@/lib/storage'
 import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES } from '@/lib/constants'
 import type { ChatMessage, Settings, UsageInfo } from '@/lib/types'
 
@@ -24,10 +24,7 @@ export default function Home() {
 
   const fetchUsage = useCallback(async () => {
     try {
-      const key = getOpenRouterKey()
-      const res = await fetch('/api/usage', {
-        headers: key ? { 'X-OpenRouter-Key': key } : {},
-      })
+      const res = await fetch('/api/usage')
       const data = (await res.json()) as UsageInfo
       const limit = data.limit ?? 50
       const used = getUsageCountToday()
@@ -39,21 +36,18 @@ export default function Home() {
 
   const API_TIMEOUT_MS = 60_000
   const ERROR_FIRST_MESSAGE =
-    'Не удалось загрузить ответ. Укажите ключ OpenRouter в меню настроек и проверьте сеть.'
+    'Не удалось загрузить ответ. Проверьте сеть и настройки сервера.'
   const EMPTY_RESPONSE_FALLBACK =
-    'ИИ не отвечает. Проверьте ключ в меню и сеть, попробуйте снова.'
+    'ИИ не отвечает. Проверьте сеть и попробуйте снова.'
 
   const sendToApi = useCallback(
     async (apiMessages: ChatMessage[]) => {
-      const key = getOpenRouterKey()
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (key) headers['X-OpenRouter-Key'] = key
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
       try {
         const res = await fetch('/api/chat', {
           method: 'POST',
-          headers,
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             messages: apiMessages.map((m) => ({ role: m.role, content: m.content })),
             topic: settings.topic,
@@ -105,7 +99,7 @@ export default function Home() {
       content.startsWith('Диалог слишком длинный') ||
       content.startsWith('Ответ занял слишком много времени') ||
       content.startsWith('Не удалось получить ответ') ||
-      content.startsWith('Укажите ключ') ||
+      content.includes('OPENROUTER_API_KEY') ||
       content.startsWith('Неверный ключ') ||
       content.startsWith('Превышен лимит') ||
       content.startsWith('Сервис ИИ временно')
@@ -378,7 +372,6 @@ export default function Home() {
         settings={settings}
         onSettingsChange={setSettings}
         usage={usage}
-        onKeyChange={fetchUsage}
         onNewDialog={handleNewDialog}
       />
     </div>

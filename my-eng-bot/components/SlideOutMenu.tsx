@@ -2,7 +2,6 @@
 
 import React from 'react'
 import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES } from '@/lib/constants'
-import { getOpenRouterKey, setOpenRouterKey } from '@/lib/storage'
 import type { Settings, UsageInfo } from '@/lib/types'
 
 interface SlideOutMenuProps {
@@ -11,7 +10,6 @@ interface SlideOutMenuProps {
   settings: Settings
   onSettingsChange: (s: Settings) => void
   usage: UsageInfo
-  onKeyChange?: () => void
   onNewDialog?: () => void
   /** Не рендерить встроенную кнопку (кнопка вынесена в шапку страницы) */
   hideButton?: boolean
@@ -23,57 +21,20 @@ export default function SlideOutMenu({
   settings,
   onSettingsChange,
   usage,
-  onKeyChange,
   onNewDialog,
   hideButton = false,
 }: SlideOutMenuProps) {
-  const [keyInput, setKeyInput] = React.useState('')
-  const [keyFocused, setKeyFocused] = React.useState(false)
-  const [keySavedHint, setKeySavedHint] = React.useState(false)
-  const [keyFormExpanded, setKeyFormExpanded] = React.useState(false)
   const [mounted, setMounted] = React.useState(false)
 
   React.useEffect(() => {
     setMounted(true)
   }, [])
 
-  React.useEffect(() => {
-    if (open && !keyFocused) {
-      const stored = getOpenRouterKey()
-      setKeyInput(stored ? '••••••••••••' : '')
-      setKeyFormExpanded(!stored)
-    }
-  }, [open, keyFocused])
-
   const update = (patch: Partial<Settings>) => {
     onSettingsChange({ ...settings, ...patch })
   }
 
   const atLimit = usage.limit > 0 && usage.used >= usage.limit
-
-  const saveKey = () => {
-    const trimmed = keyInput.trim()
-    const isMask = trimmed === '••••••••••••'
-    if (trimmed && !isMask) {
-      setOpenRouterKey(trimmed)
-      setKeySavedHint(true)
-      setTimeout(() => setKeySavedHint(false), 2000)
-      setKeyInput('••••••••••••')
-      setKeyFormExpanded(false)
-    } else if (!trimmed) {
-      setOpenRouterKey('')
-      setKeyInput('')
-    } else if (isMask) {
-      setKeyInput('••••••••••••')
-    }
-    setKeyFocused(false)
-    onKeyChange?.()
-  }
-
-  const handleKeyBlur = () => {
-    setKeyFocused(false)
-    saveKey()
-  }
 
   return (
     <>
@@ -230,58 +191,6 @@ export default function SlideOutMenu({
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-[var(--border)] pt-3">
-            {keyFormExpanded ? (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-[var(--text-muted)]">Ключ OpenRouter</span>
-                  <button
-                    type="button"
-                    onClick={() => setKeyFormExpanded(false)}
-                    className="text-[10px] text-[var(--text-muted)] underline hover:text-[var(--text)]"
-                  >
-                    Свернуть
-                  </button>
-                </div>
-                <div className="flex gap-1.5">
-                  <input
-                    type="password"
-                    value={keyInput}
-                    onChange={(e) => setKeyInput(e.target.value)}
-                    onFocus={() => {
-                      setKeyFocused(true)
-                      setKeyInput(getOpenRouterKey())
-                    }}
-                    onBlur={handleKeyBlur}
-                    placeholder="sk-or-v1-..."
-                    className="min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-2 min-h-[44px] text-base text-[var(--text)] placeholder:text-[var(--text-muted)] touch-manipulation"
-                    autoComplete="off"
-                  />
-                  <button
-                    type="button"
-                    onClick={saveKey}
-                    className="btn-3d shrink-0 rounded border border-[var(--border)] bg-[var(--accent)] px-2.5 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)]"
-                  >
-                    Сохранить
-                  </button>
-                </div>
-                {keySavedHint && (
-                  <p className="text-xs text-green-600">Ключ сохранён</p>
-                )}
-                <p className="text-[10px] text-[var(--text-muted)]">
-                  Хранится только в браузере.
-                </p>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setKeyFormExpanded(true)}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-2 text-left text-xs text-[var(--text-muted)] hover:bg-[var(--border)]/30 hover:text-[var(--text)]"
-              >
-                Ввести ключ
-              </button>
-            )}
-          </div>
         </div>
       </aside>
     </>
