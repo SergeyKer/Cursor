@@ -37,6 +37,10 @@ export default function Home() {
   }, [])
 
   const API_TIMEOUT_MS = 60_000
+  const ERROR_FIRST_MESSAGE =
+    'Не удалось загрузить ответ. Укажите ключ OpenRouter в меню настроек и проверьте сеть.'
+  const EMPTY_RESPONSE_FALLBACK =
+    'ИИ не отвечает. Проверьте ключ в меню и сеть, попробуйте снова.'
 
   const sendToApi = useCallback(
     async (apiMessages: ChatMessage[]) => {
@@ -67,9 +71,7 @@ export default function Home() {
         const data = (await res.json()) as { content?: string }
         const text = (data.content ?? '').trim()
         if (text) return text
-        return settings.mode === 'translation'
-          ? 'ИИ не отвечает. Проверьте ключ в меню и сеть, попробуйте снова.'
-          : 'Привет! О чём поговорим?'
+        return EMPTY_RESPONSE_FALLBACK
       } catch (e) {
         clearTimeout(timeoutId)
         if (e instanceof Error) {
@@ -83,9 +85,6 @@ export default function Home() {
     },
     [settings]
   )
-
-  const ERROR_FIRST_MESSAGE =
-    'Не удалось загрузить ответ. Укажите ключ OpenRouter в меню настроек и проверьте сеть.'
 
   const isErrorMessage = useCallback((content: string) => {
     return (
@@ -129,7 +128,7 @@ export default function Home() {
       const content = await sendToApi([])
       if (requestId !== firstMessageRequestIdRef.current) return
       incrementUsageToday()
-      const firstContent = (content ?? '').trim() || (settings.mode === 'translation' ? 'ИИ не отвечает. Проверьте ключ в меню и сеть, попробуйте снова.' : 'Привет! О чём поговорим?')
+      const firstContent = (content ?? '').trim() || EMPTY_RESPONSE_FALLBACK
       setMessages((prev) =>
         prev.length > 0 ? prev : [{ role: 'assistant', content: firstContent }]
       )

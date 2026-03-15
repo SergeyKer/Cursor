@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES, CARD_BG_PRESETS } from '@/lib/constants'
+import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES } from '@/lib/constants'
 import { getOpenRouterKey, setOpenRouterKey } from '@/lib/storage'
 import type { Settings, UsageInfo } from '@/lib/types'
 
@@ -213,25 +213,6 @@ export default function SlideOutMenu({
                 value={settings.voiceId}
                 onChange={(voiceId) => update({ voiceId })}
               />
-            </div>
-
-            <div>
-              <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
-                Фон карточки
-              </label>
-              <select
-                value={settings.cardBg}
-                onChange={(e) =>
-                  update({ cardBg: e.target.value as Settings['cardBg'] })
-                }
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] touch-manipulation"
-              >
-                {CARD_BG_PRESETS.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
             </div>
 
             <div className="rounded bg-[var(--border)]/50 px-2 py-1.5">

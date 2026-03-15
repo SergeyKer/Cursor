@@ -44,7 +44,6 @@ const DEFAULT_SETTINGS: Settings = {
   level: 'a1',
   tense: 'present_simple',
   voiceId: '',
-  cardBg: 'card',
 }
 
 export function loadState(): StoredState {

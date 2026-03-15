@@ -41,8 +41,6 @@ export type TopicId =
   | 'technology'
   | 'free_talk'
 
-export type CardBgId = 'white' | 'gray' | 'card' | 'cream' | 'blue'
-
 export interface Settings {
   mode: AppMode
   sentenceType: SentenceType
@@ -50,7 +48,6 @@ export interface Settings {
   level: LevelId
   tense: TenseId
   voiceId: string
-  cardBg: CardBgId
 }
 
 export interface UsageInfo {

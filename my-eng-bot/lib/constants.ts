@@ -1,12 +1,4 @@
-import type { TopicId, LevelId, TenseId, SentenceType, CardBgId } from './types'
-
-export const CARD_BG_PRESETS: { id: CardBgId; label: string }[] = [
-  { id: 'white', label: 'Белый' },
-  { id: 'gray', label: 'Светло-серый' },
-  { id: 'card', label: 'Как карточка' },
-  { id: 'cream', label: 'Кремовый' },
-  { id: 'blue', label: 'Голубоватый' },
-]
+import type { TopicId, LevelId, TenseId, SentenceType } from './types'
 
 export const TOPICS: { id: TopicId; label: string }[] = [
   { id: 'travel', label: 'Путешествия' },
