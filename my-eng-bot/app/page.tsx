@@ -20,6 +20,14 @@ export default function Home() {
   const newDialogRef = React.useRef(false)
   const firstMessageRequestIdRef = React.useRef(0)
 
+  React.useEffect(() => {
+    if (!dialogStarted || typeof window === 'undefined') return
+    const id = requestAnimationFrame(() => {
+      window.scrollTo(0, 0)
+    })
+    return () => cancelAnimationFrame(id)
+  }, [dialogStarted])
+
   const atLimit = usage.limit > 0 && usage.used >= usage.limit
 
   const fetchUsage = useCallback(async () => {
