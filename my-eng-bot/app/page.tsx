@@ -167,9 +167,9 @@ export default function Home() {
     const state = loadState()
     if (!initialLoadDoneRef.current) {
       initialLoadDoneRef.current = true
-      setMessages(state.messages)
+      setMessages([])
       setSettings(state.settings)
-      setDialogStarted(state.messages.length > 0)
+      setDialogStarted(false)
     }
     fetchUsage()
     setInitialized(true)
@@ -220,11 +220,13 @@ export default function Home() {
     }, 0)
   }, [ensureFirstMessage])
 
-  const pageTitle = storageLoaded
-    ? settings.mode === 'dialogue'
-      ? 'Диалог'
-      : 'Тренировка перевода'
-    : 'My Eng Bot'
+  const pageTitle = !dialogStarted
+    ? 'My Eng Bot — мой английский друг'
+    : storageLoaded
+      ? settings.mode === 'dialogue'
+        ? 'Диалог'
+        : 'Тренировка перевода'
+      : 'My Eng Bot'
 
   return (
     <div className="flex min-h-screen min-h-[100dvh] flex-col">
@@ -261,10 +263,12 @@ export default function Home() {
             <p className="text-[var(--text-muted)]">Загрузка…</p>
           </div>
         ) : !dialogStarted ? (
-          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-4">
-            <p className="text-center text-[var(--text-muted)]">
-              Помощник для практики английского: диалог или тренировка перевода. Настройте тему и уровень в меню.
-            </p>
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-8 px-4">
+            <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-5 shadow-sm">
+              <p className="text-center text-[var(--text)] text-[15px] leading-relaxed">
+                Помощник для практики английского: диалог или тренировка перевода. Настройте тему и уровень в меню.
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => setDialogStarted(true)}
