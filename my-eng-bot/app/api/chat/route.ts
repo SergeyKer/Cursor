@@ -3,10 +3,10 @@ import type { ChatMessage } from '@/lib/types'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const FREE_MODEL = 'openrouter/free'
-/** Максимум сообщений в контексте (user+assistant). Для короткой игры хватает последнего обмена. */
-const MAX_MESSAGES_IN_CONTEXT = 2
-/** Лимит токенов ответа. 120 обрезало ответы; для 1–2 коротких фраз хватает 200. */
-const MAX_RESPONSE_TOKENS = 200
+/** Максимум сообщений в контексте (user+assistant). 4 = два последних обмена. */
+const MAX_MESSAGES_IN_CONTEXT = 4
+/** Лимит токенов ответа. С запасом на перевод **RU:** после основного текста. */
+const MAX_RESPONSE_TOKENS = 280
 
 const LEVEL_PROMPTS: Record<string, string> = {
   starter:
@@ -66,9 +66,19 @@ function buildSystemPrompt(params: {
   const sentenceTypeName = sentenceType ? SENTENCE_TYPE_NAMES[sentenceType] ?? 'mixed' : 'mixed'
 
   if (mode === 'translation') {
-    return `Translate: ${topicName}, ${levelPrompt}, ${sentenceTypeName}. One RU sentence, then "Переведи на английский." Reply: short praise or tip + next sentence. Keep very short.`
+    return `Translation training. Topic: ${topicName}, ${levelPrompt}, ${sentenceTypeName}.
+
+When the conversation is empty (you are sending the first message): output ONLY one Russian sentence and "Переведи на английский." Do NOT add praise, commentary, or the correct English translation. The user must answer first.
+
+When the user has already sent their translation (there is a user message after your last one): reply with short praise or a correction tip, then give the NEXT Russian sentence and "Переведи на английский." Do not repeat the correct English for the previous sentence. Keep very short.`
   }
-  return `English tutor. ${topicName}. ${levelPrompt}. ${tense === 'all' ? 'Any tense.' : tenseName + '.'} Reply in 1–2 short sentences. If error: **Correction:** [wrong]→[right]. Start with one short question.`
+  const tenseRule =
+    tense === 'all'
+      ? 'Any tense is fine.'
+      : `Strict: the user must answer in ${tenseName}. If they use another tense (e.g. you asked in Present Simple but they answered in Present Continuous), treat it as an error: give **Correction:** with the sentence in ${tenseName} and **Comment:** in Russian (e.g. that the answer must be in ${tenseName}). Do not say "Правильно" for a sentence that is in the wrong tense.`
+  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${tense === 'all' ? 'Any tense.' : 'Required tense: ' + tenseName + '.'} ${tenseRule} Keep the dialogue on topic: if the user's answer clearly doesn't fit (e.g. topic Food but they name a non-food like "table"), gently say so and ask for a fitting answer. Reply in 1–2 short sentences. If grammar/spelling or wrong tense: **Correction:** [wrong]→[right]. Optionally add **Comment:** with a short tip in Russian (e.g. rule or hint — always in Russian). Never use "Tell me" or other English instruction words. After a correction, use only Russian: "Скажи: " then the correct phrase in English (e.g. "Скажи: I have traveled to Belgium.") so the user repeats it. For the next question do not add "Скажи:" or "Tell me" — just ask the question in English (e.g. "What foods have you tried in Belgium?"). Start with one short question.
+
+Mandatory: at the very end of every reply add a new line, then the line "RU:" followed by a space and the Russian translation of your entire reply (the part the user sees). No other format: use exactly "RU: " then the translation. Example ending: "What is your favorite color?\\n\\nRU: Какой твой любимый цвет?"`
 }
 
 function normalizeKey(key: string): string {

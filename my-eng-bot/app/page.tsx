@@ -16,6 +16,9 @@ export default function Home() {
   const [initialized, setInitialized] = useState(false)
   const [dialogStarted, setDialogStarted] = useState(false)
   const [storageLoaded, setStorageLoaded] = useState(false)
+  const [retryMessage, setRetryMessage] = useState<string | null>(null)
+  const [loadingTranslationIndex, setLoadingTranslationIndex] = useState<number | null>(null)
+  const [translationRetryMessage, setTranslationRetryMessage] = useState<string | null>(null)
   const initialLoadDoneRef = React.useRef(false)
   const newDialogRef = React.useRef(false)
   const firstMessageRequestIdRef = React.useRef(0)
@@ -30,7 +33,8 @@ export default function Home() {
     return () => cancelAnimationFrame(id)
   }, [dialogStarted])
 
-  const atLimit = usage.limit > 0 && usage.used >= usage.limit
+  /** Ограничение лимитов отключено: отправка и перевод всегда доступны. */
+  const atLimit = false
 
   const fetchUsage = useCallback(async () => {
     try {
@@ -45,57 +49,136 @@ export default function Home() {
   }, [])
 
   const API_TIMEOUT_MS = 60_000
+  const MAX_ATTEMPTS = 3
+  const RETRY_DELAY_MS = 2500
+  /** При 429 OpenRouter даёт 20 запросов в минуту — пауза должна увести попытку в следующую минуту. */
+  const RETRY_DELAY_RATE_LIMIT_MS = 20_000
+  const RETRY_MESSAGES = ['Пробую ещё раз…', 'Вот-вот, почти!']
+
+  function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms))
+  }
   const ERROR_FIRST_MESSAGE =
     'Не удалось загрузить ответ. Проверьте сеть и настройки сервера.'
   const EMPTY_RESPONSE_FALLBACK =
     'ИИ не отвечает. Проверьте сеть и попробуйте снова.'
 
+  /** Убирает из текста буквальные \n (модель иногда выводит их как символы). */
+  function cleanNewlines(text: string): string {
+    return text.replace(/\\n/g, '\n').trim()
+  }
+
+  /** Выделяет из ответа ИИ основной текст и перевод (после **RU:**, RU:, или новой строки + кириллица). */
+  function parseContentWithTranslation(raw: string): { content: string; translation?: string } {
+    const s = raw.trim()
+    const markers = ['**RU:**', 'RU:', 'Russian:', 'Перевод:']
+    for (const marker of markers) {
+      const idx = s.indexOf(marker)
+      if (idx !== -1) {
+        const content = cleanNewlines(s.slice(0, idx))
+        const translation = cleanNewlines(s.slice(idx + marker.length))
+        if (translation) return { content, translation }
+      }
+    }
+    const lineRu = s.match(/\n\s*(RU|Russian|Перевод)\s*:\s*/i)
+    if (lineRu && lineRu.index !== undefined) {
+      const content = cleanNewlines(s.slice(0, lineRu.index))
+      const translation = cleanNewlines(s.slice(lineRu.index + lineRu[0].length))
+      if (translation) return { content, translation }
+    }
+    const lastLine = s.split(/\n/).pop()?.trim() ?? ''
+    if (lastLine && /[\u0400-\u04FF]/.test(lastLine) && !/[\u0400-\u04FF]/.test(s.slice(0, s.length - lastLine.length))) {
+      const content = cleanNewlines(s.slice(0, s.lastIndexOf(lastLine)))
+      return { content, translation: cleanNewlines(lastLine) }
+    }
+    return { content: cleanNewlines(s) }
+  }
+
+  function isRetryableError(message: string): boolean {
+    return (
+      message.startsWith('Превышен лимит') ||
+      message.startsWith('Диалог слишком длинный') ||
+      message.startsWith('Модель вернула пустой ответ') ||
+      message.startsWith('ИИ не отвечает') ||
+      message.startsWith('Ответ занял слишком много времени') ||
+      message.startsWith('Загрузка занимает слишком много времени')
+    )
+  }
+
   const sendToApi = useCallback(
-    async (apiMessages: ChatMessage[]) => {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
+    async (
+      apiMessages: ChatMessage[],
+      options?: { onRetryStatus?: (message: string | null) => void }
+    ) => {
+      const onRetryStatus = options?.onRetryStatus
+      let lastError: Error | null = null
       try {
-        const res = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: apiMessages.map((m) => ({ role: m.role, content: m.content })),
-            topic: settings.topic,
-            level: settings.level,
-            tense: settings.tense,
-            mode: settings.mode,
-            sentenceType: settings.sentenceType,
-          }),
-          signal: controller.signal,
-        })
-        clearTimeout(timeoutId)
-        let data: { content?: string; error?: string }
-        try {
-          data = (await res.json()) as { content?: string; error?: string }
-        } catch {
-          throw new Error(res.ok ? 'Неверный ответ сервера.' : `Ошибка ${res.status}: ${res.statusText}`)
-        }
-        const text = (data.content ?? '').trim()
-        if (!res.ok) {
-          throw new Error((data as { error?: string }).error || res.statusText)
-        }
-        if (data.error && !text) {
-          throw new Error(data.error)
-        }
-        if (text) return text
-        return EMPTY_RESPONSE_FALLBACK
-      } catch (e) {
-        clearTimeout(timeoutId)
-        if (e instanceof Error) {
-          if (e.name === 'AbortError') {
-            throw new Error('Ответ занял слишком много времени. Проверьте сеть и попробуйте снова.')
+        for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
+          try {
+            const res = await fetch('/api/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                messages: apiMessages.map((m) => ({ role: m.role, content: m.content })),
+                topic: settings.topic,
+                level: settings.level,
+                tense: settings.tense,
+                mode: settings.mode,
+                sentenceType: settings.sentenceType,
+              }),
+              signal: controller.signal,
+            })
+            clearTimeout(timeoutId)
+            let data: { content?: string; error?: string }
+            try {
+              data = (await res.json()) as { content?: string; error?: string }
+            } catch {
+              throw new Error(res.ok ? 'Неверный ответ сервера.' : `Ошибка ${res.status}: ${res.statusText}`)
+            }
+            const text = (data.content ?? '').trim()
+            if (!res.ok) {
+              const errMsg = (data as { error?: string }).error || res.statusText
+              throw new Error(errMsg)
+            }
+            if (data.error && !text) {
+              throw new Error(data.error)
+            }
+            if (text) return text
+            lastError = new Error(EMPTY_RESPONSE_FALLBACK)
+            const canRetryEmpty =
+              attempt < MAX_ATTEMPTS - 1 && isRetryableError(lastError.message)
+            if (!canRetryEmpty) throw lastError
+            onRetryStatus?.(RETRY_MESSAGES[attempt] ?? RETRY_MESSAGES[0])
+            await sleep(150)
+            await sleep(lastError.message.startsWith('Превышен лимит') ? RETRY_DELAY_RATE_LIMIT_MS : RETRY_DELAY_MS)
+            continue
+          } catch (e) {
+            clearTimeout(timeoutId)
+            const err =
+              e instanceof Error
+                ? e
+                : new Error(typeof e === 'string' ? e : 'Unknown error')
+            if (err.name === 'AbortError') {
+              lastError = new Error('Ответ занял слишком много времени. Проверьте сеть и попробуйте снова.')
+            } else if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+              lastError = new Error('Нет связи с сервером. Проверьте интернет и ключ в меню.')
+            } else {
+              lastError = err
+            }
+            const canRetry =
+              attempt < MAX_ATTEMPTS - 1 && isRetryableError(lastError.message)
+            if (!canRetry) throw lastError
+            onRetryStatus?.(RETRY_MESSAGES[attempt] ?? RETRY_MESSAGES[0])
+            await sleep(150)
+            const delayMs = lastError.message.startsWith('Превышен лимит') ? RETRY_DELAY_RATE_LIMIT_MS : RETRY_DELAY_MS
+            await sleep(delayMs)
           }
-          if (e.message === 'Failed to fetch' || e.name === 'TypeError') {
-            throw new Error('Нет связи с сервером. Проверьте интернет и ключ в меню.')
-          }
-          throw e
         }
-        throw e
+        throw lastError ?? new Error('Не удалось получить ответ.')
+      } finally {
+        onRetryStatus?.(null)
       }
     },
     [settings]
@@ -108,6 +191,7 @@ export default function Home() {
       content.startsWith('Модель вернула пустой ответ') ||
       content.startsWith('Диалог слишком длинный') ||
       content.startsWith('Ответ занял слишком много времени') ||
+      content.startsWith('Загрузка занимает слишком много времени') ||
       content.startsWith('Не удалось получить ответ') ||
       content.includes('OPENROUTER_API_KEY') ||
       content.startsWith('Неверный ключ') ||
@@ -125,10 +209,12 @@ export default function Home() {
     const toSend = messages.slice(0, -1)
     setMessages(toSend)
     setLoading(true)
+    setRetryMessage(null)
     try {
-      const content = await sendToApi(toSend)
+      const content = await sendToApi(toSend, { onRetryStatus: setRetryMessage })
       incrementUsageToday()
-      setMessages((prev) => [...prev, { role: 'assistant', content }])
+      const { content: main, translation } = parseContentWithTranslation(content)
+      setMessages((prev) => [...prev, { role: 'assistant', content: main, translation }])
       await fetchUsage()
     } catch (e) {
       console.error(e)
@@ -136,6 +222,7 @@ export default function Home() {
       setMessages((prev) => [...prev, { role: 'assistant', content: errText }])
     } finally {
       setLoading(false)
+      setRetryMessage(null)
     }
   }, [messages, sendToApi, fetchUsage])
 
@@ -145,12 +232,14 @@ export default function Home() {
     const requestId = ++firstMessageRequestIdRef.current
     const isNewDialog = newDialogRef.current
     setLoading(true)
+    setRetryMessage(null)
     try {
-      const content = await sendToApi([])
+      const content = await sendToApi([], { onRetryStatus: setRetryMessage })
       if (requestId !== firstMessageRequestIdRef.current) return
       incrementUsageToday()
       const firstContent = (content ?? '').trim() || EMPTY_RESPONSE_FALLBACK
-      setMessages([{ role: 'assistant', content: firstContent }])
+      const { content: main, translation } = parseContentWithTranslation(firstContent)
+      setMessages([{ role: 'assistant', content: main, translation }])
       setDialogStarted(true)
       if (isNewDialog) newDialogRef.current = false
       await fetchUsage()
@@ -163,7 +252,10 @@ export default function Home() {
       if (isNewDialog) newDialogRef.current = false
     } finally {
       firstMessageInFlightRef.current = false
-      if (requestId === firstMessageRequestIdRef.current) setLoading(false)
+      if (requestId === firstMessageRequestIdRef.current) {
+        setLoading(false)
+        setRetryMessage(null)
+      }
     }
   }, [sendToApi, fetchUsage])
 
@@ -171,11 +263,13 @@ export default function Home() {
     const requestId = ++firstMessageRequestIdRef.current
     setMessages([])
     setLoading(true)
+    setRetryMessage(null)
     try {
-      const content = await sendToApi([])
+      const content = await sendToApi([], { onRetryStatus: setRetryMessage })
       if (requestId !== firstMessageRequestIdRef.current) return
       incrementUsageToday()
-      setMessages([{ role: 'assistant', content }])
+      const { content: main, translation } = parseContentWithTranslation(content)
+      setMessages([{ role: 'assistant', content: main, translation }])
       await fetchUsage()
     } catch (e) {
       console.error(e)
@@ -183,7 +277,10 @@ export default function Home() {
       const errMsg = e instanceof Error ? e.message : ERROR_FIRST_MESSAGE
       setMessages([{ role: 'assistant', content: errMsg }])
     } finally {
-      if (requestId === firstMessageRequestIdRef.current) setLoading(false)
+      if (requestId === firstMessageRequestIdRef.current) {
+        setLoading(false)
+        setRetryMessage(null)
+      }
     }
   }, [sendToApi, fetchUsage])
 
@@ -221,9 +318,10 @@ export default function Home() {
       setMessages(nextMessages)
       setLoading(true)
       try {
-        const content = await sendToApi(nextMessages)
+        const content = await sendToApi(nextMessages, { onRetryStatus: setRetryMessage })
         incrementUsageToday()
-        setMessages((prev) => [...prev, { role: 'assistant', content }])
+        const { content: main, translation } = parseContentWithTranslation(content)
+        setMessages((prev) => [...prev, { role: 'assistant', content: main, translation }])
         await fetchUsage()
       } catch (e) {
         console.error(e)
@@ -243,6 +341,80 @@ export default function Home() {
       ensureFirstMessage()
     }, 50)
   }, [ensureFirstMessage])
+
+  function isRetryableTranslationError(message: string): boolean {
+    return (
+      message.startsWith('Превышен лимит') ||
+      message.startsWith('Модель вернула пустой перевод') ||
+      message.startsWith('Ответ занял слишком много времени') ||
+      message.startsWith('Нет связи с сервером') ||
+      message.startsWith('Не удалось загрузить перевод')
+    )
+  }
+
+  const handleRequestTranslation = useCallback(async (index: number, text: string) => {
+    if (!text.trim()) return
+    const setResult = (translation?: string, translationError?: string) => {
+      setMessages((prev) => {
+        const next = [...prev]
+        if (next[index]?.role === 'assistant') {
+          next[index] = { ...next[index], translation, translationError }
+        }
+        return next
+      })
+    }
+    setResult(undefined, undefined)
+    setLoadingTranslationIndex(index)
+    setTranslationRetryMessage(null)
+    let lastError: string = 'Не удалось загрузить перевод.'
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      if (attempt > 0) {
+        setTranslationRetryMessage(RETRY_MESSAGES[attempt - 1] ?? RETRY_MESSAGES[0])
+      }
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
+      try {
+        const res = await fetch('/api/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text.trim() }),
+          signal: controller.signal,
+        })
+        clearTimeout(timeoutId)
+        let data: { content?: string; error?: string }
+        try {
+          data = (await res.json()) as { content?: string; error?: string }
+        } catch {
+          lastError = res.status === 502 ? 'Модель вернула пустой перевод.' : 'Не удалось загрузить перевод.'
+          data = { error: lastError }
+        }
+        const content = data.content?.trim()
+        if (content && res.ok) {
+          setLoadingTranslationIndex(null)
+          setTranslationRetryMessage(null)
+          setResult(content)
+          return
+        }
+        lastError = data.error ?? (res.status === 502 ? 'Модель вернула пустой перевод.' : 'Не удалось загрузить перевод.')
+      } catch (e) {
+        clearTimeout(timeoutId)
+        const err = e instanceof Error ? e : new Error('Unknown error')
+        lastError =
+          err.name === 'AbortError'
+            ? 'Ответ занял слишком много времени. Проверьте сеть и попробуйте снова.'
+            : err.message === 'Failed to fetch' || err.name === 'TypeError'
+              ? 'Нет связи с сервером. Проверьте интернет и ключ в меню.'
+              : 'Не удалось загрузить перевод.'
+      }
+      const canRetry = attempt < MAX_ATTEMPTS - 1 && isRetryableTranslationError(lastError)
+      if (!canRetry) break
+      await sleep(150)
+      await sleep(lastError.startsWith('Превышен лимит') ? RETRY_DELAY_RATE_LIMIT_MS : RETRY_DELAY_MS)
+    }
+    setLoadingTranslationIndex(null)
+    setTranslationRetryMessage(null)
+    setResult(undefined, lastError)
+  }, [])
 
   const pageTitle = !dialogStarted
     ? 'My Eng Bot — мой английский друг'
@@ -288,11 +460,6 @@ export default function Home() {
           </div>
         ) : !dialogStarted ? (
           <div className="flex min-h-0 flex-1 flex-col items-center gap-6 bg-white px-4 pt-6 pb-8">
-            <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-4 shadow-sm">
-              <p className="text-center text-[var(--text)] text-[15px] leading-relaxed">
-                Помощник для практики английского: диалог или тренировка перевода.
-              </p>
-            </div>
             <div className="w-full max-w-xs rounded-2xl border border-[var(--border)] bg-[#e8ecf0] px-4 py-4 shadow-sm space-y-3">
               <h2 className="text-sm font-semibold text-[var(--text)] mb-0.5">Выбери режим</h2>
               <div>
@@ -377,6 +544,10 @@ export default function Home() {
             onRetryFirstMessage={retryFirstMessage}
             lastMessageIsError={lastMessageIsError}
             onRetryLastMessage={retryLastMessage}
+            retryMessage={retryMessage}
+            onRequestTranslation={handleRequestTranslation}
+            loadingTranslationIndex={loadingTranslationIndex}
+            translationRetryMessage={translationRetryMessage}
           />
           </div>
         )}

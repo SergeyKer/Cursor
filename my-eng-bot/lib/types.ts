@@ -3,6 +3,10 @@ export type ChatRole = 'user' | 'assistant' | 'system'
 export interface ChatMessage {
   role: ChatRole
   content: string
+  /** Русский перевод ответа ИИ (приходит в том же ответе после маркера **RU:**). */
+  translation?: string
+  /** Сообщение об ошибке при загрузке перевода по запросу. */
+  translationError?: string
 }
 
 export type AppMode = 'dialogue' | 'translation'

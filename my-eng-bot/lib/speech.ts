@@ -1,5 +1,12 @@
+/** Android / iOS — на мобильных всегда используем системный голос. */
+function isMobileVoice(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+}
+
 /**
  * TTS: воспроизведение текста выбранным голосом.
+ * На Android и iOS игнорирует voiceId и использует системный голос.
  */
 export function speak(text: string, voiceId: string): void {
   if (typeof window === 'undefined' || !window.speechSynthesis) return
@@ -7,7 +14,7 @@ export function speak(text: string, voiceId: string): void {
   const u = new SpeechSynthesisUtterance(text)
   u.lang = 'en-US'
   u.rate = 0.9
-  if (voiceId) {
+  if (voiceId && !isMobileVoice()) {
     const voices = window.speechSynthesis.getVoices()
     const voice = voices.find((v) => v.voiceURI === voiceId || v.name === voiceId)
     if (voice) u.voice = voice

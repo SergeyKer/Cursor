@@ -15,6 +15,10 @@ interface ChatProps {
   onRetryFirstMessage?: () => void
   lastMessageIsError?: boolean
   onRetryLastMessage?: () => void
+  retryMessage?: string | null
+  onRequestTranslation?: (index: number, text: string) => void
+  loadingTranslationIndex?: number | null
+  translationRetryMessage?: string | null
 }
 
 export default function Chat({
@@ -27,6 +31,10 @@ export default function Chat({
   onRetryFirstMessage,
   lastMessageIsError,
   onRetryLastMessage,
+  retryMessage,
+  onRequestTranslation,
+  loadingTranslationIndex,
+  translationRetryMessage,
 }: ChatProps) {
   const [input, setInput] = React.useState('')
   const [inputFocused, setInputFocused] = React.useState(false)
@@ -82,8 +90,25 @@ export default function Chat({
     setListening(false)
   }, [])
 
+  const formRef = useRef<HTMLFormElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  const INPUT_MAX_HEIGHT_PX = 200
+
+  const adjustInputHeight = useCallback(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    const h = Math.min(el.scrollHeight, INPUT_MAX_HEIGHT_PX)
+    el.style.height = `${h}px`
+  }, [])
+
+  React.useEffect(() => {
+    adjustInputHeight()
+  }, [input, adjustInputHeight])
+
   React.useEffect(() => {
     const el = scrollContainerRef.current
     if (!el) return
@@ -107,8 +132,12 @@ export default function Chat({
           <React.Fragment key={i}>
             <MessageBubble
               message={msg}
+              messageIndex={i}
               voiceId={settings.voiceId}
               mode={settings.mode}
+              onRequestTranslation={onRequestTranslation}
+              isLoadingTranslation={loadingTranslationIndex === i}
+              translationRetryMessage={loadingTranslationIndex === i ? translationRetryMessage : null}
             />
             {firstMessageError &&
               onRetryFirstMessage &&
@@ -153,18 +182,24 @@ export default function Chat({
           </React.Fragment>
         ))}
         {loading && messages.length > 0 && (
-          <div className="mt-1.5 flex justify-start">
+          <div className="mt-1.5 flex flex-col gap-1 justify-start">
             <span className="rounded-lg bg-[var(--border)] px-2.5 py-1.5 text-sm text-[var(--text-muted)]" title="Ожидание ответа от ИИ">
               ИИ печатает…
             </span>
+            {retryMessage && (
+              <span className="text-xs text-[var(--text-muted)]">
+                {retryMessage}
+              </span>
+            )}
           </div>
         )}
         <div ref={bottomRef} />
           </div>
 
           <form
+            ref={formRef}
             onSubmit={handleSubmit}
-            className="sticky bottom-0 z-10 mt-3 flex shrink-0 items-center gap-2 rounded-xl border border-[var(--border)] bg-[#f0f4ff] px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
+            className="sticky bottom-0 z-10 mt-3 flex shrink-0 items-center gap-2 rounded-xl border border-[var(--border)] bg-white px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
           >
         <button
           type="button"
@@ -183,16 +218,22 @@ export default function Chat({
             <MicIcon />
           )}
         </button>
-        <input
-          type="text"
+        <textarea
+          ref={textareaRef}
+          rows={1}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onFocus={() => setInputFocused(true)}
           onBlur={() => setInputFocused(false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              formRef.current?.requestSubmit()
+            }
+          }}
           placeholder={inputFocused ? '' : 'Напишите или нажмите микрофон...'}
-          className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-white px-4 py-2 min-h-[44px] text-[var(--text)] placeholder:text-[var(--text-muted)] text-base leading-[1.5rem]"
-          disabled={loading || atLimit}
-          enterKeyHint="send"
+          className="min-w-0 flex-1 resize-none overflow-y-auto rounded-lg border border-[var(--border)] bg-white px-4 py-2 min-h-[44px] text-[var(--text)] placeholder:text-[var(--text-muted)] text-base leading-[1.5rem] focus:outline-none focus:ring-0"
+          style={{ maxHeight: INPUT_MAX_HEIGHT_PX }}
         />
         <button
           type="submit"
@@ -208,84 +249,171 @@ export default function Chat({
   )
 }
 
-/** Выделяет приглашение к переводу в конце текста (режим «Тренировка перевода») */
-function splitInvitation(text: string): { main: string; invitation: string | null } {
-  const match = text.match(/\s+((?:Переведи|Переведите)[^.]*\.)\s*$/i)
-  if (!match) return { main: text, invitation: null }
-  const main = text.slice(0, text.length - match[0].length).trimEnd()
-  return { main, invitation: match[1].trim() }
+/** Выделяет приглашение «Переведи на английский» для курсива (режим «Тренировка перевода»). Ищет в любом месте текста. */
+function splitInvitation(text: string): {
+  mainBefore: string
+  invitation: string | null
+  mainAfter: string
+} {
+  const match = text.match(/\s+((?:Переведи|Переведите)[^.]*\.)/i)
+  if (!match || match.index === undefined) {
+    return { mainBefore: text, invitation: null, mainAfter: '' }
+  }
+  const invitation = match[1].trim()
+  const mainBefore = text.slice(0, match.index).trimEnd()
+  const mainAfter = text.slice(match.index + match[0].length).trimStart()
+  return { mainBefore, invitation, mainAfter }
 }
 
 function MessageBubble({
   message,
+  messageIndex,
   voiceId,
   mode,
+  onRequestTranslation,
+  isLoadingTranslation,
+  translationRetryMessage,
 }: {
   message: ChatMessageType
+  messageIndex: number
   voiceId: string
   mode: 'dialogue' | 'translation'
+  onRequestTranslation?: (index: number, text: string) => void
+  isLoadingTranslation?: boolean
+  translationRetryMessage?: string | null
 }) {
   const isUser = message.role === 'user'
-  const { correction, rest } =
-    message.role === 'assistant' ? parseCorrection(message.content) : { correction: null, rest: message.content }
+  const [showTranslation, setShowTranslation] = React.useState(false)
+  const translationRequestedRef = useRef(false)
+  const { correction, comment, rest } =
+    message.role === 'assistant' ? parseCorrection(message.content) : { correction: null, comment: null, rest: message.content }
 
-  const displayText = rest || message.content
+  const displayText = message.role === 'assistant' ? rest : message.content
   const isTranslationMode = mode === 'translation' && !isUser
-  const { main: mainText, invitation: invitationText } =
-    isTranslationMode && displayText ? splitInvitation(displayText) : { main: displayText, invitation: null }
+  const { mainBefore, invitation: invitationText, mainAfter } =
+    isTranslationMode && displayText
+      ? splitInvitation(displayText)
+      : { mainBefore: displayText ?? '', invitation: null as string | null, mainAfter: '' }
 
   const handleSpeak = () => {
-    const text = rest || message.content
+    const text = rest || (correction ?? '') || message.content
     if (text) speak(text, voiceId)
   }
 
-  const hasSpeakableText = !isUser && Boolean(rest || message.content)
-  const hasContent = isUser ? Boolean(message.content) : Boolean(correction || rest || message.content)
+  const textToTranslate = rest || (correction ?? '') || message.content
+  const hasSpeakableText = !isUser && Boolean(textToTranslate)
+  const hasTranslationData = !isUser && Boolean(message.translation)
+  const hasTranslationError = !isUser && Boolean(message.translationError)
+  const hasTranslationButton = !isUser && mode !== 'translation'
+  const hasContent = isUser ? Boolean(message.content) : Boolean(correction || comment || mainBefore || mainAfter || invitationText || rest || message.content || message.translation)
   if (!hasContent) return null
+
+  React.useEffect(() => {
+    if (!showTranslation) {
+      translationRequestedRef.current = false
+      return
+    }
+    if (hasTranslationData || !onRequestTranslation || !textToTranslate.trim()) return
+    if (translationRequestedRef.current) return
+    translationRequestedRef.current = true
+    onRequestTranslation(messageIndex, textToTranslate)
+  }, [showTranslation, hasTranslationData, onRequestTranslation, textToTranslate, messageIndex])
 
   return (
     <div
       className={`mb-2 flex ${isUser ? 'justify-end' : 'justify-start'}`}
     >
       <div
-        className={`flex min-w-0 max-w-[90%] flex-col rounded-xl px-3 py-1.5 ${
+        className={`flex min-w-0 max-w-[90%] flex-col rounded-2xl px-3 py-2 ${
           isUser
-            ? 'bg-[var(--accent)] text-white'
-            : 'bg-[var(--border)]/60 text-[var(--text)]'
+            ? 'bg-[var(--accent)] text-white shadow-sm'
+            : 'bg-white border border-gray-200/80 text-[var(--text)] shadow-sm'
         }`}
       >
         {isUser ? (
           <p className="whitespace-pre-wrap">{message.content}</p>
         ) : (
           <>
-            {correction && (
+            {(correction || comment || mainBefore || invitationText || mainAfter) && (
               <div
-                className="mb-1.5 rounded-md border border-amber-400/60 border-l-4 border-l-amber-500 bg-[var(--correction-bg)] px-2.5 py-1.5 text-sm shadow-sm"
+                className="mb-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-[var(--text)]"
                 role="alert"
               >
-                <span className="font-semibold text-amber-800">Исправление:</span>{' '}
-                <span className="text-amber-900">{correction}</span>
+                {correction && (
+                  <p>
+                    <span className="font-semibold text-gray-700">Правильно:</span>{' '}
+                    <span className="text-gray-800">{correction}</span>
+                  </p>
+                )}
+                {comment && (
+                  <p className="mt-2 pt-2 border-t border-gray-200">
+                    <span className="font-semibold text-blue-700">Комментарий:</span>{' '}
+                    <span className="text-gray-800">{comment}</span>
+                  </p>
+                )}
+                {mainBefore && (
+                  <p className={`whitespace-pre-wrap text-gray-800 ${correction || comment ? 'mt-2 pt-2 border-t border-gray-200' : ''}`}>
+                    {mainBefore.replace(/\b(Say|Repeat|Повтори):\s*/gi, 'Скажи: ')}
+                  </p>
+                )}
+                {invitationText && (
+                  <p className="mt-1.5 whitespace-pre-wrap font-serif italic text-[var(--invitation)]">
+                    {invitationText}
+                  </p>
+                )}
+                {mainAfter && (
+                  <p className={`whitespace-pre-wrap text-gray-800 ${mainBefore || invitationText ? 'mt-1.5' : correction || comment ? 'mt-2 pt-2 border-t border-gray-200' : ''}`}>
+                    {mainAfter.replace(/\b(Say|Repeat|Повтори):\s*/gi, 'Скажи: ')}
+                  </p>
+                )}
               </div>
             )}
-            {(mainText || invitationText) && (
-              <p className="whitespace-pre-wrap">
-                {mainText}
-                {invitationText && (
-                  <span className="mt-1 block font-serif italic text-[var(--invitation)]">
-                    {invitationText}
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              {hasSpeakableText && (
+                <button
+                  type="button"
+                  onClick={handleSpeak}
+                  className="btn-3d flex w-fit items-center gap-1 rounded-md bg-[var(--bg)]/80 px-2 py-0.5 text-xs text-[var(--text-muted)] hover:bg-[var(--bg)] hover:text-[var(--text)]"
+                  title="Озвучить"
+                >
+                  <SpeakerIcon /> Озвучить
+                </button>
+              )}
+              {hasTranslationButton && (
+                <button
+                  type="button"
+                  onClick={() => setShowTranslation((v) => !v)}
+                  className="btn-3d flex w-fit items-center gap-1.5 rounded-md bg-[var(--bg)]/80 px-2 py-0.5 text-xs text-[var(--text-muted)] hover:bg-[var(--bg)] hover:text-[var(--text)]"
+                  title={showTranslation ? 'Скрыть перевод' : 'Показать перевод'}
+                >
+                  {!showTranslation && (
+                    <span
+                      className={`h-2 w-2 shrink-0 rounded-full ${
+                        hasTranslationData ? 'bg-green-500' : 'bg-red-500'
+                      }`}
+                      aria-hidden
+                    />
+                  )}
+                  {showTranslation ? 'Скрыть перевод' : 'Перевод'}
+                </button>
+              )}
+            </div>
+            {showTranslation && (
+              <p className="mt-2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs text-gray-700">
+                {hasTranslationData ? (
+                  <>
+                    <span className="font-medium text-gray-600">Перевод:</span> {message.translation}
+                  </>
+                ) : hasTranslationError ? (
+                  <span className="text-amber-700">{message.translationError}</span>
+                ) : (
+                  <span className="text-gray-500">
+                    {onRequestTranslation && textToTranslate.trim()
+                      ? (translationRetryMessage ?? 'Загрузка перевода…')
+                      : 'Перевод для этого сообщения недоступен.'}
                   </span>
                 )}
               </p>
-            )}
-            {hasSpeakableText && (
-              <button
-                type="button"
-                onClick={handleSpeak}
-                className="btn-3d mt-1.5 flex w-fit items-center gap-1 rounded-md bg-[var(--bg)]/80 px-2 py-0.5 text-xs text-[var(--text-muted)] hover:bg-[var(--bg)] hover:text-[var(--text)]"
-                title="Озвучить"
-              >
-                <SpeakerIcon /> Озвучить
-              </button>
             )}
           </>
         )}

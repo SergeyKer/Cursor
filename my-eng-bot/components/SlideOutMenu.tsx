@@ -30,11 +30,11 @@ export default function SlideOutMenu({
     setMounted(true)
   }, [])
 
+  const isMobile = mounted && typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+
   const update = (patch: Partial<Settings>) => {
     onSettingsChange({ ...settings, ...patch })
   }
-
-  const atLimit = usage.limit > 0 && usage.used >= usage.limit
 
   return (
     <>
@@ -166,28 +166,25 @@ export default function SlideOutMenu({
               </select>
             </div>
 
-            <div>
-              <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
-                Голос
-              </label>
-              <VoiceSelect
-                value={settings.voiceId}
-                onChange={(voiceId) => update({ voiceId })}
-              />
-            </div>
+            {!isMobile && (
+              <div>
+                <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
+                  Голос
+                </label>
+                <VoiceSelect
+                  value={settings.voiceId}
+                  onChange={(voiceId) => update({ voiceId })}
+                />
+              </div>
+            )}
 
             <div className="rounded bg-[var(--border)]/50 px-2 py-1.5">
               <span className="text-xs text-[var(--text-muted)]">
                 Запросов:{' '}
               </span>
-              <span className={`text-xs ${atLimit ? 'font-semibold text-red-600' : 'text-[var(--text)]'}`}>
-                {usage.used} / {usage.limit}
+              <span className="text-xs text-[var(--text)]">
+                {usage.limit > 0 ? `${usage.used} / ${usage.limit}` : `${usage.used} (без лимита)`}
               </span>
-              {atLimit && (
-                <p className="mt-0.5 text-[10px] text-red-600">
-                  Лимит исчерпан
-                </p>
-              )}
             </div>
           </div>
 

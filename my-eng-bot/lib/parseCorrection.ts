@@ -1,22 +1,59 @@
 /**
- * Извлекает блок **Correction:** из ответа ассистента для отдельного отображения.
- * Возвращает { correction: string | null, rest: string }.
+ * Извлекает блок **Correction:** и при наличии **Comment:** из ответа ассистента.
+ * Возвращает { correction, comment, rest } для отдельного отображения.
  */
 export function parseCorrection(text: string): {
   correction: string | null
+  comment: string | null
   rest: string
 } {
   const marker = '**Correction:**'
   const idx = text.indexOf(marker)
   if (idx === -1) {
-    return { correction: null, rest: text.trim() }
+    return { correction: null, comment: null, rest: text.trim() }
   }
   const afterMarker = text.slice(idx + marker.length).trim()
-  const firstParagraph = afterMarker.split(/\n\n/)[0]?.trim() ?? ''
-  const afterBlock = afterMarker.slice(firstParagraph.length).replace(/^\n\n?/, '').trim()
-  const rest = (text.slice(0, idx).trim() + (afterBlock ? '\n\n' + afterBlock : '')).trim()
+  let firstParagraph = afterMarker.split(/\n\n/)[0]?.trim() ?? ''
+  let afterBlock = afterMarker.slice(firstParagraph.length).replace(/^\n\n?/, '').trim()
+
+  firstParagraph = firstParagraph.replace(/\s*\*\*Correction:\*\*[\s\S]*$/i, '').trim()
+
+  const questionStart = firstParagraph.match(/\s+(What|Where|When|Which|Who|Did you|Have you|Do you|Is there|Can you|Was it|How many)\s+/i)
+  if (questionStart && questionStart.index !== undefined && questionStart.index > 0) {
+    const questionPart = firstParagraph.slice(questionStart.index).trim()
+    firstParagraph = firstParagraph.slice(0, questionStart.index).trim()
+    afterBlock = (questionPart + (afterBlock ? '\n\n' + afterBlock : '')).trim()
+  }
+
+  let comment: string | null = null
+  const commentMarker = '**Comment:**'
+  if (firstParagraph.includes(commentMarker)) {
+    const cIdx = firstParagraph.indexOf(commentMarker)
+    const afterC = firstParagraph.slice(cIdx + commentMarker.length).trim()
+    const { value: commentVal, rest: afterComment } = takeUntilNextMarker(afterC)
+    const firstSentence = commentVal?.match(/^[^.!?]*[.!?]/)?.[0]?.trim() ?? commentVal
+    if (firstSentence) comment = firstSentence
+    firstParagraph = firstParagraph.slice(0, cIdx).trim()
+    const remainder = (commentVal?.slice(firstSentence?.length ?? 0).trim() || afterComment).trim()
+    if (remainder) afterBlock = (remainder + (afterBlock ? '\n\n' + afterBlock : '')).trim()
+  }
+  if (afterBlock.includes(commentMarker) && !comment) {
+    const cIdx = afterBlock.indexOf(commentMarker)
+    const afterC = afterBlock.slice(cIdx + commentMarker.length).trim()
+    const { value: commentVal, rest: afterComment } = takeUntilNextMarker(afterC)
+    comment = commentVal || null
+    afterBlock = (afterBlock.slice(0, cIdx).trim() + (afterComment ? '\n\n' + afterComment : '')).trim()
+  }
+
+  let rest = (text.slice(0, idx).trim() + (afterBlock ? '\n\n' + afterBlock : '')).trim()
+  rest = rest.replace(/\*\*Correction:\*\*[\s\S]*$/i, '').trim()
+  rest = rest.replace(/\*\*Правильно:\*\*[\s\S]*$/i, '').trim()
+  rest = rest.replace(/\*\*Comment:\*\*[^\n]+/gi, '').trim()
+  rest = rest.replace(/(^\s*|\n\s*)Правильно:\s*[^\n]+/gi, '').trim()
+  rest = rest.replace(/(^\s*|\n\s*)Комментарий:\s*[^\n]+/gi, '').trim()
   return {
     correction: firstParagraph || null,
+    comment,
     rest: rest || text.trim(),
   }
 }

@@ -4,7 +4,7 @@
 
 :root {
   --bg: #f0f0f0;
-  --bg-card: #f8f8f8;
+  --bg-card: #fafafa;
   --text: #1a1a1a;
   --text-muted: #666;
   --accent: #2563eb;
@@ -47,6 +47,12 @@ body {
 .btn-3d:active {
   transform: translateY(1px);
   box-shadow: var(--shadow-active);
+}
+
+/* Убираем цветную рамку при фокусе у полей выбора */
+select:focus {
+  outline: none;
+  box-shadow: none;
 }
 
 /* Минимальный размер области нажатия для пальца (Android / iOS, Apple HIG 44pt) */
