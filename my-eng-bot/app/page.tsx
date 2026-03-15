@@ -64,12 +64,12 @@ export default function Home() {
           signal: controller.signal,
         })
         clearTimeout(timeoutId)
+        const data = (await res.json()) as { content?: string; error?: string }
+        const text = (data.content ?? '').trim()
         if (!res.ok) {
-          const err = await res.json().catch(() => ({}))
+          const err = data as { error?: string }
           throw new Error(err.error || res.statusText)
         }
-        const data = (await res.json()) as { content?: string }
-        const text = (data.content ?? '').trim()
         if (text) return text
         return EMPTY_RESPONSE_FALLBACK
       } catch (e) {
@@ -90,6 +90,8 @@ export default function Home() {
     return (
       content === ERROR_FIRST_MESSAGE ||
       content.startsWith('ИИ не отвечает') ||
+      content.startsWith('Модель вернула пустой ответ') ||
+      content.startsWith('Диалог слишком длинный') ||
       content.startsWith('Ответ занял слишком много времени') ||
       content.startsWith('Не удалось получить ответ') ||
       content.startsWith('Неверный ключ') ||
@@ -123,24 +125,23 @@ export default function Home() {
 
   const ensureFirstMessage = useCallback(async () => {
     const requestId = ++firstMessageRequestIdRef.current
+    const isNewDialog = newDialogRef.current
     setLoading(true)
     try {
       const content = await sendToApi([])
       if (requestId !== firstMessageRequestIdRef.current) return
       incrementUsageToday()
       const firstContent = (content ?? '').trim() || EMPTY_RESPONSE_FALLBACK
-      setMessages((prev) =>
-        prev.length > 0 ? prev : [{ role: 'assistant', content: firstContent }]
-      )
+      setMessages([{ role: 'assistant', content: firstContent }])
       setDialogStarted(true)
+      if (isNewDialog) newDialogRef.current = false
       await fetchUsage()
     } catch (e) {
       console.error(e)
       if (requestId !== firstMessageRequestIdRef.current) return
-      setMessages((prev) =>
-        prev.length > 0 ? prev : [{ role: 'assistant', content: ERROR_FIRST_MESSAGE }]
-      )
+      setMessages([{ role: 'assistant', content: ERROR_FIRST_MESSAGE }])
       setDialogStarted(true)
+      if (isNewDialog) newDialogRef.current = false
     } finally {
       if (requestId === firstMessageRequestIdRef.current) setLoading(false)
     }
@@ -215,8 +216,7 @@ export default function Home() {
     setMessages([])
     setTimeout(() => {
       ensureFirstMessage()
-      newDialogRef.current = false
-    }, 0)
+    }, 50)
   }, [ensureFirstMessage])
 
   const pageTitle = !dialogStarted
@@ -273,7 +273,7 @@ export default function Home() {
               onClick={() => setDialogStarted(true)}
               className="btn-3d rounded-xl bg-[var(--accent)] px-8 py-3 text-lg font-medium text-white hover:bg-[var(--accent-hover)]"
             >
-              Начать диалог
+              {settings.mode === 'dialogue' ? 'Начать диалог' : 'Начать тренировку перевода'}
             </button>
           </div>
         ) : (

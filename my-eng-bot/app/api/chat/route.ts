@@ -3,6 +3,8 @@ import type { ChatMessage } from '@/lib/types'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const FREE_MODEL = 'openrouter/free'
+/** Максимум сообщений диалога в запросе (user+assistant). Ограничивает длину промпта, чтобы не превысить лимит контекста модели. */
+const MAX_MESSAGES_IN_CONTEXT = 10
 
 const LEVEL_PROMPTS: Record<string, string> = {
   starter:
@@ -124,11 +126,12 @@ export async function POST(req: NextRequest) {
       tense,
     })
 
+    const recentMessages = messages
+      .filter((m: ChatMessage) => m.role !== 'system')
+      .slice(-MAX_MESSAGES_IN_CONTEXT)
     const apiMessages: { role: string; content: string }[] = [
       { role: 'system', content: systemPrompt },
-      ...messages
-        .filter((m: ChatMessage) => m.role !== 'system')
-        .map((m: ChatMessage) => ({ role: m.role, content: m.content })),
+      ...recentMessages.map((m: ChatMessage) => ({ role: m.role, content: m.content })),
     ]
 
     const res = await fetch(OPENROUTER_URL, {
@@ -162,10 +165,29 @@ export async function POST(req: NextRequest) {
     }
 
     const data = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>
+      choices?: Array<{
+        message?: { content?: string }
+        text?: string
+        finish_reason?: string
+        native_finish_reason?: string
+      }>
     }
+    const first = data.choices?.[0]
     const content =
-      data.choices?.[0]?.message?.content?.trim() ?? ''
+      (first?.message?.content ?? first?.text ?? '').trim()
+
+    if (!content) {
+      const reason = { finish_reason: first?.finish_reason, native_finish_reason: first?.native_finish_reason }
+      console.warn('[chat] Пустой ответ OpenRouter:', reason)
+      const isLengthLimit = first?.finish_reason === 'length' || first?.native_finish_reason === 'length'
+      const errorMessage = isLengthLimit
+        ? 'Диалог слишком длинный. Начните новый диалог (меню → Новый диалог).'
+        : 'Модель вернула пустой ответ. Попробуйте отправить сообщение ещё раз.'
+      return NextResponse.json(
+        { error: errorMessage },
+        { status: 502 }
+      )
+    }
 
     return NextResponse.json({ content })
   } catch (e) {
