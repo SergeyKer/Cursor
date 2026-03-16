@@ -502,7 +502,10 @@ export default function Home() {
 
       <main
         className="flex min-h-0 flex-1 flex-col"
-        style={{ paddingTop: 'calc(2.5rem + env(safe-area-inset-top, 0px))' }}
+        style={{
+          paddingTop: 'calc(2.5rem + env(safe-area-inset-top, 0px))',
+          paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 16px))',
+        }}
       >
         {!storageLoaded ? (
           <div className="flex min-h-0 flex-1 items-center justify-center">
