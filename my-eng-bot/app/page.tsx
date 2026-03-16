@@ -96,7 +96,8 @@ export default function Home() {
       message.startsWith('Загрузка занимает слишком много времени') ||
       message.startsWith('ИИ сейчас перегружен и немного «ушёл отдыхать»') ||
       message.startsWith('Слишком много запросов к ИИ') ||
-      message.startsWith('Сейчас ИИ недоступен')
+      message.startsWith('Сейчас ИИ недоступен') ||
+      message.startsWith('Нет связи с сервером')
     )
   }
 
@@ -157,7 +158,11 @@ export default function Home() {
                 : new Error(typeof e === 'string' ? e : 'Unknown error')
             if (err.name === 'AbortError') {
               lastError = new Error('Ответ занял слишком много времени. Проверьте сеть и попробуйте снова.')
-            } else if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+            } else if (
+              err.name === 'TypeError' ||
+              err.message === 'Failed to fetch' ||
+              /^fetch\s*failed$/i.test(err.message)
+            ) {
               lastError = new Error('Нет связи с сервером. Проверьте интернет и ключ в меню.')
             } else {
               lastError = err

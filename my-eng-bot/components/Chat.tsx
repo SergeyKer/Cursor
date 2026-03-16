@@ -444,7 +444,7 @@ function MessageBubble({
                     {' '}
                     <button
                       type="button"
-                      onClick={() => speak(repeatTextForCard, voiceId)}
+                      onClick={() => repeatTextForCard != null && speak(repeatTextForCard, voiceId)}
                       className="inline-flex h-5 w-5 align-middle items-center justify-center rounded-full text-gray-500 hover:text-gray-800"
                       title="Озвучить"
                       aria-label="Озвучить"
@@ -455,14 +455,8 @@ function MessageBubble({
                 )}
                 {mainBefore && !showOnlyRepeat && (
                   <p className={`whitespace-pre-wrap text-gray-800 leading-snug ${correction || comment ? 'mt-1 pt-1.5 border-t border-gray-200' : ''}`}>
-                    {mode === 'dialogue' && comment ? (
-                      <>
-                        <span className="mr-1 font-semibold text-gray-700">AI ask:</span>
-                        {mainBefore}
-                      </>
-                    ) : (
-                      <>{mainBefore}</>
-                    )}
+                    <span className="mr-1 font-semibold text-gray-700">AI:</span>
+                    {mainBefore}
                   </p>
                 )}
                 {invitationText && (
