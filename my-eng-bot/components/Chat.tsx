@@ -287,16 +287,25 @@ function splitInvitation(text: string): {
 
 function extractRepeatPrompt(text: string): { repeatText: string } | null {
   const lines = text.split(/\r?\n/)
-  for (const rawLine of lines) {
-    const line = rawLine.trim()
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
     if (!line) continue
-    const m = /^(Скажи|Повтори|Say|Repeat)\s*:?\s*(.+)$/i.exec(line)
+    const m = /^(Скажи|Повтори|Say|Repeat)\s*:?\s*(.*)$/i.exec(line)
     if (!m) continue
-    const afterKeyword = (m[2] ?? '').trim()
-    if (!afterKeyword) return null
+    let afterKeyword = (m[2] ?? '').trim()
+    // Если после "Повтори:" на этой строке пусто или только ":", смотрим следующую непустую строку
+    if (!afterKeyword || /^[:.]$/.test(afterKeyword)) {
+      for (let j = i + 1; j < lines.length; j++) {
+        const next = lines[j].trim()
+        if (next) {
+          afterKeyword = next
+          break
+        }
+      }
+    }
     const firstSentenceMatch = afterKeyword.match(/^[^.!?]+[.!?]?/)
     const repeatText = (firstSentenceMatch ? firstSentenceMatch[0] : afterKeyword).trim()
-    if (!repeatText) return null
+    if (!repeatText || repeatText.length < 2 || /^[:\s.]*$/.test(repeatText)) return null
     return { repeatText }
   }
   return null
@@ -334,19 +343,21 @@ function MessageBubble({
       : { mainBefore: displayText ?? '', invitation: null as string | null, mainAfter: '' }
 
   const repeatPrompt = !isUser ? extractRepeatPrompt(mainBefore) : null
+  const repeatTextForCard = repeatPrompt?.repeatText || (correction && !repeatPrompt && mainBefore && /^(Скажи|Повтори|Say|Repeat)\s*:?\s*/im.test(mainBefore.trim()) ? correction : null)
+  const showOnlyRepeat = Boolean(repeatTextForCard)
 
   const handleSpeak = () => {
     // Для озвучки:
     // 1) если есть корректный вариант, озвучиваем только его (без комментариев и "Повтори");
     // 2) иначе озвучиваем основной текст, убрав служебные префиксы Скажи/Повтори/Say/Repeat.
-    const base = repeatPrompt?.repeatText || correction || rest || message.content
+    const base = repeatTextForCard || correction || rest || message.content
     const speakText = base
       ? base.replace(/^(Скажи|Повтори|Say|Repeat)\s*:?\s*/i, '').trim()
       : ''
     if (speakText) speak(speakText, voiceId)
   }
 
-  const textToTranslate = repeatPrompt?.repeatText || rest || (correction ?? '') || message.content
+  const textToTranslate = repeatTextForCard || rest || (correction ?? '') || message.content
   const errorLike = !isUser && isErrorLikeMessage(message.content)
   const hasSpeakableText = !isUser && Boolean(textToTranslate) && !errorLike
   const hasTranslationData = !isUser && Boolean(message.translation)
@@ -401,17 +412,24 @@ function MessageBubble({
           <>
             {(correction || comment || mainBefore || invitationText || mainAfter) && (
               <div
-                className="mb-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-[var(--text)]"
+                className="mb-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm leading-snug text-[var(--text)]"
                 role="alert"
               >
-                {correction && (
-                  <p className="flex items-center gap-1.5">
+                {comment && (
+                  <p className="leading-snug">
+                    <span className="font-semibold text-blue-700">Комментарий:</span>{' '}
+                    <span className="text-gray-800">{comment}</span>
+                  </p>
+                )}
+                {correction && !showOnlyRepeat && (
+                  <p className={`leading-snug ${comment ? 'mt-1 pt-1.5 border-t border-gray-200' : ''}`}>
                     <span className="font-semibold text-green-700">Правильно:</span>{' '}
-                    <span className="text-gray-800 flex-1">{correction}</span>
+                    <span className="text-gray-800">{correction}</span>
+                    {' '}
                     <button
                       type="button"
                       onClick={() => speak(correction, voiceId)}
-                      className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-500 hover:text-gray-800"
+                      className="inline-flex h-5 w-5 align-middle items-center justify-center rounded-full text-gray-500 hover:text-gray-800"
                       title="Озвучить правильный вариант"
                       aria-label="Озвучить правильный вариант"
                     >
@@ -419,46 +437,41 @@ function MessageBubble({
                     </button>
                   </p>
                 )}
-                {comment && (
-                  <p className="mt-2 pt-2 border-t border-gray-200">
-                    <span className="font-semibold text-blue-700">Комментарий:</span>{' '}
-                    <span className="text-gray-800">{comment}</span>
+                {showOnlyRepeat && (
+                  <p className={`leading-snug ${comment ? 'mt-1 pt-1.5 border-t border-gray-200' : ''}`}>
+                    <span className="font-semibold text-green-700">Повтори:</span>{' '}
+                    <span className="text-gray-800">{repeatTextForCard}</span>
+                    {' '}
+                    <button
+                      type="button"
+                      onClick={() => speak(repeatTextForCard, voiceId)}
+                      className="inline-flex h-5 w-5 align-middle items-center justify-center rounded-full text-gray-500 hover:text-gray-800"
+                      title="Озвучить"
+                      aria-label="Озвучить"
+                    >
+                      <SpeakerIcon />
+                    </button>
                   </p>
                 )}
-                {mainBefore && (
-                  <p className={`whitespace-pre-wrap text-gray-800 ${correction || comment ? 'mt-2 pt-2 border-t border-gray-200' : ''}`}>
-                    {(() => {
-                      const repeat = extractRepeatPrompt(mainBefore)
-                      if (repeat) {
-                        // Приглашение повторить: показываем только его и скрываем всё,
-                        // что модель могла добавить после (например, следующий вопрос).
-                        return (
-                          <>
-                            <span className="font-semibold">Повтори:</span>{' '}
-                            {repeat.repeatText}
-                          </>
-                        )
-                      }
-                      // Это не "Скажи"/"Repeat" — обычный текст/следующий вопрос.
-                      if (mode === 'dialogue' && comment) {
-                        return (
-                          <>
-                            <span className="mr-1 font-semibold text-gray-700">AI ask:</span>
-                            {mainBefore}
-                          </>
-                        )
-                      }
-                      return <>{mainBefore}</>
-                    })()}
+                {mainBefore && !showOnlyRepeat && (
+                  <p className={`whitespace-pre-wrap text-gray-800 leading-snug ${correction || comment ? 'mt-1 pt-1.5 border-t border-gray-200' : ''}`}>
+                    {mode === 'dialogue' && comment ? (
+                      <>
+                        <span className="mr-1 font-semibold text-gray-700">AI ask:</span>
+                        {mainBefore}
+                      </>
+                    ) : (
+                      <>{mainBefore}</>
+                    )}
                   </p>
                 )}
                 {invitationText && (
-                  <p className="mt-1.5 whitespace-pre-wrap font-serif italic text-[var(--invitation)]">
+                  <p className="mt-1 whitespace-pre-wrap font-serif italic leading-snug text-[var(--invitation)]">
                     {invitationText}
                   </p>
                 )}
                 {mainAfter && (
-                  <p className={`whitespace-pre-wrap text-gray-800 ${mainBefore || invitationText ? 'mt-1.5' : correction || comment ? 'mt-2 pt-2 border-t border-gray-200' : ''}`}>
+                  <p className={`whitespace-pre-wrap text-gray-800 leading-snug ${(mainBefore && !showOnlyRepeat) || invitationText ? 'mt-1' : comment || correction || showOnlyRepeat ? 'mt-1 pt-1.5 border-t border-gray-200' : ''}`}>
                     {mainAfter.replace(/\b(Say|Repeat|Скажи):\s*/gi, 'Повтори: ')}
                   </p>
                 )}

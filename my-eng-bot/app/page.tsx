@@ -458,13 +458,24 @@ export default function Home() {
     setResult(undefined, lastError)
   }, [])
 
+  /** Строка выбранного меню для шапки: с темой "Диалог — Повседневная жизнь, Present Perfect, C2" или без "Диалог — Present Perfect, C2" */
+  function getMenuSummary(includeTopic: boolean = true): string {
+    const modeLabel = settings.mode === 'dialogue' ? 'Диалог' : 'Тренировка перевода'
+    const tense = TENSES.find((t) => t.id === settings.tense)?.label ?? settings.tense
+    const levelEntry = LEVELS.find((l) => l.id === settings.level)
+    const levelShort = levelEntry ? (levelEntry.label.split(' — ')[0]?.trim() ?? levelEntry.label) : settings.level
+    const topicLabel = TOPICS.find((t) => t.id === settings.topic)?.label
+    if (includeTopic && settings.mode === 'dialogue' && topicLabel) {
+      return `${modeLabel} — ${topicLabel}, ${tense}, ${levelShort}`
+    }
+    return `${modeLabel} — ${tense}, ${levelShort}`
+  }
+
   const pageTitle = !dialogStarted
-    ? 'My Eng Bot — мой английский друг'
+    ? 'MyEng Bot — мой английский друг'
     : storageLoaded
-      ? settings.mode === 'dialogue'
-        ? 'Диалог'
-        : 'Тренировка перевода'
-      : 'My Eng Bot'
+      ? getMenuSummary(true)
+      : 'MyEng Bot'
 
   if (!mounted) {
     return (
@@ -493,9 +504,16 @@ export default function Home() {
         >
           <MenuIcon />
         </button>
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <h1 className="text-sm font-medium text-[var(--text)] sm:text-base">
-            {pageTitle}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-12">
+          <h1 className="text-sm font-medium text-[var(--text)] sm:text-base truncate max-w-full" title={pageTitle}>
+            {!dialogStarted || !storageLoaded ? (
+              pageTitle
+            ) : (
+              <>
+                <span className="hidden sm:inline">{getMenuSummary(true)}</span>
+                <span className="sm:hidden">{getMenuSummary(false)}</span>
+              </>
+            )}
           </h1>
         </div>
       </header>

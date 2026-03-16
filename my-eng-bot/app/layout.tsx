@@ -2,9 +2,9 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'My Eng Bot — мой английский друг',
+  title: 'MyEng Bot — мой английский друг',
   description: 'Диалог и тренировка перевода на английском с ИИ',
-  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'My Eng Bot' },
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'MyEng Bot' },
 }
 
 export default function RootLayout({
