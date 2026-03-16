@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES } from '@/lib/constants'
+import { getOpenRouterKey, setOpenRouterKey } from '@/lib/storage'
 import type { Settings, UsageInfo } from '@/lib/types'
 
 interface SlideOutMenuProps {
@@ -10,9 +11,8 @@ interface SlideOutMenuProps {
   settings: Settings
   onSettingsChange: (s: Settings) => void
   usage: UsageInfo
+  onKeyChange?: () => void
   onNewDialog?: () => void
-  /** Не рендерить встроенную кнопку (кнопка вынесена в шапку страницы) */
-  hideButton?: boolean
 }
 
 export default function SlideOutMenu({
@@ -21,35 +21,64 @@ export default function SlideOutMenu({
   settings,
   onSettingsChange,
   usage,
+  onKeyChange,
   onNewDialog,
-  hideButton = false,
 }: SlideOutMenuProps) {
-  const [mounted, setMounted] = React.useState(false)
+  const [keyInput, setKeyInput] = React.useState('')
+  const [keyFocused, setKeyFocused] = React.useState(false)
+  const [keySavedHint, setKeySavedHint] = React.useState(false)
+  const [keyFormExpanded, setKeyFormExpanded] = React.useState(false)
 
   React.useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  const isMobile = mounted && typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    if (open && !keyFocused) {
+      const stored = getOpenRouterKey()
+      setKeyInput(stored ? '••••••••••••' : '')
+      setKeyFormExpanded(!stored)
+    }
+  }, [open, keyFocused])
 
   const update = (patch: Partial<Settings>) => {
     onSettingsChange({ ...settings, ...patch })
   }
 
+  const atLimit = usage.limit > 0 && usage.used >= usage.limit
+
+  const saveKey = () => {
+    const trimmed = keyInput.trim()
+    const isMask = trimmed === '••••••••••••'
+    if (trimmed && !isMask) {
+      setOpenRouterKey(trimmed)
+      setKeySavedHint(true)
+      setTimeout(() => setKeySavedHint(false), 2000)
+      setKeyInput('••••••••••••')
+      setKeyFormExpanded(false)
+    } else if (!trimmed) {
+      setOpenRouterKey('')
+      setKeyInput('')
+    } else if (isMask) {
+      setKeyInput('••••••••••••')
+    }
+    setKeyFocused(false)
+    onKeyChange?.()
+  }
+
+  const handleKeyBlur = () => {
+    setKeyFocused(false)
+    saveKey()
+  }
+
   return (
     <>
-      {!hideButton && (
-        <button
-          type="button"
-          onClick={onToggle}
-          className="fixed z-[60] flex h-14 w-14 min-w-[44px] min-h-[44px] items-center justify-center rounded-r-lg border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-md transition-colors hover:bg-[var(--border)] touch-manipulation left-0 top-0"
-          style={{ marginLeft: 'env(safe-area-inset-left)', marginTop: 'env(safe-area-inset-top)' }}
-          aria-label={open ? 'Закрыть меню' : 'Открыть меню'}
-          title={open ? 'Закрыть меню' : 'Открыть меню'}
-        >
-          <MenuIcon />
-        </button>
-      )}
+      {/* Одна кнопка открыть/закрыть — всегда в одном месте */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="fixed left-2 top-4 z-[60] flex h-12 w-12 items-center justify-center rounded-r-lg border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-md transition-colors hover:bg-[var(--border)]"
+        aria-label={open ? 'Закрыть меню' : 'Открыть меню'}
+        title={open ? 'Закрыть меню' : 'Открыть меню'}
+      >
+        <MenuIcon />
+      </button>
 
       <div
         className={`fixed inset-0 z-40 bg-black/20 transition-opacity duration-200 ${
@@ -59,12 +88,12 @@ export default function SlideOutMenu({
         onClick={onToggle}
       />
       <aside
-        className={`fixed left-0 top-0 z-50 h-full w-56 max-w-[85vw] bg-[var(--bg)] border-r border-[var(--border)] shadow-lg transition-transform duration-200 ease-out ${
+        className={`fixed left-0 top-0 z-50 h-full w-56 max-w-[85vw] bg-[var(--bg-card)] border-r border-[var(--border)] shadow-lg transition-transform duration-200 ease-out ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
         aria-label="Меню"
       >
-        <div className="flex h-full flex-col p-2.5 pt-[max(5rem,calc(env(safe-area-inset-top)+4rem))]">
+        <div className="flex h-full flex-col p-2.5 pt-24">
           {onNewDialog && (
             <button
               type="button"
@@ -87,14 +116,14 @@ export default function SlideOutMenu({
               <select
                 value={settings.mode}
                 onChange={(e) => update({ mode: e.target.value as Settings['mode'] })}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] touch-manipulation"
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-xs text-[var(--text)]"
               >
                 <option value="dialogue">Диалог</option>
                 <option value="translation">Тренировка перевода</option>
               </select>
             </div>
 
-            {mounted && settings.mode === 'translation' && (
+            {settings.mode === 'translation' && (
               <div>
                 <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
                   Тип предложений
@@ -104,7 +133,7 @@ export default function SlideOutMenu({
                   onChange={(e) =>
                     update({ sentenceType: e.target.value as Settings['sentenceType'] })
                   }
-                  className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] touch-manipulation"
+                  className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-xs text-[var(--text)]"
                 >
                   {SENTENCE_TYPES.map((t) => (
                     <option key={t.id} value={t.id}>
@@ -122,7 +151,7 @@ export default function SlideOutMenu({
               <select
                 value={settings.topic}
                 onChange={(e) => update({ topic: e.target.value as Settings['topic'] })}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] touch-manipulation"
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-xs text-[var(--text)]"
               >
                 {TOPICS.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -139,7 +168,7 @@ export default function SlideOutMenu({
               <select
                 value={settings.level}
                 onChange={(e) => update({ level: e.target.value as Settings['level'] })}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] touch-manipulation"
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-xs text-[var(--text)]"
               >
                 {LEVELS.map((l) => (
                   <option key={l.id} value={l.id}>
@@ -156,7 +185,7 @@ export default function SlideOutMenu({
               <select
                 value={settings.tense}
                 onChange={(e) => update({ tense: e.target.value as Settings['tense'] })}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] touch-manipulation"
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-xs text-[var(--text)]"
               >
                 {TENSES.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -166,28 +195,83 @@ export default function SlideOutMenu({
               </select>
             </div>
 
-            {!isMobile && (
-              <div>
-                <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
-                  Голос
-                </label>
-                <VoiceSelect
-                  value={settings.voiceId}
-                  onChange={(voiceId) => update({ voiceId })}
-                />
-              </div>
-            )}
+            <div>
+              <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
+                Голос
+              </label>
+              <VoiceSelect
+                value={settings.voiceId}
+                onChange={(voiceId) => update({ voiceId })}
+              />
+            </div>
 
             <div className="rounded bg-[var(--border)]/50 px-2 py-1.5">
               <span className="text-xs text-[var(--text-muted)]">
                 Запросов:{' '}
               </span>
-              <span className="text-xs text-[var(--text)]">
-                {usage.limit > 0 ? `${usage.used} / ${usage.limit}` : `${usage.used}`}
+              <span className={`text-xs ${atLimit ? 'font-semibold text-red-600' : 'text-[var(--text)]'}`}>
+                {usage.used} / {usage.limit}
               </span>
+              {atLimit && (
+                <p className="mt-0.5 text-[10px] text-red-600">
+                  Лимит исчерпан
+                </p>
+              )}
             </div>
           </div>
 
+          <div className="shrink-0 border-t border-[var(--border)] pt-3">
+            {keyFormExpanded ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-[var(--text-muted)]">Ключ OpenRouter</span>
+                  <button
+                    type="button"
+                    onClick={() => setKeyFormExpanded(false)}
+                    className="text-[10px] text-[var(--text-muted)] underline hover:text-[var(--text)]"
+                  >
+                    Свернуть
+                  </button>
+                </div>
+                <div className="flex gap-1.5">
+                  <input
+                    type="password"
+                    value={keyInput}
+                    onChange={(e) => setKeyInput(e.target.value)}
+                    onFocus={() => {
+                      setKeyFocused(true)
+                      setKeyInput(getOpenRouterKey())
+                    }}
+                    onBlur={handleKeyBlur}
+                    placeholder="sk-or-v1-..."
+                    className="min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-xs text-[var(--text)] placeholder:text-[var(--text-muted)]"
+                    autoComplete="off"
+                  />
+                  <button
+                    type="button"
+                    onClick={saveKey}
+                    className="btn-3d shrink-0 rounded border border-[var(--border)] bg-[var(--accent)] px-2.5 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)]"
+                  >
+                    Сохранить
+                  </button>
+                </div>
+                {keySavedHint && (
+                  <p className="text-xs text-green-600">Ключ сохранён</p>
+                )}
+                <p className="text-[10px] text-[var(--text-muted)]">
+                  Хранится только в браузере.
+                </p>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setKeyFormExpanded(true)}
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-2 text-left text-xs text-[var(--text-muted)] hover:bg-[var(--border)]/30 hover:text-[var(--text)]"
+              >
+                Ввести ключ
+              </button>
+            )}
+          </div>
         </div>
       </aside>
     </>
@@ -220,7 +304,7 @@ function VoiceSelect({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 text-xs text-[var(--text)]"
+      className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-xs text-[var(--text)]"
     >
       <option value="">Системный по умолчанию</option>
       {list
@@ -239,7 +323,7 @@ function VoiceSelect({
   )
 }
 
-export function MenuIcon() {
+function MenuIcon() {
   return (
     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
