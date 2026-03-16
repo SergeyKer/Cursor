@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
           {
             role: 'system',
             content:
-              'You are a professional Russian translator. Translate the user text into **natural conversational Russian**, not a literal word‑for‑word translation. Preserve the meaning, tone and style. For questions like "What is your favorite food?" use idiomatic patterns such as "Какая ваша любимая еда?" instead of awkward phrases like "Что такое ваша любимая еда?". Reply only with the translation, without explanations, quotes or extra words.',
+              'You are a professional Russian translator. Translate the user text into **natural conversational Russian**, not a literal word‑for‑word translation. Preserve the meaning, tone and style. For questions like "What is your favorite food?" use idiomatic patterns such as "Какая ваша любимая еда?" instead of awkward phrases like "Что такое ваша любимая еда?". Important: in conversational prompts like "Just start, and I will follow." translate "I will follow" idiomatically as "я подхвачу/я продолжу/я поддержу разговор" (depending on context). Avoid literal phrases like "я последую за тобой/я последую за вами" unless it is about physically following someone. Reply only with the translation, without explanations, quotes or extra words.',
           },
           { role: 'user', content: text },
         ],

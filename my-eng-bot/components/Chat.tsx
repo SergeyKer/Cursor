@@ -285,6 +285,23 @@ function splitInvitation(text: string): {
   return { mainBefore, invitation, mainAfter }
 }
 
+function extractRepeatPrompt(text: string): { repeatText: string } | null {
+  const lines = text.split(/\r?\n/)
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+    if (!line) continue
+    const m = /^(Скажи|Повтори|Say|Repeat)\s*:?\s*(.+)$/i.exec(line)
+    if (!m) continue
+    const afterKeyword = (m[2] ?? '').trim()
+    if (!afterKeyword) return null
+    const firstSentenceMatch = afterKeyword.match(/^[^.!?]+[.!?]?/)
+    const repeatText = (firstSentenceMatch ? firstSentenceMatch[0] : afterKeyword).trim()
+    if (!repeatText) return null
+    return { repeatText }
+  }
+  return null
+}
+
 function MessageBubble({
   message,
   messageIndex,
@@ -305,6 +322,7 @@ function MessageBubble({
   const isUser = message.role === 'user'
   const [showTranslation, setShowTranslation] = React.useState(false)
   const translationRequestedRef = useRef(false)
+  const prevTranslationErrorRef = useRef<string | undefined>(undefined)
   const { correction, comment, rest } =
     message.role === 'assistant' ? parseCorrection(message.content) : { correction: null, comment: null, rest: message.content }
 
@@ -315,25 +333,26 @@ function MessageBubble({
       ? splitInvitation(displayText)
       : { mainBefore: displayText ?? '', invitation: null as string | null, mainAfter: '' }
 
+  const repeatPrompt = !isUser ? extractRepeatPrompt(mainBefore) : null
+
   const handleSpeak = () => {
     // Для озвучки:
     // 1) если есть корректный вариант, озвучиваем только его (без комментариев и "Повтори");
     // 2) иначе озвучиваем основной текст, убрав служебные префиксы Скажи/Повтори/Say/Repeat.
-    let text = correction || rest || message.content
-    if (text) {
-      text = text.replace(/^(Скажи|Повтори|Say|Repeat)\s*:?\s*/i, '').trim()
-    }
-    if (text) speak(text, voiceId)
+    const base = repeatPrompt?.repeatText || correction || rest || message.content
+    const speakText = base
+      ? base.replace(/^(Скажи|Повтори|Say|Repeat)\s*:?\s*/i, '').trim()
+      : ''
+    if (speakText) speak(speakText, voiceId)
   }
 
-  const textToTranslate = rest || (correction ?? '') || message.content
+  const textToTranslate = repeatPrompt?.repeatText || rest || (correction ?? '') || message.content
   const errorLike = !isUser && isErrorLikeMessage(message.content)
   const hasSpeakableText = !isUser && Boolean(textToTranslate) && !errorLike
   const hasTranslationData = !isUser && Boolean(message.translation)
   const hasTranslationError = !isUser && Boolean(message.translationError)
   const hasTranslationButton = !isUser && mode !== 'translation' && !errorLike
   const hasContent = isUser ? Boolean(message.content) : Boolean(correction || comment || mainBefore || mainAfter || invitationText || rest || message.content || message.translation)
-  if (!hasContent) return null
 
   React.useEffect(() => {
     if (!showTranslation) {
@@ -345,6 +364,25 @@ function MessageBubble({
     translationRequestedRef.current = true
     onRequestTranslation(messageIndex, textToTranslate)
   }, [showTranslation, hasTranslationData, onRequestTranslation, textToTranslate, messageIndex])
+
+  React.useEffect(() => {
+    const currentError = message.translationError
+    const prevError = prevTranslationErrorRef.current
+    prevTranslationErrorRef.current = currentError
+
+    if (!showTranslation) return
+
+    // Авто-сворачивание при любой ошибке перевода (пустой ответ, таймаут, сеть),
+    // только в момент появления ошибки, чтобы при повторном клике "Перевод"
+    // панель не схлопывалась и пользователь увидел результат.
+    const isTranslationError = typeof currentError === 'string' && currentError.length > 0
+    const justAppeared = prevError !== currentError
+    if (isTranslationError && justAppeared) {
+      setShowTranslation(false)
+    }
+  }, [showTranslation, message.translationError])
+
+  if (!hasContent) return null
 
   return (
     <div
@@ -390,18 +428,14 @@ function MessageBubble({
                 {mainBefore && (
                   <p className={`whitespace-pre-wrap text-gray-800 ${correction || comment ? 'mt-2 pt-2 border-t border-gray-200' : ''}`}>
                     {(() => {
-                      const trimmed = mainBefore.trim()
-                      const repeatMatch = /^(Скажи|Say|Repeat)\s*:?\s*(.+)$/i.exec(trimmed)
-                      if (repeatMatch) {
-                        // Приглашение повторить: показываем только первую фразу после ключевого слова,
-                        // без какого‑либо дополнительного вопроса и без метки AI ask.
-                        const afterKeyword = repeatMatch[2].trim()
-                        const firstSentenceMatch = afterKeyword.match(/^[^.!?]+[.!?]?/)
-                        const repeatText = (firstSentenceMatch ? firstSentenceMatch[0] : afterKeyword).trim()
+                      const repeat = extractRepeatPrompt(mainBefore)
+                      if (repeat) {
+                        // Приглашение повторить: показываем только его и скрываем всё,
+                        // что модель могла добавить после (например, следующий вопрос).
                         return (
                           <>
                             <span className="font-semibold">Повтори:</span>{' '}
-                            {repeatText}
+                            {repeat.repeatText}
                           </>
                         )
                       }
@@ -425,7 +459,7 @@ function MessageBubble({
                 )}
                 {mainAfter && (
                   <p className={`whitespace-pre-wrap text-gray-800 ${mainBefore || invitationText ? 'mt-1.5' : correction || comment ? 'mt-2 pt-2 border-t border-gray-200' : ''}`}>
-                    {mainAfter.replace(/\b(Say|Repeat|Повтори):\s*/gi, 'Скажи: ')}
+                    {mainAfter.replace(/\b(Say|Repeat|Скажи):\s*/gi, 'Повтори: ')}
                   </p>
                 )}
               </div>
@@ -460,21 +494,23 @@ function MessageBubble({
                 </button>
               )}
             </div>
-            {showTranslation && (
+            {showTranslation && hasTranslationData && (
               <p className="mt-2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs text-gray-700">
-                {hasTranslationData ? (
-                  <>
-                    <span className="font-medium text-gray-600">Перевод:</span> {message.translation}
-                  </>
-                ) : hasTranslationError ? (
-                  <span className="text-amber-700">{message.translationError}</span>
-                ) : (
-                  <span className="text-gray-500">
-                    {onRequestTranslation && textToTranslate.trim()
-                      ? (translationRetryMessage ?? 'Загрузка перевода…')
-                      : 'Перевод для этого сообщения недоступен.'}
-                  </span>
-                )}
+                <span className="font-medium text-gray-600">Перевод:</span> {message.translation}
+              </p>
+            )}
+            {hasTranslationError && (
+              <p className="mt-2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs text-amber-700">
+                Перевод не пришел, нажми ещё раз.
+              </p>
+            )}
+            {showTranslation && !hasTranslationData && !hasTranslationError && (
+              <p className="mt-2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs text-gray-700">
+                <span className="text-gray-500">
+                  {onRequestTranslation && textToTranslate.trim()
+                    ? (translationRetryMessage ?? 'Загрузка перевода…')
+                    : 'Перевод для этого сообщения недоступен.'}
+                </span>
               </p>
             )}
           </>

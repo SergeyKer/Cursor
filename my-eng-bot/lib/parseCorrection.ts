@@ -36,6 +36,11 @@ export function parseCorrection(text: string): {
     restLines.push(raw)
   }
 
+  // Пользователь часто диктует ответы голосом: не показываем "замечания" про заглавные буквы.
+  if (comment && /(заглавн|capital letter|capitalization)/i.test(comment)) {
+    comment = null
+  }
+
   const rest = restLines.join('\n').trim()
   return {
     correction: correction || null,
