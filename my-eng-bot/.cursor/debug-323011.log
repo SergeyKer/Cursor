@@ -1,0 +1,26 @@
+{"sessionId":"323011","hypothesisId":"H1","location":"page.tsx:sendToApi","message":"client before fetch","data":{"hasKey":true,"messagesLen":0},"timestamp":1773552315289}
+{"sessionId":"323011","hypothesisId":"H4","location":"page.tsx:afterRes","message":"client after response","data":{"resOk":true,"status":200,"contentLen":220,"hasError":false},"timestamp":1773552322998}
+{"sessionId":"323011","hypothesisId":"H1","location":"page.tsx:sendToApi","message":"client before fetch","data":{"hasKey":true,"messagesLen":2},"timestamp":1773552334185}
+{"sessionId":"323011","hypothesisId":"H4","location":"page.tsx:afterRes","message":"client after response","data":{"resOk":true,"status":200,"contentLen":0,"hasError":false},"timestamp":1773552337986}
+{"sessionId":"323011","hypothesisId":"H4","location":"page.tsx:emptyFallback","message":"client returning EMPTY_RESPONSE_FALLBACK","data":{},"timestamp":1773552337986}
+{"sessionId":"323011","hypothesisId":"H1","location":"page.tsx:sendToApi","message":"client before fetch","data":{"hasKey":true,"messagesLen":0},"timestamp":1773552403590}
+{"sessionId":"323011","hypothesisId":"H4","location":"page.tsx:afterRes","message":"client after response","data":{"resOk":false,"status":502,"contentLen":0,"hasError":true},"timestamp":1773552415009}
+{"sessionId":"323011","hypothesisId":"H5","location":"page.tsx:catch","message":"client catch","data":{"errName":"Error","errMsg":"Модель вернула пустой ответ. Попробуйте отправить сообщение ещё раз."},"timestamp":1773552415010}
+{"sessionId":"323011","hypothesisId":"H1","location":"page.tsx:sendToApi","message":"client before fetch","data":{"hasKey":true,"messagesLen":0},"timestamp":1773552418859}
+{"sessionId":"323011","hypothesisId":"H1","location":"page.tsx:sendToApi","message":"client before fetch","data":{"hasKey":true,"messagesLen":0},"timestamp":1773552418867}
+{"sessionId":"323011","hypothesisId":"H4","location":"page.tsx:afterRes","message":"client after response","data":{"resOk":false,"status":502,"contentLen":0,"hasError":true},"timestamp":1773552421309}
+{"sessionId":"323011","hypothesisId":"H5","location":"page.tsx:catch","message":"client catch","data":{"errName":"Error","errMsg":"Модель вернула пустой ответ. Попробуйте отправить сообщение ещё раз."},"timestamp":1773552421309}
+{"sessionId":"323011","hypothesisId":"H4","location":"page.tsx:afterRes","message":"client after response","data":{"resOk":true,"status":200,"contentLen":180,"hasError":false},"timestamp":1773552421665}
+{"sessionId":"323011","hypothesisId":"H1","location":"page.tsx:sendToApi","message":"client before fetch","data":{"hasKey":true,"messagesLen":2},"timestamp":1773552432624}
+{"sessionId":"323011","hypothesisId":"H4","location":"page.tsx:afterRes","message":"client after response","data":{"resOk":false,"status":502,"contentLen":0,"hasError":true},"timestamp":1773552439434}
+{"sessionId":"323011","hypothesisId":"H5","location":"page.tsx:catch","message":"client catch","data":{"errName":"Error","errMsg":"Модель вернула пустой ответ. Попробуйте отправить сообщение ещё раз."},"timestamp":1773552439434}
+{"sessionId":"323011","location":"api/chat/route.ts:contents","message":"messages and contents","data":{"messagesLength":0,"recentMessagesLength":0,"contentsLength":0},"timestamp":1773576098787,"hypothesisId":"H1"}
+{"sessionId":"323011","location":"api/chat/route.ts:finalContents","message":"sending to Gemini","data":{"finalContentsLength":1},"timestamp":1773576098788,"hypothesisId":"H2"}
+{"sessionId":"323011","location":"api/chat/route.ts:contents","message":"messages and contents","data":{"messagesLength":0,"recentMessagesLength":0,"contentsLength":0},"timestamp":1773576166293,"hypothesisId":"H1"}
+{"sessionId":"323011","location":"api/chat/route.ts:finalContents","message":"sending to Gemini","data":{"finalContentsLength":1},"timestamp":1773576166293,"hypothesisId":"H2"}
+{"sessionId":"323011","location":"api/chat/route.ts:request","message":"Gemini request shape","data":{"contentsRoles":["user"],"firstPartLength":264},"timestamp":1773576166294,"hypothesisId":"H4"}
+{"sessionId":"323011","location":"api/chat/route.ts:geminiError","message":"Gemini API error","data":{"status":400,"bodyPreview":"{\n  \"error\": {\n    \"code\": 400,\n    \"message\": \"User location is not supported for the API use.\",\n    \"status\": \"FAILED_PRECONDITION\"\n  }\n}\n"},"timestamp":1773576166775,"hypothesisId":"H3"}
+{"sessionId":"323011","location":"api/chat/route.ts:contents","message":"messages and contents","data":{"messagesLength":0,"recentMessagesLength":0,"contentsLength":0},"timestamp":1773576218520,"hypothesisId":"H1"}
+{"sessionId":"323011","location":"api/chat/route.ts:request","message":"Gemini request shape","data":{"contentsRoles":["user"],"firstPartLength":264},"timestamp":1773576218521,"hypothesisId":"H4"}
+{"sessionId":"323011","location":"api/chat/route.ts:finalContents","message":"sending to Gemini","data":{"finalContentsLength":1},"timestamp":1773576218521,"hypothesisId":"H2"}
+{"sessionId":"323011","location":"api/chat/route.ts:geminiError","message":"Gemini API error","data":{"status":400,"bodyPreview":"{\n  \"error\": {\n    \"code\": 400,\n    \"message\": \"User location is not supported for the API use.\",\n    \"status\": \"FAILED_PRECONDITION\"\n  }\n}\n"},"timestamp":1773576218987,"hypothesisId":"H3"}

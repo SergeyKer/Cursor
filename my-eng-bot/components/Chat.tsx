@@ -95,7 +95,7 @@ export default function Chat({
   const bottomRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
-  const INPUT_MAX_HEIGHT_PX = 200
+  const INPUT_MAX_HEIGHT_PX = 260
 
   const adjustInputHeight = useCallback(() => {
     const el = textareaRef.current
@@ -182,15 +182,13 @@ export default function Chat({
           </React.Fragment>
         ))}
         {loading && messages.length > 0 && (
-          <div className="mt-1.5 flex flex-col gap-1 justify-start">
-            <span className="rounded-lg bg-[var(--border)] px-2.5 py-1.5 text-sm text-[var(--text-muted)]" title="Ожидание ответа от ИИ">
-              ИИ печатает…
+          <div className="mt-1.5 flex justify-start">
+            <span
+              className="rounded-lg bg-[var(--border)] px-2.5 py-1.5 text-sm text-[var(--text-muted)]"
+              title="Ожидание ответа от ИИ"
+            >
+              ИИ печатает{retryMessage ? `… ${retryMessage}` : '…'}
             </span>
-            {retryMessage && (
-              <span className="text-xs text-[var(--text-muted)]">
-                {retryMessage}
-              </span>
-            )}
           </div>
         )}
         <div ref={bottomRef} />
@@ -231,8 +229,8 @@ export default function Chat({
               formRef.current?.requestSubmit()
             }
           }}
-          placeholder={inputFocused ? '' : 'Напишите или нажмите микрофон...'}
-          className="min-w-0 flex-1 resize-none overflow-y-auto rounded-lg border border-[var(--border)] bg-white px-4 py-2 min-h-[44px] text-[var(--text)] placeholder:text-[var(--text-muted)] text-base leading-[1.5rem] focus:outline-none focus:ring-0"
+          placeholder={inputFocused ? '' : 'Ответ...'}
+          className="min-w-0 flex-1 resize-none overflow-y-hidden rounded-lg border border-[var(--border)] bg-white px-4 py-2 min-h-[44px] text-[var(--text)] placeholder:text-[var(--text-muted)] text-base leading-[1.5rem] focus:outline-none focus:ring-0"
           style={{ maxHeight: INPUT_MAX_HEIGHT_PX }}
         />
         <button
@@ -246,6 +244,25 @@ export default function Chat({
         </div>
       </div>
     </div>
+  )
+}
+
+function isErrorLikeMessage(content: string): boolean {
+  return (
+    content === 'Не удалось загрузить ответ. Проверьте сеть и настройки сервера.' ||
+    content.startsWith('ИИ не отвечает') ||
+    content.startsWith('Модель вернула пустой ответ') ||
+    content.startsWith('Диалог слишком длинный') ||
+    content.startsWith('Ответ занял слишком много времени') ||
+    content.startsWith('Загрузка занимает слишком много времени') ||
+    content.startsWith('Не удалось получить ответ') ||
+    content.includes('OPENROUTER_API_KEY') ||
+    content.startsWith('Неверный ключ') ||
+    content.startsWith('Превышен лимит') ||
+    content.startsWith('Сервис ИИ временно') ||
+    content.startsWith('ИИ сейчас перегружен и немного «ушёл отдыхать»') ||
+    content.startsWith('Слишком много запросов к ИИ') ||
+    content.startsWith('Сейчас ИИ недоступен')
   )
 }
 
@@ -296,15 +313,22 @@ function MessageBubble({
       : { mainBefore: displayText ?? '', invitation: null as string | null, mainAfter: '' }
 
   const handleSpeak = () => {
-    const text = rest || (correction ?? '') || message.content
+    // Для озвучки:
+    // 1) если есть корректный вариант, озвучиваем только его (без комментариев и "Повтори");
+    // 2) иначе озвучиваем основной текст, убрав служебные префиксы Скажи/Повтори/Say/Repeat.
+    let text = correction || rest || message.content
+    if (text) {
+      text = text.replace(/^(Скажи|Повтори|Say|Repeat)\s*:?\s*/i, '').trim()
+    }
     if (text) speak(text, voiceId)
   }
 
   const textToTranslate = rest || (correction ?? '') || message.content
-  const hasSpeakableText = !isUser && Boolean(textToTranslate)
+  const errorLike = !isUser && isErrorLikeMessage(message.content)
+  const hasSpeakableText = !isUser && Boolean(textToTranslate) && !errorLike
   const hasTranslationData = !isUser && Boolean(message.translation)
   const hasTranslationError = !isUser && Boolean(message.translationError)
-  const hasTranslationButton = !isUser && mode !== 'translation'
+  const hasTranslationButton = !isUser && mode !== 'translation' && !errorLike
   const hasContent = isUser ? Boolean(message.content) : Boolean(correction || comment || mainBefore || mainAfter || invitationText || rest || message.content || message.translation)
   if (!hasContent) return null
 
@@ -340,9 +364,18 @@ function MessageBubble({
                 role="alert"
               >
                 {correction && (
-                  <p>
-                    <span className="font-semibold text-gray-700">Правильно:</span>{' '}
-                    <span className="text-gray-800">{correction}</span>
+                  <p className="flex items-center gap-1.5">
+                    <span className="font-semibold text-green-700">Правильно:</span>{' '}
+                    <span className="text-gray-800 flex-1">{correction}</span>
+                    <button
+                      type="button"
+                      onClick={() => speak(correction, voiceId)}
+                      className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-500 hover:text-gray-800"
+                      title="Озвучить правильный вариант"
+                      aria-label="Озвучить правильный вариант"
+                    >
+                      <SpeakerIcon />
+                    </button>
                   </p>
                 )}
                 {comment && (
@@ -353,7 +386,33 @@ function MessageBubble({
                 )}
                 {mainBefore && (
                   <p className={`whitespace-pre-wrap text-gray-800 ${correction || comment ? 'mt-2 pt-2 border-t border-gray-200' : ''}`}>
-                    {mainBefore.replace(/\b(Say|Repeat|Повтори):\s*/gi, 'Скажи: ')}
+                    {(() => {
+                      const trimmed = mainBefore.trim()
+                      const repeatMatch = /^(Скажи|Say|Repeat)\s*:?\s*(.+)$/i.exec(trimmed)
+                      if (repeatMatch) {
+                        // Приглашение повторить: показываем только первую фразу после ключевого слова,
+                        // без какого‑либо дополнительного вопроса и без метки AI ask.
+                        const afterKeyword = repeatMatch[2].trim()
+                        const firstSentenceMatch = afterKeyword.match(/^[^.!?]+[.!?]?/)
+                        const repeatText = (firstSentenceMatch ? firstSentenceMatch[0] : afterKeyword).trim()
+                        return (
+                          <>
+                            <span className="font-semibold">Повтори:</span>{' '}
+                            {repeatText}
+                          </>
+                        )
+                      }
+                      // Это не "Скажи"/"Repeat" — обычный текст/следующий вопрос.
+                      if (mode === 'dialogue' && comment) {
+                        return (
+                          <>
+                            <span className="mr-1 font-semibold text-gray-700">AI ask:</span>
+                            {mainBefore}
+                          </>
+                        )
+                      }
+                      return <>{mainBefore}</>
+                    })()}
                   </p>
                 )}
                 {invitationText && (

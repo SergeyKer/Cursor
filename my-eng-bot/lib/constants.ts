@@ -1,23 +1,29 @@
 import type { TopicId, LevelId, TenseId, SentenceType } from './types'
 
 export const TOPICS: { id: TopicId; label: string }[] = [
-  { id: 'travel', label: 'Путешествия' },
-  { id: 'work', label: 'Работа' },
-  { id: 'daily_life', label: 'Повседневная жизнь' },
-  { id: 'food', label: 'Еда' },
-  { id: 'culture', label: 'Культура' },
-  { id: 'technology', label: 'Технологии' },
-  { id: 'free_talk', label: 'Свободная тема' },
+  { id: 'free_talk',      label: 'Свободная тема' },
+  { id: 'business',       label: 'Бизнес' },
+  { id: 'family_friends', label: 'Семья и друзья' },
+  { id: 'hobbies',        label: 'Хобби и интересы' },
+  { id: 'movies_series',  label: 'Фильмы и сериалы' },
+  { id: 'music',          label: 'Музыка' },
+  { id: 'sports',         label: 'Спорт и активный отдых' },
+  { id: 'food',           label: 'Еда' },
+  { id: 'culture',        label: 'Культура' },
+  { id: 'daily_life',     label: 'Повседневная жизнь' },
+  { id: 'travel',         label: 'Путешествия' },
+  { id: 'work',           label: 'Работа' },
+  { id: 'technology',     label: 'Технологии' },
 ]
 
 export const LEVELS: { id: LevelId; label: string }[] = [
-  { id: 'starter', label: 'Starter / Первый год' },
-  { id: 'a1', label: 'A1' },
-  { id: 'a2', label: 'A2' },
-  { id: 'b1', label: 'B1' },
-  { id: 'b2', label: 'B2' },
-  { id: 'c1', label: 'C1' },
-  { id: 'c2', label: 'C2' },
+  { id: 'starter', label: 'Starter — первый год, до A1' },
+  { id: 'a1', label: 'A1 — начальный' },
+  { id: 'a2', label: 'A2 — элементарный' },
+  { id: 'b1', label: 'B1 — средний' },
+  { id: 'b2', label: 'B2 — выше среднего' },
+  { id: 'c1', label: 'C1 — продвинутый' },
+  { id: 'c2', label: 'C2 — почти как носитель' },
 ]
 
 export const TENSES: { id: TenseId; label: string }[] = [

@@ -1,73 +1,47 @@
-/**
- * Извлекает блок **Correction:** и при наличии **Comment:** из ответа ассистента.
- * Возвращает { correction, comment, rest } для отдельного отображения.
- */
 export function parseCorrection(text: string): {
   correction: string | null
   comment: string | null
   rest: string
 } {
-  const marker = '**Correction:**'
-  const idx = text.indexOf(marker)
-  if (idx === -1) {
-    return { correction: null, comment: null, rest: text.trim() }
-  }
-  const afterMarker = text.slice(idx + marker.length).trim()
-  let firstParagraph = afterMarker.split(/\n\n/)[0]?.trim() ?? ''
-  let afterBlock = afterMarker.slice(firstParagraph.length).replace(/^\n\n?/, '').trim()
+  const cleaned = text
+    // вырезаем все сырые маркеры Markdown, если модель всё же их вернула
+    .replace(/\*\*(Correction|Comment|Right|Praise):\*\*/gi, '')
+    .trim()
 
-  firstParagraph = firstParagraph.replace(/\s*\*\*Correction:\*\*[\s\S]*$/i, '').trim()
-
-  const questionStart = firstParagraph.match(/\s+(What|Where|When|Which|Who|Did you|Have you|Do you|Is there|Can you|Was it|How many)\s+/i)
-  if (questionStart && questionStart.index !== undefined && questionStart.index > 0) {
-    const questionPart = firstParagraph.slice(questionStart.index).trim()
-    firstParagraph = firstParagraph.slice(0, questionStart.index).trim()
-    afterBlock = (questionPart + (afterBlock ? '\n\n' + afterBlock : '')).trim()
-  }
-
+  const lines = cleaned.split(/\r?\n/)
+  let correction: string | null = null
   let comment: string | null = null
-  const commentMarker = '**Comment:**'
-  if (firstParagraph.includes(commentMarker)) {
-    const cIdx = firstParagraph.indexOf(commentMarker)
-    const afterC = firstParagraph.slice(cIdx + commentMarker.length).trim()
-    const { value: commentVal, rest: afterComment } = takeUntilNextMarker(afterC)
-    const firstSentence = commentVal?.match(/^[^.!?]*[.!?]/)?.[0]?.trim() ?? commentVal
-    if (firstSentence) comment = firstSentence
-    firstParagraph = firstParagraph.slice(0, cIdx).trim()
-    const remainder = (commentVal?.slice(firstSentence?.length ?? 0).trim() || afterComment).trim()
-    if (remainder) afterBlock = (remainder + (afterBlock ? '\n\n' + afterBlock : '')).trim()
-  }
-  if (afterBlock.includes(commentMarker) && !comment) {
-    const cIdx = afterBlock.indexOf(commentMarker)
-    const afterC = afterBlock.slice(cIdx + commentMarker.length).trim()
-    const { value: commentVal, rest: afterComment } = takeUntilNextMarker(afterC)
-    comment = commentVal || null
-    afterBlock = (afterBlock.slice(0, cIdx).trim() + (afterComment ? '\n\n' + afterComment : '')).trim()
+  const restLines: string[] = []
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i]
+    const line = raw.trim()
+    if (!line) {
+      // пустую строку просто переносим в rest, структура вопроса сохраняется
+      restLines.push(raw)
+      continue
+    }
+    if (line.toLowerCase().startsWith('правильно:')) {
+      if (correction === null) {
+        correction = line.slice('правильно:'.length).trim()
+        continue
+      }
+    }
+    if (line.toLowerCase().startsWith('комментарий:')) {
+      if (comment === null) {
+        comment = line.slice('комментарий:'.length).trim()
+        continue
+      }
+    }
+    restLines.push(raw)
   }
 
-  let rest = (text.slice(0, idx).trim() + (afterBlock ? '\n\n' + afterBlock : '')).trim()
-  rest = rest.replace(/\*\*Correction:\*\*[\s\S]*$/i, '').trim()
-  rest = rest.replace(/\*\*Правильно:\*\*[\s\S]*$/i, '').trim()
-  rest = rest.replace(/\*\*Comment:\*\*[^\n]+/gi, '').trim()
-  rest = rest.replace(/(^\s*|\n\s*)Правильно:\s*[^\n]+/gi, '').trim()
-  rest = rest.replace(/(^\s*|\n\s*)Комментарий:\s*[^\n]+/gi, '').trim()
+  const rest = restLines.join('\n').trim()
   return {
-    correction: firstParagraph || null,
-    comment,
-    rest: rest || text.trim(),
+    correction: correction || null,
+    comment: comment || null,
+    rest: rest || cleaned,
   }
-}
-
-/** Текст до следующего маркера **Word:**; rest — всё после маркера */
-function takeUntilNextMarker(s: string): { value: string; rest: string } {
-  s = s.trim()
-  const match = s.match(/\s*\*\*[A-Za-z]+:\*\*\s*/)
-  if (match && match.index !== undefined) {
-    const value = s.slice(0, match.index).trim()
-    const rest = s.slice(match.index + match[0].length).trim()
-    return { value, rest }
-  }
-  return { value: s, rest: '' }
 }
 
 /**

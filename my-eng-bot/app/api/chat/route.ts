@@ -36,13 +36,19 @@ const TENSE_NAMES: Record<string, string> = {
 }
 
 const TOPIC_NAMES: Record<string, string> = {
-  travel: 'Travel',
-  work: 'Work',
-  daily_life: 'Daily life',
+  free_talk: 'Free talk (any topic)',
+  business: 'Business',
+  family_friends: 'Family and friends',
+  hobbies: 'Hobbies and interests',
+  movies_series: 'Movies and series',
+  music: 'Music',
+  sports: 'Sports and active lifestyle',
   food: 'Food',
   culture: 'Culture',
+  daily_life: 'Daily life',
+  travel: 'Travel',
+  work: 'Work',
   technology: 'Technology',
-  free_talk: 'Free talk (any topic)',
 }
 
 const SENTENCE_TYPE_NAMES: Record<string, string> = {
@@ -75,10 +81,31 @@ When the user has already sent their translation (there is a user message after 
   const tenseRule =
     tense === 'all'
       ? 'Any tense is fine.'
-      : `Strict: the user must answer in ${tenseName}. If they use another tense (e.g. you asked in Present Simple but they answered in Present Continuous), treat it as an error: give **Correction:** with the sentence in ${tenseName} and **Comment:** in Russian (e.g. that the answer must be in ${tenseName}). Do not say "Правильно" for a sentence that is in the wrong tense.`
-  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${tense === 'all' ? 'Any tense.' : 'Required tense: ' + tenseName + '.'} ${tenseRule} Keep the dialogue on topic: if the user's answer clearly doesn't fit (e.g. topic Food but they name a non-food like "table"), gently say so and ask for a fitting answer. Reply in 1–2 short sentences. If grammar/spelling or wrong tense: **Correction:** [wrong]→[right]. Optionally add **Comment:** with a short tip in Russian (e.g. rule or hint — always in Russian). Never use "Tell me" or other English instruction words. After a correction, use only Russian: "Скажи: " then the correct phrase in English (e.g. "Скажи: I have traveled to Belgium.") so the user repeats it. For the next question do not add "Скажи:" or "Tell me" — just ask the question in English (e.g. "What foods have you tried in Belgium?"). Start with one short question.
+      : `Strict: the user must answer in ${tenseName}. If they use another tense (e.g. you asked in Present Simple but they answered in Present Continuous), treat it as an error: give **Correction:** with the sentence in ${tenseName} and **Comment:** in Russian (e.g. that the answer must be in ${tenseName}). Do not say "Правильно" for a sentence that is in the wrong tense. Your OWN example sentences and follow‑up questions must also use ${tenseName} wherever it is natural. Do not casually switch your questions to another tense (for example, if ${tenseName} is Future Perfect Continuous, keep asking about the future in Future Perfect Continuous, not in Present Simple).`
+  const capitalizationRule =
+    'Ignore capitalization differences in the USER answer (upper/lower case). If the only difference between the user answer and the correct sentence is capitalization (for example "my favorite food..." vs "My favorite food..."), treat the answer as correct and do NOT add any comment about capitalization. HOWEVER, your OWN replies must always use normal English capitalization and punctuation: start sentences with a capital letter and use standard sentence boundaries.';
+  const freeTalkRule =
+    topic === 'free_talk'
+      ? 'This is a free conversation. For your very first question, invite the user to choose any topic or to just start talking (for example: "What would you like to talk about today? You can name any topic, or just start, and I will follow."). Do NOT list specific options as a fixed menu. Instead, listen to what the user writes and infer the main topic yourself (for example, food, work, travel, hobbies, family, movies, music, sports) and then keep the rest of the dialogue mainly on that topic.'
+      : ''
+  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${tense === 'all' ? 'Any tense.' : 'Required tense: ' + tenseName + '.'} ${tenseRule} ${capitalizationRule} ${freeTalkRule} Keep the dialogue on topic: if the user's answer clearly doesn't fit (e.g. topic Food but they name a non-food like "table"), gently say so and ask for a fitting answer.
 
-Mandatory: at the very end of every reply add a new line, then the line "RU:" followed by a space and the Russian translation of your entire reply (the part the user sees). No other format: use exactly "RU: " then the translation. Example ending: "What is your favorite color?\\n\\nRU: Какой твой любимый цвет?"`
+The user often dictates long answers by voice and may not use commas. Do NOT treat missing commas or minor punctuation issues as errors by themselves. If the tense, word order and key grammar are correct, consider the answer correct; you may very briefly mention punctuation only as an optional note.
+
+When there are grammar or spelling problems or the user used the wrong tense, respond in the following human‑readable format, without any technical Markdown markers like **Correction:** or **Comment:**:
+
+1) If you want to show the correct version, start a new line with: "Правильно: " and then give the corrected sentence or short corrected paragraph in English.
+2) If you want to give an explanation, start the next line with: "Комментарий: " and give one very short explanation in Russian (1–2 short Russian sentences maximum). Do NOT put English sentences inside the comment text.
+3) If the user made a mistake and needs to repeat the sentence, after the correction/comment add a short Russian prompt starting with "Скажи: " and then the correct English sentence (for example: "Скажи: I usually call my customers and my children."). In this case do NOT add any new follow‑up question in the same reply — the ONLY task for the user is to repeat the correct sentence.
+4) Only when the user's answer is already correct and no repetition is needed, you may skip "Скажи:" and instead immediately write the next question in English (for example: "What do you usually eat with fried potatoes?") to continue the dialogue.
+
+Never add raw markers like **Correction:**, **Comment:**, **Right:** or similar anywhere in the visible text. The user should never see those words with asterisks.
+
+If the user clearly asks YOU a simple personal-style question about preferences or experience (e.g. "And you?", "What is your favorite food?", "Do you like tea?"), you may briefly answer in the first person (1 short sentence in English) BEFORE or AFTER the user's correction block, and then still ask them the next question. The goal is to keep the conversation natural and two‑sided, but remember: the main focus is always on the user's practice, not on talking about yourself.
+
+Never use "Tell me" or other English instruction phrases. After a correction, you may optionally add a short Russian prompt like "Скажи: " + the correct English sentence so the user can repeat it, but keep it separate from the \"Комментарий\" line.
+
+Do NOT add any extra \"RU:\" line or full Russian translation of the whole reply. All visible text (кроме строки \"Комментарий:\") должно быть на английском.`
 }
 
 function normalizeKey(key: string): string {
@@ -141,9 +168,9 @@ export async function POST(req: NextRequest) {
       if (res.status === 401) {
         userMessage = 'Неверный ключ OpenRouter. Проверьте ключ в меню настроек.'
       } else if (res.status === 429) {
-        userMessage = 'Превышен лимит запросов OpenRouter. На бесплатном тарифе: не более 200 запросов в день и 20 в минуту. Подождите минуту или попробуйте завтра.'
+        userMessage = 'Слишком много запросов к ИИ. Подождите немного и попробуйте ещё раз.'
       } else {
-        userMessage = 'Сервис ИИ временно недоступен. Проверьте сеть и ключ в меню, попробуйте позже.'
+        userMessage = 'Сейчас ИИ недоступен. Подождите немного и попробуйте ещё раз.';
       }
       return NextResponse.json(
         { error: userMessage, details: errText },
@@ -168,7 +195,7 @@ export async function POST(req: NextRequest) {
       console.warn('[chat] Пустой ответ OpenRouter:', reason)
       const isLengthLimit = first?.finish_reason === 'length' || first?.native_finish_reason === 'length'
       const errorMessage = isLengthLimit
-        ? 'Диалог слишком длинный. Начните новый диалог (меню → Новый диалог).'
+        ? 'Слишком много запросов к ИИ. Подождите немного и начните новый диалог.'
         : 'Модель вернула пустой ответ. Попробуйте отправить сообщение ещё раз.'
       return NextResponse.json(
         { error: errorMessage },

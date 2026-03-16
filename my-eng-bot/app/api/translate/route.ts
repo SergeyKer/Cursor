@@ -35,7 +35,11 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: FREE_MODEL,
         messages: [
-          { role: 'system', content: 'Translate the following to Russian. Reply only with the full translation of the whole text, one sentence or phrase. Do not truncate or cut off.' },
+          {
+            role: 'system',
+            content:
+              'You are a professional Russian translator. Translate the user text into **natural conversational Russian**, not a literal word‑for‑word translation. Preserve the meaning, tone and style. For questions like "What is your favorite food?" use idiomatic patterns such as "Какая ваша любимая еда?" instead of awkward phrases like "Что такое ваша любимая еда?". Reply only with the translation, without explanations, quotes or extra words.',
+          },
           { role: 'user', content: text },
         ],
         max_tokens: 300,

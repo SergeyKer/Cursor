@@ -37,13 +37,19 @@ export type TenseId =
   | 'future_perfect_continuous'
 
 export type TopicId =
-  | 'travel'
-  | 'work'
-  | 'daily_life'
+  | 'free_talk'
+  | 'business'
+  | 'family_friends'
+  | 'hobbies'
+  | 'movies_series'
+  | 'music'
+  | 'sports'
   | 'food'
   | 'culture'
+  | 'daily_life'
+  | 'travel'
+  | 'work'
   | 'technology'
-  | 'free_talk'
 
 export interface Settings {
   mode: AppMode

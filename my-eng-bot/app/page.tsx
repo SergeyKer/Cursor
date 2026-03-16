@@ -8,6 +8,7 @@ import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES } from '@/lib/constants'
 import type { ChatMessage, Settings, UsageInfo } from '@/lib/types'
 
 export default function Home() {
+  const [mounted, setMounted] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -24,6 +25,10 @@ export default function Home() {
   const firstMessageRequestIdRef = React.useRef(0)
   /** Не запускать второй запрос первого сообщения, пока первый в полёте (защита от двойного вызова из эффекта). */
   const firstMessageInFlightRef = React.useRef(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   React.useEffect(() => {
     if (!dialogStarted || typeof window === 'undefined') return
@@ -68,40 +73,30 @@ export default function Home() {
     return text.replace(/\\n/g, '\n').trim()
   }
 
-  /** Выделяет из ответа ИИ основной текст и перевод (после **RU:**, RU:, или новой строки + кириллица). */
+  /** Выделяет из ответа ИИ основной текст.
+   * Перевод от ИИ для диалога больше не используем (только по кнопке /api/translate),
+   * поэтому здесь просто чистим служебные строки вроде `RU:` если модель всё же их вернула.
+   */
   function parseContentWithTranslation(raw: string): { content: string; translation?: string } {
     const s = raw.trim()
-    const markers = ['**RU:**', 'RU:', 'Russian:', 'Перевод:']
-    for (const marker of markers) {
-      const idx = s.indexOf(marker)
-      if (idx !== -1) {
-        const content = cleanNewlines(s.slice(0, idx))
-        const translation = cleanNewlines(s.slice(idx + marker.length))
-        if (translation) return { content, translation }
-      }
-    }
-    const lineRu = s.match(/\n\s*(RU|Russian|Перевод)\s*:\s*/i)
-    if (lineRu && lineRu.index !== undefined) {
-      const content = cleanNewlines(s.slice(0, lineRu.index))
-      const translation = cleanNewlines(s.slice(lineRu.index + lineRu[0].length))
-      if (translation) return { content, translation }
-    }
-    const lastLine = s.split(/\n/).pop()?.trim() ?? ''
-    if (lastLine && /[\u0400-\u04FF]/.test(lastLine) && !/[\u0400-\u04FF]/.test(s.slice(0, s.length - lastLine.length))) {
-      const content = cleanNewlines(s.slice(0, s.lastIndexOf(lastLine)))
-      return { content, translation: cleanNewlines(lastLine) }
-    }
-    return { content: cleanNewlines(s) }
+    // Удаляем любую строку, начинающуюся с RU:/Russian:/Перевод:, если модель всё же её вывела.
+    const lines = s.split(/\r?\n/)
+    const filtered = lines.filter(
+      (line) => !/^\s*(RU|Russian|Перевод)\s*:?/i.test(line.trim())
+    )
+    return { content: cleanNewlines(filtered.join('\n')) }
   }
 
   function isRetryableError(message: string): boolean {
     return (
       message.startsWith('Превышен лимит') ||
-      message.startsWith('Диалог слишком длинный') ||
       message.startsWith('Модель вернула пустой ответ') ||
       message.startsWith('ИИ не отвечает') ||
       message.startsWith('Ответ занял слишком много времени') ||
-      message.startsWith('Загрузка занимает слишком много времени')
+      message.startsWith('Загрузка занимает слишком много времени') ||
+      message.startsWith('ИИ сейчас перегружен и немного «ушёл отдыхать»') ||
+      message.startsWith('Слишком много запросов к ИИ') ||
+      message.startsWith('Сейчас ИИ недоступен')
     )
   }
 
@@ -196,7 +191,10 @@ export default function Home() {
       content.includes('OPENROUTER_API_KEY') ||
       content.startsWith('Неверный ключ') ||
       content.startsWith('Превышен лимит') ||
-      content.startsWith('Сервис ИИ временно')
+      content.startsWith('Сервис ИИ временно') ||
+      content.startsWith('ИИ сейчас перегружен и немного «ушёл отдыхать»') ||
+      content.startsWith('Слишком много запросов к ИИ') ||
+      content.startsWith('Сейчас ИИ недоступен')
     )
   }, [])
 
@@ -206,6 +204,22 @@ export default function Home() {
     isErrorMessage(messages[messages.length - 1].content)
 
   const retryLastMessage = useCallback(async () => {
+    // Если это самый первый экран и вместо первого вопроса пришла ошибка
+    // «Слишком много запросов к ИИ…», то «Повторить» должен запустить
+    // новый диалог без старого контекста.
+    if (
+      messages.length === 1 &&
+      messages[0]?.role === 'assistant' &&
+      messages[0].content.startsWith('Слишком много запросов к ИИ')
+    ) {
+      newDialogRef.current = true
+      setMessages([])
+      setTimeout(() => {
+        ensureFirstMessage()
+      }, 50)
+      return
+    }
+
     const toSend = messages.slice(0, -1)
     setMessages(toSend)
     setLoading(true)
@@ -219,7 +233,21 @@ export default function Home() {
     } catch (e) {
       console.error(e)
       const errText = e instanceof Error ? e.message : 'Не удалось получить ответ. Попробуйте снова.'
-      setMessages((prev) => [...prev, { role: 'assistant', content: errText }])
+      if (
+        errText.startsWith('Диалог слишком длинный') ||
+        errText.startsWith('ИИ сейчас перегружен и немного «ушёл отдыхать»')
+      ) {
+        // Если диалог перерос лимит или модель перегружена, автоматически
+        // начинаем новый диалог и запрашиваем первый вопрос, но остаёмся
+        // в экране диалога (без возврата к стартовому меню).
+        newDialogRef.current = true
+        setMessages([])
+        setTimeout(() => {
+          ensureFirstMessage()
+        }, 50)
+      } else {
+        setMessages((prev) => [...prev, { role: 'assistant', content: errText }])
+      }
     } finally {
       setLoading(false)
       setRetryMessage(null)
@@ -326,7 +354,21 @@ export default function Home() {
       } catch (e) {
         console.error(e)
         const errText = e instanceof Error ? e.message : 'Не удалось получить ответ. Попробуйте снова.'
-        setMessages((prev) => [...prev, { role: 'assistant', content: errText }])
+        if (
+          errText.startsWith('Диалог слишком длинный') ||
+          errText.startsWith('ИИ сейчас перегружен и немного «ушёл отдыхать»')
+        ) {
+          // Автоматический мягкий сброс слишком длинного диалога или перегрузки:
+          // очищаем историю и сразу запрашиваем новый вопрос.
+          newDialogRef.current = true
+          setMessages([])
+          setDialogStarted(false)
+          setTimeout(() => {
+            ensureFirstMessage()
+          }, 50)
+        } else {
+          setMessages((prev) => [...prev, { role: 'assistant', content: errText }])
+        }
       } finally {
         setLoading(false)
       }
@@ -409,7 +451,7 @@ export default function Home() {
       const canRetry = attempt < MAX_ATTEMPTS - 1 && isRetryableTranslationError(lastError)
       if (!canRetry) break
       await sleep(150)
-      await sleep(lastError.startsWith('Превышен лимит') ? RETRY_DELAY_RATE_LIMIT_MS : RETRY_DELAY_MS)
+      await sleep(RETRY_DELAY_MS)
     }
     setLoadingTranslationIndex(null)
     setTranslationRetryMessage(null)
@@ -424,8 +466,16 @@ export default function Home() {
         : 'Тренировка перевода'
       : 'My Eng Bot'
 
+  if (!mounted) {
+    return (
+      <div className="flex h-screen min-h-[100dvh] items-center justify-center">
+        <p className="text-[var(--text-muted)]">Загрузка…</p>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex min-h-screen min-h-[100dvh] flex-col">
+    <div className="flex h-screen min-h-[100dvh] flex-col">
       <header
         className="fixed left-0 right-0 top-0 z-[60] flex shrink-0 items-center border-b border-[var(--border)] bg-[var(--bg)]"
         style={{

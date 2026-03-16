@@ -24,6 +24,8 @@ html {
   /* iOS Safari: высота с учётом скрытия панели браузера */
   min-height: 100vh;
   min-height: 100dvh;
+  height: 100%;
+  overflow: hidden; /* Скроллим только внутренний контейнер диалога */
 }
 
 body {
@@ -33,6 +35,8 @@ body {
   -webkit-tap-highlight-color: transparent;
   min-height: 100vh;
   min-height: 100dvh;
+  height: 100%;
+  overflow: hidden; /* Отключаем скролл окна, скролл только внутри Chat */
 }
 
 /* Кнопки: лёгкий объём — тень и небольшой подъём/нажатие */
