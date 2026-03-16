@@ -44,6 +44,37 @@ export function parseCorrection(text: string): {
   }
 }
 
+type SegmentResult = {
+  value: string
+  rest: string
+}
+
+const MARKERS = ['**Praise:**', '**Correction:**', '**Right:**', '**Comment:**'] as const
+
+function takeUntilNextMarker(source: string): SegmentResult {
+  const text = source.trimStart()
+  let nearestIndex = -1
+
+  for (const marker of MARKERS) {
+    const idx = text.indexOf(marker)
+    if (idx !== -1 && (nearestIndex === -1 || idx < nearestIndex)) {
+      nearestIndex = idx
+    }
+  }
+
+  if (nearestIndex === -1) {
+    return {
+      value: text.trim(),
+      rest: '',
+    }
+  }
+
+  const value = text.slice(0, nearestIndex).trim()
+  const rest = text.slice(nearestIndex).trimStart()
+
+  return { value, rest }
+}
+
 /**
  * Разбор ответа ИИ в режиме «Тренировка перевода»:
  * **Praise:** или **Correction:** **Right:** **Comment:** + следующий русский текст и приглашение.
