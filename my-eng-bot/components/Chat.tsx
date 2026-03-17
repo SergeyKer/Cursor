@@ -49,7 +49,7 @@ export default function Chat({
     setInput('')
   }
 
-  const startListening = useCallback(() => {
+  const startListening = useCallback(async () => {
     if (typeof window === 'undefined') return
     const SpeechRecognitionAPI =
       (window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
@@ -58,6 +58,25 @@ export default function Chat({
       setInput('[Распознавание речи не поддерживается в этом браузере]')
       return
     }
+
+    // В некоторых браузерах распознавание речи не запрашивает разрешение явно.
+    // Запрос getUserMedia даёт понятный prompt и более детальную ошибку.
+    try {
+      if (navigator?.mediaDevices?.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        stream.getTracks().forEach((t) => t.stop())
+      }
+    } catch (e) {
+      const name = e instanceof Error ? e.name : ''
+      if (/NotAllowedError|PermissionDeniedError/i.test(name)) {
+        setInput('[Нет доступа к микрофону. Разрешите микрофон для этого сайта и попробуйте снова.]')
+      } else {
+        setInput('[Не удалось получить доступ к микрофону. Проверьте разрешения браузера.]')
+      }
+      setListening(false)
+      return
+    }
+
     if (recognitionRef.current) {
       recognitionRef.current.abort()
     }
@@ -72,10 +91,30 @@ export default function Chat({
       if (text) setInput(text)
     }
     rec.onend = () => setListening(false)
-    rec.onerror = () => setListening(false)
+    rec.onerror = (event: Event) => {
+      // SpeechRecognitionErrorEvent есть не во всех TS lib, поэтому берём как any.
+      const err = (event as unknown as { error?: string; message?: string }).error
+      const msg = (event as unknown as { message?: string }).message
+      const code = (err ?? msg ?? '').toString()
+      if (/not-allowed|permission/i.test(code)) {
+        setInput('[Нет доступа к микрофону. Разрешите микрофон для этого сайта и попробуйте снова.]')
+      } else if (/no-speech/i.test(code)) {
+        setInput('[Речь не распознана. Скажите фразу ещё раз чуть громче.]')
+      } else if (/network/i.test(code)) {
+        setInput('[Ошибка сети при распознавании речи. Попробуйте ещё раз.]')
+      } else if (code) {
+        setInput(`[Ошибка распознавания речи: ${code}]`)
+      }
+      setListening(false)
+    }
     recognitionRef.current = rec
-    rec.start()
-    setListening(true)
+    try {
+      rec.start()
+      setListening(true)
+    } catch {
+      setInput('[Не удалось запустить распознавание речи. Попробуйте ещё раз.]')
+      setListening(false)
+    }
   }, [])
 
   const stopListening = useCallback(() => {
