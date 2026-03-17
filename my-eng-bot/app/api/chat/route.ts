@@ -167,6 +167,10 @@ const INSTRUCTION_LEAK_PATTERNS = [
   /^\s*2\)\s*When the user's answer/im,
   /CRITICAL\s*:\s*If the user's answer/i,
   /output ONLY\s+["']?\s*Комментарий/i,
+  // Мета-ответы вместо контента
+  /^\s*(?:ai|assistant)\s*:\s*the user['’]s answers?/i,
+  /\bthe user['’]s answers?\s+and\s+corrections\b/i,
+  /\bthe user['’]s answer\s+and\s+corrections\b/i,
 ]
 
 /**
@@ -185,6 +189,25 @@ function sanitizeInstructionLeak(content: string): string | null {
     }
   }
   return trimmed
+}
+
+function isMetaGarbage(content: string): boolean {
+  const s = content.trim()
+  if (!s) return false
+  const normalized = s.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
+  if (!normalized) return false
+  // Набор "пустых" служебных фраз, которые иногда присылает модель вместо ответа.
+  return (
+    /^the user['’]s answers?(?:\s+and\s+corrections)?\.?$/i.test(normalized) ||
+    /^the user['’]s answers?\s+and\s+corrections\.?$/i.test(normalized) ||
+    /^the user['’]s answer\s+and\s+corrections\.?$/i.test(normalized)
+  )
+}
+
+function fallbackQuestionForContext(params: { topic: string; tense: string }): string {
+  return params.topic === 'free_talk'
+    ? defaultNextQuestion(params.tense)
+    : firstQuestionForTopicAndTense(params.topic, params.tense)
 }
 
 /** Паттерн: "Говорится X, не Y" или "Нужно слово X, не Y" — строка с другим контекстом, если ни X, ни Y нет в сообщении пользователя. */
@@ -717,6 +740,12 @@ export async function POST(req: NextRequest) {
         { error: 'Модель вернула некорректный ответ. Попробуйте отправить сообщение ещё раз.' },
         { status: 502 }
       )
+    }
+
+    // Если модель вернула мета-фразу вместо ответа — не показываем её пользователю.
+    // Делаем мягкий fallback на следующий вопрос, чтобы UX не ломался.
+    if (isMetaGarbage(sanitized)) {
+      return NextResponse.json({ content: fallbackQuestionForContext({ topic, tense }) })
     }
     const lastUserContentForResponse = recentMessages.filter((m: ChatMessage) => m.role === 'user').pop()?.content ?? ''
     sanitized = stripOffContextCorrections(sanitized, lastUserContentForResponse)
