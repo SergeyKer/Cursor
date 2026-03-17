@@ -97,7 +97,6 @@ export default function Home() {
       message.startsWith('Ответ занял слишком много времени') ||
       message.startsWith('Загрузка занимает слишком много времени') ||
       message.startsWith('ИИ сейчас перегружен и немного «ушёл отдыхать»') ||
-      message.startsWith('Слишком много запросов к ИИ') ||
       message.startsWith('Сейчас ИИ недоступен') ||
       message.startsWith('Нет связи с сервером')
     )
