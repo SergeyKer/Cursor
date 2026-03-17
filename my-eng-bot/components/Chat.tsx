@@ -478,15 +478,15 @@ function MessageBubble({
                 role="alert"
               >
                 {comment && (
-                  <p className="leading-snug">
+                  <p className="leading-snug whitespace-pre-wrap">
                     <span className="font-semibold text-blue-700">Комментарий:</span>{' '}
-                    <span className="text-gray-800">{comment}</span>
+                    <span className="text-gray-800 whitespace-pre-wrap">{comment}</span>
                   </p>
                 )}
                 {showOnlyRepeat && (
-                  <p className={`leading-snug ${comment ? 'mt-1 pt-1.5 border-t border-gray-200' : ''}`}>
+                  <p className={`leading-snug whitespace-pre-wrap ${comment ? 'mt-1 pt-1.5 border-t border-gray-200' : ''}`}>
                     <span className="font-semibold text-green-700">Повтори:</span>{' '}
-                    <span className="text-gray-800">{repeatTextForCard}</span>
+                    <span className="text-gray-800 whitespace-pre-wrap">{repeatTextForCard}</span>
                   </p>
                 )}
                 {mainBefore && !showOnlyRepeat && !hideRussianNonQuestionMainBefore && (
