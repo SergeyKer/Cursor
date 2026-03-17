@@ -303,23 +303,28 @@ export async function POST(req: NextRequest) {
     if (!res.ok) {
       const errText = await res.text()
       let userMessage: string
+      let errorCode: 'rate_limit' | 'unauthorized' | 'forbidden' | 'upstream_error' | undefined
       if (res.status === 401) {
+        errorCode = 'unauthorized'
         userMessage =
           provider === 'openai'
             ? 'Неверный ключ OpenAI. Проверьте OPENAI_API_KEY.'
             : 'Неверный ключ OpenRouter. Проверьте OPENROUTER_API_KEY.'
       } else if (res.status === 403 && provider === 'openai') {
+        errorCode = 'forbidden'
         userMessage =
           classifyOpenAiForbidden(errText) === 'unsupported_region'
             ? 'OpenAI недоступен из вашего региона (403 unsupported_country_region_territory). Переключитесь на OpenRouter или используйте деплой (например, Vercel) в поддерживаемом регионе.'
             : 'Доступ к OpenAI запрещён (403). Проверьте доступность сервиса в вашем регионе и права проекта/аккаунта.'
       } else if (res.status === 429) {
+        errorCode = 'rate_limit'
         userMessage = 'Слишком много запросов к ИИ. Подождите немного и попробуйте ещё раз.'
       } else {
+        errorCode = 'upstream_error'
         userMessage = 'Сейчас ИИ недоступен. Подождите немного и попробуйте ещё раз.'
       }
       return NextResponse.json(
-        { error: userMessage, details: errText },
+        { error: userMessage, errorCode, provider, details: errText },
         { status: res.status }
       )
     }

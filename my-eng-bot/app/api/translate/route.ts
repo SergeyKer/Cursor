@@ -100,8 +100,17 @@ export async function POST(req: NextRequest) {
                 ? 'OpenAI недоступен из вашего региона (403 unsupported_country_region_territory). Переключитесь на OpenRouter или используйте деплой (например, Vercel) в поддерживаемом регионе.'
                 : 'Доступ к OpenAI запрещён (403). Проверьте доступность сервиса в вашем регионе и права проекта/аккаунта.'
             : 'Не удалось получить перевод.'
+
+      const errorCode: 'rate_limit' | 'unauthorized' | 'forbidden' | 'upstream_error' =
+        res.status === 429
+          ? 'rate_limit'
+          : res.status === 401
+            ? 'unauthorized'
+            : res.status === 403 && provider === 'openai'
+              ? 'forbidden'
+              : 'upstream_error'
       return NextResponse.json(
-        { error: userMessage, details: errText },
+        { error: userMessage, errorCode, provider, details: errText },
         { status: res.status }
       )
     }

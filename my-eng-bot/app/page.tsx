@@ -129,15 +129,41 @@ export default function Home() {
               signal: controller.signal,
             })
             clearTimeout(timeoutId)
-            let data: { content?: string; error?: string }
+            let data: {
+              content?: string
+              error?: string
+              errorCode?: 'rate_limit' | 'unauthorized' | 'forbidden' | 'upstream_error'
+              provider?: 'openrouter' | 'openai'
+            }
             try {
-              data = (await res.json()) as { content?: string; error?: string }
+              data = (await res.json()) as {
+                content?: string
+                error?: string
+                errorCode?: 'rate_limit' | 'unauthorized' | 'forbidden' | 'upstream_error'
+                provider?: 'openrouter' | 'openai'
+              }
             } catch {
               throw new Error(res.ok ? 'Неверный ответ сервера.' : `Ошибка ${res.status}: ${res.statusText}`)
             }
             const text = (data.content ?? '').trim()
             if (!res.ok) {
-              const errMsg = (data as { error?: string }).error || res.statusText
+              const errMsg = data.error || res.statusText
+              const errorCode = data.errorCode
+              const providerFromServer = data.provider ?? settings.provider
+
+              // 429: ретраим только для OpenRouter (как было), для OpenAI — без ретраев.
+              if (
+                errorCode === 'rate_limit' &&
+                providerFromServer === 'openrouter' &&
+                attempt < MAX_ATTEMPTS - 1
+              ) {
+                lastError = new Error(errMsg)
+                onRetryStatus?.(RETRY_MESSAGES[attempt] ?? RETRY_MESSAGES[0])
+                await sleep(150)
+                await sleep(RETRY_DELAY_RATE_LIMIT_MS)
+                continue
+              }
+
               throw new Error(errMsg)
             }
             if (data.error && !text) {
