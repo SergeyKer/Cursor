@@ -1,5 +1,4 @@
 export function parseCorrection(text: string): {
-  correction: string | null
   comment: string | null
   rest: string
 } {
@@ -9,7 +8,6 @@ export function parseCorrection(text: string): {
     .trim()
 
   const lines = cleaned.split(/\r?\n/)
-  let correction: string | null = null
   let comment: string | null = null
   const restLines: string[] = []
 
@@ -26,12 +24,8 @@ export function parseCorrection(text: string): {
       restLines.push(raw)
       continue
     }
-    if (line.toLowerCase().startsWith('правильно:')) {
-      if (correction === null) {
-        correction = line.slice('правильно:'.length).trim()
-        continue
-      }
-    }
+    // "Правильно:" больше не используем в UI; если вдруг просочилось — пропускаем.
+    if (line.toLowerCase().startsWith('правильно:')) continue
     if (line.toLowerCase().startsWith('комментарий:')) {
       if (comment === null) {
         comment = line.slice('комментарий:'.length).trim()
@@ -61,9 +55,10 @@ export function parseCorrection(text: string): {
   }
 
   return {
-    correction: correction || null,
     comment: comment || null,
-    rest: rest || cleaned,
+    // Если мы уже извлекли «Комментарий:», то не должны повторно показывать
+    // исходный текст (иначе получится дублирование «Комментарий/Повтори» в UI).
+    rest: (comment ? rest : rest || cleaned) || '',
   }
 }
 

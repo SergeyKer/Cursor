@@ -299,6 +299,7 @@ function isErrorLikeMessage(content: string): boolean {
   return (
     content === 'Не удалось загрузить ответ. Проверьте сеть и настройки сервера.' ||
     content.startsWith('ИИ не отвечает') ||
+    content.startsWith('Модель вернула некорректный ответ') ||
     content.startsWith('Модель вернула пустой ответ') ||
     content.startsWith('Диалог слишком длинный') ||
     content.startsWith('Ответ занял слишком много времени') ||
@@ -333,7 +334,8 @@ function splitInvitation(text: string): {
 function extractRepeatPrompt(text: string): { repeatText: string } | null {
   const lines = text.split(/\r?\n/)
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim()
+    // Модель иногда добавляет префиксы "AI:"/"Assistant:" перед служебными строками.
+    const line = lines[i].replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
     if (!line) continue
     const m = /^(Скажи|Повтори|Say|Repeat)\s*:?\s*(.*)$/i.exec(line)
     if (!m) continue
@@ -377,8 +379,8 @@ function MessageBubble({
   const [showTranslation, setShowTranslation] = React.useState(false)
   const translationRequestedRef = useRef(false)
   const prevTranslationErrorRef = useRef<string | undefined>(undefined)
-  const { correction, comment, rest } =
-    message.role === 'assistant' ? parseCorrection(message.content) : { correction: null, comment: null, rest: message.content }
+  const { comment, rest } =
+    message.role === 'assistant' ? parseCorrection(message.content) : { comment: null, rest: message.content }
 
   const displayText = message.role === 'assistant' ? rest : message.content
   const isTranslationMode = mode === 'translation' && !isUser
@@ -393,28 +395,36 @@ function MessageBubble({
   // Если это похвала (ответ правильный), игнорируем "Повтори:" даже если модель его вывела.
   // Иначе UI может зациклиться на повторении.
   const effectiveRepeatPrompt = isCorrectAnswerPraise ? null : repeatPrompt
-  const repeatTextForCard = effectiveRepeatPrompt?.repeatText || (correction && !effectiveRepeatPrompt && mainBefore && /^(Скажи|Повтори|Say|Repeat)\s*:?\s*/im.test(mainBefore.trim()) ? correction : null)
+  const repeatTextForCard = effectiveRepeatPrompt?.repeatText ?? null
   const showOnlyRepeat = Boolean(repeatTextForCard)
-  const showCorrectionBlock = correction && !showOnlyRepeat && !isCorrectAnswerPraise
 
   const handleSpeak = () => {
     // Для озвучки:
-    // 1) если есть корректный вариант, озвучиваем только его (без комментариев и "Повтори");
+    // 1) если есть "Повтори", озвучиваем только его;
     // 2) иначе озвучиваем основной текст, убрав служебные префиксы Скажи/Повтори/Say/Repeat.
-    const base = repeatTextForCard || correction || rest || message.content
+    const base = repeatTextForCard || rest || message.content
     const speakText = base
       ? base.replace(/^(Скажи|Повтори|Say|Repeat)\s*:?\s*/i, '').trim()
       : ''
     if (speakText) speak(speakText, voiceId)
   }
 
-  const textToTranslate = repeatTextForCard || rest || (correction ?? '') || message.content
+  const textToTranslate = repeatTextForCard || rest || message.content
   const errorLike = !isUser && isErrorLikeMessage(message.content)
   const hasSpeakableText = !isUser && Boolean(textToTranslate) && !errorLike
   const hasTranslationData = !isUser && Boolean(message.translation)
   const hasTranslationError = !isUser && Boolean(message.translationError)
   const hasTranslationButton = !isUser && mode !== 'translation' && !errorLike
-  const hasContent = isUser ? Boolean(message.content) : Boolean(correction || comment || mainBefore || mainAfter || invitationText || rest || message.content || message.translation)
+  // Дополнительная UI-страховка: если модель нарушила формат и выдала русскую "мета" строку
+  // (кириллица, без вопроса) — не показываем её как "AI: ...".
+  const hideRussianNonQuestionMainBefore =
+    !isUser &&
+    !errorLike &&
+    isCorrectAnswerPraise &&
+    Boolean(mainBefore) &&
+    /[А-Яа-яЁё]/.test(mainBefore) &&
+    !/\?\s*$/.test(mainBefore)
+  const hasContent = isUser ? Boolean(message.content) : Boolean(comment || mainBefore || mainAfter || invitationText || rest || message.content || message.translation)
 
   React.useEffect(() => {
     if (!showTranslation) {
@@ -461,7 +471,7 @@ function MessageBubble({
           <p className="whitespace-pre-wrap">{message.content}</p>
         ) : (
           <>
-            {(correction || comment || mainBefore || invitationText || mainAfter) && (
+            {(comment || mainBefore || invitationText || mainAfter) && (
               <div
                 className="mb-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm leading-snug text-[var(--text)]"
                 role="alert"
@@ -472,40 +482,14 @@ function MessageBubble({
                     <span className="text-gray-800">{comment}</span>
                   </p>
                 )}
-                {showCorrectionBlock && (
-                  <p className={`leading-snug ${comment ? 'mt-1 pt-1.5 border-t border-gray-200' : ''}`}>
-                    <span className="font-semibold text-green-700">Правильно:</span>{' '}
-                    <span className="text-gray-800">{correction}</span>
-                    {' '}
-                    <button
-                      type="button"
-                      onClick={() => speak(correction, voiceId)}
-                      className="inline-flex h-5 w-5 align-middle items-center justify-center rounded-full text-gray-500 hover:text-gray-800"
-                      title="Озвучить правильный вариант"
-                      aria-label="Озвучить правильный вариант"
-                    >
-                      <SpeakerIcon />
-                    </button>
-                  </p>
-                )}
                 {showOnlyRepeat && (
                   <p className={`leading-snug ${comment ? 'mt-1 pt-1.5 border-t border-gray-200' : ''}`}>
                     <span className="font-semibold text-green-700">Повтори:</span>{' '}
                     <span className="text-gray-800">{repeatTextForCard}</span>
-                    {' '}
-                    <button
-                      type="button"
-                      onClick={() => repeatTextForCard != null && speak(repeatTextForCard, voiceId)}
-                      className="inline-flex h-5 w-5 align-middle items-center justify-center rounded-full text-gray-500 hover:text-gray-800"
-                      title="Озвучить"
-                      aria-label="Озвучить"
-                    >
-                      <SpeakerIcon />
-                    </button>
                   </p>
                 )}
-                {mainBefore && !showOnlyRepeat && (
-                  <p className={`whitespace-pre-wrap text-gray-800 leading-snug ${correction || comment ? 'mt-1 pt-1.5 border-t border-gray-200' : ''}`}>
+                {mainBefore && !showOnlyRepeat && !hideRussianNonQuestionMainBefore && (
+                  <p className={`whitespace-pre-wrap text-gray-800 leading-snug ${comment ? 'mt-1 pt-1.5 border-t border-gray-200' : ''}`}>
                     <span className="mr-1 font-semibold text-gray-700">AI:</span>
                     {mainBefore}
                   </p>
@@ -516,7 +500,7 @@ function MessageBubble({
                   </p>
                 )}
                 {mainAfter && (
-                  <p className={`whitespace-pre-wrap text-gray-800 leading-snug ${(mainBefore && !showOnlyRepeat) || invitationText ? 'mt-1' : comment || correction || showOnlyRepeat ? 'mt-1 pt-1.5 border-t border-gray-200' : ''}`}>
+                  <p className={`whitespace-pre-wrap text-gray-800 leading-snug ${(mainBefore && !showOnlyRepeat) || invitationText ? 'mt-1' : comment || showOnlyRepeat ? 'mt-1 pt-1.5 border-t border-gray-200' : ''}`}>
                     {mainAfter.replace(/\b(Say|Repeat|Скажи):\s*/gi, 'Повтори: ')}
                   </p>
                 )}

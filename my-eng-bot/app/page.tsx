@@ -218,6 +218,7 @@ export default function Home() {
     return (
       content === ERROR_FIRST_MESSAGE ||
       content.startsWith('ИИ не отвечает') ||
+      content.startsWith('Модель вернула некорректный ответ') ||
       content.startsWith('Модель вернула пустой ответ') ||
       content.startsWith('Диалог слишком длинный') ||
       content.startsWith('Ответ занял слишком много времени') ||
