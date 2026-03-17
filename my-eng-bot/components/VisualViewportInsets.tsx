@@ -11,7 +11,15 @@ function computeBottomInsetPx(): number {
   // - когда адресная строка/интерфейс браузера или системные overlay'и меняют полезную высоту,
   //   это отражается в visualViewport.height/offsetTop.
   const inset = window.innerHeight - vv.height - vv.offsetTop
-  return Number.isFinite(inset) ? Math.max(0, Math.round(inset)) : 0
+  const vvInset = Number.isFinite(inset) ? Math.max(0, Math.round(inset)) : 0
+
+  // Android (3-button navigation) может перекрывать web-контент снизу,
+  // при этом safe-area и VisualViewport часто возвращают 0 (когда клавиатура закрыта).
+  // Даем минимальный запас, чтобы поле ввода не уходило под системные кнопки.
+  const isAndroid = /Android/i.test(navigator.userAgent)
+  const androidMinInset = isAndroid ? 56 : 0
+
+  return Math.max(vvInset, androidMinInset)
 }
 
 export default function VisualViewportInsets() {
