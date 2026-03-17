@@ -3,6 +3,8 @@ import type { ChatMessage } from '@/lib/types'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const FREE_MODEL = 'openrouter/free'
+const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
+const OPENAI_MODEL = 'gpt-4o-mini'
 /** Максимум сообщений в контексте (user+assistant). 4 = два последних обмена. Типичный вход ~1000–1500 токенов. */
 const MAX_MESSAGES_IN_CONTEXT = 4
 /** Лимит токенов ответа. Типичный ответ 40–150 токенов — резерв ~2–3×. */
@@ -189,18 +191,24 @@ function normalizeKey(key: string): string {
   return k
 }
 
+type Provider = 'openrouter' | 'openai'
+
+function classifyOpenAiForbidden(errText: string): 'unsupported_region' | 'other' {
+  try {
+    const parsed = JSON.parse(errText) as { error?: { code?: string } }
+    if (parsed?.error?.code === 'unsupported_country_region_territory') return 'unsupported_region'
+  } catch {
+    // ignore
+  }
+  if (/unsupported_country_region_territory/i.test(errText)) return 'unsupported_region'
+  return 'other'
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const key = normalizeKey(process.env.OPENROUTER_API_KEY ?? '')
-    if (!key) {
-      return NextResponse.json(
-        { error: 'На сервере не задан OPENROUTER_API_KEY' },
-        { status: 500 }
-      )
-    }
-
     const body = await req.json()
     const messages: ChatMessage[] = Array.isArray(body.messages) ? body.messages : []
+    const provider: Provider = body.provider === 'openai' ? 'openai' : 'openrouter'
     const topic = body.topic ?? 'free_talk'
     const level = body.level ?? 'a1'
     const tense = body.tense ?? 'present_simple'
@@ -244,29 +252,71 @@ export async function POST(req: NextRequest) {
       ...userTurnMessages,
     ]
 
-    const res = await fetch(OPENROUTER_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${key}`,
-        'HTTP-Referer': req.nextUrl?.origin ?? '',
-      },
-      body: JSON.stringify({
-        model: FREE_MODEL,
-        messages: apiMessages,
-        max_tokens: MAX_RESPONSE_TOKENS,
-      }),
-    })
+    const res = await (async () => {
+      if (provider === 'openai') {
+        const key = normalizeKey(process.env.OPENAI_API_KEY ?? '')
+        if (!key) {
+          return NextResponse.json(
+            { error: 'На сервере не задан OPENAI_API_KEY' },
+            { status: 500 }
+          )
+        }
+        return fetch(OPENAI_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${key}`,
+          },
+          body: JSON.stringify({
+            model: OPENAI_MODEL,
+            messages: apiMessages,
+            max_tokens: MAX_RESPONSE_TOKENS,
+          }),
+        })
+      }
+
+      const key = normalizeKey(process.env.OPENROUTER_API_KEY ?? '')
+      if (!key) {
+        return NextResponse.json(
+          { error: 'На сервере не задан OPENROUTER_API_KEY' },
+          { status: 500 }
+        )
+      }
+      return fetch(OPENROUTER_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${key}`,
+          'HTTP-Referer': req.nextUrl?.origin ?? '',
+        },
+        body: JSON.stringify({
+          model: FREE_MODEL,
+          messages: apiMessages,
+          max_tokens: MAX_RESPONSE_TOKENS,
+        }),
+      })
+    })()
+
+    // Ветка, когда выше вернули NextResponse (например, отсутствует ключ).
+    if (res instanceof NextResponse) return res
 
     if (!res.ok) {
       const errText = await res.text()
       let userMessage: string
       if (res.status === 401) {
-        userMessage = 'Неверный ключ OpenRouter. Проверьте ключ в меню настроек.'
+        userMessage =
+          provider === 'openai'
+            ? 'Неверный ключ OpenAI. Проверьте OPENAI_API_KEY.'
+            : 'Неверный ключ OpenRouter. Проверьте OPENROUTER_API_KEY.'
+      } else if (res.status === 403 && provider === 'openai') {
+        userMessage =
+          classifyOpenAiForbidden(errText) === 'unsupported_region'
+            ? 'OpenAI недоступен из вашего региона (403 unsupported_country_region_territory). Переключитесь на OpenRouter или используйте деплой (например, Vercel) в поддерживаемом регионе.'
+            : 'Доступ к OpenAI запрещён (403). Проверьте доступность сервиса в вашем регионе и права проекта/аккаунта.'
       } else if (res.status === 429) {
         userMessage = 'Слишком много запросов к ИИ. Подождите немного и попробуйте ещё раз.'
       } else {
-        userMessage = 'Сейчас ИИ недоступен. Подождите немного и попробуйте ещё раз.';
+        userMessage = 'Сейчас ИИ недоступен. Подождите немного и попробуйте ещё раз.'
       }
       return NextResponse.json(
         { error: userMessage, details: errText },

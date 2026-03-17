@@ -1,0 +1,28 @@
+---
+description: Mandatory model disclosure and notification when provider changes
+alwaysApply: true
+---
+
+# Model disclosure
+
+## Required in the first reply of the session
+
+In the **very first** reply of each new conversation, the agent must:
+
+1. **Explicitly state** which model/provider it is running on (e.g. “Running on model X (provider Y)”).
+2. If the exact model name or provider is not available in context — **explicitly say**: “The exact model name / provider is not available to me.”
+
+This must appear at the **beginning** of the first reply, without the user having to ask.
+
+## When the model or provider changes
+
+If during the conversation the agent receives information that the underlying model or provider has changed (e.g. from system context or metadata):
+
+- **In the very next reply**, inform the user: “The model has changed to Y” or “The provider has changed to Z” (as applicable).
+- Do not skip this notification.
+
+## Strict requirements
+
+- Do not consider the rule satisfied if the disclosure is buried in the middle or end of the reply.
+- Do not defer the provider/model change notification.
+- If the model/provider is unknown — state this clearly in the first reply.

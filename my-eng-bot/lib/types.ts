@@ -9,6 +9,8 @@ export interface ChatMessage {
   translationError?: string
 }
 
+export type AiProvider = 'openrouter' | 'openai'
+
 export type AppMode = 'dialogue' | 'translation'
 export type SentenceType = 'general' | 'interrogative' | 'negative' | 'mixed'
 
@@ -52,6 +54,7 @@ export type TopicId =
   | 'technology'
 
 export interface Settings {
+  provider: AiProvider
   mode: AppMode
   sentenceType: SentenceType
   topic: TopicId

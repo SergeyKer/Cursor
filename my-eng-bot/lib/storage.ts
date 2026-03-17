@@ -29,6 +29,7 @@ function migrateStorageIfNeeded(): void {
 }
 
 const DEFAULT_SETTINGS: Settings = {
+  provider: 'openrouter',
   mode: 'dialogue',
   sentenceType: 'mixed',
   topic: 'free_talk',

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const FREE_MODEL = 'openrouter/free'
+const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
+const OPENAI_MODEL = 'gpt-4o-mini'
 
 function normalizeKey(key: string): string {
   const k = key.trim()
@@ -9,49 +11,95 @@ function normalizeKey(key: string): string {
   return k
 }
 
+type Provider = 'openrouter' | 'openai'
+
+function classifyOpenAiForbidden(errText: string): 'unsupported_region' | 'other' {
+  try {
+    const parsed = JSON.parse(errText) as { error?: { code?: string } }
+    if (parsed?.error?.code === 'unsupported_country_region_territory') return 'unsupported_region'
+  } catch {
+    // ignore
+  }
+  if (/unsupported_country_region_territory/i.test(errText)) return 'unsupported_region'
+  return 'other'
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const key = normalizeKey(process.env.OPENROUTER_API_KEY ?? '')
-    if (!key) {
-      return NextResponse.json(
-        { error: 'На сервере не задан OPENROUTER_API_KEY' },
-        { status: 500 }
-      )
-    }
-
     const body = await req.json()
     const text = typeof body.text === 'string' ? body.text.trim() : ''
+    const provider: Provider = body.provider === 'openai' ? 'openai' : 'openrouter'
     if (!text) {
       return NextResponse.json({ error: 'Текст для перевода не передан' }, { status: 400 })
     }
 
-    const res = await fetch(OPENROUTER_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${key}`,
-        'HTTP-Referer': req.nextUrl?.origin ?? '',
-      },
-      body: JSON.stringify({
-        model: FREE_MODEL,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a professional Russian translator. Translate the user text into **natural conversational Russian**, not a literal word‑for‑word translation. Preserve the meaning, tone and style. For questions like "What is your favorite food?" use idiomatic patterns such as "Какая ваша любимая еда?" instead of awkward phrases like "Что такое ваша любимая еда?". For English questions with "what ... in" (e.g. "What are you swimming in?") keep the preposition in Russian: use "В чём ...?" (e.g. "В чём ты сейчас плаваешь?", "В чём ты плаваешь?") — never "Что ты плаваешь?" which loses the meaning. Important: in conversational prompts like "Just start, and I will follow." translate "I will follow" idiomatically as "я подхвачу/я продолжу/я поддержу разговор" (depending on context). Avoid literal phrases like "я последую за тобой/я последую за вами" unless it is about physically following someone. Reply only with the translation, without explanations, quotes or extra words.',
+    const system = 'You are a professional Russian translator. Translate the user text into **natural conversational Russian**, not a literal word‑for‑word translation. Preserve the meaning, tone and style. For questions like "What is your favorite food?" use idiomatic patterns such as "Какая ваша любимая еда?" instead of awkward phrases like "Что такое ваша любимая еда?". For English questions with "what ... in" (e.g. "What are you swimming in?") keep the preposition in Russian: use "В чём ...?" (e.g. "В чём ты сейчас плаваешь?", "В чём ты плаваешь?") — never "Что ты плаваешь?" which loses the meaning. Important: in conversational prompts like "Just start, and I will follow." translate "I will follow" idiomatically as "я подхвачу/я продолжу/я поддержу разговор" (depending on context). Avoid literal phrases like "я последую за тобой/я последую за вами" unless it is about physically following someone. Reply only with the translation, without explanations, quotes or extra words.'
+    const messages = [
+      { role: 'system', content: system },
+      { role: 'user', content: text },
+    ]
+
+    const res = await (async () => {
+      if (provider === 'openai') {
+        const key = normalizeKey(process.env.OPENAI_API_KEY ?? '')
+        if (!key) {
+          return NextResponse.json(
+            { error: 'На сервере не задан OPENAI_API_KEY' },
+            { status: 500 }
+          )
+        }
+        return fetch(OPENAI_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${key}`,
           },
-          { role: 'user', content: text },
-        ],
-        max_tokens: 300, // типичный перевод 5–30 токенов, резерв большой
-      }),
-    })
+          body: JSON.stringify({
+            model: OPENAI_MODEL,
+            messages,
+            max_tokens: 300,
+          }),
+        })
+      }
+
+      const key = normalizeKey(process.env.OPENROUTER_API_KEY ?? '')
+      if (!key) {
+        return NextResponse.json(
+          { error: 'На сервере не задан OPENROUTER_API_KEY' },
+          { status: 500 }
+        )
+      }
+      return fetch(OPENROUTER_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${key}`,
+          'HTTP-Referer': req.nextUrl?.origin ?? '',
+        },
+        body: JSON.stringify({
+          model: FREE_MODEL,
+          messages,
+          max_tokens: 300, // типичный перевод 5–30 токенов, резерв большой
+        }),
+      })
+    })()
+
+    if (res instanceof NextResponse) return res
 
     if (!res.ok) {
       const errText = await res.text()
       const userMessage =
         res.status === 429
           ? 'Превышен лимит запросов. Попробуйте позже.'
-          : 'Не удалось получить перевод.'
+          : res.status === 401
+            ? provider === 'openai'
+              ? 'Неверный ключ OpenAI. Проверьте OPENAI_API_KEY.'
+              : 'Неверный ключ OpenRouter. Проверьте OPENROUTER_API_KEY.'
+            : res.status === 403 && provider === 'openai'
+              ? classifyOpenAiForbidden(errText) === 'unsupported_region'
+                ? 'OpenAI недоступен из вашего региона (403 unsupported_country_region_territory). Переключитесь на OpenRouter или используйте деплой (например, Vercel) в поддерживаемом регионе.'
+                : 'Доступ к OpenAI запрещён (403). Проверьте доступность сервиса в вашем регионе и права проекта/аккаунта.'
+            : 'Не удалось получить перевод.'
       return NextResponse.json(
         { error: userMessage, details: errText },
         { status: res.status }

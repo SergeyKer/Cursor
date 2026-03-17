@@ -120,6 +120,7 @@ export default function Home() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 messages: apiMessages.map((m) => ({ role: m.role, content: m.content })),
+                provider: settings.provider,
                 topic: settings.topic,
                 level: settings.level,
                 tense: settings.tense,
@@ -432,7 +433,7 @@ export default function Home() {
         const res = await fetch('/api/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: text.trim() }),
+          body: JSON.stringify({ text: text.trim(), provider: settings.provider }),
           signal: controller.signal,
         })
         clearTimeout(timeoutId)
@@ -469,7 +470,7 @@ export default function Home() {
     setLoadingTranslationIndex(null)
     setTranslationRetryMessage(null)
     setResult(undefined, lastError)
-  }, [])
+  }, [settings.provider])
 
   /** Сравнение только релевантных для чата полей: тема, время, уровень, режим (и тип предложений в режиме перевода). */
   function settingsDiffersFromLastSend(current: Settings, last: Settings | null): boolean {

@@ -82,6 +82,20 @@ export default function SlideOutMenu({
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
             <div>
               <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
+                ИИ
+              </label>
+              <select
+                value={settings.provider}
+                onChange={(e) => update({ provider: e.target.value as Settings['provider'] })}
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] touch-manipulation"
+              >
+                <option value="openrouter">OpenRouter (free)</option>
+                <option value="openai">OpenAI — GPT‑4o mini</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
                 Режим
               </label>
               <select

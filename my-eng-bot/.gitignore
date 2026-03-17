@@ -29,6 +29,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# cursor (local debug artifacts)
+.cursor/debug-*.log
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
