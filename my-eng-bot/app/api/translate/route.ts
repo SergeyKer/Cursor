@@ -38,11 +38,11 @@ export async function POST(req: NextRequest) {
           {
             role: 'system',
             content:
-              'You are a professional Russian translator. Translate the user text into **natural conversational Russian**, not a literal word‑for‑word translation. Preserve the meaning, tone and style. For questions like "What is your favorite food?" use idiomatic patterns such as "Какая ваша любимая еда?" instead of awkward phrases like "Что такое ваша любимая еда?". Important: in conversational prompts like "Just start, and I will follow." translate "I will follow" idiomatically as "я подхвачу/я продолжу/я поддержу разговор" (depending on context). Avoid literal phrases like "я последую за тобой/я последую за вами" unless it is about physically following someone. Reply only with the translation, without explanations, quotes or extra words.',
+              'You are a professional Russian translator. Translate the user text into **natural conversational Russian**, not a literal word‑for‑word translation. Preserve the meaning, tone and style. For questions like "What is your favorite food?" use idiomatic patterns such as "Какая ваша любимая еда?" instead of awkward phrases like "Что такое ваша любимая еда?". For English questions with "what ... in" (e.g. "What are you swimming in?") keep the preposition in Russian: use "В чём ...?" (e.g. "В чём ты сейчас плаваешь?", "В чём ты плаваешь?") — never "Что ты плаваешь?" which loses the meaning. Important: in conversational prompts like "Just start, and I will follow." translate "I will follow" idiomatically as "я подхвачу/я продолжу/я поддержу разговор" (depending on context). Avoid literal phrases like "я последую за тобой/я последую за вами" unless it is about physically following someone. Reply only with the translation, without explanations, quotes or extra words.',
           },
           { role: 'user', content: text },
         ],
-        max_tokens: 300,
+        max_tokens: 300, // типичный перевод 5–30 токенов, резерв большой
       }),
     })
 
