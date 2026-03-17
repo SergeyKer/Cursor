@@ -306,6 +306,10 @@ export default function Home() {
       const firstContent = (content ?? '').trim() || EMPTY_RESPONSE_FALLBACK
       const { content: main, translation } = parseContentWithTranslation(firstContent)
       setMessages([{ role: 'assistant', content: main, translation }])
+      // Базовая "точка отсчёта" для баннера «Настройки изменены».
+      // Иначе при смене темы/времени после первого вопроса (до первой отправки пользователя)
+      // нечего сравнивать и предупреждение не показывается.
+      setSettingsAtLastSend(settings)
       setDialogStarted(true)
       if (isNewDialog) newDialogRef.current = false
       await fetchUsage()
@@ -323,7 +327,7 @@ export default function Home() {
         setRetryMessage(null)
       }
     }
-  }, [sendToApi, fetchUsage])
+  }, [sendToApi, fetchUsage, settings])
 
   const retryFirstMessage = useCallback(async () => {
     const requestId = ++firstMessageRequestIdRef.current
@@ -337,6 +341,7 @@ export default function Home() {
       incrementUsageToday()
       const { content: main, translation } = parseContentWithTranslation(content)
       setMessages([{ role: 'assistant', content: main, translation }])
+      setSettingsAtLastSend(settings)
       await fetchUsage()
     } catch (e) {
       console.error(e)
@@ -349,7 +354,7 @@ export default function Home() {
         setRetryMessage(null)
       }
     }
-  }, [sendToApi, fetchUsage])
+  }, [sendToApi, fetchUsage, settings])
 
   useEffect(() => {
     const state = loadState()
