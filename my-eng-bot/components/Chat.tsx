@@ -40,6 +40,7 @@ export default function Chat({
   const [inputFocused, setInputFocused] = React.useState(false)
   const [listening, setListening] = React.useState(false)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -135,9 +136,7 @@ export default function Chat({
     setListening(false)
   }, [])
 
-  const formRef = useRef<HTMLFormElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   const INPUT_MAX_HEIGHT_PX = 260
@@ -160,122 +159,101 @@ export default function Chat({
     el.scrollTop = el.scrollHeight
   }, [messages])
 
-  React.useEffect(() => {
-    const form = formRef.current
-    if (!form || typeof window === 'undefined') return
-
-    const root = document.documentElement
-    const apply = () => {
-      const h = Math.ceil(form.getBoundingClientRect().height)
-      if (h > 0) root.style.setProperty('--chat-input-height', `${h}px`)
-    }
-    apply()
-
-    if (typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(() => apply())
-    ro.observe(form)
-    return () => ro.disconnect()
-  }, [])
-
   return (
-    <div className="flex h-full flex-col">
-      <div
-        ref={scrollContainerRef}
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 sm:px-4 sm:py-3"
-        style={{
-          // Sticky панель ввода перекрывает содержимое скролла.
-          // Даём запас снизу (высота панели + системный inset), чтобы кнопки/ошибки
-          // внизу списка не заезжали под input bar на Android/iOS.
-          paddingBottom:
-            'calc(0.5rem + max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset)) + var(--chat-input-height))',
-        }}
-      >
-        <div className="mx-auto max-w-xl">
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-3 shadow-sm min-h-[min(50vh,320px)]">
-        {messages.length === 0 && (
-          <p className="text-center text-[var(--text-muted)]">
-            Загрузка первого сообщения…
-          </p>
-        )}
-        {messages.map((msg, i) => (
-          <React.Fragment key={i}>
-            <MessageBubble
-              message={msg}
-              messageIndex={i}
-              voiceId={settings.voiceId}
-              mode={settings.mode}
-              onRequestTranslation={onRequestTranslation}
-              isLoadingTranslation={loadingTranslationIndex === i}
-              translationRetryMessage={loadingTranslationIndex === i ? translationRetryMessage : null}
-            />
-            {firstMessageError &&
-              onRetryFirstMessage &&
-              messages.length === 1 &&
-              msg.role === 'assistant' &&
-              msg.content === firstMessageError && (
-                <div className="mt-2 rounded-lg border border-amber-500/50 bg-amber-50 p-2.5">
-                  <p className="mb-2 text-sm font-medium text-[var(--text)]">
-                    Что сделать:
-                  </p>
-                  <ol className="mb-3 list-inside list-decimal text-xs text-[var(--text-muted)] space-y-1">
-                    <li>Нажмите кнопку меню (три полоски) слева.</li>
-                    <li>Вставьте ключ с сайта openrouter.ai в поле «Ключ OpenRouter».</li>
-                    <li>Нажмите «Сохранить».</li>
-                    <li>Нажмите «Попробовать снова» ниже.</li>
-                  </ol>
-                  <button
-                    type="button"
-                    onClick={onRetryFirstMessage}
-                    disabled={loading}
-                    className="btn-3d rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50"
-                  >
-                    Попробовать снова
-                  </button>
-                </div>
-              )}
-            {i === messages.length - 1 &&
-              lastMessageIsError &&
-              onRetryLastMessage &&
-              !(messages.length === 1 && msg.content === firstMessageError) && (
-                <div className="mt-2">
-                  <button
-                    type="button"
-                    onClick={onRetryLastMessage}
-                    disabled={loading}
-                    className="btn-3d rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50"
-                  >
-                    Повторить
-                  </button>
-                </div>
-              )}
-          </React.Fragment>
-        ))}
-        {loading && messages.length > 0 && (
-          <div className="mt-1.5 flex justify-start">
-            <span
-              className="rounded-lg bg-[var(--border)] px-2.5 py-1.5 text-sm text-[var(--text-muted)]"
-              title="Ожидание ответа от ИИ"
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col px-2 py-2 sm:px-3 sm:py-3">
+        <div className="mx-auto flex min-h-0 flex-1 w-full max-w-[29rem] flex-col">
+          <div className="flex min-h-0 flex-1 w-full flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+            <div
+              ref={scrollContainerRef}
+              className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-2.5 sm:p-3"
             >
-              ИИ печатает{retryMessage ? `… ${retryMessage}` : '…'}
-            </span>
-          </div>
-        )}
-        <div ref={bottomRef} />
+              {messages.length === 0 && (
+                <p className="text-center text-[var(--text-muted)]">
+                  Загрузка первого сообщения…
+                </p>
+              )}
+              {messages.map((msg, i) => (
+                <React.Fragment key={i}>
+                  <MessageBubble
+                    message={msg}
+                    messageIndex={i}
+                    voiceId={settings.voiceId}
+                    mode={settings.mode}
+                    onRequestTranslation={onRequestTranslation}
+                    isLoadingTranslation={loadingTranslationIndex === i}
+                    translationRetryMessage={
+                      loadingTranslationIndex === i ? translationRetryMessage : null
+                    }
+                  />
+                  {firstMessageError &&
+                    onRetryFirstMessage &&
+                    messages.length === 1 &&
+                    msg.role === 'assistant' &&
+                    msg.content === firstMessageError && (
+                      <div className="mt-2 rounded-lg border border-amber-500/50 bg-amber-50 p-2.5">
+                        <p className="mb-2 text-sm font-medium text-[var(--text)]">
+                          Что сделать:
+                        </p>
+                        <ol className="mb-3 list-inside list-decimal space-y-1 text-xs text-[var(--text-muted)]">
+                          <li>Нажмите кнопку меню (три полоски) слева.</li>
+                          <li>Вставьте ключ с сайта openrouter.ai в поле «Ключ OpenRouter».</li>
+                          <li>Нажмите «Сохранить».</li>
+                          <li>Нажмите «Попробовать снова» ниже.</li>
+                        </ol>
+                        <button
+                          type="button"
+                          onClick={onRetryFirstMessage}
+                          disabled={loading}
+                          className="btn-3d rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                        >
+                          Попробовать снова
+                        </button>
+                      </div>
+                    )}
+                  {i === messages.length - 1 &&
+                    lastMessageIsError &&
+                    onRetryLastMessage &&
+                    !(messages.length === 1 && msg.content === firstMessageError) && (
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          onClick={onRetryLastMessage}
+                          disabled={loading}
+                          className="btn-3d rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                        >
+                          Повторить
+                        </button>
+                      </div>
+                    )}
+                </React.Fragment>
+              ))}
+              {loading && messages.length > 0 && (
+                <div className="mt-1.5 flex justify-start">
+                  <span
+                    className="rounded-lg bg-[var(--border)] px-2.5 py-1.5 text-sm text-[var(--text-muted)]"
+                    title="Ожидание ответа от ИИ"
+                  >
+                    ИИ печатает{retryMessage ? `… ${retryMessage}` : '…'}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           <form
             ref={formRef}
             onSubmit={handleSubmit}
-            className="sticky bottom-0 z-10 mt-3 flex shrink-0 items-center gap-2 rounded-xl border border-[var(--border)] bg-white px-3 py-2 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
+            className="mt-2.5 flex w-full shrink-0 items-center gap-1.5 rounded-xl border border-[var(--border)] bg-white px-2.5 py-1.5 shadow-[0_-2px_8px_rgba(0,0,0,0.06)] sm:px-3"
             style={{
-              // Не раздуваем высоту панели ввода: вместо padding снизу поднимаем её целиком.
-              bottom: 'max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset))',
+              paddingBottom:
+                'max(0.5rem, env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset))',
             }}
           >
         <button
           type="button"
           onClick={listening ? stopListening : startListening}
-          className={`btn-3d flex h-12 min-h-[44px] shrink-0 items-center justify-center rounded-lg p-3 touch-manipulation ${
+          className={`btn-3d flex h-11 min-h-[44px] shrink-0 items-center justify-center rounded-lg p-2.5 touch-manipulation ${
             listening
               ? 'bg-red-500/20 text-red-600'
               : 'bg-[var(--border)] text-[var(--text)] hover:bg-[var(--border)]/80'
@@ -303,13 +281,13 @@ export default function Chat({
             }
           }}
           placeholder={inputFocused ? '' : 'Ответ...'}
-          className="min-w-0 flex-1 resize-none overflow-y-hidden rounded-lg border border-[var(--border)] bg-white px-4 py-2 min-h-[44px] text-[var(--text)] placeholder:text-[var(--text-muted)] text-base leading-[1.5rem] focus:outline-none focus:ring-0"
+          className="min-w-0 flex-1 resize-none overflow-y-hidden rounded-lg border border-[var(--border)] bg-white px-3 py-1.5 min-h-[44px] text-[var(--text)] placeholder:text-[var(--text-muted)] text-base leading-[1.45rem] focus:outline-none focus:ring-0"
           style={{ maxHeight: INPUT_MAX_HEIGHT_PX }}
         />
         <button
           type="submit"
           disabled={!input.trim() || loading || atLimit}
-          className="btn-3d touch-manipulation rounded-lg bg-[var(--accent)] px-4 py-2 min-h-[44px] font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:hover:bg-[var(--accent)]"
+          className="btn-3d touch-manipulation rounded-lg bg-[var(--accent)] px-3.5 py-1.5 min-h-[44px] font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:hover:bg-[var(--accent)]"
         >
           Отправить
         </button>
