@@ -167,6 +167,14 @@ const INSTRUCTION_LEAK_PATTERNS = [
   /^\s*2\)\s*When the user's answer/im,
   /CRITICAL\s*:\s*If the user's answer/i,
   /output ONLY\s+["']?\s*Комментарий/i,
+  // Утечки «протокола» (как на скрине: user's turn / Always ask the next question…)
+  /\buser['’]s turn\b/i,
+  /\btheir mistakes get corrected\b/i,
+  /\bmistakes get corrected\b/i,
+  /\balways ask\b/i,
+  /\bnext question in English\b/i,
+  /\bask the next question\b/i,
+  /\bcorrect(?:ed)? first\b/i,
   // Мета-ответы вместо контента
   /^\s*(?:ai|assistant)\s*:\s*the user['’]s answers?/i,
   /\bthe user['’]s answers?\s+and\s+corrections\b/i,
@@ -200,7 +208,9 @@ function isMetaGarbage(content: string): boolean {
   return (
     /^the user['’]s answers?(?:\s+and\s+corrections)?\.?$/i.test(normalized) ||
     /^the user['’]s answers?\s+and\s+corrections\.?$/i.test(normalized) ||
-    /^the user['’]s answer\s+and\s+corrections\.?$/i.test(normalized)
+    /^the user['’]s answer\s+and\s+corrections\.?$/i.test(normalized) ||
+    /^user['’]s turn\s*[—–-]\s*their mistakes get corrected first\.?$/i.test(normalized) ||
+    /^always ask the next question in English\.?$/i.test(normalized)
   )
 }
 
@@ -466,6 +476,81 @@ function ensureNextQuestionWhenMissing(content: string, params: { mode: string; 
   return `${trimmed}\n${defaultNextQuestion(params.tense)}`
 }
 
+function isEnglishQuestionLine(line: string): boolean {
+  const s = line.trim()
+  if (!s) return false
+  if (!/\?\s*$/.test(s)) return false
+  // Линия должна быть на английском (латиница); допускаем цифры/пунктуацию.
+  return /[A-Za-z]/.test(s)
+}
+
+function stripLeadingAiPrefix(line: string): string {
+  return line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
+}
+
+function hasLeakMarkers(text: string): boolean {
+  const t = text.trim()
+  if (!t) return false
+  return INSTRUCTION_LEAK_PATTERNS.some((p) => p.test(t))
+}
+
+function isValidTutorOutput(params: {
+  content: string
+  mode: string
+  isFirstTurn: boolean
+}): boolean {
+  const { content, mode, isFirstTurn } = params
+  if (mode !== 'dialogue') return true
+
+  const raw = content.trim()
+  if (!raw) return false
+  if (hasLeakMarkers(raw)) return false
+
+  const lines = raw
+    .split(/\r?\n/)
+    .map((l) => stripLeadingAiPrefix(l))
+    .map((l) => l.trim())
+    .filter(Boolean)
+
+  if (lines.length === 0) return false
+  if (lines.some((l) => hasLeakMarkers(l))) return false
+
+  const hasComment = lines.some((l) => /^Комментарий\s*:/i.test(l))
+  const hasRepeat = lines.some((l) => /^(Повтори|Repeat|Say)\s*:/i.test(l))
+
+  // Первый ход диалога: только один вопрос (без Комментарий/Повтори).
+  if (isFirstTurn) {
+    if (hasComment || hasRepeat) return false
+    if (lines.length !== 1) return false
+    return isEnglishQuestionLine(lines[0] ?? '')
+  }
+
+  // Ошибка пользователя: строго 2 строки (Комментарий + Повтори), без вопроса.
+  if (hasRepeat) {
+    if (lines.length !== 2) return false
+    const c = lines[0] ?? ''
+    const r = lines[1] ?? ''
+    if (!/^Комментарий\s*:/i.test(c)) return false
+    if (!/^(Повтори|Repeat|Say)\s*:/i.test(r)) return false
+    // В Повтори должен быть английский текст.
+    const after = r.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '')
+    return /[A-Za-z]/.test(after)
+  }
+
+  // Корректный ответ: Комментарий + следующий вопрос.
+  if (hasComment) {
+    if (lines.length !== 2) return false
+    const c = lines[0] ?? ''
+    const q = lines[1] ?? ''
+    if (!/^Комментарий\s*:/i.test(c)) return false
+    return isEnglishQuestionLine(q)
+  }
+
+  // Обычный ход (если модель вдруг не дала Комментарий): допускаем один вопрос.
+  if (lines.length === 1) return isEnglishQuestionLine(lines[0] ?? '')
+  return false
+}
+
 /**
  * Убирает ведущий "AI:"/"Assistant:" у служебных строк (Комментарий/Повтори),
  * чтобы UI и дальнейшие фильтры работали одинаково.
@@ -577,6 +662,71 @@ function classifyOpenAiForbidden(errText: string): 'unsupported_region' | 'other
   return 'other'
 }
 
+async function callProviderChat(params: {
+  provider: Provider
+  req: NextRequest
+  apiMessages: { role: string; content: string }[]
+}): Promise<{ ok: true; content: string } | { ok: false; status: number; errText: string }> {
+  const { provider, req, apiMessages } = params
+
+  if (provider === 'openai') {
+    const key = normalizeKey(process.env.OPENAI_API_KEY ?? '')
+    if (!key) return { ok: false, status: 500, errText: 'Missing OPENAI_API_KEY' }
+    const res = await fetch(OPENAI_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        messages: apiMessages,
+        max_tokens: MAX_RESPONSE_TOKENS,
+      }),
+    })
+    if (!res.ok) return { ok: false, status: res.status, errText: await res.text() }
+    const data = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string }; text?: string }>
+    }
+    const first = data.choices?.[0]
+    const content = (first?.message?.content ?? first?.text ?? '').trim()
+    return { ok: true, content }
+  }
+
+  const key = normalizeKey(process.env.OPENROUTER_API_KEY ?? '')
+  if (!key) return { ok: false, status: 500, errText: 'Missing OPENROUTER_API_KEY' }
+  const res = await fetch(OPENROUTER_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${key}`,
+      'HTTP-Referer': req.nextUrl?.origin ?? '',
+    },
+    body: JSON.stringify({
+      model: FREE_MODEL,
+      messages: apiMessages,
+      max_tokens: MAX_RESPONSE_TOKENS,
+    }),
+  })
+  if (!res.ok) return { ok: false, status: res.status, errText: await res.text() }
+  const data = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string }; text?: string }>
+  }
+  const first = data.choices?.[0]
+  const content = (first?.message?.content ?? first?.text ?? '').trim()
+  return { ok: true, content }
+}
+
+function buildRepairSystemPrefix(): string {
+  return (
+    'REPAIR MODE: Your last output was invalid (it contained meta/instructions). ' +
+    'Rewrite the reply so it follows the required protocol EXACTLY and contains only user-visible text. ' +
+    'No explanations, no meta, no bullet lists, no quotes of rules. ' +
+    'Output only one of: (A) a single English question; (B) two lines: "Комментарий: ..." (Russian) + "Повтори: ..." (English); ' +
+    '(C) two lines: "Комментарий: ..." (Russian) + next question in English.\n\n'
+  )
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -630,72 +780,24 @@ export async function POST(req: NextRequest) {
       { role: 'system', content: systemContent },
       ...userTurnMessages,
     ]
-
-    const res = await (async () => {
-      if (provider === 'openai') {
-        const key = normalizeKey(process.env.OPENAI_API_KEY ?? '')
-        if (!key) {
-          return NextResponse.json(
-            { error: 'На сервере не задан OPENAI_API_KEY' },
-            { status: 500 }
-          )
-        }
-        return fetch(OPENAI_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${key}`,
-          },
-          body: JSON.stringify({
-            model: OPENAI_MODEL,
-            messages: apiMessages,
-            max_tokens: MAX_RESPONSE_TOKENS,
-          }),
-        })
-      }
-
-      const key = normalizeKey(process.env.OPENROUTER_API_KEY ?? '')
-      if (!key) {
-        return NextResponse.json(
-          { error: 'На сервере не задан OPENROUTER_API_KEY' },
-          { status: 500 }
-        )
-      }
-      return fetch(OPENROUTER_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${key}`,
-          'HTTP-Referer': req.nextUrl?.origin ?? '',
-        },
-        body: JSON.stringify({
-          model: FREE_MODEL,
-          messages: apiMessages,
-          max_tokens: MAX_RESPONSE_TOKENS,
-        }),
-      })
-    })()
-
-    // Ветка, когда выше вернули NextResponse (например, отсутствует ключ).
-    if (res instanceof NextResponse) return res
-
-    if (!res.ok) {
-      const errText = await res.text()
+    const res1 = await callProviderChat({ provider, req, apiMessages })
+    if (!res1.ok) {
+      const errText = res1.errText
       let userMessage: string
       let errorCode: 'rate_limit' | 'unauthorized' | 'forbidden' | 'upstream_error' | undefined
-      if (res.status === 401) {
+      if (res1.status === 401) {
         errorCode = 'unauthorized'
         userMessage =
           provider === 'openai'
             ? 'Неверный ключ OpenAI. Проверьте OPENAI_API_KEY.'
             : 'Неверный ключ OpenRouter. Проверьте OPENROUTER_API_KEY.'
-      } else if (res.status === 403 && provider === 'openai') {
+      } else if (res1.status === 403 && provider === 'openai') {
         errorCode = 'forbidden'
         userMessage =
           classifyOpenAiForbidden(errText) === 'unsupported_region'
             ? 'OpenAI недоступен из вашего региона (403 unsupported_country_region_territory). Переключитесь на OpenRouter или используйте деплой (например, Vercel) в поддерживаемом регионе.'
             : 'Доступ к OpenAI запрещён (403). Проверьте доступность сервиса в вашем регионе и права проекта/аккаунта.'
-      } else if (res.status === 429) {
+      } else if (res1.status === 429) {
         errorCode = 'rate_limit'
         userMessage = 'Слишком много запросов к ИИ. Подождите немного и попробуйте ещё раз.'
       } else {
@@ -704,29 +806,13 @@ export async function POST(req: NextRequest) {
       }
       return NextResponse.json(
         { error: userMessage, errorCode, provider, details: errText },
-        { status: res.status }
+        { status: res1.status }
       )
     }
-
-    const data = (await res.json()) as {
-      choices?: Array<{
-        message?: { content?: string }
-        text?: string
-        finish_reason?: string
-        native_finish_reason?: string
-      }>
-    }
-    const first = data.choices?.[0]
-    const content =
-      (first?.message?.content ?? first?.text ?? '').trim()
+    const content = res1.content
 
     if (!content) {
-      const reason = { finish_reason: first?.finish_reason, native_finish_reason: first?.native_finish_reason }
-      console.warn('[chat] Пустой ответ OpenRouter:', reason)
-      const isLengthLimit = first?.finish_reason === 'length' || first?.native_finish_reason === 'length'
-      const errorMessage = isLengthLimit
-        ? 'Слишком много запросов к ИИ. Подождите немного и начните новый диалог.'
-        : 'Модель вернула пустой ответ. Попробуйте отправить сообщение ещё раз.'
+      const errorMessage = 'Модель вернула пустой ответ. Попробуйте отправить сообщение ещё раз.'
       return NextResponse.json(
         { error: errorMessage },
         { status: 502 }
@@ -772,6 +858,44 @@ export async function POST(req: NextRequest) {
         { error: 'Модель вернула пустой ответ. Попробуйте отправить сообщение ещё раз.' },
         { status: 502 }
       )
+    }
+
+    const isFirstTurn = recentMessages.length === 0
+    const valid = isValidTutorOutput({ content: sanitized, mode, isFirstTurn })
+    if (!valid) {
+      // Одна попытка repair/retry. Для OpenRouter это наиболее актуально.
+      // UI и сценарии не меняем: просто не пропускаем служебный текст.
+      const repairMessages = [...apiMessages]
+      if (repairMessages[0]?.role === 'system') {
+        repairMessages[0] = {
+          role: 'system',
+          content: buildRepairSystemPrefix() + (repairMessages[0].content ?? ''),
+        }
+      } else {
+        repairMessages.unshift({ role: 'system', content: buildRepairSystemPrefix() + systemContent })
+      }
+
+      const res2 = await callProviderChat({ provider, req, apiMessages: repairMessages })
+      if (res2.ok) {
+        let repaired = sanitizeInstructionLeak(res2.content)
+        if (repaired) {
+          if (isMetaGarbage(repaired)) {
+            return NextResponse.json({ content: fallbackQuestionForContext({ topic, tense }) })
+          }
+          repaired = stripOffContextCorrections(repaired, lastUserContentForResponse)
+          repaired = normalizeAssistantPrefixForControlLines(repaired)
+          repaired = splitCommentAndRepeatSameLine(repaired)
+          repaired = stripPravilnoEverywhere(repaired)
+          repaired = stripRepeatOnPraise(repaired)
+          repaired = ensureNextQuestionOnPraise(repaired, { mode, tense })
+          repaired = ensureNextQuestionWhenMissing(repaired, { mode, tense })
+          const repairedValid = isValidTutorOutput({ content: repaired, mode, isFirstTurn })
+          if (repairedValid) return NextResponse.json({ content: repaired })
+        }
+      }
+
+      // Если repair не помог — безопасный fallback, чтобы не показывать мусор.
+      return NextResponse.json({ content: fallbackQuestionForContext({ topic, tense }) })
     }
 
     return NextResponse.json({ content: sanitized })
