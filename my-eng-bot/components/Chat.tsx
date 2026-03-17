@@ -165,6 +165,13 @@ export default function Chat({
       <div
         ref={scrollContainerRef}
         className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 sm:px-4 sm:py-3"
+        style={{
+          // Sticky панель ввода перекрывает содержимое скролла.
+          // Даём запас снизу (высота панели + системный inset), чтобы кнопки/ошибки
+          // внизу списка не заезжали под input bar на Android/iOS.
+          paddingBottom:
+            'calc(0.5rem + max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset)) + 5.5rem)',
+        }}
       >
         <div className="mx-auto max-w-xl">
           <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-3 shadow-sm min-h-[min(50vh,320px)]">
