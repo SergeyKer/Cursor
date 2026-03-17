@@ -464,7 +464,7 @@ function MessageBubble({
       className={`mb-2 flex ${isUser ? 'justify-end' : 'justify-start'}`}
     >
       <div
-        className={`flex min-w-0 max-w-[90%] flex-col rounded-2xl px-3 py-2 ${
+        className={`flex min-w-0 max-w-[90%] flex-col rounded-2xl px-3 py-2 text-base ${
           isUser
             ? 'bg-[var(--accent)] text-white shadow-sm'
             : 'bg-white border border-gray-200/80 text-[var(--text)] shadow-sm'
@@ -476,7 +476,7 @@ function MessageBubble({
           <>
             {(comment || mainBefore || invitationText || mainAfter) && (
               <div
-                className="mb-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm leading-snug text-[var(--text)]"
+                className="mb-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 leading-snug text-[var(--text)]"
                 role="alert"
               >
                 {comment && (
