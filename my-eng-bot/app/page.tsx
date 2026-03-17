@@ -20,6 +20,8 @@ export default function Home() {
   const [retryMessage, setRetryMessage] = useState<string | null>(null)
   const [loadingTranslationIndex, setLoadingTranslationIndex] = useState<number | null>(null)
   const [translationRetryMessage, setTranslationRetryMessage] = useState<string | null>(null)
+  /** Настройки на момент последней отправки сообщения; для баннера «настройки изменены». */
+  const [settingsAtLastSend, setSettingsAtLastSend] = useState<Settings | null>(null)
   const initialLoadDoneRef = React.useRef(false)
   const newDialogRef = React.useRef(false)
   const firstMessageRequestIdRef = React.useRef(0)
@@ -219,6 +221,7 @@ export default function Home() {
     ) {
       newDialogRef.current = true
       setMessages([])
+      setSettingsAtLastSend(null)
       setTimeout(() => {
         ensureFirstMessage()
       }, 50)
@@ -247,6 +250,7 @@ export default function Home() {
         // в экране диалога (без возврата к стартовому меню).
         newDialogRef.current = true
         setMessages([])
+        setSettingsAtLastSend(null)
         setTimeout(() => {
           ensureFirstMessage()
         }, 50)
@@ -295,6 +299,7 @@ export default function Home() {
   const retryFirstMessage = useCallback(async () => {
     const requestId = ++firstMessageRequestIdRef.current
     setMessages([])
+    setSettingsAtLastSend(null)
     setLoading(true)
     setRetryMessage(null)
     try {
@@ -355,6 +360,7 @@ export default function Home() {
         incrementUsageToday()
         const { content: main, translation } = parseContentWithTranslation(content)
         setMessages((prev) => [...prev, { role: 'assistant', content: main, translation }])
+        setSettingsAtLastSend(settings)
         await fetchUsage()
       } catch (e) {
         console.error(e)
@@ -367,6 +373,7 @@ export default function Home() {
           // очищаем историю и сразу запрашиваем новый вопрос.
           newDialogRef.current = true
           setMessages([])
+          setSettingsAtLastSend(null)
           setDialogStarted(false)
           setTimeout(() => {
             ensureFirstMessage()
@@ -378,12 +385,13 @@ export default function Home() {
         setLoading(false)
       }
     },
-    [messages, atLimit, sendToApi, fetchUsage]
+    [messages, atLimit, sendToApi, fetchUsage, settings]
   )
 
   const handleNewDialog = useCallback(() => {
     newDialogRef.current = true
     setMessages([])
+    setSettingsAtLastSend(null)
     setTimeout(() => {
       ensureFirstMessage()
     }, 50)
@@ -462,6 +470,14 @@ export default function Home() {
     setTranslationRetryMessage(null)
     setResult(undefined, lastError)
   }, [])
+
+  /** Сравнение только релевантных для чата полей: тема, время, уровень, режим (и тип предложений в режиме перевода). */
+  function settingsDiffersFromLastSend(current: Settings, last: Settings | null): boolean {
+    if (!last) return false
+    if (current.topic !== last.topic || current.tense !== last.tense || current.level !== last.level || current.mode !== last.mode) return true
+    if (current.mode === 'translation' && current.sentenceType !== last.sentenceType) return true
+    return false
+  }
 
   /** Строка выбранного меню для шапки: с темой "Диалог — Повседневная жизнь, Present Perfect, C2" или без "Диалог — Present Perfect, C2" */
   function getMenuSummary(includeTopic: boolean = true): string {
@@ -609,7 +625,15 @@ export default function Home() {
             </button>
           </div>
         ) : (
-          <div className="min-h-0 flex-1">
+          <>
+            {storageLoaded && dialogStarted && messages.length > 0 && settingsDiffersFromLastSend(settings, settingsAtLastSend) && (
+              <div className="shrink-0 border-b border-[var(--border)] px-3 py-2">
+                <div className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm text-[var(--text)] shadow-sm">
+                  Настройки изменены. Следующее сообщение будет: <strong>{getMenuSummary(true)}</strong>.
+                </div>
+              </div>
+            )}
+            <div className="min-h-0 flex-1">
           <Chat
             messages={messages}
             settings={settings}
@@ -626,6 +650,7 @@ export default function Home() {
             translationRetryMessage={translationRetryMessage}
           />
           </div>
+          </>
         )}
       </main>
 

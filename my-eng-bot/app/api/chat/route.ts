@@ -104,11 +104,13 @@ When the required tense is Present Continuous, you may optionally include or sug
 
 EXCEPTION for free topic (Свободная тема), for any tense: when the user is naming or revealing a topic (e.g. after you asked "What would you like to talk about?"), NEVER output Правильно, Комментарий, or Повтори. Always try to infer the topic first — ignore typos and wrong tense (e.g. "I wil plai footbal" → football, sport; "tenis", "vialint" → tennis, violin). Output exactly one question about that topic. Only if the message gives no hint at all (e.g. "sdf", random letters), ask what they mean. No error search, no corrections in that step.
 
+CRITICAL — Context: Your correction (Правильно/Комментарий/Говорится/Нужно слово) must refer ONLY to the user's LAST message. Never output a correction about words or mistakes that are not in that message (e.g. if the user wrote "I usually swim in the pool", do NOT correct "movie" vs "move" — that is from another turn). If the last message has no errors, output only praise (Комментарий: Отлично! etc.) and the next question in English.
+
 This applies to every tense (Present Simple, Present Continuous, Past Simple, Future Perfect, etc.): you MUST correct the user's answer according to ALL applicable rules. Check every dimension: (1) required tense — if they used another tense, correct it; (2) grammar — word order, verb form, articles (a/an/the), plural/singular; (3) spelling — correct every misspelled word; (4) word choice — wrong word (e.g. "move" instead of "movie") must be fixed. The "Правильно:" sentence must fix ALL errors at once; the "Комментарий:" must briefly list ALL issues so the user sees what was wrong. Do not correct only one mistake and ignore others.
 
 When there are grammar or spelling problems or the user used the wrong tense, respond ONLY in the short format below. Do NOT output long explanations of rules, lists of example questions (e.g. "Do you like pizza?", "What is your favorite color?"), or meta-instructions. Even if the user makes the same mistake again (e.g. wrong tense twice), reply only with Комментарий (1–2 short sentences in Russian) + Повтори: [correct sentence]. Keep the reply short. Do not use emojis, jokes, or playful tone in corrections — be neutral and clear (e.g. do not write "unless you're preparing for a spelling competition" or similar).
 
-1) If you want to show the correct version, start a new line with: "Правильно: " and then give the corrected sentence or short corrected paragraph in English (fixing all errors: tense, grammar, spelling, word choice).
+1) If you want to show the correct version, start a new line with: "Правильно: " and then give the FULL corrected sentence in English (fixing all errors: tense, grammar, spelling, word choice). Always write a complete sentence after "Правильно: " (e.g. "Правильно: I swam."), never only one word or a fragment (e.g. never "Правильно: I" or "Правильно: I swam" without a period).
 2) If you want to give an explanation, start the next line with: "Комментарий: " and give one very short explanation in Russian (1–2 short Russian sentences maximum). Do NOT put English sentences inside the comment text. When the user made several mistakes in one answer (e.g. wrong tense, spelling, wrong word), briefly list ALL of them in the comment so the user sees every issue: e.g. "Нужен Present Continuous: am watching. Пишется watch, не wach. Слово movie (фильм), не move (двигаться)." Keep the list short (2–4 bullet points or short phrases). Do not mention capitalization or punctuation.
 3) Use "Повтори: " only when the user made a real mistake (wrong tense, grammar, or wording) and you gave a correction. After the correction/comment add "Повтори: " and the correct English sentence. In that case do NOT add a follow‑up question — the user must repeat the corrected sentence first. When the user used the WRONG TENSE (e.g. answered in Present Simple but the required tense is Present Continuous), you MUST always give Правильно: + Комментарий: (explain in Russian that the answer must be in the required tense) + Повтори:, and must NOT ask a new question until they repeat or answer correctly.
 4) When the user's answer is already correct (for any tense: Present Simple, Past Continuous, Future Perfect, etc.): always start with "Комментарий: " followed by brief praise in RUSSIAN (e.g. "Комментарий: Отлично!" or "Комментарий: Молодец!" or "Комментарий: Верно!"). Do NOT write praise in English. Never praise or say "correct" for a tense that is different from the required tense: if the required tense is Present Simple and the user answered in Past Simple (e.g. "I played tennis"), that is an ERROR — correct it with Правильно + Комментарий + Повтори in Present Simple, do NOT say "Ты использовал Past Simple правильно" or "Отлично!". Same for any other tense: only praise when the answer is in the required tense. If you can naturally suggest a more precise word or a short expansion of the phrase, add it in the same line after the praise. Then on the next line ask the next question in English. Do NOT add "Повтори:" for correct answers. CRITICAL: After correct answers, output ONLY "Комментарий: [praise]" and the next question. Never output process steps or instructions the user might see — e.g. never write "and then give the correct sentence for them to repeat", "ask a new question", "give the sentence to repeat", or any English phrase describing what you should do. The user must see only the actual reply (praise + next question), never meta-text.
@@ -128,14 +130,18 @@ Do NOT add any extra \"RU:\" line or full Russian translation of the whole reply
 const INSTRUCTION_LEAK_PATTERNS = [
   /then write the corrected sentence/i,
   /then give the corrected sentence/i,
+  /and give the corrected sentence in English/i,
   /give a short comment in Russian/i,
   /give one very short explanation/i,
   /start a new line with/i,
+  /start the next line with/i,
   /^\s*["']?\s*then\s+(write|give)/i,
   /^\s*1\)\s*(If you want|If you want to)/im,
   /^\s*2\)\s*(Give|If you)/im,
-  /^\s*3\)\s*Use\s+"Повтори/im,
+  /^\s*3\)\s*(Use\s+"Повтори|If you want)/im,
   /^\s*4\)\s*When the user's answer/im,
+  /If you want to ask the user to repeat/i,
+  /If you want the user to repeat or answer again/i,
 ]
 
 /**
@@ -156,17 +162,25 @@ function sanitizeInstructionLeak(content: string): string | null {
   return trimmed
 }
 
-/** Проверяет, что сообщение пользователя явно в другом времени (провокация). Тогда не считаем ход «выбор темы» — применяем обычную коррекцию. */
-function userMessageIsClearlyWrongTense(userContent: string, requiredTense: string): boolean {
-  const t = userContent.trim().toLowerCase()
-  if (!t) return false
-  const pastIndicators = /\b(swam|played|went|did|was|were|had|wanted|liked|watched|made|said|got|saw|ate|drank|took|gave|came|left|swimmed)\b|\b\w+ed\b/
-  const futureIndicator = /\bwill\b/
-  if (requiredTense === 'future_simple' && pastIndicators.test(t)) return true
-  if (requiredTense === 'past_simple' && futureIndicator.test(t)) return true
-  if (requiredTense === 'present_simple' && (pastIndicators.test(t) || futureIndicator.test(t))) return true
-  if (requiredTense === 'present_continuous' && (pastIndicators.test(t) || futureIndicator.test(t))) return true
-  return false
+/** Паттерн: "Говорится X, не Y" или "Нужно слово X, не Y" — строка с другим контекстом, если ни X, ни Y нет в сообщении пользователя. */
+const OFF_CONTEXT_CORRECTION = /(?:Говорится|Нужно слово)\s+(\w+)\s*,\s*не\s+(\w+)/i
+
+/**
+ * Удаляет из ответа строки с коррекциями, которые ссылаются на слова, отсутствующие в последнем сообщении пользователя.
+ */
+function stripOffContextCorrections(content: string, lastUserContent: string): string {
+  if (!lastUserContent.trim()) return content
+  const userLower = lastUserContent.toLowerCase()
+  const lines = content.split(/\r?\n/)
+  const kept = lines.filter((line) => {
+    const m = line.match(OFF_CONTEXT_CORRECTION)
+    if (!m) return true
+    const w1 = (m[1] ?? '').toLowerCase()
+    const w2 = (m[2] ?? '').toLowerCase()
+    if (userLower.includes(w1) || userLower.includes(w2)) return true
+    return false
+  })
+  return kept.join('\n').replace(/\n\s*\n\s*\n/g, '\n\n').replace(/^\s*\n+|\n+\s*$/g, '').trim()
 }
 
 function normalizeKey(key: string): string {
@@ -204,12 +218,10 @@ export async function POST(req: NextRequest) {
     const recentMessages = messages
       .filter((m: ChatMessage) => m.role !== 'system')
       .slice(-MAX_MESSAGES_IN_CONTEXT)
-    const lastUserContent = recentMessages[1]?.role === 'user' ? recentMessages[1].content : ''
     const isTopicChoiceTurn =
       topic === 'free_talk' &&
       recentMessages.length === 2 &&
-      recentMessages[1]?.role === 'user' &&
-      !userMessageIsClearlyWrongTense(lastUserContent, tense)
+      recentMessages[1]?.role === 'user'
     const topicChoicePrefix = isTopicChoiceTurn
       ? 'This turn only: the user is naming their topic. Output ONLY one question in English — nothing else. Do NOT output "Комментарий:", "Отлично", "Молодец", "Верно", or any praise. Do NOT output "Правильно:" or "Повтори:". Infer the topic from their words (e.g. "I played tennis" → tennis; "i swam" → swimming) and ask exactly ONE question in the required tense. If the message gives no hint (e.g. "sdf"), ask what they mean. Your reply must be ONLY that one question, no other lines. Ignore all correction rules below for this turn.\n\n'
       : ''
@@ -287,9 +299,17 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const sanitized = sanitizeInstructionLeak(content)
+    let sanitized = sanitizeInstructionLeak(content)
     if (sanitized === null) {
       console.warn('[chat] Ответ содержит утечку инструкций, отбрасываем:', content.slice(0, 120))
+      return NextResponse.json(
+        { error: 'Модель вернула некорректный ответ. Попробуйте отправить сообщение ещё раз.' },
+        { status: 502 }
+      )
+    }
+    const lastUserContentForResponse = recentMessages.filter((m: ChatMessage) => m.role === 'user').pop()?.content ?? ''
+    sanitized = stripOffContextCorrections(sanitized, lastUserContentForResponse)
+    if (!sanitized) {
       return NextResponse.json(
         { error: 'Модель вернула некорректный ответ. Попробуйте отправить сообщение ещё раз.' },
         { status: 502 }
