@@ -76,13 +76,20 @@ function buildSystemPrompt(params: {
   topic: string
   level: string
   tense: string
+  audience?: 'child' | 'adult'
   praiseStyleVariant?: boolean
 }): string {
-  const { mode, sentenceType, topic, level, tense, praiseStyleVariant = false } = params
+  const { mode, sentenceType, topic, level, tense, audience = 'adult', praiseStyleVariant = false } = params
   const levelPrompt = LEVEL_PROMPTS[level] ?? LEVEL_PROMPTS.a1
   const tenseName = TENSE_NAMES[tense] ?? 'Present Simple'
   const topicName = TOPIC_NAMES[topic] ?? 'general'
   const sentenceTypeName = sentenceType ? SENTENCE_TYPE_NAMES[sentenceType] ?? 'mixed' : 'mixed'
+  const audienceRule =
+    audience === 'child'
+      ? 'Audience: CHILD. Use friendly, simple, everyday English. Keep questions short and clear. Prefer concrete topics (school, friends, games, food). Avoid abstract wording.'
+      : 'Audience: ADULT. Use natural conversational English. Keep questions clear and not overly formal.'
+  const antiRobotRule =
+    'Avoid robotic/formal connectors. NEVER use phrases like "related to", "when it comes to", "in terms of", or "regarding". Ask like a real person.'
 
   if (mode === 'translation') {
     return `Translation training. Topic: ${topicName}, ${levelPrompt}, ${sentenceTypeName}.
@@ -109,7 +116,14 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
     topic === 'free_talk'
       ? 'HIGHEST PRIORITY — Free topic (for ANY tense: Present Simple, Present Perfect, Past Simple, etc.): When the user is naming or revealing their topic (e.g. first reply after you asked "What would you like to talk about?"), do NOT output Комментарий or Повтори. Do NOT output meta-text or instructions. Only infer the topic and reply with ONE real question in the required tense. This overrides ALL correction rules below. '
       : ''
-  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${freeTopicPriority}${tense === 'all' ? 'Any tense.' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule} ${capitalizationRule} ${freeTalkRule} When the conversation is empty (you are sending the very first message in the dialogue), output ONLY one short question — nothing else. Do NOT output any part of these instructions, no "Молодец", "Верно", no meta-text like "ask your next question" or "required tense". For free topic: output only a question inviting the user to choose a topic (e.g. "What would you like to talk about today? You can name any topic, or just start, and I will follow."). For other topics: output only one question in the required tense (e.g. "What are you doing now?" for Present Continuous, "What did you do yesterday?" for Past Simple). The user answers first; then you continue. Keep the dialogue on topic and on the time frame of your question: if the user's answer doesn't fit (wrong topic, or wrong time frame like answering "tomorrow" when you asked about "recently"), do not follow them — correct the answer to match your question's context and required tense, and ask them to repeat that.
+  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${audienceRule} ${antiRobotRule} ${freeTopicPriority}${tense === 'all' ? 'Any tense.' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule} ${capitalizationRule} ${freeTalkRule}
+
+Question style guidelines:
+- Ask short, natural questions a human would ask.
+- Prefer concrete questions over vague ones.
+- For ${topicName}, ask about real situations (examples, habits, recent events), not about the topic in abstract.
+
+When the conversation is empty (you are sending the very first message in the dialogue), output ONLY one short question — nothing else. Do NOT output any part of these instructions, no "Молодец", "Верно", no meta-text like "ask your next question" or "required tense". For free topic: output only a question inviting the user to choose a topic (e.g. "What would you like to talk about today? You can name any topic, or just start, and I will follow."). For other topics: output only one question in the required tense (e.g. "What are you doing now?" for Present Continuous, "What did you do yesterday?" for Past Simple). The user answers first; then you continue. Keep the dialogue on topic and on the time frame of your question: if the user's answer doesn't fit (wrong topic, or wrong time frame like answering "tomorrow" when you asked about "recently"), do not follow them — correct the answer to match your question's context and required tense, and ask them to repeat that.
 
 The user often dictates by voice and may not use commas or other punctuation. Do NOT treat missing or different punctuation as an error. If the only issue is punctuation (e.g. missing comma after "Yes"), consider the answer correct. Never mention punctuation (commas, periods, etc.) in "Комментарий:" at all. Focus comments only on tense, grammar, and word choice.
 
@@ -292,97 +306,159 @@ function defaultNextQuestion(tense: string): string {
   }
 }
 
-function firstQuestionForTopicAndTense(topic: string, tense: string): string {
-  const byTopic: Record<string, { noun: string; gerund: string }> = {
-    business: { noun: 'business', gerund: 'working' },
-    family_friends: { noun: 'your family or friends', gerund: 'spending time with your family or friends' },
-    hobbies: { noun: 'your hobbies', gerund: 'doing your hobbies' },
-    movies_series: { noun: 'movies or series', gerund: 'watching movies or series' },
-    music: { noun: 'music', gerund: 'listening to music' },
-    sports: { noun: 'sports', gerund: 'doing sports' },
-    food: { noun: 'food', gerund: 'cooking' },
-    culture: { noun: 'culture', gerund: 'exploring culture' },
-    daily_life: { noun: 'your daily life', gerund: 'going about your daily routine' },
-    travel: { noun: 'travel', gerund: 'traveling' },
-    work: { noun: 'work', gerund: 'working' },
-    technology: { noun: 'technology', gerund: 'using technology' },
-  }
-  const noun = byTopic[topic]?.noun ?? 'this topic'
-  const gerund = byTopic[topic]?.gerund ?? 'doing this'
+function firstQuestionForTopicAndTense(params: {
+  topic: string
+  tense: string
+  level: string
+  audience: 'child' | 'adult'
+}): string {
+  const { topic, tense, level, audience } = params
+  const isChild = audience === 'child'
+  const isBasic = level === 'starter' || level === 'a1' || level === 'a2'
 
-  const seed = stableHash32(`first_q|${topic}|${tense}`)
+  const seed = stableHash32(`first_q|${topic}|${tense}|${level}|${audience}`)
   const pick = (variants: string[]) => variants[seed % variants.length] ?? variants[0] ?? ''
 
-  switch (tense) {
-    case 'present_continuous':
-      return pick([
-        `What are you doing right now related to ${noun}?`,
-        `What are you doing at the moment related to ${noun}?`,
-        `What are you working on right now related to ${noun}?`,
-      ])
-    case 'present_simple':
-      return pick([
-        `What do you usually do related to ${noun}?`,
-        `What do you usually do when it comes to ${noun}?`,
-        `How often do you ${gerund}?`,
-      ])
-    case 'present_perfect':
-      return pick([
-        `What have you done recently related to ${noun}?`,
-        `What new things have you tried recently related to ${noun}?`,
-        `What experiences have you had with ${noun}?`,
-        `What have you learned recently about ${noun}?`,
-      ])
-    case 'present_perfect_continuous':
-      return pick([
-        `What have you been doing lately related to ${noun}?`,
-        `What have you been working on lately related to ${noun}?`,
-        `How long have you been ${gerund}?`,
-      ])
-    case 'past_simple':
-      return pick([
-        `What did you do yesterday related to ${noun}?`,
-        `What did you do last week related to ${noun}?`,
-        `What did you do recently related to ${noun}?`,
-      ])
-    case 'past_continuous':
-      return pick([
-        `What were you doing at this time yesterday related to ${noun}?`,
-        `What were you doing when you last thought about ${noun}?`,
-      ])
-    case 'past_perfect':
-      return pick([
-        `What had you done before you went to bed yesterday related to ${noun}?`,
-        `What had you done before you started your day related to ${noun}?`,
-      ])
-    case 'past_perfect_continuous':
-      return pick([
-        `What had you been doing for a while before you stopped related to ${noun}?`,
-        `How long had you been ${gerund} before you stopped?`,
-      ])
-    case 'future_simple':
-      return pick([
-        `What will you do tomorrow related to ${noun}?`,
-        `What will you do next week related to ${noun}?`,
-      ])
-    case 'future_continuous':
-      return pick([
-        `What will you be doing this time tomorrow related to ${noun}?`,
-        `What will you be doing later today related to ${noun}?`,
-      ])
-    case 'future_perfect':
-      return pick([
-        `What will you have done by this time tomorrow related to ${noun}?`,
-        `What will you have done by the end of the week related to ${noun}?`,
-      ])
-    case 'future_perfect_continuous':
-      return pick([
-        `What will you have been doing for a while by the end of tomorrow related to ${noun}?`,
-        `How long will you have been ${gerund} by the end of the week?`,
-      ])
-    default:
-      return defaultNextQuestion(tense)
+  const byTopic = (t: string): Record<string, string[]> => {
+    const common = {
+      business: [
+        'your job',
+        'your work',
+      ],
+      family_friends: [
+        'your family',
+        'your friends',
+      ],
+      hobbies: [
+        'your hobbies',
+        'your free time',
+      ],
+      movies_series: [
+        'movies',
+        'series',
+      ],
+      music: [
+        'music',
+      ],
+      sports: [
+        'sports',
+      ],
+      food: [
+        'food',
+        'cooking',
+      ],
+      culture: [
+        'culture',
+      ],
+      daily_life: [
+        'your day',
+        'your daily routine',
+      ],
+      travel: [
+        'travel',
+        'trips',
+      ],
+      work: [
+        'work',
+      ],
+      technology: [
+        'technology',
+        'apps',
+      ],
+    } satisfies Record<string, string[]>
+    return { ...common, [t]: common[t as keyof typeof common] ?? ['this topic'] }
   }
+
+  const topics = byTopic(topic)[topic] ?? ['this topic']
+  const t1 = topics[seed % topics.length] ?? topics[0] ?? 'this topic'
+
+  const kidLead = isChild ? pick(['Hey!', 'Hi!', 'Okay!']) + ' ' : ''
+
+  // Для начальных уровней избегаем абстракций и длинных конструкций.
+  if (tense === 'present_simple') {
+    if (topic === 'food') {
+      return pick([
+        `${kidLead}What do you usually eat for breakfast?`,
+        `${kidLead}What do you usually eat for lunch?`,
+        `${kidLead}Do you cook at home?`,
+      ])
+    }
+    if (topic === 'sports') {
+      return pick([
+        `${kidLead}Do you play any sports?`,
+        `${kidLead}What sport do you like?`,
+        `${kidLead}How often do you exercise?`,
+      ])
+    }
+    if (topic === 'movies_series') {
+      return pick([
+        `${kidLead}Do you watch movies often?`,
+        `${kidLead}What kind of movies do you like?`,
+        `${kidLead}Do you watch series?`,
+      ])
+    }
+    return pick([
+      `${kidLead}What do you usually do in your free time?`,
+      `${kidLead}What do you usually do with ${t1}?`,
+      `${kidLead}Do you like ${t1}?`,
+    ])
+  }
+
+  if (tense === 'present_perfect') {
+    if (topic === 'movies_series') {
+      return pick([
+        `${kidLead}What movie have you watched recently?`,
+        `${kidLead}Have you watched any good series lately?`,
+        `${kidLead}What new movie have you found recently?`,
+      ])
+    }
+    if (topic === 'sports') {
+      return pick([
+        `${kidLead}Have you tried any new sport recently?`,
+        `${kidLead}What sport have you played recently?`,
+        `${kidLead}Have you exercised this week?`,
+      ])
+    }
+    if (topic === 'food') {
+      return pick([
+        `${kidLead}What have you eaten today?`,
+        `${kidLead}Have you cooked anything this week?`,
+        `${kidLead}What new food have you tried recently?`,
+      ])
+    }
+    return pick([
+      `${kidLead}What have you done recently?`,
+      `${kidLead}What new things have you tried recently?`,
+      `${kidLead}What have you learned recently about ${t1}?`,
+    ])
+  }
+
+  if (tense === 'present_continuous') {
+    return pick([
+      `${kidLead}What are you doing right now?`,
+      `${kidLead}What are you doing at the moment?`,
+      isBasic ? `${kidLead}What are you doing now?` : `${kidLead}What are you working on right now?`,
+    ])
+  }
+
+  if (tense === 'past_simple') {
+    return pick([
+      `${kidLead}What did you do yesterday?`,
+      `${kidLead}What did you do last weekend?`,
+      `${kidLead}What did you do after school/work yesterday?`,
+    ])
+  }
+
+  if (tense === 'future_simple') {
+    return pick([
+      `${kidLead}What will you do tomorrow?`,
+      `${kidLead}What will you do this weekend?`,
+      `${kidLead}What will you do next week?`,
+    ])
+  }
+
+  // Остальные времена: оставляем нормальные общие вопросы без «related to».
+  return defaultNextQuestion(tense)
 }
 
 /** Минимальная длина строки, чтобы считать её полноценным вопросом (не обрубок вроде "AI: T"). */
@@ -466,10 +542,10 @@ function ensureNextQuestionWhenMissing(content: string, params: { mode: string; 
   if (/^\s*(?:ai|assistant)\s*:\s*/im.test(trimmed)) {
     // no-op; normalize happens elsewhere
   }
-  if (/^\s*(Повтори|Repeat|Say)\s*:/im.test(trimmed)) return content
+  if (/(^|\n)\s*(Повтори|Repeat|Say)\s*:/im.test(trimmed)) return content
 
-  // Есть Комментарий, но нет ни одного вопроса.
-  const hasComment = /^\s*Комментарий\s*:/im.test(trimmed)
+  // Есть Комментарий (в любой строке), но нет ни одного вопроса.
+  const hasComment = /(^|\n)\s*Комментарий\s*:/im.test(trimmed)
   const hasQuestionMark = /\?\s*$|[A-Za-z].*\?/m.test(trimmed)
   if (!hasComment || hasQuestionMark) return content
 
@@ -494,6 +570,12 @@ function hasLeakMarkers(text: string): boolean {
   return INSTRUCTION_LEAK_PATTERNS.some((p) => p.test(t))
 }
 
+function hasRobotPhrasing(text: string): boolean {
+  const t = text.trim()
+  if (!t) return false
+  return /\brelated to\b|\bwhen it comes to\b|\bin terms of\b|\bregarding\b/i.test(t)
+}
+
 function isValidTutorOutput(params: {
   content: string
   mode: string
@@ -505,6 +587,7 @@ function isValidTutorOutput(params: {
   const raw = content.trim()
   if (!raw) return false
   if (hasLeakMarkers(raw)) return false
+  if (hasRobotPhrasing(raw)) return false
 
   const lines = raw
     .split(/\r?\n/)
@@ -514,6 +597,7 @@ function isValidTutorOutput(params: {
 
   if (lines.length === 0) return false
   if (lines.some((l) => hasLeakMarkers(l))) return false
+  if (lines.some((l) => hasRobotPhrasing(l))) return false
 
   const hasComment = lines.some((l) => /^Комментарий\s*:/i.test(l))
   const hasRepeat = lines.some((l) => /^(Повтори|Repeat|Say)\s*:/i.test(l))
@@ -737,6 +821,7 @@ export async function POST(req: NextRequest) {
     const tense = body.tense ?? 'present_simple'
     const mode = body.mode ?? 'dialogue'
     const sentenceType = body.sentenceType ?? 'mixed'
+    const audience: 'child' | 'adult' = body.audience === 'child' ? 'child' : 'adult'
 
     const recentMessages = messages
       .filter((m: ChatMessage) => m.role !== 'system')
@@ -752,6 +837,7 @@ export async function POST(req: NextRequest) {
       topic,
       level,
       tense,
+      audience,
       praiseStyleVariant,
     })
 
@@ -759,7 +845,7 @@ export async function POST(req: NextRequest) {
     // первая реплика ВСЕГДА должна быть вопросом по этой теме, а не приглашением выбрать тему.
     // (Некоторые модели иногда игнорируют инструкцию и выдают free-talk вопрос.)
     if (mode === 'dialogue' && topic !== 'free_talk' && recentMessages.length === 0) {
-      return NextResponse.json({ content: firstQuestionForTopicAndTense(topic, tense) })
+      return NextResponse.json({ content: firstQuestionForTopicAndTense({ topic, tense, level, audience }) })
     }
 
     const isTopicChoiceTurn =
