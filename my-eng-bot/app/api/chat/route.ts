@@ -378,6 +378,25 @@ function ensureNextQuestionOnPraise(content: string, params: { mode: string; ten
   return `${withoutTruncated}\n${defaultNextQuestion(params.tense)}`
 }
 
+function ensureNextQuestionWhenMissing(content: string, params: { mode: string; tense: string }): string {
+  if (params.mode !== 'dialogue') return content
+  const trimmed = content.trim()
+  if (!trimmed) return content
+
+  // Если есть "Повтори:", вопрос добавлять нельзя — пользователь должен повторить.
+  if (/^\s*(?:ai|assistant)\s*:\s*/im.test(trimmed)) {
+    // no-op; normalize happens elsewhere
+  }
+  if (/^\s*(Повтори|Repeat|Say)\s*:/im.test(trimmed)) return content
+
+  // Есть Комментарий, но нет ни одного вопроса.
+  const hasComment = /^\s*Комментарий\s*:/im.test(trimmed)
+  const hasQuestionMark = /\?\s*$|[A-Za-z].*\?/m.test(trimmed)
+  if (!hasComment || hasQuestionMark) return content
+
+  return `${trimmed}\n${defaultNextQuestion(params.tense)}`
+}
+
 /**
  * Убирает ведущий "AI:"/"Assistant:" у служебных строк (Комментарий/Повтори),
  * чтобы UI и дальнейшие фильтры работали одинаково.
@@ -660,6 +679,7 @@ export async function POST(req: NextRequest) {
     sanitized = stripPravilnoEverywhere(sanitized)
     sanitized = stripRepeatOnPraise(sanitized)
     sanitized = ensureNextQuestionOnPraise(sanitized, { mode, tense })
+    sanitized = ensureNextQuestionWhenMissing(sanitized, { mode, tense })
     if (!sanitized) {
       return NextResponse.json(
         { error: 'Модель вернула некорректный ответ. Попробуйте отправить сообщение ещё раз.' },

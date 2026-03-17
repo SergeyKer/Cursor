@@ -17,6 +17,8 @@
   --shadow-active: 0 0 0 1px rgba(0,0,0,0.05);
   /* Bottom inset, рассчитанный через VisualViewport (Android Chrome и пр.). */
   --vv-bottom-inset: 0px;
+  /* Высота панели ввода чата (обновляется из JS, fallback). */
+  --chat-input-height: 5.5rem;
 }
 
 html {

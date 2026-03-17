@@ -160,6 +160,23 @@ export default function Chat({
     el.scrollTop = el.scrollHeight
   }, [messages])
 
+  React.useEffect(() => {
+    const form = formRef.current
+    if (!form || typeof window === 'undefined') return
+
+    const root = document.documentElement
+    const apply = () => {
+      const h = Math.ceil(form.getBoundingClientRect().height)
+      if (h > 0) root.style.setProperty('--chat-input-height', `${h}px`)
+    }
+    apply()
+
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => apply())
+    ro.observe(form)
+    return () => ro.disconnect()
+  }, [])
+
   return (
     <div className="flex h-full flex-col">
       <div
@@ -170,7 +187,7 @@ export default function Chat({
           // Даём запас снизу (высота панели + системный inset), чтобы кнопки/ошибки
           // внизу списка не заезжали под input bar на Android/iOS.
           paddingBottom:
-            'calc(0.5rem + max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset)) + 5.5rem)',
+            'calc(0.5rem + max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset)) + var(--chat-input-height))',
         }}
       >
         <div className="mx-auto max-w-xl">
