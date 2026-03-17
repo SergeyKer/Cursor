@@ -5,10 +5,10 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const FREE_MODEL = 'openrouter/free'
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
 const OPENAI_MODEL = 'gpt-4o-mini'
-/** Максимум сообщений в контексте (user+assistant). 4 = два последних обмена. Типичный вход ~1000–1500 токенов. */
-const MAX_MESSAGES_IN_CONTEXT = 4
-/** Лимит токенов ответа. Типичный ответ 40–150 токенов — резерв ~2–3×. */
-const MAX_RESPONSE_TOKENS = 320
+/** Максимум сообщений в контексте (user+assistant). 6 = три последних обмена. */
+const MAX_MESSAGES_IN_CONTEXT = 6
+/** Лимит токенов ответа. Запас увеличен, чтобы реже обрезать форматированные ответы. */
+const MAX_RESPONSE_TOKENS = 512
 
 const LEVEL_PROMPTS: Record<string, string> = {
   all: 'Adapt your language to the learner. Keep it clear and natural. Prefer simple wording unless the learner clearly uses more advanced English.',
