@@ -371,6 +371,18 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Защита от “обрубков” вида "What" / "Yes" и т.п.: считаем это некорректным ответом и просим повтор.
+    const minimal = sanitized.trim()
+    const looksTruncated =
+      minimal.length < 12 ||
+      /^(what|why|how|when|where|who|yes|no)\??\.?$/i.test(minimal)
+    if (looksTruncated) {
+      return NextResponse.json(
+        { error: 'Модель вернула пустой ответ. Попробуйте отправить сообщение ещё раз.' },
+        { status: 502 }
+      )
+    }
+
     return NextResponse.json({ content: sanitized })
   } catch (e) {
     console.error(e)
