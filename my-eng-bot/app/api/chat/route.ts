@@ -259,6 +259,53 @@ function defaultNextQuestion(tense: string): string {
   }
 }
 
+function firstQuestionForTopicAndTense(topic: string, tense: string): string {
+  const byTopic: Record<string, { subject: string; place?: string }> = {
+    business: { subject: 'work or business' },
+    family_friends: { subject: 'your family or friends' },
+    hobbies: { subject: 'your hobbies' },
+    movies_series: { subject: 'movies or series' },
+    music: { subject: 'music' },
+    sports: { subject: 'sports' },
+    food: { subject: 'food' },
+    culture: { subject: 'culture' },
+    daily_life: { subject: 'your daily life' },
+    travel: { subject: 'travel' },
+    work: { subject: 'your work' },
+    technology: { subject: 'technology' },
+  }
+  const subject = byTopic[topic]?.subject ?? 'this topic'
+
+  switch (tense) {
+    case 'present_continuous':
+      return `What are you doing right now related to ${subject}?`
+    case 'present_simple':
+      return `What do you usually do related to ${subject}?`
+    case 'present_perfect':
+      return `What have you done recently related to ${subject}?`
+    case 'present_perfect_continuous':
+      return `What have you been doing lately related to ${subject}?`
+    case 'past_simple':
+      return `What did you do yesterday related to ${subject}?`
+    case 'past_continuous':
+      return `What were you doing at this time yesterday related to ${subject}?`
+    case 'past_perfect':
+      return `What had you done before you went to bed yesterday related to ${subject}?`
+    case 'past_perfect_continuous':
+      return `What had you been doing for a while before you stopped related to ${subject}?`
+    case 'future_simple':
+      return `What will you do tomorrow related to ${subject}?`
+    case 'future_continuous':
+      return `What will you be doing this time tomorrow related to ${subject}?`
+    case 'future_perfect':
+      return `What will you have done by this time tomorrow related to ${subject}?`
+    case 'future_perfect_continuous':
+      return `What will you have been doing for a while by the end of tomorrow related to ${subject}?`
+    default:
+      return defaultNextQuestion(tense)
+  }
+}
+
 /** Минимальная длина строки, чтобы считать её полноценным вопросом (не обрубок вроде "AI: T"). */
 const MIN_QUESTION_LENGTH = 15
 
@@ -469,6 +516,14 @@ export async function POST(req: NextRequest) {
       tense,
       praiseStyleVariant,
     })
+
+    // Жёсткая гарантия UX: если тема выбрана (не free_talk) и диалог пустой,
+    // первая реплика ВСЕГДА должна быть вопросом по этой теме, а не приглашением выбрать тему.
+    // (Некоторые модели иногда игнорируют инструкцию и выдают free-talk вопрос.)
+    if (mode === 'dialogue' && topic !== 'free_talk' && recentMessages.length === 0) {
+      return NextResponse.json({ content: firstQuestionForTopicAndTense(topic, tense) })
+    }
+
     const isTopicChoiceTurn =
       topic === 'free_talk' &&
       recentMessages.length === 2 &&
