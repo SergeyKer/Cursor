@@ -96,6 +96,12 @@ export default function Chat({
       const err = (event as unknown as { error?: string; message?: string }).error
       const msg = (event as unknown as { message?: string }).message
       const code = (err ?? msg ?? '').toString()
+      // "aborted" — нормальная ситуация: распознавание прервали (стоп, потеря фокуса, повторный старт).
+      // Не показываем это как ошибку пользователю.
+      if (/^aborted$/i.test(code)) {
+        setListening(false)
+        return
+      }
       if (/not-allowed|permission/i.test(code)) {
         setInput('[Нет доступа к микрофону. Разрешите микрофон для этого сайта и попробуйте снова.]')
       } else if (/no-speech/i.test(code)) {
@@ -381,11 +387,14 @@ function MessageBubble({
       ? splitInvitation(displayText)
       : { mainBefore: displayText ?? '', invitation: null as string | null, mainAfter: '' }
 
-  const repeatPrompt = !isUser ? extractRepeatPrompt(mainBefore) : null
-  const repeatTextForCard = repeatPrompt?.repeatText || (correction && !repeatPrompt && mainBefore && /^(Скажи|Повтори|Say|Repeat)\s*:?\s*/im.test(mainBefore.trim()) ? correction : null)
-  const showOnlyRepeat = Boolean(repeatTextForCard)
   // При правильном ответе ИИ пишет похвалу (Комментарий: Отлично! / Молодец! и т.д.) — блок "Правильно:" не показываем
   const isCorrectAnswerPraise = Boolean(comment && /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)[!.]?\s*/i.test(comment.trim()))
+  const repeatPrompt = !isUser ? extractRepeatPrompt(mainBefore) : null
+  // Если это похвала (ответ правильный), игнорируем "Повтори:" даже если модель его вывела.
+  // Иначе UI может зациклиться на повторении.
+  const effectiveRepeatPrompt = isCorrectAnswerPraise ? null : repeatPrompt
+  const repeatTextForCard = effectiveRepeatPrompt?.repeatText || (correction && !effectiveRepeatPrompt && mainBefore && /^(Скажи|Повтори|Say|Repeat)\s*:?\s*/im.test(mainBefore.trim()) ? correction : null)
+  const showOnlyRepeat = Boolean(repeatTextForCard)
   const showCorrectionBlock = correction && !showOnlyRepeat && !isCorrectAnswerPraise
 
   const handleSpeak = () => {

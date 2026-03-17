@@ -189,6 +189,25 @@ function stripOffContextCorrections(content: string, lastUserContent: string): s
   return kept.join('\n').replace(/\n\s*\n\s*\n/g, '\n\n').replace(/^\s*\n+|\n+\s*$/g, '').trim()
 }
 
+/**
+ * Модель иногда нарушает протокол и добавляет "Повтори:" даже в ответах-похвалах.
+ * Это зацикливает UX (пользователь повторяет, а модель снова просит повторить).
+ * Если есть похвала в "Комментарий:" и нет "Правильно:", удаляем строки "Повтори:".
+ */
+function stripRepeatOnPraise(content: string): string {
+  const trimmed = content.trim()
+  if (!trimmed) return content
+  // Если есть "Правильно:", то это уже исправление — "Повтори:" допустим.
+  if (/^\s*Правильно\s*:/im.test(trimmed)) return content
+
+  const praiseComment = /^\s*Комментарий\s*:\s*(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)\b/im
+  if (!praiseComment.test(trimmed)) return content
+
+  const lines = trimmed.split(/\r?\n/)
+  const kept = lines.filter((line) => !/^\s*(Повтори|Repeat|Say)\s*:/i.test(line.trim()))
+  return kept.join('\n').replace(/\n\s*\n\s*\n/g, '\n\n').replace(/^\s*\n+|\n+\s*$/g, '').trim()
+}
+
 function normalizeKey(key: string): string {
   const k = key.trim()
   if (k.toLowerCase().startsWith('bearer ')) return k.slice(7).trim()
@@ -239,13 +258,6 @@ export async function POST(req: NextRequest) {
       : ''
     const systemContent = topicChoicePrefix + systemPrompt
 
-    // #region agent log (fire-and-forget, не влияет на ответ)
-    try {
-      fetch('http://127.0.0.1:7939/ingest/c5a6462d-f807-42b1-bd60-61f6e515689c', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'd9c8d7' }, body: JSON.stringify({ sessionId: 'd9c8d7', location: 'route.ts:POST:topicChoice', message: 'topic choice turn', data: { topic, tense, messagesCount: messages.length, recentCount: recentMessages.length, roles: recentMessages.map((m: ChatMessage) => m.role), lastRole: recentMessages[1]?.role, isTopicChoiceTurn, prefixLen: topicChoicePrefix.length, systemContentStart: systemContent.slice(0, 120) }, timestamp: Date.now(), hypothesisId: 'A,B,C,D' }) }).catch(() => {})
-    } catch {
-      // игнорируем любую ошибку отладочного запроса
-    }
-    // #endregion
     // При пустом диалоге добавляем одно сообщение пользователя: часть провайдеров требует хотя бы один user turn
     const userTurnMessages =
       recentMessages.length > 0
@@ -368,6 +380,7 @@ export async function POST(req: NextRequest) {
     }
     const lastUserContentForResponse = recentMessages.filter((m: ChatMessage) => m.role === 'user').pop()?.content ?? ''
     sanitized = stripOffContextCorrections(sanitized, lastUserContentForResponse)
+    sanitized = stripRepeatOnPraise(sanitized)
     if (!sanitized) {
       return NextResponse.json(
         { error: 'Модель вернула некорректный ответ. Попробуйте отправить сообщение ещё раз.' },
