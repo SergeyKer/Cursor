@@ -13,8 +13,10 @@ export type AiProvider = 'openrouter' | 'openai'
 
 export type AppMode = 'dialogue' | 'translation'
 export type SentenceType = 'general' | 'interrogative' | 'negative' | 'mixed'
+export type Audience = 'child' | 'adult'
 
 export type LevelId =
+  | 'all'
   | 'starter'
   | 'a1'
   | 'a2'
@@ -60,6 +62,7 @@ export interface Settings {
   topic: TopicId
   level: LevelId
   tense: TenseId
+  audience: Audience
   voiceId: string
 }
 

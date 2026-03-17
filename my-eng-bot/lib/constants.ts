@@ -17,6 +17,7 @@ export const TOPICS: { id: TopicId; label: string }[] = [
 ]
 
 export const LEVELS: { id: LevelId; label: string }[] = [
+  { id: 'all', label: 'Все (любой уровень)' },
   { id: 'starter', label: 'Starter — первый год, до A1' },
   { id: 'a1', label: 'A1 — начальный' },
   { id: 'a2', label: 'A2 — элементарный' },

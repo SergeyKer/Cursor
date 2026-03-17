@@ -35,6 +35,7 @@ const DEFAULT_SETTINGS: Settings = {
   topic: 'free_talk',
   level: 'a1',
   tense: 'present_simple',
+  audience: 'adult',
   voiceId: '',
 }
 

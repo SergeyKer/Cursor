@@ -11,6 +11,7 @@ const MAX_MESSAGES_IN_CONTEXT = 4
 const MAX_RESPONSE_TOKENS = 320
 
 const LEVEL_PROMPTS: Record<string, string> = {
+  all: 'Adapt your language to the learner. Keep it clear and natural. Prefer simple wording unless the learner clearly uses more advanced English.',
   starter:
     'Use only very simple words and short sentences. Suitable for first-year learners or children.',
   a1: 'Use vocabulary and grammar appropriate for A1 (beginner).',
@@ -53,6 +54,34 @@ const TOPIC_NAMES: Record<string, string> = {
   technology: 'Technology',
 }
 
+const FREE_TOPIC_INVITATIONS: string[] = [
+  "What would you like to talk about today?",
+  "What shall we talk about today?",
+  "What's on your mind right now?",
+  "What do you feel like chatting about?",
+  "We can talk about anything — what topic do you want?",
+  "Choose any topic you like — what would you like to discuss?",
+  "Is there anything you'd like to talk about today?",
+  "What would you like to discuss right now?",
+  "Let's talk — what topic do you want?",
+  "Pick a topic for today — what would you like to talk about?",
+]
+
+const TOPIC_SUBTOPICS: Record<string, string[]> = {
+  business: ['meetings', 'clients', 'emails', 'your goals'],
+  family_friends: ['your family', 'your friends', 'plans together', 'a recent conversation'],
+  hobbies: ['your hobbies', 'how you spend free time', 'something new you tried', 'what you enjoy most'],
+  movies_series: ['a movie you watched', 'a series you like', 'your favorite genre', 'what you watched recently'],
+  music: ['your favorite music', 'a song you like', 'concerts', 'what you listen to lately'],
+  sports: ['team sports', 'fitness', 'your workouts', 'something you did recently'],
+  food: ['breakfast', 'cooking at home', 'restaurants', 'a new food you tried'],
+  culture: ['books', 'art', 'traditions', 'events in your city'],
+  daily_life: ['your routine', 'your day today', 'home chores', 'how you relax'],
+  travel: ['a past trip', 'a place you want to visit', 'planning a trip', 'travel tips'],
+  work: ['your tasks', 'projects', 'colleagues', 'what you do at work'],
+  technology: ['apps you use', 'your phone/computer', 'AI tools', 'a tech problem you had'],
+}
+
 const SENTENCE_TYPE_NAMES: Record<string, string> = {
   general: 'affirmative (general)',
   interrogative: 'interrogative (questions)',
@@ -68,6 +97,32 @@ function stableHash32(input: string): number {
     hash = Math.imul(hash, 0x01000193)
   }
   return hash >>> 0
+}
+
+function firstMessageInviteSubtopic(params: { topic: string; audience: 'child' | 'adult' }): string {
+  const { topic, audience } = params
+  const topicName = TOPIC_NAMES[topic] ?? 'this topic'
+  const subtopics = TOPIC_SUBTOPICS[topic] ?? ['something you like', 'something you did recently', 'your opinion']
+  const seed = stableHash32(`first_subtopic_invite|${topic}|${audience}`)
+  const pick = <T,>(variants: T[]) => variants[seed % variants.length] ?? variants[0]
+
+  const a = subtopics[seed % subtopics.length] ?? subtopics[0] ?? 'something'
+  const b = subtopics[(seed + 1) % subtopics.length] ?? subtopics[1] ?? a
+  const c = subtopics[(seed + 2) % subtopics.length] ?? subtopics[2] ?? b
+
+  if (audience === 'child') {
+    return pick([
+      `Let's talk about ${topicName}. What do you want: ${a}, ${b}, or ${c}?`,
+      `We chose ${topicName}. What should we talk about: ${a}, ${b}, or ${c}?`,
+      `Okay, ${topicName}! What do you want to focus on: ${a}, ${b}, or ${c}?`,
+    ])
+  }
+
+  return pick([
+    `We're talking about ${topicName}. What would you like to focus on — ${a}, ${b}, or ${c}?`,
+    `Let's stick to ${topicName}. Which part do you want — ${a}, ${b}, or ${c}?`,
+    `Topic today is ${topicName}. What do you want to talk about — ${a}, ${b}, or ${c}?`,
+  ])
 }
 
 function buildSystemPrompt(params: {
@@ -90,6 +145,10 @@ function buildSystemPrompt(params: {
       : 'Audience: ADULT. Use natural conversational English. Keep questions clear and not overly formal.'
   const antiRobotRule =
     'Avoid robotic/formal connectors. NEVER use phrases like "related to", "when it comes to", "in terms of", or "regarding". Ask like a real person.'
+  const topicRetentionRule =
+    topic !== 'free_talk'
+      ? `The conversation topic is ${topicName}. If the user's answer goes off this topic, do NOT follow their new topic. Ask the next question again about ${topicName} (or the subtopic they chose) and gently bring the conversation back.`
+      : ''
 
   if (mode === 'translation') {
     return `Translation training. Topic: ${topicName}, ${levelPrompt}, ${sentenceTypeName}.
@@ -108,6 +167,8 @@ This rule applies to every tense (Present Simple, Present Continuous, Past Simpl
 This applies to every tense: stick to the topic and time frame of YOUR question. Do NOT adopt the user's time frame if they answer with a different one (e.g. you asked about "recently" and they say "tomorrow"; you asked about "yesterday" and they say "next week"; you asked about "now" and they switch to the past). Your "Повтори:" sentence must be in ${tenseName} AND must match the context you asked about — never suggest a sentence in another tense or time frame. Examples: if you asked in Present Perfect about recent past, correct to "Yes, I have been to the cinema recently", not "I will go tomorrow"; if you asked in Past Simple about yesterday, correct to that context, not to "tomorrow" or "next week". Do not ask the user to repeat a sentence in a different tense or time frame than your question.`
   const capitalizationRule =
     'Completely ignore capitalization and punctuation in the USER answer. If the only difference is capitalization or missing commas/periods (e.g. "yes I stayed" vs "Yes, I stayed"), treat the answer as correct and do NOT add any comment about it. Never mention capital letters, commas, periods, or any punctuation in "Комментарий:" — never write things like "нужна запятая", "comma after Yes", etc. Do not correct or explain punctuation. The user often dictates by voice; focus only on tense, grammar, and wording. Your OWN replies must use normal English capitalization and punctuation.';
+  const contractionRule =
+    "Contractions are always acceptable. Treat contracted and expanded forms as equivalent, and NEVER mark them as errors or ask the user to repeat only because of contractions or apostrophes. Examples of equivalent pairs: I'm/I am, you're/you are, he's/he is, she's/she is, it's/it is, we're/we are, they're/they are, I've/I have, you've/you have, we've/we have, they've/they have, I'd/I would or I had, you'd/you would or you had, we'd/we would or we had, they'd/they would or they had, I'll/I will, you'll/you will, he'll/he will, she'll/she will, it'll/it will, we'll/we will, they'll/they will, can't/cannot, don't/do not, doesn't/does not, didn't/did not, won't/will not, isn't/is not, aren't/are not, wasn't/was not, weren't/were not. This includes both apostrophe characters: ' and ’. If the only difference from your preferred form is contraction vs expansion, treat the user answer as correct and continue.";
   const freeTalkRule =
     topic === 'free_talk'
       ? `This is a free conversation. For your very first question, invite the user to choose any topic or to just start talking. Vary the wording each time — use different phrasings, for example: "What would you like to talk about today? You can name any topic, or just start, and I will follow." / "What shall we talk about? Pick any topic or simply start — I'll join in." / "What's on your mind today? Any topic works, or just begin and I'll keep up." / "What would you like to discuss? Name a topic or start talking, and I'll follow." / "We can talk about anything. Name a topic or start, and I'll go with you." Do NOT list specific options as a fixed menu. In free topic, after your first question ("What would you like to talk about?"), the user's reply is ALWAYS treated as topic choice. Do NOT search for errors. Do NOT output Комментарий or Повтори. Always try to infer the topic first — ignore typos and wrong tense (e.g. "I wil plai footbal" → football/sport; "tenis" → tennis). Output one question in the required tense about that topic. Only if the message gives no hint at all (e.g. "sdf", "sss"), ask what they mean. No corrections, no comments. Correct grammar only in later turns.`
@@ -116,7 +177,7 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
     topic === 'free_talk'
       ? 'HIGHEST PRIORITY — Free topic (for ANY tense: Present Simple, Present Perfect, Past Simple, etc.): When the user is naming or revealing their topic (e.g. first reply after you asked "What would you like to talk about?"), do NOT output Комментарий or Повтори. Do NOT output meta-text or instructions. Only infer the topic and reply with ONE real question in the required tense. This overrides ALL correction rules below. '
       : ''
-  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${audienceRule} ${antiRobotRule} ${freeTopicPriority}${tense === 'all' ? 'Any tense.' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule} ${capitalizationRule} ${freeTalkRule}
+  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${audienceRule} ${antiRobotRule} ${topicRetentionRule} ${freeTopicPriority}${tense === 'all' ? 'Any tense.' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule} ${capitalizationRule} ${contractionRule} ${freeTalkRule}
 
 Question style guidelines:
 - Ask short, natural questions a human would ask.
@@ -143,6 +204,7 @@ FORMAT (strict):
    - "Повтори: " + the FULL corrected English sentence (fixing all errors at once). Always write a complete sentence with normal punctuation.
    In this case do NOT add a follow‑up question — the user must repeat first.
 2) When the user's answer is already correct: output "Комментарий: " + brief praise in Russian (e.g. "Комментарий: Отлично!") and then on the next line ask the next question in English. Do NOT output "Повтори:" for correct answers.${praiseStyleVariant ? ` Sometimes (not always) make the praise sound more human by adding ONE short extra clause to the SAME "Комментарий:" line (still in Russian), e.g. mention that the tense/grammar sounded natural. Optionally, in that same "Комментарий:" line, you may add one alternative version of the user's sentence with ONE extra adjective or adverb (keep it simple, level-appropriate), prefixed by "Вариант: ". Do NOT add extra lines for this; it must stay inside the same single "Комментарий:" line.` : ''}
+2) When the user's answer is already correct: output "Комментарий: " + brief praise in Russian (e.g. "Комментарий: Отлично!") and then on the next line ask the next question in English. Do NOT output "Повтори:" for correct answers.${praiseStyleVariant ? ` Sometimes (not always) make the praise sound more human by adding ONE short extra clause to the SAME "Комментарий:" line (still in Russian), e.g. mention that the tense/grammar sounded natural. Optionally, you may add one alternative version of the user's sentence with ONE extra adjective or adverb (keep it simple, level-appropriate), prefixed by "*Возможный вариант: ...*". The whole "Возможный вариант" sentence MUST be in italics using asterisks. The variant can be on the same line as "Комментарий:" or on its own line, but do NOT add any other extra lines.` : ''}
 
 Never add raw markers like **Correction:**, **Comment:**, **Right:** or similar anywhere in the visible text. The user should never see those words with asterisks.
 
@@ -228,10 +290,20 @@ function isMetaGarbage(content: string): boolean {
   )
 }
 
-function fallbackQuestionForContext(params: { topic: string; tense: string }): string {
+function fallbackQuestionForContext(params: {
+  topic: string
+  tense: string
+  level: string
+  audience: 'child' | 'adult'
+}): string {
   return params.topic === 'free_talk'
     ? defaultNextQuestion(params.tense)
-    : firstQuestionForTopicAndTense(params.topic, params.tense)
+    : firstQuestionForTopicAndTense({
+        topic: params.topic,
+        tense: params.tense,
+        level: params.level,
+        audience: params.audience,
+      })
 }
 
 /** Паттерн: "Говорится X, не Y" или "Нужно слово X, не Y" — строка с другим контекстом, если ни X, ни Y нет в сообщении пользователя. */
@@ -464,6 +536,21 @@ function firstQuestionForTopicAndTense(params: {
 /** Минимальная длина строки, чтобы считать её полноценным вопросом (не обрубок вроде "AI: T"). */
 const MIN_QUESTION_LENGTH = 15
 
+function fallbackNextQuestion(params: {
+  topic: string
+  tense: string
+  level: string
+  audience: 'child' | 'adult'
+}): string {
+  if (params.topic === 'free_talk') return defaultNextQuestion(params.tense)
+  return firstQuestionForTopicAndTense({
+    topic: params.topic,
+    tense: params.tense,
+    level: params.level,
+    audience: params.audience,
+  })
+}
+
 function looksLikeRussianMetaLine(line: string): boolean {
   const s = line.trim()
   if (!s) return false
@@ -515,7 +602,13 @@ function dropTruncatedTrailingLines(text: string): string {
  * Страховка UX: иногда модель, даже при корректном ответе, даёт похвалу/мета‑фразу,
  * но не задаёт следующий вопрос или обрезает ответ ("AI: T"). По протоколу следующий вопрос обязателен.
  */
-function ensureNextQuestionOnPraise(content: string, params: { mode: string; tense: string }): string {
+function ensureNextQuestionOnPraise(content: string, params: {
+  mode: string
+  topic: string
+  tense: string
+  level: string
+  audience: 'child' | 'adult'
+}): string {
   if (params.mode !== 'dialogue') return content
   const trimmed = dropRussianMetaLinesOnPraise(content).trim()
   if (!trimmed) return content
@@ -530,10 +623,16 @@ function ensureNextQuestionOnPraise(content: string, params: { mode: string; ten
   if (hasRealQuestion) return trimmed
 
   const withoutTruncated = dropTruncatedTrailingLines(trimmed)
-  return `${withoutTruncated}\n${defaultNextQuestion(params.tense)}`
+  return `${withoutTruncated}\n${fallbackNextQuestion(params)}`
 }
 
-function ensureNextQuestionWhenMissing(content: string, params: { mode: string; tense: string }): string {
+function ensureNextQuestionWhenMissing(content: string, params: {
+  mode: string
+  topic: string
+  tense: string
+  level: string
+  audience: 'child' | 'adult'
+}): string {
   if (params.mode !== 'dialogue') return content
   const trimmed = content.trim()
   if (!trimmed) return content
@@ -549,7 +648,7 @@ function ensureNextQuestionWhenMissing(content: string, params: { mode: string; 
   const hasQuestionMark = /\?\s*$|[A-Za-z].*\?/m.test(trimmed)
   if (!hasComment || hasQuestionMark) return content
 
-  return `${trimmed}\n${defaultNextQuestion(params.tense)}`
+  return `${trimmed}\n${fallbackNextQuestion(params)}`
 }
 
 function isEnglishQuestionLine(line: string): boolean {
@@ -623,10 +722,21 @@ function isValidTutorOutput(params: {
 
   // Корректный ответ: Комментарий + следующий вопрос.
   if (hasComment) {
-    if (lines.length !== 2) return false
+    // Поддерживаем 2 формата:
+    // - 2 строки: Комментарий + вопрос
+    // - 3 строки: Комментарий + Возможный вариант + вопрос (модель иногда выносит вариант на отдельную строку)
+    if (lines.length !== 2 && lines.length !== 3) return false
     const c = lines[0] ?? ''
-    const q = lines[1] ?? ''
     if (!/^Комментарий\s*:/i.test(c)) return false
+
+    if (lines.length === 2) {
+      const q = lines[1] ?? ''
+      return isEnglishQuestionLine(q)
+    }
+
+    const v = lines[1] ?? ''
+    const q = lines[2] ?? ''
+    if (!/^\*?\s*Возможный\s+вариант\s*:/i.test(v)) return false
     return isEnglishQuestionLine(q)
   }
 
@@ -685,6 +795,59 @@ function splitCommentAndRepeatSameLine(content: string): string {
     const repeatPart = noPrefix.slice(idxRepeat).trimStart()
     out.push(commentPart)
     out.push(repeatPart)
+  }
+
+  return out.join('\n').replace(/\n\s*\n\s*\n/g, '\n\n').replace(/^\s*\n+|\n+\s*$/g, '').trim()
+}
+
+function normalizeVariantFormatting(content: string): string {
+  const trimmed = content.trim()
+  if (!trimmed) return content
+
+  const lines = trimmed.split(/\r?\n/)
+  const out: string[] = []
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+    if (!line) continue
+
+    // Не трогаем служебные строки коррекции.
+    if (/^\s*(Повтори|Repeat|Say)\s*:/i.test(line)) {
+      out.push(rawLine)
+      continue
+    }
+
+    // Отдельная строка варианта:
+    // "Вариант: ..." или "Возможный вариант: ..." -> "*Возможный вариант: ...*"
+    const separate = /^\s*(?:\*+\s*)?(Вариант|Возможный\s+вариант)\s*:\s*(.+?)(?:\s*\*+)?\s*$/i.exec(line)
+    if (separate?.[2]) {
+      const text = separate[2].trim()
+      out.push(`*Возможный вариант: ${text}*`)
+      continue
+    }
+
+    // Вариант внутри строки Комментария:
+    // "Комментарий: ... Вариант: ..." -> "Комментарий: ... *Возможный вариант: ...*"
+    if (/^\s*Комментарий\s*:/i.test(line) && /\bВариант\s*:/i.test(line)) {
+      const replaced = rawLine.replace(/\bВариант\s*:\s*/i, '*Возможный вариант: ')
+      const hasClose = /\*\s*$/.test(replaced.trim())
+      out.push(!hasClose ? `${replaced.trim()}*` : replaced)
+      continue
+    }
+
+    // "Комментарий: ... Возможный вариант: ..." без курсива -> делаем курсивом хвост.
+    if (
+      /^\s*Комментарий\s*:/i.test(line) &&
+      /\bВозможный\s+вариант\s*:/i.test(line) &&
+      !/\*Возможный\s+вариант\s*:/i.test(line)
+    ) {
+      const replaced = rawLine.replace(/\bВозможный\s+вариант\s*:\s*/i, '*Возможный вариант: ')
+      const hasClose = /\*\s*$/.test(replaced.trim())
+      out.push(!hasClose ? `${replaced.trim()}*` : replaced)
+      continue
+    }
+
+    out.push(rawLine)
   }
 
   return out.join('\n').replace(/\n\s*\n\s*\n/g, '\n\n').replace(/^\s*\n+|\n+\s*$/g, '').trim()
@@ -817,11 +980,28 @@ export async function POST(req: NextRequest) {
     const messages: ChatMessage[] = Array.isArray(body.messages) ? body.messages : []
     const provider: Provider = body.provider === 'openai' ? 'openai' : 'openrouter'
     const topic = body.topic ?? 'free_talk'
-    const level = body.level ?? 'a1'
+    let level = body.level ?? 'a1'
     const tense = body.tense ?? 'present_simple'
     const mode = body.mode ?? 'dialogue'
     const sentenceType = body.sentenceType ?? 'mixed'
     const audience: 'child' | 'adult' = body.audience === 'child' ? 'child' : 'adult'
+
+    // Страховка: для "Ребёнок" в Свободной теме уровень не выше A2.
+    // UI уже ограничивает это, но на сервере тоже фиксируем на случай старого localStorage/ручных запросов.
+    if (audience === 'child' && topic === 'free_talk') {
+      const allowed = new Set(['all', 'starter', 'a1', 'a2'])
+      if (!allowed.has(String(level))) level = 'all'
+    }
+
+    // Страховка: для "Ребёнок" не допускаем Perfect Continuous (их нет в UI).
+    // Если прилетело — мягко переводим на Present Simple.
+    const disallowedTensesForChild = new Set([
+      'present_perfect_continuous',
+      'past_perfect_continuous',
+      'future_perfect_continuous',
+    ])
+    const normalizedTense =
+      audience === 'child' && disallowedTensesForChild.has(String(tense)) ? 'present_simple' : tense
 
     const recentMessages = messages
       .filter((m: ChatMessage) => m.role !== 'system')
@@ -836,16 +1016,22 @@ export async function POST(req: NextRequest) {
       sentenceType,
       topic,
       level,
-      tense,
+      tense: normalizedTense,
       audience,
       praiseStyleVariant,
     })
 
     // Жёсткая гарантия UX: если тема выбрана (не free_talk) и диалог пустой,
-    // первая реплика ВСЕГДА должна быть вопросом по этой теме, а не приглашением выбрать тему.
-    // (Некоторые модели иногда игнорируют инструкцию и выдают free-talk вопрос.)
+    // первая реплика ВСЕГДА должна удерживать выбранную тему.
     if (mode === 'dialogue' && topic !== 'free_talk' && recentMessages.length === 0) {
-      return NextResponse.json({ content: firstQuestionForTopicAndTense({ topic, tense, level, audience }) })
+      return NextResponse.json({ content: firstMessageInviteSubtopic({ topic, audience }) })
+    }
+
+    // UX/perf: первый вопрос в режиме "Диалог" должен приходить мгновенно.
+    // Для free_talk нет смысла ждать модель (может быть медленно/429), поэтому стартуем локальным вопросом.
+    if (mode === 'dialogue' && topic === 'free_talk' && recentMessages.length === 0) {
+      const idx = Math.floor(Math.random() * FREE_TOPIC_INVITATIONS.length)
+      return NextResponse.json({ content: FREE_TOPIC_INVITATIONS[idx] ?? FREE_TOPIC_INVITATIONS[0] ?? 'What would you like to talk about today?' })
     }
 
     const isTopicChoiceTurn =
@@ -917,16 +1103,17 @@ export async function POST(req: NextRequest) {
     // Если модель вернула мета-фразу вместо ответа — не показываем её пользователю.
     // Делаем мягкий fallback на следующий вопрос, чтобы UX не ломался.
     if (isMetaGarbage(sanitized)) {
-      return NextResponse.json({ content: fallbackQuestionForContext({ topic, tense }) })
+      return NextResponse.json({ content: fallbackQuestionForContext({ topic, tense, level, audience }) })
     }
     const lastUserContentForResponse = recentMessages.filter((m: ChatMessage) => m.role === 'user').pop()?.content ?? ''
     sanitized = stripOffContextCorrections(sanitized, lastUserContentForResponse)
     sanitized = normalizeAssistantPrefixForControlLines(sanitized)
     sanitized = splitCommentAndRepeatSameLine(sanitized)
+    sanitized = normalizeVariantFormatting(sanitized)
     sanitized = stripPravilnoEverywhere(sanitized)
     sanitized = stripRepeatOnPraise(sanitized)
-    sanitized = ensureNextQuestionOnPraise(sanitized, { mode, tense })
-    sanitized = ensureNextQuestionWhenMissing(sanitized, { mode, tense })
+    sanitized = ensureNextQuestionOnPraise(sanitized, { mode, topic, tense, level, audience })
+    sanitized = ensureNextQuestionWhenMissing(sanitized, { mode, topic, tense, level, audience })
     if (!sanitized) {
       return NextResponse.json(
         { error: 'Модель вернула некорректный ответ. Попробуйте отправить сообщение ещё раз.' },
@@ -966,22 +1153,23 @@ export async function POST(req: NextRequest) {
         let repaired = sanitizeInstructionLeak(res2.content)
         if (repaired) {
           if (isMetaGarbage(repaired)) {
-            return NextResponse.json({ content: fallbackQuestionForContext({ topic, tense }) })
+            return NextResponse.json({ content: fallbackQuestionForContext({ topic, tense, level, audience }) })
           }
           repaired = stripOffContextCorrections(repaired, lastUserContentForResponse)
           repaired = normalizeAssistantPrefixForControlLines(repaired)
           repaired = splitCommentAndRepeatSameLine(repaired)
+          repaired = normalizeVariantFormatting(repaired)
           repaired = stripPravilnoEverywhere(repaired)
           repaired = stripRepeatOnPraise(repaired)
-          repaired = ensureNextQuestionOnPraise(repaired, { mode, tense })
-          repaired = ensureNextQuestionWhenMissing(repaired, { mode, tense })
+          repaired = ensureNextQuestionOnPraise(repaired, { mode, topic, tense, level, audience })
+          repaired = ensureNextQuestionWhenMissing(repaired, { mode, topic, tense, level, audience })
           const repairedValid = isValidTutorOutput({ content: repaired, mode, isFirstTurn })
           if (repairedValid) return NextResponse.json({ content: repaired })
         }
       }
 
       // Если repair не помог — безопасный fallback, чтобы не показывать мусор.
-      return NextResponse.json({ content: fallbackQuestionForContext({ topic, tense }) })
+      return NextResponse.json({ content: fallbackQuestionForContext({ topic, tense, level, audience }) })
     }
 
     return NextResponse.json({ content: sanitized })

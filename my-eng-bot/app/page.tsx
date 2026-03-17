@@ -32,6 +32,16 @@ export default function Home() {
     setMounted(true)
   }, [])
 
+  function normalizeSettingsForAudience(s: Settings): Settings {
+    if (s.audience !== 'child') return s
+    const allowed = new Set<Settings['level']>(['all', 'starter', 'a1', 'a2'])
+    return {
+      ...s,
+      level: allowed.has(s.level) ? s.level : 'all',
+      tense: 'present_simple',
+    }
+  }
+
   React.useEffect(() => {
     if (!dialogStarted || typeof window === 'undefined') return
     const id = requestAnimationFrame(() => {
@@ -126,6 +136,7 @@ export default function Home() {
                 tense: settings.tense,
                 mode: settings.mode,
                 sentenceType: settings.sentenceType,
+                audience: settings.audience,
               }),
               signal: controller.signal,
             })
@@ -361,13 +372,20 @@ export default function Home() {
     if (!initialLoadDoneRef.current) {
       initialLoadDoneRef.current = true
       setMessages([])
-      setSettings(state.settings)
+      setSettings(normalizeSettingsForAudience(state.settings))
       setDialogStarted(false)
     }
     fetchUsage()
     setInitialized(true)
     setStorageLoaded(true)
   }, [fetchUsage])
+
+  // Если пользователь переключил аудиторию на "Ребёнок" — автоматически принудим тему и уровень.
+  useEffect(() => {
+    if (!storageLoaded) return
+    setSettings((prev) => normalizeSettingsForAudience(prev))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageLoaded, settings.audience])
 
   useEffect(() => {
     if (!storageLoaded) return
@@ -466,7 +484,7 @@ export default function Home() {
         const res = await fetch('/api/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: text.trim(), provider: settings.provider }),
+          body: JSON.stringify({ text: text.trim(), provider: settings.provider, audience: settings.audience }),
           signal: controller.signal,
         })
         clearTimeout(timeoutId)
@@ -577,7 +595,9 @@ export default function Home() {
         className="flex min-h-0 flex-1 flex-col"
         style={{
           paddingTop: 'calc(2.5rem + env(safe-area-inset-top, 0px))',
-          paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset))',
+          paddingBottom: dialogStarted
+            ? '0px'
+            : 'max(0.75rem, env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset))',
         }}
       >
         {!storageLoaded ? (
@@ -588,6 +608,23 @@ export default function Home() {
           <div className="flex min-h-0 flex-1 flex-col items-center gap-6 bg-white px-4 pt-6 pb-8">
             <div className="w-full max-w-xs rounded-2xl border border-[var(--border)] bg-[#e8ecf0] px-4 py-4 shadow-sm space-y-3">
               <h2 className="text-sm font-semibold text-[var(--text)] mb-0.5">Выбери режим</h2>
+              <div>
+                <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Аудитория</label>
+                <select
+                  value={settings.audience}
+                  onChange={(e) =>
+                    setSettings((s) => {
+                      const nextAudience = e.target.value as Settings['audience']
+                      if (nextAudience === 'child') return normalizeSettingsForAudience({ ...s, audience: nextAudience, level: 'all', tense: 'present_simple' })
+                      return normalizeSettingsForAudience({ ...s, audience: nextAudience })
+                    })
+                  }
+                  className="w-full rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)]"
+                >
+                  <option value="child">Ребёнок</option>
+                  <option value="adult">Взрослый</option>
+                </select>
+              </div>
               <div>
                 <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Режим</label>
                 <select
@@ -632,7 +669,7 @@ export default function Home() {
                   onChange={(e) => setSettings((s) => ({ ...s, level: e.target.value as Settings['level'] }))}
                   className="w-full rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)]"
                 >
-                  {LEVELS.map((l) => (
+                  {(settings.audience === 'child' ? LEVELS.filter((l) => ['all', 'starter', 'a1', 'a2'].includes(l.id)) : LEVELS).map((l) => (
                     <option key={l.id} value={l.id}>{l.label}</option>
                   ))}
                 </select>
@@ -644,7 +681,17 @@ export default function Home() {
                   onChange={(e) => setSettings((s) => ({ ...s, tense: e.target.value as Settings['tense'] }))}
                   className="w-full rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)]"
                 >
-                  {TENSES.map((t) => (
+                  {(settings.audience === 'child'
+                    ? TENSES.filter(
+                        (t) =>
+                          ![
+                            'present_perfect_continuous',
+                            'past_perfect_continuous',
+                            'future_perfect_continuous',
+                          ].includes(t.id)
+                      )
+                    : TENSES
+                  ).map((t) => (
                     <option key={t.id} value={t.id}>{t.label}</option>
                   ))}
                 </select>

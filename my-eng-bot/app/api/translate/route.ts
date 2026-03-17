@@ -29,11 +29,20 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const text = typeof body.text === 'string' ? body.text.trim() : ''
     const provider: Provider = body.provider === 'openai' ? 'openai' : 'openrouter'
+    const audience: 'child' | 'adult' = body.audience === 'child' ? 'child' : 'adult'
     if (!text) {
       return NextResponse.json({ error: 'Текст для перевода не передан' }, { status: 400 })
     }
 
-    const system = 'You are a professional Russian translator. Translate the user text into **natural conversational Russian**, not a literal word‑for‑word translation. Preserve the meaning, tone and style. For questions like "What is your favorite food?" use idiomatic patterns such as "Какая ваша любимая еда?" instead of awkward phrases like "Что такое ваша любимая еда?". For English questions with "what ... in" (e.g. "What are you swimming in?") keep the preposition in Russian: use "В чём ...?" (e.g. "В чём ты сейчас плаваешь?", "В чём ты плаваешь?") — never "Что ты плаваешь?" which loses the meaning. Important: in conversational prompts like "Just start, and I will follow." translate "I will follow" idiomatically as "я подхвачу/я продолжу/я поддержу разговор" (depending on context). Avoid literal phrases like "я последую за тобой/я последую за вами" unless it is about physically following someone. Reply only with the translation, without explanations, quotes or extra words.'
+    const form = audience === 'child' ? 'Use informal address (ты).' : 'Use polite address (вы).'
+    const system =
+      'You are a professional Russian translator. Translate the user text into natural conversational Russian, not a literal word-for-word translation. Preserve meaning, tone, and intent. ' +
+      form +
+      ' Avoid bureaucratic or robotic phrases like "связанное с", "в отношении", "касаемо", "по части". If the English is a question, translate it as a clear question a real person would ask. ' +
+      'For questions like "What is your favorite food?" use idiomatic patterns such as "Какая у тебя/у вас любимая еда?" instead of awkward phrases like "Что такое ваша любимая еда?". ' +
+      'For English questions with "what ... in" (e.g. "What are you swimming in?") keep the preposition in Russian: use "В чём ...?" — never "Что ты плаваешь?" which loses the meaning. ' +
+      'Important: in conversational prompts like "Just start, and I will follow." translate "I will follow" idiomatically as "я подхвачу/я продолжу/я поддержу разговор" depending on context. ' +
+      'Reply only with the translation, without explanations, quotes, or extra words.'
     const messages = [
       { role: 'system', content: system },
       { role: 'user', content: text },

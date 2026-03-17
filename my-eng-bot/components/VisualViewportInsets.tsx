@@ -7,6 +7,12 @@ function computeBottomInsetPx(): number {
   const vv = window.visualViewport
   if (!vv) return 0
 
+  const ua = navigator.userAgent
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(ua)
+  // На десктопных браузерах visualViewport часто меняется из‑за UI,
+  // но реальной системной панели снизу нет — инсет нам не нужен.
+  if (!isMobile) return 0
+
   // Практичная оценка перекрытия снизу:
   // - когда адресная строка/интерфейс браузера или системные overlay'и меняют полезную высоту,
   //   это отражается в visualViewport.height/offsetTop.
