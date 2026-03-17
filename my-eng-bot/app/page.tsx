@@ -60,6 +60,7 @@ export default function Home() {
   const RETRY_DELAY_MS = 2500
   /** При 429 OpenRouter даёт 20 запросов в минуту — пауза должна увести попытку в следующую минуту. */
   const RETRY_DELAY_RATE_LIMIT_MS = 20_000
+  const RETRY_DELAY_RATE_LIMIT_BASE_MS = 5_000
   const RETRY_MESSAGES = ['Пробую ещё раз…', 'Вот-вот, почти!']
 
   function sleep(ms: number): Promise<void> {
@@ -160,7 +161,8 @@ export default function Home() {
                 lastError = new Error(errMsg)
                 onRetryStatus?.(RETRY_MESSAGES[attempt] ?? RETRY_MESSAGES[0])
                 await sleep(150)
-                await sleep(RETRY_DELAY_RATE_LIMIT_MS)
+                const backoffMs = RETRY_DELAY_RATE_LIMIT_BASE_MS * Math.pow(2, attempt)
+                await sleep(Math.min(RETRY_DELAY_RATE_LIMIT_MS, backoffMs))
                 continue
               }
 
