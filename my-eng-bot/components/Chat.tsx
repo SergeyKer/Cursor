@@ -345,6 +345,9 @@ function MessageBubble({
   const repeatPrompt = !isUser ? extractRepeatPrompt(mainBefore) : null
   const repeatTextForCard = repeatPrompt?.repeatText || (correction && !repeatPrompt && mainBefore && /^(Скажи|Повтори|Say|Repeat)\s*:?\s*/im.test(mainBefore.trim()) ? correction : null)
   const showOnlyRepeat = Boolean(repeatTextForCard)
+  // При правильном ответе ИИ пишет похвалу (Комментарий: Отлично! / Молодец! и т.д.) — блок "Правильно:" не показываем
+  const isCorrectAnswerPraise = Boolean(comment && /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)[!.]?\s*/i.test(comment.trim()))
+  const showCorrectionBlock = correction && !showOnlyRepeat && !isCorrectAnswerPraise
 
   const handleSpeak = () => {
     // Для озвучки:
@@ -421,7 +424,7 @@ function MessageBubble({
                     <span className="text-gray-800">{comment}</span>
                   </p>
                 )}
-                {correction && !showOnlyRepeat && (
+                {showCorrectionBlock && (
                   <p className={`leading-snug ${comment ? 'mt-1 pt-1.5 border-t border-gray-200' : ''}`}>
                     <span className="font-semibold text-green-700">Правильно:</span>{' '}
                     <span className="text-gray-800">{correction}</span>

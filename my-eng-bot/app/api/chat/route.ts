@@ -168,12 +168,21 @@ export async function POST(req: NextRequest) {
       : ''
     const systemContent = topicChoicePrefix + systemPrompt
 
-    // #region agent log
-    fetch('http://127.0.0.1:7939/ingest/c5a6462d-f807-42b1-bd60-61f6e515689c', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'd9c8d7' }, body: JSON.stringify({ sessionId: 'd9c8d7', location: 'route.ts:POST:topicChoice', message: 'topic choice turn', data: { topic, tense, messagesCount: messages.length, recentCount: recentMessages.length, roles: recentMessages.map((m: ChatMessage) => m.role), lastRole: recentMessages[1]?.role, isTopicChoiceTurn, prefixLen: topicChoicePrefix.length, systemContentStart: systemContent.slice(0, 120) }, timestamp: Date.now(), hypothesisId: 'A,B,C,D' }) }).catch(() => {})
+    // #region agent log (fire-and-forget, не влияет на ответ)
+    try {
+      fetch('http://127.0.0.1:7939/ingest/c5a6462d-f807-42b1-bd60-61f6e515689c', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'd9c8d7' }, body: JSON.stringify({ sessionId: 'd9c8d7', location: 'route.ts:POST:topicChoice', message: 'topic choice turn', data: { topic, tense, messagesCount: messages.length, recentCount: recentMessages.length, roles: recentMessages.map((m: ChatMessage) => m.role), lastRole: recentMessages[1]?.role, isTopicChoiceTurn, prefixLen: topicChoicePrefix.length, systemContentStart: systemContent.slice(0, 120) }, timestamp: Date.now(), hypothesisId: 'A,B,C,D' }) }).catch(() => {})
+    } catch {
+      // игнорируем любую ошибку отладочного запроса
+    }
     // #endregion
+    // При пустом диалоге добавляем одно сообщение пользователя: часть провайдеров требует хотя бы один user turn
+    const userTurnMessages =
+      recentMessages.length > 0
+        ? recentMessages.map((m: ChatMessage) => ({ role: m.role, content: m.content }))
+        : [{ role: 'user' as const, content: 'Start the conversation.' }]
     const apiMessages: { role: string; content: string }[] = [
       { role: 'system', content: systemContent },
-      ...recentMessages.map((m: ChatMessage) => ({ role: m.role, content: m.content })),
+      ...userTurnMessages,
     ]
 
     const res = await fetch(OPENROUTER_URL, {
