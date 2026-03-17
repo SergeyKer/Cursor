@@ -260,47 +260,93 @@ function defaultNextQuestion(tense: string): string {
 }
 
 function firstQuestionForTopicAndTense(topic: string, tense: string): string {
-  const byTopic: Record<string, { subject: string; place?: string }> = {
-    business: { subject: 'work or business' },
-    family_friends: { subject: 'your family or friends' },
-    hobbies: { subject: 'your hobbies' },
-    movies_series: { subject: 'movies or series' },
-    music: { subject: 'music' },
-    sports: { subject: 'sports' },
-    food: { subject: 'food' },
-    culture: { subject: 'culture' },
-    daily_life: { subject: 'your daily life' },
-    travel: { subject: 'travel' },
-    work: { subject: 'your work' },
-    technology: { subject: 'technology' },
+  const byTopic: Record<string, { noun: string; gerund: string }> = {
+    business: { noun: 'business', gerund: 'working' },
+    family_friends: { noun: 'your family or friends', gerund: 'spending time with your family or friends' },
+    hobbies: { noun: 'your hobbies', gerund: 'doing your hobbies' },
+    movies_series: { noun: 'movies or series', gerund: 'watching movies or series' },
+    music: { noun: 'music', gerund: 'listening to music' },
+    sports: { noun: 'sports', gerund: 'doing sports' },
+    food: { noun: 'food', gerund: 'cooking' },
+    culture: { noun: 'culture', gerund: 'exploring culture' },
+    daily_life: { noun: 'your daily life', gerund: 'going about your daily routine' },
+    travel: { noun: 'travel', gerund: 'traveling' },
+    work: { noun: 'work', gerund: 'working' },
+    technology: { noun: 'technology', gerund: 'using technology' },
   }
-  const subject = byTopic[topic]?.subject ?? 'this topic'
+  const noun = byTopic[topic]?.noun ?? 'this topic'
+  const gerund = byTopic[topic]?.gerund ?? 'doing this'
+
+  const seed = stableHash32(`first_q|${topic}|${tense}`)
+  const pick = (variants: string[]) => variants[seed % variants.length] ?? variants[0] ?? ''
 
   switch (tense) {
     case 'present_continuous':
-      return `What are you doing right now related to ${subject}?`
+      return pick([
+        `What are you doing right now related to ${noun}?`,
+        `What are you doing at the moment related to ${noun}?`,
+        `What are you working on right now related to ${noun}?`,
+      ])
     case 'present_simple':
-      return `What do you usually do related to ${subject}?`
+      return pick([
+        `What do you usually do related to ${noun}?`,
+        `What do you usually do when it comes to ${noun}?`,
+        `How often do you ${gerund}?`,
+      ])
     case 'present_perfect':
-      return `What have you done recently related to ${subject}?`
+      return pick([
+        `What have you done recently related to ${noun}?`,
+        `What new things have you tried recently related to ${noun}?`,
+        `What experiences have you had with ${noun}?`,
+        `What have you learned recently about ${noun}?`,
+      ])
     case 'present_perfect_continuous':
-      return `What have you been doing lately related to ${subject}?`
+      return pick([
+        `What have you been doing lately related to ${noun}?`,
+        `What have you been working on lately related to ${noun}?`,
+        `How long have you been ${gerund}?`,
+      ])
     case 'past_simple':
-      return `What did you do yesterday related to ${subject}?`
+      return pick([
+        `What did you do yesterday related to ${noun}?`,
+        `What did you do last week related to ${noun}?`,
+        `What did you do recently related to ${noun}?`,
+      ])
     case 'past_continuous':
-      return `What were you doing at this time yesterday related to ${subject}?`
+      return pick([
+        `What were you doing at this time yesterday related to ${noun}?`,
+        `What were you doing when you last thought about ${noun}?`,
+      ])
     case 'past_perfect':
-      return `What had you done before you went to bed yesterday related to ${subject}?`
+      return pick([
+        `What had you done before you went to bed yesterday related to ${noun}?`,
+        `What had you done before you started your day related to ${noun}?`,
+      ])
     case 'past_perfect_continuous':
-      return `What had you been doing for a while before you stopped related to ${subject}?`
+      return pick([
+        `What had you been doing for a while before you stopped related to ${noun}?`,
+        `How long had you been ${gerund} before you stopped?`,
+      ])
     case 'future_simple':
-      return `What will you do tomorrow related to ${subject}?`
+      return pick([
+        `What will you do tomorrow related to ${noun}?`,
+        `What will you do next week related to ${noun}?`,
+      ])
     case 'future_continuous':
-      return `What will you be doing this time tomorrow related to ${subject}?`
+      return pick([
+        `What will you be doing this time tomorrow related to ${noun}?`,
+        `What will you be doing later today related to ${noun}?`,
+      ])
     case 'future_perfect':
-      return `What will you have done by this time tomorrow related to ${subject}?`
+      return pick([
+        `What will you have done by this time tomorrow related to ${noun}?`,
+        `What will you have done by the end of the week related to ${noun}?`,
+      ])
     case 'future_perfect_continuous':
-      return `What will you have been doing for a while by the end of tomorrow related to ${subject}?`
+      return pick([
+        `What will you have been doing for a while by the end of tomorrow related to ${noun}?`,
+        `How long will you have been ${gerund} by the end of the week?`,
+      ])
     default:
       return defaultNextQuestion(tense)
   }
