@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import VisualViewportInsets from '@/components/VisualViewportInsets'
 
 export const metadata: Metadata = {
   title: 'MyEng Bot — мой английский друг',
@@ -22,7 +23,10 @@ export default function RootLayout({
         />
         <meta name="theme-color" content="#f0f0f0" />
       </head>
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased">
+        <VisualViewportInsets />
+        {children}
+      </body>
     </html>
   )
 }

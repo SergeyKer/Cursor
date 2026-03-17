@@ -244,7 +244,7 @@ export default function Chat({
             onSubmit={handleSubmit}
             className="sticky bottom-0 z-10 mt-3 flex shrink-0 items-center gap-2 rounded-xl border border-[var(--border)] bg-white px-3 py-2 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
             style={{
-              paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 72px))',
+              paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset))',
             }}
           >
         <button

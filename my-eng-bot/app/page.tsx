@@ -572,7 +572,7 @@ export default function Home() {
         className="flex min-h-0 flex-1 flex-col"
         style={{
           paddingTop: 'calc(2.5rem + env(safe-area-inset-top, 0px))',
-          paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 16px))',
+          paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset))',
         }}
       >
         {!storageLoaded ? (
