@@ -44,7 +44,7 @@ export function parseCorrection(text: string): {
   let rest = restLines.join('\n').trim()
   // Если комментарий — только похвала, но в той же строке модель дописала следующий вопрос (без перевода строки),
   // выносим вопрос в rest, чтобы он отображался в блоке «AI: вопрос».
-  const praiseThenRest = comment?.match(/^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)[!.]?\s+(.+)$/s)
+  const praiseThenRest = comment?.match(/^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)[!.]?\s+([\s\S]+)$/)
   if (praiseThenRest && !rest) {
     const [, praiseWord, tail] = praiseThenRest
     const tailTrim = (tail as string).trim()
