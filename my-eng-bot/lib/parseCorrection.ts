@@ -13,9 +13,14 @@ export function parseCorrection(text: string): {
   let comment: string | null = null
   const restLines: string[] = []
 
+  function stripAssistantPrefix(rawLine: string): string {
+    // Модель иногда сама добавляет префиксы "AI:"/"Assistant:" — чтобы не ломать разбор.
+    return rawLine.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '')
+  }
+
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i]
-    const line = raw.trim()
+    const line = stripAssistantPrefix(raw).trim()
     if (!line) {
       // пустую строку просто переносим в rest, структура вопроса сохраняется
       restLines.push(raw)
@@ -33,7 +38,8 @@ export function parseCorrection(text: string): {
         continue
       }
     }
-    restLines.push(raw)
+    // В rest пишем уже нормализованную строку, чтобы не показывать "AI:" в UI.
+    restLines.push(stripAssistantPrefix(raw))
   }
 
   // Пользователь часто диктует ответы голосом: не показываем "замечания" про заглавные буквы.
