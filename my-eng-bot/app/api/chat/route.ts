@@ -10,18 +10,6 @@ const MAX_MESSAGES_IN_CONTEXT = 6
 /** Лимит токенов ответа. Запас увеличен, чтобы реже обрезать форматированные ответы. */
 const MAX_RESPONSE_TOKENS = 512
 
-const LEVEL_PROMPTS: Record<string, string> = {
-  all: 'Adapt your language to the learner. Keep it clear and natural. Prefer simple wording unless the learner clearly uses more advanced English.',
-  starter:
-    'Use only very simple words and short sentences. Suitable for first-year learners or children.',
-  a1: 'Use vocabulary and grammar appropriate for A1 (beginner).',
-  a2: 'Use vocabulary and grammar appropriate for A2 (elementary).',
-  b1: 'Use vocabulary and grammar appropriate for B1 (intermediate).',
-  b2: 'Use vocabulary and grammar appropriate for B2 (upper intermediate).',
-  c1: 'Use vocabulary and grammar appropriate for C1 (advanced).',
-  c2: 'Use vocabulary and grammar appropriate for C2 (proficient).',
-}
-
 const TENSE_NAMES: Record<string, string> = {
   all: 'any tense',
   present_simple: 'Present Simple',
@@ -38,6 +26,90 @@ const TENSE_NAMES: Record<string, string> = {
   future_perfect_continuous: 'Future Perfect Continuous',
 }
 
+type LevelProfile = {
+  displayName: string
+  vocabulary: string
+  grammar: string
+  tenses: string
+  questionStyle: string
+  avoid: string
+}
+
+const LEVEL_PROFILES: Record<string, LevelProfile> = {
+  starter: {
+    displayName: 'Pre-A1',
+    vocabulary: 'Use only the most basic child-friendly words for concrete things and actions.',
+    grammar: 'Use very short simple clauses. Keep one idea per sentence.',
+    tenses: 'Present Simple only.',
+    questionStyle: 'Ask one short, direct question about something visible, familiar, or personal.',
+    avoid: 'Avoid abstract ideas, long sentences, compound tenses, passive voice, and formal wording.',
+  },
+  a1: {
+    displayName: 'A1',
+    vocabulary: 'Use very common everyday words about family, school, home, food, hobbies, and routine.',
+    grammar: 'Use simple sentence structure and short questions.',
+    tenses: 'Present Simple and very basic Present Continuous.',
+    questionStyle: 'Ask short questions about personal details, habits, daily routine, and simple facts.',
+    avoid: 'Avoid complex clauses, advanced vocabulary, and multi-step questions.',
+  },
+  a2: {
+    displayName: 'A2',
+    vocabulary: 'Use everyday vocabulary plus simple descriptive words and basic opinion words.',
+    grammar: 'Use short natural sentences with simple connectors like and, but, because.',
+    tenses: 'Present Simple, Present Continuous, Past Simple, and basic Future Simple.',
+    questionStyle: 'Ask about recent events, plans, preferences, and simple reasons.',
+    avoid: 'Avoid heavy abstraction, long explanations, and overly advanced grammar.',
+  },
+  b1: {
+    displayName: 'B1',
+    vocabulary: 'Use broader everyday vocabulary for opinions, reasons, experiences, and common topics.',
+    grammar: 'Use natural but still clear sentence patterns.',
+    tenses: 'Use common simple and continuous forms, plus Present Perfect when needed.',
+    questionStyle: 'Ask for reasons, opinions, examples, and short explanations.',
+    avoid: 'Avoid unnecessarily formal language and overly complex wording.',
+  },
+  b2: {
+    displayName: 'B2',
+    vocabulary: 'Use richer and more precise vocabulary with natural topic-specific words.',
+    grammar: 'Use flexible and natural sentence structures.',
+    tenses: 'Use standard English tenses as needed by the topic and context.',
+    questionStyle: 'Ask open-ended, nuanced, and conversational questions.',
+    avoid: 'Avoid robotic wording, repetitive phrasing, and weak generic questions.',
+  },
+  c1: {
+    displayName: 'C1',
+    vocabulary: 'Use advanced, precise, and context-aware vocabulary.',
+    grammar: 'Use varied sentence structures with natural complexity.',
+    tenses: 'Use any standard tense or aspect that fits the context naturally.',
+    questionStyle: 'Ask thoughtful, precise questions that invite reflection or detail.',
+    avoid: 'Avoid childish or overly basic phrasing.',
+  },
+  c2: {
+    displayName: 'C2',
+    vocabulary: 'Use highly precise, natural, and idiomatic vocabulary when appropriate.',
+    grammar: 'Use fluent, varied, and natural sentence structures.',
+    tenses: 'Use any standard tense or aspect naturally and accurately.',
+    questionStyle: 'Ask refined, natural questions that sound like a native speaker.',
+    avoid: 'Avoid stiffness, repetition, and unnatural simplification.',
+  },
+}
+
+function getLevelProfile(level: string): LevelProfile {
+  return LEVEL_PROFILES[level] ?? LEVEL_PROFILES.a1
+}
+
+function buildLevelPrompt(level: string): string {
+  const profile = getLevelProfile(level)
+  return [
+    `Level: ${profile.displayName}.`,
+    `Vocabulary: ${profile.vocabulary}`,
+    `Grammar: ${profile.grammar}`,
+    `Tenses: ${profile.tenses}`,
+    `Question style: ${profile.questionStyle}`,
+    `Avoid: ${profile.avoid}`,
+  ].join(' ')
+}
+
 const TOPIC_NAMES: Record<string, string> = {
   free_talk: 'Free talk (any topic)',
   business: 'Business',
@@ -52,34 +124,6 @@ const TOPIC_NAMES: Record<string, string> = {
   travel: 'Travel',
   work: 'Work',
   technology: 'Technology',
-}
-
-const FREE_TOPIC_INVITATIONS: string[] = [
-  "What would you like to talk about today?",
-  "What shall we talk about today?",
-  "What's on your mind right now?",
-  "What do you feel like chatting about?",
-  "We can talk about anything — what topic do you want?",
-  "Choose any topic you like — what would you like to discuss?",
-  "Is there anything you'd like to talk about today?",
-  "What would you like to discuss right now?",
-  "Let's talk — what topic do you want?",
-  "Pick a topic for today — what would you like to talk about?",
-]
-
-const TOPIC_SUBTOPICS: Record<string, string[]> = {
-  business: ['meetings', 'clients', 'emails', 'your goals'],
-  family_friends: ['your family', 'your friends', 'plans together', 'a recent conversation'],
-  hobbies: ['your hobbies', 'how you spend free time', 'something new you tried', 'what you enjoy most'],
-  movies_series: ['a movie you watched', 'a series you like', 'your favorite genre', 'what you watched recently'],
-  music: ['your favorite music', 'a song you like', 'concerts', 'what you listen to lately'],
-  sports: ['team sports', 'fitness', 'your workouts', 'something you did recently'],
-  food: ['breakfast', 'cooking at home', 'restaurants', 'a new food you tried'],
-  culture: ['books', 'art', 'traditions', 'events in your city'],
-  daily_life: ['your routine', 'your day today', 'home chores', 'how you relax'],
-  travel: ['a past trip', 'a place you want to visit', 'planning a trip', 'travel tips'],
-  work: ['your tasks', 'projects', 'colleagues', 'what you do at work'],
-  technology: ['apps you use', 'your phone/computer', 'AI tools', 'a tech problem you had'],
 }
 
 const SENTENCE_TYPE_NAMES: Record<string, string> = {
@@ -99,32 +143,6 @@ function stableHash32(input: string): number {
   return hash >>> 0
 }
 
-function firstMessageInviteSubtopic(params: { topic: string; audience: 'child' | 'adult' }): string {
-  const { topic, audience } = params
-  const topicName = TOPIC_NAMES[topic] ?? 'this topic'
-  const subtopics = TOPIC_SUBTOPICS[topic] ?? ['something you like', 'something you did recently', 'your opinion']
-  const seed = stableHash32(`first_subtopic_invite|${topic}|${audience}`)
-  const pick = <T,>(variants: T[]) => variants[seed % variants.length] ?? variants[0]
-
-  const a = subtopics[seed % subtopics.length] ?? subtopics[0] ?? 'something'
-  const b = subtopics[(seed + 1) % subtopics.length] ?? subtopics[1] ?? a
-  const c = subtopics[(seed + 2) % subtopics.length] ?? subtopics[2] ?? b
-
-  if (audience === 'child') {
-    return pick([
-      `Let's talk about ${topicName}. What do you want: ${a}, ${b}, or ${c}?`,
-      `We chose ${topicName}. What should we talk about: ${a}, ${b}, or ${c}?`,
-      `Okay, ${topicName}! What do you want to focus on: ${a}, ${b}, or ${c}?`,
-    ])
-  }
-
-  return pick([
-    `We're talking about ${topicName}. What would you like to focus on — ${a}, ${b}, or ${c}?`,
-    `Let's stick to ${topicName}. Which part do you want — ${a}, ${b}, or ${c}?`,
-    `Topic today is ${topicName}. What do you want to talk about — ${a}, ${b}, or ${c}?`,
-  ])
-}
-
 function buildSystemPrompt(params: {
   mode: string
   sentenceType?: string
@@ -135,7 +153,7 @@ function buildSystemPrompt(params: {
   praiseStyleVariant?: boolean
 }): string {
   const { mode, sentenceType, topic, level, tense, audience = 'adult', praiseStyleVariant = false } = params
-  const levelPrompt = LEVEL_PROMPTS[level] ?? LEVEL_PROMPTS.a1
+  const levelPrompt = buildLevelPrompt(level)
   const tenseName = TENSE_NAMES[tense] ?? 'Present Simple'
   const topicName = TOPIC_NAMES[topic] ?? 'general'
   const sentenceTypeName = sentenceType ? SENTENCE_TYPE_NAMES[sentenceType] ?? 'mixed' : 'mixed'
@@ -171,11 +189,11 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
     "Contractions are always acceptable. Treat contracted and expanded forms as equivalent, and NEVER mark them as errors or ask the user to repeat only because of contractions or apostrophes. Examples of equivalent pairs: I'm/I am, you're/you are, he's/he is, she's/she is, it's/it is, we're/we are, they're/they are, I've/I have, you've/you have, we've/we have, they've/they have, I'd/I would or I had, you'd/you would or you had, we'd/we would or we had, they'd/they would or they had, I'll/I will, you'll/you will, he'll/he will, she'll/she will, it'll/it will, we'll/we will, they'll/they will, can't/cannot, don't/do not, doesn't/does not, didn't/did not, won't/will not, isn't/is not, aren't/are not, wasn't/was not, weren't/were not. This includes both apostrophe characters: ' and ’. If the only difference from your preferred form is contraction vs expansion, treat the user answer as correct and continue.";
   const freeTalkRule =
     topic === 'free_talk'
-      ? `This is a free conversation. For your very first question, invite the user to choose any topic or to just start talking. Vary the wording each time — use different phrasings, for example: "What would you like to talk about today? You can name any topic, or just start, and I will follow." / "What shall we talk about? Pick any topic or simply start — I'll join in." / "What's on your mind today? Any topic works, or just begin and I'll keep up." / "What would you like to discuss? Name a topic or start talking, and I'll follow." / "We can talk about anything. Name a topic or start, and I'll go with you." Do NOT list specific options as a fixed menu. In free topic, after your first question ("What would you like to talk about?"), the user's reply is ALWAYS treated as topic choice. Do NOT search for errors. Do NOT output Комментарий or Повтори. Always try to infer the topic first — ignore typos and wrong tense (e.g. "I wil plai footbal" → football/sport; "tenis" → tennis). Output one question in the required tense about that topic. Only if the message gives no hint at all (e.g. "sdf", "sss"), ask what they mean. No corrections, no comments. Correct grammar only in later turns.`
+      ? `This is a free conversation. For the very first question, ask the user to choose any topic or simply start talking. Keep the wording short and adapt it to the selected level profile. Do NOT list specific options as a fixed menu. In free topic, after your first question, the user's reply is ALWAYS treated as a topic choice. Do NOT search for errors. Do NOT output Комментарий or Повтори. Always try to infer the topic first — ignore typos and wrong tense (e.g. "I wil plai footbal" → football/sport; "tenis" → tennis). Output one question in the required tense about that topic. Only if the message gives no hint at all (e.g. "sdf", "sss"), ask what they mean. No corrections, no comments. Correct grammar only in later turns.`
       : ''
   const freeTopicPriority =
     topic === 'free_talk'
-      ? 'HIGHEST PRIORITY — Free topic (for ANY tense: Present Simple, Present Perfect, Past Simple, etc.): When the user is naming or revealing their topic (e.g. first reply after you asked "What would you like to talk about?"), do NOT output Комментарий or Повтори. Do NOT output meta-text or instructions. Only infer the topic and reply with ONE real question in the required tense. This overrides ALL correction rules below. '
+      ? 'HIGHEST PRIORITY — Free topic (for ANY tense: Present Simple, Present Perfect, Past Simple, etc.): When the user is naming or revealing their topic (e.g. first reply after you asked "What would you like to talk about?"), do NOT output Комментарий or Повтори. Do NOT output meta-text or instructions. Only infer the topic and reply with ONE real question in the required tense. This overrides ALL correction rules below. For the first question, keep the wording aligned with the selected level profile. '
       : ''
   return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${audienceRule} ${antiRobotRule} ${topicRetentionRule} ${freeTopicPriority}${tense === 'all' ? 'Any tense.' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule} ${capitalizationRule} ${contractionRule} ${freeTalkRule}
 
@@ -295,15 +313,26 @@ function fallbackQuestionForContext(params: {
   tense: string
   level: string
   audience: 'child' | 'adult'
+  isFirstTurn?: boolean
+  isTopicChoiceTurn?: boolean
 }): string {
-  return params.topic === 'free_talk'
-    ? defaultNextQuestion(params.tense)
-    : firstQuestionForTopicAndTense({
-        topic: params.topic,
-        tense: params.tense,
-        level: params.level,
-        audience: params.audience,
-      })
+  if (params.topic === 'free_talk') {
+    if (params.isFirstTurn) {
+      return params.audience === 'child' || params.level === 'starter' || params.level === 'a1'
+        ? 'What do you want to talk about?'
+        : 'What would you like to talk about today?'
+    }
+    if (params.isTopicChoiceTurn) {
+      return params.audience === 'child' ? 'What do you want to talk about?' : 'What would you like to talk about now?'
+    }
+    return defaultNextQuestion(params.tense)
+  }
+  return firstQuestionForTopicAndTense({
+    topic: params.topic,
+    tense: params.tense,
+    level: params.level,
+    audience: params.audience,
+  })
 }
 
 /** Паттерн: "Говорится X, не Y" или "Нужно слово X, не Y" — строка с другим контекстом, если ни X, ни Y нет в сообщении пользователя. */
@@ -1005,6 +1034,8 @@ export async function POST(req: NextRequest) {
       .filter((m: ChatMessage) => m.role !== 'system')
       .slice(-MAX_MESSAGES_IN_CONTEXT)
     const lastUserText = recentMessages.filter((m) => m.role === 'user').pop()?.content ?? ''
+    const isFirstTurn = recentMessages.length === 0
+    const isTopicChoiceTurn = topic === 'free_talk' && recentMessages.length === 2 && recentMessages[1]?.role === 'user'
     // Вариант 2 должен быть предсказуемым (не Math.random), чтобы баги воспроизводились и не "прыгали".
     const praiseStyleVariant =
       mode === 'dialogue' && (stableHash32(`${topic}|${level}|${tense}|${lastUserText}`) % 100) < 45
@@ -1019,23 +1050,6 @@ export async function POST(req: NextRequest) {
       praiseStyleVariant,
     })
 
-    // Жёсткая гарантия UX: если тема выбрана (не free_talk) и диалог пустой,
-    // первая реплика ВСЕГДА должна удерживать выбранную тему.
-    if (mode === 'dialogue' && topic !== 'free_talk' && recentMessages.length === 0) {
-      return NextResponse.json({ content: firstMessageInviteSubtopic({ topic, audience }) })
-    }
-
-    // UX/perf: первый вопрос в режиме "Диалог" должен приходить мгновенно.
-    // Для free_talk нет смысла ждать модель (может быть медленно/429), поэтому стартуем локальным вопросом.
-    if (mode === 'dialogue' && topic === 'free_talk' && recentMessages.length === 0) {
-      const idx = Math.floor(Math.random() * FREE_TOPIC_INVITATIONS.length)
-      return NextResponse.json({ content: FREE_TOPIC_INVITATIONS[idx] ?? FREE_TOPIC_INVITATIONS[0] ?? 'What would you like to talk about today?' })
-    }
-
-    const isTopicChoiceTurn =
-      topic === 'free_talk' &&
-      recentMessages.length === 2 &&
-      recentMessages[1]?.role === 'user'
     const topicChoicePrefix = isTopicChoiceTurn
       ? 'This turn only: the user is naming their topic. Output ONLY one question in English — nothing else. Do NOT output "Комментарий:", "Отлично", "Молодец", "Верно", or any praise. Do NOT output "Правильно:" or "Повтори:". Infer the topic from their words (e.g. "I played tennis" → tennis; "i swam" → swimming) and ask exactly ONE question in the required tense. If the message gives no hint (e.g. "sdf"), ask what they mean. Your reply must be ONLY that one question, no other lines. Ignore all correction rules below for this turn.\n\n'
       : ''
@@ -1101,7 +1115,9 @@ export async function POST(req: NextRequest) {
     // Если модель вернула мета-фразу вместо ответа — не показываем её пользователю.
     // Делаем мягкий fallback на следующий вопрос, чтобы UX не ломался.
     if (isMetaGarbage(sanitized)) {
-      return NextResponse.json({ content: fallbackQuestionForContext({ topic, tense, level, audience }) })
+      return NextResponse.json({
+        content: fallbackQuestionForContext({ topic, tense, level, audience, isFirstTurn, isTopicChoiceTurn }),
+      })
     }
     const lastUserContentForResponse = recentMessages.filter((m: ChatMessage) => m.role === 'user').pop()?.content ?? ''
     sanitized = stripOffContextCorrections(sanitized, lastUserContentForResponse)
@@ -1131,7 +1147,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const isFirstTurn = recentMessages.length === 0
     const valid = isValidTutorOutput({ content: sanitized, mode, isFirstTurn })
     if (!valid) {
       // Одна попытка repair/retry. Для OpenRouter это наиболее актуально.
@@ -1151,7 +1166,9 @@ export async function POST(req: NextRequest) {
         let repaired = sanitizeInstructionLeak(res2.content)
         if (repaired) {
           if (isMetaGarbage(repaired)) {
-            return NextResponse.json({ content: fallbackQuestionForContext({ topic, tense, level, audience }) })
+            return NextResponse.json({
+              content: fallbackQuestionForContext({ topic, tense, level, audience, isFirstTurn, isTopicChoiceTurn }),
+            })
           }
           repaired = stripOffContextCorrections(repaired, lastUserContentForResponse)
           repaired = normalizeAssistantPrefixForControlLines(repaired)
@@ -1167,7 +1184,9 @@ export async function POST(req: NextRequest) {
       }
 
       // Если repair не помог — безопасный fallback, чтобы не показывать мусор.
-      return NextResponse.json({ content: fallbackQuestionForContext({ topic, tense, level, audience }) })
+      return NextResponse.json({
+        content: fallbackQuestionForContext({ topic, tense, level, audience, isFirstTurn, isTopicChoiceTurn }),
+      })
     }
 
     return NextResponse.json({ content: sanitized })
