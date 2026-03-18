@@ -1,0 +1,8 @@
+---
+description: 
+alwaysApply: true
+---
+
+# GPT Prefix
+Start every assistant response with GPT: (right at the beginning of the line).
+Do not add anything before GPT: (no spaces, no greetings).

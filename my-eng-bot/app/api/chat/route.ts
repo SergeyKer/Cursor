@@ -818,32 +818,30 @@ function normalizeVariantFormatting(content: string): string {
     }
 
     // Отдельная строка варианта:
-    // "Вариант: ..." или "Возможный вариант: ..." -> "*Возможный вариант: ...*"
+    // "Вариант: ..." или "Возможный вариант: ..." -> "Возможный вариант: ..."
     const separate = /^\s*(?:\*+\s*)?(Вариант|Возможный\s+вариант)\s*:\s*(.+?)(?:\s*\*+)?\s*$/i.exec(line)
     if (separate?.[2]) {
       const text = separate[2].trim()
-      out.push(`*Возможный вариант: ${text}*`)
+      out.push(`Возможный вариант: ${text}`)
       continue
     }
 
     // Вариант внутри строки Комментария:
-    // "Комментарий: ... Вариант: ..." -> "Комментарий: ... *Возможный вариант: ...*"
+    // "Комментарий: ... Вариант: ..." -> "Комментарий: ... Возможный вариант: ..."
     if (/^\s*Комментарий\s*:/i.test(line) && /\bВариант\s*:/i.test(line)) {
-      const replaced = rawLine.replace(/\bВариант\s*:\s*/i, '*Возможный вариант: ')
-      const hasClose = /\*\s*$/.test(replaced.trim())
-      out.push(!hasClose ? `${replaced.trim()}*` : replaced)
+      const replaced = rawLine.replace(/\*+\s*/g, '').replace(/\bВариант\s*:\s*/i, 'Возможный вариант: ')
+      out.push(replaced.trim())
       continue
     }
 
-    // "Комментарий: ... Возможный вариант: ..." без курсива -> делаем курсивом хвост.
+    // "Комментарий: ... Возможный вариант: ..." -> оставляем без Markdown.
     if (
       /^\s*Комментарий\s*:/i.test(line) &&
       /\bВозможный\s+вариант\s*:/i.test(line) &&
       !/\*Возможный\s+вариант\s*:/i.test(line)
     ) {
-      const replaced = rawLine.replace(/\bВозможный\s+вариант\s*:\s*/i, '*Возможный вариант: ')
-      const hasClose = /\*\s*$/.test(replaced.trim())
-      out.push(!hasClose ? `${replaced.trim()}*` : replaced)
+      const replaced = rawLine.replace(/\*+\s*/g, '').replace(/\bВозможный\s+вариант\s*:\s*/i, 'Возможный вариант: ')
+      out.push(replaced.trim())
       continue
     }
 
