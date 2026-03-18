@@ -574,7 +574,7 @@ function MessageBubble({
             {(comment || mainBefore || invitationText || mainAfter) && (
               <div className="space-y-1.5" role="alert">
                 {comment && <SectionCard tone="amber" label="Комментарий" text={comment} singleLine />}
-                {showOnlyRepeat && (
+                {showOnlyRepeat && repeatTextForCard && (
                   <SectionCard tone="emerald" label="Повтори" text={repeatTextForCard} singleLine />
                 )}
                 {mainBefore && !showOnlyRepeat && !hideRussianNonQuestionMainBefore && (
@@ -627,7 +627,7 @@ function MessageBubble({
                 </button>
               )}
             </div>
-            {showTranslation && hasTranslationData && (
+            {showTranslation && hasTranslationData && message.translation && (
               <SectionCard tone="slate" label="Перевод" text={message.translation} small singleLine />
             )}
             {hasTranslationError && (
