@@ -162,7 +162,7 @@ export default function SlideOutMenu({
               />
             </div>
 
-            {mounted && settings.mode === 'translation' && (
+            {settings.mode === 'translation' && (
               <div>
                 <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
                   Тип предложений

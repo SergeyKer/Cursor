@@ -171,11 +171,33 @@ function buildSystemPrompt(params: {
       : ''
 
   if (mode === 'translation') {
-    return `Translation training. Topic: ${topicName}, ${levelPrompt}, ${sentenceTypeName}.
+    return `Translation training. Topic: ${topicName}, ${levelPrompt}, ${sentenceTypeName}. Required tense: ${tenseName}.
 
-When the conversation is empty (you are sending the first message): output ONLY one Russian sentence and "Переведи на английский." Do NOT add praise, commentary, or the correct English translation. The user must answer first.
+When the conversation is empty (first assistant turn), output ONLY:
+1) one Russian sentence to translate
+2) on the next line: "Переведи на английский."
+No extra lines.
 
-When the user has already sent their translation (there is a user message after your last one): reply with short praise or a correction tip, then give the NEXT Russian sentence and "Переведи на английский." Do not repeat the correct English for the previous sentence. Keep very short.`
+When the user has already sent their translation, ALWAYS use this visual protocol (strict):
+- Line 1: "Комментарий: " + short Russian feedback (what is wrong/right)
+- Line 2: "Время: " + ${tenseName} + very short Russian hint why this tense is needed now
+- Line 3: "Конструкция: " + very short tense pattern for learner (example for Present Simple: "Subject + V1(s/es)")
+- If there is a mistake, add line 4: "Повтори: " + full corrected English sentence.
+- Then provide the NEXT Russian sentence on a new line.
+- Last line: "Переведи на английский."
+
+Rules:
+- Do not output markdown markers like **Correction** or **Comment**.
+- Keep all explanations short and practical for learner.
+- Do not skip "Время" and "Конструкция" lines.
+- If user answer is correct, do not output "Повтори:".
+- Never remove the final line "Переведи на английский."
+- "Комментарий" must sound professional and pedagogical:
+  - Start with exact error type in Russian (e.g. "Ошибка согласования подлежащего и сказуемого", "Ошибка формы глагола", "Ошибка времени", "Лексическая ошибка").
+  - Then give one precise fix in one short sentence.
+  - Use Russian linguistic terms (say "согласование", not "agreeing").
+  - No slang, jokes, filler, or casual tone.
+  - Maximum 1-2 short sentences.`
   }
   const tenseRule =
     tense === 'all'
@@ -971,6 +993,179 @@ function normalizeKey(key: string): string {
 
 type Provider = 'openrouter' | 'openai'
 
+function ensureSentence(text: string): string {
+  const t = text.trim()
+  if (!t) return ''
+  return /[.!?]$/.test(t) ? t : `${t}.`
+}
+
+function inferCommentErrorType(raw: string): string {
+  const s = raw.toLowerCase()
+  if (/(врем|tense|present|past|future)/i.test(s)) return 'Ошибка времени.'
+  if (/(согласован|agree|subject|подлежащ|has\b|have\b|does\b|do\b)/i.test(s)) {
+    return 'Ошибка согласования подлежащего и сказуемого.'
+  }
+  if (/(форм[аы]\s+глагол|verb form|v1|v2|v3|неверн\w*\s+форм\w*\s+глагол)/i.test(s)) {
+    return 'Ошибка формы глагола.'
+  }
+  if (/(лексик|word choice|не то слово|неподходящее слово|словар)/i.test(s)) return 'Лексическая ошибка.'
+  if (/(артикл|a\/an| a | an | the )/i.test(s)) return 'Ошибка употребления артикля.'
+  if (/(предлог|preposition)/i.test(s)) return 'Ошибка в выборе предлога.'
+  if (/(порядок слов|word order)/i.test(s)) return 'Ошибка порядка слов.'
+  return 'Грамматическая ошибка.'
+}
+
+function normalizeTranslationCommentStyle(content: string): string {
+  const lines = content.split(/\r?\n/)
+  const out = lines.map((line) => {
+    const m = /^\s*Комментарий\s*:\s*(.+)$/i.exec(line.trim())
+    if (!m?.[1]) return line
+
+    const raw = m[1]
+      .replace(/\bagreeing\b/gi, 'согласовании')
+      .replace(/\bagreement\b/gi, 'согласовании')
+      .replace(/\s+/g, ' ')
+      .trim()
+    const errorType = inferCommentErrorType(raw)
+
+    const fixBase = raw
+      .replace(/^ошибка[^.]*[.:\-]?\s*/i, '')
+      .replace(/^неверно[^.]*[.:\-]?\s*/i, '')
+      .trim()
+    const fixText = fixBase
+      ? ensureSentence(fixBase.charAt(0).toUpperCase() + fixBase.slice(1))
+      : 'Исправьте предложение по образцу в блоке «Повтори».'
+
+    return `Комментарий: ${errorType} ${fixText}`
+  })
+  return out.join('\n')
+}
+
+function translationConstructionHint(tense: string): string {
+  switch (tense) {
+    case 'present_simple':
+      return 'Subject + V1(s/es).'
+    case 'present_continuous':
+      return 'Subject + am/is/are + V-ing.'
+    case 'present_perfect':
+      return 'Subject + have/has + V3.'
+    case 'present_perfect_continuous':
+      return 'Subject + have/has been + V-ing.'
+    case 'past_simple':
+      return 'Subject + V2.'
+    case 'past_continuous':
+      return 'Subject + was/were + V-ing.'
+    case 'past_perfect':
+      return 'Subject + had + V3.'
+    case 'past_perfect_continuous':
+      return 'Subject + had been + V-ing.'
+    case 'future_simple':
+      return 'Subject + will + V1.'
+    case 'future_continuous':
+      return 'Subject + will be + V-ing.'
+    case 'future_perfect':
+      return 'Subject + will have + V3.'
+    case 'future_perfect_continuous':
+      return 'Subject + will have been + V-ing.'
+    default:
+      return 'Subject + Verb + Object.'
+  }
+}
+
+function translationTimeHint(tense: string): string {
+  const tenseName = TENSE_NAMES[tense] ?? 'Present Simple'
+  if (tense === 'all') return 'Any tense. Выберите одно время и соблюдайте его в ответе.'
+  return `${tenseName}. Используйте это время в полном английском предложении.`
+}
+
+function isLowSignalTranslationInput(text: string): boolean {
+  const t = text.trim()
+  if (!t) return true
+  const letters = t.match(/[A-Za-zА-Яа-яЁё]/g)?.length ?? 0
+  if (letters < 3) return true
+  const hasLatin = /[A-Za-z]/.test(t)
+  const words = t.split(/\s+/).filter(Boolean)
+  // Для перевода ожидаем английское предложение; короткий/неанглийский шум считаем невалидным.
+  if (!hasLatin && words.length <= 2) return true
+  if (hasLatin && words.length === 1 && t.length < 5) return true
+  // Простая эвристика для "ааа", "вавы", "zzz" и т.п.
+  if (/^(.)\1{2,}$/i.test(t.replace(/\s+/g, ''))) return true
+  return false
+}
+
+function buildTranslationRetryFallback(tense: string): string {
+  return [
+    'Комментарий: Некорректный ввод. Введите полное предложение на английском языке.',
+    `Время: ${translationTimeHint(tense)}`,
+    `Конструкция: ${translationConstructionHint(tense)}`,
+    'Повтори: Write one complete English sentence for the same Russian phrase.',
+  ].join('\n')
+}
+
+function ensureTranslationProtocolBlocks(content: string, tense: string): string {
+  const lines = content
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+    .filter(Boolean)
+
+  let comment: string | null = null
+  let timeLine: string | null = null
+  let construction: string | null = null
+  let repeat: string | null = null
+  let hasPraise = false
+  let hasInvitation = false
+  const nextSentenceLines: string[] = []
+
+  for (const line of lines) {
+    if (/^Комментарий\s*:/i.test(line)) {
+      comment = line
+      const c = line.replace(/^Комментарий\s*:\s*/i, '')
+      hasPraise = /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)\b/i.test(c.trim())
+      continue
+    }
+    if (/^Время\s*:/i.test(line)) {
+      timeLine = line
+      continue
+    }
+    if (/^Конструкция\s*:/i.test(line)) {
+      construction = line
+      continue
+    }
+    if (/^(Повтори|Repeat|Say)\s*:/i.test(line)) {
+      repeat = line.replace(/^(Repeat|Say)\s*:/i, 'Повтори:')
+      continue
+    }
+    if (/^(?:Переведи|Переведите)\b/i.test(line)) {
+      hasInvitation = true
+      continue
+    }
+    // Для translation не пропускаем "диалоговые" реплики.
+    if (/\?\s*$/.test(line) && /[A-Za-z]/.test(line)) continue
+    nextSentenceLines.push(line)
+  }
+
+  if (!comment) {
+    comment = 'Комментарий: Грамматическая ошибка. Исправьте ответ по образцу в блоке «Повтори».'
+  }
+  if (!timeLine || /^Время\s*:\s*[-–—]\s*$/i.test(timeLine)) {
+    timeLine = `Время: ${translationTimeHint(tense)}`
+  }
+  if (!construction || /^Конструкция\s*:\s*[-–—]\s*$/i.test(construction)) {
+    construction = `Конструкция: ${translationConstructionHint(tense)}`
+  }
+  if (!hasPraise && (!repeat || /^Повтори\s*:\s*[-–—]\s*$/i.test(repeat))) {
+    repeat = 'Повтори: Write one complete English sentence for the same Russian phrase.'
+  }
+
+  const out = [comment, timeLine, construction]
+  if (repeat) out.push(repeat)
+  if (nextSentenceLines.length > 0) {
+    out.push(nextSentenceLines.join(' '))
+    if (!hasInvitation) out.push('Переведи на английский.')
+  }
+  return out.join('\n').trim()
+}
+
 function classifyOpenAiForbidden(errText: string): 'unsupported_region' | 'other' {
   try {
     const parsed = JSON.parse(errText) as { error?: { code?: string } }
@@ -1102,6 +1297,9 @@ export async function POST(req: NextRequest) {
         : rawTenses[stableHash32(JSON.stringify(recentMessages)) % rawTenses.length]
     const normalizedTense =
       audience === 'child' && !childAllowedTenses.has(tenseForTurn as TenseId) ? 'present_simple' : tenseForTurn
+    if (mode === 'translation' && !isFirstTurn && isLowSignalTranslationInput(lastUserText)) {
+      return NextResponse.json({ content: buildTranslationRetryFallback(normalizedTense) })
+    }
 
     // Вариант 2 должен быть предсказуемым (не Math.random), чтобы баги воспроизводились и не "прыгали".
     const praiseStyleVariant =
@@ -1197,6 +1395,10 @@ export async function POST(req: NextRequest) {
     sanitized = stripRepeatOnPraise(sanitized)
     sanitized = ensureNextQuestionOnPraise(sanitized, { mode, topic, tense: normalizedTense, level, audience })
     sanitized = ensureNextQuestionWhenMissing(sanitized, { mode, topic, tense: normalizedTense, level, audience })
+    if (mode === 'translation') {
+      sanitized = normalizeTranslationCommentStyle(sanitized)
+      sanitized = ensureTranslationProtocolBlocks(sanitized, normalizedTense)
+    }
     if (!sanitized) {
       return NextResponse.json(
         { error: 'Модель вернула некорректный ответ. Попробуйте отправить сообщение ещё раз.' },
@@ -1247,6 +1449,10 @@ export async function POST(req: NextRequest) {
           repaired = stripRepeatOnPraise(repaired)
           repaired = ensureNextQuestionOnPraise(repaired, { mode, topic, tense: normalizedTense, level, audience })
           repaired = ensureNextQuestionWhenMissing(repaired, { mode, topic, tense: normalizedTense, level, audience })
+          if (mode === 'translation') {
+            repaired = normalizeTranslationCommentStyle(repaired)
+            repaired = ensureTranslationProtocolBlocks(repaired, normalizedTense)
+          }
           const repairedValid = isValidTutorOutput({ content: repaired, mode, isFirstTurn })
           if (repairedValid) return NextResponse.json({ content: repaired })
         }

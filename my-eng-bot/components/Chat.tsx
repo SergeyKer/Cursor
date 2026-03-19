@@ -22,6 +22,16 @@ interface ChatProps {
 }
 
 type BubblePosition = 'solo' | 'first' | 'middle' | 'last'
+type SectionTone = 'neutral' | 'amber' | 'emerald' | 'slate'
+type AssistantSection = {
+  key: string
+  tone: SectionTone
+  label: string
+  text: string
+  italic?: boolean
+  small?: boolean
+  singleLine?: boolean
+}
 
 function getBubblePosition(
   previousRole: ChatMessageType['role'] | undefined,
@@ -56,6 +66,151 @@ function bubbleRadiusClass(isUser: boolean, pos: BubblePosition): string {
   // Внутри группы чуть «сцепляем» верхний левый
   if (pos === 'middle') return 'rounded-[1.2825rem] rounded-tl-lg rounded-bl-md'
   return 'rounded-[1.2825rem] rounded-tl-lg rounded-bl-md'
+}
+
+function buildAssistantSections(params: {
+  comment: string | null
+  tenseRef?: string | null
+  constructionHint?: string | null
+  showOnlyRepeat: boolean
+  hidePromptBlocks?: boolean
+  repeatTextForCard: string | null
+  mainBefore: string
+  hideRussianNonQuestionMainBefore: boolean
+  invitationText: string | null
+  mainAfter: string
+}): AssistantSection[] {
+  const {
+    comment,
+    tenseRef,
+    constructionHint,
+    showOnlyRepeat,
+    hidePromptBlocks = false,
+    repeatTextForCard,
+    mainBefore,
+    hideRussianNonQuestionMainBefore,
+    invitationText,
+    mainAfter,
+  } = params
+
+  const sections: AssistantSection[] = []
+  if (comment) {
+    sections.push({ key: 'comment', tone: 'amber', label: 'Комментарий', text: comment, singleLine: true })
+  }
+  if (tenseRef) {
+    sections.push({ key: 'tense-ref', tone: 'slate', label: 'Время', text: tenseRef, singleLine: true })
+  }
+  if (constructionHint) {
+    sections.push({ key: 'construction', tone: 'slate', label: 'Конструкция', text: constructionHint, singleLine: true })
+  }
+  if (showOnlyRepeat && repeatTextForCard) {
+    sections.push({ key: 'repeat', tone: 'emerald', label: 'Повтори', text: repeatTextForCard, singleLine: true })
+  } else if (!hidePromptBlocks && mainBefore && !hideRussianNonQuestionMainBefore) {
+    sections.push({ key: 'main', tone: 'neutral', label: 'AI', text: mainBefore, singleLine: true })
+  }
+  if (!showOnlyRepeat && repeatTextForCard) {
+    sections.push({ key: 'repeat-inline', tone: 'emerald', label: 'Повтори', text: repeatTextForCard, singleLine: true })
+  }
+  if (!hidePromptBlocks && invitationText) {
+    sections.push({ key: 'invitation', tone: 'slate', label: '', text: invitationText, italic: true })
+  }
+  if (!hidePromptBlocks && mainAfter) {
+    sections.push({
+      key: 'main-after',
+      tone: 'neutral',
+      label: mainBefore || invitationText ? 'Доп. комментарий' : 'AI',
+      text: mainAfter.replace(/\b(Say|Repeat|Скажи):\s*/gi, 'Повтори: '),
+    })
+  }
+  return sections
+}
+
+function parseTranslationCoachBlocks(text: string): {
+  comment: string | null
+  tenseRef: string | null
+  constructionHint: string | null
+  repeat: string | null
+  nextSentence: string
+  invitation: string | null
+} {
+  const cleaned = text
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+    .filter(Boolean)
+
+  let comment: string | null = null
+  let tenseRef: string | null = null
+  let constructionHint: string | null = null
+  let repeat: string | null = null
+  let invitation: string | null = null
+  const body: string[] = []
+
+  for (const line of cleaned) {
+    const pureInvitation = /^\s*(?:\d+\)\s*)?((?:Переведи|Переведите)[^.]*\.)\s*$/i.exec(line)
+    if (pureInvitation?.[1]) {
+      invitation = pureInvitation[1].trim()
+      continue
+    }
+    if (/^Комментарий\s*:/i.test(line)) {
+      comment = line.replace(/^Комментарий\s*:\s*/i, '').trim() || null
+      continue
+    }
+    if (/^Время\s*:/i.test(line)) {
+      tenseRef = line.replace(/^Время\s*:\s*/i, '').trim() || null
+      continue
+    }
+    if (/^Конструкция\s*:/i.test(line)) {
+      constructionHint = line.replace(/^Конструкция\s*:\s*/i, '').trim() || null
+      continue
+    }
+    if (/^(Повтори|Repeat|Say)\s*:/i.test(line)) {
+      repeat = line.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '').trim() || null
+      continue
+    }
+    const inlineInvitation = /((?:\d+\)\s*)?(?:Переведи|Переведите)[^.]*\.)\s*$/i.exec(line)
+    if (inlineInvitation?.[1] && inlineInvitation.index !== undefined) {
+      const before = line.slice(0, inlineInvitation.index).trim().replace(/^\d+\)\s*/i, '')
+      const inv = inlineInvitation[1].replace(/^\s*\d+\)\s*/i, '').trim()
+      if (inv) invitation = inv
+      if (before) body.push(before)
+      continue
+    }
+    body.push(line.replace(/^\d+\)\s*/i, ''))
+  }
+
+  return {
+    comment,
+    tenseRef,
+    constructionHint,
+    repeat,
+    nextSentence: body.join('\n').trim(),
+    invitation,
+  }
+}
+
+function extractTranslationCommentAndPrompt(text: string): { comment: string | null; promptText: string } {
+  const trimmed = text.trim()
+  if (!trimmed) return { comment: null, promptText: '' }
+  const m = /^(.*?[.!?])\s+([\s\S]+)$/.exec(trimmed)
+  if (!m) return { comment: null, promptText: trimmed }
+  const first = (m[1] ?? '').trim()
+  const tail = (m[2] ?? '').trim()
+  if (!first || !tail) return { comment: null, promptText: trimmed }
+
+  const looksLikeFeedback =
+    /^(Комментарий\s*:|Отлично|Молодец|Верно|Хорошо|Супер|Правильно|Почти|Нужно|Попробуй|Исправ)/i.test(first)
+  const looksLikeRuSentence = /[А-Яа-яЁё]/.test(tail)
+  const looksLikeEnFeedback = /[A-Za-z]/.test(first) && /^[A-Za-z0-9 ,.'!?-]+$/.test(first)
+  const tailStartsWithRu = /^[\s"'«(]*[А-Яа-яЁё]/.test(tail)
+  if (looksLikeFeedback && looksLikeRuSentence) {
+    const normalized = first.replace(/^Комментарий\s*:\s*/i, '').trim()
+    return { comment: normalized || first, promptText: tail }
+  }
+  // Частый кейс translation: "Try again. Кошка ест."
+  if (looksLikeEnFeedback && looksLikeRuSentence && tailStartsWithRu) {
+    return { comment: first, promptText: tail }
+  }
+  return { comment: null, promptText: trimmed }
 }
 
 export default function Chat({
@@ -419,7 +574,7 @@ function splitInvitation(text: string): {
   invitation: string | null
   mainAfter: string
 } {
-  const match = text.match(/\s+((?:Переведи|Переведите)[^.]*\.)/i)
+  const match = text.match(/\s+(?:\d+\)\s*)?((?:Переведи|Переведите)[^.]*\.)/i)
   if (!match || match.index === undefined) {
     return { mainBefore: text, invitation: null, mainAfter: '' }
   }
@@ -491,12 +646,11 @@ function MessageBubble({
 
   // При правильном ответе ИИ пишет похвалу (Комментарий: Отлично! / Молодец! и т.д.) — блок "Правильно:" не показываем
   const isCorrectAnswerPraise = Boolean(comment && /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)[!.]?\s*/i.test(comment.trim()))
-  const repeatPrompt = !isUser ? extractRepeatPrompt(mainBefore) : null
+  const repeatPrompt = !isUser && !isTranslationMode ? extractRepeatPrompt(mainBefore) : null
   // Если это похвала (ответ правильный), игнорируем "Повтори:" даже если модель его вывела.
   // Иначе UI может зациклиться на повторении.
   const effectiveRepeatPrompt = isCorrectAnswerPraise ? null : repeatPrompt
-  const repeatTextForCard = effectiveRepeatPrompt?.repeatText ?? null
-  const showOnlyRepeat = Boolean(repeatTextForCard)
+  let repeatTextForCard = effectiveRepeatPrompt?.repeatText ?? null
 
   const handleSpeak = () => {
     // Для озвучки:
@@ -511,7 +665,7 @@ function MessageBubble({
 
   const textToTranslate = repeatTextForCard || rest || message.content
   const errorLike = !isUser && isErrorLikeMessage(message.content)
-  const hasSpeakableText = !isUser && Boolean(textToTranslate) && !errorLike
+  const hasSpeakableText = !isUser && mode !== 'translation' && Boolean(textToTranslate) && !errorLike
   const hasTranslationData = !isUser && Boolean(message.translation)
   const hasTranslationError = !isUser && Boolean(message.translationError)
   const hasTranslationButton = !isUser && mode !== 'translation' && !errorLike
@@ -524,10 +678,51 @@ function MessageBubble({
     Boolean(mainBefore) &&
     /[А-Яа-яЁё]/.test(mainBefore) &&
     !/\?\s*$/.test(mainBefore)
-  const hasContent = isUser ? Boolean(message.content) : Boolean(comment || mainBefore || mainAfter || invitationText || rest || message.content || message.translation)
+  let effectiveComment = comment
+  let effectiveTenseRef: string | null = null
+  let effectiveConstructionHint: string | null = null
+  let effectiveMainBefore = mainBefore
+  let effectiveInvitationText = invitationText
+  if (!isUser && isTranslationMode) {
+    const blocks = parseTranslationCoachBlocks(displayText)
+    if (blocks.comment) effectiveComment = blocks.comment
+    if (blocks.tenseRef) effectiveTenseRef = blocks.tenseRef
+    if (blocks.constructionHint) effectiveConstructionHint = blocks.constructionHint
+    if (blocks.repeat) repeatTextForCard = blocks.repeat
+    if (blocks.nextSentence) {
+      effectiveMainBefore = blocks.nextSentence
+    } else {
+      const extracted = extractTranslationCommentAndPrompt(mainBefore)
+      if (!effectiveComment && extracted.comment) {
+        effectiveComment = extracted.comment
+      }
+      effectiveMainBefore = extracted.promptText
+    }
+    if (blocks.invitation) effectiveInvitationText = blocks.invitation
+  }
+  const showOnlyRepeat = !isTranslationMode && Boolean(repeatTextForCard)
+  const hideTranslationPromptBlocks = isTranslationMode && Boolean(repeatTextForCard)
+
+  const hasContent = isUser
+    ? Boolean(message.content)
+    : Boolean(effectiveComment || effectiveTenseRef || effectiveConstructionHint || effectiveMainBefore || mainAfter || effectiveInvitationText || rest || message.content || message.translation)
   const isBubbleEnd = bubblePosition === 'solo' || bubblePosition === 'last'
   const rowSpacingClass = isBubbleEnd ? 'mb-2.5' : 'mb-0.5'
   const radius = bubbleRadiusClass(isUser, bubblePosition)
+  const assistantSections = isUser
+    ? []
+    : buildAssistantSections({
+        comment: effectiveComment,
+        tenseRef: effectiveTenseRef,
+        constructionHint: effectiveConstructionHint,
+        showOnlyRepeat,
+        hidePromptBlocks: hideTranslationPromptBlocks,
+        repeatTextForCard,
+        mainBefore: effectiveMainBefore,
+        hideRussianNonQuestionMainBefore,
+        invitationText: effectiveInvitationText,
+        mainAfter,
+      })
 
   React.useEffect(() => {
     if (!showTranslation) {
@@ -578,62 +773,53 @@ function MessageBubble({
           </>
         ) : (
           <>
-            {(comment || mainBefore || invitationText || mainAfter) && (
+            {assistantSections.length > 0 && (
               <div className="space-y-1.5" role="alert">
-                {comment && <SectionCard tone="amber" label="Комментарий" text={comment} singleLine />}
-                {showOnlyRepeat && repeatTextForCard && (
-                  <SectionCard tone="emerald" label="Повтори" text={repeatTextForCard} singleLine />
-                )}
-                {mainBefore && !showOnlyRepeat && !hideRussianNonQuestionMainBefore && (
+                {assistantSections.map((section) => (
                   <SectionCard
-                    tone="neutral"
-                    label="AI"
-                    text={mainBefore}
-                    singleLine
+                    key={section.key}
+                    tone={section.tone}
+                    label={section.label}
+                    text={section.text}
+                    italic={section.italic}
+                    small={section.small}
+                    singleLine={section.singleLine}
                   />
+                ))}
+              </div>
+            )}
+            {(hasSpeakableText || hasTranslationButton) && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                {hasSpeakableText && (
+                  <button
+                    type="button"
+                    onClick={handleSpeak}
+                    className="btn-3d-subtle flex w-fit items-center justify-center gap-1 rounded-full border border-[var(--border)] bg-white/80 px-2.5 py-0.5 text-xs text-[var(--text-muted)] hover:bg-white hover:text-[var(--text)]"
+                    title="Озвучить"
+                  >
+                    <SpeakerIcon /> Озвучить
+                  </button>
                 )}
-                {invitationText && (
-                  <SectionCard tone="slate" label="Подсказка" text={invitationText} italic />
-                )}
-                {mainAfter && (
-                  <SectionCard
-                    tone="neutral"
-                    label={mainBefore || invitationText ? 'Доп. комментарий' : 'AI'}
-                    text={mainAfter.replace(/\b(Say|Repeat|Скажи):\s*/gi, 'Повтори: ')}
-                  />
+                {hasTranslationButton && (
+                  <button
+                    type="button"
+                    onClick={() => setShowTranslation((v) => !v)}
+                    className="btn-3d-subtle flex w-fit items-center justify-center gap-1.5 rounded-full border border-[var(--border)] bg-white/80 px-2.5 py-0.5 text-xs text-[var(--text-muted)] hover:bg-white hover:text-[var(--text)]"
+                    title={showTranslation ? 'Скрыть перевод' : 'Показать перевод'}
+                  >
+                    {!showTranslation && (
+                      <span
+                        className={`h-2 w-2 shrink-0 rounded-full ${
+                          hasTranslationData ? 'bg-green-500' : 'bg-red-500'
+                        }`}
+                        aria-hidden
+                      />
+                    )}
+                    {showTranslation ? 'Скрыть перевод' : 'Перевод'}
+                  </button>
                 )}
               </div>
             )}
-            <div className="mt-1.5 flex flex-wrap items-center gap-2">
-              {hasSpeakableText && (
-                <button
-                  type="button"
-                  onClick={handleSpeak}
-                  className="btn-3d-subtle flex w-fit items-center justify-center gap-1 rounded-full border border-[var(--border)] bg-white/80 px-2.5 py-0.5 text-xs text-[var(--text-muted)] hover:bg-white hover:text-[var(--text)]"
-                  title="Озвучить"
-                >
-                  <SpeakerIcon /> Озвучить
-                </button>
-              )}
-              {hasTranslationButton && (
-                <button
-                  type="button"
-                  onClick={() => setShowTranslation((v) => !v)}
-                  className="btn-3d-subtle flex w-fit items-center justify-center gap-1.5 rounded-full border border-[var(--border)] bg-white/80 px-2.5 py-0.5 text-xs text-[var(--text-muted)] hover:bg-white hover:text-[var(--text)]"
-                  title={showTranslation ? 'Скрыть перевод' : 'Показать перевод'}
-                >
-                  {!showTranslation && (
-                    <span
-                      className={`h-2 w-2 shrink-0 rounded-full ${
-                        hasTranslationData ? 'bg-green-500' : 'bg-red-500'
-                      }`}
-                      aria-hidden
-                    />
-                  )}
-                  {showTranslation ? 'Скрыть перевод' : 'Перевод'}
-                </button>
-              )}
-            </div>
             {(showTranslation && hasTranslationData && message.translation) || hasTranslationError || (showTranslation && !hasTranslationData && !hasTranslationError) ? (
               <div className="mt-2">
                 {showTranslation && hasTranslationData && message.translation && (
@@ -698,26 +884,31 @@ function SectionCard({
           : 'text-gray-600'
 
   const isAiInline = singleLine && label === 'AI'
+  const hasLabel = label.trim().length > 0
 
   return (
     <section
-      className={`min-w-0 rounded-xl border px-3 py-2 shadow-sm ${
-        singleLine ? 'flex w-full items-start' : ''
+      className={`block min-w-0 w-fit max-w-full self-start rounded-xl border px-3 py-2 shadow-sm ${
+        singleLine ? 'flex items-start' : ''
       } ${toneClass}`}
       role="note"
     >
       {singleLine ? (
         <p
-          className={`w-full min-w-0 whitespace-normal break-words leading-snug ${
+          className={`min-w-0 max-w-full whitespace-normal break-words leading-snug ${
             small ? 'text-[14px]' : 'text-[15px]'
           } ${italic ? 'font-serif italic text-[var(--invitation)]' : 'text-[var(--text)]'}`}
           title={`${label}: ${text}`}
         >
-          <span
-            className={`${isAiInline ? 'font-semibold text-gray-700' : `font-medium ${labelClass}`}`}
-          >
-            {label}:
-          </span>{' '}
+          {hasLabel && (
+            <>
+              <span
+                className={`${isAiInline ? 'font-semibold text-gray-700' : `font-medium ${labelClass}`}`}
+              >
+                {label}:
+              </span>{' '}
+            </>
+          )}
           <span
             className={
               isAiInline ? 'text-gray-900' : italic ? 'text-[var(--invitation)]' : 'text-[var(--text)]'
@@ -728,9 +919,9 @@ function SectionCard({
         </p>
       ) : (
         <>
-          <p className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${labelClass}`}>{label}</p>
+          {hasLabel && <p className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${labelClass}`}>{label}</p>}
           <p
-            className={`mt-0.5 whitespace-pre-wrap break-words leading-snug ${
+            className={`${hasLabel ? 'mt-0.5' : ''} whitespace-pre-wrap break-words leading-snug ${
               small ? 'text-xs' : 'text-sm'
             } ${italic ? 'font-serif italic text-[var(--invitation)]' : 'text-[var(--text)]'}`}
           >

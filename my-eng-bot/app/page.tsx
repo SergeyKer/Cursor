@@ -541,7 +541,7 @@ export default function Home() {
     return false
   }
 
-  /** Строка выбранного меню для шапки: с темой "Диалог — Повседневная жизнь, Present Perfect, C2" или без "Диалог — Present Perfect, C2" */
+  /** Строка выбранного меню для шапки: единый формат для обоих режимов. */
   function getMenuSummary(includeTopic: boolean = true): string {
     const getTenseCountLabel = (count: number): string => {
       const mod10 = count % 10
@@ -577,7 +577,7 @@ export default function Home() {
     const levelShort = levelEntry ? (levelEntry.label.split(' — ')[0]?.trim() ?? levelEntry.label) : settings.level
     const normalizedLevelShort = settings.level === 'all' ? 'Все уровни' : levelShort
     const topicLabel = TOPICS.find((t) => t.id === settings.topic)?.label
-    if (includeTopic && settings.mode === 'dialogue' && topicLabel) {
+    if (includeTopic && topicLabel) {
       return `${modeLabel} — ${topicLabel}, ${tenseLabel}, ${normalizedLevelShort}`
     }
     return `${modeLabel} — ${tenseLabel}, ${normalizedLevelShort}`
