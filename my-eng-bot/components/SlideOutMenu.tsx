@@ -145,7 +145,14 @@ export default function SlideOutMenu({
               <MultiSelectDropdown
                 options={tenseOptions}
                 value={settings.tenses}
-                onChange={(tenses) => update({ tenses: tenses.length > 0 ? tenses : ['present_simple'] })}
+                onChange={(tenses) =>
+                  update({
+                    tenses:
+                      tenses.length > 0
+                        ? (tenses as Settings['tenses'])
+                        : (['present_simple'] as Settings['tenses']),
+                  })
+                }
                 placeholder="Выберите время"
                 selectAllLabel="Выбрать всё"
                 minOne

@@ -666,7 +666,15 @@ export default function Home() {
                 <MultiSelectDropdown
                   options={settings.audience === 'child' ? TENSES.filter((t) => CHILD_TENSE_SET.has(t.id)) : TENSES}
                   value={settings.tenses}
-                  onChange={(tenses) => setSettings((s) => ({ ...s, tenses: tenses.length > 0 ? tenses : ['present_simple'] }))}
+                  onChange={(tenses) =>
+                    setSettings((s) => ({
+                      ...s,
+                      tenses:
+                        tenses.length > 0
+                          ? (tenses as Settings['tenses'])
+                          : (['present_simple'] as Settings['tenses']),
+                    }))
+                  }
                   placeholder="Выберите время"
                   selectAllLabel="Выбрать всё"
                   minOne

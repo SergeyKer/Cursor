@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import type { ChatMessage } from '@/lib/types'
+import type { ChatMessage, TenseId } from '@/lib/types'
 import { CHILD_TENSES } from '@/lib/constants'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
@@ -1092,7 +1092,7 @@ export async function POST(req: NextRequest) {
         : ['present_simple']
     const childAllowedTenses = new Set(CHILD_TENSES)
     if (audience === 'child') {
-      rawTenses = rawTenses.filter((t) => childAllowedTenses.has(t))
+      rawTenses = rawTenses.filter((t) => childAllowedTenses.has(t as TenseId))
       if (rawTenses.length === 0) rawTenses = ['present_simple']
     }
     const isAnyTense = rawTenses.includes('all')
@@ -1101,7 +1101,7 @@ export async function POST(req: NextRequest) {
         ? 'all'
         : rawTenses[stableHash32(JSON.stringify(recentMessages)) % rawTenses.length]
     const normalizedTense =
-      audience === 'child' && !childAllowedTenses.has(tenseForTurn) ? 'present_simple' : tenseForTurn
+      audience === 'child' && !childAllowedTenses.has(tenseForTurn as TenseId) ? 'present_simple' : tenseForTurn
 
     // Вариант 2 должен быть предсказуемым (не Math.random), чтобы баги воспроизводились и не "прыгали".
     const praiseStyleVariant =
