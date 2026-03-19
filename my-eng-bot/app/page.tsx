@@ -551,10 +551,21 @@ export default function Home() {
       return `${count} времён`
     }
 
+    const availableTenses: string[] = settings.audience === 'child'
+      ? TENSES.filter((t) => CHILD_TENSE_SET.has(t.id)).map((t) => t.id)
+      : TENSES.map((t) => t.id)
+    const selectedTenses: string[] = settings.tenses.filter((t) => t !== 'all')
+    const selectedSet = new Set<string>(selectedTenses)
+    const anyTimeSelected =
+      settings.tenses.includes('all') ||
+      (availableTenses.length > 0 && availableTenses.every((t) => selectedSet.has(t)))
+
     const modeLabel = settings.mode === 'dialogue' ? 'Диалог' : 'Тренировка перевода'
     const tenseLabel =
-      settings.tenses.length === 0
-        ? 'Все'
+      anyTimeSelected
+        ? 'Любое время'
+        : settings.tenses.length === 0
+          ? 'Все'
         : settings.tenses.length === 1
           ? (TENSES.find((t) => t.id === settings.tenses[0])?.label ?? settings.tenses[0])
           : settings.tenses.length === 2
@@ -617,7 +628,7 @@ export default function Home() {
           paddingTop: 'calc(2.5rem + env(safe-area-inset-top, 0px))',
           paddingBottom: dialogStarted
             ? '0px'
-            : 'max(0.75rem, env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset))',
+            : 'max(0.75rem, env(safe-area-inset-bottom, 0px))',
         }}
       >
         {!dialogStarted ? (

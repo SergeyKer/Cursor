@@ -96,7 +96,13 @@ export default function MultiSelectDropdown({
 
   const toggleSelectAll = () => {
     if (allSelected) {
-      onChange(minOne ? [allIds[0]] : [])
+      // При обязательном выборе хотя бы одного пункта повторный тап по
+      // "Выбрать всё" не должен сбрасывать все времена.
+      if (minOne) {
+        onChange([...selectableIds])
+        return
+      }
+      onChange([])
     } else {
       onChange([...selectableIds])
     }
