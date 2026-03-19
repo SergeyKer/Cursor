@@ -617,7 +617,7 @@ export default function Home() {
       </header>
 
       <main
-        className="flex min-h-0 flex-1 flex-col"
+        className={`flex min-h-0 flex-1 flex-col ${dialogStarted ? 'overflow-hidden' : 'overflow-y-auto'}`}
         style={{
           paddingTop: 'calc(2.5rem + env(safe-area-inset-top, 0px))',
           paddingBottom: dialogStarted
@@ -630,8 +630,15 @@ export default function Home() {
             <p className="text-[var(--text-muted)]">Загрузка…</p>
           </div>
         ) : !dialogStarted ? (
-          <div className="flex min-h-0 flex-1 flex-col items-center gap-6 bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)] px-4 pt-6 pb-8">
-            <div className="w-full max-w-xs rounded-2xl border border-[var(--border)] bg-[#e8ecf0] px-4 py-4 shadow-sm space-y-3">
+          <div
+            className="start-screen flex min-h-0 flex-1 flex-col items-center bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)] px-4"
+            style={{
+              gap: 'clamp(0.75rem, 2.2vh, 1.5rem)',
+              paddingTop: 'clamp(0.75rem, 2vh, 1.5rem)',
+              paddingBottom: 'clamp(1rem, 2.6vh, 2rem)',
+            }}
+          >
+            <div className="start-card w-full max-w-xs rounded-2xl border border-[var(--border)] bg-[#e8ecf0] px-4 py-3 shadow-sm space-y-2.5">
               <h2 className="text-sm font-semibold text-[var(--text)] mb-0.5">Выбери режим</h2>
               <div>
                 <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Пользователь</label>
@@ -644,7 +651,7 @@ export default function Home() {
                       return normalizeSettingsForAudience({ ...s, audience: nextAudience })
                     })
                   }
-                  className="w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
+                  className="start-control w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
                 >
                   <option value="child">Никита</option>
                   <option value="adult">Взрослый</option>
@@ -655,7 +662,7 @@ export default function Home() {
                 <select
                   value={settings.mode}
                   onChange={(e) => setSettings((s) => ({ ...s, mode: e.target.value as Settings['mode'] }))}
-                  className="w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
+                  className="start-control w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
                 >
                   <option value="dialogue">Диалог</option>
                   <option value="translation">Тренировка перевода</option>
@@ -686,7 +693,7 @@ export default function Home() {
                   <select
                     value={settings.sentenceType}
                     onChange={(e) => setSettings((s) => ({ ...s, sentenceType: e.target.value as Settings['sentenceType'] }))}
-                    className="w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
+                    className="start-control w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
                   >
                     {SENTENCE_TYPES.map((t) => (
                       <option key={t.id} value={t.id}>{t.label}</option>
@@ -699,7 +706,7 @@ export default function Home() {
                 <select
                   value={settings.topic}
                   onChange={(e) => setSettings((s) => ({ ...s, topic: e.target.value as Settings['topic'] }))}
-                  className="w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
+                  className="start-control w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
                 >
                   {TOPICS.map((t) => (
                     <option key={t.id} value={t.id}>{t.label}</option>
@@ -711,7 +718,7 @@ export default function Home() {
                 <select
                   value={settings.level}
                   onChange={(e) => setSettings((s) => ({ ...s, level: e.target.value as Settings['level'] }))}
-                  className="w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
+                  className="start-control w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
                 >
                   {(settings.audience === 'child' ? LEVELS.filter((l) => ['all', 'starter', 'a1', 'a2'].includes(l.id)) : LEVELS).map((l) => (
                     <option key={l.id} value={l.id}>{l.label}</option>
@@ -722,7 +729,7 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setDialogStarted(true)}
-              className="flex w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-8 py-3 text-lg font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
+              className="start-cta flex w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-8 py-2.5 text-base sm:text-lg font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
             >
               {settings.mode === 'dialogue' ? 'Начать диалог' : 'Начать тренировку перевода'}
             </button>
