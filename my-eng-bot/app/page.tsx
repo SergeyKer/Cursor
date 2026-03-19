@@ -11,7 +11,6 @@ import type { ChatMessage, Settings, UsageInfo } from '@/lib/types'
 const CHILD_TENSE_SET = new Set(CHILD_TENSES)
 
 export default function Home() {
-  const [mounted, setMounted] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -30,10 +29,6 @@ export default function Home() {
   const firstMessageRequestIdRef = React.useRef(0)
   /** Не запускать второй запрос первого сообщения, пока первый в полёте (защита от двойного вызова из эффекта). */
   const firstMessageInFlightRef = React.useRef(false)
-
-  React.useEffect(() => {
-    setMounted(true)
-  }, [])
 
   function normalizeSettingsForAudience(s: Settings): Settings {
     if (s.audience !== 'child') return s
@@ -582,14 +577,6 @@ export default function Home() {
     : storageLoaded
       ? getMenuSummary(true)
       : 'MyEng Bot'
-
-  if (!mounted) {
-    return (
-      <div className="flex h-[100dvh] min-h-[100dvh] items-center justify-center">
-        <p className="text-[var(--text-muted)]">Загрузка…</p>
-      </div>
-    )
-  }
 
   return (
     <div className="flex h-[100dvh] min-h-[100dvh] flex-col">

@@ -19,14 +19,7 @@ function computeBottomInsetPx(): number {
   const inset = window.innerHeight - vv.height - vv.offsetTop
   const vvInset = Number.isFinite(inset) ? Math.max(0, Math.round(inset)) : 0
 
-  // Android (3-button navigation) может перекрывать web-контент снизу,
-  // при этом safe-area и VisualViewport часто возвращают 0 (когда клавиатура закрыта).
-  // Даем минимальный запас, чтобы поле ввода не уходило под системные кнопки.
-  const isAndroid = /Android/i.test(navigator.userAgent)
-  const isLandscape = window.innerWidth > window.innerHeight
-  const androidMinInset = isAndroid ? (isLandscape ? 76 : 88) : 0
-
-  return Math.max(vvInset, androidMinInset)
+  return vvInset
 }
 
 function computeSideInsetsPx(): { left: number; right: number } {
@@ -42,15 +35,9 @@ function computeSideInsetsPx(): { left: number; right: number } {
   const vvLeftInset = Number.isFinite(leftInsetRaw) ? Math.max(0, Math.round(leftInsetRaw)) : 0
   const vvRightInset = Number.isFinite(rightInsetRaw) ? Math.max(0, Math.round(rightInsetRaw)) : 0
 
-  // Android в landscape может рисовать системную 3-button навигацию сбоку,
-  // но VisualViewport иногда отдаёт нули. Добавляем минимальный боковой запас.
-  const isAndroid = /Android/i.test(navigator.userAgent)
-  const isLandscape = window.innerWidth > window.innerHeight
-  const androidSideMinInset = isAndroid && isLandscape ? 64 : 0
-
   return {
-    left: Math.max(vvLeftInset, androidSideMinInset),
-    right: Math.max(vvRightInset, androidSideMinInset),
+    left: vvLeftInset,
+    right: vvRightInset,
   }
 }
 

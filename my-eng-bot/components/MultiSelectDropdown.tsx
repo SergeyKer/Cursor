@@ -75,15 +75,21 @@ export default function MultiSelectDropdown({
 
   const allIds = options.map((o) => o.id)
   const hasAllOption = allIds.includes('all')
+  const effectiveValue = selectAllLabel ? value.filter((id) => id !== 'all') : value
   const selectableIds = hasAllOption ? allIds.filter((id) => id !== 'all') : allIds
-  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => value.includes(id))
-  const summary = formatSummary(options, value, placeholder, selectAllLabel)
+  const legacyAllOnlySelected = selectAllLabel && hasAllOption && value.includes('all') && effectiveValue.length === 0
+  const allSelected =
+    selectableIds.length > 0 && (legacyAllOnlySelected || selectableIds.every((id) => effectiveValue.includes(id)))
+  const visibleOptions = selectAllLabel && hasAllOption ? options.filter((o) => o.id !== 'all') : options
+  const summary = allSelected
+    ? (selectAllLabel ?? placeholder)
+    : formatSummary(visibleOptions, effectiveValue, placeholder, selectAllLabel)
   const textSize = compact ? 'text-xs' : 'text-sm'
 
   const toggle = (id: string) => {
-    const next = value.includes(id)
-      ? value.filter((v) => v !== id)
-      : [...value, id]
+    const next = effectiveValue.includes(id)
+      ? effectiveValue.filter((v) => v !== id)
+      : [...effectiveValue, id]
     if (minOne && next.length === 0) return
     onChange(next)
   }
@@ -131,14 +137,14 @@ export default function MultiSelectDropdown({
               <span className="text-[var(--text)] font-medium">{selectAllLabel}</span>
             </label>
           )}
-          {options.map((opt) => (
+          {visibleOptions.map((opt) => (
             <label
               key={opt.id}
               className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-[var(--border)]/50"
             >
               <input
                 type="checkbox"
-                checked={value.includes(opt.id)}
+                checked={effectiveValue.includes(opt.id)}
                 onChange={() => toggle(opt.id)}
                 className="rounded border-[var(--border)]"
               />
