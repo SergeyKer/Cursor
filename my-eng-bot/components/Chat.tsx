@@ -31,6 +31,7 @@ type AssistantSection = {
   italic?: boolean
   small?: boolean
   singleLine?: boolean
+  trailingAction?: 'speak'
 }
 
 function getBubblePosition(
@@ -104,15 +105,37 @@ function buildAssistantSections(params: {
     sections.push({ key: 'construction', tone: 'slate', label: 'Конструкция', text: constructionHint, singleLine: true })
   }
   if (showOnlyRepeat && repeatTextForCard) {
-    sections.push({ key: 'repeat', tone: 'emerald', label: 'Повтори', text: repeatTextForCard, singleLine: true })
+    sections.push({
+      key: 'repeat',
+      tone: 'emerald',
+      label: 'Повтори',
+      text: repeatTextForCard,
+      singleLine: true,
+      trailingAction: 'speak',
+    })
   } else if (!hidePromptBlocks && mainBefore && !hideRussianNonQuestionMainBefore) {
     sections.push({ key: 'main', tone: 'neutral', label: 'AI', text: mainBefore, singleLine: true })
   }
   if (!showOnlyRepeat && repeatTextForCard) {
-    sections.push({ key: 'repeat-inline', tone: 'emerald', label: 'Повтори', text: repeatTextForCard, singleLine: true })
+    sections.push({
+      key: 'repeat-inline',
+      tone: 'emerald',
+      label: 'Повтори',
+      text: repeatTextForCard,
+      singleLine: true,
+      trailingAction: 'speak',
+    })
   }
   if (!hidePromptBlocks && invitationText) {
-    sections.push({ key: 'invitation', tone: 'slate', label: '', text: invitationText, italic: true })
+    sections.push({
+      key: 'invitation',
+      tone: 'slate',
+      label: '',
+      text: invitationText,
+      italic: true,
+      small: true,
+      singleLine: true,
+    })
   }
   if (!hidePromptBlocks && mainAfter) {
     sections.push({
@@ -784,6 +807,8 @@ function MessageBubble({
                     italic={section.italic}
                     small={section.small}
                     singleLine={section.singleLine}
+                    trailingAction={section.trailingAction}
+                    onSpeak={section.trailingAction === 'speak' ? handleSpeak : undefined}
                   />
                 ))}
               </div>
@@ -857,6 +882,8 @@ function SectionCard({
   italic,
   small,
   singleLine,
+  trailingAction,
+  onSpeak,
 }: {
   tone: 'neutral' | 'amber' | 'emerald' | 'slate'
   label: string
@@ -864,6 +891,8 @@ function SectionCard({
   italic?: boolean
   small?: boolean
   singleLine?: boolean
+  trailingAction?: 'speak'
+  onSpeak?: () => void
 }) {
   const toneClass =
     tone === 'amber'
@@ -885,16 +914,19 @@ function SectionCard({
 
   const isAiInline = singleLine && label === 'AI'
   const hasLabel = label.trim().length > 0
+  const isCompactServiceLine = singleLine && italic && !hasLabel
 
   return (
     <section
-      className={`block min-w-0 w-fit max-w-full self-start rounded-xl border px-3 py-2 shadow-sm ${
+      className={`block min-w-0 w-fit max-w-full self-start rounded-xl border shadow-sm ${
+        isCompactServiceLine ? 'px-2.5 py-1.5' : 'px-3 py-2'
+      } ${
         singleLine ? 'flex items-start' : ''
       } ${toneClass}`}
       role="note"
     >
       {singleLine ? (
-        <p
+        <div
           className={`min-w-0 max-w-full whitespace-normal break-words leading-snug ${
             small ? 'text-[14px]' : 'text-[15px]'
           } ${italic ? 'font-serif italic text-[var(--invitation)]' : 'text-[var(--text)]'}`}
@@ -916,7 +948,18 @@ function SectionCard({
           >
             {text}
           </span>
-        </p>
+          {trailingAction === 'speak' && onSpeak && (
+            <button
+              type="button"
+              onClick={onSpeak}
+              className="ml-1 inline-flex h-6 w-6 translate-y-[1px] items-center justify-center rounded-full border border-emerald-200 bg-white/80 text-emerald-700 hover:bg-white hover:text-emerald-800"
+              title="Озвучить"
+              aria-label="Озвучить"
+            >
+              <SpeakerIcon />
+            </button>
+          )}
+        </div>
       ) : (
         <>
           {hasLabel && <p className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${labelClass}`}>{label}</p>}
