@@ -23,7 +23,8 @@ function computeBottomInsetPx(): number {
   // при этом safe-area и VisualViewport часто возвращают 0 (когда клавиатура закрыта).
   // Даем минимальный запас, чтобы поле ввода не уходило под системные кнопки.
   const isAndroid = /Android/i.test(navigator.userAgent)
-  const androidMinInset = isAndroid ? 56 : 0
+  const isLandscape = window.innerWidth > window.innerHeight
+  const androidMinInset = isAndroid ? (isLandscape ? 64 : 72) : 0
 
   return Math.max(vvInset, androidMinInset)
 }
