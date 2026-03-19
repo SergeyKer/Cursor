@@ -548,6 +548,14 @@ export default function Home() {
 
   /** Строка выбранного меню для шапки: с темой "Диалог — Повседневная жизнь, Present Perfect, C2" или без "Диалог — Present Perfect, C2" */
   function getMenuSummary(includeTopic: boolean = true): string {
+    const getTenseCountLabel = (count: number): string => {
+      const mod10 = count % 10
+      const mod100 = count % 100
+      if (mod10 === 1 && mod100 !== 11) return `${count} время`
+      if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} времени`
+      return `${count} времён`
+    }
+
     const modeLabel = settings.mode === 'dialogue' ? 'Диалог' : 'Тренировка перевода'
     const tenseLabel =
       settings.tenses.length === 0
@@ -558,7 +566,7 @@ export default function Home() {
             ? (TENSES.find((t) => t.id === settings.tenses[0])?.label ?? settings.tenses[0]) +
               ', ' +
               (TENSES.find((t) => t.id === settings.tenses[1])?.label ?? settings.tenses[1])
-            : `${settings.tenses.length} времени`
+            : getTenseCountLabel(settings.tenses.length)
     const levelEntry = LEVELS.find((l) => l.id === settings.level)
     const levelShort = levelEntry ? (levelEntry.label.split(' — ')[0]?.trim() ?? levelEntry.label) : settings.level
     const normalizedLevelShort = settings.level === 'all' ? 'Все уровни' : levelShort
@@ -685,6 +693,8 @@ export default function Home() {
                   placeholder="Выберите время"
                   selectAllLabel="Выбрать всё"
                   minOne
+                  triggerClassName="start-control font-normal"
+                  panelClassName="font-normal"
                 />
               </div>
               {settings.mode === 'translation' && (

@@ -74,7 +74,9 @@ export default function MultiSelectDropdown({
   }, [open])
 
   const allIds = options.map((o) => o.id)
-  const allSelected = value.length === options.length
+  const hasAllOption = allIds.includes('all')
+  const selectableIds = hasAllOption ? allIds.filter((id) => id !== 'all') : allIds
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => value.includes(id))
   const summary = formatSummary(options, value, placeholder, selectAllLabel)
   const textSize = compact ? 'text-xs' : 'text-sm'
 
@@ -90,7 +92,7 @@ export default function MultiSelectDropdown({
     if (allSelected) {
       onChange(minOne ? [allIds[0]] : [])
     } else {
-      onChange([...allIds])
+      onChange([...selectableIds])
     }
   }
 
