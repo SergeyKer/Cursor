@@ -80,15 +80,15 @@ export default function VisualViewportInsets() {
     window.addEventListener('orientationchange', scheduleApply, { passive: true })
 
     const vv = window.visualViewport
-    vv?.addEventListener('resize', scheduleApply, { passive: true })
-    vv?.addEventListener('scroll', scheduleApply, { passive: true })
+    vv?.addEventListener?.('resize', scheduleApply, { passive: true })
+    vv?.addEventListener?.('scroll', scheduleApply, { passive: true })
 
     return () => {
       if (raf) window.cancelAnimationFrame(raf)
       window.removeEventListener('resize', scheduleApply)
       window.removeEventListener('orientationchange', scheduleApply)
-      vv?.removeEventListener('resize', scheduleApply)
-      vv?.removeEventListener('scroll', scheduleApply)
+      vv?.removeEventListener?.('resize', scheduleApply)
+      vv?.removeEventListener?.('scroll', scheduleApply)
     }
   }, [])
 
