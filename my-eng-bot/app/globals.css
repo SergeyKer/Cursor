@@ -31,6 +31,8 @@
   --chat-section-slate: #f4f7fb;
   /* Bottom inset, рассчитанный через VisualViewport (Android Chrome и пр.). */
   --vv-bottom-inset: 0px;
+  --vv-left-inset: 0px;
+  --vv-right-inset: 0px;
   /* Высота панели ввода чата (обновляется из JS, fallback). */
   --chat-input-height: 5.5rem;
 }

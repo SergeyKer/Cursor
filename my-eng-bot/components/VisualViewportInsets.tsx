@@ -29,6 +29,31 @@ function computeBottomInsetPx(): number {
   return Math.max(vvInset, androidMinInset)
 }
 
+function computeSideInsetsPx(): { left: number; right: number } {
+  if (typeof window === 'undefined') return { left: 0, right: 0 }
+  const vv = window.visualViewport
+  if (!vv) return { left: 0, right: 0 }
+
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+  if (!isMobile) return { left: 0, right: 0 }
+
+  const leftInsetRaw = vv.offsetLeft
+  const rightInsetRaw = window.innerWidth - vv.width - vv.offsetLeft
+  const vvLeftInset = Number.isFinite(leftInsetRaw) ? Math.max(0, Math.round(leftInsetRaw)) : 0
+  const vvRightInset = Number.isFinite(rightInsetRaw) ? Math.max(0, Math.round(rightInsetRaw)) : 0
+
+  // Android в landscape может рисовать системную 3-button навигацию сбоку,
+  // но VisualViewport иногда отдаёт нули. Добавляем минимальный боковой запас.
+  const isAndroid = /Android/i.test(navigator.userAgent)
+  const isLandscape = window.innerWidth > window.innerHeight
+  const androidSideMinInset = isAndroid && isLandscape ? 40 : 0
+
+  return {
+    left: Math.max(vvLeftInset, androidSideMinInset),
+    right: Math.max(vvRightInset, androidSideMinInset),
+  }
+}
+
 export default function VisualViewportInsets() {
   React.useEffect(() => {
     if (typeof window === 'undefined') return
@@ -39,6 +64,9 @@ export default function VisualViewportInsets() {
     const apply = () => {
       raf = 0
       root.style.setProperty('--vv-bottom-inset', `${computeBottomInsetPx()}px`)
+      const sideInsets = computeSideInsetsPx()
+      root.style.setProperty('--vv-left-inset', `${sideInsets.left}px`)
+      root.style.setProperty('--vv-right-inset', `${sideInsets.right}px`)
     }
 
     const scheduleApply = () => {
