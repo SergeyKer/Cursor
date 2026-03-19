@@ -633,11 +633,7 @@ export default function Home() {
             : 'max(0.75rem, env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset))',
         }}
       >
-        {!storageLoaded ? (
-          <div className="flex min-h-0 flex-1 items-center justify-center">
-            <p className="text-[var(--text-muted)]">Загрузка…</p>
-          </div>
-        ) : !dialogStarted ? (
+        {!dialogStarted ? (
           <div
             className="start-screen flex min-h-0 flex-1 flex-col items-center bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)] px-4"
             style={{
@@ -746,7 +742,7 @@ export default function Home() {
           </div>
         ) : (
           <>
-            {storageLoaded && dialogStarted && messages.length > 0 && settingsDiffersFromLastSend(settings, settingsAtLastSend) && (
+            {dialogStarted && messages.length > 0 && settingsDiffersFromLastSend(settings, settingsAtLastSend) && (
               <div className="shrink-0 border-b border-[var(--border)] px-3 py-2">
                 <div className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm text-[var(--text)] shadow-sm">
                   Настройки изменены. Следующее сообщение будет: <strong>{getMenuSummary(true)}</strong>.

@@ -4,22 +4,74 @@ function isMobileVoice(): boolean {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
 }
 
+function selectVoice(
+  voices: SpeechSynthesisVoice[],
+  voiceId: string,
+  allowCustomVoice: boolean
+): SpeechSynthesisVoice | null {
+  if (voices.length === 0) return null
+
+  if (allowCustomVoice && voiceId) {
+    const exact = voices.find((v) => v.voiceURI === voiceId || v.name === voiceId)
+    if (exact) return exact
+  }
+
+  const preferredEn =
+    voices.find((v) => /^en(-|_)/i.test(v.lang) && v.default) ||
+    voices.find((v) => /^en(-|_)/i.test(v.lang))
+  if (preferredEn) return preferredEn
+
+  return voices.find((v) => v.default) ?? voices[0] ?? null
+}
+
+function speakOnce(
+  synth: SpeechSynthesis,
+  text: string,
+  voiceId: string,
+  allowCustomVoice: boolean
+): void {
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.lang = 'en-US'
+  utterance.rate = 0.9
+
+  const voices = synth.getVoices()
+  const selectedVoice = selectVoice(voices, voiceId, allowCustomVoice)
+  if (selectedVoice) utterance.voice = selectedVoice
+
+  // На некоторых браузерах (особенно Chromium) после cancel() нужен micro-delay.
+  // Иначе speak() может "проглотиться" без ошибки и без звука.
+  window.setTimeout(() => {
+    if (synth.paused) synth.resume()
+    synth.speak(utterance)
+  }, 0)
+}
+
 /**
  * TTS: воспроизведение текста выбранным голосом.
  * На Android и iOS игнорирует voiceId и использует системный голос.
  */
 export function speak(text: string, voiceId: string): void {
   if (typeof window === 'undefined' || !window.speechSynthesis) return
-  window.speechSynthesis.cancel()
-  const u = new SpeechSynthesisUtterance(text)
-  u.lang = 'en-US'
-  u.rate = 0.9
-  if (voiceId && !isMobileVoice()) {
-    const voices = window.speechSynthesis.getVoices()
-    const voice = voices.find((v) => v.voiceURI === voiceId || v.name === voiceId)
-    if (voice) u.voice = voice
+
+  const normalized = text.trim()
+  if (!normalized) return
+
+  const synth = window.speechSynthesis
+  const allowCustomVoice = !isMobileVoice()
+
+  synth.cancel()
+  speakOnce(synth, normalized, voiceId, allowCustomVoice)
+
+  // Safari/Chromium иногда отдают голоса не сразу. Делаем один авто-ретрай.
+  if (synth.getVoices().length === 0) {
+    const onVoicesReady = () => {
+      synth.removeEventListener('voiceschanged', onVoicesReady)
+      if (!synth.speaking) {
+        speakOnce(synth, normalized, voiceId, allowCustomVoice)
+      }
+    }
+    synth.addEventListener('voiceschanged', onVoicesReady, { once: true })
   }
-  window.speechSynthesis.speak(u)
 }
 
 export function getVoices(): SpeechSynthesisVoice[] {
