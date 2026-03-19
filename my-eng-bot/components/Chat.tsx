@@ -102,7 +102,7 @@ function buildAssistantSections(params: {
     sections.push({ key: 'tense-ref', tone: 'slate', label: 'Время', text: tenseRef, singleLine: true })
   }
   if (constructionHint) {
-    sections.push({ key: 'construction', tone: 'slate', label: 'Конструкция', text: constructionHint, singleLine: true })
+    sections.push({ key: 'construction', tone: 'slate', label: 'Конструкция', text: constructionHint })
   }
   if (showOnlyRepeat && repeatTextForCard) {
     sections.push({
@@ -167,27 +167,41 @@ function parseTranslationCoachBlocks(text: string): {
   let repeat: string | null = null
   let invitation: string | null = null
   const body: string[] = []
+  const constructionLines: string[] = []
+  let collectingConstruction = false
+
+  const isHeaderLine = (line: string): boolean =>
+    /^\s*(?:\d+\)\s*)?(Комментарий|Время|Конструкция|Повтори|Repeat|Say)\s*:/i.test(line) ||
+    /^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)\b/i.test(line)
 
   for (const line of cleaned) {
     const pureInvitation = /^\s*(?:\d+\)\s*)?((?:Переведи|Переведите)[^.]*\.)\s*$/i.exec(line)
     if (pureInvitation?.[1]) {
       invitation = pureInvitation[1].trim()
+      collectingConstruction = false
       continue
     }
+
     if (/^Комментарий\s*:/i.test(line)) {
       comment = line.replace(/^Комментарий\s*:\s*/i, '').trim() || null
+      collectingConstruction = false
       continue
     }
     if (/^Время\s*:/i.test(line)) {
       tenseRef = line.replace(/^Время\s*:\s*/i, '').trim() || null
+      collectingConstruction = false
       continue
     }
     if (/^Конструкция\s*:/i.test(line)) {
-      constructionHint = line.replace(/^Конструкция\s*:\s*/i, '').trim() || null
+      constructionLines.length = 0
+      const first = line.replace(/^Конструкция\s*:\s*/i, '').trim()
+      if (first) constructionLines.push(first)
+      collectingConstruction = true
       continue
     }
     if (/^(Повтори|Repeat|Say)\s*:/i.test(line)) {
       repeat = line.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '').trim() || null
+      collectingConstruction = false
       continue
     }
     const inlineInvitation = /((?:\d+\)\s*)?(?:Переведи|Переведите)[^.]*\.)\s*$/i.exec(line)
@@ -196,9 +210,21 @@ function parseTranslationCoachBlocks(text: string): {
       const inv = inlineInvitation[1].replace(/^\s*\d+\)\s*/i, '').trim()
       if (inv) invitation = inv
       if (before) body.push(before)
+      collectingConstruction = false
       continue
     }
+
+    if (collectingConstruction && !isHeaderLine(line)) {
+      constructionLines.push(line)
+      continue
+    }
+
+    collectingConstruction = false
     body.push(line.replace(/^\d+\)\s*/i, ''))
+  }
+
+  if (constructionLines.length > 0) {
+    constructionHint = constructionLines.join('\n').trim() || null
   }
 
   return {
@@ -234,6 +260,27 @@ function extractTranslationCommentAndPrompt(text: string): { comment: string | n
     return { comment: first, promptText: tail }
   }
   return { comment: null, promptText: trimmed }
+}
+
+function condenseTranslationCommentToErrors(comment: string): string {
+  const compact = comment.replace(/\s+/g, ' ').trim()
+  // Достаём только предложения, которые выглядят как перечисление ошибок.
+  const sentences = compact.split(/(?<=[.!?])\s+/).map((s) => s.trim())
+  const errorSentences = sentences.filter((s) => /^(Ошибка\b|Лексическая ошибка\b)/i.test(s))
+  const normalizeSmotri = (s: string) =>
+    s
+      // Приводим: "Ошибка ... . Смотри — ..." -> "Ошибка ... — ..."
+      .replace(/(Ошибка[^.!?]*?)\.\s*(Смотри|Смотрите)\s*—/gi, '$1 —')
+      .replace(/(Ошибка[^.!?]*?)\s*(Смотри|Смотрите)\s*—/gi, '$1 —')
+
+  if (errorSentences.length > 0) return normalizeSmotri(errorSentences.join(' '))
+
+  // Fallback: если модель выдала без точек/с вопросами, пробуем вытащить куски,
+  // которые начинаются с "Ошибка..." или "Лексическая ошибка...".
+  const m = compact.match(/(?:^|[;]\s*)(Ошибка[^;.!?]+|Лексическая ошибка[^;.!?]+)(?=[;.!?]|$)/gi)
+  if (m && m.length > 0) return normalizeSmotri(m.map((x) => x.trim()).join(' '))
+
+  return comment
 }
 
 export default function Chat({
@@ -357,7 +404,9 @@ export default function Chat({
   const INPUT_MAX_HEIGHT_PX = 260
   const INPUT_GAP_PX = 10
   const INPUT_BOTTOM_RESERVE =
-    'calc(max(0.5rem, env(safe-area-inset-bottom, 0px)) + 1rem)'
+    // Чтобы нижний зазор у композера был сопоставим с боковыми отступами сообщения (`px-2.5` = 0.625rem).
+    // Safe-area учитываем как минимум.
+    'calc(max(0.625rem, env(safe-area-inset-bottom, 0px)))'
 
   const adjustInputHeight = useCallback(() => {
     const el = textareaRef.current
@@ -708,7 +757,7 @@ function MessageBubble({
   let effectiveInvitationText = invitationText
   if (!isUser && isTranslationMode) {
     const blocks = parseTranslationCoachBlocks(displayText)
-    if (blocks.comment) effectiveComment = blocks.comment
+    if (blocks.comment) effectiveComment = condenseTranslationCommentToErrors(blocks.comment)
     if (blocks.tenseRef) effectiveTenseRef = blocks.tenseRef
     if (blocks.constructionHint) effectiveConstructionHint = blocks.constructionHint
     if (blocks.repeat) repeatTextForCard = blocks.repeat
@@ -717,7 +766,7 @@ function MessageBubble({
     } else {
       const extracted = extractTranslationCommentAndPrompt(mainBefore)
       if (!effectiveComment && extracted.comment) {
-        effectiveComment = extracted.comment
+        effectiveComment = condenseTranslationCommentToErrors(extracted.comment)
       }
       effectiveMainBefore = extracted.promptText
     }

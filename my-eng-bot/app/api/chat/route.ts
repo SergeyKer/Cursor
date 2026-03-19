@@ -365,6 +365,128 @@ function fallbackQuestionForContext(params: {
   })
 }
 
+function fallbackTranslationSentenceForContext(params: {
+  topic: string
+  tense: string
+  level: string
+  audience: 'child' | 'adult'
+  seedText?: string | null
+}): string {
+  const { topic, tense, level, audience, seedText = '' } = params
+  const isChild = audience === 'child'
+  const seed = stableHash32(`translation_next|${topic}|${tense}|${level}|${audience}|${seedText}`)
+  const pick = (variants: string[]) => variants[seed % variants.length] ?? variants[0] ?? ''
+  const topicVariants: Record<string, string[]> = {
+    food: ['Я люблю готовить дома.', 'Я часто пью чай вечером.', 'Мы обычно ужинаем вместе.'],
+    family_friends: ['Я люблю свою семью.', 'У меня есть хорошие друзья.', 'Мы часто видимся по выходным.'],
+    hobbies: ['Я люблю читать книги.', 'Я часто рисую вечером.', 'Я обычно играю в шахматы дома.'],
+    movies_series: ['Я люблю смотреть фильмы.', 'Я часто смотрю сериалы вечером.', 'Мы обычно смотрим кино по выходным.'],
+    music: ['Я люблю слушать музыку.', 'Я часто слушаю песни дома.', 'Мы обычно поём вместе.'],
+    sports: ['Я люблю заниматься спортом.', 'Я часто бегаю по утрам.', 'Мы обычно играем в футбол после школы.'],
+    daily_life: ['Я обычно встаю рано.', 'Я часто завтракаю дома.', 'Мы обычно ходим в школу пешком.'],
+    travel: ['Я люблю путешествовать.', 'Я часто езжу в новые места.', 'Мы обычно планируем поездки заранее.'],
+    work: ['Я работаю в офисе.', 'Я часто пишу письма по работе.', 'Мы обычно встречаемся утром.'],
+    technology: ['Я люблю новые приложения.', 'Я часто пользуюсь телефоном.', 'Мы обычно работаем за компьютером.'],
+    culture: ['Я люблю ходить в музеи.', 'Я часто читаю о культуре.', 'Мы обычно посещаем выставки.'],
+    business: ['Я работаю с клиентами.', 'Я часто отвечаю на письма.', 'Мы обычно обсуждаем планы на встрече.'],
+    free_talk: ['Я люблю читать книги.', 'Я часто гуляю вечером.', 'Мы обычно говорим по-английски дома.'],
+  }
+  const topicPool = topicVariants[topic] ?? topicVariants.free_talk
+  const base = pick(topicPool)
+  const basic = level === 'starter' || level === 'a1' || level === 'a2'
+
+  if (tense === 'present_simple') return base
+  if (tense === 'present_continuous') {
+    return pick([
+      'Я сейчас читаю книгу.',
+      'Я сейчас готовлю ужин.',
+      'Мы сейчас смотрим фильм.',
+      basic ? 'Я сейчас учусь.' : 'Я сейчас работаю над проектом.',
+    ])
+  }
+  if (tense === 'present_perfect') {
+    return pick([
+      'Я уже прочитал книгу.',
+      'Я уже сделал домашнее задание.',
+      'Мы уже поужинали.',
+      basic ? 'Я уже увидел это.' : 'Я уже решил эту задачу.',
+    ])
+  }
+  if (tense === 'present_perfect_continuous') {
+    return pick([
+      'Я уже давно читаю эту книгу.',
+      'Я уже несколько часов работаю над проектом.',
+      'Мы уже долго ждём тебя.',
+      basic ? 'Я уже давно учусь английскому.' : 'Я уже давно занимаюсь этим проектом.',
+    ])
+  }
+  if (tense === 'past_simple') {
+    return pick([
+      'Вчера я прочитал книгу.',
+      'Вчера мы смотрели фильм.',
+      'Я пришёл домой поздно.',
+      basic ? 'Я вчера играл дома.' : 'Я вчера работал допоздна.',
+    ])
+  }
+  if (tense === 'past_continuous') {
+    return pick([
+      'Я читал книгу, когда ты позвонил.',
+      'Мы ужинали, когда начался дождь.',
+      'Я смотрел фильм, когда пришёл друг.',
+      basic ? 'Я играл, когда мама позвала меня.' : 'Я работал над проектом, когда пришло письмо.',
+    ])
+  }
+  if (tense === 'past_perfect') {
+    return pick([
+      'Я уже прочитал книгу до ужина.',
+      'Мы уже ушли, когда ты пришёл.',
+      'Я уже сделал уроки к вечеру.',
+      basic ? 'Я уже поел до прогулки.' : 'Я уже закончил работу до встречи.',
+    ])
+  }
+  if (tense === 'past_perfect_continuous') {
+    return pick([
+      'Я уже давно читал эту книгу до ужина.',
+      'Мы уже несколько часов ждали автобус.',
+      'Я уже долго работал, когда ты позвонил.',
+      basic ? 'Я уже долго играл, когда мама пришла.' : 'Я уже давно занимался этим проектом до звонка.',
+    ])
+  }
+  if (tense === 'future_simple') {
+    return pick([
+      'Завтра я прочитаю книгу.',
+      'Завтра мы пойдём в кино.',
+      'Я скоро позвоню тебе.',
+      basic ? 'Я завтра пойду гулять.' : 'Я на следующей неделе начну новый проект.',
+    ])
+  }
+  if (tense === 'future_continuous') {
+    return pick([
+      'Завтра в это время я буду читать книгу.',
+      'Завтра вечером мы будем ужинать.',
+      'Я буду работать весь день.',
+      basic ? 'Я буду учиться вечером.' : 'Я буду заниматься проектом завтра утром.',
+    ])
+  }
+  if (tense === 'future_perfect') {
+    return pick([
+      'К завтрашнему утру я уже прочитаю книгу.',
+      'К вечеру мы уже закончим работу.',
+      'К тому времени я уже всё сделаю.',
+      basic ? 'Я к вечеру уже вернусь домой.' : 'Я к понедельнику уже завершу задачу.',
+    ])
+  }
+  if (tense === 'future_perfect_continuous') {
+    return pick([
+      'К вечеру я уже буду читать книгу два часа.',
+      'К тому времени мы уже будем работать над проектом несколько часов.',
+      'К завтрашнему утру я уже буду заниматься этим час.',
+      basic ? 'К вечеру я уже буду играть несколько часов.' : 'К сроку я уже буду работать над задачей несколько часов.',
+    ])
+  }
+  return isChild ? 'Я люблю читать книги.' : base
+}
+
 /** Паттерн: "Говорится X, не Y" или "Нужно слово X, не Y" — строка с другим контекстом, если ни X, ни Y нет в сообщении пользователя. */
 const OFF_CONTEXT_CORRECTION = /(?:Говорится|Нужно слово)\s+(\w+)\s*,\s*не\s+(\w+)/i
 
@@ -1067,28 +1189,102 @@ function translationConstructionHint(tense: string): string {
   }
 }
 
-/** Доп. примеры Present Simple: прилагательное, место, частота, временная привязка (привычка/факт). */
-const PRESENT_SIMPLE_EXTRA_CONSTRUCTION_EXAMPLES =
-  'Ещё примеры: с прилагательным — I like interesting books. С местом — We read at the library. С маркером частоты — I usually read on Sundays. С временной привязкой — I read every morning.'
+/** Примеры для блока "Конструкция" (сокращаем подсказку до примеров). */
+const CONSTRUCTION_EXAMPLES_BY_TENSE: Record<string, string> = {
+  present_simple: [
+    'Примеры:',
+    'I like interesting books.',
+    'We read at the library.',
+    'I usually read on Sundays.',
+    'I read every morning.',
+  ].join('\n'),
+  present_continuous: [
+    'Примеры:',
+    'I am reading an interesting book.',
+    'We are reading at the library.',
+    'I am usually reading on Sundays.',
+    'I am reading every morning.',
+  ].join('\n'),
+  present_perfect: [
+    'Примеры:',
+    'I have read an interesting book.',
+    'We have read at the library.',
+    'I have usually read on Sundays.',
+    'I have read every morning.',
+  ].join('\n'),
+  present_perfect_continuous: [
+    'Примеры:',
+    'I have been reading an interesting book.',
+    'We have been reading at the library.',
+    'I have usually been reading on Sundays.',
+    'I have been reading every morning.',
+  ].join('\n'),
+  past_simple: [
+    'Примеры:',
+    'I read an interesting book.',
+    'We read at the library.',
+    'I usually read on Sundays.',
+    'I read every morning.',
+  ].join('\n'),
+  past_continuous: [
+    'Примеры:',
+    'I was reading an interesting book.',
+    'We were reading at the library.',
+    'I was usually reading on Sundays.',
+    'I was reading every morning.',
+  ].join('\n'),
+  past_perfect: [
+    'Примеры:',
+    'I had read an interesting book.',
+    'We had read at the library.',
+    'I had usually read on Sundays.',
+    'I had read every morning.',
+  ].join('\n'),
+  past_perfect_continuous: [
+    'Примеры:',
+    'I had been reading an interesting book.',
+    'We had been reading at the library.',
+    'I had usually been reading on Sundays.',
+    'I had been reading every morning.',
+  ].join('\n'),
+  future_simple: [
+    'Примеры:',
+    'I will read an interesting book.',
+    'We will read at the library.',
+    'I will usually read on Sundays.',
+    'I will read every morning.',
+  ].join('\n'),
+  future_continuous: [
+    'Примеры:',
+    'I will be reading an interesting book.',
+    'We will be reading at the library.',
+    'I will be reading on Sundays.',
+    'I will be reading every morning.',
+  ].join('\n'),
+  future_perfect: [
+    'Примеры:',
+    'I will have read an interesting book.',
+    'We will have read at the library.',
+    'I will have often read on Sundays.',
+    'I will have read every morning.',
+  ].join('\n'),
+  future_perfect_continuous: [
+    'Примеры:',
+    'I will have been reading an interesting book.',
+    'We will have been reading at the library.',
+    'I will have been reading on Sundays.',
+    'I will have been reading every morning.',
+  ].join('\n'),
+}
 
 function buildTranslationConstructionCoachText(tense: string, repeatSentence: string): string {
-  // Делаем подачу максимально “приземлённой”: короткое правило + пример ровно из текущего `Повтори`.
-  // Так блок “Конструкция” проще считывается сразу после ошибки.
   const example = repeatSentence.trim()
-  switch (tense) {
-    case 'present_simple':
-      return `Present Simple: говорим о привычке или о том, что для вас обычно так (простой факт). Шаблон: Subject + V1(s/es). Ваш пример: ${example}. ${PRESENT_SIMPLE_EXTRA_CONSTRUCTION_EXAMPLES}`
-    case 'present_continuous':
-      return `Present Continuous: прямо сейчас. Шаблон: Subject + am/is/are + V-ing. Пример: ${example}`
-    case 'past_simple':
-      return `Past Simple: про прошлое. Шаблон: Subject + V2. Пример: ${example}`
-    case 'past_continuous':
-      return `Past Continuous: процесс в прошлом. Шаблон: Subject + was/were + V-ing. Пример: ${example}`
-    case 'future_simple':
-      return `Future Simple: в будущем. Шаблон: Subject + will + V1. Пример: ${example}`
-    default:
-      return `Шаблон по времени: ${translationConstructionHint(tense)} Пример: ${example}`
-  }
+  const preset = CONSTRUCTION_EXAMPLES_BY_TENSE[tense]
+  if (preset) return preset
+
+  // Универсальный fallback: если времени нет в словаре (например, `all`),
+  // сохраняем формат "Примеры:" и добавляем пример пользователя.
+  return ['Примеры:', example].filter(Boolean).join('\n')
 }
 
 function replaceTranslationConstructionLine(content: string, coachText: string): string {
@@ -1158,7 +1354,11 @@ function extractLastTranslationPrompt(messages: ChatMessage[]): string | null {
   return null
 }
 
-function ensureTranslationProtocolBlocks(content: string, tense: string, fallbackPrompt: string | null): string {
+function ensureTranslationProtocolBlocks(
+  content: string,
+  params: { tense: string; topic: string; level: string; audience: 'child' | 'adult'; fallbackPrompt: string | null }
+): string {
+  const { tense, topic, level, audience, fallbackPrompt } = params
   const lines = content
     .split(/\r?\n/)
     .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
@@ -1171,28 +1371,37 @@ function ensureTranslationProtocolBlocks(content: string, tense: string, fallbac
   let hasPraise = false
   let hasInvitation = false
   const nextSentenceLines: string[] = []
+  let collectingConstruction = false
 
   for (const line of lines) {
-    if (/^Комментарий\s*:/i.test(line)) {
-      comment = line
-      const c = line.replace(/^Комментарий\s*:\s*/i, '')
-      hasPraise = /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)\b/i.test(c.trim())
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(line)) {
+      const c = line.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:\s*/i, '').trim()
+      comment = `Комментарий: ${c}`
+      hasPraise = /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)\b/i.test(c)
+      collectingConstruction = false
       continue
     }
-    if (/^Время\s*:/i.test(line)) {
-      timeLine = line
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:/i.test(line)) {
+      timeLine = line.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:\s*/i, 'Время: ').trim()
+      collectingConstruction = false
       continue
     }
-    if (/^Конструкция\s*:/i.test(line)) {
-      construction = line
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:/i.test(line)) {
+      construction = line.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:\s*/i, 'Конструкция: ').trim()
+      collectingConstruction = true
       continue
     }
-    if (/^(Повтори|Repeat|Say)\s*:/i.test(line)) {
-      repeat = line.replace(/^(Repeat|Say)\s*:/i, 'Повтори:')
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line)) {
+      repeat = line.replace(
+        /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*/i,
+        'Повтори: '
+      ).trim()
+      collectingConstruction = false
       continue
     }
-    if (/^(?:Переведи|Переведите)\b/i.test(line)) {
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*(?:Переведи|Переведите)\b/i.test(line)) {
       hasInvitation = true
+      collectingConstruction = false
       continue
     }
     const inlineInvitation = /(.*?)(?:\s+(?:\d+\)\s*)?((?:Переведи|Переведите)[^.]*\.)\s*)$/i.exec(line)
@@ -1200,8 +1409,16 @@ function ensureTranslationProtocolBlocks(content: string, tense: string, fallbac
       const before = inlineInvitation[1].trim()
       hasInvitation = true
       if (before) nextSentenceLines.push(before)
+      collectingConstruction = false
       continue
     }
+
+    if (collectingConstruction && construction) {
+      // Подхватываем многострочные варианты "Конструкция: ...", чтобы примеры не терялись.
+      construction = `${construction}\n${line}`
+      continue
+    }
+
     // Для translation не пропускаем "диалоговые" реплики.
     if (/\?\s*$/.test(line) && /[A-Za-z]/.test(line)) continue
     nextSentenceLines.push(line)
@@ -1210,13 +1427,19 @@ function ensureTranslationProtocolBlocks(content: string, tense: string, fallbac
   if (!comment) {
     comment = 'Комментарий: Грамматическая ошибка. Исправьте ответ по образцу в блоке «Повтори».'
   }
-  if (!timeLine || /^Время\s*:\s*[-–—]\s*$/i.test(timeLine)) {
+  if (!timeLine || /^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:\s*[-–—]\s*$/i.test(timeLine)) {
     timeLine = `Время: ${translationTimeHint(tense)}`
   }
-  if (!construction || /^Конструкция\s*:\s*[-–—]\s*$/i.test(construction)) {
+  if (
+    !construction ||
+    /^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:\s*[-–—]\s*$/i.test(construction)
+  ) {
     construction = `Конструкция: ${translationConstructionHint(tense)}`
   }
-  if (!hasPraise && (!repeat || /^Повтори\s*:\s*[-–—]\s*$/i.test(repeat))) {
+  if (
+    !hasPraise &&
+    (!repeat || /^[\s\-•]*(?:\d+[\.)]\s*)*Повтори\s*:\s*[-–—]\s*$/i.test(repeat))
+  ) {
     repeat = 'Повтори: Write one complete English sentence for the same Russian phrase.'
   }
 
@@ -1225,8 +1448,16 @@ function ensureTranslationProtocolBlocks(content: string, tense: string, fallbac
   if (nextSentenceLines.length > 0) {
     out.push(nextSentenceLines.join(' '))
     if (!hasInvitation) out.push('Переведи на английский.')
-  } else if (fallbackPrompt) {
-    out.push(fallbackPrompt)
+  } else {
+    out.push(
+      fallbackTranslationSentenceForContext({
+        topic,
+        tense,
+        level,
+        audience,
+        seedText: fallbackPrompt,
+      })
+    )
     out.push('Переведи на английский.')
   }
   return out.join('\n').trim()
@@ -1254,19 +1485,21 @@ function keepOnlyCommentAndRepeatOnInvalidTranslationInput(content: string, incl
     .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
     .filter(Boolean)
 
-  const commentLine = lines.find((line) => /^Комментарий\s*:/i.test(line))
+  const commentLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(line))
   if (!commentLine) return content
 
-  const commentText = commentLine.replace(/^Комментарий\s*:\s*/i, '')
+  const commentText = commentLine.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:\s*/i, '')
   const isInvalidInputCase =
     /\b(Некорректн|непонятн|не распознан|не понимаю|не понял|поясни|объясни|уточни)\b/i.test(commentText)
   if (!isInvalidInputCase) return content
 
-  const repeatLine = lines.find((line) => /^(Повтори|Repeat|Say)\s*:/i.test(line))
+  const repeatLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line))
   if (!includeRepeat) return commentLine
 
   const normalizedRepeat = repeatLine
-    ? repeatLine.replace(/^(Repeat|Say)\s*:/i, 'Повтори:')
+    ? repeatLine
+        .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*/i, 'Повтори: ')
+        .trim()
     : 'Повтори: Write one complete English sentence for the same Russian phrase.'
   return `${commentLine}\n${normalizedRepeat}`
 }
@@ -1277,9 +1510,9 @@ function isUnrecognizedTranslationContext(content: string): boolean {
     .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
     .filter(Boolean)
 
-  const commentLine = lines.find((line) => /^Комментарий\s*:/i.test(line))
+  const commentLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(line))
   if (!commentLine) return false
-  const commentText = commentLine.replace(/^Комментарий\s*:\s*/i, '')
+  const commentText = commentLine.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:\s*/i, '')
   return /\b(Некорректн|непонятн|не распознан|не понимаю|не понял|уточни|объясни|введите полное предложение|переведите предложение|что вы хотите сказать)\b/i.test(
     commentText
   )
@@ -1290,10 +1523,156 @@ function getTranslationRepeatSentence(content: string): string | null {
     .split(/\r?\n/)
     .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
     .filter(Boolean)
-  const repeatLine = lines.find((line) => /^(Повтори|Repeat|Say)\s*:/i.test(line))
+  const repeatLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line))
   if (!repeatLine) return null
-  const repeatText = repeatLine.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '').trim()
+  const repeatText = repeatLine
+    .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*/i, '')
+    .trim()
   return repeatText || null
+}
+
+function normalizeEnglishSentenceForComparison(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[’]/g, "'")
+    .replace(/[^a-z0-9'\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function isTranslationAnswerEffectivelyCorrect(userText: string, repeatSentence: string): boolean {
+  const userNorm = normalizeEnglishSentenceForComparison(userText)
+  const repeatNorm = normalizeEnglishSentenceForComparison(repeatSentence)
+  if (!userNorm || !repeatNorm) return false
+  return userNorm === repeatNorm
+}
+
+function replaceFalsePositiveTranslationErrorWithPraise(params: {
+  content: string
+  userText: string
+}): string {
+  const { content, userText } = params
+  const lines = content.split(/\r?\n/)
+  const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
+  if (commentIndex === -1) return content
+
+  const commentText = lines[commentIndex].replace(/^Комментарий\s*:\s*/i, '').trim()
+  const looksLikeError = /^(Ошибка\b|Лексическая ошибка\b|Грамматическая ошибка\b)/i.test(commentText)
+  if (!looksLikeError) return content
+
+  const repeatSentence = getTranslationRepeatSentence(content)
+  if (!repeatSentence) return content
+  if (!isTranslationAnswerEffectivelyCorrect(userText, repeatSentence)) return content
+
+  lines[commentIndex] = 'Комментарий: Отлично!'
+  return stripRepeatOnPraise(lines.join('\n'))
+}
+
+function forcePraiseIfRepeatMatchesUser(params: { content: string; userText: string }): string {
+  const { content, userText } = params
+  const repeatSentence = getTranslationRepeatSentence(content)
+  if (!repeatSentence) return content
+  if (!isTranslationAnswerEffectivelyCorrect(userText, repeatSentence)) return content
+
+  const lines = content.split(/\r?\n/)
+  const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
+  if (commentIndex === -1) return content
+  lines[commentIndex] = 'Комментарий: Отлично!'
+  return stripRepeatOnPraise(lines.join('\n'))
+}
+
+function isUserLikelyCorrectForTense(userText: string, requiredTense: string): boolean {
+  const lower = userText.trim().toLowerCase()
+  if (!lower) return false
+
+  switch (requiredTense) {
+    case 'present_simple': {
+      if (/\b(am|is|are)\s+[a-z]+ing\b/i.test(userText)) return false
+      if (/\b(yesterday|ago|last|before|went|was|were|did|had|made|saw|took|came|got|gave|said|told|knew|thought|felt|left|kept|found|wrote|read|ran|drove|ate|drank|slept|spoke|bought|brought)\b/i.test(userText)) {
+        return false
+      }
+      const lower = userText.trim().toLowerCase()
+
+      // Agreement check for he/she/it at sentence start.
+      const mPron = /^\s*(he|she|it)\s+([a-z]+)\b/i.exec(lower)
+      if (mPron) {
+        const verb = mPron[2]
+        if (/^(is|has|does)$/.test(verb)) return true
+        return /(s|es)$/.test(verb)
+      }
+
+      // Agreement check for "My/Your/His/Her + noun + verb".
+      // Example: "My mother cooks ..." -> verb must be 3rd person singular.
+      const mPoss = /^\s*(my|your|his|her)\s+[a-z]+\s+([a-z]+)\b/i.exec(lower)
+      if (mPoss) {
+        const verb = mPoss[2]
+        if (/^(is|has|does)$/.test(verb)) return true
+        return /(s|es)$/.test(verb)
+      }
+
+      // Agreement check for "a/an/the + noun + verb".
+      const mDet = /^\s*(a|an|the)\s+[a-z]+\s+([a-z]+)\b/i.exec(lower)
+      if (mDet) {
+        const verb = mDet[2]
+        if (/^(is|has|does)$/.test(verb)) return true
+        return /(s|es)$/.test(verb)
+      }
+
+      // Fallback: if we can't infer 3rd-person singular, rely on tense markers only.
+      return true
+    }
+    case 'present_continuous':
+      return /\b(am|is|are)\s+[a-z]+ing\b/i.test(userText) && !/\b(was|were|did|had)\b/i.test(userText)
+    case 'past_simple':
+      return (
+        /\b(went|was|were|did|had|made|saw|took|came|got|gave|said|told|knew|thought|felt|left|kept|found|wrote|read|ran|drove|ate|drank|slept|spoke|bought|brought)\b/i.test(
+          userText
+        ) || /\b[a-z]{3,}ed\b/i.test(userText)
+      )
+    case 'future_simple':
+      return /\bwill\s+[a-z]/i.test(userText)
+    case 'present_perfect':
+      return /\b(have|has)\b/i.test(userText)
+    case 'present_perfect_continuous':
+      return /\b(have|has)\b.*\bbeen\b.*[a-z]+ing\b/i.test(userText)
+    case 'past_perfect':
+      return /\bhad\b/i.test(userText)
+    case 'past_perfect_continuous':
+      return /\bhad\b.*\bbeen\b.*[a-z]+ing\b/i.test(userText)
+    case 'future_continuous':
+      return /\bwill\s+be\b.*[a-z]+ing\b/i.test(userText)
+    case 'future_perfect':
+      return /\bwill\s+have\b/i.test(userText)
+    case 'future_perfect_continuous':
+      return /\bwill\s+have\s+been\b.*[a-z]+ing\b/i.test(userText)
+    default:
+      return true
+  }
+}
+
+function replaceGenericRepeatFallbackWithPraiseIfUserLikelyCorrect(params: {
+  content: string
+  userText: string
+  requiredTense: string
+}): string {
+  const { content, userText, requiredTense } = params
+  const repeatSentence = getTranslationRepeatSentence(content)
+  if (!isGenericTranslationRepeatFallback(repeatSentence)) return content
+  if (!isUserLikelyCorrectForTense(userText, requiredTense)) return content
+
+  const lines = content.split(/\r?\n/)
+  const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
+  if (commentIndex !== -1) lines[commentIndex] = 'Комментарий: Отлично!'
+
+  const placeholderLower = GENERIC_TRANSLATION_REPEAT_FALLBACK.toLowerCase()
+  const filtered = lines.filter((line) => {
+    const cleaned = line.trim()
+    const isRepeatLine = /^(Повтори|Repeat|Say)\s*:/i.test(cleaned)
+    if (!isRepeatLine) return true
+    return !cleaned.toLowerCase().includes(placeholderLower)
+  })
+
+  return stripRepeatOnPraise(filtered.join('\n'))
 }
 
 const GENERIC_TRANSLATION_REPEAT_FALLBACK = 'Write one complete English sentence for the same Russian phrase.'
@@ -1813,11 +2192,8 @@ function applyTranslationCommentCoachVoice(params: {
   const commentText = originalLine.replace(/^Комментарий\s*:\s*/i, '').trim()
   if (!commentText) return content
 
-  // Не дублируем, если уже вставлено.
-  if (/\bСмотри\b|\bСмотрите\b/i.test(commentText)) return content
-
   const errorType = inferCommentErrorType(commentText)
-  const greeting = audience === 'child' ? 'Смотри' : 'Смотрите'
+  const errorTypeClean = errorType.replace(/\.\s*$/, '')
   const commentTextLower = commentText.toLowerCase()
   const errorTypeLower = errorType.toLowerCase()
   const errorTypeLowerBase = errorTypeLower.endsWith('.') ? errorTypeLower.slice(0, -1) : errorTypeLower
@@ -1835,12 +2211,14 @@ function applyTranslationCommentCoachVoice(params: {
     .trimStart()
     // Убираем возможные двоеточия/тире после типа ошибки.
     .replace(/^[:\-–—]\s*/, '')
+    // Если модель вставила "Смотри/Смотрите —", убираем это.
+    .replace(/^(Смотри|Смотрите)\s*[-–—:]\s*/i, '')
   if (!rest) {
-    lines[commentIndex] = `Комментарий: ${errorType} ${greeting}`
+    lines[commentIndex] = `Комментарий: ${errorTypeClean}`
     return lines.join('\n')
   }
 
-  if (errorType === 'Ошибка времени.') {
+  if (errorTypeClean === 'Ошибка времени') {
     let timeReason = 'потому что нужно строго нужное время.'
     switch (requiredTense) {
       case 'present_simple':
@@ -1854,11 +2232,11 @@ function applyTranslationCommentCoachVoice(params: {
         break
     }
 
-    lines[commentIndex] = `Комментарий: ${errorType} ${greeting} — ${timeReason} ${rest}`
+    lines[commentIndex] = `Комментарий: ${errorTypeClean} — ${timeReason} ${rest}`
     return lines.join('\n')
   }
 
-  lines[commentIndex] = `Комментарий: ${errorType} ${greeting} — ${rest}`
+  lines[commentIndex] = `Комментарий: ${errorTypeClean} — ${rest}`
   return lines.join('\n')
 }
 
@@ -2102,17 +2480,33 @@ export async function POST(req: NextRequest) {
       if (isFirstTurn) {
         sanitized = ensureFirstTranslationInvitation(sanitized)
       } else {
-        sanitized = ensureTranslationProtocolBlocks(sanitized, normalizedTense, lastTranslationPrompt)
-        const repeatSentence = getTranslationRepeatSentence(sanitized)
-        sanitized = enrichTranslationCommentQuality({
-          content: sanitized,
-          userText: lastUserContentForResponse,
-          repeatSentence,
+        sanitized = ensureTranslationProtocolBlocks(sanitized, {
           tense: normalizedTense,
+          topic,
+          level,
+          audience,
+          fallbackPrompt: lastTranslationPrompt,
         })
-        sanitized = keepOnlyCommentAndRepeatOnInvalidTranslationInput(sanitized, !isFirstTranslationUserTurn)
-        if (isUnrecognizedTranslationContext(sanitized)) {
-          sanitized = 'Комментарий: Некорректный ввод. Введите правильный перевод полным предложением на английском языке.'
+        const repeatSentence = getTranslationRepeatSentence(sanitized)
+        if (repeatSentence && isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, repeatSentence)) {
+          // Fast-path: модель фактически попросила пользователя повторить его же ответ — значит, ответ корректный.
+          sanitized = forcePraiseIfRepeatMatchesUser({ content: sanitized, userText: lastUserContentForResponse })
+        } else {
+          sanitized = enrichTranslationCommentQuality({
+            content: sanitized,
+            userText: lastUserContentForResponse,
+            repeatSentence,
+            tense: normalizedTense,
+          })
+          sanitized = replaceFalsePositiveTranslationErrorWithPraise({
+            content: sanitized,
+            userText: lastUserContentForResponse,
+          })
+          sanitized = keepOnlyCommentAndRepeatOnInvalidTranslationInput(sanitized, !isFirstTranslationUserTurn)
+          if (isUnrecognizedTranslationContext(sanitized)) {
+            sanitized =
+              'Комментарий: Некорректный ввод. Введите правильный перевод полным предложением на английском языке.'
+          }
         }
 
         // Coach-текст для блока "Конструкция" (привязываем правило к текущему "Повтори").
@@ -2127,53 +2521,73 @@ export async function POST(req: NextRequest) {
     if (mode === 'translation' && !isFirstTurn) {
       const repeatSentence = getTranslationRepeatSentence(sanitized)
       if (isGenericTranslationRepeatFallback(repeatSentence)) {
-        const repairApiMessages = [...apiMessages]
-        repairApiMessages[0] = {
-          role: 'system',
-          content:
-            `${systemContent}\n\n` +
-            buildTranslationMissingRepeatRepairInstruction({
-              tenseName: TENSE_NAMES[normalizedTense] ?? 'Present Simple',
-              fallbackPrompt: lastTranslationPrompt,
-            }),
-        }
+        const userLikelyCorrect = isUserLikelyCorrectForTense(lastUserContentForResponse, normalizedTense)
+        if (userLikelyCorrect) {
+          sanitized = replaceGenericRepeatFallbackWithPraiseIfUserLikelyCorrect({
+            content: sanitized,
+            userText: lastUserContentForResponse,
+            requiredTense: normalizedTense,
+          })
+        } else {
+          const repairApiMessages = [...apiMessages]
+          repairApiMessages[0] = {
+            role: 'system',
+            content:
+              `${systemContent}\n\n` +
+              buildTranslationMissingRepeatRepairInstruction({
+                tenseName: TENSE_NAMES[normalizedTense] ?? 'Present Simple',
+                fallbackPrompt: lastTranslationPrompt,
+              }),
+          }
 
-        const resRepeatRepair = await callProviderChat({ provider, req, apiMessages: repairApiMessages })
-        if (resRepeatRepair.ok) {
-          const repairedSanitizedRaw = sanitizeInstructionLeak(resRepeatRepair.content)
-          if (repairedSanitizedRaw && !isMetaGarbage(repairedSanitizedRaw)) {
-            let repaired = stripOffContextCorrections(repairedSanitizedRaw, lastUserContentForResponse)
-            repaired = normalizeAssistantPrefixForControlLines(repaired)
-            repaired = splitCommentAndRepeatSameLine(repaired)
-            repaired = stripRepeatWhenAskingToExplain(repaired)
-            repaired = normalizeVariantFormatting(repaired)
-            repaired = stripPravilnoEverywhere(repaired)
-            repaired = stripRepeatOnPraise(repaired)
-            repaired = normalizeTranslationCommentStyle(repaired)
-            repaired = ensureTranslationProtocolBlocks(repaired, normalizedTense, lastTranslationPrompt)
-
-            const repairedRepeatSentence = getTranslationRepeatSentence(repaired)
-            repaired = enrichTranslationCommentQuality({
-              content: repaired,
-              userText: lastUserContentForResponse,
-              repeatSentence: repairedRepeatSentence,
+          const resRepeatRepair = await callProviderChat({ provider, req, apiMessages: repairApiMessages })
+          if (resRepeatRepair.ok) {
+            const repairedSanitizedRaw = sanitizeInstructionLeak(resRepeatRepair.content)
+            if (repairedSanitizedRaw && !isMetaGarbage(repairedSanitizedRaw)) {
+              let repaired = stripOffContextCorrections(repairedSanitizedRaw, lastUserContentForResponse)
+              repaired = normalizeAssistantPrefixForControlLines(repaired)
+              repaired = splitCommentAndRepeatSameLine(repaired)
+              repaired = stripRepeatWhenAskingToExplain(repaired)
+              repaired = normalizeVariantFormatting(repaired)
+              repaired = stripPravilnoEverywhere(repaired)
+              repaired = stripRepeatOnPraise(repaired)
+              repaired = normalizeTranslationCommentStyle(repaired)
+            repaired = ensureTranslationProtocolBlocks(repaired, {
               tense: normalizedTense,
+              topic,
+              level,
+              audience,
+              fallbackPrompt: lastTranslationPrompt,
             })
-            repaired = keepOnlyCommentAndRepeatOnInvalidTranslationInput(repaired, !isFirstTranslationUserTurn)
-            if (isUnrecognizedTranslationContext(repaired)) {
-              repaired = 'Комментарий: Некорректный ввод. Введите правильный перевод полным предложением на английском языке.'
-            }
 
-            if (repairedRepeatSentence && !isGenericTranslationRepeatFallback(repairedRepeatSentence)) {
-              const coachText = buildTranslationConstructionCoachText(normalizedTense, repairedRepeatSentence)
-              repaired = replaceTranslationConstructionLine(repaired, coachText)
-              sanitized = repaired
+              const repairedRepeatSentence = getTranslationRepeatSentence(repaired)
+              repaired = enrichTranslationCommentQuality({
+                content: repaired,
+                userText: lastUserContentForResponse,
+                repeatSentence: repairedRepeatSentence,
+                tense: normalizedTense,
+              })
+              repaired = replaceFalsePositiveTranslationErrorWithPraise({
+                content: repaired,
+                userText: lastUserContentForResponse,
+              })
+              repaired = keepOnlyCommentAndRepeatOnInvalidTranslationInput(repaired, !isFirstTranslationUserTurn)
+              if (isUnrecognizedTranslationContext(repaired)) {
+                repaired =
+                  'Комментарий: Некорректный ввод. Введите правильный перевод полным предложением на английском языке.'
+              }
+
+              if (repairedRepeatSentence && !isGenericTranslationRepeatFallback(repairedRepeatSentence)) {
+                const coachText = buildTranslationConstructionCoachText(normalizedTense, repairedRepeatSentence)
+                repaired = replaceTranslationConstructionLine(repaired, coachText)
+                sanitized = repaired
+              }
             }
           }
-        }
 
-        if (isGenericTranslationRepeatFallback(getTranslationRepeatSentence(sanitized))) {
-          sanitized = 'Комментарий: Не удалось сформировать исправленное предложение. Попробуйте ещё раз.'
+          if (isGenericTranslationRepeatFallback(getTranslationRepeatSentence(sanitized))) {
+            sanitized = 'Комментарий: Не удалось сформировать исправленное предложение. Попробуйте ещё раз.'
+          }
         }
       }
     }
@@ -2227,7 +2641,13 @@ export async function POST(req: NextRequest) {
                 if (isFirstTurn) {
                   repaired = ensureFirstTranslationInvitation(repaired)
                 } else {
-                  repaired = ensureTranslationProtocolBlocks(repaired, normalizedTense, lastTranslationPrompt)
+                  repaired = ensureTranslationProtocolBlocks(repaired, {
+                    tense: normalizedTense,
+                    topic,
+                    level,
+                    audience,
+                    fallbackPrompt: lastTranslationPrompt,
+                  })
                   const repeatSentence2 = getTranslationRepeatSentence(repaired)
                   repaired = enrichTranslationCommentQuality({
                     content: repaired,
@@ -2318,13 +2738,23 @@ export async function POST(req: NextRequest) {
             if (isFirstTurn) {
               repaired = ensureFirstTranslationInvitation(repaired)
             } else {
-              repaired = ensureTranslationProtocolBlocks(repaired, normalizedTense, lastTranslationPrompt)
+              repaired = ensureTranslationProtocolBlocks(repaired, {
+                tense: normalizedTense,
+                topic,
+                level,
+                audience,
+                fallbackPrompt: lastTranslationPrompt,
+              })
               const repeatSentence = getTranslationRepeatSentence(repaired)
               repaired = enrichTranslationCommentQuality({
                 content: repaired,
                 userText: lastUserContentForResponse,
                 repeatSentence,
                 tense: normalizedTense,
+              })
+              repaired = replaceFalsePositiveTranslationErrorWithPraise({
+                content: repaired,
+                userText: lastUserContentForResponse,
               })
               repaired = keepOnlyCommentAndRepeatOnInvalidTranslationInput(repaired, !isFirstTranslationUserTurn)
               if (isUnrecognizedTranslationContext(repaired)) {
