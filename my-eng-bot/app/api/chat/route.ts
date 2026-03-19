@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { ChatMessage } from '@/lib/types'
+import { CHILD_TENSES } from '@/lib/constants'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const FREE_MODEL = 'openrouter/free'
@@ -127,7 +128,7 @@ const TOPIC_NAMES: Record<string, string> = {
 }
 
 const SENTENCE_TYPE_NAMES: Record<string, string> = {
-  general: 'affirmative (general)',
+  general: 'affirmative (declarative / narrative)',
   interrogative: 'interrogative (questions)',
   negative: 'negative',
   mixed: 'mixed (affirmative, interrogative, negative)',
@@ -151,8 +152,9 @@ function buildSystemPrompt(params: {
   tense: string
   audience?: 'child' | 'adult'
   praiseStyleVariant?: boolean
+  forcedRepeatSentence?: string | null
 }): string {
-  const { mode, sentenceType, topic, level, tense, audience = 'adult', praiseStyleVariant = false } = params
+  const { mode, sentenceType, topic, level, tense, audience = 'adult', praiseStyleVariant = false, forcedRepeatSentence = null } = params
   const levelPrompt = buildLevelPrompt(level)
   const tenseName = TENSE_NAMES[tense] ?? 'Present Simple'
   const topicName = TOPIC_NAMES[topic] ?? 'general'
@@ -183,6 +185,10 @@ When the user has already sent their translation (there is a user message after 
 This rule applies to every tense (Present Simple, Present Continuous, Past Simple, Future Perfect, etc.): whatever tense is selected above is the ONLY tense you may use. You MUST use ONLY ${tenseName} in all your own sentences and questions. Never use any other tense in your replies. Reformulate any question so it uses ${tenseName} (e.g. for Present Continuous ask "What are you playing?" not "What do you like to play?"; for Past Simple ask "What did you do?" not "What do you usually do?"; and so on for any tense).
 
 This applies to every tense: stick to the topic and time frame of YOUR question. Do NOT adopt the user's time frame if they answer with a different one (e.g. you asked about "recently" and they say "tomorrow"; you asked about "yesterday" and they say "next week"; you asked about "now" and they switch to the past). Your "Повтори:" sentence must be in ${tenseName} AND must match the context you asked about — never suggest a sentence in another tense or time frame. Examples: if you asked in Present Perfect about recent past, correct to "Yes, I have been to the cinema recently", not "I will go tomorrow"; if you asked in Past Simple about yesterday, correct to that context, not to "tomorrow" or "next week". Do not ask the user to repeat a sentence in a different tense or time frame than your question.`
+  const repeatFreezeRule =
+    mode === 'dialogue' && forcedRepeatSentence
+      ? `\n\nRepeat freezing rule (anti-breaking UX): If you output "Повтори:" in this turn, you MUST reuse exactly the SAME sentence that was previously shown to the user.\nPrevious "Повтори:" sentence to reuse:\n"${forcedRepeatSentence}"\nDo NOT rewrite/modify it.`
+      : ''
   const capitalizationRule =
     'Completely ignore capitalization and punctuation in the USER answer. If the only difference is capitalization or missing commas/periods (e.g. "yes I stayed" vs "Yes, I stayed"), treat the answer as correct and do NOT add any comment about it. Never mention capital letters, commas, periods, or any punctuation in "Комментарий:" — never write things like "нужна запятая", "comma after Yes", etc. Do not correct or explain punctuation. The user often dictates by voice; focus only on tense, grammar, and wording. Your OWN replies must use normal English capitalization and punctuation.';
   const contractionRule =
@@ -195,7 +201,7 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
     topic === 'free_talk'
       ? 'HIGHEST PRIORITY — Free topic (for ANY tense: Present Simple, Present Perfect, Past Simple, etc.): When the user is naming or revealing their topic (e.g. first reply after you asked "What would you like to talk about?"), do NOT output Комментарий or Повтори. Do NOT output meta-text or instructions. Only infer the topic and reply with ONE real question in the required tense. This overrides ALL correction rules below. For the first question, keep the wording aligned with the selected level profile. '
       : ''
-  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${audienceRule} ${antiRobotRule} ${topicRetentionRule} ${freeTopicPriority}${tense === 'all' ? 'Any tense.' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule} ${capitalizationRule} ${contractionRule} ${freeTalkRule}
+  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${audienceRule} ${antiRobotRule} ${topicRetentionRule} ${freeTopicPriority}${tense === 'all' ? 'Any tense.' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${repeatFreezeRule} ${capitalizationRule} ${contractionRule} ${freeTalkRule}
 
 Question style guidelines:
 - Ask short, natural questions a human would ask.
@@ -829,6 +835,46 @@ function splitCommentAndRepeatSameLine(content: string): string {
   return out.join('\n').replace(/\n\s*\n\s*\n/g, '\n\n').replace(/^\s*\n+|\n+\s*$/g, '').trim()
 }
 
+/**
+ * Если модель в "Комментарий:" просит пояснить (непонятно / объясни),
+ * то "Повтори:" быть не должно: UI использует "Повтори" только для корректировок,
+ * а здесь нужен обычный следующий вопрос.
+ *
+ * Превращаем:
+ * - "Комментарий: Непонятно... Объясни."
+ * - "Повтори: What ...?"
+ * в:
+ * - "Комментарий: Непонятно... Объясни."
+ * - "What ...?"
+ */
+function stripRepeatWhenAskingToExplain(content: string): string {
+  const rawLines = content
+    .trim()
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+
+  const commentLines = rawLines.filter((l) => /^Комментарий\s*:/i.test(l))
+  const repeatLines = rawLines.filter((l) => /^(Повтори|Repeat|Say)\s*:/i.test(l))
+  const otherLines = rawLines.filter((l) => !commentLines.includes(l) && !repeatLines.includes(l))
+
+  if (commentLines.length !== 1 || repeatLines.length !== 1 || otherLines.length !== 0) return content
+
+  const commentText = commentLines[0].replace(/^Комментарий\s*:\s*/i, '')
+  const asksExplain = /\b(Непонятно|непонятно|Не понимаю|не понимаю|Не понял|не понял|Поясни|объясни|объясните|имеешь\s+в\s+виду)\b/i.test(
+    commentText
+  )
+
+  if (!asksExplain) return content
+
+  const m = /^(?:Повтори|Repeat|Say)\s*:\s*(.+)$/i.exec(repeatLines[0])
+  const question = m?.[1]?.trim() ?? ''
+  const looksLikeQuestion = /[A-Za-z]/.test(question) && /\?\s*$/.test(question)
+  if (!looksLikeQuestion) return content
+
+  return `${commentLines[0]}\n${question}`
+}
+
 function normalizeVariantFormatting(content: string): string {
   const trimmed = content.trim()
   if (!trimmed) return content
@@ -1001,6 +1047,17 @@ function buildRepairSystemPrefix(): string {
   )
 }
 
+function extractLastAssistantRepeatSentence(messages: ChatMessage[]): string | null {
+  let last: string | null = null
+  const markerRe = /(?:^|\n)\s*(?:Повтори|Repeat|Say|Скажи)\s*:\s*(.+)$/im
+  for (const m of messages) {
+    if (m.role !== 'assistant') continue
+    const match = markerRe.exec(m.content)
+    if (match?.[1]) last = match[1].trim()
+  }
+  return last
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -1008,27 +1065,15 @@ export async function POST(req: NextRequest) {
     const provider: Provider = body.provider === 'openai' ? 'openai' : 'openrouter'
     const topic = body.topic ?? 'free_talk'
     let level = body.level ?? 'a1'
-    const tense = body.tense ?? 'present_simple'
     const mode = body.mode ?? 'dialogue'
     const sentenceType = body.sentenceType ?? 'mixed'
     const audience: 'child' | 'adult' = body.audience === 'child' ? 'child' : 'adult'
 
     // Страховка: для "Ребёнок" в Свободной теме уровень не выше A2.
-    // UI уже ограничивает это, но на сервере тоже фиксируем на случай старого localStorage/ручных запросов.
     if (audience === 'child' && topic === 'free_talk') {
       const allowed = new Set(['all', 'starter', 'a1', 'a2'])
       if (!allowed.has(String(level))) level = 'all'
     }
-
-    // Страховка: для "Ребёнок" не допускаем Perfect Continuous (их нет в UI).
-    // Если прилетело — мягко переводим на Present Simple.
-    const disallowedTensesForChild = new Set([
-      'present_perfect_continuous',
-      'past_perfect_continuous',
-      'future_perfect_continuous',
-    ])
-    const normalizedTense =
-      audience === 'child' && disallowedTensesForChild.has(String(tense)) ? 'present_simple' : tense
 
     const recentMessages = messages
       .filter((m: ChatMessage) => m.role !== 'system')
@@ -1036,9 +1081,31 @@ export async function POST(req: NextRequest) {
     const lastUserText = recentMessages.filter((m) => m.role === 'user').pop()?.content ?? ''
     const isFirstTurn = recentMessages.length === 0
     const isTopicChoiceTurn = topic === 'free_talk' && recentMessages.length === 2 && recentMessages[1]?.role === 'user'
+    const forcedRepeatSentence =
+      mode === 'dialogue' ? extractLastAssistantRepeatSentence(recentMessages) : null
+
+    // Массив времён: из body.tenses или body.tense (обратная совместимость). На каждый запрос выбираем одно.
+    let rawTenses: string[] = Array.isArray(body.tenses)
+      ? body.tenses
+      : body.tense != null
+        ? [body.tense]
+        : ['present_simple']
+    const childAllowedTenses = new Set(CHILD_TENSES)
+    if (audience === 'child') {
+      rawTenses = rawTenses.filter((t) => childAllowedTenses.has(t))
+      if (rawTenses.length === 0) rawTenses = ['present_simple']
+    }
+    const isAnyTense = rawTenses.includes('all')
+    const tenseForTurn =
+      isAnyTense || rawTenses.length === 0
+        ? 'all'
+        : rawTenses[stableHash32(JSON.stringify(recentMessages)) % rawTenses.length]
+    const normalizedTense =
+      audience === 'child' && !childAllowedTenses.has(tenseForTurn) ? 'present_simple' : tenseForTurn
+
     // Вариант 2 должен быть предсказуемым (не Math.random), чтобы баги воспроизводились и не "прыгали".
     const praiseStyleVariant =
-      mode === 'dialogue' && (stableHash32(`${topic}|${level}|${tense}|${lastUserText}`) % 100) < 45
+      mode === 'dialogue' && (stableHash32(`${topic}|${level}|${normalizedTense}|${lastUserText}`) % 100) < 45
 
     const systemPrompt = buildSystemPrompt({
       mode,
@@ -1048,6 +1115,7 @@ export async function POST(req: NextRequest) {
       tense: normalizedTense,
       audience,
       praiseStyleVariant,
+      forcedRepeatSentence,
     })
 
     const topicChoicePrefix = isTopicChoiceTurn
@@ -1116,18 +1184,19 @@ export async function POST(req: NextRequest) {
     // Делаем мягкий fallback на следующий вопрос, чтобы UX не ломался.
     if (isMetaGarbage(sanitized)) {
       return NextResponse.json({
-        content: fallbackQuestionForContext({ topic, tense, level, audience, isFirstTurn, isTopicChoiceTurn }),
+        content: fallbackQuestionForContext({ topic, tense: normalizedTense, level, audience, isFirstTurn, isTopicChoiceTurn }),
       })
     }
     const lastUserContentForResponse = recentMessages.filter((m: ChatMessage) => m.role === 'user').pop()?.content ?? ''
     sanitized = stripOffContextCorrections(sanitized, lastUserContentForResponse)
     sanitized = normalizeAssistantPrefixForControlLines(sanitized)
     sanitized = splitCommentAndRepeatSameLine(sanitized)
+    sanitized = stripRepeatWhenAskingToExplain(sanitized)
     sanitized = normalizeVariantFormatting(sanitized)
     sanitized = stripPravilnoEverywhere(sanitized)
     sanitized = stripRepeatOnPraise(sanitized)
-    sanitized = ensureNextQuestionOnPraise(sanitized, { mode, topic, tense, level, audience })
-    sanitized = ensureNextQuestionWhenMissing(sanitized, { mode, topic, tense, level, audience })
+    sanitized = ensureNextQuestionOnPraise(sanitized, { mode, topic, tense: normalizedTense, level, audience })
+    sanitized = ensureNextQuestionWhenMissing(sanitized, { mode, topic, tense: normalizedTense, level, audience })
     if (!sanitized) {
       return NextResponse.json(
         { error: 'Модель вернула некорректный ответ. Попробуйте отправить сообщение ещё раз.' },
@@ -1167,7 +1236,7 @@ export async function POST(req: NextRequest) {
         if (repaired) {
           if (isMetaGarbage(repaired)) {
             return NextResponse.json({
-              content: fallbackQuestionForContext({ topic, tense, level, audience, isFirstTurn, isTopicChoiceTurn }),
+              content: fallbackQuestionForContext({ topic, tense: normalizedTense, level, audience, isFirstTurn, isTopicChoiceTurn }),
             })
           }
           repaired = stripOffContextCorrections(repaired, lastUserContentForResponse)
@@ -1176,8 +1245,8 @@ export async function POST(req: NextRequest) {
           repaired = normalizeVariantFormatting(repaired)
           repaired = stripPravilnoEverywhere(repaired)
           repaired = stripRepeatOnPraise(repaired)
-          repaired = ensureNextQuestionOnPraise(repaired, { mode, topic, tense, level, audience })
-          repaired = ensureNextQuestionWhenMissing(repaired, { mode, topic, tense, level, audience })
+          repaired = ensureNextQuestionOnPraise(repaired, { mode, topic, tense: normalizedTense, level, audience })
+          repaired = ensureNextQuestionWhenMissing(repaired, { mode, topic, tense: normalizedTense, level, audience })
           const repairedValid = isValidTutorOutput({ content: repaired, mode, isFirstTurn })
           if (repairedValid) return NextResponse.json({ content: repaired })
         }
@@ -1185,7 +1254,7 @@ export async function POST(req: NextRequest) {
 
       // Если repair не помог — безопасный fallback, чтобы не показывать мусор.
       return NextResponse.json({
-        content: fallbackQuestionForContext({ topic, tense, level, audience, isFirstTurn, isTopicChoiceTurn }),
+        content: fallbackQuestionForContext({ topic, tense: normalizedTense, level, audience, isFirstTurn, isTopicChoiceTurn }),
       })
     }
 

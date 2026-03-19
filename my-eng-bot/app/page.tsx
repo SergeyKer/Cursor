@@ -4,8 +4,11 @@ import React, { useCallback, useEffect, useState } from 'react'
 import SlideOutMenu, { MenuIcon } from '@/components/SlideOutMenu'
 import Chat from '@/components/Chat'
 import { loadState, saveState, getUsageCountToday, incrementUsageToday, DEFAULT_SETTINGS } from '@/lib/storage'
-import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES } from '@/lib/constants'
+import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES, CHILD_TENSES } from '@/lib/constants'
+import MultiSelectDropdown from '@/components/MultiSelectDropdown'
 import type { ChatMessage, Settings, UsageInfo } from '@/lib/types'
+
+const CHILD_TENSE_SET = new Set(CHILD_TENSES)
 
 export default function Home() {
   const [mounted, setMounted] = useState(false)
@@ -35,10 +38,14 @@ export default function Home() {
   function normalizeSettingsForAudience(s: Settings): Settings {
     if (s.audience !== 'child') return s
     const allowed = new Set<Settings['level']>(['all', 'starter', 'a1', 'a2'])
+    const topicIds = new Set(TOPICS.map((t) => t.id))
+    const normalizedTopic = topicIds.has(s.topic) ? s.topic : 'free_talk'
+
     return {
       ...s,
+      topic: normalizedTopic,
       level: allowed.has(s.level) ? s.level : 'all',
-      tense: 'present_simple',
+      tenses: ['present_simple'],
     }
   }
 
@@ -133,7 +140,7 @@ export default function Home() {
                 provider: settings.provider,
                 topic: settings.topic,
                 level: settings.level,
-                tense: settings.tense,
+                tenses: settings.tenses,
                 mode: settings.mode,
                 sentenceType: settings.sentenceType,
                 audience: settings.audience,
@@ -442,8 +449,13 @@ export default function Home() {
 
   const handleNewDialog = useCallback(() => {
     newDialogRef.current = true
+    setDialogStarted(true) // чтобы UI сразу ушел со стартовой страницы
     setMessages([])
     setSettingsAtLastSend(null)
+    // На случай, если "первое сообщение" уже было запущено (или защита осталась активной),
+    // принудительно разрешаем новый старт.
+    firstMessageInFlightRef.current = false
+    firstMessageRequestIdRef.current++
     setTimeout(() => {
       ensureFirstMessage()
     }, 50)
@@ -526,7 +538,10 @@ export default function Home() {
   /** Сравнение только релевантных для чата полей: тема, время, уровень, режим (и тип предложений в режиме перевода). */
   function settingsDiffersFromLastSend(current: Settings, last: Settings | null): boolean {
     if (!last) return false
-    if (current.topic !== last.topic || current.tense !== last.tense || current.level !== last.level || current.mode !== last.mode) return true
+    const sameTenses =
+      current.tenses.length === last.tenses.length &&
+      current.tenses.every((t, i) => t === last.tenses[i])
+    if (current.topic !== last.topic || !sameTenses || current.level !== last.level || current.mode !== last.mode) return true
     if (current.mode === 'translation' && current.sentenceType !== last.sentenceType) return true
     return false
   }
@@ -534,14 +549,24 @@ export default function Home() {
   /** Строка выбранного меню для шапки: с темой "Диалог — Повседневная жизнь, Present Perfect, C2" или без "Диалог — Present Perfect, C2" */
   function getMenuSummary(includeTopic: boolean = true): string {
     const modeLabel = settings.mode === 'dialogue' ? 'Диалог' : 'Тренировка перевода'
-    const tense = TENSES.find((t) => t.id === settings.tense)?.label ?? settings.tense
+    const tenseLabel =
+      settings.tenses.length === 0
+        ? 'Все'
+        : settings.tenses.length === 1
+          ? (TENSES.find((t) => t.id === settings.tenses[0])?.label ?? settings.tenses[0])
+          : settings.tenses.length === 2
+            ? (TENSES.find((t) => t.id === settings.tenses[0])?.label ?? settings.tenses[0]) +
+              ', ' +
+              (TENSES.find((t) => t.id === settings.tenses[1])?.label ?? settings.tenses[1])
+            : `${settings.tenses.length} времени`
     const levelEntry = LEVELS.find((l) => l.id === settings.level)
     const levelShort = levelEntry ? (levelEntry.label.split(' — ')[0]?.trim() ?? levelEntry.label) : settings.level
+    const normalizedLevelShort = settings.level === 'all' ? 'Все уровни' : levelShort
     const topicLabel = TOPICS.find((t) => t.id === settings.topic)?.label
     if (includeTopic && settings.mode === 'dialogue' && topicLabel) {
-      return `${modeLabel} — ${topicLabel}, ${tense}, ${levelShort}`
+      return `${modeLabel} — ${topicLabel}, ${tenseLabel}, ${normalizedLevelShort}`
     }
-    return `${modeLabel} — ${tense}, ${levelShort}`
+    return `${modeLabel} — ${tenseLabel}, ${normalizedLevelShort}`
   }
 
   const pageTitle = !dialogStarted
@@ -571,7 +596,7 @@ export default function Home() {
         <button
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
-          className="flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-r-md border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-sm transition-colors hover:bg-[var(--border)] touch-manipulation"
+          className="flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-r-md border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-sm transition-colors hover:bg-[#d8dce0] touch-manipulation"
           aria-label={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
           title={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
         >
@@ -605,7 +630,7 @@ export default function Home() {
             <p className="text-[var(--text-muted)]">Загрузка…</p>
           </div>
         ) : !dialogStarted ? (
-          <div className="flex min-h-0 flex-1 flex-col items-center gap-6 bg-white px-4 pt-6 pb-8">
+          <div className="flex min-h-0 flex-1 flex-col items-center gap-6 bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)] px-4 pt-6 pb-8">
             <div className="w-full max-w-xs rounded-2xl border border-[var(--border)] bg-[#e8ecf0] px-4 py-4 shadow-sm space-y-3">
               <h2 className="text-sm font-semibold text-[var(--text)] mb-0.5">Выбери режим</h2>
               <div>
@@ -615,11 +640,11 @@ export default function Home() {
                   onChange={(e) =>
                     setSettings((s) => {
                       const nextAudience = e.target.value as Settings['audience']
-                      if (nextAudience === 'child') return normalizeSettingsForAudience({ ...s, audience: nextAudience, level: 'all', tense: 'present_simple' })
+                      if (nextAudience === 'child') return normalizeSettingsForAudience({ ...s, audience: nextAudience, level: 'all', tenses: ['present_simple'] })
                       return normalizeSettingsForAudience({ ...s, audience: nextAudience })
                     })
                   }
-                  className="w-full rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)]"
+                  className="w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
                 >
                   <option value="child">Ребёнок</option>
                   <option value="adult">Взрослый</option>
@@ -630,7 +655,7 @@ export default function Home() {
                 <select
                   value={settings.mode}
                   onChange={(e) => setSettings((s) => ({ ...s, mode: e.target.value as Settings['mode'] }))}
-                  className="w-full rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)]"
+                  className="w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
                 >
                   <option value="dialogue">Диалог</option>
                   <option value="translation">Тренировка перевода</option>
@@ -642,7 +667,7 @@ export default function Home() {
                   <select
                     value={settings.sentenceType}
                     onChange={(e) => setSettings((s) => ({ ...s, sentenceType: e.target.value as Settings['sentenceType'] }))}
-                    className="w-full rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)]"
+                    className="w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
                   >
                     {SENTENCE_TYPES.map((t) => (
                       <option key={t.id} value={t.id}>{t.label}</option>
@@ -655,7 +680,7 @@ export default function Home() {
                 <select
                   value={settings.topic}
                   onChange={(e) => setSettings((s) => ({ ...s, topic: e.target.value as Settings['topic'] }))}
-                  className="w-full rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)]"
+                  className="w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
                 >
                   {TOPICS.map((t) => (
                     <option key={t.id} value={t.id}>{t.label}</option>
@@ -667,7 +692,7 @@ export default function Home() {
                 <select
                   value={settings.level}
                   onChange={(e) => setSettings((s) => ({ ...s, level: e.target.value as Settings['level'] }))}
-                  className="w-full rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)]"
+                  className="w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
                 >
                   {(settings.audience === 'child' ? LEVELS.filter((l) => ['all', 'starter', 'a1', 'a2'].includes(l.id)) : LEVELS).map((l) => (
                     <option key={l.id} value={l.id}>{l.label}</option>
@@ -676,25 +701,14 @@ export default function Home() {
               </div>
               <div>
                 <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Время</label>
-                <select
-                  value={settings.tense}
-                  onChange={(e) => setSettings((s) => ({ ...s, tense: e.target.value as Settings['tense'] }))}
-                  className="w-full rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 min-h-[36px] text-sm text-[var(--text)]"
-                >
-                  {(settings.audience === 'child'
-                    ? TENSES.filter(
-                        (t) =>
-                          ![
-                            'present_perfect_continuous',
-                            'past_perfect_continuous',
-                            'future_perfect_continuous',
-                          ].includes(t.id)
-                      )
-                    : TENSES
-                  ).map((t) => (
-                    <option key={t.id} value={t.id}>{t.label}</option>
-                  ))}
-                </select>
+                <MultiSelectDropdown
+                  options={settings.audience === 'child' ? TENSES.filter((t) => CHILD_TENSE_SET.has(t.id)) : TENSES}
+                  value={settings.tenses}
+                  onChange={(tenses) => setSettings((s) => ({ ...s, tenses: tenses.length > 0 ? tenses : ['present_simple'] }))}
+                  placeholder="Выберите время"
+                  selectAllLabel="Выбрать всё"
+                  minOne
+                />
               </div>
             </div>
             <button

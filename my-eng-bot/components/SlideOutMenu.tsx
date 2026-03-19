@@ -1,8 +1,11 @@
 'use client'
 
 import React from 'react'
-import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES } from '@/lib/constants'
+import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES, CHILD_TENSES } from '@/lib/constants'
+import MultiSelectDropdown from '@/components/MultiSelectDropdown'
 import type { Settings, UsageInfo } from '@/lib/types'
+
+const CHILD_TENSE_SET = new Set(CHILD_TENSES)
 
 interface SlideOutMenuProps {
   open: boolean
@@ -36,12 +39,7 @@ export default function SlideOutMenu({
   const childAllowedLevels = new Set(['all', 'starter', 'a1', 'a2'])
   const levelOptions = isChild ? LEVELS.filter((l) => childAllowedLevels.has(l.id)) : LEVELS
   const topicOptions = TOPICS
-  const childDisallowedTenses = new Set([
-    'present_perfect_continuous',
-    'past_perfect_continuous',
-    'future_perfect_continuous',
-  ])
-  const tenseOptions = isChild ? TENSES.filter((t) => !childDisallowedTenses.has(t.id)) : TENSES
+  const tenseOptions = isChild ? TENSES.filter((t) => CHILD_TENSE_SET.has(t.id)) : TENSES
 
   const update = (patch: Partial<Settings>) => {
     onSettingsChange({ ...settings, ...patch })
@@ -53,7 +51,7 @@ export default function SlideOutMenu({
         <button
           type="button"
           onClick={onToggle}
-          className="fixed z-[60] flex h-14 w-14 min-w-[44px] min-h-[44px] items-center justify-center rounded-r-lg border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-md transition-colors hover:bg-[var(--border)] touch-manipulation left-0 top-0"
+          className="fixed z-[60] flex h-14 w-14 min-w-[44px] min-h-[44px] items-center justify-center rounded-r-lg border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-md transition-colors hover:bg-[#d8dce0] touch-manipulation left-0 top-0"
           style={{ marginLeft: 'env(safe-area-inset-left)', marginTop: 'env(safe-area-inset-top)' }}
           aria-label={open ? 'Закрыть меню' : 'Открыть меню'}
           title={open ? 'Закрыть меню' : 'Открыть меню'}
@@ -86,7 +84,7 @@ export default function SlideOutMenu({
               className="group mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] py-3 px-4 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
             >
               <NewChatIcon />
-              <span>Новый диалог</span>
+              <span>Новый чат</span>
             </button>
           )}
 
@@ -100,12 +98,12 @@ export default function SlideOutMenu({
                 onChange={(e) => {
                   const nextAudience = e.target.value as Settings['audience']
                   if (nextAudience === 'child') {
-                    update({ audience: nextAudience, level: 'all', tense: 'present_simple' })
+                    update({ audience: nextAudience, level: 'all', tenses: ['present_simple'] })
                     return
                   }
                   update({ audience: nextAudience })
                 }}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-xs text-[var(--text)] touch-manipulation"
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] pl-2 py-1.5 min-h-[36px] text-xs text-[var(--text)] touch-manipulation select-chevron"
               >
                 <option value="child">Ребёнок</option>
                 <option value="adult">Взрослый</option>
@@ -119,7 +117,7 @@ export default function SlideOutMenu({
               <select
                 value={settings.provider}
                 onChange={(e) => update({ provider: e.target.value as Settings['provider'] })}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-xs text-[var(--text)] touch-manipulation"
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] pl-2 py-1.5 min-h-[36px] text-xs text-[var(--text)] touch-manipulation select-chevron"
               >
                 <option value="openrouter">OpenRouter (free)</option>
                 <option value="openai">OpenAI — GPT‑4o mini</option>
@@ -133,7 +131,7 @@ export default function SlideOutMenu({
               <select
                 value={settings.mode}
                 onChange={(e) => update({ mode: e.target.value as Settings['mode'] })}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-xs text-[var(--text)] touch-manipulation"
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] pl-2 py-1.5 min-h-[36px] text-xs text-[var(--text)] touch-manipulation select-chevron"
               >
                 <option value="dialogue">Диалог</option>
                 <option value="translation">Тренировка перевода</option>
@@ -150,7 +148,7 @@ export default function SlideOutMenu({
                   onChange={(e) =>
                     update({ sentenceType: e.target.value as Settings['sentenceType'] })
                   }
-                  className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-xs text-[var(--text)] touch-manipulation"
+                  className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] pl-2 py-1.5 min-h-[36px] text-xs text-[var(--text)] touch-manipulation select-chevron"
                 >
                   {SENTENCE_TYPES.map((t) => (
                     <option key={t.id} value={t.id}>
@@ -168,7 +166,7 @@ export default function SlideOutMenu({
               <select
                 value={settings.topic}
                 onChange={(e) => update({ topic: e.target.value as Settings['topic'] })}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-xs text-[var(--text)] touch-manipulation"
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] pl-2 py-1.5 min-h-[36px] text-xs text-[var(--text)] touch-manipulation select-chevron"
               >
                 {topicOptions.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -185,7 +183,7 @@ export default function SlideOutMenu({
               <select
                 value={settings.level}
                 onChange={(e) => update({ level: e.target.value as Settings['level'] })}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-xs text-[var(--text)] touch-manipulation"
+                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] pl-2 py-1.5 min-h-[36px] text-xs text-[var(--text)] touch-manipulation select-chevron"
               >
                 {levelOptions.map((l) => (
                   <option key={l.id} value={l.id}>
@@ -199,17 +197,17 @@ export default function SlideOutMenu({
               <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
                 Время
               </label>
-              <select
-                value={settings.tense}
-                onChange={(e) => update({ tense: e.target.value as Settings['tense'] })}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 min-h-[36px] text-xs text-[var(--text)] touch-manipulation"
-              >
-                {tenseOptions.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
+              <MultiSelectDropdown
+                options={tenseOptions}
+                value={settings.tenses}
+                onChange={(tenses) => update({ tenses: tenses.length > 0 ? tenses : ['present_simple'] })}
+                placeholder="Выберите время"
+                selectAllLabel="Выбрать всё"
+                minOne
+                compact
+                triggerClassName="rounded border border-[var(--border)] bg-[var(--bg-card)] touch-manipulation"
+                panelClassName="max-h-[200px]"
+              />
             </div>
 
             {!isMobile && (
@@ -266,7 +264,7 @@ function VoiceSelect({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1.5 text-xs text-[var(--text)]"
+      className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] pl-2 py-1.5 text-xs text-[var(--text)] select-chevron"
     >
       <option value="">Системный по умолчанию</option>
       {list

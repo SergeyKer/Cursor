@@ -1,4 +1,4 @@
-import type { StoredState, Settings, ChatMessage } from './types'
+import type { StoredState, Settings, ChatMessage, TenseId } from './types'
 
 const STORAGE_KEY = 'my-eng-bot-state'
 const USAGE_COUNT_STORAGE = 'my-eng-bot-usage-today'
@@ -34,7 +34,7 @@ const DEFAULT_SETTINGS: Settings = {
   sentenceType: 'mixed',
   topic: 'free_talk',
   level: 'a1',
-  tense: 'present_simple',
+  tenses: ['present_simple'],
   audience: 'adult',
   voiceId: '',
 }
@@ -47,10 +47,15 @@ export function loadState(): StoredState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return { messages: [], settings: DEFAULT_SETTINGS }
-    const parsed = JSON.parse(raw) as StoredState
+    const parsed = JSON.parse(raw) as StoredState & { settings?: { tense?: string; tenses?: string[] } }
+    const merged = { ...DEFAULT_SETTINGS, ...parsed.settings }
+    if (!Array.isArray(merged.tenses) && 'tense' in parsed.settings && typeof parsed.settings.tense === 'string') {
+      merged.tenses = [parsed.settings.tense as TenseId]
+    }
+    if ('tense' in merged) delete (merged as Record<string, unknown>).tense
     return {
       messages: Array.isArray(parsed.messages) ? parsed.messages : [],
-      settings: { ...DEFAULT_SETTINGS, ...parsed.settings },
+      settings: merged as Settings,
     }
   } catch {
     return { messages: [], settings: DEFAULT_SETTINGS }

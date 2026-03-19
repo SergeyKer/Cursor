@@ -316,7 +316,7 @@ export default function Chat({
               {loading && messages.length > 0 && (
                 <div className="mt-1.5 flex justify-start">
                   <span
-                    className="rounded-xl border border-gray-200 bg-[var(--chat-section-neutral)] px-3 py-2 text-[15px] text-[var(--text)] shadow-sm"
+                    className="rounded-xl border border-gray-200 bg-[var(--chat-section-neutral)] px-3 py-2 text-[14px] italic text-[var(--text)] shadow-sm"
                     title="Ожидание ответа от ИИ"
                   >
                     ИИ печатает{retryMessage ? `… ${retryMessage}` : '…'}
@@ -698,7 +698,7 @@ function SectionCard({
       {singleLine ? (
         <p
           className={`w-full min-w-0 whitespace-normal break-words leading-snug ${
-            small ? 'text-[15px]' : 'text-[15px]'
+            small ? 'text-[14px]' : 'text-[15px]'
           } ${italic ? 'font-serif italic text-[var(--invitation)]' : 'text-[var(--text)]'}`}
           title={`${label}: ${text}`}
         >

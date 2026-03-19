@@ -13,7 +13,6 @@ export const TOPICS: { id: TopicId; label: string }[] = [
   { id: 'daily_life',     label: 'Повседневная жизнь' },
   { id: 'travel',         label: 'Путешествия' },
   { id: 'work',           label: 'Работа' },
-  { id: 'technology',     label: 'Технологии' },
 ]
 
 export const LEVELS: { id: LevelId; label: string }[] = [
@@ -43,8 +42,20 @@ export const TENSES: { id: TenseId; label: string }[] = [
   { id: 'future_perfect_continuous', label: 'Future Perfect Continuous' },
 ]
 
+/**
+ * Ограниченный набор времён для аудитории "Ребёнок".
+ * Держим список коротким и предсказуемым, чтобы не перегружать ребёнка.
+ */
+export const CHILD_TENSES: TenseId[] = [
+  'present_simple',
+  'present_continuous',
+  'past_simple',
+  'past_continuous',
+  'future_simple',
+]
+
 export const SENTENCE_TYPES: { id: SentenceType; label: string }[] = [
-  { id: 'general', label: 'Общие' },
+  { id: 'general', label: 'Повествовательные' },
   { id: 'interrogative', label: 'Вопросительные' },
   { id: 'negative', label: 'Отрицательные' },
   { id: 'mixed', label: 'Смешанные' },

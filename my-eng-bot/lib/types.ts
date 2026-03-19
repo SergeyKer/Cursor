@@ -61,7 +61,8 @@ export interface Settings {
   sentenceType: SentenceType
   topic: TopicId
   level: LevelId
-  tense: TenseId
+  /** Выбранные времена (несколько — ИИ выбирает одно на каждый запрос). */
+  tenses: TenseId[]
   audience: Audience
   voiceId: string
 }
