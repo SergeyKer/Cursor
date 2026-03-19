@@ -51,7 +51,7 @@ export default function SlideOutMenu({
         <button
           type="button"
           onClick={onToggle}
-          className="fixed z-[60] flex h-14 w-14 min-w-[44px] min-h-[44px] items-center justify-center rounded-r-lg border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-md transition-colors hover:bg-[#d8dce0] touch-manipulation left-0 top-0"
+          className="fixed z-[60] flex h-14 w-14 min-w-[44px] min-h-[44px] items-center justify-center rounded-r-lg border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-md transition-colors hover:bg-[#d0d4d8] focus-visible:bg-[#d0d4d8] active:bg-[#c8ccd0] touch-manipulation left-0 top-0"
           style={{ marginLeft: 'env(safe-area-inset-left)', marginTop: 'env(safe-area-inset-top)' }}
           aria-label={open ? 'Закрыть меню' : 'Открыть меню'}
           title={open ? 'Закрыть меню' : 'Открыть меню'}
@@ -91,7 +91,7 @@ export default function SlideOutMenu({
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
             <div>
               <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
-                Аудитория
+                Пользователь
               </label>
               <select
                 value={settings.audience}
@@ -105,7 +105,7 @@ export default function SlideOutMenu({
                 }}
                 className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] pl-2 py-1.5 min-h-[36px] text-xs text-[var(--text)] touch-manipulation select-chevron"
               >
-                <option value="child">Ребёнок</option>
+                <option value="child">Никита</option>
                 <option value="adult">Взрослый</option>
               </select>
             </div>
@@ -136,6 +136,23 @@ export default function SlideOutMenu({
                 <option value="dialogue">Диалог</option>
                 <option value="translation">Тренировка перевода</option>
               </select>
+            </div>
+
+            <div>
+              <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
+                Время
+              </label>
+              <MultiSelectDropdown
+                options={tenseOptions}
+                value={settings.tenses}
+                onChange={(tenses) => update({ tenses: tenses.length > 0 ? tenses : ['present_simple'] })}
+                placeholder="Выберите время"
+                selectAllLabel="Выбрать всё"
+                minOne
+                compact
+                triggerClassName="rounded border border-[var(--border)] bg-[var(--bg-card)] touch-manipulation"
+                panelClassName="max-h-[200px]"
+              />
             </div>
 
             {mounted && settings.mode === 'translation' && (
@@ -191,23 +208,6 @@ export default function SlideOutMenu({
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
-                Время
-              </label>
-              <MultiSelectDropdown
-                options={tenseOptions}
-                value={settings.tenses}
-                onChange={(tenses) => update({ tenses: tenses.length > 0 ? tenses : ['present_simple'] })}
-                placeholder="Выберите время"
-                selectAllLabel="Выбрать всё"
-                minOne
-                compact
-                triggerClassName="rounded border border-[var(--border)] bg-[var(--bg-card)] touch-manipulation"
-                panelClassName="max-h-[200px]"
-              />
             </div>
 
             {!isMobile && (

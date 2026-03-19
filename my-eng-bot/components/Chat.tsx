@@ -602,7 +602,7 @@ function MessageBubble({
                 <button
                   type="button"
                   onClick={handleSpeak}
-                  className="btn-3d flex w-fit items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-xs text-[var(--text-muted)] hover:bg-white hover:text-[var(--text)]"
+                  className="btn-3d-subtle flex w-fit items-center justify-center gap-1 rounded-full border border-[var(--border)] bg-white/80 px-2.5 py-0.5 text-xs text-[var(--text-muted)] hover:bg-white hover:text-[var(--text)]"
                   title="Озвучить"
                 >
                   <SpeakerIcon /> Озвучить
@@ -612,7 +612,7 @@ function MessageBubble({
                 <button
                   type="button"
                   onClick={() => setShowTranslation((v) => !v)}
-                  className="btn-3d flex w-fit items-center gap-1.5 rounded-full bg-white/80 px-2.5 py-1 text-xs text-[var(--text-muted)] hover:bg-white hover:text-[var(--text)]"
+                  className="btn-3d-subtle flex w-fit items-center justify-center gap-1.5 rounded-full border border-[var(--border)] bg-white/80 px-2.5 py-0.5 text-xs text-[var(--text-muted)] hover:bg-white hover:text-[var(--text)]"
                   title={showTranslation ? 'Скрыть перевод' : 'Показать перевод'}
                 >
                   {!showTranslation && (
@@ -627,6 +627,7 @@ function MessageBubble({
                 </button>
               )}
             </div>
+            <div className="mt-2">
             {showTranslation && hasTranslationData && message.translation && (
               <SectionCard tone="slate" label="Перевод" text={message.translation} small singleLine />
             )}
@@ -646,6 +647,7 @@ function MessageBubble({
                 singleLine
               />
             )}
+            </div>
           </>
         )}
       </div>

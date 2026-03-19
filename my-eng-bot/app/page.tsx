@@ -596,7 +596,7 @@ export default function Home() {
         <button
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
-          className="flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-r-md border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-sm transition-colors hover:bg-[#d8dce0] touch-manipulation"
+          className="flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-r-md border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-sm transition-colors hover:bg-[#d0d4d8] focus-visible:bg-[#d0d4d8] active:bg-[#c8ccd0] touch-manipulation"
           aria-label={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
           title={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
         >
@@ -634,7 +634,7 @@ export default function Home() {
             <div className="w-full max-w-xs rounded-2xl border border-[var(--border)] bg-[#e8ecf0] px-4 py-4 shadow-sm space-y-3">
               <h2 className="text-sm font-semibold text-[var(--text)] mb-0.5">Выбери режим</h2>
               <div>
-                <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Аудитория</label>
+                <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Пользователь</label>
                 <select
                   value={settings.audience}
                   onChange={(e) =>
@@ -646,7 +646,7 @@ export default function Home() {
                   }
                   className="w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
                 >
-                  <option value="child">Ребёнок</option>
+                  <option value="child">Никита</option>
                   <option value="adult">Взрослый</option>
                 </select>
               </div>
@@ -660,6 +660,17 @@ export default function Home() {
                   <option value="dialogue">Диалог</option>
                   <option value="translation">Тренировка перевода</option>
                 </select>
+              </div>
+              <div>
+                <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Время</label>
+                <MultiSelectDropdown
+                  options={settings.audience === 'child' ? TENSES.filter((t) => CHILD_TENSE_SET.has(t.id)) : TENSES}
+                  value={settings.tenses}
+                  onChange={(tenses) => setSettings((s) => ({ ...s, tenses: tenses.length > 0 ? tenses : ['present_simple'] }))}
+                  placeholder="Выберите время"
+                  selectAllLabel="Выбрать всё"
+                  minOne
+                />
               </div>
               {settings.mode === 'translation' && (
                 <div>
@@ -698,17 +709,6 @@ export default function Home() {
                     <option key={l.id} value={l.id}>{l.label}</option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Время</label>
-                <MultiSelectDropdown
-                  options={settings.audience === 'child' ? TENSES.filter((t) => CHILD_TENSE_SET.has(t.id)) : TENSES}
-                  value={settings.tenses}
-                  onChange={(tenses) => setSettings((s) => ({ ...s, tenses: tenses.length > 0 ? tenses : ['present_simple'] }))}
-                  placeholder="Выберите время"
-                  selectAllLabel="Выбрать всё"
-                  minOne
-                />
               </div>
             </div>
             <button

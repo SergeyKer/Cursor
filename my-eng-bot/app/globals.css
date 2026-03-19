@@ -71,6 +71,20 @@ body {
   box-shadow: var(--shadow-active);
 }
 
+/* Кнопки с более мягким 3D (озвучить, перевод) */
+.btn-3d-subtle {
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-3d-subtle:hover {
+  transform: translateY(-0.5px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+.btn-3d-subtle:active {
+  transform: translateY(0);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.04);
+}
+
 /* Скроллбар: светлый бегунок */
 * {
   scrollbar-width: thin;

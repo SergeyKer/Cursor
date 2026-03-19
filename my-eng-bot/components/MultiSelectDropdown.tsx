@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useEffect } from 'react'
+import React, { useRef, useEffect, useLayoutEffect, useState } from 'react'
 
 export interface MultiSelectOption {
   id: string
@@ -50,6 +50,7 @@ export default function MultiSelectDropdown({
   compact = false,
 }: MultiSelectDropdownProps) {
   const [open, setOpen] = React.useState(false)
+  const [openUp, setOpenUp] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -61,6 +62,15 @@ export default function MultiSelectDropdown({
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open])
+
+  useLayoutEffect(() => {
+    if (!open || !containerRef.current || typeof window === 'undefined') return
+    const trigger = containerRef.current.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - trigger.bottom
+    const spaceAbove = trigger.top
+    const minPanel = 180
+    setOpenUp(spaceBelow < minPanel && spaceAbove > spaceBelow)
   }, [open])
 
   const allIds = options.map((o) => o.id)
@@ -103,7 +113,10 @@ export default function MultiSelectDropdown({
       {open && (
         <div
           role="listbox"
-          className={`absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-[var(--border)] bg-white shadow-lg py-1 max-h-[240px] overflow-y-auto ${textSize} ${panelClassName}`}
+          className={`absolute left-0 right-0 z-50 rounded-lg border border-[var(--border)] bg-white shadow-lg py-1 overflow-y-auto ${textSize} ${panelClassName} ${
+            openUp ? 'bottom-full mb-1' : 'top-full mt-1'
+          }`}
+          style={{ maxHeight: 'min(220px, 40vh)' }}
         >
           {selectAllLabel && (
             <label className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-[var(--border)]/50 border-b border-[var(--border)]">
