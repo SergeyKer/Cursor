@@ -627,27 +627,29 @@ function MessageBubble({
                 </button>
               )}
             </div>
-            <div className="mt-2">
-            {showTranslation && hasTranslationData && message.translation && (
-              <SectionCard tone="slate" label="Перевод" text={message.translation} small singleLine />
-            )}
-            {hasTranslationError && (
-              <SectionCard tone="amber" label="Перевод" text="Перевод не пришёл, нажми ещё раз." small singleLine />
-            )}
-            {showTranslation && !hasTranslationData && !hasTranslationError && (
-              <SectionCard
-                tone="slate"
-                label="Перевод"
-                text={
-                  onRequestTranslation && textToTranslate.trim()
-                    ? (translationRetryMessage ?? 'Загрузка перевода…')
-                    : 'Перевод для этого сообщения недоступен.'
-                }
-                small
-                singleLine
-              />
-            )}
-            </div>
+            {(showTranslation && hasTranslationData && message.translation) || hasTranslationError || (showTranslation && !hasTranslationData && !hasTranslationError) ? (
+              <div className="mt-2">
+                {showTranslation && hasTranslationData && message.translation && (
+                  <SectionCard tone="slate" label="Перевод" text={message.translation} small singleLine />
+                )}
+                {hasTranslationError && (
+                  <SectionCard tone="amber" label="Перевод" text="Перевод не пришёл, нажми ещё раз." small singleLine />
+                )}
+                {showTranslation && !hasTranslationData && !hasTranslationError && (
+                  <SectionCard
+                    tone="slate"
+                    label="Перевод"
+                    text={
+                      onRequestTranslation && textToTranslate.trim()
+                        ? (translationRetryMessage ?? 'Загрузка перевода…')
+                        : 'Перевод для этого сообщения недоступен.'
+                    }
+                    small
+                    singleLine
+                  />
+                )}
+              </div>
+            ) : null}
           </>
         )}
       </div>
