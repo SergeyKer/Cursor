@@ -240,7 +240,7 @@ When the required tense is Present Continuous, you may optionally include or sug
 
 EXCEPTION for free topic (Свободная тема), for any tense: when the user is naming or revealing a topic (e.g. after you asked "What would you like to talk about?"), NEVER output Комментарий or Повтори. Always try to infer the topic first — ignore typos and wrong tense (e.g. "I wil plai footbal" → football, sport; "tenis", "vialint" → tennis, violin). Output exactly one question about that topic. Only if the message gives no hint at all (e.g. "sdf", random letters), ask for clarification in a natural human way and vary your wording across turns (do not repeat the same clarification sentence again and again). No error search, no corrections in that step.
 
-CRITICAL — Context: Your correction (Комментарий/Говорится/Нужно слово/Повтори) must refer ONLY to the user's LAST message. Never output a correction about words or mistakes that are not in that message (e.g. if the user wrote "I usually swim in the pool", do NOT correct "movie" vs "move" — that is from another turn). If the last message has no errors, output only praise (Комментарий: Отлично! etc.) and the next question in English.
+CRITICAL — Context: Your correction (Комментарий/Говорится/Нужно слово/Повтори) must refer ONLY to the user's LAST message. Never output a correction about words or mistakes that are not in that message (e.g. if the user wrote "I usually swim in the pool", do NOT correct "movie" vs "move" — that is from another turn). If the last message has no errors, output only the next question in English.
 
 This applies to every tense (Present Simple, Present Continuous, Past Simple, Future Perfect, etc.): you MUST correct the user's answer according to ALL applicable rules. Check every dimension: (1) required tense — if they used another tense, correct it; (2) grammar — word order, verb form, articles (a/an/the), plural/singular; (3) spelling — correct every misspelled word; (4) word choice — wrong word (e.g. "move" instead of "movie") must be fixed. The "Повтори:" sentence must fix ALL errors at once; the "Комментарий:" must briefly list ALL issues so the user sees what was wrong. Do not correct only one mistake and ignore others.
 
@@ -251,8 +251,7 @@ FORMAT (strict):
    - "Комментарий: " + a very short explanation in Russian (1–2 short sentences max). Briefly list ALL issues (tense, grammar, spelling, word choice). Do not mention capitalization or punctuation.
    - "Повтори: " + the FULL corrected English sentence (fixing all errors at once). Always write a complete sentence with normal punctuation.
    In this case do NOT add a follow‑up question — the user must repeat first.
-2) When the user's answer is already correct: output "Комментарий: " + brief praise in Russian (e.g. "Комментарий: Отлично!") and then on the next line ask the next question in English. Do NOT output "Повтори:" for correct answers.${praiseStyleVariant ? ` Sometimes (not always) make the praise sound more human by adding ONE short extra clause to the SAME "Комментарий:" line (still in Russian), e.g. mention that the tense/grammar sounded natural. Optionally, in that same "Комментарий:" line, you may add one alternative version of the user's sentence with ONE extra adjective or adverb (keep it simple, level-appropriate), prefixed by "Вариант: ". Do NOT add extra lines for this; it must stay inside the same single "Комментарий:" line.` : ''}
-2) When the user's answer is already correct: output "Комментарий: " + brief praise in Russian (e.g. "Комментарий: Отлично!") and then on the next line ask the next question in English. Do NOT output "Повтори:" for correct answers.${praiseStyleVariant ? ` Sometimes (not always) make the praise sound more human by adding ONE short extra clause to the SAME "Комментарий:" line (still in Russian), e.g. mention that the tense/grammar sounded natural. Optionally, you may add one alternative version of the user's sentence with ONE extra adjective or adverb (keep it simple, level-appropriate), prefixed by "*Возможный вариант: ...*". The whole "Возможный вариант" sentence MUST be in italics using asterisks. The variant can be on the same line as "Комментарий:" or on its own line, but do NOT add any other extra lines.` : ''}
+2) When the user's answer is already correct: do NOT output "Комментарий:" at all. Output only the next question in English, and make it the next sentence by the algorithm for this topic/tense. Do NOT output "Повтори:" for correct answers.${praiseStyleVariant ? ` If you need a human-sounding reaction, keep it implicit — do not add any extra visible line or comment.` : ''}
 
 Never add raw markers like **Correction:**, **Comment:**, **Right:** or similar anywhere in the visible text. The user should never see those words with asterisks.
 
@@ -262,7 +261,7 @@ If the user clearly asks YOU a simple personal-style question about preferences 
 
 Never use "Tell me" or other English instruction phrases. After a correction, you may optionally add a short Russian prompt like "Повтори: " + the correct English sentence so the user can repeat it, but keep it separate from the \"Комментарий\" line.
 
-Do NOT add any extra \"RU:\" line or full Russian translation of the whole reply. All visible text must be in English EXCEPT: (1) the \"Комментарий:\" line — always in Russian (including when the answer is correct: use \"Комментарий: Отлично!\" or \"Комментарий: Молодец!\" etc., then the next question in English).`
+Do NOT add any extra \"RU:\" line or full Russian translation of the whole reply. All visible text must be in English EXCEPT: (1) the \"Комментарий:\" line — always in Russian when correcting mistakes, and absent for correct answers.`
 }
 
 /** Паттерны утечки инструкций: модель выводит описание шагов вместо ответа пользователю. */
@@ -781,7 +780,8 @@ function dropTruncatedTrailingLines(text: string): string {
 
 /**
  * Страховка UX: иногда модель, даже при корректном ответе, даёт похвалу/мета‑фразу,
- * но не задаёт следующий вопрос или обрезает ответ ("AI: T"). По протоколу следующий вопрос обязателен.
+ * но не задаёт следующий вопрос или обрезает ответ ("AI: T"). При верном ответе
+ * скрываем комментарий и подставляем следующий вопрос по алгоритму.
  */
 function ensureNextQuestionOnPraise(content: string, params: {
   mode: string
@@ -797,14 +797,7 @@ function ensureNextQuestionOnPraise(content: string, params: {
   const praiseComment = /^\s*Комментарий\s*:\s*(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)\b/im
   if (!praiseComment.test(trimmed)) return content
 
-  const lines = trimmed.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
-  const hasRealQuestion = lines.some(
-    (l) => l.length >= MIN_QUESTION_LENGTH && /\?\s*$/.test(l) && /[A-Za-z]/.test(l)
-  )
-  if (hasRealQuestion) return trimmed
-
-  const withoutTruncated = dropTruncatedTrailingLines(trimmed)
-  return `${withoutTruncated}\n${fallbackNextQuestion(params)}`
+  return fallbackNextQuestion(params)
 }
 
 function ensureNextQuestionWhenMissing(content: string, params: {
@@ -2311,8 +2304,7 @@ function buildRepairSystemPrefix(): string {
     'REPAIR MODE: Your last output was invalid (it contained meta/instructions). ' +
     'Rewrite the reply so it follows the required protocol EXACTLY and contains only user-visible text. ' +
     'No explanations, no meta, no bullet lists, no quotes of rules. ' +
-    'Output only one of: (A) a single English question; (B) two lines: "Комментарий: ..." (Russian) + "Повтори: ..." (English); ' +
-    '(C) two lines: "Комментарий: ..." (Russian) + next question in English.\n\n'
+    'Output only one of: (A) a single English question; (B) two lines: "Комментарий: ..." (Russian) + "Повтори: ..." (English).\n\n'
   )
 }
 
