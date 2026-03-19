@@ -24,7 +24,7 @@ function computeBottomInsetPx(): number {
   // Даем минимальный запас, чтобы поле ввода не уходило под системные кнопки.
   const isAndroid = /Android/i.test(navigator.userAgent)
   const isLandscape = window.innerWidth > window.innerHeight
-  const androidMinInset = isAndroid ? (isLandscape ? 64 : 72) : 0
+  const androidMinInset = isAndroid ? (isLandscape ? 76 : 88) : 0
 
   return Math.max(vvInset, androidMinInset)
 }
@@ -46,7 +46,7 @@ function computeSideInsetsPx(): { left: number; right: number } {
   // но VisualViewport иногда отдаёт нули. Добавляем минимальный боковой запас.
   const isAndroid = /Android/i.test(navigator.userAgent)
   const isLandscape = window.innerWidth > window.innerHeight
-  const androidSideMinInset = isAndroid && isLandscape ? 40 : 0
+  const androidSideMinInset = isAndroid && isLandscape ? 64 : 0
 
   return {
     left: Math.max(vvLeftInset, androidSideMinInset),

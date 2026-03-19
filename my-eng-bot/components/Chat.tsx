@@ -179,7 +179,7 @@ export default function Chat({
   const INPUT_MAX_HEIGHT_PX = 260
   const INPUT_GAP_PX = 10
   const INPUT_BOTTOM_RESERVE =
-    'calc(max(0.5rem, env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset)) + 0.5rem)'
+    'calc(max(0.5rem, env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset)) + 1rem)'
 
   const adjustInputHeight = useCallback(() => {
     const el = textareaRef.current
