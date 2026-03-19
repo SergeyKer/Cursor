@@ -585,14 +585,14 @@ export default function Home() {
 
   if (!mounted) {
     return (
-      <div className="flex h-screen min-h-[100dvh] items-center justify-center">
+      <div className="flex min-h-[100dvh] items-center justify-center">
         <p className="text-[var(--text-muted)]">Загрузка…</p>
       </div>
     )
   }
 
   return (
-    <div className="flex h-screen min-h-[100dvh] flex-col">
+    <div className="flex min-h-[100dvh] flex-col">
       <header
         className="fixed left-0 right-0 top-0 z-[60] flex shrink-0 items-center border-b border-[var(--border)] bg-[var(--bg)]"
         style={{
