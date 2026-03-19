@@ -51,7 +51,7 @@ export default function SlideOutMenu({
         <button
           type="button"
           onClick={onToggle}
-          className="fixed z-[60] flex h-14 w-14 min-w-[44px] min-h-[44px] items-center justify-center rounded-r-lg border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-md transition-colors hover:bg-[#d0d4d8] focus-visible:bg-[#d0d4d8] active:bg-[#c8ccd0] touch-manipulation left-0 top-0"
+          className="btn-3d-menu fixed z-[60] flex h-14 w-14 min-w-[44px] min-h-[44px] items-center justify-center rounded-r-lg border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] touch-manipulation left-0 top-0"
           style={{ marginLeft: 'env(safe-area-inset-left)', marginTop: 'env(safe-area-inset-top)' }}
           aria-label={open ? 'Закрыть меню' : 'Открыть меню'}
           title={open ? 'Закрыть меню' : 'Открыть меню'}

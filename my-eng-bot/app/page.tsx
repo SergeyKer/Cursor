@@ -602,7 +602,7 @@ export default function Home() {
         <button
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
-          className="flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-r-md border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-sm transition-colors hover:bg-[#d0d4d8] focus-visible:bg-[#d0d4d8] active:bg-[#c8ccd0] touch-manipulation"
+          className="btn-3d-menu flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-r-md border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] touch-manipulation"
           aria-label={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
           title={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
         >
