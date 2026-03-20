@@ -180,10 +180,7 @@ function buildSystemPrompt(params: {
   const tenseName = TENSE_NAMES[tense] ?? 'Present Simple'
   const topicName = TOPIC_NAMES[topic] ?? 'general'
   const sentenceTypeName = sentenceType ? SENTENCE_TYPE_NAMES[sentenceType] ?? 'mixed' : 'mixed'
-  const audienceRule =
-    audience === 'child'
-      ? 'Audience: CHILD. Use friendly, simple, everyday English. Keep questions short and clear. Prefer concrete topics (school, friends, games, food). Avoid abstract wording.'
-      : 'Audience: ADULT. Use natural conversational English. Keep questions clear and not overly formal.'
+  const audienceStyleRule = buildAudienceStyleRule(audience)
   const antiRobotRule =
     'Avoid robotic/formal connectors. NEVER use phrases like "related to", "when it comes to", "in terms of", or "regarding". Ask like a real person.'
   const topicRetentionRule =
@@ -201,6 +198,7 @@ function buildSystemPrompt(params: {
 Rules:
 - Language: detect the user's language from their last message (Russian/English). Answer in the same language. If unclear, default to Russian.
 - Language detection rule: majority of Cyrillic vs Latin letters in the user's last message; if counts are equal, use the language of the previous assistant reply (if available), otherwise default to Russian.
+- ${audienceStyleRule}
 - Keep replies short and focused (1–3 sentences). No long explanations.
 - Do NOT output any tutor/protocol markers: no "Комментарий:", no "Повтори:", no "Время:", no "Конструкция:", no "Переведи на английский", and no "RU:" / "Russian:" labels.
 - Allow both Russian and English conversation freely. You may answer questions, follow-ups, and change your style if the user asks.
@@ -209,18 +207,17 @@ Rules:
 
 When you are sending the very first assistant message:
 - Output a friendly brief greeting + an invitation to ask a question or continue the conversation.
-- Vary the wording (do not repeat the exact same phrase).
-
-Child style (when audience is CHILD):
-- Use a friendly tone, simple words, and short sentences (still in Russian or English as appropriate).
-- Prefer safe, age-appropriate topics: school, friends, hobbies, sports, music, movies, food, travel, daily life, culture.
-- Avoid moralizing, sarcasm, and strictness. If clarification is needed, ask one very simple question.
+- Use exactly one greeting only; do not stack multiple greetings or add extra filler before the invitation.
+- Vary the wording across different conversations; do not reuse the same opening phrase every time.
+- Match the audience style exactly: CHILD -> "ты" in Russian, simple and warm tone; ADULT -> "вы" in Russian, respectful and natural tone.
 
 No other format. Output only the chat message text.`
   }
 
   if (mode === 'translation') {
     return `Translation training. Topic: ${topicName}, ${levelPrompt}, ${sentenceTypeName}. Required tense: ${tenseName}.
+
+${audienceStyleRule}
 
 When the conversation is empty (first assistant turn), output ONLY:
 1) one Russian sentence to translate
@@ -274,7 +271,7 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
     topic === 'free_talk'
       ? 'HIGHEST PRIORITY — Free topic (for ANY tense: Present Simple, Present Perfect, Past Simple, etc.): When the user is naming or revealing their topic (e.g. first reply after you asked "What would you like to talk about?"), do NOT output Комментарий or Повтори. Do NOT output meta-text or instructions. Only infer the topic and reply with ONE real question in the required tense. This overrides ALL correction rules below. For the first question, keep the wording aligned with the selected level profile. '
       : ''
-  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${audienceRule} ${antiRobotRule} ${topicRetentionRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Any tense.' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${repeatFreezeRule} ${capitalizationRule} ${contractionRule} ${freeTalkRule}
+  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${audienceStyleRule} ${antiRobotRule} ${topicRetentionRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Any tense.' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${repeatFreezeRule} ${capitalizationRule} ${contractionRule} ${freeTalkRule}
 
 Question style guidelines:
 - Ask short, natural questions a human would ask.
@@ -411,6 +408,42 @@ function fallbackQuestionForContext(params: {
     level: params.level,
     audience: params.audience,
   })
+}
+
+function buildAudienceStyleRule(audience: 'child' | 'adult'): string {
+  return audience === 'child'
+    ? 'Audience style: CHILD. In Russian replies, address the user with "ты". Keep the tone warm, simple, encouraging, and concrete. In English replies, use short, friendly, child-appropriate wording. Avoid formal or overly serious language.'
+    : 'Audience style: ADULT. In Russian replies, address the user with "вы". Keep the tone natural, respectful, and concise. In English replies, use natural adult-to-adult wording. Avoid childish wording or over-familiarity.'
+}
+
+function buildCommunicationFallbackMessage(params: {
+  audience: 'child' | 'adult'
+  language: 'ru' | 'en'
+  firstTurn?: boolean
+}): string {
+  const { audience, language, firstTurn = false } = params
+  const isChild = audience === 'child'
+
+  if (firstTurn) {
+    if (language === 'ru') {
+      return isChild
+        ? 'Привет! Как ты? Что хочешь обсудить?'
+        : 'Здравствуйте! Как вы? О чём хотите поговорить?'
+    }
+    return isChild
+      ? 'Hi! How are you? What would you like to talk about?'
+      : 'Hello! How are you doing? What would you like to discuss?'
+  }
+
+  if (language === 'ru') {
+    return isChild
+      ? 'Уточни, пожалуйста, что ты имеешь в виду.'
+      : 'Уточните, пожалуйста, что вы имеете в виду.'
+  }
+
+  return isChild
+    ? 'What do you mean? Could you say that another way?'
+    : 'Could you clarify what you mean?'
 }
 
 function fallbackTranslationSentenceForContext(params: {
@@ -3037,16 +3070,13 @@ export async function POST(req: NextRequest) {
     // Делаем мягкий fallback на следующий интент, чтобы UX не ломался.
     if (isMetaGarbage(sanitized)) {
       if (mode === 'communication') {
-        const content =
-          isFirstTurn && detectedUserLang === 'ru'
-            ? 'Привет! Что вы хотите узнать или обсудить?'
-            : isFirstTurn && detectedUserLang === 'en'
-              ? 'Hi! What would you like to ask or discuss?'
-              : detectedUserLang === 'ru'
-                ? 'Уточните, пожалуйста, что вы имеете в виду.'
-                : 'Could you clarify what you mean?'
-
-        return NextResponse.json({ content })
+        return NextResponse.json({
+          content: buildCommunicationFallbackMessage({
+            audience,
+            language: detectedUserLang,
+            firstTurn: isFirstTurn,
+          }),
+        })
       }
 
       return NextResponse.json({
@@ -3360,14 +3390,11 @@ export async function POST(req: NextRequest) {
         cleaned = stripPostGreetingFillers(cleaned, targetLang)
       }
 
-      const fallback =
-        isFirstTurn && targetLang === 'ru'
-          ? 'Привет! Что вы хотите узнать или обсудить?'
-          : isFirstTurn && targetLang === 'en'
-            ? 'Hi! What would you like to ask or discuss?'
-            : targetLang === 'ru'
-              ? 'Уточните, пожалуйста, что вы имеете в виду.'
-              : 'Could you clarify what you mean?'
+      const fallback = buildCommunicationFallbackMessage({
+        audience,
+        language: targetLang,
+        firstTurn: isFirstTurn,
+      })
 
       if (!cleaned) cleaned = fallback
 
@@ -3413,16 +3440,12 @@ export async function POST(req: NextRequest) {
       if (isFirstTurn) {
         // Расширяем проверку на приветствия: модель иногда выдает опечатку
         // вроде "Здраствуй" вместо "Здравствуй", из-за чего авто-добавление
-        // приветствия срабатывает повторно (получается "двойное приветствие").
+        // приветствия раньше срабатывало повторно (получалось "двойное приветствие").
         const hasRuGreeting = /^(Привет|Здравствуй|Здраствуй|Здравствуйте|Добрый\s+день|Приветик|Хай)\b/i.test(cleaned)
         const hasEnGreeting = /^(Hi|Hello|Hey|Greetings)\b/i.test(cleaned)
         const hasGreeting = targetLang === 'ru' ? hasRuGreeting : hasEnGreeting
         if (!hasGreeting) {
-          const ruGreetings = ['Привет!', 'Здравствуйте!', 'Здравствуй!']
-          const enGreetings = ['Hi!', 'Hello!', 'Hey!']
-          const seed = stableHash32(`comm_first_greet|${targetLang}|${audience}`)
-          const greeting = (targetLang === 'ru' ? ruGreetings : enGreetings)[seed % (targetLang === 'ru' ? ruGreetings.length : enGreetings.length)]
-          cleaned = `${greeting} ${cleaned}`.replace(/\s+/g, ' ').trim()
+          cleaned = fallback
         }
       }
 
