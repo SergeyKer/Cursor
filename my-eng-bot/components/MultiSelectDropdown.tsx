@@ -16,6 +16,8 @@ interface MultiSelectDropdownProps {
   minOne?: boolean
   /** Первый пункт «Выбрать все»: при выборе отмечает все опции */
   selectAllLabel?: string
+  /** Значение, которое нужно оставить при повторном клике по «Выбрать все» */
+  selectAllResetValue?: string[]
   className?: string
   triggerClassName?: string
   panelClassName?: string
@@ -44,6 +46,7 @@ export default function MultiSelectDropdown({
   placeholder = 'Выберите…',
   minOne = true,
   selectAllLabel,
+  selectAllResetValue = [],
   className = '',
   triggerClassName = '',
   panelClassName = '',
@@ -96,10 +99,8 @@ export default function MultiSelectDropdown({
 
   const toggleSelectAll = () => {
     if (allSelected) {
-      // При обязательном выборе хотя бы одного пункта повторный тап по
-      // "Выбрать всё" не должен сбрасывать все времена.
       if (minOne) {
-        onChange([...selectableIds])
+        onChange(selectAllResetValue.length > 0 ? [...selectAllResetValue] : [...selectableIds])
         return
       }
       onChange([])

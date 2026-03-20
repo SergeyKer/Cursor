@@ -33,8 +33,6 @@ export default function SlideOutMenu({
     setMounted(true)
   }, [])
 
-  const isMobile = mounted && typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-
   const isChild = settings.audience === 'child'
   const childAllowedLevels = new Set(['all', 'starter', 'a1', 'a2'])
   const levelOptions = isChild ? LEVELS.filter((l) => childAllowedLevels.has(l.id)) : LEVELS
@@ -155,6 +153,7 @@ export default function SlideOutMenu({
                 }
                 placeholder="Выберите время"
                 selectAllLabel="Выбрать всё"
+                selectAllResetValue={['present_simple']}
                 minOne
                 compact
                 triggerClassName="rounded border border-[var(--border)] bg-[var(--bg-card)] touch-manipulation"
@@ -217,17 +216,15 @@ export default function SlideOutMenu({
               </select>
             </div>
 
-            {!isMobile && (
-              <div>
-                <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
-                  Голос
-                </label>
-                <VoiceSelect
-                  value={settings.voiceId}
-                  onChange={(voiceId) => update({ voiceId })}
-                />
-              </div>
-            )}
+            <div>
+              <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
+                Голос
+              </label>
+              <VoiceSelect
+                value={settings.voiceId}
+                onChange={(voiceId) => update({ voiceId })}
+              />
+            </div>
 
             <div className="rounded bg-[var(--border)]/50 px-2 py-1.5">
               <span className="text-xs text-[var(--text-muted)]">

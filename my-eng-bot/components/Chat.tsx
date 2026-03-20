@@ -18,7 +18,6 @@ interface ChatProps {
   retryMessage?: string | null
   onRequestTranslation?: (index: number, text: string) => void
   loadingTranslationIndex?: number | null
-  translationRetryMessage?: string | null
 }
 
 type BubblePosition = 'solo' | 'first' | 'middle' | 'last'
@@ -296,7 +295,6 @@ export default function Chat({
   retryMessage,
   onRequestTranslation,
   loadingTranslationIndex,
-  translationRetryMessage,
 }: ChatProps) {
   const [input, setInput] = React.useState('')
   const [inputFocused, setInputFocused] = React.useState(false)
@@ -341,7 +339,9 @@ export default function Chat({
     }
 
     if (recognitionRef.current) {
-      recognitionRef.current.abort()
+      // Останавливаем предыдущую сессию мягко, без abort().
+      recognitionRef.current.stop()
+      recognitionRef.current = null
     }
     setInput('')
     const rec = new SpeechRecognitionAPI()
@@ -353,7 +353,12 @@ export default function Chat({
       const text = event.results[last]?.[0]?.transcript ?? ''
       if (text) setInput(text)
     }
-    rec.onend = () => setListening(false)
+    rec.onend = () => {
+      if (recognitionRef.current === rec) {
+        recognitionRef.current = null
+        setListening(false)
+      }
+    }
     rec.onerror = (event: Event) => {
       // SpeechRecognitionErrorEvent есть не во всех TS lib, поэтому берём как any.
       const err = (event as unknown as { error?: string; message?: string }).error
@@ -362,7 +367,10 @@ export default function Chat({
       // "aborted" — нормальная ситуация: распознавание прервали (стоп, потеря фокуса, повторный старт).
       // Не показываем это как ошибку пользователю.
       if (/^aborted$/i.test(code)) {
-        setListening(false)
+        if (recognitionRef.current === rec) {
+          recognitionRef.current = null
+          setListening(false)
+        }
         return
       }
       if (/not-allowed|permission/i.test(code)) {
@@ -374,7 +382,10 @@ export default function Chat({
       } else if (code) {
         setInput(`[Ошибка распознавания речи: ${code}]`)
       }
-      setListening(false)
+      if (recognitionRef.current === rec) {
+        recognitionRef.current = null
+        setListening(false)
+      }
     }
     recognitionRef.current = rec
     try {
@@ -389,7 +400,7 @@ export default function Chat({
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
       try {
-        recognitionRef.current.abort()
+        recognitionRef.current.stop()
       } catch {
         // ignore
       }
@@ -500,9 +511,6 @@ export default function Chat({
                       bubblePosition={bubblePosition}
                       onRequestTranslation={onRequestTranslation}
                       isLoadingTranslation={loadingTranslationIndex === i}
-                      translationRetryMessage={
-                        loadingTranslationIndex === i ? translationRetryMessage : null
-                      }
                     />
                     {firstMessageError &&
                       onRetryFirstMessage &&
@@ -691,7 +699,6 @@ function MessageBubble({
   bubblePosition,
   onRequestTranslation,
   isLoadingTranslation,
-  translationRetryMessage,
 }: {
   message: ChatMessageType
   messageIndex: number
@@ -700,7 +707,6 @@ function MessageBubble({
   bubblePosition: BubblePosition
   onRequestTranslation?: (index: number, text: string) => void
   isLoadingTranslation?: boolean
-  translationRetryMessage?: string | null
 }) {
   const isUser = message.role === 'user'
   const [showTranslation, setShowTranslation] = React.useState(false)
@@ -903,17 +909,14 @@ function MessageBubble({
                   <SectionCard tone="amber" label="Перевод" text="Перевод не пришёл, нажми ещё раз." small singleLine />
                 )}
                 {showTranslation && !hasTranslationData && !hasTranslationError && (
-                  <SectionCard
-                    tone="slate"
-                    label="Перевод"
-                    text={
-                      onRequestTranslation && textToTranslate.trim()
-                        ? (translationRetryMessage ?? 'Загрузка перевода…')
-                        : 'Перевод для этого сообщения недоступен.'
-                    }
-                    small
-                    singleLine
-                  />
+                  <div className="mt-1.5 flex justify-start">
+                    <span
+                      className="rounded-xl border border-gray-200 bg-[var(--chat-section-neutral)] px-3 py-2 text-[14px] italic text-[var(--text)] shadow-sm"
+                      title="Ожидание перевода"
+                    >
+                      Загрузка перевода…
+                    </span>
+                  </div>
                 )}
               </div>
             ) : null}

@@ -21,7 +21,6 @@ export default function Home() {
   const [storageLoaded, setStorageLoaded] = useState(false)
   const [retryMessage, setRetryMessage] = useState<string | null>(null)
   const [loadingTranslationIndex, setLoadingTranslationIndex] = useState<number | null>(null)
-  const [translationRetryMessage, setTranslationRetryMessage] = useState<string | null>(null)
   /** Настройки на момент последней отправки сообщения; для баннера «настройки изменены». */
   const [settingsAtLastSend, setSettingsAtLastSend] = useState<Settings | null>(null)
   const initialLoadDoneRef = React.useRef(false)
@@ -479,12 +478,8 @@ export default function Home() {
     }
     setResult(undefined, undefined)
     setLoadingTranslationIndex(index)
-    setTranslationRetryMessage(null)
     let lastError: string = 'Не удалось загрузить перевод.'
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      if (attempt > 0) {
-        setTranslationRetryMessage(RETRY_MESSAGES[attempt - 1] ?? RETRY_MESSAGES[0])
-      }
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
       try {
@@ -505,7 +500,6 @@ export default function Home() {
         const content = data.content?.trim()
         if (content && res.ok) {
           setLoadingTranslationIndex(null)
-          setTranslationRetryMessage(null)
           setResult(content)
           return
         }
@@ -526,7 +520,6 @@ export default function Home() {
       await sleep(RETRY_DELAY_MS)
     }
     setLoadingTranslationIndex(null)
-    setTranslationRetryMessage(null)
     setResult(undefined, lastError)
   }, [settings.provider])
 
@@ -686,6 +679,7 @@ export default function Home() {
                   }
                   placeholder="Выберите время"
                   selectAllLabel="Выбрать всё"
+                  selectAllResetValue={['present_simple']}
                   minOne
                   triggerClassName="start-control font-normal"
                   panelClassName="font-normal"
@@ -761,7 +755,6 @@ export default function Home() {
             retryMessage={retryMessage}
             onRequestTranslation={handleRequestTranslation}
             loadingTranslationIndex={loadingTranslationIndex}
-            translationRetryMessage={translationRetryMessage}
           />
           </div>
           </>

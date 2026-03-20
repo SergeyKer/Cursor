@@ -778,6 +778,11 @@ function dropTruncatedTrailingLines(text: string): string {
   return lines.join('\n').replace(/\n+\s*$/, '\n').trim()
 }
 
+function normalizeAboutTodaySpacing(content: string): string {
+  // Модель иногда сливает "about today" в "abouttoday" — восстанавливаем пробел.
+  return content.replace(/\babout\s*today\b/gi, 'about today')
+}
+
 /**
  * Страховка UX: иногда модель, даже при корректном ответе, даёт похвалу/мета‑фразу,
  * но не задаёт следующий вопрос или обрезает ответ ("AI: T"). При верном ответе
@@ -2467,6 +2472,9 @@ export async function POST(req: NextRequest) {
     sanitized = stripRepeatOnPraise(sanitized)
     sanitized = ensureNextQuestionOnPraise(sanitized, { mode, topic, tense: normalizedTense, level, audience })
     sanitized = ensureNextQuestionWhenMissing(sanitized, { mode, topic, tense: normalizedTense, level, audience })
+    if (mode === 'dialogue') {
+      sanitized = normalizeAboutTodaySpacing(sanitized)
+    }
     if (mode === 'translation') {
       sanitized = normalizeTranslationCommentStyle(sanitized)
       if (isFirstTurn) {
@@ -2627,6 +2635,9 @@ export async function POST(req: NextRequest) {
               repaired = stripRepeatOnPraise(repaired)
               repaired = ensureNextQuestionOnPraise(repaired, { mode, topic, tense: normalizedTense, level, audience })
               repaired = ensureNextQuestionWhenMissing(repaired, { mode, topic, tense: normalizedTense, level, audience })
+              if (mode === 'dialogue') {
+                repaired = normalizeAboutTodaySpacing(repaired)
+              }
 
               if (mode === 'translation') {
                 repaired = normalizeTranslationCommentStyle(repaired)
@@ -2725,6 +2736,9 @@ export async function POST(req: NextRequest) {
           repaired = stripRepeatOnPraise(repaired)
           repaired = ensureNextQuestionOnPraise(repaired, { mode, topic, tense: normalizedTense, level, audience })
           repaired = ensureNextQuestionWhenMissing(repaired, { mode, topic, tense: normalizedTense, level, audience })
+          if (mode === 'dialogue') {
+            repaired = normalizeAboutTodaySpacing(repaired)
+          }
           if (mode === 'translation') {
             repaired = normalizeTranslationCommentStyle(repaired)
             if (isFirstTurn) {
