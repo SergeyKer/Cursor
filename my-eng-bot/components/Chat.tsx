@@ -318,24 +318,6 @@ export default function Chat({
       return
     }
 
-    // В некоторых браузерах распознавание речи не запрашивает разрешение явно.
-    // Запрос getUserMedia даёт понятный prompt и более детальную ошибку.
-    try {
-      if (navigator?.mediaDevices?.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        stream.getTracks().forEach((t) => t.stop())
-      }
-    } catch (e) {
-      const name = e instanceof Error ? e.name : ''
-      if (/NotAllowedError|PermissionDeniedError/i.test(name)) {
-        setInput('[Нет доступа к микрофону. Разрешите микрофон для этого сайта и попробуйте снова.]')
-      } else {
-        setInput('[Не удалось получить доступ к микрофону. Проверьте разрешения браузера.]')
-      }
-      setListening(false)
-      return
-    }
-
     if (recognitionRef.current) {
       // Останавливаем предыдущую сессию мягко, без abort().
       recognitionRef.current.stop()
@@ -361,6 +343,10 @@ export default function Chat({
       rec.continuous = false
       rec.interimResults = false
       let gotTranscript = false
+
+      rec.onstart = () => {
+        setListening(true)
+      }
 
       rec.onresult = (event: SpeechRecognitionEvent) => {
         const last = event.results.length - 1
@@ -447,7 +433,6 @@ export default function Chat({
       recognitionRef.current = rec
       try {
         rec.start()
-        setListening(true)
       } catch {
         setInput('[Не удалось запустить распознавание речи. Попробуйте ещё раз.]')
         setListening(false)
