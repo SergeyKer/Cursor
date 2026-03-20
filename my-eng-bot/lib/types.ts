@@ -13,7 +13,7 @@ export interface ChatMessage {
 
 export type AiProvider = 'openrouter' | 'openai'
 
-export type AppMode = 'dialogue' | 'translation'
+export type AppMode = 'dialogue' | 'translation' | 'communication'
 export type SentenceType = 'general' | 'interrogative' | 'negative' | 'mixed'
 export type Audience = 'child' | 'adult'
 

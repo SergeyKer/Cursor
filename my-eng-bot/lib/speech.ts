@@ -7,7 +7,8 @@ function isMobileVoice(): boolean {
 function selectVoice(
   voices: SpeechSynthesisVoice[],
   voiceId: string,
-  allowCustomVoice: boolean
+  allowCustomVoice: boolean,
+  preferredLangPrefix: string
 ): SpeechSynthesisVoice | null {
   if (voices.length === 0) return null
 
@@ -16,10 +17,10 @@ function selectVoice(
     if (exact) return exact
   }
 
-  const preferredEn =
-    voices.find((v) => /^en(-|_)/i.test(v.lang) && v.default) ||
-    voices.find((v) => /^en(-|_)/i.test(v.lang))
-  if (preferredEn) return preferredEn
+  const preferredPrefixRe = new RegExp(`^${preferredLangPrefix}(-|_)`, 'i')
+  const preferred =
+    voices.find((v) => preferredPrefixRe.test(v.lang) && v.default) || voices.find((v) => preferredPrefixRe.test(v.lang))
+  if (preferred) return preferred
 
   return voices.find((v) => v.default) ?? voices[0] ?? null
 }
@@ -31,11 +32,13 @@ function speakOnce(
   allowCustomVoice: boolean
 ): void {
   const utterance = new SpeechSynthesisUtterance(text)
-  utterance.lang = 'en-US'
+  // Автодетект языка по кириллице: для общения на русском/английском TTS должен звучать на нужном языке.
+  const isRu = /[А-Яа-яЁё]/.test(text)
+  utterance.lang = isRu ? 'ru-RU' : 'en-US'
   utterance.rate = 0.9
 
   const voices = synth.getVoices()
-  const selectedVoice = selectVoice(voices, voiceId, allowCustomVoice)
+  const selectedVoice = selectVoice(voices, voiceId, allowCustomVoice, isRu ? 'ru' : 'en')
   if (selectedVoice) utterance.voice = selectedVoice
 
   // На некоторых браузерах (особенно Chromium) после cancel() нужен micro-delay.

@@ -342,58 +342,140 @@ export default function Chat({
       recognitionRef.current = null
     }
     setInput('')
-    const rec = new SpeechRecognitionAPI()
-    rec.lang = 'en-US'
-    rec.continuous = false
-    rec.interimResults = false
-    rec.onresult = (event: SpeechRecognitionEvent) => {
-      const last = event.results.length - 1
-      const text = event.results[last]?.[0]?.transcript ?? ''
-      if (text) setInput(text)
+    type DetectedLang = 'ru' | 'en'
+
+    const detectLangFromText = (text: string): DetectedLang => {
+      const cyrCount = (text.match(/[А-Яа-яЁё]/g) ?? []).length
+      const latCount = (text.match(/[A-Za-z]/g) ?? []).length
+      if (cyrCount > latCount) return 'ru'
+      if (latCount > cyrCount) return 'en'
+      return 'ru'
     }
-    rec.onend = () => {
-      if (recognitionRef.current === rec) {
-        recognitionRef.current = null
-        setListening(false)
+
+    let attempt = 0
+
+    const startAttempt = (lang: 'ru-RU' | 'en-US') => {
+      attempt += 1
+      const rec = new SpeechRecognitionAPI()
+      rec.lang = lang
+      rec.continuous = false
+      rec.interimResults = false
+      let gotTranscript = false
+
+      rec.onresult = (event: SpeechRecognitionEvent) => {
+        const last = event.results.length - 1
+        const text = event.results[last]?.[0]?.transcript ?? ''
+        const trimmed = text.trim()
+        if (!trimmed) return
+        gotTranscript = true
+
+        if (settings.mode === 'communication') {
+          const detected = detectLangFromText(trimmed)
+
+          // Первый проход: если распознавание ушло в другую сторону — один ретрай.
+          if (attempt === 1 && trimmed.length >= 3) {
+            const shouldRetry =
+              (lang === 'ru-RU' && detected === 'en') || (lang === 'en-US' && detected === 'ru')
+
+            if (shouldRetry) {
+              try {
+                rec.stop()
+              } catch {
+                // ignore
+              }
+              setInput('')
+              startAttempt(detected === 'ru' ? 'ru-RU' : 'en-US')
+              return
+            }
+          }
+        }
+
+        setInput(trimmed)
       }
-    }
-    rec.onerror = (event: Event) => {
-      // SpeechRecognitionErrorEvent есть не во всех TS lib, поэтому берём как any.
-      const err = (event as unknown as { error?: string; message?: string }).error
-      const msg = (event as unknown as { message?: string }).message
-      const code = (err ?? msg ?? '').toString()
-      // "aborted" — нормальная ситуация: распознавание прервали (стоп, потеря фокуса, повторный старт).
-      // Не показываем это как ошибку пользователю.
-      if (/^aborted$/i.test(code)) {
+
+      rec.onend = () => {
+        if (recognitionRef.current === rec) {
+          // Если в первой попытке не получили транскрипт — попробуем противоположный язык.
+          if (settings.mode === 'communication' && attempt === 1 && !gotTranscript) {
+            const other = lang === 'ru-RU' ? 'en-US' : 'ru-RU'
+            setInput('')
+            startAttempt(other)
+            return
+          }
+          recognitionRef.current = null
+          setListening(false)
+        }
+      }
+
+      rec.onerror = (event: Event) => {
+        // SpeechRecognitionErrorEvent есть не во всех TS lib, поэтому берём как any.
+        const err = (event as unknown as { error?: string; message?: string }).error
+        const msg = (event as unknown as { message?: string }).message
+        const code = (err ?? msg ?? '').toString()
+        // "aborted" — нормальная ситуация: распознавание прервали (стоп, потеря фокуса, повторный старт).
+        // Не показываем это как ошибку пользователю.
+        if (/^aborted$/i.test(code)) {
+          if (recognitionRef.current === rec) {
+            recognitionRef.current = null
+            setListening(false)
+          }
+          return
+        }
+        if (/not-allowed|permission/i.test(code)) {
+          setInput('[Нет доступа к микрофону. Разрешите микрофон для этого сайта и попробуйте снова.]')
+        } else if (/no-speech/i.test(code)) {
+          // Если первая попытка была на одном языке, но речь не распознана — попробуем другой один раз.
+          if (settings.mode === 'communication' && attempt === 1) {
+            const other = lang === 'ru-RU' ? 'en-US' : 'ru-RU'
+            setInput('')
+            startAttempt(other)
+            return
+          }
+
+          setInput('[Речь не распознана. Скажите фразу ещё раз чуть громче.]')
+        } else if (/network/i.test(code)) {
+          setInput('[Ошибка сети при распознавании речи. Попробуйте ещё раз.]')
+        } else if (code) {
+          setInput(`[Ошибка распознавания речи: ${code}]`)
+        }
         if (recognitionRef.current === rec) {
           recognitionRef.current = null
           setListening(false)
         }
-        return
       }
-      if (/not-allowed|permission/i.test(code)) {
-        setInput('[Нет доступа к микрофону. Разрешите микрофон для этого сайта и попробуйте снова.]')
-      } else if (/no-speech/i.test(code)) {
-        setInput('[Речь не распознана. Скажите фразу ещё раз чуть громче.]')
-      } else if (/network/i.test(code)) {
-        setInput('[Ошибка сети при распознавании речи. Попробуйте ещё раз.]')
-      } else if (code) {
-        setInput(`[Ошибка распознавания речи: ${code}]`)
-      }
-      if (recognitionRef.current === rec) {
-        recognitionRef.current = null
+
+      recognitionRef.current = rec
+      try {
+        rec.start()
+        setListening(true)
+      } catch {
+        setInput('[Не удалось запустить распознавание речи. Попробуйте ещё раз.]')
         setListening(false)
       }
     }
-    recognitionRef.current = rec
-    try {
-      rec.start()
-      setListening(true)
-    } catch {
-      setInput('[Не удалось запустить распознавание речи. Попробуйте ещё раз.]')
-      setListening(false)
+
+    if (settings.mode === 'communication') {
+      // Язык первого распознавания выбираем по последнему сообщению пользователя.
+      // Если это старт диалога (нет user-ввода) — всегда ru-RU.
+      const lastUserText = messages
+        .filter((m) => m.role === 'user')
+        .map((m) => m.content)
+        .slice(-1)[0]
+
+      attempt = 0
+
+      if (!lastUserText || !lastUserText.trim()) {
+        startAttempt('ru-RU')
+      } else {
+        startAttempt(detectLangFromText(lastUserText) === 'ru' ? 'ru-RU' : 'en-US')
+      }
+      return
     }
-  }, [])
+
+    // Остальные режимы оставляем как раньше (английский).
+    attempt = 0
+    startAttempt('en-US')
+  }, [settings.mode, messages])
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
@@ -593,7 +675,7 @@ export default function Chat({
                       ? 'bg-red-500/20 text-red-600'
                       : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                   }`}
-                  title={listening ? 'Остановить' : 'Голосовой ввод (англ.)'}
+                  title={listening ? 'Остановить' : 'Голосовой ввод'}
                   aria-label={listening ? 'Остановить запись' : 'Голосовой ввод'}
                 >
                   {listening ? (
@@ -713,7 +795,7 @@ function MessageBubble({
   messageIndex: number
   activeAssistantIndex: number
   voiceId: string
-  mode: 'dialogue' | 'translation'
+  mode: 'dialogue' | 'translation' | 'communication'
   bubblePosition: BubblePosition
   onRequestTranslation?: (index: number, text: string) => void
   isLoadingTranslation?: boolean
@@ -757,7 +839,10 @@ function MessageBubble({
   const hasSpeakableText = !isUser && mode !== 'translation' && Boolean(textToTranslate) && !errorLike
   const hasTranslationData = !isUser && Boolean(message.translation)
   const hasTranslationError = !isUser && Boolean(message.translationError)
-  const hasTranslationButton = !isUser && mode !== 'translation' && !errorLike
+  const hasTranslationButton = !isUser && mode === 'dialogue' && !errorLike
+  // В режиме "Общение" кнопка с текстом "Озвучить" не должна отображаться.
+  // Озвучку оставляем только через inline-иконку (trailingAction) в нужных секциях.
+  const showSpeakButton = hasSpeakableText && mode !== 'communication'
   // Дополнительная UI-страховка: если модель нарушила формат и выдала русскую "мета" строку
   // (кириллица, без вопроса) — не показываем её как "AI: ...".
   const hideRussianNonQuestionMainBefore =
@@ -891,9 +976,9 @@ function MessageBubble({
                 ))}
               </div>
             )}
-            {(hasSpeakableText || hasTranslationButton) && (
+            {(showSpeakButton || hasTranslationButton) && (
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                {hasSpeakableText && (
+                {showSpeakButton && (
                   <button
                     type="button"
                     onClick={handleSpeak}

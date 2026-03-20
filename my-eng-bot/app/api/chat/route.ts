@@ -144,6 +144,17 @@ function stableHash32(input: string): number {
   return hash >>> 0
 }
 
+type DetectedLang = 'ru' | 'en'
+
+function detectLangFromText(text: string, tieBreak: DetectedLang = 'ru'): DetectedLang {
+  const cyrCount = (text.match(/[А-Яа-яЁё]/g) ?? []).length
+  const latCount = (text.match(/[A-Za-z]/g) ?? []).length
+
+  if (cyrCount > latCount) return 'ru'
+  if (latCount > cyrCount) return 'en'
+  return tieBreak
+}
+
 function buildSystemPrompt(params: {
   mode: string
   sentenceType?: string
@@ -173,6 +184,30 @@ function buildSystemPrompt(params: {
     mode === 'dialogue' && topic !== 'free_talk'
       ? `If the user's reply is obvious nonsense, trolling, or low-signal input (for example random letters like "sdfsdf", "asdf", repeated characters, or a reply that clearly is not a real answer), do NOT treat it as progress. Stay in tutor mode, gently explain that the answer is invalid, and keep the user on the same question path. Do not praise the input and do not follow the user's fake topic or joke.`
       : ''
+
+  if (mode === 'communication') {
+    return `Communication chat mode (NOT a tutor).
+
+Rules:
+- Language: detect the user's language from their last message (Russian/English). Answer in the same language. If unclear, default to Russian.
+- Language detection rule: majority of Cyrillic vs Latin letters in the user's last message; if counts are equal, use the language of the previous assistant reply (if available), otherwise default to Russian.
+- Keep replies short and focused (1–3 sentences). No long explanations.
+- Do NOT output any tutor/protocol markers: no "Комментарий:", no "Повтори:", no "Время:", no "Конструкция:", no "Переведи на английский", and no "RU:" / "Russian:" labels.
+- Allow both Russian and English conversation freely. You may answer questions, follow-ups, and change your style if the user asks.
+- Clarification: if you genuinely don't understand what the user means or what they want, output ONLY one short clarifying question in the same language.
+- 18+ restriction: if the user requests sexual/erotic/pornographic content or any 18+ material, refuse politely and suggest a neutral, safe alternative (helpful general info or a topic change). Never provide explicit content.
+
+When you are sending the very first assistant message:
+- Output a friendly brief greeting + an invitation to ask a question or continue the conversation.
+- Vary the wording (do not repeat the exact same phrase).
+
+Child style (when audience is CHILD):
+- Use a friendly tone, simple words, and short sentences (still in Russian or English as appropriate).
+- Prefer safe, age-appropriate topics: school, friends, hobbies, sports, music, movies, food, travel, daily life, culture.
+- Avoid moralizing, sarcasm, and strictness. If clarification is needed, ask one very simple question.
+
+No other format. Output only the chat message text.`
+  }
 
   if (mode === 'translation') {
     return `Translation training. Topic: ${topicName}, ${levelPrompt}, ${sentenceTypeName}. Required tense: ${tenseName}.
@@ -2917,7 +2952,7 @@ export async function POST(req: NextRequest) {
       forcedRepeatSentence,
     })
 
-    const topicChoicePrefix = isTopicChoiceTurn
+    const topicChoicePrefix = mode === 'dialogue' && isTopicChoiceTurn
       ? 'This turn only: the user is naming their topic. Output ONLY one question in English — nothing else. Do NOT output "Комментарий:", "Отлично", "Молодец", "Верно", or any praise. Do NOT output "Правильно:" or "Повтори:". Infer the topic from their words (e.g. "I played tennis" → tennis; "i swam" → swimming) and ask exactly ONE question in the required tense. If the message gives no hint (e.g. "sdf"), ask what they mean. Your reply must be ONLY that one question, no other lines. Ignore all correction rules below for this turn.\n\n'
       : ''
     const systemContent = topicChoicePrefix + systemPrompt
@@ -2926,7 +2961,12 @@ export async function POST(req: NextRequest) {
     const userTurnMessages =
       recentMessages.length > 0
         ? recentMessages.map((m: ChatMessage) => ({ role: m.role, content: m.content }))
-        : [{ role: 'user' as const, content: 'Start the conversation.' }]
+        : [
+            {
+              role: 'user' as const,
+              content: mode === 'communication' ? 'Пользователь скоро задаст вопрос.' : 'Start the conversation.',
+            },
+          ]
     const apiMessages: { role: string; content: string }[] = [
       { role: 'system', content: systemContent },
       ...userTurnMessages,
@@ -2979,14 +3019,30 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const lastUserContentForResponse = recentMessages.filter((m: ChatMessage) => m.role === 'user').pop()?.content ?? ''
+    const lastAssistantContentForLangTie = recentMessages.filter((m: ChatMessage) => m.role === 'assistant').pop()?.content ?? ''
+    const lastAssistantLang = detectLangFromText(lastAssistantContentForLangTie, 'ru')
+    const detectedUserLang = detectLangFromText(lastUserContentForResponse, lastAssistantLang)
     // Если модель вернула мета-фразу вместо ответа — не показываем её пользователю.
-    // Делаем мягкий fallback на следующий вопрос, чтобы UX не ломался.
+    // Делаем мягкий fallback на следующий интент, чтобы UX не ломался.
     if (isMetaGarbage(sanitized)) {
+      if (mode === 'communication') {
+        const content =
+          isFirstTurn && detectedUserLang === 'ru'
+            ? 'Привет! Что вы хотите узнать или обсудить?'
+            : isFirstTurn && detectedUserLang === 'en'
+              ? 'Hi! What would you like to ask or discuss?'
+              : detectedUserLang === 'ru'
+                ? 'Уточните, пожалуйста, что вы имеете в виду.'
+                : 'Could you clarify what you mean?'
+
+        return NextResponse.json({ content })
+      }
+
       return NextResponse.json({
         content: fallbackQuestionForContext({ topic, tense: normalizedTense, level, audience, isFirstTurn, isTopicChoiceTurn }),
       })
     }
-    const lastUserContentForResponse = recentMessages.filter((m: ChatMessage) => m.role === 'user').pop()?.content ?? ''
     sanitized = stripOffContextCorrections(sanitized, lastUserContentForResponse)
     sanitized = normalizeAssistantPrefixForControlLines(sanitized)
     sanitized = splitCommentAndRepeatSameLine(sanitized)
@@ -3231,6 +3287,85 @@ export async function POST(req: NextRequest) {
         { error: 'Модель вернула некорректный ответ. Попробуйте отправить сообщение ещё раз.' },
         { status: 502 }
       )
+    }
+
+    if (mode === 'communication') {
+      const targetLang = detectedUserLang
+
+      const normalizeOutput = (raw: string): string => {
+        return raw
+          .split(/\r?\n/)
+          .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+          .filter(Boolean)
+          // Убираем возможные протокольные/служебные строки, если модель всё же их вывела.
+          .filter((l) => !/^\s*(RU|Russian|Перевод)\s*:?/i.test(l.trim()))
+          .filter((l) => !/^\s*(Комментарий|Повтори|Время|Конструкция)\s*:/i.test(l.trim()))
+          .filter((l) => !/^\s*(Repeat|Say)\s*:/i.test(l.trim()))
+          .join('\n')
+          .trim()
+      }
+
+      let cleaned = normalizeOutput(sanitized)
+
+      const fallback =
+        isFirstTurn && targetLang === 'ru'
+          ? 'Привет! Что вы хотите узнать или обсудить?'
+          : isFirstTurn && targetLang === 'en'
+            ? 'Hi! What would you like to ask or discuss?'
+            : targetLang === 'ru'
+              ? 'Уточните, пожалуйста, что вы имеете в виду.'
+              : 'Could you clarify what you mean?'
+
+      if (!cleaned) cleaned = fallback
+
+      let responseLang = detectLangFromText(cleaned, targetLang)
+      if (responseLang !== targetLang) {
+        // Repair: принудительно просим вернуть ответ на нужном языке (RU/EN) и без протокольных маркеров.
+        const repairApiMessages = [...apiMessages]
+        const targetLabel = targetLang === 'ru' ? 'Russian' : 'English'
+        repairApiMessages[0] = {
+          role: 'system',
+          content:
+            systemContent +
+            `\n\nIMPORTANT LANGUAGE FIX: You MUST reply ONLY in ${targetLabel} (no switching languages). Keep it short (1–3 sentences). No "Комментарий/Повтори", no tutor/protocol markers, no "RU:/Russian:/Перевод".`,
+        }
+
+        const res2 = await callProviderChat({ provider, req, apiMessages: repairApiMessages })
+        if (res2.ok) {
+          const repairedRaw = sanitizeInstructionLeak(res2.content)
+          if (repairedRaw) {
+            cleaned = normalizeOutput(repairedRaw)
+            if (!cleaned) cleaned = fallback
+            responseLang = detectLangFromText(cleaned, targetLang)
+            if (responseLang !== targetLang) cleaned = fallback
+          } else {
+            cleaned = fallback
+          }
+        } else {
+          cleaned = fallback
+        }
+      }
+
+      const minimal = cleaned.trim()
+      const looksTruncated = /^(что|почему|как|когда|где|кто|what|why|how|when|where|who)\??\.?$/i.test(minimal)
+      if (looksTruncated) cleaned = fallback
+
+      // Гарантия приветствия на первом ассистентском сообщении в `communication`.
+      // Модель иногда выдаёт сразу вопрос без "Привет"/"Hello", и вы это заметили на UI.
+      if (isFirstTurn) {
+        const hasRuGreeting = /^(Привет|Здравствуй|Здравствуйте|Добрый\s+день|Приветик|Хай)\b/i.test(cleaned)
+        const hasEnGreeting = /^(Hi|Hello|Hey|Greetings)\b/i.test(cleaned)
+        const hasGreeting = targetLang === 'ru' ? hasRuGreeting : hasEnGreeting
+        if (!hasGreeting) {
+          const ruGreetings = ['Привет!', 'Здравствуйте!', 'Здравствуй!']
+          const enGreetings = ['Hi!', 'Hello!', 'Hey!']
+          const seed = stableHash32(`comm_first_greet|${targetLang}|${audience}`)
+          const greeting = (targetLang === 'ru' ? ruGreetings : enGreetings)[seed % (targetLang === 'ru' ? ruGreetings.length : enGreetings.length)]
+          cleaned = `${greeting} ${cleaned}`.replace(/\s+/g, ' ').trim()
+        }
+      }
+
+      return NextResponse.json({ content: cleaned })
     }
 
     // Защита от “обрубков” вида "What" / "Yes" и т.п.: считаем это некорректным ответом и просим повтор.

@@ -36,10 +36,13 @@ export default function SlideOutMenu({
   }, [])
 
   const isChild = settings.audience === 'child'
+  const isCommunication = settings.mode === 'communication'
   const childAllowedLevels = new Set(['all', 'starter', 'a1', 'a2'])
   const levelOptions = isChild ? LEVELS.filter((l) => childAllowedLevels.has(l.id)) : LEVELS
-  const topicOptions = TOPICS
+  const safeChildTopicsForCommunication = TOPICS.filter((t) => t.id !== 'business' && t.id !== 'work')
+  const topicOptions = isCommunication && isChild ? safeChildTopicsForCommunication : TOPICS
   const tenseOptions = isChild ? TENSES.filter((t) => CHILD_TENSE_SET.has(t.id)) : TENSES
+  const preferredVoiceLangPrefixes = isCommunication ? ['ru', 'en'] : ['en']
 
   const update = (patch: Partial<Settings>) => {
     onSettingsChange({ ...settings, ...patch })
@@ -135,33 +138,36 @@ export default function SlideOutMenu({
               >
                 <option value="dialogue">Диалог</option>
                 <option value="translation">Тренировка перевода</option>
+                <option value="communication">Общение</option>
               </select>
             </div>
 
-            <div>
-              <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
-                Время
-              </label>
-              <MultiSelectDropdown
-                options={tenseOptions}
-                value={settings.tenses}
-                onChange={(tenses) =>
-                  update({
-                    tenses:
-                      tenses.length > 0
-                        ? (tenses as Settings['tenses'])
-                        : (['present_simple'] as Settings['tenses']),
-                  })
-                }
-                placeholder="Выберите время"
-                selectAllLabel="Выбрать всё"
-                selectAllResetValue={['present_simple']}
-                minOne
-                compact
-                triggerClassName="rounded border border-[var(--border)] bg-[var(--bg-card)] touch-manipulation"
-                panelClassName="max-h-[200px]"
-              />
-            </div>
+            {!isCommunication && (
+              <div>
+                <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
+                  Время
+                </label>
+                <MultiSelectDropdown
+                  options={tenseOptions}
+                  value={settings.tenses}
+                  onChange={(tenses) =>
+                    update({
+                      tenses:
+                        tenses.length > 0
+                          ? (tenses as Settings['tenses'])
+                          : (['present_simple'] as Settings['tenses']),
+                    })
+                  }
+                  placeholder="Выберите время"
+                  selectAllLabel="Выбрать всё"
+                  selectAllResetValue={['present_simple']}
+                  minOne
+                  compact
+                  triggerClassName="rounded border border-[var(--border)] bg-[var(--bg-card)] touch-manipulation"
+                  panelClassName="max-h-[200px]"
+                />
+              </div>
+            )}
 
             {settings.mode === 'translation' && (
               <div>
@@ -184,7 +190,8 @@ export default function SlideOutMenu({
               </div>
             )}
 
-            <div>
+            {(settings.mode !== 'communication' || isChild) && (
+              <div>
               <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
                 Тема
               </label>
@@ -199,9 +206,11 @@ export default function SlideOutMenu({
                   </option>
                 ))}
               </select>
-            </div>
+              </div>
+            )}
 
-            <div>
+            {!isCommunication && (
+              <div>
               <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
                 Уровень
               </label>
@@ -216,7 +225,8 @@ export default function SlideOutMenu({
                   </option>
                 ))}
               </select>
-            </div>
+              </div>
+            )}
 
             <div>
               <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">
@@ -225,6 +235,7 @@ export default function SlideOutMenu({
               <VoiceSelect
                 value={settings.voiceId}
                 onChange={(voiceId) => update({ voiceId })}
+                preferredLangPrefixes={preferredVoiceLangPrefixes}
               />
             </div>
 
@@ -254,9 +265,11 @@ export default function SlideOutMenu({
 function VoiceSelect({
   value,
   onChange,
+  preferredLangPrefixes,
 }: {
   value: string
   onChange: (id: string) => void
+  preferredLangPrefixes: string[]
 }) {
   const [voices, setVoices] = React.useState<SpeechSynthesisVoice[]>([])
   const [mounted, setMounted] = React.useState(false)
@@ -272,6 +285,8 @@ function VoiceSelect({
   }, [])
 
   const list = mounted ? voices : []
+  const preferred = list.filter((v) => preferredLangPrefixes.some((p) => v.lang.startsWith(p)))
+  const finalList = preferred.length > 0 ? preferred : list
 
   return (
     <select
@@ -280,13 +295,11 @@ function VoiceSelect({
       className="w-full rounded border border-[var(--border)] bg-[var(--bg-card)] pl-2 py-1.5 text-xs text-[var(--text)] select-chevron"
     >
       <option value="">Системный по умолчанию</option>
-      {list
-        .filter((v) => v.lang.startsWith('en'))
-        .map((v) => (
-          <option key={v.voiceURI} value={v.voiceURI}>
-            {v.name} ({v.lang})
-          </option>
-        ))}
+      {finalList.map((v) => (
+        <option key={v.voiceURI} value={v.voiceURI}>
+          {v.name} ({v.lang})
+        </option>
+      ))}
       {list.length === 0 && (
         <option value="" disabled>
           Загрузка…

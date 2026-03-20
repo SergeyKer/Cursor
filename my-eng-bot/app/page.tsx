@@ -541,6 +541,10 @@ export default function Home() {
 
   /** Строка выбранного меню для шапки: единый формат для обоих режимов. */
   function getMenuSummary(includeTopic: boolean = true): string {
+    // В режиме "Общение" в шапке показываем только один ярлык,
+    // чтобы не отвлекать пользователя грамматикой/временами.
+    if (settings.mode === 'communication') return 'Общение'
+
     const getTenseCountLabel = (count: number): string => {
       const mod10 = count % 10
       const mod100 = count % 100
@@ -558,7 +562,8 @@ export default function Home() {
       settings.tenses.includes('all') ||
       (availableTenses.length > 0 && availableTenses.every((t) => selectedSet.has(t)))
 
-    const modeLabel = settings.mode === 'dialogue' ? 'Диалог' : 'Тренировка перевода'
+    const modeLabel =
+      settings.mode === 'dialogue' ? 'Диалог' : settings.mode === 'translation' ? 'Тренировка перевода' : 'Общение'
     const tenseLabel =
       anyTimeSelected
         ? 'Любое время'
@@ -666,30 +671,33 @@ export default function Home() {
                 >
                   <option value="dialogue">Диалог</option>
                   <option value="translation">Тренировка перевода</option>
+                  <option value="communication">Общение</option>
                 </select>
               </div>
-              <div>
-                <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Время</label>
-                <MultiSelectDropdown
-                  options={settings.audience === 'child' ? TENSES.filter((t) => CHILD_TENSE_SET.has(t.id)) : TENSES}
-                  value={settings.tenses}
-                  onChange={(tenses) =>
-                    setSettings((s) => ({
-                      ...s,
-                      tenses:
-                        tenses.length > 0
-                          ? (tenses as Settings['tenses'])
-                          : (['present_simple'] as Settings['tenses']),
-                    }))
-                  }
-                  placeholder="Выберите время"
-                  selectAllLabel="Выбрать всё"
-                  selectAllResetValue={['present_simple']}
-                  minOne
-                  triggerClassName="start-control font-normal"
-                  panelClassName="font-normal"
-                />
-              </div>
+              {settings.mode !== 'communication' && (
+                <div>
+                  <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Время</label>
+                  <MultiSelectDropdown
+                    options={settings.audience === 'child' ? TENSES.filter((t) => CHILD_TENSE_SET.has(t.id)) : TENSES}
+                    value={settings.tenses}
+                    onChange={(tenses) =>
+                      setSettings((s) => ({
+                        ...s,
+                        tenses:
+                          tenses.length > 0
+                            ? (tenses as Settings['tenses'])
+                            : (['present_simple'] as Settings['tenses']),
+                      }))
+                    }
+                    placeholder="Выберите время"
+                    selectAllLabel="Выбрать всё"
+                    selectAllResetValue={['present_simple']}
+                    minOne
+                    triggerClassName="start-control font-normal"
+                    panelClassName="font-normal"
+                  />
+                </div>
+              )}
               {settings.mode === 'translation' && (
                 <div>
                   <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Тип предложений</label>
@@ -704,37 +712,55 @@ export default function Home() {
                   </select>
                 </div>
               )}
-              <div>
-                <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Тема</label>
-                <select
-                  value={settings.topic}
-                  onChange={(e) => setSettings((s) => ({ ...s, topic: e.target.value as Settings['topic'] }))}
-                  className="start-control w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
-                >
-                  {TOPICS.map((t) => (
-                    <option key={t.id} value={t.id}>{t.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Уровень</label>
-                <select
-                  value={settings.level}
-                  onChange={(e) => setSettings((s) => ({ ...s, level: e.target.value as Settings['level'] }))}
-                  className="start-control w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
-                >
-                  {(settings.audience === 'child' ? LEVELS.filter((l) => ['all', 'starter', 'a1', 'a2'].includes(l.id)) : LEVELS).map((l) => (
-                    <option key={l.id} value={l.id}>{l.label}</option>
-                  ))}
-                </select>
-              </div>
+              {(settings.mode !== 'communication' || settings.audience === 'child') && (
+                <div>
+                  <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Тема</label>
+                  <select
+                    value={settings.topic}
+                    onChange={(e) => setSettings((s) => ({ ...s, topic: e.target.value as Settings['topic'] }))}
+                    className="start-control w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
+                  >
+                    {(settings.mode === 'communication' && settings.audience === 'child'
+                      ? TOPICS.filter((t) => t.id !== 'business' && t.id !== 'work')
+                      : TOPICS
+                    ).map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {settings.mode !== 'communication' && (
+                <div>
+                  <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Уровень</label>
+                  <select
+                    value={settings.level}
+                    onChange={(e) => setSettings((s) => ({ ...s, level: e.target.value as Settings['level'] }))}
+                    className="start-control w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
+                  >
+                    {(settings.audience === 'child'
+                      ? LEVELS.filter((l) => ['all', 'starter', 'a1', 'a2'].includes(l.id))
+                      : LEVELS
+                    ).map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
             <button
               type="button"
               onClick={() => setDialogStarted(true)}
               className="start-cta flex w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-8 py-2.5 text-base sm:text-lg font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
             >
-              {settings.mode === 'dialogue' ? 'Начать диалог' : 'Начать тренировку перевода'}
+              {settings.mode === 'dialogue'
+                ? 'Начать диалог'
+                : settings.mode === 'translation'
+                  ? 'Начать тренировку перевода'
+                  : 'Начать общение'}
             </button>
           </div>
         ) : (
