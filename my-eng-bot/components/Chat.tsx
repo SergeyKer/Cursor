@@ -682,7 +682,10 @@ export default function Chat({
               )}
             </div>
             <div
-              className="shrink-0 border-t border-white/55 bg-[rgba(255,255,255,0.22)] px-2.5 py-2.5 sm:px-3"
+              // Важно для iOS: paddingBottom может оставаться (safe-area / visual viewport),
+              // и если фон полупрозрачный — пользователь видит "серую панель".
+              // Делаем обёртку прозрачной, чтобы в резерве просвечивал фон чата.
+              className="shrink-0 border-t border-white/55 bg-transparent px-2.5 py-2.5 sm:px-3"
               style={{
                 paddingBottom: INPUT_BOTTOM_RESERVE,
               }}
