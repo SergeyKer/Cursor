@@ -3353,7 +3353,10 @@ export async function POST(req: NextRequest) {
       // Гарантия приветствия на первом ассистентском сообщении в `communication`.
       // Модель иногда выдаёт сразу вопрос без "Привет"/"Hello", и вы это заметили на UI.
       if (isFirstTurn) {
-        const hasRuGreeting = /^(Привет|Здравствуй|Здравствуйте|Добрый\s+день|Приветик|Хай)\b/i.test(cleaned)
+        // Расширяем проверку на приветствия: модель иногда выдает опечатку
+        // вроде "Здраствуй" вместо "Здравствуй", из-за чего авто-добавление
+        // приветствия срабатывает повторно (получается "двойное приветствие").
+        const hasRuGreeting = /^(Привет|Здравствуй|Здраствуй|Здравствуйте|Добрый\s+день|Приветик|Хай)\b/i.test(cleaned)
         const hasEnGreeting = /^(Hi|Hello|Hey|Greetings)\b/i.test(cleaned)
         const hasGreeting = targetLang === 'ru' ? hasRuGreeting : hasEnGreeting
         if (!hasGreeting) {
