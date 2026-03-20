@@ -199,6 +199,7 @@ Rules:
 - Language: detect the user's language from their last message (Russian/English). Answer in the same language. If unclear, default to Russian.
 - Language detection rule: majority of Cyrillic vs Latin letters in the user's last message; if counts are equal, use the language of the previous assistant reply (if available), otherwise default to Russian.
 - ${audienceStyleRule}
+- ${buildCommunicationEnglishStyleRule(audience)}
 - Keep replies short and focused (1–3 sentences). No long explanations.
 - Do NOT output any tutor/protocol markers: no "Комментарий:", no "Повтори:", no "Время:", no "Конструкция:", no "Переведи на английский", and no "RU:" / "Russian:" labels.
 - Allow both Russian and English conversation freely. You may answer questions, follow-ups, and change your style if the user asks.
@@ -209,6 +210,7 @@ When you are sending the very first assistant message:
 - Output a friendly brief greeting + an invitation to ask a question or continue the conversation.
 - Use exactly one greeting only; do not stack multiple greetings or add extra filler before the invitation.
 - Vary the wording across different conversations; do not reuse the same opening phrase every time.
+- If you answer in English, keep the same opening logic and tone across the whole English conversation.
 - Match the audience style exactly: CHILD -> "ты" in Russian, simple and warm tone; ADULT -> "вы" in Russian, respectful and natural tone.
 
 No other format. Output only the chat message text.`
@@ -414,6 +416,12 @@ function buildAudienceStyleRule(audience: 'child' | 'adult'): string {
   return audience === 'child'
     ? 'Audience style: CHILD. In Russian replies, address the user with "ты". Keep the tone warm, simple, encouraging, and concrete. In English replies, use short, friendly, child-appropriate wording. Avoid formal or overly serious language.'
     : 'Audience style: ADULT. In Russian replies, address the user with "вы". Keep the tone natural, respectful, and concise. In English replies, use natural adult-to-adult wording. Avoid childish wording or over-familiarity.'
+}
+
+function buildCommunicationEnglishStyleRule(audience: 'child' | 'adult'): string {
+  return audience === 'child'
+    ? 'English-only communication style: If you answer in English, keep the voice warm, simple, friendly, and concrete across turns. Use one short greeting plus one invitation on the first English reply, and keep later English replies short and natural. Do not repeat the same opening phrase or add extra filler.'
+    : 'English-only communication style: If you answer in English, keep the voice natural, respectful, and concise across turns. Use one short greeting plus one invitation on the first English reply, and keep later English replies short and natural. Do not repeat the same opening phrase or add extra filler.'
 }
 
 function buildCommunicationFallbackMessage(params: {
@@ -3591,3 +3599,4 @@ export async function POST(req: NextRequest) {
     )
   }
 }
+

@@ -751,6 +751,12 @@ function isErrorLikeMessage(content: string): boolean {
   )
 }
 
+function detectTextLang(text: string): 'ru' | 'en' {
+  const cyrCount = (text.match(/[А-Яа-яЁё]/g) ?? []).length
+  const latCount = (text.match(/[A-Za-z]/g) ?? []).length
+  return latCount > cyrCount ? 'en' : 'ru'
+}
+
 /** Выделяет приглашение «Переведи на английский» для курсива (режим «Тренировка перевода»). Ищет в любом месте текста. */
 function splitInvitation(text: string): {
   mainBefore: string
@@ -827,6 +833,7 @@ function MessageBubble({
     isTranslationMode && displayText
       ? splitInvitation(displayText)
       : { mainBefore: displayText ?? '', invitation: null as string | null, mainAfter: '' }
+  const isCommunicationEnglish = !isUser && mode === 'communication' && detectTextLang(displayText ?? '') === 'en'
 
   // При правильном ответе ИИ пишет похвалу (Комментарий: Отлично! / Молодец! и т.д.) — блок "Правильно:" не показываем
   const isCorrectAnswerPraise = Boolean(comment && /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)[!.]?\s*/i.test(comment.trim()))
@@ -849,13 +856,12 @@ function MessageBubble({
 
   const textToTranslate = repeatTextForCard || rest || message.content
   const errorLike = !isUser && isErrorLikeMessage(message.content)
-  const hasSpeakableText = !isUser && mode !== 'translation' && Boolean(textToTranslate) && !errorLike
+  const hasSpeakableText =
+    !isUser && mode !== 'translation' && Boolean(textToTranslate) && !errorLike && (mode !== 'communication' || isCommunicationEnglish)
   const hasTranslationData = !isUser && Boolean(message.translation)
   const hasTranslationError = !isUser && Boolean(message.translationError)
-  const hasTranslationButton = !isUser && mode === 'dialogue' && !errorLike
-  // В режиме "Общение" кнопка с текстом "Озвучить" не должна отображаться.
-  // Озвучку оставляем только через inline-иконку (trailingAction) в нужных секциях.
-  const showSpeakButton = hasSpeakableText && mode !== 'communication'
+  const hasTranslationButton = !isUser && mode !== 'translation' && !errorLike && (mode === 'dialogue' || isCommunicationEnglish)
+  const showSpeakButton = hasSpeakableText
   // Дополнительная UI-страховка: если модель нарушила формат и выдала русскую "мета" строку
   // (кириллица, без вопроса) — не показываем её как "AI: ...".
   const hideRussianNonQuestionMainBefore =
