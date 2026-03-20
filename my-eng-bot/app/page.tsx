@@ -774,7 +774,9 @@ export default function Home() {
                 </div>
               </div>
             )}
-            <div className="min-h-0 flex-1">
+            {/* На iOS после закрытия клавиатуры иногда остаётся небольшой технический зазор.
+               Чтобы не просвечивал серый фон страницы, держим фон тем же, что и у чата. */}
+            <div className="min-h-0 flex-1 bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
           <Chat
             messages={messages}
             settings={settings}
