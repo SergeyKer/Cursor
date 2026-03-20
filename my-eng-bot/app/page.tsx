@@ -11,6 +11,13 @@ import type { ChatMessage, Settings, UsageInfo } from '@/lib/types'
 
 const CHILD_TENSE_SET = new Set(CHILD_TENSES)
 
+function createDialogSeed(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
@@ -30,6 +37,7 @@ export default function Home() {
   const firstMessageRequestIdRef = React.useRef(0)
   /** Не запускать второй запрос первого сообщения, пока первый в полёте (защита от двойного вызова из эффекта). */
   const firstMessageInFlightRef = React.useRef(false)
+  const dialogSeedRef = React.useRef(createDialogSeed())
 
   function normalizeSettingsForAudience(s: Settings): Settings {
     if (s.audience !== 'child') return s
@@ -140,6 +148,7 @@ export default function Home() {
                 mode: settings.mode,
                 sentenceType: settings.sentenceType,
                 audience: settings.audience,
+                dialogSeed: dialogSeedRef.current,
               }),
               signal: controller.signal,
             })
@@ -449,6 +458,7 @@ export default function Home() {
 
   const handleNewDialog = useCallback(() => {
     newDialogRef.current = true
+    dialogSeedRef.current = createDialogSeed()
     setDialogStarted(true) // чтобы UI сразу ушел со стартовой страницы
     setMessages([])
     setSettingsAtLastSend(null)

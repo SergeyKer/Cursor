@@ -428,19 +428,51 @@ function buildCommunicationFallbackMessage(params: {
   audience: 'child' | 'adult'
   language: 'ru' | 'en'
   firstTurn?: boolean
+  seedText?: string | null
 }): string {
-  const { audience, language, firstTurn = false } = params
+  const { audience, language, firstTurn = false, seedText = '' } = params
   const isChild = audience === 'child'
 
   if (firstTurn) {
+    const seed = stableHash32(`communication_first|${language}|${audience}|${seedText}`)
+    const pick = (variants: string[]) => variants[seed % variants.length] ?? variants[0] ?? ''
+
     if (language === 'ru') {
       return isChild
-        ? 'Привет! Как ты? Что хочешь обсудить?'
-        : 'Здравствуйте! Как вы? О чём хотите поговорить?'
+        ? pick([
+            'Привет! Как ты? Что хочешь обсудить?',
+            'Привет! Как у тебя дела? О чём хочешь поговорить?',
+            'Привет! Что нового? Чем займёмся сегодня?',
+            'Привет! Готовы поболтать? Что интересного у тебя сегодня?',
+            'Привет! Давай поговорим. Что тебя сейчас интересует?',
+            'Привет! О чём хочешь поговорить сегодня?',
+          ])
+        : pick([
+            'Здравствуйте! Как вы? О чём хотите поговорить?',
+            'Здравствуйте! Рад вас видеть. Чем займёмся сегодня?',
+            'Здравствуйте! Что вам интересно обсудить?',
+            'Здравствуйте! Готовы поговорить? Что интересного у вас сегодня?',
+            'Здравствуйте! О чём хотите поговорить сегодня?',
+            'Здравствуйте! Чем могу быть полезен?',
+          ])
     }
     return isChild
-      ? 'Hi! How are you? What would you like to talk about?'
-      : 'Hello! How are you doing? What would you like to discuss?'
+      ? pick([
+          'Hi! How are you? What would you like to talk about?',
+          'Hi! What’s up? What would you like to chat about?',
+          'Hi! Ready to talk? What would you like to discuss?',
+          'Hi! How’s it going? What should we talk about?',
+          'Hey! What would you like to practice today?',
+          'Hi there! What’s on your mind today?',
+        ])
+      : pick([
+          'Hello! How are you doing? What would you like to discuss?',
+          'Hello! Good to see you. What would you like to talk about?',
+          'Hello! What would you like to chat about today?',
+          'Hello! What is on your mind today?',
+          'Hello! What would you like to explore today?',
+          'Hello! How can I help you today?',
+        ])
   }
 
   if (language === 'ru') {
@@ -2933,6 +2965,7 @@ export async function POST(req: NextRequest) {
     const mode = body.mode ?? 'dialogue'
     const sentenceType = body.sentenceType ?? 'mixed'
     const audience: 'child' | 'adult' = body.audience === 'child' ? 'child' : 'adult'
+    const dialogSeed = typeof body.dialogSeed === 'string' ? body.dialogSeed : ''
 
     // Страховка: для "Ребёнок" в Свободной теме уровень не выше A2.
     if (audience === 'child' && topic === 'free_talk') {
@@ -3083,6 +3116,7 @@ export async function POST(req: NextRequest) {
             audience,
             language: detectedUserLang,
             firstTurn: isFirstTurn,
+            seedText: dialogSeed,
           }),
         })
       }
@@ -3396,12 +3430,19 @@ export async function POST(req: NextRequest) {
         cleaned = stripLeadingConversationFillers(cleaned)
         cleaned = collapseDuplicateLeadingGreetings(cleaned, targetLang)
         cleaned = stripPostGreetingFillers(cleaned, targetLang)
+        cleaned = buildCommunicationFallbackMessage({
+          audience,
+          language: targetLang,
+          firstTurn: true,
+          seedText: dialogSeed,
+        })
       }
 
       const fallback = buildCommunicationFallbackMessage({
         audience,
         language: targetLang,
         firstTurn: isFirstTurn,
+        seedText: dialogSeed,
       })
 
       if (!cleaned) cleaned = fallback
@@ -3427,6 +3468,12 @@ export async function POST(req: NextRequest) {
               cleaned = stripLeadingConversationFillers(cleaned)
               cleaned = collapseDuplicateLeadingGreetings(cleaned, targetLang)
               cleaned = stripPostGreetingFillers(cleaned, targetLang)
+              cleaned = buildCommunicationFallbackMessage({
+                audience,
+                language: targetLang,
+                firstTurn: true,
+                seedText: dialogSeed,
+              })
             }
             if (!cleaned) cleaned = fallback
             responseLang = detectLangFromText(cleaned, targetLang)
