@@ -7,6 +7,8 @@ export interface ChatMessage {
   translation?: string
   /** Сообщение об ошибке при загрузке перевода по запросу. */
   translationError?: string
+  /** Серверный флаг: в режиме dialogue это финальный корректный ответ пользователя. */
+  dialogueCorrect?: boolean
 }
 
 export type AiProvider = 'openrouter' | 'openai'

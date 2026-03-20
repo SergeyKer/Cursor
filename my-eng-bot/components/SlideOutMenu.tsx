@@ -13,6 +13,7 @@ interface SlideOutMenuProps {
   settings: Settings
   onSettingsChange: (s: Settings) => void
   usage: UsageInfo
+  dialogueCorrectAnswers: number
   onNewDialog?: () => void
   /** Не рендерить встроенную кнопку (кнопка вынесена в шапку страницы) */
   hideButton?: boolean
@@ -24,6 +25,7 @@ export default function SlideOutMenu({
   settings,
   onSettingsChange,
   usage,
+  dialogueCorrectAnswers,
   onNewDialog,
   hideButton = false,
 }: SlideOutMenuProps) {
@@ -71,7 +73,7 @@ export default function SlideOutMenu({
         }`}
         aria-label="Меню"
       >
-        <div className="flex h-full flex-col p-2.5 pt-[max(5rem,calc(env(safe-area-inset-top)+4rem))]">
+        <div className="flex h-full flex-col p-2.5 pt-[max(4rem,calc(env(safe-area-inset-top)+3rem))]">
           {onNewDialog && (
             <button
               type="button"
@@ -226,7 +228,7 @@ export default function SlideOutMenu({
               />
             </div>
 
-            <div className="rounded bg-[var(--border)]/50 px-2 py-1.5">
+            <div className="hidden rounded bg-[var(--border)]/50 px-2 py-1.5">
               <span className="text-xs text-[var(--text-muted)]">
                 Запросов:{' '}
               </span>
@@ -234,6 +236,13 @@ export default function SlideOutMenu({
                 {usage.limit > 0 ? `${usage.used} / ${usage.limit}` : `${usage.used}`}
               </span>
             </div>
+
+            {settings.mode === 'dialogue' && (
+              <div className="rounded bg-[var(--border)]/50 px-2 py-1.5">
+                <span className="text-xs text-[var(--text-muted)]">Правильных ответов: </span>
+                <span className="text-xs text-[var(--text)]">{dialogueCorrectAnswers}</span>
+              </div>
+            )}
           </div>
 
         </div>

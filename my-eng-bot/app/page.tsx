@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import SlideOutMenu, { MenuIcon } from '@/components/SlideOutMenu'
 import Chat from '@/components/Chat'
 import { loadState, saveState, getUsageCountToday, incrementUsageToday, DEFAULT_SETTINGS } from '@/lib/storage'
+import { countDialogueFinalCorrectAnswers } from '@/lib/dialogueStats'
 import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES, CHILD_TENSES } from '@/lib/constants'
 import MultiSelectDropdown from '@/components/MultiSelectDropdown'
 import type { ChatMessage, Settings, UsageInfo } from '@/lib/types'
@@ -21,6 +22,7 @@ export default function Home() {
   const [storageLoaded, setStorageLoaded] = useState(false)
   const [retryMessage, setRetryMessage] = useState<string | null>(null)
   const [loadingTranslationIndex, setLoadingTranslationIndex] = useState<number | null>(null)
+  const dialogueCorrectAnswers = React.useMemo(() => countDialogueFinalCorrectAnswers(messages), [messages])
   /** Настройки на момент последней отправки сообщения; для баннера «настройки изменены». */
   const [settingsAtLastSend, setSettingsAtLastSend] = useState<Settings | null>(null)
   const initialLoadDoneRef = React.useRef(false)
@@ -118,7 +120,7 @@ export default function Home() {
     async (
       apiMessages: ChatMessage[],
       options?: { onRetryStatus?: (message: string | null) => void }
-    ) => {
+    ): Promise<{ content: string; dialogueCorrect: boolean }> => {
       const onRetryStatus = options?.onRetryStatus
       let lastError: Error | null = null
       try {
@@ -147,6 +149,7 @@ export default function Home() {
               error?: string
               errorCode?: 'rate_limit' | 'unauthorized' | 'forbidden' | 'upstream_error'
               provider?: 'openrouter' | 'openai'
+              dialogueCorrect?: boolean
             }
             try {
               data = (await res.json()) as {
@@ -154,11 +157,13 @@ export default function Home() {
                 error?: string
                 errorCode?: 'rate_limit' | 'unauthorized' | 'forbidden' | 'upstream_error'
                 provider?: 'openrouter' | 'openai'
+                dialogueCorrect?: boolean
               }
             } catch {
               throw new Error(res.ok ? 'Неверный ответ сервера.' : `Ошибка ${res.status}: ${res.statusText}`)
             }
             const text = (data.content ?? '').trim()
+            const dialogueCorrect = Boolean(data.dialogueCorrect)
             if (!res.ok) {
               const errMsg = data.error || res.statusText
               const errorCode = data.errorCode
@@ -183,7 +188,7 @@ export default function Home() {
             if (data.error && !text) {
               throw new Error(data.error)
             }
-            if (text) return text
+            if (text) return { content: text, dialogueCorrect }
             lastError = new Error(EMPTY_RESPONSE_FALLBACK)
             const canRetryEmpty =
               attempt < MAX_ATTEMPTS - 1 && isRetryableError(lastError.message)
@@ -274,10 +279,10 @@ export default function Home() {
     setLoading(true)
     setRetryMessage(null)
     try {
-      const content = await sendToApi(toSend, { onRetryStatus: setRetryMessage })
+      const response = await sendToApi(toSend, { onRetryStatus: setRetryMessage })
       incrementUsageToday()
-      const { content: main, translation } = parseContentWithTranslation(content)
-      setMessages((prev) => [...prev, { role: 'assistant', content: main, translation }])
+      const { content: main, translation } = parseContentWithTranslation(response.content)
+      setMessages((prev) => [...prev, { role: 'assistant', content: main, translation, dialogueCorrect: response.dialogueCorrect }])
       await fetchUsage()
     } catch (e) {
       console.error(e)
@@ -312,12 +317,12 @@ export default function Home() {
     setLoading(true)
     setRetryMessage(null)
     try {
-      const content = await sendToApi([], { onRetryStatus: setRetryMessage })
+      const response = await sendToApi([], { onRetryStatus: setRetryMessage })
       if (requestId !== firstMessageRequestIdRef.current) return
       incrementUsageToday()
-      const firstContent = (content ?? '').trim() || EMPTY_RESPONSE_FALLBACK
+      const firstContent = (response.content ?? '').trim() || EMPTY_RESPONSE_FALLBACK
       const { content: main, translation } = parseContentWithTranslation(firstContent)
-      setMessages([{ role: 'assistant', content: main, translation }])
+      setMessages([{ role: 'assistant', content: main, translation, dialogueCorrect: response.dialogueCorrect }])
       // Базовая "точка отсчёта" для баннера «Настройки изменены».
       // Иначе при смене темы/времени после первого вопроса (до первой отправки пользователя)
       // нечего сравнивать и предупреждение не показывается.
@@ -348,11 +353,11 @@ export default function Home() {
     setLoading(true)
     setRetryMessage(null)
     try {
-      const content = await sendToApi([], { onRetryStatus: setRetryMessage })
+      const response = await sendToApi([], { onRetryStatus: setRetryMessage })
       if (requestId !== firstMessageRequestIdRef.current) return
       incrementUsageToday()
-      const { content: main, translation } = parseContentWithTranslation(content)
-      setMessages([{ role: 'assistant', content: main, translation }])
+      const { content: main, translation } = parseContentWithTranslation(response.content)
+      setMessages([{ role: 'assistant', content: main, translation, dialogueCorrect: response.dialogueCorrect }])
       setSettingsAtLastSend(settings)
       await fetchUsage()
     } catch (e) {
@@ -409,10 +414,10 @@ export default function Home() {
       setMessages(nextMessages)
       setLoading(true)
       try {
-        const content = await sendToApi(nextMessages, { onRetryStatus: setRetryMessage })
+        const response = await sendToApi(nextMessages, { onRetryStatus: setRetryMessage })
         incrementUsageToday()
-        const { content: main, translation } = parseContentWithTranslation(content)
-        setMessages((prev) => [...prev, { role: 'assistant', content: main, translation }])
+        const { content: main, translation } = parseContentWithTranslation(response.content)
+        setMessages((prev) => [...prev, { role: 'assistant', content: main, translation, dialogueCorrect: response.dialogueCorrect }])
         setSettingsAtLastSend(settings)
         await fetchUsage()
       } catch (e) {
@@ -768,6 +773,7 @@ export default function Home() {
         settings={settings}
         onSettingsChange={setSettings}
         usage={usage}
+        dialogueCorrectAnswers={dialogueCorrectAnswers}
         onNewDialog={handleNewDialog}
       />
     </div>
