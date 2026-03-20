@@ -344,9 +344,9 @@ export default function Chat({
       rec.interimResults = false
       let gotTranscript = false
 
-      rec.onstart = () => {
+      rec.addEventListener('start', () => {
         setListening(true)
-      }
+      })
 
       rec.onresult = (event: SpeechRecognitionEvent) => {
         const last = event.results.length - 1
