@@ -149,6 +149,16 @@ type DetectedLang = 'ru' | 'en'
 function detectLangFromText(text: string, tieBreak: DetectedLang = 'ru'): DetectedLang {
   const cyrCount = (text.match(/[А-Яа-яЁё]/g) ?? []).length
   const latCount = (text.match(/[A-Za-z]/g) ?? []).length
+  const cyrWordCount = (text.match(/[А-Яа-яЁё]+(?:-[А-Яа-яЁё]+)*/g) ?? []).length
+  const latWordCount = (text.match(/[A-Za-z]+(?:-[A-Za-z]+)*/g) ?? []).length
+
+  // Смешанный ввод (RU + brand names на латинице):
+  // "цена Bentley Continental" должен считаться русским.
+  if (cyrWordCount > 0 && latWordCount > 0) {
+    if (cyrWordCount >= latWordCount) return 'ru'
+    if (latWordCount >= cyrWordCount + 2 && latCount > cyrCount * 2) return 'en'
+    return 'ru'
+  }
 
   if (cyrCount > latCount) return 'ru'
   if (latCount > cyrCount) return 'en'
@@ -3304,8 +3314,51 @@ export async function POST(req: NextRequest) {
           .join('\n')
           .trim()
       }
+      const collapseDuplicateLeadingGreetings = (text: string, lang: DetectedLang): string => {
+        if (!text) return text
+        if (lang === 'ru') {
+          // Убираем повторы приветствия в начале: "Здравствуйте! Здравствуйте! ..."
+          // -> "Здравствуйте! ..."
+          return text.replace(
+            /^\s*((?:Привет|Здравствуй|Здраствуй|Здравствуйте|Добрый\s+день|Приветик|Хай)\b[!,.?\s]*)(?:(?:Привет|Здравствуй|Здраствуй|Здравствуйте|Добрый\s+день|Приветик|Хай)\b[!,.?\s]*)+/i,
+            '$1'
+          )
+        }
+        return text.replace(
+          /^\s*((?:Hi|Hello|Hey|Greetings)\b[!,.?\s]*)(?:(?:Hi|Hello|Hey|Greetings)\b[!,.?\s]*)+/i,
+          '$1'
+        )
+      }
+      const stripLeadingConversationFillers = (text: string): string => {
+        if (!text) return text
+        let out = text
+        // Удаляем только стартовые "разговорные" вводные и только в начале реплики.
+        // Примеры: "Хорошо, ...", "Ладно... ", "Okay, ...", "Well, ...".
+        const leadingFillers =
+          /^\s*(?:(?:Хорошо|Ладно|Окей|Ну\s+что|Итак|Okay|Ok|Well|So|Alright)\b[\s,!.?:;-]*)+/i
+        out = out.replace(leadingFillers, '')
+        return out.replace(/^\s+/, '').trim()
+      }
+      const stripPostGreetingFillers = (text: string, lang: DetectedLang): string => {
+        if (!text) return text
+        if (lang === 'ru') {
+          return text.replace(
+            /^(\s*(?:Привет|Здравствуй|Здраствуй|Здравствуйте|Добрый\s+день|Приветик|Хай)\b[!,.?\s]*)\s*(?:(?:Хорошо|Ладно|Окей|Ну\s+что|Итак)\b[\s,!.?:;-]*)+/i,
+            '$1'
+          ).trim()
+        }
+        return text.replace(
+          /^(\s*(?:Hi|Hello|Hey|Greetings)\b[!,.?\s]*)\s*(?:(?:Okay|Ok|Well|So|Alright)\b[\s,!.?:;-]*)+/i,
+          '$1'
+        ).trim()
+      }
 
       let cleaned = normalizeOutput(sanitized)
+      if (isFirstTurn) {
+        cleaned = stripLeadingConversationFillers(cleaned)
+        cleaned = collapseDuplicateLeadingGreetings(cleaned, targetLang)
+        cleaned = stripPostGreetingFillers(cleaned, targetLang)
+      }
 
       const fallback =
         isFirstTurn && targetLang === 'ru'
@@ -3335,6 +3388,11 @@ export async function POST(req: NextRequest) {
           const repairedRaw = sanitizeInstructionLeak(res2.content)
           if (repairedRaw) {
             cleaned = normalizeOutput(repairedRaw)
+            if (isFirstTurn) {
+              cleaned = stripLeadingConversationFillers(cleaned)
+              cleaned = collapseDuplicateLeadingGreetings(cleaned, targetLang)
+              cleaned = stripPostGreetingFillers(cleaned, targetLang)
+            }
             if (!cleaned) cleaned = fallback
             responseLang = detectLangFromText(cleaned, targetLang)
             if (responseLang !== targetLang) cleaned = fallback
