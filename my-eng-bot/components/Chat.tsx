@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useCallback } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { parseCorrection } from '@/lib/parseCorrection'
 import { speak } from '@/lib/speech'
 import type { ChatMessage as ChatMessageType, Settings } from '@/lib/types'
@@ -489,6 +489,31 @@ export default function Chat({
     setListening(false)
   }, [])
 
+  const SHOW_TYPING_DELAY_MS = 220
+  const [showTypingIndicator, setShowTypingIndicator] = useState(false)
+  const typingDelayTimerRef = useRef<number | null>(null)
+
+  // Чтобы индикатор "ИИ печатает…" не мигал при очень быстром ответе от сервера,
+  // показываем его только после небольшой задержки, если loading всё ещё true.
+  useEffect(() => {
+    if (!loading || messages.length === 0) {
+      if (typingDelayTimerRef.current) window.clearTimeout(typingDelayTimerRef.current)
+      typingDelayTimerRef.current = null
+      setShowTypingIndicator(false)
+      return
+    }
+
+    if (typingDelayTimerRef.current) window.clearTimeout(typingDelayTimerRef.current)
+    typingDelayTimerRef.current = window.setTimeout(() => {
+      setShowTypingIndicator(true)
+    }, SHOW_TYPING_DELAY_MS)
+
+    return () => {
+      if (typingDelayTimerRef.current) window.clearTimeout(typingDelayTimerRef.current)
+      typingDelayTimerRef.current = null
+    }
+  }, [loading, messages.length])
+
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
@@ -645,7 +670,7 @@ export default function Chat({
                   </React.Fragment>
                 )
               })}
-              {loading && messages.length > 0 && (
+              {showTypingIndicator && messages.length > 0 && (
                 <div className="mt-1.5 flex justify-start">
                   <span
                     className="rounded-xl border border-gray-200 bg-[var(--chat-section-neutral)] px-3 py-2 text-[14px] italic text-[var(--text)] shadow-sm"
