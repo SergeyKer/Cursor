@@ -110,7 +110,6 @@ function buildAssistantSections(params: {
       label: 'Повтори',
       text: repeatTextForCard,
       singleLine: true,
-      trailingAction: 'speak',
     })
   } else if (!hidePromptBlocks && mainBefore && !hideRussianNonQuestionMainBefore) {
     sections.push({ key: 'main', tone: 'neutral', label: 'AI', text: mainBefore, singleLine: true })
@@ -122,7 +121,6 @@ function buildAssistantSections(params: {
       label: 'Повтори',
       text: repeatTextForCard,
       singleLine: true,
-      trailingAction: 'speak',
     })
   }
   if (!hidePromptBlocks && invitationText) {
@@ -474,6 +472,15 @@ export default function Chat({
     el.scrollTop = el.scrollHeight
   }, [messages])
 
+  // Индекс последнего assistant-сообщения нужен, чтобы автоскрывать
+  // карточку перевода у предыдущих сообщений.
+  const lastAssistantIndex = React.useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i]?.role === 'assistant') return i
+    }
+    return -1
+  }, [messages])
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
       <div
@@ -506,6 +513,7 @@ export default function Chat({
                     <MessageBubble
                       message={msg}
                       messageIndex={i}
+                      activeAssistantIndex={lastAssistantIndex}
                       voiceId={settings.voiceId}
                       mode={settings.mode}
                       bubblePosition={bubblePosition}
@@ -694,6 +702,7 @@ function extractRepeatPrompt(text: string): { repeatText: string } | null {
 function MessageBubble({
   message,
   messageIndex,
+  activeAssistantIndex,
   voiceId,
   mode,
   bubblePosition,
@@ -702,6 +711,7 @@ function MessageBubble({
 }: {
   message: ChatMessageType
   messageIndex: number
+  activeAssistantIndex: number
   voiceId: string
   mode: 'dialogue' | 'translation'
   bubblePosition: BubblePosition
@@ -712,6 +722,7 @@ function MessageBubble({
   const [showTranslation, setShowTranslation] = React.useState(false)
   const translationRequestedRef = useRef(false)
   const prevTranslationErrorRef = useRef<string | undefined>(undefined)
+  const prevActiveAssistantIndexRef = useRef(activeAssistantIndex)
   const { comment, rest } =
     message.role === 'assistant' ? parseCorrection(message.content) : { comment: null, rest: message.content }
 
@@ -830,6 +841,18 @@ function MessageBubble({
     }
   }, [showTranslation, message.translationError])
 
+  // При появлении нового assistant-сообщения закрываем переводы
+  // у всех предыдущих карточек.
+  React.useEffect(() => {
+    const prevActiveAssistantIndex = prevActiveAssistantIndexRef.current
+    prevActiveAssistantIndexRef.current = activeAssistantIndex
+
+    if (!showTranslation) return
+    if (prevActiveAssistantIndex === activeAssistantIndex) return
+    if (activeAssistantIndex < 0) return
+    if (messageIndex !== activeAssistantIndex) setShowTranslation(false)
+  }, [activeAssistantIndex, messageIndex, showTranslation])
+
   if (!hasContent) return null
 
   return (
@@ -909,14 +932,14 @@ function MessageBubble({
                   <SectionCard tone="amber" label="Перевод" text="Перевод не пришёл, нажми ещё раз." small singleLine />
                 )}
                 {showTranslation && !hasTranslationData && !hasTranslationError && (
-                  <div className="mt-1.5 flex justify-start">
-                    <span
-                      className="rounded-xl border border-gray-200 bg-[var(--chat-section-neutral)] px-3 py-2 text-[14px] italic text-[var(--text)] shadow-sm"
-                      title="Ожидание перевода"
-                    >
-                      Загрузка перевода…
-                    </span>
-                  </div>
+                  <SectionCard
+                    tone="slate"
+                    label="Перевод"
+                    text="Загрузка перевода…"
+                    small
+                    singleLine
+                    textItalic
+                  />
                 )}
               </div>
             ) : null}
@@ -932,6 +955,7 @@ function SectionCard({
   label,
   text,
   italic,
+  textItalic,
   small,
   singleLine,
   trailingAction,
@@ -941,6 +965,7 @@ function SectionCard({
   label: string
   text: string
   italic?: boolean
+  textItalic?: boolean
   small?: boolean
   singleLine?: boolean
   trailingAction?: 'speak'
@@ -967,6 +992,7 @@ function SectionCard({
   const isAiInline = singleLine && label === 'AI'
   const hasLabel = label.trim().length > 0
   const isCompactServiceLine = singleLine && italic && !hasLabel
+  const isTextItalic = textItalic ?? italic
 
   return (
     <section
@@ -981,7 +1007,7 @@ function SectionCard({
         <div
           className={`min-w-0 max-w-full whitespace-normal break-words leading-snug ${
             small ? 'text-[14px]' : 'text-[15px]'
-          } ${italic ? 'font-serif italic text-[var(--invitation)]' : 'text-[var(--text)]'}`}
+          } text-[var(--text)]`}
           title={`${label}: ${text}`}
         >
           {hasLabel && (
@@ -995,7 +1021,11 @@ function SectionCard({
           )}
           <span
             className={
-              isAiInline ? 'text-gray-900' : italic ? 'text-[var(--invitation)]' : 'text-[var(--text)]'
+              isAiInline
+                ? 'text-gray-900'
+                : isTextItalic
+                  ? 'font-serif italic text-[var(--invitation)]'
+                  : 'text-[var(--text)]'
             }
           >
             {text}

@@ -169,6 +169,10 @@ function buildSystemPrompt(params: {
     topic !== 'free_talk'
       ? `The conversation topic is ${topicName}. If the user's answer goes off this topic, do NOT follow their new topic. Ask the next question again about ${topicName} (or the subtopic they chose) and gently bring the conversation back.`
       : ''
+  const lowSignalGuardRule =
+    mode === 'dialogue' && topic !== 'free_talk'
+      ? `If the user's reply is obvious nonsense, trolling, or low-signal input (for example random letters like "sdfsdf", "asdf", repeated characters, or a reply that clearly is not a real answer), do NOT treat it as progress. Stay in tutor mode, gently return to ${topicName}, and ask a normal on-topic question again. Do not praise the input and do not follow the user's fake topic or joke.`
+      : ''
 
   if (mode === 'translation') {
     return `Translation training. Topic: ${topicName}, ${levelPrompt}, ${sentenceTypeName}. Required tense: ${tenseName}.
@@ -225,7 +229,7 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
     topic === 'free_talk'
       ? 'HIGHEST PRIORITY — Free topic (for ANY tense: Present Simple, Present Perfect, Past Simple, etc.): When the user is naming or revealing their topic (e.g. first reply after you asked "What would you like to talk about?"), do NOT output Комментарий or Повтори. Do NOT output meta-text or instructions. Only infer the topic and reply with ONE real question in the required tense. This overrides ALL correction rules below. For the first question, keep the wording aligned with the selected level profile. '
       : ''
-  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${audienceRule} ${antiRobotRule} ${topicRetentionRule} ${freeTopicPriority}${tense === 'all' ? 'Any tense.' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${repeatFreezeRule} ${capitalizationRule} ${contractionRule} ${freeTalkRule}
+  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${audienceRule} ${antiRobotRule} ${topicRetentionRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Any tense.' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${repeatFreezeRule} ${capitalizationRule} ${contractionRule} ${freeTalkRule}
 
 Question style guidelines:
 - Ask short, natural questions a human would ask.
@@ -1318,6 +1322,43 @@ function isLowSignalTranslationInput(text: string): boolean {
   return false
 }
 
+function isLowSignalDialogueInput(text: string): boolean {
+  const t = text.trim()
+  if (!t) return true
+  const compact = t.replace(/\s+/g, '')
+  const letters = compact.match(/[A-Za-zА-Яа-яЁё]/g)?.length ?? 0
+  const words = t.split(/\s+/).filter(Boolean)
+  const normalized = t.toLowerCase()
+  const allowedShortAnswers = new Set(['yes', 'no', 'ok', 'okay', 'yeah', 'yep', 'nope', 'sure', 'nah', 'hi', 'hello'])
+
+  if (/^(?:a|as|asd|asdf|sdf|sdfsdf|qwerty|zxcv|hjkl|fdsa)+$/i.test(compact)) return true
+  if (/^(.)\1{3,}$/i.test(compact)) return true
+  if (/^[^A-Za-zА-Яа-яЁё]+$/.test(t)) return true
+  if (words.length === 1 && allowedShortAnswers.has(normalized)) return false
+
+  // Слишком короткие или очевидно шумовые ответы.
+  if (letters < 3) return true
+
+  // Один длинный "сухой" токен без гласных обычно означает шум вроде sdfsdf / qwrty.
+  if (words.length === 1) {
+    const word = normalized.replace(/[^a-z']/g, '')
+    if (word.length >= 4 && !/[aeiouy]/.test(word)) return true
+    if (word.length <= 2) return true
+  }
+
+  // Длинная строка из почти одних согласных без явного смысла часто бывает мусором.
+  const alphaOnly = normalized.replace(/[^a-z\s]/g, ' ')
+  const tokens = alphaOnly.split(/\s+/).filter(Boolean)
+  if (tokens.length === 1) {
+    const word = tokens[0]
+    const vowels = (word.match(/[aeiouy]/g)?.length ?? 0)
+    const consonants = (word.match(/[bcdfghjklmnpqrstvwxz]/g)?.length ?? 0)
+    if (word.length >= 4 && vowels === 0 && consonants >= 3) return true
+  }
+
+  return false
+}
+
 function buildTranslationRetryFallback(params: { tense: string; includeRepeat: boolean }): string {
   const { tense, includeRepeat } = params
   void tense
@@ -2370,6 +2411,11 @@ export async function POST(req: NextRequest) {
         : rawTenses[stableHash32(JSON.stringify(recentMessages)) % rawTenses.length]
     const normalizedTense =
       audience === 'child' && !childAllowedTenses.has(tenseForTurn as TenseId) ? 'present_simple' : tenseForTurn
+    if (mode === 'dialogue' && topic !== 'free_talk' && !isFirstTurn && isLowSignalDialogueInput(lastUserText)) {
+      return NextResponse.json({
+        content: fallbackQuestionForContext({ topic, tense: normalizedTense, level, audience, isFirstTurn, isTopicChoiceTurn }),
+      })
+    }
     if (mode === 'translation' && !isFirstTurn && isLowSignalTranslationInput(lastUserText)) {
       const base = buildTranslationRetryFallback({
         tense: normalizedTense,

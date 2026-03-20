@@ -16,6 +16,21 @@ export function parseCorrection(text: string): {
     return rawLine.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '')
   }
 
+  function splitInlineRepeat(source: string): { comment: string | null; repeat: string | null } {
+    const trimmed = source.trim()
+    const match = trimmed.match(/^(.*?)(?:\s+(?:Повтори|Repeat|Say)\s*:\s*)([\s\S]+)$/i)
+    if (!match) return { comment: trimmed || null, repeat: null }
+
+    const commentPart = match[1]?.trim() || null
+    const repeatPart = match[2]?.trim() || null
+    if (!repeatPart) return { comment: trimmed || null, repeat: null }
+
+    return {
+      comment: commentPart,
+      repeat: `Повтори: ${repeatPart}`,
+    }
+  }
+
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i]
     const line = stripAssistantPrefix(raw).trim()
@@ -74,6 +89,13 @@ export function parseCorrection(text: string): {
     }
   }
 
+  let repeatLine: string | null = null
+  if (comment) {
+    const split = splitInlineRepeat(comment)
+    comment = split.comment
+    repeatLine = split.repeat
+  }
+
   // Если это похвала (русское "Отлично/Молодец/..." в начале), а модель всё равно дописала
   // английский хвост в той же строке, убираем хвост. При этом "Возможный вариант" может
   // содержать английскую фразу, поэтому его не трогаем.
@@ -89,6 +111,11 @@ export function parseCorrection(text: string): {
   }
 
   let rest = restLines.join('\n').trim()
+  if (repeatLine) {
+    // Если "Повтори" был спрятан внутри комментария, показываем его отдельной строкой
+    // и не оставляем следующий вопрос в этом же блоке.
+    rest = repeatLine
+  }
   // Если комментарий — только похвала, но в той же строке модель дописала следующий вопрос (без перевода строки),
   // выносим вопрос в rest, чтобы он отображался в блоке «AI: вопрос».
   const praiseThenRest = comment?.match(/^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)[!.]?\s+([\s\S]+)$/)
