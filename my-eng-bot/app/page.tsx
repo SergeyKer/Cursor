@@ -712,7 +712,7 @@ export default function Home() {
                   </select>
                 </div>
               )}
-              {(settings.mode !== 'communication' || settings.audience === 'child') && (
+              {settings.mode !== 'communication' && (
                 <div>
                   <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Тема</label>
                   <select
@@ -720,10 +720,7 @@ export default function Home() {
                     onChange={(e) => setSettings((s) => ({ ...s, topic: e.target.value as Settings['topic'] }))}
                     className="start-control w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
                   >
-                    {(settings.mode === 'communication' && settings.audience === 'child'
-                      ? TOPICS.filter((t) => t.id !== 'business' && t.id !== 'work')
-                      : TOPICS
-                    ).map((t) => (
+                    {TOPICS.map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.label}
                       </option>
