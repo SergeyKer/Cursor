@@ -6,8 +6,8 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const FREE_MODEL = 'openrouter/free'
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
 const OPENAI_MODEL = 'gpt-4o-mini'
-/** Максимум сообщений в контексте (user+assistant). 6 = три последних обмена. */
-const MAX_MESSAGES_IN_CONTEXT = 6
+/** Максимум сообщений в контексте (user+assistant). 12 = шесть последних обменов. */
+const MAX_MESSAGES_IN_CONTEXT = 12
 /** Лимит токенов ответа. Запас увеличен, чтобы реже обрезать форматированные ответы. */
 const MAX_RESPONSE_TOKENS = 512
 
