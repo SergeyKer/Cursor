@@ -174,8 +174,23 @@ function buildSystemPrompt(params: {
   audience?: 'child' | 'adult'
   praiseStyleVariant?: boolean
   forcedRepeatSentence?: string | null
+  communicationDetailLevel?: 0 | 1 | 2
+  communicationLanguageHint?: 'Russian' | 'English'
+  communicationDetailOnly?: boolean
 }): string {
-  const { mode, sentenceType, topic, level, tense, audience = 'adult', praiseStyleVariant = false, forcedRepeatSentence = null } = params
+  const {
+    mode,
+    sentenceType,
+    topic,
+    level,
+    tense,
+    audience = 'adult',
+    praiseStyleVariant = false,
+    forcedRepeatSentence = null,
+    communicationDetailLevel = 0,
+    communicationLanguageHint = 'Russian',
+    communicationDetailOnly = false,
+  } = params
   const levelPrompt = buildLevelPrompt(level)
   const tenseName = TENSE_NAMES[tense] ?? 'Present Simple'
   const topicName = TOPIC_NAMES[topic] ?? 'general'
@@ -198,9 +213,11 @@ function buildSystemPrompt(params: {
 Rules:
 - Language: detect the user's language from their last message (Russian/English). Answer in the same language. If unclear, default to Russian.
 - Language detection rule: majority of Cyrillic vs Latin letters in the user's last message; if counts are equal, use the language of the previous assistant reply (if available), otherwise default to Russian.
+- Detail keywords are language-neutral: "Подробнее", "Ещё подробнее", "more details", and "even more details" only change depth, not language. If the last user message is only a detail keyword, keep the current conversation language.
+- Current conversation language: ${communicationLanguageHint}. ${communicationDetailOnly ? 'The last user message is only a detail keyword, so preserve this language exactly.' : 'Preserve this language across follow-up detail requests.'}
 - ${audienceStyleRule}
 - ${buildCommunicationEnglishStyleRule(audience)}
-- Keep replies short and focused (1–3 sentences). No long explanations.
+- ${buildCommunicationDetailRule(communicationDetailLevel)}
 - Do NOT output any tutor/protocol markers: no "Комментарий:", no "Повтори:", no "Время:", no "Конструкция:", no "Переведи на английский", and no "RU:" / "Russian:" labels.
 - Allow both Russian and English conversation freely. You may answer questions, follow-ups, and change your style if the user asks.
 - Clarification: if you genuinely don't understand what the user means or what they want, output ONLY one short clarifying question in the same language.
@@ -422,6 +439,71 @@ function buildCommunicationEnglishStyleRule(audience: 'child' | 'adult'): string
   return audience === 'child'
     ? 'English-only communication style: If you answer in English, keep the voice warm, simple, friendly, and concrete across turns. Use one short greeting plus one invitation on the first English reply, and keep later English replies short and natural. Do not repeat the same opening phrase or add extra filler.'
     : 'English-only communication style: If you answer in English, keep the voice natural, respectful, and concise across turns. Use one short greeting plus one invitation on the first English reply, and keep later English replies short and natural. Do not repeat the same opening phrase or add extra filler.'
+}
+
+function stripCommunicationDetailKeywords(text: string): string {
+  return text
+    .replace(/\b(?:еще|ещё)\s+подробнее\b/gi, ' ')
+    .replace(/\bподробнее\b/gi, ' ')
+    .replace(/\beven\s+more\s+details?\b/gi, ' ')
+    .replace(/\beven\s+more\s+detail\b/gi, ' ')
+    .replace(/\bmore\s+details?\b/gi, ' ')
+    .replace(/\bin\s+even\s+more\s+detail(?:s)?\b/gi, ' ')
+    .replace(/\bin\s+more\s+detail(?:s)?\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function normalizeCommunicationDetailText(text: string): string {
+  return text.toLowerCase().replace(/ё/g, 'е').trim().replace(/[.!?…]+$/g, '').replace(/\s+/g, ' ')
+}
+
+function isCommunicationDetailOnlyMessage(text: string): boolean {
+  const normalized = normalizeCommunicationDetailText(text)
+  return [
+    'подробнее',
+    'еще подробнее',
+    'more detail',
+    'more details',
+    'even more detail',
+    'even more details',
+    'in more detail',
+    'in more details',
+    'in even more detail',
+    'in even more details',
+  ].includes(normalized)
+}
+
+function detectCommunicationDetailLevel(text: string): 0 | 1 | 2 {
+  const normalized = normalizeCommunicationDetailText(text)
+
+  if (normalized === 'еще подробнее') return 2
+  if (normalized === 'even more detail' || normalized === 'even more details') return 2
+  if (normalized === 'in even more detail' || normalized === 'in even more details') return 2
+
+  if (normalized === 'подробнее') return 1
+  if (normalized === 'more detail' || normalized === 'more details') return 1
+  if (normalized === 'in more detail' || normalized === 'in more details') return 1
+
+  return 0
+}
+
+function buildCommunicationDetailRule(detailLevel: 0 | 1 | 2): string {
+  if (detailLevel === 2) {
+    return 'If the user writes "Ещё подробнее", "Еще подробнее", "even more details", or "in even more detail", answer much more expansively than usual: give a fuller explanation, add relevant nuance, and use up to 2 short paragraphs if needed. Keep the same language, tone, and audience style. These keywords are language-neutral and only change depth.'
+  }
+
+  if (detailLevel === 1) {
+    return 'If the user writes "Подробнее", "more details", or "in more detail", answer more expansively than usual: give a short but clearer explanation with a bit more context. Keep the same language, tone, and audience style. These keywords are language-neutral and only change depth.'
+  }
+
+  return 'Without a detail keyword, keep the reply short and focused (1–3 sentences).'
+}
+
+function buildCommunicationMaxTokens(detailLevel: 0 | 1 | 2): number {
+  if (detailLevel === 2) return 1024
+  if (detailLevel === 1) return 768
+  return MAX_RESPONSE_TOKENS
 }
 
 function buildCommunicationFallbackMessage(params: {
@@ -2833,8 +2915,9 @@ async function callProviderChat(params: {
   provider: Provider
   req: NextRequest
   apiMessages: { role: string; content: string }[]
+  maxTokens?: number
 }): Promise<{ ok: true; content: string } | { ok: false; status: number; errText: string }> {
-  const { provider, req, apiMessages } = params
+  const { provider, req, apiMessages, maxTokens = MAX_RESPONSE_TOKENS } = params
 
   if (provider === 'openai') {
     const key = normalizeKey(process.env.OPENAI_API_KEY ?? '')
@@ -2848,7 +2931,7 @@ async function callProviderChat(params: {
       body: JSON.stringify({
         model: OPENAI_MODEL,
         messages: apiMessages,
-        max_tokens: MAX_RESPONSE_TOKENS,
+        max_tokens: maxTokens,
       }),
     })
     if (!res.ok) return { ok: false, status: res.status, errText: await res.text() }
@@ -2872,7 +2955,7 @@ async function callProviderChat(params: {
     body: JSON.stringify({
       model: FREE_MODEL,
       messages: apiMessages,
-      max_tokens: MAX_RESPONSE_TOKENS,
+      max_tokens: maxTokens,
     }),
   })
   if (!res.ok) return { ok: false, status: res.status, errText: await res.text() }
@@ -3024,6 +3107,24 @@ export async function POST(req: NextRequest) {
     // Вариант 2 должен быть предсказуемым (не Math.random), чтобы баги воспроизводились и не "прыгали".
     const praiseStyleVariant =
       mode === 'dialogue' && (stableHash32(`${topic}|${level}|${normalizedTense}|${lastUserText}`) % 100) < 45
+    const communicationDetailLevel =
+      mode === 'communication' ? detectCommunicationDetailLevel(lastUserText) : 0
+    const communicationMaxTokens =
+      mode === 'communication' ? buildCommunicationMaxTokens(communicationDetailLevel) : MAX_RESPONSE_TOKENS
+    const lastUserContentForResponse = lastUserText
+    const lastAssistantContentForLangTie = recentMessages.filter((m: ChatMessage) => m.role === 'assistant').pop()?.content ?? ''
+    const lastAssistantLang = detectLangFromText(lastAssistantContentForLangTie, 'ru')
+    const communicationDetailOnly =
+      mode === 'communication' ? isCommunicationDetailOnlyMessage(lastUserContentForResponse) : false
+    const communicationLanguageProbe =
+      mode === 'communication' ? stripCommunicationDetailKeywords(lastUserContentForResponse) : lastUserContentForResponse
+    const detectedUserLang =
+      mode === 'communication'
+        ? communicationDetailOnly
+          ? lastAssistantLang
+          : detectLangFromText(communicationLanguageProbe, lastAssistantLang)
+        : detectLangFromText(lastUserContentForResponse, lastAssistantLang)
+    const communicationLanguageHint = lastAssistantLang === 'en' ? 'English' : 'Russian'
 
     const systemPrompt = buildSystemPrompt({
       mode,
@@ -3034,6 +3135,9 @@ export async function POST(req: NextRequest) {
       audience,
       praiseStyleVariant,
       forcedRepeatSentence,
+      communicationDetailLevel,
+      communicationLanguageHint,
+      communicationDetailOnly,
     })
 
     const topicChoicePrefix = mode === 'dialogue' && isTopicChoiceTurn
@@ -3055,7 +3159,7 @@ export async function POST(req: NextRequest) {
       { role: 'system', content: systemContent },
       ...userTurnMessages,
     ]
-    const res1 = await callProviderChat({ provider, req, apiMessages })
+    const res1 = await callProviderChat({ provider, req, apiMessages, maxTokens: communicationMaxTokens })
     if (!res1.ok) {
       const errText = res1.errText
       let userMessage: string
@@ -3103,10 +3207,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const lastUserContentForResponse = recentMessages.filter((m: ChatMessage) => m.role === 'user').pop()?.content ?? ''
-    const lastAssistantContentForLangTie = recentMessages.filter((m: ChatMessage) => m.role === 'assistant').pop()?.content ?? ''
-    const lastAssistantLang = detectLangFromText(lastAssistantContentForLangTie, 'ru')
-    const detectedUserLang = detectLangFromText(lastUserContentForResponse, lastAssistantLang)
     // Если модель вернула мета-фразу вместо ответа — не показываем её пользователю.
     // Делаем мягкий fallback на следующий интент, чтобы UX не ломался.
     if (isMetaGarbage(sanitized)) {
@@ -3218,7 +3318,7 @@ export async function POST(req: NextRequest) {
               }),
           }
 
-          const resRepeatRepair = await callProviderChat({ provider, req, apiMessages: repairApiMessages })
+          const resRepeatRepair = await callProviderChat({ provider, req, apiMessages: repairApiMessages, maxTokens: communicationMaxTokens })
           if (resRepeatRepair.ok) {
             const repairedSanitizedRaw = sanitizeInstructionLeak(resRepeatRepair.content)
             if (repairedSanitizedRaw && !isMetaGarbage(repairedSanitizedRaw)) {
@@ -3300,7 +3400,7 @@ export async function POST(req: NextRequest) {
           const repairApiMessages = [...apiMessages]
           repairApiMessages[0] = { role: 'system', content: repairSystemContent }
 
-          const res2 = await callProviderChat({ provider, req, apiMessages: repairApiMessages })
+          const res2 = await callProviderChat({ provider, req, apiMessages: repairApiMessages, maxTokens: communicationMaxTokens })
           if (res2.ok) {
             const repairedSanitizedRaw = sanitizeInstructionLeak(res2.content)
             if (repairedSanitizedRaw && !isMetaGarbage(repairedSanitizedRaw)) {
@@ -3459,7 +3559,7 @@ export async function POST(req: NextRequest) {
             `\n\nIMPORTANT LANGUAGE FIX: You MUST reply ONLY in ${targetLabel} (no switching languages). Keep it short (1–3 sentences). No "Комментарий/Повтори", no tutor/protocol markers, no "RU:/Russian:/Перевод".`,
         }
 
-        const res2 = await callProviderChat({ provider, req, apiMessages: repairApiMessages })
+        const res2 = await callProviderChat({ provider, req, apiMessages: repairApiMessages, maxTokens: communicationMaxTokens })
         if (res2.ok) {
           const repairedRaw = sanitizeInstructionLeak(res2.content)
           if (repairedRaw) {
@@ -3533,7 +3633,7 @@ export async function POST(req: NextRequest) {
         repairMessages.unshift({ role: 'system', content: buildRepairSystemPrefix() + systemContent })
       }
 
-      const res2 = await callProviderChat({ provider, req, apiMessages: repairMessages })
+      const res2 = await callProviderChat({ provider, req, apiMessages: repairMessages, maxTokens: communicationMaxTokens })
       if (res2.ok) {
         let repaired = sanitizeInstructionLeak(res2.content)
         if (repaired) {
