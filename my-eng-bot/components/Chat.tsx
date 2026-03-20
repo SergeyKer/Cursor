@@ -521,8 +521,8 @@ export default function Chat({
   const INPUT_GAP_PX = 10
   const INPUT_BOTTOM_RESERVE =
     // Чтобы нижний зазор у композера был сопоставим с боковыми отступами сообщения (`px-2.5` = 0.625rem).
-    // Safe-area учитываем как минимум.
-    'calc(max(0.625rem, env(safe-area-inset-bottom, 0px)))'
+    // На iOS клавиатура влияет на visualViewport, поэтому учитываем и `--vv-bottom-inset`.
+    'calc(max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset)))'
 
   const adjustInputHeight = useCallback(() => {
     const el = textareaRef.current
