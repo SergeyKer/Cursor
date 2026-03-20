@@ -11,6 +11,26 @@ function normalizeKey(key: string): string {
   return k
 }
 
+function normalizeTranslationResult(text: string): string {
+  const normalized = text
+    .replace(
+      /(^|\b)(Привет!\s*)?Как\s+(ты|вы)\s+обычно\s+заним(аешься|аетесь)\s+([^.?!]+?)([?.!])?(?=\s|$)/gi,
+      (_, prefix: string, greeting: string, pronoun: string, _verb: string, topic: string) => {
+        const isYou = pronoun.toLowerCase() === 'ты'
+        const subject = isYou ? 'ты' : 'вы'
+        const verb = isYou ? 'делаешь' : 'делаете'
+        return `${prefix}${greeting ?? ''}Что ${subject} обычно ${verb}, когда речь заходит о ${topic.trim()}?`
+      }
+    )
+    .replace(/\bзаниматься культурой\b/gi, 'интересоваться культурой')
+    .replace(/\bзанимаешься культурой\b/gi, 'интересуешься культурой')
+    .replace(/\bзанимаетесь культурой\b/gi, 'интересуетесь культурой')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return normalized
+}
+
 type Provider = 'openrouter' | 'openai'
 
 function classifyOpenAiForbidden(errText: string): 'unsupported_region' | 'other' {
@@ -39,6 +59,7 @@ export async function POST(req: NextRequest) {
       'You are a professional Russian translator. Translate the user text into natural conversational Russian, not a literal word-for-word translation. Preserve meaning, tone, and intent. ' +
       form +
       ' Avoid bureaucratic or robotic phrases like "связанное с", "в отношении", "касаемо", "по части". If the English is a question, translate it as a clear question a real person would ask. ' +
+      'Prefer idiomatic Russian over literal structure. For example, translate "What do you usually do about culture?" as a natural question like "Что ты обычно делаешь, когда речь заходит о культуре?" rather than "Как ты обычно занимаешься культурой?". ' +
       'For questions like "What is your favorite food?" use idiomatic patterns such as "Какая у тебя/у вас любимая еда?" instead of awkward phrases like "Что такое ваша любимая еда?". ' +
       'For English questions with "what ... in" (e.g. "What are you swimming in?") keep the preposition in Russian: use "В чём ...?" — never "Что ты плаваешь?" which loses the meaning. ' +
       'Important: in conversational prompts like "Just start, and I will follow." translate "I will follow" idiomatically as "я подхвачу/я продолжу/я поддержу разговор" depending on context. ' +
@@ -128,7 +149,7 @@ export async function POST(req: NextRequest) {
       choices?: Array<{ message?: { content?: string }; text?: string }>
     }
     const first = data.choices?.[0]
-    const content = (first?.message?.content ?? first?.text ?? '').trim()
+    const content = normalizeTranslationResult((first?.message?.content ?? first?.text ?? '').trim())
 
     if (!content) {
       return NextResponse.json(

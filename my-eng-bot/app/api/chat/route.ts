@@ -171,7 +171,7 @@ function buildSystemPrompt(params: {
       : ''
   const lowSignalGuardRule =
     mode === 'dialogue' && topic !== 'free_talk'
-      ? `If the user's reply is obvious nonsense, trolling, or low-signal input (for example random letters like "sdfsdf", "asdf", repeated characters, or a reply that clearly is not a real answer), do NOT treat it as progress. Stay in tutor mode, gently return to ${topicName}, and ask a normal on-topic question again. Do not praise the input and do not follow the user's fake topic or joke.`
+      ? `If the user's reply is obvious nonsense, trolling, or low-signal input (for example random letters like "sdfsdf", "asdf", repeated characters, or a reply that clearly is not a real answer), do NOT treat it as progress. Stay in tutor mode, gently explain that the answer is invalid, and keep the user on the same question path. Do not praise the input and do not follow the user's fake topic or joke.`
       : ''
 
   if (mode === 'translation') {
@@ -255,7 +255,7 @@ FORMAT (strict):
    - "Комментарий: " + a very short explanation in Russian (1–2 short sentences max). Briefly list ALL issues (tense, grammar, spelling, word choice). Do not mention capitalization or punctuation.
    - "Повтори: " + the FULL corrected English sentence (fixing all errors at once). Always write a complete sentence with normal punctuation.
    In this case do NOT add a follow‑up question — the user must repeat first.
-2) When the user's answer is already correct: do NOT output "Комментарий:" at all. Output only the next question in English, and make it the next sentence by the algorithm for this topic/tense. Do NOT output "Повтори:" for correct answers.${praiseStyleVariant ? ` If you need a human-sounding reaction, keep it implicit — do not add any extra visible line or comment.` : ''}
+2) When the user's answer is already correct: do NOT output "Комментарий:" at all. Accept a natural, grammatically correct reply even if it does not exactly repeat the wording of the question. Output only the next question in English, and make it the next sentence by the algorithm for this topic/tense. Do NOT output "Повтори:" for correct answers.${praiseStyleVariant ? ` If you need a human-sounding reaction, keep it implicit — do not add any extra visible line or comment.` : ''}
 
 Never add raw markers like **Correction:**, **Comment:**, **Right:** or similar anywhere in the visible text. The user should never see those words with asterisks.
 
@@ -639,6 +639,13 @@ function firstQuestionForTopicAndTense(params: {
         `${kidLead}Do you cook at home?`,
       ])
     }
+    if (topic === 'culture') {
+      return pick([
+        `${kidLead}What do you usually do when you want to learn about culture?`,
+        `${kidLead}How do you usually explore culture?`,
+        `${kidLead}Do you often visit museums or exhibitions?`,
+      ])
+    }
     if (topic === 'sports') {
       return pick([
         `${kidLead}Do you play any sports?`,
@@ -653,9 +660,22 @@ function firstQuestionForTopicAndTense(params: {
         `${kidLead}Do you watch series?`,
       ])
     }
+    if (topic === 'hobbies') {
+      return pick([
+        `${kidLead}What do you usually do in your free time?`,
+        `${kidLead}What are your hobbies?`,
+        `${kidLead}Do you have any hobbies?`,
+      ])
+    }
+    if (topic === 'travel') {
+      return pick([
+        `${kidLead}Do you like traveling?`,
+        `${kidLead}Where do you usually go on trips?`,
+        `${kidLead}What do you usually do on your trips?`,
+      ])
+    }
     return pick([
-      `${kidLead}What do you usually do in your free time?`,
-      `${kidLead}What do you usually do with ${t1}?`,
+      `${kidLead}What do you think about ${t1}?`,
       `${kidLead}Do you like ${t1}?`,
     ])
   }
@@ -683,33 +703,82 @@ function firstQuestionForTopicAndTense(params: {
       ])
     }
     return pick([
-      `${kidLead}What have you done recently?`,
-      `${kidLead}What new things have you tried recently?`,
+      `${kidLead}What have you talked about ${t1} recently?`,
+      `${kidLead}Have you talked about ${t1} lately?`,
       `${kidLead}What have you learned recently about ${t1}?`,
     ])
   }
 
   if (tense === 'present_continuous') {
     return pick([
-      `${kidLead}What are you doing right now?`,
-      `${kidLead}What are you doing at the moment?`,
-      isBasic ? `${kidLead}What are you doing now?` : `${kidLead}What are you working on right now?`,
+      `${kidLead}What are you talking about ${t1} right now?`,
+      `${kidLead}What are you talking about ${t1} at the moment?`,
+      isBasic ? `${kidLead}What are you talking about ${t1} now?` : `${kidLead}What are you thinking about ${t1} right now?`,
     ])
   }
 
   if (tense === 'past_simple') {
     return pick([
-      `${kidLead}What did you do yesterday?`,
-      `${kidLead}What did you do last weekend?`,
-      `${kidLead}What did you do after school/work yesterday?`,
+      `${kidLead}What did you talk about ${t1} yesterday?`,
+      `${kidLead}What did you talk about ${t1} last weekend?`,
+      `${kidLead}What did you talk about ${t1} after school/work yesterday?`,
     ])
   }
 
   if (tense === 'future_simple') {
     return pick([
-      `${kidLead}What will you do tomorrow?`,
-      `${kidLead}What will you do this weekend?`,
-      `${kidLead}What will you do next week?`,
+      `${kidLead}What will you talk about ${t1} tomorrow?`,
+      `${kidLead}What will you talk about ${t1} this weekend?`,
+      `${kidLead}What will you talk about ${t1} next week?`,
+    ])
+  }
+
+  if (tense === 'present_perfect_continuous') {
+    return pick([
+      `${kidLead}What have you been talking about ${t1} lately?`,
+      `${kidLead}What have you been thinking about ${t1} for a while?`,
+    ])
+  }
+
+  if (tense === 'past_continuous') {
+    return pick([
+      `${kidLead}What were you talking about ${t1} at this time yesterday?`,
+      `${kidLead}What were you thinking about ${t1} at the moment yesterday?`,
+    ])
+  }
+
+  if (tense === 'past_perfect') {
+    return pick([
+      `${kidLead}What had you talked about ${t1} before you went to bed yesterday?`,
+      `${kidLead}What had you learned about ${t1} before last weekend?`,
+    ])
+  }
+
+  if (tense === 'past_perfect_continuous') {
+    return pick([
+      `${kidLead}What had you been talking about ${t1} for a long time before you stopped?`,
+      `${kidLead}What had you been thinking about ${t1} for a while before you decided?`,
+    ])
+  }
+
+  if (tense === 'future_continuous') {
+    return pick([
+      `${kidLead}What will you be talking about ${t1} this time tomorrow?`,
+      `${kidLead}What will you be thinking about ${t1} this time tomorrow?`,
+    ])
+  }
+
+  if (tense === 'future_perfect') {
+    return pick([
+      `${kidLead}What will you have talked about ${t1} by this time tomorrow?`,
+      `${kidLead}What will you have learned about ${t1} by this time tomorrow?`,
+    ])
+  }
+
+  if (tense === 'future_perfect_continuous') {
+    return pick([
+      `${kidLead}What will you have been talking about ${t1} for a while by the end of tomorrow?`,
+      `${kidLead}What will you have been thinking about ${t1} by the end of tomorrow?`,
     ])
   }
 
@@ -832,6 +901,254 @@ function ensureNextQuestionWhenMissing(content: string, params: {
   if (!hasComment || hasQuestionMark) return content
 
   return `${trimmed}\n${fallbackNextQuestion(params)}`
+}
+
+function extractLikelyEntityFromUserAnswer(text: string): string | null {
+  const raw = text.trim()
+  if (!raw) return null
+  const cleaned = raw.replace(/[.,!?;:]+$/g, '').replace(/\s+/g, ' ').trim()
+  if (cleaned.length < 3 || cleaned.length > 60) return null
+  if (!/[A-Za-zА-Яа-яЁё]/.test(cleaned)) return null
+
+  const allowedShortAnswers = new Set(['yes', 'no', 'ok', 'okay', 'sure', 'yeah', 'yep', 'nope', 'nah', 'hi', 'hello'])
+  const short = cleaned.toLowerCase()
+  if (allowedShortAnswers.has(short)) return null
+
+  // Если пользователь ответил как фразой ("I like Turkey"), пытаемся выделить сущность справа.
+  let stripped = cleaned
+  stripped = stripped.replace(
+    /^i\s+(?:like|love|enjoy|prefer|usually|often|always|want|go|visit|travel|play|watch|listen\s+to|eat|use|work|talk|meet|study)\s+/i,
+    ''
+  )
+  stripped = stripped.replace(/^i\s+/i, '')
+  stripped = stripped.replace(/^(?:my|your|our|their)\s+/i, '')
+  stripped = stripped.replace(/^favorite\s+(?:place|thing|food|song|movie|hobby)\s+(?:is\s+)?/i, '')
+  stripped = stripped.trim()
+  if (!stripped) return null
+
+  const words = stripped.split(/\s+/).filter(Boolean)
+  const tail = words.slice(-3).join(' ')
+  if (!tail) return null
+  if (!/^[A-Za-zА-Яа-яЁё'-]+(?:\s+[A-Za-zА-Яа-яЁё'-]+){0,2}$/.test(tail)) return null
+
+  const normalizedTail = tail.replace(/\b(?:most|more|best|better|least)\b\s*$/i, '').trim()
+  if (!normalizedTail) return null
+
+  // Не принимаем, если внутри сохранились типичные глаголы/слова из шаблона ответа.
+  if (
+    /\b(like|love|enjoy|prefer|usually|often|always|want|go|visit|travel|play|watch|listen|eat|use|work|talk|meet|study|do|does|did|been)\b/i.test(
+      normalizedTail
+    )
+  ) {
+    return null
+  }
+
+  return normalizedTail
+}
+
+function entityToPlaceNoun(entity: string): string {
+  // Если пользователь ввёл common noun вроде "forest" (с маленькой буквы) — добавляем "the".
+  // Для proper noun вроде "Turkey" — "the" не нужен.
+  return /^[a-z]/.test(entity.trim()) ? `the ${entity.trim()}` : entity.trim()
+}
+
+function contextualizeTopicNextQuestionForLastAnswer(content: string, params: {
+  topic: string
+  tense: string
+  audience: 'child' | 'adult'
+  lastUserContent: string
+}): string {
+  if (params.topic === 'free_talk') return content
+  if (!params.lastUserContent.trim()) return content
+  if (params.tense === 'all') return content
+
+  const entity = extractLikelyEntityFromUserAnswer(params.lastUserContent)
+  if (!entity) return content
+
+  const entityLower = entity.toLowerCase()
+  const obj =
+    params.topic === 'travel' || params.topic === 'culture' ? entityToPlaceNoun(entity) : entity.trim()
+
+  type Action = 'visit' | 'like' | 'play' | 'watch' | 'listen' | 'eat' | 'use' | 'do' | 'talk' | 'work'
+  const actionForTopic = (t: string): Action => {
+    if (t === 'travel') return 'visit'
+    if (t === 'culture') return 'like'
+    if (t === 'sports') return 'play'
+    if (t === 'movies_series') return 'watch'
+    if (t === 'music') return 'listen'
+    if (t === 'food') return 'eat'
+    if (t === 'technology') return 'use'
+    if (t === 'hobbies' || t === 'daily_life') return 'do'
+    if (t === 'family_friends') return 'talk'
+    if (t === 'business' || t === 'work') return 'work'
+    return 'do'
+  }
+
+  const action = actionForTopic(params.topic)
+
+  const templatesByAction: Record<Action, Record<string, string>> = {
+    visit: {
+      present_simple: `Do you usually visit ${obj}?`,
+      present_continuous: `Are you visiting ${obj} now?`,
+      present_perfect: `Have you visited ${obj} recently?`,
+      present_perfect_continuous: `Have you been visiting ${obj} for a while?`,
+      past_simple: `Did you visit ${obj} yesterday?`,
+      past_continuous: `Were you visiting ${obj} at this time yesterday?`,
+      past_perfect: `Had you visited ${obj} before you went to bed yesterday?`,
+      past_perfect_continuous: `Had you been visiting ${obj} for a long time before you stopped?`,
+      future_simple: `Will you visit ${obj} next week?`,
+      future_continuous: `Will you be visiting ${obj} this time tomorrow?`,
+      future_perfect: `Will you have visited ${obj} by this time tomorrow?`,
+      future_perfect_continuous: `Will you have been visiting ${obj} for a while by the end of tomorrow?`,
+    },
+    like: {
+      present_simple: `What do you like most about ${obj}?`,
+      present_continuous: `What are you liking most about ${obj} these days?`,
+      present_perfect: `What have you liked most about ${obj} recently?`,
+      present_perfect_continuous: `What have you been liking most about ${obj} lately?`,
+      past_simple: `What did you like most about ${obj}?`,
+      past_continuous: `What were you liking most about ${obj} at that time?`,
+      past_perfect: `What had you liked most about ${obj} before then?`,
+      past_perfect_continuous: `What had you been liking most about ${obj} for a while before that?`,
+      future_simple: `What will you like most about ${obj}?`,
+      future_continuous: `What will you be liking most about ${obj} this time tomorrow?`,
+      future_perfect: `What will you have liked most about ${obj} by then?`,
+      future_perfect_continuous: `What will you have been liking most about ${obj} for a while by then?`,
+    },
+    play: {
+      present_simple: `Do you usually play ${obj}?`,
+      present_continuous: `Are you playing ${obj} now?`,
+      present_perfect: `Have you played ${obj} recently?`,
+      present_perfect_continuous: `Have you been playing ${obj} for a while?`,
+      past_simple: `Did you play ${obj} yesterday?`,
+      past_continuous: `Were you playing ${obj} at this time yesterday?`,
+      past_perfect: `Had you played ${obj} before you went to bed yesterday?`,
+      past_perfect_continuous: `Had you been playing ${obj} for a long time before you stopped?`,
+      future_simple: `Will you play ${obj} next week?`,
+      future_continuous: `Will you be playing ${obj} this time tomorrow?`,
+      future_perfect: `Will you have played ${obj} by this time tomorrow?`,
+      future_perfect_continuous: `Will you have been playing ${obj} for a while by the end of tomorrow?`,
+    },
+    watch: {
+      present_simple: `Do you usually watch ${obj}?`,
+      present_continuous: `Are you watching ${obj} now?`,
+      present_perfect: `Have you watched ${obj} recently?`,
+      present_perfect_continuous: `Have you been watching ${obj} for a while?`,
+      past_simple: `Did you watch ${obj} yesterday?`,
+      past_continuous: `Were you watching ${obj} at this time yesterday?`,
+      past_perfect: `Had you watched ${obj} before you went to bed yesterday?`,
+      past_perfect_continuous: `Had you been watching ${obj} for a long time before you stopped?`,
+      future_simple: `Will you watch ${obj} next week?`,
+      future_continuous: `Will you be watching ${obj} this time tomorrow?`,
+      future_perfect: `Will you have watched ${obj} by this time tomorrow?`,
+      future_perfect_continuous: `Will you have been watching ${obj} for a while by the end of tomorrow?`,
+    },
+    listen: {
+      present_simple: `Do you usually listen to ${obj}?`,
+      present_continuous: `Are you listening to ${obj} now?`,
+      present_perfect: `Have you listened to ${obj} recently?`,
+      present_perfect_continuous: `Have you been listening to ${obj} for a while?`,
+      past_simple: `Did you listen to ${obj} yesterday?`,
+      past_continuous: `Were you listening to ${obj} at this time yesterday?`,
+      past_perfect: `Had you listened to ${obj} before you went to bed yesterday?`,
+      past_perfect_continuous: `Had you been listening to ${obj} for a long time before you stopped?`,
+      future_simple: `Will you listen to ${obj} next week?`,
+      future_continuous: `Will you be listening to ${obj} this time tomorrow?`,
+      future_perfect: `Will you have listened to ${obj} by this time tomorrow?`,
+      future_perfect_continuous: `Will you have been listening to ${obj} for a while by the end of tomorrow?`,
+    },
+    eat: {
+      present_simple: `Do you usually eat ${obj}?`,
+      present_continuous: `Are you eating ${obj} now?`,
+      present_perfect: `Have you eaten ${obj} recently?`,
+      present_perfect_continuous: `Have you been eating ${obj} for a while?`,
+      past_simple: `Did you eat ${obj} yesterday?`,
+      past_continuous: `Were you eating ${obj} at this time yesterday?`,
+      past_perfect: `Had you eaten ${obj} before you went to bed yesterday?`,
+      past_perfect_continuous: `Had you been eating ${obj} for a long time before you stopped?`,
+      future_simple: `Will you eat ${obj} next week?`,
+      future_continuous: `Will you be eating ${obj} this time tomorrow?`,
+      future_perfect: `Will you have eaten ${obj} by this time tomorrow?`,
+      future_perfect_continuous: `Will you have been eating ${obj} for a while by the end of tomorrow?`,
+    },
+    use: {
+      present_simple: `Do you usually use ${obj}?`,
+      present_continuous: `Are you using ${obj} now?`,
+      present_perfect: `Have you used ${obj} recently?`,
+      present_perfect_continuous: `Have you been using ${obj} for a while?`,
+      past_simple: `Did you use ${obj} yesterday?`,
+      past_continuous: `Were you using ${obj} at this time yesterday?`,
+      past_perfect: `Had you used ${obj} before you went to bed yesterday?`,
+      past_perfect_continuous: `Had you been using ${obj} for a long time before you stopped?`,
+      future_simple: `Will you use ${obj} next week?`,
+      future_continuous: `Will you be using ${obj} this time tomorrow?`,
+      future_perfect: `Will you have used ${obj} by this time tomorrow?`,
+      future_perfect_continuous: `Will you have been using ${obj} for a while by the end of tomorrow?`,
+    },
+    do: {
+      present_simple: `Do you usually do ${obj}?`,
+      present_continuous: `Are you doing ${obj} now?`,
+      present_perfect: `Have you done ${obj} recently?`,
+      present_perfect_continuous: `Have you been doing ${obj} for a while?`,
+      past_simple: `Did you do ${obj} yesterday?`,
+      past_continuous: `Were you doing ${obj} at this time yesterday?`,
+      past_perfect: `Had you done ${obj} before you went to bed yesterday?`,
+      past_perfect_continuous: `Had you been doing ${obj} for a long time before you stopped?`,
+      future_simple: `Will you do ${obj} next week?`,
+      future_continuous: `Will you be doing ${obj} this time tomorrow?`,
+      future_perfect: `Will you have done ${obj} by this time tomorrow?`,
+      future_perfect_continuous: `Will you have been doing ${obj} for a while by the end of tomorrow?`,
+    },
+    talk: {
+      present_simple: `Do you usually talk to ${obj}?`,
+      present_continuous: `Are you talking to ${obj} now?`,
+      present_perfect: `Have you talked to ${obj} recently?`,
+      present_perfect_continuous: `Have you been talking to ${obj} for a while?`,
+      past_simple: `Did you talk to ${obj} yesterday?`,
+      past_continuous: `Were you talking to ${obj} at this time yesterday?`,
+      past_perfect: `Had you talked to ${obj} before you went to bed yesterday?`,
+      past_perfect_continuous: `Had you been talking to ${obj} for a long time before you stopped?`,
+      future_simple: `Will you talk to ${obj} next week?`,
+      future_continuous: `Will you be talking to ${obj} this time tomorrow?`,
+      future_perfect: `Will you have talked to ${obj} by this time tomorrow?`,
+      future_perfect_continuous: `Will you have been talking to ${obj} for a while by the end of tomorrow?`,
+    },
+    work: {
+      present_simple: `Do you usually work on ${obj}?`,
+      present_continuous: `Are you working on ${obj} now?`,
+      present_perfect: `Have you worked on ${obj} recently?`,
+      present_perfect_continuous: `Have you been working on ${obj} for a while?`,
+      past_simple: `Did you work on ${obj} yesterday?`,
+      past_continuous: `Were you working on ${obj} at this time yesterday?`,
+      past_perfect: `Had you worked on ${obj} before you went to bed yesterday?`,
+      past_perfect_continuous: `Had you been working on ${obj} for a long time before you stopped?`,
+      future_simple: `Will you work on ${obj} next week?`,
+      future_continuous: `Will you be working on ${obj} this time tomorrow?`,
+      future_perfect: `Will you have worked on ${obj} by this time tomorrow?`,
+      future_perfect_continuous: `Will you have been working on ${obj} for a while by the end of tomorrow?`,
+    },
+  }
+
+  const replacement = templatesByAction[action]?.[params.tense]
+  if (!replacement) return content
+
+  const lines = content.split(/\r?\n/)
+  let qIdx = -1
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i] ?? ''
+    const s = line.trim()
+    if (s.endsWith('?') && /[A-Za-z]/.test(s)) {
+      qIdx = i
+      break
+    }
+  }
+  if (qIdx === -1) return content
+
+  const questionLine = lines[qIdx] ?? ''
+  if (questionLine.toLowerCase().includes(entityLower)) return content
+
+  lines[qIdx] = replacement
+  return lines.join('\n').trim()
 }
 
 function isEnglishQuestionLine(line: string): boolean {
@@ -1620,6 +1937,85 @@ function forcePraiseIfRepeatMatchesUser(params: { content: string; userText: str
   return stripRepeatOnPraise(lines.join('\n'))
 }
 
+function getDialogueRepeatSentence(content: string): string | null {
+  const lines = content
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+    .filter(Boolean)
+  const repeatLine = lines.find((line) => /^(Повтори|Repeat|Say)\s*:/i.test(line))
+  if (!repeatLine) return null
+  const repeatText = repeatLine.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '').trim()
+  return repeatText || null
+}
+
+// Диалоговый sanity-check: ловим очевидно кривые фразы вида "to sea" / "to park"
+// и не засчитываем их как финально корректные ответы для любых времён.
+const ARTICLE_REQUIRED_PLACE_WORDS = new Set([
+  'sea',
+  'beach',
+  'park',
+  'museum',
+  'cinema',
+  'restaurant',
+  'airport',
+  'station',
+  'city',
+  'town',
+  'village',
+  'country',
+])
+
+function hasLikelyMissingArticleAfterPreposition(text: string): boolean {
+  const lower = text.trim().toLowerCase()
+  if (!lower) return false
+
+  const placeAlternatives = Array.from(ARTICLE_REQUIRED_PLACE_WORDS).join('|')
+  const prepositionPattern = new RegExp(
+    `\\b(?:to|in|on|at|from|into|onto)\\s+(?:[a-z]+\\s+){0,2}(?:${placeAlternatives})\\b`,
+    'i'
+  )
+  if (!prepositionPattern.test(lower)) return false
+
+  const articlePattern = new RegExp(
+    `\\b(?:the|a|an)\\s+(?:[a-z]+\\s+){0,2}(?:${placeAlternatives})\\b`,
+    'i'
+  )
+  return !articlePattern.test(lower)
+}
+
+function isDialogueAnswerLikelyCorrect(userText: string, requiredTense: string): boolean {
+  if (!isUserLikelyCorrectForTense(userText, requiredTense)) return false
+  if (hasLikelyMissingArticleAfterPreposition(userText)) return false
+  return true
+}
+
+function isDialogueAnswerEffectivelyCorrect(userText: string, repeatSentence: string, requiredTense: string): boolean {
+  const userNorm = normalizeEnglishSentenceForComparison(userText)
+  const repeatNorm = normalizeEnglishSentenceForComparison(repeatSentence)
+  if (!userNorm || !repeatNorm) return false
+  if (!isDialogueAnswerLikelyCorrect(userText, requiredTense)) return false
+  // Считаем false-positive только почти точное совпадение с фразой, которую бот просил повторить.
+  // Это не даёт скрывать реальные ошибки по слову/форме, когда ответ лишь "похож" на правильный.
+  return userNorm === repeatNorm
+}
+
+function replaceFalsePositiveDialogueRepeatWithPraise(params: {
+  content: string
+  userText: string
+  requiredTense: string
+  topic: string
+  level: string
+  audience: 'child' | 'adult'
+}): string {
+  const { content, userText, requiredTense, topic, level, audience } = params
+  const repeatSentence = getDialogueRepeatSentence(content)
+  if (!repeatSentence) return content
+  if (!isDialogueAnswerEffectivelyCorrect(userText, repeatSentence, requiredTense)) return content
+  // Для корректного ответа в dialogue мы должны выходить без "Комментарий" и без "Повтори":
+  // сразу следующий вопрос (это соответствует протоколу диалога в system prompt).
+  return fallbackNextQuestion({ topic, tense: requiredTense, level, audience })
+}
+
 function isUserLikelyCorrectForTense(userText: string, requiredTense: string): boolean {
   const lower = userText.trim().toLowerCase()
   if (!lower) return false
@@ -1657,6 +2053,15 @@ function isUserLikelyCorrectForTense(userText: string, requiredTense: string): b
         return /(s|es)$/.test(verb)
       }
 
+      // Для I/you/we/they в Present Simple не должны появляться 3rd person singular формы.
+      const mPluralPron = /^\s*(i|you|we|they)\s+([a-z]+)\b/i.exec(lower)
+      if (mPluralPron) {
+        const verb = mPluralPron[2]
+        if (/^(is|has|does)$/.test(verb)) return false
+        if (/(s|es)$/.test(verb)) return false
+        return true
+      }
+
       // Fallback: if we can't infer 3rd-person singular, rely on tense markers only.
       return true
     }
@@ -1687,6 +2092,22 @@ function isUserLikelyCorrectForTense(userText: string, requiredTense: string): b
     default:
       return true
   }
+}
+
+function isDialogueFinalCorrectResponse(params: {
+  content: string
+  userText: string
+  requiredTense: string
+}): boolean {
+  const { content, userText, requiredTense } = params
+  const trimmed = content.trim()
+  if (!trimmed) return false
+  if (/(^|\n)\s*(Повтори|Repeat|Say)\s*:/im.test(trimmed)) return false
+
+  const hasQuestionMark = /\?\s*$|[A-Za-z].*\?/m.test(trimmed)
+  if (!hasQuestionMark) return false
+
+  return isDialogueAnswerLikelyCorrect(userText, requiredTense)
 }
 
 function replaceGenericRepeatFallbackWithPraiseIfUserLikelyCorrect(params: {
@@ -2362,7 +2783,58 @@ function extractLastAssistantRepeatSentence(messages: ChatMessage[]): string | n
     const match = markerRe.exec(m.content)
     if (match?.[1]) last = match[1].trim()
   }
-  return last
+  if (!last) return last
+  // Иногда в истории уже попадает "Повтори: Повтори: ...", и тогда next "Повтори:" дублируется.
+  // Нормализуем: если извлеченная фраза начинается с маркера — убираем его.
+  return last.replace(/^\s*(?:Повтори|Repeat|Say|Скажи)\s*:\s*/i, '').trim() || null
+}
+
+function extractLastAssistantQuestionSentence(messages: ChatMessage[]): string | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg.role !== 'assistant') continue
+    const lines = msg.content
+      .split(/\r?\n/)
+      .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+      .filter(Boolean)
+    for (let j = lines.length - 1; j >= 0; j--) {
+      const line = lines[j] ?? ''
+      if (isEnglishQuestionLine(line)) return line
+    }
+  }
+  return null
+}
+
+function buildDialogueLowSignalFallback(params: {
+  messages: ChatMessage[]
+  topic: string
+  tense: string
+  level: string
+  audience: 'child' | 'adult'
+}): string {
+  const lastRepeat = extractLastAssistantRepeatSentence(params.messages)
+  if (lastRepeat) {
+    // Если ранее мы уже просили "Повтори:" и пользователь снова прислал шум,
+    // считаем это провокацией и просим повторить ту же целевую фразу.
+    return [
+      'Комментарий: Некорректный ввод. Ответьте полным английским предложением.',
+      `Повтори: ${lastRepeat}`,
+    ].join('\n')
+  }
+
+  const lastQuestion = extractLastAssistantQuestionSentence(params.messages)
+  const nextQuestion =
+    lastQuestion ??
+    fallbackNextQuestion({
+      topic: params.topic,
+      tense: params.tense,
+      level: params.level,
+      audience: params.audience,
+    })
+
+  // Для первого "низкосигнального" ввода UX: показываем комментарий + обычный следующий вопрос,
+  // чтобы пользователь продолжал диалог, а не зацикливался на "Повтори:".
+  return `Комментарий: Некорректный ввод. Ответьте полным английским предложением.\n${nextQuestion}`
 }
 
 export async function POST(req: NextRequest) {
@@ -2413,7 +2885,13 @@ export async function POST(req: NextRequest) {
       audience === 'child' && !childAllowedTenses.has(tenseForTurn as TenseId) ? 'present_simple' : tenseForTurn
     if (mode === 'dialogue' && topic !== 'free_talk' && !isFirstTurn && isLowSignalDialogueInput(lastUserText)) {
       return NextResponse.json({
-        content: fallbackQuestionForContext({ topic, tense: normalizedTense, level, audience, isFirstTurn, isTopicChoiceTurn }),
+        content: buildDialogueLowSignalFallback({
+          messages: recentMessages,
+          topic,
+          tense: normalizedTense,
+          level,
+          audience,
+        }),
       })
     }
     if (mode === 'translation' && !isFirstTurn && isLowSignalTranslationInput(lastUserText)) {
@@ -2515,11 +2993,27 @@ export async function POST(req: NextRequest) {
     sanitized = stripRepeatWhenAskingToExplain(sanitized)
     sanitized = normalizeVariantFormatting(sanitized)
     sanitized = stripPravilnoEverywhere(sanitized)
+    if (mode === 'dialogue') {
+      sanitized = replaceFalsePositiveDialogueRepeatWithPraise({
+        content: sanitized,
+        userText: lastUserContentForResponse,
+        requiredTense: normalizedTense,
+        topic,
+        level,
+        audience,
+      })
+    }
     sanitized = stripRepeatOnPraise(sanitized)
     sanitized = ensureNextQuestionOnPraise(sanitized, { mode, topic, tense: normalizedTense, level, audience })
     sanitized = ensureNextQuestionWhenMissing(sanitized, { mode, topic, tense: normalizedTense, level, audience })
     if (mode === 'dialogue') {
       sanitized = normalizeAboutTodaySpacing(sanitized)
+      sanitized = contextualizeTopicNextQuestionForLastAnswer(sanitized, {
+        topic,
+        tense: normalizedTense,
+        audience,
+        lastUserContent: lastUserContentForResponse,
+      })
     }
     if (mode === 'translation') {
       sanitized = normalizeTranslationCommentStyle(sanitized)
@@ -2779,6 +3273,16 @@ export async function POST(req: NextRequest) {
           repaired = splitCommentAndRepeatSameLine(repaired)
           repaired = normalizeVariantFormatting(repaired)
           repaired = stripPravilnoEverywhere(repaired)
+          if (mode === 'dialogue') {
+            repaired = replaceFalsePositiveDialogueRepeatWithPraise({
+              content: repaired,
+              userText: lastUserContentForResponse,
+              requiredTense: normalizedTense,
+              topic,
+              level,
+              audience,
+            })
+          }
           repaired = stripRepeatOnPraise(repaired)
           repaired = ensureNextQuestionOnPraise(repaired, { mode, topic, tense: normalizedTense, level, audience })
           repaired = ensureNextQuestionWhenMissing(repaired, { mode, topic, tense: normalizedTense, level, audience })
@@ -2828,8 +3332,16 @@ export async function POST(req: NextRequest) {
                 audience,
                 requiredTense: normalizedTense,
               })
+              return NextResponse.json({ content: repaired })
             }
-            return NextResponse.json({ content: repaired })
+            return NextResponse.json({
+              content: repaired,
+              dialogueCorrect: isDialogueFinalCorrectResponse({
+                content: repaired,
+                userText: lastUserContentForResponse,
+                requiredTense: normalizedTense,
+              }),
+            })
           }
         }
       }
@@ -2840,7 +3352,18 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    return NextResponse.json({ content: sanitized })
+    if (mode === 'translation') {
+      return NextResponse.json({ content: sanitized })
+    }
+
+    return NextResponse.json({
+      content: sanitized,
+      dialogueCorrect: isDialogueFinalCorrectResponse({
+        content: sanitized,
+        userText: lastUserContentForResponse,
+        requiredTense: normalizedTense,
+      }),
+    })
   } catch (e) {
     console.error(e)
     return NextResponse.json(
