@@ -573,6 +573,9 @@ export default function Chat({
     return -1
   }, [messages])
 
+  const lastMessageRole = messages[messages.length - 1]?.role ?? null
+  const canShowTypingIndicator = showTypingIndicator && loading && lastMessageRole === 'user'
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
       <div
@@ -655,7 +658,7 @@ export default function Chat({
                   </React.Fragment>
                 )
               })}
-              {showTypingIndicator && messages.length > 0 && (
+              {canShowTypingIndicator && messages.length > 0 && (
                 <div className="mt-1.5 flex justify-start">
                   <span
                     className="rounded-xl border border-gray-200 bg-[var(--chat-section-neutral)] px-3 py-2 text-[14px] italic text-[var(--text)] shadow-sm"

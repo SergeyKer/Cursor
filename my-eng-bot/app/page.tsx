@@ -283,7 +283,7 @@ export default function Home() {
       incrementUsageToday()
       const { content: main, translation } = parseContentWithTranslation(response.content)
       setMessages((prev) => [...prev, { role: 'assistant', content: main, translation, dialogueCorrect: response.dialogueCorrect }])
-      await fetchUsage()
+      void fetchUsage()
     } catch (e) {
       console.error(e)
       const errText = e instanceof Error ? e.message : 'Не удалось получить ответ. Попробуйте снова.'
@@ -329,7 +329,7 @@ export default function Home() {
       setSettingsAtLastSend(settings)
       setDialogStarted(true)
       if (isNewDialog) newDialogRef.current = false
-      await fetchUsage()
+      void fetchUsage()
     } catch (e) {
       console.error(e)
       if (requestId !== firstMessageRequestIdRef.current) return
@@ -359,7 +359,7 @@ export default function Home() {
       const { content: main, translation } = parseContentWithTranslation(response.content)
       setMessages([{ role: 'assistant', content: main, translation, dialogueCorrect: response.dialogueCorrect }])
       setSettingsAtLastSend(settings)
-      await fetchUsage()
+      void fetchUsage()
     } catch (e) {
       console.error(e)
       if (requestId !== firstMessageRequestIdRef.current) return
@@ -417,9 +417,10 @@ export default function Home() {
         const response = await sendToApi(nextMessages, { onRetryStatus: setRetryMessage })
         incrementUsageToday()
         const { content: main, translation } = parseContentWithTranslation(response.content)
+        setLoading(false)
         setMessages((prev) => [...prev, { role: 'assistant', content: main, translation, dialogueCorrect: response.dialogueCorrect }])
         setSettingsAtLastSend(settings)
-        await fetchUsage()
+        void fetchUsage()
       } catch (e) {
         console.error(e)
         const errText = e instanceof Error ? e.message : 'Не удалось получить ответ. Попробуйте снова.'
