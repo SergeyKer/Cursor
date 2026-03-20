@@ -635,8 +635,8 @@ export default function Home() {
           paddingBottom: dialogStarted
             // iOS: иногда появляется серый зазор снизу, если safe-area не учтён на уровне контейнера.
             // Контент чата тоже учитывает safe-area, но внешний контейнер при dialogStarted=true держим с paddingBottom.
-            ? 'max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset))'
-            : 'max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset))',
+            ? '0px'
+            : 'env(safe-area-inset-bottom, 0px)',
         }}
       >
         {!dialogStarted ? (
