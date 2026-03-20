@@ -599,7 +599,10 @@ export default function Home() {
         style={{
           paddingLeft: 'env(safe-area-inset-left)',
           paddingTop: 'env(safe-area-inset-top)',
-          minHeight: 'calc(2.5rem + env(safe-area-inset-top, 0px))',
+          // iOS: safe-area учитываем только через paddingTop.
+          // Иначе safe-area может засчитываться дважды (paddingTop + minHeight),
+          // и стартовый экран "уезжает" под верхний край.
+          minHeight: '2.5rem',
         }}
       >
         <button
