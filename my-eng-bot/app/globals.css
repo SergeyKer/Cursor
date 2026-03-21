@@ -185,29 +185,6 @@ select.select-chevron {
     padding-bottom: 0.9rem !important;
   }
 
-  .start-card {
-    padding-top: 0.6rem;
-    padding-bottom: 0.6rem;
-  }
-
-  .start-card h2 {
-    font-size: 0.9rem;
-    line-height: 1.2rem;
-  }
-
-  .start-card label {
-    margin-bottom: 0.15rem;
-    font-size: 0.7rem;
-    line-height: 1rem;
-  }
-
-  .start-control {
-    min-height: 32px !important;
-    padding-top: 0.2rem !important;
-    padding-bottom: 0.2rem !important;
-    font-size: 0.8rem !important;
-  }
-
   .start-cta {
     padding-top: 0.45rem;
     padding-bottom: 0.45rem;

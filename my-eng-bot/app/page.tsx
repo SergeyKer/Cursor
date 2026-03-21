@@ -1,12 +1,12 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
-import SlideOutMenu, { HomeIcon, MenuIcon } from '@/components/SlideOutMenu'
+import SlideOutMenu, { MenuIcon } from '@/components/SlideOutMenu'
+import MenuSectionPanels, { type MenuView } from '@/components/MenuSectionPanels'
 import Chat from '@/components/Chat'
 import { loadState, saveState, getUsageCountToday, incrementUsageToday, DEFAULT_SETTINGS } from '@/lib/storage'
 import { countDialogueFinalCorrectAnswers } from '@/lib/dialogueStats'
-import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES, CHILD_TENSES } from '@/lib/constants'
-import MultiSelectDropdown from '@/components/MultiSelectDropdown'
+import { TOPICS, LEVELS, TENSES, CHILD_TENSES } from '@/lib/constants'
 import type { ChatMessage, Settings, UsageInfo } from '@/lib/types'
 
 const CHILD_TENSE_SET = new Set(CHILD_TENSES)
@@ -26,6 +26,7 @@ export default function Home() {
   const [usage, setUsage] = useState<UsageInfo>({ used: 0, limit: 50 })
   const [initialized, setInitialized] = useState(false)
   const [dialogStarted, setDialogStarted] = useState(false)
+  const [homeMenuView, setHomeMenuView] = useState<MenuView>('root')
   const [storageLoaded, setStorageLoaded] = useState(false)
   const [retryMessage, setRetryMessage] = useState<string | null>(null)
   const [loadingTranslationIndex, setLoadingTranslationIndex] = useState<number | null>(null)
@@ -38,6 +39,9 @@ export default function Home() {
   /** Не запускать второй запрос первого сообщения, пока первый в полёте (защита от двойного вызова из эффекта). */
   const firstMessageInFlightRef = React.useRef(false)
   const dialogSeedRef = React.useRef(createDialogSeed())
+  /** Режим при открытии бокового меню (для перезапуска чата при смене режима до закрытия). */
+  const modeWhenMenuOpenedRef = React.useRef<Settings['mode'] | null>(null)
+  const prevMenuOpenForSnapshotRef = React.useRef(false)
 
   function normalizeSettingsForAudience(s: Settings): Settings {
     if (s.audience !== 'child') return s
@@ -142,7 +146,7 @@ export default function Home() {
               body: JSON.stringify({
                 messages: apiMessages.map((m) => ({ role: m.role, content: m.content })),
                 provider: settings.provider,
-                topic: settings.topic,
+                topic: settings.mode === 'communication' ? 'free_talk' : settings.topic,
                 level: settings.level,
                 tenses: settings.tenses,
                 mode: settings.mode,
@@ -355,6 +359,63 @@ export default function Home() {
     }
   }, [sendToApi, fetchUsage, settings])
 
+  const restartChatForNewModeFromMenu = useCallback(() => {
+    firstMessageRequestIdRef.current += 1
+    firstMessageInFlightRef.current = false
+    dialogSeedRef.current = createDialogSeed()
+    newDialogRef.current = true
+    setMessages([])
+    setSettingsAtLastSend(null)
+    setTimeout(() => {
+      ensureFirstMessage()
+    }, 50)
+  }, [ensureFirstMessage])
+
+  const handleStartChatFromMenu = useCallback(() => {
+    if (!dialogStarted) {
+      setDialogStarted(true)
+      setMenuOpen(false)
+      return
+    }
+    restartChatForNewModeFromMenu()
+    setMenuOpen(false)
+  }, [dialogStarted, restartChatForNewModeFromMenu])
+
+  useEffect(() => {
+    const wasOpen = prevMenuOpenForSnapshotRef.current
+    prevMenuOpenForSnapshotRef.current = menuOpen
+    if (menuOpen && !wasOpen && dialogStarted) {
+      modeWhenMenuOpenedRef.current = settings.mode
+    }
+  }, [menuOpen, dialogStarted, settings.mode])
+
+  useEffect(() => {
+    if (menuOpen) return
+    const snap = modeWhenMenuOpenedRef.current
+    modeWhenMenuOpenedRef.current = null
+    if (!dialogStarted) return
+    if (snap === null) return
+    if (snap !== settings.mode) {
+      restartChatForNewModeFromMenu()
+    }
+  }, [menuOpen, dialogStarted, settings.mode, restartChatForNewModeFromMenu])
+
+  const goToStartScreen = useCallback(() => {
+    firstMessageRequestIdRef.current += 1
+    firstMessageInFlightRef.current = false
+    setDialogStarted(false)
+    setMessages([])
+    setSettingsAtLastSend(null)
+    setHomeMenuView('root')
+    setMenuOpen(false)
+    setLoading(false)
+    setRetryMessage(null)
+    setLoadingTranslationIndex(null)
+    dialogSeedRef.current = createDialogSeed()
+    newDialogRef.current = false
+    saveState([], settings)
+  }, [settings])
+
   const retryFirstMessage = useCallback(async () => {
     const requestId = ++firstMessageRequestIdRef.current
     setMessages([])
@@ -456,34 +517,6 @@ export default function Home() {
     [messages, atLimit, sendToApi, fetchUsage, settings]
   )
 
-  const handleNewDialog = useCallback(() => {
-    newDialogRef.current = true
-    dialogSeedRef.current = createDialogSeed()
-    setDialogStarted(true) // чтобы UI сразу ушел со стартовой страницы
-    setMessages([])
-    setSettingsAtLastSend(null)
-    // На случай, если "первое сообщение" уже было запущено (или защита осталась активной),
-    // принудительно разрешаем новый старт.
-    firstMessageInFlightRef.current = false
-    firstMessageRequestIdRef.current++
-    setTimeout(() => {
-      ensureFirstMessage()
-    }, 50)
-  }, [ensureFirstMessage])
-
-  const handleGoHome = useCallback(() => {
-    setMenuOpen(false)
-    setLoading(false)
-    setRetryMessage(null)
-    setDialogStarted(false)
-    setMessages([])
-    setSettingsAtLastSend(null)
-    newDialogRef.current = false
-    firstMessageInFlightRef.current = false
-    firstMessageRequestIdRef.current++
-    dialogSeedRef.current = createDialogSeed()
-  }, [])
-
   function isRetryableTranslationError(message: string): boolean {
     return (
       message.startsWith('Превышен лимит') ||
@@ -552,14 +585,15 @@ export default function Home() {
     setResult(undefined, lastError)
   }, [settings.provider])
 
-  /** Сравнение только релевантных для чата полей: тема, время, уровень, режим (и тип предложений в режиме перевода). */
-  function settingsDiffersFromLastSend(current: Settings, last: Settings | null): boolean {
+  /** Сравнение для баннера в шапке: тема, время, уровень, тип предложений (в режиме перевода). Режим не учитываем — при смене режима чат перезапускается из меню без этого предупреждения. */
+  function settingsDiffersFromLastSendForBanner(current: Settings, last: Settings | null): boolean {
     if (!last) return false
     const sameTenses =
       current.tenses.length === last.tenses.length &&
       current.tenses.every((t, i) => t === last.tenses[i])
-    if (current.topic !== last.topic || !sameTenses || current.level !== last.level || current.mode !== last.mode) return true
-    if (current.mode === 'translation' && current.sentenceType !== last.sentenceType) return true
+    if (current.topic !== last.topic || !sameTenses || current.level !== last.level) return true
+    if (current.mode === 'translation' && last.mode === 'translation' && current.sentenceType !== last.sentenceType)
+      return true
     return false
   }
 
@@ -639,15 +673,6 @@ export default function Home() {
           >
             <MenuIcon />
           </button>
-          <button
-            type="button"
-            onClick={handleGoHome}
-            className="btn-3d-menu flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-muted)] transition-colors hover:text-[var(--text)] focus-visible:text-[var(--text)] touch-manipulation"
-            aria-label="На главную"
-            title="На главную"
-          >
-            <HomeIcon />
-          </button>
         </div>
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-12">
           <h1 className="text-sm font-medium text-[var(--text)] sm:text-base truncate max-w-full" title={pageTitle}>
@@ -683,126 +708,25 @@ export default function Home() {
               paddingBottom: 'clamp(1rem, 2.6vh, 2rem)',
             }}
           >
-            <div className="start-card w-full max-w-xs rounded-2xl border border-[var(--border)] bg-[#e8ecf0] px-4 py-3 shadow-sm space-y-2.5">
-              <h2 className="text-sm font-semibold text-[var(--text)] mb-0.5">Выбери режим</h2>
-              <div>
-                <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Пользователь</label>
-                <select
-                  value={settings.audience}
-                  onChange={(e) =>
-                    setSettings((s) => {
-                      const nextAudience = e.target.value as Settings['audience']
-                      if (nextAudience === 'child') return normalizeSettingsForAudience({ ...s, audience: nextAudience, level: 'all', tenses: ['present_simple'] })
-                      return normalizeSettingsForAudience({ ...s, audience: nextAudience })
-                    })
-                  }
-                  className="start-control w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
-                >
-                  <option value="child">Никита</option>
-                  <option value="adult">Взрослый</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Режим</label>
-                <select
-                  value={settings.mode}
-                  onChange={(e) => setSettings((s) => ({ ...s, mode: e.target.value as Settings['mode'] }))}
-                  className="start-control w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
-                >
-                  <option value="dialogue">Диалог</option>
-                  <option value="translation">Тренировка перевода</option>
-                  <option value="communication">Общение</option>
-                </select>
-              </div>
-              {settings.mode !== 'communication' && (
-                <div>
-                  <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Время</label>
-                  <MultiSelectDropdown
-                    options={settings.audience === 'child' ? TENSES.filter((t) => CHILD_TENSE_SET.has(t.id)) : TENSES}
-                    value={settings.tenses}
-                    onChange={(tenses) =>
-                      setSettings((s) => ({
-                        ...s,
-                        tenses:
-                          tenses.length > 0
-                            ? (tenses as Settings['tenses'])
-                            : (['present_simple'] as Settings['tenses']),
-                      }))
-                    }
-                    placeholder="Выберите время"
-                    selectAllLabel="Выбрать всё"
-                    selectAllResetValue={['present_simple']}
-                    minOne
-                    triggerClassName="start-control font-normal"
-                    panelClassName="font-normal"
-                  />
-                </div>
-              )}
-              {settings.mode === 'translation' && (
-                <div>
-                  <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Тип предложений</label>
-                  <select
-                    value={settings.sentenceType}
-                    onChange={(e) => setSettings((s) => ({ ...s, sentenceType: e.target.value as Settings['sentenceType'] }))}
-                    className="start-control w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
-                  >
-                    {SENTENCE_TYPES.map((t) => (
-                      <option key={t.id} value={t.id}>{t.label}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {settings.mode !== 'communication' && (
-                <div>
-                  <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Тема</label>
-                  <select
-                    value={settings.topic}
-                    onChange={(e) => setSettings((s) => ({ ...s, topic: e.target.value as Settings['topic'] }))}
-                    className="start-control w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
-                  >
-                    {TOPICS.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {settings.mode !== 'communication' && (
-                <div>
-                  <label className="mb-0.5 block text-xs font-medium text-[var(--text-muted)]">Уровень</label>
-                  <select
-                    value={settings.level}
-                    onChange={(e) => setSettings((s) => ({ ...s, level: e.target.value as Settings['level'] }))}
-                    className="start-control w-full rounded-lg border border-[var(--border)] bg-white pl-2 py-1.5 min-h-[36px] text-sm text-[var(--text)] select-chevron"
-                  >
-                    {(settings.audience === 'child'
-                      ? LEVELS.filter((l) => ['all', 'starter', 'a1', 'a2'].includes(l.id))
-                      : LEVELS
-                    ).map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+            <div className="flex w-full max-w-[20rem] shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[#e8ecf0] px-3 py-3 shadow-sm">
+              <MenuSectionPanels
+                menuView={homeMenuView}
+                onMenuViewChange={setHomeMenuView}
+                settings={settings}
+                onSettingsChange={(s) => setSettings(normalizeSettingsForAudience(s))}
+                usage={usage}
+                dialogueCorrectAnswers={dialogueCorrectAnswers}
+                idPrefix="home-"
+                className="flex min-h-0 flex-col"
+                homeLayout
+                onStartHomeChat={() => setDialogStarted(true)}
+                onGoHome={goToStartScreen}
+              />
             </div>
-            <button
-              type="button"
-              onClick={() => setDialogStarted(true)}
-              className="start-cta flex w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-8 py-2.5 text-base sm:text-lg font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
-            >
-              {settings.mode === 'dialogue'
-                ? 'Начать диалог'
-                : settings.mode === 'translation'
-                  ? 'Начать тренировку перевода'
-                  : 'Начать общение'}
-            </button>
           </div>
         ) : (
           <>
-            {dialogStarted && messages.length > 0 && settingsDiffersFromLastSend(settings, settingsAtLastSend) && (
+            {dialogStarted && messages.length > 0 && settingsDiffersFromLastSendForBanner(settings, settingsAtLastSend) && (
               <div className="shrink-0 border-b border-[var(--border)] px-3 py-2">
                 <div className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm text-[var(--text)] shadow-sm">
                   Настройки изменены. Следующее сообщение будет: <strong>{getMenuSummary(true)}</strong>.
@@ -835,11 +759,13 @@ export default function Home() {
         open={menuOpen}
         onToggle={() => setMenuOpen((v) => !v)}
         hideButton
+        chatActive={dialogStarted}
         settings={settings}
-        onSettingsChange={setSettings}
+        onSettingsChange={(s) => setSettings(normalizeSettingsForAudience(s))}
         usage={usage}
         dialogueCorrectAnswers={dialogueCorrectAnswers}
-        onNewDialog={handleNewDialog}
+        onStartChat={handleStartChatFromMenu}
+        onGoHome={goToStartScreen}
       />
     </div>
   )

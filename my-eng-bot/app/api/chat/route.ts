@@ -3055,9 +3055,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const messages: ChatMessage[] = Array.isArray(body.messages) ? body.messages : []
     const provider: Provider = body.provider === 'openai' ? 'openai' : 'openrouter'
-    const topic = body.topic ?? 'free_talk'
+    let topic = body.topic ?? 'free_talk'
     let level = body.level ?? 'a1'
     const mode = body.mode ?? 'dialogue'
+    if (mode === 'communication') topic = 'free_talk'
     const sentenceType = body.sentenceType ?? 'mixed'
     const audience: 'child' | 'adult' = body.audience === 'child' ? 'child' : 'adult'
     const dialogSeed = typeof body.dialogSeed === 'string' ? body.dialogSeed : ''
