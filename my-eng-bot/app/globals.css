@@ -139,6 +139,28 @@ select.select-chevron {
   padding-right: 2.5rem;
 }
 
+/* Плавная смена экранов внутри бокового меню (drill-down) */
+@keyframes menuPanelViewEnter {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.menu-panel-view-enter {
+  animation: menuPanelViewEnter 0.2s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu-panel-view-enter {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Минимальный размер области нажатия для пальца (Android / iOS, Apple HIG 44pt) */
 @media (pointer: coarse) {
   .btn-3d,

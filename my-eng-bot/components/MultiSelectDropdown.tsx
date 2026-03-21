@@ -23,6 +23,8 @@ interface MultiSelectDropdownProps {
   panelClassName?: string
   /** Вариант для компактного меню (меньший шрифт) */
   compact?: boolean
+  /** id элемента-подписи для aria-labelledby у кнопки-триггера */
+  ariaLabelledBy?: string
 }
 
 function formatSummary(
@@ -51,6 +53,7 @@ export default function MultiSelectDropdown({
   triggerClassName = '',
   panelClassName = '',
   compact = false,
+  ariaLabelledBy,
 }: MultiSelectDropdownProps) {
   const [open, setOpen] = React.useState(false)
   const [openUp, setOpenUp] = useState(false)
@@ -116,6 +119,7 @@ export default function MultiSelectDropdown({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="listbox"
+        aria-labelledby={ariaLabelledBy}
         className={`w-full rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 min-h-[36px] text-left ${textSize} text-[var(--text)] flex items-center justify-between gap-2 ${triggerClassName}`}
       >
         <span className="truncate">{summary}</span>

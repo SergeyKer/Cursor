@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
-import SlideOutMenu, { MenuIcon } from '@/components/SlideOutMenu'
+import SlideOutMenu, { HomeIcon, MenuIcon } from '@/components/SlideOutMenu'
 import Chat from '@/components/Chat'
 import { loadState, saveState, getUsageCountToday, incrementUsageToday, DEFAULT_SETTINGS } from '@/lib/storage'
 import { countDialogueFinalCorrectAnswers } from '@/lib/dialogueStats'
@@ -471,6 +471,19 @@ export default function Home() {
     }, 50)
   }, [ensureFirstMessage])
 
+  const handleGoHome = useCallback(() => {
+    setMenuOpen(false)
+    setLoading(false)
+    setRetryMessage(null)
+    setDialogStarted(false)
+    setMessages([])
+    setSettingsAtLastSend(null)
+    newDialogRef.current = false
+    firstMessageInFlightRef.current = false
+    firstMessageRequestIdRef.current++
+    dialogSeedRef.current = createDialogSeed()
+  }, [])
+
   function isRetryableTranslationError(message: string): boolean {
     return (
       message.startsWith('Превышен лимит') ||
@@ -616,15 +629,26 @@ export default function Home() {
           minHeight: '2.5rem',
         }}
       >
-        <button
-          type="button"
-          onClick={() => setMenuOpen((v) => !v)}
-          className="btn-3d-menu flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-r-md border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] touch-manipulation"
-          aria-label={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
-          title={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
-        >
-          <MenuIcon />
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            className="btn-3d-menu flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-r-md border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] touch-manipulation"
+            aria-label={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
+            title={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
+          >
+            <MenuIcon />
+          </button>
+          <button
+            type="button"
+            onClick={handleGoHome}
+            className="btn-3d-menu flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-muted)] transition-colors hover:text-[var(--text)] focus-visible:text-[var(--text)] touch-manipulation"
+            aria-label="На главную"
+            title="На главную"
+          >
+            <HomeIcon />
+          </button>
+        </div>
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-12">
           <h1 className="text-sm font-medium text-[var(--text)] sm:text-base truncate max-w-full" title={pageTitle}>
             {!dialogStarted || !storageLoaded ? (
