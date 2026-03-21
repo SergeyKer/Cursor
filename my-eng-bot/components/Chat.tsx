@@ -20,6 +20,19 @@ interface ChatProps {
   loadingTranslationIndex?: number | null
 }
 
+/**
+ * Локаль Web Speech только для режима общения — по последнему сообщению пользователя.
+ * Есть кириллица → ru-RU (в т.ч. «прайс Bentley Continental 45»).
+ * Только латиница → en-US. Только цифры/знаки → ru-RU по умолчанию.
+ */
+function speechLocaleForCommunication(lastUserText: string | undefined): 'ru-RU' | 'en-US' {
+  const t = lastUserText?.trim() ?? ''
+  if (!t) return 'ru-RU'
+  if (/[А-Яа-яЁё]/.test(t)) return 'ru-RU'
+  if (/[A-Za-z]/.test(t)) return 'en-US'
+  return 'ru-RU'
+}
+
 type BubblePosition = 'solo' | 'first' | 'middle' | 'last'
 type SectionTone = 'neutral' | 'amber' | 'emerald' | 'slate'
 type AssistantSection = {
@@ -324,28 +337,40 @@ export default function Chat({
       recognitionRef.current = null
     }
     setInput('')
-    type DetectedLang = 'ru' | 'en'
 
-    const detectLangFromText = (text: string): DetectedLang => {
-      const cyrCount = (text.match(/[А-Яа-яЁё]/g) ?? []).length
-      const latCount = (text.match(/[A-Za-z]/g) ?? []).length
-      if (cyrCount > latCount) return 'ru'
-      if (latCount > cyrCount) return 'en'
-      return 'ru'
-    }
-
-    let attempt = 0
+    const LISTENING_MAX_MS = 25_000
+    const isCommunication = settings.mode === 'communication'
 
     const startAttempt = (lang: 'ru-RU' | 'en-US') => {
-      attempt += 1
       const rec = new SpeechRecognitionAPI()
       rec.lang = lang
       rec.continuous = false
       rec.interimResults = false
       let gotTranscript = false
+      let timedOut = false
+      let safetyTimeoutId: number | null = null
+
+      const clearSafetyTimeout = () => {
+        if (safetyTimeoutId != null) {
+          window.clearTimeout(safetyTimeoutId)
+          safetyTimeoutId = null
+        }
+      }
 
       rec.addEventListener('start', () => {
         setListening(true)
+        if (!isCommunication) return
+        clearSafetyTimeout()
+        safetyTimeoutId = window.setTimeout(() => {
+          safetyTimeoutId = null
+          if (recognitionRef.current !== rec || gotTranscript) return
+          timedOut = true
+          try {
+            rec.stop()
+          } catch {
+            // ignore
+          }
+        }, LISTENING_MAX_MS)
       })
 
       rec.onresult = (event: SpeechRecognitionEvent) => {
@@ -353,39 +378,20 @@ export default function Chat({
         const text = event.results[last]?.[0]?.transcript ?? ''
         const trimmed = text.trim()
         if (!trimmed) return
+        if (isCommunication) clearSafetyTimeout()
         gotTranscript = true
-
-        if (settings.mode === 'communication') {
-          const detected = detectLangFromText(trimmed)
-
-          // Первый проход: если распознавание ушло в другую сторону — один ретрай.
-          if (attempt === 1 && trimmed.length >= 3) {
-            const shouldRetry =
-              (lang === 'ru-RU' && detected === 'en') || (lang === 'en-US' && detected === 'ru')
-
-            if (shouldRetry) {
-              try {
-                rec.stop()
-              } catch {
-                // ignore
-              }
-              setInput('')
-              startAttempt(detected === 'ru' ? 'ru-RU' : 'en-US')
-              return
-            }
-          }
-        }
-
         setInput(trimmed)
       }
 
       rec.onend = () => {
+        if (isCommunication) clearSafetyTimeout()
         if (recognitionRef.current === rec) {
-          // Если в первой попытке не получили транскрипт — попробуем противоположный язык.
-          if (settings.mode === 'communication' && attempt === 1 && !gotTranscript) {
-            const other = lang === 'ru-RU' ? 'en-US' : 'ru-RU'
-            setInput('')
-            startAttempt(other)
+          if (isCommunication && timedOut && !gotTranscript) {
+            recognitionRef.current = null
+            setListening(false)
+            setInput(
+              '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]'
+            )
             return
           }
           recognitionRef.current = null
@@ -394,6 +400,7 @@ export default function Chat({
       }
 
       rec.onerror = (event: Event) => {
+        if (isCommunication) clearSafetyTimeout()
         // SpeechRecognitionErrorEvent есть не во всех TS lib, поэтому берём как any.
         const err = (event as unknown as { error?: string; message?: string }).error
         const msg = (event as unknown as { message?: string }).message
@@ -410,14 +417,6 @@ export default function Chat({
         if (/not-allowed|permission/i.test(code)) {
           setInput('[Нет доступа к микрофону. Разрешите микрофон для этого сайта и попробуйте снова.]')
         } else if (/no-speech/i.test(code)) {
-          // Если первая попытка была на одном языке, но речь не распознана — попробуем другой один раз.
-          if (settings.mode === 'communication' && attempt === 1) {
-            const other = lang === 'ru-RU' ? 'en-US' : 'ru-RU'
-            setInput('')
-            startAttempt(other)
-            return
-          }
-
           setInput('[Речь не распознана. Скажите фразу ещё раз чуть громче.]')
         } else if (/network/i.test(code)) {
           setInput('[Ошибка сети при распознавании речи. Попробуйте ещё раз.]')
@@ -440,25 +439,16 @@ export default function Chat({
     }
 
     if (settings.mode === 'communication') {
-      // Язык первого распознавания выбираем по последнему сообщению пользователя.
-      // Если это старт диалога (нет user-ввода) — всегда ru-RU.
       const lastUserText = messages
         .filter((m) => m.role === 'user')
         .map((m) => m.content)
         .slice(-1)[0]
 
-      attempt = 0
-
-      if (!lastUserText || !lastUserText.trim()) {
-        startAttempt('ru-RU')
-      } else {
-        startAttempt(detectLangFromText(lastUserText) === 'ru' ? 'ru-RU' : 'en-US')
-      }
+      startAttempt(speechLocaleForCommunication(lastUserText))
       return
     }
 
-    // Остальные режимы оставляем как раньше (английский).
-    attempt = 0
+    // Остальные режимы (dialogue, translation): диктовка на английском, без таймаута общения.
     startAttempt('en-US')
   }, [settings.mode, messages])
 

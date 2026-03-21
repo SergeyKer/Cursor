@@ -165,6 +165,18 @@ function detectLangFromText(text: string, tieBreak: DetectedLang = 'ru'): Detect
   return tieBreak
 }
 
+/**
+ * Режим общения: язык сообщения по «раскладке» текста — как на клиенте (speechLocaleForCommunication).
+ * Есть кириллица → ru; только латиница → en; только цифры/знаки → tieBreak.
+ */
+function detectCommunicationUserMessageLang(text: string, tieBreak: DetectedLang): DetectedLang {
+  const t = text.trim()
+  if (!t) return tieBreak
+  if (/[А-Яа-яЁё]/.test(t)) return 'ru'
+  if (/[A-Za-z]/.test(t)) return 'en'
+  return tieBreak
+}
+
 function buildSystemPrompt(params: {
   mode: string
   sentenceType?: string
@@ -3122,7 +3134,7 @@ export async function POST(req: NextRequest) {
       mode === 'communication'
         ? communicationDetailOnly
           ? lastAssistantLang
-          : detectLangFromText(communicationLanguageProbe, lastAssistantLang)
+          : detectCommunicationUserMessageLang(communicationLanguageProbe, lastAssistantLang)
         : detectLangFromText(lastUserContentForResponse, lastAssistantLang)
     const communicationLanguageHint = lastAssistantLang === 'en' ? 'English' : 'Russian'
 
