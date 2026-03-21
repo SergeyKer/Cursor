@@ -567,13 +567,7 @@ export default function Chat({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
-      <div
-        className="flex min-h-0 flex-1 flex-col py-2 sm:py-3"
-        style={{
-          paddingLeft: 'max(0.5rem, env(safe-area-inset-left, 0px), var(--vv-left-inset))',
-          paddingRight: 'max(0.5rem, env(safe-area-inset-right, 0px), var(--vv-right-inset))',
-        }}
-      >
+      <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
         <div className="mx-auto flex min-h-0 flex-1 w-full max-w-[29rem] flex-col">
           <div className="flex min-h-0 flex-1 w-full flex-col overflow-hidden rounded-[1.15rem] border border-white/55 bg-[rgba(255,255,255,0.28)] shadow-sm backdrop-blur-[2px]">
             <div

@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Горизонтальные отступы колонки чата / главного блока (как в Chat.tsx) */
+@layer utilities {
+  .chat-shell-x {
+    padding-left: max(0.5rem, env(safe-area-inset-left, 0px), var(--vv-left-inset));
+    padding-right: max(0.5rem, env(safe-area-inset-right, 0px), var(--vv-right-inset));
+  }
+}
+
 :root {
   --bg: #f0f0f0;
   --bg-card: #fafafa;

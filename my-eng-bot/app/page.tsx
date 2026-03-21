@@ -658,9 +658,8 @@ export default function Home() {
   return (
     <div className="flex h-[100dvh] min-h-[100dvh] flex-col">
       <header
-        className="fixed left-0 right-0 top-0 z-[60] flex shrink-0 items-center border-b border-[var(--border)] bg-[var(--bg)]"
+        className="fixed left-0 right-0 top-0 z-[60] border-b border-[var(--border)] bg-[var(--bg)]"
         style={{
-          paddingLeft: 'env(safe-area-inset-left)',
           paddingTop: 'env(safe-area-inset-top)',
           // iOS: safe-area учитываем только через paddingTop.
           // Иначе safe-area может засчитываться дважды (paddingTop + minHeight),
@@ -668,16 +667,22 @@ export default function Home() {
           minHeight: '2.5rem',
         }}
       >
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            className="btn-3d-menu flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-r-md border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] touch-manipulation"
-            aria-label={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
-            title={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
+        <div className="chat-shell-x flex min-h-[2.5rem] w-full items-center">
+          <div
+            className={`mx-auto flex w-full items-center ${
+              dialogStarted ? 'max-w-[29rem]' : 'max-w-[23.2rem]'
+            }`}
           >
-            <MenuIcon />
-          </button>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              className="btn-3d-menu flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] touch-manipulation"
+              aria-label={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
+              title={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
+            >
+              <MenuIcon />
+            </button>
+          </div>
         </div>
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-12">
           <h1 className="text-sm font-medium text-[var(--text)] sm:text-base truncate max-w-full" title={pageTitle}>
@@ -706,14 +711,14 @@ export default function Home() {
       >
         {!dialogStarted ? (
           <div
-            className="start-screen flex min-h-0 flex-1 flex-col items-center bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)] px-4"
+            className="start-screen chat-shell-x flex min-h-0 flex-1 flex-col items-center bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]"
             style={{
               gap: 'clamp(0.75rem, 2.2vh, 1.5rem)',
               paddingTop: 'clamp(0.75rem, 2vh, 1.5rem)',
               paddingBottom: 'clamp(1rem, 2.6vh, 2rem)',
             }}
           >
-            <div className="flex w-full max-w-[20rem] shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[#e8ecf0] px-3 py-3 shadow-sm">
+            <div className="flex w-full max-w-[23.2rem] shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[#e8ecf0] px-3 py-3 shadow-sm">
               <MenuSectionPanels
                 menuView={homeMenuView}
                 onMenuViewChange={setHomeMenuView}
