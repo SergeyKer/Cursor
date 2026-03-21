@@ -3,9 +3,9 @@ import './globals.css'
 import VisualViewportInsets from '@/components/VisualViewportInsets'
 
 export const metadata: Metadata = {
-  title: 'MyEng Bot — мой английский друг',
+  title: 'MyEng - мой английский друг',
   description: 'Диалог и тренировка перевода на английском с ИИ',
-  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'MyEng Bot' },
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'MyEng' },
 }
 
 export default function RootLayout({

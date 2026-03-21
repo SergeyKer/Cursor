@@ -4,6 +4,9 @@ import React, { useCallback, useEffect, useState } from 'react'
 import SlideOutMenu, { MenuIcon } from '@/components/SlideOutMenu'
 import MenuSectionPanels, { type MenuView } from '@/components/MenuSectionPanels'
 import Chat from '@/components/Chat'
+import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
+import { buildCompactGreeting, buildFullGreeting } from '@/lib/homeGreeting'
+import { consumeNextGreetingFactLine } from '@/lib/greetingFactRotation'
 import { loadState, saveState, getUsageCountToday, incrementUsageToday, DEFAULT_SETTINGS } from '@/lib/storage'
 import { countDialogueFinalCorrectAnswers } from '@/lib/dialogueStats'
 import { TOPICS, LEVELS, TENSES, CHILD_TENSES } from '@/lib/constants'
@@ -27,6 +30,12 @@ export default function Home() {
   const [initialized, setInitialized] = useState(false)
   const [dialogStarted, setDialogStarted] = useState(false)
   const [homeMenuView, setHomeMenuView] = useState<MenuView>('root')
+  /** После ухода с корня меню — короткий текст приветствия без факта. */
+  const [welcomeCompact, setWelcomeCompact] = useState(false)
+  /** Смена «сессии» старта: новый факт из очереди (в т.ч. после выхода из чата домой). */
+  const [greetingNonce, setGreetingNonce] = useState(0)
+  const [welcomeFactLine, setWelcomeFactLine] = useState<string | null>(null)
+  const welcomeFactInitRef = React.useRef<number | null>(null)
   const [storageLoaded, setStorageLoaded] = useState(false)
   const [retryMessage, setRetryMessage] = useState<string | null>(null)
   const [loadingTranslationIndex, setLoadingTranslationIndex] = useState<number | null>(null)
@@ -64,6 +73,17 @@ export default function Home() {
     })
     return () => cancelAnimationFrame(id)
   }, [dialogStarted])
+
+  React.useLayoutEffect(() => {
+    if (dialogStarted) return
+    if (welcomeFactInitRef.current === greetingNonce) return
+    welcomeFactInitRef.current = greetingNonce
+    setWelcomeFactLine(consumeNextGreetingFactLine())
+  }, [dialogStarted, greetingNonce])
+
+  React.useEffect(() => {
+    if (homeMenuView !== 'root') setWelcomeCompact(true)
+  }, [homeMenuView])
 
   /** Ограничение лимитов отключено: отправка и перевод всегда доступны. */
   const atLimit = false
@@ -413,6 +433,8 @@ export default function Home() {
     setLoadingTranslationIndex(null)
     dialogSeedRef.current = createDialogSeed()
     newDialogRef.current = false
+    setWelcomeCompact(false)
+    setGreetingNonce((n) => n + 1)
     saveState([], settings)
   }, [settings])
 
@@ -640,20 +662,20 @@ export default function Home() {
               (TENSES.find((t) => t.id === settings.tenses[1])?.label ?? settings.tenses[1])
             : getTenseCountLabel(settings.tenses.length)
     const levelEntry = LEVELS.find((l) => l.id === settings.level)
-    const levelShort = levelEntry ? (levelEntry.label.split(' — ')[0]?.trim() ?? levelEntry.label) : settings.level
+    const levelShort = levelEntry ? (levelEntry.label.split(' - ')[0]?.trim() ?? levelEntry.label) : settings.level
     const normalizedLevelShort = settings.level === 'all' ? 'Все уровни' : levelShort
     const topicLabel = TOPICS.find((t) => t.id === settings.topic)?.label
     if (includeTopic && topicLabel) {
-      return `${modeLabel} — ${topicLabel}, ${tenseLabel}, ${normalizedLevelShort}`
+      return `${modeLabel} - ${topicLabel}, ${tenseLabel}, ${normalizedLevelShort}`
     }
-    return `${modeLabel} — ${tenseLabel}, ${normalizedLevelShort}`
+    return `${modeLabel} - ${tenseLabel}, ${normalizedLevelShort}`
   }
 
   const pageTitle = !dialogStarted
-    ? 'MyEng Bot — мой английский друг'
+    ? 'MyEng - мой английский друг'
     : storageLoaded
       ? getMenuSummary(true)
-      : 'MyEng Bot'
+      : 'MyEng'
 
   return (
     <div className="flex h-[100dvh] min-h-[100dvh] flex-col">
@@ -733,6 +755,13 @@ export default function Home() {
                 onGoHome={goToStartScreen}
               />
             </div>
+            {(welcomeCompact || welcomeFactLine !== null) && (
+              <HomeWelcomeBubble
+                text={
+                  welcomeCompact ? buildCompactGreeting() : buildFullGreeting(welcomeFactLine ?? '')
+                }
+              />
+            )}
           </div>
         ) : (
           <>
