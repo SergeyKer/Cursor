@@ -548,7 +548,12 @@ export default function Home() {
         const res = await fetch('/api/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: text.trim(), provider: settings.provider, audience: settings.audience }),
+          body: JSON.stringify({
+            text: text.trim(),
+            provider: settings.provider,
+            audience: settings.audience,
+            ...(settings.mode !== 'translation' ? { tenses: settings.tenses, mode: settings.mode } : {}),
+          }),
           signal: controller.signal,
         })
         clearTimeout(timeoutId)
@@ -583,7 +588,7 @@ export default function Home() {
     }
     setLoadingTranslationIndex(null)
     setResult(undefined, lastError)
-  }, [settings.provider])
+  }, [settings.provider, settings.audience, settings.mode, settings.tenses])
 
   /** Сравнение для баннера в шапке: тема, время, уровень, тип предложений (в режиме перевода). Режим не учитываем — при смене режима чат перезапускается из меню без этого предупреждения. */
   function settingsDiffersFromLastSendForBanner(current: Settings, last: Settings | null): boolean {
