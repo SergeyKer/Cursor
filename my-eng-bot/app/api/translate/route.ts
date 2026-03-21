@@ -54,13 +54,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Текст для перевода не передан' }, { status: 400 })
     }
 
-    const form = audience === 'child' ? 'Use informal address (ты).' : 'Use polite address (вы).'
+    const form =
+      audience === 'child'
+        ? 'Use informal address only (ты, тебе, твой). Never use formal address (вы, вам, ваш). Keep every Russian sentence in natural second-person singular grammar: ты пошёл, ты спросил, у тебя есть.'
+        : 'Use polite address (вы).'
+    const favoriteFoodExample =
+      audience === 'child'
+        ? 'For questions like "What is your favorite food?" use idiomatic patterns such as "Какая у тебя любимая еда?" instead of awkward phrases like "Что такое ваша любимая еда?".'
+        : 'For questions like "What is your favorite food?" use idiomatic patterns such as "Какая у вас любимая еда?" instead of awkward phrases like "Что такое ваша любимая еда?".'
     const system =
       'You are a professional Russian translator. Translate the user text into natural conversational Russian, not a literal word-for-word translation. Preserve meaning, tone, and intent. ' +
       form +
       ' Avoid bureaucratic or robotic phrases like "связанное с", "в отношении", "касаемо", "по части". If the English is a question, translate it as a clear question a real person would ask. ' +
       'Prefer idiomatic Russian over literal structure. For example, translate "What do you usually do about culture?" as a natural question like "Что ты обычно делаешь, когда речь заходит о культуре?" rather than "Как ты обычно занимаешься культурой?". ' +
-      'For questions like "What is your favorite food?" use idiomatic patterns such as "Какая у тебя/у вас любимая еда?" instead of awkward phrases like "Что такое ваша любимая еда?". ' +
+      favoriteFoodExample + ' ' +
       'For English questions with "what ... in" (e.g. "What are you swimming in?") keep the preposition in Russian: use "В чём ...?" — never "Что ты плаваешь?" which loses the meaning. ' +
       'Important: in conversational prompts like "Just start, and I will follow." translate "I will follow" idiomatically as "я подхвачу/я продолжу/я поддержу разговор" depending on context. ' +
       'Reply only with the translation, without explanations, quotes, or extra words.'

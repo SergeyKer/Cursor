@@ -994,6 +994,7 @@ function MessageBubble({
                     singleLine={section.singleLine}
                     trailingAction={section.trailingAction}
                     onSpeak={section.trailingAction === 'speak' ? handleSpeak : undefined}
+                    inlineMarkdownBold={mode === 'communication'}
                   />
                 ))}
               </div>
@@ -1057,6 +1058,31 @@ function MessageBubble({
   )
 }
 
+/** Только режим «Общение»: `**фрагмент**` → жирный текст без буквальных звёздочек. */
+function renderCommunicationBoldInline(text: string): React.ReactNode {
+  const re = /\*\*([\s\S]*?)\*\*/g
+  const nodes: React.ReactNode[] = []
+  let last = 0
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) {
+      nodes.push(text.slice(last, m.index))
+    }
+    const inner = m[1] ?? ''
+    nodes.push(
+      <strong key={`md-bold-${m.index}`} className="font-semibold">
+        {inner}
+      </strong>
+    )
+    last = m.index + m[0].length
+  }
+  if (last < text.length) {
+    nodes.push(text.slice(last))
+  }
+  if (nodes.length === 0) return text
+  return nodes.map((n, i) => <React.Fragment key={i}>{n}</React.Fragment>)
+}
+
 function SectionCard({
   tone,
   label,
@@ -1067,6 +1093,7 @@ function SectionCard({
   singleLine,
   trailingAction,
   onSpeak,
+  inlineMarkdownBold,
 }: {
   tone: 'neutral' | 'amber' | 'emerald' | 'slate'
   label: string
@@ -1077,6 +1104,8 @@ function SectionCard({
   singleLine?: boolean
   trailingAction?: 'speak'
   onSpeak?: () => void
+  /** Только `communication`: жирный по парам `**...**` в теле текста. */
+  inlineMarkdownBold?: boolean
 }) {
   const toneClass =
     tone === 'amber'
@@ -1100,6 +1129,7 @@ function SectionCard({
   const hasLabel = label.trim().length > 0
   const isCompactServiceLine = singleLine && italic && !hasLabel
   const isTextItalic = textItalic ?? italic
+  const bodyContent = inlineMarkdownBold ? renderCommunicationBoldInline(text) : text
 
   return (
     <section
@@ -1135,7 +1165,7 @@ function SectionCard({
                   : 'text-[var(--text)]'
             }
           >
-            {text}
+            {bodyContent}
           </span>
           {trailingAction === 'speak' && onSpeak && (
             <button
@@ -1157,7 +1187,7 @@ function SectionCard({
               small ? 'text-xs' : 'text-sm'
             } ${italic ? 'font-serif italic text-[var(--invitation)]' : 'text-[var(--text)]'}`}
           >
-            {text}
+            {bodyContent}
           </p>
         </>
       )}
