@@ -494,10 +494,9 @@ export default function Chat({
 
   const INPUT_MAX_HEIGHT_PX = 260
   const INPUT_GAP_PX = 10
-  const INPUT_BOTTOM_RESERVE =
-    // Чтобы нижний зазор у композера был сопоставим с боковыми отступами сообщения (`px-2.5` = 0.625rem).
-    // На iOS клавиатура влияет на visualViewport, поэтому учитываем и `--vv-bottom-inset`.
-    'calc(max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset)))'
+  /** База 0.625rem (как `pt-2.5`) + safe-area / клавиатура (`--vv-bottom-inset`), без затирания нижней части `py` инлайном. */
+  const INPUT_COMPOSER_PADDING_BOTTOM =
+    'calc(0.625rem + max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset)))'
 
   const adjustInputHeight = useCallback(() => {
     const el = textareaRef.current
@@ -663,15 +662,15 @@ export default function Chat({
               // Важно для iOS: paddingBottom может оставаться (safe-area / visual viewport),
               // и если фон полупрозрачный — пользователь видит "серую панель".
               // Делаем обёртку прозрачной, чтобы в резерве просвечивал фон чата.
-              className="shrink-0 border-t border-white/55 bg-transparent px-2.5 py-2.5 sm:px-3"
+              className="shrink-0 border-t border-white/55 bg-transparent px-2.5 pt-2.5 sm:px-3"
               style={{
-                paddingBottom: INPUT_BOTTOM_RESERVE,
+                paddingBottom: INPUT_COMPOSER_PADDING_BOTTOM,
               }}
             >
               <form
                 ref={formRef}
                 onSubmit={handleSubmit}
-                className="flex w-full items-center gap-1.5 rounded-[1.1rem] border border-white/70 bg-white/90 px-2.5 py-1.5 shadow-[0_-2px_8px_rgba(0,0,0,0.06)] sm:px-3"
+                className="flex w-full items-center gap-2 rounded-[1.1rem] border border-white/70 bg-white/90 px-2.5 py-1.5 shadow-sm sm:px-3"
               >
                 <button
                   type="button"
@@ -710,7 +709,7 @@ export default function Chat({
                 <button
                   type="submit"
                   disabled={!input.trim() || loading || atLimit}
-                  className="btn-3d touch-manipulation rounded-lg bg-emerald-600 px-3.5 py-1.5 min-h-[44px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50 disabled:hover:bg-emerald-600"
+                  className="btn-3d inline-flex touch-manipulation items-center justify-center rounded-lg bg-emerald-600 px-3.5 py-1.5 min-h-[44px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50 disabled:hover:bg-emerald-600"
                 >
                   <span className="sm:hidden">Отпр.</span>
                   <span className="hidden sm:inline">Отправить</span>
