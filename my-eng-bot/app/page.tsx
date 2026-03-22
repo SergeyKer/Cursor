@@ -30,7 +30,7 @@ export default function Home() {
   const [initialized, setInitialized] = useState(false)
   const [dialogStarted, setDialogStarted] = useState(false)
   const [homeMenuView, setHomeMenuView] = useState<MenuView>('root')
-  /** После ухода с корня меню — короткий текст приветствия без факта. */
+  /** На стартовом экране при выходе из чата домой сбрасывается в false. */
   const [welcomeCompact, setWelcomeCompact] = useState(false)
   /** Смена «сессии» старта: новый факт из очереди (в т.ч. после выхода из чата домой). */
   const [greetingNonce, setGreetingNonce] = useState(0)
@@ -81,9 +81,16 @@ export default function Home() {
     setWelcomeFactLine(consumeNextGreetingFactLine())
   }, [dialogStarted, greetingNonce])
 
-  React.useEffect(() => {
-    if (homeMenuView !== 'root') setWelcomeCompact(true)
-  }, [homeMenuView])
+  const handleHomeMenuViewChange = useCallback(
+    (v: MenuView) => {
+      if (v === 'root' && homeMenuView !== 'root' && !dialogStarted) {
+        setWelcomeCompact(false)
+        setGreetingNonce((n) => n + 1)
+      }
+      setHomeMenuView(v)
+    },
+    [homeMenuView, dialogStarted]
+  )
 
   /** Ограничение лимитов отключено: отправка и перевод всегда доступны. */
   const atLimit = false
@@ -743,7 +750,7 @@ export default function Home() {
             <div className="flex w-full max-w-[23.2rem] shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[#e8ecf0] px-3 py-3 shadow-sm">
               <MenuSectionPanels
                 menuView={homeMenuView}
-                onMenuViewChange={setHomeMenuView}
+                onMenuViewChange={handleHomeMenuViewChange}
                 settings={settings}
                 onSettingsChange={(s) => setSettings(normalizeSettingsForAudience(s))}
                 usage={usage}
@@ -755,7 +762,7 @@ export default function Home() {
                 onGoHome={goToStartScreen}
               />
             </div>
-            {(welcomeCompact || welcomeFactLine !== null) && (
+            {homeMenuView === 'root' && (welcomeCompact || welcomeFactLine !== null) && (
               <HomeWelcomeBubble
                 text={
                   welcomeCompact ? buildCompactGreeting() : buildFullGreeting(welcomeFactLine ?? '')
