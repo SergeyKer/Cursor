@@ -707,7 +707,7 @@ export default function Home() {
           </div>
         </div>
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-12">
-          <h1 className="text-sm font-medium text-[var(--text)] sm:text-base truncate max-w-full" title={pageTitle}>
+          <h1 className="text-[13px] font-medium leading-snug text-[var(--text)] sm:text-[15px] truncate max-w-full" title={pageTitle}>
             {!dialogStarted || !storageLoaded ? (
               pageTitle
             ) : (

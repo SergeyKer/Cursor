@@ -30,7 +30,7 @@ export interface MenuSectionPanelsProps {
   className?: string
   /** Главная: рамка по высоте контента, без пустого пространства под списком разделов. */
   homeLayout?: boolean
-  /** Запуск чата из раздела «Чат с ИИ» (главная или боковое меню). */
+  /** Запуск чата из раздела «Чат с MyEng» (главная или боковое меню). */
   onStartHomeChat?: () => void
   /** Кнопка «домик»: выход на стартовый экран (передаётся из страницы). */
   onGoHome?: () => void
@@ -100,7 +100,7 @@ export default function MenuSectionPanels({
           </div>
           <h2 className="min-w-0 flex-1 pr-2 text-right text-sm font-semibold leading-snug text-[var(--text)] sm:pr-3">
             {menuView === 'lessons' && 'Уроки'}
-            {menuView === 'aiChat' && 'Чат с ИИ'}
+            {menuView === 'aiChat' && 'Чат с MyEng'}
             {menuView === 'settings' && 'Настройки'}
             {menuView === 'progress' && 'Прогресс'}
             {menuView === 'profile' && 'Профиль'}
@@ -118,7 +118,7 @@ export default function MenuSectionPanels({
       >
           {menuView === 'root' && (
             <>
-              <MenuNavRow label="Чат с ИИ" onClick={() => onMenuViewChange('aiChat')} />
+              <MenuNavRow label="Чат с MyEng" onClick={() => onMenuViewChange('aiChat')} />
               <MenuNavRow label="Уроки" onClick={() => onMenuViewChange('lessons')} />
               <MenuNavRow label="Прогресс" onClick={() => onMenuViewChange('progress')} />
               <MenuNavRow label="Настройки" onClick={() => onMenuViewChange('settings')} />
@@ -339,7 +339,7 @@ export default function MenuSectionPanels({
             <div className="flex w-full items-start gap-3">
               <span className={MENU_FIELD_LABEL}>Раздел</span>
               <p className="min-w-0 flex-1 text-xs leading-relaxed text-[var(--text-muted)]">
-                Выбор ИИ и голоса перенесён в «Чат с ИИ».
+                Выбор ИИ и голоса перенесён в «Чат с MyEng».
               </p>
             </div>
           )}

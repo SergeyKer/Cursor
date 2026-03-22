@@ -44,6 +44,8 @@ type AssistantSection = {
   small?: boolean
   singleLine?: boolean
   trailingAction?: 'speak'
+  /** Без префикса «AI:», но с тем же акцентом текста, что и у блока с label «AI». */
+  emphasizeMainText?: boolean
 }
 
 function getBubblePosition(
@@ -92,6 +94,7 @@ function buildAssistantSections(params: {
   hideRussianNonQuestionMainBefore: boolean
   invitationText: string | null
   mainAfter: string
+  mode: 'dialogue' | 'translation' | 'communication'
 }): AssistantSection[] {
   const {
     comment,
@@ -104,7 +107,10 @@ function buildAssistantSections(params: {
     hideRussianNonQuestionMainBefore,
     invitationText,
     mainAfter,
+    mode,
   } = params
+
+  const hideAiLabel = mode === 'dialogue'
 
   const sections: AssistantSection[] = []
   if (comment) {
@@ -125,7 +131,14 @@ function buildAssistantSections(params: {
       singleLine: true,
     })
   } else if (!hidePromptBlocks && mainBefore && !hideRussianNonQuestionMainBefore) {
-    sections.push({ key: 'main', tone: 'neutral', label: 'AI', text: mainBefore, singleLine: true })
+    sections.push({
+      key: 'main',
+      tone: 'neutral',
+      label: hideAiLabel ? '' : 'AI',
+      text: mainBefore,
+      singleLine: true,
+      emphasizeMainText: hideAiLabel,
+    })
   }
   if (!showOnlyRepeat && repeatTextForCard) {
     sections.push({
@@ -148,11 +161,13 @@ function buildAssistantSections(params: {
     })
   }
   if (!hidePromptBlocks && mainAfter) {
+    const mainAfterLabel = mainBefore || invitationText ? 'Доп. комментарий' : 'AI'
     sections.push({
       key: 'main-after',
       tone: 'neutral',
-      label: mainBefore || invitationText ? 'Доп. комментарий' : 'AI',
+      label: hideAiLabel && mainAfterLabel === 'AI' ? '' : mainAfterLabel,
       text: mainAfter.replace(/\b(Say|Repeat|Скажи):\s*/gi, 'Повтори: '),
+      emphasizeMainText: hideAiLabel && mainAfterLabel === 'AI',
     })
   }
   return sections
@@ -565,6 +580,12 @@ export default function Chat({
   const lastMessageRole = messages[messages.length - 1]?.role ?? null
   const canShowTypingIndicator = showTypingIndicator && loading && lastMessageRole === 'user'
 
+  /** Диалог и общение — MyEng; тренировка перевода — без изменений. */
+  const typingIndicatorText =
+    settings.mode === 'translation'
+      ? `ИИ печатает${retryMessage ? `… ${retryMessage}` : '…'}`
+      : `MyEng печатает${retryMessage ? `… ${retryMessage}` : '...'}`
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
       <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
@@ -580,7 +601,7 @@ export default function Chat({
             >
               {messages.length === 0 && (
                 <p className="text-center text-[var(--text-muted)]">
-                  Загрузка первого сообщения…
+                  MyEng печатает...
                 </p>
               )}
               {messages.map((msg, i) => {
@@ -647,7 +668,7 @@ export default function Chat({
                     className="rounded-xl border border-gray-200 bg-[var(--chat-section-neutral)] px-3 py-2 text-[14px] italic text-[var(--text)] shadow-sm"
                     title="Ожидание ответа от ИИ"
                   >
-                    ИИ печатает{retryMessage ? `… ${retryMessage}` : '…'}
+                    {typingIndicatorText}
                   </span>
                 </div>
               )}
@@ -901,6 +922,7 @@ function MessageBubble({
         hideRussianNonQuestionMainBefore,
         invitationText: effectiveInvitationText,
         mainAfter,
+        mode,
       })
 
   React.useEffect(() => {
@@ -978,6 +1000,7 @@ function MessageBubble({
                     trailingAction={section.trailingAction}
                     onSpeak={section.trailingAction === 'speak' ? handleSpeak : undefined}
                     inlineMarkdownBold={mode === 'communication'}
+                    emphasizeMainText={section.emphasizeMainText}
                   />
                 ))}
               </div>
@@ -1077,6 +1100,7 @@ function SectionCard({
   trailingAction,
   onSpeak,
   inlineMarkdownBold,
+  emphasizeMainText,
 }: {
   tone: 'neutral' | 'amber' | 'emerald' | 'slate'
   label: string
@@ -1089,6 +1113,8 @@ function SectionCard({
   onSpeak?: () => void
   /** Только `communication`: жирный по парам `**...**` в теле текста. */
   inlineMarkdownBold?: boolean
+  /** Режим «Диалог»: основной ответ без префикса «AI:», стиль текста как у блока AI. */
+  emphasizeMainText?: boolean
 }) {
   const toneClass =
     tone === 'amber'
@@ -1108,7 +1134,7 @@ function SectionCard({
           ? 'text-slate-600'
           : 'text-gray-600'
 
-  const isAiInline = singleLine && label === 'AI'
+  const isAiInline = singleLine && (label === 'AI' || Boolean(emphasizeMainText))
   const hasLabel = label.trim().length > 0
   const isCompactServiceLine = singleLine && italic && !hasLabel
   const isTextItalic = textItalic ?? italic
@@ -1128,7 +1154,7 @@ function SectionCard({
           className={`min-w-0 max-w-full whitespace-normal break-words leading-snug ${
             small ? 'text-[14px]' : 'text-[15px]'
           } text-[var(--text)]`}
-          title={`${label}: ${text}`}
+          title={hasLabel ? `${label}: ${text}` : text}
         >
           {hasLabel && (
             <>
