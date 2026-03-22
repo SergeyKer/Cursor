@@ -10,6 +10,7 @@ import { consumeNextGreetingFactLine } from '@/lib/greetingFactRotation'
 import { loadState, saveState, getUsageCountToday, incrementUsageToday, DEFAULT_SETTINGS } from '@/lib/storage'
 import { countDialogueFinalCorrectAnswers } from '@/lib/dialogueStats'
 import { TOPICS, LEVELS, TENSES, CHILD_TENSES } from '@/lib/constants'
+import { getExpectedCommunicationReplyLang } from '@/lib/communicationReplyLanguage'
 import type { ChatMessage, Settings, UsageInfo } from '@/lib/types'
 
 const CHILD_TENSE_SET = new Set(CHILD_TENSES)
@@ -637,7 +638,9 @@ export default function Home() {
       const levelEntry = LEVELS.find((l) => l.id === settings.level)
       const levelShort = levelEntry ? (levelEntry.label.split(' - ')[0]?.trim() ?? levelEntry.label) : settings.level
       const normalizedLevelShort = settings.level === 'all' ? 'Все уровни' : levelShort
-      return `Общение - ${normalizedLevelShort}`
+      const lang = getExpectedCommunicationReplyLang(messages)
+      const titlePrefix = lang === 'ru' ? 'Чат' : 'Chat'
+      return `${titlePrefix} - ${normalizedLevelShort}`
     }
 
     const getTenseCountLabel = (count: number): string => {

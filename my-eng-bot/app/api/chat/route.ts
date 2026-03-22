@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { ChatMessage, TenseId } from '@/lib/types'
 import { CHILD_TENSES } from '@/lib/constants'
+import { DetectedLang, detectLangFromText } from '@/lib/detectLang'
+import {
+  getExpectedCommunicationReplyLang,
+  isCommunicationDetailOnlyMessage,
+  normalizeCommunicationDetailText,
+} from '@/lib/communicationReplyLanguage'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const FREE_MODEL = 'openrouter/free'
@@ -142,39 +148,6 @@ function stableHash32(input: string): number {
     hash = Math.imul(hash, 0x01000193)
   }
   return hash >>> 0
-}
-
-type DetectedLang = 'ru' | 'en'
-
-function detectLangFromText(text: string, tieBreak: DetectedLang = 'ru'): DetectedLang {
-  const cyrCount = (text.match(/[А-Яа-яЁё]/g) ?? []).length
-  const latCount = (text.match(/[A-Za-z]/g) ?? []).length
-  const cyrWordCount = (text.match(/[А-Яа-яЁё]+(?:-[А-Яа-яЁё]+)*/g) ?? []).length
-  const latWordCount = (text.match(/[A-Za-z]+(?:-[A-Za-z]+)*/g) ?? []).length
-
-  // Смешанный ввод (RU + brand names на латинице):
-  // "цена Bentley Continental" должен считаться русским.
-  if (cyrWordCount > 0 && latWordCount > 0) {
-    if (cyrWordCount >= latWordCount) return 'ru'
-    if (latWordCount >= cyrWordCount + 2 && latCount > cyrCount * 2) return 'en'
-    return 'ru'
-  }
-
-  if (cyrCount > latCount) return 'ru'
-  if (latCount > cyrCount) return 'en'
-  return tieBreak
-}
-
-/**
- * Режим общения: язык сообщения по «раскладке» текста — как на клиенте (speechLocaleForCommunication).
- * Есть кириллица → ru; только латиница → en; только цифры/знаки → tieBreak.
- */
-function detectCommunicationUserMessageLang(text: string, tieBreak: DetectedLang): DetectedLang {
-  const t = text.trim()
-  if (!t) return tieBreak
-  if (/[А-Яа-яЁё]/.test(t)) return 'ru'
-  if (/[A-Za-z]/.test(t)) return 'en'
-  return tieBreak
 }
 
 function buildSystemPrompt(params: {
@@ -475,39 +448,6 @@ function buildCommunicationLevelRules(level: string): string {
     'Your English output must NOT exceed this profile: vocabulary, grammar, tense range, and sentence complexity must stay within the level described above. Do not use structures or idioms clearly above this level.',
     ruHint,
   ].join(' ')
-}
-
-function stripCommunicationDetailKeywords(text: string): string {
-  return text
-    .replace(/\b(?:еще|ещё)\s+подробнее\b/gi, ' ')
-    .replace(/\bподробнее\b/gi, ' ')
-    .replace(/\beven\s+more\s+details?\b/gi, ' ')
-    .replace(/\beven\s+more\s+detail\b/gi, ' ')
-    .replace(/\bmore\s+details?\b/gi, ' ')
-    .replace(/\bin\s+even\s+more\s+detail(?:s)?\b/gi, ' ')
-    .replace(/\bin\s+more\s+detail(?:s)?\b/gi, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function normalizeCommunicationDetailText(text: string): string {
-  return text.toLowerCase().replace(/ё/g, 'е').trim().replace(/[.!?…]+$/g, '').replace(/\s+/g, ' ')
-}
-
-function isCommunicationDetailOnlyMessage(text: string): boolean {
-  const normalized = normalizeCommunicationDetailText(text)
-  return [
-    'подробнее',
-    'еще подробнее',
-    'more detail',
-    'more details',
-    'even more detail',
-    'even more details',
-    'in more detail',
-    'in more details',
-    'in even more detail',
-    'in even more details',
-  ].includes(normalized)
 }
 
 function detectCommunicationDetailLevel(text: string): 0 | 1 | 2 {
@@ -3153,13 +3093,9 @@ export async function POST(req: NextRequest) {
     const lastAssistantLang = detectLangFromText(lastAssistantContentForLangTie, 'ru')
     const communicationDetailOnly =
       mode === 'communication' ? isCommunicationDetailOnlyMessage(lastUserContentForResponse) : false
-    const communicationLanguageProbe =
-      mode === 'communication' ? stripCommunicationDetailKeywords(lastUserContentForResponse) : lastUserContentForResponse
     const detectedUserLang =
       mode === 'communication'
-        ? communicationDetailOnly
-          ? lastAssistantLang
-          : detectCommunicationUserMessageLang(communicationLanguageProbe, lastAssistantLang)
+        ? getExpectedCommunicationReplyLang(recentMessages)
         : detectLangFromText(lastUserContentForResponse, lastAssistantLang)
     const communicationLanguageHint = lastAssistantLang === 'en' ? 'English' : 'Russian'
 
