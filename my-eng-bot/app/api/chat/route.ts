@@ -229,7 +229,9 @@ Rules:
 - Current conversation language: ${communicationLanguageHint}. ${communicationDetailOnly ? 'The last user message is only a detail keyword, so preserve this language exactly.' : 'Preserve this language across follow-up detail requests.'}
 - ${audienceStyleRule}
 - ${buildCommunicationEnglishStyleRule(audience)}
+- ${buildCommunicationLevelRules(level)}
 - ${buildCommunicationDetailRule(communicationDetailLevel)}
+- Conversational follow-up questions and brief natural reactions are encouraged when they fit the thread. This is not tutor feedback: stay in chat mode.
 - Do NOT output any tutor/protocol markers: no "Комментарий:", no "Повтори:", no "Время:", no "Конструкция:", no "Переведи на английский", and no "RU:" / "Russian:" labels.
 - Allow both Russian and English conversation freely. You may vary length and detail for follow-ups, but you MUST keep the same Russian address register for the whole chat: CHILD audience -> always informal "ты" (never "вы"), and every Russian sentence must stay in correct singular second-person grammar like "ты пошёл", "ты спросил", "у тебя есть"; ADULT audience -> always "вы" (never informal "ты"). Do not change register because the user asked for steps, a task, or structured instructions, and do not compose the sentence in plural/formal form first.
 - Clarification: if you genuinely don't understand what the user means or what they want, output ONLY one short clarifying question in the same language.
@@ -451,6 +453,28 @@ function buildCommunicationEnglishStyleRule(audience: 'child' | 'adult'): string
   return audience === 'child'
     ? 'English-only communication style: If you answer in English, keep the voice warm, simple, friendly, and concrete across turns. Use one short greeting plus one invitation on the first English reply, and keep later English replies short and natural. Do not repeat the same opening phrase or add extra filler.'
     : 'English-only communication style: If you answer in English, keep the voice natural, respectful, and concise across turns. Use one short greeting plus one invitation on the first English reply, and keep later English replies short and natural. Do not repeat the same opening phrase or add extra filler.'
+}
+
+/** Только режим communication: потолок CEFR или динамика для level === 'all'. */
+function buildCommunicationLevelRules(level: string): string {
+  if (level === 'all') {
+    return [
+      'English level mode: adaptive ("all"). Infer the learner\'s approximate English level only from the user\'s messages in the current request context (the conversation history you see). Do not print CEFR labels in your reply.',
+      'If the user\'s English stays simple (short sentences, basic vocabulary, limited tense variety), keep your English similarly simple; do not introduce noticeably heavier vocabulary, rare idioms, or complex syntax than they typically use in this thread.',
+      'If the user writes fluent, accurate English with richer vocabulary and varied tenses, you may match that apparent level and stay natural—without sounding like an exam or a textbook. Re-evaluate as the conversation evolves.',
+      'Russian replies: follow CHILD/ADULT register rules; keep Russian phrasing clear and natural. English complexity is what you align to the learner; Russian stays governed by audience style.',
+    ].join(' ')
+  }
+  const ceiling = buildLevelPrompt(level)
+  const lowRu = level === 'starter' || level === 'a1' || level === 'a2'
+  const ruHint = lowRu
+    ? 'For Russian replies: prefer short, clear sentences; avoid bureaucratic or overly formal phrasing. CHILD/ADULT register rules still apply.'
+    : 'CHILD/ADULT register rules apply to Russian.'
+  return [
+    `Fixed learner English level (CEFR ceiling): ${ceiling}`,
+    'Your English output must NOT exceed this profile: vocabulary, grammar, tense range, and sentence complexity must stay within the level described above. Do not use structures or idioms clearly above this level.',
+    ruHint,
+  ].join(' ')
 }
 
 function stripCommunicationDetailKeywords(text: string): string {

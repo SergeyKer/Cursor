@@ -633,9 +633,12 @@ export default function Home() {
 
   /** Строка выбранного меню для шапки: единый формат для обоих режимов. */
   function getMenuSummary(includeTopic: boolean = true): string {
-    // В режиме "Общение" в шапке показываем только один ярлык,
-    // чтобы не отвлекать пользователя грамматикой/временами.
-    if (settings.mode === 'communication') return 'Общение'
+    if (settings.mode === 'communication') {
+      const levelEntry = LEVELS.find((l) => l.id === settings.level)
+      const levelShort = levelEntry ? (levelEntry.label.split(' - ')[0]?.trim() ?? levelEntry.label) : settings.level
+      const normalizedLevelShort = settings.level === 'all' ? 'Все уровни' : levelShort
+      return `Общение - ${normalizedLevelShort}`
+    }
 
     const getTenseCountLabel = (count: number): string => {
       const mod10 = count % 10
@@ -693,10 +696,10 @@ export default function Home() {
           // iOS: safe-area учитываем только через paddingTop.
           // Иначе safe-area может засчитываться дважды (paddingTop + minHeight),
           // и стартовый экран "уезжает" под верхний край.
-          minHeight: '2.5rem',
+          minHeight: '2.75rem',
         }}
       >
-        <div className="chat-shell-x flex min-h-[2.5rem] w-full items-center">
+        <div className="chat-shell-x flex min-h-[2.75rem] w-full items-center">
           <div
             className={`mx-auto flex w-full items-center ${
               dialogStarted ? 'max-w-[29rem]' : 'max-w-[23.2rem]'
@@ -730,7 +733,7 @@ export default function Home() {
       <main
         className={`flex min-h-0 flex-1 flex-col ${dialogStarted ? 'overflow-hidden' : 'overflow-y-auto'}`}
         style={{
-          paddingTop: 'calc(2.5rem + env(safe-area-inset-top, 0px))',
+          paddingTop: 'calc(2.75rem + env(safe-area-inset-top, 0px))',
           paddingBottom: dialogStarted
             // iOS: иногда появляется серый зазор снизу, если safe-area не учтён на уровне контейнера.
             // Контент чата тоже учитывает safe-area, но внешний контейнер при dialogStarted=true держим с paddingBottom.
@@ -772,7 +775,10 @@ export default function Home() {
           </div>
         ) : (
           <>
-            {dialogStarted && messages.length > 0 && settingsDiffersFromLastSendForBanner(settings, settingsAtLastSend) && (
+            {dialogStarted &&
+              messages.length > 0 &&
+              settings.mode !== 'communication' &&
+              settingsDiffersFromLastSendForBanner(settings, settingsAtLastSend) && (
               <div className="shrink-0 border-b border-[var(--border)] px-3 py-2">
                 <div className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm text-[var(--text)] shadow-sm">
                   Настройки изменены. Следующее сообщение будет: <strong>{getMenuSummary(true)}</strong>.

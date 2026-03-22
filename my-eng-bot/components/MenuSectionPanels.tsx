@@ -280,27 +280,25 @@ export default function MenuSectionPanels({
                 </div>
               )}
 
-              {!isCommunication && (
-                <div className="flex w-full items-center gap-3">
-                  <label htmlFor={pid('ai-level')} className={MENU_FIELD_LABEL}>
-                    Уровень
-                  </label>
-                  <div className="min-w-0 flex-1">
-                    <select
-                      id={pid('ai-level')}
-                      value={settings.level}
-                      onChange={(e) => update({ level: e.target.value as Settings['level'] })}
-                      className={FIELD_SELECT}
-                    >
-                      {levelOptions.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+              <div className="flex w-full items-center gap-3">
+                <label htmlFor={pid('ai-level')} className={MENU_FIELD_LABEL}>
+                  Уровень
+                </label>
+                <div className="min-w-0 flex-1">
+                  <select
+                    id={pid('ai-level')}
+                    value={settings.level}
+                    onChange={(e) => update({ level: e.target.value as Settings['level'] })}
+                    className={FIELD_SELECT}
+                  >
+                    {levelOptions.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              )}
+              </div>
 
               <div className="flex w-full items-center gap-3">
                 <label htmlFor={pid('ai-provider')} className={MENU_FIELD_LABEL}>
