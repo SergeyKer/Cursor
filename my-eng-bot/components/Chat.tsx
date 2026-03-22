@@ -110,7 +110,7 @@ function buildAssistantSections(params: {
     mode,
   } = params
 
-  const hideAiLabel = mode === 'dialogue'
+  const hideAiLabel = mode === 'dialogue' || mode === 'communication'
 
   const sections: AssistantSection[] = []
   if (comment) {
@@ -1113,7 +1113,7 @@ function SectionCard({
   onSpeak?: () => void
   /** Только `communication`: жирный по парам `**...**` в теле текста. */
   inlineMarkdownBold?: boolean
-  /** Режим «Диалог»: основной ответ без префикса «AI:», стиль текста как у блока AI. */
+  /** Режимы «Диалог» и «Общение»: без префикса «AI:», стиль текста как у блока AI. */
   emphasizeMainText?: boolean
 }) {
   const toneClass =

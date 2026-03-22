@@ -18,6 +18,10 @@ const MENU_VALUE_BOX =
 export const MENU_FIELD_LABEL =
   'shrink-0 w-[6.3rem] text-xs font-medium leading-snug text-[var(--text-muted)] break-words'
 
+/** Градиентная CTA: «Начать общение» и пункты главной «Чат / Уроки». */
+const MENU_PRIMARY_CTA_CLASS =
+  'flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]'
+
 export interface MenuSectionPanelsProps {
   menuView: MenuView
   onMenuViewChange: (v: MenuView) => void
@@ -118,11 +122,23 @@ export default function MenuSectionPanels({
       >
           {menuView === 'root' && (
             <>
-              <MenuNavRow label="Чат с MyEng" onClick={() => onMenuViewChange('aiChat')} />
-              <MenuNavRow label="Уроки" onClick={() => onMenuViewChange('lessons')} />
-              <MenuNavRow label="Прогресс" onClick={() => onMenuViewChange('progress')} />
-              <MenuNavRow label="Настройки" onClick={() => onMenuViewChange('settings')} />
-              <MenuNavRow label="Профиль" onClick={() => onMenuViewChange('profile')} />
+              <MenuNavRow
+                label="Чат с MyEng"
+                onClick={() => onMenuViewChange('aiChat')}
+                variant={homeLayout ? 'primary' : 'default'}
+              />
+              <MenuNavRow
+                label="Уроки"
+                onClick={() => onMenuViewChange('lessons')}
+                variant={homeLayout ? 'primary' : 'default'}
+              />
+              {!homeLayout && (
+                <>
+                  <MenuNavRow label="Прогресс" onClick={() => onMenuViewChange('progress')} />
+                  <MenuNavRow label="Настройки" onClick={() => onMenuViewChange('settings')} />
+                  <MenuNavRow label="Профиль" onClick={() => onMenuViewChange('profile')} />
+                </>
+              )}
             </>
           )}
 
@@ -319,11 +335,7 @@ export default function MenuSectionPanels({
 
               {onStartHomeChat && (
                 <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={onStartHomeChat}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95"
-                  >
+                  <button type="button" onClick={onStartHomeChat} className={MENU_PRIMARY_CTA_CLASS}>
                     {settings.mode === 'dialogue'
                       ? 'Начать диалог'
                       : settings.mode === 'translation'
@@ -397,7 +409,22 @@ export default function MenuSectionPanels({
   )
 }
 
-function MenuNavRow({ label, onClick }: { label: string; onClick: () => void }) {
+function MenuNavRow({
+  label,
+  onClick,
+  variant = 'default',
+}: {
+  label: string
+  onClick: () => void
+  variant?: 'default' | 'primary'
+}) {
+  if (variant === 'primary') {
+    return (
+      <button type="button" onClick={onClick} className={MENU_PRIMARY_CTA_CLASS}>
+        {label}
+      </button>
+    )
+  }
   return (
     <button
       type="button"

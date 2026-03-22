@@ -747,6 +747,13 @@ export default function Home() {
               paddingBottom: 'clamp(1rem, 2.6vh, 2rem)',
             }}
           >
+            {homeMenuView === 'root' && (welcomeCompact || welcomeFactLine !== null) && (
+              <HomeWelcomeBubble
+                text={
+                  welcomeCompact ? buildCompactGreeting() : buildFullGreeting(welcomeFactLine ?? '')
+                }
+              />
+            )}
             <div className="flex w-full max-w-[23.2rem] shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[#e8ecf0] px-3 py-3 shadow-sm">
               <MenuSectionPanels
                 menuView={homeMenuView}
@@ -762,13 +769,6 @@ export default function Home() {
                 onGoHome={goToStartScreen}
               />
             </div>
-            {homeMenuView === 'root' && (welcomeCompact || welcomeFactLine !== null) && (
-              <HomeWelcomeBubble
-                text={
-                  welcomeCompact ? buildCompactGreeting() : buildFullGreeting(welcomeFactLine ?? '')
-                }
-              />
-            )}
           </div>
         ) : (
           <>
