@@ -8,6 +8,10 @@ import {
   normalizeCommunicationDetailText,
 } from '@/lib/communicationReplyLanguage'
 
+// Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
+// чтобы undici + proxy dispatcher работали предсказуемо (а не в Edge).
+export const runtime = 'nodejs'
+
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const FREE_MODEL = 'openrouter/free'
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
@@ -2909,6 +2913,48 @@ function classifyOpenAiForbidden(errText: string): 'unsupported_region' | 'other
   return 'other'
 }
 
+let cachedWindowsSystemProxyUrl: string | null | undefined
+
+async function getWindowsSystemProxyUrl(): Promise<string | null> {
+  // Cache to avoid registry reads on every request.
+  if (cachedWindowsSystemProxyUrl !== undefined) return cachedWindowsSystemProxyUrl
+  if (process.platform !== 'win32') {
+    cachedWindowsSystemProxyUrl = null
+    return null
+  }
+
+  try {
+    const { execSync } = await import('child_process')
+    const ps = [
+      '$p=(Get-ItemProperty -Path \"HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings\" -Name ProxyEnable,ProxyServer -ErrorAction SilentlyContinue);',
+      'if(-not $p){\"\"} elseif($p.ProxyEnable -ne 1){\"\"} else {$p.ProxyServer}',
+    ].join('')
+
+    const out = execSync(`powershell -NoProfile -Command ${JSON.stringify(ps)}`, { encoding: 'utf8' }).trim()
+    if (!out) {
+      cachedWindowsSystemProxyUrl = null
+      return null
+    }
+
+    // ProxyServer can be: "127.0.0.1:12334" or "http=127.0.0.1:12334;https=127.0.0.1:12334"
+    const m = out.match(/([a-zA-Z0-9.\-]+):(\d{2,5})/)
+    if (!m) {
+      cachedWindowsSystemProxyUrl = null
+      return null
+    }
+    const host = m[1]
+    const port = m[2]
+    cachedWindowsSystemProxyUrl = `http://${host}:${port}`
+    return cachedWindowsSystemProxyUrl
+  } catch {
+    cachedWindowsSystemProxyUrl = null
+    return null
+  }
+}
+
+let cachedProxyUrlForAgent: string | null = null
+let cachedProxyDispatcher: unknown = null
+
 async function buildProxyFetchExtra(): Promise<Record<string, unknown>> {
   const proxyUrl =
     process.env.HTTPS_PROXY ||
@@ -2918,12 +2964,21 @@ async function buildProxyFetchExtra(): Promise<Record<string, unknown>> {
     process.env.ALL_PROXY ||
     process.env.all_proxy ||
     ''
-  if (!proxyUrl) return {}
+  const resolvedProxyUrl = proxyUrl || (await getWindowsSystemProxyUrl())
+  if (!resolvedProxyUrl) return {}
+
+  // Кэшируем dispatcher, чтобы не создавать ProxyAgent на каждый запрос.
+  if (resolvedProxyUrl === cachedProxyUrlForAgent && cachedProxyDispatcher) {
+    return { dispatcher: cachedProxyDispatcher }
+  }
+
   try {
     const undici = (await import('undici')) as unknown as {
       ProxyAgent: new (proxy: string) => unknown
     }
-    return { dispatcher: new undici.ProxyAgent(proxyUrl) }
+    cachedProxyDispatcher = new undici.ProxyAgent(resolvedProxyUrl)
+    cachedProxyUrlForAgent = resolvedProxyUrl
+    return { dispatcher: cachedProxyDispatcher }
   } catch {
     return {}
   }
@@ -2941,19 +2996,24 @@ async function callProviderChat(params: {
     const key = normalizeKey(process.env.OPENAI_API_KEY ?? '')
     if (!key) return { ok: false, status: 500, errText: 'Missing OPENAI_API_KEY' }
     const proxyFetchExtra = await buildProxyFetchExtra()
-    const res = await fetch(OPENAI_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${key}`,
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        messages: apiMessages,
-        max_tokens: maxTokens,
-      }),
-      ...(proxyFetchExtra as RequestInit),
-    } as RequestInit)
+    let res: Response
+    try {
+      res = await fetch(OPENAI_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          model: OPENAI_MODEL,
+          messages: apiMessages,
+          max_tokens: maxTokens,
+        }),
+        ...(proxyFetchExtra as RequestInit),
+      } as RequestInit)
+    } catch (e) {
+      return { ok: false, status: 502, errText: 'OpenAI fetch failed' }
+    }
     if (!res.ok) return { ok: false, status: res.status, errText: await res.text() }
     const data = (await res.json()) as {
       choices?: Array<{ message?: { content?: string }; text?: string }>
