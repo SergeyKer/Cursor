@@ -1400,7 +1400,7 @@ function alignDialogueArticleCommentWithRepeat(params: { content: string; userTe
   if (!repeatText) return content
   const userLower = userText.toLowerCase()
   const repeatLower = repeatText.toLowerCase()
-  const tokens = [...new Set(tokenizeEnglishWords(repeatText).filter((t) => t.length >= 3))]
+  const tokens = Array.from(new Set(tokenizeEnglishWords(repeatText).filter((t) => t.length >= 3)))
 
   let removedArticleToken: string | null = null
   let addedArticleToken: string | null = null
