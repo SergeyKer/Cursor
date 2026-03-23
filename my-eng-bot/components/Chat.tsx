@@ -1056,9 +1056,15 @@ function MessageBubble({
                   <SectionCard tone="slate" label="Перевод" text={message.translation} small singleLine />
                 )}
                 {hasTranslationError && (
-                  <SectionCard tone="amber" label="Перевод" text="Перевод не пришёл, нажми ещё раз." small singleLine />
+                  <SectionCard
+                    tone="amber"
+                    label="Перевод"
+                    text={mode === 'dialogue' ? (message.translationError ?? 'Перевод не пришёл, нажми ещё раз.') : 'Перевод не пришёл, нажми ещё раз.'}
+                    small
+                    singleLine
+                  />
                 )}
-                {showTranslation && !hasTranslationData && !hasTranslationError && (
+                {showTranslation && !hasTranslationData && !hasTranslationError && isLoadingTranslation && (
                   <SectionCard
                     tone="slate"
                     label="Перевод"
@@ -1066,6 +1072,15 @@ function MessageBubble({
                     small
                     singleLine
                     textItalic
+                  />
+                )}
+                {showTranslation && !hasTranslationData && !hasTranslationError && !isLoadingTranslation && (
+                  <SectionCard
+                    tone="amber"
+                    label="Перевод"
+                    text="Не удалось загрузить перевод. Нажми «Перевод» ещё раз."
+                    small
+                    singleLine
                   />
                 )}
               </div>

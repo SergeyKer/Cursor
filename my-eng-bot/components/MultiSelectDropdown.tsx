@@ -138,11 +138,20 @@ export default function MultiSelectDropdown({
           style={{ maxHeight: 'min(220px, 40vh)' }}
         >
           {selectAllLabel && (
-            <label className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-[var(--border)]/50 border-b border-[var(--border)]">
+            <label
+              className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-[var(--border)]/50 border-b border-[var(--border)]"
+              onClick={(e) => {
+                const target = e.target as HTMLElement
+                if (target.tagName.toLowerCase() === 'input') return
+                e.preventDefault()
+                toggleSelectAll()
+              }}
+            >
               <input
                 type="checkbox"
                 checked={allSelected}
                 onChange={toggleSelectAll}
+                onClick={(e) => e.stopPropagation()}
                 className="rounded border-[var(--border)]"
               />
               <span className="text-[var(--text)] font-medium">{selectAllLabel}</span>
@@ -152,11 +161,18 @@ export default function MultiSelectDropdown({
             <label
               key={opt.id}
               className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-[var(--border)]/50"
+              onClick={(e) => {
+                const target = e.target as HTMLElement
+                if (target.tagName.toLowerCase() === 'input') return
+                e.preventDefault()
+                toggle(opt.id)
+              }}
             >
               <input
                 type="checkbox"
                 checked={effectiveValue.includes(opt.id)}
                 onChange={() => toggle(opt.id)}
+                onClick={(e) => e.stopPropagation()}
                 className="rounded border-[var(--border)]"
               />
               <span className="text-[var(--text)]">{opt.label}</span>

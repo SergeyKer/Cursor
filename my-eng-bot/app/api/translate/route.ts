@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { AppMode, TenseId } from '@/lib/types'
+import { buildProxyFetchExtra } from '@/lib/proxyFetch'
+
+export const runtime = 'nodejs'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const FREE_MODEL = 'openrouter/free'
@@ -211,6 +214,7 @@ export async function POST(req: NextRequest) {
             { status: 500 }
           )
         }
+        const proxyFetchExtra = await buildProxyFetchExtra()
         return fetch(OPENAI_URL, {
           method: 'POST',
           headers: {
@@ -222,7 +226,8 @@ export async function POST(req: NextRequest) {
             messages,
             max_tokens: 300,
           }),
-        })
+          ...(proxyFetchExtra as RequestInit),
+        } as RequestInit)
       }
 
       const key = normalizeKey(process.env.OPENROUTER_API_KEY ?? '')

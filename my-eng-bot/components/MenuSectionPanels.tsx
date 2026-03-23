@@ -10,10 +10,10 @@ const CHILD_TENSE_SET = new Set(CHILD_TENSES)
 export type MenuView = 'root' | 'lessons' | 'aiChat' | 'settings' | 'progress' | 'profile'
 
 export const FIELD_SELECT =
-  'w-full min-w-0 rounded border border-[var(--border)] bg-[var(--bg-card)] pl-2 py-1.5 min-h-[36px] text-xs text-[var(--text)] touch-manipulation select-chevron'
+  'w-full min-w-0 rounded border border-[var(--border)] bg-[var(--bg-card)] pl-2 py-1 min-h-[34px] text-xs text-[var(--text)] touch-manipulation select-chevron'
 
 const MENU_VALUE_BOX =
-  'w-full min-w-0 rounded border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 min-h-[36px] text-xs text-[var(--text)] flex items-center justify-end'
+  'w-full min-w-0 rounded border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1 min-h-[34px] text-xs text-[var(--text)] flex items-center justify-end'
 
 export const MENU_FIELD_LABEL =
   'shrink-0 w-[6.3rem] text-xs font-medium leading-snug text-[var(--text-muted)] break-words'
@@ -116,8 +116,8 @@ export default function MenuSectionPanels({
         key={menuView}
         className={
           homeLayout
-            ? 'menu-panel-view-enter max-h-[calc(100dvh-12rem)] space-y-3 overflow-y-auto pb-0.5'
-            : 'menu-panel-view-enter min-h-0 flex-1 space-y-3 overflow-y-auto pb-1'
+            ? 'menu-panel-view-enter max-h-[calc(100dvh-12rem)] space-y-2.5 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-0.5'
+            : 'menu-panel-view-enter min-h-0 flex-1 space-y-2.5 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-1'
         }
       >
           {menuView === 'root' && (
@@ -228,7 +228,7 @@ export default function MenuSectionPanels({
                       minOne
                       compact
                       triggerClassName="rounded border border-[var(--border)] bg-[var(--bg-card)] touch-manipulation"
-                      panelClassName="max-h-[200px]"
+                      panelClassName={isChild ? 'max-h-[200px]' : 'max-h-[164px]'}
                     />
                   </div>
                 </div>

@@ -7,6 +7,7 @@ import {
   isCommunicationDetailOnlyMessage,
   normalizeCommunicationDetailText,
 } from '@/lib/communicationReplyLanguage'
+import { buildProxyFetchExtra } from '@/lib/proxyFetch'
 
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
 // чтобы undici + proxy dispatcher работали предсказуемо (а не в Edge).
@@ -1111,6 +1112,13 @@ function extractLikelyEntityFromUserAnswer(text: string): string | null {
   const cleaned = raw.replace(/[.,!?;:]+$/g, '').replace(/\s+/g, ' ').trim()
   if (cleaned.length < 3 || cleaned.length > 60) return null
   if (!/[A-Za-zА-Яа-яЁё]/.test(cleaned)) return null
+  if (
+    /\b(?:i|you|we|they|he|she|it)\s+(?:am|is|are|was|were|have|has|had|will|would|do|does|did|can|could|should|must)\b/i.test(
+      cleaned
+    )
+  ) {
+    return null
+  }
 
   const allowedShortAnswers = new Set(['yes', 'no', 'ok', 'okay', 'sure', 'yeah', 'yep', 'nope', 'nah', 'hi', 'hello'])
   const short = cleaned.toLowerCase()
@@ -1127,11 +1135,23 @@ function extractLikelyEntityFromUserAnswer(text: string): string | null {
   stripped = stripped.replace(/^favorite\s+(?:place|thing|food|song|movie|hobby)\s+(?:is\s+)?/i, '')
   stripped = stripped.trim()
   if (!stripped) return null
+  if (
+    /\b(?:am|is|are|was|were|be|been|being|have|has|had|will|would|do|does|did|can|could|should|must)\b/i.test(
+      stripped
+    )
+  ) {
+    return null
+  }
 
   const words = stripped.split(/\s+/).filter(Boolean)
-  const tail = words.slice(-3).join(' ')
+  const tail = words.slice(-2).join(' ')
   if (!tail) return null
   if (!/^[A-Za-zА-Яа-яЁё'-]+(?:\s+[A-Za-zА-Яа-яЁё'-]+){0,2}$/.test(tail)) return null
+  if (
+    /\b(?:this|that|today|yesterday|tomorrow|tonight|now|moment|week|month|year|day)\b/i.test(tail)
+  ) {
+    return null
+  }
 
   const normalizedTail = tail.replace(/\b(?:most|more|best|better|least)\b\s*$/i, '').trim()
   if (!normalizedTail) return null
@@ -1187,6 +1207,9 @@ function contextualizeTopicNextQuestionForLastAnswer(content: string, params: {
   }
 
   const action = actionForTopic(params.topic)
+  if (action === 'do' && /^\s*[a-z]+ing\b/i.test(entity.trim())) {
+    return content
+  }
 
   const templatesByAction: Record<Action, Record<string, string>> = {
     visit: {
@@ -1333,6 +1356,13 @@ function contextualizeTopicNextQuestionForLastAnswer(content: string, params: {
 
   const replacement = templatesByAction[action]?.[params.tense]
   if (!replacement) return content
+  if (
+    /\bthis\s+time\s+yesterday\b.*\bthis\s+time\s+yesterday\b/i.test(replacement) ||
+    /\bnow\b.*\bnow\b/i.test(replacement) ||
+    /\b(?:are|were)\s+you\s+doing\s+[a-z]+ing\b/i.test(replacement)
+  ) {
+    return content
+  }
 
   const lines = content.split(/\r?\n/)
   let qIdx = -1
@@ -1351,6 +1381,57 @@ function contextualizeTopicNextQuestionForLastAnswer(content: string, params: {
 
   lines[qIdx] = replacement
   return lines.join('\n').trim()
+}
+
+function alignDialogueArticleCommentWithRepeat(params: { content: string; userText: string }): string {
+  const { content, userText } = params
+  const lines = content.split(/\r?\n/)
+  const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
+  const repeatLine = lines.find((line) => /^(?:\s*)(Повтори|Repeat|Say)\s*:/i.test(line.trim()))
+  if (commentIndex === -1 || !repeatLine) return content
+
+  const commentText = lines[commentIndex].replace(/^Комментарий\s*:\s*/i, '').trim()
+  if (!commentText) return content
+  const saysMissingArticle = /(не\s*хвата\w*\s+артикл|нужен\s+артикл|добав(ь|ить)\s+артикл)/i.test(commentText)
+  const saysExtraArticle = /(лишн\w*\s+артикл|артикл\w*\s+не\s+нужен|убра(ть|л)\s+артикл)/i.test(commentText)
+  if (!saysMissingArticle && !saysExtraArticle) return content
+
+  const repeatText = repeatLine.replace(/^(?:\s*)(Повтори|Repeat|Say)\s*:\s*/i, '').trim()
+  if (!repeatText) return content
+  const userLower = userText.toLowerCase()
+  const repeatLower = repeatText.toLowerCase()
+  const tokens = [...new Set(tokenizeEnglishWords(repeatText).filter((t) => t.length >= 3))]
+
+  let removedArticleToken: string | null = null
+  let addedArticleToken: string | null = null
+  let addedArticle: string | null = null
+
+  for (const token of tokens) {
+    const escaped = escapeRegExp(token)
+    const articleBeforeTokenInUser = new RegExp(`\\b(a|an|the)\\s+${escaped}\\b`, 'i').test(userLower)
+    const articleMatchInRepeat = new RegExp(`\\b(a|an|the)\\s+${escaped}\\b`, 'i').exec(repeatLower)
+    const articleBeforeTokenInRepeat = Boolean(articleMatchInRepeat)
+
+    if (articleBeforeTokenInUser && !articleBeforeTokenInRepeat && !removedArticleToken) {
+      removedArticleToken = token
+    }
+    if (!articleBeforeTokenInUser && articleBeforeTokenInRepeat && !addedArticleToken) {
+      addedArticleToken = token
+      addedArticle = articleMatchInRepeat?.[1] ?? null
+    }
+  }
+
+  if (removedArticleToken && saysMissingArticle) {
+    lines[commentIndex] = `Комментарий: Ошибка артикля: перед ${removedArticleToken} артикль не нужен.`
+    return lines.join('\n')
+  }
+  if (addedArticleToken && saysExtraArticle) {
+    const articleHint = addedArticle ? ` ${addedArticle}` : ''
+    lines[commentIndex] = `Комментарий: Ошибка артикля: перед ${addedArticleToken} нужен артикль${articleHint}.`
+    return lines.join('\n')
+  }
+
+  return content
 }
 
 function isEnglishQuestionLine(line: string): boolean {
@@ -2219,7 +2300,13 @@ function replaceFalsePositiveDialogueRepeatWithPraise(params: {
 }
 
 function isUserLikelyCorrectForTense(userText: string, requiredTense: string): boolean {
-  const lower = userText.trim().toLowerCase()
+  const expandedText = userText
+    .replace(/\b(i)\s*'\s*m\b/gi, '$1 am')
+    .replace(/\b(you|we|they)\s*'\s*re\b/gi, '$1 are')
+    .replace(/\b(he|she|it)\s*'\s*s\b/gi, '$1 is')
+    .replace(/\b(i|you|we|they)\s*'\s*ve\b/gi, '$1 have')
+    .replace(/\b(he|she|it)\s*'\s*s\b(?=\s+[a-z]+ed\b|\s+been\b|\s+[a-z]+ing\b)/gi, '$1 has')
+  const lower = expandedText.trim().toLowerCase()
   if (!lower) return false
 
   switch (requiredTense) {
@@ -2268,7 +2355,7 @@ function isUserLikelyCorrectForTense(userText: string, requiredTense: string): b
       return true
     }
     case 'present_continuous':
-      return /\b(am|is|are)\s+[a-z]+ing\b/i.test(userText) && !/\b(was|were|did|had)\b/i.test(userText)
+      return /\b(am|is|are)\s+[a-z]+ing\b/i.test(expandedText) && !/\b(was|were|did|had)\b/i.test(expandedText)
     case 'past_simple':
       return (
         /\b(went|was|were|did|had|made|saw|took|came|got|gave|said|told|knew|thought|felt|left|kept|found|wrote|read|ran|drove|ate|drank|slept|spoke|bought|brought)\b/i.test(
@@ -2276,21 +2363,21 @@ function isUserLikelyCorrectForTense(userText: string, requiredTense: string): b
         ) || /\b[a-z]{3,}ed\b/i.test(userText)
       )
     case 'future_simple':
-      return /\bwill\s+[a-z]/i.test(userText)
+      return /\bwill\s+[a-z]/i.test(expandedText)
     case 'present_perfect':
-      return /\b(have|has)\b/i.test(userText)
+      return /\b(have|has)\b/i.test(expandedText)
     case 'present_perfect_continuous':
-      return /\b(have|has)\b.*\bbeen\b.*[a-z]+ing\b/i.test(userText)
+      return /\b(have|has)\b.*\bbeen\b.*[a-z]+ing\b/i.test(expandedText)
     case 'past_perfect':
-      return /\bhad\b/i.test(userText)
+      return /\bhad\b/i.test(expandedText)
     case 'past_perfect_continuous':
-      return /\bhad\b.*\bbeen\b.*[a-z]+ing\b/i.test(userText)
+      return /\bhad\b.*\bbeen\b.*[a-z]+ing\b/i.test(expandedText)
     case 'future_continuous':
-      return /\bwill\s+be\b.*[a-z]+ing\b/i.test(userText)
+      return /\bwill\s+be\b.*[a-z]+ing\b/i.test(expandedText)
     case 'future_perfect':
-      return /\bwill\s+have\b/i.test(userText)
+      return /\bwill\s+have\b/i.test(expandedText)
     case 'future_perfect_continuous':
-      return /\bwill\s+have\s+been\b.*[a-z]+ing\b/i.test(userText)
+      return /\bwill\s+have\s+been\b.*[a-z]+ing\b/i.test(expandedText)
     default:
       return true
   }
@@ -2913,77 +3000,6 @@ function classifyOpenAiForbidden(errText: string): 'unsupported_region' | 'other
   return 'other'
 }
 
-let cachedWindowsSystemProxyUrl: string | null | undefined
-
-async function getWindowsSystemProxyUrl(): Promise<string | null> {
-  // Cache to avoid registry reads on every request.
-  if (cachedWindowsSystemProxyUrl !== undefined) return cachedWindowsSystemProxyUrl
-  if (process.platform !== 'win32') {
-    cachedWindowsSystemProxyUrl = null
-    return null
-  }
-
-  try {
-    const { execSync } = await import('child_process')
-    const ps = [
-      '$p=(Get-ItemProperty -Path \"HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings\" -Name ProxyEnable,ProxyServer -ErrorAction SilentlyContinue);',
-      'if(-not $p){\"\"} elseif($p.ProxyEnable -ne 1){\"\"} else {$p.ProxyServer}',
-    ].join('')
-
-    const out = execSync(`powershell -NoProfile -Command ${JSON.stringify(ps)}`, { encoding: 'utf8' }).trim()
-    if (!out) {
-      cachedWindowsSystemProxyUrl = null
-      return null
-    }
-
-    // ProxyServer can be: "127.0.0.1:12334" or "http=127.0.0.1:12334;https=127.0.0.1:12334"
-    const m = out.match(/([a-zA-Z0-9.\-]+):(\d{2,5})/)
-    if (!m) {
-      cachedWindowsSystemProxyUrl = null
-      return null
-    }
-    const host = m[1]
-    const port = m[2]
-    cachedWindowsSystemProxyUrl = `http://${host}:${port}`
-    return cachedWindowsSystemProxyUrl
-  } catch {
-    cachedWindowsSystemProxyUrl = null
-    return null
-  }
-}
-
-let cachedProxyUrlForAgent: string | null = null
-let cachedProxyDispatcher: unknown = null
-
-async function buildProxyFetchExtra(): Promise<Record<string, unknown>> {
-  const proxyUrl =
-    process.env.HTTPS_PROXY ||
-    process.env.https_proxy ||
-    process.env.HTTP_PROXY ||
-    process.env.http_proxy ||
-    process.env.ALL_PROXY ||
-    process.env.all_proxy ||
-    ''
-  const resolvedProxyUrl = proxyUrl || (await getWindowsSystemProxyUrl())
-  if (!resolvedProxyUrl) return {}
-
-  // Кэшируем dispatcher, чтобы не создавать ProxyAgent на каждый запрос.
-  if (resolvedProxyUrl === cachedProxyUrlForAgent && cachedProxyDispatcher) {
-    return { dispatcher: cachedProxyDispatcher }
-  }
-
-  try {
-    const undici = (await import('undici')) as unknown as {
-      ProxyAgent: new (proxy: string) => unknown
-    }
-    cachedProxyDispatcher = new undici.ProxyAgent(resolvedProxyUrl)
-    cachedProxyUrlForAgent = resolvedProxyUrl
-    return { dispatcher: cachedProxyDispatcher }
-  } catch {
-    return {}
-  }
-}
-
 async function callProviderChat(params: {
   provider: Provider
   req: NextRequest
@@ -3384,6 +3400,10 @@ export async function POST(req: NextRequest) {
         topic,
         level,
         audience,
+      })
+      sanitized = alignDialogueArticleCommentWithRepeat({
+        content: sanitized,
+        userText: lastUserContentForResponse,
       })
     }
     sanitized = stripRepeatOnPraise(sanitized)
@@ -3806,6 +3826,10 @@ export async function POST(req: NextRequest) {
               topic,
               level,
               audience,
+            })
+            repaired = alignDialogueArticleCommentWithRepeat({
+              content: repaired,
+              userText: lastUserContentForResponse,
             })
           }
           repaired = stripRepeatOnPraise(repaired)

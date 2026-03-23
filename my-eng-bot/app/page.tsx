@@ -11,9 +11,90 @@ import { loadState, saveState, getUsageCountToday, incrementUsageToday, DEFAULT_
 import { countDialogueFinalCorrectAnswers } from '@/lib/dialogueStats'
 import { TOPICS, LEVELS, TENSES, CHILD_TENSES } from '@/lib/constants'
 import { detectCommunicationUserMessageLang, getExpectedCommunicationReplyLang } from '@/lib/communicationReplyLanguage'
-import type { ChatMessage, Settings, UsageInfo } from '@/lib/types'
+import type {
+  AppMode,
+  Audience,
+  ChatMessage,
+  SentenceType,
+  Settings,
+  TenseId,
+  TopicId,
+  UsageInfo,
+} from '@/lib/types'
+import { parseCorrection } from '@/lib/parseCorrection'
 
 const CHILD_TENSE_SET = new Set(CHILD_TENSES)
+
+/** Снимок настроек при открытии меню (для перезапуска чата без смены режима). */
+type MenuOpenSnapshot = {
+  mode: AppMode
+  audience: Audience
+  topic?: TopicId
+  tensesKey?: string
+  sentenceType?: SentenceType
+}
+
+function tensesToKey(tenses: TenseId[]): string {
+  return [...tenses].sort().join(',')
+}
+
+function buildMenuOpenSnapshot(s: Settings): MenuOpenSnapshot {
+  if (s.mode === 'communication') {
+    return { mode: s.mode, audience: s.audience }
+  }
+  return {
+    mode: s.mode,
+    audience: s.audience,
+    topic: s.topic,
+    tensesKey: tensesToKey(s.tenses),
+    sentenceType: s.sentenceType,
+  }
+}
+
+/** Режим не менялся; нужен ли перезапуск из‑за темы/времён/типа/аудитории (без уровня). */
+function menuSettingsRestartNeeded(snap: MenuOpenSnapshot, current: Settings): boolean {
+  if (current.mode === 'communication') {
+    return snap.audience !== current.audience
+  }
+  if (current.mode === 'dialogue' || current.mode === 'translation') {
+    return (
+      snap.topic !== current.topic ||
+      snap.tensesKey !== tensesToKey(current.tenses) ||
+      snap.sentenceType !== current.sentenceType ||
+      snap.audience !== current.audience
+    )
+  }
+  return false
+}
+
+/** Перевод в диалоге: актуальный assistant-пузырь после await. */
+function findAssistantIndexByTranslationText(
+  messages: ChatMessage[],
+  requestedIndex: number,
+  textToTranslate: string
+): number {
+  const needle = textToTranslate.trim()
+  if (!needle) return requestedIndex
+
+  const bodyMatchesNeedle = (content: string) => {
+    const { rest } = parseCorrection(content)
+    const r = (rest ?? content).trim()
+    if (!r) return false
+    if (r.includes(needle)) return true
+    if (needle.length >= 6 && r.includes(needle.slice(0, Math.min(needle.length, 120)))) return true
+    return false
+  }
+
+  if (messages[requestedIndex]?.role === 'assistant' && bodyMatchesNeedle(messages[requestedIndex].content ?? '')) {
+    return requestedIndex
+  }
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m.role !== 'assistant') continue
+    if (bodyMatchesNeedle(m.content ?? '')) return i
+  }
+  return requestedIndex
+}
 
 function createDialogSeed(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -50,8 +131,8 @@ export default function Home() {
   /** Не запускать второй запрос первого сообщения, пока первый в полёте (защита от двойного вызова из эффекта). */
   const firstMessageInFlightRef = React.useRef(false)
   const dialogSeedRef = React.useRef(createDialogSeed())
-  /** Режим при открытии бокового меню (для перезапуска чата при смене режима до закрытия). */
-  const modeWhenMenuOpenedRef = React.useRef<Settings['mode'] | null>(null)
+  /** Настройки при открытии меню: режим + поля для сравнения при закрытии (без уровня). */
+  const menuOpenSnapshotRef = React.useRef<MenuOpenSnapshot | null>(null)
   const prevMenuOpenForSnapshotRef = React.useRef(false)
 
   function normalizeSettingsForAudience(s: Settings): Settings {
@@ -425,20 +506,24 @@ export default function Home() {
     const wasOpen = prevMenuOpenForSnapshotRef.current
     prevMenuOpenForSnapshotRef.current = menuOpen
     if (menuOpen && !wasOpen && dialogStarted) {
-      modeWhenMenuOpenedRef.current = settings.mode
+      menuOpenSnapshotRef.current = buildMenuOpenSnapshot(settings)
     }
-  }, [menuOpen, dialogStarted, settings.mode])
+  }, [menuOpen, dialogStarted, settings])
 
   useEffect(() => {
     if (menuOpen) return
-    const snap = modeWhenMenuOpenedRef.current
-    modeWhenMenuOpenedRef.current = null
+    const snap = menuOpenSnapshotRef.current
+    menuOpenSnapshotRef.current = null
     if (!dialogStarted) return
     if (snap === null) return
-    if (snap !== settings.mode) {
+    if (snap.mode !== settings.mode) {
+      restartChatForNewModeFromMenu()
+      return
+    }
+    if (menuSettingsRestartNeeded(snap, settings)) {
       restartChatForNewModeFromMenu()
     }
-  }, [menuOpen, dialogStarted, settings.mode, restartChatForNewModeFromMenu])
+  }, [menuOpen, dialogStarted, settings, restartChatForNewModeFromMenu])
 
   const goToStartScreen = useCallback(() => {
     firstMessageRequestIdRef.current += 1
@@ -581,16 +666,39 @@ export default function Home() {
     const setResult = (translation?: string, translationError?: string) => {
       setMessages((prev) => {
         const next = [...prev]
-        if (next[index]?.role === 'assistant') {
-          next[index] = { ...next[index], translation, translationError }
+        const resolvedIndex = findAssistantIndexByTranslationText(next, index, text)
+        if (next[resolvedIndex]?.role === 'assistant') {
+          next[resolvedIndex] = { ...next[resolvedIndex], translation, translationError }
         }
         return next
       })
     }
-    setResult(undefined, undefined)
-    setLoadingTranslationIndex(index)
+    setMessages((prev) => {
+      const resolvedIndex = findAssistantIndexByTranslationText(prev, index, text)
+      setLoadingTranslationIndex(resolvedIndex)
+      const next = [...prev]
+      if (next[resolvedIndex]?.role === 'assistant') {
+        next[resolvedIndex] = { ...next[resolvedIndex], translation: undefined, translationError: undefined }
+      }
+      return next
+    })
     let lastError: string = 'Не удалось загрузить перевод.'
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    type TranslateErrorCode = 'rate_limit' | 'unauthorized' | 'forbidden' | 'upstream_error' | undefined
+    type TranslateProvider = 'openrouter' | 'openai'
+    type TranslateResponse = {
+      content?: string
+      error?: string
+      errorCode?: TranslateErrorCode
+      provider?: TranslateProvider
+    }
+    type AttemptResult =
+      | { ok: true; content: string }
+      | { ok: false; error: string; errorCode?: TranslateErrorCode; provider: TranslateProvider }
+
+    const providerOrder: TranslateProvider[] =
+      settings.provider === 'openai' ? ['openai', 'openrouter'] : ['openrouter', 'openai']
+
+    const requestTranslateOnce = async (provider: TranslateProvider): Promise<AttemptResult> => {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
       try {
@@ -599,44 +707,94 @@ export default function Home() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text: text.trim(),
-            provider: settings.provider,
+            provider,
             audience: settings.audience,
             ...(settings.mode !== 'translation' ? { tenses: settings.tenses, mode: settings.mode } : {}),
           }),
           signal: controller.signal,
         })
         clearTimeout(timeoutId)
-        let data: { content?: string; error?: string }
+        let data: TranslateResponse
         try {
-          data = (await res.json()) as { content?: string; error?: string }
+          data = (await res.json()) as TranslateResponse
         } catch {
-          lastError = res.status === 502 ? 'Модель вернула пустой перевод.' : 'Не удалось загрузить перевод.'
-          data = { error: lastError }
+          data = {
+            error: res.status === 502 ? 'Модель вернула пустой перевод.' : 'Не удалось загрузить перевод.',
+            errorCode: res.status === 429 ? 'rate_limit' : 'upstream_error',
+            provider,
+          }
         }
         const content = data.content?.trim()
-        if (content && res.ok) {
-          setLoadingTranslationIndex(null)
-          setResult(content)
-          return
+        if (content && res.ok) return { ok: true, content }
+        return {
+          ok: false,
+          error: data.error ?? (res.status === 502 ? 'Модель вернула пустой перевод.' : 'Не удалось загрузить перевод.'),
+          errorCode: data.errorCode,
+          provider: data.provider ?? provider,
         }
-        lastError = data.error ?? (res.status === 502 ? 'Модель вернула пустой перевод.' : 'Не удалось загрузить перевод.')
       } catch (e) {
         clearTimeout(timeoutId)
         const err = e instanceof Error ? e : new Error('Unknown error')
-        lastError =
+        const translatedError =
           err.name === 'AbortError'
             ? 'Ответ занял слишком много времени. Проверьте сеть и попробуйте снова.'
             : err.message === 'Failed to fetch' || err.name === 'TypeError'
               ? 'Нет связи с сервером. Проверьте интернет и ключ в меню.'
               : 'Не удалось загрузить перевод.'
+        return { ok: false, error: translatedError, provider }
       }
-      const canRetry = attempt < MAX_ATTEMPTS - 1 && isRetryableTranslationError(lastError)
-      if (!canRetry) break
-      await sleep(150)
-      await sleep(RETRY_DELAY_MS)
     }
-    setLoadingTranslationIndex(null)
-    setResult(undefined, lastError)
+
+    let translated = false
+    let attemptedFallback = false
+    let allowProviderFallback = true
+    for (let pIdx = 0; pIdx < providerOrder.length && !translated; pIdx++) {
+      const provider = providerOrder[pIdx]
+      const maxAttemptsForProvider = provider === 'openrouter' ? MAX_ATTEMPTS : 1
+
+      for (let attempt = 0; attempt < maxAttemptsForProvider; attempt++) {
+        const result = await requestTranslateOnce(provider)
+        if (result.ok) {
+          setLoadingTranslationIndex(null)
+          setResult(result.content)
+          translated = true
+          break
+        }
+
+        lastError = result.error
+        const isRateLimit = result.errorCode === 'rate_limit' || /лимит|Too Many Requests/i.test(lastError)
+        const isForbidden = result.errorCode === 'forbidden'
+        const isUnauthorized = result.errorCode === 'unauthorized'
+        const isNetworkLike = /Нет связи с сервером|занял слишком много времени/i.test(lastError)
+
+        if (provider === 'openai' && (isForbidden || isUnauthorized)) {
+          allowProviderFallback = false
+          break
+        }
+
+        const canRetryThisProvider =
+          attempt < maxAttemptsForProvider - 1 && (isRateLimit || isNetworkLike || isRetryableTranslationError(lastError))
+        if (!canRetryThisProvider) break
+
+        await sleep(150)
+        const backoffMs = isRateLimit ? RETRY_DELAY_RATE_LIMIT_MS : RETRY_DELAY_MS
+        await sleep(backoffMs)
+      }
+
+      if (!translated && !allowProviderFallback) break
+      if (!translated && pIdx < providerOrder.length - 1) {
+        attemptedFallback = true
+      }
+    }
+
+    if (attemptedFallback && !translated && !/Попробуйте снова|Проверьте/i.test(lastError)) {
+      lastError = `${lastError} Попробуйте другого провайдера в меню.`
+    }
+
+    if (!translated) {
+      setLoadingTranslationIndex(null)
+      setResult(undefined, lastError)
+    }
   }, [settings.provider, settings.audience, settings.mode, settings.tenses])
 
   /** Сравнение для баннера в шапке: тема, время, уровень, тип предложений (в режиме перевода). Режим не учитываем — при смене режима чат перезапускается из меню без этого предупреждения. */
@@ -838,7 +996,7 @@ export default function Home() {
               settings.mode !== 'communication' &&
               settingsDiffersFromLastSendForBanner(settings, settingsAtLastSend) && (
               <div className="shrink-0 border-b border-[var(--border)] px-3 py-2">
-                <div className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm text-[var(--text)] shadow-sm">
+                <div className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-center text-sm text-[var(--text)] shadow-sm">
                   Настройки изменены. Следующее сообщение будет: <strong>{getMenuSummary(true)}</strong>.
                 </div>
               </div>
