@@ -2909,6 +2909,26 @@ function classifyOpenAiForbidden(errText: string): 'unsupported_region' | 'other
   return 'other'
 }
 
+async function buildProxyFetchExtra(): Promise<Record<string, unknown>> {
+  const proxyUrl =
+    process.env.HTTPS_PROXY ||
+    process.env.https_proxy ||
+    process.env.HTTP_PROXY ||
+    process.env.http_proxy ||
+    process.env.ALL_PROXY ||
+    process.env.all_proxy ||
+    ''
+  if (!proxyUrl) return {}
+  try {
+    const undici = (await import('undici')) as unknown as {
+      ProxyAgent: new (proxy: string) => unknown
+    }
+    return { dispatcher: new undici.ProxyAgent(proxyUrl) }
+  } catch {
+    return {}
+  }
+}
+
 async function callProviderChat(params: {
   provider: Provider
   req: NextRequest
@@ -2920,6 +2940,7 @@ async function callProviderChat(params: {
   if (provider === 'openai') {
     const key = normalizeKey(process.env.OPENAI_API_KEY ?? '')
     if (!key) return { ok: false, status: 500, errText: 'Missing OPENAI_API_KEY' }
+    const proxyFetchExtra = await buildProxyFetchExtra()
     const res = await fetch(OPENAI_URL, {
       method: 'POST',
       headers: {
@@ -2931,7 +2952,8 @@ async function callProviderChat(params: {
         messages: apiMessages,
         max_tokens: maxTokens,
       }),
-    })
+      ...(proxyFetchExtra as RequestInit),
+    } as RequestInit)
     if (!res.ok) return { ok: false, status: res.status, errText: await res.text() }
     const data = (await res.json()) as {
       choices?: Array<{ message?: { content?: string }; text?: string }>
@@ -3039,15 +3061,26 @@ function buildDialogueLowSignalFallback(params: {
 function extractExplicitTranslateTarget(lastUserText: string): string | null {
   const text = lastUserText.trim()
   if (!text) return null
-  const hasExplicitTranslateIntent =
-    /\b(?:переведи|перевод|translate|translation)\b/i.test(text) || /нужен\s+перевод/i.test(text)
+  const hasExplicitTranslateIntent = /нужен\s+перевод/i.test(text) ||
+    /перевед(и|ите)/gi.test(text) ||
+    /перевод/gi.test(text) ||
+    /\btranslate\b/i.test(text) ||
+    /\btranslation\b/i.test(text)
+
   if (!hasExplicitTranslateIntent) return null
+
+  // Убираем намерение перевода и "технический" префикс (переведи/перевод/нужен перевод/и т.п.)
+  // Важно: не используем `\b` для кириллицы — оно нестабильно для unicode-границ.
   const withoutIntent = text
-    .replace(/\b(?:переведи(?:\s+на\s+английский)?|translate|translation|нужен\s+перевод)\b/gi, ' ')
+    .replace(/нужен\s+перевод\s*[:\-]?\s*/gi, ' ')
+    .replace(/перевед(и|ите)\s*(?:на\s+английский)?\s*[:\-]?\s*/gi, ' ')
+    .replace(/перевод\s*[:\-]?\s*/gi, ' ')
+    .replace(/translate\s*[:\-]?\s*/gi, ' ')
+    .replace(/translation\s*[:\-]?\s*/gi, ' ')
     .replace(/^[\s:,-]+|[\s:,-]+$/g, '')
     .trim()
-  if (!withoutIntent) return null
-  return withoutIntent
+
+  return withoutIntent || null
 }
 
 export async function POST(req: NextRequest) {
@@ -3206,6 +3239,8 @@ export async function POST(req: NextRequest) {
     const res1 = await callProviderChat({ provider, req, apiMessages, maxTokens: communicationMaxTokens })
     if (!res1.ok) {
       const errText = res1.errText
+      const forbiddenType =
+        res1.status === 403 && provider === 'openai' ? classifyOpenAiForbidden(errText) : null
       let userMessage: string
       let errorCode: 'rate_limit' | 'unauthorized' | 'forbidden' | 'upstream_error' | undefined
       if (res1.status === 401) {
@@ -3217,7 +3252,7 @@ export async function POST(req: NextRequest) {
       } else if (res1.status === 403 && provider === 'openai') {
         errorCode = 'forbidden'
         userMessage =
-          classifyOpenAiForbidden(errText) === 'unsupported_region'
+          forbiddenType === 'unsupported_region'
             ? 'OpenAI недоступен из вашего региона (403 unsupported_country_region_territory). Переключитесь на OpenRouter или используйте деплой (например, Vercel) в поддерживаемом регионе.'
             : 'Доступ к OpenAI запрещён (403). Проверьте доступность сервиса в вашем регионе и права проекта/аккаунта.'
       } else if (res1.status === 429) {
