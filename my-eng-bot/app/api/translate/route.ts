@@ -26,10 +26,25 @@ function normalizeTranslationResult(text: string): string {
     .replace(/\bзаниматься культурой\b/gi, 'интересоваться культурой')
     .replace(/\bзанимаешься культурой\b/gi, 'интересуешься культурой')
     .replace(/\bзанимаетесь культурой\b/gi, 'интересуетесь культурой')
+    // Частый дефект: "Какое хобби вы недавно увлекались?" -> корректное управление.
+    .replace(
+      /\bКакое\s+хобби\s+(ты|вы)\s+(?:в\s+последнее\s+время|недавно)\s+увлекал(?:ся|ись)\?/gi,
+      (_m: string, pronoun: string) => `Каким хобби ${pronoun.toLowerCase()} в последнее время увлекал${pronoun.toLowerCase() === 'ты' ? 'ся' : 'ись'}?`
+    )
     .replace(/\s+/g, ' ')
     .trim()
 
   return normalized
+}
+
+function applyTranslationQualityGate(text: string): string {
+  let out = text
+  // Локальные точечные repair-правки для явно неграмотных паттернов.
+  out = out.replace(
+    /\bКакое\s+хобби\s+(ты|вы)\s+(?:в\s+последнее\s+время|недавно)\s+увлекал(?:ся|ись)\?/gi,
+    (_m: string, pronoun: string) => `Каким хобби ${pronoun.toLowerCase()} в последнее время увлекал${pronoun.toLowerCase() === 'ты' ? 'ся' : 'ись'}?`
+  )
+  return out
 }
 
 type Provider = 'openrouter' | 'openai'
@@ -119,9 +134,10 @@ function buildSystemPromptEnToRu(params: {
     'Use imperfective infinitives with composite future when needed (e.g. буду прыгать), or rephrase with natural Russian for duration and completion (к моменту … уже …, успею, продолжу …). ' +
     'English Present/Past/Future Perfect and Perfect Continuous do not translate word-for-word; choose idiomatic Russian that matches time and aspect, not a calque. '
   return (
-    'You are a professional Russian translator. Translate the user text into natural conversational Russian, not a literal word-for-word translation. Preserve meaning, tone, and intent. ' +
+    'You are a professional English-to-Russian translator. Translate naturally, adapting idioms and collocations to standard Russian usage. Preserve tone, register, and context. Never translate literally if it sounds unnatural. ' +
     tenseGrammarRules +
     form +
+    ' Keep correct Russian grammar, case, and verb government. For hobby/interest meaning (hobby, be into, be interested in, pursue), use natural patterns with correct government: "увлекаться чем", "интересоваться чем", "заниматься чем". Never produce ungrammatical forms like "Какое хобби вы недавно увлекались?". ' +
     ' Avoid bureaucratic or robotic phrases like "связанное с", "в отношении", "касаемо", "по части". If the English is a question, translate it as a clear question a real person would ask. ' +
     'Prefer idiomatic Russian over literal structure. For example, translate "What do you usually do about culture?" as a natural question like "Что ты обычно делаешь, когда речь заходит о культуре?" rather than "Как ты обычно занимаешься культурой?". ' +
     favoriteFoodExample + ' ' +
@@ -268,7 +284,9 @@ export async function POST(req: NextRequest) {
     const first = data.choices?.[0]
     const raw = (first?.message?.content ?? first?.text ?? '').trim()
     const content =
-      direction === 'en_to_ru' ? normalizeTranslationResult(raw) : raw.replace(/\s+/g, ' ').trim()
+      direction === 'en_to_ru'
+        ? applyTranslationQualityGate(normalizeTranslationResult(raw))
+        : raw.replace(/\s+/g, ' ').trim()
 
     if (!content) {
       return NextResponse.json(
