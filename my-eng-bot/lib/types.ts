@@ -16,6 +16,7 @@ export type AiProvider = 'openrouter' | 'openai'
 export type AppMode = 'dialogue' | 'translation' | 'communication'
 export type SentenceType = 'general' | 'interrogative' | 'negative' | 'mixed'
 export type Audience = 'child' | 'adult'
+export type CommunicationInputExpectedLang = 'ru' | 'en'
 
 export type LevelId =
   | 'all'
@@ -67,6 +68,8 @@ export interface Settings {
   tenses: TenseId[]
   audience: Audience
   voiceId: string
+  /** Режим «Общение»: ожидаемый язык следующего ввода (tie-break для пустого/безбуквенного текста). */
+  communicationInputExpectedLang: CommunicationInputExpectedLang
 }
 
 export interface UsageInfo {

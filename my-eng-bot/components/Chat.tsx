@@ -18,19 +18,27 @@ interface ChatProps {
   retryMessage?: string | null
   onRequestTranslation?: (index: number, text: string) => void
   loadingTranslationIndex?: number | null
+  forceNextMicLang?: 'ru' | 'en' | null
+  onConsumeForceNextMicLang?: () => void
 }
 
 /**
  * Локаль Web Speech только для режима общения — по последнему сообщению пользователя.
  * Есть кириллица → ru-RU (в т.ч. «прайс Bentley Continental 45»).
- * Только латиница → en-US. Только цифры/знаки → ru-RU по умолчанию.
+ * Только латиница → en-US. Только цифры/знаки → по inputPreference.
  */
-function speechLocaleForCommunication(lastUserText: string | undefined): 'ru-RU' | 'en-US' {
+function speechLocaleForCommunication(
+  lastUserText: string | undefined,
+  inputPreference: 'ru' | 'en'
+): 'ru-RU' | 'en-US' {
   const t = lastUserText?.trim() ?? ''
-  if (!t) return 'ru-RU'
-  if (/[А-Яа-яЁё]/.test(t)) return 'ru-RU'
-  if (/[A-Za-z]/.test(t)) return 'en-US'
-  return 'ru-RU'
+  if (!t) return inputPreference === 'en' ? 'en-US' : 'ru-RU'
+  const hasCyr = /[А-Яа-яЁё]/.test(t)
+  const hasLat = /[A-Za-z]/.test(t)
+  if (hasCyr && hasLat) return inputPreference === 'en' ? 'en-US' : 'ru-RU'
+  if (hasCyr) return 'ru-RU'
+  if (hasLat) return 'en-US'
+  return inputPreference === 'en' ? 'en-US' : 'ru-RU'
 }
 
 type BubblePosition = 'solo' | 'first' | 'middle' | 'last'
@@ -321,6 +329,8 @@ export default function Chat({
   retryMessage,
   onRequestTranslation,
   loadingTranslationIndex,
+  forceNextMicLang,
+  onConsumeForceNextMicLang,
 }: ChatProps) {
   const [input, setInput] = React.useState('')
   const [inputFocused, setInputFocused] = React.useState(false)
@@ -459,13 +469,16 @@ export default function Chat({
         .map((m) => m.content)
         .slice(-1)[0]
 
-      startAttempt(speechLocaleForCommunication(lastUserText))
+      const forcedLocale =
+        forceNextMicLang === 'ru' ? 'ru-RU' : forceNextMicLang === 'en' ? 'en-US' : null
+      startAttempt(forcedLocale ?? speechLocaleForCommunication(lastUserText, settings.communicationInputExpectedLang))
+      if (forcedLocale) onConsumeForceNextMicLang?.()
       return
     }
 
     // Остальные режимы (dialogue, translation): диктовка на английском, без таймаута общения.
     startAttempt('en-US')
-  }, [settings.mode, messages])
+  }, [settings.mode, settings.communicationInputExpectedLang, messages, forceNextMicLang, onConsumeForceNextMicLang])
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {

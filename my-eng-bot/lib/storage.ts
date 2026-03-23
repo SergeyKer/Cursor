@@ -37,6 +37,7 @@ const DEFAULT_SETTINGS: Settings = {
   tenses: ['present_simple'],
   audience: 'adult',
   voiceId: '',
+  communicationInputExpectedLang: 'ru',
 }
 
 export function loadState(): StoredState {

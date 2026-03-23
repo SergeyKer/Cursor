@@ -10,7 +10,7 @@ import { consumeNextGreetingFactLine } from '@/lib/greetingFactRotation'
 import { loadState, saveState, getUsageCountToday, incrementUsageToday, DEFAULT_SETTINGS } from '@/lib/storage'
 import { countDialogueFinalCorrectAnswers } from '@/lib/dialogueStats'
 import { TOPICS, LEVELS, TENSES, CHILD_TENSES } from '@/lib/constants'
-import { getExpectedCommunicationReplyLang } from '@/lib/communicationReplyLanguage'
+import { detectCommunicationUserMessageLang, getExpectedCommunicationReplyLang } from '@/lib/communicationReplyLanguage'
 import type { ChatMessage, Settings, UsageInfo } from '@/lib/types'
 
 const CHILD_TENSE_SET = new Set(CHILD_TENSES)
@@ -40,6 +40,7 @@ export default function Home() {
   const [storageLoaded, setStorageLoaded] = useState(false)
   const [retryMessage, setRetryMessage] = useState<string | null>(null)
   const [loadingTranslationIndex, setLoadingTranslationIndex] = useState<number | null>(null)
+  const [forceNextMicLang, setForceNextMicLang] = useState<'ru' | 'en' | null>(null)
   const dialogueCorrectAnswers = React.useMemo(() => countDialogueFinalCorrectAnswers(messages), [messages])
   /** Настройки на момент последней отправки сообщения; для баннера «настройки изменены». */
   const [settingsAtLastSend, setSettingsAtLastSend] = useState<Settings | null>(null)
@@ -129,6 +130,10 @@ export default function Home() {
     return text.replace(/\\n/g, '\n').trim()
   }
 
+  function getCommunicationInputExpectedFromText(text: string, current: Settings['communicationInputExpectedLang']) {
+    return detectCommunicationUserMessageLang(text, current) as Settings['communicationInputExpectedLang']
+  }
+
   /** Выделяет из ответа ИИ основной текст.
    * Перевод от ИИ для диалога больше не используем (только по кнопке /api/translate),
    * поэтому здесь просто чистим служебные строки вроде `RU:` если модель всё же их вернула.
@@ -181,6 +186,9 @@ export default function Home() {
                 sentenceType: settings.sentenceType,
                 audience: settings.audience,
                 dialogSeed: dialogSeedRef.current,
+                ...(settings.mode === 'communication'
+                  ? { communicationInputExpectedLang: settings.communicationInputExpectedLang }
+                  : {}),
               }),
               signal: controller.signal,
             })
@@ -392,6 +400,7 @@ export default function Home() {
     firstMessageInFlightRef.current = false
     dialogSeedRef.current = createDialogSeed()
     newDialogRef.current = true
+    setSettings((prev) => ({ ...prev, communicationInputExpectedLang: 'ru' }))
     setMessages([])
     setSettingsAtLastSend(null)
     setTimeout(() => {
@@ -401,13 +410,16 @@ export default function Home() {
 
   const handleStartChatFromMenu = useCallback(() => {
     if (!dialogStarted) {
+      if (settings.mode === 'communication') {
+        setSettings((prev) => ({ ...prev, communicationInputExpectedLang: 'ru' }))
+      }
       setDialogStarted(true)
       setMenuOpen(false)
       return
     }
     restartChatForNewModeFromMenu()
     setMenuOpen(false)
-  }, [dialogStarted, restartChatForNewModeFromMenu])
+  }, [dialogStarted, restartChatForNewModeFromMenu, settings.mode])
 
   useEffect(() => {
     const wasOpen = prevMenuOpenForSnapshotRef.current
@@ -438,6 +450,7 @@ export default function Home() {
     setMenuOpen(false)
     setLoading(false)
     setRetryMessage(null)
+    setForceNextMicLang(null)
     setLoadingTranslationIndex(null)
     dialogSeedRef.current = createDialogSeed()
     newDialogRef.current = false
@@ -510,6 +523,12 @@ export default function Home() {
     async (text: string) => {
       if (atLimit) return
       const userMsg: ChatMessage = { role: 'user', content: text }
+      if (settings.mode === 'communication') {
+        setSettings((prev) => ({
+          ...prev,
+          communicationInputExpectedLang: getCommunicationInputExpectedFromText(text, prev.communicationInputExpectedLang),
+        }))
+      }
       const nextMessages = [...messages, userMsg]
       setMessages(nextMessages)
       setLoading(true)
@@ -635,12 +654,16 @@ export default function Home() {
   /** Строка выбранного меню для шапки: единый формат для обоих режимов. */
   function getMenuSummary(includeTopic: boolean = true): string {
     if (settings.mode === 'communication') {
+      if (settings.level === 'all') {
+        return settings.communicationInputExpectedLang === 'en' ? 'Chat с MyEng' : 'Чат с MyEng'
+      }
       const levelEntry = LEVELS.find((l) => l.id === settings.level)
       const levelShort = levelEntry ? (levelEntry.label.split(' - ')[0]?.trim() ?? levelEntry.label) : settings.level
-      const normalizedLevelShort = settings.level === 'all' ? 'Все уровни' : levelShort
-      const lang = getExpectedCommunicationReplyLang(messages)
+      const lang = getExpectedCommunicationReplyLang(messages, {
+        inputPreference: settings.communicationInputExpectedLang,
+      })
       const titlePrefix = lang === 'ru' ? 'Чат' : 'Chat'
-      return `${titlePrefix} - ${normalizedLevelShort}`
+      return `${titlePrefix} - ${levelShort}`
     }
 
     const getTenseCountLabel = (count: number): string => {
@@ -704,7 +727,7 @@ export default function Home() {
       >
         <div className="chat-shell-x flex min-h-[2.75rem] w-full items-center">
           <div
-            className={`mx-auto flex w-full items-center ${
+            className={`mx-auto flex w-full items-center justify-between ${
               dialogStarted ? 'max-w-[29rem]' : 'max-w-[23.2rem]'
             }`}
           >
@@ -717,9 +740,41 @@ export default function Home() {
             >
               <MenuIcon />
             </button>
+            <div className="pointer-events-auto flex h-10 min-h-[36px] w-12 min-w-[3rem] shrink-0 items-center justify-end">
+              {dialogStarted && settings.mode === 'communication' ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSettings((s) => {
+                      const nextLang = s.communicationInputExpectedLang === 'ru' ? 'en' : 'ru'
+                      setForceNextMicLang(nextLang)
+                      return {
+                        ...s,
+                        communicationInputExpectedLang: nextLang,
+                      }
+                    })
+                  }
+                  className="btn-3d-menu flex h-10 min-h-[36px] min-w-[3rem] shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--bg)] px-1 text-[11px] font-semibold leading-none text-[var(--text)] touch-manipulation"
+                  aria-label={
+                    settings.communicationInputExpectedLang === 'ru'
+                      ? 'Ожидается русский ввод. Переключить на английский'
+                      : 'Ожидается английский ввод. Переключить на русский'
+                  }
+                  title={
+                    settings.communicationInputExpectedLang === 'ru'
+                      ? 'Сейчас ожидается русский ввод. Нажмите для ожидания английского'
+                      : 'Сейчас ожидается английский ввод. Нажмите для ожидания русского'
+                  }
+                >
+                  {settings.communicationInputExpectedLang === 'ru' ? 'Ru→En' : 'En→Ru'}
+                </button>
+              ) : (
+                <span className="block h-10 w-12 min-w-[3rem] shrink-0" aria-hidden />
+              )}
+            </div>
           </div>
         </div>
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-12">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-14 sm:px-[4.25rem]">
           <h1 className="text-[14px] font-medium leading-snug text-[var(--text)] sm:text-[16px] truncate max-w-full" title={pageTitle}>
             {!dialogStarted || !storageLoaded ? (
               pageTitle
@@ -804,6 +859,8 @@ export default function Home() {
             retryMessage={retryMessage}
             onRequestTranslation={handleRequestTranslation}
             loadingTranslationIndex={loadingTranslationIndex}
+            forceNextMicLang={forceNextMicLang}
+            onConsumeForceNextMicLang={() => setForceNextMicLang(null)}
           />
           </div>
           </>

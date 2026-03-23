@@ -197,21 +197,25 @@ function buildSystemPrompt(params: {
 
 Rules:
 - Language: detect the user's language from their last message (Russian/English). Answer in the same language. If unclear, default to Russian.
-- Language detection rule: majority of Cyrillic vs Latin letters in the user's last message; if counts are equal, use the language of the previous assistant reply (if available), otherwise default to Russian.
+- Language detection rule (must match app logic): if the user's last message has mixed Cyrillic + Latin, use current conversation language. Otherwise: any Cyrillic -> Russian, any Latin -> English. If no letters, use current conversation language.
+- Mixed learner input rule: if the message contains both Latin and Cyrillic and current conversation language is English, treat this as an English attempt with Russian word substitutions. Infer intended meaning and CONTINUE the topic in English (1 short reaction + 1 short follow-up question). Do not default to "What do you mean?" if the core intent is understandable.
 - Detail keywords are language-neutral: "Подробнее", "Ещё подробнее", "more details", and "even more details" only change depth, not language. If the last user message is only a detail keyword, keep the current conversation language.
 - Current conversation language: ${communicationLanguageHint}. ${communicationDetailOnly ? 'The last user message is only a detail keyword, so preserve this language exactly.' : 'Preserve this language across follow-up detail requests.'}
+- Translation-only rule: ONLY when the user explicitly asks to translate (for example: "переведи", "translate", "нужен перевод"), return ONLY the English translation of the requested phrase with no extra comments or follow-up questions.
 - ${audienceStyleRule}
 - ${buildCommunicationEnglishStyleRule(audience)}
 - ${buildCommunicationLevelRules(level)}
 - ${buildCommunicationDetailRule(communicationDetailLevel)}
 - Conversational follow-up questions and brief natural reactions are encouraged when they fit the thread. This is not tutor feedback: stay in chat mode.
 - Do NOT output any tutor/protocol markers: no "Комментарий:", no "Повтори:", no "Время:", no "Конструкция:", no "Переведи на английский", and no "RU:" / "Russian:" labels.
+- Persona voice in Russian (communication mode only): use masculine self-reference forms only. Correct examples: "я понял", "я готов", "я рад", "я постараюсь помочь". Never use feminine variants or mixed forms like "понял(-а)", "готов(а)", "рад(а)".
 - Allow both Russian and English conversation freely. You may vary length and detail for follow-ups, but you MUST keep the same Russian address register for the whole chat: CHILD audience -> always informal "ты" (never "вы"), and every Russian sentence must stay in correct singular second-person grammar like "ты пошёл", "ты спросил", "у тебя есть"; ADULT audience -> always "вы" (never informal "ты"). Do not change register because the user asked for steps, a task, or structured instructions, and do not compose the sentence in plural/formal form first.
-- Clarification: if you genuinely don't understand what the user means or what they want, output ONLY one short clarifying question in the same language.
+- Clarification: use a clarifying question ONLY for truly unintelligible input (random/noise text, no recoverable intent). Do not use clarification for mixed learner input when meaning can be inferred.
 - 18+ restriction: if the user requests sexual/erotic/pornographic content or any 18+ material, refuse politely and suggest a neutral, safe alternative (helpful general info or a topic change). Never provide explicit content.
 
 When you are sending the very first assistant message:
 - Output a friendly brief greeting + an invitation to ask a question or continue the conversation.
+- For communication mode, the first assistant message must be in Russian.
 - Use exactly one greeting only; do not stack multiple greetings or add extra filler before the invitation.
 - Vary the wording across different conversations; do not reuse the same opening phrase every time.
 - If you answer in English, keep the same opening logic and tone across the whole English conversation.
@@ -542,6 +546,24 @@ function buildCommunicationFallbackMessage(params: {
   return isChild
     ? 'What do you mean? Could you say that another way?'
     : 'Could you clarify what you mean?'
+}
+
+function shouldPreferEnglishContinuationFallback(text: string, targetLang: DetectedLang): boolean {
+  if (targetLang !== 'en') return false
+  const t = text.trim()
+  if (!t) return false
+  const hasCyr = /[А-Яа-яЁё]/.test(t)
+  const hasLat = /[A-Za-z]/.test(t)
+  if (!(hasCyr && hasLat)) return false
+  const latWords = t.match(/[A-Za-z]+(?:-[A-Za-z]+)*/g) ?? []
+  const cyrWords = t.match(/[А-Яа-яЁё]+(?:-[А-Яа-яЁё]+)*/g) ?? []
+  return latWords.length + cyrWords.length >= 2
+}
+
+function buildCommunicationEnglishContinuationFallback(audience: 'child' | 'adult'): string {
+  return audience === 'child'
+    ? 'Got it. Let’s keep talking about this in English. What part interests you most?'
+    : 'Got it. Let’s continue in English. What part would you like to discuss first?'
 }
 
 function fallbackTranslationSentenceForContext(params: {
@@ -3014,6 +3036,20 @@ function buildDialogueLowSignalFallback(params: {
   return `Комментарий: Некорректный ввод. Ответьте полным английским предложением.\n${nextQuestion}`
 }
 
+function extractExplicitTranslateTarget(lastUserText: string): string | null {
+  const text = lastUserText.trim()
+  if (!text) return null
+  const hasExplicitTranslateIntent =
+    /\b(?:переведи|перевод|translate|translation)\b/i.test(text) || /нужен\s+перевод/i.test(text)
+  if (!hasExplicitTranslateIntent) return null
+  const withoutIntent = text
+    .replace(/\b(?:переведи(?:\s+на\s+английский)?|translate|translation|нужен\s+перевод)\b/gi, ' ')
+    .replace(/^[\s:,-]+|[\s:,-]+$/g, '')
+    .trim()
+  if (!withoutIntent) return null
+  return withoutIntent
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -3038,6 +3074,8 @@ export async function POST(req: NextRequest) {
     const isFirstTranslationUserTurn = mode === 'translation' && translationUserTurns === 1
     const recentMessages = nonSystemMessages.slice(-MAX_MESSAGES_IN_CONTEXT)
     const lastUserText = recentMessages.filter((m) => m.role === 'user').pop()?.content ?? ''
+    const explicitTranslateTarget =
+      mode === 'communication' ? extractExplicitTranslateTarget(lastUserText) : null
     const isFirstTurn = recentMessages.length === 0
     const isTopicChoiceTurn = topic === 'free_talk' && recentMessages.length === 2 && recentMessages[1]?.role === 'user'
     const forcedRepeatSentence =
@@ -3080,6 +3118,30 @@ export async function POST(req: NextRequest) {
       })
       return NextResponse.json({ content: base })
     }
+    if (mode === 'communication' && explicitTranslateTarget) {
+      const translateSystem =
+        'Translate the user text to natural English. Output ONLY the translated English text. No comments, no prefixes, no quotes.'
+      const translateMessages = [
+        { role: 'system', content: translateSystem },
+        { role: 'user', content: explicitTranslateTarget },
+      ]
+      const translated = await callProviderChat({
+        provider,
+        req,
+        apiMessages: translateMessages,
+        maxTokens: 220,
+      })
+      if (translated.ok) {
+        const raw = translated.content?.trim() ?? ''
+        const firstNonEmptyLine =
+          raw
+            .split(/\r?\n/)
+            .map((l) => l.trim())
+            .find(Boolean)
+            ?.replace(/^\s*(?:translation|перевод)\s*:\s*/i, '') ?? ''
+        if (firstNonEmptyLine) return NextResponse.json({ content: firstNonEmptyLine })
+      }
+    }
 
     // Вариант 2 должен быть предсказуемым (не Math.random), чтобы баги воспроизводились и не "прыгали".
     const praiseStyleVariant =
@@ -3091,13 +3153,22 @@ export async function POST(req: NextRequest) {
     const lastUserContentForResponse = lastUserText
     const lastAssistantContentForLangTie = recentMessages.filter((m: ChatMessage) => m.role === 'assistant').pop()?.content ?? ''
     const lastAssistantLang = detectLangFromText(lastAssistantContentForLangTie, 'ru')
+    const rawInputLang = body.communicationInputExpectedLang
+    const communicationInputExpectedLang: 'ru' | 'en' =
+      rawInputLang === 'en' || rawInputLang === 'ru' ? rawInputLang : 'ru'
+    const hasAssistantInThread = recentMessages.some((m: ChatMessage) => m.role === 'assistant')
     const communicationDetailOnly =
       mode === 'communication' ? isCommunicationDetailOnlyMessage(lastUserContentForResponse) : false
     const detectedUserLang =
       mode === 'communication'
-        ? getExpectedCommunicationReplyLang(recentMessages)
+        ? getExpectedCommunicationReplyLang(recentMessages, { inputPreference: communicationInputExpectedLang })
         : detectLangFromText(lastUserContentForResponse, lastAssistantLang)
-    const communicationLanguageHint = lastAssistantLang === 'en' ? 'English' : 'Russian'
+    const communicationLanguageHint: 'Russian' | 'English' =
+      mode === 'communication' && !hasAssistantInThread
+        ? 'Russian'
+        : lastAssistantLang === 'en'
+          ? 'English'
+          : 'Russian'
 
     const systemPrompt = buildSystemPrompt({
       mode,
@@ -3184,13 +3255,19 @@ export async function POST(req: NextRequest) {
     // Делаем мягкий fallback на следующий интент, чтобы UX не ломался.
     if (isMetaGarbage(sanitized)) {
       if (mode === 'communication') {
+        const preferEnContinuation = shouldPreferEnglishContinuationFallback(
+          lastUserContentForResponse,
+          detectedUserLang
+        )
         return NextResponse.json({
-          content: buildCommunicationFallbackMessage({
-            audience,
-            language: detectedUserLang,
-            firstTurn: isFirstTurn,
-            seedText: dialogSeed,
-          }),
+          content: preferEnContinuation
+            ? buildCommunicationEnglishContinuationFallback(audience)
+            : buildCommunicationFallbackMessage({
+                audience,
+                language: detectedUserLang,
+                firstTurn: isFirstTurn,
+                seedText: dialogSeed,
+              }),
         })
       }
 
@@ -3511,12 +3588,18 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      const fallback = buildCommunicationFallbackMessage({
-        audience,
-        language: targetLang,
-        firstTurn: isFirstTurn,
-        seedText: dialogSeed,
-      })
+      const preferEnContinuation = shouldPreferEnglishContinuationFallback(
+        lastUserContentForResponse,
+        targetLang
+      )
+      const fallback = preferEnContinuation
+        ? buildCommunicationEnglishContinuationFallback(audience)
+        : buildCommunicationFallbackMessage({
+            audience,
+            language: targetLang,
+            firstTurn: isFirstTurn,
+            seedText: dialogSeed,
+          })
 
       if (!cleaned) cleaned = fallback
 

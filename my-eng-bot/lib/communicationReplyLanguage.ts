@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@/lib/types'
+import type { ChatMessage, CommunicationInputExpectedLang } from '@/lib/types'
 import { detectLangFromText, type DetectedLang } from '@/lib/detectLang'
 
 export function normalizeCommunicationDetailText(text: string): string {
@@ -41,19 +41,26 @@ export function isCommunicationDetailOnlyMessage(text: string): boolean {
 export function detectCommunicationUserMessageLang(text: string, tieBreak: DetectedLang): DetectedLang {
   const t = text.trim()
   if (!t) return tieBreak
-  if (/[А-Яа-яЁё]/.test(t)) return 'ru'
-  if (/[A-Za-z]/.test(t)) return 'en'
+  const hasCyr = /[А-Яа-яЁё]/.test(t)
+  const hasLat = /[A-Za-z]/.test(t)
+  if (hasCyr && hasLat) return tieBreak
+  if (hasCyr) return 'ru'
+  if (hasLat) return 'en'
   return tieBreak
 }
 
 /** Язык ожидаемого ответа ИИ в режиме communication — как `detectedUserLang` в api/chat/route. */
-export function getExpectedCommunicationReplyLang(messages: ChatMessage[]): DetectedLang {
+export function getExpectedCommunicationReplyLang(
+  messages: ChatMessage[],
+  options?: { inputPreference?: CommunicationInputExpectedLang }
+): DetectedLang {
   const lastUserText = [...messages].reverse().find((m) => m.role === 'user')?.content ?? ''
   const lastAssistantContentForLangTie = [...messages].reverse().find((m) => m.role === 'assistant')?.content ?? ''
   const lastAssistantLang = detectLangFromText(lastAssistantContentForLangTie, 'ru')
   const communicationDetailOnly = isCommunicationDetailOnlyMessage(lastUserText)
   const communicationLanguageProbe = stripCommunicationDetailKeywords(lastUserText)
+  const tieBreak = options?.inputPreference ?? lastAssistantLang
   return communicationDetailOnly
     ? lastAssistantLang
-    : detectCommunicationUserMessageLang(communicationLanguageProbe, lastAssistantLang)
+    : detectCommunicationUserMessageLang(communicationLanguageProbe, tieBreak)
 }
