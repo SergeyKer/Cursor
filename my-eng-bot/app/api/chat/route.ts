@@ -11,9 +11,14 @@ import { buildProxyFetchExtra } from '@/lib/proxyFetch'
 import {
   getDialogueRepeatSentence,
   inferTenseFromDialogueAssistantContent,
-  isLikelyQuestionInRequiredTense,
   isUserLikelyCorrectForTense,
 } from '@/lib/dialogueTenseInference'
+import { isDialogueOutputLikelyInRequiredTense } from '@/lib/dialogueOutputValidation'
+import { buildAdultFullTensePool, pickWeightedFreeTalkTense } from '@/lib/freeTalkDialogueTense'
+import {
+  isKommentariyPurePraiseOnly,
+  shouldStripRepeatOnPraise,
+} from '@/lib/dialoguePraiseComment'
 
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
 // чтобы undici + proxy dispatcher работали предсказуемо (а не в Edge).
@@ -752,8 +757,7 @@ function stripRepeatOnPraise(content: string): string {
   const trimmed = content.trim()
   if (!trimmed) return content
 
-  const praiseComment = /^\s*Комментарий\s*:\s*(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)\b/im
-  if (!praiseComment.test(trimmed)) return content
+  if (!shouldStripRepeatOnPraise(trimmed)) return content
 
   const lines = trimmed.split(/\r?\n/)
   const kept = lines.filter((line) => {
@@ -1231,8 +1235,7 @@ function looksLikeRussianMetaLine(line: string): boolean {
 function dropRussianMetaLinesOnPraise(text: string): string {
   const trimmed = text.trim()
   if (!trimmed) return text
-  const praiseComment = /^\s*Комментарий\s*:\s*(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)\b/im
-  if (!praiseComment.test(trimmed)) return text
+  if (!isKommentariyPurePraiseOnly(trimmed)) return text
 
   const lines = trimmed.split(/\r?\n/)
   const filtered = lines.filter((l) => !looksLikeRussianMetaLine(l))
@@ -1272,15 +1275,20 @@ function ensureNextQuestionOnPraise(content: string, params: {
   tense: string
   level: string
   audience: 'child' | 'adult'
+  /** free_talk: время следующего вопроса (из pickWeighted), иначе подставится tense. */
+  nextQuestionTense?: string | null
 }): string {
   if (params.mode !== 'dialogue') return content
   const trimmed = dropRussianMetaLinesOnPraise(content).trim()
   if (!trimmed) return content
 
-  const praiseComment = /^\s*Комментарий\s*:\s*(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)\b/im
-  if (!praiseComment.test(trimmed)) return content
+  // Пользователь ещё должен повторить исправление — не подменяем ответ следующим вопросом.
+  if (/(^|\n)\s*(Повтори|Repeat|Say)\s*:/im.test(trimmed)) return content
+  if (!isKommentariyPurePraiseOnly(trimmed)) return content
 
-  return fallbackNextQuestion(params)
+  const tenseForFallback =
+    params.topic === 'free_talk' && params.nextQuestionTense ? params.nextQuestionTense : params.tense
+  return fallbackNextQuestion({ ...params, tense: tenseForFallback })
 }
 
 function ensureNextQuestionWhenMissing(content: string, params: {
@@ -1289,6 +1297,7 @@ function ensureNextQuestionWhenMissing(content: string, params: {
   tense: string
   level: string
   audience: 'child' | 'adult'
+  nextQuestionTense?: string | null
 }): string {
   if (params.mode !== 'dialogue') return content
   const trimmed = content.trim()
@@ -1305,7 +1314,9 @@ function ensureNextQuestionWhenMissing(content: string, params: {
   const hasQuestionMark = /\?\s*$|[A-Za-z].*\?/m.test(trimmed)
   if (!hasComment || hasQuestionMark) return content
 
-  return `${trimmed}\n${fallbackNextQuestion(params)}`
+  const tenseForFallback =
+    params.topic === 'free_talk' && params.nextQuestionTense ? params.nextQuestionTense : params.tense
+  return `${trimmed}\n${fallbackNextQuestion({ ...params, tense: tenseForFallback })}`
 }
 
 function extractLikelyEntityFromUserAnswer(text: string): string | null {
@@ -1695,8 +1706,11 @@ function isValidTutorOutput(params: {
   requiredTense?: string
   /** Предыдущее сообщение ассистента (вопрос), для проверки «Повтори» при requiredTense === 'all'. */
   priorAssistantContent?: string | null
+  /** free_talk: следующий вопрос после похвалы должен быть в этом времени (не в requiredTense). */
+  expectedNextQuestionTense?: string | null
 }): boolean {
-  const { content, mode, isFirstTurn, isTopicChoiceTurn, requiredTense, priorAssistantContent } = params
+  const { content, mode, isFirstTurn, isTopicChoiceTurn, requiredTense, priorAssistantContent, expectedNextQuestionTense } =
+    params
   if (mode !== 'dialogue') return true
 
   const raw = content.trim()
@@ -1713,7 +1727,16 @@ function isValidTutorOutput(params: {
   if (lines.length === 0) return false
   if (lines.some((l) => hasLeakMarkers(l))) return false
   if (lines.some((l) => hasRobotPhrasing(l))) return false
-  if (!isDialogueOutputLikelyInRequiredTense({ content: raw, requiredTense, priorAssistantContent })) return false
+  if (
+    !isDialogueOutputLikelyInRequiredTense({
+      content: raw,
+      requiredTense,
+      priorAssistantContent,
+      expectedNextQuestionTense,
+    })
+  ) {
+    return false
+  }
 
   const hasComment = lines.some((l) => /^Комментарий\s*:/i.test(l))
   const hasRepeat = lines.some((l) => /^(Повтори|Repeat|Say)\s*:/i.test(l))
@@ -2502,40 +2525,6 @@ function isDialogueAnswerLikelyCorrect(userText: string, requiredTense: string):
   return true
 }
 
-function isDialogueOutputLikelyInRequiredTense(params: {
-  content: string
-  requiredTense?: string
-  priorAssistantContent?: string | null
-}): boolean {
-  const { content, requiredTense, priorAssistantContent } = params
-  if (!requiredTense) return true
-  const raw = content.trim()
-  if (!raw) return false
-
-  const lines = raw
-    .split(/\r?\n/)
-    .map((l) => stripLeadingAiPrefix(l))
-    .map((l) => l.trim())
-    .filter(Boolean)
-
-  const repeatLine = lines.find((line) => /^(Повтори|Repeat|Say)\s*:/i.test(line))
-  if (repeatLine) {
-    const repeatSentence = repeatLine.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '').trim()
-    if (requiredTense === 'all') {
-      const inferred = priorAssistantContent ? inferTenseFromDialogueAssistantContent(priorAssistantContent) : null
-      if (inferred && !isUserLikelyCorrectForTense(repeatSentence, inferred)) return false
-      return true
-    }
-    return isUserLikelyCorrectForTense(repeatSentence, requiredTense)
-  }
-
-  if (requiredTense === 'all') return true
-
-  const questionLine = [...lines].reverse().find((line) => /\?\s*$/.test(line) && /[A-Za-z]/.test(line))
-  if (!questionLine) return true
-  return isLikelyQuestionInRequiredTense(questionLine, requiredTense)
-}
-
 function isDialogueAnswerEffectivelyCorrect(userText: string, repeatSentence: string, requiredTense: string): boolean {
   const userNorm = normalizeEnglishSentenceForComparison(userText)
   const repeatNorm = normalizeEnglishSentenceForComparison(repeatSentence)
@@ -2733,7 +2722,8 @@ function buildDialogueBlindTenseRepairInstruction(lastAssistant: string): string
 async function repairDialogueAllTenseRepeatMismatch(params: {
   content: string
   recentMessages: ChatMessage[]
-  normalizedTense: string
+  /** Tense для этого хода (free_talk: совпадает с последним вопросом или «все»). */
+  dialogueTenseForTurn: string
   forcedRepeatSentence: string | null
   lastUserText: string
   systemContent: string
@@ -2745,7 +2735,7 @@ async function repairDialogueAllTenseRepeatMismatch(params: {
   const {
     content,
     recentMessages,
-    normalizedTense,
+    dialogueTenseForTurn,
     forcedRepeatSentence,
     lastUserText,
     systemContent,
@@ -2761,10 +2751,10 @@ async function repairDialogueAllTenseRepeatMismatch(params: {
   const lastAssistant = getLastAssistantContent(recentMessages)
   if (!lastAssistant) return content
   let expectedTense = inferTenseFromDialogueAssistantContent(lastAssistant)
-  if (!expectedTense && normalizedTense !== 'all') {
-    expectedTense = normalizedTense
+  if (!expectedTense && dialogueTenseForTurn !== 'all') {
+    expectedTense = dialogueTenseForTurn
   }
-  if (!expectedTense && normalizedTense === 'all') {
+  if (!expectedTense && dialogueTenseForTurn === 'all') {
     const blindBlock = buildDialogueBlindTenseRepairInstruction(lastAssistant)
     const blindMessages = [...apiMessages]
     if (blindMessages[0]?.role === 'system') {
@@ -3555,12 +3545,54 @@ export async function POST(req: NextRequest) {
           ]
     const normalizedTense =
       audience === 'child' && !childAllowedTenses.has(tenseForTurn as TenseId) ? 'present_simple' : tenseForTurn
+
+    const lastAssistantForInference = getLastAssistantContent(recentMessages)
+    const inferredLastAssistantTense = lastAssistantForInference
+      ? inferTenseFromDialogueAssistantContent(lastAssistantForInference)
+      : null
+
+    const adultTensePool = buildAdultFullTensePool()
+    const tensePoolForFreeTalkWeighted: string[] = (() => {
+      let pool =
+        prioritizedDialogueTenses.length > 0 ? [...prioritizedDialogueTenses] : [...adultTensePool]
+      if (audience === 'child') {
+        pool = pool.filter((t) => childAllowedTenses.has(t as TenseId))
+        if (pool.length === 0) pool = [...CHILD_TENSES]
+      }
+      return pool
+    })()
+
+    let dialogueEffectiveTense = normalizedTense
+    if (mode === 'dialogue' && topic === 'free_talk') {
+      if (isTopicChoiceTurn) {
+        dialogueEffectiveTense = pickWeightedFreeTalkTense({
+          candidates: tensePoolForFreeTalkWeighted,
+          seed: `${dialogSeed}|tc|${recentMessages.length}|${lastUserText}`,
+          excludeTense: null,
+        })
+      } else if (!isFirstTurn && inferredLastAssistantTense) {
+        dialogueEffectiveTense = inferredLastAssistantTense
+      }
+    }
+    if (
+      mode === 'dialogue' &&
+      topic === 'free_talk' &&
+      audience === 'child' &&
+      !childAllowedTenses.has(dialogueEffectiveTense as TenseId)
+    ) {
+      dialogueEffectiveTense = 'present_simple'
+    }
+
+    const tenseForDialogueOps =
+      mode === 'dialogue' && topic === 'free_talk' ? dialogueEffectiveTense : normalizedTense
+    const tutorGradingTense = mode === 'dialogue' ? tenseForDialogueOps : normalizedTense
+
     if (mode === 'dialogue' && topic !== 'free_talk' && !isFirstTurn && isLowSignalDialogueInput(lastUserText)) {
       return NextResponse.json({
         content: buildDialogueLowSignalFallback({
           messages: recentMessages,
           topic,
-          tense: normalizedTense,
+          tense: tutorGradingTense,
           level,
           audience,
         }),
@@ -3630,7 +3662,7 @@ export async function POST(req: NextRequest) {
       sentenceType,
       topic,
       level,
-      tense: normalizedTense,
+      tense: tutorGradingTense,
       audience,
       praiseStyleVariant,
       forcedRepeatSentence,
@@ -3643,7 +3675,11 @@ export async function POST(req: NextRequest) {
       ? 'This turn only: the user is naming their topic. Output ONLY one question in English — nothing else. Do NOT output "Комментарий:", "Отлично", "Молодец", "Верно", or any praise. Do NOT output "Правильно:" or "Повтори:". Infer the topic from their words (e.g. "I played tennis" → tennis; "i swam" → swimming) and ask exactly ONE question in the required tense. If the message gives no hint (e.g. "sdf"), ask what they mean. Your reply must be ONLY that one question, no other lines. Ignore all correction rules below for this turn.\n\n'
       : ''
     const dialogueInferredTenseHint =
-      mode === 'dialogue' && normalizedTense === 'all' && !isFirstTurn && !isTopicChoiceTurn
+      mode === 'dialogue' &&
+      normalizedTense === 'all' &&
+      !isFirstTurn &&
+      !isTopicChoiceTurn &&
+      !(topic === 'free_talk' && inferredLastAssistantTense)
         ? (() => {
             const lastAst = getLastAssistantContent(recentMessages)
             if (!lastAst) return ''
@@ -3653,7 +3689,32 @@ export async function POST(req: NextRequest) {
             return `\n\nIMPORTANT: Your last question was in ${name}. The user MUST answer in ${name}. If their answer uses a different tense, treat it as a tense error: explain in Комментарий that ${name} is required, and write the corrected sentence in ${name} after "Повтори:".`
           })()
         : ''
-    const systemContent = topicChoicePrefix + systemPrompt + dialogueInferredTenseHint
+    const freeTalkExpectedNextQuestionTense: string | null =
+      mode === 'dialogue' &&
+      topic === 'free_talk' &&
+      !isFirstTurn &&
+      !isTopicChoiceTurn &&
+      inferredLastAssistantTense
+        ? pickWeightedFreeTalkTense({
+            candidates: tensePoolForFreeTalkWeighted,
+            seed: `${dialogSeed}|nextQ|${recentMessages.length}|${lastUserText}`,
+            excludeTense: inferredLastAssistantTense,
+          })
+        : null
+    const freeTalkPromptSuffix =
+      mode === 'dialogue' &&
+      topic === 'free_talk' &&
+      !isFirstTurn &&
+      !isTopicChoiceTurn &&
+      inferredLastAssistantTense &&
+      freeTalkExpectedNextQuestionTense
+        ? (() => {
+            const lastName = TENSE_NAMES[inferredLastAssistantTense] ?? inferredLastAssistantTense
+            const nextName = TENSE_NAMES[freeTalkExpectedNextQuestionTense] ?? freeTalkExpectedNextQuestionTense
+            return `\n\nFREE-TALK: After a fully correct answer, your next English question MUST be entirely in ${nextName}. Vary wording; do NOT reuse the same template every time (e.g. avoid "What will you have done..." on every turn). If the user made mistakes, Комментарий + Повтори must use ${lastName} for the corrected English sentence.`
+          })()
+        : ''
+    const systemContent = topicChoicePrefix + systemPrompt + dialogueInferredTenseHint + freeTalkPromptSuffix
 
     // При пустом диалоге добавляем одно сообщение пользователя: часть провайдеров требует хотя бы один user turn
     const userTurnMessages =
@@ -3740,7 +3801,7 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json({
-        content: fallbackQuestionForContext({ topic, tense: normalizedTense, level, audience, isFirstTurn, isTopicChoiceTurn }),
+        content: fallbackQuestionForContext({ topic, tense: tutorGradingTense, level, audience, isFirstTurn, isTopicChoiceTurn }),
       })
     }
     sanitized = stripOffContextCorrections(sanitized, lastUserContentForResponse)
@@ -3753,7 +3814,7 @@ export async function POST(req: NextRequest) {
       sanitized = replaceFalsePositiveDialogueRepeatWithPraise({
         content: sanitized,
         userText: lastUserContentForResponse,
-        requiredTense: normalizedTense,
+        requiredTense: tutorGradingTense,
         topic,
         level,
         audience,
@@ -3764,13 +3825,27 @@ export async function POST(req: NextRequest) {
       })
     }
     sanitized = stripRepeatOnPraise(sanitized)
-    sanitized = ensureNextQuestionOnPraise(sanitized, { mode, topic, tense: normalizedTense, level, audience })
-    sanitized = ensureNextQuestionWhenMissing(sanitized, { mode, topic, tense: normalizedTense, level, audience })
+    sanitized = ensureNextQuestionOnPraise(sanitized, {
+      mode,
+      topic,
+      tense: tutorGradingTense,
+      level,
+      audience,
+      nextQuestionTense: freeTalkExpectedNextQuestionTense,
+    })
+    sanitized = ensureNextQuestionWhenMissing(sanitized, {
+      mode,
+      topic,
+      tense: tutorGradingTense,
+      level,
+      audience,
+      nextQuestionTense: freeTalkExpectedNextQuestionTense,
+    })
     if (mode === 'dialogue') {
       sanitized = normalizeAboutTodaySpacing(sanitized)
       sanitized = contextualizeTopicNextQuestionForLastAnswer(sanitized, {
         topic,
-        tense: normalizedTense,
+        tense: tutorGradingTense,
         audience,
         lastUserContent: lastUserContentForResponse,
         contextMessages: recentMessages,
@@ -3779,13 +3854,13 @@ export async function POST(req: NextRequest) {
         sanitized = ensureFreeTalkTopicChoiceQuestionAnchorsUser({
           content: sanitized,
           userText: lastUserContentForResponse,
-          tense: normalizedTense,
+          tense: tutorGradingTense,
         })
       }
       sanitized = await repairDialogueAllTenseRepeatMismatch({
         content: sanitized,
         recentMessages,
-        normalizedTense,
+        dialogueTenseForTurn: tutorGradingTense,
         forcedRepeatSentence,
         lastUserText: lastUserContentForResponse,
         systemContent,
@@ -4172,8 +4247,9 @@ export async function POST(req: NextRequest) {
       mode,
       isFirstTurn,
       isTopicChoiceTurn: mode === 'dialogue' && isTopicChoiceTurn,
-      requiredTense: normalizedTense,
+      requiredTense: tutorGradingTense,
       priorAssistantContent: getLastAssistantContent(recentMessages),
+      expectedNextQuestionTense: topic === 'free_talk' ? freeTalkExpectedNextQuestionTense : null,
     })
     if (!valid) {
       // Одна попытка repair/retry. Для OpenRouter это наиболее актуально.
@@ -4194,7 +4270,7 @@ export async function POST(req: NextRequest) {
         if (repaired) {
           if (isMetaGarbage(repaired)) {
             return NextResponse.json({
-              content: fallbackQuestionForContext({ topic, tense: normalizedTense, level, audience, isFirstTurn, isTopicChoiceTurn }),
+              content: fallbackQuestionForContext({ topic, tense: tutorGradingTense, level, audience, isFirstTurn, isTopicChoiceTurn }),
             })
           }
           repaired = stripOffContextCorrections(repaired, lastUserContentForResponse)
@@ -4206,7 +4282,7 @@ export async function POST(req: NextRequest) {
             repaired = replaceFalsePositiveDialogueRepeatWithPraise({
               content: repaired,
               userText: lastUserContentForResponse,
-              requiredTense: normalizedTense,
+              requiredTense: tutorGradingTense,
               topic,
               level,
               audience,
@@ -4217,13 +4293,27 @@ export async function POST(req: NextRequest) {
             })
           }
           repaired = stripRepeatOnPraise(repaired)
-          repaired = ensureNextQuestionOnPraise(repaired, { mode, topic, tense: normalizedTense, level, audience })
-          repaired = ensureNextQuestionWhenMissing(repaired, { mode, topic, tense: normalizedTense, level, audience })
+          repaired = ensureNextQuestionOnPraise(repaired, {
+            mode,
+            topic,
+            tense: tutorGradingTense,
+            level,
+            audience,
+            nextQuestionTense: freeTalkExpectedNextQuestionTense,
+          })
+          repaired = ensureNextQuestionWhenMissing(repaired, {
+            mode,
+            topic,
+            tense: tutorGradingTense,
+            level,
+            audience,
+            nextQuestionTense: freeTalkExpectedNextQuestionTense,
+          })
           if (mode === 'dialogue') {
             repaired = normalizeAboutTodaySpacing(repaired)
             repaired = contextualizeTopicNextQuestionForLastAnswer(repaired, {
               topic,
-              tense: normalizedTense,
+              tense: tutorGradingTense,
               audience,
               lastUserContent: lastUserContentForResponse,
               contextMessages: recentMessages,
@@ -4232,13 +4322,13 @@ export async function POST(req: NextRequest) {
               repaired = ensureFreeTalkTopicChoiceQuestionAnchorsUser({
                 content: repaired,
                 userText: lastUserContentForResponse,
-                tense: normalizedTense,
+                tense: tutorGradingTense,
               })
             }
             repaired = await repairDialogueAllTenseRepeatMismatch({
               content: repaired,
               recentMessages,
-              normalizedTense,
+              dialogueTenseForTurn: tutorGradingTense,
               forcedRepeatSentence,
               lastUserText: lastUserContentForResponse,
               systemContent,
@@ -4288,8 +4378,9 @@ export async function POST(req: NextRequest) {
             mode,
             isFirstTurn,
             isTopicChoiceTurn: mode === 'dialogue' && isTopicChoiceTurn,
-            requiredTense: normalizedTense,
+            requiredTense: tutorGradingTense,
             priorAssistantContent: getLastAssistantContent(recentMessages),
+            expectedNextQuestionTense: topic === 'free_talk' ? freeTalkExpectedNextQuestionTense : null,
           })
           if (repairedValid) {
             if (mode === 'translation') {
@@ -4305,7 +4396,7 @@ export async function POST(req: NextRequest) {
               dialogueCorrect: isDialogueFinalCorrectResponse({
                 content: repaired,
                 userText: lastUserContentForResponse,
-                requiredTense: normalizedTense,
+                requiredTense: tutorGradingTense,
               }),
             })
           }
@@ -4322,18 +4413,18 @@ export async function POST(req: NextRequest) {
         const comment = tenseName
           ? `Комментарий: Ответ нужно дать в ${tenseName}. Исправьте время и грамматику.`
           : 'Комментарий: Ошибка в грамматике или времени. Попробуйте ещё раз.'
-        const nextQuestion = lastQ ?? fallbackNextQuestion({ topic, tense: normalizedTense, level, audience })
+        const nextQuestion = lastQ ?? fallbackNextQuestion({ topic, tense: tutorGradingTense, level, audience })
         return NextResponse.json({ content: `${comment}\n${nextQuestion}` })
       }
       return NextResponse.json({
         content:
           mode === 'dialogue'
             ? (isFirstTurn || isTopicChoiceTurn)
-              ? fallbackQuestionForContext({ topic, tense: normalizedTense, level, audience, isFirstTurn, isTopicChoiceTurn })
+              ? fallbackQuestionForContext({ topic, tense: tutorGradingTense, level, audience, isFirstTurn, isTopicChoiceTurn })
               : buildDialogueLowSignalFallback({
                   messages: recentMessages,
                   topic,
-                  tense: normalizedTense,
+                  tense: tutorGradingTense,
                   level,
                   audience,
                 })
@@ -4350,7 +4441,7 @@ export async function POST(req: NextRequest) {
       dialogueCorrect: isDialogueFinalCorrectResponse({
         content: sanitized,
         userText: lastUserContentForResponse,
-        requiredTense: normalizedTense,
+        requiredTense: tutorGradingTense,
       }),
     })
   } catch (e) {

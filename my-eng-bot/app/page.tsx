@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import React, { useCallback, useEffect, useState } from 'react'
 import SlideOutMenu, { MenuIcon } from '@/components/SlideOutMenu'
 import MenuSectionPanels, { type MenuView } from '@/components/MenuSectionPanels'
@@ -932,6 +933,20 @@ export default function Home() {
                 >
                   {settings.communicationInputExpectedLang === 'ru' ? 'Ru→En' : 'En→Ru'}
                 </button>
+              ) : !dialogStarted ? (
+                <span
+                  className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-[var(--border)] bg-[var(--bg)]"
+                  aria-hidden
+                >
+                  <Image
+                    src="/header-robot.png"
+                    alt=""
+                    width={1024}
+                    height={1024}
+                    className="h-9 w-9 object-contain"
+                    sizes="36px"
+                  />
+                </span>
               ) : (
                 <span className="block h-10 w-12 min-w-[3rem] shrink-0" aria-hidden />
               )}
