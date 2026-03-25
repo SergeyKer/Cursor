@@ -22,6 +22,17 @@ export default function RootLayout({
           content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover, interactive-widget=resizes-content"
         />
         <meta name="theme-color" content="#f0f0f0" />
+        <link rel="manifest" href="/manifest.webmanifest" />
+
+        {/* Desktop favicon */}
+        <link rel="icon" href="/icon.png" sizes="32x32" type="image/png" />
+
+        {/* iOS home screen icon */}
+        <link rel="apple-touch-icon" href="/icon.png" sizes="180x180" />
+
+        {/* Windows pinned tile (часто используется как "иконка для компьютера") */}
+        <meta name="msapplication-TileColor" content="#f0f0f0" />
+        <meta name="msapplication-TileImage" content="/icon.png" />
       </head>
       <body className="min-h-screen antialiased">
         <VisualViewportInsets />
