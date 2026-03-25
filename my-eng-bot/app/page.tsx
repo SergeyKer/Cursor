@@ -935,7 +935,7 @@ export default function Home() {
                 </button>
               ) : !dialogStarted ? (
                 <span
-                  className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-[var(--border)] bg-[var(--bg)]"
+                  className="mr-2 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-[var(--border)] bg-[var(--bg)]"
                   aria-hidden
                 >
                   <Image
