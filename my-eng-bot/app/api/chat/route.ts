@@ -8,6 +8,12 @@ import {
   normalizeCommunicationDetailText,
 } from '@/lib/communicationReplyLanguage'
 import { buildProxyFetchExtra } from '@/lib/proxyFetch'
+import {
+  getDialogueRepeatSentence,
+  inferTenseFromDialogueAssistantContent,
+  isLikelyQuestionInRequiredTense,
+  isUserLikelyCorrectForTense,
+} from '@/lib/dialogueTenseInference'
 
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
 // чтобы undici + proxy dispatcher работали предсказуемо (а не в Edge).
@@ -25,6 +31,7 @@ const DIALOGUE_POPULAR_TENSE_PRIORITY: TenseId[] = [
   'future_simple',
   'present_continuous',
 ]
+
 /** Лимит токенов ответа. Запас увеличен, чтобы реже обрезать форматированные ответы. */
 const MAX_RESPONSE_TOKENS = 512
 
@@ -161,6 +168,18 @@ function stableHash32(input: string): number {
   return hash >>> 0
 }
 
+/**
+ * Префикс истории для выбора времени в мульти-tense диалоге: совпадает с состоянием чата
+ * до генерации последнего сообщения ассистента (вопроса), чтобы хэш не «прыгал» при новом user.
+ */
+function getDialogueTenseSeedMessages(messages: ChatMessage[]): ChatMessage[] {
+  const n = messages.length
+  if (n >= 2 && messages[n - 1]?.role === 'user' && messages[n - 2]?.role === 'assistant') {
+    return messages.slice(0, -2)
+  }
+  return messages
+}
+
 function buildSystemPrompt(params: {
   mode: string
   sentenceType?: string
@@ -270,7 +289,7 @@ Rules:
   }
   const tenseRule =
     tense === 'all'
-      ? 'Any tense is fine.'
+      ? 'You are practicing MULTIPLE tenses across turns. Each question you ask uses a specific tense. The user MUST answer in the SAME tense as YOUR question. If they answer in a different tense (e.g. Past Simple when your question was in Future Perfect), ALWAYS treat it as a tense error: give "Комментарий:" explaining which tense is required for this question, then "Повтори:" with the FULL corrected English sentence rewritten in the tense of YOUR question. Also correct any grammar, spelling, and vocabulary errors in the same Повтори sentence.'
       : `Strict: the user must answer in ${tenseName}. If they answer in another tense (e.g. Present Simple when ${tenseName} is required), ALWAYS treat it as an error: give "Комментарий: " with a short explanation in Russian that the answer must be in ${tenseName}, then "Повтори: " with the FULL corrected English sentence rewritten in ${tenseName}. Do NOT accept the answer and do NOT ask a new question until the user has repeated or answered in ${tenseName}. Do not praise a sentence that is in the wrong tense.
 
 This rule applies to every tense (Present Simple, Present Continuous, Past Simple, Future Perfect, etc.): whatever tense is selected above is the ONLY tense you may use. You MUST use ONLY ${tenseName} in all your own sentences and questions. Never use any other tense in your replies. Reformulate any question so it uses ${tenseName} (e.g. for Present Continuous ask "What are you playing?" not "What do you like to play?"; for Past Simple ask "What did you do?" not "What do you usually do?"; and so on for any tense).
@@ -286,13 +305,17 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
     "Contractions are always acceptable. Treat contracted and expanded forms as equivalent, and NEVER mark them as errors or ask the user to repeat only because of contractions or apostrophes. Examples of equivalent pairs: I'm/I am, you're/you are, he's/he is, she's/she is, it's/it is, we're/we are, they're/they are, I've/I have, you've/you have, we've/we have, they've/they have, I'd/I would or I had, you'd/you would or you had, we'd/we would or we had, they'd/they would or they had, I'll/I will, you'll/you will, he'll/he will, she'll/she will, it'll/it will, we'll/we will, they'll/they will, can't/cannot, don't/do not, doesn't/does not, didn't/did not, won't/will not, isn't/is not, aren't/are not, wasn't/was not, weren't/were not. This includes both apostrophe characters: ' and ’. If the only difference from your preferred form is contraction vs expansion, treat the user answer as correct and continue.";
   const freeTalkRule =
     topic === 'free_talk'
-      ? `This is a free conversation. For the very first question, ask the user to choose any topic or simply start talking. Keep the wording short and adapt it to the selected level profile. Do NOT list specific options as a fixed menu. In free topic, after your first question, the user's reply is ALWAYS treated as a topic choice. Do NOT search for errors. Do NOT output Комментарий or Повтори. Always try to infer the topic first — ignore typos and wrong tense (e.g. "I wil plai footbal" → football/sport; "tenis" → tennis). Output one question in the required tense about that topic. Only if the message gives no hint at all (e.g. "sdf", "sss"), ask for clarification in a natural human way and vary your wording each time (examples: "Could you clarify that a bit?", "I didn't catch the topic yet — what would you like to discuss?", "Can you say it in another way?"). Avoid repeating the same clarification phrase in consecutive turns. No corrections, no comments. Correct grammar only in later turns.`
+      ? `This is a free conversation. For the very first question, ask the user to choose any topic or simply start talking. Keep the wording short and adapt it to the selected level profile. Do NOT list specific options as a fixed menu. ONLY the very first user reply (right after you asked them to choose a topic) is treated as a topic choice — infer the topic from it (ignore typos and wrong tense, e.g. "I wil plai footbal" → football/sport; "tenis" → tennis), output one question in the required tense about that topic, and do NOT output Комментарий or Повтори for that first reply only. Only if the first reply gives no hint at all (e.g. "sdf", "sss"), ask for clarification in a natural human way and vary your wording each time (examples: "Could you clarify that a bit?", "I didn't catch the topic yet — what would you like to discuss?", "Can you say it in another way?"). From the second user reply onwards the topic is already established — apply ALL normal correction rules: output Комментарий and Повтори when the user makes a tense, grammar, or spelling error, exactly as described in the FORMAT section above.`
       : ''
   const freeTopicPriority =
     topic === 'free_talk'
-      ? 'HIGHEST PRIORITY — Free topic (for ANY tense: Present Simple, Present Perfect, Past Simple, etc.): When the user is naming or revealing their topic (e.g. first reply after you asked "What would you like to talk about?"), do NOT output Комментарий or Повтори. Do NOT output meta-text or instructions. Only infer the topic and reply with ONE real question in the required tense. This overrides ALL correction rules below. For the first question, keep the wording aligned with the selected level profile. '
+      ? 'HIGHEST PRIORITY — Free topic (for ANY tense: Present Simple, Present Perfect, Past Simple, etc.): When the user is naming or revealing their topic for the first time (i.e. the very first reply after you asked "What would you like to talk about?"), do NOT output Комментарий or Повтори. Do NOT output meta-text or instructions. Only infer the topic and reply with ONE real question in the required tense. This override applies ONLY to that one topic-choice turn. For all subsequent user replies, apply normal correction rules. For the first question, keep the wording aligned with the selected level profile. '
       : ''
-  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${audienceStyleRule} ${antiRobotRule} ${topicRetentionRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Any tense.' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${repeatFreezeRule} ${capitalizationRule} ${contractionRule} ${freeTalkRule}
+  const dialogueAllTenseAnchorRule =
+    mode === 'dialogue' && tense === 'all'
+      ? '\n\nALL-TENSES DIALOGUE (strict): When you output "Комментарий:" and "Повтори:", the English sentence after "Повтори:" MUST use the SAME grammar tense as YOUR IMMEDIATELY PREVIOUS assistant message in this chat (the last English question you asked, OR the last "Повтори:" sentence if the user is still correcting a repeat). Do NOT switch to another tense for convenience or "better style" (for example: do not output Present Perfect Continuous if your previous question was Future Perfect, or Present Simple when the question used Past Simple). Fix vocabulary and grammar only while keeping that tense alignment. This rule applies even in free topic conversations.'
+      : ''
+  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${audienceStyleRule} ${antiRobotRule} ${topicRetentionRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule} ${capitalizationRule} ${contractionRule} ${freeTalkRule}
 
 Question style guidelines:
 - Ask short, natural questions a human would ask.
@@ -1670,8 +1693,10 @@ function isValidTutorOutput(params: {
   isFirstTurn: boolean
   isTopicChoiceTurn?: boolean
   requiredTense?: string
+  /** Предыдущее сообщение ассистента (вопрос), для проверки «Повтори» при requiredTense === 'all'. */
+  priorAssistantContent?: string | null
 }): boolean {
-  const { content, mode, isFirstTurn, isTopicChoiceTurn, requiredTense } = params
+  const { content, mode, isFirstTurn, isTopicChoiceTurn, requiredTense, priorAssistantContent } = params
   if (mode !== 'dialogue') return true
 
   const raw = content.trim()
@@ -1688,7 +1713,7 @@ function isValidTutorOutput(params: {
   if (lines.length === 0) return false
   if (lines.some((l) => hasLeakMarkers(l))) return false
   if (lines.some((l) => hasRobotPhrasing(l))) return false
-  if (!isDialogueOutputLikelyInRequiredTense({ content: raw, requiredTense })) return false
+  if (!isDialogueOutputLikelyInRequiredTense({ content: raw, requiredTense, priorAssistantContent })) return false
 
   const hasComment = lines.some((l) => /^Комментарий\s*:/i.test(l))
   const hasRepeat = lines.some((l) => /^(Повтори|Repeat|Say)\s*:/i.test(l))
@@ -2436,17 +2461,6 @@ function forcePraiseIfRepeatMatchesUser(params: { content: string; userText: str
   return stripRepeatOnPraise(lines.join('\n'))
 }
 
-function getDialogueRepeatSentence(content: string): string | null {
-  const lines = content
-    .split(/\r?\n/)
-    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
-    .filter(Boolean)
-  const repeatLine = lines.find((line) => /^(Повтори|Repeat|Say)\s*:/i.test(line))
-  if (!repeatLine) return null
-  const repeatText = repeatLine.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '').trim()
-  return repeatText || null
-}
-
 // Диалоговый sanity-check: ловим очевидно кривые фразы вида "to sea" / "to park"
 // и не засчитываем их как финально корректные ответы для любых времён.
 const ARTICLE_REQUIRED_PLACE_WORDS = new Set([
@@ -2488,51 +2502,13 @@ function isDialogueAnswerLikelyCorrect(userText: string, requiredTense: string):
   return true
 }
 
-function isLikelyQuestionInRequiredTense(question: string, requiredTense: string): boolean {
-  const q = question.trim()
-  if (!q) return false
-  const expanded = q
-    .replace(/\b(i)\s*'\s*m\b/gi, '$1 am')
-    .replace(/\b(you|we|they)\s*'\s*re\b/gi, '$1 are')
-    .replace(/\b(he|she|it)\s*'\s*s\b/gi, '$1 is')
-    .replace(/\b(i|you|we|they)\s*'\s*ve\b/gi, '$1 have')
-    .replace(/\b(he|she|it)\s*'\s*s\b(?=\s+[a-z]+ed\b|\s+been\b|\s+[a-z]+ing\b)/gi, '$1 has')
-  const lower = expanded.toLowerCase()
-
-  switch (requiredTense) {
-    case 'present_simple':
-      return /\b(do|does)\s+you\b/i.test(lower) || /\b(am|is|are)\s+(?:i|you|we|they|he|she|it)\b/i.test(lower)
-    case 'present_continuous':
-      return /\b(am|is|are)\s+(?:i|you|we|they|he|she|it)\b.*\b[a-z]+ing\b/i.test(lower)
-    case 'past_simple':
-      return /\b(did|was|were)\s+(?:i|you|we|they|he|she|it)\b/i.test(lower)
-    case 'future_simple':
-      return /\bwill\s+(?:i|you|we|they|he|she|it)\b/i.test(lower)
-    case 'present_perfect':
-      return /\b(have|has)\s+(?:i|you|we|they|he|she|it)\b/i.test(lower)
-    case 'present_perfect_continuous':
-      return /\b(have|has)\s+(?:i|you|we|they|he|she|it)\b.*\bbeen\b.*\b[a-z]+ing\b/i.test(lower)
-    case 'past_perfect':
-      return /\bhad\s+(?:i|you|we|they|he|she|it)\b/i.test(lower)
-    case 'past_perfect_continuous':
-      return /\bhad\s+(?:i|you|we|they|he|she|it)\b.*\bbeen\b.*\b[a-z]+ing\b/i.test(lower)
-    case 'future_continuous':
-      return /\bwill\s+(?:i|you|we|they|he|she|it)\s+be\b.*\b[a-z]+ing\b/i.test(lower)
-    case 'future_perfect':
-      return /\bwill\s+(?:i|you|we|they|he|she|it)\s+have\b/i.test(lower)
-    case 'future_perfect_continuous':
-      return /\bwill\s+(?:i|you|we|they|he|she|it)\s+have\s+been\b.*\b[a-z]+ing\b/i.test(lower)
-    default:
-      return true
-  }
-}
-
 function isDialogueOutputLikelyInRequiredTense(params: {
   content: string
   requiredTense?: string
+  priorAssistantContent?: string | null
 }): boolean {
-  const { content, requiredTense } = params
-  if (!requiredTense || requiredTense === 'all') return true
+  const { content, requiredTense, priorAssistantContent } = params
+  if (!requiredTense) return true
   const raw = content.trim()
   if (!raw) return false
 
@@ -2545,8 +2521,15 @@ function isDialogueOutputLikelyInRequiredTense(params: {
   const repeatLine = lines.find((line) => /^(Повтори|Repeat|Say)\s*:/i.test(line))
   if (repeatLine) {
     const repeatSentence = repeatLine.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '').trim()
+    if (requiredTense === 'all') {
+      const inferred = priorAssistantContent ? inferTenseFromDialogueAssistantContent(priorAssistantContent) : null
+      if (inferred && !isUserLikelyCorrectForTense(repeatSentence, inferred)) return false
+      return true
+    }
     return isUserLikelyCorrectForTense(repeatSentence, requiredTense)
   }
+
+  if (requiredTense === 'all') return true
 
   const questionLine = [...lines].reverse().find((line) => /\?\s*$/.test(line) && /[A-Za-z]/.test(line))
   if (!questionLine) return true
@@ -2580,88 +2563,11 @@ function replaceFalsePositiveDialogueRepeatWithPraise(params: {
   return fallbackNextQuestion({ topic, tense: requiredTense, level, audience })
 }
 
-function isUserLikelyCorrectForTense(userText: string, requiredTense: string): boolean {
-  const expandedText = userText
-    .replace(/\b(i)\s*'\s*m\b/gi, '$1 am')
-    .replace(/\b(you|we|they)\s*'\s*re\b/gi, '$1 are')
-    .replace(/\b(he|she|it)\s*'\s*s\b/gi, '$1 is')
-    .replace(/\b(i|you|we|they)\s*'\s*ve\b/gi, '$1 have')
-    .replace(/\b(he|she|it)\s*'\s*s\b(?=\s+[a-z]+ed\b|\s+been\b|\s+[a-z]+ing\b)/gi, '$1 has')
-  const lower = expandedText.trim().toLowerCase()
-  if (!lower) return false
-
-  switch (requiredTense) {
-    case 'present_simple': {
-      if (/\b(am|is|are)\s+[a-z]+ing\b/i.test(userText)) return false
-      if (/\b(yesterday|ago|last|before|went|was|were|did|had|made|saw|took|came|got|gave|said|told|knew|thought|felt|left|kept|found|wrote|read|ran|drove|ate|drank|slept|spoke|bought|brought)\b/i.test(userText)) {
-        return false
-      }
-      const lower = userText.trim().toLowerCase()
-
-      // Agreement check for he/she/it at sentence start.
-      const mPron = /^\s*(he|she|it)\s+([a-z]+)\b/i.exec(lower)
-      if (mPron) {
-        const verb = mPron[2]
-        if (/^(is|has|does)$/.test(verb)) return true
-        return /(s|es)$/.test(verb)
-      }
-
-      // Agreement check for "My/Your/His/Her + noun + verb".
-      // Example: "My mother cooks ..." -> verb must be 3rd person singular.
-      const mPoss = /^\s*(my|your|his|her)\s+[a-z]+\s+([a-z]+)\b/i.exec(lower)
-      if (mPoss) {
-        const verb = mPoss[2]
-        if (/^(is|has|does)$/.test(verb)) return true
-        return /(s|es)$/.test(verb)
-      }
-
-      // Agreement check for "a/an/the + noun + verb".
-      const mDet = /^\s*(a|an|the)\s+[a-z]+\s+([a-z]+)\b/i.exec(lower)
-      if (mDet) {
-        const verb = mDet[2]
-        if (/^(is|has|does)$/.test(verb)) return true
-        return /(s|es)$/.test(verb)
-      }
-
-      // Для I/you/we/they в Present Simple не должны появляться 3rd person singular формы.
-      const mPluralPron = /^\s*(i|you|we|they)\s+([a-z]+)\b/i.exec(lower)
-      if (mPluralPron) {
-        const verb = mPluralPron[2]
-        if (/^(is|has|does)$/.test(verb)) return false
-        if (/(s|es)$/.test(verb)) return false
-        return true
-      }
-
-      // Fallback: if we can't infer 3rd-person singular, rely on tense markers only.
-      return true
-    }
-    case 'present_continuous':
-      return /\b(am|is|are)\s+[a-z]+ing\b/i.test(expandedText) && !/\b(was|were|did|had)\b/i.test(expandedText)
-    case 'past_simple':
-      return (
-        /\b(went|was|were|did|had|made|saw|took|came|got|gave|said|told|knew|thought|felt|left|kept|found|wrote|read|ran|drove|ate|drank|slept|spoke|bought|brought)\b/i.test(
-          userText
-        ) || /\b[a-z]{3,}ed\b/i.test(userText)
-      )
-    case 'future_simple':
-      return /\bwill\s+[a-z]/i.test(expandedText)
-    case 'present_perfect':
-      return /\b(have|has)\b/i.test(expandedText)
-    case 'present_perfect_continuous':
-      return /\b(have|has)\b.*\bbeen\b.*[a-z]+ing\b/i.test(expandedText)
-    case 'past_perfect':
-      return /\bhad\b/i.test(expandedText)
-    case 'past_perfect_continuous':
-      return /\bhad\b.*\bbeen\b.*[a-z]+ing\b/i.test(expandedText)
-    case 'future_continuous':
-      return /\bwill\s+be\b.*[a-z]+ing\b/i.test(expandedText)
-    case 'future_perfect':
-      return /\bwill\s+have\b/i.test(expandedText)
-    case 'future_perfect_continuous':
-      return /\bwill\s+have\s+been\b.*[a-z]+ing\b/i.test(expandedText)
-    default:
-      return true
+function getLastAssistantContent(messages: ChatMessage[]): string | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.role === 'assistant') return messages[i]?.content ?? null
   }
+  return null
 }
 
 function isDialogueFinalCorrectResponse(params: {
@@ -2792,6 +2698,149 @@ function buildTranslationTenseDriftRepairInstruction(params: {
   ]
     .filter(Boolean)
     .join(' ')
+}
+
+function buildDialogueAllTenseRepeatRepairInstruction(params: {
+  expectedTenseName: string
+  lastAssistantSnippet: string
+}): string {
+  const snippet = params.lastAssistantSnippet.replace(/\s+/g, ' ').slice(0, 600)
+  return [
+    'DIALOGUE REPEAT TENSE REPAIR:',
+    `The previous assistant message in this chat used approximately "${params.expectedTenseName}" for the main English question or the previous "Повтори:" line.`,
+    snippet ? `Context from that message: ${snippet}` : null,
+    'Rewrite ONLY your reply so it has exactly two lines: "Комментарий:" (Russian; keep the same issues/feedback intent) and "Повтори:" (English).',
+    `The "Повтори:" sentence MUST be in ${params.expectedTenseName} and fix the user\'s mistake — do NOT change to another tense.`,
+    'No markdown, no numbering, no extra lines.',
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+function buildDialogueBlindTenseRepairInstruction(lastAssistant: string): string {
+  const snippet = lastAssistant.replace(/\s+/g, ' ').slice(0, 900)
+  return [
+    'DIALOGUE REPEAT TENSE REPAIR (context-only):',
+    `Previous assistant message — find the English QUESTION in it: ${snippet}`,
+    'The user\'s last answer was wrong. Output ONLY two lines:',
+    'Комментарий: short Russian about the mistake in the user\'s LAST message only.',
+    'Повтори: one FULL corrected English sentence in the SAME grammar tense as that English question.',
+    'Do NOT use a different tense than the question (e.g. Present Simple question requires Present Simple in Повтори).',
+    'No markdown, no extra lines.',
+  ].join(' ')
+}
+
+async function repairDialogueAllTenseRepeatMismatch(params: {
+  content: string
+  recentMessages: ChatMessage[]
+  normalizedTense: string
+  forcedRepeatSentence: string | null
+  lastUserText: string
+  systemContent: string
+  apiMessages: { role: string; content: string }[]
+  provider: Provider
+  req: NextRequest
+  maxTokens: number
+}): Promise<string> {
+  const {
+    content,
+    recentMessages,
+    normalizedTense,
+    forcedRepeatSentence,
+    lastUserText,
+    systemContent,
+    apiMessages,
+    provider,
+    req,
+    maxTokens,
+  } = params
+  const repeatSentence = getDialogueRepeatSentence(content)
+  if (!repeatSentence) return content
+  if (forcedRepeatSentence && repeatSentence.trim() === forcedRepeatSentence.trim()) return content
+
+  const lastAssistant = getLastAssistantContent(recentMessages)
+  if (!lastAssistant) return content
+  let expectedTense = inferTenseFromDialogueAssistantContent(lastAssistant)
+  if (!expectedTense && normalizedTense !== 'all') {
+    expectedTense = normalizedTense
+  }
+  if (!expectedTense && normalizedTense === 'all') {
+    const blindBlock = buildDialogueBlindTenseRepairInstruction(lastAssistant)
+    const blindMessages = [...apiMessages]
+    if (blindMessages[0]?.role === 'system') {
+      blindMessages[0] = {
+        role: 'system',
+        content: `${systemContent}\n\n${blindBlock}`,
+      }
+    } else {
+      blindMessages.unshift({ role: 'system', content: `${systemContent}\n\n${blindBlock}` })
+    }
+    const resBlind = await callProviderChat({ provider, req, apiMessages: blindMessages, maxTokens })
+    if (resBlind.ok) {
+      const repairedRaw = sanitizeInstructionLeak(resBlind.content)
+      if (repairedRaw && !isMetaGarbage(repairedRaw)) {
+        let repaired = stripOffContextCorrections(repairedRaw, lastUserText)
+        repaired = normalizeAssistantPrefixForControlLines(repaired)
+        repaired = splitCommentAndRepeatSameLine(repaired)
+        repaired = stripRepeatWhenAskingToExplain(repaired)
+        repaired = normalizeVariantFormatting(repaired)
+        repaired = stripPravilnoEverywhere(repaired)
+        const lines = repaired.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+        const rr = getDialogueRepeatSentence(repaired)
+        const inferredAfter = inferTenseFromDialogueAssistantContent(lastAssistant)
+        const formatOk =
+          lines.length === 2 &&
+          /^Комментарий\s*:/i.test(lines[0] ?? '') &&
+          /^(Повтори|Repeat|Say)\s*:/i.test(lines[1] ?? '') &&
+          Boolean(rr) &&
+          /[A-Za-z]/.test(rr ?? '')
+        if (formatOk) {
+          if (!inferredAfter || isUserLikelyCorrectForTense(rr!, inferredAfter)) {
+            return repaired.trim()
+          }
+        }
+      }
+    }
+    return content
+  }
+  if (!expectedTense) return content
+  if (isUserLikelyCorrectForTense(repeatSentence, expectedTense)) return content
+
+  const expectedTenseName = TENSE_NAMES[expectedTense] ?? expectedTense
+  const repairBlock = buildDialogueAllTenseRepeatRepairInstruction({
+    expectedTenseName,
+    lastAssistantSnippet: lastAssistant,
+  })
+
+  const repairApiMessages = [...apiMessages]
+  if (repairApiMessages[0]?.role === 'system') {
+    repairApiMessages[0] = {
+      role: 'system',
+      content: `${systemContent}\n\n${repairBlock}`,
+    }
+  } else {
+    repairApiMessages.unshift({ role: 'system', content: `${systemContent}\n\n${repairBlock}` })
+  }
+
+  const res = await callProviderChat({ provider, req, apiMessages: repairApiMessages, maxTokens })
+  if (!res.ok) return content
+  const repairedRaw = sanitizeInstructionLeak(res.content)
+  if (!repairedRaw || isMetaGarbage(repairedRaw)) return content
+  let repaired = stripOffContextCorrections(repairedRaw, lastUserText)
+  repaired = normalizeAssistantPrefixForControlLines(repaired)
+  repaired = splitCommentAndRepeatSameLine(repaired)
+  repaired = stripRepeatWhenAskingToExplain(repaired)
+  repaired = normalizeVariantFormatting(repaired)
+  repaired = stripPravilnoEverywhere(repaired)
+  const repairedRepeat = getDialogueRepeatSentence(repaired)
+  if (!repairedRepeat || !isUserLikelyCorrectForTense(repairedRepeat, expectedTense)) return content
+  const lines = repaired
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+  if (lines.length !== 2) return content
+  if (!/^Комментарий\s*:/i.test(lines[0] ?? '') || !/^(Повтори|Repeat|Say)\s*:/i.test(lines[1] ?? '')) return content
+  return repaired.trim()
 }
 
 function normalizeEnglishToken(token: string): string {
@@ -3496,10 +3545,14 @@ export async function POST(req: NextRequest) {
             return a.localeCompare(b)
           })
         : normalizedRawTenses
+    const dialogueTenseSeedMessages =
+      mode === 'dialogue' ? getDialogueTenseSeedMessages(recentMessages) : recentMessages
     const tenseForTurn =
       isAnyTense || rawTenses.length === 0
         ? 'all'
-        : prioritizedDialogueTenses[stableHash32(JSON.stringify(recentMessages)) % prioritizedDialogueTenses.length]
+        : prioritizedDialogueTenses[
+            stableHash32(JSON.stringify(dialogueTenseSeedMessages)) % prioritizedDialogueTenses.length
+          ]
     const normalizedTense =
       audience === 'child' && !childAllowedTenses.has(tenseForTurn as TenseId) ? 'present_simple' : tenseForTurn
     if (mode === 'dialogue' && topic !== 'free_talk' && !isFirstTurn && isLowSignalDialogueInput(lastUserText)) {
@@ -3589,7 +3642,18 @@ export async function POST(req: NextRequest) {
     const topicChoicePrefix = mode === 'dialogue' && isTopicChoiceTurn
       ? 'This turn only: the user is naming their topic. Output ONLY one question in English — nothing else. Do NOT output "Комментарий:", "Отлично", "Молодец", "Верно", or any praise. Do NOT output "Правильно:" or "Повтори:". Infer the topic from their words (e.g. "I played tennis" → tennis; "i swam" → swimming) and ask exactly ONE question in the required tense. If the message gives no hint (e.g. "sdf"), ask what they mean. Your reply must be ONLY that one question, no other lines. Ignore all correction rules below for this turn.\n\n'
       : ''
-    const systemContent = topicChoicePrefix + systemPrompt
+    const dialogueInferredTenseHint =
+      mode === 'dialogue' && normalizedTense === 'all' && !isFirstTurn && !isTopicChoiceTurn
+        ? (() => {
+            const lastAst = getLastAssistantContent(recentMessages)
+            if (!lastAst) return ''
+            const inferred = inferTenseFromDialogueAssistantContent(lastAst)
+            if (!inferred) return ''
+            const name = TENSE_NAMES[inferred] ?? inferred
+            return `\n\nIMPORTANT: Your last question was in ${name}. The user MUST answer in ${name}. If their answer uses a different tense, treat it as a tense error: explain in Комментарий that ${name} is required, and write the corrected sentence in ${name} after "Повтори:".`
+          })()
+        : ''
+    const systemContent = topicChoicePrefix + systemPrompt + dialogueInferredTenseHint
 
     // При пустом диалоге добавляем одно сообщение пользователя: часть провайдеров требует хотя бы один user turn
     const userTurnMessages =
@@ -3718,6 +3782,18 @@ export async function POST(req: NextRequest) {
           tense: normalizedTense,
         })
       }
+      sanitized = await repairDialogueAllTenseRepeatMismatch({
+        content: sanitized,
+        recentMessages,
+        normalizedTense,
+        forcedRepeatSentence,
+        lastUserText: lastUserContentForResponse,
+        systemContent,
+        apiMessages,
+        provider,
+        req,
+        maxTokens: communicationMaxTokens,
+      })
     }
     if (mode === 'translation') {
       sanitized = normalizeTranslationCommentStyle(sanitized)
@@ -4097,6 +4173,7 @@ export async function POST(req: NextRequest) {
       isFirstTurn,
       isTopicChoiceTurn: mode === 'dialogue' && isTopicChoiceTurn,
       requiredTense: normalizedTense,
+      priorAssistantContent: getLastAssistantContent(recentMessages),
     })
     if (!valid) {
       // Одна попытка repair/retry. Для OpenRouter это наиболее актуально.
@@ -4158,6 +4235,18 @@ export async function POST(req: NextRequest) {
                 tense: normalizedTense,
               })
             }
+            repaired = await repairDialogueAllTenseRepeatMismatch({
+              content: repaired,
+              recentMessages,
+              normalizedTense,
+              forcedRepeatSentence,
+              lastUserText: lastUserContentForResponse,
+              systemContent,
+              apiMessages,
+              provider,
+              req,
+              maxTokens: communicationMaxTokens,
+            })
           }
           if (mode === 'translation') {
             repaired = normalizeTranslationCommentStyle(repaired)
@@ -4200,6 +4289,7 @@ export async function POST(req: NextRequest) {
             isFirstTurn,
             isTopicChoiceTurn: mode === 'dialogue' && isTopicChoiceTurn,
             requiredTense: normalizedTense,
+            priorAssistantContent: getLastAssistantContent(recentMessages),
           })
           if (repairedValid) {
             if (mode === 'translation') {
@@ -4223,6 +4313,18 @@ export async function POST(req: NextRequest) {
       }
 
       // Если repair не помог — безопасный fallback, чтобы не показывать мусор.
+      if (mode === 'dialogue' && !isFirstTurn && !isTopicChoiceTurn && !isLowSignalDialogueInput(lastUserContentForResponse)) {
+        const inferredTense = getLastAssistantContent(recentMessages)
+          ? inferTenseFromDialogueAssistantContent(getLastAssistantContent(recentMessages)!)
+          : null
+        const tenseName = inferredTense ? (TENSE_NAMES[inferredTense] ?? inferredTense) : null
+        const lastQ = extractLastAssistantQuestionSentence(recentMessages)
+        const comment = tenseName
+          ? `Комментарий: Ответ нужно дать в ${tenseName}. Исправьте время и грамматику.`
+          : 'Комментарий: Ошибка в грамматике или времени. Попробуйте ещё раз.'
+        const nextQuestion = lastQ ?? fallbackNextQuestion({ topic, tense: normalizedTense, level, audience })
+        return NextResponse.json({ content: `${comment}\n${nextQuestion}` })
+      }
       return NextResponse.json({
         content:
           mode === 'dialogue'
