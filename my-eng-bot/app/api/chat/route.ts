@@ -19,6 +19,12 @@ const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
 const OPENAI_MODEL = 'gpt-4o-mini'
 /** Максимум сообщений в контексте (user+assistant). 20 = десять последних обменов. */
 const MAX_MESSAGES_IN_CONTEXT = 20
+const DIALOGUE_POPULAR_TENSE_PRIORITY: TenseId[] = [
+  'present_simple',
+  'past_simple',
+  'future_simple',
+  'present_continuous',
+]
 /** Лимит токенов ответа. Запас увеличен, чтобы реже обрезать форматированные ответы. */
 const MAX_RESPONSE_TOKENS = 512
 
@@ -765,6 +771,179 @@ function defaultNextQuestion(tense: string): string {
   }
 }
 
+/** Стоп-слова для шага free_talk topic choice (EN/RU). */
+const TOPIC_CHOICE_SKIP_WORDS_EN = new Set([
+  'the', 'and', 'but', 'for', 'with', 'about', 'from', 'into', 'that', 'this',
+  'what', 'when', 'where', 'which', 'who', 'how', 'why', 'you', 'your', 'our',
+  'are', 'was', 'were', 'been', 'being', 'have', 'has', 'had', 'will', 'would',
+  'could', 'should', 'just', 'like', 'want', 'talk', 'some', 'any', 'all',
+])
+const TOPIC_CHOICE_SKIP_WORDS_RU = new Set([
+  'и', 'а', 'но', 'или', 'про', 'о', 'об', 'в', 'на', 'с', 'по', 'для', 'это', 'эта',
+  'этот', 'эти', 'что', 'где', 'когда', 'как', 'почему', 'кто', 'мне', 'меня', 'мой',
+  'моя', 'мои', 'тема', 'хочу', 'хотел', 'хотела', 'говорить', 'поговорить',
+])
+const RU_TOPIC_KEYWORD_TO_EN: Record<string, string> = {
+  солнце: 'sun',
+  солнечный: 'sun',
+  погода: 'weather',
+  дождь: 'rain',
+  снег: 'snow',
+  море: 'sea',
+  пляж: 'beach',
+  спорт: 'sports',
+  футбол: 'football',
+  теннис: 'tennis',
+  баскетбол: 'basketball',
+  музыка: 'music',
+  песня: 'song',
+  песни: 'songs',
+  фильм: 'movie',
+  фильмы: 'movies',
+  мультик: 'cartoon',
+  мультики: 'cartoons',
+  книга: 'book',
+  книги: 'books',
+  школа: 'school',
+  урок: 'lesson',
+  уроки: 'lessons',
+  работа: 'work',
+  еда: 'food',
+  готовка: 'cooking',
+  кот: 'cat',
+  кошка: 'cat',
+  собака: 'dog',
+  семья: 'family',
+  друзья: 'friends',
+  путешествие: 'travel',
+}
+
+function normalizeTopicToken(token: string): string {
+  return token.toLowerCase().replace(/^[^a-zа-яё]+|[^a-zа-яё]+$/gi, '')
+}
+
+function extractTopicChoiceKeywordsByLang(userText: string): { en: string[]; ru: string[] } {
+  const rawEn = userText.match(/\b[a-z][a-z']+\b/gi) ?? []
+  const rawRu = userText.match(/[а-яё]+(?:-[а-яё]+)*/gi) ?? []
+  const en: string[] = []
+  const ru: string[] = []
+
+  for (const t of rawEn) {
+    const n = normalizeTopicToken(t)
+    if (!n || n.length < 3) continue
+    if (TOPIC_CHOICE_SKIP_WORDS_EN.has(n)) continue
+    if (!en.includes(n)) en.push(n)
+    if (en.length >= 8) break
+  }
+  for (const t of rawRu) {
+    const n = normalizeTopicToken(t)
+    if (!n || n.length < 3) continue
+    if (TOPIC_CHOICE_SKIP_WORDS_RU.has(n)) continue
+    if (!ru.includes(n)) ru.push(n)
+    if (ru.length >= 8) break
+  }
+
+  return { en, ru }
+}
+
+function extractLastDialogueQuestionLine(content: string): string | null {
+  const lines = content
+    .trim()
+    .split(/\r?\n/)
+    .map((l) => stripLeadingAiPrefix(l).trim())
+    .filter(Boolean)
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i] ?? ''
+    if (/\?\s*$/.test(line) && /[A-Za-z]/.test(line)) return line
+  }
+  return null
+}
+
+function questionContainsAnyTopicKeyword(question: string, keywords: string[]): boolean {
+  const q = question.toLowerCase()
+  for (const kw of keywords) {
+    if (new RegExp(`\\b${escapeRegExp(kw)}\\b`, 'i').test(q)) return true
+  }
+  return false
+}
+
+/** Один вопрос в нужном времени, явно привязанный к словам пользователя (fallback для free_talk topic choice). */
+function buildFreeTalkTopicAnchorQuestion(keywords: string[], tense: string): string {
+  const anchor = keywords.slice(0, 3).join(', ')
+  switch (tense) {
+    case 'present_continuous':
+      return `What are you doing with ${anchor} right now?`
+    case 'present_perfect':
+      return `What have you done recently involving ${anchor}?`
+    case 'present_perfect_continuous':
+      return `What have you been doing lately with ${anchor}?`
+    case 'past_simple':
+      return `What did you do yesterday involving ${anchor}?`
+    case 'past_continuous':
+      return `What were you doing with ${anchor} at this time yesterday?`
+    case 'past_perfect':
+      return `What had you done before that involving ${anchor}?`
+    case 'past_perfect_continuous':
+      return `What had you been doing with ${anchor} for a while before you stopped?`
+    case 'future_simple':
+      return `What will you do tomorrow involving ${anchor}?`
+    case 'future_continuous':
+      return `What will you be doing with ${anchor} this time tomorrow?`
+    case 'future_perfect':
+      return `What will you have done with ${anchor} by this time tomorrow?`
+    case 'future_perfect_continuous':
+      return `What will you have been doing with ${anchor} for a while by the end of tomorrow?`
+    case 'all':
+    case 'present_simple':
+    default:
+      return `What do you usually do involving ${anchor}?`
+  }
+}
+
+function translateRuTopicKeywordsToEn(keywords: string[]): string[] {
+  const translated: string[] = []
+  for (const keyword of keywords) {
+    const normalized = normalizeTopicToken(keyword)
+    if (!normalized) continue
+    const mapped = RU_TOPIC_KEYWORD_TO_EN[normalized]
+    if (!mapped) continue
+    if (!translated.includes(mapped)) translated.push(mapped)
+    if (translated.length >= 8) break
+  }
+  return translated
+}
+
+/** Safe fallback: просим уточнить тему на английском, чтобы вопрос остался естественным. */
+function buildFreeTalkUnknownTopicClarifyQuestion(): string {
+  return 'Could you name your topic in English?'
+}
+
+function ensureFreeTalkTopicChoiceQuestionAnchorsUser(params: {
+  content: string
+  userText: string
+  tense: string
+}): string {
+  const { en, ru } = extractTopicChoiceKeywordsByLang(params.userText)
+  if (en.length === 0 && ru.length === 0) return params.content
+
+  const qLine = extractLastDialogueQuestionLine(params.content)
+  if (en.length > 0) {
+    if (qLine && questionContainsAnyTopicKeyword(qLine, en)) return params.content
+    return buildFreeTalkTopicAnchorQuestion(en, params.tense)
+  }
+
+  // Если есть только RU-ключи (в т.ч. mixed RU/EN ввод), всё равно якорим тему.
+  if (ru.length > 0) {
+    const translatedRu = translateRuTopicKeywordsToEn(ru)
+    if (translatedRu.length > 0) {
+      if (qLine && questionContainsAnyTopicKeyword(qLine, translatedRu)) return params.content
+      return buildFreeTalkTopicAnchorQuestion(translatedRu, params.tense)
+    }
+    return buildFreeTalkUnknownTopicClarifyQuestion()
+  }
+  return params.content
+}
+
 function firstQuestionForTopicAndTense(params: {
   topic: string
   tense: string
@@ -1179,12 +1358,39 @@ function contextualizeTopicNextQuestionForLastAnswer(content: string, params: {
   tense: string
   audience: 'child' | 'adult'
   lastUserContent: string
+  contextMessages?: ChatMessage[]
 }): string {
   if (params.topic === 'free_talk') return content
-  if (!params.lastUserContent.trim()) return content
   if (params.tense === 'all') return content
 
-  const entity = extractLikelyEntityFromUserAnswer(params.lastUserContent)
+  const weightedEntities = new Map<string, { original: string; score: number }>()
+  const addEntity = (entityText: string, score: number) => {
+    const normalized = entityText.trim().toLowerCase()
+    if (!normalized) return
+    const existing = weightedEntities.get(normalized)
+    if (existing) {
+      existing.score += score
+      return
+    }
+    weightedEntities.set(normalized, { original: entityText.trim(), score })
+  }
+
+  const lastEntity = extractLikelyEntityFromUserAnswer(params.lastUserContent)
+  if (lastEntity) addEntity(lastEntity, 12)
+
+  const contextUserMessages = (params.contextMessages ?? []).filter((m) => m.role === 'user').slice(-MAX_MESSAGES_IN_CONTEXT)
+  const total = contextUserMessages.length
+  for (let i = 0; i < total; i++) {
+    const message = contextUserMessages[i]
+    const entity = extractLikelyEntityFromUserAnswer(message?.content ?? '')
+    if (!entity) continue
+    const recencyBoost = Math.max(1, total - i)
+    addEntity(entity, recencyBoost)
+  }
+
+  const entity = Array.from(weightedEntities.values())
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.original)[0] ?? null
   if (!entity) return content
 
   const entityLower = entity.toLowerCase()
@@ -1462,8 +1668,10 @@ function isValidTutorOutput(params: {
   content: string
   mode: string
   isFirstTurn: boolean
+  isTopicChoiceTurn?: boolean
+  requiredTense?: string
 }): boolean {
-  const { content, mode, isFirstTurn } = params
+  const { content, mode, isFirstTurn, isTopicChoiceTurn, requiredTense } = params
   if (mode !== 'dialogue') return true
 
   const raw = content.trim()
@@ -1480,12 +1688,20 @@ function isValidTutorOutput(params: {
   if (lines.length === 0) return false
   if (lines.some((l) => hasLeakMarkers(l))) return false
   if (lines.some((l) => hasRobotPhrasing(l))) return false
+  if (!isDialogueOutputLikelyInRequiredTense({ content: raw, requiredTense })) return false
 
   const hasComment = lines.some((l) => /^Комментарий\s*:/i.test(l))
   const hasRepeat = lines.some((l) => /^(Повтори|Repeat|Say)\s*:/i.test(l))
 
   // Первый ход диалога: только один вопрос (без Комментарий/Повтори).
   if (isFirstTurn) {
+    if (hasComment || hasRepeat) return false
+    if (lines.length !== 1) return false
+    return isEnglishQuestionLine(lines[0] ?? '')
+  }
+
+  // Свободная тема, первый ответ пользователя (выбор темы): только один вопрос.
+  if (isTopicChoiceTurn) {
     if (hasComment || hasRepeat) return false
     if (lines.length !== 1) return false
     return isEnglishQuestionLine(lines[0] ?? '')
@@ -2270,6 +2486,71 @@ function isDialogueAnswerLikelyCorrect(userText: string, requiredTense: string):
   if (!isUserLikelyCorrectForTense(userText, requiredTense)) return false
   if (hasLikelyMissingArticleAfterPreposition(userText)) return false
   return true
+}
+
+function isLikelyQuestionInRequiredTense(question: string, requiredTense: string): boolean {
+  const q = question.trim()
+  if (!q) return false
+  const expanded = q
+    .replace(/\b(i)\s*'\s*m\b/gi, '$1 am')
+    .replace(/\b(you|we|they)\s*'\s*re\b/gi, '$1 are')
+    .replace(/\b(he|she|it)\s*'\s*s\b/gi, '$1 is')
+    .replace(/\b(i|you|we|they)\s*'\s*ve\b/gi, '$1 have')
+    .replace(/\b(he|she|it)\s*'\s*s\b(?=\s+[a-z]+ed\b|\s+been\b|\s+[a-z]+ing\b)/gi, '$1 has')
+  const lower = expanded.toLowerCase()
+
+  switch (requiredTense) {
+    case 'present_simple':
+      return /\b(do|does)\s+you\b/i.test(lower) || /\b(am|is|are)\s+(?:i|you|we|they|he|she|it)\b/i.test(lower)
+    case 'present_continuous':
+      return /\b(am|is|are)\s+(?:i|you|we|they|he|she|it)\b.*\b[a-z]+ing\b/i.test(lower)
+    case 'past_simple':
+      return /\b(did|was|were)\s+(?:i|you|we|they|he|she|it)\b/i.test(lower)
+    case 'future_simple':
+      return /\bwill\s+(?:i|you|we|they|he|she|it)\b/i.test(lower)
+    case 'present_perfect':
+      return /\b(have|has)\s+(?:i|you|we|they|he|she|it)\b/i.test(lower)
+    case 'present_perfect_continuous':
+      return /\b(have|has)\s+(?:i|you|we|they|he|she|it)\b.*\bbeen\b.*\b[a-z]+ing\b/i.test(lower)
+    case 'past_perfect':
+      return /\bhad\s+(?:i|you|we|they|he|she|it)\b/i.test(lower)
+    case 'past_perfect_continuous':
+      return /\bhad\s+(?:i|you|we|they|he|she|it)\b.*\bbeen\b.*\b[a-z]+ing\b/i.test(lower)
+    case 'future_continuous':
+      return /\bwill\s+(?:i|you|we|they|he|she|it)\s+be\b.*\b[a-z]+ing\b/i.test(lower)
+    case 'future_perfect':
+      return /\bwill\s+(?:i|you|we|they|he|she|it)\s+have\b/i.test(lower)
+    case 'future_perfect_continuous':
+      return /\bwill\s+(?:i|you|we|they|he|she|it)\s+have\s+been\b.*\b[a-z]+ing\b/i.test(lower)
+    default:
+      return true
+  }
+}
+
+function isDialogueOutputLikelyInRequiredTense(params: {
+  content: string
+  requiredTense?: string
+}): boolean {
+  const { content, requiredTense } = params
+  if (!requiredTense || requiredTense === 'all') return true
+  const raw = content.trim()
+  if (!raw) return false
+
+  const lines = raw
+    .split(/\r?\n/)
+    .map((l) => stripLeadingAiPrefix(l))
+    .map((l) => l.trim())
+    .filter(Boolean)
+
+  const repeatLine = lines.find((line) => /^(Повтори|Repeat|Say)\s*:/i.test(line))
+  if (repeatLine) {
+    const repeatSentence = repeatLine.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '').trim()
+    return isUserLikelyCorrectForTense(repeatSentence, requiredTense)
+  }
+
+  const questionLine = [...lines].reverse().find((line) => /\?\s*$/.test(line) && /[A-Za-z]/.test(line))
+  if (!questionLine) return true
+  return isLikelyQuestionInRequiredTense(questionLine, requiredTense)
 }
 
 function isDialogueAnswerEffectivelyCorrect(userText: string, repeatSentence: string, requiredTense: string): boolean {
@@ -3203,10 +3484,22 @@ export async function POST(req: NextRequest) {
       if (rawTenses.length === 0) rawTenses = ['present_simple']
     }
     const isAnyTense = rawTenses.includes('all')
+    const normalizedRawTenses = Array.from(new Set(rawTenses.filter((t) => t !== 'all')))
+    const prioritizedDialogueTenses =
+      mode === 'dialogue' && normalizedRawTenses.length > 1
+        ? normalizedRawTenses.sort((a, b) => {
+            const aIdx = DIALOGUE_POPULAR_TENSE_PRIORITY.indexOf(a as TenseId)
+            const bIdx = DIALOGUE_POPULAR_TENSE_PRIORITY.indexOf(b as TenseId)
+            const aRank = aIdx === -1 ? 100 : aIdx
+            const bRank = bIdx === -1 ? 100 : bIdx
+            if (aRank !== bRank) return aRank - bRank
+            return a.localeCompare(b)
+          })
+        : normalizedRawTenses
     const tenseForTurn =
       isAnyTense || rawTenses.length === 0
         ? 'all'
-        : rawTenses[stableHash32(JSON.stringify(recentMessages)) % rawTenses.length]
+        : prioritizedDialogueTenses[stableHash32(JSON.stringify(recentMessages)) % prioritizedDialogueTenses.length]
     const normalizedTense =
       audience === 'child' && !childAllowedTenses.has(tenseForTurn as TenseId) ? 'present_simple' : tenseForTurn
     if (mode === 'dialogue' && topic !== 'free_talk' && !isFirstTurn && isLowSignalDialogueInput(lastUserText)) {
@@ -3416,7 +3709,15 @@ export async function POST(req: NextRequest) {
         tense: normalizedTense,
         audience,
         lastUserContent: lastUserContentForResponse,
+        contextMessages: recentMessages,
       })
+      if (topic === 'free_talk' && isTopicChoiceTurn) {
+        sanitized = ensureFreeTalkTopicChoiceQuestionAnchorsUser({
+          content: sanitized,
+          userText: lastUserContentForResponse,
+          tense: normalizedTense,
+        })
+      }
     }
     if (mode === 'translation') {
       sanitized = normalizeTranslationCommentStyle(sanitized)
@@ -3790,7 +4091,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const valid = isValidTutorOutput({ content: sanitized, mode, isFirstTurn })
+    const valid = isValidTutorOutput({
+      content: sanitized,
+      mode,
+      isFirstTurn,
+      isTopicChoiceTurn: mode === 'dialogue' && isTopicChoiceTurn,
+      requiredTense: normalizedTense,
+    })
     if (!valid) {
       // Одна попытка repair/retry. Для OpenRouter это наиболее актуально.
       // UI и сценарии не меняем: просто не пропускаем служебный текст.
@@ -3837,6 +4144,20 @@ export async function POST(req: NextRequest) {
           repaired = ensureNextQuestionWhenMissing(repaired, { mode, topic, tense: normalizedTense, level, audience })
           if (mode === 'dialogue') {
             repaired = normalizeAboutTodaySpacing(repaired)
+            repaired = contextualizeTopicNextQuestionForLastAnswer(repaired, {
+              topic,
+              tense: normalizedTense,
+              audience,
+              lastUserContent: lastUserContentForResponse,
+              contextMessages: recentMessages,
+            })
+            if (topic === 'free_talk' && isTopicChoiceTurn) {
+              repaired = ensureFreeTalkTopicChoiceQuestionAnchorsUser({
+                content: repaired,
+                userText: lastUserContentForResponse,
+                tense: normalizedTense,
+              })
+            }
           }
           if (mode === 'translation') {
             repaired = normalizeTranslationCommentStyle(repaired)
@@ -3873,7 +4194,13 @@ export async function POST(req: NextRequest) {
               }
             }
           }
-          const repairedValid = isValidTutorOutput({ content: repaired, mode, isFirstTurn })
+          const repairedValid = isValidTutorOutput({
+            content: repaired,
+            mode,
+            isFirstTurn,
+            isTopicChoiceTurn: mode === 'dialogue' && isTopicChoiceTurn,
+            requiredTense: normalizedTense,
+          })
           if (repairedValid) {
             if (mode === 'translation') {
               repaired = applyTranslationCommentCoachVoice({
@@ -3897,7 +4224,18 @@ export async function POST(req: NextRequest) {
 
       // Если repair не помог — безопасный fallback, чтобы не показывать мусор.
       return NextResponse.json({
-        content: fallbackQuestionForContext({ topic, tense: normalizedTense, level, audience, isFirstTurn, isTopicChoiceTurn }),
+        content:
+          mode === 'dialogue'
+            ? (isFirstTurn || isTopicChoiceTurn)
+              ? fallbackQuestionForContext({ topic, tense: normalizedTense, level, audience, isFirstTurn, isTopicChoiceTurn })
+              : buildDialogueLowSignalFallback({
+                  messages: recentMessages,
+                  topic,
+                  tense: normalizedTense,
+                  level,
+                  audience,
+                })
+            : fallbackQuestionForContext({ topic, tense: normalizedTense, level, audience, isFirstTurn, isTopicChoiceTurn }),
       })
     }
 

@@ -134,6 +134,8 @@ export default function Home() {
   /** Настройки при открытии меню: режим + поля для сравнения при закрытии (без уровня). */
   const menuOpenSnapshotRef = React.useRef<MenuOpenSnapshot | null>(null)
   const prevMenuOpenForSnapshotRef = React.useRef(false)
+  /** Не показывать баннер «настройки изменены» сразу после автоперезапуска из меню (до синхронизации с отправкой). */
+  const suppressSettingsChangeBannerRef = React.useRef(false)
 
   function normalizeSettingsForAudience(s: Settings): Settings {
     if (s.audience !== 'child') return s
@@ -469,6 +471,7 @@ export default function Home() {
       if (isNewDialog) newDialogRef.current = false
     } finally {
       firstMessageInFlightRef.current = false
+      suppressSettingsChangeBannerRef.current = false
       if (requestId === firstMessageRequestIdRef.current) {
         setLoading(false)
         setRetryMessage(null)
@@ -477,6 +480,7 @@ export default function Home() {
   }, [sendToApi, fetchUsage, settings])
 
   const restartChatForNewModeFromMenu = useCallback(() => {
+    suppressSettingsChangeBannerRef.current = true
     firstMessageRequestIdRef.current += 1
     firstMessageInFlightRef.current = false
     dialogSeedRef.current = createDialogSeed()
@@ -564,6 +568,7 @@ export default function Home() {
       const errMsg = e instanceof Error ? e.message : ERROR_FIRST_MESSAGE
       setMessages([{ role: 'assistant', content: errMsg }])
     } finally {
+      suppressSettingsChangeBannerRef.current = false
       if (requestId === firstMessageRequestIdRef.current) {
         setLoading(false)
         setRetryMessage(null)
@@ -607,6 +612,7 @@ export default function Home() {
   const handleSend = useCallback(
     async (text: string) => {
       if (atLimit) return
+      suppressSettingsChangeBannerRef.current = false
       const userMsg: ChatMessage = { role: 'user', content: text }
       if (settings.mode === 'communication') {
         setSettings((prev) => ({
@@ -994,6 +1000,7 @@ export default function Home() {
             {dialogStarted &&
               messages.length > 0 &&
               settings.mode !== 'communication' &&
+              !suppressSettingsChangeBannerRef.current &&
               settingsDiffersFromLastSendForBanner(settings, settingsAtLastSend) && (
               <div className="shrink-0 border-b border-[var(--border)] px-3 py-2">
                 <div className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-center text-sm text-[var(--text)] shadow-sm">
