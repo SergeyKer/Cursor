@@ -6,7 +6,8 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: 'MyEng',
     description: 'Диалог и тренировка перевода на английском с ИИ',
     start_url: '/',
-    display: 'standalone',
+    // Чтобы браузер реже предлагал установку как приложение, используем обычный режим.
+    display: 'browser',
     orientation: 'portrait',
     background_color: '#f0f0f0',
     theme_color: '#2563eb',

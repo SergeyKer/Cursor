@@ -22,7 +22,6 @@ export default function RootLayout({
           content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover, interactive-widget=resizes-content"
         />
         <meta name="theme-color" content="#f0f0f0" />
-        <link rel="manifest" href="/manifest.webmanifest" />
 
         {/* Desktop favicon */}
         <link rel="icon" href="/icon.png" sizes="32x32" type="image/png" />
