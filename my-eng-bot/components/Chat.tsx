@@ -733,9 +733,11 @@ export default function Chat({
                   placeholder={
                     inputFocused
                       ? ''
-                      : settings.mode === 'communication' && settings.communicationInputExpectedLang === 'en'
-                        ? 'Reply...'
-                        : 'Ответ...'
+                      : settings.mode === 'communication'
+                        ? settings.communicationInputExpectedLang === 'en'
+                          ? 'Reply...'
+                          : 'Ответ...'
+                        : 'Reply...'
                   }
                   className="min-w-0 flex-1 resize-none overflow-y-hidden rounded-[1rem] border border-emerald-100 bg-white px-3 py-2 min-h-[44px] text-[var(--text)] placeholder:text-[var(--text-muted)] text-base leading-[1.45rem] focus:outline-none focus:ring-0"
                   style={{ maxHeight: INPUT_MAX_HEIGHT_PX }}
