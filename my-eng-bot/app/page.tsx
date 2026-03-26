@@ -141,14 +141,19 @@ export default function Home() {
   function normalizeSettingsForAudience(s: Settings): Settings {
     if (s.audience !== 'child') return s
     const allowed = new Set<Settings['level']>(['all', 'starter', 'a1', 'a2'])
+    const childTenseSet = new Set(CHILD_TENSES)
     const topicIds = new Set(TOPICS.map((t) => t.id))
     const normalizedTopic = topicIds.has(s.topic) ? s.topic : 'free_talk'
+    const normalizedTenses = s.tenses.filter((t) => childTenseSet.has(t))
 
     return {
       ...s,
       topic: normalizedTopic,
       level: allowed.has(s.level) ? s.level : 'all',
-      tenses: ['present_simple'],
+      tenses:
+        normalizedTenses.length > 0
+          ? (normalizedTenses as Settings['tenses'])
+          : (['present_simple'] as Settings['tenses']),
     }
   }
 
