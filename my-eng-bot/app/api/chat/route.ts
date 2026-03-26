@@ -1772,6 +1772,20 @@ function contextualizeTopicNextQuestionForLastAnswer(content: string, params: {
     if (q && !recentAssistantQuestions.includes(q)) recentAssistantQuestions.push(q)
   }
   const buildOpenVariants = (): string[] => {
+    const activityByAction: Record<Action, string> = {
+      watch: `watching ${obj}`,
+      play: `playing ${obj}`,
+      listen: `listening to ${obj}`,
+      eat: `eating ${obj}`,
+      visit: `visiting ${obj}`,
+      use: `using ${obj}`,
+      do: `doing ${obj}`,
+      talk: `talking to ${obj}`,
+      work: `working on ${obj}`,
+      like: `exploring ${obj}`,
+    }
+    const activity = activityByAction[action]
+
     if (params.tense === 'present_simple') {
       switch (action) {
         case 'watch':
@@ -1816,6 +1830,50 @@ function contextualizeTopicNextQuestionForLastAnswer(content: string, params: {
             : [`Why does ${obj} matter to you?`, `What is most meaningful to you in ${obj}?`]
       }
     }
+    if (params.tense === 'past_simple') {
+      switch (action) {
+        case 'watch':
+          return params.audience === 'child'
+            ? [`Who did you watch ${obj} with yesterday?`, `Why did you choose ${obj} yesterday?`]
+            : [`What did you like most about ${obj} yesterday?`, `Why did you decide to watch ${obj} yesterday?`]
+        case 'play':
+          return params.audience === 'child'
+            ? [`Who did you play ${obj} with yesterday?`, `Why did you play ${obj} yesterday?`]
+            : [`What did you enjoy most about playing ${obj} yesterday?`, `Why did you choose ${obj} yesterday?`]
+        case 'listen':
+          return params.audience === 'child'
+            ? [`What did you like most when you listened to ${obj} yesterday?`, `Who did you listen to ${obj} with yesterday?`]
+            : [`What did you enjoy most about ${obj} yesterday?`, `Why did you listen to ${obj} yesterday?`]
+        case 'eat':
+          return params.audience === 'child'
+            ? [`Who did you eat ${obj} with yesterday?`, `Why did you choose ${obj} yesterday?`]
+            : [`What did you enjoy most about ${obj} yesterday?`, `Why did you eat ${obj} yesterday?`]
+        case 'visit':
+          return params.audience === 'child'
+            ? [`Who did you visit ${obj} with yesterday?`, `What did you like most when you visited ${obj} yesterday?`]
+            : [`What did you like most about visiting ${obj} yesterday?`, `Why did you visit ${obj} yesterday?`]
+        case 'use':
+          return params.audience === 'child'
+            ? [`What did you use ${obj} for yesterday?`, `Why did you use ${obj} yesterday?`]
+            : [`What did you use ${obj} for yesterday?`, `Why did you choose to use ${obj} yesterday?`]
+        case 'do':
+          return params.audience === 'child'
+            ? [`Who did ${obj} with you yesterday?`, `Why did you do ${obj} yesterday?`]
+            : [`What did you enjoy most about ${obj} yesterday?`, `Why did you do ${obj} yesterday?`]
+        case 'talk':
+          return params.audience === 'child'
+            ? [`What did you talk to ${obj} about yesterday?`, `Why did you talk to ${obj} yesterday?`]
+            : [`What did you discuss with ${obj} yesterday?`, `Why did you talk to ${obj} yesterday?`]
+        case 'work':
+          return params.audience === 'child'
+            ? [`What did you work on in ${obj} yesterday?`, `Who helped you with ${obj} yesterday?`]
+            : [`What result did you get from ${obj} yesterday?`, `Why did you work on ${obj} yesterday?`]
+        case 'like':
+          return params.audience === 'child'
+            ? [`What did you like most about ${obj} yesterday?`, `Why did you like ${obj} yesterday?`]
+            : [`What mattered most to you in ${obj} yesterday?`, `Why did ${obj} matter to you yesterday?`]
+      }
+    }
     if (params.tense === 'future_simple') {
       switch (action) {
         case 'watch':
@@ -1840,6 +1898,46 @@ function contextualizeTopicNextQuestionForLastAnswer(content: string, params: {
           return [`What will you like most about ${obj} next week?`, `Why will ${obj} be important for you next week?`]
       }
     }
+    const genericByTense: Record<string, string[]> = {
+      present_continuous: [
+        `What are you enjoying most about ${activity} right now?`,
+        `How are you feeling while ${activity} right now?`,
+      ],
+      present_perfect: [
+        `What have you enjoyed most about ${activity} recently?`,
+        `How has ${activity} changed for you recently?`,
+      ],
+      present_perfect_continuous: [
+        `How long have you been ${activity}?`,
+        `What have you been enjoying most while ${activity}?`,
+      ],
+      past_continuous: [
+        `What were you enjoying most while ${activity} at that time yesterday?`,
+        `How were you feeling while ${activity} at that time yesterday?`,
+      ],
+      past_perfect: [
+        `What had you enjoyed most about ${activity} before then?`,
+        `How had ${activity} changed for you before then?`,
+      ],
+      past_perfect_continuous: [
+        `How long had you been ${activity} before then?`,
+        `What had you been enjoying most while ${activity} before then?`,
+      ],
+      future_continuous: [
+        `What will you be enjoying most while ${activity} this time tomorrow?`,
+        `How will you be feeling while ${activity} this time tomorrow?`,
+      ],
+      future_perfect: [
+        `What will you have enjoyed most about ${activity} by this time tomorrow?`,
+        `How will ${activity} have changed for you by this time tomorrow?`,
+      ],
+      future_perfect_continuous: [
+        `How long will you have been ${activity} by the end of tomorrow?`,
+        `What will you have been enjoying most while ${activity} by the end of tomorrow?`,
+      ],
+    }
+    const genericVariants = genericByTense[params.tense]
+    if (genericVariants) return genericVariants
     return []
   }
 

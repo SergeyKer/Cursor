@@ -22,6 +22,9 @@ export const MENU_FIELD_LABEL =
 const MENU_PRIMARY_CTA_CLASS =
   'flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]'
 
+/** Только en в выпадающем списке голоса (без ru). Стабильная ссылка для VoiceSelect. */
+const VOICE_DROPDOWN_LANG_PREFIXES: string[] = ['en']
+
 export interface MenuSectionPanelsProps {
   menuView: MenuView
   onMenuViewChange: (v: MenuView) => void
@@ -62,8 +65,6 @@ export default function MenuSectionPanels({
   const safeChildTopicsForCommunication = TOPICS.filter((t) => t.id !== 'business' && t.id !== 'work')
   const topicOptions = isCommunication && isChild ? safeChildTopicsForCommunication : TOPICS
   const tenseOptions = isChild ? TENSES.filter((t) => CHILD_TENSE_SET.has(t.id)) : TENSES
-  const preferredVoiceLangPrefixes = isCommunication ? ['ru', 'en'] : ['en']
-
   const update = (patch: Partial<Settings>) => {
     onSettingsChange({ ...settings, ...patch })
   }
@@ -326,7 +327,7 @@ export default function MenuSectionPanels({
                     id={pid('ai-voice')}
                     value={settings.voiceId}
                     onChange={(voiceId) => update({ voiceId })}
-                    preferredLangPrefixes={preferredVoiceLangPrefixes}
+                    preferredLangPrefixes={VOICE_DROPDOWN_LANG_PREFIXES}
                   />
                 </div>
               </div>
@@ -490,7 +491,15 @@ function VoiceSelect({
 
   const list = mounted ? voices : []
   const preferred = list.filter((v) => preferredLangPrefixes.some((p) => v.lang.startsWith(p)))
-  const finalList = preferred.length > 0 ? preferred : list
+  /** Без отката ко всем голосам — иначе снова появляются ru и др. при пустом en. */
+  const finalList = preferred
+
+  const voicePrefixKey = preferredLangPrefixes.join('|')
+  React.useEffect(() => {
+    if (!mounted || !value || list.length === 0) return
+    const allowed = list.filter((v) => preferredLangPrefixes.some((p) => v.lang.startsWith(p)))
+    if (!allowed.some((v) => v.voiceURI === value)) onChange('')
+  }, [mounted, value, list, voicePrefixKey, onChange, preferredLangPrefixes])
 
   return (
     <select
