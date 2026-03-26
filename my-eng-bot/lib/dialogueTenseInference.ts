@@ -3,6 +3,11 @@
  * и вывод tense для согласования «Повтори» с последним вопросом (режим «все времена» и др.).
  */
 
+interface ChatMessageLike {
+  role: string
+  content: string
+}
+
 /** От более специфичных паттернов к общим — первое совпадение выигрывает. */
 export const DIALOGUE_TENSE_INFERENCE_ORDER: readonly string[] = [
   'future_perfect_continuous',
@@ -248,4 +253,18 @@ export function inferTenseFromDialogueAssistantContent(content: string): string 
     }
   }
   return inferTenseFromAssistantTextTail(content)
+}
+
+/**
+ * Fallback: сканирует всю историю сообщений назад и возвращает первое успешно
+ * определённое время из любого ответа ассистента. Используется когда регулярки
+ * не смогли определить время из последнего вопроса ИИ.
+ */
+export function inferLastKnownTenseFromHistory(messages: ChatMessageLike[]): string | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.role !== 'assistant') continue
+    const t = inferTenseFromDialogueAssistantContent(messages[i]!.content)
+    if (t) return t
+  }
+  return null
 }

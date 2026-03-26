@@ -16,16 +16,18 @@ function stripLeadingAiPrefix(line: string): string {
  * @param expectedNextQuestionTense — для free_talk после верного ответа: следующий вопрос должен быть в этом времени,
  *   а не в requiredTense (время последнего вопроса/«Повтори»).
  */
-export function isDialogueOutputLikelyInRequiredTense(params: {
+export type DialogueTenseValidationReason = 'next_question_tense_mismatch' | 'required_tense_mismatch'
+
+export function validateDialogueOutputTense(params: {
   content: string
   requiredTense?: string
   priorAssistantContent?: string | null
   expectedNextQuestionTense?: string | null
-}): boolean {
+}): { ok: boolean; reason?: DialogueTenseValidationReason } {
   const { content, requiredTense, priorAssistantContent, expectedNextQuestionTense } = params
-  if (!requiredTense) return true
+  if (!requiredTense) return { ok: true }
   const raw = content.trim()
-  if (!raw) return false
+  if (!raw) return { ok: false, reason: 'required_tense_mismatch' }
 
   const lines = raw
     .split(/\r?\n/)
@@ -38,19 +40,36 @@ export function isDialogueOutputLikelyInRequiredTense(params: {
     const repeatSentence = repeatLine.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '').trim()
     if (requiredTense === 'all') {
       const inferred = priorAssistantContent ? inferTenseFromDialogueAssistantContent(priorAssistantContent) : null
-      if (inferred && !isUserLikelyCorrectForTense(repeatSentence, inferred)) return false
-      return true
+      if (inferred && !isUserLikelyCorrectForTense(repeatSentence, inferred)) {
+        return { ok: false, reason: 'required_tense_mismatch' }
+      }
+      return { ok: true }
     }
     return isUserLikelyCorrectForTense(repeatSentence, requiredTense)
+      ? { ok: true }
+      : { ok: false, reason: 'required_tense_mismatch' }
   }
 
   const questionLine = [...lines].reverse().find((line) => /\?\s*$/.test(line) && /[A-Za-z]/.test(line))
   if (expectedNextQuestionTense && questionLine) {
     return isLikelyQuestionInRequiredTense(questionLine, expectedNextQuestionTense)
+      ? { ok: true }
+      : { ok: false, reason: 'next_question_tense_mismatch' }
   }
 
-  if (requiredTense === 'all') return true
+  if (requiredTense === 'all') return { ok: true }
 
-  if (!questionLine) return true
+  if (!questionLine) return { ok: true }
   return isLikelyQuestionInRequiredTense(questionLine, requiredTense)
+    ? { ok: true }
+    : { ok: false, reason: 'required_tense_mismatch' }
+}
+
+export function isDialogueOutputLikelyInRequiredTense(params: {
+  content: string
+  requiredTense?: string
+  priorAssistantContent?: string | null
+  expectedNextQuestionTense?: string | null
+}): boolean {
+  return validateDialogueOutputTense(params).ok
 }

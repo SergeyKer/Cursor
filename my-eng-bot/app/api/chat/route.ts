@@ -10,10 +10,11 @@ import {
 import { buildProxyFetchExtra } from '@/lib/proxyFetch'
 import {
   getDialogueRepeatSentence,
+  inferLastKnownTenseFromHistory,
   inferTenseFromDialogueAssistantContent,
   isUserLikelyCorrectForTense,
 } from '@/lib/dialogueTenseInference'
-import { isDialogueOutputLikelyInRequiredTense } from '@/lib/dialogueOutputValidation'
+import { isDialogueOutputLikelyInRequiredTense, validateDialogueOutputTense } from '@/lib/dialogueOutputValidation'
 import { buildAdultFullTensePool, pickWeightedFreeTalkTense } from '@/lib/freeTalkDialogueTense'
 import {
   isKommentariyPurePraiseOnly,
@@ -1708,8 +1709,12 @@ function isValidTutorOutput(params: {
   priorAssistantContent?: string | null
   /** free_talk: следующий вопрос после похвалы должен быть в этом времени (не в requiredTense). */
   expectedNextQuestionTense?: string | null
+  /** Незакрытая фраза «Повтори» из предыдущего хода. Если задана и ответ её не снимает — ответ ИИ обязан содержать «Повтори:». */
+  forcedRepeatSentence?: string | null
+  /** Последний текст пользователя — используется для проверки, снял ли он незакрытый «Повтори». */
+  lastUserText?: string
 }): boolean {
-  const { content, mode, isFirstTurn, isTopicChoiceTurn, requiredTense, priorAssistantContent, expectedNextQuestionTense } =
+  const { content, mode, isFirstTurn, isTopicChoiceTurn, requiredTense, priorAssistantContent, expectedNextQuestionTense, forcedRepeatSentence, lastUserText } =
     params
   if (mode !== 'dialogue') return true
 
@@ -1741,6 +1746,19 @@ function isValidTutorOutput(params: {
   const hasComment = lines.some((l) => /^Комментарий\s*:/i.test(l))
   const hasRepeat = lines.some((l) => /^(Повтори|Repeat|Say)\s*:/i.test(l))
 
+  // Если есть незакрытое «Повтори» из предыдущего хода и ответ пользователя его не снял —
+  // ответ ИИ обязан содержать «Повтори:». Без этого триггерим repair.
+  if (
+    !isFirstTurn &&
+    !isTopicChoiceTurn &&
+    forcedRepeatSentence &&
+    lastUserText &&
+    !isDialogueAnswerEffectivelyCorrect(lastUserText, forcedRepeatSentence, requiredTense ?? 'present_simple') &&
+    !hasRepeat
+  ) {
+    return false
+  }
+
   // Первый ход диалога: только один вопрос (без Комментарий/Повтори).
   if (isFirstTurn) {
     if (hasComment || hasRepeat) return false
@@ -1765,6 +1783,21 @@ function isValidTutorOutput(params: {
     // В Повтори должен быть английский текст.
     const after = r.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '')
     return /[A-Za-z]/.test(after)
+  }
+
+  // Комментарий без Повтори: допустим только если ответ пользователя по времени верен.
+  // Если время неверно — ИИ обязан выдать Повтори, а не переходить к следующему вопросу.
+  if (hasComment && !hasRepeat) {
+    if (
+      requiredTense &&
+      requiredTense !== 'all' &&
+      lastUserText &&
+      !isFirstTurn &&
+      !isTopicChoiceTurn &&
+      !isUserLikelyCorrectForTense(lastUserText, requiredTense)
+    ) {
+      return false
+    }
   }
 
   // Корректный ответ: Комментарий + следующий вопрос.
@@ -3548,8 +3581,9 @@ export async function POST(req: NextRequest) {
 
     const lastAssistantForInference = getLastAssistantContent(recentMessages)
     const inferredLastAssistantTense = lastAssistantForInference
-      ? inferTenseFromDialogueAssistantContent(lastAssistantForInference)
-      : null
+      ? (inferTenseFromDialogueAssistantContent(lastAssistantForInference)
+          ?? inferLastKnownTenseFromHistory(recentMessages))
+      : inferLastKnownTenseFromHistory(recentMessages)
 
     const adultTensePool = buildAdultFullTensePool()
     const tensePoolForFreeTalkWeighted: string[] = (() => {
@@ -3714,7 +3748,16 @@ export async function POST(req: NextRequest) {
             return `\n\nFREE-TALK: After a fully correct answer, your next English question MUST be entirely in ${nextName}. Vary wording; do NOT reuse the same template every time (e.g. avoid "What will you have done..." on every turn). If the user made mistakes, Комментарий + Повтори must use ${lastName} for the corrected English sentence.`
           })()
         : ''
-    const systemContent = topicChoicePrefix + systemPrompt + dialogueInferredTenseHint + freeTalkPromptSuffix
+    const freeTalkTopicHint: string = (() => {
+      if (topic !== 'free_talk' || isFirstTurn || isTopicChoiceTurn) return ''
+      const firstUserMsg = recentMessages.find((m) => m.role === 'user')
+      if (!firstUserMsg) return ''
+      const { en, ru } = extractTopicChoiceKeywordsByLang(firstUserMsg.content)
+      const keywords = en.length > 0 ? en : translateRuTopicKeywordsToEn(ru)
+      if (keywords.length === 0) return ''
+      return `\n\nFREE-TALK ESTABLISHED TOPIC: The user chose the topic earlier. Key topic words: ${keywords.slice(0, 3).join(', ')}. Keep ALL your questions about this topic.`
+    })()
+    const systemContent = topicChoicePrefix + systemPrompt + dialogueInferredTenseHint + freeTalkPromptSuffix + freeTalkTopicHint
 
     // При пустом диалоге добавляем одно сообщение пользователя: часть провайдеров требует хотя бы один user turn
     const userTurnMessages =
@@ -4242,6 +4285,25 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const tenseValidation = validateDialogueOutputTense({
+      content: sanitized,
+      requiredTense: tutorGradingTense,
+      priorAssistantContent: getLastAssistantContent(recentMessages),
+      expectedNextQuestionTense: topic === 'free_talk' ? freeTalkExpectedNextQuestionTense : null,
+    })
+    const userClosedForcedRepeat =
+      !forcedRepeatSentence ||
+      isDialogueAnswerEffectivelyCorrect(lastUserContentForResponse, forcedRepeatSentence, tutorGradingTense)
+    const canUseSoftNextQuestionFallback =
+      mode === 'dialogue' &&
+      topic === 'free_talk' &&
+      !isFirstTurn &&
+      !isTopicChoiceTurn &&
+      Boolean(freeTalkExpectedNextQuestionTense) &&
+      tenseValidation.reason === 'next_question_tense_mismatch' &&
+      isUserLikelyCorrectForTense(lastUserContentForResponse, tutorGradingTense) &&
+      userClosedForcedRepeat
+
     const valid = isValidTutorOutput({
       content: sanitized,
       mode,
@@ -4250,8 +4312,22 @@ export async function POST(req: NextRequest) {
       requiredTense: tutorGradingTense,
       priorAssistantContent: getLastAssistantContent(recentMessages),
       expectedNextQuestionTense: topic === 'free_talk' ? freeTalkExpectedNextQuestionTense : null,
+      forcedRepeatSentence,
+      lastUserText: lastUserContentForResponse,
     })
     if (!valid) {
+      if (canUseSoftNextQuestionFallback) {
+        return NextResponse.json({
+          content: fallbackNextQuestion({
+            topic,
+            tense: freeTalkExpectedNextQuestionTense!,
+            level,
+            audience,
+          }),
+          dialogueCorrect: true,
+        })
+      }
+
       // Одна попытка repair/retry. Для OpenRouter это наиболее актуально.
       // UI и сценарии не меняем: просто не пропускаем служебный текст.
       const repairMessages = [...apiMessages]
@@ -4381,6 +4457,8 @@ export async function POST(req: NextRequest) {
             requiredTense: tutorGradingTense,
             priorAssistantContent: getLastAssistantContent(recentMessages),
             expectedNextQuestionTense: topic === 'free_talk' ? freeTalkExpectedNextQuestionTense : null,
+            forcedRepeatSentence,
+            lastUserText: lastUserContentForResponse,
           })
           if (repairedValid) {
             if (mode === 'translation') {
@@ -4404,6 +4482,17 @@ export async function POST(req: NextRequest) {
       }
 
       // Если repair не помог — безопасный fallback, чтобы не показывать мусор.
+      if (canUseSoftNextQuestionFallback) {
+        return NextResponse.json({
+          content: fallbackNextQuestion({
+            topic,
+            tense: freeTalkExpectedNextQuestionTense!,
+            level,
+            audience,
+          }),
+          dialogueCorrect: true,
+        })
+      }
       if (mode === 'dialogue' && !isFirstTurn && !isTopicChoiceTurn && !isLowSignalDialogueInput(lastUserContentForResponse)) {
         const inferredTense = getLastAssistantContent(recentMessages)
           ? inferTenseFromDialogueAssistantContent(getLastAssistantContent(recentMessages)!)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isDialogueOutputLikelyInRequiredTense } from './dialogueOutputValidation'
+import { isDialogueOutputLikelyInRequiredTense, validateDialogueOutputTense } from './dialogueOutputValidation'
 
 describe('isDialogueOutputLikelyInRequiredTense', () => {
   it('Комментарий + вопрос в Past Simple: при requiredTense present_simple без expectedNext — несовпадение', () => {
@@ -37,5 +37,17 @@ describe('isDialogueOutputLikelyInRequiredTense', () => {
         expectedNextQuestionTense: 'past_simple',
       })
     ).toBe(true)
+  })
+
+  it('возвращает reason=next_question_tense_mismatch для неверного времени следующего вопроса', () => {
+    const content = 'Комментарий: Отлично!\nHave you ever taken a bus trip?'
+    expect(
+      validateDialogueOutputTense({
+        content,
+        requiredTense: 'present_perfect',
+        priorAssistantContent: null,
+        expectedNextQuestionTense: 'past_simple',
+      })
+    ).toEqual({ ok: false, reason: 'next_question_tense_mismatch' })
   })
 })
