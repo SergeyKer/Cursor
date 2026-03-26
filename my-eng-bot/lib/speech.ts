@@ -1,9 +1,3 @@
-/** Android / iOS — на мобильных всегда используем системный голос. */
-function isMobileVoice(): boolean {
-  if (typeof navigator === 'undefined') return false
-  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-}
-
 function selectVoice(
   voices: SpeechSynthesisVoice[],
   voiceId: string,
@@ -60,7 +54,7 @@ export function speak(text: string, voiceId: string): void {
   if (!normalized) return
 
   const synth = window.speechSynthesis
-  const allowCustomVoice = !isMobileVoice()
+  const allowCustomVoice = true
 
   synth.cancel()
   speakOnce(synth, normalized, voiceId, allowCustomVoice)
