@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { parseCorrection } from '@/lib/parseCorrection'
 import { speak } from '@/lib/speech'
+import { pickRecordingMimeType, shouldUseMediaRecorderFallback, sttLangFromLocale } from '@/lib/sttClient'
 import type { ChatMessage as ChatMessageType, Settings } from '@/lib/types'
 
 interface ChatProps {
@@ -336,6 +337,10 @@ export default function Chat({
   const [inputFocused, setInputFocused] = React.useState(false)
   const [listening, setListening] = React.useState(false)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const mediaStreamRef = useRef<MediaStream | null>(null)
+  const mediaChunksRef = useRef<BlobPart[]>([])
+  const mediaStopTimerRef = useRef<number | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -348,25 +353,128 @@ export default function Chat({
 
   const startListening = useCallback(async () => {
     if (typeof window === 'undefined') return
-    const SpeechRecognitionAPI =
-      (window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
-      (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
-    if (!SpeechRecognitionAPI) {
-      setInput('[Распознавание речи не поддерживается в этом браузере]')
-      return
-    }
-
-    if (recognitionRef.current) {
-      // Останавливаем предыдущую сессию мягко, без abort().
-      recognitionRef.current.stop()
-      recognitionRef.current = null
-    }
-    setInput('')
 
     const LISTENING_MAX_MS = 25_000
     const isCommunication = settings.mode === 'communication'
+    const SpeechRecognitionAPI =
+      (window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
+      (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
 
-    const startAttempt = (lang: 'ru-RU' | 'en-US') => {
+    const lastUserText = messages
+      .filter((m) => m.role === 'user')
+      .map((m) => m.content)
+      .slice(-1)[0]
+    const forcedLocale =
+      forceNextMicLang === 'ru' ? 'ru-RU' : forceNextMicLang === 'en' ? 'en-US' : null
+    const preferredLocale =
+      settings.mode === 'communication'
+        ? (forcedLocale ?? speechLocaleForCommunication(lastUserText, settings.communicationInputExpectedLang))
+        : ('en-US' as const)
+
+    const stopMediaRecorderSession = () => {
+      if (mediaStopTimerRef.current != null) {
+        window.clearTimeout(mediaStopTimerRef.current)
+        mediaStopTimerRef.current = null
+      }
+      const rec = mediaRecorderRef.current
+      if (rec && rec.state !== 'inactive') {
+        try {
+          rec.stop()
+        } catch {
+          // ignore
+        }
+      }
+      mediaRecorderRef.current = null
+      const stream = mediaStreamRef.current
+      if (stream) {
+        for (const track of stream.getTracks()) track.stop()
+      }
+      mediaStreamRef.current = null
+      mediaChunksRef.current = []
+    }
+
+    const startMediaRecorderFallback = async (locale: 'ru-RU' | 'en-US') => {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+        setInput('[Распознавание речи не поддерживается в этом браузере]')
+        return
+      }
+
+      stopMediaRecorderSession()
+      setInput('')
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        mediaStreamRef.current = stream
+        const mimeType = pickRecordingMimeType((mime) => MediaRecorder.isTypeSupported(mime))
+        const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
+        mediaRecorderRef.current = recorder
+        mediaChunksRef.current = []
+        setListening(true)
+
+        recorder.ondataavailable = (e: BlobEvent) => {
+          if (e.data && e.data.size > 0) {
+            mediaChunksRef.current.push(e.data)
+          }
+        }
+
+        recorder.onerror = () => {
+          stopMediaRecorderSession()
+          setListening(false)
+          setInput('[Ошибка записи аудио. Попробуйте ещё раз.]')
+        }
+
+        recorder.onstop = async () => {
+          const chunks = mediaChunksRef.current
+          stopMediaRecorderSession()
+          setListening(false)
+          if (!chunks.length) return
+
+          const blob = new Blob(chunks, { type: mimeType ?? 'audio/webm' })
+          const formData = new FormData()
+          formData.append('audio', blob, mimeType?.includes('mp4') ? 'speech.mp4' : 'speech.webm')
+          formData.append('lang', sttLangFromLocale(locale))
+
+          try {
+            const res = await fetch('/api/stt', {
+              method: 'POST',
+              body: formData,
+            })
+            const data = (await res.json()) as { text?: string; error?: string }
+            if (!res.ok || !data.text) {
+              setInput('[Не удалось распознать речь. Попробуйте ещё раз или введите текст.]')
+              return
+            }
+            setInput(data.text.trim())
+          } catch {
+            setInput('[Ошибка сети при распознавании речи. Попробуйте ещё раз.]')
+          }
+        }
+
+        recorder.start()
+        mediaStopTimerRef.current = window.setTimeout(() => {
+          if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop()
+          }
+        }, LISTENING_MAX_MS)
+      } catch {
+        stopMediaRecorderSession()
+        setListening(false)
+        setInput('[Нет доступа к микрофону. Разрешите микрофон для этого сайта и попробуйте снова.]')
+      }
+    }
+
+    const startBrowserSpeechRecognition = (lang: 'ru-RU' | 'en-US') => {
+      if (!SpeechRecognitionAPI) {
+        void startMediaRecorderFallback(lang)
+        return
+      }
+
+      if (recognitionRef.current) {
+        recognitionRef.current.stop()
+        recognitionRef.current = null
+      }
+      setInput('')
+
       const rec = new SpeechRecognitionAPI()
       rec.lang = lang
       rec.continuous = false
@@ -426,12 +534,9 @@ export default function Chat({
 
       rec.onerror = (event: Event) => {
         if (isCommunication) clearSafetyTimeout()
-        // SpeechRecognitionErrorEvent есть не во всех TS lib, поэтому берём как any.
         const err = (event as unknown as { error?: string; message?: string }).error
         const msg = (event as unknown as { message?: string }).message
         const code = (err ?? msg ?? '').toString()
-        // "aborted" — нормальная ситуация: распознавание прервали (стоп, потеря фокуса, повторный старт).
-        // Не показываем это как ошибку пользователю.
         if (/^aborted$/i.test(code)) {
           if (recognitionRef.current === rec) {
             recognitionRef.current = null
@@ -452,32 +557,32 @@ export default function Chat({
           recognitionRef.current = null
           setListening(false)
         }
+
+        if (/service-not-allowed|not-allowed|audio-capture|network/i.test(code)) {
+          void startMediaRecorderFallback(lang)
+        }
       }
 
       recognitionRef.current = rec
       try {
         rec.start()
       } catch {
-        setInput('[Не удалось запустить распознавание речи. Попробуйте ещё раз.]')
-        setListening(false)
+        void startMediaRecorderFallback(lang)
       }
     }
 
-    if (settings.mode === 'communication') {
-      const lastUserText = messages
-        .filter((m) => m.role === 'user')
-        .map((m) => m.content)
-        .slice(-1)[0]
+    const useFallback = shouldUseMediaRecorderFallback({
+      hasSpeechRecognition: Boolean(SpeechRecognitionAPI),
+      userAgent: window.navigator.userAgent,
+    })
 
-      const forcedLocale =
-        forceNextMicLang === 'ru' ? 'ru-RU' : forceNextMicLang === 'en' ? 'en-US' : null
-      startAttempt(forcedLocale ?? speechLocaleForCommunication(lastUserText, settings.communicationInputExpectedLang))
-      if (forcedLocale) onConsumeForceNextMicLang?.()
-      return
+    if (useFallback) {
+      await startMediaRecorderFallback(preferredLocale)
+    } else {
+      startBrowserSpeechRecognition(preferredLocale)
     }
 
-    // Остальные режимы (dialogue, translation): диктовка на английском, без таймаута общения.
-    startAttempt('en-US')
+    if (forcedLocale) onConsumeForceNextMicLang?.()
   }, [settings.mode, settings.communicationInputExpectedLang, messages, forceNextMicLang, onConsumeForceNextMicLang])
 
   const stopListening = useCallback(() => {
@@ -489,6 +594,25 @@ export default function Chat({
       }
       recognitionRef.current = null
     }
+    if (mediaStopTimerRef.current != null) {
+      window.clearTimeout(mediaStopTimerRef.current)
+      mediaStopTimerRef.current = null
+    }
+    const rec = mediaRecorderRef.current
+    if (rec && rec.state !== 'inactive') {
+      try {
+        rec.stop()
+      } catch {
+        // ignore
+      }
+    }
+    mediaRecorderRef.current = null
+    const stream = mediaStreamRef.current
+    if (stream) {
+      for (const track of stream.getTracks()) track.stop()
+    }
+    mediaStreamRef.current = null
+    mediaChunksRef.current = []
     setListening(false)
   }, [])
 
