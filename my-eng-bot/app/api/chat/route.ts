@@ -3803,7 +3803,7 @@ export async function POST(req: NextRequest) {
     })
 
     const topicChoicePrefix = mode === 'dialogue' && isTopicChoiceTurn
-      ? 'This turn only: the user is naming their topic. Output ONLY one question in English — nothing else. Do NOT output "Комментарий:", "Отлично", "Молодец", "Верно", or any praise. Do NOT output "Правильно:" or "Повтори:". The user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Infer the topic from their words regardless of language (e.g. "I played tennis" → tennis; "i swam" → swimming; "река" → river; "I река" → river; "транзисторы" → transistors; "я люблю кошки" → cats). Ask exactly ONE question in the required tense about the inferred topic. If the message gives absolutely no hint (e.g. "sdf"), ask what they mean. Your reply must be ONLY that one question, no other lines. Ignore all correction rules below for this turn.\n\n'
+      ? 'This turn only: the user is naming their topic. Output ONLY one question in English — nothing else. Do NOT output "Комментарий:", "Отлично", "Молодец", "Верно", or any praise. Do NOT output "Правильно:" or "Повтори:". The user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Infer the topic from their words regardless of language (e.g. "I played tennis" → tennis; "i swam" → swimming; "река" → river; "I река" → river; "транзисторы" → transistors; "я люблю кошки" → cats). Ask exactly ONE question in the required tense about the inferred topic. The question must sound natural, as if asked by a professional English tutor in a real lesson. Relate the topic to the learner\'s personal experience, feelings, or everyday life. Do NOT mechanically combine the topic word with a generic verb — think about what aspect of the topic a real person would discuss. Good examples: topic "sun" + Past Simple → "Did you spend time outside in the sun yesterday?"; topic "cats" + Present Simple → "Do you have a cat at home?". Bad examples: "What did you do with the sun?" (nonsensical); "What do you usually do involving cats?" (robotic). If the message gives absolutely no hint (e.g. "sdf"), ask what they mean. Your reply must be ONLY that one question, no other lines. Ignore all correction rules below for this turn.\n\n'
       : ''
     const dialogueInferredTenseHint =
       mode === 'dialogue' &&
@@ -3847,12 +3847,19 @@ export async function POST(req: NextRequest) {
         : ''
     const freeTalkTopicHint: string = (() => {
       if (topic !== 'free_talk' || isFirstTurn || isTopicChoiceTurn) return ''
-      const firstUserMsg = recentMessages.find((m) => m.role === 'user')
+      const firstUserMsg = nonSystemMessages.find((m) => m.role === 'user')
       if (!firstUserMsg) return ''
       const { en, ru } = extractTopicChoiceKeywordsByLang(firstUserMsg.content)
       const keywords = en.length > 0 ? en : translateRuTopicKeywordsToEn(ru)
       if (keywords.length === 0) return ''
-      return `\n\nFREE-TALK ESTABLISHED TOPIC: The user chose the topic earlier. Key topic words: ${keywords.slice(0, 3).join(', ')}. Keep ALL your questions about this topic.`
+      return `\n\nFREE-TALK ESTABLISHED TOPIC: The user chose the topic earlier. Key topic words: ${keywords.slice(0, 3).join(', ')}. Continue asking questions about this topic.
+
+Topic change rule (free talk only): The user may change the topic at any time. Recognize these patterns as a topic change request:
+- A single word or short phrase naming a new topic (English or Russian): "река", "cats", "space", "музыка"
+- Explicit English request: "Let's talk about ...", "I want to talk about ...", "Can we talk about ...?", "Something else"
+- Explicit Russian request: "Давай поговорим о ...", "Давай сменим тему", "Другая тема", "Хочу поговорить о ..."
+- Mixed request: "Let's talk давай о реках"
+When you detect a topic change: do NOT output "Комментарий:" or "Повтори:". If a new topic is named, ask one question about it in the required tense (follow the same natural question style). If no specific topic is named, ask "What would you like to talk about now?". This rule overrides the mixed-input correction rule and topic retention for this message only.`
     })()
     const systemContent = topicChoicePrefix + systemPrompt + dialogueInferredTenseHint + freeTalkPromptSuffix + freeTalkTopicHint
 
