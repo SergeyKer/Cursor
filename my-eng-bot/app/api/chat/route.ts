@@ -471,10 +471,17 @@ function buildAudienceStyleRule(audience: 'child' | 'adult'): string {
     : 'Audience style: ADULT. In Russian replies, address the user with "вы". Keep the tone natural, respectful, and concise. In English replies, use natural adult-to-adult wording. Avoid childish wording or over-familiarity.'
 }
 
+function isSoftCommentTone(audience: 'child' | 'adult', level: string): boolean {
+  return audience === 'child' || (audience === 'adult' && ['starter', 'a1', 'a2'].includes(level))
+}
+
+function softCommentPronoun(audience: 'child' | 'adult'): 'ты' | 'вы' {
+  return audience === 'child' ? 'ты' : 'вы'
+}
+
 function buildCommentToneRule(audience: 'child' | 'adult', level: string): string {
-  const isBeginnerAdult = audience === 'adult' && ['starter', 'a1', 'a2'].includes(level)
-  if (audience === 'child' || isBeginnerAdult) {
-    const pronoun = audience === 'child' ? 'ты' : 'вы'
+  if (isSoftCommentTone(audience, level)) {
+    const pronoun = softCommentPronoun(audience)
     return `Correction tone (Комментарий): Use simple, everyday language. Do NOT start with "Ошибка..." or use grammar terms like "согласование подлежащего и сказуемого", "форма глагола", "артикль". Instead, explain plainly what needs to change and why. Address the user as "${pronoun}". Examples of good style: "Тут мы говорим про то, что бывает обычно, поэтому нужно сказать plays." / "После he нужно добавить -s, потому что это он делает." / "Тут нужно другое слово — look значит смотреть, а see — видеть." Keep it to 1–2 short sentences.`
   }
   return 'Correction tone (Комментарий): Be concise and professional. You may use grammar term names (e.g. "Present Simple", "Past Perfect") when they help the learner understand the mistake. Address the user as "вы". Keep it to 1–2 short sentences.'
@@ -1670,8 +1677,13 @@ function contextualizeTopicNextQuestionForLastAnswer(content: string, params: {
   return lines.join('\n').trim()
 }
 
-function alignDialogueArticleCommentWithRepeat(params: { content: string; userText: string }): string {
-  const { content, userText } = params
+function alignDialogueArticleCommentWithRepeat(params: {
+  content: string
+  userText: string
+  audience: 'child' | 'adult'
+  level: string
+}): string {
+  const { content, userText, audience, level } = params
   const lines = content.split(/\r?\n/)
   const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
   const repeatLine = lines.find((line) => /^(?:\s*)(Повтори|Repeat|Say)\s*:/i.test(line.trim()))
@@ -1708,13 +1720,18 @@ function alignDialogueArticleCommentWithRepeat(params: { content: string; userTe
     }
   }
 
+  const soft = isSoftCommentTone(audience, level)
   if (removedArticleToken && saysMissingArticle) {
-    lines[commentIndex] = `Комментарий: Ошибка артикля: перед ${removedArticleToken} артикль не нужен.`
+    lines[commentIndex] = soft
+      ? `Комментарий: Перед ${removedArticleToken} артикль не нужен.`
+      : `Комментарий: Ошибка артикля: перед ${removedArticleToken} артикль не нужен.`
     return lines.join('\n')
   }
   if (addedArticleToken && saysExtraArticle) {
     const articleHint = addedArticle ? ` ${addedArticle}` : ''
-    lines[commentIndex] = `Комментарий: Ошибка артикля: перед ${addedArticleToken} нужен артикль${articleHint}.`
+    lines[commentIndex] = soft
+      ? `Комментарий: Перед ${addedArticleToken} нужно поставить артикль${articleHint}.`
+      : `Комментарий: Ошибка артикля: перед ${addedArticleToken} нужен артикль${articleHint}.`
     return lines.join('\n')
   }
 
@@ -3508,14 +3525,16 @@ function buildDialogueLowSignalFallback(params: {
   level: string
   audience: 'child' | 'adult'
 }): string {
+  const soft = isSoftCommentTone(params.audience, params.level)
+  const invalidInputComment = soft
+    ? params.audience === 'child'
+      ? 'Комментарий: Напиши полное предложение на английском.'
+      : 'Комментарий: Напишите полное предложение на английском.'
+    : 'Комментарий: Некорректный ввод. Ответьте полным английским предложением.'
+
   const lastRepeat = extractLastAssistantRepeatSentence(params.messages)
   if (lastRepeat) {
-    // Если ранее мы уже просили "Повтори:" и пользователь снова прислал шум,
-    // считаем это провокацией и просим повторить ту же целевую фразу.
-    return [
-      'Комментарий: Некорректный ввод. Ответьте полным английским предложением.',
-      `Повтори: ${lastRepeat}`,
-    ].join('\n')
+    return [invalidInputComment, `Повтори: ${lastRepeat}`].join('\n')
   }
 
   const lastQuestion = extractLastAssistantQuestionSentence(params.messages)
@@ -3528,9 +3547,7 @@ function buildDialogueLowSignalFallback(params: {
       audience: params.audience,
     })
 
-  // Для первого "низкосигнального" ввода UX: показываем комментарий + обычный следующий вопрос,
-  // чтобы пользователь продолжал диалог, а не зацикливался на "Повтори:".
-  return `Комментарий: Некорректный ввод. Ответьте полным английским предложением.\n${nextQuestion}`
+  return `${invalidInputComment}\n${nextQuestion}`
 }
 
 function extractExplicitTranslateTarget(lastUserText: string): string | null {
@@ -3911,6 +3928,8 @@ export async function POST(req: NextRequest) {
       sanitized = alignDialogueArticleCommentWithRepeat({
         content: sanitized,
         userText: lastUserContentForResponse,
+        audience,
+        level,
       })
     }
     sanitized = stripRepeatOnPraise(sanitized)
@@ -4412,6 +4431,8 @@ export async function POST(req: NextRequest) {
             repaired = alignDialogueArticleCommentWithRepeat({
               content: repaired,
               userText: lastUserContentForResponse,
+              audience,
+              level,
             })
           }
           repaired = stripRepeatOnPraise(repaired)
@@ -4545,9 +4566,15 @@ export async function POST(req: NextRequest) {
           : null
         const tenseName = inferredTense ? (TENSE_NAMES[inferredTense] ?? inferredTense) : null
         const lastQ = extractLastAssistantQuestionSentence(recentMessages)
+        const soft = isSoftCommentTone(audience, level)
+        const tryAgain = audience === 'child' ? 'Попробуй ещё раз!' : 'Попробуйте ещё раз.'
         const comment = tenseName
-          ? `Комментарий: Ответ нужно дать в ${tenseName}. Исправьте время и грамматику.`
-          : 'Комментарий: Ошибка в грамматике или времени. Попробуйте ещё раз.'
+          ? soft
+            ? `Комментарий: Тут нужно ответить в ${tenseName}. ${tryAgain}`
+            : `Комментарий: Ответ нужно дать в ${tenseName}. Исправьте время и грамматику.`
+          : soft
+            ? `Комментарий: Тут что-то не так. ${tryAgain}`
+            : 'Комментарий: Ошибка в грамматике или времени. Попробуйте ещё раз.'
         const nextQuestion = lastQ ?? fallbackNextQuestion({ topic, tense: tutorGradingTense, level, audience })
         return NextResponse.json({ content: `${comment}\n${nextQuestion}` })
       }
