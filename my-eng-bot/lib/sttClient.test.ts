@@ -11,13 +11,13 @@ describe('sttClient', () => {
     ).toBe(true)
   })
 
-  it('uses fallback on iOS Chrome', () => {
+  it('prefers browser speech path on iOS Chrome when available', () => {
     expect(
       shouldUseMediaRecorderFallback({
         hasSpeechRecognition: true,
         userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 CriOS/124.0 Mobile/15E148 Safari/604.1',
       })
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('keeps browser speech path on desktop Chrome', () => {

@@ -355,17 +355,20 @@ export default function Chat({
     if (typeof window === 'undefined') return
 
     const LISTENING_MAX_MS = 25_000
+    const MEDIA_FALLBACK_MAX_MS = settings.mode === 'communication' ? 12_000 : 15_000
     const isCommunication = settings.mode === 'communication'
     const SpeechRecognitionAPI =
       (window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
       (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
 
-    const lastUserText = messages
-      .filter((m) => m.role === 'user')
-      .map((m) => m.content)
-      .slice(-1)[0]
     const forcedLocale =
       forceNextMicLang === 'ru' ? 'ru-RU' : forceNextMicLang === 'en' ? 'en-US' : null
+    const lastUserText = isCommunication
+      ? messages
+          .filter((m) => m.role === 'user')
+          .map((m) => m.content)
+          .slice(-1)[0]
+      : undefined
     const preferredLocale =
       settings.mode === 'communication'
         ? (forcedLocale ?? speechLocaleForCommunication(lastUserText, settings.communicationInputExpectedLang))
@@ -401,6 +404,7 @@ export default function Chat({
 
       stopMediaRecorderSession()
       setInput('')
+      setListening(true)
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -409,7 +413,6 @@ export default function Chat({
         const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
         mediaRecorderRef.current = recorder
         mediaChunksRef.current = []
-        setListening(true)
 
         recorder.ondataavailable = (e: BlobEvent) => {
           if (e.data && e.data.size > 0) {
@@ -455,7 +458,7 @@ export default function Chat({
           if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
             mediaRecorderRef.current.stop()
           }
-        }, LISTENING_MAX_MS)
+        }, MEDIA_FALLBACK_MAX_MS)
       } catch {
         stopMediaRecorderSession()
         setListening(false)

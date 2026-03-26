@@ -2,11 +2,10 @@ export function shouldUseMediaRecorderFallback(params: {
   hasSpeechRecognition: boolean
   userAgent: string
 }): boolean {
-  if (!params.hasSpeechRecognition) return true
-  const ua = params.userAgent
-  const isIOS = /iPhone|iPad|iPod/i.test(ua)
-  const isChromeIOS = /CriOS/i.test(ua)
-  return isIOS && isChromeIOS
+  // Быстрый путь — всегда предпочитаем нативный Web Speech, если он доступен.
+  // Fallback через MediaRecorder запускаем только когда API реально недоступен
+  // или когда распознавание падает в runtime (см. Chat.tsx onerror/start catch).
+  return !params.hasSpeechRecognition
 }
 
 export function sttLangFromLocale(locale: 'ru-RU' | 'en-US'): 'ru' | 'en' {
