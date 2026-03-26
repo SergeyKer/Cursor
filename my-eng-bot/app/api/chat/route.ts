@@ -16,6 +16,9 @@ import {
 } from '@/lib/dialogueTenseInference'
 import { isDialogueOutputLikelyInRequiredTense, validateDialogueOutputTense } from '@/lib/dialogueOutputValidation'
 import { buildAdultFullTensePool, pickWeightedFreeTalkTense } from '@/lib/freeTalkDialogueTense'
+import { detectFreeTalkTopicChange, isFixedTopicSwitchRequest } from '@/lib/freeTalkTopicChange'
+import { normalizeDialogueEntityForTopic } from '@/lib/dialogueEntityNormalization'
+import { isNearDuplicateQuestion } from '@/lib/dialogueQuestionVariety'
 import {
   isKommentariyPurePraiseOnly,
   shouldStripRepeatOnPraise,
@@ -1064,12 +1067,13 @@ function firstQuestionForTopicAndTense(params: {
   tense: string
   level: string
   audience: 'child' | 'adult'
+  diversityKey?: string
 }): string {
-  const { topic, tense, level, audience } = params
+  const { topic, tense, level, audience, diversityKey = '' } = params
   const isChild = audience === 'child'
   const isBasic = level === 'starter' || level === 'a1' || level === 'a2'
 
-  const seed = stableHash32(`first_q|${topic}|${tense}|${level}|${audience}`)
+  const seed = stableHash32(`first_q|${topic}|${tense}|${level}|${audience}|${diversityKey}`)
   const pick = (variants: string[]) => variants[seed % variants.length] ?? variants[0] ?? ''
 
   const byTopic = (t: string): Record<string, string[]> => {
@@ -1151,11 +1155,36 @@ function firstQuestionForTopicAndTense(params: {
       ])
     }
     if (topic === 'movies_series') {
-      return pick([
-        `${kidLead}Do you watch movies often?`,
-        `${kidLead}What kind of movies do you like?`,
-        `${kidLead}Do you watch series?`,
-      ])
+      return isChild
+        ? pick([
+            `${kidLead}Do you watch movies often?`,
+            `${kidLead}What kind of movies do you like?`,
+            `${kidLead}Do you watch series?`,
+            `${kidLead}Who do you watch movies with?`,
+            `${kidLead}What movie character do you like most?`,
+          ])
+        : pick([
+            'What kind of movies do you usually watch?',
+            'Why do you enjoy this type of movie?',
+            'Which series are you following now, and why?',
+            'What do you value most in a good movie: story, acting, or visuals?',
+            'How has your movie taste changed in recent years?',
+          ])
+    }
+    if (topic === 'music') {
+      return isChild
+        ? pick([
+            `${kidLead}What music do you like?`,
+            `${kidLead}Who is your favorite singer?`,
+            `${kidLead}Do you listen to music every day?`,
+            `${kidLead}What song makes you happy?`,
+          ])
+        : pick([
+            'What music do you listen to most these days?',
+            'Why does this music style resonate with you?',
+            'Which artist has influenced your taste the most?',
+            'Do you usually focus on lyrics, melody, or mood?',
+          ])
     }
     if (topic === 'hobbies') {
       return pick([
@@ -1165,11 +1194,19 @@ function firstQuestionForTopicAndTense(params: {
       ])
     }
     if (topic === 'travel') {
-      return pick([
-        `${kidLead}Do you like traveling?`,
-        `${kidLead}Where do you usually go on trips?`,
-        `${kidLead}What do you usually do on your trips?`,
-      ])
+      return isChild
+        ? pick([
+            `${kidLead}Do you like traveling?`,
+            `${kidLead}Where do you usually go on trips?`,
+            `${kidLead}What do you usually do on your trips?`,
+            `${kidLead}What place do you want to visit with your family?`,
+          ])
+        : pick([
+            'What type of trips do you enjoy most, and why?',
+            'How do you usually choose your travel destinations?',
+            'What makes a trip memorable for you?',
+            'Do you prefer relaxed travel or active travel?',
+          ])
     }
     return pick([
       `${kidLead}What do you think about ${t1}?`,
@@ -1215,6 +1252,19 @@ function firstQuestionForTopicAndTense(params: {
   }
 
   if (tense === 'past_simple') {
+    if (topic === 'movies_series') {
+      return isChild
+        ? pick([
+            `${kidLead}What movie did you watch last weekend?`,
+            `${kidLead}Did you watch a funny movie yesterday?`,
+            `${kidLead}What did you like most in that movie?`,
+          ])
+        : pick([
+            'What movie did you watch recently, and what stood out?',
+            'Did you watch any series episode this week?',
+            'What did you think about the story and characters?',
+          ])
+    }
     return pick([
       `${kidLead}What did you talk about ${t1} yesterday?`,
       `${kidLead}What did you talk about ${t1} last weekend?`,
@@ -1223,6 +1273,32 @@ function firstQuestionForTopicAndTense(params: {
   }
 
   if (tense === 'future_simple') {
+    if (topic === 'movies_series') {
+      return isChild
+        ? pick([
+            `${kidLead}What movie will you watch next?`,
+            `${kidLead}Who will you watch a movie with next week?`,
+            `${kidLead}What kind of movie will you choose next weekend?`,
+          ])
+        : pick([
+            'What movie or series will you watch next, and why?',
+            'What do you expect from your next movie night?',
+            'Will you choose something familiar or try a new genre next week?',
+          ])
+    }
+    if (topic === 'sports') {
+      return isChild
+        ? pick([
+            `${kidLead}What sport will you play next week?`,
+            `${kidLead}Who will you play sports with this weekend?`,
+            `${kidLead}Where will you train next time?`,
+          ])
+        : pick([
+            'What sport will you focus on next week?',
+            'How will you plan your next training session?',
+            'Will you try anything new in your sport routine soon?',
+          ])
+    }
     return pick([
       `${kidLead}What will you talk about ${t1} tomorrow?`,
       `${kidLead}What will you talk about ${t1} this weekend?`,
@@ -1291,6 +1367,7 @@ function fallbackNextQuestion(params: {
   tense: string
   level: string
   audience: 'child' | 'adult'
+  diversityKey?: string
 }): string {
   if (params.topic === 'free_talk') return defaultNextQuestion(params.tense)
   return firstQuestionForTopicAndTense({
@@ -1298,6 +1375,7 @@ function fallbackNextQuestion(params: {
     tense: params.tense,
     level: params.level,
     audience: params.audience,
+    diversityKey: params.diversityKey,
   })
 }
 
@@ -1514,10 +1592,14 @@ function contextualizeTopicNextQuestionForLastAnswer(content: string, params: {
     .sort((a, b) => b.score - a.score)
     .map((entry) => entry.original)[0] ?? null
   if (!entity) return content
+  const normalizedEntity = normalizeDialogueEntityForTopic(entity, params.topic)
+  if (!normalizedEntity) return content
 
-  const entityLower = entity.toLowerCase()
+  const entityLower = normalizedEntity.toLowerCase()
   const obj =
-    params.topic === 'travel' || params.topic === 'culture' ? entityToPlaceNoun(entity) : entity.trim()
+    params.topic === 'travel' || params.topic === 'culture'
+      ? entityToPlaceNoun(normalizedEntity)
+      : normalizedEntity.trim()
 
   type Action = 'visit' | 'like' | 'play' | 'watch' | 'listen' | 'eat' | 'use' | 'do' | 'talk' | 'work'
   const actionForTopic = (t: string): Action => {
@@ -1705,9 +1787,90 @@ function contextualizeTopicNextQuestionForLastAnswer(content: string, params: {
   if (qIdx === -1) return content
 
   const questionLine = lines[qIdx] ?? ''
-  if (questionLine.toLowerCase().includes(entityLower)) return content
+  const lastAssistantQuestion = extractLastAssistantQuestionSentence(params.contextMessages ?? [])
+  const buildOpenVariants = (): string[] => {
+    if (params.tense === 'present_simple') {
+      switch (action) {
+        case 'watch':
+          return params.audience === 'child'
+            ? [`Why do you like watching ${obj}?`, `Who do you usually watch ${obj} with?`]
+            : [`Why do you usually choose ${obj}?`, `What do you value most when watching ${obj}?`]
+        case 'play':
+          return params.audience === 'child'
+            ? [`Why do you like playing ${obj}?`, `Who do you usually play ${obj} with?`]
+            : [`What motivates you to play ${obj} regularly?`, `How does ${obj} affect your mood?`]
+        case 'listen':
+          return params.audience === 'child'
+            ? [`What song about ${obj} do you like most?`, `When do you like listening to ${obj}?`]
+            : [`What do you usually look for in ${obj}?`, `Why does ${obj} work for you right now?`]
+        case 'eat':
+          return params.audience === 'child'
+            ? [`Why do you like eating ${obj}?`, `Who do you usually eat ${obj} with?`]
+            : [`What makes ${obj} your choice most days?`, `How does ${obj} fit your routine?`]
+        case 'visit':
+          return params.audience === 'child'
+            ? [`Why do you want to visit ${obj}?`, `Who do you want to visit ${obj} with?`]
+            : [`What attracts you to ${obj} most?`, `How would you plan a visit to ${obj}?`]
+        case 'use':
+          return params.audience === 'child'
+            ? [`Why do you like using ${obj}?`, `What do you use ${obj} for most?`]
+            : [`What is the main benefit of ${obj} for you?`, `How often do you rely on ${obj}?`]
+        case 'do':
+          return params.audience === 'child'
+            ? [`Why do you like ${obj}?`, `Who do you do ${obj} with?`]
+            : [`What part of ${obj} is most interesting for you?`, `How does ${obj} help your day?`]
+        case 'talk':
+          return params.audience === 'child'
+            ? [`What do you like talking to ${obj} about?`, `When do you talk to ${obj} most?`]
+            : [`What topics do you usually discuss with ${obj}?`, `Why are those talks important to you?`]
+        case 'work':
+          return params.audience === 'child'
+            ? [`What do you like doing when you work on ${obj}?`, `Who helps you with ${obj}?`]
+            : [`What outcome do you want from working on ${obj}?`, `What is the hardest part of ${obj}?`]
+        case 'like':
+          return params.audience === 'child'
+            ? [`Why do you like ${obj}?`, `What do you like most about ${obj}?`]
+            : [`Why does ${obj} matter to you?`, `What is most meaningful to you in ${obj}?`]
+      }
+    }
+    if (params.tense === 'future_simple') {
+      switch (action) {
+        case 'watch':
+          return [`What do you want to watch next week?`, `Who will you watch ${obj} with next week?`]
+        case 'play':
+          return [`Who will you play ${obj} with next week?`, `Why will you choose ${obj} next week?`]
+        case 'listen':
+          return [`What will you listen to with ${obj} next week?`, `When will you listen to ${obj}?`]
+        case 'eat':
+          return [`When will you eat ${obj} next week?`, `Who will you eat ${obj} with next week?`]
+        case 'visit':
+          return [`Who will you visit ${obj} with next week?`, `What will you do when you visit ${obj}?`]
+        case 'use':
+          return [`How will you use ${obj} next week?`, `Why will you use ${obj} next week?`]
+        case 'do':
+          return [`How will you do ${obj} next week?`, `Who will you do ${obj} with next week?`]
+        case 'talk':
+          return [`What will you talk to ${obj} about next week?`, `Why will you talk to ${obj} next week?`]
+        case 'work':
+          return [`What will you work on in ${obj} next week?`, `Why will you focus on ${obj} next week?`]
+        case 'like':
+          return [`What will you like most about ${obj} next week?`, `Why will ${obj} be important for you next week?`]
+      }
+    }
+    return []
+  }
 
-  lines[qIdx] = replacement
+  const candidates = [replacement, ...buildOpenVariants()]
+  const nextQuestion =
+    candidates.find((candidate) => {
+      if (!candidate) return false
+      if (questionLine.toLowerCase().includes(entityLower) && isNearDuplicateQuestion(questionLine, candidate)) {
+        return false
+      }
+      return !isNearDuplicateQuestion(lastAssistantQuestion, candidate)
+    }) ?? replacement
+
+  lines[qIdx] = nextQuestion
   return lines.join('\n').trim()
 }
 
@@ -1884,14 +2047,18 @@ function isValidTutorOutput(params: {
 
   // Комментарий без Повтори: допустим только если ответ пользователя по времени верен.
   // Если время неверно — ИИ обязан выдать Повтори, а не переходить к следующему вопросу.
+  // В режиме requiredTense === 'all' ориентируемся на время предыдущего вопроса ассистента.
   if (hasComment && !hasRepeat) {
+    const effectiveRequiredTense =
+      requiredTense === 'all'
+        ? (priorAssistantContent ? inferTenseFromDialogueAssistantContent(priorAssistantContent) : null)
+        : (requiredTense ?? null)
     if (
-      requiredTense &&
-      requiredTense !== 'all' &&
+      effectiveRequiredTense &&
       lastUserText &&
       !isFirstTurn &&
       !isTopicChoiceTurn &&
-      !isUserLikelyCorrectForTense(lastUserText, requiredTense)
+      !isUserLikelyCorrectForTense(lastUserText, effectiveRequiredTense)
     ) {
       return false
     }
@@ -2337,7 +2504,9 @@ function isLowSignalDialogueInput(text: string): boolean {
   if (words.length === 1) {
     const word = normalized.replace(/[^a-z']/g, '')
     if (word.length >= 4 && !/[aeiouy]/.test(word)) return true
-    if (word.length <= 2) return true
+    // Важно: это правило только для латиницы; для чисто русских токенов
+    // (например "ужасы") не считаем ввод шумом автоматически.
+    if (word.length > 0 && word.length <= 2) return true
   }
 
   // Длинная строка из почти одних согласных без явного смысла часто бывает мусором.
@@ -3558,6 +3727,8 @@ function buildDialogueLowSignalFallback(params: {
   tense: string
   level: string
   audience: 'child' | 'adult'
+  forcedRepeatSentence?: string | null
+  lastUserText?: string
 }): string {
   const soft = isSoftCommentTone(params.audience, params.level)
   const invalidInputComment = soft
@@ -3566,8 +3737,12 @@ function buildDialogueLowSignalFallback(params: {
       : 'Комментарий: Напишите полное предложение на английском.'
     : 'Комментарий: Некорректный ввод. Ответьте полным английским предложением.'
 
-  const lastRepeat = extractLastAssistantRepeatSentence(params.messages)
-  if (lastRepeat) {
+  const lastRepeat = params.forcedRepeatSentence ?? extractLastAssistantRepeatSentence(params.messages)
+  const hasActiveRepeat =
+    Boolean(lastRepeat) &&
+    Boolean(params.lastUserText) &&
+    !isDialogueAnswerEffectivelyCorrect(params.lastUserText!, lastRepeat!, params.tense)
+  if (hasActiveRepeat && lastRepeat) {
     return [invalidInputComment, `Повтори: ${lastRepeat}`].join('\n')
   }
 
@@ -3716,7 +3891,56 @@ export async function POST(req: NextRequest) {
 
     const tenseForDialogueOps =
       mode === 'dialogue' && topic === 'free_talk' ? dialogueEffectiveTense : normalizedTense
-    const tutorGradingTense = mode === 'dialogue' ? tenseForDialogueOps : normalizedTense
+    let tutorGradingTense = mode === 'dialogue' ? tenseForDialogueOps : normalizedTense
+
+    if (mode === 'dialogue' && forcedRepeatSentence) {
+      const inferredRepeatTense = inferTenseFromDialogueAssistantContent(
+        getLastAssistantContent(recentMessages) ?? ''
+      )
+      if (inferredRepeatTense) {
+        tutorGradingTense = inferredRepeatTense
+      }
+    }
+
+    const topicChangeDetection =
+      mode === 'dialogue' && topic === 'free_talk' && !isFirstTurn && !isTopicChoiceTurn
+        ? detectFreeTalkTopicChange(lastUserText)
+        : { isTopicChange: false, topicHintText: null as string | null, needsClarification: false }
+
+    if (topicChangeDetection.isTopicChange) {
+      if (topicChangeDetection.needsClarification) {
+        return NextResponse.json({
+          content: audience === 'child' ? 'What do you want to talk about now?' : 'What would you like to talk about now?',
+          dialogueCorrect: true,
+        })
+      }
+
+      const topicHintText = topicChangeDetection.topicHintText ?? lastUserText
+      const { en, ru } = extractTopicChoiceKeywordsByLang(topicHintText)
+      const keywords = en.length > 0 ? en : translateRuTopicKeywordsToEn(ru)
+
+      if (keywords.length > 0) {
+        return NextResponse.json({
+          content: buildFreeTalkTopicAnchorQuestion(keywords, tutorGradingTense),
+          dialogueCorrect: true,
+        })
+      }
+
+      return NextResponse.json({
+        content: audience === 'child' ? 'What do you want to talk about now?' : 'What would you like to talk about now?',
+        dialogueCorrect: true,
+      })
+    }
+
+    if (mode === 'dialogue' && topic !== 'free_talk' && !isFirstTurn && isFixedTopicSwitchRequest(lastUserText)) {
+      return NextResponse.json({
+        content:
+          audience === 'child'
+            ? 'Great idea! In this lesson we stay on the current topic. Please answer about this topic, or switch to Free Topic to change it.'
+            : 'Good idea. In this lesson we stay on the current topic. Please answer about this topic, or switch to Free Topic to change it.',
+        dialogueCorrect: true,
+      })
+    }
 
     if (mode === 'dialogue' && topic !== 'free_talk' && !isFirstTurn && isLowSignalDialogueInput(lastUserText)) {
       return NextResponse.json({
@@ -3726,6 +3950,8 @@ export async function POST(req: NextRequest) {
           tense: tutorGradingTense,
           level,
           audience,
+          forcedRepeatSentence,
+          lastUserText: lastUserContentForResponse,
         }),
       })
     }
@@ -4429,6 +4655,7 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
             tense: freeTalkExpectedNextQuestionTense!,
             level,
             audience,
+            diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
           }),
           dialogueCorrect: true,
         })
@@ -4602,6 +4829,18 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
         })
       }
       if (mode === 'dialogue' && !isFirstTurn && !isTopicChoiceTurn && !isLowSignalDialogueInput(lastUserContentForResponse)) {
+        if (userClosedForcedRepeat && isUserLikelyCorrectForTense(lastUserContentForResponse, tutorGradingTense)) {
+          return NextResponse.json({
+            content: fallbackNextQuestion({
+              topic,
+              tense: tutorGradingTense,
+              level,
+              audience,
+              diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
+            }),
+            dialogueCorrect: true,
+          })
+        }
         const inferredTense = getLastAssistantContent(recentMessages)
           ? inferTenseFromDialogueAssistantContent(getLastAssistantContent(recentMessages)!)
           : null
@@ -4616,7 +4855,13 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
           : soft
             ? `Комментарий: Тут что-то не так. ${tryAgain}`
             : 'Комментарий: Ошибка в грамматике или времени. Попробуйте ещё раз.'
-        const nextQuestion = lastQ ?? fallbackNextQuestion({ topic, tense: tutorGradingTense, level, audience })
+        const nextQuestion = lastQ ?? fallbackNextQuestion({
+          topic,
+          tense: tutorGradingTense,
+          level,
+          audience,
+          diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
+        })
         return NextResponse.json({ content: `${comment}\n${nextQuestion}` })
       }
       return NextResponse.json({
@@ -4630,6 +4875,8 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
                   tense: tutorGradingTense,
                   level,
                   audience,
+                  forcedRepeatSentence,
+                  lastUserText: lastUserContentForResponse,
                 })
             : fallbackQuestionForContext({ topic, tense: normalizedTense, level, audience, isFirstTurn, isTopicChoiceTurn, lastUserText: lastUserContentForResponse }),
       })

@@ -50,4 +50,26 @@ describe('isDialogueOutputLikelyInRequiredTense', () => {
       })
     ).toEqual({ ok: false, reason: 'next_question_tense_mismatch' })
   })
+
+  it('requiredTense=all: Повтори в неверном времени невалиден (опора на предыдущий вопрос)', () => {
+    const content = 'Комментарий: Нужно ответить в прошедшем длительном.\nПовтори: I swim in the river.'
+    expect(
+      validateDialogueOutputTense({
+        content,
+        requiredTense: 'all',
+        priorAssistantContent: 'What were you doing near the river yesterday evening?',
+      })
+    ).toEqual({ ok: false, reason: 'required_tense_mismatch' })
+  })
+
+  it('requiredTense=all: Повтори в нужном времени валиден (опора на предыдущий вопрос)', () => {
+    const content = 'Комментарий: Нужно Past Continuous.\nПовтори: I was swimming in the river yesterday evening.'
+    expect(
+      validateDialogueOutputTense({
+        content,
+        requiredTense: 'all',
+        priorAssistantContent: 'What were you doing near the river yesterday evening?',
+      })
+    ).toEqual({ ok: true })
+  })
 })
