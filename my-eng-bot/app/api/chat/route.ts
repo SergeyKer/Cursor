@@ -17,7 +17,7 @@ import {
 import { isDialogueOutputLikelyInRequiredTense, validateDialogueOutputTense } from '@/lib/dialogueOutputValidation'
 import { buildAdultFullTensePool, pickWeightedFreeTalkTense } from '@/lib/freeTalkDialogueTense'
 import { detectFreeTalkTopicChange, isFixedTopicSwitchRequest } from '@/lib/freeTalkTopicChange'
-import { normalizeDialogueEntityForTopic } from '@/lib/dialogueEntityNormalization'
+import { normalizeDialogueEntityForTopic, stripLeadingAnswerVerbPhrases } from '@/lib/dialogueEntityNormalization'
 import { isNearDuplicateQuestion } from '@/lib/dialogueQuestionVariety'
 import { buildFreeTalkTopicAnchorQuestion as buildFreeTalkTopicAnchorQuestionText } from '@/lib/freeTalkQuestionAnchor'
 import {
@@ -362,7 +362,7 @@ Never add raw markers like **Correction:**, **Comment:**, **Right:** or similar 
 
 Your reply must contain ONLY the actual content the user should see: a question in English, or (when correcting) only Комментарий: [Russian text] and Повтори: [sentence]. Never output any instructions, format descriptions, or meta-text. Never output numbering or labels like "FORMAT". Output only real questions, Комментарий, and Повтори lines.
 
-If the user clearly asks YOU a simple personal-style question about preferences or experience (e.g. "And you?", "What is your favorite food?", "Do you like tea?"), you may briefly answer in the first person (1 short sentence in English) BEFORE or AFTER the user's correction block, and then still ask them the next question. The goal is to keep the conversation natural and two‑sided, but remember: the main focus is always on the user's practice, not on talking about yourself.
+CRITICAL DIALOGUE PLAN RULE: In dialogue training mode, NEVER expand the conversation with your own personal answer (for example to "And you?"). Do NOT talk about your preferences or experience. Always follow the tutor plan: evaluate the user's last message, then either output correction format (Комментарий + Повтори) or ask exactly one next question that continues the established topic and context from the user's last answer.
 
 Never use "Tell me" or other English instruction phrases. After a correction, you may optionally add a short Russian prompt like "Повтори: " + the correct English sentence so the user can repeat it, but keep it separate from the \"Комментарий\" line.
 
@@ -1485,6 +1485,7 @@ function extractLikelyEntityFromUserAnswer(text: string): string | null {
   stripped = stripped.replace(/^i\s+/i, '')
   stripped = stripped.replace(/^(?:my|your|our|their)\s+/i, '')
   stripped = stripped.replace(/^favorite\s+(?:place|thing|food|song|movie|hobby)\s+(?:is\s+)?/i, '')
+  stripped = stripLeadingAnswerVerbPhrases(stripped)
   stripped = stripped.trim()
   if (!stripped) return null
   if (
@@ -1567,12 +1568,14 @@ function contextualizeTopicNextQuestionForLastAnswer(content: string, params: {
   if (!entity) return content
   const normalizedEntity = normalizeDialogueEntityForTopic(entity, params.topic)
   if (!normalizedEntity) return content
+  const guardedEntity = stripLeadingAnswerVerbPhrases(normalizedEntity)
+  if (!guardedEntity) return content
 
-  const entityLower = normalizedEntity.toLowerCase()
+  const entityLower = guardedEntity.toLowerCase()
   const obj =
     params.topic === 'travel' || params.topic === 'culture'
-      ? entityToPlaceNoun(normalizedEntity)
-      : normalizedEntity.trim()
+      ? entityToPlaceNoun(guardedEntity)
+      : guardedEntity.trim()
 
   type Action = 'visit' | 'like' | 'play' | 'watch' | 'listen' | 'eat' | 'use' | 'do' | 'talk' | 'work'
   const actionForTopic = (t: string): Action => {
@@ -1761,6 +1764,13 @@ function contextualizeTopicNextQuestionForLastAnswer(content: string, params: {
 
   const questionLine = lines[qIdx] ?? ''
   const lastAssistantQuestion = extractLastAssistantQuestionSentence(params.contextMessages ?? [])
+  const recentAssistantQuestions: string[] = []
+  for (let i = (params.contextMessages ?? []).length - 1; i >= 0 && recentAssistantQuestions.length < 3; i--) {
+    const msg = params.contextMessages?.[i]
+    if (msg?.role !== 'assistant') continue
+    const q = extractLastAssistantQuestionSentence([msg])
+    if (q && !recentAssistantQuestions.includes(q)) recentAssistantQuestions.push(q)
+  }
   const buildOpenVariants = (): string[] => {
     if (params.tense === 'present_simple') {
       switch (action) {
@@ -1833,15 +1843,30 @@ function contextualizeTopicNextQuestionForLastAnswer(content: string, params: {
     return []
   }
 
-  const candidates = [replacement, ...buildOpenVariants()]
+  const candidates = [...buildOpenVariants(), replacement].filter((candidate): candidate is string => Boolean(candidate))
+  const scoredCandidates = candidates.map((candidate, index) => {
+    const duplicateWithCurrent = questionLine.toLowerCase().includes(entityLower) && isNearDuplicateQuestion(questionLine, candidate)
+    const duplicateWithHistory = recentAssistantQuestions.some((q) => isNearDuplicateQuestion(q, candidate))
+    const duplicateWithLast = lastAssistantQuestion ? isNearDuplicateQuestion(lastAssistantQuestion, candidate) : false
+    return {
+      candidate,
+      index,
+      score: (duplicateWithCurrent ? 100 : 0) + (duplicateWithHistory ? 10 : 0) + (duplicateWithLast ? 1 : 0),
+    }
+  })
+
+  const perfectCandidate = scoredCandidates.find((entry) => entry.score === 0)?.candidate ?? null
   const nextQuestion =
-    candidates.find((candidate) => {
-      if (!candidate) return false
-      if (questionLine.toLowerCase().includes(entityLower) && isNearDuplicateQuestion(questionLine, candidate)) {
-        return false
-      }
-      return !isNearDuplicateQuestion(lastAssistantQuestion, candidate)
-    }) ?? replacement
+    perfectCandidate ??
+    (() => {
+      if (scoredCandidates.length === 0) return replacement
+      const bestScore = Math.min(...scoredCandidates.map((entry) => entry.score))
+      const bestCandidates = scoredCandidates.filter((entry) => entry.score === bestScore).map((entry) => entry.candidate)
+      const fallbackSeed = stableHash32(
+        `${params.topic}|${params.tense}|${params.audience}|${params.lastUserContent}|${questionLine}|${recentAssistantQuestions.join('|')}`
+      )
+      return bestCandidates[fallbackSeed % bestCandidates.length] ?? scoredCandidates[0]?.candidate ?? replacement
+    })()
 
   lines[qIdx] = nextQuestion
   return lines.join('\n').trim()
