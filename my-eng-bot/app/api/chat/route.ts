@@ -19,6 +19,7 @@ import { buildAdultFullTensePool, pickWeightedFreeTalkTense } from '@/lib/freeTa
 import { detectFreeTalkTopicChange, isFixedTopicSwitchRequest } from '@/lib/freeTalkTopicChange'
 import { normalizeDialogueEntityForTopic } from '@/lib/dialogueEntityNormalization'
 import { isNearDuplicateQuestion } from '@/lib/dialogueQuestionVariety'
+import { buildFreeTalkTopicAnchorQuestion as buildFreeTalkTopicAnchorQuestionText } from '@/lib/freeTalkQuestionAnchor'
 import {
   isKommentariyPurePraiseOnly,
   shouldStripRepeatOnPraise,
@@ -461,7 +462,12 @@ function fallbackQuestionForContext(params: {
         const { en, ru } = extractTopicChoiceKeywordsByLang(params.lastUserText)
         const keywords = en.length > 0 ? en : translateRuTopicKeywordsToEn(ru)
         if (keywords.length > 0) {
-          return buildFreeTalkTopicAnchorQuestion(keywords, params.tense)
+          return buildFreeTalkTopicAnchorQuestion({
+            keywords,
+            tense: params.tense,
+            audience: params.audience,
+            diversityKey: `topic-choice|${params.lastUserText}`,
+          })
         }
       }
       return params.audience === 'child' ? 'What do you want to talk about?' : 'What would you like to talk about now?'
@@ -956,88 +962,14 @@ function extractLastDialogueQuestionLine(content: string): string | null {
 }
 
 /** Один вопрос в нужном времени, привязанный к теме пользователя (fallback для free_talk). */
-function buildFreeTalkTopicAnchorQuestion(keywords: string[], tense: string): string {
-  const t = keywords.slice(0, 3).join(', ')
-  const seed = stableHash32(`ftaq|${t}|${tense}`)
-  const pick = (variants: string[]) => variants[seed % variants.length] ?? variants[0]!
-
-  switch (tense) {
-    case 'present_simple':
-      return pick([
-        `Do you like ${t}?`,
-        `What do you think about ${t}?`,
-        `What is your favorite ${t}?`,
-        `Do you enjoy ${t}?`,
-      ])
-    case 'present_continuous':
-      return pick([
-        `Are you enjoying ${t} right now?`,
-        `Are you thinking about ${t} now?`,
-        `What are you doing with ${t} right now?`,
-      ])
-    case 'present_perfect':
-      return pick([
-        `Have you ever tried ${t}?`,
-        `Have you enjoyed ${t} recently?`,
-        `What have you learned about ${t}?`,
-      ])
-    case 'present_perfect_continuous':
-      return pick([
-        `Have you been thinking about ${t} lately?`,
-        `Have you been enjoying ${t} for a while?`,
-      ])
-    case 'past_simple':
-      return pick([
-        `Did you enjoy ${t} recently?`,
-        `Did you talk about ${t} yesterday?`,
-        `What happened with ${t} last time?`,
-        `Did you try ${t} before?`,
-      ])
-    case 'past_continuous':
-      return pick([
-        `Were you thinking about ${t} yesterday?`,
-        `Were you enjoying ${t} at that time?`,
-      ])
-    case 'past_perfect':
-      return pick([
-        `Had you tried ${t} before that?`,
-        `Had you thought about ${t} before?`,
-      ])
-    case 'past_perfect_continuous':
-      return pick([
-        `Had you been thinking about ${t} for a long time?`,
-        `Had you been enjoying ${t} before that?`,
-      ])
-    case 'future_simple':
-      return pick([
-        `Will you try ${t} soon?`,
-        `Will you enjoy ${t} tomorrow?`,
-        `What will you do with ${t} next week?`,
-      ])
-    case 'future_continuous':
-      return pick([
-        `Will you be enjoying ${t} this time tomorrow?`,
-        `Will you be thinking about ${t} later?`,
-      ])
-    case 'future_perfect':
-      return pick([
-        `Will you have tried ${t} by next week?`,
-        `Will you have finished with ${t} by tomorrow?`,
-      ])
-    case 'future_perfect_continuous':
-      return pick([
-        `Will you have been enjoying ${t} for a long time by then?`,
-        `Will you have been thinking about ${t} for a while?`,
-      ])
-    case 'all':
-    default:
-      return pick([
-        `Do you like ${t}?`,
-        `What do you think about ${t}?`,
-        `Do you enjoy ${t}?`,
-        `Tell me about ${t}. What do you like about it?`,
-      ])
-  }
+function buildFreeTalkTopicAnchorQuestion(params: {
+  keywords: string[]
+  tense: string
+  audience: 'child' | 'adult'
+  diversityKey?: string
+  recentAssistantQuestions?: string[]
+}): string {
+  return buildFreeTalkTopicAnchorQuestionText(params)
 }
 
 function translateRuTopicKeywordsToEn(keywords: string[]): string[] {
@@ -1060,6 +992,47 @@ function ensureFreeTalkTopicChoiceQuestionAnchorsUser(params: {
 }): string {
   const qLine = extractLastDialogueQuestionLine(params.content)
   return qLine ?? params.content
+}
+
+function extractRecentAssistantQuestions(messages: ChatMessage[], limit = 3): string[] {
+  const questions: string[] = []
+  for (let i = messages.length - 1; i >= 0 && questions.length < limit; i--) {
+    const msg = messages[i]
+    if (msg?.role !== 'assistant') continue
+    const q = extractLastDialogueQuestionLine(msg.content)
+    if (q) questions.push(q)
+  }
+  return questions
+}
+
+function applyFreeTalkAntiRepeat(params: {
+  content: string
+  tense: string
+  audience: 'child' | 'adult'
+  recentMessages: ChatMessage[]
+  lastUserText: string
+}): string {
+  const questionLine = extractLastDialogueQuestionLine(params.content)
+  if (!questionLine) return params.content
+  if (/(^|\n)\s*(Повтори|Repeat|Say)\s*:/im.test(params.content)) return params.content
+
+  const recentQuestions = extractRecentAssistantQuestions(params.recentMessages, 3)
+  const isRepeated = recentQuestions.some((q) => isNearDuplicateQuestion(q, questionLine))
+  if (!isRepeated) return params.content
+
+  const { en, ru } = extractTopicChoiceKeywordsByLang(params.lastUserText)
+  const keywords = en.length > 0 ? en : translateRuTopicKeywordsToEn(ru)
+  if (keywords.length === 0) return params.content
+
+  const replacement = buildFreeTalkTopicAnchorQuestion({
+    keywords,
+    tense: params.tense,
+    audience: params.audience,
+    diversityKey: `${params.recentMessages.length}|${params.lastUserText}|anti-repeat`,
+    recentAssistantQuestions: recentQuestions,
+  })
+  if (!replacement || isNearDuplicateQuestion(questionLine, replacement)) return params.content
+  return params.content.replace(questionLine, replacement)
 }
 
 function firstQuestionForTopicAndTense(params: {
@@ -3921,7 +3894,13 @@ export async function POST(req: NextRequest) {
 
       if (keywords.length > 0) {
         return NextResponse.json({
-          content: buildFreeTalkTopicAnchorQuestion(keywords, tutorGradingTense),
+          content: buildFreeTalkTopicAnchorQuestion({
+            keywords,
+            tense: tutorGradingTense,
+            audience,
+            diversityKey: `${recentMessages.length}|${lastUserText}|topic-change`,
+            recentAssistantQuestions: extractRecentAssistantQuestions(recentMessages, 3),
+          }),
           dialogueCorrect: true,
         })
       }
@@ -4230,6 +4209,16 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
           content: sanitized,
           userText: lastUserContentForResponse,
           tense: tutorGradingTense,
+        })
+      }
+      if (topic === 'free_talk') {
+        const freeTalkTense = freeTalkExpectedNextQuestionTense ?? tutorGradingTense
+        sanitized = applyFreeTalkAntiRepeat({
+          content: sanitized,
+          tense: freeTalkTense,
+          audience,
+          recentMessages,
+          lastUserText: lastUserContentForResponse,
         })
       }
       sanitized = await repairDialogueAllTenseRepeatMismatch({
@@ -4734,6 +4723,16 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
                 content: repaired,
                 userText: lastUserContentForResponse,
                 tense: tutorGradingTense,
+              })
+            }
+            if (topic === 'free_talk') {
+              const freeTalkTense = freeTalkExpectedNextQuestionTense ?? tutorGradingTense
+              repaired = applyFreeTalkAntiRepeat({
+                content: repaired,
+                tense: freeTalkTense,
+                audience,
+                recentMessages,
+                lastUserText: lastUserContentForResponse,
               })
             }
             repaired = await repairDialogueAllTenseRepeatMismatch({
