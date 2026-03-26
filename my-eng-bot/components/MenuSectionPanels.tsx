@@ -120,7 +120,7 @@ export default function MenuSectionPanels({
             : 'menu-panel-view-enter min-h-0 flex-1 space-y-2.5 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-1'
         }
       >
-          {menuView === 'root' && (
+          {menuView === 'root' && !homeLayout && (
             <>
               <MenuNavRow
                 label="Чат с MyEng"

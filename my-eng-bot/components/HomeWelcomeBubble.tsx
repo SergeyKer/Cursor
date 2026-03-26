@@ -7,6 +7,7 @@ type HomeWelcomeBubbleProps = {
   /** Текст: блоки через \\n\\n — приветствие, факт, приглашение (или 2 блока в компактном режиме) */
   text: string
   className?: string
+  actions?: React.ReactNode
 }
 
 const bubbleClass =
@@ -15,7 +16,7 @@ const bubbleClass =
 /**
  * Отдельные пузыри для каждого блока текста (полный режим: приветствие → факт → приглашение).
  */
-export default function HomeWelcomeBubble({ text, className = '' }: HomeWelcomeBubbleProps) {
+export default function HomeWelcomeBubble({ text, className = '', actions }: HomeWelcomeBubbleProps) {
   const blocks = React.useMemo(() => splitGreetingIntoBlocks(text), [text])
 
   return (
@@ -39,6 +40,7 @@ export default function HomeWelcomeBubble({ text, className = '' }: HomeWelcomeB
               ))}
             </div>
           </div>
+          {actions && <div className="pt-3">{actions}</div>}
         </div>
       </div>
     </section>

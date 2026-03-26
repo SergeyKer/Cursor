@@ -6,7 +6,7 @@ import SlideOutMenu, { MenuIcon } from '@/components/SlideOutMenu'
 import MenuSectionPanels, { type MenuView } from '@/components/MenuSectionPanels'
 import Chat from '@/components/Chat'
 import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
-import { buildCompactGreeting, buildFullGreeting } from '@/lib/homeGreeting'
+import { buildCompactGreeting } from '@/lib/homeGreeting'
 import { consumeNextGreetingFactLine } from '@/lib/greetingFactRotation'
 import { loadState, saveState, getUsageCountToday, incrementUsageToday, DEFAULT_SETTINGS } from '@/lib/storage'
 import { countDialogueFinalCorrectAnswers } from '@/lib/dialogueStats'
@@ -992,28 +992,64 @@ export default function Home() {
               paddingBottom: 'clamp(1rem, 2.6vh, 2rem)',
             }}
           >
+            <div className="flex w-full max-w-[23.2rem] shrink-0 justify-center">
+              <div className="w-1/4 overflow-hidden rounded-2xl border border-[var(--border)] bg-white/70 shadow-sm">
+                <Image
+                  src="/home-logo.png"
+                  alt="MyEng logo"
+                  width={512}
+                  height={512}
+                  className="block h-auto w-full object-contain"
+                  sizes="(max-width: 640px) 25vw, 6rem"
+                  priority
+                />
+              </div>
+            </div>
             {homeMenuView === 'root' && (welcomeCompact || welcomeFactLine !== null) && (
               <HomeWelcomeBubble
-                text={
-                  welcomeCompact ? buildCompactGreeting() : buildFullGreeting(welcomeFactLine ?? '')
+                text={buildCompactGreeting()}
+                actions={
+                  <div className="flex justify-end">
+                    <div className="flex flex-col items-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setHomeMenuView('aiChat')}
+                        className="btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]"
+                      >
+                        Чат с MyEng
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setHomeMenuView('lessons')}
+                        className="btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]"
+                      >
+                        Уроки
+                      </button>
+                    </div>
+                  </div>
                 }
               />
             )}
-            <div className="flex w-full max-w-[23.2rem] shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[#e8ecf0] px-3 py-3 shadow-sm">
-              <MenuSectionPanels
-                menuView={homeMenuView}
-                onMenuViewChange={handleHomeMenuViewChange}
-                settings={settings}
-                onSettingsChange={(s) => setSettings(normalizeSettingsForAudience(s))}
-                usage={usage}
-                dialogueCorrectAnswers={dialogueCorrectAnswers}
-                idPrefix="home-"
-                className="flex min-h-0 flex-col"
-                homeLayout
-                onStartHomeChat={() => setDialogStarted(true)}
-                onGoHome={goToStartScreen}
-              />
-            </div>
+            {homeMenuView !== 'root' && (
+              <div className="flex w-full max-w-[23.2rem] shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[#e8ecf0] px-3 py-3 shadow-sm">
+                <MenuSectionPanels
+                  menuView={homeMenuView}
+                  onMenuViewChange={handleHomeMenuViewChange}
+                  settings={settings}
+                  onSettingsChange={(s) => setSettings(normalizeSettingsForAudience(s))}
+                  usage={usage}
+                  dialogueCorrectAnswers={dialogueCorrectAnswers}
+                  idPrefix="home-"
+                  className="flex min-h-0 flex-col"
+                  homeLayout
+                  onStartHomeChat={() => setDialogStarted(true)}
+                  onGoHome={goToStartScreen}
+                />
+              </div>
+            )}
+            {homeMenuView === 'root' && !welcomeCompact && welcomeFactLine && (
+              <HomeWelcomeBubble text={welcomeFactLine} />
+            )}
           </div>
         ) : (
           <>
