@@ -27,6 +27,27 @@ import { parseCorrection } from '@/lib/parseCorrection'
 
 const CHILD_TENSE_SET = new Set(CHILD_TENSES)
 
+/** Жирная стрелка Ru↔En в шапке: на мобильных Unicode → почти не видна. */
+function CommunicationLangDirectionArrow() {
+  return (
+    <svg
+      className="mx-px h-[11px] w-[11px] shrink-0 translate-y-px text-[var(--text)] sm:h-3 sm:w-3 sm:translate-y-[2px]"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
+      <path
+        d="M5 12h14M13 6l6 6-6 6"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 /** Снимок настроек при открытии меню (для перезапуска чата без смены режима). */
 type MenuOpenSnapshot = {
   mode: AppMode
@@ -925,7 +946,7 @@ export default function Home() {
                       }
                     })
                   }
-                  className="btn-3d-menu flex h-10 min-h-[36px] min-w-[3rem] shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--bg)] px-1 text-[11px] font-semibold leading-none text-[var(--text)] touch-manipulation"
+                  className="btn-3d-menu flex h-10 min-h-[36px] min-w-[3.25rem] shrink-0 items-center justify-center gap-px rounded-md border border-[var(--border)] bg-[var(--bg)] px-1.5 text-[11px] font-semibold leading-none text-[var(--text)] touch-manipulation sm:min-w-[3.5rem]"
                   aria-label={
                     settings.communicationInputExpectedLang === 'ru'
                       ? 'Ожидается русский ввод. Переключить на английский'
@@ -937,7 +958,19 @@ export default function Home() {
                       : 'Сейчас ожидается английский ввод. Нажмите для ожидания русского'
                   }
                 >
-                  {settings.communicationInputExpectedLang === 'ru' ? 'Ru→En' : 'En→Ru'}
+                  {settings.communicationInputExpectedLang === 'ru' ? (
+                    <span className="inline-flex items-center">
+                      <span>Ru</span>
+                      <CommunicationLangDirectionArrow />
+                      <span>En</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center">
+                      <span>En</span>
+                      <CommunicationLangDirectionArrow />
+                      <span>Ru</span>
+                    </span>
+                  )}
                 </button>
               ) : !dialogStarted ? (
                 <span
@@ -1007,29 +1040,40 @@ export default function Home() {
               </div>
             </div>
             {homeMenuView === 'root' && (welcomeCompact || welcomeFactLine !== null) && (
-              <HomeWelcomeBubble
-                text={buildCompactGreeting()}
-                actions={
-                  <div className="flex justify-end">
-                    <div className="flex flex-col items-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setHomeMenuView('aiChat')}
-                        className="btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]"
-                      >
-                        Чат с MyEng
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setHomeMenuView('lessons')}
-                        className="btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]"
-                      >
-                        Уроки
-                      </button>
+              <div
+                className={`flex w-full max-w-[23.2rem] flex-col items-center ${
+                  !welcomeCompact && welcomeFactLine
+                    ? 'gap-[clamp(1rem,3.2vh,2rem)]'
+                    : ''
+                }`}
+              >
+                <HomeWelcomeBubble
+                  text={buildCompactGreeting()}
+                  actions={
+                    <div className="flex justify-end">
+                      <div className="flex flex-col items-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setHomeMenuView('aiChat')}
+                          className="btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]"
+                        >
+                          Чат с MyEng
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setHomeMenuView('lessons')}
+                          className="btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]"
+                        >
+                          Уроки
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                }
-              />
+                  }
+                />
+                {!welcomeCompact && welcomeFactLine && (
+                  <HomeEmptyBubble text={welcomeFactLine} />
+                )}
+              </div>
             )}
             {homeMenuView !== 'root' && (
               <div className="flex w-full max-w-[23.2rem] shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[#e8ecf0] px-3 py-3 shadow-sm">
@@ -1047,9 +1091,6 @@ export default function Home() {
                   onGoHome={goToStartScreen}
                 />
               </div>
-            )}
-            {homeMenuView === 'root' && !welcomeCompact && welcomeFactLine && (
-              <HomeEmptyBubble text={welcomeFactLine} />
             )}
           </div>
         ) : (
