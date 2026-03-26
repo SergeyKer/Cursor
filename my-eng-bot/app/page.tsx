@@ -6,6 +6,7 @@ import SlideOutMenu, { MenuIcon } from '@/components/SlideOutMenu'
 import MenuSectionPanels, { type MenuView } from '@/components/MenuSectionPanels'
 import Chat from '@/components/Chat'
 import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
+import HomeEmptyBubble from '@/components/HomeEmptyBubble'
 import { buildCompactGreeting } from '@/lib/homeGreeting'
 import { consumeNextGreetingFactLine } from '@/lib/greetingFactRotation'
 import { loadState, saveState, getUsageCountToday, incrementUsageToday, DEFAULT_SETTINGS } from '@/lib/storage'
@@ -1047,9 +1048,9 @@ export default function Home() {
                 />
               </div>
             )}
-            {homeMenuView === 'root' && !welcomeCompact && welcomeFactLine && (
-              <HomeWelcomeBubble text={welcomeFactLine} />
-            )}
+            <HomeEmptyBubble
+              text={homeMenuView === 'root' && !welcomeCompact ? welcomeFactLine : undefined}
+            />
           </div>
         ) : (
           <>
