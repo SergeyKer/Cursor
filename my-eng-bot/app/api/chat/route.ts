@@ -445,6 +445,7 @@ function fallbackQuestionForContext(params: {
   audience: 'child' | 'adult'
   isFirstTurn?: boolean
   isTopicChoiceTurn?: boolean
+  lastUserText?: string
 }): string {
   if (params.topic === 'free_talk') {
     if (params.isFirstTurn) {
@@ -453,6 +454,13 @@ function fallbackQuestionForContext(params: {
         : 'What would you like to talk about today?'
     }
     if (params.isTopicChoiceTurn) {
+      if (params.lastUserText) {
+        const { en, ru } = extractTopicChoiceKeywordsByLang(params.lastUserText)
+        const keywords = en.length > 0 ? en : translateRuTopicKeywordsToEn(ru)
+        if (keywords.length > 0) {
+          return buildFreeTalkTopicAnchorQuestion(keywords, params.tense)
+        }
+      }
       return params.audience === 'child' ? 'What do you want to talk about?' : 'What would you like to talk about now?'
     }
     return defaultNextQuestion(params.tense)
@@ -944,44 +952,88 @@ function extractLastDialogueQuestionLine(content: string): string | null {
   return null
 }
 
-function questionContainsAnyTopicKeyword(question: string, keywords: string[]): boolean {
-  const q = question.toLowerCase()
-  for (const kw of keywords) {
-    if (new RegExp(`\\b${escapeRegExp(kw)}\\b`, 'i').test(q)) return true
-  }
-  return false
-}
-
-/** Один вопрос в нужном времени, явно привязанный к словам пользователя (fallback для free_talk topic choice). */
+/** Один вопрос в нужном времени, привязанный к теме пользователя (fallback для free_talk). */
 function buildFreeTalkTopicAnchorQuestion(keywords: string[], tense: string): string {
-  const anchor = keywords.slice(0, 3).join(', ')
+  const t = keywords.slice(0, 3).join(', ')
+  const seed = stableHash32(`ftaq|${t}|${tense}`)
+  const pick = (variants: string[]) => variants[seed % variants.length] ?? variants[0]!
+
   switch (tense) {
-    case 'present_continuous':
-      return `What are you doing with ${anchor} right now?`
-    case 'present_perfect':
-      return `What have you done recently involving ${anchor}?`
-    case 'present_perfect_continuous':
-      return `What have you been doing lately with ${anchor}?`
-    case 'past_simple':
-      return `What did you do yesterday involving ${anchor}?`
-    case 'past_continuous':
-      return `What were you doing with ${anchor} at this time yesterday?`
-    case 'past_perfect':
-      return `What had you done before that involving ${anchor}?`
-    case 'past_perfect_continuous':
-      return `What had you been doing with ${anchor} for a while before you stopped?`
-    case 'future_simple':
-      return `What will you do tomorrow involving ${anchor}?`
-    case 'future_continuous':
-      return `What will you be doing with ${anchor} this time tomorrow?`
-    case 'future_perfect':
-      return `What will you have done with ${anchor} by this time tomorrow?`
-    case 'future_perfect_continuous':
-      return `What will you have been doing with ${anchor} for a while by the end of tomorrow?`
-    case 'all':
     case 'present_simple':
+      return pick([
+        `Do you like ${t}?`,
+        `What do you think about ${t}?`,
+        `What is your favorite ${t}?`,
+        `Do you enjoy ${t}?`,
+      ])
+    case 'present_continuous':
+      return pick([
+        `Are you enjoying ${t} right now?`,
+        `Are you thinking about ${t} now?`,
+        `What are you doing with ${t} right now?`,
+      ])
+    case 'present_perfect':
+      return pick([
+        `Have you ever tried ${t}?`,
+        `Have you enjoyed ${t} recently?`,
+        `What have you learned about ${t}?`,
+      ])
+    case 'present_perfect_continuous':
+      return pick([
+        `Have you been thinking about ${t} lately?`,
+        `Have you been enjoying ${t} for a while?`,
+      ])
+    case 'past_simple':
+      return pick([
+        `Did you enjoy ${t} recently?`,
+        `Did you talk about ${t} yesterday?`,
+        `What happened with ${t} last time?`,
+        `Did you try ${t} before?`,
+      ])
+    case 'past_continuous':
+      return pick([
+        `Were you thinking about ${t} yesterday?`,
+        `Were you enjoying ${t} at that time?`,
+      ])
+    case 'past_perfect':
+      return pick([
+        `Had you tried ${t} before that?`,
+        `Had you thought about ${t} before?`,
+      ])
+    case 'past_perfect_continuous':
+      return pick([
+        `Had you been thinking about ${t} for a long time?`,
+        `Had you been enjoying ${t} before that?`,
+      ])
+    case 'future_simple':
+      return pick([
+        `Will you try ${t} soon?`,
+        `Will you enjoy ${t} tomorrow?`,
+        `What will you do with ${t} next week?`,
+      ])
+    case 'future_continuous':
+      return pick([
+        `Will you be enjoying ${t} this time tomorrow?`,
+        `Will you be thinking about ${t} later?`,
+      ])
+    case 'future_perfect':
+      return pick([
+        `Will you have tried ${t} by next week?`,
+        `Will you have finished with ${t} by tomorrow?`,
+      ])
+    case 'future_perfect_continuous':
+      return pick([
+        `Will you have been enjoying ${t} for a long time by then?`,
+        `Will you have been thinking about ${t} for a while?`,
+      ])
+    case 'all':
     default:
-      return `What do you usually do involving ${anchor}?`
+      return pick([
+        `Do you like ${t}?`,
+        `What do you think about ${t}?`,
+        `Do you enjoy ${t}?`,
+        `Tell me about ${t}. What do you like about it?`,
+      ])
   }
 }
 
@@ -1003,26 +1055,8 @@ function ensureFreeTalkTopicChoiceQuestionAnchorsUser(params: {
   userText: string
   tense: string
 }): string {
-  const { en, ru } = extractTopicChoiceKeywordsByLang(params.userText)
-  if (en.length === 0 && ru.length === 0) return params.content
-
   const qLine = extractLastDialogueQuestionLine(params.content)
-  if (en.length > 0) {
-    if (qLine && questionContainsAnyTopicKeyword(qLine, en)) return params.content
-    return buildFreeTalkTopicAnchorQuestion(en, params.tense)
-  }
-
-  // Если есть только RU-ключи (в т.ч. mixed RU/EN ввод), якорим тему через словарь;
-  // если слова нет в словаре — доверяем модели (она понимает русский).
-  if (ru.length > 0) {
-    const translatedRu = translateRuTopicKeywordsToEn(ru)
-    if (translatedRu.length > 0) {
-      if (qLine && questionContainsAnyTopicKeyword(qLine, translatedRu)) return params.content
-      return buildFreeTalkTopicAnchorQuestion(translatedRu, params.tense)
-    }
-    return params.content
-  }
-  return params.content
+  return qLine ?? params.content
 }
 
 function firstQuestionForTopicAndTense(params: {
@@ -3907,7 +3941,7 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json({
-        content: fallbackQuestionForContext({ topic, tense: tutorGradingTense, level, audience, isFirstTurn, isTopicChoiceTurn }),
+        content: fallbackQuestionForContext({ topic, tense: tutorGradingTense, level, audience, isFirstTurn, isTopicChoiceTurn, lastUserText: lastUserContentForResponse }),
       })
     }
     sanitized = stripOffContextCorrections(sanitized, lastUserContentForResponse)
@@ -4411,7 +4445,7 @@ export async function POST(req: NextRequest) {
         if (repaired) {
           if (isMetaGarbage(repaired)) {
             return NextResponse.json({
-              content: fallbackQuestionForContext({ topic, tense: tutorGradingTense, level, audience, isFirstTurn, isTopicChoiceTurn }),
+              content: fallbackQuestionForContext({ topic, tense: tutorGradingTense, level, audience, isFirstTurn, isTopicChoiceTurn, lastUserText: lastUserContentForResponse }),
             })
           }
           repaired = stripOffContextCorrections(repaired, lastUserContentForResponse)
@@ -4582,7 +4616,7 @@ export async function POST(req: NextRequest) {
         content:
           mode === 'dialogue'
             ? (isFirstTurn || isTopicChoiceTurn)
-              ? fallbackQuestionForContext({ topic, tense: tutorGradingTense, level, audience, isFirstTurn, isTopicChoiceTurn })
+              ? fallbackQuestionForContext({ topic, tense: tutorGradingTense, level, audience, isFirstTurn, isTopicChoiceTurn, lastUserText: lastUserContentForResponse })
               : buildDialogueLowSignalFallback({
                   messages: recentMessages,
                   topic,
@@ -4590,7 +4624,7 @@ export async function POST(req: NextRequest) {
                   level,
                   audience,
                 })
-            : fallbackQuestionForContext({ topic, tense: normalizedTense, level, audience, isFirstTurn, isTopicChoiceTurn }),
+            : fallbackQuestionForContext({ topic, tense: normalizedTense, level, audience, isFirstTurn, isTopicChoiceTurn, lastUserText: lastUserContentForResponse }),
       })
     }
 
