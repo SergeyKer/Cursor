@@ -3955,7 +3955,7 @@ export async function POST(req: NextRequest) {
           level,
           audience,
           forcedRepeatSentence,
-          lastUserText: lastUserContentForResponse,
+          lastUserText,
         }),
       })
     }

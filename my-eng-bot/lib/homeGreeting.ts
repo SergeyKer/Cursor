@@ -1,11 +1,11 @@
 /** Полный текст приветствия: привет, факт из ротации, призыв. */
 export function buildFullGreeting(factLine: string): string {
-  return ['Hello! My name is MyEng.', factLine, 'Давай скорее общаться!'].join('\n\n')
+  return ['Hello! My name is MyEng.', factLine, 'Давай скорее общаться! Выбирай...'].join('\n\n')
 }
 
 /** Компактный режим после первого ухода из корня меню. */
 export function buildCompactGreeting(): string {
-  return ['Hello! My name is MyEng.', 'Давай скорее общаться!'].join('\n\n')
+  return ['Hello! My name is MyEng.', 'Давай скорее общаться! Выбирай...'].join('\n\n')
 }
 
 /**

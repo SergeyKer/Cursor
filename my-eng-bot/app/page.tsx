@@ -1048,9 +1048,9 @@ export default function Home() {
                 />
               </div>
             )}
-            <HomeEmptyBubble
-              text={homeMenuView === 'root' && !welcomeCompact ? welcomeFactLine : undefined}
-            />
+            {homeMenuView === 'root' && !welcomeCompact && welcomeFactLine && (
+              <HomeEmptyBubble text={welcomeFactLine} />
+            )}
           </div>
         ) : (
           <>
