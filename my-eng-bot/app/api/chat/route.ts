@@ -217,6 +217,7 @@ function buildSystemPrompt(params: {
   const topicName = TOPIC_NAMES[topic] ?? 'general'
   const sentenceTypeName = sentenceType ? SENTENCE_TYPE_NAMES[sentenceType] ?? 'mixed' : 'mixed'
   const audienceStyleRule = buildAudienceStyleRule(audience)
+  const commentToneRule = mode === 'dialogue' ? buildCommentToneRule(audience, level) : ''
   const antiRobotRule =
     'Avoid robotic/formal connectors. NEVER use phrases like "related to", "when it comes to", "in terms of", or "regarding". Ask like a real person.'
   const topicRetentionRule =
@@ -311,7 +312,7 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
     "Contractions are always acceptable. Treat contracted and expanded forms as equivalent, and NEVER mark them as errors or ask the user to repeat only because of contractions or apostrophes. Examples of equivalent pairs: I'm/I am, you're/you are, he's/he is, she's/she is, it's/it is, we're/we are, they're/they are, I've/I have, you've/you have, we've/we have, they've/they have, I'd/I would or I had, you'd/you would or you had, we'd/we would or we had, they'd/they would or they had, I'll/I will, you'll/you will, he'll/he will, she'll/she will, it'll/it will, we'll/we will, they'll/they will, can't/cannot, don't/do not, doesn't/does not, didn't/did not, won't/will not, isn't/is not, aren't/are not, wasn't/was not, weren't/were not. This includes both apostrophe characters: ' and ’. If the only difference from your preferred form is contraction vs expansion, treat the user answer as correct and continue.";
   const freeTalkRule =
     topic === 'free_talk'
-      ? `This is a free conversation. For the very first question, ask the user to choose any topic or simply start talking. Keep the wording short and adapt it to the selected level profile. Do NOT list specific options as a fixed menu. ONLY the very first user reply (right after you asked them to choose a topic) is treated as a topic choice — infer the topic from it (ignore typos and wrong tense, e.g. "I wil plai footbal" → football/sport; "tenis" → tennis), output one question in the required tense about that topic, and do NOT output Комментарий or Повтори for that first reply only. Only if the first reply gives no hint at all (e.g. "sdf", "sss"), ask for clarification in a natural human way and vary your wording each time (examples: "Could you clarify that a bit?", "I didn't catch the topic yet — what would you like to discuss?", "Can you say it in another way?"). From the second user reply onwards the topic is already established — apply ALL normal correction rules: output Комментарий and Повтори when the user makes a tense, grammar, or spelling error, exactly as described in the FORMAT section above.`
+      ? `This is a free conversation. For the very first question, ask the user to choose any topic or simply start talking. Keep the wording short and adapt it to the selected level profile. Do NOT list specific options as a fixed menu. ONLY the very first user reply (right after you asked them to choose a topic) is treated as a topic choice — the user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Infer the topic from it regardless of language (ignore typos and wrong tense, e.g. "I wil plai footbal" → football/sport; "tenis" → tennis; "река" → river; "I река" → river; "транзисторы" → transistors; "я люблю кошки" → cats), output one question in the required tense about that topic, and do NOT output Комментарий or Повтори for that first reply only. Only if the first reply gives no hint at all (e.g. "sdf", "sss"), ask for clarification in a natural human way and vary your wording each time (examples: "Could you clarify that a bit?", "I didn't catch the topic yet — what would you like to discuss?", "Can you say it in another way?"). From the second user reply onwards the topic is already established — apply ALL normal correction rules: output Комментарий and Повтори when the user makes a tense, grammar, or spelling error, exactly as described in the FORMAT section above.`
       : ''
   const freeTopicPriority =
     topic === 'free_talk'
@@ -334,13 +335,15 @@ The user often dictates by voice and may not use commas or other punctuation. Do
 
 When the required tense is Present Continuous, you may optionally include or suggest time markers like "now" or "at the moment" in the correct sentence (e.g. "I am playing football now."), or briefly mention in Комментарий that the learner can add them (e.g. "Можно добавить now или at the moment — это маркеры Present Continuous."). Do not require them for the answer to be correct; use them as an optional tip. Prefer simple questions that translate clearly: e.g. ask "Where are you swimming?" or "What are you doing now?" rather than "What are you swimming in?" (the latter is ambiguous and translates poorly into Russian).
 
-EXCEPTION for free topic (Свободная тема), for any tense: when the user is naming or revealing a topic (e.g. after you asked "What would you like to talk about?"), NEVER output Комментарий or Повтори. Always try to infer the topic first — ignore typos and wrong tense (e.g. "I wil plai footbal" → football, sport; "tenis", "vialint" → tennis, violin). Output exactly one question about that topic. Only if the message gives no hint at all (e.g. "sdf", random letters), ask for clarification in a natural human way and vary your wording across turns (do not repeat the same clarification sentence again and again). No error search, no corrections in that step.
+EXCEPTION for free topic (Свободная тема), for any tense: when the user is naming or revealing a topic (e.g. after you asked "What would you like to talk about?"), NEVER output Комментарий or Повтори. The user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Always try to infer the topic first — ignore typos, wrong tense, and language (e.g. "I wil plai footbal" → football, sport; "tenis", "vialint" → tennis, violin; "река" → river; "транзисторы" → transistors; "я люблю кошки" → cats). Output exactly one question about that topic. Only if the message gives no hint at all (e.g. "sdf", random letters), ask for clarification in a natural human way and vary your wording across turns (do not repeat the same clarification sentence again and again). No error search, no corrections in that step.
 
 CRITICAL — Context: Your correction (Комментарий/Говорится/Нужно слово/Повтори) must refer ONLY to the user's LAST message. Never output a correction about words or mistakes that are not in that message (e.g. if the user wrote "I usually swim in the pool", do NOT correct "movie" vs "move" — that is from another turn). If the last message has no errors, output only the next question in English.
 
 This applies to every tense (Present Simple, Present Continuous, Past Simple, Future Perfect, etc.): you MUST correct the user's answer according to ALL applicable rules. Check every dimension: (1) required tense — if they used another tense, correct it; (2) grammar — word order, verb form, articles (a/an/the), plural/singular; (3) spelling — correct every misspelled word; (4) word choice — wrong word (e.g. "move" instead of "movie") must be fixed. The "Повтори:" sentence must fix ALL errors at once; the "Комментарий:" must briefly list ALL issues so the user sees what was wrong. Do not correct only one mistake and ignore others.
 
-When there are grammar or spelling problems or the user used the wrong tense, respond ONLY in the short format below. Do NOT output long explanations of rules, lists of example questions (e.g. "Do you like pizza?", "What is your favorite color?"), or meta-instructions. Even if the user makes the same mistake again (e.g. wrong tense twice), reply only with Комментарий (1–2 short sentences in Russian) + Повтори: [correct sentence]. Keep the reply short. Do not use emojis, jokes, or playful tone in corrections — be neutral and clear (e.g. do not write "unless you're preparing for a spelling competition" or similar).
+When there are grammar or spelling problems or the user used the wrong tense, respond ONLY in the short format below. Do NOT output long explanations of rules, lists of example questions (e.g. "Do you like pizza?", "What is your favorite color?"), or meta-instructions. Even if the user makes the same mistake again (e.g. wrong tense twice), reply only with Комментарий (1–2 short sentences in Russian) + Повтори: [correct sentence]. Keep the reply short. Do not use emojis or jokes in corrections (e.g. do not write "unless you're preparing for a spelling competition" or similar).
+
+${commentToneRule}
 
 FORMAT (strict):
 1) When the user's answer has a real mistake (wrong tense, grammar, or wording): output ONLY two lines:
@@ -464,6 +467,15 @@ function buildAudienceStyleRule(audience: 'child' | 'adult'): string {
   return audience === 'child'
     ? 'Audience style: CHILD. In Russian replies, use ONLY informal address: "ты", "тебе", "твой", "твои", "с тобой". Write every Russian sentence in natural second-person singular grammar: "ты пошёл", "ты спросил", "у тебя есть", "с тобой", "твой". Never use formal "вы", "вам", "вас", "ваш", "ваше", "ваши" — even if the user gives a task, steps, or sounds like an adult client. Do not switch to a polite-assistant or service-desk tone, and do not build the reply in plural/formal form first and then try to replace words afterward. Keep the tone warm, simple, encouraging, and concrete. In English replies, use short, friendly, child-appropriate wording. Avoid formal or overly serious language.'
     : 'Audience style: ADULT. In Russian replies, address the user with "вы". Keep the tone natural, respectful, and concise. In English replies, use natural adult-to-adult wording. Avoid childish wording or over-familiarity.'
+}
+
+function buildCommentToneRule(audience: 'child' | 'adult', level: string): string {
+  const isBeginnerAdult = audience === 'adult' && ['starter', 'a1', 'a2'].includes(level)
+  if (audience === 'child' || isBeginnerAdult) {
+    const pronoun = audience === 'child' ? 'ты' : 'вы'
+    return `Correction tone (Комментарий): Use simple, everyday language. Do NOT start with "Ошибка..." or use grammar terms like "согласование подлежащего и сказуемого", "форма глагола", "артикль". Instead, explain plainly what needs to change and why. Address the user as "${pronoun}". Examples of good style: "Тут мы говорим про то, что бывает обычно, поэтому нужно сказать plays." / "После he нужно добавить -s, потому что это он делает." / "Тут нужно другое слово — look значит смотреть, а see — видеть." Keep it to 1–2 short sentences.`
+  }
+  return 'Correction tone (Комментарий): Be concise and professional. You may use grammar term names (e.g. "Present Simple", "Past Perfect") when they help the learner understand the mistake. Address the user as "вы". Keep it to 1–2 short sentences.'
 }
 
 function buildCommunicationEnglishStyleRule(audience: 'child' | 'adult'): string {
@@ -818,16 +830,30 @@ const RU_TOPIC_KEYWORD_TO_EN: Record<string, string> = {
   дождь: 'rain',
   снег: 'snow',
   море: 'sea',
+  океан: 'ocean',
+  река: 'river',
+  озеро: 'lake',
   пляж: 'beach',
+  гора: 'mountain',
+  горы: 'mountains',
+  лес: 'forest',
+  природа: 'nature',
   спорт: 'sports',
   футбол: 'football',
   теннис: 'tennis',
   баскетбол: 'basketball',
+  хоккей: 'hockey',
+  плавание: 'swimming',
+  бег: 'running',
+  велосипед: 'bicycle',
   музыка: 'music',
   песня: 'song',
   песни: 'songs',
+  гитара: 'guitar',
+  пианино: 'piano',
   фильм: 'movie',
   фильмы: 'movies',
+  кино: 'cinema',
   мультик: 'cartoon',
   мультики: 'cartoons',
   книга: 'book',
@@ -835,15 +861,37 @@ const RU_TOPIC_KEYWORD_TO_EN: Record<string, string> = {
   школа: 'school',
   урок: 'lesson',
   уроки: 'lessons',
+  учёба: 'studies',
   работа: 'work',
   еда: 'food',
   готовка: 'cooking',
   кот: 'cat',
   кошка: 'cat',
+  кошки: 'cats',
   собака: 'dog',
+  собаки: 'dogs',
+  животные: 'animals',
   семья: 'family',
   друзья: 'friends',
+  друг: 'friend',
   путешествие: 'travel',
+  путешествия: 'travel',
+  город: 'city',
+  страна: 'country',
+  дом: 'home',
+  машина: 'car',
+  компьютер: 'computer',
+  телефон: 'phone',
+  игра: 'game',
+  игры: 'games',
+  лето: 'summer',
+  зима: 'winter',
+  весна: 'spring',
+  осень: 'autumn',
+  космос: 'space',
+  динозавры: 'dinosaurs',
+  робот: 'robot',
+  роботы: 'robots',
 }
 
 function normalizeTopicToken(token: string): string {
@@ -941,11 +989,6 @@ function translateRuTopicKeywordsToEn(keywords: string[]): string[] {
   return translated
 }
 
-/** Safe fallback: просим уточнить тему на английском, чтобы вопрос остался естественным. */
-function buildFreeTalkUnknownTopicClarifyQuestion(): string {
-  return 'Could you name your topic in English?'
-}
-
 function ensureFreeTalkTopicChoiceQuestionAnchorsUser(params: {
   content: string
   userText: string
@@ -960,14 +1003,15 @@ function ensureFreeTalkTopicChoiceQuestionAnchorsUser(params: {
     return buildFreeTalkTopicAnchorQuestion(en, params.tense)
   }
 
-  // Если есть только RU-ключи (в т.ч. mixed RU/EN ввод), всё равно якорим тему.
+  // Если есть только RU-ключи (в т.ч. mixed RU/EN ввод), якорим тему через словарь;
+  // если слова нет в словаре — доверяем модели (она понимает русский).
   if (ru.length > 0) {
     const translatedRu = translateRuTopicKeywordsToEn(ru)
     if (translatedRu.length > 0) {
       if (qLine && questionContainsAnyTopicKeyword(qLine, translatedRu)) return params.content
       return buildFreeTalkTopicAnchorQuestion(translatedRu, params.tense)
     }
-    return buildFreeTalkUnknownTopicClarifyQuestion()
+    return params.content
   }
   return params.content
 }
@@ -3706,7 +3750,7 @@ export async function POST(req: NextRequest) {
     })
 
     const topicChoicePrefix = mode === 'dialogue' && isTopicChoiceTurn
-      ? 'This turn only: the user is naming their topic. Output ONLY one question in English — nothing else. Do NOT output "Комментарий:", "Отлично", "Молодец", "Верно", or any praise. Do NOT output "Правильно:" or "Повтори:". Infer the topic from their words (e.g. "I played tennis" → tennis; "i swam" → swimming) and ask exactly ONE question in the required tense. If the message gives no hint (e.g. "sdf"), ask what they mean. Your reply must be ONLY that one question, no other lines. Ignore all correction rules below for this turn.\n\n'
+      ? 'This turn only: the user is naming their topic. Output ONLY one question in English — nothing else. Do NOT output "Комментарий:", "Отлично", "Молодец", "Верно", or any praise. Do NOT output "Правильно:" or "Повтори:". The user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Infer the topic from their words regardless of language (e.g. "I played tennis" → tennis; "i swam" → swimming; "река" → river; "I река" → river; "транзисторы" → transistors; "я люблю кошки" → cats). Ask exactly ONE question in the required tense about the inferred topic. If the message gives absolutely no hint (e.g. "sdf"), ask what they mean. Your reply must be ONLY that one question, no other lines. Ignore all correction rules below for this turn.\n\n'
       : ''
     const dialogueInferredTenseHint =
       mode === 'dialogue' &&
