@@ -10,17 +10,17 @@ const CHILD_TENSE_SET = new Set(CHILD_TENSES)
 export type MenuView = 'root' | 'lessons' | 'aiChat' | 'settings' | 'progress' | 'profile'
 
 export const FIELD_SELECT =
-  'w-full min-w-0 rounded border border-[var(--border)] bg-[var(--bg-card)] pl-2 py-1 min-h-[34px] text-xs text-[var(--text)] touch-manipulation select-chevron'
+  'w-full min-w-0 rounded border border-[var(--border)] bg-[var(--bg-card)] pl-2 py-0.5 min-h-[32px] text-xs text-[var(--text)] touch-manipulation select-chevron'
 
 const MENU_VALUE_BOX =
-  'w-full min-w-0 rounded border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1 min-h-[34px] text-xs text-[var(--text)] flex items-center justify-end'
+  'w-full min-w-0 rounded border border-[var(--border)] bg-[var(--bg-card)] px-3 py-0.5 min-h-[32px] text-xs text-[var(--text)] flex items-center justify-end'
 
 export const MENU_FIELD_LABEL =
   'shrink-0 w-[6.3rem] text-xs font-medium leading-snug text-[var(--text-muted)] break-words'
 
 /** Градиентная CTA: «Начать общение» и пункты главной «Чат / Уроки». */
 const MENU_PRIMARY_CTA_CLASS =
-  'flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]'
+  'flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[40px]'
 
 /** Только en в выпадающем списке голоса (без ru). Стабильная ссылка для VoiceSelect. */
 const VOICE_DROPDOWN_LANG_PREFIXES: string[] = ['en']
@@ -76,7 +76,7 @@ export default function MenuSectionPanels({
   return (
     <div className={rootClass}>
       {menuView !== 'root' && (
-        <div className="mb-2 flex shrink-0 items-center justify-between gap-2 border-b border-[var(--border)]/70 pb-2">
+        <div className="mb-1.5 flex shrink-0 items-center justify-between gap-2 border-b border-[var(--border)]/70 pb-1.5">
           <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
@@ -117,8 +117,8 @@ export default function MenuSectionPanels({
         key={menuView}
         className={
           homeLayout
-            ? 'menu-panel-view-enter max-h-[calc(100dvh-12rem)] space-y-2.5 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-0.5'
-            : 'menu-panel-view-enter min-h-0 flex-1 space-y-2.5 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-1'
+            ? 'menu-panel-view-enter max-h-[calc(100dvh-12rem)] space-y-1.5 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-0.5'
+            : 'menu-panel-view-enter min-h-0 flex-1 space-y-1.5 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-1'
         }
       >
           {menuView === 'root' && !homeLayout && (
@@ -428,7 +428,7 @@ function MenuNavRow({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-2.5 py-2.5 text-left text-sm font-medium text-[var(--text)] shadow-sm transition-colors hover:bg-[var(--border)]/35 touch-manipulation min-h-[44px]"
+      className="flex w-full items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-2.5 py-1.5 text-left text-sm font-medium text-[var(--text)] shadow-sm transition-colors hover:bg-[var(--border)]/35 touch-manipulation min-h-[40px]"
     >
       <span>{label}</span>
       <ChevronRightIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />

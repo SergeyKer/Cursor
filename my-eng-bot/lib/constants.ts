@@ -55,7 +55,7 @@ export const CHILD_TENSES: TenseId[] = [
 ]
 
 export const SENTENCE_TYPES: { id: SentenceType; label: string }[] = [
-  { id: 'general', label: 'Повествовательные' },
+  { id: 'general', label: 'Утвердительные' },
   { id: 'interrogative', label: 'Вопросительные' },
   { id: 'negative', label: 'Отрицательные' },
   { id: 'mixed', label: 'Смешанные' },

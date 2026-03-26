@@ -831,12 +831,26 @@ export default function Home() {
     }
   }, [settings.provider, settings.audience, settings.mode, settings.tenses])
 
-  /** Сравнение для баннера в шапке: тема, время, уровень, тип предложений (в режиме перевода). Режим не учитываем — при смене режима чат перезапускается из меню без этого предупреждения. */
+  /** Сравнение для баннера в шапке. В «Диалог» и «Перевод»: предупреждение только если изменился только уровень (без перезапуска из меню). Смена темы/времени/ребёнок–взрослый/типа даёт новый чат — баннер не нужен. */
   function settingsDiffersFromLastSendForBanner(current: Settings, last: Settings | null): boolean {
     if (!last) return false
     const sameTenses =
       current.tenses.length === last.tenses.length &&
       current.tenses.every((t, i) => t === last.tenses[i])
+
+    if (
+      (current.mode === 'dialogue' && last.mode === 'dialogue') ||
+      (current.mode === 'translation' && last.mode === 'translation')
+    ) {
+      const onlyLevelChanged =
+        current.topic === last.topic &&
+        sameTenses &&
+        current.audience === last.audience &&
+        current.sentenceType === last.sentenceType &&
+        current.level !== last.level
+      return onlyLevelChanged
+    }
+
     if (current.topic !== last.topic || !sameTenses || current.level !== last.level) return true
     if (current.mode === 'translation' && last.mode === 'translation' && current.sentenceType !== last.sentenceType)
       return true
@@ -932,8 +946,8 @@ export default function Home() {
             >
               <MenuIcon />
             </button>
-            <div className="pointer-events-auto flex h-10 min-h-[36px] w-12 min-w-[3rem] shrink-0 items-center justify-end">
-              {dialogStarted && settings.mode === 'communication' ? (
+            <div className="pointer-events-auto flex h-10 min-h-[36px] shrink-0 items-center justify-end gap-1.5">
+              {dialogStarted && settings.mode === 'communication' && (
                 <button
                   type="button"
                   onClick={() =>
@@ -972,11 +986,9 @@ export default function Home() {
                     </span>
                   )}
                 </button>
-              ) : !dialogStarted ? (
-                <span
-                  className="mr-2 flex h-10 w-10 shrink-0 items-center justify-center"
-                  aria-hidden
-                >
+              )}
+              {dialogStarted && (
+                <span className="mr-2 flex h-10 w-10 shrink-0 items-center justify-center" aria-hidden>
                   <Image
                     src="/header-robot.png"
                     alt=""
@@ -986,8 +998,6 @@ export default function Home() {
                     sizes="36px"
                   />
                 </span>
-              ) : (
-                <span className="block h-10 w-12 min-w-[3rem] shrink-0" aria-hidden />
               )}
             </div>
           </div>
