@@ -16,10 +16,10 @@ export function isNearDuplicateQuestion(prevQuestion: string | null, nextQuestio
   if (prevTokens.size === 0 || nextTokens.size === 0) return false
 
   let overlap = 0
-  for (const token of prevTokens) {
+  Array.from(prevTokens).forEach((token) => {
     if (nextTokens.has(token)) overlap++
-  }
-  const union = new Set([...prevTokens, ...nextTokens]).size
+  })
+  const union = new Set([...Array.from(prevTokens), ...Array.from(nextTokens)]).size
   const jaccard = union > 0 ? overlap / union : 0
   return jaccard >= 0.75
 }
