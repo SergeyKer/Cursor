@@ -26,10 +26,10 @@ describe('detectFreeTalkTopicChange', () => {
     })
   })
 
-  it('распознаёт короткий keyword-only запрос', () => {
+  it('не распознаёт короткий keyword-only запрос без явной команды', () => {
     expect(detectFreeTalkTopicChange('river')).toEqual({
-      isTopicChange: true,
-      topicHintText: 'river',
+      isTopicChange: false,
+      topicHintText: null,
       needsClarification: false,
     })
   })

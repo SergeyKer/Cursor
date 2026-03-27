@@ -933,7 +933,11 @@ export default function Home() {
     const levelShort = levelEntry ? (levelEntry.label.split(' - ')[0]?.trim() ?? levelEntry.label) : settings.level
     const normalizedLevelShort = settings.level === 'all' ? 'Все уровни' : levelShort
     const topicLabel = TOPICS.find((t) => t.id === settings.topic)?.label
-    if (includeTopic && topicLabel) {
+    const shouldShowTopic =
+      includeTopic &&
+      Boolean(topicLabel) &&
+      !(settings.mode === 'dialogue' && settings.topic === 'free_talk')
+    if (shouldShowTopic && topicLabel) {
       return `${modeLabel} - ${topicLabel}, ${tenseLabel}, ${normalizedLevelShort}`
     }
     return `${modeLabel} - ${tenseLabel}, ${normalizedLevelShort}`

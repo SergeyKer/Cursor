@@ -25,6 +25,7 @@ import {
   buildFreeTalkTopicAnchorQuestion as buildFreeTalkTopicAnchorQuestionText,
   buildFreeTalkTopicLabel,
 } from '@/lib/freeTalkQuestionAnchor'
+import { buildFreeTalkTopicAcknowledgement } from '@/lib/freeTalkTopicAcknowledgement'
 import { buildFreeTalkFirstQuestion } from '@/lib/freeTalkFirstQuestion'
 import {
   isKommentariyPurePraiseOnly,
@@ -4083,14 +4084,23 @@ export async function POST(req: NextRequest) {
       const keywords = en.length > 0 ? en : translateRuTopicKeywordsToEn(ru)
 
       if (keywords.length > 0) {
+        const topicLabel = buildFreeTalkTopicLabel(keywords)
+        const followUpQuestion = buildFreeTalkTopicAnchorQuestion({
+          keywords,
+          tense: tutorGradingTense,
+          audience,
+          diversityKey: `${recentMessages.length}|${lastUserText}|topic-change`,
+          recentAssistantQuestions: extractRecentAssistantQuestions(recentMessages, 3),
+        })
+        const acknowledgement = buildFreeTalkTopicAcknowledgement({
+          audience,
+          level,
+          topicLabel,
+          seedText: `${recentMessages.length}|${lastUserText}|topic-change`,
+          lastAssistantContent: lastAssistantForInference,
+        })
         return NextResponse.json({
-          content: buildFreeTalkTopicAnchorQuestion({
-            keywords,
-            tense: tutorGradingTense,
-            audience,
-            diversityKey: `${recentMessages.length}|${lastUserText}|topic-change`,
-            recentAssistantQuestions: extractRecentAssistantQuestions(recentMessages, 3),
-          }),
+          content: `${acknowledgement}\n${followUpQuestion}`,
           dialogueCorrect: true,
         })
       }

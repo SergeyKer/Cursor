@@ -19,28 +19,12 @@ const EXPLICIT_SWITCH_PATTERNS: RegExp[] = [
   /^\s*(?:можем|можно)\s+(?:поговорить|обсудить)(?:\s+(?:о|об|про))?\s*(.+)?$/i,
 ]
 
-const TOPIC_SWITCH_STOP_WORDS = new Set([
-  'about', 'topic', 'talk', 'discuss', 'lets', "let's",
-  'давай', 'давайте', 'тема', 'о', 'об', 'про', 'поговорим', 'поговорить', 'обсудим', 'обсудить',
-  'please', 'pls', 'пожалуйста',
-])
-
-const TOPIC_SWITCH_NON_TOPIC_WORDS = new Set([
-  'yes', 'no', 'ok', 'okay', 'thanks', 'thank', 'hi', 'hello', 'привет', 'ага', 'ок', 'спасибо',
-])
-
-const LIKELY_SENTENCE_VERBS = /\b(am|is|are|was|were|have|has|had|will|would|do|does|did|can|could|should|must|go|went|play|played|work|worked|swim|swam|love|like|want|хочу|люблю|буду|делаю|сделал|пойду|хотим|хотела)\b/i
-
 function normalizeSpaces(text: string): string {
   return text.replace(/\s+/g, ' ').trim()
 }
 
 function cleanTopicTail(text: string): string {
   return normalizeSpaces(text.replace(/^[\s,:;.!?-]+|[\s,:;.!?-]+$/g, ''))
-}
-
-function extractWordTokens(text: string): string[] {
-  return (text.match(/[A-Za-zА-Яа-яЁё']+/g) ?? []).map((t) => t.toLowerCase())
 }
 
 export function isFixedTopicSwitchRequest(userText: string): boolean {
@@ -93,24 +77,5 @@ export function detectFreeTalkTopicChange(userText: string): FreeTalkTopicChange
     }
     return { isTopicChange: true, topicHintText: tail, needsClarification: false }
   }
-
-  const tokens = extractWordTokens(text)
-  if (tokens.length === 0 || tokens.length > 4) {
-    return { isTopicChange: false, topicHintText: null, needsClarification: false }
-  }
-
-  if (text.includes('?') || LIKELY_SENTENCE_VERBS.test(text)) {
-    return { isTopicChange: false, topicHintText: null, needsClarification: false }
-  }
-
-  const contentTokens = tokens.filter((t) => !TOPIC_SWITCH_STOP_WORDS.has(t))
-  if (contentTokens.length === 0 || contentTokens.every((t) => TOPIC_SWITCH_NON_TOPIC_WORDS.has(t))) {
-    return { isTopicChange: false, topicHintText: null, needsClarification: false }
-  }
-
-  return {
-    isTopicChange: true,
-    topicHintText: contentTokens.join(' '),
-    needsClarification: false,
-  }
+  return { isTopicChange: false, topicHintText: null, needsClarification: false }
 }
