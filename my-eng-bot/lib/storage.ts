@@ -2,6 +2,7 @@ import type { StoredState, Settings, ChatMessage, TenseId } from './types'
 
 const STORAGE_KEY = 'my-eng-bot-state'
 const USAGE_COUNT_STORAGE = 'my-eng-bot-usage-today'
+const FREE_TALK_TOPIC_ROTATION_STORAGE = 'my-eng-bot-free-talk-topic-rotation'
 
 const LEGACY_STORAGE_KEY = 'eng-bot-state'
 const LEGACY_USAGE_KEY = 'eng-bot-usage-today'
@@ -105,6 +106,79 @@ export function incrementUsageToday(): void {
       if (parsed.date === date) count = typeof parsed.count === 'number' ? parsed.count : 0
     }
     localStorage.setItem(USAGE_COUNT_STORAGE, JSON.stringify({ date, count: count + 1 }))
+  } catch {
+    // ignore
+  }
+}
+
+export interface FreeTalkTopicRotationAudienceState {
+  launchIndex: number
+  lastShownLaunch: Record<string, number>
+}
+
+export interface FreeTalkTopicRotationState {
+  child: FreeTalkTopicRotationAudienceState
+  adult: FreeTalkTopicRotationAudienceState
+}
+
+function createEmptyAudienceRotationState(): FreeTalkTopicRotationAudienceState {
+  return { launchIndex: 0, lastShownLaunch: {} }
+}
+
+function createDefaultFreeTalkTopicRotationState(): FreeTalkTopicRotationState {
+  return {
+    child: createEmptyAudienceRotationState(),
+    adult: createEmptyAudienceRotationState(),
+  }
+}
+
+function sanitizeAudienceRotationState(
+  value: unknown
+): FreeTalkTopicRotationAudienceState {
+  const src = value as Partial<FreeTalkTopicRotationAudienceState> | null
+  const launchIndex =
+    typeof src?.launchIndex === 'number' && Number.isFinite(src.launchIndex) && src.launchIndex >= 0
+      ? Math.floor(src.launchIndex)
+      : 0
+  const rawMap = src?.lastShownLaunch
+  const lastShownLaunch: Record<string, number> = {}
+  if (rawMap && typeof rawMap === 'object') {
+    for (const [topic, launch] of Object.entries(rawMap as Record<string, unknown>)) {
+      if (
+        typeof launch === 'number' &&
+        Number.isFinite(launch) &&
+        launch >= 0
+      ) {
+        lastShownLaunch[topic] = Math.floor(launch)
+      }
+    }
+  }
+  return { launchIndex, lastShownLaunch }
+}
+
+export function loadFreeTalkTopicRotationState(): FreeTalkTopicRotationState {
+  if (typeof window === 'undefined') return createDefaultFreeTalkTopicRotationState()
+  try {
+    const raw = localStorage.getItem(FREE_TALK_TOPIC_ROTATION_STORAGE)
+    if (!raw) return createDefaultFreeTalkTopicRotationState()
+    const parsed = JSON.parse(raw) as Partial<FreeTalkTopicRotationState>
+    return {
+      child: sanitizeAudienceRotationState(parsed.child),
+      adult: sanitizeAudienceRotationState(parsed.adult),
+    }
+  } catch {
+    return createDefaultFreeTalkTopicRotationState()
+  }
+}
+
+export function saveFreeTalkTopicRotationState(state: FreeTalkTopicRotationState): void {
+  if (typeof window === 'undefined') return
+  try {
+    const normalized: FreeTalkTopicRotationState = {
+      child: sanitizeAudienceRotationState(state.child),
+      adult: sanitizeAudienceRotationState(state.adult),
+    }
+    localStorage.setItem(FREE_TALK_TOPIC_ROTATION_STORAGE, JSON.stringify(normalized))
   } catch {
     // ignore
   }

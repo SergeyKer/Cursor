@@ -9,10 +9,19 @@ import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
 import HomeEmptyBubble from '@/components/HomeEmptyBubble'
 import { buildCompactGreeting } from '@/lib/homeGreeting'
 import { consumeNextGreetingFactLine } from '@/lib/greetingFactRotation'
-import { loadState, saveState, getUsageCountToday, incrementUsageToday, DEFAULT_SETTINGS } from '@/lib/storage'
+import {
+  loadState,
+  saveState,
+  getUsageCountToday,
+  incrementUsageToday,
+  DEFAULT_SETTINGS,
+  loadFreeTalkTopicRotationState,
+  saveFreeTalkTopicRotationState,
+} from '@/lib/storage'
 import { countDialogueFinalCorrectAnswers } from '@/lib/dialogueStats'
 import { TOPICS, LEVELS, TENSES, CHILD_TENSES } from '@/lib/constants'
 import { detectCommunicationUserMessageLang, getExpectedCommunicationReplyLang } from '@/lib/communicationReplyLanguage'
+import { pickFreeTalkTopicSuggestions } from '@/lib/freeTalkTopicSuggestions'
 import type {
   AppMode,
   Audience,
@@ -161,6 +170,9 @@ export default function Home() {
   const suppressSettingsChangeBannerRef = React.useRef(false)
 
   function normalizeSettingsForAudience(s: Settings): Settings {
+    if (s.mode === 'dialogue' && s.topic !== 'free_talk') {
+      return { ...s, topic: 'free_talk' }
+    }
     if (s.audience !== 'child') return s
     const allowed = new Set<Settings['level']>(['all', 'starter', 'a1', 'a2'])
     const childTenseSet = new Set(CHILD_TENSES)
@@ -279,6 +291,14 @@ export default function Home() {
     ): Promise<{ content: string; dialogueCorrect: boolean }> => {
       const onRetryStatus = options?.onRetryStatus
       let lastError: Error | null = null
+      const isFirstDialogueFreeTalkTurn =
+        settings.mode === 'dialogue' && apiMessages.length === 0 && settings.topic === 'free_talk'
+      const freeTalkTopicSelection = isFirstDialogueFreeTalkTurn
+        ? pickFreeTalkTopicSuggestions({
+            audience: settings.audience,
+            state: loadFreeTalkTopicRotationState(),
+          })
+        : null
       try {
         for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
           const controller = new AbortController()
@@ -297,6 +317,7 @@ export default function Home() {
                 sentenceType: settings.sentenceType,
                 audience: settings.audience,
                 dialogSeed: dialogSeedRef.current,
+                ...(freeTalkTopicSelection ? { freeTalkTopicSuggestions: freeTalkTopicSelection.topics } : {}),
                 ...(settings.mode === 'communication'
                   ? { communicationInputExpectedLang: settings.communicationInputExpectedLang }
                   : {}),
@@ -348,7 +369,12 @@ export default function Home() {
             if (data.error && !text) {
               throw new Error(data.error)
             }
-            if (text) return { content: text, dialogueCorrect }
+            if (text) {
+              if (freeTalkTopicSelection) {
+                saveFreeTalkTopicRotationState(freeTalkTopicSelection.nextState)
+              }
+              return { content: text, dialogueCorrect }
+            }
             lastError = new Error(EMPTY_RESPONSE_FALLBACK)
             const canRetryEmpty =
               attempt < MAX_ATTEMPTS - 1 && isRetryableError(lastError.message)

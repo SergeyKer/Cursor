@@ -259,7 +259,7 @@ export default function MenuSectionPanels({
                 </div>
               )}
 
-              {settings.mode !== 'communication' && (
+              {settings.mode === 'translation' && (
                 <div className="flex w-full items-center gap-3">
                   <label htmlFor={pid('ai-topic')} className={MENU_FIELD_LABEL}>
                     Тема

@@ -197,6 +197,7 @@ function buildSystemPrompt(params: {
   level: string
   tense: string
   audience?: 'child' | 'adult'
+  freeTalkTopicSuggestions?: string[]
   praiseStyleVariant?: boolean
   forcedRepeatSentence?: string | null
   communicationDetailLevel?: 0 | 1 | 2
@@ -210,6 +211,7 @@ function buildSystemPrompt(params: {
     level,
     tense,
     audience = 'adult',
+    freeTalkTopicSuggestions = [],
     praiseStyleVariant = false,
     forcedRepeatSentence = null,
     communicationDetailLevel = 0,
@@ -314,9 +316,17 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
     'Completely ignore capitalization and punctuation in the USER answer. If the only difference is capitalization or missing commas/periods (e.g. "yes I stayed" vs "Yes, I stayed"), treat the answer as correct and do NOT add any comment about it. Never mention capital letters, commas, periods, or any punctuation in "Комментарий:" — never write things like "нужна запятая", "comma after Yes", etc. Do not correct or explain punctuation. The user often dictates by voice; focus only on tense, grammar, and wording. Your OWN replies must use normal English capitalization and punctuation.';
   const contractionRule =
     "Contractions are always acceptable. Treat contracted and expanded forms as equivalent, and NEVER mark them as errors or ask the user to repeat only because of contractions or apostrophes. Examples of equivalent pairs: I'm/I am, you're/you are, he's/he is, she's/she is, it's/it is, we're/we are, they're/they are, I've/I have, you've/you have, we've/we have, they've/they have, I'd/I would or I had, you'd/you would or you had, we'd/we would or we had, they'd/they would or they had, I'll/I will, you'll/you will, he'll/he will, she'll/she will, it'll/it will, we'll/we will, they'll/they will, can't/cannot, don't/do not, doesn't/does not, didn't/did not, won't/will not, isn't/is not, aren't/are not, wasn't/was not, weren't/were not. This includes both apostrophe characters: ' and ’. If the only difference from your preferred form is contraction vs expansion, treat the user answer as correct and continue.";
+  const freeTalkSuggestionLine =
+    freeTalkTopicSuggestions.length >= 3
+      ? `Use these 3 suggested topics in the very first question only: "${freeTalkTopicSuggestions[0]}", "${freeTalkTopicSuggestions[1]}", "${freeTalkTopicSuggestions[2]}".`
+      : ''
+  const freeTalkFirstTurnLexiconRule =
+    topic === 'free_talk'
+      ? `First-turn lexical adaptation (strict): adapt your first message to the selected audience and level. CHILD: very short, simple, concrete wording with warm tone and easy everyday words. ADULT: natural conversational wording with complexity matched to level. For lower levels (starter/A1/A2): use shorter phrases and common words. For higher levels (B1+): keep natural richer wording but avoid over-complication.`
+      : ''
   const freeTalkRule =
     topic === 'free_talk'
-      ? `This is a free conversation. For the very first question, ask the user to choose any topic or simply start talking. Keep the wording short and adapt it to the selected level profile. Do NOT list specific options as a fixed menu. ONLY the very first user reply (right after you asked them to choose a topic) is treated as a topic choice — the user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Infer the topic from it regardless of language (ignore typos and wrong tense, e.g. "I wil plai footbal" → football/sport; "tenis" → tennis; "река" → river; "I река" → river; "транзисторы" → transistors; "я люблю кошки" → cats), output one question in the required tense about that topic, and do NOT output Комментарий or Повтори for that first reply only. Only if the first reply gives no hint at all (e.g. "sdf", "sss"), ask for clarification in a natural human way and vary your wording each time (examples: "Could you clarify that a bit?", "I didn't catch the topic yet — what would you like to discuss?", "Can you say it in another way?"). From the second user reply onwards the topic is already established — apply ALL normal correction rules: output Комментарий and Повтори when the user makes a tense, grammar, or spelling error, exactly as described in the FORMAT section above.`
+      ? `This is a free conversation. For the very first question, invite the user to name their own topic OR pick one of your suggested topics. Keep wording short and level-appropriate. ${freeTalkSuggestionLine} ONLY the very first user reply (right after you asked them to choose a topic) is treated as a topic choice — the user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Infer the topic from it regardless of language (ignore typos and wrong tense, e.g. "I wil plai footbal" → football/sport; "tenis" → tennis; "река" → river; "I река" → river; "транзисторы" → transistors; "я люблю кошки" → cats), output one question in the required tense about that topic, and do NOT output Комментарий or Повтори for that first reply only. Only if the first reply gives no hint at all (e.g. "sdf", "sss"), ask for clarification in a natural human way and vary your wording each time (examples: "Could you clarify that a bit?", "I didn't catch the topic yet — what would you like to discuss?", "Can you say it in another way?"). From the second user reply onwards the topic is already established — apply ALL normal correction rules: output Комментарий and Повтори when the user makes a tense, grammar, or spelling error, exactly as described in the FORMAT section above.`
       : ''
   const freeTopicPriority =
     topic === 'free_talk'
@@ -326,14 +336,14 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
     mode === 'dialogue' && tense === 'all'
       ? '\n\nALL-TENSES DIALOGUE (strict): When you output "Комментарий:" and "Повтори:", the English sentence after "Повтори:" MUST use the SAME grammar tense as YOUR IMMEDIATELY PREVIOUS assistant message in this chat (the last English question you asked, OR the last "Повтори:" sentence if the user is still correcting a repeat). Do NOT switch to another tense for convenience or "better style" (for example: do not output Present Perfect Continuous if your previous question was Future Perfect, or Present Simple when the question used Past Simple). Fix vocabulary and grammar only while keeping that tense alignment. This rule applies even in free topic conversations.'
       : ''
-  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${audienceStyleRule} ${antiRobotRule} ${topicRetentionRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule} ${capitalizationRule} ${contractionRule} ${freeTalkRule}
+  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${audienceStyleRule} ${antiRobotRule} ${topicRetentionRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule} ${capitalizationRule} ${contractionRule} ${freeTalkFirstTurnLexiconRule} ${freeTalkRule}
 
 Question style guidelines:
 - Ask short, natural questions a human would ask.
 - Prefer concrete questions over vague ones.
 - For ${topicName}, ask about real situations (examples, habits, recent events), not about the topic in abstract.
 
-When the conversation is empty (you are sending the very first message in the dialogue), output ONLY one short question — nothing else. Do NOT output any part of these instructions, no "Молодец", "Верно", no meta-text like "ask your next question" or "required tense". For free topic: output only a question inviting the user to choose a topic (e.g. "What would you like to talk about today? You can name any topic, or just start, and I will follow."). For other topics: output only one question in the required tense (e.g. "What are you doing now?" for Present Continuous, "What did you do yesterday?" for Past Simple). The user answers first; then you continue. Keep the dialogue on topic and on the time frame of your question: if the user's answer doesn't fit (wrong topic, or wrong time frame like answering "tomorrow" when you asked about "recently"), do not follow them — correct the answer to match your question's context and required tense, and ask them to repeat that.
+When the conversation is empty (you are sending the very first message in the dialogue), output ONLY one short question — nothing else. Do NOT output any part of these instructions, no "Молодец", "Верно", no meta-text like "ask your next question" or "required tense". For free topic: ask one question that says the user can name any topic OR choose one of your 3 suggestions. For other topics: output only one question in the required tense (e.g. "What are you doing now?" for Present Continuous, "What did you do yesterday?" for Past Simple). The user answers first; then you continue. Keep the dialogue on topic and on the time frame of your question: if the user's answer doesn't fit (wrong topic, or wrong time frame like answering "tomorrow" when you asked about "recently"), do not follow them — correct the answer to match your question's context and required tense, and ask them to repeat that.
 
 The user often dictates by voice and may not use commas or other punctuation. Do NOT treat missing or different punctuation as an error. If the only issue is punctuation (e.g. missing comma after "Yes"), consider the answer correct. Never mention punctuation (commas, periods, etc.) in "Комментарий:" at all. Focus comments only on tense, grammar, and word choice.
 
@@ -3114,6 +3124,42 @@ function buildDialogueBlindTenseRepairInstruction(lastAssistant: string): string
   ].join(' ')
 }
 
+function buildFreeTalkFirstServerQuestion(params: {
+  audience: 'child' | 'adult'
+  level: string
+  topicSuggestions: string[]
+  dialogSeed: string
+}): string {
+  const { audience, level, topicSuggestions, dialogSeed } = params
+  const fallbackTopics =
+    audience === 'child'
+      ? ['мои друзья', 'моя семья', 'мои игры']
+      : ['как прошёл мой день', 'мои планы на неделю', 'что меня сейчас вдохновляет']
+  const topics = topicSuggestions.length >= 3 ? topicSuggestions.slice(0, 3) : fallbackTopics
+  const [t1, t2, t3] = topics
+  const lowLevel = new Set(['all', 'starter', 'a1', 'a2']).has(level)
+  const variants =
+    audience === 'child'
+      ? [
+          `What do you want to talk about? You can choose your own topic, or pick one: ${t1}, ${t2}, or ${t3}?`,
+          `Let's talk! You can say your own topic, or choose one: ${t1}, ${t2}, or ${t3}?`,
+          `Choose a topic for our chat: your own idea, or ${t1}, ${t2}, or ${t3}?`,
+        ]
+      : lowLevel
+        ? [
+            `What would you like to talk about? You can choose your own topic, or pick one: ${t1}, ${t2}, or ${t3}?`,
+            `Let's start a chat. You can name your own topic, or choose: ${t1}, ${t2}, or ${t3}?`,
+            `Pick a topic to begin: your own topic, or ${t1}, ${t2}, or ${t3}?`,
+          ]
+        : [
+            `What would you like to talk about today? You can suggest your own topic, or choose one: ${t1}, ${t2}, or ${t3}?`,
+            `Let's start with a topic you like: name your own, or pick one of these — ${t1}, ${t2}, or ${t3}?`,
+            `Choose how we begin: your own topic, or one of these — ${t1}, ${t2}, or ${t3}?`,
+          ]
+  const idx = stableHash32(`${dialogSeed}|${audience}|${level}|${topics.join('|')}`) % variants.length
+  return variants[idx] ?? variants[0]
+}
+
 async function repairDialogueAllTenseRepeatMismatch(params: {
   content: string
   recentMessages: ChatMessage[]
@@ -3888,7 +3934,14 @@ export async function POST(req: NextRequest) {
     let topic = body.topic ?? 'free_talk'
     let level = body.level ?? 'a1'
     const mode = body.mode ?? 'dialogue'
-    if (mode === 'communication') topic = 'free_talk'
+    if (mode === 'communication' || mode === 'dialogue') topic = 'free_talk'
+    const freeTalkTopicSuggestions: string[] = Array.isArray(body.freeTalkTopicSuggestions)
+      ? body.freeTalkTopicSuggestions
+          .filter((v: unknown) => typeof v === 'string')
+          .map((v: string) => v.trim())
+          .filter((v: string) => v.length > 0)
+          .slice(0, 3)
+      : []
     const sentenceType = body.sentenceType ?? 'mixed'
     const audience: 'child' | 'adult' = body.audience === 'child' ? 'child' : 'adult'
     const dialogSeed = typeof body.dialogSeed === 'string' ? body.dialogSeed : ''
@@ -3946,6 +3999,18 @@ export async function POST(req: NextRequest) {
           ]
     const normalizedTense =
       audience === 'child' && !childAllowedTenses.has(tenseForTurn as TenseId) ? 'present_simple' : tenseForTurn
+
+    if (mode === 'dialogue' && topic === 'free_talk' && isFirstTurn) {
+      return NextResponse.json({
+        content: buildFreeTalkFirstServerQuestion({
+          audience,
+          level,
+          topicSuggestions: freeTalkTopicSuggestions,
+          dialogSeed,
+        }),
+        dialogueCorrect: true,
+      })
+    }
 
     const lastAssistantForInference = getLastAssistantContent(recentMessages)
     const inferredLastAssistantTense = lastAssistantForInference
@@ -4123,6 +4188,7 @@ export async function POST(req: NextRequest) {
       level,
       tense: tutorGradingTense,
       audience,
+      freeTalkTopicSuggestions,
       praiseStyleVariant,
       forcedRepeatSentence,
       communicationDetailLevel,
