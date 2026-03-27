@@ -33,6 +33,10 @@ import {
   isKommentariyPurePraiseOnly,
   shouldStripRepeatOnPraise,
 } from '@/lib/dialoguePraiseComment'
+import { buildMixedDialogueFallbackComment, buildMixedInputRepeatFallback } from '@/lib/mixedInputRepeatFallback'
+import { normalizeEnglishForRepeatMatch } from '@/lib/normalizeEnglishForRepeatMatch'
+import { stripFalseArticleBeforeEnglishComment } from '@/lib/stripFalseArticleBeforeEnglishComment'
+import { normalizeTopicToken, RU_TOPIC_KEYWORD_TO_EN } from '@/lib/ruTopicKeywordMap'
 
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
 // чтобы undici + proxy dispatcher работали предсказуемо (а не в Edge).
@@ -365,6 +369,8 @@ EXCEPTION for free topic (Свободная тема), for any tense: when the 
 CRITICAL — Context: Your correction (Комментарий/Говорится/Нужно слово/Повтори) must refer ONLY to the user's LAST message. Never output a correction about words or mistakes that are not in that message (e.g. if the user wrote "I usually swim in the pool", do NOT correct "movie" vs "move" — that is from another turn). If the last message has no errors, output only the next question in English.
 
 This applies to every tense (Present Simple, Present Continuous, Past Simple, Future Perfect, etc.): you MUST correct the user's answer according to ALL applicable rules. Check every dimension: (1) required tense — if they used another tense, correct it; (2) grammar — word order, verb form, articles (a/an/the), plural/singular; (3) spelling — correct every misspelled word; (4) word choice — wrong word (e.g. "move" instead of "movie") must be fixed. The "Повтори:" sentence must fix ALL errors at once; the "Комментарий:" must briefly list ALL issues so the user sees what was wrong. Do not correct only one mistake and ignore others.
+
+Article rule for school subjects and languages: patterns like "study English", "I studied English", "learn French" normally have NO article before the subject name. Never tell the user in Комментарий to add "the" before "English" (or another language) if the corrected sentence in Повтори does not use "the" there. Комментарий must not contradict Повтори.
 
 When there are grammar or spelling problems or the user used the wrong tense, respond ONLY in the short format below. Do NOT output long explanations of rules, lists of example questions (e.g. "Do you like pizza?", "What is your favorite color?"), or meta-instructions. Even if the user makes the same mistake again (e.g. wrong tense twice), reply only with Комментарий (1–2 short sentences in Russian) + Повтори: [correct sentence]. Keep the reply short. Do not use emojis or jokes in corrections (e.g. do not write "unless you're preparing for a spelling competition" or similar).
 
@@ -868,81 +874,6 @@ const TOPIC_CHOICE_SKIP_WORDS_RU = new Set([
   'этот', 'эти', 'что', 'где', 'когда', 'как', 'почему', 'кто', 'мне', 'меня', 'мой',
   'моя', 'мои', 'тема', 'хочу', 'хотел', 'хотела', 'говорить', 'поговорить',
 ])
-const RU_TOPIC_KEYWORD_TO_EN: Record<string, string> = {
-  солнце: 'sun',
-  солнечный: 'sun',
-  погода: 'weather',
-  дождь: 'rain',
-  снег: 'snow',
-  море: 'sea',
-  океан: 'ocean',
-  река: 'river',
-  озеро: 'lake',
-  пляж: 'beach',
-  гора: 'mountain',
-  горы: 'mountains',
-  лес: 'forest',
-  природа: 'nature',
-  спорт: 'sports',
-  футбол: 'football',
-  теннис: 'tennis',
-  баскетбол: 'basketball',
-  хоккей: 'hockey',
-  плавание: 'swimming',
-  бег: 'running',
-  велосипед: 'bicycle',
-  музыка: 'music',
-  песня: 'song',
-  песни: 'songs',
-  гитара: 'guitar',
-  пианино: 'piano',
-  фильм: 'movie',
-  фильмы: 'movies',
-  кино: 'cinema',
-  мультик: 'cartoon',
-  мультики: 'cartoons',
-  книга: 'book',
-  книги: 'books',
-  школа: 'school',
-  урок: 'lesson',
-  уроки: 'lessons',
-  учёба: 'studies',
-  работа: 'work',
-  еда: 'food',
-  готовка: 'cooking',
-  кот: 'cat',
-  кошка: 'cat',
-  кошки: 'cats',
-  собака: 'dog',
-  собаки: 'dogs',
-  животные: 'animals',
-  семья: 'family',
-  друзья: 'friends',
-  друг: 'friend',
-  путешествие: 'travel',
-  путешествия: 'travel',
-  город: 'city',
-  страна: 'country',
-  дом: 'home',
-  машина: 'car',
-  компьютер: 'computer',
-  телефон: 'phone',
-  игра: 'game',
-  игры: 'games',
-  лето: 'summer',
-  зима: 'winter',
-  весна: 'spring',
-  осень: 'autumn',
-  космос: 'space',
-  динозавры: 'dinosaurs',
-  робот: 'robot',
-  роботы: 'robots',
-}
-
-function normalizeTopicToken(token: string): string {
-  return token.toLowerCase().replace(/^[^a-zа-яё]+|[^a-zа-яё]+$/gi, '')
-}
-
 function isMixedLatinCyrillicText(text: string): boolean {
   return /[A-Za-z]/.test(text) && /[А-Яа-яЁё]/.test(text)
 }
@@ -1006,54 +937,6 @@ function translateRuTopicKeywordsToEn(keywords: string[]): string[] {
     if (translated.length >= 8) break
   }
   return translated
-}
-
-function buildMixedInputRepeatFallback(params: { userText: string; tense: string }): string {
-  const { userText, tense } = params
-  const lower = userText.toLowerCase()
-  const ruTokens = (userText.match(/[А-Яа-яЁё]+/g) ?? [])
-    .map((t) => normalizeTopicToken(t))
-    .filter(Boolean)
-  const translated = translateRuTopicKeywordsToEn(ruTokens)
-  const hasVisitIntent = /\b(visi?t|visit|visited|wisit|wisited|go|went)\b/i.test(lower)
-  const hasPiter = ruTokens.some((t) => t === 'питер' || t === 'петербург')
-  const place = hasPiter ? 'St. Petersburg' : (translated[0] ?? '')
-
-  if (hasVisitIntent && place) {
-    if (tense === 'past_simple' || tense === 'all') return `I visited ${place}.`
-    if (tense === 'present_simple') return `I visit ${place}.`
-    if (tense === 'future_simple') return `I will visit ${place}.`
-  }
-
-  switch (tense) {
-    case 'present_simple':
-      return 'I usually answer in English.'
-    case 'present_continuous':
-      return 'I am answering in English now.'
-    case 'present_perfect':
-      return 'I have answered in English.'
-    case 'present_perfect_continuous':
-      return 'I have been answering in English.'
-    case 'past_simple':
-      return 'I answered in English.'
-    case 'past_continuous':
-      return 'I was answering in English.'
-    case 'past_perfect':
-      return 'I had answered in English.'
-    case 'past_perfect_continuous':
-      return 'I had been answering in English.'
-    case 'future_simple':
-      return 'I will answer in English.'
-    case 'future_continuous':
-      return 'I will be answering in English.'
-    case 'future_perfect':
-      return 'I will have answered in English.'
-    case 'future_perfect_continuous':
-      return 'I will have been answering in English.'
-    case 'all':
-    default:
-      return 'I answered in English.'
-  }
 }
 
 function ensureFreeTalkTopicChoiceQuestionAnchorsUser(params: {
@@ -2053,14 +1936,20 @@ function alignDialogueArticleCommentWithRepeat(params: {
   const repeatLine = lines.find((line) => /^(?:\s*)(Повтори|Repeat|Say)\s*:/i.test(line.trim()))
   if (commentIndex === -1 || !repeatLine) return content
 
-  const commentText = lines[commentIndex].replace(/^Комментарий\s*:\s*/i, '').trim()
+  const repeatTextForStrip = repeatLine.replace(/^(?:\s*)(Повтори|Repeat|Say)\s*:\s*/i, '').trim()
+  let commentText = lines[commentIndex].replace(/^Комментарий\s*:\s*/i, '').trim()
+  const strippedEnglishArticle = stripFalseArticleBeforeEnglishComment(commentText, repeatTextForStrip)
+  if (strippedEnglishArticle !== commentText) {
+    lines[commentIndex] = `Комментарий: ${strippedEnglishArticle}`
+    commentText = strippedEnglishArticle
+  }
   if (!commentText) return content
   const saysMissingArticle = /(не\s*хвата\w*\s+артикл|нужен\s+артикл|добав(ь|ить)\s+артикл)/i.test(commentText)
   const saysExtraArticle = /(лишн\w*\s+артикл|артикл\w*\s+не\s+нужен|убра(ть|л)\s+артикл)/i.test(commentText)
-  if (!saysMissingArticle && !saysExtraArticle) return content
+  if (!saysMissingArticle && !saysExtraArticle) return lines.join('\n')
 
-  const repeatText = repeatLine.replace(/^(?:\s*)(Повтори|Repeat|Say)\s*:\s*/i, '').trim()
-  if (!repeatText) return content
+  const repeatText = repeatTextForStrip
+  if (!repeatText) return lines.join('\n')
   const userLower = userText.toLowerCase()
   const repeatLower = repeatText.toLowerCase()
   const tokens = Array.from(new Set(tokenizeEnglishWords(repeatText).filter((t) => t.length >= 3)))
@@ -2099,7 +1988,7 @@ function alignDialogueArticleCommentWithRepeat(params: {
     return lines.join('\n')
   }
 
-  return content
+  return lines.join('\n')
 }
 
 function isEnglishQuestionLine(line: string): boolean {
@@ -2913,18 +2802,9 @@ function getTranslationRepeatSentence(content: string): string | null {
   return repeatText || null
 }
 
-function normalizeEnglishSentenceForComparison(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[’]/g, "'")
-    .replace(/[^a-z0-9'\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
 function isTranslationAnswerEffectivelyCorrect(userText: string, repeatSentence: string): boolean {
-  const userNorm = normalizeEnglishSentenceForComparison(userText)
-  const repeatNorm = normalizeEnglishSentenceForComparison(repeatSentence)
+  const userNorm = normalizeEnglishForRepeatMatch(userText)
+  const repeatNorm = normalizeEnglishForRepeatMatch(repeatSentence)
   if (!userNorm || !repeatNorm) return false
   return userNorm === repeatNorm
 }
@@ -3005,8 +2885,8 @@ function isDialogueAnswerLikelyCorrect(userText: string, requiredTense: string):
 }
 
 function isDialogueAnswerEffectivelyCorrect(userText: string, repeatSentence: string, requiredTense: string): boolean {
-  const userNorm = normalizeEnglishSentenceForComparison(userText)
-  const repeatNorm = normalizeEnglishSentenceForComparison(repeatSentence)
+  const userNorm = normalizeEnglishForRepeatMatch(userText)
+  const repeatNorm = normalizeEnglishForRepeatMatch(repeatSentence)
   if (!userNorm || !repeatNorm) return false
   if (!isDialogueAnswerLikelyCorrect(userText, requiredTense)) return false
   // Считаем false-positive только почти точное совпадение с фразой, которую бот просил повторить.
@@ -5158,7 +5038,7 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
         const lastQ = extractLastAssistantQuestionSentence(recentMessages)
         const soft = isSoftCommentTone(audience, level)
         const tryAgain = audience === 'child' ? 'Попробуй ещё раз!' : 'Попробуйте ещё раз.'
-        const comment = tenseName
+        const commentNonMixed = tenseName
           ? soft
             ? `Комментарий: Тут нужно ответить в ${tenseName}. ${tryAgain}`
             : `Комментарий: Ответ нужно дать в ${tenseName}. Исправьте время и грамматику.`
@@ -5174,13 +5054,13 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
         })
         if (isMixedDialogueInput) {
           return NextResponse.json({
-            content: `${comment}\nПовтори: ${buildMixedInputRepeatFallback({
+            content: `${buildMixedDialogueFallbackComment({ audience, level })}\nПовтори: ${buildMixedInputRepeatFallback({
               userText: lastUserContentForResponse,
               tense: tutorGradingTense,
             })}`,
           })
         }
-        return NextResponse.json({ content: `${comment}\n${nextQuestion}` })
+        return NextResponse.json({ content: `${commentNonMixed}\n${nextQuestion}` })
       }
       return NextResponse.json({
         content:
