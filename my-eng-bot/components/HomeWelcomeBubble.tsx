@@ -19,6 +19,22 @@ const bubbleClass =
 export default function HomeWelcomeBubble({ text, className = '', actions }: HomeWelcomeBubbleProps) {
   const blocks = React.useMemo(() => splitGreetingIntoBlocks(text), [text])
 
+  const renderGreetingBlock = (block: string): React.ReactNode => {
+    if (!block.includes('MyEng')) return block
+    const parts = block.split('MyEng')
+    return parts.reduce<React.ReactNode[]>((acc, part, index) => {
+      if (part) acc.push(part)
+      if (index < parts.length - 1) {
+        acc.push(
+          <strong key={`myeng-${index}`} className="font-semibold">
+            MyEng
+          </strong>
+        )
+      }
+      return acc
+    }, [])
+  }
+
   return (
     <section
       className={`w-full max-w-[23.2rem] ${className}`}
@@ -34,7 +50,7 @@ export default function HomeWelcomeBubble({ text, className = '', actions }: Hom
               {blocks.map((block, i) => (
                 <div key={`${i}-${block.slice(0, 32)}`} className="flex justify-start">
                   <div className={bubbleClass}>
-                    <p className="break-words font-normal">{block}</p>
+                    <p className="break-words font-normal">{renderGreetingBlock(block)}</p>
                   </div>
                 </div>
               ))}
