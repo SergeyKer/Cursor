@@ -7,6 +7,7 @@ import {
   isLikelyQuestionInRequiredTense,
   isUserLikelyCorrectForTense,
 } from './dialogueTenseInference'
+import { isRepeatSemanticallySafe } from './dialogueSemanticGuard'
 
 function stripLeadingAiPrefix(line: string): string {
   return line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
@@ -16,15 +17,19 @@ function stripLeadingAiPrefix(line: string): string {
  * @param expectedNextQuestionTense — для free_talk после верного ответа: следующий вопрос должен быть в этом времени,
  *   а не в requiredTense (время последнего вопроса/«Повтори»).
  */
-export type DialogueTenseValidationReason = 'next_question_tense_mismatch' | 'required_tense_mismatch'
+export type DialogueTenseValidationReason =
+  | 'next_question_tense_mismatch'
+  | 'required_tense_mismatch'
+  | 'semantic_mismatch'
 
 export function validateDialogueOutputTense(params: {
   content: string
   requiredTense?: string
   priorAssistantContent?: string | null
   expectedNextQuestionTense?: string | null
+  lastUserText?: string
 }): { ok: boolean; reason?: DialogueTenseValidationReason } {
-  const { content, requiredTense, priorAssistantContent, expectedNextQuestionTense } = params
+  const { content, requiredTense, priorAssistantContent, expectedNextQuestionTense, lastUserText } = params
   if (!requiredTense) return { ok: true }
   const raw = content.trim()
   if (!raw) return { ok: false, reason: 'required_tense_mismatch' }
@@ -38,6 +43,9 @@ export function validateDialogueOutputTense(params: {
   const repeatLine = lines.find((line) => /^(Повтори|Repeat|Say)\s*:/i.test(line))
   if (repeatLine) {
     const repeatSentence = repeatLine.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '').trim()
+    if (lastUserText && !isRepeatSemanticallySafe({ userText: lastUserText, repeatSentence })) {
+      return { ok: false, reason: 'semantic_mismatch' }
+    }
     if (requiredTense === 'all') {
       const inferred = priorAssistantContent ? inferTenseFromDialogueAssistantContent(priorAssistantContent) : null
       if (inferred && !isUserLikelyCorrectForTense(repeatSentence, inferred)) {
@@ -70,6 +78,7 @@ export function isDialogueOutputLikelyInRequiredTense(params: {
   requiredTense?: string
   priorAssistantContent?: string | null
   expectedNextQuestionTense?: string | null
+  lastUserText?: string
 }): boolean {
   return validateDialogueOutputTense(params).ok
 }

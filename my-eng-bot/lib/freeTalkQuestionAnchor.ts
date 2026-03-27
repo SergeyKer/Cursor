@@ -1,15 +1,24 @@
 import { stableHash32 } from './freeTalkDialogueTense'
 import { isNearDuplicateQuestion } from './dialogueQuestionVariety'
 
+export function buildFreeTalkTopicLabel(keywords: string[]): string {
+  return keywords
+    .map((keyword) => keyword.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(' ')
+}
+
 export function buildFreeTalkTopicAnchorQuestion(params: {
   keywords: string[]
+  topicLabel?: string
   tense: string
   audience: 'child' | 'adult'
   diversityKey?: string
   recentAssistantQuestions?: string[]
 }): string {
-  const { keywords, tense, audience, diversityKey = '', recentAssistantQuestions = [] } = params
-  const t = keywords.slice(0, 3).join(', ')
+  const { keywords, topicLabel, tense, audience, diversityKey = '', recentAssistantQuestions = [] } = params
+  const t = (topicLabel ?? buildFreeTalkTopicLabel(keywords)).trim()
   const seed = stableHash32(`ftaq|${t}|${tense}|${audience}|${diversityKey}`)
   const pick = (variants: string[]) => {
     if (variants.length === 0) return ''

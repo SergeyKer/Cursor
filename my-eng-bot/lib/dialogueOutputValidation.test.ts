@@ -72,4 +72,16 @@ describe('isDialogueOutputLikelyInRequiredTense', () => {
       })
     ).toEqual({ ok: true })
   })
+
+  it('semantic guard: Повтори не должен удалять intention-конструкцию plan to', () => {
+    const content = 'Комментарий: Лексика.\nПовтори: I find my work.'
+    expect(
+      validateDialogueOutputTense({
+        content,
+        requiredTense: 'present_simple',
+        priorAssistantContent: 'What do you usually plan for your week?',
+        lastUserText: 'I plan to find my work.',
+      })
+    ).toEqual({ ok: false, reason: 'semantic_mismatch' })
+  })
 })

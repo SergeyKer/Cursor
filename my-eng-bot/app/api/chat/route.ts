@@ -15,11 +15,17 @@ import {
   isUserLikelyCorrectForTense,
 } from '@/lib/dialogueTenseInference'
 import { isDialogueOutputLikelyInRequiredTense, validateDialogueOutputTense } from '@/lib/dialogueOutputValidation'
+import { isRepeatSemanticallySafe } from '@/lib/dialogueSemanticGuard'
+import { validateDialogueRussianNaturalness } from '@/lib/dialogueRussianNaturalness'
 import { buildAdultFullTensePool, pickWeightedFreeTalkTense } from '@/lib/freeTalkDialogueTense'
 import { detectFreeTalkTopicChange, isFixedTopicSwitchRequest } from '@/lib/freeTalkTopicChange'
 import { normalizeDialogueEntityForTopic, stripLeadingAnswerVerbPhrases } from '@/lib/dialogueEntityNormalization'
 import { isNearDuplicateQuestion } from '@/lib/dialogueQuestionVariety'
-import { buildFreeTalkTopicAnchorQuestion as buildFreeTalkTopicAnchorQuestionText } from '@/lib/freeTalkQuestionAnchor'
+import {
+  buildFreeTalkTopicAnchorQuestion as buildFreeTalkTopicAnchorQuestionText,
+  buildFreeTalkTopicLabel,
+} from '@/lib/freeTalkQuestionAnchor'
+import { buildFreeTalkFirstQuestion } from '@/lib/freeTalkFirstQuestion'
 import {
   isKommentariyPurePraiseOnly,
   shouldStripRepeatOnPraise,
@@ -316,27 +322,27 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
     'Completely ignore capitalization and punctuation in the USER answer. If the only difference is capitalization or missing commas/periods (e.g. "yes I stayed" vs "Yes, I stayed"), treat the answer as correct and do NOT add any comment about it. Never mention capital letters, commas, periods, or any punctuation in "Комментарий:" — never write things like "нужна запятая", "comma after Yes", etc. Do not correct or explain punctuation. The user often dictates by voice; focus only on tense, grammar, and wording. Your OWN replies must use normal English capitalization and punctuation.';
   const contractionRule =
     "Contractions are always acceptable. Treat contracted and expanded forms as equivalent, and NEVER mark them as errors or ask the user to repeat only because of contractions or apostrophes. Examples of equivalent pairs: I'm/I am, you're/you are, he's/he is, she's/she is, it's/it is, we're/we are, they're/they are, I've/I have, you've/you have, we've/we have, they've/they have, I'd/I would or I had, you'd/you would or you had, we'd/we would or we had, they'd/they would or they had, I'll/I will, you'll/you will, he'll/he will, she'll/she will, it'll/it will, we'll/we will, they'll/they will, can't/cannot, don't/do not, doesn't/does not, didn't/did not, won't/will not, isn't/is not, aren't/are not, wasn't/was not, weren't/were not. This includes both apostrophe characters: ' and ’. If the only difference from your preferred form is contraction vs expansion, treat the user answer as correct and continue.";
-  const freeTalkSuggestionLine =
-    freeTalkTopicSuggestions.length >= 3
-      ? `Use these 3 suggested topics in the very first question only: "${freeTalkTopicSuggestions[0]}", "${freeTalkTopicSuggestions[1]}", "${freeTalkTopicSuggestions[2]}".`
-      : ''
   const freeTalkFirstTurnLexiconRule =
     topic === 'free_talk'
       ? `First-turn lexical adaptation (strict): adapt your first message to the selected audience and level. CHILD: very short, simple, concrete wording with warm tone and easy everyday words. ADULT: natural conversational wording with complexity matched to level. For lower levels (starter/A1/A2): use shorter phrases and common words. For higher levels (B1+): keep natural richer wording but avoid over-complication.`
       : ''
   const freeTalkRule =
     topic === 'free_talk'
-      ? `This is a free conversation. For the very first question, invite the user to name their own topic OR pick one of your suggested topics. Keep wording short and level-appropriate. ${freeTalkSuggestionLine} ONLY the very first user reply (right after you asked them to choose a topic) is treated as a topic choice — the user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Infer the topic from it regardless of language (ignore typos and wrong tense, e.g. "I wil plai footbal" → football/sport; "tenis" → tennis; "река" → river; "I река" → river; "транзисторы" → transistors; "я люблю кошки" → cats), output one question in the required tense about that topic, and do NOT output Комментарий or Повтори for that first reply only. Only if the first reply gives no hint at all (e.g. "sdf", "sss"), ask for clarification in a natural human way and vary your wording each time (examples: "Could you clarify that a bit?", "I didn't catch the topic yet — what would you like to discuss?", "Can you say it in another way?"). From the second user reply onwards the topic is already established — apply ALL normal correction rules: output Комментарий and Повтори when the user makes a tense, grammar, or spelling error, exactly as described in the FORMAT section above.`
+      ? `This is a free conversation. For the very first question, ask a short friendly question that starts the conversation naturally. Keep it easy to read for any level and any audience. ONLY the very first user reply (right after the opening question) is treated as a topic choice — the user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Infer the topic from it regardless of language (ignore typos and wrong tense, e.g. "I wil plai footbal" → football/sport; "tenis" → tennis; "река" → river; "I река" → river; "транзисторы" → transistors; "я люблю кошки" → cats), output one question in the required tense about that topic, and do NOT output Комментарий or Повтори for that first reply only. Only if the first reply gives no hint at all (e.g. "sdf", "sss"), ask for clarification in a natural human way and vary your wording each time (examples: "Could you clarify that a bit?", "I didn't catch the topic yet — what would you like to discuss?", "Can you say it in another way?"). From the second user reply onwards the topic is already established — apply ALL normal correction rules: output Комментарий and Повтори when the user makes a tense, grammar, or spelling error, exactly as described in the FORMAT section above.`
       : ''
   const freeTopicPriority =
     topic === 'free_talk'
       ? 'HIGHEST PRIORITY — Free topic (for ANY tense: Present Simple, Present Perfect, Past Simple, etc.): When the user is naming or revealing their topic for the first time (i.e. the very first reply after you asked "What would you like to talk about?"), do NOT output Комментарий or Повтори. Do NOT output meta-text or instructions. Only infer the topic and reply with ONE real question in the required tense. This override applies ONLY to that one topic-choice turn. For all subsequent user replies, apply normal correction rules. For the first question, keep the wording aligned with the selected level profile. '
       : ''
+  const dialogueRussianNaturalnessRule =
+    mode === 'dialogue'
+      ? '\n\nRussian naturalness rule: the Russian "Комментарий:" line must sound idiomatic and natural. Avoid literal calques or awkward word combinations; rewrite them before output.'
+      : ''
   const dialogueAllTenseAnchorRule =
     mode === 'dialogue' && tense === 'all'
       ? '\n\nALL-TENSES DIALOGUE (strict): When you output "Комментарий:" and "Повтори:", the English sentence after "Повтори:" MUST use the SAME grammar tense as YOUR IMMEDIATELY PREVIOUS assistant message in this chat (the last English question you asked, OR the last "Повтори:" sentence if the user is still correcting a repeat). Do NOT switch to another tense for convenience or "better style" (for example: do not output Present Perfect Continuous if your previous question was Future Perfect, or Present Simple when the question used Past Simple). Fix vocabulary and grammar only while keeping that tense alignment. This rule applies even in free topic conversations.'
       : ''
-  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${audienceStyleRule} ${antiRobotRule} ${topicRetentionRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule} ${capitalizationRule} ${contractionRule} ${freeTalkFirstTurnLexiconRule} ${freeTalkRule}
+  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${audienceStyleRule} ${antiRobotRule} ${topicRetentionRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueRussianNaturalnessRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule} ${capitalizationRule} ${contractionRule} ${freeTalkFirstTurnLexiconRule} ${freeTalkRule}
 
 Question style guidelines:
 - Ask short, natural questions a human would ask.
@@ -472,8 +478,10 @@ function fallbackQuestionForContext(params: {
         const { en, ru } = extractTopicChoiceKeywordsByLang(params.lastUserText)
         const keywords = en.length > 0 ? en : translateRuTopicKeywordsToEn(ru)
         if (keywords.length > 0) {
+          const topicLabel = buildFreeTalkTopicLabel(keywords)
           return buildFreeTalkTopicAnchorQuestion({
             keywords,
+            topicLabel,
             tense: params.tense,
             audience: params.audience,
             diversityKey: `topic-choice|${params.lastUserText}`,
@@ -1036,6 +1044,7 @@ function applyFreeTalkAntiRepeat(params: {
 
   const replacement = buildFreeTalkTopicAnchorQuestion({
     keywords,
+    topicLabel: buildFreeTalkTopicLabel(keywords),
     tense: params.tense,
     audience: params.audience,
     diversityKey: `${params.recentMessages.length}|${params.lastUserText}|anti-repeat`,
@@ -2104,8 +2113,13 @@ function isValidTutorOutput(params: {
       requiredTense,
       priorAssistantContent,
       expectedNextQuestionTense,
+      lastUserText,
     })
   ) {
+    return false
+  }
+
+  if (!validateDialogueRussianNaturalness({ content: raw, mode }).ok) {
     return false
   }
 
@@ -3131,33 +3145,12 @@ function buildFreeTalkFirstServerQuestion(params: {
   dialogSeed: string
 }): string {
   const { audience, level, topicSuggestions, dialogSeed } = params
-  const fallbackTopics =
-    audience === 'child'
-      ? ['мои друзья', 'моя семья', 'мои игры']
-      : ['как прошёл мой день', 'мои планы на неделю', 'что меня сейчас вдохновляет']
-  const topics = topicSuggestions.length >= 3 ? topicSuggestions.slice(0, 3) : fallbackTopics
-  const [t1, t2, t3] = topics
-  const lowLevel = new Set(['all', 'starter', 'a1', 'a2']).has(level)
-  const variants =
-    audience === 'child'
-      ? [
-          `What do you want to talk about? You can choose your own topic, or pick one: ${t1}, ${t2}, or ${t3}?`,
-          `Let's talk! You can say your own topic, or choose one: ${t1}, ${t2}, or ${t3}?`,
-          `Choose a topic for our chat: your own idea, or ${t1}, ${t2}, or ${t3}?`,
-        ]
-      : lowLevel
-        ? [
-            `What would you like to talk about? You can choose your own topic, or pick one: ${t1}, ${t2}, or ${t3}?`,
-            `Let's start a chat. You can name your own topic, or choose: ${t1}, ${t2}, or ${t3}?`,
-            `Pick a topic to begin: your own topic, or ${t1}, ${t2}, or ${t3}?`,
-          ]
-        : [
-            `What would you like to talk about today? You can suggest your own topic, or choose one: ${t1}, ${t2}, or ${t3}?`,
-            `Let's start with a topic you like: name your own, or pick one of these — ${t1}, ${t2}, or ${t3}?`,
-            `Choose how we begin: your own topic, or one of these — ${t1}, ${t2}, or ${t3}?`,
-          ]
-  const idx = stableHash32(`${dialogSeed}|${audience}|${level}|${topics.join('|')}`) % variants.length
-  return variants[idx] ?? variants[0]
+  return buildFreeTalkFirstQuestion({
+    audience,
+    level,
+    topicSuggestions,
+    dialogSeed,
+  })
 }
 
 async function repairDialogueAllTenseRepeatMismatch(params: {
@@ -3235,7 +3228,9 @@ async function repairDialogueAllTenseRepeatMismatch(params: {
     return content
   }
   if (!expectedTense) return content
-  if (isUserLikelyCorrectForTense(repeatSentence, expectedTense)) return content
+  if (isUserLikelyCorrectForTense(repeatSentence, expectedTense)) {
+    if (isRepeatSemanticallySafe({ userText: lastUserText, repeatSentence })) return content
+  }
 
   const expectedTenseName = TENSE_NAMES[expectedTense] ?? expectedTense
   const repairBlock = buildDialogueAllTenseRepeatRepairInstruction({
@@ -3265,6 +3260,7 @@ async function repairDialogueAllTenseRepeatMismatch(params: {
   repaired = stripPravilnoEverywhere(repaired)
   const repairedRepeat = getDialogueRepeatSentence(repaired)
   if (!repairedRepeat || !isUserLikelyCorrectForTense(repairedRepeat, expectedTense)) return content
+  if (!isRepeatSemanticallySafe({ userText: lastUserText, repeatSentence: repairedRepeat })) return content
   const lines = repaired
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -3824,12 +3820,21 @@ async function callProviderChat(params: {
   return { ok: true, content }
 }
 
-function buildRepairSystemPrefix(): string {
+function buildRepairSystemPrefix(extraInstructions = ''): string {
+  const extra = extraInstructions.trim()
   return (
     'REPAIR MODE: Your last output was invalid (it contained meta/instructions). ' +
     'Rewrite the reply so it follows the required protocol EXACTLY and contains only user-visible text. ' +
     'No explanations, no meta, no bullet lists, no quotes of rules. ' +
-    'Output only one of: (A) a single English question; (B) two lines: "Комментарий: ..." (Russian) + "Повтори: ..." (English).\n\n'
+    'Output only one of: (A) a single English question; (B) two lines: "Комментарий: ..." (Russian) + "Повтори: ..." (English).\n\n' +
+    (extra ? `${extra}\n\n` : '')
+  )
+}
+
+function buildDialogueRussianNaturalnessRepairInstruction(): string {
+  return (
+    'Additional repair rule for dialogue mode: make the Russian "Комментарий:" line sound native and natural. ' +
+    'Rewrite literal calques or awkward word combinations into idiomatic Russian, but keep the meaning, keep the format, and do not change the English question unless it is also invalid.'
   )
 }
 
@@ -4081,9 +4086,11 @@ export async function POST(req: NextRequest) {
       const keywords = en.length > 0 ? en : translateRuTopicKeywordsToEn(ru)
 
       if (keywords.length > 0) {
+        const topicLabel = buildFreeTalkTopicLabel(keywords)
         return NextResponse.json({
           content: buildFreeTalkTopicAnchorQuestion({
             keywords,
+            topicLabel,
             tense: tutorGradingTense,
             audience,
             diversityKey: `${recentMessages.length}|${lastUserText}|topic-change`,
@@ -4246,7 +4253,7 @@ export async function POST(req: NextRequest) {
       const { en, ru } = extractTopicChoiceKeywordsByLang(firstUserMsg.content)
       const keywords = en.length > 0 ? en : translateRuTopicKeywordsToEn(ru)
       if (keywords.length === 0) return ''
-      return `\n\nFREE-TALK ESTABLISHED TOPIC: The user chose the topic earlier. Key topic words: ${keywords.slice(0, 3).join(', ')}. Continue asking questions about this topic.
+      return `\n\nFREE-TALK ESTABLISHED TOPIC: The user chose the topic earlier. Key topic phrase: ${buildFreeTalkTopicLabel(keywords)}. Continue asking questions about this topic.
 
 Topic change rule (free talk only): The user may change the topic at any time. Recognize these patterns as a topic change request:
 - A single word or short phrase naming a new topic (English or Russian): "река", "cats", "space", "музыка"
@@ -4801,6 +4808,10 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
       priorAssistantContent: getLastAssistantContent(recentMessages),
       expectedNextQuestionTense: topic === 'free_talk' ? freeTalkExpectedNextQuestionTense : null,
     })
+    const dialogueNaturalnessValidation =
+      mode === 'dialogue'
+        ? validateDialogueRussianNaturalness({ content: sanitized, mode })
+        : { ok: true }
     const userClosedForcedRepeat =
       !forcedRepeatSentence ||
       isDialogueAnswerEffectivelyCorrect(lastUserContentForResponse, forcedRepeatSentence, tutorGradingTense)
@@ -4814,7 +4825,8 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
       isUserLikelyCorrectForTense(lastUserContentForResponse, tutorGradingTense) &&
       userClosedForcedRepeat
 
-    const valid = isValidTutorOutput({
+    const valid =
+      isValidTutorOutput({
       content: sanitized,
       mode,
       isFirstTurn,
@@ -4824,7 +4836,7 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
       expectedNextQuestionTense: topic === 'free_talk' ? freeTalkExpectedNextQuestionTense : null,
       forcedRepeatSentence,
       lastUserText: lastUserContentForResponse,
-    })
+    }) && dialogueNaturalnessValidation.ok
     if (!valid) {
       if (canUseSoftNextQuestionFallback) {
         return NextResponse.json({
@@ -4841,14 +4853,18 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
 
       // Одна попытка repair/retry. Для OpenRouter это наиболее актуально.
       // UI и сценарии не меняем: просто не пропускаем служебный текст.
+      const repairPrefix =
+        !dialogueNaturalnessValidation.ok && mode === 'dialogue'
+          ? buildRepairSystemPrefix(buildDialogueRussianNaturalnessRepairInstruction())
+          : buildRepairSystemPrefix()
       const repairMessages = [...apiMessages]
       if (repairMessages[0]?.role === 'system') {
         repairMessages[0] = {
           role: 'system',
-          content: buildRepairSystemPrefix() + (repairMessages[0].content ?? ''),
+          content: repairPrefix + (repairMessages[0].content ?? ''),
         }
       } else {
-        repairMessages.unshift({ role: 'system', content: buildRepairSystemPrefix() + systemContent })
+        repairMessages.unshift({ role: 'system', content: repairPrefix + systemContent })
       }
 
       const res2 = await callProviderChat({ provider, req, apiMessages: repairMessages, maxTokens: communicationMaxTokens })

@@ -1,4 +1,25 @@
 import { describe, expect, it } from 'vitest'
+import { buildFreeTalkTopicAnchorQuestion, buildFreeTalkTopicLabel } from './freeTalkQuestionAnchor'
+
+describe('freeTalkQuestionAnchor', () => {
+  it('keeps the topic as a single phrase', () => {
+    expect(buildFreeTalkTopicLabel(['interesting', 'serial'])).toBe('interesting serial')
+  })
+
+  it('uses the phrase in the generated question', () => {
+    const question = buildFreeTalkTopicAnchorQuestion({
+      keywords: ['interesting', 'serial'],
+      topicLabel: 'interesting serial',
+      tense: 'past_simple',
+      audience: 'adult',
+      diversityKey: 'unit-test',
+    })
+
+    expect(question).toContain('interesting serial')
+    expect(question).not.toContain('interesting, serial')
+  })
+})
+import { describe, expect, it } from 'vitest'
 import { buildFreeTalkTopicAnchorQuestion } from './freeTalkQuestionAnchor'
 
 describe('buildFreeTalkTopicAnchorQuestion', () => {
