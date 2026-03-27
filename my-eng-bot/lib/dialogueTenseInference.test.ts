@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   collectCandidateEnglishQuestionLines,
   inferTenseFromDialogueAssistantContent,
+  isLikelyQuestionInRequiredTense,
   isUserLikelyCorrectForTense,
   looksLikeEnglishQuestionWithoutMark,
 } from './dialogueTenseInference'
@@ -57,6 +58,10 @@ describe('inferTenseFromDialogueAssistantContent', () => {
       inferTenseFromDialogueAssistantContent('How long will you have been swimming by the time you finish?')
     ).toBe('future_perfect_continuous')
   })
+
+  it('infers Future Simple from "Are you going to …?" (not Present Continuous)', () => {
+    expect(inferTenseFromDialogueAssistantContent('Are you going to swim tomorrow?')).toBe('future_simple')
+  })
 })
 
 describe('isUserLikelyCorrectForTense', () => {
@@ -102,5 +107,21 @@ describe('isUserLikelyCorrectForTense', () => {
   })
   it('accepts "I will swim" as future_simple', () => {
     expect(isUserLikelyCorrectForTense('I will swim tomorrow', 'future_simple')).toBe(true)
+  })
+  it('accepts "I am going to go for a walk" as future_simple', () => {
+    expect(isUserLikelyCorrectForTense('I am going to go for a walk', 'future_simple')).toBe(true)
+  })
+  it('accepts "I\'m going to visit Paris" as future_simple', () => {
+    expect(isUserLikelyCorrectForTense("I'm going to visit Paris next year", 'future_simple')).toBe(true)
+  })
+})
+
+describe('isLikelyQuestionInRequiredTense', () => {
+  it('Future Simple: "Are you going to …?" — не Present Continuous', () => {
+    expect(isLikelyQuestionInRequiredTense('Are you going to swim tomorrow?', 'future_simple')).toBe(true)
+    expect(isLikelyQuestionInRequiredTense('Are you going to swim tomorrow?', 'present_continuous')).toBe(false)
+  })
+  it('Present Continuous: "Are you going to the pool?" — движение, не going to + инфинитив', () => {
+    expect(isLikelyQuestionInRequiredTense('Are you going to the pool?', 'present_continuous')).toBe(true)
   })
 })

@@ -19,7 +19,11 @@ import { isRepeatSemanticallySafe } from '@/lib/dialogueSemanticGuard'
 import { validateDialogueRussianNaturalness } from '@/lib/dialogueRussianNaturalness'
 import { validateDialogueMixedInputOutput } from '@/lib/dialogueMixedInputGuard'
 import { buildAdultFullTensePool, pickWeightedFreeTalkTense } from '@/lib/freeTalkDialogueTense'
-import { detectFreeTalkTopicChange, isFixedTopicSwitchRequest } from '@/lib/freeTalkTopicChange'
+import {
+  detectFreeTalkTopicChange,
+  isFixedTopicSwitchRequest,
+  looksLikeFreeTalkTopicSwitchIntent,
+} from '@/lib/freeTalkTopicChange'
 import { normalizeDialogueEntityForTopic, stripLeadingAnswerVerbPhrases } from '@/lib/dialogueEntityNormalization'
 import { isNearDuplicateQuestion } from '@/lib/dialogueQuestionVariety'
 import {
@@ -37,6 +41,9 @@ import { buildMixedDialogueFallbackComment, buildMixedInputRepeatFallback } from
 import { normalizeEnglishForRepeatMatch } from '@/lib/normalizeEnglishForRepeatMatch'
 import { stripFalseArticleBeforeEnglishComment } from '@/lib/stripFalseArticleBeforeEnglishComment'
 import { normalizeTopicToken, RU_TOPIC_KEYWORD_TO_EN } from '@/lib/ruTopicKeywordMap'
+import { buildNextFreeTalkQuestionFromContext } from '@/lib/freeTalkContextNextQuestion'
+import { enrichDialogueCommentWithTypoHints } from '@/lib/dialogueCommentEnrichment'
+import { applyFreeTalkTopicChoiceTenseAnchorFallback } from '@/lib/freeTalkTopicChoiceAnchorFallback'
 
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
 // чтобы undici + proxy dispatcher работали предсказуемо (а не в Edge).
@@ -372,13 +379,15 @@ This applies to every tense (Present Simple, Present Continuous, Past Simple, Fu
 
 Article rule for school subjects and languages: patterns like "study English", "I studied English", "learn French" normally have NO article before the subject name. Never tell the user in Комментарий to add "the" before "English" (or another language) if the corrected sentence in Повтори does not use "the" there. Комментарий must not contradict Повтори.
 
-When there are grammar or spelling problems or the user used the wrong tense, respond ONLY in the short format below. Do NOT output long explanations of rules, lists of example questions (e.g. "Do you like pizza?", "What is your favorite color?"), or meta-instructions. Even if the user makes the same mistake again (e.g. wrong tense twice), reply only with Комментарий (1–2 short sentences in Russian) + Повтори: [correct sentence]. Keep the reply short. Do not use emojis or jokes in corrections (e.g. do not write "unless you're preparing for a spelling competition" or similar).
+Pronoun rule (inanimate referents): In English, concrete objects, machines, vehicles, tools, and typical non-human things are **it**; possession is **its** (e.g. "its speed", "its color"), not **his** or **her** — **his/her** refer to people (or sometimes specific animals). If the thread is about a car, bike, phone, machine, house, etc., the corrected sentence in Повтори must use **its** for that thing's properties, not **his** unless you clearly mean a male person. Learners with Russian L1 may wrongly use **his** where English needs **its**; fix both in Комментарий (briefly, in Russian if needed) and in Повтори.
+
+When there are grammar or spelling problems or the user used the wrong tense, respond ONLY in the short format below. Do NOT output long explanations of rules, lists of example questions (e.g. "Do you like pizza?", "What is your favorite color?"), or meta-instructions. Even if the user makes the same mistake again (e.g. wrong tense twice), reply only with Комментарий (up to 2–3 short sentences in Russian if you must list tense + spelling + another issue) + Повтори: [correct sentence]. Keep the reply short. Do not use emojis or jokes in corrections (e.g. do not write "unless you're preparing for a spelling competition" or similar).
 
 ${commentToneRule}
 
 FORMAT (strict):
 1) When the user's answer has a real mistake (wrong tense, grammar, or wording): output ONLY two lines:
-   - "Комментарий: " + a very short explanation in Russian (1–2 short sentences max). Briefly list ALL issues (tense, grammar, spelling, word choice). Do not mention capitalization or punctuation.
+   - "Комментарий: " + a very short explanation in Russian (1–3 short sentences if needed). Briefly list ALL issues (tense, grammar, spelling, word choice). Do not mention capitalization or punctuation.
    - "Повтори: " + the FULL corrected English sentence (fixing all errors at once). Always write a complete sentence with normal punctuation.
    In this case do NOT add a follow‑up question — the user must repeat first.
 2) When the user's answer is already correct: do NOT output "Комментарий:" at all. Accept a natural, grammatically correct reply even if it does not exactly repeat the wording of the question. Output only the next question in English, and make it the next sentence by the algorithm for this topic/tense. Do NOT output "Повтори:" for correct answers.${praiseStyleVariant ? ` If you need a human-sounding reaction, keep it implicit — do not add any extra visible line or comment.` : ''}
@@ -1295,8 +1304,22 @@ function fallbackNextQuestion(params: {
   level: string
   audience: 'child' | 'adult'
   diversityKey?: string
+  /** Для free_talk: контекстный следующий вопрос вместо жёсткого defaultNextQuestion. */
+  recentMessages?: ChatMessage[]
 }): string {
-  if (params.topic === 'free_talk') return defaultNextQuestion(params.tense)
+  if (params.topic === 'free_talk') {
+    if (params.recentMessages?.length) {
+      const contextual =
+        buildNextFreeTalkQuestionFromContext({
+          recentMessages: params.recentMessages,
+          tense: params.tense,
+          audience: params.audience,
+          diversityKey: params.diversityKey,
+        }) ?? null
+      if (contextual) return contextual
+    }
+    return defaultNextQuestion(params.tense)
+  }
   return firstQuestionForTopicAndTense({
     topic: params.topic,
     tense: params.tense,
@@ -1370,6 +1393,8 @@ function ensureNextQuestionOnPraise(content: string, params: {
   audience: 'child' | 'adult'
   /** free_talk: время следующего вопроса (из pickWeighted), иначе подставится tense. */
   nextQuestionTense?: string | null
+  recentMessages?: ChatMessage[]
+  diversityKey?: string
 }): string {
   if (params.mode !== 'dialogue') return content
   const trimmed = dropRussianMetaLinesOnPraise(content).trim()
@@ -1381,7 +1406,14 @@ function ensureNextQuestionOnPraise(content: string, params: {
 
   const tenseForFallback =
     params.topic === 'free_talk' && params.nextQuestionTense ? params.nextQuestionTense : params.tense
-  return fallbackNextQuestion({ ...params, tense: tenseForFallback })
+  return fallbackNextQuestion({
+    topic: params.topic,
+    tense: tenseForFallback,
+    level: params.level,
+    audience: params.audience,
+    diversityKey: params.diversityKey,
+    recentMessages: params.recentMessages,
+  })
 }
 
 function ensureNextQuestionWhenMissing(content: string, params: {
@@ -1391,6 +1423,8 @@ function ensureNextQuestionWhenMissing(content: string, params: {
   level: string
   audience: 'child' | 'adult'
   nextQuestionTense?: string | null
+  recentMessages?: ChatMessage[]
+  diversityKey?: string
 }): string {
   if (params.mode !== 'dialogue') return content
   const trimmed = content.trim()
@@ -1409,7 +1443,14 @@ function ensureNextQuestionWhenMissing(content: string, params: {
 
   const tenseForFallback =
     params.topic === 'free_talk' && params.nextQuestionTense ? params.nextQuestionTense : params.tense
-  return `${trimmed}\n${fallbackNextQuestion({ ...params, tense: tenseForFallback })}`
+  return `${trimmed}\n${fallbackNextQuestion({
+    topic: params.topic,
+    tense: tenseForFallback,
+    level: params.level,
+    audience: params.audience,
+    diversityKey: params.diversityKey,
+    recentMessages: params.recentMessages,
+  })}`
 }
 
 function extractLikelyEntityFromUserAnswer(text: string): string | null {
@@ -2127,6 +2168,7 @@ function isValidTutorOutput(params: {
       lastUserText &&
       !isFirstTurn &&
       !isTopicChoiceTurn &&
+      !looksLikeFreeTalkTopicSwitchIntent(lastUserText) &&
       !isUserLikelyCorrectForTense(lastUserText, effectiveRequiredTense)
     ) {
       return false
@@ -2901,14 +2943,16 @@ function replaceFalsePositiveDialogueRepeatWithPraise(params: {
   topic: string
   level: string
   audience: 'child' | 'adult'
+  diversityKey?: string
+  recentMessages?: ChatMessage[]
 }): string {
-  const { content, userText, requiredTense, topic, level, audience } = params
+  const { content, userText, requiredTense, topic, level, audience, diversityKey, recentMessages } = params
   const repeatSentence = getDialogueRepeatSentence(content)
   if (!repeatSentence) return content
   if (!isDialogueAnswerEffectivelyCorrect(userText, repeatSentence, requiredTense)) return content
   // Для корректного ответа в dialogue мы должны выходить без "Комментарий" и без "Повтори":
   // сразу следующий вопрос (это соответствует протоколу диалога в system prompt).
-  return fallbackNextQuestion({ topic, tense: requiredTense, level, audience })
+  return fallbackNextQuestion({ topic, tense: requiredTense, level, audience, diversityKey, recentMessages })
 }
 
 function getLastAssistantContent(messages: ChatMessage[]): string | null {
@@ -3057,7 +3101,7 @@ function buildDialogueAllTenseRepeatRepairInstruction(params: {
     'DIALOGUE REPEAT TENSE REPAIR:',
     `The previous assistant message in this chat used approximately "${params.expectedTenseName}" for the main English question or the previous "Повтори:" line.`,
     snippet ? `Context from that message: ${snippet}` : null,
-    'Rewrite ONLY your reply so it has exactly two lines: "Комментарий:" (Russian; keep the same issues/feedback intent) and "Повтори:" (English).',
+    'Rewrite ONLY your reply so it has exactly two lines: "Комментарий:" (Russian; keep the same issues/feedback intent, and mention spelling/word fixes if "Повтори" changes any words) and "Повтори:" (English).',
     `The "Повтори:" sentence MUST be in ${params.expectedTenseName} and fix the user\'s mistake — do NOT change to another tense.`,
     'No markdown, no numbering, no extra lines.',
   ]
@@ -3071,7 +3115,7 @@ function buildDialogueBlindTenseRepairInstruction(lastAssistant: string): string
     'DIALOGUE REPEAT TENSE REPAIR (context-only):',
     `Previous assistant message — find the English QUESTION in it: ${snippet}`,
     'The user\'s last answer was wrong. Output ONLY two lines:',
-    'Комментарий: short Russian about the mistake in the user\'s LAST message only.',
+    'Комментарий: short Russian about ALL mistakes in the user\'s LAST message (tense/grammar/spelling) — not only tense.',
     'Повтори: one FULL corrected English sentence in the SAME grammar tense as that English question.',
     'Do NOT use a different tense than the question (e.g. Present Simple question requires Present Simple in Повтори).',
     'No markdown, no extra lines.',
@@ -3850,6 +3894,8 @@ function buildDialogueLowSignalFallback(params: {
       tense: params.tense,
       level: params.level,
       audience: params.audience,
+      diversityKey: `${params.messages.length}|${params.lastUserText ?? ''}`,
+      recentMessages: params.messages,
     })
 
   return `${invalidInputComment}\n${nextQuestion}`
@@ -4180,7 +4226,7 @@ export async function POST(req: NextRequest) {
     })
 
     const topicChoicePrefix = mode === 'dialogue' && isTopicChoiceTurn
-      ? 'This turn only: the user is naming their topic. Output ONLY one question in English — nothing else. Do NOT output "Комментарий:", "Отлично", "Молодец", "Верно", or any praise. Do NOT output "Правильно:" or "Повтори:". The user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Infer the topic from their words regardless of language (e.g. "I played tennis" → tennis; "i swam" → swimming; "река" → river; "I река" → river; "транзисторы" → transistors; "я люблю кошки" → cats). Ask exactly ONE question in the required tense about the inferred topic. The question must sound natural, as if asked by a professional English tutor in a real lesson. Relate the topic to the learner\'s personal experience, feelings, or everyday life. Do NOT mechanically combine the topic word with a generic verb — think about what aspect of the topic a real person would discuss. Good examples: topic "sun" + Past Simple → "Did you spend time outside in the sun yesterday?"; topic "cats" + Present Simple → "Do you have a cat at home?". Bad examples: "What did you do with the sun?" (nonsensical); "What do you usually do involving cats?" (robotic). If the message gives absolutely no hint (e.g. "sdf"), ask what they mean. Your reply must be ONLY that one question, no other lines. Ignore all correction rules below for this turn.\n\n'
+      ? 'This turn only: the user is naming their topic. Output ONLY one question in English — nothing else. Do NOT output "Комментарий:", "Отлично", "Молодец", "Верно", or any praise. Do NOT output "Правильно:" or "Повтори:". The user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Infer the topic from their words regardless of language (e.g. "I played tennis" → tennis; "i swam" → swimming; "река" → river; "I река" → river; "транзисторы" → transistors; "я люблю кошки" → cats). Ask exactly ONE question in the required tense about the inferred topic. The question must sound natural, as if asked by a professional English tutor in a real lesson. Relate the topic to the learner\'s personal experience, feelings, or everyday life. Do NOT mechanically combine the topic word with a generic verb — think about what aspect of the topic a real person would discuss. For Future Simple and other tenses: output a full grammatical sentence — subject + auxiliary + main verb in the correct form (e.g. infinitive or -ing after "will try", never a stray third-person -s fragment like "try inspires"). Do NOT paste topic-label words into the middle of a broken pattern. Good examples: topic "sun" + Past Simple → "Did you spend time outside in the sun yesterday?"; topic "cats" + Present Simple → "Do you have a cat at home?". Bad examples: "What did you do with the sun?" (nonsensical); "What do you usually do involving cats?" (robotic). If the message gives absolutely no hint (e.g. "sdf"), ask what they mean. Your reply must be ONLY that one question, no other lines. Ignore all correction rules below for this turn.\n\n'
       : ''
     const dialogueInferredTenseHint =
       mode === 'dialogue' &&
@@ -4342,12 +4388,18 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
         topic,
         level,
         audience,
+        diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
+        recentMessages,
       })
       sanitized = alignDialogueArticleCommentWithRepeat({
         content: sanitized,
         userText: lastUserContentForResponse,
         audience,
         level,
+      })
+      sanitized = enrichDialogueCommentWithTypoHints({
+        content: sanitized,
+        userText: lastUserContentForResponse,
       })
     }
     sanitized = stripRepeatOnPraise(sanitized)
@@ -4358,6 +4410,8 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
       level,
       audience,
       nextQuestionTense: freeTalkExpectedNextQuestionTense,
+      recentMessages,
+      diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
     })
     sanitized = ensureNextQuestionWhenMissing(sanitized, {
       mode,
@@ -4366,6 +4420,8 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
       level,
       audience,
       nextQuestionTense: freeTalkExpectedNextQuestionTense,
+      recentMessages,
+      diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
     })
     if (mode === 'dialogue') {
       sanitized = normalizeAboutTodaySpacing(sanitized)
@@ -4381,6 +4437,13 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
           content: sanitized,
           userText: lastUserContentForResponse,
           tense: tutorGradingTense,
+        })
+        sanitized = applyFreeTalkTopicChoiceTenseAnchorFallback({
+          content: sanitized,
+          recentMessages,
+          userText: lastUserContentForResponse,
+          tense: tutorGradingTense,
+          audience,
         })
       }
       if (topic === 'free_talk') {
@@ -4564,8 +4627,24 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
               repaired = normalizeVariantFormatting(repaired)
               repaired = stripPravilnoEverywhere(repaired)
               repaired = stripRepeatOnPraise(repaired)
-              repaired = ensureNextQuestionOnPraise(repaired, { mode, topic, tense: normalizedTense, level, audience })
-              repaired = ensureNextQuestionWhenMissing(repaired, { mode, topic, tense: normalizedTense, level, audience })
+              repaired = ensureNextQuestionOnPraise(repaired, {
+                mode,
+                topic,
+                tense: normalizedTense,
+                level,
+                audience,
+                recentMessages,
+                diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
+              })
+              repaired = ensureNextQuestionWhenMissing(repaired, {
+                mode,
+                topic,
+                tense: normalizedTense,
+                level,
+                audience,
+                recentMessages,
+                diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
+              })
               if (mode === 'dialogue') {
                 repaired = normalizeAboutTodaySpacing(repaired)
               }
@@ -4829,6 +4908,7 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
             level,
             audience,
             diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
+            recentMessages,
           }),
           dialogueCorrect: true,
         })
@@ -4874,12 +4954,18 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
               topic,
               level,
               audience,
+              diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
+              recentMessages,
             })
             repaired = alignDialogueArticleCommentWithRepeat({
               content: repaired,
               userText: lastUserContentForResponse,
               audience,
               level,
+            })
+            repaired = enrichDialogueCommentWithTypoHints({
+              content: repaired,
+              userText: lastUserContentForResponse,
             })
           }
           repaired = stripRepeatOnPraise(repaired)
@@ -4890,6 +4976,8 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
             level,
             audience,
             nextQuestionTense: freeTalkExpectedNextQuestionTense,
+            recentMessages,
+            diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
           })
           repaired = ensureNextQuestionWhenMissing(repaired, {
             mode,
@@ -4898,6 +4986,8 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
             level,
             audience,
             nextQuestionTense: freeTalkExpectedNextQuestionTense,
+            recentMessages,
+            diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
           })
           if (mode === 'dialogue') {
             repaired = normalizeAboutTodaySpacing(repaired)
@@ -4913,6 +5003,13 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
                 content: repaired,
                 userText: lastUserContentForResponse,
                 tense: tutorGradingTense,
+              })
+              repaired = applyFreeTalkTopicChoiceTenseAnchorFallback({
+                content: repaired,
+                recentMessages,
+                userText: lastUserContentForResponse,
+                tense: tutorGradingTense,
+                audience,
               })
             }
             if (topic === 'free_talk') {
@@ -5013,6 +5110,8 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
             tense: freeTalkExpectedNextQuestionTense!,
             level,
             audience,
+            diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
+            recentMessages,
           }),
           dialogueCorrect: true,
         })
@@ -5027,6 +5126,7 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
               level,
               audience,
               diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
+              recentMessages,
             }),
             dialogueCorrect: true,
           })
@@ -5051,6 +5151,7 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
           level,
           audience,
           diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
+          recentMessages,
         })
         if (isMixedDialogueInput) {
           return NextResponse.json({

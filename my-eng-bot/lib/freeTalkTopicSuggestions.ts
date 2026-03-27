@@ -26,7 +26,7 @@ export const CHILD_FREE_TALK_TOPIC_POOL: string[] = [
 ]
 
 export const ADULT_FREE_TALK_TOPIC_POOL: string[] = [
-  'how my day went',
+  'my plans for today',
   'my plans for the week',
   'what is happening at work',
   'what I do in my free time',
@@ -40,7 +40,7 @@ export const ADULT_FREE_TALK_TOPIC_POOL: string[] = [
   'how I learn English',
   'what I eat and cook',
   'sport in my life',
-  'what inspires me now',
+  'what makes me happy lately',
 ]
 
 function poolForAudience(audience: Audience): string[] {

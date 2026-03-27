@@ -18,11 +18,7 @@ describe('freeTalkQuestionAnchor', () => {
     expect(question).toContain('interesting serial')
     expect(question).not.toContain('interesting, serial')
   })
-})
-import { describe, expect, it } from 'vitest'
-import { buildFreeTalkTopicAnchorQuestion } from './freeTalkQuestionAnchor'
 
-describe('buildFreeTalkTopicAnchorQuestion', () => {
   it('keeps Future Simple form for free-talk anchor', () => {
     const q = buildFreeTalkTopicAnchorQuestion({
       keywords: ['movies'],

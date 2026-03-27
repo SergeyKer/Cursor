@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { AppMode, TenseId } from '@/lib/types'
 import { buildProxyFetchExtra } from '@/lib/proxyFetch'
+import { applyTranslationQualityGate, normalizeTranslationResult } from '@/lib/translationPostProcess'
 
 export const runtime = 'nodejs'
 
@@ -13,41 +14,6 @@ function normalizeKey(key: string): string {
   const k = key.trim()
   if (k.toLowerCase().startsWith('bearer ')) return k.slice(7).trim()
   return k
-}
-
-function normalizeTranslationResult(text: string): string {
-  const normalized = text
-    .replace(
-      /(^|\b)(Привет!\s*)?Как\s+(ты|вы)\s+обычно\s+заним(аешься|аетесь)\s+([^.?!]+?)([?.!])?(?=\s|$)/gi,
-      (_, prefix: string, greeting: string, pronoun: string, _verb: string, topic: string) => {
-        const isYou = pronoun.toLowerCase() === 'ты'
-        const subject = isYou ? 'ты' : 'вы'
-        const verb = isYou ? 'делаешь' : 'делаете'
-        return `${prefix}${greeting ?? ''}Что ${subject} обычно ${verb}, когда речь заходит о ${topic.trim()}?`
-      }
-    )
-    .replace(/\bзаниматься культурой\b/gi, 'интересоваться культурой')
-    .replace(/\bзанимаешься культурой\b/gi, 'интересуешься культурой')
-    .replace(/\bзанимаетесь культурой\b/gi, 'интересуетесь культурой')
-    // Частый дефект: "Какое хобби вы недавно увлекались?" -> корректное управление.
-    .replace(
-      /\bКакое\s+хобби\s+(ты|вы)\s+(?:в\s+последнее\s+время|недавно)\s+увлекал(?:ся|ись)\?/gi,
-      (_m: string, pronoun: string) => `Каким хобби ${pronoun.toLowerCase()} в последнее время увлекал${pronoun.toLowerCase() === 'ты' ? 'ся' : 'ись'}?`
-    )
-    .replace(/\s+/g, ' ')
-    .trim()
-
-  return normalized
-}
-
-function applyTranslationQualityGate(text: string): string {
-  let out = text
-  // Локальные точечные repair-правки для явно неграмотных паттернов.
-  out = out.replace(
-    /\bКакое\s+хобби\s+(ты|вы)\s+(?:в\s+последнее\s+время|недавно)\s+увлекал(?:ся|ись)\?/gi,
-    (_m: string, pronoun: string) => `Каким хобби ${pronoun.toLowerCase()} в последнее время увлекал${pronoun.toLowerCase() === 'ты' ? 'ся' : 'ись'}?`
-  )
-  return out
 }
 
 type Provider = 'openrouter' | 'openai'
@@ -146,6 +112,9 @@ function buildSystemPromptEnToRu(params: {
     favoriteFoodExample + ' ' +
     'For English questions with "what ... in" (e.g. "What are you swimming in?") keep the preposition in Russian: use "В чём ...?" — never "Что ты плаваешь?" which loses the meaning. ' +
     'Important: in conversational prompts like "Just start, and I will follow." translate "I will follow" idiomatically as "я подхвачу/я продолжу/я поддержу разговор" depending on context. ' +
+    'If the English source is ungrammatical, jumbled, or looks like a broken mix of words, infer the learner\'s intent and produce idiomatic Russian — do not mirror the broken English word order. ' +
+    'The output must be entirely in Russian (Cyrillic). Do not leave English verbs or fragments such as inspires, inspiring, try as bare English inside the Russian text — translate them or rephrase. ' +
+    'Proper names and unavoidable loanwords are acceptable only when standard in Russian. ' +
     learnerContext +
     'Reply only with the translation, without explanations, quotes, or extra words.'
   )

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { detectFreeTalkTopicChange, isFixedTopicSwitchRequest } from './freeTalkTopicChange'
+import { detectFreeTalkTopicChange, isFixedTopicSwitchRequest, looksLikeFreeTalkTopicSwitchIntent } from './freeTalkTopicChange'
 
 describe('detectFreeTalkTopicChange', () => {
   it('распознаёт явную смену темы на русском с темой', () => {
@@ -41,22 +41,64 @@ describe('detectFreeTalkTopicChange', () => {
       needsClarification: false,
     })
   })
+
+  it('давай сменим тему на небо — хвост темы', () => {
+    expect(detectFreeTalkTopicChange('давай сменим тему на небо')).toEqual({
+      isTopicChange: true,
+      topicHintText: 'небо',
+      needsClarification: false,
+    })
+  })
+
+  it('хочу про реку — детская формулировка', () => {
+    expect(detectFreeTalkTopicChange('хочу про реку')).toEqual({
+      isTopicChange: true,
+      topicHintText: 'реку',
+      needsClarification: false,
+    })
+  })
+
+  it('lets change topic to sky', () => {
+    expect(detectFreeTalkTopicChange('lets change topic to sky')).toEqual({
+      isTopicChange: true,
+      topicHintText: 'sky',
+      needsClarification: false,
+    })
+  })
+
+  it('смесь ru + en: давай change topic', () => {
+    expect(detectFreeTalkTopicChange('давай change topic').isTopicChange).toBe(true)
+  })
+
+  it('скучно — уточнение темы', () => {
+    expect(detectFreeTalkTopicChange('скучно')).toEqual({
+      isTopicChange: true,
+      topicHintText: null,
+      needsClarification: true,
+    })
+  })
+
+  it('i want to discuss movies — discuss без отдельного паттерна в EXPLICIT', () => {
+    expect(detectFreeTalkTopicChange('i want to discuss movies')).toEqual({
+      isTopicChange: true,
+      topicHintText: 'movies',
+      needsClarification: false,
+    })
+  })
 })
 
 describe('isFixedTopicSwitchRequest', () => {
-  it('распознаёт запрос смены темы на русском', () => {
+  it('совпадает с detectFreeTalkTopicChange.isTopicChange', () => {
     expect(isFixedTopicSwitchRequest('давай поменяем тему на спорт')).toBe(true)
-  })
-
-  it('распознаёт запрос смены темы на английском', () => {
     expect(isFixedTopicSwitchRequest('can we change topic to sport?')).toBe(true)
-  })
-
-  it('распознаёт смешанный запрос смены темы', () => {
     expect(isFixedTopicSwitchRequest('давай change topic')).toBe(true)
-  })
-
-  it('не срабатывает на обычный ответ по теме', () => {
     expect(isFixedTopicSwitchRequest('I will watch The Simpsons next week.')).toBe(false)
+  })
+})
+
+describe('looksLikeFreeTalkTopicSwitchIntent', () => {
+  it('эквивалентно isTopicChange у detect', () => {
+    expect(looksLikeFreeTalkTopicSwitchIntent('хочу про реку')).toBe(true)
+    expect(looksLikeFreeTalkTopicSwitchIntent('I will swim tomorrow.')).toBe(false)
   })
 })

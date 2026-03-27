@@ -55,15 +55,35 @@ export function isLikelyQuestionInRequiredTense(question: string, requiredTense:
 
   switch (requiredTense) {
     case 'present_simple':
-      return /\b(do|does)\s+you\b/i.test(lower) || /\b(am|is|are)\s+(?:i|you|we|they|he|she|it)\b/i.test(lower)
+      return (
+        /\b(do|does)\s+you\b/i.test(lower) ||
+        /\b(am|is|are)\s+(?:i|you|we|they|he|she|it)\b/i.test(lower) ||
+        /\b(?:what|where|how|why)\s+do\s+you\b/i.test(lower) ||
+        /\bhow\s+does\s+\S/i.test(lower)
+      )
     case 'present_continuous':
+      // «Are you going to swim?» — Future (going to), не Present Continuous («going» не как главный глагол)
+      if (
+        /\b(am|is|are)\s+(?:i|you|we|they|he|she|it)\s+going\s+to\s+(?!the\b|this\b|that\b|these\b|those\b)/i.test(
+          lower
+        )
+      ) {
+        return false
+      }
       return /\b(am|is|are)\s+(?:i|you|we|they|he|she|it)\b.*\b[a-z]+ing\b/i.test(lower)
     case 'past_simple':
-      return /\b(did|was|were)\s+(?:i|you|we|they|he|she|it)\b/i.test(lower)
+      return (
+        /\b(did|was|were)\s+(?:i|you|we|they|he|she|it)\b/i.test(lower) ||
+        /\b(what|where|how|when|why)\s+(was|were|did)\b/i.test(lower) ||
+        /\bwhat\s+happened\b/i.test(lower)
+      )
     case 'past_continuous':
       return /\b(was|were)\s+(?:i|you|we|they|he|she|it)\b.*\b[a-z]+ing\b/i.test(lower)
     case 'future_simple':
-      return /\bwill\s+(?:i|you|we|they|he|she|it)\b/i.test(lower)
+      return (
+        /\bwill\s+(?:i|you|we|they|he|she|it)\b/i.test(lower) ||
+        /\b(am|is|are)\s+(?:i|you|we|they|he|she|it)\s+going\s+to\b/i.test(lower)
+      )
     case 'present_perfect':
       return /\b(have|has)\s+(?:i|you|we|they|he|she|it)\b/i.test(lower)
     case 'present_perfect_continuous':
@@ -137,7 +157,14 @@ export function isUserLikelyCorrectForTense(userText: string, requiredTense: str
       return true
     }
     case 'present_continuous':
-      return /\b(am|is|are)\s+[a-z]+ing\b/i.test(expandedText) && !/\b(was|were|did|had)\b/i.test(expandedText)
+      if (/\b(was|were|did|had)\b/i.test(expandedText)) return false
+      // «I am going to go» — Future (going to), не PC
+      if (
+        /\b(am|is|are)\s+(?:[^\s]+\s+)*going\s+to\s+(?!the\b|this\b|that\b|these\b|those\b)/i.test(expandedText)
+      ) {
+        return false
+      }
+      return /\b(am|is|are)\s+[a-z]+ing\b/i.test(expandedText)
     case 'past_continuous':
       return /\b(was|were)\s+[a-z]+ing\b/i.test(expandedText)
     case 'past_simple':
@@ -147,8 +174,9 @@ export function isUserLikelyCorrectForTense(userText: string, requiredTense: str
         ) || /\b[a-z]{3,}ed\b/i.test(userText)
       )
     case 'future_simple':
-      // Исключаем FP ("will have") и FPC ("will have been")
-      return /\bwill\s+[a-z]/i.test(expandedText) && !/\bwill\s+have\b/i.test(expandedText)
+      // Исключаем FP ("will have") и FPC ("will have been"); «be going to» = тот же Future Simple
+      if (/\bwill\s+[a-z]/i.test(expandedText) && !/\bwill\s+have\b/i.test(expandedText)) return true
+      return /\b(am|is|are)\s+(?:[^\s]+\s+)*going\s+to\b/i.test(expandedText)
     case 'present_perfect':
       // Исключаем PPC ("have/has been …ing")
       return /\b(have|has)\b/i.test(expandedText) && !/\b(have|has)\b.*\bbeen\b.*[a-z]+ing\b/i.test(expandedText)

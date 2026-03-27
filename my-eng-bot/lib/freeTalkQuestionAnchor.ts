@@ -35,16 +35,16 @@ export function buildFreeTalkTopicAnchorQuestion(params: {
         ? pick([
             `Do you like ${t}?`,
             `What do you think about ${t}?`,
-            `What is your favorite ${t}?`,
+            `What do you like best about ${t}?`,
             `Why do you like ${t}?`,
             `What do you enjoy most about ${t}?`,
           ])
         : pick([
             `What do you think about ${t}?`,
-            `Why is ${t} interesting for you?`,
+            `Why do you find ${t} interesting?`,
             `What part of ${t} do you enjoy most?`,
-            `How does ${t} fit your life now?`,
-            `What is your current view on ${t}?`,
+            `How do you feel about ${t} in your life now?`,
+            `What do you want to say about ${t}?`,
           ])
     case 'present_continuous':
       return isChild
@@ -99,7 +99,7 @@ export function buildFreeTalkTopicAnchorQuestion(params: {
         `Will you try ${t} soon?`,
         `Will you enjoy ${t} tomorrow?`,
         `What will you do with ${t} next week?`,
-        isChild ? `What do you want to do with ${t} next?` : `What are you planning to do with ${t} next?`,
+        `What will you do with ${t} next?`,
       ])
     case 'future_continuous':
       return pick([
