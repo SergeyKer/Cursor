@@ -478,10 +478,8 @@ function fallbackQuestionForContext(params: {
         const { en, ru } = extractTopicChoiceKeywordsByLang(params.lastUserText)
         const keywords = en.length > 0 ? en : translateRuTopicKeywordsToEn(ru)
         if (keywords.length > 0) {
-          const topicLabel = buildFreeTalkTopicLabel(keywords)
           return buildFreeTalkTopicAnchorQuestion({
             keywords,
-            topicLabel,
             tense: params.tense,
             audience: params.audience,
             diversityKey: `topic-choice|${params.lastUserText}`,
@@ -4086,11 +4084,9 @@ export async function POST(req: NextRequest) {
       const keywords = en.length > 0 ? en : translateRuTopicKeywordsToEn(ru)
 
       if (keywords.length > 0) {
-        const topicLabel = buildFreeTalkTopicLabel(keywords)
         return NextResponse.json({
           content: buildFreeTalkTopicAnchorQuestion({
             keywords,
-            topicLabel,
             tense: tutorGradingTense,
             audience,
             diversityKey: `${recentMessages.length}|${lastUserText}|topic-change`,
