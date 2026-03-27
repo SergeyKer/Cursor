@@ -6,20 +6,46 @@ function isSoftCommentTone(audience: 'child' | 'adult', level: string): boolean 
 
 /**
  * Комментарий для финального fallback при смешанном латиница+кириллица (не про «время», а про язык ответа).
+ * Совет про «like + to + инфинитив» только если в ответе пользователя есть слово like.
  */
 export function buildMixedDialogueFallbackComment(params: {
   audience: 'child' | 'adult'
   level: string
+  userText: string
 }): string {
   const soft = isSoftCommentTone(params.audience, params.level)
   const tryAgain = params.audience === 'child' ? 'Попробуй ещё раз!' : 'Попробуйте ещё раз.'
+  const mentionsLike = /\blike\b/i.test(params.userText)
+
   if (params.audience === 'child') {
-    return `Комментарий: Напиши ответ полностью на английском — русские слова замени английскими. После «like» обычно нужно «to» и глагол (например, like to eat). ${tryAgain}`
+    const likeTip = mentionsLike
+      ? ' После «like» обычно нужно «to» и глагол (например, like to eat).'
+      : ''
+    return `Комментарий: Напиши ответ полностью на английском — русские слова замени английскими.${likeTip} ${tryAgain}`
   }
   if (soft) {
-    return `Комментарий: Напишите ответ полностью на английском — русские слова замените английскими. После like обычно нужен to и инфинитив глагола (например, like to eat). ${tryAgain}`
+    const likeTip = mentionsLike
+      ? ' После like обычно нужен to и инфинитив глагола (например, like to eat).'
+      : ''
+    return `Комментарий: Напишите ответ полностью на английском — русские слова замените английскими.${likeTip} ${tryAgain}`
   }
-  return `Комментарий: Ответ должен быть целиком на английском; замените русские слова английскими. Проверьте конструкцию like + to + инфинитив. Попробуйте ещё раз.`
+  const likeTip = mentionsLike ? ' Проверьте конструкцию like + to + инфинитив.' : ''
+  return `Комментарий: Ответ должен быть целиком на английском; замените русские слова английскими.${likeTip} Попробуйте ещё раз.`
+}
+
+/** Длинные русские фрагменты до пошаговой замены слов (смысл «выиграл у нас» и т.п.). */
+function applyMixedRuPhrases(text: string): string {
+  let t = text
+  const pairs: Array<[RegExp, string]> = [
+    [/выиграл\s+у\s+нас/gi, 'won against us'],
+    [/выиграли\s+у\s+нас/gi, 'won against us'],
+    [/выиграла\s+у\s+нас/gi, 'won against us'],
+    [/выиграло\s+у\s+нас/gi, 'won against us'],
+  ]
+  for (const [re, rep] of pairs) {
+    t = t.replace(re, rep)
+  }
+  return t
 }
 
 function replaceCyrillicWordsWithEnglish(
@@ -116,12 +142,18 @@ export function buildMixedInputRepeatFallback(params: { userText: string; tense:
     if (tense === 'future_simple') return `I will visit ${place}.`
   }
 
-  const { text: afterCyrillic, replacedAny } = replaceCyrillicWordsWithEnglish(userText, RU_TOPIC_KEYWORD_TO_EN)
+  const phrased = applyMixedRuPhrases(userText)
+  const { text: afterCyrillic, replacedAny } = replaceCyrillicWordsWithEnglish(phrased, RU_TOPIC_KEYWORD_TO_EN)
   const afterLike = fixLikePlusBareInfinitive(afterCyrillic)
   const changedLike = afterLike !== afterCyrillic
 
   if ((replacedAny || changedLike) && isAcceptableRepeat(afterLike) && isPlausibleLearnerSentence(afterLike)) {
     return finalizeEnglishSentence(afterLike)
+  }
+
+  const stripped = afterLike.replace(/[А-Яа-яЁё]+/g, ' ').replace(/\s+/g, ' ').trim()
+  if (stripped && isAcceptableRepeat(stripped) && isPlausibleLearnerSentence(stripped)) {
+    return finalizeEnglishSentence(stripped)
   }
 
   return genericRepeatByTense(tense)

@@ -350,7 +350,7 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
       : ''
   const dialogueRussianNaturalnessRule =
     mode === 'dialogue'
-      ? '\n\nRussian naturalness rule: the Russian "Комментарий:" line must sound idiomatic and natural. Avoid literal calques or awkward word combinations; rewrite them before output.'
+      ? '\n\nRussian naturalness rule: the Russian "Комментарий:" line must sound idiomatic and natural. Avoid literal calques or awkward word combinations; rewrite them before output. If you mention more than one problem (e.g. wrong tense AND wrong word/spelling), do not stack unrelated fragments: link sentences with natural spoken-Russian connectors (кроме того, также, отдельно, и ещё, а ещё) so the whole comment reads as one coherent explanation — avoid starting the second thought as a bare new paragraph with "Здесь нужно..." with no bridge after the first sentence.'
       : ''
   const dialogueAllTenseAnchorRule =
     mode === 'dialogue' && tense === 'all'
@@ -381,13 +381,13 @@ Article rule for school subjects and languages: patterns like "study English", "
 
 Pronoun rule (inanimate referents): In English, concrete objects, machines, vehicles, tools, and typical non-human things are **it**; possession is **its** (e.g. "its speed", "its color"), not **his** or **her** — **his/her** refer to people (or sometimes specific animals). If the thread is about a car, bike, phone, machine, house, etc., the corrected sentence in Повтори must use **its** for that thing's properties, not **his** unless you clearly mean a male person. Learners with Russian L1 may wrongly use **his** where English needs **its**; fix both in Комментарий (briefly, in Russian if needed) and in Повтори.
 
-When there are grammar or spelling problems or the user used the wrong tense, respond ONLY in the short format below. Do NOT output long explanations of rules, lists of example questions (e.g. "Do you like pizza?", "What is your favorite color?"), or meta-instructions. Even if the user makes the same mistake again (e.g. wrong tense twice), reply only with Комментарий (up to 2–3 short sentences in Russian if you must list tense + spelling + another issue) + Повтори: [correct sentence]. Keep the reply short. Do not use emojis or jokes in corrections (e.g. do not write "unless you're preparing for a spelling competition" or similar).
+When there are grammar or spelling problems or the user used the wrong tense, respond ONLY in the short format below. Do NOT output long explanations of rules, lists of example questions (e.g. "Do you like pizza?", "What is your favorite color?"), or meta-instructions. Even if the user makes the same mistake again (e.g. wrong tense twice), reply only with Комментарий (up to 2–3 short sentences in Russian if you must list tense + spelling + another issue) + Повтори: [correct sentence]. Keep the reply short. When several issues are listed, use natural transitions between sentences (see Correction tone). Do not use emojis or jokes in corrections (e.g. do not write "unless you're preparing for a spelling competition" or similar).
 
 ${commentToneRule}
 
 FORMAT (strict):
 1) When the user's answer has a real mistake (wrong tense, grammar, or wording): output ONLY two lines:
-   - "Комментарий: " + a very short explanation in Russian (1–3 short sentences if needed). Briefly list ALL issues (tense, grammar, spelling, word choice). Do not mention capitalization or punctuation.
+   - "Комментарий: " + a very short explanation in Russian (1–3 short sentences if needed). Briefly list ALL issues (tense, grammar, spelling, word choice). If there are two or more issues, connect the sentences with natural Russian discourse markers (кроме того, также, отдельно, и ещё, а ещё) so it sounds like one fluent tutor explanation, not two disconnected remarks. Do not mention capitalization or punctuation.
    - "Повтори: " + the FULL corrected English sentence (fixing all errors at once). Always write a complete sentence with normal punctuation.
    In this case do NOT add a follow‑up question — the user must repeat first.
 2) When the user's answer is already correct: do NOT output "Комментарий:" at all. Accept a natural, grammatically correct reply even if it does not exactly repeat the wording of the question. Output only the next question in English, and make it the next sentence by the algorithm for this topic/tense. Do NOT output "Повтори:" for correct answers.${praiseStyleVariant ? ` If you need a human-sounding reaction, keep it implicit — do not add any extra visible line or comment.` : ''}
@@ -533,9 +533,9 @@ function softCommentPronoun(audience: 'child' | 'adult'): 'ты' | 'вы' {
 function buildCommentToneRule(audience: 'child' | 'adult', level: string): string {
   if (isSoftCommentTone(audience, level)) {
     const pronoun = softCommentPronoun(audience)
-    return `Correction tone (Комментарий): Use simple, everyday language. Do NOT start with "Ошибка..." or use grammar terms like "согласование подлежащего и сказуемого", "форма глагола", "артикль". Instead, explain plainly what needs to change and why. Address the user as "${pronoun}". Examples of good style: "Тут мы говорим про то, что бывает обычно, поэтому нужно сказать plays." / "После he нужно добавить -s, потому что это он делает." / "Тут нужно другое слово — look значит смотреть, а see — видеть." Keep it to 1–2 short sentences.`
+    return `Correction tone (Комментарий): Use simple, everyday language. Do NOT start with "Ошибка..." or use grammar terms like "согласование подлежащего и сказуемого", "форма глагола", "артикль". Instead, explain plainly what needs to change and why. Address the user as "${pronoun}". If you need two or three short sentences (e.g. tense + word choice/spelling), link them with natural connectors: "Кроме того, ...", "Также ...", "Отдельно: ...", "И ещё: ..." — avoid a second sentence that feels like a new paragraph with no bridge. Examples of good style: "Тут мы говорим про то, что бывает обычно, поэтому нужно сказать plays." / "После he нужно добавить -s, потому что это он делает." / "Тут нужно другое слово — look значит смотреть, а see — видеть." / Two issues: "Мы говорим о привычном, поэтому нужно настоящее время, а не will. Кроме того, тут нужно the sea «море», а не see «видеть»." Keep it to 1–3 short sentences.`
   }
-  return 'Correction tone (Комментарий): Be concise and professional. You may use grammar term names (e.g. "Present Simple", "Past Perfect") when they help the learner understand the mistake. Address the user as "вы". Keep it to 1–2 short sentences.'
+  return 'Correction tone (Комментарий): Be concise and professional. You may use grammar term names (e.g. "Present Simple", "Past Perfect") when they help the learner understand the mistake. Address the user as "вы". When listing more than one issue in 2–3 sentences, connect them with natural Russian transitions (кроме того, также, отдельно, и ещё) so the comment reads as one coherent explanation, not stacked unrelated fragments. Example: "Требуется Present Simple, а не Future — речь о привычной ситуации. Кроме того, вместо see здесь нужно the sea." Keep it to 1–3 short sentences.'
 }
 
 function buildCommunicationEnglishStyleRule(audience: 'child' | 'adult'): string {
@@ -3818,7 +3818,8 @@ function buildRepairSystemPrefix(extraInstructions = ''): string {
 function buildDialogueRussianNaturalnessRepairInstruction(): string {
   return (
     'Additional repair rule for dialogue mode: make the Russian "Комментарий:" line sound native and natural. ' +
-    'Rewrite literal calques or awkward word combinations into idiomatic Russian, but keep the meaning, keep the format, and do not change the English question unless it is also invalid.'
+    'Rewrite literal calques or awkward word combinations into idiomatic Russian, but keep the meaning, keep the format, and do not change the English question unless it is also invalid. ' +
+    'If the comment has several points, add smooth transitions between sentences (кроме того, также, отдельно) so it reads as one coherent explanation.'
   )
 }
 
@@ -5155,7 +5156,11 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
         })
         if (isMixedDialogueInput) {
           return NextResponse.json({
-            content: `${buildMixedDialogueFallbackComment({ audience, level })}\nПовтори: ${buildMixedInputRepeatFallback({
+            content: `${buildMixedDialogueFallbackComment({
+              audience,
+              level,
+              userText: lastUserContentForResponse,
+            })}\nПовтори: ${buildMixedInputRepeatFallback({
               userText: lastUserContentForResponse,
               tense: tutorGradingTense,
             })}`,
