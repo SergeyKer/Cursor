@@ -48,5 +48,5 @@ export function buildFreeTalkFirstQuestion(params: {
   const idx = seed % variants.length
   const base = variants[idx] ?? variants[0] ?? 'What do you want to talk about?'
   if (!topics) return base
-  return `${base} Topics: ${topics}.`
+  return `${base} Your topic, or one of these: ${topics}.`
 }

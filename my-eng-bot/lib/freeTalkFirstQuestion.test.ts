@@ -11,8 +11,8 @@ describe('buildFreeTalkFirstQuestion', () => {
     })
 
     expect(q).toMatch(/^(What do you want to talk about\?|What would you like to talk about\?|Tell me what you want to talk about\.)/)
-    expect(q).toContain('Topics: toys, pets, or games.')
-    expect(q).not.toMatch(/pick one|choose one|suggested topics/i)
+    expect(q).toContain('Your topic, or one of these: toys, pets, or games.')
+    expect(q).not.toMatch(/pick one|choose one|suggested topics|suggest your own topic/i)
   })
 
   it('keeps the first question short and chatty for adult B1+', () => {
@@ -24,7 +24,7 @@ describe('buildFreeTalkFirstQuestion', () => {
     })
 
     expect(q).toMatch(/^(What would you like to talk about today\?|What would you like to talk about\?|Tell me what you want to talk about\.)/)
-    expect(q).toContain('Topics: films, work, or travel.')
-    expect(q).not.toMatch(/pick one|choose one|suggested topics/i)
+    expect(q).toContain('Your topic, or one of these: films, work, or travel.')
+    expect(q).not.toMatch(/pick one|choose one|suggested topics|suggest your own topic/i)
   })
 })
