@@ -1042,7 +1042,6 @@ function applyFreeTalkAntiRepeat(params: {
 
   const replacement = buildFreeTalkTopicAnchorQuestion({
     keywords,
-    topicLabel: buildFreeTalkTopicLabel(keywords),
     tense: params.tense,
     audience: params.audience,
     diversityKey: `${params.recentMessages.length}|${params.lastUserText}|anti-repeat`,
