@@ -1302,6 +1302,7 @@ function SectionCard({
   const isCompactServiceLine = singleLine && italic && !hasLabel
   const isTextItalic = textItalic ?? italic
   const bodyContent = inlineMarkdownBold ? renderCommunicationBoldInline(text) : text
+  const preserveNewLines = singleLine && bodyContent && typeof bodyContent === 'string' && bodyContent.includes('\n')
 
   return (
     <section
@@ -1314,7 +1315,7 @@ function SectionCard({
     >
       {singleLine ? (
         <div
-          className={`min-w-0 max-w-full whitespace-normal break-words leading-snug ${
+          className={`min-w-0 max-w-full ${preserveNewLines ? 'whitespace-pre-wrap' : 'whitespace-normal'} break-words leading-snug ${
             small ? 'text-[14px]' : 'text-[15px]'
           } text-[var(--text)]`}
           title={hasLabel ? `${label}: ${text}` : text}

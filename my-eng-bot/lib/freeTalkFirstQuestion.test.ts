@@ -10,8 +10,12 @@ describe('buildFreeTalkFirstQuestion', () => {
       topicSuggestions: ['toys', 'pets', 'games'],
     })
 
-    expect(q).toMatch(/^(What do you want to talk about\?|What would you like to talk about\?|Tell me what you want to talk about\.)/)
-    expect(q).toContain('Your topic, or one of these: toys, pets, or games.')
+    expect(q).toContain('What do you want to talk about?')
+    expect(q).toContain('Your topic, or one of these:')
+    expect(q).toContain('- toys')
+    expect(q).toContain('- pets')
+    expect(q).toContain('- games')
+    expect(q).toMatch(/What do you want to talk about\?\nYour topic, or one of these:\n- toys\n- pets\n- games/)
     expect(q).not.toMatch(/pick one|choose one|suggested topics|suggest your own topic/i)
   })
 
@@ -23,8 +27,12 @@ describe('buildFreeTalkFirstQuestion', () => {
       topicSuggestions: ['films', 'work', 'travel'],
     })
 
-    expect(q).toMatch(/^(What would you like to talk about today\?|What would you like to talk about\?|Tell me what you want to talk about\.)/)
-    expect(q).toContain('Your topic, or one of these: films, work, or travel.')
+    expect(q).toContain('What would you like to talk about?')
+    expect(q).toContain('Your topic, or one of these:')
+    expect(q).toContain('- films')
+    expect(q).toContain('- work')
+    expect(q).toContain('- travel')
+    expect(q).toMatch(/What would you like to talk about\?\nYour topic, or one of these:\n- films\n- work\n- travel/)
     expect(q).not.toMatch(/pick one|choose one|suggested topics|suggest your own topic/i)
   })
 })
