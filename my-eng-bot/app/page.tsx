@@ -34,8 +34,6 @@ import type {
 } from '@/lib/types'
 import { parseCorrection } from '@/lib/parseCorrection'
 
-const CHILD_TENSE_SET = new Set(CHILD_TENSES)
-
 /** Жирная стрелка Ru↔En в шапке: на мобильных Unicode → почти не видна. */
 function CommunicationLangDirectionArrow() {
   return (
@@ -68,6 +66,12 @@ type MenuOpenSnapshot = {
 
 function tensesToKey(tenses: TenseId[]): string {
   return [...tenses].sort().join(',')
+}
+
+function normalizeSingleTense(tenses: TenseId[], allowedTenses: TenseId[], fallback: TenseId): Settings['tenses'] {
+  const allowedSet = new Set<TenseId>(allowedTenses)
+  const picked = tenses.find((tense) => allowedSet.has(tense)) ?? fallback
+  return [picked]
 }
 
 function buildMenuOpenSnapshot(s: Settings): MenuOpenSnapshot {
@@ -170,24 +174,25 @@ export default function Home() {
   const suppressSettingsChangeBannerRef = React.useRef(false)
 
   function normalizeSettingsForAudience(s: Settings): Settings {
-    if (s.mode === 'dialogue' && s.topic !== 'free_talk') {
-      return { ...s, topic: 'free_talk' }
+    const normalizedTopic = s.mode === 'dialogue' ? 'free_talk' : s.topic
+
+    if (s.audience !== 'child') {
+      return {
+        ...s,
+        topic: normalizedTopic,
+        tenses: normalizeSingleTense(s.tenses, TENSES.map((t) => t.id), 'present_simple'),
+      }
     }
-    if (s.audience !== 'child') return s
     const allowed = new Set<Settings['level']>(['all', 'starter', 'a1', 'a2'])
     const childTenseSet = new Set(CHILD_TENSES)
     const topicIds = new Set(TOPICS.map((t) => t.id))
-    const normalizedTopic = topicIds.has(s.topic) ? s.topic : 'free_talk'
-    const normalizedTenses = s.tenses.filter((t) => childTenseSet.has(t))
+    const safeChildTopic = topicIds.has(s.topic) ? s.topic : 'free_talk'
 
     return {
       ...s,
-      topic: normalizedTopic,
+      topic: normalizedTopic === 'free_talk' ? 'free_talk' : safeChildTopic,
       level: allowed.has(s.level) ? s.level : 'all',
-      tenses:
-        normalizedTenses.length > 0
-          ? (normalizedTenses as Settings['tenses'])
-          : (['present_simple'] as Settings['tenses']),
+      tenses: normalizeSingleTense(s.tenses, CHILD_TENSES, 'present_simple'),
     }
   }
 
@@ -898,37 +903,13 @@ export default function Home() {
       return `${titlePrefix} - ${levelShort}`
     }
 
-    const getTenseCountLabel = (count: number): string => {
-      const mod10 = count % 10
-      const mod100 = count % 100
-      if (mod10 === 1 && mod100 !== 11) return `${count} время`
-      if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} времени`
-      return `${count} времён`
-    }
-
-    const availableTenses: string[] = settings.audience === 'child'
-      ? TENSES.filter((t) => CHILD_TENSE_SET.has(t.id)).map((t) => t.id)
-      : TENSES.map((t) => t.id)
-    const selectedTenses: string[] = settings.tenses.filter((t) => t !== 'all')
-    const selectedSet = new Set<string>(selectedTenses)
-    const anyTimeSelected =
-      settings.tenses.includes('all') ||
-      (availableTenses.length > 0 && availableTenses.every((t) => selectedSet.has(t)))
-
     const modeLabel =
       settings.mode === 'dialogue' ? 'Диалог' : settings.mode === 'translation' ? 'Тренировка перевода' : 'Общение'
+    const selectedTense = settings.tenses[0] ?? 'present_simple'
     const tenseLabel =
-      anyTimeSelected
+      selectedTense === 'all'
         ? 'Любое время'
-        : settings.tenses.length === 0
-          ? 'Все'
-        : settings.tenses.length === 1
-          ? (TENSES.find((t) => t.id === settings.tenses[0])?.label ?? settings.tenses[0])
-          : settings.tenses.length === 2
-            ? (TENSES.find((t) => t.id === settings.tenses[0])?.label ?? settings.tenses[0]) +
-              ', ' +
-              (TENSES.find((t) => t.id === settings.tenses[1])?.label ?? settings.tenses[1])
-            : getTenseCountLabel(settings.tenses.length)
+        : (TENSES.find((t) => t.id === selectedTense)?.label ?? selectedTense)
     const levelEntry = LEVELS.find((l) => l.id === settings.level)
     const levelShort = levelEntry ? (levelEntry.label.split(' - ')[0]?.trim() ?? levelEntry.label) : settings.level
     const normalizedLevelShort = settings.level === 'all' ? 'Все уровни' : levelShort

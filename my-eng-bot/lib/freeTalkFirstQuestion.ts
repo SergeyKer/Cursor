@@ -1,7 +1,7 @@
 function formatTopicSuggestions(topicSuggestions: string[]): string {
   const topics = topicSuggestions.map((topic) => topic.trim()).filter(Boolean).slice(0, 3)
   if (topics.length === 0) return ''
-  return topics.map((topic) => `- ${topic}`).join('\n')
+  return topics.map((topic, index) => `${index + 1}) ${topic}`).join('\n')
 }
 
 export function buildFreeTalkFirstQuestion(params: {

@@ -2,7 +2,6 @@
 
 import React from 'react'
 import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES, CHILD_TENSES } from '@/lib/constants'
-import MultiSelectDropdown from '@/components/MultiSelectDropdown'
 import type { Settings, UsageInfo } from '@/lib/types'
 
 const CHILD_TENSE_SET = new Set(CHILD_TENSES)
@@ -207,30 +206,22 @@ export default function MenuSectionPanels({
 
               {!isCommunication && (
                 <div className="flex w-full items-center gap-3">
-                  <span id={pid('ai-tense-label')} className={MENU_FIELD_LABEL}>
+                  <label htmlFor={pid('ai-tense')} className={MENU_FIELD_LABEL}>
                     Время
-                  </span>
+                  </label>
                   <div className="min-w-0 flex-1">
-                    <MultiSelectDropdown
-                      ariaLabelledBy={pid('ai-tense-label')}
-                      options={tenseOptions}
-                      value={settings.tenses}
-                      onChange={(tenses) =>
-                        update({
-                          tenses:
-                            tenses.length > 0
-                              ? (tenses as Settings['tenses'])
-                              : (['present_simple'] as Settings['tenses']),
-                        })
-                      }
-                      placeholder="Выберите время"
-                      selectAllLabel="Выбрать всё"
-                      selectAllResetValue={['present_simple']}
-                      minOne
-                      compact
-                      triggerClassName="rounded border border-[var(--border)] bg-[var(--bg-card)] touch-manipulation"
-                      panelClassName={isChild ? 'max-h-[200px]' : 'max-h-[164px]'}
-                    />
+                    <select
+                      id={pid('ai-tense')}
+                      value={settings.tenses[0] ?? 'present_simple'}
+                      onChange={(e) => update({ tenses: [e.target.value as Settings['tenses'][number]] })}
+                      className={FIELD_SELECT}
+                    >
+                      {tenseOptions.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               )}
