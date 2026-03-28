@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { manropeHome } from '@/lib/manropeHome'
 import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES, CHILD_TENSES } from '@/lib/constants'
 import type { Settings, UsageInfo, AppMode, AiProvider, TenseId, SentenceType, TopicId, LevelId } from '@/lib/types'
 
@@ -51,18 +52,21 @@ const PROVIDER_OPTIONS: { id: AiProvider; label: string }[] = [
 const MENU_GROUP_CLASS =
   'overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_1px_4px_rgba(0,0,0,0.07)]'
 
+/** Вертикальный воздух вокруг карточек списков. */
+const MENU_GROUP_OUTER = 'py-1'
+
 export const FIELD_SELECT =
-  'w-full min-w-0 rounded border border-[var(--border)] bg-[var(--bg-card)] pl-2 py-0.5 min-h-[32px] text-xs text-[var(--text)] touch-manipulation select-chevron'
+  'w-full min-w-0 rounded border border-[var(--border)] bg-[var(--bg-card)] pl-2 py-1 min-h-[40px] text-[13px] leading-normal text-[var(--text)] touch-manipulation select-chevron'
 
 const MENU_VALUE_BOX =
-  'w-full min-w-0 rounded border border-[var(--border)] bg-[var(--bg-card)] px-3 py-0.5 min-h-[32px] text-xs text-[var(--text)] flex items-center justify-end'
+  'w-full min-w-0 rounded border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1 min-h-[40px] text-[15px] leading-normal text-[var(--text)] flex items-center justify-end'
 
 export const MENU_FIELD_LABEL =
-  'shrink-0 w-[6.3rem] text-xs font-medium leading-snug text-[var(--text-muted)] break-words'
+  'shrink-0 w-[6.3rem] text-[13px] font-medium leading-normal text-[var(--text-muted)] break-words'
 
 /** Градиентная CTA: «Начать общение» и пункты главной «Чат / Уроки». */
 const MENU_PRIMARY_CTA_CLASS =
-  'flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[40px]'
+  'flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-[15px] font-semibold leading-normal text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]'
 
 const VOICE_DROPDOWN_LANG_PREFIXES: string[] = ['en']
 
@@ -148,14 +152,14 @@ export default function MenuSectionPanels({
               : ''
 
   return (
-    <div className={rootClass}>
+    <div className={`${rootClass} ${manropeHome.className}`.trim()}>
       {menuView !== 'root' && (
         <div className="mb-1.5 flex shrink-0 items-center justify-between gap-2 border-b border-[var(--border)]/70 pb-1.5">
           <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={handleMenuBack}
-              className="btn-3d-menu grid min-h-[44px] min-w-[6rem] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-0 rounded-lg border border-[var(--text)]/[0.18] bg-[var(--bg-card)] px-2 py-1.5 text-xs font-medium text-[var(--text)] touch-manipulation focus-visible:outline-none"
+              className="btn-3d-menu grid min-h-[44px] min-w-[6rem] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-0 rounded-lg border border-[var(--text)]/[0.18] bg-[var(--bg-card)] px-2 py-1.5 text-[13px] font-medium leading-normal text-[var(--text)] touch-manipulation focus-visible:outline-none"
               aria-label={menuView === 'aiChat' && aiChatPanel !== 'summary' ? 'Назад к настройкам чата' : 'Назад к разделам'}
             >
               <span className="flex justify-end pr-0.5" aria-hidden>
@@ -177,7 +181,7 @@ export default function MenuSectionPanels({
               <HomeIcon className="h-5 w-5 text-[var(--text-muted)]" />
             </button>
           </div>
-          <h2 className="min-w-0 flex-1 pr-2 text-right text-sm font-semibold leading-snug text-[var(--text)] sm:pr-3">
+          <h2 className="min-w-0 flex-1 pr-2 text-right text-base font-semibold leading-normal text-[var(--text)] sm:pr-3">
             {headerTitle}
           </h2>
         </div>
@@ -187,8 +191,8 @@ export default function MenuSectionPanels({
         key={menuView === 'aiChat' ? `aiChat-${aiChatPanel}` : menuView}
         className={
           homeLayout
-            ? 'menu-panel-view-enter max-h-[calc(100dvh-12rem)] space-y-1.5 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-0.5'
-            : 'menu-panel-view-enter min-h-0 flex-1 space-y-1.5 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-1'
+            ? 'menu-panel-view-enter max-h-[calc(100dvh-12rem)] space-y-2.5 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-0.5'
+            : 'menu-panel-view-enter min-h-0 flex-1 space-y-2.5 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-1'
         }
       >
         {menuView === 'root' && !homeLayout && (
@@ -216,7 +220,7 @@ export default function MenuSectionPanels({
         {menuView === 'lessons' && (
           <div className="flex w-full items-start gap-3">
             <span className={MENU_FIELD_LABEL}>Раздел</span>
-            <p className="min-w-0 flex-1 text-xs leading-relaxed text-[var(--text-muted)]">
+            <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
               Скоро здесь будут уроки. Раздел в разработке.
             </p>
           </div>
@@ -225,7 +229,7 @@ export default function MenuSectionPanels({
         {menuView === 'profile' && (
           <div className="flex w-full items-start gap-3">
             <span className={MENU_FIELD_LABEL}>Раздел</span>
-            <p className="min-w-0 flex-1 text-xs leading-relaxed text-[var(--text-muted)]">
+            <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
               Профиль появится позже.
             </p>
           </div>
@@ -233,7 +237,8 @@ export default function MenuSectionPanels({
 
         {menuView === 'aiChat' && aiChatPanel === 'summary' && (
           <>
-            <div className={MENU_GROUP_CLASS}>
+            <div className={MENU_GROUP_OUTER}>
+              <div className={MENU_GROUP_CLASS}>
               <MenuSettingRow label="Режим" value={modeLabel} onClick={() => setAiChatPanel('mode')} />
               <MenuSettingRow label="Стиль общения" value={audienceLabel} onClick={() => setAiChatPanel('audience')} />
               {!isCommunication && (
@@ -257,6 +262,7 @@ export default function MenuSectionPanels({
                 preferredLangPrefixes={VOICE_DROPDOWN_LANG_PREFIXES}
                 onOpen={() => setAiChatPanel('voice')}
               />
+              </div>
             </div>
 
             {onStartHomeChat && (
@@ -365,7 +371,7 @@ export default function MenuSectionPanels({
         {menuView === 'settings' && (
           <div className="flex w-full items-start gap-3">
             <span className={MENU_FIELD_LABEL}>Раздел</span>
-            <p className="min-w-0 flex-1 text-xs leading-relaxed text-[var(--text-muted)]">
+            <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
               Выбор ИИ и голоса перенесён в «Чат с MyEng».
             </p>
           </div>
@@ -378,7 +384,7 @@ export default function MenuSectionPanels({
                 <div className="flex w-full items-center gap-3">
                   <span
                     id={pid('progress-correct-label')}
-                    className="shrink-0 whitespace-nowrap text-xs font-medium leading-snug text-[var(--text-muted)]"
+                    className="shrink-0 whitespace-nowrap text-[13px] font-medium leading-normal text-[var(--text-muted)]"
                   >
                     Правильных ответов
                   </span>
@@ -412,7 +418,7 @@ export default function MenuSectionPanels({
             ) : (
               <div className="flex w-full items-start gap-3">
                 <span className={MENU_FIELD_LABEL}>Справка</span>
-                <p className="min-w-0 flex-1 text-xs leading-relaxed text-[var(--text-muted)]">
+                <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
                   Счётчик правильных ответов доступен в режиме «Диалог».
                 </p>
               </div>
@@ -437,10 +443,10 @@ function MenuSettingRow({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full min-h-[36px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-2.5 py-1.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
+      className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
     >
-      <span className="shrink-0 text-xs font-medium leading-snug text-[var(--text-muted)]">{label}</span>
-      <span className="min-w-0 flex-1 truncate text-right text-sm font-normal leading-snug text-[var(--text)]">
+      <span className="shrink-0 text-[13px] font-medium leading-normal text-[var(--text-muted)]">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-right text-sm font-normal leading-normal text-[var(--text)]">
         {value}
       </span>
       <ChevronRightIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />
@@ -490,15 +496,16 @@ function PickerList<T extends string>({
   onSelect: (id: T) => void
 }) {
   return (
-    <div className={MENU_GROUP_CLASS}>
+    <div className={MENU_GROUP_OUTER}>
+      <div className={MENU_GROUP_CLASS}>
       {options.map((opt) => (
         <button
           key={opt.id}
           type="button"
           onClick={() => onSelect(opt.id)}
-          className="flex w-full min-h-[36px] items-center justify-end gap-1 border-b border-[var(--border)]/70 px-2.5 py-1.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
+          className="flex w-full min-h-[44px] items-center justify-end gap-1 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
         >
-          <span className="min-w-0 flex-1 text-right text-sm font-normal leading-snug text-[var(--text)] pr-1">
+          <span className="min-w-0 flex-1 text-right text-sm font-normal leading-normal text-[var(--text)] pr-1">
             {opt.label}
           </span>
           {value === opt.id ? (
@@ -508,6 +515,7 @@ function PickerList<T extends string>({
           )}
         </button>
       ))}
+      </div>
     </div>
   )
 }
@@ -545,17 +553,18 @@ function VoicePickerPanel({
   }, [mounted, value, list, voicePrefixKey, onChange, preferredLangPrefixes])
 
   if (!mounted && list.length === 0) {
-    return <div className="px-3 py-2 text-xs text-[var(--text-muted)]">Загрузка голосов…</div>
+    return <div className="px-3 py-2 text-[13px] leading-normal text-[var(--text-muted)]">Загрузка голосов…</div>
   }
 
   return (
-    <div className={MENU_GROUP_CLASS}>
+    <div className={MENU_GROUP_OUTER}>
+      <div className={MENU_GROUP_CLASS}>
       <button
         type="button"
         onClick={() => onChange('')}
-        className="flex w-full min-h-[36px] items-center justify-end gap-1 border-b border-[var(--border)]/70 px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
+        className="flex w-full min-h-[44px] items-center justify-end gap-1 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
       >
-        <span className="min-w-0 flex-1 text-right text-sm font-normal leading-snug text-[var(--text)] pr-1">
+        <span className="min-w-0 flex-1 text-right text-sm font-normal leading-normal text-[var(--text)] pr-1">
           По умолчанию
         </span>
         {!value ? (
@@ -569,9 +578,9 @@ function VoicePickerPanel({
           key={v.voiceURI}
           type="button"
           onClick={() => onChange(v.voiceURI)}
-          className="flex w-full min-h-[36px] items-center justify-end gap-1 border-b border-[var(--border)]/70 px-2.5 py-1.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
+          className="flex w-full min-h-[44px] items-center justify-end gap-1 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
         >
-          <span className="min-w-0 flex-1 text-right text-sm font-normal leading-snug text-[var(--text)] pr-1">
+          <span className="min-w-0 flex-1 text-right text-sm font-normal leading-normal text-[var(--text)] pr-1">
             {v.name} ({v.lang})
           </span>
           {value === v.voiceURI ? (
@@ -581,6 +590,7 @@ function VoicePickerPanel({
           )}
         </button>
       ))}
+      </div>
     </div>
   )
 }
@@ -605,7 +615,7 @@ function MenuNavRow({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-2.5 py-1.5 text-left text-sm font-medium text-[var(--text)] shadow-sm transition-colors hover:bg-[var(--border)]/35 touch-manipulation min-h-[40px]"
+      className="flex w-full items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-left text-[15px] font-medium leading-normal text-[var(--text)] shadow-sm transition-colors hover:bg-[var(--border)]/35 touch-manipulation min-h-[44px]"
     >
       <span>{label}</span>
       <ChevronRightIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />
