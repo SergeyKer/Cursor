@@ -1020,7 +1020,7 @@ export default function Home() {
         </div>
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-14 sm:px-[4.25rem]">
           <h1
-            className="[font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif] text-[17px] font-semibold tracking-normal leading-[1.25] text-[var(--text)] truncate max-w-full"
+            className="[font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif] text-[16px] font-semibold tracking-normal leading-[1.25] text-[var(--text)] truncate max-w-full"
             title={pageTitle}
           >
             {!dialogStarted || !storageLoaded ? (
@@ -1056,9 +1056,9 @@ export default function Home() {
             }}
           >
             <div className="flex w-full max-w-[23.2rem] shrink-0 justify-center">
-              <div className="w-1/4 overflow-hidden rounded-2xl border border-[var(--border)] bg-white/70 shadow-sm">
+              <div className="w-1/4">
                 <Image
-                  src="/home-logo.png"
+                  src="/robot-no-background.png"
                   alt="MyEng logo"
                   width={512}
                   height={512}
