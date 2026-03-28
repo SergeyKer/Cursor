@@ -2,11 +2,54 @@
 
 import React from 'react'
 import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES, CHILD_TENSES } from '@/lib/constants'
-import type { Settings, UsageInfo } from '@/lib/types'
+import type { Settings, UsageInfo, AppMode, AiProvider, TenseId, SentenceType, TopicId, LevelId } from '@/lib/types'
 
 const CHILD_TENSE_SET = new Set(CHILD_TENSES)
 
 export type MenuView = 'root' | 'lessons' | 'aiChat' | 'settings' | 'progress' | 'profile'
+
+/** Экраны внутри «Чат с MyEng» (drill-down). */
+type AiChatPanel =
+  | 'summary'
+  | 'mode'
+  | 'audience'
+  | 'tense'
+  | 'sentenceType'
+  | 'topic'
+  | 'level'
+  | 'provider'
+  | 'voice'
+
+const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
+  summary: 'Чат с MyEng',
+  mode: 'Режим',
+  audience: 'Стиль общения',
+  tense: 'Время',
+  sentenceType: 'Тип предложений',
+  topic: 'Тема',
+  level: 'Уровень',
+  provider: 'ИИ',
+  voice: 'Голос',
+}
+
+const MODE_OPTIONS: { id: AppMode; label: string }[] = [
+  { id: 'communication', label: 'Общение' },
+  { id: 'dialogue', label: 'Диалог' },
+  { id: 'translation', label: 'Тренировка перевода' },
+]
+
+const AUDIENCE_OPTIONS: { id: Settings['audience']; label: string }[] = [
+  { id: 'child', label: 'Ребёнок' },
+  { id: 'adult', label: 'Взрослый' },
+]
+
+const PROVIDER_OPTIONS: { id: AiProvider; label: string }[] = [
+  { id: 'openai', label: 'ChatGPT' },
+  { id: 'openrouter', label: 'Медленно (Free)' },
+]
+
+const MENU_GROUP_CLASS =
+  'overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_1px_4px_rgba(0,0,0,0.07)]'
 
 export const FIELD_SELECT =
   'w-full min-w-0 rounded border border-[var(--border)] bg-[var(--bg-card)] pl-2 py-0.5 min-h-[32px] text-xs text-[var(--text)] touch-manipulation select-chevron'
@@ -21,7 +64,6 @@ export const MENU_FIELD_LABEL =
 const MENU_PRIMARY_CTA_CLASS =
   'flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[40px]'
 
-/** Только en в выпадающем списке голоса (без ru). Стабильная ссылка для VoiceSelect. */
 const VOICE_DROPDOWN_LANG_PREFIXES: string[] = ['en']
 
 export interface MenuSectionPanelsProps {
@@ -31,14 +73,10 @@ export interface MenuSectionPanelsProps {
   onSettingsChange: (s: Settings) => void
   usage: UsageInfo
   dialogueCorrectAnswers: number
-  /** Префиксы id для полей (избегать дубликатов, если панель на странице и в шторке одновременно). */
   idPrefix?: string
   className?: string
-  /** Главная: рамка по высоте контента, без пустого пространства под списком разделов. */
   homeLayout?: boolean
-  /** Запуск чата из раздела «Чат с MyEng» (главная или боковое меню). */
   onStartHomeChat?: () => void
-  /** Кнопка «домик»: выход на стартовый экран (передаётся из страницы). */
   onGoHome?: () => void
 }
 
@@ -57,6 +95,12 @@ export default function MenuSectionPanels({
 }: MenuSectionPanelsProps) {
   const pid = (suffix: string) => `${idPrefix}${suffix}`
 
+  const [aiChatPanel, setAiChatPanel] = React.useState<AiChatPanel>('summary')
+
+  React.useEffect(() => {
+    if (menuView !== 'aiChat') setAiChatPanel('summary')
+  }, [menuView])
+
   const isChild = settings.audience === 'child'
   const isCommunication = settings.mode === 'communication'
   const childAllowedLevels = new Set(['all', 'starter', 'a1', 'a2'])
@@ -68,9 +112,40 @@ export default function MenuSectionPanels({
     onSettingsChange({ ...settings, ...patch })
   }
 
+  const modeLabel = MODE_OPTIONS.find((m) => m.id === settings.mode)?.label ?? settings.mode
+  const audienceLabel = AUDIENCE_OPTIONS.find((a) => a.id === settings.audience)?.label ?? settings.audience
+  const levelLabel = levelOptions.find((l) => l.id === settings.level)?.label ?? settings.level
+  const providerLabel = PROVIDER_OPTIONS.find((p) => p.id === settings.provider)?.label ?? settings.provider
+  const tenseLabel =
+    tenseOptions.find((t) => t.id === (settings.tenses[0] ?? 'present_simple'))?.label ?? settings.tenses[0]
+  const sentenceTypeLabel =
+    SENTENCE_TYPES.find((t) => t.id === settings.sentenceType)?.label ?? settings.sentenceType
+  const topicLabel = topicOptions.find((t) => t.id === settings.topic)?.label ?? settings.topic
+
+  const handleMenuBack = () => {
+    if (menuView === 'aiChat' && aiChatPanel !== 'summary') {
+      setAiChatPanel('summary')
+      return
+    }
+    onMenuViewChange('root')
+  }
+
   const rootClass =
     className ??
     (homeLayout ? 'flex min-h-0 flex-col' : 'flex min-h-0 flex-1 flex-col')
+
+  const headerTitle =
+    menuView === 'lessons'
+      ? 'Уроки'
+      : menuView === 'aiChat'
+        ? AI_CHAT_PANEL_TITLE[aiChatPanel]
+        : menuView === 'settings'
+          ? 'Настройки'
+          : menuView === 'progress'
+            ? 'Прогресс'
+            : menuView === 'profile'
+              ? 'Профиль'
+              : ''
 
   return (
     <div className={rootClass}>
@@ -79,9 +154,9 @@ export default function MenuSectionPanels({
           <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
-              onClick={() => onMenuViewChange('root')}
+              onClick={handleMenuBack}
               className="btn-3d-menu grid min-h-[44px] min-w-[6rem] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-0 rounded-lg border border-[var(--text)]/[0.18] bg-[var(--bg-card)] px-2 py-1.5 text-xs font-medium text-[var(--text)] touch-manipulation focus-visible:outline-none"
-              aria-label="Назад к разделам"
+              aria-label={menuView === 'aiChat' && aiChatPanel !== 'summary' ? 'Назад к настройкам чата' : 'Назад к разделам'}
             >
               <span className="flex justify-end pr-0.5" aria-hidden>
                 <ChevronLeftIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
@@ -103,298 +178,409 @@ export default function MenuSectionPanels({
             </button>
           </div>
           <h2 className="min-w-0 flex-1 pr-2 text-right text-sm font-semibold leading-snug text-[var(--text)] sm:pr-3">
-            {menuView === 'lessons' && 'Уроки'}
-            {menuView === 'aiChat' && 'Чат с MyEng'}
-            {menuView === 'settings' && 'Настройки'}
-            {menuView === 'progress' && 'Прогресс'}
-            {menuView === 'profile' && 'Профиль'}
+            {headerTitle}
           </h2>
         </div>
       )}
 
       <div
-        key={menuView}
+        key={menuView === 'aiChat' ? `aiChat-${aiChatPanel}` : menuView}
         className={
           homeLayout
             ? 'menu-panel-view-enter max-h-[calc(100dvh-12rem)] space-y-1.5 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-0.5'
             : 'menu-panel-view-enter min-h-0 flex-1 space-y-1.5 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-1'
         }
       >
-          {menuView === 'root' && !homeLayout && (
-            <>
-              <MenuNavRow
-                label="Чат с MyEng"
-                onClick={() => onMenuViewChange('aiChat')}
-                variant={homeLayout ? 'primary' : 'default'}
-              />
-              <MenuNavRow
-                label="Уроки"
-                onClick={() => onMenuViewChange('lessons')}
-                variant={homeLayout ? 'primary' : 'default'}
-              />
-              {!homeLayout && (
-                <>
-                  <MenuNavRow label="Прогресс" onClick={() => onMenuViewChange('progress')} />
-                  <MenuNavRow label="Настройки" onClick={() => onMenuViewChange('settings')} />
-                  <MenuNavRow label="Профиль" onClick={() => onMenuViewChange('profile')} />
-                </>
-              )}
-            </>
-          )}
+        {menuView === 'root' && !homeLayout && (
+          <>
+            <MenuNavRow
+              label="Чат с MyEng"
+              onClick={() => onMenuViewChange('aiChat')}
+              variant={homeLayout ? 'primary' : 'default'}
+            />
+            <MenuNavRow
+              label="Уроки"
+              onClick={() => onMenuViewChange('lessons')}
+              variant={homeLayout ? 'primary' : 'default'}
+            />
+            {!homeLayout && (
+              <>
+                <MenuNavRow label="Прогресс" onClick={() => onMenuViewChange('progress')} />
+                <MenuNavRow label="Настройки" onClick={() => onMenuViewChange('settings')} />
+                <MenuNavRow label="Профиль" onClick={() => onMenuViewChange('profile')} />
+              </>
+            )}
+          </>
+        )}
 
-          {menuView === 'lessons' && (
-            <div className="flex w-full items-start gap-3">
-              <span className={MENU_FIELD_LABEL}>Раздел</span>
-              <p className="min-w-0 flex-1 text-xs leading-relaxed text-[var(--text-muted)]">
-                Скоро здесь будут уроки. Раздел в разработке.
-              </p>
-            </div>
-          )}
+        {menuView === 'lessons' && (
+          <div className="flex w-full items-start gap-3">
+            <span className={MENU_FIELD_LABEL}>Раздел</span>
+            <p className="min-w-0 flex-1 text-xs leading-relaxed text-[var(--text-muted)]">
+              Скоро здесь будут уроки. Раздел в разработке.
+            </p>
+          </div>
+        )}
 
-          {menuView === 'profile' && (
-            <div className="flex w-full items-start gap-3">
-              <span className={MENU_FIELD_LABEL}>Раздел</span>
-              <p className="min-w-0 flex-1 text-xs leading-relaxed text-[var(--text-muted)]">
-                Профиль появится позже.
-              </p>
-            </div>
-          )}
+        {menuView === 'profile' && (
+          <div className="flex w-full items-start gap-3">
+            <span className={MENU_FIELD_LABEL}>Раздел</span>
+            <p className="min-w-0 flex-1 text-xs leading-relaxed text-[var(--text-muted)]">
+              Профиль появится позже.
+            </p>
+          </div>
+        )}
 
-          {menuView === 'aiChat' && (
-            <>
-              <div className="flex w-full items-center gap-3">
-                <label htmlFor={pid('ai-mode')} className={MENU_FIELD_LABEL}>
-                  Режим
-                </label>
-                <div className="min-w-0 flex-1">
-                  <select
-                    id={pid('ai-mode')}
-                    value={settings.mode}
-                    onChange={(e) => update({ mode: e.target.value as Settings['mode'] })}
-                    className={FIELD_SELECT}
-                  >
-                    <option value="communication">Общение</option>
-                    <option value="dialogue">Диалог</option>
-                    <option value="translation">Тренировка перевода</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex w-full items-center gap-3">
-                <label htmlFor={pid('ai-audience')} className={MENU_FIELD_LABEL}>
-                  Стиль общения
-                </label>
-                <div className="min-w-0 flex-1">
-                  <select
-                    id={pid('ai-audience')}
-                    value={settings.audience}
-                    onChange={(e) => {
-                      const nextAudience = e.target.value as Settings['audience']
-                      if (nextAudience === 'child') {
-                        update({ audience: nextAudience, level: 'all', tenses: ['present_simple'] })
-                        return
-                      }
-                      update({ audience: nextAudience })
-                    }}
-                    className={FIELD_SELECT}
-                  >
-                    <option value="child">Ребёнок</option>
-                    <option value="adult">Взрослый</option>
-                  </select>
-                </div>
-              </div>
-
+        {menuView === 'aiChat' && aiChatPanel === 'summary' && (
+          <>
+            <div className={MENU_GROUP_CLASS}>
+              <MenuSettingRow label="Режим" value={modeLabel} onClick={() => setAiChatPanel('mode')} />
+              <MenuSettingRow label="Стиль общения" value={audienceLabel} onClick={() => setAiChatPanel('audience')} />
               {!isCommunication && (
-                <div className="flex w-full items-center gap-3">
-                  <label htmlFor={pid('ai-tense')} className={MENU_FIELD_LABEL}>
-                    Время
-                  </label>
-                  <div className="min-w-0 flex-1">
-                    <select
-                      id={pid('ai-tense')}
-                      value={settings.tenses[0] ?? 'present_simple'}
-                      onChange={(e) => update({ tenses: [e.target.value as Settings['tenses'][number]] })}
-                      className={FIELD_SELECT}
-                    >
-                      {tenseOptions.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+                <MenuSettingRow label="Время" value={tenseLabel} onClick={() => setAiChatPanel('tense')} />
               )}
-
               {settings.mode === 'translation' && (
-                <div className="flex w-full items-center gap-3">
-                  <label htmlFor={pid('ai-sentence-type')} className={MENU_FIELD_LABEL}>
-                    Тип предложений
-                  </label>
-                  <div className="min-w-0 flex-1">
-                    <select
-                      id={pid('ai-sentence-type')}
-                      value={settings.sentenceType}
-                      onChange={(e) =>
-                        update({ sentenceType: e.target.value as Settings['sentenceType'] })
-                      }
-                      className={FIELD_SELECT}
-                    >
-                      {SENTENCE_TYPES.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {settings.mode === 'translation' && (
-                <div className="flex w-full items-center gap-3">
-                  <label htmlFor={pid('ai-topic')} className={MENU_FIELD_LABEL}>
-                    Тема
-                  </label>
-                  <div className="min-w-0 flex-1">
-                    <select
-                      id={pid('ai-topic')}
-                      value={settings.topic}
-                      onChange={(e) => update({ topic: e.target.value as Settings['topic'] })}
-                      className={FIELD_SELECT}
-                    >
-                      {topicOptions.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex w-full items-center gap-3">
-                <label htmlFor={pid('ai-level')} className={MENU_FIELD_LABEL}>
-                  Уровень
-                </label>
-                <div className="min-w-0 flex-1">
-                  <select
-                    id={pid('ai-level')}
-                    value={settings.level}
-                    onChange={(e) => update({ level: e.target.value as Settings['level'] })}
-                    className={FIELD_SELECT}
-                  >
-                    {levelOptions.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex w-full items-center gap-3">
-                <label htmlFor={pid('ai-provider')} className={MENU_FIELD_LABEL}>
-                  ИИ
-                </label>
-                <div className="min-w-0 flex-1">
-                  <select
-                    id={pid('ai-provider')}
-                    value={settings.provider}
-                    onChange={(e) => update({ provider: e.target.value as Settings['provider'] })}
-                    className={FIELD_SELECT}
-                  >
-                    <option value="openai">ChatGPT</option>
-                    <option value="openrouter">Медленно (Free)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex w-full items-center gap-3">
-                <label htmlFor={pid('ai-voice')} className={MENU_FIELD_LABEL}>
-                  Голос
-                </label>
-                <div className="min-w-0 flex-1">
-                  <VoiceSelect
-                    id={pid('ai-voice')}
-                    value={settings.voiceId}
-                    onChange={(voiceId) => update({ voiceId })}
-                    preferredLangPrefixes={VOICE_DROPDOWN_LANG_PREFIXES}
-                  />
-                </div>
-              </div>
-
-              {onStartHomeChat && (
-                <div className="pt-2">
-                  <button type="button" onClick={onStartHomeChat} className={MENU_PRIMARY_CTA_CLASS}>
-                    {settings.mode === 'dialogue'
-                      ? 'Начать диалог'
-                      : settings.mode === 'translation'
-                        ? 'Начать тренировку перевода'
-                        : 'Начать общение'}
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-
-          {menuView === 'settings' && (
-            <div className="flex w-full items-start gap-3">
-              <span className={MENU_FIELD_LABEL}>Раздел</span>
-              <p className="min-w-0 flex-1 text-xs leading-relaxed text-[var(--text-muted)]">
-                Выбор ИИ и голоса перенесён в «Чат с MyEng».
-              </p>
-            </div>
-          )}
-
-          {menuView === 'progress' && (
-            <>
-              {settings.mode === 'dialogue' ? (
                 <>
-                  <div className="flex w-full items-center gap-3">
-                    <span
-                      id={pid('progress-correct-label')}
-                      className="shrink-0 whitespace-nowrap text-xs font-medium leading-snug text-[var(--text-muted)]"
-                    >
-                      Правильных ответов
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div
-                        className={MENU_VALUE_BOX}
-                        role="status"
-                        aria-labelledby={pid('progress-correct-label')}
-                      >
-                        <span className="tabular-nums">{dialogueCorrectAnswers}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex w-full items-center gap-3">
-                    <span id={pid('progress-usage-label')} className={MENU_FIELD_LABEL}>
-                      Запросов
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div
-                        className={MENU_VALUE_BOX}
-                        role="status"
-                        aria-labelledby={pid('progress-usage-label')}
-                      >
-                        <span className="tabular-nums">
-                          {usage.limit > 0 ? `${usage.used} / ${usage.limit}` : `${usage.used}`}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                  <MenuSettingRow
+                    label="Тип предложений"
+                    value={sentenceTypeLabel}
+                    onClick={() => setAiChatPanel('sentenceType')}
+                  />
+                  <MenuSettingRow label="Тема" value={topicLabel} onClick={() => setAiChatPanel('topic')} />
                 </>
-              ) : (
-                <div className="flex w-full items-start gap-3">
-                  <span className={MENU_FIELD_LABEL}>Справка</span>
-                  <p className="min-w-0 flex-1 text-xs leading-relaxed text-[var(--text-muted)]">
-                    Счётчик правильных ответов доступен в режиме «Диалог».
-                  </p>
-                </div>
               )}
-            </>
-          )}
+              <MenuSettingRow label="Уровень" value={levelLabel} onClick={() => setAiChatPanel('level')} />
+              <MenuSettingRow label="ИИ" value={providerLabel} onClick={() => setAiChatPanel('provider')} />
+              <VoiceSummaryRow
+                label="Голос"
+                voiceId={settings.voiceId}
+                preferredLangPrefixes={VOICE_DROPDOWN_LANG_PREFIXES}
+                onOpen={() => setAiChatPanel('voice')}
+              />
+            </div>
+
+            {onStartHomeChat && (
+              <div className="pt-2">
+                <button type="button" onClick={onStartHomeChat} className={MENU_PRIMARY_CTA_CLASS}>
+                  {settings.mode === 'dialogue'
+                    ? 'Начать диалог'
+                    : settings.mode === 'translation'
+                      ? 'Начать тренировку перевода'
+                      : 'Начать общение'}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {menuView === 'aiChat' && aiChatPanel === 'mode' && (
+          <PickerList
+            options={MODE_OPTIONS}
+            value={settings.mode}
+            onSelect={(id) => {
+              update({ mode: id })
+              setAiChatPanel('summary')
+            }}
+          />
+        )}
+
+        {menuView === 'aiChat' && aiChatPanel === 'audience' && (
+          <PickerList
+            options={AUDIENCE_OPTIONS}
+            value={settings.audience}
+            onSelect={(id) => {
+              if (id === 'child') {
+                update({ audience: id, level: 'all', tenses: ['present_simple'] })
+              } else {
+                update({ audience: id })
+              }
+              setAiChatPanel('summary')
+            }}
+          />
+        )}
+
+        {menuView === 'aiChat' && aiChatPanel === 'tense' && (
+          <PickerList
+            options={tenseOptions.map((t) => ({ id: t.id as TenseId, label: t.label }))}
+            value={settings.tenses[0] ?? 'present_simple'}
+            onSelect={(id) => {
+              update({ tenses: [id] })
+              setAiChatPanel('summary')
+            }}
+          />
+        )}
+
+        {menuView === 'aiChat' && aiChatPanel === 'sentenceType' && (
+          <PickerList
+            options={SENTENCE_TYPES.map((t) => ({ id: t.id, label: t.label }))}
+            value={settings.sentenceType}
+            onSelect={(id) => {
+              update({ sentenceType: id as SentenceType })
+              setAiChatPanel('summary')
+            }}
+          />
+        )}
+
+        {menuView === 'aiChat' && aiChatPanel === 'topic' && (
+          <PickerList
+            options={topicOptions.map((t) => ({ id: t.id, label: t.label }))}
+            value={settings.topic}
+            onSelect={(id) => {
+              update({ topic: id as TopicId })
+              setAiChatPanel('summary')
+            }}
+          />
+        )}
+
+        {menuView === 'aiChat' && aiChatPanel === 'level' && (
+          <PickerList
+            options={levelOptions.map((l) => ({ id: l.id, label: l.label }))}
+            value={settings.level}
+            onSelect={(id) => {
+              update({ level: id as LevelId })
+              setAiChatPanel('summary')
+            }}
+          />
+        )}
+
+        {menuView === 'aiChat' && aiChatPanel === 'provider' && (
+          <PickerList
+            options={PROVIDER_OPTIONS}
+            value={settings.provider}
+            onSelect={(id) => {
+              update({ provider: id })
+              setAiChatPanel('summary')
+            }}
+          />
+        )}
+
+        {menuView === 'aiChat' && aiChatPanel === 'voice' && (
+          <VoicePickerPanel
+            value={settings.voiceId}
+            onChange={(voiceId) => update({ voiceId })}
+            preferredLangPrefixes={VOICE_DROPDOWN_LANG_PREFIXES}
+          />
+        )}
+
+        {menuView === 'settings' && (
+          <div className="flex w-full items-start gap-3">
+            <span className={MENU_FIELD_LABEL}>Раздел</span>
+            <p className="min-w-0 flex-1 text-xs leading-relaxed text-[var(--text-muted)]">
+              Выбор ИИ и голоса перенесён в «Чат с MyEng».
+            </p>
+          </div>
+        )}
+
+        {menuView === 'progress' && (
+          <>
+            {settings.mode === 'dialogue' ? (
+              <>
+                <div className="flex w-full items-center gap-3">
+                  <span
+                    id={pid('progress-correct-label')}
+                    className="shrink-0 whitespace-nowrap text-xs font-medium leading-snug text-[var(--text-muted)]"
+                  >
+                    Правильных ответов
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div
+                      className={MENU_VALUE_BOX}
+                      role="status"
+                      aria-labelledby={pid('progress-correct-label')}
+                    >
+                      <span className="tabular-nums">{dialogueCorrectAnswers}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex w-full items-center gap-3">
+                  <span id={pid('progress-usage-label')} className={MENU_FIELD_LABEL}>
+                    Запросов
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div
+                      className={MENU_VALUE_BOX}
+                      role="status"
+                      aria-labelledby={pid('progress-usage-label')}
+                    >
+                      <span className="tabular-nums">
+                        {usage.limit > 0 ? `${usage.used} / ${usage.limit}` : `${usage.used}`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex w-full items-start gap-3">
+                <span className={MENU_FIELD_LABEL}>Справка</span>
+                <p className="min-w-0 flex-1 text-xs leading-relaxed text-[var(--text-muted)]">
+                  Счётчик правильных ответов доступен в режиме «Диалог».
+                </p>
+              </div>
+            )}
+          </>
+        )}
       </div>
+    </div>
+  )
+}
+
+function MenuSettingRow({
+  label,
+  value,
+  onClick,
+}: {
+  label: string
+  value: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full min-h-[36px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-2.5 py-1.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
+    >
+      <span className="shrink-0 text-xs font-medium leading-snug text-[var(--text-muted)]">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-right text-sm font-normal leading-snug text-[var(--text)]">
+        {value}
+      </span>
+      <ChevronRightIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />
+    </button>
+  )
+}
+
+function VoiceSummaryRow({
+  label,
+  voiceId,
+  preferredLangPrefixes,
+  onOpen,
+}: {
+  label: string
+  voiceId: string
+  preferredLangPrefixes: string[]
+  onOpen: () => void
+}) {
+  const [voices, setVoices] = React.useState<SpeechSynthesisVoice[]>([])
+  React.useEffect(() => {
+    const list = () => setVoices(window.speechSynthesis.getVoices())
+    window.speechSynthesis.onvoiceschanged = list
+    list()
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null
+    }
+  }, [])
+  const display =
+    !voiceId
+      ? 'По умолчанию'
+      : (() => {
+          const allowed = voices.filter((v) => preferredLangPrefixes.some((p) => v.lang.startsWith(p)))
+          const v = allowed.find((x) => x.voiceURI === voiceId)
+          return v ? `${v.name} (${v.lang})` : 'По умолчанию'
+        })()
+
+  return <MenuSettingRow label={label} value={display} onClick={onOpen} />
+}
+
+function PickerList<T extends string>({
+  options,
+  value,
+  onSelect,
+}: {
+  options: { id: T; label: string }[]
+  value: T
+  onSelect: (id: T) => void
+}) {
+  return (
+    <div className={MENU_GROUP_CLASS}>
+      {options.map((opt) => (
+        <button
+          key={opt.id}
+          type="button"
+          onClick={() => onSelect(opt.id)}
+          className="flex w-full min-h-[36px] items-center justify-end gap-1 border-b border-[var(--border)]/70 px-2.5 py-1.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
+        >
+          <span className="min-w-0 flex-1 text-right text-sm font-normal leading-snug text-[var(--text)] pr-1">
+            {opt.label}
+          </span>
+          {value === opt.id ? (
+            <CheckIcon className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden />
+          ) : (
+            <span className="h-4 w-4 shrink-0" aria-hidden />
+          )}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function VoicePickerPanel({
+  value,
+  onChange,
+  preferredLangPrefixes,
+}: {
+  value: string
+  onChange: (id: string) => void
+  preferredLangPrefixes: string[]
+}) {
+  const [voices, setVoices] = React.useState<SpeechSynthesisVoice[]>([])
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+    const list = () => setVoices(window.speechSynthesis.getVoices())
+    window.speechSynthesis.onvoiceschanged = list
+    list()
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null
+    }
+  }, [])
+
+  const list = mounted ? voices : []
+  const finalList = list.filter((v) => preferredLangPrefixes.some((p) => v.lang.startsWith(p)))
+
+  const voicePrefixKey = preferredLangPrefixes.join('|')
+  React.useEffect(() => {
+    if (!mounted || !value || list.length === 0) return
+    const allowed = list.filter((v) => preferredLangPrefixes.some((p) => v.lang.startsWith(p)))
+    if (!allowed.some((v) => v.voiceURI === value)) onChange('')
+  }, [mounted, value, list, voicePrefixKey, onChange, preferredLangPrefixes])
+
+  if (!mounted && list.length === 0) {
+    return <div className="px-3 py-2 text-xs text-[var(--text-muted)]">Загрузка голосов…</div>
+  }
+
+  return (
+    <div className={MENU_GROUP_CLASS}>
+      <button
+        type="button"
+        onClick={() => onChange('')}
+        className="flex w-full min-h-[36px] items-center justify-end gap-1 border-b border-[var(--border)]/70 px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
+      >
+        <span className="min-w-0 flex-1 text-right text-sm font-normal leading-snug text-[var(--text)] pr-1">
+          По умолчанию
+        </span>
+        {!value ? (
+          <CheckIcon className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden />
+        ) : (
+          <span className="h-4 w-4 shrink-0" aria-hidden />
+        )}
+      </button>
+      {finalList.map((v) => (
+        <button
+          key={v.voiceURI}
+          type="button"
+          onClick={() => onChange(v.voiceURI)}
+          className="flex w-full min-h-[36px] items-center justify-end gap-1 border-b border-[var(--border)]/70 px-2.5 py-1.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
+        >
+          <span className="min-w-0 flex-1 text-right text-sm font-normal leading-snug text-[var(--text)] pr-1">
+            {v.name} ({v.lang})
+          </span>
+          {value === v.voiceURI ? (
+            <CheckIcon className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden />
+          ) : (
+            <span className="h-4 w-4 shrink-0" aria-hidden />
+          )}
+        </button>
+      ))}
     </div>
   )
 }
@@ -435,6 +621,14 @@ function ChevronRightIcon({ className }: { className?: string }) {
   )
 }
 
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+    </svg>
+  )
+}
+
 function HomeIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -453,63 +647,5 @@ function ChevronLeftIcon({ className }: { className?: string }) {
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
     </svg>
-  )
-}
-
-function VoiceSelect({
-  id,
-  value,
-  onChange,
-  preferredLangPrefixes,
-}: {
-  id?: string
-  value: string
-  onChange: (id: string) => void
-  preferredLangPrefixes: string[]
-}) {
-  const [voices, setVoices] = React.useState<SpeechSynthesisVoice[]>([])
-  const [mounted, setMounted] = React.useState(false)
-
-  React.useEffect(() => {
-    setMounted(true)
-    const list = () => setVoices(window.speechSynthesis.getVoices())
-    window.speechSynthesis.onvoiceschanged = list
-    list()
-    return () => {
-      window.speechSynthesis.onvoiceschanged = null
-    }
-  }, [])
-
-  const list = mounted ? voices : []
-  const preferred = list.filter((v) => preferredLangPrefixes.some((p) => v.lang.startsWith(p)))
-  /** Без отката ко всем голосам — иначе снова появляются ru и др. при пустом en. */
-  const finalList = preferred
-
-  const voicePrefixKey = preferredLangPrefixes.join('|')
-  React.useEffect(() => {
-    if (!mounted || !value || list.length === 0) return
-    const allowed = list.filter((v) => preferredLangPrefixes.some((p) => v.lang.startsWith(p)))
-    if (!allowed.some((v) => v.voiceURI === value)) onChange('')
-  }, [mounted, value, list, voicePrefixKey, onChange, preferredLangPrefixes])
-
-  return (
-    <select
-      id={id}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={FIELD_SELECT}
-    >
-      <option value="">Системный по умолчанию</option>
-      {finalList.map((v) => (
-        <option key={v.voiceURI} value={v.voiceURI}>
-          {v.name} ({v.lang})
-        </option>
-      ))}
-      {list.length === 0 && (
-        <option value="" disabled>
-          Загрузка…
-        </option>
-      )}
-    </select>
   )
 }

@@ -73,7 +73,7 @@ export default function SlideOutMenu({
         }`}
         aria-label="Меню"
       >
-        <div className="flex h-full flex-col p-2.5 pt-[max(4rem,calc(env(safe-area-inset-top)+3rem))]">
+        <div className="flex h-full flex-col px-3 pb-3 pt-[max(4rem,calc(env(safe-area-inset-top)+3rem))]">
           {onNewDialog && (
             <button
               type="button"
