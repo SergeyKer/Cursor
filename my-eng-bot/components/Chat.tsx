@@ -1306,7 +1306,7 @@ function SectionCard({
 
   return (
     <section
-      className={`block min-w-0 w-fit max-w-full self-start rounded-xl border shadow-sm ${
+      className={`block min-w-0 w-full max-w-full self-stretch rounded-xl border shadow-sm ${
         isCompactServiceLine ? 'px-2.5 py-1.5' : 'px-3 py-2'
       } ${
         singleLine ? 'flex items-start' : ''

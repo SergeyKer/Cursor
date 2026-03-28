@@ -1019,7 +1019,10 @@ export default function Home() {
           </div>
         </div>
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-14 sm:px-[4.25rem]">
-          <h1 className="text-[14px] font-medium leading-snug text-[var(--text)] sm:text-[16px] truncate max-w-full" title={pageTitle}>
+          <h1
+            className="[font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif] text-[17px] font-semibold tracking-normal leading-[1.25] text-[var(--text)] truncate max-w-full"
+            title={pageTitle}
+          >
             {!dialogStarted || !storageLoaded ? (
               pageTitle
             ) : (

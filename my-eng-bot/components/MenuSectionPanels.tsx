@@ -68,6 +68,9 @@ export const MENU_FIELD_LABEL =
 const MENU_PRIMARY_CTA_CLASS =
   'flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-[15px] font-semibold leading-normal text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]'
 
+const MENU_CHOICE_TEXT_CLASS =
+  "text-[15px] font-normal [font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif]"
+
 const VOICE_DROPDOWN_LANG_PREFIXES: string[] = ['en']
 
 export interface MenuSectionPanelsProps {
@@ -149,18 +152,31 @@ export default function MenuSectionPanels({
             ? 'Прогресс'
             : menuView === 'profile'
               ? 'Профиль'
-              : ''
+              : !homeLayout
+                ? 'Главная'
+                : ''
+
+  const handleGoHome = () => {
+    if (onGoHome) onGoHome()
+    else onMenuViewChange('root')
+  }
 
   return (
     <div className={`${rootClass} ${manropeHome.className}`.trim()}>
-      {menuView !== 'root' && (
+      {(menuView !== 'root' || !homeLayout) && (
         <div className="mb-1.5 flex shrink-0 items-center justify-between gap-2 border-b border-[var(--border)]/70 pb-1.5">
           <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
-              onClick={handleMenuBack}
+              onClick={menuView === 'root' ? handleGoHome : handleMenuBack}
               className="btn-3d-menu grid min-h-[44px] min-w-[6rem] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-0 rounded-lg border border-[var(--text)]/[0.18] bg-[var(--bg-card)] px-2 py-1.5 text-[13px] font-medium leading-normal text-[var(--text)] touch-manipulation focus-visible:outline-none"
-              aria-label={menuView === 'aiChat' && aiChatPanel !== 'summary' ? 'Назад к настройкам чата' : 'Назад к разделам'}
+              aria-label={
+                menuView === 'root'
+                  ? 'На стартовый экран'
+                  : menuView === 'aiChat' && aiChatPanel !== 'summary'
+                    ? 'Назад к настройкам чата'
+                    : 'Назад к разделам'
+              }
             >
               <span className="flex justify-end pr-0.5" aria-hidden>
                 <ChevronLeftIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
@@ -170,10 +186,7 @@ export default function MenuSectionPanels({
             </button>
             <button
               type="button"
-              onClick={() => {
-                if (onGoHome) onGoHome()
-                else onMenuViewChange('root')
-              }}
+              onClick={handleGoHome}
               className="btn-3d-menu flex h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-[var(--text)]/[0.18] bg-[var(--bg-card)] text-[var(--text)] touch-manipulation focus-visible:outline-none"
               aria-label="На стартовый экран"
               title="Стартовая страница"
@@ -181,7 +194,7 @@ export default function MenuSectionPanels({
               <HomeIcon className="h-5 w-5 text-[var(--text-muted)]" />
             </button>
           </div>
-          <h2 className="min-w-0 flex-1 pr-2 text-right text-base font-semibold leading-normal text-[var(--text)] sm:pr-3">
+          <h2 className="min-w-0 flex-1 pr-2 text-right [font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif] text-[18px] font-semibold tracking-normal leading-[1.25] text-[var(--text)] sm:pr-3">
             {headerTitle}
           </h2>
         </div>
@@ -196,25 +209,15 @@ export default function MenuSectionPanels({
         }
       >
         {menuView === 'root' && !homeLayout && (
-          <>
-            <MenuNavRow
-              label="Чат с MyEng"
-              onClick={() => onMenuViewChange('aiChat')}
-              variant={homeLayout ? 'primary' : 'default'}
-            />
-            <MenuNavRow
-              label="Уроки"
-              onClick={() => onMenuViewChange('lessons')}
-              variant={homeLayout ? 'primary' : 'default'}
-            />
-            {!homeLayout && (
-              <>
-                <MenuNavRow label="Прогресс" onClick={() => onMenuViewChange('progress')} />
-                <MenuNavRow label="Настройки" onClick={() => onMenuViewChange('settings')} />
-                <MenuNavRow label="Профиль" onClick={() => onMenuViewChange('profile')} />
-              </>
-            )}
-          </>
+          <div className={MENU_GROUP_OUTER}>
+            <div className={MENU_GROUP_CLASS}>
+              <MenuNavRow label="Чат с MyEng" onClick={() => onMenuViewChange('aiChat')} />
+              <MenuNavRow label="Уроки" onClick={() => onMenuViewChange('lessons')} />
+              <MenuNavRow label="Прогресс" onClick={() => onMenuViewChange('progress')} />
+              <MenuNavRow label="Настройки" onClick={() => onMenuViewChange('settings')} />
+              <MenuNavRow label="Профиль" onClick={() => onMenuViewChange('profile')} />
+            </div>
+          </div>
         )}
 
         {menuView === 'lessons' && (
@@ -445,8 +448,8 @@ function MenuSettingRow({
       onClick={onClick}
       className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
     >
-      <span className="shrink-0 text-[13px] font-medium leading-normal text-[var(--text-muted)]">{label}</span>
-      <span className="min-w-0 flex-1 truncate text-right text-sm font-normal leading-normal text-[var(--text)]">
+      <span className="shrink-0 text-sm font-medium leading-normal text-[var(--text-muted)]">{label}</span>
+      <span className={`min-w-0 flex-1 truncate text-right leading-normal text-[var(--text)] ${MENU_CHOICE_TEXT_CLASS}`}>
         {value}
       </span>
       <ChevronRightIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />
@@ -505,7 +508,7 @@ function PickerList<T extends string>({
           onClick={() => onSelect(opt.id)}
           className="flex w-full min-h-[44px] items-center justify-end gap-1 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
         >
-          <span className="min-w-0 flex-1 text-right text-sm font-normal leading-normal text-[var(--text)] pr-1">
+          <span className={`min-w-0 flex-1 text-right leading-normal text-[var(--text)] pr-1 ${MENU_CHOICE_TEXT_CLASS}`}>
             {opt.label}
           </span>
           {value === opt.id ? (
@@ -564,7 +567,7 @@ function VoicePickerPanel({
         onClick={() => onChange('')}
         className="flex w-full min-h-[44px] items-center justify-end gap-1 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
       >
-        <span className="min-w-0 flex-1 text-right text-sm font-normal leading-normal text-[var(--text)] pr-1">
+        <span className={`min-w-0 flex-1 text-right leading-normal text-[var(--text)] pr-1 ${MENU_CHOICE_TEXT_CLASS}`}>
           По умолчанию
         </span>
         {!value ? (
@@ -580,7 +583,7 @@ function VoicePickerPanel({
           onClick={() => onChange(v.voiceURI)}
           className="flex w-full min-h-[44px] items-center justify-end gap-1 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
         >
-          <span className="min-w-0 flex-1 text-right text-sm font-normal leading-normal text-[var(--text)] pr-1">
+          <span className={`min-w-0 flex-1 text-right leading-normal text-[var(--text)] pr-1 ${MENU_CHOICE_TEXT_CLASS}`}>
             {v.name} ({v.lang})
           </span>
           {value === v.voiceURI ? (
@@ -615,7 +618,7 @@ function MenuNavRow({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-left text-[15px] font-medium leading-normal text-[var(--text)] shadow-sm transition-colors hover:bg-[var(--border)]/35 touch-manipulation min-h-[44px]"
+      className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left text-[15px] font-normal leading-normal text-[var(--text)] transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation [font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif]"
     >
       <span>{label}</span>
       <ChevronRightIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />
