@@ -936,7 +936,7 @@ export default function Home() {
       : 'MyEng'
 
   return (
-    <div className="flex h-[100dvh] min-h-[100dvh] flex-col">
+    <div data-audience={settings.audience} className="flex h-[100dvh] min-h-[100dvh] flex-col">
       <header
         className="fixed left-0 right-0 top-0 z-[60] border-b border-[var(--border)] bg-[var(--bg)]"
         style={{

@@ -47,6 +47,19 @@
   --chat-input-height: 5.5rem;
 }
 
+/* Только для режима "Ребёнок": взрослый вид остаётся базовым (:root). */
+[data-audience='child'] {
+  --chat-wallpaper: #bdcfe4;
+  --chat-wallpaper-soft: #b2c8e0;
+  --chat-message-wallpaper: #cfdeef;
+  --chat-message-wallpaper-soft: #c5d8ec;
+  --chat-user-bubble: color-mix(in srgb, var(--chat-wallpaper) 50%, #ffffff 50%);
+  --chat-user-bubble-border: color-mix(in srgb, var(--chat-wallpaper) 65%, #ffffff 35%);
+  --chat-user-text: #122b47;
+  --accent: #39649c;
+  --accent-hover: #305789;
+}
+
 html {
   color-scheme: light;
   /* Безопасные зоны: вырезы и жесты (Android), notch и home indicator (iOS) */
