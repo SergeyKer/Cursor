@@ -167,6 +167,9 @@ export default function Home() {
   /** Не запускать второй запрос первого сообщения, пока первый в полёте (защита от двойного вызова из эффекта). */
   const firstMessageInFlightRef = React.useRef(false)
   const dialogSeedRef = React.useRef(createDialogSeed())
+  /** Актуальный язык ожидаемого ввода в общении — для тела fetch без гонки замыкания sendToApi/setTimeout. */
+  const communicationInputExpectedLangRef = React.useRef(settings.communicationInputExpectedLang)
+  communicationInputExpectedLangRef.current = settings.communicationInputExpectedLang
   /** Настройки при открытии меню: режим + поля для сравнения при закрытии (без уровня). */
   const menuOpenSnapshotRef = React.useRef<MenuOpenSnapshot | null>(null)
   const prevMenuOpenForSnapshotRef = React.useRef(false)
@@ -324,7 +327,13 @@ export default function Home() {
                 dialogSeed: dialogSeedRef.current,
                 ...(freeTalkTopicSelection ? { freeTalkTopicSuggestions: freeTalkTopicSelection.topics } : {}),
                 ...(settings.mode === 'communication'
-                  ? { communicationInputExpectedLang: settings.communicationInputExpectedLang }
+                  ? {
+                      communicationInputExpectedLang:
+                        communicationInputExpectedLangRef.current === 'en' ||
+                        communicationInputExpectedLangRef.current === 'ru'
+                          ? communicationInputExpectedLangRef.current
+                          : 'ru',
+                    }
                   : {}),
               }),
               signal: controller.signal,
@@ -544,7 +553,6 @@ export default function Home() {
     firstMessageInFlightRef.current = false
     dialogSeedRef.current = createDialogSeed()
     newDialogRef.current = true
-    setSettings((prev) => ({ ...prev, communicationInputExpectedLang: 'ru' }))
     setMessages([])
     setSettingsAtLastSend(null)
     setTimeout(() => {
@@ -554,16 +562,13 @@ export default function Home() {
 
   const handleStartChatFromMenu = useCallback(() => {
     if (!dialogStarted) {
-      if (settings.mode === 'communication') {
-        setSettings((prev) => ({ ...prev, communicationInputExpectedLang: 'ru' }))
-      }
       setDialogStarted(true)
       setMenuOpen(false)
       return
     }
     restartChatForNewModeFromMenu()
     setMenuOpen(false)
-  }, [dialogStarted, restartChatForNewModeFromMenu, settings.mode])
+  }, [dialogStarted, restartChatForNewModeFromMenu])
 
   useEffect(() => {
     const wasOpen = prevMenuOpenForSnapshotRef.current

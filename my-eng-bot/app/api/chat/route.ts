@@ -278,11 +278,11 @@ Rules:
 
 When you are sending the very first assistant message:
 - Output a friendly brief greeting + an invitation to ask a question or continue the conversation.
-- For communication mode, the first assistant message must be in Russian.
+- The very first assistant message MUST be in ${communicationLanguageHint} (same as Current conversation language above).
 - Use exactly one greeting only; do not stack multiple greetings or add extra filler before the invitation.
 - Vary the wording across different conversations; do not reuse the same opening phrase every time.
-- If you answer in English, keep the same opening logic and tone across the whole English conversation.
-- Match the audience style exactly: CHILD -> only "ты" in Russian (simple, warm); ADULT -> only "вы" in Russian (respectful, natural). Never mix registers mid-conversation.
+- If Current conversation language is Russian: CHILD -> only "ты" (simple, warm); ADULT -> only "вы" (respectful, natural). Never mix registers mid-conversation in Russian.
+- If Current conversation language is English: CHILD -> warm, simple English; ADULT -> clear, polite English with natural "you". Keep the same tone for follow-ups in English.
 
 No other format. Output only the chat message text.`
   }
@@ -4206,7 +4206,9 @@ export async function POST(req: NextRequest) {
         : detectLangFromText(lastUserContentForResponse, lastAssistantLang)
     const communicationLanguageHint: 'Russian' | 'English' =
       mode === 'communication' && !hasAssistantInThread
-        ? 'Russian'
+        ? detectedUserLang === 'en'
+          ? 'English'
+          : 'Russian'
         : lastAssistantLang === 'en'
           ? 'English'
           : 'Russian'
