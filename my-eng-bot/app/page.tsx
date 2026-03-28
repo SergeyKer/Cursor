@@ -1105,7 +1105,7 @@ export default function Home() {
               </div>
             )}
             {homeMenuView !== 'root' && (
-              <div className="flex w-full max-w-[23.2rem] shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[#e8ecf0] px-3 py-3 shadow-sm">
+              <div className="flex w-full max-w-[23.2rem] shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[var(--home-menu-bg)] px-3 py-3 shadow-sm">
                 <MenuSectionPanels
                   menuView={homeMenuView}
                   onMenuViewChange={handleHomeMenuViewChange}

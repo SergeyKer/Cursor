@@ -37,6 +37,8 @@
   --chat-section-amber: #fff8e5;
   --chat-section-emerald: #effaf3;
   --chat-section-slate: #f4f7fb;
+  /* Фон карточки меню на главной (изолирован от выдвижного меню). */
+  --home-menu-bg: #E4F2FE;
   /* Bottom inset, рассчитанный через VisualViewport (Android Chrome и пр.). */
   --vv-bottom-inset: 0px;
   --vv-left-inset: 0px;
