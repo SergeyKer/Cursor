@@ -1,6 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
 const OPENROUTER_KEY_URL = 'https://openrouter.ai/api/v1/key'
+const USAGE_CACHE_TTL_MS = 60_000
+
+let usageCache:
+  | {
+      expiresAt: number
+      payload: { used: number; limit: number }
+    }
+  | null = null
 
 function normalizeKey(key: string): string {
   const k = key.trim()
@@ -8,11 +16,18 @@ function normalizeKey(key: string): string {
   return k
 }
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
+    const now = Date.now()
+    if (usageCache && usageCache.expiresAt > now) {
+      return NextResponse.json(usageCache.payload, { status: 200 })
+    }
+
     const key = normalizeKey(process.env.OPENROUTER_API_KEY ?? '')
     if (!key) {
-      return NextResponse.json({ used: 0, limit: 0 }, { status: 200 })
+      const payload = { used: 0, limit: 0 }
+      usageCache = { expiresAt: now + USAGE_CACHE_TTL_MS, payload }
+      return NextResponse.json(payload, { status: 200 })
     }
 
     const res = await fetch(OPENROUTER_KEY_URL, {
@@ -23,7 +38,9 @@ export async function GET(req: NextRequest) {
     })
 
     if (!res.ok) {
-      return NextResponse.json({ used: 0, limit: 0 }, { status: 200 })
+      const payload = { used: 0, limit: 0 }
+      usageCache = { expiresAt: now + USAGE_CACHE_TTL_MS, payload }
+      return NextResponse.json(payload, { status: 200 })
     }
 
     const data = (await res.json()) as {
@@ -34,8 +51,12 @@ export async function GET(req: NextRequest) {
     }
 
     const used = typeof data.data?.usage_daily === 'number' ? data.data.usage_daily : 0
-    return NextResponse.json({ used, limit: 0 })
+    const payload = { used, limit: 0 }
+    usageCache = { expiresAt: now + USAGE_CACHE_TTL_MS, payload }
+    return NextResponse.json(payload)
   } catch {
-    return NextResponse.json({ used: 0, limit: 0 }, { status: 200 })
+    const payload = { used: 0, limit: 0 }
+    usageCache = { expiresAt: Date.now() + USAGE_CACHE_TTL_MS, payload }
+    return NextResponse.json(payload, { status: 200 })
   }
 }

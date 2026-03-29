@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { AppMode, TenseId } from '@/lib/types'
 import { buildProxyFetchExtra } from '@/lib/proxyFetch'
+import { classifyOpenAiForbidden } from '@/lib/openAiForbidden'
 import { applyTranslationQualityGate, normalizeTranslationResult } from '@/lib/translationPostProcess'
 
 export const runtime = 'nodejs'
@@ -137,17 +138,6 @@ function buildSystemPromptRuToEn(params: {
     learnerContext +
     'Reply only with the English translation, without explanations, quotes, or extra words.'
   )
-}
-
-function classifyOpenAiForbidden(errText: string): 'unsupported_region' | 'other' {
-  try {
-    const parsed = JSON.parse(errText) as { error?: { code?: string } }
-    if (parsed?.error?.code === 'unsupported_country_region_territory') return 'unsupported_region'
-  } catch {
-    // ignore
-  }
-  if (/unsupported_country_region_territory/i.test(errText)) return 'unsupported_region'
-  return 'other'
 }
 
 export async function POST(req: NextRequest) {

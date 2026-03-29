@@ -1,14 +1,12 @@
 'use client'
 
 import Image from 'next/image'
+import dynamic from 'next/dynamic'
 import React, { useCallback, useEffect, useState } from 'react'
-import SlideOutMenu, { MenuIcon } from '@/components/SlideOutMenu'
-import MenuSectionPanels, { type MenuView } from '@/components/MenuSectionPanels'
-import Chat from '@/components/Chat'
+import type { MenuView } from '@/components/MenuSectionPanels'
 import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
 import HomeEmptyBubble from '@/components/HomeEmptyBubble'
 import { buildCompactGreeting } from '@/lib/homeGreeting'
-import { consumeNextGreetingFactLine } from '@/lib/greetingFactRotation'
 import {
   loadState,
   saveState,
@@ -33,6 +31,18 @@ import type {
   UsageInfo,
 } from '@/lib/types'
 import { parseCorrection } from '@/lib/parseCorrection'
+
+const Chat = dynamic(() => import('@/components/Chat'))
+const SlideOutMenu = dynamic(() => import('@/components/SlideOutMenu'))
+const MenuSectionPanels = dynamic(() => import('@/components/MenuSectionPanels'))
+
+function MenuIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  )
+}
 
 /** Жирная стрелка Ru↔En в шапке: на мобильных Unicode → почти не видна. */
 function CommunicationLangDirectionArrow() {
@@ -162,6 +172,7 @@ export default function Home() {
   /** Настройки на момент последней отправки сообщения; для баннера «настройки изменены». */
   const [settingsAtLastSend, setSettingsAtLastSend] = useState<Settings | null>(null)
   const initialLoadDoneRef = React.useRef(false)
+  const usageRequestStartedRef = React.useRef(false)
   const newDialogRef = React.useRef(false)
   const firstMessageRequestIdRef = React.useRef(0)
   /** Не запускать второй запрос первого сообщения, пока первый в полёте (защита от двойного вызова из эффекта). */
@@ -207,11 +218,21 @@ export default function Home() {
     return () => cancelAnimationFrame(id)
   }, [dialogStarted])
 
-  React.useLayoutEffect(() => {
+  React.useEffect(() => {
     if (dialogStarted) return
     if (welcomeFactInitRef.current === greetingNonce) return
-    welcomeFactInitRef.current = greetingNonce
-    setWelcomeFactLine(consumeNextGreetingFactLine())
+    let cancelled = false
+    const nonce = greetingNonce
+    const loadGreetingFact = async () => {
+      const mod = await import('@/lib/greetingFactRotation')
+      if (cancelled) return
+      welcomeFactInitRef.current = nonce
+      setWelcomeFactLine(mod.consumeNextGreetingFactLine())
+    }
+    void loadGreetingFact()
+    return () => {
+      cancelled = true
+    }
   }, [dialogStarted, greetingNonce])
 
   const handleHomeMenuViewChange = useCallback(
@@ -239,6 +260,11 @@ export default function Home() {
       setUsage((prev) => ({ ...prev, used: getUsageCountToday() }))
     }
   }, [])
+  const maybeFetchUsage = useCallback(() => {
+    if (usageRequestStartedRef.current) return
+    usageRequestStartedRef.current = true
+    void fetchUsage()
+  }, [fetchUsage])
 
   const API_TIMEOUT_MS = 60_000
   const MAX_ATTEMPTS = 3
@@ -648,10 +674,24 @@ export default function Home() {
       setSettings(normalizeSettingsForAudience(state.settings))
       setDialogStarted(false)
     }
-    fetchUsage()
     setInitialized(true)
     setStorageLoaded(true)
-  }, [fetchUsage])
+  }, [])
+
+  useEffect(() => {
+    if (!storageLoaded) return
+    const timerId = window.setTimeout(() => {
+      maybeFetchUsage()
+    }, 2000)
+    return () => {
+      window.clearTimeout(timerId)
+    }
+  }, [storageLoaded, maybeFetchUsage])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    maybeFetchUsage()
+  }, [menuOpen, maybeFetchUsage])
 
   // Если пользователь переключил аудиторию на "Ребёнок" — автоматически принудим тему и уровень.
   useEffect(() => {
@@ -1068,7 +1108,7 @@ export default function Home() {
                 />
               </div>
             </div>
-            {homeMenuView === 'root' && (welcomeCompact || welcomeFactLine !== null) && (
+            {homeMenuView === 'root' && (
               <div
                 className={`flex w-full max-w-[23.2rem] flex-col items-center ${
                   !welcomeCompact && welcomeFactLine

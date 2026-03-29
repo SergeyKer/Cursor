@@ -1,13 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { ChatMessage, TenseId } from '@/lib/types'
 import { CHILD_TENSES } from '@/lib/constants'
-import { DetectedLang, detectLangFromText } from '@/lib/detectLang'
+import { detectLangFromText } from '@/lib/detectLang'
+import { classifyOpenAiForbidden } from '@/lib/openAiForbidden'
+import {
+  buildCommunicationEnglishContinuationFallback,
+  buildCommunicationFallbackMessage,
+  buildCommunicationMaxTokens,
+  detectCommunicationDetailLevel,
+  extractExplicitTranslateTarget,
+  shouldPreferEnglishContinuationFallback,
+} from '@/lib/communicationMode'
+import {
+  buildTranslationRetryFallback,
+  fallbackTranslationSentenceForContext,
+} from '@/lib/translationMode'
+import {
+  collapseDuplicateLeadingGreetings,
+  normalizeCommunicationOutput,
+  stripLeadingConversationFillers,
+  stripPostGreetingFillers,
+} from '@/lib/communicationOutputSanitizer'
 import {
   getExpectedCommunicationReplyLang,
   isCommunicationDetailOnlyMessage,
-  normalizeCommunicationDetailText,
 } from '@/lib/communicationReplyLanguage'
-import { buildProxyFetchExtra } from '@/lib/proxyFetch'
+import { callProviderChat } from '@/lib/callProviderChat'
 import {
   getDialogueRepeatSentence,
   inferLastKnownTenseFromHistory,
@@ -48,11 +66,6 @@ import { applyFreeTalkTopicChoiceTenseAnchorFallback } from '@/lib/freeTalkTopic
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
 // чтобы undici + proxy dispatcher работали предсказуемо (а не в Edge).
 export const runtime = 'nodejs'
-
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const FREE_MODEL = 'openrouter/free'
-const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
-const OPENAI_MODEL = 'gpt-4o-mini'
 /** Максимум сообщений в контексте (user+assistant). 20 = десять последних обменов. */
 const MAX_MESSAGES_IN_CONTEXT = 20
 const DIALOGUE_POPULAR_TENSE_PRIORITY: TenseId[] = [
@@ -566,20 +579,6 @@ function buildCommunicationLevelRules(level: string): string {
   ].join(' ')
 }
 
-function detectCommunicationDetailLevel(text: string): 0 | 1 | 2 {
-  const normalized = normalizeCommunicationDetailText(text)
-
-  if (normalized === 'еще подробнее') return 2
-  if (normalized === 'even more detail' || normalized === 'even more details') return 2
-  if (normalized === 'in even more detail' || normalized === 'in even more details') return 2
-
-  if (normalized === 'подробнее') return 1
-  if (normalized === 'more detail' || normalized === 'more details') return 1
-  if (normalized === 'in more detail' || normalized === 'in more details') return 1
-
-  return 0
-}
-
 function buildCommunicationDetailRule(detailLevel: 0 | 1 | 2): string {
   if (detailLevel === 2) {
     return 'If the user writes "Ещё подробнее", "Еще подробнее", "even more details", or "in even more detail", answer much more expansively than usual: give a fuller explanation, add relevant nuance, and use up to 2 short paragraphs if needed. Keep the same language, tone, and audience style. These keywords are language-neutral and only change depth.'
@@ -590,214 +589,6 @@ function buildCommunicationDetailRule(detailLevel: 0 | 1 | 2): string {
   }
 
   return 'Without a detail keyword, keep the reply short and focused (1–3 sentences).'
-}
-
-function buildCommunicationMaxTokens(detailLevel: 0 | 1 | 2): number {
-  if (detailLevel === 2) return 1024
-  if (detailLevel === 1) return 768
-  return MAX_RESPONSE_TOKENS
-}
-
-function buildCommunicationFallbackMessage(params: {
-  audience: 'child' | 'adult'
-  language: 'ru' | 'en'
-  firstTurn?: boolean
-  seedText?: string | null
-}): string {
-  const { audience, language, firstTurn = false, seedText = '' } = params
-  const isChild = audience === 'child'
-
-  if (firstTurn) {
-    const seed = stableHash32(`communication_first|${language}|${audience}|${seedText}`)
-    const pick = (variants: string[]) => variants[seed % variants.length] ?? variants[0] ?? ''
-
-    if (language === 'ru') {
-      return isChild
-        ? pick([
-            'Привет! Как ты? Что хочешь обсудить?',
-            'Привет! Как у тебя дела? О чём хочешь поговорить?',
-            'Привет! Что нового? Что тебе сегодня интересно?',
-            'Привет! Что ты хочешь обсудить сегодня?',
-            'Привет! Давай поговорим. Что тебя сейчас интересует?',
-            'Привет! О чём хочешь поговорить сегодня?',
-          ])
-        : pick([
-            'Здравствуйте! Как вы? О чём хотите поговорить?',
-            'Здравствуйте! Рад вас видеть. Чем займёмся сегодня?',
-            'Здравствуйте! Что вам интересно обсудить?',
-            'Здравствуйте! Готовы поговорить? Что интересного у вас сегодня?',
-            'Здравствуйте! О чём хотите поговорить сегодня?',
-            'Здравствуйте! Чем могу быть полезен?',
-          ])
-    }
-    return isChild
-      ? pick([
-          'Hi! How are you? What would you like to talk about?',
-          'Hi! What’s up? What would you like to chat about?',
-          'Hi! Ready to talk? What would you like to discuss?',
-          'Hi! How’s it going? What should we talk about?',
-          'Hey! What would you like to practice today?',
-          'Hi there! What’s on your mind today?',
-        ])
-      : pick([
-          'Hello! How are you doing? What would you like to discuss?',
-          'Hello! Good to see you. What would you like to talk about?',
-          'Hello! What would you like to chat about today?',
-          'Hello! What is on your mind today?',
-          'Hello! What would you like to explore today?',
-          'Hello! How can I help you today?',
-        ])
-  }
-
-  if (language === 'ru') {
-    return isChild
-      ? 'Уточни, пожалуйста, что ты имеешь в виду.'
-      : 'Уточните, пожалуйста, что вы имеете в виду.'
-  }
-
-  return isChild
-    ? 'What do you mean? Could you say that another way?'
-    : 'Could you clarify what you mean?'
-}
-
-function shouldPreferEnglishContinuationFallback(text: string, targetLang: DetectedLang): boolean {
-  if (targetLang !== 'en') return false
-  const t = text.trim()
-  if (!t) return false
-  const hasCyr = /[А-Яа-яЁё]/.test(t)
-  const hasLat = /[A-Za-z]/.test(t)
-  if (!(hasCyr && hasLat)) return false
-  const latWords = t.match(/[A-Za-z]+(?:-[A-Za-z]+)*/g) ?? []
-  const cyrWords = t.match(/[А-Яа-яЁё]+(?:-[А-Яа-яЁё]+)*/g) ?? []
-  return latWords.length + cyrWords.length >= 2
-}
-
-function buildCommunicationEnglishContinuationFallback(audience: 'child' | 'adult'): string {
-  return audience === 'child'
-    ? 'Got it. Let’s keep talking about this in English. What part interests you most?'
-    : 'Got it. Let’s continue in English. What part would you like to discuss first?'
-}
-
-function fallbackTranslationSentenceForContext(params: {
-  topic: string
-  tense: string
-  level: string
-  audience: 'child' | 'adult'
-  seedText?: string | null
-}): string {
-  const { topic, tense, level, audience, seedText = '' } = params
-  const isChild = audience === 'child'
-  const seed = stableHash32(`translation_next|${topic}|${tense}|${level}|${audience}|${seedText}`)
-  const pick = (variants: string[]) => variants[seed % variants.length] ?? variants[0] ?? ''
-  const topicVariants: Record<string, string[]> = {
-    food: ['Я люблю готовить дома.', 'Я часто пью чай вечером.', 'Мы обычно ужинаем вместе.'],
-    family_friends: ['Я люблю свою семью.', 'У меня есть хорошие друзья.', 'Мы часто видимся по выходным.'],
-    hobbies: ['Я люблю читать книги.', 'Я часто рисую вечером.', 'Я обычно играю в шахматы дома.'],
-    movies_series: ['Я люблю смотреть фильмы.', 'Я часто смотрю сериалы вечером.', 'Мы обычно смотрим кино по выходным.'],
-    music: ['Я люблю слушать музыку.', 'Я часто слушаю песни дома.', 'Мы обычно поём вместе.'],
-    sports: ['Я люблю заниматься спортом.', 'Я часто бегаю по утрам.', 'Мы обычно играем в футбол после школы.'],
-    daily_life: ['Я обычно встаю рано.', 'Я часто завтракаю дома.', 'Мы обычно ходим в школу пешком.'],
-    travel: ['Я люблю путешествовать.', 'Я часто езжу в новые места.', 'Мы обычно планируем поездки заранее.'],
-    work: ['Я работаю в офисе.', 'Я часто пишу письма по работе.', 'Мы обычно встречаемся утром.'],
-    technology: ['Я люблю новые приложения.', 'Я часто пользуюсь телефоном.', 'Мы обычно работаем за компьютером.'],
-    culture: ['Я люблю ходить в музеи.', 'Я часто читаю о культуре.', 'Мы обычно посещаем выставки.'],
-    business: ['Я работаю с клиентами.', 'Я часто отвечаю на письма.', 'Мы обычно обсуждаем планы на встрече.'],
-    free_talk: ['Я люблю читать книги.', 'Я часто гуляю вечером.', 'Мы обычно говорим по-английски дома.'],
-  }
-  const topicPool = topicVariants[topic] ?? topicVariants.free_talk
-  const base = pick(topicPool)
-  const basic = level === 'starter' || level === 'a1' || level === 'a2'
-
-  if (tense === 'present_simple') return base
-  if (tense === 'present_continuous') {
-    return pick([
-      'Я сейчас читаю книгу.',
-      'Я сейчас готовлю ужин.',
-      'Мы сейчас смотрим фильм.',
-      basic ? 'Я сейчас учусь.' : 'Я сейчас работаю над проектом.',
-    ])
-  }
-  if (tense === 'present_perfect') {
-    return pick([
-      'Я уже прочитал книгу.',
-      'Я уже сделал домашнее задание.',
-      'Мы уже поужинали.',
-      basic ? 'Я уже увидел это.' : 'Я уже решил эту задачу.',
-    ])
-  }
-  if (tense === 'present_perfect_continuous') {
-    return pick([
-      'Я уже давно читаю эту книгу.',
-      'Я уже несколько часов работаю над проектом.',
-      'Мы уже долго ждём тебя.',
-      basic ? 'Я уже давно учусь английскому.' : 'Я уже давно занимаюсь этим проектом.',
-    ])
-  }
-  if (tense === 'past_simple') {
-    return pick([
-      'Вчера я прочитал книгу.',
-      'Вчера мы смотрели фильм.',
-      'Я пришёл домой поздно.',
-      basic ? 'Я вчера играл дома.' : 'Я вчера работал допоздна.',
-    ])
-  }
-  if (tense === 'past_continuous') {
-    return pick([
-      'Я читал книгу, когда ты позвонил.',
-      'Мы ужинали, когда начался дождь.',
-      'Я смотрел фильм, когда пришёл друг.',
-      basic ? 'Я играл, когда мама позвала меня.' : 'Я работал над проектом, когда пришло письмо.',
-    ])
-  }
-  if (tense === 'past_perfect') {
-    return pick([
-      'Я уже прочитал книгу до ужина.',
-      'Мы уже ушли, когда ты пришёл.',
-      'Я уже сделал уроки к вечеру.',
-      basic ? 'Я уже поел до прогулки.' : 'Я уже закончил работу до встречи.',
-    ])
-  }
-  if (tense === 'past_perfect_continuous') {
-    return pick([
-      'Я уже давно читал эту книгу до ужина.',
-      'Мы уже несколько часов ждали автобус.',
-      'Я уже долго работал, когда ты позвонил.',
-      basic ? 'Я уже долго играл, когда мама пришла.' : 'Я уже давно занимался этим проектом до звонка.',
-    ])
-  }
-  if (tense === 'future_simple') {
-    return pick([
-      'Завтра я прочитаю книгу.',
-      'Завтра мы пойдём в кино.',
-      'Я скоро позвоню тебе.',
-      basic ? 'Я завтра пойду гулять.' : 'Я на следующей неделе начну новый проект.',
-    ])
-  }
-  if (tense === 'future_continuous') {
-    return pick([
-      'Завтра в это время я буду читать книгу.',
-      'Завтра вечером мы будем ужинать.',
-      'Я буду работать весь день.',
-      basic ? 'Я буду учиться вечером.' : 'Я буду заниматься проектом завтра утром.',
-    ])
-  }
-  if (tense === 'future_perfect') {
-    return pick([
-      'К завтрашнему утру я уже прочитаю книгу.',
-      'К вечеру мы уже закончим работу.',
-      'К тому времени я уже всё сделаю.',
-      basic ? 'Я к вечеру уже вернусь домой.' : 'Я к понедельнику уже завершу задачу.',
-    ])
-  }
-  if (tense === 'future_perfect_continuous') {
-    return pick([
-      'К вечеру я уже буду читать книгу два часа.',
-      'К тому времени мы уже будем работать над проектом несколько часов.',
-      'К завтрашнему утру я уже буду заниматься этим час.',
-      basic ? 'К вечеру я уже буду играть несколько часов.' : 'К сроку я уже буду работать над задачей несколько часов.',
-    ])
-  }
-  return isChild ? 'Я люблю читать книги.' : base
 }
 
 /** Паттерн: "Говорится X, не Y" или "Нужно слово X, не Y" — строка с другим контекстом, если ни X, ни Y нет в сообщении пользователя. */
@@ -2383,12 +2174,6 @@ function stripPravilnoEverywhere(content: string): string {
   return out.join('\n').replace(/\n\s*\n\s*\n/g, '\n\n').replace(/^\s*\n+|\n+\s*$/g, '').trim()
 }
 
-function normalizeKey(key: string): string {
-  const k = key.trim()
-  if (k.toLowerCase().startsWith('bearer ')) return k.slice(7).trim()
-  return k
-}
-
 type Provider = 'openrouter' | 'openai'
 
 function ensureSentence(text: string): string {
@@ -2631,16 +2416,6 @@ function isLowSignalDialogueInput(text: string): boolean {
   }
 
   return false
-}
-
-function buildTranslationRetryFallback(params: { tense: string; includeRepeat: boolean }): string {
-  const { tense, includeRepeat } = params
-  void tense
-  void includeRepeat
-  const lines = [
-    'Комментарий: Некорректный ввод. Введите полное предложение на английском языке.',
-  ]
-  return lines.join('\n')
 }
 
 function extractLastTranslationPrompt(messages: ChatMessage[]): string | null {
@@ -3730,80 +3505,6 @@ function applyTranslationCommentCoachVoice(params: {
   return lines.join('\n')
 }
 
-function classifyOpenAiForbidden(errText: string): 'unsupported_region' | 'other' {
-  try {
-    const parsed = JSON.parse(errText) as { error?: { code?: string } }
-    if (parsed?.error?.code === 'unsupported_country_region_territory') return 'unsupported_region'
-  } catch {
-    // ignore
-  }
-  if (/unsupported_country_region_territory/i.test(errText)) return 'unsupported_region'
-  return 'other'
-}
-
-async function callProviderChat(params: {
-  provider: Provider
-  req: NextRequest
-  apiMessages: { role: string; content: string }[]
-  maxTokens?: number
-}): Promise<{ ok: true; content: string } | { ok: false; status: number; errText: string }> {
-  const { provider, req, apiMessages, maxTokens = MAX_RESPONSE_TOKENS } = params
-
-  if (provider === 'openai') {
-    const key = normalizeKey(process.env.OPENAI_API_KEY ?? '')
-    if (!key) return { ok: false, status: 500, errText: 'Missing OPENAI_API_KEY' }
-    const proxyFetchExtra = await buildProxyFetchExtra()
-    let res: Response
-    try {
-      res = await fetch(OPENAI_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${key}`,
-        },
-        body: JSON.stringify({
-          model: OPENAI_MODEL,
-          messages: apiMessages,
-          max_tokens: maxTokens,
-        }),
-        ...(proxyFetchExtra as RequestInit),
-      } as RequestInit)
-    } catch (e) {
-      return { ok: false, status: 502, errText: 'OpenAI fetch failed' }
-    }
-    if (!res.ok) return { ok: false, status: res.status, errText: await res.text() }
-    const data = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string }; text?: string }>
-    }
-    const first = data.choices?.[0]
-    const content = (first?.message?.content ?? first?.text ?? '').trim()
-    return { ok: true, content }
-  }
-
-  const key = normalizeKey(process.env.OPENROUTER_API_KEY ?? '')
-  if (!key) return { ok: false, status: 500, errText: 'Missing OPENROUTER_API_KEY' }
-  const res = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${key}`,
-      'HTTP-Referer': req.nextUrl?.origin ?? '',
-    },
-    body: JSON.stringify({
-      model: FREE_MODEL,
-      messages: apiMessages,
-      max_tokens: maxTokens,
-    }),
-  })
-  if (!res.ok) return { ok: false, status: res.status, errText: await res.text() }
-  const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string }; text?: string }>
-  }
-  const first = data.choices?.[0]
-  const content = (first?.message?.content ?? first?.text ?? '').trim()
-  return { ok: true, content }
-}
-
 function buildRepairSystemPrefix(extraInstructions = ''): string {
   const extra = extraInstructions.trim()
   return (
@@ -3900,31 +3601,6 @@ function buildDialogueLowSignalFallback(params: {
     })
 
   return `${invalidInputComment}\n${nextQuestion}`
-}
-
-function extractExplicitTranslateTarget(lastUserText: string): string | null {
-  const text = lastUserText.trim()
-  if (!text) return null
-  const hasExplicitTranslateIntent = /нужен\s+перевод/i.test(text) ||
-    /перевед(и|ите)/gi.test(text) ||
-    /перевод/gi.test(text) ||
-    /\btranslate\b/i.test(text) ||
-    /\btranslation\b/i.test(text)
-
-  if (!hasExplicitTranslateIntent) return null
-
-  // Убираем намерение перевода и "технический" префикс (переведи/перевод/нужен перевод/и т.п.)
-  // Важно: не используем `\b` для кириллицы — оно нестабильно для unicode-границ.
-  const withoutIntent = text
-    .replace(/нужен\s+перевод\s*[:\-]?\s*/gi, ' ')
-    .replace(/перевед(и|ите)\s*(?:на\s+английский)?\s*[:\-]?\s*/gi, ' ')
-    .replace(/перевод\s*[:\-]?\s*/gi, ' ')
-    .replace(/translate\s*[:\-]?\s*/gi, ' ')
-    .replace(/translation\s*[:\-]?\s*/gi, ' ')
-    .replace(/^[\s:,-]+|[\s:,-]+$/g, '')
-    .trim()
-
-  return withoutIntent || null
 }
 
 export async function POST(req: NextRequest) {
@@ -4190,7 +3866,9 @@ export async function POST(req: NextRequest) {
     const communicationDetailLevel =
       mode === 'communication' ? detectCommunicationDetailLevel(lastUserText) : 0
     const communicationMaxTokens =
-      mode === 'communication' ? buildCommunicationMaxTokens(communicationDetailLevel) : MAX_RESPONSE_TOKENS
+      mode === 'communication'
+        ? buildCommunicationMaxTokens(communicationDetailLevel, MAX_RESPONSE_TOKENS)
+        : MAX_RESPONSE_TOKENS
     const lastUserContentForResponse = lastUserText
     const lastAssistantContentForLangTie = recentMessages.filter((m: ChatMessage) => m.role === 'assistant').pop()?.content ?? ''
     const lastAssistantLang = detectLangFromText(lastAssistantContentForLangTie, 'ru')
@@ -4212,6 +3890,19 @@ export async function POST(req: NextRequest) {
         : lastAssistantLang === 'en'
           ? 'English'
           : 'Russian'
+
+    // Fast-path: первое сообщение в режиме общения не требует вызова LLM.
+    // Ранее ответ все равно заменялся fallback-репликой после провайдера.
+    if (mode === 'communication' && isFirstTurn) {
+      return NextResponse.json({
+        content: buildCommunicationFallbackMessage({
+          audience,
+          language: detectedUserLang,
+          firstTurn: true,
+          seedText: dialogSeed,
+        }),
+      })
+    }
 
     const systemPrompt = buildSystemPrompt({
       mode,
@@ -4708,59 +4399,7 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
 
     if (mode === 'communication') {
       const targetLang = detectedUserLang
-
-      const normalizeOutput = (raw: string): string => {
-        return raw
-          .split(/\r?\n/)
-          .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
-          .filter(Boolean)
-          // Убираем возможные протокольные/служебные строки, если модель всё же их вывела.
-          .filter((l) => !/^\s*(RU|Russian|Перевод)\s*:?/i.test(l.trim()))
-          .filter((l) => !/^\s*(Комментарий|Повтори|Время|Конструкция)\s*:/i.test(l.trim()))
-          .filter((l) => !/^\s*(Repeat|Say)\s*:/i.test(l.trim()))
-          .join('\n')
-          .trim()
-      }
-      const collapseDuplicateLeadingGreetings = (text: string, lang: DetectedLang): string => {
-        if (!text) return text
-        if (lang === 'ru') {
-          // Убираем повторы приветствия в начале: "Здравствуйте! Здравствуйте! ..."
-          // -> "Здравствуйте! ..."
-          return text.replace(
-            /^\s*((?:Привет|Здравствуй|Здраствуй|Здравствуйте|Добрый\s+день|Приветик|Хай)\b[!,.?\s]*)(?:(?:Привет|Здравствуй|Здраствуй|Здравствуйте|Добрый\s+день|Приветик|Хай)\b[!,.?\s]*)+/i,
-            '$1'
-          )
-        }
-        return text.replace(
-          /^\s*((?:Hi|Hello|Hey|Greetings)\b[!,.?\s]*)(?:(?:Hi|Hello|Hey|Greetings)\b[!,.?\s]*)+/i,
-          '$1'
-        )
-      }
-      const stripLeadingConversationFillers = (text: string): string => {
-        if (!text) return text
-        let out = text
-        // Удаляем только стартовые "разговорные" вводные и только в начале реплики.
-        // Примеры: "Хорошо, ...", "Ладно... ", "Okay, ...", "Well, ...".
-        const leadingFillers =
-          /^\s*(?:(?:Хорошо|Ладно|Окей|Ну\s+что|Итак|Okay|Ok|Well|So|Alright)\b[\s,!.?:;-]*)+/i
-        out = out.replace(leadingFillers, '')
-        return out.replace(/^\s+/, '').trim()
-      }
-      const stripPostGreetingFillers = (text: string, lang: DetectedLang): string => {
-        if (!text) return text
-        if (lang === 'ru') {
-          return text.replace(
-            /^(\s*(?:Привет|Здравствуй|Здраствуй|Здравствуйте|Добрый\s+день|Приветик|Хай)\b[!,.?\s]*)\s*(?:(?:Хорошо|Ладно|Окей|Ну\s+что|Итак)\b[\s,!.?:;-]*)+/i,
-            '$1'
-          ).trim()
-        }
-        return text.replace(
-          /^(\s*(?:Hi|Hello|Hey|Greetings)\b[!,.?\s]*)\s*(?:(?:Okay|Ok|Well|So|Alright)\b[\s,!.?:;-]*)+/i,
-          '$1'
-        ).trim()
-      }
-
-      let cleaned = normalizeOutput(sanitized)
+      let cleaned = normalizeCommunicationOutput(sanitized)
       if (isFirstTurn) {
         cleaned = stripLeadingConversationFillers(cleaned)
         cleaned = collapseDuplicateLeadingGreetings(cleaned, targetLang)
@@ -4804,7 +4443,7 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
         if (res2.ok) {
           const repairedRaw = sanitizeInstructionLeak(res2.content)
           if (repairedRaw) {
-            cleaned = normalizeOutput(repairedRaw)
+            cleaned = normalizeCommunicationOutput(repairedRaw)
             if (isFirstTurn) {
               cleaned = stripLeadingConversationFillers(cleaned)
               cleaned = collapseDuplicateLeadingGreetings(cleaned, targetLang)
