@@ -1109,36 +1109,26 @@ export default function Home() {
               </div>
             </div>
             {homeMenuView === 'root' && (
-              <div
-                className={`flex w-full max-w-[23.2rem] flex-col items-center ${
-                  !welcomeCompact && welcomeFactLine
-                    ? 'gap-[clamp(1rem,3.2vh,2rem)]'
-                    : ''
-                }`}
-              >
-                <HomeWelcomeBubble
-                  text={buildCompactGreeting()}
-                  actions={
-                    <div className="flex justify-end">
-                      <div className="flex flex-col items-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setHomeMenuView('aiChat')}
-                          className="btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]"
-                        >
-                          Чат с MyEng
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setHomeMenuView('lessons')}
-                          className="btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]"
-                        >
-                          Уроки
-                        </button>
-                      </div>
-                    </div>
-                  }
-                />
+              <div className="flex w-full max-w-[23.2rem] flex-col items-center gap-[clamp(1rem,3.2vh,2rem)]">
+                <HomeWelcomeBubble text={buildCompactGreeting()} />
+                <div className="flex w-full justify-end">
+                  <div className="flex flex-col items-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setHomeMenuView('aiChat')}
+                      className="btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]"
+                    >
+                      Начать Чат с MyEng
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHomeMenuView('lessons')}
+                      className="btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]"
+                    >
+                      Начать делать Уроки
+                    </button>
+                  </div>
+                </div>
                 {!welcomeCompact && welcomeFactLine && (
                   <HomeEmptyBubble text={welcomeFactLine} />
                 )}
