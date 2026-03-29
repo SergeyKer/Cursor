@@ -1,3 +1,5 @@
+import type { WebSearchSource } from './openAiWebSearchShared'
+
 export type ChatRole = 'user' | 'assistant' | 'system'
 
 export interface ChatMessage {
@@ -9,6 +11,10 @@ export interface ChatMessage {
   translationError?: string
   /** Серверный флаг: в режиме dialogue это финальный корректный ответ пользователя. */
   dialogueCorrect?: boolean
+  /** Источники web-search, если пользователь запросил их явно. */
+  webSearchSources?: WebSearchSource[]
+  /** Явно ли пользователь попросил показать источники в этом ответе. */
+  webSearchSourcesRequested?: boolean
 }
 
 export type AiProvider = 'openrouter' | 'openai'

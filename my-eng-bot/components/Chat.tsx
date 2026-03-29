@@ -4,12 +4,14 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { parseCorrection } from '@/lib/parseCorrection'
 import { speak } from '@/lib/speech'
 import { pickRecordingMimeType, shouldUseMediaRecorderFallback, sttLangFromLocale } from '@/lib/sttClient'
+import { normalizeWebSearchSourceUrl } from '@/lib/openAiWebSearchShared'
 import type { ChatMessage as ChatMessageType, Settings } from '@/lib/types'
 
 interface ChatProps {
   messages: ChatMessageType[]
   settings: Settings
   loading: boolean
+  searchingInternet?: boolean
   atLimit: boolean
   onSend: (text: string) => void
   firstMessageError?: string
@@ -321,6 +323,7 @@ export default function Chat({
   messages,
   settings,
   loading,
+  searchingInternet = false,
   atLimit,
   onSend,
   firstMessageError,
@@ -724,7 +727,9 @@ export default function Chat({
   const typingIndicatorText =
     settings.mode === 'translation'
       ? `ИИ печатает${retryMessage ? `… ${retryMessage}` : '…'}`
-      : `MyEng печатает${retryMessage ? `… ${retryMessage}` : '...'}`
+      : searchingInternet
+        ? 'MyEng ищет в интернете...'
+        : `MyEng печатает${retryMessage ? `… ${retryMessage}` : '...'}`
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
@@ -806,7 +811,7 @@ export default function Chat({
                 <div className="mt-1.5 flex justify-start">
                   <span
                     className="rounded-xl border border-gray-200 bg-[var(--chat-section-neutral)] px-3 py-2 text-[14px] italic text-[var(--text)] shadow-sm"
-                    title="Ожидание ответа от ИИ"
+                    title={searchingInternet ? 'Поиск информации в интернете' : 'Ожидание ответа от ИИ'}
                   >
                     {typingIndicatorText}
                   </span>
@@ -1017,6 +1022,8 @@ function MessageBubble({
   const hasTranslationError = !isUser && Boolean(message.translationError)
   const hasTranslationButton = !isUser && mode !== 'translation' && !errorLike && (mode === 'dialogue' || isCommunicationEnglish)
   const showSpeakButton = hasSpeakableText
+  const webSearchSources = message.webSearchSources ?? []
+  const showWebSearchSources = !isUser && Boolean(message.webSearchSourcesRequested || webSearchSources.length > 0)
   // Дополнительная UI-страховка: если модель нарушила формат и выдала русскую "мета" строку
   // (кириллица, без вопроса) — не показываем её как "AI: ...".
   const hideRussianNonQuestionMainBefore =
@@ -1182,6 +1189,39 @@ function MessageBubble({
                     )}
                     {showTranslation ? 'Скрыть перевод' : 'Перевод'}
                   </button>
+                )}
+              </div>
+            )}
+            {showWebSearchSources && (
+              <div className="mt-2 rounded-xl border border-slate-200 bg-[var(--chat-section-slate)] px-3 py-2 shadow-sm">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600">
+                  Источники
+                </p>
+                {webSearchSources.length > 0 ? (
+                  <ul className="mt-1.5 space-y-1 text-sm leading-snug text-[var(--text)]">
+                    {webSearchSources.map((source, index) => {
+                      const cleanUrl = normalizeWebSearchSourceUrl(source.url)
+                      return (
+                        <li key={`${cleanUrl}-${index}`} className="break-words">
+                          {source.title ? (
+                            <div className="text-[13px] font-medium text-slate-700">{source.title}</div>
+                          ) : null}
+                          <a
+                            href={cleanUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="underline underline-offset-2 decoration-slate-500 text-slate-700 hover:text-slate-900"
+                          >
+                            {cleanUrl}
+                          </a>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                ) : (
+                  <p className="mt-1.5 text-sm italic text-[var(--text-muted)]">
+                    Источники не найдены.
+                  </p>
                 )}
               </div>
             )}

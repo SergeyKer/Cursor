@@ -21,7 +21,9 @@ import {
 import { countDialogueFinalCorrectAnswers } from '@/lib/dialogueStats'
 import { TOPICS, LEVELS, TENSES, CHILD_TENSES } from '@/lib/constants'
 import { detectCommunicationUserMessageLang, getExpectedCommunicationReplyLang } from '@/lib/communicationReplyLanguage'
+import { extractExplicitTranslateTarget } from '@/lib/communicationMode'
 import { pickFreeTalkTopicSuggestions } from '@/lib/freeTalkTopicSuggestions'
+import { shouldUseOpenAiWebSearch } from '@/lib/openAiWebSearchShared'
 import type {
   AppMode,
   Audience,
@@ -172,6 +174,7 @@ export default function Home() {
   const [retryMessage, setRetryMessage] = useState<string | null>(null)
   const [loadingTranslationIndex, setLoadingTranslationIndex] = useState<number | null>(null)
   const [forceNextMicLang, setForceNextMicLang] = useState<'ru' | 'en' | null>(null)
+  const [searchingInternet, setSearchingInternet] = useState(false)
   const dialogueCorrectAnswers = React.useMemo(() => countDialogueFinalCorrectAnswers(messages), [messages])
   /** Настройки на момент последней отправки сообщения; для баннера «настройки изменены». */
   const [settingsAtLastSend, setSettingsAtLastSend] = useState<Settings | null>(null)
@@ -330,7 +333,12 @@ export default function Home() {
     async (
       apiMessages: ChatMessage[],
       options?: { onRetryStatus?: (message: string | null) => void }
-    ): Promise<{ content: string; dialogueCorrect: boolean }> => {
+    ): Promise<{
+      content: string
+      dialogueCorrect: boolean
+      webSearchSources?: ChatMessage['webSearchSources']
+      webSearchSourcesRequested?: boolean
+    }> => {
       const onRetryStatus = options?.onRetryStatus
       let lastError: Error | null = null
       const isFirstDialogueFreeTalkTurn =
@@ -379,6 +387,8 @@ export default function Home() {
               errorCode?: 'rate_limit' | 'unauthorized' | 'forbidden' | 'upstream_error'
               provider?: 'openrouter' | 'openai'
               dialogueCorrect?: boolean
+              webSearchSources?: ChatMessage['webSearchSources']
+              webSearchSourcesRequested?: boolean
             }
             try {
               data = (await res.json()) as {
@@ -387,6 +397,8 @@ export default function Home() {
                 errorCode?: 'rate_limit' | 'unauthorized' | 'forbidden' | 'upstream_error'
                 provider?: 'openrouter' | 'openai'
                 dialogueCorrect?: boolean
+                webSearchSources?: ChatMessage['webSearchSources']
+                webSearchSourcesRequested?: boolean
               }
             } catch {
               throw new Error(res.ok ? 'Неверный ответ сервера.' : `Ошибка ${res.status}: ${res.statusText}`)
@@ -421,7 +433,12 @@ export default function Home() {
               if (freeTalkTopicSelection) {
                 saveFreeTalkTopicRotationState(freeTalkTopicSelection.nextState)
               }
-              return { content: text, dialogueCorrect }
+              return {
+                content: text,
+                dialogueCorrect,
+                webSearchSources: data.webSearchSources,
+                webSearchSourcesRequested: data.webSearchSourcesRequested,
+              }
             }
             lastError = new Error(EMPTY_RESPONSE_FALLBACK)
             const canRetryEmpty =
@@ -556,7 +573,16 @@ export default function Home() {
       incrementUsageToday()
       const firstContent = (response.content ?? '').trim() || EMPTY_RESPONSE_FALLBACK
       const { content: main, translation } = parseContentWithTranslation(firstContent)
-      setMessages([{ role: 'assistant', content: main, translation, dialogueCorrect: response.dialogueCorrect }])
+      setMessages([
+        {
+          role: 'assistant',
+          content: main,
+          translation,
+          dialogueCorrect: response.dialogueCorrect,
+          webSearchSources: response.webSearchSources,
+          webSearchSourcesRequested: response.webSearchSourcesRequested,
+        },
+      ])
       // Базовая "точка отсчёта" для баннера «Настройки изменены».
       // Иначе при смене темы/времени после первого вопроса (до первой отправки пользователя)
       // нечего сравнивать и предупреждение не показывается.
@@ -657,7 +683,16 @@ export default function Home() {
       if (requestId !== firstMessageRequestIdRef.current) return
       incrementUsageToday()
       const { content: main, translation } = parseContentWithTranslation(response.content)
-      setMessages([{ role: 'assistant', content: main, translation, dialogueCorrect: response.dialogueCorrect }])
+      setMessages([
+        {
+          role: 'assistant',
+          content: main,
+          translation,
+          dialogueCorrect: response.dialogueCorrect,
+          webSearchSources: response.webSearchSources,
+          webSearchSourcesRequested: response.webSearchSourcesRequested,
+        },
+      ])
       setSettingsAtLastSend(settings)
       void fetchUsage()
     } catch (e) {
@@ -725,6 +760,12 @@ export default function Home() {
     async (text: string) => {
       if (atLimit) return
       suppressSettingsChangeBannerRef.current = false
+      const explicitTranslateTarget =
+        settings.mode === 'communication' ? extractExplicitTranslateTarget(text) : null
+      const shouldSearchInternet =
+        settings.mode === 'communication' &&
+        !explicitTranslateTarget &&
+        shouldUseOpenAiWebSearch(text)
       const userMsg: ChatMessage = { role: 'user', content: text }
       if (settings.mode === 'communication') {
         setSettings((prev) => ({
@@ -734,13 +775,24 @@ export default function Home() {
       }
       const nextMessages = [...messages, userMsg]
       setMessages(nextMessages)
+      setSearchingInternet(shouldSearchInternet)
       setLoading(true)
       try {
         const response = await sendToApi(nextMessages, { onRetryStatus: setRetryMessage })
         incrementUsageToday()
         const { content: main, translation } = parseContentWithTranslation(response.content)
         setLoading(false)
-        setMessages((prev) => [...prev, { role: 'assistant', content: main, translation, dialogueCorrect: response.dialogueCorrect }])
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: main,
+            translation,
+            dialogueCorrect: response.dialogueCorrect,
+            webSearchSources: response.webSearchSources,
+            webSearchSourcesRequested: response.webSearchSourcesRequested,
+          },
+        ])
         setSettingsAtLastSend(settings)
         void fetchUsage()
       } catch (e) {
@@ -764,6 +816,7 @@ export default function Home() {
         }
       } finally {
         setLoading(false)
+        setSearchingInternet(false)
       }
     },
     [messages, atLimit, sendToApi, fetchUsage, settings]
@@ -1211,6 +1264,7 @@ export default function Home() {
             messages={messages}
             settings={settings}
             loading={loading}
+            searchingInternet={searchingInternet}
             atLimit={atLimit}
             onSend={handleSend}
             firstMessageError={ERROR_FIRST_MESSAGE}

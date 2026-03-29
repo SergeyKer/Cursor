@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { buildProxyFetchExtra } from '@/lib/proxyFetch'
+import { fetchWithProxyFallback } from '@/lib/proxyFetch'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const FREE_MODEL = 'openrouter/free'
@@ -24,10 +24,9 @@ export async function callProviderChat(params: {
   if (provider === 'openai') {
     const key = normalizeKey(process.env.OPENAI_API_KEY ?? '')
     if (!key) return { ok: false, status: 500, errText: 'Missing OPENAI_API_KEY' }
-    const proxyFetchExtra = await buildProxyFetchExtra()
     let res: Response
     try {
-      res = await fetch(OPENAI_URL, {
+      res = await fetchWithProxyFallback(OPENAI_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -38,8 +37,7 @@ export async function callProviderChat(params: {
           messages: apiMessages,
           max_tokens: maxTokens,
         }),
-        ...(proxyFetchExtra as RequestInit),
-      } as RequestInit)
+      })
     } catch {
       return { ok: false, status: 502, errText: 'OpenAI fetch failed' }
     }
@@ -54,19 +52,34 @@ export async function callProviderChat(params: {
 
   const key = normalizeKey(process.env.OPENROUTER_API_KEY ?? '')
   if (!key) return { ok: false, status: 500, errText: 'Missing OPENROUTER_API_KEY' }
-  const res = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${key}`,
-      'HTTP-Referer': req.nextUrl?.origin ?? '',
-    },
-    body: JSON.stringify({
-      model: FREE_MODEL,
-      messages: apiMessages,
-      max_tokens: maxTokens,
-    }),
-  })
+  let res: Response
+  try {
+    res = await fetchWithProxyFallback(
+      OPENROUTER_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${key}`,
+          'HTTP-Referer': req.nextUrl?.origin ?? '',
+        },
+        body: JSON.stringify({
+          model: FREE_MODEL,
+          messages: apiMessages,
+          max_tokens: maxTokens,
+        }),
+      },
+      {
+        // OpenRouter не должен зависеть от системного прокси Windows.
+        // Если задан явный env-прокси — можно попробовать его после прямого канала.
+        includeSystemProxy: false,
+        directFirst: true,
+      }
+    )
+  } catch (error) {
+    const errText = error instanceof Error ? `OpenRouter fetch failed: ${error.message}` : 'OpenRouter fetch failed'
+    return { ok: false, status: 502, errText }
+  }
   if (!res.ok) return { ok: false, status: res.status, errText: await res.text() }
   const data = (await res.json()) as {
     choices?: Array<{ message?: { content?: string }; text?: string }>

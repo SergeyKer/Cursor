@@ -4,6 +4,12 @@ import { CHILD_TENSES } from '@/lib/constants'
 import { detectLangFromText } from '@/lib/detectLang'
 import { classifyOpenAiForbidden } from '@/lib/openAiForbidden'
 import {
+  callOpenAiWebSearchAnswer,
+  formatOpenAiWebSearchAnswer,
+  shouldUseOpenAiWebSearch,
+  shouldRequestOpenAiWebSearchSources,
+} from '@/lib/openAiWebSearch'
+import {
   buildCommunicationEnglishContinuationFallback,
   buildCommunicationFallbackMessage,
   buildCommunicationMaxTokens,
@@ -3890,6 +3896,13 @@ export async function POST(req: NextRequest) {
         : lastAssistantLang === 'en'
           ? 'English'
           : 'Russian'
+    const communicationSearchRequested =
+      mode === 'communication' &&
+      !explicitTranslateTarget &&
+      (shouldUseOpenAiWebSearch(lastUserContentForResponse) ||
+        shouldRequestOpenAiWebSearchSources(lastUserContentForResponse))
+    const communicationSearchSourcesRequested =
+      communicationSearchRequested && shouldRequestOpenAiWebSearchSources(lastUserContentForResponse)
 
     // Fast-path: первое сообщение в режиме общения не требует вызова LLM.
     // Ранее ответ все равно заменялся fallback-репликой после провайдера.
@@ -3902,6 +3915,65 @@ export async function POST(req: NextRequest) {
           seedText: dialogSeed,
         }),
       })
+    }
+
+    if (communicationSearchRequested) {
+      const searchSystemPrompt = buildSystemPrompt({
+        mode,
+        sentenceType,
+        topic,
+        level,
+        tense: tutorGradingTense,
+        audience,
+        freeTalkTopicSuggestions,
+        praiseStyleVariant,
+        forcedRepeatSentence,
+        communicationDetailLevel,
+        communicationLanguageHint,
+        communicationDetailOnly,
+      })
+
+      const communicationSearchResult = await callOpenAiWebSearchAnswer({
+        systemPrompt: searchSystemPrompt,
+        messages: recentMessages,
+        language: detectedUserLang,
+        maxOutputTokens: communicationMaxTokens,
+      })
+
+      if (communicationSearchResult.ok) {
+        return NextResponse.json({
+          content: communicationSearchResult.content,
+          ...(communicationSearchSourcesRequested
+            ? {
+                webSearchSourcesRequested: true,
+                webSearchSources: communicationSearchResult.sources,
+              }
+            : {}),
+        })
+      }
+
+      const regionBlocked =
+        communicationSearchResult.errorCode === 'unsupported_country_region_territory'
+      const networkLikeSearchFailure =
+        /fetch failed|econnreset|tls|enotfound|etimedout|proxy/i.test(communicationSearchResult.errText)
+      const searchFailureContent = formatOpenAiWebSearchAnswer({
+        answer:
+          regionBlocked
+            ? detectedUserLang === 'ru'
+              ? 'Веб-поиск OpenAI недоступен из вашего региона (ограничение провайдера). Подключите VPN в поддерживаемую страну или задайте HTTPS_PROXY в .env.local на локальный прокси (см. .env.example), затем перезапустите dev-сервер.'
+              : 'OpenAI web search is not available in your region. Use a VPN to a supported country or set HTTPS_PROXY in .env.local to your local proxy, then restart the dev server.'
+            : networkLikeSearchFailure
+              ? detectedUserLang === 'ru'
+                ? 'Веб-поиск сейчас недоступен из-за сетевой ошибки (прокси/VPN/TLS). Проверьте локальный прокси и попробуйте ещё раз.'
+                : 'Web search is temporarily unavailable due to a network/proxy/TLS error. Check local proxy settings and try again.'
+            : detectedUserLang === 'ru'
+              ? 'Не удалось надёжно подтвердить ответ через веб-поиск. Попробуйте ещё раз через минуту.'
+              : 'I could not reliably verify this with web search. Please try again in a minute.',
+        sources: [],
+        language: detectedUserLang,
+      })
+
+      return NextResponse.json({ content: searchFailureContent })
     }
 
     const systemPrompt = buildSystemPrompt({
@@ -4016,6 +4088,9 @@ When you detect a topic change: do NOT output "Комментарий:" or "По
       } else if (res1.status === 429) {
         errorCode = 'rate_limit'
         userMessage = 'Слишком много запросов к ИИ. Подождите немного и попробуйте ещё раз.'
+      } else if (res1.status === 502 && /fetch failed|econnreset|tls|enotfound|etimedout|proxy/i.test(errText)) {
+        errorCode = 'upstream_error'
+        userMessage = 'Нет соединения с провайдером ИИ (сеть/прокси/VPN). Проверьте прокси и попробуйте ещё раз.'
       } else {
         errorCode = 'upstream_error'
         userMessage = 'Сейчас ИИ недоступен. Подождите немного и попробуйте ещё раз.'
