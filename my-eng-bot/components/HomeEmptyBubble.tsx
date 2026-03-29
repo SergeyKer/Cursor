@@ -28,7 +28,7 @@ export default function HomeEmptyBubble({ text, className = '' }: HomeEmptyBubbl
             <span className="inline-flex w-fit rounded-full border border-[#ead78a] bg-[#fff8d8] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#846a0f]">
               Интересный факт
             </span>
-            <p className="break-words text-[17px] font-semibold leading-[1.58] text-[#2f2a1c] sm:text-[18px]">
+            <p className="break-words text-[17px] font-medium leading-[1.64] text-[#2f2a1c] sm:text-[18px]">
               {text}
             </p>
           </div>
