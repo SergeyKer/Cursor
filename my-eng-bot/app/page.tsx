@@ -158,6 +158,39 @@ function createDialogSeed(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
+const API_TIMEOUT_MS = 60_000
+const MAX_ATTEMPTS = 3
+const RETRY_DELAY_MS = 2500
+/** При 429 OpenRouter даёт 20 запросов в минуту — пауза должна увести попытку в следующую минуту. */
+const RETRY_DELAY_RATE_LIMIT_MS = 20_000
+const RETRY_DELAY_RATE_LIMIT_BASE_MS = 5_000
+const RETRY_MESSAGES = ['Пробую ещё раз…', 'Вот-вот, почти!']
+const ERROR_FIRST_MESSAGE = 'Не удалось загрузить ответ. Проверьте сеть и настройки сервера.'
+const EMPTY_RESPONSE_FALLBACK = 'ИИ не отвечает. Проверьте сеть и попробуйте снова.'
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** Убирает из текста буквальные \n (модель иногда выводит их как символы). */
+function cleanNewlines(text: string): string {
+  return text.replace(/\\n/g, '\n').trim()
+}
+
+/** Выделяет из ответа ИИ основной текст.
+ * Перевод от ИИ для диалога больше не используем (только по кнопке /api/translate),
+ * поэтому здесь просто чистим служебные строки вроде `RU:` если модель всё же их вернула.
+ */
+function parseContentWithTranslation(raw: string): { content: string; translation?: string } {
+  const s = raw.trim()
+  // Удаляем любую строку, начинающуюся с RU:/Russian:/Перевод:, если модель всё же её вывела.
+  const lines = s.split(/\r?\n/)
+  const filtered = lines.filter(
+    (line) => !/^\s*(RU|Russian|Перевод)\s*:?/i.test(line.trim())
+  )
+  return { content: cleanNewlines(filtered.join('\n')) }
+}
+
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
@@ -188,6 +221,7 @@ export default function Home() {
   const firstMessageRequestIdRef = React.useRef(0)
   /** Не запускать второй запрос первого сообщения, пока первый в полёте (защита от двойного вызова из эффекта). */
   const firstMessageInFlightRef = React.useRef(false)
+  const ensureFirstMessageRef = React.useRef<(() => Promise<void>) | null>(null)
   const dialogSeedRef = React.useRef(createDialogSeed())
   /** Актуальный язык ожидаемого ввода в общении — для тела fetch без гонки замыкания sendToApi/setTimeout. */
   const communicationInputExpectedLangRef = React.useRef(settings.communicationInputExpectedLang)
@@ -281,43 +315,8 @@ export default function Home() {
     void fetchUsage()
   }, [fetchUsage])
 
-  const API_TIMEOUT_MS = 60_000
-  const MAX_ATTEMPTS = 3
-  const RETRY_DELAY_MS = 2500
-  /** При 429 OpenRouter даёт 20 запросов в минуту — пауза должна увести попытку в следующую минуту. */
-  const RETRY_DELAY_RATE_LIMIT_MS = 20_000
-  const RETRY_DELAY_RATE_LIMIT_BASE_MS = 5_000
-  const RETRY_MESSAGES = ['Пробую ещё раз…', 'Вот-вот, почти!']
-
-  function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms))
-  }
-  const ERROR_FIRST_MESSAGE =
-    'Не удалось загрузить ответ. Проверьте сеть и настройки сервера.'
-  const EMPTY_RESPONSE_FALLBACK =
-    'ИИ не отвечает. Проверьте сеть и попробуйте снова.'
-
-  /** Убирает из текста буквальные \n (модель иногда выводит их как символы). */
-  function cleanNewlines(text: string): string {
-    return text.replace(/\\n/g, '\n').trim()
-  }
-
   function getCommunicationInputExpectedFromText(text: string, current: Settings['communicationInputExpectedLang']) {
     return detectCommunicationUserMessageLang(text, current) as Settings['communicationInputExpectedLang']
-  }
-
-  /** Выделяет из ответа ИИ основной текст.
-   * Перевод от ИИ для диалога больше не используем (только по кнопке /api/translate),
-   * поэтому здесь просто чистим служебные строки вроде `RU:` если модель всё же их вернула.
-   */
-  function parseContentWithTranslation(raw: string): { content: string; translation?: string } {
-    const s = raw.trim()
-    // Удаляем любую строку, начинающуюся с RU:/Russian:/Перевод:, если модель всё же её вывела.
-    const lines = s.split(/\r?\n/)
-    const filtered = lines.filter(
-      (line) => !/^\s*(RU|Russian|Перевод)\s*:?/i.test(line.trim())
-    )
-    return { content: cleanNewlines(filtered.join('\n')) }
   }
 
   function isRetryableError(message: string): boolean {
@@ -528,7 +527,7 @@ export default function Home() {
       setMessages([])
       setSettingsAtLastSend(null)
       setTimeout(() => {
-        ensureFirstMessage()
+        void ensureFirstMessageRef.current?.()
       }, 50)
       return
     }
@@ -557,7 +556,7 @@ export default function Home() {
         setMessages([])
         setSettingsAtLastSend(null)
         setTimeout(() => {
-          ensureFirstMessage()
+          void ensureFirstMessageRef.current?.()
         }, 50)
       } else {
         setMessages((prev) => [...prev, { role: 'assistant', content: errText }])
@@ -615,6 +614,7 @@ export default function Home() {
       }
     }
   }, [sendToApi, fetchUsage, settings])
+  ensureFirstMessageRef.current = ensureFirstMessage
 
   const restartChatForNewModeFromMenu = useCallback(() => {
     suppressSettingsChangeBannerRef.current = true
@@ -872,7 +872,7 @@ export default function Home() {
         setSearchingInternet(false)
       }
     },
-    [messages, atLimit, sendToApi, fetchUsage, settings]
+    [messages, atLimit, sendToApi, fetchUsage, settings, ensureFirstMessage]
   )
 
   function isRetryableTranslationError(message: string): boolean {

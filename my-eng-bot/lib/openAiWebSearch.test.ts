@@ -22,6 +22,31 @@ describe('shouldUseOpenAiWebSearch', () => {
     expect(shouldUseOpenAiWebSearch('What is the current price of Bitcoin?')).toBe(true)
   })
 
+  it('detects balanced recency phrases in Russian', () => {
+    expect(shouldUseOpenAiWebSearch('Какие новости за последнюю неделю?')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('Что нового по курсу за этот месяц?')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('Погода как была пару дней назад?')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('кто последний тренер спартака москва')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('когда начнутся паводки в России')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('когда состоится матч спартак зенит')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('какие планы по запуску миссии')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('когда следующий матч спартака')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('кто будущий тренер спартака')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('когда ближайший матч спартака')).toBe(true)
+  })
+
+  it('detects balanced recency phrases in English', () => {
+    expect(shouldUseOpenAiWebSearch("What's new in AI this month?")).toBe(true)
+    expect(shouldUseOpenAiWebSearch('Give me up-to-date exchange rate info')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('What happened a couple of days ago?')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('Who is the latest coach of Spartak Moscow?')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('When will flood season start in Russia?')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('What are the plans for the release?')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('when is the next match')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('who is the upcoming head coach')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('upcoming launch date')).toBe(true)
+  })
+
   it('does not trigger on general knowledge', () => {
     expect(shouldUseOpenAiWebSearch('Explain the difference between Present Perfect and Past Simple')).toBe(false)
   })
@@ -33,8 +58,22 @@ describe('isRecencySensitiveRequest', () => {
     expect(isRecencySensitiveRequest('what is the latest BTC price today')).toBe(true)
   })
 
+  it('detects week/month and freshness phrasing', () => {
+    expect(isRecencySensitiveRequest('Новости за последнюю неделю')).toBe(true)
+    expect(isRecencySensitiveRequest('Статистика за этот месяц')).toBe(true)
+    expect(isRecencySensitiveRequest("what's new this month")).toBe(true)
+    expect(isRecencySensitiveRequest('need up to date figures')).toBe(true)
+    expect(isRecencySensitiveRequest('когда будет матч открытия сезона')).toBe(true)
+    expect(isRecencySensitiveRequest('какие планы по запуску')).toBe(true)
+    expect(isRecencySensitiveRequest('когда следующий матч спартака')).toBe(true)
+    expect(isRecencySensitiveRequest('who is the upcoming coach')).toBe(true)
+  })
+
   it('does not trigger on generic questions', () => {
     expect(isRecencySensitiveRequest('Explain present perfect')).toBe(false)
+    expect(isRecencySensitiveRequest('Последний урок был сложный')).toBe(false)
+    expect(isRecencySensitiveRequest('следующий урок английского')).toBe(false)
+    expect(isRecencySensitiveRequest('next exercise please')).toBe(false)
   })
 })
 

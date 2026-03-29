@@ -543,15 +543,17 @@ function VoicePickerPanel({
     }
   }, [])
 
-  const list = mounted ? voices : []
-  const finalList = list.filter((v) => preferredLangPrefixes.some((p) => v.lang.startsWith(p)))
+  const list = React.useMemo(() => (mounted ? voices : []), [mounted, voices])
+  const finalList = React.useMemo(
+    () => list.filter((v) => preferredLangPrefixes.some((p) => v.lang.startsWith(p))),
+    [list, preferredLangPrefixes]
+  )
 
   const voicePrefixKey = preferredLangPrefixes.join('|')
   React.useEffect(() => {
-    if (!mounted || !value || list.length === 0) return
-    const allowed = list.filter((v) => preferredLangPrefixes.some((p) => v.lang.startsWith(p)))
-    if (!allowed.some((v) => v.voiceURI === value)) onChange('')
-  }, [mounted, value, list, voicePrefixKey, onChange, preferredLangPrefixes])
+    if (!mounted || !value || finalList.length === 0) return
+    if (!finalList.some((v) => v.voiceURI === value)) onChange('')
+  }, [mounted, value, finalList, voicePrefixKey, onChange])
 
   if (!mounted && list.length === 0) {
     return <div className="px-3 py-2 text-[13px] leading-normal text-[var(--text-muted)]">Загрузка голосов…</div>
