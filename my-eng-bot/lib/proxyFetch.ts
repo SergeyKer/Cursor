@@ -16,7 +16,7 @@ type ProxyFetchOptions = ProxyOptions & {
   directFirst?: boolean
 }
 
-let cachedWindowsSystemProxyCandidates: string[] | null | undefined
+let cachedWindowsSystemProxyCandidates: string[] | undefined
 let cachedProxyDispatcherByUrl = new Map<string, ProxyDispatcher>()
 
 function hasScheme(url: string): boolean {
@@ -24,7 +24,7 @@ function hasScheme(url: string): boolean {
 }
 
 function uniqueStrings(values: string[]): string[] {
-  return [...new Set(values.filter(Boolean))]
+  return Array.from(new Set(values.filter(Boolean)))
 }
 
 function expandProxyHostPort(value: string): string[] {
@@ -60,7 +60,7 @@ function parseProxyServerValue(raw: string): string[] {
 async function getWindowsSystemProxyCandidates(): Promise<string[]> {
   if (cachedWindowsSystemProxyCandidates !== undefined) return cachedWindowsSystemProxyCandidates
   if (process.platform !== 'win32') {
-    cachedWindowsSystemProxyCandidates = null
+    cachedWindowsSystemProxyCandidates = []
     return []
   }
 
