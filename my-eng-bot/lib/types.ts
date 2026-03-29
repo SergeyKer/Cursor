@@ -15,6 +15,10 @@ export interface ChatMessage {
   webSearchSources?: WebSearchSource[]
   /** Явно ли пользователь попросил показать источники в этом ответе. */
   webSearchSourcesRequested?: boolean
+  /** Показывать все источники (без лимита 5) в карточке сообщения. */
+  webSearchSourcesShowAll?: boolean
+  /** Сколько устаревших источников скрыто фильтром актуальности. */
+  webSearchSourcesHiddenCount?: number
 }
 
 export type AiProvider = 'openrouter' | 'openai'

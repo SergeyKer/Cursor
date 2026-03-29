@@ -724,11 +724,14 @@ export default function Chat({
   const canShowTypingIndicator = showTypingIndicator && loading && lastMessageRole === 'user'
 
   /** Диалог и общение — MyEng; тренировка перевода — без изменений. */
+  const isCommunicationEnglishInput = settings.mode === 'communication' && settings.communicationInputExpectedLang === 'en'
   const typingIndicatorText =
     settings.mode === 'translation'
       ? `ИИ печатает${retryMessage ? `… ${retryMessage}` : '…'}`
       : searchingInternet
-        ? 'MyEng ищет в интернете...'
+        ? isCommunicationEnglishInput
+          ? 'MyEng is searching the web...'
+          : 'MyEng ищет в интернете...'
         : `MyEng печатает${retryMessage ? `… ${retryMessage}` : '...'}`
 
   return (
@@ -1023,7 +1026,10 @@ function MessageBubble({
   const hasTranslationButton = !isUser && mode !== 'translation' && !errorLike && (mode === 'dialogue' || isCommunicationEnglish)
   const showSpeakButton = hasSpeakableText
   const webSearchSources = message.webSearchSources ?? []
-  const showWebSearchSources = !isUser && Boolean(message.webSearchSourcesRequested || webSearchSources.length > 0)
+  const showAllWebSearchSources = Boolean(message.webSearchSourcesShowAll)
+  const visibleWebSearchSources = showAllWebSearchSources ? webSearchSources : webSearchSources.slice(0, 5)
+  const webSearchSourcesHiddenCount = message.webSearchSourcesHiddenCount ?? 0
+  const showWebSearchSources = !isUser && Boolean(message.webSearchSourcesRequested)
   // Дополнительная UI-страховка: если модель нарушила формат и выдала русскую "мета" строку
   // (кириллица, без вопроса) — не показываем её как "AI: ...".
   const hideRussianNonQuestionMainBefore =
@@ -1199,7 +1205,7 @@ function MessageBubble({
                 </p>
                 {webSearchSources.length > 0 ? (
                   <ul className="mt-1.5 space-y-1 text-sm leading-snug text-[var(--text)]">
-                    {webSearchSources.map((source, index) => {
+                    {visibleWebSearchSources.map((source, index) => {
                       const cleanUrl = normalizeWebSearchSourceUrl(source.url)
                       return (
                         <li key={`${cleanUrl}-${index}`} className="break-words">
@@ -1221,6 +1227,16 @@ function MessageBubble({
                 ) : (
                   <p className="mt-1.5 text-sm italic text-[var(--text-muted)]">
                     Источники не найдены.
+                  </p>
+                )}
+                {!showAllWebSearchSources && webSearchSources.length > visibleWebSearchSources.length && (
+                  <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+                    Найдено источников: {webSearchSources.length} (показано 5).
+                  </p>
+                )}
+                {webSearchSourcesHiddenCount > 0 && (
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">
+                    Скрыто устаревших источников: {webSearchSourcesHiddenCount}.
                   </p>
                 )}
               </div>

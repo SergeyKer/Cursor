@@ -5,7 +5,9 @@ import { detectLangFromText } from '@/lib/detectLang'
 import { classifyOpenAiForbidden } from '@/lib/openAiForbidden'
 import {
   callOpenAiWebSearchAnswer,
+  filterFreshWebSearchSources,
   formatOpenAiWebSearchAnswer,
+  isRecencySensitiveRequest,
   shouldUseOpenAiWebSearch,
   shouldRequestOpenAiWebSearchSources,
 } from '@/lib/openAiWebSearch'
@@ -3941,14 +3943,16 @@ export async function POST(req: NextRequest) {
       })
 
       if (communicationSearchResult.ok) {
+        const recencySensitive = isRecencySensitiveRequest(lastUserContentForResponse)
+        const freshness = recencySensitive
+          ? filterFreshWebSearchSources(communicationSearchResult.sources)
+          : { sources: communicationSearchResult.sources, hiddenCount: 0 }
+
         return NextResponse.json({
           content: communicationSearchResult.content,
-          ...(communicationSearchSourcesRequested
-            ? {
-                webSearchSourcesRequested: true,
-                webSearchSources: communicationSearchResult.sources,
-              }
-            : {}),
+          webSearchSourcesRequested: communicationSearchSourcesRequested,
+          webSearchSources: freshness.sources,
+          ...(freshness.hiddenCount > 0 ? { webSearchSourcesHiddenCount: freshness.hiddenCount } : {}),
         })
       }
 

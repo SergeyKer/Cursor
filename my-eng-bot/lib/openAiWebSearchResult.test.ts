@@ -45,9 +45,7 @@ describe('callOpenAiWebSearchAnswer', () => {
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.content).toContain('(i) В Токио сейчас около 12 °C.')
-    expect(result.content).toContain('Источник:')
-    expect(result.content).toContain('https://example.com/weather')
+    expect(result.content).toBe('(i) В Токио сейчас около 12 °C.')
     expect(result.sources).toEqual([
       {
         title: 'Weather example',

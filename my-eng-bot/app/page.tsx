@@ -23,7 +23,11 @@ import { TOPICS, LEVELS, TENSES, CHILD_TENSES } from '@/lib/constants'
 import { detectCommunicationUserMessageLang, getExpectedCommunicationReplyLang } from '@/lib/communicationReplyLanguage'
 import { extractExplicitTranslateTarget } from '@/lib/communicationMode'
 import { pickFreeTalkTopicSuggestions } from '@/lib/freeTalkTopicSuggestions'
-import { shouldUseOpenAiWebSearch } from '@/lib/openAiWebSearchShared'
+import {
+  shouldRequestAllOpenAiWebSearchSources,
+  shouldRequestOpenAiWebSearchSources,
+  shouldUseOpenAiWebSearch,
+} from '@/lib/openAiWebSearchShared'
 import type {
   AppMode,
   Audience,
@@ -338,6 +342,7 @@ export default function Home() {
       dialogueCorrect: boolean
       webSearchSources?: ChatMessage['webSearchSources']
       webSearchSourcesRequested?: boolean
+      webSearchSourcesHiddenCount?: number
     }> => {
       const onRetryStatus = options?.onRetryStatus
       let lastError: Error | null = null
@@ -389,6 +394,7 @@ export default function Home() {
               dialogueCorrect?: boolean
               webSearchSources?: ChatMessage['webSearchSources']
               webSearchSourcesRequested?: boolean
+              webSearchSourcesHiddenCount?: number
             }
             try {
               data = (await res.json()) as {
@@ -399,6 +405,7 @@ export default function Home() {
                 dialogueCorrect?: boolean
                 webSearchSources?: ChatMessage['webSearchSources']
                 webSearchSourcesRequested?: boolean
+                webSearchSourcesHiddenCount?: number
               }
             } catch {
               throw new Error(res.ok ? 'Неверный ответ сервера.' : `Ошибка ${res.status}: ${res.statusText}`)
@@ -438,6 +445,7 @@ export default function Home() {
                 dialogueCorrect,
                 webSearchSources: data.webSearchSources,
                 webSearchSourcesRequested: data.webSearchSourcesRequested,
+                webSearchSourcesHiddenCount: data.webSearchSourcesHiddenCount,
               }
             }
             lastError = new Error(EMPTY_RESPONSE_FALLBACK)
@@ -581,6 +589,7 @@ export default function Home() {
           dialogueCorrect: response.dialogueCorrect,
           webSearchSources: response.webSearchSources,
           webSearchSourcesRequested: response.webSearchSourcesRequested,
+          webSearchSourcesHiddenCount: response.webSearchSourcesHiddenCount,
         },
       ])
       // Базовая "точка отсчёта" для баннера «Настройки изменены».
@@ -691,6 +700,7 @@ export default function Home() {
           dialogueCorrect: response.dialogueCorrect,
           webSearchSources: response.webSearchSources,
           webSearchSourcesRequested: response.webSearchSourcesRequested,
+          webSearchSourcesHiddenCount: response.webSearchSourcesHiddenCount,
         },
       ])
       setSettingsAtLastSend(settings)
@@ -762,6 +772,14 @@ export default function Home() {
       suppressSettingsChangeBannerRef.current = false
       const explicitTranslateTarget =
         settings.mode === 'communication' ? extractExplicitTranslateTarget(text) : null
+      const sourceRequestOnly =
+        settings.mode === 'communication' &&
+        !explicitTranslateTarget &&
+        shouldRequestOpenAiWebSearchSources(text)
+      const sourceRequestShowAll =
+        settings.mode === 'communication' &&
+        !explicitTranslateTarget &&
+        shouldRequestAllOpenAiWebSearchSources(text)
       const shouldSearchInternet =
         settings.mode === 'communication' &&
         !explicitTranslateTarget &&
@@ -775,6 +793,40 @@ export default function Home() {
       }
       const nextMessages = [...messages, userMsg]
       setMessages(nextMessages)
+      if (sourceRequestOnly || sourceRequestShowAll) {
+        const latestSourceMessage = [...messages]
+          .reverse()
+          .find((message) => message.role === 'assistant' && (message.webSearchSources?.length ?? 0) > 0)
+
+        if (!latestSourceMessage || !latestSourceMessage.webSearchSources) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: 'assistant',
+              content:
+                '(i) Не нашёл сохранённых источников для предыдущего ответа. Сначала попросите проверить информацию в интернете.',
+            },
+          ])
+          setSettingsAtLastSend(settings)
+          return
+        }
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: sourceRequestShowAll
+              ? '(i) Показываю все источники по предыдущему ответу.'
+              : '(i) Вот источники по предыдущему ответу.',
+            webSearchSourcesRequested: true,
+            webSearchSources: latestSourceMessage.webSearchSources,
+            webSearchSourcesShowAll: sourceRequestShowAll,
+            webSearchSourcesHiddenCount: latestSourceMessage.webSearchSourcesHiddenCount,
+          },
+        ])
+        setSettingsAtLastSend(settings)
+        return
+      }
       setSearchingInternet(shouldSearchInternet)
       setLoading(true)
       try {
@@ -791,6 +843,7 @@ export default function Home() {
             dialogueCorrect: response.dialogueCorrect,
             webSearchSources: response.webSearchSources,
             webSearchSourcesRequested: response.webSearchSourcesRequested,
+            webSearchSourcesHiddenCount: response.webSearchSourcesHiddenCount,
           },
         ])
         setSettingsAtLastSend(settings)
