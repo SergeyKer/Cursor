@@ -16,6 +16,10 @@ describe('shouldUseOpenAiWebSearch', () => {
 
   it('detects explicit internet requests', () => {
     expect(shouldUseOpenAiWebSearch('Посмотри в интернете, что нового в OpenAI')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('Найди в интернете, сколько стоит подписка')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('найди в интернет про Next.js')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('Поищи в интернете про React 19')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('поищи, пожалуйста, в интернете отзывы')).toBe(true)
   })
 
   it('detects English current-info queries', () => {
