@@ -3,8 +3,10 @@
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import React, { useCallback, useEffect, useState } from 'react'
-import type { MenuView } from '@/components/MenuSectionPanels'
+import type { AiChatPanel } from '@/lib/aiChatPanel'
+import { getHomeMenuInstruction } from '@/lib/homeMenuInstruction'
 import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
+import { HomeMenuInstructionBubble } from '@/components/HomeMenuInstructionBubble'
 import HomeEmptyBubble from '@/components/HomeEmptyBubble'
 import { buildCompactGreeting } from '@/lib/homeGreeting'
 import {
@@ -32,9 +34,10 @@ import type {
 } from '@/lib/types'
 import { parseCorrection } from '@/lib/parseCorrection'
 
+import MenuSectionPanels, { type MenuView } from '@/components/MenuSectionPanels'
+
 const Chat = dynamic(() => import('@/components/Chat'))
 const SlideOutMenu = dynamic(() => import('@/components/SlideOutMenu'))
-const MenuSectionPanels = dynamic(() => import('@/components/MenuSectionPanels'))
 
 function MenuIcon() {
   return (
@@ -158,6 +161,7 @@ export default function Home() {
   const [initialized, setInitialized] = useState(false)
   const [dialogStarted, setDialogStarted] = useState(false)
   const [homeMenuView, setHomeMenuView] = useState<MenuView>('root')
+  const [homeAiChatPanel, setHomeAiChatPanel] = useState<AiChatPanel>('summary')
   /** На стартовом экране при выходе из чата домой сбрасывается в false. */
   const [welcomeCompact, setWelcomeCompact] = useState(false)
   /** Смена «сессии» старта: новый факт из очереди (в т.ч. после выхода из чата домой). */
@@ -245,6 +249,10 @@ export default function Home() {
     },
     [homeMenuView, dialogStarted]
   )
+
+  React.useEffect(() => {
+    if (homeMenuView !== 'aiChat') setHomeAiChatPanel('summary')
+  }, [homeMenuView])
 
   /** Ограничение лимитов отключено: отправка и перевод всегда доступны. */
   const atLimit = false
@@ -1076,7 +1084,9 @@ export default function Home() {
       </header>
 
       <main
-        className={`flex min-h-0 flex-1 flex-col ${dialogStarted ? 'overflow-hidden' : 'overflow-y-auto'}`}
+        className={`flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)] ${
+          dialogStarted ? 'overflow-hidden' : 'overflow-y-auto'
+        }`}
         style={{
           paddingTop: 'calc(2.75rem + env(safe-area-inset-top, 0px))',
           paddingBottom: dialogStarted
@@ -1090,24 +1100,27 @@ export default function Home() {
           <div
             className="start-screen chat-shell-x flex min-h-0 flex-1 flex-col items-center bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]"
             style={{
-              gap: 'clamp(0.75rem, 2.2vh, 1.5rem)',
-              paddingTop: 'clamp(0.75rem, 2vh, 1.5rem)',
-              paddingBottom: 'clamp(1rem, 2.6vh, 2rem)',
+              // Одинаковые вертикальные отступы и шаг между блоками (робот+подсказка / меню).
+              gap: 'clamp(1rem, 2.5vh, 1.75rem)',
+              paddingTop: 'clamp(1rem, 2.5vh, 1.75rem)',
+              paddingBottom: 'clamp(1rem, 2.5vh, 1.75rem)',
             }}
           >
-            <div className="flex w-full max-w-[23.2rem] shrink-0 justify-center">
-              <div className="w-1/4">
-                <Image
-                  src="/robot-no-background.png"
-                  alt="MyEng logo"
-                  width={512}
-                  height={512}
-                  className="block h-auto w-full object-contain"
-                  sizes="(max-width: 640px) 25vw, 6rem"
-                  priority
-                />
+            {homeMenuView === 'root' && (
+              <div className="flex w-full max-w-[23.2rem] shrink-0 justify-center">
+                <div className="w-1/4">
+                  <Image
+                    src="/robot-no-background.png"
+                    alt="MyEng logo"
+                    width={512}
+                    height={512}
+                    className="block h-auto w-full object-contain"
+                    sizes="(max-width: 640px) 25vw, 6rem"
+                    priority
+                  />
+                </div>
               </div>
-            </div>
+            )}
             {homeMenuView === 'root' && (
               <div className="flex w-full max-w-[23.2rem] flex-col items-center gap-[clamp(1rem,3.2vh,2rem)]">
                 <HomeWelcomeBubble text={buildCompactGreeting()} />
@@ -1135,21 +1148,47 @@ export default function Home() {
               </div>
             )}
             {homeMenuView !== 'root' && (
-              <div className="flex w-full max-w-[23.2rem] shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[var(--home-menu-bg)] px-3 py-3 shadow-sm">
-                <MenuSectionPanels
-                  menuView={homeMenuView}
-                  onMenuViewChange={handleHomeMenuViewChange}
-                  settings={settings}
-                  onSettingsChange={(s) => setSettings(normalizeSettingsForAudience(s))}
-                  usage={usage}
-                  dialogueCorrectAnswers={dialogueCorrectAnswers}
-                  idPrefix="home-"
-                  className="flex min-h-0 flex-col"
-                  homeLayout
-                  onStartHomeChat={() => setDialogStarted(true)}
-                  onGoHome={goToStartScreen}
-                />
-              </div>
+              <>
+                <div className="flex w-full max-w-[23.2rem] shrink-0 flex-row items-center gap-2.5 sm:gap-3">
+                  <div className="w-[22%] max-w-[5.5rem] shrink-0">
+                    <Image
+                      src="/robot-no-background.png"
+                      alt="MyEng logo"
+                      width={512}
+                      height={512}
+                      className="block h-auto w-full object-contain"
+                      sizes="(max-width: 640px) 25vw, 6rem"
+                      priority
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <HomeMenuInstructionBubble
+                      text={getHomeMenuInstruction(homeMenuView, homeAiChatPanel)}
+                      ariaLabel={
+                        homeMenuView === 'aiChat'
+                          ? 'Подсказка по настройкам чата'
+                          : 'Инструкция по разделу'
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="flex w-full max-w-[23.2rem] shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[var(--home-menu-bg)] px-3 py-3 shadow-sm">
+                  <MenuSectionPanels
+                    menuView={homeMenuView}
+                    onMenuViewChange={handleHomeMenuViewChange}
+                    settings={settings}
+                    onSettingsChange={(s) => setSettings(normalizeSettingsForAudience(s))}
+                    usage={usage}
+                    dialogueCorrectAnswers={dialogueCorrectAnswers}
+                    idPrefix="home-"
+                    className="flex min-h-0 flex-col"
+                    homeLayout
+                    onStartHomeChat={() => setDialogStarted(true)}
+                    onGoHome={goToStartScreen}
+                    onAiChatPanelChange={setHomeAiChatPanel}
+                  />
+                </div>
+              </>
             )}
           </div>
         ) : (

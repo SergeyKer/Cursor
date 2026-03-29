@@ -4,22 +4,13 @@ import React from 'react'
 import { manropeHome } from '@/lib/manropeHome'
 import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES, CHILD_TENSES } from '@/lib/constants'
 import type { Settings, UsageInfo, AppMode, AiProvider, TenseId, SentenceType, TopicId, LevelId } from '@/lib/types'
+import type { AiChatPanel } from '@/lib/aiChatPanel'
 
 const CHILD_TENSE_SET = new Set(CHILD_TENSES)
 
 export type MenuView = 'root' | 'lessons' | 'aiChat' | 'settings' | 'progress' | 'profile'
 
-/** Экраны внутри «Чат с MyEng» (drill-down). */
-type AiChatPanel =
-  | 'summary'
-  | 'mode'
-  | 'audience'
-  | 'tense'
-  | 'sentenceType'
-  | 'topic'
-  | 'level'
-  | 'provider'
-  | 'voice'
+export type { AiChatPanel }
 
 const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
   summary: 'Чат с MyEng',
@@ -85,6 +76,8 @@ export interface MenuSectionPanelsProps {
   homeLayout?: boolean
   onStartHomeChat?: () => void
   onGoHome?: () => void
+  /** Стартовый экран: синхронизация подпанели «Чат с MyEng» для подсказки под меню. */
+  onAiChatPanelChange?: (panel: AiChatPanel) => void
 }
 
 export default function MenuSectionPanels({
@@ -99,6 +92,7 @@ export default function MenuSectionPanels({
   homeLayout = false,
   onStartHomeChat,
   onGoHome,
+  onAiChatPanelChange,
 }: MenuSectionPanelsProps) {
   const pid = (suffix: string) => `${idPrefix}${suffix}`
 
@@ -107,6 +101,10 @@ export default function MenuSectionPanels({
   React.useEffect(() => {
     if (menuView !== 'aiChat') setAiChatPanel('summary')
   }, [menuView])
+
+  React.useEffect(() => {
+    if (menuView === 'aiChat') onAiChatPanelChange?.(aiChatPanel)
+  }, [menuView, aiChatPanel, onAiChatPanelChange])
 
   const isChild = settings.audience === 'child'
   const isCommunication = settings.mode === 'communication'
