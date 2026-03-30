@@ -31,6 +31,9 @@ describe('shouldUseOpenAiWebSearch', () => {
     expect(shouldUseOpenAiWebSearch('Что нового по курсу за этот месяц?')).toBe(true)
     expect(shouldUseOpenAiWebSearch('Погода как была пару дней назад?')).toBe(true)
     expect(shouldUseOpenAiWebSearch('кто последний тренер спартака москва')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('кто последний чемпион россии по футболу')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('кто нынешний чемпион англии по футболу')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('кто последний победитель лиги чемпионов')).toBe(true)
     expect(shouldUseOpenAiWebSearch('когда начнутся паводки в России')).toBe(true)
     expect(shouldUseOpenAiWebSearch('когда состоится матч спартак зенит')).toBe(true)
     expect(shouldUseOpenAiWebSearch('какие планы по запуску миссии')).toBe(true)
@@ -44,6 +47,8 @@ describe('shouldUseOpenAiWebSearch', () => {
     expect(shouldUseOpenAiWebSearch('Give me up-to-date exchange rate info')).toBe(true)
     expect(shouldUseOpenAiWebSearch('What happened a couple of days ago?')).toBe(true)
     expect(shouldUseOpenAiWebSearch('Who is the latest coach of Spartak Moscow?')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('Who is the last champion of Russia in football?')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('Who is the current winner of the tournament?')).toBe(true)
     expect(shouldUseOpenAiWebSearch('When will flood season start in Russia?')).toBe(true)
     expect(shouldUseOpenAiWebSearch('What are the plans for the release?')).toBe(true)
     expect(shouldUseOpenAiWebSearch('when is the next match')).toBe(true)
@@ -71,6 +76,7 @@ describe('isRecencySensitiveRequest', () => {
     expect(isRecencySensitiveRequest('какие планы по запуску')).toBe(true)
     expect(isRecencySensitiveRequest('когда следующий матч спартака')).toBe(true)
     expect(isRecencySensitiveRequest('who is the upcoming coach')).toBe(true)
+    expect(isRecencySensitiveRequest('кто последний чемпион россии по футболу')).toBe(true)
   })
 
   it('does not trigger on generic questions', () => {
