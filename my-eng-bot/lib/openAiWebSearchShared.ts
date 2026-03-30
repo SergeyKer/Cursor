@@ -40,6 +40,8 @@ const CURRENT_INFO_PATTERNS = [
   /актуальн(?:ая|ые|ую|ой|ое|о)/i,
   /свеж(?:ая|ие|ую|ий|ие\s+данные|ая\s+инфа|ие\s+новости)/i,
   /что\s+нового/i,
+  /(?:текущ(?:его|ий|ая|ее)|нынешн(?:его|ий|ая|ее)|действующ(?:его|ий|ая|ее|ей|ую|им|ым|ом|ему|ему))\s+(?:чемпионат|сезон|соревнован[а-яё]*)/i,
+  /какие\s+даты\s+(?:текущ(?:его|ий|ая|ее)|нынешн(?:его|ий|ая|ее)|действующ(?:его|ий|ая|ее|ей|ую|им|ым|ом|ему|ему))\s+(?:чемпионат|сезон|соревнован[а-яё]*)/i,
   /кто\s+.*последн(?:ий|яя|ее).*?(тренер|мэр|президент|министр|губернатор|чемпионка|чемпион(?!ат)|победительница|победители|победитель)/i,
   /кто\s+.*(текущ(?:ий|ая|ее)|нынешн(?:ий|яя|ее)).*?(тренер|мэр|президент|министр|губернатор|чемпионка|чемпион(?!ат)|победительница|победители|победитель)/i,
   /когда\s+(?:будет|будут|состоится|состоятся|пройдет|пройдут|начн(?:ется|утся))\s+.*(матч|мероприят|концерт|турнир|паводк|наводнен|сезон|запуск|релиз|выпуск|открыти|закрыти|выборы|форум|конференц|чемпионат|олимпиад|премьер)/i,
@@ -96,6 +98,40 @@ const CURRENT_INFO_PATTERNS = [
   /\bjob\s+openings?\b/i,
 ]
 
+const WEATHER_BASE_PATTERNS = [
+  /погод[а-яё]*/i,
+  /температур[а-яё]*/i,
+  /прогноз(?:\s+погоды)?/i,
+  /выходн(?:ые|ых|ым|ыми|ах|ам|ую)?/i,
+  /weekend/i,
+  /weather/i,
+  /forecast/i,
+]
+
+const WEATHER_HORIZON_PATTERNS = [
+  /завтра/i,
+  /сегодня/i,
+  /на\s+3\s*дн(?:я|ей)/i,
+  /(?:3|три)\s*дн(?:я|ей)/i,
+  /на\s+недел(?:ю|е)/i,
+  /следующ(?:ая|ую|ей)\s+недел(?:я|ю|е)/i,
+  /на\s+месяц/i,
+  /(?:3\s*day(?:s)?|3-day)/i,
+  /(?:weekly|monthly)/i,
+  /tomorrow/i,
+  /today/i,
+  /next\s+week/i,
+  /next\s+month/i,
+]
+
+const WEATHER_FOLLOWUP_PATTERNS = [
+  /^(?:а|и|ну)?\s*(?:вечером|ночью|утром|дн[её]м|днем)(?:\s|$|[?.!,;:])/i,
+  /^(?:а|и|ну)?\s*(?:(?:в|на)\s+)?выходн(?:ые|ых|ым|ыми|ах|ам|ую)?(?:\s|$|[?.!,;:])/i,
+  /^(?:а|и|ну)?\s*(?:завтра|сегодня)(?:\s|$|[?.!,;:])/i,
+  /^(?:а|и|ну)?\s*(?:на\s+)?недел(?:ю|е)(?:\s|$|[?.!,;:])/i,
+  /^(?:а|и|ну)?\s*(?:на\s+)?месяц(?:\s|$|[?.!,;:])/i,
+]
+
 const RECENCY_SENSITIVE_PATTERNS = [
   /сейчас/i,
   /сегодня/i,
@@ -111,6 +147,8 @@ const RECENCY_SENSITIVE_PATTERNS = [
   /актуальн(?:ая|ые|ую|ой|ое|о)/i,
   /свеж(?:ая|ие|ую|ий|ие\s+данные|ая\s+инфа|ие\s+новости)/i,
   /что\s+нового/i,
+  /(?:текущ(?:его|ий|ая|ее)|нынешн(?:его|ий|ая|ее)|действующ(?:его|ий|ая|ее|ей|ую|им|ым|ом|ему|ему))\s+(?:чемпионат|сезон|соревнован[а-яё]*)/i,
+  /какие\s+даты\s+(?:текущ(?:его|ий|ая|ее)|нынешн(?:его|ий|ая|ее)|действующ(?:его|ий|ая|ее|ей|ую|им|ым|ом|ему|ему))\s+(?:чемпионат|сезон|соревнован[а-яё]*)/i,
   /кто\s+.*последн(?:ий|яя|ее).*?(тренер|мэр|президент|министр|губернатор|чемпионка|чемпион(?!ат)|победительница|победители|победитель)/i,
   /когда\s+(?:будет|будут|состоится|состоятся|пройдет|пройдут|начн(?:ется|утся))\s+.*(матч|мероприят|концерт|турнир|паводк|наводнен|сезон|запуск|релиз|выпуск|выборы|форум|конференц|чемпионат|олимпиад|премьер)/i,
   /(?:когда\s+)?(?:следующ|будущ|ближайш|предстоящ)[а-я]*\s+(?:матч|игр|турнир|концерт|релиз|запуск|выбор|сезон|этап|форум|конференц|премьер)/i,
@@ -155,6 +193,7 @@ const SOURCE_REQUEST_PATTERNS = [
 const ALL_SOURCES_REQUEST_PATTERNS = [
   /(?:покажи|показать|дай|дайте|выведи|раскрой)\s+все\s+(?:источник(?:и|ов|ам|ами|ах)?|ссылк(?:и|ок|ам|ами|ах)?)/i,
   /^(?:покажи|показать)\s+все\s*$/i,
+  /^(?:все\s+(?:источник(?:и|ов)?|ссылк(?:и|ок)?))\s*\??$/i,
   /^(?:all\s+sources|show\s+all(?:\s+sources)?|show\s+all\s+links?)$/i,
 ]
 
@@ -187,6 +226,8 @@ function stripInlineSourceMentions(text: string): string {
   let next = text
     // [title](https://example.com) -> title
     .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/gi, '$1')
+    // Убираем прямое упоминание ru.wikipedia.org из текста ответа.
+    .replace(/\(?\s*ru\.wikipedia\.org\s*\)?/gi, '')
     // Удаляем голые URL.
     .replace(/https?:\/\/[^\s)]+/gi, '')
     // Удаляем обертки-цитаты вида ([source]) или (source) для доменов.
@@ -251,6 +292,23 @@ export function shouldUseOpenAiWebSearch(text: string): boolean {
   const normalized = normalizeText(text)
   if (!normalized) return false
   return isWebSearchRequest(normalized) || isCurrentInfoRequest(normalized)
+}
+
+export function isWeatherForecastRequest(text: string): boolean {
+  const normalized = normalizeText(text)
+  if (!normalized) return false
+
+  const hasWeatherBase = WEATHER_BASE_PATTERNS.some((pattern) => pattern.test(normalized))
+  if (hasWeatherBase) return true
+
+  const hasWeatherContext = /(погод[а-яё]*|температур[а-яё]*|weather|forecast)/i.test(normalized)
+  return hasWeatherContext && WEATHER_HORIZON_PATTERNS.some((pattern) => pattern.test(normalized))
+}
+
+export function isWeatherFollowupRequest(text: string): boolean {
+  const normalized = normalizeText(text)
+  if (!normalized) return false
+  return WEATHER_FOLLOWUP_PATTERNS.some((pattern) => pattern.test(normalized))
 }
 
 export function isRecencySensitiveRequest(text: string): boolean {

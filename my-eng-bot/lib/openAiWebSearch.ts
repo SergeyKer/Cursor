@@ -123,7 +123,10 @@ function extractTextFromOutput(result: OpenAiResponsesResult): string {
   return normalizeText(parts.join('\n'))
 }
 
-function buildSearchInstructions(language: SearchLanguage, systemPrompt: string): string {
+function buildSearchInstructions(
+  language: SearchLanguage,
+  systemPrompt: string
+): string {
   const languageLine =
     language === 'ru'
       ? 'Отвечай по-русски.'
@@ -141,7 +144,8 @@ function buildSearchInstructions(language: SearchLanguage, systemPrompt: string)
     'Prefer primary and authoritative sources when possible.',
     'If sources disagree or confidence is low, say so explicitly.',
     languageLine,
-  ].join('\n')
+  ]
+    .join('\n')
 }
 
 export async function callOpenAiWebSearchAnswer(params: {

@@ -3,6 +3,7 @@ import type { ChatMessage, TenseId } from '@/lib/types'
 import { CHILD_TENSES } from '@/lib/constants'
 import { detectLangFromText } from '@/lib/detectLang'
 import { classifyOpenAiForbidden } from '@/lib/openAiForbidden'
+import { callGismeteoWeatherAnswer, extractWeatherLocationQuery } from '@/lib/gismeteoWeather'
 import {
   callOpenAiWebSearchAnswer,
   filterFreshWebSearchSources,
@@ -11,6 +12,11 @@ import {
   shouldUseOpenAiWebSearch,
   shouldRequestOpenAiWebSearchSources,
 } from '@/lib/openAiWebSearch'
+import {
+  isWeatherForecastRequest,
+  isWeatherFollowupRequest,
+  shouldRequestAllOpenAiWebSearchSources,
+} from '@/lib/openAiWebSearchShared'
 import {
   buildCommunicationEnglishContinuationFallback,
   buildCommunicationFallbackMessage,
@@ -2745,6 +2751,20 @@ function getLastAssistantContent(messages: ChatMessage[]): string | null {
   return null
 }
 
+function getLastWeatherLocationQuery(messages: ChatMessage[]): string | null {
+  for (let i = messages.length - 2; i >= 0; i--) {
+    const message = messages[i]
+    if (!message || message.role !== 'user') continue
+
+    const locationQuery = extractWeatherLocationQuery(message.content)
+    if (locationQuery) {
+      return locationQuery
+    }
+  }
+
+  return null
+}
+
 function isDialogueFinalCorrectResponse(params: {
   content: string
   userText: string
@@ -3905,6 +3925,48 @@ export async function POST(req: NextRequest) {
         shouldRequestOpenAiWebSearchSources(lastUserContentForResponse))
     const communicationSearchSourcesRequested =
       communicationSearchRequested && shouldRequestOpenAiWebSearchSources(lastUserContentForResponse)
+    const weatherSourcesRequested =
+      shouldRequestOpenAiWebSearchSources(lastUserContentForResponse) ||
+      shouldRequestAllOpenAiWebSearchSources(lastUserContentForResponse)
+    const weatherFollowupRequested = isWeatherFollowupRequest(lastUserContentForResponse)
+    const weatherLocationQueryOverride = weatherFollowupRequested ? getLastWeatherLocationQuery(recentMessages) : null
+
+    if (
+      mode !== 'translation' &&
+      !explicitTranslateTarget &&
+      (isWeatherForecastRequest(lastUserContentForResponse) || weatherFollowupRequested)
+    ) {
+      const weatherResult = await callGismeteoWeatherAnswer({
+        query: lastUserContentForResponse,
+        language: detectedUserLang,
+        ...(weatherLocationQueryOverride ? { locationQueryOverride: weatherLocationQueryOverride } : {}),
+      })
+
+      if (weatherResult.ok) {
+        return NextResponse.json({
+          content: weatherResult.content,
+          webSearchSourcesRequested: weatherSourcesRequested,
+          webSearchSources: weatherResult.sources,
+        })
+      }
+
+      const fallbackMessage =
+        weatherResult.status === 400 || weatherResult.status === 404
+          ? detectedUserLang === 'ru'
+            ? 'Уточните город, пожалуйста.'
+            : 'Please specify a city.'
+          : detectedUserLang === 'ru'
+            ? 'Не удалось получить погоду с Gismeteo. Попробуйте ещё раз.'
+            : 'Could not load weather from Gismeteo. Please try again.'
+
+      return NextResponse.json({
+        content: formatOpenAiWebSearchAnswer({
+          answer: fallbackMessage,
+          sources: [],
+          language: detectedUserLang,
+        }),
+      })
+    }
 
     // Fast-path: первое сообщение в режиме общения не требует вызова LLM.
     // Ранее ответ все равно заменялся fallback-репликой после провайдера.

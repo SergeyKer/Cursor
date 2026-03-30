@@ -1,13 +1,21 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { callOpenAiWebSearchAnswer } from '@/lib/openAiWebSearch'
+import { fetchWithProxyFallback } from '@/lib/proxyFetch'
 import {
   filterFreshWebSearchSources,
   formatOpenAiWebSearchAnswer,
   isRecencySensitiveRequest,
+  isWeatherForecastRequest,
+  isWeatherFollowupRequest,
   normalizeWebSearchSourceUrl,
   shouldRequestAllOpenAiWebSearchSources,
   shouldRequestOpenAiWebSearchSources,
   shouldUseOpenAiWebSearch,
 } from '@/lib/openAiWebSearchShared'
+
+vi.mock('@/lib/proxyFetch', () => ({
+  fetchWithProxyFallback: vi.fn(),
+}))
 
 describe('shouldUseOpenAiWebSearch', () => {
   it('detects Russian current-info queries', () => {
@@ -30,6 +38,9 @@ describe('shouldUseOpenAiWebSearch', () => {
     expect(shouldUseOpenAiWebSearch('Какие новости за последнюю неделю?')).toBe(true)
     expect(shouldUseOpenAiWebSearch('Что нового по курсу за этот месяц?')).toBe(true)
     expect(shouldUseOpenAiWebSearch('Погода как была пару дней назад?')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('Какие даты текущего чемпионата КХЛ?')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('Какие даты текущего соревнования Формулы 1?')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('Какие даты действующего соревнования Формулы 1?')).toBe(true)
     expect(shouldUseOpenAiWebSearch('кто последний тренер спартака москва')).toBe(true)
     expect(shouldUseOpenAiWebSearch('кто последний чемпион россии по футболу')).toBe(true)
     expect(shouldUseOpenAiWebSearch('кто нынешний чемпион англии по футболу')).toBe(true)
@@ -72,6 +83,9 @@ describe('isRecencySensitiveRequest', () => {
     expect(isRecencySensitiveRequest('Статистика за этот месяц')).toBe(true)
     expect(isRecencySensitiveRequest("what's new this month")).toBe(true)
     expect(isRecencySensitiveRequest('need up to date figures')).toBe(true)
+    expect(isRecencySensitiveRequest('Какие даты текущего чемпионата КХЛ?')).toBe(true)
+    expect(isRecencySensitiveRequest('Какие даты текущего соревнования Формулы 1?')).toBe(true)
+    expect(isRecencySensitiveRequest('Какие даты действующего соревнования Формулы 1?')).toBe(true)
     expect(isRecencySensitiveRequest('когда будет матч открытия сезона')).toBe(true)
     expect(isRecencySensitiveRequest('какие планы по запуску')).toBe(true)
     expect(isRecencySensitiveRequest('когда следующий матч спартака')).toBe(true)
@@ -84,6 +98,35 @@ describe('isRecencySensitiveRequest', () => {
     expect(isRecencySensitiveRequest('Последний урок был сложный')).toBe(false)
     expect(isRecencySensitiveRequest('следующий урок английского')).toBe(false)
     expect(isRecencySensitiveRequest('next exercise please')).toBe(false)
+  })
+})
+
+describe('isWeatherForecastRequest', () => {
+  it('detects weather and forecast phrases', () => {
+    expect(isWeatherForecastRequest('Какая погода завтра в Красногорске?')).toBe(true)
+    expect(isWeatherForecastRequest('Прогноз на 3 дня для Москвы')).toBe(true)
+    expect(isWeatherForecastRequest('А в выходные в Красногорске?')).toBe(true)
+    expect(isWeatherForecastRequest('weather forecast for next week')).toBe(true)
+    expect(isWeatherForecastRequest('monthly weather forecast for London')).toBe(true)
+  })
+
+  it('does not trigger on unrelated horizon phrases', () => {
+    expect(isWeatherForecastRequest('Встретимся завтра утром?')).toBe(false)
+    expect(isWeatherForecastRequest('Отчёт на неделю готов?')).toBe(false)
+  })
+})
+
+describe('isWeatherFollowupRequest', () => {
+  it('detects short weather follow-ups', () => {
+    expect(isWeatherFollowupRequest('а вечером')).toBe(true)
+    expect(isWeatherFollowupRequest('вечером')).toBe(true)
+    expect(isWeatherFollowupRequest('а завтра')).toBe(true)
+    expect(isWeatherFollowupRequest('а ночью')).toBe(true)
+    expect(isWeatherFollowupRequest('а утром')).toBe(true)
+    expect(isWeatherFollowupRequest('а днём')).toBe(true)
+    expect(isWeatherFollowupRequest('а в выходные')).toBe(true)
+    expect(isWeatherFollowupRequest('на выходных')).toBe(true)
+    expect(isWeatherFollowupRequest('на следующей неделе')).toBe(false)
   })
 })
 
@@ -133,6 +176,17 @@ describe('formatOpenAiWebSearchAnswer', () => {
     expect(result).not.toContain('http')
     expect(result).not.toContain('coffeemag.ru')
   })
+
+  it('strips ru.wikipedia.org mentions from answer text', () => {
+    const result = formatOpenAiWebSearchAnswer({
+      answer: 'Последним чемпионом стал Краснодар. (ru.wikipedia.org)',
+      sources: [],
+      language: 'ru',
+    })
+
+    expect(result).toContain('Последним чемпионом стал Краснодар.')
+    expect(result).not.toContain('ru.wikipedia.org')
+  })
 })
 
 describe('shouldRequestOpenAiWebSearchSources', () => {
@@ -156,6 +210,8 @@ describe('shouldRequestAllOpenAiWebSearchSources', () => {
   it('detects explicit show-all requests in Russian', () => {
     expect(shouldRequestAllOpenAiWebSearchSources('Покажи все источники')).toBe(true)
     expect(shouldRequestAllOpenAiWebSearchSources('покажи все')).toBe(true)
+    expect(shouldRequestAllOpenAiWebSearchSources('все источники')).toBe(true)
+    expect(shouldRequestAllOpenAiWebSearchSources('все ссылки?')).toBe(true)
   })
 
   it('detects explicit show-all requests in English', () => {
@@ -164,6 +220,31 @@ describe('shouldRequestAllOpenAiWebSearchSources', () => {
 
   it('does not trigger on normal source request', () => {
     expect(shouldRequestAllOpenAiWebSearchSources('Покажи источники')).toBe(false)
+  })
+})
+
+describe('callOpenAiWebSearchAnswer', () => {
+  const mockedFetchWithProxyFallback = vi.mocked(fetchWithProxyFallback)
+
+  beforeEach(() => {
+    mockedFetchWithProxyFallback.mockReset()
+    process.env.OPENAI_API_KEY = 'test-openai-key'
+  })
+
+  it('does not add a Gismeteo instruction for non-weather requests', async () => {
+    mockedFetchWithProxyFallback.mockResolvedValueOnce(
+      new Response(JSON.stringify({ output_text: 'General answer.' }), { status: 200 })
+    )
+
+    await callOpenAiWebSearchAnswer({
+      systemPrompt: 'You are helpful.',
+      messages: [{ role: 'user', content: 'Explain the present perfect tense.' }],
+      language: 'en',
+    })
+
+    const [, requestInit] = mockedFetchWithProxyFallback.mock.calls[0] ?? []
+    const body = JSON.parse(String(requestInit?.body)) as { instructions?: string }
+    expect(body.instructions).not.toContain('https://www.gismeteo.ru/')
   })
 })
 
