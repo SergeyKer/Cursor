@@ -177,7 +177,7 @@ function buildQueryVariants(text: string): string[] {
     stripCommonLocationEnding(transliterated),
   ]
 
-  return [...new Set(variants.filter(Boolean))]
+  return Array.from(new Set(variants.filter(Boolean)))
 }
 
 function levenshteinDistance(a: string, b: string): number {
@@ -394,7 +394,9 @@ function extractBlock(html: string, startMarker: string, endMarkers: string[]): 
 
 function extractDateLabels(html: string): Array<{ label: string; href: string }> {
   const block = extractBlock(html, 'widget-row widget-row-tod-date"', ['widget-row widget-row-datetime-time"'])
-  const matches = [...block.matchAll(/<a class="row-item link(?:-red)? link-hover"[^>]*href="([^"]+)"[^>]*>\s*([^<]+?)\s*<\/a>/g)]
+  const matches = Array.from(
+    block.matchAll(/<a class="row-item link(?:-red)? link-hover"[^>]*href="([^"]+)"[^>]*>\s*([^<]+?)\s*<\/a>/g)
+  )
   return matches
     .map((match) => ({
       href: decodeHtmlEntities(match[1] ?? '').trim(),
@@ -409,7 +411,7 @@ function extractTooltipLabels(html: string): string[] {
     'widget-row widget-row-icon',
     ['widget-row widget-row-chart widget-row-chart-temperature-air', 'widget-row widget-row-chart widget-row-chart-pressure']
   )
-  return [...block.matchAll(/data-tooltip="([^"]+)"/g)]
+  return Array.from(block.matchAll(/data-tooltip="([^"]+)"/g))
     .map((match) => stripTags(match[1] ?? ''))
     .filter(Boolean)
 }
@@ -420,7 +422,7 @@ function extractTemperatureValues(html: string): number[] {
     'widget-row widget-row-chart widget-row-chart-temperature-air',
     ['widget-row widget-row-chart widget-row-chart-heat-index', 'widget-row widget-row-chart widget-row-chart-pressure']
   )
-  return [...block.matchAll(/<temperature-value value="(-?\d+)"/g)]
+  return Array.from(block.matchAll(/<temperature-value value="(-?\d+)"/g))
     .map((match) => Number(match[1]))
     .filter((value) => Number.isFinite(value))
 }
@@ -431,7 +433,7 @@ function extractTimeLabels(html: string): string[] {
     'widget-row widget-row-datetime-time"',
     ['widget-row widget-row-icon', 'widget-row widget-row-chart widget-row-chart-temperature-air']
   )
-  return [...block.matchAll(/<span>\s*(\d{1,2}:\d{2})\s*<\/span>/g)]
+  return Array.from(block.matchAll(/<span>\s*(\d{1,2}:\d{2})\s*<\/span>/g))
     .map((match) => match[1] ?? '')
     .filter(Boolean)
 }
@@ -446,7 +448,7 @@ function pickDominantDescription(values: string[]): string {
 
   let best = ''
   let bestCount = 0
-  for (const [value, count] of counts.entries()) {
+  for (const [value, count] of Array.from(counts.entries())) {
     if (count > bestCount) {
       best = value
       bestCount = count
