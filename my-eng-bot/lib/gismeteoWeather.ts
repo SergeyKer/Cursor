@@ -210,6 +210,42 @@ function levenshteinDistance(a: string, b: string): number {
   return rows[a.length] ?? Math.max(a.length, b.length)
 }
 
+const SPB_LEVENSHTEIN_TARGET = 'питер'
+
+const SPB_ALIAS_KEYS = new Set(
+  [
+    'питер',
+    'питере',
+    'питеру',
+    'питером',
+    'петер',
+    'спб',
+    'piter',
+  ].map((s) => normalizeLetters(s))
+)
+
+/**
+ * Разговорные и близкие к «Питеру» запросы для поиска города на Gismeteo.
+ */
+export function applyGismeteoLocationAliases(query: string): string {
+  const t = normalizeText(query)
+  if (!t) return t
+  const tailMatch = t.match(/(?:^|\s)(?:в|во|для|по)\s+(.+)$/i)
+  const core = (tailMatch?.[1] ?? t).trim()
+  const key = normalizeLetters(core)
+  const stem = stripCommonLocationEnding(key)
+  const candidates = Array.from(new Set([key, stem].filter(Boolean)))
+  for (const c of candidates) {
+    if (SPB_ALIAS_KEYS.has(c)) return 'Санкт-Петербург'
+  }
+  for (const c of candidates) {
+    if (c.length >= 4 && c.length <= 7 && levenshteinDistance(c, SPB_LEVENSHTEIN_TARGET) <= 1) {
+      return 'Санкт-Петербург'
+    }
+  }
+  return t
+}
+
 function scoreCityMatch(queryVariants: string[], city: GismeteoCity): { priority: number; score: number } {
   const cityName = normalizeLetters(city.translations?.ru?.city?.name?.trim() || city.slug)
   const cityNameLat = transliterateToLatin(cityName)
@@ -705,7 +741,7 @@ function buildCurrentWeatherAnswer(
 }
 
 async function resolveGismeteoCity(query: string): Promise<GismeteoCity> {
-  const normalized = normalizeText(query)
+  const normalized = applyGismeteoLocationAliases(normalizeText(query))
   if (!normalized) {
     throw new Error('City query is empty')
   }

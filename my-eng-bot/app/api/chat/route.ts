@@ -685,11 +685,13 @@ const TOPIC_CHOICE_SKIP_WORDS_EN = new Set([
   'what', 'when', 'where', 'which', 'who', 'how', 'why', 'you', 'your', 'our',
   'are', 'was', 'were', 'been', 'being', 'have', 'has', 'had', 'will', 'would',
   'could', 'should', 'just', 'like', 'want', 'talk', 'some', 'any', 'all',
+  'yes', 'yep', 'yeah', 'ok', 'okay', 'sure', 'no', 'nope', 'nah',
 ])
 const TOPIC_CHOICE_SKIP_WORDS_RU = new Set([
   'и', 'а', 'но', 'или', 'про', 'о', 'об', 'в', 'на', 'с', 'по', 'для', 'это', 'эта',
   'этот', 'эти', 'что', 'где', 'когда', 'как', 'почему', 'кто', 'мне', 'меня', 'мой',
   'моя', 'мои', 'тема', 'хочу', 'хотел', 'хотела', 'говорить', 'поговорить',
+  'да', 'нет', 'ага', 'угу',
 ])
 function isMixedLatinCyrillicText(text: string): boolean {
   return /[A-Za-z]/.test(text) && /[А-Яа-яЁё]/.test(text)

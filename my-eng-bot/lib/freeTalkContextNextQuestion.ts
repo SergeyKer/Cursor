@@ -10,11 +10,13 @@ const SKIP_EN = new Set([
   'could', 'should', 'just', 'like', 'want', 'talk', 'some', 'any', 'all', 'time',
   'free', 'thing', 'things', 'day', 'days', 'way', 'ways', 'life', 'work', 'home',
   'today', 'now', 'here', 'there', 'very', 'much', 'really', 'also', 'then', 'well',
+  'yes', 'yep', 'yeah', 'ok', 'okay', 'sure', 'no', 'nope', 'nah',
 ])
 const SKIP_RU = new Set([
   'и', 'а', 'но', 'или', 'про', 'о', 'об', 'в', 'на', 'с', 'по', 'для', 'это', 'эта',
   'этот', 'эти', 'что', 'где', 'когда', 'как', 'почему', 'кто', 'мне', 'меня', 'мой',
   'моя', 'мои', 'тема', 'хочу', 'хотел', 'хотела', 'говорить', 'поговорить', 'время',
+  'да', 'нет', 'ага', 'угу',
 ])
 
 function stripLeadingAiPrefix(line: string): string {

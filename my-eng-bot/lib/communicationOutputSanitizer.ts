@@ -1,15 +1,18 @@
 import type { DetectedLang } from '@/lib/detectLang'
+import { stripParentheticalDomainCitations } from '@/lib/openAiWebSearchShared'
 
 export function normalizeCommunicationOutput(raw: string): string {
-  return raw
-    .split(/\r?\n/)
-    .map((line) => line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
-    .filter(Boolean)
-    .filter((line) => !/^\s*(RU|Russian|Перевод)\s*:?/i.test(line.trim()))
-    .filter((line) => !/^\s*(Комментарий|Повтори|Время|Конструкция)\s*:/i.test(line.trim()))
-    .filter((line) => !/^\s*(Repeat|Say)\s*:/i.test(line.trim()))
-    .join('\n')
-    .trim()
+  return stripParentheticalDomainCitations(
+    raw
+      .split(/\r?\n/)
+      .map((line) => line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+      .filter(Boolean)
+      .filter((line) => !/^\s*(RU|Russian|Перевод)\s*:?/i.test(line.trim()))
+      .filter((line) => !/^\s*(Комментарий|Повтори|Время|Конструкция)\s*:/i.test(line.trim()))
+      .filter((line) => !/^\s*(Repeat|Say)\s*:/i.test(line.trim()))
+      .join('\n')
+      .trim()
+  )
 }
 
 export function collapseDuplicateLeadingGreetings(text: string, lang: DetectedLang): string {

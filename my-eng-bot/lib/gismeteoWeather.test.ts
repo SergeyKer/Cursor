@@ -1,10 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { callGismeteoWeatherAnswer, extractWeatherLocationQuery } from '@/lib/gismeteoWeather'
+import {
+  applyGismeteoLocationAliases,
+  callGismeteoWeatherAnswer,
+  extractWeatherLocationQuery,
+} from '@/lib/gismeteoWeather'
 import { fetchWithProxyFallback } from '@/lib/proxyFetch'
 
 vi.mock('@/lib/proxyFetch', () => ({
   fetchWithProxyFallback: vi.fn(),
 }))
+
+describe('applyGismeteoLocationAliases', () => {
+  it('maps Питер and close spellings to Санкт-Петербург', () => {
+    expect(applyGismeteoLocationAliases('Питер')).toBe('Санкт-Петербург')
+    expect(applyGismeteoLocationAliases('в Питере')).toBe('Санкт-Петербург')
+    expect(applyGismeteoLocationAliases('Какая погода в Питере?')).toBe('Санкт-Петербург')
+    expect(applyGismeteoLocationAliases('спб')).toBe('Санкт-Петербург')
+    expect(applyGismeteoLocationAliases('петер')).toBe('Санкт-Петербург')
+    expect(applyGismeteoLocationAliases('Красногорск')).toBe('Красногорск')
+  })
+})
 
 describe('extractWeatherLocationQuery', () => {
   it('extracts St Petersburg and drops temporal tail', () => {

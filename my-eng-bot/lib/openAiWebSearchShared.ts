@@ -100,6 +100,23 @@ const CURRENT_INFO_PATTERNS = [
   /\branking\b/i,
   /\brank(?:ed|ing)?\b/i,
   /\bposition\s+in\s+(?:the\s+)?rankings?\b/i,
+  // Местное время в городе — нужен веб-поиск, иначе модель может ошибиться.
+  /сколько\s+времени\s+(?:во|в|на)\s+/i,
+  /какое\s+время\s+(?:во|в|на)\s+/i,
+  /который\s+час\s+(?:во|в|на)\s+/i,
+  /какое\s+сейчас\s+время/i,
+  /\bwhat\s+time\s+is\s+it\b/i,
+  /\bwhat\s+time\s+in\s+/i,
+  /\bcurrent\s+time\s+in\s+/i,
+  // Цены, рейтинги, статистика по годам, события — без веб-поиска модель уходит в общие фразы.
+  /сколько\s+сто(?:ит|ят)(?![а-яё])/i,
+  /(?:^|\s)в\s+20\d{2}\s*году/i,
+  /сам(?:ое|ый|ая|ые)\s+популярн/i,
+  /статистик[а-яё]*/i,
+  /(?:топ|рейтинг)\s+(?:\d+|имен|фильм|сериал)/i,
+  /\bhow\s+much\s+(?:is|are|does|do)\b/i,
+  /\bin\s+20\d{2}\b.*(?:popular|ranking|statistics|event|championship)/i,
+  /\b(?:upcoming|scheduled)\s+(?:event|concert|match|game)\b/i,
 ]
 
 const WEATHER_BASE_PATTERNS = [
@@ -190,6 +207,21 @@ const RECENCY_SENSITIVE_PATTERNS = [
   /\bposition\s+in\s+(?:the\s+)?rankings?\b/i,
   /\bseason\s+(?:start|starts|begin|begins)\b/i,
   /\bstart\s+date\b/i,
+  /сколько\s+времени\s+(?:во|в|на)\s+/i,
+  /какое\s+время\s+(?:во|в|на)\s+/i,
+  /который\s+час\s+(?:во|в|на)\s+/i,
+  /какое\s+сейчас\s+время/i,
+  /\bwhat\s+time\s+is\s+it\b/i,
+  /\bwhat\s+time\s+in\s+/i,
+  /\bcurrent\s+time\s+in\s+/i,
+  /сколько\s+сто(?:ит|ят)(?![а-яё])/i,
+  /(?:^|\s)в\s+20\d{2}\s*году/i,
+  /сам(?:ое|ый|ая|ые)\s+популярн/i,
+  /статистик[а-яё]*/i,
+  /(?:топ|рейтинг)\s+(?:\d+|имен|фильм|сериал)/i,
+  /\bhow\s+much\s+(?:is|are|does|do)\b/i,
+  /\bin\s+20\d{2}\b.*(?:popular|ranking|statistics|event|championship)/i,
+  /\b(?:upcoming|scheduled)\s+(?:event|concert|match|game)\b/i,
 ]
 
 const SOURCE_REQUEST_PATTERNS = [
@@ -230,6 +262,11 @@ function keepOnlyCelsius(text: string): string {
   return next.trim()
 }
 
+/** Сноски вида (example.com), (rostov.rbc.ru) без http — убираем из текста ответа. */
+export function stripParentheticalDomainCitations(text: string): string {
+  return text.replace(/\(\s*(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s)]*)?\s*\)/gi, '')
+}
+
 function stripInlineSourceMentions(text: string): string {
   let next = text
     // [title](https://example.com) -> title
@@ -240,7 +277,7 @@ function stripInlineSourceMentions(text: string): string {
     .replace(/https?:\/\/[^\s)]+/gi, '')
     // Удаляем обертки-цитаты вида ([source]) или (source) для доменов.
     .replace(/\(\s*\[[^\]]+\]\s*\)/g, '')
-    .replace(/\(\s*[a-z0-9-]+\.[a-z]{2,}(?:\/[^\s)]*)?\s*\)/gi, '')
+  next = stripParentheticalDomainCitations(next)
     // Чистим оставшиеся служебные скобки/пробелы.
     .replace(/\(\s*\)/g, '')
     .replace(/\[\s*\]/g, '')
@@ -381,6 +418,98 @@ export function filterFreshWebSearchSources(
   }
 
   return { sources: filtered, hiddenCount }
+}
+
+/** Сколько «словных» фрагментов осталось после вырезания даты/времени (для отсечения сухой строки). */
+function countNonDateWordsRu(text: string): number {
+  const stripped = text
+    .replace(/\d{1,2}:\d{2}(:\d{2})?/g, ' ')
+    .replace(/\d{4}\s*г\.?/gi, ' ')
+    .replace(/\d{1,2}\s+[а-яё]{3,}\.?/gi, ' ')
+    .replace(/\d+/g, ' ')
+  return stripped
+    .trim()
+    .split(/\s+/)
+    .filter((w) => w.length > 1 && !/^[а-яё]{1,3}\.?$/i.test(w))
+    .length
+}
+
+function isBareRussianDatetimeLine(text: string): boolean {
+  const t = text.trim()
+  if (!t || t.length > 140) return false
+  const hasDateChunk = /\d{1,2}\s+[а-яё]{3,}\.?\s+\d{2,4}\s*г/i.test(t)
+  const hasClock = /\d{1,2}:\d{2}(:\d{2})?/.test(t)
+  if (!hasDateChunk && !hasClock) return false
+  if (countNonDateWordsRu(t) >= 3) return false
+  return true
+}
+
+function isBareEnglishDatetimeLine(text: string): boolean {
+  const t = text.trim()
+  if (!t || t.length > 140) return false
+  const hasClock = /\d{1,2}:\d{2}(:\d{2})?/.test(t)
+  if (!hasClock) return false
+  const hasMonth = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b/i.test(t)
+  const wordCount = t.split(/\s+/).length
+  if (hasMonth && wordCount <= 8) return true
+  return wordCount <= 5 && !/[.!?]\s+[A-Z]/.test(t)
+}
+
+/** Из запроса «сколько времени во владивостоке» → «Во Владивостоке». */
+function extractRussianTimeLocationPhrase(query: string): string | null {
+  const m = query.match(
+    /(?:сколько\s+времени|какое\s+(?:сейчас\s+)?время|который\s+час)\s+(?:во|в|на)\s+(.+)$/i
+  )
+  if (!m) return null
+  let rest = m[1].trim().replace(/[.?!…]+$/, '')
+  if (!rest) return null
+  const name = rest.charAt(0).toUpperCase() + rest.slice(1)
+  // \b с кириллицей в JS ненадёжен; ищем предлог «во» после пробела или в начале строки.
+  const useVo = /(?:^|\s)во\s+/i.test(query)
+  return useVo ? `Во ${name}` : `В ${name}`
+}
+
+function extractEnglishTimeLocationPhrase(query: string): string | null {
+  const m =
+    query.match(/\bwhat\s+time\s+is\s+it\s+in\s+(.+)$/i) ||
+    query.match(/\b(?:current\s+time|time)\s+in\s+(.+)$/i)
+  if (!m) return null
+  const place = m[1].trim().replace(/[.?!]+$/, '')
+  if (!place) return null
+  return `In ${place.charAt(0).toUpperCase() + place.slice(1)}`
+}
+
+/**
+ * Если веб-поиск вернул одну строку даты/времени без живой фразы — оборачиваем в связный ответ.
+ */
+export function embellishBareFactsAnswer(params: {
+  rawAnswer: string
+  userQuery: string
+  language: SearchLanguage
+}): string {
+  const raw = normalizeText(params.rawAnswer)
+  const q = normalizeText(params.userQuery)
+  if (!raw) return raw
+
+  if (params.language === 'ru') {
+    if (!isBareRussianDatetimeLine(raw)) return raw
+    const place = extractRussianTimeLocationPhrase(q)
+    if (place) {
+      return `${place} сейчас ${raw}.`
+    }
+    return `Сейчас по данным поиска: ${raw}.`
+  }
+
+  if (params.language === 'en') {
+    if (!isBareEnglishDatetimeLine(raw)) return raw
+    const place = extractEnglishTimeLocationPhrase(q)
+    if (place) {
+      return `${place} it's now ${raw}.`
+    }
+    return `According to search: ${raw}.`
+  }
+
+  return raw
 }
 
 export function formatOpenAiWebSearchAnswer(params: {

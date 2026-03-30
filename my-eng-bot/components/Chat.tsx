@@ -1253,7 +1253,7 @@ function MessageBubble({
             )}
             {showWebSearchSources && (
               <div className="mt-2 rounded-xl border border-slate-200 bg-[var(--chat-section-slate)] px-3 py-2 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.05em] text-slate-600">
                   Источники
                 </p>
                 {webSearchSources.length > 0 ? (

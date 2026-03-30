@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { callOpenAiWebSearchAnswer } from '@/lib/openAiWebSearch'
 import { fetchWithProxyFallback } from '@/lib/proxyFetch'
 import {
+  embellishBareFactsAnswer,
   filterFreshWebSearchSources,
   formatOpenAiWebSearchAnswer,
   isRecencySensitiveRequest,
@@ -16,6 +17,29 @@ import {
 vi.mock('@/lib/proxyFetch', () => ({
   fetchWithProxyFallback: vi.fn(),
 }))
+
+describe('embellishBareFactsAnswer', () => {
+  it('wraps a bare Russian datetime using the city from the user query', () => {
+    expect(
+      embellishBareFactsAnswer({
+        rawAnswer: '31 мар. 2026 г., 03:01:11',
+        userQuery: 'сколько времени во владивостоке',
+        language: 'ru',
+      })
+    ).toBe('Во Владивостоке сейчас 31 мар. 2026 г., 03:01:11.')
+  })
+
+  it('does not wrap a normal conversational sentence', () => {
+    const line = 'Во Владивостоке сейчас около трёх часов ночи по местному времени.'
+    expect(
+      embellishBareFactsAnswer({
+        rawAnswer: line,
+        userQuery: 'сколько времени во владивостоке',
+        language: 'ru',
+      })
+    ).toBe(line)
+  })
+})
 
 describe('shouldUseOpenAiWebSearch', () => {
   it('detects Russian current-info queries', () => {
@@ -72,6 +96,27 @@ describe('shouldUseOpenAiWebSearch', () => {
   it('does not trigger on general knowledge', () => {
     expect(shouldUseOpenAiWebSearch('Explain the difference between Present Perfect and Past Simple')).toBe(false)
   })
+
+  it('detects prices, year stats, and popularity queries (web search)', () => {
+    expect(shouldUseOpenAiWebSearch('сколько стоит бентли')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('сколько стоят яблоки в перекрёстке')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('самое популярное имя мальчика в 2026 году')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('How much does a Bentley cost?')).toBe(true)
+  })
+
+  it('detects local time in a city (web search, not model guess)', () => {
+    expect(shouldUseOpenAiWebSearch('сколько времени в дубай')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('сколько времени в Москве')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('сколько времени во Владивостоке')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('сколько времени во владивостоке')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('какое время в Лондоне')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('What time is it in Tokyo?')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('current time in Berlin')).toBe(true)
+  })
+
+  it('does not treat "how long" duration as a city time query', () => {
+    expect(shouldUseOpenAiWebSearch('сколько времени займёт дорога')).toBe(false)
+  })
 })
 
 describe('isRecencySensitiveRequest', () => {
@@ -102,6 +147,11 @@ describe('isRecencySensitiveRequest', () => {
     expect(isRecencySensitiveRequest('Последний урок был сложный')).toBe(false)
     expect(isRecencySensitiveRequest('следующий урок английского')).toBe(false)
     expect(isRecencySensitiveRequest('next exercise please')).toBe(false)
+  })
+
+  it('treats city local time as recency-sensitive for sources', () => {
+    expect(isRecencySensitiveRequest('сколько времени в дубай')).toBe(true)
+    expect(isRecencySensitiveRequest('What time is it in London?')).toBe(true)
   })
 })
 
@@ -190,6 +240,19 @@ describe('formatOpenAiWebSearchAnswer', () => {
 
     expect(result).toContain('Последним чемпионом стал Краснодар.')
     expect(result).not.toContain('ru.wikipedia.org')
+  })
+
+  it('strips parenthetical multi-label domains like (rostov.rbc.ru)', () => {
+    const result = formatOpenAiWebSearchAnswer({
+      answer:
+        'Контракт продлён. 6 декабря 2025 года. (rostov.rbc.ru)',
+      sources: [],
+      language: 'ru',
+    })
+
+    expect(result).toContain('Контракт продлён.')
+    expect(result).not.toContain('rostov')
+    expect(result).not.toContain('rbc.ru')
   })
 })
 
