@@ -1,6 +1,6 @@
 import type { ChatMessage } from './types'
 import { buildFreeTalkTopicAnchorQuestion } from './freeTalkQuestionAnchor'
-import { RU_TOPIC_KEYWORD_TO_EN, normalizeTopicToken } from './ruTopicKeywordMap'
+import { RU_TOPIC_KEYWORD_TO_EN, normalizeRuTopicKeyword, normalizeTopicToken } from './ruTopicKeywordMap'
 
 /** Служебные слова — не считаем темой диалога. */
 const SKIP_EN = new Set([
@@ -74,7 +74,7 @@ function extractTopicChoiceKeywordsByLang(userText: string): { en: string[]; ru:
 function translateRuTopicKeywordsToEn(keywords: string[]): string[] {
   const translated: string[] = []
   for (const keyword of keywords) {
-    const normalized = normalizeTopicToken(keyword)
+    const normalized = normalizeRuTopicKeyword(keyword)
     if (!normalized) continue
     const mapped = RU_TOPIC_KEYWORD_TO_EN[normalized]
     if (!mapped) continue

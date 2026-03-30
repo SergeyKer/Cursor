@@ -2,9 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   buildPoliteTopicClarificationReply,
   detectFreeTalkTopicChange,
-  detectTopicClarificationFollowupChoice,
   isFixedTopicSwitchRequest,
-  isPoliteTopicClarificationAssistantMessage,
+  isTopicClarificationAssistantMessage,
   looksLikeFreeTalkTopicSwitchIntent,
 } from './freeTalkTopicChange'
 
@@ -142,64 +141,24 @@ describe('looksLikeFreeTalkTopicSwitchIntent', () => {
 })
 
 describe('buildPoliteTopicClarificationReply', () => {
-  it('child: нумерация 1–3 и подсказка про цифры', () => {
+  it('child: короткий переспрос без 1/2/3', () => {
     const s = buildPoliteTopicClarificationReply('child')
-    expect(s).toContain('1) New topic')
-    expect(s).toContain('2) Same topic')
-    expect(s).toContain('3) A new question')
-    expect(s).toContain('Say 1, 2, or 3')
+    expect(s).toContain('Please tell me the topic')
+    expect(s).not.toContain('1)')
   })
 
-  it('adult: нумерация 1–3', () => {
+  it('adult: короткий переспрос без 1/2/3', () => {
     const s = buildPoliteTopicClarificationReply('adult')
-    expect(s).toContain('1) Switch to a new topic')
-    expect(s).toContain('2) Continue this topic')
-    expect(s).toContain('3) Ask for a new question on this topic')
-    expect(s).toContain('Reply with 1, 2, or 3')
+    expect(s).toContain('topic you want to switch to')
+    expect(s).not.toContain('1)')
   })
 })
 
-describe('isPoliteTopicClarificationAssistantMessage', () => {
-  it('узнаёт новый и старый текст', () => {
-    expect(isPoliteTopicClarificationAssistantMessage(buildPoliteTopicClarificationReply('child'))).toBe(true)
-    expect(
-      isPoliteTopicClarificationAssistantMessage(
-        'Tell me more, please.\nNew topic? Or the same?'
-      )
-    ).toBe(true)
-    expect(isPoliteTopicClarificationAssistantMessage('What is your name?')).toBe(false)
-  })
-})
-
-describe('detectTopicClarificationFollowupChoice', () => {
-  it('цифры 1, 2, 3', () => {
-    expect(detectTopicClarificationFollowupChoice('1')).toBe('new_topic')
-    expect(detectTopicClarificationFollowupChoice('2')).toBe('continue')
-    expect(detectTopicClarificationFollowupChoice('3')).toBe('new_question')
-    expect(detectTopicClarificationFollowupChoice('1.')).toBe('new_topic')
-    expect(detectTopicClarificationFollowupChoice('2)')).toBe('continue')
-    expect(detectTopicClarificationFollowupChoice('3!')).toBe('new_question')
-  })
-
-  it('new question — en/ru и смесь', () => {
-    expect(detectTopicClarificationFollowupChoice('new question')).toBe('new_question')
-    expect(detectTopicClarificationFollowupChoice('new вопрос')).toBe('new_question')
-    expect(detectTopicClarificationFollowupChoice('новый вопрос')).toBe('new_question')
-    expect(detectTopicClarificationFollowupChoice('другой вопрос')).toBe('new_question')
-  })
-
-  it('continue', () => {
-    expect(detectTopicClarificationFollowupChoice('same')).toBe('continue')
-    expect(detectTopicClarificationFollowupChoice('the same topic')).toBe('continue')
-    expect(detectTopicClarificationFollowupChoice('continue')).toBe('continue')
-  })
-
-  it('new topic', () => {
-    expect(detectTopicClarificationFollowupChoice('new topic')).toBe('new_topic')
-    expect(detectTopicClarificationFollowupChoice('new')).toBe('new_topic')
-  })
-
-  it('не угадывает обычную фразу', () => {
-    expect(detectTopicClarificationFollowupChoice('I like cats')).toBe(null)
+describe('isTopicClarificationAssistantMessage', () => {
+  it('узнаёт только актуальный короткий переспрос', () => {
+    expect(isTopicClarificationAssistantMessage(buildPoliteTopicClarificationReply('child'))).toBe(true)
+    expect(isTopicClarificationAssistantMessage(buildPoliteTopicClarificationReply('adult'))).toBe(true)
+    expect(isTopicClarificationAssistantMessage('Tell me more, please.\nNew topic? Or the same?')).toBe(false)
+    expect(isTopicClarificationAssistantMessage('What is your name?')).toBe(false)
   })
 })

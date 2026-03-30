@@ -95,7 +95,7 @@ function tryExtendedTopicSwitchPatterns(text: string): FreeTalkTopicChangeDetect
   return null
 }
 
-/** Короткие эмоциональные / отказ — без названия темы (как «скучно» → переспрос с 1/2/3). */
+/** Короткие эмоциональные / отказ — без названия темы (как «скучно» → короткий переспрос темы). */
 function tryGenericEmotionalTopicSwitch(text: string): FreeTalkTopicChangeDetection | null {
   const t = normalizeSpaces(text)
   if (!t) return null
@@ -173,96 +173,18 @@ export function looksLikeFreeTalkTopicSwitchIntent(userText: string): boolean {
   return detectFreeTalkTopicChange(userText).isTopicChange
 }
 
-/** Стабильные подстроки в ответе-переспросе (для распознавания следующего хода пользователя). */
-export const TOPIC_CLARIFICATION_MARKER_CHILD =
-  '1) New topic\n2) Same topic\n3) A new question'
-export const TOPIC_CLARIFICATION_MARKER_ADULT =
-  '1) Switch to a new topic\n2) Continue this topic\n3) Ask for a new question on this topic'
-
-/** Старый формат (до нумерации) — только для isPoliteTopicClarificationAssistantMessage */
-const LEGACY_TOPIC_CLARIFICATION_CHILD = 'Pick: new topic, same topic, or a new question.'
-const LEGACY_TOPIC_CLARIFICATION_ADULT =
-  'Pick: switch to a new topic, continue this topic, or ask for a new question on the same topic.'
+const TOPIC_CLARIFICATION_MARKER_CHILD = 'Please tell me the topic in one or two words.'
+const TOPIC_CLARIFICATION_MARKER_ADULT = 'Please tell me the topic you want to switch to.'
 
 /** Вежливый переспрос при неясной смене темы (free_talk). Диалог — только английский; child/adult различаются тоном. */
 export function buildPoliteTopicClarificationReply(audience: 'child' | 'adult'): string {
   if (audience === 'child') {
-    return [
-      'Tell me more, please.',
-      TOPIC_CLARIFICATION_MARKER_CHILD,
-      'Say 1, 2, or 3 — or type new topic, same, or new question.',
-    ].join('\n')
+    return TOPIC_CLARIFICATION_MARKER_CHILD
   }
-  return [
-    'I may not have understood — could you please clarify what you had in mind?',
-    TOPIC_CLARIFICATION_MARKER_ADULT,
-    'Reply with 1, 2, or 3 — or write your choice briefly.',
-  ].join('\n')
+  return TOPIC_CLARIFICATION_MARKER_ADULT
 }
 
-export function isPoliteTopicClarificationAssistantMessage(content: string): boolean {
+export function isTopicClarificationAssistantMessage(content: string): boolean {
   if (!content.trim()) return false
-  if (content.includes(TOPIC_CLARIFICATION_MARKER_CHILD) || content.includes(TOPIC_CLARIFICATION_MARKER_ADULT)) {
-    return true
-  }
-  if (content.includes(LEGACY_TOPIC_CLARIFICATION_CHILD) || content.includes(LEGACY_TOPIC_CLARIFICATION_ADULT)) {
-    return true
-  }
-  // Совместимость со старым текстом переспроса (до трёх вариантов)
-  if (content.includes('Would you like to switch to a different topic, or continue with the current one?')) {
-    return true
-  }
-  if (content.includes('New topic? Or the same?')) {
-    return true
-  }
-  return false
-}
-
-export type TopicClarificationFollowupChoice = 'new_topic' | 'continue' | 'new_question'
-
-/**
- * Распознаёт ответ пользователя после переспроса: новая тема / та же тема / новый вопрос по той же теме.
- */
-export function detectTopicClarificationFollowupChoice(userText: string): TopicClarificationFollowupChoice | null {
-  const text = normalizeSpaces(userText)
-  if (!text) return null
-  const lower = text.toLowerCase()
-
-  // 1 / 2 / 3 (и «1.», «2)», «3!»)
-  const digit = /^\s*([123])\s*[.!?:)]?\s*$/i.exec(text)
-  if (digit) {
-    const n = digit[1]
-    if (n === '1') return 'new_topic'
-    if (n === '2') return 'continue'
-    return 'new_question'
-  }
-
-  if (
-    /\bnew\s+question\b/i.test(lower) ||
-    /new\s+вопрос/i.test(text) ||
-    /новый\s+вопрос/i.test(text) ||
-    /^другой\s+вопрос\s*[.!?]*$/i.test(text) ||
-    /\banother\s+question\b/i.test(lower) ||
-    /ещё\s+вопрос/i.test(text) ||
-    /еще\s+вопрос/i.test(text)
-  ) {
-    return 'new_question'
-  }
-
-  if (
-    /^(same|the same|continue|тот же|тоже|this\s+topic|this\s+one)\s*[.!?]*$/i.test(text) ||
-    /^(same|the same)\s+topic\s*[.!?]*$/i.test(text) ||
-    /^\s*продолж(?:ить|им)?\s*[.!?]*$/i.test(text)
-  ) {
-    return 'continue'
-  }
-
-  if (
-    /^(new\s+topic|новая\s+тема|another\s+topic)\s*[.!?]*$/i.test(text) ||
-    /^new\s*$/i.test(text)
-  ) {
-    return 'new_topic'
-  }
-
-  return null
+  return content.includes(TOPIC_CLARIFICATION_MARKER_CHILD) || content.includes(TOPIC_CLARIFICATION_MARKER_ADULT)
 }

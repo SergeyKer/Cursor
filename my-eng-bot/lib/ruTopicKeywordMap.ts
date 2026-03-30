@@ -112,3 +112,42 @@ export const RU_TOPIC_KEYWORD_TO_EN: Record<string, string> = {
 export function normalizeTopicToken(token: string): string {
   return token.toLowerCase().replace(/^[^a-zа-яё]+|[^a-zа-яё]+$/gi, '')
 }
+
+function pushCandidate(candidates: string[], candidate: string): void {
+  if (!candidate) return
+  if (!candidates.includes(candidate)) candidates.push(candidate)
+}
+
+/**
+ * Нормализует русскую словоформу до словарного ключа темы, если это безопасно.
+ * Если уверенного совпадения нет, возвращает обычный normalizeTopicToken().
+ */
+export function normalizeRuTopicKeyword(token: string): string {
+  const normalized = normalizeTopicToken(token)
+  if (!normalized) return ''
+  if (RU_TOPIC_KEYWORD_TO_EN[normalized]) return normalized
+
+  const candidates: string[] = [normalized]
+  if (normalized.endsWith('у')) {
+    pushCandidate(candidates, `${normalized.slice(0, -1)}а`)
+    pushCandidate(candidates, normalized.slice(0, -1))
+  }
+  if (normalized.endsWith('ю')) {
+    pushCandidate(candidates, `${normalized.slice(0, -1)}я`)
+    pushCandidate(candidates, normalized.slice(0, -1))
+  }
+  if (normalized.endsWith('е')) {
+    pushCandidate(candidates, `${normalized.slice(0, -1)}а`)
+    pushCandidate(candidates, normalized.slice(0, -1))
+  }
+  if (normalized.endsWith('ой')) pushCandidate(candidates, `${normalized.slice(0, -2)}а`)
+  if (normalized.endsWith('ей')) pushCandidate(candidates, `${normalized.slice(0, -2)}я`)
+  if (normalized.endsWith('ом') || normalized.endsWith('ем')) {
+    pushCandidate(candidates, normalized.slice(0, -2))
+  }
+
+  for (const candidate of candidates) {
+    if (RU_TOPIC_KEYWORD_TO_EN[candidate]) return candidate
+  }
+  return normalized
+}

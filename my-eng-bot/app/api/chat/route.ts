@@ -54,9 +54,8 @@ import { buildAdultFullTensePool, pickWeightedFreeTalkTense } from '@/lib/freeTa
 import {
   buildPoliteTopicClarificationReply,
   detectFreeTalkTopicChange,
-  detectTopicClarificationFollowupChoice,
   isFixedTopicSwitchRequest,
-  isPoliteTopicClarificationAssistantMessage,
+  isTopicClarificationAssistantMessage,
   looksLikeFreeTalkTopicSwitchIntent,
 } from '@/lib/freeTalkTopicChange'
 import { normalizeDialogueEntityForTopic, stripLeadingAnswerVerbPhrases } from '@/lib/dialogueEntityNormalization'
@@ -75,7 +74,7 @@ import {
 import { buildMixedDialogueFallbackComment, buildMixedInputRepeatFallback } from '@/lib/mixedInputRepeatFallback'
 import { normalizeEnglishForRepeatMatch } from '@/lib/normalizeEnglishForRepeatMatch'
 import { stripFalseArticleBeforeEnglishComment } from '@/lib/stripFalseArticleBeforeEnglishComment'
-import { normalizeTopicToken, RU_TOPIC_KEYWORD_TO_EN } from '@/lib/ruTopicKeywordMap'
+import { normalizeRuTopicKeyword, normalizeTopicToken, RU_TOPIC_KEYWORD_TO_EN } from '@/lib/ruTopicKeywordMap'
 import { buildNextFreeTalkQuestionFromContext } from '@/lib/freeTalkContextNextQuestion'
 import { enrichDialogueCommentWithTypoHints } from '@/lib/dialogueCommentEnrichment'
 import { applyFreeTalkTopicChoiceTenseAnchorFallback } from '@/lib/freeTalkTopicChoiceAnchorFallback'
@@ -748,7 +747,7 @@ function buildFreeTalkTopicAnchorQuestion(params: {
 function translateRuTopicKeywordsToEn(keywords: string[]): string[] {
   const translated: string[] = []
   for (const keyword of keywords) {
-    const normalized = normalizeTopicToken(keyword)
+    const normalized = normalizeRuTopicKeyword(keyword)
     if (!normalized) continue
     const mapped = RU_TOPIC_KEYWORD_TO_EN[normalized]
     if (!mapped) continue
@@ -756,6 +755,24 @@ function translateRuTopicKeywordsToEn(keywords: string[]): string[] {
     if (translated.length >= 8) break
   }
   return translated
+}
+
+function extractUnifiedTopicKeywords(text: string): string[] {
+  const { en, ru } = extractTopicChoiceKeywordsByLang(text)
+  const keywords = [...en, ...translateRuTopicKeywordsToEn(ru)]
+  return Array.from(new Set(keywords.map((k) => normalizeTopicToken(k)).filter(Boolean)))
+}
+
+/**
+ * Короткий сигнал темы (одно слово или смешанный дубль одной темы: "лес forest").
+ * Нужен для контекстной проверки в продолжении free_talk без автопереключения темы.
+ */
+function extractShortTopicCueKeyword(userText: string): string | null {
+  const words = userText.match(/[A-Za-zА-Яа-яЁё']+/g) ?? []
+  if (words.length === 0 || words.length > 2) return null
+  const keywords = extractUnifiedTopicKeywords(userText)
+  if (keywords.length !== 1) return null
+  return keywords[0] ?? null
 }
 
 function ensureFreeTalkTopicChoiceQuestionAnchorsUser(params: {
@@ -3795,38 +3812,32 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    let topicClarificationFollowupHint = ''
-    if (
-      mode === 'dialogue' &&
-      topic === 'free_talk' &&
-      !isFirstTurn &&
-      !isTopicChoiceTurn &&
-      lastAssistantForInference &&
-      isPoliteTopicClarificationAssistantMessage(lastAssistantForInference)
-    ) {
-      const clarificationChoice = detectTopicClarificationFollowupChoice(lastUserText)
-      if (clarificationChoice === 'new_topic') {
-        return NextResponse.json({
-          content:
-            audience === 'child'
-              ? 'OK. What do you want to talk about? Say it in English.'
-              : 'What would you like to talk about? Please name the topic in English.',
-          dialogueCorrect: true,
-        })
-      }
-      if (clarificationChoice === 'continue') {
-        topicClarificationFollowupHint =
-          '\n\nIMPORTANT: The user chose to CONTINUE the same topic. Ask one natural follow-up question in English on the same established topic.'
-      } else if (clarificationChoice === 'new_question') {
-        topicClarificationFollowupHint =
-          '\n\nIMPORTANT: The user asked for a NEW QUESTION on the SAME topic (not a new topic). Ask a different question about the same topic; do not repeat the previous question.'
-      }
-    }
-
     const topicChangeDetection =
       mode === 'dialogue' && topic === 'free_talk' && !isFirstTurn && !isTopicChoiceTurn
         ? detectFreeTalkTopicChange(lastUserText)
         : { isTopicChange: false, topicHintText: null as string | null, needsClarification: false }
+
+    const buildFreeTalkTopicSwitchResponse = (keywords: string[], seedSuffix: string) => {
+      const topicLabel = buildFreeTalkTopicLabel(keywords)
+      const followUpQuestion = buildFreeTalkTopicAnchorQuestion({
+        keywords,
+        tense: tutorGradingTense,
+        audience,
+        diversityKey: `${recentMessages.length}|${lastUserText}|${seedSuffix}`,
+        recentAssistantQuestions: extractRecentAssistantQuestions(recentMessages, 3),
+      })
+      const acknowledgement = buildFreeTalkTopicAcknowledgement({
+        audience,
+        level,
+        topicLabel,
+        seedText: `${recentMessages.length}|${lastUserText}|${seedSuffix}`,
+        lastAssistantContent: lastAssistantForInference,
+      })
+      return NextResponse.json({
+        content: `${acknowledgement}\n${followUpQuestion}`,
+        dialogueCorrect: true,
+      })
+    }
 
     if (topicChangeDetection.isTopicChange) {
       if (topicChangeDetection.needsClarification) {
@@ -3841,31 +3852,36 @@ export async function POST(req: NextRequest) {
       const keywords = en.length > 0 ? en : translateRuTopicKeywordsToEn(ru)
 
       if (keywords.length > 0) {
-        const topicLabel = buildFreeTalkTopicLabel(keywords)
-        const followUpQuestion = buildFreeTalkTopicAnchorQuestion({
-          keywords,
-          tense: tutorGradingTense,
-          audience,
-          diversityKey: `${recentMessages.length}|${lastUserText}|topic-change`,
-          recentAssistantQuestions: extractRecentAssistantQuestions(recentMessages, 3),
-        })
-        const acknowledgement = buildFreeTalkTopicAcknowledgement({
-          audience,
-          level,
-          topicLabel,
-          seedText: `${recentMessages.length}|${lastUserText}|topic-change`,
-          lastAssistantContent: lastAssistantForInference,
-        })
-        return NextResponse.json({
-          content: `${acknowledgement}\n${followUpQuestion}`,
-          dialogueCorrect: true,
-        })
+        return buildFreeTalkTopicSwitchResponse(keywords, 'topic-change')
       }
 
       return NextResponse.json({
         content: buildPoliteTopicClarificationReply(audience),
         dialogueCorrect: true,
       })
+    }
+
+    if (mode === 'dialogue' && topic === 'free_talk' && !isFirstTurn && !isTopicChoiceTurn) {
+      const shortCueKeyword = extractShortTopicCueKeyword(lastUserText)
+      if (shortCueKeyword) {
+        const askedForTopicClarification =
+          lastAssistantForInference != null && isTopicClarificationAssistantMessage(lastAssistantForInference)
+        if (askedForTopicClarification) {
+          return buildFreeTalkTopicSwitchResponse([shortCueKeyword], 'topic-short-cue')
+        }
+
+        const lastAssistantQuestion = lastAssistantForInference
+          ? extractLastDialogueQuestionLine(lastAssistantForInference)
+          : null
+        const lastQuestionKeywords = lastAssistantQuestion ? extractUnifiedTopicKeywords(lastAssistantQuestion) : []
+        const looksLikeSameTopic = lastQuestionKeywords.includes(shortCueKeyword)
+        if (!looksLikeSameTopic) {
+          return NextResponse.json({
+            content: buildPoliteTopicClarificationReply(audience),
+            dialogueCorrect: true,
+          })
+        }
+      }
     }
 
     if (mode === 'dialogue' && topic !== 'free_talk' && !isFirstTurn && isFixedTopicSwitchRequest(lastUserText)) {
@@ -4145,19 +4161,21 @@ export async function POST(req: NextRequest) {
       return `\n\nFREE-TALK ESTABLISHED TOPIC: The user chose the topic earlier. Key topic phrase: ${buildFreeTalkTopicLabel(keywords)}. Continue asking questions about this topic.
 
 Topic change rule (free talk only): The user may change the topic at any time. Recognize these patterns as a topic change request:
-- A single word or short phrase naming a new topic (English or Russian): "река", "cats", "space", "музыка"
 - Explicit English request: "Let's talk about ...", "I want to talk about ...", "Can we talk about ...?", "Something else"
 - Explicit Russian request: "Давай поговорим о ...", "Давай сменим тему", "Другая тема", "Хочу поговорить о ..."
 - Mixed request: "Let's talk давай о реках"
-When you detect a topic change: do NOT output "Комментарий:" or "Повтори:". If a new topic is named, ask one question about it in the required tense (follow the same natural question style). If no specific topic is named, ask "What would you like to talk about now?". This rule overrides the mixed-input correction rule and topic retention for this message only.`
+Short single-word cue rule: if user sends only one topic word (e.g. "forest", "лес"), do NOT auto-switch topic blindly. Use context:
+- if context clearly confirms topic switch, switch;
+- if it matches current topic, continue this topic;
+- if ambiguous, ask a short clarification about intended topic.
+When you detect a confirmed topic change: do NOT output "Комментарий:" or "Повтори:". If a new topic is named, ask one question about it in the required tense (follow the same natural question style). If no specific topic is named, ask a short clarification asking which topic they want. This rule overrides the mixed-input correction rule and topic retention for this message only.`
     })()
     const systemContent =
       topicChoicePrefix +
       systemPrompt +
       dialogueInferredTenseHint +
       freeTalkPromptSuffix +
-      freeTalkTopicHint +
-      topicClarificationFollowupHint
+      freeTalkTopicHint
 
     // При пустом диалоге добавляем одно сообщение пользователя: часть провайдеров требует хотя бы один user turn
     const userTurnMessages =
