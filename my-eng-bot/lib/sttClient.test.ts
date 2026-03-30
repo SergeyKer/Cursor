@@ -11,13 +11,13 @@ describe('sttClient', () => {
     ).toBe(true)
   })
 
-  it('prefers browser speech path on iOS Chrome when available', () => {
+  it('forces MediaRecorder fallback on iOS Chrome', () => {
     expect(
       shouldUseMediaRecorderFallback({
         hasSpeechRecognition: true,
         userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 CriOS/124.0 Mobile/15E148 Safari/604.1',
       })
-    ).toBe(false)
+    ).toBe(true)
   })
 
   it('keeps browser speech path on desktop Chrome', () => {
@@ -29,14 +29,30 @@ describe('sttClient', () => {
     ).toBe(false)
   })
 
+  it('does not force fallback on iOS Safari when speech recognition exists', () => {
+    expect(
+      shouldUseMediaRecorderFallback({
+        hasSpeechRecognition: true,
+        userAgent:
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1',
+      })
+    ).toBe(false)
+  })
+
   it('maps locale to stt lang', () => {
     expect(sttLangFromLocale('ru-RU')).toBe('ru')
     expect(sttLangFromLocale('en-US')).toBe('en')
   })
 
-  it('picks first supported mime type', () => {
+  it('prefers mp4 mime type when available', () => {
     const supported = new Set(['audio/mp4'])
     const picked = pickRecordingMimeType((mime) => supported.has(mime))
     expect(picked).toBe('audio/mp4')
+  })
+
+  it('falls back to webm when mp4 is unavailable', () => {
+    const supported = new Set(['audio/webm;codecs=opus'])
+    const picked = pickRecordingMimeType((mime) => supported.has(mime))
+    expect(picked).toBe('audio/webm;codecs=opus')
   })
 })

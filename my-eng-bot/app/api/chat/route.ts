@@ -52,8 +52,11 @@ import { validateDialogueRussianNaturalness } from '@/lib/dialogueRussianNatural
 import { validateDialogueMixedInputOutput } from '@/lib/dialogueMixedInputGuard'
 import { buildAdultFullTensePool, pickWeightedFreeTalkTense } from '@/lib/freeTalkDialogueTense'
 import {
+  buildPoliteTopicClarificationReply,
   detectFreeTalkTopicChange,
+  detectTopicClarificationFollowupChoice,
   isFixedTopicSwitchRequest,
+  isPoliteTopicClarificationAssistantMessage,
   looksLikeFreeTalkTopicSwitchIntent,
 } from '@/lib/freeTalkTopicChange'
 import { normalizeDialogueEntityForTopic, stripLeadingAnswerVerbPhrases } from '@/lib/dialogueEntityNormalization'
@@ -2755,6 +2758,8 @@ function getLastWeatherLocationQuery(messages: ChatMessage[]): string | null {
   for (let i = messages.length - 2; i >= 0; i--) {
     const message = messages[i]
     if (!message || message.role !== 'user') continue
+    if (isWeatherFollowupRequest(message.content)) continue
+    if (!isWeatherForecastRequest(message.content)) continue
 
     const locationQuery = extractWeatherLocationQuery(message.content)
     if (locationQuery) {
@@ -3788,6 +3793,34 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    let topicClarificationFollowupHint = ''
+    if (
+      mode === 'dialogue' &&
+      topic === 'free_talk' &&
+      !isFirstTurn &&
+      !isTopicChoiceTurn &&
+      lastAssistantForInference &&
+      isPoliteTopicClarificationAssistantMessage(lastAssistantForInference)
+    ) {
+      const clarificationChoice = detectTopicClarificationFollowupChoice(lastUserText)
+      if (clarificationChoice === 'new_topic') {
+        return NextResponse.json({
+          content:
+            audience === 'child'
+              ? 'OK. What do you want to talk about? Say it in English.'
+              : 'What would you like to talk about? Please name the topic in English.',
+          dialogueCorrect: true,
+        })
+      }
+      if (clarificationChoice === 'continue') {
+        topicClarificationFollowupHint =
+          '\n\nIMPORTANT: The user chose to CONTINUE the same topic. Ask one natural follow-up question in English on the same established topic.'
+      } else if (clarificationChoice === 'new_question') {
+        topicClarificationFollowupHint =
+          '\n\nIMPORTANT: The user asked for a NEW QUESTION on the SAME topic (not a new topic). Ask a different question about the same topic; do not repeat the previous question.'
+      }
+    }
+
     const topicChangeDetection =
       mode === 'dialogue' && topic === 'free_talk' && !isFirstTurn && !isTopicChoiceTurn
         ? detectFreeTalkTopicChange(lastUserText)
@@ -3796,7 +3829,7 @@ export async function POST(req: NextRequest) {
     if (topicChangeDetection.isTopicChange) {
       if (topicChangeDetection.needsClarification) {
         return NextResponse.json({
-          content: audience === 'child' ? 'What do you want to talk about now?' : 'What would you like to talk about now?',
+          content: buildPoliteTopicClarificationReply(audience),
           dialogueCorrect: true,
         })
       }
@@ -3828,7 +3861,7 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json({
-        content: audience === 'child' ? 'What do you want to talk about now?' : 'What would you like to talk about now?',
+        content: buildPoliteTopicClarificationReply(audience),
         dialogueCorrect: true,
       })
     }
@@ -4116,7 +4149,13 @@ Topic change rule (free talk only): The user may change the topic at any time. R
 - Mixed request: "Let's talk давай о реках"
 When you detect a topic change: do NOT output "Комментарий:" or "Повтори:". If a new topic is named, ask one question about it in the required tense (follow the same natural question style). If no specific topic is named, ask "What would you like to talk about now?". This rule overrides the mixed-input correction rule and topic retention for this message only.`
     })()
-    const systemContent = topicChoicePrefix + systemPrompt + dialogueInferredTenseHint + freeTalkPromptSuffix + freeTalkTopicHint
+    const systemContent =
+      topicChoicePrefix +
+      systemPrompt +
+      dialogueInferredTenseHint +
+      freeTalkPromptSuffix +
+      freeTalkTopicHint +
+      topicClarificationFollowupHint
 
     // При пустом диалоге добавляем одно сообщение пользователя: часть провайдеров требует хотя бы один user turn
     const userTurnMessages =

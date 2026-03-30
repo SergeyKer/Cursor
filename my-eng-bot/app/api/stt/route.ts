@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
     const text = await transcribeWithOpenAI({
       audioBlob: audio,
-      fileName: 'speech.webm',
+      fileName: audio instanceof File && audio.name ? audio.name : 'speech.webm',
       language: lang,
     })
 

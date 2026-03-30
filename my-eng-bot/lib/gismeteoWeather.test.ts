@@ -1,10 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { callGismeteoWeatherAnswer } from '@/lib/gismeteoWeather'
+import { callGismeteoWeatherAnswer, extractWeatherLocationQuery } from '@/lib/gismeteoWeather'
 import { fetchWithProxyFallback } from '@/lib/proxyFetch'
 
 vi.mock('@/lib/proxyFetch', () => ({
   fetchWithProxyFallback: vi.fn(),
 }))
+
+describe('extractWeatherLocationQuery', () => {
+  it('extracts St Petersburg and drops temporal tail', () => {
+    expect(extractWeatherLocationQuery('tell me the weather in St Petersburg in 3 days')).toBe('St Petersburg')
+  })
+
+  it('extracts London from forecast requests with horizon', () => {
+    expect(extractWeatherLocationQuery('weather forecast for London next week')).toBe('London')
+  })
+
+  it('keeps russian location extraction stable', () => {
+    expect(extractWeatherLocationQuery('Какая погода на 3 дня в Санкт-Петербурге?')).toBe('Санкт-Петербурге')
+  })
+})
 
 describe('callGismeteoWeatherAnswer', () => {
   const mockedFetchWithProxyFallback = vi.mocked(fetchWithProxyFallback)
@@ -521,6 +535,106 @@ describe('callGismeteoWeatherAnswer', () => {
       {
         title: 'Gismeteo: Красногорск',
         url: 'https://www.gismeteo.ru/weather-krasnogorsk-11442/now/',
+      },
+    ])
+  })
+
+  it('pins Волосово to Клин urban district in Moscow oblast', async () => {
+    mockedFetchWithProxyFallback
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            meta: { status: true },
+            data: [
+              {
+                id: 4080,
+                slug: 'volosovo',
+                country: { code: 'RU' },
+                district: { slug: 'leningrad-oblast' },
+                subdistrict: { slug: 'volosovsky-district' },
+                translations: { ru: { city: { name: 'Волосово', nameP: 'в Волосово' } } },
+              },
+              {
+                id: 166961,
+                slug: 'volosovo',
+                country: { code: 'RU' },
+                district: { slug: 'moscow-oblast' },
+                subdistrict: { slug: 'klin-urban-district' },
+                translations: { ru: { city: { name: 'Волосово', nameP: 'в Волосово' } } },
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          '<script>"weather":{"cw":{"description":["Безоблачно"],"humidity":[40],"pressure":[742],"temperatureAir":[12],"temperatureFeelsLike":[12],"windSpeed":[1]},"schema":[]}</script>',
+          { status: 200 }
+        )
+      )
+
+    const result = await callGismeteoWeatherAnswer({
+      query: 'Какая погода сейчас в Волосово?',
+      language: 'ru',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.sources).toEqual([
+      {
+        title: 'Gismeteo: Волосово',
+        url: 'https://www.gismeteo.ru/weather-volosovo-166961/now/',
+      },
+    ])
+  })
+
+  it('pins Ногово to Клин urban district in Moscow oblast', async () => {
+    mockedFetchWithProxyFallback
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            meta: { status: true },
+            data: [
+              {
+                id: 999001,
+                slug: 'nogovo',
+                country: { code: 'RU' },
+                district: { slug: 'another-oblast' },
+                subdistrict: { slug: 'another-district' },
+                translations: { ru: { city: { name: 'Ногово', nameP: 'в Ногово' } } },
+              },
+              {
+                id: 167067,
+                slug: 'nogovo',
+                country: { code: 'RU' },
+                district: { slug: 'moscow-oblast' },
+                subdistrict: { slug: 'klin-urban-district' },
+                translations: { ru: { city: { name: 'Ногово', nameP: 'в Ногово' } } },
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          '<script>"weather":{"cw":{"description":["Облачно"],"humidity":[65],"pressure":[739],"temperatureAir":[7],"temperatureFeelsLike":[6],"windSpeed":[3]},"schema":[]}</script>',
+          { status: 200 }
+        )
+      )
+
+    const result = await callGismeteoWeatherAnswer({
+      query: 'Какая погода сейчас в Ногово?',
+      language: 'ru',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.sources).toEqual([
+      {
+        title: 'Gismeteo: Ногово',
+        url: 'https://www.gismeteo.ru/weather-nogovo-167067/now/',
       },
     ])
   })

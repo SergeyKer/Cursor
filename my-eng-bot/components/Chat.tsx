@@ -400,6 +400,10 @@ export default function Chat({
     }
 
     const startMediaRecorderFallback = async (locale: 'ru-RU' | 'en-US') => {
+      if (!window.isSecureContext) {
+        setInput('[Голосовой ввод работает только в защищённом контексте (HTTPS).]')
+        return
+      }
       if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
         setInput('[Распознавание речи не поддерживается в этом браузере]')
         return
@@ -407,7 +411,6 @@ export default function Chat({
 
       stopMediaRecorderSession()
       setInput('')
-      setListening(true)
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -416,6 +419,7 @@ export default function Chat({
         const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
         mediaRecorderRef.current = recorder
         mediaChunksRef.current = []
+        setListening(true)
 
         recorder.ondataavailable = (e: BlobEvent) => {
           if (e.data && e.data.size > 0) {
@@ -435,9 +439,11 @@ export default function Chat({
           setListening(false)
           if (!chunks.length) return
 
-          const blob = new Blob(chunks, { type: mimeType ?? 'audio/webm' })
+          const effectiveMimeType = mimeType || recorder.mimeType || 'application/octet-stream'
+          const blob = new Blob(chunks, { type: effectiveMimeType })
+          const fileName = effectiveMimeType.includes('mp4') ? 'speech.mp4' : effectiveMimeType.includes('webm') ? 'speech.webm' : 'speech.wav'
           const formData = new FormData()
-          formData.append('audio', blob, mimeType?.includes('mp4') ? 'speech.mp4' : 'speech.webm')
+          formData.append('audio', blob, fileName)
           formData.append('lang', sttLangFromLocale(locale))
 
           try {
@@ -462,10 +468,26 @@ export default function Chat({
             mediaRecorderRef.current.stop()
           }
         }, MEDIA_FALLBACK_MAX_MS)
-      } catch {
+      } catch (error) {
         stopMediaRecorderSession()
         setListening(false)
-        setInput('[Нет доступа к микрофону. Разрешите микрофон для этого сайта и попробуйте снова.]')
+        const code =
+          (error as { name?: string; message?: string }).name ??
+          (error as { message?: string }).message ??
+          ''
+        if (/notallowederror|permission/i.test(code.toLowerCase())) {
+          setInput('[Нет доступа к микрофону. Разрешите микрофон для этого сайта и попробуйте снова.]')
+          return
+        }
+        if (/notfounderror|devicesnotfounderror/i.test(code.toLowerCase())) {
+          setInput('[Микрофон не найден на устройстве.]')
+          return
+        }
+        if (/security|secure/i.test(code.toLowerCase())) {
+          setInput('[Голосовой ввод работает только в защищённом контексте (HTTPS).]')
+          return
+        }
+        setInput('[Не удалось записать аудио. Попробуйте ещё раз.]')
       }
     }
 

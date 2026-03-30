@@ -60,6 +60,7 @@ const CURRENT_INFO_PATTERNS = [
   /документаци[яи]/i,
   /обновлен[ияе]/i,
   /ваканси[яй]/i,
+  /рейтинг/i,
   /температур[а-яё]*/i,
   /погод[а-яё]*/i,
   /\blatest\b/i,
@@ -96,6 +97,9 @@ const CURRENT_INFO_PATTERNS = [
   /\btemperature\b/i,
   /\bexchange\s+rate\b/i,
   /\bjob\s+openings?\b/i,
+  /\branking\b/i,
+  /\brank(?:ed|ing)?\b/i,
+  /\bposition\s+in\s+(?:the\s+)?rankings?\b/i,
 ]
 
 const WEATHER_BASE_PATTERNS = [
@@ -158,6 +162,7 @@ const RECENCY_SENSITIVE_PATTERNS = [
   /прогноз/i,
   /паводк/i,
   /наводнен/i,
+  /рейтинг/i,
   /\blatest\b/i,
   /\bcurrent\b/i,
   /\bright\s+now\b/i,
@@ -180,6 +185,9 @@ const RECENCY_SENSITIVE_PATTERNS = [
   /\bwhat\s+is\s+planned\b/i,
   /\bforecast\b/i,
   /\bflood(?:s|ing)?\b/i,
+  /\branking\b/i,
+  /\brank(?:ed|ing)?\b/i,
+  /\bposition\s+in\s+(?:the\s+)?rankings?\b/i,
   /\bseason\s+(?:start|starts|begin|begins)\b/i,
   /\bstart\s+date\b/i,
 ]

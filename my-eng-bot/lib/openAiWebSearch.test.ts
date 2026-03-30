@@ -51,6 +51,7 @@ describe('shouldUseOpenAiWebSearch', () => {
     expect(shouldUseOpenAiWebSearch('когда следующий матч спартака')).toBe(true)
     expect(shouldUseOpenAiWebSearch('кто будущий тренер спартака')).toBe(true)
     expect(shouldUseOpenAiWebSearch('когда ближайший матч спартака')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('на каком месте по рейтингу сейчас Яшин')).toBe(true)
   })
 
   it('detects balanced recency phrases in English', () => {
@@ -65,6 +66,7 @@ describe('shouldUseOpenAiWebSearch', () => {
     expect(shouldUseOpenAiWebSearch('when is the next match')).toBe(true)
     expect(shouldUseOpenAiWebSearch('who is the upcoming head coach')).toBe(true)
     expect(shouldUseOpenAiWebSearch('upcoming launch date')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('what is his ranking now')).toBe(true)
   })
 
   it('does not trigger on general knowledge', () => {
@@ -91,6 +93,8 @@ describe('isRecencySensitiveRequest', () => {
     expect(isRecencySensitiveRequest('когда следующий матч спартака')).toBe(true)
     expect(isRecencySensitiveRequest('who is the upcoming coach')).toBe(true)
     expect(isRecencySensitiveRequest('кто последний чемпион россии по футболу')).toBe(true)
+    expect(isRecencySensitiveRequest('текущий рейтинг вратарей')).toBe(true)
+    expect(isRecencySensitiveRequest('what is his current ranking position')).toBe(true)
   })
 
   it('does not trigger on generic questions', () => {

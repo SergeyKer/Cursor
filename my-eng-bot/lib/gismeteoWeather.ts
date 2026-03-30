@@ -9,6 +9,12 @@ type GismeteoCity = {
   country?: {
     code?: string
   }
+  district?: {
+    slug?: string
+  }
+  subdistrict?: {
+    slug?: string
+  }
   translations?: {
     ru?: {
       city?: {
@@ -35,6 +41,10 @@ type WeatherQueryContext = {
 }
 
 const GISMETEO_BASE_URL = 'https://www.gismeteo.ru'
+const GISMETEO_PINNED_CITY_BY_QUERY: Record<string, { id: number; districtSlug: string; subdistrictSlug: string }> = {
+  волосово: { id: 166961, districtSlug: 'moscow-oblast', subdistrictSlug: 'klin-urban-district' },
+  ногово: { id: 167067, districtSlug: 'moscow-oblast', subdistrictSlug: 'klin-urban-district' },
+}
 
 function normalizeText(text: string): string {
   return text.trim().replace(/\s+/g, ' ')
@@ -255,28 +265,35 @@ export function extractWeatherLocationQuery(text: string): string | null {
   const normalized = normalizeText(text)
   if (!normalized) return null
 
+  const weatherNoisePattern =
+    /\b(?:сейчас|сегодня|завтра|послезавтра|weather|forecast|прогноз(?:\s+погоды)?|погода|температур[а-яё]*|current|today|tomorrow|next\s+week|next\s+month|на\s+3\s*дн(?:я|ей)|на\s+недел(?:ю|е)|на\s+месяц)\b/gi
+  const temporalTailPattern =
+    /\b(?:in\s+\d+\s*(?:days?|weeks?|months?)|next\s+\d+\s*(?:days?|weeks?|months?)|in\s+\d+\s*(?:дн(?:я|ей)|недел[юи]|месяц(?:а|е)?)|через\s+\d+\s*(?:дн(?:я|ей)|недел[юи]|месяц(?:а|ев)?))\b/gi
+  const trailingConnectorPattern = /(?:\s+(?:в|для|по|на|in|for|at|on|to))+\s*$/i
+
+  const normalizeLocationCandidate = (value: string): string => {
+    return normalizeText(
+      value
+        .replace(weatherNoisePattern, ' ')
+        .replace(temporalTailPattern, ' ')
+        .replace(/[,.!?;:]+/g, ' ')
+        .replace(/^(?:the|a|an)\s+/i, '')
+        .replace(trailingConnectorPattern, ' ')
+    )
+  }
+
   const tailMatch = normalized.match(/(?:^|\s)(?:в|для|по|in|for)\s+(.+)$/i)
   if (tailMatch?.[1]) {
-    const tail = tailMatch[1]
-      .replace(
-        /\b(?:сейчас|сегодня|завтра|послезавтра|weather|forecast|прогноз(?:\s+погоды)?|погода|температур[а-яё]*|current|today|tomorrow|next\s+week|next\s+month|на\s+3\s*дн(?:я|ей)|на\s+недел(?:ю|е)|на\s+месяц)\b/gi,
-        ' '
-      )
-      .replace(/[,.!?;:]+/g, ' ')
-
-    const tailTokens = tail.split(/\s+/).map((token) => token.trim()).filter(Boolean)
-    const candidate = tailTokens.slice(-3).join(' ')
+    const candidate = normalizeLocationCandidate(tailMatch[1])
     if (candidate) return normalizeText(candidate)
   }
 
-  const cleaned = normalized
+  const cleaned = normalizeLocationCandidate(
+    normalized
     .replace(/\b(?:какая|какой|какое|какие|какова|what\s+is|what's|what\s+will\s+be)\b/gi, ' ')
-    .replace(/\b(?:погода|weather|forecast|прогноз(?:\s+погоды)?|температур[а-яё]*)\b/gi, ' ')
-    .replace(/\b(?:сейчас|сегодня|завтра|послезавтра|tomorrow|today|next\s+week|next\s+month|на\s+3\s*дн(?:я|ей)|на\s+недел(?:ю|е)|на\s+месяц)\b/gi, ' ')
-    .replace(/[?.!,;:]+/g, ' ')
+  )
 
-  const fallback = normalizeText(cleaned)
-  return fallback || null
+  return cleaned || null
 }
 
 function detectWeatherPeriod(text: string): WeatherPeriod {
@@ -696,6 +713,18 @@ async function resolveGismeteoCity(query: string): Promise<GismeteoCity> {
   const lookupUrl = `${GISMETEO_BASE_URL}/mq/city/q/?q=${encodeURIComponent(normalized)}&geo=ru`
   const result = await fetchJson<GismeteoCitySearchResponse>(lookupUrl)
   const cities = result.data ?? []
+  const normalizedQueryKey = normalizeLetters(normalized)
+  const pinned = GISMETEO_PINNED_CITY_BY_QUERY[normalizedQueryKey]
+  if (pinned) {
+    const pinnedCity = cities.find(
+      (city) =>
+        city.id === pinned.id &&
+        city.district?.slug === pinned.districtSlug &&
+        city.subdistrict?.slug === pinned.subdistrictSlug
+    )
+    if (pinnedCity) return pinnedCity
+  }
+
   const queryVariants = buildQueryVariants(normalized)
   const ranked = cities
     .filter((city) => Boolean(city?.id) && Boolean(city.slug))
