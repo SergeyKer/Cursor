@@ -1883,6 +1883,26 @@ function hasRobotPhrasing(text: string): boolean {
   return /\brelated to\b|\bwhen it comes to\b|\bin terms of\b|\bregarding\b/i.test(t)
 }
 
+/**
+ * Фильтрует явные "сломанности" вопроса модели (пример: "birts birds"),
+ * чтобы триггерить repair вместо показа такого текста пользователю.
+ */
+function hasSuspiciousQuestionWordPair(lines: string[]): boolean {
+  for (const line of lines) {
+    if (!isEnglishQuestionLine(line)) continue
+    const words = (line.toLowerCase().match(/[a-z']+/g) ?? []).filter((w) => w.length >= 4)
+    for (let i = 0; i < words.length - 1; i++) {
+      const a = words[i] ?? ''
+      const b = words[i + 1] ?? ''
+      if (!a || !b || a === b) continue
+      if (a.slice(0, 3) !== b.slice(0, 3)) continue
+      if (Math.abs(a.length - b.length) > 1) continue
+      if (levenshteinDistance(a, b) === 1) return true
+    }
+  }
+  return false
+}
+
 function isValidTutorOutput(params: {
   content: string
   mode: string
@@ -1916,6 +1936,7 @@ function isValidTutorOutput(params: {
   if (lines.length === 0) return false
   if (lines.some((l) => hasLeakMarkers(l))) return false
   if (lines.some((l) => hasRobotPhrasing(l))) return false
+  if (hasSuspiciousQuestionWordPair(lines)) return false
   if (
     !isDialogueOutputLikelyInRequiredTense({
       content: raw,
@@ -4716,6 +4737,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             content: sanitized,
           })
         : { ok: true }
+    const isMixedDialogueInput = mode === 'dialogue' && isMixedLatinCyrillicText(lastUserContentForResponse)
     const userClosedForcedRepeat =
       !forcedRepeatSentence ||
       isDialogueAnswerEffectivelyCorrect(lastUserContentForResponse, forcedRepeatSentence, tutorGradingTense)
@@ -4726,6 +4748,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       !isTopicChoiceTurn &&
       Boolean(freeTalkExpectedNextQuestionTense) &&
       tenseValidation.reason === 'next_question_tense_mismatch' &&
+      !isMixedDialogueInput &&
       isUserLikelyCorrectForTense(lastUserContentForResponse, tutorGradingTense) &&
       userClosedForcedRepeat
 
@@ -4959,7 +4982,6 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         })
       }
       if (mode === 'dialogue' && !isFirstTurn && !isTopicChoiceTurn && !isLowSignalDialogueInput(lastUserContentForResponse)) {
-        const isMixedDialogueInput = isMixedLatinCyrillicText(lastUserContentForResponse)
         if (!isMixedDialogueInput && userClosedForcedRepeat && isUserLikelyCorrectForTense(lastUserContentForResponse, tutorGradingTense)) {
           return NextResponse.json({
             content: fallbackNextQuestion({
