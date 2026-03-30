@@ -344,7 +344,35 @@ export default function Chat({
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const mediaChunksRef = useRef<BlobPart[]>([])
   const mediaStopTimerRef = useRef<number | null>(null)
+  /** Если `onstop` у MediaRecorder не сработал (редко на WebKit), принудительно освобождаем микрофон. */
+  const mediaRecorderStopFallbackTimerRef = useRef<number | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
+
+  const releaseMediaRecorderResources = useCallback(() => {
+    if (mediaStopTimerRef.current != null) {
+      window.clearTimeout(mediaStopTimerRef.current)
+      mediaStopTimerRef.current = null
+    }
+    if (mediaRecorderStopFallbackTimerRef.current != null) {
+      window.clearTimeout(mediaRecorderStopFallbackTimerRef.current)
+      mediaRecorderStopFallbackTimerRef.current = null
+    }
+    const rec = mediaRecorderRef.current
+    if (rec && rec.state !== 'inactive') {
+      try {
+        rec.stop()
+      } catch {
+        // ignore
+      }
+    }
+    mediaRecorderRef.current = null
+    const stream = mediaStreamRef.current
+    if (stream) {
+      for (const track of stream.getTracks()) track.stop()
+    }
+    mediaStreamRef.current = null
+    mediaChunksRef.current = []
+  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -377,29 +405,14 @@ export default function Chat({
         ? (forcedLocale ?? speechLocaleForCommunication(lastUserText, settings.communicationInputExpectedLang))
         : ('en-US' as const)
 
-    const stopMediaRecorderSession = () => {
-      if (mediaStopTimerRef.current != null) {
-        window.clearTimeout(mediaStopTimerRef.current)
-        mediaStopTimerRef.current = null
-      }
-      const rec = mediaRecorderRef.current
-      if (rec && rec.state !== 'inactive') {
-        try {
-          rec.stop()
-        } catch {
-          // ignore
-        }
-      }
-      mediaRecorderRef.current = null
-      const stream = mediaStreamRef.current
-      if (stream) {
-        for (const track of stream.getTracks()) track.stop()
-      }
-      mediaStreamRef.current = null
-      mediaChunksRef.current = []
-    }
+    const sttLangForApi: 'ru' | 'en' | 'auto' =
+      forcedLocale != null
+        ? sttLangFromLocale(forcedLocale)
+        : isCommunication
+          ? 'auto'
+          : sttLangFromLocale(preferredLocale)
 
-    const startMediaRecorderFallback = async (locale: 'ru-RU' | 'en-US') => {
+    const startMediaRecorderFallback = async (sttLang: 'ru' | 'en' | 'auto') => {
       if (!window.isSecureContext) {
         setInput('[Голосовой ввод работает только в защищённом контексте (HTTPS).]')
         return
@@ -409,7 +422,7 @@ export default function Chat({
         return
       }
 
-      stopMediaRecorderSession()
+      releaseMediaRecorderResources()
       setInput('')
 
       try {
@@ -428,14 +441,18 @@ export default function Chat({
         }
 
         recorder.onerror = () => {
-          stopMediaRecorderSession()
+          releaseMediaRecorderResources()
           setListening(false)
           setInput('[Ошибка записи аудио. Попробуйте ещё раз.]')
         }
 
         recorder.onstop = async () => {
-          const chunks = mediaChunksRef.current
-          stopMediaRecorderSession()
+          if (mediaRecorderStopFallbackTimerRef.current != null) {
+            window.clearTimeout(mediaRecorderStopFallbackTimerRef.current)
+            mediaRecorderStopFallbackTimerRef.current = null
+          }
+          const chunks = mediaChunksRef.current.slice()
+          releaseMediaRecorderResources()
           setListening(false)
           if (!chunks.length) return
 
@@ -444,7 +461,9 @@ export default function Chat({
           const fileName = effectiveMimeType.includes('mp4') ? 'speech.mp4' : effectiveMimeType.includes('webm') ? 'speech.webm' : 'speech.wav'
           const formData = new FormData()
           formData.append('audio', blob, fileName)
-          formData.append('lang', sttLangFromLocale(locale))
+          if (sttLang !== 'auto') {
+            formData.append('lang', sttLang)
+          }
 
           try {
             const res = await fetch('/api/stt', {
@@ -462,14 +481,15 @@ export default function Chat({
           }
         }
 
-        recorder.start()
+        const timesliceMs = 100
+        recorder.start(timesliceMs)
         mediaStopTimerRef.current = window.setTimeout(() => {
           if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
             mediaRecorderRef.current.stop()
           }
         }, MEDIA_FALLBACK_MAX_MS)
       } catch (error) {
-        stopMediaRecorderSession()
+        releaseMediaRecorderResources()
         setListening(false)
         const code =
           (error as { name?: string; message?: string }).name ??
@@ -493,7 +513,7 @@ export default function Chat({
 
     const startBrowserSpeechRecognition = (lang: 'ru-RU' | 'en-US') => {
       if (!SpeechRecognitionAPI) {
-        void startMediaRecorderFallback(lang)
+        void startMediaRecorderFallback(sttLangForApi)
         return
       }
 
@@ -587,7 +607,7 @@ export default function Chat({
         }
 
         if (/service-not-allowed|not-allowed|audio-capture|network/i.test(code)) {
-          void startMediaRecorderFallback(lang)
+          void startMediaRecorderFallback(sttLangForApi)
         }
       }
 
@@ -595,7 +615,7 @@ export default function Chat({
       try {
         rec.start()
       } catch {
-        void startMediaRecorderFallback(lang)
+        void startMediaRecorderFallback(sttLangForApi)
       }
     }
 
@@ -605,13 +625,20 @@ export default function Chat({
     })
 
     if (useFallback) {
-      await startMediaRecorderFallback(preferredLocale)
+      await startMediaRecorderFallback(sttLangForApi)
     } else {
       startBrowserSpeechRecognition(preferredLocale)
     }
 
     if (forcedLocale) onConsumeForceNextMicLang?.()
-  }, [settings.mode, settings.communicationInputExpectedLang, messages, forceNextMicLang, onConsumeForceNextMicLang])
+  }, [
+    settings.mode,
+    settings.communicationInputExpectedLang,
+    messages,
+    forceNextMicLang,
+    onConsumeForceNextMicLang,
+    releaseMediaRecorderResources,
+  ])
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
@@ -634,15 +661,19 @@ export default function Chat({
         // ignore
       }
     }
-    mediaRecorderRef.current = null
-    const stream = mediaStreamRef.current
-    if (stream) {
-      for (const track of stream.getTracks()) track.stop()
+    if (mediaRecorderRef.current != null) {
+      if (mediaRecorderStopFallbackTimerRef.current != null) {
+        window.clearTimeout(mediaRecorderStopFallbackTimerRef.current)
+      }
+      mediaRecorderStopFallbackTimerRef.current = window.setTimeout(() => {
+        mediaRecorderStopFallbackTimerRef.current = null
+        if (mediaStreamRef.current != null || mediaRecorderRef.current != null) {
+          releaseMediaRecorderResources()
+        }
+      }, 2500)
     }
-    mediaStreamRef.current = null
-    mediaChunksRef.current = []
     setListening(false)
-  }, [])
+  }, [releaseMediaRecorderResources])
 
   const SHOW_TYPING_DELAY_MS = 220
   const [showTypingIndicator, setShowTypingIndicator] = useState(false)

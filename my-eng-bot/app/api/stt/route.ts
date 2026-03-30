@@ -7,7 +7,9 @@ export async function POST(req: NextRequest) {
   try {
     const form = await req.formData()
     const audio = form.get('audio')
-    const lang = (form.get('lang') ?? '').toString()
+    const rawLang = (form.get('lang') ?? '').toString().trim()
+    const language =
+      rawLang === '' || rawLang.toLowerCase() === 'auto' ? undefined : rawLang
 
     if (!(audio instanceof Blob)) {
       return NextResponse.json({ error: 'Audio file is required' }, { status: 400 })
@@ -20,7 +22,7 @@ export async function POST(req: NextRequest) {
     const text = await transcribeWithOpenAI({
       audioBlob: audio,
       fileName: audio instanceof File && audio.name ? audio.name : 'speech.webm',
-      language: lang,
+      ...(language != null ? { language } : {}),
     })
 
     return NextResponse.json({ text })

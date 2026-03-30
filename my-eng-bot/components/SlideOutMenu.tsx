@@ -3,6 +3,7 @@
 import React from 'react'
 import type { Settings, UsageInfo } from '@/lib/types'
 import MenuSectionPanels, { type MenuView } from '@/components/MenuSectionPanels'
+import { SLIDE_OUT_NEW_CHAT_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 
 interface SlideOutMenuProps {
   open: boolean
@@ -81,7 +82,7 @@ export default function SlideOutMenu({
                 onNewDialog()
                 onToggle()
               }}
-              className="group mb-2 flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] py-2.5 px-4 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95"
+              className={SLIDE_OUT_NEW_CHAT_BUTTON_CLASS}
             >
               <NewChatIcon />
               <span>Новый чат</span>

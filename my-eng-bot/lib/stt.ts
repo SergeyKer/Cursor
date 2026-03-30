@@ -23,10 +23,12 @@ export function normalizeSttLanguage(lang: string | null | undefined): string {
   return 'en'
 }
 
+/** Если не передать `language`, Whisper сам определяет язык аудио. */
 export async function transcribeWithOpenAI(params: {
   audioBlob: Blob
   fileName?: string
-  language?: string
+  /** `undefined` / пусто / `auto` — без поля `language` в запросе к OpenAI. */
+  language?: string | null
 }): Promise<string> {
   const key = normalizeKey(process.env.OPENAI_API_KEY ?? '')
   if (!key) throw new SttError('missing_key', 'Missing OPENAI_API_KEY', 500)
@@ -34,9 +36,14 @@ export async function transcribeWithOpenAI(params: {
     throw new SttError('invalid_input', 'Audio blob is empty', 400)
   }
 
+  const raw = (params.language ?? '').trim().toLowerCase()
+  const useAutoLang = raw === '' || raw === 'auto'
+
   const form = new FormData()
   form.append('model', 'whisper-1')
-  form.append('language', normalizeSttLanguage(params.language))
+  if (!useAutoLang) {
+    form.append('language', normalizeSttLanguage(params.language))
+  }
   form.append('response_format', 'json')
   form.append('file', params.audioBlob, params.fileName ?? 'speech.webm')
 

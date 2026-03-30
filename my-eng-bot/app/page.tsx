@@ -38,6 +38,7 @@ import type {
   TopicId,
   UsageInfo,
 } from '@/lib/types'
+import { PAGE_HOME_START_PRIMARY_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import { parseCorrection } from '@/lib/parseCorrection'
 
 import MenuSectionPanels, { type MenuView } from '@/components/MenuSectionPanels'
@@ -57,7 +58,7 @@ function MenuIcon() {
 function CommunicationLangDirectionArrow() {
   return (
     <svg
-      className="mx-px h-[11px] w-[11px] shrink-0 translate-y-px text-[var(--text)] sm:h-3 sm:w-3 sm:translate-y-[2px]"
+      className="mx-px h-[11px] w-[11px] shrink-0 translate-y-px text-[var(--text)] sm:h-3 sm:w-3 sm:translate-y-[1.5px]"
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -1235,14 +1236,14 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => setHomeMenuView('aiChat')}
-                      className="btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]"
+                      className={PAGE_HOME_START_PRIMARY_BUTTON_CLASS}
                     >
                       Начать Чат с MyEng
                     </button>
                     <button
                       type="button"
                       onClick={() => setHomeMenuView('lessons')}
-                      className="btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]"
+                      className={PAGE_HOME_START_PRIMARY_BUTTON_CLASS}
                     >
                       Начать делать Уроки
                     </button>

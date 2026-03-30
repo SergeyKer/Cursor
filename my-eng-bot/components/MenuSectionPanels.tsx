@@ -5,6 +5,7 @@ import { manropeHome } from '@/lib/manropeHome'
 import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES, CHILD_TENSES } from '@/lib/constants'
 import type { Settings, UsageInfo, AppMode, AiProvider, TenseId, SentenceType, TopicId, LevelId } from '@/lib/types'
 import type { AiChatPanel } from '@/lib/aiChatPanel'
+import { MENU_PRIMARY_CTA_CLASS } from '@/lib/homeCtaStyles'
 
 const CHILD_TENSE_SET = new Set(CHILD_TENSES)
 
@@ -55,9 +56,6 @@ const MENU_VALUE_BOX =
 export const MENU_FIELD_LABEL =
   'shrink-0 w-[6.3rem] text-[13px] font-medium leading-normal text-[var(--text-muted)] break-words'
 
-/** Градиентная CTA: «Начать общение» и пункты главной «Чат / Уроки». */
-const MENU_PRIMARY_CTA_CLASS =
-  'flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-[15px] font-semibold leading-normal text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]'
 
 const MENU_CHOICE_TEXT_CLASS =
   "text-[15px] font-normal [font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif]"
@@ -662,3 +660,4 @@ function ChevronLeftIcon({ className }: { className?: string }) {
     </svg>
   )
 }
+
