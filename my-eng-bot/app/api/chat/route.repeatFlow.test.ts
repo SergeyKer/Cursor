@@ -509,6 +509,78 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content.toLowerCase()).not.toContain('нужно will')
   })
 
+  it('adds mixed repeat in required tense when comment asks correction without repeat', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Слово "кино" лучше сказать по-английски.',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Слово "кино" лучше сказать по-английски.',
+      })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['future_simple'],
+      messages: [
+        { role: 'assistant', content: 'What will you do after football?' },
+        { role: 'user', content: 'I go кино' },
+        { role: 'assistant', content: 'Комментарий: Используйте Future Simple.\nПовтори: I will go to the cinema.' },
+        { role: 'user', content: 'I go кино' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Повтори\s*:/i.test(line)) ?? ''
+    const repeatBody = repeatLine.replace(/^Повтори\s*:\s*/i, '').trim()
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Повтори:')
+    expect(repeatBody.toLowerCase()).toContain('will')
+    expect(/[А-Яа-яЁё]/.test(repeatBody)).toBe(false)
+  })
+
+  it('falls back to mixed comment+repeat when model repeat still contains cyrillic', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Небольшая неточность.\nПовтори: I go кино.',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Небольшая неточность.\nПовтори: I go кино.',
+      })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'Where do you go on weekends?' },
+        { role: 'user', content: 'I go кино with friends' },
+        { role: 'assistant', content: 'Комментарий: Ответ на английском.\nПовтори: I go to the cinema with friends.' },
+        { role: 'user', content: 'I go кино with friends' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Повтори\s*:/i.test(line)) ?? ''
+    const repeatBody = repeatLine.replace(/^Повтори\s*:\s*/i, '').trim()
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Повтори:')
+    expect(/[А-Яа-яЁё]/.test(repeatBody)).toBe(false)
+    expect(repeatBody.toLowerCase()).toContain('cinema')
+  })
+
   it('removes false present-simple reminder when user already uses present simple', async () => {
     callProviderChatMock
       .mockResolvedValueOnce({

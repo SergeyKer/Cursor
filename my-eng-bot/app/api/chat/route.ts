@@ -2464,7 +2464,7 @@ function ensureRepeatWhenCommentRequestsCorrection(params: {
   const fallbackRepeat = isMixedLatinCyrillicText(userText)
     ? buildMixedInputRepeatFallback({
         userText,
-        requiredTense,
+        tense: requiredTense,
       })
     : ensureSentence(userText)
 
