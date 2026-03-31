@@ -9,6 +9,7 @@ import {
   filterFreshWebSearchSources,
   formatOpenAiWebSearchAnswer,
   isRecencySensitiveRequest,
+  stripWebSearchForceCode,
   shouldUseOpenAiWebSearch,
   shouldRequestOpenAiWebSearchSources,
 } from '@/lib/openAiWebSearch'
@@ -4204,7 +4205,7 @@ export async function POST(req: NextRequest) {
       mode === 'communication'
         ? buildCommunicationMaxTokens(communicationDetailLevel, MAX_RESPONSE_TOKENS)
         : MAX_RESPONSE_TOKENS
-    const lastUserContentForResponse = lastUserText
+    const lastUserContentForResponse = stripWebSearchForceCode(lastUserText)
     const lastAssistantContentForLangTie = recentMessages.filter((m: ChatMessage) => m.role === 'assistant').pop()?.content ?? ''
     const lastAssistantLang = detectLangFromText(lastAssistantContentForLangTie, 'ru')
     const rawInputLang = body.communicationInputExpectedLang

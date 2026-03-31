@@ -5,10 +5,12 @@ import {
   embellishBareFactsAnswer,
   filterFreshWebSearchSources,
   formatOpenAiWebSearchAnswer,
+  hasWebSearchForceCode,
   isRecencySensitiveRequest,
   isWeatherForecastRequest,
   isWeatherFollowupRequest,
   normalizeWebSearchSourceUrl,
+  stripWebSearchForceCode,
   shouldRequestAllOpenAiWebSearchSources,
   shouldRequestOpenAiWebSearchSources,
   shouldUseOpenAiWebSearch,
@@ -117,6 +119,19 @@ describe('shouldUseOpenAiWebSearch', () => {
 
   it('does not treat "how long" duration as a city time query', () => {
     expect(shouldUseOpenAiWebSearch('сколько времени займёт дорога')).toBe(false)
+  })
+
+  it('forces web search by code prefix in Russian and English layouts', () => {
+    expect(shouldUseOpenAiWebSearch('Иии цены на нефть')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('Iii latest OpenAI news')).toBe(true)
+    expect(hasWebSearchForceCode('Иии цены на нефть')).toBe(true)
+    expect(hasWebSearchForceCode('Iii latest OpenAI news')).toBe(true)
+  })
+
+  it('strips force code from query before further processing', () => {
+    expect(stripWebSearchForceCode('Иии цены на нефть')).toBe('цены на нефть')
+    expect(stripWebSearchForceCode('Iii latest OpenAI news')).toBe('latest OpenAI news')
+    expect(stripWebSearchForceCode('Иии, что нового в ИИ?')).toBe('что нового в ИИ?')
   })
 })
 

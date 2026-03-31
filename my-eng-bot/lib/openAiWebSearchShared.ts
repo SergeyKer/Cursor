@@ -25,6 +25,8 @@ const EXPLICIT_WEB_SEARCH_PATTERNS = [
   /\blook\s+online\b/i,
 ]
 
+const WEB_SEARCH_FORCE_CODES = ['иии', 'iii']
+
 const CURRENT_INFO_PATTERNS = [
   /сейчас/i,
   /сегодня/i,
@@ -243,6 +245,30 @@ function normalizeText(text: string): string {
   return text.trim().replace(/\s+/g, ' ')
 }
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+export function stripWebSearchForceCode(text: string): string {
+  const normalized = normalizeText(text)
+  if (!normalized) return normalized
+  let out = normalized
+  for (const code of WEB_SEARCH_FORCE_CODES) {
+    const re = new RegExp(`^${escapeRegExp(code)}(?:[\\s,.:;!?-]+|$)`, 'i')
+    out = out.replace(re, '').trim()
+  }
+  return out
+}
+
+export function hasWebSearchForceCode(text: string): boolean {
+  const normalized = normalizeText(text)
+  if (!normalized) return false
+  return WEB_SEARCH_FORCE_CODES.some((code) => {
+    const re = new RegExp(`^${escapeRegExp(code)}(?:[\\s,.:;!?-]+|$)`, 'i')
+    return re.test(normalized)
+  })
+}
+
 function keepOnlyCelsius(text: string): string {
   let next = text
     // 45°F (7°C) -> 7°C
@@ -338,11 +364,12 @@ function detectSourcePublishedAt(source: WebSearchSource): string | undefined {
 export function shouldUseOpenAiWebSearch(text: string): boolean {
   const normalized = normalizeText(text)
   if (!normalized) return false
-  return isWebSearchRequest(normalized) || isCurrentInfoRequest(normalized)
+  const stripped = stripWebSearchForceCode(normalized)
+  return hasWebSearchForceCode(normalized) || isWebSearchRequest(stripped) || isCurrentInfoRequest(stripped)
 }
 
 export function isWeatherForecastRequest(text: string): boolean {
-  const normalized = normalizeText(text)
+  const normalized = stripWebSearchForceCode(normalizeText(text))
   if (!normalized) return false
 
   const hasWeatherBase = WEATHER_BASE_PATTERNS.some((pattern) => pattern.test(normalized))
@@ -353,25 +380,25 @@ export function isWeatherForecastRequest(text: string): boolean {
 }
 
 export function isWeatherFollowupRequest(text: string): boolean {
-  const normalized = normalizeText(text)
+  const normalized = stripWebSearchForceCode(normalizeText(text))
   if (!normalized) return false
   return WEATHER_FOLLOWUP_PATTERNS.some((pattern) => pattern.test(normalized))
 }
 
 export function isRecencySensitiveRequest(text: string): boolean {
-  const normalized = normalizeText(text)
+  const normalized = stripWebSearchForceCode(normalizeText(text))
   if (!normalized) return false
   return RECENCY_SENSITIVE_PATTERNS.some((pattern) => pattern.test(normalized))
 }
 
 export function shouldRequestOpenAiWebSearchSources(text: string): boolean {
-  const normalized = normalizeText(text)
+  const normalized = stripWebSearchForceCode(normalizeText(text))
   if (!normalized) return false
   return SOURCE_REQUEST_PATTERNS.some((pattern) => pattern.test(normalized))
 }
 
 export function shouldRequestAllOpenAiWebSearchSources(text: string): boolean {
-  const normalized = normalizeText(text)
+  const normalized = stripWebSearchForceCode(normalizeText(text))
   if (!normalized) return false
   return ALL_SOURCES_REQUEST_PATTERNS.some((pattern) => pattern.test(normalized))
 }

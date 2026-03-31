@@ -2,6 +2,7 @@ import { fetchWithProxyFallback } from '@/lib/proxyFetch'
 import {
   embellishBareFactsAnswer,
   formatOpenAiWebSearchAnswer,
+  stripWebSearchForceCode,
   normalizeWebSearchSourceUrl,
 } from '@/lib/openAiWebSearchShared'
 import type { ChatMessage } from '@/lib/types'
@@ -225,7 +226,9 @@ export async function callOpenAiWebSearchAnswer(params: {
 
   const sources = extractSourcesFromOutput(data.output)
   const lastUserContent =
-    [...params.messages].reverse().find((m) => m.role === 'user')?.content?.trim() ?? ''
+    stripWebSearchForceCode(
+      [...params.messages].reverse().find((m) => m.role === 'user')?.content?.trim() ?? ''
+    )
   const answerForFormat = embellishBareFactsAnswer({
     rawAnswer: answer,
     userQuery: lastUserContent,
