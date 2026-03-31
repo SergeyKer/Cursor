@@ -52,11 +52,7 @@ import { validateDialogueRussianNaturalness } from '@/lib/dialogueRussianNatural
 import { validateDialogueMixedInputOutput } from '@/lib/dialogueMixedInputGuard'
 import { buildAdultFullTensePool, pickWeightedFreeTalkTense } from '@/lib/freeTalkDialogueTense'
 import {
-  buildPoliteTopicClarificationReply,
-  detectFreeTalkTopicChange,
   isFixedTopicSwitchRequest,
-  isTopicClarificationAssistantMessage,
-  looksLikeFreeTalkTopicSwitchIntent,
 } from '@/lib/freeTalkTopicChange'
 import { normalizeDialogueEntityForTopic, stripLeadingAnswerVerbPhrases } from '@/lib/dialogueEntityNormalization'
 import { isNearDuplicateQuestion } from '@/lib/dialogueQuestionVariety'
@@ -64,7 +60,6 @@ import {
   buildFreeTalkTopicAnchorQuestion as buildFreeTalkTopicAnchorQuestionText,
   buildFreeTalkTopicLabel,
 } from '@/lib/freeTalkQuestionAnchor'
-import { buildFreeTalkTopicAcknowledgement } from '@/lib/freeTalkTopicAcknowledgement'
 import { buildFreeTalkFirstQuestion } from '@/lib/freeTalkFirstQuestion'
 import { resolveFreeTalkNumberedChoice } from '@/lib/freeTalkNumberedChoice'
 import {
@@ -763,17 +758,6 @@ function extractUnifiedTopicKeywords(text: string): string[] {
   return Array.from(new Set(keywords.map((k) => normalizeTopicToken(k)).filter(Boolean)))
 }
 
-/**
- * Короткий сигнал темы (одно слово или смешанный дубль одной темы: "лес forest").
- * Нужен для контекстной проверки в продолжении free_talk без автопереключения темы.
- */
-function extractShortTopicCueKeyword(userText: string): string | null {
-  const words = userText.match(/[A-Za-zА-Яа-яЁё']+/g) ?? []
-  if (words.length === 0 || words.length > 2) return null
-  const keywords = extractUnifiedTopicKeywords(userText)
-  if (keywords.length !== 1) return null
-  return keywords[0] ?? null
-}
 
 function ensureFreeTalkTopicChoiceQuestionAnchorsUser(params: {
   content: string
@@ -2016,7 +2000,6 @@ function isValidTutorOutput(params: {
       lastUserText &&
       !isFirstTurn &&
       !isTopicChoiceTurn &&
-      !looksLikeFreeTalkTopicSwitchIntent(lastUserText) &&
       !isUserLikelyCorrectForTense(lastUserText, effectiveRequiredTense)
     ) {
       return false
@@ -2192,6 +2175,316 @@ function normalizeVariantFormatting(content: string): string {
   }
 
   return out.join('\n').replace(/\n\s*\n\s*\n/g, '\n\n').replace(/^\s*\n+|\n+\s*$/g, '').trim()
+}
+
+function sanitizeDialogueQuestionArtifacts(content: string): string {
+  const withoutCodeFences = content.replace(/```[\s\S]*?```/g, '').trim()
+  if (!withoutCodeFences) return content
+  const lines = withoutCodeFences.split(/\r?\n/)
+  const normalized = lines.map((line) => {
+    if (!/[?]$/.test(line.trim())) return line
+    let q = line.replace(/[`{}[\]<>|]/g, ' ').replace(/\s+/g, ' ').trim()
+    // Remove immediate duplicated tokens: "what what", "the the", etc.
+    for (let i = 0; i < 3; i++) {
+      const next = q.replace(/\b([A-Za-z]+)\s+\1\b/gi, '$1')
+      if (next === q) break
+      q = next
+    }
+    return q
+  })
+  const cleaned: string[] = []
+  for (const line of normalized) {
+    if (cleaned.length === 0) {
+      cleaned.push(line)
+      continue
+    }
+    const prev = cleanedLineForCompare(cleaned[cleaned.length - 1] ?? '')
+    const current = cleanedLineForCompare(line)
+    if (prev && current && prev === current) continue
+    cleaned.push(line)
+  }
+  const out = cleaned.join('\n').replace(/\n\s*\n\s*\n/g, '\n\n').trim()
+  return out || content
+}
+
+function cleanedLineForCompare(line: string): string {
+  return line.toLowerCase().replace(/[^a-zа-яё0-9\s?]/gi, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function isClosedYesNoQuestion(line: string): boolean {
+  const q = line.trim().toLowerCase()
+  if (!q.endsWith('?')) return false
+  return /^(?:do|does|did|is|are|am|was|were|have|has|had|will|would|can|could|should|may|might|must)\b/.test(q)
+}
+
+function enforceOpenDialogueQuestion(content: string, params: {
+  mode: string
+  topic: string
+  tense: string
+  level: string
+  audience: 'child' | 'adult'
+  recentMessages: ChatMessage[]
+  diversityKey?: string
+}): string {
+  if (params.mode !== 'dialogue') return content
+  if (/(^|\n)\s*(Повтори|Repeat|Say)\s*:/im.test(content)) return content
+  const lastQuestion = extractLastDialogueQuestionLine(content)
+  if (!lastQuestion || !isClosedYesNoQuestion(lastQuestion)) return content
+  const replacement = fallbackNextQuestion({
+    topic: params.topic,
+    tense: params.tense,
+    level: params.level,
+    audience: params.audience,
+    diversityKey: params.diversityKey,
+    recentMessages: params.recentMessages,
+  })
+  if (!replacement || replacement === lastQuestion) return content
+  return content.replace(lastQuestion, replacement)
+}
+
+function hasLearningReason(commentBody: string): boolean {
+  return /\b(потому что|так как|когда|если|поэтому|в этом вопросе|по правилу)\b/i.test(commentBody)
+}
+
+function learningReasonForTense(tense: string, audience: 'child' | 'adult'): string {
+  switch (tense) {
+    case 'present_perfect':
+      return audience === 'child'
+        ? 'Здесь важно, что получилось к этому моменту.'
+        : 'В этом вопросе важен результат или опыт к текущему моменту.'
+    case 'present_simple':
+      return audience === 'child'
+        ? 'Здесь говорим о том, что обычно происходит.'
+        : 'Здесь говорим о привычке, факте или регулярном действии.'
+    case 'present_continuous':
+      return audience === 'child'
+        ? 'Здесь действие идет прямо сейчас.'
+        : 'Здесь действие происходит прямо сейчас или в текущий период.'
+    case 'past_simple':
+      return audience === 'child'
+        ? 'Здесь действие уже закончилось в прошлом.'
+        : 'Здесь действие завершилось в прошлом в конкретное время.'
+    case 'future_simple':
+      return audience === 'child'
+        ? 'Здесь говорим о том, что будет потом.'
+        : 'Здесь речь о планах или действиях в будущем.'
+    default:
+      return audience === 'child'
+        ? 'Здесь важно сохранить время из вопроса.'
+        : 'Здесь важно сохранить время, которое задано в вопросе.'
+  }
+}
+
+function buildDialogueLearningHint(params: {
+  commentBody: string
+  requiredTense: string
+  audience: 'child' | 'adult'
+  repeatSentence?: string | null
+  userText?: string
+}): string | null {
+  const { commentBody, requiredTense, audience, repeatSentence = null, userText = '' } = params
+  const body = commentBody.trim()
+  if (!body || hasLearningReason(body)) return null
+  if (/требуется|нужно.*(present|past|future)|ошибка времени|времени/i.test(body)) {
+    return learningReasonForTense(requiredTense, audience)
+  }
+  if (/артикл/i.test(body)) {
+    if (/не нужен/i.test(body)) {
+      return audience === 'child'
+        ? 'Здесь артикль не нужен, потому что говорим в общем.'
+        : 'Здесь артикль убираем, когда слово используется в общем значении.'
+    }
+    return audience === 'child'
+      ? 'Здесь нужен артикль, потому что слово в единственном числе.'
+      : 'Здесь нужен артикль, потому что речь о исчисляемом существительном в единственном числе.'
+  }
+  if (/\bhave\b|\bhas\b|подлежащ|согласован/i.test(body)) {
+    const repeatLower = (repeatSentence ?? '').toLowerCase()
+    const userLower = userText.toLowerCase()
+    if (/\bhas\b/.test(repeatLower) && /\bhave\b/.test(userLower)) {
+      return audience === 'child'
+        ? 'С he/she/it используем has.'
+        : 'После he/she/it используем has, а не have.'
+    }
+    if (/\bhave\b/.test(repeatLower) && /\bhas\b/.test(userLower)) {
+      return audience === 'child'
+        ? 'С I/you/we/they используем have.'
+        : 'После I/you/we/they используем have, а не has.'
+    }
+    return audience === 'child'
+      ? 'Форма have/has зависит от подлежащего.'
+      : 'Форма have/has выбирается по подлежащему в конкретной конструкции.'
+  }
+  if (/\b-s\b|треть.*лиц|единственн|согласован/i.test(body)) {
+    return audience === 'child'
+      ? 'С he/she/it в Present Simple обычно нужен глагол с -s.'
+      : 'В Present Simple при he/she/it глагол обычно принимает окончание -s.'
+  }
+  if (/орфограф|опечат/i.test(body)) {
+    return audience === 'child'
+      ? 'Так фраза звучит понятнее и правильнее.'
+      : 'Так фраза звучит естественнее для носителя языка.'
+  }
+  if (/лексическ|слово/i.test(body)) {
+    return audience === 'child'
+      ? 'Такое слово точнее подходит к смыслу.'
+      : 'Это слово точнее передает смысл в этом контексте.'
+  }
+  return null
+}
+
+function enrichDialogueCommentWithLearningReason(
+  content: string,
+  requiredTense: string,
+  audience: 'child' | 'adult',
+  userText: string
+): string {
+  const lines = content.split(/\r?\n/)
+  const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
+  if (commentIndex < 0) return content
+  const raw = lines[commentIndex] ?? ''
+  const body = raw.replace(/^Комментарий\s*:\s*/i, '').trim()
+  if (!body) return content
+  const hint = buildDialogueLearningHint({
+    commentBody: body,
+    requiredTense,
+    audience,
+    repeatSentence: getDialogueRepeatSentence(content),
+    userText,
+  })
+  if (!hint) return content
+  lines[commentIndex] = `Комментарий: ${body} ${hint}`.replace(/\s+/g, ' ').trim()
+  return lines.join('\n').trim()
+}
+
+function normalizeSentenceKey(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[.,!?;:()"«»]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function compactDialogueComment(content: string, audience: 'child' | 'adult'): string {
+  const lines = content.split(/\r?\n/)
+  const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
+  if (commentIndex < 0) return content
+  const raw = lines[commentIndex] ?? ''
+  const body = raw.replace(/^Комментарий\s*:\s*/i, '').trim()
+  if (!body) return content
+
+  const sentenceCandidates = body
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  const seen = new Set<string>()
+  const uniqueSentences: string[] = []
+  for (const sentence of sentenceCandidates) {
+    const key = normalizeSentenceKey(sentence)
+    if (!key) continue
+    if (seen.has(key)) continue
+    seen.add(key)
+    uniqueSentences.push(sentence)
+  }
+
+  const hasTenseReason = (s: string) =>
+    /\b(результат|опыт|привычк|регулярн|прямо сейчас|в прошлом|в будущем|время из вопроса)\b/i.test(s)
+
+  const prioritized: string[] = []
+  if (uniqueSentences.length > 0) prioritized.push(uniqueSentences[0]!)
+  const important = uniqueSentences.find((s, idx) => idx > 0 && hasTenseReason(s))
+  if (important && !prioritized.includes(important)) prioritized.push(important)
+  for (const sentence of uniqueSentences) {
+    if (!prioritized.includes(sentence)) prioritized.push(sentence)
+  }
+
+  const maxSentences = 2
+  const compact = prioritized.slice(0, maxSentences).join(' ').trim()
+  if (!compact) return content
+  lines[commentIndex] = `Комментарий: ${compact}`
+  return lines.join('\n').trim()
+}
+
+function stripFalseTenseMismatchClaim(params: {
+  content: string
+  requiredTense: string
+  userText: string
+  audience: 'child' | 'adult'
+}): string {
+  const { content, requiredTense, userText, audience } = params
+  if (!userText.trim()) return content
+  if (!isUserLikelyCorrectForTense(userText, requiredTense)) return content
+
+  const lines = content.split(/\r?\n/)
+  const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
+  if (commentIndex < 0) return content
+
+  const raw = lines[commentIndex] ?? ''
+  const body = raw.replace(/^Комментарий\s*:\s*/i, '').trim()
+  if (!body) return content
+
+  const tenseClaimRe = /(требуется|нужно)\s+(present|past|future)\s+[a-z_ ]+.*?(?:а\s+не\s+(present|past|future)\s+[a-z_ ]+)?/i
+  if (!tenseClaimRe.test(body)) return content
+
+  const cleanedBody = body
+    .replace(tenseClaimRe, '')
+    .replace(/^\s*[,.;:—-]+\s*/g, '')
+    .replace(/\s*[,.;:—-]+\s*$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+
+  const replacement = cleanedBody || (audience === 'child'
+    ? 'По времени всё верно.'
+    : 'По времени здесь всё верно.')
+  lines[commentIndex] = `Комментарий: ${replacement}`
+  return lines.join('\n').trim()
+}
+
+function extractSingleWordAnswerToken(text: string): string | null {
+  const words = text.trim().match(/[A-Za-zА-Яа-яЁё'-]+/g) ?? []
+  if (words.length !== 1) return null
+  const token = (words[0] ?? '').trim()
+  return token.length >= 2 ? token : null
+}
+
+type DomainClarificationRule = {
+  scope: RegExp
+  questionDomain: RegExp
+  tokenConflictDomain: RegExp
+  clarification: (token: string) => string
+}
+
+const DOMAIN_CLARIFICATION_RULES: DomainClarificationRule[] = [
+  {
+    scope: /\bitaly|italian\b/i,
+    questionDomain: /\bfood|eat|eating|meal|meals|dish|dishes|cuisine|restaurant\b/i,
+    tokenConflictDomain: /^(?:sea|ocean|beach|coast|shore|море|океан|пляж|берег)$/i,
+    clarification: (token) => `Do you mean ${token} as food in Italy, or do you want another Italy subtopic?`,
+  },
+  {
+    scope: /\bwork|office|job|career|meeting|project\b/i,
+    questionDomain: /\bwork|office|job|career|meeting|project\b/i,
+    tokenConflictDomain: /^(?:beach|sea|ocean|vacation|holiday|пляж|море|отпуск)$/i,
+    clarification: (token) => `Do you mean ${token} as part of your work context, or as a separate topic?`,
+  },
+  {
+    scope: /\btechnology|tech|device|app|software|gadgets?\b/i,
+    questionDomain: /\btechnology|tech|device|app|software|gadgets?\b/i,
+    tokenConflictDomain: /^(?:forest|tree|river|lake|nature|лес|дерево|река|озеро|природа)$/i,
+    clarification: (token) => `Do you mean ${token} in a technology context, or do you want a different subtopic?`,
+  },
+]
+
+function buildDomainMeaningClarification(lastQuestion: string, token: string): string | null {
+  const q = lastQuestion.toLowerCase()
+  for (const rule of DOMAIN_CLARIFICATION_RULES) {
+    if (!rule.scope.test(q)) continue
+    if (!rule.questionDomain.test(q)) continue
+    if (!rule.tokenConflictDomain.test(token.trim().toLowerCase())) continue
+    return rule.clarification(token)
+  }
+  return null
 }
 
 /**
@@ -2570,7 +2863,7 @@ function ensureTranslationProtocolBlocks(
   }
 
   if (!comment) {
-    comment = 'Комментарий: Грамматическая ошибка. Исправьте ответ по образцу в блоке «Повтори».'
+    comment = 'Комментарий: Есть неточность в грамматике. Давайте сверимся с образцом в блоке «Повтори».'
   }
   if (!timeLine || /^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:\s*[-–—]\s*$/i.test(timeLine)) {
     timeLine = `Время: ${translationTimeHint(tense)}`
@@ -3648,9 +3941,9 @@ function buildDialogueLowSignalFallback(params: {
   const soft = isSoftCommentTone(params.audience, params.level)
   const invalidInputComment = soft
     ? params.audience === 'child'
-      ? 'Комментарий: Напиши полное предложение на английском.'
-      : 'Комментарий: Напишите полное предложение на английском.'
-    : 'Комментарий: Некорректный ввод. Ответьте полным английским предложением.'
+      ? 'Комментарий: Давай попробуем ответить полным предложением на английском.'
+      : 'Комментарий: Давайте попробуем ответить полным предложением на английском.'
+    : 'Комментарий: Похоже, ответ получился неполным. Лучше ответить полным предложением на английском.'
 
   const lastRepeat = params.forcedRepeatSentence ?? extractLastAssistantRepeatSentence(params.messages)
   const hasActiveRepeat =
@@ -3833,78 +4126,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const topicChangeDetection =
-      mode === 'dialogue' && topic === 'free_talk' && !isFirstTurn && !isTopicChoiceTurn
-        ? detectFreeTalkTopicChange(lastUserText)
-        : { isTopicChange: false, topicHintText: null as string | null, needsClarification: false }
-
-    const buildFreeTalkTopicSwitchResponse = (keywords: string[], seedSuffix: string) => {
-      const topicLabel = buildFreeTalkTopicLabel(keywords)
-      const followUpQuestion = buildFreeTalkTopicAnchorQuestion({
-        keywords,
-        tense: tutorGradingTense,
-        audience,
-        diversityKey: `${recentMessages.length}|${lastUserText}|${seedSuffix}`,
-        recentAssistantQuestions: extractRecentAssistantQuestions(recentMessages, 3),
-      })
-      const acknowledgement = buildFreeTalkTopicAcknowledgement({
-        audience,
-        level,
-        topicLabel,
-        seedText: `${recentMessages.length}|${lastUserText}|${seedSuffix}`,
-        lastAssistantContent: lastAssistantForInference,
-      })
-      return NextResponse.json({
-        content: `${acknowledgement}\n${followUpQuestion}`,
-        dialogueCorrect: true,
-      })
-    }
-
-    if (topicChangeDetection.isTopicChange) {
-      if (topicChangeDetection.needsClarification) {
-        return NextResponse.json({
-          content: buildPoliteTopicClarificationReply(audience),
-          dialogueCorrect: true,
-        })
-      }
-
-      const topicHintText = topicChangeDetection.topicHintText ?? lastUserText
-      const { en, ru } = extractTopicChoiceKeywordsByLang(topicHintText)
-      const keywords = en.length > 0 ? en : translateRuTopicKeywordsToEn(ru)
-
-      if (keywords.length > 0) {
-        return buildFreeTalkTopicSwitchResponse(keywords, 'topic-change')
-      }
-
-      return NextResponse.json({
-        content: buildPoliteTopicClarificationReply(audience),
-        dialogueCorrect: true,
-      })
-    }
-
-    if (mode === 'dialogue' && topic === 'free_talk' && !isFirstTurn && !isTopicChoiceTurn) {
-      const shortCueKeyword = extractShortTopicCueKeyword(lastUserText)
-      if (shortCueKeyword) {
-        const askedForTopicClarification =
-          lastAssistantForInference != null && isTopicClarificationAssistantMessage(lastAssistantForInference)
-        if (askedForTopicClarification) {
-          return buildFreeTalkTopicSwitchResponse([shortCueKeyword], 'topic-short-cue')
-        }
-
-        const lastAssistantQuestion = lastAssistantForInference
-          ? extractLastDialogueQuestionLine(lastAssistantForInference)
-          : null
-        const lastQuestionKeywords = lastAssistantQuestion ? extractUnifiedTopicKeywords(lastAssistantQuestion) : []
-        const looksLikeSameTopic = lastQuestionKeywords.includes(shortCueKeyword)
-        if (!looksLikeSameTopic) {
-          return NextResponse.json({
-            content: buildPoliteTopicClarificationReply(audience),
-            dialogueCorrect: true,
-          })
-        }
-      }
-    }
-
     if (mode === 'dialogue' && topic !== 'free_talk' && !isFirstTurn && isFixedTopicSwitchRequest(lastUserText)) {
       return NextResponse.json({
         content:
@@ -3913,6 +4134,20 @@ export async function POST(req: NextRequest) {
             : 'Good idea. In this lesson we stay on the current topic. Please answer about this topic, or switch to Free Topic to change it.',
         dialogueCorrect: true,
       })
+    }
+
+    if (mode === 'dialogue' && topic === 'free_talk' && !isFirstTurn && !isTopicChoiceTurn) {
+      const oneWord = extractSingleWordAnswerToken(lastUserText)
+      const lastQuestion = extractLastAssistantQuestionSentence(recentMessages)
+      const clarification = oneWord && lastQuestion
+        ? buildDomainMeaningClarification(lastQuestion, oneWord)
+        : null
+      if (clarification) {
+        return NextResponse.json({
+          content: clarification,
+          dialogueCorrect: true,
+        })
+      }
     }
 
     if (mode === 'dialogue' && topic !== 'free_talk' && !isFirstTurn && isLowSignalDialogueInput(lastUserText)) {
@@ -4316,6 +4551,19 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         content: sanitized,
         userText: lastUserContentForResponse,
       })
+      sanitized = enrichDialogueCommentWithLearningReason(
+        sanitized,
+        tutorGradingTense,
+        audience,
+        lastUserContentForResponse
+      )
+      sanitized = stripFalseTenseMismatchClaim({
+        content: sanitized,
+        requiredTense: tutorGradingTense,
+        userText: lastUserContentForResponse,
+        audience,
+      })
+      sanitized = compactDialogueComment(sanitized, audience)
     }
     sanitized = stripRepeatOnPraise(sanitized)
     sanitized = ensureNextQuestionOnPraise(sanitized, {
@@ -4346,6 +4594,16 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         audience,
         lastUserContent: lastUserContentForResponse,
         contextMessages: recentMessages,
+      })
+      sanitized = sanitizeDialogueQuestionArtifacts(sanitized)
+      sanitized = enforceOpenDialogueQuestion(sanitized, {
+        mode,
+        topic,
+        tense: tutorGradingTense,
+        level,
+        audience,
+        recentMessages,
+        diversityKey: `${recentMessages.length}|${lastUserContentForResponse}|open-q`,
       })
       if (topic === 'free_talk' && isTopicChoiceTurn) {
         sanitized = ensureFreeTalkTopicChoiceQuestionAnchorsUser({
@@ -5001,14 +5259,16 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         const tenseName = inferredTense ? (TENSE_NAMES[inferredTense] ?? inferredTense) : null
         const lastQ = extractLastAssistantQuestionSentence(recentMessages)
         const soft = isSoftCommentTone(audience, level)
-        const tryAgain = audience === 'child' ? 'Попробуй ещё раз!' : 'Попробуйте ещё раз.'
+        const tryAgain = audience === 'child'
+          ? 'Давай попробуем ещё раз.'
+          : 'Давайте попробуем ещё раз.'
         const commentNonMixed = tenseName
           ? soft
-            ? `Комментарий: Тут нужно ответить в ${tenseName}. ${tryAgain}`
-            : `Комментарий: Ответ нужно дать в ${tenseName}. Исправьте время и грамматику.`
+            ? `Комментарий: Здесь лучше использовать ${tenseName}. ${tryAgain}`
+            : `Комментарий: Для этого ответа подходит ${tenseName}. Давайте скорректируем время и грамматику.`
           : soft
-            ? `Комментарий: Тут что-то не так. ${tryAgain}`
-            : 'Комментарий: Ошибка в грамматике или времени. Попробуйте ещё раз.'
+            ? `Комментарий: Здесь есть небольшая неточность. ${tryAgain}`
+            : 'Комментарий: Есть небольшая неточность во времени или грамматике. Давайте попробуем ещё раз.'
         const nextQuestion = lastQ ?? fallbackNextQuestion({
           topic,
           tense: tutorGradingTense,
@@ -5051,6 +5311,22 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
 
     if (mode === 'translation') {
       return NextResponse.json({ content: sanitized })
+    }
+
+    if (mode === 'dialogue') {
+      sanitized = enrichDialogueCommentWithLearningReason(
+        sanitized,
+        tutorGradingTense,
+        audience,
+        lastUserContentForResponse
+      )
+      sanitized = stripFalseTenseMismatchClaim({
+        content: sanitized,
+        requiredTense: tutorGradingTense,
+        userText: lastUserContentForResponse,
+        audience,
+      })
+      sanitized = compactDialogueComment(sanitized, audience)
     }
 
     return NextResponse.json({

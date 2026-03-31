@@ -123,6 +123,84 @@ function genericRepeatByTense(tense: string): string {
   }
 }
 
+const RU_VERB_TO_EN_BASE: Record<string, string> = {
+  сплю: 'sleep',
+  спать: 'sleep',
+  спит: 'sleep',
+  спим: 'sleep',
+  спят: 'sleep',
+  ем: 'eat',
+  есть: 'eat',
+  кушаю: 'eat',
+  бегаю: 'run',
+  бежать: 'run',
+  плаваю: 'swim',
+  плавать: 'swim',
+  читаю: 'read',
+  читать: 'read',
+  играю: 'play',
+  играть: 'play',
+  работаю: 'work',
+  работать: 'work',
+}
+
+function toIng(base: string): string {
+  if (base.endsWith('e') && base !== 'be') return `${base.slice(0, -1)}ing`
+  if (base === 'run') return 'running'
+  if (base === 'swim') return 'swimming'
+  return `${base}ing`
+}
+
+function toPastParticiple(base: string): string {
+  if (base === 'sleep') return 'slept'
+  if (base === 'read') return 'read'
+  if (base.endsWith('e')) return `${base}d`
+  if (base === 'run') return 'run'
+  if (base === 'swim') return 'swum'
+  return `${base}ed`
+}
+
+function toPastSimple(base: string): string {
+  if (base === 'sleep') return 'slept'
+  if (base === 'read') return 'read'
+  if (base === 'run') return 'ran'
+  if (base === 'swim') return 'swam'
+  if (base.endsWith('e')) return `${base}d`
+  return `${base}ed`
+}
+
+function englishVerbForTense(base: string, tense: string): string {
+  switch (tense) {
+    case 'present_simple':
+      return `I ${base}.`
+    case 'present_continuous':
+      return `I am ${toIng(base)}.`
+    case 'present_perfect':
+      return `I have ${toPastParticiple(base)}.`
+    case 'present_perfect_continuous':
+      return `I have been ${toIng(base)}.`
+    case 'past_simple':
+      return `I ${toPastSimple(base)}.`
+    case 'past_continuous':
+      return `I was ${toIng(base)}.`
+    case 'past_perfect':
+      return `I had ${toPastParticiple(base)}.`
+    case 'past_perfect_continuous':
+      return `I had been ${toIng(base)}.`
+    case 'future_simple':
+      return `I will ${base}.`
+    case 'future_continuous':
+      return `I will be ${toIng(base)}.`
+    case 'future_perfect':
+      return `I will have ${toPastParticiple(base)}.`
+    case 'future_perfect_continuous':
+      return `I will have been ${toIng(base)}.`
+    case 'all':
+    default:
+      return `I ${base}.`
+  }
+}
+
 export function buildMixedInputRepeatFallback(params: { userText: string; tense: string }): string {
   const { userText, tense } = params
   const lower = userText.toLowerCase()
@@ -135,6 +213,13 @@ export function buildMixedInputRepeatFallback(params: { userText: string; tense:
   const hasVisitIntent = /\b(visi?t|visit|visited|wisit|wisited|go|went)\b/i.test(lower)
   const hasPiter = ruTokens.some((t) => t === 'питер' || t === 'петербург')
   const place = hasPiter ? 'St. Petersburg' : translated[0] ?? ''
+
+  // Кейс вида "I сплю": извлекаем русскую глагольную основу и строим ответ в нужном времени.
+  const ruVerb = ruTokens.find((t) => RU_VERB_TO_EN_BASE[t])
+  if (ruVerb) {
+    const base = RU_VERB_TO_EN_BASE[ruVerb]
+    if (base) return englishVerbForTense(base, tense)
+  }
 
   if (hasVisitIntent && place) {
     if (tense === 'past_simple' || tense === 'all') return `I visited ${place}.`

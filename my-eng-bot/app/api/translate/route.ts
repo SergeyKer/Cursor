@@ -249,7 +249,7 @@ export async function POST(req: NextRequest) {
     const raw = (first?.message?.content ?? first?.text ?? '').trim()
     const content =
       direction === 'en_to_ru'
-        ? applyTranslationQualityGate(normalizeTranslationResult(raw))
+        ? applyTranslationQualityGate(normalizeTranslationResult(raw, text))
         : raw.replace(/\s+/g, ' ').trim()
 
     if (!content) {

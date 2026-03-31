@@ -57,4 +57,15 @@ describe('freeTalkQuestionAnchor', () => {
     })
     expect(q).not.toEqual(repeated)
   })
+
+  it('uses open question form in present simple', () => {
+    const q = buildFreeTalkTopicAnchorQuestion({
+      keywords: ['music'],
+      tense: 'present_simple',
+      audience: 'adult',
+      diversityKey: 'open-present-simple',
+    })
+    expect(/\?$/.test(q)).toBe(true)
+    expect(/^(what|why|how)\b/i.test(q)).toBe(true)
+  })
 })

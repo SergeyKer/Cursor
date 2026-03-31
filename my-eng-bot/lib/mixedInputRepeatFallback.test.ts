@@ -36,6 +36,15 @@ describe('buildMixedInputRepeatFallback', () => {
       }),
     ).toMatch(/visit St\. Petersburg/)
   })
+
+  it('builds tense-aware repeat for short mixed verb: I сплю', () => {
+    expect(
+      buildMixedInputRepeatFallback({
+        userText: 'I сплю',
+        tense: 'future_simple',
+      }),
+    ).toBe('I will sleep.')
+  })
 })
 
 describe('buildMixedDialogueFallbackComment', () => {
