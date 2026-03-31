@@ -2,8 +2,13 @@
 
 import React from 'react'
 import type { Settings, UsageInfo } from '@/lib/types'
-import MenuSectionPanels, { type MenuView } from '@/components/MenuSectionPanels'
+import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/components/MenuSectionPanels'
 import { SLIDE_OUT_NEW_CHAT_BUTTON_CLASS } from '@/lib/homeCtaStyles'
+
+export type LessonMenuContext = {
+  menuView: 'lessons'
+  lessonsPanel: LessonsPanel
+}
 
 interface SlideOutMenuProps {
   open: boolean
@@ -21,6 +26,10 @@ interface SlideOutMenuProps {
   onGoHome?: () => void
   /** Если чат уже идёт — при открытии меню сразу «Чат с MyEng»; если нет — корень списка разделов. */
   chatActive?: boolean
+  /** Открыть урок из ветки «Обучение». */
+  onOpenLearningLesson?: (lessonId: string) => void
+  /** Контекст меню, из которого открыт урок. */
+  lessonMenuContext?: LessonMenuContext | null
 }
 
 export default function SlideOutMenu({
@@ -35,6 +44,8 @@ export default function SlideOutMenu({
   onStartChat,
   onGoHome,
   chatActive = false,
+  onOpenLearningLesson,
+  lessonMenuContext,
 }: SlideOutMenuProps) {
   const [menuView, setMenuView] = React.useState<MenuView>('root')
 
@@ -43,8 +54,12 @@ export default function SlideOutMenu({
       setMenuView('root')
       return
     }
+    if (chatActive && lessonMenuContext?.menuView === 'lessons') {
+      setMenuView('lessons')
+      return
+    }
     setMenuView(chatActive ? 'aiChat' : 'root')
-  }, [open, chatActive])
+  }, [open, chatActive, lessonMenuContext])
 
   return (
     <>
@@ -100,6 +115,8 @@ export default function SlideOutMenu({
             className="flex min-h-0 flex-1 flex-col"
             onStartHomeChat={onStartChat}
             onGoHome={onGoHome}
+            onOpenLearningLesson={onOpenLearningLesson}
+            initialLessonsPanel={menuView === 'lessons' ? lessonMenuContext?.lessonsPanel : undefined}
           />
         </div>
       </aside>

@@ -13,6 +13,8 @@ export type MenuView = 'root' | 'lessons' | 'aiChat' | 'settings' | 'progress' |
 
 export type { AiChatPanel }
 
+export type LessonsPanel = 'summary' | 'theory' | 'a2'
+
 const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
   summary: 'Чат с MyEng',
   mode: 'Режим',
@@ -24,6 +26,24 @@ const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
   provider: 'ИИ',
   voice: 'Голос',
 }
+
+const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
+  summary: 'Уроки',
+  theory: 'Теория',
+  a2: 'A2',
+}
+
+const THEORY_LEVELS: { id: string; label: string }[] = [
+  { id: 'A0', label: 'A0 - базовый' },
+  { id: 'A1', label: 'A1 - начальный' },
+  { id: 'A2', label: 'A2 - элементарный' },
+  { id: 'B1', label: 'B1 - средний' },
+  { id: 'B2', label: 'B2 - выше среднего' },
+]
+
+const A2_THEORY_ITEMS: { id: string; label: string }[] = [
+  { id: '1', label: '1. It’s / It’s time to' },
+]
 
 const MODE_OPTIONS: { id: AppMode; label: string }[] = [
   { id: 'communication', label: 'Общение' },
@@ -76,6 +96,10 @@ export interface MenuSectionPanelsProps {
   onGoHome?: () => void
   /** Стартовый экран: синхронизация подпанели «Чат с MyEng» для подсказки под меню. */
   onAiChatPanelChange?: (panel: AiChatPanel) => void
+  /** Открыть урок из ветки «Обучение». */
+  onOpenLearningLesson?: (lessonId: string) => void
+  /** Стартовый уровень lessons-панели при открытии меню. */
+  initialLessonsPanel?: LessonsPanel
 }
 
 export default function MenuSectionPanels({
@@ -91,14 +115,27 @@ export default function MenuSectionPanels({
   onStartHomeChat,
   onGoHome,
   onAiChatPanelChange,
+  onOpenLearningLesson,
+  initialLessonsPanel,
 }: MenuSectionPanelsProps) {
   const pid = (suffix: string) => `${idPrefix}${suffix}`
 
   const [aiChatPanel, setAiChatPanel] = React.useState<AiChatPanel>('summary')
+  const [lessonsPanel, setLessonsPanel] = React.useState<LessonsPanel>('summary')
 
   React.useEffect(() => {
     if (menuView !== 'aiChat') setAiChatPanel('summary')
   }, [menuView])
+
+  React.useEffect(() => {
+    if (menuView !== 'lessons') setLessonsPanel('summary')
+  }, [menuView])
+
+  React.useEffect(() => {
+    if (menuView !== 'lessons') return
+    if (!initialLessonsPanel) return
+    setLessonsPanel(initialLessonsPanel)
+  }, [menuView, initialLessonsPanel])
 
   React.useEffect(() => {
     if (menuView === 'aiChat') onAiChatPanelChange?.(aiChatPanel)
@@ -126,6 +163,14 @@ export default function MenuSectionPanels({
   const topicLabel = topicOptions.find((t) => t.id === settings.topic)?.label ?? settings.topic
 
   const handleMenuBack = () => {
+    if (menuView === 'lessons' && lessonsPanel !== 'summary') {
+      if (lessonsPanel === 'a2') {
+        setLessonsPanel('theory')
+        return
+      }
+      setLessonsPanel('summary')
+      return
+    }
     if (menuView === 'aiChat' && aiChatPanel !== 'summary') {
       setAiChatPanel('summary')
       return
@@ -139,7 +184,7 @@ export default function MenuSectionPanels({
 
   const headerTitle =
     menuView === 'lessons'
-      ? 'Уроки'
+      ? LESSONS_PANEL_TITLE[lessonsPanel]
       : menuView === 'aiChat'
         ? AI_CHAT_PANEL_TITLE[aiChatPanel]
         : menuView === 'settings'
@@ -197,7 +242,13 @@ export default function MenuSectionPanels({
       )}
 
       <div
-        key={menuView === 'aiChat' ? `aiChat-${aiChatPanel}` : menuView}
+        key={
+          menuView === 'aiChat'
+            ? `aiChat-${aiChatPanel}`
+            : menuView === 'lessons'
+              ? `lessons-${lessonsPanel}`
+              : menuView
+        }
         className={
           homeLayout
             ? 'menu-panel-view-enter max-h-[calc(100dvh-12rem)] space-y-2.5 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-0.5'
@@ -217,12 +268,45 @@ export default function MenuSectionPanels({
         )}
 
         {menuView === 'lessons' && (
-          <div className="flex w-full items-start gap-3">
-            <span className={MENU_FIELD_LABEL}>Раздел</span>
-            <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
-              Скоро здесь будут уроки. Раздел в разработке.
-            </p>
-          </div>
+          <>
+            {lessonsPanel === 'summary' && (
+              <div className={MENU_GROUP_OUTER}>
+                <div className={MENU_GROUP_CLASS}>
+                  <MenuNavRow label="Теория" onClick={() => setLessonsPanel('theory')} />
+                </div>
+              </div>
+            )}
+
+            {lessonsPanel === 'theory' && (
+              <>
+                <div className={MENU_GROUP_OUTER}>
+                  <div className={MENU_GROUP_CLASS}>
+                    {THEORY_LEVELS.map((level) => (
+                      <LessonLevelRow
+                        key={level.id}
+                        label={level.label}
+                        onClick={level.id === 'A2' ? () => setLessonsPanel('a2') : undefined}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {lessonsPanel === 'a2' && (
+              <div className={MENU_GROUP_OUTER}>
+                <div className={MENU_GROUP_CLASS}>
+                  {A2_THEORY_ITEMS.map((item) => (
+                    <LessonTopicRow
+                      key={item.id}
+                      label={item.label}
+                      onClick={onOpenLearningLesson ? () => onOpenLearningLesson(item.id) : undefined}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {menuView === 'profile' && (
@@ -425,6 +509,30 @@ export default function MenuSectionPanels({
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+function LessonLevelRow({ label, onClick }: { label: string; onClick?: () => void }) {
+  if (onClick) {
+    return <MenuNavRow label={label} onClick={onClick} />
+  }
+  return (
+    <div className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 last:border-b-0">
+      <span className="text-[15px] font-normal leading-normal text-[var(--text)]">{label}</span>
+      <span className="text-[13px] leading-normal text-[var(--text-muted)]">Скоро</span>
+    </div>
+  )
+}
+
+function LessonTopicRow({ label, onClick }: { label: string; onClick?: () => void }) {
+  if (onClick) {
+    return <MenuNavRow label={label} onClick={onClick} />
+  }
+  return (
+    <div className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 last:border-b-0">
+      <span className="text-[15px] font-normal leading-normal text-[var(--text)]">{label}</span>
+      <span className="text-[13px] leading-normal text-[var(--text-muted)]">Скоро</span>
     </div>
   )
 }

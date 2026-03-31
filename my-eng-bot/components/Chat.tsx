@@ -147,7 +147,8 @@ function buildAssistantSections(params: {
       tone: 'neutral',
       label: hideAiLabel ? '' : 'AI',
       text: mainBefore,
-      singleLine: true,
+      // Для уроков/теории с \n рендерим как многострочный блок.
+      singleLine: !mainBefore.includes('\n'),
       emphasizeMainText: hideAiLabel,
     })
   }
@@ -1213,7 +1214,7 @@ function MessageBubble({
                     singleLine={section.singleLine}
                     trailingAction={section.trailingAction}
                     onSpeak={section.trailingAction === 'speak' ? handleSpeak : undefined}
-                    inlineMarkdownBold={mode === 'communication'}
+                    inlineMarkdownBold
                     emphasizeMainText={section.emphasizeMainText}
                   />
                 ))}
