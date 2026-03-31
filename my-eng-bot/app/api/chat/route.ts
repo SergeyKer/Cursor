@@ -4191,6 +4191,7 @@ export async function POST(req: NextRequest) {
         ? buildCommunicationMaxTokens(communicationDetailLevel, MAX_RESPONSE_TOKENS)
         : MAX_RESPONSE_TOKENS
     const lastUserContentForResponse = stripWebSearchForceCode(lastUserText)
+    const lastUserContentRaw = lastUserText
     const lastAssistantContentForLangTie = recentMessages.filter((m: ChatMessage) => m.role === 'assistant').pop()?.content ?? ''
     const lastAssistantLang = detectLangFromText(lastAssistantContentForLangTie, 'ru')
     const rawInputLang = body.communicationInputExpectedLang
@@ -4214,11 +4215,11 @@ export async function POST(req: NextRequest) {
     const communicationSearchRequested =
       mode === 'communication' &&
       !explicitTranslateTarget &&
-      (shouldUseOpenAiWebSearch(lastUserContentForResponse) ||
-        shouldRequestOpenAiWebSearchSources(lastUserContentForResponse) ||
+      (shouldUseOpenAiWebSearch(lastUserContentRaw) ||
+        shouldRequestOpenAiWebSearchSources(lastUserContentRaw) ||
         (isLikelyWebSearchFollowup(lastUserContentForResponse) && hasRecentWebSearchContext(recentMessages)))
     const communicationSearchSourcesRequested =
-      communicationSearchRequested && shouldRequestOpenAiWebSearchSources(lastUserContentForResponse)
+      communicationSearchRequested && shouldRequestOpenAiWebSearchSources(lastUserContentRaw)
     const weatherSourcesRequested =
       shouldRequestOpenAiWebSearchSources(lastUserContentForResponse) ||
       shouldRequestAllOpenAiWebSearchSources(lastUserContentForResponse)
@@ -4241,6 +4242,7 @@ export async function POST(req: NextRequest) {
           content: weatherResult.content,
           webSearchSourcesRequested: weatherSourcesRequested,
           webSearchSources: weatherResult.sources,
+          webSearchTriggered: true,
         })
       }
 
@@ -4259,12 +4261,13 @@ export async function POST(req: NextRequest) {
           sources: [],
           language: detectedUserLang,
         }),
+        webSearchTriggered: true,
       })
     }
 
     // Fast-path: первое сообщение в режиме общения не требует вызова LLM.
     // Ранее ответ все равно заменялся fallback-репликой после провайдера.
-    if (mode === 'communication' && isFirstTurn) {
+    if (mode === 'communication' && isFirstTurn && !communicationSearchRequested) {
       return NextResponse.json({
         content: buildCommunicationFallbackMessage({
           audience,
@@ -4308,6 +4311,7 @@ export async function POST(req: NextRequest) {
           content: communicationSearchResult.content,
           webSearchSourcesRequested: communicationSearchSourcesRequested,
           webSearchSources: freshness.sources,
+          webSearchTriggered: true,
           ...(freshness.hiddenCount > 0 ? { webSearchSourcesHiddenCount: freshness.hiddenCount } : {}),
         })
       }
@@ -4333,7 +4337,7 @@ export async function POST(req: NextRequest) {
         language: detectedUserLang,
       })
 
-      return NextResponse.json({ content: searchFailureContent })
+      return NextResponse.json({ content: searchFailureContent, webSearchTriggered: true })
     }
 
     const systemPrompt = buildSystemPrompt({

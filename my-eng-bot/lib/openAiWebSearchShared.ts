@@ -292,7 +292,8 @@ function keepOnlyCelsius(text: string): string {
 
 /** Сноски вида (example.com), (rostov.rbc.ru) без http — убираем из текста ответа. */
 export function stripParentheticalDomainCitations(text: string): string {
-  return text.replace(/\(\s*(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s)]*)?\s*\)/gi, '')
+  // Поддерживаем обычные домены и punycode-TLD, например "(xn--80aidamjr3akke.xn--p1ai)".
+  return text.replace(/\(\s*(?:[a-z0-9-]+\.)+[a-z0-9-]{2,}(?:\/[^\s)]*)?\s*\)/gi, '')
 }
 
 function stripInlineSourceMentions(text: string): string {

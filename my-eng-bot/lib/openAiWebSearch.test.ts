@@ -282,6 +282,18 @@ describe('formatOpenAiWebSearchAnswer', () => {
     expect(result).not.toContain('rostov')
     expect(result).not.toContain('rbc.ru')
   })
+
+  it('strips parenthetical punycode domains', () => {
+    const result = formatOpenAiWebSearchAnswer({
+      answer:
+        'Топ-5 имён сохранён. (xn--80aidamjr3akke.xn--p1ai)',
+      sources: [],
+      language: 'ru',
+    })
+
+    expect(result).toContain('Топ-5 имён сохранён.')
+    expect(result).not.toContain('xn--80aidamjr3akke.xn--p1ai')
+  })
 })
 
 describe('shouldRequestOpenAiWebSearchSources', () => {
