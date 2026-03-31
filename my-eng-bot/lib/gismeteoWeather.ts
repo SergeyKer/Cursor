@@ -224,6 +224,10 @@ const SPB_ALIAS_KEYS = new Set(
   ].map((s) => normalizeLetters(s))
 )
 
+const MOSCOW_ALIAS_KEYS = new Set(
+  ['москва', 'москве', 'москву', 'москвой', 'москвы', 'moscow', 'moskva'].map((s) => normalizeLetters(s))
+)
+
 /**
  * Разговорные и близкие к «Питеру» запросы для поиска города на Gismeteo.
  */
@@ -239,11 +243,30 @@ export function applyGismeteoLocationAliases(query: string): string {
     if (SPB_ALIAS_KEYS.has(c)) return 'Санкт-Петербург'
   }
   for (const c of candidates) {
+    if (MOSCOW_ALIAS_KEYS.has(c)) return 'Москва'
+  }
+  for (const c of candidates) {
     if (c.length >= 4 && c.length <= 7 && levenshteinDistance(c, SPB_LEVENSHTEIN_TARGET) <= 1) {
       return 'Санкт-Петербург'
     }
   }
   return t
+}
+
+/** Район/аэропорт внутри города: «Москва (Внуково)» — не основная карточка. */
+function parentheticalQualifierPenalty(city: GismeteoCity): number {
+  const name = city.translations?.ru?.city?.name ?? ''
+  return /\([^)]+\)/.test(name) ? 1 : 0
+}
+
+/**
+ * Одноимённые «Москва» в регионах — после точного совпадения имени предпочитаем федеральный город.
+ */
+function moscowHomonymPenalty(city: GismeteoCity): number {
+  const name = normalizeLetters(city.translations?.ru?.city?.name?.trim() || '')
+  if (name !== 'москва') return 0
+  if (city.district?.slug === 'moscow') return 0
+  return 1
 }
 
 function scoreCityMatch(queryVariants: string[], city: GismeteoCity): { priority: number; score: number } {
@@ -297,6 +320,17 @@ async function fetchHtml(url: string): Promise<string> {
   return await res.text()
 }
 
+/** Сообщение только про «тему погоды» без названия места (в т.ч. кириллица: \b в RegExp ненадёжен). */
+function isBareWeatherTopicWithoutPlaceName(text: string): boolean {
+  const n = normalizeText(text).toLowerCase()
+  if (!n) return true
+  if (/^(weather|forecast|temperature|wheather|whether)$/i.test(n)) return true
+  if (/^погод[а-яё]{0,4}$/u.test(n)) return true
+  if (/^температур[а-яё]{0,4}$/u.test(n)) return true
+  if (/^прогноз(?:\s+погоды)?$/u.test(n)) return true
+  return false
+}
+
 export function extractWeatherLocationQuery(text: string): string | null {
   const normalized = normalizeText(text)
   if (!normalized) return null
@@ -328,6 +362,8 @@ export function extractWeatherLocationQuery(text: string): string | null {
     normalized
     .replace(/\b(?:какая|какой|какое|какие|какова|what\s+is|what's|what\s+will\s+be)\b/gi, ' ')
   )
+
+  if (cleaned && isBareWeatherTopicWithoutPlaceName(cleaned)) return null
 
   return cleaned || null
 }
@@ -784,6 +820,12 @@ async function resolveGismeteoCity(query: string): Promise<GismeteoCity> {
     .sort((left, right) => {
       if (left.match.priority !== right.match.priority) return left.match.priority - right.match.priority
       if (left.match.score !== right.match.score) return left.match.score - right.match.score
+      const leftParen = parentheticalQualifierPenalty(left.city)
+      const rightParen = parentheticalQualifierPenalty(right.city)
+      if (leftParen !== rightParen) return leftParen - rightParen
+      const leftMsk = moscowHomonymPenalty(left.city)
+      const rightMsk = moscowHomonymPenalty(right.city)
+      if (leftMsk !== rightMsk) return leftMsk - rightMsk
       if (left.isRu !== right.isRu) return left.isRu ? -1 : 1
       return left.city.id - right.city.id
     })
@@ -817,7 +859,11 @@ export async function callGismeteoWeatherAnswer(params: {
   | { ok: false; status: number; errText: string }
 > {
   try {
-    const locationQuery = params.locationQueryOverride ?? extractWeatherLocationQuery(params.query) ?? params.query
+    const extracted = extractWeatherLocationQuery(params.query)
+    const locationQuery = (params.locationQueryOverride ?? extracted)?.trim()
+    if (!locationQuery) {
+      return { ok: false, status: 400, errText: 'City query is empty' }
+    }
     const city = await resolveGismeteoCity(locationQuery)
     const cityNames = extractCityNames(city)
     const cityForAnswer = params.language === 'en' ? cityNames.englishName : cityNames.location

@@ -56,4 +56,15 @@ describe('getCommunicationWebSearchDecision', () => {
     })
     expect(decision.requested).toBe(false)
   })
+
+  it('does not turn on web search for bare «погода» (conversation topic, not live lookup)', () => {
+    const decision = getCommunicationWebSearchDecision({
+      mode: 'communication',
+      explicitTranslateTarget: null,
+      rawText: 'погода',
+      cleanedText: 'погода',
+      recentMessages: [],
+    })
+    expect(decision.requested).toBe(false)
+  })
 })

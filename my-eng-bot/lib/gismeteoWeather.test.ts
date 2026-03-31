@@ -19,6 +19,12 @@ describe('applyGismeteoLocationAliases', () => {
     expect(applyGismeteoLocationAliases('петер')).toBe('Санкт-Петербург')
     expect(applyGismeteoLocationAliases('Красногорск')).toBe('Красногорск')
   })
+
+  it('maps Moscow declensions to Москва', () => {
+    expect(applyGismeteoLocationAliases('москве')).toBe('Москва')
+    expect(applyGismeteoLocationAliases('в Москве')).toBe('Москва')
+    expect(applyGismeteoLocationAliases('Moscow')).toBe('Москва')
+  })
 })
 
 describe('extractWeatherLocationQuery', () => {
@@ -33,6 +39,12 @@ describe('extractWeatherLocationQuery', () => {
   it('keeps russian location extraction stable', () => {
     expect(extractWeatherLocationQuery('Какая погода на 3 дня в Санкт-Петербурге?')).toBe('Санкт-Петербурге')
   })
+
+  it('returns null when there is no city (topic-style messages)', () => {
+    expect(extractWeatherLocationQuery('weather')).toBeNull()
+    expect(extractWeatherLocationQuery('погода')).toBeNull()
+    expect(extractWeatherLocationQuery('температура')).toBeNull()
+  })
 })
 
 describe('callGismeteoWeatherAnswer', () => {
@@ -40,6 +52,18 @@ describe('callGismeteoWeatherAnswer', () => {
 
   beforeEach(() => {
     mockedFetchWithProxyFallback.mockReset()
+  })
+
+  it('does not resolve a city from bare weather keywords without a location', async () => {
+    const result = await callGismeteoWeatherAnswer({
+      query: 'weather',
+      language: 'en',
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.status).toBe(400)
+    }
+    expect(mockedFetchWithProxyFallback).not.toHaveBeenCalled()
   })
 
   it('returns direct current weather from Gismeteo', async () => {

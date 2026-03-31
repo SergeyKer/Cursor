@@ -4206,16 +4206,26 @@ export async function POST(req: NextRequest) {
       shouldRequestAllOpenAiWebSearchSources(lastUserContentForResponse)
     const weatherFollowupRequested = isWeatherFollowupRequest(lastUserContentForResponse)
     const weatherLocationQueryOverride = weatherFollowupRequested ? getLastWeatherLocationQuery(recentMessages) : null
+    const extractedWeatherLocation = extractWeatherLocationQuery(lastUserContentForResponse)
+    const hasWeatherLocationForGismeteo = Boolean(
+      (weatherLocationQueryOverride && weatherLocationQueryOverride.trim()) ||
+        (extractedWeatherLocation && extractedWeatherLocation.trim())
+    )
 
     if (
       mode === 'communication' &&
       !explicitTranslateTarget &&
-      (isWeatherForecastRequest(lastUserContentForResponse) || weatherFollowupRequested)
+      (isWeatherForecastRequest(lastUserContentForResponse) || weatherFollowupRequested) &&
+      hasWeatherLocationForGismeteo
     ) {
+      const locationForGismeteo =
+        (weatherLocationQueryOverride && weatherLocationQueryOverride.trim()) ||
+        (extractedWeatherLocation && extractedWeatherLocation.trim()) ||
+        ''
       const weatherResult = await callGismeteoWeatherAnswer({
         query: lastUserContentForResponse,
         language: detectedUserLang,
-        ...(weatherLocationQueryOverride ? { locationQueryOverride: weatherLocationQueryOverride } : {}),
+        locationQueryOverride: locationForGismeteo,
       })
 
       if (weatherResult.ok) {
