@@ -623,9 +623,13 @@ function translateWeatherDescription(description: string, language: SearchLangua
     'ливни': 'showers',
     'снег': 'snow',
     'туман': 'fog',
+    'пасмурно, небольшой дождь': 'overcast, light rain',
+    'облачно, небольшой дождь': 'cloudy, light rain',
   }
 
-  return dictionary[normalized] ?? description
+  if (dictionary[normalized]) return dictionary[normalized]
+  if (/[а-яё]/i.test(description)) return 'weather conditions'
+  return description
 }
 
 function formatTempRange(values: number[]): string {
@@ -673,7 +677,15 @@ function extractForecastSummary(html: string, period: WeatherPeriod, cityLocatio
   for (let index = 0; index < dayCount; index += 1) {
     const tempSlice = temperatures.slice(index * slotsPerDay, (index + 1) * slotsPerDay)
     const descSlice = descriptions.slice(index * slotsPerDay, (index + 1) * slotsPerDay)
-    const label = dates[index]?.label ?? (period === 'tomorrow' ? 'Завтра' : 'Прогноз')
+    const fallbackRuLabel = period === 'tomorrow' ? 'Завтра' : 'Прогноз'
+    const label =
+      language === 'en'
+        ? period === 'today'
+          ? 'Today'
+          : period === 'tomorrow'
+            ? 'Tomorrow'
+            : `Day ${index + 1}`
+        : (dates[index]?.label ?? fallbackRuLabel)
     const description = pickDominantDescription(descSlice)
     daySummaries.push(formatForecastLabel(label, translateWeatherDescription(description, language), tempSlice))
   }
@@ -785,10 +797,15 @@ async function resolveGismeteoCity(query: string): Promise<GismeteoCity> {
   return chosen
 }
 
-function extractCityNames(city: GismeteoCity): { name: string; location: string } {
+function extractCityNames(city: GismeteoCity): { name: string; location: string; englishName: string } {
   const name = city.translations?.ru?.city?.name?.trim() || city.slug
   const location = city.translations?.ru?.city?.nameP?.trim() || name
-  return { name, location }
+  const englishName = city.slug
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(' ')
+  return { name, location, englishName: englishName || city.slug }
 }
 
 export async function callGismeteoWeatherAnswer(params: {
@@ -803,6 +820,7 @@ export async function callGismeteoWeatherAnswer(params: {
     const locationQuery = params.locationQueryOverride ?? extractWeatherLocationQuery(params.query) ?? params.query
     const city = await resolveGismeteoCity(locationQuery)
     const cityNames = extractCityNames(city)
+    const cityForAnswer = params.language === 'en' ? cityNames.englishName : cityNames.location
     const context = detectWeatherQueryContext(params.query)
     const period = context.period
     const pageUrl = buildWeatherPageUrl(city, period)
@@ -810,10 +828,10 @@ export async function callGismeteoWeatherAnswer(params: {
 
     const answer =
       period === 'now'
-        ? buildCurrentWeatherAnswer(cityNames.location, extractCurrentWeatherSummary(html), params.language)
+        ? buildCurrentWeatherAnswer(cityForAnswer, extractCurrentWeatherSummary(html), params.language)
         : context.timeSlot
-          ? buildSlotWeatherAnswer(cityNames.location, period, context.timeSlot, html, params.language)
-          : extractForecastSummary(html, period, cityNames.location, params.language)
+          ? buildSlotWeatherAnswer(cityForAnswer, period, context.timeSlot, html, params.language)
+          : extractForecastSummary(html, period, cityForAnswer, params.language)
 
     return {
       ok: true,

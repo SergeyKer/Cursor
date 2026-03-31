@@ -4208,7 +4208,7 @@ export async function POST(req: NextRequest) {
     const weatherLocationQueryOverride = weatherFollowupRequested ? getLastWeatherLocationQuery(recentMessages) : null
 
     if (
-      mode !== 'translation' &&
+      mode === 'communication' &&
       !explicitTranslateTarget &&
       (isWeatherForecastRequest(lastUserContentForResponse) || weatherFollowupRequested)
     ) {

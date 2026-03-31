@@ -86,6 +86,42 @@ describe('callGismeteoWeatherAnswer', () => {
     ])
   })
 
+  it('returns english weather answer without cyrillic mix', async () => {
+    mockedFetchWithProxyFallback
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            meta: { status: true },
+            data: [
+              {
+                id: 11442,
+                slug: 'krasnogorsk',
+                country: { code: 'RU' },
+                translations: { ru: { city: { name: 'Красногорск', nameP: 'в Красногорске' } } },
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          '<script>"weather":{"cw":{"description":["Безоблачно"],"humidity":[35],"pressure":[747],"temperatureAir":[15],"temperatureFeelsLike":[16],"windSpeed":[2]},"schema":[]}</script>',
+          { status: 200 }
+        )
+      )
+
+    const result = await callGismeteoWeatherAnswer({
+      query: 'what is weather in Krasnogorsk now',
+      language: 'en',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.content).toContain('(i) Right now Krasnogorsk it is clear.')
+    expect(result.content).not.toMatch(/[А-Яа-яЁё]/)
+  })
+
   it('returns an evening forecast from todays page', async () => {
     mockedFetchWithProxyFallback
       .mockResolvedValueOnce(
