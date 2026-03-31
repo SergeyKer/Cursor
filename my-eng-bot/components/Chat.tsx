@@ -770,8 +770,25 @@ export default function Chat({
   React.useEffect(() => {
     const el = scrollContainerRef.current
     if (!el) return
-    el.scrollTop = el.scrollHeight
-  }, [messages])
+    // Для первого экрана урока показываем начало сообщения (верх),
+    // а не прокручиваем к кнопкам внизу.
+    if (isLearningFlow && messages.length === 1) {
+      el.scrollTop = 0
+      return
+    }
+    if (isLearningFlow && messages.length > 1) {
+      // В уроке после выбора кнопки выравниваем по новому пузырю ИИ:
+      // предыдущая неактивная кнопка должна уходить выше видимой области.
+      const lastAssistantIndex = messages.length - 1
+      const target = el.querySelector<HTMLElement>(`[data-message-index="${lastAssistantIndex}"][data-role="assistant"]`)
+      if (target) {
+        const top = Math.max(0, target.offsetTop - 8)
+        el.scrollTo({ top, behavior: 'smooth' })
+        return
+      }
+    }
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+  }, [messages, isLearningFlow])
 
   // Индекс последнего assistant-сообщения нужен, чтобы автоскрывать
   // карточку перевода у предыдущих сообщений.
@@ -1242,6 +1259,8 @@ function MessageBubble({
 
   return (
     <div
+      data-message-index={messageIndex}
+      data-role={message.role}
       className={`flex ${isUser ? 'justify-end' : 'justify-start'} ${rowSpacingClass}`}
     >
       <div

@@ -30,7 +30,7 @@ const LESSONS: Record<string, LearningLesson> = {
       '1) It’s + прилаг. (dark, cold, hot, late, early).\n' +
       '2) It’s time to + глагол (drink, go, sleep, study).',
     actions: [
-      { id: 'examples', label: 'Примеры' },
+      { id: 'examples', label: 'Посмотри примеры' },
       { id: 'repeat_translate', label: 'Повтори и переведи' },
       { id: 'fill_phrase', label: 'Дополни фразу' },
       { id: 'write_own_sentence', label: 'Напиши своё предложение' },
