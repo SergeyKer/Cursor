@@ -157,6 +157,27 @@ function buildSearchInstructions(
     .join('\n')
 }
 
+function buildSearchInput(messages: ChatMessage[]): string {
+  const userMessages = messages
+    .filter((m) => m.role === 'user')
+    .map((m) => stripWebSearchForceCode(normalizeText(m.content)))
+    .filter(Boolean)
+  const lastUser = userMessages[userMessages.length - 1] ?? ''
+  if (!lastUser) return ''
+
+  const prevUser = userMessages[userMessages.length - 2] ?? ''
+  const shortFollowup =
+    lastUser.length <= 90 &&
+    (
+      /^(?:а|и|ну)(?:\s|$|[,.!?;:])/i.test(lastUser) ||
+      /^(?:also|and)\b/i.test(lastUser)
+    )
+  if (shortFollowup && prevUser) {
+    return `Previous query: ${prevUser}\nFollow-up: ${lastUser}`
+  }
+  return lastUser
+}
+
 export async function callOpenAiWebSearchAnswer(params: {
   systemPrompt: string
   messages: ChatMessage[]
@@ -169,9 +190,10 @@ export async function callOpenAiWebSearchAnswer(params: {
   const key = (process.env.OPENAI_API_KEY ?? '').trim().replace(/^bearer\s+/i, '')
   if (!key) return { ok: false, status: 500, errText: 'Missing OPENAI_API_KEY' }
 
-  const conversation = params.messages
-    .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
-    .join('\n')
+  const conversation = buildSearchInput(params.messages)
+  if (!conversation) {
+    return { ok: false, status: 400, errText: 'OpenAI web search requires a user query' }
+  }
 
   const body = {
     model: OPENAI_WEB_SEARCH_MODEL,

@@ -341,6 +341,67 @@ describe('callOpenAiWebSearchAnswer', () => {
     const body = JSON.parse(String(requestInit?.body)) as { instructions?: string }
     expect(body.instructions).not.toContain('https://www.gismeteo.ru/')
   })
+
+  it('sends only latest user query to web search input', async () => {
+    mockedFetchWithProxyFallback.mockResolvedValueOnce(
+      new Response(JSON.stringify({ output_text: 'General answer.' }), { status: 200 })
+    )
+
+    await callOpenAiWebSearchAnswer({
+      systemPrompt: 'You are helpful.',
+      messages: [
+        { role: 'assistant', content: 'Здравствуйте! Рад вас видеть. Чем займёмся сегодня?' },
+        { role: 'user', content: 'рейтинг дистрибьюторов спецодежды в 2025 году' },
+      ],
+      language: 'ru',
+    })
+
+    const [, requestInit] = mockedFetchWithProxyFallback.mock.calls[0] ?? []
+    const body = JSON.parse(String(requestInit?.body)) as { input?: string }
+    expect(body.input).toBe('рейтинг дистрибьюторов спецодежды в 2025 году')
+  })
+
+  it('keeps previous query context for short follow-up with force code', async () => {
+    mockedFetchWithProxyFallback.mockResolvedValueOnce(
+      new Response(JSON.stringify({ output_text: 'General answer.' }), { status: 200 })
+    )
+
+    await callOpenAiWebSearchAnswer({
+      systemPrompt: 'You are helpful.',
+      messages: [
+        { role: 'user', content: 'рейтинг дистрибьюторов спецодежды в 2025 году' },
+        { role: 'assistant', content: '(i) Нашёл данные, уточните период.' },
+        { role: 'user', content: 'иии а в 2024 году' },
+      ],
+      language: 'ru',
+    })
+
+    const [, requestInit] = mockedFetchWithProxyFallback.mock.calls[0] ?? []
+    const body = JSON.parse(String(requestInit?.body)) as { input?: string }
+    expect(body.input).toContain('Previous query: рейтинг дистрибьюторов спецодежды в 2025 году')
+    expect(body.input).toContain('Follow-up: а в 2024 году')
+  })
+
+  it('keeps previous query context for short entity follow-up', async () => {
+    mockedFetchWithProxyFallback.mockResolvedValueOnce(
+      new Response(JSON.stringify({ output_text: 'General answer.' }), { status: 200 })
+    )
+
+    await callOpenAiWebSearchAnswer({
+      systemPrompt: 'You are helpful.',
+      messages: [
+        { role: 'user', content: 'кто был тренером спартака в 2023' },
+        { role: 'assistant', content: '(i) Нашёл данные по Спартаку.' },
+        { role: 'user', content: 'иии а динамо' },
+      ],
+      language: 'ru',
+    })
+
+    const [, requestInit] = mockedFetchWithProxyFallback.mock.calls[0] ?? []
+    const body = JSON.parse(String(requestInit?.body)) as { input?: string }
+    expect(body.input).toContain('Previous query: кто был тренером спартака в 2023')
+    expect(body.input).toContain('Follow-up: а динамо')
+  })
 })
 
 describe('normalizeWebSearchSourceUrl', () => {

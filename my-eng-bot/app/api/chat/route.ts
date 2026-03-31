@@ -3081,6 +3081,8 @@ function hasRecentWebSearchContext(messages: ChatMessage[]): boolean {
 function isLikelyWebSearchFollowup(text: string): boolean {
   const normalized = text.trim().toLowerCase()
   if (!normalized || normalized.length > 90) return false
+  if (/^(?:а|и|ну)\s+[a-zа-яё0-9-]{2,}$/i.test(normalized)) return true
+  if (/^(?:also|and)\s+[a-z0-9-]{2,}$/i.test(normalized)) return true
   if (/^(?:а|и|ну|also|and)\b/.test(normalized) && /\b(20\d{2}|за\s+20\d{2}|in\s+20\d{2})\b/.test(normalized)) {
     return true
   }
