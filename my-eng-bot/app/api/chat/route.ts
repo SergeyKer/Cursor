@@ -1949,6 +1949,13 @@ function isValidTutorOutput(params: {
 
   const hasComment = lines.some((l) => /^Комментарий\s*:/i.test(l))
   const hasRepeat = lines.some((l) => /^(Повтори|Repeat|Say)\s*:/i.test(l))
+  const commentLine = lines.find((l) => /^Комментарий\s*:/i.test(l)) ?? ''
+  const commentBody = commentLine.replace(/^Комментарий\s*:\s*/i, '').trim()
+
+  const commentSuggestsCorrection =
+    /(?:скоррект|исправ|ошиб|неверн|нужен|нужно|требуетс|а не|правильн(?:ый|ая|ое)\s+перевод|грамматик)/i.test(
+      commentBody
+    )
 
   // Если есть незакрытое «Повтори» из предыдущего хода и ответ пользователя его не снял —
   // ответ ИИ обязан содержать «Повтори:». Без этого триггерим repair.
@@ -1993,6 +2000,9 @@ function isValidTutorOutput(params: {
   // Если время неверно — ИИ обязан выдать Повтори, а не переходить к следующему вопросу.
   // В режиме requiredTense === 'all' ориентируемся на время предыдущего вопроса ассистента.
   if (hasComment && !hasRepeat) {
+    // Если сам комментарий явно указывает на исправление, без «Повтори» нельзя.
+    if (commentSuggestsCorrection) return false
+
     const effectiveRequiredTense =
       requiredTense === 'all'
         ? (priorAssistantContent ? inferTenseFromDialogueAssistantContent(priorAssistantContent) : null)
@@ -2312,10 +2322,18 @@ function stripFalseTenseMismatchClaim(params: {
   if (!body) return content
 
   const tenseClaimRe = /(требуется|нужно)\s+(present|past|future)\s+[a-z_ ]+.*?(?:а\s+не\s+(present|past|future)\s+[a-z_ ]+)?/i
-  if (!tenseClaimRe.test(body)) return content
+  const tenseReminderSentenceRe =
+    /(требуетс|нужн\w*.*\bврем|ошибк\w*.*\bврем|говор\w*\s+о\s+(будущ|настоящ|прошед)|\b(present|past|future)\b|по\s+времен\w*|врем\w*\s+из\s+вопроса|результат\w*.*текущему\s+моменту|привычк\w*|регулярн\w*|прямо\s+сейчас|в\s+прошл\w*|в\s+будущ\w*)/i
 
-  const cleanedBody = body
-    .replace(tenseClaimRe, '')
+  const parts = body
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+  const cleanedParts = parts.filter((s) => !tenseClaimRe.test(s) && !tenseReminderSentenceRe.test(s))
+  if (cleanedParts.length === parts.length) return content
+
+  const cleanedBody = cleanedParts
+    .join(' ')
     .replace(/^\s*[,.;:—-]+\s*/g, '')
     .replace(/\s*[,.;:—-]+\s*$/g, '')
     .replace(/\s{2,}/g, ' ')
@@ -2417,6 +2435,54 @@ function ensureSentence(text: string): string {
   const t = text.trim()
   if (!t) return ''
   return /[.!?]$/.test(t) ? t : `${t}.`
+}
+
+function ensureRepeatWhenCommentRequestsCorrection(params: {
+  content: string
+  userText: string
+  requiredTense: string
+}): string {
+  const { content, userText, requiredTense } = params
+  const trimmed = content.trim()
+  if (!trimmed) return content
+  if (!/(^|\n)\s*Комментарий\s*:/im.test(trimmed)) return content
+  if (/(^|\n)\s*(Повтори|Repeat|Say)\s*:/im.test(trimmed)) return content
+
+  const firstCommentLine =
+    trimmed
+      .split(/\r?\n/)
+      .map((l) => stripLeadingAiPrefix(l).trim())
+      .find((l) => /^Комментарий\s*:/i.test(l)) ?? ''
+  const commentBody = firstCommentLine.replace(/^Комментарий\s*:\s*/i, '').trim()
+  const commentSuggestsCorrection =
+    /(?:скоррект|исправ|ошиб|неверн|нужен|нужно|требуетс|а не|правильн(?:ый|ая|ое)\s+перевод|грамматик)/i.test(
+      commentBody
+    )
+  if (!commentSuggestsCorrection) return content
+
+  const fallbackRepeat = isMixedLatinCyrillicText(userText)
+    ? buildMixedInputRepeatFallback({
+        userText,
+        requiredTense,
+      })
+    : ensureSentence(userText)
+
+  if (!/[A-Za-z]/.test(fallbackRepeat) || /[А-Яа-яЁё]/.test(fallbackRepeat)) return content
+  return `${trimmed}\nПовтори: ${fallbackRepeat}`.trim()
+}
+
+function hasCommentRequestingCorrectionWithoutRepeat(content: string): boolean {
+  const trimmed = content.trim()
+  if (!trimmed) return false
+  if (!/(^|\n)\s*Комментарий\s*:/im.test(trimmed)) return false
+  if (/(^|\n)\s*(Повтори|Repeat|Say)\s*:/im.test(trimmed)) return false
+  const commentLine =
+    trimmed
+      .split(/\r?\n/)
+      .map((l) => stripLeadingAiPrefix(l).trim())
+      .find((l) => /^Комментарий\s*:/i.test(l)) ?? ''
+  const commentBody = commentLine.replace(/^Комментарий\s*:\s*/i, '').trim()
+  return /(?:скоррект|исправ|ошиб|неверн|нужен|нужно|требуетс|а не|правильн(?:ый|ая|ое)\s+перевод|грамматик)/i.test(commentBody)
 }
 
 function inferCommentErrorType(raw: string): string {
@@ -2961,6 +3027,17 @@ function replaceFalsePositiveDialogueRepeatWithPraise(params: {
   const { content, userText, requiredTense, topic, level, audience, diversityKey, recentMessages } = params
   const repeatSentence = getDialogueRepeatSentence(content)
   if (!repeatSentence) return content
+  const lines = content
+    .split(/\r?\n/)
+    .map((l) => stripLeadingAiPrefix(l).trim())
+    .filter(Boolean)
+  const commentLine = lines.find((l) => /^Комментарий\s*:/i.test(l)) ?? ''
+  const commentBody = commentLine.replace(/^Комментарий\s*:\s*/i, '').trim()
+  const commentSuggestsCorrection =
+    /(?:скоррект|исправ|ошиб|неверн|нужен|нужно|требуетс|а не|правильн(?:ый|ая|ое)\s+перевод|грамматик)/i.test(
+      commentBody
+    )
+  if (commentSuggestsCorrection) return content
   if (!isDialogueAnswerEffectivelyCorrect(userText, repeatSentence, requiredTense)) return content
   // Для корректного ответа в dialogue мы должны выходить без "Комментарий" и без "Повтори":
   // сразу следующий вопрос (это соответствует протоколу диалога в system prompt).
@@ -2988,6 +3065,26 @@ function getLastWeatherLocationQuery(messages: ChatMessage[]): string | null {
   }
 
   return null
+}
+
+function hasRecentWebSearchContext(messages: ChatMessage[]): boolean {
+  const tail = messages.slice(-8)
+  const assistantUsedWebSearch = tail.some(
+    (m) => m.role === 'assistant' && /^\s*\(i\)/i.test(m.content ?? '')
+  )
+  const userHadSearchIntent = tail.some(
+    (m) => m.role === 'user' && shouldUseOpenAiWebSearch(m.content ?? '')
+  )
+  return assistantUsedWebSearch || userHadSearchIntent
+}
+
+function isLikelyWebSearchFollowup(text: string): boolean {
+  const normalized = text.trim().toLowerCase()
+  if (!normalized || normalized.length > 90) return false
+  if (/^(?:а|и|ну|also|and)\b/.test(normalized) && /\b(20\d{2}|за\s+20\d{2}|in\s+20\d{2})\b/.test(normalized)) {
+    return true
+  }
+  return /^(?:а|и|ну|also|and)\b/.test(normalized) && /\b(за|по|про|about|regarding)\b/.test(normalized)
 }
 
 function isDialogueFinalCorrectResponse(params: {
@@ -4116,7 +4213,8 @@ export async function POST(req: NextRequest) {
       mode === 'communication' &&
       !explicitTranslateTarget &&
       (shouldUseOpenAiWebSearch(lastUserContentForResponse) ||
-        shouldRequestOpenAiWebSearchSources(lastUserContentForResponse))
+        shouldRequestOpenAiWebSearchSources(lastUserContentForResponse) ||
+        (isLikelyWebSearchFollowup(lastUserContentForResponse) && hasRecentWebSearchContext(recentMessages)))
     const communicationSearchSourcesRequested =
       communicationSearchRequested && shouldRequestOpenAiWebSearchSources(lastUserContentForResponse)
     const weatherSourcesRequested =
@@ -4452,6 +4550,11 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         audience,
       })
       sanitized = compactDialogueComment(sanitized, audience)
+      sanitized = ensureRepeatWhenCommentRequestsCorrection({
+        content: sanitized,
+        userText: lastUserContentForResponse,
+        requiredTense: tutorGradingTense,
+      })
     }
     sanitized = stripRepeatOnPraise(sanitized)
     sanitized = ensureNextQuestionOnPraise(sanitized, {
@@ -4894,6 +4997,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       !isTopicChoiceTurn &&
       Boolean(freeTalkExpectedNextQuestionTense) &&
       tenseValidation.reason === 'next_question_tense_mismatch' &&
+      !hasCommentRequestingCorrectionWithoutRepeat(sanitized) &&
       !isMixedDialogueInput &&
       isUserLikelyCorrectForTense(lastUserContentForResponse, tutorGradingTense) &&
       userClosedForcedRepeat
@@ -5128,6 +5232,24 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         })
       }
       if (mode === 'dialogue' && !isFirstTurn && !isTopicChoiceTurn && !isLowSignalDialogueInput(lastUserContentForResponse)) {
+        const correctionWithoutRepeat = hasCommentRequestingCorrectionWithoutRepeat(sanitized)
+        if (correctionWithoutRepeat) {
+          if (isMixedDialogueInput) {
+            return NextResponse.json({
+              content: `${buildMixedDialogueFallbackComment({
+                audience,
+                level,
+                userText: lastUserContentForResponse,
+              })}\nПовтори: ${buildMixedInputRepeatFallback({
+                userText: lastUserContentForResponse,
+                tense: tutorGradingTense,
+              })}`,
+            })
+          }
+          return NextResponse.json({
+            content: `Комментарий: Давайте уточним формулировку и грамматику.\nПовтори: ${ensureSentence(lastUserContentForResponse)}`,
+          })
+        }
         if (!isMixedDialogueInput && userClosedForcedRepeat && isUserLikelyCorrectForTense(lastUserContentForResponse, tutorGradingTense)) {
           return NextResponse.json({
             content: fallbackNextQuestion({
@@ -5157,14 +5279,6 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           : soft
             ? `Комментарий: Здесь есть небольшая неточность. ${tryAgain}`
             : 'Комментарий: Есть небольшая неточность во времени или грамматике. Давайте попробуем ещё раз.'
-        const nextQuestion = lastQ ?? fallbackNextQuestion({
-          topic,
-          tense: tutorGradingTense,
-          level,
-          audience,
-          diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
-          recentMessages,
-        })
         if (isMixedDialogueInput) {
           return NextResponse.json({
             content: `${buildMixedDialogueFallbackComment({
@@ -5177,7 +5291,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             })}`,
           })
         }
-        return NextResponse.json({ content: `${commentNonMixed}\n${nextQuestion}` })
+        return NextResponse.json({
+          content: `${commentNonMixed}\nПовтори: ${ensureSentence(lastUserContentForResponse)}`,
+        })
       }
       return NextResponse.json({
         content:
@@ -5216,6 +5332,11 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         audience,
       })
       sanitized = compactDialogueComment(sanitized, audience)
+      sanitized = ensureRepeatWhenCommentRequestsCorrection({
+        content: sanitized,
+        userText: lastUserContentForResponse,
+        requiredTense: tutorGradingTense,
+      })
     }
 
     return NextResponse.json({

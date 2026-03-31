@@ -479,5 +479,65 @@ describe('POST /api/chat repeat cycle stability', () => {
       expect(data.content).toMatch(/\?\s*$/)
     }
   })
+
+  it('removes false future-will reminder when user already uses will', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Тут нужно другое слово — "кино" по-английски будет "to the cinema". Кроме того, ты говоришь о будущем, поэтому нужно will.\nПовтори: I will go to the cinema.',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Тут нужно другое слово — "кино" по-английски будет "to the cinema". Кроме того, ты говоришь о будущем, поэтому нужно will.\nПовтори: I will go to the cinema.',
+      })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      audience: 'child',
+      level: 'a1',
+      tenses: ['future_simple'],
+      messages: [
+        { role: 'assistant', content: 'What will you do after playing football?' },
+        { role: 'user', content: 'I will go кино' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content.toLowerCase()).not.toContain('нужно will')
+  })
+
+  it('removes false present-simple reminder when user already uses present simple', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Вы говорите о привычке, поэтому нужен Present Simple. Кроме того, слово "movie" подходит лучше.\nПовтори: I watch a movie every week.',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Вы говорите о привычке, поэтому нужен Present Simple. Кроме того, слово "movie" подходит лучше.\nПовтори: I watch a movie every week.',
+      })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'What do you watch every week?' },
+        { role: 'user', content: 'I watch cinema every week.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content.toLowerCase()).not.toContain('нужен present simple')
+    expect(data.content.toLowerCase()).not.toContain('говорите о привычке')
+  })
+
 })
 

@@ -124,14 +124,26 @@ describe('shouldUseOpenAiWebSearch', () => {
   it('forces web search by code prefix in Russian and English layouts', () => {
     expect(shouldUseOpenAiWebSearch('Иии цены на нефть')).toBe(true)
     expect(shouldUseOpenAiWebSearch('Iii latest OpenAI news')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('иИи цены на нефть')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('iII latest OpenAI news')).toBe(true)
     expect(hasWebSearchForceCode('Иии цены на нефть')).toBe(true)
     expect(hasWebSearchForceCode('Iii latest OpenAI news')).toBe(true)
+    expect(hasWebSearchForceCode('иИи цены на нефть')).toBe(true)
+    expect(hasWebSearchForceCode('iII latest OpenAI news')).toBe(true)
   })
 
   it('strips force code from query before further processing', () => {
     expect(stripWebSearchForceCode('Иии цены на нефть')).toBe('цены на нефть')
     expect(stripWebSearchForceCode('Iii latest OpenAI news')).toBe('latest OpenAI news')
     expect(stripWebSearchForceCode('Иии, что нового в ИИ?')).toBe('что нового в ИИ?')
+    expect(stripWebSearchForceCode('иИи: что нового в ИИ?')).toBe('что нового в ИИ?')
+  })
+
+  it('does not trigger by code in the middle of sentence', () => {
+    expect(shouldUseOpenAiWebSearch('расскажи иии про бананы')).toBe(false)
+    expect(shouldUseOpenAiWebSearch('tell me iii about bananas')).toBe(false)
+    expect(hasWebSearchForceCode('расскажи иии про бананы')).toBe(false)
+    expect(hasWebSearchForceCode('tell me iii about bananas')).toBe(false)
   })
 })
 

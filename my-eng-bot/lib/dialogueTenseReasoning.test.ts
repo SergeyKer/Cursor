@@ -55,4 +55,17 @@ describe('enrichDialogueCommentWithLearningReason', () => {
     expect(out).toContain('has')
     expect(out).toContain('he/she/it')
   })
+
+  it('replaces semicolon with dash after tense contrast', () => {
+    const content = `Комментарий: Используйте Present Simple, а не Past Simple; нужен правильный перевод.
+Повтори: I play forward.`
+    const out = enrichDialogueCommentWithLearningReason({
+      content,
+      requiredTense: 'present_simple',
+      audience: 'adult',
+      userText: 'I played forward',
+      repeatSentence: 'I play forward.',
+    })
+    expect(out).toContain('а не Past Simple — нужен правильный перевод')
+  })
 })

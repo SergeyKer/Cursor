@@ -4,6 +4,14 @@ function hasAny(text: string, patterns: RegExp[]): boolean {
   return patterns.some((re) => re.test(text))
 }
 
+function normalizeTenseContrastPunctuation(text: string): string {
+  // "..., а не Past Simple; ..." -> "..., а не Past Simple — ..."
+  return text.replace(
+    /(,\s*а\s+не\s+(?:Present|Past|Future)\s+[A-Za-z ]{3,40})\s*;\s*/g,
+    '$1 — '
+  )
+}
+
 function buildTenseReasonByContext(params: {
   requiredTense: string
   audience: Audience
@@ -168,7 +176,9 @@ export function enrichDialogueCommentWithLearningReason(params: {
     repeatSentence,
     userText,
   })
-  if (!hint) return content
-  lines[commentIndex] = `Комментарий: ${body} ${hint}`.replace(/\s+/g, ' ').trim()
+  const merged = hint ? `${body} ${hint}`.replace(/\s+/g, ' ').trim() : body
+  const normalized = normalizeTenseContrastPunctuation(merged)
+  if (!hint && normalized === body) return content
+  lines[commentIndex] = `Комментарий: ${normalized}`
   return lines.join('\n').trim()
 }
