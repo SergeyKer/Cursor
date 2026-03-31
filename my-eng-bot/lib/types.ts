@@ -93,3 +93,36 @@ export interface StoredState {
   messages: ChatMessage[]
   settings: Settings
 }
+
+export interface ImageAnalysisObject {
+  nameRu: string
+  confidence?: number
+}
+
+export interface ImageAnalysisAction {
+  phraseRu: string
+}
+
+export interface ImageLearningFocus {
+  topic: string
+  why: string
+}
+
+export interface ImageLearningVocabulary {
+  word: string
+  translation: string
+}
+
+export interface ImageAnalysisResult {
+  whatISee: {
+    summaryRu: string
+    objects: ImageAnalysisObject[]
+    actions: ImageAnalysisAction[]
+  }
+  whatToLearn: {
+    focus: ImageLearningFocus[]
+    vocabulary: ImageLearningVocabulary[]
+    practiceHint: string
+  }
+  nextStepHint: string
+}

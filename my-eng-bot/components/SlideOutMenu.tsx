@@ -28,6 +28,8 @@ interface SlideOutMenuProps {
   chatActive?: boolean
   /** Открыть урок из ветки «Обучение». */
   onOpenLearningLesson?: (lessonId: string) => void
+  /** Открыть урок из ветки «Репетитор». */
+  onOpenTutorLesson?: (request: { requestedTopic: string; analysisSummary?: string }) => Promise<void> | void
   /** Контекст меню, из которого открыт урок. */
   lessonMenuContext?: LessonMenuContext | null
 }
@@ -45,6 +47,7 @@ export default function SlideOutMenu({
   onGoHome,
   chatActive = false,
   onOpenLearningLesson,
+  onOpenTutorLesson,
   lessonMenuContext,
 }: SlideOutMenuProps) {
   const [menuView, setMenuView] = React.useState<MenuView>('root')
@@ -116,6 +119,7 @@ export default function SlideOutMenu({
             onStartHomeChat={onStartChat}
             onGoHome={onGoHome}
             onOpenLearningLesson={onOpenLearningLesson}
+            onOpenTutorLesson={onOpenTutorLesson}
             initialLessonsPanel={menuView === 'lessons' ? lessonMenuContext?.lessonsPanel : undefined}
           />
         </div>

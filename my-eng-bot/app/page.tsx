@@ -41,17 +41,66 @@ import type {
 import { PAGE_HOME_START_PRIMARY_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import { parseCorrection } from '@/lib/parseCorrection'
 import {
+  findStaticLessonByTopic,
   getLearningLessonActions,
   getLearningLessonById,
   getLearningLessonFollowupPlaceholder,
+  registerRuntimeLearningLesson,
   type LearningLessonActionId,
 } from '@/lib/learningLessons'
+import type { LessonBlueprint } from '@/lib/lessonBlueprint'
 import type { LessonMenuContext } from '@/components/SlideOutMenu'
 
-import MenuSectionPanels, { type MenuView } from '@/components/MenuSectionPanels'
+import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/components/MenuSectionPanels'
 
 const Chat = dynamic(() => import('@/components/Chat'))
 const SlideOutMenu = dynamic(() => import('@/components/SlideOutMenu'))
+
+function buildTutorFallbackBlueprint(topic: string): LessonBlueprint {
+  const safeTopic = topic.trim() || 'Выбранная тема'
+  return {
+    title: safeTopic,
+    theoryIntro:
+      `**Урок:** ${safeTopic}\n` +
+      '**Правило:**\n' +
+      '1) Сравниваем значения и контексты использования.\n' +
+      '2) Закрепляем через короткие фразы и мини-ситуации.\n' +
+      '**Примеры:**\n' +
+      `1) I like this idea. I love this song.\n` +
+      `2) We use "${safeTopic}" in different contexts.\n` +
+      '**Коротко:** выберите правильный вариант по смыслу и повторите вслух.\n' +
+      '**Шаблоны:**\n' +
+      '1) I like ... / I love ...\n' +
+      '2) I use ... when ...',
+    actions: [
+      { id: 'examples', label: 'Посмотри примеры' },
+      { id: 'fill_phrase', label: 'Подставь слово' },
+      { id: 'repeat_translate', label: 'Переведи на английский' },
+      { id: 'write_own_sentence', label: 'Напиши своё предложение' },
+    ],
+    followups: {
+      examples:
+        '**Примеры:**\n' +
+        '1) I like coffee, but I love tea.\n' +
+        '2) I like this movie. I love this actor.\n' +
+        '3) I like mornings, but I love weekends.',
+      fill_phrase:
+        '**Подставь слово:**\n' +
+        '1) I ____ this song. (like / love)\n' +
+        '2) We ____ this place. (like / love)\n' +
+        'Выберите вариант по смыслу.',
+      repeat_translate:
+        '**Переведи на английский:**\n' +
+        '1) Мне нравится эта идея.\n' +
+        '2) Я люблю эту песню.\n' +
+        '3) Мы используем это в разном контексте.',
+      write_own_sentence:
+        '**Напиши своё предложение:**\n' +
+        `Тема: ${safeTopic}\n` +
+        'Напиши 3 коротких примера по шаблону.',
+    },
+  }
+}
 
 function MenuIcon() {
   return (
@@ -660,7 +709,7 @@ export default function Home() {
     setMenuOpen(false)
   }, [dialogStarted, restartChatForNewModeFromMenu])
 
-  const openLearningLesson = useCallback((lessonId: string) => {
+  const openLearningLesson = useCallback((lessonId: string, lessonsPanel: LessonsPanel = 'a2') => {
     const lesson = getLearningLessonById(lessonId)
     if (!lesson) return
     firstMessageRequestIdRef.current += 1
@@ -675,7 +724,7 @@ export default function Home() {
     setLoadingTranslationIndex(null)
     setForceNextMicLang(null)
     setSettingsAtLastSend(null)
-    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'a2' })
+    setLessonMenuContext({ menuView: 'lessons', lessonsPanel })
     setActiveLearningLessonId(lessonId)
     setMessages([
       {
@@ -684,6 +733,58 @@ export default function Home() {
       },
     ])
   }, [])
+
+  const openTutorLesson = useCallback(
+    async (request: { requestedTopic: string; analysisSummary?: string }) => {
+      const topic = request.requestedTopic.trim()
+      if (!topic) return
+
+      const staticLesson = findStaticLessonByTopic(topic)
+      if (staticLesson) {
+        openLearningLesson(staticLesson.id, 'tutor')
+        return
+      }
+
+      let lesson: LessonBlueprint | null = null
+      try {
+        const response = await fetch('/api/lesson-generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: settings.provider,
+            topic,
+            level: settings.level,
+            audience: settings.audience,
+            analysisSummary: request.analysisSummary,
+          }),
+        })
+        const data = (await response.json()) as {
+          lesson?: LessonBlueprint
+          error?: string
+        }
+        if (response.ok && data.lesson) {
+          lesson = data.lesson
+        } else if (data.error) {
+          console.warn('lesson-generate error:', data.error)
+        }
+      } catch (error) {
+        console.warn('lesson-generate failed, fallback blueprint will be used:', error)
+      }
+
+      if (!lesson) {
+        lesson = buildTutorFallbackBlueprint(topic)
+      }
+
+      const lessonId = registerRuntimeLearningLesson({
+        title: lesson.title,
+        theoryIntro: lesson.theoryIntro,
+        actions: lesson.actions,
+        followups: lesson.followups,
+      })
+      openLearningLesson(lessonId, 'tutor')
+    },
+    [openLearningLesson, settings.provider, settings.level, settings.audience]
+  )
 
   const handleSelectLearningAction = useCallback(
     (actionId: string) => {
@@ -1149,11 +1250,17 @@ export default function Home() {
     return `${modeLabel} - ${tenseLabel}, ${normalizedLevelShort}`
   }
 
+  const activeLessonTitle = activeLearningLessonId ? getLearningLessonById(activeLearningLessonId)?.title ?? null : null
+  const isTutorLessonHeader = activeLessonTitle && lessonMenuContext?.lessonsPanel === 'tutor'
   const pageTitle = !dialogStarted
     ? 'MyEng - мой английский друг'
-    : storageLoaded
-      ? getMenuSummary(true)
-      : 'MyEng'
+    : isTutorLessonHeader
+      ? 'Репетитор с MyEng'
+      : activeLessonTitle
+      ? `Урок: ${activeLessonTitle}`
+      : storageLoaded
+        ? getMenuSummary(true)
+        : 'MyEng'
 
   return (
     <div data-audience={settings.audience} className="flex h-[100dvh] min-h-[100dvh] flex-col">
@@ -1243,7 +1350,7 @@ export default function Home() {
             className="[font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif] text-[16px] font-semibold tracking-normal leading-[1.32] text-[var(--text)] truncate max-w-full"
             title={pageTitle}
           >
-            {!dialogStarted || !storageLoaded ? (
+            {!dialogStarted || !storageLoaded || activeLessonTitle ? (
               pageTitle
             ) : (
               <>
@@ -1359,6 +1466,7 @@ export default function Home() {
                     onGoHome={goToStartScreen}
                     onAiChatPanelChange={setHomeAiChatPanel}
                     onOpenLearningLesson={openLearningLesson}
+                    onOpenTutorLesson={openTutorLesson}
                   />
                 </div>
               </>
@@ -1416,6 +1524,7 @@ export default function Home() {
         onStartChat={handleStartChatFromMenu}
         onGoHome={goToStartScreen}
         onOpenLearningLesson={openLearningLesson}
+        onOpenTutorLesson={openTutorLesson}
         lessonMenuContext={lessonMenuContext}
       />
     </div>
