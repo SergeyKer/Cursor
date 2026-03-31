@@ -26,8 +26,8 @@ import { pickFreeTalkTopicSuggestions } from '@/lib/freeTalkTopicSuggestions'
 import {
   shouldRequestAllOpenAiWebSearchSources,
   shouldRequestOpenAiWebSearchSources,
-  shouldUseOpenAiWebSearch,
 } from '@/lib/openAiWebSearchShared'
+import { getCommunicationWebSearchDecision } from '@/lib/webSearchContext'
 import type {
   AppMode,
   Audience,
@@ -343,6 +343,7 @@ export default function Home() {
       webSearchSources?: ChatMessage['webSearchSources']
       webSearchSourcesRequested?: boolean
       webSearchSourcesHiddenCount?: number
+      webSearchTriggered?: boolean
     }> => {
       const onRetryStatus = options?.onRetryStatus
       let lastError: Error | null = null
@@ -395,6 +396,7 @@ export default function Home() {
               webSearchSources?: ChatMessage['webSearchSources']
               webSearchSourcesRequested?: boolean
               webSearchSourcesHiddenCount?: number
+              webSearchTriggered?: boolean
             }
             try {
               data = (await res.json()) as {
@@ -406,6 +408,7 @@ export default function Home() {
                 webSearchSources?: ChatMessage['webSearchSources']
                 webSearchSourcesRequested?: boolean
                 webSearchSourcesHiddenCount?: number
+                webSearchTriggered?: boolean
               }
             } catch {
               throw new Error(res.ok ? 'Неверный ответ сервера.' : `Ошибка ${res.status}: ${res.statusText}`)
@@ -446,6 +449,7 @@ export default function Home() {
                 webSearchSources: data.webSearchSources,
                 webSearchSourcesRequested: data.webSearchSourcesRequested,
                 webSearchSourcesHiddenCount: data.webSearchSourcesHiddenCount,
+                webSearchTriggered: data.webSearchTriggered,
               }
             }
             lastError = new Error(EMPTY_RESPONSE_FALLBACK)
@@ -590,6 +594,7 @@ export default function Home() {
           webSearchSources: response.webSearchSources,
           webSearchSourcesRequested: response.webSearchSourcesRequested,
           webSearchSourcesHiddenCount: response.webSearchSourcesHiddenCount,
+          webSearchTriggered: response.webSearchTriggered,
         },
       ])
       // Базовая "точка отсчёта" для баннера «Настройки изменены».
@@ -702,6 +707,7 @@ export default function Home() {
           webSearchSources: response.webSearchSources,
           webSearchSourcesRequested: response.webSearchSourcesRequested,
           webSearchSourcesHiddenCount: response.webSearchSourcesHiddenCount,
+          webSearchTriggered: response.webSearchTriggered,
         },
       ])
       setSettingsAtLastSend(settings)
@@ -781,10 +787,15 @@ export default function Home() {
         settings.mode === 'communication' &&
         !explicitTranslateTarget &&
         shouldRequestAllOpenAiWebSearchSources(text)
+      const searchDecision = getCommunicationWebSearchDecision({
+        mode: settings.mode,
+        explicitTranslateTarget,
+        rawText: text,
+        cleanedText: text,
+        recentMessages: messages,
+      })
       const shouldSearchInternet =
-        settings.mode === 'communication' &&
-        !explicitTranslateTarget &&
-        shouldUseOpenAiWebSearch(text)
+        searchDecision.requested
       const userMsg: ChatMessage = { role: 'user', content: text }
       if (settings.mode === 'communication') {
         setSettings((prev) => ({
@@ -795,11 +806,11 @@ export default function Home() {
       const nextMessages = [...messages, userMsg]
       setMessages(nextMessages)
       if (sourceRequestOnly || sourceRequestShowAll) {
-        const latestSourceMessage = [...messages]
+        const previousAssistantMessage = [...messages]
           .reverse()
-          .find((message) => message.role === 'assistant' && (message.webSearchSources?.length ?? 0) > 0)
+          .find((message) => message.role === 'assistant')
 
-        if (!latestSourceMessage || !latestSourceMessage.webSearchSources) {
+        if (!previousAssistantMessage || !previousAssistantMessage.webSearchSources) {
           setMessages((prev) => [
             ...prev,
             {
@@ -820,9 +831,9 @@ export default function Home() {
               ? '(i) Показываю все источники по предыдущему ответу.'
               : '(i) Вот источники по предыдущему ответу.',
             webSearchSourcesRequested: true,
-            webSearchSources: latestSourceMessage.webSearchSources,
+            webSearchSources: previousAssistantMessage.webSearchSources,
             webSearchSourcesShowAll: sourceRequestShowAll,
-            webSearchSourcesHiddenCount: latestSourceMessage.webSearchSourcesHiddenCount,
+            webSearchSourcesHiddenCount: previousAssistantMessage.webSearchSourcesHiddenCount,
           },
         ])
         setSettingsAtLastSend(settings)
@@ -845,6 +856,7 @@ export default function Home() {
             webSearchSources: response.webSearchSources,
             webSearchSourcesRequested: response.webSearchSourcesRequested,
             webSearchSourcesHiddenCount: response.webSearchSourcesHiddenCount,
+            webSearchTriggered: response.webSearchTriggered,
           },
         ])
         setSettingsAtLastSend(settings)

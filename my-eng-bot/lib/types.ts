@@ -19,6 +19,8 @@ export interface ChatMessage {
   webSearchSourcesShowAll?: boolean
   /** Сколько устаревших источников скрыто фильтром актуальности. */
   webSearchSourcesHiddenCount?: number
+  /** Был ли этот ответ получен через web-search ветку на сервере. */
+  webSearchTriggered?: boolean
 }
 
 export type AiProvider = 'openrouter' | 'openai'
