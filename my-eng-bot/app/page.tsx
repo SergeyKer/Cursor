@@ -40,7 +40,12 @@ import type {
 } from '@/lib/types'
 import { PAGE_HOME_START_PRIMARY_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import { parseCorrection } from '@/lib/parseCorrection'
-import { getLearningLessonById } from '@/lib/learningLessons'
+import {
+  getLearningLessonActions,
+  getLearningLessonById,
+  getLearningLessonFollowupPlaceholder,
+  type LearningLessonActionId,
+} from '@/lib/learningLessons'
 import type { LessonMenuContext } from '@/components/SlideOutMenu'
 
 import MenuSectionPanels, { type MenuView } from '@/components/MenuSectionPanels'
@@ -216,6 +221,7 @@ export default function Home() {
   const [forceNextMicLang, setForceNextMicLang] = useState<'ru' | 'en' | null>(null)
   const [searchingInternet, setSearchingInternet] = useState(false)
   const [lessonMenuContext, setLessonMenuContext] = useState<LessonMenuContext | null>(null)
+  const [activeLearningLessonId, setActiveLearningLessonId] = useState<string | null>(null)
   const dialogueCorrectAnswers = React.useMemo(() => countDialogueFinalCorrectAnswers(messages), [messages])
   /** Настройки на момент последней отправки сообщения; для баннера «настройки изменены». */
   const [settingsAtLastSend, setSettingsAtLastSend] = useState<Settings | null>(null)
@@ -628,6 +634,7 @@ export default function Home() {
   const restartChatForNewModeFromMenu = useCallback(() => {
     suppressSettingsChangeBannerRef.current = true
     setLessonMenuContext(null)
+    setActiveLearningLessonId(null)
     firstMessageRequestIdRef.current += 1
     firstMessageInFlightRef.current = false
     dialogSeedRef.current = createDialogSeed()
@@ -642,11 +649,13 @@ export default function Home() {
   const handleStartChatFromMenu = useCallback(() => {
     if (!dialogStarted) {
       setLessonMenuContext(null)
+      setActiveLearningLessonId(null)
       setDialogStarted(true)
       setMenuOpen(false)
       return
     }
     setLessonMenuContext(null)
+    setActiveLearningLessonId(null)
     restartChatForNewModeFromMenu()
     setMenuOpen(false)
   }, [dialogStarted, restartChatForNewModeFromMenu])
@@ -667,6 +676,7 @@ export default function Home() {
     setForceNextMicLang(null)
     setSettingsAtLastSend(null)
     setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'a2' })
+    setActiveLearningLessonId(lessonId)
     setMessages([
       {
         role: 'assistant',
@@ -674,6 +684,17 @@ export default function Home() {
       },
     ])
   }, [])
+
+  const handleSelectLearningAction = useCallback(
+    (actionId: string) => {
+      if (!activeLearningLessonId) return
+      const typedActionId = actionId as LearningLessonActionId
+      const placeholder = getLearningLessonFollowupPlaceholder(activeLearningLessonId, typedActionId)
+      if (!placeholder) return
+      setMessages((prev) => [...prev, { role: 'assistant', content: placeholder }])
+    },
+    [activeLearningLessonId]
+  )
 
   useEffect(() => {
     const wasOpen = prevMenuOpenForSnapshotRef.current
@@ -711,6 +732,7 @@ export default function Home() {
     setForceNextMicLang(null)
     setLoadingTranslationIndex(null)
     setLessonMenuContext(null)
+    setActiveLearningLessonId(null)
     dialogSeedRef.current = createDialogSeed()
     newDialogRef.current = false
     setWelcomeCompact(false)
@@ -1374,6 +1396,8 @@ export default function Home() {
             loadingTranslationIndex={loadingTranslationIndex}
             forceNextMicLang={forceNextMicLang}
             onConsumeForceNextMicLang={() => setForceNextMicLang(null)}
+            learningActions={activeLearningLessonId ? getLearningLessonActions(activeLearningLessonId) : []}
+            onSelectLearningAction={handleSelectLearningAction}
           />
           </div>
           </>

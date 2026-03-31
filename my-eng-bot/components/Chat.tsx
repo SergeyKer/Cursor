@@ -6,6 +6,8 @@ import { speak } from '@/lib/speech'
 import { pickRecordingMimeType, shouldUseMediaRecorderFallback, sttLangFromLocale } from '@/lib/sttClient'
 import { normalizeWebSearchSourceUrl } from '@/lib/openAiWebSearchShared'
 import type { ChatMessage as ChatMessageType, Settings } from '@/lib/types'
+import { PAGE_HOME_START_PRIMARY_BUTTON_CLASS } from '@/lib/homeCtaStyles'
+import type { LearningLessonAction } from '@/lib/learningLessons'
 
 interface ChatProps {
   messages: ChatMessageType[]
@@ -23,6 +25,8 @@ interface ChatProps {
   loadingTranslationIndex?: number | null
   forceNextMicLang?: 'ru' | 'en' | null
   onConsumeForceNextMicLang?: () => void
+  learningActions?: LearningLessonAction[]
+  onSelectLearningAction?: (actionId: string) => void
 }
 
 /**
@@ -336,10 +340,14 @@ export default function Chat({
   loadingTranslationIndex,
   forceNextMicLang,
   onConsumeForceNextMicLang,
+  learningActions = [],
+  onSelectLearningAction,
 }: ChatProps) {
   const [input, setInput] = React.useState('')
   const [inputFocused, setInputFocused] = React.useState(false)
   const [listening, setListening] = React.useState(false)
+  const [selectedLessonActionByMessage, setSelectedLessonActionByMessage] = React.useState<Record<number, string>>({})
+  const isLearningFlow = learningActions.length > 0 || Object.keys(selectedLessonActionByMessage).length > 0
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
@@ -777,6 +785,10 @@ export default function Chat({
   const lastMessageRole = messages[messages.length - 1]?.role ?? null
   const canShowTypingIndicator = showTypingIndicator && loading && lastMessageRole === 'user'
 
+  React.useEffect(() => {
+    if (messages.length === 0) setSelectedLessonActionByMessage({})
+  }, [messages.length])
+
   /** Диалог и общение — MyEng; тренировка перевода — без изменений. */
   const isCommunicationEnglishInput = settings.mode === 'communication' && settings.communicationInputExpectedLang === 'en'
   const typingIndicatorText =
@@ -807,7 +819,11 @@ export default function Chat({
                 </p>
               )}
               {messages.map((msg, i) => {
-                const bubblePosition = getBubblePosition(messages[i - 1]?.role, msg.role, messages[i + 1]?.role)
+                const defaultBubblePosition = getBubblePosition(messages[i - 1]?.role, msg.role, messages[i + 1]?.role)
+                const bubblePosition =
+                  isLearningFlow && msg.role === 'assistant'
+                    ? 'solo'
+                    : defaultBubblePosition
 
                 return (
                   <React.Fragment key={i}>
@@ -861,6 +877,48 @@ export default function Chat({
                           </button>
                         </div>
                       )}
+                    {!loading &&
+                      msg.role === 'assistant' &&
+                      learningActions.length > 0 &&
+                      onSelectLearningAction &&
+                      (() => {
+                        const selectedActionId = selectedLessonActionByMessage[i] ?? null
+                        const isCurrentStep = i === messages.length - 1
+                        if (!selectedActionId && !isCurrentStep) return null
+                        const visibleActions = selectedActionId
+                          ? learningActions.filter((action) => action.id === selectedActionId)
+                          : learningActions
+                        if (visibleActions.length === 0) return null
+                        const actionBlockSpacingClass = selectedActionId ? 'mt-2 mb-2' : 'mt-1.5 mb-1.5'
+                        return (
+                          <div className={`${actionBlockSpacingClass} flex justify-end`}>
+                            <div className="flex w-fit flex-col items-end gap-2">
+                              {visibleActions.map((action) => {
+                                const isDisabled = selectedActionId === action.id
+                                return (
+                                  <button
+                                    key={action.id}
+                                    type="button"
+                                    onClick={() => {
+                                      if (isDisabled) return
+                                      setSelectedLessonActionByMessage((prev) => ({ ...prev, [i]: action.id }))
+                                      onSelectLearningAction(action.id)
+                                    }}
+                                    disabled={isDisabled}
+                                    className={
+                                      isDisabled
+                                        ? 'btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl border border-gray-300 bg-gradient-to-b from-gray-400 to-gray-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 touch-manipulation min-h-[44px] cursor-default'
+                                        : PAGE_HOME_START_PRIMARY_BUTTON_CLASS
+                                    }
+                                  >
+                                    {action.label}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })()}
                   </React.Fragment>
                 )
               })}
