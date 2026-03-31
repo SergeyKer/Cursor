@@ -31,8 +31,8 @@ const LESSONS: Record<string, LearningLesson> = {
       '2) It’s time to + глагол (drink, go, sleep, study).',
     actions: [
       { id: 'examples', label: 'Посмотри примеры' },
-      { id: 'repeat_translate', label: 'Повтори и переведи' },
-      { id: 'fill_phrase', label: 'Дополни фразу' },
+      { id: 'fill_phrase', label: 'Подставь слово' },
+      { id: 'repeat_translate', label: 'Переведи на английский' },
       { id: 'write_own_sentence', label: 'Напиши своё предложение' },
     ],
   },
@@ -57,25 +57,25 @@ export function getLearningLessonFollowupPlaceholder(
 
   const followupByAction: Record<LearningLessonActionId, string> = {
     examples:
-      '**Примеры (дополнительно):**\n' +
+      '**Примеры:**\n' +
       '1) It’s late. It’s time to sleep.\n' +
       '2) It’s cold. It’s time to drink tea.\n' +
       '3) It’s dark. It’s time to go home.',
     repeat_translate:
-      '**Повтори и переведи:**\n' +
-      '1) It’s cold.\n' +
-      '2) It’s time to drink tea.\n' +
-      'Сначала повтори вслух, затем переведи на русский.',
+      '**Переведи на английский:**\n' +
+      '1) Темно.\n' +
+      '2) Холодно.\n' +
+      '3) Пора пить чай.',
     fill_phrase:
-      '**Дополни фразу:**\n' +
+      '**Подставь слово:**\n' +
       '1) It’s ____. (dark / cold)\n' +
       '2) It’s time to ____. (sleep / drink tea)\n' +
       'Выбери подходящее слово и прочитай целиком.',
     write_own_sentence:
       '**Напиши своё предложение:**\n' +
-      '1) It’s + adjective\n' +
-      '2) It’s time to + verb\n' +
-      'Напиши 2 своих коротких примера по шаблону.',
+      '1) It’s + прилагательное\n' +
+      '2) It’s time to + глагол\n' +
+      'Напиши 3 своих коротких примера по шаблону.',
   }
 
   return followupByAction[actionId]
