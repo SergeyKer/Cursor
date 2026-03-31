@@ -69,8 +69,11 @@ describe('shouldUseOpenAiWebSearch', () => {
     expect(shouldUseOpenAiWebSearch('Какие даты текущего соревнования Формулы 1?')).toBe(true)
     expect(shouldUseOpenAiWebSearch('Какие даты действующего соревнования Формулы 1?')).toBe(true)
     expect(shouldUseOpenAiWebSearch('кто последний тренер спартака москва')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('последний тренер спартака')).toBe(true)
     expect(shouldUseOpenAiWebSearch('кто последний чемпион россии по футболу')).toBe(true)
     expect(shouldUseOpenAiWebSearch('кто нынешний чемпион англии по футболу')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('последняя модель ниссан')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('новая модель тойота')).toBe(true)
     expect(shouldUseOpenAiWebSearch('кто последний победитель лиги чемпионов')).toBe(true)
     expect(shouldUseOpenAiWebSearch('когда начнутся паводки в России')).toBe(true)
     expect(shouldUseOpenAiWebSearch('когда состоится матч спартак зенит')).toBe(true)
@@ -166,6 +169,8 @@ describe('isRecencySensitiveRequest', () => {
     expect(isRecencySensitiveRequest('когда следующий матч спартака')).toBe(true)
     expect(isRecencySensitiveRequest('who is the upcoming coach')).toBe(true)
     expect(isRecencySensitiveRequest('кто последний чемпион россии по футболу')).toBe(true)
+    expect(isRecencySensitiveRequest('последний тренер спартака')).toBe(true)
+    expect(isRecencySensitiveRequest('последняя модель ниссан')).toBe(true)
     expect(isRecencySensitiveRequest('текущий рейтинг вратарей')).toBe(true)
     expect(isRecencySensitiveRequest('what is his current ranking position')).toBe(true)
   })
@@ -413,6 +418,30 @@ describe('callOpenAiWebSearchAnswer', () => {
     const body = JSON.parse(String(requestInit?.body)) as { input?: string }
     expect(body.input).toContain('Previous query: кто был тренером спартака в 2023')
     expect(body.input).toContain('Follow-up: а динамо')
+  })
+
+  it('strips greeting at start of web-search answer', async () => {
+    mockedFetchWithProxyFallback.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          output_text:
+            'Здравствуйте! Обновленный Nissan X-Trail 2024 года получил изменения в дизайне и оснащении.',
+        }),
+        { status: 200 }
+      )
+    )
+
+    const result = await callOpenAiWebSearchAnswer({
+      systemPrompt: 'You are helpful.',
+      messages: [{ role: 'user', content: 'иии про ниссан икстрейл обновленная версия' }],
+      language: 'ru',
+    })
+
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.content.toLowerCase()).not.toContain('здравствуйте')
+      expect(result.content).toContain('Nissan X-Trail')
+    }
   })
 })
 

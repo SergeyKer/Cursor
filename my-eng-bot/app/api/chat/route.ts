@@ -13,6 +13,7 @@ import {
   shouldRequestOpenAiWebSearchSources,
 } from '@/lib/openAiWebSearch'
 import {
+  hasWebSearchForceCode,
   isWeatherForecastRequest,
   isWeatherFollowupRequest,
   stripWebSearchForceCode,
@@ -3069,13 +3070,9 @@ function getLastWeatherLocationQuery(messages: ChatMessage[]): string | null {
 
 function hasRecentWebSearchContext(messages: ChatMessage[]): boolean {
   const tail = messages.slice(-8)
-  const assistantUsedWebSearch = tail.some(
+  return tail.some(
     (m) => m.role === 'assistant' && /^\s*\(i\)/i.test(m.content ?? '')
   )
-  const userHadSearchIntent = tail.some(
-    (m) => m.role === 'user' && shouldUseOpenAiWebSearch(m.content ?? '')
-  )
-  return assistantUsedWebSearch || userHadSearchIntent
 }
 
 function isLikelyWebSearchFollowup(text: string): boolean {
@@ -4212,14 +4209,20 @@ export async function POST(req: NextRequest) {
         : lastAssistantLang === 'en'
           ? 'English'
           : 'Russian'
+    const explicitSearchRequest = shouldUseOpenAiWebSearch(lastUserContentRaw)
+    const sourceRequest = shouldRequestOpenAiWebSearchSources(lastUserContentRaw)
+    const hasWebSearchContext = hasRecentWebSearchContext(recentMessages)
+    const forcedWebSearchByCode = hasWebSearchForceCode(lastUserContentRaw)
+
     const communicationSearchRequested =
       mode === 'communication' &&
       !explicitTranslateTarget &&
-      (shouldUseOpenAiWebSearch(lastUserContentRaw) ||
-        shouldRequestOpenAiWebSearchSources(lastUserContentRaw) ||
-        (isLikelyWebSearchFollowup(lastUserContentForResponse) && hasRecentWebSearchContext(recentMessages)))
+      (forcedWebSearchByCode ||
+        explicitSearchRequest ||
+        (sourceRequest && hasWebSearchContext) ||
+        (isLikelyWebSearchFollowup(lastUserContentForResponse) && hasWebSearchContext))
     const communicationSearchSourcesRequested =
-      communicationSearchRequested && shouldRequestOpenAiWebSearchSources(lastUserContentRaw)
+      communicationSearchRequested && sourceRequest
     const weatherSourcesRequested =
       shouldRequestOpenAiWebSearchSources(lastUserContentForResponse) ||
       shouldRequestAllOpenAiWebSearchSources(lastUserContentForResponse)
