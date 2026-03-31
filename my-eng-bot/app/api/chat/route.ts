@@ -9,13 +9,13 @@ import {
   filterFreshWebSearchSources,
   formatOpenAiWebSearchAnswer,
   isRecencySensitiveRequest,
-  stripWebSearchForceCode,
   shouldUseOpenAiWebSearch,
   shouldRequestOpenAiWebSearchSources,
 } from '@/lib/openAiWebSearch'
 import {
   isWeatherForecastRequest,
   isWeatherFollowupRequest,
+  stripWebSearchForceCode,
   shouldRequestAllOpenAiWebSearchSources,
 } from '@/lib/openAiWebSearchShared'
 import {
@@ -47,6 +47,7 @@ import {
   inferTenseFromDialogueAssistantContent,
   isUserLikelyCorrectForTense,
 } from '@/lib/dialogueTenseInference'
+import { enrichDialogueCommentWithLearningReason } from '@/lib/dialogueTenseReasoning'
 import { isDialogueOutputLikelyInRequiredTense, validateDialogueOutputTense } from '@/lib/dialogueOutputValidation'
 import { isRepeatSemanticallySafe } from '@/lib/dialogueSemanticGuard'
 import { validateDialogueRussianNaturalness } from '@/lib/dialogueRussianNaturalness'
@@ -2243,121 +2244,6 @@ function enforceOpenDialogueQuestion(content: string, params: {
   return content.replace(lastQuestion, replacement)
 }
 
-function hasLearningReason(commentBody: string): boolean {
-  return /\b(потому что|так как|когда|если|поэтому|в этом вопросе|по правилу)\b/i.test(commentBody)
-}
-
-function learningReasonForTense(tense: string, audience: 'child' | 'adult'): string {
-  switch (tense) {
-    case 'present_perfect':
-      return audience === 'child'
-        ? 'Здесь важно, что получилось к этому моменту.'
-        : 'В этом вопросе важен результат или опыт к текущему моменту.'
-    case 'present_simple':
-      return audience === 'child'
-        ? 'Здесь говорим о том, что обычно происходит.'
-        : 'Здесь говорим о привычке, факте или регулярном действии.'
-    case 'present_continuous':
-      return audience === 'child'
-        ? 'Здесь действие идет прямо сейчас.'
-        : 'Здесь действие происходит прямо сейчас или в текущий период.'
-    case 'past_simple':
-      return audience === 'child'
-        ? 'Здесь действие уже закончилось в прошлом.'
-        : 'Здесь действие завершилось в прошлом в конкретное время.'
-    case 'future_simple':
-      return audience === 'child'
-        ? 'Здесь говорим о том, что будет потом.'
-        : 'Здесь речь о планах или действиях в будущем.'
-    default:
-      return audience === 'child'
-        ? 'Здесь важно сохранить время из вопроса.'
-        : 'Здесь важно сохранить время, которое задано в вопросе.'
-  }
-}
-
-function buildDialogueLearningHint(params: {
-  commentBody: string
-  requiredTense: string
-  audience: 'child' | 'adult'
-  repeatSentence?: string | null
-  userText?: string
-}): string | null {
-  const { commentBody, requiredTense, audience, repeatSentence = null, userText = '' } = params
-  const body = commentBody.trim()
-  if (!body || hasLearningReason(body)) return null
-  if (/требуется|нужно.*(present|past|future)|ошибка времени|времени/i.test(body)) {
-    return learningReasonForTense(requiredTense, audience)
-  }
-  if (/артикл/i.test(body)) {
-    if (/не нужен/i.test(body)) {
-      return audience === 'child'
-        ? 'Здесь артикль не нужен, потому что говорим в общем.'
-        : 'Здесь артикль убираем, когда слово используется в общем значении.'
-    }
-    return audience === 'child'
-      ? 'Здесь нужен артикль, потому что слово в единственном числе.'
-      : 'Здесь нужен артикль, потому что речь о исчисляемом существительном в единственном числе.'
-  }
-  if (/\bhave\b|\bhas\b|подлежащ|согласован/i.test(body)) {
-    const repeatLower = (repeatSentence ?? '').toLowerCase()
-    const userLower = userText.toLowerCase()
-    if (/\bhas\b/.test(repeatLower) && /\bhave\b/.test(userLower)) {
-      return audience === 'child'
-        ? 'С he/she/it используем has.'
-        : 'После he/she/it используем has, а не have.'
-    }
-    if (/\bhave\b/.test(repeatLower) && /\bhas\b/.test(userLower)) {
-      return audience === 'child'
-        ? 'С I/you/we/they используем have.'
-        : 'После I/you/we/they используем have, а не has.'
-    }
-    return audience === 'child'
-      ? 'Форма have/has зависит от подлежащего.'
-      : 'Форма have/has выбирается по подлежащему в конкретной конструкции.'
-  }
-  if (/\b-s\b|треть.*лиц|единственн|согласован/i.test(body)) {
-    return audience === 'child'
-      ? 'С he/she/it в Present Simple обычно нужен глагол с -s.'
-      : 'В Present Simple при he/she/it глагол обычно принимает окончание -s.'
-  }
-  if (/орфограф|опечат/i.test(body)) {
-    return audience === 'child'
-      ? 'Так фраза звучит понятнее и правильнее.'
-      : 'Так фраза звучит естественнее для носителя языка.'
-  }
-  if (/лексическ|слово/i.test(body)) {
-    return audience === 'child'
-      ? 'Такое слово точнее подходит к смыслу.'
-      : 'Это слово точнее передает смысл в этом контексте.'
-  }
-  return null
-}
-
-function enrichDialogueCommentWithLearningReason(
-  content: string,
-  requiredTense: string,
-  audience: 'child' | 'adult',
-  userText: string
-): string {
-  const lines = content.split(/\r?\n/)
-  const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
-  if (commentIndex < 0) return content
-  const raw = lines[commentIndex] ?? ''
-  const body = raw.replace(/^Комментарий\s*:\s*/i, '').trim()
-  if (!body) return content
-  const hint = buildDialogueLearningHint({
-    commentBody: body,
-    requiredTense,
-    audience,
-    repeatSentence: getDialogueRepeatSentence(content),
-    userText,
-  })
-  if (!hint) return content
-  lines[commentIndex] = `Комментарий: ${body} ${hint}`.replace(/\s+/g, ' ').trim()
-  return lines.join('\n').trim()
-}
-
 function normalizeSentenceKey(text: string): string {
   return text
     .toLowerCase()
@@ -4552,12 +4438,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         content: sanitized,
         userText: lastUserContentForResponse,
       })
-      sanitized = enrichDialogueCommentWithLearningReason(
-        sanitized,
-        tutorGradingTense,
+      sanitized = enrichDialogueCommentWithLearningReason({
+        content: sanitized,
+        requiredTense: tutorGradingTense,
         audience,
-        lastUserContentForResponse
-      )
+        userText: lastUserContentForResponse,
+        repeatSentence: getDialogueRepeatSentence(sanitized),
+      })
       sanitized = stripFalseTenseMismatchClaim({
         content: sanitized,
         requiredTense: tutorGradingTense,
@@ -5315,12 +5202,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     }
 
     if (mode === 'dialogue') {
-      sanitized = enrichDialogueCommentWithLearningReason(
-        sanitized,
-        tutorGradingTense,
+      sanitized = enrichDialogueCommentWithLearningReason({
+        content: sanitized,
+        requiredTense: tutorGradingTense,
         audience,
-        lastUserContentForResponse
-      )
+        userText: lastUserContentForResponse,
+        repeatSentence: getDialogueRepeatSentence(sanitized),
+      })
       sanitized = stripFalseTenseMismatchClaim({
         content: sanitized,
         requiredTense: tutorGradingTense,
