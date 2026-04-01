@@ -376,9 +376,9 @@ function isBareWeatherTopicOnly(text: string): boolean {
   const n = normalizeText(text).toLowerCase()
   if (!n) return false
   if (/^(weather|forecast|temperature|wheather|whether)$/i.test(n)) return true
-  if (/^погод[а-яё]{0,4}$/u.test(n)) return true
-  if (/^температур[а-яё]{0,4}$/u.test(n)) return true
-  if (/^прогноз(?:\s+погоды)?$/u.test(n)) return true
+  if (/^погод[а-яё]{0,4}$/.test(n)) return true
+  if (/^температур[а-яё]{0,4}$/.test(n)) return true
+  if (/^прогноз(?:\s+погоды)?$/.test(n)) return true
   return false
 }
 
