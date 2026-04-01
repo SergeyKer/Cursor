@@ -292,24 +292,26 @@ export default function Home() {
   const suppressSettingsChangeBannerRef = React.useRef(false)
 
   function normalizeSettingsForAudience(s: Settings): Settings {
+    const normalizedLevel: Settings['level'] = s.level === 'starter' ? 'a1' : s.level
     const normalizedTopic = s.mode === 'dialogue' ? 'free_talk' : s.topic
 
     if (s.audience !== 'child') {
       return {
         ...s,
+        level: normalizedLevel,
         topic: normalizedTopic,
         tenses: normalizeSingleTense(s.tenses, TENSES.map((t) => t.id), 'present_simple'),
       }
     }
-    const allowed = new Set<Settings['level']>(['all', 'starter', 'a1', 'a2'])
+    const allowed = new Set<Settings['level']>(['all', 'a1', 'a2'])
     const childTenseSet = new Set(CHILD_TENSES)
     const topicIds = new Set(TOPICS.map((t) => t.id))
     const safeChildTopic = topicIds.has(s.topic) ? s.topic : 'free_talk'
 
     return {
       ...s,
+      level: allowed.has(normalizedLevel) ? normalizedLevel : 'all',
       topic: normalizedTopic === 'free_talk' ? 'free_talk' : safeChildTopic,
-      level: allowed.has(s.level) ? s.level : 'all',
       tenses: normalizeSingleTense(s.tenses, CHILD_TENSES, 'present_simple'),
     }
   }

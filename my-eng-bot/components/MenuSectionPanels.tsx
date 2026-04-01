@@ -36,7 +36,6 @@ const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
 }
 
 const THEORY_LEVELS: { id: string; label: string }[] = [
-  { id: 'A0', label: 'A0 - базовый' },
   { id: 'A1', label: 'A1 - начальный' },
   { id: 'A2', label: 'A2 - элементарный' },
   { id: 'B1', label: 'B1 - средний' },
@@ -178,7 +177,7 @@ export default function MenuSectionPanels({
 
   const isChild = settings.audience === 'child'
   const isCommunication = settings.mode === 'communication'
-  const childAllowedLevels = new Set(['all', 'starter', 'a1', 'a2'])
+  const childAllowedLevels = new Set(['all', 'a1', 'a2'])
   const levelOptions = isChild ? LEVELS.filter((l) => childAllowedLevels.has(l.id)) : LEVELS
   const safeChildTopicsForCommunication = TOPICS.filter((t) => t.id !== 'business' && t.id !== 'work')
   const topicOptions = isCommunication && isChild ? safeChildTopicsForCommunication : TOPICS

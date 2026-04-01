@@ -14,6 +14,10 @@ const SIMPLE_REPLACEMENTS: Record<string, string> = {
   numerous: 'many',
   commence: 'start',
   conclude: 'finish',
+  discuss: 'talk about',
+  explore: 'look at',
+  clarify: 'explain',
+  interests: 'likes',
 }
 const SIMPLIFIABLE_WORDS = new Set(Object.keys(SIMPLE_REPLACEMENTS))
 
