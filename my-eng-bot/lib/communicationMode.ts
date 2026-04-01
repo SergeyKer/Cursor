@@ -1,4 +1,5 @@
 import { normalizeCommunicationDetailText } from '@/lib/communicationReplyLanguage'
+import type { LevelId } from '@/lib/types'
 
 function stableHash32(input: string): number {
   let hash = 0x811c9dc5
@@ -32,11 +33,13 @@ export function buildCommunicationMaxTokens(detailLevel: 0 | 1 | 2, baseMaxToken
 export function buildCommunicationFallbackMessage(params: {
   audience: 'child' | 'adult'
   language: 'ru' | 'en'
+  level?: LevelId
   firstTurn?: boolean
   seedText?: string | null
 }): string {
-  const { audience, language, firstTurn = false, seedText = '' } = params
+  const { audience, language, level = 'a1', firstTurn = false, seedText = '' } = params
   const isChild = audience === 'child'
+  const isLowLevel = ['starter', 'a1', 'a2'].includes(level)
 
   if (firstTurn) {
     const seed = stableHash32(`communication_first|${language}|${audience}|${seedText}`)
@@ -62,22 +65,36 @@ export function buildCommunicationFallbackMessage(params: {
           ])
     }
     return isChild
-      ? pick([
-          'Hi! How are you? What would you like to talk about?',
-          'Hi! What’s up? What would you like to chat about?',
-          'Hi! Ready to talk? What would you like to discuss?',
-          'Hi! How’s it going? What should we talk about?',
-          'Hey! What would you like to practice today?',
-          'Hi there! What’s on your mind today?',
-        ])
-      : pick([
-          'Hello! How are you doing? What would you like to discuss?',
-          'Hello! Good to see you. What would you like to talk about?',
-          'Hello! What would you like to chat about today?',
-          'Hello! What is on your mind today?',
-          'Hello! What would you like to explore today?',
-          'Hello! How can I help you today?',
-        ])
+      ? isLowLevel
+        ? pick([
+            'Hi! How are you? What do you want to talk about?',
+            'Hi! What do you want to talk about today?',
+            'Hi! Let’s talk. What topic do you want?',
+            'Hello! What do you want to practice today?',
+          ])
+        : pick([
+            'Hi! How are you? What would you like to talk about?',
+            'Hi! What’s up? What would you like to chat about?',
+            'Hi! Ready to talk? What would you like to discuss?',
+            'Hi! How’s it going? What should we talk about?',
+            'Hey! What would you like to practice today?',
+            'Hi there! What’s on your mind today?',
+          ])
+      : isLowLevel
+        ? pick([
+            'Hello! How are you? What do you want to talk about?',
+            'Hello! What topic do you want to discuss today?',
+            'Hello! Let’s talk. What should we discuss?',
+            'Hello! What do you want to practice today?',
+          ])
+        : pick([
+            'Hello! How are you doing? What would you like to discuss?',
+            'Hello! Good to see you. What would you like to talk about?',
+            'Hello! What would you like to chat about today?',
+            'Hello! What is on your mind today?',
+            'Hello! What would you like to explore today?',
+            'Hello! How can I help you today?',
+          ])
   }
 
   if (language === 'ru') {
@@ -103,7 +120,16 @@ export function shouldPreferEnglishContinuationFallback(text: string, targetLang
   return latWords.length + cyrWords.length >= 2
 }
 
-export function buildCommunicationEnglishContinuationFallback(audience: 'child' | 'adult'): string {
+export function buildCommunicationEnglishContinuationFallback(
+  audience: 'child' | 'adult',
+  level: LevelId = 'a1'
+): string {
+  const isLowLevel = ['starter', 'a1', 'a2'].includes(level)
+  if (isLowLevel) {
+    return audience === 'child'
+      ? 'Okay. Let’s keep talking in English. What part do you like most?'
+      : 'Okay. Let’s continue in English. What part do you want to talk about first?'
+  }
   return audience === 'child'
     ? 'Got it. Let’s keep talking about this in English. What part interests you most?'
     : 'Got it. Let’s continue in English. What part would you like to discuss first?'
