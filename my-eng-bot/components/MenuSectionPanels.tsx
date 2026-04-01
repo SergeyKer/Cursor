@@ -511,6 +511,7 @@ export default function MenuSectionPanels({
                       setLessonsPanel('tutor')
                     }}
                   />
+                  <LessonTopicRow label="1000 необходимых слов" />
                 </div>
               </div>
             )}
