@@ -611,5 +611,83 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content.toLowerCase()).not.toContain('говорите о привычке')
   })
 
+  it('rejects question-shaped repeat and returns repaired declarative repeat', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Тут нужно другое слово.\nПовтори: What do you think about football?',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Тут нужно другое слово.\nПовтори: I play or watch football regularly.',
+      })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'What do you do with football regularly?' },
+        { role: 'user', content: 'I play or watch regularly football' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Повтори\s*:/i.test(line)) ?? ''
+    const repeatBody = repeatLine.replace(/^Повтори\s*:\s*/i, '').trim()
+
+    expect(res.status).toBe(200)
+    expect(data.content).not.toContain('Повтори: What do you think about football?')
+    if (repeatBody) {
+      expect(/\?\s*$/.test(repeatBody)).toBe(false)
+    } else {
+      expect(data.content).toMatch(/\?\s*$/)
+    }
+    expect(callProviderChatMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not apply freeze when forced repeat ends with question mark', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Нужно исправить порядок слов.\nПовтори: What do you think about football?',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Нужно исправить порядок слов.\nПовтори: I think about football regularly.',
+      })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'What do you do regularly?' },
+        { role: 'user', content: 'I do regularly think about football' },
+        { role: 'assistant', content: 'Комментарий: Нужен правильный порядок слов.\nПовтори: What do you think about football?' },
+        { role: 'user', content: 'I do regularly think about football' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const firstCallArg = callProviderChatMock.mock.calls[0]?.[0] as
+      | { apiMessages?: Array<{ role: string; content: string }> }
+      | undefined
+    const systemPrompt = firstCallArg?.apiMessages?.[0]?.content ?? ''
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Повтори\s*:/i.test(line)) ?? ''
+    const repeatBody = repeatLine.replace(/^Повтори\s*:\s*/i, '').trim()
+
+    expect(res.status).toBe(200)
+    expect(systemPrompt).toContain('Previous "Повтори:" sentence ends with a question mark and is invalid for drill repeat')
+    expect(systemPrompt).not.toContain('MUST reuse exactly the SAME sentence')
+    expect(data.content).toContain('Повтори:')
+    expect(/\?\s*$/.test(repeatBody)).toBe(false)
+    expect(callProviderChatMock).toHaveBeenCalledTimes(2)
+  })
+
 })
 

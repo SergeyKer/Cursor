@@ -72,6 +72,7 @@ import {
 import { buildMixedDialogueFallbackComment, buildMixedInputRepeatFallback } from '@/lib/mixedInputRepeatFallback'
 import { normalizeEnglishForRepeatMatch } from '@/lib/normalizeEnglishForRepeatMatch'
 import { stripFalseArticleBeforeEnglishComment } from '@/lib/stripFalseArticleBeforeEnglishComment'
+import { alignDialogueBeVerbCommentWithRepeat } from '@/lib/dialogueBeCommentConsistency'
 import { normalizeRuTopicKeyword, normalizeTopicToken, RU_TOPIC_KEYWORD_TO_EN } from '@/lib/ruTopicKeywordMap'
 import { buildNextFreeTalkQuestionFromContext } from '@/lib/freeTalkContextNextQuestion'
 import { enrichDialogueCommentWithTypoHints } from '@/lib/dialogueCommentEnrichment'
@@ -365,8 +366,12 @@ This rule applies to every tense (Present Simple, Present Continuous, Past Simpl
 
 This applies to every tense: stick to the topic and time frame of YOUR question. Do NOT adopt the user's time frame if they answer with a different one (e.g. you asked about "recently" and they say "tomorrow"; you asked about "yesterday" and they say "next week"; you asked about "now" and they switch to the past). Your "Повтори:" sentence must be in ${tenseName} AND must match the context you asked about — never suggest a sentence in another tense or time frame. Examples: if you asked in Present Perfect about recent past, correct to "Yes, I have been to the cinema recently", not "I will go tomorrow"; if you asked in Past Simple about yesterday, correct to that context, not to "tomorrow" or "next week". Do not ask the user to repeat a sentence in a different tense or time frame than your question.`
   const repeatFreezeRule =
-    mode === 'dialogue' && forcedRepeatSentence
+    mode === 'dialogue' && forcedRepeatSentence && !isEnglishQuestionLine(forcedRepeatSentence)
       ? `\n\nRepeat freezing rule (anti-breaking UX): If you output "Повтори:" in this turn, you MUST reuse exactly the SAME sentence that was previously shown to the user.\nPrevious "Повтори:" sentence to reuse:\n"${forcedRepeatSentence}"\nDo NOT rewrite/modify it.`
+      : ''
+  const repeatFreezeQuestionGuard =
+    mode === 'dialogue' && forcedRepeatSentence && isEnglishQuestionLine(forcedRepeatSentence)
+      ? '\n\nPrevious "Повтори:" sentence ends with a question mark and is invalid for drill repeat. In this turn do NOT copy it. If correction is needed, output "Повтори:" as a declarative corrected sentence (no "?" at the end).'
       : ''
   const capitalizationRule =
     'Completely ignore capitalization and punctuation in the USER answer. If the only difference is capitalization or missing commas/periods (e.g. "yes I stayed" vs "Yes, I stayed"), treat the answer as correct and do NOT add any comment about it. Never mention capital letters, commas, periods, or any punctuation in "Комментарий:" — never write things like "нужна запятая", "comma after Yes", etc. Do not correct or explain punctuation. The user often dictates by voice; focus only on tense, grammar, and wording. Your OWN replies must use normal English capitalization and punctuation.';
@@ -392,7 +397,7 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
     mode === 'dialogue' && tense === 'all'
       ? '\n\nALL-TENSES DIALOGUE (strict): When you output "Комментарий:" and "Повтори:", the English sentence after "Повтори:" MUST use the SAME grammar tense as YOUR IMMEDIATELY PREVIOUS assistant message in this chat (the last English question you asked, OR the last "Повтори:" sentence if the user is still correcting a repeat). Do NOT switch to another tense for convenience or "better style" (for example: do not output Present Perfect Continuous if your previous question was Future Perfect, or Present Simple when the question used Past Simple). Fix vocabulary and grammar only while keeping that tense alignment. This rule applies even in free topic conversations.'
       : ''
-  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${cefrPromptBlock} ${audienceStyleRule} ${antiRobotRule} ${topicRetentionRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueRussianNaturalnessRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule} ${capitalizationRule} ${contractionRule} ${freeTalkFirstTurnLexiconRule} ${freeTalkRule}
+  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${cefrPromptBlock} ${audienceStyleRule} ${antiRobotRule} ${topicRetentionRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueRussianNaturalnessRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule}${repeatFreezeQuestionGuard} ${capitalizationRule} ${contractionRule} ${freeTalkFirstTurnLexiconRule} ${freeTalkRule}
 
 Question style guidelines:
 - Ask short, natural questions a human would ask.
@@ -415,6 +420,8 @@ This applies to every tense (Present Simple, Present Continuous, Past Simple, Fu
 
 Article rule for school subjects and languages: patterns like "study English", "I studied English", "learn French" normally have NO article before the subject name. Never tell the user in Комментарий to add "the" before "English" (or another language) if the corrected sentence in Повтори does not use "the" there. Комментарий must not contradict Повтори.
 
+Be-verb agreement: Комментарий must not contradict Повтори on the correct form of **be**. If Повтори uses **they / we / you + are** (or **there are**), do not say in Russian that the learner should use **is** instead of **are** (or the reverse). Match your Russian explanation to the actual corrected sentence in Повтори (e.g. for *they* the correct form is **are**).
+
 Pronoun rule (inanimate referents): In English, concrete objects, machines, vehicles, tools, and typical non-human things are **it**; possession is **its** (e.g. "its speed", "its color"), not **his** or **her** — **his/her** refer to people (or sometimes specific animals). If the thread is about a car, bike, phone, machine, house, etc., the corrected sentence in Повтори must use **its** for that thing's properties, not **his** unless you clearly mean a male person. Learners with Russian L1 may wrongly use **his** where English needs **its**; fix both in Комментарий (briefly, in Russian if needed) and in Повтори.
 
 When there are grammar or spelling problems or the user used the wrong tense, respond ONLY in the short format below. Do NOT output long explanations of rules, lists of example questions (e.g. "Do you like pizza?", "What is your favorite color?"), or meta-instructions. Even if the user makes the same mistake again (e.g. wrong tense twice), reply only with Комментарий (up to 2–3 short sentences in Russian if you must list tense + spelling + another issue) + Повтори: [correct sentence]. Keep the reply short. When several issues are listed, use natural transitions between sentences (see Correction tone). Do not use emojis or jokes in corrections (e.g. do not write "unless you're preparing for a spelling competition" or similar).
@@ -427,6 +434,8 @@ FORMAT (strict):
    - "Повтори: " + the FULL corrected English sentence (fixing all errors at once). Always write a complete sentence with normal punctuation.
    In this case do NOT add a follow‑up question — the user must repeat first.
 2) When the user's answer is already correct: do NOT output "Комментарий:" at all. Accept a natural, grammatically correct reply even if it does not exactly repeat the wording of the question. Output only the next question in English, and make it the next sentence by the algorithm for this topic/tense. Do NOT output "Повтори:" for correct answers.${praiseStyleVariant ? ` If you need a human-sounding reaction, keep it implicit — do not add any extra visible line or comment.` : ''}
+
+Repeat line rule (strict): text after "Повтори:" must be a corrected declarative sentence for repetition, not a tutor question. Do NOT end "Повтори:" with "?".
 
 Never add raw markers like **Correction:**, **Comment:**, **Right:** or similar anywhere in the visible text. The user should never see those words with asterisks.
 
@@ -612,6 +621,64 @@ function buildCommunicationDetailRule(detailLevel: 0 | 1 | 2): string {
   }
 
   return 'Without a detail keyword, keep the reply short and focused (1–3 sentences).'
+}
+
+function finalizeCommunicationContentWithCefr(params: {
+  content: string
+  level: LevelId
+  audience: Audience
+  targetLang: 'ru' | 'en'
+  firstTurn: boolean
+  seedText: string
+}): string {
+  if (params.targetLang === 'ru') return params.content
+
+  const guarded = applyCefrOutputGuard({
+    mode: 'communication',
+    content: params.content,
+    level: params.level,
+    audience: params.audience,
+    communicationTargetLang: 'en',
+  })
+  if (!guarded.leaked && guarded.content.trim()) return guarded.content
+
+  const levelFallback = buildCommunicationFallbackMessage({
+    audience: params.audience,
+    language: 'en',
+    level: params.level,
+    firstTurn: params.firstTurn,
+    seedText: params.seedText,
+  })
+  const guardedFallback = applyCefrOutputGuard({
+    mode: 'communication',
+    content: levelFallback,
+    level: params.level,
+    audience: params.audience,
+    communicationTargetLang: 'en',
+  })
+  if (!guardedFallback.leaked && guardedFallback.content.trim()) return guardedFallback.content
+
+  return ['starter', 'a1', 'a2'].includes(params.level)
+    ? params.firstTurn
+      ? 'Hello! How are you? What do you want to talk about?'
+      : 'Can you say it another way?'
+    : params.firstTurn
+      ? 'Hello! What would you like to talk about today?'
+      : 'Could you clarify what you mean?'
+}
+
+function finalizeDialogueFallbackWithCefr(params: {
+  content: string
+  level: LevelId
+  audience: Audience
+}): string {
+  const guarded = applyCefrOutputGuard({
+    mode: 'dialogue',
+    content: params.content,
+    level: params.level,
+    audience: params.audience,
+  })
+  return guarded.content || params.content
 }
 
 /** Паттерн: "Говорится X, не Y" или "Нужно слово X, не Y" — строка с другим контекстом, если ни X, ни Y нет в сообщении пользователя. */
@@ -2003,6 +2070,7 @@ function isValidTutorOutput(params: {
     if (!/^(Повтори|Repeat|Say)\s*:/i.test(r)) return false
     // В Повтори должен быть английский текст.
     const after = r.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '')
+    if (isEnglishQuestionLine(after)) return false
     return /[A-Za-z]/.test(after) && !/[А-Яа-яЁё]/.test(after)
   }
 
@@ -3851,7 +3919,7 @@ function buildRepairSystemPrefix(extraInstructions = ''): string {
     'REPAIR MODE: Your last output was invalid (it contained meta/instructions). ' +
     'Rewrite the reply so it follows the required protocol EXACTLY and contains only user-visible text. ' +
     'No explanations, no meta, no bullet lists, no quotes of rules. ' +
-    'Output only one of: (A) a single English question; (B) two lines: "Комментарий: ..." (Russian) + "Повтори: ..." (English).\n\n' +
+    'Output only one of: (A) a single English question; (B) two lines: "Комментарий: ..." (Russian) + "Повтори: ..." (English declarative corrected sentence, never a question, no trailing "?").\n\n' +
     (extra ? `${extra}\n\n` : '')
   )
 }
@@ -4268,10 +4336,19 @@ export async function POST(req: NextRequest) {
     // Fast-path: первое сообщение в режиме общения не требует вызова LLM.
     // Ранее ответ все равно заменялся fallback-репликой после провайдера.
     if (mode === 'communication' && isFirstTurn && !communicationSearchRequested) {
+      const firstFallback = buildCommunicationFallbackMessage({
+        audience,
+        language: detectedUserLang,
+        level,
+        firstTurn: true,
+        seedText: dialogSeed,
+      })
       return NextResponse.json({
-        content: buildCommunicationFallbackMessage({
+        content: finalizeCommunicationContentWithCefr({
+          content: firstFallback,
+          level: level as LevelId,
           audience,
-          language: detectedUserLang,
+          targetLang: detectedUserLang,
           firstTurn: true,
           seedText: dialogSeed,
         }),
@@ -4501,10 +4578,25 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         )
         return NextResponse.json({
           content: preferEnContinuation
-            ? buildCommunicationEnglishContinuationFallback(audience)
-            : buildCommunicationFallbackMessage({
+            ? finalizeCommunicationContentWithCefr({
+                content: buildCommunicationEnglishContinuationFallback(audience, level),
+                level: level as LevelId,
                 audience,
-                language: detectedUserLang,
+                targetLang: detectedUserLang,
+                firstTurn: false,
+                seedText: dialogSeed,
+              })
+            : finalizeCommunicationContentWithCefr({
+                content: buildCommunicationFallbackMessage({
+                  audience,
+                  language: detectedUserLang,
+                  level,
+                  firstTurn: isFirstTurn,
+                  seedText: dialogSeed,
+                }),
+                level: level as LevelId,
+                audience,
+                targetLang: detectedUserLang,
                 firstTurn: isFirstTurn,
                 seedText: dialogSeed,
               }),
@@ -4512,7 +4604,19 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       }
 
       return NextResponse.json({
-        content: fallbackQuestionForContext({ topic, tense: tutorGradingTense, level, audience, isFirstTurn, isTopicChoiceTurn, lastUserText: lastUserContentForResponse }),
+        content: finalizeDialogueFallbackWithCefr({
+          content: fallbackQuestionForContext({
+            topic,
+            tense: tutorGradingTense,
+            level,
+            audience,
+            isFirstTurn,
+            isTopicChoiceTurn,
+            lastUserText: lastUserContentForResponse,
+          }),
+          level: level as LevelId,
+          audience,
+        }),
       })
     }
     sanitized = stripOffContextCorrections(sanitized, lastUserContentForResponse)
@@ -4538,6 +4642,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         audience,
         level,
       })
+      sanitized = alignDialogueBeVerbCommentWithRepeat(sanitized)
       sanitized = enrichDialogueCommentWithTypoHints({
         content: sanitized,
         userText: lastUserContentForResponse,
@@ -4883,6 +4988,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         cleaned = buildCommunicationFallbackMessage({
           audience,
           language: targetLang,
+          level,
           firstTurn: true,
           seedText: dialogSeed,
         })
@@ -4893,10 +4999,11 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         targetLang
       )
       const fallback = preferEnContinuation
-        ? buildCommunicationEnglishContinuationFallback(audience)
+        ? buildCommunicationEnglishContinuationFallback(audience, level)
         : buildCommunicationFallbackMessage({
             audience,
             language: targetLang,
+            level,
             firstTurn: isFirstTurn,
             seedText: dialogSeed,
           })
@@ -4927,6 +5034,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               cleaned = buildCommunicationFallbackMessage({
                 audience,
                 language: targetLang,
+                level,
                 firstTurn: true,
                 seedText: dialogSeed,
               })
@@ -4946,19 +5054,14 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       const looksTruncated = /^(что|почему|как|когда|где|кто|what|why|how|when|where|who)\??\.?$/i.test(minimal)
       if (looksTruncated) cleaned = fallback
 
-      const communicationGuard = applyCefrOutputGuard({
-        mode: 'communication',
+      cleaned = finalizeCommunicationContentWithCefr({
         content: cleaned,
         level: level as LevelId,
-        audience: audience as Audience,
-        communicationTargetLang: targetLang,
+        audience,
+        targetLang,
+        firstTurn: isFirstTurn,
+        seedText: dialogSeed,
       })
-      if (targetLang === 'en') {
-        cleaned = communicationGuard.content || fallback
-        if (communicationGuard.leaked && !cleaned.trim()) {
-          cleaned = fallback
-        }
-      }
 
       // Гарантия приветствия на первом ассистентском сообщении в `communication`.
       // Модель иногда выдаёт сразу вопрос без "Привет"/"Hello", и вы это заметили на UI.
@@ -5037,13 +5140,17 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     if (!valid) {
       if (canUseSoftNextQuestionFallback) {
         return NextResponse.json({
-          content: fallbackNextQuestion({
-            topic,
-            tense: freeTalkExpectedNextQuestionTense!,
-            level,
+          content: finalizeDialogueFallbackWithCefr({
+            content: fallbackNextQuestion({
+              topic,
+              tense: freeTalkExpectedNextQuestionTense!,
+              level,
+              audience,
+              diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
+              recentMessages,
+            }),
+            level: level as LevelId,
             audience,
-            diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
-            recentMessages,
           }),
           dialogueCorrect: true,
         })
@@ -5073,7 +5180,19 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         if (repaired) {
           if (isMetaGarbage(repaired)) {
             return NextResponse.json({
-              content: fallbackQuestionForContext({ topic, tense: tutorGradingTense, level, audience, isFirstTurn, isTopicChoiceTurn, lastUserText: lastUserContentForResponse }),
+              content: finalizeDialogueFallbackWithCefr({
+                content: fallbackQuestionForContext({
+                  topic,
+                  tense: tutorGradingTense,
+                  level,
+                  audience,
+                  isFirstTurn,
+                  isTopicChoiceTurn,
+                  lastUserText: lastUserContentForResponse,
+                }),
+                level: level as LevelId,
+                audience,
+              }),
             })
           }
           repaired = stripOffContextCorrections(repaired, lastUserContentForResponse)
@@ -5098,6 +5217,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               audience,
               level,
             })
+            repaired = alignDialogueBeVerbCommentWithRepeat(repaired)
             repaired = enrichDialogueCommentWithTypoHints({
               content: repaired,
               userText: lastUserContentForResponse,
@@ -5254,13 +5374,17 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       // Если repair не помог — безопасный fallback, чтобы не показывать мусор.
       if (canUseSoftNextQuestionFallback) {
         return NextResponse.json({
-          content: fallbackNextQuestion({
-            topic,
-            tense: freeTalkExpectedNextQuestionTense!,
-            level,
+          content: finalizeDialogueFallbackWithCefr({
+            content: fallbackNextQuestion({
+              topic,
+              tense: freeTalkExpectedNextQuestionTense!,
+              level,
+              audience,
+              diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
+              recentMessages,
+            }),
+            level: level as LevelId,
             audience,
-            diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
-            recentMessages,
           }),
           dialogueCorrect: true,
         })
@@ -5286,13 +5410,17 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         }
         if (!isMixedDialogueInput && userClosedForcedRepeat && isUserLikelyCorrectForTense(lastUserContentForResponse, tutorGradingTense)) {
           return NextResponse.json({
-            content: fallbackNextQuestion({
-              topic,
-              tense: tutorGradingTense,
-              level,
+            content: finalizeDialogueFallbackWithCefr({
+              content: fallbackNextQuestion({
+                topic,
+                tense: tutorGradingTense,
+                level,
+                audience,
+                diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
+                recentMessages,
+              }),
+              level: level as LevelId,
               audience,
-              diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
-              recentMessages,
             }),
             dialogueCorrect: true,
           })
@@ -5329,21 +5457,45 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           content: `${commentNonMixed}\nПовтори: ${ensureSentence(lastUserContentForResponse)}`,
         })
       }
+      const fallbackContent =
+        mode === 'dialogue'
+          ? (isFirstTurn || isTopicChoiceTurn)
+            ? fallbackQuestionForContext({
+                topic,
+                tense: tutorGradingTense,
+                level,
+                audience,
+                isFirstTurn,
+                isTopicChoiceTurn,
+                lastUserText: lastUserContentForResponse,
+              })
+            : buildDialogueLowSignalFallback({
+                messages: recentMessages,
+                topic,
+                tense: tutorGradingTense,
+                level,
+                audience,
+                forcedRepeatSentence,
+                lastUserText: lastUserContentForResponse,
+              })
+          : fallbackQuestionForContext({
+              topic,
+              tense: normalizedTense,
+              level,
+              audience,
+              isFirstTurn,
+              isTopicChoiceTurn,
+              lastUserText: lastUserContentForResponse,
+            })
       return NextResponse.json({
         content:
           mode === 'dialogue'
-            ? (isFirstTurn || isTopicChoiceTurn)
-              ? fallbackQuestionForContext({ topic, tense: tutorGradingTense, level, audience, isFirstTurn, isTopicChoiceTurn, lastUserText: lastUserContentForResponse })
-              : buildDialogueLowSignalFallback({
-                  messages: recentMessages,
-                  topic,
-                  tense: tutorGradingTense,
-                  level,
-                  audience,
-                  forcedRepeatSentence,
-                  lastUserText: lastUserContentForResponse,
-                })
-            : fallbackQuestionForContext({ topic, tense: normalizedTense, level, audience, isFirstTurn, isTopicChoiceTurn, lastUserText: lastUserContentForResponse }),
+            ? finalizeDialogueFallbackWithCefr({
+                content: fallbackContent,
+                level: level as LevelId,
+                audience,
+              })
+            : fallbackContent,
       })
     }
 
