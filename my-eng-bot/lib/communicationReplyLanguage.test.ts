@@ -30,4 +30,20 @@ describe('getExpectedCommunicationReplyLang', () => {
     ]
     expect(getExpectedCommunicationReplyLang(messages, { inputPreference: 'en' })).toBe('ru')
   })
+
+  it('mixed RU+EN user input keeps current assistant language (tie-break)', () => {
+    const messages: ChatMessage[] = [
+      { role: 'assistant', content: 'Hello! How can I help you today?' },
+      { role: 'user', content: 'I хочу узнать больше' },
+    ]
+    expect(getExpectedCommunicationReplyLang(messages, { inputPreference: 'en' })).toBe('en')
+  })
+
+  it('detail-only keyword keeps previous language', () => {
+    const messages: ChatMessage[] = [
+      { role: 'assistant', content: 'Hello! I can explain this in more detail.' },
+      { role: 'user', content: 'Подробнее' },
+    ]
+    expect(getExpectedCommunicationReplyLang(messages, { inputPreference: 'ru' })).toBe('en')
+  })
 })

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import type { ChatMessage, TenseId } from '@/lib/types'
+import type { AppMode, Audience, ChatMessage, LevelId, TenseId } from '@/lib/types'
 import { CHILD_TENSES } from '@/lib/constants'
 import { detectLangFromText } from '@/lib/detectLang'
 import { classifyOpenAiForbidden } from '@/lib/openAiForbidden'
@@ -76,6 +76,8 @@ import { normalizeRuTopicKeyword, normalizeTopicToken, RU_TOPIC_KEYWORD_TO_EN } 
 import { buildNextFreeTalkQuestionFromContext } from '@/lib/freeTalkContextNextQuestion'
 import { enrichDialogueCommentWithTypoHints } from '@/lib/dialogueCommentEnrichment'
 import { applyFreeTalkTopicChoiceTenseAnchorFallback } from '@/lib/freeTalkTopicChoiceAnchorFallback'
+import { buildCefrPromptBlock } from '@/lib/cefr/cefrSpec'
+import { applyCefrOutputGuard } from '@/lib/cefr/levelGuard'
 
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
 // чтобы undici + proxy dispatcher работали предсказуемо (а не в Edge).
@@ -266,6 +268,11 @@ function buildSystemPrompt(params: {
     communicationDetailOnly = false,
   } = params
   const levelPrompt = buildLevelPrompt(level)
+  const cefrPromptBlock = buildCefrPromptBlock({
+    mode: mode as AppMode,
+    level: level as LevelId,
+    audience: audience as Audience,
+  })
   const tenseName = TENSE_NAMES[tense] ?? 'Present Simple'
   const topicName = TOPIC_NAMES[topic] ?? 'general'
   const sentenceTypeName = sentenceType ? SENTENCE_TYPE_NAMES[sentenceType] ?? 'mixed' : 'mixed'
@@ -295,6 +302,7 @@ Rules:
 - ${audienceStyleRule}
 - ${buildCommunicationEnglishStyleRule(audience)}
 - ${buildCommunicationLevelRules(level)}
+- ${cefrPromptBlock}
 - ${buildCommunicationDetailRule(communicationDetailLevel)}
 - Conversational follow-up questions and brief natural reactions are encouraged when they fit the thread. This is not tutor feedback: stay in chat mode.
 - Do NOT output any tutor/protocol markers: no "Комментарий:", no "Повтори:", no "Время:", no "Конструкция:", no "Переведи на английский", and no "RU:" / "Russian:" labels.
@@ -316,6 +324,7 @@ No other format. Output only the chat message text.`
 
   if (mode === 'translation') {
     return `Translation training. Topic: ${topicName}, ${levelPrompt}, ${sentenceTypeName}. Required tense: ${tenseName}.
+${cefrPromptBlock}
 
 ${audienceStyleRule}
 
@@ -383,7 +392,7 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
     mode === 'dialogue' && tense === 'all'
       ? '\n\nALL-TENSES DIALOGUE (strict): When you output "Комментарий:" and "Повтори:", the English sentence after "Повтори:" MUST use the SAME grammar tense as YOUR IMMEDIATELY PREVIOUS assistant message in this chat (the last English question you asked, OR the last "Повтори:" sentence if the user is still correcting a repeat). Do NOT switch to another tense for convenience or "better style" (for example: do not output Present Perfect Continuous if your previous question was Future Perfect, or Present Simple when the question used Past Simple). Fix vocabulary and grammar only while keeping that tense alignment. This rule applies even in free topic conversations.'
       : ''
-  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${audienceStyleRule} ${antiRobotRule} ${topicRetentionRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueRussianNaturalnessRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule} ${capitalizationRule} ${contractionRule} ${freeTalkFirstTurnLexiconRule} ${freeTalkRule}
+  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${cefrPromptBlock} ${audienceStyleRule} ${antiRobotRule} ${topicRetentionRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueRussianNaturalnessRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule} ${capitalizationRule} ${contractionRule} ${freeTalkFirstTurnLexiconRule} ${freeTalkRule}
 
 Question style guidelines:
 - Ask short, natural questions a human would ask.
@@ -4937,6 +4946,20 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       const looksTruncated = /^(что|почему|как|когда|где|кто|what|why|how|when|where|who)\??\.?$/i.test(minimal)
       if (looksTruncated) cleaned = fallback
 
+      const communicationGuard = applyCefrOutputGuard({
+        mode: 'communication',
+        content: cleaned,
+        level: level as LevelId,
+        audience: audience as Audience,
+        communicationTargetLang: targetLang,
+      })
+      if (targetLang === 'en') {
+        cleaned = communicationGuard.content || fallback
+        if (communicationGuard.leaked && !cleaned.trim()) {
+          cleaned = fallback
+        }
+      }
+
       // Гарантия приветствия на первом ассистентском сообщении в `communication`.
       // Модель иногда выдаёт сразу вопрос без "Привет"/"Hello", и вы это заметили на UI.
       if (isFirstTurn) {
@@ -5195,6 +5218,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           })
           if (repairedValid) {
             if (mode === 'translation') {
+              const translationGuard = applyCefrOutputGuard({
+                mode: 'translation',
+                content: repaired,
+                level: level as LevelId,
+                audience: audience as Audience,
+              })
+              repaired = translationGuard.content
               repaired = applyTranslationCommentCoachVoice({
                 content: repaired,
                 audience,
@@ -5202,6 +5232,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               })
               return NextResponse.json({ content: repaired })
             }
+            const dialogueGuard = applyCefrOutputGuard({
+              mode: 'dialogue',
+              content: repaired,
+              level: level as LevelId,
+              audience: audience as Audience,
+            })
+            repaired = dialogueGuard.content
             return NextResponse.json({
               content: repaired,
               dialogueCorrect: isDialogueFinalCorrectResponse({
@@ -5311,7 +5348,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     }
 
     if (mode === 'translation') {
-      return NextResponse.json({ content: sanitized })
+      const translationGuard = applyCefrOutputGuard({
+        mode: 'translation',
+        content: sanitized,
+        level: level as LevelId,
+        audience: audience as Audience,
+      })
+      return NextResponse.json({ content: translationGuard.content })
     }
 
     if (mode === 'dialogue') {
@@ -5335,6 +5378,14 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         requiredTense: tutorGradingTense,
       })
     }
+
+    const dialogueGuard = applyCefrOutputGuard({
+      mode: 'dialogue',
+      content: sanitized,
+      level: level as LevelId,
+      audience: audience as Audience,
+    })
+    sanitized = dialogueGuard.content
 
     return NextResponse.json({
       content: sanitized,
