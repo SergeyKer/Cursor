@@ -108,7 +108,7 @@ export function getCefrDenyWords(params: { level: LevelId; audience: Audience })
   const isLowLevel = ['starter', 'a1', 'a2'].includes(params.level)
   if (!isLowLevel) return new Set()
   if (params.audience === 'child') {
-    return new Set([...LOW_LEVEL_DENY_WORDS, ...CHILD_LOW_LEVEL_DENY_WORDS])
+    return new Set(Array.from(LOW_LEVEL_DENY_WORDS).concat(Array.from(CHILD_LOW_LEVEL_DENY_WORDS)))
   }
   return new Set(LOW_LEVEL_DENY_WORDS)
 }
