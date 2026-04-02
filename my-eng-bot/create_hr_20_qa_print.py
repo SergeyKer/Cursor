@@ -76,19 +76,14 @@ qa = [
 ]
 
 for idx, (q, a) in enumerate(qa, start=1):
-    p_q = doc.add_paragraph(f'{idx}. {q}')
-    p_q.paragraph_format.space_after = Pt(6)
+    p_q = doc.add_paragraph()
+    r_q = p_q.add_run(f'{idx}. {q}')
+    r_q.bold = True
+    p_q.paragraph_format.space_after = Pt(2)
 
     p_a = doc.add_paragraph(a)
     p_a.paragraph_format.space_after = Pt(10)
-    p_a.paragraph_format.line_spacing = 1.25
+    p_a.paragraph_format.line_spacing = 1.0
 
-    # Место для заметок
-    note1 = doc.add_paragraph('Заметки:')
-    note1.paragraph_format.space_after = Pt(2)
-    doc.add_paragraph('____________________________________________________________')
-    doc.add_paragraph('____________________________________________________________')
-    doc.add_paragraph('')
-
-doc.save('HR_20_QA_print.docx')
-print('Created HR_20_QA_print.docx')
+doc.save('HR_20_QA_compact.docx')
+print('Created HR_20_QA_compact.docx')

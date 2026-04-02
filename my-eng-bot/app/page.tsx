@@ -1382,9 +1382,10 @@ export default function Home() {
           <div
             className="start-screen chat-shell-x flex min-h-0 flex-1 flex-col items-center bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]"
             style={{
-              // Одинаковые вертикальные отступы и шаг между блоками (робот+подсказка / меню).
-              gap: 'clamp(1rem, 2.5vh, 1.75rem)',
-              paddingTop: 'clamp(1rem, 2.5vh, 1.75rem)',
+              // Для экрана меню держим одинаковый (и чуть более компактный) верхний и межблочный шаг.
+              gap: homeMenuView === 'root' ? 'clamp(1rem, 2.5vh, 1.75rem)' : 'clamp(0.5rem, 1.5vh, 0.9rem)',
+              paddingTop:
+                homeMenuView === 'root' ? 'clamp(1rem, 2.5vh, 1.75rem)' : 'clamp(0.5rem, 1.5vh, 0.9rem)',
               paddingBottom: 'clamp(1rem, 2.5vh, 1.75rem)',
             }}
           >
