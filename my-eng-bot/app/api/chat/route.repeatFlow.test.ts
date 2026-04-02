@@ -222,6 +222,82 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content.toLowerCase()).toContain('work context')
   })
 
+  it('passes resolved free-talk numbered topic to provider instead of raw "1"', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: 'What sports have you enjoyed recently?',
+    })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      topic: 'free_talk',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_perfect'],
+      messages: [
+        {
+          role: 'assistant',
+          content: [
+            'What would you like to talk about?',
+            'Your topic, or one of these:',
+            '1) sport in my life',
+            '2) new technology in my life',
+            '3) my short-term goals',
+          ].join('\n'),
+        },
+        { role: 'user', content: '1' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    const firstCall = callProviderChatMock.mock.calls[0]?.[0] as
+      | { apiMessages?: Array<{ role: string; content: string }> }
+      | undefined
+    const providerLastUserMessage = (firstCall?.apiMessages ?? [])
+      .filter((message) => message.role === 'user')
+      .at(-1)
+    expect(providerLastUserMessage?.content).toBe('sport in my life')
+    expect(data.content.toLowerCase()).toContain('sport')
+  })
+
+  it('allows re-selecting numbered topic later in same free-talk chat', async () => {
+    const req = makeRequest({
+      mode: 'dialogue',
+      topic: 'free_talk',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_perfect'],
+      messages: [
+        {
+          role: 'assistant',
+          content: [
+            'What would you like to talk about?',
+            'Your topic, or one of these:',
+            '1) sport in my life',
+            '2) new technology in my life',
+            '3) my short-term goals',
+          ].join('\n'),
+        },
+        { role: 'user', content: '1' },
+        { role: 'assistant', content: 'What sports have you enjoyed recently?' },
+        { role: 'user', content: 'I have enjoyed football recently.' },
+        { role: 'assistant', content: 'What sport do you play now?' },
+        { role: 'user', content: '2' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(callProviderChatMock).not.toHaveBeenCalled()
+    expect(data.content).toMatch(/\?\s*$/)
+    expect(data.content.toLowerCase()).toContain('technology')
+  })
+
   it('asks clarification for forest token in technology thread', async () => {
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,

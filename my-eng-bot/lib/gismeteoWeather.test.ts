@@ -44,6 +44,8 @@ describe('extractWeatherLocationQuery', () => {
     expect(extractWeatherLocationQuery('weather')).toBeNull()
     expect(extractWeatherLocationQuery('погода')).toBeNull()
     expect(extractWeatherLocationQuery('температура')).toBeNull()
+    expect(extractWeatherLocationQuery('Давай поговорим про погоду')).toBeNull()
+    expect(extractWeatherLocationQuery('Давай поговорим о погоде')).toBeNull()
   })
 })
 

@@ -375,7 +375,22 @@ function detectSourcePublishedAt(source: WebSearchSource): string | undefined {
 function isBareWeatherTopicOnly(text: string): boolean {
   const n = normalizeText(text).toLowerCase()
   if (!n) return false
-  if (/^(weather|forecast|temperature|wheather|whether)$/i.test(n)) return true
+  if (
+    /^(?:давай\s+)?(?:поговорим|обсудим|поболтаем)\s+(?:про|о)\s+(?:погод[а-яё]*|температур[а-яё]*|прогноз(?:\s+погоды)?)$/.test(
+      n
+    )
+  ) {
+    return true
+  }
+  if (
+    /^(?:let'?s\s+)?(?:talk|discuss|chat)\s+(?:about)\s+(?:(?:the|a|an)\s+)?(?:weather|forecast|temperature)$/.test(
+      n
+    )
+  ) {
+    return true
+  }
+  const englishWithoutArticle = n.replace(/^(?:the|a|an)\s+/, '')
+  if (/^(weather|forecast|temperature|wheather|whether)$/i.test(englishWithoutArticle)) return true
   if (/^погод[а-яё]{0,4}$/.test(n)) return true
   if (/^температур[а-яё]{0,4}$/.test(n)) return true
   if (/^прогноз(?:\s+погоды)?$/.test(n)) return true

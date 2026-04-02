@@ -965,8 +965,9 @@ export default function Home() {
         const previousAssistantMessage = [...messages]
           .reverse()
           .find((message) => message.role === 'assistant')
+        const previousWebSearchSources = previousAssistantMessage?.webSearchSources ?? []
 
-        if (!previousAssistantMessage || !previousAssistantMessage.webSearchSources) {
+        if (!previousAssistantMessage || previousWebSearchSources.length === 0) {
           setMessages((prev) => [
             ...prev,
             {
@@ -987,7 +988,7 @@ export default function Home() {
               ? '(i) Показываю все источники по предыдущему ответу.'
               : '(i) Вот источники по предыдущему ответу.',
             webSearchSourcesRequested: true,
-            webSearchSources: previousAssistantMessage.webSearchSources,
+            webSearchSources: previousWebSearchSources,
             webSearchSourcesShowAll: sourceRequestShowAll,
             webSearchSourcesHiddenCount: previousAssistantMessage.webSearchSourcesHiddenCount,
           },

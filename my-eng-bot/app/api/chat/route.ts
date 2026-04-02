@@ -73,6 +73,7 @@ import { buildMixedDialogueFallbackComment, buildMixedInputRepeatFallback } from
 import { normalizeEnglishForRepeatMatch } from '@/lib/normalizeEnglishForRepeatMatch'
 import { stripFalseArticleBeforeEnglishComment } from '@/lib/stripFalseArticleBeforeEnglishComment'
 import { alignDialogueBeVerbCommentWithRepeat } from '@/lib/dialogueBeCommentConsistency'
+import { normalizeDialogueCommentTerminology } from '@/lib/dialogueCommentTerminology'
 import { normalizeRuTopicKeyword, normalizeTopicToken, RU_TOPIC_KEYWORD_TO_EN } from '@/lib/ruTopicKeywordMap'
 import { buildNextFreeTalkQuestionFromContext } from '@/lib/freeTalkContextNextQuestion'
 import { enrichDialogueCommentWithTypoHints } from '@/lib/dialogueCommentEnrichment'
@@ -4042,12 +4043,15 @@ export async function POST(req: NextRequest) {
     const isFirstTranslationUserTurn = mode === 'translation' && translationUserTurns === 1
     const recentMessages = nonSystemMessages.slice(-MAX_MESSAGES_IN_CONTEXT)
     let lastUserText = recentMessages.filter((m) => m.role === 'user').pop()?.content ?? ''
+    let resolvedTopicChoiceText: string | null = null
     const explicitTranslateTarget =
       mode === 'communication' ? extractExplicitTranslateTarget(lastUserText) : null
     const isFirstTurn = recentMessages.length === 0
     const isTopicChoiceTurn = topic === 'free_talk' && recentMessages.length === 2 && recentMessages[1]?.role === 'user'
-    if (mode === 'dialogue' && topic === 'free_talk' && isTopicChoiceTurn) {
-      const firstAssistantText = recentMessages.find((m) => m.role === 'assistant')?.content ?? ''
+    const firstAssistantText = recentMessages.find((m) => m.role === 'assistant')?.content ?? ''
+    const hasReusableNumberedTopicList =
+      /(^|\n)\s*1\)\s+.+/m.test(firstAssistantText) && /(^|\n)\s*2\)\s+.+/m.test(firstAssistantText)
+    if (mode === 'dialogue' && topic === 'free_talk' && !isFirstTurn && hasReusableNumberedTopicList) {
       const numberedChoice = resolveFreeTalkNumberedChoice({
         userText: lastUserText,
         assistantText: firstAssistantText,
@@ -4064,8 +4068,17 @@ export async function POST(req: NextRequest) {
       }
       if (numberedChoice.kind === 'resolved') {
         lastUserText = numberedChoice.topic
+        resolvedTopicChoiceText = numberedChoice.topic
       }
     }
+    const recentMessagesForProvider =
+      resolvedTopicChoiceText && recentMessages.length > 0
+        ? recentMessages.map((message, index) =>
+            index === recentMessages.length - 1 && message.role === 'user'
+              ? { ...message, content: resolvedTopicChoiceText }
+              : message
+          )
+        : recentMessages
     const forcedRepeatSentence =
       mode === 'dialogue' ? extractLastAssistantRepeatSentence(recentMessages) : null
     const lastTranslationPrompt = mode === 'translation' ? extractLastTranslationPrompt(nonSystemMessages) : null
@@ -4166,6 +4179,25 @@ export async function POST(req: NextRequest) {
       if (inferredRepeatTense) {
         tutorGradingTense = inferredRepeatTense
       }
+    }
+    const isRepeatedNumberedTopicChoiceTurn = Boolean(resolvedTopicChoiceText) && !isTopicChoiceTurn
+    if (mode === 'dialogue' && topic === 'free_talk' && isRepeatedNumberedTopicChoiceTurn) {
+      return NextResponse.json({
+        content: finalizeDialogueFallbackWithCefr({
+          content: fallbackQuestionForContext({
+            topic,
+            tense: dialogueEffectiveTense,
+            level,
+            audience,
+            isFirstTurn: false,
+            isTopicChoiceTurn: true,
+            lastUserText: resolvedTopicChoiceText ?? lastUserText,
+          }),
+          level: level as LevelId,
+          audience,
+        }),
+        dialogueCorrect: true,
+      })
     }
 
     if (mode === 'dialogue' && topic !== 'free_talk' && !isFirstTurn && isFixedTopicSwitchRequest(lastUserText)) {
@@ -4503,8 +4535,8 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
 
     // При пустом диалоге добавляем одно сообщение пользователя: часть провайдеров требует хотя бы один user turn
     const userTurnMessages =
-      recentMessages.length > 0
-        ? recentMessages.map((m: ChatMessage) => ({ role: m.role, content: m.content }))
+      recentMessagesForProvider.length > 0
+        ? recentMessagesForProvider.map((m: ChatMessage) => ({ role: m.role, content: m.content }))
         : [
             {
               role: 'user' as const,
@@ -4660,6 +4692,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         userText: lastUserContentForResponse,
         audience,
       })
+      sanitized = normalizeDialogueCommentTerminology(sanitized)
       sanitized = compactDialogueComment(sanitized, audience)
       sanitized = ensureRepeatWhenCommentRequestsCorrection({
         content: sanitized,

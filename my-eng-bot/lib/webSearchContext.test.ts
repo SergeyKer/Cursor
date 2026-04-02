@@ -67,4 +67,37 @@ describe('getCommunicationWebSearchDecision', () => {
     })
     expect(decision.requested).toBe(false)
   })
+
+  it('does not turn on web search for ru topic phrase "давай поговорим про погоду"', () => {
+    const decision = getCommunicationWebSearchDecision({
+      mode: 'communication',
+      explicitTranslateTarget: null,
+      rawText: 'Давай поговорим про погоду',
+      cleanedText: 'Давай поговорим про погоду',
+      recentMessages: [],
+    })
+    expect(decision.requested).toBe(false)
+  })
+
+  it('does not turn on web search for bare "the weather" topic', () => {
+    const decision = getCommunicationWebSearchDecision({
+      mode: 'communication',
+      explicitTranslateTarget: null,
+      rawText: 'the weather',
+      cleanedText: 'the weather',
+      recentMessages: [],
+    })
+    expect(decision.requested).toBe(false)
+  })
+
+  it('turns on web search for recency-sensitive "the weather today"', () => {
+    const decision = getCommunicationWebSearchDecision({
+      mode: 'communication',
+      explicitTranslateTarget: null,
+      rawText: 'the weather today',
+      cleanedText: 'the weather today',
+      recentMessages: [],
+    })
+    expect(decision.requested).toBe(true)
+  })
 })
