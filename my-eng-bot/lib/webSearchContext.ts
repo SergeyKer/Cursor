@@ -8,6 +8,7 @@ type WebSearchContextMessage = {
   role: 'user' | 'assistant' | 'system'
   content: string
   webSearchTriggered?: boolean
+  webSearchSources?: Array<{ url: string }>
 }
 
 export function hasRecentWebSearchContext(messages: WebSearchContextMessage[]): boolean {
@@ -15,7 +16,9 @@ export function hasRecentWebSearchContext(messages: WebSearchContextMessage[]): 
   return tail.some((m) => {
     if (m.role !== 'assistant') return false
     if (m.webSearchTriggered) return true
-    return /^\s*\(i\)/i.test(m.content ?? '')
+    const sourcesLen = m.webSearchSources?.length ?? 0
+    // (i) без флага и без сохранённых источников — не считаем «контекстом веб-поиска» (избегаем ложных follow-up).
+    return /^\s*\(i\)/i.test(m.content ?? '') && sourcesLen > 0
   })
 }
 

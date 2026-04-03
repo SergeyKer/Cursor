@@ -15,12 +15,24 @@ describe('hasRecentWebSearchContext', () => {
     expect(hasRecentWebSearchContext(messages)).toBe(true)
   })
 
-  it('falls back to (i) marker in assistant content', () => {
+  it('treats (i) as context only when источники были сохранены', () => {
     const messages: ChatMessage[] = [
-      { role: 'assistant', content: '(i) Текущий курс доллара ...' },
+      {
+        role: 'assistant',
+        content: '(i) Текущий курс доллара ...',
+        webSearchSources: [{ url: 'https://example.com/rate' }],
+      },
       { role: 'user', content: 'а евро' },
     ]
     expect(hasRecentWebSearchContext(messages)).toBe(true)
+  })
+
+  it('does not treat bare (i) without sources as web-search context', () => {
+    const messages: ChatMessage[] = [
+      { role: 'assistant', content: '(i) What do you want to know?' },
+      { role: 'user', content: 'а евро' },
+    ]
+    expect(hasRecentWebSearchContext(messages)).toBe(false)
   })
 })
 
@@ -41,7 +53,9 @@ describe('getCommunicationWebSearchDecision', () => {
       explicitTranslateTarget: null,
       rawText: 'а евро',
       cleanedText: 'а евро',
-      recentMessages: [{ role: 'assistant', content: '(i) Курс доллара ...' }],
+      recentMessages: [
+        { role: 'assistant', content: '(i) Курс доллара ...', webSearchTriggered: true },
+      ],
     })
     expect(decision.requested).toBe(true)
   })

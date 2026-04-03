@@ -80,6 +80,7 @@ import { enrichDialogueCommentWithTypoHints } from '@/lib/dialogueCommentEnrichm
 import { applyFreeTalkTopicChoiceTenseAnchorFallback } from '@/lib/freeTalkTopicChoiceAnchorFallback'
 import { buildCefrPromptBlock } from '@/lib/cefr/cefrSpec'
 import { applyCefrOutputGuard } from '@/lib/cefr/levelGuard'
+import { collectLearnerEnglishSamples, rewriteWebSearchAnswerForLearner } from '@/lib/rewriteWebSearchForLearner'
 
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
 // чтобы undici + proxy dispatcher работали предсказуемо (а не в Edge).
@@ -624,6 +625,35 @@ function buildCommunicationDetailRule(detailLevel: 0 | 1 | 2): string {
   return 'Without a detail keyword, keep the reply short and focused (1–3 sentences).'
 }
 
+function buildCommunicationWebSearchMaxTokens(params: {
+  baseMaxTokens: number
+  detailLevel: 0 | 1 | 2
+  level: LevelId
+  audience: Audience
+}): number {
+  if (!['starter', 'a1', 'a2'].includes(params.level)) return params.baseMaxTokens
+
+  const child = params.audience === 'child'
+  const cap =
+    params.detailLevel === 2
+      ? child
+        ? 640
+        : 768
+      : params.detailLevel === 1
+        ? child
+          ? 480
+          : 640
+        : child
+          ? 320
+          : 384
+
+  return Math.min(params.baseMaxTokens, cap)
+}
+
+function stripInternetPrefix(content: string): string {
+  return content.trim().replace(/^\(i\)\s*/i, '').trim()
+}
+
 function finalizeCommunicationContentWithCefr(params: {
   content: string
   level: LevelId
@@ -666,6 +696,63 @@ function finalizeCommunicationContentWithCefr(params: {
     : params.firstTurn
       ? 'Hello! What would you like to talk about today?'
       : 'Could you clarify what you mean?'
+}
+
+function finalizeCommunicationWebSearchContentWithCefr(params: {
+  content: string
+  level: LevelId
+  audience: Audience
+  targetLang: 'ru' | 'en'
+  firstTurn: boolean
+  seedText: string
+}): string {
+  const raw = stripInternetPrefix(params.content)
+  if (!raw) return params.content
+
+  if (params.targetLang === 'ru') {
+    return formatOpenAiWebSearchAnswer({
+      answer: raw,
+      sources: [],
+      language: 'ru',
+    })
+  }
+
+  const guarded = applyCefrOutputGuard({
+    mode: 'communication',
+    content: raw,
+    level: params.level,
+    audience: params.audience,
+    communicationTargetLang: 'en',
+  })
+  const bestEffort = guarded.content.trim()
+  if (bestEffort) {
+    return formatOpenAiWebSearchAnswer({
+      answer: bestEffort,
+      sources: [],
+      language: 'en',
+    })
+  }
+
+  const levelFallback = buildCommunicationFallbackMessage({
+    audience: params.audience,
+    language: 'en',
+    level: params.level,
+    firstTurn: params.firstTurn,
+    seedText: params.seedText,
+  })
+  const guardedFallback = applyCefrOutputGuard({
+    mode: 'communication',
+    content: levelFallback,
+    level: params.level,
+    audience: params.audience,
+    communicationTargetLang: 'en',
+  })
+  const fallbackAnswer = guardedFallback.content.trim() || levelFallback.trim()
+  return formatOpenAiWebSearchAnswer({
+    answer: fallbackAnswer,
+    sources: [],
+    language: 'en',
+  })
 }
 
 function finalizeDialogueFallbackWithCefr(params: {
@@ -4407,7 +4494,14 @@ export async function POST(req: NextRequest) {
         systemPrompt: searchSystemPrompt,
         messages: recentMessages,
         language: detectedUserLang,
-        maxOutputTokens: communicationMaxTokens,
+        level: level as LevelId,
+        audience,
+        maxOutputTokens: buildCommunicationWebSearchMaxTokens({
+          baseMaxTokens: communicationMaxTokens,
+          detailLevel: communicationDetailLevel,
+          level: level as LevelId,
+          audience,
+        }),
       })
 
       if (communicationSearchResult.ok) {
@@ -4416,8 +4510,41 @@ export async function POST(req: NextRequest) {
           ? filterFreshWebSearchSources(communicationSearchResult.sources)
           : { sources: communicationSearchResult.sources, hiddenCount: 0 }
 
+        let contentForFinalize = communicationSearchResult.content
+        if (detectedUserLang === 'en') {
+          const strippedDraft = stripInternetPrefix(communicationSearchResult.content)
+          const learnerSamples =
+            level === 'all' ? collectLearnerEnglishSamples(recentMessages) : undefined
+          const rewritten = await rewriteWebSearchAnswerForLearner({
+            provider,
+            req,
+            rawAnswer: strippedDraft,
+            level: level as LevelId,
+            audience,
+            detailLevel: communicationDetailLevel,
+            userQuery: lastUserContentForResponse,
+            learnerEnglishSamples: learnerSamples,
+          })
+          if (rewritten) {
+            contentForFinalize = formatOpenAiWebSearchAnswer({
+              answer: rewritten,
+              sources: [],
+              language: 'en',
+            })
+          }
+        }
+
+        const finalizedSearchContent = finalizeCommunicationWebSearchContentWithCefr({
+          content: contentForFinalize,
+          level: level as LevelId,
+          audience,
+          targetLang: detectedUserLang,
+          firstTurn: isFirstTurn,
+          seedText: dialogSeed,
+        })
+
         return NextResponse.json({
-          content: communicationSearchResult.content,
+          content: finalizedSearchContent,
           webSearchSourcesRequested: communicationSearchSourcesRequested,
           webSearchSources: freshness.sources,
           webSearchTriggered: true,

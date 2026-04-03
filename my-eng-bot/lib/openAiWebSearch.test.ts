@@ -61,6 +61,11 @@ describe('shouldUseOpenAiWebSearch', () => {
     expect(shouldUseOpenAiWebSearch('What is the current price of Bitcoin?')).toBe(true)
   })
 
+  it('detects goalkeeper ranking query (рейтинг вратарей) as web-search', () => {
+    expect(shouldUseOpenAiWebSearch('рейтинг вратарей')).toBe(true)
+    expect(isRecencySensitiveRequest('рейтинг вратарей')).toBe(true)
+  })
+
   it('detects balanced recency phrases in Russian', () => {
     expect(shouldUseOpenAiWebSearch('Какие новости за последнюю неделю?')).toBe(true)
     expect(shouldUseOpenAiWebSearch('Что нового по курсу за этот месяц?')).toBe(true)
@@ -75,6 +80,8 @@ describe('shouldUseOpenAiWebSearch', () => {
     expect(shouldUseOpenAiWebSearch('последняя модель ниссан')).toBe(true)
     expect(shouldUseOpenAiWebSearch('новая модель тойота')).toBe(true)
     expect(shouldUseOpenAiWebSearch('кто последний победитель лиги чемпионов')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('кто последний обладатель золотого мяча')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('последний лауреат нобелевской премии по литературе')).toBe(true)
     expect(shouldUseOpenAiWebSearch('когда начнутся паводки в России')).toBe(true)
     expect(shouldUseOpenAiWebSearch('когда состоится матч спартак зенит')).toBe(true)
     expect(shouldUseOpenAiWebSearch('какие планы по запуску миссии')).toBe(true)
@@ -169,6 +176,7 @@ describe('isRecencySensitiveRequest', () => {
     expect(isRecencySensitiveRequest('когда следующий матч спартака')).toBe(true)
     expect(isRecencySensitiveRequest('who is the upcoming coach')).toBe(true)
     expect(isRecencySensitiveRequest('кто последний чемпион россии по футболу')).toBe(true)
+    expect(isRecencySensitiveRequest('кто последний обладатель золотого мяча')).toBe(true)
     expect(isRecencySensitiveRequest('последний тренер спартака')).toBe(true)
     expect(isRecencySensitiveRequest('последняя модель ниссан')).toBe(true)
     expect(isRecencySensitiveRequest('текущий рейтинг вратарей')).toBe(true)
@@ -357,6 +365,46 @@ describe('callOpenAiWebSearchAnswer', () => {
     const [, requestInit] = mockedFetchWithProxyFallback.mock.calls[0] ?? []
     const body = JSON.parse(String(requestInit?.body)) as { instructions?: string }
     expect(body.instructions).not.toContain('https://www.gismeteo.ru/')
+  })
+
+  it('adds strict low-level child adaptation instructions', async () => {
+    mockedFetchWithProxyFallback.mockResolvedValueOnce(
+      new Response(JSON.stringify({ output_text: 'General answer.' }), { status: 200 })
+    )
+
+    await callOpenAiWebSearchAnswer({
+      systemPrompt: 'You are helpful.',
+      messages: [{ role: 'user', content: 'What is today news?' }],
+      language: 'en',
+      level: 'a1',
+      audience: 'child',
+    })
+
+    const [, requestInit] = mockedFetchWithProxyFallback.mock.calls[0] ?? []
+    const body = JSON.parse(String(requestInit?.body)) as { instructions?: string }
+    expect(body.instructions).toContain('Learner profile adaptation (strict for web-search summarization):')
+    expect(body.instructions).toContain('Respect fixed CEFR level ceiling: A1.')
+    expect(body.instructions).toContain('Audience is CHILD')
+    expect(body.instructions).toContain('For starter/A1/A2: use only very common words')
+  })
+
+  it('adds adaptive instruction for level all', async () => {
+    mockedFetchWithProxyFallback.mockResolvedValueOnce(
+      new Response(JSON.stringify({ output_text: 'General answer.' }), { status: 200 })
+    )
+
+    await callOpenAiWebSearchAnswer({
+      systemPrompt: 'You are helpful.',
+      messages: [{ role: 'user', content: 'Tell me latest AI news' }],
+      language: 'en',
+      level: 'all',
+      audience: 'adult',
+    })
+
+    const [, requestInit] = mockedFetchWithProxyFallback.mock.calls[0] ?? []
+    const body = JSON.parse(String(requestInit?.body)) as { instructions?: string }
+    expect(body.instructions).toContain('Level mode "all": adapt to the learner language complexity from this chat')
+    expect(body.instructions).toContain('Audience is ADULT')
   })
 
   it('sends only latest user query to web search input', async () => {

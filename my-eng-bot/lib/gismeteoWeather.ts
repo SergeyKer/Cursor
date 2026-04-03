@@ -45,6 +45,10 @@ const GISMETEO_PINNED_CITY_BY_QUERY: Record<string, { id: number; districtSlug: 
   волосово: { id: 166961, districtSlug: 'moscow-oblast', subdistrictSlug: 'klin-urban-district' },
   ногово: { id: 167067, districtSlug: 'moscow-oblast', subdistrictSlug: 'klin-urban-district' },
 }
+const GISMETEO_DIRECT_CITY_BY_QUERY: Record<string, { id: number; slug: string; name: string; nameP: string }> = {
+  москва: { id: 4368, slug: 'moscow', name: 'Москва', nameP: 'в Москве' },
+  moscow: { id: 4368, slug: 'moscow', name: 'Москва', nameP: 'в Москве' },
+}
 
 function normalizeText(text: string): string {
   return text.trim().replace(/\s+/g, ' ')
@@ -307,7 +311,9 @@ function fetchText(url: string): Promise<Response> {
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetchText(url)
   if (!res.ok) {
-    throw new Error(`Failed to fetch JSON: ${res.status}`)
+    const raw = await res.text().catch(() => '')
+    const bodySnippet = raw.replace(/\s+/g, ' ').slice(0, 220)
+    throw new Error(`Failed to fetch JSON: ${res.status}; url=${url}; body=${bodySnippet}`)
   }
   return (await res.json()) as T
 }
@@ -803,10 +809,64 @@ async function resolveGismeteoCity(query: string): Promise<GismeteoCity> {
   if (!normalized) {
     throw new Error('City query is empty')
   }
+  const direct = GISMETEO_DIRECT_CITY_BY_QUERY[normalizeLetters(normalized)]
+  if (direct) {
+    return {
+      id: direct.id,
+      slug: direct.slug,
+      country: { code: 'RU' },
+      translations: { ru: { city: { name: direct.name, nameP: direct.nameP } } },
+    }
+  }
 
   const lookupUrl = `${GISMETEO_BASE_URL}/mq/city/q/?q=${encodeURIComponent(normalized)}&geo=ru`
-  const result = await fetchJson<GismeteoCitySearchResponse>(lookupUrl)
-  const cities = result.data ?? []
+
+  let result: GismeteoCitySearchResponse | null = null
+  try {
+    result = await fetchJson<GismeteoCitySearchResponse>(lookupUrl)
+  } catch (error) {
+    const errText = error instanceof Error ? error.message : 'lookup failed'
+    const requiresLongitude = /longitude is required/i.test(errText)
+    if (!requiresLongitude) throw error
+
+    const searchUrl = `${GISMETEO_BASE_URL}/search/${encodeURIComponent(normalized)}/`
+    const searchHtml = await fetchHtml(searchUrl)
+    const candidates = Array.from(searchHtml.matchAll(/weather-([a-z0-9-]+)-(\d+)\//gi))
+      .map((m) => ({ slug: (m[1] ?? '').toLowerCase(), id: Number(m[2] ?? 0) }))
+      .filter((c) => c.id > 0 && c.slug.length > 0)
+    const unique = new Map<string, { slug: string; id: number }>()
+    for (const c of candidates) {
+      unique.set(`${c.slug}-${c.id}`, c)
+    }
+    const citiesFromSearch = Array.from(unique.values()).map((entry) => ({
+      id: entry.id,
+      slug: entry.slug,
+      country: { code: 'RU' },
+      translations: {
+        ru: {
+          city: {
+            name: normalized,
+            nameP: `в ${normalized}`,
+          },
+        },
+      },
+    })) as GismeteoCity[]
+
+    const queryVariants = buildQueryVariants(normalized)
+    const ranked = citiesFromSearch
+      .map((city) => ({ city, match: scoreCityMatch(queryVariants, city) }))
+      .sort((left, right) => {
+        if (left.match.priority !== right.match.priority) return left.match.priority - right.match.priority
+        if (left.match.score !== right.match.score) return left.match.score - right.match.score
+        return left.city.id - right.city.id
+      })
+    const chosen = ranked[0]?.city
+    if (!chosen) {
+      throw error
+    }
+    return chosen
+  }
+  const cities = result?.data ?? []
   const normalizedQueryKey = normalizeLetters(normalized)
   const pinned = GISMETEO_PINNED_CITY_BY_QUERY[normalizedQueryKey]
   if (pinned) {

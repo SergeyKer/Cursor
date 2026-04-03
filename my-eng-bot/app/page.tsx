@@ -980,7 +980,7 @@ export default function Home() {
             {
               role: 'assistant',
               content:
-                '(i) Не нашёл сохранённых источников для предыдущего ответа. Сначала попросите проверить информацию в интернете.',
+                'Не нашёл сохранённых источников для предыдущего ответа. Сначала попросите проверить информацию в интернете.',
             },
           ])
           setSettingsAtLastSend(settings)
@@ -992,8 +992,8 @@ export default function Home() {
           {
             role: 'assistant',
             content: sourceRequestShowAll
-              ? '(i) Показываю все источники по предыдущему ответу.'
-              : '(i) Вот источники по предыдущему ответу.',
+              ? 'Показываю все источники по предыдущему ответу.'
+              : 'Вот источники по предыдущему ответу.',
             webSearchSourcesRequested: true,
             webSearchSources: previousWebSearchSources,
             webSearchSourcesShowAll: sourceRequestShowAll,

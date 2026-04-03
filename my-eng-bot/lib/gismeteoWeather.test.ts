@@ -68,6 +68,62 @@ describe('callGismeteoWeatherAnswer', () => {
     expect(mockedFetchWithProxyFallback).not.toHaveBeenCalled()
   })
 
+  it('uses direct Moscow fallback when city lookup endpoint is unavailable', async () => {
+    mockedFetchWithProxyFallback.mockResolvedValueOnce(
+      new Response(
+        '<script>"weather":{"cw":{"description":["Безоблачно"],"humidity":[35],"pressure":[747],"temperatureAir":[15],"temperatureFeelsLike":[16],"windSpeed":[2]},"schema":[]}</script>',
+        { status: 200 }
+      )
+    )
+
+    const result = await callGismeteoWeatherAnswer({
+      query: 'какая погода в москве',
+      language: 'ru',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.content).toContain('(i) Сейчас в Москве')
+    expect(result.sources).toEqual([
+      { title: 'Gismeteo: Москва', url: 'https://www.gismeteo.ru/weather-moscow-4368/now/' },
+    ])
+    expect(mockedFetchWithProxyFallback).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back to /search page when mq lookup requires longitude', async () => {
+    mockedFetchWithProxyFallback
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ meta: { status: false }, error: { code: 1101, message: 'longitude is required' }, data: null }),
+          { status: 400 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          '<a href="/weather-vladivostok-4877/">Владивосток</a>',
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          '<script>"weather":{"cw":{"description":["Облачно"],"humidity":[66],"pressure":[755],"temperatureAir":[7],"temperatureFeelsLike":[5],"windSpeed":[4]},"schema":[]}</script>',
+          { status: 200 }
+        )
+      )
+
+    const result = await callGismeteoWeatherAnswer({
+      query: 'какая погода во владивостоке',
+      language: 'ru',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.content).toContain('(i) Сейчас')
+    expect(result.sources[0]?.url).toBe('https://www.gismeteo.ru/weather-vladivostok-4877/now/')
+    expect(result.sources[0]?.title?.startsWith('Gismeteo:')).toBe(true)
+    expect(mockedFetchWithProxyFallback).toHaveBeenCalledTimes(3)
+  })
+
   it('returns direct current weather from Gismeteo', async () => {
     mockedFetchWithProxyFallback
       .mockResolvedValueOnce(

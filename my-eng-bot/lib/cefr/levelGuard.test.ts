@@ -26,6 +26,21 @@ describe('applyCefrOutputGuard', () => {
     expect(result.content.toLowerCase()).toContain('use')
   })
 
+  it('does not collapse a long one-line paragraph to a single short clause', () => {
+    const s1 = 'one two three four five six seven eight nine ten eleven twelve'
+    const s2 = 'alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu'
+    const paragraph = `${s1}. ${s2}.`
+    const result = applyCefrOutputGuard({
+      mode: 'communication',
+      content: paragraph,
+      level: 'a1',
+      audience: 'adult',
+      communicationTargetLang: 'en',
+    })
+    expect(result.content).toContain('one two three')
+    expect(result.content).toContain('alpha beta')
+  })
+
   it('preserves dialogue markers while simplifying repeat line', () => {
     const result = applyCefrOutputGuard({
       mode: 'dialogue',

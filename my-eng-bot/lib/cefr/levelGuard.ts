@@ -86,18 +86,37 @@ function simplifyEnglishText(text: string): string {
   return next
 }
 
+/** Дробим по концам предложений, чтобы длинный абзац без \\n не резался целиком до одного короткого фрагмента. */
+function splitRoughEnglishSentences(segment: string): string[] {
+  const trimmed = segment.trim()
+  if (!trimmed) return []
+  const parts = trimmed
+    .split(/(?<=[.!?])\s+/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+  return parts.length > 0 ? parts : [trimmed]
+}
+
+function trimSingleEnglishClause(clause: string, maxWords: number): string {
+  if (!/[A-Za-z]/.test(clause)) return clause
+  const words = clause.split(/\s+/)
+  if (words.length <= maxWords) return clause
+  const keep = words.slice(0, maxWords).join(' ')
+  return keep.replace(/[,;:]\s*$/, '').trim()
+}
+
 function trimLongEnglishSentences(params: { text: string; level: LevelId }): string {
   const spec = getCefrSpec(params.level)
   if (!spec) return params.text
+
+  const maxWords = spec.maxSentenceWords + 4
 
   return params.text
     .split('\n')
     .map((line) => {
       if (!/[A-Za-z]/.test(line)) return line
-      const words = line.split(/\s+/)
-      if (words.length <= spec.maxSentenceWords + 4) return line
-      const keep = words.slice(0, spec.maxSentenceWords + 4).join(' ')
-      return keep.replace(/[,;:]\s*$/, '').trim()
+      const sentences = splitRoughEnglishSentences(line)
+      return sentences.map((s) => trimSingleEnglishClause(s, maxWords)).join(' ')
     })
     .join('\n')
 }
