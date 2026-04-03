@@ -11,6 +11,10 @@ export const MENU_PRIMARY_CTA_CLASS =
 export const PAGE_HOME_START_PRIMARY_BUTTON_CLASS =
   'btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]'
 
+/** Главная: кнопка возврата к выбору аудитории (рядом с CTA чата/уроков). */
+export const PAGE_HOME_BACK_TO_AUDIENCE_BUTTON_CLASS =
+  'btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl border border-[var(--text)]/[0.18] bg-[var(--bg-card)] px-4 py-2.5 text-sm font-semibold text-[var(--accent)] shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-95 active:brightness-90 touch-manipulation min-h-[44px]'
+
 /** Стартовый выбор аудитории: «Я - взрослый» (бирюзовая палитра из цветовой схемы). */
 export const PAGE_HOME_AUDIENCE_ADULT_BUTTON_CLASS =
   'btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl bg-gradient-to-b from-[var(--invitation)] to-[#0f766e] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]'

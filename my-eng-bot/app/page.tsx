@@ -41,6 +41,7 @@ import type {
 import {
   PAGE_HOME_AUDIENCE_ADULT_BUTTON_CLASS,
   PAGE_HOME_AUDIENCE_CHILD_BUTTON_CLASS,
+  PAGE_HOME_BACK_TO_AUDIENCE_BUTTON_CLASS,
   PAGE_HOME_START_PRIMARY_BUTTON_CLASS,
 } from '@/lib/homeCtaStyles'
 import { parseCorrection } from '@/lib/parseCorrection'
@@ -1414,7 +1415,7 @@ export default function Home() {
               <div className="flex w-full max-w-[23.2rem] flex-col items-center gap-[clamp(1rem,3.2vh,2rem)]">
                 <HomeWelcomeBubble text={buildCompactGreeting()} />
                 <div className="flex w-full justify-end">
-                  <div className="flex flex-col items-end gap-2">
+                  <div className="flex w-full flex-col items-end gap-2">
                     {!homeAudienceChosen ? (
                       <>
                         <button
@@ -1450,20 +1451,35 @@ export default function Home() {
                       </>
                     ) : (
                       <>
-                        <button
-                          type="button"
-                          onClick={() => setHomeMenuView('aiChat')}
-                          className={PAGE_HOME_START_PRIMARY_BUTTON_CLASS}
-                        >
-                          Начать Чат с MyEng
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setHomeMenuView('lessons')}
-                          className={PAGE_HOME_START_PRIMARY_BUTTON_CLASS}
-                        >
-                          Начать делать Уроки
-                        </button>
+                        <div className="flex w-full items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setHomeAudienceChosen(false)}
+                            className={PAGE_HOME_BACK_TO_AUDIENCE_BUTTON_CLASS}
+                            aria-label="Главная: вернуться к выбору ребёнок или взрослый"
+                          >
+                            <span className="mr-1" aria-hidden>
+                              &lt;
+                            </span>
+                            Главная
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setHomeMenuView('aiChat')}
+                            className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}
+                          >
+                            Начать Чат с MyEng
+                          </button>
+                        </div>
+                        <div className="flex w-full items-center justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setHomeMenuView('lessons')}
+                            className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}
+                          >
+                            Начать делать Уроки
+                          </button>
+                        </div>
                       </>
                     )}
                   </div>
