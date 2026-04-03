@@ -38,7 +38,11 @@ import type {
   TopicId,
   UsageInfo,
 } from '@/lib/types'
-import { PAGE_HOME_START_PRIMARY_BUTTON_CLASS } from '@/lib/homeCtaStyles'
+import {
+  PAGE_HOME_AUDIENCE_ADULT_BUTTON_CLASS,
+  PAGE_HOME_AUDIENCE_CHILD_BUTTON_CLASS,
+  PAGE_HOME_START_PRIMARY_BUTTON_CLASS,
+} from '@/lib/homeCtaStyles'
 import { parseCorrection } from '@/lib/parseCorrection'
 import {
   findStaticLessonByTopic,
@@ -258,6 +262,7 @@ export default function Home() {
   const [dialogStarted, setDialogStarted] = useState(false)
   const [homeMenuView, setHomeMenuView] = useState<MenuView>('root')
   const [homeAiChatPanel, setHomeAiChatPanel] = useState<AiChatPanel>('summary')
+  const [homeAudienceChosen, setHomeAudienceChosen] = useState(false)
   /** На стартовом экране при выходе из чата домой сбрасывается в false. */
   const [welcomeCompact, setWelcomeCompact] = useState(false)
   /** Смена «сессии» старта: новый факт из очереди (в т.ч. после выхода из чата домой). */
@@ -829,6 +834,7 @@ export default function Home() {
     setMessages([])
     setSettingsAtLastSend(null)
     setHomeMenuView('root')
+    setHomeAudienceChosen(false)
     setMenuOpen(false)
     setLoading(false)
     setRetryMessage(null)
@@ -1409,20 +1415,57 @@ export default function Home() {
                 <HomeWelcomeBubble text={buildCompactGreeting()} />
                 <div className="flex w-full justify-end">
                   <div className="flex flex-col items-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setHomeMenuView('aiChat')}
-                      className={PAGE_HOME_START_PRIMARY_BUTTON_CLASS}
-                    >
-                      Начать Чат с MyEng
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setHomeMenuView('lessons')}
-                      className={PAGE_HOME_START_PRIMARY_BUTTON_CLASS}
-                    >
-                      Начать делать Уроки
-                    </button>
+                    {!homeAudienceChosen ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSettings((prev) =>
+                              normalizeSettingsForAudience({
+                                ...prev,
+                                audience: 'child',
+                              })
+                            )
+                            setHomeAudienceChosen(true)
+                          }}
+                          className={PAGE_HOME_AUDIENCE_CHILD_BUTTON_CLASS}
+                        >
+                          Я - ребёнок
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSettings((prev) =>
+                              normalizeSettingsForAudience({
+                                ...prev,
+                                audience: 'adult',
+                              })
+                            )
+                            setHomeAudienceChosen(true)
+                          }}
+                          className={PAGE_HOME_AUDIENCE_ADULT_BUTTON_CLASS}
+                        >
+                          Я - взрослый
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setHomeMenuView('aiChat')}
+                          className={PAGE_HOME_START_PRIMARY_BUTTON_CLASS}
+                        >
+                          Начать Чат с MyEng
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setHomeMenuView('lessons')}
+                          className={PAGE_HOME_START_PRIMARY_BUTTON_CLASS}
+                        >
+                          Начать делать Уроки
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
                 {!welcomeCompact && welcomeFactLine && (
