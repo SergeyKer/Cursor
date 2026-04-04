@@ -57,6 +57,16 @@ describe('shouldUseOpenAiWebSearch', () => {
     expect(shouldUseOpenAiWebSearch('поищи, пожалуйста, в интернете отзывы')).toBe(true)
   })
 
+  it('detects English look/search in internet and web phrasing', () => {
+    expect(shouldUseOpenAiWebSearch('Look in the internet for React 19 notes')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('look in internet')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('search in internet what is new')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('Search the web for docs')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('looking on the web for hotels')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('look in the inretnet for prices')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('web search climate data')).toBe(true)
+  })
+
   it('detects English current-info queries', () => {
     expect(shouldUseOpenAiWebSearch('What is the current price of Bitcoin?')).toBe(true)
   })

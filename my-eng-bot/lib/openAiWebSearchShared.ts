@@ -23,6 +23,10 @@ const EXPLICIT_WEB_SEARCH_PATTERNS = [
   /\bfind\s+it\s+online\b/i,
   /\bcheck\s+online\b/i,
   /\blook\s+online\b/i,
+  // Natural phrasing + common typo "inretnet" (treat as "internet")
+  /\b(?:look|search|find|check)(?:ing)?\s+(?:in|on)\s+(?:the\s+)?(?:web|internet|inretnet)\b/i,
+  /\bsearch\s+(?:in\s+)?(?:the\s+)?(?:web|internet|inretnet)\b/i,
+  /\b(?:google|web)\s+search\b/i,
 ]
 
 const WEB_SEARCH_FORCE_CODES = ['иии', 'iii']
