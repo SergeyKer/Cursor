@@ -808,6 +808,10 @@ export default function Chat({
 
   /** Диалог и общение — MyEng; тренировка перевода — без изменений. */
   const isCommunicationEnglishInput = settings.mode === 'communication' && settings.communicationInputExpectedLang === 'en'
+  const sendButtonLabelShort =
+    settings.mode === 'communication' && settings.communicationInputExpectedLang === 'en' ? 'Send' : 'Отпр.'
+  const sendButtonLabelLong =
+    settings.mode === 'communication' && settings.communicationInputExpectedLang === 'en' ? 'Send' : 'Отправить'
   const typingIndicatorText =
     settings.mode === 'translation'
       ? `ИИ печатает${retryMessage ? `… ${retryMessage}` : '…'}`
@@ -1010,9 +1014,10 @@ export default function Chat({
                   type="submit"
                   disabled={!input.trim() || loading || atLimit}
                   className="btn-3d inline-flex touch-manipulation items-center justify-center rounded-lg bg-emerald-600 px-3.5 py-1.5 min-h-[44px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50 disabled:hover:bg-emerald-600"
+                  aria-label={sendButtonLabelLong}
                 >
-                  <span className="sm:hidden">Отпр.</span>
-                  <span className="hidden sm:inline">Отправить</span>
+                  <span className="sm:hidden">{sendButtonLabelShort}</span>
+                  <span className="hidden sm:inline">{sendButtonLabelLong}</span>
                 </button>
               </form>
             </div>
