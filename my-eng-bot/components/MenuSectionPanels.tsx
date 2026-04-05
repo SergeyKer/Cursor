@@ -50,7 +50,7 @@ const A2_THEORY_ITEMS: { id: string; label: string; enabled: boolean }[] = [
 const MODE_OPTIONS: { id: AppMode; label: string }[] = [
   { id: 'communication', label: 'Общение' },
   { id: 'dialogue', label: 'Диалог' },
-  { id: 'translation', label: 'Тренировка перевода' },
+  { id: 'translation', label: 'Перевод' },
 ]
 
 const AUDIENCE_OPTIONS: { id: Settings['audience']; label: string }[] = [

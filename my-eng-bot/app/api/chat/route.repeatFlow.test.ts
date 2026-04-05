@@ -765,5 +765,157 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(callProviderChatMock).toHaveBeenCalledTimes(2)
   })
 
+  it('translation success (affirmative) keeps contextual comment and explicit +/?/- construction', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Отлично! Здесь это время подходит, потому что вы говорите о привычке.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I like to read in the evening.\n?: Do you like to read in the evening?\n-: I do not like to read in the evening.\nЯ люблю плавать утром.\nПереведи на английский.',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Отлично! Здесь это время подходит, потому что речь о привычке.\nВремя: Present Simple.\nКонструкция: Subject + V1(s/es).\nПовтори: I like to read in the evening.\nЯ люблю плавать утром.\nПереведи на английский.',
+      })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'hobbies',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'Я часто гуляю вечером.\nПереведи на английский.' },
+        { role: 'user', content: 'I like to read in the evening.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Конструкция:')
+  })
+
+  it('translation success (question input) preserves stable forms block', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: Отлично! Здесь это время подходит, потому что речь о привычке.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: You like sport.\n?: Do you like sport?\n-: You do not like sport.\nЯ редко смотрю телевизор.\nПереведи на английский.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'daily_life',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'Ты любишь спорт?\nПереведи на английский.' },
+        { role: 'user', content: 'Do you like sport?' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Конструкция:')
+    expect(data.content).toContain('Формы:')
+    expect(data.content).toContain('?:')
+    expect(data.content).toContain('-:')
+  })
+
+  it('translation success (negative input) preserves stable forms block', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: Отлично! Здесь это время подходит, потому что вы описываете устойчивое предпочтение.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I drink tea in the evening.\n?: Do you drink tea in the evening?\n-: I do not drink tea in the evening.\nЯ обычно пью чай вечером.\nПереведи на английский.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'food',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'Я не люблю кофе.\nПереведи на английский.' },
+        { role: 'user', content: "I don't like coffee." },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Конструкция:')
+    expect(data.content).toContain('Формы:')
+    expect(data.content).toContain('?:')
+    expect(data.content).toContain('-:')
+  })
+
+  it('translation error flow keeps Время, Конструкция and Повтори', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: Ошибка времени.\nВремя: Present Simple — говорим о привычке.\nКонструкция: Subject + V1(s/es).\nПовтори: I like to read in the evening.\nЯ часто хожу в парк.\nПереведи на английский.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'hobbies',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'Я люблю читать вечером.\nПереведи на английский.' },
+        { role: 'user', content: 'I am reading in the evening.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Время:')
+    expect(data.content).toContain('Конструкция:')
+    expect(data.content).toContain('Повтори:')
+  })
+
+  it('normalizes stale translation success payload with old time hint into new success format', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: Отлично!\nВремя: Present Simple. Используйте это время в полном английском предложении.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: Do you have brothers or sisters.\n?: Do you have brothers or sisters?\n-: You do not have brothers or sisters.\nЯ работаю дома.\nПереведи на английский.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'family_friends',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'У тебя есть братья или сёстры?\nПереведи на английский.' },
+        { role: 'user', content: 'Do you have brothers or sisters?' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).not.toContain('Используйте это время в полном английском предложении')
+    expect(data.content).toContain('Конструкция: +:')
+    expect(data.content).toContain('?:')
+    expect(data.content).toContain('-:')
+  })
+
 })
 

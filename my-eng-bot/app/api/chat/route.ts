@@ -30,6 +30,7 @@ import {
 import {
   buildTranslationRetryFallback,
   fallbackTranslationSentenceForContext,
+  normalizeTranslationPracticeSentence,
 } from '@/lib/translationMode'
 import {
   collapseDuplicateLeadingGreetings,
@@ -332,25 +333,41 @@ ${cefrPromptBlock}
 ${audienceStyleRule}
 
 When the conversation is empty (first assistant turn), output ONLY:
-1) one Russian sentence to translate
+1) one natural, conversational Russian sentence to translate
 2) on the next line: "Переведи на английский."
 No extra lines.
 
-When the user has already sent their translation, ALWAYS use this visual protocol (strict):
-- Line 1: "Комментарий: " + short Russian feedback (what is wrong/right)
-- Line 2: "Время: " + ${tenseName} + very short Russian hint why this tense is needed now
+When the user has already sent their translation, use one of these two protocols:
+
+SUCCESS protocol (if user answer is correct), strict order:
+- Line 1: "Комментарий: " + short praise in Russian + one short, contextual reason why this tense fits THIS Russian sentence (do not use generic text like "write a full sentence"; refer to meaning markers such as habit, fact, ongoing action, finished result, plan).
+- Line 2: "Конструкция: " + concise form guide that covers all three variants in this tense: "+:", "?:", "-:".
+- Line 3: "Формы:"
+- Line 4: "+: " + full affirmative English sentence (same meaning as correct user answer)
+- Line 5: "?: " + full interrogative English sentence in the same tense
+- Line 6: "-: " + full negative English sentence in the same tense
+- Line 7: NEXT natural Russian sentence on a new line
+- Line 8: "Переведи на английский."
+- In SUCCESS protocol do NOT output separate "Время:" line and do NOT output "Повтори:".
+
+ERROR protocol (if there is a mistake), strict:
+- Line 1: "Комментарий: " + short Russian feedback
+- Line 2: "Время: " + ${tenseName} + very short Russian hint
 - Line 3: "Конструкция: " + very short tense pattern for learner (example for Present Simple: "Subject + V1(s/es)")
-- If there is a mistake, add line 4: "Повтори: " + full corrected English sentence.
+- Line 4: "Повтори: " + full corrected English sentence.
 - Then provide the NEXT Russian sentence on a new line.
 - Last line: "Переведи на английский."
 
 Rules:
+- The Russian sentence must sound natural, conversational, and easy to say in everyday speech.
+- Avoid awkward calques, bookish wording, and abstract phrasing that a learner would not normally say.
 - Do not output markdown markers like **Correction** or **Comment**.
 - Keep all explanations short and practical for learner.
-- Do not skip "Время" and "Конструкция" lines.
-- If user answer is correct, do not output "Повтори:".
+- If user answer is correct, use SUCCESS protocol and include all three "Формы" lines.
+- If user answer is correct, include "Конструкция:" as line 2 and do not output "Повтори:".
 - Never remove the final line "Переведи на английский."
-- "Комментарий" must sound professional and pedagogical:
+- In SUCCESS protocol, "Комментарий" must be engaging, clear, and context-aware for this exact phrase.
+- In ERROR protocol, "Комментарий" must sound professional and pedagogical:
   - Start with exact error type in Russian (e.g. "Ошибка согласования подлежащего и сказуемого", "Ошибка формы глагола", "Ошибка времени", "Лексическая ошибка").
   - Then give one precise fix in one short sentence.
   - If there are several mistakes, list ALL key issues in one concise comment: tense, word choice, article, singular/plural.
@@ -2717,6 +2734,88 @@ function translationConstructionHint(tense: string): string {
   }
 }
 
+function translationSuccessConstructionHint(tense: string): string {
+  switch (tense) {
+    case 'present_simple':
+      return '+: Subject + V1(s/es); ?: Do/Does + Subject + V1?; -: Subject + do/does not + V1.'
+    case 'present_continuous':
+      return '+: Subject + am/is/are + V-ing; ?: Am/Is/Are + Subject + V-ing?; -: Subject + am/is/are not + V-ing.'
+    case 'present_perfect':
+      return '+: Subject + have/has + V3; ?: Have/Has + Subject + V3?; -: Subject + have/has not + V3.'
+    case 'present_perfect_continuous':
+      return '+: Subject + have/has been + V-ing; ?: Have/Has + Subject + been + V-ing?; -: Subject + have/has not been + V-ing.'
+    case 'past_simple':
+      return '+: Subject + V2; ?: Did + Subject + V1?; -: Subject + did not + V1.'
+    case 'past_continuous':
+      return '+: Subject + was/were + V-ing; ?: Was/Were + Subject + V-ing?; -: Subject + was/were not + V-ing.'
+    case 'past_perfect':
+      return '+: Subject + had + V3; ?: Had + Subject + V3?; -: Subject + had not + V3.'
+    case 'past_perfect_continuous':
+      return '+: Subject + had been + V-ing; ?: Had + Subject + been + V-ing?; -: Subject + had not been + V-ing.'
+    case 'future_simple':
+      return '+: Subject + will + V1; ?: Will + Subject + V1?; -: Subject + will not + V1.'
+    case 'future_continuous':
+      return '+: Subject + will be + V-ing; ?: Will + Subject + be + V-ing?; -: Subject + will not be + V-ing.'
+    case 'future_perfect':
+      return '+: Subject + will have + V3; ?: Will + Subject + have + V3?; -: Subject + will not have + V3.'
+    case 'future_perfect_continuous':
+      return '+: Subject + will have been + V-ing; ?: Will + Subject + have been + V-ing?; -: Subject + will not have been + V-ing.'
+    default:
+      return '+: Subject + Verb; ?: Auxiliary + Subject + Verb?; -: Subject + auxiliary not + Verb.'
+  }
+}
+
+function hasContextualReasonInSuccessComment(commentBody: string): boolean {
+  return /(потому что|так как|здесь|в этом|в этой фразе|когда|обычно|сейчас|уже|ещё|регулярно|привычк|предпочтен|план|результат)/i.test(commentBody)
+}
+
+function minimalSuccessCommentReason(tense: string): string {
+  switch (tense) {
+    case 'present_simple':
+      return 'Здесь это время уместно, потому что речь о привычке, факте или постоянном предпочтении.'
+    case 'present_continuous':
+      return 'Здесь это время уместно, потому что действие происходит прямо сейчас.'
+    case 'present_perfect':
+      return 'Здесь это время уместно, потому что важен результат к текущему моменту.'
+    case 'present_perfect_continuous':
+      return 'Здесь это время уместно, потому что важно, как долго действие длится до текущего момента.'
+    case 'past_simple':
+      return 'Здесь это время уместно, потому что речь о завершенном действии в прошлом.'
+    case 'past_continuous':
+      return 'Здесь это время уместно, потому что описывается процесс в конкретный момент в прошлом.'
+    case 'past_perfect':
+      return 'Здесь это время уместно, потому что одно прошлое действие произошло раньше другого.'
+    case 'past_perfect_continuous':
+      return 'Здесь это время уместно, потому что важна длительность действия до момента в прошлом.'
+    case 'future_simple':
+      return 'Здесь это время уместно, потому что говорится о будущем действии или намерении.'
+    case 'future_continuous':
+      return 'Здесь это время уместно, потому что речь о процессе в конкретный момент будущего.'
+    case 'future_perfect':
+      return 'Здесь это время уместно, потому что действие будет завершено к моменту в будущем.'
+    case 'future_perfect_continuous':
+      return 'Здесь это время уместно, потому что важна длительность действия к моменту в будущем.'
+    default:
+      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
+  }
+}
+
+function ensureMeaningfulSuccessComment(commentBody: string, tense: string): string {
+  const compact = commentBody
+    .replace(/\s+/g, ' ')
+    .trim()
+    // Дедупликация частого артефакта: одна и та же причина повторяется 2-3 раза подряд.
+    .replace(/(Здесь это время уместно,[^.]*\.)\s*(?:\1\s*)+/gi, '$1 ')
+  const base = compact || 'Отлично!'
+  if (/используйте это время в полном английском предложении/i.test(base)) {
+    const stripped = base.replace(/\s*[\-–—:]?\s*используйте это время в полном английском предложении\.?/i, '').trim()
+    const normalized = stripped || 'Отлично!'
+    return `${normalized} ${minimalSuccessCommentReason(tense)}`.replace(/\s+/g, ' ').trim()
+  }
+  if (hasContextualReasonInSuccessComment(base)) return base
+  return `${base} ${minimalSuccessCommentReason(tense)}`.replace(/\s+/g, ' ').trim()
+}
+
 /** Примеры для блока "Конструкция" (сокращаем подсказку до примеров). */
 const CONSTRUCTION_EXAMPLES_BY_TENSE: Record<string, string> = {
   present_simple: [
@@ -2923,6 +3022,7 @@ function ensureTranslationProtocolBlocks(
 
   let comment: string | null = null
   let timeLine: string | null = null
+  let constructionLine: string | null = null
   let construction: string | null = null
   let repeat: string | null = null
   let hasPraise = false
@@ -3003,17 +3103,19 @@ function ensureTranslationProtocolBlocks(
   const out = [comment, timeLine, construction]
   if (repeat) out.push(repeat)
   if (nextSentenceLines.length > 0) {
-    out.push(nextSentenceLines.join(' '))
+    out.push(normalizeTranslationPracticeSentence(nextSentenceLines.join(' ')))
     if (!hasInvitation) out.push('Переведи на английский.')
   } else {
     out.push(
-      fallbackTranslationSentenceForContext({
-        topic,
-        tense,
-        level,
-        audience,
-        seedText: fallbackPrompt,
-      })
+      normalizeTranslationPracticeSentence(
+        fallbackTranslationSentenceForContext({
+          topic,
+          tense,
+          level,
+          audience,
+          seedText: fallbackPrompt,
+        })
+      )
     )
     out.push('Переведи на английский.')
   }
@@ -3034,6 +3136,290 @@ function ensureFirstTranslationInvitation(content: string): string {
 
   if (cleanedLines.length === 0) return 'Переведи на английский.'
   return `${cleanedLines.join('\n')}\nПереведи на английский.`
+}
+
+function normalizeEnglishSentenceForCard(text: string): string {
+  const compact = text.replace(/\s+/g, ' ').trim()
+  if (!compact) return ''
+  return /[.!?]\s*$/.test(compact) ? compact : `${compact}.`
+}
+
+function extractEnglishSentenceCandidate(source: string): string | null {
+  const lines = source
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+    .filter(Boolean)
+  const candidate = lines.find((l) => /[A-Za-z]/.test(l))
+  if (!candidate) return null
+  const firstSentence = candidate.match(/^[^.!?]+[.!?]?/)?.[0]?.trim() ?? candidate
+  const cleaned = firstSentence.replace(/^[\s"'`([{]+|[\s"'`)\]}]+$/g, '').trim()
+  return cleaned || null
+}
+
+function isLikelyAux(word: string): boolean {
+  return /^(am|is|are|was|were|have|has|had|will|would|can|could|should|shall|may|might|must|do|does|did)$/i.test(word)
+}
+
+function baseVerbFromThirdPerson(word: string): string {
+  const lower = word.toLowerCase()
+  if (lower.endsWith('ies') && lower.length > 3) return `${word.slice(0, -3)}y`
+  if (lower.endsWith('es') && lower.length > 2) return word.slice(0, -2)
+  if (lower.endsWith('s') && lower.length > 1) return word.slice(0, -1)
+  return word
+}
+
+function buildFallbackTranslationForms(params: { positive: string; tense: string }): { positive: string; question: string; negative: string } {
+  const positive = normalizeEnglishSentenceForCard(params.positive)
+  if (!positive) {
+    return {
+      positive: 'I study English.',
+      question: 'Do I study English?',
+      negative: "I don't study English.",
+    }
+  }
+  const noPunct = positive.replace(/[.!?]\s*$/, '').trim()
+  const tokens = noPunct.split(/\s+/).filter(Boolean)
+  if (tokens.length < 2) {
+    return {
+      positive,
+      question: `${noPunct}?`,
+      negative: noPunct,
+    }
+  }
+
+  const [subject, second, ...tail] = tokens
+  const rest = tail.join(' ').trim()
+  const tense = params.tense
+
+  if (isLikelyAux(second)) {
+    const aux = second
+    const predicate = rest
+    const questionRaw = `${aux} ${subject}${predicate ? ` ${predicate}` : ''}`.trim()
+    const negativeAux = /n't$/i.test(aux) || /^not$/i.test(aux) ? aux : `${aux} not`
+    const negativeRaw = `${subject} ${negativeAux}${predicate ? ` ${predicate}` : ''}`.trim()
+    return {
+      positive,
+      question: normalizeEnglishSentenceForCard(`${questionRaw}?`),
+      negative: normalizeEnglishSentenceForCard(negativeRaw),
+    }
+  }
+
+  const subjectLower = subject.toLowerCase()
+  const usesDoes = /^(he|she|it)$/i.test(subjectLower)
+  const defaultAux = tense === 'past_simple' ? 'did' : usesDoes ? 'does' : 'do'
+  const negativeAux = tense === 'past_simple' ? "didn't" : usesDoes ? "doesn't" : "don't"
+  const baseVerb = baseVerbFromThirdPerson(second)
+  const predicate = [baseVerb, rest].filter(Boolean).join(' ').trim()
+
+  return {
+    positive,
+    question: normalizeEnglishSentenceForCard(`${defaultAux} ${subject} ${predicate}?`),
+    negative: normalizeEnglishSentenceForCard(`${subject} ${negativeAux} ${predicate}`),
+  }
+}
+
+function extractTranslationFormLines(content: string): { positive: string | null; question: string | null; negative: string | null } {
+  const lines = content
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+    .filter(Boolean)
+  let positive: string | null = null
+  let question: string | null = null
+  let negative: string | null = null
+
+  for (const line of lines) {
+    const m = /^[\s\-•]*(?:\d+[\.)]\s*)*([+\?-])\s*:\s*(.+)\s*$/i.exec(line)
+    if (!m) continue
+    const mark = m[1]
+    const value = normalizeEnglishSentenceForCard(m[2] ?? '')
+    if (!value) continue
+    if (mark === '+') positive = value
+    else if (mark === '?') question = value.endsWith('?') ? value : normalizeEnglishSentenceForCard(`${value}?`)
+    else if (mark === '-') negative = value
+  }
+
+  return { positive, question, negative }
+}
+
+function isTranslationSuccessContent(content: string): boolean {
+  const lines = content
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+    .filter(Boolean)
+  if (lines.length === 0) return false
+  const hasRepeat = lines.some((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line))
+  if (hasRepeat) return false
+  const commentLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(line)) ?? ''
+  const commentBody = commentLine.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:\s*/i, '').trim()
+  if (!commentBody) return false
+  const looksError = /^(Ошибка\b|Лексическая ошибка\b|Грамматическая ошибка\b|Некорректн|Неверн|Неправил)/i.test(commentBody)
+  if (looksError) return false
+  const looksPraise = /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)(?:[\s!,.?:;"'»)]|$)/i.test(commentBody)
+  return looksPraise
+}
+
+function hasTranslationFormsBlock(content: string): boolean {
+  const lines = content
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+    .filter(Boolean)
+  const hasFormsHeader = lines.some((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Формы\s*:/i.test(line))
+  const hasPositive = lines.some((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*\+\s*:/i.test(line))
+  const hasQuestion = lines.some((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*\?\s*:/i.test(line))
+  const hasNegative = lines.some((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*-\s*:/i.test(line))
+  return hasFormsHeader || (hasPositive && hasQuestion && hasNegative)
+}
+
+function isTranslationSuccessLikeContent(content: string): boolean {
+  const lines = content
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+    .filter(Boolean)
+  const hasRepeat = lines.some((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line))
+  if (hasRepeat) return false
+  const commentLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(line)) ?? ''
+  const commentBody = commentLine.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:\s*/i, '').trim()
+  const hasPraiseSignal = /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)(?:[\s!,.?:;"'»)]|$)/i.test(commentBody)
+  const hasErrorSignal = /^(Ошибка\b|Лексическая ошибка\b|Грамматическая ошибка\b|Некорректн|Неверн|Неправил)/i.test(commentBody)
+  if (hasPraiseSignal && !hasErrorSignal) return true
+  return isTranslationSuccessContent(content) || hasTranslationFormsBlock(content)
+}
+
+function hasTranslationPraiseComment(content: string): boolean {
+  const lines = content
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+    .filter(Boolean)
+  const commentLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(line)) ?? ''
+  const commentBody = commentLine.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:\s*/i, '').trim()
+  if (!commentBody) return false
+  return /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)(?:[\s!,.?:;"'»)]|$)/i.test(commentBody)
+}
+
+function extractSingleTranslationNextSentence(lines: string[]): string | null {
+  const raw = lines
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .replace(/(?:Переведи|Переведите)[^.]*\./gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!raw) return null
+  const sentenceCandidates = raw
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+  const firstRu = sentenceCandidates.find((s) => /[А-Яа-яЁё]/.test(s))
+  if (!firstRu) return null
+  return firstRu.trim() || null
+}
+
+function normalizeTranslationSuccessPayload(
+  content: string,
+  params: { tense: string; topic: string; level: string; audience: 'child' | 'adult'; fallbackPrompt: string | null; userText: string }
+): string {
+  if (!isTranslationSuccessLikeContent(content)) return content
+  return ensureTranslationSuccessBlocks(content, params)
+}
+
+function ensureTranslationSuccessBlocks(
+  content: string,
+  params: { tense: string; topic: string; level: string; audience: 'child' | 'adult'; fallbackPrompt: string | null; userText: string }
+): string {
+  const { tense, topic, level, audience, fallbackPrompt, userText } = params
+  const lines = content
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+    .filter(Boolean)
+
+  let comment: string | null = null
+  let constructionLine: string | null = null
+  let hasInvitation = false
+  const nextSentenceLines: string[] = []
+
+  for (const line of lines) {
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(line)) {
+      const c = line.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:\s*/i, '').trim()
+      if (c) comment = `Комментарий: ${c}`
+      continue
+    }
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:/i.test(line)) continue
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:/i.test(line)) {
+      const c = line.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:\s*/i, '').trim()
+      if (c) constructionLine = `Конструкция: ${c}`
+      continue
+    }
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line)) continue
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Формы\s*:/i.test(line)) continue
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*[+\?-]\s*:/i.test(line)) continue
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*(?:Переведи|Переведите)\b/i.test(line)) {
+      hasInvitation = true
+      continue
+    }
+    const inlineInvitation = /(.*?)(?:\s+(?:\d+\)\s*)?((?:Переведи|Переведите)[^.]*\.)\s*)$/i.exec(line)
+    if (inlineInvitation?.[1]) {
+      const before = inlineInvitation[1].trim()
+      hasInvitation = true
+      if (before) nextSentenceLines.push(before)
+      continue
+    }
+    if (/\?\s*$/.test(line) && /[A-Za-z]/.test(line)) continue
+    nextSentenceLines.push(line)
+  }
+
+  const commentBody = comment?.replace(/^Комментарий:\s*/i, '').trim() || 'Отлично!'
+  const finalComment = `Комментарий: ${ensureMeaningfulSuccessComment(commentBody, tense)}`
+  constructionLine = `Конструкция: ${translationSuccessConstructionHint(tense)}`
+
+  const modelForms = extractTranslationFormLines(content)
+  const positiveSource = modelForms.positive ?? extractEnglishSentenceCandidate(userText) ?? 'I study English.'
+  const fallbackForms = buildFallbackTranslationForms({ positive: positiveSource, tense })
+  const positive = modelForms.positive ?? fallbackForms.positive
+  const question = modelForms.question ?? fallbackForms.question
+  const negative = modelForms.negative ?? fallbackForms.negative
+
+  const out = [
+    finalComment,
+    constructionLine,
+    'Формы:',
+    `+: ${positive}`,
+    `?: ${question}`,
+    `-: ${negative}`,
+  ]
+
+  if (nextSentenceLines.length > 0) {
+    const cleanedNextSentence = extractSingleTranslationNextSentence(nextSentenceLines)
+    if (cleanedNextSentence) {
+      out.push(normalizeTranslationPracticeSentence(cleanedNextSentence))
+    } else {
+      out.push(
+        normalizeTranslationPracticeSentence(
+          fallbackTranslationSentenceForContext({
+            topic,
+            tense,
+            level,
+            audience,
+            seedText: fallbackPrompt,
+          })
+        )
+      )
+    }
+    out.push('Переведи на английский.')
+  } else {
+    out.push(
+      normalizeTranslationPracticeSentence(
+        fallbackTranslationSentenceForContext({
+          topic,
+          tense,
+          level,
+          audience,
+          seedText: fallbackPrompt,
+        })
+      )
+    )
+    out.push('Переведи на английский.')
+  }
+
+  return out.join('\n').trim()
 }
 
 function keepOnlyCommentAndRepeatOnInvalidTranslationInput(content: string, includeRepeat: boolean): string {
@@ -4904,6 +5290,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         maxTokens: communicationMaxTokens,
       })
     }
+    let translationSuccessFlow = false
     if (mode === 'translation') {
       sanitized = normalizeTranslationCommentStyle(sanitized)
       if (isFirstTurn) {
@@ -4944,10 +5331,38 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           const coachText = buildTranslationConstructionCoachText(normalizedTense, repeatSentenceForConstruction)
           sanitized = replaceTranslationConstructionLine(sanitized, coachText)
         }
+
+        if (isTranslationSuccessContent(sanitized)) {
+          sanitized = ensureTranslationSuccessBlocks(sanitized, {
+            tense: normalizedTense,
+            topic,
+            level,
+            audience,
+            fallbackPrompt: lastTranslationPrompt,
+            userText: lastUserContentForResponse,
+          })
+          translationSuccessFlow = true
+        }
       }
     }
 
-    if (mode === 'translation' && !isFirstTurn) {
+    if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
+      // Страховка: если есть явная похвала без "Повтори:", это SUCCESS-ветка.
+      const repeatForFallback = getTranslationRepeatSentence(sanitized)
+      if (!repeatForFallback && hasTranslationPraiseComment(sanitized)) {
+        sanitized = ensureTranslationSuccessBlocks(sanitized, {
+          tense: normalizedTense,
+          topic,
+          level,
+          audience,
+          fallbackPrompt: lastTranslationPrompt,
+          userText: lastUserContentForResponse,
+        })
+        translationSuccessFlow = true
+      }
+    }
+
+    if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
       const repeatSentence = getTranslationRepeatSentence(sanitized)
       if (isGenericTranslationRepeatFallback(repeatSentence)) {
         const userLikelyCorrect = isUserLikelyCorrectForTense(lastUserContentForResponse, normalizedTense)
@@ -4970,7 +5385,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           }
 
           const resRepeatRepair = await callProviderChat({ provider, req, apiMessages: repairApiMessages, maxTokens: communicationMaxTokens })
-          if (resRepeatRepair.ok) {
+          if (resRepeatRepair?.ok) {
             const repairedSanitizedRaw = sanitizeInstructionLeak(resRepeatRepair.content)
             if (repairedSanitizedRaw && !isMetaGarbage(repairedSanitizedRaw)) {
               let repaired = stripOffContextCorrections(repairedSanitizedRaw, lastUserContentForResponse)
@@ -5026,6 +5441,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     if (
       mode === 'translation' &&
       !isFirstTurn &&
+      !translationSuccessFlow &&
       (normalizedTense === 'present_simple' || normalizedTense === 'present_continuous')
     ) {
       const expectedTenseName = TENSE_NAMES[normalizedTense] ?? null
@@ -5125,6 +5541,16 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     }
 
     if (mode === 'translation') {
+      if (!isFirstTurn) {
+        sanitized = normalizeTranslationSuccessPayload(sanitized, {
+          tense: normalizedTense,
+          topic,
+          level,
+          audience,
+          fallbackPrompt: lastTranslationPrompt,
+          userText: lastUserContentForResponse,
+        })
+      }
       sanitized = applyTranslationCommentCoachVoice({
         content: sanitized,
         audience,
@@ -5498,6 +5924,16 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           })
           if (repairedValid) {
             if (mode === 'translation') {
+              if (!isFirstTurn) {
+                repaired = normalizeTranslationSuccessPayload(repaired, {
+                  tense: normalizedTense,
+                  topic,
+                  level,
+                  audience,
+                  fallbackPrompt: lastTranslationPrompt,
+                  userText: lastUserContentForResponse,
+                })
+              }
               const translationGuard = applyCefrOutputGuard({
                 mode: 'translation',
                 content: repaired,
@@ -5660,13 +6096,33 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     }
 
     if (mode === 'translation') {
+      if (!isFirstTurn) {
+        sanitized = normalizeTranslationSuccessPayload(sanitized, {
+          tense: normalizedTense,
+          topic,
+          level,
+          audience,
+          fallbackPrompt: lastTranslationPrompt,
+          userText: lastUserContentForResponse,
+        })
+      }
       const translationGuard = applyCefrOutputGuard({
         mode: 'translation',
         content: sanitized,
         level: level as LevelId,
         audience: audience as Audience,
       })
-      return NextResponse.json({ content: translationGuard.content })
+      const guardedContent = !isFirstTurn
+        ? normalizeTranslationSuccessPayload(translationGuard.content, {
+            tense: normalizedTense,
+            topic,
+            level,
+            audience,
+            fallbackPrompt: lastTranslationPrompt,
+            userText: lastUserContentForResponse,
+          })
+        : translationGuard.content
+      return NextResponse.json({ content: guardedContent })
     }
 
     if (mode === 'dialogue') {

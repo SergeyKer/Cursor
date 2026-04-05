@@ -36,6 +36,10 @@
   --chat-section-neutral: #f8faf8;
   --chat-section-amber: #fff8e5;
   --chat-section-emerald: #effaf3;
+  /* Положительный комментарий: лёгкий мятный фон, насыщенность как у slate-карточек */
+  --chat-section-praise: #f0f7f4;
+  /* Подпись «Комментарий:» — та же «сила», что у text-slate-600 у «3 формы», но зелёный оттенок */
+  --chat-label-praise: #3d5348;
   --chat-section-slate: #f4f7fb;
   /* Фон карточки меню на главной (изолирован от выдвижного меню). */
   --home-menu-bg: #E4F2FE;

@@ -19,11 +19,11 @@ export function fallbackTranslationSentenceForContext(params: {
   const seed = stableHash32(`translation_next|${topic}|${tense}|${level}|${audience}|${seedText}`)
   const pick = (variants: string[]) => variants[seed % variants.length] ?? variants[0] ?? ''
   const topicVariants: Record<string, string[]> = {
-    food: ['Я люблю готовить дома.', 'Я часто пью чай вечером.', 'Мы обычно ужинаем вместе.'],
-    family_friends: ['Я люблю свою семью.', 'У меня есть хорошие друзья.', 'Мы часто видимся по выходным.'],
-    hobbies: ['Я люблю читать книги.', 'Я часто рисую вечером.', 'Я обычно играю в шахматы дома.'],
-    movies_series: ['Я люблю смотреть фильмы.', 'Я часто смотрю сериалы вечером.', 'Мы обычно смотрим кино по выходным.'],
-    music: ['Я люблю слушать музыку.', 'Я часто слушаю песни дома.', 'Мы обычно поём вместе.'],
+    food: ['Я люблю готовить дома по вечерам.', 'Я часто пью чай вечером.', 'Мы обычно ужинаем вместе.'],
+    family_friends: ['Я люблю проводить время с семьёй.', 'У меня есть хорошие друзья.', 'Мы часто видимся по выходным.'],
+    hobbies: ['Я люблю читать по вечерам.', 'Я часто рисую вечером.', 'Я обычно играю в шахматы дома.'],
+    movies_series: ['Я люблю смотреть фильмы дома.', 'Я часто смотрю сериалы вечером.', 'Мы обычно смотрим кино по выходным.'],
+    music: ['Я люблю слушать музыку в дороге.', 'Я часто слушаю песни дома.', 'Мы обычно поём вместе.'],
     sports: ['Я люблю заниматься спортом.', 'Я часто бегаю по утрам.', 'Мы обычно играем в футбол после школы.'],
     daily_life: ['Я обычно встаю рано.', 'Я часто завтракаю дома.', 'Мы обычно ходим в школу пешком.'],
     travel: ['Я люблю путешествовать.', 'Я часто езжу в новые места.', 'Мы обычно планируем поездки заранее.'],
@@ -31,7 +31,7 @@ export function fallbackTranslationSentenceForContext(params: {
     technology: ['Я люблю новые приложения.', 'Я часто пользуюсь телефоном.', 'Мы обычно работаем за компьютером.'],
     culture: ['Я люблю ходить в музеи.', 'Я часто читаю о культуре.', 'Мы обычно посещаем выставки.'],
     business: ['Я работаю с клиентами.', 'Я часто отвечаю на письма.', 'Мы обычно обсуждаем планы на встрече.'],
-    free_talk: ['Я люблю читать книги.', 'Я часто гуляю вечером.', 'Мы обычно говорим по-английски дома.'],
+    free_talk: ['Я люблю читать книги.', 'Я часто гуляю вечером.', 'Мы обычно разговариваем дома по-английски.'],
   }
   const topicPool = topicVariants[topic] ?? topicVariants.free_talk
   const base = pick(topicPool)
@@ -127,6 +127,15 @@ export function fallbackTranslationSentenceForContext(params: {
     ])
   }
   return isChild ? 'Я люблю читать книги.' : base
+}
+
+export function normalizeTranslationPracticeSentence(sentence: string): string {
+  const trimmed = sentence.replace(/\s+/g, ' ').trim()
+  if (!trimmed) return trimmed
+
+  return trimmed
+    .replace(/разное время суток/gi, 'в разное время суток')
+    .replace(/Мы обычно говорим по-английски дома/gi, 'Мы обычно разговариваем дома по-английски')
 }
 
 export function buildTranslationRetryFallback(params: { tense: string; includeRepeat: boolean }): string {

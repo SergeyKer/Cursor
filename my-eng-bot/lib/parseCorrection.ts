@@ -168,7 +168,7 @@ function takeUntilNextMarker(source: string): SegmentResult {
 }
 
 /**
- * Разбор ответа ИИ в режиме «Тренировка перевода»:
+ * Разбор ответа ИИ в режиме «Перевод»:
  * **Praise:** или **Correction:** **Right:** **Comment:** + следующий русский текст и приглашение.
  */
 export function parseTranslationFeedback(text: string): {

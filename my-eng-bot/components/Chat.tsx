@@ -49,7 +49,7 @@ function speechLocaleForCommunication(
 }
 
 type BubblePosition = 'solo' | 'first' | 'middle' | 'last'
-type SectionTone = 'neutral' | 'amber' | 'emerald' | 'slate'
+type SectionTone = 'neutral' | 'amber' | 'emerald' | 'praise' | 'slate'
 type AssistantSection = {
   key: string
   tone: SectionTone
@@ -59,7 +59,7 @@ type AssistantSection = {
   small?: boolean
   singleLine?: boolean
   trailingAction?: 'speak'
-  /** Без префикса «AI:», но с тем же акцентом текста, что и у блока с label «AI». */
+  /** Без префикса «AI:»/«Переведи:», но с тем же акцентом, что у основного блока ассистента. */
   emphasizeMainText?: boolean
 }
 
@@ -98,10 +98,25 @@ function bubbleRadiusClass(isUser: boolean, pos: BubblePosition): string {
   return 'rounded-[1.2825rem] rounded-tl-lg rounded-bl-md'
 }
 
+/** UI блока «3 формы»: префиксы +:/?:/-: → «- », текст с новой строки под заголовком. */
+function formatThreeFormsForCard(raw: string): string {
+  const lines = raw
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+  const body = lines.map((line) => line.replace(/^[+?-]\s*:\s*/, '- ')).join('\n')
+  return body ? `\n${body}` : ''
+}
+
+/** Похвала — лёгкий зелёный тон; иначе янтарь (ошибка/коррекция), как до введения praise. */
+function commentToneForContent(comment: string): SectionTone {
+  return /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)[!.]?\s*/i.test(comment.trim()) ? 'praise' : 'amber'
+}
+
 function buildAssistantSections(params: {
   comment: string | null
   tenseRef?: string | null
-  constructionHint?: string | null
+  threeFormsText?: string | null
   showOnlyRepeat: boolean
   hidePromptBlocks?: boolean
   repeatTextForCard: string | null
@@ -114,7 +129,7 @@ function buildAssistantSections(params: {
   const {
     comment,
     tenseRef,
-    constructionHint,
+    threeFormsText,
     showOnlyRepeat,
     hidePromptBlocks = false,
     repeatTextForCard,
@@ -126,16 +141,33 @@ function buildAssistantSections(params: {
   } = params
 
   const hideAiLabel = mode === 'dialogue' || mode === 'communication'
+  /** Первый основной блок в пузырьке — «AI:»; после Комментарий/форм/… — «Переведи:». */
+  const assistantMainHeadingLabel = (): string => {
+    if (hideAiLabel) return ''
+    return sections.length > 0 ? 'Переведи' : 'AI'
+  }
 
   const sections: AssistantSection[] = []
   if (comment) {
-    sections.push({ key: 'comment', tone: 'amber', label: 'Комментарий', text: comment, singleLine: true })
+    sections.push({
+      key: 'comment',
+      tone: commentToneForContent(comment),
+      label: 'Комментарий',
+      text: comment,
+      singleLine: true,
+    })
   }
   if (tenseRef) {
     sections.push({ key: 'tense-ref', tone: 'slate', label: 'Время', text: tenseRef, singleLine: true })
   }
-  if (constructionHint) {
-    sections.push({ key: 'construction', tone: 'slate', label: 'Конструкция', text: constructionHint })
+  if (threeFormsText) {
+    sections.push({
+      key: 'three-forms',
+      tone: 'slate',
+      label: '3 формы',
+      text: formatThreeFormsForCard(threeFormsText),
+      singleLine: true,
+    })
   }
   if (showOnlyRepeat && repeatTextForCard) {
     sections.push({
@@ -149,7 +181,7 @@ function buildAssistantSections(params: {
     sections.push({
       key: 'main',
       tone: 'neutral',
-      label: hideAiLabel ? '' : 'AI',
+      label: assistantMainHeadingLabel(),
       text: mainBefore,
       // Для уроков/теории с \n рендерим как многострочный блок.
       singleLine: !mainBefore.includes('\n'),
@@ -165,25 +197,15 @@ function buildAssistantSections(params: {
       singleLine: true,
     })
   }
-  if (!hidePromptBlocks && invitationText) {
-    sections.push({
-      key: 'invitation',
-      tone: 'slate',
-      label: '',
-      text: invitationText,
-      italic: true,
-      small: true,
-      singleLine: true,
-    })
-  }
-  if (!hidePromptBlocks && mainAfter) {
-    const mainAfterLabel = mainBefore || invitationText ? 'Доп. комментарий' : 'AI'
+  // Блок с текстом «Переведи на английский.» не показываем — режим перевода уже задан в UI.
+  // Хвост после «Переведи…» дублирует подсказку — отдельный блок «Доп. комментарий» не показываем.
+  if (!hidePromptBlocks && mainAfter && !(mainBefore || invitationText)) {
     sections.push({
       key: 'main-after',
       tone: 'neutral',
-      label: hideAiLabel && mainAfterLabel === 'AI' ? '' : mainAfterLabel,
+      label: assistantMainHeadingLabel(),
       text: mainAfter.replace(/\b(Say|Repeat|Скажи):\s*/gi, 'Повтори: '),
-      emphasizeMainText: hideAiLabel && mainAfterLabel === 'AI',
+      emphasizeMainText: hideAiLabel,
     })
   }
   return sections
@@ -192,7 +214,7 @@ function buildAssistantSections(params: {
 function parseTranslationCoachBlocks(text: string): {
   comment: string | null
   tenseRef: string | null
-  constructionHint: string | null
+  threeFormsText: string | null
   repeat: string | null
   nextSentence: string
   invitation: string | null
@@ -204,15 +226,17 @@ function parseTranslationCoachBlocks(text: string): {
 
   let comment: string | null = null
   let tenseRef: string | null = null
-  let constructionHint: string | null = null
+  let threeFormsText: string | null = null
   let repeat: string | null = null
   let invitation: string | null = null
   const body: string[] = []
-  const constructionLines: string[] = []
+  const formsLines: string[] = []
   let collectingConstruction = false
+  let collectingForms = false
 
   const isHeaderLine = (line: string): boolean =>
-    /^\s*(?:\d+\)\s*)?(Комментарий|Время|Конструкция|Повтори|Repeat|Say)\s*:/i.test(line) ||
+    /^\s*(?:\d+\)\s*)?(Комментарий|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:/i.test(line) ||
+    /^\s*(?:\d+\)\s*)?[+\?-]\s*:/i.test(line) ||
     /^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)\b/i.test(line)
 
   for (const line of cleaned) {
@@ -220,29 +244,43 @@ function parseTranslationCoachBlocks(text: string): {
     if (pureInvitation?.[1]) {
       invitation = pureInvitation[1].trim()
       collectingConstruction = false
+      collectingForms = false
       continue
     }
 
     if (/^Комментарий\s*:/i.test(line)) {
       comment = line.replace(/^Комментарий\s*:\s*/i, '').trim() || null
       collectingConstruction = false
+      collectingForms = false
       continue
     }
     if (/^Время\s*:/i.test(line)) {
       tenseRef = line.replace(/^Время\s*:\s*/i, '').trim() || null
       collectingConstruction = false
+      collectingForms = false
+      continue
+    }
+    if (/^Формы\s*:/i.test(line)) {
+      formsLines.length = 0
+      collectingForms = true
+      collectingConstruction = false
+      continue
+    }
+    if (/^[+\?-]\s*:/i.test(line)) {
+      formsLines.push(line.replace(/^[+\?-]\s*:\s*/i, (m) => m.trimStart()))
+      collectingForms = true
+      collectingConstruction = false
       continue
     }
     if (/^Конструкция\s*:/i.test(line)) {
-      constructionLines.length = 0
-      const first = line.replace(/^Конструкция\s*:\s*/i, '').trim()
-      if (first) constructionLines.push(first)
       collectingConstruction = true
+      collectingForms = false
       continue
     }
     if (/^(Повтори|Repeat|Say)\s*:/i.test(line)) {
       repeat = line.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '').trim() || null
       collectingConstruction = false
+      collectingForms = false
       continue
     }
     const inlineInvitation = /((?:\d+\)\s*)?(?:Переведи|Переведите)[^.]*\.)\s*$/i.exec(line)
@@ -252,26 +290,45 @@ function parseTranslationCoachBlocks(text: string): {
       if (inv) invitation = inv
       if (before) body.push(before)
       collectingConstruction = false
+      collectingForms = false
       continue
     }
 
+    if (collectingForms) {
+      if (/^[+\?-]\s*:/i.test(line)) {
+        formsLines.push(line.replace(/^[+\?-]\s*:\s*/i, (m) => m.trimStart()))
+        continue
+      }
+      // Русское следующее предложение не является продолжением строки формы (+/?:/-:).
+      if (/[А-Яа-яЁё]/.test(line)) {
+        collectingForms = false
+      } else if (formsLines.length > 0) {
+        formsLines[formsLines.length - 1] = `${formsLines[formsLines.length - 1]}\n${line}`
+        continue
+      } else {
+        collectingForms = false
+      }
+    }
+
     if (collectingConstruction && !isHeaderLine(line)) {
-      constructionLines.push(line)
       continue
     }
 
     collectingConstruction = false
+    collectingForms = false
     body.push(line.replace(/^\d+\)\s*/i, ''))
   }
 
-  if (constructionLines.length > 0) {
-    constructionHint = constructionLines.join('\n').trim() || null
+  if (formsLines.length > 0) {
+    const normalizedForms = formsLines
+      .map((line) => line.trim())
+      .filter((line) => /^[+\?-]\s*:/.test(line))
+    threeFormsText = normalizedForms.join('\n').trim() || null
   }
-
   return {
     comment,
     tenseRef,
-    constructionHint,
+    threeFormsText,
     repeat,
     nextSentence: body.join('\n').trim(),
     invitation,
@@ -1054,7 +1111,7 @@ function detectTextLang(text: string): 'ru' | 'en' {
   return latCount > cyrCount ? 'en' : 'ru'
 }
 
-/** Выделяет приглашение «Переведи на английский» для курсива (режим «Тренировка перевода»). Ищет в любом месте текста. */
+/** Выделяет приглашение «Переведи на английский» для курсива (режим «Перевод»). Ищет в любом месте текста. */
 function splitInvitation(text: string): {
   mainBefore: string
   invitation: string | null
@@ -1175,17 +1232,36 @@ function MessageBubble({
     !/\?\s*$/.test(mainBefore)
   let effectiveComment = comment
   let effectiveTenseRef: string | null = null
-  let effectiveConstructionHint: string | null = null
+  let effectiveThreeFormsText: string | null = null
   let effectiveMainBefore = mainBefore
   let effectiveInvitationText = invitationText
   if (!isUser && isTranslationMode) {
     const blocks = parseTranslationCoachBlocks(displayText)
     if (blocks.comment) effectiveComment = condenseTranslationCommentToErrors(blocks.comment)
     if (blocks.tenseRef) effectiveTenseRef = blocks.tenseRef
-    if (blocks.constructionHint) effectiveConstructionHint = blocks.constructionHint
+    if (blocks.threeFormsText) effectiveThreeFormsText = blocks.threeFormsText
     if (blocks.repeat) repeatTextForCard = blocks.repeat
     if (blocks.nextSentence) {
-      effectiveMainBefore = blocks.nextSentence
+      const cleanedNextSentence = blocks.nextSentence
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(
+          (line) =>
+            Boolean(line) &&
+            !/^(Комментарий|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:/i.test(line) &&
+            !/^[+\?-]\s*:/i.test(line) &&
+            !/^(?:Переведи|Переведите)\b/i.test(line)
+        )
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+      const fallbackFromInline = blocks.nextSentence
+        .replace(/(?:Комментарий|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi, ' ')
+        .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')
+        .replace(/(?:Переведи|Переведите)[^.]*\./gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+      effectiveMainBefore = cleanedNextSentence || fallbackFromInline || blocks.nextSentence
     } else {
       const extracted = extractTranslationCommentAndPrompt(mainBefore)
       if (!effectiveComment && extracted.comment) {
@@ -1195,12 +1271,33 @@ function MessageBubble({
     }
     if (blocks.invitation) effectiveInvitationText = blocks.invitation
   }
+  // SUCCESS в translation: если пришли формы, держим подсказку времени в комментарии,
+  // но не показываем отдельный блок "Время".
+  if (isTranslationMode && effectiveThreeFormsText && effectiveTenseRef) {
+    const isGenericSuccessTimeHint = /используйте это время в полном английском предложении/i.test(effectiveTenseRef)
+    if (!isGenericSuccessTimeHint) {
+      const mergedComment = [effectiveComment, effectiveTenseRef].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
+      effectiveComment = mergedComment || effectiveComment
+    }
+    effectiveTenseRef = null
+  }
   const showOnlyRepeat = !isTranslationMode && Boolean(repeatTextForCard)
   const hideTranslationPromptBlocks = isTranslationMode && Boolean(repeatTextForCard)
 
+  const mainAfterVisibleForBubble =
+    Boolean(mainAfter) && !effectiveMainBefore && !effectiveInvitationText
   const hasContent = isUser
     ? Boolean(message.content)
-    : Boolean(effectiveComment || effectiveTenseRef || effectiveConstructionHint || effectiveMainBefore || mainAfter || effectiveInvitationText || rest || message.content || message.translation)
+    : Boolean(
+        effectiveComment ||
+          effectiveTenseRef ||
+          effectiveMainBefore ||
+          (mainAfterVisibleForBubble ? mainAfter : false) ||
+          effectiveInvitationText ||
+          rest ||
+          message.content ||
+          message.translation
+      )
   const isBubbleEnd = bubblePosition === 'solo' || bubblePosition === 'last'
   const rowSpacingClass = isBubbleEnd ? 'mb-2.5' : 'mb-0.5'
   const radius = bubbleRadiusClass(isUser, bubblePosition)
@@ -1209,7 +1306,7 @@ function MessageBubble({
     : buildAssistantSections({
         comment: effectiveComment,
         tenseRef: effectiveTenseRef,
-        constructionHint: effectiveConstructionHint,
+        threeFormsText: effectiveThreeFormsText,
         showOnlyRepeat,
         hidePromptBlocks: hideTranslationPromptBlocks,
         repeatTextForCard,
@@ -1457,7 +1554,7 @@ function SectionCard({
   inlineMarkdownBold,
   emphasizeMainText,
 }: {
-  tone: 'neutral' | 'amber' | 'emerald' | 'slate'
+  tone: 'neutral' | 'amber' | 'emerald' | 'praise' | 'slate'
   label: string
   text: string
   italic?: boolean
@@ -1468,7 +1565,7 @@ function SectionCard({
   onSpeak?: () => void
   /** Только `communication`: жирный по парам `**...**` в теле текста. */
   inlineMarkdownBold?: boolean
-  /** Режимы «Диалог» и «Общение»: без префикса «AI:», стиль текста как у блока AI. */
+  /** Режимы «Диалог» и «Общение»: без префикса, стиль как у основного блока ассистента. */
   emphasizeMainText?: boolean
 }) {
   const toneClass =
@@ -1476,25 +1573,32 @@ function SectionCard({
       ? 'border-amber-100 bg-[var(--chat-section-amber)]'
       : tone === 'emerald'
         ? 'border-emerald-100 bg-[var(--chat-section-emerald)]'
-        : tone === 'slate'
-          ? 'border-slate-200 bg-[var(--chat-section-slate)]'
-          : 'border-gray-200 bg-[var(--chat-section-neutral)]'
+        : tone === 'praise'
+          ? 'border-emerald-200/70 bg-[var(--chat-section-praise)]'
+          : tone === 'slate'
+            ? 'border-slate-200 bg-[var(--chat-section-slate)]'
+            : 'border-gray-200 bg-[var(--chat-section-neutral)]'
 
   const labelClass =
     tone === 'amber'
       ? 'text-amber-700'
       : tone === 'emerald'
         ? 'text-emerald-700'
-        : tone === 'slate'
-          ? 'text-slate-600'
-          : 'text-gray-600'
+        : tone === 'praise'
+          ? 'text-[var(--chat-label-praise)]'
+          : tone === 'slate'
+            ? 'text-slate-600'
+            : 'text-gray-600'
 
-  const isAiInline = singleLine && (label === 'AI' || Boolean(emphasizeMainText))
+  const isAiInline =
+    singleLine &&
+    (label === 'AI' || label === 'Переведи' || Boolean(emphasizeMainText))
   const hasLabel = label.trim().length > 0
   const isCompactServiceLine = singleLine && italic && !hasLabel
   const isTextItalic = textItalic ?? italic
   const bodyContent = inlineMarkdownBold ? renderCommunicationBoldInline(text) : text
-  const preserveNewLines = singleLine && bodyContent && typeof bodyContent === 'string' && bodyContent.includes('\n')
+  // Смотрим исходный text: при inlineMarkdownBold тело часто ReactNode, не string — иначе теряем pre-wrap.
+  const preserveNewLines = singleLine && typeof text === 'string' && text.includes('\n')
 
   return (
     <section
@@ -1518,7 +1622,8 @@ function SectionCard({
                 className={`${isAiInline ? 'font-semibold text-gray-700' : `font-medium ${labelClass}`}`}
               >
                 {label}:
-              </span>{' '}
+              </span>
+              {!(typeof text === 'string' && text.startsWith('\n')) ? ' ' : null}
             </>
           )}
           <span

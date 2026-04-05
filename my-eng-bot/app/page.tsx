@@ -1240,7 +1240,7 @@ export default function Home() {
     }
 
     const modeLabel =
-      settings.mode === 'dialogue' ? 'Диалог' : settings.mode === 'translation' ? 'Тренировка перевода' : 'Общение'
+      settings.mode === 'dialogue' ? 'Диалог' : settings.mode === 'translation' ? 'Перевод' : 'Общение'
     const selectedTense = settings.tenses[0] ?? 'present_simple'
     const tenseLabel =
       selectedTense === 'all'
