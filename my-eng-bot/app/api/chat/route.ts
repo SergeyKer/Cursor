@@ -14,6 +14,7 @@ import {
 } from '@/lib/openAiWebSearch'
 import {
   compressRussianWebSearchAnswer,
+  isExplicitInternetLookupRequest,
   isNewsQuery,
   isWeatherForecastRequest,
   isWeatherFollowupRequest,
@@ -83,7 +84,16 @@ import { enrichDialogueCommentWithTypoHints } from '@/lib/dialogueCommentEnrichm
 import { applyFreeTalkTopicChoiceTenseAnchorFallback } from '@/lib/freeTalkTopicChoiceAnchorFallback'
 import { buildCefrPromptBlock } from '@/lib/cefr/cefrSpec'
 import { applyCefrOutputGuard } from '@/lib/cefr/levelGuard'
-import { collectLearnerEnglishSamples, rewriteWebSearchAnswerForLearner } from '@/lib/rewriteWebSearchForLearner'
+import {
+  collectLearnerEnglishSamples,
+  rewriteWebSearchAnswerForLearner,
+  simplifyEnglishAnswerForLearner,
+  shouldRewriteWebSearchForLearner,
+} from '@/lib/rewriteWebSearchForLearner'
+import {
+  buildSimpleNewsFactualFallback,
+  isGenericEnglishClarification,
+} from '@/lib/factualCommunicationFallback'
 
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
 // чтобы undici + proxy dispatcher работали предсказуемо (а не в Edge).
@@ -696,7 +706,9 @@ function finalizeCommunicationContentWithCefr(params: {
     audience: params.audience,
     communicationTargetLang: 'en',
   })
-  if (!guarded.leaked && guarded.content.trim()) return guarded.content
+  // Даже при «утечке» после упрощения показываем лучший вариант ответа модели, а не вопрос-заглушку:
+  // пользователь может задавать вопрос любой сложности.
+  if (guarded.content.trim()) return guarded.content
 
   const levelFallback = buildCommunicationFallbackMessage({
     audience: params.audience,
@@ -728,6 +740,7 @@ function finalizeCommunicationWebSearchContentWithCefr(params: {
   level: LevelId
   audience: Audience
   targetLang: 'ru' | 'en'
+  isNewsQuery?: boolean
   firstTurn: boolean
   seedText: string
 }): string {
@@ -772,7 +785,13 @@ function finalizeCommunicationWebSearchContentWithCefr(params: {
     audience: params.audience,
     communicationTargetLang: 'en',
   })
-  const fallbackAnswer = guardedFallback.content.trim() || levelFallback.trim()
+  const fallbackAnswer = params.isNewsQuery
+    ? buildSimpleNewsFactualFallback({
+        draft: raw,
+        audience: params.audience,
+        level: params.level,
+      })
+    : (guardedFallback.content.trim() || levelFallback.trim())
   return formatOpenAiWebSearchAnswer({
     answer: fallbackAnswer,
     sources: [],
@@ -4479,6 +4498,54 @@ function extractLastAssistantQuestionSentence(messages: ChatMessage[]): string |
   return null
 }
 
+function normalizeIncomingMessages(raw: unknown): ChatMessage[] {
+  if (!Array.isArray(raw)) return []
+
+  return raw
+    .map((msg): ChatMessage | null => {
+      if (!msg || typeof msg !== 'object') return null
+      const roleRaw = (msg as { role?: unknown }).role
+      const contentRaw = (msg as { content?: unknown }).content
+      if (roleRaw !== 'user' && roleRaw !== 'assistant' && roleRaw !== 'system') return null
+      if (typeof contentRaw !== 'string') return null
+
+      if (roleRaw !== 'assistant') {
+        return { role: roleRaw, content: contentRaw }
+      }
+
+      const webSearchTriggeredRaw = (msg as { webSearchTriggered?: unknown }).webSearchTriggered
+      const webSearchSourcesRaw = (msg as { webSearchSources?: unknown }).webSearchSources
+      const webSearchSources =
+        Array.isArray(webSearchSourcesRaw)
+          ? webSearchSourcesRaw
+              .map((source): { url: string; title?: string } | null => {
+                if (!source || typeof source !== 'object') return null
+                const url = (source as { url?: unknown }).url
+                const title = (source as { title?: unknown }).title
+                if (typeof url !== 'string') return null
+                const normalizedUrl = url.trim().slice(0, 1000)
+                if (!normalizedUrl) return null
+                return {
+                  url: normalizedUrl,
+                  ...(typeof title === 'string' && title.trim()
+                    ? { title: title.trim().slice(0, 300) }
+                    : {}),
+                }
+              })
+              .filter((s): s is { url: string; title?: string } => Boolean(s))
+              .slice(0, 10)
+          : undefined
+
+      return {
+        role: 'assistant',
+        content: contentRaw,
+        ...(webSearchTriggeredRaw === true ? { webSearchTriggered: true } : {}),
+        ...(webSearchSources && webSearchSources.length > 0 ? { webSearchSources } : {}),
+      }
+    })
+    .filter((m): m is ChatMessage => Boolean(m))
+}
+
 function buildDialogueLowSignalFallback(params: {
   messages: ChatMessage[]
   topic: string
@@ -4522,7 +4589,7 @@ function buildDialogueLowSignalFallback(params: {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const messages: ChatMessage[] = Array.isArray(body.messages) ? body.messages : []
+    const messages: ChatMessage[] = normalizeIncomingMessages(body.messages)
     const provider: Provider = body.provider === 'openai' ? 'openai' : 'openrouter'
     let topic = body.topic ?? 'free_talk'
     let level = body.level ?? 'a1'
@@ -4936,9 +5003,11 @@ export async function POST(req: NextRequest) {
         let contentForFinalize = communicationSearchResult.content
         if (detectedUserLang === 'ru') {
           const strippedDraft = stripInternetPrefix(communicationSearchResult.content)
+          const explicitInternetLookup = isExplicitInternetLookupRequest(lastUserContentForResponse)
           const compressed = compressRussianWebSearchAnswer({
             answer: strippedDraft,
             detailLevel: communicationDetailLevel,
+            skipCompression: explicitInternetLookup || newsQuery,
           })
           contentForFinalize = formatOpenAiWebSearchAnswer({
             answer: compressed,
@@ -4946,7 +5015,12 @@ export async function POST(req: NextRequest) {
             language: 'ru',
           })
         }
-        if (detectedUserLang === 'en') {
+        const canRewriteWebSearchForLearner = shouldRewriteWebSearchForLearner({
+          mode,
+          webSearchTriggered: true,
+          replyLanguage: detectedUserLang,
+        })
+        if (canRewriteWebSearchForLearner) {
           const strippedDraft = stripInternetPrefix(communicationSearchResult.content)
           const learnerSamples =
             level === 'all' ? collectLearnerEnglishSamples(recentMessages) : undefined
@@ -4967,6 +5041,92 @@ export async function POST(req: NextRequest) {
               language: 'en',
             })
           }
+          if (detectedUserLang === 'en') {
+            let simplifyDraft = stripInternetPrefix(contentForFinalize)
+            let simplifyGuard = applyCefrOutputGuard({
+              mode: 'communication',
+              content: simplifyDraft,
+              level: level as LevelId,
+              audience,
+              communicationTargetLang: 'en',
+            })
+
+            if (simplifyGuard.leaked) {
+              const retry1 = await simplifyEnglishAnswerForLearner({
+                provider,
+                req,
+                rawAnswer: simplifyDraft,
+                level: level as LevelId,
+                audience,
+                detailLevel: communicationDetailLevel,
+                userQuery: lastUserContentForResponse,
+                learnerEnglishSamples: learnerSamples,
+                sourceKind: 'web_search',
+                requireFactualSummary: newsQuery,
+              })
+              if (retry1) {
+                simplifyDraft = retry1
+                simplifyGuard = applyCefrOutputGuard({
+                  mode: 'communication',
+                  content: simplifyDraft,
+                  level: level as LevelId,
+                  audience,
+                  communicationTargetLang: 'en',
+                })
+              }
+            }
+
+            if (simplifyGuard.leaked) {
+              const retry2 = await simplifyEnglishAnswerForLearner({
+                provider,
+                req,
+                rawAnswer: simplifyDraft,
+                level: level as LevelId,
+                audience,
+                detailLevel: communicationDetailLevel,
+                userQuery: lastUserContentForResponse,
+                learnerEnglishSamples: learnerSamples,
+                sourceKind: 'web_search',
+                previousDraftTooHard: true,
+                requireFactualSummary: newsQuery,
+              })
+              if (retry2) {
+                simplifyDraft = retry2
+                simplifyGuard = applyCefrOutputGuard({
+                  mode: 'communication',
+                  content: simplifyDraft,
+                  level: level as LevelId,
+                  audience,
+                  communicationTargetLang: 'en',
+                })
+              }
+            }
+
+            const candidateEnglishAnswer = simplifyGuard.content.trim() || simplifyDraft
+            const lowContentNews =
+              newsQuery && isGenericEnglishClarification(candidateEnglishAnswer)
+            const safeEnglishAnswer = simplifyGuard.leaked || lowContentNews
+              ? (newsQuery
+                  ? buildSimpleNewsFactualFallback({
+                      draft: simplifyDraft,
+                      audience,
+                      level: level as LevelId,
+                    })
+                  : buildCommunicationFallbackMessage({
+                      audience,
+                      language: 'en',
+                      level: level as LevelId,
+                      firstTurn: isFirstTurn,
+                      seedText: dialogSeed,
+                    }))
+              : candidateEnglishAnswer
+
+            contentForFinalize = formatOpenAiWebSearchAnswer({
+              answer: safeEnglishAnswer,
+              sources: [],
+              language: 'en',
+            })
+          }
         }
 
         const finalizedSearchContent = finalizeCommunicationWebSearchContentWithCefr({
@@ -4974,6 +5134,7 @@ export async function POST(req: NextRequest) {
           level: level as LevelId,
           audience,
           targetLang: detectedUserLang,
+          isNewsQuery: newsQuery,
           firstTurn: isFirstTurn,
           seedText: dialogSeed,
         })

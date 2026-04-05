@@ -16,6 +16,7 @@ import {
   shouldRequestAllOpenAiWebSearchSources,
   shouldRequestOpenAiWebSearchSources,
   shouldUseOpenAiWebSearch,
+  isExplicitInternetLookupRequest,
 } from '@/lib/openAiWebSearchShared'
 
 vi.mock('@/lib/proxyFetch', () => ({
@@ -99,6 +100,9 @@ describe('shouldUseOpenAiWebSearch', () => {
     expect(shouldUseOpenAiWebSearch('когда состоится матч спартак зенит')).toBe(true)
     expect(shouldUseOpenAiWebSearch('какие планы по запуску миссии')).toBe(true)
     expect(shouldUseOpenAiWebSearch('когда следующий матч спартака')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('когда была последняя игра спартака')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('крайняя игра спартака')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('прошлый матч спартака')).toBe(true)
     expect(shouldUseOpenAiWebSearch('кто будущий тренер спартака')).toBe(true)
     expect(shouldUseOpenAiWebSearch('когда ближайший матч спартака')).toBe(true)
     expect(shouldUseOpenAiWebSearch('на каком месте по рейтингу сейчас Яшин')).toBe(true)
@@ -118,6 +122,9 @@ describe('shouldUseOpenAiWebSearch', () => {
     expect(shouldUseOpenAiWebSearch('When will flood season start in Russia?')).toBe(true)
     expect(shouldUseOpenAiWebSearch('What are the plans for the release?')).toBe(true)
     expect(shouldUseOpenAiWebSearch('when is the next match')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('when was the last game of Spartak')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('most recent match of Spartak')).toBe(true)
+    expect(shouldUseOpenAiWebSearch('previous fixture of Spartak')).toBe(true)
     expect(shouldUseOpenAiWebSearch('who is the upcoming head coach')).toBe(true)
     expect(shouldUseOpenAiWebSearch('upcoming launch date')).toBe(true)
     expect(shouldUseOpenAiWebSearch('what is his ranking now')).toBe(true)
@@ -125,6 +132,9 @@ describe('shouldUseOpenAiWebSearch', () => {
 
   it('does not trigger on general knowledge', () => {
     expect(shouldUseOpenAiWebSearch('Explain the difference between Present Perfect and Past Simple')).toBe(false)
+    expect(shouldUseOpenAiWebSearch('Последний урок был сложный')).toBe(false)
+    expect(shouldUseOpenAiWebSearch('когда был последний урок английского')).toBe(false)
+    expect(shouldUseOpenAiWebSearch('last english lesson was hard')).toBe(false)
   })
 
   it('detects prices, year stats, and popularity queries (web search)', () => {
@@ -191,7 +201,13 @@ describe('isRecencySensitiveRequest', () => {
     expect(isRecencySensitiveRequest('когда будет матч открытия сезона')).toBe(true)
     expect(isRecencySensitiveRequest('какие планы по запуску')).toBe(true)
     expect(isRecencySensitiveRequest('когда следующий матч спартака')).toBe(true)
+    expect(isRecencySensitiveRequest('когда была последняя игра спартака')).toBe(true)
+    expect(isRecencySensitiveRequest('крайняя игра спартака')).toBe(true)
+    expect(isRecencySensitiveRequest('прошлый матч спартака')).toBe(true)
     expect(isRecencySensitiveRequest('who is the upcoming coach')).toBe(true)
+    expect(isRecencySensitiveRequest('when was the last game of Spartak')).toBe(true)
+    expect(isRecencySensitiveRequest('most recent match of Spartak')).toBe(true)
+    expect(isRecencySensitiveRequest('previous fixture of Spartak')).toBe(true)
     expect(isRecencySensitiveRequest('кто последний чемпион россии по футболу')).toBe(true)
     expect(isRecencySensitiveRequest('кто последний обладатель золотого мяча')).toBe(true)
     expect(isRecencySensitiveRequest('последний тренер спартака')).toBe(true)
@@ -352,7 +368,26 @@ describe('formatOpenAiWebSearchAnswer', () => {
   })
 })
 
+describe('isExplicitInternetLookupRequest', () => {
+  it('matches explicit Russian/English internet phrasing and force code', () => {
+    expect(isExplicitInternetLookupRequest('Посмотри в интернете, какие цвета у Porsche')).toBe(true)
+    expect(isExplicitInternetLookupRequest('search online for prices')).toBe(true)
+    expect(isExplicitInternetLookupRequest('иии что нового')).toBe(true)
+  })
+
+  it('does not match broad current-info triggers without explicit wording', () => {
+    expect(isExplicitInternetLookupRequest('Какая температура сейчас в Токио?')).toBe(false)
+    expect(isExplicitInternetLookupRequest('Что нового в OpenAI?')).toBe(false)
+  })
+})
+
 describe('compressRussianWebSearchAnswer', () => {
+  it('skips char/sentence limits when skipCompression is true', () => {
+    const text = `Это очень длинное предложение без явных пауз которое должно быть аккуратно сокращено по границе слова чтобы не ломать читабельность и не создавать ощущение обрыва в середине важного слова при этом текст специально сделан длиннее лимита символов для нулевого уровня детализации чтобы сработала мягкая обрезка хвоста и чтобы проверка была устойчивой даже если до этого лимит почти достигался в тестовой строке.`
+    const out = compressRussianWebSearchAnswer({ answer: text, detailLevel: 0, skipCompression: true })
+    expect(out).toBe(text)
+  })
+
   it('keeps short text unchanged for detail level 0', () => {
     const text = 'В Токио сейчас +18°C. Днём без осадков.'
     expect(compressRussianWebSearchAnswer({ answer: text, detailLevel: 0 })).toBe(text)
@@ -389,10 +424,10 @@ describe('compressRussianWebSearchAnswer', () => {
     ].join('\n')
 
     const out = compressRussianWebSearchAnswer({ answer: text, detailLevel: 0 })
-    expect(out).toContain('Вот краткая сводка:')
+    expect(out).not.toContain('Вот краткая сводка:')
     expect(out).toContain('- Футбол: Динамо выиграло домашний матч со счётом 2:1.')
     expect(out).toContain('- Бокс: Чисора анонсировал следующий бой на осень.')
-    expect(out).toContain('- Теннис: Шнайдер вышла в финал турнира в Штутгарте.')
+    expect(out).not.toContain('- Теннис: Шнайдер вышла в финал турнира в Штутгарте.')
     expect(out).not.toContain('Формула-1')
   })
 
@@ -403,8 +438,23 @@ describe('compressRussianWebSearchAnswer', () => {
     const out = compressRussianWebSearchAnswer({ answer: text, detailLevel: 0 })
     expect(out).toContain('- Футбол: Динамо победило 2:1.')
     expect(out).toContain('- Бокс: Чисора вернётся осенью.')
-    expect(out).toContain('- Теннис: финал в Штутгарте.')
+    expect(out).not.toContain('- Теннис: финал в Штутгарте.')
     expect(out).not.toContain('Формула-1')
+  })
+
+  it('keeps list digest concise for detail level 0', () => {
+    const text = [
+      'Вот некоторые из последних новостей интернета:',
+      '- Отключения интернета: В России наблюдаются регулярные отключения мобильного и стационарного интернета, в ряде регионов ограничивают доступ к сервисам.',
+      '- Белые списки: В Москве активировали белые списки сайтов, чтобы сохранить доступ к ограниченному перечню ресурсов во время отключений.',
+      '- Меры регулирования: Также обсуждаются новые требования для операторов связи и платформ.',
+    ].join('\n')
+
+    const out = compressRussianWebSearchAnswer({ answer: text, detailLevel: 0 })
+    const bullets = out.split('\n').filter((line) => /^[-*•]\s+/.test(line))
+    expect(bullets.length).toBeLessThanOrEqual(2)
+    expect(out).not.toContain('Вот некоторые из последних новостей интернета:')
+    expect(out.length).toBeLessThanOrEqual(250)
   })
 })
 
@@ -488,6 +538,26 @@ describe('callOpenAiWebSearchAnswer', () => {
     expect(body.instructions).toContain('compact digest: 3-5 short bullet points')
   })
 
+  it('does not add learner profile adaptation block for russian web-search replies', async () => {
+    mockedFetchWithProxyFallback.mockResolvedValueOnce(
+      new Response(JSON.stringify({ output_text: 'General answer.' }), { status: 200 })
+    )
+
+    await callOpenAiWebSearchAnswer({
+      systemPrompt: 'You are helpful.',
+      messages: [{ role: 'user', content: 'какие последние новости?' }],
+      language: 'ru',
+      level: 'a1',
+      audience: 'child',
+    })
+
+    const [, requestInit] = mockedFetchWithProxyFallback.mock.calls[0] ?? []
+    const body = JSON.parse(String(requestInit?.body)) as { instructions?: string }
+    expect(body.instructions).not.toContain('Learner profile adaptation (strict for web-search summarization):')
+    expect(body.instructions).not.toContain('Respect fixed CEFR level ceiling:')
+    expect(body.instructions).not.toContain('For starter/A1/A2: use only very common words')
+  })
+
   it('does not force news digest format for non-news queries', async () => {
     mockedFetchWithProxyFallback.mockResolvedValueOnce(
       new Response(JSON.stringify({ output_text: 'General answer.' }), { status: 200 })
@@ -523,6 +593,24 @@ describe('callOpenAiWebSearchAnswer', () => {
     const body = JSON.parse(String(requestInit?.body)) as { instructions?: string }
     expect(body.instructions).toContain('Level mode "all": adapt to the learner language complexity from this chat')
     expect(body.instructions).toContain('Audience is ADULT')
+  })
+
+  it('adds expanded news summary instruction for russian news queries', async () => {
+    mockedFetchWithProxyFallback.mockResolvedValueOnce(
+      new Response(JSON.stringify({ output_text: 'General answer.' }), { status: 200 })
+    )
+
+    await callOpenAiWebSearchAnswer({
+      systemPrompt: 'You are helpful.',
+      messages: [{ role: 'user', content: 'какие последние новости в москве' }],
+      language: 'ru',
+    })
+
+    const [, requestInit] = mockedFetchWithProxyFallback.mock.calls[0] ?? []
+    const body = JSON.parse(String(requestInit?.body)) as { instructions?: string }
+    expect(body.instructions).toContain('развёрнутую сводку')
+    expect(body.instructions).toContain('web-search')
+    expect(body.instructions).toContain('пустых вводных')
   })
 
   it('adds current date in instructions using provided timezone', async () => {

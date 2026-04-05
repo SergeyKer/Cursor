@@ -31,6 +31,28 @@ const EXPLICIT_WEB_SEARCH_PATTERNS = [
 
 const WEB_SEARCH_FORCE_CODES = ['иии', 'iii']
 
+const LAST_GAME_EVENT_RU = '(?:матч|игр|турнир|сезон|этап|встреч|поединок|сери[яиюейях]*)'
+const LAST_GAME_EVENT_EN = '(?:match|game|games|fixture|fixtures)'
+
+const LAST_GAME_OR_MATCH_PATTERNS = [
+  new RegExp(
+    String.raw`(?:последн(?:ий|яя|ее|ие)|крайн(?:ий|яя|ее|ие)|прошл(?:ый|ая|ое|ые))\s+${LAST_GAME_EVENT_RU}`,
+    'i'
+  ),
+  new RegExp(
+    String.raw`когда\s+(?:был|была|были|было)\s+(?:последн(?:ий|яя|ее|ие)|крайн(?:ий|яя|ее|ие)|прошл(?:ый|ая|ое|ые))\s+${LAST_GAME_EVENT_RU}`,
+    'i'
+  ),
+  new RegExp(
+    String.raw`\b(?:last|latest|most\s+recent|previous)\s+${LAST_GAME_EVENT_EN}\b`,
+    'i'
+  ),
+  new RegExp(
+    String.raw`\bwhen\s+(?:was|were)\s+(?:the\s+)?(?:last|latest|most\s+recent|previous)\s+${LAST_GAME_EVENT_EN}\b`,
+    'i'
+  ),
+]
+
 const CURRENT_INFO_PATTERNS = [
   /сейчас/i,
   /сегодня/i,
@@ -54,6 +76,7 @@ const CURRENT_INFO_PATTERNS = [
   /последн(?:ий|яя|ее)\s+(тренер|мэр|президент|министр|губернатор|чемпионка|чемпион(?!ат)|победительница|победители|победитель|обладатель|обладательница|лауреат|лауреатка)/i,
   /кто\s+.*(текущ(?:ий|ая|ее)|нынешн(?:ий|яя|ее)).*?(тренер|мэр|президент|министр|губернатор|чемпионка|чемпион(?!ат)|победительница|победители|победитель|обладатель|обладательница|лауреат|лауреатка)/i,
   /когда\s+(?:будет|будут|состоится|состоятся|пройдет|пройдут|начн(?:ется|утся))\s+.*(матч|мероприят|концерт|турнир|паводк|наводнен|сезон|запуск|релиз|выпуск|открыти|закрыти|выборы|форум|конференц|чемпионат|олимпиад|премьер)/i,
+  ...LAST_GAME_OR_MATCH_PATTERNS,
   /последн(?:яя|яя\s+новая|ая)\s+модел[ьи](?:\s|$|[?.!,;:])/i,
   /нов(?:ая|ейшая)\s+модел[ьи](?:\s|$|[?.!,;:])/i,
   /(?:когда\s+)?(?:следующ|будущ|ближайш|предстоящ)[а-я]*\s+(?:матч|игр|турнир|концерт|релиз|запуск|выбор|сезон|этап|форум|конференц|премьер)/i,
@@ -192,6 +215,7 @@ const RECENCY_SENSITIVE_PATTERNS = [
   /кто\s+.*последн(?:ий|яя|ее).*?(тренер|мэр|президент|министр|губернатор|чемпионка|чемпион(?!ат)|победительница|победители|победитель|обладатель|обладательница|лауреат|лауреатка)/i,
   /последн(?:ий|яя|ее)\s+(тренер|мэр|президент|министр|губернатор|чемпионка|чемпион(?!ат)|победительница|победители|победитель|обладатель|обладательница|лауреат|лауреатка)/i,
   /когда\s+(?:будет|будут|состоится|состоятся|пройдет|пройдут|начн(?:ется|утся))\s+.*(матч|мероприят|концерт|турнир|паводк|наводнен|сезон|запуск|релиз|выпуск|выборы|форум|конференц|чемпионат|олимпиад|премьер)/i,
+  ...LAST_GAME_OR_MATCH_PATTERNS,
   /последн(?:яя|яя\s+новая|ая)\s+модел[ьи](?:\s|$|[?.!,;:])/i,
   /нов(?:ая|ейшая)\s+модел[ьи](?:\s|$|[?.!,;:])/i,
   /(?:когда\s+)?(?:следующ|будущ|ближайш|предстоящ)[а-я]*\s+(?:матч|игр|турнир|концерт|релиз|запуск|выбор|сезон|этап|форум|конференц|премьер)/i,
@@ -338,6 +362,18 @@ function stripInlineSourceMentions(text: string): string {
 
 function isWebSearchRequest(text: string): boolean {
   return EXPLICIT_WEB_SEARCH_PATTERNS.some((pattern) => pattern.test(text))
+}
+
+/**
+ * Явная просьба «посмотри в интернете» / look online / force code «иии» —
+ * без широких паттернов актуальности (CURRENT_INFO_PATTERNS).
+ */
+export function isExplicitInternetLookupRequest(text: string): boolean {
+  const normalized = normalizeText(text)
+  if (!normalized) return false
+  if (hasWebSearchForceCode(normalized)) return true
+  const stripped = stripWebSearchForceCode(normalized)
+  return isWebSearchRequest(stripped)
 }
 
 function isCurrentInfoRequest(text: string): boolean {
@@ -628,6 +664,7 @@ type RussianWebSearchCompressionConfig = {
 type RussianWebSearchListCompressionConfig = {
   maxItems: number
   maxChars: number
+  maxItemChars?: number
 }
 
 const RU_WEB_SEARCH_COMPRESSION: Record<RussianWebSearchCompressionDetailLevel, RussianWebSearchCompressionConfig> = {
@@ -637,7 +674,7 @@ const RU_WEB_SEARCH_COMPRESSION: Record<RussianWebSearchCompressionDetailLevel, 
 }
 
 const RU_WEB_SEARCH_LIST_COMPRESSION: Record<RussianWebSearchCompressionDetailLevel, RussianWebSearchListCompressionConfig> = {
-  0: { maxItems: 3, maxChars: 500 },
+  0: { maxItems: 2, maxChars: 240, maxItemChars: 92 },
   1: { maxItems: 5, maxChars: 700 },
   2: { maxItems: 7, maxChars: 900 },
 }
@@ -681,8 +718,15 @@ function compressListLikeText(input: string, detailLevel: RussianWebSearchCompre
   const bulletLines = sourceSegments.filter((segment) => isBulletLine(segment))
   const limits = RU_WEB_SEARCH_LIST_COMPRESSION[detailLevel] ?? RU_WEB_SEARCH_LIST_COMPRESSION[0]
 
-  const selectedBullets = bulletLines.slice(0, limits.maxItems)
-  const assembled = [intro, ...selectedBullets].filter(Boolean).join('\n')
+  const selectedBullets = bulletLines
+    .slice(0, limits.maxItems)
+    .map((line) => {
+      if (!limits.maxItemChars || line.length <= limits.maxItemChars) return line
+      return clampByWordBoundary(line, limits.maxItemChars)
+    })
+  const assembled = detailLevel === 0
+    ? selectedBullets.join('\n')
+    : [intro, ...selectedBullets].filter(Boolean).join('\n')
   if (!assembled) return null
 
   return assembled.length > limits.maxChars
@@ -708,9 +752,12 @@ function clampByWordBoundary(input: string, maxChars: number): string {
 export function compressRussianWebSearchAnswer(params: {
   answer: string
   detailLevel: RussianWebSearchCompressionDetailLevel
+  /** Явный запрос «поищи в интернете» — ответ не ужимаем по символам/предложениям. */
+  skipCompression?: boolean
 }): string {
   const normalized = normalizeText(params.answer)
   if (!normalized) return normalized
+  if (params.skipCompression) return normalized
 
   const listCompressed = compressListLikeText(params.answer, params.detailLevel)
   if (listCompressed) return listCompressed

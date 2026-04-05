@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import type { Audience, LevelId } from '@/lib/types'
+import type { AppMode, Audience, LevelId } from '@/lib/types'
 import { callProviderChat } from '@/lib/callProviderChat'
 import { buildCefrPromptBlock } from '@/lib/cefr/cefrSpec'
 
@@ -34,6 +34,32 @@ export async function rewriteWebSearchAnswerForLearner(params: {
   /** Для level === "all": короткие образцы речи пользователя (латиница), чтобы не уходить сложнее их. */
   learnerEnglishSamples?: string[]
 }): Promise<string | null> {
+  return simplifyEnglishAnswerForLearner({
+    provider: params.provider,
+    req: params.req,
+    rawAnswer: params.rawAnswer,
+    level: params.level,
+    audience: params.audience,
+    detailLevel: params.detailLevel,
+    userQuery: params.userQuery,
+    learnerEnglishSamples: params.learnerEnglishSamples,
+    sourceKind: 'web_search',
+  })
+}
+
+export async function simplifyEnglishAnswerForLearner(params: {
+  provider: 'openai' | 'openrouter'
+  req: NextRequest
+  rawAnswer: string
+  level: LevelId
+  audience: Audience
+  detailLevel: 0 | 1 | 2
+  userQuery: string
+  learnerEnglishSamples?: string[]
+  sourceKind?: 'web_search' | 'chat'
+  previousDraftTooHard?: boolean
+  requireFactualSummary?: boolean
+}): Promise<string | null> {
   const raw = params.rawAnswer.trim()
   if (!raw) return null
 
@@ -55,22 +81,39 @@ export async function rewriteWebSearchAnswerForLearner(params: {
         ].join('\n')
       : ''
 
+  const sourceKindHint =
+    params.sourceKind === 'chat'
+      ? 'You rewrite normal communication chat replies for an English-learning app.'
+      : 'You rewrite web-search summaries for an English-learning chat app.'
+
+  const retryHint = params.previousDraftTooHard
+    ? 'Previous draft was still above target CEFR. Rewrite even simpler: keep only 1-2 easiest facts that fit the level; drop extra details.'
+    : ''
+  const factualHint = params.requireFactualSummary
+    ? 'Return 1-2 simple factual sentences about the user topic. Do not return only a clarification question.'
+    : ''
+
   const system = [
-    'You rewrite web-search summaries for an English-learning chat app.',
+    sourceKindHint,
     'Keep the same core facts, names, numbers, and dates. Do not invent new facts.',
     'Simplify vocabulary and grammar to fit the learner profile below.',
+    'If all facts cannot fit the CEFR ceiling, keep only the 1-2 simplest facts and drop the rest.',
     'Output plain text only: no markdown, no bullet labels like "National News", no URLs, no source names, no "(i)" prefix, no greetings.',
     cefrBlock,
     buildEnglishAudienceHint(params.audience),
     buildRewriteDetailInstruction(params.detailLevel),
     adaptiveBlock,
+    retryHint,
+    factualHint,
   ]
     .filter(Boolean)
     .join('\n\n')
 
   const user = `User question:\n${params.userQuery.trim() || '(no question)'}\n\nDraft answer to rewrite:\n${raw}`
 
-  const maxTokens = params.detailLevel === 2 ? 480 : params.detailLevel === 1 ? 340 : 240
+  const maxTokens = params.previousDraftTooHard
+    ? (params.detailLevel === 2 ? 360 : params.detailLevel === 1 ? 260 : 180)
+    : (params.detailLevel === 2 ? 480 : params.detailLevel === 1 ? 340 : 240)
 
   const res = await callProviderChat({
     provider: params.provider,
@@ -98,4 +141,16 @@ export function collectLearnerEnglishSamples(messages: Array<{ role: string; con
     out.push(short)
   }
   return out.reverse()
+}
+
+/**
+ * Safety gate: learner rewrite is allowed only for English communication
+ * responses that were generated via web-search path.
+ */
+export function shouldRewriteWebSearchForLearner(params: {
+  mode: AppMode
+  webSearchTriggered: boolean
+  replyLanguage: 'ru' | 'en'
+}): boolean {
+  return params.mode === 'communication' && params.webSearchTriggered && params.replyLanguage === 'en'
 }

@@ -430,7 +430,22 @@ export default function Home() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                messages: apiMessages.map((m) => ({ role: m.role, content: m.content })),
+                messages: apiMessages.map((m) => ({
+                  role: m.role,
+                  content: m.content,
+                  ...(m.role === 'assistant' && m.webSearchTriggered ? { webSearchTriggered: true } : {}),
+                  ...(m.role === 'assistant' && Array.isArray(m.webSearchSources) && m.webSearchSources.length > 0
+                    ? {
+                        webSearchSources: m.webSearchSources
+                          .slice(0, 10)
+                          .map((s) => ({
+                            url: typeof s.url === 'string' ? s.url : '',
+                            ...(typeof s.title === 'string' ? { title: s.title } : {}),
+                          }))
+                          .filter((s) => s.url),
+                      }
+                    : {}),
+                })),
                 provider: settings.provider,
                 topic: settings.mode === 'communication' ? 'free_talk' : settings.topic,
                 level: settings.level,
