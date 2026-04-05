@@ -59,7 +59,7 @@ type AssistantSection = {
   small?: boolean
   singleLine?: boolean
   trailingAction?: 'speak'
-  /** Без префикса «AI:»/«Переведи:», но с тем же акцентом, что у основного блока ассистента. */
+  /** Без префикса «Переведи:»/«Переведи далее:», но с тем же акцентом, что у основного блока ассистента. */
   emphasizeMainText?: boolean
 }
 
@@ -98,7 +98,7 @@ function bubbleRadiusClass(isUser: boolean, pos: BubblePosition): string {
   return 'rounded-[1.2825rem] rounded-tl-lg rounded-bl-md'
 }
 
-/** UI блока «3 формы»: префиксы +:/?:/-: → «- », текст с новой строки под заголовком. */
+/** UI блока «Прочитай вслух»: префиксы +:/?:/-: → «- », текст с новой строки под заголовком. */
 function formatThreeFormsForCard(raw: string): string {
   const lines = raw
     .split(/\r?\n/)
@@ -106,6 +106,11 @@ function formatThreeFormsForCard(raw: string): string {
     .filter(Boolean)
   const body = lines.map((line) => line.replace(/^[+?-]\s*:\s*/, '- ')).join('\n')
   return body ? `\n${body}` : ''
+}
+
+/** Убирает служебный префикс модели перед русским заданием в карточке «Переведи». */
+function stripTranslationMainMetaPrefixes(text: string): string {
+  return text.replace(/^\s*(?:следующ(?:ее|ие)\s+предложени(?:е|я)\s*:\s*)+/i, '').trim()
 }
 
 /** Похвала — лёгкий зелёный тон; иначе янтарь (ошибка/коррекция), как до введения praise. */
@@ -125,6 +130,8 @@ function buildAssistantSections(params: {
   invitationText: string | null
   mainAfter: string
   mode: 'dialogue' | 'translation' | 'communication'
+  /** Первое задание в чате — «Переведи:»; далее — «Переведи далее:». */
+  translationHeadingWelcome?: boolean
 }): AssistantSection[] {
   const {
     comment,
@@ -138,13 +145,14 @@ function buildAssistantSections(params: {
     invitationText,
     mainAfter,
     mode,
+    translationHeadingWelcome = true,
   } = params
 
   const hideAiLabel = mode === 'dialogue' || mode === 'communication'
-  /** Первый основной блок в пузырьке — «AI:»; после Комментарий/форм/… — «Переведи:». */
+  /** Режим перевода: приветственное задание — «Переведи:», следующие — «Переведи далее:». */
   const assistantMainHeadingLabel = (): string => {
     if (hideAiLabel) return ''
-    return sections.length > 0 ? 'Переведи' : 'AI'
+    return translationHeadingWelcome ? 'Переведи' : 'Переведи далее'
   }
 
   const sections: AssistantSection[] = []
@@ -164,7 +172,7 @@ function buildAssistantSections(params: {
     sections.push({
       key: 'three-forms',
       tone: 'slate',
-      label: '3 формы',
+      label: 'Прочитай вслух (+, ?, −)',
       text: formatThreeFormsForCard(threeFormsText),
       singleLine: true,
     })
@@ -379,6 +387,70 @@ function condenseTranslationCommentToErrors(comment: string): string {
   if (m && m.length > 0) return normalizeSmotri(m.map((x) => x.trim()).join(' '))
 
   return comment
+}
+
+/** Для режима «Перевод»: есть ли у ассистента видимая карточка с русским заданием (как в MessageBubble). */
+function computeAssistantTranslationMainCardMeta(message: ChatMessageType): {
+  effectiveMainBefore: string
+  hideTranslationPromptBlocks: boolean
+} {
+  const { comment, rest } = parseCorrection(message.content)
+  const displayText = rest
+  const { mainBefore } = splitInvitation(displayText)
+  let effectiveComment = comment
+  let effectiveTenseRef: string | null = null
+  let effectiveThreeFormsText: string | null = null
+  let effectiveMainBefore = mainBefore
+  let repeatTextForCard: string | null = null
+
+  const blocks = parseTranslationCoachBlocks(displayText)
+  if (blocks.comment) effectiveComment = condenseTranslationCommentToErrors(blocks.comment)
+  if (blocks.tenseRef) effectiveTenseRef = blocks.tenseRef
+  if (blocks.threeFormsText) effectiveThreeFormsText = blocks.threeFormsText
+  if (blocks.repeat) repeatTextForCard = blocks.repeat
+  if (blocks.nextSentence) {
+    const cleanedNextSentence = blocks.nextSentence
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(
+        (line) =>
+          Boolean(line) &&
+          !/^(Комментарий|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:/i.test(line) &&
+          !/^[+\?-]\s*:/i.test(line) &&
+          !/^(?:Переведи|Переведите)\b/i.test(line)
+      )
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    const fallbackFromInline = blocks.nextSentence
+      .replace(/(?:Комментарий|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi, ' ')
+      .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')
+      .replace(/(?:Переведи|Переведите)[^.]*\./gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    effectiveMainBefore = cleanedNextSentence || fallbackFromInline || blocks.nextSentence
+  } else {
+    const extracted = extractTranslationCommentAndPrompt(mainBefore)
+    if (!effectiveComment && extracted.comment) {
+      effectiveComment = condenseTranslationCommentToErrors(extracted.comment)
+    }
+    effectiveMainBefore = extracted.promptText
+  }
+  if (effectiveMainBefore) effectiveMainBefore = stripTranslationMainMetaPrefixes(effectiveMainBefore)
+
+  if (effectiveThreeFormsText && effectiveTenseRef) {
+    const isGenericSuccessTimeHint = /используйте это время в полном английском предложении/i.test(effectiveTenseRef)
+    if (!isGenericSuccessTimeHint) {
+      const mergedComment = [effectiveComment, effectiveTenseRef].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
+      effectiveComment = mergedComment || effectiveComment
+    }
+    effectiveTenseRef = null
+  }
+
+  const hideTranslationPromptBlocks =
+    Boolean(repeatTextForCard) && !String(effectiveMainBefore ?? '').trim()
+
+  return { effectiveMainBefore, hideTranslationPromptBlocks }
 }
 
 export default function Chat({
@@ -856,6 +928,17 @@ export default function Chat({
     return -1
   }, [messages])
 
+  /** Первое сообщение ассистента с видимой карточкой русского задания (подпись «Переведи:», не «… далее»). */
+  const firstTranslationMainExerciseIndex = React.useMemo(() => {
+    if (settings.mode !== 'translation') return -1
+    for (let j = 0; j < messages.length; j++) {
+      if (messages[j].role !== 'assistant') continue
+      const { effectiveMainBefore, hideTranslationPromptBlocks } = computeAssistantTranslationMainCardMeta(messages[j])
+      if (effectiveMainBefore.trim() && !hideTranslationPromptBlocks) return j
+    }
+    return -1
+  }, [messages, settings.mode])
+
   const lastMessageRole = messages[messages.length - 1]?.role ?? null
   const canShowTypingIndicator = showTypingIndicator && loading && lastMessageRole === 'user'
 
@@ -914,6 +997,12 @@ export default function Chat({
                       bubblePosition={bubblePosition}
                       onRequestTranslation={onRequestTranslation}
                       isLoadingTranslation={loadingTranslationIndex === i}
+                      translationHeadingWelcome={
+                        settings.mode !== 'translation' ||
+                        msg.role !== 'assistant' ||
+                        firstTranslationMainExerciseIndex < 0 ||
+                        i === firstTranslationMainExerciseIndex
+                      }
                     />
                     {firstMessageError &&
                       onRetryFirstMessage &&
@@ -1163,6 +1252,7 @@ function MessageBubble({
   bubblePosition,
   onRequestTranslation,
   isLoadingTranslation,
+  translationHeadingWelcome = true,
 }: {
   message: ChatMessageType
   messageIndex: number
@@ -1172,6 +1262,8 @@ function MessageBubble({
   bubblePosition: BubblePosition
   onRequestTranslation?: (index: number, text: string) => void
   isLoadingTranslation?: boolean
+  /** Первое задание перевода в чате — подпись «Переведи:»; иначе «Переведи далее:». */
+  translationHeadingWelcome?: boolean
 }) {
   const isUser = message.role === 'user'
   const [showTranslation, setShowTranslation] = React.useState(false)
@@ -1225,6 +1317,7 @@ function MessageBubble({
   // (кириллица, без вопроса) — не показываем её как "AI: ...".
   const hideRussianNonQuestionMainBefore =
     !isUser &&
+    !isTranslationMode &&
     !errorLike &&
     isCorrectAnswerPraise &&
     Boolean(mainBefore) &&
@@ -1270,6 +1363,7 @@ function MessageBubble({
       effectiveMainBefore = extracted.promptText
     }
     if (blocks.invitation) effectiveInvitationText = blocks.invitation
+    if (effectiveMainBefore) effectiveMainBefore = stripTranslationMainMetaPrefixes(effectiveMainBefore)
   }
   // SUCCESS в translation: если пришли формы, держим подсказку времени в комментарии,
   // но не показываем отдельный блок "Время".
@@ -1282,7 +1376,9 @@ function MessageBubble({
     effectiveTenseRef = null
   }
   const showOnlyRepeat = !isTranslationMode && Boolean(repeatTextForCard)
-  const hideTranslationPromptBlocks = isTranslationMode && Boolean(repeatTextForCard)
+  // Скрываем основной блок только если есть «Повтори», но нет следующего предложения — иначе теряется карточка «Переведи: …».
+  const hideTranslationPromptBlocks =
+    isTranslationMode && Boolean(repeatTextForCard) && !String(effectiveMainBefore ?? '').trim()
 
   const mainAfterVisibleForBubble =
     Boolean(mainAfter) && !effectiveMainBefore && !effectiveInvitationText
@@ -1315,6 +1411,7 @@ function MessageBubble({
         invitationText: effectiveInvitationText,
         mainAfter,
         mode,
+        translationHeadingWelcome,
       })
 
   React.useEffect(() => {
@@ -1592,7 +1689,7 @@ function SectionCard({
 
   const isAiInline =
     singleLine &&
-    (label === 'AI' || label === 'Переведи' || Boolean(emphasizeMainText))
+    (label === 'AI' || label === 'Переведи' || label === 'Переведи далее' || Boolean(emphasizeMainText))
   const hasLabel = label.trim().length > 0
   const isCompactServiceLine = singleLine && italic && !hasLabel
   const isTextItalic = textItalic ?? italic
