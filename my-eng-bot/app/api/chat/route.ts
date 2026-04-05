@@ -340,13 +340,13 @@ No extra lines.
 When the user has already sent their translation, use one of these two protocols:
 
 SUCCESS protocol (if user answer is correct), strict order:
-- Line 1: "Комментарий: " + short praise in Russian + one short, contextual reason why this tense fits THIS Russian sentence (do not use generic text like "write a full sentence"; refer to meaning markers such as habit, fact, ongoing action, finished result, plan).
+- Line 1: "Комментарий: " + short praise in Russian that includes ONE specific thing the learner did correctly in their exact sentence (for example: correct auxiliary "do/does/did", correct word order, correct verb ending, correct article) + one short contextual reason why this exact meaning requires this tense. Explicitly name the tense by its standard name (e.g. Present Simple, Past Simple, Present Perfect). Never use vague phrases like "это время" or "данное время".
 - Line 2: "Конструкция: " + concise form guide that covers all three variants in this tense: "+:", "?:", "-:".
 - Line 3: "Формы:"
 - Line 4: "+: " + full affirmative English sentence (same meaning as correct user answer)
 - Line 5: "?: " + full interrogative English sentence in the same tense
 - Line 6: "-: " + full negative English sentence in the same tense
-- Line 7: NEXT natural Russian sentence on a new line
+- Line 7: NEXT natural Russian sentence on a new line. IMPORTANT: This MUST be a literal Russian sentence for the user to translate into English (e.g. "Я обычно ем яичницу на завтрак."). Do NOT output conversational instructions or prompts (e.g. NEVER write "Теперь скажите, что вы обычно едите." or "Переведи следующее:"). Just output the raw sentence.
 - Line 8: "Переведи на английский."
 - In SUCCESS protocol do NOT output separate "Время:" line and do NOT output "Повтори:".
 
@@ -355,7 +355,7 @@ ERROR protocol (if there is a mistake), strict:
 - Line 2: "Время: " + ${tenseName} + very short Russian hint
 - Line 3: "Конструкция: " + very short tense pattern for learner (example for Present Simple: "Subject + V1(s/es)")
 - Line 4: "Повтори: " + full corrected English sentence.
-- Then provide the NEXT Russian sentence on a new line.
+- Then provide the NEXT Russian sentence on a new line. IMPORTANT: Must be a literal sentence to translate, without any conversational prefixes.
 - Last line: "Переведи на английский."
 
 Rules:
@@ -367,6 +367,11 @@ Rules:
 - If user answer is correct, include "Конструкция:" as line 2 and do not output "Повтори:".
 - Never remove the final line "Переведи на английский."
 - In SUCCESS protocol, "Комментарий" must be engaging, clear, and context-aware for this exact phrase.
+- In SUCCESS protocol, "Комментарий" must be concrete, not generic: mention exactly one observable correct detail from the user's answer.
+- In SUCCESS protocol, avoid empty praise like "Отлично, всё верно" without evidence from the sentence.
+- In SUCCESS protocol, always name the tense explicitly (e.g. Present Simple) and never say only "это время/данное время".
+- Never quote textbook-style rule templates verbatim (for example: "привычка, факт, постоянное предпочтение"). Explain the reason in plain Russian tied to THIS sentence meaning.
+- Keep SUCCESS "Комментарий" concise: maximum 1-2 short sentences.
 - In ERROR protocol, "Комментарий" must sound professional and pedagogical:
   - Start with exact error type in Russian (e.g. "Ошибка согласования подлежащего и сказуемого", "Ошибка формы глагола", "Ошибка времени", "Лексическая ошибка").
   - Then give one precise fix in one short sentence.
@@ -2772,48 +2777,46 @@ function hasContextualReasonInSuccessComment(commentBody: string): boolean {
 function minimalSuccessCommentReason(tense: string): string {
   switch (tense) {
     case 'present_simple':
-      return 'Здесь это время уместно, потому что речь о привычке, факте или постоянном предпочтении.'
+      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
     case 'present_continuous':
-      return 'Здесь это время уместно, потому что действие происходит прямо сейчас.'
+      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
     case 'present_perfect':
-      return 'Здесь это время уместно, потому что важен результат к текущему моменту.'
+      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
     case 'present_perfect_continuous':
-      return 'Здесь это время уместно, потому что важно, как долго действие длится до текущего момента.'
+      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
     case 'past_simple':
-      return 'Здесь это время уместно, потому что речь о завершенном действии в прошлом.'
+      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
     case 'past_continuous':
-      return 'Здесь это время уместно, потому что описывается процесс в конкретный момент в прошлом.'
+      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
     case 'past_perfect':
-      return 'Здесь это время уместно, потому что одно прошлое действие произошло раньше другого.'
+      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
     case 'past_perfect_continuous':
-      return 'Здесь это время уместно, потому что важна длительность действия до момента в прошлом.'
+      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
     case 'future_simple':
-      return 'Здесь это время уместно, потому что говорится о будущем действии или намерении.'
+      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
     case 'future_continuous':
-      return 'Здесь это время уместно, потому что речь о процессе в конкретный момент будущего.'
+      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
     case 'future_perfect':
-      return 'Здесь это время уместно, потому что действие будет завершено к моменту в будущем.'
+      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
     case 'future_perfect_continuous':
-      return 'Здесь это время уместно, потому что важна длительность действия к моменту в будущем.'
+      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
     default:
       return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
   }
 }
 
-function ensureMeaningfulSuccessComment(commentBody: string, tense: string): string {
-  const compact = commentBody
+function ensureMeaningfulSuccessComment(commentBody: string, _tense: string): string {
+  // Strip known-bad suffix the model sometimes hallucinates into the comment.
+  const stripped = commentBody
     .replace(/\s+/g, ' ')
     .trim()
-    // Дедупликация частого артефакта: одна и та же причина повторяется 2-3 раза подряд.
-    .replace(/(Здесь это время уместно,[^.]*\.)\s*(?:\1\s*)+/gi, '$1 ')
-  const base = compact || 'Отлично!'
-  if (/используйте это время в полном английском предложении/i.test(base)) {
-    const stripped = base.replace(/\s*[\-–—:]?\s*используйте это время в полном английском предложении\.?/i, '').trim()
-    const normalized = stripped || 'Отлично!'
-    return `${normalized} ${minimalSuccessCommentReason(tense)}`.replace(/\s+/g, ' ').trim()
-  }
-  if (hasContextualReasonInSuccessComment(base)) return base
-  return `${base} ${minimalSuccessCommentReason(tense)}`.replace(/\s+/g, ' ').trim()
+    .replace(/\s*[\-–—:]?\s*используйте это время в полном английском предложении\.?/gi, '')
+    // Удаляем задублированный фрагмент (артефакт нескольких вызовов).
+    .replace(/(Здесь(?:\s+важно\s+сохранить)?\s+это\s+время[^.]*\.)\s*(?:\1\s*)+/gi, '$1 ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return stripped || 'Отлично!'
 }
 
 /** Примеры для блока "Конструкция" (сокращаем подсказку до примеров). */
@@ -3297,12 +3300,17 @@ function hasTranslationPraiseComment(content: string): boolean {
 }
 
 function extractSingleTranslationNextSentence(lines: string[]): string | null {
-  const raw = lines
+  let raw = lines
     .join(' ')
     .replace(/\s+/g, ' ')
-    .replace(/(?:Переведи|Переведите)[^.]*\./gi, ' ')
+    .replace(/(?:Переведи(?:те)?|Переведите)\b[^.]*\./gi, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+
+  // Убираем вводные фразы-инструкции, если модель всё же их сгенерировала
+  raw = raw.replace(/^(?:А\s+)?(?:теперь|давайте|попробуем)\s+(?:скажите|переведите|попробуйте|сформулируйте|переведем)[^:]*:\s*/gi, '')
+  raw = raw.replace(/^(?:Теперь|А теперь|Следующее предложение|Далее|Переведи далее)[^:]*:\s*/gi, '')
+
   if (!raw) return null
   const sentenceCandidates = raw
     .split(/(?<=[.!?])\s+/)
@@ -3498,7 +3506,7 @@ function replaceFalsePositiveTranslationErrorWithPraise(params: {
   if (!repeatSentence) return content
   if (!isTranslationAnswerEffectivelyCorrect(userText, repeatSentence)) return content
 
-  lines[commentIndex] = 'Комментарий: Отлично!'
+  lines[commentIndex] = 'Комментарий: Отлично! Твой вариант тоже абсолютно верный.'
   return stripRepeatOnPraise(lines.join('\n'))
 }
 
@@ -3511,7 +3519,18 @@ function forcePraiseIfRepeatMatchesUser(params: { content: string; userText: str
   const lines = content.split(/\r?\n/)
   const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
   if (commentIndex === -1) return content
-  lines[commentIndex] = 'Комментарий: Отлично!'
+  
+  const commentText = lines[commentIndex].replace(/^Комментарий\s*:\s*/i, '').trim()
+  const isAlreadyPraise = /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)(?:[\s!,.?:;"'»)]|$)/i.test(commentText)
+  
+  if (!isAlreadyPraise) {
+    if (commentText && !/^(Ошибка\b|Лексическая ошибка\b|Грамматическая ошибка\b|Некорректн|Неверн|Неправил)/i.test(commentText)) {
+      lines[commentIndex] = `Комментарий: Отлично! ${commentText}`
+    } else {
+      lines[commentIndex] = 'Комментарий: Отлично!'
+    }
+  }
+  
   return stripRepeatOnPraise(lines.join('\n'))
 }
 
@@ -3647,7 +3666,18 @@ function replaceGenericRepeatFallbackWithPraiseIfUserLikelyCorrect(params: {
 
   const lines = content.split(/\r?\n/)
   const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
-  if (commentIndex !== -1) lines[commentIndex] = 'Комментарий: Отлично!'
+  if (commentIndex !== -1) {
+    const commentText = lines[commentIndex].replace(/^Комментарий\s*:\s*/i, '').trim()
+    const isAlreadyPraise = /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)(?:[\s!,.?:;"'»)]|$)/i.test(commentText)
+    
+    if (!isAlreadyPraise) {
+      if (commentText && !/^(Ошибка\b|Лексическая ошибка\b|Грамматическая ошибка\b|Некорректн|Неверн|Неправил)/i.test(commentText)) {
+        lines[commentIndex] = `Комментарий: Отлично! ${commentText}`
+      } else {
+        lines[commentIndex] = 'Комментарий: Отлично!'
+      }
+    }
+  }
 
   const placeholderLower = GENERIC_TRANSLATION_REPEAT_FALLBACK.toLowerCase()
   const filtered = lines.filter((line) => {
@@ -4109,6 +4139,7 @@ function enrichTranslationCommentQuality(params: {
 }): string {
   const { content, userText, repeatSentence, tense } = params
   if (!repeatSentence) return content
+  if (isGenericTranslationRepeatFallback(repeatSentence)) return content
 
   const lines = content.split(/\r?\n/)
   const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
@@ -5056,6 +5087,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               content: mode === 'communication' ? 'Пользователь скоро задаст вопрос.' : 'Start the conversation.',
             },
           ]
+          
+    if (mode === 'translation' && userTurnMessages.length > 0 && !isFirstTurn) {
+      const lastMsg = userTurnMessages[userTurnMessages.length - 1]
+      if (lastMsg && lastMsg.role === 'user') {
+        lastMsg.content = `${lastMsg.content}\n\n(System note: Provide a detailed "Комментарий" highlighting one specific correct detail from the user's translation. Do not just output "Отлично!" alone, break the pattern if previous turns were too short.)`
+      }
+    }
     const apiMessages: { role: string; content: string }[] = [
       { role: 'system', content: systemContent },
       ...userTurnMessages,

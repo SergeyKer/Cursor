@@ -948,8 +948,7 @@ export default function Chat({
 
   /** Диалог и общение — MyEng; тренировка перевода — без изменений. */
   const isCommunicationEnglishInput = settings.mode === 'communication' && settings.communicationInputExpectedLang === 'en'
-  const sendButtonLabelShort =
-    settings.mode === 'communication' && settings.communicationInputExpectedLang === 'en' ? 'Send' : 'Отпр.'
+  const sendButtonLabelShort = 'Send'
   const sendButtonLabelLong =
     settings.mode === 'communication' && settings.communicationInputExpectedLang === 'en' ? 'Send' : 'Отправить'
   const typingIndicatorText =
