@@ -3,6 +3,7 @@ import {
   shouldRequestOpenAiWebSearchSources,
   shouldUseOpenAiWebSearch,
 } from './openAiWebSearchShared'
+import { isCommunicationDetailOnlyMessage } from './communicationReplyLanguage'
 
 type WebSearchContextMessage = {
   role: 'user' | 'assistant' | 'system'
@@ -50,6 +51,7 @@ export function getCommunicationWebSearchDecision(params: {
   const hasContext = hasRecentWebSearchContext(recentMessages)
   const forcedWebSearchByCode = hasWebSearchForceCode(rawText)
   const followup = isLikelyWebSearchFollowup(cleanedText)
+  const detailOnly = isCommunicationDetailOnlyMessage(cleanedText)
 
   const requested =
     mode === 'communication' &&
@@ -57,6 +59,7 @@ export function getCommunicationWebSearchDecision(params: {
     (forcedWebSearchByCode ||
       explicitSearchRequest ||
       (sourcesRequested && hasContext) ||
+      (detailOnly && hasContext) ||
       (followup && hasContext))
 
   return { requested, sourcesRequested, hasContext }

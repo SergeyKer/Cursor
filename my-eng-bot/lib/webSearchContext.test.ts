@@ -60,6 +60,43 @@ describe('getCommunicationWebSearchDecision', () => {
     expect(decision.requested).toBe(true)
   })
 
+  it('turns on search for ru detail-only follow-up after web-search context', () => {
+    const decision = getCommunicationWebSearchDecision({
+      mode: 'communication',
+      explicitTranslateTarget: null,
+      rawText: 'подробнее',
+      cleanedText: 'подробнее',
+      recentMessages: [
+        { role: 'assistant', content: '(i) Последняя модель Porsche ...', webSearchTriggered: true },
+      ],
+    })
+    expect(decision.requested).toBe(true)
+  })
+
+  it('turns on search for en detail-only follow-up after web-search context', () => {
+    const decision = getCommunicationWebSearchDecision({
+      mode: 'communication',
+      explicitTranslateTarget: null,
+      rawText: 'more details',
+      cleanedText: 'more details',
+      recentMessages: [
+        { role: 'assistant', content: '(i) Latest Porsche model ...', webSearchTriggered: true },
+      ],
+    })
+    expect(decision.requested).toBe(true)
+  })
+
+  it('does not turn on search for detail-only without web-search context', () => {
+    const decision = getCommunicationWebSearchDecision({
+      mode: 'communication',
+      explicitTranslateTarget: null,
+      rawText: 'ещё подробнее',
+      cleanedText: 'ещё подробнее',
+      recentMessages: [],
+    })
+    expect(decision.requested).toBe(false)
+  })
+
   it('does not turn on search in non-communication mode', () => {
     const decision = getCommunicationWebSearchDecision({
       mode: 'dialogue',

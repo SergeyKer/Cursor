@@ -2,14 +2,17 @@ import { fetchWithProxyFallback } from '@/lib/proxyFetch'
 import {
   embellishBareFactsAnswer,
   formatOpenAiWebSearchAnswer,
+  isNewsQuery,
   stripWebSearchForceCode,
   normalizeWebSearchSourceUrl,
 } from '@/lib/openAiWebSearchShared'
 import type { Audience, ChatMessage, LevelId } from '@/lib/types'
+import { isCommunicationDetailOnlyMessage } from '@/lib/communicationReplyLanguage'
 
 export {
   filterFreshWebSearchSources,
   formatOpenAiWebSearchAnswer,
+  isNewsQuery,
   isRecencySensitiveRequest,
   shouldRequestOpenAiWebSearchSources,
   shouldUseOpenAiWebSearch,
@@ -131,9 +134,14 @@ function extractTextFromOutput(result: OpenAiResponsesResult): string {
 function buildSearchInstructions(
   language: SearchLanguage,
   systemPrompt: string,
+  userQuery: string,
   profile?: {
     level?: LevelId
     audience?: Audience
+  },
+  options?: {
+    timezone?: string
+    now?: Date
   }
 ): string {
   const languageLine =
@@ -164,6 +172,17 @@ function buildSearchInstructions(
     level && level !== 'all'
       ? `Respect fixed CEFR level ceiling: ${String(level).toUpperCase()}. Keep vocabulary and grammar within that level.`
       : ''
+  const isNewsDigestQuery =
+    isNewsQuery(userQuery) || /(?:what'?s\s+new|latest\s+news|что\s+нового|последние\s+новости)/i.test(userQuery)
+  const currentDate = formatDateForInstructions(options?.now ?? new Date(), options?.timezone)
+  const newsDigestRule =
+    language === 'ru'
+      ? 'Если запрос про новости/сводку, дай компактный дайджест: 3-5 коротких пунктов, по одной мысли в пункте, без длинных абзацев.'
+      : 'If the query asks for news or updates, return a compact digest: 3-5 short bullet points, one key fact per bullet, no long paragraphs.'
+  const newsFreshnessRule =
+    language === 'ru'
+      ? `Сегодняшняя дата для проверки актуальности: ${currentDate}. Для новостей опирайся только на результаты web-search этого запроса. Не смешивай с фоновыми знаниями модели. Указывай период ("по состоянию на ${currentDate}" или конкретные даты из источников). Не называй данные "свежими/сегодня", если в сниппетах нет подтверждения недавней даты. Если подтверждённых фактов мало, честно скажи это.`
+      : `Current date for freshness checks: ${currentDate}. For news queries, rely only on this request's web-search results. Do not mix with model background knowledge. State the timeframe ("as of ${currentDate}" or explicit dates from snippets). Do not call facts "latest/today" unless snippets confirm recent dates. If evidence is weak, say so explicitly.`
 
   return [
     systemPrompt,
@@ -187,9 +206,20 @@ function buildSearchInstructions(
           'When facts are complex, explain the main point first in simpler words.',
         ].filter(Boolean)
       : []),
+    ...(isNewsDigestQuery ? [newsDigestRule, newsFreshnessRule] : []),
     languageLine,
   ]
     .join('\n')
+}
+
+function formatDateForInstructions(now: Date, timezone?: string): string {
+  const fallback = new Intl.DateTimeFormat('en-CA', { timeZone: 'UTC' }).format(now)
+  if (!timezone?.trim()) return fallback
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(now)
+  } catch {
+    return fallback
+  }
 }
 
 function stripLeadingWebSearchGreeting(text: string): string {
@@ -197,7 +227,7 @@ function stripLeadingWebSearchGreeting(text: string): string {
   if (!trimmed) return trimmed
   return trimmed
     .replace(
-      /^(?:\(i\)\s*)?(?:здравствуй(?:те)?|добрый\s+(?:день|вечер|утро))\s*[!.,:\-—]*\s*/i,
+      /^(?:\(i\)\s*)?(?:здравствуй(?:те)?|привет(?:ствую|ик|ики|ики\W*всем)?|добрый\s+(?:день|вечер|утро))\s*[!.,:\-—]*\s*/i,
       ''
     )
     .replace(/^(?:\(i\)\s*)?(?:hello|hi|hey|good\s+(?:morning|afternoon|evening))\s*[!.,:\-—]*\s*/i, '')
@@ -211,6 +241,22 @@ function buildSearchInput(messages: ChatMessage[]): string {
     .filter(Boolean)
   const lastUser = userMessages[userMessages.length - 1] ?? ''
   if (!lastUser) return ''
+
+  const previousMeaningfulUser = (() => {
+    for (let i = userMessages.length - 2; i >= 0; i--) {
+      const candidate = userMessages[i] ?? ''
+      if (!candidate) continue
+      if (!isCommunicationDetailOnlyMessage(candidate)) return candidate
+    }
+    return ''
+  })()
+
+  const detailOnlyFollowup = isCommunicationDetailOnlyMessage(lastUser)
+  if (detailOnlyFollowup && previousMeaningfulUser) {
+    const ruLike = /[А-Яа-яЁё]/.test(lastUser) && !/[A-Za-z]/.test(lastUser)
+    const followupHint = ruLike ? 'нужно больше деталей по предыдущему вопросу' : 'need more details on the previous query'
+    return `Previous query: ${previousMeaningfulUser}\nFollow-up: ${followupHint}`
+  }
 
   const prevUser = userMessages[userMessages.length - 2] ?? ''
   const shortFollowup =
@@ -232,6 +278,7 @@ export async function callOpenAiWebSearchAnswer(params: {
   level?: LevelId
   audience?: Audience
   maxOutputTokens?: number
+  timezone?: string
 }): Promise<
   | { ok: true; content: string; sources: WebSearchSource[] }
   | { ok: false; status: number; errText: string; errorCode?: string }
@@ -246,9 +293,11 @@ export async function callOpenAiWebSearchAnswer(params: {
 
   const body = {
     model: OPENAI_WEB_SEARCH_MODEL,
-    instructions: buildSearchInstructions(params.language, params.systemPrompt, {
+    instructions: buildSearchInstructions(params.language, params.systemPrompt, conversation, {
       level: params.level,
       audience: params.audience,
+    }, {
+      timezone: params.timezone,
     }),
     input: conversation,
     tools: [{ type: 'web_search_preview' }],

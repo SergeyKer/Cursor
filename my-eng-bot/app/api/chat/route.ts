@@ -13,6 +13,8 @@ import {
   shouldRequestOpenAiWebSearchSources,
 } from '@/lib/openAiWebSearch'
 import {
+  compressRussianWebSearchAnswer,
+  isNewsQuery,
   isWeatherForecastRequest,
   isWeatherFollowupRequest,
   stripWebSearchForceCode,
@@ -97,6 +99,7 @@ const DIALOGUE_POPULAR_TENSE_PRIORITY: TenseId[] = [
 
 /** Лимит токенов ответа. Запас увеличен, чтобы реже обрезать форматированные ответы. */
 const MAX_RESPONSE_TOKENS = 512
+const NEWS_RECENCY_MAX_AGE_DAYS = 14
 
 const TENSE_NAMES: Record<string, string> = {
   all: 'any tense',
@@ -4534,6 +4537,7 @@ export async function POST(req: NextRequest) {
       : []
     const sentenceType = body.sentenceType ?? 'mixed'
     const audience: 'child' | 'adult' = body.audience === 'child' ? 'child' : 'adult'
+    const timezone = typeof body.timezone === 'string' ? body.timezone.trim() : ''
     const dialogSeed = typeof body.dialogSeed === 'string' ? body.dialogSeed : ''
 
     // Страховка: для "Ребёнок" в Свободной теме уровень не выше A2.
@@ -4913,6 +4917,7 @@ export async function POST(req: NextRequest) {
         language: detectedUserLang,
         level: level as LevelId,
         audience,
+        timezone,
         maxOutputTokens: buildCommunicationWebSearchMaxTokens({
           baseMaxTokens: communicationMaxTokens,
           detailLevel: communicationDetailLevel,
@@ -4923,11 +4928,24 @@ export async function POST(req: NextRequest) {
 
       if (communicationSearchResult.ok) {
         const recencySensitive = isRecencySensitiveRequest(lastUserContentForResponse)
+        const newsQuery = isNewsQuery(lastUserContentForResponse)
         const freshness = recencySensitive
-          ? filterFreshWebSearchSources(communicationSearchResult.sources)
+          ? filterFreshWebSearchSources(communicationSearchResult.sources, newsQuery ? { maxAgeDays: NEWS_RECENCY_MAX_AGE_DAYS } : undefined)
           : { sources: communicationSearchResult.sources, hiddenCount: 0 }
 
         let contentForFinalize = communicationSearchResult.content
+        if (detectedUserLang === 'ru') {
+          const strippedDraft = stripInternetPrefix(communicationSearchResult.content)
+          const compressed = compressRussianWebSearchAnswer({
+            answer: strippedDraft,
+            detailLevel: communicationDetailLevel,
+          })
+          contentForFinalize = formatOpenAiWebSearchAnswer({
+            answer: compressed,
+            sources: [],
+            language: 'ru',
+          })
+        }
         if (detectedUserLang === 'en') {
           const strippedDraft = stripInternetPrefix(communicationSearchResult.content)
           const learnerSamples =

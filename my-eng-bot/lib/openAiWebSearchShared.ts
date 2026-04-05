@@ -63,7 +63,7 @@ const CURRENT_INFO_PATTERNS = [
   /прогноз/i,
   /паводк/i,
   /наводнен/i,
-  /новост[ьяей]/i,
+  /новост(?:ь|и|ей|ям|ями|ях|ью)(?![а-яё])/i,
   /курс/i,
   /цен[а-яё]*/i,
   /стоимост[ьяеи]/i,
@@ -164,6 +164,14 @@ const WEATHER_FOLLOWUP_PATTERNS = [
   /^(?:а|и|ну)?\s*(?:на\s+)?месяц(?:\s|$|[?.!,;:])/i,
 ]
 
+const NEWS_QUERY_PATTERNS = [
+  /новост(?:ь|и|ей|ям|ями|ях|ью)(?![а-яё])/i,
+  /\bnews\b/i,
+  /спортивн[а-яё]*\s+новост/i,
+  /новост[а-яё]*\s+спорт/i,
+  /\b(?:sports?|sport)\s+news\b/i,
+]
+
 const RECENCY_SENSITIVE_PATTERNS = [
   /сейчас/i,
   /сегодня/i,
@@ -193,6 +201,7 @@ const RECENCY_SENSITIVE_PATTERNS = [
   /прогноз/i,
   /паводк/i,
   /наводнен/i,
+  /новост(?:ь|и|ей|ям|ями|ях|ью)(?![а-яё])/i,
   /рейтинг/i,
   /\blatest\b/i,
   /\bcurrent\b/i,
@@ -206,6 +215,7 @@ const RECENCY_SENSITIVE_PATTERNS = [
   /\ba\s+couple\s+of\s+days\s+ago\b/i,
   /\bup[\s-]?to[\s-]?date\b/i,
   /\brecent\b/i,
+  /\bnews\b/i,
   /\bwhat'?s\s+new\b/i,
   /\bwho\s+is\s+the\s+(?:latest|current|last|reigning)\s+(?:coach|manager|mayor|president|minister|governor|champion(?!ship)|winners?)\b/i,
   /\bwhen\s+(?:will|does)\s+.*\b(start|begin)\b/i,
@@ -432,6 +442,12 @@ export function isRecencySensitiveRequest(text: string): boolean {
   return RECENCY_SENSITIVE_PATTERNS.some((pattern) => pattern.test(normalized))
 }
 
+export function isNewsQuery(text: string): boolean {
+  const normalized = stripWebSearchForceCode(normalizeText(text))
+  if (!normalized) return false
+  return NEWS_QUERY_PATTERNS.some((pattern) => pattern.test(normalized))
+}
+
 export function shouldRequestOpenAiWebSearchSources(text: string): boolean {
   const normalized = stripWebSearchForceCode(normalizeText(text))
   if (!normalized) return false
@@ -589,6 +605,128 @@ export function formatOpenAiWebSearchAnswer(params: {
 }): string {
   void params.sources
   void params.language
-  const trimmed = stripInlineSourceMentions(keepOnlyCelsius(normalizeText(params.answer)))
+  const hasListLikeStructure = /(?:^|\r?\n)\s*(?:[-*•]\s+|\d+\.\s+)/m.test(params.answer)
+  const trimmed = hasListLikeStructure
+    ? params.answer
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => stripInlineSourceMentions(keepOnlyCelsius(normalizeText(line))))
+        .filter(Boolean)
+        .join('\n')
+    : stripInlineSourceMentions(keepOnlyCelsius(normalizeText(params.answer)))
   return trimmed.startsWith('(i)') ? trimmed : `(i) ${trimmed}`
+}
+
+type RussianWebSearchCompressionDetailLevel = 0 | 1 | 2
+
+type RussianWebSearchCompressionConfig = {
+  maxSentences: number
+  maxChars: number
+}
+
+type RussianWebSearchListCompressionConfig = {
+  maxItems: number
+  maxChars: number
+}
+
+const RU_WEB_SEARCH_COMPRESSION: Record<RussianWebSearchCompressionDetailLevel, RussianWebSearchCompressionConfig> = {
+  0: { maxSentences: 3, maxChars: 320 },
+  1: { maxSentences: 5, maxChars: 520 },
+  2: { maxSentences: 8, maxChars: 760 },
+}
+
+const RU_WEB_SEARCH_LIST_COMPRESSION: Record<RussianWebSearchCompressionDetailLevel, RussianWebSearchListCompressionConfig> = {
+  0: { maxItems: 3, maxChars: 500 },
+  1: { maxItems: 5, maxChars: 700 },
+  2: { maxItems: 7, maxChars: 900 },
+}
+
+function splitIntoSentences(input: string): string[] {
+  const matches = input.match(/[^.!?…]+(?:[.!?…]+|$)/g)
+  if (!matches) return []
+  return matches.map((s) => s.trim()).filter(Boolean)
+}
+
+function splitIntoLines(input: string): string[] {
+  return input
+    .split(/\r?\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
+function isBulletLine(line: string): boolean {
+  return /^(?:[-*•]\s+|\d+\.\s+)/.test(line)
+}
+
+function compressListLikeText(input: string, detailLevel: RussianWebSearchCompressionDetailLevel): string | null {
+  const lines = splitIntoLines(input)
+  const linesBulletCount = lines.filter((line) => isBulletLine(line)).length
+
+  const compact = input.replace(/\s+/g, ' ').trim()
+  const inlineSegments = compact
+    .split(/(?=(?:^|\s)(?:[-*•]\s+|\d+\.\s+))/)
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+  const inlineBulletCount = inlineSegments.filter((segment) => isBulletLine(segment)).length
+
+  if (linesBulletCount < 2 && inlineBulletCount < 2) return null
+
+  const sourceSegments = linesBulletCount >= 2 ? lines : inlineSegments
+  const bulletIndexes = sourceSegments
+    .map((segment, idx) => (isBulletLine(segment) ? idx : -1))
+    .filter((idx) => idx >= 0)
+  const firstBullet = bulletIndexes[0] ?? 0
+  const intro = firstBullet > 0 ? sourceSegments.slice(0, firstBullet).join(' ') : ''
+  const bulletLines = sourceSegments.filter((segment) => isBulletLine(segment))
+  const limits = RU_WEB_SEARCH_LIST_COMPRESSION[detailLevel] ?? RU_WEB_SEARCH_LIST_COMPRESSION[0]
+
+  const selectedBullets = bulletLines.slice(0, limits.maxItems)
+  const assembled = [intro, ...selectedBullets].filter(Boolean).join('\n')
+  if (!assembled) return null
+
+  return assembled.length > limits.maxChars
+    ? clampByWordBoundary(assembled, limits.maxChars)
+    : assembled
+}
+
+function clampByWordBoundary(input: string, maxChars: number): string {
+  if (input.length <= maxChars) return input
+  const rough = input.slice(0, maxChars + 1).trimEnd()
+  const lastSpace = rough.lastIndexOf(' ')
+  const minBoundary = Math.floor(maxChars * 0.6)
+  const cut = lastSpace >= minBoundary ? rough.slice(0, lastSpace) : rough.slice(0, maxChars)
+  const normalizedCut = cut.trim().replace(/[,:;\-–—\s]+$/g, '')
+  if (!normalizedCut) return input.slice(0, maxChars).trim()
+  return /[.!?…]$/.test(normalizedCut) ? normalizedCut : `${normalizedCut}...`
+}
+
+/**
+ * Сжимает только русские web-search ответы в режиме communication.
+ * Не расширяет текст: если он уже короткий, возвращается без изменений.
+ */
+export function compressRussianWebSearchAnswer(params: {
+  answer: string
+  detailLevel: RussianWebSearchCompressionDetailLevel
+}): string {
+  const normalized = normalizeText(params.answer)
+  if (!normalized) return normalized
+
+  const listCompressed = compressListLikeText(params.answer, params.detailLevel)
+  if (listCompressed) return listCompressed
+
+  const limits = RU_WEB_SEARCH_COMPRESSION[params.detailLevel] ?? RU_WEB_SEARCH_COMPRESSION[0]
+  const sentences = splitIntoSentences(normalized)
+  const sentenceCount = sentences.length
+  const exceedsSentenceLimit = sentenceCount > limits.maxSentences
+  const exceedsCharLimit = normalized.length > limits.maxChars
+  if (!exceedsSentenceLimit && !exceedsCharLimit) return normalized
+
+  const reducedBySentence = exceedsSentenceLimit
+    ? sentences.slice(0, limits.maxSentences).join(' ')
+    : normalized
+
+  return reducedBySentence.length > limits.maxChars
+    ? clampByWordBoundary(reducedBySentence, limits.maxChars)
+    : reducedBySentence
 }
