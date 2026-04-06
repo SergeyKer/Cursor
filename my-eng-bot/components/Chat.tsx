@@ -14,6 +14,7 @@ interface ChatProps {
   settings: Settings
   loading: boolean
   searchingInternet?: boolean
+  searchingInternetLang?: 'ru' | 'en'
   atLimit: boolean
   onSend: (text: string) => void
   firstMessageError?: string
@@ -458,6 +459,7 @@ export default function Chat({
   settings,
   loading,
   searchingInternet = false,
+  searchingInternetLang = 'ru',
   atLimit,
   onSend,
   firstMessageError,
@@ -947,7 +949,7 @@ export default function Chat({
   }, [messages.length])
 
   /** Диалог и общение — MyEng; тренировка перевода — без изменений. */
-  const isCommunicationEnglishInput = settings.mode === 'communication' && settings.communicationInputExpectedLang === 'en'
+  const isSearchingIndicatorEnglish = settings.mode === 'communication' && searchingInternetLang === 'en'
   const sendButtonLabelShort = 'Send'
   const sendButtonLabelLong =
     settings.mode === 'communication' && settings.communicationInputExpectedLang === 'en' ? 'Send' : 'Отправить'
@@ -955,7 +957,7 @@ export default function Chat({
     settings.mode === 'translation'
       ? `ИИ печатает${retryMessage ? `… ${retryMessage}` : '…'}`
       : searchingInternet
-        ? isCommunicationEnglishInput
+        ? isSearchingIndicatorEnglish
           ? 'MyEng is searching the web...'
           : 'MyEng ищет в интернете...'
         : `MyEng печатает${retryMessage ? `… ${retryMessage}` : '...'}`
@@ -1265,14 +1267,21 @@ function MessageBubble({
   translationHeadingWelcome?: boolean
 }) {
   const isUser = message.role === 'user'
+  const isInternetMessage =
+    message.role === 'assistant' &&
+    (Boolean(message.webSearchTriggered) || (message.webSearchSources?.length ?? 0) > 0)
+  const visibleContent =
+    message.role === 'assistant' && !isInternetMessage
+      ? message.content.replace(/^\s*\(i\)\s*/i, '').trimStart()
+      : message.content
   const [showTranslation, setShowTranslation] = React.useState(false)
   const translationRequestedRef = useRef(false)
   const prevTranslationErrorRef = useRef<string | undefined>(undefined)
   const prevActiveAssistantIndexRef = useRef(activeAssistantIndex)
   const { comment, rest } =
-    message.role === 'assistant' ? parseCorrection(message.content) : { comment: null, rest: message.content }
+    message.role === 'assistant' ? parseCorrection(visibleContent) : { comment: null, rest: visibleContent }
 
-  const displayText = message.role === 'assistant' ? rest : message.content
+  const displayText = message.role === 'assistant' ? rest : visibleContent
   const isTranslationMode = mode === 'translation' && !isUser
   const { mainBefore, invitation: invitationText, mainAfter } =
     isTranslationMode && displayText
@@ -1292,15 +1301,15 @@ function MessageBubble({
     // Для озвучки:
     // 1) если есть "Повтори", озвучиваем только его;
     // 2) иначе озвучиваем основной текст, убрав служебные префиксы Скажи/Повтори/Say/Repeat.
-    const base = repeatTextForCard || rest || message.content
+    const base = repeatTextForCard || rest || visibleContent
     const speakText = base
       ? base.replace(/^(Скажи|Повтори|Say|Repeat)\s*:?\s*/i, '').trim()
       : ''
     if (speakText) speak(speakText, voiceId)
   }
 
-  const textToTranslate = repeatTextForCard || rest || message.content
-  const errorLike = !isUser && isErrorLikeMessage(message.content)
+  const textToTranslate = repeatTextForCard || rest || visibleContent
+  const errorLike = !isUser && isErrorLikeMessage(visibleContent)
   const hasSpeakableText =
     !isUser && mode !== 'translation' && Boolean(textToTranslate) && !errorLike && (mode !== 'communication' || isCommunicationEnglish)
   const hasTranslationData = !isUser && Boolean(message.translation)

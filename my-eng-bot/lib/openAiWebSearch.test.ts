@@ -112,6 +112,11 @@ describe('shouldUseOpenAiWebSearch', () => {
     expect(shouldUseOpenAiWebSearch('новостройка рядом с парком')).toBe(false)
   })
 
+  it('does not trigger on narrative weather statements without explicit internet intent', () => {
+    expect(shouldUseOpenAiWebSearch('плохая была погода в среду')).toBe(false)
+    expect(shouldUseOpenAiWebSearch('хорошая погода была на выходных')).toBe(false)
+  })
+
   it('detects balanced recency phrases in English', () => {
     expect(shouldUseOpenAiWebSearch("What's new in AI this month?")).toBe(true)
     expect(shouldUseOpenAiWebSearch('Give me up-to-date exchange rate info')).toBe(true)

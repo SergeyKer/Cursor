@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   applyGismeteoLocationAliases,
   callGismeteoWeatherAnswer,
-  extractWeatherLocationQuery,
 } from '@/lib/gismeteoWeather'
+import { extractWeatherLocationQuery } from '@/lib/weatherLocationQuery'
 import { fetchWithProxyFallback } from '@/lib/proxyFetch'
 
 vi.mock('@/lib/proxyFetch', () => ({

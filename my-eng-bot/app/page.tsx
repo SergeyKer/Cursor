@@ -27,7 +27,7 @@ import {
   shouldRequestAllOpenAiWebSearchSources,
   shouldRequestOpenAiWebSearchSources,
 } from '@/lib/openAiWebSearchShared'
-import { getCommunicationWebSearchDecision } from '@/lib/webSearchContext'
+import { predictWillFetchFromInternet } from '@/lib/predictCommunicationInternetFetch'
 import type {
   AppMode,
   Audience,
@@ -275,6 +275,7 @@ export default function Home() {
   const [loadingTranslationIndex, setLoadingTranslationIndex] = useState<number | null>(null)
   const [forceNextMicLang, setForceNextMicLang] = useState<'ru' | 'en' | null>(null)
   const [searchingInternet, setSearchingInternet] = useState(false)
+  const [searchingInternetLang, setSearchingInternetLang] = useState<'ru' | 'en'>('ru')
   const [lessonMenuContext, setLessonMenuContext] = useState<LessonMenuContext | null>(null)
   const [activeLearningLessonId, setActiveLearningLessonId] = useState<string | null>(null)
   const dialogueCorrectAnswers = React.useMemo(() => countDialogueFinalCorrectAnswers(messages), [messages])
@@ -965,15 +966,6 @@ export default function Home() {
         settings.mode === 'communication' &&
         !explicitTranslateTarget &&
         shouldRequestAllOpenAiWebSearchSources(text)
-      const searchDecision = getCommunicationWebSearchDecision({
-        mode: settings.mode,
-        explicitTranslateTarget,
-        rawText: text,
-        cleanedText: text,
-        recentMessages: messages,
-      })
-      const shouldSearchInternet =
-        searchDecision.requested
       const userMsg: ChatMessage = { role: 'user', content: text }
       if (settings.mode === 'communication') {
         setSettings((prev) => ({
@@ -982,7 +974,19 @@ export default function Home() {
         }))
       }
       const nextMessages = [...messages, userMsg]
+      const shouldSearchInternet = predictWillFetchFromInternet({
+        mode: settings.mode,
+        explicitTranslateTarget,
+        rawText: text,
+        messagesWithCurrentUser: nextMessages,
+      })
       setMessages(nextMessages)
+      if (settings.mode === 'communication') {
+        const indicatorLang = getExpectedCommunicationReplyLang(nextMessages, {
+          inputPreference: settings.communicationInputExpectedLang,
+        })
+        setSearchingInternetLang(indicatorLang === 'en' ? 'en' : 'ru')
+      }
       if (sourceRequestOnly || sourceRequestShowAll) {
         const previousAssistantMessage = [...messages]
           .reverse()
@@ -1571,6 +1575,7 @@ export default function Home() {
             settings={settings}
             loading={loading}
             searchingInternet={searchingInternet}
+            searchingInternetLang={searchingInternetLang}
             atLimit={atLimit}
             onSend={handleSend}
             firstMessageError={ERROR_FIRST_MESSAGE}

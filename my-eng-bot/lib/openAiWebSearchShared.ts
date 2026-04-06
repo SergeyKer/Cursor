@@ -447,11 +447,46 @@ function isBareWeatherTopicOnly(text: string): boolean {
   return false
 }
 
+/**
+ * Повествовательная реплика о погоде (без явной команды "в интернете") — это обычный диалог,
+ * а не запрос на веб-поиск.
+ */
+function isNarrativeWeatherStatementWithoutInternetIntent(text: string): boolean {
+  const n = normalizeText(text).toLowerCase()
+  if (!n) return false
+  const hasWeatherTheme = /(погод[а-яё]*|weather|forecast|temperature)/i.test(n)
+  if (!hasWeatherTheme) return false
+
+  const hasQuestionForm =
+    /[?]/.test(n) ||
+    /^(?:какая|какой|какое|какие|как(?:ая|ой)?|что|где|когда|почему|зачем|what|how|where|when|why)\b/i.test(n)
+  if (hasQuestionForm) return false
+
+  const hasNarrativeTone =
+    /(был[аои]?|were|was)\b/i.test(n) ||
+    /(хорош[а-я]*|плох[а-я]*|дожд[а-я]*|солнеч[а-я]*|ветрен[а-я]*|жарк[а-я]*|холодн[а-я]*|тепл[а-я]*|rainy|sunny|windy|cold|warm|cloudy)/i.test(
+      n
+    )
+  if (!hasNarrativeTone) return false
+
+  const hasTimeReference =
+    /(?:^|\s)в\s+(?:понедельник|вторник|среду|четверг|пятницу|субботу|воскресенье)(?:\s|$|[?.!,;:])/i.test(n) ||
+    /(?:^|\s)(?:на\s+)?выходн(?:ые|ых|ым|ыми|ах|ам|ую)?(?:\s|$|[?.!,;:])/i.test(n) ||
+    /(?:^|\s)(?:эту|прошл(?:ую|ой))\s+недел[юе](?:\s|$|[?.!,;:])/i.test(n) ||
+    /(?:^|\s)on\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?:\s|$|[?.!,;:])/i.test(n) ||
+    /(?:^|\s)last\s+week(?:\s|$|[?.!,;:])/i.test(n) ||
+    /(?:^|\s)weekends?(?:\s|$|[?.!,;:])/i.test(n)
+
+  return hasTimeReference
+}
+
 export function shouldUseOpenAiWebSearch(text: string): boolean {
   const normalized = normalizeText(text)
   if (!normalized) return false
   const stripped = stripWebSearchForceCode(normalized)
+  const explicitInternetLookup = isExplicitInternetLookupRequest(stripped)
   if (isBareWeatherTopicOnly(stripped)) return false
+  if (isNarrativeWeatherStatementWithoutInternetIntent(stripped) && !explicitInternetLookup) return false
   return hasWebSearchForceCode(normalized) || isWebSearchRequest(stripped) || isCurrentInfoRequest(stripped)
 }
 

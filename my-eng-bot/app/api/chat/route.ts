@@ -3,7 +3,8 @@ import type { AppMode, Audience, ChatMessage, LevelId, TenseId } from '@/lib/typ
 import { CHILD_TENSES } from '@/lib/constants'
 import { detectLangFromText } from '@/lib/detectLang'
 import { classifyOpenAiForbidden } from '@/lib/openAiForbidden'
-import { callGismeteoWeatherAnswer, extractWeatherLocationQuery } from '@/lib/gismeteoWeather'
+import { callGismeteoWeatherAnswer } from '@/lib/gismeteoWeather'
+import { extractWeatherLocationQuery, getLastWeatherLocationQuery } from '@/lib/weatherLocationQuery'
 import { shouldAllowGismeteoByIntent } from '@/lib/weatherIntentGuard'
 import {
   callOpenAiWebSearchAnswer,
@@ -3645,22 +3646,6 @@ function getLastAssistantContent(messages: ChatMessage[]): string | null {
   return null
 }
 
-function getLastWeatherLocationQuery(messages: ChatMessage[]): string | null {
-  for (let i = messages.length - 2; i >= 0; i--) {
-    const message = messages[i]
-    if (!message || message.role !== 'user') continue
-    if (isWeatherFollowupRequest(message.content)) continue
-    if (!isWeatherForecastRequest(message.content)) continue
-
-    const locationQuery = extractWeatherLocationQuery(message.content)
-    if (locationQuery) {
-      return locationQuery
-    }
-  }
-
-  return null
-}
-
 function isDialogueFinalCorrectResponse(params: {
   content: string
   userText: string
@@ -5145,11 +5130,15 @@ export async function POST(req: NextRequest) {
           seedText: dialogSeed,
         })
 
+        const hasConfirmedWebSources = freshness.sources.length > 0
+        const contentForClient = hasConfirmedWebSources
+          ? finalizedSearchContent
+          : stripInternetPrefix(finalizedSearchContent)
         return NextResponse.json({
-          content: finalizedSearchContent,
+          content: contentForClient,
           webSearchSourcesRequested: communicationSearchSourcesRequested,
           webSearchSources: freshness.sources,
-          webSearchTriggered: true,
+          ...(hasConfirmedWebSources ? { webSearchTriggered: true } : {}),
           ...(freshness.hiddenCount > 0 ? { webSearchSourcesHiddenCount: freshness.hiddenCount } : {}),
         })
       }
@@ -5175,7 +5164,7 @@ export async function POST(req: NextRequest) {
         language: detectedUserLang,
       })
 
-      return NextResponse.json({ content: searchFailureContent, webSearchTriggered: true })
+      return NextResponse.json({ content: stripInternetPrefix(searchFailureContent) })
     }
 
     const systemPrompt = buildSystemPrompt({
@@ -5886,7 +5875,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         }
       }
 
-      return NextResponse.json({ content: cleaned })
+      return NextResponse.json({ content: stripInternetPrefix(cleaned) })
     }
 
     // Защита от “обрубков” вида "What" / "Yes" и т.п.: считаем это некорректным ответом и просим повтор.
