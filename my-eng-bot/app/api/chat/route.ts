@@ -4,6 +4,7 @@ import { CHILD_TENSES } from '@/lib/constants'
 import { detectLangFromText } from '@/lib/detectLang'
 import { classifyOpenAiForbidden } from '@/lib/openAiForbidden'
 import { callGismeteoWeatherAnswer, extractWeatherLocationQuery } from '@/lib/gismeteoWeather'
+import { shouldAllowGismeteoByIntent } from '@/lib/weatherIntentGuard'
 import {
   callOpenAiWebSearchAnswer,
   filterFreshWebSearchSources,
@@ -4889,6 +4890,10 @@ export async function POST(req: NextRequest) {
       shouldRequestOpenAiWebSearchSources(lastUserContentForResponse) ||
       shouldRequestAllOpenAiWebSearchSources(lastUserContentForResponse)
     const weatherFollowupRequested = isWeatherFollowupRequest(lastUserContentForResponse)
+    const shouldAllowGismeteoIntent = shouldAllowGismeteoByIntent({
+      text: lastUserContentForResponse,
+      isFollowup: weatherFollowupRequested,
+    })
     const weatherLocationQueryOverride = weatherFollowupRequested ? getLastWeatherLocationQuery(recentMessages) : null
     const extractedWeatherLocation = extractWeatherLocationQuery(lastUserContentForResponse)
     const hasWeatherLocationForGismeteo = Boolean(
@@ -4899,6 +4904,7 @@ export async function POST(req: NextRequest) {
     if (
       mode === 'communication' &&
       !explicitTranslateTarget &&
+      shouldAllowGismeteoIntent &&
       (isWeatherForecastRequest(lastUserContentForResponse) || weatherFollowupRequested) &&
       hasWeatherLocationForGismeteo
     ) {

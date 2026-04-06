@@ -34,6 +34,7 @@ describe('extractWeatherLocationQuery', () => {
 
   it('extracts London from forecast requests with horizon', () => {
     expect(extractWeatherLocationQuery('weather forecast for London next week')).toBe('London')
+    expect(extractWeatherLocationQuery('What is the weather in London on Monday?')).toBe('London')
   })
 
   it('keeps russian location extraction stable', () => {
@@ -42,6 +43,10 @@ describe('extractWeatherLocationQuery', () => {
 
   it('returns null when there is no city (topic-style messages)', () => {
     expect(extractWeatherLocationQuery('weather')).toBeNull()
+    expect(extractWeatherLocationQuery('Every weekends')).toBeNull()
+    expect(extractWeatherLocationQuery('играли на weekends')).toBeNull()
+    expect(extractWeatherLocationQuery('играли в футбол на выходных')).toBeNull()
+    expect(extractWeatherLocationQuery('погода в субботу была не очень')).toBeNull()
     expect(extractWeatherLocationQuery('погода')).toBeNull()
     expect(extractWeatherLocationQuery('температура')).toBeNull()
     expect(extractWeatherLocationQuery('Давай поговорим про погоду')).toBeNull()

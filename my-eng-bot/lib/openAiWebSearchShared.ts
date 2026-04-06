@@ -158,7 +158,6 @@ const WEATHER_BASE_PATTERNS = [
   /температур[а-яё]*/i,
   /прогноз(?:\s+погоды)?/i,
   /выходн(?:ые|ых|ым|ыми|ах|ам|ую)?/i,
-  /weekend/i,
   /weather/i,
   /forecast/i,
 ]
@@ -177,6 +176,7 @@ const WEATHER_HORIZON_PATTERNS = [
   /today/i,
   /next\s+week/i,
   /next\s+month/i,
+  /weekends?/i,
 ]
 
 const WEATHER_FOLLOWUP_PATTERNS = [

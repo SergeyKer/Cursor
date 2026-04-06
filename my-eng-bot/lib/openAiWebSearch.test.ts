@@ -251,11 +251,14 @@ describe('isWeatherForecastRequest', () => {
     expect(isWeatherForecastRequest('А в выходные в Красногорске?')).toBe(true)
     expect(isWeatherForecastRequest('weather forecast for next week')).toBe(true)
     expect(isWeatherForecastRequest('monthly weather forecast for London')).toBe(true)
+    expect(isWeatherForecastRequest('weather forecast for next weekend')).toBe(true)
   })
 
   it('does not trigger on unrelated horizon phrases', () => {
     expect(isWeatherForecastRequest('Встретимся завтра утром?')).toBe(false)
     expect(isWeatherForecastRequest('Отчёт на неделю готов?')).toBe(false)
+    expect(isWeatherForecastRequest('Every weekends')).toBe(false)
+    expect(isWeatherForecastRequest('we play football on weekends')).toBe(false)
   })
 })
 
