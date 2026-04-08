@@ -368,9 +368,9 @@ SUCCESS protocol (if user answer is correct), strict order:
 
 ERROR protocol (if there is a mistake), strict:
 - Line 1: "Комментарий: " + short Russian feedback
-- Line 2: "Время: " + ${tenseName} + very short Russian hint
+- Line 2: "Время: " + ${tenseName} + short Russian explanation tied to the meaning of this exact sentence: say why this tense fits, name the clue words/markers, and mention the context (habit, fact, action now, result, finished past event, future, etc.). Do not just name the tense.
 - Line 3: "Конструкция: " + very short tense pattern for learner (example for Present Simple: "Subject + V1(s/es)")
-- Line 4: "Повтори: " + full corrected English sentence.
+- Line 4: "Повтори: " + full corrected English sentence that translates only the Russian phrase from the task prompt. Do not reuse wording from the user's answer if it conflicts with the prompt.
 
 Rules:
 - The Russian sentence must sound natural, conversational, and easy to say in everyday speech.
@@ -2975,8 +2975,36 @@ function replaceTranslationConstructionLine(content: string, coachText: string):
 
 function translationTimeHint(tense: string): string {
   const tenseName = TENSE_NAMES[tense] ?? 'Present Simple'
-  if (tense === 'all') return 'Any tense. Выберите одно время и соблюдайте его в ответе.'
-  return `${tenseName}. Используйте это время в полном английском предложении.`
+  if (tense === 'all') return 'Любое время. Выберите одно подходящее время по смыслу фразы и не смешивайте времена.'
+
+  const hints: Record<string, string> = {
+    present_simple:
+      'Здесь речь о привычке или факте, а не о действии прямо сейчас; маркеры usually, often, every day, always.',
+    present_continuous:
+      'Здесь действие происходит сейчас или в момент речи; маркеры now, right now, at the moment, today.',
+    present_perfect:
+      'Здесь важен результат к настоящему или опыт; маркеры already, just, yet, ever, never, since, for.',
+    present_perfect_continuous:
+      'Здесь подчёркивается длительность действия до настоящего момента; маркеры for, since, all day, lately.',
+    past_simple:
+      'Здесь действие завершено в прошлом; маркеры yesterday, last week, ago, in 2020.',
+    past_continuous:
+      'Здесь действие было в процессе в прошлом; маркеры while, when, at that time, yesterday at 5.',
+    past_perfect:
+      'Здесь одно прошлое действие произошло раньше другого прошлого события; маркеры before, by the time, already.',
+    past_perfect_continuous:
+      'Здесь подчёркивается длительность действия до другого прошлого момента; маркеры for, since, before.',
+    future_simple:
+      'Здесь речь о будущем действии, обещании или прогнозе; маркеры tomorrow, next week, soon, will.',
+    future_continuous:
+      'Здесь действие будет происходить в определённый момент будущего; маркеры this time tomorrow, at 5 tomorrow.',
+    future_perfect:
+      'Здесь к будущему моменту результат уже будет достигнут; маркеры by tomorrow, by then, by the time.',
+    future_perfect_continuous:
+      'Здесь подчёркивается длительность действия к будущему моменту; маркеры for, by the time, by then.',
+  }
+
+  return `${tenseName} — ${hints[tense] ?? 'здесь это время выбирают по смыслу фразы и временным маркерам.'}`
 }
 
 function isLowSignalTranslationInput(text: string): boolean {
@@ -3112,7 +3140,7 @@ function ensureTranslationProtocolBlocks(
     comment = 'Комментарий: Есть неточность в грамматике. Давайте сверимся с образцом в блоке «Повтори».'
   }
   if (!timeLine || /^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:\s*[-–—]\s*$/i.test(timeLine)) {
-    timeLine = `Время: ${translationTimeHint(tense)}`
+      timeLine = `Время: ${translationTimeHint(tense)}`
   }
   if (
     !construction ||
@@ -3124,7 +3152,7 @@ function ensureTranslationProtocolBlocks(
     !hasPraise &&
     (!repeat || /^[\s\-•]*(?:\d+[\.)]\s*)*Повтори\s*:\s*[-–—]\s*$/i.test(repeat))
   ) {
-    repeat = 'Повтори: Write one complete English sentence for the same Russian phrase.'
+    repeat = 'Повтори: Write the correct English translation of the given Russian sentence.'
   }
 
   const out = [comment, timeLine, construction]
@@ -3459,7 +3487,7 @@ function keepOnlyCommentAndRepeatOnInvalidTranslationInput(content: string, incl
     ? repeatLine
         .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*/i, 'Повтори: ')
         .trim()
-    : 'Повтори: Write one complete English sentence for the same Russian phrase.'
+    : 'Повтори: Write the correct English translation of the given Russian sentence.'
   return `${commentLine}\n${normalizedRepeat}`
 }
 
@@ -3682,11 +3710,25 @@ function replaceGenericRepeatFallbackWithPraiseIfUserLikelyCorrect(params: {
   return stripRepeatOnPraise(filtered.join('\n'))
 }
 
-const GENERIC_TRANSLATION_REPEAT_FALLBACK = 'Write one complete English sentence for the same Russian phrase.'
+const GENERIC_TRANSLATION_REPEAT_FALLBACK = 'Write the correct English translation of the given Russian sentence.'
 
 function isGenericTranslationRepeatFallback(text: string | null): boolean {
   if (!text) return false
   return text.trim().toLowerCase() === GENERIC_TRANSLATION_REPEAT_FALLBACK.toLowerCase()
+}
+
+function ensureTranslationRepeatFallbackForMixedInput(content: string, userText: string): string {
+  if (!/[А-Яа-яЁё]/.test(userText)) return content
+  const strippedInvitation = content.replace(/\b(?:Переведи|Переведите)\s+на\s+английский\.\s*/gi, '\n')
+  const cleaned = strippedInvitation
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !/^(?:Переведи|Переведите)\b/i.test(line))
+    .join('\n')
+    .trim()
+  if (getTranslationRepeatSentence(cleaned)) return cleaned
+  return `${cleaned}\nПовтори: ${GENERIC_TRANSLATION_REPEAT_FALLBACK}`.trim()
 }
 
 function buildTranslationMissingRepeatRepairInstruction(params: {
@@ -3699,7 +3741,8 @@ function buildTranslationMissingRepeatRepairInstruction(params: {
     'Your last output missed the actual corrected sentence.',
     `Required tense remains "${tenseName}".`,
     'In the line "Повтори:" you MUST write the real full corrected English sentence for the same Russian phrase.',
-    'Never write placeholders like "Write one complete English sentence for the same Russian phrase."',
+    'Do not borrow words from the user\'s answer to build that sentence if they conflict with the Russian prompt.',
+    'Never write placeholders like "Write the correct English translation of the given Russian sentence."',
     fallbackPrompt ? `The Russian phrase to correct is: "${fallbackPrompt}"` : null,
     'Keep the visible protocol only: Комментарий / Время / Конструкция / Повтори.',
   ]
@@ -4331,18 +4374,21 @@ function enrichTranslationCommentQuality(params: {
   const mergedReasonParts = [
     ...reasonParts,
     ...(prepositionHintParts.length > 0 ? prepositionHintParts : []),
-  ].join(' ')
+  ]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join('\n')
 
   if (mergedReasonParts.length === 0) return content
 
   // Когда других причин нет, а только предлог — дополняем текущий комментарий, не перезаписывая его целиком.
   if (reasonParts.length === 0 && prepositionHintParts.length > 0) {
-    lines[commentIndex] = `${lines[commentIndex]} ${prepositionHintParts.join(' ')}`
+    lines[commentIndex] = `${lines[commentIndex]}\n${prepositionHintParts.join('\n')}`
     return lines.join('\n')
   }
 
   // Сохраняем исходный комментарий ИИ и дополняем его нашими обнаруженными причинами.
-  lines[commentIndex] = `Комментарий: ${rawComment} ${mergedReasonParts}`.trim()
+  lines[commentIndex] = `Комментарий: ${rawComment}\n${mergedReasonParts}`.trim()
   return lines.join('\n')
 }
 
@@ -5487,13 +5533,15 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       })
     }
     let translationSuccessFlow = false
+    const translationAnswerContainsCyrillic = !isFirstTurn && /[А-Яа-яЁё]/.test(lastUserContentForResponse)
     if (mode === 'translation') {
       sanitized = normalizeTranslationCommentStyle(sanitized)
       if (isFirstTurn) {
         sanitized = ensureFirstTranslationInvitation(sanitized)
       } else {
+        const canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic
         const initialSuccessLike = isTranslationSuccessLikeContent(sanitized)
-        if (initialSuccessLike) {
+        if (initialSuccessLike && canTreatTranslationAsSuccess) {
           sanitized = ensureTranslationSuccessBlocks(sanitized, {
             tense: normalizedTense,
             topic,
@@ -5512,7 +5560,11 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             fallbackPrompt: lastTranslationPrompt,
           })
           const repeatSentence = getTranslationRepeatSentence(sanitized)
-          if (repeatSentence && isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, repeatSentence)) {
+          if (
+            canTreatTranslationAsSuccess &&
+            repeatSentence &&
+            isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, repeatSentence)
+          ) {
             // Fast-path: модель фактически попросила пользователя повторить его же ответ — значит, ответ корректный.
             sanitized = forcePraiseIfRepeatMatchesUser({ content: sanitized, userText: lastUserContentForResponse })
           } else {
@@ -5531,6 +5583,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               sanitized =
                 'Комментарий: Некорректный ввод. Введите правильный перевод полным предложением на английском языке.'
             }
+            sanitized = ensureTranslationRepeatFallbackForMixedInput(sanitized, lastUserContentForResponse)
           }
 
           // Coach-текст для блока "Конструкция" (привязываем правило к текущему "Повтори").
@@ -5540,7 +5593,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             sanitized = replaceTranslationConstructionLine(sanitized, coachText)
           }
 
-          if (isTranslationSuccessContent(sanitized)) {
+          if (isTranslationSuccessContent(sanitized) && !translationAnswerContainsCyrillic) {
             sanitized = ensureTranslationSuccessBlocks(sanitized, {
               tense: normalizedTense,
               topic,
@@ -5549,7 +5602,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               fallbackPrompt: lastTranslationPrompt,
               userText: lastUserContentForResponse,
             })
-            translationSuccessFlow = true
+            translationSuccessFlow = canTreatTranslationAsSuccess
           }
         }
       }
@@ -5558,7 +5611,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
       // Страховка: если есть явная похвала без "Повтори:", это SUCCESS-ветка.
       const repeatForFallback = getTranslationRepeatSentence(sanitized)
-      if (!repeatForFallback && hasTranslationPraiseComment(sanitized)) {
+      if (!repeatForFallback && hasTranslationPraiseComment(sanitized) && !/[А-Яа-яЁё]/.test(lastUserContentForResponse)) {
         sanitized = ensureTranslationSuccessBlocks(sanitized, {
           tense: normalizedTense,
           topic,
@@ -5629,6 +5682,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 repaired =
                   'Комментарий: Некорректный ввод. Введите правильный перевод полным предложением на английском языке.'
               }
+              repaired = ensureTranslationRepeatFallbackForMixedInput(repaired, lastUserContentForResponse)
 
               if (repairedRepeatSentence && !isGenericTranslationRepeatFallback(repairedRepeatSentence)) {
                 const coachText = buildTranslationConstructionCoachText(normalizedTense, repairedRepeatSentence)
@@ -6130,7 +6184,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           })
           if (repairedValid) {
             if (mode === 'translation') {
-              if (!isFirstTurn) {
+              if (!isFirstTurn && !translationAnswerContainsCyrillic) {
                 repaired = normalizeTranslationSuccessPayload(repaired, {
                   tense: normalizedTense,
                   topic,
@@ -6139,6 +6193,8 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                   fallbackPrompt: lastTranslationPrompt,
                   userText: lastUserContentForResponse,
                 })
+              } else if (translationAnswerContainsCyrillic) {
+                repaired = ensureTranslationRepeatFallbackForMixedInput(repaired, lastUserContentForResponse)
               }
               const translationGuard = applyCefrOutputGuard({
                 mode: 'translation',
@@ -6303,23 +6359,8 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
 
     if (mode === 'translation') {
       if (!isFirstTurn) {
-        sanitized = normalizeTranslationSuccessPayload(sanitized, {
-          tense: normalizedTense,
-          topic,
-          level,
-          audience,
-          fallbackPrompt: lastTranslationPrompt,
-          userText: lastUserContentForResponse,
-        })
-      }
-      const translationGuard = applyCefrOutputGuard({
-        mode: 'translation',
-        content: sanitized,
-        level: level as LevelId,
-        audience: audience as Audience,
-      })
-      const guardedContent = !isFirstTurn
-        ? normalizeTranslationSuccessPayload(translationGuard.content, {
+        if (!/[А-Яа-яЁё]/.test(lastUserContentForResponse)) {
+          sanitized = normalizeTranslationSuccessPayload(sanitized, {
             tense: normalizedTense,
             topic,
             level,
@@ -6327,7 +6368,25 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             fallbackPrompt: lastTranslationPrompt,
             userText: lastUserContentForResponse,
           })
-        : translationGuard.content
+        }
+      }
+      const translationGuard = applyCefrOutputGuard({
+        mode: 'translation',
+        content: sanitized,
+        level: level as LevelId,
+        audience: audience as Audience,
+      })
+      const guardedContent =
+        !isFirstTurn && !/[А-Яа-яЁё]/.test(lastUserContentForResponse)
+          ? normalizeTranslationSuccessPayload(translationGuard.content, {
+              tense: normalizedTense,
+              topic,
+              level,
+              audience,
+              fallbackPrompt: lastTranslationPrompt,
+              userText: lastUserContentForResponse,
+            })
+          : ensureTranslationRepeatFallbackForMixedInput(translationGuard.content, lastUserContentForResponse)
       return NextResponse.json({ content: guardedContent })
     }
 

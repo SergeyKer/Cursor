@@ -161,13 +161,13 @@ function buildAssistantSections(params: {
     sections.push({
       key: 'comment',
       tone: commentToneForContent(comment),
-      label: 'Комментарий',
+      label: '💡',
       text: comment,
       singleLine: true,
     })
   }
   if (tenseRef) {
-    sections.push({ key: 'tense-ref', tone: 'slate', label: 'Время', text: tenseRef, singleLine: true })
+    sections.push({ key: 'tense-ref', tone: 'slate', label: '⏱️', text: tenseRef, singleLine: true })
   }
   if (threeFormsText) {
     sections.push({
@@ -1716,6 +1716,7 @@ function SectionCard({
     singleLine &&
     (label === 'AI' || label === 'Переведи' || label === 'Переведи далее' || Boolean(emphasizeMainText))
   const hasLabel = label.trim().length > 0
+  const labelIsIconOnly = /^[\p{Extended_Pictographic}\s]+$/u.test(label.trim())
   const isCompactServiceLine = singleLine && italic && !hasLabel
   const isTextItalic = textItalic ?? italic
   const bodyContent = inlineMarkdownBold ? renderCommunicationBoldInline(text) : text
@@ -1743,7 +1744,8 @@ function SectionCard({
               <span
                 className={`${isAiInline ? 'font-semibold text-gray-700' : `font-medium ${labelClass}`}`}
               >
-                {label}:
+                {label}
+                {!labelIsIconOnly ? ':' : null}
               </span>
               {!(typeof text === 'string' && text.startsWith('\n')) ? ' ' : null}
             </>
