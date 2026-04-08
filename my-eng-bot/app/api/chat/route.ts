@@ -3280,6 +3280,46 @@ function extractTranslationFormLines(content: string): { positive: string | null
   return { positive, question, negative }
 }
 
+function isLikelyEnglishQuestion(text: string): boolean {
+  const normalized = normalizeEnglishForRepeatMatch(text)
+  if (!normalized) return false
+  if (/\?\s*$/.test(text.trim())) return true
+  return /^(what|when|where|why|how|who|which|whose|do|does|did|is|are|am|was|were|have|has|had|will|would|can|could|should|may|might|must)\b/i.test(
+    normalized
+  )
+}
+
+function isLikelyEnglishNegative(text: string): boolean {
+  const normalized = normalizeEnglishForRepeatMatch(text)
+  if (!normalized) return false
+  return /\b(?:not|don't|doesn't|didn't|won't|can't|isn't|aren't|wasn't|weren't|haven't|hasn't|hadn't)\b/i.test(normalized)
+}
+
+function doesUserMatchAnyTranslationForm(params: {
+  userText: string
+  forms: { positive: string | null; question: string | null; negative: string | null }
+}): boolean {
+  const { userText, forms } = params
+  return [forms.positive, forms.question, forms.negative]
+    .filter((s): s is string => Boolean(s))
+    .some((candidate) => isTranslationAnswerEffectivelyCorrect(userText, candidate))
+}
+
+function pickTranslationReferenceForm(params: {
+  userText: string
+  fallbackPrompt: string | null
+  forms: { positive: string | null; question: string | null; negative: string | null }
+}): string | null {
+  const { userText, fallbackPrompt, forms } = params
+  const promptLooksQuestion = Boolean(fallbackPrompt && /\?\s*$/.test(fallbackPrompt.trim()))
+  const userLooksQuestion = isLikelyEnglishQuestion(userText)
+  const userLooksNegative = isLikelyEnglishNegative(userText)
+
+  if ((promptLooksQuestion || userLooksQuestion) && forms.question) return forms.question
+  if (userLooksNegative && forms.negative) return forms.negative
+  return forms.positive ?? forms.question ?? forms.negative ?? null
+}
+
 function isTranslationSuccessContent(content: string): boolean {
   const lines = content
     .split(/\r?\n/)
@@ -3291,6 +3331,10 @@ function isTranslationSuccessContent(content: string): boolean {
   const commentLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(line)) ?? ''
   const commentBody = commentLine.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:\s*/i, '').trim()
   if (!commentBody) return false
+  const hasCorrectionSignal = /(?:проверь|исправ|ошиб|неверн|неправил|нужн|орфограф|лексическ|грамматик|spelling|word choice|verb form)/i.test(
+    commentBody
+  )
+  if (hasCorrectionSignal) return false
   const looksError = /^(Ошибка\b|Лексическая ошибка\b|Грамматическая ошибка\b|Некорректн|Неверн|Неправил)/i.test(commentBody)
   if (looksError) return false
   const looksPraise = /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)(?:[\s!,.?:;"'»)]|$)/i.test(commentBody)
@@ -3332,6 +3376,9 @@ function hasTranslationPraiseComment(content: string): boolean {
   const commentLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(line)) ?? ''
   const commentBody = commentLine.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:\s*/i, '').trim()
   if (!commentBody) return false
+  if (/(?:проверь|исправ|ошиб|неверн|неправил|нужн|орфограф|лексическ|грамматик|spelling|word choice|verb form)/i.test(commentBody)) {
+    return false
+  }
   return /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)(?:[\s!,.?:;"'»)]|$)/i.test(commentBody)
 }
 
@@ -3518,11 +3565,81 @@ function getTranslationRepeatSentence(content: string): string | null {
   return repeatText || null
 }
 
+const TRANSLATION_PROMPT_KEYWORDS_EN = new Set(Object.values(RU_TOPIC_KEYWORD_TO_EN))
+
+function extractTranslationPromptKeywords(text: string): string[] {
+  const tokens = text.toLowerCase().match(/[а-яё]+/gi) ?? []
+  const out: string[] = []
+  for (const token of tokens) {
+    const normalized = normalizeRuTopicKeyword(token)
+    const mapped = RU_TOPIC_KEYWORD_TO_EN[normalized]
+    if (mapped && !out.includes(mapped)) out.push(mapped)
+  }
+  return out
+}
+
+function extractTranslationAnswerKeywords(text: string): string[] {
+  return tokenizeEnglishWords(text).filter((token) => TRANSLATION_PROMPT_KEYWORDS_EN.has(token))
+}
+
+function hasTranslationPromptKeywordMismatch(prompt: string, userText: string): boolean {
+  const promptKeywords = extractTranslationPromptKeywords(prompt)
+  const userKeywords = extractTranslationAnswerKeywords(userText)
+  if (promptKeywords.length === 0 || userKeywords.length === 0) return false
+  return !promptKeywords.some((keyword) => userKeywords.includes(keyword))
+}
+
+function buildPromptAlignedRepeatSentence(baseText: string, prompt: string): string | null {
+  const promptKeywords = extractTranslationPromptKeywords(prompt)
+  const baseKeywords = extractTranslationAnswerKeywords(baseText)
+  if (promptKeywords.length === 0 || baseKeywords.length === 0) return null
+  if (promptKeywords.some((keyword) => baseKeywords.includes(keyword))) return null
+
+  const expectedKeyword = promptKeywords[0]
+  const baseKeyword = baseKeywords.find((keyword) => !promptKeywords.includes(keyword)) ?? baseKeywords[0]
+  if (!expectedKeyword || !baseKeyword) return null
+
+  const baseKeywordPattern = new RegExp(`\\b${escapeRegExp(baseKeyword)}\\b`, 'i')
+  if (!baseKeywordPattern.test(baseText)) return null
+
+  return normalizeEnglishSentenceForCard(baseText.replace(baseKeywordPattern, expectedKeyword))
+}
+
 function isTranslationAnswerEffectivelyCorrect(userText: string, repeatSentence: string): boolean {
   const userNorm = normalizeEnglishForRepeatMatch(userText)
   const repeatNorm = normalizeEnglishForRepeatMatch(repeatSentence)
   if (!userNorm || !repeatNorm) return false
   return userNorm === repeatNorm
+}
+
+function forceTranslationWordErrorProtocol(content: string, repeatSentence: string): string {
+  const repeat = normalizeEnglishSentenceForCard(repeatSentence)
+  if (!repeat) return content
+
+  const lines = content
+    .split(/\r?\n/)
+    .map((line) => stripLeadingAiPrefix(line).trim())
+    .filter(Boolean)
+
+  const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line))
+  const repeatIndex = lines.findIndex((line) => /^(Повтори|Repeat|Say)\s*:/i.test(line))
+
+  const commentLine = 'Комментарий: Лексическая ошибка. Проверь написание и выбор слова.'
+  const repeatLine = `Повтори: ${repeat}`
+
+  if (commentIndex === -1) {
+    lines.unshift(commentLine)
+  } else {
+    lines[commentIndex] = commentLine
+  }
+
+  if (repeatIndex === -1) {
+    lines.push(repeatLine)
+  } else {
+    lines[repeatIndex] = repeatLine
+  }
+
+  return lines.join('\n').trim()
 }
 
 function replaceFalsePositiveTranslationErrorWithPraise(params: {
@@ -4191,9 +4308,47 @@ function enrichTranslationCommentQuality(params: {
   const repeatTokens = repeatLower.split(/\s+/).map(normalizeEnglishToken).filter(Boolean)
   const userSet = new Set(userTokens)
   const repeatSet = new Set(repeatTokens)
+  const spellingMatchedUserTokens = new Set<string>()
+  const spellingTargets = new Set([
+    'am',
+    'is',
+    'are',
+    'was',
+    'were',
+    'be',
+    'been',
+    'being',
+    'have',
+    'has',
+    'had',
+    'do',
+    'does',
+    'did',
+    'will',
+    'would',
+    'can',
+    'could',
+    'should',
+    'may',
+    'might',
+    'must',
+  ])
 
   const repeatContentTokens = tokenizeEnglishWords(repeatSentence).filter(isContentWord)
   const userContentTokens = tokenizeEnglishWords(userText).filter(isContentWord)
+
+  for (const userToken of userTokens) {
+    if (!userToken || userToken.length < 3) continue
+    for (const repeatToken of repeatTokens) {
+      if (!repeatToken || repeatToken.length < 3) continue
+      if (!spellingTargets.has(repeatToken)) continue
+      if (userToken === repeatToken) continue
+      if (levenshteinDistance(userToken, repeatToken) > 2) continue
+      pushUniqueReason(reasonParts, `Орфографическая ошибка: ${userToken} нужно исправить на ${repeatToken}.`)
+      spellingMatchedUserTokens.add(userToken)
+      break
+    }
+  }
 
   const repeatHasSee = repeatSet.has('see') || repeatSet.has('sees')
   const userHasLook = userSet.has('look') || userSet.has('looks') || userSet.has('looking')
@@ -4273,12 +4428,13 @@ function enrichTranslationCommentQuality(params: {
     const userToken = userContentTokens[i] ?? ''
     const repeatToken = repeatContentTokens[i] ?? ''
     if (!userToken || !repeatToken) continue
+    if (spellingMatchedUserTokens.has(userToken)) continue
     if (userToken === repeatToken) continue
     if (userSet.has(`${repeatToken}s`) || repeatSet.has(`${userToken}s`)) continue
 
     const distance = levenshteinDistance(userToken, repeatToken)
     if (distance <= 2) {
-      pushUniqueReason(reasonParts, `Орфографическая ошибка: ${userToken} нужно исправить на ${repeatToken}.`)
+      pushUniqueReason(reasonParts, `Лексическая ошибка: ${userToken} нужно заменить на ${repeatToken}.`)
       continue
     }
 
@@ -4292,12 +4448,13 @@ function enrichTranslationCommentQuality(params: {
     }
   }
 
-  const unmatchedUserTokens = [...userContentTokens]
+  const unmatchedUserTokens = userContentTokens.filter((token) => !spellingMatchedUserTokens.has(token))
   const unmatchedRepeatTokens = [...repeatContentTokens]
   for (const userToken of userContentTokens) {
+    if (spellingMatchedUserTokens.has(userToken)) continue
     const bestIndex = unmatchedRepeatTokens.findIndex((repeatToken) => {
       const distance = levenshteinDistance(userToken, repeatToken)
-      if (distance <= 2) return true
+      if (distance <= 2 && (ENGLISH_STOP_WORDS.has(userToken) || ENGLISH_STOP_WORDS.has(repeatToken))) return true
       if (userToken === `${repeatToken}s` || repeatToken === `${userToken}s`) return true
       return false
     })
@@ -4314,7 +4471,7 @@ function enrichTranslationCommentQuality(params: {
     if (userToken && repeatToken && userToken !== repeatToken) {
       const distance = levenshteinDistance(userToken, repeatToken)
       if (distance <= 3) {
-        pushUniqueReason(reasonParts, `Орфографическая ошибка: ${userToken} нужно исправить на ${repeatToken}.`)
+        pushUniqueReason(reasonParts, `Лексическая ошибка: ${userToken} нужно заменить на ${repeatToken}.`)
       } else if (!COMMON_IRREGULAR_PAST_TO_BASE[userToken]) {
         pushUniqueReason(reasonParts, `Лексическая ошибка: ${userToken} нужно заменить на ${repeatToken}.`)
       }
@@ -4381,14 +4538,20 @@ function enrichTranslationCommentQuality(params: {
 
   if (mergedReasonParts.length === 0) return content
 
+  const shouldReplaceCommentBody =
+    reasonParts.length >= 2 ||
+    /(правильн\w*\s+вариант|нужно\s+использовать|вместо|проверь|исправ|ошиб|неверн|неправил|word choice|spelling|verb form)/i.test(
+      rawComment
+    )
+
   // Когда других причин нет, а только предлог — дополняем текущий комментарий, не перезаписывая его целиком.
   if (reasonParts.length === 0 && prepositionHintParts.length > 0) {
     lines[commentIndex] = `${lines[commentIndex]}\n${prepositionHintParts.join('\n')}`
     return lines.join('\n')
   }
 
-  // Сохраняем исходный комментарий ИИ и дополняем его нашими обнаруженными причинами.
-  lines[commentIndex] = `Комментарий: ${rawComment}\n${mergedReasonParts}`.trim()
+  const commentBody = shouldReplaceCommentBody ? mergedReasonParts : [rawComment, mergedReasonParts].join('\n').trim()
+  lines[commentIndex] = `Комментарий: ${commentBody}`.trim()
   return lines.join('\n')
 }
 
@@ -5534,12 +5697,53 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     }
     let translationSuccessFlow = false
     const translationAnswerContainsCyrillic = !isFirstTurn && /[А-Яа-яЁё]/.test(lastUserContentForResponse)
+    let translationWordMismatch = false
+    let canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic
     if (mode === 'translation') {
       sanitized = normalizeTranslationCommentStyle(sanitized)
+      const translationFormLines = extractTranslationFormLines(sanitized)
+      const translationPositiveForm = translationFormLines.positive
+      const translationReferenceForm = pickTranslationReferenceForm({
+        userText: lastUserContentForResponse,
+        fallbackPrompt: lastTranslationPrompt,
+        forms: translationFormLines,
+      })
+      const translationReferenceFormIsRelevant = translationReferenceForm
+        ? isUserLikelyCorrectForTense(translationReferenceForm, normalizedTense)
+        : false
+      const translationReferenceFormMatchesUser = translationReferenceForm
+        ? isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, translationReferenceForm)
+        : false
+      const userMatchesAnyProvidedForm = doesUserMatchAnyTranslationForm({
+        userText: lastUserContentForResponse,
+        forms: translationFormLines,
+      })
+      translationWordMismatch =
+        Boolean(translationReferenceForm) &&
+        isUserLikelyCorrectForTense(lastUserContentForResponse, normalizedTense) &&
+        translationReferenceFormIsRelevant &&
+        !translationReferenceFormMatchesUser &&
+        !userMatchesAnyProvidedForm
+      const translationPrompt = lastTranslationPrompt
+      const translationPromptText = translationPrompt ?? ''
+      const translationPromptMismatch =
+        !translationAnswerContainsCyrillic &&
+        Boolean(translationPromptText) &&
+        hasTranslationPromptKeywordMismatch(translationPromptText, lastUserContentForResponse)
+      const promptAlignedRepeat =
+        translationPromptMismatch && translationPromptText
+          ? buildPromptAlignedRepeatSentence(
+              translationReferenceForm ?? extractEnglishSentenceCandidate(sanitized) ?? lastUserContentForResponse,
+              translationPromptText
+            )
+          : null
+      if (promptAlignedRepeat) {
+        sanitized = forceTranslationWordErrorProtocol(sanitized, promptAlignedRepeat)
+      }
+      canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic && !translationWordMismatch && !translationPromptMismatch
       if (isFirstTurn) {
         sanitized = ensureFirstTranslationInvitation(sanitized)
       } else {
-        const canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic
         const initialSuccessLike = isTranslationSuccessLikeContent(sanitized)
         if (initialSuccessLike && canTreatTranslationAsSuccess) {
           sanitized = ensureTranslationSuccessBlocks(sanitized, {
@@ -5559,6 +5763,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             audience,
             fallbackPrompt: lastTranslationPrompt,
           })
+          if (translationWordMismatch && translationReferenceForm) {
+            sanitized = forceTranslationWordErrorProtocol(sanitized, translationReferenceForm)
+          }
           const repeatSentence = getTranslationRepeatSentence(sanitized)
           if (
             canTreatTranslationAsSuccess &&
@@ -5593,7 +5800,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             sanitized = replaceTranslationConstructionLine(sanitized, coachText)
           }
 
-          if (isTranslationSuccessContent(sanitized) && !translationAnswerContainsCyrillic) {
+          if (isTranslationSuccessContent(sanitized) && canTreatTranslationAsSuccess) {
             sanitized = ensureTranslationSuccessBlocks(sanitized, {
               tense: normalizedTense,
               topic,
@@ -5611,7 +5818,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
       // Страховка: если есть явная похвала без "Повтори:", это SUCCESS-ветка.
       const repeatForFallback = getTranslationRepeatSentence(sanitized)
-      if (!repeatForFallback && hasTranslationPraiseComment(sanitized) && !/[А-Яа-яЁё]/.test(lastUserContentForResponse)) {
+      if (!repeatForFallback && hasTranslationPraiseComment(sanitized) && canTreatTranslationAsSuccess) {
         sanitized = ensureTranslationSuccessBlocks(sanitized, {
           tense: normalizedTense,
           topic,
@@ -5802,14 +6009,16 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
 
     if (mode === 'translation') {
       if (!isFirstTurn) {
-        sanitized = normalizeTranslationSuccessPayload(sanitized, {
-          tense: normalizedTense,
-          topic,
-          level,
-          audience,
-          fallbackPrompt: lastTranslationPrompt,
-          userText: lastUserContentForResponse,
-        })
+        if (canTreatTranslationAsSuccess) {
+          sanitized = normalizeTranslationSuccessPayload(sanitized, {
+            tense: normalizedTense,
+            topic,
+            level,
+            audience,
+            fallbackPrompt: lastTranslationPrompt,
+            userText: lastUserContentForResponse,
+          })
+        }
       }
       sanitized = applyTranslationCommentCoachVoice({
         content: sanitized,
@@ -6184,7 +6393,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           })
           if (repairedValid) {
             if (mode === 'translation') {
-              if (!isFirstTurn && !translationAnswerContainsCyrillic) {
+              if (!isFirstTurn && canTreatTranslationAsSuccess) {
                 repaired = normalizeTranslationSuccessPayload(repaired, {
                   tense: normalizedTense,
                   topic,
@@ -6377,7 +6586,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         audience: audience as Audience,
       })
       const guardedContent =
-        !isFirstTurn && !/[А-Яа-яЁё]/.test(lastUserContentForResponse)
+        !isFirstTurn && canTreatTranslationAsSuccess
           ? normalizeTranslationSuccessPayload(translationGuard.content, {
               tense: normalizedTense,
               topic,

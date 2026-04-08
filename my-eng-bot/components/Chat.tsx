@@ -115,8 +115,39 @@ function stripTranslationMainMetaPrefixes(text: string): string {
 }
 
 /** Похвала — лёгкий зелёный тон; иначе янтарь (ошибка/коррекция), как до введения praise. */
-function commentToneForContent(comment: string): SectionTone {
-  return /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)[!.]?\s*/i.test(comment.trim()) ? 'praise' : 'amber'
+export function commentToneForContent(comment: string): SectionTone {
+  const normalized = comment.trim()
+  const hasCorrectionSignal = /(?:проверь|исправ|ошиб|неверн|неправил|нужн|орфограф|лексическ|грамматик|spelling|word choice|verb form)/i.test(
+    normalized
+  )
+  const praisePatterns = [
+    /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)[!.]?\s*/i,
+    /^Ты\s+правильно(?:\s|$|[!.?,;:])/i,
+    /^Ты\s+верно(?:\s|$|[!.?,;:])/i,
+  ]
+  return !hasCorrectionSignal && praisePatterns.some((pattern) => pattern.test(normalized)) ? 'praise' : 'amber'
+}
+
+type CommentIcon = '✅' | '💡' | '⏱️' | '🔤' | '📖' | '✏️'
+
+/** Подбирает Unicode-иконку для комментария по типу похвалы или ошибки. */
+export function commentIconForContent(comment: string): CommentIcon {
+  const normalized = comment.trim()
+  const followsTypeBoundary = '(?:\\s|$|[:\\-–—.,!?])'
+  const lexicalPattern = `(?:Лексическая\\s+ошибка|Ошибка\\s+лексическая|Ошибка\\s+лексики)`
+  const spellingPattern = `(?:Орфографическая\\s+ошибка|Ошибка\\s+орфографическая|Ошибка\\s+правописания)`
+  const grammarPattern = `(?:Ошибка\\s+формы\\s+глагола|Ошибка\\s+согласования|Грамматическая\\s+ошибка|Ошибка\\s+грамматики)`
+  const timePattern = `(?:Ошибка\\s+времени|Ошибка\\s+по\\s+времени|Время)`
+
+  if (commentToneForContent(normalized) === 'praise') return '✅'
+  if (new RegExp(`^${timePattern}${followsTypeBoundary}`, 'i').test(normalized)) return '⏱️'
+  if (new RegExp(`^${grammarPattern}${followsTypeBoundary}`, 'i').test(normalized)) {
+    return '🔤'
+  }
+  if (new RegExp(`^${lexicalPattern}${followsTypeBoundary}`, 'i').test(normalized)) return '📖'
+  if (new RegExp(`^${spellingPattern}${followsTypeBoundary}`, 'i').test(normalized)) return '✏️'
+
+  return '💡'
 }
 
 function buildAssistantSections(params: {
@@ -161,7 +192,7 @@ function buildAssistantSections(params: {
     sections.push({
       key: 'comment',
       tone: commentToneForContent(comment),
-      label: '💡',
+      label: commentIconForContent(comment),
       text: comment,
       singleLine: true,
     })
@@ -1707,7 +1738,7 @@ function SectionCard({
       : tone === 'emerald'
         ? 'text-emerald-700'
         : tone === 'praise'
-          ? 'text-[var(--chat-label-praise)]'
+          ? 'text-emerald-600'
           : tone === 'slate'
             ? 'text-slate-600'
             : 'text-gray-600'
@@ -1716,7 +1747,15 @@ function SectionCard({
     singleLine &&
     (label === 'AI' || label === 'Переведи' || label === 'Переведи далее' || Boolean(emphasizeMainText))
   const hasLabel = label.trim().length > 0
-  const labelIsIconOnly = /^[\p{Extended_Pictographic}\s]+$/u.test(label.trim())
+  const labelTrimmed = label.trim()
+  const labelIsIconOnly =
+    labelTrimmed === '✅' ||
+    labelTrimmed === '💡' ||
+    labelTrimmed === '⏱️' ||
+    labelTrimmed === '🔤' ||
+    labelTrimmed === '📖' ||
+    labelTrimmed === '✏️' ||
+    /^[\p{Extended_Pictographic}\s]+$/u.test(labelTrimmed)
   const isCompactServiceLine = singleLine && italic && !hasLabel
   const isTextItalic = textItalic ?? italic
   const bodyContent = inlineMarkdownBold ? renderCommunicationBoldInline(text) : text
@@ -1737,7 +1776,7 @@ function SectionCard({
           className={`min-w-0 max-w-full ${preserveNewLines ? 'whitespace-pre-wrap' : 'whitespace-normal'} break-words leading-snug ${
             small ? 'text-[14px]' : 'text-[15px]'
           } text-[var(--text)]`}
-          title={hasLabel ? `${label}: ${text}` : text}
+          title={hasLabel ? (labelIsIconOnly ? `${label} ${text}` : `${label}: ${text}`) : text}
         >
           {hasLabel && (
             <>

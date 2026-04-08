@@ -394,6 +394,102 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).toContain('Повтори:')
   })
 
+  it('keeps spelling, lexical, and article mistakes separate', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Ошибка формы глагола. Правильный вариант "I have a car".\nПовтори: I have a cat.',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Ошибка формы глагола. Правильный вариант "I have a car".\nПовтори: I have a cat.',
+      })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'animals',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'У меня есть кот.\nПереведи на английский.' },
+        { role: 'user', content: 'I haev car' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Орфографическая ошибка: haev')
+    expect(data.content).toContain('Лексическая ошибка: car')
+    expect(data.content).toContain('Ошибка артикля')
+    expect(data.content).not.toContain('haev нужно заменить на car')
+    expect(data.content).toContain('Повтори: I have a cat.')
+  })
+
+  it('does not praise when the translated noun contradicts the source prompt', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: Отлично! Ты правильно использовал артикль "a".\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I have a car.\n?: Do I have a car?\n-: I do not have a car.\nУ меня есть кот.\nПереведи на английский.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'animals',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'У меня есть кот.\nПереведи на английский.' },
+        { role: 'user', content: 'I have a car.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).not.toContain('Отлично!')
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Лексическая ошибка')
+    expect(data.content).toContain('cat')
+    expect(data.content).toContain('Повтори: I have a cat.')
+  })
+
+  it('uses question form as correction target for question prompts', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        "Комментарий: Отлично! Здесь всё верно.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: You have a favorite colour.\n?: What is your favorite colour?\n-: You don't have a favorite colour.\nКакой у тебя любимый фрукт?\nПереведи на английский.",
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'daily_life',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'Привет! Какой у тебя любимый цвет?\nПереведи на английский.' },
+        { role: 'user', content: 'Hi what is you favorite colour' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Повтори\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine).toContain('What is your favorite colour')
+    expect(repeatLine).not.toContain('You have a favorite colour')
+    expect(data.content).not.toContain('Лексическая ошибка: what нужно заменить на favorite')
+  })
+
   it('rewrites closed yes/no next question to open question in dialogue', async () => {
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,
@@ -858,6 +954,65 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).toContain('Формы:')
     expect(data.content).toContain('?:')
     expect(data.content).toContain('-:')
+  })
+
+  it('translation praise with spelling hint is treated as correction, not success', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: Отлично! Ты правильно указал смысл, но проверь правильность написания слов.\nВремя: Present Simple — действие повторяется регулярно; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I like to play football with friends.\n?: Do you like to play football with friends?\n-: I do not like to play football with friends.\nЯ люблю играть в футбол с друзьями.\nПереведи на английский.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'sports',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'Я люблю играть в футбол с друзьями.\nПереведи на английский.' },
+        { role: 'user', content: 'I like to paly fotboa' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).not.toContain('Переведи далее:')
+    expect(data.content).not.toContain('✅')
+    expect(data.content).toContain('Формы:')
+  })
+
+  it('translation word spelling error stays in repeat cycle', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: Отлично! Ты правильно указал, что любишь пиццу.\nВремя: Present Simple — здесь речь о привычке; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: Do you like pizza.\n?: Do you like pizza?\n-: You do not like pizza.\nТы любишь пиццу?\nПереведи на английский.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'food',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'Ты любишь пиццу?\nПереведи на английский.' },
+        { role: 'user', content: 'Do hou like piza' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Лексическая ошибка')
+    expect(data.content).toContain('Повтори:')
+    expect(data.content).not.toContain('Переведи далее:')
+    expect(data.content).not.toContain('✅')
   })
 
   it('translation error flow keeps only correction protocol without next-translate block', async () => {
