@@ -1748,6 +1748,7 @@ function SectionCard({
     (label === 'AI' || label === 'Переведи' || label === 'Переведи далее' || Boolean(emphasizeMainText))
   const hasLabel = label.trim().length > 0
   const labelTrimmed = label.trim()
+  const iconOnlyLabelPattern = /^(?:[\u00A9\u00AE\u203C-\u3299]|[\uD83C-\uDBFF][\uDC00-\uDFFF]|\s)+$/
   const labelIsIconOnly =
     labelTrimmed === '✅' ||
     labelTrimmed === '💡' ||
@@ -1755,7 +1756,7 @@ function SectionCard({
     labelTrimmed === '🔤' ||
     labelTrimmed === '📖' ||
     labelTrimmed === '✏️' ||
-    /^[\p{Extended_Pictographic}\s]+$/u.test(labelTrimmed)
+    iconOnlyLabelPattern.test(labelTrimmed)
   const isCompactServiceLine = singleLine && italic && !hasLabel
   const isTextItalic = textItalic ?? italic
   const bodyContent = inlineMarkdownBold ? renderCommunicationBoldInline(text) : text

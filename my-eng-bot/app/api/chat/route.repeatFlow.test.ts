@@ -1084,6 +1084,35 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(/[А-Яа-яЁё]/.test(repeatBody)).toBe(false)
   })
 
+  it('translation mixed input strips next-translate line when model outputs Переведи далее', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: Лексическая ошибка — проверь написание и выбор слова.\nВремя: Present Simple — здесь речь о привычке или факте; маркеры usually, often, every day, always.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I often play football with my friends.\n?: Do you often play football with your friends?\n-: I do not often play football with my friends.\nПереведи далее: Я люблю играть в видеоигры вечером.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'sports',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'Я часто играю в футбол с друзьями.\nПереведи на английский.' },
+        { role: 'user', content: 'I often play football with my друзья' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Повтори:')
+    expect(data.content).not.toContain('Переведи далее:')
+    expect(data.content).not.toContain('Переведи на английский.')
+  })
+
   it('normalizes stale translation success payload with old time hint into new success format', async () => {
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,

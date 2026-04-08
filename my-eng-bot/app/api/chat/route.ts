@@ -3834,16 +3834,21 @@ function isGenericTranslationRepeatFallback(text: string | null): boolean {
   return text.trim().toLowerCase() === GENERIC_TRANSLATION_REPEAT_FALLBACK.toLowerCase()
 }
 
-function ensureTranslationRepeatFallbackForMixedInput(content: string, userText: string): string {
-  if (!/[А-Яа-яЁё]/.test(userText)) return content
-  const strippedInvitation = content.replace(/\b(?:Переведи|Переведите)\s+на\s+английский\.\s*/gi, '\n')
-  const cleaned = strippedInvitation
+function stripTranslationInvitationLines(content: string): string {
+  const invitationLinePattern = /^[\s\-•>*_`#]*(?:\d+[\.)]\s*)*(?:Переведи|Переведите)(?=\s|:|$)/i
+  return content
+    .replace(/\b(?:Переведи|Переведите)\s+на\s+английский\.\s*/gi, '\n')
+    .replace(/(?:^|\n)\s*[\-•>*_`#]*(?:\d+[\.)]\s*)*(?:Переведи|Переведите)(?=\s|:|$)[^\n]*(?=\n|$)/gi, '\n')
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .filter((line) => !/^(?:Переведи|Переведите)\b/i.test(line))
+    .filter((line) => !invitationLinePattern.test(line))
     .join('\n')
     .trim()
+}
+
+function ensureTranslationRepeatFallbackForMixedInput(content: string, _userText: string): string {
+  const cleaned = stripTranslationInvitationLines(content)
   if (getTranslationRepeatSentence(cleaned)) return cleaned
   return `${cleaned}\nПовтори: ${GENERIC_TRANSLATION_REPEAT_FALLBACK}`.trim()
 }
@@ -6405,6 +6410,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               } else if (translationAnswerContainsCyrillic) {
                 repaired = ensureTranslationRepeatFallbackForMixedInput(repaired, lastUserContentForResponse)
               }
+              if (getTranslationRepeatSentence(repaired)) {
+                repaired = stripTranslationInvitationLines(repaired)
+              }
               const translationGuard = applyCefrOutputGuard({
                 mode: 'translation',
                 content: repaired,
@@ -6585,7 +6593,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         level: level as LevelId,
         audience: audience as Audience,
       })
-      const guardedContent =
+      let guardedContent =
         !isFirstTurn && canTreatTranslationAsSuccess
           ? normalizeTranslationSuccessPayload(translationGuard.content, {
               tense: normalizedTense,
@@ -6596,6 +6604,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               userText: lastUserContentForResponse,
             })
           : ensureTranslationRepeatFallbackForMixedInput(translationGuard.content, lastUserContentForResponse)
+      if (getTranslationRepeatSentence(guardedContent)) {
+        guardedContent = stripTranslationInvitationLines(guardedContent)
+      }
       return NextResponse.json({ content: guardedContent })
     }
 
