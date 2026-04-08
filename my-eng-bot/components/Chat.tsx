@@ -369,25 +369,28 @@ function extractTranslationCommentAndPrompt(text: string): { comment: string | n
   return { comment: null, promptText: trimmed }
 }
 
-function condenseTranslationCommentToErrors(comment: string): string {
-  const compact = comment.replace(/\s+/g, ' ').trim()
-  // Достаём только предложения, которые выглядят как перечисление ошибок.
-  const sentences = compact.split(/(?<=[.!?])\s+/).map((s) => s.trim())
-  const errorSentences = sentences.filter((s) => /^(Ошибка\b|Лексическая ошибка\b)/i.test(s))
+export function condenseTranslationCommentToErrors(comment: string): string {
+  const normalized = comment
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .flatMap((line) =>
+      line
+        .split(/(?<=[.!?])\s+/)
+        .map((sentence) => sentence.trim())
+        .filter(Boolean)
+    )
+    .map((sentence) => sentence.replace(/\s+/g, ' ').trim())
+
+  if (normalized.length === 0) return comment.trim()
+
   const normalizeSmotri = (s: string) =>
     s
       // Приводим: "Ошибка ... . Смотри — ..." -> "Ошибка ... — ..."
       .replace(/(Ошибка[^.!?]*?)\.\s*(Смотри|Смотрите)\s*—/gi, '$1 —')
       .replace(/(Ошибка[^.!?]*?)\s*(Смотри|Смотрите)\s*—/gi, '$1 —')
 
-  if (errorSentences.length > 0) return normalizeSmotri(errorSentences.join(' '))
-
-  // Fallback: если модель выдала без точек/с вопросами, пробуем вытащить куски,
-  // которые начинаются с "Ошибка..." или "Лексическая ошибка...".
-  const m = compact.match(/(?:^|[;]\s*)(Ошибка[^;.!?]+|Лексическая ошибка[^;.!?]+)(?=[;.!?]|$)/gi)
-  if (m && m.length > 0) return normalizeSmotri(m.map((x) => x.trim()).join(' '))
-
-  return comment
+  return normalized.map(normalizeSmotri).join('\n')
 }
 
 /** Для режима «Перевод»: есть ли у ассистента видимая карточка с русским заданием (как в MessageBubble). */
@@ -403,6 +406,7 @@ function computeAssistantTranslationMainCardMeta(message: ChatMessageType): {
   let effectiveThreeFormsText: string | null = null
   let effectiveMainBefore = mainBefore
   let repeatTextForCard: string | null = null
+  let hideTranslationMainCardForErrorRepeat = false
 
   const blocks = parseTranslationCoachBlocks(displayText)
   if (blocks.comment) effectiveComment = condenseTranslationCommentToErrors(blocks.comment)
@@ -437,19 +441,23 @@ function computeAssistantTranslationMainCardMeta(message: ChatMessageType): {
     }
     effectiveMainBefore = extracted.promptText
   }
+  if (blocks.repeat && !blocks.nextSentence) {
+    hideTranslationMainCardForErrorRepeat = true
+    effectiveMainBefore = ''
+  }
   if (effectiveMainBefore) effectiveMainBefore = stripTranslationMainMetaPrefixes(effectiveMainBefore)
 
   if (effectiveThreeFormsText && effectiveTenseRef) {
     const isGenericSuccessTimeHint = /используйте это время в полном английском предложении/i.test(effectiveTenseRef)
     if (!isGenericSuccessTimeHint) {
-      const mergedComment = [effectiveComment, effectiveTenseRef].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
+      const mergedComment = [effectiveComment, effectiveTenseRef].filter(Boolean).join('\n').trim()
       effectiveComment = mergedComment || effectiveComment
     }
     effectiveTenseRef = null
   }
 
   const hideTranslationPromptBlocks =
-    Boolean(repeatTextForCard) && !String(effectiveMainBefore ?? '').trim()
+    (Boolean(repeatTextForCard) && !String(effectiveMainBefore ?? '').trim()) || hideTranslationMainCardForErrorRepeat
 
   return { effectiveMainBefore, hideTranslationPromptBlocks }
 }
@@ -1336,6 +1344,7 @@ function MessageBubble({
   let effectiveThreeFormsText: string | null = null
   let effectiveMainBefore = mainBefore
   let effectiveInvitationText = invitationText
+  let hideTranslationMainCardForErrorRepeat = false
   if (!isUser && isTranslationMode) {
     const blocks = parseTranslationCoachBlocks(displayText)
     if (blocks.comment) effectiveComment = condenseTranslationCommentToErrors(blocks.comment)
@@ -1370,6 +1379,13 @@ function MessageBubble({
       }
       effectiveMainBefore = extracted.promptText
     }
+    if (blocks.repeat && !blocks.nextSentence) {
+      // Error-protocol translation response: show only correction blocks,
+      // do not render synthetic "Переведи далее" main card without a new task.
+      hideTranslationMainCardForErrorRepeat = true
+      effectiveMainBefore = ''
+      effectiveInvitationText = null
+    }
     if (blocks.invitation) effectiveInvitationText = blocks.invitation
     if (effectiveMainBefore) effectiveMainBefore = stripTranslationMainMetaPrefixes(effectiveMainBefore)
   }
@@ -1378,7 +1394,7 @@ function MessageBubble({
   if (isTranslationMode && effectiveThreeFormsText && effectiveTenseRef) {
     const isGenericSuccessTimeHint = /используйте это время в полном английском предложении/i.test(effectiveTenseRef)
     if (!isGenericSuccessTimeHint) {
-      const mergedComment = [effectiveComment, effectiveTenseRef].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
+      const mergedComment = [effectiveComment, effectiveTenseRef].filter(Boolean).join('\n').trim()
       effectiveComment = mergedComment || effectiveComment
     }
     effectiveTenseRef = null
@@ -1386,7 +1402,8 @@ function MessageBubble({
   const showOnlyRepeat = !isTranslationMode && Boolean(repeatTextForCard)
   // Скрываем основной блок только если есть «Повтори», но нет следующего предложения — иначе теряется карточка «Переведи: …».
   const hideTranslationPromptBlocks =
-    isTranslationMode && Boolean(repeatTextForCard) && !String(effectiveMainBefore ?? '').trim()
+    (isTranslationMode && Boolean(repeatTextForCard) && !String(effectiveMainBefore ?? '').trim()) ||
+    hideTranslationMainCardForErrorRepeat
 
   const mainAfterVisibleForBubble =
     Boolean(mainAfter) && !effectiveMainBefore && !effectiveInvitationText

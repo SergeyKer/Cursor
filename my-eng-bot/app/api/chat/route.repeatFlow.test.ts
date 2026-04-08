@@ -770,7 +770,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       .mockResolvedValueOnce({
         ok: true,
         content:
-          'Комментарий: Отлично! Здесь это время подходит, потому что вы говорите о привычке.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I like to read in the evening.\n?: Do you like to read in the evening?\n-: I do not like to read in the evening.\nЯ люблю плавать утром.\nПереведи на английский.',
+          "Комментарий: Отлично! Здесь это время подходит, потому что вы говорите о привычке.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I like to read in the evening.\n?: Do you like to read in the evening?\n-: I don't like to read in the evening.\nЯ люблю плавать утром.\nПереведи на английский.",
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -796,13 +796,15 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(res.status).toBe(200)
     expect(data.content).toContain('Комментарий:')
     expect(data.content).toContain('Конструкция:')
+    expect(data.content).toContain('Переведи на английский.')
+    expect(data.content).not.toContain('Не удалось сформировать исправленное предложение')
   })
 
   it('translation success (question input) preserves stable forms block', async () => {
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,
       content:
-        'Комментарий: Отлично! Здесь это время подходит, потому что речь о привычке.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: You like sport.\n?: Do you like sport?\n-: You do not like sport.\nЯ редко смотрю телевизор.\nПереведи на английский.',
+        "Комментарий: Отлично! Здесь это время подходит, потому что речь о привычке.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: You like sport.\n?: Do you like sport?\n-: You don't like sport.\nЯ редко смотрю телевизор.\nПереведи на английский.",
     })
 
     const req = makeRequest({
@@ -832,7 +834,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,
       content:
-        'Комментарий: Отлично! Здесь это время подходит, потому что вы описываете устойчивое предпочтение.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I drink tea in the evening.\n?: Do you drink tea in the evening?\n-: I do not drink tea in the evening.\nЯ обычно пью чай вечером.\nПереведи на английский.',
+        "Комментарий: Отлично! Здесь это время подходит, потому что вы описываете устойчивое предпочтение.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I drink tea in the evening.\n?: Do you drink tea in the evening?\n-: I don't drink tea in the evening.\nЯ обычно пью чай вечером.\nПереведи на английский.",
     })
 
     const req = makeRequest({
@@ -858,7 +860,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).toContain('-:')
   })
 
-  it('translation error flow keeps Время, Конструкция and Повтори', async () => {
+  it('translation error flow keeps only correction protocol without next-translate block', async () => {
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,
       content:
@@ -885,13 +887,16 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).toContain('Время:')
     expect(data.content).toContain('Конструкция:')
     expect(data.content).toContain('Повтори:')
+    expect(data.content).not.toContain('Я часто хожу в парк.')
+    expect(data.content).not.toContain('Переведи на английский.')
+    expect(data.content).not.toContain('Не удалось сформировать исправленное предложение')
   })
 
   it('normalizes stale translation success payload with old time hint into new success format', async () => {
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,
       content:
-        'Комментарий: Отлично!\nВремя: Present Simple. Используйте это время в полном английском предложении.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: Do you have brothers or sisters.\n?: Do you have brothers or sisters?\n-: You do not have brothers or sisters.\nЯ работаю дома.\nПереведи на английский.',
+        "Комментарий: Отлично!\nВремя: Present Simple. Используйте это время в полном английском предложении.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: Do you have brothers or sisters.\n?: Do you have brothers or sisters?\n-: You don't have brothers or sisters.\nЯ работаю дома.\nПереведи на английский.",
     })
 
     const req = makeRequest({
@@ -915,6 +920,35 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).toContain('Конструкция: +:')
     expect(data.content).toContain('?:')
     expect(data.content).toContain('-:')
+  })
+
+  it('normalizes expanded negatives in forms and keeps non-negative lines unchanged', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: Отлично!\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I will cook at home.\n?: Do you cook every day?\n-: I did not cook at home.\nЯ готовлю дома.\nПереведи на английский.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'food',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['past_simple'],
+      messages: [
+        { role: 'assistant', content: 'Я готовил дома.\nПереведи на английский.' },
+        { role: 'user', content: 'I cooked at home.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain("-: I didn't cook at home.")
+    expect(data.content).not.toContain('-: I did not cook at home.')
+    expect(data.content).toContain('+: I will cook at home.')
+    expect(data.content).toContain('?: Do you cook every day?')
   })
 
 })

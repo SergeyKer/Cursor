@@ -10,6 +10,7 @@ export function parseCorrection(text: string): {
   const lines = cleaned.split(/\r?\n/)
   let comment: string | null = null
   const restLines: string[] = []
+  let collectingComment = false
 
   function stripAssistantPrefix(rawLine: string): string {
     // Модель иногда сама добавляет префиксы "AI:"/"Assistant:" — чтобы не ломать разбор.
@@ -36,6 +37,10 @@ export function parseCorrection(text: string): {
     const line = stripAssistantPrefix(raw).trim()
     if (!line) {
       // пустую строку просто переносим в rest, структура вопроса сохраняется
+      if (collectingComment && comment !== null) {
+        comment += '\n'
+        continue
+      }
       restLines.push(raw)
       continue
     }
@@ -44,8 +49,22 @@ export function parseCorrection(text: string): {
     if (line.toLowerCase().startsWith('комментарий:')) {
       if (comment === null) {
         comment = line.slice('комментарий:'.length).trim()
+        collectingComment = true
         continue
       }
+    }
+    if (collectingComment) {
+      const isNextHeader =
+        /^время\s*:/i.test(line) ||
+        /^(повтори|repeat|say)\s*:/i.test(line) ||
+        /^конструкция\s*:/i.test(line) ||
+        /^формы\s*:/i.test(line) ||
+        /^\s*(?:\d+\)\s*)?(?:переведи|переведите)\b/i.test(line)
+      if (!isNextHeader) {
+        comment = comment ? `${comment}\n${line}` : line
+        continue
+      }
+      collectingComment = false
     }
     // В rest пишем уже нормализованную строку, чтобы не показывать "AI:" в UI.
     restLines.push(stripAssistantPrefix(raw))

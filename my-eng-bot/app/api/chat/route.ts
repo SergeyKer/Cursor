@@ -96,6 +96,7 @@ import {
   buildSimpleNewsFactualFallback,
   isGenericEnglishClarification,
 } from '@/lib/factualCommunicationFallback'
+import { normalizeEnglishLearnerContractions } from '@/lib/englishLearnerContractions'
 
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
 // чтобы undici + proxy dispatcher работали предсказуемо (а не в Edge).
@@ -370,8 +371,6 @@ ERROR protocol (if there is a mistake), strict:
 - Line 2: "Время: " + ${tenseName} + very short Russian hint
 - Line 3: "Конструкция: " + very short tense pattern for learner (example for Present Simple: "Subject + V1(s/es)")
 - Line 4: "Повтори: " + full corrected English sentence.
-- Then provide the NEXT Russian sentence on a new line. IMPORTANT: Must be a literal sentence to translate, without any conversational prefixes.
-- Last line: "Переведи на английский."
 
 Rules:
 - The Russian sentence must sound natural, conversational, and easy to say in everyday speech.
@@ -380,7 +379,8 @@ Rules:
 - Keep all explanations short and practical for learner.
 - If user answer is correct, use SUCCESS protocol and include all three "Формы" lines.
 - If user answer is correct, include "Конструкция:" as line 2 and do not output "Повтори:".
-- Never remove the final line "Переведи на английский."
+- In "Формы" lines, prefer contracted negatives in English: use don't/doesn't/didn't/won't/isn't/aren't/wasn't/weren't/can't (instead of expanded forms like do not/will not/is not).
+- Keep the final line "Переведи на английский." only in SUCCESS protocol.
 - In SUCCESS protocol, "Комментарий" must be engaging, clear, and context-aware for this exact phrase.
 - In SUCCESS protocol, "Комментарий" must be concrete, not generic: mention exactly one observable correct detail from the user's answer.
 - In SUCCESS protocol, avoid empty praise like "Отлично, всё верно" without evidence from the sentence.
@@ -2515,6 +2515,26 @@ function compactDialogueComment(content: string, audience: 'child' | 'adult'): s
   return lines.join('\n').trim()
 }
 
+function formatDialogueCommentAsSeparateLines(content: string): string {
+  const lines = content.split(/\r?\n/)
+  const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
+  if (commentIndex < 0) return content
+
+  const raw = lines[commentIndex] ?? ''
+  const body = raw.replace(/^Комментарий\s*:\s*/i, '').trim()
+  if (!body) return content
+
+  const theses = body
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean)
+
+  if (theses.length <= 1) return content
+
+  lines[commentIndex] = `Комментарий: ${theses.join('\n')}`
+  return lines.join('\n').trim()
+}
+
 function stripFalseTenseMismatchClaim(params: {
   content: string
   requiredTense: string
@@ -3041,7 +3061,7 @@ function ensureTranslationProtocolBlocks(
   content: string,
   params: { tense: string; topic: string; level: string; audience: 'child' | 'adult'; fallbackPrompt: string | null }
 ): string {
-  const { tense, topic, level, audience, fallbackPrompt } = params
+  const { tense } = params
   const lines = content
     .split(/\r?\n/)
     .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
@@ -3053,8 +3073,6 @@ function ensureTranslationProtocolBlocks(
   let construction: string | null = null
   let repeat: string | null = null
   let hasPraise = false
-  let hasInvitation = false
-  const nextSentenceLines: string[] = []
   let collectingConstruction = false
 
   for (const line of lines) {
@@ -3083,29 +3101,11 @@ function ensureTranslationProtocolBlocks(
       collectingConstruction = false
       continue
     }
-    if (/^[\s\-•]*(?:\d+[\.)]\s*)*(?:Переведи|Переведите)\b/i.test(line)) {
-      hasInvitation = true
-      collectingConstruction = false
-      continue
-    }
-    const inlineInvitation = /(.*?)(?:\s+(?:\d+\)\s*)?((?:Переведи|Переведите)[^.]*\.)\s*)$/i.exec(line)
-    if (inlineInvitation?.[1]) {
-      const before = inlineInvitation[1].trim()
-      hasInvitation = true
-      if (before) nextSentenceLines.push(before)
-      collectingConstruction = false
-      continue
-    }
-
     if (collectingConstruction && construction) {
       // Подхватываем многострочные варианты "Конструкция: ...", чтобы примеры не терялись.
       construction = `${construction}\n${line}`
       continue
     }
-
-    // Для translation не пропускаем "диалоговые" реплики.
-    if (/\?\s*$/.test(line) && /[A-Za-z]/.test(line)) continue
-    nextSentenceLines.push(line)
   }
 
   if (!comment) {
@@ -3129,23 +3129,6 @@ function ensureTranslationProtocolBlocks(
 
   const out = [comment, timeLine, construction]
   if (repeat) out.push(repeat)
-  if (nextSentenceLines.length > 0) {
-    out.push(normalizeTranslationPracticeSentence(nextSentenceLines.join(' ')))
-    if (!hasInvitation) out.push('Переведи на английский.')
-  } else {
-    out.push(
-      normalizeTranslationPracticeSentence(
-        fallbackTranslationSentenceForContext({
-          topic,
-          tense,
-          level,
-          audience,
-          seedText: fallbackPrompt,
-        })
-      )
-    )
-    out.push('Переведи на английский.')
-  }
   return out.join('\n').trim()
 }
 
@@ -3168,7 +3151,8 @@ function ensureFirstTranslationInvitation(content: string): string {
 function normalizeEnglishSentenceForCard(text: string): string {
   const compact = text.replace(/\s+/g, ' ').trim()
   if (!compact) return ''
-  return /[.!?]\s*$/.test(compact) ? compact : `${compact}.`
+  const normalized = normalizeEnglishLearnerContractions(compact)
+  return /[.!?]\s*$/.test(normalized) ? normalized : `${normalized}.`
 }
 
 function extractEnglishSentenceCandidate(source: string): string | null {
@@ -3717,7 +3701,7 @@ function buildTranslationMissingRepeatRepairInstruction(params: {
     'In the line "Повтори:" you MUST write the real full corrected English sentence for the same Russian phrase.',
     'Never write placeholders like "Write one complete English sentence for the same Russian phrase."',
     fallbackPrompt ? `The Russian phrase to correct is: "${fallbackPrompt}"` : null,
-    'Keep the visible protocol only: Комментарий / Время / Конструкция / Повтори / next Russian sentence / Переведи на английский.',
+    'Keep the visible protocol only: Комментарий / Время / Конструкция / Повтори.',
   ]
     .filter(Boolean)
     .join(' ')
@@ -3780,7 +3764,7 @@ function buildTranslationTenseDriftRepairInstruction(params: {
     `Rewrite the line that starts with "Время:" so it starts with "${expectedTenseName}".`,
     `Rewrite the line that starts with "Конструкция:" so it matches "${expectedConstruction}".`,
     'Rewrite the full corrected sentence in the line that starts with "Повтори:" using ONLY the required tense.',
-    'Keep the same Russian context and keep the final line "Переведи на английский."',
+    'Keep only correction protocol lines. Do not add a next Russian sentence or translation invitation line.',
     'No meta, no markdown, no numbering. Output only the user-visible protocol text.',
   ]
     .filter(Boolean)
@@ -5508,43 +5492,8 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       if (isFirstTurn) {
         sanitized = ensureFirstTranslationInvitation(sanitized)
       } else {
-        sanitized = ensureTranslationProtocolBlocks(sanitized, {
-          tense: normalizedTense,
-          topic,
-          level,
-          audience,
-          fallbackPrompt: lastTranslationPrompt,
-        })
-        const repeatSentence = getTranslationRepeatSentence(sanitized)
-        if (repeatSentence && isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, repeatSentence)) {
-          // Fast-path: модель фактически попросила пользователя повторить его же ответ — значит, ответ корректный.
-          sanitized = forcePraiseIfRepeatMatchesUser({ content: sanitized, userText: lastUserContentForResponse })
-        } else {
-          sanitized = enrichTranslationCommentQuality({
-            content: sanitized,
-            userText: lastUserContentForResponse,
-            repeatSentence,
-            tense: normalizedTense,
-          })
-          sanitized = replaceFalsePositiveTranslationErrorWithPraise({
-            content: sanitized,
-            userText: lastUserContentForResponse,
-          })
-          sanitized = keepOnlyCommentAndRepeatOnInvalidTranslationInput(sanitized, !isFirstTranslationUserTurn)
-          if (isUnrecognizedTranslationContext(sanitized)) {
-            sanitized =
-              'Комментарий: Некорректный ввод. Введите правильный перевод полным предложением на английском языке.'
-          }
-        }
-
-        // Coach-текст для блока "Конструкция" (привязываем правило к текущему "Повтори").
-        const repeatSentenceForConstruction = getTranslationRepeatSentence(sanitized)
-        if (repeatSentenceForConstruction && !isGenericTranslationRepeatFallback(repeatSentenceForConstruction)) {
-          const coachText = buildTranslationConstructionCoachText(normalizedTense, repeatSentenceForConstruction)
-          sanitized = replaceTranslationConstructionLine(sanitized, coachText)
-        }
-
-        if (isTranslationSuccessContent(sanitized)) {
+        const initialSuccessLike = isTranslationSuccessLikeContent(sanitized)
+        if (initialSuccessLike) {
           sanitized = ensureTranslationSuccessBlocks(sanitized, {
             tense: normalizedTense,
             topic,
@@ -5554,6 +5503,54 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             userText: lastUserContentForResponse,
           })
           translationSuccessFlow = true
+        } else {
+          sanitized = ensureTranslationProtocolBlocks(sanitized, {
+            tense: normalizedTense,
+            topic,
+            level,
+            audience,
+            fallbackPrompt: lastTranslationPrompt,
+          })
+          const repeatSentence = getTranslationRepeatSentence(sanitized)
+          if (repeatSentence && isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, repeatSentence)) {
+            // Fast-path: модель фактически попросила пользователя повторить его же ответ — значит, ответ корректный.
+            sanitized = forcePraiseIfRepeatMatchesUser({ content: sanitized, userText: lastUserContentForResponse })
+          } else {
+            sanitized = enrichTranslationCommentQuality({
+              content: sanitized,
+              userText: lastUserContentForResponse,
+              repeatSentence,
+              tense: normalizedTense,
+            })
+            sanitized = replaceFalsePositiveTranslationErrorWithPraise({
+              content: sanitized,
+              userText: lastUserContentForResponse,
+            })
+            sanitized = keepOnlyCommentAndRepeatOnInvalidTranslationInput(sanitized, !isFirstTranslationUserTurn)
+            if (isUnrecognizedTranslationContext(sanitized)) {
+              sanitized =
+                'Комментарий: Некорректный ввод. Введите правильный перевод полным предложением на английском языке.'
+            }
+          }
+
+          // Coach-текст для блока "Конструкция" (привязываем правило к текущему "Повтори").
+          const repeatSentenceForConstruction = getTranslationRepeatSentence(sanitized)
+          if (repeatSentenceForConstruction && !isGenericTranslationRepeatFallback(repeatSentenceForConstruction)) {
+            const coachText = buildTranslationConstructionCoachText(normalizedTense, repeatSentenceForConstruction)
+            sanitized = replaceTranslationConstructionLine(sanitized, coachText)
+          }
+
+          if (isTranslationSuccessContent(sanitized)) {
+            sanitized = ensureTranslationSuccessBlocks(sanitized, {
+              tense: normalizedTense,
+              topic,
+              level,
+              audience,
+              fallbackPrompt: lastTranslationPrompt,
+              userText: lastUserContentForResponse,
+            })
+            translationSuccessFlow = true
+          }
         }
       }
     }
@@ -5641,9 +5638,6 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             }
           }
 
-          if (isGenericTranslationRepeatFallback(getTranslationRepeatSentence(sanitized))) {
-            sanitized = 'Комментарий: Не удалось сформировать исправленное предложение. Попробуйте ещё раз.'
-          }
         }
       }
     }
@@ -6366,6 +6360,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       audience: audience as Audience,
     })
     sanitized = dialogueGuard.content
+    sanitized = formatDialogueCommentAsSeparateLines(sanitized)
 
     return NextResponse.json({
       content: sanitized,

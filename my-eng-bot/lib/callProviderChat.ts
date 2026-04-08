@@ -13,6 +13,18 @@ function normalizeKey(key: string): string {
   return k
 }
 
+function hasExplicitEnvProxy(): boolean {
+  const value =
+    process.env.HTTPS_PROXY ||
+    process.env.https_proxy ||
+    process.env.HTTP_PROXY ||
+    process.env.http_proxy ||
+    process.env.ALL_PROXY ||
+    process.env.all_proxy ||
+    ''
+  return value.trim().length > 0
+}
+
 export async function callProviderChat(params: {
   provider: 'openrouter' | 'openai'
   req: NextRequest
@@ -24,20 +36,34 @@ export async function callProviderChat(params: {
   if (provider === 'openai') {
     const key = normalizeKey(process.env.OPENAI_API_KEY ?? '')
     if (!key) return { ok: false, status: 500, errText: 'Missing OPENAI_API_KEY' }
+    const requestInit: RequestInit = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        messages: apiMessages,
+        max_tokens: maxTokens,
+      }),
+    }
+    const preferProxy = hasExplicitEnvProxy()
     let res: Response
+
     try {
-      res = await fetchWithProxyFallback(OPENAI_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${key}`,
-        },
-        body: JSON.stringify({
-          model: OPENAI_MODEL,
-          messages: apiMessages,
-          max_tokens: maxTokens,
-        }),
-      })
+      if (preferProxy) {
+        // При явном VPN/прокси из env сначала идём через прокси.
+        // Если прокси недоступен, делаем прямой fallback.
+        try {
+          res = await fetchWithProxyFallback(OPENAI_URL, requestInit)
+        } catch {
+          res = await fetch(OPENAI_URL, requestInit)
+        }
+      } else {
+        // Без прокси сначала пробуем прямой канал и затем прокси-кандидаты.
+        res = await fetchWithProxyFallback(OPENAI_URL, requestInit, { directFirst: true })
+      }
     } catch {
       return { ok: false, status: 502, errText: 'OpenAI fetch failed' }
     }
