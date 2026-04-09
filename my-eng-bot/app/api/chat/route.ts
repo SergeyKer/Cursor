@@ -388,13 +388,15 @@ Rules:
 - Never quote textbook-style rule templates verbatim (for example: "привычка, факт, постоянное предпочтение"). Explain the reason in plain Russian tied to THIS sentence meaning.
 - Keep SUCCESS "Комментарий" concise: maximum 1-2 short sentences.
 - In ERROR protocol, "Комментарий" must sound professional and pedagogical:
-  - Start with exact error type in Russian (e.g. "Ошибка согласования подлежащего и сказуемого", "Ошибка формы глагола", "Ошибка времени", "Лексическая ошибка").
-  - Then give one precise fix in one short sentence.
-  - If there are several mistakes, list ALL key issues in one concise comment: tense, word choice, article, singular/plural.
-  - Briefly explain why (for example: "look = смотреть, see = видеть"; "после a используем существительное в единственном числе").
+  - Prefer this exact multiline format:
+    - first line: "📖 Ошибки:" (or a narrower same-style heading only if all mistakes are of one type)
+    - each next line starts on a NEW line with a bullet: "• 'wrong' → 'right' (short reason)"
+  - Always point to the learner's exact wrong word or fragment.
+  - Always show the exact correct replacement.
+  - Keep reasons very short and concrete (for example: "переведи на английский", "орфография", "вспомогательный глагол", "артикль").
+  - Never write vague advice like "проверь написание", "проверь выбор слова", "исправь ошибку".
   - Use Russian linguistic terms (say "согласование", not "agreeing").
-  - No slang, jokes, filler, or casual tone.
-  - Maximum 1-2 short sentences.`
+  - No slang, jokes, filler, or casual tone.`
   }
   const tenseRule =
     tense === 'all'
@@ -2821,35 +2823,35 @@ function hasContextualReasonInSuccessComment(commentBody: string): boolean {
 function minimalSuccessCommentReason(tense: string): string {
   switch (tense) {
     case 'present_simple':
-      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
+      return 'Здесь важно сохранить это время, потому что так передаётся смысл фразы.'
     case 'present_continuous':
-      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
+      return 'Здесь важно сохранить это время, потому что так передаётся смысл фразы.'
     case 'present_perfect':
-      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
+      return 'Здесь важно сохранить это время, потому что так передаётся смысл фразы.'
     case 'present_perfect_continuous':
-      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
+      return 'Здесь важно сохранить это время, потому что так передаётся смысл фразы.'
     case 'past_simple':
-      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
+      return 'Здесь важно сохранить это время, потому что так передаётся смысл фразы.'
     case 'past_continuous':
-      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
+      return 'Здесь важно сохранить это время, потому что так передаётся смысл фразы.'
     case 'past_perfect':
-      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
+      return 'Здесь важно сохранить это время, потому что так передаётся смысл фразы.'
     case 'past_perfect_continuous':
-      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
+      return 'Здесь важно сохранить это время, потому что так передаётся смысл фразы.'
     case 'future_simple':
-      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
+      return 'Здесь важно сохранить это время, потому что так передаётся смысл фразы.'
     case 'future_continuous':
-      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
+      return 'Здесь важно сохранить это время, потому что так передаётся смысл фразы.'
     case 'future_perfect':
-      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
+      return 'Здесь важно сохранить это время, потому что так передаётся смысл фразы.'
     case 'future_perfect_continuous':
-      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
+      return 'Здесь важно сохранить это время, потому что так передаётся смысл фразы.'
     default:
-      return 'Здесь важно сохранить это время, потому что оно передает нужный смысл фразы.'
+      return 'Здесь важно сохранить это время, потому что так передаётся смысл фразы.'
   }
 }
 
-function ensureMeaningfulSuccessComment(commentBody: string, _tense: string): string {
+function ensureMeaningfulSuccessComment(commentBody: string, tense: string): string {
   // Strip known-bad suffix the model sometimes hallucinates into the comment.
   const stripped = commentBody
     .replace(/\s+/g, ' ')
@@ -2860,7 +2862,17 @@ function ensureMeaningfulSuccessComment(commentBody: string, _tense: string): st
     .replace(/\s+/g, ' ')
     .trim()
 
-  return stripped || 'Отлично!'
+  if (!stripped) return 'Отлично!'
+  if (hasContextualReasonInSuccessComment(stripped)) return stripped
+
+  const hasCorrectionSignal = /(?:проверь|исправ|ошиб|неверн|неправил|нужн|орфограф|лексическ|грамматик|spelling|word choice|verb form)/i.test(
+    stripped
+  )
+  if (hasCorrectionSignal) {
+    return `Отлично! ${minimalSuccessCommentReason(tense)}`
+  }
+
+  return stripped
 }
 
 /** Примеры для блока "Конструкция" (сокращаем подсказку до примеров). */
@@ -3101,6 +3113,7 @@ function ensureTranslationProtocolBlocks(
   let construction: string | null = null
   let repeat: string | null = null
   let hasPraise = false
+  let collectingComment = false
   let collectingConstruction = false
 
   for (const line of lines) {
@@ -3108,16 +3121,19 @@ function ensureTranslationProtocolBlocks(
       const c = line.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:\s*/i, '').trim()
       comment = `Комментарий: ${c}`
       hasPraise = /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)\b/i.test(c)
+      collectingComment = true
       collectingConstruction = false
       continue
     }
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:/i.test(line)) {
       timeLine = line.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:\s*/i, 'Время: ').trim()
+      collectingComment = false
       collectingConstruction = false
       continue
     }
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:/i.test(line)) {
       construction = line.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:\s*/i, 'Конструкция: ').trim()
+      collectingComment = false
       collectingConstruction = true
       continue
     }
@@ -3126,7 +3142,12 @@ function ensureTranslationProtocolBlocks(
         /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*/i,
         'Повтори: '
       ).trim()
+      collectingComment = false
       collectingConstruction = false
+      continue
+    }
+    if (collectingComment && comment && /^•\s+/.test(line)) {
+      comment = `${comment}\n${line}`
       continue
     }
     if (collectingConstruction && construction) {
@@ -3703,7 +3724,7 @@ function isTranslationAnswerEffectivelyCorrect(userText: string, repeatSentence:
   return userNorm === repeatNorm
 }
 
-function forceTranslationWordErrorProtocol(content: string, repeatSentence: string): string {
+function forceTranslationWordErrorProtocol(content: string, repeatSentence: string, userText = ''): string {
   const repeat = normalizeEnglishSentenceForCard(repeatSentence)
   if (!repeat) return content
 
@@ -3715,7 +3736,59 @@ function forceTranslationWordErrorProtocol(content: string, repeatSentence: stri
   const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line))
   const repeatIndex = lines.findIndex((line) => /^(Повтори|Repeat|Say)\s*:/i.test(line))
 
-  const commentLine = 'Комментарий: Лексическая ошибка. Проверь написание и выбор слова.'
+  const fixes: TranslationCommentFix[] = []
+  const userTokens = tokenizeCommentWords(userText)
+  const repeatTokens = tokenizeEnglishWords(repeat)
+  const matchedRepeatTokens = new Set<string>()
+  const matchedUserTokens = new Set<string>()
+  for (const wrong of userTokens) {
+    if (!wrong || wrong.length < 2) continue
+    const exactRight = repeatTokens.find((right) => right === wrong && !matchedRepeatTokens.has(right))
+    if (!exactRight) continue
+    matchedUserTokens.add(wrong)
+    matchedRepeatTokens.add(exactRight)
+  }
+
+  const pickBestRepeatToken = (wrong: string): string | null => {
+    let bestToken: string | null = null
+    let bestDistance = Number.POSITIVE_INFINITY
+    for (const right of repeatTokens) {
+      if (!right || right.length < 2) continue
+      if (right === wrong) continue
+      if (matchedRepeatTokens.has(right)) continue
+      const distance = levenshteinDistance(wrong, right)
+      if (distance > 2) continue
+      if (distance < bestDistance) {
+        bestToken = right
+        bestDistance = distance
+      }
+    }
+    return bestToken
+  }
+
+  for (const wrong of userTokens) {
+    if (!wrong || wrong.length < 2) continue
+    if (matchedUserTokens.has(wrong)) continue
+    const right = pickBestRepeatToken(wrong)
+    if (!right) continue
+    pushUniqueCommentFix(fixes, { wrong, right })
+    matchedRepeatTokens.add(right)
+  }
+
+  if (fixes.length === 0) {
+    const unmatchedUser = userTokens.filter((token) => !repeatTokens.includes(token))
+    const unmatchedRepeat = repeatTokens.filter((token) => !userTokens.includes(token))
+    const maxFallback = Math.min(unmatchedUser.length, unmatchedRepeat.length)
+    for (let i = 0; i < maxFallback; i++) {
+      const wrong = unmatchedUser[i] ?? ''
+      const right = unmatchedRepeat[i] ?? ''
+      if (!wrong || !right) continue
+      pushUniqueCommentFix(fixes, { wrong, right })
+    }
+  }
+
+  const commentBody = buildTranslationCommentFromFixes(fixes)
+  const commentLine = `Комментарий: ${commentBody || '📖 Ошибки:\n• Проверь ответ по образцу в блоке "Повтори".'}`
   const repeatLine = `Повтори: ${repeat}`
 
   if (commentIndex === -1) {
@@ -3949,10 +4022,21 @@ function normalizeTranslationErrorBranch(content: string): string {
     .map((l) => stripLeadingAiPrefix(l).trim())
     .filter(Boolean)
 
-  const comment = lines
-    .find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(line))
-    ?.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:\s*/i, 'Комментарий: ')
-    .trim()
+  const commentIndex = lines.findIndex((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(line))
+  let comment: string | undefined
+  if (commentIndex !== -1) {
+    const commentLines = [
+      lines[commentIndex]!.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:\s*/i, 'Комментарий: ').trim(),
+    ]
+    for (let i = commentIndex + 1; i < lines.length; i++) {
+      const line = lines[i] ?? ''
+      if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:/i.test(line)) break
+      if (/^•\s+/.test(line)) {
+        commentLines.push(line)
+      }
+    }
+    comment = commentLines.join('\n').trim()
+  }
   const timeLine = lines
     .find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:/i.test(line))
     ?.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:\s*/i, 'Время: ')
@@ -4322,6 +4406,14 @@ function tokenizeEnglishWords(text: string): string[] {
     .filter(Boolean) ?? []
 }
 
+function tokenizeCommentWords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .match(/[a-zа-яё']+/gi)
+    ?.map((token) => token.replace(/^'+|'+$/g, ''))
+    .filter(Boolean) ?? []
+}
+
 function isContentWord(token: string): boolean {
   if (!token) return false
   if (!/[a-z]/i.test(token)) return false
@@ -4369,6 +4461,158 @@ function pushUniqueReason(parts: string[], reason: string): void {
   if (!reason) return
   if (parts.includes(reason)) return
   parts.push(reason)
+}
+
+type TranslationCommentCategory = 'lexical' | 'spelling' | 'grammar'
+
+type TranslationCommentFix = {
+  wrong: string
+  right: string
+  reason: string
+  category: TranslationCommentCategory
+}
+
+const COMMENT_PRONOUN_TOKENS = new Set([
+  'i',
+  'you',
+  'he',
+  'she',
+  'it',
+  'we',
+  'they',
+  'me',
+  'him',
+  'her',
+  'us',
+  'them',
+  'my',
+  'your',
+  'his',
+  'its',
+  'our',
+  'their',
+])
+
+const COMMENT_ARTICLE_TOKENS = new Set(['a', 'an', 'the'])
+const COMMENT_PREPOSITION_TOKENS = new Set([
+  'to',
+  'in',
+  'on',
+  'at',
+  'by',
+  'with',
+  'for',
+  'from',
+  'into',
+  'onto',
+  'over',
+  'under',
+  'about',
+  'of',
+  'off',
+  'through',
+  'during',
+  'before',
+  'after',
+  'between',
+  'among',
+  'within',
+  'without',
+  'up',
+  'down',
+  'out',
+])
+
+function normalizeCommentFixFragment(text: string): string {
+  return text.replace(/\s+/g, ' ').replace(/^[.,!?;:]+|[.,!?;:]+$/g, '').trim()
+}
+
+function inferTranslationFixMeta(params: {
+  wrong: string
+  right: string
+  reason?: string
+  category?: TranslationCommentCategory
+}): Pick<TranslationCommentFix, 'reason' | 'category'> {
+  const wrong = params.wrong.toLowerCase()
+  const right = params.right.toLowerCase()
+  const explicitReason = params.reason?.trim()
+  const explicitCategory = params.category
+
+  if (explicitReason && explicitCategory) {
+    return { reason: explicitReason, category: explicitCategory }
+  }
+
+  if (COMMENT_ARTICLE_TOKENS.has(wrong) || COMMENT_ARTICLE_TOKENS.has(right) || new RegExp(`^(?:a|an|the)\\s+`, 'i').test(params.right)) {
+    return { reason: explicitReason || 'артикль', category: explicitCategory || 'grammar' }
+  }
+
+  if (COMMENT_PREPOSITION_TOKENS.has(wrong) || COMMENT_PREPOSITION_TOKENS.has(right)) {
+    return { reason: explicitReason || 'предлог', category: explicitCategory || 'grammar' }
+  }
+
+  if (COMMENT_PRONOUN_TOKENS.has(wrong) || COMMENT_PRONOUN_TOKENS.has(right)) {
+    return { reason: explicitReason || 'местоимение', category: explicitCategory || 'grammar' }
+  }
+
+  if (/[А-Яа-яЁё]/.test(params.wrong) && /[A-Za-z]/.test(params.right)) {
+    return { reason: explicitReason || 'переведи на английский', category: explicitCategory || 'lexical' }
+  }
+
+  if (COMMON_IRREGULAR_PAST_TO_BASE[wrong] === right || (wrong.endsWith('ed') && !right.endsWith('ed'))) {
+    return { reason: explicitReason || 'форма глагола', category: explicitCategory || 'grammar' }
+  }
+
+  if (['am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'can', 'could', 'should', 'may', 'might', 'must'].includes(wrong) || ['am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'can', 'could', 'should', 'may', 'might', 'must'].includes(right)) {
+    return { reason: explicitReason || 'вспомогательный глагол', category: explicitCategory || 'grammar' }
+  }
+
+  if (levenshteinDistance(wrong, right) <= 2) {
+    return { reason: explicitReason || 'орфография', category: explicitCategory || 'spelling' }
+  }
+
+  return { reason: explicitReason || 'другое слово по смыслу', category: explicitCategory || 'lexical' }
+}
+
+function pushUniqueCommentFix(fixes: TranslationCommentFix[], params: {
+  wrong: string
+  right: string
+  reason?: string
+  category?: TranslationCommentCategory
+}): void {
+  const wrong = normalizeCommentFixFragment(params.wrong)
+  const right = normalizeCommentFixFragment(params.right)
+  if (!wrong || !right || wrong.toLowerCase() === right.toLowerCase()) return
+
+  const meta = inferTranslationFixMeta({ wrong, right, reason: params.reason, category: params.category })
+  const normalizedFix: TranslationCommentFix = {
+    wrong,
+    right,
+    reason: meta.reason,
+    category: meta.category,
+  }
+  const key = `${normalizedFix.category}::${normalizedFix.wrong.toLowerCase()}::${normalizedFix.right.toLowerCase()}::${normalizedFix.reason.toLowerCase()}`
+  if (fixes.some((fix) => `${fix.category}::${fix.wrong.toLowerCase()}::${fix.right.toLowerCase()}::${fix.reason.toLowerCase()}` === key)) {
+    return
+  }
+  fixes.push(normalizedFix)
+}
+
+function buildTranslationCommentFromFixes(fixes: TranslationCommentFix[]): string | null {
+  if (fixes.length === 0) return null
+
+  const categories = new Set(fixes.map((fix) => fix.category))
+  let header = '📖 Ошибки:'
+  if (categories.size === 1) {
+    const only = fixes[0]?.category
+    if (only === 'lexical') header = '📖 Лексика:'
+    if (only === 'spelling') header = '✏️ Орфография:'
+    if (only === 'grammar') header = '🔤 Грамматика:'
+  }
+
+  return [
+    header,
+    ...fixes.map((fix) => `• '${fix.wrong}' → '${fix.right}'${fix.reason ? ` (${fix.reason})` : ''}`),
+  ].join('\n')
 }
 
 function escapeRegExp(text: string): string {
@@ -4426,6 +4670,7 @@ function enrichTranslationCommentQuality(params: {
   const userLower = userText.toLowerCase()
   const repeatLower = repeatSentence.toLowerCase()
   const reasonParts: string[] = []
+  const commentFixes: TranslationCommentFix[] = []
   const prepositionHintParts: string[] = []
 
   const userTokens = userLower.split(/\s+/).map(normalizeEnglishToken).filter(Boolean)
@@ -4433,6 +4678,7 @@ function enrichTranslationCommentQuality(params: {
   const userSet = new Set(userTokens)
   const repeatSet = new Set(repeatTokens)
   const spellingMatchedUserTokens = new Set<string>()
+  const matchedRepeatTokens = new Set<string>()
   const spellingTargets = new Set([
     'am',
     'is',
@@ -4469,9 +4715,39 @@ function enrichTranslationCommentQuality(params: {
       if (userToken === repeatToken) continue
       if (levenshteinDistance(userToken, repeatToken) > 2) continue
       pushUniqueReason(reasonParts, `Орфографическая ошибка: ${userToken} нужно исправить на ${repeatToken}.`)
+      pushUniqueCommentFix(commentFixes, { wrong: userToken, right: repeatToken, reason: 'орфография', category: 'spelling' })
       spellingMatchedUserTokens.add(userToken)
+      matchedRepeatTokens.add(repeatToken)
       break
     }
+  }
+
+  const pickBestRepeatToken = (userToken: string): { token: string; distance: number } | null => {
+    let best: { token: string; distance: number } | null = null
+    for (const repeatToken of repeatContentTokens) {
+      if (!repeatToken || repeatToken.length < 3) continue
+      if (matchedRepeatTokens.has(repeatToken)) continue
+      if (userToken === repeatToken) continue
+      const distance = levenshteinDistance(userToken, repeatToken)
+      if (distance > 2) continue
+      if (!best || distance < best.distance) {
+        best = { token: repeatToken, distance }
+      }
+    }
+    return best
+  }
+
+  for (const userToken of userContentTokens) {
+    if (!userToken || userToken.length < 3) continue
+    if (spellingMatchedUserTokens.has(userToken)) continue
+
+    const bestMatch = pickBestRepeatToken(userToken)
+    if (!bestMatch) continue
+
+    pushUniqueReason(reasonParts, `Лексическая ошибка: ${userToken} нужно заменить на ${bestMatch.token}.`)
+    pushUniqueCommentFix(commentFixes, { wrong: userToken, right: bestMatch.token })
+    spellingMatchedUserTokens.add(userToken)
+    matchedRepeatTokens.add(bestMatch.token)
   }
 
   const repeatHasSee = repeatSet.has('see') || repeatSet.has('sees')
@@ -4479,6 +4755,7 @@ function enrichTranslationCommentQuality(params: {
   const userHasSee = userSet.has('see') || userSet.has('sees')
   if (repeatHasSee && userHasLook && !userHasSee) {
     pushUniqueReason(reasonParts, 'Лексическая ошибка: здесь нужно see (видеть), а look означает «смотреть».')
+    pushUniqueCommentFix(commentFixes, { wrong: 'look', right: 'see', reason: 'другое слово по смыслу', category: 'lexical' })
   }
 
   const articleNounMatch = /\b(a|an)\s+([a-z]+)\b/i.exec(repeatLower)
@@ -4494,22 +4771,47 @@ function enrichTranslationCommentQuality(params: {
 
     if (userHasPlural) {
       pushUniqueReason(reasonParts, `Ошибка числа: после артикля используйте единственное число — ${singularNoun}, не ${pluralCandidate}.`)
+      pushUniqueCommentFix(commentFixes, {
+        wrong: pluralCandidate,
+        right: singularNoun,
+        reason: 'единственное число',
+        category: 'grammar',
+      })
     } else if (userHasBareSingular && !userHasArticleBeforeSingular) {
       pushUniqueReason(reasonParts, `Ошибка артикля: перед ${singularNoun} нужен артикль ${articleNounMatch[1].toLowerCase()}.`)
+      pushUniqueCommentFix(commentFixes, {
+        wrong: singularNoun,
+        right: `${articleNounMatch[1].toLowerCase()} ${singularNoun}`,
+        reason: 'артикль',
+        category: 'grammar',
+      })
     } else if (closestUserToNoun && closestUserToNoun.distance <= 2) {
       pushUniqueReason(
         reasonParts,
         `Ошибка артикля: перед ${singularNoun} нужен артикль ${articleNounMatch[1].toLowerCase()}.`
       )
+      pushUniqueCommentFix(commentFixes, {
+        wrong: closestUserToNoun.token,
+        right: `${articleNounMatch[1].toLowerCase()} ${singularNoun}`,
+        reason: 'артикль',
+        category: 'grammar',
+      })
     }
   }
 
-  for (const token of repeatContentTokens) {
+  for (const token of repeatTokens) {
     if (!token || token.length < 3) continue
     const articleBeforeTokenInUser = new RegExp(`\\b(a|an|the)\\s+${escapeRegExp(token)}\\b`, 'i').test(userLower)
     const articleBeforeTokenInRepeat = new RegExp(`\\b(a|an|the)\\s+${escapeRegExp(token)}\\b`, 'i').test(repeatLower)
     if (articleBeforeTokenInUser && !articleBeforeTokenInRepeat) {
       pushUniqueReason(reasonParts, `Ошибка артикля: перед ${token} артикль не нужен.`)
+      const articlePhrase = new RegExp(`\\b(a|an|the)\\s+${escapeRegExp(token)}\\b`, 'i').exec(userText)?.[0] ?? token
+      pushUniqueCommentFix(commentFixes, {
+        wrong: articlePhrase,
+        right: token,
+        reason: 'артикль',
+        category: 'grammar',
+      })
     }
   }
 
@@ -4529,6 +4831,12 @@ function enrichTranslationCommentQuality(params: {
     if (!repeatSet.has(baseForm)) continue
     if (userSet.has(baseForm)) continue
     pushUniqueReason(reasonParts, `Ошибка формы глагола: нужно ${baseForm}, не ${pastForm}.`)
+    pushUniqueCommentFix(commentFixes, {
+      wrong: pastForm,
+      right: baseForm,
+      reason: 'форма глагола',
+      category: 'grammar',
+    })
     if (tense === 'present_simple') {
       pushUniqueReason(reasonParts, 'Ошибка времени: здесь нужно Present Simple, а не форма прошедшего времени.')
     }
@@ -4542,38 +4850,17 @@ function enrichTranslationCommentQuality(params: {
     const singularFromRepeat = repeatNouns.find((w) => !isLikelyPluralNoun(w))
     if (singularFromRepeat && userSet.has(`${singularFromRepeat}s`)) {
       pushUniqueReason(reasonParts, `Ошибка числа: используйте ${singularFromRepeat} в единственном числе.`)
-    }
-  }
-
-  // Более широкая проверка: сравниваем ключевые слова из пользовательской фразы и эталона по позиции.
-  // Так мы видим несколько ошибок сразу: лексика, орфография, замена слов.
-  const maxAligned = Math.min(userContentTokens.length, repeatContentTokens.length)
-  for (let i = 0; i < maxAligned; i++) {
-    const userToken = userContentTokens[i] ?? ''
-    const repeatToken = repeatContentTokens[i] ?? ''
-    if (!userToken || !repeatToken) continue
-    if (spellingMatchedUserTokens.has(userToken)) continue
-    if (userToken === repeatToken) continue
-    if (userSet.has(`${repeatToken}s`) || repeatSet.has(`${userToken}s`)) continue
-
-    const distance = levenshteinDistance(userToken, repeatToken)
-    if (distance <= 2) {
-      pushUniqueReason(reasonParts, `Лексическая ошибка: ${userToken} нужно заменить на ${repeatToken}.`)
-      continue
-    }
-
-    if (
-      userToken.length >= 3 &&
-      repeatToken.length >= 3 &&
-      !/^(?:a|an|the)$/i.test(userToken) &&
-      !/^(?:a|an|the)$/i.test(repeatToken)
-    ) {
-      pushUniqueReason(reasonParts, `Лексическая ошибка: ${userToken} нужно заменить на ${repeatToken}.`)
+      pushUniqueCommentFix(commentFixes, {
+        wrong: `${singularFromRepeat}s`,
+        right: singularFromRepeat,
+        reason: 'единственное число',
+        category: 'grammar',
+      })
     }
   }
 
   const unmatchedUserTokens = userContentTokens.filter((token) => !spellingMatchedUserTokens.has(token))
-  const unmatchedRepeatTokens = [...repeatContentTokens]
+  const unmatchedRepeatTokens = repeatContentTokens.filter((token) => !matchedRepeatTokens.has(token))
   for (const userToken of userContentTokens) {
     if (spellingMatchedUserTokens.has(userToken)) continue
     const bestIndex = unmatchedRepeatTokens.findIndex((repeatToken) => {
@@ -4596,8 +4883,10 @@ function enrichTranslationCommentQuality(params: {
       const distance = levenshteinDistance(userToken, repeatToken)
       if (distance <= 3) {
         pushUniqueReason(reasonParts, `Лексическая ошибка: ${userToken} нужно заменить на ${repeatToken}.`)
+        pushUniqueCommentFix(commentFixes, { wrong: userToken, right: repeatToken })
       } else if (!COMMON_IRREGULAR_PAST_TO_BASE[userToken]) {
         pushUniqueReason(reasonParts, `Лексическая ошибка: ${userToken} нужно заменить на ${repeatToken}.`)
+        pushUniqueCommentFix(commentFixes, { wrong: userToken, right: repeatToken })
       }
     }
   }
@@ -4649,7 +4938,19 @@ function enrichTranslationCommentQuality(params: {
     const expectedFirst = expectedPreps[0]
     if (expectedFirst && otherUsed && expectedFirst !== otherUsed) {
       prepositionHintParts.push(`И ещё: здесь нужен ${expectedFirst}, а у тебя ${otherUsed}.`)
+      pushUniqueCommentFix(commentFixes, {
+        wrong: otherUsed,
+        right: expectedFirst,
+        reason: 'предлог',
+        category: 'grammar',
+      })
     }
+  }
+
+  const formattedComment = buildTranslationCommentFromFixes(commentFixes)
+  if (formattedComment) {
+    lines[commentIndex] = `Комментарий: ${formattedComment}`
+    return lines.join('\n')
   }
 
   const mergedReasonParts = [
@@ -4694,6 +4995,7 @@ function applyTranslationCommentCoachVoice(params: {
   const originalLine = lines[commentIndex]
   const commentText = originalLine.replace(/^Комментарий\s*:\s*/i, '').trim()
   if (!commentText) return content
+  if (/\n\s*•\s*/.test(commentText) || /^[📖✏️🔤]\s*/.test(commentText)) return content
 
   const errorType = inferCommentErrorType(commentText)
   const errorTypeClean = errorType.replace(/\.\s*$/, '')
@@ -5879,7 +6181,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           : null
       const finalPromptAlignedRepeat = promptAlignedRepeat ?? promptAlignedRepeatByConcept
       if (finalPromptAlignedRepeat) {
-        sanitized = forceTranslationWordErrorProtocol(sanitized, finalPromptAlignedRepeat)
+        sanitized = forceTranslationWordErrorProtocol(sanitized, finalPromptAlignedRepeat, lastUserContentForResponse)
       }
       canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic && !translationWordMismatch && !translationPromptMismatch
       if (isFirstTurn) {
@@ -5905,7 +6207,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             fallbackPrompt: lastTranslationPrompt,
           })
           if (translationWordMismatch && translationReferenceForm) {
-            sanitized = forceTranslationWordErrorProtocol(sanitized, translationReferenceForm)
+            sanitized = forceTranslationWordErrorProtocol(sanitized, translationReferenceForm, lastUserContentForResponse)
           }
           let repeatSentence = getTranslationRepeatSentence(sanitized)
           if (repeatSentence && translationPromptText && hasTranslationPromptKeywordMismatch(translationPromptText, repeatSentence)) {
@@ -5913,7 +6215,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               buildPromptAlignedRepeatSentence(repeatSentence, translationPromptText) ??
               buildPromptAlignedRepeatSentenceByConcept(repeatSentence, translationPromptText)
             if (promptAlignedRepeatFromRepeat) {
-              sanitized = forceTranslationWordErrorProtocol(sanitized, promptAlignedRepeatFromRepeat)
+              sanitized = forceTranslationWordErrorProtocol(sanitized, promptAlignedRepeatFromRepeat, lastUserContentForResponse)
               repeatSentence = getTranslationRepeatSentence(sanitized)
             }
           }
@@ -5984,7 +6286,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
       let repeatSentence = getTranslationRepeatSentence(sanitized)
       if (!repeatSentence && translationReferenceFormForTurn) {
-        sanitized = forceTranslationWordErrorProtocol(sanitized, translationReferenceFormForTurn)
+        sanitized = forceTranslationWordErrorProtocol(sanitized, translationReferenceFormForTurn, lastUserContentForResponse)
         repeatSentence = getTranslationRepeatSentence(sanitized)
       }
       if (repeatSentence && translationPromptTextForTurn && hasTranslationPromptKeywordMismatch(translationPromptTextForTurn, repeatSentence)) {
@@ -5992,7 +6294,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           buildPromptAlignedRepeatSentence(repeatSentence, translationPromptTextForTurn) ??
           buildPromptAlignedRepeatSentenceByConcept(repeatSentence, translationPromptTextForTurn)
         if (promptAlignedRepeatFromRepeat) {
-          sanitized = forceTranslationWordErrorProtocol(sanitized, promptAlignedRepeatFromRepeat)
+          sanitized = forceTranslationWordErrorProtocol(sanitized, promptAlignedRepeatFromRepeat, lastUserContentForResponse)
           repeatSentence = getTranslationRepeatSentence(sanitized)
         }
       }

@@ -147,6 +147,9 @@ export function commentIconForContent(comment: string): CommentIcon {
   const timePattern = `(?:Ошибка\\s+времени|Ошибка\\s+по\\s+времени|Время)`
 
   if (commentToneForContent(normalized) === 'praise') return '✅'
+  if (/^📖\s*(?:Ошибки|Лексика)\s*:/u.test(normalized)) return '📖'
+  if (/^✏️\s*Орфография\s*:/u.test(normalized)) return '✏️'
+  if (/^🔤\s*Грамматика\s*:/u.test(normalized)) return '🔤'
   if (new RegExp(`^${timePattern}${followsTypeBoundary}`, 'i').test(normalized)) return '⏱️'
   if (new RegExp(`^${grammarPattern}${followsTypeBoundary}`, 'i').test(normalized)) {
     return '🔤'

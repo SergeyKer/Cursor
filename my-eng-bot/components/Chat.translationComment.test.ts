@@ -31,6 +31,12 @@ describe('commentToneForContent', () => {
       commentToneForContent('Отлично! Ты правильно указал смысл, но проверь правильность написания слов.')
     ).toBe('amber')
   })
+
+  it('marks a translated success comment with short contextual reason as praise', () => {
+    expect(
+      commentToneForContent('Отлично! Здесь важно сохранить это время, потому что так передаётся смысл фразы.')
+    ).toBe('praise')
+  })
 })
 
 describe('commentIconForContent', () => {
@@ -52,6 +58,10 @@ describe('commentIconForContent', () => {
 
   it('uses the book for lexical mistakes', () => {
     expect(commentIconForContent('Лексическая ошибка: went нужно заменить на school.')).toBe('📖')
+  })
+
+  it('uses the book for the new multiline error header', () => {
+    expect(commentIconForContent("📖 Ошибки:\n• 'гуляю' → 'walk' (переведи на английский)")).toBe('📖')
   })
 
   it('uses the book for lexical mistakes written as Ошибка лексическая', () => {
