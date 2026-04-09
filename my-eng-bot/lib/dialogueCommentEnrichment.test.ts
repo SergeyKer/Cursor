@@ -27,4 +27,23 @@ describe('enrichDialogueCommentWithTypoHints', () => {
     const content = 'What will you do tomorrow?'
     expect(enrichDialogueCommentWithTypoHints({ content, userText: 'ok' })).toBe(content)
   })
+
+  it('adds possessive hint when user wrote you instead of your', () => {
+    const content = `Комментарий: Ошибка времени.
+Повтори: What is your favorite color.`
+    const userText = 'What was you favorit color'
+    const out = enrichDialogueCommentWithTypoHints({ content, userText })
+    expect(out).toContain('притяжательное')
+    expect(out).toContain('your')
+  })
+
+  it('adds mixed-script hint for Russian word vs English in repeat', () => {
+    const content = `Комментарий: Ошибка времени.
+Повтори: What is your favorite color.`
+    const userText = 'What was you favorit цвет'
+    const out = enrichDialogueCommentWithTypoHints({ content, userText })
+    expect(out).toContain('Русское')
+    expect(out).toContain('цвет')
+    expect(out).toContain('color')
+  })
 })

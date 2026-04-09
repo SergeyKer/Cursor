@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { parseCorrection } from '@/lib/parseCorrection'
+import { TRANSLATION_PROTOCOL_BLOCK_LINE } from '@/lib/translationProtocolLines'
 import { speak } from '@/lib/speech'
 import { pickRecordingMimeType, shouldUseMediaRecorderFallback, sttLangFromLocale } from '@/lib/sttClient'
 import { normalizeWebSearchSourceUrl } from '@/lib/openAiWebSearchShared'
@@ -157,10 +158,20 @@ export function commentIconForContent(comment: string): CommentIcon {
   return '💡'
 }
 
+/** Первый блок комментария в переводе при ошибке: всегда подсказка 💡 (не ⏱️/другие типы по первой строке). */
+export function commentLabelForTranslationFirstBlock(comment: string): CommentIcon {
+  if (commentToneForContent(comment) === 'praise') {
+    return commentIconForContent(comment)
+  }
+  return '💡'
+}
+
 function buildAssistantSections(params: {
   comment: string | null
   tenseRef?: string | null
   threeFormsText?: string | null
+  /** Режим перевод, сценарий ошибки: разбор по пунктам под «Комментарий». */
+  translationErrorsText?: string | null
   showOnlyRepeat: boolean
   hidePromptBlocks?: boolean
   repeatTextForCard: string | null
@@ -176,6 +187,7 @@ function buildAssistantSections(params: {
     comment,
     tenseRef,
     threeFormsText,
+    translationErrorsText,
     showOnlyRepeat,
     hidePromptBlocks = false,
     repeatTextForCard,
@@ -199,9 +211,19 @@ function buildAssistantSections(params: {
     sections.push({
       key: 'comment',
       tone: commentToneForContent(comment),
-      label: commentIconForContent(comment),
+      label:
+        mode === 'translation' ? commentLabelForTranslationFirstBlock(comment) : commentIconForContent(comment),
       text: comment,
       singleLine: true,
+    })
+  }
+  if (translationErrorsText?.trim() && mode === 'translation') {
+    sections.push({
+      key: 'translation-errors',
+      tone: 'amber',
+      label: '',
+      text: translationErrorsText.trim(),
+      singleLine: false,
     })
   }
   if (tenseRef) {
@@ -258,8 +280,9 @@ function buildAssistantSections(params: {
   return sections
 }
 
-function parseTranslationCoachBlocks(text: string): {
+export function parseTranslationCoachBlocks(text: string): {
   comment: string | null
+  errorsBlock: string | null
   tenseRef: string | null
   threeFormsText: string | null
   repeat: string | null
@@ -272,6 +295,7 @@ function parseTranslationCoachBlocks(text: string): {
     .filter(Boolean)
 
   let comment: string | null = null
+  let errorsBlock: string | null = null
   let tenseRef: string | null = null
   let threeFormsText: string | null = null
   let repeat: string | null = null
@@ -280,13 +304,23 @@ function parseTranslationCoachBlocks(text: string): {
   const formsLines: string[] = []
   let collectingConstruction = false
   let collectingForms = false
+  let collectingErrors = false
 
   const isHeaderLine = (line: string): boolean =>
-    /^\s*(?:\d+\)\s*)?(Комментарий|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:/i.test(line) ||
+    TRANSLATION_PROTOCOL_BLOCK_LINE.test(line) ||
     /^\s*(?:\d+\)\s*)?[+\?-]\s*:/i.test(line) ||
     /^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)\b/i.test(line)
 
   for (const line of cleaned) {
+    if (collectingErrors) {
+      if (isHeaderLine(line)) {
+        collectingErrors = false
+      } else {
+        errorsBlock = !errorsBlock ? line : `${errorsBlock}\n${line}`
+        continue
+      }
+    }
+
     const pureInvitation = /^\s*(?:\d+\)\s*)?((?:Переведи|Переведите)[^.]*\.)\s*$/i.exec(line)
     if (pureInvitation?.[1]) {
       invitation = pureInvitation[1].trim()
@@ -297,6 +331,14 @@ function parseTranslationCoachBlocks(text: string): {
 
     if (/^Комментарий\s*:/i.test(line)) {
       comment = line.replace(/^Комментарий\s*:\s*/i, '').trim() || null
+      collectingConstruction = false
+      collectingForms = false
+      continue
+    }
+    if (/^\s*(?:\d+\)\s*)?Ошибки\s*:/i.test(line)) {
+      const rest = line.replace(/^\s*(?:\d+\)\s*)?Ошибки\s*:\s*/i, '').trim()
+      errorsBlock = rest
+      collectingErrors = true
       collectingConstruction = false
       collectingForms = false
       continue
@@ -372,8 +414,10 @@ function parseTranslationCoachBlocks(text: string): {
       .filter((line) => /^[+\?-]\s*:/.test(line))
     threeFormsText = normalizedForms.join('\n').trim() || null
   }
+  const trimmedErrors = errorsBlock?.trim() ?? ''
   return {
     comment,
+    errorsBlock: trimmedErrors ? trimmedErrors : null,
     tenseRef,
     threeFormsText,
     repeat,
@@ -458,7 +502,7 @@ function computeAssistantTranslationMainCardMeta(message: ChatMessageType): {
       .filter(
         (line) =>
           Boolean(line) &&
-          !/^(Комментарий|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:/i.test(line) &&
+          !TRANSLATION_PROTOCOL_BLOCK_LINE.test(line) &&
           !/^[+\?-]\s*:/i.test(line) &&
           !/^(?:Переведи|Переведите)\b/i.test(line)
       )
@@ -466,7 +510,10 @@ function computeAssistantTranslationMainCardMeta(message: ChatMessageType): {
       .replace(/\s+/g, ' ')
       .trim()
     const fallbackFromInline = blocks.nextSentence
-      .replace(/(?:Комментарий|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi, ' ')
+      .replace(
+        /(?:Комментарий|Ошибки|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
+        ' '
+      )
       .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')
       .replace(/(?:Переведи|Переведите)[^.]*\./gi, ' ')
       .replace(/\s+/g, ' ')
@@ -1386,12 +1433,17 @@ function MessageBubble({
   let effectiveMainBefore = mainBefore
   let effectiveInvitationText = invitationText
   let hideTranslationMainCardForErrorRepeat = false
+  let translationErrorsText: string | null = null
   if (!isUser && isTranslationMode) {
     const blocks = parseTranslationCoachBlocks(displayText)
     if (blocks.comment) effectiveComment = condenseTranslationCommentToErrors(blocks.comment)
     if (blocks.tenseRef) effectiveTenseRef = blocks.tenseRef
     if (blocks.threeFormsText) effectiveThreeFormsText = blocks.threeFormsText
     if (blocks.repeat) repeatTextForCard = blocks.repeat
+    translationErrorsText =
+      Boolean(blocks.repeat) && !blocks.threeFormsText && Boolean(blocks.errorsBlock?.trim())
+        ? blocks.errorsBlock!.trim()
+        : null
     if (blocks.nextSentence) {
       const cleanedNextSentence = blocks.nextSentence
         .split(/\r?\n/)
@@ -1399,7 +1451,7 @@ function MessageBubble({
         .filter(
           (line) =>
             Boolean(line) &&
-            !/^(Комментарий|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:/i.test(line) &&
+            !TRANSLATION_PROTOCOL_BLOCK_LINE.test(line) &&
             !/^[+\?-]\s*:/i.test(line) &&
             !/^(?:Переведи|Переведите)\b/i.test(line)
         )
@@ -1407,7 +1459,10 @@ function MessageBubble({
         .replace(/\s+/g, ' ')
         .trim()
       const fallbackFromInline = blocks.nextSentence
-        .replace(/(?:Комментарий|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi, ' ')
+        .replace(
+          /(?:Комментарий|Ошибки|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
+          ' '
+        )
         .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')
         .replace(/(?:Переведи|Переведите)[^.]*\./gi, ' ')
         .replace(/\s+/g, ' ')
@@ -1455,6 +1510,7 @@ function MessageBubble({
     ? Boolean(message.content)
     : Boolean(
         effectiveComment ||
+          translationErrorsText ||
           effectiveTenseRef ||
           effectiveMainBefore ||
           (mainAfterVisibleForBubble ? mainAfter : false) ||
@@ -1472,6 +1528,7 @@ function MessageBubble({
         comment: effectiveComment,
         tenseRef: effectiveTenseRef,
         threeFormsText: effectiveThreeFormsText,
+        translationErrorsText,
         showOnlyRepeat,
         hidePromptBlocks: hideTranslationPromptBlocks,
         repeatTextForCard,

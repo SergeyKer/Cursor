@@ -83,6 +83,8 @@ import { normalizeDialogueCommentTerminology } from '@/lib/dialogueCommentTermin
 import { normalizeRuTopicKeyword, normalizeTopicToken, RU_TOPIC_KEYWORD_TO_EN } from '@/lib/ruTopicKeywordMap'
 import { buildNextFreeTalkQuestionFromContext } from '@/lib/freeTalkContextNextQuestion'
 import { enrichDialogueCommentWithTypoHints } from '@/lib/dialogueCommentEnrichment'
+import { compactDialogueComment } from '@/lib/dialogueCommentCompact'
+import { applyTranslationCommentCoachVoice } from '@/lib/translationCommentCoach'
 import { applyFreeTalkTopicChoiceTenseAnchorFallback } from '@/lib/freeTalkTopicChoiceAnchorFallback'
 import { buildCefrPromptBlock } from '@/lib/cefr/cefrSpec'
 import { applyCefrOutputGuard } from '@/lib/cefr/levelGuard'
@@ -366,11 +368,18 @@ SUCCESS protocol (if user answer is correct), strict order:
 - Line 8: "Переведи на английский."
 - In SUCCESS protocol do NOT output separate "Время:" line and do NOT output "Повтори:".
 
-ERROR protocol (if there is a mistake), strict:
-- Line 1: "Комментарий: " + short Russian feedback
-- Line 2: "Время: " + ${tenseName} + short Russian explanation tied to the meaning of this exact sentence: say why this tense fits, name the clue words/markers, and mention the context (habit, fact, action now, result, finished past event, future, etc.). Do not just name the tense.
-- Line 3: "Конструкция: " + very short tense pattern for learner (example for Present Simple: "Subject + V1(s/es)")
-- Line 4: "Повтори: " + full corrected English sentence that translates only the Russian phrase from the task prompt. Do not reuse wording from the user's answer if it conflicts with the prompt.
+ERROR protocol (if there is a mistake), strict order:
+- Line 1: "Комментарий: " + short Russian feedback (same pedagogical style as below).
+- Then block "Ошибки:" (may span multiple lines). After "Ошибки:" output subsections only where relevant; skip empty subsections. Use emoji + label on each line:
+  - 🤔 ... (only if the meaning is unclear or the English is illogical)
+  - ✏️ Орфография: ... (all spelling fixes in one block)
+  - 📖 Лексика: ... (all wrong-word fixes as a list)
+  - 🔤 Грамматика: ... (verb forms, articles, prepositions)
+  - ⏱️ Время: ... (which tense is needed and why for THIS sentence meaning)
+  Do not put the full corrected English sentence inside "Ошибки"; the only full corrected English must be in "Повтори:".
+- Next line: "Время: " + ${tenseName} + short Russian explanation tied to the meaning of this exact sentence: say why this tense fits, name the clue words/markers, and mention the context (habit, fact, action now, result, finished past event, future, etc.). Do not just name the tense.
+- Next: "Конструкция: " + very short tense pattern for learner (example for Present Simple: "Subject + V1(s/es)")
+- Next: "Повтори: " + full corrected English sentence that translates only the Russian phrase from the task prompt. Do not reuse wording from the user's answer if it conflicts with the prompt.
 
 Rules:
 - The Russian sentence must sound natural, conversational, and easy to say in everyday speech.
@@ -2466,55 +2475,6 @@ function enforceOpenDialogueQuestion(content: string, params: {
   return content.replace(lastQuestion, replacement)
 }
 
-function normalizeSentenceKey(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[.,!?;:()"«»]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function compactDialogueComment(content: string, audience: 'child' | 'adult'): string {
-  const lines = content.split(/\r?\n/)
-  const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
-  if (commentIndex < 0) return content
-  const raw = lines[commentIndex] ?? ''
-  const body = raw.replace(/^Комментарий\s*:\s*/i, '').trim()
-  if (!body) return content
-
-  const sentenceCandidates = body
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-
-  const seen = new Set<string>()
-  const uniqueSentences: string[] = []
-  for (const sentence of sentenceCandidates) {
-    const key = normalizeSentenceKey(sentence)
-    if (!key) continue
-    if (seen.has(key)) continue
-    seen.add(key)
-    uniqueSentences.push(sentence)
-  }
-
-  const hasTenseReason = (s: string) =>
-    /\b(результат|опыт|привычк|регулярн|прямо сейчас|в прошлом|в будущем|время из вопроса)\b/i.test(s)
-
-  const prioritized: string[] = []
-  if (uniqueSentences.length > 0) prioritized.push(uniqueSentences[0]!)
-  const important = uniqueSentences.find((s, idx) => idx > 0 && hasTenseReason(s))
-  if (important && !prioritized.includes(important)) prioritized.push(important)
-  for (const sentence of uniqueSentences) {
-    if (!prioritized.includes(sentence)) prioritized.push(sentence)
-  }
-
-  const maxSentences = 2
-  const compact = prioritized.slice(0, maxSentences).join(' ').trim()
-  if (!compact) return content
-  lines[commentIndex] = `Комментарий: ${compact}`
-  return lines.join('\n').trim()
-}
-
 function formatDialogueCommentAsSeparateLines(content: string): string {
   const lines = content.split(/\r?\n/)
   const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
@@ -2715,23 +2675,6 @@ function hasCommentRequestingCorrectionWithoutRepeat(content: string): boolean {
       .find((l) => /^Комментарий\s*:/i.test(l)) ?? ''
   const commentBody = commentLine.replace(/^Комментарий\s*:\s*/i, '').trim()
   return /(?:скоррект|исправ|ошиб|неверн|нужен|нужно|требуетс|а не|правильн(?:ый|ая|ое)\s+перевод|грамматик)/i.test(commentBody)
-}
-
-function inferCommentErrorType(raw: string): string {
-  const s = raw.toLowerCase()
-  if (/(врем|tense|present|past|future)/i.test(s)) return 'Ошибка времени.'
-  if (/(согласован|agree|subject|подлежащ|has\b|have\b|does\b|do\b)/i.test(s)) {
-    return 'Ошибка согласования подлежащего и сказуемого.'
-  }
-  if (/(форм[аы]\s+глагол|verb form|v1|v2|v3|неверн\w*\s+форм\w*\s+глагол)/i.test(s)) {
-    return 'Ошибка формы глагола.'
-  }
-  // Важно: матчим и "лексическая ошибка", и случаи где модель пишет "Лексическая ..." с разной пунктуацией.
-  if (/(лексическ|лексик|word choice|не то слово|неподходящее слово|словар)/i.test(s)) return 'Лексическая ошибка.'
-  if (/(артикл|a\/an| a | an | the )/i.test(s)) return 'Ошибка употребления артикля.'
-  if (/(предлог|preposition)/i.test(s)) return 'Ошибка в выборе предлога.'
-  if (/(порядок слов|word order)/i.test(s)) return 'Ошибка порядка слов.'
-  return 'Грамматическая ошибка.'
 }
 
 function normalizeTranslationCommentStyle(content: string): string {
@@ -3096,18 +3039,38 @@ function ensureTranslationProtocolBlocks(
     .filter(Boolean)
 
   let comment: string | null = null
+  let errorsBlock: string | null = null
   let timeLine: string | null = null
-  let constructionLine: string | null = null
   let construction: string | null = null
   let repeat: string | null = null
   let hasPraise = false
   let collectingConstruction = false
+  let collectingErrors = false
 
   for (const line of lines) {
+    if (collectingErrors) {
+      if (
+        /^[\s\-•]*(?:\d+[\.)]\s*)*(Время|Конструкция|Формы|Повтори|Repeat|Say|Комментарий)\s*:/i.test(line) ||
+        /^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)\b/i.test(line)
+      ) {
+        collectingErrors = false
+      } else {
+        errorsBlock = !errorsBlock ? line : `${errorsBlock}\n${line}`
+        continue
+      }
+    }
+
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(line)) {
       const c = line.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:\s*/i, '').trim()
       comment = `Комментарий: ${c}`
       hasPraise = /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)\b/i.test(c)
+      collectingConstruction = false
+      continue
+    }
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Ошибки\s*:/i.test(line)) {
+      const rest = line.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Ошибки\s*:\s*/i, '').trim()
+      errorsBlock = rest
+      collectingErrors = true
       collectingConstruction = false
       continue
     }
@@ -3140,7 +3103,7 @@ function ensureTranslationProtocolBlocks(
     comment = 'Комментарий: Есть неточность в грамматике. Давайте сверимся с образцом в блоке «Повтори».'
   }
   if (!timeLine || /^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:\s*[-–—]\s*$/i.test(timeLine)) {
-      timeLine = `Время: ${translationTimeHint(tense)}`
+    timeLine = `Время: ${translationTimeHint(tense)}`
   }
   if (
     !construction ||
@@ -3155,7 +3118,12 @@ function ensureTranslationProtocolBlocks(
     }
   }
 
-  const out = [comment, timeLine, construction]
+  const out: string[] = []
+  if (comment) out.push(comment)
+  if (errorsBlock != null && String(errorsBlock).trim()) {
+    out.push(`Ошибки:\n${String(errorsBlock).trim()}`)
+  }
+  out.push(timeLine!, construction!)
   if (repeat) out.push(repeat)
   return out.join('\n').trim()
 }
@@ -3173,7 +3141,7 @@ function ensureFirstTranslationInvitation(content: string): string {
     .filter(Boolean)
     .find(
       (line) =>
-        !/^(Комментарий|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:/i.test(line) &&
+        !/^(Комментарий|Ошибки|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:/i.test(line) &&
         !/^[+\?-]\s*:/i.test(line)
     )
 
@@ -3953,6 +3921,28 @@ function normalizeTranslationErrorBranch(content: string): string {
     .find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(line))
     ?.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:\s*/i, 'Комментарий: ')
     .trim()
+
+  let errorsCombined: string | null = null
+  const errStart = lines.findIndex((l) => /^[\s\-•]*(?:\d+[\.)]\s*)*Ошибки\s*:/i.test(l))
+  if (errStart !== -1) {
+    const firstBody = lines[errStart]!.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Ошибки\s*:\s*/i, '').trim()
+    const parts: string[] = []
+    if (firstBody) parts.push(firstBody)
+    for (let i = errStart + 1; i < lines.length; i++) {
+      const l = lines[i]!
+      if (
+        /^[\s\-•]*(?:\d+[\.)]\s*)*(Время|Конструкция|Формы|Повтори|Repeat|Say|Комментарий)\s*:/i.test(l)
+      ) {
+        break
+      }
+      parts.push(l)
+    }
+    const body = parts.join('\n').trim()
+    if (body) {
+      errorsCombined = `Ошибки:\n${body}`
+    }
+  }
+
   const timeLine = lines
     .find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:/i.test(line))
     ?.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:\s*/i, 'Время: ')
@@ -3968,7 +3958,7 @@ function normalizeTranslationErrorBranch(content: string): string {
 
   if (!repeat) return content
 
-  const out = [comment, timeLine, construction, repeat].filter(Boolean)
+  const out = [comment, errorsCombined, timeLine, construction, repeat].filter(Boolean)
   return out.join('\n').trim()
 }
 
@@ -4676,70 +4666,6 @@ function enrichTranslationCommentQuality(params: {
 
   const commentBody = shouldReplaceCommentBody ? mergedReasonParts : [rawComment, mergedReasonParts].join('\n').trim()
   lines[commentIndex] = `Комментарий: ${commentBody}`.trim()
-  return lines.join('\n')
-}
-
-function applyTranslationCommentCoachVoice(params: {
-  content: string
-  audience: 'child' | 'adult'
-  requiredTense: string
-}): string {
-  const { content, audience, requiredTense } = params
-  if (!content) return content
-
-  const lines = content.split(/\r?\n/)
-  const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
-  if (commentIndex === -1) return content
-
-  const originalLine = lines[commentIndex]
-  const commentText = originalLine.replace(/^Комментарий\s*:\s*/i, '').trim()
-  if (!commentText) return content
-
-  const errorType = inferCommentErrorType(commentText)
-  const errorTypeClean = errorType.replace(/\.\s*$/, '')
-  const commentTextLower = commentText.toLowerCase()
-  const errorTypeLower = errorType.toLowerCase()
-  const errorTypeLowerBase = errorTypeLower.endsWith('.') ? errorTypeLower.slice(0, -1) : errorTypeLower
-
-  let prefixLen = -1
-  if (commentTextLower.startsWith(errorTypeLower)) {
-    prefixLen = errorType.length
-  } else if (commentTextLower.startsWith(errorTypeLowerBase)) {
-    prefixLen = errorTypeLowerBase.length
-  }
-  if (prefixLen === -1) return content
-
-  const rest = commentText
-    .slice(prefixLen)
-    .trimStart()
-    // Убираем возможные двоеточия/тире после типа ошибки.
-    .replace(/^[:\-–—]\s*/, '')
-    // Если модель вставила "Смотри/Смотрите —", убираем это.
-    .replace(/^(Смотри|Смотрите)\s*[-–—:]\s*/i, '')
-  if (!rest) {
-    lines[commentIndex] = `Комментарий: ${errorTypeClean}`
-    return lines.join('\n')
-  }
-
-  if (errorTypeClean === 'Ошибка времени') {
-    let timeReason = 'потому что нужно строго нужное время.'
-    switch (requiredTense) {
-      case 'present_simple':
-        timeReason = 'но ведь ты идешь в школу (это привычка/факт).'
-        break
-      case 'present_continuous':
-        timeReason = 'потому что это происходит прямо сейчас.'
-        break
-      case 'past_simple':
-        timeReason = 'потому что речь про прошлое.'
-        break
-    }
-
-    lines[commentIndex] = `Комментарий: ${errorTypeClean} — ${timeReason} ${rest}`
-    return lines.join('\n')
-  }
-
-  lines[commentIndex] = `Комментарий: ${errorTypeClean} — ${rest}`
   return lines.join('\n')
 }
 

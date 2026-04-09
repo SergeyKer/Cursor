@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { commentIconForContent, commentToneForContent, condenseTranslationCommentToErrors } from './Chat'
+import {
+  commentIconForContent,
+  commentLabelForTranslationFirstBlock,
+  commentToneForContent,
+  condenseTranslationCommentToErrors,
+  parseTranslationCoachBlocks,
+} from './Chat'
 
 describe('condenseTranslationCommentToErrors', () => {
   it('keeps translation comment theses on separate lines', () => {
@@ -18,6 +24,26 @@ describe('condenseTranslationCommentToErrors', () => {
         'Ошибка числа: используйте love в единственном числе.',
       ].join('\n')
     )
+  })
+})
+
+describe('parseTranslationCoachBlocks', () => {
+  it('выделяет errorsBlock между Ошибки и Время', () => {
+    const text = [
+      'Комментарий: Ввод.',
+      'Ошибки:',
+      '✏️ a → b',
+      '📖 x → y',
+      'Время: Present Simple — пояснение.',
+      'Конструкция: S + V1',
+      'Повтори: I run.',
+    ].join('\n')
+    const b = parseTranslationCoachBlocks(text)
+    expect(b.errorsBlock).toContain('✏️')
+    expect(b.errorsBlock).toContain('📖')
+    expect(b.tenseRef).toContain('Present Simple')
+    expect(b.repeat).toBe('I run.')
+    expect(b.threeFormsText).toBeNull()
   })
 })
 
@@ -60,5 +86,15 @@ describe('commentIconForContent', () => {
 
   it('uses the pencil for spelling mistakes', () => {
     expect(commentIconForContent('Орфографическая ошибка: schol нужно исправить на school.')).toBe('✏️')
+  })
+})
+
+describe('commentLabelForTranslationFirstBlock', () => {
+  it('uses lightbulb for correction comments even when text starts with tense error', () => {
+    expect(commentLabelForTranslationFirstBlock('Ошибка времени: используйте Present Simple.')).toBe('💡')
+  })
+
+  it('keeps praise icon for success comments', () => {
+    expect(commentLabelForTranslationFirstBlock('Отлично! Правильно использован Present Simple.')).toBe('✅')
   })
 })

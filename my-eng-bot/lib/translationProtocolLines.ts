@@ -1,0 +1,13 @@
+/**
+ * Общие шаблоны для строк протокола режима «Перевод» (заголовки блоков ответа ассистента).
+ */
+
+/** Имена блоков в формате «Имя: …». */
+export const TRANSLATION_PROTOCOL_BLOCK_NAMES =
+  'Комментарий|Ошибки|Время|Конструкция|Формы|Повтори|Repeat|Say'
+
+/** Строка начинается с заголовка протокольного блока перевода. */
+export const TRANSLATION_PROTOCOL_BLOCK_LINE = new RegExp(
+  `^\\s*(?:\\d+\\)\\s*)?(?:${TRANSLATION_PROTOCOL_BLOCK_NAMES})\\s*:`,
+  'i'
+)

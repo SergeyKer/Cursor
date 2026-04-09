@@ -16,4 +16,20 @@ describe('parseCorrection', () => {
     expect(result.comment).toBe('First point.\nSecond point.\nThird point.')
     expect(result.rest).toBe('Время: Present Simple.\nПовтори: I often do my homework.')
   })
+
+  it('ends Комментарий before Ошибки', () => {
+    const result = parseCorrection(
+      [
+        'Комментарий: Кратко.',
+        'Ошибки:',
+        '✏️ x → y',
+        'Время: Present Simple.',
+        'Повтори: I run.',
+      ].join('\n')
+    )
+
+    expect(result.comment).toBe('Кратко.')
+    expect(result.rest).toContain('Ошибки:')
+    expect(result.rest).toContain('✏️')
+  })
 })

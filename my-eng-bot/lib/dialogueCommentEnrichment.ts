@@ -14,6 +14,11 @@ function tokenizeEnglishWords(text: string): string[] {
   return (text.match(/\b[a-z']+\b/gi) ?? []).map((t) => t)
 }
 
+/** Без \\b: в JS границы слова не считают кириллицу частью \\w. */
+function tokenizeMixedWords(text: string): string[] {
+  return (text.match(/[A-Za-zА-Яа-яЁё'-]+/g) ?? []).map((t) => t)
+}
+
 function levenshtein(a: string, b: string): number {
   const m = a.length
   const n = b.length
@@ -102,6 +107,51 @@ function commentAlreadyMentionsWord(commentBody: string, wrong: string, right: s
   return false
 }
 
+function collectPossessiveYourHints(
+  userText: string,
+  repeatText: string,
+  commentBody: string
+): string[] {
+  if (/притяжательн/i.test(commentBody) && /\byour\b/i.test(commentBody) && /\byou\b/i.test(commentBody)) {
+    return []
+  }
+  const uTok = tokenizeMixedWords(userText)
+  const rTok = tokenizeMixedWords(repeatText)
+  const max = Math.min(uTok.length, rTok.length)
+  for (let i = 0; i < max; i++) {
+    const ul = (uTok[i] ?? '').toLowerCase()
+    const rl = (rTok[i] ?? '').toLowerCase()
+    if (rl === 'your' && ul === 'you') {
+      return ['Нужно притяжательное your, а не you.']
+    }
+  }
+  return []
+}
+
+function collectCyrillicVsEnglishHints(
+  userText: string,
+  repeatText: string,
+  commentBody: string
+): string[] {
+  if (/русск(?:ое|ого|ий|ая)?\s+«/i.test(commentBody) || /замени\s+на\s+английск/i.test(commentBody)) {
+    return []
+  }
+  const uTok = tokenizeMixedWords(userText)
+  const rTok = tokenizeEnglishWords(repeatText)
+  const hints: string[] = []
+  const max = Math.min(uTok.length, rTok.length)
+  for (let i = 0; i < max; i++) {
+    const uw = uTok[i] ?? ''
+    const rw = rTok[i] ?? ''
+    if (uw.length <= 1 || rw.length <= 1) continue
+    if (!/[а-яё]/i.test(uw)) continue
+    if (!/^[a-z]+$/i.test(rw)) continue
+    if (commentBody.includes(uw) && commentBody.includes(rw)) continue
+    hints.push(`Русское «${uw}» замени на английское «${rw}».`)
+  }
+  return hints
+}
+
 /**
  * Дополняет строку «Комментарий» перечислением опечаток, если «Повтори» исправляет слова из ответа пользователя,
  * а модель не упомянула это в комментарии.
@@ -125,17 +175,23 @@ export function enrichDialogueCommentWithTypoHints(params: {
   const commentBody = commentLine.replace(/^\s*Комментарий\s*:\s*/i, '').trim()
   if (!commentBody) return content
 
-  if (commentAlreadyMentionsSpelling(commentBody)) return content
+  const hints: string[] = []
 
-  const pairs = collectTypoPairs(userText, repeatSentence).slice(0, 5)
-  const extra = pairs.filter((p) => !commentAlreadyMentionsWord(commentBody, p.wrong, p.right))
-  if (!extra.length) return content
+  if (!commentAlreadyMentionsSpelling(commentBody)) {
+    const pairs = collectTypoPairs(userText, repeatSentence).slice(0, 5)
+    const extra = pairs.filter((p) => !commentAlreadyMentionsWord(commentBody, p.wrong, p.right))
+    if (extra.length === 1) {
+      hints.push(`Также опечатка: «${extra[0]!.wrong}» → «${extra[0]!.right}».`)
+    } else if (extra.length > 1) {
+      hints.push(`Также опечатки: ${extra.map((p) => `«${p.wrong}» → «${p.right}»`).join(', ')}.`)
+    }
+  }
 
-  const hint =
-    extra.length === 1
-      ? `Также опечатка: «${extra[0]!.wrong}» → «${extra[0]!.right}».`
-      : `Также опечатки: ${extra.map((p) => `«${p.wrong}» → «${p.right}»`).join(', ')}.`
+  hints.push(...collectPossessiveYourHints(userText, repeatSentence, commentBody))
+  hints.push(...collectCyrillicVsEnglishHints(userText, repeatSentence, commentBody))
 
-  lines[commentIdx] = `Комментарий: ${commentBody} ${hint}`.replace(/\s+/g, ' ').trim()
+  if (!hints.length) return content
+
+  lines[commentIdx] = `Комментарий: ${commentBody} ${hints.join(' ')}`.replace(/\s+/g, ' ').trim()
   return lines.join('\n').trim()
 }

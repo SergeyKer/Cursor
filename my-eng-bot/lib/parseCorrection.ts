@@ -55,6 +55,7 @@ export function parseCorrection(text: string): {
     }
     if (collectingComment) {
       const isNextHeader =
+        /^ошибки\s*:/i.test(line) ||
         /^время\s*:/i.test(line) ||
         /^(повтори|repeat|say)\s*:/i.test(line) ||
         /^конструкция\s*:/i.test(line) ||
