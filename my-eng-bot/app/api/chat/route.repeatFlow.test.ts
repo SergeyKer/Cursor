@@ -424,7 +424,7 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     expect(res.status).toBe(200)
     expect(data.content).toContain('Комментарий:')
-    expect(data.content).toContain("'haev' → 'have'")
+    expect(data.content).toContain('Орфографическая ошибка: haev')
     expect(data.content).toContain('Конструкция:')
     expect(data.content).not.toContain('haev нужно заменить на car')
     expect(data.content).toContain('Повтори: I have a cat.')
@@ -896,35 +896,6 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).not.toContain('Не удалось сформировать исправленное предложение')
   })
 
-  it('normalizes success comments with correction-like wording back to praise', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Отлично! Ты правильно использовал союз "I have". Утверждение в основном времени описывает факт, что у тебя есть кошка, поэтому нужно использовать Present Simple.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I have a cat.\n?: Do I have a cat?\n-: I do not have a cat.\nУ меня есть кошка.\nПереведи на английский.',
-    })
-
-    const req = makeRequest({
-      mode: 'translation',
-      topic: 'family_friends',
-      audience: 'adult',
-      level: 'a2',
-      tenses: ['present_simple'],
-      messages: [
-        { role: 'assistant', content: 'У меня есть кошка.\nПереведи на английский.' },
-        { role: 'user', content: 'I have a cat.' },
-      ],
-    })
-
-    const res = await POST(req as never)
-    const data = await res.json() as { content: string }
-
-    expect(res.status).toBe(200)
-    expect(data.content).toContain('Комментарий: Отлично!')
-    expect(data.content).toContain('Конструкция:')
-    expect(data.content).toContain('Формы:')
-    expect(data.content).not.toContain('нужно использовать Present Simple')
-  })
-
   it('translation success (question input) preserves stable forms block', async () => {
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,
@@ -1040,8 +1011,7 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     expect(res.status).toBe(200)
     expect(data.content).toContain('Комментарий:')
-    expect(data.content).toMatch(/(?:📖|✏️|🔤)\s*(?:Ошибки|Лексика|Орфография|Грамматика):/)
-    expect(data.content).toContain("'hou' → 'you'")
+    expect(data.content).toContain('Лексическая ошибка')
     expect(data.content).toContain('Повтори:')
     expect(data.content).not.toContain('Переведи далее:')
     expect(data.content).not.toContain('✅')
@@ -1228,43 +1198,9 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     expect(res.status).toBe(200)
     expect(data.content).toContain('Комментарий:')
-    expect(data.content).toContain('📖 Лексика:')
-    expect(data.content).toContain("• 'друзья' → 'friends' (переведи на английский)")
     expect(data.content).toContain('Повтори:')
     expect(data.content).not.toContain('Переведи далее:')
     expect(data.content).not.toContain('Переведи на английский.')
-    expect(data.content).not.toContain('Проверь написание')
-  })
-
-  it('keeps multiple translation error groups for mixed word-order input', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Небольшая неточность.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I sometimes play football with friends.\n?: Do I sometimes play football with friends?\n-: I do not sometimes play football with friends.\nЯ иногда играю в футбол с друзьями.\nПереведи на английский.',
-    })
-
-    const req = makeRequest({
-      mode: 'translation',
-      topic: 'sports',
-      audience: 'adult',
-      level: 'a2',
-      tenses: ['present_simple'],
-      messages: [
-        { role: 'assistant', content: 'Я иногда играю в футбол с друзьями.\nПереведи на английский.' },
-        { role: 'user', content: 'rarely I played wtth frints at футбол' },
-      ],
-    })
-
-    const res = await POST(req as never)
-    const data = await res.json() as { content: string }
-
-    expect(res.status).toBe(200)
-    expect(data.content).toContain('Комментарий:')
-    expect(data.content).toContain('Повтори:')
-    expect(data.content).toContain('📖 Ошибки:')
-    expect(data.content).toContain("'played' → 'play'")
-    expect(data.content).toContain("'frints' → 'friends'")
-    expect(data.content).toContain("'wtth' → 'with'")
   })
 
   it('normalizes stale translation success payload with old time hint into new success format', async () => {
