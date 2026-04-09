@@ -99,6 +99,8 @@ import {
   isGenericEnglishClarification,
 } from '@/lib/factualCommunicationFallback'
 import { normalizeEnglishLearnerContractions } from '@/lib/englishLearnerContractions'
+import { applyTranslationRepeatSourceClampToContent } from '@/lib/translationRepeatClamp'
+import { extractPriorAssistantRepeatEnglish } from '@/lib/translationLastRepeat'
 
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
 // чтобы undici + proxy dispatcher работали предсказуемо (а не в Edge).
@@ -380,6 +382,7 @@ ERROR protocol (if there is a mistake), strict order:
 - Next line: "Время: " + ${tenseName} + short Russian explanation tied to the meaning of this exact sentence: say why this tense fits, name the clue words/markers, and mention the context (habit, fact, action now, result, finished past event, future, etc.). Do not just name the tense.
 - Next: "Конструкция: " + very short tense pattern for learner (example for Present Simple: "Subject + V1(s/es)")
 - Next: "Повтори: " + full corrected English sentence that translates only the Russian phrase from the task prompt. Do not reuse wording from the user's answer if it conflicts with the prompt.
+- Never add time-of-day, weekdays, seasons, or "weekend/weekends" to "Повтори:" unless those ideas appear in the Russian task line (for example: do not add "on the weekend" if the Russian sentence has no word like "выходные").
 
 Rules:
 - The Russian sentence must sound natural, conversational, and easy to say in everyday speech.
@@ -3016,6 +3019,7 @@ function extractLastTranslationPrompt(messages: ChatMessage[]): string | null {
       if (/^Комментарий\s*:/i.test(rawLine)) continue
       if (/^Время\s*:/i.test(rawLine)) continue
       if (/^Конструкция\s*:/i.test(rawLine)) continue
+      if (/^Ошибки\s*:/i.test(rawLine)) continue
       if (/^(Повтори|Repeat|Say)\s*:/i.test(rawLine)) continue
       if (/^(?:Переведи|Переведите)\b/i.test(rawLine)) continue
       const stripped = rawLine
@@ -3435,11 +3439,24 @@ function ensureTranslationSuccessBlocks(
   constructionLine = `Конструкция: ${translationSuccessConstructionHint(tense)}`
 
   const modelForms = extractTranslationFormLines(content)
-  const positiveSource = modelForms.positive ?? extractEnglishSentenceCandidate(userText) ?? 'I study English.'
-  const fallbackForms = buildFallbackTranslationForms({ positive: positiveSource, tense })
-  const positive = modelForms.positive ?? fallbackForms.positive
-  const question = modelForms.question ?? fallbackForms.question
-  const negative = modelForms.negative ?? fallbackForms.negative
+  const promptUserMismatch = Boolean(
+    fallbackPrompt?.trim() && hasTranslationPromptKeywordMismatch(fallbackPrompt, userText)
+  )
+  let positive: string
+  let question: string
+  let negative: string
+  if (promptUserMismatch) {
+    const neutral = buildFallbackTranslationForms({ positive: 'I study English.', tense })
+    positive = neutral.positive
+    question = neutral.question
+    negative = neutral.negative
+  } else {
+    const positiveSource = modelForms.positive ?? extractEnglishSentenceCandidate(userText) ?? 'I study English.'
+    const fallbackForms = buildFallbackTranslationForms({ positive: positiveSource, tense })
+    positive = modelForms.positive ?? fallbackForms.positive
+    question = modelForms.question ?? fallbackForms.question
+    negative = modelForms.negative ?? fallbackForms.negative
+  }
 
   const out = [
     finalComment,
@@ -5808,6 +5825,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         sanitized = forceTranslationWordErrorProtocol(sanitized, finalPromptAlignedRepeat)
       }
       canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic && !translationWordMismatch && !translationPromptMismatch
+      const priorAssistantRepeatEnglish = extractPriorAssistantRepeatEnglish(nonSystemMessages)
+      if (
+        priorAssistantRepeatEnglish &&
+        !isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, priorAssistantRepeatEnglish)
+      ) {
+        canTreatTranslationAsSuccess = false
+      }
       if (isFirstTurn) {
         sanitized = ensureFirstTranslationInvitation(sanitized)
       } else {
@@ -5867,6 +5891,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 'Комментарий: Некорректный ввод. Введите правильный перевод полным предложением на английском языке.'
             }
             sanitized = ensureTranslationRepeatFallbackForMixedInput(sanitized, lastUserContentForResponse)
+            sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
           }
 
           // Coach-текст для блока "Конструкция" (привязываем правило к текущему "Повтори").
@@ -5964,13 +5989,14 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               repaired = stripPravilnoEverywhere(repaired)
               repaired = stripRepeatOnPraise(repaired)
               repaired = normalizeTranslationCommentStyle(repaired)
-            repaired = ensureTranslationProtocolBlocks(repaired, {
-              tense: normalizedTense,
-              topic,
-              level,
-              audience,
-              fallbackPrompt: lastTranslationPrompt,
-            })
+              repaired = ensureTranslationProtocolBlocks(repaired, {
+                tense: normalizedTense,
+                topic,
+                level,
+                audience,
+                fallbackPrompt: lastTranslationPrompt,
+              })
+              repaired = applyTranslationRepeatSourceClampToContent(repaired, lastTranslationPrompt)
 
               const repairedRepeatSentence = getTranslationRepeatSentence(repaired)
               repaired = enrichTranslationCommentQuality({
@@ -6003,6 +6029,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     }
 
     if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
+      sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
       if (getTranslationRepeatSentence(sanitized)) {
         sanitized = normalizeTranslationErrorBranch(stripTranslationInvitationLines(sanitized))
       }
@@ -6084,6 +6111,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                     audience,
                     fallbackPrompt: lastTranslationPrompt,
                   })
+                  repaired = applyTranslationRepeatSourceClampToContent(repaired, lastTranslationPrompt)
                   const repeatSentence2 = getTranslationRepeatSentence(repaired)
                   repaired = enrichTranslationCommentQuality({
                     content: repaired,
