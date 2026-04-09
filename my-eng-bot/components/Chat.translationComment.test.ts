@@ -39,11 +39,29 @@ describe('parseTranslationCoachBlocks', () => {
       'Повтори: I run.',
     ].join('\n')
     const b = parseTranslationCoachBlocks(text)
+    expect(b.translationSupportComment).toBeNull()
     expect(b.errorsBlock).toContain('✏️')
     expect(b.errorsBlock).toContain('📖')
     expect(b.tenseRef).toContain('Present Simple')
     expect(b.repeat).toBe('I run.')
     expect(b.threeFormsText).toBeNull()
+  })
+
+  it('выделяет Комментарий_перевод и диагностический Комментарий отдельно', () => {
+    const text = [
+      'Комментарий_перевод: Круто, что начал с "How"! 🙌',
+      'Комментарий: Ошибка формы глагола — проверь окончание.',
+      'Ошибки:',
+      '🔤 Грамматика: …',
+      'Время: Present Simple — пояснение.',
+      'Конструкция: S + V1',
+      'Повтори: How do you do?',
+    ].join('\n')
+    const b = parseTranslationCoachBlocks(text)
+    expect(b.translationSupportComment).toContain('How')
+    expect(b.translationSupportComment).not.toContain('Ошибка формы')
+    expect(b.comment).toContain('Ошибка формы')
+    expect(b.repeat).toBe('How do you do?')
   })
 })
 

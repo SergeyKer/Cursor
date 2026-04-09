@@ -174,6 +174,9 @@ export function commentLabelForTranslationFirstBlock(comment: string): CommentIc
 
 function buildAssistantSections(params: {
   comment: string | null
+  /** Режим перевод, ошибка: поддержка из «Комментарий_перевод:» (диагностический «Комментарий:» в UI не показываем). */
+  translationSupportComment?: string | null
+  translationErrorCoachUi?: boolean
   tenseRef?: string | null
   threeFormsText?: string | null
   /** Режим перевод, сценарий ошибки: разбор по пунктам под «Комментарий». */
@@ -191,6 +194,8 @@ function buildAssistantSections(params: {
 }): AssistantSection[] {
   const {
     comment,
+    translationSupportComment = null,
+    translationErrorCoachUi = false,
     tenseRef,
     threeFormsText,
     translationErrorsText,
@@ -213,7 +218,18 @@ function buildAssistantSections(params: {
   }
 
   const sections: AssistantSection[] = []
-  if (comment) {
+  const supportTrim = translationSupportComment?.trim() ?? ''
+  if (mode === 'translation' && translationErrorCoachUi) {
+    if (supportTrim) {
+      sections.push({
+        key: 'comment',
+        tone: 'amber',
+        label: '💡',
+        text: supportTrim,
+        singleLine: !supportTrim.includes('\n'),
+      })
+    }
+  } else if (comment) {
     sections.push({
       key: 'comment',
       tone: commentToneForContent(comment),
@@ -287,6 +303,7 @@ function buildAssistantSections(params: {
 }
 
 export function parseTranslationCoachBlocks(text: string): {
+  translationSupportComment: string | null
   comment: string | null
   errorsBlock: string | null
   tenseRef: string | null
@@ -300,6 +317,7 @@ export function parseTranslationCoachBlocks(text: string): {
     .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
     .filter(Boolean)
 
+  let translationSupportComment: string | null = null
   let comment: string | null = null
   let errorsBlock: string | null = null
   let tenseRef: string | null = null
@@ -311,6 +329,7 @@ export function parseTranslationCoachBlocks(text: string): {
   let collectingConstruction = false
   let collectingForms = false
   let collectingErrors = false
+  let collectingSupport = false
 
   const isHeaderLine = (line: string): boolean =>
     TRANSLATION_PROTOCOL_BLOCK_LINE.test(line) ||
@@ -318,6 +337,18 @@ export function parseTranslationCoachBlocks(text: string): {
     /^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)\b/i.test(line)
 
   for (const line of cleaned) {
+    if (collectingSupport) {
+      if (isHeaderLine(line)) {
+        collectingSupport = false
+      } else {
+        translationSupportComment =
+          translationSupportComment != null && translationSupportComment !== ''
+            ? `${translationSupportComment}\n${line}`
+            : `${translationSupportComment ?? ''}${line}`
+        continue
+      }
+    }
+
     if (collectingErrors) {
       if (isHeaderLine(line)) {
         collectingErrors = false
@@ -337,6 +368,14 @@ export function parseTranslationCoachBlocks(text: string): {
       continue
     }
 
+    if (/^\s*(?:\d+\)\s*)?Комментарий_перевод\s*:/i.test(line)) {
+      const rest = line.replace(/^\s*(?:\d+\)\s*)?Комментарий_перевод\s*:\s*/i, '').trim()
+      translationSupportComment = rest
+      collectingSupport = true
+      collectingConstruction = false
+      collectingForms = false
+      continue
+    }
     if (/^Комментарий\s*:/i.test(line)) {
       comment = line.replace(/^Комментарий\s*:\s*/i, '').trim() || null
       collectingConstruction = false
@@ -424,7 +463,9 @@ export function parseTranslationCoachBlocks(text: string): {
     threeFormsText = normalizedForms.join('\n').trim() || null
   }
   const trimmedErrors = errorsBlock?.trim() ?? ''
+  const trimmedSupport = translationSupportComment?.trim() ?? ''
   return {
+    translationSupportComment: trimmedSupport ? trimmedSupport : null,
     comment,
     errorsBlock: trimmedErrors ? trimmedErrors : null,
     tenseRef,
@@ -520,7 +561,7 @@ function computeAssistantTranslationMainCardMeta(message: ChatMessageType): {
       .trim()
     const fallbackFromInline = blocks.nextSentence
       .replace(
-        /(?:Комментарий|Ошибки|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
+        /(?:Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
         ' '
       )
       .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')
@@ -1427,8 +1468,12 @@ function MessageBubble({
   let effectiveInvitationText = invitationText
   let hideTranslationMainCardForErrorRepeat = false
   let translationErrorsText: string | null = null
+  let translationSupportComment: string | null = null
+  let translationErrorCoachUi = false
   if (!isUser && isTranslationMode) {
     const blocks = parseTranslationCoachBlocks(displayText)
+    translationSupportComment = blocks.translationSupportComment
+    translationErrorCoachUi = Boolean(blocks.repeat) && !blocks.threeFormsText
     if (blocks.comment) effectiveComment = condenseTranslationCommentToErrors(blocks.comment)
     if (blocks.tenseRef) effectiveTenseRef = blocks.tenseRef
     if (blocks.threeFormsText) effectiveThreeFormsText = blocks.threeFormsText
@@ -1458,7 +1503,7 @@ function MessageBubble({
         .trim()
       const fallbackFromInline = blocks.nextSentence
         .replace(
-          /(?:Комментарий|Ошибки|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
+          /(?:Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
           ' '
         )
         .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')
@@ -1508,6 +1553,7 @@ function MessageBubble({
     ? Boolean(message.content)
     : Boolean(
         effectiveComment ||
+          (translationErrorCoachUi && translationSupportComment) ||
           translationErrorsText ||
           effectiveTenseRef ||
           effectiveMainBefore ||
@@ -1523,7 +1569,9 @@ function MessageBubble({
   const assistantSections = isUser
     ? []
     : buildAssistantSections({
-        comment: effectiveComment,
+        comment: translationErrorCoachUi ? null : effectiveComment,
+        translationSupportComment,
+        translationErrorCoachUi,
         tenseRef: effectiveTenseRef,
         threeFormsText: effectiveThreeFormsText,
         translationErrorsText,

@@ -393,7 +393,8 @@ SUCCESS protocol (if user answer is correct), strict order:
 - In SUCCESS protocol do NOT output separate "Время:" line and do NOT output "Повтори:".
 
 ERROR protocol (if there is a mistake), strict order:
-- Line 1: "Комментарий: " + short Russian feedback (same pedagogical style as below).
+- Line 1: "Комментарий_перевод: " + REQUIRED supportive comment in Russian (warm mentor). ALWAYS name at least ONE specific thing the learner did right in their exact answer (a correct word, structure, tense choice, word order, article, auxiliary, etc.). Praise CONCRETELY — never vague "хорошая попытка" without naming what was right. Vary sentence openings across turns (examples: "Слушай, ты молодец, что...", "Вижу, что правильно...", "Круто, что использовал...", "Здорово, что начал с...", "Отлично, что вспомнил про...", "Молодец, что поставил...", "Хорошо, что выбрал..."). Use enthusiasm and emojis from this set in the comment: 🙌 💪 🌟 🎯 ✨. Explain briefly WHY that detail was good. Do NOT start with mistakes; do NOT repeat dry diagnostic wording from the next line; max 1–2 short sentences.
+- Line 2: "Комментарий: " + short Russian diagnostic feedback (professional pedagogical style as below).
 - Then block "Ошибки:" (may span multiple lines). After "Ошибки:" output subsections only where relevant; skip empty subsections. Use emoji + label on each line:
   - 🤔 ... (only if the meaning is unclear or the English is illogical)
   - ✏️ Орфография: ... (all spelling fixes in one block)
@@ -405,6 +406,7 @@ ERROR protocol (if there is a mistake), strict order:
 - Next: "Конструкция: " + very short tense pattern for learner (example for Present Simple: "Subject + V1(s/es)")
 - Next: "Повтори: " + full corrected English sentence that translates only the Russian phrase from the task prompt. Do not reuse wording from the user's answer if it conflicts with the prompt.
 - Never add time-of-day, weekdays, seasons, or "weekend/weekends" to "Повтори:" unless those ideas appear in the Russian task line (for example: do not add "on the weekend" if the Russian sentence has no word like "выходные").
+- In ERROR protocol "Комментарий_перевод:" is mandatory in every mistake response (do not skip it).
 
 Rules:
 - The Russian sentence must sound natural, conversational, and easy to say in everyday speech.
@@ -421,14 +423,15 @@ Rules:
 - In SUCCESS protocol, always name the tense explicitly (e.g. Present Simple) and never say only "это время/данное время".
 - Never quote textbook-style rule templates verbatim (for example: "привычка, факт, постоянное предпочтение"). Explain the reason in plain Russian tied to THIS sentence meaning.
 - Keep SUCCESS "Комментарий" concise: maximum 1-2 short sentences.
-- In ERROR protocol, "Комментарий" must sound professional and pedagogical:
+- In ERROR protocol, line-2 "Комментарий:" (diagnostic) must sound professional and pedagogical:
   - Start with exact error type in Russian (e.g. "Ошибка согласования подлежащего и сказуемого", "Ошибка формы глагола", "Ошибка времени", "Лексическая ошибка").
   - Then give one precise fix in one short sentence.
   - If there are several mistakes, list ALL key issues in one concise comment: tense, word choice, article, singular/plural.
   - Briefly explain why (for example: "look = смотреть, see = видеть"; "после a используем существительное в единственном числе").
   - Use Russian linguistic terms (say "согласование", not "agreeing").
-  - No slang, jokes, filler, or casual tone.
-  - Maximum 1-2 short sentences.`
+  - No slang, jokes, filler, or casual tone on line 2 (supportive energy belongs only in "Комментарий_перевод:").
+  - Maximum 1-2 short sentences.
+- In SUCCESS protocol never output "Комментарий_перевод:".`
   }
   const tenseRule =
     tense === 'all'
@@ -3039,6 +3042,7 @@ function ensureTranslationProtocolBlocks(
     .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
     .filter(Boolean)
 
+  let supportBlock: string | null = null
   let comment: string | null = null
   let errorsBlock: string | null = null
   let timeLine: string | null = null
@@ -3047,18 +3051,38 @@ function ensureTranslationProtocolBlocks(
   let hasPraise = false
   let collectingConstruction = false
   let collectingErrors = false
+  let collectingSupport = false
+
+  const isProtocolHeaderAfterSupportOrErrors = (l: string) =>
+    /^[\s\-•]*(?:\d+[\.)]\s*)*(Комментарий_перевод|Ошибки|Время|Конструкция|Формы|Повтори|Repeat|Say|Комментарий)\s*:/i.test(
+      l
+    ) || /^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)\b/i.test(l)
 
   for (const line of lines) {
+    if (collectingSupport) {
+      if (isProtocolHeaderAfterSupportOrErrors(line)) {
+        collectingSupport = false
+      } else {
+        supportBlock = supportBlock != null && supportBlock !== '' ? `${supportBlock}\n${line}` : `${supportBlock ?? ''}${line}`
+        continue
+      }
+    }
+
     if (collectingErrors) {
-      if (
-        /^[\s\-•]*(?:\d+[\.)]\s*)*(Время|Конструкция|Формы|Повтори|Repeat|Say|Комментарий)\s*:/i.test(line) ||
-        /^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)\b/i.test(line)
-      ) {
+      if (isProtocolHeaderAfterSupportOrErrors(line)) {
         collectingErrors = false
       } else {
         errorsBlock = !errorsBlock ? line : `${errorsBlock}\n${line}`
         continue
       }
+    }
+
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_перевод\s*:/i.test(line)) {
+      const rest = line.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_перевод\s*:\s*/i, '').trim()
+      supportBlock = rest
+      collectingSupport = true
+      collectingConstruction = false
+      continue
     }
 
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(line)) {
@@ -3134,6 +3158,15 @@ function ensureTranslationProtocolBlocks(
   }
 
   const out: string[] = []
+  const supportTrim = supportBlock != null ? String(supportBlock).trim() : ''
+  if (supportTrim) {
+    const supportLines = supportTrim.split(/\r?\n/)
+    out.push(`Комментарий_перевод: ${supportLines[0] ?? ''}`.trim())
+    for (let i = 1; i < supportLines.length; i++) {
+      const sl = supportLines[i] ?? ''
+      if (sl.trim()) out.push(sl)
+    }
+  }
   if (comment) out.push(comment)
   if (errorsBlock != null && String(errorsBlock).trim()) {
     out.push(`Ошибки:\n${String(errorsBlock).trim()}`)
@@ -3156,7 +3189,7 @@ function ensureFirstTranslationInvitation(content: string): string {
     .filter(Boolean)
     .find(
       (line) =>
-        !/^(Комментарий|Ошибки|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:/i.test(line) &&
+        !/^(Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:/i.test(line) &&
         !/^[+\?-]\s*:/i.test(line)
     )
 
@@ -3506,14 +3539,25 @@ function keepOnlyCommentAndRepeatOnInvalidTranslationInput(content: string, incl
     /\b(Некорректн|непонятн|не распознан|не понимаю|не понял|поясни|объясни|уточни)\b/i.test(commentText)
   if (!isInvalidInputCase) return content
 
-  const repeatLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line))
-  if (!includeRepeat) return commentLine
+  const supportLead: string[] = []
+  if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_перевод\s*:/i.test(lines[0] ?? '')) {
+    for (const l of lines) {
+      if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(l)) break
+      supportLead.push(l)
+    }
+  }
+  const supportPrefix = supportLead.length > 0 ? `${supportLead.join('\n')}\n` : ''
 
-  if (!repeatLine) return commentLine
+  const repeatLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line))
+  if (!includeRepeat) return `${supportPrefix}${commentLine}`.trim()
+
+  if (!repeatLine) return `${supportPrefix}${commentLine}`.trim()
   const normalizedRepeat = repeatLine
     .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*/i, 'Повтори: ')
     .trim()
-  return normalizedRepeat ? `${commentLine}\n${normalizedRepeat}` : commentLine
+  return normalizedRepeat
+    ? `${supportPrefix}${commentLine}\n${normalizedRepeat}`.trim()
+    : `${supportPrefix}${commentLine}`.trim()
 }
 
 function isUnrecognizedTranslationContext(content: string): boolean {
@@ -3873,6 +3917,29 @@ function normalizeTranslationErrorBranch(content: string): string {
     .map((l) => stripLeadingAiPrefix(l).trim())
     .filter(Boolean)
 
+  const headerBreakForErrors = (l: string) =>
+    /^[\s\-•]*(?:\d+[\.)]\s*)*(Время|Конструкция|Формы|Повтори|Repeat|Say|Комментарий|Комментарий_перевод)\s*:/i.test(
+      l
+    )
+
+  let supportCombined: string | null = null
+  const supStart = lines.findIndex((l) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_перевод\s*:/i.test(l))
+  if (supStart !== -1) {
+    const firstBody = lines[supStart]!.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_перевод\s*:\s*/i, '').trim()
+    const parts: string[] = []
+    if (firstBody) parts.push(firstBody)
+    for (let i = supStart + 1; i < lines.length; i++) {
+      const l = lines[i]!
+      if (headerBreakForErrors(l)) break
+      parts.push(l)
+    }
+    const body = parts.join('\n').trim()
+    if (body) {
+      const bl = body.split(/\r?\n/)
+      supportCombined = [`Комментарий_перевод: ${bl[0] ?? ''}`.trim(), ...bl.slice(1)].filter(Boolean).join('\n')
+    }
+  }
+
   const comment = lines
     .find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(line))
     ?.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:\s*/i, 'Комментарий: ')
@@ -3886,9 +3953,7 @@ function normalizeTranslationErrorBranch(content: string): string {
     if (firstBody) parts.push(firstBody)
     for (let i = errStart + 1; i < lines.length; i++) {
       const l = lines[i]!
-      if (
-        /^[\s\-•]*(?:\d+[\.)]\s*)*(Время|Конструкция|Формы|Повтори|Repeat|Say|Комментарий)\s*:/i.test(l)
-      ) {
+      if (headerBreakForErrors(l)) {
         break
       }
       parts.push(l)
@@ -3914,7 +3979,7 @@ function normalizeTranslationErrorBranch(content: string): string {
 
   if (!repeat) return content
 
-  const out = [comment, errorsCombined, timeLine, construction, repeat].filter(Boolean)
+  const out = [supportCombined, comment, errorsCombined, timeLine, construction, repeat].filter(Boolean)
   return out.join('\n').trim()
 }
 
