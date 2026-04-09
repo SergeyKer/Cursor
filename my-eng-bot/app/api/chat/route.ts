@@ -104,8 +104,11 @@ import {
   applyTranslationRepeatSourceClampToContent,
   clampTranslationRepeatToRuPrompt,
   enforceAuthoritativeTranslationRepeat,
+  enforceAuthoritativeTranslationRepeatRu,
   extractPromptKeywords as extractTranslationPromptKeywords,
+  normalizeRepeatSentenceEnding,
 } from '@/lib/translationRepeatClamp'
+import { stripLeadingRepeatRuPrompt } from '@/lib/translationProtocolLines'
 import {
   extractTranslationConceptIdsFromEnglish,
   extractTranslationConceptIdsFromPrompt,
@@ -404,9 +407,11 @@ ERROR protocol (if there is a mistake), strict order:
   Do not put the full corrected English sentence inside "Ошибки"; the only full corrected English must be in "Повтори:".
 - Next line: "Время: " + ${tenseName} + short Russian explanation tied to the meaning of this exact sentence: say why this tense fits, name the clue words/markers, and mention the context (habit, fact, action now, result, finished past event, future, etc.). Do not just name the tense.
 - Next: "Конструкция: " + very short tense pattern for learner (example for Present Simple: "Subject + V1(s/es)")
+- Next: "Повтори_перевод: " + EXACT same Russian sentence as the current translation task prompt (verbatim from the task the user is translating). Do NOT paraphrase. The learner uses this line as the visible repeat cue (not the English "Повтори:" line).
 - Next: "Повтори: " + full corrected English sentence that translates only the Russian phrase from the task prompt. Do not reuse wording from the user's answer if it conflicts with the prompt.
 - Never add time-of-day, weekdays, seasons, or "weekend/weekends" to "Повтори:" unless those ideas appear in the Russian task line (for example: do not add "on the weekend" if the Russian sentence has no word like "выходные").
 - In ERROR protocol "Комментарий_перевод:" is mandatory in every mistake response (do not skip it).
+- In ERROR protocol "Повтори_перевод:" is mandatory whenever you output "Повтори:" (same Russian task sentence every time until the user translates it correctly).
 
 Rules:
 - The Russian sentence must sound natural, conversational, and easy to say in everyday speech.
@@ -887,7 +892,10 @@ function stripRepeatOnPraise(content: string): string {
   const lines = trimmed.split(/\r?\n/)
   const kept = lines.filter((line) => {
     const normalized = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
-    return !/^\s*(Повтори|Repeat|Say)\s*:/i.test(normalized)
+    return (
+      !/^\s*(Повтори|Repeat|Say)\s*:/i.test(normalized) &&
+      !/^\s*Повтори_перевод\s*:/i.test(normalized)
+    )
   })
   return kept.join('\n').replace(/\n\s*\n\s*\n/g, '\n\n').replace(/^\s*\n+|\n+\s*$/g, '').trim()
 }
@@ -3048,13 +3056,14 @@ function ensureTranslationProtocolBlocks(
   let timeLine: string | null = null
   let construction: string | null = null
   let repeat: string | null = null
+  let repeatRu: string | null = null
   let hasPraise = false
   let collectingConstruction = false
   let collectingErrors = false
   let collectingSupport = false
 
   const isProtocolHeaderAfterSupportOrErrors = (l: string) =>
-    /^[\s\-•]*(?:\d+[\.)]\s*)*(Комментарий_перевод|Ошибки|Время|Конструкция|Формы|Повтори|Repeat|Say|Комментарий)\s*:/i.test(
+    /^[\s\-•]*(?:\d+[\.)]\s*)*(Комментарий_перевод|Ошибки|Время|Конструкция|Формы|Повтори_перевод|Повтори|Repeat|Say|Комментарий)\s*:/i.test(
       l
     ) || /^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)\b/i.test(l)
 
@@ -3109,6 +3118,13 @@ function ensureTranslationProtocolBlocks(
       collectingConstruction = true
       continue
     }
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Повтори_перевод\s*:/i.test(line)) {
+      const raw = line.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Повтори_перевод\s*:\s*/i, '').trim()
+      const body = stripLeadingRepeatRuPrompt(raw)
+      repeatRu = body ? `Повтори_перевод: ${body}` : null
+      collectingConstruction = false
+      continue
+    }
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line)) {
       repeat = line.replace(
         /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*/i,
@@ -3125,7 +3141,8 @@ function ensureTranslationProtocolBlocks(
   }
 
   if (!comment) {
-    comment = 'Комментарий: Есть неточность в грамматике. Давайте сверимся с образцом в блоке «Повтори».'
+    comment =
+      'Комментарий: Есть неточность в грамматике. Давайте сверимся с образцом в блоке «Повтори».'
   }
   if (!timeLine || /^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:\s*[-–—]\s*$/i.test(timeLine)) {
     timeLine = `Время: ${translationTimeHint(tense)}`
@@ -3172,6 +3189,12 @@ function ensureTranslationProtocolBlocks(
     out.push(`Ошибки:\n${String(errorsBlock).trim()}`)
   }
   out.push(timeLine!, construction!)
+  const fallbackRu = params.fallbackPrompt?.trim() ?? ''
+  if (repeat && fallbackRu && !repeatRu) {
+    const ru = stripLeadingRepeatRuPrompt(fallbackRu)
+    repeatRu = ru ? `Повтори_перевод: ${ru}` : null
+  }
+  if (repeatRu) out.push(repeatRu)
   if (repeat) out.push(repeat)
   return out.join('\n').trim()
 }
@@ -3189,7 +3212,7 @@ function ensureFirstTranslationInvitation(content: string): string {
     .filter(Boolean)
     .find(
       (line) =>
-        !/^(Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:/i.test(line) &&
+        !/^(Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Повтори_перевод|Повтори|Repeat|Say)\s*:/i.test(line) &&
         !/^[+\?-]\s*:/i.test(line)
     )
 
@@ -3918,7 +3941,7 @@ function normalizeTranslationErrorBranch(content: string): string {
     .filter(Boolean)
 
   const headerBreakForErrors = (l: string) =>
-    /^[\s\-•]*(?:\d+[\.)]\s*)*(Время|Конструкция|Формы|Повтори|Repeat|Say|Комментарий|Комментарий_перевод)\s*:/i.test(
+    /^[\s\-•]*(?:\d+[\.)]\s*)*(Время|Конструкция|Формы|Повтори_перевод|Повтори|Repeat|Say|Комментарий|Комментарий_перевод)\s*:/i.test(
       l
     )
 
@@ -3972,6 +3995,17 @@ function normalizeTranslationErrorBranch(content: string): string {
     .find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:/i.test(line))
     ?.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:\s*/i, 'Конструкция: ')
     .trim()
+  const repeatRuLine = lines.find((line) =>
+    /^[\s\-•]*(?:\d+[\.)]\s*)*Повтори_перевод\s*:/i.test(line)
+  )
+  const repeatRu = (() => {
+    if (!repeatRuLine) return undefined
+    const raw = repeatRuLine
+      .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Повтори_перевод\s*:\s*/i, '')
+      .trim()
+    const clean = stripLeadingRepeatRuPrompt(raw)
+    return clean ? `Повтори_перевод: ${clean}` : undefined
+  })()
   const repeat = lines
     .find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line))
     ?.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*/i, 'Повтори: ')
@@ -3979,7 +4013,7 @@ function normalizeTranslationErrorBranch(content: string): string {
 
   if (!repeat) return content
 
-  const out = [supportCombined, comment, errorsCombined, timeLine, construction, repeat].filter(Boolean)
+  const out = [supportCombined, comment, errorsCombined, timeLine, construction, repeatRu, repeat].filter(Boolean)
   return out.join('\n').trim()
 }
 
@@ -5075,11 +5109,23 @@ export async function POST(req: NextRequest) {
       })
     }
     if (mode === 'translation' && !isFirstTurn && isLowSignalTranslationInput(lastUserText)) {
-      const base = buildTranslationRetryFallback({
-        tense: normalizedTense,
-        includeRepeat: !isFirstTranslationUserTurn,
-      })
-      return NextResponse.json({ content: base })
+      const priorEn = extractPriorAssistantRepeatEnglish(nonSystemMessages)
+      const activeRepeatChain =
+        Boolean(priorEn?.trim() && lastUserText.trim()) &&
+        !isTranslationAnswerEffectivelyCorrect(lastUserText, priorEn!.trim())
+      const linesOut = [
+        buildTranslationRetryFallback({
+          tense: normalizedTense,
+          includeRepeat: !isFirstTranslationUserTurn,
+        }).trim(),
+      ]
+      if (lastTranslationPrompt?.trim()) {
+        linesOut.push(`Повтори_перевод: ${lastTranslationPrompt.trim()}`)
+      }
+      if (activeRepeatChain && priorEn?.trim()) {
+        linesOut.push(`Повтори: ${normalizeRepeatSentenceEnding(priorEn.trim())}`)
+      }
+      return NextResponse.json({ content: linesOut.filter(Boolean).join('\n') })
     }
     if (mode === 'communication' && explicitTranslateTarget) {
       const translateSystem =
@@ -6799,6 +6845,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           lastTranslationPrompt,
           priorRepeatForEnforce
         )
+        guardedContent = enforceAuthoritativeTranslationRepeatRu(guardedContent, lastTranslationPrompt)
       }
       guardedContent = sanitizeRepeatMetaInstructionInContent(guardedContent, priorRepeatForEnforce)
       const ruForRefCard = extractLastTranslationPromptFromMessages([

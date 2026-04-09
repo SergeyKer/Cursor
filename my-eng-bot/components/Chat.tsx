@@ -3,7 +3,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { parseCorrection } from '@/lib/parseCorrection'
 import { buildSyntheticErrorsBlockFromComment } from '@/lib/translationSyntheticErrorsBlock'
-import { TRANSLATION_PROTOCOL_BLOCK_LINE } from '@/lib/translationProtocolLines'
+import {
+  TRANSLATION_PROTOCOL_BLOCK_LINE,
+  stripLeadingRepeatRuPrompt,
+} from '@/lib/translationProtocolLines'
 import { speak } from '@/lib/speech'
 import { pickRecordingMimeType, shouldUseMediaRecorderFallback, sttLangFromLocale } from '@/lib/sttClient'
 import { normalizeWebSearchSourceUrl } from '@/lib/openAiWebSearchShared'
@@ -184,6 +187,8 @@ function buildAssistantSections(params: {
   showOnlyRepeat: boolean
   hidePromptBlocks?: boolean
   repeatTextForCard: string | null
+  /** Режим перевод, ошибка: русское задание вместо карточки «Повтори» (англ.). */
+  repeatRuTextForCard?: string | null
   mainBefore: string
   hideRussianNonQuestionMainBefore: boolean
   invitationText: string | null
@@ -202,6 +207,7 @@ function buildAssistantSections(params: {
     showOnlyRepeat,
     hidePromptBlocks = false,
     repeatTextForCard,
+    repeatRuTextForCard = null,
     mainBefore,
     hideRussianNonQuestionMainBefore,
     invitationText,
@@ -260,6 +266,21 @@ function buildAssistantSections(params: {
       singleLine: true,
     })
   }
+  const repeatRuTrim = repeatRuTextForCard?.trim() ?? ''
+  if (mode === 'translation' && translationErrorCoachUi && repeatRuTrim) {
+    const ruBody = stripLeadingRepeatRuPrompt(repeatRuTrim)
+    if (ruBody) {
+      sections.push({
+        key: 'repeat-translation',
+        tone: 'emerald',
+        label: 'Повтори',
+        text: ruBody,
+        singleLine: true,
+      })
+    }
+  }
+  const hideEnglishRepeatCard =
+    mode === 'translation' && translationErrorCoachUi && Boolean(repeatRuTrim)
   if (showOnlyRepeat && repeatTextForCard) {
     sections.push({
       key: 'repeat',
@@ -279,7 +300,7 @@ function buildAssistantSections(params: {
       emphasizeMainText: hideAiLabel,
     })
   }
-  if (!showOnlyRepeat && repeatTextForCard) {
+  if (!showOnlyRepeat && repeatTextForCard && !hideEnglishRepeatCard) {
     sections.push({
       key: 'repeat-inline',
       tone: 'emerald',
@@ -309,6 +330,7 @@ export function parseTranslationCoachBlocks(text: string): {
   tenseRef: string | null
   threeFormsText: string | null
   repeat: string | null
+  repeatRu: string | null
   nextSentence: string
   invitation: string | null
 } {
@@ -323,6 +345,7 @@ export function parseTranslationCoachBlocks(text: string): {
   let tenseRef: string | null = null
   let threeFormsText: string | null = null
   let repeat: string | null = null
+  let repeatRu: string | null = null
   let invitation: string | null = null
   const body: string[] = []
   const formsLines: string[] = []
@@ -413,6 +436,13 @@ export function parseTranslationCoachBlocks(text: string): {
       collectingForms = false
       continue
     }
+    if (/^[\s\-•]*(?:\d+\)\s*)*Повтори_перевод\s*:/i.test(line)) {
+      const raw = line.replace(/^[\s\-•]*(?:\d+\)\s*)*Повтори_перевод\s*:\s*/i, '').trim()
+      repeatRu = stripLeadingRepeatRuPrompt(raw) || null
+      collectingConstruction = false
+      collectingForms = false
+      continue
+    }
     if (/^(Повтори|Repeat|Say)\s*:/i.test(line)) {
       repeat = line.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '').trim() || null
       collectingConstruction = false
@@ -471,6 +501,7 @@ export function parseTranslationCoachBlocks(text: string): {
     tenseRef,
     threeFormsText,
     repeat,
+    repeatRu,
     nextSentence: body.join('\n').trim(),
     invitation,
   }
@@ -561,7 +592,7 @@ function computeAssistantTranslationMainCardMeta(message: ChatMessageType): {
       .trim()
     const fallbackFromInline = blocks.nextSentence
       .replace(
-        /(?:Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
+        /(?:Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Повтори_перевод|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
         ' '
       )
       .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')
@@ -576,7 +607,7 @@ function computeAssistantTranslationMainCardMeta(message: ChatMessageType): {
     }
     effectiveMainBefore = extracted.promptText
   }
-  if (blocks.repeat && !blocks.nextSentence) {
+  if ((blocks.repeat || blocks.repeatRu) && !blocks.nextSentence) {
     hideTranslationMainCardForErrorRepeat = true
     effectiveMainBefore = ''
   }
@@ -595,7 +626,9 @@ function computeAssistantTranslationMainCardMeta(message: ChatMessageType): {
   }
 
   const hideTranslationPromptBlocks =
-    (Boolean(repeatTextForCard) && !String(effectiveMainBefore ?? '').trim()) || hideTranslationMainCardForErrorRepeat
+    ((Boolean(repeatTextForCard) || Boolean(blocks.repeatRu)) &&
+      !String(effectiveMainBefore ?? '').trim()) ||
+    hideTranslationMainCardForErrorRepeat
 
   return { effectiveMainBefore, hideTranslationPromptBlocks }
 }
@@ -1470,20 +1503,28 @@ function MessageBubble({
   let translationErrorsText: string | null = null
   let translationSupportComment: string | null = null
   let translationErrorCoachUi = false
+  let repeatRuForCard: string | null = null
   if (!isUser && isTranslationMode) {
     const blocks = parseTranslationCoachBlocks(displayText)
     translationSupportComment = blocks.translationSupportComment
-    translationErrorCoachUi = Boolean(blocks.repeat) && !blocks.threeFormsText
+    translationErrorCoachUi =
+      Boolean((blocks.repeat || blocks.repeatRu) && !blocks.threeFormsText)
     if (blocks.comment) effectiveComment = condenseTranslationCommentToErrors(blocks.comment)
     if (blocks.tenseRef) effectiveTenseRef = blocks.tenseRef
     if (blocks.threeFormsText) effectiveThreeFormsText = blocks.threeFormsText
     if (blocks.repeat) repeatTextForCard = blocks.repeat
+    repeatRuForCard = blocks.repeatRu
+    if (translationErrorCoachUi && !translationSupportComment?.trim() && effectiveComment) {
+      translationSupportComment = effectiveComment
+    }
     const errorsFromPayload = blocks.errorsBlock?.trim() ?? ''
     const errorsSynthesized =
       !errorsFromPayload && blocks.comment ? buildSyntheticErrorsBlockFromComment(blocks.comment)?.trim() ?? '' : ''
     const errorsResolved = (errorsFromPayload || errorsSynthesized).trim()
     translationErrorsText =
-      Boolean(blocks.repeat) && !blocks.threeFormsText && errorsResolved ? errorsResolved : null
+      Boolean((blocks.repeat || blocks.repeatRu) && !blocks.threeFormsText && errorsResolved)
+        ? errorsResolved
+        : null
     if (blocks.nextSentence) {
       const cleanedNextSentence = blocks.nextSentence
         .split(/\r?\n/)
@@ -1503,7 +1544,7 @@ function MessageBubble({
         .trim()
       const fallbackFromInline = blocks.nextSentence
         .replace(
-          /(?:Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
+          /(?:Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Повтори_перевод|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
           ' '
         )
         .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')
@@ -1518,7 +1559,7 @@ function MessageBubble({
       }
       effectiveMainBefore = extracted.promptText
     }
-    if (blocks.repeat && !blocks.nextSentence) {
+    if ((blocks.repeat || blocks.repeatRu) && !blocks.nextSentence) {
       // Error-protocol translation response: show only correction blocks,
       // do not render synthetic "Переведи далее" main card without a new task.
       hideTranslationMainCardForErrorRepeat = true
@@ -1544,7 +1585,9 @@ function MessageBubble({
   const showOnlyRepeat = !isTranslationMode && Boolean(repeatTextForCard)
   // Скрываем основной блок только если есть «Повтори», но нет следующего предложения — иначе теряется карточка «Переведи: …».
   const hideTranslationPromptBlocks =
-    (isTranslationMode && Boolean(repeatTextForCard) && !String(effectiveMainBefore ?? '').trim()) ||
+    (isTranslationMode &&
+      (Boolean(repeatTextForCard) || Boolean(repeatRuForCard)) &&
+      !String(effectiveMainBefore ?? '').trim()) ||
     hideTranslationMainCardForErrorRepeat
 
   const mainAfterVisibleForBubble =
@@ -1557,6 +1600,7 @@ function MessageBubble({
           translationErrorsText ||
           effectiveTenseRef ||
           effectiveMainBefore ||
+          (translationErrorCoachUi && repeatRuForCard) ||
           (mainAfterVisibleForBubble ? mainAfter : false) ||
           effectiveInvitationText ||
           rest ||
@@ -1578,6 +1622,7 @@ function MessageBubble({
         showOnlyRepeat,
         hidePromptBlocks: hideTranslationPromptBlocks,
         repeatTextForCard,
+        repeatRuTextForCard: repeatRuForCard,
         mainBefore: effectiveMainBefore,
         hideRussianNonQuestionMainBefore,
         invitationText: effectiveInvitationText,

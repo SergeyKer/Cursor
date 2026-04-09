@@ -1,6 +1,7 @@
 import { normalizeEnglishLearnerContractions } from '@/lib/englishLearnerContractions'
 import { RU_TOPIC_KEYWORD_TO_EN, normalizeRuTopicKeyword } from '@/lib/ruTopicKeywordMap'
 import { stripEnglishRepeatConceptsNotInRuPrompt } from '@/lib/translationPromptConcepts'
+import { stripLeadingRepeatRuPrompt } from '@/lib/translationProtocolLines'
 
 export type TranslationRepeatClampResult = {
   clamped: string
@@ -271,4 +272,38 @@ export function applyTranslationRepeatSourceClampToContent(content: string, ruPr
   const { clamped, changed } = clampTranslationRepeatToRuPrompt(repeatBody, ruPrompt)
   if (!changed) return content
   return replaceTranslationRepeatInContent(content, clamped)
+}
+
+/**
+ * Каноническое «Повтори_перевод:» из русского задания при наличии служебного английского «Повтори:».
+ * Вставляет строку сразу перед первой строкой Повтори|Repeat|Say; существующие строки Повтори_перевод удаляются.
+ */
+export function enforceAuthoritativeTranslationRepeatRu(content: string, ruPrompt: string | null): string {
+  const ru = ruPrompt?.trim()
+  if (!ru) return content
+
+  const hasEnRepeat = /(?:^|\n)\s*(?:[\s\-•]*(?:\d+[\.)]\s*)*)?(?:Повтори|Repeat|Say)\s*:/im.test(content)
+  if (!hasEnRepeat) return content
+
+  const canonicalLine = `Повтори_перевод: ${stripLeadingRepeatRuPrompt(ru)}`
+  const lines = content.split(/\r?\n/)
+  const filtered = lines.filter((line) => {
+    const t = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
+    return !/^[\s\-•]*(?:\d+[\.)]\s*)*Повтори_перевод\s*:/i.test(t)
+  })
+
+  let insertIdx = -1
+  for (let i = 0; i < filtered.length; i++) {
+    const t = filtered[i]!.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(t)) {
+      insertIdx = i
+      break
+    }
+  }
+
+  if (insertIdx === -1) {
+    return `${filtered.join('\n').trim()}\n${canonicalLine}`.trim()
+  }
+  filtered.splice(insertIdx, 0, canonicalLine)
+  return filtered.join('\n').trim()
 }

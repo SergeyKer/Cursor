@@ -3,6 +3,7 @@ import {
   applyTranslationRepeatSourceClampToContent,
   clampTranslationRepeatToRuPrompt,
   enforceAuthoritativeTranslationRepeat,
+  enforceAuthoritativeTranslationRepeatRu,
   replaceTranslationRepeatInContent,
 } from './translationRepeatClamp'
 
@@ -115,6 +116,21 @@ describe('enforceAuthoritativeTranslationRepeat', () => {
     const out = enforceAuthoritativeTranslationRepeat(content, null, prior)
     expect(out.toLowerCase()).toContain('love walking')
     expect(out.toLowerCase()).not.toContain('we go to the park')
+  })
+})
+
+describe('enforceAuthoritativeTranslationRepeatRu', () => {
+  it('вставляет Повтори_перевод перед Повтори и подменяет русский текст на промпт', () => {
+    const ru = 'Я люблю готовить.'
+    const content = `Комментарий: Ошибка.\nКонструкция: S + V1\nПовтори: I love to cook.`
+    const out = enforceAuthoritativeTranslationRepeatRu(content, ru)
+    expect(out).toContain('Повтори_перевод: Я люблю готовить.')
+    expect(out.indexOf('Повтори_перевод')).toBeLessThan(out.indexOf('Повтори:'))
+  })
+
+  it('не меняет ответ без английского Повтори', () => {
+    const content = `Комментарий: Отлично!\nКонструкция: …`
+    expect(enforceAuthoritativeTranslationRepeatRu(content, 'Я бегу.')).toBe(content)
   })
 })
 
