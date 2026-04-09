@@ -105,7 +105,6 @@ import {
   clampTranslationRepeatToRuPrompt,
   enforceAuthoritativeTranslationRepeat,
   extractPromptKeywords as extractTranslationPromptKeywords,
-  replaceTranslationRepeatInContent,
 } from '@/lib/translationRepeatClamp'
 import {
   extractTranslationConceptIdsFromEnglish,
@@ -3763,12 +3762,10 @@ function replaceFalsePositiveDialogueRepeatWithPraise(params: {
   audience: 'child' | 'adult'
   diversityKey?: string
   recentMessages?: ChatMessage[]
-  /** Последняя фраза «Повтори» из карточки до ответа пользователя — если модель заменила строку в ответе. */
-  forcedRepeatSentence?: string | null
 }): string {
-  const { content, userText, requiredTense, topic, level, audience, diversityKey, recentMessages, forcedRepeatSentence } =
-    params
+  const { content, userText, requiredTense, topic, level, audience, diversityKey, recentMessages } = params
   const repeatSentence = getDialogueRepeatSentence(content)
+  if (!repeatSentence) return content
   const lines = content
     .split(/\r?\n/)
     .map((l) => stripLeadingAiPrefix(l).trim())
@@ -3780,54 +3777,10 @@ function replaceFalsePositiveDialogueRepeatWithPraise(params: {
       commentBody
     )
   if (commentSuggestsCorrection) return content
-  const ground = forcedRepeatSentence?.trim()
-  if (
-    ground &&
-    !isDialogueAnswerEffectivelyCorrect(userText, ground, requiredTense)
-  ) {
-    // Активный drill «Повтори» по эталону из истории: не сводим ответ к одному следующему вопросу,
-    // даже если модель/эвристика ошибочно считают совпадением «Повтори» в тексте ответа.
-    return content
-  }
-  const matchesForced =
-    Boolean(forcedRepeatSentence?.trim()) &&
-    isDialogueAnswerEffectivelyCorrect(userText, forcedRepeatSentence!.trim(), requiredTense)
-  const matchesModelRepeat =
-    repeatSentence != null &&
-    Boolean(repeatSentence.trim()) &&
-    isDialogueAnswerEffectivelyCorrect(userText, repeatSentence, requiredTense)
-  if (!matchesForced && !matchesModelRepeat) return content
+  if (!isDialogueAnswerEffectivelyCorrect(userText, repeatSentence, requiredTense)) return content
   // Для корректного ответа в dialogue мы должны выходить без "Комментарий" и без "Повтори":
   // сразу следующий вопрос (это соответствует протоколу диалога в system prompt).
   return fallbackNextQuestion({ topic, tense: requiredTense, level, audience, diversityKey, recentMessages })
-}
-
-/**
- * Модель иногда сокращает «Повтори» до обрывка («I often cook.»), хотя эталон — полное предложение с карточки.
- * В translation это перекрывает enforceAuthoritativeTranslationRepeat; в dialogue — подставляем forcedRepeatSentence.
- */
-function repairTruncatedDialogueRepeatVersusForced(params: {
-  content: string
-  userText: string
-  forcedRepeatSentence: string | null
-  requiredTense: string
-}): string {
-  const { content, userText, forcedRepeatSentence, requiredTense } = params
-  const ground = forcedRepeatSentence?.trim()
-  if (!ground) return content
-  if (isDialogueAnswerEffectivelyCorrect(userText, ground, requiredTense)) return content
-
-  const modelRepeat = getDialogueRepeatSentence(content)
-  if (!modelRepeat?.trim()) return content
-  if (normalizeEnglishForRepeatMatch(modelRepeat) === normalizeEnglishForRepeatMatch(ground)) return content
-
-  const gw = ground.split(/\s+/).filter(Boolean).length
-  const mw = modelRepeat.trim().split(/\s+/).filter(Boolean).length
-  if (gw < 5) return content
-  const shortVersusGround = mw / gw < 0.65
-  if (!shortVersusGround) return content
-
-  return replaceTranslationRepeatInContent(content, ground)
 }
 
 function getLastAssistantContent(messages: ChatMessage[]): string | null {
@@ -5539,40 +5492,6 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       { role: 'system', content: systemContent },
       ...userTurnMessages,
     ]
-    // Быстрый путь: ответ совпал с эталоном «Повтори:» из последнего сообщения ассистента.
-    // Иначе модель часто выдаёт ложный «Комментарий»/второе «Повтори» (галлюцинации вроде «all my family»).
-    if (
-      mode === 'dialogue' &&
-      !isFirstTurn &&
-      !isTopicChoiceTurn &&
-      forcedRepeatSentence &&
-      isDialogueAnswerEffectivelyCorrect(
-        lastUserContentForResponse,
-        forcedRepeatSentence,
-        tutorGradingTense
-      )
-    ) {
-      const tenseForNext =
-        topic === 'free_talk' && freeTalkExpectedNextQuestionTense
-          ? freeTalkExpectedNextQuestionTense
-          : tutorGradingTense
-      const nextQuestion = fallbackNextQuestion({
-        topic,
-        tense: tenseForNext,
-        level,
-        audience,
-        diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
-        recentMessages,
-      })
-      return NextResponse.json({
-        content: finalizeDialogueFallbackWithCefr({
-          content: nextQuestion,
-          level: level as LevelId,
-          audience,
-        }),
-        dialogueCorrect: true,
-      })
-    }
     const res1 = await callProviderChat({ provider, req, apiMessages, maxTokens: communicationMaxTokens })
     if (!res1.ok) {
       const errText = res1.errText
@@ -5693,7 +5612,6 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         audience,
         diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
         recentMessages,
-        forcedRepeatSentence,
       })
       sanitized = alignDialogueArticleCommentWithRepeat({
         content: sanitized,
@@ -5724,13 +5642,6 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       sanitized = ensureRepeatWhenCommentRequestsCorrection({
         content: sanitized,
         userText: lastUserContentForResponse,
-        requiredTense: tutorGradingTense,
-      })
-      sanitized = sanitizeRepeatMetaInstructionInContent(sanitized, forcedRepeatSentence)
-      sanitized = repairTruncatedDialogueRepeatVersusForced({
-        content: sanitized,
-        userText: lastUserContentForResponse,
-        forcedRepeatSentence,
         requiredTense: tutorGradingTense,
       })
     }
@@ -6474,7 +6385,6 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               audience,
               diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
               recentMessages,
-              forcedRepeatSentence,
             })
             repaired = alignDialogueArticleCommentWithRepeat({
               content: repaired,
@@ -6594,13 +6504,6 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           }
           if (mode === 'dialogue') {
             repaired = formatDialogueCommentAsSeparateLines(repaired)
-            repaired = sanitizeRepeatMetaInstructionInContent(repaired, forcedRepeatSentence)
-            repaired = repairTruncatedDialogueRepeatVersusForced({
-              content: repaired,
-              userText: lastUserContentForResponse,
-              forcedRepeatSentence,
-              requiredTense: tutorGradingTense,
-            })
           }
           const repairedValid = isValidTutorOutput({
             content: repaired,
@@ -6889,15 +6792,6 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     })
     sanitized = dialogueGuard.content
     sanitized = formatDialogueCommentAsSeparateLines(sanitized)
-    if (mode === 'dialogue') {
-      sanitized = sanitizeRepeatMetaInstructionInContent(sanitized, forcedRepeatSentence)
-      sanitized = repairTruncatedDialogueRepeatVersusForced({
-        content: sanitized,
-        userText: lastUserContentForResponse,
-        forcedRepeatSentence,
-        requiredTense: tutorGradingTense,
-      })
-    }
 
     return NextResponse.json({
       content: sanitized,

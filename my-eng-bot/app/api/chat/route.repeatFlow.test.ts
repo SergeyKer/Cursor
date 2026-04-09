@@ -54,13 +54,13 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).not.toContain('What did you do yesterday?')
   })
 
-  it('restores full Повтори when model returns a truncated line after user deviates from drill', async () => {
+  it('keeps model Повтори line when shortened after wrong repeat (no stitch to full drill sentence)', async () => {
     const truncatedRepeatPayload = {
       ok: true,
       content:
         'Комментарий: Лексическая ошибка — проверь выбор слова.\nПовтори: I often cook.',
     }
-    callProviderChatMock.mockResolvedValueOnce(truncatedRepeatPayload).mockResolvedValueOnce(truncatedRepeatPayload)
+    callProviderChatMock.mockResolvedValueOnce(truncatedRepeatPayload)
 
     const req = makeRequest({
       mode: 'dialogue',
@@ -80,9 +80,8 @@ describe('POST /api/chat repeat cycle stability', () => {
     const repeatLine = data.content.split(/\r?\n/).find((line) => /^Повтори\s*:/i.test(line)) ?? ''
 
     expect(res.status).toBe(200)
-    expect(repeatLine.toLowerCase()).toContain('family')
-    expect(repeatLine.toLowerCase()).toContain('food')
-    expect(repeatLine.toLowerCase()).not.toMatch(/^повтори:\s*i often cook\.\s*$/i)
+    expect(repeatLine.toLowerCase()).toMatch(/i often cook/)
+    expect(repeatLine.toLowerCase()).not.toContain('family')
   })
 
   it('moves to next question after correct repeat answer', async () => {
@@ -108,36 +107,9 @@ describe('POST /api/chat repeat cycle stability', () => {
     const data = await res.json() as { content: string }
 
     expect(res.status).toBe(200)
-    expect(callProviderChatMock).not.toHaveBeenCalled()
+    expect(callProviderChatMock).toHaveBeenCalledTimes(1)
     expect(data.content).not.toContain('Повтори:')
     expect(data.content).not.toMatch(/Комментарий/i)
-    expect(data.content).toMatch(/\?\s*$/)
-  })
-
-  it('does not call model when user matches Повтори without final period (avoids false lexical correction)', async () => {
-    const req = makeRequest({
-      mode: 'dialogue',
-      audience: 'adult',
-      level: 'a2',
-      tenses: ['present_simple'],
-      messages: [
-        { role: 'assistant', content: 'What do you usually cook?' },
-        { role: 'user', content: 'Soup.' },
-        {
-          role: 'assistant',
-          content: 'Повтори: I often cook dinner for my family.',
-        },
-        { role: 'user', content: 'I often cook dinner for my family' },
-      ],
-    })
-
-    const res = await POST(req as never)
-    const data = await res.json() as { content: string }
-
-    expect(res.status).toBe(200)
-    expect(callProviderChatMock).not.toHaveBeenCalled()
-    expect(data.content).not.toMatch(/Комментарий/i)
-    expect(data.content).not.toMatch(/Повтори/i)
     expect(data.content).toMatch(/\?\s*$/)
   })
 
