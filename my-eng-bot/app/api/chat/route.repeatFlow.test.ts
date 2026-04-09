@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { extractSingleTranslationNextSentence } from './route'
+import { extractSingleTranslationNextSentence } from '@/lib/extractSingleTranslationNextSentence'
 
 const callProviderChatMock = vi.hoisted(() => vi.fn())
 
