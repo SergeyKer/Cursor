@@ -38,6 +38,10 @@ import {
   normalizeTranslationPracticeSentence,
 } from '@/lib/translationMode'
 import {
+  LIKE_LOVE_DIALOGUE_TUTOR_BLOCK,
+  LIKE_LOVE_TRANSLATION_TUTOR_BLOCK,
+} from '@/lib/likeLoveTutorPrompt'
+import {
   collapseDuplicateLeadingGreetings,
   normalizeCommunicationOutput,
   stripLeadingConversationFillers,
@@ -104,9 +108,10 @@ import {
   applyTranslationRepeatSourceClampToContent,
   clampTranslationRepeatToRuPrompt,
   enforceAuthoritativeTranslationRepeat,
-  enforceAuthoritativeTranslationRepeatRu,
+  enforceAuthoritativeTranslationRepeatEnCue,
   extractPromptKeywords as extractTranslationPromptKeywords,
   normalizeRepeatSentenceEnding,
+  replaceTranslationRepeatInContent,
 } from '@/lib/translationRepeatClamp'
 import { stripLeadingRepeatRuPrompt } from '@/lib/translationProtocolLines'
 import {
@@ -377,6 +382,8 @@ ${cefrPromptBlock}
 
 ${audienceStyleRule}
 
+${LIKE_LOVE_TRANSLATION_TUTOR_BLOCK}
+
 When the conversation is empty (first assistant turn), output ONLY:
 1) one natural, conversational Russian sentence to translate
 2) on the next line: "Переведи на английский."
@@ -391,7 +398,7 @@ SUCCESS protocol (if user answer is correct), strict order:
 - Line 4: "+: " + full affirmative English sentence (same meaning as correct user answer)
 - Line 5: "?: " + full interrogative English sentence in the same tense
 - Line 6: "-: " + full negative English sentence in the same tense
-- Line 7: NEXT natural Russian sentence on a new line. IMPORTANT: This MUST be a literal Russian sentence for the user to translate into English (e.g. "Я обычно ем яичницу на завтрак."). Do NOT output conversational instructions or prompts (e.g. NEVER write "Теперь скажите, что вы обычно едите." or "Переведи следующее:"). Just output the raw sentence.
+- Line 7: NEXT natural Russian sentence on a new line. IMPORTANT: This MUST be a literal Russian sentence for the user to translate into English (e.g. "Я обычно ем яичницу на завтрак." or "Мое любимое время года — весна."). Do NOT output conversational instructions or prompts (e.g. NEVER write "Теперь скажите, что вы обычно едите.", "Переведи следующее:", "Теперь давай поговорим о...", "Давай поговорим о...", "Давайте обсудим...", "Сейчас мы...", "Попробуй перевести..."). No "давай/давайте поговорим" framing — only the actual sentence to translate. If you change the topic (e.g. from colors to seasons), encode it IN that one sentence, not as a meta invitation.
 - Line 8: "Переведи на английский."
 - In SUCCESS protocol do NOT output separate "Время:" line and do NOT output "Повтори:".
 
@@ -407,11 +414,12 @@ ERROR protocol (if there is a mistake), strict order:
   Do not put the full corrected English sentence inside "Ошибки"; the only full corrected English must be in "Повтори:".
 - Next line: "Время: " + ${tenseName} + short Russian explanation tied to the meaning of this exact sentence: say why this tense fits, name the clue words/markers, and mention the context (habit, fact, action now, result, finished past event, future, etc.). Do not just name the tense.
 - Next: "Конструкция: " + very short tense pattern for learner (example for Present Simple: "Subject + V1(s/es)")
-- Next: "Повтори_перевод: " + EXACT same Russian sentence as the current translation task prompt (verbatim from the task the user is translating). Do NOT paraphrase. The learner uses this line as the visible repeat cue (not the English "Повтори:" line).
+- Next: "Повтори_перевод: " + EXACT same full corrected English sentence as the next line "Повтори:" (same wording and punctuation style). This is the visible repeat cue in English for the learner; do NOT put Russian here.
 - Next: "Повтори: " + full corrected English sentence that translates only the Russian phrase from the task prompt. Do not reuse wording from the user's answer if it conflicts with the prompt.
+- While the user is still wrong on the same drill (repeat-correction chain): "Повтори_перевод:" and "Повтори:" MUST reuse the same English as in your previous assistant message's "Повтори_перевод:" — do not output a new English repeat sentence derived from praise or meta-comments (the server enforces this).
 - Never add time-of-day, weekdays, seasons, or "weekend/weekends" to "Повтори:" unless those ideas appear in the Russian task line (for example: do not add "on the weekend" if the Russian sentence has no word like "выходные").
 - In ERROR protocol "Комментарий_перевод:" is mandatory in every mistake response (do not skip it).
-- In ERROR protocol "Повтори_перевод:" is mandatory whenever you output "Повтори:" (same Russian task sentence every time until the user translates it correctly).
+- In ERROR protocol "Повтори_перевод:" is mandatory whenever you output "Повтори:" (same English as "Повтори:"; on every further error in the same chain, copy the previous "Повтори_перевод:" English verbatim).
 
 Rules:
 - The Russian sentence must sound natural, conversational, and easy to say in everyday speech.
@@ -480,6 +488,8 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
       : ''
   return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${cefrPromptBlock} ${audienceStyleRule} ${antiRobotRule} ${topicRetentionRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueRussianNaturalnessRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule}${repeatFreezeQuestionGuard} ${capitalizationRule} ${contractionRule} ${freeTalkFirstTurnLexiconRule} ${freeTalkRule}
 
+${LIKE_LOVE_DIALOGUE_TUTOR_BLOCK}
+
 Question style guidelines:
 - Ask short, natural questions a human would ask.
 - Prefer concrete questions over vague ones.
@@ -495,7 +505,7 @@ When the required tense is Present Continuous, you may optionally include or sug
 
 EXCEPTION for free topic (Свободная тема), for any tense: when the user is naming or revealing a topic (e.g. after you asked "What would you like to talk about?"), NEVER output Комментарий or Повтори. The user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Always try to infer the topic first — ignore typos, wrong tense, and language (e.g. "I wil plai footbal" → football, sport; "tenis", "vialint" → tennis, violin; "река" → river; "транзисторы" → transistors; "я люблю кошки" → cats). Output exactly one question about that topic. Only if the message gives no hint at all (e.g. "sdf", random letters), ask for clarification in a natural human way and vary your wording across turns (do not repeat the same clarification sentence again and again). No error search, no corrections in that step.
 
-CRITICAL — Context: Your correction (Комментарий/Говорится/Нужно слово/Повтори) must refer ONLY to the user's LAST message. Never output a correction about words or mistakes that are not in that message (e.g. if the user wrote "I usually swim in the pool", do NOT correct "movie" vs "move" — that is from another turn). If the last message has no errors, output only the next question in English.
+CRITICAL — Context: Your correction (Комментарий/Говорится/Нужно слово/Повтори) must refer ONLY to the user's LAST message. Never output a correction about words or mistakes that are not in that message (e.g. if the user wrote "I usually swim in the pool", do NOT correct "movie" vs "move" — that is from another turn). If the last message has no errors, normally output only the next question in English — except the LIKE vs LOVE intensification case in FORMAT (2) below.
 
 This applies to every tense (Present Simple, Present Continuous, Past Simple, Future Perfect, etc.): you MUST correct the user's answer according to ALL applicable rules. Check every dimension: (1) required tense — if they used another tense, correct it; (2) grammar — word order, verb form, articles (a/an/the), plural/singular; (3) spelling — correct every misspelled word; (4) word choice — wrong word (e.g. "move" instead of "movie") must be fixed. The "Повтори:" sentence must fix ALL errors at once; the "Комментарий:" must briefly list ALL issues so the user sees what was wrong. Do not correct only one mistake and ignore others.
 
@@ -505,7 +515,7 @@ Be-verb agreement: Комментарий must not contradict Повтори on 
 
 Pronoun rule (inanimate referents): In English, concrete objects, machines, vehicles, tools, and typical non-human things are **it**; possession is **its** (e.g. "its speed", "its color"), not **his** or **her** — **his/her** refer to people (or sometimes specific animals). If the thread is about a car, bike, phone, machine, house, etc., the corrected sentence in Повтори must use **its** for that thing's properties, not **his** unless you clearly mean a male person. Learners with Russian L1 may wrongly use **his** where English needs **its**; fix both in Комментарий (briefly, in Russian if needed) and in Повтори.
 
-When there are grammar or spelling problems or the user used the wrong tense, respond ONLY in the short format below. Do NOT output long explanations of rules, lists of example questions (e.g. "Do you like pizza?", "What is your favorite color?"), or meta-instructions. Even if the user makes the same mistake again (e.g. wrong tense twice), reply only with Комментарий (up to 2–3 short sentences in Russian if you must list tense + spelling + another issue) + Повтори: [correct sentence]. Keep the reply short. When several issues are listed, use natural transitions between sentences (see Correction tone). Do not use emojis or jokes in corrections (e.g. do not write "unless you're preparing for a spelling competition" or similar).
+When there are grammar or spelling problems or the user used the wrong tense, respond ONLY in the short format below. Do NOT output long explanations of rules, lists of example questions (e.g. "Do you like pizza?", "What is your favorite color?"), or meta-instructions. Even if the user makes the same mistake again (e.g. wrong tense twice), reply only with Комментарий (up to 2–3 short sentences in Russian if you must list tense + spelling + another issue) + Повтори: [correct sentence]. Keep the reply short. When several issues are listed, use natural transitions between sentences (see Correction tone). Do not use emojis or jokes in corrections (e.g. do not write "unless you're preparing for a spelling competition" or similar), except emojis are allowed on the single short praise "Комментарий:" allowed by the LIKE→LOVE intensification exception in FORMAT (2).
 
 ${commentToneRule}
 
@@ -514,19 +524,19 @@ FORMAT (strict):
    - "Комментарий: " + a very short explanation in Russian (1–3 short sentences if needed). Briefly list ALL issues (tense, grammar, spelling, word choice). If there are two or more issues, connect the sentences with natural Russian discourse markers (кроме того, также, отдельно, и ещё, а ещё) so it sounds like one fluent tutor explanation, not two disconnected remarks. Do not mention capitalization or punctuation.
    - "Повтори: " + the FULL corrected English sentence (fixing all errors at once). Always write a complete sentence with normal punctuation.
    In this case do NOT add a follow‑up question — the user must repeat first.
-2) When the user's answer is already correct: do NOT output "Комментарий:" at all. Accept a natural, grammatically correct reply even if it does not exactly repeat the wording of the question. Output only the next question in English, and make it the next sentence by the algorithm for this topic/tense. Do NOT output "Повтори:" for correct answers.${praiseStyleVariant ? ` If you need a human-sounding reaction, keep it implicit — do not add any extra visible line or comment.` : ''}
+2) When the user's answer is already correct: usually do NOT output "Комментарий:" at all. Accept a natural, grammatically correct reply even if it does not exactly repeat the wording of the question. Output only the next question in English, and make it the next sentence by the algorithm for this topic/tense. Do NOT output "Повтори:" for correct answers. EXCEPTION — like vs love only: If YOUR last English message used mild preference wording (typically "like" / "enjoy" / questions such as "Do you like…") and the learner's reply is otherwise fully correct but uses "love" for stronger emphasis with the same situational meaning, treat the answer as CORRECT: output ONE short "Комментарий:" line in Russian praising that "love" is more expressive (emojis allowed on this line only), then on the next line output exactly ONE follow-up question in English. No "Повтори:".${praiseStyleVariant ? ` For other human-sounding reactions, keep them implicit — no extra line; the like/love exception above still applies when relevant.` : ''}
 
 Repeat line rule (strict): text after "Повтори:" must be a corrected declarative sentence for repetition, not a tutor question. Do NOT end "Повтори:" with "?".
 
 Never add raw markers like **Correction:**, **Comment:**, **Right:** or similar anywhere in the visible text. The user should never see those words with asterisks.
 
-Your reply must contain ONLY the actual content the user should see: a question in English, or (when correcting) only Комментарий: [Russian text] and Повтори: [sentence]. Never output any instructions, format descriptions, or meta-text. Never output numbering or labels like "FORMAT". Output only real questions, Комментарий, and Повтори lines.
+Your reply must contain ONLY the actual content the user should see: a question in English only; or (when correcting mistakes) Комментарий: [Russian text] and Повтори: [sentence]; or (like→love intensification exception only) one Комментарий: [short Russian praise] and then one question in English. Never output any instructions, format descriptions, or meta-text. Never output numbering or labels like "FORMAT". Output only real questions, Комментарий, and Повтори lines.
 
 CRITICAL DIALOGUE PLAN RULE: In dialogue training mode, NEVER expand the conversation with your own personal answer (for example to "And you?"). Do NOT talk about your preferences or experience. Always follow the tutor plan: evaluate the user's last message, then either output correction format (Комментарий + Повтори) or ask exactly one next question that continues the established topic and context from the user's last answer.
 
 Never use "Tell me" or other English instruction phrases. After a correction, you may optionally add a short Russian prompt like "Повтори: " + the correct English sentence so the user can repeat it, but keep it separate from the \"Комментарий\" line.
 
-Do NOT add any extra \"RU:\" line or full Russian translation of the whole reply. All visible text must be in English EXCEPT: (1) the \"Комментарий:\" line — always in Russian when correcting mistakes, and absent for correct answers.`
+Do NOT add any extra \"RU:\" line or full Russian translation of the whole reply. All visible text must be in English EXCEPT: (1) the \"Комментарий:\" line — in Russian when correcting mistakes or for the like→love intensification praise; absent when a correct answer goes straight to the next question only.`
 }
 
 /** Паттерны утечки инструкций: модель выводит описание шагов вместо ответа пользователю. */
@@ -3189,10 +3199,10 @@ function ensureTranslationProtocolBlocks(
     out.push(`Ошибки:\n${String(errorsBlock).trim()}`)
   }
   out.push(timeLine!, construction!)
-  const fallbackRu = params.fallbackPrompt?.trim() ?? ''
-  if (repeat && fallbackRu && !repeatRu) {
-    const ru = stripLeadingRepeatRuPrompt(fallbackRu)
-    repeatRu = ru ? `Повтори_перевод: ${ru}` : null
+  if (repeat && !repeatRu) {
+    const repeatBody = repeat.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Повтори\s*:\s*/i, '').trim()
+    const en = normalizeRepeatSentenceEnding(stripLeadingRepeatRuPrompt(repeatBody))
+    if (en) repeatRu = `Повтори_перевод: ${en}`
   }
   if (repeatRu) out.push(repeatRu)
   if (repeat) out.push(repeat)
@@ -3608,6 +3618,53 @@ function getTranslationRepeatSentence(content: string): string | null {
     .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*/i, '')
     .trim()
   return repeatText || null
+}
+
+/** Финальная нормализация ответа перевода: enforce «Повтори»/«Повтори_перевод», sanitize, скрытый __TRAN__. */
+async function finalizeTranslationResponsePayload(params: {
+  content: string
+  nonSystemMessages: ReadonlyArray<ChatMessage>
+  lastTranslationPrompt: string | null
+  level: LevelId
+  audience: Audience
+  provider: Provider
+  req: NextRequest
+}): Promise<string> {
+  let guardedContent = params.content
+  if (getTranslationRepeatSentence(guardedContent)) {
+    guardedContent = stripTranslationInvitationLines(guardedContent)
+  }
+  const priorRepeatForEnforce = extractPriorAssistantRepeatEnglish(params.nonSystemMessages)
+  const { lastTranslationPrompt } = params
+  if (lastTranslationPrompt?.trim() || priorRepeatForEnforce?.trim()) {
+    guardedContent = enforceAuthoritativeTranslationRepeat(
+      guardedContent,
+      lastTranslationPrompt,
+      priorRepeatForEnforce
+    )
+    guardedContent = enforceAuthoritativeTranslationRepeatEnCue(guardedContent)
+  }
+  guardedContent = sanitizeRepeatMetaInstructionInContent(guardedContent, priorRepeatForEnforce)
+  const ruForRefCard = extractLastTranslationPromptFromMessages([
+    { role: 'assistant', content: guardedContent },
+  ])
+  if (ruForRefCard?.trim() && !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
+    const goldFromApi = await translateRussianPromptToGoldEnglish({
+      ruSentence: ruForRefCard,
+      level: params.level,
+      audience: params.audience,
+      provider: params.provider,
+      req: params.req,
+    })
+    if (goldFromApi) {
+      const { clamped } = clampTranslationRepeatToRuPrompt(goldFromApi, ruForRefCard)
+      guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${clamped}`
+    }
+  }
+  if (!guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
+    guardedContent = appendTranslationCanonicalRepeatRefLine(guardedContent, ruForRefCard)
+  }
+  return guardedContent
 }
 
 const TRANSLATION_PROMPT_KEYWORDS_EN = new Set(Object.values(RU_TOPIC_KEYWORD_TO_EN))
@@ -4172,6 +4229,24 @@ async function repairDialogueAllTenseRepeatMismatch(params: {
   } = params
   const repeatSentence = getDialogueRepeatSentence(content)
   if (!repeatSentence) return content
+
+  const anchorPick = pickDialogueForcedRepeatAnchorFromHistory(
+    recentMessages,
+    lastUserText,
+    dialogueTenseForTurn
+  )
+  if (
+    anchorPick?.trim() &&
+    !isDialogueAnswerEffectivelyCorrect(lastUserText, anchorPick.trim(), dialogueTenseForTurn) &&
+    !isDialogueRepeatLikelyTruncationOfAnchor(repeatSentence, anchorPick.trim())
+  ) {
+    const scoreAnchor = scoreUserRepeatOverlap(lastUserText, anchorPick.trim())
+    const scoreCurrent = scoreUserRepeatOverlap(lastUserText, repeatSentence)
+    if (scoreAnchor > scoreCurrent && scoreAnchor >= 2) {
+      return replaceTranslationRepeatInContent(content, anchorPick.trim())
+    }
+  }
+
   if (forcedRepeatSentence && repeatSentence.trim() === forcedRepeatSentence.trim()) return content
 
   const lastAssistant = getLastAssistantContent(recentMessages)
@@ -4777,6 +4852,86 @@ function extractLastAssistantRepeatSentence(messages: ChatMessage[]): string | n
   return last.replace(/^\s*(?:Повтори|Repeat|Say|Скажи)\s*:\s*/i, '').trim() || null
 }
 
+const ASSISTANT_REPEAT_LINE_RE = /(?:^|\n)\s*(?:Повтори|Repeat|Say|Скажи)\s*:\s*(.+)$/im
+
+function normalizeAssistantRepeatBody(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^\s*(?:Повтори|Repeat|Say|Скажи)\s*:\s*/i, '')
+    .trim()
+}
+
+/** Все фразы «Повтори:» из ответов ассистента по порядку (для замкнутого цикла при смене эталона моделью). */
+function extractRepeatSentencesFromAssistantHistory(messages: ChatMessage[]): string[] {
+  const out: string[] = []
+  for (const m of messages) {
+    if (m.role !== 'assistant') continue
+    const match = ASSISTANT_REPEAT_LINE_RE.exec(m.content)
+    if (!match?.[1]) continue
+    const cleaned = normalizeAssistantRepeatBody(match[1])
+    if (cleaned) out.push(cleaned)
+  }
+  return out
+}
+
+function scoreUserRepeatOverlap(userText: string, candidate: string): number {
+  const u = normalizeEnglishForRepeatMatch(userText)
+  const c = normalizeEnglishForRepeatMatch(candidate)
+  if (!u || !c) return 0
+  const uWords = u.split(/\s+/).filter((w) => w.length > 1)
+  const cSet = new Set(c.split(/\s+/).filter((w) => w.length > 1))
+  let n = 0
+  for (const w of uWords) {
+    if (cSet.has(w)) n++
+  }
+  return n
+}
+
+/**
+ * Эталон для «Повтори:» и правила freeze: при нескольких кандидатах в истории выбираем тот,
+ * с которым ответ пользователя пересекается сильнее (опечатки в той же фразе), иначе — последний.
+ */
+function pickDialogueForcedRepeatAnchorFromHistory(
+  messages: ChatMessage[],
+  lastUserText: string,
+  gradingTense: string
+): string | null {
+  const c = extractRepeatSentencesFromAssistantHistory(messages)
+  if (c.length === 0) return null
+  if (c.length === 1) return c[0] ?? null
+
+  const last = c[c.length - 1]!
+  const u = lastUserText.trim()
+  if (u && isDialogueAnswerEffectivelyCorrect(u, last, gradingTense)) return last
+
+  const scoreLast = scoreUserRepeatOverlap(lastUserText, last)
+  let bestIdx = c.length - 1
+  let bestScore = scoreLast
+  for (let i = 0; i < c.length - 1; i++) {
+    const s = scoreUserRepeatOverlap(lastUserText, c[i]!)
+    if (s > bestScore) {
+      bestScore = s
+      bestIdx = i
+    }
+  }
+  return c[bestIdx]!
+}
+
+/** Модель сократила «Повтори» до префикса эталона из истории — не подменяем на полную фразу. */
+function isDialogueRepeatLikelyTruncationOfAnchor(modelRepeat: string, anchor: string): boolean {
+  const mWords = normalizeEnglishForRepeatMatch(modelRepeat)
+    .split(/\s+/)
+    .filter((w) => w.length > 1)
+  const aWords = normalizeEnglishForRepeatMatch(anchor)
+    .split(/\s+/)
+    .filter((w) => w.length > 1)
+  if (mWords.length === 0 || aWords.length === 0 || mWords.length > aWords.length) return false
+  for (let i = 0; i < mWords.length; i++) {
+    if (mWords[i] !== aWords[i]) return false
+  }
+  return true
+}
+
 function extractLastAssistantQuestionSentence(messages: ChatMessage[]): string | null {
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i]
@@ -4949,8 +5104,6 @@ export async function POST(req: NextRequest) {
               : message
           )
         : recentMessages
-    const forcedRepeatSentence =
-      mode === 'dialogue' ? extractLastAssistantRepeatSentence(recentMessages) : null
     const lastTranslationPrompt =
       mode === 'translation' ? extractLastTranslationPromptFromMessages(nonSystemMessages) : null
 
@@ -5043,7 +5196,7 @@ export async function POST(req: NextRequest) {
       mode === 'dialogue' && topic === 'free_talk' ? dialogueEffectiveTense : normalizedTense
     let tutorGradingTense = mode === 'dialogue' ? tenseForDialogueOps : normalizedTense
 
-    if (mode === 'dialogue' && forcedRepeatSentence) {
+    if (mode === 'dialogue' && extractLastAssistantRepeatSentence(recentMessages)) {
       const inferredRepeatTense = inferTenseFromDialogueAssistantContent(
         getLastAssistantContent(recentMessages) ?? ''
       )
@@ -5051,6 +5204,10 @@ export async function POST(req: NextRequest) {
         tutorGradingTense = inferredRepeatTense
       }
     }
+    const forcedRepeatSentence =
+      mode === 'dialogue'
+        ? pickDialogueForcedRepeatAnchorFromHistory(recentMessages, lastUserText, tutorGradingTense)
+        : null
     const isRepeatedNumberedTopicChoiceTurn = Boolean(resolvedTopicChoiceText) && !isTopicChoiceTurn
     if (mode === 'dialogue' && topic === 'free_talk' && isRepeatedNumberedTopicChoiceTurn) {
       return NextResponse.json({
@@ -5119,11 +5276,10 @@ export async function POST(req: NextRequest) {
           includeRepeat: !isFirstTranslationUserTurn,
         }).trim(),
       ]
-      if (lastTranslationPrompt?.trim()) {
-        linesOut.push(`Повтори_перевод: ${lastTranslationPrompt.trim()}`)
-      }
       if (activeRepeatChain && priorEn?.trim()) {
-        linesOut.push(`Повтори: ${normalizeRepeatSentenceEnding(priorEn.trim())}`)
+        const en = normalizeRepeatSentenceEnding(priorEn.trim())
+        linesOut.push(`Повтори_перевод: ${en}`)
+        linesOut.push(`Повтори: ${en}`)
       }
       return NextResponse.json({ content: linesOut.filter(Boolean).join('\n') })
     }
@@ -6461,7 +6617,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       }
 
       const res2 = await callProviderChat({ provider, req, apiMessages: repairMessages, maxTokens: communicationMaxTokens })
-      if (res2.ok) {
+      if (res2?.ok) {
         let repaired = sanitizeInstructionLeak(res2.content)
         if (repaired) {
           if (isMetaGarbage(repaired)) {
@@ -6656,6 +6812,15 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 audience,
                 requiredTense: normalizedTense,
               })
+              repaired = await finalizeTranslationResponsePayload({
+                content: repaired,
+                nonSystemMessages,
+                lastTranslationPrompt,
+                level: level as LevelId,
+                audience: audience as Audience,
+                provider,
+                req,
+              })
               return NextResponse.json({ content: repaired })
             }
             const dialogueGuard = applyCefrOutputGuard({
@@ -6835,42 +7000,15 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               userText: lastUserContentForResponse,
             })
           : ensureTranslationRepeatFallbackForMixedInput(translationGuard.content, lastUserContentForResponse)
-      if (getTranslationRepeatSentence(guardedContent)) {
-        guardedContent = stripTranslationInvitationLines(guardedContent)
-      }
-      const priorRepeatForEnforce = extractPriorAssistantRepeatEnglish(nonSystemMessages)
-      if (lastTranslationPrompt?.trim() || priorRepeatForEnforce?.trim()) {
-        guardedContent = enforceAuthoritativeTranslationRepeat(
-          guardedContent,
-          lastTranslationPrompt,
-          priorRepeatForEnforce
-        )
-        guardedContent = enforceAuthoritativeTranslationRepeatRu(guardedContent, lastTranslationPrompt)
-      }
-      guardedContent = sanitizeRepeatMetaInstructionInContent(guardedContent, priorRepeatForEnforce)
-      const ruForRefCard = extractLastTranslationPromptFromMessages([
-        { role: 'assistant', content: guardedContent },
-      ])
-      /** Сначала золотой перевод русской строки «Переведи / Переведи далее» — эталон не из +: (он может расходиться с заданием). */
-      if (
-        ruForRefCard?.trim() &&
-        !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)
-      ) {
-        const goldFromApi = await translateRussianPromptToGoldEnglish({
-          ruSentence: ruForRefCard,
-          level: level as LevelId,
-          audience: audience as Audience,
-          provider,
-          req,
-        })
-        if (goldFromApi) {
-          const { clamped } = clampTranslationRepeatToRuPrompt(goldFromApi, ruForRefCard)
-          guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${clamped}`
-        }
-      }
-      if (!guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
-        guardedContent = appendTranslationCanonicalRepeatRefLine(guardedContent, ruForRefCard)
-      }
+      guardedContent = await finalizeTranslationResponsePayload({
+        content: guardedContent,
+        nonSystemMessages,
+        lastTranslationPrompt,
+        level: level as LevelId,
+        audience: audience as Audience,
+        provider,
+        req,
+      })
       return NextResponse.json({ content: guardedContent })
     }
 

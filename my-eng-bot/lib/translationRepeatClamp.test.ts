@@ -3,7 +3,7 @@ import {
   applyTranslationRepeatSourceClampToContent,
   clampTranslationRepeatToRuPrompt,
   enforceAuthoritativeTranslationRepeat,
-  enforceAuthoritativeTranslationRepeatRu,
+  enforceAuthoritativeTranslationRepeatEnCue,
   replaceTranslationRepeatInContent,
 } from './translationRepeatClamp'
 
@@ -119,18 +119,17 @@ describe('enforceAuthoritativeTranslationRepeat', () => {
   })
 })
 
-describe('enforceAuthoritativeTranslationRepeatRu', () => {
-  it('вставляет Повтори_перевод перед Повтори и подменяет русский текст на промпт', () => {
-    const ru = 'Я люблю готовить.'
+describe('enforceAuthoritativeTranslationRepeatEnCue', () => {
+  it('вставляет Повтори_перевод перед Повтори с тем же английским, что в Повтори', () => {
     const content = `Комментарий: Ошибка.\nКонструкция: S + V1\nПовтори: I love to cook.`
-    const out = enforceAuthoritativeTranslationRepeatRu(content, ru)
-    expect(out).toContain('Повтори_перевод: Я люблю готовить.')
+    const out = enforceAuthoritativeTranslationRepeatEnCue(content)
+    expect(out).toContain('Повтори_перевод: I love to cook.')
     expect(out.indexOf('Повтори_перевод')).toBeLessThan(out.indexOf('Повтори:'))
   })
 
   it('не меняет ответ без английского Повтори', () => {
     const content = `Комментарий: Отлично!\nКонструкция: …`
-    expect(enforceAuthoritativeTranslationRepeatRu(content, 'Я бегу.')).toBe(content)
+    expect(enforceAuthoritativeTranslationRepeatEnCue(content)).toBe(content)
   })
 })
 

@@ -25,6 +25,11 @@ describe('extractRussianTranslationTaskFromAssistantContent', () => {
     const content = 'Переведи далее: Тест.\n__TRAN_REPEAT_REF__: I test.'
     expect(extractRussianTranslationTaskFromAssistantContent(content)).toBe('Тест.')
   })
+
+  it('не принимает Комментарий_перевод за русское задание', () => {
+    const content = 'Комментарий_перевод: Молодец, что использовал правильное слово like!'
+    expect(extractRussianTranslationTaskFromAssistantContent(content)).toBeNull()
+  })
 })
 
 describe('appendTranslationCanonicalRepeatRefLine', () => {
@@ -61,6 +66,24 @@ describe('extractLastTranslationPromptFromMessages', () => {
       { role: 'assistant', content: 'Переведи далее: Новое предложение.\nПереведи на английский.' },
     ]
     expect(extractLastTranslationPromptFromMessages(messages)).toBe('Новое предложение.')
+  })
+
+  it('после карточки ошибки без «Переведи…» берёт задание с предыдущей карточки (Переведи далее)', () => {
+    const messages = [
+      {
+        role: 'assistant',
+        content:
+          'Комментарий: Молодец!\nФормы:\n+: I love books.\nПереведи далее: Я люблю читать книги.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I love to read books.',
+      },
+      { role: 'user', content: 'wrong' },
+      {
+        role: 'assistant',
+        content:
+          'Комментарий_перевод: Похвала про like.\nКомментарий: Ошибка.\nПовтори_перевод: Do you like to read books?\nПовтори: Do you like to read books?',
+      },
+      { role: 'user', content: 'Do you like read book' },
+    ]
+    expect(extractLastTranslationPromptFromMessages(messages)).toBe('Я люблю читать книги.')
   })
 })
 

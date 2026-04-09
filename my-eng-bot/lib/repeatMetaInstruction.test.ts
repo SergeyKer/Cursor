@@ -26,6 +26,14 @@ describe('isRepeatLineMetaInstruction', () => {
       )
     ).toBe(true)
   })
+
+  it('detects praise masquerading as Повтори', () => {
+    expect(
+      isRepeatLineMetaInstruction(
+        `It's great that you started with the question 'Do you'.`
+      )
+    ).toBe(true)
+  })
 })
 
 describe('sanitizeRepeatMetaInstructionInContent', () => {

@@ -274,18 +274,34 @@ export function applyTranslationRepeatSourceClampToContent(content: string, ruPr
   return replaceTranslationRepeatInContent(content, clamped)
 }
 
+/** Тело первой строки «Повтори:|Repeat:|Say:» в тексте ответа ассистента. */
+export function extractFirstTranslationRepeatEnglishBody(content: string): string | null {
+  const lines = content.split(/\r?\n/)
+  for (const line of lines) {
+    const trimmed = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
+    const m = /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*(.*)$/i.exec(trimmed)
+    if (m?.[2] != null && String(m[2]).trim()) {
+      return String(m[2]).trim()
+    }
+  }
+  return null
+}
+
 /**
- * Каноническое «Повтори_перевод:» из русского задания при наличии служебного английского «Повтори:».
+ * Каноническое «Повтори_перевод:» = тот же английский эталон, что в «Повтори:» (после клампа/провокаций).
  * Вставляет строку сразу перед первой строкой Повтори|Repeat|Say; существующие строки Повтори_перевод удаляются.
  */
-export function enforceAuthoritativeTranslationRepeatRu(content: string, ruPrompt: string | null): string {
-  const ru = ruPrompt?.trim()
-  if (!ru) return content
-
+export function enforceAuthoritativeTranslationRepeatEnCue(content: string): string {
   const hasEnRepeat = /(?:^|\n)\s*(?:[\s\-•]*(?:\d+[\.)]\s*)*)?(?:Повтори|Repeat|Say)\s*:/im.test(content)
   if (!hasEnRepeat) return content
 
-  const canonicalLine = `Повтори_перевод: ${stripLeadingRepeatRuPrompt(ru)}`
+  const rawBody = extractFirstTranslationRepeatEnglishBody(content)
+  if (!rawBody) return content
+
+  const body = normalizeRepeatSentenceEnding(stripLeadingRepeatRuPrompt(rawBody))
+  if (!body) return content
+
+  const canonicalLine = `Повтори_перевод: ${body}`
   const lines = content.split(/\r?\n/)
   const filtered = lines.filter((line) => {
     const t = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()

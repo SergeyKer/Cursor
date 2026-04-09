@@ -187,7 +187,7 @@ function buildAssistantSections(params: {
   showOnlyRepeat: boolean
   hidePromptBlocks?: boolean
   repeatTextForCard: string | null
-  /** Режим перевод, ошибка: русское задание вместо карточки «Повтори» (англ.). */
+  /** Режим перевод, ошибка: эталон из «Повтори_перевод:» (англ., совпадает с «Повтори:») для карточки повтора. */
   repeatRuTextForCard?: string | null
   mainBefore: string
   hideRussianNonQuestionMainBefore: boolean
@@ -268,13 +268,13 @@ function buildAssistantSections(params: {
   }
   const repeatRuTrim = repeatRuTextForCard?.trim() ?? ''
   if (mode === 'translation' && translationErrorCoachUi && repeatRuTrim) {
-    const ruBody = stripLeadingRepeatRuPrompt(repeatRuTrim)
-    if (ruBody) {
+    const repeatEnCueBody = stripLeadingRepeatRuPrompt(repeatRuTrim)
+    if (repeatEnCueBody) {
       sections.push({
         key: 'repeat-translation',
         tone: 'emerald',
         label: 'Повтори',
-        text: ruBody,
+        text: repeatEnCueBody,
         singleLine: true,
       })
     }
@@ -443,8 +443,8 @@ export function parseTranslationCoachBlocks(text: string): {
       collectingForms = false
       continue
     }
-    if (/^(Повтори|Repeat|Say)\s*:/i.test(line)) {
-      repeat = line.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '').trim() || null
+    if (/^[\s\-•]*(?:\d+\)\s*)*(Повтори|Repeat|Say)\s*:/i.test(line)) {
+      repeat = line.replace(/^[\s\-•]*(?:\d+\)\s*)*(Повтори|Repeat|Say)\s*:\s*/i, '').trim() || null
       collectingConstruction = false
       collectingForms = false
       continue
@@ -1935,8 +1935,8 @@ function SectionCard({
     >
       {singleLine ? (
         <div
-          className={`min-w-0 max-w-full ${preserveNewLines ? 'whitespace-pre-wrap' : 'whitespace-normal'} break-words leading-snug ${
-            small ? 'text-[14px]' : 'text-[15px]'
+          className={`min-w-0 max-w-full ${preserveNewLines ? 'whitespace-pre-wrap' : 'whitespace-normal'} break-words font-sans ${
+            small ? 'text-[14px] leading-snug' : 'text-[15px] leading-[1.45]'
           } text-[var(--text)]`}
           title={hasLabel ? (labelIsIconOnly ? `${label} ${text}` : `${label}: ${text}`) : text}
         >
@@ -1978,9 +1978,9 @@ function SectionCard({
         <>
           {hasLabel && <p className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${labelClass}`}>{label}</p>}
           <p
-            className={`${hasLabel ? 'mt-0.5' : ''} whitespace-pre-wrap break-words leading-snug ${
-              small ? 'text-xs' : 'text-sm'
-            } ${italic ? 'font-serif italic text-[var(--invitation)]' : 'text-[var(--text)]'}`}
+            className={`${hasLabel ? 'mt-0.5' : ''} whitespace-pre-wrap break-words ${
+              small ? 'text-xs leading-snug' : 'text-[15px] leading-[1.45]'
+            } ${italic ? 'font-serif italic text-[var(--invitation)]' : 'font-sans text-[var(--text)]'}`}
           >
             {bodyContent}
           </p>

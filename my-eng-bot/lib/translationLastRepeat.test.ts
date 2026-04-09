@@ -51,7 +51,32 @@ describe('extractPriorAssistantRepeatEnglish', () => {
     expect(extractPriorAssistantRepeatEnglish(messages)).toBe('I usually read books.')
   })
 
-  it('скрытый __TRAN_REPEAT_REF__ важнее видимого Повтори (эталон по русскому заданию)', () => {
+  it('извлекает эталон из строки «- Повтори:» без __TRAN_REPEAT_REF__', () => {
+    const messages = [
+      {
+        role: 'assistant',
+        content: 'Переведи далее: Ты любишь читать?\nПереведи на английский.\n- Повтори: Do you like to read?',
+      },
+      { role: 'user', content: 'wrong' },
+    ]
+    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Do you like to read?')
+  })
+
+  it('видимый Повтори_перевод важнее __TRAN_REPEAT_REF__ и Повтори (ветка ошибки, замкнутый цикл)', () => {
+    const messages = [
+      {
+        role: 'assistant',
+        content:
+          'Повтори_перевод: What is your favorite color?\n' +
+          'Повтори: It\'s great that you used the correct question structure!\n' +
+          '__TRAN_REPEAT_REF__: Hidden line.',
+      },
+      { role: 'user', content: 'What is your favorite colore' },
+    ]
+    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('What is your favorite color?')
+  })
+
+  it('скрытый __TRAN_REPEAT_REF__ важнее видимого Повтори, если нет Повтори_перевод', () => {
     const messages = [
       { role: 'assistant', content: 'Повтори: Visible line.\n__TRAN_REPEAT_REF__: Hidden line.' },
       { role: 'user', content: 'x' },
@@ -81,6 +106,42 @@ describe('extractPriorAssistantRepeatEnglish', () => {
       { role: 'user', content: 'I cook pasta with vegetables.' },
     ]
     expect(extractPriorAssistantRepeatEnglish(messages)).toBeNull()
+  })
+
+  it('не берёт Повтори_перевод из прошлой темы после нового «Переведи далее»; эталон — __TRAN__ текущего задания (книги, не color)', () => {
+    const messages = [
+      {
+        role: 'assistant',
+        content:
+          'Комментарий: Ошибка.\nПовтори_перевод: What is your favorite color?\nПовтори: What is your favorite color?',
+      },
+      { role: 'user', content: 'wrong color answer' },
+      {
+        role: 'assistant',
+        content:
+          'Комментарий: Молодец!\nФормы:\n+: I love to read books.\nПереведи далее: Я люблю читать книги.\n__TRAN_REPEAT_REF__: I love to read books.\nПереведи на английский.',
+      },
+      { role: 'user', content: 'I like to читать' },
+    ]
+    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('I love to read books.')
+  })
+
+  it('при двух Повтори_перевод в цепочке ошибок — эталон с лучшим совпадением с ответом; при ничьей — более ранняя карточка (games, не that)', () => {
+    const messages = [
+      {
+        role: 'assistant',
+        content:
+          'Комментарий: Ошибка.\nПовтори_перевод: Do you like to play games?\nПовтори: Do you like to play games?',
+      },
+      { role: 'user', content: 'Do you like to play game' },
+      {
+        role: 'assistant',
+        content:
+          'Комментарий: Лексика.\nПовтори_перевод: Do you like to play that?\nПовтори: Do you like to play that?',
+      },
+      { role: 'user', content: 'Do you like to play game' },
+    ]
+    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Do you like to play games?')
   })
 })
 

@@ -65,7 +65,7 @@ describe('parseTranslationCoachBlocks', () => {
     expect(b.repeatRu).toBeNull()
   })
 
-  it('выделяет Повтори_перевод до Повтори', () => {
+  it('выделяет Повтори_перевод до Повтори (английский эталон)', () => {
     const text = [
       'Комментарий_перевод: Молодец! 🌟',
       'Комментарий: Ошибка времени.',
@@ -73,22 +73,32 @@ describe('parseTranslationCoachBlocks', () => {
       '⏱️ …',
       'Время: Present Simple — …',
       'Конструкция: S + V1',
-      'Повтори_перевод: Я часто читаю.',
+      'Повтори_перевод: I often read.',
       'Повтори: I often read.',
     ].join('\n')
     const b = parseTranslationCoachBlocks(text)
-    expect(b.repeatRu).toBe('Я часто читаю.')
+    expect(b.repeatRu).toBe('I often read.')
     expect(b.repeat).toBe('I often read.')
   })
 
   it('убирает лишний префикс Повтори: в теле Повтори_перевод', () => {
     const text = [
       'Комментарий: Ошибка.',
-      'Повтори_перевод: Повтори: Я люблю готовить разные блюда на кухне.',
+      'Повтори_перевод: Повтори: I love cooking different dishes in the kitchen.',
       'Повтори: I love cooking different dishes in the kitchen.',
     ].join('\n')
     const b = parseTranslationCoachBlocks(text)
-    expect(b.repeatRu).toBe('Я люблю готовить разные блюда на кухне.')
+    expect(b.repeatRu).toBe('I love cooking different dishes in the kitchen.')
+  })
+
+  it('парсит Повтори с дефисом в начале строки', () => {
+    const text = [
+      'Комментарий: Ошибка.',
+      'Повтори_перевод: Hello.',
+      '- Повтори: Hello.',
+    ].join('\n')
+    const b = parseTranslationCoachBlocks(text)
+    expect(b.repeat).toBe('Hello.')
   })
 })
 

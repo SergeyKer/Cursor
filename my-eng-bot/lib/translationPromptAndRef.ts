@@ -41,6 +41,8 @@ export function extractRussianTranslationTaskFromAssistantContent(content: strin
   for (const rawLine of lines) {
     if (/^\s*__TRAN_REPEAT_REF__\s*:/i.test(rawLine)) continue
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(rawLine)) continue
+    // «Комментарий_перевод:» не совпадает с регексом «Комментарий:» — иначе кириллический fallback принимает поддержку за задание.
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_перевод\s*:/i.test(rawLine)) continue
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:/i.test(rawLine)) continue
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:/i.test(rawLine)) continue
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Ошибки\s*:/i.test(rawLine)) continue
@@ -63,16 +65,22 @@ export function extractRussianTranslationTaskFromAssistantContent(content: strin
   return null
 }
 
-export function extractLastTranslationPromptFromMessages(
+export function extractLastTranslationPromptFromMessagesWithIndex(
   messages: ReadonlyArray<{ role: string; content: string }>
-): string | null {
+): { prompt: string | null; sourceAssistantIndex: number | null } {
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i]
     if (msg?.role !== 'assistant') continue
     const hit = extractRussianTranslationTaskFromAssistantContent(msg.content)
-    if (hit) return hit
+    if (hit) return { prompt: hit, sourceAssistantIndex: i }
   }
-  return null
+  return { prompt: null, sourceAssistantIndex: null }
+}
+
+export function extractLastTranslationPromptFromMessages(
+  messages: ReadonlyArray<{ role: string; content: string }>
+): string | null {
+  return extractLastTranslationPromptFromMessagesWithIndex(messages).prompt
 }
 
 /** Сообщение ассистента непосредственно перед последним user в истории. */

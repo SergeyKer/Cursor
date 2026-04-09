@@ -21,6 +21,10 @@ const REPEAT_META_INSTRUCTION_PATTERNS: ReadonlyArray<RegExp> = [
   /\busually implies\b/i,
   /\bbetter suited for\b/i,
   /\bimplies a single\b/i,
+  /\bit['']?s great that\b/i,
+  /\byou (?:started|began) with\b/i,
+  /\bgood job\b/i,
+  /\bwell done\b/i,
 ]
 
 export function extractFirstRepeatEnglishBody(content: string): string | null {

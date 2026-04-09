@@ -3,6 +3,7 @@ import type { AppMode, TenseId } from '@/lib/types'
 import { buildProxyFetchExtra } from '@/lib/proxyFetch'
 import { classifyOpenAiForbidden } from '@/lib/openAiForbidden'
 import { applyTranslationQualityGate, normalizeTranslationResult } from '@/lib/translationPostProcess'
+import { LIKE_LOVE_RU_TO_EN_TRANSLATOR_BLOCK } from '@/lib/likeLoveTutorPrompt'
 
 export const runtime = 'nodejs'
 
@@ -132,8 +133,7 @@ function buildSystemPromptRuToEn(params: {
       : 'Match register: informal Russian → natural informal English; formal or polite Russian → polite English.'
   return (
     'You are a professional translator from Russian to English. Translate into natural conversational English. Preserve meaning, tone, and intent. Avoid word-for-word calques when they would sound wrong in English. ' +
-    'Love vs like: do not automatically translate Russian "любить" as love. Use love when the context clearly expresses strong attachment or deep emotion; for ordinary preference, habit, or mild liking, use like, enjoy, or be fond of. Let the emotional intensity in the source guide the choice. ' +
-    'Would like vs would love: "would like" is polite wanting (I would like to…); "I would love to" is stronger than "I would like to" for enthusiasm. ' +
+    LIKE_LOVE_RU_TO_EN_TRANSLATOR_BLOCK +
     register + ' ' +
     learnerContext +
     'Reply only with the English translation, without explanations, quotes, or extra words.'

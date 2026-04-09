@@ -54,6 +54,36 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).not.toContain('What did you do yesterday?')
   })
 
+  it('restores repeat target after model replaces Повтори with unrelated praise (closed repeat loop)', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: Лексическая ошибка — colore нужно заменить на color.\n' +
+        'Повтори: It\'s great that you started with a question!',
+    })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'Повтори: What is your favorite color?' },
+        { role: 'user', content: 'What is your favorite colore' },
+        { role: 'assistant', content: 'Комментарий: Опечатка.\nПовтори: What is your favorite color?' },
+        { role: 'user', content: 'What is your favorite colore' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Повтори\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine.toLowerCase()).toContain('favorite color')
+    expect(repeatLine.toLowerCase()).not.toContain('started with a question')
+  })
+
   it('keeps model Повтори line when shortened after wrong repeat (no stitch to full drill sentence)', async () => {
     const truncatedRepeatPayload = {
       ok: true,
