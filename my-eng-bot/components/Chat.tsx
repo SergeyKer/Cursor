@@ -109,6 +109,13 @@ function formatThreeFormsForCard(raw: string): string {
   return body ? `\n${body}` : ''
 }
 
+const GENERIC_TRANSLATION_REPEAT_FALLBACK_EN = 'Write the correct English translation of the given Russian sentence.'
+
+function isGenericTranslationRepeatUiText(text: string | null): boolean {
+  if (!text) return false
+  return text.trim().toLowerCase() === GENERIC_TRANSLATION_REPEAT_FALLBACK_EN.toLowerCase()
+}
+
 /** Убирает служебный префикс модели перед русским заданием в карточке «Переведи». */
 function stripTranslationMainMetaPrefixes(text: string): string {
   return text.replace(/^\s*(?:следующ(?:ее|ие)\s+предложени(?:е|я)\s*:\s*)+/i, '').trim()
@@ -475,6 +482,9 @@ function computeAssistantTranslationMainCardMeta(message: ChatMessageType): {
   if (blocks.repeat && !blocks.nextSentence) {
     hideTranslationMainCardForErrorRepeat = true
     effectiveMainBefore = ''
+  }
+  if (isGenericTranslationRepeatUiText(repeatTextForCard)) {
+    repeatTextForCard = null
   }
   if (effectiveMainBefore) effectiveMainBefore = stripTranslationMainMetaPrefixes(effectiveMainBefore)
 
@@ -1419,6 +1429,9 @@ function MessageBubble({
     }
     if (blocks.invitation) effectiveInvitationText = blocks.invitation
     if (effectiveMainBefore) effectiveMainBefore = stripTranslationMainMetaPrefixes(effectiveMainBefore)
+  }
+  if (isGenericTranslationRepeatUiText(repeatTextForCard)) {
+    repeatTextForCard = null
   }
   // SUCCESS в translation: если пришли формы, держим подсказку времени в комментарии,
   // но не показываем отдельный блок "Время".

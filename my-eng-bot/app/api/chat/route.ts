@@ -2979,32 +2979,32 @@ function translationTimeHint(tense: string): string {
 
   const hints: Record<string, string> = {
     present_simple:
-      'Здесь речь о привычке или факте, а не о действии прямо сейчас; маркеры usually, often, every day, always.',
+      'Здесь речь о привычке или факте, а не о действии прямо сейчас.',
     present_continuous:
-      'Здесь действие происходит сейчас или в момент речи; маркеры now, right now, at the moment, today.',
+      'Здесь действие происходит сейчас или в момент речи.',
     present_perfect:
-      'Здесь важен результат к настоящему или опыт; маркеры already, just, yet, ever, never, since, for.',
+      'Здесь важен результат к настоящему или опыт.',
     present_perfect_continuous:
-      'Здесь подчёркивается длительность действия до настоящего момента; маркеры for, since, all day, lately.',
+      'Здесь подчёркивается длительность действия до настоящего момента.',
     past_simple:
-      'Здесь действие завершено в прошлом; маркеры yesterday, last week, ago, in 2020.',
+      'Здесь действие завершено в прошлом.',
     past_continuous:
-      'Здесь действие было в процессе в прошлом; маркеры while, when, at that time, yesterday at 5.',
+      'Здесь действие было в процессе в прошлом.',
     past_perfect:
-      'Здесь одно прошлое действие произошло раньше другого прошлого события; маркеры before, by the time, already.',
+      'Здесь одно прошлое действие произошло раньше другого прошлого события.',
     past_perfect_continuous:
-      'Здесь подчёркивается длительность действия до другого прошлого момента; маркеры for, since, before.',
+      'Здесь подчёркивается длительность действия до другого прошлого момента.',
     future_simple:
-      'Здесь речь о будущем действии, обещании или прогнозе; маркеры tomorrow, next week, soon, will.',
+      'Здесь речь о будущем действии, обещании или прогнозе.',
     future_continuous:
-      'Здесь действие будет происходить в определённый момент будущего; маркеры this time tomorrow, at 5 tomorrow.',
+      'Здесь действие будет происходить в определённый момент будущего.',
     future_perfect:
-      'Здесь к будущему моменту результат уже будет достигнут; маркеры by tomorrow, by then, by the time.',
+      'Здесь к будущему моменту результат уже будет достигнут.',
     future_perfect_continuous:
-      'Здесь подчёркивается длительность действия к будущему моменту; маркеры for, by the time, by then.',
+      'Здесь подчёркивается длительность действия к будущему моменту.',
   }
 
-  return `${tenseName} — ${hints[tense] ?? 'здесь это время выбирают по смыслу фразы и временным маркерам.'}`
+  return `${tenseName} — ${hints[tense] ?? 'здесь это время выбирают по смыслу фразы.'}`
 }
 
 function isLowSignalTranslationInput(text: string): boolean {
@@ -3148,11 +3148,11 @@ function ensureTranslationProtocolBlocks(
   ) {
     construction = `Конструкция: ${translationConstructionHint(tense)}`
   }
-  if (
-    !hasPraise &&
-    (!repeat || /^[\s\-•]*(?:\d+[\.)]\s*)*Повтори\s*:\s*[-–—]\s*$/i.test(repeat))
-  ) {
-    repeat = 'Повтори: Write the correct English translation of the given Russian sentence.'
+  if (!hasPraise && repeat) {
+    const repeatBody = repeat.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Повтори\s*:\s*/i, '').trim()
+    if (!repeatBody || /^[–—-]\s*$/.test(repeatBody)) {
+      repeat = null
+    }
   }
 
   const out = [comment, timeLine, construction]
@@ -3161,9 +3161,9 @@ function ensureTranslationProtocolBlocks(
 }
 
 function ensureFirstTranslationInvitation(content: string): string {
-  const cleanedLines = content
+  const taskLine = content
     .split(/\r?\n/)
-    .map((l) =>
+    .map((l) => 
       l
         .replace(/^\s*(?:ai|assistant)\s*:\s*/i, '')
         .replace(/\s*(?:\d+\)\s*)?(?:Переведи|Переведите)[^.]*\.\s*/gi, ' ')
@@ -3171,9 +3171,14 @@ function ensureFirstTranslationInvitation(content: string): string {
         .trim()
     )
     .filter(Boolean)
+    .find(
+      (line) =>
+        !/^(Комментарий|Время|Конструкция|Формы|Повтори|Repeat|Say)\s*:/i.test(line) &&
+        !/^[+\?-]\s*:/i.test(line)
+    )
 
-  if (cleanedLines.length === 0) return 'Переведи на английский.'
-  return `${cleanedLines.join('\n')}\nПереведи на английский.`
+  if (!taskLine) return 'Переведи на английский.'
+  return `${taskLine}\nПереведи на английский.`
 }
 
 function normalizeEnglishSentenceForCard(text: string): string {
@@ -3530,12 +3535,11 @@ function keepOnlyCommentAndRepeatOnInvalidTranslationInput(content: string, incl
   const repeatLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line))
   if (!includeRepeat) return commentLine
 
+  if (!repeatLine) return commentLine
   const normalizedRepeat = repeatLine
-    ? repeatLine
-        .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*/i, 'Повтори: ')
-        .trim()
-    : 'Повтори: Write the correct English translation of the given Russian sentence.'
-  return `${commentLine}\n${normalizedRepeat}`
+    .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*/i, 'Повтори: ')
+    .trim()
+  return normalizedRepeat ? `${commentLine}\n${normalizedRepeat}` : commentLine
 }
 
 function isUnrecognizedTranslationContext(content: string): boolean {
@@ -3566,6 +3570,37 @@ function getTranslationRepeatSentence(content: string): string | null {
 }
 
 const TRANSLATION_PROMPT_KEYWORDS_EN = new Set(Object.values(RU_TOPIC_KEYWORD_TO_EN))
+const TRANSLATION_CONCEPTS: Array<{
+  id: 'sibling' | 'mother' | 'father' | 'friend'
+  ruStems: string[]
+  enWords: string[]
+  preferredEn: string
+}> = [
+  {
+    id: 'sibling',
+    ruStems: ['брат', 'сестр', 'сёстр'],
+    enWords: ['sibling', 'siblings', 'brother', 'brothers', 'sister', 'sisters'],
+    preferredEn: 'brother or sister',
+  },
+  {
+    id: 'mother',
+    ruStems: ['мам', 'мат'],
+    enWords: ['mom', 'mum', 'mother', 'mummy'],
+    preferredEn: 'mom',
+  },
+  {
+    id: 'father',
+    ruStems: ['пап', 'отц'],
+    enWords: ['dad', 'daddy', 'father'],
+    preferredEn: 'dad',
+  },
+  {
+    id: 'friend',
+    ruStems: ['друг', 'друз', 'подруг'],
+    enWords: ['friend', 'friends'],
+    preferredEn: 'friend',
+  },
+]
 
 function extractTranslationPromptKeywords(text: string): string[] {
   const tokens = text.toLowerCase().match(/[а-яё]+/gi) ?? []
@@ -3582,11 +3617,42 @@ function extractTranslationAnswerKeywords(text: string): string[] {
   return tokenizeEnglishWords(text).filter((token) => TRANSLATION_PROMPT_KEYWORDS_EN.has(token))
 }
 
+function extractTranslationConceptIdsFromPrompt(text: string): Array<'sibling' | 'mother' | 'father' | 'friend'> {
+  const ruTokens = (text.toLowerCase().match(/[а-яё]+/gi) ?? []).map((t) => t.trim()).filter(Boolean)
+  const out: Array<'sibling' | 'mother' | 'father' | 'friend'> = []
+  for (const concept of TRANSLATION_CONCEPTS) {
+    const hasConceptToken = ruTokens.some((token) => concept.ruStems.some((stem) => token.startsWith(stem)))
+    if (hasConceptToken && !out.includes(concept.id)) out.push(concept.id)
+  }
+  return out
+}
+
+function extractTranslationConceptIdsFromEnglish(text: string): Array<'sibling' | 'mother' | 'father' | 'friend'> {
+  const enTokens = tokenizeEnglishWords(text)
+  const out: Array<'sibling' | 'mother' | 'father' | 'friend'> = []
+  for (const concept of TRANSLATION_CONCEPTS) {
+    const hasConceptToken = enTokens.some((token) => concept.enWords.includes(token))
+    if (hasConceptToken && !out.includes(concept.id)) out.push(concept.id)
+  }
+  return out
+}
+
 function hasTranslationPromptKeywordMismatch(prompt: string, userText: string): boolean {
   const promptKeywords = extractTranslationPromptKeywords(prompt)
   const userKeywords = extractTranslationAnswerKeywords(userText)
-  if (promptKeywords.length === 0 || userKeywords.length === 0) return false
-  return !promptKeywords.some((keyword) => userKeywords.includes(keyword))
+  const keywordMismatch =
+    promptKeywords.length > 0 && userKeywords.length > 0
+      ? !promptKeywords.some((keyword) => userKeywords.includes(keyword))
+      : false
+
+  const promptConcepts = extractTranslationConceptIdsFromPrompt(prompt)
+  const userConcepts = extractTranslationConceptIdsFromEnglish(userText)
+  const conceptMismatch =
+    promptConcepts.length > 0 && userConcepts.length > 0
+      ? !promptConcepts.some((conceptId) => userConcepts.includes(conceptId))
+      : false
+
+  return keywordMismatch || conceptMismatch
 }
 
 function buildPromptAlignedRepeatSentence(baseText: string, prompt: string): string | null {
@@ -3603,6 +3669,31 @@ function buildPromptAlignedRepeatSentence(baseText: string, prompt: string): str
   if (!baseKeywordPattern.test(baseText)) return null
 
   return normalizeEnglishSentenceForCard(baseText.replace(baseKeywordPattern, expectedKeyword))
+}
+
+function buildPromptAlignedRepeatSentenceByConcept(baseText: string, prompt: string): string | null {
+  const promptConcepts = extractTranslationConceptIdsFromPrompt(prompt)
+  const baseConcepts = extractTranslationConceptIdsFromEnglish(baseText)
+  if (promptConcepts.length === 0 || baseConcepts.length === 0) return null
+  const sameConcept = promptConcepts.some((conceptId) => baseConcepts.includes(conceptId))
+  if (sameConcept) return null
+
+  const targetConcept = TRANSLATION_CONCEPTS.find((concept) => concept.id === promptConcepts[0])
+  if (!targetConcept) return null
+  const sourceConcept = TRANSLATION_CONCEPTS.find((concept) => baseConcepts.includes(concept.id))
+  if (!sourceConcept) return null
+
+  const sourceToken = sourceConcept.enWords.find((word) => new RegExp(`\\b${escapeRegExp(word)}\\b`, 'i').test(baseText))
+  if (!sourceToken) return null
+  const sourcePattern = new RegExp(`\\b${escapeRegExp(sourceToken)}\\b`, 'i')
+  if (!sourcePattern.test(baseText)) return null
+
+  const replacement =
+    targetConcept.id === 'sibling' && /\bdo\s+you\s+have\b/i.test(baseText)
+      ? 'a brother or sister'
+      : targetConcept.preferredEn
+
+  return normalizeEnglishSentenceForCard(baseText.replace(sourcePattern, replacement))
 }
 
 function isTranslationAnswerEffectivelyCorrect(userText: string, repeatSentence: string): boolean {
@@ -3849,8 +3940,36 @@ function stripTranslationInvitationLines(content: string): string {
 
 function ensureTranslationRepeatFallbackForMixedInput(content: string, _userText: string): string {
   const cleaned = stripTranslationInvitationLines(content)
-  if (getTranslationRepeatSentence(cleaned)) return cleaned
-  return `${cleaned}\nПовтори: ${GENERIC_TRANSLATION_REPEAT_FALLBACK}`.trim()
+  return cleaned
+}
+
+function normalizeTranslationErrorBranch(content: string): string {
+  const lines = content
+    .split(/\r?\n/)
+    .map((l) => stripLeadingAiPrefix(l).trim())
+    .filter(Boolean)
+
+  const comment = lines
+    .find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(line))
+    ?.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:\s*/i, 'Комментарий: ')
+    .trim()
+  const timeLine = lines
+    .find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:/i.test(line))
+    ?.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:\s*/i, 'Время: ')
+    .trim()
+  const construction = lines
+    .find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:/i.test(line))
+    ?.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:\s*/i, 'Конструкция: ')
+    .trim()
+  const repeat = lines
+    .find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line))
+    ?.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*/i, 'Повтори: ')
+    .trim()
+
+  if (!repeat) return content
+
+  const out = [comment, timeLine, construction, repeat].filter(Boolean)
+  return out.join('\n').trim()
 }
 
 function buildTranslationMissingRepeatRepairInstruction(params: {
@@ -5704,15 +5823,21 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     const translationAnswerContainsCyrillic = !isFirstTurn && /[А-Яа-яЁё]/.test(lastUserContentForResponse)
     let translationWordMismatch = false
     let canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic
+    let translationReferenceFormForTurn: string | null = null
+    let translationPromptTextForTurn = ''
     if (mode === 'translation') {
       sanitized = normalizeTranslationCommentStyle(sanitized)
+      const modelSuccessLike = isTranslationSuccessLikeContent(sanitized)
+      const translationPrompt = lastTranslationPrompt
+      const translationPromptText = translationPrompt ?? ''
+      translationPromptTextForTurn = translationPromptText
       const translationFormLines = extractTranslationFormLines(sanitized)
-      const translationPositiveForm = translationFormLines.positive
       const translationReferenceForm = pickTranslationReferenceForm({
         userText: lastUserContentForResponse,
         fallbackPrompt: lastTranslationPrompt,
         forms: translationFormLines,
       })
+      translationReferenceFormForTurn = translationReferenceForm
       const translationReferenceFormIsRelevant = translationReferenceForm
         ? isUserLikelyCorrectForTense(translationReferenceForm, normalizedTense)
         : false
@@ -5723,14 +5848,17 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         userText: lastUserContentForResponse,
         forms: translationFormLines,
       })
+      const translationReferencePromptMismatch =
+        Boolean(translationPromptText) &&
+        Boolean(translationReferenceForm) &&
+        hasTranslationPromptKeywordMismatch(translationPromptText, translationReferenceForm ?? '')
       translationWordMismatch =
         Boolean(translationReferenceForm) &&
         isUserLikelyCorrectForTense(lastUserContentForResponse, normalizedTense) &&
         translationReferenceFormIsRelevant &&
         !translationReferenceFormMatchesUser &&
-        !userMatchesAnyProvidedForm
-      const translationPrompt = lastTranslationPrompt
-      const translationPromptText = translationPrompt ?? ''
+        !userMatchesAnyProvidedForm &&
+        !translationReferencePromptMismatch
       const translationPromptMismatch =
         !translationAnswerContainsCyrillic &&
         Boolean(translationPromptText) &&
@@ -5742,14 +5870,22 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               translationPromptText
             )
           : null
-      if (promptAlignedRepeat) {
-        sanitized = forceTranslationWordErrorProtocol(sanitized, promptAlignedRepeat)
+      const promptAlignedRepeatByConcept =
+        !promptAlignedRepeat && translationPromptMismatch && translationPromptText
+          ? buildPromptAlignedRepeatSentenceByConcept(
+              translationReferenceForm ?? extractEnglishSentenceCandidate(sanitized) ?? lastUserContentForResponse,
+              translationPromptText
+            )
+          : null
+      const finalPromptAlignedRepeat = promptAlignedRepeat ?? promptAlignedRepeatByConcept
+      if (finalPromptAlignedRepeat) {
+        sanitized = forceTranslationWordErrorProtocol(sanitized, finalPromptAlignedRepeat)
       }
       canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic && !translationWordMismatch && !translationPromptMismatch
       if (isFirstTurn) {
         sanitized = ensureFirstTranslationInvitation(sanitized)
       } else {
-        const initialSuccessLike = isTranslationSuccessLikeContent(sanitized)
+        const initialSuccessLike = modelSuccessLike
         if (initialSuccessLike && canTreatTranslationAsSuccess) {
           sanitized = ensureTranslationSuccessBlocks(sanitized, {
             tense: normalizedTense,
@@ -5771,7 +5907,16 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           if (translationWordMismatch && translationReferenceForm) {
             sanitized = forceTranslationWordErrorProtocol(sanitized, translationReferenceForm)
           }
-          const repeatSentence = getTranslationRepeatSentence(sanitized)
+          let repeatSentence = getTranslationRepeatSentence(sanitized)
+          if (repeatSentence && translationPromptText && hasTranslationPromptKeywordMismatch(translationPromptText, repeatSentence)) {
+            const promptAlignedRepeatFromRepeat =
+              buildPromptAlignedRepeatSentence(repeatSentence, translationPromptText) ??
+              buildPromptAlignedRepeatSentenceByConcept(repeatSentence, translationPromptText)
+            if (promptAlignedRepeatFromRepeat) {
+              sanitized = forceTranslationWordErrorProtocol(sanitized, promptAlignedRepeatFromRepeat)
+              repeatSentence = getTranslationRepeatSentence(sanitized)
+            }
+          }
           if (
             canTreatTranslationAsSuccess &&
             repeatSentence &&
@@ -5837,10 +5982,33 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     }
 
     if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
-      const repeatSentence = getTranslationRepeatSentence(sanitized)
-      if (isGenericTranslationRepeatFallback(repeatSentence)) {
+      let repeatSentence = getTranslationRepeatSentence(sanitized)
+      if (!repeatSentence && translationReferenceFormForTurn) {
+        sanitized = forceTranslationWordErrorProtocol(sanitized, translationReferenceFormForTurn)
+        repeatSentence = getTranslationRepeatSentence(sanitized)
+      }
+      if (repeatSentence && translationPromptTextForTurn && hasTranslationPromptKeywordMismatch(translationPromptTextForTurn, repeatSentence)) {
+        const promptAlignedRepeatFromRepeat =
+          buildPromptAlignedRepeatSentence(repeatSentence, translationPromptTextForTurn) ??
+          buildPromptAlignedRepeatSentenceByConcept(repeatSentence, translationPromptTextForTurn)
+        if (promptAlignedRepeatFromRepeat) {
+          sanitized = forceTranslationWordErrorProtocol(sanitized, promptAlignedRepeatFromRepeat)
+          repeatSentence = getTranslationRepeatSentence(sanitized)
+        }
+      }
+      if (!repeatSentence || isGenericTranslationRepeatFallback(repeatSentence)) {
         const userLikelyCorrect = isUserLikelyCorrectForTense(lastUserContentForResponse, normalizedTense)
-        if (userLikelyCorrect) {
+        if (!repeatSentence && userLikelyCorrect && canTreatTranslationAsSuccess) {
+          sanitized = ensureTranslationSuccessBlocks(sanitized, {
+            tense: normalizedTense,
+            topic,
+            level,
+            audience,
+            fallbackPrompt: lastTranslationPrompt,
+            userText: lastUserContentForResponse,
+          })
+          translationSuccessFlow = true
+        } else if (isGenericTranslationRepeatFallback(repeatSentence) && userLikelyCorrect) {
           sanitized = replaceGenericRepeatFallbackWithPraiseIfUserLikelyCorrect({
             content: sanitized,
             userText: lastUserContentForResponse,
@@ -5905,6 +6073,12 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           }
 
         }
+      }
+    }
+
+    if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
+      if (getTranslationRepeatSentence(sanitized)) {
+        sanitized = normalizeTranslationErrorBranch(stripTranslationInvitationLines(sanitized))
       }
     }
 

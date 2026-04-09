@@ -425,10 +425,10 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(res.status).toBe(200)
     expect(data.content).toContain('Комментарий:')
     expect(data.content).toContain('Орфографическая ошибка: haev')
-    expect(data.content).toContain('Лексическая ошибка: car')
-    expect(data.content).toContain('Ошибка артикля')
+    expect(data.content).toContain('Конструкция:')
     expect(data.content).not.toContain('haev нужно заменить на car')
     expect(data.content).toContain('Повтори: I have a cat.')
+    expect(data.content).not.toContain('Переведи на английский.')
   })
 
   it('does not praise when the translated noun contradicts the source prompt', async () => {
@@ -456,9 +456,9 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(res.status).toBe(200)
     expect(data.content).not.toContain('Отлично!')
     expect(data.content).toContain('Комментарий:')
-    expect(data.content).toContain('Лексическая ошибка')
     expect(data.content).toContain('cat')
     expect(data.content).toContain('Повтори: I have a cat.')
+    expect(data.content).not.toContain('Переведи на английский.')
   })
 
   it('uses question form as correction target for question prompts', async () => {
@@ -926,7 +926,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).toContain('-:')
   })
 
-  it('translation success (negative input) preserves stable forms block', async () => {
+  it('translation negative input with conflicting model forms stays in correction protocol', async () => {
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,
       content:
@@ -950,10 +950,10 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     expect(res.status).toBe(200)
     expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Повтори:')
     expect(data.content).toContain('Конструкция:')
-    expect(data.content).toContain('Формы:')
-    expect(data.content).toContain('?:')
-    expect(data.content).toContain('-:')
+    expect(data.content).not.toContain('Формы:')
+    expect(data.content).not.toContain('Переведи на английский.')
   })
 
   it('translation praise with spelling hint is treated as correction, not success', async () => {
@@ -982,7 +982,9 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).toContain('Комментарий:')
     expect(data.content).not.toContain('Переведи далее:')
     expect(data.content).not.toContain('✅')
-    expect(data.content).toContain('Формы:')
+    expect(data.content).toContain('Повтори:')
+    expect(data.content).not.toContain('Формы:')
+    expect(data.content).not.toContain('Переведи на английский.')
   })
 
   it('translation word spelling error stays in repeat cycle', async () => {
@@ -1045,6 +1047,94 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).not.toContain('Я часто хожу в парк.')
     expect(data.content).not.toContain('Переведи на английский.')
     expect(data.content).not.toContain('Не удалось сформировать исправленное предложение')
+  })
+
+  it('translation error response does not duplicate repeat card and never mixes with next invitation', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: Ошибка времени.\nВремя: Present Simple — действие повторяется регулярно.\nКонструкция: Subject + V1(s/es).\nПовтори: I read in the evening.\nПовтори: I read in the evening.\nЯ люблю читать утром.\nПереведи на английский.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'hobbies',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'Я люблю читать вечером.\nПереведи на английский.' },
+        { role: 'user', content: 'I am reading in the evening.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatCount = (data.content.match(/(^|\n)\s*Повтори\s*:/g) ?? []).length
+    const inviteCount = (data.content.match(/(^|\n)\s*Переведи на английский\./g) ?? []).length
+
+    expect(res.status).toBe(200)
+    expect(repeatCount).toBe(1)
+    expect(inviteCount).toBe(0)
+  })
+
+  it('translation correction repeat is aligned to original russian prompt, not user variant', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: Лексическая ошибка.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nПовтори: I have a car.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'animals',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'У меня есть кот.\nПереведи на английский.' },
+        { role: 'user', content: 'I have a car.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Повтори\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine.toLowerCase()).toContain('cat')
+    expect(repeatLine.toLowerCase()).not.toContain('car')
+    expect(data.content).not.toContain('Переведи на английский.')
+  })
+
+  it('translation correction keeps sibling prompt and rejects mom substitution', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: Ошибка артикля: перед mom нужен артикль a.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nПовтори: Do you have a mom?',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'family_friends',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'У тебя есть брат или сестра?\nПереведи на английский.' },
+        { role: 'user', content: 'Do you have mom' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Повтори\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine.toLowerCase()).toContain('brother')
+    expect(repeatLine.toLowerCase()).toContain('sister')
+    expect(repeatLine.toLowerCase()).not.toContain('mom')
+    expect(data.content).not.toContain('Переведи на английский.')
   })
 
   it('translation mixed input does not advance to next question', async () => {
