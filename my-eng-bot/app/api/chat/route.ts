@@ -99,8 +99,30 @@ import {
   isGenericEnglishClarification,
 } from '@/lib/factualCommunicationFallback'
 import { normalizeEnglishLearnerContractions } from '@/lib/englishLearnerContractions'
-import { applyTranslationRepeatSourceClampToContent } from '@/lib/translationRepeatClamp'
+import {
+  alignRepeatEnglishToRuPromptKeywords,
+  applyTranslationRepeatSourceClampToContent,
+  clampTranslationRepeatToRuPrompt,
+  enforceAuthoritativeTranslationRepeat,
+  extractPromptKeywords as extractTranslationPromptKeywords,
+  replaceTranslationRepeatInContent,
+} from '@/lib/translationRepeatClamp'
+import {
+  extractTranslationConceptIdsFromEnglish,
+  extractTranslationConceptIdsFromPrompt,
+  TRANSLATION_CONCEPTS,
+} from '@/lib/translationPromptConcepts'
 import { extractPriorAssistantRepeatEnglish } from '@/lib/translationLastRepeat'
+import { translateRussianPromptToGoldEnglish } from '@/lib/translationGoldEnglish'
+import {
+  appendTranslationCanonicalRepeatRefLine,
+  extractCanonicalRepeatRefEnglishFromContent,
+  extractLastTranslationPromptFromMessages,
+  getAssistantContentBeforeLastUser,
+  TRAN_CANONICAL_REPEAT_REF_MARKER,
+} from '@/lib/translationPromptAndRef'
+import { buildSyntheticErrorsBlockFromComment } from '@/lib/translationSyntheticErrorsBlock'
+import { sanitizeRepeatMetaInstructionInContent } from '@/lib/repeatMetaInstruction'
 
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
 // чтобы undici + proxy dispatcher работали предсказуемо (а не в Edge).
@@ -3007,31 +3029,6 @@ function isLowSignalDialogueInput(text: string): boolean {
   return false
 }
 
-function extractLastTranslationPrompt(messages: ChatMessage[]): string | null {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i]
-    if (msg.role !== 'assistant') continue
-    const lines = msg.content
-      .split(/\r?\n/)
-      .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
-      .filter(Boolean)
-    for (const rawLine of lines) {
-      if (/^Комментарий\s*:/i.test(rawLine)) continue
-      if (/^Время\s*:/i.test(rawLine)) continue
-      if (/^Конструкция\s*:/i.test(rawLine)) continue
-      if (/^Ошибки\s*:/i.test(rawLine)) continue
-      if (/^(Повтори|Repeat|Say)\s*:/i.test(rawLine)) continue
-      if (/^(?:Переведи|Переведите)\b/i.test(rawLine)) continue
-      const stripped = rawLine
-        .replace(/\s+(?:\d+\)\s*)?(?:Переведи|Переведите)[^.]*\.\s*$/i, '')
-        .replace(/^\d+\)\s*/i, '')
-        .trim()
-      if (/[А-Яа-яЁё]/.test(stripped) && stripped.length > 2) return stripped
-    }
-  }
-  return null
-}
-
 function ensureTranslationProtocolBlocks(
   content: string,
   params: { tense: string; topic: string; level: string; audience: 'child' | 'adult'; fallbackPrompt: string | null }
@@ -3119,6 +3116,20 @@ function ensureTranslationProtocolBlocks(
     const repeatBody = repeat.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Повтори\s*:\s*/i, '').trim()
     if (!repeatBody || /^[–—-]\s*$/.test(repeatBody)) {
       repeat = null
+    }
+  }
+
+  const commentBodyOnly = comment ? comment.replace(/^Комментарий:\s*/i, '').trim() : ''
+  if (
+    repeat &&
+    !hasTranslationFormsBlock(content) &&
+    !(errorsBlock != null && String(errorsBlock).trim()) &&
+    commentBodyOnly &&
+    !hasPraise
+  ) {
+    const synthetic = buildSyntheticErrorsBlockFromComment(commentBodyOnly)
+    if (synthetic) {
+      errorsBlock = synthetic
     }
   }
 
@@ -3359,11 +3370,17 @@ function hasTranslationPraiseComment(content: string): boolean {
   return /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)(?:[\s!,.?:;"'»)]|$)/i.test(commentBody)
 }
 
-function extractSingleTranslationNextSentence(lines: string[]): string | null {
+function isStandaloneTranslationIntroSentence(sentence: string): boolean {
+  const normalized = sentence.replace(/\s+/g, ' ').trim().replace(/[.!?…]+$/g, '').trim()
+  return /^(?:Теперь|А теперь|Следующее предложение|Далее|Переведи далее)$/i.test(normalized)
+}
+
+export function extractSingleTranslationNextSentence(lines: string[]): string | null {
   let raw = lines
     .join(' ')
     .replace(/\s+/g, ' ')
-    .replace(/(?:Переведи(?:те)?|Переведите)\b[^.]*\./gi, ' ')
+    .replace(/(?:Переведи(?:те)?|Переведите)\s+на\s+английский\./gi, ' ')
+    .replace(/(?:Переведи(?:те)?|Переведите)(?:\s+далее)?\s*:\s*/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 
@@ -3376,7 +3393,8 @@ function extractSingleTranslationNextSentence(lines: string[]): string | null {
     .split(/(?<=[.!?])\s+/)
     .map((s) => s.trim())
     .filter(Boolean)
-  const firstRu = sentenceCandidates.find((s) => /[А-Яа-яЁё]/.test(s))
+  const filteredCandidates = sentenceCandidates.filter((s) => !isStandaloneTranslationIntroSentence(s))
+  const firstRu = filteredCandidates.find((s) => /[А-Яа-яЁё]/.test(s))
   if (!firstRu) return null
   return firstRu.trim() || null
 }
@@ -3555,71 +3573,9 @@ function getTranslationRepeatSentence(content: string): string | null {
 }
 
 const TRANSLATION_PROMPT_KEYWORDS_EN = new Set(Object.values(RU_TOPIC_KEYWORD_TO_EN))
-const TRANSLATION_CONCEPTS: Array<{
-  id: 'sibling' | 'mother' | 'father' | 'friend'
-  ruStems: string[]
-  enWords: string[]
-  preferredEn: string
-}> = [
-  {
-    id: 'sibling',
-    ruStems: ['брат', 'сестр', 'сёстр'],
-    enWords: ['sibling', 'siblings', 'brother', 'brothers', 'sister', 'sisters'],
-    preferredEn: 'brother or sister',
-  },
-  {
-    id: 'mother',
-    ruStems: ['мам', 'мат'],
-    enWords: ['mom', 'mum', 'mother', 'mummy'],
-    preferredEn: 'mom',
-  },
-  {
-    id: 'father',
-    ruStems: ['пап', 'отц'],
-    enWords: ['dad', 'daddy', 'father'],
-    preferredEn: 'dad',
-  },
-  {
-    id: 'friend',
-    ruStems: ['друг', 'друз', 'подруг'],
-    enWords: ['friend', 'friends'],
-    preferredEn: 'friend',
-  },
-]
-
-function extractTranslationPromptKeywords(text: string): string[] {
-  const tokens = text.toLowerCase().match(/[а-яё]+/gi) ?? []
-  const out: string[] = []
-  for (const token of tokens) {
-    const normalized = normalizeRuTopicKeyword(token)
-    const mapped = RU_TOPIC_KEYWORD_TO_EN[normalized]
-    if (mapped && !out.includes(mapped)) out.push(mapped)
-  }
-  return out
-}
 
 function extractTranslationAnswerKeywords(text: string): string[] {
   return tokenizeEnglishWords(text).filter((token) => TRANSLATION_PROMPT_KEYWORDS_EN.has(token))
-}
-
-function extractTranslationConceptIdsFromPrompt(text: string): Array<'sibling' | 'mother' | 'father' | 'friend'> {
-  const ruTokens = (text.toLowerCase().match(/[а-яё]+/gi) ?? []).map((t) => t.trim()).filter(Boolean)
-  const out: Array<'sibling' | 'mother' | 'father' | 'friend'> = []
-  for (const concept of TRANSLATION_CONCEPTS) {
-    const hasConceptToken = ruTokens.some((token) => concept.ruStems.some((stem) => token.startsWith(stem)))
-    if (hasConceptToken && !out.includes(concept.id)) out.push(concept.id)
-  }
-  return out
-}
-
-function extractTranslationConceptIdsFromEnglish(text: string): Array<'sibling' | 'mother' | 'father' | 'friend'> {
-  const enTokens = tokenizeEnglishWords(text)
-  const out: Array<'sibling' | 'mother' | 'father' | 'friend'> = []
-  for (const concept of TRANSLATION_CONCEPTS) {
-    const hasConceptToken = enTokens.some((token) => concept.enWords.includes(token))
-    if (hasConceptToken && !out.includes(concept.id)) out.push(concept.id)
-  }
-  return out
 }
 
 function hasTranslationPromptKeywordMismatch(prompt: string, userText: string): boolean {
@@ -3644,16 +3600,10 @@ function buildPromptAlignedRepeatSentence(baseText: string, prompt: string): str
   const promptKeywords = extractTranslationPromptKeywords(prompt)
   const baseKeywords = extractTranslationAnswerKeywords(baseText)
   if (promptKeywords.length === 0 || baseKeywords.length === 0) return null
-  if (promptKeywords.some((keyword) => baseKeywords.includes(keyword))) return null
 
-  const expectedKeyword = promptKeywords[0]
-  const baseKeyword = baseKeywords.find((keyword) => !promptKeywords.includes(keyword)) ?? baseKeywords[0]
-  if (!expectedKeyword || !baseKeyword) return null
-
-  const baseKeywordPattern = new RegExp(`\\b${escapeRegExp(baseKeyword)}\\b`, 'i')
-  if (!baseKeywordPattern.test(baseText)) return null
-
-  return normalizeEnglishSentenceForCard(baseText.replace(baseKeywordPattern, expectedKeyword))
+  const aligned = alignRepeatEnglishToRuPromptKeywords(baseText, prompt)
+  if (!aligned) return null
+  return normalizeEnglishSentenceForCard(aligned)
 }
 
 function buildPromptAlignedRepeatSentenceByConcept(baseText: string, prompt: string): string | null {
@@ -3721,8 +3671,10 @@ function forceTranslationWordErrorProtocol(content: string, repeatSentence: stri
 function replaceFalsePositiveTranslationErrorWithPraise(params: {
   content: string
   userText: string
+  /** Эталон с прошлой карточки (Повтори / __TRAN_REPEAT_REF__), если модель подставила другой текст в «Повтори:». */
+  priorRepeatEnglish?: string | null
 }): string {
-  const { content, userText } = params
+  const { content, userText, priorRepeatEnglish } = params
   const lines = content.split(/\r?\n/)
   const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
   if (commentIndex === -1) return content
@@ -3732,18 +3684,34 @@ function replaceFalsePositiveTranslationErrorWithPraise(params: {
   if (!looksLikeError) return content
 
   const repeatSentence = getTranslationRepeatSentence(content)
-  if (!repeatSentence) return content
-  if (!isTranslationAnswerEffectivelyCorrect(userText, repeatSentence)) return content
+  const matchesPrior =
+    Boolean(priorRepeatEnglish?.trim()) &&
+    isTranslationAnswerEffectivelyCorrect(userText, priorRepeatEnglish!.trim())
+  const matchesModelRepeat =
+    repeatSentence != null &&
+    Boolean(repeatSentence.trim()) &&
+    isTranslationAnswerEffectivelyCorrect(userText, repeatSentence)
+  if (!matchesPrior && !matchesModelRepeat) return content
 
   lines[commentIndex] = 'Комментарий: Отлично! Твой вариант тоже абсолютно верный.'
   return stripRepeatOnPraise(lines.join('\n'))
 }
 
-function forcePraiseIfRepeatMatchesUser(params: { content: string; userText: string }): string {
-  const { content, userText } = params
+function forcePraiseIfRepeatMatchesUser(params: {
+  content: string
+  userText: string
+  priorRepeatEnglish?: string | null
+}): string {
+  const { content, userText, priorRepeatEnglish } = params
   const repeatSentence = getTranslationRepeatSentence(content)
-  if (!repeatSentence) return content
-  if (!isTranslationAnswerEffectivelyCorrect(userText, repeatSentence)) return content
+  const matchesPrior =
+    Boolean(priorRepeatEnglish?.trim()) &&
+    isTranslationAnswerEffectivelyCorrect(userText, priorRepeatEnglish!.trim())
+  const matchesModelRepeat =
+    repeatSentence != null &&
+    Boolean(repeatSentence.trim()) &&
+    isTranslationAnswerEffectivelyCorrect(userText, repeatSentence)
+  if (!matchesPrior && !matchesModelRepeat) return content
 
   const lines = content.split(/\r?\n/)
   const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
@@ -3823,10 +3791,12 @@ function replaceFalsePositiveDialogueRepeatWithPraise(params: {
   audience: 'child' | 'adult'
   diversityKey?: string
   recentMessages?: ChatMessage[]
+  /** Последняя фраза «Повтори» из карточки до ответа пользователя — если модель заменила строку в ответе. */
+  forcedRepeatSentence?: string | null
 }): string {
-  const { content, userText, requiredTense, topic, level, audience, diversityKey, recentMessages } = params
+  const { content, userText, requiredTense, topic, level, audience, diversityKey, recentMessages, forcedRepeatSentence } =
+    params
   const repeatSentence = getDialogueRepeatSentence(content)
-  if (!repeatSentence) return content
   const lines = content
     .split(/\r?\n/)
     .map((l) => stripLeadingAiPrefix(l).trim())
@@ -3838,10 +3808,54 @@ function replaceFalsePositiveDialogueRepeatWithPraise(params: {
       commentBody
     )
   if (commentSuggestsCorrection) return content
-  if (!isDialogueAnswerEffectivelyCorrect(userText, repeatSentence, requiredTense)) return content
+  const ground = forcedRepeatSentence?.trim()
+  if (
+    ground &&
+    !isDialogueAnswerEffectivelyCorrect(userText, ground, requiredTense)
+  ) {
+    // Активный drill «Повтори» по эталону из истории: не сводим ответ к одному следующему вопросу,
+    // даже если модель/эвристика ошибочно считают совпадением «Повтори» в тексте ответа.
+    return content
+  }
+  const matchesForced =
+    Boolean(forcedRepeatSentence?.trim()) &&
+    isDialogueAnswerEffectivelyCorrect(userText, forcedRepeatSentence!.trim(), requiredTense)
+  const matchesModelRepeat =
+    repeatSentence != null &&
+    Boolean(repeatSentence.trim()) &&
+    isDialogueAnswerEffectivelyCorrect(userText, repeatSentence, requiredTense)
+  if (!matchesForced && !matchesModelRepeat) return content
   // Для корректного ответа в dialogue мы должны выходить без "Комментарий" и без "Повтори":
   // сразу следующий вопрос (это соответствует протоколу диалога в system prompt).
   return fallbackNextQuestion({ topic, tense: requiredTense, level, audience, diversityKey, recentMessages })
+}
+
+/**
+ * Модель иногда сокращает «Повтори» до обрывка («I often cook.»), хотя эталон — полное предложение с карточки.
+ * В translation это перекрывает enforceAuthoritativeTranslationRepeat; в dialogue — подставляем forcedRepeatSentence.
+ */
+function repairTruncatedDialogueRepeatVersusForced(params: {
+  content: string
+  userText: string
+  forcedRepeatSentence: string | null
+  requiredTense: string
+}): string {
+  const { content, userText, forcedRepeatSentence, requiredTense } = params
+  const ground = forcedRepeatSentence?.trim()
+  if (!ground) return content
+  if (isDialogueAnswerEffectivelyCorrect(userText, ground, requiredTense)) return content
+
+  const modelRepeat = getDialogueRepeatSentence(content)
+  if (!modelRepeat?.trim()) return content
+  if (normalizeEnglishForRepeatMatch(modelRepeat) === normalizeEnglishForRepeatMatch(ground)) return content
+
+  const gw = ground.split(/\s+/).filter(Boolean).length
+  const mw = modelRepeat.trim().split(/\s+/).filter(Boolean).length
+  if (gw < 5) return content
+  const shortVersusGround = mw / gw < 0.65
+  if (!shortVersusGround) return content
+
+  return replaceTranslationRepeatInContent(content, ground)
 }
 
 function getLastAssistantContent(messages: ChatMessage[]): string | null {
@@ -4419,10 +4433,21 @@ function enrichTranslationCommentQuality(params: {
   userText: string
   repeatSentence: string | null
   tense: string
+  /**
+   * Эталон с карточки до ответа (Повтори / __TRAN_REPEAT_REF__). Если ответ с ним совпадает,
+   * не добавляем «лексические» подсказки по строке «Повтори» из текущего ответа модели — иначе
+   * позиционное сравнение с чужим эталоном даёт противоречия (often vs usually и т.п.).
+   */
+  groundTruthRepeatEnglish?: string | null
 }): string {
-  const { content, userText, repeatSentence, tense } = params
+  const { content, userText, repeatSentence, tense, groundTruthRepeatEnglish } = params
   if (!repeatSentence) return content
   if (isGenericTranslationRepeatFallback(repeatSentence)) return content
+  if (groundTruthRepeatEnglish?.trim()) {
+    if (isTranslationAnswerEffectivelyCorrect(userText, groundTruthRepeatEnglish.trim())) {
+      return content
+    }
+  }
 
   const lines = content.split(/\r?\n/)
   const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
@@ -4902,7 +4927,8 @@ export async function POST(req: NextRequest) {
         : recentMessages
     const forcedRepeatSentence =
       mode === 'dialogue' ? extractLastAssistantRepeatSentence(recentMessages) : null
-    const lastTranslationPrompt = mode === 'translation' ? extractLastTranslationPrompt(nonSystemMessages) : null
+    const lastTranslationPrompt =
+      mode === 'translation' ? extractLastTranslationPromptFromMessages(nonSystemMessages) : null
 
     // Массив времён: из body.tenses или body.tense (обратная совместимость). На каждый запрос выбираем одно.
     let rawTenses: string[] = Array.isArray(body.tenses)
@@ -5504,12 +5530,21 @@ Short single-word cue rule: if user sends only one topic word (e.g. "forest", "�
 - if ambiguous, ask a short clarification about intended topic.
 When you detect a confirmed topic change: do NOT output "Комментарий:" or "Повтори:". If a new topic is named, ask one question about it in the required tense (follow the same natural question style). If no specific topic is named, ask a short clarification asking which topic they want. This rule overrides the mixed-input correction rule and topic retention for this message only.`
     })()
+    const translationGoldRefPromptSuffix = (() => {
+      if (mode !== 'translation' || isFirstTurn) return ''
+      const prevAssistant = getAssistantContentBeforeLastUser(nonSystemMessages)
+      if (!prevAssistant) return ''
+      const gold = extractCanonicalRepeatRefEnglishFromContent(prevAssistant)
+      if (!gold) return ''
+      return `\n\nINTERNAL_REFERENCE_ENGLISH (never show this label or block to the learner; do not copy this label into your visible reply). Canonical English for the Russian exercise the user is translating: ${gold}. For ERROR protocol: compare the learner's English to this reference and to the Russian prompt; the line after "Повтори:" MUST be exactly this English sentence (you may only adjust spacing or final punctuation for consistency).`
+    })()
     const systemContent =
       topicChoicePrefix +
       systemPrompt +
       dialogueInferredTenseHint +
       freeTalkPromptSuffix +
-      freeTalkTopicHint
+      freeTalkTopicHint +
+      translationGoldRefPromptSuffix
 
     // При пустом диалоге добавляем одно сообщение пользователя: часть провайдеров требует хотя бы один user turn
     const userTurnMessages =
@@ -5532,6 +5567,40 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       { role: 'system', content: systemContent },
       ...userTurnMessages,
     ]
+    // Быстрый путь: ответ совпал с эталоном «Повтори:» из последнего сообщения ассистента.
+    // Иначе модель часто выдаёт ложный «Комментарий»/второе «Повтори» (галлюцинации вроде «all my family»).
+    if (
+      mode === 'dialogue' &&
+      !isFirstTurn &&
+      !isTopicChoiceTurn &&
+      forcedRepeatSentence &&
+      isDialogueAnswerEffectivelyCorrect(
+        lastUserContentForResponse,
+        forcedRepeatSentence,
+        tutorGradingTense
+      )
+    ) {
+      const tenseForNext =
+        topic === 'free_talk' && freeTalkExpectedNextQuestionTense
+          ? freeTalkExpectedNextQuestionTense
+          : tutorGradingTense
+      const nextQuestion = fallbackNextQuestion({
+        topic,
+        tense: tenseForNext,
+        level,
+        audience,
+        diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
+        recentMessages,
+      })
+      return NextResponse.json({
+        content: finalizeDialogueFallbackWithCefr({
+          content: nextQuestion,
+          level: level as LevelId,
+          audience,
+        }),
+        dialogueCorrect: true,
+      })
+    }
     const res1 = await callProviderChat({ provider, req, apiMessages, maxTokens: communicationMaxTokens })
     if (!res1.ok) {
       const errText = res1.errText
@@ -5652,6 +5721,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         audience,
         diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
         recentMessages,
+        forcedRepeatSentence,
       })
       sanitized = alignDialogueArticleCommentWithRepeat({
         content: sanitized,
@@ -5682,6 +5752,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       sanitized = ensureRepeatWhenCommentRequestsCorrection({
         content: sanitized,
         userText: lastUserContentForResponse,
+        requiredTense: tutorGradingTense,
+      })
+      sanitized = sanitizeRepeatMetaInstructionInContent(sanitized, forcedRepeatSentence)
+      sanitized = repairTruncatedDialogueRepeatVersusForced({
+        content: sanitized,
+        userText: lastUserContentForResponse,
+        forcedRepeatSentence,
         requiredTense: tutorGradingTense,
       })
     }
@@ -5763,6 +5840,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       })
     }
     let translationSuccessFlow = false
+    let priorAssistantRepeatEnglish: string | null = null
     const translationAnswerContainsCyrillic = !isFirstTurn && /[А-Яа-яЁё]/.test(lastUserContentForResponse)
     let translationWordMismatch = false
     let canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic
@@ -5825,7 +5903,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         sanitized = forceTranslationWordErrorProtocol(sanitized, finalPromptAlignedRepeat)
       }
       canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic && !translationWordMismatch && !translationPromptMismatch
-      const priorAssistantRepeatEnglish = extractPriorAssistantRepeatEnglish(nonSystemMessages)
+      priorAssistantRepeatEnglish = extractPriorAssistantRepeatEnglish(nonSystemMessages)
       if (
         priorAssistantRepeatEnglish &&
         !isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, priorAssistantRepeatEnglish)
@@ -5845,8 +5923,21 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             fallbackPrompt: lastTranslationPrompt,
             userText: lastUserContentForResponse,
           })
+          sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
           translationSuccessFlow = true
         } else {
+          if (canTreatTranslationAsSuccess && hasTranslationPraiseComment(sanitized)) {
+            sanitized = ensureTranslationSuccessBlocks(sanitized, {
+              tense: normalizedTense,
+              topic,
+              level,
+              audience,
+              fallbackPrompt: lastTranslationPrompt,
+              userText: lastUserContentForResponse,
+            })
+            sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
+            translationSuccessFlow = true
+          } else {
           sanitized = ensureTranslationProtocolBlocks(sanitized, {
             tense: normalizedTense,
             topic,
@@ -5873,17 +5964,23 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, repeatSentence)
           ) {
             // Fast-path: модель фактически попросила пользователя повторить его же ответ — значит, ответ корректный.
-            sanitized = forcePraiseIfRepeatMatchesUser({ content: sanitized, userText: lastUserContentForResponse })
+            sanitized = forcePraiseIfRepeatMatchesUser({
+              content: sanitized,
+              userText: lastUserContentForResponse,
+              priorRepeatEnglish: priorAssistantRepeatEnglish,
+            })
           } else {
             sanitized = enrichTranslationCommentQuality({
               content: sanitized,
               userText: lastUserContentForResponse,
               repeatSentence,
               tense: normalizedTense,
+              groundTruthRepeatEnglish: priorAssistantRepeatEnglish,
             })
             sanitized = replaceFalsePositiveTranslationErrorWithPraise({
               content: sanitized,
               userText: lastUserContentForResponse,
+              priorRepeatEnglish: priorAssistantRepeatEnglish,
             })
             sanitized = keepOnlyCommentAndRepeatOnInvalidTranslationInput(sanitized, !isFirstTranslationUserTurn)
             if (isUnrecognizedTranslationContext(sanitized)) {
@@ -5910,16 +6007,19 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               fallbackPrompt: lastTranslationPrompt,
               userText: lastUserContentForResponse,
             })
+            sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
             translationSuccessFlow = canTreatTranslationAsSuccess
+          }
           }
         }
       }
     }
 
     if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
-      // Страховка: если есть явная похвала без "Повтори:", это SUCCESS-ветка.
-      const repeatForFallback = getTranslationRepeatSentence(sanitized)
-      if (!repeatForFallback && hasTranslationPraiseComment(sanitized) && canTreatTranslationAsSuccess) {
+      // Страховка: SUCCESS (перевод далее), если ответ засчитан верным и комментарий — похвала.
+      // Раньше требовали отсутствие «Повтори:»; модель же часто смешивает протоколы (похвала + лишний Повтори)
+      // — тогда isTranslationSuccessLikeContent ложился и пользователь не видел следующее задание.
+      if (canTreatTranslationAsSuccess && hasTranslationPraiseComment(sanitized)) {
         sanitized = ensureTranslationSuccessBlocks(sanitized, {
           tense: normalizedTense,
           topic,
@@ -5928,6 +6028,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           fallbackPrompt: lastTranslationPrompt,
           userText: lastUserContentForResponse,
         })
+        sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
         translationSuccessFlow = true
       }
     }
@@ -6004,10 +6105,12 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 userText: lastUserContentForResponse,
                 repeatSentence: repairedRepeatSentence,
                 tense: normalizedTense,
+                groundTruthRepeatEnglish: priorAssistantRepeatEnglish,
               })
               repaired = replaceFalsePositiveTranslationErrorWithPraise({
                 content: repaired,
                 userText: lastUserContentForResponse,
+                priorRepeatEnglish: priorAssistantRepeatEnglish,
               })
               repaired = keepOnlyCommentAndRepeatOnInvalidTranslationInput(repaired, !isFirstTranslationUserTurn)
               if (isUnrecognizedTranslationContext(repaired)) {
@@ -6118,6 +6221,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                     userText: lastUserContentForResponse,
                     repeatSentence: repeatSentence2,
                     tense: normalizedTense,
+                    groundTruthRepeatEnglish: priorAssistantRepeatEnglish,
                   })
                   repaired = keepOnlyCommentAndRepeatOnInvalidTranslationInput(repaired, !isFirstTranslationUserTurn)
                   if (isUnrecognizedTranslationContext(repaired)) {
@@ -6398,6 +6502,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               audience,
               diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
               recentMessages,
+              forcedRepeatSentence,
             })
             repaired = alignDialogueArticleCommentWithRepeat({
               content: repaired,
@@ -6496,10 +6601,12 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 userText: lastUserContentForResponse,
                 repeatSentence,
                 tense: normalizedTense,
+                groundTruthRepeatEnglish: priorAssistantRepeatEnglish,
               })
               repaired = replaceFalsePositiveTranslationErrorWithPraise({
                 content: repaired,
                 userText: lastUserContentForResponse,
+                priorRepeatEnglish: priorAssistantRepeatEnglish,
               })
               repaired = keepOnlyCommentAndRepeatOnInvalidTranslationInput(repaired, !isFirstTranslationUserTurn)
               if (isUnrecognizedTranslationContext(repaired)) {
@@ -6512,6 +6619,16 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 repaired = replaceTranslationConstructionLine(repaired, coachText)
               }
             }
+          }
+          if (mode === 'dialogue') {
+            repaired = formatDialogueCommentAsSeparateLines(repaired)
+            repaired = sanitizeRepeatMetaInstructionInContent(repaired, forcedRepeatSentence)
+            repaired = repairTruncatedDialogueRepeatVersusForced({
+              content: repaired,
+              userText: lastUserContentForResponse,
+              forcedRepeatSentence,
+              requiredTense: tutorGradingTense,
+            })
           }
           const repairedValid = isValidTutorOutput({
             content: repaired,
@@ -6735,6 +6852,38 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       if (getTranslationRepeatSentence(guardedContent)) {
         guardedContent = stripTranslationInvitationLines(guardedContent)
       }
+      const priorRepeatForEnforce = extractPriorAssistantRepeatEnglish(nonSystemMessages)
+      if (lastTranslationPrompt?.trim() || priorRepeatForEnforce?.trim()) {
+        guardedContent = enforceAuthoritativeTranslationRepeat(
+          guardedContent,
+          lastTranslationPrompt,
+          priorRepeatForEnforce
+        )
+      }
+      guardedContent = sanitizeRepeatMetaInstructionInContent(guardedContent, priorRepeatForEnforce)
+      const ruForRefCard = extractLastTranslationPromptFromMessages([
+        { role: 'assistant', content: guardedContent },
+      ])
+      /** Сначала золотой перевод русской строки «Переведи / Переведи далее» — эталон не из +: (он может расходиться с заданием). */
+      if (
+        ruForRefCard?.trim() &&
+        !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)
+      ) {
+        const goldFromApi = await translateRussianPromptToGoldEnglish({
+          ruSentence: ruForRefCard,
+          level: level as LevelId,
+          audience: audience as Audience,
+          provider,
+          req,
+        })
+        if (goldFromApi) {
+          const { clamped } = clampTranslationRepeatToRuPrompt(goldFromApi, ruForRefCard)
+          guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${clamped}`
+        }
+      }
+      if (!guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
+        guardedContent = appendTranslationCanonicalRepeatRefLine(guardedContent, ruForRefCard)
+      }
       return NextResponse.json({ content: guardedContent })
     }
 
@@ -6768,6 +6917,15 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     })
     sanitized = dialogueGuard.content
     sanitized = formatDialogueCommentAsSeparateLines(sanitized)
+    if (mode === 'dialogue') {
+      sanitized = sanitizeRepeatMetaInstructionInContent(sanitized, forcedRepeatSentence)
+      sanitized = repairTruncatedDialogueRepeatVersusForced({
+        content: sanitized,
+        userText: lastUserContentForResponse,
+        forcedRepeatSentence,
+        requiredTense: tutorGradingTense,
+      })
+    }
 
     return NextResponse.json({
       content: sanitized,

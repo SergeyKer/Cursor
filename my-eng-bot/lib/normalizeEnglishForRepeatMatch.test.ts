@@ -14,4 +14,10 @@ describe('normalizeEnglishForRepeatMatch', () => {
     const b = normalizeEnglishForRepeatMatch('I read book.')
     expect(a).not.toBe(b)
   })
+
+  it('ignores final period, commas, and letter case for drill match', () => {
+    const ref = normalizeEnglishForRepeatMatch('I cook pasta twice a week.')
+    expect(ref).toBe(normalizeEnglishForRepeatMatch('i cook pasta twice a week'))
+    expect(ref).toBe(normalizeEnglishForRepeatMatch('I cook pasta, twice a week'))
+  })
 })

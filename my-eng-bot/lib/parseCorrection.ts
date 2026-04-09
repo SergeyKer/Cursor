@@ -236,7 +236,9 @@ export function parseTranslationFeedback(text: string): {
     }
   }
 
-  const invitationMatch = rest.match(/\s+((?:Переведи|Переведите)[^.]*\.)\s*$/i)
+  const invitationMatch = rest.match(
+    /\s+((?:Переведи|Переведите)(?:\s+далее)?\s*:\s*[^\r\n]+|(?:Переведи|Переведите)\s+на\s+английский\.)\s*$/i
+  )
   const nextSentence = invitationMatch ? rest.slice(0, rest.length - invitationMatch[0].length).trimEnd() : rest
   if (invitationMatch) invitation = invitationMatch[1].trim()
   return { praise, correction, right, comment, nextSentence, invitation }

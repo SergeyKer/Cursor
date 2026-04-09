@@ -4,7 +4,8 @@
  */
 
 export function normalizeEnglishSentenceForComparison(text: string): string {
-  return text
+  const nfc = typeof text.normalize === 'function' ? text.normalize('NFC') : text
+  return nfc
     .toLowerCase()
     .replace(/\u2019/g, "'")
     .replace(/[^a-z0-9'\s]/g, ' ')

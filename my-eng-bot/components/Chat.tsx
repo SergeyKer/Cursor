@@ -2,11 +2,14 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { parseCorrection } from '@/lib/parseCorrection'
+import { buildSyntheticErrorsBlockFromComment } from '@/lib/translationSyntheticErrorsBlock'
 import { TRANSLATION_PROTOCOL_BLOCK_LINE } from '@/lib/translationProtocolLines'
 import { speak } from '@/lib/speech'
 import { pickRecordingMimeType, shouldUseMediaRecorderFallback, sttLangFromLocale } from '@/lib/sttClient'
 import { normalizeWebSearchSourceUrl } from '@/lib/openAiWebSearchShared'
 import type { ChatMessage as ChatMessageType, Settings } from '@/lib/types'
+import { stripTranslationCanonicalRepeatRefLine } from '@/lib/translationPromptAndRef'
+import { splitTranslationInvitation } from '@/lib/translationInvitationUi'
 import { PAGE_HOME_START_PRIMARY_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import type { LearningLessonAction } from '@/lib/learningLessons'
 
@@ -119,7 +122,10 @@ function isGenericTranslationRepeatUiText(text: string | null): boolean {
 
 /** Убирает служебный префикс модели перед русским заданием в карточке «Переведи». */
 function stripTranslationMainMetaPrefixes(text: string): string {
-  return text.replace(/^\s*(?:следующ(?:ее|ие)\s+предложени(?:е|я)\s*:\s*)+/i, '').trim()
+  return text
+    .replace(/^\s*(?:следующ(?:ее|ие)\s+предложени(?:е|я)\s*:\s*)+/i, '')
+    .replace(/^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)(?:\s+далее)?\s*:\s*/i, '')
+    .trim()
 }
 
 /** Похвала — лёгкий зелёный тон; иначе янтарь (ошибка/коррекция), как до введения praise. */
@@ -321,9 +327,11 @@ export function parseTranslationCoachBlocks(text: string): {
       }
     }
 
-    const pureInvitation = /^\s*(?:\d+\)\s*)?((?:Переведи|Переведите)[^.]*\.)\s*$/i.exec(line)
-    if (pureInvitation?.[1]) {
-      invitation = pureInvitation[1].trim()
+    // Только «Переведи на английский.» без русского задания — не «Переведи далее: …» (там точка может быть после «Теперь.»).
+    const pureMetaInvitation =
+      /^\s*(?:\d+\)\s*)*((?:Переведи|Переведите)\s+на\s+английский\.)\s*$/i.exec(line)
+    if (pureMetaInvitation?.[1]) {
+      invitation = pureMetaInvitation[1].trim()
       collectingConstruction = false
       collectingForms = false
       continue
@@ -372,10 +380,11 @@ export function parseTranslationCoachBlocks(text: string): {
       collectingForms = false
       continue
     }
-    const inlineInvitation = /((?:\d+\)\s*)?(?:Переведи|Переведите)[^.]*\.)\s*$/i.exec(line)
-    if (inlineInvitation?.[1] && inlineInvitation.index !== undefined) {
-      const before = line.slice(0, inlineInvitation.index).trim().replace(/^\d+\)\s*/i, '')
-      const inv = inlineInvitation[1].replace(/^\s*\d+\)\s*/i, '').trim()
+    const inlineEnglishOnlyInvitation =
+      /^(.*?)\s+((?:\d+\)\s*)?(?:Переведи|Переведите)\s+на\s+английский\.)\s*$/i.exec(line)
+    if (inlineEnglishOnlyInvitation?.[2] && inlineEnglishOnlyInvitation.index !== undefined) {
+      const before = (inlineEnglishOnlyInvitation[1] ?? '').trim().replace(/^\d+\)\s*/i, '')
+      const inv = inlineEnglishOnlyInvitation[2].replace(/^\s*\d+\)\s*/i, '').trim()
       if (inv) invitation = inv
       if (before) body.push(before)
       collectingConstruction = false
@@ -480,9 +489,9 @@ function computeAssistantTranslationMainCardMeta(message: ChatMessageType): {
   effectiveMainBefore: string
   hideTranslationPromptBlocks: boolean
 } {
-  const { comment, rest } = parseCorrection(message.content)
+  const { comment, rest } = parseCorrection(stripTranslationCanonicalRepeatRefLine(message.content))
   const displayText = rest
-  const { mainBefore } = splitInvitation(displayText)
+  const { mainBefore } = splitTranslationInvitation(displayText)
   let effectiveComment = comment
   let effectiveTenseRef: string | null = null
   let effectiveThreeFormsText: string | null = null
@@ -1297,22 +1306,6 @@ function detectTextLang(text: string): 'ru' | 'en' {
   return latCount > cyrCount ? 'en' : 'ru'
 }
 
-/** Выделяет приглашение «Переведи на английский» для курсива (режим «Перевод»). Ищет в любом месте текста. */
-function splitInvitation(text: string): {
-  mainBefore: string
-  invitation: string | null
-  mainAfter: string
-} {
-  const match = text.match(/\s+(?:\d+\)\s*)?((?:Переведи|Переведите)[^.]*\.)/i)
-  if (!match || match.index === undefined) {
-    return { mainBefore: text, invitation: null, mainAfter: '' }
-  }
-  const invitation = match[1].trim()
-  const mainBefore = text.slice(0, match.index).trimEnd()
-  const mainAfter = text.slice(match.index + match[0].length).trimStart()
-  return { mainBefore, invitation, mainAfter }
-}
-
 function extractRepeatPrompt(text: string): { repeatText: string } | null {
   const lines = text.split(/\r?\n/)
   for (let i = 0; i < lines.length; i++) {
@@ -1368,7 +1361,7 @@ function MessageBubble({
     (Boolean(message.webSearchTriggered) || (message.webSearchSources?.length ?? 0) > 0)
   const visibleContent =
     message.role === 'assistant' && !isInternetMessage
-      ? message.content.replace(/^\s*\(i\)\s*/i, '').trimStart()
+      ? stripTranslationCanonicalRepeatRefLine(message.content.replace(/^\s*\(i\)\s*/i, '').trimStart())
       : message.content
   const [showTranslation, setShowTranslation] = React.useState(false)
   const translationRequestedRef = useRef(false)
@@ -1381,7 +1374,7 @@ function MessageBubble({
   const isTranslationMode = mode === 'translation' && !isUser
   const { mainBefore, invitation: invitationText, mainAfter } =
     isTranslationMode && displayText
-      ? splitInvitation(displayText)
+      ? splitTranslationInvitation(displayText)
       : { mainBefore: displayText ?? '', invitation: null as string | null, mainAfter: '' }
   const isCommunicationEnglish = !isUser && mode === 'communication' && detectTextLang(displayText ?? '') === 'en'
 
@@ -1440,21 +1433,26 @@ function MessageBubble({
     if (blocks.tenseRef) effectiveTenseRef = blocks.tenseRef
     if (blocks.threeFormsText) effectiveThreeFormsText = blocks.threeFormsText
     if (blocks.repeat) repeatTextForCard = blocks.repeat
+    const errorsFromPayload = blocks.errorsBlock?.trim() ?? ''
+    const errorsSynthesized =
+      !errorsFromPayload && blocks.comment ? buildSyntheticErrorsBlockFromComment(blocks.comment)?.trim() ?? '' : ''
+    const errorsResolved = (errorsFromPayload || errorsSynthesized).trim()
     translationErrorsText =
-      Boolean(blocks.repeat) && !blocks.threeFormsText && Boolean(blocks.errorsBlock?.trim())
-        ? blocks.errorsBlock!.trim()
-        : null
+      Boolean(blocks.repeat) && !blocks.threeFormsText && errorsResolved ? errorsResolved : null
     if (blocks.nextSentence) {
       const cleanedNextSentence = blocks.nextSentence
         .split(/\r?\n/)
         .map((line) => line.trim())
-        .filter(
-          (line) =>
-            Boolean(line) &&
-            !TRANSLATION_PROTOCOL_BLOCK_LINE.test(line) &&
-            !/^[+\?-]\s*:/i.test(line) &&
-            !/^(?:Переведи|Переведите)\b/i.test(line)
-        )
+        .filter((line) => {
+          if (!line) return false
+          if (TRANSLATION_PROTOCOL_BLOCK_LINE.test(line)) return false
+          if (/^[+\?-]\s*:/i.test(line)) return false
+          if (/^(?:Переведи|Переведите)\b/i.test(line)) {
+            // Строка задания «Переведи далее: …» целиком нужна для карточки; отбрасываем только «Переведи на английский.».
+            return /:\s*[А-Яа-яЁё]/.test(line)
+          }
+          return true
+        })
         .join(' ')
         .replace(/\s+/g, ' ')
         .trim()
@@ -1464,7 +1462,7 @@ function MessageBubble({
           ' '
         )
         .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')
-        .replace(/(?:Переведи|Переведите)[^.]*\./gi, ' ')
+        .replace(/(?:^|\n)\s*(?:\d+\)\s*)?(?:Переведи|Переведите)\s+на\s+английский\.\s*/gi, ' ')
         .replace(/\s+/g, ' ')
         .trim()
       effectiveMainBefore = cleanedNextSentence || fallbackFromInline || blocks.nextSentence

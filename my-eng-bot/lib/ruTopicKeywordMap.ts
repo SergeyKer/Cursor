@@ -51,6 +51,11 @@ export const RU_TOPIC_KEYWORD_TO_EN: Record<string, string> = {
   собаки: 'dogs',
   животные: 'animals',
   семья: 'family',
+  /** Склонения «семья», иначе extractPromptKeywords не видит family и alignRepeatKeywords подменяет его на другое слово из промпта. */
+  семьи: 'family',
+  семье: 'family',
+  семью: 'family',
+  семьёй: 'family',
   друзья: 'friends',
   друг: 'friend',
   путешествие: 'travel',
@@ -104,6 +109,10 @@ export const RU_TOPIC_KEYWORD_TO_EN: Record<string, string> = {
   легко: 'easy',
   всегда: 'always',
   никогда: 'never',
+  иногда: 'sometimes',
+  редко: 'rarely',
+  часто: 'often',
+  обычно: 'usually',
   сегодня: 'today',
   вчера: 'yesterday',
   завтра: 'tomorrow',
@@ -142,6 +151,9 @@ export function normalizeRuTopicKeyword(token: string): string {
   }
   if (normalized.endsWith('ой')) pushCandidate(candidates, `${normalized.slice(0, -2)}а`)
   if (normalized.endsWith('ей')) pushCandidate(candidates, `${normalized.slice(0, -2)}я`)
+  if (normalized.endsWith('ами') || normalized.endsWith('ями') || normalized.endsWith('ьми')) {
+    pushCandidate(candidates, normalized.slice(0, -2))
+  }
   if (normalized.endsWith('ом') || normalized.endsWith('ем')) {
     pushCandidate(candidates, normalized.slice(0, -2))
   }

@@ -1,11 +1,23 @@
 import { normalizeEnglishLearnerContractions } from '@/lib/englishLearnerContractions'
+import { RU_TOPIC_KEYWORD_TO_EN, normalizeRuTopicKeyword } from '@/lib/ruTopicKeywordMap'
+import { stripEnglishRepeatConceptsNotInRuPrompt } from '@/lib/translationPromptConcepts'
 
 export type TranslationRepeatClampResult = {
   clamped: string
   changed: boolean
 }
 
-function normalizeRepeatSentenceEnding(text: string): string {
+const TRANSLATION_REPEAT_KEYWORDS_EN = new Set(Object.values(RU_TOPIC_KEYWORD_TO_EN))
+
+/** Наречия частотности из словаря — выравниваем только если в русском задании есть своя пара. */
+const FREQUENCY_EN = new Set(['sometimes', 'rarely', 'often', 'usually', 'always', 'never'])
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** Нормализация конца предложения для строки «Повтори» (экспорт для сценариев без русского промпта). */
+export function normalizeRepeatSentenceEnding(text: string): string {
   const compact = text.replace(/\s+/g, ' ').trim()
   if (!compact) return ''
   const normalized = normalizeEnglishLearnerContractions(compact)
@@ -75,6 +87,97 @@ function cleanupAfterRemovals(text: string): string {
     .trim()
 }
 
+export function extractPromptKeywords(prompt: string): string[] {
+  const tokens = prompt.toLowerCase().match(/[а-яё]+/gi) ?? []
+  const out: string[] = []
+  for (const token of tokens) {
+    const normalized = normalizeRuTopicKeyword(token)
+    const mapped = RU_TOPIC_KEYWORD_TO_EN[normalized]
+    if (mapped && !out.includes(mapped)) out.push(mapped)
+  }
+  return out
+}
+
+function extractRepeatKeywords(repeatEn: string): string[] {
+  const tokens = repeatEn.toLowerCase().match(/\b[a-z][a-z']+\b/gi) ?? []
+  const out: string[] = []
+  for (const token of tokens) {
+    const normalized = token.toLowerCase()
+    if (TRANSLATION_REPEAT_KEYWORDS_EN.has(normalized) && !out.includes(normalized)) {
+      out.push(normalized)
+    }
+  }
+  return out
+}
+
+function alignRepeatKeywordsToPrompt(repeatEn: string, ruPrompt: string): string | null {
+  const promptKeywords = extractPromptKeywords(ruPrompt)
+  if (promptKeywords.length === 0) return null
+
+  const promptSet = new Set(promptKeywords)
+  let out = repeatEn
+  let anyChange = false
+
+  for (let pass = 0; pass < 8; pass++) {
+    const repeatKeywords = extractRepeatKeywords(out)
+    if (repeatKeywords.length === 0) break
+
+    const stray = repeatKeywords.filter((w) => !promptSet.has(w))
+    const missing = promptKeywords.filter((w) => !repeatKeywords.includes(w))
+
+    if (stray.length === 0) break
+    /** Нечего подставлять из русского задания: подмена stray на «последний ключ» ломает фразы (напр. family → food). */
+    if (missing.length === 0) break
+
+    const strayFreq = stray.find((s) => FREQUENCY_EN.has(s))
+    const missFreq = missing.find((m) => FREQUENCY_EN.has(m))
+
+    let source: string | undefined
+    let target: string | undefined
+
+    if (strayFreq != null && missFreq != null) {
+      source = strayFreq
+      target = missFreq
+    } else if (strayFreq != null && missFreq == null) {
+      const rest = stray.filter((s) => !FREQUENCY_EN.has(s))
+      if (rest.length === 0) break
+      source = rest[0]
+      target =
+        missing.length > 0 ? missing[missing.length - 1] : promptKeywords[promptKeywords.length - 1]
+    } else {
+      source = stray[0]
+      target =
+        missing.length > 0 ? missing[missing.length - 1] : promptKeywords[promptKeywords.length - 1]
+      if (missing.length === 0 && FREQUENCY_EN.has(target) && repeatKeywords.includes(target)) {
+        break
+      }
+    }
+
+    if (!source || !target || source === target) break
+
+    const sourcePattern = new RegExp(`\\b${escapeRegExp(source)}\\b`, 'i')
+    if (!sourcePattern.test(out)) break
+
+    out = out.replace(sourcePattern, target)
+    anyChange = true
+  }
+
+  return anyChange ? normalizeRepeatSentenceEnding(out) : null
+}
+
+/**
+ * Срезает лишние социальные хвосты и выравнивает словарные ключи под русское задание.
+ * Для вызова из route при лексическом несоответствии промпта (без полного clamp с правилами времени суток).
+ */
+export function alignRepeatEnglishToRuPromptKeywords(repeatEn: string, ruPrompt: string): string | null {
+  const normalizedBefore = normalizeRepeatSentenceEnding(repeatEn.trim())
+  let out = stripEnglishRepeatConceptsNotInRuPrompt(repeatEn.trim(), ruPrompt)
+  out = cleanupAfterRemovals(out)
+  const aligned = alignRepeatKeywordsToPrompt(out, ruPrompt)
+  const candidate = aligned ?? normalizeRepeatSentenceEnding(out)
+  return candidate === normalizedBefore ? null : candidate
+}
+
 /**
  * Убирает из английского «Повтори» обстоятельства, которых нет в русском задании
  * (чтобы модель не подмешивала провокации пользователя).
@@ -97,7 +200,10 @@ export function clampTranslationRepeatToRuPrompt(repeatEn: string, ruPrompt: str
   }
 
   out = cleanupAfterRemovals(out)
-  const clamped = normalizeRepeatSentenceEnding(out)
+  out = stripEnglishRepeatConceptsNotInRuPrompt(out, ru)
+  out = cleanupAfterRemovals(out)
+  const aligned = alignRepeatKeywordsToPrompt(out, ru)
+  const clamped = aligned ?? normalizeRepeatSentenceEnding(out)
   const changed = clamped !== normalizedBefore
 
   return { clamped, changed }
@@ -119,6 +225,29 @@ export function replaceTranslationRepeatInContent(content: string, newRepeatEngl
   })
 
   return found ? out.join('\n').trim() : content
+}
+
+/**
+ * Финальная нормализация «Повтори:» под русское задание.
+ * Если есть prior (скрытый __TRAN_REPEAT_REF__ или прошлое «Повтори:») — подставляем его; при наличии ruPrompt дополнительно clamp к русскому.
+ * Если русского задания нет (цепочка только «Повтори»), prior всё равно заменяет несвязный текст модели.
+ * Без prior и с ruPrompt — clamp ответа модели под русский промпт.
+ */
+export function enforceAuthoritativeTranslationRepeat(
+  content: string,
+  ruPrompt: string | null,
+  priorRepeatEnglish: string | null
+): string {
+  if (priorRepeatEnglish?.trim()) {
+    const prior = priorRepeatEnglish.trim()
+    const ru = ruPrompt?.trim() ?? ''
+    const clamped = ru
+      ? clampTranslationRepeatToRuPrompt(prior, ruPrompt).clamped
+      : normalizeRepeatSentenceEnding(prior)
+    return replaceTranslationRepeatInContent(content, clamped)
+  }
+  if (!ruPrompt?.trim()) return content
+  return applyTranslationRepeatSourceClampToContent(content, ruPrompt)
 }
 
 /**

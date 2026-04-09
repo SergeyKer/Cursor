@@ -36,6 +36,11 @@ export function extractTranslationCommentBlock(lines: string[]): TranslationComm
   return { start, endExclusive: end, fullBody }
 }
 
+/** Классификация типа ошибки по тексту «Комментарий» (для синтеза блока «Ошибки:» и коуча). */
+export function inferTranslationCommentErrorType(raw: string): string {
+  return inferCommentErrorType(raw)
+}
+
 function inferCommentErrorType(raw: string): string {
   const s = raw.toLowerCase()
   if (/(врем|tense|present|past|future)/i.test(s)) return 'Ошибка времени.'
