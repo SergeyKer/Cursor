@@ -1,3 +1,5 @@
+import type { SentenceType } from './types'
+
 function stableHash32(input: string): number {
   let hash = 0x811c9dc5
   for (let i = 0; i < input.length; i++) {
@@ -7,17 +9,79 @@ function stableHash32(input: string): number {
   return hash >>> 0
 }
 
+/** Отрицание в русском drill-тексте (\\b в JS не привязан к кириллице). */
+function hasRussianNegationHint(s: string): boolean {
+  const t = s.replace(/\s+/g, ' ').trim()
+  if (/(?:^|[\s,;])(?:не|ни|нет|никогда|ничего|никому|нигде)(?=[\s,.!?…]|$)/iu.test(t)) return true
+  if (/(?:^|\s)не[а-яё]{2,}/iu.test(t)) return true
+  return /\b(не|ни|нет|никогда|ничего|никому|нигде)\b/i.test(t)
+}
+
+function applyRuSentenceTypeForDrill(sentence: string, sentenceType: SentenceType): string {
+  const raw = sentence.replace(/\s+/g, ' ').trim()
+  if (!raw || sentenceType === 'mixed') return raw
+
+  if (sentenceType === 'general') {
+    let u = raw.replace(/\?+\s*$/, '.')
+    if (!/[.!?…]$/.test(u)) u += '.'
+    return u
+  }
+
+  if (sentenceType === 'interrogative') {
+    const u = raw.replace(/\.+\s*$/, '').trimEnd()
+    return /\?$/.test(u) ? u : `${u}?`
+  }
+
+  if (hasRussianNegationHint(raw)) {
+    return /[.!?…]$/.test(raw) ? raw : `${raw}.`
+  }
+
+  let u = raw
+    .replace(/^Я люблю\b/i, 'Я не люблю')
+    .replace(/^Мне нравится\b/i, 'Мне не нравится')
+    .replace(/^Мы любим\b/i, 'Мы не любим')
+    .replace(/^Я работаю\b/i, 'Я не работаю')
+    .replace(/^Я сейчас ([А-Яа-яЁё]+)/i, 'Я сейчас не $1')
+    .replace(/^Мы сейчас ([А-Яа-яЁё]+)/i, 'Мы сейчас не $1')
+    .replace(/^Я обычно ([А-Яа-яЁё]+)/i, 'Я обычно не $1')
+    .replace(/^Мы обычно ([А-Яа-яЁё]+)/i, 'Мы обычно не $1')
+    .replace(/^Я часто ([А-Яа-яЁё]+)/i, 'Я нечасто $1')
+    .replace(/^Мы часто ([А-Яа-яЁё]+)/i, 'Мы нечасто $1')
+    .replace(/^Вчера я\s+/i, 'Вчера я не ')
+    .replace(/^Завтра я\s+/i, 'Завтра я не ')
+    .replace(/^Я уже ([А-Яа-яЁё]+)/i, 'Я ещё не $1')
+    .replace(/^Мы уже ([А-Яа-яЁё]+)/i, 'Мы ещё не $1')
+    .replace(/^Я буду ([А-Яа-яЁё]+)/i, 'Я не буду $1')
+    .replace(/^Я пришёл\b/i, 'Я не пришёл')
+
+  if (!hasRussianNegationHint(u)) {
+    u = u.replace(/^Я ([А-Яа-яЁё][а-яё]*)/i, 'Я не $1').replace(/^Мы ([А-Яа-яЁё][а-яё]*)/i, 'Мы не $1')
+  }
+
+  return /[.!?…]$/.test(u) ? u : `${u}.`
+}
+
+/** Единая нормализация русской drill-строки под тип предложения (fallback и текст от модели). */
+export function normalizeDrillRuSentenceForSentenceType(
+  sentence: string,
+  sentenceType: SentenceType
+): string {
+  return normalizeTranslationPracticeSentence(applyRuSentenceTypeForDrill(sentence, sentenceType))
+}
+
 export function fallbackTranslationSentenceForContext(params: {
   topic: string
   tense: string
   level: string
   audience: 'child' | 'adult'
   seedText?: string | null
+  sentenceType?: SentenceType
 }): string {
-  const { topic, tense, level, audience, seedText = '' } = params
+  const { topic, tense, level, audience, seedText = '', sentenceType = 'mixed' } = params
   const isChild = audience === 'child'
   const seed = stableHash32(`translation_next|${topic}|${tense}|${level}|${audience}|${seedText}`)
   const pick = (variants: string[]) => variants[seed % variants.length] ?? variants[0] ?? ''
+  const finish = (ru: string) => normalizeDrillRuSentenceForSentenceType(ru, sentenceType)
   const topicVariants: Record<string, string[]> = {
     food: ['Я люблю готовить дома по вечерам.', 'Я часто пью чай вечером.', 'Мы обычно ужинаем вместе.'],
     family_friends: ['Я люблю проводить время с семьёй.', 'У меня есть хорошие друзья.', 'Мы часто видимся по выходным.'],
@@ -37,96 +101,118 @@ export function fallbackTranslationSentenceForContext(params: {
   const base = pick(topicPool)
   const basic = level === 'starter' || level === 'a1' || level === 'a2'
 
-  if (tense === 'present_simple') return base
+  if (tense === 'present_simple') return finish(base)
   if (tense === 'present_continuous') {
-    return pick([
-      'Я сейчас читаю книгу.',
-      'Я сейчас готовлю ужин.',
-      'Мы сейчас смотрим фильм.',
-      basic ? 'Я сейчас учусь.' : 'Я сейчас работаю над проектом.',
-    ])
+    return finish(
+      pick([
+        'Я сейчас читаю книгу.',
+        'Я сейчас готовлю ужин.',
+        'Мы сейчас смотрим фильм.',
+        basic ? 'Я сейчас учусь.' : 'Я сейчас работаю над проектом.',
+      ])
+    )
   }
   if (tense === 'present_perfect') {
-    return pick([
-      'Я уже прочитал книгу.',
-      'Я уже сделал домашнее задание.',
-      'Мы уже поужинали.',
-      basic ? 'Я уже увидел это.' : 'Я уже решил эту задачу.',
-    ])
+    return finish(
+      pick([
+        'Я уже прочитал книгу.',
+        'Я уже сделал домашнее задание.',
+        'Мы уже поужинали.',
+        basic ? 'Я уже увидел это.' : 'Я уже решил эту задачу.',
+      ])
+    )
   }
   if (tense === 'present_perfect_continuous') {
-    return pick([
-      'Я уже давно читаю эту книгу.',
-      'Я уже несколько часов работаю над проектом.',
-      'Мы уже долго ждём тебя.',
-      basic ? 'Я уже давно учусь английскому.' : 'Я уже давно занимаюсь этим проектом.',
-    ])
+    return finish(
+      pick([
+        'Я уже давно читаю эту книгу.',
+        'Я уже несколько часов работаю над проектом.',
+        'Мы уже долго ждём тебя.',
+        basic ? 'Я уже давно учусь английскому.' : 'Я уже давно занимаюсь этим проектом.',
+      ])
+    )
   }
   if (tense === 'past_simple') {
-    return pick([
-      'Вчера я прочитал книгу.',
-      'Вчера мы смотрели фильм.',
-      'Я пришёл домой поздно.',
-      basic ? 'Я вчера играл дома.' : 'Я вчера работал допоздна.',
-    ])
+    return finish(
+      pick([
+        'Вчера я прочитал книгу.',
+        'Вчера мы смотрели фильм.',
+        'Я пришёл домой поздно.',
+        basic ? 'Я вчера играл дома.' : 'Я вчера работал допоздна.',
+      ])
+    )
   }
   if (tense === 'past_continuous') {
-    return pick([
-      'Я читал книгу, когда ты позвонил.',
-      'Мы ужинали, когда начался дождь.',
-      'Я смотрел фильм, когда пришёл друг.',
-      basic ? 'Я играл, когда мама позвала меня.' : 'Я работал над проектом, когда пришло письмо.',
-    ])
+    return finish(
+      pick([
+        'Я читал книгу, когда ты позвонил.',
+        'Мы ужинали, когда начался дождь.',
+        'Я смотрел фильм, когда пришёл друг.',
+        basic ? 'Я играл, когда мама позвала меня.' : 'Я работал над проектом, когда пришло письмо.',
+      ])
+    )
   }
   if (tense === 'past_perfect') {
-    return pick([
-      'Я уже прочитал книгу до ужина.',
-      'Мы уже ушли, когда ты пришёл.',
-      'Я уже сделал уроки к вечеру.',
-      basic ? 'Я уже поел до прогулки.' : 'Я уже закончил работу до встречи.',
-    ])
+    return finish(
+      pick([
+        'Я уже прочитал книгу до ужина.',
+        'Мы уже ушли, когда ты пришёл.',
+        'Я уже сделал уроки к вечеру.',
+        basic ? 'Я уже поел до прогулки.' : 'Я уже закончил работу до встречи.',
+      ])
+    )
   }
   if (tense === 'past_perfect_continuous') {
-    return pick([
-      'Я уже давно читал эту книгу до ужина.',
-      'Мы уже несколько часов ждали автобус.',
-      'Я уже долго работал, когда ты позвонил.',
-      basic ? 'Я уже долго играл, когда мама пришла.' : 'Я уже давно занимался этим проектом до звонка.',
-    ])
+    return finish(
+      pick([
+        'Я уже давно читал эту книгу до ужина.',
+        'Мы уже несколько часов ждали автобус.',
+        'Я уже долго работал, когда ты позвонил.',
+        basic ? 'Я уже долго играл, когда мама пришла.' : 'Я уже давно занимался этим проектом до звонка.',
+      ])
+    )
   }
   if (tense === 'future_simple') {
-    return pick([
-      'Завтра я прочитаю книгу.',
-      'Завтра мы пойдём в кино.',
-      'Я скоро позвоню тебе.',
-      basic ? 'Я завтра пойду гулять.' : 'Я на следующей неделе начну новый проект.',
-    ])
+    return finish(
+      pick([
+        'Завтра я прочитаю книгу.',
+        'Завтра мы пойдём в кино.',
+        'Я скоро позвоню тебе.',
+        basic ? 'Я завтра пойду гулять.' : 'Я на следующей неделе начну новый проект.',
+      ])
+    )
   }
   if (tense === 'future_continuous') {
-    return pick([
-      'Завтра в это время я буду читать книгу.',
-      'Завтра вечером мы будем ужинать.',
-      'Я буду работать весь день.',
-      basic ? 'Я буду учиться вечером.' : 'Я буду заниматься проектом завтра утром.',
-    ])
+    return finish(
+      pick([
+        'Завтра в это время я буду читать книгу.',
+        'Завтра вечером мы будем ужинать.',
+        'Я буду работать весь день.',
+        basic ? 'Я буду учиться вечером.' : 'Я буду заниматься проектом завтра утром.',
+      ])
+    )
   }
   if (tense === 'future_perfect') {
-    return pick([
-      'К завтрашнему утру я уже прочитаю книгу.',
-      'К вечеру мы уже закончим работу.',
-      'К тому времени я уже всё сделаю.',
-      basic ? 'Я к вечеру уже вернусь домой.' : 'Я к понедельнику уже завершу задачу.',
-    ])
+    return finish(
+      pick([
+        'К завтрашнему утру я уже прочитаю книгу.',
+        'К вечеру мы уже закончим работу.',
+        'К тому времени я уже всё сделаю.',
+        basic ? 'Я к вечеру уже вернусь домой.' : 'Я к понедельнику уже завершу задачу.',
+      ])
+    )
   }
   if (tense === 'future_perfect_continuous') {
-    return pick([
-      'К вечеру я уже буду читать книгу два часа.',
-      'К тому времени мы уже будем работать над проектом несколько часов.',
-      'К завтрашнему утру я уже буду заниматься этим час.',
-      basic ? 'К вечеру я уже буду играть несколько часов.' : 'К сроку я уже буду работать над задачей несколько часов.',
-    ])
+    return finish(
+      pick([
+        'К вечеру я уже буду читать книгу два часа.',
+        'К тому времени мы уже будем работать над проектом несколько часов.',
+        'К завтрашнему утру я уже буду заниматься этим час.',
+        basic ? 'К вечеру я уже буду играть несколько часов.' : 'К сроку я уже буду работать над задачей несколько часов.',
+      ])
+    )
   }
-  return isChild ? 'Я люблю читать книги.' : base
+  return finish(isChild ? 'Я люблю читать книги.' : base)
 }
 
 export function normalizeTranslationPracticeSentence(sentence: string): string {

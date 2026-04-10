@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import type { AppMode, Audience, ChatMessage, LevelId, TenseId } from '@/lib/types'
+import type { AppMode, Audience, ChatMessage, LevelId, SentenceType, TenseId } from '@/lib/types'
 import { CHILD_TENSES } from '@/lib/constants'
 import { detectLangFromText } from '@/lib/detectLang'
 import { classifyOpenAiForbidden } from '@/lib/openAiForbidden'
@@ -35,6 +35,7 @@ import {
 import {
   buildTranslationRetryFallback,
   fallbackTranslationSentenceForContext,
+  normalizeDrillRuSentenceForSentenceType,
   normalizeTranslationPracticeSentence,
 } from '@/lib/translationMode'
 import {
@@ -265,10 +266,10 @@ const TOPIC_NAMES: Record<string, string> = {
 }
 
 const SENTENCE_TYPE_NAMES: Record<string, string> = {
-  general: 'affirmative (declarative / narrative)',
-  interrogative: 'interrogative (questions)',
-  negative: 'negative',
-  mixed: 'mixed (affirmative, interrogative, negative)',
+  general: 'affirmative / declarative (menu: Утвердительные)',
+  interrogative: 'interrogative (menu: Вопросительные)',
+  negative: 'negative (menu: Отрицательные)',
+  mixed: 'mixed — rotate affirmative, interrogative, negative (menu: Смешанные)',
 }
 
 function stableHash32(input: string): number {
@@ -279,6 +280,33 @@ function stableHash32(input: string): number {
     hash = Math.imul(hash, 0x01000193)
   }
   return hash >>> 0
+}
+
+const TRANSLATION_EFFECTIVE_LEVEL_POOL: string[] = ['a1', 'a2', 'b1', 'b2', 'c1', 'c2']
+
+const TRANSLATION_MIXED_TYPE_CYCLE: SentenceType[] = ['general', 'interrogative', 'negative']
+
+function pickTranslationEffectiveLevel(params: {
+  storedLevel: string
+  dialogSeed: string
+  drillIndex: number
+  topic: string
+}): string {
+  if (params.storedLevel !== 'all') return params.storedLevel
+  const h = stableHash32(`${params.dialogSeed}|tlvl|${params.drillIndex}|${params.topic}`)
+  return TRANSLATION_EFFECTIVE_LEVEL_POOL[h % TRANSLATION_EFFECTIVE_LEVEL_POOL.length] ?? 'a1'
+}
+
+function resolveTranslationDrillSentenceType(params: {
+  sentenceType: SentenceType
+  dialogSeed: string
+  drillIndex: number
+  topic: string
+  tense: string
+}): SentenceType {
+  if (params.sentenceType !== 'mixed') return params.sentenceType
+  const h = stableHash32(`${params.dialogSeed}|tstp|${params.drillIndex}|${params.topic}|${params.tense}`)
+  return TRANSLATION_MIXED_TYPE_CYCLE[h % TRANSLATION_MIXED_TYPE_CYCLE.length] ?? 'general'
 }
 
 /**
@@ -306,6 +334,9 @@ function buildSystemPrompt(params: {
   communicationDetailLevel?: 0 | 1 | 2
   communicationLanguageHint?: 'Russian' | 'English'
   communicationDetailOnly?: boolean
+  translationPromptLevel?: string
+  translationPromptTense?: string
+  translationDrillSentenceType?: string
 }): string {
   const {
     mode,
@@ -320,6 +351,9 @@ function buildSystemPrompt(params: {
     communicationDetailLevel = 0,
     communicationLanguageHint = 'Russian',
     communicationDetailOnly = false,
+    translationPromptLevel,
+    translationPromptTense,
+    translationDrillSentenceType,
   } = params
   const levelPrompt = buildLevelPrompt(level)
   const cefrPromptBlock = buildCefrPromptBlock({
@@ -377,8 +411,29 @@ No other format. Output only the chat message text.`
   }
 
   if (mode === 'translation') {
-    return `Translation training. Topic: ${topicName}, ${levelPrompt}, ${sentenceTypeName}. Required tense: ${tenseName}.
-${cefrPromptBlock}
+    const trLevel = translationPromptLevel ?? level
+    const trTense = translationPromptTense ?? tense
+    const levelPromptTr = buildLevelPrompt(trLevel)
+    const cefrPromptBlockTr = buildCefrPromptBlock({
+      mode: 'translation',
+      level: trLevel as LevelId,
+      audience: audience as Audience,
+    })
+    const tenseNameTr = TENSE_NAMES[trTense] ?? 'Present Simple'
+    const drillSt = translationDrillSentenceType ?? sentenceType ?? 'mixed'
+    const sentenceTypeNameTr = SENTENCE_TYPE_NAMES[drillSt] ?? 'mixed'
+    const translationDrillContract = `Russian drill sentence (the line before "Переведи на английский" on the first assistant turn, and the next Russian line after SUCCESS): contract for THIS turn only:
+- Exactly one Russian sentence for the task; target length 3–12 words (slightly longer is OK for natural questions or negatives if still clear).
+- Must simultaneously match: this topic, the CEFR level stated below, Required tense, and THIS turn sentence type (${sentenceTypeNameTr}).
+- Sentence type: if AFFIRMATIVE — declarative statement, not a question, not negative; if INTERROGATIVE — a real question in Russian; if NEGATIVE — clear negation (не / никогда / ничего etc. as fits).
+- Like vs love: mild "нравится"-type wording for neutral like; reserve "люблю/обожаю" only for stronger love — do not swap meanings.
+- Avoid narrow cultural references on low levels (starter/A1/A2); stay unambiguous; do not mix English tenses inside the one Russian sentence; vocabulary must stay within the stated CEFR level.
+- Task line only: Комментарий lines follow existing audience register rules separately.`
+
+    return `Translation training. Topic: ${topicName}, ${levelPromptTr}, ${sentenceTypeNameTr}. Required tense: ${tenseNameTr}.
+${cefrPromptBlockTr}
+
+${translationDrillContract}
 
 ${audienceStyleRule}
 
@@ -3063,7 +3118,6 @@ function ensureTranslationProtocolBlocks(
   let supportBlock: string | null = null
   let comment: string | null = null
   let errorsBlock: string | null = null
-  let timeLine: string | null = null
   let construction: string | null = null
   let repeat: string | null = null
   let repeatRu: string | null = null
@@ -3119,7 +3173,6 @@ function ensureTranslationProtocolBlocks(
       continue
     }
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:/i.test(line)) {
-      timeLine = line.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:\s*/i, 'Время: ').trim()
       collectingConstruction = false
       continue
     }
@@ -3154,9 +3207,9 @@ function ensureTranslationProtocolBlocks(
     comment =
       'Комментарий: Есть неточность в грамматике. Давайте сверимся с образцом в блоке «Повтори».'
   }
-  if (!timeLine || /^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:\s*[-–—]\s*$/i.test(timeLine)) {
-    timeLine = `Время: ${translationTimeHint(tense)}`
-  }
+  // Всегда привязываем «Время:» к выбранному в запросе времени (tutorGradingTense), иначе модель
+  // может оставить произвольный текст, не совпадающий с выбранным в меню временем.
+  const timeLine = `Время: ${translationTimeHint(tense)}`
   if (
     !construction ||
     /^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:\s*[-–—]\s*$/i.test(construction)
@@ -3198,7 +3251,7 @@ function ensureTranslationProtocolBlocks(
   if (errorsBlock != null && String(errorsBlock).trim()) {
     out.push(`Ошибки:\n${String(errorsBlock).trim()}`)
   }
-  out.push(timeLine!, construction!)
+  out.push(timeLine, construction!)
   if (repeat && !repeatRu) {
     const repeatBody = repeat.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Повтори\s*:\s*/i, '').trim()
     const en = normalizeRepeatSentenceEnding(stripLeadingRepeatRuPrompt(repeatBody))
@@ -3209,7 +3262,7 @@ function ensureTranslationProtocolBlocks(
   return out.join('\n').trim()
 }
 
-function ensureFirstTranslationInvitation(content: string): string {
+function ensureFirstTranslationInvitation(content: string, sentenceType: SentenceType = 'mixed'): string {
   const taskLine = content
     .split(/\r?\n/)
     .map((l) => 
@@ -3227,7 +3280,8 @@ function ensureFirstTranslationInvitation(content: string): string {
     )
 
   if (!taskLine) return 'Переведи на английский.'
-  return `${taskLine}\nПереведи на английский.`
+  const normalized = normalizeDrillRuSentenceForSentenceType(taskLine, sentenceType)
+  return `${normalized}\nПереведи на английский.`
 }
 
 function normalizeEnglishSentenceForCard(text: string): string {
@@ -3438,7 +3492,15 @@ function hasTranslationPraiseComment(content: string): boolean {
 
 function normalizeTranslationSuccessPayload(
   content: string,
-  params: { tense: string; topic: string; level: string; audience: 'child' | 'adult'; fallbackPrompt: string | null; userText: string }
+  params: {
+    tense: string
+    topic: string
+    level: string
+    audience: 'child' | 'adult'
+    fallbackPrompt: string | null
+    userText: string
+    sentenceType?: SentenceType
+  }
 ): string {
   if (!isTranslationSuccessLikeContent(content)) return content
   return ensureTranslationSuccessBlocks(content, params)
@@ -3446,9 +3508,17 @@ function normalizeTranslationSuccessPayload(
 
 function ensureTranslationSuccessBlocks(
   content: string,
-  params: { tense: string; topic: string; level: string; audience: 'child' | 'adult'; fallbackPrompt: string | null; userText: string }
+  params: {
+    tense: string
+    topic: string
+    level: string
+    audience: 'child' | 'adult'
+    fallbackPrompt: string | null
+    userText: string
+    sentenceType?: SentenceType
+  }
 ): string {
-  const { tense, topic, level, audience, fallbackPrompt, userText } = params
+  const { tense, topic, level, audience, fallbackPrompt, userText, sentenceType = 'mixed' } = params
   const lines = content
     .split(/\r?\n/)
     .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
@@ -3525,32 +3595,30 @@ function ensureTranslationSuccessBlocks(
   if (nextSentenceLines.length > 0) {
     const cleanedNextSentence = extractSingleTranslationNextSentence(nextSentenceLines)
     if (cleanedNextSentence) {
-      out.push(normalizeTranslationPracticeSentence(cleanedNextSentence))
+      out.push(normalizeDrillRuSentenceForSentenceType(cleanedNextSentence, sentenceType))
     } else {
       out.push(
-        normalizeTranslationPracticeSentence(
-          fallbackTranslationSentenceForContext({
-            topic,
-            tense,
-            level,
-            audience,
-            seedText: fallbackPrompt,
-          })
-        )
-      )
-    }
-    out.push('Переведи на английский.')
-  } else {
-    out.push(
-      normalizeTranslationPracticeSentence(
         fallbackTranslationSentenceForContext({
           topic,
           tense,
           level,
           audience,
           seedText: fallbackPrompt,
+          sentenceType,
         })
       )
+    }
+    out.push('Переведи на английский.')
+  } else {
+    out.push(
+      fallbackTranslationSentenceForContext({
+        topic,
+        tense,
+        level,
+        audience,
+        seedText: fallbackPrompt,
+        sentenceType,
+      })
     )
     out.push('Переведи на английский.')
   }
@@ -5204,6 +5272,37 @@ export async function POST(req: NextRequest) {
         tutorGradingTense = inferredRepeatTense
       }
     }
+
+    let translationDrillLevel = level
+    let translationDrillTense = normalizedTense
+    let translationDrillSentenceType = sentenceType as SentenceType
+    if (mode === 'translation') {
+      const translationAssistantDrillIndex = nonSystemMessages.filter((m: ChatMessage) => m.role === 'assistant')
+        .length
+      if (level === 'all') {
+        translationDrillLevel = pickTranslationEffectiveLevel({
+          storedLevel: level,
+          dialogSeed,
+          drillIndex: translationAssistantDrillIndex,
+          topic,
+        })
+      }
+      if (normalizedTense === 'all') {
+        translationDrillTense = pickWeightedFreeTalkTense({
+          candidates: (audience === 'child' ? [...CHILD_TENSES] : buildAdultFullTensePool()) as string[],
+          seed: `${dialogSeed}|trt|${translationAssistantDrillIndex}|${topic}|${lastUserText.slice(0, 160)}`,
+        })
+      }
+      translationDrillSentenceType = resolveTranslationDrillSentenceType({
+        sentenceType: sentenceType as SentenceType,
+        dialogSeed,
+        drillIndex: translationAssistantDrillIndex,
+        topic,
+        tense: translationDrillTense,
+      })
+      tutorGradingTense = translationDrillTense
+    }
+
     const forcedRepeatSentence =
       mode === 'dialogue'
         ? pickDialogueForcedRepeatAnchorFromHistory(recentMessages, lastUserText, tutorGradingTense)
@@ -5272,7 +5371,7 @@ export async function POST(req: NextRequest) {
         !isTranslationAnswerEffectivelyCorrect(lastUserText, priorEn!.trim())
       const linesOut = [
         buildTranslationRetryFallback({
-          tense: normalizedTense,
+          tense: tutorGradingTense,
           includeRepeat: !isFirstTranslationUserTurn,
         }).trim(),
       ]
@@ -5658,6 +5757,13 @@ export async function POST(req: NextRequest) {
       communicationDetailLevel,
       communicationLanguageHint,
       communicationDetailOnly,
+      ...(mode === 'translation'
+        ? {
+            translationPromptLevel: translationDrillLevel,
+            translationPromptTense: translationDrillTense,
+            translationDrillSentenceType: translationDrillSentenceType,
+          }
+        : {}),
     })
 
     const topicChoicePrefix = mode === 'dialogue' && isTopicChoiceTurn
@@ -6010,7 +6116,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       })
       translationReferenceFormForTurn = translationReferenceForm
       const translationReferenceFormIsRelevant = translationReferenceForm
-        ? isUserLikelyCorrectForTense(translationReferenceForm, normalizedTense)
+        ? isUserLikelyCorrectForTense(translationReferenceForm, tutorGradingTense)
         : false
       const translationReferenceFormMatchesUser = translationReferenceForm
         ? isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, translationReferenceForm)
@@ -6025,7 +6131,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         hasTranslationPromptKeywordMismatch(translationPromptText, translationReferenceForm ?? '')
       translationWordMismatch =
         Boolean(translationReferenceForm) &&
-        isUserLikelyCorrectForTense(lastUserContentForResponse, normalizedTense) &&
+        isUserLikelyCorrectForTense(lastUserContentForResponse, tutorGradingTense) &&
         translationReferenceFormIsRelevant &&
         !translationReferenceFormMatchesUser &&
         !userMatchesAnyProvidedForm &&
@@ -6061,37 +6167,39 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         canTreatTranslationAsSuccess = false
       }
       if (isFirstTurn) {
-        sanitized = ensureFirstTranslationInvitation(sanitized)
+        sanitized = ensureFirstTranslationInvitation(sanitized, translationDrillSentenceType)
       } else {
         const initialSuccessLike = modelSuccessLike
         if (initialSuccessLike && canTreatTranslationAsSuccess) {
           sanitized = ensureTranslationSuccessBlocks(sanitized, {
-            tense: normalizedTense,
+            tense: tutorGradingTense,
             topic,
-            level,
+            level: translationDrillLevel,
             audience,
             fallbackPrompt: lastTranslationPrompt,
             userText: lastUserContentForResponse,
+            sentenceType: translationDrillSentenceType,
           })
           sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
           translationSuccessFlow = true
         } else {
           if (canTreatTranslationAsSuccess && hasTranslationPraiseComment(sanitized)) {
             sanitized = ensureTranslationSuccessBlocks(sanitized, {
-              tense: normalizedTense,
+              tense: tutorGradingTense,
               topic,
-              level,
+              level: translationDrillLevel,
               audience,
               fallbackPrompt: lastTranslationPrompt,
               userText: lastUserContentForResponse,
+              sentenceType: translationDrillSentenceType,
             })
             sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
             translationSuccessFlow = true
           } else {
           sanitized = ensureTranslationProtocolBlocks(sanitized, {
-            tense: normalizedTense,
+            tense: tutorGradingTense,
             topic,
-            level,
+            level: translationDrillLevel,
             audience,
             fallbackPrompt: lastTranslationPrompt,
           })
@@ -6124,7 +6232,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               content: sanitized,
               userText: lastUserContentForResponse,
               repeatSentence,
-              tense: normalizedTense,
+              tense: tutorGradingTense,
               groundTruthRepeatEnglish: priorAssistantRepeatEnglish,
             })
             sanitized = replaceFalsePositiveTranslationErrorWithPraise({
@@ -6144,18 +6252,19 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           // Coach-текст для блока "Конструкция" (привязываем правило к текущему "Повтори").
           const repeatSentenceForConstruction = getTranslationRepeatSentence(sanitized)
           if (repeatSentenceForConstruction && !isGenericTranslationRepeatFallback(repeatSentenceForConstruction)) {
-            const coachText = buildTranslationConstructionCoachText(normalizedTense, repeatSentenceForConstruction)
+            const coachText = buildTranslationConstructionCoachText(tutorGradingTense, repeatSentenceForConstruction)
             sanitized = replaceTranslationConstructionLine(sanitized, coachText)
           }
 
           if (isTranslationSuccessContent(sanitized) && canTreatTranslationAsSuccess) {
             sanitized = ensureTranslationSuccessBlocks(sanitized, {
-              tense: normalizedTense,
+              tense: tutorGradingTense,
               topic,
-              level,
+              level: translationDrillLevel,
               audience,
               fallbackPrompt: lastTranslationPrompt,
               userText: lastUserContentForResponse,
+              sentenceType: translationDrillSentenceType,
             })
             sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
             translationSuccessFlow = canTreatTranslationAsSuccess
@@ -6171,12 +6280,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       // — тогда isTranslationSuccessLikeContent ложился и пользователь не видел следующее задание.
       if (canTreatTranslationAsSuccess && hasTranslationPraiseComment(sanitized)) {
         sanitized = ensureTranslationSuccessBlocks(sanitized, {
-          tense: normalizedTense,
+          tense: tutorGradingTense,
           topic,
-          level,
+          level: translationDrillLevel,
           audience,
           fallbackPrompt: lastTranslationPrompt,
           userText: lastUserContentForResponse,
+          sentenceType: translationDrillSentenceType,
         })
         sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
         translationSuccessFlow = true
@@ -6199,22 +6309,23 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         }
       }
       if (!repeatSentence || isGenericTranslationRepeatFallback(repeatSentence)) {
-        const userLikelyCorrect = isUserLikelyCorrectForTense(lastUserContentForResponse, normalizedTense)
+        const userLikelyCorrect = isUserLikelyCorrectForTense(lastUserContentForResponse, tutorGradingTense)
         if (!repeatSentence && userLikelyCorrect && canTreatTranslationAsSuccess) {
           sanitized = ensureTranslationSuccessBlocks(sanitized, {
-            tense: normalizedTense,
+            tense: tutorGradingTense,
             topic,
-            level,
+            level: translationDrillLevel,
             audience,
             fallbackPrompt: lastTranslationPrompt,
             userText: lastUserContentForResponse,
+            sentenceType: translationDrillSentenceType,
           })
           translationSuccessFlow = true
         } else if (isGenericTranslationRepeatFallback(repeatSentence) && userLikelyCorrect) {
           sanitized = replaceGenericRepeatFallbackWithPraiseIfUserLikelyCorrect({
             content: sanitized,
             userText: lastUserContentForResponse,
-            requiredTense: normalizedTense,
+            requiredTense: tutorGradingTense,
           })
         } else {
           const repairApiMessages = [...apiMessages]
@@ -6223,7 +6334,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             content:
               `${systemContent}\n\n` +
               buildTranslationMissingRepeatRepairInstruction({
-                tenseName: TENSE_NAMES[normalizedTense] ?? 'Present Simple',
+                tenseName: TENSE_NAMES[tutorGradingTense] ?? 'Present Simple',
                 fallbackPrompt: lastTranslationPrompt,
               }),
           }
@@ -6241,7 +6352,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               repaired = stripRepeatOnPraise(repaired)
               repaired = normalizeTranslationCommentStyle(repaired)
               repaired = ensureTranslationProtocolBlocks(repaired, {
-                tense: normalizedTense,
+                tense: tutorGradingTense,
                 topic,
                 level,
                 audience,
@@ -6254,7 +6365,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 content: repaired,
                 userText: lastUserContentForResponse,
                 repeatSentence: repairedRepeatSentence,
-                tense: normalizedTense,
+                tense: tutorGradingTense,
                 groundTruthRepeatEnglish: priorAssistantRepeatEnglish,
               })
               repaired = replaceFalsePositiveTranslationErrorWithPraise({
@@ -6270,7 +6381,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               repaired = ensureTranslationRepeatFallbackForMixedInput(repaired, lastUserContentForResponse)
 
               if (repairedRepeatSentence && !isGenericTranslationRepeatFallback(repairedRepeatSentence)) {
-                const coachText = buildTranslationConstructionCoachText(normalizedTense, repairedRepeatSentence)
+                const coachText = buildTranslationConstructionCoachText(tutorGradingTense, repairedRepeatSentence)
                 repaired = replaceTranslationConstructionLine(repaired, coachText)
                 sanitized = repaired
               }
@@ -6294,9 +6405,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       mode === 'translation' &&
       !isFirstTurn &&
       !translationSuccessFlow &&
-      (normalizedTense === 'present_simple' || normalizedTense === 'present_continuous')
+      (tutorGradingTense === 'present_simple' || tutorGradingTense === 'present_continuous')
     ) {
-      const expectedTenseName = TENSE_NAMES[normalizedTense] ?? null
+      const expectedTenseName = TENSE_NAMES[tutorGradingTense] ?? null
       if (expectedTenseName) {
         const timeValue = extractTranslationTimeValue(sanitized)
         const gotTenseName = timeValue ? extractEnglishTenseNameFromTimeValue(timeValue) : null
@@ -6305,11 +6416,11 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         const timeMismatch = timeValue ? !timeValue.toLowerCase().includes(expectedTenseName.toLowerCase()) : false
         const repeatMismatch =
           repeatSentence != null
-            ? !isRepeatSentenceCompatibleWithRequiredTense({ repeatSentence, requiredTense: normalizedTense })
+            ? !isRepeatSentenceCompatibleWithRequiredTense({ repeatSentence, requiredTense: tutorGradingTense })
             : false
 
         if ((timeMismatch || repeatMismatch) && repeatSentence) {
-          const expectedConstruction = translationConstructionHint(normalizedTense)
+          const expectedConstruction = translationConstructionHint(tutorGradingTense)
           const repairSystemContent = `${systemContent}\n\n${buildTranslationTenseDriftRepairInstruction({
             expectedTenseName,
             expectedConstruction,
@@ -6333,7 +6444,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               repaired = ensureNextQuestionOnPraise(repaired, {
                 mode,
                 topic,
-                tense: normalizedTense,
+                tense: tutorGradingTense,
                 level,
                 audience,
                 recentMessages,
@@ -6342,7 +6453,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               repaired = ensureNextQuestionWhenMissing(repaired, {
                 mode,
                 topic,
-                tense: normalizedTense,
+                tense: tutorGradingTense,
                 level,
                 audience,
                 recentMessages,
@@ -6355,10 +6466,10 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               if (mode === 'translation') {
                 repaired = normalizeTranslationCommentStyle(repaired)
                 if (isFirstTurn) {
-                  repaired = ensureFirstTranslationInvitation(repaired)
+                  repaired = ensureFirstTranslationInvitation(repaired, translationDrillSentenceType)
                 } else {
                   repaired = ensureTranslationProtocolBlocks(repaired, {
-                    tense: normalizedTense,
+                    tense: tutorGradingTense,
                     topic,
                     level,
                     audience,
@@ -6370,7 +6481,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                     content: repaired,
                     userText: lastUserContentForResponse,
                     repeatSentence: repeatSentence2,
-                    tense: normalizedTense,
+                    tense: tutorGradingTense,
                     groundTruthRepeatEnglish: priorAssistantRepeatEnglish,
                   })
                   repaired = keepOnlyCommentAndRepeatOnInvalidTranslationInput(repaired, !isFirstTranslationUserTurn)
@@ -6381,7 +6492,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
 
                   const repeatSentenceForConstruction = getTranslationRepeatSentence(repaired)
                   if (repeatSentenceForConstruction && !isGenericTranslationRepeatFallback(repeatSentenceForConstruction)) {
-                    const coachText = buildTranslationConstructionCoachText(normalizedTense, repeatSentenceForConstruction)
+                    const coachText = buildTranslationConstructionCoachText(tutorGradingTense, repeatSentenceForConstruction)
                     repaired = replaceTranslationConstructionLine(repaired, coachText)
                   }
                 }
@@ -6398,19 +6509,20 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       if (!isFirstTurn) {
         if (canTreatTranslationAsSuccess) {
           sanitized = normalizeTranslationSuccessPayload(sanitized, {
-            tense: normalizedTense,
+            tense: tutorGradingTense,
             topic,
-            level,
+            level: translationDrillLevel,
             audience,
             fallbackPrompt: lastTranslationPrompt,
             userText: lastUserContentForResponse,
+            sentenceType: translationDrillSentenceType,
           })
         }
       }
       sanitized = applyTranslationCommentCoachVoice({
         content: sanitized,
         audience,
-        requiredTense: normalizedTense,
+        requiredTense: tutorGradingTense,
       })
     }
     if (!sanitized) {
@@ -6735,10 +6847,10 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           if (mode === 'translation') {
             repaired = normalizeTranslationCommentStyle(repaired)
             if (isFirstTurn) {
-              repaired = ensureFirstTranslationInvitation(repaired)
+              repaired = ensureFirstTranslationInvitation(repaired, translationDrillSentenceType)
             } else {
               repaired = ensureTranslationProtocolBlocks(repaired, {
-                tense: normalizedTense,
+                tense: tutorGradingTense,
                 topic,
                 level,
                 audience,
@@ -6749,7 +6861,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 content: repaired,
                 userText: lastUserContentForResponse,
                 repeatSentence,
-                tense: normalizedTense,
+                tense: tutorGradingTense,
                 groundTruthRepeatEnglish: priorAssistantRepeatEnglish,
               })
               repaired = replaceFalsePositiveTranslationErrorWithPraise({
@@ -6764,7 +6876,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
 
               const repeatSentenceForConstruction = getTranslationRepeatSentence(repaired)
               if (repeatSentenceForConstruction && !isGenericTranslationRepeatFallback(repeatSentenceForConstruction)) {
-                const coachText = buildTranslationConstructionCoachText(normalizedTense, repeatSentenceForConstruction)
+                const coachText = buildTranslationConstructionCoachText(tutorGradingTense, repeatSentenceForConstruction)
                 repaired = replaceTranslationConstructionLine(repaired, coachText)
               }
             }
@@ -6787,12 +6899,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             if (mode === 'translation') {
               if (!isFirstTurn && canTreatTranslationAsSuccess) {
                 repaired = normalizeTranslationSuccessPayload(repaired, {
-                  tense: normalizedTense,
+                  tense: tutorGradingTense,
                   topic,
-                  level,
+                  level: translationDrillLevel,
                   audience,
                   fallbackPrompt: lastTranslationPrompt,
                   userText: lastUserContentForResponse,
+                  sentenceType: translationDrillSentenceType,
                 })
               } else if (translationAnswerContainsCyrillic) {
                 repaired = ensureTranslationRepeatFallbackForMixedInput(repaired, lastUserContentForResponse)
@@ -6803,20 +6916,20 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               const translationGuard = applyCefrOutputGuard({
                 mode: 'translation',
                 content: repaired,
-                level: level as LevelId,
+                level: translationDrillLevel as LevelId,
                 audience: audience as Audience,
               })
               repaired = translationGuard.content
               repaired = applyTranslationCommentCoachVoice({
                 content: repaired,
                 audience,
-                requiredTense: normalizedTense,
+                requiredTense: tutorGradingTense,
               })
               repaired = await finalizeTranslationResponsePayload({
                 content: repaired,
                 nonSystemMessages,
                 lastTranslationPrompt,
-                level: level as LevelId,
+                level: translationDrillLevel as LevelId,
                 audience: audience as Audience,
                 provider,
                 req,
@@ -6951,7 +7064,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               })
           : fallbackQuestionForContext({
               topic,
-              tense: normalizedTense,
+              tense: tutorGradingTense,
               level,
               audience,
               isFirstTurn,
@@ -6974,37 +7087,39 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       if (!isFirstTurn) {
         if (!/[А-Яа-яЁё]/.test(lastUserContentForResponse)) {
           sanitized = normalizeTranslationSuccessPayload(sanitized, {
-            tense: normalizedTense,
+            tense: tutorGradingTense,
             topic,
-            level,
+            level: translationDrillLevel,
             audience,
             fallbackPrompt: lastTranslationPrompt,
             userText: lastUserContentForResponse,
+            sentenceType: translationDrillSentenceType,
           })
         }
       }
       const translationGuard = applyCefrOutputGuard({
         mode: 'translation',
         content: sanitized,
-        level: level as LevelId,
+        level: translationDrillLevel as LevelId,
         audience: audience as Audience,
       })
       let guardedContent =
         !isFirstTurn && canTreatTranslationAsSuccess
           ? normalizeTranslationSuccessPayload(translationGuard.content, {
-              tense: normalizedTense,
+              tense: tutorGradingTense,
               topic,
-              level,
+              level: translationDrillLevel,
               audience,
               fallbackPrompt: lastTranslationPrompt,
               userText: lastUserContentForResponse,
+              sentenceType: translationDrillSentenceType,
             })
           : ensureTranslationRepeatFallbackForMixedInput(translationGuard.content, lastUserContentForResponse)
       guardedContent = await finalizeTranslationResponsePayload({
         content: guardedContent,
         nonSystemMessages,
         lastTranslationPrompt,
-        level: level as LevelId,
+        level: translationDrillLevel as LevelId,
         audience: audience as Audience,
         provider,
         req,
