@@ -1,5 +1,12 @@
 import type { Audience, LevelId } from '@/lib/types'
 
+/**
+ * Каноническая таблица уровней CEFR (все 15 колонок из инструкции) лежит в корне репозитория:
+ * `CEFR_Levels.xlsx`, лист `Levels_Config`.
+ */
+export const CEFR_LEVELS_CONFIG_PROMPT_REF =
+  'Authoritative full CEFR parameters per level (columns AllowedVocabulary, AvoidVocabulary, Grammar, etc.): project file CEFR_Levels.xlsx, sheet Levels_Config — use it as the single source of truth when generating or judging level-appropriate English.'
+
 export type SupportedCefrLevel = Exclude<LevelId, 'all'>
 
 export interface CefrLevelSpec {
@@ -120,7 +127,10 @@ export function buildCefrPromptBlock(params: {
 }): string {
   const spec = getCefrSpec(params.level)
   if (!spec) {
-    return 'CEFR level mode is adaptive ("all"): mirror user complexity without jumping to advanced vocabulary unexpectedly.'
+    return [
+      'CEFR level mode is adaptive ("all"): mirror user complexity without jumping to advanced vocabulary unexpectedly.',
+      CEFR_LEVELS_CONFIG_PROMPT_REF,
+    ].join(' ')
   }
 
   const deny = getCefrDenyWords({ level: params.level, audience: params.audience })
@@ -130,6 +140,7 @@ export function buildCefrPromptBlock(params: {
       : 'Avoid unnecessary complexity and rare words above this level.'
 
   return [
+    CEFR_LEVELS_CONFIG_PROMPT_REF,
     `CEFR lexical ceiling (${spec.id.toUpperCase()}): keep output within this level limits.`,
     `Sentence length: usually <= ${spec.maxSentenceWords} words.`,
     `Word complexity: avoid long/rare words (rough cap ${spec.maxTokenLength} letters unless essential).`,

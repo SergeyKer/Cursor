@@ -5,6 +5,7 @@ import {
   commentToneForContent,
   condenseTranslationCommentToErrors,
   parseTranslationCoachBlocks,
+  translationResponseHasSuccessShape,
 } from './Chat'
 
 describe('condenseTranslationCommentToErrors', () => {
@@ -24,6 +25,23 @@ describe('condenseTranslationCommentToErrors', () => {
         'Ошибка числа: используйте love в единственном числе.',
       ].join('\n')
     )
+  })
+})
+
+describe('translationResponseHasSuccessShape', () => {
+  it('true при непустом threeFormsText', () => {
+    expect(translationResponseHasSuccessShape('anything', '+: a\n?: b\n-: c')).toBe(true)
+  })
+
+  it('true если в тексте есть строка «Формы:», даже без распознанных +/- строк', () => {
+    const text = ['Конструкция: x', 'Формы:', 'broken line', 'Повтори: I run.'].join('\n')
+    const b = parseTranslationCoachBlocks(text)
+    expect(b.threeFormsText).toBeNull()
+    expect(translationResponseHasSuccessShape(text, b.threeFormsText)).toBe(true)
+  })
+
+  it('false без форм и без заголовка Формы', () => {
+    expect(translationResponseHasSuccessShape('Комментарий_перевод: x\nПовтори: y', null)).toBe(false)
   })
 })
 
@@ -129,6 +147,10 @@ describe('commentIconForContent', () => {
 
   it('uses the verb-form icon for grammar mistakes', () => {
     expect(commentIconForContent('Ошибка формы глагола: нужно go, не went.')).toBe('🔤')
+  })
+
+  it('uses the verb-form icon for sentence-type mistakes', () => {
+    expect(commentIconForContent('Ошибка типа предложения: в русском вопрос, нужен Do в начале.')).toBe('🔤')
   })
 
   it('uses the book for lexical mistakes', () => {

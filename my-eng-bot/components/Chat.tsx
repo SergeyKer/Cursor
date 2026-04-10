@@ -153,7 +153,7 @@ export function commentIconForContent(comment: string): CommentIcon {
   const followsTypeBoundary = '(?:\\s|$|[:\\-–—.,!?])'
   const lexicalPattern = `(?:Лексическая\\s+ошибка|Ошибка\\s+лексическая|Ошибка\\s+лексики)`
   const spellingPattern = `(?:Орфографическая\\s+ошибка|Ошибка\\s+орфографическая|Ошибка\\s+правописания)`
-  const grammarPattern = `(?:Ошибка\\s+формы\\s+глагола|Ошибка\\s+согласования|Грамматическая\\s+ошибка|Ошибка\\s+грамматики)`
+  const grammarPattern = `(?:Ошибка\\s+типа\\s+предложения|Ошибка\\s+формы\\s+глагола|Ошибка\\s+согласования|Грамматическая\\s+ошибка|Ошибка\\s+грамматики)`
   const timePattern = `(?:Ошибка\\s+времени|Ошибка\\s+по\\s+времени|Время)`
 
   if (commentToneForContent(normalized) === 'praise') return '✅'
@@ -321,6 +321,15 @@ function buildAssistantSections(params: {
     })
   }
   return sections
+}
+
+/**
+ * Успешный drill перевода: формы распознаны парсером или в тексте есть заголовок «Формы:»
+ * (модель могла сломать строки +/?:/-:, тогда threeFormsText пустой, но это всё ещё SUCCESS).
+ */
+export function translationResponseHasSuccessShape(displayText: string, threeFormsText: string | null): boolean {
+  if (threeFormsText?.trim()) return true
+  return /(?:^|\n)\s*Формы\s*:/i.test(displayText)
 }
 
 export function parseTranslationCoachBlocks(text: string): {
@@ -1506,10 +1515,17 @@ function MessageBubble({
   let repeatRuForCard: string | null = null
   if (!isUser && isTranslationMode) {
     const blocks = parseTranslationCoachBlocks(displayText)
+    const translationSuccessShape = translationResponseHasSuccessShape(displayText, blocks.threeFormsText)
     translationSupportComment = blocks.translationSupportComment
-    translationErrorCoachUi =
-      Boolean((blocks.repeat || blocks.repeatRu) && !blocks.threeFormsText)
-    if (blocks.comment) effectiveComment = condenseTranslationCommentToErrors(blocks.comment)
+    translationErrorCoachUi = Boolean(
+      (blocks.repeat || blocks.repeatRu) && !blocks.threeFormsText && !translationSuccessShape
+    )
+    if (blocks.comment) {
+      const praiseFromParseCorrection = Boolean(comment && commentToneForContent(comment) === 'praise')
+      if (!(translationSuccessShape && praiseFromParseCorrection)) {
+        effectiveComment = condenseTranslationCommentToErrors(blocks.comment)
+      }
+    }
     if (blocks.tenseRef) effectiveTenseRef = blocks.tenseRef
     if (blocks.threeFormsText) effectiveThreeFormsText = blocks.threeFormsText
     if (blocks.repeat) repeatTextForCard = blocks.repeat
@@ -1522,7 +1538,7 @@ function MessageBubble({
       !errorsFromPayload && blocks.comment ? buildSyntheticErrorsBlockFromComment(blocks.comment)?.trim() ?? '' : ''
     const errorsResolved = (errorsFromPayload || errorsSynthesized).trim()
     translationErrorsText =
-      Boolean((blocks.repeat || blocks.repeatRu) && !blocks.threeFormsText && errorsResolved)
+      Boolean((blocks.repeat || blocks.repeatRu) && !blocks.threeFormsText && !translationSuccessShape && errorsResolved)
         ? errorsResolved
         : null
     if (blocks.nextSentence) {
@@ -1559,7 +1575,7 @@ function MessageBubble({
       }
       effectiveMainBefore = extracted.promptText
     }
-    if ((blocks.repeat || blocks.repeatRu) && !blocks.nextSentence) {
+    if ((blocks.repeat || blocks.repeatRu) && !blocks.nextSentence && !translationSuccessShape) {
       // Error-protocol translation response: show only correction blocks,
       // do not render synthetic "Переведи далее" main card without a new task.
       hideTranslationMainCardForErrorRepeat = true

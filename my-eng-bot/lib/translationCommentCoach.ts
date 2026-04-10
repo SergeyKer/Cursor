@@ -43,6 +43,13 @@ export function inferTranslationCommentErrorType(raw: string): string {
 
 function inferCommentErrorType(raw: string): string {
   const s = raw.toLowerCase()
+  if (
+    /типа?\s+предложения|вопросн\w*\s+(?:порядок|форма)|утвердител\w*\s+предложени|отрицател\w*\s+предложени/i.test(
+      s
+    )
+  ) {
+    return 'Ошибка типа предложения.'
+  }
   if (/(врем|tense|present|past|future)/i.test(s)) return 'Ошибка времени.'
   if (/(согласован|agree|subject|подлежащ|has\b|have\b|does\b|do\b)/i.test(s)) {
     return 'Ошибка согласования подлежащего и сказуемого.'

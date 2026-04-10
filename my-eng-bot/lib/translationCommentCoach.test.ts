@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { applyTranslationCommentCoachVoice, extractTranslationCommentBlock } from './translationCommentCoach'
+import {
+  applyTranslationCommentCoachVoice,
+  extractTranslationCommentBlock,
+  inferTranslationCommentErrorType,
+} from './translationCommentCoach'
 
 describe('extractTranslationCommentBlock', () => {
   it('stops Комментарий before блока Ошибки', () => {
@@ -22,6 +26,12 @@ describe('extractTranslationCommentBlock', () => {
     expect(ex!.fullBody).toContain('dogs')
     expect(ex!.fullBody).toContain('cat')
     expect(ex!.endExclusive).toBe(2)
+  })
+})
+
+describe('inferTranslationCommentErrorType', () => {
+  it('classifies sentence type mismatch', () => {
+    expect(inferTranslationCommentErrorType('Ошибка типа предложения: нужен вопрос.')).toBe('Ошибка типа предложения.')
   })
 })
 
