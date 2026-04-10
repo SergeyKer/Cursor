@@ -9,6 +9,17 @@ import { MENU_PRIMARY_CTA_CLASS } from '@/lib/homeCtaStyles'
 import type { ImageAnalysisResult } from '@/lib/types'
 
 const CHILD_TENSE_SET = new Set(CHILD_TENSES)
+const CHILD_SAFE_TOPICS = new Set<TopicId>([
+  'free_talk',
+  'family_friends',
+  'hobbies',
+  'movies_series',
+  'music',
+  'sports',
+  'food',
+  'daily_life',
+  'travel',
+])
 
 export type MenuView = 'root' | 'lessons' | 'aiChat' | 'settings' | 'progress' | 'profile'
 
@@ -176,11 +187,9 @@ export default function MenuSectionPanels({
   }, [menuView, aiChatPanel, onAiChatPanelChange])
 
   const isChild = settings.audience === 'child'
-  const isCommunication = settings.mode === 'communication'
   const childAllowedLevels = new Set(['all', 'a1', 'a2'])
   const levelOptions = isChild ? LEVELS.filter((l) => childAllowedLevels.has(l.id)) : LEVELS
-  const safeChildTopicsForCommunication = TOPICS.filter((t) => t.id !== 'business' && t.id !== 'work')
-  const topicOptions = isCommunication && isChild ? safeChildTopicsForCommunication : TOPICS
+  const topicOptions = isChild ? TOPICS.filter((t) => CHILD_SAFE_TOPICS.has(t.id as TopicId)) : TOPICS
   const tenseOptions = isChild ? TENSES.filter((t) => CHILD_TENSE_SET.has(t.id)) : TENSES
   const update = (patch: Partial<Settings>) => {
     onSettingsChange({ ...settings, ...patch })
@@ -780,7 +789,7 @@ export default function MenuSectionPanels({
               <div className={MENU_GROUP_CLASS}>
               <MenuSettingRow label="Режим" value={modeLabel} onClick={() => setAiChatPanel('mode')} />
               <MenuSettingRow label="Стиль общения" value={audienceLabel} onClick={() => setAiChatPanel('audience')} />
-              {!isCommunication && (
+              {settings.mode !== 'communication' && (
                 <MenuSettingRow label="Время" value={tenseLabel} onClick={() => setAiChatPanel('tense')} />
               )}
               {settings.mode === 'translation' && (
@@ -835,7 +844,10 @@ export default function MenuSectionPanels({
             value={settings.audience}
             onSelect={(id) => {
               if (id === 'child') {
-                update({ audience: id, level: 'all', tenses: ['present_simple'] })
+                const safeTopic = CHILD_SAFE_TOPICS.has(settings.topic)
+                  ? settings.topic
+                  : 'hobbies'
+                update({ audience: id, level: 'all', tenses: ['present_simple'], topic: safeTopic })
               } else {
                 update({ audience: id })
               }

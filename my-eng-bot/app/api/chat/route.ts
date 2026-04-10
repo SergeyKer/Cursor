@@ -93,6 +93,7 @@ import { applyTranslationCommentCoachVoice } from '@/lib/translationCommentCoach
 import { applyFreeTalkTopicChoiceTenseAnchorFallback } from '@/lib/freeTalkTopicChoiceAnchorFallback'
 import { buildCefrPromptBlock } from '@/lib/cefr/cefrSpec'
 import { applyCefrOutputGuard } from '@/lib/cefr/levelGuard'
+import { getCefrLevelConfig } from '@/lib/cefr/cefrConfig'
 import {
   collectLearnerEnglishSamples,
   rewriteWebSearchAnswerForLearner,
@@ -238,6 +239,17 @@ function getLevelProfile(level: string): LevelProfile {
 }
 
 function buildLevelPrompt(level: string): string {
+  const config = getCefrLevelConfig(level as LevelId)
+  if (config) {
+    return [
+      `Level: ${config.displayName || config.level.toUpperCase()}.`,
+      `Vocabulary: ${config.allowedVocabulary}`,
+      `Grammar: ${config.grammarKey}`,
+      `Question style: ${config.questionStyle}`,
+      `Avoid: ${config.avoidVocabulary}`,
+      `Correction priority: ${config.correctionPriority}`,
+    ].join(' ')
+  }
   const profile = getLevelProfile(level)
   return [
     `Level: ${profile.displayName}.`,
@@ -270,6 +282,95 @@ const SENTENCE_TYPE_NAMES: Record<string, string> = {
   interrogative: 'interrogative (menu: Вопросительные)',
   negative: 'negative (menu: Отрицательные)',
   mixed: 'mixed — rotate affirmative, interrogative, negative (menu: Смешанные)',
+}
+
+const CHILD_BLOCKED_TOPICS = new Set(['business', 'work', 'technology', 'culture'])
+const CHILD_SAFE_TOPIC_FALLBACK = 'hobbies'
+const CHILD_TOPIC_REPLACEMENTS: Record<string, string> = {
+  business: 'hobbies',
+  work: 'daily_life',
+  technology: 'hobbies',
+  culture: 'movies_series',
+}
+
+function sanitizeTopicForAudience(topic: string, audience: Audience): string {
+  if (audience !== 'child') return topic
+  if (CHILD_BLOCKED_TOPICS.has(topic)) {
+    return CHILD_TOPIC_REPLACEMENTS[topic] ?? CHILD_SAFE_TOPIC_FALLBACK
+  }
+  return topic
+}
+
+function normalizeGrammarFocusForLevel(grammarFocus: string | null, level: string): string | null {
+  if (!grammarFocus) return null
+  const normalized = grammarFocus.trim().toLowerCase()
+  if (!normalized) return null
+  const lowLevel = new Set(['starter', 'a1'])
+  if (!lowLevel.has(level.toLowerCase())) return grammarFocus.trim()
+  const advancedMarkers = [
+    'present perfect',
+    'past perfect',
+    'future perfect',
+    'conditionals',
+    'reported speech',
+    'passive',
+    'gerund',
+  ]
+  if (advancedMarkers.some((marker) => normalized.includes(marker))) {
+    return 'Present Simple'
+  }
+  return grammarFocus.trim()
+}
+
+function buildCommunicationPersonalizationRule(params: {
+  audience: Audience
+  level: string
+  lastUserText: string
+}): string {
+  const seedWords = (params.lastUserText.match(/[A-Za-zА-Яа-яЁё]{3,}/g) ?? [])
+    .slice(-4)
+    .map((w) => w.toLowerCase())
+  const seedHint = seedWords.length > 0 ? `Key words from last user message: ${seedWords.join(', ')}.` : ''
+  const lowLevel = ['starter', 'a1', 'a2'].includes(params.level)
+  const childHint =
+    params.audience === 'child'
+      ? 'For child audience, keep follow-up playful and concrete (friends, games, school, pets, hobbies).'
+      : 'For adult audience, keep follow-up practical and respectful.'
+  const brevityHint = lowLevel
+    ? 'Keep follow-up short (1 reaction + 1 simple question).'
+    : 'Use natural concise follow-up (1 reaction + 1 question, optionally a short context sentence).'
+  return [
+    'Personalization rule: connect your next follow-up to the user message context instead of generic templates.',
+    seedHint,
+    childHint,
+    brevityHint,
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+function logRetentionSignals(params: {
+  mode: string
+  audience: Audience
+  level: string
+  topic: string
+  userText: string
+  outputText: string
+}): void {
+  const userTokens = params.userText.trim().split(/\s+/).filter(Boolean).length
+  const outTokens = params.outputText.trim().split(/\s+/).filter(Boolean).length
+  const detailKeyword = /(подробнее|more details|even more details)/i.test(params.userText)
+  const playfulCue = /(😊|🙂|🙌|🎯|✨|great|awesome|класс|здорово|молодец)/i.test(params.outputText)
+  console.info('[chat][retention-signals]', {
+    mode: params.mode,
+    audience: params.audience,
+    level: params.level,
+    topic: params.topic,
+    userTokens,
+    outTokens,
+    detailKeyword,
+    playfulCue,
+  })
 }
 
 function stableHash32(input: string): number {
@@ -327,6 +428,9 @@ function buildSystemPrompt(params: {
   topic: string
   level: string
   tense: string
+  grammarFocus?: string | null
+  style?: string
+  lastUserText?: string
   audience?: 'child' | 'adult'
   freeTalkTopicSuggestions?: string[]
   praiseStyleVariant?: boolean
@@ -344,6 +448,9 @@ function buildSystemPrompt(params: {
     topic,
     level,
     tense,
+    grammarFocus = null,
+    style = 'neutral',
+    lastUserText = '',
     audience = 'adult',
     freeTalkTopicSuggestions = [],
     praiseStyleVariant = false,
@@ -366,6 +473,14 @@ function buildSystemPrompt(params: {
   const sentenceTypeName = sentenceType ? SENTENCE_TYPE_NAMES[sentenceType] ?? 'mixed' : 'mixed'
   const audienceStyleRule = buildAudienceStyleRule(audience)
   const commentToneRule = mode === 'dialogue' ? buildCommentToneRule(audience, level) : ''
+  const grammarFocusRule = grammarFocus
+    ? `Requested grammar focus for this turn: ${grammarFocus}. Keep this focus unless it conflicts with level limits.`
+    : 'No explicit grammar focus requested for this turn.'
+  const styleRule = `Requested style: ${style}. Keep tone natural and learner-friendly.`
+  const childTopicSafetyRule =
+    audience === 'child'
+      ? 'Child safety topic rule: avoid adult domains (work, business, finance, office, politics, legal/corporate contexts). If the user introduces such a topic, acknowledge briefly and gently redirect to a child-safe, concrete version (school, hobbies, friends, family, games, animals, daily life) without sounding rejecting.'
+      : ''
   const antiRobotRule =
     'Avoid robotic/formal connectors. NEVER use phrases like "related to", "when it comes to", "in terms of", or "regarding". Ask like a real person.'
   const topicRetentionRule =
@@ -378,6 +493,11 @@ function buildSystemPrompt(params: {
       : ''
 
   if (mode === 'communication') {
+    const personalizationRule = buildCommunicationPersonalizationRule({
+      audience,
+      level,
+      lastUserText,
+    })
     return `Communication chat mode (NOT a tutor).
 
 Rules:
@@ -388,8 +508,12 @@ Rules:
 - Current conversation language: ${communicationLanguageHint}. ${communicationDetailOnly ? 'The last user message is only a detail keyword, so preserve this language exactly.' : 'Preserve this language across follow-up detail requests.'}
 - Translation-only rule: ONLY when the user explicitly asks to translate (for example: "переведи", "translate", "нужен перевод"), return ONLY the English translation of the requested phrase with no extra comments or follow-up questions.
 - ${audienceStyleRule}
+- ${childTopicSafetyRule}
 - ${buildCommunicationEnglishStyleRule(audience)}
 - ${buildCommunicationLevelRules(level)}
+- ${styleRule}
+- ${grammarFocusRule}
+- ${personalizationRule}
 - ${cefrPromptBlock}
 - ${buildCommunicationDetailRule(communicationDetailLevel)}
 - Conversational follow-up questions and brief natural reactions are encouraged when they fit the thread. This is not tutor feedback: stay in chat mode.
@@ -436,6 +560,9 @@ ${cefrPromptBlockTr}
 ${translationDrillContract}
 
 ${audienceStyleRule}
+${childTopicSafetyRule}
+${styleRule}
+${grammarFocusRule}
 
 ${LIKE_LOVE_TRANSLATION_TUTOR_BLOCK}
 
@@ -544,7 +671,7 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
     mode === 'dialogue' && tense === 'all'
       ? '\n\nALL-TENSES DIALOGUE (strict): When you output "Комментарий:" and "Повтори:", the English sentence after "Повтори:" MUST use the SAME grammar tense as YOUR IMMEDIATELY PREVIOUS assistant message in this chat (the last English question you asked, OR the last "Повтори:" sentence if the user is still correcting a repeat). Do NOT switch to another tense for convenience or "better style" (for example: do not output Present Perfect Continuous if your previous question was Future Perfect, or Present Simple when the question used Past Simple). Fix vocabulary and grammar only while keeping that tense alignment. This rule applies even in free topic conversations.'
       : ''
-  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${cefrPromptBlock} ${audienceStyleRule} ${antiRobotRule} ${topicRetentionRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueRussianNaturalnessRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule}${repeatFreezeQuestionGuard} ${capitalizationRule} ${contractionRule} ${freeTalkFirstTurnLexiconRule} ${freeTalkRule}
+  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${cefrPromptBlock} ${audienceStyleRule} ${childTopicSafetyRule} ${styleRule} ${grammarFocusRule} ${antiRobotRule} ${topicRetentionRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueRussianNaturalnessRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule}${repeatFreezeQuestionGuard} ${capitalizationRule} ${contractionRule} ${freeTalkFirstTurnLexiconRule} ${freeTalkRule}
 
 ${LIKE_LOVE_DIALOGUE_TUTOR_BLOCK}
 
@@ -5115,6 +5242,10 @@ export async function POST(req: NextRequest) {
     let topic = body.topic ?? 'free_talk'
     let level = body.level ?? 'a1'
     const mode = body.mode ?? 'dialogue'
+    const style = typeof body.style === 'string' && body.style.trim() ? body.style.trim() : 'neutral'
+    const grammarFocus = typeof body.grammarFocus === 'string' && body.grammarFocus.trim()
+      ? body.grammarFocus.trim()
+      : null
     if (mode === 'communication' || mode === 'dialogue') topic = 'free_talk'
     const freeTalkTopicSuggestions: string[] = Array.isArray(body.freeTalkTopicSuggestions)
       ? body.freeTalkTopicSuggestions
@@ -5125,14 +5256,27 @@ export async function POST(req: NextRequest) {
       : []
     const sentenceType = body.sentenceType ?? 'mixed'
     const audience: 'child' | 'adult' = body.audience === 'child' ? 'child' : 'adult'
+    topic = sanitizeTopicForAudience(topic, audience)
+    let normalizedGrammarFocus = normalizeGrammarFocusForLevel(grammarFocus, level)
     const timezone = typeof body.timezone === 'string' ? body.timezone.trim() : ''
     const dialogSeed = typeof body.dialogSeed === 'string' ? body.dialogSeed : ''
+    const normalizedRequestContext = {
+      mode,
+      level,
+      audience,
+      topic,
+      sentenceType,
+      style,
+      grammarFocus: normalizedGrammarFocus,
+    }
+    console.info('[chat][cefr-context]', normalizedRequestContext)
 
     // Страховка: для "Ребёнок" в Свободной теме уровень не выше A2.
     if (audience === 'child' && topic === 'free_talk') {
       const allowed = new Set(['all', 'starter', 'a1', 'a2'])
       if (!allowed.has(String(level))) level = 'all'
     }
+    normalizedGrammarFocus = normalizeGrammarFocusForLevel(grammarFocus, level)
 
     const nonSystemMessages = messages.filter((m: ChatMessage) => m.role !== 'system')
     const translationUserTurns = nonSystemMessages.filter((m: ChatMessage) => m.role === 'user').length
@@ -5521,15 +5665,24 @@ export async function POST(req: NextRequest) {
         firstTurn: true,
         seedText: dialogSeed,
       })
+      const firstContent = finalizeCommunicationContentWithCefr({
+        content: firstFallback,
+        level: level as LevelId,
+        audience,
+        targetLang: detectedUserLang,
+        firstTurn: true,
+        seedText: dialogSeed,
+      })
+      logRetentionSignals({
+        mode,
+        audience,
+        level,
+        topic,
+        userText: lastUserContentForResponse,
+        outputText: firstContent,
+      })
       return NextResponse.json({
-        content: finalizeCommunicationContentWithCefr({
-          content: firstFallback,
-          level: level as LevelId,
-          audience,
-          targetLang: detectedUserLang,
-          firstTurn: true,
-          seedText: dialogSeed,
-        }),
+        content: firstContent,
       })
     }
 
@@ -5540,6 +5693,9 @@ export async function POST(req: NextRequest) {
         topic,
         level,
         tense: tutorGradingTense,
+        grammarFocus: normalizedGrammarFocus,
+        style,
+        lastUserText,
         audience,
         freeTalkTopicSuggestions,
         praiseStyleVariant,
@@ -5744,7 +5900,16 @@ export async function POST(req: NextRequest) {
         language: detectedUserLang,
       })
 
-      return NextResponse.json({ content: stripInternetPrefix(searchFailureContent) })
+      const failureContent = stripInternetPrefix(searchFailureContent)
+      logRetentionSignals({
+        mode,
+        audience,
+        level,
+        topic,
+        userText: lastUserContentForResponse,
+        outputText: failureContent,
+      })
+      return NextResponse.json({ content: failureContent })
     }
 
     const systemPrompt = buildSystemPrompt({
@@ -5753,6 +5918,9 @@ export async function POST(req: NextRequest) {
       topic,
       level,
       tense: tutorGradingTense,
+      grammarFocus: normalizedGrammarFocus,
+      style,
+      lastUserText,
       audience,
       freeTalkTopicSuggestions,
       praiseStyleVariant,
@@ -7074,15 +7242,24 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               isTopicChoiceTurn,
               lastUserText: lastUserContentForResponse,
             })
+      const fallbackOutput =
+        mode === 'dialogue'
+          ? finalizeDialogueFallbackWithCefr({
+              content: fallbackContent,
+              level: level as LevelId,
+              audience,
+            })
+          : fallbackContent
+      logRetentionSignals({
+        mode,
+        audience,
+        level,
+        topic,
+        userText: lastUserContentForResponse,
+        outputText: fallbackOutput,
+      })
       return NextResponse.json({
-        content:
-          mode === 'dialogue'
-            ? finalizeDialogueFallbackWithCefr({
-                content: fallbackContent,
-                level: level as LevelId,
-                audience,
-              })
-            : fallbackContent,
+        content: fallbackOutput,
       })
     }
 
@@ -7127,6 +7304,14 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         provider,
         req,
       })
+      logRetentionSignals({
+        mode,
+        audience,
+        level,
+        topic,
+        userText: lastUserContentForResponse,
+        outputText: guardedContent,
+      })
       return NextResponse.json({ content: guardedContent })
     }
 
@@ -7161,6 +7346,14 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     sanitized = dialogueGuard.content
     sanitized = formatDialogueCommentAsSeparateLines(sanitized)
 
+    logRetentionSignals({
+      mode,
+      audience,
+      level,
+      topic,
+      userText: lastUserContentForResponse,
+      outputText: sanitized,
+    })
     return NextResponse.json({
       content: sanitized,
       dialogueCorrect: isDialogueFinalCorrectResponse({
