@@ -19,7 +19,8 @@ import {
   saveFreeTalkTopicRotationState,
 } from '@/lib/storage'
 import { countDialogueFinalCorrectAnswers } from '@/lib/dialogueStats'
-import { TOPICS, LEVELS, TENSES, CHILD_TENSES } from '@/lib/constants'
+import { TOPICS, LEVELS, TENSES } from '@/lib/constants'
+import { allowedTensesForAudience } from '@/lib/levelAllowedTenses'
 import { detectCommunicationUserMessageLang, getExpectedCommunicationReplyLang } from '@/lib/communicationReplyLanguage'
 import { extractExplicitTranslateTarget } from '@/lib/communicationMode'
 import { pickFreeTalkTopicSuggestions } from '@/lib/freeTalkTopicSuggestions'
@@ -307,19 +308,27 @@ export default function Home() {
         ...s,
         level: normalizedLevel,
         topic: normalizedTopic,
-        tenses: normalizeSingleTense(s.tenses, TENSES.map((t) => t.id), 'present_simple'),
+        tenses: normalizeSingleTense(
+          s.tenses,
+          allowedTensesForAudience(normalizedLevel, 'adult'),
+          'present_simple'
+        ),
       }
     }
     const allowed = new Set<Settings['level']>(['all', 'a1', 'a2'])
-    const childTenseSet = new Set(CHILD_TENSES)
     const topicIds = new Set(TOPICS.map((t) => t.id))
     const safeChildTopic = topicIds.has(s.topic) ? s.topic : 'free_talk'
+    const childLevel = allowed.has(normalizedLevel) ? normalizedLevel : 'all'
 
     return {
       ...s,
-      level: allowed.has(normalizedLevel) ? normalizedLevel : 'all',
+      level: childLevel,
       topic: normalizedTopic === 'free_talk' ? 'free_talk' : safeChildTopic,
-      tenses: normalizeSingleTense(s.tenses, CHILD_TENSES, 'present_simple'),
+      tenses: normalizeSingleTense(
+        s.tenses,
+        allowedTensesForAudience(childLevel, 'child'),
+        'present_simple'
+      ),
     }
   }
 

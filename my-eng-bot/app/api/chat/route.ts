@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { AppMode, Audience, ChatMessage, LevelId, SentenceType, TenseId } from '@/lib/types'
 import { CHILD_TENSES } from '@/lib/constants'
+import { getAllowedTensesForLevel } from '@/lib/levelAllowedTenses'
 import { detectLangFromText } from '@/lib/detectLang'
 import { classifyOpenAiForbidden } from '@/lib/openAiForbidden'
 import { callGismeteoWeatherAnswer } from '@/lib/gismeteoWeather'
@@ -5336,6 +5337,9 @@ export async function POST(req: NextRequest) {
       rawTenses = rawTenses.filter((t) => childAllowedTenses.has(t as TenseId))
       if (rawTenses.length === 0) rawTenses = ['present_simple']
     }
+    const levelAllowedTenses = new Set(getAllowedTensesForLevel(String(level)))
+    rawTenses = rawTenses.filter((t) => levelAllowedTenses.has(t as TenseId))
+    if (rawTenses.length === 0) rawTenses = ['present_simple']
     const isAnyTense = rawTenses.includes('all')
     const normalizedRawTenses = Array.from(new Set(rawTenses.filter((t) => t !== 'all')))
     const prioritizedDialogueTenses =
@@ -6283,9 +6287,10 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       const translationPromptText = translationPrompt ?? ''
       translationPromptTextForTurn = translationPromptText
       priorAssistantRepeatEnglish = extractPriorAssistantRepeatEnglish(nonSystemMessages)
+      const priorRepeatTrim = priorAssistantRepeatEnglish?.trim() ?? ''
       const userMatchesPriorAssistantRepeat =
-        Boolean(priorAssistantRepeatEnglish?.trim()) &&
-        isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, priorAssistantRepeatEnglish.trim())
+        priorRepeatTrim.length > 0 &&
+        isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, priorRepeatTrim)
       const translationFormLines = extractTranslationFormLines(sanitized)
       const translationReferenceForm = pickTranslationReferenceForm({
         userText: lastUserContentForResponse,

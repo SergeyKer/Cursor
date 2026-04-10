@@ -3,6 +3,7 @@
 import React from 'react'
 import { manropeHome } from '@/lib/manropeHome'
 import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES, CHILD_TENSES } from '@/lib/constants'
+import { getAllowedTensesForLevel, normalizeSingleTenseSelection } from '@/lib/levelAllowedTenses'
 import type { Settings, UsageInfo, AppMode, AiProvider, TenseId, SentenceType, TopicId, LevelId } from '@/lib/types'
 import type { AiChatPanel } from '@/lib/aiChatPanel'
 import { MENU_PRIMARY_CTA_CLASS } from '@/lib/homeCtaStyles'
@@ -201,7 +202,12 @@ export default function MenuSectionPanels({
   const childAllowedLevels = new Set(['all', 'a1', 'a2'])
   const levelOptions = isChild ? LEVELS.filter((l) => childAllowedLevels.has(l.id)) : LEVELS
   const topicOptions = isChild ? TOPICS.filter((t) => CHILD_SAFE_TOPICS.has(t.id as TopicId)) : TOPICS
-  const tenseOptions = isChild ? TENSES.filter((t) => CHILD_TENSE_SET.has(t.id)) : TENSES
+  const allowedTenseIdsForMenu = React.useMemo(() => {
+    const base = getAllowedTensesForLevel(settings.level)
+    return isChild ? base.filter((id) => CHILD_TENSE_SET.has(id)) : base
+  }, [settings.level, isChild])
+  const allowedTenseMenuSet = React.useMemo(() => new Set(allowedTenseIdsForMenu), [allowedTenseIdsForMenu])
+  const tenseOptions = TENSES.filter((t) => allowedTenseMenuSet.has(t.id))
   const update = (patch: Partial<Settings>) => {
     onSettingsChange({ ...settings, ...patch })
   }
@@ -211,7 +217,9 @@ export default function MenuSectionPanels({
   const levelLabel = levelOptions.find((l) => l.id === settings.level)?.label ?? settings.level
   const providerLabel = PROVIDER_OPTIONS.find((p) => p.id === settings.provider)?.label ?? settings.provider
   const tenseLabel =
-    tenseOptions.find((t) => t.id === (settings.tenses[0] ?? 'present_simple'))?.label ?? settings.tenses[0]
+    tenseOptions.find((t) => t.id === (settings.tenses[0] ?? 'present_simple'))?.label ??
+    TENSES.find((t) => t.id === (settings.tenses[0] ?? 'present_simple'))?.label ??
+    settings.tenses[0]
   const sentenceTypeLabel =
     SENTENCE_TYPES.find((t) => t.id === settings.sentenceType)?.label ?? settings.sentenceType
   const topicLabel = topicOptions.find((t) => t.id === settings.topic)?.label ?? settings.topic
@@ -906,7 +914,11 @@ export default function MenuSectionPanels({
             options={levelOptions.map((l) => ({ id: l.id, label: l.label }))}
             value={settings.level}
             onSelect={(id) => {
-              update({ level: id as LevelId })
+              const newLevel = id as LevelId
+              const base = getAllowedTensesForLevel(newLevel)
+              const allowed = isChild ? base.filter((tid) => CHILD_TENSE_SET.has(tid)) : base
+              const tenses = normalizeSingleTenseSelection(settings.tenses, allowed, 'present_simple')
+              update({ level: newLevel, tenses })
               setAiChatPanel('summary')
             }}
           />
