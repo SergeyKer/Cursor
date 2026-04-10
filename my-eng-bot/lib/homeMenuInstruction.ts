@@ -4,7 +4,7 @@ import { AI_CHAT_PANEL_HINTS, type AiChatPanel } from '@/lib/aiChatPanel'
 /** Инструкция в пузыре справа от робота на стартовом экране (не-root), без призывов к действию. */
 const SECTION_INSTRUCTIONS: Record<Exclude<MenuView, 'root' | 'aiChat'>, string> = {
   lessons: 'Уроки: теория, произношение\nи новые слова.',
-  settings: 'Общие настройки. ИИ и голос — в «Чат с MyEng».',
+  settings: 'Провайдер ИИ и голос озвучки.',
   progress: 'Счётчики: диалог и запросы к ИИ.',
   profile: 'Профиль и аккаунт — позже.',
 }

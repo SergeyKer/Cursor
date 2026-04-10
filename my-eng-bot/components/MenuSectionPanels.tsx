@@ -35,6 +35,12 @@ const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
   sentenceType: 'Тип предложений',
   topic: 'Тема',
   level: 'Уровень',
+}
+
+type SettingsMenuPanel = 'summary' | 'provider' | 'voice'
+
+const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
+  summary: 'Настройки',
   provider: 'ИИ',
   voice: 'Голос',
 }
@@ -136,6 +142,7 @@ export default function MenuSectionPanels({
   const pid = (suffix: string) => `${idPrefix}${suffix}`
 
   const [aiChatPanel, setAiChatPanel] = React.useState<AiChatPanel>('summary')
+  const [settingsPanel, setSettingsPanel] = React.useState<SettingsMenuPanel>('summary')
   const [lessonsPanel, setLessonsPanel] = React.useState<LessonsPanel>('summary')
   const defaultA2LessonId = React.useMemo(
     () => A2_THEORY_ITEMS.find((item) => item.enabled)?.id ?? null,
@@ -158,6 +165,10 @@ export default function MenuSectionPanels({
 
   React.useEffect(() => {
     if (menuView !== 'aiChat') setAiChatPanel('summary')
+  }, [menuView])
+
+  React.useEffect(() => {
+    if (menuView !== 'settings') setSettingsPanel('summary')
   }, [menuView])
 
   React.useEffect(() => {
@@ -222,6 +233,10 @@ export default function MenuSectionPanels({
       setAiChatPanel('summary')
       return
     }
+    if (menuView === 'settings' && settingsPanel !== 'summary') {
+      setSettingsPanel('summary')
+      return
+    }
     onMenuViewChange('root')
   }
 
@@ -235,7 +250,7 @@ export default function MenuSectionPanels({
       : menuView === 'aiChat'
         ? AI_CHAT_PANEL_TITLE[aiChatPanel]
         : menuView === 'settings'
-          ? 'Настройки'
+          ? SETTINGS_PANEL_TITLE[settingsPanel]
           : menuView === 'progress'
             ? 'Прогресс'
             : menuView === 'profile'
@@ -454,7 +469,9 @@ export default function MenuSectionPanels({
                   ? 'На стартовый экран'
                   : menuView === 'aiChat' && aiChatPanel !== 'summary'
                     ? 'Назад к настройкам чата'
-                    : 'Назад к разделам'
+                    : menuView === 'settings' && settingsPanel !== 'summary'
+                      ? 'Назад к настройкам'
+                      : 'Назад к разделам'
               }
             >
               <span className="flex justify-end pr-0.5" aria-hidden>
@@ -485,7 +502,9 @@ export default function MenuSectionPanels({
             ? `aiChat-${aiChatPanel}`
             : menuView === 'lessons'
               ? `lessons-${lessonsPanel}`
-              : menuView
+              : menuView === 'settings'
+                ? `settings-${settingsPanel}`
+                : menuView
         }
         className={
           homeLayout
@@ -803,13 +822,6 @@ export default function MenuSectionPanels({
                 </>
               )}
               <MenuSettingRow label="Уровень" value={levelLabel} onClick={() => setAiChatPanel('level')} />
-              <MenuSettingRow label="ИИ" value={providerLabel} onClick={() => setAiChatPanel('provider')} />
-              <VoiceSummaryRow
-                label="Голос"
-                voiceId={settings.voiceId}
-                preferredLangPrefixes={VOICE_DROPDOWN_LANG_PREFIXES}
-                onOpen={() => setAiChatPanel('voice')}
-              />
               </div>
             </div>
 
@@ -900,32 +912,37 @@ export default function MenuSectionPanels({
           />
         )}
 
-        {menuView === 'aiChat' && aiChatPanel === 'provider' && (
+        {menuView === 'settings' && settingsPanel === 'summary' && (
+          <div className={MENU_GROUP_OUTER}>
+            <div className={MENU_GROUP_CLASS}>
+              <MenuSettingRow label="ИИ" value={providerLabel} onClick={() => setSettingsPanel('provider')} />
+              <VoiceSummaryRow
+                label="Голос"
+                voiceId={settings.voiceId}
+                preferredLangPrefixes={VOICE_DROPDOWN_LANG_PREFIXES}
+                onOpen={() => setSettingsPanel('voice')}
+              />
+            </div>
+          </div>
+        )}
+
+        {menuView === 'settings' && settingsPanel === 'provider' && (
           <PickerList
             options={PROVIDER_OPTIONS}
             value={settings.provider}
             onSelect={(id) => {
               update({ provider: id })
-              setAiChatPanel('summary')
+              setSettingsPanel('summary')
             }}
           />
         )}
 
-        {menuView === 'aiChat' && aiChatPanel === 'voice' && (
+        {menuView === 'settings' && settingsPanel === 'voice' && (
           <VoicePickerPanel
             value={settings.voiceId}
             onChange={(voiceId) => update({ voiceId })}
             preferredLangPrefixes={VOICE_DROPDOWN_LANG_PREFIXES}
           />
-        )}
-
-        {menuView === 'settings' && (
-          <div className="flex w-full items-start gap-3">
-            <span className={MENU_FIELD_LABEL}>Раздел</span>
-            <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
-              Выбор ИИ и голоса перенесён в «Чат с MyEng».
-            </p>
-          </div>
         )}
 
         {menuView === 'progress' && (
