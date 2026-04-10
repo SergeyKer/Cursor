@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildAssistantSectionsForTranslationSuccessTest,
   commentIconForContent,
   commentLabelForTranslationFirstBlock,
   commentToneForContent,
@@ -173,5 +174,19 @@ describe('commentLabelForTranslationFirstBlock', () => {
 
   it('keeps praise icon for success comments', () => {
     expect(commentLabelForTranslationFirstBlock('Отлично! Правильно использован Present Simple.')).toBe('✅')
+  })
+})
+
+describe('translationSuccessPraiseCard UI', () => {
+  it('первая секция SUCCESS drill — praise и метка ✅', () => {
+    const praise =
+      'Круто, что ты правильно использовал отрицание don\'t! Это Present Simple — речь о неприязни к привычке.'
+    const sections = buildAssistantSectionsForTranslationSuccessTest(praise)
+    const first = sections[0]
+    expect(first).toBeDefined()
+    expect(first?.key).toBe('comment')
+    expect(first?.tone).toBe('praise')
+    expect(first?.label).toBe('✅')
+    expect(first?.text).toBe(praise)
   })
 })

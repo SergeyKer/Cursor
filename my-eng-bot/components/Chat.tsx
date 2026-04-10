@@ -180,6 +180,8 @@ function buildAssistantSections(params: {
   /** Режим перевод, ошибка: поддержка из «Комментарий_перевод:» (диагностический «Комментарий:» в UI не показываем). */
   translationSupportComment?: string | null
   translationErrorCoachUi?: boolean
+  /** Успешный drill перевода: первая карточка — ✅ (тон praise), а не янтарная 💡. */
+  translationSuccessPraiseCard?: boolean
   tenseRef?: string | null
   threeFormsText?: string | null
   /** Режим перевод, сценарий ошибки: разбор по пунктам под «Комментарий». */
@@ -201,6 +203,7 @@ function buildAssistantSections(params: {
     comment,
     translationSupportComment = null,
     translationErrorCoachUi = false,
+    translationSuccessPraiseCard = false,
     tenseRef,
     threeFormsText,
     translationErrorsText,
@@ -235,6 +238,15 @@ function buildAssistantSections(params: {
         singleLine: !supportTrim.includes('\n'),
       })
     }
+  } else if (mode === 'translation' && translationSuccessPraiseCard && comment?.trim()) {
+    const praiseText = comment.trim()
+    sections.push({
+      key: 'comment',
+      tone: 'praise',
+      label: '✅',
+      text: praiseText,
+      singleLine: !praiseText.includes('\n'),
+    })
   } else if (comment) {
     sections.push({
       key: 'comment',
@@ -321,6 +333,23 @@ function buildAssistantSections(params: {
     })
   }
   return sections
+}
+
+/** Узкий экспорт для тестов: карточка похвалы при SUCCESS drill перевода. */
+export function buildAssistantSectionsForTranslationSuccessTest(comment: string): AssistantSection[] {
+  return buildAssistantSections({
+    comment,
+    translationSuccessPraiseCard: true,
+    translationErrorCoachUi: false,
+    showOnlyRepeat: false,
+    hidePromptBlocks: false,
+    repeatTextForCard: null,
+    mainBefore: '',
+    hideRussianNonQuestionMainBefore: false,
+    invitationText: null,
+    mainAfter: '',
+    mode: 'translation',
+  })
 }
 
 /**
@@ -1513,9 +1542,10 @@ function MessageBubble({
   let translationSupportComment: string | null = null
   let translationErrorCoachUi = false
   let repeatRuForCard: string | null = null
+  let translationSuccessShape = false
   if (!isUser && isTranslationMode) {
     const blocks = parseTranslationCoachBlocks(displayText)
-    const translationSuccessShape = translationResponseHasSuccessShape(displayText, blocks.threeFormsText)
+    translationSuccessShape = translationResponseHasSuccessShape(displayText, blocks.threeFormsText)
     translationSupportComment = blocks.translationSupportComment
     translationErrorCoachUi = Boolean(
       (blocks.repeat || blocks.repeatRu) && !blocks.threeFormsText && !translationSuccessShape
@@ -1598,6 +1628,11 @@ function MessageBubble({
     }
     effectiveTenseRef = null
   }
+  const translationPraiseDisplayText =
+    !isUser && isTranslationMode && translationSuccessShape
+      ? (effectiveComment?.trim() || translationSupportComment?.trim() || null)
+      : null
+  const translationSuccessPraiseCard = Boolean(translationPraiseDisplayText)
   const showOnlyRepeat = !isTranslationMode && Boolean(repeatTextForCard)
   // Скрываем основной блок только если есть «Повтори», но нет следующего предложения — иначе теряется карточка «Переведи: …».
   const hideTranslationPromptBlocks =
@@ -1612,6 +1647,7 @@ function MessageBubble({
     ? Boolean(message.content)
     : Boolean(
         effectiveComment ||
+          translationPraiseDisplayText ||
           (translationErrorCoachUi && translationSupportComment) ||
           translationErrorsText ||
           effectiveTenseRef ||
@@ -1629,9 +1665,14 @@ function MessageBubble({
   const assistantSections = isUser
     ? []
     : buildAssistantSections({
-        comment: translationErrorCoachUi ? null : effectiveComment,
+        comment: translationErrorCoachUi
+          ? null
+          : translationSuccessPraiseCard
+            ? translationPraiseDisplayText
+            : effectiveComment,
         translationSupportComment,
         translationErrorCoachUi,
+        translationSuccessPraiseCard,
         tenseRef: effectiveTenseRef,
         threeFormsText: effectiveThreeFormsText,
         translationErrorsText,

@@ -20,4 +20,10 @@ describe('normalizeEnglishForRepeatMatch', () => {
     expect(ref).toBe(normalizeEnglishForRepeatMatch('i cook pasta twice a week'))
     expect(ref).toBe(normalizeEnglishForRepeatMatch('I cook pasta, twice a week'))
   })
+
+  it('treats Cyrillic Latin lookalikes as Latin for drill match', () => {
+    const latin = 'I never drink tea.'
+    const mixed = `I n${'\u0435'}v${'\u0435'}r drink t${'\u0435'}a.`
+    expect(normalizeEnglishForRepeatMatch(latin)).toBe(normalizeEnglishForRepeatMatch(mixed))
+  })
 })

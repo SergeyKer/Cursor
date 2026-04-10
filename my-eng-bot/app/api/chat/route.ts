@@ -81,7 +81,10 @@ import {
   shouldStripRepeatOnPraise,
 } from '@/lib/dialoguePraiseComment'
 import { buildMixedDialogueFallbackComment, buildMixedInputRepeatFallback } from '@/lib/mixedInputRepeatFallback'
-import { normalizeEnglishForRepeatMatch } from '@/lib/normalizeEnglishForRepeatMatch'
+import {
+  foldLatinHomoglyphsForEnglishMatch,
+  normalizeEnglishForRepeatMatch,
+} from '@/lib/normalizeEnglishForRepeatMatch'
 import { stripFalseArticleBeforeEnglishComment } from '@/lib/stripFalseArticleBeforeEnglishComment'
 import { alignDialogueBeVerbCommentWithRepeat } from '@/lib/dialogueBeCommentConsistency'
 import { normalizeDialogueCommentTerminology } from '@/lib/dialogueCommentTerminology'
@@ -4633,7 +4636,7 @@ const ENGLISH_STOP_WORDS = new Set([
 ])
 
 function tokenizeEnglishWords(text: string): string[] {
-  return text
+  return foldLatinHomoglyphsForEnglishMatch(text)
     .toLowerCase()
     .match(/[a-z']+/g)
     ?.map((token) => token.replace(/^'+|'+$/g, ''))
@@ -6279,6 +6282,10 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       const translationPrompt = lastTranslationPrompt
       const translationPromptText = translationPrompt ?? ''
       translationPromptTextForTurn = translationPromptText
+      priorAssistantRepeatEnglish = extractPriorAssistantRepeatEnglish(nonSystemMessages)
+      const userMatchesPriorAssistantRepeat =
+        Boolean(priorAssistantRepeatEnglish?.trim()) &&
+        isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, priorAssistantRepeatEnglish.trim())
       const translationFormLines = extractTranslationFormLines(sanitized)
       const translationReferenceForm = pickTranslationReferenceForm({
         userText: lastUserContentForResponse,
@@ -6306,11 +6313,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         translationReferenceFormIsRelevant &&
         !translationReferenceFormMatchesUser &&
         !userMatchesAnyProvidedForm &&
-        !translationReferencePromptMismatch
+        !translationReferencePromptMismatch &&
+        !userMatchesPriorAssistantRepeat
       const translationPromptMismatch =
         !translationAnswerContainsCyrillic &&
         Boolean(translationPromptText) &&
-        hasTranslationPromptKeywordMismatch(translationPromptText, lastUserContentForResponse)
+        hasTranslationPromptKeywordMismatch(translationPromptText, lastUserContentForResponse) &&
+        !userMatchesPriorAssistantRepeat
       const promptAlignedRepeat =
         translationPromptMismatch && translationPromptText
           ? buildPromptAlignedRepeatSentence(
@@ -6326,11 +6335,10 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             )
           : null
       const finalPromptAlignedRepeat = promptAlignedRepeat ?? promptAlignedRepeatByConcept
-      if (finalPromptAlignedRepeat) {
+      if (finalPromptAlignedRepeat && !userMatchesPriorAssistantRepeat) {
         sanitized = forceTranslationWordErrorProtocol(sanitized, finalPromptAlignedRepeat)
       }
       canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic && !translationWordMismatch && !translationPromptMismatch
-      priorAssistantRepeatEnglish = extractPriorAssistantRepeatEnglish(nonSystemMessages)
       if (
         priorAssistantRepeatEnglish &&
         !isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, priorAssistantRepeatEnglish)
