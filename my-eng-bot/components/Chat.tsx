@@ -117,6 +117,35 @@ function formatThreeFormsForCard(raw: string): string {
   return body ? `\n${body}` : ''
 }
 
+/**
+ * Убирает из текста блока «Ошибки» подпункты без содержания (модель часто ставит «-» для пустых секций).
+ */
+export function filterTranslationErrorsDisplayText(raw: string): string {
+  const trimmed = raw.trim()
+  if (!trimmed) return ''
+
+  const isPlaceholderBody = (body: string): boolean => {
+    let t = body.replace(/\u00a0/g, ' ').trim()
+    t = t.replace(/^["'`«]+|["'`»]+$/g, '').trim()
+    if (!t) return true
+    if (/^[-—–]+\.?$/u.test(t)) return true
+    if (/^нет\.?$/iu.test(t)) return true
+    if (/^(н\/д|n\/a)\.?$/iu.test(t)) return true
+    if (/^none\.?$/iu.test(t)) return true
+    if (/^(ошибок\s+нет|нет\s+ошибок|без\s+ошибок)\.?$/iu.test(t)) return true
+    return false
+  }
+
+  const subsectionLine = /^\s*(?:[-•*]\s*)?(🤔|🔤|✏️|📖)\s*[^:]+:\s*(.*)$/u
+  const out: string[] = []
+  for (const line of trimmed.split(/\r?\n/)) {
+    const m = line.match(subsectionLine)
+    if (m && isPlaceholderBody(m[2] ?? '')) continue
+    out.push(line)
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
 const GENERIC_TRANSLATION_REPEAT_FALLBACK_EN = 'Write the correct English translation of the given Russian sentence.'
 
 function isGenericTranslationRepeatUiText(text: string | null): boolean {
@@ -1568,7 +1597,7 @@ function MessageBubble({
     const errorsFromPayload = blocks.errorsBlock?.trim() ?? ''
     const errorsSynthesized =
       !errorsFromPayload && blocks.comment ? buildSyntheticErrorsBlockFromComment(blocks.comment)?.trim() ?? '' : ''
-    const errorsResolved = (errorsFromPayload || errorsSynthesized).trim()
+    const errorsResolved = filterTranslationErrorsDisplayText((errorsFromPayload || errorsSynthesized).trim())
     translationErrorsText =
       Boolean((blocks.repeat || blocks.repeatRu) && !blocks.threeFormsText && !translationSuccessShape && errorsResolved)
         ? errorsResolved

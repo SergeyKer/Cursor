@@ -5,9 +5,26 @@ import {
   commentLabelForTranslationFirstBlock,
   commentToneForContent,
   condenseTranslationCommentToErrors,
+  filterTranslationErrorsDisplayText,
   parseTranslationCoachBlocks,
   translationResponseHasSuccessShape,
 } from './Chat'
+
+describe('filterTranslationErrorsDisplayText', () => {
+  it('убирает подпункты только с дефисом / «нет»', () => {
+    const raw = [
+      '🔤 Грамматика: Нужен артикль "a" перед "live concert".',
+      '✏️ Орфография: -',
+      '📖 Лексика: -',
+    ].join('\n')
+    expect(filterTranslationErrorsDisplayText(raw)).toBe('🔤 Грамматика: Нужен артикль "a" перед "live concert".')
+  })
+
+  it('оставляет все строки, если везде есть смысл', () => {
+    const raw = ['🔤 Грамматика: a.', '✏️ Орфография: b.'].join('\n')
+    expect(filterTranslationErrorsDisplayText(raw)).toBe(raw)
+  })
+})
 
 describe('condenseTranslationCommentToErrors', () => {
   it('keeps translation comment theses on separate lines', () => {

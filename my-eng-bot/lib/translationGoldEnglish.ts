@@ -25,7 +25,11 @@ export async function translateRussianPromptToGoldEnglish(params: {
   if (!trimmed || !/[А-Яа-яЁё]/.test(trimmed)) return null
 
   const audienceHint = audience === 'child' ? 'young learner' : 'adult'
-  const system = `You translate one Russian exercise sentence into exactly one natural English sentence for a language learner. CEFR context: level ${level}, audience ${audienceHint}. Output ONLY the English sentence on one line. No quotes, no labels, no Russian, no commentary.`
+  const russianIsQuestion = /\?\s*$/.test(trimmed)
+  const questionRule = russianIsQuestion
+    ? ' The Russian ends with a question mark: you MUST output a natural English question that translates it, ending with ? (same speech act as the Russian).'
+    : ''
+  const system = `You translate one Russian exercise sentence into exactly one natural English sentence for a language learner. CEFR context: level ${level}, audience ${audienceHint}. Output ONLY the English sentence on one line. No quotes, no labels, no Russian, no commentary. Use standard adverb placement: in Present Perfect put already/just/ever/never/recently/lately between have/has and the past participle; use yet only at the end in questions/negatives; in Present/Past Simple put frequency adverbs before the main verb (after be).${questionRule}`
 
   let res: Awaited<ReturnType<typeof callProviderChat>>
   try {

@@ -80,7 +80,7 @@ export function applyTranslationCommentCoachVoice(params: {
   audience: 'child' | 'adult'
   requiredTense: string
 }): string {
-  const { content, audience, requiredTense } = params
+  const { content, audience } = params
   if (!content) return content
 
   const lines = content.split(/\r?\n/)
@@ -115,32 +115,10 @@ export function applyTranslationCommentCoachVoice(params: {
   }
 
   if (errorTypeClean === 'Ошибка времени') {
-    let timeReason =
+    const timeReason =
       audience === 'child'
-        ? 'нужно время из задания.'
-        : 'важно выбрать время по смыслу фразы из задания.'
-    switch (requiredTense) {
-      case 'present_simple':
-        timeReason =
-          audience === 'child'
-            ? 'это привычка или факт — скажи в настоящем времени.'
-            : 'здесь нужен Present Simple: привычка, факт или постоянное состояние в настоящем.'
-        break
-      case 'present_continuous':
-        timeReason =
-          audience === 'child'
-            ? 'действие сейчас — используй форму с -ing.'
-            : 'здесь уместно Present Continuous, если речь о процессе сейчас.'
-        break
-      case 'past_simple':
-        timeReason =
-          audience === 'child'
-            ? 'это уже было — используй Past Simple.'
-            : 'здесь речь о завершённом действии или факте в прошлом — Past Simple.'
-        break
-      default:
-        break
-    }
+        ? 'проверь глагол по смыслу русской фразы из задания — подробно только в строке «Время:» ниже.'
+        : 'выровняй английскую форму под смысл русской фразы из задания; название времени и полное объяснение — только в строке «Время:» ниже.'
 
     const head = `${errorTypeClean} — ${timeReason}`
     const newBody = rest.includes('\n') ? `${head}\n${rest.trim()}` : `${head} ${rest}`.replace(/\s{2,}/g, ' ').trim()

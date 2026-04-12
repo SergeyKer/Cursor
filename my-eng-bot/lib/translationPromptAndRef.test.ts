@@ -56,6 +56,23 @@ describe('appendTranslationCanonicalRepeatRefLine', () => {
     const out = appendTranslationCanonicalRepeatRefLine(card, ru)
     expect(out).toMatch(/__TRAN_REPEAT_REF__:\s*I usually read books before bed\./i)
   })
+
+  it('для русского вопроса берёт эталон из строки «?:», а не «+:»', () => {
+    const card = [
+      'Комментарий: Отлично!',
+      'Конструкция: —',
+      'Формы:',
+      '+: I have always liked listening to music in my free time.',
+      '?: Have I always liked listening to music in my free time?',
+      '-: I have not always liked listening to music in my free time.',
+      'Переведи далее: Мне всегда нравилось слушать музыку в свободное время?',
+      'Переведи на английский.',
+    ].join('\n')
+    const ru = extractRussianTranslationTaskFromAssistantContent(card)
+    expect(ru).toMatch(/\?$/)
+    const out = appendTranslationCanonicalRepeatRefLine(card, ru)
+    expect(out).toMatch(/__TRAN_REPEAT_REF__:\s*Have I always liked listening to music in my free time\?/i)
+  })
 })
 
 describe('stripTranslationCanonicalRepeatRefLine', () => {

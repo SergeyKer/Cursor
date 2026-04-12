@@ -820,14 +820,14 @@ export default function MenuSectionPanels({
                 <MenuSettingRow label="Время" value={tenseLabel} onClick={() => setAiChatPanel('tense')} />
               )}
               {settings.mode === 'translation' && (
-                <>
-                  <MenuSettingRow
-                    label="Тип предложений"
-                    value={sentenceTypeLabel}
-                    onClick={() => setAiChatPanel('sentenceType')}
-                  />
-                  <MenuSettingRow label="Тема" value={topicLabel} onClick={() => setAiChatPanel('topic')} />
-                </>
+                <MenuSettingRow
+                  label="Тип предложений"
+                  value={sentenceTypeLabel}
+                  onClick={() => setAiChatPanel('sentenceType')}
+                />
+              )}
+              {(settings.mode === 'dialogue' || settings.mode === 'translation') && (
+                <MenuSettingRow label="Тема" value={topicLabel} onClick={() => setAiChatPanel('topic')} />
               )}
               <MenuSettingRow label="Уровень" value={levelLabel} onClick={() => setAiChatPanel('level')} />
               </div>

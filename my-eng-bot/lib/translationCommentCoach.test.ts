@@ -46,7 +46,9 @@ describe('applyTranslationCommentCoachVoice', () => {
       requiredTense: 'present_simple',
     })
     expect(out).not.toMatch(/школ/i)
-    expect(out).toMatch(/Present Simple|настоящ/i)
+    expect(out).toMatch(/Время:\s*Present Simple/)
+    const kom = out.split(/\r?\n/).find((l) => /^Комментарий\s*:/i.test(l)) ?? ''
+    expect(kom).not.toMatch(/Present Simple/i)
   })
 
   it('preserves second reason line after coach prefix', () => {

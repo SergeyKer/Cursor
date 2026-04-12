@@ -121,17 +121,67 @@ function extractPositiveFormFromTranslationCard(content: string): string | null 
   return null
 }
 
+function extractQuestionFormFromTranslationCard(content: string): string | null {
+  const lines = content
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+    .filter(Boolean)
+  for (const line of lines) {
+    const m = /^[\s\-•]*(?:\d+[\.)]\s*)*\?\s*:\s*(.+)\s*$/i.exec(line)
+    if (m?.[1]) {
+      const v = normalizeEnglishSentenceForCard(m[1] ?? '')
+      if (v) return v
+    }
+  }
+  return null
+}
+
+function extractNegativeFormFromTranslationCard(content: string): string | null {
+  const lines = content
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+    .filter(Boolean)
+  for (const line of lines) {
+    const m = /^[\s\-•]*(?:\d+[\.)]\s*)*-\s*:\s*(.+)\s*$/i.exec(line)
+    if (m?.[1]) {
+      const v = normalizeEnglishSentenceForCard(m[1] ?? '')
+      if (v) return v
+    }
+  }
+  return null
+}
+
+/** Согласовано с app/api/chat/route.ts isLikelyRussianNegativeSentence — без импорта из роута. */
+function isLikelyRussianNegativePrompt(text: string): boolean {
+  const normalized = text.replace(/\s+/g, ' ').trim()
+  if (!normalized) return false
+  return /(?:^|[\s,;])(?:не|ни|нет|никогда|ничего|никому|нигде)(?=[\s,.!?…]|$)/iu.test(normalized)
+}
+
+function pickCanonicalFormEnglishForRuCard(content: string, ru: string): string | null {
+  const ruTrim = ru.trim()
+  if (/\?\s*$/.test(ruTrim)) {
+    const q = extractQuestionFormFromTranslationCard(content)
+    if (q) return q
+  }
+  if (isLikelyRussianNegativePrompt(ruTrim) && !/\?\s*$/.test(ruTrim)) {
+    const neg = extractNegativeFormFromTranslationCard(content)
+    if (neg) return neg
+  }
+  return extractPositiveFormFromTranslationCard(content)
+}
+
 /**
- * Добавляет в конец ответа скрытую эталонную строку для «Повтори» (по блоку «+:» и русскому заданию).
+ * Добавляет в конец ответа скрытую эталонную строку для «Повтори» (по блоку «Формы» и русскому заданию).
  * Не дублирует, если маркер уже есть.
  */
 export function appendTranslationCanonicalRepeatRefLine(content: string, ruPrompt: string | null): string {
   const ru = ruPrompt?.trim() ?? ''
   if (!ru) return content
   if (content.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) return content
-  const positive = extractPositiveFormFromTranslationCard(content)
-  if (!positive) return content
-  const { clamped } = clampTranslationRepeatToRuPrompt(positive, ru)
+  const chosen = pickCanonicalFormEnglishForRuCard(content, ru)
+  if (!chosen) return content
+  const { clamped } = clampTranslationRepeatToRuPrompt(chosen, ru)
   return `${content.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${clamped}`
 }
 

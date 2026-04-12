@@ -33,6 +33,23 @@ describe('translationGoldEnglish', () => {
     expect(arg.maxTokens).toBe(64)
   })
 
+  it('для русского вопроса в system добавляется требование английского вопроса с ?', async () => {
+    callProviderChatMock.mockResolvedValueOnce({ ok: true, content: 'Have I always liked music?' })
+    const { translateRussianPromptToGoldEnglish } = await import('./translationGoldEnglish')
+    const req = {} as import('next/server').NextRequest
+    await translateRussianPromptToGoldEnglish({
+      ruSentence: 'Мне всегда нравилась музыка?',
+      level: 'b2',
+      audience: 'adult',
+      provider: 'openai',
+      req,
+    })
+    const apiMessages = callProviderChatMock.mock.calls[0]![0] as { apiMessages: { role: string; content: string }[] }
+    const system = apiMessages.apiMessages.find((m) => m.role === 'system')?.content ?? ''
+    expect(system).toMatch(/question mark/i)
+    expect(system).toMatch(/ending with \?/i)
+  })
+
   it('при ошибке провайдера возвращает null', async () => {
     callProviderChatMock.mockResolvedValueOnce({ ok: false, status: 500, errText: 'x' })
     const { translateRussianPromptToGoldEnglish } = await import('./translationGoldEnglish')
