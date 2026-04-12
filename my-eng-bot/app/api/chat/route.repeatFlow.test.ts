@@ -361,6 +361,57 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content.toLowerCase()).toContain('technology')
   })
 
+  it('keeps free-talk first-turn flow without provider call', async () => {
+    const req = makeRequest({
+      mode: 'dialogue',
+      topic: 'free_talk',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(callProviderChatMock).not.toHaveBeenCalled()
+    expect(data.content).toContain('What would you like to talk about?')
+  })
+
+  it('keeps fixed dialogue topic in system prompt and enables strict topic mapping', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: 'Have you listened to your favorite album recently?',
+    })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      topic: 'music',
+      audience: 'adult',
+      level: 'b1',
+      tenses: ['present_perfect'],
+      messages: [
+        { role: 'assistant', content: 'Have you listened to live music recently?' },
+        { role: 'user', content: 'Yes, I have listened to jazz recently.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const firstCall = callProviderChatMock.mock.calls[0]?.[0] as
+      | { apiMessages?: Array<{ role: string; content: string }> }
+      | undefined
+    const systemPrompt = firstCall?.apiMessages?.[0]?.content ?? ''
+
+    expect(res.status).toBe(200)
+    expect(data.content).toMatch(/\?\s*$/)
+    expect(data.content.toLowerCase()).toContain('music')
+    expect(systemPrompt).toContain('Topic: Music.')
+    expect(systemPrompt).toContain('STRICT TOPIC MAPPING')
+    expect(systemPrompt).not.toContain('This is a free conversation.')
+  })
+
   it('asks clarification for forest token in technology thread', async () => {
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,
@@ -1611,6 +1662,68 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).not.toContain('Переведи далее:')
     expect(data.content).toContain('Я ещё не посмотрел несколько хороших фильмов в этом месяце.')
     expect(data.content).toContain('Переведи на английский.')
+  })
+
+  it('replaces non-negative next sentence with fallback when sentenceType is negative', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: Отлично! Ты правильно использовал Present Perfect.\nКонструкция: Subject + have/has + V3.\nФормы:\n+: I have already listened to this song.\n?: Have you already listened to this song?\n-: I have not listened to this song.\nПереведи далее: Как вы относитесь к разным музыкальным жанрам?',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'music',
+      audience: 'adult',
+      level: 'b2',
+      sentenceType: 'negative',
+      tenses: ['present_perfect'],
+      messages: [
+        { role: 'assistant', content: 'Я уже слышал эту песню.\nПереведи на английский.' },
+        { role: 'user', content: 'I have already listened to this song.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).not.toContain('Как вы относитесь к разным музыкальным жанрам?')
+    expect(data.content).toMatch(/(?:^|[\s,;])(не|никогда|ничего|никому|нигде)(?=[\s,.!?…]|$)/i)
+    expect(data.content).toContain('Переведи на английский.')
+  })
+
+  it('rebuilds broken success forms when + and - are duplicated negative', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: Отлично! Ты правильно передал Present Perfect.\nКонструкция: Subject + have/has + V3.\nФормы:\n+: I have never been to a live concert.\n?: Have you ever been to a live concert?\n-: I have never been to a live concert.\nПереведи далее: Я уже слышал эту песню.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'music',
+      audience: 'adult',
+      level: 'b2',
+      sentenceType: 'negative',
+      tenses: ['present_perfect'],
+      messages: [
+        { role: 'assistant', content: 'Я никогда не был на живом концерте.\nПереведи на английский.' },
+        { role: 'user', content: 'I have never been to a live concert.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    const positiveLine = data.content.match(/^\+:\s*(.+)$/m)?.[1] ?? ''
+    const negativeLine = data.content.match(/^-:\s*(.+)$/m)?.[1] ?? ''
+    expect(positiveLine).toBeTruthy()
+    expect(negativeLine).toBeTruthy()
+    expect(positiveLine.toLowerCase()).not.toContain(' never ')
+    expect(positiveLine.toLowerCase()).not.toContain("n't")
+    expect(positiveLine).not.toEqual(negativeLine)
   })
 
 })

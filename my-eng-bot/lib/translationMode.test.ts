@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeDrillRuSentenceForSentenceType, normalizeTranslationPracticeSentence } from './translationMode'
+import {
+  fallbackTranslationSentenceForContext,
+  normalizeDrillRuSentenceForSentenceType,
+  normalizeTranslationPracticeSentence,
+} from './translationMode'
 
 describe('translationMode', () => {
   it('rewrites awkward time-of-day phrasing into natural Russian', () => {
@@ -52,6 +56,80 @@ describe('translationMode', () => {
       expect(
         normalizeDrillRuSentenceForSentenceType('Я уже посмотрел несколько хороших фильмов в этом месяце.', 'negative')
       ).toBe('Я ещё не посмотрел несколько хороших фильмов в этом месяце.')
+    })
+  })
+
+  describe('fallbackTranslationSentenceForContext', () => {
+    it('uses proper interrogative templates for present_perfect music (adult)', () => {
+      const ru = fallbackTranslationSentenceForContext({
+        topic: 'music',
+        tense: 'present_perfect',
+        level: 'b1',
+        audience: 'adult',
+        sentenceType: 'interrogative',
+        seedText: 'adult-music-question',
+      })
+
+      expect(ru).toMatch(/\?\s*$/)
+      expect(ru).toContain('Вы')
+      expect(ru).not.toContain('Ты ')
+      expect(ru).not.toMatch(/^Я .+\?$/)
+    })
+
+    it('uses child address register for present_perfect music interrogative', () => {
+      const ru = fallbackTranslationSentenceForContext({
+        topic: 'music',
+        tense: 'present_perfect',
+        level: 'a2',
+        audience: 'child',
+        sentenceType: 'interrogative',
+        seedText: 'child-music-question',
+      })
+
+      expect(ru).toMatch(/\?\s*$/)
+      expect(ru).toContain('Ты')
+      expect(ru).not.toContain('Вы ')
+    })
+
+    it('keeps present_perfect declarative music prompts within the music topic', () => {
+      const seeds = ['music-a', 'music-b', 'music-c', 'music-d', 'music-e', 'music-f', 'music-g']
+      const allowed = new Set([
+        'Я уже слышал эту песню много раз.',
+        'Я уже был на живом концерте.',
+        'Мы уже послушали новый альбом.',
+      ])
+
+      for (const seedText of seeds) {
+        const ru = fallbackTranslationSentenceForContext({
+          topic: 'music',
+          tense: 'present_perfect',
+          level: 'b2',
+          audience: 'adult',
+          sentenceType: 'general',
+          seedText,
+        })
+
+        expect(allowed.has(ru)).toBe(true)
+        expect(ru.toLowerCase()).not.toContain('домаш')
+      }
+    })
+
+    it('keeps present_perfect negative music prompts within the music topic', () => {
+      const seeds = ['music-neg-a', 'music-neg-b', 'music-neg-c', 'music-neg-d', 'music-neg-e']
+
+      for (const seedText of seeds) {
+        const ru = fallbackTranslationSentenceForContext({
+          topic: 'music',
+          tense: 'present_perfect',
+          level: 'b2',
+          audience: 'adult',
+          sentenceType: 'negative',
+          seedText,
+        })
+
+        expect(ru.toLowerCase()).toContain('не')
+        expect(ru.toLowerCase()).not.toContain('домаш')
+      }
     })
   })
 })

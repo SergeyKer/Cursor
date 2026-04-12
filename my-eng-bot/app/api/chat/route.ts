@@ -3540,6 +3540,42 @@ function isLikelyEnglishNegative(text: string): boolean {
   return /\b(?:not|don't|doesn't|didn't|won't|can't|isn't|aren't|wasn't|weren't|haven't|hasn't|hadn't)\b/i.test(normalized)
 }
 
+function isLikelyRussianNegativeSentence(text: string): boolean {
+  const normalized = text.replace(/\s+/g, ' ').trim()
+  if (!normalized) return false
+  return /(?:^|[\s,;])(?:не|ни|нет|никогда|ничего|никому|нигде)(?=[\s,.!?…]|$)/iu.test(normalized)
+}
+
+function coerceAffirmativeEnglishAnchor(anchor: string, tense: string): string {
+  const normalized = normalizeEnglishSentenceForCard(anchor)
+  if (!normalized) return buildFallbackTranslationForms({ positive: 'I study English.', tense }).positive
+  const compact = normalized.replace(/[.!?]\s*$/, '').replace(/\s+/g, ' ').trim()
+  if (!compact) return buildFallbackTranslationForms({ positive: 'I study English.', tense }).positive
+
+  const withoutNegation = compact
+    .replace(/\bnever\b/gi, 'already')
+    .replace(/\bdon't\b/gi, 'do')
+    .replace(/\bdoesn't\b/gi, 'does')
+    .replace(/\bdidn't\b/gi, 'did')
+    .replace(/\bwon't\b/gi, 'will')
+    .replace(/\bcan't\b/gi, 'can')
+    .replace(/\bisn't\b/gi, 'is')
+    .replace(/\baren't\b/gi, 'are')
+    .replace(/\bwasn't\b/gi, 'was')
+    .replace(/\bweren't\b/gi, 'were')
+    .replace(/\bhaven't\b/gi, 'have')
+    .replace(/\bhasn't\b/gi, 'has')
+    .replace(/\bhadn't\b/gi, 'had')
+    .replace(/\bnot\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!withoutNegation || isLikelyEnglishNegative(withoutNegation)) {
+    return buildFallbackTranslationForms({ positive: 'I study English.', tense }).positive
+  }
+  return normalizeEnglishSentenceForCard(withoutNegation)
+}
+
 function doesUserMatchAnyTranslationForm(params: {
   userText: string
   forms: { positive: string | null; question: string | null; negative: string | null }
@@ -3720,6 +3756,18 @@ function ensureTranslationSuccessBlocks(
     negative = modelForms.negative ?? fallbackForms.negative
   }
 
+  const normalizedPositive = normalizeEnglishForRepeatMatch(positive)
+  const normalizedNegative = normalizeEnglishForRepeatMatch(negative)
+  const brokenForms = isLikelyEnglishNegative(positive) || (!!normalizedPositive && normalizedPositive === normalizedNegative)
+  if (brokenForms) {
+    const anchorSource = negative || question || positive || 'I study English.'
+    const anchor = coerceAffirmativeEnglishAnchor(anchorSource, tense)
+    const rebuiltForms = buildFallbackTranslationForms({ positive: anchor, tense })
+    positive = rebuiltForms.positive
+    question = rebuiltForms.question
+    negative = rebuiltForms.negative
+  }
+
   const out = [
     finalComment,
     constructionLine,
@@ -3732,7 +3780,21 @@ function ensureTranslationSuccessBlocks(
   if (nextSentenceLines.length > 0) {
     const cleanedNextSentence = extractSingleTranslationNextSentence(nextSentenceLines)
     if (cleanedNextSentence) {
-      out.push(normalizeDrillRuSentenceForSentenceType(cleanedNextSentence, sentenceType))
+      const normalizedNextSentence = normalizeDrillRuSentenceForSentenceType(cleanedNextSentence, sentenceType)
+      if (sentenceType === 'negative' && !isLikelyRussianNegativeSentence(normalizedNextSentence)) {
+        out.push(
+          fallbackTranslationSentenceForContext({
+            topic,
+            tense,
+            level,
+            audience,
+            seedText: `${fallbackPrompt ?? ''}|next:${cleanedNextSentence}|user:${userText.slice(0, 80)}`,
+            sentenceType,
+          })
+        )
+      } else {
+        out.push(normalizedNextSentence)
+      }
     } else {
       out.push(
         fallbackTranslationSentenceForContext({
@@ -5297,7 +5359,7 @@ export async function POST(req: NextRequest) {
     const grammarFocus = typeof body.grammarFocus === 'string' && body.grammarFocus.trim()
       ? body.grammarFocus.trim()
       : null
-    if (mode === 'communication' || mode === 'dialogue') topic = 'free_talk'
+    if (mode === 'communication') topic = 'free_talk'
     const freeTalkTopicSuggestions: string[] = Array.isArray(body.freeTalkTopicSuggestions)
       ? body.freeTalkTopicSuggestions
           .filter((v: unknown) => typeof v === 'string')

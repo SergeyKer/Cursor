@@ -1,4 +1,5 @@
 import { normalizeEnglishLearnerContractions } from '@/lib/englishLearnerContractions'
+import { stripWrappingQuotesFromDrillRussianLine } from '@/lib/extractSingleTranslationNextSentence'
 import { clampTranslationRepeatToRuPrompt } from '@/lib/translationRepeatClamp'
 
 /** Скрытый эталон «Повтори» для сервера; в UI не показывается (см. stripTranslationCanonicalRepeatRefLine). */
@@ -26,7 +27,7 @@ function extractRussianAfterTranslatePrefixLine(rawLine: string): string | null 
     .replace(/^\d+\)\s*/i, '')
     .trim()
   if (!/[А-Яа-яЁё]/.test(rest) || rest.length <= 2) return null
-  return rest
+  return stripWrappingQuotesFromDrillRussianLine(rest)
 }
 
 /**
@@ -60,7 +61,9 @@ export function extractRussianTranslationTaskFromAssistantContent(content: strin
       .replace(/\s+(?:\d+\)\s*)?(?:Переведи|Переведите)[^.]*\.\s*$/i, '')
       .replace(/^\d+\)\s*/i, '')
       .trim()
-    if (/[А-Яа-яЁё]/.test(stripped) && stripped.length > 2) return stripped
+    if (/[А-Яа-яЁё]/.test(stripped) && stripped.length > 2) {
+      return stripWrappingQuotesFromDrillRussianLine(stripped)
+    }
   }
   return null
 }

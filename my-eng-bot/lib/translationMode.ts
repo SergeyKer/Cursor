@@ -119,11 +119,22 @@ export function fallbackTranslationSentenceForContext(params: {
       'Мы уже поужинали.',
       basic ? 'Я уже увидел это.' : 'Я уже решил эту задачу.',
     ]
+    const genericQuestionPool = audience === 'child'
+      ? [
+          'Ты уже прочитал эту книгу?',
+          'Ты уже сделал домашнее задание?',
+          'Ты уже поужинал?',
+        ]
+      : [
+          'Вы уже прочитали эту книгу?',
+          'Вы уже сделали домашнее задание?',
+          'Вы уже поужинали?',
+        ]
     const topicPresentPerfect: Record<string, string[]> = {
       music: [
-        'Я уже слышал эту песню столько раз, что знаю её наизусть.',
-        'Ты когда-нибудь был на живом концерте?',
-        'Мы уже послушали новый альбом целиком.',
+        'Я уже слышал эту песню много раз.',
+        'Я уже был на живом концерте.',
+        'Мы уже послушали новый альбом.',
       ],
       work: [
         'Я уже отправил это письмо клиенту.',
@@ -146,8 +157,76 @@ export function fallbackTranslationSentenceForContext(params: {
         'Мы уже обсудили финал сериала.',
       ],
     }
+    const topicPresentPerfectQuestions: Record<string, { adult: string[]; child: string[] }> = {
+      music: {
+        adult: [
+          'Вы уже слышали эту песню много раз?',
+          'Вы когда-нибудь были на живом концерте?',
+          'Вы уже послушали новый альбом?',
+        ],
+        child: [
+          'Ты уже слышал эту песню много раз?',
+          'Ты когда-нибудь был на живом концерте?',
+          'Ты уже послушал новый альбом?',
+        ],
+      },
+      work: {
+        adult: [
+          'Вы уже отправили это письмо клиенту?',
+          'Вы уже обсудили этот вопрос на планёрке?',
+          'Вы уже сдали отчёт в срок?',
+        ],
+        child: [
+          'Ты уже отправил это письмо клиенту?',
+          'Ты уже обсудил этот вопрос на планёрке?',
+          'Ты уже сдал отчёт в срок?',
+        ],
+      },
+      travel: {
+        adult: [
+          'Вы уже бывали в этой стране?',
+          'Вы когда-нибудь летали дальним рейсом?',
+          'Вы уже забронировали отель на выходные?',
+        ],
+        child: [
+          'Ты уже бывал в этой стране?',
+          'Ты когда-нибудь летал дальним рейсом?',
+          'Ты уже забронировал отель на выходные?',
+        ],
+      },
+      hobbies: {
+        adult: [
+          'Вы уже закончили этот рисунок?',
+          'Вы когда-нибудь играли в шахматы всерьёз?',
+          'Вы уже собрали новый пазл за вечер?',
+        ],
+        child: [
+          'Ты уже закончил этот рисунок?',
+          'Ты когда-нибудь играл в шахматы всерьёз?',
+          'Ты уже собрал новый пазл за вечер?',
+        ],
+      },
+      movies_series: {
+        adult: [
+          'Вы уже смотрели этот фильм три раза?',
+          'Вы когда-нибудь досматривали сериал до конца за одну ночь?',
+          'Вы уже обсудили финал сериала?',
+        ],
+        child: [
+          'Ты уже смотрел этот фильм три раза?',
+          'Ты когда-нибудь досматривал сериал до конца за одну ночь?',
+          'Ты уже обсудил финал сериала?',
+        ],
+      },
+    }
+    if (sentenceType === 'interrogative') {
+      const topicQuestions = topicPresentPerfectQuestions[topic]
+      const audienceQuestions = topicQuestions ? (audience === 'child' ? topicQuestions.child : topicQuestions.adult) : []
+      const pool = audienceQuestions.length > 0 ? audienceQuestions : genericQuestionPool
+      return finish(pick(pool))
+    }
     const extra = topicPresentPerfect[topic] ?? []
-    const pool = extra.length > 0 ? [...extra, ...genericPool] : genericPool
+    const pool = extra.length > 0 ? extra : genericPool
     return finish(pick(pool))
   }
   if (tense === 'present_perfect_continuous') {

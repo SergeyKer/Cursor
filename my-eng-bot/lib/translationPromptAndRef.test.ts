@@ -16,6 +16,13 @@ describe('extractRussianTranslationTaskFromAssistantContent', () => {
     )
   })
 
+  it('убирает кавычки вокруг русского задания', () => {
+    const content = 'Переведи далее: "Я уже купил билеты на концерт.".\nПереведи на английский.'
+    expect(extractRussianTranslationTaskFromAssistantContent(content)).toBe(
+      'Я уже купил билеты на концерт.'
+    )
+  })
+
   it('не путает «Переведи на английский.» без задания в той же строке с русским текстом', () => {
     const content = 'Переведи на английский.\nЯ люблю кофе.'
     expect(extractRussianTranslationTaskFromAssistantContent(content)).toBe('Я люблю кофе.')

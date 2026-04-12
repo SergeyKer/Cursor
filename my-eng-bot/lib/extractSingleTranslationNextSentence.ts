@@ -3,6 +3,40 @@ function isStandaloneTranslationIntroSentence(sentence: string): boolean {
   return /^(?:Теперь|А теперь|Следующее предложение|Далее|Переведи далее)$/i.test(normalized)
 }
 
+/**
+ * Убирает обрамляющие кавычки у русского drill-предложения (модель часто пишет «…: "текст." .»).
+ */
+export function stripWrappingQuotesFromDrillRussianLine(input: string): string {
+  let t = input.replace(/\s+/g, ' ').trim()
+  if (!t) return t
+
+  for (let i = 0; i < 3; i++) {
+    const prev = t
+    const guillemet = /^«(.+)»(?:\s*\.+)?\s*$/.exec(t)
+    if (guillemet?.[1]) {
+      t = guillemet[1].replace(/\s+/g, ' ').trim()
+      continue
+    }
+    const ascii = /^"(.+)"(?:\s*\.+)?\s*$/.exec(t)
+    if (ascii?.[1]) {
+      t = ascii[1].replace(/\s+/g, ' ').trim()
+      continue
+    }
+    const curly = /^[\u201C\u201E](.+)\u201D(?:\s*\.+)?\s*$/.exec(t)
+    if (curly?.[1]) {
+      t = curly[1].replace(/\s+/g, ' ').trim()
+      continue
+    }
+    if (t.startsWith("'") && t.endsWith("'") && t.length > 2) {
+      t = t.slice(1, -1).replace(/\s+/g, ' ').trim()
+      continue
+    }
+    if (prev === t) break
+  }
+
+  return t.replace(/\.{2,}$/u, '.').trim()
+}
+
 /** «Конец слова» для кириллицы: \\b в JS не считает буквы а-я словесными. */
 const RU_AFTER_WORD = '(?=\\s|$|[.,!?;:…])'
 
@@ -54,7 +88,7 @@ export function extractSingleTranslationNextSentence(lines: string[]): string | 
   const filteredCandidates = sentenceCandidates.filter((s) => !isStandaloneTranslationIntroSentence(s))
   const firstRu = filteredCandidates.find((s) => /[А-Яа-яЁё]/.test(s))
   if (!firstRu) return null
-  const trimmed = firstRu.trim()
+  const trimmed = stripWrappingQuotesFromDrillRussianLine(firstRu.trim())
   if (isTranslationNextRussianMetaInstruction(trimmed)) return null
   return trimmed || null
 }

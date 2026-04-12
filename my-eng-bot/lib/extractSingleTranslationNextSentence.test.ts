@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   extractSingleTranslationNextSentence,
   isTranslationNextRussianMetaInstruction,
+  stripWrappingQuotesFromDrillRussianLine,
 } from './extractSingleTranslationNextSentence'
 
 describe('isTranslationNextRussianMetaInstruction', () => {
@@ -21,6 +22,18 @@ describe('isTranslationNextRussianMetaInstruction', () => {
   })
 })
 
+describe('stripWrappingQuotesFromDrillRussianLine', () => {
+  it('убирает ASCII-кавычки и лишнюю точку после закрывающей кавычки', () => {
+    expect(stripWrappingQuotesFromDrillRussianLine('"Я уже купил билеты на концерт.".')).toBe(
+      'Я уже купил билеты на концерт.'
+    )
+  })
+
+  it('убирает «ёлочки»', () => {
+    expect(stripWrappingQuotesFromDrillRussianLine('«Я люблю кофе.»')).toBe('Я люблю кофе.')
+  })
+})
+
 describe('extractSingleTranslationNextSentence', () => {
   it('returns null for meta tutor line so server can use fallback', () => {
     expect(
@@ -36,5 +49,11 @@ describe('extractSingleTranslationNextSentence', () => {
       'Я люблю играть с друзьями по вечерам.',
     ])
     expect(sentence).toBe('Я люблю играть с друзьями по вечерам.')
+  })
+
+  it('снимает кавычки с извлечённого предложения', () => {
+    expect(
+      extractSingleTranslationNextSentence(['Переведи далее: "Я уже купил билеты на концерт." .'])
+    ).toBe('Я уже купил билеты на концерт.')
   })
 })

@@ -11,6 +11,7 @@ import { speak } from '@/lib/speech'
 import { pickRecordingMimeType, shouldUseMediaRecorderFallback, sttLangFromLocale } from '@/lib/sttClient'
 import { normalizeWebSearchSourceUrl } from '@/lib/openAiWebSearchShared'
 import type { ChatMessage as ChatMessageType, Settings } from '@/lib/types'
+import { stripWrappingQuotesFromDrillRussianLine } from '@/lib/extractSingleTranslationNextSentence'
 import { stripTranslationCanonicalRepeatRefLine } from '@/lib/translationPromptAndRef'
 import { splitTranslationInvitation } from '@/lib/translationInvitationUi'
 import { PAGE_HOME_START_PRIMARY_BUTTON_CLASS } from '@/lib/homeCtaStyles'
@@ -125,10 +126,11 @@ function isGenericTranslationRepeatUiText(text: string | null): boolean {
 
 /** Убирает служебный префикс модели перед русским заданием в карточке «Переведи». */
 function stripTranslationMainMetaPrefixes(text: string): string {
-  return text
+  const withoutPrefix = text
     .replace(/^\s*(?:следующ(?:ее|ие)\s+предложени(?:е|я)\s*:\s*)+/i, '')
     .replace(/^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)(?:\s+далее)?\s*:\s*/i, '')
     .trim()
+  return stripWrappingQuotesFromDrillRussianLine(withoutPrefix)
 }
 
 /** Похвала — лёгкий зелёный тон; иначе янтарь (ошибка/коррекция), как до введения praise. */

@@ -301,7 +301,7 @@ export default function Home() {
 
   function normalizeSettingsForAudience(s: Settings): Settings {
     const normalizedLevel: Settings['level'] = s.level === 'starter' ? 'a1' : s.level
-    const normalizedTopic = s.mode === 'dialogue' ? 'free_talk' : s.topic
+    const normalizedTopic = s.topic
 
     if (s.audience !== 'child') {
       return {
