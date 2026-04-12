@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import type { AppMode, Audience, ChatMessage, LevelId, SentenceType, TenseId } from '@/lib/types'
+import type { AppMode, Audience, ChatMessage, LevelId, SentenceType, TenseId, TopicId } from '@/lib/types'
 import { CHILD_TENSES } from '@/lib/constants'
 import { getAllowedTensesForLevel } from '@/lib/levelAllowedTenses'
 import { detectLangFromText } from '@/lib/detectLang'
@@ -95,6 +95,7 @@ import { enrichDialogueCommentWithTypoHints } from '@/lib/dialogueCommentEnrichm
 import { compactDialogueComment } from '@/lib/dialogueCommentCompact'
 import { applyTranslationCommentCoachVoice } from '@/lib/translationCommentCoach'
 import { applyFreeTalkTopicChoiceTenseAnchorFallback } from '@/lib/freeTalkTopicChoiceAnchorFallback'
+import { buildStrictTopicPromptBlock } from '@/lib/topicGuardPrompts'
 import { buildCefrPromptBlock } from '@/lib/cefr/cefrSpec'
 import { applyCefrOutputGuard } from '@/lib/cefr/levelGuard'
 import { getCefrLevelConfig } from '@/lib/cefr/cefrConfig'
@@ -132,6 +133,7 @@ import {
   appendTranslationCanonicalRepeatRefLine,
   extractCanonicalRepeatRefEnglishFromContent,
   extractLastTranslationPromptFromMessages,
+  extractRussianTranslationTaskFromAssistantContent,
   getAssistantContentBeforeLastUser,
   TRAN_CANONICAL_REPEAT_REF_MARKER,
 } from '@/lib/translationPromptAndRef'
@@ -491,6 +493,10 @@ function buildSystemPrompt(params: {
     topic !== 'free_talk'
       ? `The conversation topic is ${topicName}. If the user's answer goes off this topic, do NOT follow their new topic. Ask the next question again about ${topicName} (or the subtopic they chose) and gently bring the conversation back.`
       : ''
+  const strictTopicRule =
+    mode === 'dialogue' || mode === 'translation'
+      ? buildStrictTopicPromptBlock({ topic: topic as TopicId, mode })
+      : ''
   const lowSignalGuardRule =
     mode === 'dialogue' && topic !== 'free_talk'
       ? `If the user's reply is obvious nonsense, trolling, or low-signal input (for example random letters like "sdfsdf", "asdf", repeated characters, or a reply that clearly is not a real answer), do NOT treat it as progress. Stay in tutor mode, gently explain that the answer is invalid, and keep the user on the same question path. Do not praise the input and do not follow the user's fake topic or joke.`
@@ -550,11 +556,20 @@ No other format. Output only the chat message text.`
     const tenseNameTr = TENSE_NAMES[trTense] ?? 'Present Simple'
     const drillSt = translationDrillSentenceType ?? sentenceType ?? 'mixed'
     const sentenceTypeNameTr = SENTENCE_TYPE_NAMES[drillSt] ?? 'mixed'
+    const likeLoveTranslationBlock =
+      trTense !== 'present_simple'
+        ? `${LIKE_LOVE_TRANSLATION_TUTOR_BLOCK}
+
+LIKE/LOVE scope: apply the like vs love rules above ONLY to correct like/love intensity. They MUST NOT pull the drill toward Present Simple or any tense other than Required tense (${tenseNameTr}). The Russian drill sentence and the learner's English must match Required tense.`
+        : LIKE_LOVE_TRANSLATION_TUTOR_BLOCK
     const translationDrillContract = `Russian drill sentence (the line before "Переведи на английский" on the first assistant turn, and the next Russian line after SUCCESS): contract for THIS turn only:
 - Exactly one Russian sentence for the task; target length 3–12 words (slightly longer is OK for natural questions or negatives if still clear).
-- Must simultaneously match: this topic, the CEFR level stated below, Required tense, and THIS turn sentence type (${sentenceTypeNameTr}).
+- Must simultaneously match ALL active controls for this turn: topic, CEFR level, Required tense, sentence type (${sentenceTypeNameTr}), and audience/style constraints stated below.
+- Required tense rule: write the Russian sentence so that its natural English translation should be in Required tense (${tenseNameTr}); do not default to a simpler tense if meaning can be stated with a clear marker for the required one.
 - Sentence type: if AFFIRMATIVE — declarative statement, not a question, not negative; if INTERROGATIVE — a real question in Russian; if NEGATIVE — clear negation (не / никогда / ничего etc. as fits).
-- Like vs love: mild "нравится"-type wording for neutral like; reserve "люблю/обожаю" only for stronger love — do not swap meanings.
+- Interest and clarity: prefer concrete everyday micro-situations and meaningful details; avoid dull textbook templates like "Я студент", "Это книга", while keeping the sentence unambiguous and easy to translate.
+- Session variation: if this is not the first drill sentence, keep the same topic and settings but vary subject/verb pattern and wording to avoid repeating the same construction from recent drills.
+- Like vs love: mild "нравится"-type wording for neutral like; reserve "люблю/обожаю" only for stronger love — do not swap meanings. This semantic rule MUST NOT override Required tense.
 - Avoid narrow cultural references on low levels (starter/A1/A2); stay unambiguous; do not mix English tenses inside the one Russian sentence; vocabulary must stay within the stated CEFR level.
 - Task line only: Комментарий lines follow existing audience register rules separately.`
 
@@ -567,11 +582,13 @@ ${audienceStyleRule}
 ${childTopicSafetyRule}
 ${styleRule}
 ${grammarFocusRule}
+${topicRetentionRule}
+${strictTopicRule}
 
-${LIKE_LOVE_TRANSLATION_TUTOR_BLOCK}
+${likeLoveTranslationBlock}
 
 When the conversation is empty (first assistant turn), output ONLY:
-1) one natural, conversational Russian sentence to translate
+1) one natural, conversational Russian sentence to translate that follows the Russian drill sentence contract above
 2) on the next line: "Переведи на английский."
 No extra lines.
 
@@ -584,7 +601,7 @@ SUCCESS protocol (if user answer is correct), strict order:
 - Line 4: "+: " + full affirmative English sentence (same meaning as correct user answer)
 - Line 5: "?: " + full interrogative English sentence in the same tense
 - Line 6: "-: " + full negative English sentence in the same tense
-- Line 7: NEXT natural Russian sentence on a new line. IMPORTANT: This MUST be a literal Russian sentence for the user to translate into English (e.g. "Я обычно ем яичницу на завтрак." or "Мое любимое время года — весна."). Do NOT output conversational instructions or prompts (e.g. NEVER write "Теперь скажите, что вы обычно едите.", "Переведи следующее:", "Теперь давай поговорим о...", "Давай поговорим о...", "Давайте обсудим...", "Сейчас мы...", "Попробуй перевести..."). No "давай/давайте поговорим" framing — only the actual sentence to translate. If you change the topic (e.g. from colors to seasons), encode it IN that one sentence, not as a meta invitation.
+- Line 7: NEXT natural Russian sentence on a new line. IMPORTANT: This MUST be a literal Russian sentence for the user to translate into English and it MUST follow the same Russian drill sentence contract for this turn (topic/level/required tense/sentence type/audience-style), while varying wording from the previous drill sentence. Do NOT output conversational instructions or prompts (e.g. NEVER write "Теперь скажите, что вы обычно едите.", "Переведи следующее:", "Теперь давай поговорим о...", "Давай поговорим о...", "Давайте обсудим...", "Сейчас мы...", "Попробуй перевести..."). No "давай/давайте поговорим" framing — only the actual sentence to translate. If you change the topic (e.g. from colors to seasons), encode it IN that one sentence, not as a meta invitation.
 - Line 8: "Переведи на английский."
 - In SUCCESS protocol do NOT output separate "Время:" line and do NOT output "Повтори:".
 
@@ -675,7 +692,7 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
     mode === 'dialogue' && tense === 'all'
       ? '\n\nALL-TENSES DIALOGUE (strict): When you output "Комментарий:" and "Повтори:", the English sentence after "Повтори:" MUST use the SAME grammar tense as YOUR IMMEDIATELY PREVIOUS assistant message in this chat (the last English question you asked, OR the last "Повтори:" sentence if the user is still correcting a repeat). Do NOT switch to another tense for convenience or "better style" (for example: do not output Present Perfect Continuous if your previous question was Future Perfect, or Present Simple when the question used Past Simple). Fix vocabulary and grammar only while keeping that tense alignment. This rule applies even in free topic conversations.'
       : ''
-  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${cefrPromptBlock} ${audienceStyleRule} ${childTopicSafetyRule} ${styleRule} ${grammarFocusRule} ${antiRobotRule} ${topicRetentionRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueRussianNaturalnessRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule}${repeatFreezeQuestionGuard} ${capitalizationRule} ${contractionRule} ${freeTalkFirstTurnLexiconRule} ${freeTalkRule}
+  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${cefrPromptBlock} ${audienceStyleRule} ${childTopicSafetyRule} ${styleRule} ${grammarFocusRule} ${antiRobotRule} ${topicRetentionRule} ${strictTopicRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueRussianNaturalnessRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule}${repeatFreezeQuestionGuard} ${capitalizationRule} ${contractionRule} ${freeTalkFirstTurnLexiconRule} ${freeTalkRule}
 
 ${LIKE_LOVE_DIALOGUE_TUTOR_BLOCK}
 
@@ -3397,21 +3414,7 @@ function ensureTranslationProtocolBlocks(
 }
 
 function ensureFirstTranslationInvitation(content: string, sentenceType: SentenceType = 'mixed'): string {
-  const taskLine = content
-    .split(/\r?\n/)
-    .map((l) => 
-      l
-        .replace(/^\s*(?:ai|assistant)\s*:\s*/i, '')
-        .replace(/\s*(?:\d+\)\s*)?(?:Переведи|Переведите)[^.]*\.\s*/gi, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-    )
-    .filter(Boolean)
-    .find(
-      (line) =>
-        !/^(Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Повтори_перевод|Повтори|Repeat|Say)\s*:/i.test(line) &&
-        !/^[+\?-]\s*:/i.test(line)
-    )
+  const taskLine = extractRussianTranslationTaskFromAssistantContent(content)
 
   if (!taskLine) return 'Переведи на английский.'
   const normalized = normalizeDrillRuSentenceForSentenceType(taskLine, sentenceType)
@@ -3820,6 +3823,45 @@ function getTranslationRepeatSentence(content: string): string | null {
     .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*/i, '')
     .trim()
   return repeatText || null
+}
+
+/**
+ * Первый ход перевода: если «естественный» эталонный EN к русской строке не в Required tense,
+ * подменяем только строку задания на детерминированный fallback (цикл Повтори/проверки не трогаем).
+ */
+async function ensureFirstTranslationDrillMatchesRequiredTense(params: {
+  content: string
+  topic: string
+  tense: string
+  level: string
+  audience: Audience
+  sentenceType: SentenceType
+  seedText: string
+  provider: Provider
+  req: NextRequest
+}): Promise<string> {
+  if (params.tense === 'all') return params.content
+  const ru = extractRussianTranslationTaskFromAssistantContent(params.content)
+  if (!ru?.trim()) return params.content
+  const gold = await translateRussianPromptToGoldEnglish({
+    ruSentence: ru.trim(),
+    level: params.level as LevelId,
+    audience: params.audience,
+    provider: params.provider,
+    req: params.req,
+  })
+  if (!gold?.trim()) return params.content
+  if (isUserLikelyCorrectForTense(gold, params.tense)) return params.content
+  const replacement = fallbackTranslationSentenceForContext({
+    topic: params.topic,
+    tense: params.tense,
+    level: params.level,
+    audience: params.audience,
+    seedText: `${params.seedText}|guard|${ru.slice(0, 80)}`,
+    sentenceType: params.sentenceType,
+  })
+  const rebuilt = `${replacement.trim()}\nПереведи на английский.`
+  return ensureFirstTranslationInvitation(rebuilt, params.sentenceType)
 }
 
 /** Финальная нормализация ответа перевода: enforce «Повтори»/«Повтори_перевод», sanitize, скрытый __TRAN__. */
@@ -4744,6 +4786,11 @@ function enrichTranslationCommentQuality(params: {
   const { content, userText, repeatSentence, tense, groundTruthRepeatEnglish } = params
   if (!repeatSentence) return content
   if (isGenericTranslationRepeatFallback(repeatSentence)) return content
+  // Если пользователь фактически повторил ту же фразу (с учётом нормализации),
+  // не добавляем лексические "замены по позиции" вроде already -> made.
+  if (isTranslationAnswerEffectivelyCorrect(userText, repeatSentence)) {
+    return content
+  }
   if (groundTruthRepeatEnglish?.trim()) {
     if (isTranslationAnswerEffectivelyCorrect(userText, groundTruthRepeatEnglish.trim())) {
       return content
@@ -7308,6 +7355,19 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               sentenceType: translationDrillSentenceType,
             })
           : ensureTranslationRepeatFallbackForMixedInput(translationGuard.content, lastUserContentForResponse)
+      if (isFirstTurn) {
+        guardedContent = await ensureFirstTranslationDrillMatchesRequiredTense({
+          content: guardedContent,
+          topic,
+          tense: translationDrillTense,
+          level: translationDrillLevel,
+          audience: audience as Audience,
+          sentenceType: translationDrillSentenceType,
+          seedText: dialogSeed,
+          provider,
+          req,
+        })
+      }
       guardedContent = await finalizeTranslationResponsePayload({
         content: guardedContent,
         nonSystemMessages,

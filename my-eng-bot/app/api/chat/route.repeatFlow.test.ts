@@ -1523,5 +1523,95 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).toContain('?: Do you cook every day?')
   })
 
+  it('first translation turn applies negative sentenceType even with "Переведи далее" prefix', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Переведи далее: Я уже посмотрел несколько хороших фильмов в этом месяце.\nПереведи на английский.',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'I have already watched several good movies this month.',
+      })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'movies_series',
+      audience: 'adult',
+      level: 'b1',
+      sentenceType: 'negative',
+      tenses: ['present_perfect'],
+      messages: [],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).not.toContain('Переведи далее:')
+    expect(data.content).toContain('Я ещё не посмотрел несколько хороших фильмов в этом месяце.')
+    expect(data.content).not.toContain('Комментарий:')
+  })
+
+  it('first translation turn applies negative sentenceType for "Мне нравится ..."', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Переведи: Мне нравится слушать музыку.\nПереведи на английский.',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'I like listening to music.',
+      })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'music',
+      audience: 'adult',
+      level: 'a1',
+      sentenceType: 'negative',
+      tenses: ['present_simple'],
+      messages: [],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Мне не нравится слушать музыку.')
+    expect(data.content).not.toContain('Мне нравится слушать музыку.')
+    expect(data.content).not.toContain('Переведи:')
+    expect(data.content).not.toContain('Комментарий:')
+  })
+
+  it('next translation sentence after SUCCESS keeps selected sentenceType', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: Отлично! Ты правильно использовал Present Perfect.\nКонструкция: Subject + have/has + V3.\nФормы:\n+: I have already watched several good movies this month.\n?: Have you already watched several good movies this month?\n-: I have not watched several good movies this month.\nПереведи далее: Я уже посмотрел несколько хороших фильмов в этом месяце.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'movies_series',
+      audience: 'adult',
+      level: 'b1',
+      sentenceType: 'negative',
+      tenses: ['present_perfect'],
+      messages: [
+        { role: 'assistant', content: 'Я уже посмотрел этот фильм.\nПереведи на английский.' },
+        { role: 'user', content: 'I have already watched this movie.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).not.toContain('Переведи далее:')
+    expect(data.content).toContain('Я ещё не посмотрел несколько хороших фильмов в этом месяце.')
+    expect(data.content).toContain('Переведи на английский.')
+  })
+
 })
 

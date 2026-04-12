@@ -34,8 +34,6 @@ function isRepeatCuePlausibleForRuPrompt(ruPrompt: string | null, englishCue: st
 }
 
 function extractRefOrRepeatEnglishFromAssistantCard(content: string): string | null {
-  const ref = extractCanonicalRepeatRefEnglishFromContent(content)
-  if (ref?.trim()) return ref.trim()
   const lineRe = /^[\s\-•]*(?:\d+[\.)]\s*)*(?:Повтори|Repeat|Say|Скажи)\s*:\s*(.+)$/i
   for (const line of content.split(/\r?\n/)) {
     const trimmed = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
@@ -45,6 +43,8 @@ function extractRefOrRepeatEnglishFromAssistantCard(content: string): string | n
       return body.replace(/^\s*(?:Повтори|Repeat|Say|Скажи)\s*:\s*/i, '').trim() || body
     }
   }
+  const ref = extractCanonicalRepeatRefEnglishFromContent(content)
+  if (ref?.trim()) return ref.trim()
   return null
 }
 
@@ -73,7 +73,9 @@ function extractLastRepeatTransCueEnglishFromAssistantContent(content: string): 
  * Внутри сегмента: «Повтори_перевод:» согласуется с русским промптом по ключевым словам; при нескольких —
  * максимум пересечения с ответом пользователя, при равенстве — более ранняя карточка.
  *
- * Иначе эталон с карточки перед user (__TRAN__ / Повтори); если не бьётся с промптом — с карточки-источника задания.
+ * Иначе эталон с карточки перед user (видимый Повтори / __TRAN_REPEAT_REF__);
+ * приоритет у видимого Повтори (то, что реально видит ученик).
+ * Если не бьётся с промптом — берём с карточки-источника задания.
  */
 export function extractPriorAssistantRepeatEnglish(
   messages: ReadonlyArray<{ role: string; content: string }>

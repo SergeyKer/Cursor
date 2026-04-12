@@ -13,7 +13,6 @@ function stableHash32(input: string): number {
 function hasRussianNegationHint(s: string): boolean {
   const t = s.replace(/\s+/g, ' ').trim()
   if (/(?:^|[\s,;])(?:не|ни|нет|никогда|ничего|никому|нигде)(?=[\s,.!?…]|$)/iu.test(t)) return true
-  if (/(?:^|\s)не[а-яё]{2,}/iu.test(t)) return true
   return /\b(не|ни|нет|никогда|ничего|никому|нигде)\b/i.test(t)
 }
 
@@ -36,11 +35,12 @@ function applyRuSentenceTypeForDrill(sentence: string, sentenceType: SentenceTyp
     return /[.!?…]$/.test(raw) ? raw : `${raw}.`
   }
 
+  const cyrBoundary = '(?=\\s|[,.!?…]|$)'
   let u = raw
-    .replace(/^Я люблю\b/i, 'Я не люблю')
-    .replace(/^Мне нравится\b/i, 'Мне не нравится')
-    .replace(/^Мы любим\b/i, 'Мы не любим')
-    .replace(/^Я работаю\b/i, 'Я не работаю')
+    .replace(new RegExp(`^Я люблю${cyrBoundary}`, 'i'), 'Я не люблю')
+    .replace(new RegExp(`^Мне нравится${cyrBoundary}`, 'i'), 'Мне не нравится')
+    .replace(new RegExp(`^Мы любим${cyrBoundary}`, 'i'), 'Мы не любим')
+    .replace(new RegExp(`^Я работаю${cyrBoundary}`, 'i'), 'Я не работаю')
     .replace(/^Я сейчас ([А-Яа-яЁё]+)/i, 'Я сейчас не $1')
     .replace(/^Мы сейчас ([А-Яа-яЁё]+)/i, 'Мы сейчас не $1')
     .replace(/^Я обычно ([А-Яа-яЁё]+)/i, 'Я обычно не $1')
@@ -52,7 +52,7 @@ function applyRuSentenceTypeForDrill(sentence: string, sentenceType: SentenceTyp
     .replace(/^Я уже ([А-Яа-яЁё]+)/i, 'Я ещё не $1')
     .replace(/^Мы уже ([А-Яа-яЁё]+)/i, 'Мы ещё не $1')
     .replace(/^Я буду ([А-Яа-яЁё]+)/i, 'Я не буду $1')
-    .replace(/^Я пришёл\b/i, 'Я не пришёл')
+    .replace(new RegExp(`^Я пришёл${cyrBoundary}`, 'i'), 'Я не пришёл')
 
   if (!hasRussianNegationHint(u)) {
     u = u.replace(/^Я ([А-Яа-яЁё][а-яё]*)/i, 'Я не $1').replace(/^Мы ([А-Яа-яЁё][а-яё]*)/i, 'Мы не $1')
@@ -113,14 +113,42 @@ export function fallbackTranslationSentenceForContext(params: {
     )
   }
   if (tense === 'present_perfect') {
-    return finish(
-      pick([
-        'Я уже прочитал книгу.',
-        'Я уже сделал домашнее задание.',
-        'Мы уже поужинали.',
-        basic ? 'Я уже увидел это.' : 'Я уже решил эту задачу.',
-      ])
-    )
+    const genericPool = [
+      'Я уже прочитал книгу.',
+      'Я уже сделал домашнее задание.',
+      'Мы уже поужинали.',
+      basic ? 'Я уже увидел это.' : 'Я уже решил эту задачу.',
+    ]
+    const topicPresentPerfect: Record<string, string[]> = {
+      music: [
+        'Я уже слышал эту песню столько раз, что знаю её наизусть.',
+        'Ты когда-нибудь был на живом концерте?',
+        'Мы уже послушали новый альбом целиком.',
+      ],
+      work: [
+        'Я уже отправил это письмо клиенту.',
+        'Мы уже обсудили этот вопрос на планёрке.',
+        'Я уже сдал отчёт в срок.',
+      ],
+      travel: [
+        'Я уже бывал в этой стране дважды.',
+        'Ты когда-нибудь летал дальним рейсом?',
+        'Мы уже забронировали отель на выходные.',
+      ],
+      hobbies: [
+        'Я уже закончил этот рисунок.',
+        'Ты когда-нибудь играл в шахматы всерьёз?',
+        'Мы уже собрали новый пазл за вечер.',
+      ],
+      movies_series: [
+        'Я уже смотрел этот фильм три раза.',
+        'Ты когда-нибудь досматривал сериал до конца за одну ночь?',
+        'Мы уже обсудили финал сериала.',
+      ],
+    }
+    const extra = topicPresentPerfect[topic] ?? []
+    const pool = extra.length > 0 ? [...extra, ...genericPool] : genericPool
+    return finish(pick(pool))
   }
   if (tense === 'present_perfect_continuous') {
     return finish(

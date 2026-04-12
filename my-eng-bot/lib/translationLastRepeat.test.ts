@@ -76,12 +76,12 @@ describe('extractPriorAssistantRepeatEnglish', () => {
     expect(extractPriorAssistantRepeatEnglish(messages)).toBe('What is your favorite color?')
   })
 
-  it('скрытый __TRAN_REPEAT_REF__ важнее видимого Повтори, если нет Повтори_перевод', () => {
+  it('видимый Повтори важнее скрытого __TRAN_REPEAT_REF__, если нет Повтори_перевод', () => {
     const messages = [
       { role: 'assistant', content: 'Повтори: Visible line.\n__TRAN_REPEAT_REF__: Hidden line.' },
       { role: 'user', content: 'x' },
     ]
-    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Hidden line.')
+    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Visible line.')
   })
 
   it('эталон для enforce — скрытая строка с карточки «Переведи далее», не старое Повтори из истории', () => {
