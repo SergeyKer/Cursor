@@ -591,7 +591,7 @@ LIKE/LOVE scope: apply the like vs love rules above ONLY to correct like/love in
 - Sentence type: if AFFIRMATIVE — declarative statement, not a question, not negative; if INTERROGATIVE — a real question in Russian; if NEGATIVE — clear negation (не / никогда / ничего etc. as fits).
 - Interest and clarity: prefer concrete everyday micro-situations and meaningful details; avoid dull textbook templates like "Я студент", "Это книга", while keeping the sentence unambiguous and easy to translate.
 - Session variation: if this is not the first drill sentence, keep the same topic and settings but vary subject/verb pattern and wording to avoid repeating the same construction from recent drills.
-- Like vs love: mild "нравится"-type wording for neutral like; reserve "люблю/обожаю" only for stronger love — do not swap meanings. This semantic rule MUST NOT override Required tense.
+- Like vs love: align Russian with intended English intensity — neutral "нравится" pairs with mild English "like"; Russian "люблю" for habits/activities/things often still maps to English "like" (e.g. cooking, walking); use Russian cues for strong "love" in English when the meaning is close bonds or clear passion ("обожаю", family, etc.). For pets, the English answer may use either "like" or "love". Do not swap other meanings. This semantic rule MUST NOT override Required tense.
 - Avoid narrow cultural references on low levels (starter/A1/A2); stay unambiguous; do not mix English tenses inside the one Russian sentence; vocabulary must stay within the stated CEFR level.
 - Task line only: Комментарий lines follow existing audience register rules separately.`
 
