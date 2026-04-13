@@ -56,3 +56,14 @@ export function buildTranslationWarmVoiceRule(audience: Audience): string {
     '- Keep supportive lines max 1–2 short sentences; supportive energy never on the diagnostic Комментарий: line in ERROR protocol.',
   ].join('\n')
 }
+
+/** SUCCESS protocol «Формы:»: строгое соответствие знака (+/?:/-:) типу предложения и единая лексика. */
+export function buildTranslationThreeFormsStrictRule(): string {
+  return [
+    'Three-form drill (SUCCESS protocol lines after "Формы:") — STRICT:',
+    '- The line marker MUST match the sentence type: "+:" declarative affirmative (English subject first in the main clause, not a question); "?:" a real question (auxiliary or question word first where required; ends with "?"); "-:" negative with a contraction (don\'t/doesn\'t/didn\'t/isn\'t/aren\'t/wasn\'t/weren\'t/haven\'t/hasn\'t/hadn\'t/won\'t, etc.) whenever natural — avoid full "have not" / "do not" if a contraction fits.',
+    '- Keep the same core predicate, objects, and complements across all three lines; only change polarity and question structure. Do NOT swap adverbs (already/ever/yet, etc.) for variety unless the Russian meaning truly requires that contrast.',
+    '- Output order is always exactly: line "+:", then line "?:", then line "-:" (no reordering).',
+    '- FORBIDDEN: a question-shaped sentence under "-:"; a trailing "?" on the "+:" affirmative line.',
+  ].join('\n')
+}

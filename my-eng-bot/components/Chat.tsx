@@ -107,13 +107,24 @@ function bubbleRadiusClass(isUser: boolean, pos: BubblePosition): string {
   return 'rounded-[1.2825rem] rounded-tl-lg rounded-bl-md'
 }
 
-/** UI блока «Прочитай вслух»: префиксы +:/?:/-: → «- », текст с новой строки под заголовком. */
-function formatThreeFormsForCard(raw: string): string {
+/**
+ * UI блока «Прочитай вслух»: префиксы +: / ?: / -: → «+ » / «? » / «- » перед текстом,
+ * чтобы знак совпадал с типом предложения; тело с новой строки под заголовком.
+ */
+export function formatThreeFormsForCard(raw: string): string {
   const lines = raw
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean)
-  const body = lines.map((line) => line.replace(/^[+?-]\s*:\s*/, '- ')).join('\n')
+  const body = lines
+    .map((line) => {
+      const m = /^([+?-])\s*:\s*(.*)$/i.exec(line)
+      if (!m) return line
+      const sign = m[1] ?? ''
+      const rest = (m[2] ?? '').trim()
+      return rest ? `${sign} ${rest}` : sign
+    })
+    .join('\n')
   return body ? `\n${body}` : ''
 }
 

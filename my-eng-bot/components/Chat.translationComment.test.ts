@@ -6,6 +6,7 @@ import {
   commentToneForContent,
   condenseTranslationCommentToErrors,
   filterTranslationErrorsDisplayText,
+  formatThreeFormsForCard,
   parseTranslationCoachBlocks,
   translationResponseHasSuccessShape,
 } from './Chat'
@@ -42,6 +43,19 @@ describe('condenseTranslationCommentToErrors', () => {
         'Используется основное "love" без "s".',
         'Ошибка числа: используйте love в единственном числе.',
       ].join('\n')
+    )
+  })
+})
+
+describe('formatThreeFormsForCard', () => {
+  it('сохраняет знаки + ? − вместо подмены на дефис-буллет', () => {
+    const raw = [
+      '+: I have done my homework.',
+      '?: Have you done your homework?',
+      '-: I haven\'t done my homework yet.',
+    ].join('\n')
+    expect(formatThreeFormsForCard(raw)).toBe(
+      `\n${['+ I have done my homework.', '? Have you done your homework?', "- I haven't done my homework yet."].join('\n')}`
     )
   })
 })

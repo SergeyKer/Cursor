@@ -47,6 +47,7 @@ import { ADVERB_PLACEMENT_TUTOR_BLOCK } from '@/lib/adverbPlacementPrompt'
 import {
   buildTranslationChildStrategicEmojiRule,
   buildTranslationSingleTenseExplanationRule,
+  buildTranslationThreeFormsStrictRule,
   buildTranslationWarmVoiceRule,
 } from '@/lib/learnerEngagementPrompt'
 import {
@@ -570,6 +571,7 @@ LIKE/LOVE scope: apply the like vs love rules above ONLY to correct like/love in
         : LIKE_LOVE_TRANSLATION_TUTOR_BLOCK
     const translationEngagementBlock = [
       buildTranslationSingleTenseExplanationRule(),
+      buildTranslationThreeFormsStrictRule(),
       buildTranslationWarmVoiceRule(audience as Audience),
       audience === 'child' ? buildTranslationChildStrategicEmojiRule() : '',
     ]
