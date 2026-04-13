@@ -3423,6 +3423,16 @@ function ensureTranslationProtocolBlocks(
       errorsBlock = merged
     }
   }
+  const needsErrorProtocol = Boolean(repeat) && !hasPraise && !hasTranslationFormsBlock(content)
+  if (needsErrorProtocol && !(supportBlock?.trim() ?? '')) {
+    supportBlock =
+      params.audience === 'child'
+        ? '💡 Хорошее начало! Исправь главную неточность по образцу ниже и повтори предложение целиком.'
+        : '💡 Хорошая основа. Исправьте основную неточность по образцу ниже и повторите предложение целиком.'
+  }
+  if (needsErrorProtocol && !(String(errorsBlock ?? '').trim())) {
+    errorsBlock = commentBodyOnly ? `🤔 ${commentBodyOnly}` : '🤔 Исправьте основную ошибку по образцу.'
+  }
 
   const out: string[] = []
   const supportTrim = supportBlock != null ? String(supportBlock).trim() : ''
@@ -4517,7 +4527,7 @@ function buildTranslationMissingRepeatRepairInstruction(params: {
     'Do not borrow words from the user\'s answer to build that sentence if they conflict with the Russian prompt.',
     'Never write placeholders like "Write the correct English translation of the given Russian sentence."',
     fallbackPrompt ? `The Russian phrase to correct is: "${fallbackPrompt}"` : null,
-    'Keep the visible protocol only: Комментарий / Время / Конструкция / Повтори.',
+    'Keep the visible protocol only: Комментарий_перевод / Комментарий / Ошибки / Время / Конструкция / Повтори_перевод / Повтори.',
   ]
     .filter(Boolean)
     .join(' ')

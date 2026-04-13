@@ -8,6 +8,7 @@ import {
   filterTranslationErrorsDisplayText,
   formatThreeFormsForCard,
   parseTranslationCoachBlocks,
+  stripTranslationMainMetaPrefixes,
   translationResponseHasSuccessShape,
 } from './Chat'
 
@@ -231,5 +232,12 @@ describe('translationSuccessPraiseCard UI', () => {
     expect(praiseSection?.text).toBe(praise)
     const main = sections.find((s) => s.key === 'main')
     expect(main?.text).toBe(drill)
+  })
+})
+
+describe('stripTranslationMainMetaPrefixes', () => {
+  it('убирает служебное "На следующую тему:" после "Переведи далее:"', () => {
+    const raw = 'Переведи далее: На следующую тему: Какой ваш любимый фильм?'
+    expect(stripTranslationMainMetaPrefixes(raw)).toBe('Какой ваш любимый фильм?')
   })
 })

@@ -166,10 +166,11 @@ function isGenericTranslationRepeatUiText(text: string | null): boolean {
 }
 
 /** Убирает служебный префикс модели перед русским заданием в карточке «Переведи». */
-function stripTranslationMainMetaPrefixes(text: string): string {
+export function stripTranslationMainMetaPrefixes(text: string): string {
   const withoutPrefix = text
     .replace(/^\s*(?:следующ(?:ее|ие)\s+предложени(?:е|я)\s*:\s*)+/i, '')
     .replace(/^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)(?:\s+далее)?\s*:\s*/i, '')
+    .replace(/^\s*(?:на\s+)?следующ(?:ую|ие)\s+тем(?:у|ы)\s*:\s*/i, '')
     .trim()
   return stripWrappingQuotesFromDrillRussianLine(withoutPrefix)
 }

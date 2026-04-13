@@ -1212,9 +1212,12 @@ describe('POST /api/chat repeat cycle stability', () => {
     const data = await res.json() as { content: string }
 
     expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий_перевод:')
     expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Ошибки:')
     expect(data.content).toContain('Время:')
     expect(data.content).toContain('Конструкция:')
+    expect(data.content).toContain('Повтори_перевод:')
     expect(data.content).toContain('Повтори:')
     expect(data.content).not.toContain('Я часто хожу в парк.')
     expect(data.content).not.toContain('Переведи на английский.')
