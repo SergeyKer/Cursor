@@ -1,14 +1,27 @@
 const BULB = '💡'
 
 /**
- * Убирает ведущие 💡 с первой строки: в UI карточка уже показывает метку «💡», иначе получается двойная лампа.
+ * Убирает все 💡 из текста: в UI карточка уже показывает метку «💡» один раз (на любой строке тела дубли не нужны).
  */
 export function stripLeadingBulbEmojisForPrefixedCard(text: string): string {
   if (!text?.trim()) return text
-  const lines = text.split(/\r?\n/)
-  const first = (lines[0] ?? '').replace(/^(?:\s*💡)+\s*/u, '')
-  lines[0] = first
-  return lines.join('\n').trim()
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/💡/gu, '').replace(/\s+/g, ' ').trim())
+    .filter((line) => line.length > 0)
+    .join('\n')
+    .trim()
+}
+
+/** Аналогично для карточки с меткой «✅» (успех в переводе). */
+export function stripCheckEmojisForPrefixedCard(text: string): string {
+  if (!text?.trim()) return text
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/✅/gu, '').replace(/\s+/g, ' ').trim())
+    .filter((line) => line.length > 0)
+    .join('\n')
+    .trim()
 }
 
 /**
@@ -58,7 +71,7 @@ export function normalizeTranslationBulbEmojisInContent(content: string): string
         const next = lines[i] ?? ''
         if (/^\s*(?:\d+[\.)]\s*)*Комментарий(?!_)\s*:/i.test(next)) break
         if (
-          /^\s*(?:\d+[\.)]\s*)*(Ошибки|Время|Конструкция|Формы|Повтори_перевод|Повтори|Repeat|Say|Переведи|Следующ)/i.test(
+          /^\s*(?:\d+[\.)]\s*)*(Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say|Переведи|Следующ)/i.test(
             next
           )
         ) {
@@ -80,7 +93,7 @@ export function normalizeTranslationBulbEmojisInContent(content: string): string
       while (i < lines.length) {
         const next = lines[i] ?? ''
         if (
-          /^\s*(?:\d+[\.)]\s*)*(Комментарий_перевод|Ошибки|Время|Конструкция|Формы|Повтори_перевод|Повтори|Repeat|Say|Переведи|Следующ|Комментарий)\s*:/i.test(
+          /^\s*(?:\d+[\.)]\s*)*(Комментарий_перевод|Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say|Переведи|Следующ|Комментарий)\s*:/i.test(
             next
           )
         ) {

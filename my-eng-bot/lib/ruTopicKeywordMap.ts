@@ -49,6 +49,11 @@ export const RU_TOPIC_KEYWORD_TO_EN: Record<string, string> = {
   кошки: 'cats',
   собака: 'dog',
   собаки: 'dogs',
+  питомец: 'pet',
+  питомца: 'pet',
+  питомцу: 'pet',
+  питомцем: 'pet',
+  питомцы: 'pets',
   животные: 'animals',
   семья: 'family',
   /** Склонения «семья», иначе extractPromptKeywords не видит family и alignRepeatKeywords подменяет его на другое слово из промпта. */

@@ -10,21 +10,21 @@ import {
 
 describe('extractRussianTranslationTaskFromAssistantContent', () => {
   it('извлекает русский из строки «Переведи далее: …»', () => {
-    const content = 'Переведи далее: Я обычно читаю книги перед сном.\nПереведи на английский.'
+    const content = 'Переведи далее: Я обычно читаю книги перед сном.\nПереведи на английский язык.'
     expect(extractRussianTranslationTaskFromAssistantContent(content)).toBe(
       'Я обычно читаю книги перед сном.'
     )
   })
 
   it('убирает кавычки вокруг русского задания', () => {
-    const content = 'Переведи далее: "Я уже купил билеты на концерт.".\nПереведи на английский.'
+    const content = 'Переведи далее: "Я уже купил билеты на концерт.".\nПереведи на английский язык.'
     expect(extractRussianTranslationTaskFromAssistantContent(content)).toBe(
       'Я уже купил билеты на концерт.'
     )
   })
 
   it('не путает «Переведи на английский.» без задания в той же строке с русским текстом', () => {
-    const content = 'Переведи на английский.\nЯ люблю кофе.'
+    const content = 'Переведи на английский язык.\nЯ люблю кофе.'
     expect(extractRussianTranslationTaskFromAssistantContent(content)).toBe('Я люблю кофе.')
   })
 
@@ -49,7 +49,7 @@ describe('appendTranslationCanonicalRepeatRefLine', () => {
       '?: Do you usually read books before bed?',
       '-: I do not usually read books before bed.',
       'Переведи далее: Я обычно читаю книги перед сном.',
-      'Переведи на английский.',
+      'Переведи на английский язык.',
     ].join('\n')
     const ru = extractRussianTranslationTaskFromAssistantContent(card)
     expect(ru).toContain('Я обычно читаю')
@@ -66,7 +66,7 @@ describe('appendTranslationCanonicalRepeatRefLine', () => {
       '?: Have I always liked listening to music in my free time?',
       '-: I have not always liked listening to music in my free time.',
       'Переведи далее: Мне всегда нравилось слушать музыку в свободное время?',
-      'Переведи на английский.',
+      'Переведи на английский язык.',
     ].join('\n')
     const ru = extractRussianTranslationTaskFromAssistantContent(card)
     expect(ru).toMatch(/\?$/)
@@ -87,7 +87,7 @@ describe('extractLastTranslationPromptFromMessages', () => {
     const messages = [
       { role: 'assistant', content: 'Старое задание на русском.' },
       { role: 'user', content: 'ok' },
-      { role: 'assistant', content: 'Переведи далее: Новое предложение.\nПереведи на английский.' },
+      { role: 'assistant', content: 'Переведи далее: Новое предложение.\nПереведи на английский язык.' },
     ]
     expect(extractLastTranslationPromptFromMessages(messages)).toBe('Новое предложение.')
   })
@@ -97,13 +97,13 @@ describe('extractLastTranslationPromptFromMessages', () => {
       {
         role: 'assistant',
         content:
-          'Комментарий: Молодец!\nФормы:\n+: I love books.\nПереведи далее: Я люблю читать книги.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I love to read books.',
+          'Комментарий: Молодец!\nФормы:\n+: I love books.\nПереведи далее: Я люблю читать книги.\nПереведи на английский язык.\n__TRAN_REPEAT_REF__: I love to read books.',
       },
       { role: 'user', content: 'wrong' },
       {
         role: 'assistant',
         content:
-          'Комментарий_перевод: Похвала про like.\nКомментарий: Ошибка.\nПовтори_перевод: Do you like to read books?\nПовтори: Do you like to read books?',
+          'Комментарий_перевод: Похвала про like.\nКомментарий: Ошибка.\nСкажи: Do you like to read books?\nПовтори: Do you like to read books?',
       },
       { role: 'user', content: 'Do you like read book' },
     ]

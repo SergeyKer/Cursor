@@ -19,8 +19,9 @@ export async function translateRussianPromptToGoldEnglish(params: {
   audience: Audience
   provider: 'openrouter' | 'openai'
   req: NextRequest
+  openAiChatPreset?: 'gpt-4o-mini' | 'gpt-5.4-mini-none' | 'gpt-5.4-mini-low'
 }): Promise<string | null> {
-  const { ruSentence, level, audience, provider, req } = params
+  const { ruSentence, level, audience, provider, req, openAiChatPreset = 'gpt-4o-mini' } = params
   const trimmed = ruSentence.replace(/\s+/g, ' ').trim()
   if (!trimmed || !/[А-Яа-яЁё]/.test(trimmed)) return null
 
@@ -41,6 +42,7 @@ export async function translateRussianPromptToGoldEnglish(params: {
         { role: 'user', content: trimmed },
       ],
       maxTokens: 64,
+      openAiChatPreset,
     })
   } catch {
     return null

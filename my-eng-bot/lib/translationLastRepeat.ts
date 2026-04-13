@@ -49,14 +49,14 @@ function extractRefOrRepeatEnglishFromAssistantCard(content: string): string | n
 }
 
 /**
- * Последняя строка «Повтори_перевод:» в тексте одной карточки ассистента (английский эталон для UI).
+ * Последняя строка «Скажи:» в тексте одной карточки ассистента (английский эталон для UI).
  */
 function extractLastRepeatTransCueEnglishFromAssistantContent(content: string): string | null {
   let last: string | null = null
   const lines = content.split(/\r?\n/)
   for (const line of lines) {
     const trimmed = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
-    const m = /^[\s\-•]*(?:\d+[\.)]\s*)*Повтори_перевод\s*:\s*(.+)$/i.exec(trimmed)
+    const m = /^[\s\-•]*(?:\d+[\.)]\s*)*Скажи\s*:\s*(.+)$/i.exec(trimmed)
     if (!m?.[1]) continue
     const cleaned = stripLeadingRepeatRuPrompt(m[1].trim()).trim()
     if (cleaned) last = cleaned
@@ -68,9 +68,9 @@ function extractLastRepeatTransCueEnglishFromAssistantContent(content: string): 
  * Эталон для «Повтори» / enforce (режим перевода).
  *
  * Учитывается только сегмент **текущего** «Переведи / Переведи далее»: карточки **раньше** индекса
- * последнего ассистента с этим русским заданием игнорируются (не подтягиваем Повтори_перевод из прошлой темы).
+ * последнего ассистента с этим русским заданием игнорируются (не подтягиваем Скажи из прошлой темы).
  *
- * Внутри сегмента: «Повтори_перевод:» согласуется с русским промптом по ключевым словам; при нескольких —
+ * Внутри сегмента: «Скажи:» согласуется с русским промптом по ключевым словам; при нескольких —
  * максимум пересечения с ответом пользователя, при равенстве — более ранняя карточка.
  *
  * Иначе эталон с карточки перед user (видимый Повтори / __TRAN_REPEAT_REF__);

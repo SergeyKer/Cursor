@@ -5,6 +5,7 @@ import { hasRequiredTheoryStructure, isValidLessonBlueprint } from '@/lib/lesson
 
 type Body = {
   provider?: AiProvider
+  openAiChatPreset?: 'gpt-4o-mini' | 'gpt-5.4-mini-none' | 'gpt-5.4-mini-low'
   topic?: string
   level?: string
   audience?: string
@@ -71,6 +72,12 @@ export async function POST(req: NextRequest) {
   }
 
   const provider: AiProvider = body.provider === 'openrouter' ? 'openrouter' : 'openai'
+  const openAiChatPreset =
+    body.openAiChatPreset === 'gpt-5.4-mini-none'
+      ? 'gpt-5.4-mini-none'
+      : body.openAiChatPreset === 'gpt-5.4-mini-low'
+        ? 'gpt-5.4-mini-low'
+        : 'gpt-4o-mini'
   const topic = (body.topic ?? '').trim()
   if (!topic) {
     return NextResponse.json({ error: 'Тема для урока не передана.' }, { status: 400 })
@@ -113,6 +120,7 @@ export async function POST(req: NextRequest) {
       { role: 'user', content: user },
     ],
     maxTokens: 1000,
+    openAiChatPreset,
   })
 
   if (!model.ok) {

@@ -33,6 +33,7 @@ export async function rewriteWebSearchAnswerForLearner(params: {
   userQuery: string
   /** Для level === "all": короткие образцы речи пользователя (латиница), чтобы не уходить сложнее их. */
   learnerEnglishSamples?: string[]
+  openAiChatPreset?: 'gpt-4o-mini' | 'gpt-5.4-mini-none' | 'gpt-5.4-mini-low'
 }): Promise<string | null> {
   return simplifyEnglishAnswerForLearner({
     provider: params.provider,
@@ -59,6 +60,7 @@ export async function simplifyEnglishAnswerForLearner(params: {
   sourceKind?: 'web_search' | 'chat'
   previousDraftTooHard?: boolean
   requireFactualSummary?: boolean
+  openAiChatPreset?: 'gpt-4o-mini' | 'gpt-5.4-mini-none' | 'gpt-5.4-mini-low'
 }): Promise<string | null> {
   const raw = params.rawAnswer.trim()
   if (!raw) return null
@@ -123,6 +125,7 @@ export async function simplifyEnglishAnswerForLearner(params: {
       { role: 'user', content: user },
     ],
     maxTokens,
+    openAiChatPreset: params.openAiChatPreset,
   })
 
   if (!res.ok) return null

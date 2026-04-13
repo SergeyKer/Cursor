@@ -57,6 +57,33 @@ describe('translationMode', () => {
         normalizeDrillRuSentenceForSentenceType('Я уже посмотрел несколько хороших фильмов в этом месяце.', 'negative')
       ).toBe('Я ещё не посмотрел несколько хороших фильмов в этом месяце.')
     })
+
+    it('negates duration drill «уже несколько дней …» by inserting «не» before the verb, not before «несколько»', () => {
+      expect(
+        normalizeDrillRuSentenceForSentenceType(
+          'Я уже несколько дней думаю о своей следующей поездке.',
+          'negative'
+        )
+      ).toBe('Я уже несколько дней не думаю о своей следующей поездке.')
+    })
+
+    it('same duration rule for «Мы уже … дней»', () => {
+      expect(normalizeDrillRuSentenceForSentenceType('Мы уже несколько дней готовим ужин дома.', 'negative')).toBe(
+        'Мы уже несколько дней не готовим ужин дома.'
+      )
+    })
+
+    it('does not mangle «Я уже несколько …» when there is no «дней» duration token (leaves text for other guards)', () => {
+      const out = normalizeDrillRuSentenceForSentenceType('Я уже несколько фильмов посмотрел.', 'negative')
+      expect(out).toBe('Я уже несколько фильмов посмотрел.')
+    })
+
+    it('generic «Я не …» does not produce «Я не уже» on «Я уже …» leftovers', () => {
+      const out = normalizeDrillRuSentenceForSentenceType('Я уже много сделал дома.', 'negative')
+      expect(out).not.toMatch(/Я не уже/i)
+      expect(out).not.toMatch(/Я ещё не много/i)
+      expect(out).toContain('Я уже')
+    })
   })
 
   describe('fallbackTranslationSentenceForContext', () => {

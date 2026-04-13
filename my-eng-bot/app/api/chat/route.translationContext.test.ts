@@ -28,10 +28,10 @@ describe('POST /api/chat translation provider payload', () => {
         'Комментарий_перевод: Хорошее начало! 🙌',
         'Комментарий: Ошибка времени. Нужен Present Simple.',
         'Ошибки:',
-        '🔤 Грамматика: Используйте базовую форму глагола.',
+        '🔤 Используйте базовую форму глагола.',
         'Время: Present Simple — привычное действие.',
         'Конструкция: Subject + V1(s/es)',
-        'Повтори_перевод: I usually read books.',
+        'Скажи: I usually read books.',
         'Повтори: I usually read books.',
       ].join('\n'),
     })
@@ -43,11 +43,11 @@ describe('POST /api/chat translation provider payload', () => {
       tenses: ['present_simple'],
       sentenceType: 'affirmative',
       messages: [
-        { role: 'assistant', content: 'Переведи: Я обычно читаю книги.\nПереведи на английский.' },
+        { role: 'assistant', content: 'Переведи: Я обычно читаю книги.\nПереведи на английский язык.' },
         { role: 'user', content: 'I usually read books.' },
-        { role: 'assistant', content: 'Переведи далее: Я часто бегаю утром.\nПереведи на английский.' },
+        { role: 'assistant', content: 'Переведи далее: Я часто бегаю утром.\nПереведи на английский язык.' },
         { role: 'user', content: 'I often run in the morning.' },
-        { role: 'assistant', content: 'Переведи далее: Мы редко смотрим телевизор.\nПереведи на английский.' },
+        { role: 'assistant', content: 'Переведи далее: Мы редко смотрим телевизор.\nПереведи на английский язык.' },
         { role: 'user', content: 'We rarely watch TV.' },
       ],
     })
@@ -100,4 +100,76 @@ describe('POST /api/chat translation provider payload', () => {
     expect(res.status).toBe(200)
     expect(callProviderChatMock).toHaveBeenCalledTimes(1)
   })
+
+  it('adds explicit RU→EN replacement hint in Ошибки for mixed answer words', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: [
+        'Комментарий_перевод: Хорошее начало вопроса. Исправь порядок слов.',
+        'Комментарий: Ошибка формы вопроса. Поставь do перед подлежащим.',
+        'Время: Present Simple — привычка или факт.',
+        'Конструкция: Do/Does + subject + V1 ...?',
+        'Повтори: What do you like as a pet?',
+      ].join('\n'),
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      audience: 'adult',
+      level: 'a1',
+      tenses: ['present_simple'],
+      sentenceType: 'interrogative',
+      messages: [
+        { role: 'assistant', content: 'Переведи: Какой питомец тебе нравится?\nПереведи на английский.' },
+        { role: 'user', content: 'What is you like питомец' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    expect(res.status).toBe(200)
+    const data = (await res.json()) as { content: string }
+    expect(data.content).toContain('Комментарий_перевод: Хорошее начало вопроса.')
+    expect(data.content).toContain('Комментарий: Ошибка перевода — русские слова в ответе нужно перевести на английский.')
+    expect(data.content).toContain('Ошибки:')
+    expect(data.content.toLowerCase()).toMatch(/📖\s*питомец\s*-\s*pet/)
+  })
+
+  it('normalizes second supportive sentence to fixed errors reference when multiple errors exist', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: [
+        'Комментарий_перевод: Отличное начало вопроса! Исправь порядок слов и артикль.',
+        'Комментарий: Ошибка типа предложения. Нужен вспомогательный глагол do.',
+        'Ошибки:',
+        '🔤 В вопросе нужен do перед you.',
+        '📖 "movie" → "movies".',
+        'Время: Present Simple — привычное действие.',
+        'Конструкция: Do/Does + subject + V1 ...?',
+        'Повтори: Do you like watching movies about animals?',
+      ].join('\n'),
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      sentenceType: 'interrogative',
+      messages: [
+        { role: 'assistant', content: 'Переведи: Тебе нравится смотреть фильмы о животных?\nПереведи на английский.' },
+        { role: 'user', content: 'Do you like to see animals' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    expect(res.status).toBe(200)
+    const data = (await res.json()) as { content: string }
+    expect(data.content).toContain('Комментарий_перевод: Отличное начало вопроса.')
+    expect(data.content).toContain('Комментарий: Лексическая ошибка — see нужно заменить на watching.')
+    expect(data.content).not.toContain('Исправь порядок слов и артикль.')
+    expect(data.content).toContain('Ошибки:')
+    expect(data.content).toContain('🔤 В вопросе нужен do перед you.')
+    expect(data.content).toContain('📖 "movie" → "movies".')
+  })
+
 })

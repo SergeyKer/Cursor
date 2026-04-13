@@ -1217,7 +1217,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).toContain('Ошибки:')
     expect(data.content).toContain('Время:')
     expect(data.content).toContain('Конструкция:')
-    expect(data.content).toContain('Повтори_перевод:')
+    expect(data.content).toContain('Скажи:')
     expect(data.content).toContain('Повтори:')
     expect(data.content).not.toContain('Я часто хожу в парк.')
     expect(data.content).not.toContain('Переведи на английский.')

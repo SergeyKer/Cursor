@@ -255,10 +255,9 @@ export function enforceAuthoritativeTranslationRepeat(
 ): string {
   if (priorRepeatEnglish?.trim()) {
     const prior = priorRepeatEnglish.trim()
-    const ru = ruPrompt?.trim() ?? ''
-    const clamped = ru
-      ? clampTranslationRepeatToRuPrompt(prior, ruPrompt).clamped
-      : normalizeRepeatSentenceEnding(prior)
+    // В цепочке повтора prior-эталон должен оставаться стабильным:
+    // не срезаем его повторным clamp по текущему RU-промпту.
+    const clamped = normalizeRepeatSentenceEnding(prior)
     return replaceTranslationRepeatInContent(content, clamped)
   }
   if (!ruPrompt?.trim()) return content
@@ -302,8 +301,8 @@ export function extractFirstTranslationRepeatEnglishBody(content: string): strin
 }
 
 /**
- * Каноническое «Повтори_перевод:» = тот же английский эталон, что в «Повтори:» (после клампа/провокаций).
- * Вставляет строку сразу перед первой строкой Повтори|Repeat|Say; существующие строки Повтори_перевод удаляются.
+ * Каноническое «Скажи:» = тот же английский эталон, что в «Повтори:» (после клампа/провокаций).
+ * Вставляет строку сразу перед первой строкой Повтори|Repeat|Say; существующие строки Скажи удаляются.
  */
 export function enforceAuthoritativeTranslationRepeatEnCue(content: string): string {
   const hasEnRepeat = /(?:^|\n)\s*(?:[\s\-•]*(?:\d+[\.)]\s*)*)?(?:Повтори|Repeat|Say)\s*:/im.test(content)
@@ -315,11 +314,11 @@ export function enforceAuthoritativeTranslationRepeatEnCue(content: string): str
   const body = normalizeRepeatSentenceEnding(stripLeadingRepeatRuPrompt(rawBody))
   if (!body) return content
 
-  const canonicalLine = `Повтори_перевод: ${body}`
+  const canonicalLine = `Скажи: ${body}`
   const lines = content.split(/\r?\n/)
   const filtered = lines.filter((line) => {
     const t = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
-    return !/^[\s\-•]*(?:\d+[\.)]\s*)*Повтори_перевод\s*:/i.test(t)
+    return !/^[\s\-•]*(?:\d+[\.)]\s*)*Скажи\s*:/i.test(t)
   })
 
   let insertIdx = -1

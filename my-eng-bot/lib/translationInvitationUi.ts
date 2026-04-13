@@ -18,7 +18,7 @@ export function splitTranslationInvitation(text: string): {
   }
 
   const onEnglishOnly = text.match(
-    /\s+(?:\d+\)\s*)?((?:Переведи|Переведите)\s+на\s+английский\.)/i
+    /\s+(?:\d+\)\s*)?((?:Переведи|Переведите)\s+на\s+английский(?:\s+язык)?\.)/i
   )
   if (onEnglishOnly?.[1] != null && onEnglishOnly.index !== undefined) {
     const invitation = onEnglishOnly[1].trim()

@@ -135,14 +135,23 @@ describe('enforceAuthoritativeTranslationRepeat', () => {
     expect(out.toLowerCase()).toContain('love walking')
     expect(out.toLowerCase()).not.toContain('we go to the park')
   })
+
+  it('в цикле повтора сохраняет prior дословно и не срезает "in the evening" по ruPrompt', () => {
+    const ru = 'Ты часто смотришь сериалы?'
+    const content = `Комментарий: Ошибка.\nПовтори: Do we often watch serials?`
+    const prior = 'Do we often watch serials in the evening?'
+    const out = enforceAuthoritativeTranslationRepeat(content, ru, prior)
+    expect(out).toContain('Повтори: Do we often watch serials in the evening?')
+    expect(out).not.toContain('Повтори: Do we often watch serials?')
+  })
 })
 
 describe('enforceAuthoritativeTranslationRepeatEnCue', () => {
-  it('вставляет Повтори_перевод перед Повтори с тем же английским, что в Повтори', () => {
+  it('вставляет Скажи перед Повтори с тем же английским, что в Повтори', () => {
     const content = `Комментарий: Ошибка.\nКонструкция: S + V1\nПовтори: I love to cook.`
     const out = enforceAuthoritativeTranslationRepeatEnCue(content)
-    expect(out).toContain('Повтори_перевод: I love to cook.')
-    expect(out.indexOf('Повтори_перевод')).toBeLessThan(out.indexOf('Повтори:'))
+    expect(out).toContain('Скажи: I love to cook.')
+    expect(out.indexOf('Скажи')).toBeLessThan(out.indexOf('Повтори:'))
   })
 
   it('не меняет ответ без английского Повтори', () => {

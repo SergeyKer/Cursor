@@ -56,4 +56,10 @@ describe('extractSingleTranslationNextSentence', () => {
       extractSingleTranslationNextSentence(['Переведи далее: "Я уже купил билеты на концерт." .'])
     ).toBe('Я уже купил билеты на концерт.')
   })
+
+  it('убирает служебное «Следующий вопрос:» в одной строке с «Переведи далее»', () => {
+    expect(
+      extractSingleTranslationNextSentence(['Переведи далее: Следующий вопрос: Ты любишь смотреть комедии?'])
+    ).toBe('Ты любишь смотреть комедии?')
+  })
 })

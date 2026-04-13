@@ -1,9 +1,8 @@
 import type { NextRequest } from 'next/server'
 import { fetchWithProxyFallback } from '@/lib/proxyFetch'
-import type { AiProvider } from '@/lib/types'
+import type { AiProvider, OpenAiChatPreset } from '@/lib/types'
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
-const OPENAI_MODEL = 'gpt-4o-mini'
 
 function normalizeKey(key: string): string {
   const k = key.trim()
@@ -16,8 +15,9 @@ export async function callProviderVision(params: {
   req: NextRequest
   imageDataUrl: string
   prompt: string
+  openAiChatPreset?: OpenAiChatPreset
 }): Promise<{ ok: true; content: string } | { ok: false; status: number; errText: string }> {
-  const { provider, imageDataUrl, prompt } = params
+  const { provider, imageDataUrl, prompt, openAiChatPreset = 'gpt-4o-mini' } = params
 
   // В текущей конфигурации OpenRouter использует free-модель без гарантии vision.
   if (provider === 'openrouter') {
@@ -36,7 +36,15 @@ export async function callProviderVision(params: {
         Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify({
-        model: OPENAI_MODEL,
+        model:
+          openAiChatPreset === 'gpt-5.4-mini-none' || openAiChatPreset === 'gpt-5.4-mini-low'
+            ? 'gpt-5.4-mini'
+            : 'gpt-4o-mini',
+        ...(openAiChatPreset === 'gpt-5.4-mini-none'
+          ? { reasoning_effort: 'none' }
+          : openAiChatPreset === 'gpt-5.4-mini-low'
+            ? { reasoning_effort: 'low' }
+            : {}),
         messages: [
           {
             role: 'user',

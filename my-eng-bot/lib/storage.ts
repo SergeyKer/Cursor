@@ -31,6 +31,7 @@ function migrateStorageIfNeeded(): void {
 
 const DEFAULT_SETTINGS: Settings = {
   provider: 'openrouter',
+  openAiChatPreset: 'gpt-4o-mini',
   mode: 'dialogue',
   sentenceType: 'mixed',
   topic: 'free_talk',

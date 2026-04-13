@@ -24,6 +24,7 @@ export interface ChatMessage {
 }
 
 export type AiProvider = 'openrouter' | 'openai'
+export type OpenAiChatPreset = 'gpt-4o-mini' | 'gpt-5.4-mini-none' | 'gpt-5.4-mini-low'
 
 export type AppMode = 'dialogue' | 'translation' | 'communication'
 export type SentenceType = 'general' | 'interrogative' | 'negative' | 'mixed'
@@ -72,6 +73,7 @@ export type TopicId =
 
 export interface Settings {
   provider: AiProvider
+  openAiChatPreset?: OpenAiChatPreset
   mode: AppMode
   sentenceType: SentenceType
   topic: TopicId

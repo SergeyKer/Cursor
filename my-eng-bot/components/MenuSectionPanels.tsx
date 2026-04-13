@@ -4,7 +4,17 @@ import React from 'react'
 import { manropeHome } from '@/lib/manropeHome'
 import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES, CHILD_TENSES } from '@/lib/constants'
 import { getAllowedTensesForLevel, normalizeSingleTenseSelection } from '@/lib/levelAllowedTenses'
-import type { Settings, UsageInfo, AppMode, AiProvider, TenseId, SentenceType, TopicId, LevelId } from '@/lib/types'
+import type {
+  Settings,
+  UsageInfo,
+  AppMode,
+  AiProvider,
+  OpenAiChatPreset,
+  TenseId,
+  SentenceType,
+  TopicId,
+  LevelId,
+} from '@/lib/types'
 import type { AiChatPanel } from '@/lib/aiChatPanel'
 import { MENU_PRIMARY_CTA_CLASS } from '@/lib/homeCtaStyles'
 import type { ImageAnalysisResult } from '@/lib/types'
@@ -38,7 +48,7 @@ const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
   level: 'Уровень',
 }
 
-type SettingsMenuPanel = 'summary' | 'provider' | 'voice'
+type SettingsMenuPanel = 'summary' | 'provider' | 'openAiModel' | 'voice'
 
 const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
   summary: 'Настройки',
@@ -79,6 +89,12 @@ const AUDIENCE_OPTIONS: { id: Settings['audience']; label: string }[] = [
 const PROVIDER_OPTIONS: { id: AiProvider; label: string }[] = [
   { id: 'openai', label: 'ChatGPT' },
   { id: 'openrouter', label: 'Медленно (Free)' },
+]
+
+const OPENAI_MODEL_OPTIONS: { id: OpenAiChatPreset; label: string }[] = [
+  { id: 'gpt-4o-mini', label: 'GPT-4o mini (как раньше)' },
+  { id: 'gpt-5.4-mini-none', label: 'GPT-5.4 mini · reasoning none' },
+  { id: 'gpt-5.4-mini-low', label: 'GPT-5.4 mini · reasoning low' },
 ]
 
 const MENU_GROUP_CLASS =
@@ -216,6 +232,10 @@ export default function MenuSectionPanels({
   const audienceLabel = AUDIENCE_OPTIONS.find((a) => a.id === settings.audience)?.label ?? settings.audience
   const levelLabel = levelOptions.find((l) => l.id === settings.level)?.label ?? settings.level
   const providerLabel = PROVIDER_OPTIONS.find((p) => p.id === settings.provider)?.label ?? settings.provider
+  const openAiModelLabel =
+    OPENAI_MODEL_OPTIONS.find((p) => p.id === (settings.openAiChatPreset ?? 'gpt-4o-mini'))?.label ??
+    settings.openAiChatPreset ??
+    'gpt-4o-mini'
   const tenseLabel =
     tenseOptions.find((t) => t.id === (settings.tenses[0] ?? 'present_simple'))?.label ??
     TENSES.find((t) => t.id === (settings.tenses[0] ?? 'present_simple'))?.label ??
@@ -242,6 +262,10 @@ export default function MenuSectionPanels({
       return
     }
     if (menuView === 'settings' && settingsPanel !== 'summary') {
+      if (settingsPanel === 'openAiModel') {
+        setSettingsPanel('summary')
+        return
+      }
       setSettingsPanel('summary')
       return
     }
@@ -928,6 +952,13 @@ export default function MenuSectionPanels({
           <div className={MENU_GROUP_OUTER}>
             <div className={MENU_GROUP_CLASS}>
               <MenuSettingRow label="ИИ" value={providerLabel} onClick={() => setSettingsPanel('provider')} />
+              {settings.provider === 'openai' && (
+                <MenuSettingRow
+                  label="Модель ChatGPT"
+                  value={openAiModelLabel}
+                  onClick={() => setSettingsPanel('openAiModel')}
+                />
+              )}
               <VoiceSummaryRow
                 label="Голос"
                 voiceId={settings.voiceId}
@@ -944,6 +975,17 @@ export default function MenuSectionPanels({
             value={settings.provider}
             onSelect={(id) => {
               update({ provider: id })
+              setSettingsPanel('summary')
+            }}
+          />
+        )}
+
+        {menuView === 'settings' && settingsPanel === 'openAiModel' && settings.provider === 'openai' && (
+          <PickerList
+            options={OPENAI_MODEL_OPTIONS}
+            value={settings.openAiChatPreset ?? 'gpt-4o-mini'}
+            onSelect={(id) => {
+              update({ openAiChatPreset: id })
               setSettingsPanel('summary')
             }}
           />

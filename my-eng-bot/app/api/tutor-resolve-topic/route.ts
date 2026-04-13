@@ -5,6 +5,7 @@ import type { AiProvider, Audience, LevelId } from '@/lib/types'
 
 type Body = {
   provider?: AiProvider
+  openAiChatPreset?: 'gpt-4o-mini' | 'gpt-5.4-mini-none' | 'gpt-5.4-mini-low'
   query?: string
   level?: LevelId
   audience?: Audience
@@ -120,6 +121,12 @@ export async function POST(req: NextRequest) {
   }
 
   const provider: AiProvider = body.provider === 'openrouter' ? 'openrouter' : 'openai'
+  const openAiChatPreset =
+    body.openAiChatPreset === 'gpt-5.4-mini-none'
+      ? 'gpt-5.4-mini-none'
+      : body.openAiChatPreset === 'gpt-5.4-mini-low'
+        ? 'gpt-5.4-mini-low'
+        : 'gpt-4o-mini'
   const level: LevelId = body.level ?? 'a2'
   const audience: Audience = body.audience ?? 'adult'
   const query = normalizeTopic(body.query ?? '')
@@ -195,6 +202,7 @@ export async function POST(req: NextRequest) {
       { role: 'user', content: user },
     ],
     maxTokens: 500,
+    openAiChatPreset,
   })
 
   if (!model.ok) {

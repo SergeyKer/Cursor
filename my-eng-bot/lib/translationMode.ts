@@ -35,6 +35,12 @@ function applyRuSentenceTypeForDrill(sentence: string, sentenceType: SentenceTyp
     return /[.!?…]$/.test(raw) ? raw : `${raw}.`
   }
 
+  /**
+   * После «уже» одно слово — не подменяем на «ещё не $1», если это не глагол/участие
+   * (иначе «…не несколько дней…», «…ещё не много сделал…»).
+   */
+  const skipJaUjeSingleWordNegation = (w: string) => /^(несколько|пару|целых|много|мало)$/i.test(w)
+
   const cyrBoundary = '(?=\\s|[,.!?…]|$)'
   let u = raw
     .replace(new RegExp(`^Я люблю${cyrBoundary}`, 'i'), 'Я не люблю')
@@ -49,13 +55,28 @@ function applyRuSentenceTypeForDrill(sentence: string, sentenceType: SentenceTyp
     .replace(/^Мы часто ([А-Яа-яЁё]+)/i, 'Мы нечасто $1')
     .replace(/^Вчера я\s+/i, 'Вчера я не ')
     .replace(/^Завтра я\s+/i, 'Завтра я не ')
-    .replace(/^Я уже ([А-Яа-яЁё]+)/i, 'Я ещё не $1')
-    .replace(/^Мы уже ([А-Яа-яЁё]+)/i, 'Мы ещё не $1')
+    .replace(
+      /^Я уже (несколько|много|мало|пару) (дней|недель|месяцев|часов|минут|лет)\s+([А-Яа-яЁё][а-яё]*)(.*)$/iu,
+      'Я уже $1 $2 не $3$4'
+    )
+    .replace(
+      /^Мы уже (несколько|много|мало|пару) (дней|недель|месяцев|часов|минут|лет)\s+([А-Яа-яЁё][а-яё]*)(.*)$/iu,
+      'Мы уже $1 $2 не $3$4'
+    )
+    .replace(/^Я уже ([А-Яа-яЁё]+)/iu, (_, w: string) =>
+      skipJaUjeSingleWordNegation(w) ? `Я уже ${w}` : `Я ещё не ${w}`
+    )
+    .replace(/^Мы уже ([А-Яа-яЁё]+)/iu, (_, w: string) =>
+      skipJaUjeSingleWordNegation(w) ? `Мы уже ${w}` : `Мы ещё не ${w}`
+    )
     .replace(/^Я буду ([А-Яа-яЁё]+)/i, 'Я не буду $1')
     .replace(new RegExp(`^Я пришёл${cyrBoundary}`, 'i'), 'Я не пришёл')
 
   if (!hasRussianNegationHint(u)) {
-    u = u.replace(/^Я ([А-Яа-яЁё][а-яё]*)/i, 'Я не $1').replace(/^Мы ([А-Яа-яЁё][а-яё]*)/i, 'Мы не $1')
+    // «\b» после кириллицы ненадёжен — якоримся на «уже» + пробел.
+    u = u
+      .replace(/^Я (?!уже\s)([А-Яа-яЁё][а-яё]*)/iu, 'Я не $1')
+      .replace(/^Мы (?!уже\s)([А-Яа-яЁё][а-яё]*)/iu, 'Мы не $1')
   }
 
   return /[.!?…]$/.test(u) ? u : `${u}.`

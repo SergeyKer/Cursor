@@ -145,6 +145,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const text = typeof body.text === 'string' ? body.text.trim() : ''
     const provider: Provider = body.provider === 'openai' ? 'openai' : 'openrouter'
+    const openAiChatPreset =
+      body.openAiChatPreset === 'gpt-5.4-mini-none'
+        ? 'gpt-5.4-mini-none'
+        : body.openAiChatPreset === 'gpt-5.4-mini-low'
+          ? 'gpt-5.4-mini-low'
+          : 'gpt-4o-mini'
     const audience: 'child' | 'adult' = body.audience === 'child' ? 'child' : 'adult'
     const direction = parseDirection(body.direction)
     const optionalTenses = parseOptionalTenses(body.tenses)
@@ -181,7 +187,15 @@ export async function POST(req: NextRequest) {
             Authorization: `Bearer ${key}`,
           },
           body: JSON.stringify({
-            model: OPENAI_MODEL,
+            model:
+              openAiChatPreset === 'gpt-5.4-mini-none' || openAiChatPreset === 'gpt-5.4-mini-low'
+                ? 'gpt-5.4-mini'
+                : OPENAI_MODEL,
+            ...(openAiChatPreset === 'gpt-5.4-mini-none'
+              ? { reasoning_effort: 'none' }
+              : openAiChatPreset === 'gpt-5.4-mini-low'
+                ? { reasoning_effort: 'low' }
+                : {}),
             messages,
             max_tokens: 300,
           }),

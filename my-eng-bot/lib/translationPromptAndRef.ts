@@ -49,7 +49,7 @@ export function extractRussianTranslationTaskFromAssistantContent(content: strin
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Ошибки\s*:/i.test(rawLine)) continue
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Формы\s*:/i.test(rawLine)) continue
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*[+\?-]\s*:/i.test(rawLine)) continue
-    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Повтори_перевод\s*:/i.test(rawLine)) continue
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Скажи\s*:/i.test(rawLine)) continue
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(rawLine)) continue
 
     const fromTranslate = extractRussianAfterTranslatePrefixLine(rawLine)

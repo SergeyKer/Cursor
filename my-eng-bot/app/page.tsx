@@ -463,6 +463,7 @@ export default function Home() {
                     : {}),
                 })),
                 provider: settings.provider,
+                openAiChatPreset: settings.openAiChatPreset,
                 topic: settings.mode === 'communication' ? 'free_talk' : settings.topic,
                 level: settings.level,
                 tenses: settings.tenses,
@@ -791,6 +792,7 @@ export default function Home() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             provider: settings.provider,
+            openAiChatPreset: settings.openAiChatPreset,
             topic,
             level: settings.level,
             audience: settings.audience,
@@ -1143,6 +1145,7 @@ export default function Home() {
           body: JSON.stringify({
             text: text.trim(),
             provider,
+            openAiChatPreset: settings.openAiChatPreset,
             audience: settings.audience,
             ...(settings.mode !== 'translation' ? { tenses: settings.tenses, mode: settings.mode } : {}),
           }),

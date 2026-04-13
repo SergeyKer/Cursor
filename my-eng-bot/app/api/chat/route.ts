@@ -102,7 +102,10 @@ import { normalizeRuTopicKeyword, normalizeTopicToken, RU_TOPIC_KEYWORD_TO_EN } 
 import { buildNextFreeTalkQuestionFromContext } from '@/lib/freeTalkContextNextQuestion'
 import { enrichDialogueCommentWithTypoHints } from '@/lib/dialogueCommentEnrichment'
 import { compactDialogueComment } from '@/lib/dialogueCommentCompact'
-import { applyTranslationCommentCoachVoice } from '@/lib/translationCommentCoach'
+import {
+  applyTranslationCommentCoachVoice,
+  injectSentenceTypePopravImperative,
+} from '@/lib/translationCommentCoach'
 import { applyFreeTalkTopicChoiceTenseAnchorFallback } from '@/lib/freeTalkTopicChoiceAnchorFallback'
 import { buildStrictTopicPromptBlock } from '@/lib/topicGuardPrompts'
 import { buildCefrPromptBlock } from '@/lib/cefr/cefrSpec'
@@ -148,7 +151,12 @@ import {
 } from '@/lib/translationPromptAndRef'
 import {
   dedupeTranslationErrorBlock,
+  dedupeTranslationPraiseParagraphs,
+  extractContinuousDrillProtectedIngForms,
+  extractTranslationErrorSynthAndPraiseFromComment,
   mergeErrorsBlockWithSyntheticFromComment,
+  partitionEncouragementLinesFromTranslationErrorsPayload,
+  sanitizeTranslationPayloadContinuousErrors,
 } from '@/lib/translationSyntheticErrorsBlock'
 import { sanitizeRepeatMetaInstructionInContent } from '@/lib/repeatMetaInstruction'
 
@@ -630,33 +638,34 @@ SUCCESS protocol (if user answer is correct), strict order:
 - Line 4: "+: " + full affirmative English sentence (same meaning as correct user answer)
 - Line 5: "?: " + full interrogative English sentence in the same tense
 - Line 6: "-: " + full negative English sentence in the same tense
-- Line 7: NEXT natural Russian sentence on a new line. IMPORTANT: This MUST be a literal Russian sentence for the user to translate into English and it MUST follow the same Russian drill sentence contract for this turn (topic/level/required tense/sentence type/audience-style), while varying wording from the previous drill sentence. Do NOT output conversational instructions or prompts (e.g. NEVER write "Теперь скажите, что вы обычно едите.", "Переведи следующее:", "Теперь давай поговорим о...", "Давай поговорим о...", "Давайте обсудим...", "Сейчас мы...", "Попробуй перевести..."). No "давай/давайте поговорим" framing — only the actual sentence to translate. If you change the topic (e.g. from colors to seasons), encode it IN that one sentence, not as a meta invitation.
+- Line 7: NEXT natural Russian sentence on a new line. IMPORTANT: This MUST be a literal Russian sentence for the user to translate into English and it MUST follow the same Russian drill sentence contract for this turn (topic/level/required tense/sentence type/audience-style), while varying wording from the previous drill sentence. Do NOT output conversational instructions or prompts (e.g. NEVER write "Теперь скажите, что вы обычно едите.", "Переведи следующее:", "Следующий вопрос:", "Теперь давай поговорим о...", "Давай поговорим о...", "Давайте обсудим...", "Сейчас мы...", "Попробуй перевести..."). No "давай/давайте поговорим" framing — only the actual sentence to translate. If you change the topic (e.g. from colors to seasons), encode it IN that one sentence, not as a meta invitation.
 - Line 8: "Переведи на английский."
 - In SUCCESS protocol do NOT output separate "Время:" line and do NOT output "Повтори:".
 
 ERROR protocol (if there is a mistake), strict order:
-- Line 1: "Комментарий_перевод: " + REQUIRED supportive comment in Russian (warm mentor). STRICT formula: praise ONE specific correct element in the learner's exact answer + point to ONE main concrete error to fix. Keep exactly 1-2 short sentences. Praise priority: most advanced/natural correct chunk first (see "Supportive praise priority for ERROR line" in the engagement block above); if nothing qualifies, praise macro structure (e.g. question/negation shape). Do NOT praise "correct tense" if the answer is wrong on required tense. Follow the "Tense explanation rule" and "Warm voice" blocks above: NEVER name a CEFR tense or explain why this tense fits in this line (no English tense names, no "нужен Past Simple", no "предложение требует ..."). Use strategic emojis from this set (pick what fits; do NOT spam): 🙌 💪 🌟 🎯 ✨ 💡 🔥 🗣️ 🎧 🚀 🔄. 💡 may appear at most ONCE and ONLY at the very start of this Russian line (right after the colon); NEVER end "Комментарий_перевод:" with 💡 — choose a different emoji from the set for a closing accent. For CHILD follow the strategic emoji legend above when assigning meaning.
+- Line 1: "Комментарий_перевод: " + REQUIRED supportive comment in Russian (warm mentor). STRICT formula: sentence 1 = praise ONE specific correct element in the learner's exact answer (priority: most advanced/natural chunk; if nothing qualifies, praise macro structure). Sentence 2 = a short generic pointer to the errors block below. Do NOT mention concrete error details in sentence 2 (all details belong to "Комментарий:" and "Ошибки:"). Keep exactly 1-2 short sentences. Do NOT praise "correct tense" if the answer is wrong on required tense. Follow the "Tense explanation rule" and "Warm voice" blocks above: NEVER name a CEFR tense or explain why this tense fits in this line (no English tense names, no "нужен Past Simple", no "предложение требует ..."). Use strategic emojis from this set (pick what fits; do NOT spam): 🙌 💪 🌟 🎯 ✨ 💡 🔥 🗣️ 🎧 🚀 🔄. 💡 may appear at most ONCE and ONLY at the very start of this Russian line (right after the colon); NEVER end "Комментарий_перевод:" with 💡 — choose a different emoji from the set for a closing accent. For CHILD follow the strategic emoji legend above when assigning meaning.
 - Line 2: "Комментарий: " + short Russian diagnostic feedback (professional pedagogical style as below). Keep parser-friendly stable error labels at the start (for example: "Ошибка времени", "Лексическая ошибка", "Ошибка формы глагола", "Ошибка типа предложения"), then one concrete fix.
 - Then block "Ошибки:" (may span multiple lines). Grammar check order (strict): FIRST check tense match against the required tense for this drill. If the learner used the wrong tense, that is the primary grammar error and must be labeled as "Ошибка времени" in "Комментарий:" and handled before any word-level fixes. Only after tense and sentence type are checked, list spelling/vocabulary details.
   Sentence type (infer from the Russian task line): if it ends with "?" → English must be a real question (e.g. yes/no in Present Simple: Do/Does + subject + base verb ...?; wh-questions: question word + auxiliary + subject + verb ...); if the Russian clearly expresses negation (не, ни, нет, никогда, ничего, etc.) → English must be negative (don't/doesn't/didn't ... or the correct negative for the required tense); otherwise → English must be a declarative statement (not a question, not wrongly negated).
-  If tense or sentence type is wrong, the "🔤 Грамматика:" line MUST come before ✏️ Орфография and 📖 Лексика — fix structure before words. When tense or sentence type is wrong, do not output ✏️ or 📖 before 🔤.
-  Group every issue into exactly ONE subsection and do not repeat the same issue in another subsection. After "Ошибки:" output subsections only where relevant; skip empty subsections. Use emoji + label on each line:
+  If tense or sentence type is wrong, the 🔤 line (grammar) MUST come before ✏️ (spelling) and 📖 (lexis) — fix structure before words. When tense or sentence type is wrong, do not output ✏️ or 📖 before 🔤.
+  Group every issue into exactly ONE subsection and do not repeat the same issue in another subsection. After "Ошибки:" output subsections only where relevant; skip empty subsections. Use one leading emoji per line, then a space, then the fix — do NOT add Russian words "Грамматика", "Орфография", "Лексика" or colons after them:
   - 🤔 ... (only if the meaning is unclear or the English is illogical; do not restate grammar/spelling/lexis items already covered below)
-  - 🔤 Грамматика: ... (tense mismatch / sentence type / question word order / negation structure FIRST when relevant; then verb forms, articles, prepositions). Do NOT name the CEFR tense or repeat tense rationale here — only concrete fixes. Do not repeat spelling or vocabulary fixes here.
-  - ✏️ Орфография: ... (all spelling fixes in one block; do not repeat these items in Grammar or Lexis)
-  - 📖 Лексика: ... (all wrong-word fixes as a list; do not repeat these items in Grammar or Spelling)
+  - 🔤 ... (tense mismatch / sentence type / question word order / negation structure FIRST when relevant; then verb forms, articles, prepositions). Do NOT name the CEFR tense or repeat tense rationale here — only concrete fixes. Do not repeat spelling or vocabulary fixes here.
+  - Sentence-type mismatch (Russian task is a question but English is not, etc.): when this 🔤 line (or line-2 "Комментарий:") uses the label "Ошибка типа предложения" and the fix is about needing a question, write the label, then immediately CHILD: "Поправь — вопрос должен …" / ADULT: "Поправьте — вопрос должен …" (em dash after the imperative; same register as audience style). Do not skip the imperative.
+  - ✏️ ... (all spelling fixes in one block; do not repeat these items in grammar or lexis lines)
+  - 📖 ... (all wrong-word fixes as a list; do not repeat these items in grammar or spelling lines)
   - A single learner mistake must appear in only one of these subsections, never in two.
   Use explicit correction pairs in subsections whenever possible: "wrong" → "right" (for example: 'try' → 'tried', 'frukt' → 'fruit', 'car' → 'cat').
   Do NOT add "⏱️ Время:" or any tense-explanation line inside "Ошибки:". The ONLY place for tense name + why is the mandatory standalone "Время:" line below, and the tense reason must not be repeated in any subsection above.
   Do not put the full corrected English sentence inside "Ошибки"; the only full corrected English must be in "Повтори:".
 - Next line: "Время: " + ${tenseName} + short Russian explanation tied to the meaning of this exact sentence: say why this tense fits, name the clue words/markers, and mention the context (habit, fact, action now, result, finished past event, future, etc.). Do not just name the tense.
 - Next: "Конструкция: " + very short tense pattern for learner (example for Present Simple: "Subject + V1(s/es)")
-- Next: "Повтори_перевод: " + EXACT same full corrected English sentence as the next line "Повтори:" (same wording and punctuation style). This is the visible repeat cue in English for the learner; do NOT put Russian here.
+- Next: "Скажи: " + EXACT same full corrected English sentence as the next line "Повтори:" (same wording and punctuation style). This is the visible repeat cue in English for the learner; do NOT put Russian here.
 - Next: "Повтори: " + full corrected English sentence that translates only the Russian phrase from the task prompt. Do not reuse wording from the user's answer if it conflicts with the prompt.
-- While the user is still wrong on the same drill (repeat-correction chain): "Повтори_перевод:" and "Повтори:" MUST reuse the same English as in your previous assistant message's "Повтори_перевод:" — do not output a new English repeat sentence derived from praise or meta-comments (the server enforces this).
+- While the user is still wrong on the same drill (repeat-correction chain): "Скажи:" and "Повтори:" MUST reuse the same English as in your previous assistant message's "Скажи:" — do not output a new English repeat sentence derived from praise or meta-comments (the server enforces this).
 - Never add time-of-day, weekdays, seasons, or "weekend/weekends" to "Повтори:" unless those ideas appear in the Russian task line (for example: do not add "on the weekend" if the Russian sentence has no word like "выходные").
 - In ERROR protocol "Комментарий_перевод:" is mandatory in every mistake response (do not skip it).
-- In ERROR protocol "Повтори_перевод:" is mandatory whenever you output "Повтори:" (same English as "Повтори:"; on every further error in the same chain, copy the previous "Повтори_перевод:" English verbatim).
+- In ERROR protocol "Скажи:" is mandatory whenever you output "Повтори:" (same English as "Повтори:"; on every further error in the same chain, copy the previous "Скажи:" English verbatim).
 
 Rules:
 - The Russian sentence must sound natural, conversational, and easy to say in everyday speech.
@@ -676,6 +685,7 @@ Rules:
 - C1/C2 register: keep the tone professional and functional; avoid decorative emoji. Prefer only protocol icons (✅ 💡 ⏱️ 🔤 📖 ✏️) when truly needed; if 💡 is used on "Комментарий:" or "Комментарий_перевод:", only at the line opening, never as a trailing bookend.
 - In ERROR protocol, line-2 "Комментарий:" (diagnostic) must sound professional and pedagogical:
   - Start with exact error type in Russian (e.g. "Ошибка типа предложения", "Ошибка согласования подлежащего и сказуемого", "Ошибка формы глагола", "Ошибка времени", "Лексическая ошибка").
+  - If the error type is "Ошибка типа предложения" and the issue is that English must be a question, continue on the same line with CHILD: "Поправь — вопрос должен …" / ADULT: "Поправьте — вопрос должен …" before other wording.
   - Then give one precise fix in one short sentence without naming the CEFR tense or duplicating the "Время:" explanation (for tense errors, point to form/wording only; full tense rationale is ONLY in the "Время:" line).
   - If there are several mistakes, list ALL key issues in one concise comment: word choice, article, singular/plural, sentence type — avoid repeating the tense name here if it will appear in "Время:".
   - Briefly explain why (for example: "look = смотреть, see = видеть"; "после a используем существительное в единственном числе").
@@ -683,7 +693,7 @@ Rules:
   - No slang, jokes, filler, or casual tone on line 2 (supportive energy belongs only in "Комментарий_перевод:").
   - Maximum 1-2 short sentences.
 - Preflight checklist before final output (must pass all):
-  - "Комментарий_перевод:" line is max 2 sentences and contains concrete praise (the most advanced defensible win, or structure fallback) + one concrete fix; no 💡 at the end of that line (💡 only allowed once at the start of its Russian text if used).
+  - "Комментарий_перевод:" line is max 2 sentences: sentence 1 = concrete praise (the most advanced defensible win, or structure fallback), sentence 2 = generic pointer to "Ошибки:" below without concrete error details; no 💡 at the end of that line (💡 only allowed once at the start of its Russian text if used).
   - Errors are grouped by type and not duplicated.
   - Tense name/reason appears only once on standalone "Время:" line.
   - If SUCCESS has forms, they are strictly in order +, ?, - and keep the same core lexicon.
@@ -1152,7 +1162,7 @@ function stripRepeatOnPraise(content: string): string {
     const normalized = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
     return (
       !/^\s*(Повтори|Repeat|Say)\s*:/i.test(normalized) &&
-      !/^\s*Повтори_перевод\s*:/i.test(normalized)
+      !/^\s*Скажи\s*:/i.test(normalized)
     )
   })
   return kept.join('\n').replace(/\n\s*\n\s*\n/g, '\n\n').replace(/^\s*\n+|\n+\s*$/g, '').trim()
@@ -3325,9 +3335,10 @@ function ensureTranslationProtocolBlocks(
   let collectingConstruction = false
   let collectingErrors = false
   let collectingSupport = false
+  let praiseFromErrorsPayload: string | null = null
 
   const isProtocolHeaderAfterSupportOrErrors = (l: string) =>
-    /^[\s\-•]*(?:\d+[\.)]\s*)*(Комментарий_перевод|Ошибки|Время|Конструкция|Формы|Повтори_перевод|Повтори|Repeat|Say|Комментарий)\s*:/i.test(
+    /^[\s\-•]*(?:\d+[\.)]\s*)*(Комментарий_перевод|Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say|Комментарий)\s*:/i.test(
       l
     ) || /^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)\b/i.test(l)
 
@@ -3381,10 +3392,10 @@ function ensureTranslationProtocolBlocks(
       collectingConstruction = true
       continue
     }
-    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Повтори_перевод\s*:/i.test(line)) {
-      const raw = line.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Повтори_перевод\s*:\s*/i, '').trim()
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Скажи\s*:/i.test(line)) {
+      const raw = line.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Скажи\s*:\s*/i, '').trim()
       const body = stripLeadingRepeatRuPrompt(raw)
-      repeatRu = body ? `Повтори_перевод: ${body}` : null
+      repeatRu = body ? `Скажи: ${body}` : null
       collectingConstruction = false
       continue
     }
@@ -3424,13 +3435,22 @@ function ensureTranslationProtocolBlocks(
   }
 
   const commentBodyOnly = comment ? comment.replace(/^Комментарий:\s*/i, '').trim() : ''
-  if (repeat && !hasTranslationFormsBlock(content) && commentBodyOnly && !hasPraise) {
+  // Ошибка перевода: есть повтор эталона и нет успешного блока «Формы:».
+  const needsErrorProtocol = Boolean(repeat) && !hasTranslationFormsBlock(content)
+  if (needsErrorProtocol && commentBodyOnly) {
     const merged = mergeErrorsBlockWithSyntheticFromComment(String(errorsBlock ?? '').trim(), commentBodyOnly)
     if (merged) {
       errorsBlock = merged
     }
   }
-  const needsErrorProtocol = Boolean(repeat) && !hasPraise && !hasTranslationFormsBlock(content)
+  if (needsErrorProtocol) {
+    const part = partitionEncouragementLinesFromTranslationErrorsPayload(String(errorsBlock ?? '').trim())
+    praiseFromErrorsPayload = part.praiseFromErrors
+    errorsBlock = part.errorsRest.trim() ? part.errorsRest : null
+  }
+  // Error branch is determined by repeat presence and missing success forms.
+  // Even when "Комментарий:" starts with praise words (e.g. "Хорошо, что ..."),
+  // we still need a supportive "Комментарий_перевод:" block for UI consistency.
   if (needsErrorProtocol && !(supportBlock?.trim() ?? '')) {
     supportBlock =
       params.audience === 'child'
@@ -3439,6 +3459,18 @@ function ensureTranslationProtocolBlocks(
   }
   if (needsErrorProtocol && !(String(errorsBlock ?? '').trim())) {
     errorsBlock = commentBodyOnly ? `🤔 ${commentBodyOnly}` : '🤔 Исправьте основную ошибку по образцу.'
+  }
+  if (needsErrorProtocol && supportBlock?.trim() && String(errorsBlock ?? '').trim()) {
+    supportBlock = normalizeSupportiveCommentForErrorsBlock(supportBlock, params.audience)
+  }
+
+  if (needsErrorProtocol) {
+    const { praiseFromComment } = extractTranslationErrorSynthAndPraiseFromComment(commentBodyOnly)
+    const praiseBundle = dedupeTranslationPraiseParagraphs([praiseFromErrorsPayload, praiseFromComment])
+    if (praiseBundle.length) {
+      const pb = praiseBundle.join('\n\n')
+      supportBlock = supportBlock?.trim() ? `${supportBlock.trim()}\n\n${pb}` : pb
+    }
   }
 
   const out: string[] = []
@@ -3459,7 +3491,7 @@ function ensureTranslationProtocolBlocks(
   if (repeat && !repeatRu) {
     const repeatBody = repeat.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Повтори\s*:\s*/i, '').trim()
     const en = normalizeRepeatSentenceEnding(stripLeadingRepeatRuPrompt(repeatBody))
-    if (en) repeatRu = `Повтори_перевод: ${en}`
+    if (en) repeatRu = `Скажи: ${en}`
   }
   if (repeatRu) out.push(repeatRu)
   if (repeat) out.push(repeat)
@@ -3469,9 +3501,9 @@ function ensureTranslationProtocolBlocks(
 function ensureFirstTranslationInvitation(content: string, sentenceType: SentenceType = 'mixed'): string {
   const taskLine = extractRussianTranslationTaskFromAssistantContent(content)
 
-  if (!taskLine) return 'Переведи на английский.'
+  if (!taskLine) return 'Переведи на английский язык.'
   const normalized = normalizeDrillRuSentenceForSentenceType(taskLine, sentenceType)
-  return `${normalized}\nПереведи на английский.`
+  return `${normalized}\nПереведи на английский язык.`
 }
 
 function normalizeEnglishSentenceForCard(text: string): string {
@@ -3934,7 +3966,7 @@ function ensureTranslationSuccessBlocks(
         })
       )
     }
-    out.push('Переведи на английский.')
+    out.push('Переведи на английский язык.')
   } else {
     out.push(
       fallbackTranslationSentenceForContext({
@@ -3946,7 +3978,7 @@ function ensureTranslationSuccessBlocks(
         sentenceType,
       })
     )
-    out.push('Переведи на английский.')
+    out.push('Переведи на английский язык.')
   }
 
   return out.join('\n').trim()
@@ -4029,6 +4061,7 @@ async function ensureFirstTranslationDrillMatchesRequiredTense(params: {
   provider: Provider
   req: NextRequest
   resolveGoldTranslation?: ResolveGoldTranslation
+  openAiChatPreset?: 'gpt-4o-mini' | 'gpt-5.4-mini-none'
 }): Promise<string> {
   if (params.tense === 'all') return params.content
   const ru = extractRussianTranslationTaskFromAssistantContent(params.content)
@@ -4056,11 +4089,11 @@ async function ensureFirstTranslationDrillMatchesRequiredTense(params: {
     seedText: `${params.seedText}|guard|${ru.slice(0, 80)}`,
     sentenceType: params.sentenceType,
   })
-  const rebuilt = `${replacement.trim()}\nПереведи на английский.`
+  const rebuilt = `${replacement.trim()}\nПереведи на английский язык.`
   return ensureFirstTranslationInvitation(rebuilt, params.sentenceType)
 }
 
-/** Финальная нормализация ответа перевода: enforce «Повтори»/«Повтори_перевод», sanitize, скрытый __TRAN__. */
+/** Финальная нормализация ответа перевода: enforce «Повтори»/«Скажи», sanitize, скрытый __TRAN__. */
 async function finalizeTranslationResponsePayload(params: {
   content: string
   nonSystemMessages: ReadonlyArray<ChatMessage>
@@ -4423,7 +4456,7 @@ function isGenericTranslationRepeatFallback(text: string | null): boolean {
 function stripTranslationInvitationLines(content: string): string {
   const invitationLinePattern = /^[\s\-•>*_`#]*(?:\d+[\.)]\s*)*(?:Переведи|Переведите)(?=\s|:|$)/i
   return content
-    .replace(/\b(?:Переведи|Переведите)\s+на\s+английский\.\s*/gi, '\n')
+    .replace(/\b(?:Переведи|Переведите)\s+на\s+английский(?:\s+язык)?\.\s*/gi, '\n')
     .replace(/(?:^|\n)\s*[\-•>*_`#]*(?:\d+[\.)]\s*)*(?:Переведи|Переведите)(?=\s|:|$)[^\n]*(?=\n|$)/gi, '\n')
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -4438,6 +4471,20 @@ function ensureTranslationRepeatFallbackForMixedInput(content: string, _userText
   return cleaned
 }
 
+function normalizeSupportiveCommentForErrorsBlock(rawSupport: string, audience: 'child' | 'adult'): string {
+  const compact = rawSupport.replace(/\s+/g, ' ').trim()
+  if (!compact) {
+    return audience === 'child' ? 'Есть хорошая основа.' : 'Есть хорошая основа.'
+  }
+
+  const firstSentenceMatch = compact.match(/^[^.!?]+[.!?]?/)
+  let firstSentence = (firstSentenceMatch?.[0] ?? compact).trim()
+  firstSentence = firstSentence.replace(/\s+/g, ' ')
+  firstSentence = firstSentence.replace(/[.!?]\s*$/, '.').trim()
+  if (!firstSentence) firstSentence = 'Есть хорошая основа.'
+  return firstSentence
+}
+
 function normalizeTranslationErrorBranch(content: string): string {
   const lines = content
     .split(/\r?\n/)
@@ -4445,7 +4492,7 @@ function normalizeTranslationErrorBranch(content: string): string {
     .filter(Boolean)
 
   const headerBreakForErrors = (l: string) =>
-    /^[\s\-•]*(?:\d+[\.)]\s*)*(Время|Конструкция|Формы|Повтори_перевод|Повтори|Repeat|Say|Комментарий|Комментарий_перевод)\s*:/i.test(
+    /^[\s\-•]*(?:\d+[\.)]\s*)*(Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say|Комментарий|Комментарий_перевод)\s*:/i.test(
       l
     )
 
@@ -4500,15 +4547,15 @@ function normalizeTranslationErrorBranch(content: string): string {
     ?.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:\s*/i, 'Конструкция: ')
     .trim()
   const repeatRuLine = lines.find((line) =>
-    /^[\s\-•]*(?:\d+[\.)]\s*)*Повтори_перевод\s*:/i.test(line)
+    /^[\s\-•]*(?:\d+[\.)]\s*)*Скажи\s*:/i.test(line)
   )
   const repeatRu = (() => {
     if (!repeatRuLine) return undefined
     const raw = repeatRuLine
-      .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Повтори_перевод\s*:\s*/i, '')
+      .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Скажи\s*:\s*/i, '')
       .trim()
     const clean = stripLeadingRepeatRuPrompt(raw)
-    return clean ? `Повтори_перевод: ${clean}` : undefined
+    return clean ? `Скажи: ${clean}` : undefined
   })()
   const repeat = lines
     .find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line))
@@ -4516,6 +4563,11 @@ function normalizeTranslationErrorBranch(content: string): string {
     .trim()
 
   if (!repeat) return content
+
+  if (supportCombined && errorsCombined) {
+    const supportBody = supportCombined.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_перевод\s*:\s*/i, '').trim()
+    supportCombined = `Комментарий_перевод: ${normalizeSupportiveCommentForErrorsBlock(supportBody, 'adult')}`
+  }
 
   const out = [supportCombined, comment, errorsCombined, timeLine, construction, repeatRu, repeat].filter(Boolean)
   return out.join('\n').trim()
@@ -4534,7 +4586,7 @@ function buildTranslationMissingRepeatRepairInstruction(params: {
     'Do not borrow words from the user\'s answer to build that sentence if they conflict with the Russian prompt.',
     'Never write placeholders like "Write the correct English translation of the given Russian sentence."',
     fallbackPrompt ? `The Russian phrase to correct is: "${fallbackPrompt}"` : null,
-    'Keep the visible protocol only: Комментарий_перевод / Комментарий / Ошибки / Время / Конструкция / Повтори_перевод / Повтори.',
+    'Keep the visible protocol only: Комментарий_перевод / Комментарий / Ошибки / Время / Конструкция / Скажи / Повтори.',
   ]
     .filter(Boolean)
     .join(' ')
@@ -4713,7 +4765,13 @@ async function repairDialogueAllTenseRepeatMismatch(params: {
     } else {
       blindMessages.unshift({ role: 'system', content: `${systemContent}\n\n${blindBlock}` })
     }
-    const resBlind = await callProviderChat({ provider, req, apiMessages: blindMessages, maxTokens })
+    const resBlind = await callProviderChat({
+      provider,
+      req,
+      apiMessages: blindMessages,
+      maxTokens,
+      openAiChatPreset,
+    })
     if (resBlind.ok) {
       const repairedRaw = sanitizeInstructionLeak(resBlind.content)
       if (repairedRaw && !isMetaGarbage(repairedRaw)) {
@@ -4762,7 +4820,13 @@ async function repairDialogueAllTenseRepeatMismatch(params: {
     repairApiMessages.unshift({ role: 'system', content: `${systemContent}\n\n${repairBlock}` })
   }
 
-  const res = await callProviderChat({ provider, req, apiMessages: repairApiMessages, maxTokens })
+    const res = await callProviderChat({
+      provider,
+      req,
+      apiMessages: repairApiMessages,
+      maxTokens,
+      openAiChatPreset,
+    })
   if (!res.ok) return content
   const repairedRaw = sanitizeInstructionLeak(res.content)
   if (!repairedRaw || isMetaGarbage(repairedRaw)) return content
@@ -4938,6 +5002,18 @@ function pushUniqueReason(parts: string[], reason: string): void {
   parts.push(reason)
 }
 
+/** Не подсказываем ing→ed, если эталон continuous и этот -ing защищён (have been learning и т.д.). */
+function shouldSkipMisalignedIngToEdLexicalHint(
+  userToken: string,
+  repeatToken: string,
+  protectedIng: Set<string>
+): boolean {
+  if (protectedIng.size === 0) return false
+  const u = userToken.toLowerCase()
+  const r = repeatToken.toLowerCase()
+  return protectedIng.has(u) && (r.endsWith('ed') || r === 'learned' || r === 'learnt')
+}
+
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -5008,6 +5084,8 @@ function enrichTranslationCommentQuality(params: {
 
   const userLower = userText.toLowerCase()
   const repeatLower = repeatSentence.toLowerCase()
+  const protectedContinuousIng =
+    tense.endsWith('_continuous') ? extractContinuousDrillProtectedIngForms(repeatSentence) : new Set<string>()
   const hasRussianInUserAnswer = /[А-Яа-яЁё]/.test(userText)
   const reasonParts: string[] = []
   const prepositionHintParts: string[] = []
@@ -5146,7 +5224,9 @@ function enrichTranslationCommentQuality(params: {
 
     const distance = levenshteinDistance(userToken, repeatToken)
     if (distance <= 2) {
-      pushUniqueReason(reasonParts, `Лексическая ошибка: ${userToken} нужно заменить на ${repeatToken}.`)
+      if (!shouldSkipMisalignedIngToEdLexicalHint(userToken, repeatToken, protectedContinuousIng)) {
+        pushUniqueReason(reasonParts, `Лексическая ошибка: ${userToken} нужно заменить на ${repeatToken}.`)
+      }
       continue
     }
 
@@ -5156,7 +5236,9 @@ function enrichTranslationCommentQuality(params: {
       !/^(?:a|an|the)$/i.test(userToken) &&
       !/^(?:a|an|the)$/i.test(repeatToken)
     ) {
-      pushUniqueReason(reasonParts, `Лексическая ошибка: ${userToken} нужно заменить на ${repeatToken}.`)
+      if (!shouldSkipMisalignedIngToEdLexicalHint(userToken, repeatToken, protectedContinuousIng)) {
+        pushUniqueReason(reasonParts, `Лексическая ошибка: ${userToken} нужно заменить на ${repeatToken}.`)
+      }
     }
   }
 
@@ -5183,9 +5265,13 @@ function enrichTranslationCommentQuality(params: {
     if (userToken && repeatToken && userToken !== repeatToken) {
       const distance = levenshteinDistance(userToken, repeatToken)
       if (distance <= 3) {
-        pushUniqueReason(reasonParts, `Лексическая ошибка: ${userToken} нужно заменить на ${repeatToken}.`)
+        if (!shouldSkipMisalignedIngToEdLexicalHint(userToken, repeatToken, protectedContinuousIng)) {
+          pushUniqueReason(reasonParts, `Лексическая ошибка: ${userToken} нужно заменить на ${repeatToken}.`)
+        }
       } else if (!COMMON_IRREGULAR_PAST_TO_BASE[userToken]) {
-        pushUniqueReason(reasonParts, `Лексическая ошибка: ${userToken} нужно заменить на ${repeatToken}.`)
+        if (!shouldSkipMisalignedIngToEdLexicalHint(userToken, repeatToken, protectedContinuousIng)) {
+          pushUniqueReason(reasonParts, `Лексическая ошибка: ${userToken} нужно заменить на ${repeatToken}.`)
+        }
       }
     }
   }
@@ -5265,6 +5351,69 @@ function enrichTranslationCommentQuality(params: {
   const commentBody = shouldReplaceCommentBody ? mergedReasonParts : [rawComment, mergedReasonParts].join('\n').trim()
   lines[commentIndex] = `Комментарий: ${commentBody}`.trim()
   return lines.join('\n')
+}
+
+const CYRILLIC_IN_ANSWER_ERRORS_HINT =
+  '📖 Русские слова в ответе нужно перевести на английский.'
+
+function buildCyrillicWordReplacementHint(userText: string): string | null {
+  const ruWords = userText.match(/[А-Яа-яЁё]+/g) ?? []
+  for (const raw of ruWords) {
+    const normalized = normalizeRuTopicKeyword(raw)
+    const mapped = RU_TOPIC_KEYWORD_TO_EN[normalized]
+    if (!mapped) continue
+    const normalizedRu = normalizeTopicToken(raw)
+    if (!normalizedRu) continue
+    return `📖 ${normalizedRu} - ${mapped}`
+  }
+  return null
+}
+
+/**
+ * После enrichTranslationCommentQuality подсказка про кириллицу попадает в «Комментарий:»,
+ * а «Ошибки:» уже собраны в ensureTranslationProtocolBlocks — добавляем явную строку в блок ошибок.
+ */
+function ensureTranslationErrorsMentionCyrillicAnswer(content: string, userText: string): string {
+  const ut = userText.trim()
+  if (!ut || !/[А-Яа-яЁё]/.test(ut)) return content
+  if (hasTranslationFormsBlock(content)) return content
+  if (!getTranslationRepeatSentence(content)) return content
+
+  const lines = content.split(/\r?\n/).map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trimEnd())
+
+  let errIdx = -1
+  for (let i = 0; i < lines.length; i++) {
+    if (/^\s*Ошибки\s*:/i.test(lines[i] ?? '')) {
+      errIdx = i
+      break
+    }
+  }
+  if (errIdx === -1) return content
+
+  const headerRe =
+    /^(Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say)\s*:/i
+
+  const errLine = lines[errIdx] ?? ''
+  const inlineRest = errLine.replace(/^\s*Ошибки\s*:\s*/i, '').trim()
+  const bodyLines: string[] = []
+  if (inlineRest) bodyLines.push(inlineRest)
+
+  let j = errIdx + 1
+  while (j < lines.length && !headerRe.test((lines[j] ?? '').trim())) {
+    bodyLines.push(lines[j] ?? '')
+    j++
+  }
+
+  const bodyText = bodyLines.join('\n')
+  if (/русск(?:ие|их)?\s+слов(?:а|о)?\s+в\s+ответе/i.test(bodyText)) return content
+  if (/📖\s+[а-яё]+\s*-\s*[a-z]/i.test(bodyText)) return content
+  if (/["'«»][а-яё]+["'«»]\s*[→-]+\s*["'«»]?[a-z]/i.test(bodyText)) return content
+
+  const specificReplacementHint = buildCyrillicWordReplacementHint(ut)
+  const newBody = [specificReplacementHint ?? CYRILLIC_IN_ANSWER_ERRORS_HINT, ...bodyLines.filter(Boolean)]
+  const before = lines.slice(0, errIdx)
+  const after = lines.slice(j)
+  return [...before, 'Ошибки:', ...newBody, ...after].join('\n')
 }
 
 function buildRepairSystemPrefix(extraInstructions = ''): string {
@@ -5498,6 +5647,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const messages: ChatMessage[] = normalizeIncomingMessages(body.messages)
     const provider: Provider = body.provider === 'openai' ? 'openai' : 'openrouter'
+    const openAiChatPreset: 'gpt-4o-mini' | 'gpt-5.4-mini-none' | 'gpt-5.4-mini-low' =
+      body.openAiChatPreset === 'gpt-5.4-mini-none'
+        ? 'gpt-5.4-mini-none'
+        : body.openAiChatPreset === 'gpt-5.4-mini-low'
+          ? 'gpt-5.4-mini-low'
+          : 'gpt-4o-mini'
     let topic = body.topic ?? 'free_talk'
     let level = body.level ?? 'a1'
     const mode = body.mode ?? 'dialogue'
@@ -5729,6 +5884,7 @@ export async function POST(req: NextRequest) {
         audience,
         provider,
         req,
+        openAiChatPreset,
       })
       translationGoldCache.set(cacheKey, translated)
       return translated
@@ -5827,7 +5983,7 @@ export async function POST(req: NextRequest) {
       ]
       if (activeRepeatChain && priorEn?.trim()) {
         const en = normalizeRepeatSentenceEnding(priorEn.trim())
-        linesOut.push(`Повтори_перевод: ${en}`)
+        linesOut.push(`Скажи: ${en}`)
         linesOut.push(`Повтори: ${en}`)
       }
       return NextResponse.json({ content: linesOut.filter(Boolean).join('\n') })
@@ -5844,6 +6000,7 @@ export async function POST(req: NextRequest) {
         req,
         apiMessages: translateMessages,
         maxTokens: 220,
+        openAiChatPreset,
       })
       if (translated.ok) {
         const raw = translated.content?.trim() ?? ''
@@ -6063,6 +6220,7 @@ export async function POST(req: NextRequest) {
             detailLevel: communicationDetailLevel,
             userQuery: lastUserContentForResponse,
             learnerEnglishSamples: learnerSamples,
+            openAiChatPreset,
           })
           if (rewritten) {
             contentForFinalize = formatOpenAiWebSearchAnswer({
@@ -6093,6 +6251,7 @@ export async function POST(req: NextRequest) {
                 learnerEnglishSamples: learnerSamples,
                 sourceKind: 'web_search',
                 requireFactualSummary: newsQuery,
+                openAiChatPreset,
               })
               if (retry1) {
                 simplifyDraft = retry1
@@ -6119,6 +6278,7 @@ export async function POST(req: NextRequest) {
                 sourceKind: 'web_search',
                 previousDraftTooHard: true,
                 requireFactualSummary: newsQuery,
+                openAiChatPreset,
               })
               if (retry2) {
                 simplifyDraft = retry2
@@ -6339,7 +6499,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       { role: 'system', content: systemContent },
       ...userTurnMessages,
     ]
-    const res1 = await callProviderChat({ provider, req, apiMessages, maxTokens: communicationMaxTokens })
+    const res1 = await callProviderChat({
+      provider,
+      req,
+      apiMessages,
+      maxTokens: communicationMaxTokens,
+      openAiChatPreset,
+    })
     if (!res1.ok) {
       const errText = res1.errText
       const forbiddenType =
@@ -6726,6 +6892,12 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 'Комментарий: Некорректный ввод. Введите правильный перевод полным предложением на английском языке.'
             }
             sanitized = ensureTranslationRepeatFallbackForMixedInput(sanitized, lastUserContentForResponse)
+            sanitized = ensureTranslationErrorsMentionCyrillicAnswer(sanitized, lastUserContentForResponse)
+            sanitized = sanitizeTranslationPayloadContinuousErrors(
+              sanitized,
+              tutorGradingTense,
+              getTranslationRepeatSentence(sanitized)
+            )
             sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
           }
 
@@ -6819,7 +6991,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               }),
           }
 
-          const resRepeatRepair = await callProviderChat({ provider, req, apiMessages: repairApiMessages, maxTokens: communicationMaxTokens })
+          const resRepeatRepair = await callProviderChat({
+            provider,
+            req,
+            apiMessages: repairApiMessages,
+            maxTokens: communicationMaxTokens,
+            openAiChatPreset,
+          })
           if (resRepeatRepair?.ok) {
             const repairedSanitizedRaw = sanitizeInstructionLeak(resRepeatRepair.content)
             if (repairedSanitizedRaw && !isMetaGarbage(repairedSanitizedRaw)) {
@@ -6859,6 +7037,12 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                   'Комментарий: Некорректный ввод. Введите правильный перевод полным предложением на английском языке.'
               }
               repaired = ensureTranslationRepeatFallbackForMixedInput(repaired, lastUserContentForResponse)
+              repaired = ensureTranslationErrorsMentionCyrillicAnswer(repaired, lastUserContentForResponse)
+              repaired = sanitizeTranslationPayloadContinuousErrors(
+                repaired,
+                tutorGradingTense,
+                getTranslationRepeatSentence(repaired)
+              )
 
               if (repairedRepeatSentence && !isGenericTranslationRepeatFallback(repairedRepeatSentence)) {
                 const coachText = buildTranslationConstructionCoachText(tutorGradingTense, repairedRepeatSentence)
@@ -6910,7 +7094,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           const repairApiMessages = [...apiMessages]
           repairApiMessages[0] = { role: 'system', content: repairSystemContent }
 
-          const res2 = await callProviderChat({ provider, req, apiMessages: repairApiMessages, maxTokens: communicationMaxTokens })
+          const res2 = await callProviderChat({
+            provider,
+            req,
+            apiMessages: repairApiMessages,
+            maxTokens: communicationMaxTokens,
+            openAiChatPreset,
+          })
           if (res2.ok) {
             const repairedSanitizedRaw = sanitizeInstructionLeak(res2.content)
             if (repairedSanitizedRaw && !isMetaGarbage(repairedSanitizedRaw)) {
@@ -6969,6 +7159,12 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                     repaired =
                       'Комментарий: Некорректный ввод. Введите правильный перевод полным предложением на английском языке.'
                   }
+                  repaired = ensureTranslationErrorsMentionCyrillicAnswer(repaired, lastUserContentForResponse)
+                  repaired = sanitizeTranslationPayloadContinuousErrors(
+                    repaired,
+                    tutorGradingTense,
+                    getTranslationRepeatSentence(repaired)
+                  )
 
                   const repeatSentenceForConstruction = getTranslationRepeatSentence(repaired)
                   if (repeatSentenceForConstruction && !isGenericTranslationRepeatFallback(repeatSentenceForConstruction)) {
@@ -7004,6 +7200,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         audience,
         requiredTense: tutorGradingTense,
       })
+      sanitized = injectSentenceTypePopravImperative(sanitized, audience)
       sanitized = normalizeTranslationBulbEmojisInContent(sanitized)
     }
     if (!sanitized) {
@@ -7057,7 +7254,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             `\n\nIMPORTANT LANGUAGE FIX: You MUST reply ONLY in ${targetLabel} (no switching languages). Keep it short (1–3 sentences). No "Комментарий/Повтори", no tutor/protocol markers, no "RU:/Russian:/Перевод".`,
         }
 
-        const res2 = await callProviderChat({ provider, req, apiMessages: repairApiMessages, maxTokens: communicationMaxTokens })
+        const res2 = await callProviderChat({
+          provider,
+          req,
+          apiMessages: repairApiMessages,
+          maxTokens: communicationMaxTokens,
+          openAiChatPreset,
+        })
         if (res2.ok) {
           const repairedRaw = sanitizeInstructionLeak(res2.content)
           if (repairedRaw) {
@@ -7209,7 +7412,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         repairMessages.unshift({ role: 'system', content: repairPrefix + systemContent })
       }
 
-      const res2 = await callProviderChat({ provider, req, apiMessages: repairMessages, maxTokens: communicationMaxTokens })
+      const res2 = await callProviderChat({
+        provider,
+        req,
+        apiMessages: repairMessages,
+        maxTokens: communicationMaxTokens,
+        openAiChatPreset,
+      })
       if (res2?.ok) {
         let repaired = sanitizeInstructionLeak(res2.content)
         if (repaired) {
@@ -7354,6 +7563,12 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               if (isUnrecognizedTranslationContext(repaired)) {
                 repaired = 'Комментарий: Некорректный ввод. Введите правильный перевод полным предложением на английском языке.'
               }
+              repaired = ensureTranslationErrorsMentionCyrillicAnswer(repaired, lastUserContentForResponse)
+              repaired = sanitizeTranslationPayloadContinuousErrors(
+                repaired,
+                tutorGradingTense,
+                getTranslationRepeatSentence(repaired)
+              )
 
               const repeatSentenceForConstruction = getTranslationRepeatSentence(repaired)
               if (repeatSentenceForConstruction && !isGenericTranslationRepeatFallback(repeatSentenceForConstruction)) {
@@ -7406,6 +7621,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 audience,
                 requiredTense: tutorGradingTense,
               })
+              repaired = injectSentenceTypePopravImperative(repaired, audience)
               repaired = await finalizeTranslationResponsePayload({
                 content: repaired,
                 nonSystemMessages,
@@ -7618,6 +7834,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           provider,
           req,
           resolveGoldTranslation,
+          openAiChatPreset,
         })
       }
       guardedContent = await finalizeTranslationResponsePayload({

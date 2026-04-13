@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import { stripWrappingQuotes } from '@/lib/translationProtocolLines'
 import {
+  buildAssistantSectionsForTranslationErrorRepeatTest,
   buildAssistantSectionsForTranslationSuccessTest,
   commentIconForContent,
   commentLabelForTranslationFirstBlock,
   commentToneForContent,
+  computeAssistantTranslationMainCardMeta,
   condenseTranslationCommentToErrors,
   filterTranslationErrorsDisplayText,
   formatThreeFormsForCard,
@@ -13,18 +16,31 @@ import {
 } from './Chat'
 
 describe('filterTranslationErrorsDisplayText', () => {
+  it('убирает строку «Ошибка формы глагола», если по смыслу это spelling', () => {
+    const raw = ['✏️ studing → studying', '🔤 Ошибка формы глагола. Правильное spelling: studying.'].join('\n')
+    expect(filterTranslationErrorsDisplayText(raw)).toBe('✏️ studing → studying')
+  })
+
+  it('убирает строку «Ошибка типа предложения», если это замена русского слова на английское', () => {
+    const raw = [
+      "✏️ 'готовлю' → 'cooking'",
+      "🔤 Ошибка типа предложения. Нужно использовать форму 'cooking' вместо 'готовлю'.",
+    ].join('\n')
+    expect(filterTranslationErrorsDisplayText(raw)).toBe("✏️ 'готовлю' → 'cooking'")
+  })
+
   it('убирает подпункты только с дефисом / «нет»', () => {
     const raw = [
       '🔤 Грамматика: Нужен артикль "a" перед "live concert".',
       '✏️ Орфография: -',
       '📖 Лексика: -',
     ].join('\n')
-    expect(filterTranslationErrorsDisplayText(raw)).toBe('🔤 Грамматика: Нужен артикль "a" перед "live concert".')
+    expect(filterTranslationErrorsDisplayText(raw)).toBe('🔤 Нужен артикль "a" перед "live concert".')
   })
 
   it('оставляет все строки, если везде есть смысл', () => {
     const raw = ['🔤 Грамматика: a.', '✏️ Орфография: b.'].join('\n')
-    expect(filterTranslationErrorsDisplayText(raw)).toBe(raw)
+    expect(filterTranslationErrorsDisplayText(raw)).toBe('🔤 a.\n✏️ b.')
   })
 })
 
@@ -78,6 +94,21 @@ describe('translationResponseHasSuccessShape', () => {
   })
 })
 
+describe('computeAssistantTranslationMainCardMeta', () => {
+  it('при ошибке сохраняет русское задание в метаданных, но карточку «Переведи» не показывает — цикл только «Скажи»', () => {
+    const content = [
+      'Комментарий: Ошибка.',
+      'Время: Present Continuous — сейчас.',
+      'Скажи: Are we watching a movie?',
+      'Переведи далее: Мы сейчас смотрим фильм?',
+      'Переведи на английский язык.',
+    ].join('\n')
+    const meta = computeAssistantTranslationMainCardMeta({ role: 'assistant', content })
+    expect(meta.hideTranslationPromptBlocks).toBe(true)
+    expect(meta.effectiveMainBefore.trim()).toBe('Мы сейчас смотрим фильм?')
+  })
+})
+
 describe('parseTranslationCoachBlocks', () => {
   it('выделяет errorsBlock между Ошибки и Время', () => {
     const text = [
@@ -103,7 +134,7 @@ describe('parseTranslationCoachBlocks', () => {
       'Комментарий_перевод: Круто, что начал с "How"! 🙌',
       'Комментарий: Ошибка формы глагола — проверь окончание.',
       'Ошибки:',
-      '🔤 Грамматика: …',
+      '🔤 …',
       'Время: Present Simple — пояснение.',
       'Конструкция: S + V1',
       'Повтори: How do you do?',
@@ -116,7 +147,7 @@ describe('parseTranslationCoachBlocks', () => {
     expect(b.repeatRu).toBeNull()
   })
 
-  it('выделяет Повтори_перевод до Повтори (английский эталон)', () => {
+  it('выделяет Скажи до Повтори (английский эталон)', () => {
     const text = [
       'Комментарий_перевод: Молодец! 🌟',
       'Комментарий: Ошибка времени.',
@@ -124,7 +155,7 @@ describe('parseTranslationCoachBlocks', () => {
       '⏱️ …',
       'Время: Present Simple — …',
       'Конструкция: S + V1',
-      'Повтори_перевод: I often read.',
+      'Скажи: I often read.',
       'Повтори: I often read.',
     ].join('\n')
     const b = parseTranslationCoachBlocks(text)
@@ -132,10 +163,10 @@ describe('parseTranslationCoachBlocks', () => {
     expect(b.repeat).toBe('I often read.')
   })
 
-  it('убирает лишний префикс Повтори: в теле Повтори_перевод', () => {
+  it('убирает лишний префикс Повтори: в теле Скажи', () => {
     const text = [
       'Комментарий: Ошибка.',
-      'Повтори_перевод: Повтори: I love cooking different dishes in the kitchen.',
+      'Скажи: Повтори: I love cooking different dishes in the kitchen.',
       'Повтори: I love cooking different dishes in the kitchen.',
     ].join('\n')
     const b = parseTranslationCoachBlocks(text)
@@ -145,11 +176,18 @@ describe('parseTranslationCoachBlocks', () => {
   it('парсит Повтори с дефисом в начале строки', () => {
     const text = [
       'Комментарий: Ошибка.',
-      'Повтори_перевод: Hello.',
+      'Скажи: Hello.',
       '- Повтори: Hello.',
     ].join('\n')
     const b = parseTranslationCoachBlocks(text)
     expect(b.repeat).toBe('Hello.')
+  })
+
+  it('в одной строке отделяет «Переведи на английский язык.» от русского задания', () => {
+    const text = 'Переведи: Я сейчас учусь? Переведи на английский язык.'
+    const b = parseTranslationCoachBlocks(text)
+    expect(b.nextSentence).toBe('Переведи: Я сейчас учусь?')
+    expect(b.invitation).toBe('Переведи на английский язык.')
   })
 })
 
@@ -235,9 +273,96 @@ describe('translationSuccessPraiseCard UI', () => {
   })
 })
 
+describe('translation error repeat UI', () => {
+  it('в translation+error показывает только repeat-translation из Скажи', () => {
+    const sections = buildAssistantSectionsForTranslationErrorRepeatTest({
+      mode: 'translation',
+      translationErrorCoachUi: true,
+      showOnlyRepeat: true,
+      repeatRuTextForCard: 'I often read.',
+      repeatTextForCard: 'I often read.',
+    })
+    expect(sections.find((s) => s.key === 'repeat-translation')?.text).toBe('I often read.')
+    expect(sections.some((s) => s.key === 'repeat')).toBe(false)
+    expect(sections.some((s) => s.key === 'repeat-inline')).toBe(false)
+  })
+
+  it('в translation+error не показывает карточку «Переведи далее» даже при непустом mainBefore', () => {
+    const sections = buildAssistantSectionsForTranslationErrorRepeatTest({
+      showOnlyRepeat: false,
+      repeatTextForCard: 'I have been thinking about a business trip for several days.',
+      repeatRuTextForCard: 'I have been thinking about a business trip for several days.',
+      mainBefore: 'Я ещё не несколько дней думаю о своей следующей поездке.',
+    })
+    expect(sections.some((s) => s.key === 'main')).toBe(false)
+    expect(sections.some((s) => s.key === 'main-after')).toBe(false)
+    expect(sections.find((s) => s.key === 'repeat-translation')?.text).toContain('business trip')
+  })
+
+  it('убирает внешние кавычки в теле repeat-translation', () => {
+    const sections = buildAssistantSectionsForTranslationErrorRepeatTest({
+      mode: 'translation',
+      translationErrorCoachUi: true,
+      showOnlyRepeat: true,
+      repeatRuTextForCard: '"У тебя есть домашнее животное."',
+      repeatTextForCard: 'ignored in this mode',
+    })
+    expect(sections.find((s) => s.key === 'repeat-translation')?.text).toBe('У тебя есть домашнее животное.')
+  })
+
+  it('не делает fallback на Повтори при translation+error без Скажи', () => {
+    const sections = buildAssistantSectionsForTranslationErrorRepeatTest({
+      mode: 'translation',
+      translationErrorCoachUi: true,
+      showOnlyRepeat: true,
+      repeatRuTextForCard: null,
+      repeatTextForCard: 'Fallback should be hidden.',
+    })
+    expect(sections.some((s) => s.key === 'repeat-translation')).toBe(false)
+    expect(sections.some((s) => s.key === 'repeat')).toBe(false)
+    expect(sections.some((s) => s.key === 'repeat-inline')).toBe(false)
+  })
+
+  it('в не-translation режимах repeat не меняется', () => {
+    const sections = buildAssistantSectionsForTranslationErrorRepeatTest({
+      mode: 'dialogue',
+      translationErrorCoachUi: true,
+      showOnlyRepeat: true,
+      repeatRuTextForCard: null,
+      repeatTextForCard: 'Repeat is visible.',
+    })
+    expect(sections.some((s) => s.key === 'repeat')).toBe(true)
+  })
+})
+
+describe('stripWrappingQuotes', () => {
+  it('убирает ASCII и типографские двойные кавычки', () => {
+    expect(stripWrappingQuotes('"Hello."')).toBe('Hello.')
+    expect(stripWrappingQuotes('\u201CHello.\u201D')).toBe('Hello.')
+  })
+
+  it('убирает «ёлочки»', () => {
+    expect(stripWrappingQuotes('«Привет»')).toBe('Привет')
+  })
+
+  it('не трогает кавычки внутри фразы', () => {
+    expect(stripWrappingQuotes('Say "hi" here.')).toBe('Say "hi" here.')
+  })
+})
+
 describe('stripTranslationMainMetaPrefixes', () => {
   it('убирает служебное "На следующую тему:" после "Переведи далее:"', () => {
     const raw = 'Переведи далее: На следующую тему: Какой ваш любимый фильм?'
     expect(stripTranslationMainMetaPrefixes(raw)).toBe('Какой ваш любимый фильм?')
+  })
+
+  it('убирает служебное "Следующий вопрос:" перед русским заданием', () => {
+    const raw = 'Переведи далее: Следующий вопрос: Ты любишь смотреть комедии?'
+    expect(stripTranslationMainMetaPrefixes(raw)).toBe('Ты любишь смотреть комедии?')
+  })
+
+  it('убирает и "На следующую тему:", и "Следующий вопрос:" подряд', () => {
+    const raw = 'Переведи далее: На следующую тему: Следующий вопрос: Какой твой любимый сериал?'
+    expect(stripTranslationMainMetaPrefixes(raw)).toBe('Какой твой любимый сериал?')
   })
 })

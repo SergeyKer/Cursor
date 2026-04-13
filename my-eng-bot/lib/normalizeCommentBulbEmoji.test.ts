@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   normalizeBulbOnlyAtStart,
   normalizeTranslationBulbEmojisInContent,
+  stripCheckEmojisForPrefixedCard,
   stripLeadingBulbEmojisForPrefixedCard,
 } from './normalizeCommentBulbEmoji'
 
@@ -11,8 +12,15 @@ describe('stripLeadingBulbEmojisForPrefixedCard', () => {
     expect(stripLeadingBulbEmojisForPrefixedCard('💡 💡 Здорово, что ты…')).toBe('Здорово, что ты…')
   })
 
-  it('не трогает лампу на второй строке', () => {
-    expect(stripLeadingBulbEmojisForPrefixedCard('Первая\n💡 вторая')).toBe('Первая\n💡 вторая')
+  it('убирает лампу на любой строке тела — в UI она уже в метке', () => {
+    expect(stripLeadingBulbEmojisForPrefixedCard('Первая\n💡 вторая')).toBe('Первая\nвторая')
+  })
+})
+
+describe('stripCheckEmojisForPrefixedCard', () => {
+  it('убирает все ✅ из текста при отдельной метке карточки', () => {
+    expect(stripCheckEmojisForPrefixedCard('✅ Отлично!')).toBe('Отлично!')
+    expect(stripCheckEmojisForPrefixedCard('Строка\n✅ ещё')).toBe('Строка\nещё')
   })
 })
 

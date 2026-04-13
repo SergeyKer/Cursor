@@ -24,5 +24,5 @@ General (all tenses):
 - Place/time (here, there, yesterday, tomorrow, now in "when" sense): usually at the end (I saw him yesterday).
 - Manner (quickly, carefully, well, badly): after the verb or object (She sings well. He drove the car carefully).
 
-When correcting wrong adverb position (translation ERROR protocol — line starting with "🔤 Грамматика:"): give a short fix in Russian naming the adverb and where it belongs (e.g. after have/has and before V3 in Present Perfect; before the main verb in Simple; yet at the end). Do not paste this whole block into the learner reply.
+When correcting wrong adverb position (translation ERROR protocol — line starting with 🔤 for grammar): give a short fix in Russian naming the adverb and where it belongs (e.g. after have/has and before V3 in Present Perfect; before the main verb in Simple; yet at the end). Do not paste this whole block into the learner reply.
 `.trim()

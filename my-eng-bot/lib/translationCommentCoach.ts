@@ -3,7 +3,7 @@
  * Следующий протокольный блок — не часть комментария (Время, Конструкция, Повтори, …).
  */
 const TRANSLATION_PROTOCOL_LINE =
-  /^\s*(Комментарий_перевод|Ошибки|Время|Конструкция|Формы|Повтори_перевод|Повтори|Переведи(?:\s+далее)?|Следующ(?:ее|ие)?\s+предложени)\s*:/i
+  /^\s*(Комментарий_перевод|Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Переведи(?:\s+далее)?|Следующ(?:ее|ие)?\s+предложени)\s*:/i
 
 export type TranslationCommentExtraction = {
   start: number
@@ -43,12 +43,27 @@ export function inferTranslationCommentErrorType(raw: string): string {
 
 function inferCommentErrorType(raw: string): string {
   const s = raw.toLowerCase()
+  // Русская лексика в английской фразе / «рус. → eng» — ошибка перевода, не «тип предложения».
+  if (/['"`«]?[а-яё]{2,}['"`»]?\s*(?:→|->)\s*['"`«]?[a-z]{2,}/i.test(raw)) {
+    return 'Ошибка перевода.'
+  }
+  if (/(?:вместо|instead\s+of)\s+['"`«]?[а-яё]{2,}/i.test(raw) && /[a-z]{3,}/i.test(raw)) {
+    return 'Ошибка перевода.'
+  }
   if (
     /типа?\s+предложения|вопросн\w*\s+(?:порядок|форма)|утвердител\w*\s+предложени|отрицател\w*\s+предложени/i.test(
       s
     )
   ) {
     return 'Ошибка типа предложения.'
+  }
+  // Иначе «Ошибка формы глагола» + «spelling» даёт ложный тип из-за подстроки «формы глагола».
+  if (
+    /(орфограф|spelling|опечат|неверн\w*\s+напис|правильн\w*\s+spelling|wrong\s+spelling|incorrect\s+spelling)/i.test(
+      s
+    )
+  ) {
+    return 'Орфографическая ошибка.'
   }
   if (/(врем|tense|present|past|future)/i.test(s)) return 'Ошибка времени.'
   if (/(согласован|agree|subject|подлежащ|has\b|have\b|does\b|do\b)/i.test(s)) {
@@ -131,4 +146,17 @@ export function applyTranslationCommentCoachVoice(params: {
     ? `${errorTypeDisplay} — ${rest.trimStart()}`
     : `${errorTypeDisplay} — ${rest}`.replace(/\s{2,}/g, ' ').trim()
   return spliceKommentariyBlock(lines, start, endExclusive, newBody).join('\n').trim()
+}
+
+/**
+ * После метки «Ошибка типа предложения» вставляет обращение «Поправь» / «Поправьте» перед «вопрос должен…»,
+ * если модель уже не написала это сама (строка «Комментарий:» или 🔤 в «Ошибки:»).
+ */
+export function injectSentenceTypePopravImperative(content: string, audience: 'child' | 'adult'): string {
+  if (!content) return content
+  const imperative = audience === 'child' ? 'Поправь' : 'Поправьте'
+  return content.replace(
+    /(Ошибка\s+типа\s+предложения)(\s*\.(?:\s*\*+)*\s*|\s*:\s*)(?!\s*Поправь(?:те)?\s*[—–-]\s*)(вопрос\s+должен[^\n]*)/gi,
+    (_, label: string, sep: string, rest: string) => `${label}${sep}${imperative} — ${rest}`
+  )
 }

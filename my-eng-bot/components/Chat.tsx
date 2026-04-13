@@ -2,12 +2,22 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { parseCorrection } from '@/lib/parseCorrection'
-import { mergeErrorsBlockWithSyntheticFromComment } from '@/lib/translationSyntheticErrorsBlock'
+import {
+  dedupeTranslationPraiseParagraphs,
+  extractTranslationErrorSynthAndPraiseFromComment,
+  mergeErrorsBlockWithSyntheticFromComment,
+  partitionEncouragementLinesFromTranslationErrorsPayload,
+  stripTranslationErrorSubsectionLabels,
+} from '@/lib/translationSyntheticErrorsBlock'
 import {
   TRANSLATION_PROTOCOL_BLOCK_LINE,
   stripLeadingRepeatRuPrompt,
+  stripWrappingQuotes,
 } from '@/lib/translationProtocolLines'
-import { stripLeadingBulbEmojisForPrefixedCard } from '@/lib/normalizeCommentBulbEmoji'
+import {
+  stripCheckEmojisForPrefixedCard,
+  stripLeadingBulbEmojisForPrefixedCard,
+} from '@/lib/normalizeCommentBulbEmoji'
 import { speak } from '@/lib/speech'
 import { pickRecordingMimeType, shouldUseMediaRecorderFallback, sttLangFromLocale } from '@/lib/sttClient'
 import { normalizeWebSearchSourceUrl } from '@/lib/openAiWebSearchShared'
@@ -148,12 +158,36 @@ export function filterTranslationErrorsDisplayText(raw: string): string {
     return false
   }
 
-  const subsectionLine = /^\s*(?:[-•*]\s*)?(🤔|🔤|✏️|📖)\s*[^:]+:\s*(.*)$/u
+  /** Тело строки после эмодзи: либо «Метка: текст», либо сразу текст (без русских меток). */
+  const subsectionLine =
+    /^\s*(?:[-•*]\s*)?(🤔|🔤|✏️|📖)\s*(?:(?:Грамматика|Орфография|Лексика)\s*:\s*)?(.*)$/u
+  const isVerbFormLabelWithSpellingDetail = (displayLine: string): boolean => {
+    const t = displayLine.toLowerCase()
+    return (
+      /^\s*(?:[-•*]\s*)?🔤\s*/.test(displayLine) &&
+      /ошибка\s+формы\s+глагола/i.test(t) &&
+      /(spelling|орфограф|опечат)/i.test(t)
+    )
+  }
+
+  /** Модель путает «тип предложения» с подсказкой заменить русское слово на английское. */
+  const isSentenceTypeMislabeledTranslation = (displayLine: string): boolean => {
+    const t = displayLine
+    if (!/ошибка\s+типа\s+предложения/i.test(t)) return false
+    if (/['"`«]?[а-яё]{2,}['"`»]?\s*(?:→|->)\s*['"`«]?[a-z]{2,}/i.test(t)) return true
+    if (/вместо\s+['"`«]?[а-яё]{2,}/i.test(t) && /[a-z]{3,}/i.test(t)) return true
+    if (/используйте\s+форму\s+['"`«]?[a-z]{2,}/i.test(t) && /[а-яё]{2,}/i.test(t)) return true
+    return false
+  }
+
   const out: string[] = []
   for (const line of trimmed.split(/\r?\n/)) {
-    const m = line.match(subsectionLine)
+    const displayLine = stripTranslationErrorSubsectionLabels(line)
+    if (isVerbFormLabelWithSpellingDetail(displayLine)) continue
+    if (isSentenceTypeMislabeledTranslation(displayLine)) continue
+    const m = displayLine.match(subsectionLine)
     if (m && isPlaceholderBody(m[2] ?? '')) continue
-    out.push(line)
+    out.push(displayLine)
   }
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trim()
 }
@@ -171,8 +205,20 @@ export function stripTranslationMainMetaPrefixes(text: string): string {
     .replace(/^\s*(?:следующ(?:ее|ие)\s+предложени(?:е|я)\s*:\s*)+/i, '')
     .replace(/^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)(?:\s+далее)?\s*:\s*/i, '')
     .replace(/^\s*(?:на\s+)?следующ(?:ую|ие)\s+тем(?:у|ы)\s*:\s*/i, '')
+    .replace(/^\s*(?:следующ(?:ий|ая|ее)\s+вопрос\s*:\s*)+/i, '')
     .trim()
   return stripWrappingQuotesFromDrillRussianLine(withoutPrefix)
+}
+
+/**
+ * Видимая строка задания «Переведи(те) [далее]: …» из текста карточки (для цикла ошибки перевода).
+ */
+function extractRussianTranslationDrillLine(displayText: string): string {
+  const m =
+    /(?:^|\n)\s*((?:Переведи|Переведите)(?:\s+далее)?\s*:\s*["'"«(]*\s*[А-Яа-яЁё][^\n]*)/im.exec(
+      displayText
+    )
+  return m?.[1]?.trim() ?? ''
 }
 
 /** Похвала — лёгкий зелёный тон; иначе янтарь (ошибка/коррекция), как до введения praise. */
@@ -236,7 +282,7 @@ function buildAssistantSections(params: {
   showOnlyRepeat: boolean
   hidePromptBlocks?: boolean
   repeatTextForCard: string | null
-  /** Режим перевод, ошибка: эталон из «Повтори_перевод:» (англ., совпадает с «Повтори:») для карточки повтора. */
+  /** Режим перевод, ошибка: эталон из «Скажи:» (англ., совпадает с «Повтори:») для карточки повтора. */
   repeatRuTextForCard?: string | null
   mainBefore: string
   hideRussianNonQuestionMainBefore: boolean
@@ -276,13 +322,14 @@ function buildAssistantSections(params: {
   const sections: AssistantSection[] = []
   const supportTrim = translationSupportComment?.trim() ?? ''
   if (mode === 'translation' && translationErrorCoachUi) {
-    if (supportTrim) {
+    const supportOrComment = supportTrim || comment?.trim() || ''
+    if (supportOrComment) {
       sections.push({
         key: 'comment',
         tone: 'amber',
         label: '💡',
-        text: supportTrim,
-        singleLine: !supportTrim.includes('\n'),
+        text: supportOrComment,
+        singleLine: !supportOrComment.includes('\n'),
       })
     }
   } else if (mode === 'translation' && translationSuccessPraiseCard && comment?.trim()) {
@@ -330,28 +377,33 @@ function buildAssistantSections(params: {
   }
   const repeatRuTrim = repeatRuTextForCard?.trim() ?? ''
   if (mode === 'translation' && translationErrorCoachUi && repeatRuTrim) {
-    const repeatEnCueBody = stripLeadingRepeatRuPrompt(repeatRuTrim)
+    const repeatEnCueBody = stripWrappingQuotes(stripLeadingRepeatRuPrompt(repeatRuTrim))
     if (repeatEnCueBody) {
       sections.push({
         key: 'repeat-translation',
         tone: 'emerald',
-        label: 'Повтори',
+        label: 'Скажи',
         text: repeatEnCueBody,
         singleLine: true,
       })
     }
   }
-  const hideEnglishRepeatCard =
-    mode === 'translation' && translationErrorCoachUi && Boolean(repeatRuTrim)
-  if (showOnlyRepeat && repeatTextForCard) {
+  const isTranslationErrorCoach = mode === 'translation' && translationErrorCoachUi
+  const hideEnglishRepeatCard = isTranslationErrorCoach
+  if (showOnlyRepeat && repeatTextForCard && !isTranslationErrorCoach) {
     sections.push({
       key: 'repeat',
       tone: 'emerald',
-      label: 'Повтори',
-      text: repeatTextForCard,
+      label: 'Скажи',
+      text: stripWrappingQuotes(repeatTextForCard),
       singleLine: true,
     })
-  } else if (!hidePromptBlocks && mainBefore && !hideRussianNonQuestionMainBefore) {
+  } else if (
+    !hidePromptBlocks &&
+    mainBefore &&
+    !hideRussianNonQuestionMainBefore &&
+    !isTranslationErrorCoach
+  ) {
     sections.push({
       key: 'main',
       tone: 'neutral',
@@ -366,19 +418,19 @@ function buildAssistantSections(params: {
     sections.push({
       key: 'repeat-inline',
       tone: 'emerald',
-      label: 'Повтори',
-      text: repeatTextForCard,
+      label: 'Скажи',
+      text: stripWrappingQuotes(repeatTextForCard),
       singleLine: true,
     })
   }
   // Блок с текстом «Переведи на английский.» не показываем — режим перевода уже задан в UI.
   // Хвост после «Переведи…» дублирует подсказку — отдельный блок «Доп. комментарий» не показываем.
-  if (!hidePromptBlocks && mainAfter && !(mainBefore || invitationText)) {
+  if (!hidePromptBlocks && mainAfter && !(mainBefore || invitationText) && !isTranslationErrorCoach) {
     sections.push({
       key: 'main-after',
       tone: 'neutral',
       label: assistantMainHeadingLabel(),
-      text: mainAfter.replace(/\b(Say|Repeat|Скажи):\s*/gi, 'Повтори: '),
+      text: mainAfter.replace(/\b(Say|Repeat|Скажи):\s*/gi, 'Скажи: '),
       emphasizeMainText: hideAiLabel,
     })
   }
@@ -402,6 +454,37 @@ export function buildAssistantSectionsForTranslationSuccessTest(
     invitationText: null,
     mainAfter: '',
     mode: 'translation',
+  })
+}
+
+/** Узкий экспорт для тестов: ошибка drill перевода — в UI должен остаться только repeat из `Скажи`. */
+export function buildAssistantSectionsForTranslationErrorRepeatTest(options: {
+  repeatTextForCard?: string | null
+  repeatRuTextForCard?: string | null
+  showOnlyRepeat?: boolean
+  mode?: 'dialogue' | 'translation' | 'communication'
+  translationErrorCoachUi?: boolean
+  mainBefore?: string
+  mainAfter?: string
+}): AssistantSection[] {
+  return buildAssistantSections({
+    comment: null,
+    translationSupportComment: null,
+    translationErrorCoachUi: options.translationErrorCoachUi ?? true,
+    translationSuccessPraiseCard: false,
+    tenseRef: null,
+    threeFormsText: null,
+    translationErrorsText: null,
+    showOnlyRepeat: options.showOnlyRepeat ?? false,
+    hidePromptBlocks: false,
+    repeatTextForCard: options.repeatTextForCard ?? null,
+    repeatRuTextForCard: options.repeatRuTextForCard ?? null,
+    mainBefore: options.mainBefore ?? '',
+    hideRussianNonQuestionMainBefore: false,
+    invitationText: null,
+    mainAfter: options.mainAfter ?? '',
+    mode: options.mode ?? 'translation',
+    translationHeadingWelcome: false,
   })
 }
 
@@ -472,9 +555,9 @@ export function parseTranslationCoachBlocks(text: string): {
       }
     }
 
-    // Только «Переведи на английский.» без русского задания — не «Переведи далее: …» (там точка может быть после «Теперь.»).
+    // Только «Переведи на английский.» / «…английский язык.» без русского задания — не «Переведи далее: …».
     const pureMetaInvitation =
-      /^\s*(?:\d+\)\s*)*((?:Переведи|Переведите)\s+на\s+английский\.)\s*$/i.exec(line)
+      /^\s*(?:\d+\)\s*)*((?:Переведи|Переведите)\s+на\s+английский(?:\s+язык)?\.)\s*$/i.exec(line)
     if (pureMetaInvitation?.[1]) {
       invitation = pureMetaInvitation[1].trim()
       collectingConstruction = false
@@ -527,8 +610,8 @@ export function parseTranslationCoachBlocks(text: string): {
       collectingForms = false
       continue
     }
-    if (/^[\s\-•]*(?:\d+\)\s*)*Повтори_перевод\s*:/i.test(line)) {
-      const raw = line.replace(/^[\s\-•]*(?:\d+\)\s*)*Повтори_перевод\s*:\s*/i, '').trim()
+    if (/^[\s\-•]*(?:\d+\)\s*)*Скажи\s*:/i.test(line)) {
+      const raw = line.replace(/^[\s\-•]*(?:\d+\)\s*)*Скажи\s*:\s*/i, '').trim()
       repeatRu = stripLeadingRepeatRuPrompt(raw) || null
       collectingConstruction = false
       collectingForms = false
@@ -541,7 +624,7 @@ export function parseTranslationCoachBlocks(text: string): {
       continue
     }
     const inlineEnglishOnlyInvitation =
-      /^(.*?)\s+((?:\d+\)\s*)?(?:Переведи|Переведите)\s+на\s+английский\.)\s*$/i.exec(line)
+      /^(.*?)\s+((?:\d+\)\s*)?(?:Переведи|Переведите)\s+на\s+английский(?:\s+язык)?\.)\s*$/i.exec(line)
     if (inlineEnglishOnlyInvitation?.[2] && inlineEnglishOnlyInvitation.index !== undefined) {
       const before = (inlineEnglishOnlyInvitation[1] ?? '').trim().replace(/^\d+\)\s*/i, '')
       const inv = inlineEnglishOnlyInvitation[2].replace(/^\s*\d+\)\s*/i, '').trim()
@@ -648,7 +731,7 @@ export function condenseTranslationCommentToErrors(comment: string): string {
 }
 
 /** Для режима «Перевод»: есть ли у ассистента видимая карточка с русским заданием (как в MessageBubble). */
-function computeAssistantTranslationMainCardMeta(message: ChatMessageType): {
+export function computeAssistantTranslationMainCardMeta(message: ChatMessageType): {
   effectiveMainBefore: string
   hideTranslationPromptBlocks: boolean
 } {
@@ -663,6 +746,7 @@ function computeAssistantTranslationMainCardMeta(message: ChatMessageType): {
   let hideTranslationMainCardForErrorRepeat = false
 
   const blocks = parseTranslationCoachBlocks(displayText)
+  const translationSuccessShape = translationResponseHasSuccessShape(displayText, blocks.threeFormsText)
   if (blocks.comment) effectiveComment = condenseTranslationCommentToErrors(blocks.comment)
   if (blocks.tenseRef) effectiveTenseRef = blocks.tenseRef
   if (blocks.threeFormsText) effectiveThreeFormsText = blocks.threeFormsText
@@ -683,7 +767,7 @@ function computeAssistantTranslationMainCardMeta(message: ChatMessageType): {
       .trim()
     const fallbackFromInline = blocks.nextSentence
       .replace(
-        /(?:Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Повтори_перевод|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
+        /(?:Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
         ' '
       )
       .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')
@@ -698,9 +782,18 @@ function computeAssistantTranslationMainCardMeta(message: ChatMessageType): {
     }
     effectiveMainBefore = extracted.promptText
   }
-  if ((blocks.repeat || blocks.repeatRu) && !blocks.nextSentence) {
-    hideTranslationMainCardForErrorRepeat = true
-    effectiveMainBefore = ''
+  if ((blocks.repeat || blocks.repeatRu) && !translationSuccessShape) {
+    const extractedDrill = extractRussianTranslationDrillLine(displayText)
+    const fromParsed = effectiveMainBefore.trim()
+    const drillCandidate =
+      [extractedDrill, fromParsed].find((s) => s && /[А-Яа-яЁё]/.test(s)) ?? ''
+    if (drillCandidate) {
+      hideTranslationMainCardForErrorRepeat = false
+      effectiveMainBefore = drillCandidate
+    } else {
+      hideTranslationMainCardForErrorRepeat = true
+      effectiveMainBefore = ''
+    }
   }
   if (isGenericTranslationRepeatUiText(repeatTextForCard)) {
     repeatTextForCard = null
@@ -716,12 +809,27 @@ function computeAssistantTranslationMainCardMeta(message: ChatMessageType): {
     effectiveTenseRef = null
   }
 
+  const translationErrorCoachUi = Boolean(
+    (blocks.repeat || blocks.repeatRu) && !blocks.threeFormsText && !translationSuccessShape
+  )
   const hideTranslationPromptBlocks =
     ((Boolean(repeatTextForCard) || Boolean(blocks.repeatRu)) &&
       !String(effectiveMainBefore ?? '').trim()) ||
-    hideTranslationMainCardForErrorRepeat
+    hideTranslationMainCardForErrorRepeat ||
+    translationErrorCoachUi
 
   return { effectiveMainBefore, hideTranslationPromptBlocks }
+}
+
+/** Русская строка задания из последнего сообщения ассистента с карточкой «Переведи» (для ответа-ошибки без повтора задания). */
+function findPriorTranslationDrillRussianLine(messages: ChatMessageType[], beforeIndex: number): string | null {
+  for (let j = beforeIndex - 1; j >= 0; j--) {
+    if (messages[j]?.role !== 'assistant') continue
+    const { effectiveMainBefore } = computeAssistantTranslationMainCardMeta(messages[j])
+    const t = effectiveMainBefore.trim()
+    if (t) return t
+  }
+  return null
 }
 
 export default function Chat({
@@ -1274,6 +1382,11 @@ export default function Chat({
                         firstTranslationMainExerciseIndex < 0 ||
                         i === firstTranslationMainExerciseIndex
                       }
+                      translationDrillRuFallback={
+                        settings.mode === 'translation' && msg.role === 'assistant' && i > 0
+                          ? findPriorTranslationDrillRussianLine(messages, i)
+                          : null
+                      }
                     />
                     {firstMessageError &&
                       onRetryFirstMessage &&
@@ -1508,6 +1621,7 @@ function MessageBubble({
   onRequestTranslation,
   isLoadingTranslation,
   translationHeadingWelcome = true,
+  translationDrillRuFallback = null,
 }: {
   message: ChatMessageType
   messageIndex: number
@@ -1519,6 +1633,8 @@ function MessageBubble({
   isLoadingTranslation?: boolean
   /** Первое задание перевода в чате — подпись «Переведи:»; иначе «Переведи далее:». */
   translationHeadingWelcome?: boolean
+  /** Если в ответе только протокол ошибки — подставить русское задание из предыдущего хода ассистента. */
+  translationDrillRuFallback?: string | null
 }) {
   const isUser = message.role === 'user'
   const isInternetMessage =
@@ -1536,6 +1652,8 @@ function MessageBubble({
     message.role === 'assistant' ? parseCorrection(visibleContent) : { comment: null, rest: visibleContent }
 
   const displayText = message.role === 'assistant' ? rest : visibleContent
+  /** На ошибке перевода не показываем «Переведи далее:» — только «Переведи:» для того же задания. */
+  let translationMainDrillHeadingWelcome = translationHeadingWelcome
   const isTranslationMode = mode === 'translation' && !isUser
   const { mainBefore, invitation: invitationText, mainAfter } =
     isTranslationMode && displayText
@@ -1599,7 +1717,19 @@ function MessageBubble({
   if (!isUser && isTranslationMode) {
     const blocks = parseTranslationCoachBlocks(displayText)
     translationSuccessShape = translationResponseHasSuccessShape(displayText, blocks.threeFormsText)
-    translationSupportComment = blocks.translationSupportComment
+    const { praiseFromComment } = extractTranslationErrorSynthAndPraiseFromComment(blocks.comment?.trim() ?? '')
+    const { errorsRest, praiseFromErrors } = partitionEncouragementLinesFromTranslationErrorsPayload(
+      blocks.errorsBlock?.trim() ?? ''
+    )
+    const praiseForSupport = dedupeTranslationPraiseParagraphs([praiseFromErrors, praiseFromComment])
+    translationSupportComment = (() => {
+      const base = blocks.translationSupportComment?.trim() ?? ''
+      const extra = praiseForSupport.length ? praiseForSupport.join('\n\n') : ''
+      if (!base && !extra) return null
+      if (!base) return extra
+      if (!extra) return base
+      return `${base}\n\n${extra}`
+    })()
     translationErrorCoachUi = Boolean(
       (blocks.repeat || blocks.repeatRu) && !blocks.threeFormsText && !translationSuccessShape
     )
@@ -1613,7 +1743,7 @@ function MessageBubble({
     if (blocks.threeFormsText) effectiveThreeFormsText = blocks.threeFormsText
     if (blocks.repeat) repeatTextForCard = blocks.repeat
     repeatRuForCard = blocks.repeatRu
-    const errorsFromPayload = blocks.errorsBlock?.trim() ?? ''
+    const errorsFromPayload = errorsRest.trim()
     const errorsMerged = mergeErrorsBlockWithSyntheticFromComment(errorsFromPayload, blocks.comment)
     const errorsResolved = filterTranslationErrorsDisplayText(errorsMerged.trim())
     translationErrorsText =
@@ -1639,11 +1769,11 @@ function MessageBubble({
         .trim()
       const fallbackFromInline = blocks.nextSentence
         .replace(
-          /(?:Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Повтори_перевод|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
+          /(?:Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
           ' '
         )
         .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')
-        .replace(/(?:^|\n)\s*(?:\d+\)\s*)?(?:Переведи|Переведите)\s+на\s+английский\.\s*/gi, ' ')
+        .replace(/(?:^|\n)\s*(?:\d+\)\s*)?(?:Переведи|Переведите)\s+на\s+английский(?:\s+язык)?\.\s*/gi, ' ')
         .replace(/\s+/g, ' ')
         .trim()
       effectiveMainBefore = cleanedNextSentence || fallbackFromInline || blocks.nextSentence
@@ -1654,15 +1784,28 @@ function MessageBubble({
       }
       effectiveMainBefore = extracted.promptText
     }
-    if ((blocks.repeat || blocks.repeatRu) && !blocks.nextSentence && !translationSuccessShape) {
-      // Error-protocol translation response: show only correction blocks,
-      // do not render synthetic "Переведи далее" main card without a new task.
-      hideTranslationMainCardForErrorRepeat = true
-      effectiveMainBefore = ''
-      effectiveInvitationText = null
+    const ruFbTrim = translationDrillRuFallback?.trim() ?? ''
+    if ((blocks.repeat || blocks.repeatRu) && !translationSuccessShape) {
+      const extractedDrill = extractRussianTranslationDrillLine(displayText)
+      const fromParsed = effectiveMainBefore.trim()
+      const drillCandidateRaw =
+        [ruFbTrim, extractedDrill, fromParsed].find((s) => s && /[А-Яа-яЁё]/.test(s)) ?? ''
+      if (drillCandidateRaw) {
+        hideTranslationMainCardForErrorRepeat = false
+        effectiveMainBefore = drillCandidateRaw
+      } else {
+        hideTranslationMainCardForErrorRepeat = true
+        effectiveMainBefore = ''
+        effectiveInvitationText = null
+        translationMainDrillHeadingWelcome = true
+      }
     }
     if (blocks.invitation) effectiveInvitationText = blocks.invitation
     if (effectiveMainBefore) effectiveMainBefore = stripTranslationMainMetaPrefixes(effectiveMainBefore)
+    if (ruFbTrim && hideTranslationMainCardForErrorRepeat && !String(effectiveMainBefore ?? '').trim()) {
+      effectiveMainBefore = stripTranslationMainMetaPrefixes(ruFbTrim)
+      hideTranslationMainCardForErrorRepeat = false
+    }
   }
   if (isGenericTranslationRepeatUiText(repeatTextForCard)) {
     repeatTextForCard = null
@@ -1683,7 +1826,7 @@ function MessageBubble({
       : null
   const translationSuccessPraiseCard = Boolean(translationPraiseDisplayText)
   const showOnlyRepeat = !isTranslationMode && Boolean(repeatTextForCard)
-  // Скрываем основной блок только если есть «Повтори», но нет следующего предложения — иначе теряется карточка «Переведи: …».
+  // Скрываем карточку задания при протоколе ошибки (есть повтор эталона, нет успешных форм), пока не восстановим русское из прошлого хода.
   const hideTranslationPromptBlocks =
     (isTranslationMode &&
       (Boolean(repeatTextForCard) || Boolean(repeatRuForCard)) &&
@@ -1714,11 +1857,7 @@ function MessageBubble({
   const assistantSections = isUser
     ? []
     : buildAssistantSections({
-        comment: translationErrorCoachUi
-          ? null
-          : translationSuccessPraiseCard
-            ? translationPraiseDisplayText
-            : effectiveComment,
+        comment: translationSuccessPraiseCard ? translationPraiseDisplayText : effectiveComment,
         translationSupportComment,
         translationErrorCoachUi,
         translationSuccessPraiseCard,
@@ -1734,7 +1873,7 @@ function MessageBubble({
         invitationText: effectiveInvitationText,
         mainAfter,
         mode,
-        translationHeadingWelcome,
+        translationHeadingWelcome: translationMainDrillHeadingWelcome,
       })
 
   React.useEffect(() => {
@@ -2018,7 +2157,9 @@ function SectionCard({
   const textResolved =
     typeof text === 'string' && labelTrimmed === '💡'
       ? stripLeadingBulbEmojisForPrefixedCard(text)
-      : text
+      : typeof text === 'string' && labelTrimmed === '✅'
+        ? stripCheckEmojisForPrefixedCard(text)
+        : text
   const iconOnlyLabelPattern = /^(?:[\u00A9\u00AE\u203C-\u3299]|[\uD83C-\uDBFF][\uDC00-\uDFFF]|\s)+$/
   const labelIsIconOnly =
     labelTrimmed === '✅' ||
