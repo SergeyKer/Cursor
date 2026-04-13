@@ -1756,5 +1756,52 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(positiveLine).not.toEqual(negativeLine)
   })
 
+  it('translation: multi-tense pick stays stable on 2nd user turn (same seed trim as dialogue)', async () => {
+    const drillReply =
+      'Комментарий: Тест.\nВремя: Past Simple — тест.\nКонструкция: Subject + V2.\nПовтори: I went home.\nНовое предложение.\nПереведи на английский.'
+
+    callProviderChatMock.mockResolvedValue({ ok: true, content: drillReply })
+
+    const base = {
+      mode: 'translation' as const,
+      topic: 'movies_series',
+      audience: 'adult' as const,
+      level: 'a2' as const,
+      sentenceType: 'interrogative' as const,
+      tenses: ['past_simple', 'future_simple'],
+      dialogSeed: 'vitest-multi-tense-translation-seed',
+    }
+
+    const req1 = makeRequest({ ...base, messages: [] })
+    await POST(req1 as never)
+    expect(callProviderChatMock).toHaveBeenCalled()
+    const firstCall = callProviderChatMock.mock.calls[0]?.[0] as
+      | { apiMessages?: Array<{ role: string; content: string }> }
+      | undefined
+    const sys1 = firstCall?.apiMessages?.[0]?.content ?? ''
+    const required1 = sys1.match(/Required tense:\s*([^.]+)/)?.[1]?.trim() ?? ''
+
+    callProviderChatMock.mockClear()
+    callProviderChatMock.mockResolvedValue({ ok: true, content: drillReply })
+
+    const req2 = makeRequest({
+      ...base,
+      messages: [
+        { role: 'assistant', content: 'Какой фильм ты смотрел вчера?\nПереведи на английский.' },
+        { role: 'user', content: 'I watched a film yesterday.' },
+      ],
+    })
+    await POST(req2 as never)
+    expect(callProviderChatMock).toHaveBeenCalled()
+    const secondCall = callProviderChatMock.mock.calls[0]?.[0] as
+      | { apiMessages?: Array<{ role: string; content: string }> }
+      | undefined
+    const sys2 = secondCall?.apiMessages?.[0]?.content ?? ''
+    const required2 = sys2.match(/Required tense:\s*([^.]+)/)?.[1]?.trim() ?? ''
+
+    expect(required1.length).toBeGreaterThan(0)
+    expect(required2).toBe(required1)
+  })
+
 })
 

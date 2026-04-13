@@ -32,6 +32,7 @@ function stripLeadingErrorTypePhrase(body: string, inferredType: string): string
     /^грамматическая\s+ошибка\s*[—:\\-–]\s*/i,
     /^ошибка\s+времени\s*[—:\\-–]\s*/i,
     /^ошибка\s+лексики\s*[—:\\-–]\s*/i,
+    /^ошибка\s+артикл\w*\s*[—:\\-–]\s*/i,
   ]
   let out = trimmed
   for (const re of commonHeads) {
@@ -60,4 +61,32 @@ export function buildSyntheticErrorsBlockFromComment(commentBody: string): strin
   const text = (detail || trimmed).replace(/\s+/g, ' ').trim()
   if (!text) return null
   return `${prefix} ${text}`.trim()
+}
+
+function normalizeErrorsBlockForDedup(s: string): string {
+  return s.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
+/**
+ * Тело блока «Ошибки:» от модели + одна синтетическая строка из «Комментарий:», если модель
+ * не вынесла туда же суть (например артикль). Дубликат по нормализованному тексту не добавляем.
+ */
+export function mergeErrorsBlockWithSyntheticFromComment(
+  payload: string,
+  commentBody: string | null | undefined
+): string {
+  const p = payload.replace(/^\s+|\s+$/g, '')
+  const c = (commentBody ?? '').replace(/^\s+|\s+$/g, '')
+  if (!c) return p
+
+  const synthetic = buildSyntheticErrorsBlockFromComment(c)
+  if (!synthetic) return p
+
+  if (!p) return synthetic
+
+  const pN = normalizeErrorsBlockForDedup(p)
+  const sN = normalizeErrorsBlockForDedup(synthetic)
+  if (pN.includes(sN)) return p
+
+  return `${p}\n${synthetic}`.trim()
 }

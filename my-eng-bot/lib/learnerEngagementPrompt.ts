@@ -18,7 +18,8 @@ export function buildTranslationSupportivePraisePriorityRule(): string {
     '- If at least one of the above is present, praise THAT — quote or name the exact English chunk.',
     '- If the answer is only baseline-correct pieces for this level (no item from the list above stands out), praise STRUCTURE instead: e.g. correct question shape, correct negation pattern, or another macro pattern that matches the Russian task type — still only ONE concrete point.',
     '- Do NOT praise: grammar that is expected at this CEFR by default (e.g. celebrating bare "Do" on A1 or routine "have" on B1 as the main win); "correct word order" or "no mistake where there should be none" as standalone praise; generic "everything is fine except…".',
-    '- Tone examples (Russian; adapt register to audience rules above; 💡 optional per emoji rules):',
+    '- Emoji rule for this line ONLY: 💡 may appear at most ONCE and ONLY at the very start of the Russian text (after the colon). NEVER put 💡 at the end; for closing energy use a different emoji from the allowed set (e.g. 🌟 ✨ 🎯 💪 🔥) that fits praise vs nudge.',
+    '- Tone examples (Russian; adapt register to audience rules above; 💡 optional only as opening):',
     '  "💡 Отлично, что использовал \'talk to\' — естественное сочетание! 🌟"',
     '  "💡 Вижу \'often\' на правильном месте — супер! 💪"',
     '  "💡 \'Interested in\' — правильный предлог, отлично! ✨"',
@@ -41,7 +42,7 @@ export function buildTranslationSingleTenseExplanationRule(): string {
 /** Strategic emoji guide for CHILD audience in supportive translation lines (Комментарий_перевод, SUCCESS Комментарий). */
 export function buildTranslationChildStrategicEmojiRule(): string {
   return [
-    'CHILD — strategic emoji (do NOT spam; at most 1 emoji per supportive line, rarely 2 if two short clauses; prefer start or end of the sentence):',
+    'CHILD — strategic emoji (do NOT spam; at most 1–2 emojis per supportive line if two short clauses): 💡 ONLY as the FIRST character of the supportive Russian line when you use it; NEVER end the line with 💡 — pick a different closing emoji from the legend (🌟 ✨ 🎯 💪 🔥 🚀 🙌 etc.) that matches the moment.',
     '\u{1F4A1} hint / insight',
     '\u{1F3AF} goal / focus',
     '\u{1F525} progress / success',

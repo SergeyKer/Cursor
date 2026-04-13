@@ -2,11 +2,12 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { parseCorrection } from '@/lib/parseCorrection'
-import { buildSyntheticErrorsBlockFromComment } from '@/lib/translationSyntheticErrorsBlock'
+import { mergeErrorsBlockWithSyntheticFromComment } from '@/lib/translationSyntheticErrorsBlock'
 import {
   TRANSLATION_PROTOCOL_BLOCK_LINE,
   stripLeadingRepeatRuPrompt,
 } from '@/lib/translationProtocolLines'
+import { stripLeadingBulbEmojisForPrefixedCard } from '@/lib/normalizeCommentBulbEmoji'
 import { speak } from '@/lib/speech'
 import { pickRecordingMimeType, shouldUseMediaRecorderFallback, sttLangFromLocale } from '@/lib/sttClient'
 import { normalizeWebSearchSourceUrl } from '@/lib/openAiWebSearchShared'
@@ -222,7 +223,7 @@ const SHOW_READ_ALOUD_THREE_FORMS_IN_TRANSLATION = false
 
 function buildAssistantSections(params: {
   comment: string | null
-  /** Режим перевод, ошибка: поддержка из «Комментарий_перевод:» (диагностический «Комментарий:» в UI не показываем). */
+  /** Режим перевод, ошибка: только тело «Комментарий_перевод:»; «Комментарий:» сюда не подставляем. */
   translationSupportComment?: string | null
   translationErrorCoachUi?: boolean
   /** Успешный drill перевода: первая карточка — ✅ (тон praise), а не янтарная 💡. */
@@ -292,7 +293,10 @@ function buildAssistantSections(params: {
       text: praiseText,
       singleLine: !praiseText.includes('\n'),
     })
-  } else if (comment) {
+  } else if (
+    comment &&
+    !(mode === 'translation' && translationSuccessPraiseCard && mainBefore?.trim())
+  ) {
     sections.push({
       key: 'comment',
       tone: commentToneForContent(comment),
@@ -381,7 +385,10 @@ function buildAssistantSections(params: {
 }
 
 /** Узкий экспорт для тестов: карточка похвалы при SUCCESS drill перевода. */
-export function buildAssistantSectionsForTranslationSuccessTest(comment: string): AssistantSection[] {
+export function buildAssistantSectionsForTranslationSuccessTest(
+  comment: string,
+  options?: { mainBefore?: string }
+): AssistantSection[] {
   return buildAssistantSections({
     comment,
     translationSuccessPraiseCard: true,
@@ -389,7 +396,7 @@ export function buildAssistantSectionsForTranslationSuccessTest(comment: string)
     showOnlyRepeat: false,
     hidePromptBlocks: false,
     repeatTextForCard: null,
-    mainBefore: '',
+    mainBefore: options?.mainBefore ?? '',
     hideRussianNonQuestionMainBefore: false,
     invitationText: null,
     mainAfter: '',
@@ -1605,13 +1612,9 @@ function MessageBubble({
     if (blocks.threeFormsText) effectiveThreeFormsText = blocks.threeFormsText
     if (blocks.repeat) repeatTextForCard = blocks.repeat
     repeatRuForCard = blocks.repeatRu
-    if (translationErrorCoachUi && !translationSupportComment?.trim() && effectiveComment) {
-      translationSupportComment = effectiveComment
-    }
     const errorsFromPayload = blocks.errorsBlock?.trim() ?? ''
-    const errorsSynthesized =
-      !errorsFromPayload && blocks.comment ? buildSyntheticErrorsBlockFromComment(blocks.comment)?.trim() ?? '' : ''
-    const errorsResolved = filterTranslationErrorsDisplayText((errorsFromPayload || errorsSynthesized).trim())
+    const errorsMerged = mergeErrorsBlockWithSyntheticFromComment(errorsFromPayload, blocks.comment)
+    const errorsResolved = filterTranslationErrorsDisplayText(errorsMerged.trim())
     translationErrorsText =
       Boolean((blocks.repeat || blocks.repeatRu) && !blocks.threeFormsText && !translationSuccessShape && errorsResolved)
         ? errorsResolved
@@ -1675,7 +1678,7 @@ function MessageBubble({
   }
   const translationPraiseDisplayText =
     !isUser && isTranslationMode && translationSuccessShape
-      ? (effectiveComment?.trim() || translationSupportComment?.trim() || null)
+      ? (effectiveComment?.trim() || null)
       : null
   const translationSuccessPraiseCard = Boolean(translationPraiseDisplayText)
   const showOnlyRepeat = !isTranslationMode && Boolean(repeatTextForCard)
@@ -2011,6 +2014,10 @@ function SectionCard({
     (label === 'AI' || label === 'Переведи' || label === 'Переведи далее' || Boolean(emphasizeMainText))
   const hasLabel = label.trim().length > 0
   const labelTrimmed = label.trim()
+  const textResolved =
+    typeof text === 'string' && labelTrimmed === '💡'
+      ? stripLeadingBulbEmojisForPrefixedCard(text)
+      : text
   const iconOnlyLabelPattern = /^(?:[\u00A9\u00AE\u203C-\u3299]|[\uD83C-\uDBFF][\uDC00-\uDFFF]|\s)+$/
   const labelIsIconOnly =
     labelTrimmed === '✅' ||
@@ -2022,9 +2029,9 @@ function SectionCard({
     iconOnlyLabelPattern.test(labelTrimmed)
   const isCompactServiceLine = singleLine && italic && !hasLabel
   const isTextItalic = textItalic ?? italic
-  const bodyContent = inlineMarkdownBold ? renderCommunicationBoldInline(text) : text
+  const bodyContent = inlineMarkdownBold ? renderCommunicationBoldInline(textResolved as string) : textResolved
   // Смотрим исходный text: при inlineMarkdownBold тело часто ReactNode, не string — иначе теряем pre-wrap.
-  const preserveNewLines = singleLine && typeof text === 'string' && text.includes('\n')
+  const preserveNewLines = singleLine && typeof textResolved === 'string' && textResolved.includes('\n')
 
   return (
     <section
@@ -2040,7 +2047,13 @@ function SectionCard({
           className={`min-w-0 max-w-full ${preserveNewLines ? 'whitespace-pre-wrap' : 'whitespace-normal'} break-words font-sans ${
             small ? 'text-[14px] leading-snug' : 'text-[15px] leading-[1.45]'
           } text-[var(--text)]`}
-          title={hasLabel ? (labelIsIconOnly ? `${label} ${text}` : `${label}: ${text}`) : text}
+          title={
+            hasLabel
+              ? labelIsIconOnly
+                ? `${label} ${textResolved}`
+                : `${label}: ${textResolved}`
+              : textResolved
+          }
         >
           {hasLabel && (
             <>
@@ -2050,7 +2063,7 @@ function SectionCard({
                 {label}
                 {!labelIsIconOnly ? ':' : null}
               </span>
-              {!(typeof text === 'string' && text.startsWith('\n')) ? ' ' : null}
+              {!(typeof textResolved === 'string' && textResolved.startsWith('\n')) ? ' ' : null}
             </>
           )}
           <span

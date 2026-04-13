@@ -220,4 +220,16 @@ describe('translationSuccessPraiseCard UI', () => {
     expect(first?.label).toBe('✅')
     expect(first?.text).toBe(praise)
   })
+
+  it('показывает ✅ похвалу перед карточкой «Переведи далее», если оба в одном ответе', () => {
+    const praise = 'Замечаю, что вы правильно использовали структуру вопроса с \'Am I\'. 🌟'
+    const drill = 'Переведи далее: Ты смотришь новый фильм?'
+    const sections = buildAssistantSectionsForTranslationSuccessTest(praise, { mainBefore: drill })
+    const praiseSection = sections.find((s) => s.key === 'comment')
+    expect(praiseSection?.tone).toBe('praise')
+    expect(praiseSection?.label).toBe('✅')
+    expect(praiseSection?.text).toBe(praise)
+    const main = sections.find((s) => s.key === 'main')
+    expect(main?.text).toBe(drill)
+  })
 })

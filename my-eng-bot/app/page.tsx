@@ -46,6 +46,7 @@ import {
   PAGE_HOME_START_PRIMARY_BUTTON_CLASS,
 } from '@/lib/homeCtaStyles'
 import { parseCorrection } from '@/lib/parseCorrection'
+import { stripTranslationCanonicalRepeatRefLine } from '@/lib/translationPromptAndRef'
 import {
   findStaticLessonByTopic,
   getLearningLessonActions,
@@ -238,6 +239,10 @@ function sleep(ms: number): Promise<void> {
 /** Убирает из текста буквальные \n (модель иногда выводит их как символы). */
 function cleanNewlines(text: string): string {
   return text.replace(/\\n/g, '\n').trim()
+}
+
+function stripHiddenAssistantPayloadLines(content: string): string {
+  return stripTranslationCanonicalRepeatRefLine(content)
 }
 
 /** Выделяет из ответа ИИ основной текст.
@@ -436,13 +441,14 @@ export default function Home() {
           const controller = new AbortController()
           const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
           try {
+            // Полный снимок урока на каждый запрос (без серверной сессии): tenses, sentenceType, topic, level и т.д.
             const res = await fetch('/api/chat', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 messages: apiMessages.map((m) => ({
                   role: m.role,
-                  content: m.content,
+                  content: m.role === 'assistant' ? stripHiddenAssistantPayloadLines(m.content) : m.content,
                   ...(m.role === 'assistant' && m.webSearchTriggered ? { webSearchTriggered: true } : {}),
                   ...(m.role === 'assistant' && Array.isArray(m.webSearchSources) && m.webSearchSources.length > 0
                     ? {

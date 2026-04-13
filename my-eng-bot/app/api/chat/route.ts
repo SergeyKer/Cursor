@@ -51,6 +51,7 @@ import {
   buildTranslationThreeFormsStrictRule,
   buildTranslationWarmVoiceRule,
 } from '@/lib/learnerEngagementPrompt'
+import { normalizeTranslationBulbEmojisInContent } from '@/lib/normalizeCommentBulbEmoji'
 import {
   collapseDuplicateLeadingGreetings,
   normalizeCommunicationOutput,
@@ -145,7 +146,7 @@ import {
   getAssistantContentBeforeLastUser,
   TRAN_CANONICAL_REPEAT_REF_MARKER,
 } from '@/lib/translationPromptAndRef'
-import { buildSyntheticErrorsBlockFromComment } from '@/lib/translationSyntheticErrorsBlock'
+import { mergeErrorsBlockWithSyntheticFromComment } from '@/lib/translationSyntheticErrorsBlock'
 import { sanitizeRepeatMetaInstructionInContent } from '@/lib/repeatMetaInstruction'
 
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
@@ -153,6 +154,8 @@ import { sanitizeRepeatMetaInstructionInContent } from '@/lib/repeatMetaInstruct
 export const runtime = 'nodejs'
 /** Максимум сообщений в контексте (user+assistant). 20 = десять последних обменов. */
 const MAX_MESSAGES_IN_CONTEXT = 20
+/** В режиме перевода в провайдер отправляем только ближайший контекст пары. */
+const MAX_MESSAGES_IN_CONTEXT_TRANSLATION = 2
 const DIALOGUE_POPULAR_TENSE_PRIORITY: TenseId[] = [
   'present_simple',
   'past_simple',
@@ -425,8 +428,9 @@ function resolveTranslationDrillSentenceType(params: {
 }
 
 /**
- * Префикс истории для выбора времени в мульти-tense диалоге: совпадает с состоянием чата
- * до генерации последнего сообщения ассистента (вопроса), чтобы хэш не «прыгал» при новом user.
+ * Префикс истории для выбора времени при нескольких выбранных времёнах: состояние до пары
+ * «последний ответ ассистента + текущий user», чтобы хэш не «прыгал» на каждом user-ходе.
+ * Нужно и в диалоге, и в переводе (иначе на 2-м сообщении мог выбираться другой tense из списка).
  */
 function getDialogueTenseSeedMessages(messages: ChatMessage[]): ChatMessage[] {
   const n = messages.length
@@ -617,7 +621,7 @@ No extra lines.
 When the user has already sent their translation, use one of these two protocols:
 
 SUCCESS protocol (if user answer is correct), strict order:
-- Line 1: "Комментарий: " + short praise in Russian that includes ONE specific thing the learner did correctly in their exact sentence (for example: correct auxiliary "do/does/did", correct word order, correct verb ending, correct article) + one short contextual reason why this exact meaning requires this tense. Explicitly name the tense by its standard name (e.g. Present Simple, Past Simple, Present Perfect). Never use vague phrases like "это время" or "данное время". Follow the "Warm voice" and (if CHILD) strategic emoji rules above: vary openings, stay concrete; optional short motivational closing at the end of this same line only sometimes (not every SUCCESS); at most 1–2 strategic emojis on this line for CHILD, at most 1 for ADULT when it truly fits.
+- Line 1: "Комментарий: " + short praise in Russian that includes ONE specific thing the learner did correctly in their exact sentence (for example: correct auxiliary "do/does/did", correct word order, correct verb ending, correct article) + one short contextual reason why this exact meaning requires this tense. Explicitly name the tense by its standard name (e.g. Present Simple, Past Simple, Present Perfect). Never use vague phrases like "это время" or "данное время". Follow the "Warm voice" and (if CHILD) strategic emoji rules above: vary openings, stay concrete; optional short motivational closing at the end of this same line only sometimes (not every SUCCESS); at most 1–2 strategic emojis on this line for CHILD, at most 1 for ADULT when it truly fits. If you use 💡 on this line, it may appear ONLY once at the very beginning of the Russian text after "Комментарий: "; NEVER end this line with 💡 — use a different closing emoji (e.g. 🌟 ✨ 🎯 💪) when you want punctuation-style emphasis at the end.
 - Line 2: "Конструкция: " + concise form guide that covers all three variants in this tense: "+:", "?:", "-:".
 - Line 3: "Формы:"
 - Line 4: "+: " + full affirmative English sentence (same meaning as correct user answer)
@@ -628,7 +632,7 @@ SUCCESS protocol (if user answer is correct), strict order:
 - In SUCCESS protocol do NOT output separate "Время:" line and do NOT output "Повтори:".
 
 ERROR protocol (if there is a mistake), strict order:
-- Line 1: "Комментарий_перевод: " + REQUIRED supportive comment in Russian (warm mentor). STRICT formula: praise ONE specific correct element in the learner's exact answer + point to ONE main concrete error to fix. Keep exactly 1-2 short sentences. Praise priority: most advanced/natural correct chunk first (see "Supportive praise priority for ERROR line" in the engagement block above); if nothing qualifies, praise macro structure (e.g. question/negation shape). Do NOT praise "correct tense" if the answer is wrong on required tense. Follow the "Tense explanation rule" and "Warm voice" blocks above: NEVER name a CEFR tense or explain why this tense fits in this line (no English tense names, no "нужен Past Simple", no "предложение требует ..."). Use strategic emojis from this set (pick what fits; do NOT spam): 🙌 💪 🌟 🎯 ✨ 💡 🔥 🗣️ 🎧 🚀 🔄. For CHILD follow the strategic emoji legend above when assigning meaning.
+- Line 1: "Комментарий_перевод: " + REQUIRED supportive comment in Russian (warm mentor). STRICT formula: praise ONE specific correct element in the learner's exact answer + point to ONE main concrete error to fix. Keep exactly 1-2 short sentences. Praise priority: most advanced/natural correct chunk first (see "Supportive praise priority for ERROR line" in the engagement block above); if nothing qualifies, praise macro structure (e.g. question/negation shape). Do NOT praise "correct tense" if the answer is wrong on required tense. Follow the "Tense explanation rule" and "Warm voice" blocks above: NEVER name a CEFR tense or explain why this tense fits in this line (no English tense names, no "нужен Past Simple", no "предложение требует ..."). Use strategic emojis from this set (pick what fits; do NOT spam): 🙌 💪 🌟 🎯 ✨ 💡 🔥 🗣️ 🎧 🚀 🔄. 💡 may appear at most ONCE and ONLY at the very start of this Russian line (right after the colon); NEVER end "Комментарий_перевод:" with 💡 — choose a different emoji from the set for a closing accent. For CHILD follow the strategic emoji legend above when assigning meaning.
 - Line 2: "Комментарий: " + short Russian diagnostic feedback (professional pedagogical style as below). Keep parser-friendly stable error labels at the start (for example: "Ошибка времени", "Лексическая ошибка", "Ошибка формы глагола", "Ошибка типа предложения"), then one concrete fix.
 - Then block "Ошибки:" (may span multiple lines). Grammar check order (strict): FIRST compare sentence type of the learner's English with the Russian task line (the phrase to translate). Only after sentence type matches, list spelling/vocabulary details.
   Sentence type (infer from the Russian task line): if it ends with "?" → English must be a real question (e.g. yes/no in Present Simple: Do/Does + subject + base verb ...?; wh-questions: question word + auxiliary + subject + verb ...); if the Russian clearly expresses negation (не, ни, нет, никогда, ничего, etc.) → English must be negative (don't/doesn't/didn't ... or the correct negative for the required tense); otherwise → English must be a declarative statement (not a question, not wrongly negated).
@@ -665,7 +669,7 @@ Rules:
 - In SUCCESS protocol, always name the tense explicitly (e.g. Present Simple) and never say only "это время/данное время".
 - Never quote textbook-style rule templates verbatim (for example: "привычка, факт, постоянное предпочтение"). Explain the reason in plain Russian tied to THIS sentence meaning.
 - Keep SUCCESS "Комментарий" concise: maximum 1-2 short sentences.
-- C1/C2 register: keep the tone professional and functional; avoid decorative emoji. Prefer only protocol icons (✅ 💡 ⏱️ 🔤 📖 ✏️) when truly needed.
+- C1/C2 register: keep the tone professional and functional; avoid decorative emoji. Prefer only protocol icons (✅ 💡 ⏱️ 🔤 📖 ✏️) when truly needed; if 💡 is used on "Комментарий:" or "Комментарий_перевод:", only at the line opening, never as a trailing bookend.
 - In ERROR protocol, line-2 "Комментарий:" (diagnostic) must sound professional and pedagogical:
   - Start with exact error type in Russian (e.g. "Ошибка типа предложения", "Ошибка согласования подлежащего и сказуемого", "Ошибка формы глагола", "Ошибка времени", "Лексическая ошибка").
   - Then give one precise fix in one short sentence without naming the CEFR tense or duplicating the "Время:" explanation (for tense errors, point to form/wording only; full tense rationale is ONLY in the "Время:" line).
@@ -675,7 +679,7 @@ Rules:
   - No slang, jokes, filler, or casual tone on line 2 (supportive energy belongs only in "Комментарий_перевод:").
   - Maximum 1-2 short sentences.
 - Preflight checklist before final output (must pass all):
-  - "Комментарий_перевод:" line is max 2 sentences and contains concrete praise (the most advanced defensible win, or structure fallback) + one concrete fix.
+  - "Комментарий_перевод:" line is max 2 sentences and contains concrete praise (the most advanced defensible win, or structure fallback) + one concrete fix; no 💡 at the end of that line (💡 only allowed once at the start of its Russian text if used).
   - Errors are grouped by type and not duplicated.
   - Tense name/reason appears only once on standalone "Время:" line.
   - If SUCCESS has forms, they are strictly in order +, ?, - and keep the same core lexicon.
@@ -2907,6 +2911,11 @@ function stripPravilnoEverywhere(content: string): string {
 }
 
 type Provider = 'openrouter' | 'openai'
+type ResolveGoldTranslation = (params: {
+  ruSentence: string
+  level: LevelId
+  audience: Audience
+}) => Promise<string | null>
 
 function ensureSentence(text: string): string {
   const t = text.trim()
@@ -3408,16 +3417,10 @@ function ensureTranslationProtocolBlocks(
   }
 
   const commentBodyOnly = comment ? comment.replace(/^Комментарий:\s*/i, '').trim() : ''
-  if (
-    repeat &&
-    !hasTranslationFormsBlock(content) &&
-    !(errorsBlock != null && String(errorsBlock).trim()) &&
-    commentBodyOnly &&
-    !hasPraise
-  ) {
-    const synthetic = buildSyntheticErrorsBlockFromComment(commentBodyOnly)
-    if (synthetic) {
-      errorsBlock = synthetic
+  if (repeat && !hasTranslationFormsBlock(content) && commentBodyOnly && !hasPraise) {
+    const merged = mergeErrorsBlockWithSyntheticFromComment(String(errorsBlock ?? '').trim(), commentBodyOnly)
+    if (merged) {
+      errorsBlock = merged
     }
   }
 
@@ -4008,17 +4011,24 @@ async function ensureFirstTranslationDrillMatchesRequiredTense(params: {
   seedText: string
   provider: Provider
   req: NextRequest
+  resolveGoldTranslation?: ResolveGoldTranslation
 }): Promise<string> {
   if (params.tense === 'all') return params.content
   const ru = extractRussianTranslationTaskFromAssistantContent(params.content)
   if (!ru?.trim()) return params.content
-  const gold = await translateRussianPromptToGoldEnglish({
-    ruSentence: ru.trim(),
-    level: params.level as LevelId,
-    audience: params.audience,
-    provider: params.provider,
-    req: params.req,
-  })
+  const gold = params.resolveGoldTranslation
+    ? await params.resolveGoldTranslation({
+        ruSentence: ru.trim(),
+        level: params.level as LevelId,
+        audience: params.audience,
+      })
+    : await translateRussianPromptToGoldEnglish({
+        ruSentence: ru.trim(),
+        level: params.level as LevelId,
+        audience: params.audience,
+        provider: params.provider,
+        req: params.req,
+      })
   if (!gold?.trim()) return params.content
   if (isUserLikelyCorrectForTense(gold, params.tense)) return params.content
   const replacement = fallbackTranslationSentenceForContext({
@@ -4042,6 +4052,7 @@ async function finalizeTranslationResponsePayload(params: {
   audience: Audience
   provider: Provider
   req: NextRequest
+  resolveGoldTranslation?: ResolveGoldTranslation
 }): Promise<string> {
   let guardedContent = params.content
   if (getTranslationRepeatSentence(guardedContent)) {
@@ -4061,21 +4072,27 @@ async function finalizeTranslationResponsePayload(params: {
   const ruForRefCard = extractLastTranslationPromptFromMessages([
     { role: 'assistant', content: guardedContent },
   ])
+  if (!guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
+    guardedContent = appendTranslationCanonicalRepeatRefLine(guardedContent, ruForRefCard)
+  }
   if (ruForRefCard?.trim() && !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
-    const goldFromApi = await translateRussianPromptToGoldEnglish({
-      ruSentence: ruForRefCard,
-      level: params.level,
-      audience: params.audience,
-      provider: params.provider,
-      req: params.req,
-    })
+    const goldFromApi = params.resolveGoldTranslation
+      ? await params.resolveGoldTranslation({
+          ruSentence: ruForRefCard,
+          level: params.level,
+          audience: params.audience,
+        })
+      : await translateRussianPromptToGoldEnglish({
+          ruSentence: ruForRefCard,
+          level: params.level,
+          audience: params.audience,
+          provider: params.provider,
+          req: params.req,
+        })
     if (goldFromApi) {
       const { clamped } = clampTranslationRepeatToRuPrompt(goldFromApi, ruForRefCard)
       guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${clamped}`
     }
-  }
-  if (!guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
-    guardedContent = appendTranslationCanonicalRepeatRefLine(guardedContent, ruForRefCard)
   }
   return guardedContent
 }
@@ -5531,14 +5548,14 @@ export async function POST(req: NextRequest) {
         resolvedTopicChoiceText = numberedChoice.topic
       }
     }
+    const recentMessagesForProviderBase =
+      mode === 'translation' ? recentMessages.slice(-MAX_MESSAGES_IN_CONTEXT_TRANSLATION) : recentMessages
     const recentMessagesForProvider =
-      resolvedTopicChoiceText && recentMessages.length > 0
-        ? recentMessages.map((message, index) =>
-            index === recentMessages.length - 1 && message.role === 'user'
-              ? { ...message, content: resolvedTopicChoiceText }
-              : message
+      resolvedTopicChoiceText && recentMessagesForProviderBase.length > 0
+        ? recentMessagesForProviderBase.map((message, index, arr) =>
+            index === arr.length - 1 && message.role === 'user' ? { ...message, content: resolvedTopicChoiceText } : message
           )
-        : recentMessages
+        : recentMessagesForProviderBase
     const lastTranslationPrompt =
       mode === 'translation' ? extractLastTranslationPromptFromMessages(nonSystemMessages) : null
 
@@ -5570,7 +5587,9 @@ export async function POST(req: NextRequest) {
           })
         : normalizedRawTenses
     const dialogueTenseSeedMessages =
-      mode === 'dialogue' ? getDialogueTenseSeedMessages(recentMessages) : recentMessages
+      mode === 'dialogue' || mode === 'translation'
+        ? getDialogueTenseSeedMessages(recentMessages)
+        : recentMessages
     const tenseForTurn =
       isAnyTense || rawTenses.length === 0
         ? 'all'
@@ -5672,6 +5691,45 @@ export async function POST(req: NextRequest) {
       })
       tutorGradingTense = translationDrillTense
     }
+
+    const translationAssistantCount = nonSystemMessages.filter((m: ChatMessage) => m.role === 'assistant').length
+    const translationGoldCache = new Map<string, string | null>()
+    const resolveGoldTranslation: ResolveGoldTranslation = async ({ ruSentence, level, audience }) => {
+      const normalizedRu = ruSentence.replace(/\s+/g, ' ').trim()
+      if (!normalizedRu) return null
+      const cacheKey = `${provider}|${level}|${audience}|${normalizedRu}`
+      if (translationGoldCache.has(cacheKey)) {
+        return translationGoldCache.get(cacheKey) ?? null
+      }
+      const translated = await translateRussianPromptToGoldEnglish({
+        ruSentence: normalizedRu,
+        level,
+        audience,
+        provider,
+        req,
+      })
+      translationGoldCache.set(cacheKey, translated)
+      return translated
+    }
+    console.info('[chat][tense-resolution]', {
+      mode,
+      topic,
+      level,
+      audience,
+      sentenceType,
+      rawTenses,
+      isAnyTense,
+      normalizedTense,
+      tutorGradingTense,
+      ...(mode === 'translation'
+        ? {
+            translationDrillTense,
+            translationDrillLevel,
+            translationDrillSentenceType,
+            translationAssistantDrillIndex: translationAssistantCount,
+          }
+        : {}),
+    })
 
     const forcedRepeatSentence =
       mode === 'dialogue'
@@ -6924,6 +6982,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         audience,
         requiredTense: tutorGradingTense,
       })
+      sanitized = normalizeTranslationBulbEmojisInContent(sanitized)
     }
     if (!sanitized) {
       return NextResponse.json(
@@ -7333,6 +7392,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 audience: audience as Audience,
                 provider,
                 req,
+                resolveGoldTranslation,
               })
               return NextResponse.json({ content: repaired })
             }
@@ -7535,6 +7595,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           seedText: dialogSeed,
           provider,
           req,
+          resolveGoldTranslation,
         })
       }
       guardedContent = await finalizeTranslationResponsePayload({
@@ -7545,6 +7606,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         audience: audience as Audience,
         provider,
         req,
+        resolveGoldTranslation,
       })
       logRetentionSignals({
         mode,
