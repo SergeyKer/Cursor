@@ -7,7 +7,9 @@ function escapeRegExp(s: string): string {
 /** Эмодзи-строка для блока «Ошибки:» по типу из inferTranslationCommentErrorType. */
 function mapErrorTypeToSyntheticLinePrefix(inferredType: string): string {
   const t = inferredType.toLowerCase()
-  if (t.includes('времени')) return '⏱️ Время:'
+  // Keep tense explanation only on standalone "Время:" line in protocol.
+  // Synthetic fallback for comment-derived issues must stay inside "Ошибки:" labels.
+  if (t.includes('времени')) return '🔤 Грамматика:'
   if (t.includes('лексическ')) return '📖 Лексика:'
   return '🔤 Грамматика:'
 }

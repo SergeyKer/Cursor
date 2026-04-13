@@ -217,6 +217,9 @@ export function commentLabelForTranslationFirstBlock(comment: string): CommentIc
   return '💡'
 }
 
+/** Карточка «Прочитай вслух (+, ?, −)» в режиме «Перевод». Сейчас скрыта; включить — `true`. */
+const SHOW_READ_ALOUD_THREE_FORMS_IN_TRANSLATION = false
+
 function buildAssistantSections(params: {
   comment: string | null
   /** Режим перевод, ошибка: поддержка из «Комментарий_перевод:» (диагностический «Комментарий:» в UI не показываем). */
@@ -311,7 +314,7 @@ function buildAssistantSections(params: {
   if (tenseRef) {
     sections.push({ key: 'tense-ref', tone: 'slate', label: '⏱️', text: tenseRef, singleLine: true })
   }
-  if (threeFormsText) {
+  if (threeFormsText && (mode !== 'translation' || SHOW_READ_ALOUD_THREE_FORMS_IN_TRANSLATION)) {
     sections.push({
       key: 'three-forms',
       tone: 'slate',

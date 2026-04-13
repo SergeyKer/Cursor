@@ -47,6 +47,7 @@ import { ADVERB_PLACEMENT_TUTOR_BLOCK } from '@/lib/adverbPlacementPrompt'
 import {
   buildTranslationChildStrategicEmojiRule,
   buildTranslationSingleTenseExplanationRule,
+  buildTranslationSupportivePraisePriorityRule,
   buildTranslationThreeFormsStrictRule,
   buildTranslationWarmVoiceRule,
 } from '@/lib/learnerEngagementPrompt'
@@ -570,6 +571,7 @@ No other format. Output only the chat message text.`
 LIKE/LOVE scope: apply the like vs love rules above ONLY to correct like/love intensity. They MUST NOT pull the drill toward Present Simple or any tense other than Required tense (${tenseNameTr}). The Russian drill sentence and the learner's English must match Required tense.`
         : LIKE_LOVE_TRANSLATION_TUTOR_BLOCK
     const translationEngagementBlock = [
+      buildTranslationSupportivePraisePriorityRule(),
       buildTranslationSingleTenseExplanationRule(),
       buildTranslationThreeFormsStrictRule(),
       buildTranslationWarmVoiceRule(audience as Audience),
@@ -626,16 +628,17 @@ SUCCESS protocol (if user answer is correct), strict order:
 - In SUCCESS protocol do NOT output separate "Время:" line and do NOT output "Повтори:".
 
 ERROR protocol (if there is a mistake), strict order:
-- Line 1: "Комментарий_перевод: " + REQUIRED supportive comment in Russian (warm mentor). ALWAYS name at least ONE specific thing the learner did right in their exact answer (a correct word, visible English structure, word order, article, auxiliary, spelling chunk, etc.). Do NOT praise "correct tense" if the answer is wrong on required tense. Praise CONCRETELY — never vague "хорошая попытка" without naming what was right. Follow the "Tense explanation rule" and "Warm voice" blocks above: NEVER name a CEFR tense or explain why this tense fits in this line (no English tense names, no "нужен Past Simple", no "предложение требует ..."). Use strategic emojis from this set (pick what fits; do NOT spam): 🙌 💪 🌟 🎯 ✨ 💡 🔥 🗣️ 🎧 🚀 🔄. For CHILD follow the strategic emoji legend above when assigning meaning. Explain briefly WHY that concrete detail was good. Do NOT start with mistakes; do NOT repeat dry diagnostic wording from the next line; max 1–2 short sentences.
-- Line 2: "Комментарий: " + short Russian diagnostic feedback (professional pedagogical style as below).
+- Line 1: "Комментарий_перевод: " + REQUIRED supportive comment in Russian (warm mentor). STRICT formula: praise ONE specific correct element in the learner's exact answer + point to ONE main concrete error to fix. Keep exactly 1-2 short sentences. Praise priority: most advanced/natural correct chunk first (see "Supportive praise priority for ERROR line" in the engagement block above); if nothing qualifies, praise macro structure (e.g. question/negation shape). Do NOT praise "correct tense" if the answer is wrong on required tense. Follow the "Tense explanation rule" and "Warm voice" blocks above: NEVER name a CEFR tense or explain why this tense fits in this line (no English tense names, no "нужен Past Simple", no "предложение требует ..."). Use strategic emojis from this set (pick what fits; do NOT spam): 🙌 💪 🌟 🎯 ✨ 💡 🔥 🗣️ 🎧 🚀 🔄. For CHILD follow the strategic emoji legend above when assigning meaning.
+- Line 2: "Комментарий: " + short Russian diagnostic feedback (professional pedagogical style as below). Keep parser-friendly stable error labels at the start (for example: "Ошибка времени", "Лексическая ошибка", "Ошибка формы глагола", "Ошибка типа предложения"), then one concrete fix.
 - Then block "Ошибки:" (may span multiple lines). Grammar check order (strict): FIRST compare sentence type of the learner's English with the Russian task line (the phrase to translate). Only after sentence type matches, list spelling/vocabulary details.
   Sentence type (infer from the Russian task line): if it ends with "?" → English must be a real question (e.g. yes/no in Present Simple: Do/Does + subject + base verb ...?; wh-questions: question word + auxiliary + subject + verb ...); if the Russian clearly expresses negation (не, ни, нет, никогда, ничего, etc.) → English must be negative (don't/doesn't/didn't ... or the correct negative for the required tense); otherwise → English must be a declarative statement (not a question, not wrongly negated).
   If sentence type is wrong, the "🔤 Грамматика:" line MUST come before ✏️ Орфография and 📖 Лексика — fix structure before words. When sentence type is wrong, do not output ✏️ or 📖 before 🔤.
   After "Ошибки:" output subsections only where relevant; skip empty subsections. Use emoji + label on each line:
   - 🤔 ... (only if the meaning is unclear or the English is illogical)
-  - 🔤 Грамматика: ... (sentence type / question word order / negation structure FIRST when relevant; then verb forms, articles, prepositions). Do NOT name the CEFR tense or repeat tense rationale here — only concrete fixes. Example format — adapt wording to THIS drill, do not copy verbatim: Это вопрос (в русском есть «?»), поэтому нужен вспомогательный глагол «Do» в начале и порядок слов вопроса: «Do we usually watch...» (не «We usually watch...»).
+  - 🔤 Грамматика: ... (sentence type / question word order / negation structure FIRST when relevant; then verb forms, articles, prepositions). Do NOT name the CEFR tense or repeat tense rationale here — only concrete fixes.
   - ✏️ Орфография: ... (all spelling fixes in one block)
   - 📖 Лексика: ... (all wrong-word fixes as a list)
+  Use explicit correction pairs in subsections whenever possible: "wrong" → "right" (for example: 'try' → 'tried', 'frukt' → 'fruit', 'car' → 'cat').
   Do NOT add "⏱️ Время:" or any tense-explanation line inside "Ошибки:". The ONLY place for tense name + why is the mandatory standalone "Время:" line below.
   Do not put the full corrected English sentence inside "Ошибки"; the only full corrected English must be in "Повтори:".
 - Next line: "Время: " + ${tenseName} + short Russian explanation tied to the meaning of this exact sentence: say why this tense fits, name the clue words/markers, and mention the context (habit, fact, action now, result, finished past event, future, etc.). Do not just name the tense.
@@ -662,6 +665,7 @@ Rules:
 - In SUCCESS protocol, always name the tense explicitly (e.g. Present Simple) and never say only "это время/данное время".
 - Never quote textbook-style rule templates verbatim (for example: "привычка, факт, постоянное предпочтение"). Explain the reason in plain Russian tied to THIS sentence meaning.
 - Keep SUCCESS "Комментарий" concise: maximum 1-2 short sentences.
+- C1/C2 register: keep the tone professional and functional; avoid decorative emoji. Prefer only protocol icons (✅ 💡 ⏱️ 🔤 📖 ✏️) when truly needed.
 - In ERROR protocol, line-2 "Комментарий:" (diagnostic) must sound professional and pedagogical:
   - Start with exact error type in Russian (e.g. "Ошибка типа предложения", "Ошибка согласования подлежащего и сказуемого", "Ошибка формы глагола", "Ошибка времени", "Лексическая ошибка").
   - Then give one precise fix in one short sentence without naming the CEFR tense or duplicating the "Время:" explanation (for tense errors, point to form/wording only; full tense rationale is ONLY in the "Время:" line).
@@ -670,6 +674,13 @@ Rules:
   - Use Russian linguistic terms (say "согласование", not "agreeing").
   - No slang, jokes, filler, or casual tone on line 2 (supportive energy belongs only in "Комментарий_перевод:").
   - Maximum 1-2 short sentences.
+- Preflight checklist before final output (must pass all):
+  - "Комментарий_перевод:" line is max 2 sentences and contains concrete praise (the most advanced defensible win, or structure fallback) + one concrete fix.
+  - Errors are grouped by type and not duplicated.
+  - Tense name/reason appears only once on standalone "Время:" line.
+  - If SUCCESS has forms, they are strictly in order +, ?, - and keep the same core lexicon.
+  - "Повтори:" is canonical translation of the task sentence (not copied from learner by inertia).
+  - Wording and vocabulary stay within CEFR constraints from CEFR_Levels.xlsx.
 - In SUCCESS protocol never output "Комментарий_перевод:".`
   }
   const tenseRule =
@@ -3562,6 +3573,63 @@ function isLikelyEnglishNegative(text: string): boolean {
   return /\b(?:not|don't|doesn't|didn't|won't|can't|isn't|aren't|wasn't|weren't|haven't|hasn't|hadn't)\b/i.test(normalized)
 }
 
+/** "+:" must be declarative, not a yes/no or wh-question shape. */
+function isTranslationSuccessPlusLineInvalid(text: string): boolean {
+  const t = text.trim()
+  if (!t) return true
+  if (/\?\s*$/.test(t)) return true
+  if (/^don'?t\s+/i.test(t) || /^do\s+not\s+/i.test(t)) return false
+  return isLikelyEnglishQuestion(t)
+}
+
+function isTranslationSuccessQuestionLineInvalid(text: string): boolean {
+  const t = text.trim()
+  if (!t) return true
+  return !isLikelyEnglishQuestion(t)
+}
+
+/** "-:" must be a negative statement, not a question. */
+function isTranslationSuccessNegativeLineInvalid(text: string): boolean {
+  const t = text.trim()
+  if (!t) return true
+  if (/\?\s*$/.test(t)) return true
+  if (isLikelyEnglishQuestion(t)) return true
+  return !isLikelyEnglishNegative(t)
+}
+
+function translationSuccessThreeFormsShapeInvalid(forms: {
+  positive: string
+  question: string
+  negative: string
+}): boolean {
+  return (
+    isTranslationSuccessPlusLineInvalid(forms.positive) ||
+    isTranslationSuccessQuestionLineInvalid(forms.question) ||
+    isTranslationSuccessNegativeLineInvalid(forms.negative)
+  )
+}
+
+function pickAffirmativeAnchorForThreeFormsRebuild(params: {
+  userText: string
+  positive: string
+  question: string
+  negative: string
+  tense: string
+}): string {
+  const { userText, positive, question, negative, tense } = params
+  const fromUser = extractEnglishSentenceCandidate(userText)
+  if (fromUser) {
+    const nu = normalizeEnglishSentenceForCard(fromUser)
+    if (nu && !isTranslationSuccessPlusLineInvalid(nu)) return nu
+  }
+  for (const candidate of [negative, question, positive]) {
+    if (!candidate) continue
+    const a = coerceAffirmativeEnglishAnchor(candidate, tense)
+    if (a && !isTranslationSuccessPlusLineInvalid(a)) return a
+  }
+  return buildFallbackTranslationForms({ positive: 'I study English.', tense }).positive
+}
+
 function isLikelyRussianNegativeSentence(text: string): boolean {
   const normalized = text.replace(/\s+/g, ' ').trim()
   if (!normalized) return false
@@ -3788,6 +3856,23 @@ function ensureTranslationSuccessBlocks(
     positive = rebuiltForms.positive
     question = rebuiltForms.question
     negative = rebuiltForms.negative
+  }
+
+  if (
+    !promptUserMismatch &&
+    translationSuccessThreeFormsShapeInvalid({ positive, question, negative })
+  ) {
+    const anchor = pickAffirmativeAnchorForThreeFormsRebuild({
+      userText,
+      positive,
+      question,
+      negative,
+      tense,
+    })
+    const rebuiltShape = buildFallbackTranslationForms({ positive: anchor, tense })
+    positive = rebuiltShape.positive
+    question = rebuiltShape.question
+    negative = rebuiltShape.negative
   }
 
   const out = [

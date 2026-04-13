@@ -25,13 +25,26 @@ export function normalizeRepeatSentenceEnding(text: string): string {
   return /[.!?]\s*$/.test(normalized) ? normalized : `${normalized}.`
 }
 
+/**
+ * «Выходные» в RU для правила weekend-adjunct: не только «выходные», но и типичные перефразы
+ * (суббота/воскресенье), иначе clamp зря срезает on weekends.
+ */
+export function hasWeekendConceptInRuPrompt(ru: string): boolean {
+  const s = ru.toLowerCase()
+  if (/выходн|уик-энд/i.test(s)) return true
+  if (/по\s+субботам|по\s+воскресеньям/i.test(s)) return true
+  if (/(?:^|\s)суббот\w*\s+и\s+воскресен\w*/i.test(s)) return true
+  if (/в\s+субботу\s+и\s+воскресенье/i.test(s)) return true
+  return false
+}
+
 /** Пары: есть ли концепт в русском задании → паттерны английских хвостов, которые убираем, если концепта нет. */
 const PROMPT_ALIGNED_RULES: ReadonlyArray<{
   hasConceptInRu: (ruLower: string) => boolean
   enRemove: RegExp[]
 }> = [
   {
-    hasConceptInRu: (ru) => /выходн|уик-энд/i.test(ru),
+    hasConceptInRu: (ru) => hasWeekendConceptInRuPrompt(ru),
     enRemove: [
       /\s*,\s*\b(?:on|at)\s+(?:the\s+)?(?:weekend|weekends)\b/gi,
       /\s+\b(?:on|at)\s+(?:the\s+)?(?:weekend|weekends)\b/gi,
@@ -85,6 +98,7 @@ function cleanupAfterRemovals(text: string): string {
     .replace(/\s{2,}/g, ' ')
     .replace(/\s+,/g, ',')
     .replace(/,\s*\./g, '.')
+    .replace(/\s+([?.!])/g, '$1')
     .trim()
 }
 

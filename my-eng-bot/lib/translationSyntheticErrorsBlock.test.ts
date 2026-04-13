@@ -19,11 +19,12 @@ describe('buildSyntheticErrorsBlockFromComment', () => {
     expect(out?.toLowerCase()).not.toMatch(/^📖 лексика:\s*лексическая\s+ошибка/i)
   })
 
-  it('maps time-related comment to time emoji line', () => {
+  it('maps time-related comment to grammar line (no Время inside Ошибки)', () => {
     const out = buildSyntheticErrorsBlockFromComment(
       'Ошибка времени: здесь нужен Present Simple, потому что привычка.'
     )
-    expect(out).toMatch(/^⏱️ Время:/)
+    expect(out).toMatch(/^🔤 Грамматика:/)
+    expect(out).not.toMatch(/^⏱️ Время:/)
   })
 
   it('uses grammar line for agreement wording', () => {

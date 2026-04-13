@@ -912,6 +912,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       mode: 'dialogue',
       audience: 'adult',
       level: 'a2',
+      topic: 'sports',
       tenses: ['present_simple'],
       messages: [
         { role: 'assistant', content: 'What do you do with football regularly?' },
@@ -1008,6 +1009,35 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).toContain('Конструкция:')
     expect(data.content).toContain('Переведи на английский.')
     expect(data.content).not.toContain('Не удалось сформировать исправленное предложение')
+  })
+
+  it('translation success rebuilds Формы when model puts a question under +:', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: Отлично! Здесь это время подходит.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: Do you like to read in the evening.\n?: Do you like to read in the evening?\n-: I don\'t like to read in the evening.\nЯ люблю плавать утром.\nПереведи на английский.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'hobbies',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'Я часто гуляю вечером.\nПереведи на английский.' },
+        { role: 'user', content: 'I like to read in the evening.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Формы:')
+    const plusLine = data.content.match(/^\+:\s*(.+)$/m)?.[1] ?? ''
+    expect(plusLine.toLowerCase()).toContain('like to read')
+    expect(plusLine.toLowerCase()).not.toMatch(/^do\s+you\s+like/i)
   })
 
   it('translation success (question input) preserves stable forms block', async () => {

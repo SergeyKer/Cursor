@@ -4,6 +4,7 @@ import {
   clampTranslationRepeatToRuPrompt,
   enforceAuthoritativeTranslationRepeat,
   enforceAuthoritativeTranslationRepeatEnCue,
+  hasWeekendConceptInRuPrompt,
   replaceTranslationRepeatInContent,
 } from './translationRepeatClamp'
 
@@ -25,6 +26,23 @@ describe('clampTranslationRepeatToRuPrompt', () => {
       'I often meet with friends on the weekend.',
       ru
     )
+    expect(changed).toBe(false)
+    expect(clamped.toLowerCase()).toContain('weekend')
+  })
+
+  it('keeps on weekends when Russian paraphrases weekends without word выходные (субботы и воскресенья)', () => {
+    const ru = 'Мы часто видимся по субботам и воскресеньям.'
+    const { clamped, changed } = clampTranslationRepeatToRuPrompt(
+      'Do we often see each other on weekends?',
+      ru
+    )
+    expect(changed).toBe(false)
+    expect(clamped.toLowerCase()).toContain('weekend')
+  })
+
+  it('keeps on weekends for «в субботу и воскресенье»', () => {
+    const ru = 'Мы встречаемся в субботу и воскресенье.'
+    const { clamped, changed } = clampTranslationRepeatToRuPrompt('Do we meet on weekends?', ru)
     expect(changed).toBe(false)
     expect(clamped.toLowerCase()).toContain('weekend')
   })
@@ -133,7 +151,33 @@ describe('enforceAuthoritativeTranslationRepeatEnCue', () => {
   })
 })
 
+describe('hasWeekendConceptInRuPrompt', () => {
+  it('detects выходные and уик-энд', () => {
+    expect(hasWeekendConceptInRuPrompt('Мы видимся по выходным.')).toBe(true)
+    expect(hasWeekendConceptInRuPrompt('Уик-энд дома.')).toBe(true)
+  })
+
+  it('detects суббота/воскресенье paraphrases', () => {
+    expect(hasWeekendConceptInRuPrompt('По субботам и воскресеньям мы гуляем.')).toBe(true)
+    expect(hasWeekendConceptInRuPrompt('В субботу и воскресенье встречаемся.')).toBe(true)
+  })
+
+  it('is false for plain friends sentence without weekend cues', () => {
+    expect(hasWeekendConceptInRuPrompt('Я часто встречаюсь с друзьями.')).toBe(false)
+  })
+})
+
 describe('applyTranslationRepeatSourceClampToContent', () => {
+  it('регрессия: payload как после forceTranslationWordErrorProtocol — не срезает on weekends при RU без «выходн»', () => {
+    const content = `Комментарий: Лексическая ошибка. Проверь написание и выбор слова.
+Время: Present Simple — Здесь речь о привычке или факте, а не о действии прямо сейчас.
+Повтори: Do we often see each other on weekends?`
+    const ru = 'Мы часто видимся по субботам и воскресеньям.'
+    const out = applyTranslationRepeatSourceClampToContent(content, ru)
+    expect(out.toLowerCase()).toContain('weekend')
+    expect(out).toMatch(/Повтори:\s*Do we often see each other on weekends\?/i)
+  })
+
   it('replaces Повтори line in full assistant payload', () => {
     const content = `Комментарий: Ошибка.
 Время: Present Simple.

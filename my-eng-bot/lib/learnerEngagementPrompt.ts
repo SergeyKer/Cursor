@@ -4,14 +4,37 @@ import type { Audience } from '@/lib/types'
  * Translation-mode only for now. Same helpers can be reused in dialogue / communication / lesson prompts later.
  */
 
+/** ERROR protocol `Комментарий_перевод:` — praise the most advanced successful piece first; see `buildTranslationSupportivePraisePriorityRule`. */
+export function buildTranslationSupportivePraisePriorityRule(): string {
+  return [
+    'Supportive praise priority for ERROR line "Комментарий_перевод:" (Russian text):',
+    '- Pick exactly ONE praise target from the learner\'s exact English. Prefer the MOST advanced / natural / non-basic thing they got right, judged against the active CEFR level for this drill (what is "basic" on A1 is not special on B2).',
+    '- Search their answer (in this order) for something praise-worthy:',
+    '  1) Natural phrasal verbs or verb + particle combos (e.g. talk to, look after, get up).',
+    '  2) Natural collocations (e.g. do homework, make a decision).',
+    '  3) Correct prepositions in fixed phrases (e.g. interested in, good at).',
+    '  4) Frequency or stance adverbs used in a natural position (e.g. often, usually, already, ever).',
+    '  5) Lexis that is clearly strong or idiomatic for the stated level (not just a plain core verb).',
+    '- If at least one of the above is present, praise THAT — quote or name the exact English chunk.',
+    '- If the answer is only baseline-correct pieces for this level (no item from the list above stands out), praise STRUCTURE instead: e.g. correct question shape, correct negation pattern, or another macro pattern that matches the Russian task type — still only ONE concrete point.',
+    '- Do NOT praise: grammar that is expected at this CEFR by default (e.g. celebrating bare "Do" on A1 or routine "have" on B1 as the main win); "correct word order" or "no mistake where there should be none" as standalone praise; generic "everything is fine except…".',
+    '- Tone examples (Russian; adapt register to audience rules above; 💡 optional per emoji rules):',
+    '  "💡 Отлично, что использовал \'talk to\' — естественное сочетание! 🌟"',
+    '  "💡 Вижу \'often\' на правильном месте — супер! 💪"',
+    '  "💡 \'Interested in\' — правильный предлог, отлично! ✨"',
+    '  Fallback-style: "💡 Правильно построил вопрос — молодец! ✨" (only when nothing from the advanced list deserves the praise slot).',
+  ].join('\n')
+}
+
 /** ERROR protocol: CEFR tense name and "why this tense" only on the standalone `Время:` line after `Ошибки:`. */
 export function buildTranslationSingleTenseExplanationRule(): string {
   return [
     'Tense explanation rule (ERROR protocol only): Exactly ONE place may state the CEFR tense name (Present Perfect, Past Simple, etc.) and explain WHY it fits the Russian task: the standalone line starting with "Время: " immediately AFTER the "Ошибки:" block.',
-    '- In "Комментарий_перевод:" (supportive line): NEVER use CEFR labels or Russian school tense names; do NOT say the answer "needs" or "requires" a named tense. Praise concrete English pieces (auxiliaries, question shape, word order, articles, missing words) without naming the tense.',
+    '- In "Комментарий_перевод:" (supportive line): STRICT formula = praise ONE concrete correct element from learner answer + point to ONE main concrete fix. Keep it to max 1-2 short sentences. Follow the preceding "Supportive praise priority for ERROR line" block in these instructions: choose the most advanced successful chunk first; only if nothing qualifies, praise macro structure (question/negation shape).',
+    '- In "Комментарий_перевод:" NEVER use CEFR labels or Russian school tense names; do NOT say the answer "needs" or "requires" a named tense. Do not use this line to praise bare auxiliaries, articles, or plain word order unless they are the only defensible praise slot per the supportive praise priority block.',
     '- Inside "Ошибки:" subsections (only grammar, spelling, vocabulary, and optional meaning-unclear lines as in the protocol): do NOT repeat the CEFR tense name or duplicate the tense rationale. Stay concrete (missing word, question form, negation, spelling, article, etc.).',
     '- Do NOT output any extra time-explanation line inside "Ошибки:" (no tense rationale there). Only the following standalone protocol line "Время: ..." explains tense.',
-    '- Line "Комментарий:" (diagnostic): give error type in Russian plus at most one concrete fix. For tense problems do NOT spell out the CEFR tense or a long tense lesson here — that belongs only in the next "Время:" line.',
+    '- Line "Комментарий:" (diagnostic): give error type in Russian plus at most one concrete fix. Keep wording stable for parser/fallback (for example: "Ошибка времени", "Лексическая ошибка", "Ошибка формы глагола"). For tense problems do NOT spell out the CEFR tense or a long tense lesson here — that belongs only in the next "Время:" line.',
   ].join('\n')
 }
 
@@ -61,9 +84,11 @@ export function buildTranslationWarmVoiceRule(audience: Audience): string {
 export function buildTranslationThreeFormsStrictRule(): string {
   return [
     'Three-form drill (SUCCESS protocol lines after "Формы:") — STRICT:',
-    '- The line marker MUST match the sentence type: "+:" declarative affirmative (English subject first in the main clause, not a question); "?:" a real question (auxiliary or question word first where required; ends with "?"); "-:" negative with a contraction (don\'t/doesn\'t/didn\'t/isn\'t/aren\'t/wasn\'t/weren\'t/haven\'t/hasn\'t/hadn\'t/won\'t, etc.) whenever natural — avoid full "have not" / "do not" if a contraction fits.',
-    '- Keep the same core predicate, objects, and complements across all three lines; only change polarity and question structure. Do NOT swap adverbs (already/ever/yet, etc.) for variety unless the Russian meaning truly requires that contrast.',
+    '- The line marker MUST match the sentence type: "+:" declarative affirmative (subject + finite verb in the main clause, NOT a question — never start "+:" with Do/Does/Did/Is/Are/Was/Were/Have/Has/Had/Will/Can… as a yes/no question); "?:" a real question (auxiliary or question word first where required; ends with "?"); "-:" negative statement with a contraction (don\'t/doesn\'t/didn\'t/isn\'t/aren\'t/wasn\'t/weren\'t/haven\'t/hasn\'t/hadn\'t/won\'t, etc.) whenever natural — avoid full "have not" / "do not" if a contraction fits.',
+    '- Keep the same core predicate, objects, complements, and subject role across all three lines; only change polarity and question structure. Do NOT change subject person (I vs you vs they) or swap objects/adverbs (already/ever/yet) for variety unless the Russian meaning truly requires it.',
     '- Output order is always exactly: line "+:", then line "?:", then line "-:" (no reordering).',
-    '- FORBIDDEN: a question-shaped sentence under "-:"; a trailing "?" on the "+:" affirmative line.',
+    '- FORBIDDEN: a question-shaped sentence or trailing "?" on "+:"; any line under "-:" that looks like a question (e.g. auxiliary + subject + "?" ); a declarative or unmarked sentence under "?:".',
+    '- Optional pedagogy (only if it fits the reply length): before "Формы:" you may give up to three short pattern examples with different subjects (e.g. I / She / They) in the SAME tense — then the three "Формы:" lines must be ONE meaning in three shapes (+, ?, -) only.',
+    '- Preflight (must pass before you output the three lines): "+:" starts with a subject pronoun or noun phrase (not an auxiliary question); "?:" starts with auxiliary or wh-word and ends with "?"; "-:" contains n\'t or not + negative meaning; all three share the same lexical core.',
   ].join('\n')
 }
