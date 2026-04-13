@@ -97,11 +97,28 @@ export function fallbackTranslationSentenceForContext(params: {
     business: ['Я работаю с клиентами.', 'Я часто отвечаю на письма.', 'Мы обычно обсуждаем планы на встрече.'],
     free_talk: ['Я люблю читать книги.', 'Я часто гуляю вечером.', 'Мы обычно разговариваем дома по-английски.'],
   }
-  const topicPool = topicVariants[topic] ?? topicVariants.free_talk
-  const base = pick(topicPool)
   const basic = level === 'starter' || level === 'a1' || level === 'a2'
 
-  if (tense === 'present_simple') return finish(base)
+  const a1SimplifiedTopicPool: Record<string, string[]> = {
+    food: ['Я люблю чай.', 'Я люблю есть дома.', 'Я пью чай вечером.'],
+    family_friends: ['У меня есть семья.', 'У меня есть друзья.', 'Я люблю свою семью.'],
+    hobbies: ['Я люблю книги.', 'Я люблю рисовать.', 'Я люблю играть дома.'],
+    movies_series: ['Я не люблю смотреть фильмы.', 'Я люблю смотреть фильмы.', 'Я люблю фильмы.'],
+    music: ['Я люблю музыку.', 'Я слушаю музыку.', 'Я люблю песни.'],
+    sports: ['Я люблю спорт.', 'Я люблю бегать.', 'Я играю в футбол.'],
+    daily_life: ['Я встаю рано.', 'Я пью чай утром.', 'Я хожу в школу.'],
+    travel: ['Я люблю поездки.', 'Я еду в город.', 'Я люблю новые места.'],
+    work: ['Я работаю.', 'Я пишу письма.', 'Я встречаюсь с людьми.'],
+    technology: ['Я люблю телефон.', 'Я пользуюсь телефоном.', 'Я люблю новые приложения.'],
+    culture: ['Я люблю музеи.', 'Я читаю о культуре.', 'Я люблю выставки.'],
+    business: ['Я работаю с клиентами.', 'Я пишу письма.', 'Я обсуждаю планы.'],
+    free_talk: ['Я не люблю смотреть фильмы.', 'Я люблю смотреть фильмы.'],
+  }
+
+  if (tense === 'present_simple') {
+    const topicPool = basic && a1SimplifiedTopicPool[topic] ? a1SimplifiedTopicPool[topic] : topicVariants[topic] ?? topicVariants.free_talk
+    return finish(pick(topicPool))
+  }
   if (tense === 'present_continuous') {
     return finish(
       pick([

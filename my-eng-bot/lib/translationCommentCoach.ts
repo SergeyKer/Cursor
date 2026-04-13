@@ -58,6 +58,7 @@ function inferCommentErrorType(raw: string): string {
     return 'Ошибка формы глагола.'
   }
   if (/(лексическ|лексик|word choice|не то слово|неподходящее слово|словар)/i.test(s)) return 'Лексическая ошибка.'
+  if (/(перевод\w*|translate|translation)/i.test(s)) return 'Ошибка перевода.'
   if (/(артикл|a\/an| a | an | the )/i.test(s)) return 'Ошибка употребления артикля.'
   if (/(предлог|preposition)/i.test(s)) return 'Ошибка в выборе предлога.'
   if (/(порядок слов|word order)/i.test(s)) return 'Ошибка порядка слов.'
@@ -92,6 +93,7 @@ export function applyTranslationCommentCoachVoice(params: {
 
   const errorType = inferCommentErrorType(commentText)
   const errorTypeClean = errorType.replace(/\.\s*$/, '')
+  const errorTypeDisplay = errorTypeClean === 'Ошибка времени' ? '⏰ Ошибка времени' : errorTypeClean
   const commentTextLower = commentText.toLowerCase()
   const errorTypeLower = errorType.toLowerCase()
   const errorTypeLowerBase = errorTypeLower.endsWith('.') ? errorTypeLower.slice(0, -1) : errorTypeLower
@@ -111,7 +113,7 @@ export function applyTranslationCommentCoachVoice(params: {
     .replace(/^(Смотри|Смотрите)\s*[-–—:]\s*/i, '')
 
   if (!rest) {
-    return spliceKommentariyBlock(lines, start, endExclusive, errorTypeClean).join('\n').trim()
+    return spliceKommentariyBlock(lines, start, endExclusive, errorTypeDisplay).join('\n').trim()
   }
 
   if (errorTypeClean === 'Ошибка времени') {
@@ -120,13 +122,13 @@ export function applyTranslationCommentCoachVoice(params: {
         ? 'проверь глагол по смыслу русской фразы из задания — подробно только в строке «Время:» ниже.'
         : 'выровняй английскую форму под смысл русской фразы из задания; название времени и полное объяснение — только в строке «Время:» ниже.'
 
-    const head = `${errorTypeClean} — ${timeReason}`
+    const head = `${errorTypeDisplay} — ${timeReason}`
     const newBody = rest.includes('\n') ? `${head}\n${rest.trim()}` : `${head} ${rest}`.replace(/\s{2,}/g, ' ').trim()
     return spliceKommentariyBlock(lines, start, endExclusive, newBody).join('\n').trim()
   }
 
   const newBody = rest.includes('\n')
-    ? `${errorTypeClean} — ${rest.trimStart()}`
-    : `${errorTypeClean} — ${rest}`.replace(/\s{2,}/g, ' ').trim()
+    ? `${errorTypeDisplay} — ${rest.trimStart()}`
+    : `${errorTypeDisplay} — ${rest}`.replace(/\s{2,}/g, ' ').trim()
   return spliceKommentariyBlock(lines, start, endExclusive, newBody).join('\n').trim()
 }

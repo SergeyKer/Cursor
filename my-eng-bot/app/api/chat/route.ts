@@ -146,7 +146,10 @@ import {
   getAssistantContentBeforeLastUser,
   TRAN_CANONICAL_REPEAT_REF_MARKER,
 } from '@/lib/translationPromptAndRef'
-import { mergeErrorsBlockWithSyntheticFromComment } from '@/lib/translationSyntheticErrorsBlock'
+import {
+  dedupeTranslationErrorBlock,
+  mergeErrorsBlockWithSyntheticFromComment,
+} from '@/lib/translationSyntheticErrorsBlock'
 import { sanitizeRepeatMetaInstructionInContent } from '@/lib/repeatMetaInstruction'
 
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
@@ -203,10 +206,10 @@ const LEVEL_PROFILES: Record<string, LevelProfile> = {
   },
   a1: {
     displayName: 'A1',
-    vocabulary: 'Use very common everyday words about family, school, home, food, hobbies, and routine.',
-    grammar: 'Use simple sentence structure and short questions.',
+    vocabulary: 'Use only very common words about family, school, home, food, hobbies, and routine.',
+    grammar: 'Use very short sentences and short questions.',
     tenses: 'Present Simple and very basic Present Continuous.',
-    questionStyle: 'Ask short questions about personal details, habits, daily routine, and simple facts.',
+    questionStyle: 'Ask very short questions about personal details, habits, daily routine, and simple facts.',
     avoid: 'Avoid complex clauses, advanced vocabulary, and multi-step questions.',
   },
   a2: {
@@ -634,16 +637,17 @@ SUCCESS protocol (if user answer is correct), strict order:
 ERROR protocol (if there is a mistake), strict order:
 - Line 1: "Комментарий_перевод: " + REQUIRED supportive comment in Russian (warm mentor). STRICT formula: praise ONE specific correct element in the learner's exact answer + point to ONE main concrete error to fix. Keep exactly 1-2 short sentences. Praise priority: most advanced/natural correct chunk first (see "Supportive praise priority for ERROR line" in the engagement block above); if nothing qualifies, praise macro structure (e.g. question/negation shape). Do NOT praise "correct tense" if the answer is wrong on required tense. Follow the "Tense explanation rule" and "Warm voice" blocks above: NEVER name a CEFR tense or explain why this tense fits in this line (no English tense names, no "нужен Past Simple", no "предложение требует ..."). Use strategic emojis from this set (pick what fits; do NOT spam): 🙌 💪 🌟 🎯 ✨ 💡 🔥 🗣️ 🎧 🚀 🔄. 💡 may appear at most ONCE and ONLY at the very start of this Russian line (right after the colon); NEVER end "Комментарий_перевод:" with 💡 — choose a different emoji from the set for a closing accent. For CHILD follow the strategic emoji legend above when assigning meaning.
 - Line 2: "Комментарий: " + short Russian diagnostic feedback (professional pedagogical style as below). Keep parser-friendly stable error labels at the start (for example: "Ошибка времени", "Лексическая ошибка", "Ошибка формы глагола", "Ошибка типа предложения"), then one concrete fix.
-- Then block "Ошибки:" (may span multiple lines). Grammar check order (strict): FIRST compare sentence type of the learner's English with the Russian task line (the phrase to translate). Only after sentence type matches, list spelling/vocabulary details.
+- Then block "Ошибки:" (may span multiple lines). Grammar check order (strict): FIRST check tense match against the required tense for this drill. If the learner used the wrong tense, that is the primary grammar error and must be labeled as "Ошибка времени" in "Комментарий:" and handled before any word-level fixes. Only after tense and sentence type are checked, list spelling/vocabulary details.
   Sentence type (infer from the Russian task line): if it ends with "?" → English must be a real question (e.g. yes/no in Present Simple: Do/Does + subject + base verb ...?; wh-questions: question word + auxiliary + subject + verb ...); if the Russian clearly expresses negation (не, ни, нет, никогда, ничего, etc.) → English must be negative (don't/doesn't/didn't ... or the correct negative for the required tense); otherwise → English must be a declarative statement (not a question, not wrongly negated).
-  If sentence type is wrong, the "🔤 Грамматика:" line MUST come before ✏️ Орфография and 📖 Лексика — fix structure before words. When sentence type is wrong, do not output ✏️ or 📖 before 🔤.
-  After "Ошибки:" output subsections only where relevant; skip empty subsections. Use emoji + label on each line:
-  - 🤔 ... (only if the meaning is unclear or the English is illogical)
-  - 🔤 Грамматика: ... (sentence type / question word order / negation structure FIRST when relevant; then verb forms, articles, prepositions). Do NOT name the CEFR tense or repeat tense rationale here — only concrete fixes.
-  - ✏️ Орфография: ... (all spelling fixes in one block)
-  - 📖 Лексика: ... (all wrong-word fixes as a list)
+  If tense or sentence type is wrong, the "🔤 Грамматика:" line MUST come before ✏️ Орфография and 📖 Лексика — fix structure before words. When tense or sentence type is wrong, do not output ✏️ or 📖 before 🔤.
+  Group every issue into exactly ONE subsection and do not repeat the same issue in another subsection. After "Ошибки:" output subsections only where relevant; skip empty subsections. Use emoji + label on each line:
+  - 🤔 ... (only if the meaning is unclear or the English is illogical; do not restate grammar/spelling/lexis items already covered below)
+  - 🔤 Грамматика: ... (tense mismatch / sentence type / question word order / negation structure FIRST when relevant; then verb forms, articles, prepositions). Do NOT name the CEFR tense or repeat tense rationale here — only concrete fixes. Do not repeat spelling or vocabulary fixes here.
+  - ✏️ Орфография: ... (all spelling fixes in one block; do not repeat these items in Grammar or Lexis)
+  - 📖 Лексика: ... (all wrong-word fixes as a list; do not repeat these items in Grammar or Spelling)
+  - A single learner mistake must appear in only one of these subsections, never in two.
   Use explicit correction pairs in subsections whenever possible: "wrong" → "right" (for example: 'try' → 'tried', 'frukt' → 'fruit', 'car' → 'cat').
-  Do NOT add "⏱️ Время:" or any tense-explanation line inside "Ошибки:". The ONLY place for tense name + why is the mandatory standalone "Время:" line below.
+  Do NOT add "⏱️ Время:" or any tense-explanation line inside "Ошибки:". The ONLY place for tense name + why is the mandatory standalone "Время:" line below, and the tense reason must not be repeated in any subsection above.
   Do not put the full corrected English sentence inside "Ошибки"; the only full corrected English must be in "Повтори:".
 - Next line: "Время: " + ${tenseName} + short Russian explanation tied to the meaning of this exact sentence: say why this tense fits, name the clue words/markers, and mention the context (habit, fact, action now, result, finished past event, future, etc.). Do not just name the tense.
 - Next: "Конструкция: " + very short tense pattern for learner (example for Present Simple: "Subject + V1(s/es)")
@@ -879,6 +883,7 @@ function fallbackQuestionForContext(params: {
             keywords,
             tense: params.tense,
             audience: params.audience,
+            level: params.level,
             diversityKey: `topic-choice|${params.lastUserText}`,
           })
         }
@@ -1244,6 +1249,7 @@ function buildFreeTalkTopicAnchorQuestion(params: {
   keywords: string[]
   tense: string
   audience: 'child' | 'adult'
+  level: string
   diversityKey?: string
   recentAssistantQuestions?: string[]
 }): string {
@@ -1313,6 +1319,7 @@ function applyFreeTalkAntiRepeat(params: {
     keywords,
     tense: params.tense,
     audience: params.audience,
+    level: params.level,
     diversityKey: `${params.recentMessages.length}|${params.lastUserText}|anti-repeat`,
     recentAssistantQuestions: recentQuestions,
   })
@@ -3427,8 +3434,8 @@ function ensureTranslationProtocolBlocks(
   if (needsErrorProtocol && !(supportBlock?.trim() ?? '')) {
     supportBlock =
       params.audience === 'child'
-        ? '💡 Хорошее начало! Исправь главную неточность по образцу ниже и повтори предложение целиком.'
-        : '💡 Хорошая основа. Исправьте основную неточность по образцу ниже и повторите предложение целиком.'
+        ? '💡 Есть хорошая основа, но нужно исправить главную неточность по образцу ниже.'
+        : '💡 Есть хорошая основа, но нужно исправить основную неточность по образцу ниже.'
   }
   if (needsErrorProtocol && !(String(errorsBlock ?? '').trim())) {
     errorsBlock = commentBodyOnly ? `🤔 ${commentBodyOnly}` : '🤔 Исправьте основную ошибку по образцу.'
@@ -4480,7 +4487,7 @@ function normalizeTranslationErrorBranch(content: string): string {
     }
     const body = parts.join('\n').trim()
     if (body) {
-      errorsCombined = `Ошибки:\n${body}`
+      errorsCombined = `Ошибки:\n${dedupeTranslationErrorBlock(body)}`
     }
   }
 
@@ -5001,6 +5008,7 @@ function enrichTranslationCommentQuality(params: {
 
   const userLower = userText.toLowerCase()
   const repeatLower = repeatSentence.toLowerCase()
+  const hasRussianInUserAnswer = /[А-Яа-яЁё]/.test(userText)
   const reasonParts: string[] = []
   const prepositionHintParts: string[] = []
 
@@ -5036,6 +5044,10 @@ function enrichTranslationCommentQuality(params: {
 
   const repeatContentTokens = tokenizeEnglishWords(repeatSentence).filter(isContentWord)
   const userContentTokens = tokenizeEnglishWords(userText).filter(isContentWord)
+
+  if (hasRussianInUserAnswer) {
+    pushUniqueReason(reasonParts, 'Ошибка перевода: русские слова в ответе нужно перевести на английский.')
+  }
 
   for (const userToken of userTokens) {
     if (!userToken || userToken.length < 3) continue
@@ -5096,7 +5108,7 @@ function enrichTranslationCommentQuality(params: {
         userText
       ) || /\b[a-z]{3,}ed\b/i.test(userText)
     if (hasPresentContinuous || hasPastTenseSignal) {
-      pushUniqueReason(reasonParts, 'Ошибка времени: используйте Present Simple для обычного действия.')
+      pushUniqueReason(reasonParts, '⏰ Ошибка времени: используйте Present Simple для обычного действия.')
     }
   }
 
@@ -5106,7 +5118,7 @@ function enrichTranslationCommentQuality(params: {
     if (userSet.has(baseForm)) continue
     pushUniqueReason(reasonParts, `Ошибка формы глагола: нужно ${baseForm}, не ${pastForm}.`)
     if (tense === 'present_simple') {
-      pushUniqueReason(reasonParts, 'Ошибка времени: здесь нужно Present Simple, а не форма прошедшего времени.')
+      pushUniqueReason(reasonParts, '⏰ Ошибка времени: здесь нужно Present Simple, а не форма прошедшего времени.')
     }
   }
 

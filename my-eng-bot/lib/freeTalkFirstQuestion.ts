@@ -11,11 +11,16 @@ export function buildFreeTalkFirstQuestion(params: {
   topicSuggestions?: string[]
 }): string {
   const { audience, topicSuggestions = [] } = params
+  const isA1 = params.level === 'a1' || params.level === 'starter'
   const topics = formatTopicSuggestions(topicSuggestions)
   const base =
-    audience === 'child'
-      ? 'What do you want to talk about?'
-      : 'What would you like to talk about?'
+    isA1
+      ? audience === 'child'
+        ? 'What do you want to talk about?'
+        : 'What do you want to talk about?'
+      : audience === 'child'
+        ? 'What do you want to talk about?'
+        : 'What would you like to talk about?'
   if (!topics) return base
   return `${base}\nYour topic, or one of these:\n${topics}`
 }

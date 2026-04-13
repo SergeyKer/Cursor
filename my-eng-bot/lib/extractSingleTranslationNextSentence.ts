@@ -72,7 +72,7 @@ export function extractSingleTranslationNextSentence(lines: string[]): string | 
   let raw = lines
     .join(' ')
     .replace(/\s+/g, ' ')
-    .replace(/(?:Переведи(?:те)?|Переведите)\s+на\s+английский\./gi, ' ')
+    .replace(/(?:Переведи(?:те)?|Переведите)\s+на\s+английский[.:]/gi, ' ')
     .replace(/(?:Переведи(?:те)?|Переведите)(?:\s+далее)?\s*:\s*/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim()

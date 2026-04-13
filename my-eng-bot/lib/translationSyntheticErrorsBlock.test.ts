@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildSyntheticErrorsBlockFromComment,
+  dedupeTranslationErrorBlock,
   mergeErrorsBlockWithSyntheticFromComment,
 } from './translationSyntheticErrorsBlock'
 
@@ -59,6 +60,42 @@ describe('mergeErrorsBlockWithSyntheticFromComment', () => {
     const syn = buildSyntheticErrorsBlockFromComment('Ошибка артикля: перед cat нужен a.')!
     const out = mergeErrorsBlockWithSyntheticFromComment(syn, 'Ошибка артикля: перед cat нужен a.')
     expect(out).toBe(syn)
+  })
+
+  it('does not duplicate the same grammar pair with slightly different wording', () => {
+    const payload = '🔤 Грамматика: you → your.\n✏️ Орфография: homework.'
+    const comment = 'Ошибка времени и you → your.'
+    const out = mergeErrorsBlockWithSyntheticFromComment(payload, comment)
+    expect(out).toBe(payload)
+  })
+
+  it('dedupes semantically overlapping grammar lines in the final error block', () => {
+    const body = [
+      '🔤 Грамматика: "sister" требует артикль "a" перед ним — "a sister".',
+      '🔤 Грамматика: Ошибка формы: добавь "a" перед "sister" в предложении.',
+      '📖 Лексика: sister is the right word.',
+    ].join('\n')
+    const out = dedupeTranslationErrorBlock(body)
+    expect(out.split('\n')).toHaveLength(2)
+    expect(out).toContain('a sister')
+    expect(out).toContain('📖 Лексика:')
+  })
+
+  it('dedupes article-focused lines with different wording', () => {
+    const body = [
+      '🔤 Грамматика: перед sister нужен артикль a.',
+      '🔤 Грамматика: "sister" требует "a" перед ним.',
+    ].join('\n')
+    const out = dedupeTranslationErrorBlock(body)
+    expect(out.split('\n')).toHaveLength(1)
+    expect(out.toLowerCase()).toContain('sister')
+  })
+
+  it('labels loose correction examples inside error block', () => {
+    const body = ['- "watck" -> "watch"', '🔤 Грамматика: Ошибка формы глагола.'].join('\n')
+    const out = dedupeTranslationErrorBlock(body)
+    expect(out).toMatch(/^🔤 Грамматика:/)
+    expect(out).not.toMatch(/^- /m)
   })
 
   it('returns synthetic only when payload empty', () => {

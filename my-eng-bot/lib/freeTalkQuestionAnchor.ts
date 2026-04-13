@@ -14,10 +14,11 @@ export function buildFreeTalkTopicAnchorQuestion(params: {
   topicLabel?: string
   tense: string
   audience: 'child' | 'adult'
+  level?: string
   diversityKey?: string
   recentAssistantQuestions?: string[]
 }): string {
-  const { keywords, topicLabel, tense, audience, diversityKey = '', recentAssistantQuestions = [] } = params
+  const { keywords, topicLabel, tense, audience, level, diversityKey = '', recentAssistantQuestions = [] } = params
   const t = (topicLabel ?? buildFreeTalkTopicLabel(keywords)).trim()
   const seed = stableHash32(`ftaq|${t}|${tense}|${audience}|${diversityKey}`)
   const pick = (variants: string[]) => {
@@ -28,9 +29,23 @@ export function buildFreeTalkTopicAnchorQuestion(params: {
     return candidate ?? rotated[0]!
   }
   const isChild = audience === 'child'
+  const isA1 = level === 'a1' || level === 'starter'
 
   switch (tense) {
     case 'present_simple':
+      if (isA1) {
+        return isChild
+          ? pick([
+              `What do you think about ${t}?`,
+              `Do you like ${t}?`,
+              `What about ${t}?`,
+            ])
+          : pick([
+              `What do you think about ${t}?`,
+              `Do you like ${t}?`,
+              `What about ${t}?`,
+            ])
+      }
       return isChild
         ? pick([
             `What do you think about ${t}?`,
@@ -46,6 +61,17 @@ export function buildFreeTalkTopicAnchorQuestion(params: {
             `What do you want to say about ${t}?`,
           ])
     case 'present_continuous':
+      if (isA1) {
+        return isChild
+          ? pick([
+              `What are you doing with ${t} now?`,
+              `How are you using ${t} now?`,
+            ])
+          : pick([
+              `What are you doing with ${t} now?`,
+              `How are you using ${t} now?`,
+            ])
+      }
       return isChild
         ? pick([
             `What are you doing with ${t} right now?`,
