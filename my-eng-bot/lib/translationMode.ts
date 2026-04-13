@@ -357,7 +357,9 @@ export function fallbackTranslationSentenceForContext(params: {
       ])
     )
   }
-  return finish(isChild ? 'Я люблю читать книги.' : base)
+  const topicPool =
+    basic && a1SimplifiedTopicPool[topic] ? a1SimplifiedTopicPool[topic] : topicVariants[topic] ?? topicVariants.free_talk
+  return finish(isChild ? 'Я люблю читать книги.' : pick(topicPool))
 }
 
 export function normalizeTranslationPracticeSentence(sentence: string): string {

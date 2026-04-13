@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import type { AppMode, Audience, ChatMessage, LevelId, SentenceType, TenseId, TopicId } from '@/lib/types'
+import type {
+  AppMode,
+  Audience,
+  ChatMessage,
+  LevelId,
+  OpenAiChatPreset,
+  SentenceType,
+  TenseId,
+  TopicId,
+} from '@/lib/types'
 import { CHILD_TENSES } from '@/lib/constants'
 import { getAllowedTensesForLevel } from '@/lib/levelAllowedTenses'
 import { detectLangFromText } from '@/lib/detectLang'
@@ -1310,6 +1319,7 @@ function applyFreeTalkAntiRepeat(params: {
   content: string
   tense: string
   audience: 'child' | 'adult'
+  level: string
   recentMessages: ChatMessage[]
   lastUserText: string
 }): string {
@@ -4061,7 +4071,7 @@ async function ensureFirstTranslationDrillMatchesRequiredTense(params: {
   provider: Provider
   req: NextRequest
   resolveGoldTranslation?: ResolveGoldTranslation
-  openAiChatPreset?: 'gpt-4o-mini' | 'gpt-5.4-mini-none'
+  openAiChatPreset?: OpenAiChatPreset
 }): Promise<string> {
   if (params.tense === 'all') return params.content
   const ru = extractRussianTranslationTaskFromAssistantContent(params.content)
@@ -4713,6 +4723,7 @@ async function repairDialogueAllTenseRepeatMismatch(params: {
   provider: Provider
   req: NextRequest
   maxTokens: number
+  openAiChatPreset: OpenAiChatPreset
 }): Promise<string> {
   const {
     content,
@@ -4725,6 +4736,7 @@ async function repairDialogueAllTenseRepeatMismatch(params: {
     provider,
     req,
     maxTokens,
+    openAiChatPreset,
   } = params
   const repeatSentence = getDialogueRepeatSentence(content)
   if (!repeatSentence) return content
@@ -6718,6 +6730,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           content: sanitized,
           tense: freeTalkTense,
           audience,
+          level,
           recentMessages,
           lastUserText: lastUserContentForResponse,
         })
@@ -6733,6 +6746,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         provider,
         req,
         maxTokens: communicationMaxTokens,
+        openAiChatPreset,
       })
     }
     let translationSuccessFlow = false
@@ -7517,6 +7531,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 content: repaired,
                 tense: freeTalkTense,
                 audience,
+                level,
                 recentMessages,
                 lastUserText: lastUserContentForResponse,
               })
@@ -7532,6 +7547,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               provider,
               req,
               maxTokens: communicationMaxTokens,
+              openAiChatPreset,
             })
           }
           if (mode === 'translation') {

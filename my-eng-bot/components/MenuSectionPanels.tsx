@@ -53,6 +53,7 @@ type SettingsMenuPanel = 'summary' | 'provider' | 'openAiModel' | 'voice'
 const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
   summary: 'Настройки',
   provider: 'ИИ',
+  openAiModel: 'Модель чата',
   voice: 'Голос',
 }
 
