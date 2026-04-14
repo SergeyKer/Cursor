@@ -24,7 +24,7 @@ import { normalizeWebSearchSourceUrl } from '@/lib/openAiWebSearchShared'
 import type { ChatMessage as ChatMessageType, Settings } from '@/lib/types'
 import { stripWrappingQuotesFromDrillRussianLine } from '@/lib/extractSingleTranslationNextSentence'
 import { stripTranslationCanonicalRepeatRefLine } from '@/lib/translationPromptAndRef'
-import { splitTranslationInvitation } from '@/lib/translationInvitationUi'
+import { isGenericTranslationMetaInvitation, splitTranslationInvitation } from '@/lib/translationInvitationUi'
 import { PAGE_HOME_START_PRIMARY_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import type { LearningLessonAction } from '@/lib/learningLessons'
 
@@ -358,14 +358,16 @@ function buildAssistantSections(params: {
   }
   if (mode === 'translation' && invitationText?.trim()) {
     const invitationTrim = invitationText.trim()
-    sections.push({
-      key: 'translation-invitation',
-      tone: 'invite',
-      label: assistantMainHeadingLabel(),
-      text: invitationTrim,
-      singleLine: !invitationTrim.includes('\n'),
-      emphasizeMainText: hideAiLabel,
-    })
+    if (!isGenericTranslationMetaInvitation(invitationTrim)) {
+      sections.push({
+        key: 'translation-invitation',
+        tone: 'invite',
+        label: assistantMainHeadingLabel(),
+        text: invitationTrim,
+        singleLine: !invitationTrim.includes('\n'),
+        emphasizeMainText: hideAiLabel,
+      })
+    }
   }
   if (translationErrorsText?.trim() && mode === 'translation') {
     sections.push({
@@ -455,6 +457,27 @@ export function buildAssistantSectionsForTranslationSuccessTest(
     invitationText: null,
     mainAfter: '',
     mode: 'translation',
+  })
+}
+
+/** Узкий экспорт для тестов: русское задание + служебное приглашение — без дубля карточки «Переведи на английский». */
+export function buildAssistantSectionsForTranslationDrillWithInvitationTest(options: {
+  mainBefore: string
+  invitationText: string | null
+}): AssistantSection[] {
+  return buildAssistantSections({
+    comment: null,
+    translationErrorCoachUi: false,
+    translationSuccessPraiseCard: false,
+    showOnlyRepeat: false,
+    hidePromptBlocks: false,
+    repeatTextForCard: null,
+    mainBefore: options.mainBefore,
+    hideRussianNonQuestionMainBefore: false,
+    invitationText: options.invitationText,
+    mainAfter: '',
+    mode: 'translation',
+    translationHeadingWelcome: true,
   })
 }
 
@@ -1768,6 +1791,9 @@ function MessageBubble({
     }
     if (blocks.invitation) effectiveInvitationText = blocks.invitation
     if (effectiveMainBefore) effectiveMainBefore = stripTranslationMainMetaPrefixes(effectiveMainBefore)
+    if (effectiveInvitationText && isGenericTranslationMetaInvitation(effectiveInvitationText)) {
+      effectiveInvitationText = null
+    }
     if (ruFbTrim && hideTranslationMainCardForErrorRepeat && !String(effectiveMainBefore ?? '').trim()) {
       effectiveMainBefore = stripTranslationMainMetaPrefixes(ruFbTrim)
       hideTranslationMainCardForErrorRepeat = false

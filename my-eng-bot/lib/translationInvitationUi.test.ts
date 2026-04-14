@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { splitTranslationInvitation } from './translationInvitationUi'
+import { isGenericTranslationMetaInvitation, splitTranslationInvitation } from './translationInvitationUi'
 
 describe('splitTranslationInvitation', () => {
   it('не обрезает задание на первой точке после «Теперь.»', () => {
@@ -16,5 +16,16 @@ describe('splitTranslationInvitation', () => {
     const { invitation, mainAfter } = splitTranslationInvitation(text)
     expect(invitation).toMatch(/Переведи на английский(?: язык)?/i)
     expect(mainAfter).toBe('')
+  })
+})
+
+describe('isGenericTranslationMetaInvitation', () => {
+  it('распознаёт служебную строку протокола', () => {
+    expect(isGenericTranslationMetaInvitation('Переведи на английский язык.')).toBe(true)
+    expect(isGenericTranslationMetaInvitation('  Переведи на английский.  ')).toBe(true)
+  })
+
+  it('не считает служебной строку с заданием после двоеточия', () => {
+    expect(isGenericTranslationMetaInvitation('Переведи далее: Я читаю книгу.')).toBe(false)
   })
 })

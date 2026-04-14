@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { stripWrappingQuotes } from '@/lib/translationProtocolLines'
 import {
+  buildAssistantSectionsForTranslationDrillWithInvitationTest,
   buildAssistantSectionsForTranslationErrorRepeatTest,
   buildAssistantSectionsForTranslationSuccessTest,
   commentIconForContent,
@@ -253,6 +254,18 @@ describe('commentLabelForTranslationFirstBlock', () => {
 
   it('keeps praise icon for success comments', () => {
     expect(commentLabelForTranslationFirstBlock('Отлично! Правильно использован Present Simple.')).toBe('✅')
+  })
+})
+
+describe('translation drill invitation UI', () => {
+  it('не дублирует карточку «Переведи» служебным «Переведи на английский», если есть русское задание', () => {
+    const sections = buildAssistantSectionsForTranslationDrillWithInvitationTest({
+      mainBefore: 'Я сейчас читаю книгу?',
+      invitationText: 'Переведи на английский язык.',
+    })
+    expect(sections.filter((s) => s.key === 'translation-invitation')).toHaveLength(0)
+    const main = sections.find((s) => s.key === 'main')
+    expect(main?.text).toBe('Я сейчас читаю книгу?')
   })
 })
 
