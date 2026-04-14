@@ -69,6 +69,45 @@ describe('POST /api/chat translation provider payload', () => {
     expect(nonSystem[1]?.content).toContain('We rarely watch TV')
   })
 
+  it('asks the model to label the next drill as Переведи далее in success flow', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: [
+        'Комментарий_перевод: Отлично! 🙌',
+        'Комментарий_ошибка: Ошибка времени. Нужен Present Continuous.',
+        'Ошибки:',
+        '🔤 Используйте правильную форму глагола.',
+        'Время: Present Continuous — действие сейчас.',
+        'Конструкция: am/is/are + V-ing',
+        'Скажи: I am reading a book now.',
+        'Повтори: I am reading a book now.',
+      ].join('\n'),
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_continuous'],
+      sentenceType: 'affirmative',
+      messages: [
+        { role: 'assistant', content: 'Переведи: Я сейчас читаю книгу.\nПереведи на английский язык.' },
+        { role: 'user', content: 'I am reading a book now.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    expect(res.status).toBe(200)
+
+    const firstCall = callProviderChatMock.mock.calls[0]?.[0] as
+      | { apiMessages?: Array<{ role: string; content: string }> }
+      | undefined
+    const systemPrompt = firstCall?.apiMessages?.find((m) => m.role === 'system')?.content ?? ''
+
+    expect(systemPrompt).toContain('Line 2: "Переведи далее: " + NEXT natural Russian sentence')
+    expect(systemPrompt).toContain('In SUCCESS protocol do NOT output separate "Время:", "Конструкция:", "Формы:" or "Повтори:" lines.')
+  })
+
   it('keeps a single provider call when __TRAN_REPEAT_REF__ is reconstructed locally', async () => {
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,
@@ -106,7 +145,7 @@ describe('POST /api/chat translation provider payload', () => {
       ok: true,
       content: [
         'Комментарий_перевод: Хорошее начало вопроса. Исправь порядок слов.',
-        'Комментарий: Ошибка формы вопроса. Поставь do перед подлежащим.',
+        'Комментарий_ошибка: Ошибка формы вопроса. Поставь do перед подлежащим.',
         'Время: Present Simple — привычка или факт.',
         'Конструкция: Do/Does + subject + V1 ...?',
         'Повтори: What do you like as a pet?',
@@ -129,7 +168,7 @@ describe('POST /api/chat translation provider payload', () => {
     expect(res.status).toBe(200)
     const data = (await res.json()) as { content: string }
     expect(data.content).toContain('Комментарий_перевод: Хорошее начало вопроса.')
-    expect(data.content).toContain('Комментарий: Ошибка перевода — русские слова в ответе нужно перевести на английский.')
+    expect(data.content).toContain('Комментарий_ошибка: Ошибка формы вопроса. Поставь do перед подлежащим.')
     expect(data.content).toContain('Ошибки:')
     expect(data.content.toLowerCase()).toMatch(/📖\s*питомец\s*-\s*pet/)
   })

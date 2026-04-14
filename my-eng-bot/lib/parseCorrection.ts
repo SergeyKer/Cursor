@@ -31,6 +31,19 @@ export function parseCorrection(text: string): {
       repeat: `Повтори: ${repeatPart}`,
     }
   }
+  function splitInlineTranslationInvitation(
+    source: string
+  ): { comment: string | null; invitation: string | null } {
+    const trimmed = source.trim()
+    const match =
+      /^(.*?)(?:\s+)((?:\d+[\.)]\s*)?(?:Переведи|Переведите)(?:\s+далее)?\s*:\s*[^\r\n]+|(?:\d+[\.)]\s*)?(?:Переведи|Переведите)\s+на\s+английский(?:\s+язык)?\.)\s*$/i.exec(
+        trimmed
+      )
+    if (!match) return { comment: trimmed || null, invitation: null }
+    const commentPart = match[1]?.trim() || null
+    const invitationPart = match[2]?.replace(/^\s*\d+[\.)]\s*/i, '').trim() || null
+    return { comment: commentPart, invitation: invitationPart }
+  }
 
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i]
@@ -60,7 +73,7 @@ export function parseCorrection(text: string): {
         /^(повтори|repeat|say)\s*:/i.test(line) ||
         /^конструкция\s*:/i.test(line) ||
         /^формы\s*:/i.test(line) ||
-        /^\s*(?:\d+\)\s*)?(?:переведи|переведите)\b/i.test(line)
+        /^[\s\-•]*(?:\d+[\.)]\s*)?(?:переведи|переведите)\b/i.test(line)
       if (!isNextHeader) {
         comment = comment ? `${comment}\n${line}` : line
         continue
@@ -114,6 +127,13 @@ export function parseCorrection(text: string): {
     const split = splitInlineRepeat(comment)
     comment = split.comment
     repeatLine = split.repeat
+  }
+  if (comment) {
+    const split = splitInlineTranslationInvitation(comment)
+    comment = split.comment
+    if (split.invitation) {
+      restLines.unshift(split.invitation)
+    }
   }
 
   // Если это похвала (русское "Отлично/Молодец/..." в начале), а модель всё равно дописала

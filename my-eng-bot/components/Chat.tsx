@@ -69,7 +69,7 @@ function speechLocaleForCommunication(
 }
 
 type BubblePosition = 'solo' | 'first' | 'middle' | 'last'
-type SectionTone = 'neutral' | 'amber' | 'emerald' | 'praise' | 'slate'
+type SectionTone = 'neutral' | 'amber' | 'emerald' | 'praise' | 'slate' | 'invite'
 type AssistantSection = {
   key: string
   tone: SectionTone
@@ -119,27 +119,6 @@ function bubbleRadiusClass(isUser: boolean, pos: BubblePosition): string {
 }
 
 /**
- * UI блока «Прочитай вслух»: префиксы +: / ?: / -: → «+ » / «? » / «- » перед текстом,
- * чтобы знак совпадал с типом предложения; тело с новой строки под заголовком.
- */
-export function formatThreeFormsForCard(raw: string): string {
-  const lines = raw
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-  const body = lines
-    .map((line) => {
-      const m = /^([+?-])\s*:\s*(.*)$/i.exec(line)
-      if (!m) return line
-      const sign = m[1] ?? ''
-      const rest = (m[2] ?? '').trim()
-      return rest ? `${sign} ${rest}` : sign
-    })
-    .join('\n')
-  return body ? `\n${body}` : ''
-}
-
-/**
  * Убирает из текста блока «Ошибки» подпункты без содержания (модель часто ставит «-» для пустых секций).
  */
 export function filterTranslationErrorsDisplayText(raw: string): string {
@@ -161,6 +140,21 @@ export function filterTranslationErrorsDisplayText(raw: string): string {
   /** Тело строки после эмодзи: либо «Метка: текст», либо сразу текст (без русских меток). */
   const subsectionLine =
     /^\s*(?:[-•*]\s*)?(🤔|🔤|✏️|📖)\s*(?:(?:Грамматика|Орфография|Лексика)\s*:\s*)?(.*)$/u
+  const quoteRussianWords = (text: string): string =>
+    text.replace(/[А-Яа-яЁё]+(?:-[А-Яа-яЁё]+)*/g, (word, offset, source) => {
+      const prev = source[offset - 1]
+      const next = source[offset + word.length]
+      if (prev === '"' && next === '"') return word
+      return `"${word}"`
+    })
+  const normalizeDisplayErrorLine = (line: string): string => {
+    // В блоке «Ошибки» показываем обычные пунктирные маркеры вместо эмодзи.
+    const withoutEmojiPrefix = line.replace(/^\s*(?:[-•*]\s*)?(?:🤔|🔤|✏️|📖)\s*/u, '- ')
+    // Лексические пары вида «фильм - movie» отображаем стрелкой.
+    const withArrow = withoutEmojiPrefix.replace(/\s+-\s+/g, ' → ')
+    // В строках-парах явно помечаем русские фрагменты.
+    return withArrow.includes('→') ? quoteRussianWords(withArrow) : withArrow
+  }
   const isVerbFormLabelWithSpellingDetail = (displayLine: string): boolean => {
     const t = displayLine.toLowerCase()
     return (
@@ -187,7 +181,7 @@ export function filterTranslationErrorsDisplayText(raw: string): string {
     if (isSentenceTypeMislabeledTranslation(displayLine)) continue
     const m = displayLine.match(subsectionLine)
     if (m && isPlaceholderBody(m[2] ?? '')) continue
-    out.push(displayLine)
+    out.push(normalizeDisplayErrorLine(displayLine))
   }
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trim()
 }
@@ -231,6 +225,8 @@ export function commentToneForContent(comment: string): SectionTone {
     /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)[!.]?\s*/i,
     /^Ты\s+правильно(?:\s|$|[!.?,;:])/i,
     /^Ты\s+верно(?:\s|$|[!.?,;:])/i,
+    /^Вы\s+правильно(?:\s|$|[!.?,;:])/i,
+    /^Вы\s+верно(?:\s|$|[!.?,;:])/i,
   ]
   return !hasCorrectionSignal && praisePatterns.some((pattern) => pattern.test(normalized)) ? 'praise' : 'amber'
 }
@@ -266,8 +262,6 @@ export function commentLabelForTranslationFirstBlock(comment: string): CommentIc
 }
 
 /** Карточка «Прочитай вслух (+, ?, −)» в режиме «Перевод». Сейчас скрыта; включить — `true`. */
-const SHOW_READ_ALOUD_THREE_FORMS_IN_TRANSLATION = false
-
 function buildAssistantSections(params: {
   comment: string | null
   /** Режим перевод, ошибка: только тело «Комментарий_перевод:»; «Комментарий:» сюда не подставляем. */
@@ -275,8 +269,6 @@ function buildAssistantSections(params: {
   translationErrorCoachUi?: boolean
   /** Успешный drill перевода: первая карточка — ✅ (тон praise), а не янтарная 💡. */
   translationSuccessPraiseCard?: boolean
-  tenseRef?: string | null
-  threeFormsText?: string | null
   /** Режим перевод, сценарий ошибки: разбор по пунктам под «Комментарий». */
   translationErrorsText?: string | null
   showOnlyRepeat: boolean
@@ -297,8 +289,6 @@ function buildAssistantSections(params: {
     translationSupportComment = null,
     translationErrorCoachUi = false,
     translationSuccessPraiseCard = false,
-    tenseRef,
-    threeFormsText,
     translationErrorsText,
     showOnlyRepeat,
     hidePromptBlocks = false,
@@ -322,14 +312,23 @@ function buildAssistantSections(params: {
   const sections: AssistantSection[] = []
   const supportTrim = translationSupportComment?.trim() ?? ''
   if (mode === 'translation' && translationErrorCoachUi) {
-    const supportOrComment = supportTrim || comment?.trim() || ''
-    if (supportOrComment) {
+    if (supportTrim) {
       sections.push({
-        key: 'comment',
+        key: 'translation-support',
         tone: 'amber',
         label: '💡',
-        text: supportOrComment,
-        singleLine: !supportOrComment.includes('\n'),
+        text: supportTrim,
+        singleLine: !supportTrim.includes('\n'),
+      })
+    }
+    const diagnosticText = comment?.trim() ?? ''
+    if (diagnosticText) {
+      sections.push({
+        key: 'translation-error-comment',
+        tone: 'amber',
+        label: 'Комментарий_ошибка',
+        text: diagnosticText,
+        singleLine: !diagnosticText.includes('\n'),
       })
     }
   } else if (mode === 'translation' && translationSuccessPraiseCard && comment?.trim()) {
@@ -354,6 +353,17 @@ function buildAssistantSections(params: {
       singleLine: true,
     })
   }
+  if (mode === 'translation' && invitationText?.trim()) {
+    const invitationTrim = invitationText.trim()
+    sections.push({
+      key: 'translation-invitation',
+      tone: 'invite',
+      label: assistantMainHeadingLabel(),
+      text: invitationTrim,
+      singleLine: !invitationTrim.includes('\n'),
+      emphasizeMainText: hideAiLabel,
+    })
+  }
   if (translationErrorsText?.trim() && mode === 'translation') {
     sections.push({
       key: 'translation-errors',
@@ -361,18 +371,6 @@ function buildAssistantSections(params: {
       label: '',
       text: translationErrorsText.trim(),
       singleLine: false,
-    })
-  }
-  if (tenseRef) {
-    sections.push({ key: 'tense-ref', tone: 'slate', label: '⏱️', text: tenseRef, singleLine: true })
-  }
-  if (threeFormsText && (mode !== 'translation' || SHOW_READ_ALOUD_THREE_FORMS_IN_TRANSLATION)) {
-    sections.push({
-      key: 'three-forms',
-      tone: 'slate',
-      label: 'Прочитай вслух (+, ?, −)',
-      text: formatThreeFormsForCard(threeFormsText),
-      singleLine: true,
     })
   }
   const repeatRuTrim = repeatRuTextForCard?.trim() ?? ''
@@ -472,8 +470,6 @@ export function buildAssistantSectionsForTranslationErrorRepeatTest(options: {
     translationSupportComment: null,
     translationErrorCoachUi: options.translationErrorCoachUi ?? true,
     translationSuccessPraiseCard: false,
-    tenseRef: null,
-    threeFormsText: null,
     translationErrorsText: null,
     showOnlyRepeat: options.showOnlyRepeat ?? false,
     hidePromptBlocks: false,
@@ -489,20 +485,16 @@ export function buildAssistantSectionsForTranslationErrorRepeatTest(options: {
 }
 
 /**
- * Успешный drill перевода: формы распознаны парсером или в тексте есть заголовок «Формы:»
- * (модель могла сломать строки +/?:/-:, тогда threeFormsText пустой, но это всё ещё SUCCESS).
+ * Успешный drill перевода: есть комментарий и нет повторного эталона для исправления.
  */
-export function translationResponseHasSuccessShape(displayText: string, threeFormsText: string | null): boolean {
-  if (threeFormsText?.trim()) return true
-  return /(?:^|\n)\s*Формы\s*:/i.test(displayText)
+export function translationResponseHasSuccessShape(comment: string | null, repeat: string | null, repeatRu: string | null): boolean {
+  return Boolean(comment?.trim()) && !repeat && !repeatRu
 }
 
 export function parseTranslationCoachBlocks(text: string): {
   translationSupportComment: string | null
   comment: string | null
   errorsBlock: string | null
-  tenseRef: string | null
-  threeFormsText: string | null
   repeat: string | null
   repeatRu: string | null
   nextSentence: string
@@ -516,17 +508,24 @@ export function parseTranslationCoachBlocks(text: string): {
   let translationSupportComment: string | null = null
   let comment: string | null = null
   let errorsBlock: string | null = null
-  let tenseRef: string | null = null
-  let threeFormsText: string | null = null
   let repeat: string | null = null
   let repeatRu: string | null = null
   let invitation: string | null = null
   const body: string[] = []
-  const formsLines: string[] = []
-  let collectingConstruction = false
-  let collectingForms = false
   let collectingErrors = false
   let collectingSupport = false
+
+  const splitInlineInvitation = (line: string): { before: string; invitation: string } | null => {
+    const m =
+      /^(.*?)\s+((?:\d+\)\s*)?(?:Переведи|Переведите)(?:\s+далее)?\s*:\s*[^\r\n]+|(?:\d+\)\s*)?(?:Переведи|Переведите)\s+на\s+английский(?:\s+язык)?\.)\s*$/i.exec(
+        line
+      )
+    if (!m?.[2]) return null
+    return {
+      before: (m[1] ?? '').trim().replace(/^\d+\)\s*/i, ''),
+      invitation: m[2].replace(/^\s*\d+\)\s*/i, '').trim(),
+    }
+  }
 
   const isHeaderLine = (line: string): boolean =>
     TRANSLATION_PROTOCOL_BLOCK_LINE.test(line) ||
@@ -538,6 +537,18 @@ export function parseTranslationCoachBlocks(text: string): {
       if (isHeaderLine(line)) {
         collectingSupport = false
       } else {
+        const inlineInvitation = splitInlineInvitation(line)
+        if (inlineInvitation) {
+          if (inlineInvitation.before) {
+            translationSupportComment =
+              translationSupportComment != null && translationSupportComment !== ''
+                ? `${translationSupportComment}\n${inlineInvitation.before}`
+                : `${translationSupportComment ?? ''}${inlineInvitation.before}`
+          }
+          if (inlineInvitation.invitation) invitation = inlineInvitation.invitation
+          collectingSupport = false
+          continue
+        }
         translationSupportComment =
           translationSupportComment != null && translationSupportComment !== ''
             ? `${translationSupportComment}\n${line}`
@@ -560,111 +571,50 @@ export function parseTranslationCoachBlocks(text: string): {
       /^\s*(?:\d+\)\s*)*((?:Переведи|Переведите)\s+на\s+английский(?:\s+язык)?\.)\s*$/i.exec(line)
     if (pureMetaInvitation?.[1]) {
       invitation = pureMetaInvitation[1].trim()
-      collectingConstruction = false
-      collectingForms = false
       continue
     }
 
     if (/^\s*(?:\d+\)\s*)?Комментарий_перевод\s*:/i.test(line)) {
       const rest = line.replace(/^\s*(?:\d+\)\s*)?Комментарий_перевод\s*:\s*/i, '').trim()
-      translationSupportComment = rest
-      collectingSupport = true
-      collectingConstruction = false
-      collectingForms = false
+      const inlineInvitation = splitInlineInvitation(rest)
+      if (inlineInvitation) {
+        translationSupportComment = inlineInvitation.before || null
+        if (inlineInvitation.invitation) invitation = inlineInvitation.invitation
+        collectingSupport = false
+      } else {
+        translationSupportComment = rest
+        collectingSupport = true
+      }
       continue
     }
-    if (/^Комментарий\s*:/i.test(line)) {
-      comment = line.replace(/^Комментарий\s*:\s*/i, '').trim() || null
-      collectingConstruction = false
-      collectingForms = false
+    if (/^Комментарий(?:_ошибка)?\s*:/i.test(line)) {
+      comment = line.replace(/^Комментарий(?:_ошибка)?\s*:\s*/i, '').trim() || null
       continue
     }
     if (/^\s*(?:\d+\)\s*)?Ошибки\s*:/i.test(line)) {
       const rest = line.replace(/^\s*(?:\d+\)\s*)?Ошибки\s*:\s*/i, '').trim()
       errorsBlock = rest
       collectingErrors = true
-      collectingConstruction = false
-      collectingForms = false
-      continue
-    }
-    if (/^Время\s*:/i.test(line)) {
-      tenseRef = line.replace(/^Время\s*:\s*/i, '').trim() || null
-      collectingConstruction = false
-      collectingForms = false
-      continue
-    }
-    if (/^Формы\s*:/i.test(line)) {
-      formsLines.length = 0
-      collectingForms = true
-      collectingConstruction = false
-      continue
-    }
-    if (/^[+\?-]\s*:/i.test(line)) {
-      formsLines.push(line.replace(/^[+\?-]\s*:\s*/i, (m) => m.trimStart()))
-      collectingForms = true
-      collectingConstruction = false
-      continue
-    }
-    if (/^Конструкция\s*:/i.test(line)) {
-      collectingConstruction = true
-      collectingForms = false
       continue
     }
     if (/^[\s\-•]*(?:\d+\)\s*)*Скажи\s*:/i.test(line)) {
       const raw = line.replace(/^[\s\-•]*(?:\d+\)\s*)*Скажи\s*:\s*/i, '').trim()
       repeatRu = stripLeadingRepeatRuPrompt(raw) || null
-      collectingConstruction = false
-      collectingForms = false
       continue
     }
     if (/^[\s\-•]*(?:\d+\)\s*)*(Повтори|Repeat|Say)\s*:/i.test(line)) {
       repeat = line.replace(/^[\s\-•]*(?:\d+\)\s*)*(Повтори|Repeat|Say)\s*:\s*/i, '').trim() || null
-      collectingConstruction = false
-      collectingForms = false
       continue
     }
-    const inlineEnglishOnlyInvitation =
-      /^(.*?)\s+((?:\d+\)\s*)?(?:Переведи|Переведите)\s+на\s+английский(?:\s+язык)?\.)\s*$/i.exec(line)
-    if (inlineEnglishOnlyInvitation?.[2] && inlineEnglishOnlyInvitation.index !== undefined) {
-      const before = (inlineEnglishOnlyInvitation[1] ?? '').trim().replace(/^\d+\)\s*/i, '')
-      const inv = inlineEnglishOnlyInvitation[2].replace(/^\s*\d+\)\s*/i, '').trim()
+    const inlineInvitation = splitInlineInvitation(line)
+    if (inlineInvitation) {
+      const before = inlineInvitation.before
+      const inv = inlineInvitation.invitation
       if (inv) invitation = inv
       if (before) body.push(before)
-      collectingConstruction = false
-      collectingForms = false
       continue
     }
-
-    if (collectingForms) {
-      if (/^[+\?-]\s*:/i.test(line)) {
-        formsLines.push(line.replace(/^[+\?-]\s*:\s*/i, (m) => m.trimStart()))
-        continue
-      }
-      // Русское следующее предложение не является продолжением строки формы (+/?:/-:).
-      if (/[А-Яа-яЁё]/.test(line)) {
-        collectingForms = false
-      } else if (formsLines.length > 0) {
-        formsLines[formsLines.length - 1] = `${formsLines[formsLines.length - 1]}\n${line}`
-        continue
-      } else {
-        collectingForms = false
-      }
-    }
-
-    if (collectingConstruction && !isHeaderLine(line)) {
-      continue
-    }
-
-    collectingConstruction = false
-    collectingForms = false
     body.push(line.replace(/^\d+\)\s*/i, ''))
-  }
-
-  if (formsLines.length > 0) {
-    const normalizedForms = formsLines
-      .map((line) => line.trim())
-      .filter((line) => /^[+\?-]\s*:/.test(line))
-    threeFormsText = normalizedForms.join('\n').trim() || null
   }
   const trimmedErrors = errorsBlock?.trim() ?? ''
   const trimmedSupport = translationSupportComment?.trim() ?? ''
@@ -672,8 +622,6 @@ export function parseTranslationCoachBlocks(text: string): {
     translationSupportComment: trimmedSupport ? trimmedSupport : null,
     comment,
     errorsBlock: trimmedErrors ? trimmedErrors : null,
-    tenseRef,
-    threeFormsText,
     repeat,
     repeatRu,
     nextSentence: body.join('\n').trim(),
@@ -691,12 +639,12 @@ function extractTranslationCommentAndPrompt(text: string): { comment: string | n
   if (!first || !tail) return { comment: null, promptText: trimmed }
 
   const looksLikeFeedback =
-    /^(Комментарий\s*:|Отлично|Молодец|Верно|Хорошо|Супер|Правильно|Почти|Нужно|Попробуй|Исправ)/i.test(first)
+    /^(Комментарий(?:_ошибка)?\s*:|Отлично|Молодец|Верно|Хорошо|Супер|Правильно|Почти|Нужно|Попробуй|Исправ)/i.test(first)
   const looksLikeRuSentence = /[А-Яа-яЁё]/.test(tail)
   const looksLikeEnFeedback = /[A-Za-z]/.test(first) && /^[A-Za-z0-9 ,.'!?-]+$/.test(first)
   const tailStartsWithRu = /^[\s"'«(]*[А-Яа-яЁё]/.test(tail)
   if (looksLikeFeedback && looksLikeRuSentence) {
-    const normalized = first.replace(/^Комментарий\s*:\s*/i, '').trim()
+    const normalized = first.replace(/^Комментарий(?:_ошибка)?\s*:\s*/i, '').trim()
     return { comment: normalized || first, promptText: tail }
   }
   // Частый кейс translation: "Try again. Кошка ест."
@@ -739,17 +687,13 @@ export function computeAssistantTranslationMainCardMeta(message: ChatMessageType
   const displayText = rest
   const { mainBefore } = splitTranslationInvitation(displayText)
   let effectiveComment = comment
-  let effectiveTenseRef: string | null = null
-  let effectiveThreeFormsText: string | null = null
   let effectiveMainBefore = mainBefore
   let repeatTextForCard: string | null = null
   let hideTranslationMainCardForErrorRepeat = false
 
   const blocks = parseTranslationCoachBlocks(displayText)
-  const translationSuccessShape = translationResponseHasSuccessShape(displayText, blocks.threeFormsText)
+  const translationSuccessShape = translationResponseHasSuccessShape(blocks.comment, blocks.repeat, blocks.repeatRu)
   if (blocks.comment) effectiveComment = condenseTranslationCommentToErrors(blocks.comment)
-  if (blocks.tenseRef) effectiveTenseRef = blocks.tenseRef
-  if (blocks.threeFormsText) effectiveThreeFormsText = blocks.threeFormsText
   if (blocks.repeat) repeatTextForCard = blocks.repeat
   if (blocks.nextSentence) {
     const cleanedNextSentence = blocks.nextSentence
@@ -767,7 +711,7 @@ export function computeAssistantTranslationMainCardMeta(message: ChatMessageType
       .trim()
     const fallbackFromInline = blocks.nextSentence
       .replace(
-        /(?:Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
+        /(?:Комментарий_ошибка|Комментарий_перевод|Комментарий|Ошибки|Скажи|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
         ' '
       )
       .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')
@@ -800,17 +744,8 @@ export function computeAssistantTranslationMainCardMeta(message: ChatMessageType
   }
   if (effectiveMainBefore) effectiveMainBefore = stripTranslationMainMetaPrefixes(effectiveMainBefore)
 
-  if (effectiveThreeFormsText && effectiveTenseRef) {
-    const isGenericSuccessTimeHint = /используйте это время в полном английском предложении/i.test(effectiveTenseRef)
-    if (!isGenericSuccessTimeHint) {
-      const mergedComment = [effectiveComment, effectiveTenseRef].filter(Boolean).join('\n').trim()
-      effectiveComment = mergedComment || effectiveComment
-    }
-    effectiveTenseRef = null
-  }
-
   const translationErrorCoachUi = Boolean(
-    (blocks.repeat || blocks.repeatRu) && !blocks.threeFormsText && !translationSuccessShape
+    (blocks.repeat || blocks.repeatRu) && !translationSuccessShape
   )
   const hideTranslationPromptBlocks =
     ((Boolean(repeatTextForCard) || Boolean(blocks.repeatRu)) &&
@@ -1716,7 +1651,7 @@ function MessageBubble({
   let translationSuccessShape = false
   if (!isUser && isTranslationMode) {
     const blocks = parseTranslationCoachBlocks(displayText)
-    translationSuccessShape = translationResponseHasSuccessShape(displayText, blocks.threeFormsText)
+    translationSuccessShape = translationResponseHasSuccessShape(blocks.comment, blocks.repeat, blocks.repeatRu)
     const { praiseFromComment } = extractTranslationErrorSynthAndPraiseFromComment(blocks.comment?.trim() ?? '')
     const { errorsRest, praiseFromErrors } = partitionEncouragementLinesFromTranslationErrorsPayload(
       blocks.errorsBlock?.trim() ?? ''
@@ -1730,26 +1665,21 @@ function MessageBubble({
       if (!extra) return base
       return `${base}\n\n${extra}`
     })()
-    translationErrorCoachUi = Boolean(
-      (blocks.repeat || blocks.repeatRu) && !blocks.threeFormsText && !translationSuccessShape
-    )
+    translationErrorCoachUi = Boolean((blocks.repeat || blocks.repeatRu) && !translationSuccessShape)
     if (blocks.comment) {
       const praiseFromParseCorrection = Boolean(comment && commentToneForContent(comment) === 'praise')
       if (!(translationSuccessShape && praiseFromParseCorrection)) {
         effectiveComment = condenseTranslationCommentToErrors(blocks.comment)
       }
     }
-    if (blocks.tenseRef) effectiveTenseRef = blocks.tenseRef
-    if (blocks.threeFormsText) effectiveThreeFormsText = blocks.threeFormsText
     if (blocks.repeat) repeatTextForCard = blocks.repeat
     repeatRuForCard = blocks.repeatRu
     const errorsFromPayload = errorsRest.trim()
     const errorsMerged = mergeErrorsBlockWithSyntheticFromComment(errorsFromPayload, blocks.comment)
     const errorsResolved = filterTranslationErrorsDisplayText(errorsMerged.trim())
-    translationErrorsText =
-      Boolean((blocks.repeat || blocks.repeatRu) && !blocks.threeFormsText && !translationSuccessShape && errorsResolved)
-        ? errorsResolved
-        : null
+    translationErrorsText = Boolean((blocks.repeat || blocks.repeatRu) && !translationSuccessShape && errorsResolved)
+      ? errorsResolved
+      : null
     if (blocks.nextSentence) {
       const cleanedNextSentence = blocks.nextSentence
         .split(/\r?\n/)
@@ -1769,7 +1699,7 @@ function MessageBubble({
         .trim()
       const fallbackFromInline = blocks.nextSentence
         .replace(
-          /(?:Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
+          /(?:Комментарий_ошибка|Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
           ' '
         )
         .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')
@@ -1810,16 +1740,7 @@ function MessageBubble({
   if (isGenericTranslationRepeatUiText(repeatTextForCard)) {
     repeatTextForCard = null
   }
-  // SUCCESS в translation: если пришли формы, держим подсказку времени в комментарии,
-  // но не показываем отдельный блок "Время".
-  if (isTranslationMode && effectiveThreeFormsText && effectiveTenseRef) {
-    const isGenericSuccessTimeHint = /используйте это время в полном английском предложении/i.test(effectiveTenseRef)
-    if (!isGenericSuccessTimeHint) {
-      const mergedComment = [effectiveComment, effectiveTenseRef].filter(Boolean).join('\n').trim()
-      effectiveComment = mergedComment || effectiveComment
-    }
-    effectiveTenseRef = null
-  }
+  // SUCCESS в translation: держим только короткий praise-комментарий без старых служебных блоков.
   const translationPraiseDisplayText =
     !isUser && isTranslationMode && translationSuccessShape
       ? (effectiveComment?.trim() || null)
@@ -1842,7 +1763,6 @@ function MessageBubble({
           translationPraiseDisplayText ||
           (translationErrorCoachUi && translationSupportComment) ||
           translationErrorsText ||
-          effectiveTenseRef ||
           effectiveMainBefore ||
           (translationErrorCoachUi && repeatRuForCard) ||
           (mainAfterVisibleForBubble ? mainAfter : false) ||
@@ -1861,8 +1781,6 @@ function MessageBubble({
         translationSupportComment,
         translationErrorCoachUi,
         translationSuccessPraiseCard,
-        tenseRef: effectiveTenseRef,
-        threeFormsText: effectiveThreeFormsText,
         translationErrorsText,
         showOnlyRepeat,
         hidePromptBlocks: hideTranslationPromptBlocks,
@@ -2136,6 +2054,8 @@ function SectionCard({
           ? 'border-emerald-200/70 bg-[var(--chat-section-praise)]'
           : tone === 'slate'
             ? 'border-slate-200 bg-[var(--chat-section-slate)]'
+          : tone === 'invite'
+            ? 'border-slate-200 bg-white/85'
             : 'border-gray-200 bg-[var(--chat-section-neutral)]'
 
   const labelClass =
@@ -2147,6 +2067,8 @@ function SectionCard({
           ? 'text-emerald-600'
           : tone === 'slate'
             ? 'text-slate-600'
+          : tone === 'invite'
+            ? 'text-slate-700'
             : 'text-gray-600'
 
   const isAiInline =

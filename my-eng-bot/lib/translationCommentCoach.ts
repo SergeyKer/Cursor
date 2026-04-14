@@ -3,7 +3,9 @@
  * Следующий протокольный блок — не часть комментария (Время, Конструкция, Повтори, …).
  */
 const TRANSLATION_PROTOCOL_LINE =
-  /^\s*(Комментарий_перевод|Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Переведи(?:\s+далее)?|Следующ(?:ее|ие)?\s+предложени)\s*:/i
+  /^\s*(Комментарий_ошибка|Комментарий_перевод|Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Переведи(?:\s+далее)?|Следующ(?:ее|ие)?\s+предложени)\s*:/i
+
+const TRANSLATION_COMMENT_LABEL_RE = /^\s*Комментарий(?:_ошибка)?\s*:\s*/i
 
 export type TranslationCommentExtraction = {
   start: number
@@ -15,10 +17,10 @@ export type TranslationCommentExtraction = {
  * Собирает многострочный комментарий: первая строка «Комментарий: …» и строки до первого протокольного заголовка.
  */
 export function extractTranslationCommentBlock(lines: string[]): TranslationCommentExtraction | null {
-  const start = lines.findIndex((l) => /^\s*Комментарий\s*:/i.test(l))
+  const start = lines.findIndex((l) => TRANSLATION_COMMENT_LABEL_RE.test(l))
   if (start === -1) return null
 
-  const afterPrefix = (lines[start] ?? '').replace(/^\s*Комментарий\s*:\s*/i, '')
+  const afterPrefix = (lines[start] ?? '').replace(TRANSLATION_COMMENT_LABEL_RE, '')
   const splitFirst = afterPrefix.split(/\r?\n/)
   const fromFirst = splitFirst.map((s) => s.trimEnd())
 
@@ -34,6 +36,11 @@ export function extractTranslationCommentBlock(lines: string[]): TranslationComm
   const allLines = [...fromFirst, ...more].filter((line, i, arr) => !(line === '' && i === 0 && arr.length > 1))
   const fullBody = allLines.join('\n').replace(/^\s+|\s+$/g, '')
   return { start, endExclusive: end, fullBody }
+}
+
+/** Убирает служебный префикс `Комментарий:` или `Комментарий_ошибка:` у диагностической строки. */
+export function stripTranslationCommentLabel(text: string): string {
+  return text.replace(TRANSLATION_COMMENT_LABEL_RE, '')
 }
 
 /** Классификация типа ошибки по тексту «Комментарий» (для синтеза блока «Ошибки:» и коуча). */

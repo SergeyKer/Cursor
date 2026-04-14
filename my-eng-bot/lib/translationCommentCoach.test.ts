@@ -4,6 +4,7 @@ import {
   extractTranslationCommentBlock,
   inferTranslationCommentErrorType,
   injectSentenceTypePopravImperative,
+  stripTranslationCommentLabel,
 } from './translationCommentCoach'
 
 describe('extractTranslationCommentBlock', () => {
@@ -27,6 +28,16 @@ describe('extractTranslationCommentBlock', () => {
     expect(ex!.fullBody).toContain('dogs')
     expect(ex!.fullBody).toContain('cat')
     expect(ex!.endExclusive).toBe(2)
+  })
+
+  it('extracts Комментарий_ошибка as a diagnostic comment block', () => {
+    const lines = ['Комментарий_ошибка: Нужен другой порядок слов.', 'Ошибки:', '🔤 …']
+    const ex = extractTranslationCommentBlock(lines)
+    expect(ex).not.toBeNull()
+    expect(ex!.fullBody).toBe('Нужен другой порядок слов.')
+    expect(stripTranslationCommentLabel('Комментарий_ошибка: Нужен другой порядок слов.')).toBe(
+      'Нужен другой порядок слов.'
+    )
   })
 })
 

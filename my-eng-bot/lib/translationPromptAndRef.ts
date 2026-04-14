@@ -41,7 +41,7 @@ export function extractRussianTranslationTaskFromAssistantContent(content: strin
 
   for (const rawLine of lines) {
     if (/^\s*__TRAN_REPEAT_REF__\s*:/i.test(rawLine)) continue
-    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(rawLine)) continue
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:/i.test(rawLine)) continue
     // «Комментарий_перевод:» не совпадает с регексом «Комментарий:» — иначе кириллический fallback принимает поддержку за задание.
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_перевод\s*:/i.test(rawLine)) continue
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:/i.test(rawLine)) continue

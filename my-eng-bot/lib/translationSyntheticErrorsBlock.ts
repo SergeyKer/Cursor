@@ -299,7 +299,12 @@ function inferStructuredErrorPrefix(line: string): string {
 function normalizeLooseErrorLine(line: string): string {
   const trimmed = stripTranslationErrorSubsectionLabels(line.trim())
   if (!trimmed) return trimmed
-  if (hasErrorLabelPrefix(trimmed) || /^Комментарий_перевод\s*:/i.test(trimmed) || /^Комментарий\s*:/i.test(trimmed)) {
+  if (
+    hasErrorLabelPrefix(trimmed) ||
+    /^Комментарий_перевод\s*:/i.test(trimmed) ||
+    /^Комментарий_ошибка\s*:/i.test(trimmed) ||
+    /^Комментарий\s*:/i.test(trimmed)
+  ) {
     return trimmed
   }
 
@@ -384,7 +389,7 @@ export function stripConflictingContinuousTenseErrorLines(
 }
 
 const TRANSLATION_ERRORS_HEADER_RE =
-  /^(Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say)\s*:/i
+  /^(Комментарий_ошибка|Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say)\s*:/i
 
 /**
  * Находит блок «Ошибки:» в ответе перевода и прогоняет тело через stripConflictingContinuousTenseErrorLines.
