@@ -2031,7 +2031,7 @@ function SectionCard({
   inlineMarkdownBold,
   emphasizeMainText,
 }: {
-  tone: 'neutral' | 'amber' | 'emerald' | 'praise' | 'slate'
+  tone: SectionTone
   label: string
   text: string
   italic?: boolean
