@@ -1806,5 +1806,195 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(required2).toBe(required1)
   })
 
+  it.each([
+    {
+      audience: 'adult' as const,
+      level: 'a2' as const,
+      topic: 'travel' as const,
+      sentenceType: 'affirmative' as const,
+      tenses: ['present_simple'],
+      ru: 'Ты любишь путешествовать по разным странам.',
+      right: 'Do you like to travel to different countries?',
+      wrong: 'I like pizza.',
+    },
+    {
+      audience: 'child' as const,
+      level: 'a1' as const,
+      topic: 'family_friends' as const,
+      sentenceType: 'interrogative' as const,
+      tenses: ['present_simple'],
+      ru: 'У тебя есть друзья?',
+      right: 'Do you have friends?',
+      wrong: 'I play football every day.',
+    },
+    {
+      audience: 'adult' as const,
+      level: 'b1' as const,
+      topic: 'movies_series' as const,
+      sentenceType: 'negative' as const,
+      tenses: ['present_perfect'],
+      ru: 'Я ещё не посмотрел этот фильм.',
+      right: 'I have not watched this movie yet.',
+      wrong: 'I will buy a new phone tomorrow.',
+    },
+  ])(
+    'translation mismatch matrix: forces error protocol for $topic/$level/$audience/$sentenceType',
+    async ({ audience, level, topic, sentenceType, tenses, ru, right, wrong }) => {
+      callProviderChatMock.mockResolvedValueOnce({
+        ok: true,
+        content:
+          `Комментарий: Отлично!\n` +
+          `Формы:\n+: ${right}\n?: ${right}\n-: ${right}\n` +
+          'Переведи далее: Я люблю музыку.',
+      })
+
+      const req = makeRequest({
+        mode: 'translation',
+        topic,
+        audience,
+        level,
+        sentenceType,
+        tenses,
+        messages: [
+          { role: 'assistant', content: `${ru}\nПереведи на английский.` },
+          { role: 'user', content: wrong },
+        ],
+      })
+
+      const res = await POST(req as never)
+      const data = await res.json() as { content: string }
+
+      expect(res.status).toBe(200)
+      expect(data.content).toContain('Комментарий:')
+      expect(data.content).toContain('Повтори:')
+      expect(data.content).not.toContain('Переведи далее:')
+      expect(data.content).not.toContain('Переведи на английский.')
+    }
+  )
+
+  it.each([
+    {
+      audience: 'adult' as const,
+      level: 'a2' as const,
+      topic: 'travel' as const,
+      sentenceType: 'affirmative' as const,
+      tenses: ['present_simple'],
+      ru: 'Ты любишь путешествовать по разным странам.',
+      right: 'Do you like to travel to different countries?',
+    },
+    {
+      audience: 'child' as const,
+      level: 'a1' as const,
+      topic: 'family_friends' as const,
+      sentenceType: 'interrogative' as const,
+      tenses: ['present_simple'],
+      ru: 'У тебя есть друзья?',
+      right: 'Do you have friends?',
+    },
+  ])(
+    'translation success matrix: keeps praise and moves to next drill for $topic/$level/$audience/$sentenceType',
+    async ({ audience, level, topic, sentenceType, tenses, ru, right }) => {
+      callProviderChatMock.mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Отлично! Всё верно.\n' +
+          `Формы:\n+: ${right}\n?: ${right}\n-: ${right}\n` +
+          'Переведи далее: Я читаю книги вечером.',
+      })
+
+      const req = makeRequest({
+        mode: 'translation',
+        topic,
+        audience,
+        level,
+        sentenceType,
+        tenses,
+        messages: [
+          { role: 'assistant', content: `${ru}\nПереведи на английский.` },
+          { role: 'user', content: right },
+        ],
+      })
+
+      const res = await POST(req as never)
+      const data = await res.json() as { content: string }
+
+      expect(res.status).toBe(200)
+      expect(data.content).toContain('Комментарий:')
+      expect(data.content).toContain('Переведи')
+      expect(data.content).not.toContain('Повтори:')
+    }
+  )
+
+  it('translation repeated same error keeps full block layout without glued lines', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: 'Комментарий: Лексическая ошибка — Проверь написание и выбор слова. Скажи: I will start a new project.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'free_talk',
+      audience: 'adult',
+      level: 'a2',
+      sentenceType: 'affirmative',
+      tenses: ['future_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content: [
+            'Комментарий_перевод: 💡 Есть хорошая основа, но нужно исправить основную неточность по образцу ниже.',
+            'Комментарий_ошибка: Ошибка перевода — русские слова в ответе нужно перевести на английский.',
+            'Ошибки:',
+            "- проект → project",
+            "- new project → a new project",
+            'Скажи: I will start a new project.',
+            'Повтори: I will start a new project.',
+          ].join('\n'),
+        },
+        { role: 'user', content: 'We will start a new проект' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий_перевод:')
+    expect(data.content).toContain('Комментарий_ошибка:')
+    expect(data.content).toContain('Ошибки:')
+    expect(data.content).toContain('Скажи:')
+    expect(data.content).toContain('Повтори:')
+    expect(data.content).toMatch(/Комментарий_ошибка:[^\n]*\nОшибки:/)
+    expect(data.content).not.toMatch(/Комментарий_ошибка:[^\n]*Скажи:/)
+  })
+
+  it('translation success always appends next drill even when model returns only short praise', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: 'Комментарий: Отлично! Верная форма Future Simple.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'family_friends',
+      audience: 'adult',
+      level: 'a2',
+      sentenceType: 'affirmative',
+      tenses: ['future_simple'],
+      messages: [
+        { role: 'assistant', content: 'Он будет часто звонить родителям.\nПереведи на английский.' },
+        { role: 'user', content: 'He will call his parents often.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Переведи далее:')
+    expect(data.content).not.toContain('Повтори:')
+  })
+
 })
 

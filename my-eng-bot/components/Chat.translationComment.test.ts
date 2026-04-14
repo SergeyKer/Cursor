@@ -183,6 +183,15 @@ describe('parseTranslationCoachBlocks', () => {
     expect(b.repeat).toBe('Hello.')
   })
 
+  it('разделяет склеенные inline-блоки из строки Комментарий на отдельные поля', () => {
+    const text =
+      'Комментарий: Лексическая ошибка — Проверь написание и выбор слова. Скажи: I will start a new project. Повтори: I will start a new project.'
+    const b = parseTranslationCoachBlocks(text)
+    expect(b.comment).toBe('Лексическая ошибка — Проверь написание и выбор слова.')
+    expect(b.repeatRu).toBe('I will start a new project.')
+    expect(b.repeat).toBe('I will start a new project.')
+  })
+
   it('в одной строке отделяет «Переведи на английский язык.» от русского задания', () => {
     const text = 'Переведи: Я сейчас учусь? Переведи на английский язык.'
     const b = parseTranslationCoachBlocks(text)

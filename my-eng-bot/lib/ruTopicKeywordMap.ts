@@ -65,8 +65,30 @@ export const RU_TOPIC_KEYWORD_TO_EN: Record<string, string> = {
   друг: 'friend',
   путешествие: 'travel',
   путешествия: 'travel',
+  путешествовать: 'travel',
+  путешествую: 'travel',
+  путешествуешь: 'travel',
+  путешествует: 'travel',
+  путешествуем: 'travel',
+  путешествуете: 'travel',
+  путешествуют: 'travel',
+  разный: 'different',
+  разная: 'different',
+  разное: 'different',
+  разные: 'different',
+  разным: 'different',
+  разными: 'different',
+  нескольким: 'several',
+  несколько: 'several',
+  многим: 'many',
+  много: 'many',
   город: 'city',
+  города: 'cities',
+  городам: 'cities',
   страна: 'country',
+  страны: 'countries',
+  странам: 'countries',
+  странах: 'countries',
   дом: 'home',
   машина: 'car',
   компьютер: 'computer',
@@ -160,6 +182,11 @@ export function normalizeRuTopicKeyword(token: string): string {
     pushCandidate(candidates, normalized.slice(0, -2))
   }
   if (normalized.endsWith('ом') || normalized.endsWith('ем')) {
+    pushCandidate(candidates, normalized.slice(0, -2))
+  }
+  if (normalized.endsWith('ам') || normalized.endsWith('ям')) {
+    pushCandidate(candidates, `${normalized.slice(0, -2)}а`)
+    pushCandidate(candidates, `${normalized.slice(0, -2)}я`)
     pushCandidate(candidates, normalized.slice(0, -2))
   }
 

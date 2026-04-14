@@ -3975,19 +3975,26 @@ function extractTranslationAnswerKeywords(text: string): string[] {
   return tokenizeEnglishWords(text).filter((token) => TRANSLATION_PROMPT_KEYWORDS_EN.has(token))
 }
 
+function hasEnoughKeywordCoverage(promptKeywords: string[], userKeywords: string[]): boolean {
+  if (promptKeywords.length === 0) return true
+  if (userKeywords.length === 0) return false
+
+  const overlapCount = promptKeywords.filter((keyword) => userKeywords.includes(keyword)).length
+  const requiredMatches =
+    promptKeywords.length === 1 ? 1 : Math.min(promptKeywords.length, Math.max(2, Math.ceil(promptKeywords.length * 0.6)))
+  return overlapCount >= requiredMatches
+}
+
 function hasTranslationPromptKeywordMismatch(prompt: string, userText: string): boolean {
   const promptKeywords = extractTranslationPromptKeywords(prompt)
   const userKeywords = extractTranslationAnswerKeywords(userText)
-  const keywordMismatch =
-    promptKeywords.length > 0 && userKeywords.length > 0
-      ? !promptKeywords.some((keyword) => userKeywords.includes(keyword))
-      : false
+  const keywordMismatch = promptKeywords.length > 0 ? !hasEnoughKeywordCoverage(promptKeywords, userKeywords) : false
 
   const promptConcepts = extractTranslationConceptIdsFromPrompt(prompt)
   const userConcepts = extractTranslationConceptIdsFromEnglish(userText)
   const conceptMismatch =
-    promptConcepts.length > 0 && userConcepts.length > 0
-      ? !promptConcepts.some((conceptId) => userConcepts.includes(conceptId))
+    promptConcepts.length > 0
+      ? userConcepts.length === 0 || !promptConcepts.some((conceptId) => userConcepts.includes(conceptId))
       : false
 
   return keywordMismatch || conceptMismatch
@@ -4043,26 +4050,21 @@ function forceTranslationWordErrorProtocol(content: string, repeatSentence: stri
     .split(/\r?\n/)
     .map((line) => stripLeadingAiPrefix(line).trim())
     .filter(Boolean)
+  const supportLineRaw =
+    lines.find((line) => /^Комментарий_перевод\s*:/i.test(line)) ??
+    'Комментарий_перевод: 💡 Есть хорошая основа, но нужно исправить основную неточность по образцу ниже.'
+  const supportBody = supportLineRaw.replace(/^Комментарий_перевод\s*:\s*/i, '').trim()
+  const supportLine = `Комментарий_перевод: ${normalizeSupportiveCommentForErrorsBlock(supportBody || '💡 Есть хорошая основа, но нужно исправить основную неточность по образцу ниже.', 'adult')}`
 
-  const commentIndex = lines.findIndex((line) => /^Комментарий(?:_ошибка)?\s*:/i.test(line))
-  const repeatIndex = lines.findIndex((line) => /^(Повтори|Repeat|Say)\s*:/i.test(line))
-
-  const commentLine = 'Комментарий: Лексическая ошибка. Проверь написание и выбор слова.'
-  const repeatLine = `Повтори: ${repeat}`
-
-  if (commentIndex === -1) {
-    lines.unshift(commentLine)
-  } else {
-    lines[commentIndex] = commentLine
-  }
-
-  if (repeatIndex === -1) {
-    lines.push(repeatLine)
-  } else {
-    lines[repeatIndex] = repeatLine
-  }
-
-  return lines.join('\n').trim()
+  const out: string[] = [
+    supportLine,
+    'Комментарий_ошибка: Ошибка перевода — русские слова в ответе нужно перевести на английский.',
+    'Ошибки:',
+    '📖 Лексическая ошибка. Проверь написание и выбор слова.',
+    `Скажи: ${repeat}`,
+    `Повтори: ${repeat}`,
+  ]
+  return out.join('\n').trim()
 }
 
 function replaceFalsePositiveTranslationErrorWithPraise(params: {
@@ -6607,6 +6609,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         sanitized = forceTranslationWordErrorProtocol(sanitized, finalPromptAlignedRepeat)
       }
       canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic && !translationWordMismatch && !translationPromptMismatch
+      if (translationPromptMismatch && !userMatchesPriorAssistantRepeat) {
+        const strictRepeat = finalPromptAlignedRepeat ?? translationReferenceForm ?? priorAssistantRepeatEnglish
+        if (strictRepeat) {
+          sanitized = forceTranslationWordErrorProtocol(sanitized, strictRepeat)
+        }
+        canTreatTranslationAsSuccess = false
+      }
       if (
         priorAssistantRepeatEnglish &&
         !isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, priorAssistantRepeatEnglish)
@@ -6729,10 +6738,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     }
 
     if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
-      // Страховка: SUCCESS (перевод далее), если ответ засчитан верным и комментарий — похвала.
-      // Раньше требовали отсутствие «Повтори:»; модель же часто смешивает протоколы (похвала + лишний Повтори)
-      // — тогда isTranslationSuccessLikeContent ложился и пользователь не видел следующее задание.
-      if (canTreatTranslationAsSuccess && hasTranslationPraiseComment(sanitized)) {
+      // Жёсткая страховка SUCCESS: если сервер засчитал ответ верным, всегда достраиваем
+      // success-блок с «Переведи далее», даже когда модель вернула только короткий комментарий.
+      if (canTreatTranslationAsSuccess) {
         sanitized = ensureTranslationSuccessBlocks(sanitized, {
           tense: tutorGradingTense,
           topic,

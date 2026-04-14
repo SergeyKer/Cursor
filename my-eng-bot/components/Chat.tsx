@@ -140,20 +140,23 @@ export function filterTranslationErrorsDisplayText(raw: string): string {
   /** Тело строки после эмодзи: либо «Метка: текст», либо сразу текст (без русских меток). */
   const subsectionLine =
     /^\s*(?:[-•*]\s*)?(🤔|🔤|✏️|📖)\s*(?:(?:Грамматика|Орфография|Лексика)\s*:\s*)?(.*)$/u
-  const quoteRussianWords = (text: string): string =>
-    text.replace(/[А-Яа-яЁё]+(?:-[А-Яа-яЁё]+)*/g, (word, offset, source) => {
-      const prev = source[offset - 1]
-      const next = source[offset + word.length]
-      if (prev === '"' && next === '"') return word
-      return `"${word}"`
-    })
-  const normalizeDisplayErrorLine = (line: string): string => {
+  const normalizeDisplayErrorLine = (line: string): string[] => {
     // В блоке «Ошибки» показываем обычные пунктирные маркеры вместо эмодзи.
     const withoutEmojiPrefix = line.replace(/^\s*(?:[-•*]\s*)?(?:🤔|🔤|✏️|📖)\s*/u, '- ')
     // Лексические пары вида «фильм - movie» отображаем стрелкой.
-    const withArrow = withoutEmojiPrefix.replace(/\s+-\s+/g, ' → ')
-    // В строках-парах явно помечаем русские фрагменты.
-    return withArrow.includes('→') ? quoteRussianWords(withArrow) : withArrow
+    const withArrow = withoutEmojiPrefix.replace(/\s+-\s+/g, ' → ').replace(/\s+/g, ' ').trim()
+    // Если модель склеила несколько замен через ';', показываем каждую на отдельной строке.
+    if (withArrow.includes('→') && withArrow.includes(';')) {
+      const body = withArrow.replace(/^\-\s*/, '').trim()
+      const chunks = body
+        .split(/\s*;\s*/)
+        .map((chunk) => chunk.replace(/^['"`«»]+|['"`«»]+$/g, '').trim())
+        .filter(Boolean)
+      if (chunks.length > 1) {
+        return chunks.map((chunk) => `- ${chunk}`)
+      }
+    }
+    return [withArrow]
   }
   const isVerbFormLabelWithSpellingDetail = (displayLine: string): boolean => {
     const t = displayLine.toLowerCase()
@@ -181,7 +184,7 @@ export function filterTranslationErrorsDisplayText(raw: string): string {
     if (isSentenceTypeMislabeledTranslation(displayLine)) continue
     const m = displayLine.match(subsectionLine)
     if (m && isPlaceholderBody(m[2] ?? '')) continue
-    out.push(normalizeDisplayErrorLine(displayLine))
+    out.push(...normalizeDisplayErrorLine(displayLine))
   }
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trim()
 }
@@ -532,6 +535,26 @@ export function parseTranslationCoachBlocks(text: string): {
     /^\s*(?:\d+\)\s*)?[+\?-]\s*:/i.test(line) ||
     /^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)\b/i.test(line)
 
+  const parseInlineProtocolTail = (tail: string): void => {
+    const partRe = /(Ошибки|Скажи|Повтори|Repeat|Say)\s*:\s*([\s\S]*?)(?=(?:(?:Ошибки|Скажи|Повтори|Repeat|Say)\s*:)|$)/gi
+    let m: RegExpExecArray | null
+    while ((m = partRe.exec(tail)) !== null) {
+      const label = (m[1] ?? '').toLowerCase()
+      const body = (m[2] ?? '').trim()
+      if (!body) continue
+      if (label === 'ошибки') {
+        errorsBlock = errorsBlock ? `${errorsBlock}\n${body}` : body
+        continue
+      }
+      if (label === 'скажи') {
+        const normalized = stripLeadingRepeatRuPrompt(body)
+        if (normalized) repeatRu = normalized
+        continue
+      }
+      repeat = body
+    }
+  }
+
   for (const line of cleaned) {
     if (collectingSupport) {
       if (isHeaderLine(line)) {
@@ -588,7 +611,20 @@ export function parseTranslationCoachBlocks(text: string): {
       continue
     }
     if (/^Комментарий(?:_ошибка)?\s*:/i.test(line)) {
-      comment = line.replace(/^Комментарий(?:_ошибка)?\s*:\s*/i, '').trim() || null
+      const rawComment = line.replace(/^Комментарий(?:_ошибка)?\s*:\s*/i, '').trim()
+      const inlineProtocolMatch = /(?:Ошибки|Скажи|Повтори|Repeat|Say)\s*:/i.exec(rawComment)
+      if (inlineProtocolMatch && inlineProtocolMatch.index >= 0) {
+        const splitAt = inlineProtocolMatch.index
+        const commentHead = rawComment
+          .slice(0, splitAt)
+          .replace(/[—–\-:;,\s]+$/g, '')
+          .trim()
+        const protocolTail = rawComment.slice(splitAt).trim()
+        comment = commentHead || null
+        parseInlineProtocolTail(protocolTail)
+      } else {
+        comment = rawComment || null
+      }
       continue
     }
     if (/^\s*(?:\d+\)\s*)?Ошибки\s*:/i.test(line)) {

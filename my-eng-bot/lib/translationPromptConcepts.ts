@@ -1,6 +1,6 @@
 /** Семейные/социальные концепты для перевода: сопоставление RU↔EN и срезание лишнего в «Повтори». */
 
-export type TranslationConceptId = 'sibling' | 'mother' | 'father' | 'friend'
+export type TranslationConceptId = 'sibling' | 'mother' | 'father' | 'friend' | 'country'
 
 export type TranslationConcept = {
   id: TranslationConceptId
@@ -52,6 +52,18 @@ export const TRANSLATION_CONCEPTS: readonly TranslationConcept[] = [
       /\s*,\s*with\s+(?:my\s+)?(?:friend|friends)\b/gi,
       /\s+with\s+(?:my\s+)?(?:friend|friends)\b/gi,
       /\s+and\s+(?:my\s+)?(?:friend|friends)\b/gi,
+    ],
+  },
+  {
+    id: 'country',
+    ruStems: ['стран', 'государств'],
+    enWords: ['country', 'countries'],
+    preferredEn: 'countries',
+    enRemoveWhenAbsentFromRu: [
+      /\s*,\s*in\s+(?:different\s+)?countries\b/gi,
+      /\s+in\s+(?:different\s+)?countries\b/gi,
+      /\s*,\s*to\s+(?:different\s+)?countries\b/gi,
+      /\s+to\s+(?:different\s+)?countries\b/gi,
     ],
   },
 ]
