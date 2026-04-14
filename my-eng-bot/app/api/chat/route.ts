@@ -161,6 +161,7 @@ import {
   appendTranslationCanonicalRepeatRefLine,
   extractCanonicalRepeatRefEnglishFromContent,
   extractLastTranslationPromptFromMessages,
+  extractLocalGoldEnglishForVerdict,
   extractRussianTranslationTaskFromAssistantContent,
   getAssistantContentBeforeLastUser,
   TRAN_CANONICAL_REPEAT_REF_MARKER,
@@ -6543,27 +6544,38 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     let translationPromptTextForTurn = ''
     let translationGoldForVerdict: string | null = null
     let translationGoldVerdictFailed = false
+    let translationGoldVerdictFromHiddenRef = false
     if (mode === 'translation') {
       const tpForGold = lastTranslationPrompt?.trim() ?? ''
       if (!isFirstTurn && tpForGold) {
         const priorCardForGold = getAssistantContentBeforeLastUser(nonSystemMessages)
-        const rawGold: string | null = priorCardForGold
+        let goldForVerdict: string | null = null
+        const rawHidden = priorCardForGold
           ? extractCanonicalRepeatRefEnglishFromContent(priorCardForGold)
           : null
-        // Строгий серверный вердикт только при скрытом эталоне с прошлой карточки (finalize всегда добавляет __TRAN__).
-        // Отдельный вызов translateRussianPromptToGoldEnglish здесь не делаем — иначе лишний provider-call и хрупкие моки.
-        if (rawGold?.trim()) {
-          const { clamped } = clampTranslationRepeatToRuPrompt(rawGold, tpForGold)
+        if (rawHidden?.trim()) {
+          const { clamped } = clampTranslationRepeatToRuPrompt(rawHidden, tpForGold)
           const clampTrim = clamped?.trim() ?? ''
           if (clampTrim) {
-            translationGoldForVerdict = clampTrim
-            const v = computeTranslationGoldVerdict({
-              userText: lastUserContentForResponse,
-              goldEnglish: clampTrim,
-              ruPrompt: tpForGold,
-            })
-            translationGoldVerdictFailed = !v.ok
+            goldForVerdict = clampTrim
+            translationGoldVerdictFromHiddenRef = true
           }
+        }
+        if (!goldForVerdict && priorCardForGold) {
+          const fromVisible = extractLocalGoldEnglishForVerdict(priorCardForGold, tpForGold)
+          if (fromVisible?.trim()) {
+            const { clamped } = clampTranslationRepeatToRuPrompt(fromVisible, tpForGold)
+            goldForVerdict = clamped?.trim() || fromVisible.trim()
+          }
+        }
+        if (goldForVerdict) {
+          translationGoldForVerdict = goldForVerdict
+          const v = computeTranslationGoldVerdict({
+            userText: lastUserContentForResponse,
+            goldEnglish: goldForVerdict,
+            ruPrompt: tpForGold,
+          })
+          translationGoldVerdictFailed = !v.ok
         }
       }
       sanitized = normalizeTranslationCommentStyle(sanitized)
@@ -6627,13 +6639,18 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       const finalPromptAlignedRepeat = promptAlignedRepeat ?? promptAlignedRepeatByConcept
       // Жёсткий шаблон «Комментарий_перевод/Ошибки» только при эталоне __TRAN__ и провале вердикта;
       // иначе сохраняем развёрнутый ответ модели (орфография, комментарий и т.д.).
-      if (finalPromptAlignedRepeat && !userMatchesPriorAssistantRepeat && translationGoldVerdictFailed) {
+      if (
+        finalPromptAlignedRepeat &&
+        !userMatchesPriorAssistantRepeat &&
+        translationGoldVerdictFailed &&
+        translationGoldVerdictFromHiddenRef
+      ) {
         sanitized = forceTranslationWordErrorProtocol(sanitized, finalPromptAlignedRepeat, lastUserContentForResponse)
       }
       canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic && !translationWordMismatch && !translationPromptMismatch
       if (translationPromptMismatch && !userMatchesPriorAssistantRepeat) {
         const strictRepeat = finalPromptAlignedRepeat ?? translationReferenceForm ?? priorAssistantRepeatEnglish
-        if (strictRepeat && translationGoldVerdictFailed) {
+        if (strictRepeat && translationGoldVerdictFailed && translationGoldVerdictFromHiddenRef) {
           sanitized = forceTranslationWordErrorProtocol(sanitized, strictRepeat, lastUserContentForResponse)
         }
         canTreatTranslationAsSuccess = false

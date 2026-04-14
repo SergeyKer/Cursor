@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   appendTranslationCanonicalRepeatRefLine,
   extractCanonicalRepeatRefEnglishFromContent,
-  extractRussianTranslationTaskFromAssistantContent,
   extractLastTranslationPromptFromMessages,
+  extractLocalGoldEnglishForVerdict,
+  extractRussianTranslationTaskFromAssistantContent,
   getAssistantContentBeforeLastUser,
   stripTranslationCanonicalRepeatRefLine,
 } from './translationPromptAndRef'
@@ -137,4 +138,29 @@ describe('getAssistantContentBeforeLastUser / extractCanonicalRepeatRefEnglishFr
     const card = getAssistantContentBeforeLastUser(messages)
     expect(extractCanonicalRepeatRefEnglishFromContent(card!)).toBe('I usually read books before bed.')
   })
+})
+
+describe('extractLocalGoldEnglishForVerdict', () => {
+  it('приоритет у скрытого __TRAN__', () => {
+    const card = 'Переведи: Я бегу.\nСкажи: I walk.\n__TRAN_REPEAT_REF__: I run.'
+    expect(extractLocalGoldEnglishForVerdict(card, 'Я бегу.')).toBe('I run.')
+  })
+
+  it('без ref берёт «Скажи» при согласовании с RU', () => {
+    const card = [
+      'Комментарий_перевод: Поддержка.',
+      'Комментарий_ошибка: Ошибка.',
+      'Ошибки:',
+      'Скажи: I will start a new project.',
+    ].join('\n')
+    const ru = 'Я начну новый проект.'
+    expect(extractLocalGoldEnglishForVerdict(card, ru)?.toLowerCase()).toContain('project')
+  })
+
+  it('для карточки только RU + «Переведи» возвращает null', () => {
+    const card = 'Он будет часто звонить родителям.\nПереведи на английский.'
+    const ru = 'Он будет часто звонить родителям.'
+    expect(extractLocalGoldEnglishForVerdict(card, ru)).toBeNull()
+  })
+
 })

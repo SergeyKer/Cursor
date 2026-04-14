@@ -1,6 +1,7 @@
 import { normalizeEnglishLearnerContractions } from '@/lib/englishLearnerContractions'
 import { stripWrappingQuotesFromDrillRussianLine } from '@/lib/extractSingleTranslationNextSentence'
-import { clampTranslationRepeatToRuPrompt } from '@/lib/translationRepeatClamp'
+import { normalizeEnglishForRepeatMatch } from '@/lib/normalizeEnglishForRepeatMatch'
+import { clampTranslationRepeatToRuPrompt, extractPromptKeywords } from '@/lib/translationRepeatClamp'
 
 /** Скрытый эталон «Повтори» для сервера; в UI не показывается (см. stripTranslationCanonicalRepeatRefLine). */
 export const TRAN_CANONICAL_REPEAT_REF_MARKER = '__TRAN_REPEAT_REF__'
@@ -169,6 +170,49 @@ function pickCanonicalFormEnglishForRuCard(content: string, ru: string): string 
     if (neg) return neg
   }
   return extractPositiveFormFromTranslationCard(content)
+}
+
+function isRepeatCuePlausibleForRuPromptLocal(ruPrompt: string | null, englishCue: string): boolean {
+  if (!ruPrompt?.trim()) return true
+  const promptKeywords = extractPromptKeywords(ruPrompt)
+  if (promptKeywords.length === 0) return true
+  const enWords = new Set(
+    normalizeEnglishForRepeatMatch(englishCue)
+      .split(/\s+/)
+      .filter((w) => w.length > 1)
+  )
+  return promptKeywords.some((kw) => enWords.has(kw.toLowerCase()))
+}
+
+function extractVisibleRepeatCueEnglishFromAssistantCard(content: string): string | null {
+  const lineRe = /^[\s\-•]*(?:\d+[\.)]\s*)*(?:Повтори|Repeat|Say|Скажи)\s*:\s*(.+)$/i
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
+    const m = lineRe.exec(trimmed)
+    const body = m?.[1]?.trim()
+    if (body) {
+      return body.replace(/^\s*(?:Повтори|Repeat|Say|Скажи)\s*:\s*/i, '').trim() || body
+    }
+  }
+  return null
+}
+
+/**
+ * Локальный эталон для вердикта: __TRAN_REPEAT_REF__ или видимый «Скажи/Повтори»
+ * (без «Формы», чтобы не сравнивать с диагностическим +:).
+ */
+export function extractLocalGoldEnglishForVerdict(
+  assistantContent: string,
+  ruPrompt: string | null
+): string | null {
+  const ref = extractCanonicalRepeatRefEnglishFromContent(assistantContent)
+  if (ref?.trim()) return ref.trim()
+  const visible = extractVisibleRepeatCueEnglishFromAssistantCard(assistantContent)
+  if (visible?.trim() && isRepeatCuePlausibleForRuPromptLocal(ruPrompt, visible)) {
+    const { clamped } = clampTranslationRepeatToRuPrompt(visible, ruPrompt ?? '')
+    return (clamped?.trim() || visible.trim()) || null
+  }
+  return null
 }
 
 /**
