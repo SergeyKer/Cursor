@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   applyTranslationRepeatSourceClampToContent,
   clampTranslationRepeatToRuPrompt,
+  ensureInAdvanceFromRuZaranee,
   enforceAuthoritativeTranslationRepeat,
   enforceAuthoritativeTranslationRepeatEnCue,
   hasWeekendConceptInRuPrompt,
@@ -52,6 +53,14 @@ describe('clampTranslationRepeatToRuPrompt', () => {
     const { clamped, changed } = clampTranslationRepeatToRuPrompt('I often meet with friends.', ru)
     expect(changed).toBe(false)
     expect(clamped).toBe('I often meet with friends.')
+  })
+
+  it('дополняет эталон «in advance», если в RU есть «заранее», а в EN хвоста нет', () => {
+    const ru = 'Мы обычно планируем поездки заранее.'
+    const { clamped, changed } = clampTranslationRepeatToRuPrompt('They usually plan trips.', ru)
+    expect(changed).toBe(true)
+    expect(clamped.toLowerCase()).toContain('in advance')
+    expect(clamped.toLowerCase()).toContain('trips')
   })
 
   it('aligns repeat topic words to the Russian prompt', () => {
@@ -143,6 +152,33 @@ describe('enforceAuthoritativeTranslationRepeat', () => {
     const out = enforceAuthoritativeTranslationRepeat(content, ru, prior)
     expect(out).toContain('Повтори: Do we often watch serials in the evening?')
     expect(out).not.toContain('Повтори: Do we often watch serials?')
+  })
+
+  it('с prior без «in advance» дополняет хвост, если в RU есть «заранее»', () => {
+    const ru = 'Мы обычно планируем поездки заранее.'
+    const content = `Комментарий: Ошибка.\nПовтори: They usually plan trips.`
+    const prior = 'They usually plan trips.'
+    const out = enforceAuthoritativeTranslationRepeat(content, ru, prior)
+    expect(out.toLowerCase()).toContain('in advance')
+    expect(out).toMatch(/Повтори:\s*They usually plan trips in advance/i)
+  })
+})
+
+describe('ensureInAdvanceFromRuZaranee', () => {
+  it('не меняет фразу без «заранее» в RU', () => {
+    expect(ensureInAdvanceFromRuZaranee('Мы планируем поездки.', 'We plan trips.')).toBe('We plan trips.')
+  })
+
+  it('дописывает in advance при «заранее» в RU', () => {
+    expect(ensureInAdvanceFromRuZaranee('… заранее.', 'They usually plan trips.')).toBe(
+      'They usually plan trips in advance.'
+    )
+  })
+
+  it('не дублирует, если уже есть in advance', () => {
+    expect(
+      ensureInAdvanceFromRuZaranee('Мы планируем заранее.', 'We usually plan trips in advance.')
+    ).toBe('We usually plan trips in advance.')
   })
 })
 

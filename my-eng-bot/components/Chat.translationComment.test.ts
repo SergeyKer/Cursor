@@ -10,7 +10,6 @@ import {
   computeAssistantTranslationMainCardMeta,
   condenseTranslationCommentToErrors,
   filterTranslationErrorsDisplayText,
-  formatThreeFormsForCard,
   parseTranslationCoachBlocks,
   stripTranslationMainMetaPrefixes,
   translationResponseHasSuccessShape,
@@ -19,7 +18,7 @@ import {
 describe('filterTranslationErrorsDisplayText', () => {
   it('убирает строку «Ошибка формы глагола», если по смыслу это spelling', () => {
     const raw = ['✏️ studing → studying', '🔤 Ошибка формы глагола. Правильное spelling: studying.'].join('\n')
-    expect(filterTranslationErrorsDisplayText(raw)).toBe('✏️ studing → studying')
+    expect(filterTranslationErrorsDisplayText(raw)).toBe('- studing → studying')
   })
 
   it('убирает строку «Ошибка типа предложения», если это замена русского слова на английское', () => {
@@ -27,7 +26,7 @@ describe('filterTranslationErrorsDisplayText', () => {
       "✏️ 'готовлю' → 'cooking'",
       "🔤 Ошибка типа предложения. Нужно использовать форму 'cooking' вместо 'готовлю'.",
     ].join('\n')
-    expect(filterTranslationErrorsDisplayText(raw)).toBe("✏️ 'готовлю' → 'cooking'")
+    expect(filterTranslationErrorsDisplayText(raw)).toBe("- 'готовлю' → 'cooking'")
   })
 
   it('убирает подпункты только с дефисом / «нет»', () => {
@@ -36,12 +35,12 @@ describe('filterTranslationErrorsDisplayText', () => {
       '✏️ Орфография: -',
       '📖 Лексика: -',
     ].join('\n')
-    expect(filterTranslationErrorsDisplayText(raw)).toBe('🔤 Нужен артикль "a" перед "live concert".')
+    expect(filterTranslationErrorsDisplayText(raw)).toBe('- Нужен артикль "a" перед "live concert".')
   })
 
   it('оставляет все строки, если везде есть смысл', () => {
     const raw = ['🔤 Грамматика: a.', '✏️ Орфография: b.'].join('\n')
-    expect(filterTranslationErrorsDisplayText(raw)).toBe('🔤 a.\n✏️ b.')
+    expect(filterTranslationErrorsDisplayText(raw)).toBe('- a.\n- b.')
   })
 })
 
@@ -65,33 +64,17 @@ describe('condenseTranslationCommentToErrors', () => {
   })
 })
 
-describe('formatThreeFormsForCard', () => {
-  it('сохраняет знаки + ? − вместо подмены на дефис-буллет', () => {
-    const raw = [
-      '+: I have done my homework.',
-      '?: Have you done your homework?',
-      '-: I haven\'t done my homework yet.',
-    ].join('\n')
-    expect(formatThreeFormsForCard(raw)).toBe(
-      `\n${['+ I have done my homework.', '? Have you done your homework?', "- I haven't done my homework yet."].join('\n')}`
-    )
-  })
-})
-
 describe('translationResponseHasSuccessShape', () => {
-  it('true при непустом threeFormsText', () => {
-    expect(translationResponseHasSuccessShape('anything', '+: a\n?: b\n-: c')).toBe(true)
+  it('true при непустом комментарии и без эталона Повтори/Скажи', () => {
+    expect(translationResponseHasSuccessShape('Отлично!', null, null)).toBe(true)
   })
 
-  it('true если в тексте есть строка «Формы:», даже без распознанных +/- строк', () => {
-    const text = ['Конструкция: x', 'Формы:', 'broken line', 'Повтори: I run.'].join('\n')
-    const b = parseTranslationCoachBlocks(text)
-    expect(b.threeFormsText).toBeNull()
-    expect(translationResponseHasSuccessShape(text, b.threeFormsText)).toBe(true)
+  it('false если есть Повтори', () => {
+    expect(translationResponseHasSuccessShape('Комментарий: ошибка', 'I run.', null)).toBe(false)
   })
 
-  it('false без форм и без заголовка Формы', () => {
-    expect(translationResponseHasSuccessShape('Комментарий_перевод: x\nПовтори: y', null)).toBe(false)
+  it('false без комментария', () => {
+    expect(translationResponseHasSuccessShape(null, null, null)).toBe(false)
   })
 })
 
@@ -125,9 +108,8 @@ describe('parseTranslationCoachBlocks', () => {
     expect(b.translationSupportComment).toBeNull()
     expect(b.errorsBlock).toContain('✏️')
     expect(b.errorsBlock).toContain('📖')
-    expect(b.tenseRef).toContain('Present Simple')
+    expect(b.nextSentence).toContain('Present Simple')
     expect(b.repeat).toBe('I run.')
-    expect(b.threeFormsText).toBeNull()
   })
 
   it('выделяет Комментарий_перевод и диагностический Комментарий отдельно', () => {

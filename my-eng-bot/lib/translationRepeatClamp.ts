@@ -102,6 +102,20 @@ function cleanupAfterRemovals(text: string): string {
     .trim()
 }
 
+/**
+ * RU «заранее» → EN обычно «in advance»; модель/эталон иногда опускает хвост.
+ */
+export function ensureInAdvanceFromRuZaranee(ruPrompt: string, repeatEn: string): string {
+  const ru = ruPrompt.trim().toLowerCase()
+  if (!ru || !/заранее/i.test(ru)) return repeatEn.trim()
+  const compact = repeatEn.replace(/\s+/g, ' ').trim()
+  if (!compact) return compact
+  const lower = compact.toLowerCase()
+  if (/\bin advance\b|ahead of time|beforehand\b/.test(lower)) return compact
+  const core = compact.replace(/[.!?]+$/, '').trim()
+  return normalizeRepeatSentenceEnding(`${core} in advance`)
+}
+
 export function extractPromptKeywords(prompt: string): string[] {
   const tokens = prompt.toLowerCase().match(/[а-яё]+/gi) ?? []
   const out: string[] = []
@@ -218,7 +232,8 @@ export function clampTranslationRepeatToRuPrompt(repeatEn: string, ruPrompt: str
   out = stripEnglishRepeatConceptsNotInRuPrompt(out, ru)
   out = cleanupAfterRemovals(out)
   const aligned = alignRepeatKeywordsToPrompt(out, ru)
-  const clamped = aligned ?? normalizeRepeatSentenceEnding(out)
+  let clamped = aligned ?? normalizeRepeatSentenceEnding(out)
+  clamped = ensureInAdvanceFromRuZaranee(ru, clamped)
   const changed = clamped !== normalizedBefore
 
   return { clamped, changed }
@@ -254,9 +269,12 @@ export function enforceAuthoritativeTranslationRepeat(
   priorRepeatEnglish: string | null
 ): string {
   if (priorRepeatEnglish?.trim()) {
-    const prior = priorRepeatEnglish.trim()
-    // В цепочке повтора prior-эталон должен оставаться стабильным:
-    // не срезаем его повторным clamp по текущему RU-промпту.
+    let prior = priorRepeatEnglish.trim()
+    // Цепочка «Повтори» держит тот же эталон, но дополняем обязательные хвосты из RU
+    // (например «заранее» → in advance), если их случайно срезали на прошлом шаге.
+    if (ruPrompt?.trim()) {
+      prior = ensureInAdvanceFromRuZaranee(ruPrompt, prior)
+    }
     const clamped = normalizeRepeatSentenceEnding(prior)
     return replaceTranslationRepeatInContent(content, clamped)
   }

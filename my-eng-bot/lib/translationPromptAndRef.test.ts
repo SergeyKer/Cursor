@@ -125,4 +125,16 @@ describe('getAssistantContentBeforeLastUser / extractCanonicalRepeatRefEnglishFr
   it('извлекает скрытый эталон', () => {
     expect(extractCanonicalRepeatRefEnglishFromContent('x\n__TRAN_REPEAT_REF__: One two.')).toBe('One two.')
   })
+
+  it('извлекает эталон из карточки «Переведи:» + __TRAN__ как в интеграционном тесте route', () => {
+    const prior =
+      'Переведи: Я обычно читаю книги перед сном.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I usually read books before bed.'
+    expect(extractCanonicalRepeatRefEnglishFromContent(prior)).toBe('I usually read books before bed.')
+    const messages = [
+      { role: 'assistant', content: prior },
+      { role: 'user', content: 'I usually read books before bed.' },
+    ]
+    const card = getAssistantContentBeforeLastUser(messages)
+    expect(extractCanonicalRepeatRefEnglishFromContent(card!)).toBe('I usually read books before bed.')
+  })
 })

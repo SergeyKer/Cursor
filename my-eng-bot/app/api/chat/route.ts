@@ -104,6 +104,7 @@ import {
   foldLatinHomoglyphsForEnglishMatch,
   normalizeEnglishForRepeatMatch,
 } from '@/lib/normalizeEnglishForRepeatMatch'
+import { STATIC_TRANSLATION_LINE, buildTranslationErrorLexiconAndCyrillicLines } from '@/lib/buildTranslationErrorLexiconAndCyrillicLines'
 import { stripFalseArticleBeforeEnglishComment } from '@/lib/stripFalseArticleBeforeEnglishComment'
 import { alignDialogueBeVerbCommentWithRepeat } from '@/lib/dialogueBeCommentConsistency'
 import { normalizeDialogueCommentTerminology } from '@/lib/dialogueCommentTerminology'
@@ -142,6 +143,10 @@ import {
   normalizeRepeatSentenceEnding,
   replaceTranslationRepeatInContent,
 } from '@/lib/translationRepeatClamp'
+import {
+  extractTranslationAnswerKeywordsForPrompt,
+  hasTranslationPromptUserKeywordMismatch as hasTranslationPromptKeywordMismatch,
+} from '@/lib/translationPromptUserCoverage'
 import { stripLeadingRepeatRuPrompt } from '@/lib/translationProtocolLines'
 import {
   extractTranslationConceptIdsFromEnglish,
@@ -150,6 +155,7 @@ import {
 } from '@/lib/translationPromptConcepts'
 import { extractPriorAssistantRepeatEnglish } from '@/lib/translationLastRepeat'
 import { translateRussianPromptToGoldEnglish } from '@/lib/translationGoldEnglish'
+import { computeTranslationGoldVerdict } from '@/lib/translationVerdict'
 import { extractSingleTranslationNextSentence } from '@/lib/extractSingleTranslationNextSentence'
 import {
   appendTranslationCanonicalRepeatRefLine,
@@ -3969,40 +3975,9 @@ async function finalizeTranslationResponsePayload(params: {
   return guardedContent
 }
 
-const TRANSLATION_PROMPT_KEYWORDS_EN = new Set(Object.values(RU_TOPIC_KEYWORD_TO_EN))
-
-function extractTranslationAnswerKeywords(text: string): string[] {
-  return tokenizeEnglishWords(text).filter((token) => TRANSLATION_PROMPT_KEYWORDS_EN.has(token))
-}
-
-function hasEnoughKeywordCoverage(promptKeywords: string[], userKeywords: string[]): boolean {
-  if (promptKeywords.length === 0) return true
-  if (userKeywords.length === 0) return false
-
-  const overlapCount = promptKeywords.filter((keyword) => userKeywords.includes(keyword)).length
-  const requiredMatches =
-    promptKeywords.length === 1 ? 1 : Math.min(promptKeywords.length, Math.max(2, Math.ceil(promptKeywords.length * 0.6)))
-  return overlapCount >= requiredMatches
-}
-
-function hasTranslationPromptKeywordMismatch(prompt: string, userText: string): boolean {
-  const promptKeywords = extractTranslationPromptKeywords(prompt)
-  const userKeywords = extractTranslationAnswerKeywords(userText)
-  const keywordMismatch = promptKeywords.length > 0 ? !hasEnoughKeywordCoverage(promptKeywords, userKeywords) : false
-
-  const promptConcepts = extractTranslationConceptIdsFromPrompt(prompt)
-  const userConcepts = extractTranslationConceptIdsFromEnglish(userText)
-  const conceptMismatch =
-    promptConcepts.length > 0
-      ? userConcepts.length === 0 || !promptConcepts.some((conceptId) => userConcepts.includes(conceptId))
-      : false
-
-  return keywordMismatch || conceptMismatch
-}
-
 function buildPromptAlignedRepeatSentence(baseText: string, prompt: string): string | null {
   const promptKeywords = extractTranslationPromptKeywords(prompt)
-  const baseKeywords = extractTranslationAnswerKeywords(baseText)
+  const baseKeywords = extractTranslationAnswerKeywordsForPrompt(baseText)
   if (promptKeywords.length === 0 || baseKeywords.length === 0) return null
 
   const aligned = alignRepeatEnglishToRuPromptKeywords(baseText, prompt)
@@ -4042,7 +4017,7 @@ function isTranslationAnswerEffectivelyCorrect(userText: string, repeatSentence:
   return userNorm === repeatNorm
 }
 
-function forceTranslationWordErrorProtocol(content: string, repeatSentence: string): string {
+function forceTranslationWordErrorProtocol(content: string, repeatSentence: string, userAnswer: string | null = null): string {
   const repeat = normalizeEnglishSentenceForCard(repeatSentence)
   if (!repeat) return content
 
@@ -4056,14 +4031,21 @@ function forceTranslationWordErrorProtocol(content: string, repeatSentence: stri
   const supportBody = supportLineRaw.replace(/^Комментарий_перевод\s*:\s*/i, '').trim()
   const supportLine = `Комментарий_перевод: ${normalizeSupportiveCommentForErrorsBlock(supportBody || '💡 Есть хорошая основа, но нужно исправить основную неточность по образцу ниже.', 'adult')}`
 
-  const out: string[] = [
-    supportLine,
-    'Комментарий_ошибка: Ошибка перевода — русские слова в ответе нужно перевести на английский.',
-    'Ошибки:',
-    '📖 Лексическая ошибка. Проверь написание и выбор слова.',
-    `Скажи: ${repeat}`,
-    `Повтори: ${repeat}`,
-  ]
+  const userTrim = userAnswer?.trim() ?? ''
+  const hasCyrillic = /[\u0400-\u04FF]/.test(userTrim)
+  const errorLines =
+    userTrim.length > 0
+      ? buildTranslationErrorLexiconAndCyrillicLines(userTrim, repeat)
+      : ['\u{1F4D6} Лексическая ошибка. Проверь написание и выбор слова.']
+
+  let commentError =
+    'Комментарий_ошибка: Лексическая или орфографическая ошибка — исправь по подсказкам в блоке «Ошибки» ниже.'
+  if (hasCyrillic) {
+    commentError =
+      'Комментарий_ошибка: Ошибка перевода — в ответе остались русские слова и возможны неточности в английском; исправь по блоку «Ошибки» ниже.'
+  }
+
+  const out: string[] = [supportLine, commentError, 'Ошибки:', ...errorLines, `Скажи: ${repeat}`, `Повтори: ${repeat}`]
   return out.join('\n').trim()
 }
 
@@ -4338,13 +4320,26 @@ function normalizeTranslationErrorBranch(content: string): string {
     }
   }
 
-  const comment = lines
-    .find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:/i.test(line))
-    ?.replace(
-      /^[\s\-•]*(?:\d+[\.)]\s*)*(Комментарий(?:_ошибка)?)\s*:\s*/i,
-      (_match, label: string) => `${label}: `
-    )
-    .trim()
+  const commentStart = lines.findIndex((line) =>
+    /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:/i.test(line)
+  )
+  let comment: string | null = null
+  if (commentStart !== -1) {
+    const labelMatch = /^[\s\-•]*(?:\d+[\.)]\s*)*(Комментарий(?:_ошибка)?)\s*:\s*/i.exec(lines[commentStart] ?? '')
+    const label = labelMatch?.[1] === 'Комментарий_ошибка' ? 'Комментарий_ошибка' : 'Комментарий'
+    const firstBody = (lines[commentStart] ?? '')
+      .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:\s*/i, '')
+      .trim()
+    const parts: string[] = []
+    if (firstBody) parts.push(firstBody)
+    for (let i = commentStart + 1; i < lines.length; i++) {
+      const l = lines[i]!
+      if (headerBreakForErrors(l)) break
+      parts.push(l)
+    }
+    const body = parts.join('\n').trim()
+    if (body) comment = `${label}: ${body}`.trim()
+  }
 
   let errorsCombined: string | null = null
   const errStart = lines.findIndex((l) => /^[\s\-•]*(?:\d+[\.)]\s*)*Ошибки\s*:/i.test(l))
@@ -5206,6 +5201,7 @@ function ensureTranslationErrorsMentionCyrillicAnswer(content: string, userText:
   }
 
   const bodyText = bodyLines.join('\n')
+  if (bodyText.includes(STATIC_TRANSLATION_LINE)) return content
   if (/русск(?:ие|их)?\s+слов(?:а|о)?\s+в\s+ответе/i.test(bodyText)) return content
   if (/📖\s+[а-яё]+\s*-\s*[a-z]/i.test(bodyText)) return content
   if (/["'«»][а-яё]+["'«»]\s*[→-]+\s*["'«»]?[a-z]/i.test(bodyText)) return content
@@ -6545,7 +6541,31 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     let canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic
     let translationReferenceFormForTurn: string | null = null
     let translationPromptTextForTurn = ''
+    let translationGoldForVerdict: string | null = null
+    let translationGoldVerdictFailed = false
     if (mode === 'translation') {
+      const tpForGold = lastTranslationPrompt?.trim() ?? ''
+      if (!isFirstTurn && tpForGold) {
+        const priorCardForGold = getAssistantContentBeforeLastUser(nonSystemMessages)
+        const rawGold: string | null = priorCardForGold
+          ? extractCanonicalRepeatRefEnglishFromContent(priorCardForGold)
+          : null
+        // Строгий серверный вердикт только при скрытом эталоне с прошлой карточки (finalize всегда добавляет __TRAN__).
+        // Отдельный вызов translateRussianPromptToGoldEnglish здесь не делаем — иначе лишний provider-call и хрупкие моки.
+        if (rawGold?.trim()) {
+          const { clamped } = clampTranslationRepeatToRuPrompt(rawGold, tpForGold)
+          const clampTrim = clamped?.trim() ?? ''
+          if (clampTrim) {
+            translationGoldForVerdict = clampTrim
+            const v = computeTranslationGoldVerdict({
+              userText: lastUserContentForResponse,
+              goldEnglish: clampTrim,
+              ruPrompt: tpForGold,
+            })
+            translationGoldVerdictFailed = !v.ok
+          }
+        }
+      }
       sanitized = normalizeTranslationCommentStyle(sanitized)
       const modelSuccessLike = isTranslationSuccessLikeContent(sanitized)
       const translationPrompt = lastTranslationPrompt
@@ -6605,14 +6625,16 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             )
           : null
       const finalPromptAlignedRepeat = promptAlignedRepeat ?? promptAlignedRepeatByConcept
-      if (finalPromptAlignedRepeat && !userMatchesPriorAssistantRepeat) {
-        sanitized = forceTranslationWordErrorProtocol(sanitized, finalPromptAlignedRepeat)
+      // Жёсткий шаблон «Комментарий_перевод/Ошибки» только при эталоне __TRAN__ и провале вердикта;
+      // иначе сохраняем развёрнутый ответ модели (орфография, комментарий и т.д.).
+      if (finalPromptAlignedRepeat && !userMatchesPriorAssistantRepeat && translationGoldVerdictFailed) {
+        sanitized = forceTranslationWordErrorProtocol(sanitized, finalPromptAlignedRepeat, lastUserContentForResponse)
       }
       canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic && !translationWordMismatch && !translationPromptMismatch
       if (translationPromptMismatch && !userMatchesPriorAssistantRepeat) {
         const strictRepeat = finalPromptAlignedRepeat ?? translationReferenceForm ?? priorAssistantRepeatEnglish
-        if (strictRepeat) {
-          sanitized = forceTranslationWordErrorProtocol(sanitized, strictRepeat)
+        if (strictRepeat && translationGoldVerdictFailed) {
+          sanitized = forceTranslationWordErrorProtocol(sanitized, strictRepeat, lastUserContentForResponse)
         }
         canTreatTranslationAsSuccess = false
       }
@@ -6620,6 +6642,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         priorAssistantRepeatEnglish &&
         !isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, priorAssistantRepeatEnglish)
       ) {
+        canTreatTranslationAsSuccess = false
+      }
+      if (translationGoldForVerdict && !translationGoldVerdictFailed) {
+        // Эталон __TRAN__ важнее эвристики ключевых слов RU→EN: при совпадении с gold засчитываем успех.
+        canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic
+      }
+      if (translationGoldVerdictFailed) {
         canTreatTranslationAsSuccess = false
       }
       if (isFirstTurn) {
@@ -6659,20 +6688,21 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             audience,
             fallbackPrompt: lastTranslationPrompt,
           })
-          if (translationWordMismatch && translationReferenceForm) {
-            sanitized = forceTranslationWordErrorProtocol(sanitized, translationReferenceForm)
+          if (translationWordMismatch && translationReferenceForm && translationGoldVerdictFailed) {
+            sanitized = forceTranslationWordErrorProtocol(sanitized, translationReferenceForm, lastUserContentForResponse)
           }
           let repeatSentence = getTranslationRepeatSentence(sanitized)
           if (repeatSentence && translationPromptText && hasTranslationPromptKeywordMismatch(translationPromptText, repeatSentence)) {
             const promptAlignedRepeatFromRepeat =
               buildPromptAlignedRepeatSentence(repeatSentence, translationPromptText) ??
               buildPromptAlignedRepeatSentenceByConcept(repeatSentence, translationPromptText)
-            if (promptAlignedRepeatFromRepeat) {
-              sanitized = forceTranslationWordErrorProtocol(sanitized, promptAlignedRepeatFromRepeat)
+            if (promptAlignedRepeatFromRepeat && translationGoldVerdictFailed) {
+              sanitized = forceTranslationWordErrorProtocol(sanitized, promptAlignedRepeatFromRepeat, lastUserContentForResponse)
               repeatSentence = getTranslationRepeatSentence(sanitized)
             }
           }
           if (
+            !translationGoldVerdictFailed &&
             canTreatTranslationAsSuccess &&
             repeatSentence &&
             isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, repeatSentence)
@@ -6691,11 +6721,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               tense: tutorGradingTense,
               groundTruthRepeatEnglish: priorAssistantRepeatEnglish,
             })
-            sanitized = replaceFalsePositiveTranslationErrorWithPraise({
-              content: sanitized,
-              userText: lastUserContentForResponse,
-              priorRepeatEnglish: priorAssistantRepeatEnglish,
-            })
+            if (!translationGoldVerdictFailed) {
+              sanitized = replaceFalsePositiveTranslationErrorWithPraise({
+                content: sanitized,
+                userText: lastUserContentForResponse,
+                priorRepeatEnglish: priorAssistantRepeatEnglish,
+              })
+            }
             sanitized = keepOnlyCommentAndRepeatOnInvalidTranslationInput(sanitized, !isFirstTranslationUserTurn)
             if (isUnrecognizedTranslationContext(sanitized)) {
               sanitized =
@@ -6709,13 +6741,24 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               getTranslationRepeatSentence(sanitized)
             )
             sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
+            const repeatAnchorForError =
+              translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || ''
+            const existingRepeatForGoldCheck = getTranslationRepeatSentence(sanitized)
+            const repeatAlreadyMatchesGold =
+              Boolean(repeatAnchorForError) &&
+              Boolean(existingRepeatForGoldCheck?.trim()) &&
+              isTranslationAnswerEffectivelyCorrect(
+                existingRepeatForGoldCheck ?? '',
+                repeatAnchorForError
+              )
             if (
               !isFirstTranslationUserTurn &&
-              priorAssistantRepeatEnglish?.trim() &&
-              !canTreatTranslationAsSuccess
+              repeatAnchorForError &&
+              !canTreatTranslationAsSuccess &&
+              !repeatAlreadyMatchesGold
             ) {
-              // Повторная ошибка в текущем цикле: держим тот же эталон из предыдущего «Скажи».
-              sanitized = forceTranslationWordErrorProtocol(sanitized, priorAssistantRepeatEnglish)
+              // Повторная ошибка: эталон с серверного gold, иначе тот же «Скажи» с прошлой карточки.
+              sanitized = forceTranslationWordErrorProtocol(sanitized, repeatAnchorForError, lastUserContentForResponse)
             }
           }
 
@@ -6757,16 +6800,21 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
 
     if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
       let repeatSentence = getTranslationRepeatSentence(sanitized)
-      if (!repeatSentence && translationReferenceFormForTurn) {
-        sanitized = forceTranslationWordErrorProtocol(sanitized, translationReferenceFormForTurn)
+      if (!repeatSentence && translationReferenceFormForTurn && translationGoldVerdictFailed) {
+        sanitized = forceTranslationWordErrorProtocol(sanitized, translationReferenceFormForTurn, lastUserContentForResponse)
         repeatSentence = getTranslationRepeatSentence(sanitized)
       }
-      if (repeatSentence && translationPromptTextForTurn && hasTranslationPromptKeywordMismatch(translationPromptTextForTurn, repeatSentence)) {
+      if (
+        translationGoldVerdictFailed &&
+        repeatSentence &&
+        translationPromptTextForTurn &&
+        hasTranslationPromptKeywordMismatch(translationPromptTextForTurn, repeatSentence)
+      ) {
         const promptAlignedRepeatFromRepeat =
           buildPromptAlignedRepeatSentence(repeatSentence, translationPromptTextForTurn) ??
           buildPromptAlignedRepeatSentenceByConcept(repeatSentence, translationPromptTextForTurn)
         if (promptAlignedRepeatFromRepeat) {
-          sanitized = forceTranslationWordErrorProtocol(sanitized, promptAlignedRepeatFromRepeat)
+          sanitized = forceTranslationWordErrorProtocol(sanitized, promptAlignedRepeatFromRepeat, lastUserContentForResponse)
           repeatSentence = getTranslationRepeatSentence(sanitized)
         }
       }

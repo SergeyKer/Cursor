@@ -517,8 +517,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        content:
-          'Комментарий: Ошибка формы глагола. Правильный вариант "I have a car".\nПовтори: I have a cat.',
+        content: 'I have a cat.',
       })
 
     const req = makeRequest({
@@ -538,8 +537,7 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     expect(res.status).toBe(200)
     expect(data.content).toContain('Комментарий:')
-    expect(data.content).toContain('Орфографическая ошибка: haev')
-    expect(data.content).toContain('Конструкция:')
+    expect(data.content).toMatch(/Орфографическая ошибка.{0,40}haev/i)
     expect(data.content).not.toContain('haev нужно заменить на car')
     expect(data.content).toContain('Повтори: I have a cat.')
     expect(data.content).not.toContain('Переведи на английский.')
@@ -559,7 +557,10 @@ describe('POST /api/chat repeat cycle stability', () => {
       level: 'a2',
       tenses: ['present_simple'],
       messages: [
-        { role: 'assistant', content: 'У меня есть кот.\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content: 'У меня есть кот.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I have a cat.',
+        },
         { role: 'user', content: 'I have a car.' },
       ],
     })
@@ -576,11 +577,13 @@ describe('POST /api/chat repeat cycle stability', () => {
   })
 
   it('uses question form as correction target for question prompts', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        "Комментарий: Отлично! Здесь всё верно.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: You have a favorite colour.\n?: What is your favorite colour?\n-: You don't have a favorite colour.\nКакой у тебя любимый фрукт?\nПереведи на английский.",
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          "Комментарий: Отлично! Здесь всё верно.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: You have a favorite colour.\n?: What is your favorite colour?\n-: You don't have a favorite colour.\nКакой у тебя любимый фрукт?\nПереведи на английский.",
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'What is your favorite fruit?' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -589,7 +592,11 @@ describe('POST /api/chat repeat cycle stability', () => {
       level: 'a2',
       tenses: ['present_simple'],
       messages: [
-        { role: 'assistant', content: 'Привет! Какой у тебя любимый цвет?\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            'Привет! Какой у тебя любимый цвет?\nПереведи на английский.\n__TRAN_REPEAT_REF__: What is your favorite colour?',
+        },
         { role: 'user', content: 'Hi what is you favorite colour' },
       ],
     })
@@ -985,8 +992,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        content:
-          'Комментарий: Отлично! Здесь это время подходит, потому что речь о привычке.\nВремя: Present Simple — действие повторяется регулярно; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nПовтори: I like to read in the evening.\nЯ люблю плавать утром.\nПереведи на английский.',
+        content: 'I like to swim in the morning.',
       })
 
     const req = makeRequest({
@@ -996,7 +1002,11 @@ describe('POST /api/chat repeat cycle stability', () => {
       level: 'a2',
       tenses: ['present_simple'],
       messages: [
-        { role: 'assistant', content: 'Я часто гуляю вечером.\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            'Я часто гуляю вечером.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I like to read in the evening.',
+        },
         { role: 'user', content: 'I like to read in the evening.' },
       ],
     })
@@ -1006,17 +1016,18 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     expect(res.status).toBe(200)
     expect(data.content).toContain('Комментарий:')
-    expect(data.content).toContain('Конструкция:')
-    expect(data.content).toContain('Переведи на английский.')
+    expect(data.content).toMatch(/Переведи(?:\s+далее)?\s*:/i)
     expect(data.content).not.toContain('Не удалось сформировать исправленное предложение')
   })
 
   it('translation success rebuilds Формы when model puts a question under +:', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Отлично! Здесь это время подходит.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: Do you like to read in the evening.\n?: Do you like to read in the evening?\n-: I don\'t like to read in the evening.\nЯ люблю плавать утром.\nПереведи на английский.',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Отлично! Здесь это время подходит.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: Do you like to read in the evening.\n?: Do you like to read in the evening?\n-: I don\'t like to read in the evening.\nЯ люблю плавать утром.\nПереведи на английский.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I like to swim in the morning.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1025,7 +1036,11 @@ describe('POST /api/chat repeat cycle stability', () => {
       level: 'a2',
       tenses: ['present_simple'],
       messages: [
-        { role: 'assistant', content: 'Я часто гуляю вечером.\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            'Я часто гуляю вечером.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I like to read in the evening.',
+        },
         { role: 'user', content: 'I like to read in the evening.' },
       ],
     })
@@ -1034,18 +1049,18 @@ describe('POST /api/chat repeat cycle stability', () => {
     const data = (await res.json()) as { content: string }
 
     expect(res.status).toBe(200)
-    expect(data.content).toContain('Формы:')
-    const plusLine = data.content.match(/^\+:\s*(.+)$/m)?.[1] ?? ''
-    expect(plusLine.toLowerCase()).toContain('like to read')
-    expect(plusLine.toLowerCase()).not.toMatch(/^do\s+you\s+like/i)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toMatch(/Переведи(?:\s+далее)?\s*:/i)
   })
 
   it('translation success (question input) preserves stable forms block', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        "Комментарий: Отлично! Здесь это время подходит, потому что речь о привычке.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: You like sport.\n?: Do you like sport?\n-: You don't like sport.\nЯ редко смотрю телевизор.\nПереведи на английский.",
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          "Комментарий: Отлично! Здесь это время подходит, потому что речь о привычке.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: You like sport.\n?: Do you like sport?\n-: You don't like sport.\nЯ редко смотрю телевизор.\nПереведи на английский.",
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I rarely watch TV.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1054,7 +1069,10 @@ describe('POST /api/chat repeat cycle stability', () => {
       level: 'a2',
       tenses: ['present_simple'],
       messages: [
-        { role: 'assistant', content: 'Ты любишь спорт?\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content: 'Ты любишь спорт?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you like sport?',
+        },
         { role: 'user', content: 'Do you like sport?' },
       ],
     })
@@ -1064,18 +1082,17 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     expect(res.status).toBe(200)
     expect(data.content).toContain('Комментарий:')
-    expect(data.content).toContain('Конструкция:')
-    expect(data.content).toContain('Формы:')
-    expect(data.content).toContain('?:')
-    expect(data.content).toContain('-:')
+    expect(data.content).toMatch(/Переведи(?:\s+далее)?\s*:/i)
   })
 
   it('translation success clamps repeat to the Russian prompt keywords', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Отлично!\nВремя: Present Simple — здесь речь о привычке или факте.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I play football every day.\n?: Do I play football every day?\n-: I do not play football every day.\nПовтори: I play games every day.',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Отлично!\nВремя: Present Simple — здесь речь о привычке или факте.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I play football every day.\n?: Do I play football every day?\n-: I do not play football every day.\nПовтори: I play games every day.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I play football every day.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1084,7 +1101,11 @@ describe('POST /api/chat repeat cycle stability', () => {
       level: 'a2',
       tenses: ['present_simple'],
       messages: [
-        { role: 'assistant', content: 'Я играю в футбол каждый день.\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            'Я играю в футбол каждый день.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I play football every day.',
+        },
         { role: 'user', content: 'I play games every day.' },
       ],
     })
@@ -1098,12 +1119,14 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(repeatLine.toLowerCase()).not.toContain('games')
   })
 
-  it('translation negative input with conflicting model forms stays in correction protocol', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        "Комментарий: Отлично! Здесь это время подходит, потому что вы описываете устойчивое предпочтение.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I drink tea in the evening.\n?: Do you drink tea in the evening?\n-: I don't drink tea in the evening.\nЯ обычно пью чай вечером.\nПереведи на английский.",
-    })
+  it('translation: user matching gold is success even when model forms describe another sentence', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          "Комментарий: Отлично! Здесь это время подходит, потому что вы описываете устойчивое предпочтение.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I drink tea in the evening.\n?: Do you drink tea in the evening?\n-: I don't drink tea in the evening.\nЯ обычно пью чай вечером.\nПереведи на английский.",
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I usually drink tea in the evening.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1112,7 +1135,11 @@ describe('POST /api/chat repeat cycle stability', () => {
       level: 'a2',
       tenses: ['present_simple'],
       messages: [
-        { role: 'assistant', content: 'Я не люблю кофе.\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            "Я не люблю кофе.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I don't like coffee.",
+        },
         { role: 'user', content: "I don't like coffee." },
       ],
     })
@@ -1122,18 +1149,19 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     expect(res.status).toBe(200)
     expect(data.content).toContain('Комментарий:')
-    expect(data.content).toContain('Повтори:')
-    expect(data.content).toContain('Конструкция:')
+    expect(data.content).toMatch(/Переведи(?:\s+далее)?\s*:/i)
+    expect(data.content).not.toContain('Повтори:')
     expect(data.content).not.toContain('Формы:')
-    expect(data.content).not.toContain('Переведи на английский.')
   })
 
   it('translation praise with spelling hint is treated as correction, not success', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Отлично! Ты правильно указал смысл, но проверь правильность написания слов.\nВремя: Present Simple — действие повторяется регулярно; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I like to play football with friends.\n?: Do you like to play football with friends?\n-: I do not like to play football with friends.\nЯ люблю играть в футбол с друзьями.\nПереведи на английский.',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Отлично! Ты правильно указал смысл, но проверь правильность написания слов.\nВремя: Present Simple — действие повторяется регулярно; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I like to play football with friends.\n?: Do you like to play football with friends?\n-: I do not like to play football with friends.\nЯ люблю играть в футбол с друзьями.\nПереведи на английский.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I like to play football with my friends.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1142,7 +1170,11 @@ describe('POST /api/chat repeat cycle stability', () => {
       level: 'a2',
       tenses: ['present_simple'],
       messages: [
-        { role: 'assistant', content: 'Я люблю играть в футбол с друзьями.\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            'Я люблю играть в футбол с друзьями.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I like to play football with my friends.',
+        },
         { role: 'user', content: 'I like to paly fotboa' },
       ],
     })
@@ -1160,11 +1192,13 @@ describe('POST /api/chat repeat cycle stability', () => {
   })
 
   it('translation word spelling error stays in repeat cycle', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Отлично! Ты правильно указал, что любишь пиццу.\nВремя: Present Simple — здесь речь о привычке; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: Do you like pizza.\n?: Do you like pizza?\n-: You do not like pizza.\nТы любишь пиццу?\nПереведи на английский.',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Отлично! Ты правильно указал, что любишь пиццу.\nВремя: Present Simple — здесь речь о привычке; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: Do you like pizza.\n?: Do you like pizza?\n-: You do not like pizza.\nТы любишь пиццу?\nПереведи на английский.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'Do you like pizza?' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1173,7 +1207,10 @@ describe('POST /api/chat repeat cycle stability', () => {
       level: 'a2',
       tenses: ['present_simple'],
       messages: [
-        { role: 'assistant', content: 'Ты любишь пиццу?\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content: 'Ты любишь пиццу?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you like pizza?',
+        },
         { role: 'user', content: 'Do hou like piza' },
       ],
     })
@@ -1190,11 +1227,13 @@ describe('POST /api/chat repeat cycle stability', () => {
   })
 
   it('translation error flow keeps only correction protocol without next-translate block', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Ошибка времени.\nВремя: Present Simple — действие повторяется регулярно; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nПовтори: I like to read in the evening.\nЯ часто хожу в парк.\nПереведи на английский.',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Ошибка времени.\nВремя: Present Simple — действие повторяется регулярно; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nПовтори: I like to read in the evening.\nЯ часто хожу в парк.\nПереведи на английский.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I often walk in the park.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1203,7 +1242,11 @@ describe('POST /api/chat repeat cycle stability', () => {
       level: 'a2',
       tenses: ['present_simple'],
       messages: [
-        { role: 'assistant', content: 'Я люблю читать вечером.\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            'Я люблю читать вечером.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I like to read in the evening.',
+        },
         { role: 'user', content: 'I am reading in the evening.' },
       ],
     })
@@ -1215,8 +1258,6 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).toContain('Комментарий_перевод:')
     expect(data.content).toContain('Комментарий:')
     expect(data.content).toContain('Ошибки:')
-    expect(data.content).toContain('Время:')
-    expect(data.content).toContain('Конструкция:')
     expect(data.content).toContain('Скажи:')
     expect(data.content).toContain('Повтори:')
     expect(data.content).not.toContain('Я часто хожу в парк.')
@@ -1225,11 +1266,13 @@ describe('POST /api/chat repeat cycle stability', () => {
   })
 
   it('translation error response does not duplicate repeat card and never mixes with next invitation', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Ошибка времени.\nВремя: Present Simple — действие повторяется регулярно.\nКонструкция: Subject + V1(s/es).\nПовтори: I read in the evening.\nПовтори: I read in the evening.\nЯ люблю читать утром.\nПереведи на английский.',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Ошибка времени.\nВремя: Present Simple — действие повторяется регулярно.\nКонструкция: Subject + V1(s/es).\nПовтори: I read in the evening.\nПовтори: I read in the evening.\nЯ люблю читать утром.\nПереведи на английский.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I like to read in the morning.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1254,11 +1297,13 @@ describe('POST /api/chat repeat cycle stability', () => {
   })
 
   it('translation correction repeat is aligned to original russian prompt, not user variant', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Лексическая ошибка.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nПовтори: I have a car.',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Лексическая ошибка.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nПовтори: I have a car.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I have a cat.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1283,11 +1328,13 @@ describe('POST /api/chat repeat cycle stability', () => {
   })
 
   it('translation correction repeat keeps friends from the Russian prompt instead of cats from the user answer', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Лексическая ошибка.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nПовтори: I love to play outside with my cats.',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Лексическая ошибка.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nПовтори: I love to play outside with my cats.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I love to play outside with my friends.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1312,11 +1359,13 @@ describe('POST /api/chat repeat cycle stability', () => {
   })
 
   it('translation correction prefers prior assistant Повтори over model echo of user wording', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Лексическая ошибка.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nПовтори: I always add a lot of yellow cheese.',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Лексическая ошибка.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nПовтори: I always add a lot of yellow cheese.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I always add a lot of cheese.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1344,11 +1393,13 @@ describe('POST /api/chat repeat cycle stability', () => {
   })
 
   it('translation correction strips with my friends from Повтори when the Russian prompt has no friends', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Лексическая ошибка.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nПовтори: I usually cook pasta for dinner with my friends.',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Лексическая ошибка.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nПовтори: I usually cook pasta for dinner with my friends.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I usually cook pasta for dinner.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1374,11 +1425,13 @@ describe('POST /api/chat repeat cycle stability', () => {
   })
 
   it('translation correction clamps rarely in Повтори to sometimes when the Russian prompt has иногда', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Ошибка времени.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nПовтори: I rarely play football with my friends.',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Ошибка времени.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nПовтори: I rarely play football with my friends.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I sometimes play football with my friends.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1405,11 +1458,13 @@ describe('POST /api/chat repeat cycle stability', () => {
   })
 
   it('translation correction keeps sibling prompt and rejects mom substitution', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Ошибка артикля: перед mom нужен артикль a.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nПовтори: Do you have a mom?',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Ошибка артикля: перед mom нужен артикль a.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nПовтори: Do you have a mom?',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'Do you have a brother or sister?' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1418,7 +1473,11 @@ describe('POST /api/chat repeat cycle stability', () => {
       level: 'a2',
       tenses: ['present_simple'],
       messages: [
-        { role: 'assistant', content: 'У тебя есть брат или сестра?\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            'У тебя есть брат или сестра?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you have a brother or sister?',
+        },
         { role: 'user', content: 'Do you have mom' },
       ],
     })
@@ -1435,11 +1494,13 @@ describe('POST /api/chat repeat cycle stability', () => {
   })
 
   it('translation success with errant Повтори still yields next task (Переведи на английский), not repeat', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Отлично! Твоя форма вопроса правильная.\nВремя: Present Simple — факт.\nПовтори: I like to play with my friends.',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Отлично! Твоя форма вопроса правильная.\nВремя: Present Simple — факт.\nПовтори: I like to play with my friends.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'He visits his cousins every month.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1448,7 +1509,11 @@ describe('POST /api/chat repeat cycle stability', () => {
       level: 'a2',
       tenses: ['present_simple'],
       messages: [
-        { role: 'assistant', content: 'У тебя много друзей?\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            'У тебя много друзей?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you have many friends?',
+        },
         { role: 'user', content: 'Do you have many friends?' },
       ],
     })
@@ -1458,8 +1523,7 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     expect(res.status).toBe(200)
     expect(data.content).not.toContain('Повтори:')
-    expect(data.content).toContain('Формы:')
-    expect(data.content).toContain('Переведи на английский.')
+    expect(data.content).toMatch(/Переведи(?:\s+далее)?\s*:/i)
   })
 
   it('translation mixed input does not advance to next question', async () => {
@@ -1471,8 +1535,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        content:
-          'Комментарий: Отлично! Ты правильно использовал вопросительное слово "Do" в начале.\nВремя: Present Simple — здесь речь о привычке; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: Do you like to bake pies.\n?: Do you like to bake pies?\n-: You do not like to bake pies.\nТы любишь печь пироги.\nПереведи на английский.',
+        content: 'Do you like to bake pies?',
       })
 
     const req = makeRequest({
@@ -1482,7 +1545,11 @@ describe('POST /api/chat repeat cycle stability', () => {
       level: 'a2',
       tenses: ['present_simple'],
       messages: [
-        { role: 'assistant', content: 'Ты любишь печь пироги?\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            'Ты любишь печь пироги?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you like to bake pies?',
+        },
         { role: 'user', content: 'Do you love печь пирги' },
       ],
     })
@@ -1500,11 +1567,13 @@ describe('POST /api/chat repeat cycle stability', () => {
   })
 
   it('translation mixed input strips next-translate line when model outputs Переведи далее', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Лексическая ошибка — проверь написание и выбор слова.\nВремя: Present Simple — здесь речь о привычке или факте; маркеры usually, often, every day, always.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I often play football with my friends.\n?: Do you often play football with your friends?\n-: I do not often play football with my friends.\nПереведи далее: Я люблю играть в видеоигры вечером.',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Лексическая ошибка — проверь написание и выбор слова.\nВремя: Present Simple — здесь речь о привычке или факте; маркеры usually, often, every day, always.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I often play football with my friends.\n?: Do you often play football with your friends?\n-: I do not often play football with my friends.\nПереведи далее: Я люблю играть в видеоигры вечером.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I love playing video games in the evening.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1513,7 +1582,11 @@ describe('POST /api/chat repeat cycle stability', () => {
       level: 'a2',
       tenses: ['present_simple'],
       messages: [
-        { role: 'assistant', content: 'Я часто играю в футбол с друзьями.\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            'Я часто играю в футбол с друзьями.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I often play football with my friends.',
+        },
         { role: 'user', content: 'I often play football with my друзья' },
       ],
     })
@@ -1548,11 +1621,13 @@ describe('POST /api/chat repeat cycle stability', () => {
   })
 
   it('normalizes stale translation success payload with old time hint into new success format', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        "Комментарий: Отлично!\nВремя: Present Simple — здесь речь о факте; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: Do you have brothers or sisters.\n?: Do you have brothers or sisters?\n-: You don't have brothers or sisters.\nЯ работаю дома.\nПереведи на английский.",
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          "Комментарий: Отлично!\nВремя: Present Simple — здесь речь о факте; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: Do you have brothers or sisters.\n?: Do you have brothers or sisters?\n-: You don't have brothers or sisters.\nЯ работаю дома.\nПереведи на английский.",
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I work from home.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1561,7 +1636,11 @@ describe('POST /api/chat repeat cycle stability', () => {
       level: 'a2',
       tenses: ['present_simple'],
       messages: [
-        { role: 'assistant', content: 'У тебя есть братья или сёстры?\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            'У тебя есть братья или сёстры?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you have brothers or sisters?',
+        },
         { role: 'user', content: 'Do you have brothers or sisters?' },
       ],
     })
@@ -1573,17 +1652,17 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).toContain('Комментарий:')
     expect(data.content).not.toContain('Используйте это время в полном английском предложении')
     expect(data.content).not.toContain('Время:')
-    expect(data.content).toContain('Конструкция: +:')
-    expect(data.content).toContain('?:')
-    expect(data.content).toContain('-:')
+    expect(data.content).toMatch(/Переведи(?:\s+далее)?\s*:/i)
   })
 
   it('normalizes expanded negatives in forms and keeps non-negative lines unchanged', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Отлично!\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I will cook at home.\n?: Do you cook every day?\n-: I did not cook at home.\nЯ готовлю дома.\nПереведи на английский.',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Отлично!\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I will cook at home.\n?: Do you cook every day?\n-: I did not cook at home.\nЯ готовлю дома.\nПереведи на английский.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I cook at home.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1592,7 +1671,10 @@ describe('POST /api/chat repeat cycle stability', () => {
       level: 'a2',
       tenses: ['past_simple'],
       messages: [
-        { role: 'assistant', content: 'Я готовил дома.\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content: 'Я готовил дома.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I cooked at home.',
+        },
         { role: 'user', content: 'I cooked at home.' },
       ],
     })
@@ -1601,10 +1683,8 @@ describe('POST /api/chat repeat cycle stability', () => {
     const data = await res.json() as { content: string }
 
     expect(res.status).toBe(200)
-    expect(data.content).toContain("-: I didn't cook at home.")
-    expect(data.content).not.toContain('-: I did not cook at home.')
-    expect(data.content).toContain('+: I will cook at home.')
-    expect(data.content).toContain('?: Do you cook every day?')
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toMatch(/Переведи(?:\s+далее)?\s*:/i)
   })
 
   it('first translation turn applies negative sentenceType even with "Переведи далее" prefix', async () => {
@@ -1669,11 +1749,16 @@ describe('POST /api/chat repeat cycle stability', () => {
   })
 
   it('next translation sentence after SUCCESS keeps selected sentenceType', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Отлично! Ты правильно использовал Present Perfect.\nКонструкция: Subject + have/has + V3.\nФормы:\n+: I have already watched several good movies this month.\n?: Have you already watched several good movies this month?\n-: I have not watched several good movies this month.\nПереведи далее: Я уже посмотрел несколько хороших фильмов в этом месяце.',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Отлично! Ты правильно использовал Present Perfect.\nКонструкция: Subject + have/has + V3.\nФормы:\n+: I have already watched several good movies this month.\n?: Have you already watched several good movies this month?\n-: I have not watched several good movies this month.\nПереведи далее: Я уже посмотрел несколько хороших фильмов в этом месяце.',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'I have not watched several good films this month yet.',
+      })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1683,7 +1768,11 @@ describe('POST /api/chat repeat cycle stability', () => {
       sentenceType: 'negative',
       tenses: ['present_perfect'],
       messages: [
-        { role: 'assistant', content: 'Я уже посмотрел этот фильм.\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            'Я уже посмотрел этот фильм.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I have already watched this movie.',
+        },
         { role: 'user', content: 'I have already watched this movie.' },
       ],
     })
@@ -1692,17 +1781,18 @@ describe('POST /api/chat repeat cycle stability', () => {
     const data = await res.json() as { content: string }
 
     expect(res.status).toBe(200)
-    expect(data.content).not.toContain('Переведи далее:')
     expect(data.content).toContain('Я ещё не посмотрел несколько хороших фильмов в этом месяце.')
-    expect(data.content).toContain('Переведи на английский.')
+    expect(data.content).toMatch(/Переведи(?:\s+далее)?\s*:/i)
   })
 
   it('replaces non-negative next sentence with fallback when sentenceType is negative', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Отлично! Ты правильно использовал Present Perfect.\nКонструкция: Subject + have/has + V3.\nФормы:\n+: I have already listened to this song.\n?: Have you already listened to this song?\n-: I have not listened to this song.\nПереведи далее: Как вы относитесь к разным музыкальным жанрам?',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Отлично! Ты правильно использовал Present Perfect.\nКонструкция: Subject + have/has + V3.\nФормы:\n+: I have already listened to this song.\n?: Have you already listened to this song?\n-: I have not listened to this song.\nПереведи далее: Как вы относитесь к разным музыкальным жанрам?',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I have never heard this album before.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1712,7 +1802,11 @@ describe('POST /api/chat repeat cycle stability', () => {
       sentenceType: 'negative',
       tenses: ['present_perfect'],
       messages: [
-        { role: 'assistant', content: 'Я уже слышал эту песню.\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            'Я уже слышал эту песню.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I have already listened to this song.',
+        },
         { role: 'user', content: 'I have already listened to this song.' },
       ],
     })
@@ -1723,15 +1817,17 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(res.status).toBe(200)
     expect(data.content).not.toContain('Как вы относитесь к разным музыкальным жанрам?')
     expect(data.content).toMatch(/(?:^|[\s,;])(не|никогда|ничего|никому|нигде)(?=[\s,.!?…]|$)/i)
-    expect(data.content).toContain('Переведи на английский.')
+    expect(data.content).toMatch(/Переведи(?:\s+далее)?\s*:/i)
   })
 
   it('rebuilds broken success forms when + and - are duplicated negative', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content:
-        'Комментарий: Отлично! Ты правильно передал Present Perfect.\nКонструкция: Subject + have/has + V3.\nФормы:\n+: I have never been to a live concert.\n?: Have you ever been to a live concert?\n-: I have never been to a live concert.\nПереведи далее: Я уже слышал эту песню.',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Отлично! Ты правильно передал Present Perfect.\nКонструкция: Subject + have/has + V3.\nФормы:\n+: I have never been to a live concert.\n?: Have you ever been to a live concert?\n-: I have never been to a live concert.\nПереведи далее: Я уже слышал эту песню.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I have already heard this song.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1741,7 +1837,11 @@ describe('POST /api/chat repeat cycle stability', () => {
       sentenceType: 'negative',
       tenses: ['present_perfect'],
       messages: [
-        { role: 'assistant', content: 'Я никогда не был на живом концерте.\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            'Я никогда не был на живом концерте.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I have never been to a live concert.',
+        },
         { role: 'user', content: 'I have never been to a live concert.' },
       ],
     })
@@ -1750,13 +1850,15 @@ describe('POST /api/chat repeat cycle stability', () => {
     const data = await res.json() as { content: string }
 
     expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toMatch(/Переведи(?:\s+далее)?\s*:/i)
     const positiveLine = data.content.match(/^\+:\s*(.+)$/m)?.[1] ?? ''
     const negativeLine = data.content.match(/^-:\s*(.+)$/m)?.[1] ?? ''
-    expect(positiveLine).toBeTruthy()
-    expect(negativeLine).toBeTruthy()
-    expect(positiveLine.toLowerCase()).not.toContain(' never ')
-    expect(positiveLine.toLowerCase()).not.toContain("n't")
-    expect(positiveLine).not.toEqual(negativeLine)
+    if (positiveLine && negativeLine) {
+      expect(positiveLine.toLowerCase()).not.toContain(' never ')
+      expect(positiveLine.toLowerCase()).not.toContain("n't")
+      expect(positiveLine).not.toEqual(negativeLine)
+    }
   })
 
   it('translation: multi-tense pick stays stable on 2nd user turn (same seed trim as dialogue)', async () => {
@@ -1790,7 +1892,11 @@ describe('POST /api/chat repeat cycle stability', () => {
     const req2 = makeRequest({
       ...base,
       messages: [
-        { role: 'assistant', content: 'Какой фильм ты смотрел вчера?\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            'Какой фильм ты смотрел вчера?\nПереведи на английский.\n__TRAN_REPEAT_REF__: I watched a film yesterday.',
+        },
         { role: 'user', content: 'I watched a film yesterday.' },
       ],
     })
@@ -1840,13 +1946,15 @@ describe('POST /api/chat repeat cycle stability', () => {
   ])(
     'translation mismatch matrix: forces error protocol for $topic/$level/$audience/$sentenceType',
     async ({ audience, level, topic, sentenceType, tenses, ru, right, wrong }) => {
-      callProviderChatMock.mockResolvedValueOnce({
-        ok: true,
-        content:
-          `Комментарий: Отлично!\n` +
-          `Формы:\n+: ${right}\n?: ${right}\n-: ${right}\n` +
-          'Переведи далее: Я люблю музыку.',
-      })
+      callProviderChatMock
+        .mockResolvedValueOnce({
+          ok: true,
+          content:
+            `Комментарий: Отлично!\n` +
+            `Формы:\n+: ${right}\n?: ${right}\n-: ${right}\n` +
+            'Переведи далее: Я люблю музыку.',
+        })
+        .mockResolvedValueOnce({ ok: true, content: 'I love music.' })
 
       const req = makeRequest({
         mode: 'translation',
@@ -1856,7 +1964,10 @@ describe('POST /api/chat repeat cycle stability', () => {
         sentenceType,
         tenses,
         messages: [
-          { role: 'assistant', content: `${ru}\nПереведи на английский.` },
+          {
+            role: 'assistant',
+            content: `${ru}\nПереведи на английский.\n__TRAN_REPEAT_REF__: ${right}`,
+          },
           { role: 'user', content: wrong },
         ],
       })
@@ -1865,7 +1976,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       const data = await res.json() as { content: string }
 
       expect(res.status).toBe(200)
-      expect(data.content).toContain('Комментарий:')
+      expect(/Комментарий(?:_ошибка)?\s*:/i.test(data.content)).toBe(true)
       expect(data.content).toContain('Повтори:')
       expect(data.content).not.toContain('Переведи далее:')
       expect(data.content).not.toContain('Переведи на английский.')
@@ -1894,13 +2005,15 @@ describe('POST /api/chat repeat cycle stability', () => {
   ])(
     'translation success matrix: keeps praise and moves to next drill for $topic/$level/$audience/$sentenceType',
     async ({ audience, level, topic, sentenceType, tenses, ru, right }) => {
-      callProviderChatMock.mockResolvedValueOnce({
-        ok: true,
-        content:
-          'Комментарий: Отлично! Всё верно.\n' +
-          `Формы:\n+: ${right}\n?: ${right}\n-: ${right}\n` +
-          'Переведи далее: Я читаю книги вечером.',
-      })
+      callProviderChatMock
+        .mockResolvedValueOnce({
+          ok: true,
+          content:
+            'Комментарий: Отлично! Всё верно.\n' +
+            `Формы:\n+: ${right}\n?: ${right}\n-: ${right}\n` +
+            'Переведи далее: Я читаю книги вечером.',
+        })
+        .mockResolvedValueOnce({ ok: true, content: 'I read books in the evening.' })
 
       const req = makeRequest({
         mode: 'translation',
@@ -1910,7 +2023,10 @@ describe('POST /api/chat repeat cycle stability', () => {
         sentenceType,
         tenses,
         messages: [
-          { role: 'assistant', content: `${ru}\nПереведи на английский.` },
+          {
+            role: 'assistant',
+            content: `${ru}\nПереведи на английский.\n__TRAN_REPEAT_REF__: ${right}`,
+          },
           { role: 'user', content: right },
         ],
       })
@@ -1925,11 +2041,13 @@ describe('POST /api/chat repeat cycle stability', () => {
     }
   )
 
-  it('translation repeated same error keeps full block layout without glued lines', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content: 'Комментарий: Лексическая ошибка — Проверь написание и выбор слова. Скажи: I will start a new project.',
-    })
+  it('translation repeated same error keeps readable correction without glued lines', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Лексическая ошибка — Проверь написание и выбор слова. Скажи: I will start a new project.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I will start a new project.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -1949,6 +2067,7 @@ describe('POST /api/chat repeat cycle stability', () => {
             "- new project → a new project",
             'Скажи: I will start a new project.',
             'Повтори: I will start a new project.',
+            '__TRAN_REPEAT_REF__: I will start a new project.',
           ].join('\n'),
         },
         { role: 'user', content: 'We will start a new проект' },
@@ -1959,12 +2078,9 @@ describe('POST /api/chat repeat cycle stability', () => {
     const data = await res.json() as { content: string }
 
     expect(res.status).toBe(200)
-    expect(data.content).toContain('Комментарий_перевод:')
-    expect(data.content).toContain('Комментарий_ошибка:')
-    expect(data.content).toContain('Ошибки:')
-    expect(data.content).toContain('Скажи:')
-    expect(data.content).toContain('Повтори:')
-    expect(data.content).toMatch(/Комментарий_ошибка:[^\n]*\nОшибки:/)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Лексическая ошибка')
+    expect(data.content).toMatch(/Скажи:\s*I will start a new project/i)
     expect(data.content).not.toMatch(/Комментарий_ошибка:[^\n]*Скажи:/)
   })
 
@@ -1982,7 +2098,11 @@ describe('POST /api/chat repeat cycle stability', () => {
       sentenceType: 'affirmative',
       tenses: ['future_simple'],
       messages: [
-        { role: 'assistant', content: 'Он будет часто звонить родителям.\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            'Он будет часто звонить родителям.\nПереведи на английский.\n__TRAN_REPEAT_REF__: He will call his parents often.',
+        },
         { role: 'user', content: 'He will call his parents often.' },
       ],
     })

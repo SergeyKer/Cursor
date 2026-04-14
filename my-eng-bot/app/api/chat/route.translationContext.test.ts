@@ -108,20 +108,22 @@ describe('POST /api/chat translation provider payload', () => {
     expect(systemPrompt).toContain('In SUCCESS protocol do NOT output separate "Время:", "Конструкция:", "Формы:" or "Повтори:" lines.')
   })
 
-  it('keeps a single provider call when __TRAN_REPEAT_REF__ is reconstructed locally', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content: [
-        'Комментарий: Отлично! Ты правильно построил утвердительную форму.',
-        'Конструкция: Subject + V1(s/es)',
-        'Формы:',
-        '+: I usually read books before bed.',
-        '?: Do I usually read books before bed?',
-        '-: I do not usually read books before bed.',
-        'Переведи далее: Я обычно читаю книги перед сном.',
-        'Переведи на английский.',
-      ].join('\n'),
-    })
+  it('при наличии __TRAN__ в истории не дергает gold до основного вызова; finalize может запросить gold для скрытой строки', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: [
+          'Комментарий: Отлично! Ты правильно построил утвердительную форму.',
+          'Конструкция: Subject + V1(s/es)',
+          'Формы:',
+          '+: I usually read books before bed.',
+          '?: Do I usually read books before bed?',
+          '-: I do not usually read books before bed.',
+          'Переведи далее: Я обычно читаю книги перед сном.',
+          'Переведи на английский.',
+        ].join('\n'),
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I usually read books before bed.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -130,27 +132,34 @@ describe('POST /api/chat translation provider payload', () => {
       tenses: ['present_simple'],
       sentenceType: 'affirmative',
       messages: [
-        { role: 'assistant', content: 'Переведи: Я обычно читаю книги перед сном.\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            'Переведи: Я обычно читаю книги перед сном.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I usually read books before bed.',
+        },
         { role: 'user', content: 'I usually read books before bed.' },
       ],
     })
 
     const res = await POST(req as never)
     expect(res.status).toBe(200)
-    expect(callProviderChatMock).toHaveBeenCalledTimes(1)
+    // Основной вызов тьютора + короткий вызов за gold для __TRAN__ в finalize (после ensureTranslationSuccessBlocks «Формы» уже сняты).
+    expect(callProviderChatMock).toHaveBeenCalledTimes(2)
   })
 
   it('adds explicit RU→EN replacement hint in Ошибки for mixed answer words', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content: [
-        'Комментарий_перевод: Хорошее начало вопроса. Исправь порядок слов.',
-        'Комментарий_ошибка: Ошибка формы вопроса. Поставь do перед подлежащим.',
-        'Время: Present Simple — привычка или факт.',
-        'Конструкция: Do/Does + subject + V1 ...?',
-        'Повтори: What do you like as a pet?',
-      ].join('\n'),
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: [
+          'Комментарий_перевод: Хорошее начало вопроса. Исправь порядок слов.',
+          'Комментарий_ошибка: Ошибка формы вопроса. Поставь do перед подлежащим.',
+          'Время: Present Simple — привычка или факт.',
+          'Конструкция: Do/Does + subject + V1 ...?',
+          'Повтори: What do you like as a pet?',
+        ].join('\n'),
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'What do you like as a pet?' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -159,7 +168,11 @@ describe('POST /api/chat translation provider payload', () => {
       tenses: ['present_simple'],
       sentenceType: 'interrogative',
       messages: [
-        { role: 'assistant', content: 'Переведи: Какой питомец тебе нравится?\nПереведи на английский.' },
+        {
+          role: 'assistant',
+          content:
+            'Переведи: Какой питомец тебе нравится?\nПереведи на английский.\n__TRAN_REPEAT_REF__: What do you like as a pet?',
+        },
         { role: 'user', content: 'What is you like питомец' },
       ],
     })
@@ -168,7 +181,7 @@ describe('POST /api/chat translation provider payload', () => {
     expect(res.status).toBe(200)
     const data = (await res.json()) as { content: string }
     expect(data.content).toContain('Комментарий_перевод: Хорошее начало вопроса.')
-    expect(data.content).toContain('Комментарий_ошибка: Ошибка формы вопроса. Поставь do перед подлежащим.')
+    expect(data.content).toContain('Ошибка формы вопроса. Поставь do перед подлежащим.')
     expect(data.content).toContain('Ошибки:')
     expect(data.content.toLowerCase()).toMatch(/📖\s*питомец\s*-\s*pet/)
   })

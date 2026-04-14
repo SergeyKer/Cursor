@@ -183,6 +183,14 @@ export function filterTranslationErrorsDisplayText(raw: string): string {
     if (isVerbFormLabelWithSpellingDetail(displayLine)) continue
     if (isSentenceTypeMislabeledTranslation(displayLine)) continue
     const m = displayLine.match(subsectionLine)
+    if (
+      m &&
+      isPlaceholderBody(m[2] ?? '') &&
+      /\bЛексика\s*:\s*$/iu.test(displayLine)
+    ) {
+      out.push(...normalizeDisplayErrorLine(displayLine))
+      continue
+    }
     if (m && isPlaceholderBody(m[2] ?? '')) continue
     out.push(...normalizeDisplayErrorLine(displayLine))
   }
