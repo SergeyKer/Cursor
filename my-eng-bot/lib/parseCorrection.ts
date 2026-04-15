@@ -45,6 +45,16 @@ export function parseCorrection(text: string): {
     return { comment: commentPart, invitation: invitationPart }
   }
 
+  function isTranslationMetaFeedbackLine(source: string): boolean {
+    const m = /^(?:\d+[\.)]\s*)?(?:Переведи|Переведите)(?:\s+далее)?\s*:\s*(.+)$/i.exec(source.trim())
+    if (!m?.[1]) return false
+    const body = m[1].trim()
+    if (!body) return false
+    if (!/[А-Яа-яЁё]/.test(body)) return false
+    if (/[!?]\s*$/.test(body)) return false
+    return /(?:^|[\s"«(])(ты|вы)\s+(?:правильн|верн|хорошо|точно|удачно)/i.test(body)
+  }
+
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i]
     const line = stripAssistantPrefix(raw).trim()
@@ -67,6 +77,10 @@ export function parseCorrection(text: string): {
       }
     }
     if (collectingComment) {
+      if (isTranslationMetaFeedbackLine(line)) {
+        comment = comment ? `${comment}\n${line}` : line
+        continue
+      }
       const isNextHeader =
         /^ошибки\s*:/i.test(line) ||
         /^время\s*:/i.test(line) ||
@@ -129,10 +143,13 @@ export function parseCorrection(text: string): {
     repeatLine = split.repeat
   }
   if (comment) {
+    const commentBeforeInviteSplit = comment
     const split = splitInlineTranslationInvitation(comment)
-    comment = split.comment
-    if (split.invitation) {
+    if (split.invitation && !isTranslationMetaFeedbackLine(split.invitation)) {
+      comment = split.comment
       restLines.unshift(split.invitation)
+    } else {
+      comment = commentBeforeInviteSplit
     }
   }
 
@@ -162,7 +179,8 @@ export function parseCorrection(text: string): {
   if (praiseThenRest && !rest) {
     const [, praiseWord, tail] = praiseThenRest
     const tailTrim = (tail as string).trim()
-    if (tailTrim.length > 0) {
+    const keepTailInComment = isTranslationMetaFeedbackLine(tailTrim)
+    if (tailTrim.length > 0 && !keepTailInComment) {
       comment = `${praiseWord}!`
       rest = tailTrim
     }

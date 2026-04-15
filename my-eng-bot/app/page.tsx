@@ -448,7 +448,10 @@ export default function Home() {
               body: JSON.stringify({
                 messages: apiMessages.map((m) => ({
                   role: m.role,
-                  content: m.role === 'assistant' ? stripHiddenAssistantPayloadLines(m.content) : m.content,
+                  content:
+                    m.role === 'assistant' && settings.mode !== 'translation'
+                      ? stripHiddenAssistantPayloadLines(m.content)
+                      : m.content,
                   ...(m.role === 'assistant' && m.webSearchTriggered ? { webSearchTriggered: true } : {}),
                   ...(m.role === 'assistant' && Array.isArray(m.webSearchSources) && m.webSearchSources.length > 0
                     ? {

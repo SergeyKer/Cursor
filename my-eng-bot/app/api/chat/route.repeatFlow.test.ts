@@ -2283,6 +2283,7 @@ describe('POST /api/chat repeat cycle stability', () => {
         content: 'Комментарий: Лексическая ошибка — Проверь написание и выбор слова. Скажи: I will start a new project.',
       })
       .mockResolvedValueOnce({ ok: true, content: 'I will start a new project.' })
+      .mockResolvedValueOnce({ ok: true, content: 'I will start a new project.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -2313,17 +2314,19 @@ describe('POST /api/chat repeat cycle stability', () => {
     const data = await res.json() as { content: string }
 
     expect(res.status).toBe(200)
-    expect(data.content).toContain('Комментарий:')
-    expect(data.content).toContain('Лексическая ошибка')
+    expect(/Комментарий_перевод\s*:|Комментарий\s*:/i.test(data.content)).toBe(true)
+    expect(data.content).toContain('Ошибки:')
     expect(data.content).toMatch(/Скажи:\s*I will start a new project/i)
     expect(data.content).not.toMatch(/Комментарий_ошибка/)
   })
 
   it('translation success always appends next drill even when model returns only short praise', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content: 'Комментарий: Отлично! Верная форма Future Simple.',
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Отлично! Верная форма Future Simple.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'He will call his parents often.' })
 
     const req = makeRequest({
       mode: 'translation',

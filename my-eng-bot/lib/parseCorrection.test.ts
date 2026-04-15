@@ -32,4 +32,28 @@ describe('parseCorrection', () => {
     expect(result.rest).toContain('Ошибки:')
     expect(result.rest).toContain('✏️')
   })
+
+  it('keeps translation meta feedback line in comment block', () => {
+    const result = parseCorrection(
+      [
+        'Комментарий: Молодец!',
+        'Переведи далее: Ты правильно использовал "like" для "нравится".',
+      ].join('\n')
+    )
+
+    expect(result.comment).toBe('Молодец!\nПереведи далее: Ты правильно использовал "like" для "нравится".')
+    expect(result.rest).toBe('')
+  })
+
+  it('keeps real translation invitation in rest block', () => {
+    const result = parseCorrection(
+      [
+        'Комментарий: Молодец!',
+        'Переведи далее: Мне нравится гулять с друзьями.',
+      ].join('\n')
+    )
+
+    expect(result.comment).toBe('Молодец!')
+    expect(result.rest).toBe('Переведи далее: Мне нравится гулять с друзьями.')
+  })
 })

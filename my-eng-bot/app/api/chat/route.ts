@@ -679,8 +679,7 @@ Rules:
 - Avoid awkward calques, bookish wording, and abstract phrasing that a learner would not normally say.
 - Do not output markdown markers like **Correction** or **Comment**.
 - Keep all explanations short and practical for learner.
-- If user answer is correct, use SUCCESS protocol and include all three "Формы" lines.
-- If user answer is correct, include "Конструкция:" as line 2 and do not output "Скажи:".
+- If user answer is correct, strictly follow SUCCESS protocol above: only "Комментарий", then "Переведи далее", then "Переведи на английский.", then "__TRAN_REPEAT_REF__".
 - In "Формы" lines, prefer contracted negatives in English: use don't/doesn't/didn't/won't/isn't/aren't/wasn't/weren't/can't (instead of expanded forms like do not/will not/is not).
 - Keep the final line "Переведи на английский." only in SUCCESS protocol.
 - In SUCCESS protocol, "Комментарий" must be engaging, clear, and context-aware for this exact phrase.
@@ -3725,6 +3724,15 @@ function normalizeTranslationSuccessPayload(
   return ensureTranslationSuccessBlocks(content, params)
 }
 
+function extractTranslationInviteMetaFeedback(line: string): string | null {
+  const match = /^[\s\-•]*(?:\d+[\.)]\s*)*(?:Переведи|Переведите)(?:\s+далее)?\s*:\s*(.+)$/i.exec(line)
+  if (!match?.[1]) return null
+  const body = match[1].trim()
+  if (!body || !/[А-Яа-яЁё]/.test(body)) return null
+  if (/[!?]\s*$/.test(body)) return null
+  return /(?:^|[\s"«(])(ты|вы)\s+(?:правильн|верн|хорошо|точно|удачно)/i.test(body) ? body : null
+}
+
 function ensureTranslationSuccessBlocks(
   content: string,
   params: {
@@ -3758,6 +3766,12 @@ function ensureTranslationSuccessBlocks(
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(line)) continue
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Формы\s*:/i.test(line)) continue
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*[+\?-]\s*:/i.test(line)) continue
+    const inviteMetaFeedback = extractTranslationInviteMetaFeedback(line)
+    if (inviteMetaFeedback) {
+      const baseComment = comment?.replace(/^Комментарий:\s*/i, '').trim() || 'Отлично!'
+      comment = `Комментарий: ${[baseComment, inviteMetaFeedback].filter(Boolean).join(' ')}`
+      continue
+    }
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*(?:Переведи|Переведите)\b/i.test(line)) {
       hasInvitation = true
       continue
@@ -4004,28 +4018,49 @@ async function finalizeTranslationResponsePayload(params: {
     }
   }
   if (ruForRefCard?.trim() && !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
-    if (!isTranslationGoldApiFallbackEnabled()) {
-      console.info('[chat][translation-gold] ref_missing_fallback_disabled')
-    } else {
-      console.info('[chat][translation-gold] ref_api_fallback')
-      const goldFromApi = params.resolveGoldTranslation
-        ? await params.resolveGoldTranslation({
-            ruSentence: ruForRefCard,
-            level: params.level,
-            audience: params.audience,
-          })
-        : await translateRussianPromptToGoldEnglish({
-            ruSentence: ruForRefCard,
-            level: params.level,
-            audience: params.audience,
-            provider: params.provider,
-            req: params.req,
-          })
-      if (goldFromApi) {
-        const { clamped } = clampTranslationRepeatToRuPrompt(goldFromApi, ruForRefCard)
-        guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${clamped}`
+    console.info('[chat][translation-gold] ref_api_fallback')
+    const goldFromApi = params.resolveGoldTranslation
+      ? await params.resolveGoldTranslation({
+          ruSentence: ruForRefCard,
+          level: params.level,
+          audience: params.audience,
+        })
+      : await translateRussianPromptToGoldEnglish({
+          ruSentence: ruForRefCard,
+          level: params.level,
+          audience: params.audience,
+          provider: params.provider,
+          req: params.req,
+        })
+    if (goldFromApi?.trim()) {
+      const { clamped } = clampTranslationRepeatToRuPrompt(goldFromApi, ruForRefCard)
+      guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${clamped}`
+    }
+  }
+  if (ruForRefCard?.trim() && !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
+    const fromSay = getTranslationRepeatSentence(guardedContent)
+    if (fromSay?.trim() && !hasTranslationPromptKeywordMismatch(ruForRefCard, fromSay)) {
+      const { clamped } = clampTranslationRepeatToRuPrompt(fromSay.trim(), ruForRefCard)
+      const line = (clamped?.trim() || fromSay.trim()) || ''
+      if (line) {
+        guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${line}`
+        console.info('[chat][translation-gold] ref_from_say_line')
       }
     }
+  }
+  if (ruForRefCard?.trim() && !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
+    const cue = extractEnglishSentenceCandidate(guardedContent)
+    if (cue?.trim() && !hasTranslationPromptKeywordMismatch(ruForRefCard, cue)) {
+      const { clamped } = clampTranslationRepeatToRuPrompt(cue.trim(), ruForRefCard)
+      const line = (clamped?.trim() || cue.trim()) || ''
+      if (line) {
+        guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${line}`
+        console.info('[chat][translation-gold] ref_from_english_candidate')
+      }
+    }
+  }
+  if (ruForRefCard?.trim() && !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
+    console.error('[chat][translation-gold] ref_invariant_failed', { ru: ruForRefCard.slice(0, 80) })
   }
   return guardedContent
 }
@@ -6625,7 +6660,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             goldForVerdict = clamped?.trim() || fromVisible.trim()
           }
         }
-        if (!goldForVerdict && tpForGold && isTranslationGoldApiFallbackEnabled()) {
+        if (!goldForVerdict && tpForGold) {
           const apiGold = await resolveGoldTranslation({
             ruSentence: tpForGold,
             level: translationDrillLevel as LevelId,
@@ -6733,9 +6768,22 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       }
       if (translationGoldForVerdict && !translationGoldVerdictFailed) {
         // Эталон __TRAN__ важнее эвристики ключевых слов RU→EN: при совпадении с gold засчитываем успех.
-        canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic
+        // Если эталон взят из скрытой строки карточки (__TRAN__), он согласован с текущим drill
+        // и можем дополнительно требовать совпадение с prior repeat из той же цепочки.
+        if (translationGoldVerdictFromHiddenRef) {
+          canTreatTranslationAsSuccess =
+            !translationAnswerContainsCyrillic &&
+            (!priorAssistantRepeatEnglish || userMatchesPriorAssistantRepeat)
+        } else {
+          canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic
+        }
       }
       if (translationGoldVerdictFailed) {
+        canTreatTranslationAsSuccess = false
+      }
+      const translationGoldMissing =
+        !isFirstTurn && Boolean(tpForGold) && !translationGoldForVerdict?.trim()
+      if (translationGoldMissing) {
         canTreatTranslationAsSuccess = false
       }
       if (isFirstTurn) {
@@ -6815,7 +6863,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 priorRepeatEnglish: priorAssistantRepeatEnglish,
               })
             }
-            sanitized = keepOnlyCommentAndRepeatOnInvalidTranslationInput(sanitized, !isFirstTranslationUserTurn)
+            sanitized = keepOnlyCommentAndRepeatOnInvalidTranslationInput(sanitized, true)
             if (isUnrecognizedTranslationContext(sanitized)) {
               sanitized =
                 'Комментарий: Некорректный ввод. Введите правильный перевод полным предложением на английском языке.'
@@ -6838,13 +6886,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 existingRepeatForGoldCheck ?? '',
                 repeatAnchorForError
               )
-            if (
-              repeatAnchorForError &&
-              !canTreatTranslationAsSuccess &&
-              !repeatAlreadyMatchesGold &&
-              (translationGoldVerdictFailed || !isFirstTranslationUserTurn)
-            ) {
-              // Эталон с gold / прошлой карточки; на первом ходе — тоже, если золотой вердикт провален.
+            if (repeatAnchorForError && !canTreatTranslationAsSuccess && !repeatAlreadyMatchesGold) {
               sanitized = forceTranslationWordErrorProtocol(sanitized, repeatAnchorForError, lastUserContentForResponse)
             }
           }
@@ -6868,9 +6910,12 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     }
 
     if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
-      // Жёсткая страховка SUCCESS: если сервер засчитал ответ верным, всегда достраиваем
-      // success-блок с «Переведи далее», даже когда модель вернула только короткий комментарий.
-      if (canTreatTranslationAsSuccess) {
+      // Страховка SUCCESS только при подтверждённом золотом эталоне и вердикте (без «успеха» без gold).
+      if (
+        canTreatTranslationAsSuccess &&
+        translationGoldForVerdict?.trim() &&
+        !translationGoldVerdictFailed
+      ) {
         sanitized = ensureTranslationSuccessBlocks(sanitized, {
           tense: tutorGradingTense,
           topic,
@@ -6907,7 +6952,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       }
       if (!repeatSentence || isGenericTranslationRepeatFallback(repeatSentence)) {
         const userLikelyCorrect = isUserLikelyCorrectForTense(lastUserContentForResponse, tutorGradingTense)
-        if (!repeatSentence && userLikelyCorrect && canTreatTranslationAsSuccess) {
+        if (
+          !repeatSentence &&
+          userLikelyCorrect &&
+          canTreatTranslationAsSuccess &&
+          translationGoldForVerdict?.trim() &&
+          !translationGoldVerdictFailed
+        ) {
           sanitized = ensureTranslationSuccessBlocks(sanitized, {
             tense: tutorGradingTense,
             topic,
@@ -6977,7 +7028,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 userText: lastUserContentForResponse,
                 priorRepeatEnglish: priorAssistantRepeatEnglish,
               })
-              repaired = keepOnlyCommentAndRepeatOnInvalidTranslationInput(repaired, !isFirstTranslationUserTurn)
+              repaired = keepOnlyCommentAndRepeatOnInvalidTranslationInput(repaired, true)
               if (isUnrecognizedTranslationContext(repaired)) {
                 repaired =
                   'Комментарий: Некорректный ввод. Введите правильный перевод полным предложением на английском языке.'
@@ -7092,7 +7143,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                     tense: tutorGradingTense,
                     groundTruthRepeatEnglish: priorAssistantRepeatEnglish,
                   })
-                  repaired = keepOnlyCommentAndRepeatOnInvalidTranslationInput(repaired, !isFirstTranslationUserTurn)
+                  repaired = keepOnlyCommentAndRepeatOnInvalidTranslationInput(repaired, true)
                   if (isUnrecognizedTranslationContext(repaired)) {
                     repaired =
                       'Комментарий: Некорректный ввод. Введите правильный перевод полным предложением на английском языке.'
@@ -7119,18 +7170,21 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     }
 
     if (mode === 'translation') {
-      if (!isFirstTurn) {
-        if (canTreatTranslationAsSuccess) {
-          sanitized = normalizeTranslationSuccessPayload(sanitized, {
-            tense: tutorGradingTense,
-            topic,
-            level: translationDrillLevel,
-            audience,
-            fallbackPrompt: lastTranslationPrompt,
-            userText: lastUserContentForResponse,
-            sentenceType: translationDrillSentenceType,
-          })
-        }
+      const translationSuccessEligible =
+        !isFirstTurn &&
+        canTreatTranslationAsSuccess &&
+        Boolean(translationGoldForVerdict?.trim()) &&
+        !translationGoldVerdictFailed
+      if (translationSuccessEligible) {
+        sanitized = normalizeTranslationSuccessPayload(sanitized, {
+          tense: tutorGradingTense,
+          topic,
+          level: translationDrillLevel,
+          audience,
+          fallbackPrompt: lastTranslationPrompt,
+          userText: lastUserContentForResponse,
+          sentenceType: translationDrillSentenceType,
+        })
       }
       sanitized = applyTranslationCommentCoachVoice({
         content: sanitized,
@@ -7499,7 +7553,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 userText: lastUserContentForResponse,
                 priorRepeatEnglish: priorAssistantRepeatEnglish,
               })
-              repaired = keepOnlyCommentAndRepeatOnInvalidTranslationInput(repaired, !isFirstTranslationUserTurn)
+              repaired = keepOnlyCommentAndRepeatOnInvalidTranslationInput(repaired, true)
               if (isUnrecognizedTranslationContext(repaired)) {
                 repaired = 'Комментарий: Некорректный ввод. Введите правильный перевод полным предложением на английском языке.'
               }
@@ -7532,7 +7586,12 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           })
           if (repairedValid) {
             if (mode === 'translation') {
-              if (!isFirstTurn && canTreatTranslationAsSuccess) {
+              if (
+                !isFirstTurn &&
+                canTreatTranslationAsSuccess &&
+                translationGoldForVerdict?.trim() &&
+                !translationGoldVerdictFailed
+              ) {
                 repaired = normalizeTranslationSuccessPayload(repaired, {
                   tense: tutorGradingTense,
                   topic,
@@ -7730,7 +7789,12 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     }
 
     if (mode === 'translation') {
-      if (!isFirstTurn && canTreatTranslationAsSuccess) {
+      const translationSuccessEligible =
+        !isFirstTurn &&
+        canTreatTranslationAsSuccess &&
+        Boolean(translationGoldForVerdict?.trim()) &&
+        !translationGoldVerdictFailed
+      if (translationSuccessEligible) {
         if (!/[А-Яа-яЁё]/.test(lastUserContentForResponse)) {
           sanitized = normalizeTranslationSuccessPayload(sanitized, {
             tense: tutorGradingTense,
@@ -7749,18 +7813,17 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         level: translationDrillLevel as LevelId,
         audience: audience as Audience,
       })
-      let guardedContent =
-        !isFirstTurn && canTreatTranslationAsSuccess
-          ? normalizeTranslationSuccessPayload(translationGuard.content, {
-              tense: tutorGradingTense,
-              topic,
-              level: translationDrillLevel,
-              audience,
-              fallbackPrompt: lastTranslationPrompt,
-              userText: lastUserContentForResponse,
-              sentenceType: translationDrillSentenceType,
-            })
-          : ensureTranslationRepeatFallbackForMixedInput(translationGuard.content, lastUserContentForResponse)
+      let guardedContent = translationSuccessEligible
+        ? normalizeTranslationSuccessPayload(translationGuard.content, {
+            tense: tutorGradingTense,
+            topic,
+            level: translationDrillLevel,
+            audience,
+            fallbackPrompt: lastTranslationPrompt,
+            userText: lastUserContentForResponse,
+            sentenceType: translationDrillSentenceType,
+          })
+        : ensureTranslationRepeatFallbackForMixedInput(translationGuard.content, lastUserContentForResponse)
       if (isFirstTurn) {
         guardedContent = await ensureFirstTranslationDrillMatchesRequiredTense({
           content: guardedContent,

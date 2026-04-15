@@ -12,6 +12,19 @@ function normalizeForVerdictComparison(text: string): string {
   return normalizeEnglishForRepeatMatch(normalizeEnglishLearnerContractions(compact))
 }
 
+function tokenizeForVerdictPrefixCheck(text: string): string[] {
+  return text.match(/[a-z0-9']+/gi)?.map((token) => token.toLowerCase()) ?? []
+}
+
+function isStrictTokenPrefix(shortTokens: string[], fullTokens: string[]): boolean {
+  if (shortTokens.length === 0) return false
+  if (shortTokens.length >= fullTokens.length) return false
+  for (let i = 0; i < shortTokens.length; i++) {
+    if (shortTokens[i] !== fullTokens[i]) return false
+  }
+  return true
+}
+
 const CYRILLIC_RE = /[\u0400-\u04FF]/
 
 /** RU или EN намёк на питомца — оба варианта like/love допустимы (как в likeLoveTutorPrompt). */
@@ -70,6 +83,12 @@ export function computeTranslationGoldVerdict(params: {
   const userNorm = normalizeForVerdictComparison(userTrim)
   if (userNorm === goldNorm) {
     return { ok: true, reasons: [] }
+  }
+
+  const userTokens = tokenizeForVerdictPrefixCheck(userNorm)
+  const goldTokens = tokenizeForVerdictPrefixCheck(goldNorm)
+  if (isStrictTokenPrefix(userTokens, goldTokens)) {
+    return { ok: false, reasons: ['answer_incomplete'] }
   }
 
   if (isPetLikeLoveContext(ruPrompt, goldTrim)) {

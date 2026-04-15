@@ -51,6 +51,7 @@ describe('computeTranslationGoldVerdict', () => {
       ruPrompt: ru,
     })
     expect(v.ok).toBe(false)
+    expect(v.reasons).toContain('answer_incomplete')
   })
 
   it('accepts contraction equivalent to gold', () => {
@@ -111,7 +112,17 @@ describe('computeTranslationGoldVerdict', () => {
       ruPrompt: ru,
     })
     expect(v.ok).toBe(false)
-    expect(v.reasons).toContain('gold_mismatch')
+    expect(v.reasons).toContain('answer_incomplete')
+  })
+
+  it('rejects strict prefix of full expected sentence', () => {
+    const v = computeTranslationGoldVerdict({
+      userText: 'I like walking',
+      goldEnglish: 'I like walking with my friends.',
+      ruPrompt: 'Мне нравится гулять с друзьями.',
+    })
+    expect(v.ok).toBe(false)
+    expect(v.reasons).toContain('answer_incomplete')
   })
 
   it('rejects mixed latin+cyrillic childish substitution', () => {
