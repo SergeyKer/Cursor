@@ -115,7 +115,7 @@ describe('buildNextFreeTalkQuestionFromContext', () => {
     const recentMessages: ChatMessage[] = [
       { role: 'assistant', content: 'What sports have you tried this year?' },
       { role: 'user', content: 'I tried karting.' },
-      { role: 'assistant', content: 'Комментарий: Требуется Present Perfect.\nПовтори: I have tried karting.' },
+      { role: 'assistant', content: 'Комментарий: Требуется Present Perfect.\nСкажи: I have tried karting.' },
       { role: 'user', content: 'I have tried karting.' },
     ]
     const q = buildNextFreeTalkQuestionFromContext({
@@ -135,7 +135,7 @@ describe('buildNextFreeTalkQuestionFromContext', () => {
     const recentMessages: ChatMessage[] = [
       { role: 'assistant', content: 'What sports have you tried this year?' },
       { role: 'user', content: 'Я пробовал karting.' },
-      { role: 'assistant', content: 'Комментарий: Используем Present Perfect.\nПовтори: I have tried karting.' },
+      { role: 'assistant', content: 'Комментарий: Используем Present Perfect.\nСкажи: I have tried karting.' },
       { role: 'user', content: 'Я делал karting.' },
     ]
     const q = buildNextFreeTalkQuestionFromContext({

@@ -45,12 +45,12 @@ describe('applyCefrOutputGuard', () => {
     const result = applyCefrOutputGuard({
       mode: 'dialogue',
       content:
-        'Комментарий: Здесь нужно проще.\nПовтори: Additionally, you should utilize this strategy.',
+        'Комментарий: Здесь нужно проще.\nСкажи: Additionally, you should utilize this strategy.',
       level: 'a2',
       audience: 'child',
     })
     expect(result.content).toContain('Комментарий:')
-    expect(result.content).toContain('Повтори:')
+    expect(result.content).toContain('Скажи:')
     expect(result.content.toLowerCase()).not.toContain('additionally')
   })
 })

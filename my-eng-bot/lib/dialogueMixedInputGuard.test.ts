@@ -21,7 +21,7 @@ describe('validateDialogueMixedInputOutput', () => {
   it('fails when repeat contains cyrillic in mixed input', () => {
     const res = validateDialogueMixedInputOutput({
       userText: 'I see лес',
-      content: 'Комментарий: Нужен перевод.\nПовтори: I saw лес.',
+      content: 'Комментарий: Нужен перевод.\nСкажи: I saw лес.',
     })
     expect(res).toEqual({ ok: false, reason: 'repeat_contains_cyrillic' })
   })
@@ -29,7 +29,7 @@ describe('validateDialogueMixedInputOutput', () => {
   it('fails when comment has no explicit translation for mixed input', () => {
     const res = validateDialogueMixedInputOutput({
       userText: 'I see лес',
-      content: 'Комментарий: Тут ошибка слова.\nПовтори: I saw a forest.',
+      content: 'Комментарий: Тут ошибка слова.\nСкажи: I saw a forest.',
     })
     expect(res).toEqual({ ok: false, reason: 'missing_comment_translation' })
   })
@@ -37,7 +37,7 @@ describe('validateDialogueMixedInputOutput', () => {
   it('passes for mixed input with translation and english repeat', () => {
     const res = validateDialogueMixedInputOutput({
       userText: 'I wisited Питер',
-      content: 'Комментарий: Питер = St. Petersburg, и нужно visited.\nПовтори: I visited St. Petersburg.',
+      content: 'Комментарий: Питер = St. Petersburg, и нужно visited.\nСкажи: I visited St. Petersburg.',
     })
     expect(res).toEqual({ ok: true })
   })
@@ -45,7 +45,7 @@ describe('validateDialogueMixedInputOutput', () => {
   it('does not interfere for non-mixed user input', () => {
     const res = validateDialogueMixedInputOutput({
       userText: 'I saw a forest',
-      content: 'Комментарий: Отлично.\nПовтори: I saw a forest.',
+      content: 'Комментарий: Отлично.\nСкажи: I saw a forest.',
     })
     expect(res).toEqual({ ok: true })
   })

@@ -4,7 +4,7 @@ import { enrichDialogueCommentWithTypoHints } from './dialogueCommentEnrichment'
 describe('enrichDialogueCommentWithTypoHints', () => {
   it('appends spelling hints when comment only mentions tense', () => {
     const content = `Комментарий: В предложении неверное время. Нужно использовать Future Simple.
-Повтори: I will enjoy English tomorrow.`
+Скажи: I will enjoy English tomorrow.`
     const userText = 'yes I endjoy English tomorow'
     const out = enrichDialogueCommentWithTypoHints({ content, userText })
     expect(out).toContain('опечат')
@@ -17,20 +17,20 @@ describe('enrichDialogueCommentWithTypoHints', () => {
 
   it('does not duplicate when comment already mentions spelling', () => {
     const content = `Комментарий: Неверное время и опечатки в словах.
-Повтори: I will enjoy English tomorrow.`
+Скажи: I will enjoy English tomorrow.`
     const userText = 'yes I endjoy English tomorow'
     const out = enrichDialogueCommentWithTypoHints({ content, userText })
     expect(out).toBe(content)
   })
 
-  it('returns unchanged when no Повтори line', () => {
+  it('returns unchanged when no Скажи line', () => {
     const content = 'What will you do tomorrow?'
     expect(enrichDialogueCommentWithTypoHints({ content, userText: 'ok' })).toBe(content)
   })
 
   it('adds possessive hint when user wrote you instead of your', () => {
     const content = `Комментарий: Ошибка времени.
-Повтори: What is your favorite color.`
+Скажи: What is your favorite color.`
     const userText = 'What was you favorit color'
     const out = enrichDialogueCommentWithTypoHints({ content, userText })
     expect(out).toContain('притяжательное')
@@ -39,7 +39,7 @@ describe('enrichDialogueCommentWithTypoHints', () => {
 
   it('adds mixed-script hint for Russian word vs English in repeat', () => {
     const content = `Комментарий: Ошибка времени.
-Повтори: What is your favorite color.`
+Скажи: What is your favorite color.`
     const userText = 'What was you favorit цвет'
     const out = enrichDialogueCommentWithTypoHints({ content, userText })
     expect(out).toContain('Русское')

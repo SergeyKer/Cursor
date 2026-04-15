@@ -2,24 +2,24 @@ import { describe, expect, it } from 'vitest'
 import { alignDialogueBeVerbCommentWithRepeat } from './dialogueBeCommentConsistency'
 
 describe('alignDialogueBeVerbCommentWithRepeat', () => {
-  it('fixes is/are flip when Повтори has they + are', () => {
+  it('fixes is/are flip when Скажи has they + are', () => {
     const content = `Комментарий: Нужно использовать is вместо are.
-Повтори: They are tall.`
+Скажи: They are tall.`
     const out = alignDialogueBeVerbCommentWithRepeat(content)
     expect(out).toContain('are вместо is')
     expect(out).not.toMatch(/\bis\s+вместо\s+are\b/i)
   })
 
-  it('fixes «использовать is вместо are» when Повтори has we are', () => {
+  it('fixes «использовать is вместо are» when Скажи has we are', () => {
     const content = `Комментарий: Здесь нужно использовать is вместо are.
-Повтори: We are ready.`
+Скажи: We are ready.`
     const out = alignDialogueBeVerbCommentWithRepeat(content)
     expect(out).toContain('использовать are вместо is')
   })
 
-  it('fixes are/is flip when Повтори has he + is', () => {
+  it('fixes are/is flip when Скажи has he + is', () => {
     const content = `Комментарий: Нужно использовать are вместо is.
-Повтори: He is tall.`
+Скажи: He is tall.`
     const out = alignDialogueBeVerbCommentWithRepeat(content)
     expect(out).toContain('is вместо are')
   })

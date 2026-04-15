@@ -193,14 +193,14 @@ describe('sanitizeTranslationPayloadContinuousErrors', () => {
       "🔤 'learning' → 'learned'",
       '🔤 Ошибка времени: используйте V3.',
       'Время: Present Perfect Continuous — длительность.',
-      'Повтори: I have been learning English recently.',
+      'Скажи: I have been learning English recently.',
     ].join('\n')
     const out = sanitizeTranslationPayloadContinuousErrors(
       content,
       'present_perfect_continuous',
       'I have been learning English recently.'
     )
-    expect(out).toContain('Повтори:')
+    expect(out).toContain('Скажи:')
     expect(out.toLowerCase()).not.toMatch(/\bv3\b/)
     expect(out).not.toMatch(/learning.*learned/i)
   })

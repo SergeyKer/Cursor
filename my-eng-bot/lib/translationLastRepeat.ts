@@ -21,13 +21,13 @@ function isRepeatCuePlausibleForRuPrompt(ruPrompt: string | null, englishCue: st
 }
 
 function extractFirstVisibleRepeatEnglishFromAssistantCard(content: string): string | null {
-  const lineRe = /^[\s\-•]*(?:\d+[\.)]\s*)*(?:Повтори|Repeat|Say|Скажи)\s*:\s*(.+)$/i
+  const lineRe = /^[\s\-•]*(?:\d+[\.)]\s*)*(?:Скажи|Say)\s*:\s*(.+)$/i
   for (const line of content.split(/\r?\n/)) {
     const trimmed = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
     const m = lineRe.exec(trimmed)
     const body = m?.[1]?.trim()
     if (body) {
-      const cleaned = stripLeadingRepeatRuPrompt(body.replace(/^\s*(?:Повтори|Repeat|Say|Скажи)\s*:\s*/i, '')).trim()
+      const cleaned = stripLeadingRepeatRuPrompt(body.replace(/^\s*(?:Скажи|Say)\s*:\s*/i, '')).trim()
       return cleaned || body
     }
   }
@@ -36,7 +36,7 @@ function extractFirstVisibleRepeatEnglishFromAssistantCard(content: string): str
 
 /**
  * Канонический эталон с карточки текущего drill:
- * 1) __TRAN_REPEAT_REF__, 2) первая видимая строка Повтори/Repeat/Say/Скажи.
+ * 1) __TRAN_REPEAT_REF__, 2) первая видимая строка Скажи/Say.
  */
 function extractDrillCardGoldEnglishForRepeat(content: string, ruTask: string | null): string | null {
   const ref = extractCanonicalRepeatRefEnglishFromContent(content)
@@ -51,7 +51,7 @@ function extractDrillCardGoldEnglishForRepeat(content: string, ruTask: string | 
 }
 
 /**
- * Эталон для «Повтори» / enforce (режим перевода).
+ * Эталон для «Скажи» / enforce (режим перевода).
  *
  * Учитывается только сегмент **текущего** «Переведи / Переведи далее»: карточки **раньше** индекса
  * последнего ассистента с этим русским заданием игнорируются (не подтягиваем Скажи из прошлой темы).
@@ -59,8 +59,8 @@ function extractDrillCardGoldEnglishForRepeat(content: string, ruTask: string | 
  * Внутри сегмента: «Скажи:» согласуется с русским промптом по ключевым словам; при нескольких —
  * максимум пересечения с ответом пользователя, при равенстве — более ранняя карточка.
  *
- * Иначе эталон с карточки перед user (видимый Повтори / __TRAN_REPEAT_REF__);
- * приоритет у видимого Повтори (то, что реально видит ученик).
+ * Иначе эталон с карточки перед user (видимый Скажи / __TRAN_REPEAT_REF__);
+ * приоритет у видимого Скажи (то, что реально видит ученик).
  * Если не бьётся с промптом — берём с карточки-источника задания.
  */
 export function extractPriorAssistantRepeatEnglish(

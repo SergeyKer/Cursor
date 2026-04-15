@@ -1,14 +1,14 @@
 /**
- * Выравнивает русский «Комментарий» с «Повтори», если модель перепутала is/are в формулировке объяснения.
+ * Выравнивает русский «Комментарий» с «Скажи», если модель перепутала is/are в формулировке объяснения.
  */
 export function alignDialogueBeVerbCommentWithRepeat(content: string): string {
   const lines = content.split(/\r?\n/)
   const commentIndex = lines.findIndex((line) => /^Комментарий\s*:/i.test(line.trim()))
-  const repeatLine = lines.find((line) => /^(?:\s*)(Повтори|Repeat|Say)\s*:/i.test(line.trim()))
+  const repeatLine = lines.find((line) => /^(?:\s*)(Скажи|Say)\s*:/i.test(line.trim()))
   if (commentIndex === -1 || !repeatLine) return content
 
   const commentText = lines[commentIndex].replace(/^Комментарий\s*:\s*/i, '').trim()
-  const repeatText = repeatLine.replace(/^(?:\s*)(Повтори|Repeat|Say)\s*:\s*/i, '').trim()
+  const repeatText = repeatLine.replace(/^(?:\s*)(Скажи|Say)\s*:\s*/i, '').trim()
   if (!commentText || !repeatText) return content
 
   const repeatUsesPluralAre =

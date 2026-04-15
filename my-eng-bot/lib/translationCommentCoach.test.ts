@@ -21,7 +21,7 @@ describe('extractTranslationCommentBlock', () => {
       'Комментарий: Ошибка времени: line one.',
       'Лексическая ошибка: dogs нужно заменить на cat.',
       'Время: Present Simple — факт.',
-      'Повтори: I like my cat.',
+      'Скажи: I like my cat.',
     ]
     const ex = extractTranslationCommentBlock(lines)
     expect(ex).not.toBeNull()
@@ -85,7 +85,7 @@ describe('applyTranslationCommentCoachVoice', () => {
   it('does not insert school metaphor for present_simple', () => {
     const content = `Комментарий: Ошибка времени: нужно настоящее.
 Время: Present Simple — факт.
-Повтори: I like my cat.`
+Скажи: I like my cat.`
     const out = applyTranslationCommentCoachVoice({
       content,
       audience: 'adult',
@@ -101,7 +101,7 @@ describe('applyTranslationCommentCoachVoice', () => {
     const content = `Комментарий: Ошибка времени: нужно настоящее.
 Лексическая ошибка: dogs нужно заменить на cat.
 Время: Present Simple — факт.
-Повтори: I like my cat.`
+Скажи: I like my cat.`
     const out = applyTranslationCommentCoachVoice({
       content,
       audience: 'adult',

@@ -4,7 +4,7 @@ import { enrichDialogueCommentWithLearningReason } from './dialogueTenseReasonin
 describe('enrichDialogueCommentWithLearningReason', () => {
   it('adds Present Perfect result nuance for adult', () => {
     const content = `Комментарий: Требуется Present Perfect, а не Present Simple.
-Повтори: I have already finished my task.`
+Скажи: I have already finished my task.`
     const out = enrichDialogueCommentWithLearningReason({
       content,
       requiredTense: 'present_perfect',
@@ -18,7 +18,7 @@ describe('enrichDialogueCommentWithLearningReason', () => {
 
   it('adds duration nuance for Present Perfect Continuous', () => {
     const content = `Комментарий: Требуется Present Perfect Continuous, а не Present Simple.
-Повтори: I have been learning for two hours.`
+Скажи: I have been learning for two hours.`
     const out = enrichDialogueCommentWithLearningReason({
       content,
       requiredTense: 'present_perfect_continuous',
@@ -31,7 +31,7 @@ describe('enrichDialogueCommentWithLearningReason', () => {
 
   it('uses simpler process wording for child in Present Continuous', () => {
     const content = `Комментарий: Требуется Present Continuous, а не Present Simple.
-Повтори: I am drawing now.`
+Скажи: I am drawing now.`
     const out = enrichDialogueCommentWithLearningReason({
       content,
       requiredTense: 'present_continuous',
@@ -44,7 +44,7 @@ describe('enrichDialogueCommentWithLearningReason', () => {
 
   it('adds have/has agreement reason', () => {
     const content = `Комментарий: Ошибка согласования подлежащего и сказуемого.
-Повтори: He has finished homework.`
+Скажи: He has finished homework.`
     const out = enrichDialogueCommentWithLearningReason({
       content,
       requiredTense: 'present_perfect',
@@ -58,7 +58,7 @@ describe('enrichDialogueCommentWithLearningReason', () => {
 
   it('replaces semicolon with dash after tense contrast', () => {
     const content = `Комментарий: Используйте Present Simple, а не Past Simple; нужен правильный перевод.
-Повтори: I play forward.`
+Скажи: I play forward.`
     const out = enrichDialogueCommentWithLearningReason({
       content,
       requiredTense: 'present_simple',

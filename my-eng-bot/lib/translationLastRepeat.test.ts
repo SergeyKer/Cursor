@@ -11,17 +11,17 @@ function userMatchesRepeatForGate(user: string, repeat: string): boolean {
 describe('extractPriorAssistantRepeatEnglish', () => {
   it('returns repeat only from the last assistant before user', () => {
     const messages = [
-      { role: 'assistant', content: 'Повтори: Old sentence.' },
+      { role: 'assistant', content: 'Скажи: Old sentence.' },
       { role: 'user', content: 'x' },
-      { role: 'assistant', content: 'Комментарий: Ошибка.\nПовтори: Do you have a cat?' },
+      { role: 'assistant', content: 'Комментарий: Ошибка.\nСкажи: Do you have a cat?' },
       { role: 'user', content: 'Do you have a favorite dog?' },
     ]
     expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Do you have a cat?')
   })
 
-  it('returns null if last assistant has no Повтори line', () => {
+  it('returns null if last assistant has no Скажи line', () => {
     const messages = [
-      { role: 'assistant', content: 'Повтори: First.' },
+      { role: 'assistant', content: 'Скажи: First.' },
       { role: 'user', content: 'First.' },
       { role: 'assistant', content: 'Комментарий: Отлично!\nКонструкция: test\nФормы:\n+: A.' },
       { role: 'user', content: 'ok' },
@@ -29,9 +29,9 @@ describe('extractPriorAssistantRepeatEnglish', () => {
     expect(extractPriorAssistantRepeatEnglish(messages)).toBeNull()
   })
 
-  it('ignores older Повтори when last assistant has no repeat', () => {
+  it('ignores older Скажи when last assistant has no repeat', () => {
     const messages = [
-      { role: 'assistant', content: 'Повтори: Only old.' },
+      { role: 'assistant', content: 'Скажи: Only old.' },
       { role: 'user', content: 'Only old.' },
       { role: 'assistant', content: 'Комментарий: Хорошо!' },
       { role: 'user', content: 'provocation' },
@@ -39,7 +39,7 @@ describe('extractPriorAssistantRepeatEnglish', () => {
     expect(extractPriorAssistantRepeatEnglish(messages)).toBeNull()
   })
 
-  it('возвращает скрытый эталон, если нет видимого Повтори', () => {
+  it('возвращает скрытый эталон, если нет видимого Скажи', () => {
     const messages = [
       {
         role: 'assistant',
@@ -51,24 +51,24 @@ describe('extractPriorAssistantRepeatEnglish', () => {
     expect(extractPriorAssistantRepeatEnglish(messages)).toBe('I usually read books.')
   })
 
-  it('извлекает эталон из строки «- Повтори:» без __TRAN_REPEAT_REF__', () => {
+  it('извлекает эталон из строки «- Скажи:» без __TRAN_REPEAT_REF__', () => {
     const messages = [
       {
         role: 'assistant',
-        content: 'Переведи далее: Ты любишь читать?\nПереведи на английский.\n- Повтори: Do you like to read?',
+        content: 'Переведи далее: Ты любишь читать?\nПереведи на английский.\n- Скажи: Do you like to read?',
       },
       { role: 'user', content: 'wrong' },
     ]
     expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Do you like to read?')
   })
 
-  it('для drill-карточки скрытый __TRAN_REPEAT_REF__ важнее видимого Скажи/Повтори', () => {
+  it('для drill-карточки скрытый __TRAN_REPEAT_REF__ важнее видимого Скажи/Скажи', () => {
     const messages = [
       {
         role: 'assistant',
         content:
           'Скажи: What is your favorite color?\n' +
-          'Повтори: It\'s great that you used the correct question structure!\n' +
+          'Скажи: It\'s great that you used the correct question structure!\n' +
           '__TRAN_REPEAT_REF__: Hidden line.',
       },
       { role: 'user', content: 'What is your favorite colore' },
@@ -76,17 +76,17 @@ describe('extractPriorAssistantRepeatEnglish', () => {
     expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Hidden line.')
   })
 
-  it('скрытый __TRAN_REPEAT_REF__ важнее видимого Повтори, если есть оба', () => {
+  it('скрытый __TRAN_REPEAT_REF__ важнее видимого Скажи, если есть оба', () => {
     const messages = [
-      { role: 'assistant', content: 'Повтори: Visible line.\n__TRAN_REPEAT_REF__: Hidden line.' },
+      { role: 'assistant', content: 'Скажи: Visible line.\n__TRAN_REPEAT_REF__: Hidden line.' },
       { role: 'user', content: 'x' },
     ]
     expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Hidden line.')
   })
 
-  it('эталон для enforce — скрытая строка с карточки «Переведи далее», не старое Повтори из истории', () => {
+  it('эталон для enforce — скрытая строка с карточки «Переведи далее», не старое Скажи из истории', () => {
     const messages = [
-      { role: 'assistant', content: 'Повтори: I love to cook pasta for dinner.' },
+      { role: 'assistant', content: 'Скажи: I love to cook pasta for dinner.' },
       { role: 'user', content: 'wrong' },
       {
         role: 'assistant',
@@ -98,9 +98,9 @@ describe('extractPriorAssistantRepeatEnglish', () => {
     expect(extractPriorAssistantRepeatEnglish(messages)).toBe('I am cooking pasta with vegetables.')
   })
 
-  it('не подмешивает Повтори из прошлой карточки, если перед user только задание без эталона', () => {
+  it('не подмешивает Скажи из прошлой карточки, если перед user только задание без эталона', () => {
     const messages = [
-      { role: 'assistant', content: 'Повтори: I love to cook pasta for dinner.' },
+      { role: 'assistant', content: 'Скажи: I love to cook pasta for dinner.' },
       { role: 'user', content: 'wrong' },
       { role: 'assistant', content: 'Переведи далее: Я готовлю пасту с овощами.\nПереведи на английский.' },
       { role: 'user', content: 'I cook pasta with vegetables.' },
@@ -113,7 +113,7 @@ describe('extractPriorAssistantRepeatEnglish', () => {
       {
         role: 'assistant',
         content:
-          'Комментарий: Ошибка.\nСкажи: What is your favorite color?\nПовтори: What is your favorite color?',
+          'Комментарий: Ошибка.\nСкажи: What is your favorite color?\nСкажи: What is your favorite color?',
       },
       { role: 'user', content: 'wrong color answer' },
       {
@@ -131,7 +131,7 @@ describe('extractPriorAssistantRepeatEnglish', () => {
       {
         role: 'assistant',
         content:
-          'Комментарий: Ошибка.\nСкажи: Do you like to play games?\nПовтори: Do you like to play games?',
+          'Комментарий: Ошибка.\nСкажи: Do you like to play games?\nСкажи: Do you like to play games?',
       },
       { role: 'user', content: 'Do you like to play game' },
       {
@@ -143,7 +143,7 @@ describe('extractPriorAssistantRepeatEnglish', () => {
       {
         role: 'assistant',
         content:
-          'Скажи: Do you like to play that?\nПовтори: Do you like to play that?',
+          'Скажи: Do you like to play that?\nСкажи: Do you like to play that?',
       },
       { role: 'user', content: 'Do you like to play game' },
     ]

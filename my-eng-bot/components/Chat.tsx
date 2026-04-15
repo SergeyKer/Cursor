@@ -285,7 +285,7 @@ function buildAssistantSections(params: {
   showOnlyRepeat: boolean
   hidePromptBlocks?: boolean
   repeatTextForCard: string | null
-  /** Режим перевод, ошибка: эталон из «Скажи:» (англ., совпадает с «Повтори:») для карточки повтора. */
+  /** Режим перевод, ошибка: эталон из «Скажи:» (англ.) для карточки повтора. */
   repeatRuTextForCard?: string | null
   mainBefore: string
   hideRussianNonQuestionMainBefore: boolean
@@ -431,7 +431,7 @@ function buildAssistantSections(params: {
       key: 'main-after',
       tone: 'neutral',
       label: assistantMainHeadingLabel(),
-      text: mainAfter.replace(/\b(Say|Repeat|Скажи):\s*/gi, 'Скажи: '),
+      text: mainAfter.replace(/\b(Say|Скажи):\s*/gi, 'Скажи: '),
       emphasizeMainText: hideAiLabel,
     })
   }
@@ -557,7 +557,7 @@ export function parseTranslationCoachBlocks(text: string): {
     /^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)\b/i.test(line)
 
   const parseInlineProtocolTail = (tail: string): void => {
-    const partRe = /(Ошибки|Скажи|Повтори|Repeat|Say)\s*:\s*([\s\S]*?)(?=(?:(?:Ошибки|Скажи|Повтори|Repeat|Say)\s*:)|$)/gi
+    const partRe = /(Ошибки|Скажи|Say)\s*:\s*([\s\S]*?)(?=(?:(?:Ошибки|Скажи|Say)\s*:)|$)/gi
     let m: RegExpExecArray | null
     while ((m = partRe.exec(tail)) !== null) {
       const label = (m[1] ?? '').toLowerCase()
@@ -568,8 +568,11 @@ export function parseTranslationCoachBlocks(text: string): {
         continue
       }
       if (label === 'скажи') {
-        const normalized = stripLeadingRepeatRuPrompt(body)
-        if (normalized) repeatRu = normalized
+        const normalized = stripLeadingRepeatRuPrompt(body).replace(/^\s*(?:Скажи|Say)\s*:\s*/i, '').trim()
+        if (normalized) {
+          repeatRu = normalized
+          repeat = normalized
+        }
         continue
       }
       repeat = body
@@ -633,7 +636,7 @@ export function parseTranslationCoachBlocks(text: string): {
     }
     if (/^Комментарий(?:_ошибка)?\s*:/i.test(line)) {
       const rawComment = line.replace(/^Комментарий(?:_ошибка)?\s*:\s*/i, '').trim()
-      const inlineProtocolMatch = /(?:Ошибки|Скажи|Повтори|Repeat|Say)\s*:/i.exec(rawComment)
+      const inlineProtocolMatch = /(?:Ошибки|Скажи|Say)\s*:/i.exec(rawComment)
       if (inlineProtocolMatch && inlineProtocolMatch.index >= 0) {
         const splitAt = inlineProtocolMatch.index
         const commentHead = rawComment
@@ -656,11 +659,9 @@ export function parseTranslationCoachBlocks(text: string): {
     }
     if (/^[\s\-•]*(?:\d+\)\s*)*Скажи\s*:/i.test(line)) {
       const raw = line.replace(/^[\s\-•]*(?:\d+\)\s*)*Скажи\s*:\s*/i, '').trim()
-      repeatRu = stripLeadingRepeatRuPrompt(raw) || null
-      continue
-    }
-    if (/^[\s\-•]*(?:\d+\)\s*)*(Повтори|Repeat|Say)\s*:/i.test(line)) {
-      repeat = line.replace(/^[\s\-•]*(?:\d+\)\s*)*(Повтори|Repeat|Say)\s*:\s*/i, '').trim() || null
+      const normalized = stripLeadingRepeatRuPrompt(raw).replace(/^\s*(?:Скажи|Say)\s*:\s*/i, '').trim() || null
+      repeatRu = normalized
+      repeat = normalized
       continue
     }
     const inlineInvitation = splitInlineInvitation(line)
@@ -768,7 +769,7 @@ export function computeAssistantTranslationMainCardMeta(message: ChatMessageType
       .trim()
     const fallbackFromInline = blocks.nextSentence
       .replace(
-        /(?:Комментарий_ошибка|Комментарий_перевод|Комментарий|Ошибки|Скажи|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
+          /(?:Комментарий_ошибка|Комментарий_перевод|Комментарий|Ошибки|Скажи|Say)\s*:[^.\n!?]*[.!?]?/gi,
         ' '
       )
       .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')
@@ -1582,10 +1583,10 @@ function extractRepeatPrompt(text: string): { repeatText: string } | null {
     // Модель иногда добавляет префиксы "AI:"/"Assistant:" перед служебными строками.
     const line = lines[i].replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
     if (!line) continue
-    const m = /^(Скажи|Повтори|Say|Repeat)\s*:?\s*(.*)$/i.exec(line)
+    const m = /^(Скажи|Say)\s*:?\s*(.*)$/i.exec(line)
     if (!m) continue
     let afterKeyword = (m[2] ?? '').trim()
-    // Если после "Повтори:" на этой строке пусто или только ":", смотрим следующую непустую строку
+    // Если после "Скажи:" на этой строке пусто или только ":", смотрим следующую непустую строку
     if (!afterKeyword || /^[:.]$/.test(afterKeyword)) {
       for (let j = i + 1; j < lines.length; j++) {
         const next = lines[j].trim()
@@ -1656,18 +1657,18 @@ function MessageBubble({
   // При правильном ответе ИИ пишет похвалу (Комментарий: Отлично! / Молодец! и т.д.) — блок "Правильно:" не показываем
   const isCorrectAnswerPraise = Boolean(comment && /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)[!.]?\s*/i.test(comment.trim()))
   const repeatPrompt = !isUser && !isTranslationMode ? extractRepeatPrompt(mainBefore) : null
-  // Если это похвала (ответ правильный), игнорируем "Повтори:" даже если модель его вывела.
+  // Если это похвала (ответ правильный), игнорируем "Скажи:" даже если модель его вывела.
   // Иначе UI может зациклиться на повторении.
   const effectiveRepeatPrompt = isCorrectAnswerPraise ? null : repeatPrompt
   let repeatTextForCard = effectiveRepeatPrompt?.repeatText ?? null
 
   const handleSpeak = () => {
     // Для озвучки:
-    // 1) если есть "Повтори", озвучиваем только его;
-    // 2) иначе озвучиваем основной текст, убрав служебные префиксы Скажи/Повтори/Say/Repeat.
+    // 1) если есть "Скажи", озвучиваем только его;
+    // 2) иначе озвучиваем основной текст, убрав служебные префиксы Скажи/Say.
     const base = repeatTextForCard || rest || visibleContent
     const speakText = base
-      ? base.replace(/^(Скажи|Повтори|Say|Repeat)\s*:?\s*/i, '').trim()
+      ? base.replace(/^(Скажи|Say)\s*:?\s*/i, '').trim()
       : ''
     if (speakText) speak(speakText, voiceId)
   }
@@ -1756,7 +1757,7 @@ function MessageBubble({
         .trim()
       const fallbackFromInline = blocks.nextSentence
         .replace(
-          /(?:Комментарий_ошибка|Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say)\s*:[^.\n!?]*[.!?]?/gi,
+          /(?:Комментарий_ошибка|Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Скажи|Say)\s*:[^.\n!?]*[.!?]?/gi,
           ' '
         )
         .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')

@@ -3,7 +3,7 @@ import { stripWrappingQuotesFromDrillRussianLine } from '@/lib/extractSingleTran
 import { normalizeEnglishForRepeatMatch } from '@/lib/normalizeEnglishForRepeatMatch'
 import { clampTranslationRepeatToRuPrompt, extractPromptKeywords } from '@/lib/translationRepeatClamp'
 
-/** Скрытый эталон «Повтори» для сервера; в UI не показывается (см. stripTranslationCanonicalRepeatRefLine). */
+/** Скрытый эталон «Скажи» для сервера; в UI не показывается (см. stripTranslationCanonicalRepeatRefLine). */
 export const TRAN_CANONICAL_REPEAT_REF_MARKER = '__TRAN_REPEAT_REF__'
 
 function normalizeEnglishSentenceForCard(text: string): string {
@@ -51,7 +51,7 @@ export function extractRussianTranslationTaskFromAssistantContent(content: strin
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Формы\s*:/i.test(rawLine)) continue
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*[+\?-]\s*:/i.test(rawLine)) continue
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Скажи\s*:/i.test(rawLine)) continue
-    if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(rawLine)) continue
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(rawLine)) continue
 
     const fromTranslate = extractRussianAfterTranslatePrefixLine(rawLine)
     if (fromTranslate) return fromTranslate
@@ -185,20 +185,20 @@ function isRepeatCuePlausibleForRuPromptLocal(ruPrompt: string | null, englishCu
 }
 
 function extractVisibleRepeatCueEnglishFromAssistantCard(content: string): string | null {
-  const lineRe = /^[\s\-•]*(?:\d+[\.)]\s*)*(?:Повтори|Repeat|Say|Скажи)\s*:\s*(.+)$/i
+  const lineRe = /^[\s\-•]*(?:\d+[\.)]\s*)*(?:Скажи|Say)\s*:\s*(.+)$/i
   for (const line of content.split(/\r?\n/)) {
     const trimmed = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
     const m = lineRe.exec(trimmed)
     const body = m?.[1]?.trim()
     if (body) {
-      return body.replace(/^\s*(?:Повтори|Repeat|Say|Скажи)\s*:\s*/i, '').trim() || body
+      return body.replace(/^\s*(?:Скажи|Say)\s*:\s*/i, '').trim() || body
     }
   }
   return null
 }
 
 /**
- * Локальный эталон для вердикта: __TRAN_REPEAT_REF__ или видимый «Скажи/Повтори»
+ * Локальный эталон для вердикта: __TRAN_REPEAT_REF__ или видимый «Скажи»
  * (без «Формы», чтобы не сравнивать с диагностическим +:).
  */
 export function extractLocalGoldEnglishForVerdict(
@@ -216,7 +216,7 @@ export function extractLocalGoldEnglishForVerdict(
 }
 
 /**
- * Добавляет в конец ответа скрытую эталонную строку для «Повтори» (по блоку «Формы» и русскому заданию).
+ * Добавляет в конец ответа скрытую эталонную строку для «Скажи» (по блоку «Формы» и русскому заданию).
  * Не дублирует, если маркер уже есть.
  */
 export function appendTranslationCanonicalRepeatRefLine(content: string, ruPrompt: string | null): string {

@@ -17,7 +17,7 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-/** Нормализация конца предложения для строки «Повтори» (экспорт для сценариев без русского промпта). */
+/** Нормализация конца предложения для строки «Скажи» (экспорт для сценариев без русского промпта). */
 export function normalizeRepeatSentenceEnding(text: string): string {
   const compact = text.replace(/\s+/g, ' ').trim()
   if (!compact) return ''
@@ -208,7 +208,7 @@ export function alignRepeatEnglishToRuPromptKeywords(repeatEn: string, ruPrompt:
 }
 
 /**
- * Убирает из английского «Повтори» обстоятельства, которых нет в русском задании
+ * Убирает из английского «Скажи» обстоятельства, которых нет в русском задании
  * (чтобы модель не подмешивала провокации пользователя).
  */
 export function clampTranslationRepeatToRuPrompt(repeatEn: string, ruPrompt: string | null): TranslationRepeatClampResult {
@@ -246,21 +246,21 @@ export function replaceTranslationRepeatInContent(content: string, newRepeatEngl
   const lines = content.split(/\r?\n/)
   let found = false
   const lineRe =
-    /^(\s*(?:ai|assistant)\s*:\s*)?([\s\-•]*(?:\d+[\.)]\s*)*)(?:Повтори|Repeat|Say)\s*:\s*[\s\S]*$/i
+    /^(\s*(?:ai|assistant)\s*:\s*)?([\s\-•]*(?:\d+[\.)]\s*)*)(?:Скажи|Say)\s*:\s*[\s\S]*$/i
 
   const out = lines.map((line) => {
     if (!lineRe.test(line)) return line
     found = true
-    return line.replace(lineRe, (_full, ai, bullet) => `${ai ?? ''}${bullet ?? ''}Повтори: ${normalized}`)
+    return line.replace(lineRe, (_full, ai, bullet) => `${ai ?? ''}${bullet ?? ''}Скажи: ${normalized}`)
   })
 
   return found ? out.join('\n').trim() : content
 }
 
 /**
- * Финальная нормализация «Повтори:» под русское задание.
- * Если есть prior (скрытый __TRAN_REPEAT_REF__ или прошлое «Повтори:») — подставляем его; при наличии ruPrompt дополнительно clamp к русскому.
- * Если русского задания нет (цепочка только «Повтори»), prior всё равно заменяет несвязный текст модели.
+ * Финальная нормализация «Скажи:» под русское задание.
+ * Если есть prior (скрытый __TRAN_REPEAT_REF__ или прошлое «Скажи:») — подставляем его; при наличии ruPrompt дополнительно clamp к русскому.
+ * Если русского задания нет (цепочка только «Скажи»), prior всё равно заменяет несвязный текст модели.
  * Без prior и с ruPrompt — clamp ответа модели под русский промпт.
  */
 export function enforceAuthoritativeTranslationRepeat(
@@ -270,7 +270,7 @@ export function enforceAuthoritativeTranslationRepeat(
 ): string {
   if (priorRepeatEnglish?.trim()) {
     let prior = priorRepeatEnglish.trim()
-    // Цепочка «Повтори» держит тот же эталон, но дополняем обязательные хвосты из RU
+    // Цепочка «Скажи» держит тот же эталон, но дополняем обязательные хвосты из RU
     // (например «заранее» → in advance), если их случайно срезали на прошлом шаге.
     if (ruPrompt?.trim()) {
       prior = ensureInAdvanceFromRuZaranee(ruPrompt, prior)
@@ -283,7 +283,7 @@ export function enforceAuthoritativeTranslationRepeat(
 }
 
 /**
- * Если «Повтори» можно сузить под ruPrompt — заменяет строку в полном тексте ответа.
+ * Если «Скажи» можно сузить под ruPrompt — заменяет строку в полном тексте ответа.
  */
 export function applyTranslationRepeatSourceClampToContent(content: string, ruPrompt: string | null): string {
   if (!ruPrompt?.trim()) return content
@@ -292,7 +292,7 @@ export function applyTranslationRepeatSourceClampToContent(content: string, ruPr
   let repeatBody: string | null = null
   for (const line of lines) {
     const trimmed = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
-    const m = /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*(.*)$/i.exec(trimmed)
+    const m = /^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:\s*(.*)$/i.exec(trimmed)
     if (m?.[2] != null && String(m[2]).trim()) {
       repeatBody = String(m[2]).trim()
       break
@@ -305,12 +305,12 @@ export function applyTranslationRepeatSourceClampToContent(content: string, ruPr
   return replaceTranslationRepeatInContent(content, clamped)
 }
 
-/** Тело первой строки «Повтори:|Repeat:|Say:» в тексте ответа ассистента. */
+/** Тело первой строки «Скажи:|Say:» в тексте ответа ассистента. */
 export function extractFirstTranslationRepeatEnglishBody(content: string): string | null {
   const lines = content.split(/\r?\n/)
   for (const line of lines) {
     const trimmed = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
-    const m = /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*(.*)$/i.exec(trimmed)
+    const m = /^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:\s*(.*)$/i.exec(trimmed)
     if (m?.[2] != null && String(m[2]).trim()) {
       return String(m[2]).trim()
     }
@@ -319,11 +319,11 @@ export function extractFirstTranslationRepeatEnglishBody(content: string): strin
 }
 
 /**
- * Каноническое «Скажи:» = тот же английский эталон, что в «Повтори:» (после клампа/провокаций).
- * Вставляет строку сразу перед первой строкой Повтори|Repeat|Say; существующие строки Скажи удаляются.
+ * Каноническое «Скажи:» = тот же английский эталон повтора (после клампа/провокаций).
+ * Вставляет строку сразу перед первой строкой Скажи|Say; существующие строки Скажи удаляются.
  */
 export function enforceAuthoritativeTranslationRepeatEnCue(content: string): string {
-  const hasEnRepeat = /(?:^|\n)\s*(?:[\s\-•]*(?:\d+[\.)]\s*)*)?(?:Повтори|Repeat|Say)\s*:/im.test(content)
+  const hasEnRepeat = /(?:^|\n)\s*(?:[\s\-•]*(?:\d+[\.)]\s*)*)?(?:Скажи|Say)\s*:/im.test(content)
   if (!hasEnRepeat) return content
 
   const rawBody = extractFirstTranslationRepeatEnglishBody(content)
@@ -342,7 +342,7 @@ export function enforceAuthoritativeTranslationRepeatEnCue(content: string): str
   let insertIdx = -1
   for (let i = 0; i < filtered.length; i++) {
     const t = filtered[i]!.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
-    if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(t)) {
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(t)) {
       insertIdx = i
       break
     }

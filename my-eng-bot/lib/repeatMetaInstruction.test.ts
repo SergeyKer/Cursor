@@ -19,7 +19,7 @@ describe('isRepeatLineMetaInstruction', () => {
     expect(isRepeatLineMetaInstruction('I usually cook pasta for dinner.')).toBe(false)
   })
 
-  it('detects grammar explanation masquerading as Повтори', () => {
+  it('detects grammar explanation masquerading as Скажи', () => {
     expect(
       isRepeatLineMetaInstruction(
         `The term 'a salad' usually implies a single action, while 'salad' is better suited for habits.`
@@ -27,7 +27,7 @@ describe('isRepeatLineMetaInstruction', () => {
     ).toBe(true)
   })
 
-  it('detects praise masquerading as Повтори', () => {
+  it('detects praise masquerading as Скажи', () => {
     expect(
       isRepeatLineMetaInstruction(
         `It's great that you started with the question 'Do you'.`
@@ -37,25 +37,25 @@ describe('isRepeatLineMetaInstruction', () => {
 })
 
 describe('sanitizeRepeatMetaInstructionInContent', () => {
-  it('replaces meta Повтори with prior English line', () => {
+  it('replaces meta Скажи with prior English line', () => {
     const content = `Комментарий: Лексическая ошибка.
-Повтори: Let's check the example in the "Repeat" section for any grammar mistakes.`
+Скажи: Let's check the example in the "Repeat" section for any grammar mistakes.`
     const out = sanitizeRepeatMetaInstructionInContent(content, 'I love watching cartoons.')
-    expect(out).toContain('Повтори: I love watching cartoons.')
+    expect(out).toContain('Скажи: I love watching cartoons.')
     expect(out.toLowerCase()).not.toContain('repeat section')
   })
 
   it('leaves valid repeat unchanged', () => {
     const content = `Комментарий: Ошибка.
-Повтори: I love watching cartoons.`
+Скажи: I love watching cartoons.`
     const out = sanitizeRepeatMetaInstructionInContent(content, 'I love watching cartoons.')
     expect(out).toBe(content)
   })
 })
 
 describe('extractFirstRepeatEnglishBody', () => {
-  it('reads Повтори body with optional bullet prefix', () => {
-    const content = '1) Повтори: Hello there.'
+  it('reads Скажи body with optional bullet prefix', () => {
+    const content = '1) Скажи: Hello there.'
     expect(extractFirstRepeatEnglishBody(content)).toBe('Hello there.')
   })
 })

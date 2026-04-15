@@ -11,7 +11,7 @@ describe('isExplicitExtraIssueSentence', () => {
 describe('compactDialogueComment', () => {
   it('keeps typo sentence when it would be third after tense + reason', () => {
     const content = `Комментарий: Ошибка времени: нужно is. Здесь речь о факте. Также опечатка: «favorit» → «favorite».
-Повтори: What is your favorite color.`
+Скажи: What is your favorite color.`
     const out = compactDialogueComment(content, 'adult')
     expect(out).toContain('Также опечатка')
     expect(out).toContain('favorit')
@@ -22,7 +22,7 @@ describe('compactDialogueComment', () => {
 
   it('still limits to two sentences when no preservation markers', () => {
     const content = `Комментарий: Первое предложение. Второе предложение. Третье без маркера.
-Повтори: Ok.`
+Скажи: Ok.`
     const out = compactDialogueComment(content, 'adult')
     const body = out.match(/Комментарий:\s*(.+)/)?.[1] ?? ''
     const parts = body.split(/(?<=[.!?])\s+/).filter(Boolean)

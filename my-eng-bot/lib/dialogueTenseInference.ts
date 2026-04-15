@@ -1,6 +1,6 @@
 /**
  * Эвристики времени для диалога: извлечение английского вопроса из сообщения ассистента
- * и вывод tense для согласования «Повтори» с последним вопросом (режим «все времена» и др.).
+ * и вывод tense для согласования «Скажи» с последним вопросом (режим «все времена» и др.).
  */
 
 interface ChatMessageLike {
@@ -25,7 +25,7 @@ export const DIALOGUE_TENSE_INFERENCE_ORDER: readonly string[] = [
 ]
 
 const PROTO_LINE =
-  /^(Комментарий|Повтори|Repeat|Say|Время|Конструкция|Перевод|RU:|Translation|AI:|Assistant)\s*:/i
+  /^(Комментарий|Скажи|Say|Время|Конструкция|Перевод|RU:|Translation|AI:|Assistant)\s*:/i
 
 function stripAssistantPrefix(line: string): string {
   return line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
@@ -36,9 +36,9 @@ export function getDialogueRepeatSentence(content: string): string | null {
     .split(/\r?\n/)
     .map((l) => stripAssistantPrefix(l))
     .filter(Boolean)
-  const repeatLine = lines.find((line) => /^(Повтори|Repeat|Say)\s*:/i.test(line))
+  const repeatLine = lines.find((line) => /^(Скажи|Say)\s*:/i.test(line))
   if (!repeatLine) return null
-  const repeatText = repeatLine.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '').trim()
+  const repeatText = repeatLine.replace(/^(Скажи|Say)\s*:\s*/i, '').trim()
   return repeatText || null
 }
 

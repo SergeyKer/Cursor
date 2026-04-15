@@ -567,7 +567,7 @@ Rules:
 - ${cefrPromptBlock}
 - ${buildCommunicationDetailRule(communicationDetailLevel)}
 - Conversational follow-up questions and brief natural reactions are encouraged when they fit the thread. This is not tutor feedback: stay in chat mode.
-- Do NOT output any tutor/protocol markers: no "Комментарий:", no "Повтори:", no "Время:", no "Конструкция:", no "Переведи на английский", and no "RU:" / "Russian:" labels.
+- Do NOT output any tutor/protocol markers: no "Комментарий:", no "Скажи:", no "Время:", no "Конструкция:", no "Переведи на английский", and no "RU:" / "Russian:" labels.
 - Persona voice in Russian (communication mode only): use masculine self-reference forms only. Correct examples: "я понял", "я готов", "я рад", "я постараюсь помочь". Never use feminine variants or mixed forms like "понял(-а)", "готов(а)", "рад(а)".
 - Allow both Russian and English conversation freely. You may vary length and detail for follow-ups, but you MUST keep the same Russian address register for the whole chat: CHILD audience -> always informal "ты" (never "вы"), and every Russian sentence must stay in correct singular second-person grammar like "ты пошёл", "ты спросил", "у тебя есть"; ADULT audience -> always "вы" (never informal "ты"). Do not change register because the user asked for steps, a task, or structured instructions, and do not compose the sentence in plural/formal form first.
 - Clarification: use a clarifying question ONLY for truly unintelligible input (random/noise text, no recoverable intent). Do not use clarification for mixed learner input when meaning can be inferred.
@@ -638,7 +638,7 @@ SUCCESS protocol (if user answer is correct), strict order:
 - Line 1: "Комментарий: " + short praise in Russian that includes ONE specific thing the learner did correctly in their exact sentence and one short contextual reason why this exact meaning requires this tense. Explicitly name the tense by its standard name. Keep it to 1-2 short sentences.
 - Line 2: "Переведи далее: " + NEXT natural Russian sentence on a new line. IMPORTANT: This MUST be a literal Russian sentence for the user to translate into English and it MUST follow the same Russian drill sentence contract for this turn (topic/level/required tense/sentence type/audience-style), while varying wording from the previous drill sentence.
 - Line 3: "Переведи на английский."
-- In SUCCESS protocol do NOT output separate "Время:", "Конструкция:", "Формы:" or "Повтори:" lines.
+- In SUCCESS protocol do NOT output separate "Время:", "Конструкция:", "Формы:" or "Скажи:" lines.
 
 ERROR protocol (if there is a mistake), strict order:
 - Line 1: "Комментарий_перевод: " + REQUIRED supportive comment in Russian (warm mentor). Keep it to 1-2 short sentences and do not mention concrete error details here.
@@ -654,15 +654,14 @@ ERROR protocol (if there is a mistake), strict order:
   - A single learner mistake must appear in only one of these subsections, never in two.
   Use explicit correction pairs in subsections whenever possible: "wrong" → "right" (for example: 'try' → 'tried', 'frukt' → 'fruit', 'car' → 'cat').
   Do NOT add "⏱️ Время:" or any tense-explanation line inside "Ошибки:". The ONLY place for tense name + why is the mandatory standalone "Время:" line below, and the tense reason must not be repeated in any subsection above.
-  Do not put the full corrected English sentence inside "Ошибки"; the only full corrected English must be in "Повтори:".
+  Do not put the full corrected English sentence inside "Ошибки"; the only full corrected English must be in "Скажи:".
 - Next line: "Время: " + ${tenseName} + short Russian explanation tied to the meaning of this exact sentence: say why this tense fits, name the clue words/markers, and mention the context (habit, fact, action now, result, finished past event, future, etc.). Do not just name the tense.
 - Next: "Конструкция: " + very short tense pattern for learner (example for Present Simple: "Subject + V1(s/es)")
-- Next: "Скажи: " + EXACT same full corrected English sentence as the next line "Повтори:" (same wording and punctuation style). This is the visible repeat cue in English for the learner; do NOT put Russian here.
-- Next: "Повтори: " + full corrected English sentence that translates only the Russian phrase from the task prompt. Do not reuse wording from the user's answer if it conflicts with the prompt.
-- While the user is still wrong on the same drill (repeat-correction chain): "Скажи:" and "Повтори:" MUST reuse the same English as in your previous assistant message's "Скажи:" — do not output a new English repeat sentence derived from praise or meta-comments (the server enforces this).
-- Never add time-of-day, weekdays, seasons, or "weekend/weekends" to "Повтори:" unless those ideas appear in the Russian task line (for example: do not add "on the weekend" if the Russian sentence has no word like "выходные").
+- Next: "Скажи: " + full corrected English sentence that translates only the Russian phrase from the task prompt. Do not reuse wording from the user's answer if it conflicts with the prompt.
+- While the user is still wrong on the same drill (repeat-correction chain): "Скажи:" MUST reuse the same English as in your previous assistant message's "Скажи:" — do not output a new English repeat sentence derived from praise or meta-comments (the server enforces this).
+- Never add time-of-day, weekdays, seasons, or "weekend/weekends" to "Скажи:" unless those ideas appear in the Russian task line (for example: do not add "on the weekend" if the Russian sentence has no word like "выходные").
 - In ERROR protocol "Комментарий_перевод:" is mandatory in every mistake response (do not skip it).
-- In ERROR protocol "Скажи:" is mandatory whenever you output "Повтори:" (same English as "Повтори:"; on every further error in the same chain, copy the previous "Скажи:" English verbatim).
+- In ERROR protocol "Скажи:" is mandatory in every mistake response; on every further error in the same chain, copy the previous "Скажи:" English verbatim.
 
 Rules:
 - The Russian sentence must sound natural, conversational, and easy to say in everyday speech.
@@ -670,7 +669,7 @@ Rules:
 - Do not output markdown markers like **Correction** or **Comment**.
 - Keep all explanations short and practical for learner.
 - If user answer is correct, use SUCCESS protocol and include all three "Формы" lines.
-- If user answer is correct, include "Конструкция:" as line 2 and do not output "Повтори:".
+- If user answer is correct, include "Конструкция:" as line 2 and do not output "Скажи:".
 - In "Формы" lines, prefer contracted negatives in English: use don't/doesn't/didn't/won't/isn't/aren't/wasn't/weren't/can't (instead of expanded forms like do not/will not/is not).
 - Keep the final line "Переведи на английский." only in SUCCESS protocol.
 - In SUCCESS protocol, "Комментарий" must be engaging, clear, and context-aware for this exact phrase.
@@ -694,25 +693,25 @@ Rules:
   - Errors are grouped by type and not duplicated.
   - Tense name/reason appears only once on standalone "Время:" line.
   - If SUCCESS has forms, they are strictly in order +, ?, - and keep the same core lexicon.
-  - "Повтори:" is canonical translation of the task sentence (not copied from learner by inertia).
+  - "Скажи:" is canonical translation of the task sentence (not copied from learner by inertia).
   - Wording and vocabulary stay within CEFR constraints from CEFR_Levels.xlsx.
 - In SUCCESS protocol never output "Комментарий_перевод:".`
   }
   const tenseRule =
     tense === 'all'
-      ? 'You are practicing MULTIPLE tenses across turns. Each question you ask uses a specific tense. The user MUST answer in the SAME tense as YOUR question. If they answer in a different tense (e.g. Past Simple when your question was in Future Perfect), ALWAYS treat it as a tense error: give "Комментарий:" explaining which tense is required for this question, then "Повтори:" with the FULL corrected English sentence rewritten in the tense of YOUR question. Also correct any grammar, spelling, and vocabulary errors in the same Повтори sentence.'
-      : `Strict: the user must answer in ${tenseName}. If they answer in another tense (e.g. Present Simple when ${tenseName} is required), ALWAYS treat it as an error: give "Комментарий: " with a short explanation in Russian that the answer must be in ${tenseName}, then "Повтори: " with the FULL corrected English sentence rewritten in ${tenseName}. Do NOT accept the answer and do NOT ask a new question until the user has repeated or answered in ${tenseName}. Do not praise a sentence that is in the wrong tense.
+      ? 'You are practicing MULTIPLE tenses across turns. Each question you ask uses a specific tense. The user MUST answer in the SAME tense as YOUR question. If they answer in a different tense (e.g. Past Simple when your question was in Future Perfect), ALWAYS treat it as a tense error: give "Комментарий:" explaining which tense is required for this question, then "Скажи:" with the FULL corrected English sentence rewritten in the tense of YOUR question. Also correct any grammar, spelling, and vocabulary errors in the same Скажи sentence.'
+      : `Strict: the user must answer in ${tenseName}. If they answer in another tense (e.g. Present Simple when ${tenseName} is required), ALWAYS treat it as an error: give "Комментарий: " with a short explanation in Russian that the answer must be in ${tenseName}, then "Скажи: " with the FULL corrected English sentence rewritten in ${tenseName}. Do NOT accept the answer and do NOT ask a new question until the user has repeated or answered in ${tenseName}. Do not praise a sentence that is in the wrong tense.
 
 This rule applies to every tense (Present Simple, Present Continuous, Past Simple, Future Perfect, etc.): whatever tense is selected above is the ONLY tense you may use. You MUST use ONLY ${tenseName} in all your own sentences and questions. Never use any other tense in your replies. Reformulate any question so it uses ${tenseName} (e.g. for Present Continuous ask "What are you playing?" not "What do you like to play?"; for Past Simple ask "What did you do?" not "What do you usually do?"; and so on for any tense).
 
-This applies to every tense: stick to the topic and time frame of YOUR question. Do NOT adopt the user's time frame if they answer with a different one (e.g. you asked about "recently" and they say "tomorrow"; you asked about "yesterday" and they say "next week"; you asked about "now" and they switch to the past). Your "Повтори:" sentence must be in ${tenseName} AND must match the context you asked about — never suggest a sentence in another tense or time frame. Examples: if you asked in Present Perfect about recent past, correct to "Yes, I have been to the cinema recently", not "I will go tomorrow"; if you asked in Past Simple about yesterday, correct to that context, not to "tomorrow" or "next week". Do not ask the user to repeat a sentence in a different tense or time frame than your question.`
+This applies to every tense: stick to the topic and time frame of YOUR question. Do NOT adopt the user's time frame if they answer with a different one (e.g. you asked about "recently" and they say "tomorrow"; you asked about "yesterday" and they say "next week"; you asked about "now" and they switch to the past). Your "Скажи:" sentence must be in ${tenseName} AND must match the context you asked about — never suggest a sentence in another tense or time frame. Examples: if you asked in Present Perfect about recent past, correct to "Yes, I have been to the cinema recently", not "I will go tomorrow"; if you asked in Past Simple about yesterday, correct to that context, not to "tomorrow" or "next week". Do not ask the user to repeat a sentence in a different tense or time frame than your question.`
   const repeatFreezeRule =
     mode === 'dialogue' && forcedRepeatSentence && !isEnglishQuestionLine(forcedRepeatSentence)
-      ? `\n\nRepeat freezing rule (anti-breaking UX): If you output "Повтори:" in this turn, you MUST reuse exactly the SAME sentence that was previously shown to the user.\nPrevious "Повтори:" sentence to reuse:\n"${forcedRepeatSentence}"\nDo NOT rewrite/modify it.`
+      ? `\n\nRepeat freezing rule (anti-breaking UX): If you output "Скажи:" in this turn, you MUST reuse exactly the SAME sentence that was previously shown to the user.\nPrevious "Скажи:" sentence to reuse:\n"${forcedRepeatSentence}"\nDo NOT rewrite/modify it.`
       : ''
   const repeatFreezeQuestionGuard =
     mode === 'dialogue' && forcedRepeatSentence && isEnglishQuestionLine(forcedRepeatSentence)
-      ? '\n\nPrevious "Повтори:" sentence ends with a question mark and is invalid for drill repeat. In this turn do NOT copy it. If correction is needed, output "Повтори:" as a declarative corrected sentence (no "?" at the end).'
+      ? '\n\nPrevious "Скажи:" sentence ends with a question mark and is invalid for drill repeat. In this turn do NOT copy it. If correction is needed, output "Скажи:" as a declarative corrected sentence (no "?" at the end).'
       : ''
   const capitalizationRule =
     'Completely ignore capitalization and punctuation in the USER answer. If the only difference is capitalization or missing commas/periods (e.g. "yes I stayed" vs "Yes, I stayed"), treat the answer as correct and do NOT add any comment about it. Never mention capital letters, commas, periods, or any punctuation in "Комментарий:" — never write things like "нужна запятая", "comma after Yes", etc. Do not correct or explain punctuation. The user often dictates by voice; focus only on tense, grammar, and wording. Your OWN replies must use normal English capitalization and punctuation.';
@@ -724,11 +723,11 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
       : ''
   const freeTalkRule =
     topic === 'free_talk'
-      ? `This is a free conversation. For the very first question, ask a short friendly question that starts the conversation naturally and softly offers a topic choice. Keep it easy to read for any level and any audience. ONLY the very first user reply (right after the opening question) is treated as a topic choice — the user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Infer the topic from it regardless of language (ignore typos and wrong tense, e.g. "I wil plai footbal" → football/sport; "tenis" → tennis; "река" → river; "I река" → river; "транзисторы" → transistors; "я люблю кошки" → cats), output one question in the required tense about that topic, and do NOT output Комментарий or Повтори for that first reply only. Only if the first reply gives no hint at all (e.g. "sdf", "sss"), ask for clarification in a natural human way and vary your wording each time (examples: "Could you clarify that a bit?", "I didn't catch the topic yet — what would you like to discuss?", "Can you say it in another way?"). From the second user reply onwards the topic is already established — apply ALL normal correction rules: output Комментарий and Повтори when the user makes a tense, grammar, or spelling error, exactly as described in the FORMAT section above.`
+      ? `This is a free conversation. For the very first question, ask a short friendly question that starts the conversation naturally and softly offers a topic choice. Keep it easy to read for any level and any audience. ONLY the very first user reply (right after the opening question) is treated as a topic choice — the user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Infer the topic from it regardless of language (ignore typos and wrong tense, e.g. "I wil plai footbal" → football/sport; "tenis" → tennis; "река" → river; "I река" → river; "транзисторы" → transistors; "я люблю кошки" → cats), output one question in the required tense about that topic, and do NOT output Комментарий or Скажи for that first reply only. Only if the first reply gives no hint at all (e.g. "sdf", "sss"), ask for clarification in a natural human way and vary your wording each time (examples: "Could you clarify that a bit?", "I didn't catch the topic yet — what would you like to discuss?", "Can you say it in another way?"). From the second user reply onwards the topic is already established — apply ALL normal correction rules: output Комментарий and Скажи when the user makes a tense, grammar, or spelling error, exactly as described in the FORMAT section above.`
       : ''
   const freeTopicPriority =
     topic === 'free_talk'
-      ? 'HIGHEST PRIORITY — Free topic (for ANY tense: Present Simple, Present Perfect, Past Simple, etc.): When the user is naming or revealing their topic for the first time (i.e. the very first reply after you asked "What would you like to talk about?"), do NOT output Комментарий or Повтори. Do NOT output meta-text or instructions. Only infer the topic and reply with ONE real question in the required tense. This override applies ONLY to that one topic-choice turn. For all subsequent user replies, apply normal correction rules. For the first question, keep the wording aligned with the selected level profile. '
+      ? 'HIGHEST PRIORITY — Free topic (for ANY tense: Present Simple, Present Perfect, Past Simple, etc.): When the user is naming or revealing their topic for the first time (i.e. the very first reply after you asked "What would you like to talk about?"), do NOT output Комментарий or Скажи. Do NOT output meta-text or instructions. Only infer the topic and reply with ONE real question in the required tense. This override applies ONLY to that one topic-choice turn. For all subsequent user replies, apply normal correction rules. For the first question, keep the wording aligned with the selected level profile. '
       : ''
   const dialogueRussianNaturalnessRule =
     mode === 'dialogue'
@@ -736,7 +735,7 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
       : ''
   const dialogueAllTenseAnchorRule =
     mode === 'dialogue' && tense === 'all'
-      ? '\n\nALL-TENSES DIALOGUE (strict): When you output "Комментарий:" and "Повтори:", the English sentence after "Повтори:" MUST use the SAME grammar tense as YOUR IMMEDIATELY PREVIOUS assistant message in this chat (the last English question you asked, OR the last "Повтори:" sentence if the user is still correcting a repeat). Do NOT switch to another tense for convenience or "better style" (for example: do not output Present Perfect Continuous if your previous question was Future Perfect, or Present Simple when the question used Past Simple). Fix vocabulary and grammar only while keeping that tense alignment. This rule applies even in free topic conversations.'
+      ? '\n\nALL-TENSES DIALOGUE (strict): When you output "Комментарий:" and "Скажи:", the English sentence after "Скажи:" MUST use the SAME grammar tense as YOUR IMMEDIATELY PREVIOUS assistant message in this chat (the last English question you asked, OR the last "Скажи:" sentence if the user is still correcting a repeat). Do NOT switch to another tense for convenience or "better style" (for example: do not output Present Perfect Continuous if your previous question was Future Perfect, or Present Simple when the question used Past Simple). Fix vocabulary and grammar only while keeping that tense alignment. This rule applies even in free topic conversations.'
       : ''
   return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${cefrPromptBlock} ${audienceStyleRule} ${childTopicSafetyRule} ${styleRule} ${grammarFocusRule} ${antiRobotRule} ${topicRetentionRule} ${strictTopicRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueRussianNaturalnessRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule}${repeatFreezeQuestionGuard} ${capitalizationRule} ${contractionRule} ${freeTalkFirstTurnLexiconRule} ${freeTalkRule}
 
@@ -753,42 +752,42 @@ When the conversation is empty (you are sending the very first message in the di
 
 The user often dictates by voice and may not use commas or other punctuation. Do NOT treat missing or different punctuation as an error. If the only issue is punctuation (e.g. missing comma after "Yes"), consider the answer correct. Never mention punctuation (commas, periods, etc.) in "Комментарий:" at all. Focus comments only on tense, grammar, and word choice.
 
-Mixed learner input: if the user's message contains both Latin and Cyrillic characters (e.g. "I want кататься на нем", "I like гулять в park"), treat it as an English attempt where the user substituted Russian words because they do not know the English equivalent. Infer the intended meaning from the Russian words, then apply normal correction: output "Комментарий:" explaining what the Russian words mean in English (e.g. "кататься = to ride, на нем = on it") and noting any other errors (tense, grammar), then output "Повтори:" with the full corrected English sentence in the required tense. Do NOT ignore the message, do NOT repeat your question without "Повтори:", and do NOT ask the user to rephrase in English.
+Mixed learner input: if the user's message contains both Latin and Cyrillic characters (e.g. "I want кататься на нем", "I like гулять в park"), treat it as an English attempt where the user substituted Russian words because they do not know the English equivalent. Infer the intended meaning from the Russian words, then apply normal correction: output "Комментарий:" explaining what the Russian words mean in English (e.g. "кататься = to ride, на нем = on it") and noting any other errors (tense, grammar), then output "Скажи:" with the full corrected English sentence in the required tense. Do NOT ignore the message, do NOT repeat your question without "Скажи:", and do NOT ask the user to rephrase in English.
 
 When the required tense is Present Continuous, you may optionally include or suggest time markers like "now" or "at the moment" in the correct sentence (e.g. "I am playing football now."), or briefly mention in Комментарий that the learner can add them (e.g. "Можно добавить now или at the moment — это маркеры Present Continuous."). Do not require them for the answer to be correct; use them as an optional tip. Prefer simple questions that translate clearly: e.g. ask "Where are you swimming?" or "What are you doing now?" rather than "What are you swimming in?" (the latter is ambiguous and translates poorly into Russian).
 
-EXCEPTION for free topic (Свободная тема), for any tense: when the user is naming or revealing a topic (e.g. after you asked "What would you like to talk about?"), NEVER output Комментарий or Повтори. The user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Always try to infer the topic first — ignore typos, wrong tense, and language (e.g. "I wil plai footbal" → football, sport; "tenis", "vialint" → tennis, violin; "река" → river; "транзисторы" → transistors; "я люблю кошки" → cats). Output exactly one question about that topic. Only if the message gives no hint at all (e.g. "sdf", random letters), ask for clarification in a natural human way and vary your wording across turns (do not repeat the same clarification sentence again and again). No error search, no corrections in that step.
+EXCEPTION for free topic (Свободная тема), for any tense: when the user is naming or revealing a topic (e.g. after you asked "What would you like to talk about?"), NEVER output Комментарий or Скажи. The user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Always try to infer the topic first — ignore typos, wrong tense, and language (e.g. "I wil plai footbal" → football, sport; "tenis", "vialint" → tennis, violin; "река" → river; "транзисторы" → transistors; "я люблю кошки" → cats). Output exactly one question about that topic. Only if the message gives no hint at all (e.g. "sdf", random letters), ask for clarification in a natural human way and vary your wording across turns (do not repeat the same clarification sentence again and again). No error search, no corrections in that step.
 
-CRITICAL — Context: Your correction (Комментарий/Говорится/Нужно слово/Повтори) must refer ONLY to the user's LAST message. Never output a correction about words or mistakes that are not in that message (e.g. if the user wrote "I usually swim in the pool", do NOT correct "movie" vs "move" — that is from another turn). If the last message has no errors, normally output only the next question in English — except the LIKE vs LOVE intensification case in FORMAT (2) below.
+CRITICAL — Context: Your correction (Комментарий/Говорится/Нужно слово/Скажи) must refer ONLY to the user's LAST message. Never output a correction about words or mistakes that are not in that message (e.g. if the user wrote "I usually swim in the pool", do NOT correct "movie" vs "move" — that is from another turn). If the last message has no errors, normally output only the next question in English — except the LIKE vs LOVE intensification case in FORMAT (2) below.
 
-This applies to every tense (Present Simple, Present Continuous, Past Simple, Future Perfect, etc.): you MUST correct the user's answer according to ALL applicable rules. Check every dimension: (1) required tense — if they used another tense, correct it; (2) grammar — word order, verb form, articles (a/an/the), plural/singular; (3) spelling — correct every misspelled word; (4) word choice — wrong word (e.g. "move" instead of "movie") must be fixed. The "Повтори:" sentence must fix ALL errors at once; the "Комментарий:" must briefly list ALL issues so the user sees what was wrong. Do not correct only one mistake and ignore others.
+This applies to every tense (Present Simple, Present Continuous, Past Simple, Future Perfect, etc.): you MUST correct the user's answer according to ALL applicable rules. Check every dimension: (1) required tense — if they used another tense, correct it; (2) grammar — word order, verb form, articles (a/an/the), plural/singular; (3) spelling — correct every misspelled word; (4) word choice — wrong word (e.g. "move" instead of "movie") must be fixed. The "Скажи:" sentence must fix ALL errors at once; the "Комментарий:" must briefly list ALL issues so the user sees what was wrong. Do not correct only one mistake and ignore others.
 
-Article rule for school subjects and languages: patterns like "study English", "I studied English", "learn French" normally have NO article before the subject name. Never tell the user in Комментарий to add "the" before "English" (or another language) if the corrected sentence in Повтори does not use "the" there. Комментарий must not contradict Повтори.
+Article rule for school subjects and languages: patterns like "study English", "I studied English", "learn French" normally have NO article before the subject name. Never tell the user in Комментарий to add "the" before "English" (or another language) if the corrected sentence in Скажи does not use "the" there. Комментарий must not contradict Скажи.
 
-Be-verb agreement: Комментарий must not contradict Повтори on the correct form of **be**. If Повтори uses **they / we / you + are** (or **there are**), do not say in Russian that the learner should use **is** instead of **are** (or the reverse). Match your Russian explanation to the actual corrected sentence in Повтори (e.g. for *they* the correct form is **are**).
+Be-verb agreement: Комментарий must not contradict Скажи on the correct form of **be**. If Скажи uses **they / we / you + are** (or **there are**), do not say in Russian that the learner should use **is** instead of **are** (or the reverse). Match your Russian explanation to the actual corrected sentence in Скажи (e.g. for *they* the correct form is **are**).
 
-Pronoun rule (inanimate referents): In English, concrete objects, machines, vehicles, tools, and typical non-human things are **it**; possession is **its** (e.g. "its speed", "its color"), not **his** or **her** — **his/her** refer to people (or sometimes specific animals). If the thread is about a car, bike, phone, machine, house, etc., the corrected sentence in Повтори must use **its** for that thing's properties, not **his** unless you clearly mean a male person. Learners with Russian L1 may wrongly use **his** where English needs **its**; fix both in Комментарий (briefly, in Russian if needed) and in Повтори.
+Pronoun rule (inanimate referents): In English, concrete objects, machines, vehicles, tools, and typical non-human things are **it**; possession is **its** (e.g. "its speed", "its color"), not **his** or **her** — **his/her** refer to people (or sometimes specific animals). If the thread is about a car, bike, phone, machine, house, etc., the corrected sentence in Скажи must use **its** for that thing's properties, not **his** unless you clearly mean a male person. Learners with Russian L1 may wrongly use **his** where English needs **its**; fix both in Комментарий (briefly, in Russian if needed) and in Скажи.
 
-When there are grammar or spelling problems or the user used the wrong tense, respond ONLY in the short format below. Do NOT output long explanations of rules, lists of example questions (e.g. "Do you like pizza?", "What is your favorite color?"), or meta-instructions. Even if the user makes the same mistake again (e.g. wrong tense twice), reply only with Комментарий (up to 2–3 short sentences in Russian if you must list tense + spelling + another issue) + Повтори: [correct sentence]. Keep the reply short. When several issues are listed, use natural transitions between sentences (see Correction tone). Do not use emojis or jokes in corrections (e.g. do not write "unless you're preparing for a spelling competition" or similar), except emojis are allowed on the single short praise "Комментарий:" allowed by the LIKE→LOVE intensification exception in FORMAT (2).
+When there are grammar or spelling problems or the user used the wrong tense, respond ONLY in the short format below. Do NOT output long explanations of rules, lists of example questions (e.g. "Do you like pizza?", "What is your favorite color?"), or meta-instructions. Even if the user makes the same mistake again (e.g. wrong tense twice), reply only with Комментарий (up to 2–3 short sentences in Russian if you must list tense + spelling + another issue) + Скажи: [correct sentence]. Keep the reply short. When several issues are listed, use natural transitions between sentences (see Correction tone). Do not use emojis or jokes in corrections (e.g. do not write "unless you're preparing for a spelling competition" or similar), except emojis are allowed on the single short praise "Комментарий:" allowed by the LIKE→LOVE intensification exception in FORMAT (2).
 
 ${commentToneRule}
 
 FORMAT (strict):
 1) When the user's answer has a real mistake (wrong tense, grammar, or wording): output ONLY two lines:
    - "Комментарий: " + a very short explanation in Russian (1–3 short sentences if needed). Briefly list ALL issues (tense, grammar, spelling, word choice). If there are two or more issues, connect the sentences with natural Russian discourse markers (кроме того, также, отдельно, и ещё, а ещё) so it sounds like one fluent tutor explanation, not two disconnected remarks. Do not mention capitalization or punctuation.
-   - "Повтори: " + the FULL corrected English sentence (fixing all errors at once). Always write a complete sentence with normal punctuation.
+   - "Скажи: " + the FULL corrected English sentence (fixing all errors at once). Always write a complete sentence with normal punctuation.
    In this case do NOT add a follow‑up question — the user must repeat first.
-2) When the user's answer is already correct: usually do NOT output "Комментарий:" at all. Accept a natural, grammatically correct reply even if it does not exactly repeat the wording of the question. Output only the next question in English, and make it the next sentence by the algorithm for this topic/tense. Do NOT output "Повтори:" for correct answers. EXCEPTION — like vs love only: If YOUR last English message used mild preference wording (typically "like" / "enjoy" / questions such as "Do you like…") and the learner's reply is otherwise fully correct but uses "love" for stronger emphasis with the same situational meaning, treat the answer as CORRECT: output ONE short "Комментарий:" line in Russian praising that "love" is more expressive (emojis allowed on this line only), then on the next line output exactly ONE follow-up question in English. No "Повтори:".${praiseStyleVariant ? ` For other human-sounding reactions, keep them implicit — no extra line; the like/love exception above still applies when relevant.` : ''}
+2) When the user's answer is already correct: usually do NOT output "Комментарий:" at all. Accept a natural, grammatically correct reply even if it does not exactly repeat the wording of the question. Output only the next question in English, and make it the next sentence by the algorithm for this topic/tense. Do NOT output "Скажи:" for correct answers. EXCEPTION — like vs love only: If YOUR last English message used mild preference wording (typically "like" / "enjoy" / questions such as "Do you like…") and the learner's reply is otherwise fully correct but uses "love" for stronger emphasis with the same situational meaning, treat the answer as CORRECT: output ONE short "Комментарий:" line in Russian praising that "love" is more expressive (emojis allowed on this line only), then on the next line output exactly ONE follow-up question in English. No "Скажи:".${praiseStyleVariant ? ` For other human-sounding reactions, keep them implicit — no extra line; the like/love exception above still applies when relevant.` : ''}
 
-Repeat line rule (strict): text after "Повтори:" must be a corrected declarative sentence for repetition, not a tutor question. Do NOT end "Повтори:" with "?".
+Repeat line rule (strict): text after "Скажи:" must be a corrected declarative sentence for repetition, not a tutor question. Do NOT end "Скажи:" with "?".
 
 Never add raw markers like **Correction:**, **Comment:**, **Right:** or similar anywhere in the visible text. The user should never see those words with asterisks.
 
-Your reply must contain ONLY the actual content the user should see: a question in English only; or (when correcting mistakes) Комментарий: [Russian text] and Повтори: [sentence]; or (like→love intensification exception only) one Комментарий: [short Russian praise] and then one question in English. Never output any instructions, format descriptions, or meta-text. Never output numbering or labels like "FORMAT". Output only real questions, Комментарий, and Повтори lines.
+Your reply must contain ONLY the actual content the user should see: a question in English only; or (when correcting mistakes) Комментарий: [Russian text] and Скажи: [sentence]; or (like→love intensification exception only) one Комментарий: [short Russian praise] and then one question in English. Never output any instructions, format descriptions, or meta-text. Never output numbering or labels like "FORMAT". Output only real questions, Комментарий, and Скажи lines.
 
-CRITICAL DIALOGUE PLAN RULE: In dialogue training mode, NEVER expand the conversation with your own personal answer (for example to "And you?"). Do NOT talk about your preferences or experience. Always follow the tutor plan: evaluate the user's last message, then either output correction format (Комментарий + Повтори) or ask exactly one next question that continues the established topic and context from the user's last answer.
+CRITICAL DIALOGUE PLAN RULE: In dialogue training mode, NEVER expand the conversation with your own personal answer (for example to "And you?"). Do NOT talk about your preferences or experience. Always follow the tutor plan: evaluate the user's last message, then either output correction format (Комментарий + Скажи) or ask exactly one next question that continues the established topic and context from the user's last answer.
 
-Never use "Tell me" or other English instruction phrases. After a correction, you may optionally add a short Russian prompt like "Повтори: " + the correct English sentence so the user can repeat it, but keep it separate from the \"Комментарий\" line.
+Never use "Tell me" or other English instruction phrases. After a correction, you may optionally add a short Russian prompt like "Скажи: " + the correct English sentence so the user can repeat it, but keep it separate from the \"Комментарий\" line.
 
 Do NOT add any extra \"RU:\" line or full Russian translation of the whole reply. All visible text must be in English EXCEPT: (1) the \"Комментарий:\" line — in Russian when correcting mistakes or for the like→love intensification praise; absent when a correct answer goes straight to the next question only.`
 }
@@ -803,13 +802,13 @@ const INSTRUCTION_LEAK_PATTERNS = [
   /start a new line with/i,
   /start the next line with/i,
   /start with\s+["']?Комментарий(?:_ошибка)?\s*:/i,
-  /start with\s+["']?Повтори\s*:/i,
+  /start with\s+["']?Скажи\s*:/i,
   /spelling,\s*word choice/i,
   /^\s*(?:ai|assistant)\s*:\s*[,]*\s*spelling,\s*word choice/i,
   /^\s*["']?\s*then\s+(write|give)/i,
   /^\s*1\)\s*(If you want|If you want to)/im,
   /^\s*2\)\s*(Give|If you)/im,
-  /^\s*3\)\s*(Use\s+"Повтори|If you want)/im,
+  /^\s*3\)\s*(Use\s+"Скажи|If you want)/im,
   /^\s*4\)\s*When the user's answer/im,
   /If you want to ask the user to repeat/i,
   /If you want the user to repeat or answer again/i,
@@ -1144,9 +1143,9 @@ function stripOffContextCorrections(content: string, lastUserContent: string): s
 }
 
 /**
- * Модель иногда нарушает протокол и добавляет "Повтори:" даже в ответах-похвалах.
+ * Модель иногда нарушает протокол и добавляет "Скажи:" даже в ответах-похвалах.
  * Это зацикливает UX (пользователь повторяет, а модель снова просит повторить).
- * Если есть похвала в "Комментарий:", удаляем строки "Повтори:".
+ * Если есть похвала в "Комментарий:", удаляем строки "Скажи:".
  */
 function stripRepeatOnPraise(content: string): string {
   const trimmed = content.trim()
@@ -1158,8 +1157,7 @@ function stripRepeatOnPraise(content: string): string {
   const kept = lines.filter((line) => {
     const normalized = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
     return (
-      !/^\s*(Повтори|Repeat|Say)\s*:/i.test(normalized) &&
-      !/^\s*Скажи\s*:/i.test(normalized)
+      !/^\s*(Скажи|Say)\s*:/i.test(normalized)
     )
   })
   return kept.join('\n').replace(/\n\s*\n\s*\n/g, '\n\n').replace(/^\s*\n+|\n+\s*$/g, '').trim()
@@ -1313,7 +1311,7 @@ function applyFreeTalkAntiRepeat(params: {
 }): string {
   const questionLine = extractLastDialogueQuestionLine(params.content)
   if (!questionLine) return params.content
-  if (/(^|\n)\s*(Повтори|Repeat|Say)\s*:/im.test(params.content)) return params.content
+  if (/(^|\n)\s*(Скажи|Say)\s*:/im.test(params.content)) return params.content
 
   const recentQuestions = extractRecentAssistantQuestions(params.recentMessages, 3)
   const isRepeated = recentQuestions.some((q) => isNearDuplicateQuestion(q, questionLine))
@@ -1671,7 +1669,7 @@ function looksLikeRussianMetaLine(line: string): boolean {
   if (!s) return false
   if (/\?\s*$/.test(s)) return false
   // не трогаем служебные строки
-  if (/^\s*(Комментарий|Повтори)\s*:/i.test(s)) return false
+  if (/^\s*(Комментарий|Скажи|Скажи)\s*:/i.test(s)) return false
 
   // Для мета-линии в нашем кейсе важно: кириллица + слова-оценки/времена/“использовали”.
   const hasCyrillic = /[А-Яа-яЁё]/.test(s)
@@ -1738,7 +1736,7 @@ function ensureNextQuestionOnPraise(content: string, params: {
   if (!trimmed) return content
 
   // Пользователь ещё должен повторить исправление — не подменяем ответ следующим вопросом.
-  if (/(^|\n)\s*(Повтори|Repeat|Say)\s*:/im.test(trimmed)) return content
+  if (/(^|\n)\s*(Скажи|Say)\s*:/im.test(trimmed)) return content
   if (!isKommentariyPurePraiseOnly(trimmed)) return content
 
   const tenseForFallback =
@@ -1767,11 +1765,11 @@ function ensureNextQuestionWhenMissing(content: string, params: {
   const trimmed = content.trim()
   if (!trimmed) return content
 
-  // Если есть "Повтори:", вопрос добавлять нельзя — пользователь должен повторить.
+  // Если есть "Скажи:", вопрос добавлять нельзя — пользователь должен повторить.
   if (/^\s*(?:ai|assistant)\s*:\s*/im.test(trimmed)) {
     // no-op; normalize happens elsewhere
   }
-  if (/(^|\n)\s*(Повтори|Repeat|Say)\s*:/im.test(trimmed)) return content
+  if (/(^|\n)\s*(Скажи|Say)\s*:/im.test(trimmed)) return content
 
   // Есть Комментарий (в любой строке), но нет ни одного вопроса.
   const hasComment = /(^|\n)\s*Комментарий(?:_ошибка)?\s*:/im.test(trimmed)
@@ -2311,10 +2309,10 @@ function alignDialogueArticleCommentWithRepeat(params: {
   const { content, userText, audience, level } = params
   const lines = content.split(/\r?\n/)
   const commentIndex = lines.findIndex((line) => /^Комментарий(?:_ошибка)?\s*:/i.test(line.trim()))
-  const repeatLine = lines.find((line) => /^(?:\s*)(Повтори|Repeat|Say)\s*:/i.test(line.trim()))
+  const repeatLine = lines.find((line) => /^(?:\s*)(Скажи|Say)\s*:/i.test(line.trim()))
   if (commentIndex === -1 || !repeatLine) return content
 
-  const repeatTextForStrip = repeatLine.replace(/^(?:\s*)(Повтори|Repeat|Say)\s*:\s*/i, '').trim()
+  const repeatTextForStrip = repeatLine.replace(/^(?:\s*)(Скажи|Say)\s*:\s*/i, '').trim()
   let commentText = lines[commentIndex].replace(/^Комментарий(?:_ошибка)?\s*:\s*/i, '').trim()
   const strippedEnglishArticle = stripFalseArticleBeforeEnglishComment(commentText, repeatTextForStrip)
   if (strippedEnglishArticle !== commentText) {
@@ -2419,13 +2417,13 @@ function isValidTutorOutput(params: {
   isFirstTurn: boolean
   isTopicChoiceTurn?: boolean
   requiredTense?: string
-  /** Предыдущее сообщение ассистента (вопрос), для проверки «Повтори» при requiredTense === 'all'. */
+  /** Предыдущее сообщение ассистента (вопрос), для проверки «Скажи» при requiredTense === 'all'. */
   priorAssistantContent?: string | null
   /** free_talk: следующий вопрос после похвалы должен быть в этом времени (не в requiredTense). */
   expectedNextQuestionTense?: string | null
-  /** Незакрытая фраза «Повтори» из предыдущего хода. Если задана и ответ её не снимает — ответ ИИ обязан содержать «Повтори:». */
+  /** Незакрытая фраза «Скажи» из предыдущего хода. Если задана и ответ её не снимает — ответ ИИ обязан содержать «Скажи:». */
   forcedRepeatSentence?: string | null
-  /** Последний текст пользователя — используется для проверки, снял ли он незакрытый «Повтори». */
+  /** Последний текст пользователя — используется для проверки, снял ли он незакрытый «Скажи». */
   lastUserText?: string
 }): boolean {
   const { content, mode, isFirstTurn, isTopicChoiceTurn, requiredTense, priorAssistantContent, expectedNextQuestionTense, forcedRepeatSentence, lastUserText } =
@@ -2472,7 +2470,7 @@ function isValidTutorOutput(params: {
   }
 
   const hasComment = lines.some((l) => /^Комментарий(?:_ошибка)?\s*:/i.test(l))
-  const hasRepeat = lines.some((l) => /^(Повтори|Repeat|Say)\s*:/i.test(l))
+  const hasRepeat = lines.some((l) => /^(Скажи|Say)\s*:/i.test(l))
   const commentLine = lines.find((l) => /^Комментарий(?:_ошибка)?\s*:/i.test(l)) ?? ''
   const commentBody = commentLine.replace(/^Комментарий(?:_ошибка)?\s*:\s*/i, '').trim()
 
@@ -2481,8 +2479,8 @@ function isValidTutorOutput(params: {
       commentBody
     )
 
-  // Если есть незакрытое «Повтори» из предыдущего хода и ответ пользователя его не снял —
-  // ответ ИИ обязан содержать «Повтори:». Без этого триггерим repair.
+  // Если есть незакрытое «Скажи» из предыдущего хода и ответ пользователя его не снял —
+  // ответ ИИ обязан содержать «Скажи:». Без этого триггерим repair.
   if (
     !isFirstTurn &&
     !isTopicChoiceTurn &&
@@ -2494,7 +2492,7 @@ function isValidTutorOutput(params: {
     return false
   }
 
-  // Первый ход диалога: только один вопрос (без Комментарий/Повтори).
+  // Первый ход диалога: только один вопрос (без Комментарий/Скажи).
   if (isFirstTurn) {
     if (hasComment || hasRepeat) return false
     if (lines.length !== 1) return false
@@ -2508,24 +2506,24 @@ function isValidTutorOutput(params: {
     return isEnglishQuestionLine(lines[0] ?? '')
   }
 
-  // Ошибка пользователя: строго 2 строки (Комментарий + Повтори), без вопроса.
+  // Ошибка пользователя: строго 2 строки (Комментарий + Скажи), без вопроса.
   if (hasRepeat) {
     if (lines.length !== 2) return false
     const c = lines[0] ?? ''
     const r = lines[1] ?? ''
     if (!/^Комментарий(?:_ошибка)?\s*:/i.test(c)) return false
-    if (!/^(Повтори|Repeat|Say)\s*:/i.test(r)) return false
-    // В Повтори должен быть английский текст.
-    const after = r.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '')
+    if (!/^(Скажи|Say)\s*:/i.test(r)) return false
+    // В Скажи должен быть английский текст.
+    const after = r.replace(/^(Скажи|Say)\s*:\s*/i, '')
     if (isEnglishQuestionLine(after)) return false
     return /[A-Za-z]/.test(after) && !/[А-Яа-яЁё]/.test(after)
   }
 
-  // Комментарий без Повтори: допустим только если ответ пользователя по времени верен.
-  // Если время неверно — ИИ обязан выдать Повтори, а не переходить к следующему вопросу.
+  // Комментарий без Скажи: допустим только если ответ пользователя по времени верен.
+  // Если время неверно — ИИ обязан выдать Скажи, а не переходить к следующему вопросу.
   // В режиме requiredTense === 'all' ориентируемся на время предыдущего вопроса ассистента.
   if (hasComment && !hasRepeat) {
-    // Если сам комментарий явно указывает на исправление, без «Повтори» нельзя.
+    // Если сам комментарий явно указывает на исправление, без «Скажи» нельзя.
     if (commentSuggestsCorrection) return false
 
     const effectiveRequiredTense =
@@ -2569,7 +2567,7 @@ function isValidTutorOutput(params: {
 }
 
 /**
- * Убирает ведущий "AI:"/"Assistant:" у служебных строк (Комментарий/Повтори),
+ * Убирает ведущий "AI:"/"Assistant:" у служебных строк (Комментарий/Скажи),
  * чтобы UI и дальнейшие фильтры работали одинаково.
  */
 function normalizeAssistantPrefixForControlLines(content: string): string {
@@ -2579,14 +2577,21 @@ function normalizeAssistantPrefixForControlLines(content: string): string {
   const out = lines.map((line) => {
     const stripped = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '')
     const normalized = stripped.trim()
-    if (/^(Комментарий|Повтори|Repeat|Say)\s*:/i.test(normalized)) return normalized
+    if (/^(Комментарий|Скажи|Say)\s*:/i.test(normalized)) return normalized
     return line
   })
   return out.join('\n').replace(/\n\s*\n\s*\n/g, '\n\n').replace(/^\s*\n+|\n+\s*$/g, '').trim()
 }
 
+/** Канонизирует legacy-маркеры повтора в единый «Скажи:». */
+function normalizeRepeatLabelToSay(content: string): string {
+  const trimmed = content.trim()
+  if (!trimmed) return content
+  return trimmed.replace(/(^|\n)\s*(?:Скажи|Say)\s*:/gim, '$1Скажи:')
+}
+
 /**
- * Модель иногда склеивает "Комментарий:" и "Повтори:" в одну строку.
+ * Модель иногда склеивает "Комментарий:" и "Скажи:" в одну строку.
  * Для UI это плохо (теряется структура), поэтому разносит их на 2 строки.
  */
 function splitCommentAndRepeatSameLine(content: string): string {
@@ -2607,13 +2612,13 @@ function splitCommentAndRepeatSameLine(content: string): string {
       continue
     }
 
-    const idxRepeat = noPrefix.search(/\b(Повтори|Repeat|Say)\s*:/i)
+    const idxRepeat = noPrefix.search(/\b(Скажи|Say)\s*:/i)
     if (idxRepeat === -1) {
       out.push(noPrefix)
       continue
     }
 
-    // "Комментарий: ... Повтори: ..." -> 2 строки
+    // "Комментарий: ... Скажи: ..." -> 2 строки
     const commentPart = noPrefix.slice(0, idxRepeat).trimEnd().replace(/\s+[—–-]\s*$/g, '').trimEnd()
     const repeatPart = noPrefix.slice(idxRepeat).trimStart()
     out.push(commentPart)
@@ -2625,12 +2630,12 @@ function splitCommentAndRepeatSameLine(content: string): string {
 
 /**
  * Если модель в "Комментарий:" просит пояснить (непонятно / объясни),
- * то "Повтори:" быть не должно: UI использует "Повтори" только для корректировок,
+ * то "Скажи:" быть не должно: UI использует "Скажи" только для корректировок,
  * а здесь нужен обычный следующий вопрос.
  *
  * Превращаем:
  * - "Комментарий: Непонятно... Объясни."
- * - "Повтори: What ...?"
+ * - "Скажи: What ...?"
  * в:
  * - "Комментарий: Непонятно... Объясни."
  * - "What ...?"
@@ -2643,7 +2648,7 @@ function stripRepeatWhenAskingToExplain(content: string): string {
     .filter(Boolean)
 
   const commentLines = rawLines.filter((l) => /^Комментарий(?:_ошибка)?\s*:/i.test(l))
-  const repeatLines = rawLines.filter((l) => /^(Повтори|Repeat|Say)\s*:/i.test(l))
+  const repeatLines = rawLines.filter((l) => /^(Скажи|Say)\s*:/i.test(l))
   const otherLines = rawLines.filter((l) => !commentLines.includes(l) && !repeatLines.includes(l))
 
   if (commentLines.length !== 1 || repeatLines.length !== 1 || otherLines.length !== 0) return content
@@ -2655,7 +2660,7 @@ function stripRepeatWhenAskingToExplain(content: string): string {
 
   if (!asksExplain) return content
 
-  const m = /^(?:Повтори|Repeat|Say)\s*:\s*(.+)$/i.exec(repeatLines[0])
+  const m = /^(?:Скажи|Say)\s*:\s*(.+)$/i.exec(repeatLines[0])
   const question = m?.[1]?.trim() ?? ''
   const looksLikeQuestion = /[A-Za-z]/.test(question) && /\?\s*$/.test(question)
   if (!looksLikeQuestion) return content
@@ -2675,7 +2680,7 @@ function normalizeVariantFormatting(content: string): string {
     if (!line) continue
 
     // Не трогаем служебные строки коррекции.
-    if (/^\s*(Повтори|Repeat|Say)\s*:/i.test(line)) {
+    if (/^\s*(Скажи|Say)\s*:/i.test(line)) {
       out.push(rawLine)
       continue
     }
@@ -2764,7 +2769,7 @@ function enforceOpenDialogueQuestion(content: string, params: {
   diversityKey?: string
 }): string {
   if (params.mode !== 'dialogue') return content
-  if (/(^|\n)\s*(Повтори|Repeat|Say)\s*:/im.test(content)) return content
+  if (/(^|\n)\s*(Скажи|Say)\s*:/im.test(content)) return content
   const lastQuestion = extractLastDialogueQuestionLine(content)
   if (!lastQuestion || !isClosedYesNoQuestion(lastQuestion)) return content
   const replacement = fallbackNextQuestion({
@@ -2890,9 +2895,9 @@ function buildDomainMeaningClarification(lastQuestion: string, token: string): s
 
 /**
  * Гарантированно убирает "Правильно:" из ответа модели.
- * - "Правильно: X" -> "Повтори: X"
- * - "AI: Правильно: X" -> "Повтори: X"
- * - Если уже есть "Повтори:" с таким же текстом, строку "Правильно:" удаляем как дубль.
+ * - "Правильно: X" -> "Скажи: X"
+ * - "AI: Правильно: X" -> "Скажи: X"
+ * - Если уже есть "Скажи:" с таким же текстом, строку "Правильно:" удаляем как дубль.
  */
 function stripPravilnoEverywhere(content: string): string {
   const trimmed = content.trim()
@@ -2903,7 +2908,7 @@ function stripPravilnoEverywhere(content: string): string {
 
   for (const line of lines) {
     const normalized = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
-    const mRepeat = /^\s*(?:Повтори|Repeat|Say)\s*:\s*(.+)$/i.exec(normalized)
+    const mRepeat = /^\s*(?:Скажи|Say)\s*:\s*(.+)$/i.exec(normalized)
     if (mRepeat?.[1]) {
       repeatTexts.add(mRepeat[1].trim())
     }
@@ -2916,7 +2921,7 @@ function stripPravilnoEverywhere(content: string): string {
     if (mPrav?.[1]) {
       const text = mPrav[1].trim()
       if (repeatTexts.has(text)) continue
-      out.push(`Повтори: ${text}`)
+      out.push(`Скажи: ${text}`)
       continue
     }
     out.push(line)
@@ -2947,7 +2952,7 @@ function ensureRepeatWhenCommentRequestsCorrection(params: {
   const trimmed = content.trim()
   if (!trimmed) return content
   if (!/(^|\n)\s*Комментарий(?:_ошибка)?\s*:/im.test(trimmed)) return content
-  if (/(^|\n)\s*(Повтори|Repeat|Say)\s*:/im.test(trimmed)) return content
+  if (/(^|\n)\s*(Скажи|Say)\s*:/im.test(trimmed)) return content
 
   const firstCommentLine =
     trimmed
@@ -2969,14 +2974,14 @@ function ensureRepeatWhenCommentRequestsCorrection(params: {
     : ensureSentence(userText)
 
   if (!/[A-Za-z]/.test(fallbackRepeat) || /[А-Яа-яЁё]/.test(fallbackRepeat)) return content
-  return `${trimmed}\nПовтори: ${fallbackRepeat}`.trim()
+  return `${trimmed}\nСкажи: ${fallbackRepeat}`.trim()
 }
 
 function hasCommentRequestingCorrectionWithoutRepeat(content: string): boolean {
   const trimmed = content.trim()
   if (!trimmed) return false
   if (!/(^|\n)\s*Комментарий(?:_ошибка)?\s*:/im.test(trimmed)) return false
-  if (/(^|\n)\s*(Повтори|Repeat|Say)\s*:/im.test(trimmed)) return false
+  if (/(^|\n)\s*(Скажи|Say)\s*:/im.test(trimmed)) return false
   const commentLine =
     trimmed
       .split(/\r?\n/)
@@ -3218,7 +3223,7 @@ function ensureTranslationProtocolBlocks(
   let praiseFromErrorsPayload: string | null = null
 
   const isProtocolHeaderAfterSupportOrErrors = (l: string) =>
-    /^[\s\-•]*(?:\d+[\.)]\s*)*(Комментарий_ошибка|Комментарий_перевод|Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say|Комментарий)\s*:/i.test(
+    /^[\s\-•]*(?:\d+[\.)]\s*)*(Комментарий_ошибка|Комментарий_перевод|Ошибки|Время|Конструкция|Формы|Скажи|Say|Комментарий)\s*:/i.test(
       l
     ) || /^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)\b/i.test(l)
 
@@ -3281,10 +3286,10 @@ function ensureTranslationProtocolBlocks(
       collectingConstruction = false
       continue
     }
-    if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line)) {
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(line)) {
       repeat = line.replace(
-        /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*/i,
-        'Повтори: '
+        /^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:\s*/i,
+        'Скажи: '
       ).trim()
       collectingConstruction = false
       continue
@@ -3298,10 +3303,10 @@ function ensureTranslationProtocolBlocks(
 
   if (!comment) {
     comment =
-      'Комментарий: Есть неточность в грамматике. Давайте сверимся с образцом в блоке «Повтори».'
+      'Комментарий: Есть неточность в грамматике. Давайте сверимся с образцом в блоке «Скажи».'
   }
   if (!hasPraise && repeat) {
-    const repeatBody = repeat.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Повтори\s*:\s*/i, '').trim()
+    const repeatBody = repeat.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Скажи\s*:\s*/i, '').trim()
     if (!repeatBody || /^[–—-]\s*$/.test(repeatBody)) {
       repeat = null
     }
@@ -3361,7 +3366,7 @@ function ensureTranslationProtocolBlocks(
     out.push(`Ошибки:\n${String(errorsBlock).trim()}`)
   }
   if (repeat && !repeatRu) {
-    const repeatBody = repeat.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Повтори\s*:\s*/i, '').trim()
+    const repeatBody = repeat.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Скажи\s*:\s*/i, '').trim()
     const en = normalizeRepeatSentenceEnding(stripLeadingRepeatRuPrompt(repeatBody))
     if (en) repeatRu = `Скажи: ${en}`
   }
@@ -3621,7 +3626,7 @@ function isTranslationSuccessContent(content: string): boolean {
     .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
     .filter(Boolean)
   if (lines.length === 0) return false
-  const hasRepeat = lines.some((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line))
+  const hasRepeat = lines.some((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(line))
   if (hasRepeat) return false
   const commentLine =
     lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:/i.test(line)) ?? ''
@@ -3656,7 +3661,7 @@ function isTranslationSuccessLikeContent(content: string): boolean {
     .split(/\r?\n/)
     .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
     .filter(Boolean)
-  const hasRepeat = lines.some((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line))
+  const hasRepeat = lines.some((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(line))
   if (hasRepeat) return false
   const commentLine =
     lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:/i.test(line)) ?? ''
@@ -3732,7 +3737,7 @@ function ensureTranslationSuccessBlocks(
     }
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:/i.test(line)) continue
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:/i.test(line)) continue
-    if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line)) continue
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(line)) continue
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Формы\s*:/i.test(line)) continue
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*[+\?-]\s*:/i.test(line)) continue
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*(?:Переведи|Переведите)\b/i.test(line)) {
@@ -3834,12 +3839,12 @@ function keepOnlyCommentAndRepeatOnInvalidTranslationInput(content: string, incl
   }
   const supportPrefix = supportLead.length > 0 ? `${supportLead.join('\n')}\n` : ''
 
-  const repeatLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line))
+  const repeatLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(line))
   if (!includeRepeat) return `${supportPrefix}${commentLine}`.trim()
 
   if (!repeatLine) return `${supportPrefix}${commentLine}`.trim()
   const normalizedRepeat = repeatLine
-    .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*/i, 'Повтори: ')
+    .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:\s*/i, 'Скажи: ')
     .trim()
   return normalizedRepeat
     ? `${supportPrefix}${commentLine}\n${normalizedRepeat}`.trim()
@@ -3865,17 +3870,17 @@ function getTranslationRepeatSentence(content: string): string | null {
     .split(/\r?\n/)
     .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
     .filter(Boolean)
-  const repeatLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line))
+  const repeatLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(line))
   if (!repeatLine) return null
   const repeatText = repeatLine
-    .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*/i, '')
+    .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:\s*/i, '')
     .trim()
   return repeatText || null
 }
 
 /**
  * Первый ход перевода: если «естественный» эталонный EN к русской строке не в Required tense,
- * подменяем только строку задания на детерминированный fallback (цикл Повтори/проверки не трогаем).
+ * подменяем только строку задания на детерминированный fallback (цикл Скажи/проверки не трогаем).
  */
 async function ensureFirstTranslationDrillMatchesRequiredTense(params: {
   content: string
@@ -3920,7 +3925,7 @@ async function ensureFirstTranslationDrillMatchesRequiredTense(params: {
   return ensureFirstTranslationInvitation(rebuilt, params.sentenceType)
 }
 
-/** Финальная нормализация ответа перевода: enforce «Повтори»/«Скажи», sanitize, скрытый __TRAN__. */
+/** Финальная нормализация ответа перевода: enforce «Скажи»/«Скажи», sanitize, скрытый __TRAN__. */
 async function finalizeTranslationResponsePayload(params: {
   content: string
   nonSystemMessages: ReadonlyArray<ChatMessage>
@@ -4037,14 +4042,14 @@ function forceTranslationWordErrorProtocol(content: string, repeatSentence: stri
       ? buildTranslationErrorLexiconAndCyrillicLines(userTrim, repeat)
       : ['\u{1F4D6} Лексическая ошибка. Проверь написание и выбор слова.']
 
-  const out: string[] = [supportLine, 'Ошибки:', ...errorLines, `Скажи: ${repeat}`, `Повтори: ${repeat}`]
+  const out: string[] = [supportLine, 'Ошибки:', ...errorLines, `Скажи: ${repeat}`]
   return out.join('\n').trim()
 }
 
 function replaceFalsePositiveTranslationErrorWithPraise(params: {
   content: string
   userText: string
-  /** Эталон с прошлой карточки (Повтори / __TRAN_REPEAT_REF__), если модель подставила другой текст в «Повтори:». */
+  /** Эталон с прошлой карточки (Скажи / __TRAN_REPEAT_REF__), если модель подставила другой текст в «Скажи:». */
   priorRepeatEnglish?: string | null
 }): string {
   const { content, userText, priorRepeatEnglish } = params
@@ -4180,7 +4185,7 @@ function replaceFalsePositiveDialogueRepeatWithPraise(params: {
     )
   if (commentSuggestsCorrection) return content
   if (!isDialogueAnswerEffectivelyCorrect(userText, repeatSentence, requiredTense)) return content
-  // Для корректного ответа в dialogue мы должны выходить без "Комментарий" и без "Повтори":
+  // Для корректного ответа в dialogue мы должны выходить без "Комментарий" и без "Скажи":
   // сразу следующий вопрос (это соответствует протоколу диалога в system prompt).
   return fallbackNextQuestion({ topic, tense: requiredTense, level, audience, diversityKey, recentMessages })
 }
@@ -4200,7 +4205,7 @@ function isDialogueFinalCorrectResponse(params: {
   const { content, userText, requiredTense } = params
   const trimmed = content.trim()
   if (!trimmed) return false
-  if (/(^|\n)\s*(Повтори|Repeat|Say)\s*:/im.test(trimmed)) return false
+  if (/(^|\n)\s*(Скажи|Say)\s*:/im.test(trimmed)) return false
 
   const hasQuestionMark = /\?\s*$|[A-Za-z].*\?/m.test(trimmed)
   if (!hasQuestionMark) return false
@@ -4236,7 +4241,7 @@ function replaceGenericRepeatFallbackWithPraiseIfUserLikelyCorrect(params: {
   const placeholderLower = GENERIC_TRANSLATION_REPEAT_FALLBACK.toLowerCase()
   const filtered = lines.filter((line) => {
     const cleaned = line.trim()
-    const isRepeatLine = /^(Повтори|Repeat|Say)\s*:/i.test(cleaned)
+    const isRepeatLine = /^(Скажи|Say)\s*:/i.test(cleaned)
     if (!isRepeatLine) return true
     return !cleaned.toLowerCase().includes(placeholderLower)
   })
@@ -4290,7 +4295,7 @@ function normalizeTranslationErrorBranch(content: string): string {
     .filter(Boolean)
 
   const headerBreakForErrors = (l: string) =>
-    /^[\s\-•]*(?:\d+[\.)]\s*)*(Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say|Комментарий_ошибка|Комментарий|Комментарий_перевод)\s*:/i.test(
+    /^[\s\-•]*(?:\d+[\.)]\s*)*(Время|Конструкция|Формы|Скажи|Say|Комментарий_ошибка|Комментарий|Комментарий_перевод)\s*:/i.test(
       l
     )
 
@@ -4372,8 +4377,8 @@ function normalizeTranslationErrorBranch(content: string): string {
     return clean ? `Скажи: ${clean}` : undefined
   })()
   const repeat = lines
-    .find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:/i.test(line))
-    ?.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(Повтори|Repeat|Say)\s*:\s*/i, 'Повтори: ')
+    .find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(line))
+    ?.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:\s*/i, 'Скажи: ')
     .trim()
 
   if (!repeat) return content
@@ -4404,11 +4409,11 @@ function buildTranslationMissingRepeatRepairInstruction(params: {
     'TRANSLATION REPEAT REPAIR:',
     'Your last output missed the actual corrected sentence.',
     `Required tense remains "${tenseName}".`,
-    'In the line "Повтори:" you MUST write the real full corrected English sentence for the same Russian phrase.',
+    'In the line "Скажи:" you MUST write the real full corrected English sentence for the same Russian phrase.',
     'Do not borrow words from the user\'s answer to build that sentence if they conflict with the Russian prompt.',
     'Never write placeholders like "Write the correct English translation of the given Russian sentence."',
     fallbackPrompt ? `The Russian phrase to correct is: "${fallbackPrompt}"` : null,
-    'Keep the visible protocol only: Комментарий_перевод / Комментарий / Ошибки / Время / Конструкция / Скажи / Повтори.',
+    'Keep the visible protocol only: Комментарий_перевод / Комментарий / Ошибки / Время / Конструкция / Скажи / Скажи.',
   ]
     .filter(Boolean)
     .join(' ')
@@ -4442,7 +4447,7 @@ function buildTranslationTenseDriftRepairInstruction(params: { expectedTenseName
   return [
     'TRANSLATION TENSE DRIFT REPAIR:',
     `Required tense is "${expectedTenseName}".`,
-    'Rewrite the full corrected sentence in the line that starts with "Повтори:" using ONLY the required tense.',
+    'Rewrite the full corrected sentence in the line that starts with "Скажи:" using ONLY the required tense.',
     'Keep only correction protocol lines. Do not add a next Russian sentence or translation invitation line.',
     'No meta, no markdown, no numbering. Output only the user-visible protocol text.',
   ]
@@ -4457,10 +4462,10 @@ function buildDialogueAllTenseRepeatRepairInstruction(params: {
   const snippet = params.lastAssistantSnippet.replace(/\s+/g, ' ').slice(0, 600)
   return [
     'DIALOGUE REPEAT TENSE REPAIR:',
-    `The previous assistant message in this chat used approximately "${params.expectedTenseName}" for the main English question or the previous "Повтори:" line.`,
+    `The previous assistant message in this chat used approximately "${params.expectedTenseName}" for the main English question or the previous "Скажи:" line.`,
     snippet ? `Context from that message: ${snippet}` : null,
-    'Rewrite ONLY your reply so it has exactly two lines: "Комментарий:" (Russian; keep the same issues/feedback intent, and mention spelling/word fixes if "Повтори" changes any words) and "Повтори:" (English).',
-    `The "Повтори:" sentence MUST be in ${params.expectedTenseName} and fix the user\'s mistake — do NOT change to another tense.`,
+    'Rewrite ONLY your reply so it has exactly two lines: "Комментарий:" (Russian; keep the same issues/feedback intent, and mention spelling/word fixes if "Скажи" changes any words) and "Скажи:" (English).',
+    `The "Скажи:" sentence MUST be in ${params.expectedTenseName} and fix the user\'s mistake — do NOT change to another tense.`,
     'No markdown, no numbering, no extra lines.',
   ]
     .filter(Boolean)
@@ -4474,8 +4479,8 @@ function buildDialogueBlindTenseRepairInstruction(lastAssistant: string): string
     `Previous assistant message — find the English QUESTION in it: ${snippet}`,
     'The user\'s last answer was wrong. Output ONLY two lines:',
     'Комментарий: short Russian about ALL mistakes in the user\'s LAST message (tense/grammar/spelling) — not only tense.',
-    'Повтори: one FULL corrected English sentence in the SAME grammar tense as that English question.',
-    'Do NOT use a different tense than the question (e.g. Present Simple question requires Present Simple in Повтори).',
+    'Скажи: one FULL corrected English sentence in the SAME grammar tense as that English question.',
+    'Do NOT use a different tense than the question (e.g. Present Simple question requires Present Simple in Скажи).',
     'No markdown, no extra lines.',
   ].join(' ')
 }
@@ -4573,6 +4578,7 @@ async function repairDialogueAllTenseRepeatMismatch(params: {
       if (repairedRaw && !isMetaGarbage(repairedRaw)) {
         let repaired = stripOffContextCorrections(repairedRaw, lastUserText)
         repaired = normalizeAssistantPrefixForControlLines(repaired)
+        repaired = normalizeRepeatLabelToSay(repaired)
         repaired = splitCommentAndRepeatSameLine(repaired)
         repaired = stripRepeatWhenAskingToExplain(repaired)
         repaired = normalizeVariantFormatting(repaired)
@@ -4583,7 +4589,7 @@ async function repairDialogueAllTenseRepeatMismatch(params: {
         const formatOk =
           lines.length === 2 &&
           /^Комментарий(?:_ошибка)?\s*:/i.test(lines[0] ?? '') &&
-          /^(Повтори|Repeat|Say)\s*:/i.test(lines[1] ?? '') &&
+          /^(Скажи|Say)\s*:/i.test(lines[1] ?? '') &&
           Boolean(rr) &&
           /[A-Za-z]/.test(rr ?? '')
         if (formatOk) {
@@ -4628,6 +4634,7 @@ async function repairDialogueAllTenseRepeatMismatch(params: {
   if (!repairedRaw || isMetaGarbage(repairedRaw)) return content
   let repaired = stripOffContextCorrections(repairedRaw, lastUserText)
   repaired = normalizeAssistantPrefixForControlLines(repaired)
+  repaired = normalizeRepeatLabelToSay(repaired)
   repaired = splitCommentAndRepeatSameLine(repaired)
   repaired = stripRepeatWhenAskingToExplain(repaired)
   repaired = normalizeVariantFormatting(repaired)
@@ -4640,7 +4647,7 @@ async function repairDialogueAllTenseRepeatMismatch(params: {
     .map((l) => l.trim())
     .filter(Boolean)
   if (lines.length !== 2) return content
-  if (!/^Комментарий(?:_ошибка)?\s*:/i.test(lines[0] ?? '') || !/^(Повтори|Repeat|Say)\s*:/i.test(lines[1] ?? '')) return content
+  if (!/^Комментарий(?:_ошибка)?\s*:/i.test(lines[0] ?? '') || !/^(Скажи|Say)\s*:/i.test(lines[1] ?? '')) return content
   return repaired.trim()
 }
 
@@ -4852,8 +4859,8 @@ function enrichTranslationCommentQuality(params: {
   repeatSentence: string | null
   tense: string
   /**
-   * Эталон с карточки до ответа (Повтори / __TRAN_REPEAT_REF__). Если ответ с ним совпадает,
-   * не добавляем «лексические» подсказки по строке «Повтори» из текущего ответа модели — иначе
+   * Эталон с карточки до ответа (Скажи / __TRAN_REPEAT_REF__). Если ответ с ним совпадает,
+   * не добавляем «лексические» подсказки по строке «Скажи» из текущего ответа модели — иначе
    * позиционное сравнение с чужим эталоном даёт противоречия (often vs usually и т.п.).
    */
   groundTruthRepeatEnglish?: string | null
@@ -5187,7 +5194,7 @@ function ensureTranslationErrorsMentionCyrillicAnswer(content: string, userText:
   if (errIdx === -1) return content
 
   const headerRe =
-    /^(Комментарий_ошибка|Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say)\s*:/i
+    /^(Комментарий_ошибка|Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Скажи|Say)\s*:/i
 
   const errLine = lines[errIdx] ?? ''
   const inlineRest = errLine.replace(/^\s*Ошибки\s*:\s*/i, '').trim()
@@ -5219,7 +5226,7 @@ function buildRepairSystemPrefix(extraInstructions = ''): string {
     'REPAIR MODE: Your last output was invalid (it contained meta/instructions). ' +
     'Rewrite the reply so it follows the required protocol EXACTLY and contains only user-visible text. ' +
     'No explanations, no meta, no bullet lists, no quotes of rules. ' +
-    'Output only one of: (A) a single English question; (B) two lines: "Комментарий: ..." (Russian) + "Повтори: ..." (English declarative corrected sentence, never a question, no trailing "?").\n\n' +
+    'Output only one of: (A) a single English question; (B) two lines: "Комментарий: ..." (Russian) + "Скажи: ..." (English declarative corrected sentence, never a question, no trailing "?").\n\n' +
     (extra ? `${extra}\n\n` : '')
   )
 }
@@ -5235,36 +5242,36 @@ function buildDialogueRussianNaturalnessRepairInstruction(): string {
 function buildDialogueMixedInputRepairInstruction(): string {
   return (
     'Additional repair rule for dialogue mixed input (Latin + Cyrillic in the user answer): ' +
-    'always output exactly two lines: "Комментарий: ..." and "Повтори: ...". ' +
-    'In "Повтори:" use only English words (no Cyrillic at all). ' +
+    'always output exactly two lines: "Комментарий: ..." and "Скажи: ...". ' +
+    'In "Скажи:" use only English words (no Cyrillic at all). ' +
     'In "Комментарий:" explicitly translate the Russian inserted word(s) to English (for example: "лес = forest", "means forest").'
   )
 }
 
 function extractLastAssistantRepeatSentence(messages: ChatMessage[]): string | null {
   let last: string | null = null
-  const markerRe = /(?:^|\n)\s*(?:Повтори|Repeat|Say|Скажи)\s*:\s*(.+)$/im
+  const markerRe = /(?:^|\n)\s*(?:Скажи|Say)\s*:\s*(.+)$/im
   for (const m of messages) {
     if (m.role !== 'assistant') continue
     const match = markerRe.exec(m.content)
     if (match?.[1]) last = match[1].trim()
   }
   if (!last) return last
-  // Иногда в истории уже попадает "Повтори: Повтори: ...", и тогда next "Повтори:" дублируется.
+  // Иногда в истории уже попадает "Скажи: Скажи: ...", и тогда next "Скажи:" дублируется.
   // Нормализуем: если извлеченная фраза начинается с маркера — убираем его.
-  return last.replace(/^\s*(?:Повтори|Repeat|Say|Скажи)\s*:\s*/i, '').trim() || null
+  return last.replace(/^\s*(?:Скажи|Say)\s*:\s*/i, '').trim() || null
 }
 
-const ASSISTANT_REPEAT_LINE_RE = /(?:^|\n)\s*(?:Повтори|Repeat|Say|Скажи)\s*:\s*(.+)$/im
+const ASSISTANT_REPEAT_LINE_RE = /(?:^|\n)\s*(?:Скажи|Say)\s*:\s*(.+)$/im
 
 function normalizeAssistantRepeatBody(raw: string): string {
   return raw
     .trim()
-    .replace(/^\s*(?:Повтори|Repeat|Say|Скажи)\s*:\s*/i, '')
+    .replace(/^\s*(?:Скажи|Say)\s*:\s*/i, '')
     .trim()
 }
 
-/** Все фразы «Повтори:» из ответов ассистента по порядку (для замкнутого цикла при смене эталона моделью). */
+/** Все фразы «Скажи:» из ответов ассистента по порядку (для замкнутого цикла при смене эталона моделью). */
 function extractRepeatSentencesFromAssistantHistory(messages: ChatMessage[]): string[] {
   const out: string[] = []
   for (const m of messages) {
@@ -5291,7 +5298,7 @@ function scoreUserRepeatOverlap(userText: string, candidate: string): number {
 }
 
 /**
- * Эталон для «Повтори:» и правила freeze: при нескольких кандидатах в истории выбираем тот,
+ * Эталон для «Скажи:» и правила freeze: при нескольких кандидатах в истории выбираем тот,
  * с которым ответ пользователя пересекается сильнее (опечатки в той же фразе), иначе — последний.
  */
 function pickDialogueForcedRepeatAnchorFromHistory(
@@ -5320,7 +5327,7 @@ function pickDialogueForcedRepeatAnchorFromHistory(
   return c[bestIdx]!
 }
 
-/** Модель сократила «Повтори» до префикса эталона из истории — не подменяем на полную фразу. */
+/** Модель сократила «Скажи» до префикса эталона из истории — не подменяем на полную фразу. */
 function isDialogueRepeatLikelyTruncationOfAnchor(modelRepeat: string, anchor: string): boolean {
   const mWords = normalizeEnglishForRepeatMatch(modelRepeat)
     .split(/\s+/)
@@ -5421,7 +5428,7 @@ function buildDialogueLowSignalFallback(params: {
     Boolean(params.lastUserText) &&
     !isDialogueAnswerEffectivelyCorrect(params.lastUserText!, lastRepeat!, params.tense)
   if (hasActiveRepeat && lastRepeat) {
-    return [invalidInputComment, `Повтори: ${lastRepeat}`].join('\n')
+    return [invalidInputComment, `Скажи: ${lastRepeat}`].join('\n')
   }
 
   const lastQuestion = extractLastAssistantQuestionSentence(params.messages)
@@ -5781,7 +5788,7 @@ export async function POST(req: NextRequest) {
       if (activeRepeatChain && priorEn?.trim()) {
         const en = normalizeRepeatSentenceEnding(priorEn.trim())
         linesOut.push(`Скажи: ${en}`)
-        linesOut.push(`Повтори: ${en}`)
+        linesOut.push(`Скажи: ${en}`)
       }
       return NextResponse.json({ content: linesOut.filter(Boolean).join('\n') })
     }
@@ -6198,7 +6205,7 @@ export async function POST(req: NextRequest) {
     })
 
     const topicChoicePrefix = mode === 'dialogue' && isTopicChoiceTurn
-      ? 'This turn only: the user is naming their topic. Output ONLY one question in English — nothing else. Do NOT output "Комментарий:", "Отлично", "Молодец", "Верно", or any praise. Do NOT output "Правильно:" or "Повтори:". The user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Infer the topic from their words regardless of language (e.g. "I played tennis" → tennis; "i swam" → swimming; "река" → river; "I река" → river; "транзисторы" → transistors; "я люблю кошки" → cats). Ask exactly ONE question in the required tense about the inferred topic. The question must sound natural, as if asked by a professional English tutor in a real lesson. Relate the topic to the learner\'s personal experience, feelings, or everyday life. Do NOT mechanically combine the topic word with a generic verb — think about what aspect of the topic a real person would discuss. For Future Simple and other tenses: output a full grammatical sentence — subject + auxiliary + main verb in the correct form (e.g. infinitive or -ing after "will try", never a stray third-person -s fragment like "try inspires"). Do NOT paste topic-label words into the middle of a broken pattern. Good examples: topic "sun" + Past Simple → "Did you spend time outside in the sun yesterday?"; topic "cats" + Present Simple → "Do you have a cat at home?". Bad examples: "What did you do with the sun?" (nonsensical); "What do you usually do involving cats?" (robotic). If the message gives absolutely no hint (e.g. "sdf"), ask what they mean. Your reply must be ONLY that one question, no other lines. Ignore all correction rules below for this turn.\n\n'
+      ? 'This turn only: the user is naming their topic. Output ONLY one question in English — nothing else. Do NOT output "Комментарий:", "Отлично", "Молодец", "Верно", or any praise. Do NOT output "Правильно:" or "Скажи:". The user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Infer the topic from their words regardless of language (e.g. "I played tennis" → tennis; "i swam" → swimming; "река" → river; "I река" → river; "транзисторы" → transistors; "я люблю кошки" → cats). Ask exactly ONE question in the required tense about the inferred topic. The question must sound natural, as if asked by a professional English tutor in a real lesson. Relate the topic to the learner\'s personal experience, feelings, or everyday life. Do NOT mechanically combine the topic word with a generic verb — think about what aspect of the topic a real person would discuss. For Future Simple and other tenses: output a full grammatical sentence — subject + auxiliary + main verb in the correct form (e.g. infinitive or -ing after "will try", never a stray third-person -s fragment like "try inspires"). Do NOT paste topic-label words into the middle of a broken pattern. Good examples: topic "sun" + Past Simple → "Did you spend time outside in the sun yesterday?"; topic "cats" + Present Simple → "Do you have a cat at home?". Bad examples: "What did you do with the sun?" (nonsensical); "What do you usually do involving cats?" (robotic). If the message gives absolutely no hint (e.g. "sdf"), ask what they mean. Your reply must be ONLY that one question, no other lines. Ignore all correction rules below for this turn.\n\n'
       : ''
     const dialogueInferredTenseHint =
       mode === 'dialogue' &&
@@ -6212,7 +6219,7 @@ export async function POST(req: NextRequest) {
             const inferred = inferTenseFromDialogueAssistantContent(lastAst)
             if (!inferred) return ''
             const name = TENSE_NAMES[inferred] ?? inferred
-            return `\n\nIMPORTANT: Your last question was in ${name}. The user MUST answer in ${name}. If their answer uses a different tense, treat it as a tense error: explain in Комментарий that ${name} is required, and write the corrected sentence in ${name} after "Повтори:".`
+            return `\n\nIMPORTANT: Your last question was in ${name}. The user MUST answer in ${name}. If their answer uses a different tense, treat it as a tense error: explain in Комментарий that ${name} is required, and write the corrected sentence in ${name} after "Скажи:".`
           })()
         : ''
     const freeTalkExpectedNextQuestionTense: string | null =
@@ -6237,7 +6244,7 @@ export async function POST(req: NextRequest) {
         ? (() => {
             const lastName = TENSE_NAMES[inferredLastAssistantTense] ?? inferredLastAssistantTense
             const nextName = TENSE_NAMES[freeTalkExpectedNextQuestionTense] ?? freeTalkExpectedNextQuestionTense
-            return `\n\nFREE-TALK: After a fully correct answer, your next English question MUST be entirely in ${nextName}. Vary wording; do NOT reuse the same template every time (e.g. avoid "What will you have done..." on every turn). If the user made mistakes, Комментарий + Повтори must use ${lastName} for the corrected English sentence.`
+            return `\n\nFREE-TALK: After a fully correct answer, your next English question MUST be entirely in ${nextName}. Vary wording; do NOT reuse the same template every time (e.g. avoid "What will you have done..." on every turn). If the user made mistakes, Комментарий + Скажи must use ${lastName} for the corrected English sentence.`
           })()
         : ''
     const freeTalkTopicHint: string = (() => {
@@ -6257,7 +6264,7 @@ Short single-word cue rule: if user sends only one topic word (e.g. "forest", "�
 - if context clearly confirms topic switch, switch;
 - if it matches current topic, continue this topic;
 - if ambiguous, ask a short clarification about intended topic.
-When you detect a confirmed topic change: do NOT output "Комментарий:" or "Повтори:". If a new topic is named, ask one question about it in the required tense (follow the same natural question style). If no specific topic is named, ask a short clarification asking which topic they want. This rule overrides the mixed-input correction rule and topic retention for this message only.`
+When you detect a confirmed topic change: do NOT output "Комментарий:" or "Скажи:". If a new topic is named, ask one question about it in the required tense (follow the same natural question style). If no specific topic is named, ask a short clarification asking which topic they want. This rule overrides the mixed-input correction rule and topic retention for this message only.`
     })()
     const translationGoldRefPromptSuffix = (() => {
       if (mode !== 'translation' || isFirstTurn) return ''
@@ -6265,7 +6272,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       if (!prevAssistant) return ''
       const gold = extractCanonicalRepeatRefEnglishFromContent(prevAssistant)
       if (!gold) return ''
-      return `\n\nINTERNAL_REFERENCE_ENGLISH (never show this label or block to the learner; do not copy this label into your visible reply). Canonical English for the Russian exercise the user is translating: ${gold}. For ERROR protocol: compare the learner's English to this reference and to the Russian prompt; the line after "Повтори:" MUST be exactly this English sentence (you may only adjust spacing or final punctuation for consistency).`
+      return `\n\nINTERNAL_REFERENCE_ENGLISH (never show this label or block to the learner; do not copy this label into your visible reply). Canonical English for the Russian exercise the user is translating: ${gold}. For ERROR protocol: compare the learner's English to this reference and to the Russian prompt; the line after "Скажи:" MUST be exactly this English sentence (you may only adjust spacing or final punctuation for consistency).`
     })()
     const systemContent =
       topicChoicePrefix +
@@ -6408,6 +6415,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     }
     sanitized = stripOffContextCorrections(sanitized, lastUserContentForResponse)
     sanitized = normalizeAssistantPrefixForControlLines(sanitized)
+    sanitized = normalizeRepeatLabelToSay(sanitized)
     sanitized = splitCommentAndRepeatSameLine(sanitized)
     sanitized = stripRepeatWhenAskingToExplain(sanitized)
     sanitized = normalizeVariantFormatting(sanitized)
@@ -6877,6 +6885,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             if (repairedSanitizedRaw && !isMetaGarbage(repairedSanitizedRaw)) {
               let repaired = stripOffContextCorrections(repairedSanitizedRaw, lastUserContentForResponse)
               repaired = normalizeAssistantPrefixForControlLines(repaired)
+              repaired = normalizeRepeatLabelToSay(repaired)
               repaired = splitCommentAndRepeatSameLine(repaired)
               repaired = stripRepeatWhenAskingToExplain(repaired)
               repaired = normalizeVariantFormatting(repaired)
@@ -6936,7 +6945,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     }
 
     // TENSE DRIFT: иногда модель в режиме тренировки по переводу "съезжает" на другое время.
-    // Исправляем это одним repair-запросом, чтобы "Время/Конструкция/Повтори" совпали с выбранным tense.
+    // Исправляем это одним repair-запросом, чтобы "Время/Конструкция/Скажи" совпали с выбранным tense.
     if (
       mode === 'translation' &&
       !isFirstTurn &&
@@ -6971,6 +6980,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             if (repairedSanitizedRaw && !isMetaGarbage(repairedSanitizedRaw)) {
               let repaired = stripOffContextCorrections(repairedSanitizedRaw, lastUserContentForResponse)
               repaired = normalizeAssistantPrefixForControlLines(repaired)
+              repaired = normalizeRepeatLabelToSay(repaired)
               repaired = splitCommentAndRepeatSameLine(repaired)
               repaired = stripRepeatWhenAskingToExplain(repaired)
               repaired = normalizeVariantFormatting(repaired)
@@ -7115,7 +7125,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           role: 'system',
           content:
             systemContent +
-            `\n\nIMPORTANT LANGUAGE FIX: You MUST reply ONLY in ${targetLabel} (no switching languages). Keep it short (1–3 sentences). No "Комментарий/Повтори", no tutor/protocol markers, no "RU:/Russian:/Перевод".`,
+            `\n\nIMPORTANT LANGUAGE FIX: You MUST reply ONLY in ${targetLabel} (no switching languages). Keep it short (1–3 sentences). No "Комментарий/Скажи", no tutor/protocol markers, no "RU:/Russian:/Перевод".`,
         }
 
         const res2 = await callProviderChat({
@@ -7305,6 +7315,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           }
           repaired = stripOffContextCorrections(repaired, lastUserContentForResponse)
           repaired = normalizeAssistantPrefixForControlLines(repaired)
+          repaired = normalizeRepeatLabelToSay(repaired)
           repaired = splitCommentAndRepeatSameLine(repaired)
           repaired = normalizeVariantFormatting(repaired)
           repaired = stripPravilnoEverywhere(repaired)
@@ -7545,14 +7556,14 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 audience,
                 level,
                 userText: lastUserContentForResponse,
-              })}\nПовтори: ${buildMixedInputRepeatFallback({
+              })}\nСкажи: ${buildMixedInputRepeatFallback({
                 userText: lastUserContentForResponse,
                 tense: tutorGradingTense,
               })}`,
             })
           }
           return NextResponse.json({
-            content: `Комментарий: Давайте уточним формулировку и грамматику.\nПовтори: ${ensureSentence(lastUserContentForResponse)}`,
+            content: `Комментарий: Давайте уточним формулировку и грамматику.\nСкажи: ${ensureSentence(lastUserContentForResponse)}`,
           })
         }
         if (!isMixedDialogueInput && userClosedForcedRepeat && isUserLikelyCorrectForTense(lastUserContentForResponse, tutorGradingTense)) {
@@ -7594,14 +7605,14 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               audience,
               level,
               userText: lastUserContentForResponse,
-            })}\nПовтори: ${buildMixedInputRepeatFallback({
+            })}\nСкажи: ${buildMixedInputRepeatFallback({
               userText: lastUserContentForResponse,
               tense: tutorGradingTense,
             })}`,
           })
         }
         return NextResponse.json({
-          content: `${commentNonMixed}\nПовтори: ${ensureSentence(lastUserContentForResponse)}`,
+          content: `${commentNonMixed}\nСкажи: ${ensureSentence(lastUserContentForResponse)}`,
         })
       }
       const fallbackContent =

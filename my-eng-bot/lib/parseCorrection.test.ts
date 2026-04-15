@@ -9,12 +9,12 @@ describe('parseCorrection', () => {
         'Second point.',
         'Third point.',
         'Время: Present Simple.',
-        'Повтори: I often do my homework.',
+        'Скажи: I often do my homework.',
       ].join('\n')
     )
 
     expect(result.comment).toBe('First point.\nSecond point.\nThird point.')
-    expect(result.rest).toBe('Время: Present Simple.\nПовтори: I often do my homework.')
+    expect(result.rest).toBe('Время: Present Simple.\nСкажи: I often do my homework.')
   })
 
   it('ends Комментарий before Ошибки', () => {
@@ -24,7 +24,7 @@ describe('parseCorrection', () => {
         'Ошибки:',
         '✏️ x → y',
         'Время: Present Simple.',
-        'Повтори: I run.',
+        'Скажи: I run.',
       ].join('\n')
     )
 

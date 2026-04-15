@@ -104,7 +104,7 @@ describe('extractLastTranslationPromptFromMessages', () => {
       {
         role: 'assistant',
         content:
-          'Комментарий_перевод: Похвала про like.\nКомментарий: Ошибка.\nСкажи: Do you like to read books?\nПовтори: Do you like to read books?',
+          'Комментарий_перевод: Похвала про like.\nКомментарий: Ошибка.\nСкажи: Do you like to read books?\nСкажи: Do you like to read books?',
       },
       { role: 'user', content: 'Do you like read book' },
     ]

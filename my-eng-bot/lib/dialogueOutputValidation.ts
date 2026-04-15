@@ -1,5 +1,5 @@
 /**
- * Проверка согласованности вывода диалога с требуемым временем (Комментарий / Повтори / вопрос).
+ * Проверка согласованности вывода диалога с требуемым временем (Комментарий / Скажи / вопрос).
  */
 
 import {
@@ -15,7 +15,7 @@ function stripLeadingAiPrefix(line: string): string {
 
 /**
  * @param expectedNextQuestionTense — для free_talk после верного ответа: следующий вопрос должен быть в этом времени,
- *   а не в requiredTense (время последнего вопроса/«Повтори»).
+ *   а не в requiredTense (время последнего вопроса/«Скажи»).
  */
 export type DialogueTenseValidationReason =
   | 'next_question_tense_mismatch'
@@ -40,9 +40,9 @@ export function validateDialogueOutputTense(params: {
     .map((l) => l.trim())
     .filter(Boolean)
 
-  const repeatLine = lines.find((line) => /^(Повтори|Repeat|Say)\s*:/i.test(line))
+  const repeatLine = lines.find((line) => /^(Скажи|Say)\s*:/i.test(line))
   if (repeatLine) {
-    const repeatSentence = repeatLine.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '').trim()
+    const repeatSentence = repeatLine.replace(/^(Скажи|Say)\s*:\s*/i, '').trim()
     if (lastUserText && !isRepeatSemanticallySafe({ userText: lastUserText, repeatSentence })) {
       return { ok: false, reason: 'semantic_mismatch' }
     }

@@ -127,7 +127,7 @@ function simplifyDialogueOrTranslationContent(params: {
 }): string {
   const lines = params.content.split('\n')
   const transformed = lines.map((line) => {
-    if (/^\s*Повтори\s*:/i.test(line)) {
+    if (/^\s*Скажи\s*:/i.test(line)) {
       const [prefix, rest = ''] = line.split(/:\s*/, 2)
       const simplified = trimLongEnglishSentences({
         text: simplifyEnglishText(rest),

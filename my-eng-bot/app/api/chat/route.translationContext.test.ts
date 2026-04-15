@@ -32,7 +32,7 @@ describe('POST /api/chat translation provider payload', () => {
         'Время: Present Simple — привычное действие.',
         'Конструкция: Subject + V1(s/es)',
         'Скажи: I usually read books.',
-        'Повтори: I usually read books.',
+        'Скажи: I usually read books.',
       ].join('\n'),
     })
 
@@ -79,7 +79,7 @@ describe('POST /api/chat translation provider payload', () => {
         'Время: Present Continuous — действие сейчас.',
         'Конструкция: am/is/are + V-ing',
         'Скажи: I am reading a book now.',
-        'Повтори: I am reading a book now.',
+        'Скажи: I am reading a book now.',
       ].join('\n'),
     })
 
@@ -104,7 +104,7 @@ describe('POST /api/chat translation provider payload', () => {
     const systemPrompt = firstCall?.apiMessages?.find((m) => m.role === 'system')?.content ?? ''
 
     expect(systemPrompt).toContain('Line 2: "Переведи далее: " + NEXT natural Russian sentence')
-    expect(systemPrompt).toContain('In SUCCESS protocol do NOT output separate "Время:", "Конструкция:", "Формы:" or "Повтори:" lines.')
+    expect(systemPrompt).toContain('In SUCCESS protocol do NOT output separate "Время:", "Конструкция:", "Формы:" or "Скажи:" lines.')
   })
 
   it('при наличии __TRAN__ в истории не дергает gold до основного вызова; finalize может запросить gold для скрытой строки', async () => {
@@ -156,7 +156,7 @@ describe('POST /api/chat translation provider payload', () => {
           '🔤 Ошибка формы вопроса. Поставь do перед подлежащим.',
           'Время: Present Simple — привычка или факт.',
           'Конструкция: Do/Does + subject + V1 ...?',
-          'Повтори: What do you like as a pet?',
+          'Скажи: What do you like as a pet?',
         ].join('\n'),
       })
       .mockResolvedValueOnce({ ok: true, content: 'What do you like as a pet?' })
@@ -197,7 +197,7 @@ describe('POST /api/chat translation provider payload', () => {
         '📖 "movie" → "movies".',
         'Время: Present Simple — привычное действие.',
         'Конструкция: Do/Does + subject + V1 ...?',
-        'Повтори: Do you like watching movies about animals?',
+        'Скажи: Do you like watching movies about animals?',
       ].join('\n'),
     })
 

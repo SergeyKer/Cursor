@@ -19,7 +19,7 @@ export function parseCorrection(text: string): {
 
   function splitInlineRepeat(source: string): { comment: string | null; repeat: string | null } {
     const trimmed = source.trim()
-    const match = trimmed.match(/^(.*?)(?:\s+(?:Повтори|Repeat|Say)\s*:\s*)([\s\S]+)$/i)
+    const match = trimmed.match(/^(.*?)(?:\s+(?:Скажи|Say)\s*:\s*)([\s\S]+)$/i)
     if (!match) return { comment: trimmed || null, repeat: null }
 
     const commentPart = match[1]?.trim() || null
@@ -28,7 +28,7 @@ export function parseCorrection(text: string): {
 
     return {
       comment: commentPart,
-      repeat: `Повтори: ${repeatPart}`,
+      repeat: `Скажи: ${repeatPart}`,
     }
   }
   function splitInlineTranslationInvitation(
@@ -70,7 +70,7 @@ export function parseCorrection(text: string): {
       const isNextHeader =
         /^ошибки\s*:/i.test(line) ||
         /^время\s*:/i.test(line) ||
-        /^(повтори|repeat|say)\s*:/i.test(line) ||
+        /^(скажи|say|повтори|repeat)\s*:/i.test(line) ||
         /^конструкция\s*:/i.test(line) ||
         /^формы\s*:/i.test(line) ||
         /^[\s\-•]*(?:\d+[\.)]\s*)?(?:переведи|переведите)\b/i.test(line)
@@ -113,7 +113,7 @@ export function parseCorrection(text: string): {
     }
   }
 
-  // Иногда модель добавляет "Правильный вариант: ...", но UI уже использует отдельный алгоритм "Повтори".
+  // Иногда модель добавляет "Правильный вариант: ...", но UI уже использует отдельный алгоритм "Скажи".
   // Убираем "Правильный вариант" из блока "Комментарий", чтобы не было дублирования.
   if (comment) {
     const parts = comment.split(/правильн(?:ый)?\s+вариант\s*:\s*/i)
@@ -152,7 +152,7 @@ export function parseCorrection(text: string): {
 
   let rest = restLines.join('\n').trim()
   if (repeatLine) {
-    // Если "Повтори" был спрятан внутри комментария, показываем его отдельной строкой
+    // Если "Скажи" был спрятан внутри комментария, показываем его отдельной строкой
     // и не оставляем следующий вопрос в этом же блоке.
     rest = repeatLine
   }
@@ -171,7 +171,7 @@ export function parseCorrection(text: string): {
   return {
     comment: comment || null,
     // Если мы уже извлекли «Комментарий:», то не должны повторно показывать
-    // исходный текст (иначе получится дублирование «Комментарий/Повтори» в UI).
+    // исходный текст (иначе получится дублирование «Комментарий/Скажи» в UI).
     rest: (comment ? rest : rest || cleaned) || '',
   }
 }

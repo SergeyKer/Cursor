@@ -27,8 +27,8 @@ describe('isDialogueOutputLikelyInRequiredTense', () => {
     ).toBe(true)
   })
 
-  it('Повтори проверяется по requiredTense, expectedNext не подменяет', () => {
-    const content = 'Комментарий: Ошибка.\nПовтори: I feel happy.'
+  it('Скажи проверяется по requiredTense, expectedNext не подменяет', () => {
+    const content = 'Комментарий: Ошибка.\nСкажи: I feel happy.'
     expect(
       isDialogueOutputLikelyInRequiredTense({
         content,
@@ -51,8 +51,8 @@ describe('isDialogueOutputLikelyInRequiredTense', () => {
     ).toEqual({ ok: false, reason: 'next_question_tense_mismatch' })
   })
 
-  it('requiredTense=all: Повтори в неверном времени невалиден (опора на предыдущий вопрос)', () => {
-    const content = 'Комментарий: Нужно ответить в прошедшем длительном.\nПовтори: I swim in the river.'
+  it('requiredTense=all: Скажи в неверном времени невалиден (опора на предыдущий вопрос)', () => {
+    const content = 'Комментарий: Нужно ответить в прошедшем длительном.\nСкажи: I swim in the river.'
     expect(
       validateDialogueOutputTense({
         content,
@@ -62,8 +62,8 @@ describe('isDialogueOutputLikelyInRequiredTense', () => {
     ).toEqual({ ok: false, reason: 'required_tense_mismatch' })
   })
 
-  it('requiredTense=all: Повтори в нужном времени валиден (опора на предыдущий вопрос)', () => {
-    const content = 'Комментарий: Нужно Past Continuous.\nПовтори: I was swimming in the river yesterday evening.'
+  it('requiredTense=all: Скажи в нужном времени валиден (опора на предыдущий вопрос)', () => {
+    const content = 'Комментарий: Нужно Past Continuous.\nСкажи: I was swimming in the river yesterday evening.'
     expect(
       validateDialogueOutputTense({
         content,
@@ -73,8 +73,8 @@ describe('isDialogueOutputLikelyInRequiredTense', () => {
     ).toEqual({ ok: true })
   })
 
-  it('semantic guard: Повтори не должен удалять intention-конструкцию plan to', () => {
-    const content = 'Комментарий: Лексика.\nПовтори: I find my work.'
+  it('semantic guard: Скажи не должен удалять intention-конструкцию plan to', () => {
+    const content = 'Комментарий: Лексика.\nСкажи: I find my work.'
     expect(
       validateDialogueOutputTense({
         content,

@@ -31,10 +31,10 @@ describe('inferTenseFromDialogueAssistantContent', () => {
     ).toBe('past_continuous')
   })
 
-  it('prefers English question over Повтори line in same message', () => {
+  it('prefers English question over Скажи line in same message', () => {
     const mixed = [
       'Комментарий: something',
-      'Повтори: I will have played football by the end of the year.',
+      'Скажи: I will have played football by the end of the year.',
       'What do you usually do for exercise?',
     ].join('\n')
     expect(inferTenseFromDialogueAssistantContent(mixed)).toBe('present_simple')

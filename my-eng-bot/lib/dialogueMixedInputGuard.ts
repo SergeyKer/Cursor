@@ -13,10 +13,10 @@ function extractCommentAndRepeat(content: string): { comment: string | null; rep
     .map((line) => line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
     .filter(Boolean)
   const commentLine = lines.find((line) => /^Комментарий\s*:/i.test(line)) ?? null
-  const repeatLine = lines.find((line) => /^(Повтори|Repeat|Say)\s*:/i.test(line)) ?? null
+  const repeatLine = lines.find((line) => /^(Скажи|Say)\s*:/i.test(line)) ?? null
   return {
     comment: commentLine ? commentLine.replace(/^Комментарий\s*:\s*/i, '').trim() : null,
-    repeat: repeatLine ? repeatLine.replace(/^(Повтори|Repeat|Say)\s*:\s*/i, '').trim() : null,
+    repeat: repeatLine ? repeatLine.replace(/^(Скажи|Say)\s*:\s*/i, '').trim() : null,
   }
 }
 

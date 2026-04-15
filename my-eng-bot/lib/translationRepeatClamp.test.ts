@@ -120,25 +120,25 @@ describe('clampTranslationRepeatToRuPrompt', () => {
 })
 
 describe('enforceAuthoritativeTranslationRepeat', () => {
-  it('replaces model Повтори with clamped prior tutor line so user additions do not win', () => {
+  it('replaces model Скажи with clamped prior tutor line so user additions do not win', () => {
     const ru = 'Я всегда добавляю много сыра.'
-    const content = `Комментарий: Лексическая ошибка.\nПовтори: I always add a lot of yellow cheese.`
+    const content = `Комментарий: Лексическая ошибка.\nСкажи: I always add a lot of yellow cheese.`
     const prior = 'I always add a lot of cheese.'
     const out = enforceAuthoritativeTranslationRepeat(content, ru, prior)
     expect(out.toLowerCase()).not.toContain('yellow')
-    expect(out).toMatch(/Повтори:\s*I always add a lot of cheese/i)
+    expect(out).toMatch(/Скажи:\s*I always add a lot of cheese/i)
   })
 
   it('without prior repeat, clamps model line to Russian prompt as before', () => {
     const ru = 'Я люблю играть с друзьями.'
-    const content = `Комментарий: Ошибка.\nПовтори: I love to play outside with my cats.`
+    const content = `Комментарий: Ошибка.\nСкажи: I love to play outside with my cats.`
     const out = enforceAuthoritativeTranslationRepeat(content, ru, null)
     expect(out.toLowerCase()).toContain('friends')
     expect(out.toLowerCase()).not.toContain('cats')
   })
 
-  it('без русского промпта подставляет prior «Повтори» и убирает несвязный текст модели', () => {
-    const content = `Комментарий: Ошибка.\nПовтори: We go to the park.`
+  it('без русского промпта подставляет prior «Скажи» и убирает несвязный текст модели', () => {
+    const content = `Комментарий: Ошибка.\nСкажи: We go to the park.`
     const prior = 'I love walking in the park in the evenings.'
     const out = enforceAuthoritativeTranslationRepeat(content, null, prior)
     expect(out.toLowerCase()).toContain('love walking')
@@ -147,20 +147,20 @@ describe('enforceAuthoritativeTranslationRepeat', () => {
 
   it('в цикле повтора сохраняет prior дословно и не срезает "in the evening" по ruPrompt', () => {
     const ru = 'Ты часто смотришь сериалы?'
-    const content = `Комментарий: Ошибка.\nПовтори: Do we often watch serials?`
+    const content = `Комментарий: Ошибка.\nСкажи: Do we often watch serials?`
     const prior = 'Do we often watch serials in the evening?'
     const out = enforceAuthoritativeTranslationRepeat(content, ru, prior)
-    expect(out).toContain('Повтори: Do we often watch serials in the evening?')
-    expect(out).not.toContain('Повтори: Do we often watch serials?')
+    expect(out).toContain('Скажи: Do we often watch serials in the evening?')
+    expect(out).not.toContain('Скажи: Do we often watch serials?')
   })
 
   it('с prior без «in advance» дополняет хвост, если в RU есть «заранее»', () => {
     const ru = 'Мы обычно планируем поездки заранее.'
-    const content = `Комментарий: Ошибка.\nПовтори: They usually plan trips.`
+    const content = `Комментарий: Ошибка.\nСкажи: They usually plan trips.`
     const prior = 'They usually plan trips.'
     const out = enforceAuthoritativeTranslationRepeat(content, ru, prior)
     expect(out.toLowerCase()).toContain('in advance')
-    expect(out).toMatch(/Повтори:\s*They usually plan trips in advance/i)
+    expect(out).toMatch(/Скажи:\s*They usually plan trips in advance/i)
   })
 })
 
@@ -183,14 +183,14 @@ describe('ensureInAdvanceFromRuZaranee', () => {
 })
 
 describe('enforceAuthoritativeTranslationRepeatEnCue', () => {
-  it('вставляет Скажи перед Повтори с тем же английским, что в Повтори', () => {
-    const content = `Комментарий: Ошибка.\nКонструкция: S + V1\nПовтори: I love to cook.`
+  it('вставляет Скажи перед Скажи с тем же английским, что в Скажи', () => {
+    const content = `Комментарий: Ошибка.\nКонструкция: S + V1\nСкажи: I love to cook.`
     const out = enforceAuthoritativeTranslationRepeatEnCue(content)
     expect(out).toContain('Скажи: I love to cook.')
-    expect(out.indexOf('Скажи')).toBeLessThan(out.indexOf('Повтори:'))
+    expect((out.match(/(^|\n)\s*Скажи\s*:/g) ?? []).length).toBe(1)
   })
 
-  it('не меняет ответ без английского Повтори', () => {
+  it('не меняет ответ без английского Скажи', () => {
     const content = `Комментарий: Отлично!\nКонструкция: …`
     expect(enforceAuthoritativeTranslationRepeatEnCue(content)).toBe(content)
   })
@@ -216,20 +216,20 @@ describe('applyTranslationRepeatSourceClampToContent', () => {
   it('регрессия: payload как после forceTranslationWordErrorProtocol — не срезает on weekends при RU без «выходн»', () => {
     const content = `Комментарий: Лексическая ошибка. Проверь написание и выбор слова.
 Время: Present Simple — Здесь речь о привычке или факте, а не о действии прямо сейчас.
-Повтори: Do we often see each other on weekends?`
+Скажи: Do we often see each other on weekends?`
     const ru = 'Мы часто видимся по субботам и воскресеньям.'
     const out = applyTranslationRepeatSourceClampToContent(content, ru)
     expect(out.toLowerCase()).toContain('weekend')
-    expect(out).toMatch(/Повтори:\s*Do we often see each other on weekends\?/i)
+    expect(out).toMatch(/Скажи:\s*Do we often see each other on weekends\?/i)
   })
 
-  it('replaces Повтори line in full assistant payload', () => {
+  it('replaces Скажи line in full assistant payload', () => {
     const content = `Комментарий: Ошибка.
 Время: Present Simple.
 Конструкция: Subject + V1.
-Повтори: I often meet with friends on the weekend.`
+Скажи: I often meet with friends on the weekend.`
     const out = applyTranslationRepeatSourceClampToContent(content, 'Я часто встречаюсь с друзьями.')
-    expect(out).toContain('Повтори:')
+    expect(out).toContain('Скажи:')
     expect(out.toLowerCase()).not.toContain('weekend')
   })
 
@@ -241,9 +241,9 @@ describe('applyTranslationRepeatSourceClampToContent', () => {
 +: I love to play outside with my friends.
 ?: Do I love to play outside with my friends?
 -: I do not love to play outside with my friends.
-Повтори: I love to play outside with my cats.`
+Скажи: I love to play outside with my cats.`
     const out = applyTranslationRepeatSourceClampToContent(content, 'Я люблю играть с друзьями.')
-    const repeatLine = out.split(/\r?\n/).find((line) => /^Повтори\s*:/i.test(line)) ?? ''
+    const repeatLine = out.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''
     expect(repeatLine.toLowerCase()).toContain('friends')
     expect(repeatLine.toLowerCase()).not.toContain('cats')
   })
@@ -251,7 +251,7 @@ describe('applyTranslationRepeatSourceClampToContent', () => {
 
 describe('replaceTranslationRepeatInContent', () => {
   it('preserves numbered prefix', () => {
-    const c = '1) Повтори: Hello.'
-    expect(replaceTranslationRepeatInContent(c, 'Hi there')).toContain('1) Повтори: Hi there.')
+    const c = '1) Скажи: Hello.'
+    expect(replaceTranslationRepeatInContent(c, 'Hi there')).toContain('1) Скажи: Hi there.')
   })
 })

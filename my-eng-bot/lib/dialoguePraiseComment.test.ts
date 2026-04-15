@@ -34,21 +34,21 @@ describe('kommentariyStartsWithPraiseWord', () => {
 describe('shouldStripRepeatOnPraise', () => {
   it('strips repeat only for pure praise', () => {
     expect(
-      shouldStripRepeatOnPraise('Комментарий: Отлично!\nПовтори: I will go.')
+      shouldStripRepeatOnPraise('Комментарий: Отлично!\nСкажи: I will go.')
     ).toBe(true)
   })
 
   it('keeps repeat when comment mixes praise with correction', () => {
     expect(
       shouldStripRepeatOnPraise(
-        'Комментарий: Правильно, но нужно Future Perfect.\nПовтори: I will have swum.'
+        'Комментарий: Правильно, но нужно Future Perfect.\nСкажи: I will have swum.'
       )
     ).toBe(false)
   })
 
   it('keeps repeat for error-only comment', () => {
     expect(
-      shouldStripRepeatOnPraise('Комментарий: Ошибка времени.\nПовтори: I will have done it.')
+      shouldStripRepeatOnPraise('Комментарий: Ошибка времени.\nСкажи: I will have done it.')
     ).toBe(false)
   })
 })

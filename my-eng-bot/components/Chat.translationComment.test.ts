@@ -65,11 +65,11 @@ describe('condenseTranslationCommentToErrors', () => {
 })
 
 describe('translationResponseHasSuccessShape', () => {
-  it('true при непустом комментарии и без эталона Повтори/Скажи', () => {
+  it('true при непустом комментарии и без эталона Скажи/Скажи', () => {
     expect(translationResponseHasSuccessShape('Отлично!', null, null)).toBe(true)
   })
 
-  it('false если есть Повтори', () => {
+  it('false если есть Скажи', () => {
     expect(translationResponseHasSuccessShape('Комментарий: ошибка', 'I run.', null)).toBe(false)
   })
 
@@ -102,7 +102,7 @@ describe('parseTranslationCoachBlocks', () => {
       '📖 x → y',
       'Время: Present Simple — пояснение.',
       'Конструкция: S + V1',
-      'Повтори: I run.',
+      'Скажи: I run.',
     ].join('\n')
     const b = parseTranslationCoachBlocks(text)
     expect(b.translationSupportComment).toBeNull()
@@ -120,17 +120,17 @@ describe('parseTranslationCoachBlocks', () => {
       '🔤 …',
       'Время: Present Simple — пояснение.',
       'Конструкция: S + V1',
-      'Повтори: How do you do?',
+      'Скажи: How do you do?',
     ].join('\n')
     const b = parseTranslationCoachBlocks(text)
     expect(b.translationSupportComment).toContain('How')
     expect(b.translationSupportComment).not.toContain('Ошибка формы')
     expect(b.comment).toContain('Ошибка формы')
     expect(b.repeat).toBe('How do you do?')
-    expect(b.repeatRu).toBeNull()
+    expect(b.repeatRu).toBe('How do you do?')
   })
 
-  it('выделяет Скажи до Повтори (английский эталон)', () => {
+  it('выделяет Скажи до Скажи (английский эталон)', () => {
     const text = [
       'Комментарий_перевод: Молодец! 🌟',
       'Комментарий: Ошибка времени.',
@@ -139,28 +139,28 @@ describe('parseTranslationCoachBlocks', () => {
       'Время: Present Simple — …',
       'Конструкция: S + V1',
       'Скажи: I often read.',
-      'Повтори: I often read.',
+      'Скажи: I often read.',
     ].join('\n')
     const b = parseTranslationCoachBlocks(text)
     expect(b.repeatRu).toBe('I often read.')
     expect(b.repeat).toBe('I often read.')
   })
 
-  it('убирает лишний префикс Повтори: в теле Скажи', () => {
+  it('убирает лишний префикс Скажи: в теле Скажи', () => {
     const text = [
       'Комментарий: Ошибка.',
-      'Скажи: Повтори: I love cooking different dishes in the kitchen.',
-      'Повтори: I love cooking different dishes in the kitchen.',
+      'Скажи: Скажи: I love cooking different dishes in the kitchen.',
+      'Скажи: I love cooking different dishes in the kitchen.',
     ].join('\n')
     const b = parseTranslationCoachBlocks(text)
     expect(b.repeatRu).toBe('I love cooking different dishes in the kitchen.')
   })
 
-  it('парсит Повтори с дефисом в начале строки', () => {
+  it('парсит Скажи с дефисом в начале строки', () => {
     const text = [
       'Комментарий: Ошибка.',
       'Скажи: Hello.',
-      '- Повтори: Hello.',
+      '- Скажи: Hello.',
     ].join('\n')
     const b = parseTranslationCoachBlocks(text)
     expect(b.repeat).toBe('Hello.')
@@ -168,7 +168,7 @@ describe('parseTranslationCoachBlocks', () => {
 
   it('разделяет склеенные inline-блоки из строки Комментарий на отдельные поля', () => {
     const text =
-      'Комментарий: Лексическая ошибка — Проверь написание и выбор слова. Скажи: I will start a new project. Повтори: I will start a new project.'
+      'Комментарий: Лексическая ошибка — Проверь написание и выбор слова. Скажи: I will start a new project. Скажи: I will start a new project.'
     const b = parseTranslationCoachBlocks(text)
     expect(b.comment).toBe('Лексическая ошибка — Проверь написание и выбор слова.')
     expect(b.repeatRu).toBe('I will start a new project.')
@@ -314,7 +314,7 @@ describe('translation error repeat UI', () => {
     expect(sections.find((s) => s.key === 'repeat-translation')?.text).toBe('У тебя есть домашнее животное.')
   })
 
-  it('не делает fallback на Повтори при translation+error без Скажи', () => {
+  it('не делает fallback на Скажи при translation+error без Скажи', () => {
     const sections = buildAssistantSectionsForTranslationErrorRepeatTest({
       mode: 'translation',
       translationErrorCoachUi: true,
