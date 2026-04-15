@@ -155,6 +155,12 @@ import {
 } from '@/lib/translationPromptConcepts'
 import { extractPriorAssistantRepeatEnglish } from '@/lib/translationLastRepeat'
 import { translateRussianPromptToGoldEnglish } from '@/lib/translationGoldEnglish'
+import {
+  appendHiddenRefFromVisibleCue,
+  appendPreservedHiddenRefFromOriginal,
+  isTranslationGoldApiFallbackEnabled,
+  isTranslationSinglePassGoldEnabled,
+} from '@/lib/translationSinglePassGold'
 import { computeTranslationGoldVerdict } from '@/lib/translationVerdict'
 import { extractSingleTranslationNextSentence } from '@/lib/extractSingleTranslationNextSentence'
 import {
@@ -631,7 +637,8 @@ ${likeLoveTranslationBlock}
 When the conversation is empty (first assistant turn), output ONLY:
 1) one natural, conversational Russian sentence to translate that follows the Russian drill sentence contract above
 2) on the next line: "Переведи на английский."
-No extra lines.
+3) on the next line: "__TRAN_REPEAT_REF__: " + one canonical English sentence translating sentence (1) only (no quotes, no commentary)
+No other lines.
 
 When the user has already sent their translation, use one of these two protocols:
 
@@ -639,6 +646,7 @@ SUCCESS protocol (if user answer is correct), strict order:
 - Line 1: "Комментарий: " + short praise in Russian that includes ONE specific thing the learner did correctly in their exact sentence and one short contextual reason why this exact meaning requires this tense. Explicitly name the tense by its standard name. Keep it to 1-2 short sentences.
 - Line 2: "Переведи далее: " + NEXT natural Russian sentence on a new line. IMPORTANT: This MUST be a literal Russian sentence for the user to translate into English and it MUST follow the same Russian drill sentence contract for this turn (topic/level/required tense/sentence type/audience-style), while varying wording from the previous drill sentence.
 - Line 3: "Переведи на английский."
+- Line 4 (always last): "__TRAN_REPEAT_REF__: " + one canonical English sentence for the PREVIOUS drill sentence the user just translated correctly (NOT the new line 2 Russian).
 - In SUCCESS protocol do NOT output separate "Время:", "Конструкция:", "Формы:" or "Скажи:" lines.
 
 ERROR protocol (if there is a mistake), strict order:
@@ -659,12 +667,14 @@ ERROR protocol (if there is a mistake), strict order:
 - Next line: "Время: " + ${tenseName} + short Russian explanation tied to the meaning of this exact sentence: say why this tense fits, name the clue words/markers, and mention the context (habit, fact, action now, result, finished past event, future, etc.). Do not just name the tense.
 - Next: "Конструкция: " + very short tense pattern for learner (example for Present Simple: "Subject + V1(s/es)")
 - Next: "Скажи: " + full corrected English sentence that translates only the Russian phrase from the task prompt. Do not reuse wording from the user's answer if it conflicts with the prompt.
+- After the whole ERROR block, add a final line: "__TRAN_REPEAT_REF__: " + the same canonical English as in "Скажи:" (one sentence, no quotes).
 - While the user is still wrong on the same drill (repeat-correction chain): "Скажи:" MUST reuse the same English as in your previous assistant message's "Скажи:" — do not output a new English repeat sentence derived from praise or meta-comments (the server enforces this).
 - Never add time-of-day, weekdays, seasons, or "weekend/weekends" to "Скажи:" unless those ideas appear in the Russian task line (for example: do not add "on the weekend" if the Russian sentence has no word like "выходные").
 - In ERROR protocol "Комментарий_перевод:" is mandatory in every mistake response (do not skip it).
 - In ERROR protocol "Скажи:" is mandatory in every mistake response; on every further error in the same chain, copy the previous "Скажи:" English verbatim.
 
 Rules:
+- Mandatory last line of EVERY assistant message in this translation mode: "__TRAN_REPEAT_REF__: " + exactly one canonical English sentence for the CURRENT Russian drill the learner is translating (the same meaning as "lastTranslationPrompt" / the task line — never the new "Переведи далее" line). First turn: English for (1). After user answer: English for the drill just graded. ERROR: align with canonical "Скажи:". SUCCESS: align with the accepted answer. Single line, no quotes, no text after it.
 - The Russian sentence must sound natural, conversational, and easy to say in everyday speech.
 - Avoid awkward calques, bookish wording, and abstract phrasing that a learner would not normally say.
 - Do not output markdown markers like **Correction** or **Comment**.
@@ -3821,7 +3831,7 @@ function ensureTranslationSuccessBlocks(
     out.push(`Переведи далее: ${fallbackNextPrompt}`)
   }
 
-  return out.join('\n').trim()
+  return appendPreservedHiddenRefFromOriginal(out.join('\n').trim(), content, fallbackPrompt)
 }
 
 function keepOnlyCommentAndRepeatOnInvalidTranslationInput(content: string, includeRepeat: boolean): string {
@@ -3906,19 +3916,29 @@ async function ensureFirstTranslationDrillMatchesRequiredTense(params: {
   if (params.tense === 'all') return params.content
   const ru = extractRussianTranslationTaskFromAssistantContent(params.content)
   if (!ru?.trim()) return params.content
-  const gold = params.resolveGoldTranslation
-    ? await params.resolveGoldTranslation({
-        ruSentence: ru.trim(),
-        level: params.level as LevelId,
-        audience: params.audience,
-      })
-    : await translateRussianPromptToGoldEnglish({
-        ruSentence: ru.trim(),
-        level: params.level as LevelId,
-        audience: params.audience,
-        provider: params.provider,
-        req: params.req,
-      })
+  let gold: string | null = null
+  if (isTranslationSinglePassGoldEnabled()) {
+    const rawRef = extractCanonicalRepeatRefEnglishFromContent(params.content)
+    if (rawRef?.trim()) {
+      const { clamped } = clampTranslationRepeatToRuPrompt(rawRef.trim(), ru.trim())
+      gold = (clamped?.trim() || rawRef.trim()) || null
+    }
+  }
+  if (!gold?.trim() && isTranslationGoldApiFallbackEnabled()) {
+    gold = params.resolveGoldTranslation
+      ? await params.resolveGoldTranslation({
+          ruSentence: ru.trim(),
+          level: params.level as LevelId,
+          audience: params.audience,
+        })
+      : await translateRussianPromptToGoldEnglish({
+          ruSentence: ru.trim(),
+          level: params.level as LevelId,
+          audience: params.audience,
+          provider: params.provider,
+          req: params.req,
+        })
+  }
   if (!gold?.trim()) return params.content
   if (isUserLikelyCorrectForTense(gold, params.tense)) return params.content
   const replacement = fallbackTranslationSentenceForContext({
@@ -3972,23 +3992,39 @@ async function finalizeTranslationResponsePayload(params: {
   if (ruForRefCard && !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
     guardedContent = appendTranslationCanonicalRepeatRefLine(guardedContent, ruForRefCard)
   }
+  if (
+    isTranslationSinglePassGoldEnabled() &&
+    ruForRefCard?.trim() &&
+    !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)
+  ) {
+    const beforeCue = guardedContent
+    guardedContent = appendHiddenRefFromVisibleCue(guardedContent, ruForRefCard)
+    if (guardedContent !== beforeCue) {
+      console.info('[chat][translation-gold] ref_from_content_cue')
+    }
+  }
   if (ruForRefCard?.trim() && !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
-    const goldFromApi = params.resolveGoldTranslation
-      ? await params.resolveGoldTranslation({
-          ruSentence: ruForRefCard,
-          level: params.level,
-          audience: params.audience,
-        })
-      : await translateRussianPromptToGoldEnglish({
-          ruSentence: ruForRefCard,
-          level: params.level,
-          audience: params.audience,
-          provider: params.provider,
-          req: params.req,
-        })
-    if (goldFromApi) {
-      const { clamped } = clampTranslationRepeatToRuPrompt(goldFromApi, ruForRefCard)
-      guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${clamped}`
+    if (!isTranslationGoldApiFallbackEnabled()) {
+      console.info('[chat][translation-gold] ref_missing_fallback_disabled')
+    } else {
+      console.info('[chat][translation-gold] ref_api_fallback')
+      const goldFromApi = params.resolveGoldTranslation
+        ? await params.resolveGoldTranslation({
+            ruSentence: ruForRefCard,
+            level: params.level,
+            audience: params.audience,
+          })
+        : await translateRussianPromptToGoldEnglish({
+            ruSentence: ruForRefCard,
+            level: params.level,
+            audience: params.audience,
+            provider: params.provider,
+            req: params.req,
+          })
+      if (goldFromApi) {
+        const { clamped } = clampTranslationRepeatToRuPrompt(goldFromApi, ruForRefCard)
+        guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${clamped}`
+      }
     }
   }
   return guardedContent
@@ -6589,7 +6625,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             goldForVerdict = clamped?.trim() || fromVisible.trim()
           }
         }
-        if (!goldForVerdict && tpForGold) {
+        if (!goldForVerdict && tpForGold && isTranslationGoldApiFallbackEnabled()) {
           const apiGold = await resolveGoldTranslation({
             ruSentence: tpForGold,
             level: translationDrillLevel as LevelId,

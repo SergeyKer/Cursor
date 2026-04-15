@@ -4,6 +4,8 @@
 
 | Параметр | Значение | Где задано |
 |----------|----------|------------|
+| Режим перевода: эталон без второго LLM | по умолчанию вкл. (`TRANSLATION_SINGLE_PASS_GOLD` не `0`/`false`) | `lib/translationSinglePassGold.ts` |
+| Режим перевода: fallback `translateRussianPromptToGoldEnglish` | по умолчанию вкл. (`TRANSLATION_GOLD_API_FALLBACK` не `0`/`false`) | `lib/translationSinglePassGold.ts` |
 | Сообщений в контексте чата | 20 (10 обменов user+assistant) | `app/api/chat/route.ts` → `MAX_MESSAGES_IN_CONTEXT` |
 | Макс. токенов ответа (чат) | 512 | `app/api/chat/route.ts` → `MAX_RESPONSE_TOKENS` |
 | Макс. токенов ответа (перевод) | 300 | `app/api/translate/route.ts` → `max_tokens` |
