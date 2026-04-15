@@ -23,4 +23,15 @@ describe('hasTranslationPromptUserKeywordMismatch', () => {
     const ru = 'Я абсолютно точно согласен с этим мнением полностью.'
     expect(hasTranslationPromptUserKeywordMismatch(ru, 'I agree with you completely.')).toBe(true)
   })
+
+  it('латинский мусор при RU с содержанием — mismatch (запасной гейт)', () => {
+    const ru = 'У тебя есть сестра.'
+    expect(hasTranslationPromptUserKeywordMismatch(ru, 'sdffs')).toBe(true)
+    expect(hasTranslationPromptUserKeywordMismatch(ru, 'dkknsaldohva')).toBe(true)
+  })
+
+  it('нормальный английский перевод — нет shape-mismatch', () => {
+    const ru = 'У тебя есть сестра.'
+    expect(hasTranslationPromptUserKeywordMismatch(ru, 'You have a sister.')).toBe(false)
+  })
 })

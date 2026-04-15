@@ -164,3 +164,63 @@ describe('provocation gate (cat vs dog)', () => {
     expect(userMatchesRepeatForGate(user, repeat)).toBe(true)
   })
 })
+
+describe('frozen repeat survives childish provocations', () => {
+  const drillCard = {
+    role: 'assistant' as const,
+    content:
+      'Переведи далее: У тебя есть братья или сёстры?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you have brothers or sisters?',
+  }
+
+  it('keeps the same gold when user adds extra words', () => {
+    const messages = [
+      drillCard,
+      { role: 'user', content: 'Do you have beautiful brothers or sisters?' },
+    ]
+    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Do you have brothers or sisters?')
+  })
+
+  it('keeps the same gold when user shortens the phrase', () => {
+    const messages = [
+      drillCard,
+      { role: 'user', content: 'Do you have brothers?' },
+    ]
+    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Do you have brothers or sisters?')
+  })
+
+  it('keeps the same gold for mixed Latin+Cyrillic answer', () => {
+    const messages = [
+      drillCard,
+      { role: 'user', content: 'Do you have красивые brothers?' },
+    ]
+    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Do you have brothers or sisters?')
+  })
+
+  it('keeps the same gold for gibberish answer', () => {
+    const messages = [
+      drillCard,
+      { role: 'user', content: '@@@ asd zxc ???' },
+    ]
+    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Do you have brothers or sisters?')
+  })
+
+  it('ignores repeat drift in multi-step correction chain', () => {
+    const messages = [
+      drillCard,
+      { role: 'user', content: 'Do you have brothers?' },
+      {
+        role: 'assistant',
+        content:
+          'Комментарий_перевод: Исправь фразу.\nОшибки:\n📖 Добавлено лишнее слово.\nСкажи: Do you have beautiful brothers?',
+      },
+      { role: 'user', content: 'Do you have super beautiful brothers?' },
+      {
+        role: 'assistant',
+        content:
+          'Комментарий_перевод: Еще раз.\nОшибки:\n📖 Убери лишние слова.\nСкажи: Do you have amazing brothers?',
+      },
+      { role: 'user', content: 'Do you have amazing brothers?' },
+    ]
+    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Do you have brothers or sisters?')
+  })
+})

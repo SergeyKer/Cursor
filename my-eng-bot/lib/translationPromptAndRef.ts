@@ -31,6 +31,38 @@ function extractRussianAfterTranslatePrefixLine(rawLine: string): string | null 
   return stripWrappingQuotesFromDrillRussianLine(rest)
 }
 
+/** Строка «Переведи на английский…» без русского задания в той же строке (после двоеточия). */
+function isEnglishOnlyInviteLine(normalized: string): boolean {
+  if (normalized.includes(':')) return false
+  return (
+    /^(?:Переведи|Переведите)(?=\s|[.!?]|$)/i.test(normalized) &&
+    /(?:на\s+английск|на\s+англ|английский)/i.test(normalized)
+  )
+}
+
+function shouldSkipLineWhenScanningForRuTask(rawLine: string): boolean {
+  if (/^\s*__TRAN_REPEAT_REF__\s*:/i.test(rawLine)) return true
+  if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:/i.test(rawLine)) return true
+  if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_перевод\s*:/i.test(rawLine)) return true
+  if (/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:/i.test(rawLine)) return true
+  if (/^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:/i.test(rawLine)) return true
+  if (/^[\s\-•]*(?:\d+[\.)]\s*)*Ошибки\s*:/i.test(rawLine)) return true
+  if (/^[\s\-•]*(?:\d+[\.)]\s*)*Формы\s*:/i.test(rawLine)) return true
+  if (/^[\s\-•]*(?:\d+[\.)]\s*)*[+\?-]\s*:/i.test(rawLine)) return true
+  if (/^[\s\-•]*(?:\d+[\.)]\s*)*Скажи\s*:/i.test(rawLine)) return true
+  if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(rawLine)) return true
+  if (/^[\s\-•]*(?:\d+[\.)]\s*)*[🤔🔤📖✏️]/u.test(rawLine)) return true
+  return false
+}
+
+function tryStandaloneRussianDrillLine(rawLine: string): string | null {
+  if (shouldSkipLineWhenScanningForRuTask(rawLine)) return null
+  const normalized = rawLine.replace(/^\d+\)\s*/i, '').trim()
+  if (!/[А-Яа-яЁё]/.test(normalized) || normalized.length <= 2) return null
+  if (/^[\d.\)\-\s•]*(?:Переведи|Переведите)(?=\s|:)/i.test(normalized)) return null
+  return stripWrappingQuotesFromDrillRussianLine(normalized)
+}
+
 /**
  * Извлекает русское задание для перевода из текста одной карточки ассистента.
  */
@@ -40,30 +72,23 @@ export function extractRussianTranslationTaskFromAssistantContent(content: strin
     .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
     .filter(Boolean)
 
-  for (const rawLine of lines) {
-    if (/^\s*__TRAN_REPEAT_REF__\s*:/i.test(rawLine)) continue
-    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:/i.test(rawLine)) continue
-    // «Комментарий_перевод:» не совпадает с регексом «Комментарий:» — иначе кириллический fallback принимает поддержку за задание.
-    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_перевод\s*:/i.test(rawLine)) continue
-    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:/i.test(rawLine)) continue
-    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:/i.test(rawLine)) continue
-    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Ошибки\s*:/i.test(rawLine)) continue
-    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Формы\s*:/i.test(rawLine)) continue
-    if (/^[\s\-•]*(?:\d+[\.)]\s*)*[+\?-]\s*:/i.test(rawLine)) continue
-    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Скажи\s*:/i.test(rawLine)) continue
-    if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(rawLine)) continue
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i]!
+    if (shouldSkipLineWhenScanningForRuTask(rawLine)) continue
 
     const fromTranslate = extractRussianAfterTranslatePrefixLine(rawLine)
     if (fromTranslate) return fromTranslate
 
-    if (/^(?:[\d.\)\-\s•]*)(?:Переведи|Переведите)(?=\s|:)/i.test(rawLine)) continue
-
-    const stripped = rawLine
-      .replace(/\s+(?:\d+\)\s*)?(?:Переведи|Переведите)[^.]*\.\s*$/i, '')
-      .replace(/^\d+\)\s*/i, '')
-      .trim()
-    if (/[А-Яа-яЁё]/.test(stripped) && stripped.length > 2) {
-      return stripWrappingQuotesFromDrillRussianLine(stripped)
+    const normalized = rawLine.replace(/^\d+\)\s*/i, '').trim()
+    if (isEnglishOnlyInviteLine(normalized)) {
+      if (i + 1 < lines.length) {
+        const fromNext = tryStandaloneRussianDrillLine(lines[i + 1]!)
+        if (fromNext) return fromNext
+      }
+      if (i > 0) {
+        const fromPrev = tryStandaloneRussianDrillLine(lines[i - 1]!)
+        if (fromPrev) return fromPrev
+      }
     }
   }
   return null

@@ -175,6 +175,7 @@ import {
   partitionEncouragementLinesFromTranslationErrorsPayload,
   sanitizeTranslationPayloadContinuousErrors,
 } from '@/lib/translationSyntheticErrorsBlock'
+import { resolveTranslationProtocolStatus } from '@/lib/translationProtocolStatus'
 import { sanitizeRepeatMetaInstructionInContent } from '@/lib/repeatMetaInstruction'
 
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
@@ -3313,8 +3314,15 @@ function ensureTranslationProtocolBlocks(
   }
 
   const commentBodyOnly = comment ? stripTranslationCommentLabel(comment).trim() : ''
-  // Ошибка перевода: есть повтор эталона и нет успешного блока «Формы:».
-  const needsErrorProtocol = Boolean(repeat) && !hasTranslationFormsBlock(content)
+  const hasErrorRepeatCue = Boolean(repeat) && !hasTranslationFormsBlock(content)
+  const translationSuccessShape = Boolean(commentBodyOnly) && !repeat && !repeatRu
+  const protocolStatus = resolveTranslationProtocolStatus({
+    mode: 'translation',
+    translationSuccessShape,
+    translationErrorCoachUi: hasErrorRepeatCue,
+  })
+  // Ошибка перевода: есть cue повтора и нет успешного блока «Формы:».
+  const needsErrorProtocol = protocolStatus === 'error_repeat'
   if (needsErrorProtocol && commentBodyOnly) {
     const merged = mergeErrorsBlockWithSyntheticFromComment(String(errorsBlock ?? '').trim(), commentBodyOnly)
     if (merged) {
@@ -3954,7 +3962,13 @@ async function finalizeTranslationResponsePayload(params: {
   const ruFromGuardedContent = extractLastTranslationPromptFromMessages([
     { role: 'assistant', content: guardedContent },
   ])
-  const ruForRefCard = ruFromGuardedContent?.trim() || lastTranslationPrompt?.trim() || null
+  const hasExplicitTranslatePromptInGuarded = /(?:^|\n)\s*(?:[\s\-•]*(?:\d+[\.)]\s*)*)?(?:Переведи|Переведите)\b[^:\n]*:/im.test(
+    guardedContent
+  )
+  const ruForRefCard =
+    lastTranslationPrompt?.trim() ||
+    (hasExplicitTranslatePromptInGuarded ? ruFromGuardedContent?.trim() : null) ||
+    null
   if (ruForRefCard && !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
     guardedContent = appendTranslationCanonicalRepeatRefLine(guardedContent, ruForRefCard)
   }
@@ -6575,6 +6589,18 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             goldForVerdict = clamped?.trim() || fromVisible.trim()
           }
         }
+        if (!goldForVerdict && tpForGold) {
+          const apiGold = await resolveGoldTranslation({
+            ruSentence: tpForGold,
+            level: translationDrillLevel as LevelId,
+            audience,
+          })
+          if (apiGold?.trim()) {
+            const { clamped } = clampTranslationRepeatToRuPrompt(apiGold, tpForGold)
+            const g = (clamped?.trim() || apiGold.trim()) || null
+            if (g) goldForVerdict = g
+          }
+        }
         if (goldForVerdict) {
           translationGoldForVerdict = goldForVerdict
           const v = computeTranslationGoldVerdict({
@@ -6644,22 +6670,23 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             )
           : null
       const finalPromptAlignedRepeat = promptAlignedRepeat ?? promptAlignedRepeatByConcept
-      // Жёсткий шаблон «Комментарий_перевод/Ошибки» только при эталоне __TRAN__ и провале вердикта;
-      // иначе сохраняем развёрнутый ответ модели (орфография, комментарий и т.д.).
+      // Провал золотого вердикта + эталон: жёсткий ERROR-протокол для ответа только латиницей.
+      // Смешанный RU+EN оставляем развёрнутому ответу модели (подсказки по кириллице, форме вопроса и т.д.).
+      const userAnswerLatinOnlyForGoldHardForce = !/[А-Яа-яЁё]/.test(lastUserContentForResponse.trim())
       if (
-        finalPromptAlignedRepeat &&
-        !userMatchesPriorAssistantRepeat &&
         translationGoldVerdictFailed &&
-        translationGoldVerdictFromHiddenRef
+        translationGoldForVerdict?.trim() &&
+        !userMatchesPriorAssistantRepeat &&
+        userAnswerLatinOnlyForGoldHardForce
       ) {
-        sanitized = forceTranslationWordErrorProtocol(sanitized, finalPromptAlignedRepeat, lastUserContentForResponse)
+        const repeatForForce =
+          translationGoldVerdictFromHiddenRef && finalPromptAlignedRepeat
+            ? finalPromptAlignedRepeat
+            : translationGoldForVerdict.trim()
+        sanitized = forceTranslationWordErrorProtocol(sanitized, repeatForForce, lastUserContentForResponse)
       }
       canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic && !translationWordMismatch && !translationPromptMismatch
       if (translationPromptMismatch && !userMatchesPriorAssistantRepeat) {
-        const strictRepeat = finalPromptAlignedRepeat ?? translationReferenceForm ?? priorAssistantRepeatEnglish
-        if (strictRepeat && translationGoldVerdictFailed && translationGoldVerdictFromHiddenRef) {
-          sanitized = forceTranslationWordErrorProtocol(sanitized, strictRepeat, lastUserContentForResponse)
-        }
         canTreatTranslationAsSuccess = false
       }
       if (
@@ -6776,12 +6803,12 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 repeatAnchorForError
               )
             if (
-              !isFirstTranslationUserTurn &&
               repeatAnchorForError &&
               !canTreatTranslationAsSuccess &&
-              !repeatAlreadyMatchesGold
+              !repeatAlreadyMatchesGold &&
+              (translationGoldVerdictFailed || !isFirstTranslationUserTurn)
             ) {
-              // Повторная ошибка: эталон с серверного gold, иначе тот же «Скажи» с прошлой карточки.
+              // Эталон с gold / прошлой карточки; на первом ходе — тоже, если золотой вердикт провален.
               sanitized = forceTranslationWordErrorProtocol(sanitized, repeatAnchorForError, lastUserContentForResponse)
             }
           }
@@ -7667,7 +7694,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     }
 
     if (mode === 'translation') {
-      if (!isFirstTurn) {
+      if (!isFirstTurn && canTreatTranslationAsSuccess) {
         if (!/[А-Яа-яЁё]/.test(lastUserContentForResponse)) {
           sanitized = normalizeTranslationSuccessPayload(sanitized, {
             tense: tutorGradingTense,

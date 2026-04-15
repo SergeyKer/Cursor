@@ -179,6 +179,44 @@ function hasEnoughKeywordCoverage(promptKeywords: string[], userKeywords: string
   return overlapCount >= requiredMatches
 }
 
+const VOWEL_RE = /[aeiouy]/i
+
+function countPlausibleEnglishTokens(userText: string): number {
+  const tokens = tokenizeEnglishWords(userText)
+  let n = 0
+  for (const raw of tokens) {
+    const t = raw.replace(/'/g, '')
+    if (t.length >= 2 && VOWEL_RE.test(t)) n++
+  }
+  return n
+}
+
+/**
+ * Запасной гейт: в RU-задании есть значимые токены, а ответ пользователя не похож на нормальный английский
+ * (мусор вроде «sdffs», пустая латиница), даже если словарь ключевых слов и концепты промпта «молчат».
+ */
+export function userEnglishLooksInsufficientForRuPrompt(prompt: string, userText: string): boolean {
+  const ut = userText.trim()
+  if (!ut || /[А-Яа-яЁё]/.test(ut)) return false
+
+  const significant = extractSignificantRuTokensForTranslationCoverage(prompt)
+  if (significant.length === 0) return false
+
+  const tokens = tokenizeEnglishWords(ut)
+  const plausible = countPlausibleEnglishTokens(ut)
+
+  if (tokens.length === 0) return true
+  if (significant.length >= 2 && plausible < 2) return true
+  if (significant.length === 1 && plausible < 1) return true
+
+  if (tokens.length === 1) {
+    const t = tokens[0]!.replace(/'/g, '')
+    if (!(t.length >= 3 && VOWEL_RE.test(t))) return true
+  }
+
+  return false
+}
+
 /**
  * true = ответ пользователя по ключевым смыслам не покрывает русское задание (нужен повтор / ошибка).
  */
@@ -195,5 +233,7 @@ export function hasTranslationPromptUserKeywordMismatch(prompt: string, userText
       ? userConcepts.length === 0 || !promptConcepts.some((conceptId) => userConcepts.includes(conceptId))
       : false
 
-  return keywordMismatch || conceptMismatch
+  const shapeMismatch = userEnglishLooksInsufficientForRuPrompt(prompt, userText)
+
+  return keywordMismatch || conceptMismatch || shapeMismatch
 }

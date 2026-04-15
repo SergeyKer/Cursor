@@ -114,6 +114,15 @@ describe('isUserLikelyCorrectForTense', () => {
   it('accepts "I\'m going to visit Paris" as future_simple', () => {
     expect(isUserLikelyCorrectForTense("I'm going to visit Paris next year", 'future_simple')).toBe(true)
   })
+
+  it('rejects gibberish Latin as present_simple', () => {
+    expect(isUserLikelyCorrectForTense('sdffs', 'present_simple')).toBe(false)
+    expect(isUserLikelyCorrectForTense('dkknsaldohva', 'present_simple')).toBe(false)
+  })
+
+  it('accepts plausible short Latin as present_simple when it matches pronoun + verb pattern', () => {
+    expect(isUserLikelyCorrectForTense('I like trips.', 'present_simple')).toBe(true)
+  })
 })
 
 describe('isLikelyQuestionInRequiredTense', () => {

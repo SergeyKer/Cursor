@@ -25,6 +25,8 @@ import type { ChatMessage as ChatMessageType, Settings } from '@/lib/types'
 import { stripWrappingQuotesFromDrillRussianLine } from '@/lib/extractSingleTranslationNextSentence'
 import { stripTranslationCanonicalRepeatRefLine } from '@/lib/translationPromptAndRef'
 import { isGenericTranslationMetaInvitation, splitTranslationInvitation } from '@/lib/translationInvitationUi'
+import { resolveTranslationProtocolStatus } from '@/lib/translationProtocolStatus'
+import type { TranslationProtocolStatus } from '@/lib/translationProtocolStatus'
 import { PAGE_HOME_START_PRIMARY_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import type { LearningLessonAction } from '@/lib/learningLessons'
 
@@ -282,6 +284,7 @@ function buildAssistantSections(params: {
   translationSuccessPraiseCard?: boolean
   /** Режим перевод, сценарий ошибки: разбор по пунктам под «Комментарий». */
   translationErrorsText?: string | null
+  translationProtocolStatus?: TranslationProtocolStatus
   showOnlyRepeat: boolean
   hidePromptBlocks?: boolean
   repeatTextForCard: string | null
@@ -301,6 +304,7 @@ function buildAssistantSections(params: {
     translationErrorCoachUi = false,
     translationSuccessPraiseCard = false,
     translationErrorsText,
+    translationProtocolStatus = 'prompt_only',
     showOnlyRepeat,
     hidePromptBlocks = false,
     repeatTextForCard,
@@ -321,8 +325,10 @@ function buildAssistantSections(params: {
   }
 
   const sections: AssistantSection[] = []
+  const isTranslationErrorRepeat = mode === 'translation' && translationProtocolStatus === 'error_repeat'
+  const isTranslationSuccess = mode === 'translation' && translationProtocolStatus === 'success'
   const supportTrim = translationSupportComment?.trim() ?? ''
-  if (mode === 'translation' && translationErrorCoachUi) {
+  if (isTranslationErrorRepeat) {
     if (supportTrim) {
       sections.push({
         key: 'translation-support',
@@ -332,7 +338,7 @@ function buildAssistantSections(params: {
         singleLine: !supportTrim.includes('\n'),
       })
     }
-  } else if (mode === 'translation' && translationSuccessPraiseCard && comment?.trim()) {
+  } else if (isTranslationSuccess && translationSuccessPraiseCard && comment?.trim()) {
     const praiseText = comment.trim()
     sections.push({
       key: 'comment',
@@ -343,7 +349,7 @@ function buildAssistantSections(params: {
     })
   } else if (
     comment &&
-    !(mode === 'translation' && translationSuccessPraiseCard && mainBefore?.trim())
+    !(isTranslationSuccess && translationSuccessPraiseCard && mainBefore?.trim())
   ) {
     sections.push({
       key: 'comment',
@@ -377,7 +383,7 @@ function buildAssistantSections(params: {
     })
   }
   const repeatRuTrim = repeatRuTextForCard?.trim() ?? ''
-  if (mode === 'translation' && translationErrorCoachUi && repeatRuTrim) {
+  if (isTranslationErrorRepeat && repeatRuTrim) {
     const repeatEnCueBody = stripWrappingQuotes(stripLeadingRepeatRuPrompt(repeatRuTrim))
     if (repeatEnCueBody) {
       sections.push({
@@ -389,7 +395,7 @@ function buildAssistantSections(params: {
       })
     }
   }
-  const isTranslationErrorCoach = mode === 'translation' && translationErrorCoachUi
+  const isTranslationErrorCoach = isTranslationErrorRepeat || (mode === 'translation' && translationErrorCoachUi)
   const hideEnglishRepeatCard = isTranslationErrorCoach
   if (showOnlyRepeat && repeatTextForCard && !isTranslationErrorCoach) {
     sections.push({
@@ -447,6 +453,7 @@ export function buildAssistantSectionsForTranslationSuccessTest(
     comment,
     translationSuccessPraiseCard: true,
     translationErrorCoachUi: false,
+    translationProtocolStatus: 'success',
     showOnlyRepeat: false,
     hidePromptBlocks: false,
     repeatTextForCard: null,
@@ -466,6 +473,7 @@ export function buildAssistantSectionsForTranslationDrillWithInvitationTest(opti
   return buildAssistantSections({
     comment: null,
     translationErrorCoachUi: false,
+    translationProtocolStatus: 'prompt_only',
     translationSuccessPraiseCard: false,
     showOnlyRepeat: false,
     hidePromptBlocks: false,
@@ -493,6 +501,7 @@ export function buildAssistantSectionsForTranslationErrorRepeatTest(options: {
     comment: null,
     translationSupportComment: null,
     translationErrorCoachUi: options.translationErrorCoachUi ?? true,
+    translationProtocolStatus: (options.translationErrorCoachUi ?? true) ? 'error_repeat' : 'prompt_only',
     translationSuccessPraiseCard: false,
     translationErrorsText: null,
     showOnlyRepeat: options.showOnlyRepeat ?? false,
@@ -1705,6 +1714,7 @@ function MessageBubble({
   let translationErrorsText: string | null = null
   let translationSupportComment: string | null = null
   let translationErrorCoachUi = false
+  let translationProtocolStatus: TranslationProtocolStatus = 'prompt_only'
   let repeatRuForCard: string | null = null
   let translationSuccessShape = false
   if (!isUser && isTranslationMode) {
@@ -1797,6 +1807,11 @@ function MessageBubble({
       effectiveMainBefore = stripTranslationMainMetaPrefixes(ruFbTrim)
       hideTranslationMainCardForErrorRepeat = false
     }
+    translationProtocolStatus = resolveTranslationProtocolStatus({
+      mode,
+      translationSuccessShape,
+      translationErrorCoachUi,
+    })
   }
   if (isGenericTranslationRepeatUiText(repeatTextForCard)) {
     repeatTextForCard = null
@@ -1808,12 +1823,9 @@ function MessageBubble({
       : null
   const translationSuccessPraiseCard = Boolean(translationPraiseDisplayText)
   const showOnlyRepeat = !isTranslationMode && Boolean(repeatTextForCard)
-  // Скрываем карточку задания при протоколе ошибки (есть повтор эталона, нет успешных форм), пока не восстановим русское из прошлого хода.
+  // Источник истины: в error-repeat показываем только коррекционные карточки.
   const hideTranslationPromptBlocks =
-    (isTranslationMode &&
-      (Boolean(repeatTextForCard) || Boolean(repeatRuForCard)) &&
-      !String(effectiveMainBefore ?? '').trim()) ||
-    hideTranslationMainCardForErrorRepeat
+    (isTranslationMode && translationProtocolStatus === 'error_repeat') || hideTranslationMainCardForErrorRepeat
 
   const mainAfterVisibleForBubble =
     Boolean(mainAfter) && !effectiveMainBefore && !effectiveInvitationText
@@ -1841,6 +1853,7 @@ function MessageBubble({
         comment: translationSuccessPraiseCard ? translationPraiseDisplayText : effectiveComment,
         translationSupportComment,
         translationErrorCoachUi,
+        translationProtocolStatus,
         translationSuccessPraiseCard,
         translationErrorsText,
         showOnlyRepeat,

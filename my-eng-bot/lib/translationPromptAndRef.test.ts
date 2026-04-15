@@ -29,6 +29,29 @@ describe('extractRussianTranslationTaskFromAssistantContent', () => {
     expect(extractRussianTranslationTaskFromAssistantContent(content)).toBe('Я люблю кофе.')
   })
 
+  it('не принимает строки из блока «Ошибки» за новое русское задание', () => {
+    const content = [
+      'Комментарий_перевод: Хорошее начало.',
+      'Ошибки:',
+      '📖 Русские слова в ответе нужно перевести на английский.',
+      '- Лексическая ошибка. Проверь выбор слова.',
+      'Скажи: Do you have brothers or sisters?',
+    ].join('\n')
+    expect(extractRussianTranslationTaskFromAssistantContent(content)).toBeNull()
+  })
+
+  it('не принимает кракозябры и шум в диагностике за русское задание', () => {
+    const content = [
+      'Комментарий_перевод: Норм.',
+      'Ошибки:',
+      '🔤 asd qwe zxc',
+      '🤔 @@@ ###',
+      '📖 русс слова надо перевести',
+      'Скажи: Do you have brothers or sisters?',
+    ].join('\n')
+    expect(extractRussianTranslationTaskFromAssistantContent(content)).toBeNull()
+  })
+
   it('пропускает служебную строку скрытого эталона', () => {
     const content = 'Переведи далее: Тест.\n__TRAN_REPEAT_REF__: I test.'
     expect(extractRussianTranslationTaskFromAssistantContent(content)).toBe('Тест.')

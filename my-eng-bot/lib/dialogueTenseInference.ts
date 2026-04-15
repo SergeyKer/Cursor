@@ -103,6 +103,41 @@ export function isLikelyQuestionInRequiredTense(question: string, requiredTense:
   }
 }
 
+const EN_VOWEL_RE = /[aeiouy]/i
+
+function maxConsonantRunLengthLetters(s: string): number {
+  let max = 0
+  let cur = 0
+  for (const ch of s.toLowerCase()) {
+    if (!/[a-z]/.test(ch)) continue
+    if (EN_VOWEL_RE.test(ch)) {
+      max = Math.max(max, cur)
+      cur = 0
+    } else {
+      cur++
+    }
+  }
+  return Math.max(max, cur)
+}
+
+/** Хвостовая эвристика Present Simple: не помечать как «похоже на PS» сырой латинский мусор. */
+function presentSimpleUnmatchedShapePlausible(userText: string): boolean {
+  const tokens = userText.trim().toLowerCase().match(/[a-z']+/g) ?? []
+  if (tokens.length === 0) return false
+  const plausible = (t: string) => {
+    const s = t.replace(/'/g, '')
+    if (s.length < 2 || !EN_VOWEL_RE.test(s)) return false
+    // «dkknsaldohva» и т.п.: много согласных подряд при «случайных» гласных
+    if (s.length >= 8 && maxConsonantRunLengthLetters(s) >= 5) return false
+    return true
+  }
+  if (tokens.length === 1) {
+    const t = tokens[0]!.replace(/'/g, '')
+    return plausible(tokens[0]!) && t.length >= 3
+  }
+  return tokens.some((t) => plausible(t))
+}
+
 export function isUserLikelyCorrectForTense(userText: string, requiredTense: string): boolean {
   const expandedText = userText
     .replace(/\b(i)\s*'\s*m\b/gi, '$1 am')
@@ -154,7 +189,8 @@ export function isUserLikelyCorrectForTense(userText: string, requiredTense: str
         return true
       }
 
-      return true
+      // Не считать произвольную латиницу без гласных / одно «слово»-мусор валидным Present Simple.
+      return presentSimpleUnmatchedShapePlausible(userText)
     }
     case 'present_continuous':
       if (/\b(was|were|did|had)\b/i.test(expandedText)) return false

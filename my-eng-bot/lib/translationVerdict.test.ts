@@ -84,4 +84,43 @@ describe('computeTranslationGoldVerdict', () => {
     })
     expect(v.ok).toBe(false)
   })
+
+  it('rejects gibberish answer', () => {
+    const v = computeTranslationGoldVerdict({
+      userText: '@@@ asd zxc ???',
+      goldEnglish: 'I like trips.',
+      ruPrompt: ru,
+    })
+    expect(v.ok).toBe(false)
+    expect(v.reasons).toContain('gold_mismatch')
+  })
+
+  it('rejects answer with injected extra adjective', () => {
+    const v = computeTranslationGoldVerdict({
+      userText: 'I like beautiful trips.',
+      goldEnglish: 'I like trips.',
+      ruPrompt: ru,
+    })
+    expect(v.ok).toBe(false)
+  })
+
+  it('rejects answer with missing object noun', () => {
+    const v = computeTranslationGoldVerdict({
+      userText: 'I like.',
+      goldEnglish: 'I like trips.',
+      ruPrompt: ru,
+    })
+    expect(v.ok).toBe(false)
+    expect(v.reasons).toContain('gold_mismatch')
+  })
+
+  it('rejects mixed latin+cyrillic childish substitution', () => {
+    const v = computeTranslationGoldVerdict({
+      userText: 'I like красивые trips.',
+      goldEnglish: 'I like trips.',
+      ruPrompt: ru,
+    })
+    expect(v.ok).toBe(false)
+    expect(v.reasons).toContain('cyrillic_in_answer')
+  })
 })

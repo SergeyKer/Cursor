@@ -1602,6 +1602,240 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).not.toContain('Переведи на английский.')
   })
 
+  it('translation extra words provocation keeps frozen Скажи from drill card', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий_перевод: Хорошая попытка.\nОшибки:\n📖 Лексическая ошибка.\nСкажи: Do you have beautiful brothers or sisters?',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'family_friends',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'У тебя есть братья или сёстры?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you have brothers or sisters?',
+        },
+        { role: 'user', content: 'Do you have beautiful brothers or sisters?' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine).toContain('Do you have brothers or sisters?')
+    expect(repeatLine.toLowerCase()).not.toContain('beautiful')
+  })
+
+  it('translation shortened phrase provocation keeps full frozen Скажи', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: 'Комментарий_перевод: Исправь фразу.\nОшибки:\n🔤 Пропущена часть.\nСкажи: Do you have brothers?',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'family_friends',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'У тебя есть братья или сёстры?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you have brothers or sisters?',
+        },
+        { role: 'user', content: 'Do you have brothers?' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine).toContain('Do you have brothers or sisters?')
+    expect(repeatLine).not.toContain('Do you have brothers?.')
+  })
+
+  it('translation mixed latin+cyrillic provocation keeps same frozen Скажи', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий_перевод: Почти правильно.\nОшибки:\n📖 Переведи русские слова.\nСкажи: Do you have красивые brothers?',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'family_friends',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'У тебя есть братья или сёстры?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you have brothers or sisters?',
+        },
+        { role: 'user', content: 'Do you have красивые brothers?' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''
+    const repeatBody = repeatLine.replace(/^Скажи\s*:\s*/i, '')
+
+    expect(res.status).toBe(200)
+    expect(repeatLine).toContain('Do you have brothers or sisters?')
+    expect(repeatBody).not.toMatch(/[А-Яа-яЁё]/)
+  })
+
+  it('translation gibberish provocation keeps same frozen Скажи and no next drill', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: 'Комментарий_перевод: Ошибка.\nОшибки:\n🤔 Неясный ответ.\nСкажи: asd qwe zxc',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'family_friends',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'У тебя есть братья или сёстры?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you have brothers or sisters?',
+        },
+        { role: 'user', content: '@@@ asd zxc ???' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine).toContain('Do you have brothers or sisters?')
+    expect(data.content).not.toContain('Переведи далее:')
+  })
+
+  it('translation latin gibberish without __TRAN__: API gold blocks false success', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Отлично! Ты верно использовал have.\nФормы:\n+:\nПереведи далее: У меня есть семья.',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'You have a sister.',
+      })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'family_friends',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content: 'Переведи: У тебя есть сестра.\nПереведи на английский язык.',
+        },
+        { role: 'user', content: 'sdffs' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine.toLowerCase()).toContain('sister')
+    expect(data.content).not.toContain('Переведи далее:')
+  })
+
+  it('translation multi-step provocations keep frozen Скажи across correction chain', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий_перевод: Исправь слова.\nОшибки:\n📖 Лексика.\nСкажи: Do you have beautiful brothers?',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'family_friends',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'У тебя есть братья или сёстры?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you have brothers or sisters?',
+        },
+        { role: 'user', content: 'Do you have beautiful brothers?' },
+        {
+          role: 'assistant',
+          content:
+            'Комментарий_перевод: Попробуй ещё раз.\nОшибки:\n📖 Убери лишние слова.\nСкажи: Do you have brothers or sisters?',
+        },
+        { role: 'user', content: 'Do you have super brothers?' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine).toContain('Do you have brothers or sisters?')
+    expect(repeatLine.toLowerCase()).not.toContain('super')
+    expect(repeatLine.toLowerCase()).not.toContain('beautiful')
+  })
+
+  it('translation correction does not create new ru task from error block text', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий_перевод: Есть хорошая основа.\nОшибки:\n📖 Русские слова в ответе нужно перевести на английский.\nСкажи: Do you have handsome brothers?',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'family_friends',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'У тебя есть братья или сёстры?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you have brothers or sisters?',
+        },
+        { role: 'user', content: 'Do you have красивые brothers?' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine).toContain('Do you have brothers or sisters?')
+    expect(repeatLine.toLowerCase()).not.toContain('handsome')
+  })
+
   it('skips stray "Теперь" before the real next sentence', () => {
     const sentence = extractSingleTranslationNextSentence(['Теперь.', 'Я люблю играть с друзьями по вечерам.'])
 
