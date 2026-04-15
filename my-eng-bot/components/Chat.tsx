@@ -239,6 +239,14 @@ function stripTranslationInvitationPrefix(text: string): string {
   return text.replace(/^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)(?:\s+далее)?\s*:\s*/i, '').trim()
 }
 
+/** Тело карточки задания без дубля префикса «Переведи(те) [далее]:» — лейбл секции уже показывает его. */
+function translationDrillCardBodyForDisplay(raw: string): string {
+  const t = raw.trim()
+  if (!t) return t
+  const stripped = stripTranslationInvitationPrefix(t)
+  return stripped.length > 0 ? stripped : t
+}
+
 function isPraiseLikeTranslationFeedback(text: string): boolean {
   const t = text.trim()
   if (!t) return false
@@ -391,12 +399,13 @@ function buildAssistantSections(params: {
   if (mode === 'translation' && invitationText?.trim()) {
     const invitationTrim = invitationText.trim()
     if (!isGenericTranslationMetaInvitation(invitationTrim)) {
+      const invitationDisplay = translationDrillCardBodyForDisplay(invitationTrim)
       sections.push({
         key: 'translation-invitation',
         tone: 'invite',
         label: assistantMainHeadingLabel(),
-        text: invitationTrim,
-        singleLine: !invitationTrim.includes('\n'),
+        text: invitationDisplay,
+        singleLine: !invitationDisplay.includes('\n'),
         emphasizeMainText: hideAiLabel,
       })
     }
@@ -439,13 +448,14 @@ function buildAssistantSections(params: {
     !hideRussianNonQuestionMainBefore &&
     !isTranslationErrorCoach
   ) {
+    const mainDisplay = mode === 'translation' ? translationDrillCardBodyForDisplay(mainBefore) : mainBefore
     sections.push({
       key: 'main',
       tone: 'neutral',
       label: assistantMainHeadingLabel(),
-      text: mainBefore,
+      text: mainDisplay,
       // Для уроков/теории с \n рендерим как многострочный блок.
-      singleLine: !mainBefore.includes('\n'),
+      singleLine: !mainDisplay.includes('\n'),
       emphasizeMainText: hideAiLabel,
     })
   }

@@ -306,6 +306,25 @@ describe('translation drill invitation UI', () => {
     const main = sections.find((s) => s.key === 'main')
     expect(main?.text).toBe('Я сейчас читаю книгу?')
   })
+
+  it('в карточке приглашения не дублирует префикс «Переведи далее:» в теле', () => {
+    const sections = buildAssistantSectionsForTranslationDrillWithInvitationTest({
+      mainBefore: '',
+      invitationText: 'Переведи далее: У меня две сестры.',
+    })
+    const inv = sections.find((s) => s.key === 'translation-invitation')
+    expect(inv).toBeDefined()
+    expect(inv?.text).toBe('У меня две сестры.')
+  })
+
+  it('при пустом теле после префикса приглашения оставляет исходную строку в теле карточки', () => {
+    const sections = buildAssistantSectionsForTranslationDrillWithInvitationTest({
+      mainBefore: '',
+      invitationText: 'Переведи далее:',
+    })
+    const inv = sections.find((s) => s.key === 'translation-invitation')
+    expect(inv?.text).toBe('Переведи далее:')
+  })
 })
 
 describe('translationSuccessPraiseCard UI', () => {
@@ -330,7 +349,7 @@ describe('translationSuccessPraiseCard UI', () => {
     expect(praiseSection?.label).toBe('✅')
     expect(praiseSection?.text).toBe(praise)
     const main = sections.find((s) => s.key === 'main')
-    expect(main?.text).toBe(drill)
+    expect(main?.text).toBe('Ты смотришь новый фильм?')
   })
 })
 
