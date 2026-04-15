@@ -9,18 +9,19 @@ import {
 
 describe('extractTranslationCommentBlock', () => {
   it('stops Комментарий before блока Ошибки', () => {
-    const lines = ['Комментарий: Кратко.', 'Ошибки:', '🤔 тест', 'Время: Present Simple — факт.']
+    const lines = ['Комментарий: Кратко.', 'Ошибки:', '🤔 тест', 'Скажи: I run.']
     const ex = extractTranslationCommentBlock(lines)
     expect(ex).not.toBeNull()
     expect(ex!.fullBody).toBe('Кратко.')
     expect(ex!.endExclusive).toBe(1)
   })
 
-  it('merges Комментарий continuation lines until Время', () => {
+  it('merges Комментарий continuation lines until Ошибки', () => {
     const lines = [
       'Комментарий: Ошибка времени: line one.',
       'Лексическая ошибка: dogs нужно заменить на cat.',
-      'Время: Present Simple — факт.',
+      'Ошибки:',
+      '🔤 Present Simple — факт.',
       'Скажи: I like my cat.',
     ]
     const ex = extractTranslationCommentBlock(lines)
@@ -30,11 +31,7 @@ describe('extractTranslationCommentBlock', () => {
     expect(ex!.endExclusive).toBe(2)
   })
 
-  it('legacy «Комментарий_ошибка:» всё ещё распознаётся как блок комментария', () => {
-    const lines = ['Комментарий_ошибка: Нужен другой порядок слов.', 'Ошибки:', '🔤 …']
-    const ex = extractTranslationCommentBlock(lines)
-    expect(ex).not.toBeNull()
-    expect(ex!.fullBody).toBe('Нужен другой порядок слов.')
+  it('stripTranslationCommentLabel убирает устаревший префикс Комментарий_ошибка', () => {
     expect(stripTranslationCommentLabel('Комментарий_ошибка: Нужен другой порядок слов.')).toBe(
       'Нужен другой порядок слов.'
     )
@@ -84,7 +81,8 @@ describe('injectSentenceTypePopravImperative', () => {
 describe('applyTranslationCommentCoachVoice', () => {
   it('does not insert school metaphor for present_simple', () => {
     const content = `Комментарий: Ошибка времени: нужно настоящее.
-Время: Present Simple — факт.
+Ошибки:
+🔤 Present Simple — факт.
 Скажи: I like my cat.`
     const out = applyTranslationCommentCoachVoice({
       content,
@@ -92,7 +90,7 @@ describe('applyTranslationCommentCoachVoice', () => {
       requiredTense: 'present_simple',
     })
     expect(out).not.toMatch(/школ/i)
-    expect(out).toMatch(/Время:\s*Present Simple/)
+    expect(out).toMatch(/Ошибки:/)
     const kom = out.split(/\r?\n/).find((l) => /^Комментарий\s*:/i.test(l)) ?? ''
     expect(kom).not.toMatch(/Present Simple/i)
   })
@@ -100,7 +98,8 @@ describe('applyTranslationCommentCoachVoice', () => {
   it('preserves second reason line after coach prefix', () => {
     const content = `Комментарий: Ошибка времени: нужно настоящее.
 Лексическая ошибка: dogs нужно заменить на cat.
-Время: Present Simple — факт.
+Ошибки:
+🔤 Present Simple — факт.
 Скажи: I like my cat.`
     const out = applyTranslationCommentCoachVoice({
       content,

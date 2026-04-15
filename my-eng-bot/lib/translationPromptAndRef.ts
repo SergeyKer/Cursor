@@ -1,17 +1,9 @@
-import { normalizeEnglishLearnerContractions } from '@/lib/englishLearnerContractions'
 import { stripWrappingQuotesFromDrillRussianLine } from '@/lib/extractSingleTranslationNextSentence'
 import { normalizeEnglishForRepeatMatch } from '@/lib/normalizeEnglishForRepeatMatch'
 import { clampTranslationRepeatToRuPrompt, extractPromptKeywords } from '@/lib/translationRepeatClamp'
 
 /** Скрытый эталон «Скажи» для сервера; в UI не показывается (см. stripTranslationCanonicalRepeatRefLine). */
 export const TRAN_CANONICAL_REPEAT_REF_MARKER = '__TRAN_REPEAT_REF__'
-
-function normalizeEnglishSentenceForCard(text: string): string {
-  const compact = text.replace(/\s+/g, ' ').trim()
-  if (!compact) return ''
-  const normalized = normalizeEnglishLearnerContractions(compact)
-  return /[.!?]\s*$/.test(normalized) ? normalized : `${normalized}.`
-}
 
 /**
  * Русское предложение после «Переведи(те) …:» на одной строке (например «Переведи далее: Я обычно…»).
@@ -42,13 +34,14 @@ function isEnglishOnlyInviteLine(normalized: string): boolean {
 
 function shouldSkipLineWhenScanningForRuTask(rawLine: string): boolean {
   if (/^\s*__TRAN_REPEAT_REF__\s*:/i.test(rawLine)) return true
-  if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:/i.test(rawLine)) return true
+  if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_ошибка\s*:/i.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_перевод\s*:/i.test(rawLine)) return true
+  if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий\s*:/i.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:/i.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:/i.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*Ошибки\s*:/i.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*Формы\s*:/i.test(rawLine)) return true
-  if (/^[\s\-•]*(?:\d+[\.)]\s*)*[+\?-]\s*:/i.test(rawLine)) return true
+  if (/^[\s\-•]*(?:\d+[\.)]\s*)*(?:\+|\?|-)\s*:/.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*Скажи\s*:/i.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*[🤔🔤📖✏️]/u.test(rawLine)) return true
@@ -132,71 +125,6 @@ export function extractCanonicalRepeatRefEnglishFromContent(content: string): st
   return raw || null
 }
 
-function extractPositiveFormFromTranslationCard(content: string): string | null {
-  const lines = content
-    .split(/\r?\n/)
-    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
-    .filter(Boolean)
-  for (const line of lines) {
-    const m = /^[\s\-•]*(?:\d+[\.)]\s*)*\+\s*:\s*(.+)\s*$/i.exec(line)
-    if (m?.[1]) {
-      const v = normalizeEnglishSentenceForCard(m[1] ?? '')
-      if (v) return v
-    }
-  }
-  return null
-}
-
-function extractQuestionFormFromTranslationCard(content: string): string | null {
-  const lines = content
-    .split(/\r?\n/)
-    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
-    .filter(Boolean)
-  for (const line of lines) {
-    const m = /^[\s\-•]*(?:\d+[\.)]\s*)*\?\s*:\s*(.+)\s*$/i.exec(line)
-    if (m?.[1]) {
-      const v = normalizeEnglishSentenceForCard(m[1] ?? '')
-      if (v) return v
-    }
-  }
-  return null
-}
-
-function extractNegativeFormFromTranslationCard(content: string): string | null {
-  const lines = content
-    .split(/\r?\n/)
-    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
-    .filter(Boolean)
-  for (const line of lines) {
-    const m = /^[\s\-•]*(?:\d+[\.)]\s*)*-\s*:\s*(.+)\s*$/i.exec(line)
-    if (m?.[1]) {
-      const v = normalizeEnglishSentenceForCard(m[1] ?? '')
-      if (v) return v
-    }
-  }
-  return null
-}
-
-/** Согласовано с app/api/chat/route.ts isLikelyRussianNegativeSentence — без импорта из роута. */
-function isLikelyRussianNegativePrompt(text: string): boolean {
-  const normalized = text.replace(/\s+/g, ' ').trim()
-  if (!normalized) return false
-  return /(?:^|[\s,;])(?:не|ни|нет|никогда|ничего|никому|нигде)(?=[\s,.!?…]|$)/iu.test(normalized)
-}
-
-function pickCanonicalFormEnglishForRuCard(content: string, ru: string): string | null {
-  const ruTrim = ru.trim()
-  if (/\?\s*$/.test(ruTrim)) {
-    const q = extractQuestionFormFromTranslationCard(content)
-    if (q) return q
-  }
-  if (isLikelyRussianNegativePrompt(ruTrim) && !/\?\s*$/.test(ruTrim)) {
-    const neg = extractNegativeFormFromTranslationCard(content)
-    if (neg) return neg
-  }
-  return extractPositiveFormFromTranslationCard(content)
-}
-
 function isRepeatCuePlausibleForRuPromptLocal(ruPrompt: string | null, englishCue: string): boolean {
   if (!ruPrompt?.trim()) return true
   const promptKeywords = extractPromptKeywords(ruPrompt)
@@ -223,6 +151,30 @@ function extractVisibleRepeatCueEnglishFromAssistantCard(content: string): strin
 }
 
 /**
+ * Снятые с карточки эталоны после clamp: скрытый ref и видимый «Скажи» (если проходит plausibility).
+ * Нужен для вердикта, когда оба присутствуют, но расходятся — выбираем тот, с которым совпал ответ.
+ */
+export function getClampedHiddenAndVisibleGold(
+  assistantContent: string,
+  ruPrompt: string | null
+): { hidden: string | null; visible: string | null } {
+  const ru = ruPrompt?.trim() ?? ''
+  const rawHidden = extractCanonicalRepeatRefEnglishFromContent(assistantContent)
+  let hidden: string | null = null
+  if (rawHidden?.trim()) {
+    const { clamped } = clampTranslationRepeatToRuPrompt(rawHidden.trim(), ru)
+    hidden = (clamped?.trim() || rawHidden.trim()) || null
+  }
+  const visibleRaw = extractVisibleRepeatCueEnglishFromAssistantCard(assistantContent)
+  let visible: string | null = null
+  if (visibleRaw?.trim() && isRepeatCuePlausibleForRuPromptLocal(ruPrompt, visibleRaw)) {
+    const { clamped } = clampTranslationRepeatToRuPrompt(visibleRaw.trim(), ru)
+    visible = (clamped?.trim() || visibleRaw.trim()) || null
+  }
+  return { hidden, visible }
+}
+
+/**
  * Локальный эталон для вердикта: __TRAN_REPEAT_REF__ или видимый «Скажи»
  * (без «Формы», чтобы не сравнивать с диагностическим +:).
  */
@@ -230,28 +182,26 @@ export function extractLocalGoldEnglishForVerdict(
   assistantContent: string,
   ruPrompt: string | null
 ): string | null {
-  const ref = extractCanonicalRepeatRefEnglishFromContent(assistantContent)
-  if (ref?.trim()) return ref.trim()
-  const visible = extractVisibleRepeatCueEnglishFromAssistantCard(assistantContent)
-  if (visible?.trim() && isRepeatCuePlausibleForRuPromptLocal(ruPrompt, visible)) {
-    const { clamped } = clampTranslationRepeatToRuPrompt(visible, ruPrompt ?? '')
-    return (clamped?.trim() || visible.trim()) || null
-  }
+  const { hidden, visible } = getClampedHiddenAndVisibleGold(assistantContent, ruPrompt)
+  if (hidden?.trim()) return hidden.trim()
+  if (visible?.trim()) return visible.trim()
   return null
 }
 
 /**
- * Добавляет в конец ответа скрытую эталонную строку для «Скажи» (по блоку «Формы» и русскому заданию).
- * Не дублирует, если маркер уже есть.
+ * Добавляет скрытую эталонную строку из видимого «Скажи:», если маркера ещё нет (без блока «Формы»).
  */
 export function appendTranslationCanonicalRepeatRefLine(content: string, ruPrompt: string | null): string {
   const ru = ruPrompt?.trim() ?? ''
   if (!ru) return content
   if (content.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) return content
-  const chosen = pickCanonicalFormEnglishForRuCard(content, ru)
-  if (!chosen) return content
-  const { clamped } = clampTranslationRepeatToRuPrompt(chosen, ru)
-  return `${content.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${clamped}`
+  const visible = extractVisibleRepeatCueEnglishFromAssistantCard(content)
+  if (visible?.trim() && isRepeatCuePlausibleForRuPromptLocal(ruPrompt, visible)) {
+    const { clamped } = clampTranslationRepeatToRuPrompt(visible.trim(), ru)
+    const line = (clamped?.trim() || visible.trim()) || ''
+    if (line) return `${content.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${line}`
+  }
+  return content
 }
 
 /** Убирает скрытую строку эталона перед показом в UI и парсингом карточки. */

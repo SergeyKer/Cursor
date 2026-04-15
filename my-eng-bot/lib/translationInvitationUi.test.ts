@@ -12,7 +12,7 @@ describe('splitTranslationInvitation', () => {
   })
 
   it('находит «Переведи на английский.» без двоеточия', () => {
-    const text = 'Формы:\n+: A.\nПереведи на английский язык.'
+    const text = 'Комментарий: Кратко.\nПереведи на английский язык.'
     const { invitation, mainAfter } = splitTranslationInvitation(text)
     expect(invitation).toMatch(/Переведи на английский(?: язык)?/i)
     expect(mainAfter).toBe('')

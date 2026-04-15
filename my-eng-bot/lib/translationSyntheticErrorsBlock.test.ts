@@ -192,7 +192,6 @@ describe('sanitizeTranslationPayloadContinuousErrors', () => {
       'Ошибки:',
       "🔤 'learning' → 'learned'",
       '🔤 Ошибка времени: используйте V3.',
-      'Время: Present Perfect Continuous — длительность.',
       'Скажи: I have been learning English recently.',
     ].join('\n')
     const out = sanitizeTranslationPayloadContinuousErrors(

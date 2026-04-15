@@ -184,14 +184,14 @@ describe('ensureInAdvanceFromRuZaranee', () => {
 
 describe('enforceAuthoritativeTranslationRepeatEnCue', () => {
   it('вставляет Скажи перед Скажи с тем же английским, что в Скажи', () => {
-    const content = `Комментарий: Ошибка.\nКонструкция: S + V1\nСкажи: I love to cook.`
+    const content = `Комментарий_перевод: Повтори эталон.\nОшибки:\n🔤 тест\nСкажи: I love to cook.`
     const out = enforceAuthoritativeTranslationRepeatEnCue(content)
     expect(out).toContain('Скажи: I love to cook.')
     expect((out.match(/(^|\n)\s*Скажи\s*:/g) ?? []).length).toBe(1)
   })
 
   it('не меняет ответ без английского Скажи', () => {
-    const content = `Комментарий: Отлично!\nКонструкция: …`
+    const content = `Комментарий: Отлично!\nОшибки:\n🔤 …`
     expect(enforceAuthoritativeTranslationRepeatEnCue(content)).toBe(content)
   })
 })
@@ -214,8 +214,9 @@ describe('hasWeekendConceptInRuPrompt', () => {
 
 describe('applyTranslationRepeatSourceClampToContent', () => {
   it('регрессия: payload как после forceTranslationWordErrorProtocol — не срезает on weekends при RU без «выходн»', () => {
-    const content = `Комментарий: Лексическая ошибка. Проверь написание и выбор слова.
-Время: Present Simple — Здесь речь о привычке или факте, а не о действии прямо сейчас.
+    const content = `Комментарий_перевод: Проверь формулировку.
+Ошибки:
+🔤 Здесь речь о привычке или факте, а не о действии прямо сейчас.
 Скажи: Do we often see each other on weekends?`
     const ru = 'Мы часто видимся по субботам и воскресеньям.'
     const out = applyTranslationRepeatSourceClampToContent(content, ru)
@@ -224,9 +225,9 @@ describe('applyTranslationRepeatSourceClampToContent', () => {
   })
 
   it('replaces Скажи line in full assistant payload', () => {
-    const content = `Комментарий: Ошибка.
-Время: Present Simple.
-Конструкция: Subject + V1.
+    const content = `Комментарий_перевод: Исправь по промпту.
+Ошибки:
+🔤 Present Simple — привычка.
 Скажи: I often meet with friends on the weekend.`
     const out = applyTranslationRepeatSourceClampToContent(content, 'Я часто встречаюсь с друзьями.')
     expect(out).toContain('Скажи:')
@@ -235,12 +236,8 @@ describe('applyTranslationRepeatSourceClampToContent', () => {
 
   it('rewrites repeat line to match the Russian prompt keywords', () => {
     const content = `Комментарий: Отлично!
-Время: Present Simple.
-Конструкция: Subject + V1.
-Формы:
-+: I love to play outside with my friends.
-?: Do I love to play outside with my friends?
--: I do not love to play outside with my friends.
+Ошибки:
+🔤 тест
 Скажи: I love to play outside with my cats.`
     const out = applyTranslationRepeatSourceClampToContent(content, 'Я люблю играть с друзьями.')
     const repeatLine = out.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''

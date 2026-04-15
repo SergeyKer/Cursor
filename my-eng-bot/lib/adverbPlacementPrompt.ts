@@ -4,7 +4,7 @@
  */
 
 export const ADVERB_PLACEMENT_TUTOR_BLOCK = `
-Adverb placement (follow in all English you output: drill sentences, "Формы:", "Повтори:", questions, corrections).
+Adverb placement (follow in all English you output: drill sentences, "Скажи:", "Повтори:", questions, corrections).
 
 Present Perfect — mid-position (NOT at the end of the clause in this app):
 - Place already, just, ever, never, recently, lately BETWEEN the auxiliary have/has and the past participle (V3).

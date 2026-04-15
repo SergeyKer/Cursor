@@ -85,8 +85,9 @@ describe('translationResponseHasSuccessShape', () => {
 describe('computeAssistantTranslationMainCardMeta', () => {
   it('при ошибке сохраняет русское задание в метаданных, но карточку «Переведи» не показывает — цикл только «Скажи»', () => {
     const content = [
-      'Комментарий: Ошибка.',
-      'Время: Present Continuous — сейчас.',
+      'Комментарий_перевод: Есть зацепка, но нужно поправить форму.',
+      'Ошибки:',
+      '🔤 Нужен Present Continuous — действие сейчас.',
       'Скажи: Are we watching a movie?',
       'Переведи далее: Мы сейчас смотрим фильм?',
       'Переведи на английский язык.',
@@ -105,7 +106,7 @@ describe('computeAssistantTranslationMainCardMeta', () => {
 })
 
 describe('parseTranslationCoachBlocks', () => {
-  it('выделяет errorsBlock между Ошибки и Время', () => {
+  it('выделяет errorsBlock до следующего протокольного заголовка (строки «Время:» больше не режут блок)', () => {
     const text = [
       'Комментарий: Ввод.',
       'Ошибки:',
@@ -119,7 +120,8 @@ describe('parseTranslationCoachBlocks', () => {
     expect(b.translationSupportComment).toBeNull()
     expect(b.errorsBlock).toContain('✏️')
     expect(b.errorsBlock).toContain('📖')
-    expect(b.nextSentence).toContain('Present Simple')
+    expect(b.errorsBlock).toContain('Present Simple')
+    expect(b.nextSentence).toBe('')
     expect(b.repeat).toBe('I run.')
   })
 
@@ -147,8 +149,6 @@ describe('parseTranslationCoachBlocks', () => {
       'Комментарий: Ошибка времени.',
       'Ошибки:',
       '⏱️ …',
-      'Время: Present Simple — …',
-      'Конструкция: S + V1',
       'Скажи: I often read.',
       'Скажи: I often read.',
     ].join('\n')

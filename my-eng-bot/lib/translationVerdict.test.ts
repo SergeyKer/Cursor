@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeTranslationGoldVerdict } from './translationVerdict'
+import { computeTranslationGoldVerdict, pickTranslationGoldForVerdict } from './translationVerdict'
 
 describe('computeTranslationGoldVerdict', () => {
   const ru = 'Я люблю поездки.'
@@ -143,5 +143,53 @@ describe('computeTranslationGoldVerdict', () => {
     })
     expect(v.ok).toBe(false)
     expect(v.reasons).toContain('gold_not_plausible_for_prompt')
+  })
+
+  it('accepts short gold matching one RU topic keyword when RU lists several themes (≤5 EN tokens)', () => {
+    const ru = 'У меня есть семья друзья и работа.'
+    const gold = 'You have a family.'
+    expect(
+      computeTranslationGoldVerdict({
+        userText: 'You have a family.',
+        goldEnglish: gold,
+        ruPrompt: ru,
+      })
+    ).toEqual({ ok: true, reasons: [] })
+  })
+})
+
+describe('pickTranslationGoldForVerdict', () => {
+  it('prefers visible Скажи when user matches it but __TRAN__ differs', () => {
+    const card = [
+      'Переведи: У тебя есть семья?',
+      'Переведи на английский язык.',
+      'Скажи: You have a family.',
+      '__TRAN_REPEAT_REF__: I have a family.',
+    ].join('\n')
+    const ru = 'У тебя есть семья?'
+    expect(
+      pickTranslationGoldForVerdict({
+        assistantContent: card,
+        ruPrompt: ru,
+        userText: 'You have a family.',
+      })
+    ).toBe('You have a family.')
+  })
+
+  it('keeps hidden ref when it is the one that matches the user', () => {
+    const card = [
+      'Переведи: У меня есть кот.',
+      'Переведи на английский.',
+      'Скажи: I have a dog.',
+      '__TRAN_REPEAT_REF__: I have a cat.',
+    ].join('\n')
+    const ru = 'У меня есть кот.'
+    expect(
+      pickTranslationGoldForVerdict({
+        assistantContent: card,
+        ruPrompt: ru,
+        userText: 'I have a cat.',
+      })
+    ).toBe('I have a cat.')
   })
 })

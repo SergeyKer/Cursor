@@ -6,6 +6,7 @@ import {
   extractLocalGoldEnglishForVerdict,
   extractRussianTranslationTaskFromAssistantContent,
   getAssistantContentBeforeLastUser,
+  getClampedHiddenAndVisibleGold,
   stripTranslationCanonicalRepeatRefLine,
 } from './translationPromptAndRef'
 
@@ -64,16 +65,12 @@ describe('extractRussianTranslationTaskFromAssistantContent', () => {
 })
 
 describe('appendTranslationCanonicalRepeatRefLine', () => {
-  it('добавляет эталон по +: и русскому заданию', () => {
+  it('добавляет эталон из видимой строки «Скажи:»', () => {
     const card = [
       'Комментарий: Отлично!',
-      'Конструкция: —',
-      'Формы:',
-      '+: I usually read books before bed.',
-      '?: Do you usually read books before bed?',
-      '-: I do not usually read books before bed.',
       'Переведи далее: Я обычно читаю книги перед сном.',
       'Переведи на английский язык.',
+      'Скажи: I usually read books before bed.',
     ].join('\n')
     const ru = extractRussianTranslationTaskFromAssistantContent(card)
     expect(ru).toContain('Я обычно читаю')
@@ -81,16 +78,12 @@ describe('appendTranslationCanonicalRepeatRefLine', () => {
     expect(out).toMatch(/__TRAN_REPEAT_REF__:\s*I usually read books before bed\./i)
   })
 
-  it('для русского вопроса берёт эталон из строки «?:», а не «+:»', () => {
+  it('для русского вопроса берёт эталон из «Скажи:» с вопросительным знаком', () => {
     const card = [
       'Комментарий: Отлично!',
-      'Конструкция: —',
-      'Формы:',
-      '+: I have always liked listening to music in my free time.',
-      '?: Have I always liked listening to music in my free time?',
-      '-: I have not always liked listening to music in my free time.',
       'Переведи далее: Мне всегда нравилось слушать музыку в свободное время?',
       'Переведи на английский язык.',
+      'Скажи: Have I always liked listening to music in my free time?',
     ].join('\n')
     const ru = extractRussianTranslationTaskFromAssistantContent(card)
     expect(ru).toMatch(/\?$/)
@@ -121,7 +114,7 @@ describe('extractLastTranslationPromptFromMessages', () => {
       {
         role: 'assistant',
         content:
-          'Комментарий: Молодец!\nФормы:\n+: I love books.\nПереведи далее: Я люблю читать книги.\nПереведи на английский язык.\n__TRAN_REPEAT_REF__: I love to read books.',
+          'Комментарий: Молодец!\nПереведи далее: Я люблю читать книги.\nПереведи на английский язык.\n__TRAN_REPEAT_REF__: I love to read books.',
       },
       { role: 'user', content: 'wrong' },
       {
@@ -160,6 +153,18 @@ describe('getAssistantContentBeforeLastUser / extractCanonicalRepeatRefEnglishFr
     ]
     const card = getAssistantContentBeforeLastUser(messages)
     expect(extractCanonicalRepeatRefEnglishFromContent(card!)).toBe('I usually read books before bed.')
+  })
+})
+
+describe('getClampedHiddenAndVisibleGold', () => {
+  it('возвращает оба эталона когда на карточке есть и ref, и Скажи', () => {
+    const card = [
+      'Скажи: You have a family.',
+      '__TRAN_REPEAT_REF__: I have a family.',
+    ].join('\n')
+    const { hidden, visible } = getClampedHiddenAndVisibleGold(card, 'У тебя есть семья?')
+    expect(hidden).toBe('I have a family.')
+    expect(visible).toBe('You have a family.')
   })
 })
 

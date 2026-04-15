@@ -1,5 +1,6 @@
 import { normalizeEnglishLearnerContractions } from '@/lib/englishLearnerContractions'
 import { normalizeEnglishForRepeatMatch } from '@/lib/normalizeEnglishForRepeatMatch'
+import { getClampedHiddenAndVisibleGold } from '@/lib/translationPromptAndRef'
 import { extractPromptKeywords } from '@/lib/translationRepeatClamp'
 
 export type TranslationGoldVerdict = {
@@ -34,6 +35,21 @@ function goldMatchesPromptKeywords(ruPrompt: string, goldEnglish: string): boole
   // Для более длинного промпта требуем не один случайный ключ, а как минимум два.
   const requiredMatches = promptKeywords.length >= 3 ? 2 : 1
   return matches >= requiredMatches
+}
+
+/**
+ * Длинный эталон — строгая проверка ключей; короткий (≤5 токенов после нормализации) — как на карточке:
+ * достаточно одного совпадения тематического ключа с RU (согласовано с мягкой plausibility для «Скажи»).
+ */
+function goldPlausibleForRuPrompt(ruPrompt: string, goldEnglish: string): boolean {
+  if (goldMatchesPromptKeywords(ruPrompt, goldEnglish)) return true
+  const goldNorm = normalizeForVerdictComparison(goldEnglish)
+  const goldTokCount = tokenizeForVerdictPrefixCheck(goldNorm).length
+  if (goldTokCount > 5) return false
+  const promptKeywords = extractPromptKeywords(ruPrompt)
+  if (promptKeywords.length === 0) return true
+  const goldTokens = new Set(tokenizeForVerdictPrefixCheck(goldNorm))
+  return promptKeywords.some((kw) => goldTokens.has(kw.toLowerCase()))
 }
 
 function goldHasEnoughSubstanceForPrompt(ruPrompt: string, goldEnglish: string): boolean {
@@ -116,7 +132,7 @@ export function computeTranslationGoldVerdict(params: {
     return { ok: false, reasons: ['gibberish_in_gold'] }
   }
 
-  if (!goldMatchesPromptKeywords(ruPrompt, goldTrim)) {
+  if (!goldPlausibleForRuPrompt(ruPrompt, goldTrim)) {
     return { ok: false, reasons: ['gold_not_plausible_for_prompt'] }
   }
 
@@ -145,4 +161,35 @@ export function computeTranslationGoldVerdict(params: {
 
   reasons.push('gold_mismatch')
   return { ok: false, reasons }
+}
+
+/**
+ * Эталон для вердикта: если скрытый ref и видимый «Скажи» расходятся, берём тот вариант,
+ * с которым ответ пользователя проходит computeTranslationGoldVerdict; иначе приоритет как раньше (hidden, затем visible).
+ */
+export function pickTranslationGoldForVerdict(params: {
+  assistantContent: string
+  ruPrompt: string
+  userText: string
+}): string | null {
+  const { hidden, visible } = getClampedHiddenAndVisibleGold(params.assistantContent, params.ruPrompt)
+  const tp = params.ruPrompt.trim()
+  const user = params.userText
+
+  const candidates: string[] = []
+  const pushDedup = (g: string | null | undefined) => {
+    const t = g?.trim()
+    if (!t) return
+    const n = normalizeForVerdictComparison(t)
+    if (!n) return
+    if (!candidates.some((c) => normalizeForVerdictComparison(c) === n)) candidates.push(t)
+  }
+  pushDedup(hidden ?? undefined)
+  pushDedup(visible ?? undefined)
+
+  for (const gold of candidates) {
+    const v = computeTranslationGoldVerdict({ userText: user, goldEnglish: gold, ruPrompt: tp })
+    if (v.ok) return gold
+  }
+  return hidden?.trim() || visible?.trim() || null
 }

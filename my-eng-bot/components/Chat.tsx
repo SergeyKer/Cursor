@@ -568,7 +568,12 @@ export function parseTranslationCoachBlocks(text: string): {
 } {
   const cleaned = text
     .split(/\r?\n/)
-    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+    .map((l) =>
+      l
+        .replace(/^\s*(?:ai|assistant)\s*:\s*/i, '')
+        .trim()
+        .replace(/^([\s\-•]*(?:\d+[\.)]\s*)*)Комментарий_ошибка\s*:/i, '$1Комментарий:')
+    )
     .filter(Boolean)
 
   let translationSupportComment: string | null = null
@@ -861,7 +866,7 @@ export function computeAssistantTranslationMainCardMeta(message: ChatMessageType
       .trim()
     const fallbackFromInline = blocks.nextSentence
       .replace(
-          /(?:Комментарий_ошибка|Комментарий_перевод|Комментарий|Ошибки|Скажи|Say)\s*:[^.\n!?]*[.!?]?/gi,
+          /(?:Комментарий_перевод|Комментарий|Ошибки|Скажи|Say)\s*:[^.\n!?]*[.!?]?/gi,
         ' '
       )
       .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')
@@ -1870,7 +1875,7 @@ function MessageBubble({
         .trim()
       const fallbackFromInline = blocks.nextSentence
         .replace(
-          /(?:Комментарий_ошибка|Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Скажи|Say)\s*:[^.\n!?]*[.!?]?/gi,
+          /(?:Комментарий_перевод|Комментарий|Ошибки|Скажи|Say)\s*:[^.\n!?]*[.!?]?/gi,
           ' '
         )
         .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')

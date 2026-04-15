@@ -23,7 +23,7 @@ describe('extractPriorAssistantRepeatEnglish', () => {
     const messages = [
       { role: 'assistant', content: 'Скажи: First.' },
       { role: 'user', content: 'First.' },
-      { role: 'assistant', content: 'Комментарий: Отлично!\nКонструкция: test\nФормы:\n+: A.' },
+      { role: 'assistant', content: 'Комментарий: Отлично!\nПереведи далее: Следующее задание.\nПереведи на английский.' },
       { role: 'user', content: 'ok' },
     ]
     expect(extractPriorAssistantRepeatEnglish(messages)).toBeNull()
@@ -44,7 +44,7 @@ describe('extractPriorAssistantRepeatEnglish', () => {
       {
         role: 'assistant',
         content:
-          'Формы:\n+: I usually read books.\nПереведи далее: Я обычно читаю.\n__TRAN_REPEAT_REF__: I usually read books.',
+          'Комментарий: Отлично!\nПереведи далее: Я обычно читаю.\n__TRAN_REPEAT_REF__: I usually read books.',
       },
       { role: 'user', content: 'wrong' },
     ]
@@ -119,7 +119,7 @@ describe('extractPriorAssistantRepeatEnglish', () => {
       {
         role: 'assistant',
         content:
-          'Комментарий: Молодец!\nФормы:\n+: I love to read books.\nПереведи далее: Я люблю читать книги.\n__TRAN_REPEAT_REF__: I love to read books.\nПереведи на английский.',
+          'Комментарий: Молодец!\nПереведи далее: Я люблю читать книги.\n__TRAN_REPEAT_REF__: I love to read books.\nПереведи на английский.',
       },
       { role: 'user', content: 'I like to читать' },
     ]

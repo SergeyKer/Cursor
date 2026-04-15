@@ -154,8 +154,6 @@ describe('POST /api/chat translation provider payload', () => {
           'Комментарий_перевод: Хорошее начало вопроса. Исправь порядок слов.',
           'Ошибки:',
           '🔤 Ошибка формы вопроса. Поставь do перед подлежащим.',
-          'Время: Present Simple — привычка или факт.',
-          'Конструкция: Do/Does + subject + V1 ...?',
           'Скажи: What do you like as a pet?',
         ].join('\n'),
       })
@@ -181,9 +179,8 @@ describe('POST /api/chat translation provider payload', () => {
     expect(res.status).toBe(200)
     const data = (await res.json()) as { content: string }
     expect(data.content).toContain('Комментарий_перевод: Хорошее начало вопроса.')
-    expect(data.content).toContain('Ошибка формы вопроса. Поставь do перед подлежащим.')
     expect(data.content).toContain('Ошибки:')
-    expect(data.content.toLowerCase()).toMatch(/📖\s*питомец\s*-\s*pet/)
+    expect(data.content.toLowerCase()).toMatch(/питомец\s*→\s*pet/)
   })
 
   it('normalizes second supportive sentence to fixed errors reference when multiple errors exist', async () => {
@@ -217,7 +214,7 @@ describe('POST /api/chat translation provider payload', () => {
     expect(res.status).toBe(200)
     const data = (await res.json()) as { content: string }
     expect(data.content).toContain('Комментарий_перевод: Отличное начало вопроса.')
-    expect(data.content).toContain('Комментарий: Лексическая ошибка — see нужно заменить на watching.')
+    expect(data.content).not.toContain('Комментарий:')
     expect(data.content).not.toContain('Исправь порядок слов и артикль.')
     expect(data.content).toContain('Ошибки:')
     expect(data.content).toContain('🔤 В вопросе нужен do перед you.')

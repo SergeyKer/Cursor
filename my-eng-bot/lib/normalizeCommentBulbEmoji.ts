@@ -71,9 +71,7 @@ export function normalizeTranslationBulbEmojisInContent(content: string): string
         const next = lines[i] ?? ''
         if (/^\s*(?:\d+[\.)]\s*)*Комментарий(?!_)\s*:/i.test(next)) break
         if (
-          /^\s*(?:\d+[\.)]\s*)*(Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say|Переведи|Следующ)/i.test(
-            next
-          )
+          /^\s*(?:\d+[\.)]\s*)*(Ошибки|Скажи|Повтори|Repeat|Say|Переведи|Следующ)/i.test(next)
         ) {
           break
         }
@@ -93,7 +91,7 @@ export function normalizeTranslationBulbEmojisInContent(content: string): string
       while (i < lines.length) {
         const next = lines[i] ?? ''
         if (
-          /^\s*(?:\d+[\.)]\s*)*(Комментарий_перевод|Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say|Переведи|Следующ|Комментарий)\s*:/i.test(
+          /^\s*(?:\d+[\.)]\s*)*(Комментарий_перевод|Ошибки|Скажи|Повтори|Repeat|Say|Переведи|Следующ|Комментарий)\s*:/i.test(
             next
           )
         ) {

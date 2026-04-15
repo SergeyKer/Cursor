@@ -17,7 +17,7 @@ export function stripTranslationErrorSubsectionLabels(line: string): string {
 /** Эмодзи-маркер строки блока «Ошибки:» по типу из inferTranslationCommentErrorType. */
 function mapErrorTypeToSyntheticLinePrefix(inferredType: string): string {
   const t = inferredType.toLowerCase()
-  // Keep tense explanation only on standalone "Время:" line in protocol.
+  // Тип «Ошибка времени» — строка 🔤 в блоке «Ошибки:».
   if (t.includes('времени')) return '🔤'
   if (t.includes('лексическ')) return '📖'
   if (t.includes('перевод')) return '📖'
@@ -388,7 +388,7 @@ export function stripConflictingContinuousTenseErrorLines(
 }
 
 const TRANSLATION_ERRORS_HEADER_RE =
-  /^(Комментарий_ошибка|Комментарий_перевод|Комментарий|Ошибки|Время|Конструкция|Формы|Скажи|Повтори|Repeat|Say)\s*:/i
+  /^(Комментарий_перевод|Комментарий|Ошибки|Скажи|Повтори|Repeat|Say)\s*:/i
 
 /**
  * Находит блок «Ошибки:» в ответе перевода и прогоняет тело через stripConflictingContinuousTenseErrorLines.

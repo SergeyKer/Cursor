@@ -534,8 +534,8 @@ describe('POST /api/chat repeat cycle stability', () => {
     const data = await res.json() as { content: string }
 
     expect(res.status).toBe(200)
-    expect(data.content).toContain('Комментарий:')
-    expect(data.content).toMatch(/Орфографическая ошибка.{0,40}haev/i)
+    expect(data.content).toContain('Комментарий_перевод:')
+    expect(data.content).toMatch(/haev\s*→/i)
     expect(data.content).not.toContain('haev нужно заменить на car')
     expect(data.content).toContain('Скажи: I have a cat.')
     expect(data.content).not.toContain('Переведи на английский.')
@@ -568,7 +568,7 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     expect(res.status).toBe(200)
     expect(data.content).not.toContain('Отлично!')
-    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Комментарий_перевод:')
     expect(data.content).toContain('cat')
     expect(data.content).toContain('Скажи: I have a cat.')
     expect(data.content).not.toContain('Переведи на английский.')
@@ -1006,7 +1006,7 @@ describe('POST /api/chat repeat cycle stability', () => {
         {
           role: 'assistant',
           content:
-            'Я часто гуляю вечером.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I like to read in the evening.',
+            'Я люблю читать по вечерам.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I like to read in the evening.',
         },
         { role: 'user', content: 'I like to read in the evening.' },
       ],
@@ -1040,7 +1040,7 @@ describe('POST /api/chat repeat cycle stability', () => {
         {
           role: 'assistant',
           content:
-            'Я часто гуляю вечером.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I like to read in the evening.',
+            'Я люблю читать по вечерам.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I like to read in the evening.',
         },
         { role: 'user', content: 'I like to read in the evening.' },
       ],
@@ -1059,7 +1059,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       .mockResolvedValueOnce({
         ok: true,
         content:
-          "Комментарий: Отлично! Здесь это время подходит, потому что речь о привычке.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: You like sport.\n?: Do you like sport?\n-: You don't like sport.\nЯ редко смотрю телевизор.\nПереведи на английский.",
+          "Комментарий: Отлично! Здесь это время подходит, потому что речь о привычке.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: You often watch TV.\n?: Do you often watch TV?\n-: You don't often watch TV.\nЯ редко смотрю телевизор.\nПереведи на английский.",
       })
       .mockResolvedValueOnce({ ok: true, content: 'I rarely watch TV.' })
 
@@ -1072,9 +1072,9 @@ describe('POST /api/chat repeat cycle stability', () => {
       messages: [
         {
           role: 'assistant',
-          content: 'Ты любишь спорт?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you like sport?',
+          content: 'Ты часто смотришь телевизор?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you often watch TV?',
         },
-        { role: 'user', content: 'Do you like sport?' },
+        { role: 'user', content: 'Do you often watch TV?' },
       ],
     })
 
@@ -1084,6 +1084,43 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(res.status).toBe(200)
     expect(data.content).toContain('Комментарий:')
     expect(data.content).toMatch(/Переведи(?:\s+далее)?\s*:/i)
+  })
+
+  it('translation success when visible Скажи matches user but stale __TRAN__ differs', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Отлично!\nПереведи далее: Я люблю читать книги.\nПереведи на английский язык.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I love to read books.' })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'family_friends',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content: [
+            'Переведи: У тебя есть семья?',
+            'Переведи на английский язык.',
+            'Скажи: You have a family.',
+            '__TRAN_REPEAT_REF__: I have a family.',
+          ].join('\n'),
+        },
+        { role: 'user', content: 'You have a family' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toMatch(/Переведи(?:\s+далее)?\s*:/i)
+    expect(data.content).not.toContain('главную неточность')
   })
 
   it('translation success clamps repeat to the Russian prompt keywords', async () => {
@@ -1220,8 +1257,8 @@ describe('POST /api/chat repeat cycle stability', () => {
     const data = (await res.json()) as { content: string }
 
     expect(res.status).toBe(200)
-    expect(data.content).toContain('Комментарий:')
-    expect(data.content).toContain('Лексическая ошибка')
+    expect(data.content).toContain('Комментарий_перевод:')
+    expect(data.content).toMatch(/hou|пицц|pizza/i)
     expect(data.content).toContain('Скажи:')
     expect(data.content).not.toContain('Переведи далее:')
     expect(data.content).not.toContain('✅')
@@ -1257,9 +1294,8 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     expect(res.status).toBe(200)
     expect(data.content).toContain('Комментарий_перевод:')
-    expect(data.content).toContain('Комментарий:')
+    expect(data.content).not.toContain('Комментарий:')
     expect(data.content).toContain('Ошибки:')
-    expect(data.content).toContain('Скажи:')
     expect(data.content).toContain('Скажи:')
     expect(data.content).not.toContain('Я часто хожу в парк.')
     expect(data.content).not.toContain('Переведи на английский.')
@@ -1271,7 +1307,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       .mockResolvedValueOnce({
         ok: true,
         content:
-          'Комментарий: Ошибка времени.\nВремя: Present Simple — действие повторяется регулярно.\nКонструкция: Subject + V1(s/es).\nСкажи: I read in the evening.\nСкажи: I read in the evening.\nЯ люблю читать утром.\nПереведи на английский.',
+          'Комментарий_перевод: Исправь время.\nОшибки:\n🔤 Нужен Present Simple — действие повторяется регулярно.\nСкажи: I read in the evening.\nСкажи: I read in the evening.\nЯ люблю читать утром.\nПереведи на английский.',
       })
       .mockResolvedValueOnce({ ok: true, content: 'I like to read in the morning.' })
 
