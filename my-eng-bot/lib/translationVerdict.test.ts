@@ -88,12 +88,12 @@ describe('computeTranslationGoldVerdict', () => {
 
   it('rejects gibberish answer', () => {
     const v = computeTranslationGoldVerdict({
-      userText: '@@@ asd zxc ???',
+      userText: 'sdfdffdfdfdfd',
       goldEnglish: 'I like trips.',
       ruPrompt: ru,
     })
     expect(v.ok).toBe(false)
-    expect(v.reasons).toContain('gold_mismatch')
+    expect(v.reasons).toContain('gibberish_in_answer')
   })
 
   it('rejects answer with injected extra adjective', () => {
@@ -133,5 +133,15 @@ describe('computeTranslationGoldVerdict', () => {
     })
     expect(v.ok).toBe(false)
     expect(v.reasons).toContain('cyrillic_in_answer')
+  })
+
+  it('rejects weak gold coverage for a long prompt (prevents false success on short fragments)', () => {
+    const v = computeTranslationGoldVerdict({
+      userText: 'You like playing with friends.',
+      goldEnglish: 'You like playing.',
+      ruPrompt: 'Ты любишь играть с друзьями.',
+    })
+    expect(v.ok).toBe(false)
+    expect(v.reasons).toContain('gold_not_plausible_for_prompt')
   })
 })

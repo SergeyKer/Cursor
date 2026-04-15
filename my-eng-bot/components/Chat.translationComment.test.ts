@@ -69,6 +69,10 @@ describe('translationResponseHasSuccessShape', () => {
     expect(translationResponseHasSuccessShape('Отлично!', null, null)).toBe(true)
   })
 
+  it('false для corrective comment без похвалы даже если Скажи нет', () => {
+    expect(translationResponseHasSuccessShape('Ошибка времени: нужен Present Simple.', null, null)).toBe(false)
+  })
+
   it('false если есть Скажи', () => {
     expect(translationResponseHasSuccessShape('Комментарий: ошибка', 'I run.', null)).toBe(false)
   })
@@ -90,6 +94,13 @@ describe('computeAssistantTranslationMainCardMeta', () => {
     const meta = computeAssistantTranslationMainCardMeta({ role: 'assistant', content })
     expect(meta.hideTranslationPromptBlocks).toBe(true)
     expect(meta.effectiveMainBefore.trim()).toBe('Мы сейчас смотрим фильм?')
+  })
+
+  it('при success с вынесенным через parseCorrection комментарием не скрывает prompt-блоки', () => {
+    const content = ['Комментарий: Отлично!', 'Переведи далее: Я читаю книгу.', 'Переведи на английский.'].join('\n')
+    const meta = computeAssistantTranslationMainCardMeta({ role: 'assistant', content })
+    expect(meta.hideTranslationPromptBlocks).toBe(false)
+    expect(meta.effectiveMainBefore.trim()).toBe('')
   })
 })
 
@@ -166,6 +177,18 @@ describe('parseTranslationCoachBlocks', () => {
     expect(b.repeat).toBe('Hello.')
   })
 
+  it('парсит standalone Say как repeat в error-протоколе перевода', () => {
+    const text = [
+      'Комментарий_перевод: Есть хорошая основа.',
+      'Ошибки:',
+      '📖 люблю есть → like to eat',
+      'Say: I like to eat pizza with friends.',
+    ].join('\n')
+    const b = parseTranslationCoachBlocks(text)
+    expect(b.repeat).toBe('I like to eat pizza with friends.')
+    expect(b.repeatRu).toBe('I like to eat pizza with friends.')
+  })
+
   it('разделяет склеенные inline-блоки из строки Комментарий на отдельные поля', () => {
     const text =
       'Комментарий: Лексическая ошибка — Проверь написание и выбор слова. Скажи: I will start a new project. Скажи: I will start a new project.'
@@ -180,6 +203,40 @@ describe('parseTranslationCoachBlocks', () => {
     const b = parseTranslationCoachBlocks(text)
     expect(b.nextSentence).toBe('Переведи: Я сейчас учусь?')
     expect(b.invitation).toBe('Переведи на английский язык.')
+  })
+
+  it('не затирает «Переведи далее: …» служебной строкой «Переведи на английский.»', () => {
+    const text = [
+      'Комментарий: Отлично!',
+      'Переведи далее: Я читаю книгу.',
+      'Переведи на английский.',
+    ].join('\n')
+    const b = parseTranslationCoachBlocks(text)
+    expect(b.invitation).toMatch(/Переведи далее:/i)
+    expect(b.invitation).toContain('Я читаю книгу')
+    expect(b.invitation).not.toMatch(/^Переведи на английский/i)
+  })
+
+  it('в success относит похвальный текст после «Переведи далее:» в комментарий, а не в invitation', () => {
+    const text = [
+      'Комментарий: Молодец!',
+      'Переведи далее: Ты правильно использовал "I like" в предложении.',
+    ].join('\n')
+    const b = parseTranslationCoachBlocks(text)
+    expect(b.comment).toContain('Молодец')
+    expect(b.comment).toContain('Ты правильно использовал "I like"')
+    expect(b.invitation).toBeNull()
+  })
+
+  it('в success сохраняет новый русский prompt в invitation после похвального хвоста', () => {
+    const text = [
+      'Комментарий: Молодец!',
+      'Переведи далее: Ты правильно использовал "I like" в предложении.',
+      'Переведи далее: Ты любишь проводить время с друзьями?',
+    ].join('\n')
+    const b = parseTranslationCoachBlocks(text)
+    expect(b.comment).toContain('Ты правильно использовал "I like"')
+    expect(b.invitation).toBe('Переведи далее: Ты любишь проводить время с друзьями?')
   })
 })
 

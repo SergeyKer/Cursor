@@ -87,7 +87,8 @@ export function parseCorrection(text: string): {
         /^(скажи|say|повтори|repeat)\s*:/i.test(line) ||
         /^конструкция\s*:/i.test(line) ||
         /^формы\s*:/i.test(line) ||
-        /^[\s\-•]*(?:\d+[\.)]\s*)?(?:переведи|переведите)\b/i.test(line)
+        // \b не работает для кириллицы в JS — без этого «Переведи далее:» залипает в Комментарий и ломает карточку.
+        /^[\s\-•]*(?:\d+[\.)]\s*)?(?:переведи|переведите)(?=\s|:|$)/i.test(line)
       if (!isNextHeader) {
         comment = comment ? `${comment}\n${line}` : line
         continue
@@ -170,8 +171,8 @@ export function parseCorrection(text: string): {
   let rest = restLines.join('\n').trim()
   if (repeatLine) {
     // Если "Скажи" был спрятан внутри комментария, показываем его отдельной строкой
-    // и не оставляем следующий вопрос в этом же блоке.
-    rest = repeatLine
+    // и не теряем уже накопленные блоки протокола ниже.
+    rest = [repeatLine, rest].filter(Boolean).join('\n').trim()
   }
   // Если комментарий — только похвала, но в той же строке модель дописала следующий вопрос (без перевода строки),
   // выносим вопрос в rest, чтобы он отображался в блоке «AI: вопрос».

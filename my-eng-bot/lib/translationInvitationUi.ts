@@ -17,6 +17,15 @@ export function splitTranslationInvitation(text: string): {
   invitation: string | null
   mainAfter: string
 } {
+  const colonInvite =
+    /^\s*((?:\d+\)\s*)?(?:Переведи|Переведите)(?:\s+далее)?\s*:\s*[^\r\n]+)/i.exec(text)
+  if (colonInvite?.[1] != null && colonInvite.index !== undefined) {
+    const invitation = colonInvite[1].trim()
+    const mainBefore = text.slice(0, colonInvite.index).trimEnd()
+    const mainAfter = text.slice(colonInvite.index + colonInvite[0].length).trimStart()
+    return { mainBefore, invitation, mainAfter }
+  }
+
   const withColon = text.match(
     /\s+(?:\d+\)\s*)?((?:Переведи|Переведите)(?:\s+далее)?\s*:\s*[^\r\n]+)/i
   )
@@ -24,6 +33,15 @@ export function splitTranslationInvitation(text: string): {
     const invitation = withColon[1].trim()
     const mainBefore = text.slice(0, withColon.index).trimEnd()
     const mainAfter = text.slice(withColon.index + withColon[0].length).trimStart()
+    return { mainBefore, invitation, mainAfter }
+  }
+
+  const onEnglishAtStart =
+    /^\s*((?:\d+\)\s*)?(?:Переведи|Переведите)\s+на\s+английский(?:\s+язык)?\.)/i.exec(text)
+  if (onEnglishAtStart?.[1] != null && onEnglishAtStart.index !== undefined) {
+    const invitation = onEnglishAtStart[1].trim()
+    const mainBefore = text.slice(0, onEnglishAtStart.index).trimEnd()
+    const mainAfter = text.slice(onEnglishAtStart.index + onEnglishAtStart[0].length).trimStart()
     return { mainBefore, invitation, mainAfter }
   }
 

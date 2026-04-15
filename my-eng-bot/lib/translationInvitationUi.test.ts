@@ -17,6 +17,22 @@ describe('splitTranslationInvitation', () => {
     expect(invitation).toMatch(/Переведи на английский(?: язык)?/i)
     expect(mainAfter).toBe('')
   })
+
+  it('находит «Переведи далее: …», если строка начинается с приглашения', () => {
+    const text = 'Переведи далее: Я читаю книгу.'
+    const { mainBefore, invitation, mainAfter } = splitTranslationInvitation(text)
+    expect(mainBefore).toBe('')
+    expect(invitation).toBe('Переведи далее: Я читаю книгу.')
+    expect(mainAfter).toBe('')
+  })
+
+  it('находит «Переведи на английский.» в начале текста', () => {
+    const text = 'Переведи на английский язык.'
+    const { mainBefore, invitation, mainAfter } = splitTranslationInvitation(text)
+    expect(mainBefore).toBe('')
+    expect(invitation).toMatch(/Переведи на английский(?: язык)?/i)
+    expect(mainAfter).toBe('')
+  })
 })
 
 describe('isGenericTranslationMetaInvitation', () => {

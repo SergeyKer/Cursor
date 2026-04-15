@@ -181,7 +181,10 @@ import {
   partitionEncouragementLinesFromTranslationErrorsPayload,
   sanitizeTranslationPayloadContinuousErrors,
 } from '@/lib/translationSyntheticErrorsBlock'
-import { resolveTranslationProtocolStatus } from '@/lib/translationProtocolStatus'
+import {
+  hasTranslationSuccessProtocolFields,
+  resolveTranslationProtocolStatusFromFields,
+} from '@/lib/translationProtocolStatus'
 import { sanitizeRepeatMetaInstructionInContent } from '@/lib/repeatMetaInstruction'
 
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
@@ -3235,7 +3238,7 @@ function ensureTranslationProtocolBlocks(
   const isProtocolHeaderAfterSupportOrErrors = (l: string) =>
     /^[\s\-•]*(?:\d+[\.)]\s*)*(Комментарий_ошибка|Комментарий_перевод|Ошибки|Время|Конструкция|Формы|Скажи|Say|Комментарий)\s*:/i.test(
       l
-    ) || /^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)\b/i.test(l)
+    ) || /^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)(?=\s|:|$)/i.test(l)
 
   for (const line of lines) {
     if (collectingSupport) {
@@ -3322,13 +3325,15 @@ function ensureTranslationProtocolBlocks(
     }
   }
 
+  const hadExplicitComment = Boolean(comment)
   const commentBodyOnly = comment ? stripTranslationCommentLabel(comment).trim() : ''
-  const hasErrorRepeatCue = Boolean(repeat) && !hasTranslationFormsBlock(content)
-  const translationSuccessShape = Boolean(commentBodyOnly) && !repeat && !repeatRu
-  const protocolStatus = resolveTranslationProtocolStatus({
-    mode: 'translation',
-    translationSuccessShape,
-    translationErrorCoachUi: hasErrorRepeatCue,
+  const protocolStatus = resolveTranslationProtocolStatusFromFields({
+    comment: hadExplicitComment ? commentBodyOnly : null,
+    commentIsPraise: hadExplicitComment ? hasPraise : undefined,
+    translationSupportComment: supportBlock,
+    errorsBlock,
+    repeat,
+    repeatRu,
   })
   // Ошибка перевода: есть cue повтора и нет успешного блока «Формы:».
   const needsErrorProtocol = protocolStatus === 'error_repeat'
@@ -3644,21 +3649,17 @@ function isTranslationSuccessContent(content: string): boolean {
     .filter(Boolean)
   if (lines.length === 0) return false
   const hasRepeat = lines.some((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(line))
-  if (hasRepeat) return false
   const commentLine =
     lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:/i.test(line)) ?? ''
   const commentBody = commentLine
     .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:\s*/i, '')
     .trim()
-  if (!commentBody) return false
-  const hasCorrectionSignal = /(?:проверь|исправ|ошиб|неверн|неправил|нужн|орфограф|лексическ|грамматик|spelling|word choice|verb form)/i.test(
-    commentBody
-  )
-  if (hasCorrectionSignal) return false
-  const looksError = /^(Ошибка\b|Лексическая ошибка\b|Грамматическая ошибка\b|Некорректн|Неверн|Неправил)/i.test(commentBody)
-  if (looksError) return false
   const looksPraise = /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)(?:[\s!,.?:;"'»)]|$)/i.test(commentBody)
-  return looksPraise
+  return hasTranslationSuccessProtocolFields({
+    comment: commentBody,
+    commentIsPraise: commentBody ? looksPraise : undefined,
+    repeat: hasRepeat ? 'Скажи:' : null,
+  })
 }
 
 function hasTranslationFormsBlock(content: string): boolean {
@@ -3688,7 +3689,7 @@ function isTranslationSuccessLikeContent(content: string): boolean {
   const hasPraiseSignal = /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)(?:[\s!,.?:;"'»)]|$)/i.test(commentBody)
   const hasErrorSignal = /^(Ошибка\b|Лексическая ошибка\b|Грамматическая ошибка\b|Некорректн|Неверн|Неправил)/i.test(commentBody)
   if (hasPraiseSignal && !hasErrorSignal) return true
-  return isTranslationSuccessContent(content) || hasTranslationFormsBlock(content)
+  return isTranslationSuccessContent(content)
 }
 
 function hasTranslationPraiseComment(content: string): boolean {
@@ -3733,6 +3734,13 @@ function extractTranslationInviteMetaFeedback(line: string): string | null {
   return /(?:^|[\s"«(])(ты|вы)\s+(?:правильн|верн|хорошо|точно|удачно)/i.test(body) ? body : null
 }
 
+function isTranslationSuccessMetaFeedbackBody(text: string): boolean {
+  const body = text.trim()
+  if (!body || !/[А-Яа-яЁё]/.test(body)) return false
+  if (/[!?]\s*$/.test(body)) return false
+  return /(?:^|[\s"«(])(ты|вы)\s+(?:правильн|верн|хорошо|точно|удачно)/i.test(body)
+}
+
 function ensureTranslationSuccessBlocks(
   content: string,
   params: {
@@ -3754,6 +3762,10 @@ function ensureTranslationSuccessBlocks(
   let comment: string | null = null
   let hasInvitation = false
   const nextSentenceLines: string[] = []
+  const appendFeedbackToComment = (feedback: string) => {
+    const baseComment = comment?.replace(/^Комментарий:\s*/i, '').trim() || 'Отлично!'
+    comment = `Комментарий: ${[baseComment, feedback.trim()].filter(Boolean).join(' ')}`
+  }
 
   for (const line of lines) {
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:/i.test(line)) {
@@ -3768,11 +3780,36 @@ function ensureTranslationSuccessBlocks(
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*[+\?-]\s*:/i.test(line)) continue
     const inviteMetaFeedback = extractTranslationInviteMetaFeedback(line)
     if (inviteMetaFeedback) {
-      const baseComment = comment?.replace(/^Комментарий:\s*/i, '').trim() || 'Отлично!'
-      comment = `Комментарий: ${[baseComment, inviteMetaFeedback].filter(Boolean).join(' ')}`
+      appendFeedbackToComment(inviteMetaFeedback)
       continue
     }
-    if (/^[\s\-•]*(?:\d+[\.)]\s*)*(?:Переведи|Переведите)\b/i.test(line)) {
+    const drillLater = /^[\s\-•]*(?:\d+[\.)]\s*)*(?:Переведи|Переведите)\s+далее\s*:\s*(.+)$/i.exec(line)
+    if (drillLater?.[1]?.trim() && /[А-Яа-яЁё]/.test(drillLater[1])) {
+      const drillBody = drillLater[1].trim()
+      if (isTranslationSuccessMetaFeedbackBody(drillBody)) {
+        appendFeedbackToComment(drillBody)
+        continue
+      }
+      hasInvitation = true
+      nextSentenceLines.push(drillBody)
+      continue
+    }
+    const drillFirst = /^[\s\-•]*(?:\d+[\.)]\s*)*(?:Переведи|Переведите)\s*:\s*(.+)$/i.exec(line)
+    if (
+      drillFirst?.[1]?.trim() &&
+      /[А-Яа-яЁё]/.test(drillFirst[1]) &&
+      !/^на\s+английский/i.test(drillFirst[1].trim())
+    ) {
+      const drillBody = drillFirst[1].trim()
+      if (isTranslationSuccessMetaFeedbackBody(drillBody)) {
+        appendFeedbackToComment(drillBody)
+        continue
+      }
+      hasInvitation = true
+      nextSentenceLines.push(drillBody)
+      continue
+    }
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*(?:Переведи|Переведите)(?=\s|:|$)/i.test(line)) {
       hasInvitation = true
       continue
     }
@@ -3780,7 +3817,17 @@ function ensureTranslationSuccessBlocks(
     if (inlineInvitation?.[1]) {
       const before = inlineInvitation[1].trim()
       hasInvitation = true
-      if (before) nextSentenceLines.push(before)
+      if (before) {
+        if (isTranslationSuccessMetaFeedbackBody(before)) {
+          appendFeedbackToComment(before)
+        } else {
+          nextSentenceLines.push(before)
+        }
+      }
+      continue
+    }
+    if (isTranslationSuccessMetaFeedbackBody(line)) {
+      appendFeedbackToComment(line)
       continue
     }
     if (/\?\s*$/.test(line) && /[A-Za-z]/.test(line)) continue
@@ -3822,16 +3869,17 @@ function ensureTranslationSuccessBlocks(
     if (nextPrompt) {
       out.push(`Переведи далее: ${nextPrompt}`)
     } else {
-      out.push(
-          fallbackTranslationSentenceForContext({
-            topic,
-            tense,
-            level,
-            audience,
-          seedText: fallbackPrompt,
-            sentenceType,
-          })
-        )
+      const fb = fallbackTranslationSentenceForContext({
+        topic,
+        tense,
+        level,
+        audience,
+        seedText: fallbackPrompt,
+        sentenceType,
+      })
+      if (fb?.trim()) {
+        out.push(`Переведи далее: ${fb.trim()}`)
+      }
     }
   } else {
     const fallbackNextPrompt = fallbackTranslationSentenceForContext({
@@ -3844,7 +3892,6 @@ function ensureTranslationSuccessBlocks(
     })
     out.push(`Переведи далее: ${fallbackNextPrompt}`)
   }
-
   return appendPreservedHiddenRefFromOriginal(out.join('\n').trim(), content, fallbackPrompt)
 }
 
@@ -3996,7 +4043,7 @@ async function finalizeTranslationResponsePayload(params: {
   const ruFromGuardedContent = extractLastTranslationPromptFromMessages([
     { role: 'assistant', content: guardedContent },
   ])
-  const hasExplicitTranslatePromptInGuarded = /(?:^|\n)\s*(?:[\s\-•]*(?:\d+[\.)]\s*)*)?(?:Переведи|Переведите)\b[^:\n]*:/im.test(
+  const hasExplicitTranslatePromptInGuarded = /(?:^|\n)\s*(?:[\s\-•]*(?:\d+[\.)]\s*)*)?(?:Переведи|Переведите)(?:\s+далее)?\s*:/im.test(
     guardedContent
   )
   const ruForRefCard =
@@ -4062,6 +4109,7 @@ async function finalizeTranslationResponsePayload(params: {
   if (ruForRefCard?.trim() && !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
     console.error('[chat][translation-gold] ref_invariant_failed', { ru: ruForRefCard.slice(0, 80) })
   }
+  guardedContent = ensureErrorProtocolHasSayFromCanonicalRef(guardedContent)
   return guardedContent
 }
 
@@ -4352,6 +4400,33 @@ function stripTranslationInvitationLines(content: string): string {
     .filter((line) => !invitationLinePattern.test(line))
     .join('\n')
     .trim()
+}
+
+function ensureErrorProtocolHasSayFromCanonicalRef(content: string): string {
+  const trimmed = content.trim()
+  if (!trimmed) return content
+  if (/(^|\n)\s*(Скажи|Say)\s*:/im.test(trimmed)) return content
+
+  const hasErrorProtocolSignals =
+    /(^|\n)\s*Комментарий_перевод\s*:/im.test(trimmed) ||
+    /(^|\n)\s*Ошибки\s*:/im.test(trimmed) ||
+    /(^|\n)\s*Комментарий(?:_ошибка)?\s*:\s*(?:Ошибка|Неверн|Неправил|Некоррект)/im.test(trimmed)
+  if (!hasErrorProtocolSignals) return content
+
+  const canonicalRef = extractCanonicalRepeatRefEnglishFromContent(trimmed)?.trim()
+  if (!canonicalRef) return content
+
+  const repeatBody = normalizeRepeatSentenceEnding(stripLeadingRepeatRuPrompt(canonicalRef))
+  if (!repeatBody) return content
+
+  const lines = trimmed.split(/\r?\n/)
+  const markerIndex = lines.findIndex((line) => new RegExp(`^\\s*${TRAN_CANONICAL_REPEAT_REF_MARKER}\\s*:`, 'i').test(line))
+  const sayLine = `Скажи: ${repeatBody}`
+  if (markerIndex >= 0) {
+    lines.splice(markerIndex, 0, sayLine)
+    return lines.join('\n').trim()
+  }
+  return `${trimmed}\n${sayLine}`.trim()
 }
 
 function ensureTranslationRepeatFallbackForMixedInput(content: string, _userText: string): string {
@@ -6548,7 +6623,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         requiredTense: tutorGradingTense,
       })
     }
-    sanitized = stripRepeatOnPraise(sanitized)
+    if (mode !== 'translation') {
+      sanitized = stripRepeatOnPraise(sanitized)
+    }
     sanitized = ensureNextQuestionOnPraise(sanitized, {
       mode,
       topic,
@@ -6767,16 +6844,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         canTreatTranslationAsSuccess = false
       }
       if (translationGoldForVerdict && !translationGoldVerdictFailed) {
-        // Эталон __TRAN__ важнее эвристики ключевых слов RU→EN: при совпадении с gold засчитываем успех.
-        // Если эталон взят из скрытой строки карточки (__TRAN__), он согласован с текущим drill
-        // и можем дополнительно требовать совпадение с prior repeat из той же цепочки.
-        if (translationGoldVerdictFromHiddenRef) {
-          canTreatTranslationAsSuccess =
-            !translationAnswerContainsCyrillic &&
-            (!priorAssistantRepeatEnglish || userMatchesPriorAssistantRepeat)
-        } else {
-          canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic
-        }
+        // Эталон gold — источник истины: если gold-вердикт ok, не режем успех
+        // дополнительной проверкой prior repeat (она может быть устаревшей/шумной).
+        canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic
       }
       if (translationGoldVerdictFailed) {
         canTreatTranslationAsSuccess = false
@@ -7004,7 +7074,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               repaired = stripRepeatWhenAskingToExplain(repaired)
               repaired = normalizeVariantFormatting(repaired)
               repaired = stripPravilnoEverywhere(repaired)
-              repaired = stripRepeatOnPraise(repaired)
+              if (mode !== 'translation') {
+                repaired = stripRepeatOnPraise(repaired)
+              }
               repaired = normalizeTranslationCommentStyle(repaired)
               repaired = ensureTranslationProtocolBlocks(repaired, {
                 tense: tutorGradingTense,
@@ -7099,7 +7171,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               repaired = stripRepeatWhenAskingToExplain(repaired)
               repaired = normalizeVariantFormatting(repaired)
               repaired = stripPravilnoEverywhere(repaired)
-              repaired = stripRepeatOnPraise(repaired)
+              if (mode !== 'translation') {
+                repaired = stripRepeatOnPraise(repaired)
+              }
               repaired = ensureNextQuestionOnPraise(repaired, {
                 mode,
                 topic,
@@ -7459,7 +7533,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               userText: lastUserContentForResponse,
             })
           }
-          repaired = stripRepeatOnPraise(repaired)
+          if (mode !== 'translation') {
+            repaired = stripRepeatOnPraise(repaired)
+          }
           repaired = ensureNextQuestionOnPraise(repaired, {
             mode,
             topic,
@@ -7813,6 +7889,11 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         level: translationDrillLevel as LevelId,
         audience: audience as Audience,
       })
+      const translationSuccessPayloadWithoutGold =
+        !isFirstTurn &&
+        translationSuccessFlow &&
+        canTreatTranslationAsSuccess &&
+        !translationGoldVerdictFailed
       let guardedContent = translationSuccessEligible
         ? normalizeTranslationSuccessPayload(translationGuard.content, {
             tense: tutorGradingTense,
@@ -7823,7 +7904,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             userText: lastUserContentForResponse,
             sentenceType: translationDrillSentenceType,
           })
-        : ensureTranslationRepeatFallbackForMixedInput(translationGuard.content, lastUserContentForResponse)
+        : translationSuccessPayloadWithoutGold
+          ? translationGuard.content
+          : ensureTranslationRepeatFallbackForMixedInput(translationGuard.content, lastUserContentForResponse)
       if (isFirstTurn) {
         guardedContent = await ensureFirstTranslationDrillMatchesRequiredTense({
           content: guardedContent,

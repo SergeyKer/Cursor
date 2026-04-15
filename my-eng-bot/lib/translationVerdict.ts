@@ -1,5 +1,6 @@
 import { normalizeEnglishLearnerContractions } from '@/lib/englishLearnerContractions'
 import { normalizeEnglishForRepeatMatch } from '@/lib/normalizeEnglishForRepeatMatch'
+import { extractPromptKeywords } from '@/lib/translationRepeatClamp'
 
 export type TranslationGoldVerdict = {
   ok: boolean
@@ -23,6 +24,33 @@ function isStrictTokenPrefix(shortTokens: string[], fullTokens: string[]): boole
     if (shortTokens[i] !== fullTokens[i]) return false
   }
   return true
+}
+
+function goldMatchesPromptKeywords(ruPrompt: string, goldEnglish: string): boolean {
+  const promptKeywords = extractPromptKeywords(ruPrompt)
+  if (promptKeywords.length === 0) return true
+  const goldTokens = new Set(tokenizeForVerdictPrefixCheck(normalizeForVerdictComparison(goldEnglish)))
+  const matches = promptKeywords.filter((kw) => goldTokens.has(kw.toLowerCase())).length
+  // Для более длинного промпта требуем не один случайный ключ, а как минимум два.
+  const requiredMatches = promptKeywords.length >= 3 ? 2 : 1
+  return matches >= requiredMatches
+}
+
+function goldHasEnoughSubstanceForPrompt(ruPrompt: string, goldEnglish: string): boolean {
+  const ruWords = ruPrompt.trim().match(/[А-Яа-яЁё]+/g)?.length ?? 0
+  if (ruWords < 4) return true
+  const goldWords = tokenizeForVerdictPrefixCheck(normalizeForVerdictComparison(goldEnglish)).length
+  return goldWords >= 3
+}
+
+function hasLikelyGibberishToken(text: string): boolean {
+  const tokens = tokenizeForVerdictPrefixCheck(normalizeForVerdictComparison(text))
+  return tokens.some((t) => {
+    if (t.length < 8) return false
+    if (/([a-z0-9])\1{3,}/i.test(t)) return true
+    const vowels = (t.match(/[aeiouy]/g) ?? []).length
+    return vowels === 0
+  })
 }
 
 const CYRILLIC_RE = /[\u0400-\u04FF]/
@@ -75,9 +103,25 @@ export function computeTranslationGoldVerdict(params: {
     return { ok: false, reasons: ['cyrillic_in_answer'] }
   }
 
+  if (hasLikelyGibberishToken(userTrim)) {
+    return { ok: false, reasons: ['gibberish_in_answer'] }
+  }
+
   const goldNorm = normalizeForVerdictComparison(goldTrim)
   if (!goldNorm) {
     return { ok: false, reasons: ['gold_unnormalizable'] }
+  }
+
+  if (hasLikelyGibberishToken(goldTrim)) {
+    return { ok: false, reasons: ['gibberish_in_gold'] }
+  }
+
+  if (!goldMatchesPromptKeywords(ruPrompt, goldTrim)) {
+    return { ok: false, reasons: ['gold_not_plausible_for_prompt'] }
+  }
+
+  if (!goldHasEnoughSubstanceForPrompt(ruPrompt, goldTrim)) {
+    return { ok: false, reasons: ['gold_too_short_for_prompt'] }
   }
 
   const userNorm = normalizeForVerdictComparison(userTrim)

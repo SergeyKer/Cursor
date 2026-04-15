@@ -224,4 +224,73 @@ describe('POST /api/chat translation provider payload', () => {
     expect(data.content).toContain('📖 "movie" → "movies".')
   })
 
+  it('does not leak success meta feedback into Переведи далее line', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: [
+        'Комментарий: Молодец!',
+        'Переведи далее: Ты правильно использовал "I like" для выражения предпочтения. Это важно для Present Simple.',
+      ].join('\n'),
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      audience: 'adult',
+      level: 'a1',
+      tenses: ['present_simple'],
+      sentenceType: 'affirmative',
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'Переведи: Ты любишь играть с друзьями.\nПереведи на английский язык.\n__TRAN_REPEAT_REF__: You like playing with friends.',
+        },
+        { role: 'user', content: 'You like playing with friends.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    expect(res.status).toBe(200)
+    const data = (await res.json()) as { content: string }
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Ты правильно использовал "I like"')
+    expect(data.content).toContain('Переведи далее:')
+    expect(data.content).not.toContain('Переведи далее: Ты правильно использовал "I like"')
+  })
+
+  it('restores Скажи from __TRAN_REPEAT_REF__ when error protocol misses repeat line', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: [
+        'Комментарий_перевод: Есть хорошая основа, но нужно исправить главную неточность по образцу ниже.',
+        'Комментарий: Ошибка времени. Нужен Present Simple.',
+        'Ошибки:',
+        '🔤 Используйте базовую форму глагола.',
+        '__TRAN_REPEAT_REF__: You like to walk in the park.',
+      ].join('\n'),
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      audience: 'adult',
+      level: 'a1',
+      tenses: ['present_simple'],
+      sentenceType: 'affirmative',
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'Переведи: Ты любишь гулять в парке?\nПереведи на английский язык.\n__TRAN_REPEAT_REF__: You like to walk in the park.',
+        },
+        { role: 'user', content: 'You walks in park.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    expect(res.status).toBe(200)
+    const data = (await res.json()) as { content: string }
+    expect(data.content).toContain('Комментарий_перевод:')
+    expect(data.content).toContain('Скажи: You like to walk in the park.')
+  })
+
 })

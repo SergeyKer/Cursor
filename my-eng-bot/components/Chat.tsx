@@ -23,9 +23,16 @@ import { pickRecordingMimeType, shouldUseMediaRecorderFallback, sttLangFromLocal
 import { normalizeWebSearchSourceUrl } from '@/lib/openAiWebSearchShared'
 import type { ChatMessage as ChatMessageType, Settings } from '@/lib/types'
 import { stripWrappingQuotesFromDrillRussianLine } from '@/lib/extractSingleTranslationNextSentence'
-import { stripTranslationCanonicalRepeatRefLine } from '@/lib/translationPromptAndRef'
+import {
+  extractCanonicalRepeatRefEnglishFromContent,
+  stripTranslationCanonicalRepeatRefLine,
+} from '@/lib/translationPromptAndRef'
 import { isGenericTranslationMetaInvitation, splitTranslationInvitation } from '@/lib/translationInvitationUi'
-import { resolveTranslationProtocolStatus } from '@/lib/translationProtocolStatus'
+import {
+  hasTranslationSuccessProtocolFields,
+  resolveTranslationProtocolStatus,
+  resolveTranslationProtocolStatusFromFields,
+} from '@/lib/translationProtocolStatus'
 import type { TranslationProtocolStatus } from '@/lib/translationProtocolStatus'
 import { PAGE_HOME_START_PRIMARY_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import type { LearningLessonAction } from '@/lib/learningLessons'
@@ -226,6 +233,27 @@ function extractRussianTranslationDrillLine(displayText: string): string {
       displayText
     )
   return m?.[1]?.trim() ?? ''
+}
+
+function stripTranslationInvitationPrefix(text: string): string {
+  return text.replace(/^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)(?:\s+далее)?\s*:\s*/i, '').trim()
+}
+
+function isPraiseLikeTranslationFeedback(text: string): boolean {
+  const t = text.trim()
+  if (!t) return false
+  if (/(?:^|[\s"«(])(молодец|отлично|супер|верно|правильно|хорошо)\b/i.test(t)) return true
+  if (/(?:ты|вы)\s+правильно\s+(?:использовал(?:и)?|употребил(?:и)?|выбрал(?:и)?)/i.test(t)) return true
+  if (/это\s+важно,\s*чтобы/i.test(t)) return true
+  return false
+}
+
+function isLikelyRussianTranslationDrill(text: string): boolean {
+  const body = stripTranslationInvitationPrefix(text)
+  if (!body) return false
+  if (!/[А-Яа-яЁё]/.test(body)) return false
+  if (isPraiseLikeTranslationFeedback(body)) return false
+  return true
 }
 
 /** Похвала — лёгкий зелёный тон; иначе янтарь (ошибка/коррекция), как до введения praise. */
@@ -521,7 +549,12 @@ export function buildAssistantSectionsForTranslationErrorRepeatTest(options: {
  * Успешный drill перевода: есть комментарий и нет повторного эталона для исправления.
  */
 export function translationResponseHasSuccessShape(comment: string | null, repeat: string | null, repeatRu: string | null): boolean {
-  return Boolean(comment?.trim()) && !repeat && !repeatRu
+  return hasTranslationSuccessProtocolFields({
+    comment,
+    commentIsPraise: comment ? commentToneForContent(comment) === 'praise' : undefined,
+    repeat,
+    repeatRu,
+  })
 }
 
 export function parseTranslationCoachBlocks(text: string): {
@@ -549,6 +582,23 @@ export function parseTranslationCoachBlocks(text: string): {
   let collectingSupport = false
 
   const splitInlineInvitation = (line: string): { before: string; invitation: string } | null => {
+    const onlyColonInvite =
+      /^\s*(?:\d+\)\s*)?((?:Переведи|Переведите)(?:\s+далее)?\s*:\s*[^\r\n]+)\s*$/i.exec(line)
+    if (onlyColonInvite?.[1]) {
+      const firstColon = line.indexOf(':')
+      const tail = firstColon >= 0 ? line.slice(firstColon + 1) : ''
+      // Не одна строка-приглашение, если после первого «:» есть второе «Переведи…» (склейка с «…английский»).
+      // Не используем \b — в JS границы слова не работают для кириллицы.
+      const hasSecondInviteInTail = /\s+(?:Переведи|Переведите)\s+/i.test(tail)
+      if (!hasSecondInviteInTail) {
+        return { before: '', invitation: onlyColonInvite[1].trim() }
+      }
+    }
+    const onlyEnInvite =
+      /^\s*(?:\d+\)\s*)?((?:Переведи|Переведите)\s+на\s+английский(?:\s+язык)?\.)\s*$/i.exec(line)
+    if (onlyEnInvite?.[1]) {
+      return { before: '', invitation: onlyEnInvite[1].trim() }
+    }
     const m =
       /^(.*?)\s+((?:\d+\)\s*)?(?:Переведи|Переведите)(?:\s+далее)?\s*:\s*[^\r\n]+|(?:\d+\)\s*)?(?:Переведи|Переведите)\s+на\s+английский(?:\s+язык)?\.)\s*$/i.exec(
         line
@@ -563,7 +613,7 @@ export function parseTranslationCoachBlocks(text: string): {
   const isHeaderLine = (line: string): boolean =>
     TRANSLATION_PROTOCOL_BLOCK_LINE.test(line) ||
     /^\s*(?:\d+\)\s*)?[+\?-]\s*:/i.test(line) ||
-    /^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)\b/i.test(line)
+    /^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)(?=\s|:|$)/i.test(line)
 
   const parseInlineProtocolTail = (tail: string): void => {
     const partRe = /(Ошибки|Скажи|Say)\s*:\s*([\s\S]*?)(?=(?:(?:Ошибки|Скажи|Say)\s*:)|$)/gi
@@ -601,7 +651,18 @@ export function parseTranslationCoachBlocks(text: string): {
                 ? `${translationSupportComment}\n${inlineInvitation.before}`
                 : `${translationSupportComment ?? ''}${inlineInvitation.before}`
           }
-          if (inlineInvitation.invitation) invitation = inlineInvitation.invitation
+          if (inlineInvitation.invitation) {
+            const inv = inlineInvitation.invitation
+            const inviteBody = stripTranslationInvitationPrefix(inv)
+            if (isLikelyRussianTranslationDrill(inv) || isGenericTranslationMetaInvitation(inv)) {
+              invitation = inv
+            } else if (inviteBody) {
+              translationSupportComment =
+                translationSupportComment != null && translationSupportComment !== ''
+                  ? `${translationSupportComment}\n${inviteBody}`
+                  : `${translationSupportComment ?? ''}${inviteBody}`
+            }
+          }
           collectingSupport = false
           continue
         }
@@ -626,7 +687,11 @@ export function parseTranslationCoachBlocks(text: string): {
     const pureMetaInvitation =
       /^\s*(?:\d+\)\s*)*((?:Переведи|Переведите)\s+на\s+английский(?:\s+язык)?\.)\s*$/i.exec(line)
     if (pureMetaInvitation?.[1]) {
-      invitation = pureMetaInvitation[1].trim()
+      const meta = pureMetaInvitation[1].trim()
+      // Не затираем уже выставленное «Переведи далее: …» / «Переведи: …» — иначе карточка пропадает в UI.
+      if (!invitation || isGenericTranslationMetaInvitation(invitation)) {
+        invitation = meta
+      }
       continue
     }
 
@@ -666,8 +731,8 @@ export function parseTranslationCoachBlocks(text: string): {
       collectingErrors = true
       continue
     }
-    if (/^[\s\-•]*(?:\d+\)\s*)*Скажи\s*:/i.test(line)) {
-      const raw = line.replace(/^[\s\-•]*(?:\d+\)\s*)*Скажи\s*:\s*/i, '').trim()
+    if (/^[\s\-•]*(?:\d+\)\s*)*(?:Скажи|Say)\s*:/i.test(line)) {
+      const raw = line.replace(/^[\s\-•]*(?:\d+\)\s*)*(?:Скажи|Say)\s*:\s*/i, '').trim()
       const normalized = stripLeadingRepeatRuPrompt(raw).replace(/^\s*(?:Скажи|Say)\s*:\s*/i, '').trim() || null
       repeatRu = normalized
       repeat = normalized
@@ -677,7 +742,14 @@ export function parseTranslationCoachBlocks(text: string): {
     if (inlineInvitation) {
       const before = inlineInvitation.before
       const inv = inlineInvitation.invitation
-      if (inv) invitation = inv
+      if (inv) {
+        const inviteBody = stripTranslationInvitationPrefix(inv)
+        if (isLikelyRussianTranslationDrill(inv) || isGenericTranslationMetaInvitation(inv)) {
+          invitation = inv
+        } else if (inviteBody) {
+          comment = comment ? `${comment}\n${inviteBody}` : inviteBody
+        }
+      }
       if (before) body.push(before)
       continue
     }
@@ -759,7 +831,18 @@ export function computeAssistantTranslationMainCardMeta(message: ChatMessageType
   let hideTranslationMainCardForErrorRepeat = false
 
   const blocks = parseTranslationCoachBlocks(displayText)
-  const translationSuccessShape = translationResponseHasSuccessShape(blocks.comment, blocks.repeat, blocks.repeatRu)
+  const translationProtocolStatus = resolveTranslationProtocolStatusFromFields({
+    comment: blocks.comment ?? effectiveComment,
+    commentIsPraise:
+      (blocks.comment ?? effectiveComment) != null
+        ? commentToneForContent(blocks.comment ?? effectiveComment ?? '') === 'praise'
+        : undefined,
+    translationSupportComment: blocks.translationSupportComment,
+    errorsBlock: blocks.errorsBlock,
+    repeat: blocks.repeat,
+    repeatRu: blocks.repeatRu,
+  })
+  const translationSuccessShape = translationProtocolStatus === 'success'
   if (blocks.comment) effectiveComment = condenseTranslationCommentToErrors(blocks.comment)
   if (blocks.repeat) repeatTextForCard = blocks.repeat
   if (blocks.nextSentence) {
@@ -771,7 +854,7 @@ export function computeAssistantTranslationMainCardMeta(message: ChatMessageType
           Boolean(line) &&
           !TRANSLATION_PROTOCOL_BLOCK_LINE.test(line) &&
           !/^[+\?-]\s*:/i.test(line) &&
-          !/^(?:Переведи|Переведите)\b/i.test(line)
+          !/^(?:Переведи|Переведите)(?:\s+далее)?\s*:/i.test(line)
       )
       .join(' ')
       .replace(/\s+/g, ' ')
@@ -811,9 +894,7 @@ export function computeAssistantTranslationMainCardMeta(message: ChatMessageType
   }
   if (effectiveMainBefore) effectiveMainBefore = stripTranslationMainMetaPrefixes(effectiveMainBefore)
 
-  const translationErrorCoachUi = Boolean(
-    (blocks.repeat || blocks.repeatRu) && !translationSuccessShape
-  )
+  const translationErrorCoachUi = translationProtocolStatus === 'error_repeat'
   const hideTranslationPromptBlocks =
     ((Boolean(repeatTextForCard) || Boolean(blocks.repeatRu)) &&
       !String(effectiveMainBefore ?? '').trim()) ||
@@ -1719,7 +1800,19 @@ function MessageBubble({
   let translationSuccessShape = false
   if (!isUser && isTranslationMode) {
     const blocks = parseTranslationCoachBlocks(displayText)
-    translationSuccessShape = translationResponseHasSuccessShape(blocks.comment, blocks.repeat, blocks.repeatRu)
+    const hiddenRepeatRef = extractCanonicalRepeatRefEnglishFromContent(message.content)?.trim() ?? ''
+    const translationProtocolStatusFromBlocks = resolveTranslationProtocolStatusFromFields({
+      comment: blocks.comment ?? effectiveComment,
+      commentIsPraise:
+        (blocks.comment ?? effectiveComment) != null
+          ? commentToneForContent(blocks.comment ?? effectiveComment ?? '') === 'praise'
+          : undefined,
+      translationSupportComment: blocks.translationSupportComment,
+      errorsBlock: blocks.errorsBlock,
+      repeat: blocks.repeat,
+      repeatRu: blocks.repeatRu,
+    })
+    translationSuccessShape = translationProtocolStatusFromBlocks === 'success'
     const { praiseFromComment } = extractTranslationErrorSynthAndPraiseFromComment(blocks.comment?.trim() ?? '')
     const { errorsRest, praiseFromErrors } = partitionEncouragementLinesFromTranslationErrorsPayload(
       blocks.errorsBlock?.trim() ?? ''
@@ -1733,19 +1826,29 @@ function MessageBubble({
       if (!extra) return base
       return `${base}\n\n${extra}`
     })()
-    translationErrorCoachUi = Boolean((blocks.repeat || blocks.repeatRu) && !translationSuccessShape)
+    translationErrorCoachUi = translationProtocolStatusFromBlocks === 'error_repeat'
     if (blocks.comment) {
       const praiseFromParseCorrection = Boolean(comment && commentToneForContent(comment) === 'praise')
-      if (!(translationSuccessShape && praiseFromParseCorrection)) {
-        effectiveComment = condenseTranslationCommentToErrors(blocks.comment)
+      const condensedComment = condenseTranslationCommentToErrors(blocks.comment)
+      if (translationSuccessShape && praiseFromParseCorrection) {
+        const base = effectiveComment?.trim() ?? ''
+        const extra = condensedComment.trim()
+        if (extra && !base.includes(extra)) {
+          effectiveComment = [base, extra].filter(Boolean).join('\n')
+        }
+      } else {
+        effectiveComment = condensedComment
       }
     }
     if (blocks.repeat) repeatTextForCard = blocks.repeat
     repeatRuForCard = blocks.repeatRu
+    if (!repeatRuForCard && !translationSuccessShape && hiddenRepeatRef) {
+      repeatRuForCard = hiddenRepeatRef
+    }
     const errorsFromPayload = errorsRest.trim()
     const errorsMerged = mergeErrorsBlockWithSyntheticFromComment(errorsFromPayload, blocks.comment)
     const errorsResolved = filterTranslationErrorsDisplayText(errorsMerged.trim())
-    translationErrorsText = Boolean((blocks.repeat || blocks.repeatRu) && !translationSuccessShape && errorsResolved)
+    translationErrorsText = Boolean(!translationSuccessShape && errorsResolved)
       ? errorsResolved
       : null
     if (blocks.nextSentence) {
@@ -1756,7 +1859,7 @@ function MessageBubble({
           if (!line) return false
           if (TRANSLATION_PROTOCOL_BLOCK_LINE.test(line)) return false
           if (/^[+\?-]\s*:/i.test(line)) return false
-          if (/^(?:Переведи|Переведите)\b/i.test(line)) {
+          if (/^(?:Переведи|Переведите)(?:\s+далее)?\s*:/i.test(line)) {
             // Строка задания «Переведи далее: …» целиком нужна для карточки; отбрасываем только «Переведи на английский.».
             return /:\s*[А-Яа-яЁё]/.test(line)
           }
@@ -1799,6 +1902,16 @@ function MessageBubble({
       }
     }
     if (blocks.invitation) effectiveInvitationText = blocks.invitation
+    if (effectiveInvitationText && !isGenericTranslationMetaInvitation(effectiveInvitationText)) {
+      const invitationBody = stripTranslationInvitationPrefix(effectiveInvitationText)
+      if (!isLikelyRussianTranslationDrill(effectiveInvitationText) && invitationBody) {
+        if (translationSuccessShape) {
+          const merged = [effectiveComment?.trim() ?? '', invitationBody].filter(Boolean).join('\n')
+          effectiveComment = merged || effectiveComment
+        }
+        effectiveInvitationText = null
+      }
+    }
     if (effectiveMainBefore) effectiveMainBefore = stripTranslationMainMetaPrefixes(effectiveMainBefore)
     if (effectiveInvitationText && isGenericTranslationMetaInvitation(effectiveInvitationText)) {
       effectiveInvitationText = null

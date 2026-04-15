@@ -56,4 +56,30 @@ describe('parseCorrection', () => {
     expect(result.comment).toBe('Молодец!')
     expect(result.rest).toBe('Переведи далее: Мне нравится гулять с друзьями.')
   })
+
+  it('отделяет «Переведи далее:» от комментария при ошибке (кириллица + \\b в JS)', () => {
+    const result = parseCorrection(
+      [
+        'Комментарий: Ошибка в артикле. Нужно "a" перед "dog".',
+        'Переведи далее: Кошка спит на диване.',
+      ].join('\n')
+    )
+
+    expect(result.comment).toBe('Ошибка в артикле. Нужно "a" перед "dog".')
+    expect(result.rest).toBe('Переведи далее: Кошка спит на диване.')
+  })
+
+  it('сохраняет inline «Скажи» и следующий «Переведи далее» в rest одновременно', () => {
+    const result = parseCorrection(
+      [
+        'Комментарий: Ошибка времени. Скажи: I read books every day.',
+        'Переведи далее: Я играю в футбол по выходным.',
+      ].join('\n')
+    )
+
+    expect(result.comment).toBe('Ошибка времени.')
+    expect(result.rest).toBe(
+      ['Скажи: I read books every day.', 'Переведи далее: Я играю в футбол по выходным.'].join('\n')
+    )
+  })
 })
