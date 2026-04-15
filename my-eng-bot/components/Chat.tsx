@@ -532,16 +532,18 @@ export function buildAssistantSectionsForTranslationErrorRepeatTest(options: {
   showOnlyRepeat?: boolean
   mode?: 'dialogue' | 'translation' | 'communication'
   translationErrorCoachUi?: boolean
+  translationSupportComment?: string | null
+  translationErrorsText?: string | null
   mainBefore?: string
   mainAfter?: string
 }): AssistantSection[] {
   return buildAssistantSections({
     comment: null,
-    translationSupportComment: null,
+    translationSupportComment: options.translationSupportComment ?? null,
     translationErrorCoachUi: options.translationErrorCoachUi ?? true,
     translationProtocolStatus: (options.translationErrorCoachUi ?? true) ? 'error_repeat' : 'prompt_only',
     translationSuccessPraiseCard: false,
-    translationErrorsText: null,
+    translationErrorsText: options.translationErrorsText ?? null,
     showOnlyRepeat: options.showOnlyRepeat ?? false,
     hidePromptBlocks: false,
     repeatTextForCard: options.repeatTextForCard ?? null,

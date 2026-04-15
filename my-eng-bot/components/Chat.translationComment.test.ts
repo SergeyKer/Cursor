@@ -1,4 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { buildTranslationErrorLexiconAndCyrillicLines } from '@/lib/buildTranslationErrorLexiconAndCyrillicLines'
+import { resolveTranslationProtocolStatusFromFields } from '@/lib/translationProtocolStatus'
+import {
+  buildDeterministicTranslationSupportRu,
+  isBoilerplateTranslationSupportTemplate,
+} from '@/lib/translationSupportFallback'
 import { stripWrappingQuotes } from '@/lib/translationProtocolLines'
 import {
   buildAssistantSectionsForTranslationDrillWithInvitationTest,
@@ -412,6 +418,47 @@ describe('translation error repeat UI', () => {
       repeatTextForCard: 'Repeat is visible.',
     })
     expect(sections.some((s) => s.key === 'repeat')).toBe(true)
+  })
+})
+
+describe('translation drill error: карточки и не-шаблон Комментарий_перевод', () => {
+  it('после force-подобного контента: error_repeat, три секции, поддержка без шаблона «Есть хорошая основа, но…»', () => {
+    const user = 'I like walking with my ca'
+    const gold = 'I like walking with my cat.'
+    const support = buildDeterministicTranslationSupportRu(user, gold, 'adult')
+    expect(isBoilerplateTranslationSupportTemplate(support)).toBe(false)
+
+    const errorLines = buildTranslationErrorLexiconAndCyrillicLines(user, gold)
+    const content = [
+      `Комментарий_перевод: ${support}`,
+      'Ошибки:',
+      ...errorLines,
+      `Скажи: ${gold.replace(/\.$/, '')}.`,
+    ].join('\n')
+
+    const blocks = parseTranslationCoachBlocks(content)
+    const status = resolveTranslationProtocolStatusFromFields({
+      comment: blocks.comment,
+      commentIsPraise: blocks.comment ? false : undefined,
+      translationSupportComment: blocks.translationSupportComment,
+      errorsBlock: blocks.errorsBlock,
+      repeat: blocks.repeat,
+      repeatRu: blocks.repeatRu,
+    })
+    expect(status).toBe('error_repeat')
+    expect(blocks.translationSupportComment?.trim().length ?? 0).toBeGreaterThan(10)
+    expect(isBoilerplateTranslationSupportTemplate(blocks.translationSupportComment ?? '')).toBe(false)
+
+    const sections = buildAssistantSectionsForTranslationErrorRepeatTest({
+      translationSupportComment: blocks.translationSupportComment,
+      translationErrorsText: blocks.errorsBlock,
+      repeatRuTextForCard: blocks.repeatRu ?? blocks.repeat,
+      repeatTextForCard: blocks.repeat,
+    })
+    const keys = sections.map((s) => s.key)
+    expect(keys).toContain('translation-support')
+    expect(keys).toContain('translation-errors')
+    expect(keys).toContain('repeat-translation')
   })
 })
 

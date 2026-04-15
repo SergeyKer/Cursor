@@ -30,4 +30,15 @@ describe('buildTranslationErrorLexiconAndCyrillicLines', () => {
     expect(lines.length).toBe(1)
     expect(lines[0]).toMatch(/Лексическ/i)
   })
+
+  it('хвостовая обрезка: ca → cat при эталоне', () => {
+    const lines = buildTranslationErrorLexiconAndCyrillicLines(
+      'I like walking with my ca',
+      'I like walking with my cat.'
+    )
+    const joined = lines.join('\n')
+    expect(joined.toLowerCase()).toContain('ca')
+    expect(joined.toLowerCase()).toContain('cat')
+    expect(joined).toMatch(/Лексика/i)
+  })
 })

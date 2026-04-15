@@ -114,6 +114,51 @@ function hintForEnPair(wrong: string, right: string): string {
   return ''
 }
 
+function levenshteinDistance(a: string, b: string): number {
+  if (a === b) return 0
+  const left = a.toLowerCase()
+  const right = b.toLowerCase()
+  if (left.length === 0) return right.length
+  if (right.length === 0) return left.length
+  let prev = Array.from({ length: right.length + 1 }, (_, i) => i)
+  let curr = new Array<number>(right.length + 1).fill(0)
+  for (let i = 1; i <= left.length; i++) {
+    curr[0] = i
+    for (let j = 1; j <= right.length; j++) {
+      const cost = left[i - 1] === right[j - 1] ? 0 : 1
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost)
+    }
+    const tmp = prev
+    prev = curr
+    curr = tmp
+  }
+  return prev[right.length] ?? 0
+}
+
+/** Последнее слово в ответе vs эталон: обрезки (ca/cat) и опечатки в конце фразы. */
+function collectTailWordPair(userText: string, repeatEnglish: string): { wrong: string; right: string } | null {
+  const userWords = userText.match(/\b[a-z']+\b/gi)
+  const repeatWords = repeatEnglish.match(/\b[a-z']+\b/gi)
+  if (!userWords?.length || !repeatWords?.length) return null
+  const uLast = userWords[userWords.length - 1] ?? ''
+  const rLast = repeatWords[repeatWords.length - 1] ?? ''
+  if (!uLast || !rLast) return null
+  const u = uLast.replace(/^'+|'+$/g, '').toLowerCase()
+  const r = rLast.replace(/^'+|'+$/g, '').toLowerCase()
+  if (u === r) return null
+  if (r.length < 3) return null
+  const isPrefix = u.length >= 1 && u.length < r.length && r.startsWith(u)
+  let typoOk = false
+  if (!isPrefix) {
+    const dist = levenshteinDistance(u, r)
+    typoOk = u.length >= 2 && r.length >= 3 && dist <= 2 && dist > 0
+  }
+  if (!isPrefix && !typoOk) return null
+  const uSurf = new RegExp(`\\b${uLast.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').exec(userText)?.[0] ?? uLast
+  const rSurf = new RegExp(`\\b${rLast.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').exec(repeatEnglish)?.[0] ?? rLast
+  return { wrong: uSurf, right: rSurf }
+}
+
 function collectEnglishLexiconBullets(userText: string, repeatEnglish: string): string[] {
   const userContent = tokenizeEnglish(userText).filter(isContentTok)
   const repeatContent = tokenizeEnglish(repeatEnglish).filter(isContentTok)
@@ -184,6 +229,11 @@ function collectEnglishLexiconBullets(userText: string, repeatEnglish: string): 
         pushBullet(uSurf, rSurf)
       }
     }
+  }
+
+  if (!ruInUser && bullets.length === 0) {
+    const tail = collectTailWordPair(userText, repeatEnglish)
+    if (tail) pushBullet(tail.wrong, tail.right)
   }
 
   return bullets

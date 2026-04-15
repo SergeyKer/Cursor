@@ -98,6 +98,11 @@ import {
   normalizeEnglishForRepeatMatch,
 } from '@/lib/normalizeEnglishForRepeatMatch'
 import { STATIC_TRANSLATION_LINE, buildTranslationErrorLexiconAndCyrillicLines } from '@/lib/buildTranslationErrorLexiconAndCyrillicLines'
+import {
+  buildDeterministicTranslationSupportRu,
+  extractKommentariyPerevodBody,
+  isSafePreservedTranslationSupportBody,
+} from '@/lib/translationSupportFallback'
 import { stripFalseArticleBeforeEnglishComment } from '@/lib/stripFalseArticleBeforeEnglishComment'
 import { alignDialogueBeVerbCommentWithRepeat } from '@/lib/dialogueBeCommentConsistency'
 import { normalizeDialogueCommentTerminology } from '@/lib/dialogueCommentTerminology'
@@ -645,6 +650,7 @@ SUCCESS protocol (if user answer is correct), strict order:
 - In SUCCESS protocol do NOT output separate "Время:", "Конструкция:", "Формы:" or "Скажи:" lines.
 
 ERROR protocol (if there is a mistake), strict order:
+- The entire assistant reply MUST start with line 1: do not prepend acknowledgements ("Sure", "Конечно"), markdown, or blank lines before "Комментарий_перевод:".
 - Line 1: "Комментарий_перевод: " + REQUIRED supportive comment in Russian (warm mentor). Keep it to 1-2 short sentences and do not mention concrete error details here.
 - Then block "Ошибки:" (may span multiple lines). Put the short Russian diagnostic feedback (professional pedagogical style) inside this block, not as a separate header line. Grammar check order (strict): FIRST check tense match against the required tense for this drill. If the learner used the wrong tense, that is the primary grammar error and must be labeled as "Ошибка времени" at the start of the first relevant line (🔤 when it is grammar/tense/sentence-type, or 🤔 when meaning is unclear) and handled before any word-level fixes. Start that line with parser-friendly stable error labels when applicable (for example: "Ошибка времени", "Лексическая ошибка", "Ошибка формы глагола", "Ошибка типа предложения"), then one concrete fix. Only after tense and sentence type are checked, list spelling/vocabulary details.
   Sentence type (infer from the Russian task line): if it ends with "?" → English must be a real question (e.g. yes/no in Present Simple: Do/Does + subject + base verb ...?; wh-questions: question word + auxiliary + subject + verb ...); if the Russian clearly expresses negation (не, ни, нет, никогда, ничего, etc.) → English must be negative (don't/doesn't/didn't ... or the correct negative for the required tense); otherwise → English must be a declarative statement (not a question, not wrongly negated).
@@ -3205,7 +3211,15 @@ function isLowSignalDialogueInput(text: string): boolean {
 
 function ensureTranslationProtocolBlocks(
   content: string,
-  params: { tense: string; topic: string; level: string; audience: 'child' | 'adult'; fallbackPrompt: string | null }
+  params: {
+    tense: string
+    topic: string
+    level: string
+    audience: 'child' | 'adult'
+    fallbackPrompt: string | null
+    /** Для серверного фолбэка «Комментарий_перевод:» при пустой поддержке модели. */
+    userAnswerForSupportFallback?: string | null
+  }
 ): string {
   const { tense } = params
   const lines = content
@@ -3345,10 +3359,22 @@ function ensureTranslationProtocolBlocks(
   // Even when "Комментарий:" starts with praise words (e.g. "Хорошо, что ..."),
   // we still need a supportive "Комментарий_перевод:" block for UI consistency.
   if (needsErrorProtocol && !(supportBlock?.trim() ?? '')) {
-    supportBlock =
-      params.audience === 'child'
-        ? '💡 Есть хорошая основа, но нужно исправить главную неточность по образцу ниже.'
-        : '💡 Есть хорошая основа, но нужно исправить основную неточность по образцу ниже.'
+    const say = repeatRu ?? repeat
+    let repeatEnForSupport: string | null = null
+    if (say) {
+      const raw = say.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(?:Скажи|Say)\s*:\s*/i, '').trim()
+      const body = stripLeadingRepeatRuPrompt(raw).trim()
+      repeatEnForSupport = body || null
+    }
+    const userTrim = params.userAnswerForSupportFallback?.trim() ?? ''
+    if (userTrim && repeatEnForSupport) {
+      supportBlock = buildDeterministicTranslationSupportRu(userTrim, repeatEnForSupport, params.audience)
+    } else {
+      supportBlock =
+        params.audience === 'child'
+          ? '💡 Есть хорошая основа, но нужно исправить главную неточность по образцу ниже.'
+          : '💡 Есть хорошая основа, но нужно исправить основную неточность по образцу ниже.'
+    }
   }
   if (needsErrorProtocol && !(String(errorsBlock ?? '').trim())) {
     errorsBlock = commentBodyOnly ? `🤔 ${commentBodyOnly}` : '🤔 Исправьте основную ошибку по образцу.'
@@ -4150,7 +4176,13 @@ function isTranslationAnswerEffectivelyCorrect(userText: string, repeatSentence:
   return userNorm === repeatNorm
 }
 
-function forceTranslationWordErrorProtocol(content: string, repeatSentence: string, userAnswer: string | null = null): string {
+function forceTranslationWordErrorProtocol(
+  content: string,
+  repeatSentence: string,
+  userAnswer: string | null = null,
+  preservedSupportBody: string | null = null,
+  audience: 'child' | 'adult' = 'adult'
+): string {
   const repeat = normalizeEnglishSentenceForCard(repeatSentence)
   if (!repeat) return content
 
@@ -4158,11 +4190,22 @@ function forceTranslationWordErrorProtocol(content: string, repeatSentence: stri
     .split(/\r?\n/)
     .map((line) => stripLeadingAiPrefix(line).trim())
     .filter(Boolean)
-  const supportLineRaw =
-    lines.find((line) => /^Комментарий_перевод\s*:/i.test(line)) ??
-    'Комментарий_перевод: 💡 Есть хорошая основа, но нужно исправить основную неточность по образцу ниже.'
-  const supportBody = supportLineRaw.replace(/^Комментарий_перевод\s*:\s*/i, '').trim()
-  const supportLine = `Комментарий_перевод: ${normalizeSupportiveCommentForErrorsBlock(supportBody || '💡 Есть хорошая основа, но нужно исправить основную неточность по образцу ниже.', 'adult')}`
+
+  let supportBodyResolved: string
+  if (preservedSupportBody?.trim() && isSafePreservedTranslationSupportBody(preservedSupportBody.trim())) {
+    supportBodyResolved = preservedSupportBody.trim().replace(/^\s*💡\s*/u, '').trim()
+  } else {
+    const supportLineRaw =
+      lines.find((line) => /^Комментарий_перевод\s*:/i.test(line)) ??
+      'Комментарий_перевод: 💡 Есть хорошая основа, но нужно исправить основную неточность по образцу ниже.'
+    supportBodyResolved = supportLineRaw.replace(/^Комментарий_перевод\s*:\s*/i, '').trim()
+    if (!supportBodyResolved) {
+      supportBodyResolved =
+        '💡 Есть хорошая основа, но нужно исправить основную неточность по образцу ниже.'
+    }
+  }
+
+  const supportLine = `Комментарий_перевод: ${normalizeSupportiveCommentForErrorsBlock(supportBodyResolved, audience)}`
 
   const userTrim = userAnswer?.trim() ?? ''
   const errorLines =
@@ -6694,6 +6737,8 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     let translationPromptTextForTurn = ''
     let translationGoldForVerdict: string | null = null
     let translationGoldVerdictFailed = false
+    /** Тело «Комментарий_перевод:» из ответа модели до агрессивной пересборки (для force…). */
+    let translationPreservedPerevodBody: string | null = null
     if (mode === 'translation') {
       const tpForGold = lastTranslationPrompt?.trim() ?? ''
       if (!isFirstTurn && tpForGold) {
@@ -6729,6 +6774,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         }
       }
       sanitized = normalizeTranslationCommentStyle(sanitized)
+      translationPreservedPerevodBody = extractKommentariyPerevodBody(sanitized)
       const modelSuccessLike = isTranslationSuccessLikeContent(sanitized)
       const translationPrompt = lastTranslationPrompt
       const translationPromptText = translationPrompt ?? ''
@@ -6793,7 +6839,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         translationGoldForVerdict?.trim() &&
         !userMatchesPriorAssistantRepeat
       ) {
-        sanitized = forceTranslationWordErrorProtocol(sanitized, translationGoldForVerdict.trim(), lastUserContentForResponse)
+        sanitized = forceTranslationWordErrorProtocol(
+          sanitized,
+          translationGoldForVerdict.trim(),
+          lastUserContentForResponse,
+          translationPreservedPerevodBody,
+          audience
+        )
       }
       canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic && !translationWordMismatch && !translationPromptMismatch
       if (translationPromptMismatch && !userMatchesPriorAssistantRepeat) {
@@ -6854,9 +6906,16 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             level: translationDrillLevel,
             audience,
             fallbackPrompt: lastTranslationPrompt,
+            userAnswerForSupportFallback: lastUserContentForResponse,
           })
           if (translationWordMismatch && translationReferenceForm && translationGoldVerdictFailed) {
-            sanitized = forceTranslationWordErrorProtocol(sanitized, translationReferenceForm, lastUserContentForResponse)
+            sanitized = forceTranslationWordErrorProtocol(
+              sanitized,
+              translationReferenceForm,
+              lastUserContentForResponse,
+              translationPreservedPerevodBody,
+              audience
+            )
           }
           let repeatSentence = getTranslationRepeatSentence(sanitized)
           if (repeatSentence && translationPromptText && hasTranslationPromptKeywordMismatch(translationPromptText, repeatSentence)) {
@@ -6864,7 +6923,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               buildPromptAlignedRepeatSentence(repeatSentence, translationPromptText) ??
               buildPromptAlignedRepeatSentenceByConcept(repeatSentence, translationPromptText)
             if (promptAlignedRepeatFromRepeat && translationGoldVerdictFailed) {
-              sanitized = forceTranslationWordErrorProtocol(sanitized, promptAlignedRepeatFromRepeat, lastUserContentForResponse)
+              sanitized = forceTranslationWordErrorProtocol(
+                sanitized,
+                promptAlignedRepeatFromRepeat,
+                lastUserContentForResponse,
+                translationPreservedPerevodBody,
+                audience
+              )
               repeatSentence = getTranslationRepeatSentence(sanitized)
             }
           }
@@ -6919,7 +6984,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 repeatAnchorForError
               )
             if (repeatAnchorForError && !canTreatTranslationAsSuccess && !repeatAlreadyMatchesGold) {
-              sanitized = forceTranslationWordErrorProtocol(sanitized, repeatAnchorForError, lastUserContentForResponse)
+              sanitized = forceTranslationWordErrorProtocol(
+                sanitized,
+                repeatAnchorForError,
+                lastUserContentForResponse,
+                translationPreservedPerevodBody,
+                audience
+              )
             }
           }
 
@@ -6965,7 +7036,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
       let repeatSentence = getTranslationRepeatSentence(sanitized)
       if (!repeatSentence && translationReferenceFormForTurn && translationGoldVerdictFailed) {
-        sanitized = forceTranslationWordErrorProtocol(sanitized, translationReferenceFormForTurn, lastUserContentForResponse)
+        sanitized = forceTranslationWordErrorProtocol(
+          sanitized,
+          translationReferenceFormForTurn,
+          lastUserContentForResponse,
+          translationPreservedPerevodBody,
+          audience
+        )
         repeatSentence = getTranslationRepeatSentence(sanitized)
       }
       if (
@@ -6978,7 +7055,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           buildPromptAlignedRepeatSentence(repeatSentence, translationPromptTextForTurn) ??
           buildPromptAlignedRepeatSentenceByConcept(repeatSentence, translationPromptTextForTurn)
         if (promptAlignedRepeatFromRepeat) {
-          sanitized = forceTranslationWordErrorProtocol(sanitized, promptAlignedRepeatFromRepeat, lastUserContentForResponse)
+          sanitized = forceTranslationWordErrorProtocol(
+            sanitized,
+            promptAlignedRepeatFromRepeat,
+            lastUserContentForResponse,
+            translationPreservedPerevodBody,
+            audience
+          )
           repeatSentence = getTranslationRepeatSentence(sanitized)
         }
       }
@@ -7046,6 +7129,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 level,
                 audience,
                 fallbackPrompt: lastTranslationPrompt,
+                userAnswerForSupportFallback: lastUserContentForResponse,
               })
               repaired = applyTranslationRepeatSourceClampToContent(repaired, lastTranslationPrompt)
 
@@ -7169,6 +7253,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                     level,
                     audience,
                     fallbackPrompt: lastTranslationPrompt,
+                    userAnswerForSupportFallback: lastUserContentForResponse,
                   })
                   repaired = applyTranslationRepeatSourceClampToContent(repaired, lastTranslationPrompt)
                   const repeatSentence2 = getTranslationRepeatSentence(repaired)
@@ -7577,6 +7662,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 level,
                 audience,
                 fallbackPrompt: lastTranslationPrompt,
+                userAnswerForSupportFallback: lastUserContentForResponse,
               })
               const repeatSentence = getTranslationRepeatSentence(repaired)
               repaired = enrichTranslationCommentQuality({
