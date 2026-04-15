@@ -1183,7 +1183,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     const data = (await res.json()) as { content: string }
 
     expect(res.status).toBe(200)
-    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Комментарий_перевод:')
     expect(data.content).not.toContain('Переведи далее:')
     expect(data.content).not.toContain('✅')
     expect(data.content).toContain('Повтори:')
@@ -1560,7 +1560,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     const repeatBody = repeatLine.replace(/^Повтори\s*:\s*/i, '').trim()
 
     expect(res.status).toBe(200)
-    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Комментарий_перевод:')
     expect(data.content).toContain('Повтори:')
     expect(data.content).not.toContain('Переведи далее:')
     expect(/[А-Яа-яЁё]/.test(repeatBody)).toBe(false)
@@ -1595,7 +1595,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     const data = (await res.json()) as { content: string }
 
     expect(res.status).toBe(200)
-    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Комментарий_перевод:')
     expect(data.content).toContain('Повтори:')
     expect(data.content).not.toContain('Переведи далее:')
     expect(data.content).not.toContain('Переведи на английский.')
@@ -1976,7 +1976,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       const data = await res.json() as { content: string }
 
       expect(res.status).toBe(200)
-      expect(/Комментарий(?:_ошибка)?\s*:/i.test(data.content)).toBe(true)
+      expect(/Комментарий_перевод\s*:|Комментарий\s*:/i.test(data.content)).toBe(true)
       expect(data.content).toContain('Повтори:')
       expect(data.content).not.toContain('Переведи далее:')
       expect(data.content).not.toContain('Переведи на английский.')
@@ -2061,8 +2061,8 @@ describe('POST /api/chat repeat cycle stability', () => {
           role: 'assistant',
           content: [
             'Комментарий_перевод: 💡 Есть хорошая основа, но нужно исправить основную неточность по образцу ниже.',
-            'Комментарий_ошибка: Ошибка перевода — русские слова в ответе нужно перевести на английский.',
             'Ошибки:',
+            '📖 Ошибка перевода — русские слова в ответе нужно перевести на английский.',
             "- проект → project",
             "- new project → a new project",
             'Скажи: I will start a new project.',
@@ -2081,7 +2081,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).toContain('Комментарий:')
     expect(data.content).toContain('Лексическая ошибка')
     expect(data.content).toMatch(/Скажи:\s*I will start a new project/i)
-    expect(data.content).not.toMatch(/Комментарий_ошибка:[^\n]*Скажи:/)
+    expect(data.content).not.toMatch(/Комментарий_ошибка/)
   })
 
   it('translation success always appends next drill even when model returns only short praise', async () => {

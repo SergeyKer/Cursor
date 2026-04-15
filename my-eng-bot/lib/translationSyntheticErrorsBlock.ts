@@ -302,7 +302,6 @@ function normalizeLooseErrorLine(line: string): string {
   if (
     hasErrorLabelPrefix(trimmed) ||
     /^Комментарий_перевод\s*:/i.test(trimmed) ||
-    /^Комментарий_ошибка\s*:/i.test(trimmed) ||
     /^Комментарий\s*:/i.test(trimmed)
   ) {
     return trimmed

@@ -149,7 +149,7 @@ describe('extractLocalGoldEnglishForVerdict', () => {
   it('без ref берёт «Скажи» при согласовании с RU', () => {
     const card = [
       'Комментарий_перевод: Поддержка.',
-      'Комментарий_ошибка: Ошибка.',
+      'Комментарий: Ошибка.',
       'Ошибки:',
       'Скажи: I will start a new project.',
     ].join('\n')

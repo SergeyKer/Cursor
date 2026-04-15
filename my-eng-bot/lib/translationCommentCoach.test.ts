@@ -30,7 +30,7 @@ describe('extractTranslationCommentBlock', () => {
     expect(ex!.endExclusive).toBe(2)
   })
 
-  it('extracts Комментарий_ошибка as a diagnostic comment block', () => {
+  it('legacy «Комментарий_ошибка:» всё ещё распознаётся как блок комментария', () => {
     const lines = ['Комментарий_ошибка: Нужен другой порядок слов.', 'Ошибки:', '🔤 …']
     const ex = extractTranslationCommentBlock(lines)
     expect(ex).not.toBeNull()

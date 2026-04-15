@@ -74,9 +74,8 @@ describe('POST /api/chat translation provider payload', () => {
       ok: true,
       content: [
         'Комментарий_перевод: Отлично! 🙌',
-        'Комментарий_ошибка: Ошибка времени. Нужен Present Continuous.',
         'Ошибки:',
-        '🔤 Используйте правильную форму глагола.',
+        '🔤 Ошибка времени. Нужен Present Continuous. Используйте правильную форму глагола.',
         'Время: Present Continuous — действие сейчас.',
         'Конструкция: am/is/are + V-ing',
         'Скажи: I am reading a book now.',
@@ -153,7 +152,8 @@ describe('POST /api/chat translation provider payload', () => {
         ok: true,
         content: [
           'Комментарий_перевод: Хорошее начало вопроса. Исправь порядок слов.',
-          'Комментарий_ошибка: Ошибка формы вопроса. Поставь do перед подлежащим.',
+          'Ошибки:',
+          '🔤 Ошибка формы вопроса. Поставь do перед подлежащим.',
           'Время: Present Simple — привычка или факт.',
           'Конструкция: Do/Does + subject + V1 ...?',
           'Повтори: What do you like as a pet?',

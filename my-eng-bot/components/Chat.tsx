@@ -275,7 +275,7 @@ export function commentLabelForTranslationFirstBlock(comment: string): CommentIc
 /** Карточка «Прочитай вслух (+, ?, −)» в режиме «Перевод». Сейчас скрыта; включить — `true`. */
 function buildAssistantSections(params: {
   comment: string | null
-  /** Режим перевод, ошибка: только тело «Комментарий_перевод:»; «Комментарий:» сюда не подставляем. */
+  /** Режим перевод, ошибка: только тело «Комментарий_перевод:» для первой янтарной карточки. */
   translationSupportComment?: string | null
   translationErrorCoachUi?: boolean
   /** Успешный drill перевода: первая карточка — ✅ (тон praise), а не янтарная 💡. */
@@ -330,16 +330,6 @@ function buildAssistantSections(params: {
         label: '💡',
         text: supportTrim,
         singleLine: !supportTrim.includes('\n'),
-      })
-    }
-    const diagnosticText = comment?.trim() ?? ''
-    if (diagnosticText) {
-      sections.push({
-        key: 'translation-error-comment',
-        tone: 'amber',
-        label: 'Комментарий_ошибка',
-        text: diagnosticText,
-        singleLine: !diagnosticText.includes('\n'),
       })
     }
   } else if (mode === 'translation' && translationSuccessPraiseCard && comment?.trim()) {

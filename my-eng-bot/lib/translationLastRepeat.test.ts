@@ -62,7 +62,7 @@ describe('extractPriorAssistantRepeatEnglish', () => {
     expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Do you like to read?')
   })
 
-  it('видимый Скажи важнее __TRAN_REPEAT_REF__ и Повтори (ветка ошибки, замкнутый цикл)', () => {
+  it('для drill-карточки скрытый __TRAN_REPEAT_REF__ важнее видимого Скажи/Повтори', () => {
     const messages = [
       {
         role: 'assistant',
@@ -73,15 +73,15 @@ describe('extractPriorAssistantRepeatEnglish', () => {
       },
       { role: 'user', content: 'What is your favorite colore' },
     ]
-    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('What is your favorite color?')
+    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Hidden line.')
   })
 
-  it('видимый Повтори важнее скрытого __TRAN_REPEAT_REF__, если нет Скажи', () => {
+  it('скрытый __TRAN_REPEAT_REF__ важнее видимого Повтори, если есть оба', () => {
     const messages = [
       { role: 'assistant', content: 'Повтори: Visible line.\n__TRAN_REPEAT_REF__: Hidden line.' },
       { role: 'user', content: 'x' },
     ]
-    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Visible line.')
+    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Hidden line.')
   })
 
   it('эталон для enforce — скрытая строка с карточки «Переведи далее», не старое Повтори из истории', () => {
@@ -126,7 +126,7 @@ describe('extractPriorAssistantRepeatEnglish', () => {
     expect(extractPriorAssistantRepeatEnglish(messages)).toBe('I love to read books.')
   })
 
-  it('при двух Скажи в цепочке ошибок — эталон с лучшим совпадением с ответом; при ничьей — более ранняя карточка (games, не that)', () => {
+  it('не выбирает эталон по overlap с user: берёт __TRAN__ с карточки текущего Переведи далее', () => {
     const messages = [
       {
         role: 'assistant',
@@ -137,7 +137,13 @@ describe('extractPriorAssistantRepeatEnglish', () => {
       {
         role: 'assistant',
         content:
-          'Комментарий: Лексика.\nСкажи: Do you like to play that?\nПовтори: Do you like to play that?',
+          'Переведи далее: Ты любишь играть в игры?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you like to play games?',
+      },
+      { role: 'user', content: 'Do you like to play game' },
+      {
+        role: 'assistant',
+        content:
+          'Скажи: Do you like to play that?\nПовтори: Do you like to play that?',
       },
       { role: 'user', content: 'Do you like to play game' },
     ]
