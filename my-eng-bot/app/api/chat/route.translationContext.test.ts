@@ -290,4 +290,39 @@ describe('POST /api/chat translation provider payload', () => {
     expect(data.content).toContain('Скажи: You like to walk in the park.')
   })
 
+  it('SUCCESS: убирает лишний «Скажи» от прошлого шага и не режет «Переведи на английский»', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: [
+        'Комментарий: Отлично! Всё верно.',
+        'Переведи далее: Ты никогда не позвонишь мне.',
+        'Переведи на английский.',
+        "Скажи: I won't call you soon.",
+      ].join('\n'),
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['future_simple'],
+      sentenceType: 'negative',
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            "Я не позвоню тебе скоро.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I won't call you soon.",
+        },
+        { role: 'user', content: "I won't call you soon" },
+      ],
+    })
+
+    const res = await POST(req as never)
+    expect(res.status).toBe(200)
+    const data = (await res.json()) as { content: string }
+    expect(data.content).toMatch(/Комментарий\s*:/i)
+    expect(data.content).toContain('Переведи далее:')
+    expect(data.content).not.toMatch(/(?:^|\n)\s*Скажи\s*:/im)
+  })
+
 })

@@ -3793,6 +3793,51 @@ async function ensureFirstTranslationDrillMatchesRequiredTense(params: {
   return ensureFirstTranslationInvitation(rebuilt, params.sentenceType)
 }
 
+/** Видимая строка «Скажи:|Say:» в ответе перевода. */
+function hasVisibleTranslationSayLine(content: string): boolean {
+  return /(?:^|\n)\s*(?:[\s\-•]*(?:\d+[\.)]\s*)*)?(?:Скажи|Say)\s*:/im.test(content.trim())
+}
+
+/**
+ * Модель иногда склеивает SUCCESS («Комментарий» + «Переведи далее») с хвостом ERROR («Скажи»).
+ * Тогда finalize тянет prior-repeat и режет приглашения — UX «застряли на повторе».
+ */
+function isTranslationStraySaySuccessPayload(content: string): boolean {
+  const t = content.trim()
+  if (!hasVisibleTranslationSayLine(t)) return false
+  if (/(^|\n)\s*Комментарий_перевод\s*:/im.test(t)) return false
+  if (/(^|\n)\s*Ошибки\s*:/im.test(t)) return false
+  if (!/(^|\n)\s*Комментарий\s*:/im.test(t)) return false
+  if (!/(^|\n)\s*(?:Переведи|Переведите)\s+далее\s*:/im.test(t)) return false
+  const m = t.match(/(?:^|\n)\s*Комментарий\s*:\s*([^\n]+)/im)
+  const body = (m?.[1] ?? '').trim()
+  if (!body) return false
+  if (/(?:проверь|исправ|ошиб|неверн|неправил|нужн|орфограф|лексическ|грамматик)/i.test(body)) return false
+  return /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)(?:[\s!,.?:;"'»)]|$)/i.test(body)
+}
+
+function stripVisibleTranslationSayLines(content: string): string {
+  return content
+    .split(/\r?\n/)
+    .filter((line) => {
+      const t = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
+      return !/^[\s\-•]*(?:\d+[\.)]\s*)*(?:Скажи|Say)\s*:/i.test(t)
+    })
+    .join('\n')
+    .trim()
+}
+
+/**
+ * Только карточка «следующий шаг» (Переведи далее) — признак финализированного SUCCESS.
+ * Иначе похвала + формы без «Скажи» даёт ложный success-like и блокирует enforce,
+ * а gold подтягивается по чужой русской строке в теле ответа.
+ */
+function isTranslationFinalizePureSuccess(content: string): boolean {
+  const t = content.trim()
+  if (!(isTranslationSuccessLikeContent(t) || isTranslationSuccessContent(t))) return false
+  return /(?:^|\n)\s*(?:[\s\-•]*(?:\d+[\.)]\s*)*)?(?:Переведи|Переведите)\s+далее\s*:/im.test(t)
+}
+
 /** Финальная нормализация ответа перевода: enforce «Скажи»/«Скажи», sanitize, скрытый __TRAN__. */
 async function finalizeTranslationResponsePayload(params: {
   content: string
@@ -3805,12 +3850,19 @@ async function finalizeTranslationResponsePayload(params: {
   resolveGoldTranslation?: ResolveGoldTranslation
 }): Promise<string> {
   let guardedContent = params.content
-  if (getTranslationRepeatSentence(guardedContent)) {
+  if (isTranslationStraySaySuccessPayload(guardedContent)) {
+    guardedContent = stripVisibleTranslationSayLines(guardedContent)
+  }
+  const pureTranslationSuccess = isTranslationFinalizePureSuccess(guardedContent)
+  if (!pureTranslationSuccess && getTranslationRepeatSentence(guardedContent)) {
     guardedContent = stripTranslationInvitationLines(guardedContent)
   }
   const priorRepeatForEnforce = extractPriorAssistantRepeatEnglish(params.nonSystemMessages)
   const { lastTranslationPrompt } = params
-  if (lastTranslationPrompt?.trim() || priorRepeatForEnforce?.trim()) {
+  if (
+    !pureTranslationSuccess &&
+    (lastTranslationPrompt?.trim() || priorRepeatForEnforce?.trim())
+  ) {
     guardedContent = enforceAuthoritativeTranslationRepeat(
       guardedContent,
       lastTranslationPrompt,
@@ -3848,7 +3900,10 @@ async function finalizeTranslationResponsePayload(params: {
         })
     if (goldFromApi?.trim()) {
       const { clamped } = clampTranslationRepeatToRuPrompt(goldFromApi, ruForRefCard)
-      guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${clamped}`
+      const line = (clamped?.trim() || goldFromApi.trim()) || ''
+      if (line && !hasTranslationPromptKeywordMismatch(ruForRefCard, line)) {
+        guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${line}`
+      }
     }
   }
   if (
