@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ensureTranslationProtocolBlocks } from '@/app/api/chat/route'
+import { ensureTranslationProtocolBlocks } from '@/lib/ensureTranslationProtocolBlocks'
 
 describe('ensureTranslationProtocolBlocks', () => {
   it('подставляет Скажи из repeatEnglishFallback если модель забыла строку', () => {
