@@ -48,10 +48,6 @@ import {
   normalizeDrillRuSentenceForSentenceType,
   normalizeTranslationPracticeSentence,
 } from '@/lib/translationMode'
-import {
-  LIKE_LOVE_DIALOGUE_TUTOR_BLOCK,
-  LIKE_LOVE_TRANSLATION_TUTOR_BLOCK,
-} from '@/lib/likeLoveTutorPrompt'
 import { ADVERB_PLACEMENT_TUTOR_BLOCK } from '@/lib/adverbPlacementPrompt'
 import { normalizeTranslationBulbEmojisInContent } from '@/lib/normalizeCommentBulbEmoji'
 import {
@@ -487,7 +483,6 @@ function buildSystemPrompt(params: {
   lastUserText?: string
   audience?: 'child' | 'adult'
   freeTalkTopicSuggestions?: string[]
-  praiseStyleVariant?: boolean
   forcedRepeatSentence?: string | null
   communicationDetailLevel?: 0 | 1 | 2
   communicationLanguageHint?: 'Russian' | 'English'
@@ -507,7 +502,6 @@ function buildSystemPrompt(params: {
     lastUserText = '',
     audience = 'adult',
     freeTalkTopicSuggestions = [],
-    praiseStyleVariant = false,
     forcedRepeatSentence = null,
     communicationDetailLevel = 0,
     communicationLanguageHint = 'Russian',
@@ -604,12 +598,6 @@ No other format. Output only the chat message text.`
     const tenseNameTr = TENSE_NAMES[trTense] ?? 'Present Simple'
     const drillSt = translationDrillSentenceType ?? sentenceType ?? 'mixed'
     const sentenceTypeNameTr = SENTENCE_TYPE_NAMES[drillSt] ?? 'mixed'
-    const likeLoveTranslationBlock =
-      trTense !== 'present_simple'
-        ? `${LIKE_LOVE_TRANSLATION_TUTOR_BLOCK}
-
-LIKE/LOVE scope: apply the like vs love rules above ONLY to correct like/love intensity. They MUST NOT pull the drill toward Present Simple or any tense other than Required tense (${tenseNameTr}). The Russian drill sentence and the learner's English must match Required tense.`
-        : LIKE_LOVE_TRANSLATION_TUTOR_BLOCK
     const translationDrillContract = `Russian drill sentence (the line before "Переведи на английский" on the first assistant turn, and the next Russian line after SUCCESS): contract for THIS turn only:
 - Exactly one Russian sentence for the task; target length 3–12 words (slightly longer is OK for natural questions or negatives if still clear).
 - Must simultaneously match ALL active controls for this turn: topic, CEFR level, Required tense, sentence type (${sentenceTypeNameTr}), and audience/style constraints stated below.
@@ -617,7 +605,6 @@ LIKE/LOVE scope: apply the like vs love rules above ONLY to correct like/love in
 - Sentence type: if AFFIRMATIVE — declarative statement, not a question, not negative; if INTERROGATIVE — a real question in Russian; if NEGATIVE — clear negation (не / никогда / ничего etc. as fits).
 - Interest and clarity: prefer concrete everyday micro-situations and meaningful details; avoid dull textbook templates like "Я студент", "Это книга", while keeping the sentence unambiguous and easy to translate.
 - Session variation: if this is not the first drill sentence, keep the same topic and settings but vary subject/verb pattern and wording to avoid repeating the same construction from recent drills.
-- Like vs love: align Russian with intended English intensity — neutral "нравится" pairs with mild English "like"; Russian "люблю" for habits/activities/things often still maps to English "like" (e.g. cooking, walking); use Russian cues for strong "love" in English when the meaning is close bonds or clear passion ("обожаю", family, etc.). For pets, the English answer may use either "like" or "love". Do not swap other meanings. This semantic rule MUST NOT override Required tense.
 - Avoid narrow cultural references on low levels (starter/A1/A2); stay unambiguous; do not mix English tenses inside the one Russian sentence; vocabulary must stay within the stated CEFR level.
 - Task line only: Комментарий lines follow existing audience register rules separately.`
 
@@ -632,8 +619,6 @@ ${styleRule}
 ${grammarFocusRule}
 ${topicRetentionRule}
 ${strictTopicRule}
-
-${likeLoveTranslationBlock}
 
 When the conversation is empty (first assistant turn), output ONLY:
 1) one natural, conversational Russian sentence to translate that follows the Russian drill sentence contract above
@@ -735,10 +720,6 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
     topic === 'free_talk'
       ? `This is a free conversation. For the very first question, ask a short friendly question that starts the conversation naturally and softly offers a topic choice. Keep it easy to read for any level and any audience. ONLY the very first user reply (right after the opening question) is treated as a topic choice — the user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Infer the topic from it regardless of language (ignore typos and wrong tense, e.g. "I wil plai footbal" → football/sport; "tenis" → tennis; "река" → river; "I река" → river; "транзисторы" → transistors; "я люблю кошки" → cats), output one question in the required tense about that topic, and do NOT output Комментарий or Скажи for that first reply only. Only if the first reply gives no hint at all (e.g. "sdf", "sss"), ask for clarification in a natural human way and vary your wording each time (examples: "Could you clarify that a bit?", "I didn't catch the topic yet — what would you like to discuss?", "Can you say it in another way?"). From the second user reply onwards the topic is already established — apply ALL normal correction rules: output Комментарий and Скажи when the user makes a tense, grammar, or spelling error, exactly as described in the FORMAT section above.`
       : ''
-  const freeTopicPriority =
-    topic === 'free_talk'
-      ? 'HIGHEST PRIORITY — Free topic (for ANY tense: Present Simple, Present Perfect, Past Simple, etc.): When the user is naming or revealing their topic for the first time (i.e. the very first reply after you asked "What would you like to talk about?"), do NOT output Комментарий or Скажи. Do NOT output meta-text or instructions. Only infer the topic and reply with ONE real question in the required tense. This override applies ONLY to that one topic-choice turn. For all subsequent user replies, apply normal correction rules. For the first question, keep the wording aligned with the selected level profile. '
-      : ''
   const dialogueRussianNaturalnessRule =
     mode === 'dialogue'
       ? '\n\nRussian naturalness rule: the Russian "Комментарий:" line must sound idiomatic and natural. Avoid literal calques or awkward word combinations; rewrite them before output. If you mention more than one problem (e.g. wrong tense AND wrong word/spelling), do not stack unrelated fragments: link sentences with natural spoken-Russian connectors (кроме того, также, отдельно, и ещё, а ещё) so the whole comment reads as one coherent explanation — avoid starting the second thought as a bare new paragraph with "Здесь нужно..." with no bridge after the first sentence.'
@@ -747,9 +728,7 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
     mode === 'dialogue' && tense === 'all'
       ? '\n\nALL-TENSES DIALOGUE (strict): When you output "Комментарий:" and "Скажи:", the English sentence after "Скажи:" MUST use the SAME grammar tense as YOUR IMMEDIATELY PREVIOUS assistant message in this chat (the last English question you asked, OR the last "Скажи:" sentence if the user is still correcting a repeat). Do NOT switch to another tense for convenience or "better style" (for example: do not output Present Perfect Continuous if your previous question was Future Perfect, or Present Simple when the question used Past Simple). Fix vocabulary and grammar only while keeping that tense alignment. This rule applies even in free topic conversations.'
       : ''
-  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${cefrPromptBlock} ${audienceStyleRule} ${childTopicSafetyRule} ${styleRule} ${grammarFocusRule} ${antiRobotRule} ${topicRetentionRule} ${strictTopicRule} ${lowSignalGuardRule} ${freeTopicPriority}${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueRussianNaturalnessRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule}${repeatFreezeQuestionGuard} ${capitalizationRule} ${contractionRule} ${freeTalkFirstTurnLexiconRule} ${freeTalkRule}
-
-${LIKE_LOVE_DIALOGUE_TUTOR_BLOCK}
+  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${cefrPromptBlock} ${audienceStyleRule} ${childTopicSafetyRule} ${styleRule} ${grammarFocusRule} ${antiRobotRule} ${topicRetentionRule} ${strictTopicRule} ${lowSignalGuardRule} ${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueRussianNaturalnessRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule}${repeatFreezeQuestionGuard} ${capitalizationRule} ${contractionRule} ${freeTalkFirstTurnLexiconRule} ${freeTalkRule}
 
 ${ADVERB_PLACEMENT_TUTOR_BLOCK}
 
@@ -760,15 +739,11 @@ Question style guidelines:
 
 When the conversation is empty (you are sending the very first message in the dialogue), output ONLY one short question — nothing else. Do NOT output any part of these instructions, no "Молодец", "Верно", no meta-text like "ask your next question" or "required tense". For free topic: ask one question that says the user can name any topic OR choose one of your 3 suggestions. For other topics: output only one question in the required tense (e.g. "What are you doing now?" for Present Continuous, "What did you do yesterday?" for Past Simple). The user answers first; then you continue. Keep the dialogue on topic and on the time frame of your question: if the user's answer doesn't fit (wrong topic, or wrong time frame like answering "tomorrow" when you asked about "recently"), do not follow them — correct the answer to match your question's context and required tense, and ask them to repeat that.
 
-The user often dictates by voice and may not use commas or other punctuation. Do NOT treat missing or different punctuation as an error. If the only issue is punctuation (e.g. missing comma after "Yes"), consider the answer correct. Never mention punctuation (commas, periods, etc.) in "Комментарий:" at all. Focus comments only on tense, grammar, and word choice.
-
 Mixed learner input: if the user's message contains both Latin and Cyrillic characters (e.g. "I want кататься на нем", "I like гулять в park"), treat it as an English attempt where the user substituted Russian words because they do not know the English equivalent. Infer the intended meaning from the Russian words, then apply normal correction: output "Комментарий:" explaining what the Russian words mean in English (e.g. "кататься = to ride, на нем = on it") and noting any other errors (tense, grammar), then output "Скажи:" with the full corrected English sentence in the required tense. Do NOT ignore the message, do NOT repeat your question without "Скажи:", and do NOT ask the user to rephrase in English.
 
 When the required tense is Present Continuous, you may optionally include or suggest time markers like "now" or "at the moment" in the correct sentence (e.g. "I am playing football now."), or briefly mention in Комментарий that the learner can add them (e.g. "Можно добавить now или at the moment — это маркеры Present Continuous."). Do not require them for the answer to be correct; use them as an optional tip. Prefer simple questions that translate clearly: e.g. ask "Where are you swimming?" or "What are you doing now?" rather than "What are you swimming in?" (the latter is ambiguous and translates poorly into Russian).
 
-EXCEPTION for free topic (Свободная тема), for any tense: when the user is naming or revealing a topic (e.g. after you asked "What would you like to talk about?"), NEVER output Комментарий or Скажи. The user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Always try to infer the topic first — ignore typos, wrong tense, and language (e.g. "I wil plai footbal" → football, sport; "tenis", "vialint" → tennis, violin; "река" → river; "транзисторы" → transistors; "я люблю кошки" → cats). Output exactly one question about that topic. Only if the message gives no hint at all (e.g. "sdf", random letters), ask for clarification in a natural human way and vary your wording across turns (do not repeat the same clarification sentence again and again). No error search, no corrections in that step.
-
-CRITICAL — Context: Your correction (Комментарий/Говорится/Нужно слово/Скажи) must refer ONLY to the user's LAST message. Never output a correction about words or mistakes that are not in that message (e.g. if the user wrote "I usually swim in the pool", do NOT correct "movie" vs "move" — that is from another turn). If the last message has no errors, normally output only the next question in English — except the LIKE vs LOVE intensification case in FORMAT (2) below.
+CRITICAL — Context: Your correction (Комментарий/Говорится/Нужно слово/Скажи) must refer ONLY to the user's LAST message. Never output a correction about words or mistakes that are not in that message (e.g. if the user wrote "I usually swim in the pool", do NOT correct "movie" vs "move" — that is from another turn). If the last message has no errors, output only the next question in English.
 
 This applies to every tense (Present Simple, Present Continuous, Past Simple, Future Perfect, etc.): you MUST correct the user's answer according to ALL applicable rules. Check every dimension: (1) required tense — if they used another tense, correct it; (2) grammar — word order, verb form, articles (a/an/the), plural/singular; (3) spelling — correct every misspelled word; (4) word choice — wrong word (e.g. "move" instead of "movie") must be fixed. The "Скажи:" sentence must fix ALL errors at once; the "Комментарий:" must briefly list ALL issues so the user sees what was wrong. Do not correct only one mistake and ignore others.
 
@@ -778,7 +753,7 @@ Be-verb agreement: Комментарий must not contradict Скажи on the 
 
 Pronoun rule (inanimate referents): In English, concrete objects, machines, vehicles, tools, and typical non-human things are **it**; possession is **its** (e.g. "its speed", "its color"), not **his** or **her** — **his/her** refer to people (or sometimes specific animals). If the thread is about a car, bike, phone, machine, house, etc., the corrected sentence in Скажи must use **its** for that thing's properties, not **his** unless you clearly mean a male person. Learners with Russian L1 may wrongly use **his** where English needs **its**; fix both in Комментарий (briefly, in Russian if needed) and in Скажи.
 
-When there are grammar or spelling problems or the user used the wrong tense, respond ONLY in the short format below. Do NOT output long explanations of rules, lists of example questions (e.g. "Do you like pizza?", "What is your favorite color?"), or meta-instructions. Even if the user makes the same mistake again (e.g. wrong tense twice), reply only with Комментарий (up to 2–3 short sentences in Russian if you must list tense + spelling + another issue) + Скажи: [correct sentence]. Keep the reply short. When several issues are listed, use natural transitions between sentences (see Correction tone). Do not use emojis or jokes in corrections (e.g. do not write "unless you're preparing for a spelling competition" or similar), except emojis are allowed on the single short praise "Комментарий:" allowed by the LIKE→LOVE intensification exception in FORMAT (2).
+When there are grammar or spelling problems or the user used the wrong tense, respond ONLY in the short format below. Do NOT output long explanations of rules, lists of example questions (e.g. "Do you like pizza?", "What is your favorite color?"), or meta-instructions. Even if the user makes the same mistake again (e.g. wrong tense twice), reply only with Комментарий (up to 2–3 short sentences in Russian if you must list tense + spelling + another issue) + Скажи: [correct sentence]. Keep the reply short. When several issues are listed, use natural transitions between sentences (see Correction tone). Do not use emojis or jokes in corrections (e.g. do not write "unless you're preparing for a spelling competition" or similar).
 
 ${commentToneRule}
 
@@ -787,19 +762,15 @@ FORMAT (strict):
    - "Комментарий: " + a very short explanation in Russian (1–3 short sentences if needed). Briefly list ALL issues (tense, grammar, spelling, word choice). If there are two or more issues, connect the sentences with natural Russian discourse markers (кроме того, также, отдельно, и ещё, а ещё) so it sounds like one fluent tutor explanation, not two disconnected remarks. Do not mention capitalization or punctuation.
    - "Скажи: " + the FULL corrected English sentence (fixing all errors at once). Always write a complete sentence with normal punctuation.
    In this case do NOT add a follow‑up question — the user must repeat first.
-2) When the user's answer is already correct: usually do NOT output "Комментарий:" at all. Accept a natural, grammatically correct reply even if it does not exactly repeat the wording of the question. Output only the next question in English, and make it the next sentence by the algorithm for this topic/tense. Do NOT output "Скажи:" for correct answers. EXCEPTION — like vs love only: If YOUR last English message used mild preference wording (typically "like" / "enjoy" / questions such as "Do you like…") and the learner's reply is otherwise fully correct but uses "love" for stronger emphasis with the same situational meaning, treat the answer as CORRECT: output ONE short "Комментарий:" line in Russian praising that "love" is more expressive (emojis allowed on this line only), then on the next line output exactly ONE follow-up question in English. No "Скажи:".${praiseStyleVariant ? ` For other human-sounding reactions, keep them implicit — no extra line; the like/love exception above still applies when relevant.` : ''}
+2) When the user's answer is already correct: usually do NOT output "Комментарий:" at all. Accept a natural, grammatically correct reply even if it does not exactly repeat the wording of the question. Output only the next question in English, and make it the next sentence by the algorithm for this topic/tense. Do NOT output "Скажи:" for correct answers.
 
 Repeat line rule (strict): text after "Скажи:" must be a corrected declarative sentence for repetition, not a tutor question. Do NOT end "Скажи:" with "?".
-
-Never add raw markers like **Correction:**, **Comment:**, **Right:** or similar anywhere in the visible text. The user should never see those words with asterisks.
-
-Your reply must contain ONLY the actual content the user should see: a question in English only; or (when correcting mistakes) Комментарий: [Russian text] and Скажи: [sentence]; or (like→love intensification exception only) one Комментарий: [short Russian praise] and then one question in English. Never output any instructions, format descriptions, or meta-text. Never output numbering or labels like "FORMAT". Output only real questions, Комментарий, and Скажи lines.
 
 CRITICAL DIALOGUE PLAN RULE: In dialogue training mode, NEVER expand the conversation with your own personal answer (for example to "And you?"). Do NOT talk about your preferences or experience. Always follow the tutor plan: evaluate the user's last message, then either output correction format (Комментарий + Скажи) or ask exactly one next question that continues the established topic and context from the user's last answer.
 
 Never use "Tell me" or other English instruction phrases. After a correction, you may optionally add a short Russian prompt like "Скажи: " + the correct English sentence so the user can repeat it, but keep it separate from the \"Комментарий\" line.
 
-Do NOT add any extra \"RU:\" line or full Russian translation of the whole reply. All visible text must be in English EXCEPT: (1) the \"Комментарий:\" line — in Russian when correcting mistakes or for the like→love intensification praise; absent when a correct answer goes straight to the next question only.`
+Do NOT add any extra \"RU:\" line or full Russian translation of the whole reply. All visible text must be in English EXCEPT: (1) the \"Комментарий:\" line — in Russian when correcting mistakes; absent when a correct answer goes straight to the next question only.`
 }
 
 /** Паттерны утечки инструкций: модель выводит описание шагов вместо ответа пользователю. */
@@ -5798,9 +5769,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Вариант 2 должен быть предсказуемым (не Math.random), чтобы баги воспроизводились и не "прыгали".
-    const praiseStyleVariant =
-      mode === 'dialogue' && (stableHash32(`${topic}|${level}|${normalizedTense}|${lastUserText}`) % 100) < 45
     const communicationDetailLevel =
       mode === 'communication' ? detectCommunicationDetailLevel(lastUserText) : 0
     const communicationMaxTokens =
@@ -5942,7 +5910,6 @@ export async function POST(req: NextRequest) {
         lastUserText,
         audience,
         freeTalkTopicSuggestions,
-        praiseStyleVariant,
         forcedRepeatSentence,
         communicationDetailLevel,
         communicationLanguageHint,
@@ -6170,7 +6137,6 @@ export async function POST(req: NextRequest) {
       lastUserText,
       audience,
       freeTalkTopicSuggestions,
-      praiseStyleVariant,
       forcedRepeatSentence,
       communicationDetailLevel,
       communicationLanguageHint,

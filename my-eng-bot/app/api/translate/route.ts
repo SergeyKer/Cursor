@@ -3,7 +3,6 @@ import type { AppMode, TenseId } from '@/lib/types'
 import { buildProxyFetchExtra } from '@/lib/proxyFetch'
 import { classifyOpenAiForbidden } from '@/lib/openAiForbidden'
 import { applyTranslationQualityGate, normalizeTranslationResult } from '@/lib/translationPostProcess'
-import { LIKE_LOVE_RU_TO_EN_TRANSLATOR_BLOCK } from '@/lib/likeLoveTutorPrompt'
 
 export const runtime = 'nodejs'
 
@@ -133,7 +132,6 @@ function buildSystemPromptRuToEn(params: {
       : 'Match register: informal Russian → natural informal English; formal or polite Russian → polite English.'
   return (
     'You are a professional translator from Russian to English. Translate into natural conversational English. Preserve meaning, tone, and intent. Avoid word-for-word calques when they would sound wrong in English. ' +
-    LIKE_LOVE_RU_TO_EN_TRANSLATOR_BLOCK +
     register + ' ' +
     learnerContext +
     'Reply only with the English translation, without explanations, quotes, or extra words.'
