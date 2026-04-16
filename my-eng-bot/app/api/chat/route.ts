@@ -89,6 +89,8 @@ import {
   shouldStripRepeatOnPraise,
 } from '@/lib/dialoguePraiseComment'
 import { buildMixedDialogueFallbackComment, buildMixedInputRepeatFallback } from '@/lib/mixedInputRepeatFallback'
+import { normalizeEnglishForLearnerAnswerMatch } from '@/lib/normalizeEnglishForLearnerAnswerMatch'
+import { answersMatchAllowingLikeLove } from '@/lib/translationLikeLoveContext'
 import {
   foldLatinHomoglyphsForEnglishMatch,
   normalizeEnglishForRepeatMatch,
@@ -3394,11 +3396,12 @@ function coerceAffirmativeEnglishAnchor(anchor: string, tense: string): string {
 function doesUserMatchAnyTranslationForm(params: {
   userText: string
   forms: { positive: string | null; question: string | null; negative: string | null }
+  translationRuPrompt?: string | null
 }): boolean {
-  const { userText, forms } = params
+  const { userText, forms, translationRuPrompt } = params
   return [forms.positive, forms.question, forms.negative]
     .filter((s): s is string => Boolean(s))
-    .some((candidate) => isTranslationAnswerEffectivelyCorrect(userText, candidate))
+    .some((candidate) => isTranslationAnswerEffectivelyCorrect(userText, candidate, translationRuPrompt))
 }
 
 function pickTranslationReferenceForm(params: {
@@ -3927,11 +3930,18 @@ function buildPromptAlignedRepeatSentenceByConcept(baseText: string, prompt: str
   return normalizeEnglishSentenceForCard(baseText.replace(sourcePattern, replacement))
 }
 
-function isTranslationAnswerEffectivelyCorrect(userText: string, repeatSentence: string): boolean {
-  const userNorm = normalizeEnglishForRepeatMatch(userText)
-  const repeatNorm = normalizeEnglishForRepeatMatch(repeatSentence)
+function isTranslationAnswerEffectivelyCorrect(
+  userText: string,
+  repeatSentence: string,
+  translationRuPrompt?: string | null
+): boolean {
+  const userNorm = normalizeEnglishForLearnerAnswerMatch(userText, 'translation')
+  const repeatNorm = normalizeEnglishForLearnerAnswerMatch(repeatSentence, 'translation')
   if (!userNorm || !repeatNorm) return false
-  return userNorm === repeatNorm
+  if (userNorm === repeatNorm) return true
+  const ru = translationRuPrompt?.trim()
+  if (!ru) return false
+  return answersMatchAllowingLikeLove(userText, repeatSentence, ru)
 }
 
 function forceTranslationWordErrorProtocol(
@@ -3980,8 +3990,9 @@ function replaceFalsePositiveTranslationErrorWithPraise(params: {
   userText: string
   /** Эталон с прошлой карточки (Скажи / __TRAN_REPEAT_REF__), если модель подставила другой текст в «Скажи:». */
   priorRepeatEnglish?: string | null
+  translationRuPrompt?: string | null
 }): string {
-  const { content, userText, priorRepeatEnglish } = params
+  const { content, userText, priorRepeatEnglish, translationRuPrompt } = params
   const lines = content.split(/\r?\n/)
   const commentIndex = lines.findIndex((line) => /^Комментарий(?:_ошибка)?\s*:/i.test(line.trim()))
   if (commentIndex === -1) return content
@@ -3993,11 +4004,11 @@ function replaceFalsePositiveTranslationErrorWithPraise(params: {
   const repeatSentence = getTranslationRepeatSentence(content)
   const matchesPrior =
     Boolean(priorRepeatEnglish?.trim()) &&
-    isTranslationAnswerEffectivelyCorrect(userText, priorRepeatEnglish!.trim())
+    isTranslationAnswerEffectivelyCorrect(userText, priorRepeatEnglish!.trim(), translationRuPrompt)
   const matchesModelRepeat =
     repeatSentence != null &&
     Boolean(repeatSentence.trim()) &&
-    isTranslationAnswerEffectivelyCorrect(userText, repeatSentence)
+    isTranslationAnswerEffectivelyCorrect(userText, repeatSentence, translationRuPrompt)
   if (!matchesPrior && !matchesModelRepeat) return content
 
   lines[commentIndex] = 'Комментарий: Отлично! Твой вариант тоже абсолютно верный.'
@@ -4008,16 +4019,17 @@ function forcePraiseIfRepeatMatchesUser(params: {
   content: string
   userText: string
   priorRepeatEnglish?: string | null
+  translationRuPrompt?: string | null
 }): string {
-  const { content, userText, priorRepeatEnglish } = params
+  const { content, userText, priorRepeatEnglish, translationRuPrompt } = params
   const repeatSentence = getTranslationRepeatSentence(content)
   const matchesPrior =
     Boolean(priorRepeatEnglish?.trim()) &&
-    isTranslationAnswerEffectivelyCorrect(userText, priorRepeatEnglish!.trim())
+    isTranslationAnswerEffectivelyCorrect(userText, priorRepeatEnglish!.trim(), translationRuPrompt)
   const matchesModelRepeat =
     repeatSentence != null &&
     Boolean(repeatSentence.trim()) &&
-    isTranslationAnswerEffectivelyCorrect(userText, repeatSentence)
+    isTranslationAnswerEffectivelyCorrect(userText, repeatSentence, translationRuPrompt)
   if (!matchesPrior && !matchesModelRepeat) return content
 
   const lines = content.split(/\r?\n/)
@@ -4080,8 +4092,8 @@ function isDialogueAnswerLikelyCorrect(userText: string, requiredTense: string):
 }
 
 function isDialogueAnswerEffectivelyCorrect(userText: string, repeatSentence: string, requiredTense: string): boolean {
-  const userNorm = normalizeEnglishForRepeatMatch(userText)
-  const repeatNorm = normalizeEnglishForRepeatMatch(repeatSentence)
+  const userNorm = normalizeEnglishForLearnerAnswerMatch(userText, 'dialogue')
+  const repeatNorm = normalizeEnglishForLearnerAnswerMatch(repeatSentence, 'dialogue')
   if (!userNorm || !repeatNorm) return false
   if (!isDialogueAnswerLikelyCorrect(userText, requiredTense)) return false
   // Считаем false-positive только почти точное совпадение с фразой, которую бот просил повторить.
@@ -4793,17 +4805,18 @@ function enrichTranslationCommentQuality(params: {
    * позиционное сравнение с чужим эталоном даёт противоречия (often vs usually и т.п.).
    */
   groundTruthRepeatEnglish?: string | null
+  translationRuPrompt?: string | null
 }): string {
-  const { content, userText, repeatSentence, tense, groundTruthRepeatEnglish } = params
+  const { content, userText, repeatSentence, tense, groundTruthRepeatEnglish, translationRuPrompt } = params
   if (!repeatSentence) return content
   if (isGenericTranslationRepeatFallback(repeatSentence)) return content
   // Если пользователь фактически повторил ту же фразу (с учётом нормализации),
   // не добавляем лексические "замены по позиции" вроде already -> made.
-  if (isTranslationAnswerEffectivelyCorrect(userText, repeatSentence)) {
+  if (isTranslationAnswerEffectivelyCorrect(userText, repeatSentence, translationRuPrompt)) {
     return content
   }
   if (groundTruthRepeatEnglish?.trim()) {
-    if (isTranslationAnswerEffectivelyCorrect(userText, groundTruthRepeatEnglish.trim())) {
+    if (isTranslationAnswerEffectivelyCorrect(userText, groundTruthRepeatEnglish.trim(), translationRuPrompt)) {
       return content
     }
   }
@@ -5213,8 +5226,8 @@ function extractRepeatSentencesFromAssistantHistory(messages: ChatMessage[]): st
 }
 
 function scoreUserRepeatOverlap(userText: string, candidate: string): number {
-  const u = normalizeEnglishForRepeatMatch(userText)
-  const c = normalizeEnglishForRepeatMatch(candidate)
+  const u = normalizeEnglishForLearnerAnswerMatch(userText, 'dialogue')
+  const c = normalizeEnglishForLearnerAnswerMatch(candidate, 'dialogue')
   if (!u || !c) return 0
   const uWords = u.split(/\s+/).filter((w) => w.length > 1)
   const cSet = new Set(c.split(/\s+/).filter((w) => w.length > 1))
@@ -5257,10 +5270,10 @@ function pickDialogueForcedRepeatAnchorFromHistory(
 
 /** Модель сократила «Скажи» до префикса эталона из истории — не подменяем на полную фразу. */
 function isDialogueRepeatLikelyTruncationOfAnchor(modelRepeat: string, anchor: string): boolean {
-  const mWords = normalizeEnglishForRepeatMatch(modelRepeat)
+  const mWords = normalizeEnglishForLearnerAnswerMatch(modelRepeat, 'dialogue')
     .split(/\s+/)
     .filter((w) => w.length > 1)
-  const aWords = normalizeEnglishForRepeatMatch(anchor)
+  const aWords = normalizeEnglishForLearnerAnswerMatch(anchor, 'dialogue')
     .split(/\s+/)
     .filter((w) => w.length > 1)
   if (mWords.length === 0 || aWords.length === 0 || mWords.length > aWords.length) return false
@@ -5719,7 +5732,11 @@ export async function POST(req: NextRequest) {
       const priorEn = extractPriorAssistantRepeatEnglish(nonSystemMessages)
       const activeRepeatChain =
         Boolean(priorEn?.trim() && lastUserText.trim()) &&
-        !isTranslationAnswerEffectivelyCorrect(lastUserText, priorEn!.trim())
+        !isTranslationAnswerEffectivelyCorrect(
+          lastUserText,
+          priorEn!.trim(),
+          ruForTranslationRepeatClamp ?? lastTranslationPrompt
+        )
       const linesOut = [
         buildTranslationRetryFallback({
           tense: tutorGradingTense,
@@ -6551,11 +6568,16 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         ? isUserLikelyCorrectForTense(translationReferenceForm, tutorGradingTense)
         : false
       const translationReferenceFormMatchesUser = translationReferenceForm
-        ? isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, translationReferenceForm)
+        ? isTranslationAnswerEffectivelyCorrect(
+            lastUserContentForResponse,
+            translationReferenceForm,
+            translationPromptText
+          )
         : false
       const userMatchesAnyProvidedForm = doesUserMatchAnyTranslationForm({
         userText: lastUserContentForResponse,
         forms: translationFormLines,
+        translationRuPrompt: translationPromptText,
       })
       const translationReferencePromptMismatch =
         Boolean(translationPromptText) &&
@@ -6609,7 +6631,11 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       }
       if (
         priorAssistantRepeatEnglish &&
-        !isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, priorAssistantRepeatEnglish)
+        !isTranslationAnswerEffectivelyCorrect(
+          lastUserContentForResponse,
+          priorAssistantRepeatEnglish,
+          translationPromptText
+        )
       ) {
         canTreatTranslationAsSuccess = false
       }
@@ -6711,13 +6737,18 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             !translationGoldVerdictFailed &&
             canTreatTranslationAsSuccess &&
             repeatSentence &&
-            isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, repeatSentence)
+            isTranslationAnswerEffectivelyCorrect(
+              lastUserContentForResponse,
+              repeatSentence,
+              translationPromptText
+            )
           ) {
             // Fast-path: модель фактически попросила пользователя повторить его же ответ — значит, ответ корректный.
             sanitized = forcePraiseIfRepeatMatchesUser({
               content: sanitized,
               userText: lastUserContentForResponse,
               priorRepeatEnglish: priorAssistantRepeatEnglish,
+              translationRuPrompt: translationPromptText,
             })
           } else {
             sanitized = enrichTranslationCommentQuality({
@@ -6726,12 +6757,14 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               repeatSentence,
               tense: tutorGradingTense,
               groundTruthRepeatEnglish: priorAssistantRepeatEnglish,
+              translationRuPrompt: translationPromptText,
             })
             if (!translationGoldVerdictFailed) {
               sanitized = replaceFalsePositiveTranslationErrorWithPraise({
                 content: sanitized,
                 userText: lastUserContentForResponse,
                 priorRepeatEnglish: priorAssistantRepeatEnglish,
+                translationRuPrompt: translationPromptText,
               })
             }
             sanitized = keepOnlyCommentAndRepeatOnInvalidTranslationInput(sanitized, true)
@@ -6755,7 +6788,8 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               Boolean(existingRepeatForGoldCheck?.trim()) &&
               isTranslationAnswerEffectivelyCorrect(
                 existingRepeatForGoldCheck ?? '',
-                repeatAnchorForError
+                repeatAnchorForError,
+                translationPromptText
               )
             if (repeatAnchorForError && !canTreatTranslationAsSuccess && !repeatAlreadyMatchesGold) {
               sanitized = forceTranslationWordErrorProtocol(
@@ -6915,11 +6949,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 repeatSentence: repairedRepeatSentence,
                 tense: tutorGradingTense,
                 groundTruthRepeatEnglish: priorAssistantRepeatEnglish,
+                translationRuPrompt: translationPromptTextForTurn,
               })
               repaired = replaceFalsePositiveTranslationErrorWithPraise({
                 content: repaired,
                 userText: lastUserContentForResponse,
                 priorRepeatEnglish: priorAssistantRepeatEnglish,
+                translationRuPrompt: translationPromptTextForTurn,
               })
               repaired = keepOnlyCommentAndRepeatOnInvalidTranslationInput(repaired, true)
               if (isUnrecognizedTranslationContext(repaired)) {
@@ -7039,6 +7075,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                     repeatSentence: repeatSentence2,
                     tense: tutorGradingTense,
                     groundTruthRepeatEnglish: priorAssistantRepeatEnglish,
+                    translationRuPrompt: translationPromptTextForTurn,
                   })
                   repaired = keepOnlyCommentAndRepeatOnInvalidTranslationInput(repaired, true)
                   if (isUnrecognizedTranslationContext(repaired)) {
@@ -7448,11 +7485,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 repeatSentence,
                 tense: tutorGradingTense,
                 groundTruthRepeatEnglish: priorAssistantRepeatEnglish,
+                translationRuPrompt: translationPromptTextForTurn,
               })
               repaired = replaceFalsePositiveTranslationErrorWithPraise({
                 content: repaired,
                 userText: lastUserContentForResponse,
                 priorRepeatEnglish: priorAssistantRepeatEnglish,
+                translationRuPrompt: translationPromptTextForTurn,
               })
               repaired = keepOnlyCommentAndRepeatOnInvalidTranslationInput(repaired, true)
               if (isUnrecognizedTranslationContext(repaired)) {

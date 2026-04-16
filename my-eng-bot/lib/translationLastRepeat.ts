@@ -1,4 +1,4 @@
-import { normalizeEnglishForRepeatMatch } from '@/lib/normalizeEnglishForRepeatMatch'
+import { normalizeEnglishForLearnerAnswerMatch } from '@/lib/normalizeEnglishForLearnerAnswerMatch'
 import { extractPromptKeywords } from '@/lib/translationRepeatClamp'
 import { stripLeadingRepeatRuPrompt } from '@/lib/translationProtocolLines'
 import {
@@ -13,7 +13,7 @@ function isRepeatCuePlausibleForRuPrompt(ruPrompt: string | null, englishCue: st
   const promptKeywords = extractPromptKeywords(ruPrompt)
   if (promptKeywords.length === 0) return true
   const enWords = new Set(
-    normalizeEnglishForRepeatMatch(englishCue)
+    normalizeEnglishForLearnerAnswerMatch(englishCue, 'translation')
       .split(/\s+/)
       .filter((w) => w.length > 1)
   )
@@ -21,8 +21,8 @@ function isRepeatCuePlausibleForRuPrompt(ruPrompt: string | null, englishCue: st
 }
 
 function repeatTextMatchesCue(userText: string, cue: string): boolean {
-  const u = normalizeEnglishForRepeatMatch(userText)
-  const c = normalizeEnglishForRepeatMatch(cue)
+  const u = normalizeEnglishForLearnerAnswerMatch(userText, 'translation')
+  const c = normalizeEnglishForLearnerAnswerMatch(cue, 'translation')
   return Boolean(u && c && u === c)
 }
 

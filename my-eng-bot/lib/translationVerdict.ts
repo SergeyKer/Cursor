@@ -1,5 +1,5 @@
-import { normalizeEnglishLearnerContractions } from '@/lib/englishLearnerContractions'
-import { normalizeEnglishForRepeatMatch } from '@/lib/normalizeEnglishForRepeatMatch'
+import { normalizeEnglishForLearnerAnswerMatch } from '@/lib/normalizeEnglishForLearnerAnswerMatch'
+import { allowsLikeLoveEquivalence, likeLoveUserCandidates } from '@/lib/translationLikeLoveContext'
 import { getClampedHiddenAndVisibleGold } from '@/lib/translationPromptAndRef'
 import { extractPromptKeywords } from '@/lib/translationRepeatClamp'
 
@@ -9,9 +9,7 @@ export type TranslationGoldVerdict = {
 }
 
 function normalizeForVerdictComparison(text: string): string {
-  const compact = text.replace(/\s+/g, ' ').trim()
-  if (!compact) return ''
-  return normalizeEnglishForRepeatMatch(normalizeEnglishLearnerContractions(compact))
+  return normalizeEnglishForLearnerAnswerMatch(text, 'translation')
 }
 
 function tokenizeForVerdictPrefixCheck(text: string): string[] {
@@ -113,30 +111,10 @@ function hasLikelyGibberishToken(text: string): boolean {
 
 const CYRILLIC_RE = /[\u0400-\u04FF]/
 
-/** RU или EN намёк на питомца — оба варианта like/love допустимы (как в likeLoveTutorPrompt). */
-function isPetLikeLoveContext(ruPrompt: string, goldEnglish: string): boolean {
-  const ru = ruPrompt.trim()
-  const g = goldEnglish.trim()
-  if (/собак|кошк|кот[а-яё]*|пёс|пес|щенк|щенят|котён|котен/i.test(ru)) return true
-  if (/\b(my|your|her|his|our|their)\s+(dog|cat|puppy|kitten|pet)s?\b/i.test(g)) return true
-  return false
-}
-
-function petLikeLoveUserCandidates(user: string): string[] {
-  const seen = new Set<string>()
-  const add = (s: string) => {
-    const t = s.trim()
-    if (t) seen.add(t)
-  }
-  add(user)
-  if (/\blove\b/i.test(user)) add(user.replace(/\blove\b/gi, 'like'))
-  if (/\blike\b/i.test(user)) add(user.replace(/\blike\b/gi, 'love'))
-  return [...seen]
-}
-
 /**
  * Строгий вердикт: ответ засчитывается только если совпадает с эталоном после узкой нормализации
- * (сокращения + регистр + пунктуация + compound words), либо в контексте питомца — пара like/love.
+ * (сокращения + регистр + пунктуация + compound words), либо like/love в контексте семьи/близких
+ * или при питомце с явной эмоцией в RU (`translationLikeLoveContext`).
  */
 export function computeTranslationGoldVerdict(params: {
   userText: string
@@ -196,8 +174,8 @@ export function computeTranslationGoldVerdict(params: {
     return { ok: false, reasons: ['answer_incomplete'] }
   }
 
-  if (isPetLikeLoveContext(ruPrompt, goldTrim)) {
-    for (const cand of petLikeLoveUserCandidates(userTrim)) {
+  if (allowsLikeLoveEquivalence(ruPrompt, goldTrim)) {
+    for (const cand of likeLoveUserCandidates(userTrim)) {
       if (normalizeForVerdictComparison(cand) === goldNorm) {
         return { ok: true, reasons: [] }
       }

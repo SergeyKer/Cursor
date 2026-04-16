@@ -65,7 +65,38 @@ describe('computeTranslationGoldVerdict', () => {
     ).toEqual({ ok: true, reasons: [] })
   })
 
-  it('allows like vs love for pet context', () => {
+  it('accepts I am vs I’m for same gold', () => {
+    const ru = 'Я студент.'
+    const gold = 'I am a student.'
+    expect(
+      computeTranslationGoldVerdict({
+        userText: "I'm a student.",
+        goldEnglish: gold,
+        ruPrompt: ru,
+      })
+    ).toEqual({ ok: true, reasons: [] })
+    expect(
+      computeTranslationGoldVerdict({
+        userText: 'I am a student.',
+        goldEnglish: "I'm a student.",
+        ruPrompt: ru,
+      })
+    ).toEqual({ ok: true, reasons: [] })
+  })
+
+  it('accepts like to cook vs like cooking (gerund / infinitive)', () => {
+    const ruCook = 'Я люблю готовить.'
+    const gold = 'I like cooking.'
+    expect(
+      computeTranslationGoldVerdict({
+        userText: 'I like to cook.',
+        goldEnglish: gold,
+        ruPrompt: ruCook,
+      })
+    ).toEqual({ ok: true, reasons: [] })
+  })
+
+  it('allows like vs love for pet when RU has narrow affection (люблю/обожаю)', () => {
     const ruPet = 'Я люблю свою собаку.'
     const gold = 'I like my dog.'
     expect(
@@ -73,6 +104,26 @@ describe('computeTranslationGoldVerdict', () => {
         userText: 'I love my dog.',
         goldEnglish: gold,
         ruPrompt: ruPet,
+      })
+    ).toEqual({ ok: true, reasons: [] })
+  })
+
+  it('rejects love vs like for pet when RU is neutral about affection', () => {
+    const v = computeTranslationGoldVerdict({
+      userText: 'I love my dog.',
+      goldEnglish: 'I like my dog.',
+      ruPrompt: 'У меня есть собака.',
+    })
+    expect(v.ok).toBe(false)
+    expect(v.reasons).toContain('gold_mismatch')
+  })
+
+  it('allows love vs like in family / close people context', () => {
+    expect(
+      computeTranslationGoldVerdict({
+        userText: 'I love my mom.',
+        goldEnglish: 'I like my mom.',
+        ruPrompt: 'Я люблю маму.',
       })
     ).toEqual({ ok: true, reasons: [] })
   })
