@@ -167,6 +167,7 @@ import {
   extractLastTranslationPromptFromMessages,
   extractRussianTranslationTaskFromAssistantContent,
   getAssistantContentBeforeLastUser,
+  reconcileTranslationSayWithHiddenRef,
   TRAN_CANONICAL_REPEAT_REF_MARKER,
 } from '@/lib/translationPromptAndRef'
 import {
@@ -3209,7 +3210,7 @@ function isLowSignalDialogueInput(text: string): boolean {
   return false
 }
 
-function ensureTranslationProtocolBlocks(
+export function ensureTranslationProtocolBlocks(
   content: string,
   params: {
     tense: string
@@ -3219,6 +3220,8 @@ function ensureTranslationProtocolBlocks(
     fallbackPrompt: string | null
     /** Для серверного фолбэка «Комментарий_перевод:» при пустой поддержке модели. */
     userAnswerForSupportFallback?: string | null
+    /** Если модель не вывела «Скажи:», подставить эталон (gold / prior ref). */
+    repeatEnglishFallback?: string | null
   }
 ): string {
   const { tense } = params
@@ -3307,8 +3310,11 @@ function ensureTranslationProtocolBlocks(
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Скажи\s*:/i.test(line)) {
       const raw = line.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Скажи\s*:\s*/i, '').trim()
       const body = stripLeadingRepeatRuPrompt(raw)
-      repeatRu = body ? `Скажи: ${body}` : null
-      continue
+      if (body) {
+        repeatRu = `Скажи: ${body}`
+        continue
+      }
+      // Иначе — как общий случай (Скажи|Say): не терять строку, если тело не распарсилось.
     }
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(line)) {
       repeat = line.replace(
@@ -3365,6 +3371,9 @@ function ensureTranslationProtocolBlocks(
       const raw = say.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(?:Скажи|Say)\s*:\s*/i, '').trim()
       const body = stripLeadingRepeatRuPrompt(raw).trim()
       repeatEnForSupport = body || null
+    } else if (params.repeatEnglishFallback?.trim()) {
+      const body = stripLeadingRepeatRuPrompt(params.repeatEnglishFallback.trim()).trim()
+      repeatEnForSupport = body || null
     }
     const userTrim = params.userAnswerForSupportFallback?.trim() ?? ''
     if (userTrim && repeatEnForSupport) {
@@ -3413,7 +3422,13 @@ function ensureTranslationProtocolBlocks(
     const en = normalizeRepeatSentenceEnding(stripLeadingRepeatRuPrompt(repeatBody))
     if (en) repeatRu = `Скажи: ${en}`
   }
-  const sayLine = repeatRu ?? repeat
+  let sayLine = repeatRu ?? repeat
+  if (needsErrorProtocol && !String(sayLine ?? '').trim() && params.repeatEnglishFallback?.trim()) {
+    const fb = normalizeRepeatSentenceEnding(stripLeadingRepeatRuPrompt(params.repeatEnglishFallback.trim()))
+    if (fb) {
+      sayLine = `Скажи: ${fb}`
+    }
+  }
   if (sayLine) out.push(sayLine)
   return out.join('\n').trim()
 }
@@ -4071,21 +4086,9 @@ async function finalizeTranslationResponsePayload(params: {
     lastTranslationPrompt?.trim() ||
     (hasExplicitTranslatePromptInGuarded ? ruFromGuardedContent?.trim() : null) ||
     null
-  if (ruForRefCard && !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
-    guardedContent = appendTranslationCanonicalRepeatRefLine(guardedContent, ruForRefCard)
-  }
-  if (
-    isTranslationSinglePassGoldEnabled() &&
-    ruForRefCard?.trim() &&
-    !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)
-  ) {
-    const beforeCue = guardedContent
-    guardedContent = appendHiddenRefFromVisibleCue(guardedContent, ruForRefCard)
-    if (guardedContent !== beforeCue) {
-      console.info('[chat][translation-gold] ref_from_content_cue')
-    }
-  }
-  if (ruForRefCard?.trim() && !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
+  const hasTranRepeatMarker = () => guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)
+  /** Сначала API-золото, чтобы плохое видимое «Скажи» не записало маркер и не отрезало fallback. */
+  if (ruForRefCard?.trim() && !hasTranRepeatMarker() && isTranslationGoldApiFallbackEnabled()) {
     console.info('[chat][translation-gold] ref_api_fallback')
     const goldFromApi = params.resolveGoldTranslation
       ? await params.resolveGoldTranslation({
@@ -4105,7 +4108,21 @@ async function finalizeTranslationResponsePayload(params: {
       guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${clamped}`
     }
   }
-  if (ruForRefCard?.trim() && !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
+  if (
+    isTranslationSinglePassGoldEnabled() &&
+    ruForRefCard?.trim() &&
+    !hasTranRepeatMarker()
+  ) {
+    const beforeCue = guardedContent
+    guardedContent = appendHiddenRefFromVisibleCue(guardedContent, ruForRefCard)
+    if (guardedContent !== beforeCue) {
+      console.info('[chat][translation-gold] ref_from_content_cue')
+    }
+  }
+  if (ruForRefCard && !hasTranRepeatMarker()) {
+    guardedContent = appendTranslationCanonicalRepeatRefLine(guardedContent, ruForRefCard)
+  }
+  if (ruForRefCard?.trim() && !hasTranRepeatMarker()) {
     const fromSay = getTranslationRepeatSentence(guardedContent)
     if (fromSay?.trim() && !hasTranslationPromptKeywordMismatch(ruForRefCard, fromSay)) {
       const { clamped } = clampTranslationRepeatToRuPrompt(fromSay.trim(), ruForRefCard)
@@ -4116,7 +4133,7 @@ async function finalizeTranslationResponsePayload(params: {
       }
     }
   }
-  if (ruForRefCard?.trim() && !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
+  if (ruForRefCard?.trim() && !hasTranRepeatMarker()) {
     const cue = extractEnglishSentenceCandidate(guardedContent)
     if (cue?.trim() && !hasTranslationPromptKeywordMismatch(ruForRefCard, cue)) {
       const { clamped } = clampTranslationRepeatToRuPrompt(cue.trim(), ruForRefCard)
@@ -4127,10 +4144,11 @@ async function finalizeTranslationResponsePayload(params: {
       }
     }
   }
-  if (ruForRefCard?.trim() && !guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)) {
+  if (ruForRefCard?.trim() && !hasTranRepeatMarker()) {
     console.error('[chat][translation-gold] ref_invariant_failed', { ru: ruForRefCard.slice(0, 80) })
   }
   guardedContent = ensureErrorProtocolHasSayFromCanonicalRef(guardedContent)
+  guardedContent = reconcileTranslationSayWithHiddenRef(guardedContent, ruForRefCard)
   return guardedContent
 }
 
@@ -6899,25 +6917,43 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             })
             sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
             translationSuccessFlow = true
+          } else if (
+            canTreatTranslationAsSuccess &&
+            !translationGoldVerdictFailed &&
+            translationGoldForVerdict?.trim()
+          ) {
+            // Золотой вердикт ок, но карточка модели в форме «ошибки» — всё равно успех и «Переведи далее».
+            sanitized = ensureTranslationSuccessBlocks(sanitized, {
+              tense: tutorGradingTense,
+              topic,
+              level: translationDrillLevel,
+              audience,
+              fallbackPrompt: lastTranslationPrompt,
+              userText: lastUserContentForResponse,
+              sentenceType: translationDrillSentenceType,
+            })
+            sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
+            translationSuccessFlow = true
           } else {
-          sanitized = ensureTranslationProtocolBlocks(sanitized, {
-            tense: tutorGradingTense,
-            topic,
-            level: translationDrillLevel,
-            audience,
-            fallbackPrompt: lastTranslationPrompt,
-            userAnswerForSupportFallback: lastUserContentForResponse,
-          })
-          if (translationWordMismatch && translationReferenceForm && translationGoldVerdictFailed) {
-            sanitized = forceTranslationWordErrorProtocol(
-              sanitized,
-              translationReferenceForm,
-              lastUserContentForResponse,
-              translationPreservedPerevodBody,
-              audience
-            )
-          }
-          let repeatSentence = getTranslationRepeatSentence(sanitized)
+            sanitized = ensureTranslationProtocolBlocks(sanitized, {
+              tense: tutorGradingTense,
+              topic,
+              level: translationDrillLevel,
+              audience,
+              fallbackPrompt: lastTranslationPrompt,
+              userAnswerForSupportFallback: lastUserContentForResponse,
+              repeatEnglishFallback: translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
+            })
+            if (translationWordMismatch && translationReferenceForm && translationGoldVerdictFailed) {
+              sanitized = forceTranslationWordErrorProtocol(
+                sanitized,
+                translationReferenceForm,
+                lastUserContentForResponse,
+                translationPreservedPerevodBody,
+                audience
+              )
+            }
+            let repeatSentence = getTranslationRepeatSentence(sanitized)
           if (repeatSentence && translationPromptText && hasTranslationPromptKeywordMismatch(translationPromptText, repeatSentence)) {
             const promptAlignedRepeatFromRepeat =
               buildPromptAlignedRepeatSentence(repeatSentence, translationPromptText) ??
@@ -7130,6 +7166,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 audience,
                 fallbackPrompt: lastTranslationPrompt,
                 userAnswerForSupportFallback: lastUserContentForResponse,
+                repeatEnglishFallback: translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
               })
               repaired = applyTranslationRepeatSourceClampToContent(repaired, lastTranslationPrompt)
 
@@ -7254,6 +7291,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                     audience,
                     fallbackPrompt: lastTranslationPrompt,
                     userAnswerForSupportFallback: lastUserContentForResponse,
+                    repeatEnglishFallback: translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
                   })
                   repaired = applyTranslationRepeatSourceClampToContent(repaired, lastTranslationPrompt)
                   const repeatSentence2 = getTranslationRepeatSentence(repaired)
@@ -7663,6 +7701,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 audience,
                 fallbackPrompt: lastTranslationPrompt,
                 userAnswerForSupportFallback: lastUserContentForResponse,
+                repeatEnglishFallback: translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
               })
               const repeatSentence = getTranslationRepeatSentence(repaired)
               repaired = enrichTranslationCommentQuality({

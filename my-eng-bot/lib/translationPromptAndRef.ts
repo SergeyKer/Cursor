@@ -1,6 +1,11 @@
 import { stripWrappingQuotesFromDrillRussianLine } from '@/lib/extractSingleTranslationNextSentence'
 import { normalizeEnglishForRepeatMatch } from '@/lib/normalizeEnglishForRepeatMatch'
-import { clampTranslationRepeatToRuPrompt, extractPromptKeywords } from '@/lib/translationRepeatClamp'
+import {
+  clampTranslationRepeatToRuPrompt,
+  extractPromptKeywords,
+  normalizeRepeatSentenceEnding,
+  replaceTranslationRepeatInContent,
+} from '@/lib/translationRepeatClamp'
 
 /** Скрытый эталон «Скажи» для сервера; в UI не показывается (см. stripTranslationCanonicalRepeatRefLine). */
 export const TRAN_CANONICAL_REPEAT_REF_MARKER = '__TRAN_REPEAT_REF__'
@@ -137,7 +142,7 @@ function isRepeatCuePlausibleForRuPromptLocal(ruPrompt: string | null, englishCu
   return promptKeywords.some((kw) => enWords.has(kw.toLowerCase()))
 }
 
-function extractVisibleRepeatCueEnglishFromAssistantCard(content: string): string | null {
+export function extractVisibleRepeatCueEnglishFromAssistantCard(content: string): string | null {
   const lineRe = /^[\s\-•]*(?:\d+[\.)]\s*)*(?:Скажи|Say)\s*:\s*(.+)$/i
   for (const line of content.split(/\r?\n/)) {
     const trimmed = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
@@ -210,4 +215,54 @@ export function stripTranslationCanonicalRepeatRefLine(content: string): string 
     .replace(new RegExp(`(?:\\r?\\n|^)\\s*${TRAN_CANONICAL_REPEAT_REF_MARKER}\\s*:.*$`, 'gim'), '')
     .replace(/\s+$/, '')
     .trim()
+}
+
+/** Карточка с протоколом ошибки перевода (есть что показать ученику и чем сверять повтор). */
+export function isTranslationErrorProtocolForSayReconcile(content: string): boolean {
+  const t = content.trim()
+  if (!t) return false
+  if (/(^|\n)\s*Ошибки\s*:/im.test(t)) return true
+  if (/(^|\n)\s*Комментарий_перевод\s*:/im.test(t)) return true
+  if (/(^|\n)\s*(?:Скажи|Say)\s*:/im.test(t)) return true
+  return false
+}
+
+/** Одна финальная строка скрытого эталона (без дублей маркера). */
+export function replaceTranslationCanonicalRepeatRefInContent(content: string, authoritativeEnglish: string): string {
+  const core = normalizeRepeatSentenceEnding(authoritativeEnglish.trim())
+  if (!core) return content
+  const stripped = stripTranslationCanonicalRepeatRefLine(content)
+  return `${stripped.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${core}`.trim()
+}
+
+/**
+ * Выравнивает видимое «Скажи:» со скрытым `__TRAN_REPEAT_REF__`, если после клампа к RU они расходятся.
+ * Авторитет — скрытый ref (API/инструкция модели); видимое не должно копировать черновик ученика.
+ */
+export function reconcileTranslationSayWithHiddenRef(content: string, ruPrompt: string | null): string {
+  const ru = ruPrompt?.trim() ?? ''
+  if (!ru) return content
+  if (!extractCanonicalRepeatRefEnglishFromContent(content)) return content
+  if (!isTranslationErrorProtocolForSayReconcile(content)) return content
+
+  const { hidden } = getClampedHiddenAndVisibleGold(content, ru)
+  const hiddenTrim = hidden?.trim()
+  if (!hiddenTrim) return content
+
+  const rawVisible = extractVisibleRepeatCueEnglishFromAssistantCard(content)
+  let visibleBody: string | null = null
+  if (rawVisible?.trim()) {
+    const { clamped } = clampTranslationRepeatToRuPrompt(rawVisible.trim(), ru)
+    visibleBody = (clamped?.trim() || rawVisible.trim()) || null
+  }
+
+  const auth = normalizeRepeatSentenceEnding(hiddenTrim)
+  if (!auth) return content
+
+  if (visibleBody && normalizeEnglishForRepeatMatch(visibleBody) === normalizeEnglishForRepeatMatch(auth)) {
+    return content
+  }
+
+  const out = replaceTranslationRepeatInContent(content, auth)
+  return replaceTranslationCanonicalRepeatRefInContent(out, auth)
 }
