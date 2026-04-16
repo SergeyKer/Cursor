@@ -325,4 +325,88 @@ describe('POST /api/chat translation provider payload', () => {
     expect(data.content).not.toMatch(/(?:^|\n)\s*Скажи\s*:/im)
   })
 
+  describe('translation low-signal gibberish (early return)', () => {
+    it('returns Комментарий + Переведи + prompt on first user turn', async () => {
+      const req = makeRequest({
+        mode: 'translation',
+        audience: 'adult',
+        level: 'a2',
+        tenses: ['present_simple'],
+        sentenceType: 'affirmative',
+        messages: [
+          {
+            role: 'assistant',
+            content: 'Переведи: У тебя есть сестра.\nПереведи на английский язык.\n__TRAN_REPEAT_REF__: Do you have a sister?',
+          },
+          { role: 'user', content: 'лпшп' },
+        ],
+      })
+
+      const res = await POST(req as never)
+      expect(res.status).toBe(200)
+      expect(callProviderChatMock).not.toHaveBeenCalled()
+      const data = (await res.json()) as { content: string }
+      expect(data.content).toMatch(/Комментарий\s*:/i)
+      expect(data.content).toMatch(/Переведи:\s*У тебя есть сестра/)
+      expect(data.content).toContain('Переведи на английский язык.')
+      expect(data.content).not.toMatch(/Переведи далее:\s*У тебя есть сестра/)
+    })
+
+    it('returns Комментарий + Переведи далее + prompt after first completed drill', async () => {
+      const req = makeRequest({
+        mode: 'translation',
+        audience: 'adult',
+        level: 'a2',
+        tenses: ['present_simple'],
+        sentenceType: 'affirmative',
+        messages: [
+          {
+            role: 'assistant',
+            content:
+              'Переведи: Я люблю яблоки.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I like apples.',
+          },
+          { role: 'user', content: 'I like apples.' },
+          {
+            role: 'assistant',
+            content:
+              'Комментарий: Отлично!\nПереведи далее: У меня есть хорошие друзья.\nПереведи на английский язык.\n__TRAN_REPEAT_REF__: I have good friends.',
+          },
+          { role: 'user', content: 'лпшп' },
+        ],
+      })
+
+      const res = await POST(req as never)
+      expect(res.status).toBe(200)
+      expect(callProviderChatMock).not.toHaveBeenCalled()
+      const data = (await res.json()) as { content: string }
+      expect(data.content).toMatch(/Комментарий\s*:/i)
+      expect(data.content).toMatch(/Переведи далее:\s*У меня есть хорошие друзья/)
+      expect(data.content).toContain('Переведи на английский язык.')
+      expect(data.content).not.toMatch(/Переведи:\s*У меня есть хорошие друзья/)
+    })
+
+    it('appends Скажи repeat when prior __TRAN__ exists and input is low-signal', async () => {
+      const req = makeRequest({
+        mode: 'translation',
+        audience: 'adult',
+        level: 'a2',
+        tenses: ['present_simple'],
+        sentenceType: 'affirmative',
+        messages: [
+          {
+            role: 'assistant',
+            content: 'Переведи: У тебя есть сестра.\nПереведи на английский язык.\n__TRAN_REPEAT_REF__: Do you have a sister?',
+          },
+          { role: 'user', content: 'лпшп' },
+        ],
+      })
+
+      const res = await POST(req as never)
+      const data = (await res.json()) as { content: string }
+      const sayLines = data.content.split(/\r?\n/).filter((line) => /^Скажи\s*:/i.test(line))
+      expect(sayLines.length).toBeGreaterThanOrEqual(1)
+      expect(sayLines[0]?.toLowerCase()).toContain('sister')
+    })
+  })
+
 })

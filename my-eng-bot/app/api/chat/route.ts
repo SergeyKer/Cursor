@@ -5792,11 +5792,25 @@ export async function POST(req: NextRequest) {
           priorEn!.trim(),
           ruForTranslationRepeatClamp ?? lastTranslationPrompt
         )
+      const ruPromptRaw = (ruForTranslationRepeatClamp ?? lastTranslationPrompt)?.trim() ?? ''
+      const ruPromptBody = ruPromptRaw
+        ? normalizeDrillRuSentenceForSentenceType(ruPromptRaw, translationDrillSentenceType)
+        : fallbackTranslationSentenceForContext({
+            topic,
+            tense: tutorGradingTense,
+            level: translationDrillLevel,
+            audience,
+            seedText: `${lastUserText}|low-signal`,
+            sentenceType: translationDrillSentenceType,
+          })
+      const inviteHead = isFirstTranslationUserTurn ? 'Переведи' : 'Переведи далее'
       const linesOut = [
         buildTranslationRetryFallback({
           tense: tutorGradingTense,
           includeRepeat: !isFirstTranslationUserTurn,
         }).trim(),
+        `${inviteHead}: ${ruPromptBody}`,
+        'Переведи на английский язык.',
       ]
       if (activeRepeatChain && priorEn?.trim()) {
         const en = normalizeRepeatSentenceEnding(priorEn.trim())
