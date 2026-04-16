@@ -13,12 +13,15 @@ export function stripLeadingBulbEmojisForPrefixedCard(text: string): string {
     .trim()
 }
 
-/** Аналогично для карточки с меткой «✅» (успех в переводе). */
+/** Маркеры протокола коррекции — в теле похвалы не нужны (остаётся только метка «✅» карточки). */
+const PRAISE_CARD_STRIP_EMOJI_RE = /✅|🔤|💡|📖|✏️|🤔|⏱️/gu
+
+/** Аналогично для карточки с меткой «✅» (успех в переводе): убираем дубли ✅ и прочие служебные эмодзи из тела. */
 export function stripCheckEmojisForPrefixedCard(text: string): string {
   if (!text?.trim()) return text
   return text
     .split(/\r?\n/)
-    .map((line) => line.replace(/✅/gu, '').replace(/\s+/g, ' ').trim())
+    .map((line) => line.replace(PRAISE_CARD_STRIP_EMOJI_RE, '').replace(/\s+/g, ' ').trim())
     .filter((line) => line.length > 0)
     .join('\n')
     .trim()

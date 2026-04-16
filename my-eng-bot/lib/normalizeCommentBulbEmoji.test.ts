@@ -22,6 +22,12 @@ describe('stripCheckEmojisForPrefixedCard', () => {
     expect(stripCheckEmojisForPrefixedCard('✅ Отлично!')).toBe('Отлично!')
     expect(stripCheckEmojisForPrefixedCard('Строка\n✅ ещё')).toBe('Строка\nещё')
   })
+
+  it('убирает протокольные маркеры (🔤 и т.п.) — в похвале остаётся только галка в метке UI', () => {
+    expect(stripCheckEmojisForPrefixedCard('Отлично! 🔤 Ты правильно использовал Present Simple.')).toBe(
+      'Отлично! Ты правильно использовал Present Simple.'
+    )
+  })
 })
 
 describe('normalizeBulbOnlyAtStart', () => {
