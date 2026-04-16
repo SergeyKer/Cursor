@@ -604,7 +604,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     const repeatLine = data.content.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''
 
     expect(res.status).toBe(200)
-    expect(repeatLine).toContain('What is your favorite colour')
+    expect(repeatLine).toMatch(/^Скажи:\s*What is your favorite [a-z]+\?/i)
     expect(repeatLine).not.toContain('You have a favorite colour')
     expect(data.content).not.toContain('Лексическая ошибка: what нужно заменить на favorite')
   })

@@ -6680,7 +6680,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               audience,
               fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
               userAnswerForSupportFallback: lastUserContentForResponse,
-              repeatEnglishFallback: translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
+              repeatEnglishFallback: priorAssistantRepeatEnglish?.trim() || translationGoldForVerdict?.trim() || null,
             })
             if (translationWordMismatch && translationReferenceForm && translationGoldVerdictFailed) {
               sanitized = forceTranslationWordErrorProtocol(
