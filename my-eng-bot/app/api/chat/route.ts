@@ -151,7 +151,10 @@ import {
   extractTranslationConceptIdsFromPrompt,
   TRANSLATION_CONCEPTS,
 } from '@/lib/translationPromptConcepts'
-import { extractPriorAssistantRepeatEnglish } from '@/lib/translationLastRepeat'
+import {
+  extractPriorAssistantRepeatEnglish,
+  userMatchesPriorAssistantRepeatOrVisibleSay,
+} from '@/lib/translationLastRepeat'
 import { translateRussianPromptToGoldEnglish } from '@/lib/translationGoldEnglish'
 import {
   appendHiddenRefFromVisibleCue,
@@ -167,6 +170,7 @@ import {
   extractLastTranslationPromptFromMessages,
   extractRussianTranslationTaskFromAssistantContent,
   getAssistantContentBeforeLastUser,
+  pickAuthoritativeRuPromptForTranslationClamp,
   reconcileTranslationSayWithHiddenRef,
   TRAN_CANONICAL_REPEAT_REF_MARKER,
 } from '@/lib/translationPromptAndRef'
@@ -188,6 +192,7 @@ import { sanitizeRepeatMetaInstructionInContent } from '@/lib/repeatMetaInstruct
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
 // чтобы undici + proxy dispatcher работали предсказуемо (а не в Edge).
 export const runtime = 'nodejs'
+
 /** Максимум сообщений в контексте (user+assistant). 20 = десять последних обменов. */
 const MAX_MESSAGES_IN_CONTEXT = 20
 /** В режиме перевода в провайдер отправляем только ближайший контекст пары. */
@@ -3684,17 +3689,19 @@ function isTranslationSuccessContent(content: string): boolean {
     .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
     .filter(Boolean)
   if (lines.length === 0) return false
-  const hasRepeat = lines.some((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(line))
   const commentLine =
     lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:/i.test(line)) ?? ''
   const commentBody = commentLine
     .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:\s*/i, '')
     .trim()
   const looksPraise = /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)(?:[\s!,.?:;"'»)]|$)/i.test(commentBody)
+  // Не передаём «фиктивный» repeat из-за строки «Скажи:»: hasTranslationErrorProtocolFields
+  // трактует любой repeat как ERROR и ломает позднюю санитизацию SUCCESS.
   return hasTranslationSuccessProtocolFields({
     comment: commentBody,
     commentIsPraise: commentBody ? looksPraise : undefined,
-    repeat: hasRepeat ? 'Скажи:' : null,
+    repeat: null,
+    repeatRu: null,
   })
 }
 
@@ -5741,6 +5748,19 @@ export async function POST(req: NextRequest) {
         : recentMessagesForProviderBase
     const lastTranslationPrompt =
       mode === 'translation' ? extractLastTranslationPromptFromMessages(nonSystemMessages) : null
+    const translationPriorAssistantContent =
+      mode === 'translation' ? getAssistantContentBeforeLastUser(nonSystemMessages) : null
+    const translationRuExtractedFromPriorAssistant =
+      translationPriorAssistantContent != null
+        ? extractRussianTranslationTaskFromAssistantContent(translationPriorAssistantContent)
+        : null
+    const ruForTranslationRepeatClamp =
+      mode === 'translation'
+        ? pickAuthoritativeRuPromptForTranslationClamp(
+            lastTranslationPrompt,
+            translationRuExtractedFromPriorAssistant
+          )
+        : null
 
     // Массив времён: из body.tenses или body.tense (обратная совместимость). На каждый запрос выбираем одно.
     let rawTenses: string[] = Array.isArray(body.tenses)
@@ -6758,13 +6778,12 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     /** Тело «Комментарий_перевод:» из ответа модели до агрессивной пересборки (для force…). */
     let translationPreservedPerevodBody: string | null = null
     if (mode === 'translation') {
-      const tpForGold = lastTranslationPrompt?.trim() ?? ''
+      const tpForGold = (ruForTranslationRepeatClamp ?? lastTranslationPrompt)?.trim() ?? ''
       if (!isFirstTurn && tpForGold) {
-        const priorCardForGold = getAssistantContentBeforeLastUser(nonSystemMessages)
         let goldForVerdict: string | null = null
-        if (priorCardForGold) {
+        if (translationPriorAssistantContent) {
           goldForVerdict = pickTranslationGoldForVerdict({
-            assistantContent: priorCardForGold,
+            assistantContent: translationPriorAssistantContent,
             ruPrompt: tpForGold,
             userText: lastUserContentForResponse,
           })
@@ -6794,18 +6813,23 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       sanitized = normalizeTranslationCommentStyle(sanitized)
       translationPreservedPerevodBody = extractKommentariyPerevodBody(sanitized)
       const modelSuccessLike = isTranslationSuccessLikeContent(sanitized)
-      const translationPrompt = lastTranslationPrompt
+      const translationPrompt = ruForTranslationRepeatClamp ?? lastTranslationPrompt
       const translationPromptText = translationPrompt ?? ''
       translationPromptTextForTurn = translationPromptText
       priorAssistantRepeatEnglish = extractPriorAssistantRepeatEnglish(nonSystemMessages)
-      const priorRepeatTrim = priorAssistantRepeatEnglish?.trim() ?? ''
-      const userMatchesPriorAssistantRepeat =
-        priorRepeatTrim.length > 0 &&
-        isTranslationAnswerEffectivelyCorrect(lastUserContentForResponse, priorRepeatTrim)
+      const userMatchesPriorAssistantRepeat = userMatchesPriorAssistantRepeatOrVisibleSay(
+        lastUserContentForResponse,
+        nonSystemMessages
+      )
+      // Учительский «Скажи» / видимый эталон с предыдущей карточки; если пользователь его воспроизвёл,
+      // не режем успех из‑за расхождения API-gold / скрытого __TRAN__ с тем, что видно в UI.
+      if (translationGoldVerdictFailed && userMatchesPriorAssistantRepeat) {
+        translationGoldVerdictFailed = false
+      }
       const translationFormLines = extractTranslationFormLines(sanitized)
       const translationReferenceForm = pickTranslationReferenceForm({
         userText: lastUserContentForResponse,
-        fallbackPrompt: lastTranslationPrompt,
+        fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
         forms: translationFormLines,
       })
       translationReferenceFormForTurn = translationReferenceForm
@@ -6898,11 +6922,11 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             topic,
             level: translationDrillLevel,
             audience,
-            fallbackPrompt: lastTranslationPrompt,
+            fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
             userText: lastUserContentForResponse,
             sentenceType: translationDrillSentenceType,
           })
-          sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
+          sanitized = applyTranslationRepeatSourceClampToContent(sanitized, ruForTranslationRepeatClamp ?? lastTranslationPrompt)
           translationSuccessFlow = true
         } else {
           if (canTreatTranslationAsSuccess && hasTranslationPraiseComment(sanitized)) {
@@ -6911,11 +6935,11 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               topic,
               level: translationDrillLevel,
               audience,
-              fallbackPrompt: lastTranslationPrompt,
+              fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
               userText: lastUserContentForResponse,
               sentenceType: translationDrillSentenceType,
             })
-            sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
+            sanitized = applyTranslationRepeatSourceClampToContent(sanitized, ruForTranslationRepeatClamp ?? lastTranslationPrompt)
             translationSuccessFlow = true
           } else if (
             canTreatTranslationAsSuccess &&
@@ -6928,11 +6952,11 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               topic,
               level: translationDrillLevel,
               audience,
-              fallbackPrompt: lastTranslationPrompt,
+              fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
               userText: lastUserContentForResponse,
               sentenceType: translationDrillSentenceType,
             })
-            sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
+            sanitized = applyTranslationRepeatSourceClampToContent(sanitized, ruForTranslationRepeatClamp ?? lastTranslationPrompt)
             translationSuccessFlow = true
           } else {
             sanitized = ensureTranslationProtocolBlocks(sanitized, {
@@ -6940,7 +6964,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               topic,
               level: translationDrillLevel,
               audience,
-              fallbackPrompt: lastTranslationPrompt,
+              fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
               userAnswerForSupportFallback: lastUserContentForResponse,
               repeatEnglishFallback: translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
             })
@@ -7008,7 +7032,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               tutorGradingTense,
               getTranslationRepeatSentence(sanitized)
             )
-            sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
+            sanitized = applyTranslationRepeatSourceClampToContent(sanitized, ruForTranslationRepeatClamp ?? lastTranslationPrompt)
             const repeatAnchorForError =
               translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || ''
             const existingRepeatForGoldCheck = getTranslationRepeatSentence(sanitized)
@@ -7036,11 +7060,11 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               topic,
               level: translationDrillLevel,
               audience,
-              fallbackPrompt: lastTranslationPrompt,
+              fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
               userText: lastUserContentForResponse,
               sentenceType: translationDrillSentenceType,
             })
-            sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
+            sanitized = applyTranslationRepeatSourceClampToContent(sanitized, ruForTranslationRepeatClamp ?? lastTranslationPrompt)
             translationSuccessFlow = canTreatTranslationAsSuccess
           }
           }
@@ -7060,11 +7084,11 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           topic,
           level: translationDrillLevel,
           audience,
-          fallbackPrompt: lastTranslationPrompt,
+          fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
           userText: lastUserContentForResponse,
           sentenceType: translationDrillSentenceType,
         })
-        sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
+        sanitized = applyTranslationRepeatSourceClampToContent(sanitized, ruForTranslationRepeatClamp ?? lastTranslationPrompt)
         translationSuccessFlow = true
       }
     }
@@ -7115,7 +7139,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             topic,
             level: translationDrillLevel,
             audience,
-            fallbackPrompt: lastTranslationPrompt,
+            fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
             userText: lastUserContentForResponse,
             sentenceType: translationDrillSentenceType,
           })
@@ -7134,7 +7158,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               `${systemContent}\n\n` +
               buildTranslationMissingRepeatRepairInstruction({
                 tenseName: TENSE_NAMES[tutorGradingTense] ?? 'Present Simple',
-                fallbackPrompt: lastTranslationPrompt,
+                fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
               }),
           }
 
@@ -7164,11 +7188,11 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 topic,
                 level,
                 audience,
-                fallbackPrompt: lastTranslationPrompt,
+                fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
                 userAnswerForSupportFallback: lastUserContentForResponse,
                 repeatEnglishFallback: translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
               })
-              repaired = applyTranslationRepeatSourceClampToContent(repaired, lastTranslationPrompt)
+              repaired = applyTranslationRepeatSourceClampToContent(repaired, ruForTranslationRepeatClamp ?? lastTranslationPrompt)
 
               const repairedRepeatSentence = getTranslationRepeatSentence(repaired)
               repaired = enrichTranslationCommentQuality({
@@ -7207,7 +7231,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     }
 
     if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
-      sanitized = applyTranslationRepeatSourceClampToContent(sanitized, lastTranslationPrompt)
+      sanitized = applyTranslationRepeatSourceClampToContent(sanitized, ruForTranslationRepeatClamp ?? lastTranslationPrompt)
       if (getTranslationRepeatSentence(sanitized)) {
         sanitized = normalizeTranslationErrorBranch(stripTranslationInvitationLines(sanitized))
       }
@@ -7289,11 +7313,11 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                     topic,
                     level,
                     audience,
-                    fallbackPrompt: lastTranslationPrompt,
+                    fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
                     userAnswerForSupportFallback: lastUserContentForResponse,
                     repeatEnglishFallback: translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
                   })
-                  repaired = applyTranslationRepeatSourceClampToContent(repaired, lastTranslationPrompt)
+                  repaired = applyTranslationRepeatSourceClampToContent(repaired, ruForTranslationRepeatClamp ?? lastTranslationPrompt)
                   const repeatSentence2 = getTranslationRepeatSentence(repaired)
                   repaired = enrichTranslationCommentQuality({
                     content: repaired,
@@ -7340,7 +7364,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           topic,
           level: translationDrillLevel,
           audience,
-          fallbackPrompt: lastTranslationPrompt,
+          fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
           userText: lastUserContentForResponse,
           sentenceType: translationDrillSentenceType,
         })
@@ -7699,7 +7723,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 topic,
                 level,
                 audience,
-                fallbackPrompt: lastTranslationPrompt,
+                fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
                 userAnswerForSupportFallback: lastUserContentForResponse,
                 repeatEnglishFallback: translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
               })
@@ -7760,7 +7784,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                   topic,
                   level: translationDrillLevel,
                   audience,
-                  fallbackPrompt: lastTranslationPrompt,
+                  fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
                   userText: lastUserContentForResponse,
                   sentenceType: translationDrillSentenceType,
                 })
@@ -7964,7 +7988,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             topic,
             level: translationDrillLevel,
             audience,
-            fallbackPrompt: lastTranslationPrompt,
+            fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
             userText: lastUserContentForResponse,
             sentenceType: translationDrillSentenceType,
           })
@@ -7987,7 +8011,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             topic,
             level: translationDrillLevel,
             audience,
-            fallbackPrompt: lastTranslationPrompt,
+            fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
             userText: lastUserContentForResponse,
             sentenceType: translationDrillSentenceType,
           })

@@ -27,6 +27,48 @@ function isStrictTokenPrefix(shortTokens: string[], fullTokens: string[]): boole
   return true
 }
 
+/** Одна типичная ошибка числа существительного (movie/movies), без полноценной морфологии. */
+function isLikelySingularPluralTokenMismatch(userTok: string, goldTok: string): boolean {
+  const u = userTok.toLowerCase()
+  const g = goldTok.toLowerCase()
+  if (u === g) return false
+  if (g === `${u}s` || g === `${u}es`) return true
+  if (u === `${g}s` || u === `${g}es`) return true
+  if (u.length > 2 && u.endsWith('y') && g === `${u.slice(0, -1)}ies`) return true
+  if (g.length > 2 && g.endsWith('ies') && u === `${g.slice(0, -3)}y`) return true
+  return false
+}
+
+/**
+ * Ответ короче эталона: совпадает по префиксу токенов, допуская ровно одну «slip»-замену
+ * вроде movie↔movies перед недостающим хвостом (на выходных → on the weekends).
+ */
+function isStrictTokenPrefixAllowingOneNominalNumberSlip(
+  userTokens: string[],
+  goldTokens: string[]
+): boolean {
+  if (userTokens.length === 0 || goldTokens.length === 0) return false
+  if (userTokens.length >= goldTokens.length) return false
+  let iu = 0
+  let ig = 0
+  let usedSlip = false
+  while (iu < userTokens.length && ig < goldTokens.length) {
+    if (userTokens[iu] === goldTokens[ig]) {
+      iu++
+      ig++
+      continue
+    }
+    if (!usedSlip && isLikelySingularPluralTokenMismatch(userTokens[iu]!, goldTokens[ig]!)) {
+      usedSlip = true
+      iu++
+      ig++
+      continue
+    }
+    return false
+  }
+  return iu === userTokens.length && ig < goldTokens.length
+}
+
 function goldMatchesPromptKeywords(ruPrompt: string, goldEnglish: string): boolean {
   const promptKeywords = extractPromptKeywords(ruPrompt)
   if (promptKeywords.length === 0) return true
@@ -148,6 +190,9 @@ export function computeTranslationGoldVerdict(params: {
   const userTokens = tokenizeForVerdictPrefixCheck(userNorm)
   const goldTokens = tokenizeForVerdictPrefixCheck(goldNorm)
   if (isStrictTokenPrefix(userTokens, goldTokens)) {
+    return { ok: false, reasons: ['answer_incomplete'] }
+  }
+  if (isStrictTokenPrefixAllowingOneNominalNumberSlip(userTokens, goldTokens)) {
     return { ok: false, reasons: ['answer_incomplete'] }
   }
 

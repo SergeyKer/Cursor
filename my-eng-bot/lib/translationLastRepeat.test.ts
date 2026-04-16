@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { extractPriorAssistantRepeatEnglish } from './translationLastRepeat'
+import {
+  extractPriorAssistantRepeatEnglish,
+  userMatchesPriorAssistantRepeatOrVisibleSay,
+} from './translationLastRepeat'
 import { normalizeEnglishForRepeatMatch } from './normalizeEnglishForRepeatMatch'
 
 function userMatchesRepeatForGate(user: string, repeat: string): boolean {
@@ -148,6 +151,86 @@ describe('extractPriorAssistantRepeatEnglish', () => {
       { role: 'user', content: 'Do you like to play game' },
     ]
     expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Do you like to play games?')
+  })
+})
+
+describe('userMatchesPriorAssistantRepeatOrVisibleSay', () => {
+  it('true when user repeated visible Скажи while hidden __TRAN__ differs (followed card)', () => {
+    const messages = [
+      {
+        role: 'assistant',
+        content:
+          'Скажи: I love reading books in the evenings.\n__TRAN_REPEAT_REF__: I love reading books.',
+      },
+      { role: 'user', content: 'I love reading books in the evenings.' },
+    ]
+    expect(userMatchesPriorAssistantRepeatOrVisibleSay('I love reading books in the evenings.', messages)).toBe(
+      true
+    )
+  })
+
+  it('false when user matches neither canonical nor first visible Скажи', () => {
+    const messages = [
+      { role: 'assistant', content: 'Скажи: Do you have a cat?' },
+      { role: 'user', content: 'I have a dog.' },
+    ]
+    expect(userMatchesPriorAssistantRepeatOrVisibleSay('I have a dog.', messages)).toBe(false)
+  })
+
+  it('true when English идёт строкой после пустого «Скажи:»', () => {
+    const messages = [
+      {
+        role: 'assistant',
+        content:
+          'Комментарий_перевод: Подсказка.\nОшибки:\n-\nСкажи:\nI love reading books in the evenings.',
+      },
+      { role: 'user', content: 'I love reading books in the evenings' },
+    ]
+    expect(userMatchesPriorAssistantRepeatOrVisibleSay('I love reading books in the evenings', messages)).toBe(
+      true
+    )
+  })
+
+  it('true when после «Скажи:» сначала идут пункты Ошибок, затем полное EN-предложение', () => {
+    const messages = [
+      {
+        role: 'assistant',
+        content:
+          'Комментарий_перевод: Подсказка.\nОшибки:\n- like → love (здесь)\n- read → reading\nСкажи:\nI love reading books in the evenings.',
+      },
+      { role: 'user', content: 'I love reading books in the evenings' },
+    ]
+    expect(userMatchesPriorAssistantRepeatOrVisibleSay('I love reading books in the evenings', messages)).toBe(
+      true
+    )
+  })
+
+  it('true when «Скажи» в markdown (**…**) или с полноширинным двоеточием', () => {
+    const messages = [
+      {
+        role: 'assistant',
+        content:
+          'Ошибки:\n- x → y\n**Скажи**：I love reading books in the evenings.',
+      },
+      { role: 'user', content: 'I love reading books in the evenings' },
+    ]
+    expect(userMatchesPriorAssistantRepeatOrVisibleSay('I love reading books in the evenings', messages)).toBe(
+      true
+    )
+  })
+
+  it('true when эталон только в __TRAN_REPEAT_REF__ (без видимой строки Скажи)', () => {
+    const messages = [
+      {
+        role: 'assistant',
+        content:
+          'Комментарий_перевод: Подсказка.\nОшибки:\n-\n__TRAN_REPEAT_REF__: I love reading books in the evenings.',
+      },
+      { role: 'user', content: 'I love reading books in the evenings.' },
+    ]
+    expect(userMatchesPriorAssistantRepeatOrVisibleSay('I love reading books in the evenings.', messages)).toBe(
+      true
+    )
   })
 })
 

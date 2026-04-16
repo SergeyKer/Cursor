@@ -7,10 +7,42 @@ import {
   extractRussianTranslationTaskFromAssistantContent,
   getAssistantContentBeforeLastUser,
   getClampedHiddenAndVisibleGold,
+  pickAuthoritativeRuPromptForTranslationClamp,
   stripTranslationCanonicalRepeatRefLine,
 } from './translationPromptAndRef'
 
+describe('pickAuthoritativeRuPromptForTranslationClamp', () => {
+  it('берёт более длинное RU, если короткое — его префикс', () => {
+    const short = 'Мне нравится смотреть фильмы.'
+    const full = 'Мне нравится смотреть фильмы на выходных.'
+    expect(pickAuthoritativeRuPromptForTranslationClamp(short, full)).toBe(full)
+    expect(pickAuthoritativeRuPromptForTranslationClamp(full, short)).toBe(full)
+  })
+})
+
 describe('extractRussianTranslationTaskFromAssistantContent', () => {
+  it('извлекает RU, если «Переведи:» обёрнут в markdown **', () => {
+    const content =
+      '**Переведи:** Мне нравится смотреть фильмы на выходных.\nПереведи на английский язык.'
+    expect(extractRussianTranslationTaskFromAssistantContent(content)).toBe(
+      'Мне нравится смотреть фильмы на выходных.'
+    )
+  })
+
+  it('извлекает RU при нумерации и markdown: 1) **Переведи:** …', () => {
+    const content =
+      '1) **Переведи:** Мне нравится смотреть фильмы на выходных.\nПереведи на английский язык.'
+    expect(extractRussianTranslationTaskFromAssistantContent(content)).toBe(
+      'Мне нравится смотреть фильмы на выходных.'
+    )
+  })
+
+  it('извлекает голую строку задания без префикса «Переведи» (как в state UI)', () => {
+    expect(extractRussianTranslationTaskFromAssistantContent('Я часто пью чай по вечерам.')).toBe(
+      'Я часто пью чай по вечерам.'
+    )
+  })
+
   it('извлекает русский из строки «Переведи далее: …»', () => {
     const content = 'Переведи далее: Я обычно читаю книги перед сном.\nПереведи на английский язык.'
     expect(extractRussianTranslationTaskFromAssistantContent(content)).toBe(

@@ -125,6 +125,18 @@ describe('computeTranslationGoldVerdict', () => {
     expect(v.reasons).toContain('answer_incomplete')
   })
 
+  it('неполный перевод: одна ошибка числа + пропущенный хвост про выходные', () => {
+    const ruFull = 'Мне нравится смотреть фильмы на выходных.'
+    const gold = 'I like to watch movies on the weekends.'
+    const v = computeTranslationGoldVerdict({
+      userText: 'I like to watch movie',
+      goldEnglish: gold,
+      ruPrompt: ruFull,
+    })
+    expect(v.ok).toBe(false)
+    expect(v.reasons).toContain('answer_incomplete')
+  })
+
   it('rejects mixed latin+cyrillic childish substitution', () => {
     const v = computeTranslationGoldVerdict({
       userText: 'I like красивые trips.',

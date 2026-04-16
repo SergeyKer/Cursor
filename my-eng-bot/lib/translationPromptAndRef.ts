@@ -10,11 +10,27 @@ import {
 /** Скрытый эталон «Скажи» для сервера; в UI не показывается (см. stripTranslationCanonicalRepeatRefLine). */
 export const TRAN_CANONICAL_REPEAT_REF_MARKER = '__TRAN_REPEAT_REF__'
 
+/** Снимает ведущий markdown (**, *, _, #), чтобы «**Переведи:**» снова матчился как задание. */
+function stripLeadingMarkdownNoiseForRuTaskLine(s: string): string {
+  let t = s.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
+  for (let i = 0; i < 16; i++) {
+    const next = t
+      .replace(/^#{1,6}\s+/, '')
+      .replace(/^\d+\)\s*/i, '')
+      .replace(/^\*{1,2}\s*/, '')
+      .replace(/^_{1,2}\s*/, '')
+      .trim()
+    if (next === t) break
+    t = next
+  }
+  return t
+}
+
 /**
  * Русское предложение после «Переведи(те) …:» на одной строке (например «Переведи далее: Я обычно…»).
  */
 function extractRussianAfterTranslatePrefixLine(rawLine: string): string | null {
-  const trimmed = rawLine.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
+  const trimmed = stripLeadingMarkdownNoiseForRuTaskLine(rawLine)
   // Не используем \b: в JS он только для [A-Za-z0-9_], для кириллицы «Переведи» граница не срабатывает.
   if (!/^[\d.\)\-\s•]*(?:Переведи|Переведите)(?=\s|:)/i.test(trimmed)) return null
   const colonIdx = trimmed.indexOf(':')
@@ -24,6 +40,7 @@ function extractRussianAfterTranslatePrefixLine(rawLine: string): string | null 
     .replace(/\s+(?:\d+\)\s*)?(?:Переведи|Переведите)[^.]*\.\s*$/i, '')
     .replace(/^\d+\)\s*/i, '')
     .trim()
+  rest = stripLeadingMarkdownNoiseForRuTaskLine(rest)
   if (!/[А-Яа-яЁё]/.test(rest) || rest.length <= 2) return null
   return stripWrappingQuotesFromDrillRussianLine(rest)
 }
@@ -37,6 +54,16 @@ function isEnglishOnlyInviteLine(normalized: string): boolean {
   )
 }
 
+/** Снижает ложные срабатывания на «Try again: исправь» и т.п. */
+function looksLikeStandaloneRuDrillLine(text: string): boolean {
+  const t = text.trim()
+  if (t.length < 6) return false
+  const cyr = (t.match(/[А-Яа-яЁё]/g) ?? []).length
+  const latin = (t.match(/[A-Za-z]/g) ?? []).length
+  if (cyr < 4) return false
+  return latin === 0 || cyr >= latin * 2
+}
+
 function shouldSkipLineWhenScanningForRuTask(rawLine: string): boolean {
   if (/^\s*__TRAN_REPEAT_REF__\s*:/i.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_ошибка\s*:/i.test(rawLine)) return true
@@ -45,6 +72,8 @@ function shouldSkipLineWhenScanningForRuTask(rawLine: string): boolean {
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:/i.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:/i.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*Ошибки\s*:/i.test(rawLine)) return true
+  /** Пункты блока «Ошибки:» — не русское задание drill. */
+  if (/^[\s\-•]*[-–—]\s*(?:Лексическая|Грамматическая|Орфографическая)\s+ошибка/i.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*Формы\s*:/i.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*(?:\+|\?|-)\s*:/.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*Скажи\s*:/i.test(rawLine)) return true
@@ -55,10 +84,12 @@ function shouldSkipLineWhenScanningForRuTask(rawLine: string): boolean {
 
 function tryStandaloneRussianDrillLine(rawLine: string): string | null {
   if (shouldSkipLineWhenScanningForRuTask(rawLine)) return null
-  const normalized = rawLine.replace(/^\d+\)\s*/i, '').trim()
+  const normalized = stripLeadingMarkdownNoiseForRuTaskLine(rawLine.replace(/^\d+\)\s*/i, '').trim())
   if (!/[А-Яа-яЁё]/.test(normalized) || normalized.length <= 2) return null
   if (/^[\d.\)\-\s•]*(?:Переведи|Переведите)(?=\s|:)/i.test(normalized)) return null
-  return stripWrappingQuotesFromDrillRussianLine(normalized)
+  const out = stripWrappingQuotesFromDrillRussianLine(normalized)
+  if (!looksLikeStandaloneRuDrillLine(out)) return null
+  return out
 }
 
 /**
@@ -72,12 +103,13 @@ export function extractRussianTranslationTaskFromAssistantContent(content: strin
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i]!
-    if (shouldSkipLineWhenScanningForRuTask(rawLine)) continue
+    const scanLine = stripLeadingMarkdownNoiseForRuTaskLine(rawLine)
+    if (shouldSkipLineWhenScanningForRuTask(scanLine)) continue
 
     const fromTranslate = extractRussianAfterTranslatePrefixLine(rawLine)
     if (fromTranslate) return fromTranslate
 
-    const normalized = rawLine.replace(/^\d+\)\s*/i, '').trim()
+    const normalized = scanLine.replace(/^\d+\)\s*/i, '').trim()
     if (isEnglishOnlyInviteLine(normalized)) {
       if (i + 1 < lines.length) {
         const fromNext = tryStandaloneRussianDrillLine(lines[i + 1]!)
@@ -88,6 +120,9 @@ export function extractRussianTranslationTaskFromAssistantContent(content: strin
         if (fromPrev) return fromPrev
       }
     }
+    /** Карточка из UI может хранить только русское предложение без «Переведи:» (см. debug H-ru-extract-miss). */
+    const standaloneThisLine = tryStandaloneRussianDrillLine(rawLine)
+    if (standaloneThisLine) return standaloneThisLine
   }
   return null
 }
@@ -108,6 +143,28 @@ export function extractLastTranslationPromptFromMessages(
   messages: ReadonlyArray<{ role: string; content: string }>
 ): string | null {
   return extractLastTranslationPromptFromMessagesWithIndex(messages).prompt
+}
+
+/**
+ * Для клампа EN «Скажи» к RU: берём более полную формулировку задания, если цепочка дала усечённый текст
+ * (например модель продублировала RU без хвоста «на выходных»), а карточка перед ответом содержит полный вариант.
+ */
+export function pickAuthoritativeRuPromptForTranslationClamp(
+  chainPrompt: string | null | undefined,
+  priorCardPrompt: string | null | undefined
+): string {
+  const a = chainPrompt?.replace(/\s+/g, ' ').trim() ?? ''
+  const b = priorCardPrompt?.replace(/\s+/g, ' ').trim() ?? ''
+  if (!a) return b
+  if (!b) return a
+  if (a === b) return a
+  if (b.includes(a)) return b
+  if (a.includes(b)) return a
+  let k = 0
+  const lim = Math.min(a.length, b.length)
+  while (k < lim && a[k] === b[k]) k++
+  if (k >= 25) return a.length >= b.length ? a : b
+  return a.length >= b.length ? a : b
 }
 
 /** Сообщение ассистента непосредственно перед последним user в истории. */
