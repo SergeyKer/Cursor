@@ -47,6 +47,11 @@ export function isTranslationNextRussianMetaInstruction(s: string): boolean {
   const t = s.replace(/\s+/g, ' ').trim()
   if (!t || !/[А-Яа-яЁё]/.test(t)) return false
   const lower = t.toLowerCase()
+  // Служебные императивы редактора комментария не должны попадать в следующую карточку перевода.
+  if (/^поправ(?:ь|ьте)\s*[—–-]/i.test(t)) return true
+  if (/^исправ(?:ь|ьте)\s*[—–-]/i.test(t)) return true
+  if (/^(?:я|мы)\s+помог(?:у|у?т|ли|у)\b.*\bисправ/i.test(lower)) return true
+  if (/^давай(?:те)?\s+исправ(?:им|ьте)\b/i.test(lower)) return true
   if (new RegExp(`^(?:теперь\\s+)?давай(те)?\\s+поговорим${RU_AFTER_WORD}`, 'i').test(t)) return true
   if (
     new RegExp(`^давай(те)?\\s+(?:поговорим|поговорить|обсудим|обсудить)${RU_AFTER_WORD}`, 'i').test(t)

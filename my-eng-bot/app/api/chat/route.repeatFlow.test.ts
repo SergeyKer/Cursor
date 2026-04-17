@@ -1563,6 +1563,44 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).toMatch(/Переведи(?:\s+далее)?\s*:/i)
   })
 
+  it('translation uses fresh gold when prior __TRAN__ is stale for current weekends prompt', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Отлично! Ты правильно использовал Present Simple.\nПереведи далее: Я люблю смотреть фильмы дома.',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'I like to watch movies on weekends.',
+      })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'movies_series',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'Ты любишь смотреть фильмы по выходным.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I like to watch movies.',
+        },
+        { role: 'user', content: 'I like to watch movies on weekends.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toMatch(/Переведи(?:\s+далее)?\s*:/i)
+    expect(data.content).not.toContain('Комментарий_перевод:')
+    expect(data.content).not.toContain('Скажи:')
+  })
+
   it('translation mixed input does not advance to next question', async () => {
     callProviderChatMock
       .mockResolvedValueOnce({
@@ -2388,6 +2426,241 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).toContain('Комментарий:')
     expect(data.content).toContain('Переведи далее:')
     expect(data.content).not.toContain('Скажи:')
+  })
+
+  it('translation strict contract: first turn returns only translate invitation card', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: 'Комментарий: Отлично!\nСкажи: I like music.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'music',
+      audience: 'adult',
+      level: 'a1',
+      tenses: ['present_simple'],
+      messages: [],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Переведи на английский язык.')
+    expect(data.content).not.toContain('Комментарий_перевод:')
+    expect(data.content).not.toContain('Ошибки:')
+    expect(data.content).not.toContain('Скажи:')
+  })
+
+  it('translation strict contract: success card contains next task and no repeat line', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Отлично!\nСкажи: I like music.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I read books every day.' })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'daily_life',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content: 'Я люблю музыку.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I like music.',
+        },
+        { role: 'user', content: 'I like music.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Переведи далее:')
+    expect(data.content).not.toContain('Скажи:')
+    expect(data.content).not.toContain('Комментарий_перевод:')
+  })
+
+  it('translation strict contract: error card enforces support+errors+repeat without next task', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Отлично! Очень близко.\nПереведи далее: Я читаю книги.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I have a cat.' })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'animals',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content: 'У меня есть кот.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I have a cat.',
+        },
+        { role: 'user', content: 'I have a car.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий_перевод:')
+    expect(data.content).toContain('Ошибки:')
+    expect(data.content).toContain('Скажи: I have a cat.')
+    expect(data.content).not.toContain('Переведи далее:')
+  })
+
+  it('translation strict provocation: gibberish keeps error cycle and frozen canonical repeat', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Отлично!\nПереведи далее: Я люблю музыку.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'Do you have brothers or sisters?' })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'family_friends',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'У тебя есть братья или сёстры?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you have brothers or sisters?',
+        },
+        { role: 'user', content: '@@@ asd zxc ???' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий_перевод:')
+    expect(data.content).toContain('Ошибки:')
+    expect(repeatLine).toContain('Do you have brothers or sisters?')
+    expect(data.content).not.toContain('Переведи далее:')
+  })
+
+  it('translation strict provocation: mixed cyrillic+latin keeps error cycle and canonical repeat', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Отлично!\nПереведи далее: Я люблю музыку.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'Do you have brothers or sisters?' })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'family_friends',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'У тебя есть братья или сёстры?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you have brothers or sisters?',
+        },
+        { role: 'user', content: 'Do you have красивые brothers?' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''
+    const repeatBody = repeatLine.replace(/^Скажи\s*:\s*/i, '')
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий_перевод:')
+    expect(data.content).toContain('Ошибки:')
+    expect(repeatLine).toContain('Do you have brothers or sisters?')
+    expect(repeatBody).not.toMatch(/[А-Яа-яЁё]/)
+    expect(data.content).not.toContain('Переведи далее:')
+  })
+
+  it('translation error: Say always follows current drill canonical ref, not stale previous ref', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Комментарий: Лексическая ошибка.\nСкажи: I like to watch movies.',
+      })
+      .mockResolvedValue({
+        ok: true,
+        content: 'I like to watch movies on weekends.',
+      })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'movies_series',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'Ты любишь смотреть фильмы по выходным.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I like to watch movies.',
+        },
+        { role: 'user', content: 'I like to watch movies every day.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий_перевод:')
+    expect(data.content).toContain('Ошибки:')
+    expect(repeatLine.toLowerCase()).toContain('weekend')
+    expect(repeatLine).toContain('I like to watch movies on weekends.')
+  })
+
+  it('translation success ignores service imperative in Переведи далее and uses fallback drill', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Отлично!\nПереведи далее: Поправь — и я помог вам исправить.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'I read books in the evening.' })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'daily_life',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'Я люблю музыку.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I like music.',
+        },
+        { role: 'user', content: 'I like music.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Переведи далее:')
+    expect(data.content).not.toContain('Поправь — и я помог вам исправить')
   })
 
 })

@@ -77,4 +77,21 @@ describe('translationGoldEnglish', () => {
     expect(out).toBeNull()
     expect(callProviderChatMock).not.toHaveBeenCalled()
   })
+
+  it('для A1 добавляет в system ограничение на короткую простую фразу', async () => {
+    callProviderChatMock.mockResolvedValueOnce({ ok: true, content: 'I like music.' })
+    const { translateRussianPromptToGoldEnglish } = await import('./translationGoldEnglish')
+    const req = {} as import('next/server').NextRequest
+    await translateRussianPromptToGoldEnglish({
+      ruSentence: 'Я люблю музыку.',
+      level: 'a1',
+      audience: 'child',
+      provider: 'openai',
+      req,
+    })
+    const apiMessages = callProviderChatMock.mock.calls[0]![0] as { apiMessages: { role: string; content: string }[] }
+    const system = apiMessages.apiMessages.find((m) => m.role === 'system')?.content ?? ''
+    expect(system).toMatch(/Keep the sentence short and simple/i)
+    expect(system).toMatch(/AllowedVocabulary/i)
+  })
 })

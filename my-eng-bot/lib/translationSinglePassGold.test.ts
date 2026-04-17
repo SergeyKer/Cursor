@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   appendHiddenRefFromVisibleCue,
   appendPreservedHiddenRefFromOriginal,
+  isTranslationStrictReferenceFirstEnabled,
 } from '@/lib/translationSinglePassGold'
 import { TRAN_CANONICAL_REPEAT_REF_MARKER } from '@/lib/translationPromptAndRef'
 
@@ -41,5 +42,23 @@ describe('appendHiddenRefFromVisibleCue', () => {
     const out = appendHiddenRefFromVisibleCue(text, 'Я обычно читаю книги перед сном.')
     expect(out).toContain(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)
     expect(out).toMatch(/I usually read books before bed/i)
+  })
+})
+
+describe('isTranslationStrictReferenceFirstEnabled', () => {
+  it('по умолчанию включен', () => {
+    const prev = process.env.TRANSLATION_STRICT_REFERENCE_FIRST
+    delete process.env.TRANSLATION_STRICT_REFERENCE_FIRST
+    expect(isTranslationStrictReferenceFirstEnabled()).toBe(true)
+    if (prev === undefined) delete process.env.TRANSLATION_STRICT_REFERENCE_FIRST
+    else process.env.TRANSLATION_STRICT_REFERENCE_FIRST = prev
+  })
+
+  it('включается по env флагу', () => {
+    const prev = process.env.TRANSLATION_STRICT_REFERENCE_FIRST
+    process.env.TRANSLATION_STRICT_REFERENCE_FIRST = '1'
+    expect(isTranslationStrictReferenceFirstEnabled()).toBe(true)
+    if (prev === undefined) delete process.env.TRANSLATION_STRICT_REFERENCE_FIRST
+    else process.env.TRANSLATION_STRICT_REFERENCE_FIRST = prev
   })
 })

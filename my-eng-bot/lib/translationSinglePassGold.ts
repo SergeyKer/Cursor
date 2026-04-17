@@ -19,6 +19,13 @@ export function isTranslationGoldApiFallbackEnabled(): boolean {
   return v !== '0' && v !== 'false' && v !== 'no'
 }
 
+/** Строгий reference-first для режима перевода: при включении не ослабляем вердикт эвристиками UI. */
+export function isTranslationStrictReferenceFirstEnabled(): boolean {
+  const v = process.env.TRANSLATION_STRICT_REFERENCE_FIRST
+  if (v === undefined || v === '') return true
+  return v !== '0' && v !== 'false' && v !== 'no'
+}
+
 /**
  * После пересборки SUCCESS-блока вернуть скрытый __TRAN__, если модель уже выдала его в сыром ответе.
  */

@@ -134,6 +134,7 @@ import {
   enforceAuthoritativeTranslationRepeat,
   enforceAuthoritativeTranslationRepeatEnCue,
   extractPromptKeywords as extractTranslationPromptKeywords,
+  hasWeekendConceptInRuPrompt,
   normalizeRepeatSentenceEnding,
   replaceTranslationRepeatInContent,
 } from '@/lib/translationRepeatClamp'
@@ -157,6 +158,7 @@ import {
   appendPreservedHiddenRefFromOriginal,
   isTranslationGoldApiFallbackEnabled,
   isTranslationSinglePassGoldEnabled,
+  isTranslationStrictReferenceFirstEnabled,
 } from '@/lib/translationSinglePassGold'
 import { computeTranslationGoldVerdict, pickTranslationGoldForVerdict } from '@/lib/translationVerdict'
 import { extractSingleTranslationNextSentence } from '@/lib/extractSingleTranslationNextSentence'
@@ -168,6 +170,7 @@ import {
   getAssistantContentBeforeLastUser,
   pickAuthoritativeRuPromptForTranslationClamp,
   reconcileTranslationSayWithHiddenRef,
+  replaceTranslationCanonicalRepeatRefInContent,
   TRAN_CANONICAL_REPEAT_REF_MARKER,
 } from '@/lib/translationPromptAndRef'
 import {
@@ -3504,6 +3507,62 @@ function normalizeTranslationSuccessPayload(
   return ensureTranslationSuccessBlocks(content, params)
 }
 
+function enforceStrictTranslationOutputContract(params: {
+  content: string
+  isFirstTurn: boolean
+  shouldUseSuccessCard: boolean
+  audience: Audience
+  level: string
+  topic: string
+  tense: string
+  sentenceType: SentenceType
+  fallbackPrompt: string | null
+  userText: string
+  repeatEnglishFallback: string | null
+}): string {
+  const {
+    isFirstTurn,
+    shouldUseSuccessCard,
+    audience,
+    level,
+    topic,
+    tense,
+    sentenceType,
+    fallbackPrompt,
+    userText,
+    repeatEnglishFallback,
+  } = params
+  let out = params.content
+  if (isFirstTurn) {
+    return ensureFirstTranslationInvitation(out, sentenceType)
+  }
+  if (shouldUseSuccessCard) {
+    out = normalizeTranslationSuccessPayload(out, {
+      tense,
+      topic,
+      level,
+      audience,
+      fallbackPrompt,
+      userText,
+      sentenceType,
+    })
+    return stripVisibleTranslationSayLines(out)
+  }
+  out = ensureTranslationProtocolBlocks(out, {
+    tense,
+    topic,
+    level,
+    audience,
+    fallbackPrompt,
+    userAnswerForSupportFallback: userText,
+    repeatEnglishFallback,
+  })
+  if (getTranslationRepeatSentence(out)) {
+    out = stripTranslationInvitationLines(out)
+  }
+  return out
+}
+
 function extractTranslationInviteMetaFeedback(line: string): string | null {
   const match = /^[\s\-•]*(?:\d+[\.)]\s*)*(?:Переведи|Переведите)(?:\s+далее)?\s*:\s*(.+)$/i.exec(line)
   if (!match?.[1]) return null
@@ -3843,6 +3902,7 @@ async function finalizeTranslationResponsePayload(params: {
   content: string
   nonSystemMessages: ReadonlyArray<ChatMessage>
   lastTranslationPrompt: string | null
+  priorCardRuPrompt?: string | null
   level: LevelId
   audience: Audience
   provider: Provider
@@ -3877,11 +3937,114 @@ async function finalizeTranslationResponsePayload(params: {
   const hasExplicitTranslatePromptInGuarded = /(?:^|\n)\s*(?:[\s\-•]*(?:\d+[\.)]\s*)*)?(?:Переведи|Переведите)(?:\s+далее)?\s*:/im.test(
     guardedContent
   )
+  const priorAssistantForRu = getAssistantContentBeforeLastUser(params.nonSystemMessages)
+  const priorAssistantRuPrompt =
+    priorAssistantForRu != null
+      ? extractRussianTranslationTaskFromAssistantContent(priorAssistantForRu)?.trim() ?? null
+      : null
   const ruForRefCard =
+    priorAssistantRuPrompt ||
+    params.priorCardRuPrompt?.trim() ||
     lastTranslationPrompt?.trim() ||
     (hasExplicitTranslatePromptInGuarded ? ruFromGuardedContent?.trim() : null) ||
     null
+  const lineMatchesCurrentRu = (line: string): boolean => {
+    if (!ruForRefCard?.trim()) return false
+    if (!hasTranslationPromptKeywordMismatch(ruForRefCard, line)) return true
+    return hasWeekendConceptInRuPrompt(ruForRefCard) && /\bweekends?\b/i.test(line)
+  }
   const hasTranRepeatMarker = () => guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)
+  if (ruForRefCard?.trim() && isTranslationGoldApiFallbackEnabled()) {
+    const visibleSay = getTranslationRepeatSentence(guardedContent)?.trim() ?? ''
+    const visibleMismatch =
+      Boolean(visibleSay) && hasTranslationPromptKeywordMismatch(ruForRefCard, visibleSay)
+    if (visibleMismatch) {
+      const refreshedGold = params.resolveGoldTranslation
+        ? await params.resolveGoldTranslation({
+            ruSentence: ruForRefCard,
+            level: params.level,
+            audience: params.audience,
+          })
+        : await translateRussianPromptToGoldEnglish({
+            ruSentence: ruForRefCard,
+            level: params.level,
+            audience: params.audience,
+            provider: params.provider,
+            req: params.req,
+          })
+      if (refreshedGold?.trim()) {
+        const { clamped } = clampTranslationRepeatToRuPrompt(refreshedGold, ruForRefCard)
+        const line = (clamped?.trim() || refreshedGold.trim()) || ''
+        if (line && lineMatchesCurrentRu(line)) {
+          guardedContent = hasTranRepeatMarker()
+            ? replaceTranslationCanonicalRepeatRefInContent(guardedContent, line)
+            : `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${line}`
+        }
+      }
+    }
+    const ruHasWeekend = hasWeekendConceptInRuPrompt(ruForRefCard)
+    if (ruHasWeekend) {
+      const hiddenRef = extractCanonicalRepeatRefEnglishFromContent(guardedContent)?.trim() ?? ''
+      const visibleHasWeekend = /\bweekends?\b/i.test(visibleSay)
+      const hiddenHasWeekend = /\bweekends?\b/i.test(hiddenRef)
+      const needsWeekendRefresh = !visibleHasWeekend || (hasTranRepeatMarker() && !hiddenHasWeekend)
+      if (needsWeekendRefresh) {
+        const refreshedGold = params.resolveGoldTranslation
+          ? await params.resolveGoldTranslation({
+              ruSentence: ruForRefCard,
+              level: params.level,
+              audience: params.audience,
+            })
+          : await translateRussianPromptToGoldEnglish({
+              ruSentence: ruForRefCard,
+              level: params.level,
+              audience: params.audience,
+              provider: params.provider,
+              req: params.req,
+            })
+        if (refreshedGold?.trim()) {
+          const { clamped } = clampTranslationRepeatToRuPrompt(refreshedGold, ruForRefCard)
+          const line = (clamped?.trim() || refreshedGold.trim()) || ''
+          if (line && lineMatchesCurrentRu(line)) {
+            guardedContent = hasTranRepeatMarker()
+              ? replaceTranslationCanonicalRepeatRefInContent(guardedContent, line)
+              : `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${line}`
+          }
+        }
+      }
+    }
+  }
+  if (ruForRefCard?.trim() && hasTranRepeatMarker()) {
+    const existingRef = extractCanonicalRepeatRefEnglishFromContent(guardedContent)?.trim() ?? ''
+    const ruHasWeekend = hasWeekendConceptInRuPrompt(ruForRefCard)
+    const refHasWeekend = /\bweekends?\b/i.test(existingRef)
+    const refLooksStale = Boolean(existingRef) && (
+      hasTranslationPromptKeywordMismatch(ruForRefCard, existingRef) ||
+      (ruHasWeekend && !refHasWeekend)
+    )
+    if (refLooksStale && isTranslationGoldApiFallbackEnabled()) {
+      const refreshedGold = params.resolveGoldTranslation
+        ? await params.resolveGoldTranslation({
+            ruSentence: ruForRefCard,
+            level: params.level,
+            audience: params.audience,
+          })
+        : await translateRussianPromptToGoldEnglish({
+            ruSentence: ruForRefCard,
+            level: params.level,
+            audience: params.audience,
+            provider: params.provider,
+            req: params.req,
+          })
+      if (refreshedGold?.trim()) {
+        const { clamped } = clampTranslationRepeatToRuPrompt(refreshedGold, ruForRefCard)
+        const line = (clamped?.trim() || refreshedGold.trim()) || ''
+        if (line && !hasTranslationPromptKeywordMismatch(ruForRefCard, line)) {
+          guardedContent = replaceTranslationCanonicalRepeatRefInContent(guardedContent, line)
+        }
+      }
+    }
+  }
   /** Сначала API-золото, чтобы плохое видимое «Скажи» не записало маркер и не отрезало fallback. */
   if (ruForRefCard?.trim() && !hasTranRepeatMarker() && isTranslationGoldApiFallbackEnabled()) {
     console.info('[chat][translation-gold] ref_api_fallback')
@@ -3901,7 +4064,7 @@ async function finalizeTranslationResponsePayload(params: {
     if (goldFromApi?.trim()) {
       const { clamped } = clampTranslationRepeatToRuPrompt(goldFromApi, ruForRefCard)
       const line = (clamped?.trim() || goldFromApi.trim()) || ''
-      if (line && !hasTranslationPromptKeywordMismatch(ruForRefCard, line)) {
+      if (line && lineMatchesCurrentRu(line)) {
         guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${line}`
       }
     }
@@ -3922,7 +4085,7 @@ async function finalizeTranslationResponsePayload(params: {
   }
   if (ruForRefCard?.trim() && !hasTranRepeatMarker()) {
     const fromSay = getTranslationRepeatSentence(guardedContent)
-    if (fromSay?.trim() && !hasTranslationPromptKeywordMismatch(ruForRefCard, fromSay)) {
+    if (fromSay?.trim() && lineMatchesCurrentRu(fromSay)) {
       const { clamped } = clampTranslationRepeatToRuPrompt(fromSay.trim(), ruForRefCard)
       const line = (clamped?.trim() || fromSay.trim()) || ''
       if (line) {
@@ -3933,7 +4096,7 @@ async function finalizeTranslationResponsePayload(params: {
   }
   if (ruForRefCard?.trim() && !hasTranRepeatMarker()) {
     const cue = extractEnglishSentenceCandidate(guardedContent)
-    if (cue?.trim() && !hasTranslationPromptKeywordMismatch(ruForRefCard, cue)) {
+    if (cue?.trim() && lineMatchesCurrentRu(cue)) {
       const { clamped } = clampTranslationRepeatToRuPrompt(cue.trim(), ruForRefCard)
       const line = (clamped?.trim() || cue.trim()) || ''
       if (line) {
@@ -4268,7 +4431,6 @@ function stripTranslationInvitationLines(content: string): string {
 function ensureErrorProtocolHasSayFromCanonicalRef(content: string): string {
   const trimmed = content.trim()
   if (!trimmed) return content
-  if (/(^|\n)\s*(Скажи|Say)\s*:/im.test(trimmed)) return content
 
   const hasErrorProtocolSignals =
     /(^|\n)\s*Комментарий_перевод\s*:/im.test(trimmed) ||
@@ -4282,14 +4444,8 @@ function ensureErrorProtocolHasSayFromCanonicalRef(content: string): string {
   const repeatBody = normalizeRepeatSentenceEnding(stripLeadingRepeatRuPrompt(canonicalRef))
   if (!repeatBody) return content
 
-  const lines = trimmed.split(/\r?\n/)
-  const markerIndex = lines.findIndex((line) => new RegExp(`^\\s*${TRAN_CANONICAL_REPEAT_REF_MARKER}\\s*:`, 'i').test(line))
-  const sayLine = `Скажи: ${repeatBody}`
-  if (markerIndex >= 0) {
-    lines.splice(markerIndex, 0, sayLine)
-    return lines.join('\n').trim()
-  }
-  return `${trimmed}\n${sayLine}`.trim()
+  // В error-протоколе «Скажи» всегда должен быть ровно из канонического ref.
+  return replaceTranslationRepeatInContent(trimmed, repeatBody)
 }
 
 function ensureTranslationRepeatFallbackForMixedInput(content: string, _userText: string): string {
@@ -5682,6 +5838,7 @@ export async function POST(req: NextRequest) {
       tutorGradingTense = translationDrillTense
     }
 
+    const translationStrictReferenceFirst = mode === 'translation' && isTranslationStrictReferenceFirstEnabled()
     const translationAssistantCount = nonSystemMessages.filter((m: ChatMessage) => m.role === 'assistant').length
     const translationGoldCache = new Map<string, string | null>()
     const resolveGoldTranslation: ResolveGoldTranslation = async ({ ruSentence, level, audience }) => {
@@ -6578,7 +6735,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     /** Тело «Комментарий_перевод:» из ответа модели до агрессивной пересборки (для force…). */
     let translationPreservedPerevodBody: string | null = null
     if (mode === 'translation') {
-      const tpForGold = (ruForTranslationRepeatClamp ?? lastTranslationPrompt)?.trim() ?? ''
+      const tpForGold =
+        (translationRuExtractedFromPriorAssistant ?? ruForTranslationRepeatClamp ?? lastTranslationPrompt)?.trim() ??
+        ''
       if (!isFirstTurn && tpForGold) {
         let goldForVerdict: string | null = null
         if (translationPriorAssistantContent) {
@@ -6587,6 +6746,16 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             ruPrompt: tpForGold,
             userText: lastUserContentForResponse,
           })
+          // Консервативная защита от «протухшего» __TRAN__ для кейса "на выходных":
+          // если текущее RU явно про выходные и локальный gold потерял weekend-хвост —
+          // переходим к API gold для текущего prompt.
+          if (goldForVerdict && translationStrictReferenceFirst) {
+            const ruHasWeekend = hasWeekendConceptInRuPrompt(tpForGold)
+            const goldHasWeekend = /\bweekends?\b/i.test(goldForVerdict)
+            if (ruHasWeekend && !goldHasWeekend) {
+              goldForVerdict = null
+            }
+          }
         }
         if (!goldForVerdict && tpForGold) {
           const apiGold = await resolveGoldTranslation({
@@ -6623,7 +6792,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       )
       // Учительский «Скажи» / видимый эталон с предыдущей карточки; если пользователь его воспроизвёл,
       // не режем успех из‑за расхождения API-gold / скрытого __TRAN__ с тем, что видно в UI.
-      if (translationGoldVerdictFailed && userMatchesPriorAssistantRepeat) {
+      if (!translationStrictReferenceFirst && translationGoldVerdictFailed && userMatchesPriorAssistantRepeat) {
         translationGoldVerdictFailed = false
       }
       const translationFormLines = extractTranslationFormLines(sanitized)
@@ -7613,6 +7782,26 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               } else if (translationAnswerContainsCyrillic) {
                 repaired = ensureTranslationRepeatFallbackForMixedInput(repaired, lastUserContentForResponse)
               }
+              if (translationStrictReferenceFirst) {
+                repaired = enforceStrictTranslationOutputContract({
+                  content: repaired,
+                  isFirstTurn,
+                  shouldUseSuccessCard:
+                    !isFirstTurn &&
+                    canTreatTranslationAsSuccess &&
+                    Boolean(translationGoldForVerdict?.trim()) &&
+                    !translationGoldVerdictFailed,
+                  audience: audience as Audience,
+                  level: translationDrillLevel,
+                  topic,
+                  tense: tutorGradingTense,
+                  sentenceType: translationDrillSentenceType,
+                  fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
+                  userText: lastUserContentForResponse,
+                  repeatEnglishFallback:
+                    translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
+                })
+              }
               if (getTranslationRepeatSentence(repaired)) {
                 repaired = stripTranslationInvitationLines(repaired)
               }
@@ -7633,6 +7822,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 content: repaired,
                 nonSystemMessages,
                 lastTranslationPrompt,
+                priorCardRuPrompt: translationRuExtractedFromPriorAssistant ?? null,
                 level: translationDrillLevel as LevelId,
                 audience: audience as Audience,
                 provider,
@@ -7826,6 +8016,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         !isFirstTurn &&
         translationSuccessFlow &&
         canTreatTranslationAsSuccess &&
+        !translationStrictReferenceFirst &&
         !translationGoldVerdictFailed
       let guardedContent = translationSuccessEligible
         ? normalizeTranslationSuccessPayload(translationGuard.content, {
@@ -7855,10 +8046,27 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           openAiChatPreset,
         })
       }
+      if (translationStrictReferenceFirst) {
+        guardedContent = enforceStrictTranslationOutputContract({
+          content: guardedContent,
+          isFirstTurn,
+          shouldUseSuccessCard: translationSuccessEligible,
+          audience: audience as Audience,
+          level: translationDrillLevel,
+          topic,
+          tense: tutorGradingTense,
+          sentenceType: translationDrillSentenceType,
+          fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
+          userText: lastUserContentForResponse,
+          repeatEnglishFallback:
+            translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
+        })
+      }
       guardedContent = await finalizeTranslationResponsePayload({
         content: guardedContent,
         nonSystemMessages,
         lastTranslationPrompt,
+        priorCardRuPrompt: translationRuExtractedFromPriorAssistant ?? null,
         level: translationDrillLevel as LevelId,
         audience: audience as Audience,
         provider,
