@@ -1770,25 +1770,10 @@ function MessageBubble({
   const effectiveRepeatPrompt = isCorrectAnswerPraise ? null : repeatPrompt
   let repeatTextForCard = effectiveRepeatPrompt?.repeatText ?? null
 
-  const handleSpeak = () => {
-    // Для озвучки:
-    // 1) если есть "Скажи", озвучиваем только его;
-    // 2) иначе озвучиваем основной текст, убрав служебные префиксы повтора.
-    const base = repeatTextForCard || rest || visibleContent
-    const speakText = base
-      ? base.replace(/^(Скажи|Say|Повтори|Repeat)\s*:?\s*/i, '').trim()
-      : ''
-    if (speakText) speak(speakText, voiceId)
-  }
-
-  const textToTranslate = repeatTextForCard || rest || visibleContent
   const errorLike = !isUser && isErrorLikeMessage(visibleContent)
-  const hasSpeakableText =
-    !isUser && mode !== 'translation' && Boolean(textToTranslate) && !errorLike && (mode !== 'communication' || isCommunicationEnglish)
   const hasTranslationData = !isUser && Boolean(message.translation)
   const hasTranslationError = !isUser && Boolean(message.translationError)
   const hasTranslationButton = !isUser && mode !== 'translation' && !errorLike && (mode === 'dialogue' || isCommunicationEnglish)
-  const showSpeakButton = hasSpeakableText
   const webSearchSources = message.webSearchSources ?? []
   const showAllWebSearchSources = Boolean(message.webSearchSourcesShowAll)
   const visibleWebSearchSources = showAllWebSearchSources ? webSearchSources : webSearchSources.slice(0, 5)
@@ -1957,6 +1942,36 @@ function MessageBubble({
   // Источник истины: в error-repeat показываем только коррекционные карточки.
   const hideTranslationPromptBlocks =
     (isTranslationMode && translationProtocolStatus === 'error_repeat') || hideTranslationMainCardForErrorRepeat
+
+  /** После разбора перевода: для «Перевод» в панели нужен актуальный repeat/тело задания. */
+  const textToTranslate = repeatTextForCard || rest || visibleContent
+
+  const stripRepeatLeadForSpeak = (raw: string) =>
+    raw.replace(/^(Скажи|Say|Повтори|Repeat)\s*:?\s*/i, '').trim()
+
+  const speakSourceText =
+    !isUser && !errorLike
+      ? isTranslationMode
+        ? [
+            repeatTextForCard,
+            effectiveMainBefore,
+            effectiveInvitationText,
+            rest,
+            visibleContent,
+          ]
+            .filter((s): s is string => typeof s === 'string')
+            .map((s) => s.trim())
+            .find(Boolean) ?? ''
+        : (repeatTextForCard || rest || visibleContent || '').trim()
+      : ''
+
+  const handleSpeak = () => {
+    const speakText = stripRepeatLeadForSpeak(speakSourceText)
+    if (speakText) speak(speakText, voiceId)
+  }
+
+  const showSpeakButton =
+    !isUser && !errorLike && Boolean(stripRepeatLeadForSpeak(speakSourceText))
 
   const mainAfterVisibleForBubble =
     Boolean(mainAfter) && !effectiveMainBefore && !effectiveInvitationText

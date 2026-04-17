@@ -35,12 +35,13 @@ function speakOnce(
   const selectedVoice = selectVoice(voices, voiceId, allowCustomVoice, isRu ? 'ru' : 'en')
   if (selectedVoice) utterance.voice = selectedVoice
 
-  // На некоторых браузерах (особенно Chromium) после cancel() нужен micro-delay.
-  // Иначе speak() может "проглотиться" без ошибки и без звука.
-  window.setTimeout(() => {
+  // Вызов speak() синхронно после cancel(): setTimeout(0) выводит в macrotask и в Chromium
+  // часто ломает user activation — озвучка не стартует без ошибки.
+  const runSpeak = () => {
     if (synth.paused) synth.resume()
     synth.speak(utterance)
-  }, 0)
+  }
+  runSpeak()
 }
 
 /**
