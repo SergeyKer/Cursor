@@ -1,61 +1,7 @@
 import type { ChatMessage } from './types'
 import { buildFreeTalkTopicAnchorQuestion } from './freeTalkQuestionAnchor'
-import { RU_TOPIC_KEYWORD_TO_EN, normalizeRuTopicKeyword, normalizeTopicToken } from './ruTopicKeywordMap'
-
-/** Служебные слова — не считаем темой диалога. */
-const SKIP_EN = new Set([
-  'the', 'and', 'but', 'for', 'with', 'about', 'from', 'into', 'that', 'this',
-  'what', 'when', 'where', 'which', 'who', 'how', 'why', 'you', 'your', 'our',
-  'are', 'was', 'were', 'been', 'being', 'have', 'has', 'had', 'will', 'would',
-  'could', 'should', 'just', 'like', 'want', 'talk', 'some', 'any', 'all', 'time',
-  'many', 'few', 'more', 'most', 'lot', 'lots', 'much',
-  'free', 'thing', 'things', 'day', 'days', 'way', 'ways', 'life', 'work', 'home',
-  'today', 'now', 'here', 'there', 'very', 'much', 'really', 'also', 'then', 'well',
-  'yes', 'yep', 'yeah', 'ok', 'okay', 'sure', 'no', 'nope', 'nah',
-])
-const SKIP_RU = new Set([
-  'и', 'а', 'но', 'или', 'про', 'о', 'об', 'в', 'на', 'с', 'по', 'для', 'это', 'эта',
-  'этот', 'эти', 'что', 'где', 'когда', 'как', 'почему', 'кто', 'мне', 'меня', 'мой',
-  'моя', 'мои', 'тема', 'хочу', 'хотел', 'хотела', 'говорить', 'поговорить', 'время',
-  'да', 'нет', 'ага', 'угу',
-])
-
-const NON_TOPIC_RU_TOKENS = new Set([
-  'делать', 'делаю', 'делал', 'делала', 'делаем', 'делали',
-  'пробовать', 'пробую', 'пробовал', 'пробовала', 'пробовали',
-  'нравиться', 'нравится', 'нравились', 'нравилось',
-  'играть', 'играю', 'играл', 'играла', 'играли',
-  'плавать', 'плаваю', 'плавал', 'плавала', 'плавали',
-  'ходить', 'хожу', 'ходил', 'ходила', 'ходили',
-  'говорить', 'говорю', 'говорил', 'говорила', 'говорили',
-  'думать', 'думаю', 'думал', 'думала', 'думали',
-  'учить', 'учу', 'учил', 'учила', 'учили',
-  'использовать', 'использую', 'использовал', 'использовала', 'использовали',
-  'быть', 'есть', 'был', 'была', 'были',
-])
-
-const NON_TOPIC_VERB_TOKENS = new Set([
-  'try', 'tried', 'tries', 'trying',
-  'enjoy', 'enjoyed', 'enjoys', 'enjoying',
-  'play', 'played', 'plays', 'playing',
-  'swim', 'swam', 'swum', 'swims', 'swimming',
-  'do', 'does', 'did', 'doing', 'done',
-  'go', 'goes', 'went', 'going', 'gone',
-  'visit', 'visited', 'visiting', 'visits',
-  'watch', 'watched', 'watches', 'watching',
-  'talk', 'talked', 'talks', 'talking',
-  'think', 'thinking', 'thought',
-  'learn', 'learned', 'learning', 'learns',
-  'use', 'used', 'uses', 'using',
-  'focus', 'focused', 'focusing',
-])
-
-function isLikelyNonTopicToken(token: string): boolean {
-  const t = normalizeTopicToken(token)
-  if (!t) return true
-  if (SKIP_EN.has(t) || SKIP_RU.has(t)) return true
-  return NON_TOPIC_VERB_TOKENS.has(t) || NON_TOPIC_RU_TOKENS.has(t)
-}
+import { buildFreeTalkTopicChoiceKeywordBuckets, isLikelyNonTopicToken } from './freeTalkTopicChoiceKeywords'
+import { normalizeTopicToken } from './ruTopicKeywordMap'
 
 const NARROW_TOPIC_PARENT_MAP: Record<string, string> = {
   shovel: 'tools',
@@ -119,45 +65,6 @@ function extractRecentAssistantQuestions(messages: ChatMessage[], limit: number)
   return questions
 }
 
-function extractTopicChoiceKeywordsByLang(userText: string): { en: string[]; ru: string[] } {
-  const rawEn = userText.match(/\b[a-z][a-z']+\b/gi) ?? []
-  const rawRu = userText.match(/[а-яё]+(?:-[а-яё]+)*/gi) ?? []
-  const en: string[] = []
-  const ru: string[] = []
-
-  for (const t of rawEn) {
-    const n = normalizeTopicToken(t)
-    if (!n || n.length < 3) continue
-    if (isLikelyNonTopicToken(n)) continue
-    if (!en.includes(n)) en.push(n)
-    if (en.length >= 8) break
-  }
-  for (const t of rawRu) {
-    const n = normalizeTopicToken(t)
-    if (!n || n.length < 3) continue
-    if (SKIP_RU.has(n)) continue
-    if (!ru.includes(n)) ru.push(n)
-    if (ru.length >= 8) break
-  }
-
-  return { en, ru }
-}
-
-function translateRuTopicKeywordsToEn(keywords: string[]): string[] {
-  const translated: string[] = []
-  for (const keyword of keywords) {
-    const normalized = normalizeRuTopicKeyword(keyword)
-    if (!normalized) continue
-    if (NON_TOPIC_RU_TOKENS.has(normalized)) continue
-    const mapped = RU_TOPIC_KEYWORD_TO_EN[normalized]
-    if (!mapped) continue
-    if (isLikelyNonTopicToken(mapped)) continue
-    if (!translated.includes(mapped)) translated.push(mapped)
-    if (translated.length >= 8) break
-  }
-  return translated
-}
-
 function inferTopicBreadth(keyword: string): 'narrow' | 'broad' {
   if (BROAD_TOPICS.has(keyword)) return 'broad'
   if (NARROW_TOPIC_PARENT_MAP[keyword]) return 'narrow'
@@ -219,13 +126,13 @@ export function buildNextFreeTalkQuestionFromContext(params: {
     .join(' ')
 
   for (const um of userSlice) {
-    const { en, ru } = extractTopicChoiceKeywordsByLang(um.content ?? '')
+    const { en, ruToEn } = buildFreeTalkTopicChoiceKeywordBuckets(um.content ?? '')
     for (const w of en) {
       const k = normalizeTopicToken(w)
       if (!k || isLikelyNonTopicToken(k)) continue
       scored.set(k, (scored.get(k) ?? 0) + 4)
     }
-    for (const w of translateRuTopicKeywordsToEn(ru)) {
+    for (const w of ruToEn) {
       const k = normalizeTopicToken(w)
       if (!k || isLikelyNonTopicToken(k)) continue
       scored.set(k, (scored.get(k) ?? 0) + 3)

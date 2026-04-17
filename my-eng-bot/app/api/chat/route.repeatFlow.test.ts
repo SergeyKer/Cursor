@@ -285,6 +285,116 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content.toLowerCase()).toContain('work context')
   })
 
+  it('unrecognized gibberish returns comment plus same cycle question (without repeat)', async () => {
+    const req = makeRequest({
+      mode: 'dialogue',
+      topic: 'sports',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'What do you think about speed track?' },
+        { role: 'user', content: 'sdfsdf' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(callProviderChatMock).not.toHaveBeenCalled()
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('What do you think about speed track?')
+    expect(data.content).not.toMatch(/^(?:Скажи|Повтори)\s*:/im)
+  })
+
+  it('keeps same anchor question across repeated gibberish inputs', async () => {
+    const req = makeRequest({
+      mode: 'dialogue',
+      topic: 'sports',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'What do you think about speed track?' },
+        { role: 'user', content: 'sdfsdf' },
+        {
+          role: 'assistant',
+          content:
+            'Комментарий: Я не понял ответ. Давайте вернемся к вопросу и ответим полным предложением на английском.\nWhat do you think about speed track?',
+        },
+        { role: 'user', content: '@@@ ### $$$' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(callProviderChatMock).not.toHaveBeenCalled()
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('What do you think about speed track?')
+    expect(data.content).not.toMatch(/^(?:Скажи|Повтори)\s*:/im)
+  })
+
+  it('treats long noisy latin tokens as protection scenario and keeps same question', async () => {
+    const req = makeRequest({
+      mode: 'dialogue',
+      topic: 'sports',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'What do you think about speed track?' },
+        { role: 'user', content: 'sdafafqfds dfsdfsdfwefdfs' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string; dialogueCorrect?: boolean }
+
+    expect(res.status).toBe(200)
+    expect(callProviderChatMock).not.toHaveBeenCalled()
+    expect(data.dialogueCorrect).toBe(false)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('What do you think about speed track?')
+    expect(data.content).not.toMatch(/^(?:Скажи|Повтори)\s*:/im)
+  })
+
+  it('returns to normal flow after gibberish when user gives valid answer', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: 'What sports do you enjoy most?',
+    })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      topic: 'sports',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'What do you think about speed track?' },
+        { role: 'user', content: 'sdfsdf' },
+        {
+          role: 'assistant',
+          content:
+            'Комментарий: Я не понял ответ. Давайте вернемся к вопросу и ответим полным предложением на английском.\nWhat do you think about speed track?',
+        },
+        { role: 'user', content: 'I think speed track is exciting.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(callProviderChatMock.mock.calls.length).toBeGreaterThanOrEqual(1)
+    expect(data.content).not.toContain('Я не понял ответ')
+    expect(data.content).not.toContain('вернемся к вопросу')
+    expect(data.content.includes('Повтори:') || /\?\s*$/.test(data.content)).toBe(true)
+  })
+
   it('passes resolved free-talk numbered topic to provider instead of raw "1"', async () => {
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,

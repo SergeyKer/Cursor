@@ -73,9 +73,8 @@ import { isRepeatSemanticallySafe } from '@/lib/dialogueSemanticGuard'
 import { validateDialogueRussianNaturalness } from '@/lib/dialogueRussianNaturalness'
 import { validateDialogueMixedInputOutput } from '@/lib/dialogueMixedInputGuard'
 import { buildAdultFullTensePool, pickWeightedFreeTalkTense } from '@/lib/freeTalkDialogueTense'
-import {
-  isFixedTopicSwitchRequest,
-} from '@/lib/freeTalkTopicChange'
+import { isFixedTopicSwitchRequest } from '@/lib/freeTalkTopicChange'
+import { buildFreeTalkTopicChoiceKeywordList } from '@/lib/freeTalkTopicChoiceKeywords'
 import { normalizeDialogueEntityForTopic, stripLeadingAnswerVerbPhrases } from '@/lib/dialogueEntityNormalization'
 import { isNearDuplicateQuestion } from '@/lib/dialogueQuestionVariety'
 import {
@@ -858,8 +857,7 @@ function fallbackQuestionForContext(params: {
     }
     if (params.isTopicChoiceTurn) {
       if (params.lastUserText) {
-        const { en, ru } = extractTopicChoiceKeywordsByLang(params.lastUserText)
-        const keywords = en.length > 0 ? en : translateRuTopicKeywordsToEn(ru)
+        const keywords = buildFreeTalkTopicChoiceKeywordList(params.lastUserText)
         if (keywords.length > 0) {
           return buildFreeTalkTopicAnchorQuestion({
             keywords,
@@ -1170,46 +1168,8 @@ function defaultNextQuestion(tense: string): string {
   }
 }
 
-/** Стоп-слова для шага free_talk topic choice (EN/RU). */
-const TOPIC_CHOICE_SKIP_WORDS_EN = new Set([
-  'the', 'and', 'but', 'for', 'with', 'about', 'from', 'into', 'that', 'this',
-  'what', 'when', 'where', 'which', 'who', 'how', 'why', 'you', 'your', 'our',
-  'are', 'was', 'were', 'been', 'being', 'have', 'has', 'had', 'will', 'would',
-  'could', 'should', 'just', 'like', 'want', 'talk', 'some', 'any', 'all',
-  'yes', 'yep', 'yeah', 'ok', 'okay', 'sure', 'no', 'nope', 'nah',
-])
-const TOPIC_CHOICE_SKIP_WORDS_RU = new Set([
-  'и', 'а', 'но', 'или', 'про', 'о', 'об', 'в', 'на', 'с', 'по', 'для', 'это', 'эта',
-  'этот', 'эти', 'что', 'где', 'когда', 'как', 'почему', 'кто', 'мне', 'меня', 'мой',
-  'моя', 'мои', 'тема', 'хочу', 'хотел', 'хотела', 'говорить', 'поговорить',
-  'да', 'нет', 'ага', 'угу',
-])
 function isMixedLatinCyrillicText(text: string): boolean {
   return /[A-Za-z]/.test(text) && /[А-Яа-яЁё]/.test(text)
-}
-
-function extractTopicChoiceKeywordsByLang(userText: string): { en: string[]; ru: string[] } {
-  const rawEn = userText.match(/\b[a-z][a-z']+\b/gi) ?? []
-  const rawRu = userText.match(/[а-яё]+(?:-[а-яё]+)*/gi) ?? []
-  const en: string[] = []
-  const ru: string[] = []
-
-  for (const t of rawEn) {
-    const n = normalizeTopicToken(t)
-    if (!n || n.length < 3) continue
-    if (TOPIC_CHOICE_SKIP_WORDS_EN.has(n)) continue
-    if (!en.includes(n)) en.push(n)
-    if (en.length >= 8) break
-  }
-  for (const t of rawRu) {
-    const n = normalizeTopicToken(t)
-    if (!n || n.length < 3) continue
-    if (TOPIC_CHOICE_SKIP_WORDS_RU.has(n)) continue
-    if (!ru.includes(n)) ru.push(n)
-    if (ru.length >= 8) break
-  }
-
-  return { en, ru }
 }
 
 function extractLastDialogueQuestionLine(content: string): string | null {
@@ -1236,26 +1196,6 @@ function buildFreeTalkTopicAnchorQuestion(params: {
 }): string {
   return buildFreeTalkTopicAnchorQuestionText(params)
 }
-
-function translateRuTopicKeywordsToEn(keywords: string[]): string[] {
-  const translated: string[] = []
-  for (const keyword of keywords) {
-    const normalized = normalizeRuTopicKeyword(keyword)
-    if (!normalized) continue
-    const mapped = RU_TOPIC_KEYWORD_TO_EN[normalized]
-    if (!mapped) continue
-    if (!translated.includes(mapped)) translated.push(mapped)
-    if (translated.length >= 8) break
-  }
-  return translated
-}
-
-function extractUnifiedTopicKeywords(text: string): string[] {
-  const { en, ru } = extractTopicChoiceKeywordsByLang(text)
-  const keywords = [...en, ...translateRuTopicKeywordsToEn(ru)]
-  return Array.from(new Set(keywords.map((k) => normalizeTopicToken(k)).filter(Boolean)))
-}
-
 
 function ensureFreeTalkTopicChoiceQuestionAnchorsUser(params: {
   content: string
@@ -1293,8 +1233,7 @@ function applyFreeTalkAntiRepeat(params: {
   const isRepeated = recentQuestions.some((q) => isNearDuplicateQuestion(q, questionLine))
   if (!isRepeated) return params.content
 
-  const { en, ru } = extractTopicChoiceKeywordsByLang(params.lastUserText)
-  const keywords = en.length > 0 ? en : translateRuTopicKeywordsToEn(ru)
+  const keywords = buildFreeTalkTopicChoiceKeywordList(params.lastUserText)
   if (keywords.length === 0) return params.content
 
   const replacement = buildFreeTalkTopicAnchorQuestion({
@@ -3176,7 +3115,36 @@ function isLowSignalDialogueInput(text: string): boolean {
     if (word.length >= 4 && vowels === 0 && consonants >= 3) return true
   }
 
+  // Доп. защита от "крокозябр" STT/случайного набора:
+  // длинные латинские токены с очень высокой долей согласных (часто бессмысленный шум).
+  // Ограничиваем только чисто латинский ввод, чтобы не ломать русские ответы.
+  const hasCyrillic = /[А-Яа-яЁё]/.test(t)
+  if (!hasCyrillic) {
+    const latinTokens = normalized.replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(Boolean)
+    if (latinTokens.length > 0 && latinTokens.length <= 4) {
+      const isNoisyLongLatinToken = (token: string): boolean => {
+        if (token.length < 8) return false
+        const vowels = (token.match(/[aeiouy]/g)?.length ?? 0)
+        const consonants = (token.match(/[bcdfghjklmnpqrstvwxz]/g)?.length ?? 0)
+        const ratio = consonants / Math.max(1, token.length)
+        return ratio >= 0.78 && vowels <= Math.max(2, Math.floor(token.length * 0.22))
+      }
+      if (latinTokens.every((tok) => isNoisyLongLatinToken(tok))) return true
+    }
+  }
+
   return false
+}
+
+function isDialogueProtectionScenario(params: {
+  mode: string
+  isFirstTurn: boolean
+  isTopicChoiceTurn: boolean
+  userText: string
+}): boolean {
+  if (params.mode !== 'dialogue') return false
+  if (params.isFirstTurn || params.isTopicChoiceTurn) return false
+  return isLowSignalDialogueInput(params.userText)
 }
 
 function ensureFirstTranslationInvitation(content: string, sentenceType: SentenceType = 'mixed'): string {
@@ -5594,30 +5562,30 @@ function buildDialogueLowSignalFallback(params: {
   tense: string
   level: string
   audience: 'child' | 'adult'
-  forcedRepeatSentence?: string | null
   lastUserText?: string
 }): string {
   const soft = isSoftCommentTone(params.audience, params.level)
   const invalidInputComment = soft
     ? params.audience === 'child'
-      ? 'Комментарий: Давай попробуем ответить полным предложением на английском.'
-      : 'Комментарий: Давайте попробуем ответить полным предложением на английском.'
-    : 'Комментарий: Похоже, ответ получился неполным. Лучше ответить полным предложением на английском.'
+      ? 'Комментарий: Я не понял ответ. Давай вернемся к вопросу и ответим полным предложением на английском.'
+      : 'Комментарий: Я не понял ответ. Давайте вернемся к вопросу и ответим полным предложением на английском.'
+    : 'Комментарий: Ответ не удалось распознать. Давайте вернемся к текущему вопросу и ответим полным предложением на английском.'
 
-  const lastRepeat = params.forcedRepeatSentence ?? extractLastAssistantRepeatSentence(params.messages)
-  const hasActiveRepeat =
-    Boolean(lastRepeat) &&
-    Boolean(params.lastUserText) &&
-    !isDialogueAnswerEffectivelyCorrect(params.lastUserText!, lastRepeat!, params.tense)
-  if (hasActiveRepeat && lastRepeat) {
-    return [invalidInputComment, `Повтори: ${lastRepeat}`].join('\n')
+  const currentCycleQuestion = extractLastAssistantQuestionSentence(params.messages)
+  if (currentCycleQuestion && isEnglishQuestionLine(currentCycleQuestion)) {
+    return `${invalidInputComment}\n${currentCycleQuestion}`
   }
 
-  const fallbackRepeat = buildMixedInputRepeatFallback({
-    userText: params.lastUserText ?? '',
+  const fallbackQuestion = fallbackQuestionForContext({
+    topic: params.topic,
     tense: params.tense,
+    level: params.level,
+    audience: params.audience,
+    isFirstTurn: false,
+    isTopicChoiceTurn: false,
+    lastUserText: params.lastUserText,
   })
-  return `${invalidInputComment}\nПовтори: ${fallbackRepeat}`
+  return `${invalidInputComment}\n${fallbackQuestion}`
 }
 
 export async function POST(req: NextRequest) {
@@ -5949,7 +5917,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (mode === 'dialogue' && topic !== 'free_talk' && !isFirstTurn && isLowSignalDialogueInput(lastUserText)) {
+    if (isDialogueProtectionScenario({
+      mode,
+      isFirstTurn,
+      isTopicChoiceTurn,
+      userText: lastUserText,
+    })) {
       return NextResponse.json({
         content: buildDialogueLowSignalFallback({
           messages: recentMessages,
@@ -5957,9 +5930,9 @@ export async function POST(req: NextRequest) {
           tense: tutorGradingTense,
           level,
           audience,
-          forcedRepeatSentence,
           lastUserText,
         }),
+        dialogueCorrect: false,
       })
     }
     if (mode === 'translation' && !isFirstTurn && isLowSignalTranslationInput(lastUserText)) {
@@ -6452,8 +6425,7 @@ export async function POST(req: NextRequest) {
       if (topic !== 'free_talk' || isFirstTurn || isTopicChoiceTurn) return ''
       const firstUserMsg = nonSystemMessages.find((m) => m.role === 'user')
       if (!firstUserMsg) return ''
-      const { en, ru } = extractTopicChoiceKeywordsByLang(firstUserMsg.content)
-      const keywords = en.length > 0 ? en : translateRuTopicKeywordsToEn(ru)
+      const keywords = buildFreeTalkTopicChoiceKeywordList(firstUserMsg.content)
       if (keywords.length === 0) return ''
       return `\n\nFREE-TALK ESTABLISHED TOPIC: The user chose the topic earlier. Key topic phrase: ${buildFreeTalkTopicLabel(keywords)}. Continue asking questions about this topic.
 
@@ -7926,7 +7898,10 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             })
           }
           return NextResponse.json({
-            content: `Комментарий: Давайте уточним формулировку и грамматику.\nПовтори: ${ensureSentence(lastUserContentForResponse)}`,
+            content: `Комментарий: Давайте уточним формулировку и грамматику.\nПовтори: ${buildMixedInputRepeatFallback({
+              userText: lastUserContentForResponse,
+              tense: tutorGradingTense,
+            })}`,
           })
         }
         if (!isMixedDialogueInput && userClosedForcedRepeat && isUserLikelyCorrectForTense(lastUserContentForResponse, tutorGradingTense)) {
@@ -7975,7 +7950,10 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           })
         }
         return NextResponse.json({
-          content: `${commentNonMixed}\nПовтори: ${ensureSentence(lastUserContentForResponse)}`,
+          content: `${commentNonMixed}\nПовтори: ${buildMixedInputRepeatFallback({
+            userText: lastUserContentForResponse,
+            tense: tutorGradingTense,
+          })}`,
         })
       }
       const fallbackContent =
@@ -7996,7 +7974,6 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 tense: tutorGradingTense,
                 level,
                 audience,
-                forcedRepeatSentence,
                 lastUserText: lastUserContentForResponse,
               })
           : fallbackQuestionForContext({
