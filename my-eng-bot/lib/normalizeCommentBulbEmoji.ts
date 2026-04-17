@@ -52,7 +52,7 @@ export function normalizeBulbOnlyAtStart(body: string): string {
 }
 
 /**
- * Обходит многострочные блоки «Комментарий_перевод:» и «Комментарий:» в ответе перевода.
+ * Обходит многострочные блоки «Комментарий_перевод:», «Комментарий_мусор:» и «Комментарий:» в ответе перевода.
  */
 export function normalizeTranslationBulbEmojisInContent(content: string): string {
   if (!content?.trim()) return content
@@ -86,6 +86,15 @@ export function normalizeTranslationBulbEmojisInContent(content: string): string
       continue
     }
 
+    const junk = /^(\s*(?:\d+[\.)]\s*)*)(Комментарий_мусор)\s*:\s*(.*)$/i.exec(line)
+    if (junk) {
+      const indent = junk[1] ?? ''
+      const normalized = normalizeBulbOnlyAtStart(junk[3] ?? '')
+      out.push(`${indent}Комментарий_мусор: ${normalized}`)
+      i++
+      continue
+    }
+
     const com = /^(\s*(?:\d+[\.)]\s*)*)(Комментарий)(?!_)\s*:\s*(.*)$/i.exec(line)
     if (com) {
       const indent = com[1] ?? ''
@@ -94,7 +103,7 @@ export function normalizeTranslationBulbEmojisInContent(content: string): string
       while (i < lines.length) {
         const next = lines[i] ?? ''
         if (
-          /^\s*(?:\d+[\.)]\s*)*(Комментарий_перевод|Ошибки|Скажи|Повтори|Repeat|Say|Переведи|Следующ|Комментарий)\s*:/i.test(
+          /^\s*(?:\d+[\.)]\s*)*(Комментарий_перевод|Комментарий_мусор|Ошибки|Скажи|Повтори|Repeat|Say|Переведи|Следующ|Комментарий)\s*:/i.test(
             next
           )
         ) {

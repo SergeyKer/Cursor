@@ -3729,10 +3729,15 @@ function keepOnlyCommentAndRepeatOnInvalidTranslationInput(content: string, incl
     .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
     .filter(Boolean)
 
-  const commentLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:/i.test(line))
+  const commentLine = lines.find((line) =>
+    /^[\s\-•]*(?:\d+[\.)]\s*)*(?:Комментарий(?:_ошибка)?|Комментарий_мусор)\s*:/i.test(line)
+  )
   if (!commentLine) return content
 
-  const commentText = commentLine.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:\s*/i, '')
+  const commentText = commentLine.replace(
+    /^[\s\-•]*(?:\d+[\.)]\s*)*(?:Комментарий(?:_ошибка)?|Комментарий_мусор)\s*:\s*/i,
+    ''
+  )
   const isInvalidInputCase =
     /\b(Некорректн|непонятн|не распознан|не понимаю|не понял|поясни|объясни|уточни)\b/i.test(commentText)
   if (!isInvalidInputCase) return content
@@ -3740,7 +3745,7 @@ function keepOnlyCommentAndRepeatOnInvalidTranslationInput(content: string, incl
   const supportLead: string[] = []
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_перевод\s*:/i.test(lines[0] ?? '')) {
     for (const l of lines) {
-      if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:/i.test(l)) break
+      if (/^[\s\-•]*(?:\d+[\.)]\s*)*(?:Комментарий(?:_ошибка)?|Комментарий_мусор)\s*:/i.test(l)) break
       supportLead.push(l)
     }
   }
@@ -3764,12 +3769,129 @@ function isUnrecognizedTranslationContext(content: string): boolean {
     .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
     .filter(Boolean)
 
-  const commentLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:/i.test(line))
+  const commentLine = lines.find((line) =>
+    /^[\s\-•]*(?:\d+[\.)]\s*)*(?:Комментарий(?:_ошибка)?|Комментарий_мусор)\s*:/i.test(line)
+  )
   if (!commentLine) return false
-  const commentText = commentLine.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:\s*/i, '')
+  const commentText = commentLine.replace(
+    /^[\s\-•]*(?:\d+[\.)]\s*)*(?:Комментарий(?:_ошибка)?|Комментарий_мусор)\s*:\s*/i,
+    ''
+  )
   return /\b(Некорректн|непонятн|не распознан|не понимаю|не понял|уточни|объясни|введите полное предложение|переведите предложение|что вы хотите сказать)\b/i.test(
     commentText
   )
+}
+
+function isTranslationJunkVerdictReasons(reasons: readonly string[]): boolean {
+  return reasons.some((reason) => reason === 'gibberish_in_answer' || reason === 'empty_answer')
+}
+
+function isLikelyLatinNoiseTranslationInput(text: string): boolean {
+  const tokens = text
+    .toLowerCase()
+    .replace(/[^a-z\s']/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+  if (tokens.length === 0) return false
+  return tokens.some((token) => token.length >= 5 && /[^aeiouy]{5,}/.test(token))
+}
+
+type TranslationJunkReason = 'cyrillic' | 'mixed' | 'noise' | 'non_english'
+
+function detectTranslationJunkReason(params: {
+  userText: string
+  verdictReasons: readonly string[]
+}): TranslationJunkReason {
+  const text = params.userText.trim()
+  const hasLatin = /[A-Za-z]/.test(text)
+  const hasCyrillic = /[А-Яа-яЁё]/.test(text)
+  if (hasCyrillic && hasLatin) return 'mixed'
+  if (hasCyrillic && !hasLatin) return 'cyrillic'
+  if (isTranslationJunkVerdictReasons(params.verdictReasons) || isLikelyLatinNoiseTranslationInput(text)) return 'noise'
+  return 'non_english'
+}
+
+function pickDeterministicIndex(seed: string, length: number): number {
+  if (length <= 1) return 0
+  let hash = 0
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0
+  }
+  return hash % length
+}
+
+function buildTranslationJunkComment(params: {
+  audience: Audience
+  reason: TranslationJunkReason
+  userText: string
+}): string {
+  const adultByReason: Record<TranslationJunkReason, string[]> = {
+    cyrillic: [
+      'Похоже, это ответ на русском. В этом режиме нужен перевод на английском.',
+      'Сейчас введён русский текст. Напиши полный вариант на английском.',
+      'Вижу русский ввод. Для этого шага нужен один полный английский перевод.',
+    ],
+    mixed: [
+      'В ответе смешаны русский и английский. Нужна одна фраза полностью на английском.',
+      'Здесь смешан язык ответа. Напиши перевод целиком на английском.',
+      'Вижу смешанный ввод. Нужен полный английский вариант без русских слов.',
+    ],
+    noise: [
+      'Похоже на случайный набор символов. Нужен осмысленный перевод на английском.',
+      'Ответ выглядит как шум. Напиши полный английский перевод одной фразой.',
+      'Вижу набор символов вместо перевода. Введи корректную фразу на английском.',
+    ],
+    non_english: [
+      'Пока не могу засчитать ответ. Напиши полный перевод на английском.',
+      'Этот ввод не распознан как перевод. Нужна одна фраза на английском.',
+      'Ответ не похож на английский перевод. Введи корректный вариант на английском.',
+    ],
+  }
+  const childByReason: Record<TranslationJunkReason, string[]> = {
+    cyrillic: [
+      'Почти получилось. Теперь напиши это полностью на английском.',
+      'Супер попытка. Нужен ответ только на английском.',
+      'Я вижу русский текст. Давай теперь напишем по-английски.',
+    ],
+    mixed: [
+      'Здесь смешаны два языка. Напиши фразу целиком на английском.',
+      'Отличная попытка. Теперь ответ нужен только на английском.',
+      'Давай без смешения языков: одна фраза полностью на английском.',
+    ],
+    noise: [
+      'Похоже на случайные буквы. Напиши понятный перевод на английском.',
+      'Вижу набор символов. Давай введём нормальный ответ на английском.',
+      'Это больше похоже на шум. Попробуй ещё раз: одна фраза на английском.',
+    ],
+    non_english: [
+      'Пока не могу засчитать ответ. Напиши перевод на английском одной фразой.',
+      'Давай попробуем ещё раз: нужен полный ответ на английском.',
+      'Этот ответ не распознан. Введи перевод по-английски.',
+    ],
+  }
+  const pool = params.audience === 'child' ? childByReason[params.reason] : adultByReason[params.reason]
+  const idx = pickDeterministicIndex(`${params.reason}|${params.userText.toLowerCase()}`, pool.length)
+  return pool[idx] ?? pool[0] ?? 'Пока не могу засчитать ответ. Напиши полный перевод на английском.'
+}
+
+function buildTranslationJunkResponsePayload(params: {
+  goldEnglish: string
+  audience: Audience
+  userText: string
+  verdictReasons: readonly string[]
+}): string {
+  const gold = normalizeEnglishSentenceForCard(params.goldEnglish)
+  if (!gold) return ''
+  const reason = detectTranslationJunkReason({
+    userText: params.userText,
+    verdictReasons: params.verdictReasons,
+  })
+  const comment = buildTranslationJunkComment({
+    audience: params.audience,
+    reason,
+    userText: params.userText,
+  })
+  return `Комментарий_мусор: ${comment}\nСкажи: ${gold}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${gold}`
 }
 
 function getTranslationRepeatSentence(content: string): string | null {
@@ -3783,6 +3905,31 @@ function getTranslationRepeatSentence(content: string): string | null {
     .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:\s*/i, '')
     .trim()
   return repeatText || null
+}
+
+function normalizeTranslationJunkPayload(content: string): string {
+  const lines = content
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+    .filter(Boolean)
+
+  const junkCommentLine = lines.find((line) =>
+    /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_мусор\s*:/i.test(line)
+  )
+  const repeatLine = lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(line))
+  if (!junkCommentLine || !repeatLine) return content
+
+  const normalizedRepeat = repeatLine
+    .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:\s*/i, 'Скажи: ')
+    .trim()
+  if (!normalizedRepeat) return content
+
+  const hiddenRef =
+    lines.find((line) => new RegExp(`^${TRAN_CANONICAL_REPEAT_REF_MARKER}\\s*:`, 'i').test(line)) ?? ''
+
+  const out = [junkCommentLine, normalizedRepeat]
+  if (hiddenRef) out.push(hiddenRef)
+  return out.join('\n').trim()
 }
 
 /**
@@ -3847,6 +3994,10 @@ function hasVisibleTranslationSayLine(content: string): boolean {
   return /(?:^|\n)\s*(?:[\s\-•]*(?:\d+[\.)]\s*)*)?(?:Скажи|Say)\s*:/im.test(content.trim())
 }
 
+function hasTranslationJunkCommentLine(content: string): boolean {
+  return /(?:^|\n)\s*(?:[\s\-•]*(?:\d+[\.)]\s*)*)Комментарий_мусор\s*:/im.test(content.trim())
+}
+
 /**
  * Модель иногда склеивает SUCCESS («Комментарий» + «Переведи далее») с хвостом ERROR («Скажи»).
  * Тогда finalize тянет prior-repeat и режет приглашения — UX «застряли на повторе».
@@ -3887,6 +4038,20 @@ function isTranslationFinalizePureSuccess(content: string): boolean {
   return /(?:^|\n)\s*(?:[\s\-•]*(?:\d+[\.)]\s*)*)?(?:Переведи|Переведите)\s+далее\s*:/im.test(t)
 }
 
+function isTranslationCompactJunkPayload(content: string): boolean {
+  const lines = content
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+    .filter(Boolean)
+  const hasComment = lines.some((line) => /^Комментарий\s*:/i.test(line))
+  const hasSay = lines.some((line) => /^(Скажи|Say)\s*:/i.test(line))
+  const hasLegacyError = lines.some(
+    (line) => /^Комментарий_перевод\s*:/i.test(line) || /^Ошибки\s*:/i.test(line)
+  )
+  const hasNextInvite = lines.some((line) => /^(?:Переведи|Переведите)\s+далее\s*:/i.test(line))
+  return hasComment && hasSay && !hasLegacyError && !hasNextInvite
+}
+
 /** Финальная нормализация ответа перевода: enforce «Скажи»/«Скажи», sanitize, скрытый __TRAN__. */
 async function finalizeTranslationResponsePayload(params: {
   content: string
@@ -3904,6 +4069,7 @@ async function finalizeTranslationResponsePayload(params: {
     guardedContent = stripVisibleTranslationSayLines(guardedContent)
   }
   const pureTranslationSuccess = isTranslationFinalizePureSuccess(guardedContent)
+  const compactJunkPayload = isTranslationCompactJunkPayload(guardedContent)
   if (!pureTranslationSuccess && getTranslationRepeatSentence(guardedContent)) {
     guardedContent = stripTranslationInvitationLines(guardedContent)
   }
@@ -3911,6 +4077,7 @@ async function finalizeTranslationResponsePayload(params: {
   const { lastTranslationPrompt } = params
   if (
     !pureTranslationSuccess &&
+    !compactJunkPayload &&
     (lastTranslationPrompt?.trim() || priorRepeatForEnforce?.trim())
   ) {
     guardedContent = enforceAuthoritativeTranslationRepeat(
@@ -4495,7 +4662,7 @@ function normalizeTranslationErrorBranch(content: string): string {
     .filter(Boolean)
 
   const headerBreakForErrors = (l: string) =>
-    /^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say|Комментарий|Комментарий_перевод)\s*:/i.test(l)
+    /^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say|Комментарий|Комментарий_перевод|Комментарий_мусор)\s*:/i.test(l)
 
   let supportCombined: string | null = null
   const supStart = lines.findIndex((l) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_перевод\s*:/i.test(l))
@@ -4532,6 +4699,25 @@ function normalizeTranslationErrorBranch(content: string): string {
     }
     const body = parts.join('\n').trim()
     if (body) comment = `Комментарий: ${body}`.trim()
+  }
+
+  let junkComment: string | null = null
+  const junkCommentStart = lines.findIndex((line) =>
+    /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_мусор\s*:/i.test(line)
+  )
+  if (junkCommentStart !== -1) {
+    const firstBody = (lines[junkCommentStart] ?? '')
+      .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_мусор\s*:\s*/i, '')
+      .trim()
+    const parts: string[] = []
+    if (firstBody) parts.push(firstBody)
+    for (let i = junkCommentStart + 1; i < lines.length; i++) {
+      const l = lines[i]!
+      if (headerBreakForErrors(l)) break
+      parts.push(l)
+    }
+    const body = parts.join('\n').trim()
+    if (body) junkComment = `Комментарий_мусор: ${body}`.trim()
   }
 
   let errorsCombined: string | null = null
@@ -4579,6 +4765,7 @@ function normalizeTranslationErrorBranch(content: string): string {
 
   const isStrictErrorShape = Boolean(supportCombined?.trim() && errorsCombined?.trim())
   const out = [
+    junkComment,
     supportCombined,
     ...(comment && !isStrictErrorShape ? [comment] : []),
     errorsCombined,
@@ -5393,7 +5580,7 @@ function ensureTranslationErrorsMentionCyrillicAnswer(content: string, userText:
   }
   if (errIdx === -1) return content
 
-  const headerRe = /^(Комментарий_перевод|Комментарий|Ошибки|Скажи|Say)\s*:/i
+  const headerRe = /^(Комментарий_перевод|Комментарий_мусор|Комментарий|Ошибки|Скажи|Say)\s*:/i
 
   const errLine = lines[errIdx] ?? ''
   const inlineRest = errLine.replace(/^\s*Ошибки\s*:\s*/i, '').trim()
@@ -6808,16 +6995,20 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     const translationAnswerContainsCyrillic = !isFirstTurn && /[А-Яа-яЁё]/.test(lastUserContentForResponse)
     let translationWordMismatch = false
     let canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic
+    let translationJunkFlow = false
     let translationReferenceFormForTurn: string | null = null
     let translationPromptTextForTurn = ''
+    let translationTpForGold = ''
     let translationGoldForVerdict: string | null = null
     let translationGoldVerdictFailed = false
+    let translationGoldVerdictReasons: string[] = []
     /** Тело «Комментарий_перевод:» из ответа модели до агрессивной пересборки (для force…). */
     let translationPreservedPerevodBody: string | null = null
     if (mode === 'translation') {
       const tpForGold =
         (ruForTranslationRepeatClamp ?? translationRuExtractedFromPriorAssistant ?? lastTranslationPrompt)?.trim() ??
         ''
+      translationTpForGold = tpForGold
       if (!isFirstTurn && tpForGold) {
         let goldForVerdict: string | null = null
         if (translationPriorAssistantContent) {
@@ -6857,6 +7048,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             ruPrompt: tpForGold,
           })
           translationGoldVerdictFailed = !v.ok
+          translationGoldVerdictReasons = v.reasons
         }
       }
       sanitized = normalizeTranslationCommentStyle(sanitized)
@@ -6970,7 +7162,44 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       if (translationGoldMissing) {
         canTreatTranslationAsSuccess = false
       }
-      if (isFirstTurn) {
+      if (!isFirstTurn) {
+        const hasLatinLetters = /[A-Za-z]/.test(lastUserContentForResponse)
+        const hasCyrillicLetters = /[А-Яа-яЁё]/.test(lastUserContentForResponse)
+        const lowSignalInput = isLowSignalTranslationInput(lastUserContentForResponse)
+        const likelyLatinNoise = isLikelyLatinNoiseTranslationInput(lastUserContentForResponse)
+        const junkInputCandidate =
+          (hasCyrillicLetters && !hasLatinLetters) ||
+          isTranslationJunkVerdictReasons(translationGoldVerdictReasons) ||
+          lowSignalInput ||
+          likelyLatinNoise ||
+          (!hasLatinLetters && lastUserContentForResponse.trim().length > 0)
+        if (junkInputCandidate) {
+          const junkGold =
+            translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null
+          if (junkGold) {
+            const junkPayload = buildTranslationJunkResponsePayload({
+              goldEnglish: junkGold,
+              audience,
+              userText: lastUserContentForResponse,
+              verdictReasons: translationGoldVerdictReasons,
+            })
+            if (junkPayload.trim()) {
+              sanitized = junkPayload
+              sanitized = applyTranslationRepeatSourceClampToContent(
+                sanitized,
+                translationTpForGold || ruForTranslationRepeatClamp || lastTranslationPrompt
+              )
+              translationJunkFlow = true
+              translationSuccessFlow = false
+              translationGoldVerdictFailed = true
+              canTreatTranslationAsSuccess = false
+            }
+          }
+        }
+      }
+      if (translationJunkFlow) {
+        // junk-ветка полностью собрана; ниже не прогоняем success/error сборки.
+      } else if (isFirstTurn) {
         sanitized = ensureFirstTranslationInvitation(sanitized, translationDrillSentenceType)
       } else {
         const initialSuccessLike = modelSuccessLike
@@ -7138,7 +7367,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       }
     }
 
-    if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
+    if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow && !translationJunkFlow) {
       // Страховка SUCCESS только при подтверждённом золотом эталоне и вердикте (без «успеха» без gold).
       if (
         canTreatTranslationAsSuccess &&
@@ -7159,7 +7388,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       }
     }
 
-    if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
+    if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow && !translationJunkFlow) {
       let repeatSentence = getTranslationRepeatSentence(sanitized)
       if (!repeatSentence && translationReferenceFormForTurn && translationGoldVerdictFailed) {
         sanitized = forceTranslationWordErrorProtocol(
@@ -7298,7 +7527,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       }
     }
 
-    if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
+    if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow && !translationJunkFlow) {
       sanitized = applyTranslationRepeatSourceClampToContent(sanitized, ruForTranslationRepeatClamp ?? lastTranslationPrompt)
       if (getTranslationRepeatSentence(sanitized)) {
         sanitized = normalizeTranslationErrorBranch(stripTranslationInvitationLines(sanitized))
@@ -7311,6 +7540,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       mode === 'translation' &&
       !isFirstTurn &&
       !translationSuccessFlow &&
+      !translationJunkFlow &&
       (tutorGradingTense === 'present_simple' || tutorGradingTense === 'present_continuous')
     ) {
       const expectedTenseName = TENSE_NAMES[tutorGradingTense] ?? null
@@ -7421,7 +7651,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       }
     }
 
-    if (mode === 'translation') {
+    if (mode === 'translation' && !translationJunkFlow) {
       const translationSuccessEligible =
         !isFirstTurn &&
         canTreatTranslationAsSuccess &&
@@ -7445,6 +7675,26 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       })
       sanitized = injectSentenceTypePopravImperative(sanitized, audience)
       sanitized = normalizeTranslationBulbEmojisInContent(sanitized)
+    }
+    if (mode === 'translation' && !isFirstTurn && translationJunkFlow) {
+      sanitized = normalizeTranslationJunkPayload(sanitized)
+    }
+    if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow && !translationJunkFlow) {
+      // Жёсткий guard: в non-success translation обязателен repeat.
+      // Если payload не попал в success/error и repeat отсутствует, принудительно уходим в junk-вариант.
+      if (!getTranslationRepeatSentence(sanitized)) {
+        const junkGold = translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null
+        if (junkGold) {
+          sanitized = buildTranslationJunkResponsePayload({
+            goldEnglish: junkGold,
+            audience,
+            userText: lastUserContentForResponse,
+            verdictReasons: translationGoldVerdictReasons,
+          })
+          sanitized = normalizeTranslationJunkPayload(sanitized)
+          translationJunkFlow = true
+        }
+      }
     }
     if (!sanitized) {
       return NextResponse.json(
@@ -7862,7 +8112,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               } else if (translationAnswerContainsCyrillic) {
                 repaired = ensureTranslationRepeatFallbackForMixedInput(repaired, lastUserContentForResponse)
               }
-              if (translationStrictReferenceFirst) {
+              if (translationStrictReferenceFirst && !translationJunkFlow) {
                 repaired = enforceStrictTranslationOutputContract({
                   content: repaired,
                   isFirstTurn,
@@ -7909,7 +8159,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 req,
                 resolveGoldTranslation,
               })
-              if (translationStrictReferenceFirst) {
+              if (translationStrictReferenceFirst && !translationJunkFlow) {
                 repaired = enforceStrictTranslationOutputContract({
                   content: repaired,
                   isFirstTurn,
@@ -8151,7 +8401,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           openAiChatPreset,
         })
       }
-      if (translationStrictReferenceFirst) {
+      if (translationStrictReferenceFirst && !translationJunkFlow) {
         guardedContent = enforceStrictTranslationOutputContract({
           content: guardedContent,
           isFirstTurn,
@@ -8178,7 +8428,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         req,
         resolveGoldTranslation,
       })
-      if (translationStrictReferenceFirst) {
+      if (translationStrictReferenceFirst && !translationJunkFlow) {
         guardedContent = enforceStrictTranslationOutputContract({
           content: guardedContent,
           isFirstTurn,

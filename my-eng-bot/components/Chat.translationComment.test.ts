@@ -195,6 +195,17 @@ describe('parseTranslationCoachBlocks', () => {
     expect(b.repeatRu).toBe('I like to eat pizza with friends.')
   })
 
+  it('парсит Комментарий_мусор в отдельное поле и не смешивает с Комментарий_перевод', () => {
+    const text = ['Комментарий_мусор: Вижу случайный набор символов. Нужен ответ на английском.', 'Скажи: I read books.'].join(
+      '\n'
+    )
+    const b = parseTranslationCoachBlocks(text)
+    expect(b.translationJunkComment).toContain('случайный набор')
+    expect(b.translationSupportComment).toBeNull()
+    expect(b.comment).toBeNull()
+    expect(b.repeat).toBe('I read books.')
+  })
+
   it('разделяет склеенные inline-блоки из строки Комментарий на отдельные поля', () => {
     const text =
       'Комментарий: Лексическая ошибка — Проверь написание и выбор слова. Скажи: I will start a new project. Скажи: I will start a new project.'
@@ -383,6 +394,23 @@ describe('translation error repeat UI', () => {
     expect(sections.some((s) => s.key === 'main')).toBe(false)
     expect(sections.some((s) => s.key === 'main-after')).toBe(false)
     expect(sections.find((s) => s.key === 'repeat-translation')?.text).toContain('business trip')
+  })
+
+  it('в translation+error показывает отдельную карточку translation-junk-comment и repeat-translation', () => {
+    const sections = buildAssistantSectionsForTranslationErrorRepeatTest({
+      mode: 'translation',
+      translationErrorCoachUi: true,
+      translationJunkComment: 'Вижу русский текст. Нужен полный перевод на английском.',
+      showOnlyRepeat: true,
+      repeatRuTextForCard: 'Do you have a brother?',
+      repeatTextForCard: 'Do you have a brother?',
+    })
+    const keys = sections.map((s) => s.key)
+    expect(keys).toContain('translation-junk-comment')
+    expect(keys).toContain('repeat-translation')
+    expect(keys).not.toContain('translation-support')
+    expect(keys).not.toContain('repeat')
+    expect(keys).not.toContain('repeat-inline')
   })
 
   it('убирает внешние кавычки в теле repeat-translation', () => {
