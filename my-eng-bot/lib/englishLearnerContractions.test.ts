@@ -14,6 +14,10 @@ describe('normalizeEnglishLearnerContractions', () => {
     expect(normalizeEnglishLearnerContractions('I am not ready.')).toBe("I'm not ready.")
   })
 
+  it('normalizes "it is" to "it’s"', () => {
+    expect(normalizeEnglishLearnerContractions('It is cold today.')).toBe("It's cold today.")
+  })
+
   it('normalizes cannot variants and keeps unrelated text', () => {
     expect(normalizeEnglishLearnerContractions('I cannot swim.')).toBe("I can't swim.")
     expect(normalizeEnglishLearnerContractions('I can not swim.')).toBe("I can't swim.")

@@ -84,6 +84,30 @@ describe('computeTranslationGoldVerdict', () => {
     ).toEqual({ ok: true, reasons: [] })
   })
 
+  it('accepts It is vs it’s for same gold', () => {
+    const ru = 'Сегодня холодно.'
+    const gold = 'It is cold today.'
+    expect(
+      computeTranslationGoldVerdict({
+        userText: "It's cold today.",
+        goldEnglish: gold,
+        ruPrompt: ru,
+      })
+    ).toEqual({ ok: true, reasons: [] })
+  })
+
+  it('accepts want vs would like for expressing desire', () => {
+    const ru = 'Я хочу чай.'
+    const gold = 'I would like tea.'
+    expect(
+      computeTranslationGoldVerdict({
+        userText: 'I want tea.',
+        goldEnglish: gold,
+        ruPrompt: ru,
+      })
+    ).toEqual({ ok: true, reasons: [] })
+  })
+
   it('accepts like to cook vs like cooking (gerund / infinitive)', () => {
     const ruCook = 'Я люблю готовить.'
     const gold = 'I like cooking.'

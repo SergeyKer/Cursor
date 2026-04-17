@@ -4,6 +4,7 @@ type ContractionRule = {
 }
 
 const CONTRACTION_RULES: ContractionRule[] = [
+  { pattern: /\bit\s+is\b/gi, replacement: "it's" },
   { pattern: /\bcannot\b/gi, replacement: "can't" },
   { pattern: /\bcan\s+not\b/gi, replacement: "can't" },
   { pattern: /\bwill\s+not\b/gi, replacement: "won't" },

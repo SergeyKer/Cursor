@@ -26,4 +26,28 @@ describe('normalizeEnglishForLearnerAnswerMatch', () => {
     const b = normalizeEnglishForLearnerAnswerMatch("I don't like trips.", 'dialogue')
     expect(a).toBe(b)
   })
+
+  it('normalizes it is and it’s for translation', () => {
+    const a = normalizeEnglishForLearnerAnswerMatch('It is very cold.', 'translation')
+    const b = normalizeEnglishForLearnerAnswerMatch("It's very cold.", 'translation')
+    expect(a).toBe(b)
+  })
+
+  it('normalizes it is and it’s for dialogue', () => {
+    const a = normalizeEnglishForLearnerAnswerMatch('It is late.', 'dialogue')
+    const b = normalizeEnglishForLearnerAnswerMatch("It's late.", 'dialogue')
+    expect(a).toBe(b)
+  })
+
+  it('normalizes want and would like for translation', () => {
+    const a = normalizeEnglishForLearnerAnswerMatch('I want tea.', 'translation')
+    const b = normalizeEnglishForLearnerAnswerMatch('I would like tea.', 'translation')
+    expect(a).toBe(b)
+  })
+
+  it('normalizes want and would like for dialogue', () => {
+    const a = normalizeEnglishForLearnerAnswerMatch('They want tea.', 'dialogue')
+    const b = normalizeEnglishForLearnerAnswerMatch("They'd like tea.", 'dialogue')
+    expect(a).toBe(b)
+  })
 })
