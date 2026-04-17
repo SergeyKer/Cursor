@@ -7829,6 +7829,26 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 req,
                 resolveGoldTranslation,
               })
+              if (translationStrictReferenceFirst) {
+                repaired = enforceStrictTranslationOutputContract({
+                  content: repaired,
+                  isFirstTurn,
+                  shouldUseSuccessCard:
+                    !isFirstTurn &&
+                    canTreatTranslationAsSuccess &&
+                    Boolean(translationGoldForVerdict?.trim()) &&
+                    !translationGoldVerdictFailed,
+                  audience: audience as Audience,
+                  level: translationDrillLevel,
+                  topic,
+                  tense: tutorGradingTense,
+                  sentenceType: translationDrillSentenceType,
+                  fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
+                  userText: lastUserContentForResponse,
+                  repeatEnglishFallback:
+                    translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
+                })
+              }
               return NextResponse.json({ content: repaired })
             }
             const dialogueGuard = applyCefrOutputGuard({
@@ -8073,6 +8093,22 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         req,
         resolveGoldTranslation,
       })
+      if (translationStrictReferenceFirst) {
+        guardedContent = enforceStrictTranslationOutputContract({
+          content: guardedContent,
+          isFirstTurn,
+          shouldUseSuccessCard: translationSuccessEligible,
+          audience: audience as Audience,
+          level: translationDrillLevel,
+          topic,
+          tense: tutorGradingTense,
+          sentenceType: translationDrillSentenceType,
+          fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
+          userText: lastUserContentForResponse,
+          repeatEnglishFallback:
+            translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
+        })
+      }
       logRetentionSignals({
         mode,
         audience,

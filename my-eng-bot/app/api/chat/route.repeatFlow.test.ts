@@ -2663,5 +2663,39 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).not.toContain('Поправь — и я помог вам исправить')
   })
 
+  it('translation final output lock removes stray Скажи from success payload', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          'Переведи далее: Ты любишь смотреть фильмы по выходным.\nСкажи: I like to watch movies on weekends.',
+      })
+      .mockResolvedValueOnce({ ok: true, content: 'Do you like to watch movies on weekends?' })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'movies_series',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'Ты любишь смотреть фильмы дома?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you like to watch movies at home?',
+        },
+        { role: 'user', content: 'Do you like to watch movies at home?' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Переведи далее:')
+    expect(data.content).not.toContain('Скажи:')
+  })
+
 })
 
