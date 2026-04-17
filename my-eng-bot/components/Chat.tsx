@@ -434,11 +434,12 @@ function buildAssistantSections(params: {
   }
   const isTranslationErrorCoach = isTranslationErrorRepeat || (mode === 'translation' && translationErrorCoachUi)
   const hideEnglishRepeatCard = isTranslationErrorCoach
+  const repeatLabel = mode === 'dialogue' ? 'Повтори' : 'Скажи'
   if (showOnlyRepeat && repeatTextForCard && !isTranslationErrorCoach) {
     sections.push({
       key: 'repeat',
       tone: 'emerald',
-      label: 'Скажи',
+      label: repeatLabel,
       text: stripWrappingQuotes(repeatTextForCard),
       singleLine: true,
     })
@@ -463,7 +464,7 @@ function buildAssistantSections(params: {
     sections.push({
       key: 'repeat-inline',
       tone: 'emerald',
-      label: 'Скажи',
+      label: repeatLabel,
       text: stripWrappingQuotes(repeatTextForCard),
       singleLine: true,
     })
@@ -475,7 +476,7 @@ function buildAssistantSections(params: {
       key: 'main-after',
       tone: 'neutral',
       label: assistantMainHeadingLabel(),
-      text: mainAfter.replace(/\b(Say|Скажи):\s*/gi, 'Скажи: '),
+      text: mainAfter.replace(/\b(Say|Скажи|Повтори|Repeat):\s*/gi, `${repeatLabel}: `),
       emphasizeMainText: hideAiLabel,
     })
   }
@@ -1690,7 +1691,7 @@ function extractRepeatPrompt(text: string): { repeatText: string } | null {
     // Модель иногда добавляет префиксы "AI:"/"Assistant:" перед служебными строками.
     const line = lines[i].replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
     if (!line) continue
-    const m = /^(Скажи|Say)\s*:?\s*(.*)$/i.exec(line)
+    const m = /^(Скажи|Say|Повтори|Repeat)\s*:?\s*(.*)$/i.exec(line)
     if (!m) continue
     let afterKeyword = (m[2] ?? '').trim()
     // Если после "Скажи:" на этой строке пусто или только ":", смотрим следующую непустую строку
@@ -1772,10 +1773,10 @@ function MessageBubble({
   const handleSpeak = () => {
     // Для озвучки:
     // 1) если есть "Скажи", озвучиваем только его;
-    // 2) иначе озвучиваем основной текст, убрав служебные префиксы Скажи/Say.
+    // 2) иначе озвучиваем основной текст, убрав служебные префиксы повтора.
     const base = repeatTextForCard || rest || visibleContent
     const speakText = base
-      ? base.replace(/^(Скажи|Say)\s*:?\s*/i, '').trim()
+      ? base.replace(/^(Скажи|Say|Повтори|Repeat)\s*:?\s*/i, '').trim()
       : ''
     if (speakText) speak(speakText, voiceId)
   }

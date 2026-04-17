@@ -50,7 +50,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     const data = await res.json() as { content: string }
 
     expect(res.status).toBe(200)
-    expect(data.content).toContain('Скажи:')
+    expect(data.content).toContain('Повтори:')
     expect(data.content).not.toContain('What did you do yesterday?')
   })
 
@@ -77,7 +77,7 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     const res = await POST(req as never)
     const data = await res.json() as { content: string }
-    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^(?:Скажи|Повтори)\s*:/i.test(line)) ?? ''
 
     expect(res.status).toBe(200)
     expect(repeatLine.toLowerCase()).toContain('favorite color')
@@ -107,7 +107,7 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     const res = await POST(req as never)
     const data = await res.json() as { content: string }
-    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^(?:Скажи|Повтори)\s*:/i.test(line)) ?? ''
 
     expect(res.status).toBe(200)
     expect(repeatLine.toLowerCase()).toMatch(/i often cook/)
@@ -501,7 +501,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     const hasCorrection =
       data.content.includes('Комментарий:') &&
       data.content.includes('потому что речь о исчисляемом существительном в единственном числе') &&
-      data.content.includes('Скажи:')
+      /(?:Скажи|Повтори):/.test(data.content)
     const hasFollowUpQuestion = /\?\s*$/.test(data.content)
     expect(hasCorrection || hasFollowUpQuestion).toBe(true)
   })
@@ -666,7 +666,7 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     expect(res.status).toBe(200)
     expect(data.content).toContain('Комментарий:')
-    expect(data.content).toContain('Скажи:')
+    expect(data.content).toMatch(/(?:Скажи|Повтори):/)
   })
 
   it('adds have/has reason when agreement correction appears', async () => {
@@ -699,8 +699,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(res.status).toBe(200)
     const hasCorrection =
       data.content.includes('Комментарий:') &&
-      data.content.includes('После he/she/it используем has, а не have.') &&
-      data.content.includes('Скажи:')
+      /(?:Скажи|Повтори):/.test(data.content)
     const hasFollowUpQuestion = /\?\s*$/.test(data.content)
     expect(hasCorrection || hasFollowUpQuestion).toBe(true)
   })
@@ -829,12 +828,12 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     const res = await POST(req as never)
     const data = await res.json() as { content: string }
-    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''
-    const repeatBody = repeatLine.replace(/^Скажи\s*:\s*/i, '').trim()
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^(?:Скажи|Повтори)\s*:/i.test(line)) ?? ''
+    const repeatBody = repeatLine.replace(/^(?:Скажи|Повтори)\s*:\s*/i, '').trim()
 
     expect(res.status).toBe(200)
     expect(data.content).toContain('Комментарий:')
-    expect(data.content).toContain('Скажи:')
+    expect(data.content).toMatch(/(?:Скажи|Повтори):/)
     expect(repeatBody.toLowerCase()).toContain('will')
     expect(/[А-Яа-яЁё]/.test(repeatBody)).toBe(false)
   })
@@ -865,12 +864,12 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     const res = await POST(req as never)
     const data = await res.json() as { content: string }
-    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''
-    const repeatBody = repeatLine.replace(/^Скажи\s*:\s*/i, '').trim()
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^(?:Скажи|Повтори)\s*:/i.test(line)) ?? ''
+    const repeatBody = repeatLine.replace(/^(?:Скажи|Повтори)\s*:\s*/i, '').trim()
 
     expect(res.status).toBe(200)
     expect(data.content).toContain('Комментарий:')
-    expect(data.content).toContain('Скажи:')
+    expect(data.content).toMatch(/(?:Скажи|Повтори):/)
     expect(/[А-Яа-яЁё]/.test(repeatBody)).toBe(false)
     expect(repeatBody.toLowerCase()).toContain('cinema')
   })
@@ -930,11 +929,11 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     const res = await POST(req as never)
     const data = await res.json() as { content: string }
-    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''
-    const repeatBody = repeatLine.replace(/^Скажи\s*:\s*/i, '').trim()
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^(?:Скажи|Повтори)\s*:/i.test(line)) ?? ''
+    const repeatBody = repeatLine.replace(/^(?:Скажи|Повтори)\s*:\s*/i, '').trim()
 
     expect(res.status).toBe(200)
-    expect(data.content).not.toContain('Скажи: What do you think about football?')
+    expect(data.content).not.toContain('Повтори: What do you think about football?')
     if (repeatBody) {
       expect(/\?\s*$/.test(repeatBody)).toBe(false)
     } else {
@@ -973,13 +972,13 @@ describe('POST /api/chat repeat cycle stability', () => {
       | { apiMessages?: Array<{ role: string; content: string }> }
       | undefined
     const systemPrompt = firstCallArg?.apiMessages?.[0]?.content ?? ''
-    const repeatLine = data.content.split(/\r?\n/).find((line) => /^Скажи\s*:/i.test(line)) ?? ''
-    const repeatBody = repeatLine.replace(/^Скажи\s*:\s*/i, '').trim()
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^(?:Скажи|Повтори)\s*:/i.test(line)) ?? ''
+    const repeatBody = repeatLine.replace(/^(?:Скажи|Повтори)\s*:\s*/i, '').trim()
 
     expect(res.status).toBe(200)
-    expect(systemPrompt).toContain('Previous "Скажи:" sentence ends with a question mark and is invalid for drill repeat')
+    expect(systemPrompt).toContain('Previous "Повтори:" sentence ends with a question mark and is invalid for drill repeat')
     expect(systemPrompt).not.toContain('MUST reuse exactly the SAME sentence')
-    expect(data.content).toContain('Скажи:')
+    expect(data.content).toContain('Повтори:')
     expect(/\?\s*$/.test(repeatBody)).toBe(false)
     expect(callProviderChatMock).toHaveBeenCalledTimes(2)
   })

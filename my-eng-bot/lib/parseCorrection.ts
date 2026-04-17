@@ -77,6 +77,12 @@ export function parseCorrection(text: string): {
       }
     }
     if (collectingComment) {
+      const looksLikeEnglishQuestion = /[A-Za-z]/.test(line) && /\?\s*$/.test(line)
+      if (looksLikeEnglishQuestion) {
+        collectingComment = false
+        restLines.push(stripAssistantPrefix(raw))
+        continue
+      }
       if (isTranslationMetaFeedbackLine(line)) {
         comment = comment ? `${comment}\n${line}` : line
         continue
