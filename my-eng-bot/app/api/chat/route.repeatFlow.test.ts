@@ -1093,6 +1093,40 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(callProviderChatMock).toHaveBeenCalledTimes(2)
   })
 
+  it('keeps previous correct repeat when model drifts to user typo', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Тут есть опечатка.\nСкажи: I play wtih cars at home.',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Тут есть опечатка.\nСкажи: I play with cars at home.',
+      })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      audience: 'adult',
+      level: 'a1',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'Do you play with cars at home?' },
+        { role: 'user', content: 'I play wtih cars at home' },
+        { role: 'assistant', content: 'Комментарий: Тут ошибка в слове "wtih".\nСкажи: I play with cars at home.' },
+        { role: 'user', content: 'I play wtih cars at home' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^(?:Скажи|Повтори)\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine).toContain('I play with cars at home.')
+    expect(repeatLine).not.toContain('wtih')
+    expect(callProviderChatMock).toHaveBeenCalledTimes(2)
+  })
+
   it('translation success (affirmative) keeps contextual comment and explicit +/?/- construction', async () => {
     callProviderChatMock
       .mockResolvedValueOnce({

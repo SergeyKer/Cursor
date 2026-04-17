@@ -2393,6 +2393,7 @@ function isValidTutorOutput(params: {
     /(?:скоррект|исправ|ошиб|неверн|нужен|нужно|требуетс|а не|правильн(?:ый|ая|ое)\s+перевод|грамматик)/i.test(
       commentBody
     )
+  const commentMentionsTypo = /(?:опечат|орфограф|spelling|typo)/i.test(commentBody)
 
   // Если есть незакрытое «Скажи» из предыдущего хода и ответ пользователя его не снял —
   // ответ ИИ обязан содержать «Скажи:». Без этого триггерим repair.
@@ -2431,6 +2432,24 @@ function isValidTutorOutput(params: {
     // В Скажи должен быть английский текст.
     const after = r.replace(/^(Скажи|Say|Повтори|Repeat)\s*:\s*/i, '')
     if (isEnglishQuestionLine(after)) return false
+    if (
+      forcedRepeatSentence &&
+      !isEnglishQuestionLine(forcedRepeatSentence) &&
+      lastUserText &&
+      !isDialogueAnswerEffectivelyCorrect(lastUserText, forcedRepeatSentence, requiredTense ?? 'present_simple') &&
+      isLikelyRepeatTypoDriftFromAnchor({
+        anchorSentence: forcedRepeatSentence,
+        repeatSentence: after,
+        userText: lastUserText,
+      })
+    ) {
+      return false
+    }
+    if (commentMentionsTypo && lastUserText) {
+      const userNorm = normalizeEnglishForLearnerAnswerMatch(lastUserText, 'dialogue')
+      const repeatNorm = normalizeEnglishForLearnerAnswerMatch(after, 'dialogue')
+      if (userNorm && repeatNorm && userNorm === repeatNorm) return false
+    }
     return /[A-Za-z]/.test(after) && !/[А-Яа-яЁё]/.test(after)
   }
 
@@ -4682,6 +4701,15 @@ async function repairDialogueAllTenseRepeatMismatch(params: {
     !isDialogueAnswerEffectivelyCorrect(lastUserText, anchorPick.trim(), dialogueTenseForTurn) &&
     !isDialogueRepeatLikelyTruncationOfAnchor(repeatSentence, anchorPick.trim())
   ) {
+    if (
+      isLikelyRepeatTypoDriftFromAnchor({
+        anchorSentence: anchorPick.trim(),
+        repeatSentence,
+        userText: lastUserText,
+      })
+    ) {
+      return replaceDialogueRepeatInContent(content, anchorPick.trim())
+    }
     const scoreAnchor = scoreUserRepeatOverlap(lastUserText, anchorPick.trim())
     const scoreCurrent = scoreUserRepeatOverlap(lastUserText, repeatSentence)
     if (scoreAnchor > scoreCurrent && scoreAnchor >= 2) {
@@ -5445,6 +5473,35 @@ function scoreUserRepeatOverlap(userText: string, candidate: string): number {
     if (cSet.has(w)) n++
   }
   return n
+}
+
+function isLikelyRepeatTypoDriftFromAnchor(params: {
+  anchorSentence: string
+  repeatSentence: string
+  userText: string
+}): boolean {
+  const anchorTokens = tokenizeEnglishWords(params.anchorSentence).filter((t) => t.length >= 2)
+  const repeatTokens = tokenizeEnglishWords(params.repeatSentence).filter((t) => t.length >= 2)
+  const userTokens = new Set(tokenizeEnglishWords(params.userText))
+
+  if (anchorTokens.length === 0 || repeatTokens.length === 0) return false
+  if (anchorTokens.length !== repeatTokens.length) return false
+
+  let diffCount = 0
+  for (let i = 0; i < anchorTokens.length; i++) {
+    const anchorToken = anchorTokens[i] ?? ''
+    const repeatToken = repeatTokens[i] ?? ''
+    if (!anchorToken || !repeatToken) continue
+    if (anchorToken === repeatToken) continue
+    diffCount++
+    if (diffCount > 1) return false
+    const distance = levenshteinDistance(anchorToken, repeatToken)
+    if (distance < 1 || distance > 2) return false
+    if (!userTokens.has(repeatToken)) return false
+    if (userTokens.has(anchorToken)) return false
+  }
+
+  return diffCount === 1
 }
 
 /**
