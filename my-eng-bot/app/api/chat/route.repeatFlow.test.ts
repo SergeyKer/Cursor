@@ -1744,6 +1744,43 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).not.toContain('Скажи:')
   })
 
+  it('translation refreshes __TRAN_REPEAT_REF__ for new "Переведи далее" prompt (meetings vs parties)', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content:
+          "Комментарий: Отлично! Ты правильно использовал don't в отрицании, и это Present Simple для постоянного предпочтения.\nПереведи далее: Я не люблю шумные совещания.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I don't like noisy parties.",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: "I don't like noisy meetings.",
+      })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'work',
+      audience: 'adult',
+      level: 'c2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            "Я не люблю шумные вечеринки.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I don't like noisy parties.",
+        },
+        { role: 'user', content: "I don't like noisy parties." },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Переведи далее: Я не люблю шумные совещания.')
+    expect(data.content).toContain("__TRAN_REPEAT_REF__: I don't like noisy meetings.")
+    expect(data.content).not.toContain("__TRAN_REPEAT_REF__: I don't like noisy parties.")
+  })
+
   it('translation mixed input does not advance to next question', async () => {
     callProviderChatMock
       .mockResolvedValueOnce({

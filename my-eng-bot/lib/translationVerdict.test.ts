@@ -255,4 +255,21 @@ describe('pickTranslationGoldForVerdict', () => {
       })
     ).toBe('I have a cat.')
   })
+
+  it('returns null when neither hidden nor visible gold matches current RU prompt semantics', () => {
+    const card = [
+      'Переведи: У меня есть кот.',
+      'Переведи на английский.',
+      'Скажи: I have a dog.',
+      '__TRAN_REPEAT_REF__: I have a pig.',
+    ].join('\n')
+    const ru = 'У меня есть кот.'
+    expect(
+      pickTranslationGoldForVerdict({
+        assistantContent: card,
+        ruPrompt: ru,
+        userText: 'I have a cat.',
+      })
+    ).toBeNull()
+  })
 })

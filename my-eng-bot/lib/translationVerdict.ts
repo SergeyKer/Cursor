@@ -214,5 +214,8 @@ export function pickTranslationGoldForVerdict(params: {
     const v = computeTranslationGoldVerdict({ userText: user, goldEnglish: gold, ruPrompt: tp })
     if (v.ok) return gold
   }
-  return hidden?.trim() || visible?.trim() || null
+  const plausible = candidates.find(
+    (gold) => goldPlausibleForRuPrompt(tp, gold) && goldHasEnoughSubstanceForPrompt(tp, gold)
+  )
+  return plausible ?? null
 }
