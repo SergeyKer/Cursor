@@ -4752,7 +4752,7 @@ async function repairDialogueAllTenseRepeatMismatch(params: {
       if (repairedRaw && !isMetaGarbage(repairedRaw)) {
         let repaired = stripOffContextCorrections(repairedRaw, lastUserText)
         repaired = normalizeAssistantPrefixForControlLines(repaired)
-        repaired = normalizeRepeatLabelForMode(repaired, mode)
+        repaired = normalizeRepeatLabelForMode(repaired, 'dialogue')
         repaired = splitCommentAndRepeatSameLine(repaired)
         repaired = stripRepeatWhenAskingToExplain(repaired)
         repaired = normalizeVariantFormatting(repaired)
