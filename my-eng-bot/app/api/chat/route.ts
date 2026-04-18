@@ -49,6 +49,7 @@ import {
   normalizeDrillRuSentenceForSentenceType,
   normalizeTranslationPracticeSentence,
 } from '@/lib/translationMode'
+import { runTranslationFirstTurnContractGuard } from '@/lib/translationFirstTurnGuard'
 import { ADVERB_PLACEMENT_TUTOR_BLOCK } from '@/lib/adverbPlacementPrompt'
 import { normalizeTranslationBulbEmojisInContent } from '@/lib/normalizeCommentBulbEmoji'
 import {
@@ -7337,6 +7338,15 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         // junk-ветка полностью собрана; ниже не прогоняем success/error сборки.
       } else if (isFirstTurn) {
         sanitized = ensureFirstTranslationInvitation(sanitized, translationDrillSentenceType)
+        sanitized = runTranslationFirstTurnContractGuard({
+          content: sanitized,
+          topic,
+          tense: translationDrillTense,
+          level: translationDrillLevel,
+          audience,
+          sentenceType: translationDrillSentenceType,
+          seedText: dialogSeed,
+        })
       } else {
         const initialSuccessLike = modelSuccessLike
         if (initialSuccessLike && canTreatTranslationAsSuccess) {
@@ -7740,6 +7750,15 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 repaired = normalizeTranslationCommentStyle(repaired)
                 if (isFirstTurn) {
                   repaired = ensureFirstTranslationInvitation(repaired, translationDrillSentenceType)
+                  repaired = runTranslationFirstTurnContractGuard({
+                    content: repaired,
+                    topic,
+                    tense: translationDrillTense,
+                    level: translationDrillLevel,
+                    audience,
+                    sentenceType: translationDrillSentenceType,
+                    seedText: dialogSeed,
+                  })
                 } else {
                   repaired = ensureTranslationProtocolBlocks(repaired, {
                     tense: tutorGradingTense,
@@ -8171,6 +8190,15 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             repaired = normalizeTranslationCommentStyle(repaired)
             if (isFirstTurn) {
               repaired = ensureFirstTranslationInvitation(repaired, translationDrillSentenceType)
+              repaired = runTranslationFirstTurnContractGuard({
+                content: repaired,
+                topic,
+                tense: translationDrillTense,
+                level: translationDrillLevel,
+                audience,
+                sentenceType: translationDrillSentenceType,
+                seedText: dialogSeed,
+              })
             } else {
               repaired = ensureTranslationProtocolBlocks(repaired, {
                 tense: tutorGradingTense,

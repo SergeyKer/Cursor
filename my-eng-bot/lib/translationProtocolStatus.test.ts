@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   hasTranslationSuccessProtocolFields,
+  isTranslationJunkOnlyProtocolFields,
   resolveTranslationProtocolStatus,
   resolveTranslationProtocolStatusFromFields,
 } from './translationProtocolStatus'
@@ -45,6 +46,17 @@ describe('resolveTranslationProtocolStatus', () => {
         translationErrorCoachUi: false,
       })
     ).toBe('prompt_only')
+  })
+
+  it('returns junk_repeat when translationJunkRepeat is set', () => {
+    expect(
+      resolveTranslationProtocolStatus({
+        mode: 'translation',
+        translationSuccessShape: true,
+        translationErrorCoachUi: true,
+        translationJunkRepeat: true,
+      })
+    ).toBe('junk_repeat')
   })
 })
 
@@ -104,6 +116,60 @@ describe('resolveTranslationProtocolStatusFromFields', () => {
         repeatRu: null,
       })
     ).toBe('success')
+  })
+
+  it('returns junk_repeat for Комментарий_мусор + Скажи without error blocks', () => {
+    expect(
+      resolveTranslationProtocolStatusFromFields({
+        comment: null,
+        translationSupportComment: null,
+        translationJunkComment: 'Нужен ответ на английском.',
+        errorsBlock: null,
+        repeat: 'I read books.',
+        repeatRu: 'I read books.',
+      })
+    ).toBe('junk_repeat')
+  })
+
+  it('does not return junk_repeat when Ошибки block is present', () => {
+    expect(
+      resolveTranslationProtocolStatusFromFields({
+        comment: null,
+        translationSupportComment: null,
+        translationJunkComment: 'Что-то похожее на мусор.',
+        errorsBlock: '🔤 Ошибка.',
+        repeat: 'I read.',
+        repeatRu: null,
+      })
+    ).toBe('error_repeat')
+  })
+})
+
+describe('isTranslationJunkOnlyProtocolFields', () => {
+  it('is true only for junk + repeat without comment/support/errors', () => {
+    expect(
+      isTranslationJunkOnlyProtocolFields({
+        comment: null,
+        translationJunkComment: 'Мусор.',
+        translationSupportComment: null,
+        errorsBlock: null,
+        repeat: 'Say it.',
+        repeatRu: null,
+      })
+    ).toBe(true)
+  })
+
+  it('is false when Комментарий is present', () => {
+    expect(
+      isTranslationJunkOnlyProtocolFields({
+        comment: 'Ошибка времени.',
+        translationJunkComment: 'Мусор.',
+        errorsBlock: null,
+        translationSupportComment: null,
+        repeat: 'I run.',
+        repeatRu: null,
+      })
+    ).toBe(false)
   })
 })
 

@@ -1,9 +1,10 @@
-export type TranslationProtocolStatus = 'prompt_only' | 'success' | 'error_repeat'
+export type TranslationProtocolStatus = 'prompt_only' | 'success' | 'error_repeat' | 'junk_repeat'
 
 type TranslationProtocolFields = {
   comment?: string | null
   commentIsPraise?: boolean
   translationSupportComment?: string | null
+  translationJunkComment?: string | null
   errorsBlock?: string | null
   repeat?: string | null
   repeatRu?: string | null
@@ -21,6 +22,18 @@ function commentLooksCorrective(comment: string | null | undefined): boolean {
 }
 
 /**
+ * Только протокол «Комментарий_мусор» + эталон «Скажи», без ошибок/поддержки/обычного Комментарий.
+ */
+export function isTranslationJunkOnlyProtocolFields(fields: TranslationProtocolFields): boolean {
+  if (!hasVisibleProtocolText(fields.translationJunkComment)) return false
+  if (!hasVisibleProtocolText(fields.repeat) && !hasVisibleProtocolText(fields.repeatRu)) return false
+  if (hasVisibleProtocolText(fields.errorsBlock)) return false
+  if (hasVisibleProtocolText(fields.translationSupportComment)) return false
+  if (hasVisibleProtocolText(fields.comment)) return false
+  return true
+}
+
+/**
  * Единая классификация статуса карточек перевода.
  * Источник истины для UI и backend-нормализации.
  */
@@ -28,8 +41,10 @@ export function resolveTranslationProtocolStatus(params: {
   mode: 'dialogue' | 'translation' | 'communication'
   translationSuccessShape: boolean
   translationErrorCoachUi: boolean
+  translationJunkRepeat?: boolean
 }): TranslationProtocolStatus {
   if (params.mode !== 'translation') return 'prompt_only'
+  if (params.translationJunkRepeat) return 'junk_repeat'
   if (params.translationErrorCoachUi) return 'error_repeat'
   if (params.translationSuccessShape) return 'success'
   return 'prompt_only'
@@ -57,6 +72,7 @@ export function hasTranslationSuccessProtocolFields(fields: TranslationProtocolF
 export function resolveTranslationProtocolStatusFromFields(
   fields: TranslationProtocolFields
 ): TranslationProtocolStatus {
+  if (isTranslationJunkOnlyProtocolFields(fields)) return 'junk_repeat'
   return resolveTranslationProtocolStatus({
     mode: 'translation',
     translationSuccessShape: hasTranslationSuccessProtocolFields(fields),

@@ -325,6 +325,32 @@ describe('POST /api/chat translation provider payload', () => {
     expect(data.content).not.toMatch(/(?:^|\n)\s*Скажи\s*:/im)
   })
 
+  it('first translation turn replaces multi-sentence model drill with deterministic fallback', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Я надеюсь, что вы хорошо проводите время с друзьями и семьей. Как давно вы поддерживаете связь с близкими.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I hope you are having a good time.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'family_friends',
+      audience: 'adult',
+      level: 'b2',
+      sentenceType: 'general',
+      tenses: ['present_perfect_continuous'],
+      messages: [],
+    })
+
+    const res = await POST(req as never)
+    expect(res.status).toBe(200)
+    const data = (await res.json()) as { content: string }
+    expect(data.content).not.toContain('Я надеюсь')
+    expect(data.content).not.toContain('Как давно вы поддерживаете')
+    expect(data.content).toMatch(/Переведи на английск/i)
+    expect(callProviderChatMock).toHaveBeenCalled()
+  })
+
   describe('translation low-signal gibberish (early return)', () => {
     it('returns Комментарий + Переведи + prompt on first user turn', async () => {
       const req = makeRequest({

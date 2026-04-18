@@ -9,6 +9,7 @@ import { stripWrappingQuotes } from '@/lib/translationProtocolLines'
 import {
   buildAssistantSectionsForTranslationDrillWithInvitationTest,
   buildAssistantSectionsForTranslationErrorRepeatTest,
+  buildAssistantSectionsForTranslationJunkRepeatTest,
   buildAssistantSectionsForTranslationSuccessTest,
   commentIconForContent,
   commentLabelForTranslationFirstBlock,
@@ -151,6 +152,28 @@ describe('computeAssistantTranslationMainCardMeta', () => {
     const meta = computeAssistantTranslationMainCardMeta({ role: 'assistant', content })
     expect(meta.hideTranslationPromptBlocks).toBe(false)
     expect(meta.effectiveMainBefore.trim()).toBe('')
+  })
+
+  it('при junk_repeat не подставляет русское задание в effectiveMainBefore', () => {
+    const content = ['Комментарий_мусор: Введите перевод на английском.', 'Скажи: I read books.'].join('\n')
+    const meta = computeAssistantTranslationMainCardMeta({ role: 'assistant', content })
+    expect(meta.effectiveMainBefore.trim()).toBe('')
+    expect(meta.hideTranslationPromptBlocks).toBe(true)
+  })
+})
+
+describe('buildAssistantSectionsForTranslationJunkRepeatTest', () => {
+  it('только две карточки: Комментарий_мусор и Скажи, без Переведи далее', () => {
+    const sections = buildAssistantSectionsForTranslationJunkRepeatTest({
+      translationJunkComment: 'Вижу случайный набор символов.',
+      repeatTextForCard: 'I read books.',
+    })
+    const keys = sections.map((s) => s.key)
+    expect(keys).toEqual(['translation-junk-protocol', 'repeat-translation'])
+    expect(keys).not.toContain('translation-invitation')
+    expect(keys).not.toContain('main')
+    expect(sections.find((s) => s.key === 'translation-junk-protocol')?.label).toBe('Комментарий_мусор')
+    expect(sections.find((s) => s.key === 'repeat-translation')?.label).toBe('Скажи')
   })
 })
 
@@ -516,6 +539,7 @@ describe('translation drill error: карточки и не-шаблон Ком�
       comment: blocks.comment,
       commentIsPraise: blocks.comment ? false : undefined,
       translationSupportComment: blocks.translationSupportComment,
+      translationJunkComment: blocks.translationJunkComment,
       errorsBlock: blocks.errorsBlock,
       repeat: blocks.repeat,
       repeatRu: blocks.repeatRu,
