@@ -41,6 +41,11 @@ export const RU_TOPIC_KEYWORD_TO_EN: Record<string, string> = {
   работа: 'work',
   еда: 'food',
   готовка: 'cooking',
+  /** Рецепты / выпечка (mixed-input fallback, диалог). */
+  блин: 'blini',
+  блины: 'blini',
+  рецепт: 'recipe',
+  рецепты: 'recipes',
   хлеб: 'bread',
   яйцо: 'egg',
   яйца: 'eggs',

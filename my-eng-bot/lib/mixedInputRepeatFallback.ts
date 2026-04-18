@@ -75,6 +75,14 @@ function fixLikePlusBareInfinitive(s: string): string {
   )
 }
 
+/** Узкие частые опечатки ученика в латинице — не общий spellchecker. */
+function applyCommonLearnerLatinTypos(s: string): string {
+  let t = s
+  t = t.replace(/\btriing\b/gi, 'trying')
+  t = t.replace(/\bwisited\b/gi, 'visited')
+  return t
+}
+
 function finalizeEnglishSentence(s: string): string {
   const t = s.trim().replace(/\s+/g, ' ')
   if (!t) return t
@@ -229,14 +237,16 @@ export function buildMixedInputRepeatFallback(params: { userText: string; tense:
 
   const phrased = applyMixedRuPhrases(userText)
   const { text: afterCyrillic, replacedAny } = replaceCyrillicWordsWithEnglish(phrased, RU_TOPIC_KEYWORD_TO_EN)
-  const afterLike = fixLikePlusBareInfinitive(afterCyrillic)
+  const afterLike = applyCommonLearnerLatinTypos(fixLikePlusBareInfinitive(afterCyrillic))
   const changedLike = afterLike !== afterCyrillic
 
   if ((replacedAny || changedLike) && isAcceptableRepeat(afterLike) && isPlausibleLearnerSentence(afterLike)) {
     return finalizeEnglishSentence(afterLike)
   }
 
-  const stripped = afterLike.replace(/[А-Яа-яЁё]+/g, ' ').replace(/\s+/g, ' ').trim()
+  const stripped = applyCommonLearnerLatinTypos(
+    afterLike.replace(/[А-Яа-яЁё]+/g, ' ').replace(/\s+/g, ' ').trim(),
+  )
   if (stripped && isAcceptableRepeat(stripped) && isPlausibleLearnerSentence(stripped)) {
     return finalizeEnglishSentence(stripped)
   }

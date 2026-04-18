@@ -78,6 +78,7 @@ import { isDialogueOutputLikelyInRequiredTense, validateDialogueOutputTense } fr
 import { isRepeatSemanticallySafe } from '@/lib/dialogueSemanticGuard'
 import { validateDialogueRussianNaturalness } from '@/lib/dialogueRussianNaturalness'
 import { validateDialogueMixedInputOutput } from '@/lib/dialogueMixedInputGuard'
+import { findDialoguePinCandidateFromMessages } from '@/lib/dialogueRepeatPin'
 import { buildAdultFullTensePool, pickWeightedFreeTalkTense } from '@/lib/freeTalkDialogueTense'
 import { isFixedTopicSwitchRequest } from '@/lib/freeTalkTopicChange'
 import { buildFreeTalkTopicChoiceKeywordList } from '@/lib/freeTalkTopicChoiceKeywords'
@@ -118,6 +119,7 @@ import {
 } from '@/lib/translationCommentCoach'
 import { applyFreeTalkTopicChoiceTenseAnchorFallback } from '@/lib/freeTalkTopicChoiceAnchorFallback'
 import { buildStrictTopicPromptBlock } from '@/lib/topicGuardPrompts'
+import { RUSSIAN_TRANSLATION_DRILL_HINTS } from '@/lib/russianDrillAndTranslateHints'
 import { buildCefrPromptBlock } from '@/lib/cefr/cefrSpec'
 import { applyCefrOutputGuard } from '@/lib/cefr/levelGuard'
 import { getCefrLevelConfig } from '@/lib/cefr/cefrConfig'
@@ -623,6 +625,8 @@ No other format. Output only the chat message text.`
 ${cefrPromptBlockTr}
 
 ${translationDrillContract}
+
+${RUSSIAN_TRANSLATION_DRILL_HINTS}
 
 ${audienceStyleRule}
 ${childTopicSafetyRule}
@@ -4692,6 +4696,14 @@ function replaceDialogueRepeatInContent(content: string, repeatSentence: string)
   return out.join('\n').trim()
 }
 
+/** В открытом цикле исправлений подменяет тело «Повтори» на закреплённый эталон (только dialogue). */
+function clampDialoguePinnedRepeatInContent(content: string, pinnedEnglish: string | null): string {
+  const p = pinnedEnglish?.trim()
+  if (!p) return content
+  if (!/(^|\n)\s*(Скажи|Say|Повтори|Repeat)\s*:/im.test(content)) return content
+  return replaceDialogueRepeatInContent(content, p)
+}
+
 function normalizeTranslationErrorBranch(content: string): string {
   const lines = content
     .split(/\r?\n/)
@@ -4967,11 +4979,9 @@ async function repairDialogueAllTenseRepeatMismatch(params: {
   const repeatSentence = getDialogueRepeatSentence(content)
   if (!repeatSentence) return content
 
-  const anchorPick = pickDialogueForcedRepeatAnchorFromHistory(
-    recentMessages,
-    lastUserText,
-    dialogueTenseForTurn
-  )
+  const anchorPick =
+    forcedRepeatSentence?.trim() ||
+    pickDialogueForcedRepeatAnchorFromHistory(recentMessages, lastUserText, dialogueTenseForTurn)
   if (anchorPick?.trim() && isUnusableDialogueRepeatCandidate(repeatSentence)) {
     return replaceDialogueRepeatInContent(content, anchorPick.trim())
   }
@@ -6213,10 +6223,6 @@ export async function POST(req: NextRequest) {
         : {}),
     })
 
-    const forcedRepeatSentence =
-      mode === 'dialogue'
-        ? pickDialogueForcedRepeatAnchorFromHistory(recentMessages, lastUserText, tutorGradingTense)
-        : null
     const isRepeatedNumberedTopicChoiceTurn = Boolean(resolvedTopicChoiceText) && !isTopicChoiceTurn
     if (mode === 'dialogue' && topic === 'free_talk' && isRepeatedNumberedTopicChoiceTurn) {
       return NextResponse.json({
@@ -6348,6 +6354,24 @@ export async function POST(req: NextRequest) {
         ? buildCommunicationMaxTokens(communicationDetailLevel, MAX_RESPONSE_TOKENS)
         : MAX_RESPONSE_TOKENS
     const lastUserContentForResponse = stripWebSearchForceCode(lastUserText)
+    const dialoguePinCandidate =
+      mode === 'dialogue' && !isFirstTurn && !isTopicChoiceTurn
+        ? findDialoguePinCandidateFromMessages(recentMessages)
+        : null
+    const dialoguePinnedRepeatEnglish =
+      dialoguePinCandidate &&
+      !isDialogueAnswerEffectivelyCorrect(
+        lastUserContentForResponse,
+        dialoguePinCandidate,
+        tutorGradingTense
+      )
+        ? dialoguePinCandidate.trim()
+        : null
+    const forcedRepeatSentence =
+      mode === 'dialogue'
+        ? dialoguePinnedRepeatEnglish ??
+          pickDialogueForcedRepeatAnchorFromHistory(recentMessages, lastUserText, tutorGradingTense)
+        : null
     const lastUserContentRaw = lastUserText
     const lastAssistantContentForLangTie = recentMessages.filter((m: ChatMessage) => m.role === 'assistant').pop()?.content ?? ''
     const lastAssistantLang = detectLangFromText(lastAssistantContentForLangTie, 'ru')
@@ -7060,6 +7084,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         maxTokens: communicationMaxTokens,
         openAiChatPreset,
       })
+      if (dialoguePinnedRepeatEnglish) {
+        sanitized = clampDialoguePinnedRepeatInContent(sanitized, dialoguePinnedRepeatEnglish)
+      }
     }
     let translationSuccessFlow = false
     let priorAssistantRepeatEnglish: string | null = null
@@ -7977,6 +8004,10 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       )
     }
 
+    if (mode === 'dialogue' && dialoguePinnedRepeatEnglish) {
+      sanitized = clampDialoguePinnedRepeatInContent(sanitized, dialoguePinnedRepeatEnglish)
+    }
+
     const tenseValidation = validateDialogueOutputTense({
       content: sanitized,
       requiredTense: tutorGradingTense,
@@ -8243,6 +8274,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           }
           if (mode === 'dialogue') {
             repaired = formatDialogueCommentAsSeparateLines(repaired)
+            if (dialoguePinnedRepeatEnglish) {
+              repaired = clampDialoguePinnedRepeatInContent(repaired, dialoguePinnedRepeatEnglish)
+            }
           }
           const repairedValid = isValidTutorOutput({
             content: repaired,
@@ -8384,6 +8418,12 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         })
       }
       if (mode === 'dialogue' && !isFirstTurn && !isTopicChoiceTurn && !isLowSignalDialogueInput(lastUserContentForResponse)) {
+        const dialogueFallbackRepeatBody =
+          dialoguePinnedRepeatEnglish?.trim() ||
+          buildMixedInputRepeatFallback({
+            userText: lastUserContentForResponse,
+            tense: tutorGradingTense,
+          })
         const correctionWithoutRepeat = hasCommentRequestingCorrectionWithoutRepeat(sanitized)
         if (correctionWithoutRepeat) {
           if (isMixedDialogueInput) {
@@ -8392,17 +8432,11 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 audience,
                 level,
                 userText: lastUserContentForResponse,
-              })}\nПовтори: ${buildMixedInputRepeatFallback({
-                userText: lastUserContentForResponse,
-                tense: tutorGradingTense,
-              })}`,
+              })}\nПовтори: ${dialogueFallbackRepeatBody}`,
             })
           }
           return NextResponse.json({
-            content: `Комментарий: Давайте уточним формулировку и грамматику.\nПовтори: ${buildMixedInputRepeatFallback({
-              userText: lastUserContentForResponse,
-              tense: tutorGradingTense,
-            })}`,
+            content: `Комментарий: Давайте уточним формулировку и грамматику.\nПовтори: ${dialogueFallbackRepeatBody}`,
           })
         }
         if (!isMixedDialogueInput && userClosedForcedRepeat && isUserLikelyCorrectForTense(lastUserContentForResponse, tutorGradingTense)) {
@@ -8444,17 +8478,11 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               audience,
               level,
               userText: lastUserContentForResponse,
-          })}\nПовтори: ${buildMixedInputRepeatFallback({
-              userText: lastUserContentForResponse,
-              tense: tutorGradingTense,
-            })}`,
+          })}\nПовтори: ${dialogueFallbackRepeatBody}`,
           })
         }
         return NextResponse.json({
-          content: `${commentNonMixed}\nПовтори: ${buildMixedInputRepeatFallback({
-            userText: lastUserContentForResponse,
-            tense: tutorGradingTense,
-          })}`,
+          content: `${commentNonMixed}\nПовтори: ${dialogueFallbackRepeatBody}`,
         })
       }
       const fallbackContent =
@@ -8652,6 +8680,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     })
     sanitized = dialogueGuard.content
     sanitized = formatDialogueCommentAsSeparateLines(sanitized)
+    if (dialoguePinnedRepeatEnglish) {
+      sanitized = clampDialoguePinnedRepeatInContent(sanitized, dialoguePinnedRepeatEnglish)
+    }
 
     logRetentionSignals({
       mode,

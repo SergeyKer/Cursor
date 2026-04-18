@@ -7,16 +7,18 @@ function hasMixedLatinAndCyrillic(text: string): boolean {
   return /[A-Za-z]/.test(text) && /[А-Яа-яЁё]/.test(text)
 }
 
+const REPEAT_LINE_PREFIX_RE = /^(?:Скажи|Say|Повтори|Repeat)\s*:\s*/i
+
 function extractCommentAndRepeat(content: string): { comment: string | null; repeat: string | null } {
   const lines = content
     .split(/\r?\n/)
     .map((line) => line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
     .filter(Boolean)
-  const commentLine = lines.find((line) => /^Комментарий\s*:/i.test(line)) ?? null
-  const repeatLine = lines.find((line) => /^(Скажи|Say)\s*:/i.test(line)) ?? null
+  const commentLine = lines.find((line) => /^Комментарий(?:_ошибка)?\s*:/i.test(line)) ?? null
+  const repeatLine = lines.find((line) => /^(?:Скажи|Say|Повтори|Repeat)\s*:/i.test(line)) ?? null
   return {
-    comment: commentLine ? commentLine.replace(/^Комментарий\s*:\s*/i, '').trim() : null,
-    repeat: repeatLine ? repeatLine.replace(/^(Скажи|Say)\s*:\s*/i, '').trim() : null,
+    comment: commentLine ? commentLine.replace(/^Комментарий(?:_ошибка)?\s*:\s*/i, '').trim() : null,
+    repeat: repeatLine ? repeatLine.replace(REPEAT_LINE_PREFIX_RE, '').trim() : null,
   }
 }
 

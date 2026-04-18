@@ -3,6 +3,7 @@ import type { AppMode, TenseId } from '@/lib/types'
 import { buildProxyFetchExtra } from '@/lib/proxyFetch'
 import { classifyOpenAiForbidden } from '@/lib/openAiForbidden'
 import { applyTranslationQualityGate, normalizeTranslationResult } from '@/lib/translationPostProcess'
+import { RUSSIAN_EN_TO_RU_SHORT_HINTS } from '@/lib/russianDrillAndTranslateHints'
 
 export const runtime = 'nodejs'
 
@@ -107,6 +108,8 @@ function buildSystemPromptEnToRu(params: {
     'You are a professional English-to-Russian translator. Translate naturally, adapting idioms and collocations to standard Russian usage. Preserve tone, register, and context. Never translate literally if it sounds unnatural. ' +
     tenseGrammarRules +
     form +
+    ' ' +
+    RUSSIAN_EN_TO_RU_SHORT_HINTS +
     ' Keep correct Russian grammar, case, and verb government. For hobby/interest meaning (hobby, be into, be interested in, pursue), use natural patterns with correct government: "увлекаться чем", "интересоваться чем", "заниматься чем". Never produce ungrammatical forms like "Какое хобби вы недавно увлекались?". ' +
     ' Avoid bureaucratic or robotic phrases like "связанное с", "в отношении", "касаемо", "по части". If the English is a question, translate it as a clear question a real person would ask. ' +
     'Prefer idiomatic Russian over literal structure. For example, translate "What do you usually do about culture?" as a natural question like "Что ты обычно делаешь, когда речь заходит о культуре?" rather than "Как ты обычно занимаешься культурой?". ' +

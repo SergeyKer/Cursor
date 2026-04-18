@@ -40,9 +40,9 @@ export function validateDialogueOutputTense(params: {
     .map((l) => l.trim())
     .filter(Boolean)
 
-  const repeatLine = lines.find((line) => /^(Скажи|Say)\s*:/i.test(line))
+  const repeatLine = lines.find((line) => /^(?:Скажи|Say|Повтори|Repeat)\s*:/i.test(line))
   if (repeatLine) {
-    const repeatSentence = repeatLine.replace(/^(Скажи|Say)\s*:\s*/i, '').trim()
+    const repeatSentence = repeatLine.replace(/^(?:Скажи|Say|Повтори|Repeat)\s*:\s*/i, '').trim()
     if (lastUserText && !isRepeatSemanticallySafe({ userText: lastUserText, repeatSentence })) {
       return { ok: false, reason: 'semantic_mismatch' }
     }

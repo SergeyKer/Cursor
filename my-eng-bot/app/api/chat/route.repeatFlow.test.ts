@@ -84,7 +84,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(repeatLine.toLowerCase()).not.toContain('started with a question')
   })
 
-  it('keeps model Скажи line when shortened after wrong repeat (no stitch to full drill sentence)', async () => {
+  it('clamps truncated model repeat to pinned cycle anchor (first full Скажи/Повтори)', async () => {
     const truncatedRepeatPayload = {
       ok: true,
       content:
@@ -111,7 +111,7 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     expect(res.status).toBe(200)
     expect(repeatLine.toLowerCase()).toMatch(/i often cook/)
-    expect(repeatLine.toLowerCase()).not.toContain('family')
+    expect(repeatLine.toLowerCase()).toContain('family')
   })
 
   it('moves to next question after correct repeat answer', async () => {
@@ -359,6 +359,68 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).toContain('Комментарий:')
     expect(data.content).toContain('What do you think about speed track?')
     expect(data.content).not.toMatch(/^(?:Скажи|Повтори)\s*:/im)
+  })
+
+  it('dialogue mixed input: model Повтори passes validation without mixed-input fallback comment', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: блины = blini, исправьте trying.\n' +
+        'Повтори: I have been trying to make blini.',
+    })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      topic: 'food',
+      audience: 'adult',
+      level: 'b2',
+      tenses: ['present_perfect_continuous'],
+      messages: [
+        { role: 'assistant', content: 'What kinds of recipes have you been trying?' },
+        { role: 'user', content: 'I have been triing блины' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(callProviderChatMock).toHaveBeenCalled()
+    expect(data.content).toMatch(/Повтори:/i)
+    expect(data.content.toLowerCase()).toContain('trying')
+    expect(data.content.toLowerCase()).toContain('blini')
+    expect(data.content).not.toContain('целиком на английском')
+  })
+
+  it('dialogue mixed fallback uses pinned Повтори from cycle, not stripped userText', async () => {
+    const badMixed = 'Комментарий: Исправьте.\nПовтори: I have been cooking 2.'
+    callProviderChatMock.mockResolvedValueOnce({ ok: true, content: badMixed })
+    callProviderChatMock.mockResolvedValueOnce({ ok: true, content: badMixed })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      topic: 'food',
+      audience: 'adult',
+      level: 'b2',
+      tenses: ['present_perfect_continuous'],
+      messages: [
+        { role: 'assistant', content: 'What have you been cooking lately?' },
+        { role: 'user', content: 'I was wrong tense' },
+        {
+          role: 'assistant',
+          content:
+            'Комментарий: Нужно Present Perfect Continuous.\nПовтори: I have been cooking for two hours.',
+        },
+        { role: 'user', content: 'I have been cooking 2 часа' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toMatch(/Повтори:\s*I have been cooking for two hours/i)
+    expect(data.content.toLowerCase()).not.toMatch(/повтори:.*\b2\s*\.?\s*$/im)
   })
 
   it('returns to normal flow after gibberish when user gives valid answer', async () => {

@@ -84,4 +84,27 @@ describe('isDialogueOutputLikelyInRequiredTense', () => {
       })
     ).toEqual({ ok: false, reason: 'semantic_mismatch' })
   })
+
+  it('semantic guard: Повтори не должен удалять intention-конструкцию plan to', () => {
+    const content = 'Комментарий: Лексика.\nПовтори: I find my work.'
+    expect(
+      validateDialogueOutputTense({
+        content,
+        requiredTense: 'present_simple',
+        priorAssistantContent: 'What do you usually plan for your week?',
+        lastUserText: 'I plan to find my work.',
+      })
+    ).toEqual({ ok: false, reason: 'semantic_mismatch' })
+  })
+
+  it('requiredTense=all: Повтори в неверном времени невалиден (опора на предыдущий вопрос)', () => {
+    const content = 'Комментарий: Нужно ответить в прошедшем длительном.\nПовтори: I swim in the river.'
+    expect(
+      validateDialogueOutputTense({
+        content,
+        requiredTense: 'all',
+        priorAssistantContent: 'What were you doing near the river yesterday evening?',
+      })
+    ).toEqual({ ok: false, reason: 'required_tense_mismatch' })
+  })
 })
