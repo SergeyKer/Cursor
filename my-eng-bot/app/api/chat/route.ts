@@ -45,11 +45,16 @@ import {
 import {
   buildTranslationRetryFallback,
   fallbackTranslationSentenceForContext,
+  modelRussianDrillMismatchesPresentPerfectContinuous,
   normalizeDrillRuSentenceForSentenceType,
   normalizeTranslationPracticeSentence,
 } from '@/lib/translationMode'
 import { ADVERB_PLACEMENT_TUTOR_BLOCK } from '@/lib/adverbPlacementPrompt'
 import { normalizeTranslationBulbEmojisInContent } from '@/lib/normalizeCommentBulbEmoji'
+import {
+  extractTranslationDrillPlainCommentBody,
+  translationDrillCommentBodyLooksLikePraise,
+} from '@/lib/translationPraiseBody'
 import {
   collapseDuplicateLeadingGreetings,
   normalizeCommunicationOutput,
@@ -3418,12 +3423,8 @@ function isTranslationSuccessContent(content: string): boolean {
     .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
     .filter(Boolean)
   if (lines.length === 0) return false
-  const commentLine =
-    lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:/i.test(line)) ?? ''
-  const commentBody = commentLine
-    .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:\s*/i, '')
-    .trim()
-  const looksPraise = /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)(?:[\s!,.?:;"'»)]|$)/i.test(commentBody)
+  const commentBody = extractTranslationDrillPlainCommentBody(content)
+  const looksPraise = translationDrillCommentBodyLooksLikePraise(commentBody)
   // Не передаём «фиктивный» repeat из-за строки «Скажи:»: hasTranslationErrorProtocolFields
   // трактует любой repeat как ERROR и ломает позднюю санитизацию SUCCESS.
   return hasTranslationSuccessProtocolFields({
@@ -3453,32 +3454,16 @@ function isTranslationSuccessLikeContent(content: string): boolean {
     .filter(Boolean)
   const hasRepeat = lines.some((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(line))
   if (hasRepeat) return false
-  const commentLine =
-    lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:/i.test(line)) ?? ''
-  const commentBody = commentLine
-    .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:\s*/i, '')
-    .trim()
-  const hasPraiseSignal = /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)(?:[\s!,.?:;"'»)]|$)/i.test(commentBody)
+  const commentBody = extractTranslationDrillPlainCommentBody(content)
+  const hasPraiseSignal = translationDrillCommentBodyLooksLikePraise(commentBody)
   const hasErrorSignal = /^(Ошибка\b|Лексическая ошибка\b|Грамматическая ошибка\b|Некорректн|Неверн|Неправил)/i.test(commentBody)
   if (hasPraiseSignal && !hasErrorSignal) return true
   return isTranslationSuccessContent(content)
 }
 
 function hasTranslationPraiseComment(content: string): boolean {
-  const lines = content
-    .split(/\r?\n/)
-    .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
-    .filter(Boolean)
-  const commentLine =
-    lines.find((line) => /^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:/i.test(line)) ?? ''
-  const commentBody = commentLine
-    .replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:\s*/i, '')
-    .trim()
-  if (!commentBody) return false
-  if (/(?:проверь|исправ|ошиб|неверн|неправил|нужн|орфограф|лексическ|грамматик|spelling|word choice|verb form)/i.test(commentBody)) {
-    return false
-  }
-  return /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)(?:[\s!,.?:;"'»)]|$)/i.test(commentBody)
+  const commentBody = extractTranslationDrillPlainCommentBody(content)
+  return translationDrillCommentBodyLooksLikePraise(commentBody)
 }
 
 function normalizeTranslationSuccessPayload(
@@ -3690,6 +3675,21 @@ function ensureTranslationSuccessBlocks(
         level,
         audience,
         seedText: fallbackPrompt,
+        sentenceType,
+      })
+    }
+
+    if (
+      nextPrompt &&
+      tense === 'present_perfect_continuous' &&
+      modelRussianDrillMismatchesPresentPerfectContinuous(nextPrompt)
+    ) {
+      nextPrompt = fallbackTranslationSentenceForContext({
+        topic,
+        tense,
+        level,
+        audience,
+        seedText: `${fallbackPrompt ?? ''}|ppc-guard|${nextPrompt.slice(0, 96)}|${userText.slice(0, 48)}`,
         sentenceType,
       })
     }
@@ -4009,11 +4009,10 @@ function isTranslationStraySaySuccessPayload(content: string): boolean {
   if (/(^|\n)\s*Ошибки\s*:/im.test(t)) return false
   if (!/(^|\n)\s*Комментарий\s*:/im.test(t)) return false
   if (!/(^|\n)\s*(?:Переведи|Переведите)\s+далее\s*:/im.test(t)) return false
-  const m = t.match(/(?:^|\n)\s*Комментарий\s*:\s*([^\n]+)/im)
-  const body = (m?.[1] ?? '').trim()
+  const body = extractTranslationDrillPlainCommentBody(t)
   if (!body) return false
   if (/(?:проверь|исправ|ошиб|неверн|неправил|нужн|орфограф|лексическ|грамматик)/i.test(body)) return false
-  return /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)(?:[\s!,.?:;"'»)]|$)/i.test(body)
+  return translationDrillCommentBodyLooksLikePraise(body)
 }
 
 function stripVisibleTranslationSayLines(content: string): string {
@@ -5999,12 +5998,20 @@ export async function POST(req: NextRequest) {
       mode === 'dialogue' || mode === 'translation'
         ? getDialogueTenseSeedMessages(recentMessages)
         : recentMessages
+    const translationAssistantCountForMenu = nonSystemMessages.filter((m: ChatMessage) => m.role === 'assistant')
+      .length
     const tenseForTurn =
       isAnyTense || rawTenses.length === 0
         ? 'all'
-        : prioritizedDialogueTenses[
-            stableHash32(JSON.stringify(dialogueTenseSeedMessages)) % prioritizedDialogueTenses.length
-          ]
+        : mode === 'translation'
+          ? normalizedRawTenses.length === 1
+            ? (normalizedRawTenses[0] as string)
+            : prioritizedDialogueTenses[
+                translationAssistantCountForMenu % Math.max(1, prioritizedDialogueTenses.length)
+              ]
+          : prioritizedDialogueTenses[
+              stableHash32(JSON.stringify(dialogueTenseSeedMessages)) % prioritizedDialogueTenses.length
+            ]
     const normalizedTense =
       audience === 'child' && !childAllowedTenses.has(tenseForTurn as TenseId) ? 'present_simple' : tenseForTurn
 
@@ -7052,6 +7059,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         }
       }
       sanitized = normalizeTranslationCommentStyle(sanitized)
+      if (isTranslationStraySaySuccessPayload(sanitized)) {
+        sanitized = stripVisibleTranslationSayLines(sanitized)
+      }
       translationPreservedPerevodBody = extractKommentariyPerevodBody(sanitized)
       const modelSuccessLike = isTranslationSuccessLikeContent(sanitized)
       const translationPrompt = ruForTranslationRepeatClamp ?? lastTranslationPrompt

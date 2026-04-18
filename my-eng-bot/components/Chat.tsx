@@ -34,6 +34,7 @@ import {
   resolveTranslationProtocolStatusFromFields,
 } from '@/lib/translationProtocolStatus'
 import type { TranslationProtocolStatus } from '@/lib/translationProtocolStatus'
+import { translationDrillCommentBodyLooksLikePraise } from '@/lib/translationPraiseBody'
 import { PAGE_HOME_START_PRIMARY_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import type { LearningLessonAction } from '@/lib/learningLessons'
 
@@ -270,14 +271,8 @@ export function commentToneForContent(comment: string): SectionTone {
   const hasCorrectionSignal = /(?:проверь|исправ|ошиб|неверн|неправил|нужн|орфограф|лексическ|грамматик|spelling|word choice|verb form)/i.test(
     normalized
   )
-  const praisePatterns = [
-    /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)[!.]?\s*/i,
-    /^Ты\s+правильно(?:\s|$|[!.?,;:])/i,
-    /^Ты\s+верно(?:\s|$|[!.?,;:])/i,
-    /^Вы\s+правильно(?:\s|$|[!.?,;:])/i,
-    /^Вы\s+верно(?:\s|$|[!.?,;:])/i,
-  ]
-  return !hasCorrectionSignal && praisePatterns.some((pattern) => pattern.test(normalized)) ? 'praise' : 'amber'
+  if (hasCorrectionSignal) return 'amber'
+  return translationDrillCommentBodyLooksLikePraise(normalized) ? 'praise' : 'amber'
 }
 
 type CommentIcon = '✅' | '💡' | '⏱️' | '🔤' | '📖' | '✏️'

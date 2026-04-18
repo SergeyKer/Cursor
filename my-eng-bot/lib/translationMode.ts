@@ -90,6 +90,28 @@ export function normalizeDrillRuSentenceForSentenceType(
   return normalizeTranslationPracticeSentence(applyRuSentenceTypeForDrill(sentence, sentenceType))
 }
 
+/**
+ * Грубая проверка: русская строка «Переведи далее» выглядит как Present Perfect (результат),
+ * а требуется Present Perfect Continuous (процесс). Тогда лучше подставить детерминированный fallback.
+ */
+export function modelRussianDrillMismatchesPresentPerfectContinuous(ru: string): boolean {
+  const t = ru.trim()
+  if (!t) return false
+  const notCyr = '(?<![А-Яа-яЁё])'
+  if (
+    new RegExp(
+      `${notCyr}(?:уже\\s+давно|уже\\s+несколько\\s+(?:часов|дней|недель|месяцев|минут)|долго\\s+уже|всё\\s+ещё|до\\s+сих\\s+пор)`,
+      'iu'
+    ).test(t)
+  ) {
+    return false
+  }
+  return new RegExp(
+    `${notCyr}уже\\s+(?:прочитал|прочитала|прочитали|сделал|сделала|сделали|успел|успела|увидел|купил|позвонил|получил|закончил|решил|отправил|посмотрел|посмотрела|слышал|съел|ушёл|пришёл|сдал|выучил|понял|написал|забыл|нашёл|изучил|начал)(?![А-Яа-яЁё])`,
+    'iu'
+  ).test(t)
+}
+
 export function fallbackTranslationSentenceForContext(params: {
   topic: string
   tense: string

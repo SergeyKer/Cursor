@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   fallbackTranslationSentenceForContext,
+  modelRussianDrillMismatchesPresentPerfectContinuous,
   normalizeDrillRuSentenceForSentenceType,
   normalizeTranslationPracticeSentence,
 } from './translationMode'
@@ -157,6 +158,19 @@ describe('translationMode', () => {
         expect(ru.toLowerCase()).toContain('не')
         expect(ru.toLowerCase()).not.toContain('домаш')
       }
+    })
+  })
+
+  describe('modelRussianDrillMismatchesPresentPerfectContinuous', () => {
+    it('true для результативного «уже + прош. сов.»', () => {
+      expect(modelRussianDrillMismatchesPresentPerfectContinuous('Я уже прочитал эту книгу.')).toBe(true)
+      expect(modelRussianDrillMismatchesPresentPerfectContinuous('Я уже изучил новую технику.')).toBe(true)
+    })
+    it('false для типичного PPC (давно / несколько часов + наст.)', () => {
+      expect(modelRussianDrillMismatchesPresentPerfectContinuous('Я уже давно читаю эту книгу.')).toBe(false)
+      expect(
+        modelRussianDrillMismatchesPresentPerfectContinuous('Я уже несколько часов работаю над проектом.')
+      ).toBe(false)
     })
   })
 })
