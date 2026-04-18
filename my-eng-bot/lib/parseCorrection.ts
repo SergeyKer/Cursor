@@ -160,20 +160,6 @@ export function parseCorrection(text: string): {
     }
   }
 
-  // Если это похвала (русское "Отлично/Молодец/..." в начале), а модель всё равно дописала
-  // английский хвост в той же строке, убираем хвост. При этом "Возможный вариант" может
-  // содержать английскую фразу, поэтому его не трогаем.
-  if (comment) {
-    const isPraise =
-      /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)\b\s*[!.]?\s*/i.test(comment)
-    const hasAltVariant = /(Возможный\s+вариант|Вариант)\s*:/i.test(comment)
-    if (isPraise && !hasAltVariant && /[A-Za-z]/.test(comment)) {
-      const idx = comment.search(/[A-Za-z]/)
-      const candidate = comment.slice(0, idx).trim()
-      comment = candidate || null
-    }
-  }
-
   let rest = restLines.join('\n').trim()
   if (repeatLine) {
     // Если "Скажи" был спрятан внутри комментария, показываем его отдельной строкой
@@ -182,12 +168,16 @@ export function parseCorrection(text: string): {
   }
   // Если комментарий — только похвала, но в той же строке модель дописала следующий вопрос (без перевода строки),
   // выносим вопрос в rest, чтобы он отображался в блоке «AI: вопрос».
-  const praiseThenRest = comment?.match(/^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)[!.]?\s+([\s\S]+)$/)
+  const praiseThenRest = comment?.match(
+    /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно|Здорово|Прекрасно|Классно|Круто|Замечаю|Хорошая|Блестяще|Ты\s+молодец|Вы\s+молодец|Ты\s+правильно|Ты\s+верно|Вы\s+правильно|Вы\s+верно|Вы\s+отлично|Отличная\s+работа|Отличный\s+ответ|Хороший\s+ответ|Отличный\s+вариант|Хороший\s+вариант|Отличный\s+результат|Хороший\s+результат)[!.]?\s+([\s\S]+)$/i
+  )
   if (praiseThenRest && !rest) {
     const [, praiseWord, tail] = praiseThenRest
     const tailTrim = (tail as string).trim()
     const keepTailInComment = isTranslationMetaFeedbackLine(tailTrim)
-    if (tailTrim.length > 0 && !keepTailInComment) {
+    const looksLikeNextTask =
+      /\?\s*$/.test(tailTrim) || /^(?:Переведи|Переведите|Скажи|Say|Повтори|Repeat)\s*:/i.test(tailTrim)
+    if (tailTrim.length > 0 && !keepTailInComment && looksLikeNextTask) {
       comment = `${praiseWord}!`
       rest = tailTrim
     }

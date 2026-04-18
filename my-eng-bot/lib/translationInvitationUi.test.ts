@@ -26,6 +26,14 @@ describe('splitTranslationInvitation', () => {
     expect(mainAfter).toBe('')
   })
 
+  it('отделяет «Переведи далее» от предыдущего блока (например после parseCorrection)', () => {
+    const text = ['Комментарий: Отлично!', 'Переведи далее: У меня две сестры.'].join('\n')
+    const { mainBefore, invitation, mainAfter } = splitTranslationInvitation(text)
+    expect(mainBefore.trim()).toBe('Комментарий: Отлично!')
+    expect(invitation).toBe('Переведи далее: У меня две сестры.')
+    expect(mainAfter).toBe('')
+  })
+
   it('находит «Переведи на английский.» в начале текста', () => {
     const text = 'Переведи на английский язык.'
     const { mainBefore, invitation, mainAfter } = splitTranslationInvitation(text)

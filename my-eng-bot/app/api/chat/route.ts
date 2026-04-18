@@ -188,6 +188,7 @@ import {
 import { ensureTranslationProtocolBlocks } from '@/lib/ensureTranslationProtocolBlocks'
 import { normalizeSupportiveCommentForErrorsBlock } from '@/lib/normalizeSupportiveCommentForErrorsBlock'
 import { sanitizeRepeatMetaInstructionInContent } from '@/lib/repeatMetaInstruction'
+import { buildTranslationTaskId, shouldEnterTranslationJunkFlow } from '@/lib/translationCycleInvariant'
 
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
 // чтобы undici + proxy dispatcher работали предсказуемо (а не в Edge).
@@ -3998,6 +3999,21 @@ function hasTranslationJunkCommentLine(content: string): boolean {
   return /(?:^|\n)\s*(?:[\s\-•]*(?:\d+[\.)]\s*)*)Комментарий_мусор\s*:/im.test(content.trim())
 }
 
+function shouldStripStraySayFromTranslationSuccessInvite(content: string): boolean {
+  const lines = content
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
+    .filter(Boolean)
+  const hasComment = lines.some((line) => /^Комментарий(?:_ошибка)?\s*:/i.test(line))
+  const hasSay = lines.some((line) => /^(Скажи|Say)\s*:/i.test(line))
+  const hasNextInvite = lines.some((line) => /^(?:Переведи|Переведите)\s+далее\s*:/i.test(line))
+  const hasErrorOrJunkProtocol = lines.some(
+    (line) =>
+      /^Комментарий_перевод\s*:/i.test(line) || /^Комментарий_мусор\s*:/i.test(line) || /^Ошибки\s*:/i.test(line)
+  )
+  return hasComment && hasSay && hasNextInvite && !hasErrorOrJunkProtocol
+}
+
 /**
  * Модель иногда склеивает SUCCESS («Комментарий» + «Переведи далее») с хвостом ERROR («Скажи»).
  * Тогда finalize тянет prior-repeat и режет приглашения — UX «застряли на повторе».
@@ -4057,6 +4073,8 @@ async function finalizeTranslationResponsePayload(params: {
   nonSystemMessages: ReadonlyArray<ChatMessage>
   lastTranslationPrompt: string | null
   priorCardRuPrompt?: string | null
+  canonicalGoldForTask?: string | null
+  activeTaskId?: string | null
   level: LevelId
   audience: Audience
   provider: Provider
@@ -4064,7 +4082,10 @@ async function finalizeTranslationResponsePayload(params: {
   resolveGoldTranslation?: ResolveGoldTranslation
 }): Promise<string> {
   let guardedContent = params.content
-  if (isTranslationStraySaySuccessPayload(guardedContent)) {
+  if (
+    isTranslationStraySaySuccessPayload(guardedContent) ||
+    shouldStripStraySayFromTranslationSuccessInvite(guardedContent)
+  ) {
     guardedContent = stripVisibleTranslationSayLines(guardedContent)
   }
   const pureTranslationSuccess = isTranslationFinalizePureSuccess(guardedContent)
@@ -4293,8 +4314,24 @@ async function finalizeTranslationResponsePayload(params: {
   if (ruForRefCard?.trim() && !hasTranRepeatMarker()) {
     console.error('[chat][translation-gold] ref_invariant_failed', { ru: ruForRefCard.slice(0, 80) })
   }
+  if (params.canonicalGoldForTask?.trim() && !pureTranslationSuccess) {
+    const canonicalGold = normalizeEnglishSentenceForCard(params.canonicalGoldForTask.trim())
+    if (canonicalGold) {
+      guardedContent = hasTranRepeatMarker()
+        ? replaceTranslationCanonicalRepeatRefInContent(guardedContent, canonicalGold)
+        : `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${canonicalGold}`
+      guardedContent = replaceTranslationRepeatInContent(guardedContent, canonicalGold)
+    }
+  }
   guardedContent = ensureErrorProtocolHasSayFromCanonicalRef(guardedContent)
   guardedContent = reconcileTranslationSayWithHiddenRef(guardedContent, ruForRefCard)
+  if (params.activeTaskId?.trim() && !pureTranslationSuccess) {
+    console.info('[chat][translation-cycle]', {
+      activeTaskId: params.activeTaskId,
+      stage: compactJunkPayload ? 'junk' : 'error',
+      hasSay: Boolean(getTranslationRepeatSentence(guardedContent)),
+    })
+  }
   return guardedContent
 }
 
@@ -4799,11 +4836,27 @@ function isRepeatSentenceCompatibleWithRequiredTense(params: {
   const { repeatSentence, requiredTense } = params
   if (!repeatSentence) return false
 
+  const s = ` ${repeatSentence.toLowerCase()} `
   const isAmIsAreIng = /\b(am|is|are)\s+[a-z]+ing\b/i.test(repeatSentence)
+  const hasWillBareInf = /\bwill\s+(?:not\s+)?[a-z]+\b/i.test(repeatSentence)
+  const hasHaveHasParticiple = /\b(have|has)\s+(?:not\s+)?[a-z]+(?:ed|en)\b/i.test(repeatSentence)
+  const hasHadParticiple = /\bhad\s+(?:not\s+)?[a-z]+(?:ed|en)\b/i.test(repeatSentence)
+  const hasBeenIng = /\b(have|has|had)\s+(?:not\s+)?been\s+[a-z]+ing\b/i.test(repeatSentence)
+  const hasWouldHaveParticiple = /\bwill\s+have\s+(?:not\s+)?[a-z]+(?:ed|en)\b/i.test(repeatSentence)
+  const hasWillBeIng = /\bwill\s+be\s+[a-z]+ing\b/i.test(repeatSentence)
+  const hasWillHaveBeenIng = /\bwill\s+have\s+been\s+[a-z]+ing\b/i.test(repeatSentence)
+  const hasPastBeIng = /\b(was|were)\s+[a-z]+ing\b/i.test(repeatSentence)
+  const hasPastSimpleSignal =
+    /\b(went|was|were|did|had|made|saw|took|came|got|gave|said|told|knew|thought|felt|left|kept|found|wrote|ran|drove|ate|drank|slept|spoke|bought|brought)\b/i.test(
+      repeatSentence
+    ) || /\b[a-z]{3,}ed\b/i.test(repeatSentence)
+  const hasFutureSignal = s.includes(' will ')
+  const hasPresentPerfectSignal = hasHaveHasParticiple || hasBeenIng
+  const hasPastPerfectSignal = hasHadParticiple || /\bhad\s+(?:not\s+)?been\s+[a-z]+ing\b/i.test(repeatSentence)
 
   if (requiredTense === 'present_simple') {
     // Простая эвристика: Present Simple НЕ содержит "am/is/are + V-ing".
-    return !isAmIsAreIng
+    return !isAmIsAreIng && !hasFutureSignal && !hasPresentPerfectSignal && !hasPastPerfectSignal
   }
 
   if (requiredTense === 'present_continuous') {
@@ -4811,7 +4864,17 @@ function isRepeatSentenceCompatibleWithRequiredTense(params: {
     return isAmIsAreIng
   }
 
-  // Для прочих времён сейчас не проверяем жёстко, чтобы не вводить ложные срабатывания.
+  if (requiredTense === 'present_perfect') return hasHaveHasParticiple && !hasBeenIng
+  if (requiredTense === 'present_perfect_continuous') return hasBeenIng
+  if (requiredTense === 'past_simple') return hasPastSimpleSignal && !hasPastBeIng && !hasPastPerfectSignal
+  if (requiredTense === 'past_continuous') return hasPastBeIng
+  if (requiredTense === 'past_perfect') return hasHadParticiple && !/\bhad\s+(?:not\s+)?been\s+[a-z]+ing\b/i.test(repeatSentence)
+  if (requiredTense === 'past_perfect_continuous') return /\bhad\s+(?:not\s+)?been\s+[a-z]+ing\b/i.test(repeatSentence)
+  if (requiredTense === 'future_simple') return hasWillBareInf && !hasWillBeIng && !hasWouldHaveParticiple
+  if (requiredTense === 'future_continuous') return hasWillBeIng
+  if (requiredTense === 'future_perfect') return hasWouldHaveParticiple && !hasWillHaveBeenIng
+  if (requiredTense === 'future_perfect_continuous') return hasWillHaveBeenIng
+
   return true
 }
 
@@ -7007,23 +7070,70 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     let translationPromptTextForTurn = ''
     let translationTpForGold = ''
     let translationGoldForVerdict: string | null = null
+    let translationCanonicalGoldForTask: string | null = null
+    let translationCanonicalGoldSource: 'locked_prior' | 'local_pick' | 'api' | null = null
+    let translationActiveTaskId: string | null = null
     let translationGoldVerdictFailed = false
     let translationGoldVerdictReasons: string[] = []
     /** Тело «Комментарий_перевод:» из ответа модели до агрессивной пересборки (для force…). */
     let translationPreservedPerevodBody: string | null = null
     if (mode === 'translation') {
+      priorAssistantRepeatEnglish = extractPriorAssistantRepeatEnglish(nonSystemMessages)
       const tpForGold =
         (ruForTranslationRepeatClamp ?? translationRuExtractedFromPriorAssistant ?? lastTranslationPrompt)?.trim() ??
         ''
       translationTpForGold = tpForGold
+      translationActiveTaskId = buildTranslationTaskId({
+        ruPrompt: tpForGold || null,
+        tense: tutorGradingTense,
+        level: String(translationDrillLevel),
+        sentenceType: translationDrillSentenceType,
+        audience,
+      })
       if (!isFirstTurn && tpForGold) {
         let goldForVerdict: string | null = null
+        let lockedGoldForVerdict: string | null = null
+        const priorTaskId = buildTranslationTaskId({
+          ruPrompt: translationRuExtractedFromPriorAssistant ?? null,
+          tense: tutorGradingTense,
+          level: String(translationDrillLevel),
+          sentenceType: translationDrillSentenceType,
+          audience,
+        })
+        if (
+          priorTaskId &&
+          translationActiveTaskId &&
+          priorTaskId === translationActiveTaskId &&
+          priorAssistantRepeatEnglish?.trim()
+        ) {
+          lockedGoldForVerdict = priorAssistantRepeatEnglish.trim()
+        }
+        let pickedGoldForVerdict: string | null = null
         if (translationPriorAssistantContent) {
-          goldForVerdict = pickTranslationGoldForVerdict({
+          pickedGoldForVerdict = pickTranslationGoldForVerdict({
             assistantContent: translationPriorAssistantContent,
             ruPrompt: tpForGold,
             userText: lastUserContentForResponse,
           })
+          if (pickedGoldForVerdict) {
+            const pickedVerdict = computeTranslationGoldVerdict({
+              userText: lastUserContentForResponse,
+              goldEnglish: pickedGoldForVerdict,
+              ruPrompt: tpForGold,
+            })
+            if (pickedVerdict.ok) {
+              goldForVerdict = pickedGoldForVerdict
+              translationCanonicalGoldSource = 'local_pick'
+            }
+          }
+          if (!goldForVerdict && lockedGoldForVerdict) {
+            goldForVerdict = lockedGoldForVerdict
+            translationCanonicalGoldSource = 'locked_prior'
+          }
+          if (!goldForVerdict && pickedGoldForVerdict) {
+            goldForVerdict = pickedGoldForVerdict
+            translationCanonicalGoldSource = 'local_pick'
+          }
           // Консервативная защита от «протухшего» __TRAN__ для кейса "на выходных":
           // если текущее RU явно про выходные и локальный gold потерял weekend-хвост —
           // переходим к API gold для текущего prompt.
@@ -7035,6 +7145,10 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             }
           }
         }
+        if (!goldForVerdict && lockedGoldForVerdict) {
+          goldForVerdict = lockedGoldForVerdict
+          translationCanonicalGoldSource = 'locked_prior'
+        }
         if (!goldForVerdict && tpForGold) {
           const apiGold = await resolveGoldTranslation({
             ruSentence: tpForGold,
@@ -7044,11 +7158,15 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           if (apiGold?.trim()) {
             const { clamped } = clampTranslationRepeatToRuPrompt(apiGold, tpForGold)
             const g = (clamped?.trim() || apiGold.trim()) || null
-            if (g) goldForVerdict = g
+            if (g) {
+              goldForVerdict = g
+              translationCanonicalGoldSource = 'api'
+            }
           }
         }
         if (goldForVerdict) {
           translationGoldForVerdict = goldForVerdict
+          translationCanonicalGoldForTask = goldForVerdict
           const v = computeTranslationGoldVerdict({
             userText: lastUserContentForResponse,
             goldEnglish: goldForVerdict,
@@ -7056,10 +7174,18 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           })
           translationGoldVerdictFailed = !v.ok
           translationGoldVerdictReasons = v.reasons
+          if (translationActiveTaskId) {
+            console.info('[chat][translation-cycle]', {
+              activeTaskId: translationActiveTaskId,
+              canonicalSource: translationCanonicalGoldSource ?? 'unknown',
+              verdict: v.ok ? 'success' : 'error',
+              reasons: v.reasons,
+            })
+          }
         }
       }
       sanitized = normalizeTranslationCommentStyle(sanitized)
-      if (isTranslationStraySaySuccessPayload(sanitized)) {
+      if (isTranslationStraySaySuccessPayload(sanitized) || shouldStripStraySayFromTranslationSuccessInvite(sanitized)) {
         sanitized = stripVisibleTranslationSayLines(sanitized)
       }
       translationPreservedPerevodBody = extractKommentariyPerevodBody(sanitized)
@@ -7067,7 +7193,6 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       const translationPrompt = ruForTranslationRepeatClamp ?? lastTranslationPrompt
       const translationPromptText = translationPrompt ?? ''
       translationPromptTextForTurn = translationPromptText
-      priorAssistantRepeatEnglish = extractPriorAssistantRepeatEnglish(nonSystemMessages)
       const userMatchesPriorAssistantRepeat = userMatchesPriorAssistantRepeatOrVisibleSay(
         lastUserContentForResponse,
         nonSystemMessages
@@ -7177,15 +7302,16 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         const hasCyrillicLetters = /[А-Яа-яЁё]/.test(lastUserContentForResponse)
         const lowSignalInput = isLowSignalTranslationInput(lastUserContentForResponse)
         const likelyLatinNoise = isLikelyLatinNoiseTranslationInput(lastUserContentForResponse)
-        const junkInputCandidate =
-          (hasCyrillicLetters && !hasLatinLetters) ||
-          isTranslationJunkVerdictReasons(translationGoldVerdictReasons) ||
-          lowSignalInput ||
-          likelyLatinNoise ||
-          (!hasLatinLetters && lastUserContentForResponse.trim().length > 0)
+        const junkInputCandidate = shouldEnterTranslationJunkFlow({
+          userText: lastUserContentForResponse,
+          hasLatinLetters,
+          hasCyrillicLetters,
+          lowSignalInput,
+          likelyLatinNoise,
+          verdictReasons: translationGoldVerdictReasons,
+        })
         if (junkInputCandidate) {
-          const junkGold =
-            translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null
+          const junkGold = translationCanonicalGoldForTask?.trim() || null
           if (junkGold) {
             const junkPayload = buildTranslationJunkResponsePayload({
               goldEnglish: junkGold,
@@ -7263,12 +7389,12 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               audience,
               fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
               userAnswerForSupportFallback: lastUserContentForResponse,
-              repeatEnglishFallback: translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
+              repeatEnglishFallback: translationCanonicalGoldForTask?.trim() || null,
             })
             if (translationWordMismatch && translationReferenceForm && translationGoldVerdictFailed) {
               sanitized = forceTranslationWordErrorProtocol(
                 sanitized,
-                translationReferenceForm,
+                translationCanonicalGoldForTask?.trim() || translationReferenceForm,
                 lastUserContentForResponse,
                 translationPreservedPerevodBody,
                 audience
@@ -7282,7 +7408,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             if (promptAlignedRepeatFromRepeat && translationGoldVerdictFailed) {
               sanitized = forceTranslationWordErrorProtocol(
                 sanitized,
-                promptAlignedRepeatFromRepeat,
+                translationCanonicalGoldForTask?.trim() || promptAlignedRepeatFromRepeat,
                 lastUserContentForResponse,
                 translationPreservedPerevodBody,
                 audience
@@ -7337,8 +7463,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               getTranslationRepeatSentence(sanitized)
             )
             sanitized = applyTranslationRepeatSourceClampToContent(sanitized, ruForTranslationRepeatClamp ?? lastTranslationPrompt)
-            const repeatAnchorForError =
-              translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || ''
+            const repeatAnchorForError = translationCanonicalGoldForTask?.trim() || ''
             const existingRepeatForGoldCheck = getTranslationRepeatSentence(sanitized)
             const repeatAlreadyMatchesGold =
               Boolean(repeatAnchorForError) &&
@@ -7403,7 +7528,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       if (!repeatSentence && translationReferenceFormForTurn && translationGoldVerdictFailed) {
         sanitized = forceTranslationWordErrorProtocol(
           sanitized,
-          translationReferenceFormForTurn,
+          translationCanonicalGoldForTask?.trim() || translationReferenceFormForTurn,
           lastUserContentForResponse,
           translationPreservedPerevodBody,
           audience
@@ -7422,7 +7547,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         if (promptAlignedRepeatFromRepeat) {
           sanitized = forceTranslationWordErrorProtocol(
             sanitized,
-            promptAlignedRepeatFromRepeat,
+            translationCanonicalGoldForTask?.trim() || promptAlignedRepeatFromRepeat,
             lastUserContentForResponse,
             translationPreservedPerevodBody,
             audience
@@ -7495,7 +7620,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 audience,
                 fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
                 userAnswerForSupportFallback: lastUserContentForResponse,
-                repeatEnglishFallback: translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
+                repeatEnglishFallback: translationCanonicalGoldForTask?.trim() || null,
               })
               repaired = applyTranslationRepeatSourceClampToContent(repaired, ruForTranslationRepeatClamp ?? lastTranslationPrompt)
 
@@ -7623,7 +7748,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                     audience,
                     fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
                     userAnswerForSupportFallback: lastUserContentForResponse,
-                    repeatEnglishFallback: translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
+                    repeatEnglishFallback: translationCanonicalGoldForTask?.trim() || null,
                   })
                   repaired = applyTranslationRepeatSourceClampToContent(repaired, ruForTranslationRepeatClamp ?? lastTranslationPrompt)
                   const repeatSentence2 = getTranslationRepeatSentence(repaired)
@@ -7693,7 +7818,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       // Жёсткий guard: в non-success translation обязателен repeat.
       // Если payload не попал в success/error и repeat отсутствует, принудительно уходим в junk-вариант.
       if (!getTranslationRepeatSentence(sanitized)) {
-        const junkGold = translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null
+        const junkGold = translationCanonicalGoldForTask?.trim() || null
         if (junkGold) {
           sanitized = buildTranslationJunkResponsePayload({
             goldEnglish: junkGold,
@@ -8054,7 +8179,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 audience,
                 fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
                 userAnswerForSupportFallback: lastUserContentForResponse,
-                repeatEnglishFallback: translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
+                repeatEnglishFallback: translationCanonicalGoldForTask?.trim() || null,
               })
               const repeatSentence = getTranslationRepeatSentence(repaired)
               repaired = enrichTranslationCommentQuality({
@@ -8139,7 +8264,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                   fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
                   userText: lastUserContentForResponse,
                   repeatEnglishFallback:
-                    translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
+                    translationCanonicalGoldForTask?.trim() || null,
                 })
               }
               if (getTranslationRepeatSentence(repaired)) {
@@ -8163,6 +8288,8 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 nonSystemMessages,
                 lastTranslationPrompt,
                 priorCardRuPrompt: translationRuExtractedFromPriorAssistant ?? null,
+                canonicalGoldForTask: translationCanonicalGoldForTask,
+                activeTaskId: translationActiveTaskId,
                 level: translationDrillLevel as LevelId,
                 audience: audience as Audience,
                 provider,
@@ -8186,7 +8313,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                   fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
                   userText: lastUserContentForResponse,
                   repeatEnglishFallback:
-                    translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
+                    translationCanonicalGoldForTask?.trim() || null,
                 })
               }
               return NextResponse.json({ content: repaired })
@@ -8424,7 +8551,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
           userText: lastUserContentForResponse,
           repeatEnglishFallback:
-            translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
+            translationCanonicalGoldForTask?.trim() || null,
         })
       }
       guardedContent = await finalizeTranslationResponsePayload({
@@ -8432,6 +8559,8 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         nonSystemMessages,
         lastTranslationPrompt,
         priorCardRuPrompt: translationRuExtractedFromPriorAssistant ?? null,
+        canonicalGoldForTask: translationCanonicalGoldForTask,
+        activeTaskId: translationActiveTaskId,
         level: translationDrillLevel as LevelId,
         audience: audience as Audience,
         provider,
@@ -8451,7 +8580,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
           userText: lastUserContentForResponse,
           repeatEnglishFallback:
-            translationGoldForVerdict?.trim() || priorAssistantRepeatEnglish?.trim() || null,
+            translationCanonicalGoldForTask?.trim() || null,
         })
       }
       logRetentionSignals({

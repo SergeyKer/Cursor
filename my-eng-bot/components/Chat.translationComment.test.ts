@@ -17,6 +17,7 @@ import {
   condenseTranslationCommentToErrors,
   filterTranslationErrorsDisplayText,
   parseTranslationCoachBlocks,
+  shouldIgnoreTranslationRepeatForStatusInTranslationUi,
   stripTranslationMainMetaPrefixes,
   translationResponseHasSuccessShape,
 } from './Chat'
@@ -79,12 +80,54 @@ describe('translationResponseHasSuccessShape', () => {
     expect(translationResponseHasSuccessShape('Ошибка времени: нужен Present Simple.', null, null)).toBe(false)
   })
 
+  it('true для нейтрально-позитивного комментария без структурных полей ошибки', () => {
+    expect(translationResponseHasSuccessShape('Хороший ответ по смыслу и по форме.', null, null)).toBe(true)
+  })
+
   it('false если есть Скажи', () => {
     expect(translationResponseHasSuccessShape('Комментарий: ошибка', 'I run.', null)).toBe(false)
   })
 
   it('false без комментария', () => {
     expect(translationResponseHasSuccessShape(null, null, null)).toBe(false)
+  })
+})
+
+describe('shouldIgnoreTranslationRepeatForStatusInTranslationUi', () => {
+  it('игнорирует паразитный Скажи в success-форме с «Переведи далее»', () => {
+    const displayText = [
+      'Комментарий: Отлично! Всё верно.',
+      'Переведи далее: Я изучаю английский каждый день.',
+      'Скажи: You have been studying English for a long time.',
+    ].join('\n')
+    expect(
+      shouldIgnoreTranslationRepeatForStatusInTranslationUi({
+        mode: 'translation',
+        displayText,
+        comment: 'Отлично! Всё верно.',
+        errorsBlock: null,
+        translationSupportComment: null,
+        translationJunkComment: null,
+        repeat: 'You have been studying English for a long time.',
+        repeatRu: 'You have been studying English for a long time.',
+      })
+    ).toBe(true)
+  })
+
+  it('не игнорирует repeat для junk-протокола без «Переведи далее»', () => {
+    const displayText = ['Комментарий_мусор: Нужен перевод на английском.', 'Скажи: I read books.'].join('\n')
+    expect(
+      shouldIgnoreTranslationRepeatForStatusInTranslationUi({
+        mode: 'translation',
+        displayText,
+        comment: 'Нужен перевод на английском.',
+        errorsBlock: null,
+        translationSupportComment: null,
+        translationJunkComment: 'Нужен перевод на английском.',
+        repeat: 'I read books.',
+        repeatRu: 'I read books.',
+      })
+    ).toBe(false)
   })
 })
 
@@ -266,6 +309,10 @@ describe('commentToneForContent', () => {
     expect(
       commentToneForContent('Отлично! Ты правильно указал смысл, но проверь правильность написания слов.')
     ).toBe('amber')
+  })
+
+  it('marks natural praise starters as praise', () => {
+    expect(commentToneForContent('Здорово, вы точно передали смысл фразы.')).toBe('praise')
   })
 })
 

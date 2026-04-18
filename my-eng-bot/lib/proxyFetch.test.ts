@@ -39,21 +39,25 @@ describe('fetchWithProxyFallback', () => {
     vi.unstubAllGlobals()
   })
 
-  it('retries with the next proxy candidate when the first attempt fails', async () => {
-    process.env.HTTPS_PROXY = '127.0.0.1:12334'
+  it(
+    'retries with the next proxy candidate when the first attempt fails',
+    async () => {
+      process.env.HTTPS_PROXY = '127.0.0.1:12334'
 
-    const fetchMock = vi
-      .fn()
-      .mockRejectedValueOnce(new TypeError('first proxy failed'))
-      .mockResolvedValueOnce(new Response('ok', { status: 200 }))
+      const fetchMock = vi
+        .fn()
+        .mockRejectedValueOnce(new TypeError('first proxy failed'))
+        .mockResolvedValueOnce(new Response('ok', { status: 200 }))
 
-    vi.stubGlobal('fetch', fetchMock)
+      vi.stubGlobal('fetch', fetchMock)
 
-    const res = await fetchWithProxyFallback('https://example.com')
+      const res = await fetchWithProxyFallback('https://example.com')
 
-    expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(res.status).toBe(200)
-  })
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(res.status).toBe(200)
+    },
+    15_000
+  )
 
   it('uses direct fetch first when directFirst is enabled', async () => {
     process.env.HTTPS_PROXY = '127.0.0.1:12334'

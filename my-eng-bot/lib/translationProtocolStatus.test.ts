@@ -61,6 +61,18 @@ describe('resolveTranslationProtocolStatusFromFields', () => {
     ).toBe('error_repeat')
   })
 
+  it('prioritizes structural error fields over praise-like comment', () => {
+    expect(
+      resolveTranslationProtocolStatusFromFields({
+        comment: 'Отлично, хорошее начало.',
+        commentIsPraise: true,
+        errorsBlock: '🔤 Нужно исправить форму глагола.',
+        repeat: null,
+        repeatRu: null,
+      })
+    ).toBe('error_repeat')
+  })
+
   it('treats non-praise translation comment as error_repeat', () => {
     expect(
       resolveTranslationProtocolStatusFromFields({
@@ -77,6 +89,17 @@ describe('resolveTranslationProtocolStatusFromFields', () => {
       resolveTranslationProtocolStatusFromFields({
         comment: 'Отлично! Всё верно.',
         commentIsPraise: true,
+        repeat: null,
+        repeatRu: null,
+      })
+    ).toBe('success')
+  })
+
+  it('keeps success for neutral-positive comment without structural error fields', () => {
+    expect(
+      resolveTranslationProtocolStatusFromFields({
+        comment: 'Хороший ответ по смыслу и по форме.',
+        commentIsPraise: false,
         repeat: null,
         repeatRu: null,
       })

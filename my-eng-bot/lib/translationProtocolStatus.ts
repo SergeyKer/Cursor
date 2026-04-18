@@ -13,6 +13,13 @@ function hasVisibleProtocolText(value: string | null | undefined): boolean {
   return Boolean(value?.trim())
 }
 
+function commentLooksCorrective(comment: string | null | undefined): boolean {
+  if (!hasVisibleProtocolText(comment)) return false
+  return /(?:проверь|исправ|ошиб|неверн|неправил|нужн|орфограф|лексическ|грамматик|spelling|word choice|verb form)/i.test(
+    String(comment)
+  )
+}
+
 /**
  * Единая классификация статуса карточек перевода.
  * Источник истины для UI и backend-нормализации.
@@ -29,7 +36,9 @@ export function resolveTranslationProtocolStatus(params: {
 }
 
 export function hasTranslationErrorProtocolFields(fields: TranslationProtocolFields): boolean {
-  if (hasVisibleProtocolText(fields.comment) && fields.commentIsPraise === false) return true
+  if (hasVisibleProtocolText(fields.comment) && fields.commentIsPraise === false && commentLooksCorrective(fields.comment)) {
+    return true
+  }
   return (
     hasVisibleProtocolText(fields.translationSupportComment) ||
     hasVisibleProtocolText(fields.errorsBlock) ||
@@ -40,8 +49,9 @@ export function hasTranslationErrorProtocolFields(fields: TranslationProtocolFie
 
 export function hasTranslationSuccessProtocolFields(fields: TranslationProtocolFields): boolean {
   if (!hasVisibleProtocolText(fields.comment)) return false
-  if (fields.commentIsPraise === false) return false
-  return !hasTranslationErrorProtocolFields(fields)
+  if (hasTranslationErrorProtocolFields(fields)) return false
+  if (fields.commentIsPraise === false && commentLooksCorrective(fields.comment)) return false
+  return true
 }
 
 export function resolveTranslationProtocolStatusFromFields(

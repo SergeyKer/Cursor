@@ -64,6 +64,24 @@ describe('parseCorrection', () => {
     expect(result.rest).toBe('Переведи далее: Мне нравится гулять с друзьями.')
   })
 
+  it('отделяет «Переведи далее» от комментария для похвалы «Здорово»', () => {
+    const result = parseCorrection(
+      ['Комментарий: Здорово, всё верно по смыслу.', 'Переведи далее: Я читаю книгу каждый вечер.'].join('\n')
+    )
+    expect(result.comment).toBe('Здорово, всё верно по смыслу.')
+    expect(result.rest).toBe('Переведи далее: Я читаю книгу каждый вечер.')
+  })
+
+  it('на одной строке сохраняет английский хвост после похвалы «Классно»', () => {
+    const result = parseCorrection('Комментарий: Классно! You nailed the tense.')
+    expect(result.comment).toBe('Классно! You nailed the tense.')
+  })
+
+  it('не обрезает похвалу с английским термином в кавычках', () => {
+    const result = parseCorrection('Комментарий: Отлично, вы использовали правильную форму "Present Perfect".')
+    expect(result.comment).toBe('Отлично, вы использовали правильную форму "Present Perfect".')
+  })
+
   it('отделяет «Переведи далее:» от комментария при ошибке (кириллица + \\b в JS)', () => {
     const result = parseCorrection(
       [

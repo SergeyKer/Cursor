@@ -248,6 +248,10 @@ function translationDrillCardBodyForDisplay(raw: string): string {
   return stripped.length > 0 ? stripped : t
 }
 
+function normalizeTranslationDrillForDedup(raw: string): string {
+  return stripTranslationMainMetaPrefixes(translationDrillCardBodyForDisplay(raw)).replace(/\s+/g, ' ').trim()
+}
+
 function isPraiseLikeTranslationFeedback(text: string): boolean {
   const t = text.trim()
   if (!t) return false
@@ -580,6 +584,24 @@ export function translationResponseHasSuccessShape(comment: string | null, repea
   })
 }
 
+export function shouldIgnoreTranslationRepeatForStatusInTranslationUi(params: {
+  mode: 'dialogue' | 'translation' | 'communication'
+  displayText: string
+  comment: string | null
+  errorsBlock: string | null
+  translationSupportComment: string | null
+  translationJunkComment: string | null
+  repeat: string | null
+  repeatRu: string | null
+}): boolean {
+  if (params.mode !== 'translation') return false
+  if (!(params.repeat?.trim() || params.repeatRu?.trim())) return false
+  if (params.errorsBlock?.trim() || params.translationSupportComment?.trim() || params.translationJunkComment?.trim()) return false
+  const commentTrim = params.comment?.trim() ?? ''
+  if (!commentTrim || commentToneForContent(commentTrim) !== 'praise') return false
+  return /(?:^|\n)\s*(?:[\s\-•]*(?:\d+[\.)]\s*)*)?(?:Переведи|Переведите)\s+далее\s*:/im.test(params.displayText)
+}
+
 export function parseTranslationCoachBlocks(text: string): {
   translationSupportComment: string | null
   translationJunkComment: string | null
@@ -869,16 +891,25 @@ export function computeAssistantTranslationMainCardMeta(message: ChatMessageType
   let hideTranslationMainCardForErrorRepeat = false
 
   const blocks = parseTranslationCoachBlocks(displayText)
-  const translationProtocolStatus = resolveTranslationProtocolStatusFromFields({
-    comment: blocks.comment ?? effectiveComment,
-    commentIsPraise:
-      (blocks.comment ?? effectiveComment) != null
-        ? commentToneForContent(blocks.comment ?? effectiveComment ?? '') === 'praise'
-        : undefined,
-    translationSupportComment: blocks.translationSupportComment,
+  const commentForStatus = blocks.comment ?? effectiveComment
+  const ignoreRepeatForStatus = shouldIgnoreTranslationRepeatForStatusInTranslationUi({
+    mode: 'translation',
+    displayText,
+    comment: commentForStatus,
     errorsBlock: blocks.errorsBlock,
+    translationSupportComment: blocks.translationSupportComment,
+    translationJunkComment: blocks.translationJunkComment,
     repeat: blocks.repeat,
     repeatRu: blocks.repeatRu,
+  })
+  const translationProtocolStatus = resolveTranslationProtocolStatusFromFields({
+    comment: commentForStatus,
+    commentIsPraise:
+      commentForStatus != null ? commentToneForContent(commentForStatus ?? '') === 'praise' : undefined,
+    translationSupportComment: blocks.translationSupportComment,
+    errorsBlock: blocks.errorsBlock,
+    repeat: ignoreRepeatForStatus ? null : blocks.repeat,
+    repeatRu: ignoreRepeatForStatus ? null : blocks.repeatRu,
   })
   const translationSuccessShape = translationProtocolStatus === 'success'
   if (blocks.comment) effectiveComment = condenseTranslationCommentToErrors(blocks.comment)
@@ -1825,16 +1856,27 @@ function MessageBubble({
   if (!isUser && isTranslationMode) {
     const blocks = parseTranslationCoachBlocks(displayText)
     const hiddenRepeatRef = extractCanonicalRepeatRefEnglishFromContent(message.content)?.trim() ?? ''
+    const commentForStatus = blocks.comment ?? effectiveComment
+    const ignoreRepeatForStatus = shouldIgnoreTranslationRepeatForStatusInTranslationUi({
+      mode,
+      displayText,
+      comment: commentForStatus,
+      errorsBlock: blocks.errorsBlock,
+      translationSupportComment: blocks.translationSupportComment,
+      translationJunkComment: blocks.translationJunkComment,
+      repeat: blocks.repeat,
+      repeatRu: blocks.repeatRu,
+    })
     const translationProtocolStatusFromBlocks = resolveTranslationProtocolStatusFromFields({
-      comment: blocks.comment ?? effectiveComment,
+      comment: commentForStatus,
       commentIsPraise:
-        (blocks.comment ?? effectiveComment) != null
-          ? commentToneForContent(blocks.comment ?? effectiveComment ?? '') === 'praise'
+        commentForStatus != null
+          ? commentToneForContent(commentForStatus ?? '') === 'praise'
           : undefined,
       translationSupportComment: blocks.translationSupportComment,
       errorsBlock: blocks.errorsBlock,
-      repeat: blocks.repeat,
-      repeatRu: blocks.repeatRu,
+      repeat: ignoreRepeatForStatus ? null : blocks.repeat,
+      repeatRu: ignoreRepeatForStatus ? null : blocks.repeatRu,
     })
     translationSuccessShape = translationProtocolStatusFromBlocks === 'success'
     const { praiseFromComment } = extractTranslationErrorSynthAndPraiseFromComment(blocks.comment?.trim() ?? '')
@@ -1938,6 +1980,13 @@ function MessageBubble({
       }
     }
     if (effectiveMainBefore) effectiveMainBefore = stripTranslationMainMetaPrefixes(effectiveMainBefore)
+    if (effectiveInvitationText && effectiveMainBefore) {
+      const invitationNormalized = normalizeTranslationDrillForDedup(effectiveInvitationText)
+      const mainNormalized = normalizeTranslationDrillForDedup(effectiveMainBefore)
+      if (invitationNormalized && invitationNormalized === mainNormalized) {
+        effectiveInvitationText = null
+      }
+    }
     if (effectiveInvitationText && isGenericTranslationMetaInvitation(effectiveInvitationText)) {
       effectiveInvitationText = null
     }
