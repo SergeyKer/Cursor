@@ -559,6 +559,29 @@ describe('translation drill error: карточки и не-шаблон Ком�
     expect(keys).toContain('translation-errors')
     expect(keys).toContain('repeat-translation')
   })
+
+  it('incomplete-case: показывает error карточки без technical wording fallback', () => {
+    const user = 'I cook'
+    const gold = 'I cook a tasty dinner for my family.'
+    const support = buildDeterministicTranslationSupportRu(user, gold, 'adult', 'incomplete')
+    const errorLines = buildTranslationErrorLexiconAndCyrillicLines(user, gold)
+    const content = [`Комментарий_перевод: ${support}`, 'Ошибки:', ...errorLines, `Скажи: ${gold}`].join('\n')
+
+    const blocks = parseTranslationCoachBlocks(content)
+    const status = resolveTranslationProtocolStatusFromFields({
+      comment: blocks.comment,
+      commentIsPraise: blocks.comment ? false : undefined,
+      translationSupportComment: blocks.translationSupportComment,
+      translationJunkComment: blocks.translationJunkComment,
+      errorsBlock: blocks.errorsBlock,
+      repeat: blocks.repeat,
+      repeatRu: blocks.repeatRu,
+    })
+
+    expect(status).toBe('error_repeat')
+    expect(blocks.errorsBlock ?? '').toContain('перевод неполный')
+    expect(blocks.errorsBlock ?? '').not.toContain('wording')
+  })
 })
 
 describe('stripWrappingQuotes', () => {

@@ -130,7 +130,8 @@ export function isSafePreservedTranslationSupportBody(s: string): boolean {
 export function buildDeterministicTranslationSupportRu(
   userText: string,
   repeatEnglish: string,
-  audience: 'child' | 'adult'
+  audience: 'child' | 'adult',
+  mode: 'generic' | 'incomplete' = 'generic'
 ): string {
   const uTok = tokenizeEnglishWords(userText).filter(isContentWord)
   const rTok = tokenizeEnglishWords(repeatEnglish).filter(isContentWord)
@@ -153,6 +154,19 @@ export function buildDeterministicTranslationSupportRu(
 
   const pointChild = 'ниже коротко, что поправить, и готовая формулировка'
   const pointAdult = 'ниже кратко, что поправить, и эталонная формулировка'
+
+  if (mode === 'incomplete') {
+    if (surface) {
+      if (audience === 'child') {
+        return `💡 Хорошее начало: «${surface}» использовано правильно, но перевод пока неполный.`
+      }
+      return `💡 Хорошее начало: «${surface}» использовано правильно, но перевод пока неполный.`
+    }
+    if (audience === 'child') {
+      return '💡 Хорошее начало, но перевод пока неполный — добавь остальную часть предложения по образцу.'
+    }
+    return '💡 Хорошее начало, но перевод пока неполный — добавьте остальную часть предложения по образцу.'
+  }
 
   if (surface) {
     if (audience === 'child') {

@@ -27,6 +27,17 @@ describe('translationSupportFallback', () => {
     expect(s).toMatch(/Ты удачно/)
   })
 
+  it('для incomplete режима возвращает прямой комментарий о неполном переводе', () => {
+    const s = buildDeterministicTranslationSupportRu(
+      'I cook',
+      'I cook a tasty dinner for my family.',
+      'adult',
+      'incomplete'
+    )
+    expect(s).toMatch(/перевод пока неполный/i)
+    expect(s).toMatch(/Хорошее начало/i)
+  })
+
   it('extractKommentariyPerevodBody вытаскивает многострочную поддержку', () => {
     const raw = [
       'Комментарий_перевод: 💡 Первая строка.',

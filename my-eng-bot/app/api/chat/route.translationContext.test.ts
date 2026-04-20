@@ -180,7 +180,7 @@ describe('POST /api/chat translation provider payload', () => {
     const data = (await res.json()) as { content: string }
     expect(data.content).toContain('Комментарий_перевод: Хорошее начало вопроса.')
     expect(data.content).toContain('Ошибки:')
-    expect(data.content.toLowerCase()).toMatch(/питомец\s*→\s*pet/)
+    expect(data.content.toLowerCase()).toMatch(/"питомец"\s*→\s*"pet"/)
   })
 
   it('normalizes second supportive sentence to fixed errors reference when multiple errors exist', async () => {

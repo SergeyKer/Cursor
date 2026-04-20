@@ -297,3 +297,68 @@ describe('pickTranslationGoldForVerdict', () => {
     ).toBeNull()
   })
 })
+
+describe('computeTranslationGoldVerdict stability perturbations', () => {
+  const ru = 'Я делаю домашнее задание каждый день.'
+  const gold = 'I do my homework every day.'
+
+  it('success: exact user answer is accepted', () => {
+    expect(
+      computeTranslationGoldVerdict({
+        userText: 'I do my homework every day.',
+        goldEnglish: gold,
+        ruPrompt: ru,
+      })
+    ).toEqual({ ok: true, reasons: [] })
+  })
+
+  it('error: reduced phrase is incomplete', () => {
+    const v = computeTranslationGoldVerdict({
+      userText: 'I do my homework',
+      goldEnglish: gold,
+      ruPrompt: ru,
+    })
+    expect(v.ok).toBe(false)
+    expect(v.reasons).toContain('answer_incomplete')
+  })
+
+  it('error: replacing part with Russian token is rejected', () => {
+    const v = computeTranslationGoldVerdict({
+      userText: 'I do my домашнее every day.',
+      goldEnglish: gold,
+      ruPrompt: ru,
+    })
+    expect(v.ok).toBe(false)
+    expect(v.reasons).toContain('cyrillic_in_answer')
+  })
+
+  it('error: subject replacement I -> we is rejected', () => {
+    const v = computeTranslationGoldVerdict({
+      userText: 'We do our homework every day.',
+      goldEnglish: gold,
+      ruPrompt: ru,
+    })
+    expect(v.ok).toBe(false)
+    expect(v.reasons).toContain('gold_mismatch')
+  })
+
+  it('junk: noisy gibberish token is rejected', () => {
+    const v = computeTranslationGoldVerdict({
+      userText: 'zzzzzzzzzz qqq',
+      goldEnglish: gold,
+      ruPrompt: ru,
+    })
+    expect(v.ok).toBe(false)
+    expect(v.reasons).toContain('gibberish_in_answer')
+  })
+
+  it('error: spelling typo doing -> diing is rejected as mismatch', () => {
+    const v = computeTranslationGoldVerdict({
+      userText: 'I am diing my homework now.',
+      goldEnglish: 'I am doing my homework now.',
+      ruPrompt: 'Я делаю домашнее задание сейчас.',
+    })
+    expect(v.ok).toBe(false)
+    expect(v.reasons.some((r) => r === 'gold_mismatch' || r === 'gold_not_plausible_for_prompt')).toBe(true)
+  })
+})

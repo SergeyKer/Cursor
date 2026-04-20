@@ -1,5 +1,6 @@
 import { foldLatinHomoglyphsForEnglishMatch } from '@/lib/normalizeEnglishForRepeatMatch'
 import { normalizeRuTopicKeyword, normalizeTopicToken, RU_TOPIC_KEYWORD_TO_EN } from '@/lib/ruTopicKeywordMap'
+import { normalizeEnglishForLearnerAnswerMatch } from '@/lib/normalizeEnglishForLearnerAnswerMatch'
 
 /** Минимальный стоп-лист для выделения «смысловых» английских токенов в подсказках. */
 const CONTENT_STOP = new Set([
@@ -105,12 +106,12 @@ function lookSeeFamily(t: string): 'look' | 'see' | null {
 function hintForEnPair(wrong: string, right: string): string {
   const wf = loveLikeFamily(wrong)
   const rf = loveLikeFamily(right)
-  if (wf === 'love' && rf === 'like') return '(для предпочтений используем "like")'
-  if (wf === 'like' && rf === 'love') return '(здесь по смыслу сильнее «любить» — love)'
+  if (wf === 'love' && rf === 'like') return 'для предпочтений используем like'
+  if (wf === 'like' && rf === 'love') return 'здесь по смыслу сильнее love'
   const wl = lookSeeFamily(wrong)
   const rl = lookSeeFamily(right)
-  if (wl === 'look' && rl === 'see') return '(see = видеть, look = смотреть)'
-  if (wl === 'see' && rl === 'look') return '(look = смотреть, see = видеть)'
+  if (wl === 'look' && rl === 'see') return 'see = видеть, look = смотреть'
+  if (wl === 'see' && rl === 'look') return 'look = смотреть, see = видеть'
   return ''
 }
 
@@ -133,6 +134,72 @@ function levenshteinDistance(a: string, b: string): number {
     curr = tmp
   }
   return prev[right.length] ?? 0
+}
+
+function tokenizeForPrefixCheck(text: string): string[] {
+  return text.match(/[a-z0-9']+/gi)?.map((token) => token.toLowerCase()) ?? []
+}
+
+function isLikelySingularPluralTokenMismatch(userTok: string, goldTok: string): boolean {
+  const u = userTok.toLowerCase()
+  const g = goldTok.toLowerCase()
+  if (u === g) return false
+  if (g === `${u}s` || g === `${u}es`) return true
+  if (u === `${g}s` || u === `${g}es`) return true
+  if (u.length > 2 && u.endsWith('y') && g === `${u.slice(0, -1)}ies`) return true
+  if (g.length > 2 && g.endsWith('ies') && u === `${g.slice(0, -3)}y`) return true
+  return false
+}
+
+function isStrictTokenPrefix(userTokens: string[], goldTokens: string[]): boolean {
+  if (userTokens.length === 0) return false
+  if (userTokens.length >= goldTokens.length) return false
+  for (let i = 0; i < userTokens.length; i++) {
+    if (userTokens[i] !== goldTokens[i]) return false
+  }
+  return true
+}
+
+function isStrictTokenPrefixAllowingOneNominalNumberSlip(userTokens: string[], goldTokens: string[]): boolean {
+  if (userTokens.length === 0 || goldTokens.length === 0) return false
+  if (userTokens.length >= goldTokens.length) return false
+  let iu = 0
+  let ig = 0
+  let usedSlip = false
+  while (iu < userTokens.length && ig < goldTokens.length) {
+    if (userTokens[iu] === goldTokens[ig]) {
+      iu++
+      ig++
+      continue
+    }
+    if (!usedSlip && isLikelySingularPluralTokenMismatch(userTokens[iu]!, goldTokens[ig]!)) {
+      usedSlip = true
+      iu++
+      ig++
+      continue
+    }
+    return false
+  }
+  return iu === userTokens.length && ig < goldTokens.length
+}
+
+function buildIncompleteTranslationLine(userText: string, repeatEnglish: string): string | null {
+  const userNorm = normalizeEnglishForLearnerAnswerMatch(userText, 'translation')
+  const repeatNorm = normalizeEnglishForLearnerAnswerMatch(repeatEnglish, 'translation')
+  if (!userNorm || !repeatNorm) return null
+  const userTokens = tokenizeForPrefixCheck(userNorm)
+  const repeatTokens = tokenizeForPrefixCheck(repeatNorm)
+  const incomplete =
+    isStrictTokenPrefix(userTokens, repeatTokens) ||
+    isStrictTokenPrefixAllowingOneNominalNumberSlip(userTokens, repeatTokens)
+  if (!incomplete) return null
+  const userPreview = userText.replace(/\s+/g, ' ').trim() || 'начало фразы'
+  const repeatPreview = repeatEnglish.replace(/\s+/g, ' ').trim() || 'полная фраза'
+  return formatReplacementLine({
+    wrong: userPreview,
+    right: repeatPreview,
+    reason: 'перевод неполный: добавь недостающую часть предложения',
+  })
 }
 
 /** Последнее слово в ответе vs эталон: обрезки (ca/cat) и опечатки в конце фразы. */
@@ -159,18 +226,60 @@ function collectTailWordPair(userText: string, repeatEnglish: string): { wrong: 
   return { wrong: uSurf, right: rSurf }
 }
 
-function collectEnglishLexiconBullets(userText: string, repeatEnglish: string): string[] {
-  const userContent = tokenizeEnglish(userText).filter(isContentTok)
-  const repeatContent = tokenizeEnglish(repeatEnglish).filter(isContentTok)
-  const seen = new Set<string>()
-  const bullets: string[] = []
+type ReplacementPair = { wrong: string; right: string; reason?: string }
 
-  const pushBullet = (wrong: string, right: string) => {
+function trimOuterQuotes(text: string): string {
+  return text.replace(/^["'`«»]+|["'`«»]+$/g, '').trim()
+}
+
+function normalizeReplacementPart(text: string): string {
+  const cleaned = trimOuterQuotes(text).replace(/\s+/g, ' ').trim()
+  return cleaned || text.trim()
+}
+
+function formatReplacementLine(pair: ReplacementPair): string {
+  const wrong = normalizeReplacementPart(pair.wrong).replace(/"/g, "'")
+  const right = normalizeReplacementPart(pair.right).replace(/"/g, "'")
+  const reason = pair.reason?.trim() ?? ''
+  return reason ? `- "${wrong}" → "${right}" (${reason})` : `- "${wrong}" → "${right}"`
+}
+
+function findNearestTypoCandidate(
+  userTok: string,
+  repeatTokens: string[],
+  repeatStart: number,
+  windowSize = 3
+): { token: string; idx: number; distance: number } | null {
+  const u = userTok.toLowerCase()
+  if (!u || u.length < 3) return null
+  let best: { token: string; idx: number; distance: number } | null = null
+  const end = Math.min(repeatTokens.length, repeatStart + windowSize)
+  for (let i = repeatStart; i < end; i++) {
+    const rt = repeatTokens[i]
+    if (!rt || !isContentTok(rt) || rt.length < 3) continue
+    const distance = levenshteinDistance(u, rt.toLowerCase())
+    if (distance <= 2 && (best == null || distance < best.distance)) {
+      best = { token: rt, idx: i, distance }
+      if (distance === 1) break
+    }
+  }
+  return best
+}
+
+function collectEnglishLexiconPairs(userText: string, repeatEnglish: string): ReplacementPair[] {
+  const userTokens = tokenizeEnglish(userText)
+  const repeatTokens = tokenizeEnglish(repeatEnglish)
+  const userContent = userTokens.filter(isContentTok)
+  const repeatContent = repeatTokens.filter(isContentTok)
+  const seen = new Set<string>()
+  const pairs: ReplacementPair[] = []
+
+  const pushPair = (wrong: string, right: string, reason = '') => {
     const key = `${wrong.toLowerCase()}→${right.toLowerCase()}`
     if (seen.has(key)) return
     seen.add(key)
-    const hint = hintForEnPair(wrong, right).trim()
-    bullets.push(hint ? `${wrong} → ${right} ${hint}`.trim() : `${wrong} → ${right}`)
+    const hint = reason.trim() || hintForEnPair(wrong, right).trim()
+    pairs.push({ wrong, right, reason: hint })
   }
 
   const repeatHasSee = repeatContent.some((t) => /^(see|sees|seeing|saw|seen)$/.test(t))
@@ -179,7 +288,7 @@ function collectEnglishLexiconBullets(userText: string, repeatEnglish: string): 
   if (repeatHasSee && userHasLook && !userHasSee) {
     const uSurf = userText.match(/\b(look|looks|looking|looked)\b/i)?.[1] ?? 'look'
     const rSurf = repeatEnglish.match(/\b(see|sees|seeing|saw|seen)\b/i)?.[1] ?? 'see'
-    pushBullet(uSurf, rSurf)
+    pushPair(uSurf, rSurf)
   }
 
   const loveTokU = userContent.find((t) => loveLikeFamily(t) === 'love')
@@ -187,33 +296,78 @@ function collectEnglishLexiconBullets(userText: string, repeatEnglish: string): 
   if (loveTokU && likeTokR) {
     const uSurf = userText.match(/\b(love|loves|loved|loving)\b/i)?.[1] ?? 'love'
     const rSurf = repeatEnglish.match(/\b(like|likes|liked|liking)\b/i)?.[1] ?? 'like'
-    pushBullet(uSurf, rSurf)
+    pushPair(uSurf, rSurf)
   }
   const likeTokU = userContent.find((t) => loveLikeFamily(t) === 'like')
   const loveTokR = repeatContent.find((t) => loveLikeFamily(t) === 'love')
   if (likeTokU && loveTokR) {
     const uSurf = userText.match(/\b(like|likes|liked|liking)\b/i)?.[1] ?? 'like'
     const rSurf = repeatEnglish.match(/\b(love|loves|loved|loving)\b/i)?.[1] ?? 'love'
-    pushBullet(uSurf, rSurf)
+    pushPair(uSurf, rSurf)
   }
 
-  const max = Math.min(userContent.length, repeatContent.length)
-  for (let i = 0; i < max; i++) {
-    const ut = userContent[i] ?? ''
-    const rt = repeatContent[i] ?? ''
-    if (!ut || !rt || ut === rt) continue
-    if (ut === `${rt}s` || rt === `${ut}s`) continue
-    if (loveLikeFamily(ut) && loveLikeFamily(rt) && loveLikeFamily(ut) !== loveLikeFamily(rt)) continue
-    if (lookSeeFamily(ut) && lookSeeFamily(rt) && lookSeeFamily(ut) !== lookSeeFamily(rt)) continue
+  let iu = 0
+  let ir = 0
+  while (iu < userTokens.length && ir < repeatTokens.length) {
+    while (iu < userTokens.length && !isContentTok(userTokens[iu] ?? '')) iu++
+    while (ir < repeatTokens.length && !isContentTok(repeatTokens[ir] ?? '')) ir++
+    if (iu >= userTokens.length || ir >= repeatTokens.length) break
+
+    const ut = userTokens[iu] ?? ''
+    const rt = repeatTokens[ir] ?? ''
+    if (!ut || !rt) break
+    if (ut === rt) {
+      iu++
+      ir++
+      continue
+    }
+
+    let targetRt = rt
+    let advanceRepeat = 1
+    let reason = ''
+
+    const typoCandidate = findNearestTypoCandidate(ut, repeatTokens, ir)
+    if (typoCandidate && typoCandidate.idx > ir) {
+      targetRt = typoCandidate.token
+      advanceRepeat = typoCandidate.idx - ir + 1
+      reason = 'опечатка'
+    }
+
+    if (ut === `${targetRt}s` || targetRt === `${ut}s`) {
+      iu++
+      ir += advanceRepeat
+      continue
+    }
+    if (
+      loveLikeFamily(ut) &&
+      loveLikeFamily(targetRt) &&
+      loveLikeFamily(ut) !== loveLikeFamily(targetRt)
+    ) {
+      iu++
+      ir += advanceRepeat
+      continue
+    }
+    if (
+      lookSeeFamily(ut) &&
+      lookSeeFamily(targetRt) &&
+      lookSeeFamily(ut) !== lookSeeFamily(targetRt)
+    ) {
+      iu++
+      ir += advanceRepeat
+      continue
+    }
+
     const uSurf =
       new RegExp(`\\b${ut.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').exec(userText)?.[0] ?? ut
     const rSurf =
-      new RegExp(`\\b${rt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').exec(repeatEnglish)?.[0] ?? rt
-    pushBullet(uSurf, rSurf)
+      new RegExp(`\\b${targetRt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').exec(repeatEnglish)?.[0] ?? targetRt
+    pushPair(uSurf, rSurf, reason)
+    iu++
+    ir += advanceRepeat
   }
 
   const ruInUser = CYRILLIC.test(userText)
-  if (!ruInUser && bullets.length === 0) {
+  if (!ruInUser && pairs.length === 0) {
     const uSet = new Set(userContent)
     const rSet = new Set(repeatContent)
     const uOnly = userContent.filter((t) => !rSet.has(t) && isContentTok(t))
@@ -226,23 +380,23 @@ function collectEnglishLexiconBullets(userText: string, repeatEnglish: string): 
           new RegExp(`\\b${ut.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').exec(userText)?.[0] ?? ut
         const rSurf =
           new RegExp(`\\b${rt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').exec(repeatEnglish)?.[0] ?? rt
-        pushBullet(uSurf, rSurf)
+        pushPair(uSurf, rSurf)
       }
     }
   }
 
-  if (!ruInUser && bullets.length === 0) {
+  if (!ruInUser && pairs.length === 0) {
     const tail = collectTailWordPair(userText, repeatEnglish)
-    if (tail) pushBullet(tail.wrong, tail.right)
+    if (tail) pushPair(tail.wrong, tail.right, 'опечатка')
   }
 
-  return bullets
+  return pairs
 }
 
-function collectRussianLexiconBullets(userText: string): string[] {
+function collectRussianLexiconPairs(userText: string): ReplacementPair[] {
   const rawWords = userText.match(/[\u0400-\u04FF]+/g) ?? []
   const seen = new Set<string>()
-  const bullets: string[] = []
+  const pairs: ReplacementPair[] = []
   for (const raw of rawWords) {
     const key = raw.toLowerCase()
     if (seen.has(key)) continue
@@ -250,48 +404,45 @@ function collectRussianLexiconBullets(userText: string): string[] {
     const normKey = normalizeRuTopicKeyword(raw)
     const en = normKey ? RU_TOPIC_KEYWORD_TO_EN[normKey] : undefined
     const displayRu = normalizeTopicToken(raw) || raw.toLowerCase()
-    if (en) {
-      bullets.push(`${displayRu} → ${en} (переведи на английский)`)
-    } else {
-      bullets.push(`${displayRu} (переведи на английский)`)
-    }
+    pairs.push({
+      wrong: displayRu,
+      right: en || '[перевод по контексту]',
+      reason: 'не используй кириллицу',
+    })
   }
-  return bullets
+  return pairs
 }
 
 export const STATIC_TRANSLATION_LINE = 'В ответе остались русские слова — переведи их на английский.'
 
-const EMOJI_BOOK = '\u{1F4D6}'
-const EMOJI_PENCIL = '\u270F\uFE0F'
-
 /**
- * Строки для блока «Ошибки:» при смешанном вводе / лексических неточностях:
- * заголовок «Лексика» (книга) и при кириллице — «Перевод» (карандаш).
+ * Строки для блока «Ошибки:» в fallback-ветке.
+ * Единый контракт: - "wrong" → "right" (короткая причина), максимум 3 строки.
  */
 export function buildTranslationErrorLexiconAndCyrillicLines(userText: string, repeatEnglish: string): string[] {
   const trimmedUser = userText.trim()
   const trimmedRepeat = repeatEnglish.trim()
   const hasCyrillic = CYRILLIC.test(trimmedUser)
 
-  const enBullets = trimmedRepeat ? collectEnglishLexiconBullets(trimmedUser, trimmedRepeat) : []
-  const ruBullets = hasCyrillic ? collectRussianLexiconBullets(trimmedUser) : []
+  const lines: string[] = []
+  const ruPairs = hasCyrillic ? collectRussianLexiconPairs(trimmedUser) : []
+  const enPairs = trimmedRepeat ? collectEnglishLexiconPairs(trimmedUser, trimmedRepeat) : []
 
-  const lexicaSection: string[] = []
-  if (enBullets.length || ruBullets.length) {
-    lexicaSection.push(`${EMOJI_BOOK} Лексика:`)
-    for (const b of enBullets) lexicaSection.push(`• ${b}`)
-    for (const b of ruBullets) lexicaSection.push(`• ${b}`)
+  // Приоритет: кириллица -> лексика/структура -> опечатка, максимум 3 строки.
+  for (const pair of ruPairs) {
+    lines.push(formatReplacementLine(pair))
+    if (lines.length >= 3) return lines
+  }
+  for (const pair of enPairs) {
+    lines.push(formatReplacementLine(pair))
+    if (lines.length >= 3) return lines
   }
 
-  const translateSection: string[] = []
-  if (hasCyrillic) {
-    translateSection.push(`${EMOJI_PENCIL} Перевод:`)
-    translateSection.push(STATIC_TRANSLATION_LINE)
-  }
+  const incompleteLine = !hasCyrillic && trimmedRepeat ? buildIncompleteTranslationLine(trimmedUser, trimmedRepeat) : null
+  if (incompleteLine) return [incompleteLine]
 
-  if (lexicaSection.length === 0 && translateSection.length === 0) {
-    return [`${EMOJI_BOOK} Лексическая ошибка. Проверь написание и выбор слова.`]
-  }
+  if (lines.length > 0) return lines
 
-  return [...lexicaSection, ...translateSection]
+  // Фолбэк-строка совместима с новым контрактом.
+  return ['- "your sentence" → "full sentence" (уточни формулировку по образцу)']
 }

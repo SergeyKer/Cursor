@@ -152,6 +152,10 @@ export const RU_TOPIC_KEYWORD_TO_EN: Record<string, string> = {
   редко: 'rarely',
   часто: 'often',
   обычно: 'usually',
+  каждый: 'every',
+  каждая: 'every',
+  каждое: 'every',
+  каждые: 'every',
   /** «Заранее» → лексема advance (в разборе ответа ловим «in advance»). */
   заранее: 'advance',
   поездка: 'trips',
@@ -185,6 +189,49 @@ export function normalizeTopicToken(token: string): string {
 function pushCandidate(candidates: string[], candidate: string): void {
   if (!candidate) return
   if (!candidates.includes(candidate)) candidates.push(candidate)
+}
+
+function levenshteinDistance(a: string, b: string): number {
+  if (a === b) return 0
+  if (!a.length) return b.length
+  if (!b.length) return a.length
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i)
+  let curr = new Array<number>(b.length + 1).fill(0)
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost)
+    }
+    const tmp = prev
+    prev = curr
+    curr = tmp
+  }
+  return prev[b.length] ?? 0
+}
+
+function findBestKeywordTypoMatch(normalized: string): string | null {
+  if (normalized.length < 5) return null
+  const threshold = normalized.length >= 7 ? 2 : 1
+  const keys = Object.keys(RU_TOPIC_KEYWORD_TO_EN).filter(
+    (key) => key.length >= normalized.length - 2 && key.length <= normalized.length + 2 && key[0] === normalized[0]
+  )
+  let bestKey: string | null = null
+  let bestDist = Number.POSITIVE_INFINITY
+  let bestCount = 0
+  for (const key of keys) {
+    const dist = levenshteinDistance(normalized, key)
+    if (dist > threshold) continue
+    if (dist < bestDist) {
+      bestDist = dist
+      bestKey = key
+      bestCount = 1
+      continue
+    }
+    if (dist === bestDist) bestCount++
+  }
+  if (!bestKey) return null
+  return bestCount === 1 ? bestKey : null
 }
 
 /**
@@ -226,5 +273,7 @@ export function normalizeRuTopicKeyword(token: string): string {
   for (const candidate of candidates) {
     if (RU_TOPIC_KEYWORD_TO_EN[candidate]) return candidate
   }
+  const typoKey = findBestKeywordTypoMatch(normalized)
+  if (typoKey) return typoKey
   return normalized
 }

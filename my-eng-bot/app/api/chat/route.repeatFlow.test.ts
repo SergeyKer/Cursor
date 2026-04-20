@@ -707,7 +707,7 @@ describe('POST /api/chat repeat cycle stability', () => {
 
     expect(res.status).toBe(200)
     expect(data.content).toContain('Комментарий_перевод:')
-    expect(data.content).toMatch(/haev\s*→/i)
+    expect(data.content).toMatch(/"haev"\s*→\s*"cat"/i)
     expect(data.content).not.toContain('haev нужно заменить на car')
     expect(data.content).toContain('Скажи: I have a cat.')
     expect(data.content).not.toContain('Переведи на английский.')
