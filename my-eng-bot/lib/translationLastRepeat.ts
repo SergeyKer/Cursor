@@ -142,7 +142,9 @@ function extractFirstVisibleRepeatEnglishFromAssistantCard(content: string): str
  */
 function extractDrillCardGoldEnglishForRepeat(content: string, ruTask: string | null): string | null {
   const ref = extractCanonicalRepeatRefEnglishFromContent(content)
-  if (ref?.trim() && isRepeatCuePlausibleForRuPrompt(ruTask, ref.trim())) {
+  // Hidden ref is the authoritative gold for translation repeat chains.
+  // Do not drop it on short prompts where keyword heuristics can be too strict.
+  if (ref?.trim()) {
     return ref.trim()
   }
   const visible = extractFirstVisibleRepeatEnglishFromAssistantCard(content)

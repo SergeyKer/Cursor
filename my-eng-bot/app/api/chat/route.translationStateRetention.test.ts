@@ -251,6 +251,7 @@ describe('POST /api/chat translation state retention', () => {
           'Скажи: I sweem in the kitchen.',
         ].join('\n'),
       })
+      .mockResolvedValueOnce({ ok: true, content: 'I cook in the kitchen.' })
 
     const base = {
       mode: 'translation',
