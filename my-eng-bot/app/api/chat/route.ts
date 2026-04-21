@@ -171,6 +171,7 @@ import {
 } from '@/lib/translationSinglePassGold'
 import { computeTranslationGoldVerdict, pickTranslationGoldForVerdict } from '@/lib/translationVerdict'
 import { extractSingleTranslationNextSentence } from '@/lib/extractSingleTranslationNextSentence'
+import { normalizeTranslationCanonicalGold } from '@/lib/translationCanonicalGold'
 import {
   appendTranslationCanonicalRepeatRefLine,
   extractCanonicalRepeatRefEnglishFromContent,
@@ -3959,12 +3960,14 @@ async function ensureFirstTranslationDrillMatchesRequiredTense(params: {
   if (isTranslationSinglePassGoldEnabled()) {
     const rawRef = extractCanonicalRepeatRefEnglishFromContent(params.content)
     if (rawRef?.trim()) {
-      const { clamped } = clampTranslationRepeatToRuPrompt(rawRef.trim(), ru.trim())
-      gold = (clamped?.trim() || rawRef.trim()) || null
+      gold = normalizeTranslationCanonicalGold({
+        goldEnglish: rawRef.trim(),
+        ruPrompt: ru.trim(),
+      })
     }
   }
   if (!gold?.trim() && isTranslationGoldApiFallbackEnabled()) {
-    gold = params.resolveGoldTranslation
+    const fromProvider = params.resolveGoldTranslation
       ? await params.resolveGoldTranslation({
           ruSentence: ru.trim(),
           level: params.level as LevelId,
@@ -3977,6 +3980,12 @@ async function ensureFirstTranslationDrillMatchesRequiredTense(params: {
           provider: params.provider,
           req: params.req,
         })
+    if (fromProvider?.trim()) {
+      gold = normalizeTranslationCanonicalGold({
+        goldEnglish: fromProvider.trim(),
+        ruPrompt: ru.trim(),
+      })
+    }
   }
   if (!gold?.trim()) return params.content
   if (isUserLikelyCorrectForTense(gold, params.tense)) return params.content
@@ -4132,13 +4141,29 @@ async function finalizeTranslationResponsePayload(params: {
     params.priorCardRuPrompt?.trim() ||
     lastTranslationPrompt?.trim() ||
     null
+  const lockedCanonicalGold = params.canonicalGoldForTask?.trim()
+    ? normalizeTranslationCanonicalGold({
+        goldEnglish: params.canonicalGoldForTask.trim(),
+        ruPrompt: ruForRefCard,
+      })
+    : ''
+  const lockedCanonicalMatchesRu =
+    Boolean(lockedCanonicalGold) &&
+    Boolean(ruForRefCard?.trim()) &&
+    !hasTranslationPromptKeywordMismatch(ruForRefCard, lockedCanonicalGold)
+  const hasLockedCanonicalForTask = lockedCanonicalMatchesRu && Boolean(params.activeTaskId?.trim())
+  if (lockedCanonicalGold && !lockedCanonicalMatchesRu) {
+    console.warn('[chat][translation-gold] locked_canonical_mismatch_prompt', {
+      activeTaskId: params.activeTaskId ?? null,
+    })
+  }
   const lineMatchesCurrentRu = (line: string): boolean => {
     if (!ruForRefCard?.trim()) return false
     if (!hasTranslationPromptKeywordMismatch(ruForRefCard, line)) return true
     return hasWeekendConceptInRuPrompt(ruForRefCard) && /\bweekends?\b/i.test(line)
   }
   const hasTranRepeatMarker = () => guardedContent.includes(`${TRAN_CANONICAL_REPEAT_REF_MARKER}:`)
-  if (ruForRefCard?.trim() && hasDrillPromptAdvanced && isTranslationGoldApiFallbackEnabled()) {
+  if (!hasLockedCanonicalForTask && ruForRefCard?.trim() && hasDrillPromptAdvanced && isTranslationGoldApiFallbackEnabled()) {
     const refreshedGold = params.resolveGoldTranslation
       ? await params.resolveGoldTranslation({
           ruSentence: ruForRefCard,
@@ -4153,8 +4178,10 @@ async function finalizeTranslationResponsePayload(params: {
           req: params.req,
         })
     if (refreshedGold?.trim()) {
-      const { clamped } = clampTranslationRepeatToRuPrompt(refreshedGold, ruForRefCard)
-      const line = (clamped?.trim() || refreshedGold.trim()) || ''
+      const line = normalizeTranslationCanonicalGold({
+        goldEnglish: refreshedGold.trim(),
+        ruPrompt: ruForRefCard,
+      })
       if (line) {
         guardedContent = hasTranRepeatMarker()
           ? replaceTranslationCanonicalRepeatRefInContent(guardedContent, line)
@@ -4162,7 +4189,7 @@ async function finalizeTranslationResponsePayload(params: {
       }
     }
   }
-  if (ruForRefCard?.trim() && isTranslationGoldApiFallbackEnabled()) {
+  if (!hasLockedCanonicalForTask && ruForRefCard?.trim() && isTranslationGoldApiFallbackEnabled()) {
     const visibleSay = getTranslationRepeatSentence(guardedContent)?.trim() ?? ''
     const visibleMismatch =
       Boolean(visibleSay) && hasTranslationPromptKeywordMismatch(ruForRefCard, visibleSay)
@@ -4181,8 +4208,10 @@ async function finalizeTranslationResponsePayload(params: {
             req: params.req,
           })
       if (refreshedGold?.trim()) {
-        const { clamped } = clampTranslationRepeatToRuPrompt(refreshedGold, ruForRefCard)
-        const line = (clamped?.trim() || refreshedGold.trim()) || ''
+        const line = normalizeTranslationCanonicalGold({
+          goldEnglish: refreshedGold.trim(),
+          ruPrompt: ruForRefCard,
+        })
         if (line && lineMatchesCurrentRu(line)) {
           guardedContent = hasTranRepeatMarker()
             ? replaceTranslationCanonicalRepeatRefInContent(guardedContent, line)
@@ -4211,8 +4240,10 @@ async function finalizeTranslationResponsePayload(params: {
               req: params.req,
             })
         if (refreshedGold?.trim()) {
-          const { clamped } = clampTranslationRepeatToRuPrompt(refreshedGold, ruForRefCard)
-          const line = (clamped?.trim() || refreshedGold.trim()) || ''
+          const line = normalizeTranslationCanonicalGold({
+            goldEnglish: refreshedGold.trim(),
+            ruPrompt: ruForRefCard,
+          })
           if (line && lineMatchesCurrentRu(line)) {
             guardedContent = hasTranRepeatMarker()
               ? replaceTranslationCanonicalRepeatRefInContent(guardedContent, line)
@@ -4222,7 +4253,7 @@ async function finalizeTranslationResponsePayload(params: {
       }
     }
   }
-  if (ruForRefCard?.trim() && hasTranRepeatMarker()) {
+  if (!hasLockedCanonicalForTask && ruForRefCard?.trim() && hasTranRepeatMarker()) {
     const existingRef = extractCanonicalRepeatRefEnglishFromContent(guardedContent)?.trim() ?? ''
     const ruHasWeekend = hasWeekendConceptInRuPrompt(ruForRefCard)
     const refHasWeekend = /\bweekends?\b/i.test(existingRef)
@@ -4245,8 +4276,10 @@ async function finalizeTranslationResponsePayload(params: {
             req: params.req,
           })
       if (refreshedGold?.trim()) {
-        const { clamped } = clampTranslationRepeatToRuPrompt(refreshedGold, ruForRefCard)
-        const line = (clamped?.trim() || refreshedGold.trim()) || ''
+        const line = normalizeTranslationCanonicalGold({
+          goldEnglish: refreshedGold.trim(),
+          ruPrompt: ruForRefCard,
+        })
         if (line && !hasTranslationPromptKeywordMismatch(ruForRefCard, line)) {
           guardedContent = replaceTranslationCanonicalRepeatRefInContent(guardedContent, line)
         }
@@ -4254,7 +4287,7 @@ async function finalizeTranslationResponsePayload(params: {
     }
   }
   /** Сначала API-золото, чтобы плохое видимое «Скажи» не записало маркер и не отрезало fallback. */
-  if (ruForRefCard?.trim() && !hasTranRepeatMarker() && isTranslationGoldApiFallbackEnabled()) {
+  if (!hasLockedCanonicalForTask && ruForRefCard?.trim() && !hasTranRepeatMarker() && isTranslationGoldApiFallbackEnabled()) {
     console.info('[chat][translation-gold] ref_api_fallback')
     const goldFromApi = params.resolveGoldTranslation
       ? await params.resolveGoldTranslation({
@@ -4270,14 +4303,17 @@ async function finalizeTranslationResponsePayload(params: {
           req: params.req,
         })
     if (goldFromApi?.trim()) {
-      const { clamped } = clampTranslationRepeatToRuPrompt(goldFromApi, ruForRefCard)
-      const line = (clamped?.trim() || goldFromApi.trim()) || ''
+      const line = normalizeTranslationCanonicalGold({
+        goldEnglish: goldFromApi.trim(),
+        ruPrompt: ruForRefCard,
+      })
       if (line && lineMatchesCurrentRu(line)) {
         guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${line}`
       }
     }
   }
   if (
+    !hasLockedCanonicalForTask &&
     isTranslationSinglePassGoldEnabled() &&
     ruForRefCard?.trim() &&
     !hasTranRepeatMarker()
@@ -4288,51 +4324,57 @@ async function finalizeTranslationResponsePayload(params: {
       console.info('[chat][translation-gold] ref_from_content_cue')
     }
   }
-  if (ruForRefCard && !hasTranRepeatMarker()) {
+  if (!hasLockedCanonicalForTask && ruForRefCard && !hasTranRepeatMarker()) {
     guardedContent = appendTranslationCanonicalRepeatRefLine(guardedContent, ruForRefCard)
   }
-  if (ruForRefCard?.trim() && !hasTranRepeatMarker()) {
+  if (!hasLockedCanonicalForTask && ruForRefCard?.trim() && !hasTranRepeatMarker()) {
     const fromSay = getTranslationRepeatSentence(guardedContent)
     if (fromSay?.trim() && lineMatchesCurrentRu(fromSay)) {
-      const { clamped } = clampTranslationRepeatToRuPrompt(fromSay.trim(), ruForRefCard)
-      const line = (clamped?.trim() || fromSay.trim()) || ''
+      const line = normalizeTranslationCanonicalGold({
+        goldEnglish: fromSay.trim(),
+        ruPrompt: ruForRefCard,
+      })
       if (line) {
         guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${line}`
         console.info('[chat][translation-gold] ref_from_say_line')
       }
     }
   }
-  if (ruForRefCard?.trim() && !hasTranRepeatMarker()) {
+  if (!hasLockedCanonicalForTask && ruForRefCard?.trim() && !hasTranRepeatMarker()) {
     const cue = extractEnglishSentenceCandidate(guardedContent)
     if (cue?.trim() && lineMatchesCurrentRu(cue)) {
-      const { clamped } = clampTranslationRepeatToRuPrompt(cue.trim(), ruForRefCard)
-      const line = (clamped?.trim() || cue.trim()) || ''
+      const line = normalizeTranslationCanonicalGold({
+        goldEnglish: cue.trim(),
+        ruPrompt: ruForRefCard,
+      })
       if (line) {
         guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${line}`
         console.info('[chat][translation-gold] ref_from_english_candidate')
       }
     }
   }
-  if (ruForRefCard?.trim() && !hasTranRepeatMarker()) {
+  if (!hasLockedCanonicalForTask && ruForRefCard?.trim() && !hasTranRepeatMarker()) {
     const fallbackCandidates = [
       params.canonicalGoldForTask?.trim() ?? '',
       priorRepeatForEnforce?.trim() ?? '',
     ]
     for (const candidate of fallbackCandidates) {
       if (!candidate) continue
-      const { clamped } = clampTranslationRepeatToRuPrompt(candidate, ruForRefCard)
-      const line = (clamped?.trim() || candidate) || ''
+      const line = normalizeTranslationCanonicalGold({
+        goldEnglish: candidate,
+        ruPrompt: ruForRefCard,
+      })
       if (!line || !lineMatchesCurrentRu(line)) continue
       guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${line}`
       console.info('[chat][translation-gold] ref_from_fallback')
       break
     }
   }
-  if (ruForRefCard?.trim() && !hasTranRepeatMarker()) {
+  if (!hasLockedCanonicalForTask && ruForRefCard?.trim() && !hasTranRepeatMarker()) {
     console.error('[chat][translation-gold] ref_invariant_failed', { ru: ruForRefCard.slice(0, 80) })
   }
-  if (params.canonicalGoldForTask?.trim() && !pureTranslationSuccess) {
-    const canonicalGold = normalizeEnglishSentenceForCard(params.canonicalGoldForTask.trim())
+  if (lockedCanonicalGold && !pureTranslationSuccess) {
+    const canonicalGold = normalizeEnglishSentenceForCard(lockedCanonicalGold)
     if (canonicalGold) {
       guardedContent = hasTranRepeatMarker()
         ? replaceTranslationCanonicalRepeatRefInContent(guardedContent, canonicalGold)
@@ -7142,6 +7184,15 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       if (!isFirstTurn && tpForGold) {
         let goldForVerdict: string | null = null
         let lockedGoldForVerdict: string | null = null
+        const normalizeGoldCandidate = (candidate: string | null | undefined): string | null => {
+          const raw = candidate?.trim()
+          if (!raw) return null
+          const normalized = normalizeTranslationCanonicalGold({
+            goldEnglish: raw,
+            ruPrompt: tpForGold,
+          })
+          return normalized || null
+        }
         const priorTaskId = buildTranslationTaskId({
           ruPrompt: translationRuExtractedFromPriorAssistant ?? null,
           tense: tutorGradingTense,
@@ -7155,15 +7206,36 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           priorTaskId === translationActiveTaskId &&
           priorAssistantRepeatEnglish?.trim()
         ) {
-          lockedGoldForVerdict = priorAssistantRepeatEnglish.trim()
+          lockedGoldForVerdict = normalizeGoldCandidate(priorAssistantRepeatEnglish)
+          if (lockedGoldForVerdict && hasTranslationPromptKeywordMismatch(tpForGold, lockedGoldForVerdict)) {
+            console.warn('[chat][translation-cycle] locked_gold_mismatch_prompt', {
+              activeTaskId: translationActiveTaskId,
+            })
+            lockedGoldForVerdict = null
+          }
+          if (
+            lockedGoldForVerdict &&
+            hasWeekendConceptInRuPrompt(tpForGold) &&
+            !/\bweekends?\b/i.test(lockedGoldForVerdict)
+          ) {
+            console.warn('[chat][translation-cycle] locked_gold_missing_weekend', {
+              activeTaskId: translationActiveTaskId,
+            })
+            lockedGoldForVerdict = null
+          }
+        }
+        if (lockedGoldForVerdict) {
+          goldForVerdict = lockedGoldForVerdict
+          translationCanonicalGoldSource = 'locked_prior'
         }
         let pickedGoldForVerdict: string | null = null
-        if (translationPriorAssistantContent) {
+        if (!goldForVerdict && translationPriorAssistantContent) {
           pickedGoldForVerdict = pickTranslationGoldForVerdict({
             assistantContent: translationPriorAssistantContent,
             ruPrompt: tpForGold,
             userText: lastUserContentForResponse,
           })
+          pickedGoldForVerdict = normalizeGoldCandidate(pickedGoldForVerdict)
           if (pickedGoldForVerdict) {
             const pickedVerdict = computeTranslationGoldVerdict({
               userText: lastUserContentForResponse,
@@ -7174,10 +7246,6 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               goldForVerdict = pickedGoldForVerdict
               translationCanonicalGoldSource = 'local_pick'
             }
-          }
-          if (!goldForVerdict && lockedGoldForVerdict) {
-            goldForVerdict = lockedGoldForVerdict
-            translationCanonicalGoldSource = 'locked_prior'
           }
           if (!goldForVerdict && pickedGoldForVerdict) {
             goldForVerdict = pickedGoldForVerdict
@@ -7205,8 +7273,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             audience,
           })
           if (apiGold?.trim()) {
-            const { clamped } = clampTranslationRepeatToRuPrompt(apiGold, tpForGold)
-            const g = (clamped?.trim() || apiGold.trim()) || null
+            const g = normalizeGoldCandidate(apiGold)
             if (g) {
               goldForVerdict = g
               translationCanonicalGoldSource = 'api'

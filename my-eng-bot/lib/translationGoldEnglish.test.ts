@@ -93,5 +93,6 @@ describe('translationGoldEnglish', () => {
     const system = apiMessages.apiMessages.find((m) => m.role === 'system')?.content ?? ''
     expect(system).toMatch(/Keep the sentence short and simple/i)
     expect(system).toMatch(/AllowedVocabulary/i)
+    expect(system).toMatch(/prefer like\/don't like/i)
   })
 })

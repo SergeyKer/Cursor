@@ -43,7 +43,9 @@ export async function translateRussianPromptToGoldEnglish(params: {
   const questionRule = russianIsQuestion
     ? ' The Russian ends with a question mark: you MUST output a natural English question that translates it, ending with ? (same speech act as the Russian).'
     : ''
-  const system = `You translate one Russian exercise sentence into exactly one natural English sentence for a language learner. CEFR context: level ${level}, audience ${audienceHint}.${cefrHints}${a1a2LengthRule}${audienceToneRule} Output ONLY the English sentence on one line. No quotes, no labels, no Russian, no commentary. Preserve the original meaning exactly; do not add extra facts, time markers, or objects not present in Russian. Use standard adverb placement: in Present Perfect put already/just/ever/never/recently/lately between have/has and the past participle; use yet only at the end in questions/negatives; in Present/Past Simple put frequency adverbs before the main verb (after be).${questionRule}`
+  const preferenceLexiconRule =
+    ' If Russian means stable preference (for example: люблю / не люблю / мне нравится), prefer like/don\'t like in the canonical answer and avoid enjoy/enjoying as the main predicate.'
+  const system = `You translate one Russian exercise sentence into exactly one natural English sentence for a language learner. CEFR context: level ${level}, audience ${audienceHint}.${cefrHints}${a1a2LengthRule}${audienceToneRule}${preferenceLexiconRule} Output ONLY the English sentence on one line. No quotes, no labels, no Russian, no commentary. Preserve the original meaning exactly; do not add extra facts, time markers, or objects not present in Russian. Use standard adverb placement: in Present Perfect put already/just/ever/never/recently/lately between have/has and the past participle; use yet only at the end in questions/negatives; in Present/Past Simple put frequency adverbs before the main verb (after be).${questionRule}`
 
   let res: Awaited<ReturnType<typeof callProviderChat>>
   try {

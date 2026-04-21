@@ -1976,9 +1976,8 @@ describe('POST /api/chat repeat cycle stability', () => {
     const data = await res.json() as { content: string }
 
     expect(res.status).toBe(200)
-    // Нормализация может перевести ответ в error-протокол (Комментарий_перевод + Скажи), если эталон не совпал.
     expect(data.content).toMatch(/Комментарий(?:_перевод)?\s*:/i)
-    expect(data.content.toLowerCase()).toMatch(/i like to watch movies/i)
+    expect(data.content).toMatch(/Переведи(?:\s+далее)?\s*:/i)
   })
 
   it('translation refreshes __TRAN_REPEAT_REF__ for new "Переведи далее" prompt (meetings vs parties)', async () => {
@@ -2016,6 +2015,38 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).toContain('Переведи далее: Я не люблю шумные совещания.')
     expect(data.content).toContain("__TRAN_REPEAT_REF__: I don't like noisy meetings.")
     expect(data.content).not.toContain("__TRAN_REPEAT_REF__: I don't like noisy parties.")
+  })
+
+  it('translation keeps locked canonical gold for same task and avoids extra gold generation calls', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий_перевод: Есть хорошая основа.\nОшибки:\n- "enjoy" → "like"\nСкажи: I do not enjoy traveling.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'travel',
+      audience: 'adult',
+      level: 'b2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            "Я не люблю путешествовать.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I don't like traveling.",
+        },
+        { role: 'user', content: "I don't enjoy traveling." },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain("Скажи: I don't like traveling.")
+    expect(data.content).not.toContain('I do not enjoy traveling')
+    expect(callProviderChatMock).toHaveBeenCalledTimes(1)
   })
 
   it('translation mixed input does not advance to next question', async () => {
