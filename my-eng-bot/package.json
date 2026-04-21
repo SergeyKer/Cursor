@@ -9,7 +9,8 @@
     "build:header-robot": "node scripts/header-robot-match-bg.mjs",
     "start": "next start",
     "lint": "next lint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:translation:smoke": "vitest run lib/translationLastRepeat.test.ts app/api/chat/route.translationStateRetention.test.ts lib/translationSayReconcile.test.ts app/api/chat/route.translationContext.test.ts app/api/chat/route.repeatFlow.test.ts"
   },
   "dependencies": {
     "next": "^14.2.0",

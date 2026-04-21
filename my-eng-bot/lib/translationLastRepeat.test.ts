@@ -359,4 +359,30 @@ describe('golden repeat retention for common drift patterns', () => {
     ]
     expect(extractPriorAssistantRepeatEnglish(messages)).toBe('I cook in the kitchen.')
   })
+
+  it('keeps gold on mixed drift sequence (subject + typo + semantic + extra words + junk)', () => {
+    const messages = [
+      drillCard,
+      { role: 'user', content: 'We cook in the kitchen.' },
+      {
+        role: 'assistant' as const,
+        content:
+          'Комментарий_перевод: Исправь фразу.\nОшибки:\n🔤 Неточность.\nСкажи: We cook in the kitchin.',
+      },
+      { role: 'user', content: '@@@ asd zxc ???' },
+      {
+        role: 'assistant' as const,
+        content:
+          'Комментарий_мусор: Нужен полный ответ.\nСкажи: I cook dinner.\n__TRAN_REPEAT_REF__: I cook in the kitchen.',
+      },
+      { role: 'user', content: 'I cook quickly in the beautiful kitchen every day with my friends.' },
+      {
+        role: 'assistant' as const,
+        content:
+          'Комментарий_перевод: Еще раз.\nОшибки:\n🔤 Есть смысловая замена.\nСкажи: I sweem in the kitchen.',
+      },
+      { role: 'user', content: 'I sweem in the kitchen.' },
+    ]
+    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('I cook in the kitchen.')
+  })
 })

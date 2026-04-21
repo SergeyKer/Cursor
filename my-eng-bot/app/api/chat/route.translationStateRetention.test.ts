@@ -341,4 +341,122 @@ describe('POST /api/chat translation state retention', () => {
     expect(extraData.content).toContain('Скажи: I usually cook dinner in the kitchen.')
     expect(extraData.content).not.toContain('Переведи далее:')
   })
+
+  it('keeps canonical Say after long drift/junk history interleave', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий_перевод: Исправь смысл.\nОшибки:\n🔤 Есть смысловая замена.\nСкажи: I sweem in the kitchen.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      sentenceType: 'affirmative',
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'Переведи далее: Я готовлю на кухне.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I cook in the kitchen.',
+        },
+        { role: 'user', content: 'We cook in the kitchin.' },
+        {
+          role: 'assistant',
+          content:
+            'Комментарий_перевод: Исправь фразу.\nОшибки:\n🔤 Есть неточности.\nСкажи: I cook in the kitchen.\n__TRAN_REPEAT_REF__: I cook in the kitchen.',
+        },
+        { role: 'user', content: '@@@ asd zxc ???' },
+        {
+          role: 'assistant',
+          content:
+            'Комментарий_мусор: Нужен полный ответ на английском.\nСкажи: I cook in the kitchen.\n__TRAN_REPEAT_REF__: I cook in the kitchen.',
+        },
+        { role: 'user', content: 'I cook quickly in the beautiful kitchen every day with my friends.' },
+        {
+          role: 'assistant',
+          content:
+            'Комментарий_перевод: Убери лишние слова.\nОшибки:\n🔤 Ответ слишком длинный.\nСкажи: I cook in the kitchen.\n__TRAN_REPEAT_REF__: I cook in the kitchen.',
+        },
+        { role: 'user', content: 'I sweem in the kitchen.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Скажи: I cook in the kitchen.')
+    expect(data.content).not.toContain('Переведи далее:')
+  })
+
+  it('keeps canonical tense/time frame when model drifts answer to tomorrow', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: [
+        'Комментарий_перевод: Время не совпадает с заданием.',
+        'Ошибки:',
+        '🔤 Ты сместил время на завтра.',
+        'Скажи: I will cook in the kitchen tomorrow.',
+      ].join('\n'),
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      sentenceType: 'affirmative',
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'Переведи: Я готовлю на кухне.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I cook in the kitchen.',
+        },
+        { role: 'user', content: 'I cook in the kitchen tomorrow.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Скажи: I cook in the kitchen.')
+    expect(data.content).not.toContain('Скажи: I will cook in the kitchen tomorrow.')
+    expect(data.content).not.toContain('Переведи далее:')
+  })
+
+  it('keeps canonical tense/time frame when model drifts answer to yesterday', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: [
+        'Комментарий_перевод: Время не совпадает с заданием.',
+        'Ошибки:',
+        '🔤 Ты сместил время в прошлое.',
+        'Скажи: I cooked in the kitchen yesterday.',
+      ].join('\n'),
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      sentenceType: 'affirmative',
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'Переведи: Я готовлю на кухне.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I cook in the kitchen.',
+        },
+        { role: 'user', content: 'I cooked in the kitchen yesterday.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Скажи: I cook in the kitchen.')
+    expect(data.content).not.toContain('Скажи: I cooked in the kitchen yesterday.')
+    expect(data.content).not.toContain('Переведи далее:')
+  })
 })
