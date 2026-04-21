@@ -134,3 +134,32 @@ describe('isLikelyQuestionInRequiredTense', () => {
     expect(isLikelyQuestionInRequiredTense('Are you going to the pool?', 'present_continuous')).toBe(true)
   })
 })
+
+describe('diagnostics: complex tense dependencies and sentence forms', () => {
+  it('infers Past Continuous from dependent-time question', () => {
+    const q = 'What were you cooking when your wife came home?'
+    expect(inferTenseFromDialogueAssistantContent(q)).toBe('past_continuous')
+  })
+
+  it('accepts dependent-time answer in Past Continuous + Past Simple', () => {
+    const answer = 'I was cooking pancakes when my wife came home.'
+    expect(isUserLikelyCorrectForTense(answer, 'past_continuous')).toBe(true)
+  })
+
+  it('accepts dependent-time answer in Past Perfect + Past Simple', () => {
+    const answer = 'I had cooked dinner by the time she arrived.'
+    expect(isUserLikelyCorrectForTense(answer, 'past_perfect')).toBe(true)
+  })
+
+  it('detects affirmative sentence for present_simple target', () => {
+    expect(isUserLikelyCorrectForTense('I usually read before bed.', 'present_simple')).toBe(true)
+  })
+
+  it('detects negative sentence for present_simple target', () => {
+    expect(isUserLikelyCorrectForTense('I do not usually read before bed.', 'present_simple')).toBe(true)
+  })
+
+  it('detects interrogative sentence for present_simple question target', () => {
+    expect(isLikelyQuestionInRequiredTense('Do you usually read before bed?', 'present_simple')).toBe(true)
+  })
+})

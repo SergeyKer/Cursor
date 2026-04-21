@@ -4314,6 +4314,21 @@ async function finalizeTranslationResponsePayload(params: {
     }
   }
   if (ruForRefCard?.trim() && !hasTranRepeatMarker()) {
+    const fallbackCandidates = [
+      params.canonicalGoldForTask?.trim() ?? '',
+      priorRepeatForEnforce?.trim() ?? '',
+    ]
+    for (const candidate of fallbackCandidates) {
+      if (!candidate) continue
+      const { clamped } = clampTranslationRepeatToRuPrompt(candidate, ruForRefCard)
+      const line = (clamped?.trim() || candidate) || ''
+      if (!line || !lineMatchesCurrentRu(line)) continue
+      guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${line}`
+      console.info('[chat][translation-gold] ref_from_fallback')
+      break
+    }
+  }
+  if (ruForRefCard?.trim() && !hasTranRepeatMarker()) {
     console.error('[chat][translation-gold] ref_invariant_failed', { ru: ruForRefCard.slice(0, 80) })
   }
   if (params.canonicalGoldForTask?.trim() && !pureTranslationSuccess) {

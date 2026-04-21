@@ -152,7 +152,7 @@ export function isUserLikelyCorrectForTense(userText: string, requiredTense: str
     case 'present_simple': {
       if (/\b(am|is|are)\s+[a-z]+ing\b/i.test(userText)) return false
       if (
-        /\b(yesterday|ago|last|before|went|was|were|did|had|made|saw|took|came|got|gave|said|told|knew|thought|felt|left|kept|found|wrote|read|ran|drove|ate|drank|slept|spoke|bought|brought)\b/i.test(
+        /\b(yesterday|ago|last|went|was|were|did|had|made|saw|took|came|got|gave|said|told|knew|thought|felt|left|kept|found|wrote|ran|drove|ate|drank|slept|spoke|bought|brought)\b/i.test(
           userText
         )
       ) {
