@@ -4141,6 +4141,7 @@ async function finalizeTranslationResponsePayload(params: {
     params.priorCardRuPrompt?.trim() ||
     lastTranslationPrompt?.trim() ||
     null
+  const ruForRefCardTrimmed = ruForRefCard?.trim() ?? ''
   const lockedCanonicalGold = params.canonicalGoldForTask?.trim()
     ? normalizeTranslationCanonicalGold({
         goldEnglish: params.canonicalGoldForTask.trim(),
@@ -4149,8 +4150,8 @@ async function finalizeTranslationResponsePayload(params: {
     : ''
   const lockedCanonicalMatchesRu =
     Boolean(lockedCanonicalGold) &&
-    Boolean(ruForRefCard?.trim()) &&
-    !hasTranslationPromptKeywordMismatch(ruForRefCard, lockedCanonicalGold)
+    Boolean(ruForRefCardTrimmed) &&
+    !hasTranslationPromptKeywordMismatch(ruForRefCardTrimmed, lockedCanonicalGold)
   const hasLockedCanonicalForTask = lockedCanonicalMatchesRu && Boolean(params.activeTaskId?.trim())
   if (lockedCanonicalGold && !lockedCanonicalMatchesRu) {
     console.warn('[chat][translation-gold] locked_canonical_mismatch_prompt', {
