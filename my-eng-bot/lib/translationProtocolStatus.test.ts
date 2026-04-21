@@ -143,6 +143,30 @@ describe('resolveTranslationProtocolStatusFromFields', () => {
       })
     ).toBe('error_repeat')
   })
+
+  it('does not classify as success when praise comment still has repeat line', () => {
+    expect(
+      resolveTranslationProtocolStatusFromFields({
+        comment: 'Отлично! Почти верно.',
+        commentIsPraise: true,
+        errorsBlock: null,
+        repeat: 'I went to the park yesterday.',
+        repeatRu: null,
+      })
+    ).toBe('error_repeat')
+  })
+
+  it('falls back to prompt_only when success fields are incomplete', () => {
+    expect(
+      resolveTranslationProtocolStatusFromFields({
+        comment: null,
+        commentIsPraise: true,
+        errorsBlock: null,
+        repeat: null,
+        repeatRu: null,
+      })
+    ).toBe('prompt_only')
+  })
 })
 
 describe('isTranslationJunkOnlyProtocolFields', () => {

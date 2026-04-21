@@ -66,4 +66,39 @@ describe('reconcileTranslationSayWithHiddenRef', () => {
     ].join('\n')
     expect(reconcileTranslationSayWithHiddenRef(card, 'Дальше.')).toBe(card)
   })
+
+  it('restores canonical Say when user-like drift changes I -> we', () => {
+    const hidden = 'I cook in the kitchen.'
+    const card = errorCard('We cook in the kitchen.', hidden)
+    const out = reconcileTranslationSayWithHiddenRef(card, 'Я готовлю на кухне.')
+    expect(extractVisibleRepeatCueEnglishFromAssistantCard(out)).toBe('I cook in the kitchen.')
+  })
+
+  it('restores canonical Say when visible line has typo kitchin', () => {
+    const hidden = 'I cook in the kitchen.'
+    const card = errorCard('I cook in the kitchin.', hidden)
+    const out = reconcileTranslationSayWithHiddenRef(card, 'Я готовлю на кухне.')
+    expect(extractVisibleRepeatCueEnglishFromAssistantCard(out)).toBe('I cook in the kitchen.')
+  })
+
+  it('restores canonical Say when visible line changes meaning cook -> sweem', () => {
+    const hidden = 'I cook in the kitchen.'
+    const card = errorCard('I sweem in the kitchen.', hidden)
+    const out = reconcileTranslationSayWithHiddenRef(card, 'Я готовлю на кухне.')
+    expect(extractVisibleRepeatCueEnglishFromAssistantCard(out)).toBe('I cook in the kitchen.')
+  })
+
+  it('restores canonical Say when words are dropped from visible line', () => {
+    const hidden = 'I usually cook dinner in the kitchen.'
+    const card = errorCard('I cook dinner.', hidden)
+    const out = reconcileTranslationSayWithHiddenRef(card, 'Я обычно готовлю ужин на кухне.')
+    expect(extractVisibleRepeatCueEnglishFromAssistantCard(out)).toBe('I usually cook dinner in the kitchen.')
+  })
+
+  it('restores canonical Say when visible line has extra words', () => {
+    const hidden = 'I cook in the kitchen.'
+    const card = errorCard('I cook quickly in the beautiful kitchen every day.', hidden)
+    const out = reconcileTranslationSayWithHiddenRef(card, 'Я готовлю на кухне.')
+    expect(extractVisibleRepeatCueEnglishFromAssistantCard(out)).toBe('I cook in the kitchen.')
+  })
 })

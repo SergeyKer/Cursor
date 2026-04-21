@@ -307,3 +307,56 @@ describe('frozen repeat survives childish provocations', () => {
     expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Do you have brothers or sisters?')
   })
 })
+
+describe('golden repeat retention for common drift patterns', () => {
+  const drillCard = {
+    role: 'assistant' as const,
+    content:
+      'Переведи далее: Я готовлю на кухне.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I cook in the kitchen.',
+  }
+
+  it('keeps gold when user changes subject I -> we', () => {
+    const messages = [
+      drillCard,
+      { role: 'user', content: 'We cook in the kitchen.' },
+    ]
+    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('I cook in the kitchen.')
+  })
+
+  it('keeps gold when user makes typo kitchen -> kitchin', () => {
+    const messages = [
+      drillCard,
+      { role: 'user', content: 'I cook in the kitchin.' },
+    ]
+    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('I cook in the kitchen.')
+  })
+
+  it('keeps gold when user replaces core meaning cook -> sweem', () => {
+    const messages = [
+      drillCard,
+      { role: 'user', content: 'I sweem in the kitchen.' },
+    ]
+    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('I cook in the kitchen.')
+  })
+
+  it('keeps gold when user drops words from canonical sentence', () => {
+    const longDrillCard = {
+      role: 'assistant' as const,
+      content:
+        'Переведи далее: Я обычно готовлю ужин на кухне.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I usually cook dinner in the kitchen.',
+    }
+    const messages = [
+      longDrillCard,
+      { role: 'user', content: 'I cook dinner.' },
+    ]
+    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('I usually cook dinner in the kitchen.')
+  })
+
+  it('keeps gold when user adds extra words to sentence', () => {
+    const messages = [
+      drillCard,
+      { role: 'user', content: 'I cook quickly in the beautiful kitchen every day with my friends.' },
+    ]
+    expect(extractPriorAssistantRepeatEnglish(messages)).toBe('I cook in the kitchen.')
+  })
+})
