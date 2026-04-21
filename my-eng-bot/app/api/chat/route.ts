@@ -4956,13 +4956,15 @@ function buildFreeTalkFirstServerQuestion(params: {
   level: string
   topicSuggestions: string[]
   dialogSeed: string
+  tense: string
 }): string {
-  const { audience, level, topicSuggestions, dialogSeed } = params
+  const { audience, level, topicSuggestions, dialogSeed, tense } = params
   return buildFreeTalkFirstQuestion({
     audience,
     level,
     topicSuggestions,
     dialogSeed,
+    tense,
   })
 }
 
@@ -6114,6 +6116,7 @@ export async function POST(req: NextRequest) {
           level,
           topicSuggestions: freeTalkTopicSuggestions,
           dialogSeed,
+          tense: normalizedTense,
         }),
         dialogueCorrect: true,
       })

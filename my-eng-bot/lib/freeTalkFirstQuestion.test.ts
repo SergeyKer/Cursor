@@ -35,4 +35,18 @@ describe('buildFreeTalkFirstQuestion', () => {
     expect(q).toMatch(/What would you like to talk about\?\nYour topic, or one of these:\n1\) films\n2\) work\n3\) travel/)
     expect(q).not.toMatch(/pick one|choose one|suggested topics|suggest your own topic/i)
   })
+
+  it('prepends warmup notice before What... for complex tense', () => {
+    const q = buildFreeTalkFirstQuestion({
+      audience: 'adult',
+      level: 'b1',
+      dialogSeed: 'adult-b1-complex',
+      topicSuggestions: ['work', 'travel', 'books'],
+      tense: 'future_perfect',
+    })
+
+    expect(q).toContain('📖 Сначала задам 1–3 коротких вопроса')
+    expect(q).toContain('What would you like to talk about?')
+    expect(q.indexOf('📖')).toBeLessThan(q.indexOf('What would you like to talk about?'))
+  })
 })

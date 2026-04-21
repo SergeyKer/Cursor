@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   collectCandidateEnglishQuestionLines,
+  inferLastKnownTenseFromHistory,
   inferTenseFromDialogueAssistantContent,
   isLikelyQuestionInRequiredTense,
   isUserLikelyCorrectForTense,
@@ -161,5 +162,58 @@ describe('diagnostics: complex tense dependencies and sentence forms', () => {
 
   it('detects interrogative sentence for present_simple question target', () => {
     expect(isLikelyQuestionInRequiredTense('Do you usually read before bed?', 'present_simple')).toBe(true)
+  })
+})
+
+describe('diagnostics: tense activation metrics', () => {
+  function calcActivationTurns(params: {
+    requiredTense: string
+    messages: Array<{ role: 'assistant' | 'user'; content: string }>
+  }): { turnIndexFirstRequiredTense: number; userTurnsBeforeRequiredTense: number } {
+    const { requiredTense, messages } = params
+    let userTurns = 0
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i]
+      if (msg.role === 'user') {
+        userTurns++
+        continue
+      }
+      const inferred = inferTenseFromDialogueAssistantContent(msg.content)
+      if (inferred === requiredTense) {
+        return {
+          turnIndexFirstRequiredTense: i,
+          userTurnsBeforeRequiredTense: userTurns,
+        }
+      }
+    }
+    return {
+      turnIndexFirstRequiredTense: -1,
+      userTurnsBeforeRequiredTense: -1,
+    }
+  }
+
+  it('computes activation index: required tense starts after one user turn', () => {
+    const messages = [
+      { role: 'assistant' as const, content: 'What would you like to talk about?' },
+      { role: 'user' as const, content: 'travel' },
+      { role: 'assistant' as const, content: 'What will you have visited by the end of this year?' },
+    ]
+    const m = calcActivationTurns({
+      requiredTense: 'future_perfect',
+      messages,
+    })
+    expect(m.turnIndexFirstRequiredTense).toBe(2)
+    expect(m.userTurnsBeforeRequiredTense).toBe(1)
+  })
+
+  it('uses history fallback to keep last known tense anchor', () => {
+    const history = [
+      { role: 'assistant', content: 'What would you like to talk about?' },
+      { role: 'user', content: 'music' },
+      { role: 'assistant', content: 'How long will you have been practicing by next month?' },
+      { role: 'user', content: 'for two hours' },
+      { role: 'assistant', content: 'Комментарий: Исправьте ответ и сохраните время из вопроса.' },
+    ]
+    expect(inferLastKnownTenseFromHistory(history)).toBe('future_perfect_continuous')
   })
 })

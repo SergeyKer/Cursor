@@ -22,6 +22,115 @@ describe('POST /api/chat repeat cycle stability', () => {
     callProviderChatMock.mockReset()
   })
 
+  describe('dialogue algorithm hold: success / error / noise', () => {
+    it('free_talk first turn adds warmup line before What for complex tense', async () => {
+      const req = makeRequest({
+        mode: 'dialogue',
+        topic: 'free_talk',
+        audience: 'adult',
+        level: 'c1',
+        tenses: ['future_perfect'],
+        messages: [],
+      })
+
+      const res = await POST(req as never)
+      const data = (await res.json()) as { content: string }
+
+      expect(res.status).toBe(200)
+      expect(data.content).toContain('📖 Сначала задам 1–3 коротких вопроса')
+      expect(data.content).toContain('What would you like to talk about?')
+      expect(data.content.indexOf('📖')).toBeLessThan(data.content.indexOf('What would you like to talk about?'))
+    })
+
+    it('success flow hold: keeps next-question mode without correction protocol', async () => {
+      callProviderChatMock.mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Отлично! Вы сохранили Present Simple.\nWhat do you usually practice after work?',
+      })
+
+      const req = makeRequest({
+        mode: 'dialogue',
+        topic: 'free_talk',
+        audience: 'adult',
+        level: 'a2',
+        tenses: ['present_simple'],
+        messages: [
+          { role: 'assistant', content: 'What do you usually practice after work?' },
+          { role: 'user', content: 'I usually practice guitar after work.' },
+        ],
+      })
+
+      const res = await POST(req as never)
+      const data = (await res.json()) as { content: string }
+
+      expect(res.status).toBe(200)
+      expect(data.content).not.toContain('Комментарий:')
+      expect(data.content).not.toMatch(/^(?:Скажи|Повтори)\s*:/im)
+      expect(data.content.toLowerCase()).toMatch(/(do you|how do you)/)
+    })
+
+    it('error flow hold: unresolved repeat keeps correction cycle and blocks next question', async () => {
+      callProviderChatMock
+        .mockResolvedValueOnce({
+          ok: true,
+          content: 'Комментарий: Нужно сохранить время из задания.\nWhat have you been practicing lately?',
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          content: 'Комментарий: Нужен Present Perfect Continuous.\nСкажи: I have been practicing guitar every day.',
+        })
+
+      const req = makeRequest({
+        mode: 'dialogue',
+        topic: 'free_talk',
+        audience: 'adult',
+        level: 'b1',
+        tenses: ['present_perfect_continuous'],
+        messages: [
+          { role: 'assistant', content: 'What have you been practicing lately?' },
+          { role: 'user', content: 'I practice guitar every day.' },
+          { role: 'assistant', content: 'Комментарий: Нужен Present Perfect Continuous.\nСкажи: I have been practicing guitar every day.' },
+          { role: 'user', content: 'I practice guitar every day.' },
+        ],
+      })
+
+      const res = await POST(req as never)
+      const data = (await res.json()) as { content: string }
+
+      expect(res.status).toBe(200)
+      expect(data.content).toContain('Повтори:')
+      expect(data.content).toContain('I have been practicing guitar every day.')
+      expect(data.content).not.toContain('What have you been practicing lately?')
+    })
+
+    it('noise flow hold: gibberish does not advance state and preserves anchor question', async () => {
+      callProviderChatMock.mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Я не понял ответ.\nWhat do you think about speed track?',
+      })
+      const req = makeRequest({
+        mode: 'dialogue',
+        topic: 'sports',
+        audience: 'adult',
+        level: 'a2',
+        tenses: ['present_simple'],
+        messages: [
+          { role: 'assistant', content: 'What do you think about speed track?' },
+          { role: 'user', content: 'sdfsdf' },
+        ],
+      })
+
+      const res = await POST(req as never)
+      const data = (await res.json()) as { content: string }
+
+      expect(res.status).toBe(200)
+      expect(callProviderChatMock).not.toHaveBeenCalled()
+      expect(data.content).toContain('Комментарий:')
+      expect(data.content).toContain('What do you think about speed track?')
+      expect(data.content).not.toMatch(/^(?:Скажи|Повтори)\s*:/im)
+    })
+  })
+
   it('keeps repeat cycle (no next question) when previous repeat is still unresolved', async () => {
     callProviderChatMock
       .mockResolvedValueOnce({
