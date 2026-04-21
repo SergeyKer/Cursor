@@ -18,6 +18,8 @@ import type {
 import type { AiChatPanel } from '@/lib/aiChatPanel'
 import { MENU_PRIMARY_CTA_CLASS } from '@/lib/homeCtaStyles'
 import type { ImageAnalysisResult } from '@/lib/types'
+import ThemeSelector from '@/components/settings/ThemeSelector'
+import { useTheme } from '@/contexts/ThemeContext'
 
 const CHILD_TENSE_SET = new Set(CHILD_TENSES)
 const CHILD_SAFE_TOPICS = new Set<TopicId>([
@@ -48,13 +50,14 @@ const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
   level: 'Уровень',
 }
 
-type SettingsMenuPanel = 'summary' | 'provider' | 'openAiModel' | 'voice'
+type SettingsMenuPanel = 'summary' | 'provider' | 'openAiModel' | 'voice' | 'theme'
 
 const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
   summary: 'Настройки',
   provider: 'ИИ',
   openAiModel: 'Модель чата',
   voice: 'Голос',
+  theme: 'Внешний вид',
 }
 
 const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
@@ -157,6 +160,7 @@ export default function MenuSectionPanels({
   onOpenTutorLesson,
   initialLessonsPanel,
 }: MenuSectionPanelsProps) {
+  const { theme } = useTheme()
   const pid = (suffix: string) => `${idPrefix}${suffix}`
 
   const [aiChatPanel, setAiChatPanel] = React.useState<AiChatPanel>('summary')
@@ -244,6 +248,7 @@ export default function MenuSectionPanels({
   const sentenceTypeLabel =
     SENTENCE_TYPES.find((t) => t.id === settings.sentenceType)?.label ?? settings.sentenceType
   const topicLabel = topicOptions.find((t) => t.id === settings.topic)?.label ?? settings.topic
+  const themeLabel = theme === 'futuristic' ? 'Futuristic' : 'Basic'
 
   const handleMenuBack = () => {
     if (menuView === 'lessons' && lessonsPanel !== 'summary') {
@@ -689,7 +694,7 @@ export default function MenuSectionPanels({
                       </div>
                     )}
                     {tutorImageError && (
-                      <p className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-[13px] text-red-700">
+                      <p className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
                         {tutorImageError}
                       </p>
                     )}
@@ -702,7 +707,7 @@ export default function MenuSectionPanels({
                       {tutorLoading ? 'Анализируем...' : 'Анализировать'}
                     </button>
                     {tutorClarifyPrompt && (
-                      <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
+                      <p className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
                         {tutorClarifyPrompt}
                       </p>
                     )}
@@ -755,7 +760,7 @@ export default function MenuSectionPanels({
                         }}
                         className={
                           tutorStartingLesson
-                            ? 'w-full rounded-xl border border-gray-300 bg-gradient-to-b from-gray-400 to-gray-500 px-4 py-3 text-center text-base font-semibold text-white opacity-90'
+                            ? 'w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--status-info-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--status-info-text)] opacity-95'
                             : MENU_PRIMARY_CTA_CLASS
                         }
                       >
@@ -771,7 +776,7 @@ export default function MenuSectionPanels({
                           setTutorCustomFocus('')
                           setTutorStep('input')
                         }}
-                        className="btn-3d-menu w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[13px] font-medium text-blue-700 hover:bg-blue-100"
+                        className="btn-3d-menu w-full rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-2 text-[13px] font-medium text-[var(--status-info-text)] hover:opacity-90"
                       >
                         Изменить запрос
                       </button>
@@ -952,6 +957,7 @@ export default function MenuSectionPanels({
         {menuView === 'settings' && settingsPanel === 'summary' && (
           <div className={MENU_GROUP_OUTER}>
             <div className={MENU_GROUP_CLASS}>
+              <MenuSettingRow label="Тема" value={themeLabel} onClick={() => setSettingsPanel('theme')} />
               <MenuSettingRow label="ИИ" value={providerLabel} onClick={() => setSettingsPanel('provider')} />
               {settings.provider === 'openai' && (
                 <MenuSettingRow
@@ -998,6 +1004,14 @@ export default function MenuSectionPanels({
             onChange={(voiceId) => update({ voiceId })}
             preferredLangPrefixes={VOICE_DROPDOWN_LANG_PREFIXES}
           />
+        )}
+
+        {menuView === 'settings' && settingsPanel === 'theme' && (
+          <div className={MENU_GROUP_OUTER}>
+            <div className={MENU_GROUP_CLASS}>
+              <ThemeSelector />
+            </div>
+          </div>
         )}
 
         {menuView === 'progress' && (

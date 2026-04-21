@@ -112,20 +112,20 @@ function bubbleRadiusClass(isUser: boolean, pos: BubblePosition): string {
   if (isUser) {
     // User справа
     // Три угла максимально круглые, нижний правый — чуть острее (как «ИИ печатает…»)
-    if (pos === 'solo') return 'rounded-[1.2825rem] rounded-br-md'
-    if (pos === 'first') return 'rounded-[1.2825rem] rounded-br-md'
+    if (pos === 'solo') return 'rounded-[var(--bubble-radius)] rounded-br-md'
+    if (pos === 'first') return 'rounded-[var(--bubble-radius)] rounded-br-md'
     // Внутри группы чуть «сцепляем» верхний правый
-    if (pos === 'middle') return 'rounded-[1.2825rem] rounded-tr-lg rounded-br-md'
-    return 'rounded-[1.2825rem] rounded-tr-lg rounded-br-md'
+    if (pos === 'middle') return 'rounded-[var(--bubble-radius)] rounded-tr-lg rounded-br-md'
+    return 'rounded-[var(--bubble-radius)] rounded-tr-lg rounded-br-md'
   }
 
   // Assistant слева
   // Три угла максимально круглые, нижний левый — чуть острее (как «ИИ печатает…»)
-  if (pos === 'solo') return 'rounded-[1.2825rem] rounded-bl-md'
-  if (pos === 'first') return 'rounded-[1.2825rem] rounded-bl-md'
+  if (pos === 'solo') return 'rounded-[var(--bubble-radius)] rounded-bl-md'
+  if (pos === 'first') return 'rounded-[var(--bubble-radius)] rounded-bl-md'
   // Внутри группы чуть «сцепляем» верхний левый
-  if (pos === 'middle') return 'rounded-[1.2825rem] rounded-tl-lg rounded-bl-md'
-  return 'rounded-[1.2825rem] rounded-tl-lg rounded-bl-md'
+  if (pos === 'middle') return 'rounded-[var(--bubble-radius)] rounded-tl-lg rounded-bl-md'
+  return 'rounded-[var(--bubble-radius)] rounded-tl-lg rounded-bl-md'
 }
 
 /**
@@ -1555,7 +1555,7 @@ export default function Chat({
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
       <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
         <div className="mx-auto flex min-h-0 flex-1 w-full max-w-[29rem] flex-col">
-          <div className="flex min-h-0 flex-1 w-full flex-col overflow-hidden rounded-[1.15rem] border border-white/55 bg-[rgba(255,255,255,0.28)] shadow-sm backdrop-blur-[2px]">
+          <div className="flex min-h-0 flex-1 w-full flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] shadow-sm backdrop-blur-[2px]">
             <div
               ref={scrollContainerRef}
               className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3"
@@ -1604,7 +1604,7 @@ export default function Chat({
                       messages.length === 1 &&
                       msg.role === 'assistant' &&
                       msg.content === firstMessageError && (
-                        <div className="mt-2 rounded-lg border border-amber-500/50 bg-amber-50 p-2.5">
+                        <div className="mt-2 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-2.5">
                           <p className="mb-2 text-sm font-medium text-[var(--text)]">
                             Что сделать:
                           </p>
@@ -1618,7 +1618,7 @@ export default function Chat({
                             type="button"
                             onClick={onRetryFirstMessage}
                             disabled={loading}
-                            className="btn-3d rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                            className="btn-3d rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-text)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
                           >
                             Попробовать снова
                           </button>
@@ -1633,7 +1633,7 @@ export default function Chat({
                             type="button"
                             onClick={onRetryLastMessage}
                             disabled={loading}
-                            className="btn-3d rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                            className="btn-3d rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-text)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
                           >
                             Повторить
                           </button>
@@ -1669,7 +1669,7 @@ export default function Chat({
                                     disabled={isDisabled}
                                     className={
                                       isDisabled
-                                        ? 'btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl border border-gray-300 bg-gradient-to-b from-gray-400 to-gray-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 touch-manipulation min-h-[44px] cursor-default'
+                                        ? 'btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--status-info-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--status-info-text)] shadow-md transition-transform touch-manipulation min-h-[44px] cursor-default'
                                         : PAGE_HOME_START_PRIMARY_BUTTON_CLASS
                                     }
                                   >
@@ -1687,7 +1687,7 @@ export default function Chat({
               {canShowTypingIndicator && messages.length > 0 && (
                 <div className="mt-1.5 flex justify-start">
                   <span
-                    className="rounded-xl border border-gray-200 bg-[var(--chat-section-neutral)] px-3 py-2 text-[14px] italic text-[var(--text)] shadow-sm"
+                    className="rounded-xl border border-[var(--chat-section-neutral-border)] bg-[var(--chat-section-neutral)] px-3 py-2 text-[14px] italic text-[var(--text)] shadow-sm"
                     title={searchingInternet ? 'Поиск информации в интернете' : 'Ожидание ответа от ИИ'}
                   >
                     {typingIndicatorText}
@@ -1699,7 +1699,7 @@ export default function Chat({
               // Важно для iOS: paddingBottom может оставаться (safe-area / visual viewport),
               // и если фон полупрозрачный — пользователь видит "серую панель".
               // Делаем обёртку прозрачной, чтобы в резерве просвечивал фон чата.
-              className="shrink-0 border-t border-white/55 bg-transparent px-2.5 pt-2.5 sm:px-3"
+              className="shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 pt-2.5 sm:px-3"
               style={{
                 paddingBottom: INPUT_COMPOSER_PADDING_BOTTOM,
               }}
@@ -1707,21 +1707,21 @@ export default function Chat({
               <form
                 ref={formRef}
                 onSubmit={handleSubmit}
-                className="flex w-full items-center gap-2 rounded-[1.1rem] border border-white/70 bg-white/90 px-2.5 py-1.5 shadow-sm sm:px-3"
+                className="flex w-full items-center gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1.5 shadow-sm sm:px-3"
               >
                 <button
                   type="button"
                   onClick={listening ? stopListening : startListening}
-                  className={`btn-3d flex h-11 min-h-[44px] shrink-0 items-center justify-center rounded-lg p-2.5 touch-manipulation ${
+                  className={`btn-3d flex h-11 min-h-[44px] shrink-0 items-center justify-center rounded-lg p-2.5 touch-manipulation transition-transform ${
                     listening
-                      ? 'bg-red-500/20 text-red-600'
-                      : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                      ? 'bg-[var(--chat-control-active-bg)] text-[var(--chat-control-active-text)]'
+                      : 'bg-[var(--chat-control-bg)] text-[var(--chat-control-text)] hover:bg-[var(--chat-control-hover)]'
                   }`}
                   title={listening ? 'Остановить' : 'Голосовой ввод'}
                   aria-label={listening ? 'Остановить запись' : 'Голосовой ввод'}
                 >
                   {listening ? (
-                    <span className="h-5 w-5 rounded-full bg-red-500 animate-pulse" />
+                    <span className="h-5 w-5 rounded-full bg-[var(--chat-control-dot)] animate-pulse" />
                   ) : (
                     <MicIcon />
                   )}
@@ -1748,13 +1748,13 @@ export default function Chat({
                           : 'Ответ...'
                         : 'Reply...'
                   }
-                  className="min-w-0 flex-1 resize-none overflow-y-hidden rounded-[1rem] border border-emerald-100 bg-white px-3 py-2 min-h-[44px] text-[var(--text)] placeholder:text-[var(--text-muted)] text-base leading-[1.45rem] focus:outline-none focus:ring-0"
+                  className="min-w-0 flex-1 resize-none overflow-y-hidden rounded-[1rem] border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-3 py-2 min-h-[44px] text-[var(--text)] placeholder:text-[var(--text-muted)] text-base leading-[1.45rem] focus:outline-none focus:ring-0"
                   style={{ maxHeight: INPUT_MAX_HEIGHT_PX }}
                 />
                 <button
                   type="submit"
                   disabled={!input.trim() || loading || atLimit}
-                  className="btn-3d inline-flex touch-manipulation items-center justify-center rounded-lg bg-emerald-600 px-3.5 py-1.5 min-h-[44px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50 disabled:hover:bg-emerald-600"
+                  className="btn-3d inline-flex touch-manipulation items-center justify-center rounded-lg bg-[var(--accent-color)] px-3.5 py-1.5 min-h-[44px] font-medium text-[var(--accent-text)] hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:hover:bg-[var(--accent-color)]"
                   aria-label={sendButtonLabelLong}
                 >
                   <span className="sm:hidden">{sendButtonLabelShort}</span>
@@ -2261,7 +2261,7 @@ function MessageBubble({
                   <button
                     type="button"
                     onClick={handleSpeak}
-                    className="btn-3d-subtle flex w-fit items-center justify-center gap-1 rounded-full border border-[var(--border)] bg-white/80 px-2.5 py-0.5 text-xs text-[var(--text-muted)] hover:bg-white hover:text-[var(--text)]"
+                    className="btn-3d-subtle flex w-fit items-center justify-center gap-1 rounded-full border border-[var(--border)] bg-[var(--bubble-ai-bg)]/80 px-2.5 py-0.5 text-xs text-[var(--text-muted)] hover:bg-[var(--bubble-ai-bg)] hover:text-[var(--text)]"
                     title="Озвучить"
                   >
                     <SpeakerIcon /> Озвучить
@@ -2271,13 +2271,13 @@ function MessageBubble({
                   <button
                     type="button"
                     onClick={() => setShowTranslation((v) => !v)}
-                    className="btn-3d-subtle flex w-fit items-center justify-center gap-1.5 rounded-full border border-[var(--border)] bg-white/80 px-2.5 py-0.5 text-xs text-[var(--text-muted)] hover:bg-white hover:text-[var(--text)]"
+                    className="btn-3d-subtle flex w-fit items-center justify-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bubble-ai-bg)]/80 px-2.5 py-0.5 text-xs text-[var(--text-muted)] hover:bg-[var(--bubble-ai-bg)] hover:text-[var(--text)]"
                     title={showTranslation ? 'Скрыть перевод' : 'Показать перевод'}
                   >
                     {!showTranslation && (
                       <span
                         className={`h-2 w-2 shrink-0 rounded-full ${
-                          hasTranslationData ? 'bg-green-500' : 'bg-red-500'
+                          hasTranslationData ? 'bg-[var(--status-success-text)]' : 'bg-[var(--status-warning-text)]'
                         }`}
                         aria-hidden
                       />
@@ -2288,8 +2288,8 @@ function MessageBubble({
               </div>
             )}
             {showWebSearchSources && (
-              <div className="mt-2 rounded-xl border border-slate-200 bg-[var(--chat-section-slate)] px-3 py-2 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.05em] text-slate-600">
+              <div className="mt-2 rounded-xl border border-[var(--chat-section-slate-border)] bg-[var(--chat-section-slate)] px-3 py-2 shadow-sm">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.05em] text-[var(--chat-source-label)]">
                   Источники
                 </p>
                 {webSearchSources.length > 0 ? (
@@ -2299,13 +2299,13 @@ function MessageBubble({
                       return (
                         <li key={`${cleanUrl}-${index}`} className="break-words">
                           {source.title ? (
-                            <div className="text-[13px] font-medium text-slate-700">{source.title}</div>
+                            <div className="text-[13px] font-medium text-[var(--chat-source-link)]">{source.title}</div>
                           ) : null}
                           <a
                             href={cleanUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="underline underline-offset-2 decoration-slate-500 text-slate-700 hover:text-slate-900"
+                            className="underline underline-offset-2 decoration-[var(--chat-source-link)] text-[var(--chat-source-link)] hover:text-[var(--chat-source-link-hover)]"
                           >
                             {cleanUrl}
                           </a>
@@ -2426,29 +2426,29 @@ function SectionCard({
 }) {
   const toneClass =
     tone === 'amber'
-      ? 'border-amber-100 bg-[var(--chat-section-amber)]'
+      ? 'border-[var(--chat-section-amber-border)] bg-[var(--chat-section-amber)]'
       : tone === 'emerald'
-        ? 'border-emerald-100 bg-[var(--chat-section-emerald)]'
+        ? 'border-[var(--chat-section-emerald-border)] bg-[var(--chat-section-emerald)]'
         : tone === 'praise'
-          ? 'border-emerald-200/70 bg-[var(--chat-section-praise)]'
+          ? 'border-[var(--chat-section-praise-border)] bg-[var(--chat-section-praise)]'
           : tone === 'slate'
-            ? 'border-slate-200 bg-[var(--chat-section-slate)]'
+            ? 'border-[var(--chat-section-slate-border)] bg-[var(--chat-section-slate)]'
           : tone === 'invite'
-            ? 'border-slate-200 bg-white/85'
-            : 'border-gray-200 bg-[var(--chat-section-neutral)]'
+            ? 'border-[var(--chat-section-invite-border)] bg-[var(--bubble-ai-bg)]/85'
+            : 'border-[var(--chat-section-neutral-border)] bg-[var(--chat-section-neutral)]'
 
   const labelClass =
     tone === 'amber'
-      ? 'text-amber-700'
+      ? 'text-[var(--status-warning-text)]'
       : tone === 'emerald'
-        ? 'text-emerald-700'
+        ? 'text-[var(--chat-speaker-text)]'
         : tone === 'praise'
-          ? 'text-emerald-600'
+          ? 'text-[var(--chat-label-praise)]'
           : tone === 'slate'
-            ? 'text-slate-600'
+            ? 'text-[var(--chat-label-slate)]'
           : tone === 'invite'
-            ? 'text-slate-700'
-            : 'text-gray-600'
+            ? 'text-[var(--chat-label-main)]'
+            : 'text-[var(--chat-label-neutral)]'
 
   const isAiInline =
     singleLine &&
@@ -2501,7 +2501,7 @@ function SectionCard({
           {hasLabel && (
             <>
               <span
-                className={`${isAiInline ? 'font-semibold text-gray-700' : `font-medium ${labelClass}`}`}
+                className={`${isAiInline ? 'font-semibold text-[var(--chat-label-main)]' : `font-medium ${labelClass}`}`}
               >
                 {label}
                 {!labelIsIconOnly ? ':' : null}
@@ -2512,7 +2512,7 @@ function SectionCard({
           <span
             className={
               isAiInline
-                ? 'text-gray-900'
+                ? 'text-[var(--chat-text-main-strong)]'
                 : isTextItalic
                   ? 'font-serif italic text-[var(--invitation)]'
                   : 'text-[var(--text)]'
@@ -2524,7 +2524,7 @@ function SectionCard({
             <button
               type="button"
               onClick={onSpeak}
-              className="ml-1 inline-flex h-6 w-6 translate-y-[1px] items-center justify-center rounded-full border border-emerald-200 bg-white/80 text-emerald-700 hover:bg-white hover:text-emerald-800"
+              className="ml-1 inline-flex h-6 w-6 translate-y-[1px] items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)] hover:bg-[var(--bubble-ai-bg)] hover:text-[var(--chat-speaker-text-hover)]"
               title="Озвучить"
               aria-label="Озвучить"
             >

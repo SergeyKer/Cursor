@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import VisualViewportInsets from '@/components/VisualViewportInsets'
+import { ThemeProvider } from '@/contexts/ThemeContext'
 
 export const metadata: Metadata = {
   title: 'MyEng - мой английский друг',
@@ -27,8 +28,10 @@ export default function RootLayout({
         <meta name="msapplication-TileImage" content="/icon-192.png" />
       </head>
       <body className="min-h-screen antialiased">
-        <VisualViewportInsets />
-        {children}
+        <ThemeProvider>
+          <VisualViewportInsets />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   )

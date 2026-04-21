@@ -87,8 +87,8 @@ export default function SlideOutMenu({
         onClick={onToggle}
       />
       <aside
-        className={`fixed left-0 top-0 z-50 h-full w-80 max-w-[85vw] bg-[var(--bg)] border-r border-[var(--border)] shadow-lg transition-transform duration-200 ease-out ${
-          open ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed left-0 top-0 z-50 h-full w-80 max-w-[85vw] border-r border-[var(--border)] bg-[var(--bg)] shadow-lg transition-transform duration-200 ease-out ${
+          open ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none'
         }`}
         aria-label="Меню"
       >
