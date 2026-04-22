@@ -282,6 +282,8 @@ export default function Home() {
   const [forceNextMicLang, setForceNextMicLang] = useState<'ru' | 'en' | null>(null)
   const [searchingInternet, setSearchingInternet] = useState(false)
   const [searchingInternetLang, setSearchingInternetLang] = useState<'ru' | 'en'>('ru')
+  /** Увеличение сбрасывает поле ввода/голос (меню «Начать …»). */
+  const [composerSessionKey, setComposerSessionKey] = useState(0)
   const [lessonMenuContext, setLessonMenuContext] = useState<LessonMenuContext | null>(null)
   const [activeLearningLessonId, setActiveLearningLessonId] = useState<string | null>(null)
   const dialogueCorrectAnswers = React.useMemo(() => countDialogueFinalCorrectAnswers(messages), [messages])
@@ -749,6 +751,7 @@ export default function Home() {
   }, [ensureFirstMessage])
 
   const handleStartChatFromMenu = useCallback(() => {
+    setComposerSessionKey((k) => k + 1)
     if (!dialogStarted) {
       setLessonMenuContext(null)
       setActiveLearningLessonId(null)
@@ -1623,6 +1626,7 @@ export default function Home() {
             onConsumeForceNextMicLang={() => setForceNextMicLang(null)}
             learningActions={activeLearningLessonId ? getLearningLessonActions(activeLearningLessonId) : []}
             onSelectLearningAction={handleSelectLearningAction}
+            composerSessionKey={composerSessionKey}
           />
           </div>
           </>

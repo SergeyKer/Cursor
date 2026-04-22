@@ -661,6 +661,8 @@ select.select-chevron {
 
 .typing-indicator-shell {
   will-change: max-height, opacity, transform, margin;
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .typing-indicator-shell[data-visible='false'] {
@@ -670,6 +672,9 @@ select.select-chevron {
 
 .typing-indicator {
   --typing-shimmer-duration: 2.8s;
+  /* Фикс направления волны: при RTL/unicode-bidi градиент и фон визуально «лезут» справа */
+  direction: ltr;
+  unicode-bidi: isolate;
   background: rgba(255, 255, 255, 0.95);
   border-color: var(--chat-section-neutral-border);
   transform: translateZ(0);
@@ -720,7 +725,7 @@ select.select-chevron {
     var(--text-muted) 66%
   );
   background-size: 200% 100%;
-  background-position: 0% 0;
+  background-position: 200% 0;
   -webkit-background-clip: text;
   background-clip: text;
   animation: typingTextShimmer var(--typing-shimmer-duration, 2.8s) linear infinite;
@@ -756,10 +761,10 @@ select.select-chevron {
 
 @keyframes typingTextShimmer {
   from {
-    background-position: 0% 0;
+    background-position: 200% 0;
   }
   to {
-    background-position: 200% 0;
+    background-position: 0% 0;
   }
 }
 

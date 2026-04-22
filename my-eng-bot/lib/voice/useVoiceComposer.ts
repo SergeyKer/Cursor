@@ -20,6 +20,7 @@ type VoiceComposerAction =
   | { type: 'failVoiceSession'; statusMessage: string }
   | { type: 'finishVoiceSession'; statusMessage?: string | null }
   | { type: 'setStatusMessage'; statusMessage: string | null }
+  | { type: 'reset' }
 
 export const initialVoiceComposerState: VoiceComposerState = {
   draftText: '',
@@ -159,6 +160,8 @@ export function voiceComposerReducer(
         ...state,
         statusMessage: action.statusMessage,
       }
+    case 'reset':
+      return { ...initialVoiceComposerState }
     default:
       return state
   }
@@ -198,5 +201,6 @@ export function useVoiceComposer(initialDraftText = '') {
     finishVoiceSession: (statusMessage?: string | null) =>
       dispatch({ type: 'finishVoiceSession', statusMessage }),
     setStatusMessage: (statusMessage: string | null) => dispatch({ type: 'setStatusMessage', statusMessage }),
+    resetComposer: () => dispatch({ type: 'reset' }),
   }
 }

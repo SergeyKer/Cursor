@@ -118,6 +118,16 @@ describe('useVoiceComposer helpers', () => {
     expect(committed.voiceInterimText).toBe('')
   })
 
+  it('reset restores initial composer state', () => {
+    const dirty = {
+      ...initialVoiceComposerState,
+      draftText: 'typed',
+      voicePhase: 'recording' as const,
+      voiceInterimText: 'привет',
+    }
+    expect(voiceComposerReducer(dirty, { type: 'reset' })).toEqual(initialVoiceComposerState)
+  })
+
   it('keeps the cleared draft state on voice errors', () => {
     const started = voiceComposerReducer(
       {

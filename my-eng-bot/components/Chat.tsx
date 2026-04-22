@@ -61,6 +61,8 @@ interface ChatProps {
   onConsumeForceNextMicLang?: () => void
   learningActions?: LearningLessonAction[]
   onSelectLearningAction?: (actionId: string) => void
+  /** Счётчик увеличения — сброс поля ввода/голоса (напр. «Начать общение» из меню). */
+  composerSessionKey?: number
 }
 
 type BubblePosition = 'solo' | 'first' | 'middle' | 'last'
@@ -1047,6 +1049,7 @@ export default function Chat({
   onConsumeForceNextMicLang,
   learningActions = [],
   onSelectLearningAction,
+  composerSessionKey = 0,
 }: ChatProps) {
   const [inputFocused, setInputFocused] = React.useState(false)
   const [listening, setListening] = React.useState(false)
@@ -1071,6 +1074,7 @@ export default function Chat({
     failVoiceSession,
     finishVoiceSession,
     setStatusMessage: setVoiceStatusMessage,
+    resetComposer,
   } = useVoiceComposer()
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -1079,6 +1083,8 @@ export default function Chat({
   const mediaStopTimerRef = useRef<number | null>(null)
   /** Если `onstop` у MediaRecorder не сработал (редко на WebKit), принудительно освобождаем микрофон. */
   const mediaRecorderStopFallbackTimerRef = useRef<number | null>(null)
+  /** Защита от "вечного finalizing": возвращаем клавиатурный ввод даже при сбое STT-цепочки. */
+  const finalizingWatchdogTimerRef = useRef<number | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const micInviteTimerRef = useRef<number | null>(null)
   const composerText = isVoiceActive ? voiceDisplayText : input
@@ -1131,6 +1137,13 @@ export default function Chat({
     clearMicAnimationTimers()
     setMicVisualState('idle')
   }, [clearMicAnimationTimers])
+
+  const clearFinalizingWatchdog = useCallback(() => {
+    if (finalizingWatchdogTimerRef.current != null) {
+      window.clearTimeout(finalizingWatchdogTimerRef.current)
+      finalizingWatchdogTimerRef.current = null
+    }
+  }, [])
 
   const startListening = useCallback(async () => {
     if (typeof window === 'undefined') return
@@ -1456,6 +1469,45 @@ export default function Chat({
     resetMicAnimation()
   }, [beginVoiceFinalizing, releaseMediaRecorderResources, resetMicAnimation, voicePhase])
 
+  const resetComposerForNewSession = useCallback(() => {
+    if (mediaStopTimerRef.current != null) {
+      window.clearTimeout(mediaStopTimerRef.current)
+      mediaStopTimerRef.current = null
+    }
+    if (mediaRecorderStopFallbackTimerRef.current != null) {
+      window.clearTimeout(mediaRecorderStopFallbackTimerRef.current)
+      mediaRecorderStopFallbackTimerRef.current = null
+    }
+    clearFinalizingWatchdog()
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop()
+      } catch {
+        // ignore
+      }
+      recognitionRef.current = null
+    }
+    if (mediaRecorderRef.current) {
+      try {
+        if (mediaRecorderRef.current.state !== 'inactive') {
+          mediaRecorderRef.current.stop()
+        }
+      } catch {
+        // ignore
+      }
+    }
+    releaseMediaRecorderResources()
+    setListening(false)
+    clearMicAnimationTimers()
+    setMicVisualState('idle')
+    resetComposer()
+  }, [clearFinalizingWatchdog, clearMicAnimationTimers, releaseMediaRecorderResources, resetComposer])
+
+  React.useEffect(() => {
+    if (composerSessionKey === 0) return
+    resetComposerForNewSession()
+  }, [composerSessionKey, resetComposerForNewSession])
+
   const SHOW_TYPING_DELAY_MS = 220
   const [showTypingIndicator, setShowTypingIndicator] = useState(false)
   const typingDelayTimerRef = useRef<number | null>(null)
@@ -1472,6 +1524,20 @@ export default function Chat({
     if (listening || voicePhase !== 'idle') return
     resetMicAnimation()
   }, [listening, resetMicAnimation, voicePhase])
+
+  useEffect(() => {
+    clearFinalizingWatchdog()
+    if (voicePhase !== 'finalizing') return
+    finalizingWatchdogTimerRef.current = window.setTimeout(() => {
+      finalizingWatchdogTimerRef.current = null
+      releaseMediaRecorderResources()
+      setListening(false)
+      failVoiceSession('[Голосовой ввод завис. Продолжайте печатать с клавиатуры или попробуйте микрофон снова.]')
+    }, 15000)
+    return () => {
+      clearFinalizingWatchdog()
+    }
+  }, [clearFinalizingWatchdog, failVoiceSession, releaseMediaRecorderResources, voicePhase])
 
   useEffect(() => {
     if (!loading || messages.length === 0) {
@@ -1522,9 +1588,10 @@ export default function Chat({
 
   React.useEffect(() => {
     return () => {
+      clearFinalizingWatchdog()
       clearMicAnimationTimers()
     }
-  }, [clearMicAnimationTimers])
+  }, [clearFinalizingWatchdog, clearMicAnimationTimers])
 
   React.useEffect(() => {
     return () => {
@@ -1705,7 +1772,7 @@ export default function Chat({
             >
               {messages.length === 0 && (
                 <div className="flex justify-center">
-                  <p className="w-fit text-center italic typing-indicator-text-shimmer">
+                  <p dir="ltr" className="w-fit text-center italic typing-indicator-text-shimmer">
                     MyEng печатает...
                   </p>
                 </div>
@@ -2327,11 +2394,16 @@ function MessageBubble({
   const hideSpeakForTranslationDrillInBubble =
     isTranslationMode && (hasVisibleRussianDrillInvite || hasVisibleRussianDrillMain)
 
+  const speakBodyStripped = stripRepeatLeadForSpeak(speakSourceText)
+  const hideSpeakForCommunicationRussian =
+    mode === 'communication' && Boolean(speakBodyStripped) && detectTextLang(speakBodyStripped) === 'ru'
+
   const showSpeakButton =
     !isUser &&
     !errorLike &&
-    Boolean(stripRepeatLeadForSpeak(speakSourceText)) &&
-    !hideSpeakForTranslationDrillInBubble
+    Boolean(speakBodyStripped) &&
+    !hideSpeakForTranslationDrillInBubble &&
+    !hideSpeakForCommunicationRussian
 
   const mainAfterVisibleForBubble =
     Boolean(mainAfter) && !effectiveMainBefore && !effectiveInvitationText

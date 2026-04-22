@@ -34,6 +34,7 @@ export default function TypingIndicator({
 
   return (
     <div
+      dir="ltr"
       aria-hidden={!isVisible}
       className={`typing-indicator-shell mt-1.5 flex justify-start overflow-hidden transition-[max-height,opacity,margin] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
         isVisible ? 'max-h-24 opacity-100' : 'max-h-0 opacity-0'
@@ -41,6 +42,7 @@ export default function TypingIndicator({
       data-visible={isVisible ? 'true' : 'false'}
     >
       <div
+        dir="ltr"
         aria-live={isVisible ? 'polite' : 'off'}
         role="status"
         className={`typing-indicator chat-section-surface glass-surface relative flex items-center gap-2 overflow-hidden rounded-[var(--bubble-radius)] rounded-bl-md border px-3 py-2 text-[14px] text-[var(--text)] transition-[transform,opacity] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
