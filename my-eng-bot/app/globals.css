@@ -712,14 +712,15 @@ select.select-chevron {
 .typing-indicator-text-shimmer {
   display: inline-block;
   color: transparent;
+  /* Один сегмент на 200% ширины; 0% и 100% линии — одна и та же base, чтобы петля 0%→200% `background-position` шла без разрыва на 2-м цикле. */
   background-image: linear-gradient(
     110deg,
     var(--text-muted) 34%,
     color-mix(in srgb, var(--text-muted) 58%, white 42%) 50%,
     var(--text-muted) 66%
   );
-  background-size: 220% 100%;
-  background-position: 120% 0;
+  background-size: 200% 100%;
+  background-position: 0% 0;
   -webkit-background-clip: text;
   background-clip: text;
   animation: typingTextShimmer var(--typing-shimmer-duration, 2.8s) linear infinite;
@@ -755,10 +756,10 @@ select.select-chevron {
 
 @keyframes typingTextShimmer {
   from {
-    background-position: 120% 0;
+    background-position: 0% 0;
   }
   to {
-    background-position: -120% 0;
+    background-position: 200% 0;
   }
 }
 
@@ -776,10 +777,10 @@ select.select-chevron {
 
 @keyframes wait-shimmer {
   0% {
-    background-position: 200% 100%;
+    background-position: 140% 50%;
   }
   100% {
-    background-position: -200% 0%;
+    background-position: -140% 50%;
   }
 }
 
@@ -796,7 +797,9 @@ select.select-chevron {
     rgba(255, 255, 255, 0.12) 72%,
     transparent 90%
   );
-  background-size: 200% 220%;
+  background-size: 240% 240%;
+  background-repeat: no-repeat;
+  background-position: 140% 50%;
   animation: wait-shimmer 3s linear infinite;
   will-change: background-position;
 }
@@ -829,6 +832,11 @@ select.select-chevron {
 }
 
 .chat-input-field {
+  display: block;
+  min-height: 44px;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  line-height: 1.25rem;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
 }
 

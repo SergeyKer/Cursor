@@ -38,6 +38,9 @@ import { translationDrillCommentBodyLooksLikePraise } from '@/lib/translationPra
 import { PAGE_HOME_START_PRIMARY_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import type { LearningLessonAction } from '@/lib/learningLessons'
 import TypingIndicator from '@/components/TypingIndicator'
+import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
+import { applyTypoFixes } from '@/lib/voice/applyTypoFixes'
+import { extractSpeechRecognitionTranscript, useVoiceComposer } from '@/lib/voice/useVoiceComposer'
 
 interface ChatProps {
   messages: ChatMessageType[]
@@ -58,25 +61,6 @@ interface ChatProps {
   onConsumeForceNextMicLang?: () => void
   learningActions?: LearningLessonAction[]
   onSelectLearningAction?: (actionId: string) => void
-}
-
-/**
- * Локаль Web Speech только для режима общения — по последнему сообщению пользователя.
- * Есть кириллица → ru-RU (в т.ч. «прайс Bentley Continental 45»).
- * Только латиница → en-US. Только цифры/знаки → по inputPreference.
- */
-function speechLocaleForCommunication(
-  lastUserText: string | undefined,
-  inputPreference: 'ru' | 'en'
-): 'ru-RU' | 'en-US' {
-  const t = lastUserText?.trim() ?? ''
-  if (!t) return inputPreference === 'en' ? 'en-US' : 'ru-RU'
-  const hasCyr = /[А-Яа-яЁё]/.test(t)
-  const hasLat = /[A-Za-z]/.test(t)
-  if (hasCyr && hasLat) return inputPreference === 'en' ? 'en-US' : 'ru-RU'
-  if (hasCyr) return 'ru-RU'
-  if (hasLat) return 'en-US'
-  return inputPreference === 'en' ? 'en-US' : 'ru-RU'
 }
 
 type BubblePosition = 'solo' | 'first' | 'middle' | 'last'
@@ -1064,12 +1048,30 @@ export default function Chat({
   learningActions = [],
   onSelectLearningAction,
 }: ChatProps) {
-  const [input, setInput] = React.useState('')
   const [inputFocused, setInputFocused] = React.useState(false)
   const [listening, setListening] = React.useState(false)
   const [micVisualState, setMicVisualState] = React.useState<'idle' | 'invite' | 'wait'>('idle')
   const [selectedLessonActionByMessage, setSelectedLessonActionByMessage] = React.useState<Record<number, string>>({})
   const isLearningFlow = learningActions.length > 0 || Object.keys(selectedLessonActionByMessage).length > 0
+  const {
+    draftText: input,
+    draftBeforeVoiceText,
+    voiceFinalText,
+    voiceInterimText,
+    voicePhase,
+    statusMessage: voiceStatusMessage,
+    displayText: voiceDisplayText,
+    isVoiceActive,
+    isTextareaReadOnly,
+    setDraftText: setInput,
+    startRecording: startVoiceSession,
+    updateTranscript: updateVoiceTranscript,
+    beginFinalizing: beginVoiceFinalizing,
+    commitVoiceText,
+    failVoiceSession,
+    finishVoiceSession,
+    setStatusMessage: setVoiceStatusMessage,
+  } = useVoiceComposer()
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
@@ -1079,6 +1081,9 @@ export default function Chat({
   const mediaRecorderStopFallbackTimerRef = useRef<number | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const micInviteTimerRef = useRef<number | null>(null)
+  const composerText = isVoiceActive ? voiceDisplayText : input
+  const showVoiceOverlay = isVoiceActive && composerText.length > 0
+  const micActionActive = listening || voicePhase === 'finalizing'
 
   const releaseMediaRecorderResources = useCallback(() => {
     if (mediaStopTimerRef.current != null) {
@@ -1109,9 +1114,10 @@ export default function Chat({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const t = input.trim()
-    if (!t || loading || atLimit) return
+    if (!t || loading || atLimit || isVoiceActive) return
     onSend(t)
     setInput('')
+    setVoiceStatusMessage(null)
   }
 
   const clearMicAnimationTimers = useCallback(() => {
@@ -1130,44 +1136,31 @@ export default function Chat({
     if (typeof window === 'undefined') return
 
     const LISTENING_MAX_MS = 25_000
+    const BROWSER_SILENCE_MS = 1_200
     const MEDIA_FALLBACK_MAX_MS = settings.mode === 'communication' ? 12_000 : 15_000
-    const isCommunication = settings.mode === 'communication'
     const SpeechRecognitionAPI =
       (window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
       (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
 
     const forcedLocale =
       forceNextMicLang === 'ru' ? 'ru-RU' : forceNextMicLang === 'en' ? 'en-US' : null
-    const lastUserText = isCommunication
-      ? messages
-          .filter((m) => m.role === 'user')
-          .map((m) => m.content)
-          .slice(-1)[0]
-      : undefined
-    const preferredLocale =
-      settings.mode === 'communication'
-        ? (forcedLocale ?? speechLocaleForCommunication(lastUserText, settings.communicationInputExpectedLang))
-        : ('en-US' as const)
+    const preferredLocale = forcedLocale ?? ('en-US' as const)
+    const sttLangForApi = sttLangFromLocale(preferredLocale)
 
-    const sttLangForApi: 'ru' | 'en' | 'auto' =
-      forcedLocale != null
-        ? sttLangFromLocale(forcedLocale)
-        : isCommunication
-          ? 'auto'
-          : sttLangFromLocale(preferredLocale)
+    startVoiceSession()
+    setVoiceStatusMessage(null)
 
-    const startMediaRecorderFallback = async (sttLang: 'ru' | 'en' | 'auto') => {
+    const startMediaRecorderFallback = async (sttLang: 'ru' | 'en') => {
       if (!window.isSecureContext) {
-        setInput('[Голосовой ввод работает только в защищённом контексте (HTTPS).]')
+        failVoiceSession('[Голосовой ввод работает только в защищённом контексте (HTTPS).]')
         return
       }
       if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
-        setInput('[Распознавание речи не поддерживается в этом браузере]')
+        failVoiceSession('[Распознавание речи не поддерживается в этом браузере]')
         return
       }
 
       releaseMediaRecorderResources()
-      setInput('')
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -1187,7 +1180,7 @@ export default function Chat({
         recorder.onerror = () => {
           releaseMediaRecorderResources()
           setListening(false)
-          setInput('[Ошибка записи аудио. Попробуйте ещё раз.]')
+          failVoiceSession('[Ошибка записи аудио. Попробуйте ещё раз.]')
         }
 
         recorder.onstop = async () => {
@@ -1198,16 +1191,18 @@ export default function Chat({
           const chunks = mediaChunksRef.current.slice()
           releaseMediaRecorderResources()
           setListening(false)
-          if (!chunks.length) return
+          if (!chunks.length) {
+            finishVoiceSession()
+            return
+          }
+          beginVoiceFinalizing('Распознаю речь...')
 
           const effectiveMimeType = mimeType || recorder.mimeType || 'application/octet-stream'
           const blob = new Blob(chunks, { type: effectiveMimeType })
           const fileName = effectiveMimeType.includes('mp4') ? 'speech.mp4' : effectiveMimeType.includes('webm') ? 'speech.webm' : 'speech.wav'
           const formData = new FormData()
           formData.append('audio', blob, fileName)
-          if (sttLang !== 'auto') {
-            formData.append('lang', sttLang)
-          }
+          formData.append('lang', sttLang)
 
           try {
             const res = await fetch('/api/stt', {
@@ -1216,12 +1211,17 @@ export default function Chat({
             })
             const data = (await res.json()) as { text?: string; error?: string }
             if (!res.ok || !data.text) {
-              setInput('[Не удалось распознать речь. Попробуйте ещё раз или введите текст.]')
+              failVoiceSession('[Не удалось распознать речь. Попробуйте ещё раз или введите текст.]')
               return
             }
-            setInput(data.text.trim())
+            const correctedText = applyTypoFixes(data.text.trim())
+            if (!correctedText) {
+              finishVoiceSession()
+              return
+            }
+            commitVoiceText(correctedText)
           } catch {
-            setInput('[Ошибка сети при распознавании речи. Попробуйте ещё раз.]')
+            failVoiceSession('[Ошибка сети при распознавании речи. Попробуйте ещё раз.]')
           }
         }
 
@@ -1229,6 +1229,7 @@ export default function Chat({
         recorder.start(timesliceMs)
         mediaStopTimerRef.current = window.setTimeout(() => {
           if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            beginVoiceFinalizing('Распознаю речь...')
             mediaRecorderRef.current.stop()
           }
         }, MEDIA_FALLBACK_MAX_MS)
@@ -1240,18 +1241,18 @@ export default function Chat({
           (error as { message?: string }).message ??
           ''
         if (/notallowederror|permission/i.test(code.toLowerCase())) {
-          setInput('[Нет доступа к микрофону. Разрешите микрофон для этого сайта и попробуйте снова.]')
+          failVoiceSession('[Нет доступа к микрофону. Разрешите микрофон для этого сайта и попробуйте снова.]')
           return
         }
         if (/notfounderror|devicesnotfounderror/i.test(code.toLowerCase())) {
-          setInput('[Микрофон не найден на устройстве.]')
+          failVoiceSession('[Микрофон не найден на устройстве.]')
           return
         }
         if (/security|secure/i.test(code.toLowerCase())) {
-          setInput('[Голосовой ввод работает только в защищённом контексте (HTTPS).]')
+          failVoiceSession('[Голосовой ввод работает только в защищённом контексте (HTTPS).]')
           return
         }
-        setInput('[Не удалось записать аудио. Попробуйте ещё раз.]')
+        failVoiceSession('[Не удалось записать аудио. Попробуйте ещё раз.]')
       }
     }
 
@@ -1265,15 +1266,16 @@ export default function Chat({
         recognitionRef.current.stop()
         recognitionRef.current = null
       }
-      setInput('')
 
       const rec = new SpeechRecognitionAPI()
       rec.lang = lang
-      rec.continuous = false
-      rec.interimResults = false
-      let gotTranscript = false
+      rec.continuous = true
+      rec.interimResults = true
+      let latestFinalText = ''
       let timedOut = false
+      let fellBackToRecorder = false
       let safetyTimeoutId: number | null = null
+      let silenceTimeoutId: number | null = null
 
       const clearSafetyTimeout = () => {
         if (safetyTimeoutId != null) {
@@ -1282,76 +1284,102 @@ export default function Chat({
         }
       }
 
+      const clearSilenceTimeout = () => {
+        if (silenceTimeoutId != null) {
+          window.clearTimeout(silenceTimeoutId)
+          silenceTimeoutId = null
+        }
+      }
+
+      const stopBrowserRecognition = () => {
+        if (recognitionRef.current !== rec) return
+        beginVoiceFinalizing()
+        try {
+          rec.stop()
+        } catch {
+          // ignore
+        }
+      }
+
       rec.addEventListener('start', () => {
         setListening(true)
-        if (!isCommunication) return
         clearSafetyTimeout()
+        clearSilenceTimeout()
         safetyTimeoutId = window.setTimeout(() => {
           safetyTimeoutId = null
-          if (recognitionRef.current !== rec || gotTranscript) return
+          if (recognitionRef.current !== rec) return
           timedOut = true
-          try {
-            rec.stop()
-          } catch {
-            // ignore
-          }
+          stopBrowserRecognition()
         }, LISTENING_MAX_MS)
       })
 
       rec.onresult = (event: SpeechRecognitionEvent) => {
-        const last = event.results.length - 1
-        const text = event.results[last]?.[0]?.transcript ?? ''
-        const trimmed = text.trim()
-        if (!trimmed) return
-        if (isCommunication) clearSafetyTimeout()
-        gotTranscript = true
-        setInput(trimmed)
+        const { finalText, interimText } = extractSpeechRecognitionTranscript(event)
+        latestFinalText = finalText
+        updateVoiceTranscript(finalText, interimText)
+        clearSilenceTimeout()
+        silenceTimeoutId = window.setTimeout(() => {
+          stopBrowserRecognition()
+        }, BROWSER_SILENCE_MS)
       }
 
       rec.onend = () => {
-        if (isCommunication) clearSafetyTimeout()
+        clearSafetyTimeout()
+        clearSilenceTimeout()
         if (recognitionRef.current === rec) {
-          if (isCommunication && timedOut && !gotTranscript) {
-            recognitionRef.current = null
-            setListening(false)
-            setInput(
-              '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]'
-            )
-            return
-          }
           recognitionRef.current = null
-          setListening(false)
         }
+        setListening(false)
+        if (fellBackToRecorder) return
+        const correctedFinalText = applyTypoFixes(latestFinalText.trim())
+        if (correctedFinalText) {
+          commitVoiceText(correctedFinalText)
+          return
+        }
+        if (timedOut) {
+          failVoiceSession(
+            '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]'
+          )
+          return
+        }
+        finishVoiceSession()
       }
 
       rec.onerror = (event: Event) => {
-        if (isCommunication) clearSafetyTimeout()
+        clearSafetyTimeout()
+        clearSilenceTimeout()
         const err = (event as unknown as { error?: string; message?: string }).error
         const msg = (event as unknown as { message?: string }).message
         const code = (err ?? msg ?? '').toString()
         if (/^aborted$/i.test(code)) {
           if (recognitionRef.current === rec) {
             recognitionRef.current = null
-            setListening(false)
           }
+          setListening(false)
+          finishVoiceSession()
           return
-        }
-        if (/not-allowed|permission/i.test(code)) {
-          setInput('[Нет доступа к микрофону. Разрешите микрофон для этого сайта и попробуйте снова.]')
-        } else if (/no-speech/i.test(code)) {
-          setInput('[Речь не распознана. Скажите фразу ещё раз чуть громче.]')
-        } else if (/network/i.test(code)) {
-          setInput('[Ошибка сети при распознавании речи. Попробуйте ещё раз.]')
-        } else if (code) {
-          setInput(`[Ошибка распознавания речи: ${code}]`)
         }
         if (recognitionRef.current === rec) {
           recognitionRef.current = null
-          setListening(false)
         }
+        setListening(false)
 
         if (/service-not-allowed|not-allowed|audio-capture|network/i.test(code)) {
+          fellBackToRecorder = true
+          updateVoiceTranscript('', '')
+          setVoiceStatusMessage('Переключаюсь на резервное распознавание...')
           void startMediaRecorderFallback(sttLangForApi)
+          return
+        }
+
+        if (/no-speech/i.test(code)) {
+          failVoiceSession('[Речь не распознана. Скажите фразу ещё раз чуть громче.]')
+        } else if (/not-allowed|permission/i.test(code)) {
+          failVoiceSession('[Нет доступа к микрофону. Разрешите микрофон для этого сайта и попробуйте снова.]')
+        } else if (code) {
+          failVoiceSession(`[Ошибка распознавания речи: ${code}]`)
+        } else {
+          failVoiceSession('[Не удалось распознать речь. Попробуйте ещё раз.]')
         }
       }
 
@@ -1377,21 +1405,29 @@ export default function Chat({
     if (forcedLocale) onConsumeForceNextMicLang?.()
   }, [
     settings.mode,
-    settings.communicationInputExpectedLang,
-    messages,
     forceNextMicLang,
     onConsumeForceNextMicLang,
+    startVoiceSession,
+    setVoiceStatusMessage,
+    failVoiceSession,
+    finishVoiceSession,
+    beginVoiceFinalizing,
+    commitVoiceText,
+    updateVoiceTranscript,
     releaseMediaRecorderResources,
   ])
 
   const stopListening = useCallback(() => {
+    if (voicePhase === 'finalizing') return
     if (recognitionRef.current) {
+      beginVoiceFinalizing()
       try {
         recognitionRef.current.stop()
       } catch {
         // ignore
       }
       recognitionRef.current = null
+      setListening(false)
     }
     if (mediaStopTimerRef.current != null) {
       window.clearTimeout(mediaStopTimerRef.current)
@@ -1399,6 +1435,7 @@ export default function Chat({
     }
     const rec = mediaRecorderRef.current
     if (rec && rec.state !== 'inactive') {
+      beginVoiceFinalizing('Распознаю речь...')
       try {
         rec.stop()
       } catch {
@@ -1416,9 +1453,8 @@ export default function Chat({
         }
       }, 2500)
     }
-    setListening(false)
     resetMicAnimation()
-  }, [releaseMediaRecorderResources, resetMicAnimation])
+  }, [beginVoiceFinalizing, releaseMediaRecorderResources, resetMicAnimation, voicePhase])
 
   const SHOW_TYPING_DELAY_MS = 220
   const [showTypingIndicator, setShowTypingIndicator] = useState(false)
@@ -1431,6 +1467,11 @@ export default function Chat({
       resetMicAnimation()
     }
   }, [loading, resetMicAnimation])
+
+  useEffect(() => {
+    if (listening || voicePhase !== 'idle') return
+    resetMicAnimation()
+  }, [listening, resetMicAnimation, voicePhase])
 
   useEffect(() => {
     if (!loading || messages.length === 0) {
@@ -1452,12 +1493,19 @@ export default function Chat({
   }, [loading, messages.length])
 
   const lastMessageRole = messages[messages.length - 1]?.role ?? null
+  const lastAssistantInviteKeyRef = useRef<string | null>(null)
+  const lastAssistantInviteKey =
+    lastMessageRole === 'assistant'
+      ? `${messages.length}:${messages[messages.length - 1]?.content ?? ''}`
+      : null
 
   React.useEffect(() => {
-    if (loading) return
-    if (messages.length === 0 || lastMessageRole !== 'assistant' || listening) return
+    if (!lastAssistantInviteKey) return
+    if (loading || listening || isVoiceActive) return
+    if (lastAssistantInviteKeyRef.current === lastAssistantInviteKey) return
+    lastAssistantInviteKeyRef.current = lastAssistantInviteKey
     setMicVisualState((current) => (current === 'idle' ? 'invite' : current))
-  }, [loading, lastMessageRole, messages.length, listening])
+  }, [isVoiceActive, lastAssistantInviteKey, loading, listening])
 
   React.useEffect(() => {
     if (micVisualState !== 'invite') return
@@ -1478,8 +1526,40 @@ export default function Chat({
     }
   }, [clearMicAnimationTimers])
 
+  React.useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop()
+        } catch {
+          // ignore
+        }
+        recognitionRef.current = null
+      }
+      releaseMediaRecorderResources()
+    }
+  }, [releaseMediaRecorderResources])
+
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  /** Пока идёт запрос, кнопка отправки disabled; при снятии disabled фокус часто уезжает с кнопки в первый фокусируемый контрол формы (часто textarea) — курсор «включается» и мигает после ответа. */
+  const wasLoadingRef = useRef(false)
+
+  useEffect(() => {
+    if (wasLoadingRef.current && !loading) {
+      const t = window.setTimeout(() => {
+        requestAnimationFrame(() => {
+          const el = textareaRef.current
+          if (el && document.activeElement === el) {
+            el.blur()
+          }
+        })
+      }, 0)
+      wasLoadingRef.current = loading
+      return () => window.clearTimeout(t)
+    }
+    wasLoadingRef.current = loading
+  }, [loading])
 
   const INPUT_MAX_HEIGHT_PX = 260
   const INPUT_GAP_PX = 10
@@ -1506,7 +1586,7 @@ export default function Chat({
 
   React.useEffect(() => {
     adjustInputHeight()
-  }, [input, adjustInputHeight])
+  }, [composerText, adjustInputHeight])
 
   React.useEffect(() => {
     syncComposerHeight()
@@ -1589,6 +1669,15 @@ export default function Chat({
   const isSearchingIndicatorEnglish = settings.mode === 'communication' && searchingInternetLang === 'en'
   const sendButtonAriaLabel =
     settings.mode === 'communication' && settings.communicationInputExpectedLang === 'en' ? 'Send' : 'Отправить'
+  const composerPlaceholder = isVoiceActive
+    ? ''
+    : inputFocused
+      ? ''
+      : settings.mode === 'communication'
+        ? settings.communicationInputExpectedLang === 'en'
+          ? 'Reply...'
+          : 'Ответ...'
+        : 'Reply...'
   const typingIndicatorText =
     settings.mode === 'translation'
       ? `MyEng печатает${retryMessage ? `… ${retryMessage}` : '…'}`
@@ -1761,6 +1850,7 @@ export default function Chat({
               >
                 <button
                   type="button"
+                  disabled={voicePhase === 'finalizing'}
                   onClick={() => {
                     resetMicAnimation()
                     if (listening) {
@@ -1770,21 +1860,21 @@ export default function Chat({
                     void startListening()
                   }}
                   className={`chat-action-button chat-control-surface relative isolate flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-full p-2.5 touch-manipulation ${
-                    listening
+                    micActionActive
                       ? 'text-[var(--chat-control-active-text)]'
                       : 'text-[var(--chat-control-text)]'
                   } ${micVisualState === 'invite' ? 'animate-invite' : ''}`}
                   style={{
-                    background: listening ? 'var(--chat-control-active-bg)' : 'var(--chat-control-bg)',
-                    boxShadow: listening ? 'var(--chat-control-shadow)' : undefined,
+                    background: micActionActive ? 'var(--chat-control-active-bg)' : 'var(--chat-control-bg)',
+                    boxShadow: micActionActive ? 'var(--chat-control-shadow)' : undefined,
                   }}
-                  title={listening ? 'Остановить' : 'Голосовой ввод'}
-                  aria-label={listening ? 'Остановить запись' : 'Голосовой ввод'}
+                  title={listening ? 'Остановить' : voicePhase === 'finalizing' ? 'Распознаю речь' : 'Голосовой ввод'}
+                  aria-label={listening ? 'Остановить запись' : voicePhase === 'finalizing' ? 'Распознаю речь' : 'Голосовой ввод'}
                   onMouseEnter={(e) => {
-                    if (!listening && micVisualState !== 'wait') e.currentTarget.style.background = 'var(--chat-control-hover)'
+                    if (!micActionActive && micVisualState !== 'wait') e.currentTarget.style.background = 'var(--chat-control-hover)'
                   }}
                   onMouseLeave={(e) => {
-                    if (!listening && micVisualState !== 'wait') e.currentTarget.style.background = 'var(--chat-control-bg)'
+                    if (!micActionActive && micVisualState !== 'wait') e.currentTarget.style.background = 'var(--chat-control-bg)'
                   }}
                 >
                   {micVisualState === 'wait' && (
@@ -1795,13 +1885,11 @@ export default function Chat({
                         opacity: 0.82,
                         backgroundImage:
                           'linear-gradient(250deg, transparent 12%, rgba(255, 255, 255, 0.1) 38%, rgba(255, 255, 255, 0.42) 52%, rgba(255, 255, 255, 0.14) 72%, transparent 90%)',
-                        backgroundSize: '200% 220%',
-                        backgroundPosition: '200% 100%',
                         animationDuration: '9s',
                       }}
                     />
                   )}
-                  {listening ? (
+                  {micActionActive ? (
                     <span className="relative z-10 h-5 w-5 rounded-full bg-[var(--chat-control-dot)] animate-pulse" />
                   ) : (
                     <span className="relative z-10">
@@ -1809,41 +1897,47 @@ export default function Chat({
                     </span>
                   )}
                 </button>
-                <textarea
-                  ref={textareaRef}
-                  rows={1}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onFocus={() => setInputFocused(true)}
-                  onBlur={() => setInputFocused(false)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      formRef.current?.requestSubmit()
+                <div className="relative min-w-0 flex-1">
+                  {showVoiceOverlay && (
+                    <VoiceComposerOverlay
+                      draftBeforeVoiceText={draftBeforeVoiceText}
+                      finalText={voiceFinalText}
+                      interimText={voiceInterimText}
+                    />
+                  )}
+                  <textarea
+                    ref={textareaRef}
+                    rows={1}
+                    value={composerText}
+                    readOnly={isTextareaReadOnly}
+                    onChange={(e) => setInput(e.target.value)}
+                    onFocus={() => setInputFocused(true)}
+                    onBlur={() => setInputFocused(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        formRef.current?.requestSubmit()
+                      }
+                    }}
+                    placeholder={composerPlaceholder}
+                    aria-label={
+                      settings.mode === 'translation'
+                        ? 'Поле ввода перевода'
+                        : settings.mode === 'communication'
+                          ? 'Поле ввода ответа'
+                          : 'Поле ввода сообщения'
                     }
-                  }}
-                  placeholder={
-                    inputFocused
-                      ? ''
-                      : settings.mode === 'communication'
-                        ? settings.communicationInputExpectedLang === 'en'
-                          ? 'Reply...'
-                          : 'Ответ...'
-                        : 'Reply...'
-                  }
-                  aria-label={
-                    settings.mode === 'translation'
-                      ? 'Поле ввода перевода'
-                      : settings.mode === 'communication'
-                        ? 'Поле ввода ответа'
-                        : 'Поле ввода сообщения'
-                  }
-                  className="chat-input-field min-w-0 flex-1 resize-none overflow-y-hidden rounded-full border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-3 py-2 min-h-[44px] text-[var(--text)] placeholder:text-[var(--text-muted)] text-base leading-[1.45rem]"
-                  style={{ maxHeight: INPUT_MAX_HEIGHT_PX }}
-                />
+                    className={`chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-full border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-3 py-2 min-h-[44px] text-base leading-[1.45rem] ${
+                      showVoiceOverlay
+                        ? 'text-transparent caret-transparent placeholder:text-transparent'
+                        : 'text-[var(--text)] placeholder:text-[var(--text-muted)]'
+                    }`}
+                    style={{ maxHeight: INPUT_MAX_HEIGHT_PX }}
+                  />
+                </div>
                 <button
                   type="submit"
-                  disabled={!input.trim() || loading || atLimit}
+                  disabled={!input.trim() || loading || atLimit || isVoiceActive}
                   className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)]"
                   style={{ background: '#3B82F6' }}
                   aria-label={sendButtonAriaLabel}
@@ -1864,6 +1958,16 @@ export default function Chat({
                   </svg>
                 </button>
               </form>
+              {voiceStatusMessage && (
+                <p
+                  role="status"
+                  aria-live="polite"
+                  className="px-1 pt-1.5 text-xs"
+                  style={{ color: voicePhase === 'error' ? 'var(--status-danger-text, #dc2626)' : 'var(--text-muted)' }}
+                >
+                  {voiceStatusMessage}
+                </p>
+              )}
             </div>
           </div>
         </div>
