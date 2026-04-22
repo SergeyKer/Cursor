@@ -105,12 +105,17 @@
   --chat-speaker-bg: rgba(255, 255, 255, 0.8);
   --chat-speaker-text: #047857;
   --chat-speaker-text-hover: #065f46;
+  /* Хедер: значения не зависят от темы чата — во всех темах как в Basic. */
   --app-header-bg: rgba(255, 255, 255, 0.92);
-  --app-header-border: var(--border);
-  --app-header-shadow: var(--shadow-soft);
+  --app-header-border: #e5e7eb;
+  --app-header-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   --app-header-control-bg: rgba(255, 255, 255, 0.9);
-  --app-header-control-border: var(--border);
+  --app-header-control-border: #e5e7eb;
   --app-header-control-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --app-header-control-radius: 12px;
+  --app-header-text: #111827;
+  --app-header-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', Arial, sans-serif;
+  --app-header-backdrop-filter: blur(2px);
   --app-header-avatar-bg: transparent;
   --app-header-avatar-shadow: 0 0 0 rgba(0, 0, 0, 0);
   --chat-backdrop-filter: blur(2px);
@@ -372,9 +377,9 @@ html[data-theme='bubble2'] {
   --bubble2-radius-lg: 24px;
   --bubble2-radius-xl: 28px;
   --bubble2-radius-pill: 9999px;
-  --bubble2-shadow-soft-1: 0 8px 32px rgba(95, 160, 255, 0.16);
-  --bubble2-shadow-soft-2: 0 12px 40px rgba(95, 160, 255, 0.22);
-  --bubble2-shadow-glow: 0 0 20px rgba(95, 160, 255, 0.34);
+  --bubble2-shadow-soft-1: 0 4px 14px rgba(95, 160, 255, 0.14);
+  --bubble2-shadow-soft-2: 0 6px 18px rgba(95, 160, 255, 0.2);
+  --bubble2-shadow-glow: 0 0 12px rgba(95, 160, 255, 0.28);
   --bubble2-shadow-inner: inset 0 1px 0 rgba(255, 255, 255, 0.4);
   --bubble2-backdrop-filter: blur(20px) saturate(180%);
   --bubble2-font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Display', sans-serif;
@@ -414,7 +419,7 @@ html[data-theme='bubble2'] {
   --invitation: #3877b9;
   --shadow: var(--bubble2-shadow-soft-1);
   --shadow-hover: var(--bubble2-shadow-soft-2);
-  --shadow-active: 0 6px 20px rgba(95, 160, 255, 0.16);
+  --shadow-active: 0 3px 12px rgba(95, 160, 255, 0.14);
   --chat-wallpaper: #c3d6e2;
   --chat-wallpaper-soft: #c3d6e2;
   --chat-message-wallpaper: rgba(255, 255, 255, 0.2);
@@ -465,17 +470,9 @@ html[data-theme='bubble2'] {
   --chat-speaker-bg: rgba(255, 255, 255, 0.86);
   --chat-speaker-text: #2f4f86;
   --chat-speaker-text-hover: #274373;
-  --app-header-bg: var(--bubble2-color-bg-header);
-  --app-header-border: var(--bubble2-color-border-subtle);
-  --app-header-shadow: var(--bubble2-shadow-soft-1);
-  --app-header-control-bg: rgba(255, 255, 255, 0.4);
-  --app-header-control-border: var(--bubble2-color-border-subtle);
-  --app-header-control-shadow: var(--bubble2-shadow-soft-1);
-  --app-header-avatar-bg: rgba(255, 255, 255, 0.16);
-  --app-header-avatar-shadow: var(--bubble2-shadow-glow);
   --chat-backdrop-filter: var(--bubble2-backdrop-filter);
   --chat-shell-shadow: var(--bubble2-shadow-soft-1);
-  --chat-composer-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
+  --chat-composer-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
   --chat-user-bubble-shadow: var(--bubble2-shadow-soft-2);
   --chat-user-bubble-inner-shadow: var(--bubble2-shadow-inner);
   --chat-assistant-bubble-shadow: var(--bubble2-shadow-soft-1);
@@ -501,9 +498,9 @@ html[data-theme='bubble2'] [data-audience='adult'] {
   --bubble2-color-button-send-bg: linear-gradient(135deg, #6aa8ff 0%, #5fd0ff 100%);
   --bubble2-color-button-mic-bg: linear-gradient(135deg, #34d399 0%, #10b981 100%);
   --bubble2-color-button-mic-bg-hover: linear-gradient(135deg, #6ee7b7 0%, #34d399 100%);
-  --bubble2-shadow-soft-1: 0 10px 36px rgba(95, 160, 255, 0.18);
-  --bubble2-shadow-soft-2: 0 16px 44px rgba(95, 160, 255, 0.24);
-  --bubble2-shadow-glow: 0 0 24px rgba(95, 160, 255, 0.38);
+  --bubble2-shadow-soft-1: 0 5px 16px rgba(95, 160, 255, 0.16);
+  --bubble2-shadow-soft-2: 0 7px 20px rgba(95, 160, 255, 0.22);
+  --bubble2-shadow-glow: 0 0 12px rgba(95, 160, 255, 0.3);
 }
 
 html[data-theme='bubble2'][data-audience='child'],
@@ -520,9 +517,9 @@ html[data-theme='bubble2'] [data-audience='child'] {
   --bubble2-color-button-send-bg: linear-gradient(135deg, #ff4fd2 0%, #8b5cf6 100%);
   --bubble2-color-button-mic-bg: linear-gradient(135deg, #00e5ff 0%, #00b8ff 100%);
   --bubble2-color-button-mic-bg-hover: linear-gradient(135deg, #67f0ff 0%, #38cfff 100%);
-  --bubble2-shadow-soft-1: 0 8px 24px rgba(139, 92, 246, 0.18);
-  --bubble2-shadow-soft-2: 0 12px 32px rgba(0, 184, 255, 0.2);
-  --bubble2-shadow-glow: 0 0 16px rgba(255, 79, 210, 0.28);
+  --bubble2-shadow-soft-1: 0 4px 12px rgba(139, 92, 246, 0.16);
+  --bubble2-shadow-soft-2: 0 6px 16px rgba(0, 184, 255, 0.18);
+  --bubble2-shadow-glow: 0 0 10px rgba(255, 79, 210, 0.24);
 }
 
 /* Только для режима "Ребёнок": взрослый вид остаётся базовым (:root). */
@@ -662,6 +659,109 @@ select.select-chevron {
   -webkit-backdrop-filter: var(--chat-backdrop-filter);
 }
 
+.typing-indicator-shell {
+  will-change: max-height, opacity, transform, margin;
+}
+
+.typing-indicator-shell[data-visible='false'] {
+  margin-top: 0;
+  transform: translateZ(0);
+}
+
+.typing-indicator {
+  --typing-shimmer-duration: 2.8s;
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--chat-section-neutral-border);
+  transform: translateZ(0);
+  will-change: transform, opacity;
+  isolation: isolate;
+}
+
+@supports ((backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px))) {
+  .typing-indicator {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+}
+
+@supports not ((backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px))) {
+  .typing-indicator {
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+}
+
+.typing-indicator-shimmer {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 36%,
+    rgba(255, 255, 255, 0.34) 50%,
+    rgba(255, 255, 255, 0.1) 64%,
+    transparent 100%
+  );
+  transform: translateX(-100%) translateZ(0);
+  animation: typingIndicatorShimmer var(--typing-shimmer-duration) linear infinite;
+  pointer-events: none;
+}
+
+.typing-indicator-text-shimmer {
+  display: inline-block;
+  color: transparent;
+  background-image: linear-gradient(
+    110deg,
+    var(--text-muted) 34%,
+    color-mix(in srgb, var(--text-muted) 58%, white 42%) 50%,
+    var(--text-muted) 66%
+  );
+  background-size: 220% 100%;
+  background-position: 120% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: typingTextShimmer var(--typing-shimmer-duration, 2.8s) linear infinite;
+}
+
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  .typing-indicator-text-shimmer {
+    color: var(--text-muted);
+    background: none;
+    animation: none;
+  }
+}
+
+@supports not (color: color-mix(in srgb, black, white)) {
+  .typing-indicator-text-shimmer {
+    background-image: linear-gradient(
+      110deg,
+      var(--text-muted) 34%,
+      rgba(175, 180, 188, 0.98) 50%,
+      var(--text-muted) 66%
+    );
+  }
+}
+
+@keyframes typingIndicatorShimmer {
+  from {
+    transform: translateX(-100%) translateZ(0);
+  }
+  to {
+    transform: translateX(100%) translateZ(0);
+  }
+}
+
+@keyframes typingTextShimmer {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
 .chat-action-button {
   transition:
     transform var(--transition-fast),
@@ -727,8 +827,8 @@ select.select-chevron {
 .app-header-surface {
   background: var(--app-header-bg);
   box-shadow: var(--app-header-shadow);
-  backdrop-filter: var(--chat-backdrop-filter);
-  -webkit-backdrop-filter: var(--chat-backdrop-filter);
+  backdrop-filter: var(--app-header-backdrop-filter);
+  -webkit-backdrop-filter: var(--app-header-backdrop-filter);
 }
 
 .app-header-control {
@@ -744,6 +844,30 @@ select.select-chevron {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .typing-indicator-shell {
+    transition: none;
+    max-height: none;
+    opacity: 1;
+  }
+
+  .typing-indicator-shell[data-visible='false'] {
+    display: none;
+  }
+
+  .typing-indicator {
+    transform: none;
+  }
+
+  .typing-indicator-shimmer,
+  .typing-indicator-text-shimmer {
+    animation: none;
+  }
+
+  .typing-indicator-text-shimmer {
+    color: var(--text-muted);
+    background: none;
+  }
+
   .menu-panel-view-enter {
     animation: none;
     opacity: 1;

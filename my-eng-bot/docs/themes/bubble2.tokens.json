@@ -137,9 +137,9 @@
       "--bubble2-radius-lg": "24px",
       "--bubble2-radius-xl": "28px",
       "--bubble2-radius-pill": "9999px",
-      "--bubble2-shadow-soft-1": "0 8px 32px rgba(95, 160, 255, 0.16)",
-      "--bubble2-shadow-soft-2": "0 12px 40px rgba(95, 160, 255, 0.22)",
-      "--bubble2-shadow-glow": "0 0 20px rgba(95, 160, 255, 0.34)",
+      "--bubble2-shadow-soft-1": "0 4px 14px rgba(95, 160, 255, 0.14)",
+      "--bubble2-shadow-soft-2": "0 6px 18px rgba(95, 160, 255, 0.20)",
+      "--bubble2-shadow-glow": "0 0 12px rgba(95, 160, 255, 0.28)",
       "--bubble2-shadow-inner": "inset 0 1px 0 rgba(255, 255, 255, 0.40)",
       "--bubble2-backdrop-filter": "blur(20px) saturate(180%)",
       "--bubble2-font-family": "-apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Display', sans-serif"
@@ -152,9 +152,9 @@
       "--bubble2-color-button-send-bg": "linear-gradient(135deg, #6aa8ff 0%, #5fd0ff 100%)",
       "--bubble2-color-button-mic-bg": "linear-gradient(135deg, #34d399 0%, #10b981 100%)",
       "--bubble2-color-button-mic-bg-hover": "linear-gradient(135deg, #6ee7b7 0%, #34d399 100%)",
-      "--bubble2-shadow-soft-1": "0 10px 36px rgba(95, 160, 255, 0.18)",
-      "--bubble2-shadow-soft-2": "0 16px 44px rgba(95, 160, 255, 0.24)",
-      "--bubble2-shadow-glow": "0 0 24px rgba(95, 160, 255, 0.38)"
+      "--bubble2-shadow-soft-1": "0 5px 16px rgba(95, 160, 255, 0.16)",
+      "--bubble2-shadow-soft-2": "0 7px 20px rgba(95, 160, 255, 0.22)",
+      "--bubble2-shadow-glow": "0 0 12px rgba(95, 160, 255, 0.30)"
     },
     "child": {
       "--bubble2-color-bg-app": "linear-gradient(135deg, #f1f9ff 0%, #d9efff 50%, #e8f8ff 100%)",
@@ -167,9 +167,9 @@
       "--bubble2-color-button-send-bg": "linear-gradient(135deg, #7db6ff 0%, #84dcff 100%)",
       "--bubble2-color-button-mic-bg": "linear-gradient(135deg, #5eead4 0%, #2dd4bf 100%)",
       "--bubble2-color-button-mic-bg-hover": "linear-gradient(135deg, #99f6e4 0%, #5eead4 100%)",
-      "--bubble2-shadow-soft-1": "0 8px 28px rgba(95, 160, 255, 0.13)",
-      "--bubble2-shadow-soft-2": "0 12px 34px rgba(95, 160, 255, 0.18)",
-      "--bubble2-shadow-glow": "0 0 16px rgba(95, 160, 255, 0.24)"
+      "--bubble2-shadow-soft-1": "0 4px 14px rgba(95, 160, 255, 0.12)",
+      "--bubble2-shadow-soft-2": "0 6px 18px rgba(95, 160, 255, 0.16)",
+      "--bubble2-shadow-glow": "0 0 10px rgba(95, 160, 255, 0.22)"
     }
   },
   "componentMapping": {

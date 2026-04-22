@@ -37,6 +37,7 @@ import type { TranslationProtocolStatus } from '@/lib/translationProtocolStatus'
 import { translationDrillCommentBodyLooksLikePraise } from '@/lib/translationPraiseBody'
 import { PAGE_HOME_START_PRIMARY_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import type { LearningLessonAction } from '@/lib/learningLessons'
+import TypingIndicator from '@/components/TypingIndicator'
 
 interface ChatProps {
   messages: ChatMessageType[]
@@ -111,7 +112,7 @@ function bubbleRadiusClass(isUser: boolean, pos: BubblePosition): string {
   // Хвостики не используем: вместо этого делаем один угол более "острым".
   if (isUser) {
     // User справа
-    // Три угла максимально круглые, нижний правый — чуть острее (как «ИИ печатает…»)
+    // Три угла максимально круглые, нижний правый — чуть острее (как «MyEng печатает…»)
     if (pos === 'solo') return 'rounded-[var(--bubble-radius)] rounded-br-md'
     if (pos === 'first') return 'rounded-[var(--bubble-radius)] rounded-br-md'
     // Внутри группы чуть «сцепляем» верхний правый
@@ -120,7 +121,7 @@ function bubbleRadiusClass(isUser: boolean, pos: BubblePosition): string {
   }
 
   // Assistant слева
-  // Три угла максимально круглые, нижний левый — чуть острее (как «ИИ печатает…»)
+  // Три угла максимально круглые, нижний левый — чуть острее (как «MyEng печатает…»)
   if (pos === 'solo') return 'rounded-[var(--bubble-radius)] rounded-bl-md'
   if (pos === 'first') return 'rounded-[var(--bubble-radius)] rounded-bl-md'
   // Внутри группы чуть «сцепляем» верхний левый
@@ -1408,7 +1409,7 @@ export default function Chat({
   const [showTypingIndicator, setShowTypingIndicator] = useState(false)
   const typingDelayTimerRef = useRef<number | null>(null)
 
-  // Чтобы индикатор "ИИ печатает…" не мигал при очень быстром ответе от сервера,
+  // Чтобы индикатор «MyEng печатает…» не мигал при очень быстром ответе от сервера,
   // показываем его только после небольшой задержки, если loading всё ещё true.
   useEffect(() => {
     if (!loading || messages.length === 0) {
@@ -1537,13 +1538,13 @@ export default function Chat({
     if (messages.length === 0) setSelectedLessonActionByMessage({})
   }, [messages.length])
 
-  /** Диалог и общение — MyEng; тренировка перевода — без изменений. */
+  /** Текст индикатора ожидания ответа: «MyEng печатает…»; при веб-поиске — отдельные строки. */
   const isSearchingIndicatorEnglish = settings.mode === 'communication' && searchingInternetLang === 'en'
   const sendButtonAriaLabel =
     settings.mode === 'communication' && settings.communicationInputExpectedLang === 'en' ? 'Send' : 'Отправить'
   const typingIndicatorText =
     settings.mode === 'translation'
-      ? `ИИ печатает${retryMessage ? `… ${retryMessage}` : '…'}`
+      ? `MyEng печатает${retryMessage ? `… ${retryMessage}` : '…'}`
       : searchingInternet
         ? isSearchingIndicatorEnglish
           ? 'MyEng is searching the web...'
@@ -1567,9 +1568,11 @@ export default function Chat({
               }}
             >
               {messages.length === 0 && (
-                <p className="text-center text-[var(--text-muted)]">
-                  MyEng печатает...
-                </p>
+                <div className="flex justify-center">
+                  <p className="w-fit text-center italic typing-indicator-text-shimmer">
+                    MyEng печатает...
+                  </p>
+                </div>
               )}
               {messages.map((msg, i) => {
                 const defaultBubblePosition = getBubblePosition(messages[i - 1]?.role, msg.role, messages[i + 1]?.role)
@@ -1686,15 +1689,12 @@ export default function Chat({
                   </React.Fragment>
                 )
               })}
-              {canShowTypingIndicator && messages.length > 0 && (
-                <div className="mt-1.5 flex justify-start">
-                  <span
-                    className="chat-section-surface glass-surface rounded-xl border border-[var(--chat-section-neutral-border)] bg-[var(--chat-section-neutral)] px-3 py-2 text-[14px] italic text-[var(--text)]"
-                    title={searchingInternet ? 'Поиск информации в интернете' : 'Ожидание ответа от ИИ'}
-                  >
-                    {typingIndicatorText}
-                  </span>
-                </div>
+              {messages.length > 0 && (
+                <TypingIndicator
+                  isVisible={canShowTypingIndicator}
+                  label={typingIndicatorText}
+                  title={searchingInternet ? 'Поиск информации в интернете' : 'Ожидание ответа от ИИ'}
+                />
               )}
             </div>
             <div

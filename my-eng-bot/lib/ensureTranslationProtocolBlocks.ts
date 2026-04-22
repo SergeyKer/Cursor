@@ -13,6 +13,68 @@ import {
 import { resolveTranslationProtocolStatusFromFields } from '@/lib/translationProtocolStatus'
 import { normalizeSupportiveCommentForErrorsBlock } from '@/lib/normalizeSupportiveCommentForErrorsBlock'
 
+type TranslationPromptKind = 'question' | 'negative' | 'declarative'
+
+function detectTranslationPromptKind(prompt: string | null | undefined): TranslationPromptKind | null {
+  const compact = String(prompt ?? '').replace(/\s+/g, ' ').trim().toLowerCase()
+  if (!compact) return null
+  if (compact.endsWith('?')) return 'question'
+  if (/(^|[\s(«"'])((?:не|никогда|ничего|никто|нигде))(?:$|[\s,.!?»"')])/i.test(compact)) {
+    return 'negative'
+  }
+  return 'declarative'
+}
+
+function buildNeutralTranslationSupport(audience: 'child' | 'adult'): string {
+  return audience === 'child'
+    ? 'Вижу, что ты стараешься. Давай спокойно поправим это ниже.'
+    : 'Вижу, что вы стараетесь. Давайте спокойно поправим это ниже.'
+}
+
+function supportHasFalseStructurePraise(
+  supportComment: string,
+  promptKind: TranslationPromptKind | null
+): boolean {
+  if (!promptKind) return false
+  const compact = supportComment.replace(/\s+/g, ' ').trim()
+  if (!compact) return false
+
+  const praiseCue =
+    /(?:^|[.!?]\s*)(?:💡\s*)?(?:отлично|молодец|хорошо|верно|правильно|здорово|круто|хорошее начало|отличное начало|ты правильно|ты верно|вы правильно|вы верно|ты молодец|вы молодец)/i
+  const explicitValidationCue =
+    /(?:правильн\w*\s+(?:использовал|использовали|сделал|сделали|построил|построили)|хорош(?:ее|ий)\s+начал\w*|отличн(?:ое|ый)\s+начал\w*|верно\s+построил\w*)/i
+  const hasPositiveSignal = praiseCue.test(compact) || explicitValidationCue.test(compact)
+  if (!hasPositiveSignal) return false
+
+  const questionPraise =
+    /(?:для\s+вопроса|вопросительн\w+\s+форм\w*|question(?:\s+form)?|question word|вопрос\w*)/i
+  const auxiliaryQuestionCue =
+    /\b(?:do|does|did)\s+(?:i|you|we|they|he|she|it)\b/i
+  const declarativePraise = /(?:утвердительн\w+\s+форм\w*|повествовательн\w+\s+форм\w*|declarative|statement)/i
+  const affirmativePraise = /(?:positive wording|affirmative(?:\s+form)?|утвердительн\w+\s+форм\w*|без\s+отрицания)/i
+  const negativePraise = /(?:negative(?:\s+form)?|negation|отрицани\w+\s+форм\w*|с\s+отрицани\w*)/i
+
+  if (promptKind !== 'question' && (questionPraise.test(compact) || auxiliaryQuestionCue.test(compact))) {
+    return true
+  }
+  if (promptKind === 'question' && declarativePraise.test(compact)) return true
+  if (promptKind === 'negative' && affirmativePraise.test(compact)) return true
+  if (promptKind !== 'negative' && negativePraise.test(compact)) return true
+  return false
+}
+
+function sanitizeTranslationSupportAgainstPrompt(params: {
+  supportComment: string
+  fallbackPrompt: string | null
+  audience: 'child' | 'adult'
+}): string {
+  const promptKind = detectTranslationPromptKind(params.fallbackPrompt)
+  if (!supportHasFalseStructurePraise(params.supportComment, promptKind)) {
+    return params.supportComment
+  }
+  return buildNeutralTranslationSupport(params.audience)
+}
+
 export function ensureTranslationProtocolBlocks(
   content: string,
   params: {
@@ -201,6 +263,13 @@ export function ensureTranslationProtocolBlocks(
       const pb = praiseBundle.join('\n\n')
       supportBlock = supportBlock?.trim() ? `${supportBlock.trim()}\n\n${pb}` : pb
     }
+  }
+  if (needsErrorProtocol && supportBlock?.trim()) {
+    supportBlock = sanitizeTranslationSupportAgainstPrompt({
+      supportComment: supportBlock,
+      fallbackPrompt: params.fallbackPrompt,
+      audience: params.audience,
+    })
   }
 
   const out: string[] = []

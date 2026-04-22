@@ -15,7 +15,7 @@ describe('buildTranslationErrorLexiconAndCyrillicLines', () => {
       expect(line).not.toMatch(/Лексика\s*:|Перевод\s*:|•/u)
     }
     expect(lines[0]).toContain('"поездки"')
-    expect(lines[0]).toContain('не используй кириллицу')
+    expect(lines[0]).toContain('переведи')
     expect(lines.join('\n')).not.toContain('english word')
   })
 
@@ -90,7 +90,7 @@ describe('buildTranslationErrorLexiconAndCyrillicLines', () => {
     const joined = lines.join('\n')
     expect(joined).toContain('"кружка"')
     expect(joined).toContain('"[перевод по контексту]"')
-    expect(joined).toContain('не используй кириллицу')
+    expect(joined).toContain('переведи')
     expect(joined).not.toContain('слово не распознано уверенно')
     expect(joined).not.toContain('english word')
   })

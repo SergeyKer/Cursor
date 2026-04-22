@@ -407,7 +407,7 @@ function collectRussianLexiconPairs(userText: string): ReplacementPair[] {
     pairs.push({
       wrong: displayRu,
       right: en || '[перевод по контексту]',
-      reason: 'не используй кириллицу',
+      reason: 'переведи',
     })
   }
   return pairs

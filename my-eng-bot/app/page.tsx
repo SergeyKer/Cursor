@@ -1343,8 +1343,8 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
-              className="app-header-control chat-action-button flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center border text-[var(--text)] touch-manipulation"
-              style={{ borderRadius: 'var(--bubble2-radius-md, var(--bubble-radius))' }}
+              className="app-header-control chat-action-button flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center border text-[var(--app-header-text)] touch-manipulation"
+              style={{ borderRadius: 'var(--app-header-control-radius)' }}
               aria-label={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
               title={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
             >
@@ -1364,8 +1364,8 @@ export default function Home() {
                       }
                     })
                   }
-                  className="app-header-control chat-action-button flex h-10 min-h-[36px] min-w-[3.25rem] shrink-0 items-center justify-center gap-px border px-1.5 text-[11px] font-semibold leading-none text-[var(--text)] touch-manipulation sm:min-w-[3.5rem]"
-                  style={{ borderRadius: 'var(--bubble2-radius-md, var(--bubble-radius))' }}
+                  className="app-header-control chat-action-button flex h-10 min-h-[36px] min-w-[3.25rem] shrink-0 items-center justify-center gap-px border px-1.5 text-[11px] font-semibold leading-none text-[var(--app-header-text)] touch-manipulation sm:min-w-[3.5rem]"
+                  style={{ borderRadius: 'var(--app-header-control-radius)' }}
                   aria-label={
                     settings.communicationInputExpectedLang === 'ru'
                       ? 'Ожидается русский ввод. Переключить на английский'
@@ -1409,8 +1409,8 @@ export default function Home() {
         </div>
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-14 sm:px-[4.25rem]">
           <h1
-            className="text-[16px] font-semibold tracking-normal leading-[1.32] text-[var(--text)] truncate max-w-full"
-            style={{ fontFamily: "var(--bubble2-font-family, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', Arial, sans-serif)" }}
+            className="text-[16px] font-semibold tracking-normal leading-[1.32] text-[var(--app-header-text)] truncate max-w-full"
+            style={{ fontFamily: 'var(--app-header-font-family)' }}
             title={pageTitle}
           >
             {!dialogStarted || !storageLoaded || activeLessonTitle ? (
