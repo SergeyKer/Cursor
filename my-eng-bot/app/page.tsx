@@ -765,6 +765,13 @@ export default function Home() {
     setMenuOpen(false)
   }, [dialogStarted, restartChatForNewModeFromMenu])
 
+  const handleStartChatFromHome = useCallback(() => {
+    setComposerSessionKey((k) => k + 1)
+    setLessonMenuContext(null)
+    setActiveLearningLessonId(null)
+    setDialogStarted(true)
+  }, [])
+
   const openLearningLesson = useCallback((lessonId: string, lessonsPanel: LessonsPanel = 'a2') => {
     const lesson = getLearningLessonById(lessonId)
     if (!lesson) return
@@ -1581,7 +1588,7 @@ export default function Home() {
                     idPrefix="home-"
                     className="flex min-h-0 flex-col"
                     homeLayout
-                    onStartHomeChat={() => setDialogStarted(true)}
+                    onStartHomeChat={handleStartChatFromHome}
                     onGoHome={goToStartScreen}
                     onAiChatPanelChange={setHomeAiChatPanel}
                     onOpenLearningLesson={openLearningLesson}

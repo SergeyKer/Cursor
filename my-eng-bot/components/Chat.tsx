@@ -1051,11 +1051,11 @@ export default function Chat({
   onSelectLearningAction,
   composerSessionKey = 0,
 }: ChatProps) {
-  const [inputFocused, setInputFocused] = React.useState(false)
   const [listening, setListening] = React.useState(false)
   const [micVisualState, setMicVisualState] = React.useState<'idle' | 'invite' | 'wait'>('idle')
   const [selectedLessonActionByMessage, setSelectedLessonActionByMessage] = React.useState<Record<number, string>>({})
   const isLearningFlow = learningActions.length > 0 || Object.keys(selectedLessonActionByMessage).length > 0
+  const appliedComposerSessionKeyRef = React.useRef<number>(0)
   const {
     draftText: input,
     draftBeforeVoiceText,
@@ -1505,6 +1505,10 @@ export default function Chat({
 
   React.useEffect(() => {
     if (composerSessionKey === 0) return
+    if (appliedComposerSessionKeyRef.current === composerSessionKey) {
+      return
+    }
+    appliedComposerSessionKeyRef.current = composerSessionKey
     resetComposerForNewSession()
   }, [composerSessionKey, resetComposerForNewSession])
 
@@ -1609,24 +1613,6 @@ export default function Chat({
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  /** Пока идёт запрос, кнопка отправки disabled; при снятии disabled фокус часто уезжает с кнопки в первый фокусируемый контрол формы (часто textarea) — курсор «включается» и мигает после ответа. */
-  const wasLoadingRef = useRef(false)
-
-  useEffect(() => {
-    if (wasLoadingRef.current && !loading) {
-      const t = window.setTimeout(() => {
-        requestAnimationFrame(() => {
-          const el = textareaRef.current
-          if (el && document.activeElement === el) {
-            el.blur()
-          }
-        })
-      }, 0)
-      wasLoadingRef.current = loading
-      return () => window.clearTimeout(t)
-    }
-    wasLoadingRef.current = loading
-  }, [loading])
 
   const INPUT_MAX_HEIGHT_PX = 260
   const INPUT_GAP_PX = 10
@@ -1738,13 +1724,11 @@ export default function Chat({
     settings.mode === 'communication' && settings.communicationInputExpectedLang === 'en' ? 'Send' : 'Отправить'
   const composerPlaceholder = isVoiceActive
     ? ''
-    : inputFocused
-      ? ''
-      : settings.mode === 'communication'
-        ? settings.communicationInputExpectedLang === 'en'
-          ? 'Reply...'
-          : 'Ответ...'
-        : 'Reply...'
+    : settings.mode === 'communication'
+      ? settings.communicationInputExpectedLang === 'en'
+        ? 'Reply...'
+        : 'Ответ...'
+      : 'Reply...'
   const typingIndicatorText =
     settings.mode === 'translation'
       ? `MyEng печатает${retryMessage ? `… ${retryMessage}` : '…'}`
@@ -1978,8 +1962,6 @@ export default function Chat({
                     value={composerText}
                     readOnly={isTextareaReadOnly}
                     onChange={(e) => setInput(e.target.value)}
-                    onFocus={() => setInputFocused(true)}
-                    onBlur={() => setInputFocused(false)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault()
