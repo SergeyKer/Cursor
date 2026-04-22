@@ -1067,6 +1067,7 @@ export default function Chat({
   const [input, setInput] = React.useState('')
   const [inputFocused, setInputFocused] = React.useState(false)
   const [listening, setListening] = React.useState(false)
+  const [micVisualState, setMicVisualState] = React.useState<'idle' | 'invite' | 'wait'>('idle')
   const [selectedLessonActionByMessage, setSelectedLessonActionByMessage] = React.useState<Record<number, string>>({})
   const isLearningFlow = learningActions.length > 0 || Object.keys(selectedLessonActionByMessage).length > 0
   const recognitionRef = useRef<SpeechRecognition | null>(null)
@@ -1077,6 +1078,7 @@ export default function Chat({
   /** Если `onstop` у MediaRecorder не сработал (редко на WebKit), принудительно освобождаем микрофон. */
   const mediaRecorderStopFallbackTimerRef = useRef<number | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
+  const micInviteTimerRef = useRef<number | null>(null)
 
   const releaseMediaRecorderResources = useCallback(() => {
     if (mediaStopTimerRef.current != null) {
@@ -1111,6 +1113,18 @@ export default function Chat({
     onSend(t)
     setInput('')
   }
+
+  const clearMicAnimationTimers = useCallback(() => {
+    if (micInviteTimerRef.current != null) {
+      window.clearTimeout(micInviteTimerRef.current)
+      micInviteTimerRef.current = null
+    }
+  }, [])
+
+  const resetMicAnimation = useCallback(() => {
+    clearMicAnimationTimers()
+    setMicVisualState('idle')
+  }, [clearMicAnimationTimers])
 
   const startListening = useCallback(async () => {
     if (typeof window === 'undefined') return
@@ -1403,7 +1417,8 @@ export default function Chat({
       }, 2500)
     }
     setListening(false)
-  }, [releaseMediaRecorderResources])
+    resetMicAnimation()
+  }, [releaseMediaRecorderResources, resetMicAnimation])
 
   const SHOW_TYPING_DELAY_MS = 220
   const [showTypingIndicator, setShowTypingIndicator] = useState(false)
@@ -1411,6 +1426,12 @@ export default function Chat({
 
   // Чтобы индикатор «MyEng печатает…» не мигал при очень быстром ответе от сервера,
   // показываем его только после небольшой задержки, если loading всё ещё true.
+  useEffect(() => {
+    if (loading) {
+      resetMicAnimation()
+    }
+  }, [loading, resetMicAnimation])
+
   useEffect(() => {
     if (!loading || messages.length === 0) {
       if (typingDelayTimerRef.current) window.clearTimeout(typingDelayTimerRef.current)
@@ -1429,6 +1450,33 @@ export default function Chat({
       typingDelayTimerRef.current = null
     }
   }, [loading, messages.length])
+
+  const lastMessageRole = messages[messages.length - 1]?.role ?? null
+
+  React.useEffect(() => {
+    if (loading) return
+    if (messages.length === 0 || lastMessageRole !== 'assistant' || listening) return
+    setMicVisualState((current) => (current === 'idle' ? 'invite' : current))
+  }, [loading, lastMessageRole, messages.length, listening])
+
+  React.useEffect(() => {
+    if (micVisualState !== 'invite') return
+    clearMicAnimationTimers()
+    micInviteTimerRef.current = window.setTimeout(() => {
+      micInviteTimerRef.current = null
+      setMicVisualState('wait')
+    }, 1800)
+
+    return () => {
+      clearMicAnimationTimers()
+    }
+  }, [clearMicAnimationTimers, micVisualState])
+
+  React.useEffect(() => {
+    return () => {
+      clearMicAnimationTimers()
+    }
+  }, [clearMicAnimationTimers])
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -1531,7 +1579,6 @@ export default function Chat({
     return -1
   }, [messages, settings.mode])
 
-  const lastMessageRole = messages[messages.length - 1]?.role ?? null
   const canShowTypingIndicator = showTypingIndicator && loading && lastMessageRole === 'user'
 
   React.useEffect(() => {
@@ -1714,12 +1761,19 @@ export default function Chat({
               >
                 <button
                   type="button"
-                  onClick={listening ? stopListening : startListening}
-                  className={`chat-action-button chat-control-surface flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full p-2.5 touch-manipulation ${
+                  onClick={() => {
+                    resetMicAnimation()
+                    if (listening) {
+                      stopListening()
+                      return
+                    }
+                    void startListening()
+                  }}
+                  className={`chat-action-button chat-control-surface relative isolate flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-full p-2.5 touch-manipulation ${
                     listening
                       ? 'text-[var(--chat-control-active-text)]'
                       : 'text-[var(--chat-control-text)]'
-                  }`}
+                  } ${micVisualState === 'invite' ? 'animate-invite' : ''}`}
                   style={{
                     background: listening ? 'var(--chat-control-active-bg)' : 'var(--chat-control-bg)',
                     boxShadow: listening ? 'var(--chat-control-shadow)' : undefined,
@@ -1727,16 +1781,32 @@ export default function Chat({
                   title={listening ? 'Остановить' : 'Голосовой ввод'}
                   aria-label={listening ? 'Остановить запись' : 'Голосовой ввод'}
                   onMouseEnter={(e) => {
-                    if (!listening) e.currentTarget.style.background = 'var(--chat-control-hover)'
+                    if (!listening && micVisualState !== 'wait') e.currentTarget.style.background = 'var(--chat-control-hover)'
                   }}
                   onMouseLeave={(e) => {
-                    if (!listening) e.currentTarget.style.background = 'var(--chat-control-bg)'
+                    if (!listening && micVisualState !== 'wait') e.currentTarget.style.background = 'var(--chat-control-bg)'
                   }}
                 >
+                  {micVisualState === 'wait' && (
+                    <span
+                      aria-hidden="true"
+                      className="animate-wait pointer-events-none absolute inset-0 rounded-full"
+                      style={{
+                        opacity: 0.82,
+                        backgroundImage:
+                          'linear-gradient(250deg, transparent 12%, rgba(255, 255, 255, 0.1) 38%, rgba(255, 255, 255, 0.42) 52%, rgba(255, 255, 255, 0.14) 72%, transparent 90%)',
+                        backgroundSize: '200% 220%',
+                        backgroundPosition: '200% 100%',
+                        animationDuration: '9s',
+                      }}
+                    />
+                  )}
                   {listening ? (
-                    <span className="h-5 w-5 rounded-full bg-[var(--chat-control-dot)] animate-pulse" />
+                    <span className="relative z-10 h-5 w-5 rounded-full bg-[var(--chat-control-dot)] animate-pulse" />
                   ) : (
-                    <MicIcon />
+                    <span className="relative z-10">
+                      <MicIcon />
+                    </span>
                   )}
                 </button>
                 <textarea
