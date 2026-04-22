@@ -307,7 +307,7 @@ html[data-theme='bubble1'] {
 }
 
 html[data-theme='bubble2'] {
-  --bubble2-color-bg-app: linear-gradient(135deg, #eaf6ff 0%, #cfe9ff 52%, #dff4ff 100%);
+  --bubble2-color-bg-app: #c3d6e2;
   --bubble2-color-bg-header: rgba(255, 255, 255, 0.28);
   --bubble2-color-bg-chat: rgba(255, 255, 255, 0.18);
   --bubble2-color-surface-card: rgba(255, 255, 255, 0.38);
@@ -379,8 +379,8 @@ html[data-theme='bubble2'] {
   --shadow: var(--bubble2-shadow-soft-1);
   --shadow-hover: var(--bubble2-shadow-soft-2);
   --shadow-active: 0 6px 20px rgba(95, 160, 255, 0.16);
-  --chat-wallpaper: #eaf6ff;
-  --chat-wallpaper-soft: #dff4ff;
+  --chat-wallpaper: #c3d6e2;
+  --chat-wallpaper-soft: #c3d6e2;
   --chat-message-wallpaper: rgba(255, 255, 255, 0.2);
   --chat-message-wallpaper-soft: rgba(255, 255, 255, 0.28);
   --chat-user-bubble: var(--bubble2-color-surface-user-bubble);
@@ -455,7 +455,7 @@ html[data-theme='bubble2'] {
 }
 
 html[data-theme='bubble2'] [data-audience='adult'] {
-  --bubble2-color-bg-app: linear-gradient(135deg, #dbeeff 0%, #b9dbff 48%, #d6efff 100%);
+  --bubble2-color-bg-app: #c3d6e2;
   --bubble2-color-surface-card: rgba(255, 255, 255, 0.36);
   --bubble2-color-surface-feedback-neutral: rgba(255, 255, 255, 0.42);
   --bubble2-shadow-soft-1: 0 10px 36px rgba(95, 160, 255, 0.18);
@@ -464,7 +464,7 @@ html[data-theme='bubble2'] [data-audience='adult'] {
 }
 
 html[data-theme='bubble2'] [data-audience='child'] {
-  --bubble2-color-bg-app: linear-gradient(135deg, #f1f9ff 0%, #d9efff 50%, #e8f8ff 100%);
+  --bubble2-color-bg-app: #c3d6e2;
   --bubble2-color-bg-header: rgba(255, 255, 255, 0.34);
   --bubble2-color-surface-card: rgba(255, 255, 255, 0.42);
   --bubble2-color-surface-feedback-warning: rgba(255, 241, 118, 0.22);
