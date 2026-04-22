@@ -20,7 +20,7 @@
   "tokens": {
     "colors": {
       "bg": {
-        "app": "linear-gradient(135deg, #eaf6ff 0%, #cfe9ff 52%, #dff4ff 100%)",
+        "app": "#c3d6e2",
         "header": "rgba(255, 255, 255, 0.28)",
         "chat": "rgba(255, 255, 255, 0.18)"
       },
@@ -55,8 +55,8 @@
           "text": "#ffffff"
         },
         "mic": {
-          "bg": "linear-gradient(135deg, #34d399 0%, #10b981 100%)",
-          "bgHover": "linear-gradient(135deg, #6ee7b7 0%, #34d399 100%)",
+          "bg": "linear-gradient(135deg, #6ee7b7 0%, #34d399 100%)",
+          "bgHover": "linear-gradient(135deg, #a7f3d0 0%, #6ee7b7 100%)",
           "recordingDot": "#ef4444"
         }
       }
@@ -107,7 +107,7 @@
   },
   "cssCustomProperties": {
     "base": {
-      "--bubble2-color-bg-app": "linear-gradient(135deg, #eaf6ff 0%, #cfe9ff 52%, #dff4ff 100%)",
+      "--bubble2-color-bg-app": "#c3d6e2",
       "--bubble2-color-bg-header": "rgba(255, 255, 255, 0.28)",
       "--bubble2-color-bg-chat": "rgba(255, 255, 255, 0.18)",
       "--bubble2-color-surface-card": "rgba(255, 255, 255, 0.38)",
@@ -129,8 +129,8 @@
       "--bubble2-color-text-danger": "#ef4444",
       "--bubble2-color-button-send-bg": "linear-gradient(135deg, #6aa8ff 0%, #5fd0ff 100%)",
       "--bubble2-color-button-send-text": "#ffffff",
-      "--bubble2-color-button-mic-bg": "linear-gradient(135deg, #34d399 0%, #10b981 100%)",
-      "--bubble2-color-button-mic-bg-hover": "linear-gradient(135deg, #6ee7b7 0%, #34d399 100%)",
+      "--bubble2-color-button-mic-bg": "linear-gradient(135deg, #6ee7b7 0%, #34d399 100%)",
+      "--bubble2-color-button-mic-bg-hover": "linear-gradient(135deg, #a7f3d0 0%, #6ee7b7 100%)",
       "--bubble2-radius-xs": "8px",
       "--bubble2-radius-sm": "12px",
       "--bubble2-radius-md": "16px",
@@ -146,8 +146,12 @@
     },
     "adult": {
       "--bubble2-color-bg-app": "linear-gradient(135deg, #dbeeff 0%, #b9dbff 48%, #d6efff 100%)",
+      "--bubble2-color-surface-user-bubble": "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
       "--bubble2-color-surface-card": "rgba(255, 255, 255, 0.36)",
       "--bubble2-color-surface-feedback-neutral": "rgba(255, 255, 255, 0.42)",
+      "--bubble2-color-button-send-bg": "linear-gradient(135deg, #6aa8ff 0%, #5fd0ff 100%)",
+      "--bubble2-color-button-mic-bg": "linear-gradient(135deg, #34d399 0%, #10b981 100%)",
+      "--bubble2-color-button-mic-bg-hover": "linear-gradient(135deg, #6ee7b7 0%, #34d399 100%)",
       "--bubble2-shadow-soft-1": "0 10px 36px rgba(95, 160, 255, 0.18)",
       "--bubble2-shadow-soft-2": "0 16px 44px rgba(95, 160, 255, 0.24)",
       "--bubble2-shadow-glow": "0 0 24px rgba(95, 160, 255, 0.38)"
@@ -156,8 +160,13 @@
       "--bubble2-color-bg-app": "linear-gradient(135deg, #f1f9ff 0%, #d9efff 50%, #e8f8ff 100%)",
       "--bubble2-color-bg-header": "rgba(255, 255, 255, 0.34)",
       "--bubble2-color-surface-card": "rgba(255, 255, 255, 0.42)",
+      "--bubble2-color-surface-user-bubble": "linear-gradient(135deg, #5b8eff 0%, #65c6ff 100%)",
+      "--bubble2-color-surface-feedback-neutral": "rgba(255, 255, 255, 0.48)",
       "--bubble2-color-surface-feedback-warning": "rgba(255, 241, 118, 0.22)",
       "--bubble2-color-surface-feedback-success": "rgba(165, 214, 167, 0.28)",
+      "--bubble2-color-button-send-bg": "linear-gradient(135deg, #7db6ff 0%, #84dcff 100%)",
+      "--bubble2-color-button-mic-bg": "linear-gradient(135deg, #5eead4 0%, #2dd4bf 100%)",
+      "--bubble2-color-button-mic-bg-hover": "linear-gradient(135deg, #99f6e4 0%, #5eead4 100%)",
       "--bubble2-shadow-soft-1": "0 8px 28px rgba(95, 160, 255, 0.13)",
       "--bubble2-shadow-soft-2": "0 12px 34px rgba(95, 160, 255, 0.18)",
       "--bubble2-shadow-glow": "0 0 16px rgba(95, 160, 255, 0.24)"

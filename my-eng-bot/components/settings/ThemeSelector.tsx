@@ -18,13 +18,13 @@ const THEMES: Array<{ id: 'basic' | 'futuristic' | 'bubble1' | 'bubble2'; name: 
   {
     id: 'bubble1',
     name: 'Bubble1',
-    description: 'Пастельный glass-дизайн с мягкими карточками и единым стилем для всех аудиторий.',
+    description: 'Пастельный glass-дизайн с отдельными adult/child палитрами.',
     glow: true,
   },
   {
     id: 'bubble2',
     name: 'Bubble2',
-    description: 'Liquid Glass / Glassmorphism 2026 с разными оттенками для ребёнка и взрослого.',
+    description: 'Liquid Glass / Glassmorphism 2026 с фиксированными adult/child палитрами.',
     glow: true,
   },
 ]

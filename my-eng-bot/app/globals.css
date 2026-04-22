@@ -306,6 +306,42 @@ html[data-theme='bubble1'] {
   --chat-speaker-text-hover: #175e46;
 }
 
+html[data-theme='bubble1'][data-audience='adult'],
+html[data-theme='bubble1'] [data-audience='adult'] {
+  --bg-primary: linear-gradient(135deg, #d7e8ff 0%, #ddf6ff 52%, #fde3ee 100%);
+  --bubble-user-bg: linear-gradient(135deg, #c3b5ff 0%, #f3a9d7 100%);
+  --accent-color: #8f79ff;
+  --accent-hover: #7b64f4;
+  --chat-wallpaper: #d7e8ff;
+  --chat-message-wallpaper: rgba(255, 255, 255, 0.36);
+  --chat-assistant-shell: rgba(255, 255, 255, 0.62);
+  --chat-section-amber: rgba(255, 243, 214, 0.9);
+  --chat-section-emerald: rgba(207, 248, 232, 0.92);
+  --chat-control-bg: rgba(191, 246, 226, 0.85);
+  --chat-control-hover: rgba(191, 246, 226, 0.98);
+  --chat-user-bubble-border: rgba(255, 255, 255, 0.58);
+  --shadow-soft: 0 8px 24px rgba(160, 180, 220, 0.28);
+  --shadow-glow: 0 0 26px rgba(130, 190, 255, 0.4);
+}
+
+html[data-theme='bubble1'][data-audience='child'],
+html[data-theme='bubble1'] [data-audience='child'] {
+  --bg-primary: linear-gradient(135deg, #fff4d9 0%, #ffe7f2 52%, #e4f7ff 100%);
+  --bubble-user-bg: linear-gradient(135deg, #ff9f7a 0%, #ff73c6 100%);
+  --accent-color: #ff7a59;
+  --accent-hover: #e66747;
+  --chat-wallpaper: #ffe9cc;
+  --chat-message-wallpaper: rgba(255, 255, 255, 0.52);
+  --chat-assistant-shell: rgba(255, 255, 255, 0.78);
+  --chat-section-amber: rgba(255, 238, 201, 0.98);
+  --chat-section-emerald: rgba(216, 252, 237, 0.96);
+  --chat-control-bg: rgba(187, 247, 208, 0.95);
+  --chat-control-hover: rgba(187, 247, 208, 1);
+  --chat-user-bubble-border: rgba(255, 255, 255, 0.74);
+  --shadow-soft: 0 6px 16px rgba(250, 146, 120, 0.2);
+  --shadow-glow: 0 0 14px rgba(255, 140, 110, 0.28);
+}
+
 html[data-theme='bubble2'] {
   --bubble2-color-bg-app: #c3d6e2;
   --bubble2-color-bg-header: rgba(255, 255, 255, 0.28);
@@ -454,27 +490,43 @@ html[data-theme='bubble2'] {
   --chat-error-ring: 0 0 0 4px rgba(239, 68, 68, 0.16);
 }
 
+html[data-theme='bubble2'][data-audience='adult'],
 html[data-theme='bubble2'] [data-audience='adult'] {
-  --bubble2-color-bg-app: #c3d6e2;
+  --bubble2-color-bg-app: linear-gradient(135deg, #dbeeff 0%, #b9dbff 48%, #d6efff 100%);
+  --bubble2-color-surface-user-bubble: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   --bubble2-color-surface-card: rgba(255, 255, 255, 0.36);
   --bubble2-color-surface-feedback-neutral: rgba(255, 255, 255, 0.42);
+  --chat-wallpaper: #c3d6e2;
+  --chat-message-wallpaper: rgba(255, 255, 255, 0.2);
+  --bubble2-color-button-send-bg: linear-gradient(135deg, #6aa8ff 0%, #5fd0ff 100%);
+  --bubble2-color-button-mic-bg: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  --bubble2-color-button-mic-bg-hover: linear-gradient(135deg, #6ee7b7 0%, #34d399 100%);
   --bubble2-shadow-soft-1: 0 10px 36px rgba(95, 160, 255, 0.18);
   --bubble2-shadow-soft-2: 0 16px 44px rgba(95, 160, 255, 0.24);
   --bubble2-shadow-glow: 0 0 24px rgba(95, 160, 255, 0.38);
 }
 
+html[data-theme='bubble2'][data-audience='child'],
 html[data-theme='bubble2'] [data-audience='child'] {
-  --bubble2-color-bg-app: #c3d6e2;
-  --bubble2-color-bg-header: rgba(255, 255, 255, 0.34);
-  --bubble2-color-surface-card: rgba(255, 255, 255, 0.42);
-  --bubble2-color-surface-feedback-warning: rgba(255, 241, 118, 0.22);
-  --bubble2-color-surface-feedback-success: rgba(165, 214, 167, 0.28);
-  --bubble2-shadow-soft-1: 0 8px 28px rgba(95, 160, 255, 0.13);
-  --bubble2-shadow-soft-2: 0 12px 34px rgba(95, 160, 255, 0.18);
-  --bubble2-shadow-glow: 0 0 16px rgba(95, 160, 255, 0.24);
+  --bubble2-color-bg-app: linear-gradient(135deg, #fdf7ff 0%, #eef8ff 52%, #f7fbff 100%);
+  --bubble2-color-bg-header: rgba(255, 255, 255, 0.44);
+  --bubble2-color-surface-card: rgba(255, 255, 255, 0.54);
+  --bubble2-color-surface-user-bubble: linear-gradient(135deg, #ff3d95 0%, #1f82ff 100%);
+  --bubble2-color-surface-feedback-neutral: rgba(255, 255, 255, 0.58);
+  --bubble2-color-surface-feedback-warning: rgba(255, 230, 109, 0.36);
+  --bubble2-color-surface-feedback-success: rgba(167, 243, 208, 0.4);
+  --chat-wallpaper: #f4ebff;
+  --chat-message-wallpaper: rgba(255, 255, 255, 0.68);
+  --bubble2-color-button-send-bg: linear-gradient(135deg, #ff4fd2 0%, #8b5cf6 100%);
+  --bubble2-color-button-mic-bg: linear-gradient(135deg, #00e5ff 0%, #00b8ff 100%);
+  --bubble2-color-button-mic-bg-hover: linear-gradient(135deg, #67f0ff 0%, #38cfff 100%);
+  --bubble2-shadow-soft-1: 0 8px 24px rgba(139, 92, 246, 0.18);
+  --bubble2-shadow-soft-2: 0 12px 32px rgba(0, 184, 255, 0.2);
+  --bubble2-shadow-glow: 0 0 16px rgba(255, 79, 210, 0.28);
 }
 
 /* Только для режима "Ребёнок": взрослый вид остаётся базовым (:root). */
+html[data-audience='child']:not([data-theme='bubble1']):not([data-theme='bubble2']),
 html:not([data-theme='bubble1']):not([data-theme='bubble2']) [data-audience='child'] {
   --chat-wallpaper: #bdcfe4;
   --chat-wallpaper-soft: #b2c8e0;

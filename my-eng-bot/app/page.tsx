@@ -346,6 +346,16 @@ export default function Home() {
   }, [dialogStarted])
 
   React.useEffect(() => {
+    if (typeof document === 'undefined') return
+    document.documentElement.setAttribute('data-audience', settings.audience)
+    document.body?.setAttribute('data-audience', settings.audience)
+    return () => {
+      document.documentElement.removeAttribute('data-audience')
+      document.body?.removeAttribute('data-audience')
+    }
+  }, [settings.audience])
+
+  React.useEffect(() => {
     if (dialogStarted) return
     if (welcomeFactInitRef.current === greetingNonce) return
     let cancelled = false

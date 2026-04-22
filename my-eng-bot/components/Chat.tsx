@@ -1715,7 +1715,7 @@ export default function Chat({
                 <button
                   type="button"
                   onClick={listening ? stopListening : startListening}
-                  className={`chat-action-button chat-control-surface flex h-11 min-h-[44px] shrink-0 items-center justify-center rounded-full p-2.5 touch-manipulation ${
+                  className={`chat-action-button chat-control-surface flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full p-2.5 touch-manipulation ${
                     listening
                       ? 'text-[var(--chat-control-active-text)]'
                       : 'text-[var(--chat-control-text)]'
@@ -1774,7 +1774,7 @@ export default function Chat({
                 <button
                   type="submit"
                   disabled={!input.trim() || loading || atLimit}
-                  className="chat-action-button chat-send-surface inline-flex h-12 w-12 touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)]"
+                  className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)]"
                   style={{ background: '#3B82F6' }}
                   aria-label={sendButtonAriaLabel}
                 >
