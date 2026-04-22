@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
-export type Theme = 'basic' | 'futuristic'
+export type Theme = 'basic' | 'futuristic' | 'bubble1' | 'bubble2'
 
 const THEME_STORAGE_KEY = 'myeng_theme'
 const DEFAULT_THEME: Theme = 'basic'
@@ -18,7 +18,7 @@ const ThemeContext = createContext<ThemeContextValue>({
 })
 
 function isTheme(value: unknown): value is Theme {
-  return value === 'basic' || value === 'futuristic'
+  return value === 'basic' || value === 'futuristic' || value === 'bubble1' || value === 'bubble2'
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {

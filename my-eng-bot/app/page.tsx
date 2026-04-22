@@ -1315,7 +1315,7 @@ export default function Home() {
   return (
     <div data-audience={settings.audience} className="flex h-[100dvh] min-h-[100dvh] flex-col">
       <header
-        className="fixed left-0 right-0 top-0 z-[60] border-b border-[var(--border)] bg-[var(--bg)]"
+        className="app-header-surface fixed left-0 right-0 top-0 z-[60] border-b border-[var(--app-header-border)]"
         style={{
           paddingTop: 'env(safe-area-inset-top)',
           // iOS: safe-area учитываем только через paddingTop.
@@ -1333,7 +1333,8 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
-              className="btn-3d-menu flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] touch-manipulation"
+              className="app-header-control chat-action-button flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center border text-[var(--text)] touch-manipulation"
+              style={{ borderRadius: 'var(--bubble2-radius-md, var(--bubble-radius))' }}
               aria-label={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
               title={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
             >
@@ -1353,7 +1354,8 @@ export default function Home() {
                       }
                     })
                   }
-                  className="btn-3d-menu flex h-10 min-h-[36px] min-w-[3.25rem] shrink-0 items-center justify-center gap-px rounded-md border border-[var(--border)] bg-[var(--bg)] px-1.5 text-[11px] font-semibold leading-none text-[var(--text)] touch-manipulation sm:min-w-[3.5rem]"
+                  className="app-header-control chat-action-button flex h-10 min-h-[36px] min-w-[3.25rem] shrink-0 items-center justify-center gap-px border px-1.5 text-[11px] font-semibold leading-none text-[var(--text)] touch-manipulation sm:min-w-[3.5rem]"
+                  style={{ borderRadius: 'var(--bubble2-radius-md, var(--bubble-radius))' }}
                   aria-label={
                     settings.communicationInputExpectedLang === 'ru'
                       ? 'Ожидается русский ввод. Переключить на английский'
@@ -1381,13 +1383,13 @@ export default function Home() {
                 </button>
               )}
               {dialogStarted && (
-                <span className="mr-2 flex h-10 w-10 shrink-0 items-center justify-center" aria-hidden>
+                <span className="app-header-avatar mr-2 flex h-10 w-10 shrink-0 items-center justify-center p-1" aria-hidden>
                   <Image
                     src="/header-robot.png"
                     alt=""
                     width={1024}
                     height={1024}
-                    className="h-10 w-10 object-contain"
+                    className="h-full w-full object-contain"
                     sizes="36px"
                   />
                 </span>
@@ -1397,7 +1399,8 @@ export default function Home() {
         </div>
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-14 sm:px-[4.25rem]">
           <h1
-            className="[font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif] text-[16px] font-semibold tracking-normal leading-[1.32] text-[var(--text)] truncate max-w-full"
+            className="text-[16px] font-semibold tracking-normal leading-[1.32] text-[var(--text)] truncate max-w-full"
+            style={{ fontFamily: "var(--bubble2-font-family, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', Arial, sans-serif)" }}
             title={pageTitle}
           >
             {!dialogStarted || !storageLoaded || activeLessonTitle ? (

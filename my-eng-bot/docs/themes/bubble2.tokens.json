@@ -1,0 +1,281 @@
+{
+  "theme": {
+    "id": "bubble2",
+    "name": "Bubble2",
+    "style": "Liquid Glass + Glassmorphism + gradients",
+    "screen": {
+      "baseWidthPx": 375,
+      "safeAreaTopPx": 44,
+      "safeAreaBottomPx": 34
+    },
+    "audiences": {
+      "adult": {
+        "description": "Чуть глубже по контрасту и насыщенности, с более заметным glow."
+      },
+      "child": {
+        "description": "Более мягкие, светлые и дружелюбные оттенки при том же визуальном языке."
+      }
+    }
+  },
+  "tokens": {
+    "colors": {
+      "bg": {
+        "app": "linear-gradient(135deg, #eaf6ff 0%, #cfe9ff 52%, #dff4ff 100%)",
+        "header": "rgba(255, 255, 255, 0.28)",
+        "chat": "rgba(255, 255, 255, 0.18)"
+      },
+      "surface": {
+        "card": "rgba(255, 255, 255, 0.38)",
+        "userBubble": "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+        "feedback": {
+          "neutral": "rgba(255, 255, 255, 0.40)",
+          "correction": "#f7fbff",
+          "warning": "rgba(255, 235, 59, 0.25)",
+          "success": "rgba(129, 199, 132, 0.30)"
+        }
+      },
+      "border": {
+        "subtle": "rgba(255, 255, 255, 0.30)",
+        "aiBubble": "rgba(79, 143, 232, 0.34)",
+        "warning": "rgba(255, 193, 7, 0.40)",
+        "success": "rgba(76, 175, 80, 0.40)"
+      },
+      "text": {
+        "primary": "rgba(0, 0, 0, 0.85)",
+        "secondary": "rgba(0, 0, 0, 0.65)",
+        "accent": "rgba(72, 128, 214, 0.95)",
+        "inverse": "#ffffff",
+        "userBubble": "#ffffff",
+        "success": "#2e7d32",
+        "danger": "#ef4444"
+      },
+      "button": {
+        "send": {
+          "bg": "linear-gradient(135deg, #6aa8ff 0%, #5fd0ff 100%)",
+          "text": "#ffffff"
+        },
+        "mic": {
+          "bg": "linear-gradient(135deg, #34d399 0%, #10b981 100%)",
+          "bgHover": "linear-gradient(135deg, #6ee7b7 0%, #34d399 100%)",
+          "recordingDot": "#ef4444"
+        }
+      }
+    },
+    "radii": {
+      "xs": "8px",
+      "sm": "12px",
+      "md": "16px",
+      "lg": "24px",
+      "xl": "28px",
+      "pill": "9999px"
+    },
+    "spacing": {
+      "2": "2px",
+      "4": "4px",
+      "8": "8px",
+      "12": "12px",
+      "16": "16px",
+      "20": "20px",
+      "24": "24px"
+    },
+    "typography": {
+      "fontFamily": "-apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Display', sans-serif",
+      "fontSize": {
+        "sm": "13px",
+        "md": "16px",
+        "lg": "18px",
+        "xl": "20px"
+      },
+      "fontWeight": {
+        "regular": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      }
+    },
+    "shadows": {
+      "soft1": "0 8px 32px rgba(95, 160, 255, 0.16)",
+      "soft2": "0 12px 40px rgba(95, 160, 255, 0.22)",
+      "glow": "0 0 20px rgba(95, 160, 255, 0.34)",
+      "inner": "inset 0 1px 0 rgba(255, 255, 255, 0.40)"
+    },
+    "effects": {
+      "backdropBlur": "blur(20px) saturate(180%)",
+      "glassBorder": "1px solid rgba(255, 255, 255, 0.30)",
+      "gradientMesh": "mesh-gradient(blue-100, sky-200, cyan-100)"
+    }
+  },
+  "cssCustomProperties": {
+    "base": {
+      "--bubble2-color-bg-app": "linear-gradient(135deg, #eaf6ff 0%, #cfe9ff 52%, #dff4ff 100%)",
+      "--bubble2-color-bg-header": "rgba(255, 255, 255, 0.28)",
+      "--bubble2-color-bg-chat": "rgba(255, 255, 255, 0.18)",
+      "--bubble2-color-surface-card": "rgba(255, 255, 255, 0.38)",
+      "--bubble2-color-surface-user-bubble": "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+      "--bubble2-color-surface-feedback-neutral": "rgba(255, 255, 255, 0.40)",
+      "--bubble2-color-surface-feedback-correction": "#f7fbff",
+      "--bubble2-color-surface-feedback-warning": "rgba(255, 235, 59, 0.25)",
+      "--bubble2-color-surface-feedback-success": "rgba(129, 199, 132, 0.30)",
+      "--bubble2-color-border-subtle": "rgba(255, 255, 255, 0.30)",
+      "--bubble2-color-border-ai-bubble": "rgba(79, 143, 232, 0.34)",
+      "--bubble2-color-border-warning": "rgba(255, 193, 7, 0.40)",
+      "--bubble2-color-border-success": "rgba(76, 175, 80, 0.40)",
+      "--bubble2-color-text-primary": "rgba(0, 0, 0, 0.85)",
+      "--bubble2-color-text-secondary": "rgba(0, 0, 0, 0.65)",
+      "--bubble2-color-text-accent": "rgba(72, 128, 214, 0.95)",
+      "--bubble2-color-text-inverse": "#ffffff",
+      "--bubble2-color-text-user-bubble": "#ffffff",
+      "--bubble2-color-text-success": "#2e7d32",
+      "--bubble2-color-text-danger": "#ef4444",
+      "--bubble2-color-button-send-bg": "linear-gradient(135deg, #6aa8ff 0%, #5fd0ff 100%)",
+      "--bubble2-color-button-send-text": "#ffffff",
+      "--bubble2-color-button-mic-bg": "linear-gradient(135deg, #34d399 0%, #10b981 100%)",
+      "--bubble2-color-button-mic-bg-hover": "linear-gradient(135deg, #6ee7b7 0%, #34d399 100%)",
+      "--bubble2-radius-xs": "8px",
+      "--bubble2-radius-sm": "12px",
+      "--bubble2-radius-md": "16px",
+      "--bubble2-radius-lg": "24px",
+      "--bubble2-radius-xl": "28px",
+      "--bubble2-radius-pill": "9999px",
+      "--bubble2-shadow-soft-1": "0 8px 32px rgba(95, 160, 255, 0.16)",
+      "--bubble2-shadow-soft-2": "0 12px 40px rgba(95, 160, 255, 0.22)",
+      "--bubble2-shadow-glow": "0 0 20px rgba(95, 160, 255, 0.34)",
+      "--bubble2-shadow-inner": "inset 0 1px 0 rgba(255, 255, 255, 0.40)",
+      "--bubble2-backdrop-filter": "blur(20px) saturate(180%)",
+      "--bubble2-font-family": "-apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Display', sans-serif"
+    },
+    "adult": {
+      "--bubble2-color-bg-app": "linear-gradient(135deg, #dbeeff 0%, #b9dbff 48%, #d6efff 100%)",
+      "--bubble2-color-surface-card": "rgba(255, 255, 255, 0.36)",
+      "--bubble2-color-surface-feedback-neutral": "rgba(255, 255, 255, 0.42)",
+      "--bubble2-shadow-soft-1": "0 10px 36px rgba(95, 160, 255, 0.18)",
+      "--bubble2-shadow-soft-2": "0 16px 44px rgba(95, 160, 255, 0.24)",
+      "--bubble2-shadow-glow": "0 0 24px rgba(95, 160, 255, 0.38)"
+    },
+    "child": {
+      "--bubble2-color-bg-app": "linear-gradient(135deg, #f1f9ff 0%, #d9efff 50%, #e8f8ff 100%)",
+      "--bubble2-color-bg-header": "rgba(255, 255, 255, 0.34)",
+      "--bubble2-color-surface-card": "rgba(255, 255, 255, 0.42)",
+      "--bubble2-color-surface-feedback-warning": "rgba(255, 241, 118, 0.22)",
+      "--bubble2-color-surface-feedback-success": "rgba(165, 214, 167, 0.28)",
+      "--bubble2-shadow-soft-1": "0 8px 28px rgba(95, 160, 255, 0.13)",
+      "--bubble2-shadow-soft-2": "0 12px 34px rgba(95, 160, 255, 0.18)",
+      "--bubble2-shadow-glow": "0 0 16px rgba(95, 160, 255, 0.24)"
+    }
+  },
+  "componentMapping": {
+    "header.container": [
+      "--bubble2-color-bg-header",
+      "--bubble2-backdrop-filter",
+      "--bubble2-color-border-subtle",
+      "--bubble2-radius-lg",
+      "--bubble2-shadow-soft-1"
+    ],
+    "header.hamburger": [
+      "--bubble2-color-surface-card",
+      "--bubble2-color-border-subtle",
+      "--bubble2-radius-md"
+    ],
+    "header.title": [
+      "--bubble2-font-family",
+      "--bubble2-color-text-primary"
+    ],
+    "header.avatar": [
+      "--bubble2-radius-pill",
+      "--bubble2-shadow-glow"
+    ],
+    "taskCard.container": [
+      "--bubble2-color-surface-card",
+      "--bubble2-backdrop-filter",
+      "--bubble2-color-border-subtle",
+      "--bubble2-radius-xl",
+      "--bubble2-shadow-soft-1"
+    ],
+    "taskCard.label": [
+      "--bubble2-color-text-accent"
+    ],
+    "taskCard.text": [
+      "--bubble2-color-text-primary"
+    ],
+    "userBubble.container": [
+      "--bubble2-color-surface-user-bubble",
+      "--bubble2-radius-xl",
+      "--bubble2-radius-lg",
+      "--bubble2-shadow-soft-2",
+      "--bubble2-shadow-inner"
+    ],
+    "userBubble.text": [
+      "--bubble2-color-text-user-bubble"
+    ],
+    "feedback.container": [
+      "--bubble2-color-surface-feedback-neutral",
+      "--bubble2-backdrop-filter",
+      "--bubble2-color-border-subtle",
+      "--bubble2-radius-xl",
+      "--bubble2-shadow-soft-2"
+    ],
+    "feedback.warning": [
+      "--bubble2-color-surface-feedback-warning",
+      "--bubble2-color-border-warning",
+      "--bubble2-radius-lg"
+    ],
+    "feedback.correction": [
+      "--bubble2-color-surface-card",
+      "--bubble2-color-border-subtle",
+      "--bubble2-radius-md"
+    ],
+    "feedback.sayBlock": [
+      "--bubble2-color-surface-feedback-success",
+      "--bubble2-color-border-success",
+      "--bubble2-radius-lg"
+    ],
+    "feedback.saySpeaker": [
+      "--bubble2-radius-pill",
+      "--bubble2-shadow-soft-1"
+    ],
+    "audioButton": [
+      "--bubble2-color-surface-card",
+      "--bubble2-color-border-subtle",
+      "--bubble2-radius-pill"
+    ],
+    "bottomBar.container": [
+      "--bubble2-color-bg-header",
+      "--bubble2-backdrop-filter",
+      "--bubble2-color-border-subtle",
+      "--bubble2-radius-xl"
+    ],
+    "bottomBar.micButton": [
+      "--bubble2-color-button-mic-bg",
+      "--bubble2-radius-pill",
+      "--bubble2-shadow-glow",
+      "--bubble2-shadow-soft-1"
+    ],
+    "bottomBar.input": [
+      "--bubble2-color-surface-card",
+      "--bubble2-color-border-subtle",
+      "--bubble2-radius-pill",
+      "--bubble2-color-text-primary",
+      "--bubble2-color-text-secondary"
+    ],
+    "bottomBar.sendButton": [
+      "--bubble2-color-button-send-bg",
+      "--bubble2-radius-pill",
+      "--bubble2-color-button-send-text",
+      "--bubble2-shadow-soft-2",
+      "--bubble2-shadow-inner"
+    ]
+  },
+  "visualChecklist": [
+    "Контраст ключевых текстов и CTA соответствует WCAG AA на bubble- и card-поверхностях.",
+    "На ширине 375px и соседних мобильных ширинах тема не ломает текущий layout.",
+    "Полупрозрачные glass-слои остаются читаемыми на более тёмных подложках.",
+    "Hover, pressed, focus и disabled не вызывают layout shift и держатся на transform/opacity/box-shadow.",
+    "ARIA labels на основных действиях сохранены: меню, голосовой ввод, отправка, озвучивание."
+  ],
+  "optimizationRecommendations": [
+    "Держать backdrop-filter только на крупных glass-контейнерах и не дублировать его на каждом внутреннем элементе.",
+    "Для 60fps анимировать только transform, opacity и box-shadow умеренной сложности.",
+    "Новые bubble-темы добавлять через тот же слой `--bubble2-* -> generic chat vars`, не размножая hardcoded значения в JSX.",
+    "Если появятся новые screen-specific элементы, сначала привязывать их к generic theme vars, а потом к audience overrides."
+  ]
+}

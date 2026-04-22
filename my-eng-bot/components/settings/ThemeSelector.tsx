@@ -3,7 +3,7 @@
 import React from 'react'
 import { useTheme } from '@/contexts/ThemeContext'
 
-const THEMES: Array<{ id: 'basic' | 'futuristic'; name: string; description: string }> = [
+const THEMES: Array<{ id: 'basic' | 'futuristic' | 'bubble1' | 'bubble2'; name: string; description: string; glow?: boolean }> = [
   {
     id: 'basic',
     name: 'Basic',
@@ -13,6 +13,19 @@ const THEMES: Array<{ id: 'basic' | 'futuristic'; name: string; description: str
     id: 'futuristic',
     name: 'Futuristic',
     description: 'Градиенты, glass-эффект и выразительный акцент.',
+    glow: true,
+  },
+  {
+    id: 'bubble1',
+    name: 'Bubble1',
+    description: 'Пастельный glass-дизайн с мягкими карточками и единым стилем для всех аудиторий.',
+    glow: true,
+  },
+  {
+    id: 'bubble2',
+    name: 'Bubble2',
+    description: 'Liquid Glass / Glassmorphism 2026 с разными оттенками для ребёнка и взрослого.',
+    glow: true,
   },
 ]
 
@@ -33,7 +46,7 @@ export default function ThemeSelector() {
                 ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/10'
                 : 'border-[var(--border-subtle)] bg-[var(--bg-card)] hover:border-[var(--accent-color)]/50'
             }`}
-            style={themeOption.id === 'futuristic' && selected ? { boxShadow: 'var(--shadow-glow)' } : undefined}
+            style={themeOption.glow && selected ? { boxShadow: 'var(--shadow-glow)' } : undefined}
             aria-pressed={selected}
           >
             <p className="text-[15px] font-semibold text-[var(--text-primary)]">{themeOption.name}</p>

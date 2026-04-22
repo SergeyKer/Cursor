@@ -79,7 +79,7 @@ function speechLocaleForCommunication(
 }
 
 type BubblePosition = 'solo' | 'first' | 'middle' | 'last'
-type SectionTone = 'neutral' | 'amber' | 'emerald' | 'praise' | 'slate' | 'invite'
+type SectionTone = 'neutral' | 'amber' | 'emerald' | 'praise' | 'slate' | 'invite' | 'correction'
 type AssistantSection = {
   key: string
   tone: SectionTone
@@ -451,7 +451,7 @@ function buildAssistantSections(params: {
   if (translationErrorsText?.trim() && mode === 'translation') {
     sections.push({
       key: 'translation-errors',
-      tone: 'amber',
+      tone: 'correction',
       label: '',
       text: translationErrorsText.trim(),
       singleLine: false,
@@ -1539,8 +1539,7 @@ export default function Chat({
 
   /** Диалог и общение — MyEng; тренировка перевода — без изменений. */
   const isSearchingIndicatorEnglish = settings.mode === 'communication' && searchingInternetLang === 'en'
-  const sendButtonLabelShort = 'Send'
-  const sendButtonLabelLong =
+  const sendButtonAriaLabel =
     settings.mode === 'communication' && settings.communicationInputExpectedLang === 'en' ? 'Send' : 'Отправить'
   const typingIndicatorText =
     settings.mode === 'translation'
@@ -1555,7 +1554,10 @@ export default function Chat({
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
       <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
         <div className="mx-auto flex min-h-0 flex-1 w-full max-w-[29rem] flex-col">
-          <div className="flex min-h-0 flex-1 w-full flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] shadow-sm backdrop-blur-[2px]">
+          <div
+            className="glass-surface flex min-h-0 flex-1 w-full flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
+            style={{ boxShadow: 'var(--chat-shell-shadow)' }}
+          >
             <div
               ref={scrollContainerRef}
               className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3"
@@ -1687,7 +1689,7 @@ export default function Chat({
               {canShowTypingIndicator && messages.length > 0 && (
                 <div className="mt-1.5 flex justify-start">
                   <span
-                    className="rounded-xl border border-[var(--chat-section-neutral-border)] bg-[var(--chat-section-neutral)] px-3 py-2 text-[14px] italic text-[var(--text)] shadow-sm"
+                    className="chat-section-surface glass-surface rounded-xl border border-[var(--chat-section-neutral-border)] bg-[var(--chat-section-neutral)] px-3 py-2 text-[14px] italic text-[var(--text)]"
                     title={searchingInternet ? 'Поиск информации в интернете' : 'Ожидание ответа от ИИ'}
                   >
                     {typingIndicatorText}
@@ -1707,18 +1709,29 @@ export default function Chat({
               <form
                 ref={formRef}
                 onSubmit={handleSubmit}
-                className="flex w-full items-center gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1.5 shadow-sm sm:px-3"
+                className="glass-surface flex w-full items-center gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1.5 sm:px-3"
+                style={{ boxShadow: 'var(--chat-composer-shadow)' }}
               >
                 <button
                   type="button"
                   onClick={listening ? stopListening : startListening}
-                  className={`btn-3d flex h-11 min-h-[44px] shrink-0 items-center justify-center rounded-lg p-2.5 touch-manipulation transition-transform ${
+                  className={`chat-action-button chat-control-surface flex h-11 min-h-[44px] shrink-0 items-center justify-center rounded-full p-2.5 touch-manipulation ${
                     listening
-                      ? 'bg-[var(--chat-control-active-bg)] text-[var(--chat-control-active-text)]'
-                      : 'bg-[var(--chat-control-bg)] text-[var(--chat-control-text)] hover:bg-[var(--chat-control-hover)]'
+                      ? 'text-[var(--chat-control-active-text)]'
+                      : 'text-[var(--chat-control-text)]'
                   }`}
+                  style={{
+                    background: listening ? 'var(--chat-control-active-bg)' : 'var(--chat-control-bg)',
+                    boxShadow: listening ? 'var(--chat-control-shadow)' : undefined,
+                  }}
                   title={listening ? 'Остановить' : 'Голосовой ввод'}
                   aria-label={listening ? 'Остановить запись' : 'Голосовой ввод'}
+                  onMouseEnter={(e) => {
+                    if (!listening) e.currentTarget.style.background = 'var(--chat-control-hover)'
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!listening) e.currentTarget.style.background = 'var(--chat-control-bg)'
+                  }}
                 >
                   {listening ? (
                     <span className="h-5 w-5 rounded-full bg-[var(--chat-control-dot)] animate-pulse" />
@@ -1748,17 +1761,37 @@ export default function Chat({
                           : 'Ответ...'
                         : 'Reply...'
                   }
-                  className="min-w-0 flex-1 resize-none overflow-y-hidden rounded-[1rem] border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-3 py-2 min-h-[44px] text-[var(--text)] placeholder:text-[var(--text-muted)] text-base leading-[1.45rem] focus:outline-none focus:ring-0"
+                  aria-label={
+                    settings.mode === 'translation'
+                      ? 'Поле ввода перевода'
+                      : settings.mode === 'communication'
+                        ? 'Поле ввода ответа'
+                        : 'Поле ввода сообщения'
+                  }
+                  className="chat-input-field min-w-0 flex-1 resize-none overflow-y-hidden rounded-full border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-3 py-2 min-h-[44px] text-[var(--text)] placeholder:text-[var(--text-muted)] text-base leading-[1.45rem]"
                   style={{ maxHeight: INPUT_MAX_HEIGHT_PX }}
                 />
                 <button
                   type="submit"
                   disabled={!input.trim() || loading || atLimit}
-                  className="btn-3d inline-flex touch-manipulation items-center justify-center rounded-lg bg-[var(--accent-color)] px-3.5 py-1.5 min-h-[44px] font-medium text-[var(--accent-text)] hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:hover:bg-[var(--accent-color)]"
-                  aria-label={sendButtonLabelLong}
+                  className="chat-action-button chat-send-surface inline-flex h-12 w-12 touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)]"
+                  style={{ background: '#3B82F6' }}
+                  aria-label={sendButtonAriaLabel}
                 >
-                  <span className="sm:hidden">{sendButtonLabelShort}</span>
-                  <span className="hidden sm:inline">{sendButtonLabelLong}</span>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    className="h-5 w-5"
+                    fill="none"
+                  >
+                    <path
+                      d="M22 12L4 4V10L16 12L4 14V20L22 12Z"
+                      stroke="#FFFFFF"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                 </button>
               </form>
             </div>
@@ -2222,11 +2255,12 @@ function MessageBubble({
       className={`flex ${isUser ? 'justify-end' : 'justify-start'} ${rowSpacingClass}`}
     >
       <div
-        className={`relative flex min-w-0 max-w-[90%] flex-col px-3 py-2 text-[15px] leading-[1.45] shadow-sm ${radius} ${
+        className={`relative flex min-w-0 max-w-[90%] flex-col px-3 py-2 text-[15px] leading-[1.45] ${radius} ${
           isUser
-            ? 'border border-[var(--chat-user-bubble-border)] bg-[var(--chat-user-bubble)] text-[var(--chat-user-text)]'
-            : 'border border-[var(--chat-assistant-border)] bg-[var(--chat-assistant-shell)] text-[var(--text)] backdrop-blur-[2px]'
+            ? 'chat-user-surface border border-[var(--chat-user-bubble-border)] text-[var(--chat-user-text)]'
+            : 'chat-assistant-surface glass-surface border border-[var(--chat-assistant-border)] bg-[var(--chat-assistant-shell)] text-[var(--text)]'
         }`}
+        style={isUser ? { background: 'var(--chat-user-bubble)' } : undefined}
       >
         {isUser ? (
           <>
@@ -2261,8 +2295,9 @@ function MessageBubble({
                   <button
                     type="button"
                     onClick={handleSpeak}
-                    className="btn-3d-subtle flex w-fit items-center justify-center gap-1 rounded-full border border-[var(--border)] bg-[var(--bubble-ai-bg)]/80 px-2.5 py-0.5 text-xs text-[var(--text-muted)] hover:bg-[var(--bubble-ai-bg)] hover:text-[var(--text)]"
+                    className="chat-action-button flex w-fit items-center justify-center gap-1 rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] px-2.5 py-0.5 text-xs text-[var(--chat-speaker-text)]"
                     title="Озвучить"
+                    aria-label="Озвучить сообщение"
                   >
                     <SpeakerIcon /> Озвучить
                   </button>
@@ -2271,8 +2306,9 @@ function MessageBubble({
                   <button
                     type="button"
                     onClick={() => setShowTranslation((v) => !v)}
-                    className="btn-3d-subtle flex w-fit items-center justify-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bubble-ai-bg)]/80 px-2.5 py-0.5 text-xs text-[var(--text-muted)] hover:bg-[var(--bubble-ai-bg)] hover:text-[var(--text)]"
+                    className="chat-action-button flex w-fit items-center justify-center gap-1.5 rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] px-2.5 py-0.5 text-xs text-[var(--chat-speaker-text)]"
                     title={showTranslation ? 'Скрыть перевод' : 'Показать перевод'}
+                    aria-label={showTranslation ? 'Скрыть перевод сообщения' : 'Показать перевод сообщения'}
                   >
                     {!showTranslation && (
                       <span
@@ -2288,7 +2324,7 @@ function MessageBubble({
               </div>
             )}
             {showWebSearchSources && (
-              <div className="mt-2 rounded-xl border border-[var(--chat-section-slate-border)] bg-[var(--chat-section-slate)] px-3 py-2 shadow-sm">
+              <div className="chat-section-surface glass-surface mt-2 rounded-xl border border-[var(--chat-section-slate-border)] bg-[var(--chat-section-slate)] px-3 py-2">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.05em] text-[var(--chat-source-label)]">
                   Источники
                 </p>
@@ -2427,6 +2463,8 @@ function SectionCard({
   const toneClass =
     tone === 'amber'
       ? 'border-[var(--chat-section-amber-border)] bg-[var(--chat-section-amber)]'
+      : tone === 'correction'
+        ? 'border-[var(--chat-section-correction-border)] bg-[var(--chat-section-correction)]'
       : tone === 'emerald'
         ? 'border-[var(--chat-section-emerald-border)] bg-[var(--chat-section-emerald)]'
         : tone === 'praise'
@@ -2440,6 +2478,8 @@ function SectionCard({
   const labelClass =
     tone === 'amber'
       ? 'text-[var(--status-warning-text)]'
+      : tone === 'correction'
+        ? 'text-[var(--chat-label-main)]'
       : tone === 'emerald'
         ? 'text-[var(--chat-speaker-text)]'
         : tone === 'praise'
@@ -2478,7 +2518,7 @@ function SectionCard({
 
   return (
     <section
-      className={`block min-w-0 w-full max-w-full self-stretch rounded-xl border shadow-sm ${
+      className={`chat-section-surface glass-surface block min-w-0 w-full max-w-full self-stretch rounded-xl border ${
         isCompactServiceLine ? 'px-2.5 py-1.5' : 'px-3 py-2'
       } ${
         singleLine ? 'flex items-start' : ''
@@ -2524,7 +2564,7 @@ function SectionCard({
             <button
               type="button"
               onClick={onSpeak}
-              className="ml-1 inline-flex h-6 w-6 translate-y-[1px] items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)] hover:bg-[var(--bubble-ai-bg)] hover:text-[var(--chat-speaker-text-hover)]"
+              className="chat-action-button ml-1 inline-flex h-6 w-6 translate-y-[1px] items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)]"
               title="Озвучить"
               aria-label="Озвучить"
             >

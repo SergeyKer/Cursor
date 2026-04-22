@@ -248,7 +248,14 @@ export default function MenuSectionPanels({
   const sentenceTypeLabel =
     SENTENCE_TYPES.find((t) => t.id === settings.sentenceType)?.label ?? settings.sentenceType
   const topicLabel = topicOptions.find((t) => t.id === settings.topic)?.label ?? settings.topic
-  const themeLabel = theme === 'futuristic' ? 'Futuristic' : 'Basic'
+  const themeLabel =
+    theme === 'futuristic'
+      ? 'Futuristic'
+      : theme === 'bubble1'
+        ? 'Bubble1'
+        : theme === 'bubble2'
+          ? 'Bubble2'
+          : 'Basic'
 
   const handleMenuBack = () => {
     if (menuView === 'lessons' && lessonsPanel !== 'summary') {
