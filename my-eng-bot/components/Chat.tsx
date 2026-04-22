@@ -1927,7 +1927,7 @@ export default function Chat({
                           ? 'Поле ввода ответа'
                           : 'Поле ввода сообщения'
                     }
-                    className={`chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-full border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-3 py-2 min-h-[44px] text-base leading-[1.45rem] ${
+                    className={`chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] ${
                       showVoiceOverlay
                         ? 'text-transparent caret-transparent placeholder:text-transparent'
                         : 'text-[var(--text)] placeholder:text-[var(--text-muted)]'

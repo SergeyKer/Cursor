@@ -19,7 +19,7 @@ export default function VoiceComposerOverlay({
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-full px-3 py-2 text-base leading-[1.45rem]"
+      className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-2xl px-4 py-2 text-base leading-[1.45rem]"
     >
       {renderSegment(draftBeforeVoiceText)}
       {draftBeforeVoiceText && (finalText || interimText) ? ' ' : null}
