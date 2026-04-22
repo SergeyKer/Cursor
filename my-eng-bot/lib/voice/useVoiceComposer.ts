@@ -55,20 +55,37 @@ export function buildVoiceDisplayText(params: {
   return appendVoiceText(withFinal, params.voiceInterimText)
 }
 
+function getSpeechRecognitionResultText(result: SpeechRecognitionResult | undefined): string {
+  return result?.[0]?.transcript?.trim() ?? ''
+}
+
 export function extractSpeechRecognitionTranscript(event: SpeechRecognitionEvent): {
   finalText: string
   interimText: string
 } {
   let finalText = ''
   let interimText = ''
+  const startIndex = Math.min(Math.max(event.resultIndex ?? 0, 0), event.results.length)
 
   for (let i = 0; i < event.results.length; i++) {
-    const text = event.results[i]?.[0]?.transcript?.trim() ?? ''
+    const result = event.results[i]
+    const text = getSpeechRecognitionResultText(result)
     if (!text) continue
-    if (event.results[i].isFinal) {
+    if (result.isFinal) {
       finalText = appendVoiceText(finalText, text)
-    } else {
-      interimText = appendVoiceText(interimText, text)
+      continue
+    }
+    if (i >= startIndex) {
+      interimText = text
+    }
+  }
+
+  if (!interimText) {
+    for (let i = event.results.length - 1; i >= 0; i--) {
+      const result = event.results[i]
+      if (result?.isFinal) continue
+      interimText = getSpeechRecognitionResultText(result)
+      if (interimText) break
     }
   }
 

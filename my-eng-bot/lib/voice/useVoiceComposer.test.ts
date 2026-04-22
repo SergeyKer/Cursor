@@ -7,6 +7,19 @@ import {
   voiceComposerReducer,
 } from './useVoiceComposer'
 
+function createSpeechRecognitionEvent(
+  results: Array<{ transcript: string; isFinal: boolean }>,
+  resultIndex = 0
+): SpeechRecognitionEvent {
+  return {
+    resultIndex,
+    results: results.map((result) => ({
+      0: { transcript: result.transcript },
+      isFinal: result.isFinal,
+    })),
+  } as unknown as SpeechRecognitionEvent
+}
+
 describe('useVoiceComposer helpers', () => {
   it('appends spoken text with a boundary space when needed', () => {
     expect(appendVoiceText('Hello', 'world')).toBe('Hello world')
@@ -25,12 +38,57 @@ describe('useVoiceComposer helpers', () => {
   })
 
   it('extracts final and interim transcript parts from speech results', () => {
-    const event = {
-      results: [
-        { 0: { transcript: 'hello' }, isFinal: true },
-        { 0: { transcript: 'world' }, isFinal: false },
+    const event = createSpeechRecognitionEvent([
+      { transcript: 'hello', isFinal: true },
+      { transcript: 'world', isFinal: false },
+    ])
+
+    expect(extractSpeechRecognitionTranscript(event)).toEqual({
+      finalText: 'hello',
+      interimText: 'world',
+    })
+  })
+
+  it('keeps only the latest interim hypothesis from changed results', () => {
+    const event = createSpeechRecognitionEvent(
+      [
+        { transcript: 'hello', isFinal: true },
+        { transcript: 'my family', isFinal: false },
+        { transcript: 'my family would like to talk', isFinal: false },
       ],
-    } as unknown as SpeechRecognitionEvent
+      1
+    )
+
+    expect(extractSpeechRecognitionTranscript(event)).toEqual({
+      finalText: 'hello',
+      interimText: 'my family would like to talk',
+    })
+  })
+
+  it('preserves accumulated final text when later indexes change', () => {
+    const event = createSpeechRecognitionEvent(
+      [
+        { transcript: 'hello', isFinal: true },
+        { transcript: 'dear world', isFinal: true },
+        { transcript: 'again', isFinal: false },
+      ],
+      2
+    )
+
+    expect(extractSpeechRecognitionTranscript(event)).toEqual({
+      finalText: 'hello dear world',
+      interimText: 'again',
+    })
+  })
+
+  it('falls back to the latest available interim when changed range has no interim text', () => {
+    const event = createSpeechRecognitionEvent(
+      [
+        { transcript: 'hello', isFinal: true },
+        { transcript: 'world', isFinal: false },
+      ],
+      2
+    )
 
     expect(extractSpeechRecognitionTranscript(event)).toEqual({
       finalText: 'hello',
@@ -60,7 +118,7 @@ describe('useVoiceComposer helpers', () => {
     expect(committed.voiceInterimText).toBe('')
   })
 
-  it('preserves draft text on voice errors', () => {
+  it('keeps the cleared draft state on voice errors', () => {
     const started = voiceComposerReducer(
       {
         ...initialVoiceComposerState,
@@ -74,7 +132,7 @@ describe('useVoiceComposer helpers', () => {
       statusMessage: 'Ошибка распознавания речи.',
     })
 
-    expect(failed.draftText).toBe('Keep me')
+    expect(failed.draftText).toBe('')
     expect(failed.voicePhase).toBe('error')
     expect(failed.statusMessage).toBe('Ошибка распознавания речи.')
   })
