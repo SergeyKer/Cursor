@@ -107,7 +107,7 @@ describe('POST /api/chat translation provider payload', () => {
     expect(systemPrompt).toContain('In SUCCESS protocol do NOT output separate "Время:", "Конструкция:", "Формы:" or "Скажи:" lines.')
   })
 
-  it('при наличии __TRAN__ в истории не дергает gold до основного вызова; finalize может запросить gold для скрытой строки', async () => {
+  it('при наличии __TRAN__ в истории не дергает лишний gold-вызов в success-flow finalize', async () => {
     callProviderChatMock
       .mockResolvedValueOnce({
         ok: true,
@@ -122,7 +122,6 @@ describe('POST /api/chat translation provider payload', () => {
           'Переведи на английский.',
         ].join('\n'),
       })
-      .mockResolvedValueOnce({ ok: true, content: 'I usually read books before bed.' })
 
     const req = makeRequest({
       mode: 'translation',
@@ -142,8 +141,8 @@ describe('POST /api/chat translation provider payload', () => {
 
     const res = await POST(req as never)
     expect(res.status).toBe(200)
-    // Основной вызов тьютора + короткий вызов за gold для __TRAN__ в finalize (после ensureTranslationSuccessBlocks «Формы» уже сняты).
-    expect(callProviderChatMock).toHaveBeenCalledTimes(2)
+    // В success-flow при наличии __TRAN__ из истории дополнительный gold-вызов не требуется.
+    expect(callProviderChatMock).toHaveBeenCalledTimes(1)
   })
 
   it('adds explicit RU→EN replacement hint in Ошибки for mixed answer words', async () => {

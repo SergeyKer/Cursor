@@ -102,16 +102,16 @@ const OPENAI_MODEL_OPTIONS: { id: OpenAiChatPreset; label: string }[] = [
 ]
 
 const MENU_GROUP_CLASS =
-  'overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_1px_4px_rgba(0,0,0,0.07)]'
+  'overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] shadow-[0_1px_4px_rgba(0,0,0,0.07)]'
 
 /** Вертикальный воздух вокруг карточек списков. */
 const MENU_GROUP_OUTER = 'py-1'
 
 export const FIELD_SELECT =
-  'w-full min-w-0 rounded border border-[var(--border)] bg-[var(--bg-card)] pl-2 py-1 min-h-[40px] text-[13px] leading-normal text-[var(--text)] touch-manipulation select-chevron'
+  'w-full min-w-0 rounded border border-[var(--border)] bg-[var(--menu-control-bg)] pl-2 py-1 min-h-[40px] text-[13px] leading-normal text-[var(--text)] touch-manipulation select-chevron'
 
 const MENU_VALUE_BOX =
-  'w-full min-w-0 rounded border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1 min-h-[40px] text-[15px] leading-normal text-[var(--text)] flex items-center justify-end'
+  'w-full min-w-0 rounded border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-1 min-h-[40px] text-[15px] leading-normal text-[var(--text)] flex items-center justify-end'
 
 export const MENU_FIELD_LABEL =
   'shrink-0 w-[6.3rem] text-[13px] font-medium leading-normal text-[var(--text-muted)] break-words'
@@ -501,7 +501,7 @@ export default function MenuSectionPanels({
             <button
               type="button"
               onClick={menuView === 'root' ? handleGoHome : handleMenuBack}
-              className="btn-3d-menu grid min-h-[44px] min-w-[6rem] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-0 rounded-lg border border-[var(--text)]/[0.18] bg-[var(--bg-card)] px-2 py-1.5 text-[13px] font-medium leading-normal text-[var(--text)] touch-manipulation focus-visible:outline-none"
+              className="btn-3d-menu grid min-h-[44px] min-w-[6rem] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-0 rounded-lg border border-[var(--text)]/[0.18] bg-[var(--menu-card-bg)] px-2 py-1.5 text-[13px] font-medium leading-normal text-[var(--text)] touch-manipulation focus-visible:outline-none"
               aria-label={
                 menuView === 'root'
                   ? 'На стартовый экран'
@@ -521,7 +521,7 @@ export default function MenuSectionPanels({
             <button
               type="button"
               onClick={handleGoHome}
-              className="btn-3d-menu flex h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-[var(--text)]/[0.18] bg-[var(--bg-card)] text-[var(--text)] touch-manipulation focus-visible:outline-none"
+              className="btn-3d-menu flex h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-[var(--text)]/[0.18] bg-[var(--menu-card-bg)] text-[var(--text)] touch-manipulation focus-visible:outline-none"
               aria-label="На стартовый экран"
               title="Стартовая страница"
             >
@@ -631,7 +631,7 @@ export default function MenuSectionPanels({
               <>
                 {tutorStep === 'input' && (
                 <div className={MENU_GROUP_OUTER}>
-                  <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
                     <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">
                       Загрузите фото, и MyEng подскажет, что на изображении и что учить дальше.
                     </p>
@@ -639,14 +639,14 @@ export default function MenuSectionPanels({
                       <button
                         type="button"
                         onClick={() => uploadInputRef.current?.click()}
-                        className="btn-3d-menu flex-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[13px] font-medium text-[var(--text)]"
+                        className="btn-3d-menu flex-1 rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[13px] font-medium text-[var(--text)]"
                       >
                         Загрузить фото
                       </button>
                       <button
                         type="button"
                         onClick={() => cameraInputRef.current?.click()}
-                        className="btn-3d-menu flex-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[13px] font-medium text-[var(--text)]"
+                        className="btn-3d-menu flex-1 rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[13px] font-medium text-[var(--text)]"
                       >
                         Сделать фото
                       </button>
@@ -670,7 +670,7 @@ export default function MenuSectionPanels({
                           void handleTutorAnalyze()
                         }}
                         placeholder="Например: has, to be, Present Simple"
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[14px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[14px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
                       />
                     </div>
                     <input
@@ -717,11 +717,11 @@ export default function MenuSectionPanels({
 
                 {tutorStep === 'select' && tutorSuggestedTopics.length > 0 && (
                   <div className={MENU_GROUP_OUTER}>
-                    <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                    <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
                       <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">
                         Выберите тему и нажмите «Начать».
                       </p>
-                      <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] p-2">
+                      <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] p-2">
                         {tutorSuggestedTopics.map((topic) => (
                           <button
                             key={topic}
@@ -787,7 +787,7 @@ export default function MenuSectionPanels({
                 {tutorResult && (
                   <>
                     <div className={MENU_GROUP_OUTER}>
-                      <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                      <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
                         <h3 className="text-[15px] font-semibold text-[var(--text)]">Что вижу</h3>
                         <p className="text-[14px] leading-relaxed text-[var(--text)]">{tutorResult.whatISee.summaryRu}</p>
                         {tutorResult.whatISee.objects.length > 0 && (
@@ -800,7 +800,7 @@ export default function MenuSectionPanels({
                       </div>
                     </div>
                     <div className={MENU_GROUP_OUTER}>
-                      <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                      <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
                         <h3 className="text-[15px] font-semibold text-[var(--text)]">Что учить</h3>
                         {tutorResult.whatToLearn.focus.map((focus, idx) => (
                           <p key={`focus-${idx}`} className="text-[13px] leading-relaxed text-[var(--text)]">

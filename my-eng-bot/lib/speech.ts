@@ -44,6 +44,11 @@ function speakOnce(
   runSpeak()
 }
 
+function isAndroidBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /Android/i.test(navigator.userAgent)
+}
+
 /**
  * TTS: воспроизведение текста выбранным голосом.
  * На Android и iOS игнорирует voiceId и использует системный голос.
@@ -56,9 +61,24 @@ export function speak(text: string, voiceId: string): void {
 
   const synth = window.speechSynthesis
   const allowCustomVoice = true
+  const androidBrowser = isAndroidBrowser()
 
-  synth.cancel()
+  // На Android cancel() перед каждым speak() может прервать и следующий utterance.
+  // Поэтому отменяем только когда очередь реально занята.
+  if (!androidBrowser || synth.speaking || synth.pending) {
+    synth.cancel()
+  }
   speakOnce(synth, normalized, voiceId, allowCustomVoice)
+
+  // На части Android-устройств первый запуск "молчит" без явной ошибки.
+  // Повторяем один раз с системным голосом.
+  if (androidBrowser) {
+    window.setTimeout(() => {
+      if (!synth.speaking && !synth.pending) {
+        speakOnce(synth, normalized, '', false)
+      }
+    }, 180)
+  }
 
   // Safari/Chromium иногда отдают голоса не сразу. Делаем один авто-ретрай.
   if (synth.getVoices().length === 0) {

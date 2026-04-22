@@ -67,6 +67,16 @@ describe('reconcileTranslationSayWithHiddenRef', () => {
     expect(reconcileTranslationSayWithHiddenRef(card, 'Дальше.')).toBe(card)
   })
 
+  it('не трогает карточку без строки Скажи даже при наличии ошибки и hidden ref', () => {
+    const card = [
+      'Комментарий_перевод: Исправь время.',
+      'Ошибки:',
+      '🔤 Нужен Present Simple.',
+      `${TRAN_CANONICAL_REPEAT_REF_MARKER}: I cook in the kitchen.`,
+    ].join('\n')
+    expect(reconcileTranslationSayWithHiddenRef(card, 'Я готовлю на кухне.')).toBe(card)
+  })
+
   it('restores canonical Say when user-like drift changes I -> we', () => {
     const hidden = 'I cook in the kitchen.'
     const card = errorCard('We cook in the kitchen.', hidden)

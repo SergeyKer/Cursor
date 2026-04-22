@@ -251,6 +251,15 @@ describe('POST /api/chat translation state retention', () => {
           'Скажи: I sweem in the kitchen.',
         ].join('\n'),
       })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: [
+          'Комментарий_перевод: Исправь смысл фразы.',
+          'Ошибки:',
+          '🔤 Нужен вариант из задания.',
+          'Скажи: I cook in the kitchen.',
+        ].join('\n'),
+      })
       .mockResolvedValueOnce({ ok: true, content: 'I cook in the kitchen.' })
 
     const base = {
@@ -391,15 +400,29 @@ describe('POST /api/chat translation state retention', () => {
   })
 
   it('keeps canonical tense/time frame when model drifts answer to tomorrow', async () => {
-    callProviderChatMock.mockResolvedValueOnce({
-      ok: true,
-      content: [
-        'Комментарий_перевод: Время не совпадает с заданием.',
-        'Ошибки:',
-        '🔤 Ты сместил время на завтра.',
-        'Скажи: I will cook in the kitchen tomorrow.',
-      ].join('\n'),
-    })
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: [
+          'Комментарий_перевод: Время не совпадает с заданием.',
+          'Ошибки:',
+          '🔤 Ты сместил время на завтра.',
+          'Скажи: I will cook in the kitchen tomorrow.',
+        ].join('\n'),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: [
+          'Комментарий_перевод: Время не совпадает с заданием.',
+          'Ошибки:',
+          '🔤 Нужен Present Simple.',
+          'Скажи: I cook in the kitchen.',
+        ].join('\n'),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'I cook in the kitchen.',
+      })
 
     const req = makeRequest({
       mode: 'translation',
@@ -457,6 +480,41 @@ describe('POST /api/chat translation state retention', () => {
     expect(res.status).toBe(200)
     expect(data.content).toContain('Скажи: I cook in the kitchen.')
     expect(data.content).not.toContain('Скажи: I cooked in the kitchen yesterday.')
+    expect(data.content).not.toContain('Переведи далее:')
+  })
+
+  it('keeps canonical present simple when model drifts Say into present continuous', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: [
+        'Комментарий_перевод: Нужен Present Simple.',
+        'Ошибки:',
+        '🔤 Сейчас форма Continuous здесь лишняя.',
+        'Скажи: I am cooking lunch for my family.',
+      ].join('\n'),
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      sentenceType: 'affirmative',
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'Переведи: Я готовлю обед для своей семьи.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I cook lunch for my family.',
+        },
+        { role: 'user', content: 'I am cooking lunch for my family.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Скажи: I cook lunch for my family.')
+    expect(data.content).not.toContain('Скажи: I am cooking lunch for my family.')
     expect(data.content).not.toContain('Переведи далее:')
   })
 })

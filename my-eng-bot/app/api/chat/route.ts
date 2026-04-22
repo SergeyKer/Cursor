@@ -4088,6 +4088,7 @@ async function finalizeTranslationResponsePayload(params: {
   activeTaskId?: string | null
   level: LevelId
   audience: Audience
+  requiredTense?: string | null
   provider: Provider
   req: NextRequest
   resolveGoldTranslation?: ResolveGoldTranslation
@@ -4101,6 +4102,12 @@ async function finalizeTranslationResponsePayload(params: {
   }
   const pureTranslationSuccess = isTranslationFinalizePureSuccess(guardedContent)
   const compactJunkPayload = isTranslationCompactJunkPayload(guardedContent)
+  const hasVisibleSayLine = Boolean(getTranslationRepeatSentence(guardedContent)?.trim())
+  const hasTranslationErrorLikeMarkers =
+    /(?:^|\n)\s*(?:Комментарий_перевод|Комментарий_мусор|Ошибки)\s*:/im.test(guardedContent)
+  const shouldRetainCanonicalForSayCard =
+    !pureTranslationSuccess &&
+    (hasVisibleSayLine || hasTranslationErrorLikeMarkers || compactJunkPayload)
   if (!pureTranslationSuccess && getTranslationRepeatSentence(guardedContent)) {
     guardedContent = stripTranslationInvitationLines(guardedContent)
   }
@@ -4160,6 +4167,8 @@ async function finalizeTranslationResponsePayload(params: {
   }
   const lineMatchesCurrentRu = (line: string): boolean => {
     if (!ruForRefCard?.trim()) return false
+    const requiredTense = params.requiredTense?.trim() ?? ''
+    if (requiredTense && !isUserLikelyCorrectForTense(line, requiredTense)) return false
     if (!hasTranslationPromptKeywordMismatch(ruForRefCard, line)) return true
     return hasWeekendConceptInRuPrompt(ruForRefCard) && /\bweekends?\b/i.test(line)
   }
@@ -4190,7 +4199,12 @@ async function finalizeTranslationResponsePayload(params: {
       }
     }
   }
-  if (!hasLockedCanonicalForTask && ruForRefCard?.trim() && isTranslationGoldApiFallbackEnabled()) {
+  if (
+    shouldRetainCanonicalForSayCard &&
+    !hasLockedCanonicalForTask &&
+    ruForRefCard?.trim() &&
+    isTranslationGoldApiFallbackEnabled()
+  ) {
     const visibleSay = getTranslationRepeatSentence(guardedContent)?.trim() ?? ''
     const visibleMismatch =
       Boolean(visibleSay) && hasTranslationPromptKeywordMismatch(ruForRefCard, visibleSay)
@@ -4314,6 +4328,7 @@ async function finalizeTranslationResponsePayload(params: {
     }
   }
   if (
+    shouldRetainCanonicalForSayCard &&
     !hasLockedCanonicalForTask &&
     isTranslationSinglePassGoldEnabled() &&
     ruForRefCard?.trim() &&
@@ -4325,10 +4340,15 @@ async function finalizeTranslationResponsePayload(params: {
       console.info('[chat][translation-gold] ref_from_content_cue')
     }
   }
-  if (!hasLockedCanonicalForTask && ruForRefCard && !hasTranRepeatMarker()) {
+  if (shouldRetainCanonicalForSayCard && !hasLockedCanonicalForTask && ruForRefCard && !hasTranRepeatMarker()) {
     guardedContent = appendTranslationCanonicalRepeatRefLine(guardedContent, ruForRefCard)
   }
-  if (!hasLockedCanonicalForTask && ruForRefCard?.trim() && !hasTranRepeatMarker()) {
+  if (
+    shouldRetainCanonicalForSayCard &&
+    !hasLockedCanonicalForTask &&
+    ruForRefCard?.trim() &&
+    !hasTranRepeatMarker()
+  ) {
     const fromSay = getTranslationRepeatSentence(guardedContent)
     if (fromSay?.trim() && lineMatchesCurrentRu(fromSay)) {
       const line = normalizeTranslationCanonicalGold({
@@ -4341,7 +4361,12 @@ async function finalizeTranslationResponsePayload(params: {
       }
     }
   }
-  if (!hasLockedCanonicalForTask && ruForRefCard?.trim() && !hasTranRepeatMarker()) {
+  if (
+    shouldRetainCanonicalForSayCard &&
+    !hasLockedCanonicalForTask &&
+    ruForRefCard?.trim() &&
+    !hasTranRepeatMarker()
+  ) {
     const cue = extractEnglishSentenceCandidate(guardedContent)
     if (cue?.trim() && lineMatchesCurrentRu(cue)) {
       const line = normalizeTranslationCanonicalGold({
@@ -4354,7 +4379,12 @@ async function finalizeTranslationResponsePayload(params: {
       }
     }
   }
-  if (!hasLockedCanonicalForTask && ruForRefCard?.trim() && !hasTranRepeatMarker()) {
+  if (
+    shouldRetainCanonicalForSayCard &&
+    !hasLockedCanonicalForTask &&
+    ruForRefCard?.trim() &&
+    !hasTranRepeatMarker()
+  ) {
     const fallbackCandidates = [
       params.canonicalGoldForTask?.trim() ?? '',
       priorRepeatForEnforce?.trim() ?? '',
@@ -4371,7 +4401,37 @@ async function finalizeTranslationResponsePayload(params: {
       break
     }
   }
-  if (!hasLockedCanonicalForTask && ruForRefCard?.trim() && !hasTranRepeatMarker()) {
+  if (
+    shouldRetainCanonicalForSayCard &&
+    !hasLockedCanonicalForTask &&
+    ruForRefCard?.trim() &&
+    !hasTranRepeatMarker()
+  ) {
+    const emergencyCandidates = [
+      lockedCanonicalGold,
+      priorRepeatForEnforce?.trim() ?? '',
+      params.canonicalGoldForTask?.trim() ?? '',
+    ]
+    for (const candidate of emergencyCandidates) {
+      if (!candidate) continue
+      const line = normalizeTranslationCanonicalGold({
+        goldEnglish: candidate,
+        ruPrompt: ruForRefCard,
+      })
+      if (!line) continue
+      const requiredTense = params.requiredTense?.trim() ?? ''
+      if (requiredTense && !isUserLikelyCorrectForTense(line, requiredTense)) continue
+      guardedContent = `${guardedContent.trim()}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${line}`
+      console.info('[chat][translation-gold] ref_from_emergency_fallback')
+      break
+    }
+  }
+  if (
+    shouldRetainCanonicalForSayCard &&
+    !hasLockedCanonicalForTask &&
+    ruForRefCard?.trim() &&
+    !hasTranRepeatMarker()
+  ) {
     console.error('[chat][translation-gold] ref_invariant_failed', { ru: ruForRefCard.slice(0, 80) })
   }
   if (lockedCanonicalGold && !pureTranslationSuccess) {
@@ -4384,7 +4444,9 @@ async function finalizeTranslationResponsePayload(params: {
     }
   }
   guardedContent = ensureErrorProtocolHasSayFromCanonicalRef(guardedContent)
-  guardedContent = reconcileTranslationSayWithHiddenRef(guardedContent, ruForRefCard)
+  if (shouldRetainCanonicalForSayCard) {
+    guardedContent = reconcileTranslationSayWithHiddenRef(guardedContent, ruForRefCard)
+  }
   if (params.activeTaskId?.trim() && !pureTranslationSuccess) {
     console.info('[chat][translation-cycle]', {
       activeTaskId: params.activeTaskId,
@@ -4732,7 +4794,9 @@ function ensureErrorProtocolHasSayFromCanonicalRef(content: string): string {
   if (!repeatBody) return content
 
   // В error-протоколе «Скажи» всегда должен быть ровно из канонического ref.
-  return replaceTranslationRepeatInContent(trimmed, repeatBody)
+  const replaced = replaceTranslationRepeatInContent(trimmed, repeatBody)
+  if (replaced !== trimmed) return replaced
+  return `${trimmed}\nСкажи: ${repeatBody}`.trim()
 }
 
 function ensureTranslationRepeatFallbackForMixedInput(content: string, _userText: string): string {
@@ -8474,6 +8538,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 activeTaskId: translationActiveTaskId,
                 level: translationDrillLevel as LevelId,
                 audience: audience as Audience,
+                requiredTense: tutorGradingTense,
                 provider,
                 req,
                 resolveGoldTranslation,
@@ -8739,6 +8804,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         activeTaskId: translationActiveTaskId,
         level: translationDrillLevel as LevelId,
         audience: audience as Audience,
+        requiredTense: tutorGradingTense,
         provider,
         req,
         resolveGoldTranslation,

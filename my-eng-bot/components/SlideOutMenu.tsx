@@ -70,7 +70,7 @@ export default function SlideOutMenu({
         <button
           type="button"
           onClick={onToggle}
-          className="btn-3d-menu fixed z-[60] flex h-14 w-14 min-w-[44px] min-h-[44px] items-center justify-center rounded-r-lg border border-l-0 border-[var(--border)] bg-[var(--bg)] text-[var(--text)] touch-manipulation left-0 top-0"
+          className="btn-3d-menu fixed z-[60] flex h-14 w-14 min-w-[44px] min-h-[44px] items-center justify-center rounded-r-lg border border-l-0 border-[var(--border)] bg-[var(--menu-panel-bg)] text-[var(--text)] touch-manipulation left-0 top-0"
           style={{ marginLeft: 'env(safe-area-inset-left)', marginTop: 'env(safe-area-inset-top)' }}
           aria-label={open ? 'Закрыть меню' : 'Открыть меню'}
           title={open ? 'Закрыть меню' : 'Открыть меню'}
@@ -80,19 +80,24 @@ export default function SlideOutMenu({
       )}
 
       <div
-        className={`fixed inset-0 z-40 bg-black/20 transition-opacity duration-200 ${
+        className={`fixed left-0 right-0 bottom-0 z-40 bg-black/20 transition-opacity duration-200 ${
           open ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
+        style={{ top: 'calc(2.75rem + env(safe-area-inset-top, 0px))' }}
         aria-hidden
         onClick={onToggle}
       />
       <aside
-        className={`fixed left-0 top-0 z-50 h-full w-80 max-w-[85vw] border-r border-[var(--border)] bg-[var(--bg)] shadow-lg transition-transform duration-200 ease-out ${
+        className={`fixed left-0 z-50 w-80 max-w-[85vw] border-r border-[var(--border)] bg-[var(--menu-panel-bg)] shadow-lg transition-transform duration-200 ease-out ${
           open ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none'
         }`}
+        style={{
+          top: 'calc(2.75rem + env(safe-area-inset-top, 0px))',
+          height: 'calc(100dvh - (2.75rem + env(safe-area-inset-top, 0px)))',
+        }}
         aria-label="Меню"
       >
-        <div className="flex h-full flex-col px-3 pb-3 pt-[max(4rem,calc(env(safe-area-inset-top)+3rem))]">
+        <div className="flex h-full flex-col px-3 pb-3 pt-3">
           {onNewDialog && (
             <button
               type="button"

@@ -71,6 +71,9 @@
   --chat-section-slate: #f4f7fb;
   /* Фон карточки меню на главной (изолирован от выдвижного меню). */
   --home-menu-bg: #e4f2fe;
+  --menu-panel-bg: #f3f4f6;
+  --menu-card-bg: #f9fafb;
+  --menu-control-bg: #f3f4f6;
   --chat-shell-bg: rgba(255, 255, 255, 0.28);
   --chat-shell-border: rgba(255, 255, 255, 0.55);
   --chat-composer-bg: rgba(255, 255, 255, 0.9);
@@ -157,6 +160,9 @@ html[data-theme='futuristic'] {
   --chat-section-slate: rgba(241, 245, 249, 0.8);
   --chat-label-praise: #2f4f4f;
   --home-menu-bg: rgba(228, 242, 254, 0.72);
+  --menu-panel-bg: #eef4ff;
+  --menu-card-bg: #ffffff;
+  --menu-control-bg: #f7faff;
   --chat-shell-bg: rgba(255, 255, 255, 0.32);
   --chat-shell-border: rgba(255, 255, 255, 0.45);
   --chat-composer-bg: rgba(255, 255, 255, 0.72);

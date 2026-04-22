@@ -278,10 +278,12 @@ export function stripTranslationCanonicalRepeatRefLine(content: string): string 
 export function isTranslationErrorProtocolForSayReconcile(content: string): boolean {
   const t = content.trim()
   if (!t) return false
+  const hasSay = /(^|\n)\s*(?:Скажи|Say)\s*:/im.test(t)
+  if (!hasSay) return false
   if (/(^|\n)\s*Ошибки\s*:/im.test(t)) return true
   if (/(^|\n)\s*Комментарий_перевод\s*:/im.test(t)) return true
-  if (/(^|\n)\s*(?:Скажи|Say)\s*:/im.test(t)) return true
-  return false
+  if (/(^|\n)\s*Комментарий_мусор\s*:/im.test(t)) return true
+  return hasSay
 }
 
 /** Одна финальная строка скрытого эталона (без дублей маркера). */
