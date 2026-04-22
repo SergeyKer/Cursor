@@ -1781,13 +1781,13 @@ export default function Chat({
                   <svg
                     aria-hidden="true"
                     viewBox="0 0 24 24"
-                    className="h-5 w-5"
+                    className="h-7 w-7"
                     fill="none"
                   >
                     <path
-                      d="M22 12L4 4V10L16 12L4 14V20L22 12Z"
+                      d="M21.4 11.6C21.7 11.8 21.7 12.2 21.4 12.4L5.9 19.4C5.2 19.7 4.4 19.2 4.5 18.4L5.3 14.2C5.4 13.9 5.6 13.6 5.9 13.5L12.8 12L5.9 10.5C5.6 10.4 5.4 10.1 5.3 9.8L4.5 5.6C4.4 4.8 5.2 4.3 5.9 4.6L21.4 11.6Z"
                       stroke="#FFFFFF"
-                      strokeWidth="2"
+                      strokeWidth="1.6"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     />
