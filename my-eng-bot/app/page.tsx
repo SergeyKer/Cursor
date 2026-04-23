@@ -307,9 +307,12 @@ export default function Home() {
   /** Не показывать баннер «настройки изменены» сразу после автоперезапуска из меню (до синхронизации с отправкой). */
   const suppressSettingsChangeBannerRef = React.useRef(false)
   const headerRef = React.useRef<HTMLElement | null>(null)
+  /** iPhone / iPad / iPod и iPadOS с десктопным UA (Macintosh + Mobile). */
   const isIosClient = React.useMemo(() => {
     if (typeof navigator === 'undefined') return false
-    return /iPhone|iPad|iPod/i.test(navigator.userAgent)
+    const ua = navigator.userAgent
+    if (/iPhone|iPad|iPod/i.test(ua)) return true
+    return /Macintosh/i.test(ua) && /Mobile/i.test(ua)
   }, [])
 
   function normalizeSettingsForAudience(s: Settings): Settings {
@@ -1377,12 +1380,11 @@ export default function Home() {
     '--app-top-offset': appTopOffset,
   } as React.CSSProperties
 
+  const rootShellClass =
+    'flex min-h-[100dvh] flex-col ' + (isIosClient ? 'h-full' : 'h-[100dvh]')
+
   return (
-    <div
-      data-audience={settings.audience}
-      className="flex h-full min-h-[100dvh] flex-col"
-      style={appLayoutVars}
-    >
+    <div data-audience={settings.audience} className={rootShellClass} style={appLayoutVars}>
       <header
         ref={headerRef}
         className="app-header-surface fixed left-0 right-0 top-0 z-[60] border-b border-[var(--app-header-border)]"
