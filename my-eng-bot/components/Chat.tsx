@@ -19,7 +19,7 @@ import {
   stripLeadingBulbEmojisForPrefixedCard,
 } from '@/lib/normalizeCommentBulbEmoji'
 import { speak } from '@/lib/speech'
-import { pickRecordingMimeType, shouldUseMediaRecorderFallback, sttLangFromLocale } from '@/lib/sttClient'
+import { isIosChromeBrowser, pickRecordingMimeType, shouldUseMediaRecorderFallback, sttLangFromLocale } from '@/lib/sttClient'
 import { normalizeWebSearchSourceUrl } from '@/lib/openAiWebSearchShared'
 import type { ChatMessage as ChatMessageType, Settings } from '@/lib/types'
 import { stripWrappingQuotesFromDrillRussianLine } from '@/lib/extractSingleTranslationNextSentence'
@@ -1149,7 +1149,9 @@ export default function Chat({
 
     const LISTENING_MAX_MS = 25_000
     const BROWSER_SILENCE_MS = 1_200
+    const IOS_CHROME_EARLY_EMPTY_MS = 1_200
     const MEDIA_FALLBACK_MAX_MS = settings.mode === 'communication' ? 12_000 : 15_000
+    const isIosChrome = isIosChromeBrowser(window.navigator.userAgent)
     const SpeechRecognitionAPI =
       (window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
       (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
@@ -1285,8 +1287,11 @@ export default function Chat({
       rec.interimResults = true
       let latestFinalText = ''
       let latestInterimText = ''
+      let hasSpeechResult = false
+      let recognitionStartedAtMs = 0
       let timedOut = false
       let fellBackToRecorder = false
+      let didAttemptEarlyFallback = false
       let safetyTimeoutId: number | null = null
       let silenceTimeoutId: number | null = null
 
@@ -1314,7 +1319,26 @@ export default function Chat({
         }
       }
 
+      const startEarlyFallback = (reason: 'end' | 'aborted' | 'no-speech'): boolean => {
+        if (!isIosChrome || didAttemptEarlyFallback || fellBackToRecorder) return false
+        const resolvedText = chooseFinalSpeechText(latestFinalText, latestInterimText)
+        if (resolvedText) return false
+        const elapsedMs = recognitionStartedAtMs > 0 ? Date.now() - recognitionStartedAtMs : Number.POSITIVE_INFINITY
+        if (elapsedMs > IOS_CHROME_EARLY_EMPTY_MS || hasSpeechResult) return false
+        didAttemptEarlyFallback = true
+        fellBackToRecorder = true
+        updateVoiceTranscript('', '')
+        setVoiceStatusMessage(
+          reason === 'end'
+            ? 'Переключаюсь на резервное распознавание...'
+            : 'Не удалось начать распознавание. Переключаюсь на резервное...'
+        )
+        void startMediaRecorderFallback(sttLangForApi)
+        return true
+      }
+
       rec.addEventListener('start', () => {
+        recognitionStartedAtMs = Date.now()
         setListening(true)
         clearSafetyTimeout()
         clearSilenceTimeout()
@@ -1330,6 +1354,9 @@ export default function Chat({
         const { finalText, interimText } = extractSpeechRecognitionTranscript(event)
         latestFinalText = finalText
         latestInterimText = interimText
+        if (finalText || interimText) {
+          hasSpeechResult = true
+        }
         updateVoiceTranscript(finalText, interimText)
         clearSilenceTimeout()
         silenceTimeoutId = window.setTimeout(() => {
@@ -1345,6 +1372,7 @@ export default function Chat({
         }
         setListening(false)
         if (fellBackToRecorder) return
+        if (startEarlyFallback('end')) return
         const resolvedFinalText = chooseFinalSpeechText(latestFinalText, latestInterimText)
         const correctedFinalText = applyTypoFixes(resolvedFinalText)
         if (correctedFinalText) {
@@ -1371,6 +1399,7 @@ export default function Chat({
             recognitionRef.current = null
           }
           setListening(false)
+          if (startEarlyFallback('aborted')) return
           finishVoiceSession()
           return
         }
@@ -1388,6 +1417,7 @@ export default function Chat({
         }
 
         if (/no-speech/i.test(code)) {
+          if (startEarlyFallback('no-speech')) return
           failVoiceSession('[Речь не распознана. Скажите фразу ещё раз чуть громче.]')
         } else if (/not-allowed|permission/i.test(code)) {
           failVoiceSession('[Нет доступа к микрофону. Разрешите микрофон для этого сайта и попробуйте снова.]')

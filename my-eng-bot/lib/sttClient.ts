@@ -4,6 +4,13 @@ export function shouldUseMediaRecorderFallback(params: {
   return !params.hasSpeechRecognition
 }
 
+export function isIosChromeBrowser(userAgent: string): boolean {
+  const ua = userAgent ?? ''
+  const isIosDevice = /iPad|iPhone|iPod/i.test(ua) || (/Macintosh/i.test(ua) && /Mobile/i.test(ua))
+  const isCriOs = /CriOS\/\d+/i.test(ua)
+  return isIosDevice && isCriOs
+}
+
 export function sttLangFromLocale(locale: 'ru-RU' | 'en-US'): 'ru' | 'en' {
   return locale.startsWith('ru') ? 'ru' : 'en'
 }

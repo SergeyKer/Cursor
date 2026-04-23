@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pickRecordingMimeType, shouldUseMediaRecorderFallback, sttLangFromLocale } from './sttClient'
+import { isIosChromeBrowser, pickRecordingMimeType, shouldUseMediaRecorderFallback, sttLangFromLocale } from './sttClient'
 
 describe('sttClient', () => {
   it('uses fallback when speech recognition is unavailable', () => {
@@ -16,6 +16,30 @@ describe('sttClient', () => {
         hasSpeechRecognition: true,
       })
     ).toBe(false)
+  })
+
+  it('detects iOS Chrome user agent', () => {
+    const ua =
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/124.0.6367.73 Mobile/15E148 Safari/604.1'
+    expect(isIosChromeBrowser(ua)).toBe(true)
+  })
+
+  it('does not match iOS Safari user agent', () => {
+    const ua =
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1'
+    expect(isIosChromeBrowser(ua)).toBe(false)
+  })
+
+  it('does not match Android Chrome user agent', () => {
+    const ua =
+      'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36'
+    expect(isIosChromeBrowser(ua)).toBe(false)
+  })
+
+  it('does not match desktop Chrome user agent', () => {
+    const ua =
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+    expect(isIosChromeBrowser(ua)).toBe(false)
   })
 
   it('keeps browser speech path on desktop Chrome', () => {
