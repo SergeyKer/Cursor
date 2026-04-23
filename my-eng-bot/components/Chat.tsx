@@ -2099,8 +2099,8 @@ export default function Chat({
                       </span>
                       <div
                         aria-hidden="true"
-                        className={`pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-2xl font-sans text-base ${
-                          voiceWebMetricsActive ? 'voice-composer-web-metrics' : 'px-4 py-2 leading-[1.45rem]'
+                        className={`pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-2xl font-sans text-[14px] italic leading-snug ${
+                          voiceWebMetricsActive ? 'voice-composer-web-metrics' : 'px-4 py-2'
                         }`}
                         style={{
                           color:
