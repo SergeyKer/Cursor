@@ -1085,6 +1085,9 @@ export default function Chat({
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const mediaChunksRef = useRef<BlobPart[]>([])
   const mediaStopTimerRef = useRef<number | null>(null)
+  /** Остановка MediaRecorder по тишине (аналог BROWSER_SILENCE_MS для Safari Web Speech). */
+  const mediaSilenceRafRef = useRef<number | null>(null)
+  const mediaSilenceAudioContextRef = useRef<AudioContext | null>(null)
   /** Если `onstop` у MediaRecorder не сработал (редко на WebKit), принудительно освобождаем микрофон. */
   const mediaRecorderStopFallbackTimerRef = useRef<number | null>(null)
   /** Защита от "вечного finalizing": возвращаем клавиатурный ввод даже при сбое STT-цепочки. */
@@ -1096,6 +1099,15 @@ export default function Chat({
   const micActionActive = listening || voicePhase === 'finalizing'
 
   const releaseMediaRecorderResources = useCallback(() => {
+    if (mediaSilenceRafRef.current != null) {
+      window.cancelAnimationFrame(mediaSilenceRafRef.current)
+      mediaSilenceRafRef.current = null
+    }
+    if (mediaSilenceAudioContextRef.current) {
+      const ctx = mediaSilenceAudioContextRef.current
+      mediaSilenceAudioContextRef.current = null
+      void ctx.close()
+    }
     if (mediaStopTimerRef.current != null) {
       window.clearTimeout(mediaStopTimerRef.current)
       mediaStopTimerRef.current = null
@@ -1245,6 +1257,62 @@ export default function Chat({
 
         const timesliceMs = 100
         recorder.start(timesliceMs)
+
+        const AudioContextCtor =
+          window.AudioContext ??
+          (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+        if (AudioContextCtor) {
+          try {
+            const audioCtx = new AudioContextCtor()
+            mediaSilenceAudioContextRef.current = audioCtx
+            void audioCtx.resume()
+            const source = audioCtx.createMediaStreamSource(stream)
+            const analyser = audioCtx.createAnalyser()
+            analyser.fftSize = 1024
+            analyser.smoothingTimeConstant = 0.5
+            source.connect(analyser)
+            const timeData = new Uint8Array(analyser.fftSize)
+            let lastSpeechAt = performance.now()
+            let hasHeardSpeech = false
+            const silenceWarmupUntilMs = performance.now() + 450
+            const silenceRmsThreshold = 0.024
+
+            const silenceTick = () => {
+              if (mediaRecorderRef.current !== recorder || recorder.state === 'inactive') {
+                mediaSilenceRafRef.current = null
+                return
+              }
+              analyser.getByteTimeDomainData(timeData)
+              let sumSq = 0
+              for (let i = 0; i < timeData.length; i++) {
+                const x = (timeData[i]! - 128) / 128
+                sumSq += x * x
+              }
+              const rms = Math.sqrt(sumSq / timeData.length)
+              const now = performance.now()
+
+              if (rms >= silenceRmsThreshold && now >= silenceWarmupUntilMs) {
+                hasHeardSpeech = true
+                lastSpeechAt = now
+              }
+
+              if (hasHeardSpeech && now - lastSpeechAt >= BROWSER_SILENCE_MS) {
+                if (mediaRecorderRef.current === recorder && recorder.state !== 'inactive') {
+                  beginVoiceFinalizing('Распознаю речь...')
+                  recorder.stop()
+                }
+                mediaSilenceRafRef.current = null
+                return
+              }
+
+              mediaSilenceRafRef.current = window.requestAnimationFrame(silenceTick)
+            }
+            mediaSilenceRafRef.current = window.requestAnimationFrame(silenceTick)
+          } catch {
+            // без VAD по тишине остаётся только лимит MEDIA_FALLBACK_MAX_MS
+          }
+        }
+
         mediaStopTimerRef.current = window.setTimeout(() => {
           if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
             beginVoiceFinalizing('Распознаю речь...')
@@ -1570,7 +1638,7 @@ export default function Chat({
       releaseMediaRecorderResources()
       setListening(false)
       failVoiceSession('[Голосовой ввод завис. Продолжайте печатать с клавиатуры или попробуйте микрофон снова.]')
-    }, 15000)
+    }, 22_000)
     return () => {
       clearFinalizingWatchdog()
     }
