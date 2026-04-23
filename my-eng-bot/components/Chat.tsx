@@ -20,6 +20,7 @@ import {
 } from '@/lib/normalizeCommentBulbEmoji'
 import { speak } from '@/lib/speech'
 import {
+  isIosChromeBrowser,
   pickRecordingMimeType,
   shouldUseMediaRecorderFallback,
   sttLangFromLocale,
@@ -1154,6 +1155,7 @@ export default function Chat({
     const LISTENING_MAX_MS = 25_000
     const BROWSER_SILENCE_MS = 1_200
     const MEDIA_FALLBACK_MAX_MS = settings.mode === 'communication' ? 12_000 : 15_000
+    const isIosChrome = isIosChromeBrowser(window.navigator.userAgent)
     const SpeechRecognitionAPI =
       (window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
       (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
@@ -1289,6 +1291,7 @@ export default function Chat({
       rec.interimResults = true
       let latestFinalText = ''
       let latestInterimText = ''
+      let didFallbackToRecorder = false
       let timedOut = false
       let fellBackToRecorder = false
       let safetyTimeoutId: number | null = null
@@ -1349,6 +1352,18 @@ export default function Chat({
         }
         setListening(false)
         if (fellBackToRecorder) return
+        if (
+          isIosChrome &&
+          !didFallbackToRecorder &&
+          !chooseFinalSpeechText(latestFinalText, latestInterimText)
+        ) {
+          didFallbackToRecorder = true
+          fellBackToRecorder = true
+          updateVoiceTranscript('', '')
+          setVoiceStatusMessage('Переключаюсь на резервное распознавание...')
+          void startMediaRecorderFallback(sttLangForApi)
+          return
+        }
         const resolvedFinalText = chooseFinalSpeechText(latestFinalText, latestInterimText)
         const correctedFinalText = applyTypoFixes(resolvedFinalText)
         if (correctedFinalText) {
@@ -1375,6 +1390,14 @@ export default function Chat({
             recognitionRef.current = null
           }
           setListening(false)
+          if (isIosChrome && !didFallbackToRecorder) {
+            didFallbackToRecorder = true
+            fellBackToRecorder = true
+            updateVoiceTranscript('', '')
+            setVoiceStatusMessage('Переключаюсь на резервное распознавание...')
+            void startMediaRecorderFallback(sttLangForApi)
+            return
+          }
           finishVoiceSession()
           return
         }
@@ -1392,6 +1415,14 @@ export default function Chat({
         }
 
         if (/no-speech/i.test(code)) {
+          if (isIosChrome && !didFallbackToRecorder) {
+            didFallbackToRecorder = true
+            fellBackToRecorder = true
+            updateVoiceTranscript('', '')
+            setVoiceStatusMessage('Переключаюсь на резервное распознавание...')
+            void startMediaRecorderFallback(sttLangForApi)
+            return
+          }
           failVoiceSession('[Речь не распознана. Скажите фразу ещё раз чуть громче.]')
         } else if (/not-allowed|permission/i.test(code)) {
           failVoiceSession('[Нет доступа к микрофону. Разрешите микрофон для этого сайта и попробуйте снова.]')
