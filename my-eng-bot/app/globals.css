@@ -965,6 +965,10 @@ select.select-chevron {
   input[type="password"] {
     min-height: 44px;
   }
+  /* Второстепенные чипы «Озвучить» / «Перевод»: чуть ниже 44px, без «раздутой» капсулы. */
+  button.chat-assistant-chip-button {
+    min-height: 36px;
+  }
   input[type="text"],
   input[type="password"] {
     font-size: 16px; /* Предотвращает авто-зум при фокусе в Safari (iOS) и Chrome (Android) */
