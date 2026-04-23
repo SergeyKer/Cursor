@@ -2682,7 +2682,7 @@ function MessageBubble({
                   <button
                     type="button"
                     onClick={handleSpeak}
-                    className="chat-action-button flex w-fit items-center justify-center gap-1 rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] px-2.5 py-0.5 text-xs text-[var(--chat-speaker-text)]"
+                    className="chat-action-button flex w-fit items-center justify-center gap-1 rounded-xl border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] px-2.5 py-0.5 text-xs text-[var(--chat-speaker-text)] sm:rounded-full"
                     title="Озвучить"
                     aria-label="Озвучить сообщение"
                   >
@@ -2693,7 +2693,7 @@ function MessageBubble({
                   <button
                     type="button"
                     onClick={() => setShowTranslation((v) => !v)}
-                    className="chat-action-button flex w-fit items-center justify-center gap-1.5 rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] px-2.5 py-0.5 text-xs text-[var(--chat-speaker-text)]"
+                    className="chat-action-button flex w-fit items-center justify-center gap-1.5 rounded-xl border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] px-2.5 py-0.5 text-xs text-[var(--chat-speaker-text)] sm:rounded-full"
                     title={showTranslation ? 'Скрыть перевод' : 'Показать перевод'}
                     aria-label={showTranslation ? 'Скрыть перевод сообщения' : 'Показать перевод сообщения'}
                   >
