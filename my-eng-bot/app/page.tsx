@@ -282,6 +282,7 @@ export default function Home() {
   const [forceNextMicLang, setForceNextMicLang] = useState<'ru' | 'en' | null>(null)
   const [searchingInternet, setSearchingInternet] = useState(false)
   const [searchingInternetLang, setSearchingInternetLang] = useState<'ru' | 'en'>('ru')
+  const [measuredHeaderHeightPx, setMeasuredHeaderHeightPx] = useState<number | null>(null)
   /** Увеличение сбрасывает поле ввода/голос (меню «Начать …»). */
   const [composerSessionKey, setComposerSessionKey] = useState(0)
   const [lessonMenuContext, setLessonMenuContext] = useState<LessonMenuContext | null>(null)
@@ -305,6 +306,11 @@ export default function Home() {
   const prevMenuOpenForSnapshotRef = React.useRef(false)
   /** Не показывать баннер «настройки изменены» сразу после автоперезапуска из меню (до синхронизации с отправкой). */
   const suppressSettingsChangeBannerRef = React.useRef(false)
+  const headerRef = React.useRef<HTMLElement | null>(null)
+  const isIosClient = React.useMemo(() => {
+    if (typeof navigator === 'undefined') return false
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent)
+  }, [])
 
   function normalizeSettingsForAudience(s: Settings): Settings {
     const normalizedLevel: Settings['level'] = s.level === 'starter' ? 'a1' : s.level
@@ -972,6 +978,38 @@ export default function Home() {
     maybeFetchUsage()
   }, [menuOpen, maybeFetchUsage])
 
+  React.useLayoutEffect(() => {
+    if (!isIosClient) return
+    if (typeof window === 'undefined') return
+    const header = headerRef.current
+    if (!header) return
+
+    let raf = 0
+    const applyHeight = () => {
+      raf = 0
+      const nextHeight = Math.max(0, Math.ceil(header.getBoundingClientRect().height))
+      setMeasuredHeaderHeightPx((prev) => (prev === nextHeight ? prev : nextHeight))
+    }
+    const scheduleApply = () => {
+      if (raf) return
+      raf = window.requestAnimationFrame(applyHeight)
+    }
+
+    scheduleApply()
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(scheduleApply) : null
+    observer?.observe(header)
+
+    window.addEventListener('resize', scheduleApply, { passive: true })
+    window.addEventListener('orientationchange', scheduleApply, { passive: true })
+
+    return () => {
+      if (raf) window.cancelAnimationFrame(raf)
+      observer?.disconnect()
+      window.removeEventListener('resize', scheduleApply)
+      window.removeEventListener('orientationchange', scheduleApply)
+    }
+  }, [isIosClient])
+
   // Если пользователь переключил аудиторию на "Ребёнок" — автоматически принудим тему и уровень.
   useEffect(() => {
     if (!storageLoaded) return
@@ -1331,10 +1369,12 @@ export default function Home() {
       : storageLoaded
         ? getMenuSummary(true)
         : 'MyEng'
+  const fallbackTopOffset = 'calc(var(--app-header-row-height) + var(--app-safe-top-inset))'
+  const appTopOffset = isIosClient && measuredHeaderHeightPx !== null ? `${measuredHeaderHeightPx}px` : fallbackTopOffset
   const appLayoutVars = {
     '--app-safe-top-inset': 'env(safe-area-inset-top, 0px)',
     '--app-header-row-height': '2.75rem',
-    '--app-top-offset': 'calc(var(--app-header-row-height) + var(--app-safe-top-inset))',
+    '--app-top-offset': appTopOffset,
   } as React.CSSProperties
 
   return (
@@ -1344,6 +1384,7 @@ export default function Home() {
       style={appLayoutVars}
     >
       <header
+        ref={headerRef}
         className="app-header-surface fixed left-0 right-0 top-0 z-[60] border-b border-[var(--app-header-border)]"
         style={{
           paddingTop: 'var(--app-safe-top-inset)',
