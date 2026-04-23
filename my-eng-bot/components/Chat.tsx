@@ -47,6 +47,18 @@ import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import { applyTypoFixes } from '@/lib/voice/applyTypoFixes'
 import { chooseFinalSpeechText, extractSpeechRecognitionTranscript, useVoiceComposer } from '@/lib/voice/useVoiceComposer'
 
+const SR_ONLY_STYLE: React.CSSProperties = {
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  margin: '-1px',
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+}
+
 interface ChatProps {
   messages: ChatMessageType[]
   settings: Settings
@@ -1094,9 +1106,25 @@ export default function Chat({
   const finalizingWatchdogTimerRef = useRef<number | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const micInviteTimerRef = useRef<number | null>(null)
+  const [isIosChromeClient, setIsIosChromeClient] = useState(false)
   const composerText = isVoiceActive ? voiceDisplayText : input
   const showVoiceOverlay = isVoiceActive && composerText.length > 0
   const micActionActive = listening || voicePhase === 'finalizing'
+  const iosChromeVoiceStatusMessage =
+    !isIosChromeClient
+      ? null
+      : voicePhase === 'recording'
+        ? 'Голосовой ввод...'
+        : voicePhase === 'finalizing'
+          ? 'Распознаю речь...'
+          : voicePhase === 'error'
+            ? voiceStatusMessage
+            : null
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setIsIosChromeClient(isIosChromeBrowser(window.navigator.userAgent))
+  }, [])
 
   const releaseMediaRecorderResources = useCallback(() => {
     if (mediaSilenceRafRef.current != null) {
@@ -2058,6 +2086,25 @@ export default function Chat({
                       livePreviewText={livePreviewText}
                     />
                   )}
+                  {iosChromeVoiceStatusMessage && (
+                    <>
+                      <span role="status" aria-live="polite" style={SR_ONLY_STYLE}>
+                        {iosChromeVoiceStatusMessage}
+                      </span>
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-x-0 bottom-0 px-4 pb-2 text-xs"
+                        style={{
+                          color:
+                            voicePhase === 'error'
+                              ? 'var(--status-danger-text, #dc2626)'
+                              : 'var(--text-muted)',
+                        }}
+                      >
+                        {iosChromeVoiceStatusMessage}
+                      </div>
+                    </>
+                  )}
                   <textarea
                     ref={textareaRef}
                     rows={1}
@@ -2109,7 +2156,7 @@ export default function Chat({
                   </svg>
                 </button>
               </form>
-              {voiceStatusMessage && (
+              {voiceStatusMessage && !isIosChromeClient && (
                 <p
                   role="status"
                   aria-live="polite"
