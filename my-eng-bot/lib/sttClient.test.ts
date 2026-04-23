@@ -6,25 +6,22 @@ describe('sttClient', () => {
     expect(
       shouldUseMediaRecorderFallback({
         hasSpeechRecognition: false,
-        userAgent: 'Mozilla/5.0',
       })
     ).toBe(true)
   })
 
-  it('forces MediaRecorder fallback on iOS Chrome', () => {
+  it('keeps browser speech path on iOS Chrome when speech recognition exists', () => {
     expect(
       shouldUseMediaRecorderFallback({
         hasSpeechRecognition: true,
-        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 CriOS/124.0 Mobile/15E148 Safari/604.1',
       })
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('keeps browser speech path on desktop Chrome', () => {
     expect(
       shouldUseMediaRecorderFallback({
         hasSpeechRecognition: true,
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36',
       })
     ).toBe(false)
   })
@@ -33,8 +30,6 @@ describe('sttClient', () => {
     expect(
       shouldUseMediaRecorderFallback({
         hasSpeechRecognition: true,
-        userAgent:
-          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1',
       })
     ).toBe(false)
   })

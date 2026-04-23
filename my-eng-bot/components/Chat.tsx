@@ -1059,8 +1059,7 @@ export default function Chat({
   const {
     draftText: input,
     draftBeforeVoiceText,
-    voiceFinalText,
-    voiceInterimText,
+    livePreviewText,
     voicePhase,
     statusMessage: voiceStatusMessage,
     displayText: voiceDisplayText,
@@ -1406,7 +1405,6 @@ export default function Chat({
 
     const useFallback = shouldUseMediaRecorderFallback({
       hasSpeechRecognition: Boolean(SpeechRecognitionAPI),
-      userAgent: window.navigator.userAgent,
     })
 
     if (useFallback) {
@@ -1952,8 +1950,7 @@ export default function Chat({
                   {showVoiceOverlay && (
                     <VoiceComposerOverlay
                       draftBeforeVoiceText={draftBeforeVoiceText}
-                      finalText={voiceFinalText}
-                      interimText={voiceInterimText}
+                      livePreviewText={livePreviewText}
                     />
                   )}
                   <textarea

@@ -1,10 +1,6 @@
 export function shouldUseMediaRecorderFallback(params: {
   hasSpeechRecognition: boolean
-  userAgent: string
 }): boolean {
-  const ua = params.userAgent.toLowerCase()
-  const isIphoneChrome = /iphone|ipad|ipod/.test(ua) && /crios\//.test(ua)
-  if (isIphoneChrome) return true
   return !params.hasSpeechRecognition
 }
 

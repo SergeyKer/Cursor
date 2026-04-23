@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   appendVoiceText,
   buildVoiceDisplayText,
+  buildVoiceLivePreviewText,
   extractSpeechRecognitionTranscript,
   initialVoiceComposerState,
   voiceComposerReducer,
@@ -35,6 +36,15 @@ describe('useVoiceComposer helpers', () => {
         voiceInterimText: 'tomorrow',
       })
     ).toBe('I think we should go tomorrow')
+  })
+
+  it('builds live preview text from final and interim parts', () => {
+    expect(
+      buildVoiceLivePreviewText({
+        voiceFinalText: 'hello how',
+        voiceInterimText: 'are you',
+      })
+    ).toBe('hello how are you')
   })
 
   it('extracts final and interim transcript parts from speech results', () => {

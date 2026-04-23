@@ -56,6 +56,13 @@ export function buildVoiceDisplayText(params: {
   return appendVoiceText(withFinal, params.voiceInterimText)
 }
 
+export function buildVoiceLivePreviewText(params: {
+  voiceFinalText: string
+  voiceInterimText: string
+}): string {
+  return appendVoiceText(params.voiceFinalText, params.voiceInterimText)
+}
+
 function getSpeechRecognitionResultText(result: SpeechRecognitionResult | undefined): string {
   return result?.[0]?.transcript?.trim() ?? ''
 }
@@ -182,12 +189,21 @@ export function useVoiceComposer(initialDraftText = '') {
       }),
     [state.draftBeforeVoiceText, state.voiceFinalText, state.voiceInterimText]
   )
+  const livePreviewText = React.useMemo(
+    () =>
+      buildVoiceLivePreviewText({
+        voiceFinalText: state.voiceFinalText,
+        voiceInterimText: state.voiceInterimText,
+      }),
+    [state.voiceFinalText, state.voiceInterimText]
+  )
 
   const isVoiceActive = state.voicePhase === 'recording' || state.voicePhase === 'finalizing'
 
   return {
     ...state,
     displayText,
+    livePreviewText,
     isVoiceActive,
     isTextareaReadOnly: isVoiceActive,
     setDraftText: (text: string) => dispatch({ type: 'setDraftText', text }),
