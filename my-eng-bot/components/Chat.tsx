@@ -2099,7 +2099,9 @@ export default function Chat({
                       </span>
                       <div
                         aria-hidden="true"
-                        className="pointer-events-none absolute inset-x-0 bottom-0 px-4 pb-2 text-xs"
+                        className={`pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-2xl font-sans text-base ${
+                          voiceWebMetricsActive ? 'voice-composer-web-metrics' : 'px-4 py-2 leading-[1.45rem]'
+                        }`}
                         style={{
                           color:
                             voicePhase === 'error'
