@@ -1154,10 +1154,8 @@ export default function Chat({
 
     const LISTENING_MAX_MS = 25_000
     const BROWSER_SILENCE_MS = 1_200
-    const IOS_CHROME_MEDIA_FALLBACK_MAX_MS = 7_000
     const MEDIA_FALLBACK_MAX_MS = settings.mode === 'communication' ? 12_000 : 15_000
     const isIosChrome = isIosChromeBrowser(window.navigator.userAgent)
-    const mediaFallbackMaxMs = isIosChrome ? IOS_CHROME_MEDIA_FALLBACK_MAX_MS : MEDIA_FALLBACK_MAX_MS
     const SpeechRecognitionAPI =
       (window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
       (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
@@ -1252,7 +1250,7 @@ export default function Chat({
             beginVoiceFinalizing('Распознаю речь...')
             mediaRecorderRef.current.stop()
           }
-        }, mediaFallbackMaxMs)
+        }, MEDIA_FALLBACK_MAX_MS)
       } catch (error) {
         releaseMediaRecorderResources()
         setListening(false)
