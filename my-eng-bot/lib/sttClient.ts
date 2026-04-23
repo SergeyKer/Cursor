@@ -4,12 +4,6 @@ export function shouldUseMediaRecorderFallback(params: {
   return !params.hasSpeechRecognition
 }
 
-export function shouldUseShortSilenceTimeoutForIosChrome(params: {
-  userAgent: string
-}): boolean {
-  return isIosChromeBrowser(params.userAgent)
-}
-
 export function isIosChromeBrowser(userAgent: string): boolean {
   const ua = userAgent ?? ''
   const isIosDevice = /iPad|iPhone|iPod/i.test(ua) || (/Macintosh/i.test(ua) && /Mobile/i.test(ua))
