@@ -47,6 +47,40 @@ export function appendVoiceText(base: string, addition: string): string {
   return `${normalizedBase}${needsBoundaryWhitespace(normalizedBase, normalizedAddition) ? ' ' : ''}${normalizedAddition}`
 }
 
+function normalizeTranscriptText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim()
+}
+
+function isStablePrefixExpansion(base: string, candidate: string): boolean {
+  if (!base || !candidate) return false
+  if (candidate === base) return true
+  if (!candidate.startsWith(base)) return false
+  const nextChar = candidate[base.length]
+  return nextChar == null || /\s|[,.!?;:)\]}]/.test(nextChar)
+}
+
+export function mergeSpeechFinalSegment(base: string, next: string): string {
+  const normalizedBase = normalizeTranscriptText(base)
+  const normalizedNext = normalizeTranscriptText(next)
+  if (!normalizedNext) return normalizedBase
+  if (!normalizedBase) return normalizedNext
+  if (isStablePrefixExpansion(normalizedBase, normalizedNext)) {
+    return normalizedNext
+  }
+  return appendVoiceText(normalizedBase, normalizedNext)
+}
+
+export function chooseFinalSpeechText(finalText: string, interimText: string): string {
+  const normalizedFinal = normalizeTranscriptText(finalText)
+  const normalizedInterim = normalizeTranscriptText(interimText)
+  if (!normalizedInterim) return normalizedFinal
+  if (!normalizedFinal) return normalizedInterim
+  if (isStablePrefixExpansion(normalizedFinal, normalizedInterim)) {
+    return normalizedInterim
+  }
+  return normalizedFinal
+}
+
 export function buildVoiceDisplayText(params: {
   draftBeforeVoiceText: string
   voiceFinalText: string
@@ -80,7 +114,7 @@ export function extractSpeechRecognitionTranscript(event: SpeechRecognitionEvent
     const text = getSpeechRecognitionResultText(result)
     if (!text) continue
     if (result.isFinal) {
-      finalText = appendVoiceText(finalText, text)
+      finalText = mergeSpeechFinalSegment(finalText, text)
       continue
     }
     if (i >= startIndex) {

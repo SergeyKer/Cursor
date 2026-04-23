@@ -3,8 +3,10 @@ import {
   appendVoiceText,
   buildVoiceDisplayText,
   buildVoiceLivePreviewText,
+  chooseFinalSpeechText,
   extractSpeechRecognitionTranscript,
   initialVoiceComposerState,
+  mergeSpeechFinalSegment,
   voiceComposerReducer,
 } from './useVoiceComposer'
 
@@ -59,6 +61,11 @@ describe('useVoiceComposer helpers', () => {
     })
   })
 
+  it('replaces duplicated cumulative final segments with the latest full phrase', () => {
+    expect(mergeSpeechFinalSegment('I am', 'I am swimming')).toBe('I am swimming')
+    expect(mergeSpeechFinalSegment('I am swimming', 'I am swimming in the sea')).toBe('I am swimming in the sea')
+  })
+
   it('keeps only the latest interim hypothesis from changed results', () => {
     const event = createSpeechRecognitionEvent(
       [
@@ -88,6 +95,24 @@ describe('useVoiceComposer helpers', () => {
     expect(extractSpeechRecognitionTranscript(event)).toEqual({
       finalText: 'hello dear world',
       interimText: 'again',
+    })
+  })
+
+  it('keeps independent final segments in desktop-like flow', () => {
+    expect(mergeSpeechFinalSegment('hello', 'dear world')).toBe('hello dear world')
+  })
+
+  it('collapses cumulative final chunks in Android-like flow', () => {
+    const event = createSpeechRecognitionEvent([
+      { transcript: 'I am', isFinal: true },
+      { transcript: 'I am swimming', isFinal: true },
+      { transcript: 'I am swimming in the sea', isFinal: true },
+      { transcript: 'I am swimming in the sea today', isFinal: false },
+    ])
+
+    expect(extractSpeechRecognitionTranscript(event)).toEqual({
+      finalText: 'I am swimming in the sea',
+      interimText: 'I am swimming in the sea today',
     })
   })
 
@@ -155,5 +180,10 @@ describe('useVoiceComposer helpers', () => {
     expect(failed.draftText).toBe('')
     expect(failed.voicePhase).toBe('error')
     expect(failed.statusMessage).toBe('Ошибка распознавания речи.')
+  })
+
+  it('prefers the longer interim when final is its stable prefix', () => {
+    expect(chooseFinalSpeechText('I am swimming', 'I am swimming in the sea')).toBe('I am swimming in the sea')
+    expect(chooseFinalSpeechText('I am swimming in the sea', 'I am')).toBe('I am swimming in the sea')
   })
 })

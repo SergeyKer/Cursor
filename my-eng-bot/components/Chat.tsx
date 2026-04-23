@@ -40,7 +40,7 @@ import type { LearningLessonAction } from '@/lib/learningLessons'
 import TypingIndicator from '@/components/TypingIndicator'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import { applyTypoFixes } from '@/lib/voice/applyTypoFixes'
-import { extractSpeechRecognitionTranscript, useVoiceComposer } from '@/lib/voice/useVoiceComposer'
+import { chooseFinalSpeechText, extractSpeechRecognitionTranscript, useVoiceComposer } from '@/lib/voice/useVoiceComposer'
 
 interface ChatProps {
   messages: ChatMessageType[]
@@ -1284,6 +1284,7 @@ export default function Chat({
       rec.continuous = true
       rec.interimResults = true
       let latestFinalText = ''
+      let latestInterimText = ''
       let timedOut = false
       let fellBackToRecorder = false
       let safetyTimeoutId: number | null = null
@@ -1328,6 +1329,7 @@ export default function Chat({
       rec.onresult = (event: SpeechRecognitionEvent) => {
         const { finalText, interimText } = extractSpeechRecognitionTranscript(event)
         latestFinalText = finalText
+        latestInterimText = interimText
         updateVoiceTranscript(finalText, interimText)
         clearSilenceTimeout()
         silenceTimeoutId = window.setTimeout(() => {
@@ -1343,7 +1345,8 @@ export default function Chat({
         }
         setListening(false)
         if (fellBackToRecorder) return
-        const correctedFinalText = applyTypoFixes(latestFinalText.trim())
+        const resolvedFinalText = chooseFinalSpeechText(latestFinalText, latestInterimText)
+        const correctedFinalText = applyTypoFixes(resolvedFinalText)
         if (correctedFinalText) {
           commitVoiceText(correctedFinalText)
           return
