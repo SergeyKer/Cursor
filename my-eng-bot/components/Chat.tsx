@@ -1276,9 +1276,11 @@ export default function Chat({
             let hasHeardSpeech = false
             const silenceWarmupUntilMs = performance.now() + 450
             const silenceRmsThreshold = 0.024
+            type MediaRecorderState = 'inactive' | 'recording' | 'paused'
+            const recorderRuntimeState = (): MediaRecorderState => recorder.state as MediaRecorderState
 
             const silenceTick = () => {
-              if (mediaRecorderRef.current !== recorder || recorder.state === 'inactive') {
+              if (mediaRecorderRef.current !== recorder || recorderRuntimeState() === 'inactive') {
                 mediaSilenceRafRef.current = null
                 return
               }
@@ -1297,7 +1299,7 @@ export default function Chat({
               }
 
               if (hasHeardSpeech && now - lastSpeechAt >= BROWSER_SILENCE_MS) {
-                if (mediaRecorderRef.current === recorder && recorder.state !== 'inactive') {
+                if (mediaRecorderRef.current === recorder && recorderRuntimeState() !== 'inactive') {
                   beginVoiceFinalizing('Распознаю речь...')
                   recorder.stop()
                 }
