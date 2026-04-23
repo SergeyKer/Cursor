@@ -32,6 +32,8 @@ interface SlideOutMenuProps {
   onOpenTutorLesson?: (request: { requestedTopic: string; analysisSummary?: string }) => Promise<void> | void
   /** Контекст меню, из которого открыт урок. */
   lessonMenuContext?: LessonMenuContext | null
+  /** Верхний offset (шапка + safe-area), общий с основным layout. */
+  topOffset?: string
 }
 
 export default function SlideOutMenu({
@@ -49,6 +51,7 @@ export default function SlideOutMenu({
   onOpenLearningLesson,
   onOpenTutorLesson,
   lessonMenuContext,
+  topOffset = 'calc(2.75rem + env(safe-area-inset-top, 0px))',
 }: SlideOutMenuProps) {
   const [menuView, setMenuView] = React.useState<MenuView>('root')
 
@@ -83,7 +86,7 @@ export default function SlideOutMenu({
         className={`fixed left-0 right-0 bottom-0 z-40 bg-black/20 transition-opacity duration-200 ${
           open ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
-        style={{ top: 'calc(2.75rem + env(safe-area-inset-top, 0px))' }}
+        style={{ top: topOffset }}
         aria-hidden
         onClick={onToggle}
       />
@@ -92,8 +95,8 @@ export default function SlideOutMenu({
           open ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none'
         }`}
         style={{
-          top: 'calc(2.75rem + env(safe-area-inset-top, 0px))',
-          height: 'calc(100dvh - (2.75rem + env(safe-area-inset-top, 0px)))',
+          top: topOffset,
+          height: `calc(100dvh - (${topOffset}))`,
         }}
         aria-label="Меню"
       >

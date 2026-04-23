@@ -21,6 +21,7 @@ import {
 import { speak } from '@/lib/speech'
 import {
   isIosChromeBrowser,
+  needsVoiceComposerWebMetrics,
   pickRecordingMimeType,
   shouldUseMediaRecorderFallback,
   sttLangFromLocale,
@@ -1107,8 +1108,10 @@ export default function Chat({
   const formRef = useRef<HTMLFormElement>(null)
   const micInviteTimerRef = useRef<number | null>(null)
   const [isIosChromeClient, setIsIosChromeClient] = useState(false)
+  const [voiceWebMetricsClient, setVoiceWebMetricsClient] = useState(false)
   const composerText = isVoiceActive ? voiceDisplayText : input
   const showVoiceOverlay = isVoiceActive && composerText.length > 0
+  const voiceWebMetricsActive = showVoiceOverlay && voiceWebMetricsClient
   const micActionActive = listening || voicePhase === 'finalizing'
   const iosChromeVoiceStatusMessage =
     !isIosChromeClient
@@ -1123,7 +1126,9 @@ export default function Chat({
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    setIsIosChromeClient(isIosChromeBrowser(window.navigator.userAgent))
+    const ua = window.navigator.userAgent
+    setIsIosChromeClient(isIosChromeBrowser(ua))
+    setVoiceWebMetricsClient(needsVoiceComposerWebMetrics(ua))
   }, [])
 
   const releaseMediaRecorderResources = useCallback(() => {
@@ -2084,6 +2089,7 @@ export default function Chat({
                     <VoiceComposerOverlay
                       draftBeforeVoiceText={draftBeforeVoiceText}
                       livePreviewText={livePreviewText}
+                      webTextMetricsFix={voiceWebMetricsClient}
                     />
                   )}
                   {iosChromeVoiceStatusMessage && (
@@ -2126,6 +2132,8 @@ export default function Chat({
                           : 'Поле ввода сообщения'
                     }
                     className={`chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] ${
+                      voiceWebMetricsActive ? 'chat-input-voice-web-metrics' : ''
+                    } ${
                       showVoiceOverlay
                         ? 'text-transparent caret-transparent placeholder:text-transparent'
                         : 'text-[var(--text)] placeholder:text-[var(--text-muted)]'

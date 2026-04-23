@@ -12,6 +12,17 @@ export function isIosChromeBrowser(userAgent: string): boolean {
   return isIosDevice && isCriOs
 }
 
+/** iOS (любой браузер) и Chrome/Chromium: в textarea и оверлее голоса выравнивание текста расходится без общих метрик. */
+export function needsVoiceComposerWebMetrics(userAgent: string): boolean {
+  const ua = userAgent ?? ''
+  const isIosLike =
+    /iPad|iPhone|iPod/i.test(ua) || (/Macintosh/i.test(ua) && /Mobile/i.test(ua))
+  if (isIosLike) return true
+  const isEdge = /EdgA?\//i.test(ua)
+  const isChromeFamily = /Chrome\/\d+/i.test(ua) || /CriOS\/\d+/i.test(ua)
+  return isChromeFamily && !isEdge
+}
+
 export function sttLangFromLocale(locale: 'ru-RU' | 'en-US'): 'ru' | 'en' {
   return locale.startsWith('ru') ? 'ru' : 'en'
 }

@@ -3,6 +3,8 @@ import React from 'react'
 type VoiceComposerOverlayProps = {
   draftBeforeVoiceText: string
   livePreviewText: string
+  /** Согласовать padding/line-height с textarea на iOS и Chrome (см. needsVoiceComposerWebMetrics). */
+  webTextMetricsFix?: boolean
 }
 
 function renderSegment(text: string, className?: string) {
@@ -13,15 +15,18 @@ function renderSegment(text: string, className?: string) {
 export default function VoiceComposerOverlay({
   draftBeforeVoiceText,
   livePreviewText,
+  webTextMetricsFix = false,
 }: VoiceComposerOverlayProps) {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-2xl px-4 py-2 text-base leading-[1.45rem]"
+      className={`pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-2xl font-sans text-base text-[var(--text)] ${
+        webTextMetricsFix ? 'voice-composer-web-metrics' : 'px-4 py-2 leading-[1.45rem]'
+      }`}
     >
       {renderSegment(draftBeforeVoiceText)}
       {draftBeforeVoiceText && livePreviewText ? ' ' : null}
-      {renderSegment(livePreviewText, 'italic text-[var(--text-muted)] opacity-80')}
+      {renderSegment(livePreviewText, 'font-sans italic text-[var(--text-muted)]')}
     </div>
   )
 }

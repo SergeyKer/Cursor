@@ -538,8 +538,8 @@ html:not([data-theme='bubble1']):not([data-theme='bubble2']) [data-audience='chi
 
 html {
   color-scheme: light;
-  /* Безопасные зоны: вырезы и жесты (Android), notch и home indicator (iOS) */
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  /* Верхнюю safe-area учитываем на уровне шапки/layout, чтобы не дублировать offset. */
+  padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
   /* iOS Safari: высота с учётом скрытия панели браузера */
   min-height: 100vh;
   min-height: 100dvh;
@@ -843,6 +843,19 @@ select.select-chevron {
   padding-bottom: 0.75rem;
   line-height: 1.25rem;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+/* Единая сетка с VoiceComposerOverlay на WebKit/Blink (см. needsVoiceComposerWebMetrics): 11 + 22 + 11 = 44px. */
+.chat-input-field.chat-input-voice-web-metrics {
+  padding-top: 11px;
+  padding-bottom: 11px;
+  line-height: 22px;
+}
+
+.voice-composer-web-metrics {
+  box-sizing: border-box;
+  padding: 11px 16px;
+  line-height: 22px;
 }
 
 .chat-input-field:focus {

@@ -1331,17 +1331,23 @@ export default function Home() {
       : storageLoaded
         ? getMenuSummary(true)
         : 'MyEng'
+  const appLayoutVars = {
+    '--app-safe-top-inset': 'env(safe-area-inset-top, 0px)',
+    '--app-header-row-height': '2.75rem',
+    '--app-top-offset': 'calc(var(--app-header-row-height) + var(--app-safe-top-inset))',
+  } as React.CSSProperties
 
   return (
-    <div data-audience={settings.audience} className="flex h-[100dvh] min-h-[100dvh] flex-col">
+    <div
+      data-audience={settings.audience}
+      className="flex h-full min-h-[100dvh] flex-col"
+      style={appLayoutVars}
+    >
       <header
         className="app-header-surface fixed left-0 right-0 top-0 z-[60] border-b border-[var(--app-header-border)]"
         style={{
-          paddingTop: 'env(safe-area-inset-top)',
-          // iOS: safe-area учитываем только через paddingTop.
-          // Иначе safe-area может засчитываться дважды (paddingTop + minHeight),
-          // и стартовый экран "уезжает" под верхний край.
-          minHeight: '2.75rem',
+          paddingTop: 'var(--app-safe-top-inset)',
+          minHeight: 'var(--app-header-row-height)',
         }}
       >
         <div className="chat-shell-x flex min-h-[2.75rem] w-full items-center">
@@ -1440,7 +1446,7 @@ export default function Home() {
           dialogStarted ? 'overflow-hidden' : 'overflow-y-auto'
         }`}
         style={{
-          paddingTop: 'calc(2.75rem + env(safe-area-inset-top, 0px))',
+          paddingTop: 'var(--app-top-offset)',
           paddingBottom: dialogStarted
             // iOS: иногда появляется серый зазор снизу, если safe-area не учтён на уровне контейнера.
             // Контент чата тоже учитывает safe-area, но внешний контейнер при dialogStarted=true держим с paddingBottom.
@@ -1654,6 +1660,7 @@ export default function Home() {
         onOpenLearningLesson={openLearningLesson}
         onOpenTutorLesson={openTutorLesson}
         lessonMenuContext={lessonMenuContext}
+        topOffset="var(--app-top-offset)"
       />
     </div>
   )
