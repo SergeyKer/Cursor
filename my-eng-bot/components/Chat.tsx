@@ -1154,8 +1154,10 @@ export default function Chat({
 
     const LISTENING_MAX_MS = 25_000
     const BROWSER_SILENCE_MS = 1_200
+    const IOS_CHROME_MEDIA_FALLBACK_MAX_MS = 7_000
     const MEDIA_FALLBACK_MAX_MS = settings.mode === 'communication' ? 12_000 : 15_000
     const isIosChrome = isIosChromeBrowser(window.navigator.userAgent)
+    const mediaFallbackMaxMs = isIosChrome ? IOS_CHROME_MEDIA_FALLBACK_MAX_MS : MEDIA_FALLBACK_MAX_MS
     const SpeechRecognitionAPI =
       (window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
       (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
@@ -1250,7 +1252,7 @@ export default function Chat({
             beginVoiceFinalizing('Распознаю речь...')
             mediaRecorderRef.current.stop()
           }
-        }, MEDIA_FALLBACK_MAX_MS)
+        }, mediaFallbackMaxMs)
       } catch (error) {
         releaseMediaRecorderResources()
         setListening(false)
@@ -1360,7 +1362,6 @@ export default function Chat({
           didFallbackToRecorder = true
           fellBackToRecorder = true
           updateVoiceTranscript('', '')
-          setVoiceStatusMessage('Переключаюсь на резервное распознавание...')
           void startMediaRecorderFallback(sttLangForApi)
           return
         }
@@ -1394,7 +1395,6 @@ export default function Chat({
             didFallbackToRecorder = true
             fellBackToRecorder = true
             updateVoiceTranscript('', '')
-            setVoiceStatusMessage('Переключаюсь на резервное распознавание...')
             void startMediaRecorderFallback(sttLangForApi)
             return
           }
@@ -1409,7 +1409,6 @@ export default function Chat({
         if (/service-not-allowed|not-allowed|audio-capture|network/i.test(code)) {
           fellBackToRecorder = true
           updateVoiceTranscript('', '')
-          setVoiceStatusMessage('Переключаюсь на резервное распознавание...')
           void startMediaRecorderFallback(sttLangForApi)
           return
         }
@@ -1419,7 +1418,6 @@ export default function Chat({
             didFallbackToRecorder = true
             fellBackToRecorder = true
             updateVoiceTranscript('', '')
-            setVoiceStatusMessage('Переключаюсь на резервное распознавание...')
             void startMediaRecorderFallback(sttLangForApi)
             return
           }
@@ -1443,6 +1441,7 @@ export default function Chat({
 
     const useFallback = shouldUseMediaRecorderFallback({
       hasSpeechRecognition: Boolean(SpeechRecognitionAPI),
+      isIosChrome,
     })
 
     if (useFallback) {

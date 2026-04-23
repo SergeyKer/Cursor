@@ -1,7 +1,8 @@
 export function shouldUseMediaRecorderFallback(params: {
   hasSpeechRecognition: boolean
+  isIosChrome: boolean
 }): boolean {
-  return !params.hasSpeechRecognition
+  return params.isIosChrome || !params.hasSpeechRecognition
 }
 
 export function isIosChromeBrowser(userAgent: string): boolean {

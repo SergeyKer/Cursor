@@ -11,16 +11,18 @@ describe('sttClient', () => {
     expect(
       shouldUseMediaRecorderFallback({
         hasSpeechRecognition: false,
+        isIosChrome: false,
       })
     ).toBe(true)
   })
 
-  it('keeps browser speech path on iOS Chrome when speech recognition exists', () => {
+  it('uses fallback on iOS Chrome even when speech recognition exists', () => {
     expect(
       shouldUseMediaRecorderFallback({
         hasSpeechRecognition: true,
+        isIosChrome: true,
       })
-    ).toBe(false)
+    ).toBe(true)
   })
 
   it('detects iOS Chrome user agent', () => {
@@ -51,6 +53,7 @@ describe('sttClient', () => {
     expect(
       shouldUseMediaRecorderFallback({
         hasSpeechRecognition: true,
+        isIosChrome: false,
       })
     ).toBe(false)
   })
@@ -59,6 +62,7 @@ describe('sttClient', () => {
     expect(
       shouldUseMediaRecorderFallback({
         hasSpeechRecognition: true,
+        isIosChrome: false,
       })
     ).toBe(false)
   })
