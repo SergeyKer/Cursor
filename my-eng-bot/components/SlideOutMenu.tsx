@@ -34,6 +34,8 @@ interface SlideOutMenuProps {
   lessonMenuContext?: LessonMenuContext | null
   /** Верхний offset (шапка + safe-area), общий с основным layout. */
   topOffset?: string
+  /** Нижний offset (футер + safe-area), чтобы панель не перекрывала низ. */
+  bottomOffset?: string
 }
 
 export default function SlideOutMenu({
@@ -52,6 +54,7 @@ export default function SlideOutMenu({
   onOpenTutorLesson,
   lessonMenuContext,
   topOffset = 'calc(2.75rem + env(safe-area-inset-top, 0px))',
+  bottomOffset = '0px',
 }: SlideOutMenuProps) {
   const [menuView, setMenuView] = React.useState<MenuView>('root')
 
@@ -86,17 +89,17 @@ export default function SlideOutMenu({
         className={`fixed left-0 right-0 bottom-0 z-40 bg-black/20 transition-opacity duration-200 ${
           open ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
-        style={{ top: topOffset }}
+        style={{ top: topOffset, bottom: bottomOffset }}
         aria-hidden
         onClick={onToggle}
       />
       <aside
-        className={`fixed left-0 z-50 w-80 max-w-[85vw] border-r border-[var(--border)] bg-[var(--menu-panel-bg)] shadow-lg transition-transform duration-200 ease-out ${
+        className={`fixed left-0 z-50 w-80 max-w-[85vw] border-b border-r border-b-[var(--app-header-border)] border-r-[var(--border)] bg-[var(--menu-panel-bg)] shadow-lg transition-transform duration-200 ease-out ${
           open ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none'
         }`}
         style={{
           top: topOffset,
-          height: `calc(100dvh - (${topOffset}))`,
+          bottom: bottomOffset,
         }}
         aria-label="Меню"
       >
