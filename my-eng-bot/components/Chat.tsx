@@ -39,6 +39,7 @@ import { PAGE_HOME_START_PRIMARY_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import type { LearningLessonAction } from '@/lib/learningLessons'
 import TypingIndicator from '@/components/TypingIndicator'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
+import { startRealtimeSttSession, type RealtimeSttSession } from '@/lib/realtimeStt'
 import { applyTypoFixes } from '@/lib/voice/applyTypoFixes'
 import { chooseFinalSpeechText, extractSpeechRecognitionTranscript, useVoiceComposer } from '@/lib/voice/useVoiceComposer'
 
@@ -1076,6 +1077,7 @@ export default function Chat({
     resetComposer,
   } = useVoiceComposer()
   const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const realtimeSttRef = useRef<RealtimeSttSession | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const mediaChunksRef = useRef<BlobPart[]>([])
@@ -1114,6 +1116,12 @@ export default function Chat({
     }
     mediaStreamRef.current = null
     mediaChunksRef.current = []
+  }, [])
+
+  const closeRealtimeSttSession = useCallback(() => {
+    if (!realtimeSttRef.current) return
+    realtimeSttRef.current.close()
+    realtimeSttRef.current = null
   }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1163,6 +1171,7 @@ export default function Chat({
 
     startVoiceSession()
     setVoiceStatusMessage(null)
+    closeRealtimeSttSession()
 
     const startMediaRecorderFallback = async (sttLang: 'ru' | 'en') => {
       if (!window.isSecureContext) {
@@ -1267,6 +1276,49 @@ export default function Chat({
           return
         }
         failVoiceSession('[Не удалось записать аудио. Попробуйте ещё раз.]')
+      }
+    }
+
+    const startIosChromeRealtimeTranscription = async (sttLang: 'ru' | 'en') => {
+      setVoiceStatusMessage('Подключаю онлайн-распознавание...')
+      try {
+        const session = await startRealtimeSttSession({
+          language: sttLang,
+          sessionUrl: '/api/realtime/transcription',
+          onTranscript: ({ finalText, interimText }) => {
+            updateVoiceTranscript(finalText, interimText)
+          },
+          onFinal: (text) => {
+            realtimeSttRef.current = null
+            setListening(false)
+            const correctedText = applyTypoFixes(text)
+            if (!correctedText) {
+              finishVoiceSession()
+              return
+            }
+            commitVoiceText(correctedText)
+          },
+          onError: () => {
+            if (realtimeSttRef.current) {
+              realtimeSttRef.current.close()
+              realtimeSttRef.current = null
+            }
+            setListening(false)
+            updateVoiceTranscript('', '')
+            setVoiceStatusMessage('Переключаюсь на резервное распознавание...')
+            void startMediaRecorderFallback(sttLang)
+          },
+          onStatus: (status) => {
+            setVoiceStatusMessage(status)
+          },
+        })
+
+        realtimeSttRef.current = session
+        setListening(true)
+        setVoiceStatusMessage('Распознаю онлайн...')
+      } catch {
+        setVoiceStatusMessage('Переключаюсь на резервное распознавание...')
+        void startMediaRecorderFallback(sttLang)
       }
     }
 
@@ -1440,7 +1492,9 @@ export default function Chat({
       hasSpeechRecognition: Boolean(SpeechRecognitionAPI),
     })
 
-    if (useFallback) {
+    if (isIosChrome) {
+      await startIosChromeRealtimeTranscription(sttLangForApi)
+    } else if (useFallback) {
       await startMediaRecorderFallback(sttLangForApi)
     } else {
       startBrowserSpeechRecognition(preferredLocale)
@@ -1458,11 +1512,21 @@ export default function Chat({
     beginVoiceFinalizing,
     commitVoiceText,
     updateVoiceTranscript,
+    closeRealtimeSttSession,
     releaseMediaRecorderResources,
   ])
 
   const stopListening = useCallback(() => {
     if (voicePhase === 'finalizing') return
+    if (realtimeSttRef.current) {
+      beginVoiceFinalizing('Завершаю распознавание...')
+      const realtimeSession = realtimeSttRef.current
+      realtimeSttRef.current = null
+      realtimeSession.stop()
+      setListening(false)
+      resetMicAnimation()
+      return
+    }
     if (recognitionRef.current) {
       beginVoiceFinalizing()
       try {
@@ -1510,6 +1574,7 @@ export default function Chat({
       mediaRecorderStopFallbackTimerRef.current = null
     }
     clearFinalizingWatchdog()
+    closeRealtimeSttSession()
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop()
@@ -1532,7 +1597,7 @@ export default function Chat({
     clearMicAnimationTimers()
     setMicVisualState('idle')
     resetComposer()
-  }, [clearFinalizingWatchdog, clearMicAnimationTimers, releaseMediaRecorderResources, resetComposer])
+  }, [clearFinalizingWatchdog, clearMicAnimationTimers, closeRealtimeSttSession, releaseMediaRecorderResources, resetComposer])
 
   React.useEffect(() => {
     if (composerSessionKey === 0) return
@@ -1565,6 +1630,7 @@ export default function Chat({
     if (voicePhase !== 'finalizing') return
     finalizingWatchdogTimerRef.current = window.setTimeout(() => {
       finalizingWatchdogTimerRef.current = null
+      closeRealtimeSttSession()
       releaseMediaRecorderResources()
       setListening(false)
       failVoiceSession('[Голосовой ввод завис. Продолжайте печатать с клавиатуры или попробуйте микрофон снова.]')
@@ -1572,7 +1638,7 @@ export default function Chat({
     return () => {
       clearFinalizingWatchdog()
     }
-  }, [clearFinalizingWatchdog, failVoiceSession, releaseMediaRecorderResources, voicePhase])
+  }, [clearFinalizingWatchdog, closeRealtimeSttSession, failVoiceSession, releaseMediaRecorderResources, voicePhase])
 
   useEffect(() => {
     if (!loading || messages.length === 0) {
@@ -1630,6 +1696,7 @@ export default function Chat({
 
   React.useEffect(() => {
     return () => {
+      closeRealtimeSttSession()
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop()
@@ -1640,7 +1707,7 @@ export default function Chat({
       }
       releaseMediaRecorderResources()
     }
-  }, [releaseMediaRecorderResources])
+  }, [closeRealtimeSttSession, releaseMediaRecorderResources])
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
