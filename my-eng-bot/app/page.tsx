@@ -1351,12 +1351,13 @@ export default function Home() {
       : storageLoaded
         ? getMenuSummary(true)
         : 'MyEng'
-  const fallbackTopOffset = 'calc(var(--app-header-row-height) + var(--app-safe-top-inset))'
-  const iosSafariTopOffset = 'calc(var(--app-header-row-height) + var(--app-safe-top-inset) + 1px)'
-  const appTopOffset = isIosSafariClient ? iosSafariTopOffset : fallbackTopOffset
+  /** Совпадает с фактической высотой шапки: safe-area + строка меню + нижний border (см. `header` без minHeight на внешнем блоке). */
+  const appTopOffset =
+    'calc(var(--app-safe-top-inset) + var(--app-header-row-height) + var(--app-header-border-width))'
   const appLayoutVars = {
     '--app-safe-top-inset': 'env(safe-area-inset-top, 0px)',
     '--app-header-row-height': '2.75rem',
+    '--app-header-border-width': '1px',
     '--app-footer-row-height': '2.75rem',
     '--app-bottom-inset': 'max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset))',
     '--app-bottom-offset': 'calc(var(--app-footer-row-height) + var(--app-bottom-inset))',
@@ -1372,10 +1373,9 @@ export default function Home() {
         className="app-header-surface fixed left-0 right-0 top-0 z-[60] border-b border-[var(--app-header-border)]"
         style={{
           paddingTop: 'var(--app-safe-top-inset)',
-          minHeight: 'var(--app-header-row-height)',
         }}
       >
-        <div className="chat-shell-x flex min-h-[2.75rem] w-full items-center">
+        <div className="chat-shell-x flex w-full min-h-[var(--app-header-row-height)] items-center">
           <div
             className={`mx-auto flex w-full items-center justify-between ${
               dialogStarted ? 'max-w-[29rem]' : 'max-w-[23.2rem]'
