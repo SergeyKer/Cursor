@@ -5,19 +5,21 @@ export function shouldUseMediaRecorderFallback(params: {
   return params.isIosChrome || !params.hasSpeechRecognition
 }
 
+export function isIosLikeDevice(userAgent: string): boolean {
+  const ua = userAgent ?? ''
+  return /iPad|iPhone|iPod/i.test(ua) || (/Macintosh/i.test(ua) && /Mobile/i.test(ua))
+}
+
 export function isIosChromeBrowser(userAgent: string): boolean {
   const ua = userAgent ?? ''
-  const isIosDevice = /iPad|iPhone|iPod/i.test(ua) || (/Macintosh/i.test(ua) && /Mobile/i.test(ua))
   const isCriOs = /CriOS\/\d+/i.test(ua)
-  return isIosDevice && isCriOs
+  return isIosLikeDevice(ua) && isCriOs
 }
 
 /** iOS (любой браузер) и Chrome/Chromium: в textarea и оверлее голоса выравнивание текста расходится без общих метрик. */
 export function needsVoiceComposerWebMetrics(userAgent: string): boolean {
   const ua = userAgent ?? ''
-  const isIosLike =
-    /iPad|iPhone|iPod/i.test(ua) || (/Macintosh/i.test(ua) && /Mobile/i.test(ua))
-  if (isIosLike) return true
+  if (isIosLikeDevice(ua)) return true
   const isEdge = /EdgA?\//i.test(ua)
   const isChromeFamily = /Chrome\/\d+/i.test(ua) || /CriOS\/\d+/i.test(ua)
   return isChromeFamily && !isEdge

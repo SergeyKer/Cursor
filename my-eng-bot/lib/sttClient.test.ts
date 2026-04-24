@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   isIosChromeBrowser,
+  isIosLikeDevice,
   needsVoiceComposerWebMetrics,
   pickRecordingMimeType,
   shouldUseMediaRecorderFallback,
@@ -48,6 +49,19 @@ describe('sttClient', () => {
     const ua =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
     expect(isIosChromeBrowser(ua)).toBe(false)
+  })
+
+  it('detects iOS-like devices from user agent', () => {
+    const iosSafariUa =
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1'
+    const ipadDesktopModeUa =
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1'
+    const desktopChromeUa =
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+
+    expect(isIosLikeDevice(iosSafariUa)).toBe(true)
+    expect(isIosLikeDevice(ipadDesktopModeUa)).toBe(true)
+    expect(isIosLikeDevice(desktopChromeUa)).toBe(false)
   })
 
   it('enables voice web metrics on iOS Safari', () => {

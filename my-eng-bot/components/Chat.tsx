@@ -21,6 +21,7 @@ import {
 import { speak } from '@/lib/speech'
 import {
   isIosChromeBrowser,
+  isIosLikeDevice,
   needsVoiceComposerWebMetrics,
   pickRecordingMimeType,
   shouldUseMediaRecorderFallback,
@@ -46,6 +47,7 @@ import type { LearningLessonAction } from '@/lib/learningLessons'
 import TypingIndicator from '@/components/TypingIndicator'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import { applyTypoFixes } from '@/lib/voice/applyTypoFixes'
+import { isLikelySttSilenceHallucination } from '@/lib/voice/isLikelySttSilenceHallucination'
 import { chooseFinalSpeechText, extractSpeechRecognitionTranscript, useVoiceComposer } from '@/lib/voice/useVoiceComposer'
 
 const SR_ONLY_STYLE: React.CSSProperties = {
@@ -58,6 +60,20 @@ const SR_ONLY_STYLE: React.CSSProperties = {
   clip: 'rect(0, 0, 0, 0)',
   whiteSpace: 'nowrap',
   border: 0,
+}
+
+const HARD_VOICE_ERROR_MARKERS = [
+  'микрофон',
+  'не поддерживается',
+  'защищённом контексте',
+  'защищенном контексте',
+  'https',
+]
+
+function isHardVoiceErrorMessage(message: string | null): boolean {
+  if (!message) return false
+  const normalized = message.toLowerCase()
+  return HARD_VOICE_ERROR_MARKERS.some((marker) => normalized.includes(marker))
 }
 
 interface ChatProps {
@@ -1098,6 +1114,10 @@ export default function Chat({
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const mediaChunksRef = useRef<BlobPart[]>([])
   const mediaStopTimerRef = useRef<number | null>(null)
+  /** Был ли детектирован звук выше порога во время текущей MediaRecorder-сессии. */
+  const mediaRecorderSpeechDetectedRef = useRef(false)
+  /** По max-таймауту без речи завершаем сессию без STT. */
+  const mediaRecorderSkipSttAfterSilenceRef = useRef(false)
   /** Остановка MediaRecorder по тишине (аналог BROWSER_SILENCE_MS для Safari Web Speech). */
   const mediaSilenceRafRef = useRef<number | null>(null)
   const mediaSilenceAudioContextRef = useRef<AudioContext | null>(null)
@@ -1107,6 +1127,7 @@ export default function Chat({
   const finalizingWatchdogTimerRef = useRef<number | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const micInviteTimerRef = useRef<number | null>(null)
+  const [isIosDeviceClient, setIsIosDeviceClient] = useState(false)
   const [isIosChromeClient, setIsIosChromeClient] = useState(false)
   const [voiceWebMetricsClient, setVoiceWebMetricsClient] = useState(false)
   const composerText = isVoiceActive ? voiceDisplayText : input
@@ -1123,10 +1144,14 @@ export default function Chat({
           : voicePhase === 'error'
             ? voiceStatusMessage
             : null
+  const showVoiceStatusMessageBelowInput =
+    Boolean(voiceStatusMessage) &&
+    (!isIosDeviceClient || isHardVoiceErrorMessage(voiceStatusMessage))
 
   useEffect(() => {
     if (typeof window === 'undefined') return
     const ua = window.navigator.userAgent
+    setIsIosDeviceClient(isIosLikeDevice(ua))
     setIsIosChromeClient(isIosChromeBrowser(ua))
     setVoiceWebMetricsClient(needsVoiceComposerWebMetrics(ua))
   }, [])
@@ -1164,6 +1189,8 @@ export default function Chat({
     }
     mediaStreamRef.current = null
     mediaChunksRef.current = []
+    mediaRecorderSpeechDetectedRef.current = false
+    mediaRecorderSkipSttAfterSilenceRef.current = false
   }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1200,7 +1227,9 @@ export default function Chat({
     const LISTENING_MAX_MS = 25_000
     const BROWSER_SILENCE_MS = 1_200
     const MEDIA_FALLBACK_MAX_MS = settings.mode === 'communication' ? 12_000 : 15_000
-    const isIosChrome = isIosChromeBrowser(window.navigator.userAgent)
+    const userAgent = window.navigator.userAgent
+    const isIosDevice = isIosLikeDevice(userAgent)
+    const isIosChrome = isIosChromeBrowser(userAgent)
     const SpeechRecognitionAPI =
       (window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
       (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
@@ -1209,6 +1238,13 @@ export default function Chat({
       forceNextMicLang === 'ru' ? 'ru-RU' : forceNextMicLang === 'en' ? 'en-US' : null
     const preferredLocale = forcedLocale ?? ('en-US' as const)
     const sttLangForApi = sttLangFromLocale(preferredLocale)
+    const failVoiceSoft = (message: string) => {
+      if (isIosDevice) {
+        finishVoiceSession()
+        return
+      }
+      failVoiceSession(message)
+    }
 
     startVoiceSession()
     setVoiceStatusMessage(null)
@@ -1232,6 +1268,8 @@ export default function Chat({
         const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
         mediaRecorderRef.current = recorder
         mediaChunksRef.current = []
+        mediaRecorderSpeechDetectedRef.current = false
+        mediaRecorderSkipSttAfterSilenceRef.current = false
         setListening(true)
 
         recorder.ondataavailable = (e: BlobEvent) => {
@@ -1243,7 +1281,7 @@ export default function Chat({
         recorder.onerror = () => {
           releaseMediaRecorderResources()
           setListening(false)
-          failVoiceSession('[Ошибка записи аудио. Попробуйте ещё раз.]')
+          failVoiceSoft('[Ошибка записи аудио. Попробуйте ещё раз.]')
         }
 
         recorder.onstop = async () => {
@@ -1252,8 +1290,14 @@ export default function Chat({
             mediaRecorderStopFallbackTimerRef.current = null
           }
           const chunks = mediaChunksRef.current.slice()
+          const skipSttAfterSilence = mediaRecorderSkipSttAfterSilenceRef.current
+          mediaRecorderSkipSttAfterSilenceRef.current = false
           releaseMediaRecorderResources()
           setListening(false)
+          if (skipSttAfterSilence) {
+            finishVoiceSession()
+            return
+          }
           if (!chunks.length) {
             finishVoiceSession()
             return
@@ -1274,7 +1318,7 @@ export default function Chat({
             })
             const data = (await res.json()) as { text?: string; error?: string }
             if (!res.ok || !data.text) {
-              failVoiceSession('[Не удалось распознать речь. Попробуйте ещё раз или введите текст.]')
+              failVoiceSoft('[Не удалось распознать речь. Попробуйте ещё раз или введите текст.]')
               return
             }
             const correctedText = applyTypoFixes(data.text.trim())
@@ -1282,9 +1326,13 @@ export default function Chat({
               finishVoiceSession()
               return
             }
+            if (isIosDevice && isLikelySttSilenceHallucination(correctedText)) {
+              finishVoiceSession()
+              return
+            }
             commitVoiceText(correctedText)
           } catch {
-            failVoiceSession('[Ошибка сети при распознавании речи. Попробуйте ещё раз.]')
+            failVoiceSoft('[Ошибка сети при распознавании речи. Попробуйте ещё раз.]')
           }
         }
 
@@ -1329,6 +1377,7 @@ export default function Chat({
               if (rms >= silenceRmsThreshold && now >= silenceWarmupUntilMs) {
                 hasHeardSpeech = true
                 lastSpeechAt = now
+                mediaRecorderSpeechDetectedRef.current = true
               }
 
               if (hasHeardSpeech && now - lastSpeechAt >= BROWSER_SILENCE_MS) {
@@ -1350,7 +1399,11 @@ export default function Chat({
 
         mediaStopTimerRef.current = window.setTimeout(() => {
           if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-            beginVoiceFinalizing('Распознаю речь...')
+            if (mediaRecorderSpeechDetectedRef.current) {
+              beginVoiceFinalizing('Распознаю речь...')
+            } else {
+              mediaRecorderSkipSttAfterSilenceRef.current = true
+            }
             mediaRecorderRef.current.stop()
           }
         }, MEDIA_FALLBACK_MAX_MS)
@@ -1373,7 +1426,7 @@ export default function Chat({
           failVoiceSession('[Голосовой ввод работает только в защищённом контексте (HTTPS).]')
           return
         }
-        failVoiceSession('[Не удалось записать аудио. Попробуйте ещё раз.]')
+        failVoiceSoft('[Не удалось записать аудио. Попробуйте ещё раз.]')
       }
     }
 
@@ -1469,11 +1522,15 @@ export default function Chat({
         const resolvedFinalText = chooseFinalSpeechText(latestFinalText, latestInterimText)
         const correctedFinalText = applyTypoFixes(resolvedFinalText)
         if (correctedFinalText) {
+          if (isIosDevice && isLikelySttSilenceHallucination(correctedFinalText)) {
+            finishVoiceSession()
+            return
+          }
           commitVoiceText(correctedFinalText)
           return
         }
         if (timedOut) {
-          failVoiceSession(
+          failVoiceSoft(
             '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]'
           )
           return
@@ -1522,13 +1579,13 @@ export default function Chat({
             void startMediaRecorderFallback(sttLangForApi)
             return
           }
-          failVoiceSession('[Речь не распознана. Скажите фразу ещё раз чуть громче.]')
+          failVoiceSoft('[Речь не распознана. Скажите фразу ещё раз чуть громче.]')
         } else if (/not-allowed|permission/i.test(code)) {
           failVoiceSession('[Нет доступа к микрофону. Разрешите микрофон для этого сайта и попробуйте снова.]')
         } else if (code) {
-          failVoiceSession(`[Ошибка распознавания речи: ${code}]`)
+          failVoiceSoft(`[Ошибка распознавания речи: ${code}]`)
         } else {
-          failVoiceSession('[Не удалось распознать речь. Попробуйте ещё раз.]')
+          failVoiceSoft('[Не удалось распознать речь. Попробуйте ещё раз.]')
         }
       }
 
@@ -1672,12 +1729,23 @@ export default function Chat({
       finalizingWatchdogTimerRef.current = null
       releaseMediaRecorderResources()
       setListening(false)
+      if (isIosDeviceClient) {
+        finishVoiceSession()
+        return
+      }
       failVoiceSession('[Голосовой ввод завис. Продолжайте печатать с клавиатуры или попробуйте микрофон снова.]')
     }, 22_000)
     return () => {
       clearFinalizingWatchdog()
     }
-  }, [clearFinalizingWatchdog, failVoiceSession, releaseMediaRecorderResources, voicePhase])
+  }, [
+    clearFinalizingWatchdog,
+    failVoiceSession,
+    finishVoiceSession,
+    isIosDeviceClient,
+    releaseMediaRecorderResources,
+    voicePhase,
+  ])
 
   useEffect(() => {
     if (!loading || messages.length === 0) {
@@ -2168,7 +2236,7 @@ export default function Chat({
                   </svg>
                 </button>
               </form>
-              {voiceStatusMessage && !isIosChromeClient && (
+              {showVoiceStatusMessageBelowInput && (
                 <p
                   role="status"
                   aria-live="polite"
