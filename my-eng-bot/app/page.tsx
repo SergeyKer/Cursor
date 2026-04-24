@@ -995,7 +995,7 @@ export default function Home() {
   }, [menuOpen, maybeFetchUsage])
 
   React.useLayoutEffect(() => {
-    if (!isIosSafariClient) return
+    if (!isIosSafariClient || !dialogStarted) return
     if (typeof window === 'undefined') return
     const header = headerRef.current
     if (!header) return
@@ -1029,7 +1029,12 @@ export default function Home() {
       vv?.removeEventListener?.('resize', scheduleApply)
       vv?.removeEventListener?.('scroll', scheduleApply)
     }
-  }, [isIosSafariClient])
+  }, [isIosSafariClient, dialogStarted])
+
+  React.useEffect(() => {
+    if (!isIosSafariClient || dialogStarted) return
+    setMeasuredHeaderHeightPx(null)
+  }, [isIosSafariClient, dialogStarted])
 
   // Если пользователь переключил аудиторию на "Ребёнок" — автоматически принудим тему и уровень.
   useEffect(() => {
@@ -1395,7 +1400,15 @@ export default function Home() {
   // Не даем top-offset опускаться ниже базовой формулы (row + safe-area top), чтобы контент не уходил под fixed header.
   const measuredTopOffset = measuredHeaderHeightPx !== null ? `${measuredHeaderHeightPx}px` : fallbackTopOffset
   const safariTopOffset = `max(${fallbackTopOffset}, ${measuredTopOffset})`
-  const appTopOffset = isIosSafariClient ? safariTopOffset : fallbackTopOffset
+  // Стартовый экран Safari: формула как fallback + небольшой запас (погрешность safe-area / первый кадр).
+  const safariHomeTopOffset =
+    'calc(var(--app-header-row-height) + var(--app-safe-top-inset) + 2px)'
+  const appTopOffset =
+    isIosSafariClient && dialogStarted
+      ? safariTopOffset
+      : isIosSafariClient
+        ? safariHomeTopOffset
+        : fallbackTopOffset
   const appLayoutVars = {
     '--app-safe-top-inset': 'env(safe-area-inset-top, 0px)',
     '--app-header-row-height': '2.75rem',
@@ -1515,6 +1528,9 @@ export default function Home() {
         }`}
         style={{
           paddingTop: 'var(--app-top-offset)',
+          ...(isIosSafariClient && !dialogStarted
+            ? { scrollPaddingTop: 'var(--app-top-offset)' }
+            : {}),
           paddingBottom: dialogStarted
             // iOS: иногда появляется серый зазор снизу, если safe-area не учтён на уровне контейнера.
             // Контент чата тоже учитывает safe-area, но внешний контейнер при dialogStarted=true держим с paddingBottom.
