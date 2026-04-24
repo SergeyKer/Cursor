@@ -283,6 +283,7 @@ export default function Home() {
   const [forceNextMicLang, setForceNextMicLang] = useState<'ru' | 'en' | null>(null)
   const [searchingInternet, setSearchingInternet] = useState(false)
   const [searchingInternetLang, setSearchingInternetLang] = useState<'ru' | 'en'>('ru')
+  /** iOS Safari: ceil(bottom фикс. шапки)+1px; для max с fallback в --app-top-offset. */
   const [measuredHeaderHeightPx, setMeasuredHeaderHeightPx] = useState<number | null>(null)
   /** Увеличение сбрасывает поле ввода/голос (меню «Начать …»). */
   const [composerSessionKey, setComposerSessionKey] = useState(0)
@@ -995,7 +996,7 @@ export default function Home() {
   }, [menuOpen, maybeFetchUsage])
 
   React.useLayoutEffect(() => {
-    if (!isIosSafariClient || !dialogStarted) return
+    if (!isIosSafariClient) return
     if (typeof window === 'undefined') return
     const header = headerRef.current
     if (!header) return
@@ -1003,8 +1004,10 @@ export default function Home() {
     let raf = 0
     const applyHeight = () => {
       raf = 0
-      const nextHeight = Math.max(0, Math.ceil(header.getBoundingClientRect().height))
-      setMeasuredHeaderHeightPx((prev) => (prev === nextHeight ? prev : nextHeight))
+      const rect = header.getBoundingClientRect()
+      // Для fixed top:0 нижний край шапки надёжнее height (бордер, WebKit, absolute-слой с заголовком).
+      const nextInset = Math.max(0, Math.ceil(rect.bottom) + 1)
+      setMeasuredHeaderHeightPx((prev) => (prev === nextInset ? prev : nextInset))
     }
     const scheduleApply = () => {
       if (raf) return
@@ -1029,12 +1032,7 @@ export default function Home() {
       vv?.removeEventListener?.('resize', scheduleApply)
       vv?.removeEventListener?.('scroll', scheduleApply)
     }
-  }, [isIosSafariClient, dialogStarted])
-
-  React.useEffect(() => {
-    if (!isIosSafariClient || dialogStarted) return
-    setMeasuredHeaderHeightPx(null)
-  }, [isIosSafariClient, dialogStarted])
+  }, [isIosSafariClient])
 
   // Если пользователь переключил аудиторию на "Ребёнок" — автоматически принудим тему и уровень.
   useEffect(() => {
@@ -1396,19 +1394,10 @@ export default function Home() {
         ? getMenuSummary(true)
         : 'MyEng'
   const fallbackTopOffset = 'calc(var(--app-header-row-height) + var(--app-safe-top-inset))'
-  // Safari iOS: измерение шапки может кратковременно отставать от реальной геометрии viewport.
-  // Не даем top-offset опускаться ниже базовой формулы (row + safe-area top), чтобы контент не уходил под fixed header.
+  // Safari iOS: max(формула, замер нижнего края fixed-шапки в px) — главная и чат одной логикой.
   const measuredTopOffset = measuredHeaderHeightPx !== null ? `${measuredHeaderHeightPx}px` : fallbackTopOffset
   const safariTopOffset = `max(${fallbackTopOffset}, ${measuredTopOffset})`
-  // Стартовый экран Safari: формула как fallback + небольшой запас (погрешность safe-area / первый кадр).
-  const safariHomeTopOffset =
-    'calc(var(--app-header-row-height) + var(--app-safe-top-inset) + 2px)'
-  const appTopOffset =
-    isIosSafariClient && dialogStarted
-      ? safariTopOffset
-      : isIosSafariClient
-        ? safariHomeTopOffset
-        : fallbackTopOffset
+  const appTopOffset = isIosSafariClient ? safariTopOffset : fallbackTopOffset
   const appLayoutVars = {
     '--app-safe-top-inset': 'env(safe-area-inset-top, 0px)',
     '--app-header-row-height': '2.75rem',
