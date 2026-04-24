@@ -1004,8 +1004,12 @@ export default function Home() {
 
     let cancelled = false
     let coalesceTick = 0
+    let lastWindowHeight = window.innerHeight
+    let lastWindowWidth = window.innerWidth
+    const LARGE_RESIZE_PX = 72
+    const DEBUG_IOS_SAFARI_INSET = false
 
-    const applyInset = () => {
+    const applyInset = (allowDecrease: boolean, source: string) => {
       if (cancelled) return
       // Та же формула, что fallbackTopOffset, но в px — чтобы не полагаться на max(calc, px) в Safari.
       const probe = document.createElement('div')
@@ -1019,15 +1023,33 @@ export default function Home() {
       const rect = header.getBoundingClientRect()
       const borderBottom = parseFloat(getComputedStyle(header).borderBottomWidth) || 0
       const calcWithBorder = calcPx + Math.ceil(borderBottom)
+      const vvOffsetTop = Math.max(0, Math.ceil(window.visualViewport?.offsetTop ?? 0))
       const fromRect = Math.max(0, Math.ceil(rect.bottom) + 1)
+      const fromRectWithVvOffset = Math.max(0, Math.ceil(rect.bottom + vvOffsetTop) + 1)
       const fromOffset = header.offsetHeight
-      const nextInset = Math.max(calcWithBorder, fromRect, fromOffset)
+      const nextInset = Math.max(calcWithBorder, fromRect, fromRectWithVvOffset, fromOffset)
 
-      setIosSafariTopInsetPx((prev) => (prev === nextInset ? prev : nextInset))
+      setIosSafariTopInsetPx((prev) => {
+        const nextValue = allowDecrease || prev === null ? nextInset : Math.max(prev, nextInset)
+        if (DEBUG_IOS_SAFARI_INSET) {
+          console.debug('[ios-safari-top-inset]', {
+            source,
+            allowDecrease,
+            prevInset: prev,
+            nextInset: nextValue,
+            nextInsetRaw: nextInset,
+            fallbackPx: calcWithBorder,
+            rectBottom: rect.bottom,
+            vvOffsetTop,
+            headerOffsetHeight: fromOffset,
+          })
+        }
+        return prev === nextValue ? prev : nextValue
+      })
     }
 
     // Двойной rAF: после сдвига visualViewport / появления кнопок в шапке первый кадр иногда даёт заниженный rect.
-    const scheduleApply = () => {
+    const scheduleApply = (allowDecrease: boolean, source: string) => {
       if (cancelled) return
       coalesceTick += 1
       const turn = coalesceTick
@@ -1035,28 +1057,48 @@ export default function Home() {
         if (cancelled || turn !== coalesceTick) return
         window.requestAnimationFrame(() => {
           if (cancelled || turn !== coalesceTick) return
-          applyInset()
+          applyInset(allowDecrease, source)
         })
       })
     }
+    const scheduleApplyGrowOnly = (source: string) => scheduleApply(false, source)
+    const scheduleApplyResetAllowed = (source: string) => scheduleApply(true, source)
+    const handleWindowResize = () => {
+      const heightDelta = Math.abs(window.innerHeight - lastWindowHeight)
+      const widthDelta = Math.abs(window.innerWidth - lastWindowWidth)
+      lastWindowHeight = window.innerHeight
+      lastWindowWidth = window.innerWidth
+      const isLargeResize = heightDelta >= LARGE_RESIZE_PX || widthDelta >= LARGE_RESIZE_PX
+      if (isLargeResize) {
+        scheduleApplyResetAllowed('window.resize.large')
+        return
+      }
+      scheduleApplyGrowOnly('window.resize.small')
+    }
+    const handleOrientationChange = () => scheduleApplyResetAllowed('window.orientationchange')
+    const handleVisualViewportResize = () => scheduleApplyGrowOnly('visualViewport.resize')
+    const handleVisualViewportScroll = () => scheduleApplyGrowOnly('visualViewport.scroll')
 
-    scheduleApply()
-    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(scheduleApply) : null
+    scheduleApplyResetAllowed('mount')
+    const observer =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => scheduleApplyGrowOnly('resizeObserver'))
+        : null
     observer?.observe(header)
 
-    window.addEventListener('resize', scheduleApply, { passive: true })
-    window.addEventListener('orientationchange', scheduleApply, { passive: true })
+    window.addEventListener('resize', handleWindowResize, { passive: true })
+    window.addEventListener('orientationchange', handleOrientationChange, { passive: true })
     const vv = window.visualViewport
-    vv?.addEventListener?.('resize', scheduleApply, { passive: true })
-    vv?.addEventListener?.('scroll', scheduleApply, { passive: true })
+    vv?.addEventListener?.('resize', handleVisualViewportResize, { passive: true })
+    vv?.addEventListener?.('scroll', handleVisualViewportScroll, { passive: true })
 
     return () => {
       cancelled = true
       observer?.disconnect()
-      window.removeEventListener('resize', scheduleApply)
-      window.removeEventListener('orientationchange', scheduleApply)
-      vv?.removeEventListener?.('resize', scheduleApply)
-      vv?.removeEventListener?.('scroll', scheduleApply)
+      window.removeEventListener('resize', handleWindowResize)
+      window.removeEventListener('orientationchange', handleOrientationChange)
+      vv?.removeEventListener?.('resize', handleVisualViewportResize)
+      vv?.removeEventListener?.('scroll', handleVisualViewportScroll)
     }
   }, [isIosSafariClient])
 
