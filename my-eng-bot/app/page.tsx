@@ -1006,6 +1006,8 @@ export default function Home() {
     let coalesceTick = 0
     let lastWindowHeight = window.innerHeight
     let lastWindowWidth = window.innerWidth
+    let stabilizeTimeoutShort = 0
+    let stabilizeTimeoutLong = 0
     const LARGE_RESIZE_PX = 72
     const DEBUG_IOS_SAFARI_INSET = false
 
@@ -1078,14 +1080,20 @@ export default function Home() {
     const handleOrientationChange = () => scheduleApplyResetAllowed('window.orientationchange')
     const handleVisualViewportResize = () => scheduleApplyGrowOnly('visualViewport.resize')
     const handleVisualViewportScroll = () => scheduleApplyGrowOnly('visualViewport.scroll')
+    const handleWindowLoad = () => scheduleApplyResetAllowed('window.load')
 
     scheduleApplyResetAllowed('mount')
+    // iOS Safari часто стабилизирует visual viewport через короткое время после mount.
+    // Повторные reset-замеры помогают не зафиксировать раннее заниженное значение inset.
+    stabilizeTimeoutShort = window.setTimeout(() => scheduleApplyResetAllowed('mount.stabilize.short'), 180)
+    stabilizeTimeoutLong = window.setTimeout(() => scheduleApplyResetAllowed('mount.stabilize.long'), 700)
     const observer =
       typeof ResizeObserver !== 'undefined'
         ? new ResizeObserver(() => scheduleApplyGrowOnly('resizeObserver'))
         : null
     observer?.observe(header)
 
+    window.addEventListener('load', handleWindowLoad, { passive: true })
     window.addEventListener('resize', handleWindowResize, { passive: true })
     window.addEventListener('orientationchange', handleOrientationChange, { passive: true })
     const vv = window.visualViewport
@@ -1094,7 +1102,10 @@ export default function Home() {
 
     return () => {
       cancelled = true
+      if (stabilizeTimeoutShort) window.clearTimeout(stabilizeTimeoutShort)
+      if (stabilizeTimeoutLong) window.clearTimeout(stabilizeTimeoutLong)
       observer?.disconnect()
+      window.removeEventListener('load', handleWindowLoad)
       window.removeEventListener('resize', handleWindowResize)
       window.removeEventListener('orientationchange', handleOrientationChange)
       vv?.removeEventListener?.('resize', handleVisualViewportResize)
