@@ -283,8 +283,8 @@ export default function Home() {
   const [forceNextMicLang, setForceNextMicLang] = useState<'ru' | 'en' | null>(null)
   const [searchingInternet, setSearchingInternet] = useState(false)
   const [searchingInternetLang, setSearchingInternetLang] = useState<'ru' | 'en'>('ru')
-  /** iOS Safari: ceil(bottom фикс. шапки)+1px; для max с fallback в --app-top-offset. */
-  const [measuredHeaderHeightPx, setMeasuredHeaderHeightPx] = useState<number | null>(null)
+  /** iOS Safari: итоговый padding-top main в px (см. useLayoutEffect, без CSS max() на WebKit). */
+  const [iosSafariTopInsetPx, setIosSafariTopInsetPx] = useState<number | null>(null)
   /** Увеличение сбрасывает поле ввода/голос (меню «Начать …»). */
   const [composerSessionKey, setComposerSessionKey] = useState(0)
   const [lessonMenuContext, setLessonMenuContext] = useState<LessonMenuContext | null>(null)
@@ -999,19 +999,45 @@ export default function Home() {
     if (!isIosSafariClient) return
     if (typeof window === 'undefined') return
     const header = headerRef.current
-    if (!header) return
+    const shell = header?.parentElement
+    if (!header || !shell) return
 
-    let raf = 0
-    const applyHeight = () => {
-      raf = 0
+    let cancelled = false
+    let coalesceTick = 0
+
+    const applyInset = () => {
+      if (cancelled) return
+      // Та же формула, что fallbackTopOffset, но в px — чтобы не полагаться на max(calc, px) в Safari.
+      const probe = document.createElement('div')
+      probe.setAttribute('aria-hidden', 'true')
+      probe.style.cssText =
+        'position:absolute;left:0;top:0;width:0;margin:0;padding:0;border:0;pointer-events:none;visibility:hidden;overflow:hidden;height:calc(var(--app-header-row-height) + var(--app-safe-top-inset))'
+      shell.appendChild(probe)
+      const calcPx = Math.ceil(probe.getBoundingClientRect().height)
+      shell.removeChild(probe)
+
       const rect = header.getBoundingClientRect()
-      // Для fixed top:0 нижний край шапки надёжнее height (бордер, WebKit, absolute-слой с заголовком).
-      const nextInset = Math.max(0, Math.ceil(rect.bottom) + 1)
-      setMeasuredHeaderHeightPx((prev) => (prev === nextInset ? prev : nextInset))
+      const borderBottom = parseFloat(getComputedStyle(header).borderBottomWidth) || 0
+      const calcWithBorder = calcPx + Math.ceil(borderBottom)
+      const fromRect = Math.max(0, Math.ceil(rect.bottom) + 1)
+      const fromOffset = header.offsetHeight
+      const nextInset = Math.max(calcWithBorder, fromRect, fromOffset)
+
+      setIosSafariTopInsetPx((prev) => (prev === nextInset ? prev : nextInset))
     }
+
+    // Двойной rAF: после сдвига visualViewport / появления кнопок в шапке первый кадр иногда даёт заниженный rect.
     const scheduleApply = () => {
-      if (raf) return
-      raf = window.requestAnimationFrame(applyHeight)
+      if (cancelled) return
+      coalesceTick += 1
+      const turn = coalesceTick
+      window.requestAnimationFrame(() => {
+        if (cancelled || turn !== coalesceTick) return
+        window.requestAnimationFrame(() => {
+          if (cancelled || turn !== coalesceTick) return
+          applyInset()
+        })
+      })
     }
 
     scheduleApply()
@@ -1025,7 +1051,7 @@ export default function Home() {
     vv?.addEventListener?.('scroll', scheduleApply, { passive: true })
 
     return () => {
-      if (raf) window.cancelAnimationFrame(raf)
+      cancelled = true
       observer?.disconnect()
       window.removeEventListener('resize', scheduleApply)
       window.removeEventListener('orientationchange', scheduleApply)
@@ -1394,10 +1420,8 @@ export default function Home() {
         ? getMenuSummary(true)
         : 'MyEng'
   const fallbackTopOffset = 'calc(var(--app-header-row-height) + var(--app-safe-top-inset))'
-  // Safari iOS: max(формула, замер нижнего края fixed-шапки в px) — главная и чат одной логикой.
-  const measuredTopOffset = measuredHeaderHeightPx !== null ? `${measuredHeaderHeightPx}px` : fallbackTopOffset
-  const safariTopOffset = `max(${fallbackTopOffset}, ${measuredTopOffset})`
-  const appTopOffset = isIosSafariClient ? safariTopOffset : fallbackTopOffset
+  const appTopOffset =
+    isIosSafariClient && iosSafariTopInsetPx !== null ? `${iosSafariTopInsetPx}px` : fallbackTopOffset
   const appLayoutVars = {
     '--app-safe-top-inset': 'env(safe-area-inset-top, 0px)',
     '--app-header-row-height': '2.75rem',
