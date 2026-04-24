@@ -283,8 +283,6 @@ export default function Home() {
   const [forceNextMicLang, setForceNextMicLang] = useState<'ru' | 'en' | null>(null)
   const [searchingInternet, setSearchingInternet] = useState(false)
   const [searchingInternetLang, setSearchingInternetLang] = useState<'ru' | 'en'>('ru')
-  /** iOS Safari: итоговый padding-top main в px (см. useLayoutEffect, без CSS max() на WebKit). */
-  const [iosSafariTopInsetPx, setIosSafariTopInsetPx] = useState<number | null>(null)
   /** Увеличение сбрасывает поле ввода/голос (меню «Начать …»). */
   const [composerSessionKey, setComposerSessionKey] = useState(0)
   const [lessonMenuContext, setLessonMenuContext] = useState<LessonMenuContext | null>(null)
@@ -308,7 +306,6 @@ export default function Home() {
   const prevMenuOpenForSnapshotRef = React.useRef(false)
   /** Не показывать баннер «настройки изменены» сразу после автоперезапуска из меню (до синхронизации с отправкой). */
   const suppressSettingsChangeBannerRef = React.useRef(false)
-  const headerRef = React.useRef<HTMLElement | null>(null)
   /** iPhone / iPad / iPod и iPadOS с десктопным UA (Macintosh + Mobile). */
   const isIosClient = React.useMemo(() => {
     if (typeof navigator === 'undefined') return false
@@ -995,124 +992,6 @@ export default function Home() {
     maybeFetchUsage()
   }, [menuOpen, maybeFetchUsage])
 
-  React.useLayoutEffect(() => {
-    if (!isIosSafariClient) return
-    if (typeof window === 'undefined') return
-    const header = headerRef.current
-    const shell = header?.parentElement
-    if (!header || !shell) return
-
-    let cancelled = false
-    let coalesceTick = 0
-    let lastWindowHeight = window.innerHeight
-    let lastWindowWidth = window.innerWidth
-    let stabilizeTimeoutShort = 0
-    let stabilizeTimeoutLong = 0
-    const LARGE_RESIZE_PX = 72
-    const DEBUG_IOS_SAFARI_INSET = false
-
-    const applyInset = (allowDecrease: boolean, source: string) => {
-      if (cancelled) return
-      // Та же формула, что fallbackTopOffset, но в px — чтобы не полагаться на max(calc, px) в Safari.
-      const probe = document.createElement('div')
-      probe.setAttribute('aria-hidden', 'true')
-      probe.style.cssText =
-        'position:absolute;left:0;top:0;width:0;margin:0;padding:0;border:0;pointer-events:none;visibility:hidden;overflow:hidden;height:calc(var(--app-header-row-height) + var(--app-safe-top-inset))'
-      shell.appendChild(probe)
-      const calcPx = Math.ceil(probe.getBoundingClientRect().height)
-      shell.removeChild(probe)
-
-      const rect = header.getBoundingClientRect()
-      const borderBottom = parseFloat(getComputedStyle(header).borderBottomWidth) || 0
-      const calcWithBorder = calcPx + Math.ceil(borderBottom)
-      const vvOffsetTop = Math.max(0, Math.ceil(window.visualViewport?.offsetTop ?? 0))
-      const fromRect = Math.max(0, Math.ceil(rect.bottom) + 1)
-      const fromRectWithVvOffset = Math.max(0, Math.ceil(rect.bottom + vvOffsetTop) + 1)
-      const fromOffset = header.offsetHeight
-      const nextInset = Math.max(calcWithBorder, fromRect, fromRectWithVvOffset, fromOffset)
-
-      setIosSafariTopInsetPx((prev) => {
-        const nextValue = allowDecrease || prev === null ? nextInset : Math.max(prev, nextInset)
-        if (DEBUG_IOS_SAFARI_INSET) {
-          console.debug('[ios-safari-top-inset]', {
-            source,
-            allowDecrease,
-            prevInset: prev,
-            nextInset: nextValue,
-            nextInsetRaw: nextInset,
-            fallbackPx: calcWithBorder,
-            rectBottom: rect.bottom,
-            vvOffsetTop,
-            headerOffsetHeight: fromOffset,
-          })
-        }
-        return prev === nextValue ? prev : nextValue
-      })
-    }
-
-    // Двойной rAF: после сдвига visualViewport / появления кнопок в шапке первый кадр иногда даёт заниженный rect.
-    const scheduleApply = (allowDecrease: boolean, source: string) => {
-      if (cancelled) return
-      coalesceTick += 1
-      const turn = coalesceTick
-      window.requestAnimationFrame(() => {
-        if (cancelled || turn !== coalesceTick) return
-        window.requestAnimationFrame(() => {
-          if (cancelled || turn !== coalesceTick) return
-          applyInset(allowDecrease, source)
-        })
-      })
-    }
-    const scheduleApplyGrowOnly = (source: string) => scheduleApply(false, source)
-    const scheduleApplyResetAllowed = (source: string) => scheduleApply(true, source)
-    const handleWindowResize = () => {
-      const heightDelta = Math.abs(window.innerHeight - lastWindowHeight)
-      const widthDelta = Math.abs(window.innerWidth - lastWindowWidth)
-      lastWindowHeight = window.innerHeight
-      lastWindowWidth = window.innerWidth
-      const isLargeResize = heightDelta >= LARGE_RESIZE_PX || widthDelta >= LARGE_RESIZE_PX
-      if (isLargeResize) {
-        scheduleApplyResetAllowed('window.resize.large')
-        return
-      }
-      scheduleApplyGrowOnly('window.resize.small')
-    }
-    const handleOrientationChange = () => scheduleApplyResetAllowed('window.orientationchange')
-    const handleVisualViewportResize = () => scheduleApplyGrowOnly('visualViewport.resize')
-    const handleVisualViewportScroll = () => scheduleApplyGrowOnly('visualViewport.scroll')
-    const handleWindowLoad = () => scheduleApplyResetAllowed('window.load')
-
-    scheduleApplyResetAllowed('mount')
-    // iOS Safari часто стабилизирует visual viewport через короткое время после mount.
-    // Повторные reset-замеры помогают не зафиксировать раннее заниженное значение inset.
-    stabilizeTimeoutShort = window.setTimeout(() => scheduleApplyResetAllowed('mount.stabilize.short'), 180)
-    stabilizeTimeoutLong = window.setTimeout(() => scheduleApplyResetAllowed('mount.stabilize.long'), 700)
-    const observer =
-      typeof ResizeObserver !== 'undefined'
-        ? new ResizeObserver(() => scheduleApplyGrowOnly('resizeObserver'))
-        : null
-    observer?.observe(header)
-
-    window.addEventListener('load', handleWindowLoad, { passive: true })
-    window.addEventListener('resize', handleWindowResize, { passive: true })
-    window.addEventListener('orientationchange', handleOrientationChange, { passive: true })
-    const vv = window.visualViewport
-    vv?.addEventListener?.('resize', handleVisualViewportResize, { passive: true })
-    vv?.addEventListener?.('scroll', handleVisualViewportScroll, { passive: true })
-
-    return () => {
-      cancelled = true
-      if (stabilizeTimeoutShort) window.clearTimeout(stabilizeTimeoutShort)
-      if (stabilizeTimeoutLong) window.clearTimeout(stabilizeTimeoutLong)
-      observer?.disconnect()
-      window.removeEventListener('load', handleWindowLoad)
-      window.removeEventListener('resize', handleWindowResize)
-      window.removeEventListener('orientationchange', handleOrientationChange)
-      vv?.removeEventListener?.('resize', handleVisualViewportResize)
-      vv?.removeEventListener?.('scroll', handleVisualViewportScroll)
-    }
-  }, [isIosSafariClient])
-
   // Если пользователь переключил аудиторию на "Ребёнок" — автоматически принудим тему и уровень.
   useEffect(() => {
     if (!storageLoaded) return
@@ -1473,8 +1352,8 @@ export default function Home() {
         ? getMenuSummary(true)
         : 'MyEng'
   const fallbackTopOffset = 'calc(var(--app-header-row-height) + var(--app-safe-top-inset))'
-  const appTopOffset =
-    isIosSafariClient && iosSafariTopInsetPx !== null ? `${iosSafariTopInsetPx}px` : fallbackTopOffset
+  const iosSafariTopOffset = 'calc(var(--app-header-row-height) + var(--app-safe-top-inset) + 1px)'
+  const appTopOffset = isIosSafariClient ? iosSafariTopOffset : fallbackTopOffset
   const appLayoutVars = {
     '--app-safe-top-inset': 'env(safe-area-inset-top, 0px)',
     '--app-header-row-height': '2.75rem',
@@ -1490,7 +1369,6 @@ export default function Home() {
   return (
     <div data-audience={settings.audience} className={rootShellClass} style={appLayoutVars}>
       <header
-        ref={headerRef}
         className="app-header-surface fixed left-0 right-0 top-0 z-[60] border-b border-[var(--app-header-border)]"
         style={{
           paddingTop: 'var(--app-safe-top-inset)',
