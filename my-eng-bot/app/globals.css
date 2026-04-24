@@ -860,6 +860,16 @@ select.select-chevron {
   line-height: 22px;
 }
 
+/*
+ * Только оверлей статуса голоса для iOS Chrome (см. iosChromeVoiceStatusMessage в Chat.tsx).
+ * Blink на iOS даёт смещение baseline/line-box относительно padding — flex центрирует строку в поле.
+ */
+.ios-chrome-voice-status-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
 .chat-input-field:focus {
   outline: none;
   border-color: var(--chat-input-focus-border);
