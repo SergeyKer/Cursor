@@ -1391,7 +1391,11 @@ export default function Home() {
         ? getMenuSummary(true)
         : 'MyEng'
   const fallbackTopOffset = 'calc(var(--app-header-row-height) + var(--app-safe-top-inset))'
-  const appTopOffset = isIosSafariClient && measuredHeaderHeightPx !== null ? `${measuredHeaderHeightPx}px` : fallbackTopOffset
+  // Safari iOS: измерение шапки может кратковременно отставать от реальной геометрии viewport.
+  // Не даем top-offset опускаться ниже базовой формулы (row + safe-area top), чтобы контент не уходил под fixed header.
+  const measuredTopOffset = measuredHeaderHeightPx !== null ? `${measuredHeaderHeightPx}px` : fallbackTopOffset
+  const safariTopOffset = `max(${fallbackTopOffset}, ${measuredTopOffset})`
+  const appTopOffset = isIosSafariClient ? safariTopOffset : fallbackTopOffset
   const appLayoutVars = {
     '--app-safe-top-inset': 'env(safe-area-inset-top, 0px)',
     '--app-header-row-height': '2.75rem',
