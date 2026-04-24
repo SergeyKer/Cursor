@@ -57,6 +57,7 @@ import {
 } from '@/lib/learningLessons'
 import type { LessonBlueprint } from '@/lib/lessonBlueprint'
 import type { LessonMenuContext } from '@/components/SlideOutMenu'
+import { isIosChromeBrowser } from '@/lib/sttClient'
 
 import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/components/MenuSectionPanels'
 
@@ -313,6 +314,18 @@ export default function Home() {
     const ua = navigator.userAgent
     if (/iPhone|iPad|iPod/i.test(ua)) return true
     return /Macintosh/i.test(ua) && /Mobile/i.test(ua)
+  }, [])
+  /** Только iOS Safari: исключаем iOS Chrome/Edge/Firefox/Opera, чтобы правка не влияла на другие браузеры. */
+  const isIosSafariClient = React.useMemo(() => {
+    if (typeof navigator === 'undefined') return false
+    const ua = navigator.userAgent
+    const isIosDevice = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && /Mobile/i.test(ua))
+    if (!isIosDevice) return false
+    if (isIosChromeBrowser(ua)) return false
+    if (/FxiOS\/\d+/i.test(ua)) return false
+    if (/EdgiOS\/\d+/i.test(ua)) return false
+    if (/OPiOS\/\d+/i.test(ua)) return false
+    return /Safari\/\d+/i.test(ua)
   }, [])
 
   function normalizeSettingsForAudience(s: Settings): Settings {
@@ -982,7 +995,7 @@ export default function Home() {
   }, [menuOpen, maybeFetchUsage])
 
   React.useLayoutEffect(() => {
-    if (!isIosClient) return
+    if (!isIosSafariClient) return
     if (typeof window === 'undefined') return
     const header = headerRef.current
     if (!header) return
@@ -1004,14 +1017,19 @@ export default function Home() {
 
     window.addEventListener('resize', scheduleApply, { passive: true })
     window.addEventListener('orientationchange', scheduleApply, { passive: true })
+    const vv = window.visualViewport
+    vv?.addEventListener?.('resize', scheduleApply, { passive: true })
+    vv?.addEventListener?.('scroll', scheduleApply, { passive: true })
 
     return () => {
       if (raf) window.cancelAnimationFrame(raf)
       observer?.disconnect()
       window.removeEventListener('resize', scheduleApply)
       window.removeEventListener('orientationchange', scheduleApply)
+      vv?.removeEventListener?.('resize', scheduleApply)
+      vv?.removeEventListener?.('scroll', scheduleApply)
     }
-  }, [isIosClient])
+  }, [isIosSafariClient])
 
   // Если пользователь переключил аудиторию на "Ребёнок" — автоматически принудим тему и уровень.
   useEffect(() => {
@@ -1373,7 +1391,7 @@ export default function Home() {
         ? getMenuSummary(true)
         : 'MyEng'
   const fallbackTopOffset = 'calc(var(--app-header-row-height) + var(--app-safe-top-inset))'
-  const appTopOffset = isIosClient && measuredHeaderHeightPx !== null ? `${measuredHeaderHeightPx}px` : fallbackTopOffset
+  const appTopOffset = isIosSafariClient && measuredHeaderHeightPx !== null ? `${measuredHeaderHeightPx}px` : fallbackTopOffset
   const appLayoutVars = {
     '--app-safe-top-inset': 'env(safe-area-inset-top, 0px)',
     '--app-header-row-height': '2.75rem',
