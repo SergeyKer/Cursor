@@ -1695,7 +1695,7 @@ export default function Home() {
       {/* Как и шапка: футер — fixed поверх бокового меню (z-50); спейсер оставляет тот же запас, что и блок в потоке. */}
       <div className="shrink-0" style={{ height: 'var(--app-bottom-offset)' }} aria-hidden />
       <footer
-        className="app-header-surface pointer-events-none fixed bottom-0 left-0 right-0 z-[60] border-t border-[var(--app-header-border)]"
+        className="app-footer-surface pointer-events-none fixed bottom-0 left-0 right-0 z-[60] border-t border-[var(--app-footer-border)]"
         style={{
           minHeight: 'var(--app-footer-row-height)',
           paddingBottom: 'var(--app-bottom-inset)',

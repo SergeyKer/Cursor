@@ -1752,9 +1752,11 @@ export default function Chat({
 
   const INPUT_MAX_HEIGHT_PX = 260
   const INPUT_GAP_PX = 10
-  /** База 0.625rem (как `pt-2.5`) + safe-area / клавиатура (`--vv-bottom-inset`), без затирания нижней части `py` инлайном. */
-  const INPUT_COMPOSER_PADDING_BOTTOM =
-    'calc(0.625rem + max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset)))'
+  /** База 0.625rem (как `pt-2.5`) + только safe-area.
+   * Клавиатурный inset (`--vv-bottom-inset`) учитывается на уровне fixed-футера в page.tsx,
+   * чтобы не было двойного подъёма поля ввода при открытой клавиатуре.
+   */
+  const INPUT_COMPOSER_PADDING_BOTTOM = 'calc(0.625rem + env(safe-area-inset-bottom, 0px))'
 
   const adjustInputHeight = useCallback(() => {
     const el = textareaRef.current

@@ -94,12 +94,14 @@ export default function SlideOutMenu({
         onClick={onToggle}
       />
       <aside
-        className={`fixed left-0 z-50 w-80 max-w-[85vw] border-b border-r border-b-[var(--app-header-border)] border-r-[var(--border)] bg-[var(--menu-panel-bg)] shadow-lg transition-transform duration-200 ease-out ${
+        className={`fixed left-0 z-50 w-80 max-w-[85vw] border-b border-r border-b-[var(--app-footer-border)] border-r-[var(--border)] bg-[var(--menu-panel-bg)] transition-transform duration-200 ease-out ${
           open ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none'
         }`}
         style={{
           top: topOffset,
           bottom: bottomOffset,
+          boxShadow:
+            'var(--app-footer-shadow), 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
         }}
         aria-label="Меню"
       >
