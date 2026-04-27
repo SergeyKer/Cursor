@@ -31,7 +31,7 @@ function buildLessonHintWithCorrectAnswer(
   correctAnswer: string
 ): string {
   const baseHint = hint?.trim() || 'Почти. Попробуйте еще раз.'
-  return `${baseHint} - ${correctAnswer.trim()}`
+  return `${baseHint} Скажи: ${correctAnswer.trim()}`
 }
 
 export function useLessonEngine(lesson: LessonData | null) {

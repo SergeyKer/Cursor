@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { callProviderChat } from '@/lib/callProviderChat'
 import type { OpenAiChatPreset, Audience } from '@/lib/types'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
+import { selectStructuredLessonVariant } from '@/lib/structuredLessonVariants'
 import {
   assessGeneratedSteps,
   buildLessonFromGeneratedSteps,
@@ -17,6 +18,7 @@ type Body = {
   openAiChatPreset?: OpenAiChatPreset
   audience?: Audience
   lessonId?: string
+  recentVariantIds?: string[]
 }
 
 export async function POST(req: NextRequest) {
@@ -27,9 +29,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Неверный JSON.' }, { status: 400 })
   }
 
-  const lesson = body.lessonId ? getStructuredLessonById(body.lessonId) : null
-  if (!lesson || !lesson.repeatConfig) {
+  const baseLesson = body.lessonId ? getStructuredLessonById(body.lessonId) : null
+  if (!baseLesson || !baseLesson.repeatConfig) {
     return NextResponse.json({ error: 'Нет данных structured-урока для повтора.' }, { status: 400 })
+  }
+  const recentVariantIds = Array.isArray(body.recentVariantIds)
+    ? body.recentVariantIds.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : []
+  const { lesson, selectedVariantId } = selectStructuredLessonVariant(baseLesson, recentVariantIds)
+  const repeatConfig = lesson.repeatConfig
+  if (!repeatConfig) {
+    return NextResponse.json({ error: 'Нет repeatConfig для structured-урока.' }, { status: 400 })
   }
 
   const sourceRepeatableSteps = lesson.steps.filter((step) => step.stepType !== 'completion')
@@ -52,11 +62,12 @@ export async function POST(req: NextRequest) {
       topic: lesson.topic,
       level: lesson.level,
       audience: body.audience ?? 'adult',
-      repeatMode: 'change_situations_only',
-      ruleSummary: lesson.repeatConfig.ruleSummary,
-      grammarFocus: lesson.repeatConfig.grammarFocus,
-      sourceSituations: lesson.repeatConfig.sourceSituations,
-      stepBlueprints: lesson.repeatConfig.stepBlueprints,
+      repeatMode: 'change_situations_and_lexis_within_same_grammar_focus',
+      selectedVariantId,
+      ruleSummary: repeatConfig.ruleSummary,
+      grammarFocus: repeatConfig.grammarFocus,
+      sourceSituations: repeatConfig.sourceSituations,
+      stepBlueprints: repeatConfig.stepBlueprints,
       sourceSteps: sourceRepeatableSteps.map((step) => ({
         stepNumber: step.stepNumber,
         stepType: step.stepType,
@@ -94,7 +105,7 @@ export async function POST(req: NextRequest) {
     const validation = assessGeneratedSteps(lesson, sourceRepeatableSteps, parsed.steps, { audience: body.audience ?? 'adult' })
     if (!validation.validatedSteps) {
       console.warn(
-        `lesson-repeat rejected lesson ${lesson.id}: score=${validation.score.toFixed(2)}; ${formatLessonValidationIssues(validation.issues)}`
+        `lesson-repeat rejected lesson ${lesson.id} variant ${selectedVariantId ?? 'default'}: score=${validation.score.toFixed(2)}; ${formatLessonValidationIssues(validation.issues)}`
       )
       return NextResponse.json({ lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true })
     }

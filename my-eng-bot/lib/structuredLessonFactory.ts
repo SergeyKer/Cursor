@@ -62,7 +62,6 @@ export function cloneLessonWithNewRunKey(lesson: LessonData): LessonData {
             postLesson: {
               ...step.postLesson,
               options: step.postLesson.options.map((option) => ({ ...option })),
-              ...(step.postLesson.examples ? { examples: [...step.postLesson.examples] } : {}),
             },
           }
         : {}),
@@ -210,7 +209,7 @@ function validateCefrEnglishText(params: {
   lesson: LessonData
   audience: Audience
   stepNumber: number
-  label: 'correct_answer' | 'accepted_answer' | 'choice_option' | 'bubble_content' | 'footer_dynamic'
+  label: 'correct_answer' | 'accepted_answer' | 'choice_option' | 'bubble_content' | 'footer_dynamic' | 'hint'
 }): LessonValidationIssue[] {
   const issues: LessonValidationIssue[] = []
   const text = params.text.trim()
@@ -261,7 +260,7 @@ function validateEmbeddedEnglishInMixedText(params: {
   lesson: LessonData
   audience: Audience
   stepNumber: number
-  label: 'bubble_content' | 'footer_dynamic'
+  label: 'bubble_content' | 'footer_dynamic' | 'hint'
 }): LessonValidationIssue[] {
   const segments = extractEmbeddedEnglishSegments(params.text)
   return segments.flatMap((segment) =>
@@ -436,6 +435,17 @@ function validateGeneratedStepSemantics(
   }
   if (expectations?.requireCyrillicHint && candidateStep.exercise && hint && !hasCyrillic(hint)) {
     issues.push(issue('hard', 'hint_not_russian', 'Hint должен быть на русском.', sourceStep.stepNumber))
+  }
+  if (hint) {
+    issues.push(
+      ...validateEmbeddedEnglishInMixedText({
+        text: hint,
+        lesson,
+        audience,
+        stepNumber: sourceStep.stepNumber,
+        label: 'hint',
+      })
+    )
   }
   if (expectations?.requireQuestionMarkInAnswer && correctAnswer && !correctAnswer.includes('?')) {
     issues.push(issue('hard', 'answer_missing_question_mark', 'Правильный ответ должен содержать вопросительный знак.', sourceStep.stepNumber))
@@ -813,6 +823,7 @@ export function buildStructuredCreationSystemPrompt(): string {
     'Каждый шаг должен выполнять свою учебную функцию по смыслу.',
     'Объяснения и hints на русском, правильные ответы на английском.',
     'Не добавляй новую грамматику вне указанного grammar focus.',
+    'Если передан selectedVariantId, sourceSituations и sourceSteps, считай их обязательными смысловыми рельсами для нового варианта.',
     'Для fill_choice всегда давай ровно 3 варианта и включай correctAnswer в options.',
     'Не делай hints слишком широкими и не раскрывай ответ напрямую.',
     'Если нужен один допустимый ответ, не добавляй лишние acceptedAnswers.',
@@ -846,6 +857,7 @@ export function buildStructuredRepeatSystemPrompt(): string {
     'Нельзя менять правило, сложность, порядок шагов, stepNumber и тип упражнения.',
     'Каждый шаг должен сохранять свою педагогическую роль.',
     'Не добавляй новую грамматику.',
+    'Если передан selectedVariantId, sourceSituations и sourceSteps, опирайся именно на них и не возвращайся к предыдущему варианту.',
     'Объяснения и подсказки на русском, правильные ответы на английском.',
     'Для fill_choice всегда давай ровно 3 варианта и включай correctAnswer в options.',
     'Не делай hints слишком широкими и не раскрывай ответ напрямую.',

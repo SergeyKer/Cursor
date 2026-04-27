@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callProviderChat } from '@/lib/callProviderChat'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
+import { selectStructuredLessonVariant } from '@/lib/structuredLessonVariants'
 import {
   assessGeneratedSteps,
   buildLessonFromGeneratedSteps,
@@ -17,6 +18,7 @@ type Body = {
   openAiChatPreset?: OpenAiChatPreset
   audience?: Audience
   lessonId?: string
+  recentVariantIds?: string[]
 }
 
 export async function POST(req: NextRequest) {
@@ -27,9 +29,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Неверный JSON.' }, { status: 400 })
   }
 
-  const lesson = body.lessonId ? getStructuredLessonById(body.lessonId) : null
-  if (!lesson || !lesson.repeatConfig) {
+  const baseLesson = body.lessonId ? getStructuredLessonById(body.lessonId) : null
+  if (!baseLesson || !baseLesson.repeatConfig) {
     return NextResponse.json({ error: 'Нет данных structured-урока для генерации.' }, { status: 400 })
+  }
+  const recentVariantIds = Array.isArray(body.recentVariantIds)
+    ? body.recentVariantIds.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : []
+  const { lesson, selectedVariantId } = selectStructuredLessonVariant(baseLesson, recentVariantIds)
+  const repeatConfig = lesson.repeatConfig
+  if (!repeatConfig) {
+    return NextResponse.json({ error: 'Нет repeatConfig для structured-урока.' }, { status: 400 })
   }
 
   const provider = body.provider === 'openrouter' ? 'openrouter' : 'openai'
@@ -40,10 +50,8 @@ export async function POST(req: NextRequest) {
         ? 'gpt-5.4-mini-low'
         : 'gpt-4o-mini'
 
-  const mustDiversifyFromTemplate = lesson.id === '2'
-  const diversifyInstruction = mustDiversifyFromTemplate
-    ? 'Для этого урока обязательно сгенерируй новый вариант: не копируй дословно sourceSteps, поменяй формулировки, имена, существительные и микро-ситуации, сохранив тот же grammar focus и шаги.'
-    : ''
+  const diversifyInstruction =
+    'Для этого урока обязательно сгенерируй новый вариант: не копируй дословно sourceSteps, поменяй формулировки, примеры и микро-ситуации, сохранив тот же grammar focus и шаги.'
   const system = [
     buildStructuredCreationSystemPrompt(),
     diversifyInstruction,
@@ -56,11 +64,12 @@ export async function POST(req: NextRequest) {
       topic: lesson.topic,
       level: lesson.level,
       audience: body.audience ?? 'adult',
-      generationMode: mustDiversifyFromTemplate ? 'fresh_variant_required' : 'default',
-      ruleSummary: lesson.repeatConfig.ruleSummary,
-      grammarFocus: lesson.repeatConfig.grammarFocus,
-      sourceSituations: lesson.repeatConfig.sourceSituations,
-      stepBlueprints: lesson.repeatConfig.stepBlueprints,
+      generationMode: 'fresh_variant_required',
+      selectedVariantId,
+      ruleSummary: repeatConfig.ruleSummary,
+      grammarFocus: repeatConfig.grammarFocus,
+      sourceSituations: repeatConfig.sourceSituations,
+      stepBlueprints: repeatConfig.stepBlueprints,
       sourceSteps: lesson.steps.map((step) => ({
         stepNumber: step.stepNumber,
         stepType: step.stepType,
@@ -98,7 +107,7 @@ export async function POST(req: NextRequest) {
     const validation = assessGeneratedSteps(lesson, lesson.steps, parsed.steps, { audience: body.audience ?? 'adult' })
     if (!validation.validatedSteps) {
       console.warn(
-        `structured-lesson-generate rejected lesson ${lesson.id}: score=${validation.score.toFixed(2)}; ${formatLessonValidationIssues(validation.issues)}`
+        `structured-lesson-generate rejected lesson ${lesson.id} variant ${selectedVariantId ?? 'default'}: score=${validation.score.toFixed(2)}; ${formatLessonValidationIssues(validation.issues)}`
       )
       return NextResponse.json({ lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true })
     }

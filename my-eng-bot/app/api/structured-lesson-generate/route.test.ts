@@ -9,6 +9,9 @@ vi.mock('@/lib/callProviderChat', () => ({
 
 import { POST } from './route'
 
+const lesson1RecentVariantIds =
+  itsTimeToLesson.repeatConfig?.variantProfiles?.filter((profile) => profile.id !== itsTimeToLesson.variantId).map((profile) => profile.id) ?? []
+
 function makeRequest(body: unknown): Request {
   return new Request('http://localhost/api/structured-lesson-generate', {
     method: 'POST',
@@ -47,7 +50,7 @@ describe('POST /api/structured-lesson-generate', () => {
       content: JSON.stringify({ steps: toModelSteps() }),
     })
 
-    const res = await POST(makeRequest({ lessonId: '1' }) as never)
+    const res = await POST(makeRequest({ lessonId: '1', recentVariantIds: lesson1RecentVariantIds }) as never)
     const data = (await res.json()) as { generated: boolean; fallback: boolean; lesson?: { runKey?: string } }
 
     expect(res.status).toBe(200)
@@ -71,7 +74,7 @@ describe('POST /api/structured-lesson-generate', () => {
       content: JSON.stringify({ steps: brokenSteps }),
     })
 
-    const res = await POST(makeRequest({ lessonId: '1' }) as never)
+    const res = await POST(makeRequest({ lessonId: '1', recentVariantIds: lesson1RecentVariantIds }) as never)
     const data = (await res.json()) as { generated: boolean; fallback: boolean; lesson?: { runKey?: string } }
 
     expect(res.status).toBe(200)
@@ -99,7 +102,7 @@ describe('POST /api/structured-lesson-generate', () => {
       content: JSON.stringify({ steps }),
     })
 
-    const res = await POST(makeRequest({ lessonId: '1' }) as never)
+    const res = await POST(makeRequest({ lessonId: '1', recentVariantIds: lesson1RecentVariantIds }) as never)
     const data = (await res.json()) as { generated: boolean; fallback: boolean }
 
     expect(res.status).toBe(200)
@@ -123,7 +126,7 @@ describe('POST /api/structured-lesson-generate', () => {
       content: JSON.stringify({ steps }),
     })
 
-    const res = await POST(makeRequest({ lessonId: '1', audience: 'adult' }) as never)
+    const res = await POST(makeRequest({ lessonId: '1', audience: 'adult', recentVariantIds: lesson1RecentVariantIds }) as never)
     const data = (await res.json()) as { generated: boolean; fallback: boolean }
 
     expect(res.status).toBe(200)
@@ -151,7 +154,7 @@ describe('POST /api/structured-lesson-generate', () => {
       content: JSON.stringify({ steps }),
     })
 
-    const res = await POST(makeRequest({ lessonId: '1', audience: 'adult' }) as never)
+    const res = await POST(makeRequest({ lessonId: '1', audience: 'adult', recentVariantIds: lesson1RecentVariantIds }) as never)
     const data = (await res.json()) as { generated: boolean; fallback: boolean }
 
     expect(res.status).toBe(200)

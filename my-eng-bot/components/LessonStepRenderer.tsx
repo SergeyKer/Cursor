@@ -5,6 +5,7 @@ import LessonChoiceChips from '@/components/LessonChoiceChips'
 import PostLessonMenu from '@/components/PostLessonMenu'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import type { BlockProgress, LessonStatus, LessonTimelineEntry } from '@/hooks/useLessonEngine'
+import { seededShuffle } from '@/lib/shuffleSeeded'
 import { useLessonVoiceInput } from '@/lib/voice/useLessonVoiceInput'
 import type { Bubble, PostLessonAction } from '@/types/lesson'
 
@@ -16,6 +17,8 @@ type LessonStepRendererProps = {
   onPostLessonAction?: (action: PostLessonAction) => void
   postLessonBusy?: boolean
   audience: 'child' | 'adult'
+  /** Новый ключ (например `runKey` урока) — новый порядок вариантов в fill_choice на каждый проход. */
+  choiceShuffleSeed?: string
 }
 
 type LessonMessage =
@@ -65,6 +68,7 @@ export default function LessonStepRenderer({
   onPostLessonAction,
   postLessonBusy = false,
   audience,
+  choiceShuffleSeed,
 }: LessonStepRendererProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const reopenChoicesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -77,7 +81,19 @@ export default function LessonStepRenderer({
   const currentFeedback = currentEntry?.feedback ?? null
   const exercise = currentStep?.exercise ?? null
   const postLesson = currentStep?.stepType === 'completion' ? currentStep.postLesson ?? null : null
-  const choiceOptions = exercise?.options ?? []
+  const rawChoiceOptions = exercise?.options
+  const choiceOptions = useMemo(() => {
+    const opts = rawChoiceOptions ?? []
+    if (
+      !exercise ||
+      exercise.type !== 'fill_choice' ||
+      opts.length < 2 ||
+      !choiceShuffleSeed?.trim()
+    ) {
+      return opts
+    }
+    return seededShuffle(opts, `${choiceShuffleSeed}:step${currentStep?.stepNumber ?? 0}`)
+  }, [choiceShuffleSeed, currentStep?.stepNumber, exercise, rawChoiceOptions])
   const hasChoiceOptions = choiceOptions.length > 0
   const hasPostLessonOptions = Boolean(postLesson?.options.length)
   const isChecking = status === 'checking'
@@ -400,7 +416,7 @@ export default function LessonStepRenderer({
                         lessonVoiceInput.micActionActive
                           ? 'text-[var(--chat-control-active-text)]'
                           : 'text-[var(--chat-control-text)]'
-                      } ${lessonVoiceInput.micVisualState === 'invite' ? 'animate-invite' : ''}`}
+                      }`}
                       style={{
                         background: lessonVoiceInput.micActionActive
                           ? 'var(--chat-control-active-bg)'
@@ -408,30 +424,18 @@ export default function LessonStepRenderer({
                         boxShadow: lessonVoiceInput.micActionActive ? 'var(--chat-control-shadow)' : undefined,
                       }}
                       onMouseEnter={(event) => {
-                        if (!lessonVoiceInput.micActionActive && lessonVoiceInput.micVisualState !== 'wait') {
+                        if (!lessonVoiceInput.micActionActive) {
                           event.currentTarget.style.background = 'var(--chat-control-hover)'
                         }
                       }}
                       onMouseLeave={(event) => {
-                        if (!lessonVoiceInput.micActionActive && lessonVoiceInput.micVisualState !== 'wait') {
+                        if (!lessonVoiceInput.micActionActive) {
                           event.currentTarget.style.background = 'var(--chat-control-bg)'
                         }
                       }}
                     >
-                      {lessonVoiceInput.micVisualState === 'wait' && (
-                        <span
-                          aria-hidden="true"
-                          className="animate-wait pointer-events-none absolute inset-0 rounded-full"
-                          style={{
-                            opacity: 0.82,
-                            backgroundImage:
-                              'linear-gradient(250deg, transparent 12%, rgba(255, 255, 255, 0.1) 38%, rgba(255, 255, 255, 0.42) 52%, rgba(255, 255, 255, 0.14) 72%, transparent 90%)',
-                            animationDuration: '9s',
-                          }}
-                        />
-                      )}
                       {lessonVoiceInput.micActionActive ? (
-                        <span className="relative z-10 h-5 w-5 rounded-full bg-[var(--chat-control-dot)] animate-pulse" />
+                        <span className="relative z-10 h-5 w-5 rounded-full bg-[var(--chat-control-dot)]" />
                       ) : (
                         <span className="relative z-10">
                           <svg

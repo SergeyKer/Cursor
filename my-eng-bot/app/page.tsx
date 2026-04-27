@@ -309,6 +309,8 @@ export default function Home() {
   const [activeStructuredLessonRuntime, setActiveStructuredLessonRuntime] = useState<LessonData | null>(null)
   const [structuredLessonLoadingId, setStructuredLessonLoadingId] = useState<string | null>(null)
   const [activeLessonVariantNumber, setActiveLessonVariantNumber] = useState(1)
+  /** Если у урока нет runKey, порядок вариантов fill_choice зависит от nonce на каждый новый вход. */
+  const [structuredLessonShuffleNonce, setStructuredLessonShuffleNonce] = useState(0)
   const [postLessonBusy, setPostLessonBusy] = useState(false)
   const [selectedPostLessonAction, setSelectedPostLessonAction] = useState<PostLessonAction | null>(null)
   const [lessonOverlay, setLessonOverlay] = useState<LessonOverlayState | null>(null)
@@ -329,6 +331,11 @@ export default function Home() {
     mistakes: activeStructuredLessonMistakes,
     completedSteps: activeStructuredLessonCompletedSteps,
   } = useLessonEngine(activeStructuredLesson)
+  const structuredLessonChoiceShuffleSeed =
+    activeStructuredLesson == null
+      ? undefined
+      : (activeStructuredLesson.runKey ??
+          `static-${activeStructuredLesson.id}-${activeStructuredLesson.variantId ?? ''}-${structuredLessonShuffleNonce}`)
   const dialogueCorrectAnswers = React.useMemo(() => countDialogueFinalCorrectAnswers(messages), [messages])
   /** Настройки на момент последней отправки сообщения; для баннера «настройки изменены». */
   const [settingsAtLastSend, setSettingsAtLastSend] = useState<Settings | null>(null)
@@ -348,6 +355,7 @@ export default function Home() {
   const prevMenuOpenForSnapshotRef = React.useRef(false)
   /** Не показывать баннер «настройки изменены» сразу после автоперезапуска из меню (до синхронизации с отправкой). */
   const suppressSettingsChangeBannerRef = React.useRef(false)
+  const structuredLessonVariantHistoryRef = React.useRef<Record<string, string[]>>({})
   /** iPhone / iPad / iPod и iPadOS с десктопным UA (Macintosh + Mobile). */
   const isIosClient = React.useMemo(() => {
     if (typeof navigator === 'undefined') return false
@@ -842,11 +850,12 @@ export default function Home() {
   }, [resetStructuredLessonSession])
 
   const fetchStructuredLessonRuntime = useCallback(
-    async (lessonId: string): Promise<LessonData | null> => {
+    async (lessonId: string, mode: 'generate' | 'repeat' = 'generate'): Promise<LessonData | null> => {
       const fallbackLesson = getStructuredLessonById(lessonId)
       if (!fallbackLesson) return null
       try {
-        const response = await fetch('/api/structured-lesson-generate', {
+        const recentVariantIds = structuredLessonVariantHistoryRef.current[lessonId] ?? []
+        const response = await fetch(mode === 'repeat' ? '/api/lesson-repeat' : '/api/structured-lesson-generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -854,14 +863,26 @@ export default function Home() {
             openAiChatPreset: settings.openAiChatPreset,
             audience: settings.audience,
             lessonId,
+            recentVariantIds,
           }),
         })
         const data = (await response.json()) as { lesson?: LessonData }
-        if (response.ok && data.lesson) return data.lesson
+        if (response.ok && data.lesson) {
+          if (data.lesson.variantId) {
+            const history = structuredLessonVariantHistoryRef.current[lessonId] ?? []
+            structuredLessonVariantHistoryRef.current[lessonId] = [...history, data.lesson.variantId].slice(-10)
+          }
+          return data.lesson
+        }
       } catch (error) {
-        console.warn('structured-lesson-generate failed:', error)
+        console.warn(mode === 'repeat' ? 'lesson-repeat failed:' : 'structured-lesson-generate failed:', error)
       }
-      return cloneStructuredLessonWithRunKey(fallbackLesson)
+      const clonedFallback = cloneStructuredLessonWithRunKey(fallbackLesson)
+      if (clonedFallback.variantId) {
+        const history = structuredLessonVariantHistoryRef.current[lessonId] ?? []
+        structuredLessonVariantHistoryRef.current[lessonId] = [...history, clonedFallback.variantId].slice(-10)
+      }
+      return clonedFallback
     },
     [settings.provider, settings.openAiChatPreset, settings.audience]
   )
@@ -929,24 +950,11 @@ export default function Home() {
       setLessonOverlay(null)
       setLessonMenuContext({ menuView: 'lessons', lessonsPanel })
       setActiveLearningLessonId(lessonId)
-      setMessages(
-        structuredLesson
-          ? [
-              {
-                role: 'assistant',
-                content: 'Подбираю новый вариант урока по теме...',
-              },
-            ]
-          : [
-              {
-                role: 'assistant',
-                content: lesson.theoryIntro,
-              },
-            ]
-      )
+      setMessages(structuredLesson ? [] : [{ role: 'assistant', content: lesson.theoryIntro }])
 
       if (!structuredLesson) return
 
+      setStructuredLessonShuffleNonce((n) => n + 1)
       const runtimeLesson = await fetchStructuredLessonRuntime(lessonId)
       setStructuredLessonLoadingId(null)
       setLoading(false)
@@ -1029,16 +1037,6 @@ export default function Home() {
       setSelectedPostLessonAction(action)
       setPostLessonBusy(true)
 
-      if (action === 'view_examples') {
-        const lines = activeStructuredLessonStep.postLesson.examples ?? []
-        setLessonOverlay({
-          title: 'Примеры по теме',
-          lines: lines.length > 0 ? lines : ['Примеры для этой темы появятся следующим этапом.'],
-        })
-        setPostLessonBusy(false)
-        return
-      }
-
       if (action === 'learn_interesting') {
         setLessonOverlay({
           title: 'Интересный факт',
@@ -1053,25 +1051,22 @@ export default function Home() {
 
       if (action === 'repeat_variant') {
         try {
-          const response = await fetch('/api/lesson-repeat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              provider: settings.provider,
-              openAiChatPreset: settings.openAiChatPreset,
-              audience: settings.audience,
-              lessonId: activeStructuredLesson.id,
-            }),
-          })
-          const data = (await response.json()) as { lesson?: LessonData }
-          if (response.ok && data.lesson) {
-            setActiveStructuredLessonRuntime(data.lesson)
+          setLessonOverlay(null)
+          setStructuredLessonLoadingId(activeStructuredLesson.id)
+          setActiveStructuredLessonRuntime(null)
+          setMessages([])
+          setLoading(true)
+          const runtimeLesson = await fetchStructuredLessonRuntime(activeStructuredLesson.id, 'repeat')
+          if (runtimeLesson) {
+            setActiveStructuredLessonRuntime(runtimeLesson)
             setActiveLessonVariantNumber((current) => current + 1)
-            setSelectedPostLessonAction(null)
           }
         } catch (error) {
           console.warn('lesson-repeat failed:', error)
         } finally {
+          setStructuredLessonLoadingId(null)
+          setLoading(false)
+          setSelectedPostLessonAction(null)
           setPostLessonBusy(false)
         }
         return
@@ -1087,7 +1082,7 @@ export default function Home() {
         restartChatForNewModeFromMenu()
       }, 0)
     },
-    [activeStructuredLesson, activeStructuredLessonStep, restartChatForNewModeFromMenu, settings]
+    [activeStructuredLesson, activeStructuredLessonStep, fetchStructuredLessonRuntime, restartChatForNewModeFromMenu]
   )
 
   useEffect(() => {
@@ -1899,6 +1894,7 @@ export default function Home() {
                   onPostLessonAction={handlePostLessonAction}
                   postLessonBusy={postLessonBusy}
                   audience={settings.audience}
+                  choiceShuffleSeed={structuredLessonChoiceShuffleSeed}
                 />
               ) : (
                 <Chat

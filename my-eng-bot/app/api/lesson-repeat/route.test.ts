@@ -10,6 +10,11 @@ vi.mock('@/lib/callProviderChat', () => ({
 
 import { POST } from './route'
 
+const lesson1RecentVariantIds =
+  itsTimeToLesson.repeatConfig?.variantProfiles?.filter((profile) => profile.id !== itsTimeToLesson.variantId).map((profile) => profile.id) ?? []
+const lesson2RecentVariantIds =
+  whoLikesLesson.repeatConfig?.variantProfiles?.filter((profile) => profile.id !== whoLikesLesson.variantId).map((profile) => profile.id) ?? []
+
 function makeRequest(body: unknown): Request {
   return new Request('http://localhost/api/lesson-repeat', {
     method: 'POST',
@@ -71,7 +76,7 @@ describe('POST /api/lesson-repeat', () => {
       content: JSON.stringify({ steps: toRepeatModelSteps() }),
     })
 
-    const res = await POST(makeRequest({ lessonId: '1' }) as never)
+    const res = await POST(makeRequest({ lessonId: '1', recentVariantIds: lesson1RecentVariantIds }) as never)
     const data = (await res.json()) as { generated: boolean; fallback: boolean }
 
     expect(res.status).toBe(200)
@@ -102,7 +107,7 @@ describe('POST /api/lesson-repeat', () => {
       content: JSON.stringify({ steps: brokenSteps }),
     })
 
-    const res = await POST(makeRequest({ lessonId: '1' }) as never)
+    const res = await POST(makeRequest({ lessonId: '1', recentVariantIds: lesson1RecentVariantIds }) as never)
     const data = (await res.json()) as { generated: boolean; fallback: boolean }
 
     expect(res.status).toBe(200)
@@ -131,7 +136,7 @@ describe('POST /api/lesson-repeat', () => {
       content: JSON.stringify({ steps: brokenSteps }),
     })
 
-    const res = await POST(makeRequest({ lessonId: '2' }) as never)
+    const res = await POST(makeRequest({ lessonId: '2', recentVariantIds: lesson2RecentVariantIds }) as never)
     const data = (await res.json()) as { generated: boolean; fallback: boolean }
 
     expect(res.status).toBe(200)
@@ -160,7 +165,7 @@ describe('POST /api/lesson-repeat', () => {
       content: JSON.stringify({ steps: brokenSteps }),
     })
 
-    const res = await POST(makeRequest({ lessonId: '2', audience: 'child' }) as never)
+    const res = await POST(makeRequest({ lessonId: '2', audience: 'child', recentVariantIds: lesson2RecentVariantIds }) as never)
     const data = (await res.json()) as { generated: boolean; fallback: boolean }
 
     expect(res.status).toBe(200)
@@ -185,7 +190,7 @@ describe('POST /api/lesson-repeat', () => {
       content: JSON.stringify({ steps: brokenSteps }),
     })
 
-    const res = await POST(makeRequest({ lessonId: '1', audience: 'adult' }) as never)
+    const res = await POST(makeRequest({ lessonId: '1', audience: 'adult', recentVariantIds: lesson1RecentVariantIds }) as never)
     const data = (await res.json()) as { generated: boolean; fallback: boolean }
 
     expect(res.status).toBe(200)

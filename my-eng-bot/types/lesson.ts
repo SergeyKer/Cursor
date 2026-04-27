@@ -14,7 +14,6 @@ export type LessonAnswerPolicy = 'strict' | 'normalized' | 'equivalent_variants'
 
 export type PostLessonAction =
   | 'repeat_variant'
-  | 'view_examples'
   | 'learn_interesting'
   | 'independent_practice'
   | 'myeng_training'
@@ -47,7 +46,6 @@ export interface PostLessonContent {
   options: PostLessonOption[]
   dynamicFooterText?: string
   staticFooterText?: string
-  examples?: string[]
   interestingFact?: string
 }
 
@@ -83,6 +81,21 @@ export interface LessonRepeatStepBlueprint {
   semanticExpectations?: LessonSemanticExpectations
 }
 
+export interface LessonRepeatStepVariant {
+  stepNumber: number
+  bubbles?: [Bubble, Bubble, Bubble]
+  exercise?: Partial<Exercise>
+  footerDynamic?: string
+}
+
+export interface LessonRepeatVariantProfile {
+  id: string
+  label?: string
+  sourceSituations?: string[]
+  stepBlueprints?: LessonRepeatStepBlueprint[]
+  steps?: LessonRepeatStepVariant[]
+}
+
 export interface LessonQualityGate {
   minScore: number
   maxSoftIssues: number
@@ -94,6 +107,8 @@ export interface LessonRepeatConfig {
   grammarFocus: string[]
   sourceSituations: string[]
   stepBlueprints: LessonRepeatStepBlueprint[]
+  variantProfiles?: LessonRepeatVariantProfile[]
+  antiRepeatWindow?: number
   bannedTerms?: string[]
   qualityGate?: LessonQualityGate
 }
@@ -116,6 +131,7 @@ export interface LessonStep {
 export interface LessonData {
   id: string
   runKey?: string
+  variantId?: string
   topic: string
   level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1'
   steps: LessonStep[]

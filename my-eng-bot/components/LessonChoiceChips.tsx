@@ -18,8 +18,6 @@ interface Props {
   autoSelectNonce?: number;
 }
 
-const LONG_TEXT_THRESHOLD = 20;
-
 const getChoiceText = (choice: ChoiceInput): string => (typeof choice === 'string' ? choice : choice.text ?? '');
 const getChoiceCorrectness = (choice: ChoiceInput): boolean | undefined =>
   typeof choice === 'string' ? undefined : choice.isCorrect;
@@ -73,15 +71,8 @@ export default function LessonChoiceChips({
     onChoose(text, getChoiceCorrectness(choice));
   };
 
-  const hasLongText = choices.some((choice) => getChoiceText(choice).length > LONG_TEXT_THRESHOLD);
-
   return (
-    <div
-      className={`
-      ${hasLongText ? 'grid grid-cols-1 gap-2' : 'flex flex-wrap gap-2'} 
-      justify-end px-3 py-2 animate-fade-in
-    `}
-    >
+    <div className="flex w-full min-w-0 flex-wrap justify-end gap-2 px-3 py-2 animate-fade-in">
       {choices.map((choice, index) => {
         const choiceText = getChoiceText(choice);
         const isSelected = selected === choiceText;
@@ -93,10 +84,7 @@ export default function LessonChoiceChips({
             disabled={disabled || !!selected}
             onClick={() => handleSelect(choice)}
             className={`
-              ${hasLongText
-                ? 'w-full text-left px-3 py-2.5'
-                : 'text-center px-3 py-1.5'
-              }
+              max-w-full shrink-0 break-words px-3 py-1.5 text-left
               rounded-xl text-[15px] leading-[1.5] font-normal transition-all duration-200
               ${isSelected
                 ? 'bg-blue-500 text-white shadow-md scale-[1.02]'

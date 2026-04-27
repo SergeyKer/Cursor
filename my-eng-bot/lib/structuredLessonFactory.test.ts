@@ -171,4 +171,19 @@ describe('structuredLessonFactory', () => {
     expect(validation.accepted).toBe(false)
     expect(validation.issues.some((issue) => issue.code === 'cefr_deny_word' && issue.message.includes('footer_dynamic'))).toBe(true)
   })
+
+  it('rejects CEFR drift inside english fragment in hint', () => {
+    const brokenSteps = toGeneratedPayload()
+    brokenSteps[4] = {
+      ...brokenSteps[4],
+      exercise: {
+        ...brokenSteps[4].exercise!,
+        hint: 'Подсказка: используйте quarterly monetization strategy.',
+      },
+    }
+
+    const validation = assessGeneratedSteps(itsTimeToLesson, itsTimeToLesson.steps, brokenSteps, { audience: 'adult' })
+    expect(validation.accepted).toBe(false)
+    expect(validation.issues.some((issue) => issue.code === 'cefr_deny_word' && issue.message.includes('hint'))).toBe(true)
+  })
 })
