@@ -213,6 +213,33 @@ export function useVoiceComposer(initialDraftText = '') {
     ...initialVoiceComposerState,
     draftText: initialDraftText,
   })
+  const setDraftText = React.useCallback((text: string) => {
+    dispatch({ type: 'setDraftText', text })
+  }, [])
+  const startRecording = React.useCallback(() => {
+    dispatch({ type: 'startRecording' })
+  }, [])
+  const updateTranscript = React.useCallback((finalText: string, interimText: string) => {
+    dispatch({ type: 'updateTranscript', finalText, interimText })
+  }, [])
+  const beginFinalizing = React.useCallback((statusMessage?: string | null) => {
+    dispatch({ type: 'beginFinalizing', statusMessage })
+  }, [])
+  const commitVoiceText = React.useCallback((text: string) => {
+    dispatch({ type: 'commitVoiceText', text })
+  }, [])
+  const failVoiceSession = React.useCallback((statusMessage: string) => {
+    dispatch({ type: 'failVoiceSession', statusMessage })
+  }, [])
+  const finishVoiceSession = React.useCallback((statusMessage?: string | null) => {
+    dispatch({ type: 'finishVoiceSession', statusMessage })
+  }, [])
+  const setStatusMessage = React.useCallback((statusMessage: string | null) => {
+    dispatch({ type: 'setStatusMessage', statusMessage })
+  }, [])
+  const resetComposer = React.useCallback(() => {
+    dispatch({ type: 'reset' })
+  }, [])
 
   const displayText = React.useMemo(
     () =>
@@ -240,17 +267,14 @@ export function useVoiceComposer(initialDraftText = '') {
     livePreviewText,
     isVoiceActive,
     isTextareaReadOnly: isVoiceActive,
-    setDraftText: (text: string) => dispatch({ type: 'setDraftText', text }),
-    startRecording: () => dispatch({ type: 'startRecording' }),
-    updateTranscript: (finalText: string, interimText: string) =>
-      dispatch({ type: 'updateTranscript', finalText, interimText }),
-    beginFinalizing: (statusMessage?: string | null) =>
-      dispatch({ type: 'beginFinalizing', statusMessage }),
-    commitVoiceText: (text: string) => dispatch({ type: 'commitVoiceText', text }),
-    failVoiceSession: (statusMessage: string) => dispatch({ type: 'failVoiceSession', statusMessage }),
-    finishVoiceSession: (statusMessage?: string | null) =>
-      dispatch({ type: 'finishVoiceSession', statusMessage }),
-    setStatusMessage: (statusMessage: string | null) => dispatch({ type: 'setStatusMessage', statusMessage }),
-    resetComposer: () => dispatch({ type: 'reset' }),
+    setDraftText,
+    startRecording,
+    updateTranscript,
+    beginFinalizing,
+    commitVoiceText,
+    failVoiceSession,
+    finishVoiceSession,
+    setStatusMessage,
+    resetComposer,
   }
 }

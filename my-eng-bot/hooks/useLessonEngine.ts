@@ -26,6 +26,14 @@ const VALIDATION_DELAY_MS = 400
 const AUTO_ADVANCE_DELAY_MS = 1500
 const ENABLE_GAMIFICATION = false
 
+function buildLessonHintWithCorrectAnswer(
+  hint: string | undefined,
+  correctAnswer: string
+): string {
+  const baseHint = hint?.trim() || 'Почти. Попробуйте еще раз.'
+  return `${baseHint} - ${correctAnswer.trim()}`
+}
+
 export function useLessonEngine(lesson: LessonData | null) {
   const [currentStep, setCurrentStep] = useState(0)
   const [xp, setXp] = useState(0)
@@ -109,7 +117,7 @@ export function useLessonEngine(lesson: LessonData | null) {
       setFeedback(null)
       setStatus('checking')
 
-      const isCorrect = validateAnswer(answer, exercise.correctAnswer, exercise.type)
+      const isCorrect = validateAnswer(answer, exercise)
       const validationTimer = setTimeout(() => {
         if (isCorrect) {
           const successFeedback = { type: 'success', message: 'Верно. Переходим дальше.' } as const
@@ -141,7 +149,7 @@ export function useLessonEngine(lesson: LessonData | null) {
         })
         const errorFeedback = {
           type: 'error',
-          message: exercise.hint ?? 'Почти. Попробуйте еще раз.',
+          message: buildLessonHintWithCorrectAnswer(exercise.hint, exercise.correctAnswer),
         } as const
         setFeedback(errorFeedback)
         setFeedbackByStep((current) => ({ ...current, [currentStep]: errorFeedback }))

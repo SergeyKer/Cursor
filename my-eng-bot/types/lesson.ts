@@ -10,6 +10,7 @@ export type StepType =
 export type BubbleType = 'positive' | 'info' | 'task'
 
 export type ExerciseType = 'fill_choice' | 'translate' | 'write_own' | 'match'
+export type LessonAnswerPolicy = 'strict' | 'normalized' | 'equivalent_variants'
 
 export type PostLessonAction =
   | 'repeat_variant'
@@ -30,6 +31,9 @@ export interface Exercise {
   question: string
   options?: string[]
   correctAnswer: string
+  acceptedAnswers?: string[]
+  answerFormat?: LessonAnswerFormat
+  answerPolicy?: LessonAnswerPolicy
   hint?: string
 }
 
@@ -47,14 +51,42 @@ export interface PostLessonContent {
   interestingFact?: string
 }
 
+export type LessonPedagogicalRole =
+  | 'introduce_context'
+  | 'explain_rule'
+  | 'controlled_pattern_drill'
+  | 'apply_in_new_situation'
+  | 'contrast_check'
+  | 'celebrate_completion'
+
+export interface LessonSemanticExpectations {
+  pedagogicalRole: LessonPedagogicalRole
+  mustInclude?: string[]
+  shouldInclude?: string[]
+  mustAvoid?: string[]
+  hintShouldMention?: string[]
+  maxAcceptedAnswers?: number
+  requireQuestionMarkInAnswer?: boolean
+  requireCyrillicHint?: boolean
+}
+
 export interface LessonRepeatStepBlueprint {
   stepNumber: number
   stepType: StepType
   learningGoal: string
   exerciseType?: ExerciseType
   answerFormat?: LessonAnswerFormat
+  answerPolicy?: LessonAnswerPolicy
   sourceCorrectAnswer?: string
   sourcePattern?: string
+  semanticAnchors?: string[]
+  semanticExpectations?: LessonSemanticExpectations
+}
+
+export interface LessonQualityGate {
+  minScore: number
+  maxSoftIssues: number
+  rejectOnHardFailures: boolean
 }
 
 export interface LessonRepeatConfig {
@@ -62,6 +94,8 @@ export interface LessonRepeatConfig {
   grammarFocus: string[]
   sourceSituations: string[]
   stepBlueprints: LessonRepeatStepBlueprint[]
+  bannedTerms?: string[]
+  qualityGate?: LessonQualityGate
 }
 
 export interface LessonMistake {

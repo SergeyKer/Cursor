@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callProviderChat } from '@/lib/callProviderChat'
-import type { OpenAiChatPreset, Audience } from '@/lib/types'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
 import {
   assessGeneratedSteps,
   buildLessonFromGeneratedSteps,
   buildStructuredLessonCefrPrompt,
-  buildStructuredRepeatSystemPrompt,
+  buildStructuredCreationSystemPrompt,
   cloneLessonWithNewRunKey,
   extractJsonObject,
   formatLessonValidationIssues,
 } from '@/lib/structuredLessonFactory'
+import type { OpenAiChatPreset, Audience } from '@/lib/types'
 
 type Body = {
   provider?: 'openrouter' | 'openai'
@@ -29,12 +29,7 @@ export async function POST(req: NextRequest) {
 
   const lesson = body.lessonId ? getStructuredLessonById(body.lessonId) : null
   if (!lesson || !lesson.repeatConfig) {
-    return NextResponse.json({ error: 'Нет данных structured-урока для повтора.' }, { status: 400 })
-  }
-
-  const sourceRepeatableSteps = lesson.steps.filter((step) => step.stepType !== 'completion')
-  if (!sourceRepeatableSteps.length) {
-    return NextResponse.json({ lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true })
+    return NextResponse.json({ error: 'Нет данных structured-урока для генерации.' }, { status: 400 })
   }
 
   const provider = body.provider === 'openrouter' ? 'openrouter' : 'openai'
@@ -45,19 +40,28 @@ export async function POST(req: NextRequest) {
         ? 'gpt-5.4-mini-low'
         : 'gpt-4o-mini'
 
-  const system = [buildStructuredRepeatSystemPrompt(), buildStructuredLessonCefrPrompt({ lesson, audience: body.audience ?? 'adult' })].join('\n\n')
-
+  const mustDiversifyFromTemplate = lesson.id === '2'
+  const diversifyInstruction = mustDiversifyFromTemplate
+    ? 'Для этого урока обязательно сгенерируй новый вариант: не копируй дословно sourceSteps, поменяй формулировки, имена, существительные и микро-ситуации, сохранив тот же grammar focus и шаги.'
+    : ''
+  const system = [
+    buildStructuredCreationSystemPrompt(),
+    diversifyInstruction,
+    buildStructuredLessonCefrPrompt({ lesson, audience: body.audience ?? 'adult' }),
+  ]
+    .filter(Boolean)
+    .join('\n\n')
   const user = JSON.stringify(
     {
       topic: lesson.topic,
       level: lesson.level,
       audience: body.audience ?? 'adult',
-      repeatMode: 'change_situations_only',
+      generationMode: mustDiversifyFromTemplate ? 'fresh_variant_required' : 'default',
       ruleSummary: lesson.repeatConfig.ruleSummary,
       grammarFocus: lesson.repeatConfig.grammarFocus,
       sourceSituations: lesson.repeatConfig.sourceSituations,
       stepBlueprints: lesson.repeatConfig.stepBlueprints,
-      sourceSteps: sourceRepeatableSteps.map((step) => ({
+      sourceSteps: lesson.steps.map((step) => ({
         stepNumber: step.stepNumber,
         stepType: step.stepType,
         bubbles: step.bubbles,
@@ -76,7 +80,7 @@ export async function POST(req: NextRequest) {
       { role: 'system', content: system },
       { role: 'user', content: user },
     ],
-    maxTokens: 1800,
+    maxTokens: 2200,
     openAiChatPreset,
   })
 
@@ -91,10 +95,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const parsed = JSON.parse(json) as { steps?: unknown }
-    const validation = assessGeneratedSteps(lesson, sourceRepeatableSteps, parsed.steps, { audience: body.audience ?? 'adult' })
+    const validation = assessGeneratedSteps(lesson, lesson.steps, parsed.steps, { audience: body.audience ?? 'adult' })
     if (!validation.validatedSteps) {
       console.warn(
-        `lesson-repeat rejected lesson ${lesson.id}: score=${validation.score.toFixed(2)}; ${formatLessonValidationIssues(validation.issues)}`
+        `structured-lesson-generate rejected lesson ${lesson.id}: score=${validation.score.toFixed(2)}; ${formatLessonValidationIssues(validation.issues)}`
       )
       return NextResponse.json({ lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true })
     }

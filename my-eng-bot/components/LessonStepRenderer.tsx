@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import PostLessonMenu from '@/components/PostLessonMenu'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import type { BlockProgress, LessonStatus, LessonTimelineEntry } from '@/hooks/useLessonEngine'
+import { useLessonVoiceInput } from '@/lib/voice/useLessonVoiceInput'
 import type { Bubble, PostLessonAction } from '@/types/lesson'
 
 type LessonStepRendererProps = {
@@ -52,6 +53,10 @@ const lessonStatusCardClassByTone: Record<'service' | 'success' | 'error', strin
 
 const CHOICE_REOPEN_DELAY_MS = 900
 
+function normalizeLessonChoiceText(text: string): string {
+  return text.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
 export default function LessonStepRenderer({
   timeline,
   status,
@@ -63,8 +68,10 @@ export default function LessonStepRenderer({
 }: LessonStepRendererProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const reopenChoicesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [inputValue, setInputValue] = useState('')
+  const previousVoicePhaseRef = useRef<'idle' | 'recording' | 'finalizing' | 'error'>('idle')
   const [choiceResetVersion, setChoiceResetVersion] = useState(0)
+  const [autoSelectChoiceText, setAutoSelectChoiceText] = useState<string | null>(null)
+  const [autoSelectChoiceNonce, setAutoSelectChoiceNonce] = useState(0)
   const currentEntry = timeline[timeline.length - 1] ?? null
   const currentStep = currentEntry?.step ?? null
   const currentFeedback = currentEntry?.feedback ?? null
@@ -74,19 +81,58 @@ export default function LessonStepRenderer({
   const hasChoiceOptions = choiceOptions.length > 0
   const hasPostLessonOptions = Boolean(postLesson?.options.length)
   const isChecking = status === 'checking'
+  const lessonInviteBubble = useMemo(() => {
+    if (!currentEntry?.isCurrent) return null
+    const visibleBubbles = currentEntry.step.bubbles.slice(0, blockProgress.visibleCount)
+    for (let index = visibleBubbles.length - 1; index >= 0; index -= 1) {
+      const bubble = visibleBubbles[index]
+      if (bubble?.type === 'task') return bubble
+    }
+    return null
+  }, [blockProgress.visibleCount, currentEntry])
+  const canUseLessonVoiceInput = Boolean(exercise) && !hasPostLessonOptions && !isChecking
+  const lessonVoiceInput = useLessonVoiceInput({
+    inviteKey:
+      canUseLessonVoiceInput && lessonInviteBubble
+        ? `${currentStep?.stepNumber ?? 'step'}:${lessonInviteBubble.content}`
+        : null,
+  })
+  const { resetVoiceInput } = lessonVoiceInput
+  const inputValue = lessonVoiceInput.isInputLocked ? lessonVoiceInput.displayText : lessonVoiceInput.draftText
+  const normalizedChoiceEntries = useMemo(
+    () =>
+      choiceOptions
+        .map((choice) => (typeof choice === 'string' ? choice : choice.text ?? ''))
+        .map((text) => ({ raw: text, normalized: normalizeLessonChoiceText(text) }))
+        .filter((choice) => choice.raw),
+    [choiceOptions]
+  )
   const inputPlaceholder = useMemo(() => {
-    if (hasChoiceOptions) return 'Выберите вариант выше'
-    return audience === 'child' ? 'Напиши пропущенное слово...' : 'Напишите пропущенное слово...'
-  }, [audience, hasChoiceOptions])
+    if (hasChoiceOptions) {
+      return audience === 'child' ? 'Скажи или выбери ответ выше...' : 'Скажите или выберите ответ выше...'
+    }
+    if (!exercise) return audience === 'child' ? 'Напиши ответ...' : 'Напишите ответ...'
+    if (exercise.answerFormat === 'full_sentence') {
+      return audience === 'child' ? 'Напиши предложение...' : 'Напишите предложение...'
+    }
+    if (exercise.answerFormat === 'single_word') {
+      return audience === 'child' ? 'Напиши пропущенное слово...' : 'Напишите пропущенное слово...'
+    }
+    return audience === 'child' ? 'Напиши ответ...' : 'Напишите ответ...'
+  }, [audience, hasChoiceOptions, exercise])
 
   useEffect(() => {
-    setInputValue('')
+    // #region agent log
+    fetch('http://127.0.0.1:7359/ingest/af82526e-4aca-4df7-8f6b-d839f48f8a8e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9caaa4'},body:JSON.stringify({sessionId:'9caaa4',runId:'pre-fix',hypothesisId:'H6',location:'components/LessonStepRenderer.tsx:stepResetEffect',message:'step_reset_effect_run',data:{stepNumber:currentStep?.stepNumber,voicePhase:lessonVoiceInput.voicePhase,listening:lessonVoiceInput.listening,draftText:lessonVoiceInput.draftText},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     setChoiceResetVersion((current) => current + 1)
+    setAutoSelectChoiceText(null)
+    resetVoiceInput()
     if (reopenChoicesTimerRef.current) {
       clearTimeout(reopenChoicesTimerRef.current)
       reopenChoicesTimerRef.current = null
     }
-  }, [currentStep?.stepNumber])
+  }, [currentStep?.stepNumber, resetVoiceInput])
 
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current
@@ -115,10 +161,57 @@ export default function LessonStepRenderer({
     }
   }, [currentFeedback?.type, hasChoiceOptions, currentStep?.stepNumber])
 
-  const submitTextAnswer = () => {
-    if (!exercise || hasChoiceOptions || isChecking || !inputValue.trim()) return
+  const triggerChoiceAutoSelect = useCallback(
+    (choiceText: string) => {
+      setAutoSelectChoiceText(choiceText)
+      setAutoSelectChoiceNonce((current) => current + 1)
+    },
+    []
+  )
+
+  const submitTextAnswer = useCallback(() => {
+    if (!exercise || isChecking || lessonVoiceInput.isInputLocked || !lessonVoiceInput.draftText.trim()) return
+    if (hasChoiceOptions) {
+      const normalizedInput = normalizeLessonChoiceText(lessonVoiceInput.draftText)
+      const matchedChoice = normalizedChoiceEntries.find((choice) => choice.normalized === normalizedInput)
+      if (!matchedChoice) return
+      triggerChoiceAutoSelect(matchedChoice.raw)
+      return
+    }
     onAnswer(inputValue.trim())
-  }
+  }, [
+    exercise,
+    hasChoiceOptions,
+    inputValue,
+    isChecking,
+    lessonVoiceInput.draftText,
+    lessonVoiceInput.isInputLocked,
+    normalizedChoiceEntries,
+    onAnswer,
+    triggerChoiceAutoSelect,
+  ])
+
+  useEffect(() => {
+    const previousPhase = previousVoicePhaseRef.current
+    const currentPhase = lessonVoiceInput.voicePhase
+    if (!hasChoiceOptions) return
+    if (previousPhase !== 'finalizing' || currentPhase !== 'idle') return
+    const normalizedInput = normalizeLessonChoiceText(lessonVoiceInput.draftText)
+    if (!normalizedInput) return
+    const matchedChoice = normalizedChoiceEntries.find((choice) => choice.normalized === normalizedInput)
+    if (!matchedChoice) return
+    triggerChoiceAutoSelect(matchedChoice.raw)
+  }, [
+    hasChoiceOptions,
+    lessonVoiceInput.draftText,
+    lessonVoiceInput.voicePhase,
+    normalizedChoiceEntries,
+    triggerChoiceAutoSelect,
+  ])
+
+  useEffect(() => {
+    previousVoicePhaseRef.current = lessonVoiceInput.voicePhase
+  }, [lessonVoiceInput.voicePhase])
 
   const lessonMessages = useMemo<LessonMessage[]>(() => {
     const messages: LessonMessage[] = []
@@ -264,6 +357,8 @@ export default function LessonStepRenderer({
                     onChoose={onAnswer}
                     disabled={isChecking}
                     resetKey={`${currentStep?.stepNumber ?? 'none'}-${choiceResetVersion}`}
+                    autoSelectText={autoSelectChoiceText}
+                    autoSelectNonce={autoSelectChoiceNonce}
                   />
                 ) : null}
 
@@ -278,47 +373,111 @@ export default function LessonStepRenderer({
                   >
                     <button
                       type="button"
-                      disabled
-                      aria-label="Голосовой ввод пока недоступен в уроке"
-                      title="Голосовой ввод пока недоступен в уроке"
-                      className="chat-action-button chat-control-surface relative isolate flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-full p-2.5 touch-manipulation text-[var(--chat-control-text)]"
-                      style={{ background: 'var(--chat-control-bg)' }}
+                      disabled={lessonVoiceInput.voicePhase === 'finalizing'}
+                      onClick={() => {
+                        lessonVoiceInput.resetMicAnimation()
+                        if (lessonVoiceInput.listening) {
+                          lessonVoiceInput.stopListening()
+                          return
+                        }
+                        void lessonVoiceInput.startListening()
+                      }}
+                      aria-label={
+                        lessonVoiceInput.listening
+                          ? 'Остановить запись'
+                          : lessonVoiceInput.voicePhase === 'finalizing'
+                            ? 'Распознаю речь'
+                            : 'Голосовой ввод'
+                      }
+                      title={
+                        lessonVoiceInput.listening
+                          ? 'Остановить'
+                          : lessonVoiceInput.voicePhase === 'finalizing'
+                            ? 'Распознаю речь'
+                            : 'Голосовой ввод'
+                      }
+                      className={`chat-action-button chat-control-surface relative isolate flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-full p-2.5 touch-manipulation ${
+                        lessonVoiceInput.micActionActive
+                          ? 'text-[var(--chat-control-active-text)]'
+                          : 'text-[var(--chat-control-text)]'
+                      } ${lessonVoiceInput.micVisualState === 'invite' ? 'animate-invite' : ''}`}
+                      style={{
+                        background: lessonVoiceInput.micActionActive
+                          ? 'var(--chat-control-active-bg)'
+                          : 'var(--chat-control-bg)',
+                        boxShadow: lessonVoiceInput.micActionActive ? 'var(--chat-control-shadow)' : undefined,
+                      }}
+                      onMouseEnter={(event) => {
+                        if (!lessonVoiceInput.micActionActive && lessonVoiceInput.micVisualState !== 'wait') {
+                          event.currentTarget.style.background = 'var(--chat-control-hover)'
+                        }
+                      }}
+                      onMouseLeave={(event) => {
+                        if (!lessonVoiceInput.micActionActive && lessonVoiceInput.micVisualState !== 'wait') {
+                          event.currentTarget.style.background = 'var(--chat-control-bg)'
+                        }
+                      }}
                     >
-                      <span className="relative z-10">
-                        <svg
+                      {lessonVoiceInput.micVisualState === 'wait' && (
+                        <span
                           aria-hidden="true"
-                          viewBox="0 0 24 24"
-                          className="h-5 w-5"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z" />
-                          <path d="M19 11a7 7 0 0 1-14 0" />
-                          <path d="M12 18v3" />
-                          <path d="M8 21h8" />
-                        </svg>
-                      </span>
+                          className="animate-wait pointer-events-none absolute inset-0 rounded-full"
+                          style={{
+                            opacity: 0.82,
+                            backgroundImage:
+                              'linear-gradient(250deg, transparent 12%, rgba(255, 255, 255, 0.1) 38%, rgba(255, 255, 255, 0.42) 52%, rgba(255, 255, 255, 0.14) 72%, transparent 90%)',
+                            animationDuration: '9s',
+                          }}
+                        />
+                      )}
+                      {lessonVoiceInput.micActionActive ? (
+                        <span className="relative z-10 h-5 w-5 rounded-full bg-[var(--chat-control-dot)] animate-pulse" />
+                      ) : (
+                        <span className="relative z-10">
+                          <svg
+                            aria-hidden="true"
+                            viewBox="0 0 24 24"
+                            className="h-5 w-5"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z" />
+                            <path d="M19 11a7 7 0 0 1-14 0" />
+                            <path d="M12 18v3" />
+                            <path d="M8 21h8" />
+                          </svg>
+                        </span>
+                      )}
                     </button>
                     <input
                       type="text"
                       value={inputValue}
-                      onChange={(event) => setInputValue(event.target.value)}
+                      onChange={(event) => lessonVoiceInput.setDraftText(event.target.value)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter') {
                           event.preventDefault()
                           submitTextAnswer()
                         }
                       }}
-                      disabled={isChecking || hasChoiceOptions}
+                      readOnly={lessonVoiceInput.isInputLocked}
+                      disabled={isChecking}
                       className="min-w-0 flex-1 border-0 bg-transparent px-1 py-2 text-[15px] text-[var(--text)] outline-none placeholder:text-[var(--text-muted,#6b7280)] disabled:cursor-not-allowed disabled:opacity-70"
                       placeholder={inputPlaceholder}
                     />
                     <button
                       type="submit"
-                      disabled={hasChoiceOptions || isChecking || !inputValue.trim()}
+                      disabled={
+                        isChecking ||
+                        lessonVoiceInput.isInputLocked ||
+                        !lessonVoiceInput.draftText.trim() ||
+                        (hasChoiceOptions &&
+                          !normalizedChoiceEntries.some(
+                            (choice) => choice.normalized === normalizeLessonChoiceText(lessonVoiceInput.draftText)
+                          ))
+                      }
                       aria-label="Отправить ответ"
                       className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)]"
                       style={{ background: '#3B82F6' }}
@@ -339,6 +498,19 @@ export default function LessonStepRenderer({
                       </svg>
                     </button>
                   </form>
+                )}
+                {lessonVoiceInput.voiceStatusMessage && (
+                  <p
+                    role="status"
+                    aria-live="polite"
+                    className={`px-1 pt-2 text-[13px] leading-[1.4] ${
+                      lessonVoiceInput.voicePhase === 'error'
+                        ? 'text-[var(--status-danger-text,#dc2626)]'
+                        : 'text-[var(--text-muted,#6b7280)]'
+                    }`}
+                  >
+                    {lessonVoiceInput.voiceStatusMessage}
+                  </p>
                 )}
               </div>
             )}

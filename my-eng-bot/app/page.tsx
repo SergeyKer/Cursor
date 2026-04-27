@@ -70,6 +70,14 @@ import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/component
 const Chat = dynamic(() => import('@/components/Chat'))
 const SlideOutMenu = dynamic(() => import('@/components/SlideOutMenu'))
 
+function cloneStructuredLessonWithRunKey(lesson: LessonData): LessonData {
+  const cloned = typeof structuredClone === 'function' ? structuredClone(lesson) : JSON.parse(JSON.stringify(lesson))
+  return {
+    ...cloned,
+    runKey: `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  }
+}
+
 function buildTutorFallbackBlueprint(topic: string): LessonBlueprint {
   const safeTopic = topic.trim() || 'Выбранная тема'
   return {
@@ -95,7 +103,7 @@ function buildTutorFallbackBlueprint(topic: string): LessonBlueprint {
     followups: {
       examples:
         '**Примеры:**\n' +
-        '1) I like coffee, but I love tea.\n' +
+        '1) I like music, but I love jazz.\n' +
         '2) I like this movie. I love this actor.\n' +
         '3) I like mornings, but I love weekends.',
       fill_phrase:
@@ -299,12 +307,14 @@ export default function Home() {
   const [lessonMenuContext, setLessonMenuContext] = useState<LessonMenuContext | null>(null)
   const [activeLearningLessonId, setActiveLearningLessonId] = useState<string | null>(null)
   const [activeStructuredLessonRuntime, setActiveStructuredLessonRuntime] = useState<LessonData | null>(null)
+  const [structuredLessonLoadingId, setStructuredLessonLoadingId] = useState<string | null>(null)
   const [activeLessonVariantNumber, setActiveLessonVariantNumber] = useState(1)
   const [postLessonBusy, setPostLessonBusy] = useState(false)
   const [selectedPostLessonAction, setSelectedPostLessonAction] = useState<PostLessonAction | null>(null)
   const [lessonOverlay, setLessonOverlay] = useState<LessonOverlayState | null>(null)
   const activeStructuredLesson =
-    activeStructuredLessonRuntime ?? (activeLearningLessonId ? getStructuredLessonById(activeLearningLessonId) : null)
+    activeStructuredLessonRuntime ??
+    (structuredLessonLoadingId ? null : activeLearningLessonId ? getStructuredLessonById(activeLearningLessonId) : null)
   const {
     step: activeStructuredLessonStep,
     timeline: activeStructuredLessonTimeline,
@@ -791,6 +801,7 @@ export default function Home() {
     setLessonMenuContext(null)
     setActiveLearningLessonId(null)
     setActiveStructuredLessonRuntime(null)
+    setStructuredLessonLoadingId(null)
     setActiveLessonVariantNumber(1)
     setSelectedPostLessonAction(null)
     setPostLessonBusy(false)
@@ -830,40 +841,122 @@ export default function Home() {
     setDialogStarted(true)
   }, [resetStructuredLessonSession])
 
-  const openLearningLesson = useCallback((lessonId: string, lessonsPanel: LessonsPanel = 'a2') => {
-    const lesson = getLearningLessonById(lessonId)
-    if (!lesson) return
-    const structuredLesson = getStructuredLessonById(lessonId)
-    firstMessageRequestIdRef.current += 1
-    firstMessageInFlightRef.current = false
-    suppressSettingsChangeBannerRef.current = true
-    setDialogStarted(true)
-    setMenuOpen(false)
-    setHomeMenuView('lessons')
-    setLoading(false)
-    setRetryMessage(null)
-    setSearchingInternet(false)
-    setLoadingTranslationIndex(null)
-    setForceNextMicLang(null)
-    setSettingsAtLastSend(null)
-    setActiveStructuredLessonRuntime(null)
-    setActiveLessonVariantNumber(1)
-    setSelectedPostLessonAction(null)
-    setPostLessonBusy(false)
-    setLessonOverlay(null)
-    setLessonMenuContext({ menuView: 'lessons', lessonsPanel })
-    setActiveLearningLessonId(lessonId)
-    setMessages(
-      structuredLesson
-        ? []
-        : [
-            {
-              role: 'assistant',
-              content: lesson.theoryIntro,
-            },
-          ]
-    )
-  }, [])
+  const fetchStructuredLessonRuntime = useCallback(
+    async (lessonId: string): Promise<LessonData | null> => {
+      const fallbackLesson = getStructuredLessonById(lessonId)
+      if (!fallbackLesson) return null
+      try {
+        const response = await fetch('/api/structured-lesson-generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: settings.provider,
+            openAiChatPreset: settings.openAiChatPreset,
+            audience: settings.audience,
+            lessonId,
+          }),
+        })
+        const data = (await response.json()) as { lesson?: LessonData }
+        if (response.ok && data.lesson) return data.lesson
+      } catch (error) {
+        console.warn('structured-lesson-generate failed:', error)
+      }
+      return cloneStructuredLessonWithRunKey(fallbackLesson)
+    },
+    [settings.provider, settings.openAiChatPreset, settings.audience]
+  )
+
+  const buildCompletedVariants = useCallback(
+    (status: typeof activeStructuredLessonStatus, variantNumber: number) => {
+      const completedCount = status === 'completed' ? variantNumber : Math.max(variantNumber - 1, 0)
+      return completedCount > 0 ? Array.from({ length: completedCount }, (_, index) => index + 1) : []
+    },
+    []
+  )
+
+  const persistActiveStructuredLessonProgress = useCallback(
+    (overrides?: { postLessonChoice?: PostLessonAction; lastCompleted?: string }) => {
+      if (!activeStructuredLesson) return
+      saveLessonProgress({
+        lessonId: activeStructuredLesson.id,
+        topic: activeStructuredLesson.topic,
+        level: activeStructuredLesson.level,
+        completedSteps: activeStructuredLessonCompletedSteps,
+        completedVariants: buildCompletedVariants(activeStructuredLessonStatus, activeLessonVariantNumber),
+        xp: activeStructuredLessonXp,
+        combo: activeStructuredLessonCombo,
+        mistakes: activeStructuredLessonMistakes,
+        lastCompleted:
+          overrides?.lastCompleted ?? (activeStructuredLessonStatus === 'completed' ? new Date().toISOString() : ''),
+        ...(overrides?.postLessonChoice ? { postLessonChoice: overrides.postLessonChoice } : {}),
+      })
+    },
+    [
+      activeStructuredLesson,
+      activeStructuredLessonCompletedSteps,
+      activeStructuredLessonStatus,
+      activeLessonVariantNumber,
+      activeStructuredLessonXp,
+      activeStructuredLessonCombo,
+      activeStructuredLessonMistakes,
+      buildCompletedVariants,
+    ]
+  )
+
+  const openLearningLesson = useCallback(
+    async (lessonId: string, lessonsPanel: LessonsPanel = 'a2') => {
+      const lesson = getLearningLessonById(lessonId)
+      if (!lesson) return
+      const structuredLesson = getStructuredLessonById(lessonId)
+      firstMessageRequestIdRef.current += 1
+      firstMessageInFlightRef.current = false
+      suppressSettingsChangeBannerRef.current = true
+      setDialogStarted(true)
+      setMenuOpen(false)
+      setHomeMenuView('lessons')
+      setLoading(false)
+      setRetryMessage(null)
+      setSearchingInternet(false)
+      setLoadingTranslationIndex(null)
+      setForceNextMicLang(null)
+      setSettingsAtLastSend(null)
+      setLoading(Boolean(structuredLesson))
+      setActiveStructuredLessonRuntime(null)
+      setStructuredLessonLoadingId(structuredLesson ? lessonId : null)
+      setActiveLessonVariantNumber(1)
+      setSelectedPostLessonAction(null)
+      setPostLessonBusy(false)
+      setLessonOverlay(null)
+      setLessonMenuContext({ menuView: 'lessons', lessonsPanel })
+      setActiveLearningLessonId(lessonId)
+      setMessages(
+        structuredLesson
+          ? [
+              {
+                role: 'assistant',
+                content: 'Подбираю новый вариант урока по теме...',
+              },
+            ]
+          : [
+              {
+                role: 'assistant',
+                content: lesson.theoryIntro,
+              },
+            ]
+      )
+
+      if (!structuredLesson) return
+
+      const runtimeLesson = await fetchStructuredLessonRuntime(lessonId)
+      setStructuredLessonLoadingId(null)
+      setLoading(false)
+      setMessages([])
+      if (runtimeLesson) {
+        setActiveStructuredLessonRuntime(runtimeLesson)
+      }
+    },
+    [fetchStructuredLessonRuntime]
+  )
 
   const openTutorLesson = useCallback(
     async (request: { requestedTopic: string; analysisSummary?: string }) => {
@@ -967,7 +1060,7 @@ export default function Home() {
               provider: settings.provider,
               openAiChatPreset: settings.openAiChatPreset,
               audience: settings.audience,
-              lesson: activeStructuredLesson,
+              lessonId: activeStructuredLesson.id,
             }),
           })
           const data = (await response.json()) as { lesson?: LessonData }
@@ -998,33 +1091,24 @@ export default function Home() {
   )
 
   useEffect(() => {
-    if (!activeStructuredLesson || !activeLearningLessonId) return
-    saveLessonProgress({
-      lessonId: activeStructuredLesson.id,
-      topic: activeStructuredLesson.topic,
-      level: activeStructuredLesson.level,
-      completedSteps: activeStructuredLessonCompletedSteps,
-      completedVariants:
-        activeStructuredLessonStatus === 'completed'
-          ? Array.from({ length: activeLessonVariantNumber }, (_, index) => index + 1)
-          : [activeLessonVariantNumber],
-      xp: activeStructuredLessonXp,
-      combo: activeStructuredLessonCombo,
-      mistakes: activeStructuredLessonMistakes,
-      lastCompleted: activeStructuredLessonStatus === 'completed' ? new Date().toISOString() : '',
-      ...(selectedPostLessonAction ? { postLessonChoice: selectedPostLessonAction } : {}),
-    })
-  }, [
-    activeStructuredLesson,
-    activeLearningLessonId,
-    activeStructuredLessonCompletedSteps,
-    activeStructuredLessonMistakes,
-    activeStructuredLessonStatus,
-    activeStructuredLessonXp,
-    activeStructuredLessonCombo,
-    activeLessonVariantNumber,
-    selectedPostLessonAction,
-  ])
+    if (!activeStructuredLesson?.runKey) return
+    persistActiveStructuredLessonProgress()
+  }, [activeStructuredLesson?.runKey, persistActiveStructuredLessonProgress])
+
+  useEffect(() => {
+    if (!activeStructuredLesson || activeStructuredLessonCompletedSteps.length === 0) return
+    persistActiveStructuredLessonProgress()
+  }, [activeStructuredLesson, activeStructuredLessonCompletedSteps.length, persistActiveStructuredLessonProgress])
+
+  useEffect(() => {
+    if (activeStructuredLessonStatus !== 'completed') return
+    persistActiveStructuredLessonProgress({ lastCompleted: new Date().toISOString() })
+  }, [activeStructuredLessonStatus, persistActiveStructuredLessonProgress])
+
+  useEffect(() => {
+    if (!selectedPostLessonAction) return
+    persistActiveStructuredLessonProgress({ postLessonChoice: selectedPostLessonAction })
+  }, [selectedPostLessonAction, persistActiveStructuredLessonProgress])
 
   useEffect(() => {
     const wasOpen = prevMenuOpenForSnapshotRef.current
@@ -1835,7 +1919,7 @@ export default function Home() {
                   forceNextMicLang={forceNextMicLang}
                   onConsumeForceNextMicLang={() => setForceNextMicLang(null)}
                   learningActions={
-                    activeLearningLessonId && !activeStructuredLesson
+                    activeLearningLessonId && !activeStructuredLesson && !structuredLessonLoadingId
                       ? getLearningLessonActions(activeLearningLessonId)
                       : []
                   }

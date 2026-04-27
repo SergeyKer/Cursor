@@ -68,6 +68,54 @@ const LESSONS: Record<string, LearningLesson> = {
       staticText: 'Теория A2',
     },
   },
+  '2': {
+    id: '2',
+    title: 'Who ...?',
+    theoryIntro:
+      '**Урок:** Who ...?\n' +
+      '**Правило:**\n' +
+      '1) В вопросах с Who обычно используем форму глагола с -s: likes, reads, drinks.\n' +
+      '2) Короткий ответ строим с подлежащим и тем же глаголом: Anna likes music.\n' +
+      '**Примеры:**\n' +
+      '1) Who likes music? Anna likes music.\n' +
+      '2) Who likes tea? My brother likes tea.\n' +
+      '**Коротко:** спрашиваем "кто делает?", отвечаем полной фразой.\n' +
+      '**Шаблоны:**\n' +
+      '1) Who likes ...?\n' +
+      '2) [Name] likes ... .',
+    actions: [
+      { id: 'examples', label: 'Посмотри примеры' },
+      { id: 'fill_phrase', label: 'Подставь слово' },
+      { id: 'repeat_translate', label: 'Переведи на английский' },
+      { id: 'write_own_sentence', label: 'Напиши своё предложение' },
+    ],
+    followups: {
+      examples:
+        '**Примеры:**\n' +
+        '1) Who likes music? Anna likes music.\n' +
+        '2) Who likes music? Tom likes music.\n' +
+        '3) Who likes tea? My sister likes tea.',
+      repeat_translate:
+        '**Переведи на английский:**\n' +
+        '1) Кто любит музыку?\n' +
+        '2) Анна любит музыку.\n' +
+        '3) Кто любит музыку?',
+      fill_phrase:
+        '**Подставь слово:**\n' +
+        '1) Who ____ music? (like / likes)\n' +
+        '2) Anna ____ tea. (like / likes)\n' +
+        'Выберите правильную форму глагола.',
+      write_own_sentence:
+        '**Напиши своё предложение:**\n' +
+        '1) Who likes ...?\n' +
+        '2) [Name] likes ... .\n' +
+        'Напиши 3 короткие пары вопрос-ответ.',
+    },
+    footer: {
+      dynamicText: 'Теория: Who + likes + noun?',
+      staticText: 'Теория A2',
+    },
+  },
 }
 
 const RUNTIME_LESSONS: Record<string, LearningLesson> = {}
@@ -98,6 +146,15 @@ function normalizeTopic(input: string): string {
 export function findStaticLessonByTopic(topic: string): LearningLesson | null {
   const normalized = normalizeTopic(topic)
   if (!normalized) return null
+  if (
+    normalized.includes('who likes') ||
+    normalized.includes('who like') ||
+    normalized.includes('coffee') ||
+    normalized.includes('coffe') ||
+    normalized.includes('кто любит')
+  ) {
+    return LESSONS['2'] ?? null
+  }
   if (
     normalized.includes("it's") ||
     normalized.includes('it is') ||

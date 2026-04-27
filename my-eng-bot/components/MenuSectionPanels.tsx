@@ -76,7 +76,7 @@ const THEORY_LEVELS: { id: string; label: string }[] = [
 
 const A2_THEORY_ITEMS: { id: string; label: string; enabled: boolean }[] = [
   { id: '1', label: 'It’s / It’s time to', enabled: true },
-  { id: '2', label: 'Урок 2', enabled: false },
+  { id: '2', label: 'Who ...?', enabled: true },
 ]
 
 const MODE_OPTIONS: { id: AppMode; label: string }[] = [
@@ -137,7 +137,7 @@ export interface MenuSectionPanelsProps {
   /** Стартовый экран: синхронизация подпанели «Чат с MyEng» для подсказки под меню. */
   onAiChatPanelChange?: (panel: AiChatPanel) => void
   /** Открыть урок из ветки «Обучение». */
-  onOpenLearningLesson?: (lessonId: string) => void
+  onOpenLearningLesson?: (lessonId: string) => void | Promise<void>
   onOpenTutorLesson?: (request: { requestedTopic: string; analysisSummary?: string }) => Promise<void> | void
   /** Стартовый уровень lessons-панели при открытии меню. */
   initialLessonsPanel?: LessonsPanel

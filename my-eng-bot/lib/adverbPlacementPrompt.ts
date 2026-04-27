@@ -15,7 +15,7 @@ Present Perfect — mid-position (NOT at the end of the clause in this app):
 Exception — yet: ONLY at the end in questions and negatives. Examples: Have you finished yet? I haven't called him yet.
 
 Present Simple / Past Simple — frequency adverbs (always, usually, often, sometimes, rarely, seldom, never):
-- Before the MAIN verb: I always drink coffee. She usually goes to bed at 10.
+- Before the MAIN verb: I always drink tea. She usually goes to bed at 10.
 - After be: He is always late. They are never happy.
 - Do NOT put them between do/does/did and the main verb (wrong: *I do always drink* → right: I always drink).
 
