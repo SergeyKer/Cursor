@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { LessonData } from '@/types/lesson'
+import type { LessonData, LessonMistake, PostLessonContent } from '@/types/lesson'
 import { validateAnswer } from '@/utils/validateAnswer'
 
 export type LessonStatus = 'idle' | 'checking' | 'feedback' | 'completed'
@@ -14,6 +14,14 @@ export type BlockProgress = {
   awaitsInput: boolean
 }
 
+export type LessonTimelineEntry = {
+  stepIndex: number
+  submittedAnswer: string | null
+  feedback: LessonFeedback | null
+  isCurrent: boolean
+  step: LessonData['steps'][number]
+}
+
 const VALIDATION_DELAY_MS = 400
 const AUTO_ADVANCE_DELAY_MS = 1500
 const ENABLE_GAMIFICATION = false
@@ -24,7 +32,9 @@ export function useLessonEngine(lesson: LessonData | null) {
   const [combo, setCombo] = useState(0)
   const [status, setStatus] = useState<LessonStatus>('idle')
   const [feedback, setFeedback] = useState<LessonFeedback | null>(null)
+  const [feedbackByStep, setFeedbackByStep] = useState<Record<number, LessonFeedback>>({})
   const [submittedAnswersByStep, setSubmittedAnswersByStep] = useState<Record<number, string>>({})
+  const [mistakes, setMistakes] = useState<LessonMistake[]>([])
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([])
 
   const clearTimers = useCallback(() => {
@@ -39,8 +49,10 @@ export function useLessonEngine(lesson: LessonData | null) {
     setCombo(0)
     setStatus('idle')
     setFeedback(null)
+    setFeedbackByStep({})
     setSubmittedAnswersByStep({})
-  }, [lesson?.id, clearTimers])
+    setMistakes([])
+  }, [lesson?.id, lesson?.runKey, clearTimers])
 
   useEffect(() => {
     return () => {
@@ -88,14 +100,24 @@ export function useLessonEngine(lesson: LessonData | null) {
 
       clearTimers()
       setSubmittedAnswersByStep((current) => ({ ...current, [currentStep]: answer.trim() }))
+      setFeedbackByStep((current) => {
+        if (!(currentStep in current)) return current
+        const next = { ...current }
+        delete next[currentStep]
+        return next
+      })
+      setFeedback(null)
       setStatus('checking')
 
       const isCorrect = validateAnswer(answer, exercise.correctAnswer, exercise.type)
       const validationTimer = setTimeout(() => {
         if (isCorrect) {
+          const successFeedback = { type: 'success', message: 'Верно. Переходим дальше.' } as const
           setXp((prev) => prev + 10)
           setCombo((prev) => prev + 1)
-          setFeedback({ type: 'success', message: 'Верно. Переходим дальше.' })
+          setMistakes((current) => current.filter((item) => item.step !== step.stepNumber))
+          setFeedback(successFeedback)
+          setFeedbackByStep((current) => ({ ...current, [currentStep]: successFeedback }))
           setStatus('feedback')
 
           if (currentStep < totalSteps - 1) {
@@ -108,10 +130,21 @@ export function useLessonEngine(lesson: LessonData | null) {
         }
 
         setCombo(0)
-        setFeedback({
+        setMistakes((current) => {
+          const next = current.filter((item) => item.step !== step.stepNumber)
+          next.push({
+            step: step.stepNumber,
+            userAnswer: answer.trim(),
+            correctAnswer: exercise.correctAnswer,
+          })
+          return next
+        })
+        const errorFeedback = {
           type: 'error',
           message: exercise.hint ?? 'Почти. Попробуйте еще раз.',
-        })
+        } as const
+        setFeedback(errorFeedback)
+        setFeedbackByStep((current) => ({ ...current, [currentStep]: errorFeedback }))
         setStatus('feedback')
       }, VALIDATION_DELAY_MS)
 
@@ -122,24 +155,52 @@ export function useLessonEngine(lesson: LessonData | null) {
 
   const footerDynamicText = feedback?.type === 'error' ? feedback.message : step?.footerDynamic ?? null
   const submittedAnswer = step ? submittedAnswersByStep[currentStep] ?? null : null
+  const postLesson = useMemo<PostLessonContent | null>(() => {
+    if (step?.stepType !== 'completion') return null
+    return step.postLesson ?? null
+  }, [step])
   const footerStaticText = useMemo(() => {
     if (!lesson || totalSteps === 0) return null
 
+    if (status === 'completed' && postLesson?.staticFooterText) {
+      return postLesson.staticFooterText
+    }
     const progressText = `Шаг ${Math.min(currentStep + 1, totalSteps)}/${totalSteps}`
     if (!ENABLE_GAMIFICATION) return progressText
 
     const comboText = combo > 1 ? ` | COMBO x${combo}` : ''
     return `${progressText} | ${xp} XP${comboText}`
-  }, [lesson, totalSteps, currentStep, combo, xp])
+  }, [lesson, totalSteps, currentStep, combo, xp, status, postLesson?.staticFooterText])
+
+  const effectiveFooterDynamicText =
+    feedback?.type === 'error' ? feedback.message : status === 'completed' ? postLesson?.dynamicFooterText ?? step?.footerDynamic ?? null : step?.footerDynamic ?? null
 
   const footerTypingKey = useMemo(() => {
     if (!lesson) return 'lesson-footer'
-    return `${lesson.id}:${currentStep}:${feedback?.type === 'error' ? 'hint' : 'step'}`
+    return `${lesson.id}:${lesson.runKey ?? 'static'}:${currentStep}:${feedback?.type === 'error' ? 'hint' : 'step'}`
   }, [lesson, currentStep, feedback?.type])
+
+  const completedSteps = useMemo(() => {
+    if (!lesson) return []
+    return lesson.steps.slice(0, currentStep + 1).map((lessonStep) => lessonStep.stepNumber)
+  }, [lesson, currentStep])
+
+  const timeline = useMemo<LessonTimelineEntry[]>(() => {
+    if (!lesson) return []
+
+    return lesson.steps.slice(0, currentStep + 1).map((lessonStep, stepIndex) => ({
+      stepIndex,
+      submittedAnswer: submittedAnswersByStep[stepIndex] ?? null,
+      feedback: stepIndex === currentStep ? feedback : feedbackByStep[stepIndex] ?? null,
+      isCurrent: stepIndex === currentStep,
+      step: lessonStep,
+    }))
+  }, [lesson, currentStep, submittedAnswersByStep, feedback, feedbackByStep])
 
   return {
     lesson,
     step,
+    timeline,
     currentStep,
     totalSteps,
     xp,
@@ -147,10 +208,14 @@ export function useLessonEngine(lesson: LessonData | null) {
     status,
     feedback,
     submittedAnswer,
+    mistakes,
+    completedSteps,
     blockProgress,
-    footerDynamicText,
+    footerDynamicText: effectiveFooterDynamicText,
     footerStaticText,
     footerTypingKey,
+    isCompletionStep: step?.stepType === 'completion',
+    postLesson,
     handleAnswer,
     goToNext,
     goToStep,

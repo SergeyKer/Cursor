@@ -56,7 +56,7 @@ export default function TypingText({ text, speed = 30, onComplete }: TypingTextP
 
   return (
     <div className="flex min-h-6 w-full items-start gap-1 overflow-hidden">
-      <span className="max-w-full text-sm leading-tight text-gray-300 whitespace-normal break-words">
+      <span className="max-w-full whitespace-normal break-words text-sm leading-tight text-[var(--text-muted,#6b7280)]">
         {displayedText}
       </span>
       {displayedText.length < text.length && (

@@ -2,17 +2,19 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
+import PostLessonMenu from '@/components/PostLessonMenu'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
-import type { BlockProgress, LessonFeedback, LessonStatus } from '@/hooks/useLessonEngine'
-import type { Bubble, LessonStep } from '@/types/lesson'
+import type { BlockProgress, LessonStatus, LessonTimelineEntry } from '@/hooks/useLessonEngine'
+import type { Bubble, PostLessonAction } from '@/types/lesson'
 
 type LessonStepRendererProps = {
-  step: LessonStep
+  timeline: LessonTimelineEntry[]
   status: LessonStatus
-  feedback: LessonFeedback | null
-  submittedAnswer: string | null
   blockProgress: BlockProgress
   onAnswer: (answer: string) => void
+  onPostLessonAction?: (action: PostLessonAction) => void
+  postLessonBusy?: boolean
+  audience: 'child' | 'adult'
 }
 
 type LessonMessage =
@@ -51,27 +53,31 @@ const lessonStatusCardClassByTone: Record<'service' | 'success' | 'error', strin
 const CHOICE_REOPEN_DELAY_MS = 900
 
 export default function LessonStepRenderer({
-  step,
+  timeline,
   status,
-  feedback,
-  submittedAnswer,
   blockProgress,
   onAnswer,
+  onPostLessonAction,
+  postLessonBusy = false,
+  audience,
 }: LessonStepRendererProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const reopenChoicesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [inputValue, setInputValue] = useState('')
   const [choiceResetVersion, setChoiceResetVersion] = useState(0)
-  const visibleBubbles = step.bubbles.slice(0, blockProgress.visibleCount)
-  const exercise = step.exercise ?? null
+  const currentEntry = timeline[timeline.length - 1] ?? null
+  const currentStep = currentEntry?.step ?? null
+  const currentFeedback = currentEntry?.feedback ?? null
+  const exercise = currentStep?.exercise ?? null
+  const postLesson = currentStep?.stepType === 'completion' ? currentStep.postLesson ?? null : null
   const choiceOptions = exercise?.options ?? []
   const hasChoiceOptions = choiceOptions.length > 0
+  const hasPostLessonOptions = Boolean(postLesson?.options.length)
   const isChecking = status === 'checking'
-  const helperText = useMemo(() => {
-    if (!exercise) return null
-    if (hasChoiceOptions) return 'Выберите вариант выше.'
-    return exercise.question || 'Напишите ответ внизу.'
-  }, [exercise, hasChoiceOptions])
+  const inputPlaceholder = useMemo(() => {
+    if (hasChoiceOptions) return 'Выберите вариант выше'
+    return audience === 'child' ? 'Напиши пропущенное слово...' : 'Напишите пропущенное слово...'
+  }, [audience, hasChoiceOptions])
 
   useEffect(() => {
     setInputValue('')
@@ -80,22 +86,13 @@ export default function LessonStepRenderer({
       clearTimeout(reopenChoicesTimerRef.current)
       reopenChoicesTimerRef.current = null
     }
-  }, [step.stepNumber])
+  }, [currentStep?.stepNumber])
 
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current
     if (!scrollContainer) return
-    scrollContainer.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [step.stepNumber])
-
-  useEffect(() => {
-    const scrollContainer = scrollContainerRef.current
-    if (!scrollContainer) return
-
-    if (submittedAnswer || status === 'checking' || feedback) {
-      scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' })
-    }
-  }, [submittedAnswer, status, feedback])
+    scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' })
+  }, [timeline, status])
 
   useEffect(() => {
     if (reopenChoicesTimerRef.current) {
@@ -103,7 +100,7 @@ export default function LessonStepRenderer({
       reopenChoicesTimerRef.current = null
     }
 
-    if (!hasChoiceOptions || feedback?.type !== 'error') return
+    if (!hasChoiceOptions || currentFeedback?.type !== 'error') return
 
     reopenChoicesTimerRef.current = setTimeout(() => {
       setChoiceResetVersion((current) => current + 1)
@@ -116,7 +113,7 @@ export default function LessonStepRenderer({
         reopenChoicesTimerRef.current = null
       }
     }
-  }, [feedback?.type, hasChoiceOptions, step.stepNumber])
+  }, [currentFeedback?.type, hasChoiceOptions, currentStep?.stepNumber])
 
   const submitTextAnswer = () => {
     if (!exercise || hasChoiceOptions || isChecking || !inputValue.trim()) return
@@ -126,46 +123,52 @@ export default function LessonStepRenderer({
   const lessonMessages = useMemo<LessonMessage[]>(() => {
     const messages: LessonMessage[] = []
 
-    if (visibleBubbles.length > 0) {
-      messages.push({
-        id: `lesson-${step.stepNumber}`,
-        role: 'assistant',
-        kind: 'lesson',
-        bubbles: visibleBubbles,
-      })
-    }
+    timeline.forEach((entry) => {
+      const bubbles = entry.isCurrent
+        ? entry.step.bubbles.slice(0, blockProgress.visibleCount)
+        : entry.step.bubbles
 
-    if (submittedAnswer?.trim()) {
-      messages.push({
-        id: `answer-${step.stepNumber}`,
-        role: 'user',
-        kind: 'answer',
-        text: submittedAnswer.trim(),
-      })
-    }
+      if (bubbles.length > 0) {
+        messages.push({
+          id: `lesson-${entry.step.stepNumber}`,
+          role: 'assistant',
+          kind: 'lesson',
+          bubbles,
+        })
+      }
 
-    if (status === 'checking' && exercise) {
-      messages.push({
-        id: `checking-${step.stepNumber}`,
-        role: 'assistant',
-        kind: 'status',
-        text: 'Проверяем ответ...',
-        tone: 'service',
-      })
-    }
+      if (entry.submittedAnswer?.trim()) {
+        messages.push({
+          id: `answer-${entry.step.stepNumber}`,
+          role: 'user',
+          kind: 'answer',
+          text: entry.submittedAnswer.trim(),
+        })
+      }
 
-    if (feedback && status === 'feedback') {
-      messages.push({
-        id: `feedback-${step.stepNumber}-${feedback.type}`,
-        role: 'assistant',
-        kind: 'status',
-        text: feedback.message,
-        tone: feedback.type === 'success' ? 'success' : 'error',
-      })
-    }
+      if (entry.isCurrent && status === 'checking' && entry.step.exercise) {
+        messages.push({
+          id: `checking-${entry.step.stepNumber}`,
+          role: 'assistant',
+          kind: 'status',
+          text: 'Проверяем ответ...',
+          tone: 'service',
+        })
+      }
+
+      if (entry.feedback && (!entry.isCurrent || status === 'feedback')) {
+        messages.push({
+          id: `feedback-${entry.step.stepNumber}-${entry.feedback.type}`,
+          role: 'assistant',
+          kind: 'status',
+          text: entry.feedback.message,
+          tone: entry.feedback.type === 'success' ? 'success' : 'error',
+        })
+      }
+    })
 
     return messages
-  }, [exercise, feedback, status, step.stepNumber, submittedAnswer, visibleBubbles])
+  }, [timeline, blockProgress.visibleCount, status])
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
@@ -194,7 +197,7 @@ export default function LessonStepRenderer({
                         position={position}
                         rowClassName={isBubbleEnd ? 'mb-2.5' : 'mb-0.5'}
                       >
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                           {message.bubbles.map((bubble, bubbleIndex) => (
                             <section
                               key={`${message.id}-${bubbleIndex}-${bubble.type}`}
@@ -243,89 +246,100 @@ export default function LessonStepRenderer({
               </div>
             </div>
 
-            {exercise && (
+            {(exercise || hasPostLessonOptions) && (
               <div
                 className="shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 pt-2.5 sm:px-3"
                 style={{ paddingBottom: 'calc(var(--app-bottom-inset) + 0.625rem)' }}
               >
-                {hasChoiceOptions && (
+                {hasPostLessonOptions ? (
+                  <PostLessonMenu
+                    options={postLesson?.options ?? []}
+                    onSelect={(action) => onPostLessonAction?.(action)}
+                    disabled={postLessonBusy || !onPostLessonAction}
+                  />
+                ) : hasChoiceOptions ? (
                   <LessonChoiceChips
-                    key={`choices-${step.stepNumber}`}
+                    key={`choices-${currentStep?.stepNumber ?? 'none'}`}
                     choices={choiceOptions}
                     onChoose={onAnswer}
                     disabled={isChecking}
-                    resetKey={`${step.stepNumber}-${choiceResetVersion}`}
+                    resetKey={`${currentStep?.stepNumber ?? 'none'}-${choiceResetVersion}`}
                   />
-                )}
+                ) : null}
 
-                <div className="px-2 pb-2 text-center text-sm text-[var(--text-muted,#6b7280)]">{helperText}</div>
-
-                <form
-                  onSubmit={(event) => {
-                    event.preventDefault()
-                    submitTextAnswer()
-                  }}
-                  className="glass-surface flex w-full items-center gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1.5 sm:px-3"
-                  style={{ boxShadow: 'var(--chat-composer-shadow)' }}
-                >
-                  <button
-                    type="button"
-                    disabled
-                    aria-label="Голосовой ввод пока недоступен в уроке"
-                    title="Голосовой ввод пока недоступен в уроке"
-                    className="chat-action-button chat-control-surface flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full p-2.5 text-[var(--chat-control-text)] opacity-50"
-                  >
-                    <svg
-                      aria-hidden="true"
-                      viewBox="0 0 24 24"
-                      className="h-5 w-5"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z" />
-                      <path d="M19 11a7 7 0 0 1-14 0" />
-                      <path d="M12 18v3" />
-                      <path d="M8 21h8" />
-                    </svg>
-                  </button>
-                  <input
-                    type="text"
-                    value={inputValue}
-                    onChange={(event) => setInputValue(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault()
-                        submitTextAnswer()
-                      }
+                {!hasPostLessonOptions && (
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault()
+                      submitTextAnswer()
                     }}
-                    disabled={isChecking || hasChoiceOptions}
-                    className="min-w-0 flex-1 border-0 bg-transparent px-1 py-2 text-[15px] text-[var(--text)] outline-none placeholder:text-[var(--text-muted,#6b7280)] disabled:cursor-not-allowed disabled:opacity-70"
-                    placeholder={hasChoiceOptions ? 'Выберите вариант выше' : 'Reply...'}
-                  />
-                  <button
-                    type="submit"
-                    disabled={hasChoiceOptions || isChecking || !inputValue.trim()}
-                    aria-label="Отправить ответ"
-                    className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)] disabled:opacity-60"
-                    style={{ background: '#3B82F6' }}
+                    className="glass-surface flex w-full items-center gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1.5 sm:px-3"
+                    style={{ boxShadow: 'var(--chat-composer-shadow)' }}
                   >
-                    <svg
-                      aria-hidden="true"
-                      viewBox="0 0 24 24"
-                      className="h-5 w-5"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                    <button
+                      type="button"
+                      disabled
+                      aria-label="Голосовой ввод пока недоступен в уроке"
+                      title="Голосовой ввод пока недоступен в уроке"
+                      className="chat-action-button chat-control-surface relative isolate flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-full p-2.5 touch-manipulation text-[var(--chat-control-text)]"
+                      style={{ background: 'var(--chat-control-bg)' }}
                     >
-                      <path d="m4 12 14-7-3 7 3 7-14-7Z" />
-                    </svg>
-                  </button>
-                </form>
+                      <span className="relative z-10">
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          className="h-5 w-5"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z" />
+                          <path d="M19 11a7 7 0 0 1-14 0" />
+                          <path d="M12 18v3" />
+                          <path d="M8 21h8" />
+                        </svg>
+                      </span>
+                    </button>
+                    <input
+                      type="text"
+                      value={inputValue}
+                      onChange={(event) => setInputValue(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault()
+                          submitTextAnswer()
+                        }
+                      }}
+                      disabled={isChecking || hasChoiceOptions}
+                      className="min-w-0 flex-1 border-0 bg-transparent px-1 py-2 text-[15px] text-[var(--text)] outline-none placeholder:text-[var(--text-muted,#6b7280)] disabled:cursor-not-allowed disabled:opacity-70"
+                      placeholder={inputPlaceholder}
+                    />
+                    <button
+                      type="submit"
+                      disabled={hasChoiceOptions || isChecking || !inputValue.trim()}
+                      aria-label="Отправить ответ"
+                      className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)]"
+                      style={{ background: '#3B82F6' }}
+                    >
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-7 w-7"
+                        fill="none"
+                      >
+                        <path
+                          d="M21.4 11.6C21.7 11.8 21.7 12.2 21.4 12.4L5.9 19.4C5.2 19.7 4.4 19.2 4.5 18.4L5.3 14.2C5.4 13.9 5.6 13.6 5.9 13.5L12.8 12L5.9 10.5C5.6 10.4 5.4 10.1 5.3 9.8L4.5 5.6C4.4 4.8 5.2 4.3 5.9 4.6L21.4 11.6Z"
+                          stroke="#FFFFFF"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  </form>
+                )}
               </div>
             )}
           </div>

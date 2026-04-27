@@ -47,6 +47,7 @@ import {
 } from '@/lib/homeCtaStyles'
 import { parseCorrection } from '@/lib/parseCorrection'
 import { stripTranslationCanonicalRepeatRefLine } from '@/lib/translationPromptAndRef'
+import { saveLessonProgress } from '@/lib/lessonProgressStorage'
 import {
   findStaticLessonByTopic,
   getLearningLessonActions,
@@ -58,6 +59,7 @@ import {
 import { getStructuredLessonById } from '@/lib/structuredLessons'
 import type { LessonBlueprint } from '@/lib/lessonBlueprint'
 import type { LessonMenuContext } from '@/components/SlideOutMenu'
+import type { LessonData, PostLessonAction } from '@/types/lesson'
 import AppFooter from '@/components/AppFooter'
 import LessonStepRenderer from '@/components/LessonStepRenderer'
 import { useLessonEngine } from '@/hooks/useLessonEngine'
@@ -150,6 +152,11 @@ type MenuOpenSnapshot = {
   topic?: TopicId
   tensesKey?: string
   sentenceType?: SentenceType
+}
+
+type LessonOverlayState = {
+  title: string
+  lines: string[]
 }
 
 function tensesToKey(tenses: TenseId[]): string {
@@ -291,17 +298,26 @@ export default function Home() {
   const [composerSessionKey, setComposerSessionKey] = useState(0)
   const [lessonMenuContext, setLessonMenuContext] = useState<LessonMenuContext | null>(null)
   const [activeLearningLessonId, setActiveLearningLessonId] = useState<string | null>(null)
-  const activeStructuredLesson = activeLearningLessonId ? getStructuredLessonById(activeLearningLessonId) : null
+  const [activeStructuredLessonRuntime, setActiveStructuredLessonRuntime] = useState<LessonData | null>(null)
+  const [activeLessonVariantNumber, setActiveLessonVariantNumber] = useState(1)
+  const [postLessonBusy, setPostLessonBusy] = useState(false)
+  const [selectedPostLessonAction, setSelectedPostLessonAction] = useState<PostLessonAction | null>(null)
+  const [lessonOverlay, setLessonOverlay] = useState<LessonOverlayState | null>(null)
+  const activeStructuredLesson =
+    activeStructuredLessonRuntime ?? (activeLearningLessonId ? getStructuredLessonById(activeLearningLessonId) : null)
   const {
     step: activeStructuredLessonStep,
+    timeline: activeStructuredLessonTimeline,
     status: activeStructuredLessonStatus,
-    feedback: activeStructuredLessonFeedback,
-    submittedAnswer: activeStructuredLessonSubmittedAnswer,
     blockProgress: activeStructuredLessonBlockProgress,
     footerDynamicText: activeStructuredLessonFooterDynamicText,
     footerStaticText: activeStructuredLessonFooterStaticText,
     footerTypingKey: activeStructuredLessonFooterTypingKey,
     handleAnswer: handleStructuredLessonAnswer,
+    xp: activeStructuredLessonXp,
+    combo: activeStructuredLessonCombo,
+    mistakes: activeStructuredLessonMistakes,
+    completedSteps: activeStructuredLessonCompletedSteps,
   } = useLessonEngine(activeStructuredLesson)
   const dialogueCorrectAnswers = React.useMemo(() => countDialogueFinalCorrectAnswers(messages), [messages])
   /** Настройки на момент последней отправки сообщения; для баннера «настройки изменены». */
@@ -771,10 +787,19 @@ export default function Home() {
   }, [sendToApi, fetchUsage, settings])
   ensureFirstMessageRef.current = ensureFirstMessage
 
-  const restartChatForNewModeFromMenu = useCallback(() => {
-    suppressSettingsChangeBannerRef.current = true
+  const resetStructuredLessonSession = useCallback(() => {
     setLessonMenuContext(null)
     setActiveLearningLessonId(null)
+    setActiveStructuredLessonRuntime(null)
+    setActiveLessonVariantNumber(1)
+    setSelectedPostLessonAction(null)
+    setPostLessonBusy(false)
+    setLessonOverlay(null)
+  }, [])
+
+  const restartChatForNewModeFromMenu = useCallback(() => {
+    suppressSettingsChangeBannerRef.current = true
+    resetStructuredLessonSession()
     firstMessageRequestIdRef.current += 1
     firstMessageInFlightRef.current = false
     dialogSeedRef.current = createDialogSeed()
@@ -784,29 +809,26 @@ export default function Home() {
     setTimeout(() => {
       ensureFirstMessage()
     }, 50)
-  }, [ensureFirstMessage])
+  }, [ensureFirstMessage, resetStructuredLessonSession])
 
   const handleStartChatFromMenu = useCallback(() => {
     setComposerSessionKey((k) => k + 1)
     if (!dialogStarted) {
-      setLessonMenuContext(null)
-      setActiveLearningLessonId(null)
+      resetStructuredLessonSession()
       setDialogStarted(true)
       setMenuOpen(false)
       return
     }
-    setLessonMenuContext(null)
-    setActiveLearningLessonId(null)
+    resetStructuredLessonSession()
     restartChatForNewModeFromMenu()
     setMenuOpen(false)
-  }, [dialogStarted, restartChatForNewModeFromMenu])
+  }, [dialogStarted, restartChatForNewModeFromMenu, resetStructuredLessonSession])
 
   const handleStartChatFromHome = useCallback(() => {
     setComposerSessionKey((k) => k + 1)
-    setLessonMenuContext(null)
-    setActiveLearningLessonId(null)
+    resetStructuredLessonSession()
     setDialogStarted(true)
-  }, [])
+  }, [resetStructuredLessonSession])
 
   const openLearningLesson = useCallback((lessonId: string, lessonsPanel: LessonsPanel = 'a2') => {
     const lesson = getLearningLessonById(lessonId)
@@ -824,6 +846,11 @@ export default function Home() {
     setLoadingTranslationIndex(null)
     setForceNextMicLang(null)
     setSettingsAtLastSend(null)
+    setActiveStructuredLessonRuntime(null)
+    setActiveLessonVariantNumber(1)
+    setSelectedPostLessonAction(null)
+    setPostLessonBusy(false)
+    setLessonOverlay(null)
     setLessonMenuContext({ menuView: 'lessons', lessonsPanel })
     setActiveLearningLessonId(lessonId)
     setMessages(
@@ -888,7 +915,7 @@ export default function Home() {
       })
       openLearningLesson(lessonId, 'tutor')
     },
-    [openLearningLesson, settings.provider, settings.level, settings.audience]
+    [openLearningLesson, settings.provider, settings.openAiChatPreset, settings.level, settings.audience]
   )
 
   const handleSelectLearningAction = useCallback(
@@ -901,6 +928,103 @@ export default function Home() {
     },
     [activeLearningLessonId]
   )
+
+  const handlePostLessonAction = useCallback(
+    async (action: PostLessonAction) => {
+      if (!activeStructuredLesson || !activeStructuredLessonStep?.postLesson) return
+
+      setSelectedPostLessonAction(action)
+      setPostLessonBusy(true)
+
+      if (action === 'view_examples') {
+        const lines = activeStructuredLessonStep.postLesson.examples ?? []
+        setLessonOverlay({
+          title: 'Примеры по теме',
+          lines: lines.length > 0 ? lines : ['Примеры для этой темы появятся следующим этапом.'],
+        })
+        setPostLessonBusy(false)
+        return
+      }
+
+      if (action === 'learn_interesting') {
+        setLessonOverlay({
+          title: 'Интересный факт',
+          lines: [
+            activeStructuredLessonStep.postLesson.interestingFact ??
+              'Для этой темы интересный факт появится следующим этапом.',
+          ],
+        })
+        setPostLessonBusy(false)
+        return
+      }
+
+      if (action === 'repeat_variant') {
+        try {
+          const response = await fetch('/api/lesson-repeat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              provider: settings.provider,
+              openAiChatPreset: settings.openAiChatPreset,
+              audience: settings.audience,
+              lesson: activeStructuredLesson,
+            }),
+          })
+          const data = (await response.json()) as { lesson?: LessonData }
+          if (response.ok && data.lesson) {
+            setActiveStructuredLessonRuntime(data.lesson)
+            setActiveLessonVariantNumber((current) => current + 1)
+            setSelectedPostLessonAction(null)
+          }
+        } catch (error) {
+          console.warn('lesson-repeat failed:', error)
+        } finally {
+          setPostLessonBusy(false)
+        }
+        return
+      }
+
+      const nextMode: Settings['mode'] = action === 'independent_practice' ? 'translation' : 'communication'
+      setLessonOverlay(null)
+      setSettings((prev) => ({
+        ...prev,
+        mode: nextMode,
+      }))
+      setTimeout(() => {
+        restartChatForNewModeFromMenu()
+      }, 0)
+    },
+    [activeStructuredLesson, activeStructuredLessonStep, restartChatForNewModeFromMenu, settings]
+  )
+
+  useEffect(() => {
+    if (!activeStructuredLesson || !activeLearningLessonId) return
+    saveLessonProgress({
+      lessonId: activeStructuredLesson.id,
+      topic: activeStructuredLesson.topic,
+      level: activeStructuredLesson.level,
+      completedSteps: activeStructuredLessonCompletedSteps,
+      completedVariants:
+        activeStructuredLessonStatus === 'completed'
+          ? Array.from({ length: activeLessonVariantNumber }, (_, index) => index + 1)
+          : [activeLessonVariantNumber],
+      xp: activeStructuredLessonXp,
+      combo: activeStructuredLessonCombo,
+      mistakes: activeStructuredLessonMistakes,
+      lastCompleted: activeStructuredLessonStatus === 'completed' ? new Date().toISOString() : '',
+      ...(selectedPostLessonAction ? { postLessonChoice: selectedPostLessonAction } : {}),
+    })
+  }, [
+    activeStructuredLesson,
+    activeLearningLessonId,
+    activeStructuredLessonCompletedSteps,
+    activeStructuredLessonMistakes,
+    activeStructuredLessonStatus,
+    activeStructuredLessonXp,
+    activeStructuredLessonCombo,
+    activeLessonVariantNumber,
+    selectedPostLessonAction,
+  ])
 
   useEffect(() => {
     const wasOpen = prevMenuOpenForSnapshotRef.current
@@ -938,14 +1062,13 @@ export default function Home() {
     setRetryMessage(null)
     setForceNextMicLang(null)
     setLoadingTranslationIndex(null)
-    setLessonMenuContext(null)
-    setActiveLearningLessonId(null)
+    resetStructuredLessonSession()
     dialogSeedRef.current = createDialogSeed()
     newDialogRef.current = false
     setWelcomeCompact(false)
     setGreetingNonce((n) => n + 1)
     saveState([], settings)
-  }, [settings])
+  }, [resetStructuredLessonSession, settings])
 
   const retryFirstMessage = useCallback(async () => {
     const requestId = ++firstMessageRequestIdRef.current
@@ -1298,7 +1421,7 @@ export default function Home() {
       setLoadingTranslationIndex(null)
       setResult(undefined, lastError)
     }
-  }, [settings.provider, settings.audience, settings.mode, settings.tenses])
+  }, [settings.provider, settings.openAiChatPreset, settings.audience, settings.mode, settings.tenses])
 
   /** Сравнение для баннера в шапке. В «Диалог» и «Перевод»: предупреждение только если изменился только уровень (без перезапуска из меню). Смена темы/времени/ребёнок–взрослый/типа даёт новый чат — баннер не нужен. */
   function settingsDiffersFromLastSendForBanner(current: Settings, last: Settings | null): boolean {
@@ -1685,12 +1808,13 @@ export default function Home() {
             <div className="min-h-0 flex-1 bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
               {isStructuredLessonActive && activeStructuredLessonStep ? (
                 <LessonStepRenderer
-                  step={activeStructuredLessonStep}
+                  timeline={activeStructuredLessonTimeline}
                   status={activeStructuredLessonStatus}
-                  feedback={activeStructuredLessonFeedback}
-                  submittedAnswer={activeStructuredLessonSubmittedAnswer}
                   blockProgress={activeStructuredLessonBlockProgress}
                   onAnswer={handleStructuredLessonAnswer}
+                  onPostLessonAction={handlePostLessonAction}
+                  postLessonBusy={postLessonBusy}
+                  audience={settings.audience}
                 />
               ) : (
                 <Chat
@@ -1759,6 +1883,31 @@ export default function Home() {
         topOffset="var(--app-top-offset)"
         bottomOffset="var(--app-bottom-offset)"
       />
+
+      {lessonOverlay && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <h2 className="text-base font-semibold text-[var(--text)]">{lessonOverlay.title}</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setLessonOverlay(null)
+                  setPostLessonBusy(false)
+                }}
+                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--text)] transition hover:bg-white/70"
+              >
+                Закрыть
+              </button>
+            </div>
+            <div className="space-y-2 text-sm leading-6 text-[var(--text)]">
+              {lessonOverlay.lines.map((line, index) => (
+                <p key={`${lessonOverlay.title}-${index}`}>{line}</p>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

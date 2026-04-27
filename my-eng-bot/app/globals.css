@@ -643,6 +643,34 @@ select.select-chevron {
 }
 
 /* Плавная смена экранов внутри бокового меню (drill-down) */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.24s ease-out forwards;
+}
+
 @keyframes menuPanelViewEnter {
   from {
     opacity: 0;

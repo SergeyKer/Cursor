@@ -2,8 +2,69 @@ import type { LessonData } from '@/types/lesson'
 
 export const itsTimeToLesson: LessonData = {
   id: '1',
-  topic: "It's / It's time to",
+  topic: "Это / Пора",
   level: 'A2',
+  repeatConfig: {
+    ruleSummary: 'Различаем It is + прилагательное для состояния и It is time to + глагол для действия.',
+    grammarFocus: ['It is + adjective', 'It is time to + verb'],
+    sourceSituations: ['На улице темно', 'Пора спать', 'Холодно, пора пить чай', 'Пора идти домой'],
+    stepBlueprints: [
+      {
+        stepNumber: 1,
+        stepType: 'hook',
+        learningGoal: 'Показать ситуацию, где нужно описать состояние через It is + adjective.',
+        exerciseType: 'fill_choice',
+        answerFormat: 'choice',
+        sourceCorrectAnswer: "It's dark.",
+        sourcePattern: "It's + adjective",
+      },
+      {
+        stepNumber: 2,
+        stepType: 'theory',
+        learningGoal: 'Показать ситуацию, где нужно выбрать базовый глагол после It is time to.',
+        exerciseType: 'fill_choice',
+        answerFormat: 'choice',
+        sourceCorrectAnswer: 'sleep',
+        sourcePattern: 'It is time to + verb',
+      },
+      {
+        stepNumber: 3,
+        stepType: 'practice_fill',
+        learningGoal: 'Сопоставить состояние и подходящее действие в короткой бытовой ситуации.',
+        exerciseType: 'translate',
+        answerFormat: 'single_word',
+        sourceCorrectAnswer: 'drink',
+        sourcePattern: 'It is + adjective. It is time to + verb + noun',
+      },
+      {
+        stepNumber: 4,
+        stepType: 'practice_fill',
+        learningGoal: 'Закрепить описание состояния полным предложением.',
+        exerciseType: 'translate',
+        answerFormat: 'full_sentence',
+        sourceCorrectAnswer: "It's dark.",
+        sourcePattern: "It's + adjective",
+      },
+      {
+        stepNumber: 5,
+        stepType: 'practice_apply',
+        learningGoal: 'Закрепить конструкцию It is time to + verb полным предложением.',
+        exerciseType: 'translate',
+        answerFormat: 'full_sentence',
+        sourceCorrectAnswer: "It's time to go home.",
+        sourcePattern: "It's time to + verb phrase",
+      },
+      {
+        stepNumber: 6,
+        stepType: 'feedback',
+        learningGoal: 'Проверить, что пользователь различает состояние и действие в новой ситуации.',
+        exerciseType: 'fill_choice',
+        answerFormat: 'choice',
+        sourceCorrectAnswer: "It's time to sleep.",
+        sourcePattern: "It's time to + verb",
+      },
+    ],
+  },
   steps: [
     {
       stepNumber: 1,
@@ -11,25 +72,25 @@ export const itsTimeToLesson: LessonData = {
       bubbles: [
         {
           type: 'positive',
-          content: "Today we will learn two useful patterns: It's + adjective and It's time to + verb.",
+          content: 'Сегодня разберем две полезные конструкции: It is + прилагательное и It is time to + глагол.',
         },
         {
           type: 'info',
-          content: "The first pattern describes a state. The second pattern shows that it is the right moment to do something.",
+          content: 'Первая конструкция описывает состояние, а вторая показывает, что пришло время сделать действие.',
         },
         {
           type: 'task',
-          content: "Choose the correct sentence for the situation: \"На улице темно.\"",
+          content: 'Выберите правильное предложение для ситуации: "На улице темно".',
         },
       ],
       exercise: {
         type: 'fill_choice',
-        question: 'Which sentence fits the situation?',
+        question: 'Какое предложение подходит по смыслу?',
         options: ["It's dark.", "It's time to dark.", "It's dark to go."],
         correctAnswer: "It's dark.",
-        hint: 'Use It\'s + adjective to describe a state.',
+        hint: 'Для описания состояния используйте It is + прилагательное.',
       },
-      footerDynamic: "Rule 1: It's + adjective",
+      footerDynamic: 'Правило 1: It is + прилагательное',
     },
     {
       stepNumber: 2,
@@ -37,25 +98,25 @@ export const itsTimeToLesson: LessonData = {
       bubbles: [
         {
           type: 'positive',
-          content: "Good. Now look at the second pattern: It's time to + verb.",
+          content: 'Отлично. Теперь посмотрим на вторую конструкцию: It is time to + глагол.',
         },
         {
           type: 'info',
-          content: 'After time to we use the base form of the verb: sleep, study, go, drink.',
+          content: 'После time to используем начальную форму глагола: sleep, study, go, drink.',
         },
         {
           type: 'task',
-          content: 'Choose the best ending: "It\'s time to ___."',
+          content: 'Выберите правильное завершение: "It is time to ___."',
         },
       ],
       exercise: {
         type: 'fill_choice',
-        question: 'Complete the sentence.',
+        question: 'Дополните предложение.',
         options: ['sleep', 'sleeps', 'sleeping'],
         correctAnswer: 'sleep',
-        hint: 'After "to" use the base verb.',
+        hint: 'После "to" нужен глагол в начальной форме.',
       },
-      footerDynamic: "Rule 2: It's time to + verb",
+      footerDynamic: 'Правило 2: It is time to + глагол',
     },
     {
       stepNumber: 3,
@@ -63,24 +124,24 @@ export const itsTimeToLesson: LessonData = {
       bubbles: [
         {
           type: 'positive',
-          content: 'Let us compare the two patterns side by side.',
+          content: 'Сравним обе конструкции рядом.',
         },
         {
           type: 'info',
-          content: "State: It's cold. Action time: It's time to drink tea.",
+          content: 'Состояние: It is cold. Время действия: It is time to drink tea.',
         },
         {
           type: 'task',
-          content: 'Complete the sentence: "It\'s cold. It\'s time to ____ tea."',
+          content: 'Дополните предложение: "It is cold. It is time to ____ tea."',
         },
       ],
       exercise: {
         type: 'translate',
-        question: 'Write the missing word.',
+        question: 'Напишите пропущенное слово.',
         correctAnswer: 'drink',
-        hint: 'Think about a common action when you are cold.',
+        hint: 'Подумайте, что обычно делают, когда холодно.',
       },
-      footerDynamic: 'Practice: choose the correct verb',
+      footerDynamic: 'Практика: выберите правильный глагол',
     },
     {
       stepNumber: 4,
@@ -88,24 +149,24 @@ export const itsTimeToLesson: LessonData = {
       bubbles: [
         {
           type: 'positive',
-          content: 'Now practice the adjective pattern again.',
+          content: 'Теперь снова потренируем конструкцию с прилагательным.',
         },
         {
           type: 'info',
-          content: 'Adjectives describe the situation: dark, cold, hot, late, early.',
+          content: 'Прилагательные описывают ситуацию: dark, cold, hot, late, early.',
         },
         {
           type: 'task',
-          content: 'Translate to English: "Темно."',
+          content: 'Переведите на английский: "Темно".',
         },
       ],
       exercise: {
         type: 'translate',
-        question: 'Write the full sentence in English.',
+        question: 'Напишите полное предложение на английском.',
         correctAnswer: "It's dark.",
-        hint: 'Start with "It\'s".',
+        hint: 'Начните с "It is".',
       },
-      footerDynamic: 'Practice: describe a situation',
+      footerDynamic: 'Практика: описание состояния',
     },
     {
       stepNumber: 5,
@@ -113,24 +174,24 @@ export const itsTimeToLesson: LessonData = {
       bubbles: [
         {
           type: 'positive',
-          content: 'Great. Time to use the action pattern in a full sentence.',
+          content: 'Отлично. Теперь используем конструкцию действия в полном предложении.',
         },
         {
           type: 'info',
-          content: 'You can use it with everyday actions: go home, study, sleep, drink tea.',
+          content: 'Ее удобно использовать с повседневными действиями: go home, study, sleep, drink tea.',
         },
         {
           type: 'task',
-          content: 'Translate to English: "Пора идти домой."',
+          content: 'Переведите на английский: "Пора идти домой".',
         },
       ],
       exercise: {
         type: 'translate',
-        question: 'Write the full sentence in English.',
+        question: 'Напишите полное предложение на английском.',
         correctAnswer: "It's time to go home.",
-        hint: 'Use "It\'s time to" + verb.',
+        hint: 'Используйте "It is time to" + глагол.',
       },
-      footerDynamic: 'Practice: build a full action sentence',
+      footerDynamic: 'Практика: соберите полное предложение',
     },
     {
       stepNumber: 6,
@@ -138,25 +199,25 @@ export const itsTimeToLesson: LessonData = {
       bubbles: [
         {
           type: 'positive',
-          content: 'Last check. You already know when to describe a state and when to suggest an action.',
+          content: 'Финальная проверка. Вы уже различаете описание состояния и время для действия.',
         },
         {
           type: 'info',
-          content: "Remember: It's late = state. It's time to sleep = action.",
+          content: 'Запомните: It is late = состояние. It is time to sleep = действие.',
         },
         {
           type: 'task',
-          content: 'Choose the correct sentence for "Пора спать."',
+          content: 'Выберите правильное предложение для фразы: "Пора спать".',
         },
       ],
       exercise: {
         type: 'fill_choice',
-        question: 'Which sentence is correct?',
+        question: 'Какое предложение правильное?',
         options: ["It's sleep.", "It's time to sleep.", "It's sleeping time to."],
         correctAnswer: "It's time to sleep.",
-        hint: 'This is about the right moment to do an action.',
+        hint: 'Здесь речь о правильном моменте для действия.',
       },
-      footerDynamic: 'Final check before completion',
+      footerDynamic: 'Финальная проверка',
     },
     {
       stepNumber: 7,
@@ -164,18 +225,38 @@ export const itsTimeToLesson: LessonData = {
       bubbles: [
         {
           type: 'positive',
-          content: "Lesson complete. You can now distinguish It's + adjective from It's time to + verb.",
+          content: 'Урок завершен. Теперь вы различаете It is + прилагательное и It is time to + глагол.',
         },
         {
           type: 'info',
-          content: "Use the first pattern for a state and the second one for an action that should happen now.",
+          content: 'Используйте первую конструкцию для состояния, а вторую — когда пора что-то сделать.',
         },
         {
           type: 'task',
-          content: 'You are ready for the next lesson.',
+          content: 'Вы готовы к следующему уроку.',
         },
       ],
-      footerDynamic: 'Lesson completed',
+      footerDynamic: 'Урок завершен',
+      postLesson: {
+        dynamicFooterText: 'Выбор за вами! Любое действие закрепит материал',
+        staticFooterText: '🏆 +50 XP | 🔥 COMBO x7! | 📈 [████████] 7/7',
+        examples: [
+          "It's sunny. It's time to go outside.",
+          "It's late. It's time to go to bed.",
+          "It's cold. It's time to make some tea.",
+          "It's noisy. It's time to close the window.",
+          "It's early. It's time to start work.",
+        ],
+        interestingFact:
+          'В живой речи английского It is часто сокращают до It’s, а сама конструкция It’s time to звучит мягче и естественнее, чем прямой приказ.',
+        options: [
+          { action: 'repeat_variant', label: 'Повторить с новой ситуацией', icon: '🔁' },
+          { action: 'view_examples', label: 'Посмотреть примеры', icon: '📚' },
+          { action: 'learn_interesting', label: 'Узнать интересное', icon: '💡' },
+          { action: 'independent_practice', label: 'Самостоятельный Практикум', icon: '🎮' },
+          { action: 'myeng_training', label: 'Тренировка с MyEng', icon: '🤖' },
+        ],
+      },
     },
   ],
 }

@@ -51,9 +51,10 @@ export function loadState(): StoredState {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return { messages: [], settings: DEFAULT_SETTINGS }
     const parsed = JSON.parse(raw) as StoredState & { settings?: { tense?: string; tenses?: string[] } }
-    const merged = { ...DEFAULT_SETTINGS, ...parsed.settings }
-    if (!Array.isArray(merged.tenses) && 'tense' in parsed.settings && typeof parsed.settings.tense === 'string') {
-      merged.tenses = [parsed.settings.tense as TenseId]
+    const parsedSettings = parsed?.settings && typeof parsed.settings === 'object' ? parsed.settings : {}
+    const merged = { ...DEFAULT_SETTINGS, ...parsedSettings }
+    if (!Array.isArray(merged.tenses) && 'tense' in parsedSettings && typeof parsedSettings.tense === 'string') {
+      merged.tenses = [parsedSettings.tense as TenseId]
     }
     if ('tense' in merged) delete (merged as Record<string, unknown>).tense
     return {

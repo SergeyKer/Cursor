@@ -1,67 +1,94 @@
-'use client'
+'use client';
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react';
 
-type LessonChoiceChipsProps = {
-  choices: string[]
-  onChoose: (choice: string) => void
-  disabled?: boolean
-  resetKey?: string
+interface Choice {
+  text: string;
+  isCorrect?: boolean;
 }
 
-const CHOICE_DELAY_MS = 300
+type ChoiceInput = string | Choice;
 
-export default function LessonChoiceChips({
-  choices,
-  onChoose,
-  disabled = false,
-  resetKey = '',
-}: LessonChoiceChipsProps) {
-  const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+interface Props {
+  choices: ChoiceInput[];
+  onChoose: (text: string, isCorrect?: boolean) => void;
+  disabled?: boolean;
+  resetKey?: string;
+}
+
+const CHOICE_DELAY_MS = 300;
+const LONG_TEXT_THRESHOLD = 20;
+
+const getChoiceText = (choice: ChoiceInput): string => (typeof choice === 'string' ? choice : choice.text ?? '');
+const getChoiceCorrectness = (choice: ChoiceInput): boolean | undefined =>
+  typeof choice === 'string' ? undefined : choice.isCorrect;
+
+export default function LessonChoiceChips({ choices, onChoose, disabled = false, resetKey = '' }: Props) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    setSelectedChoice(null)
+    setSelected(null);
     if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-      timeoutRef.current = null
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
-  }, [resetKey])
+  }, [resetKey]);
 
   useEffect(() => {
     return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    }
-  }, [])
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
-  const visibleChoices = selectedChoice ? choices.filter((choice) => choice === selectedChoice) : choices
+  const handleSelect = (choice: ChoiceInput) => {
+    if (disabled) return;
+    const text = getChoiceText(choice);
+    if (!text) return;
+    setSelected(text);
+    timeoutRef.current = setTimeout(() => {
+      onChoose(text, getChoiceCorrectness(choice));
+      timeoutRef.current = null;
+    }, CHOICE_DELAY_MS);
+  };
+
+  const hasLongText = choices.some((choice) => getChoiceText(choice).length > LONG_TEXT_THRESHOLD);
 
   return (
-    <div className="flex flex-col items-end gap-2 px-4 py-2">
-      {visibleChoices.map((choice) => {
-        const isSelected = selectedChoice === choice
+    <div
+      className={`
+      ${hasLongText ? 'grid grid-cols-1 gap-2' : 'flex flex-wrap gap-2'} 
+      justify-end px-3 py-2 animate-fade-in
+    `}
+    >
+      {choices.map((choice, index) => {
+        const choiceText = getChoiceText(choice);
+        const isSelected = selected === choiceText;
+        const isOtherSelected = selected && !isSelected;
+
         return (
           <button
-            key={choice}
-            type="button"
-            disabled={disabled || Boolean(selectedChoice)}
-            onClick={() => {
-              if (disabled || selectedChoice) return
-              setSelectedChoice(choice)
-              timeoutRef.current = setTimeout(() => {
-                onChoose(choice)
-              }, CHOICE_DELAY_MS)
-            }}
-            className={`max-w-[85%] px-4 py-2.5 text-left text-sm font-medium shadow-sm transition-all duration-300 ${
-              isSelected
-                ? 'rounded-[var(--bubble-radius)] rounded-br-md bg-[#3B82F6] text-white'
-                : 'rounded-[var(--bubble-radius)] rounded-br-md border border-[#BFDBFE] bg-[#DBEAFE] text-[#1D4ED8] hover:bg-[#BFDBFE]'
-            }`}
+            key={`${choiceText}-${index}`}
+            disabled={disabled || !!selected}
+            onClick={() => handleSelect(choice)}
+            className={`
+              ${hasLongText
+                ? 'w-full text-left px-3 py-2.5 text-sm'
+                : 'text-center px-3 py-1.5 text-xs sm:text-sm'
+              }
+              rounded-xl font-medium transition-all duration-200
+              ${isSelected
+                ? 'bg-blue-500 text-white shadow-md scale-[1.02]'
+                : isOtherSelected
+                  ? 'opacity-0 scale-95 pointer-events-none'
+                  : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+              }
+            `}
           >
-            {choice}
+            {choiceText}
           </button>
-        )
+        );
       })}
     </div>
-  )
+  );
 }
