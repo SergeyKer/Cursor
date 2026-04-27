@@ -55,9 +55,12 @@ import {
   registerRuntimeLearningLesson,
   type LearningLessonActionId,
 } from '@/lib/learningLessons'
+import { getStructuredLessonById } from '@/lib/structuredLessons'
 import type { LessonBlueprint } from '@/lib/lessonBlueprint'
 import type { LessonMenuContext } from '@/components/SlideOutMenu'
 import AppFooter from '@/components/AppFooter'
+import LessonStepRenderer from '@/components/LessonStepRenderer'
+import { useLessonEngine } from '@/hooks/useLessonEngine'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 
 import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/components/MenuSectionPanels'
@@ -288,6 +291,18 @@ export default function Home() {
   const [composerSessionKey, setComposerSessionKey] = useState(0)
   const [lessonMenuContext, setLessonMenuContext] = useState<LessonMenuContext | null>(null)
   const [activeLearningLessonId, setActiveLearningLessonId] = useState<string | null>(null)
+  const activeStructuredLesson = activeLearningLessonId ? getStructuredLessonById(activeLearningLessonId) : null
+  const {
+    step: activeStructuredLessonStep,
+    status: activeStructuredLessonStatus,
+    feedback: activeStructuredLessonFeedback,
+    submittedAnswer: activeStructuredLessonSubmittedAnswer,
+    blockProgress: activeStructuredLessonBlockProgress,
+    footerDynamicText: activeStructuredLessonFooterDynamicText,
+    footerStaticText: activeStructuredLessonFooterStaticText,
+    footerTypingKey: activeStructuredLessonFooterTypingKey,
+    handleAnswer: handleStructuredLessonAnswer,
+  } = useLessonEngine(activeStructuredLesson)
   const dialogueCorrectAnswers = React.useMemo(() => countDialogueFinalCorrectAnswers(messages), [messages])
   /** Настройки на момент последней отправки сообщения; для баннера «настройки изменены». */
   const [settingsAtLastSend, setSettingsAtLastSend] = useState<Settings | null>(null)
@@ -796,6 +811,7 @@ export default function Home() {
   const openLearningLesson = useCallback((lessonId: string, lessonsPanel: LessonsPanel = 'a2') => {
     const lesson = getLearningLessonById(lessonId)
     if (!lesson) return
+    const structuredLesson = getStructuredLessonById(lessonId)
     firstMessageRequestIdRef.current += 1
     firstMessageInFlightRef.current = false
     suppressSettingsChangeBannerRef.current = true
@@ -810,12 +826,16 @@ export default function Home() {
     setSettingsAtLastSend(null)
     setLessonMenuContext({ menuView: 'lessons', lessonsPanel })
     setActiveLearningLessonId(lessonId)
-    setMessages([
-      {
-        role: 'assistant',
-        content: lesson.theoryIntro,
-      },
-    ])
+    setMessages(
+      structuredLesson
+        ? []
+        : [
+            {
+              role: 'assistant',
+              content: lesson.theoryIntro,
+            },
+          ]
+    )
   }, [])
 
   const openTutorLesson = useCallback(
@@ -1004,8 +1024,9 @@ export default function Home() {
     if (!storageLoaded) return
     if (newDialogRef.current) return
     if (loading) return
+    if (activeStructuredLesson) return
     if (initialized && dialogStarted && messages.length === 0) ensureFirstMessage()
-  }, [storageLoaded, initialized, dialogStarted, messages.length, loading, ensureFirstMessage])
+  }, [storageLoaded, initialized, dialogStarted, messages.length, loading, ensureFirstMessage, activeStructuredLesson])
 
   useEffect(() => {
     if (!storageLoaded) return
@@ -1342,14 +1363,19 @@ export default function Home() {
   }
 
   const activeLearningLesson = activeLearningLessonId ? getLearningLessonById(activeLearningLessonId) : null
+  const isStructuredLessonActive = Boolean(activeStructuredLesson && activeStructuredLessonStep)
   const activeLessonTitle = activeLearningLesson?.title ?? null
   const isTutorLessonHeader = activeLessonTitle && lessonMenuContext?.lessonsPanel === 'tutor'
   const lessonFooterDynamicText =
-    activeLearningLesson?.footer?.dynamicText ?? (activeLearningLesson ? `Урок: ${activeLearningLesson.title}` : null)
-  const lessonFooterStaticText = activeLearningLesson
-    ? activeLearningLesson?.footer?.staticText ??
-      (lessonMenuContext?.lessonsPanel === 'tutor' ? 'Репетитор' : 'Теория')
-    : null
+    activeStructuredLessonFooterDynamicText ??
+    activeLearningLesson?.footer?.dynamicText ??
+    (activeLearningLesson ? `Урок: ${activeLearningLesson.title}` : null)
+  const lessonFooterStaticText =
+    activeStructuredLessonFooterStaticText ??
+    (activeLearningLesson
+      ? activeLearningLesson?.footer?.staticText ??
+        (lessonMenuContext?.lessonsPanel === 'tutor' ? 'Репетитор' : 'Теория')
+      : null)
   const pageTitle = !dialogStarted
     ? 'MyEng - мой английский друг'
     : isTutorLessonHeader
@@ -1642,7 +1668,8 @@ export default function Home() {
           </div>
         ) : (
           <>
-            {dialogStarted &&
+            {!isStructuredLessonActive &&
+              dialogStarted &&
               messages.length > 0 &&
               settings.mode !== 'communication' &&
               !suppressSettingsChangeBannerRef.current &&
@@ -1656,28 +1683,43 @@ export default function Home() {
             {/* На iOS после закрытия клавиатуры иногда остаётся небольшой технический зазор.
                Чтобы не просвечивал серый фон страницы, держим фон тем же, что и у чата. */}
             <div className="min-h-0 flex-1 bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
-          <Chat
-            messages={messages}
-            settings={settings}
-            loading={loading}
-            searchingInternet={searchingInternet}
-            searchingInternetLang={searchingInternetLang}
-            atLimit={atLimit}
-            onSend={handleSend}
-            firstMessageError={ERROR_FIRST_MESSAGE}
-            onRetryFirstMessage={retryFirstMessage}
-            lastMessageIsError={lastMessageIsError}
-            onRetryLastMessage={retryLastMessage}
-            retryMessage={retryMessage}
-            onRequestTranslation={handleRequestTranslation}
-            loadingTranslationIndex={loadingTranslationIndex}
-            forceNextMicLang={forceNextMicLang}
-            onConsumeForceNextMicLang={() => setForceNextMicLang(null)}
-            learningActions={activeLearningLessonId ? getLearningLessonActions(activeLearningLessonId) : []}
-            onSelectLearningAction={handleSelectLearningAction}
-            composerSessionKey={composerSessionKey}
-          />
-          </div>
+              {isStructuredLessonActive && activeStructuredLessonStep ? (
+                <LessonStepRenderer
+                  step={activeStructuredLessonStep}
+                  status={activeStructuredLessonStatus}
+                  feedback={activeStructuredLessonFeedback}
+                  submittedAnswer={activeStructuredLessonSubmittedAnswer}
+                  blockProgress={activeStructuredLessonBlockProgress}
+                  onAnswer={handleStructuredLessonAnswer}
+                />
+              ) : (
+                <Chat
+                  messages={messages}
+                  settings={settings}
+                  loading={loading}
+                  searchingInternet={searchingInternet}
+                  searchingInternetLang={searchingInternetLang}
+                  atLimit={atLimit}
+                  onSend={handleSend}
+                  firstMessageError={ERROR_FIRST_MESSAGE}
+                  onRetryFirstMessage={retryFirstMessage}
+                  lastMessageIsError={lastMessageIsError}
+                  onRetryLastMessage={retryLastMessage}
+                  retryMessage={retryMessage}
+                  onRequestTranslation={handleRequestTranslation}
+                  loadingTranslationIndex={loadingTranslationIndex}
+                  forceNextMicLang={forceNextMicLang}
+                  onConsumeForceNextMicLang={() => setForceNextMicLang(null)}
+                  learningActions={
+                    activeLearningLessonId && !activeStructuredLesson
+                      ? getLearningLessonActions(activeLearningLessonId)
+                      : []
+                  }
+                  onSelectLearningAction={handleSelectLearningAction}
+                  composerSessionKey={composerSessionKey}
+                />
+              )}
+            </div>
           </>
         )}
       </main>
@@ -1694,6 +1736,7 @@ export default function Home() {
         <AppFooter
           dynamicText={lessonFooterDynamicText}
           staticText={lessonFooterStaticText}
+          typingKey={activeStructuredLessonFooterTypingKey}
           isLessonActive={Boolean(activeLearningLesson)}
           isDialogStarted={dialogStarted}
         />

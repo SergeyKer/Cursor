@@ -45,6 +45,7 @@ import type { TranslationProtocolStatus } from '@/lib/translationProtocolStatus'
 import { translationDrillCommentBodyLooksLikePraise } from '@/lib/translationPraiseBody'
 import { PAGE_HOME_START_PRIMARY_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import type { LearningLessonAction } from '@/lib/learningLessons'
+import { ChatBubbleFrame, getBubblePosition, type BubblePosition } from '@/components/chat/ChatBubble'
 import TypingIndicator from '@/components/TypingIndicator'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import { applyTypoFixes } from '@/lib/voice/applyTypoFixes'
@@ -100,7 +101,6 @@ interface ChatProps {
   composerSessionKey?: number
 }
 
-type BubblePosition = 'solo' | 'first' | 'middle' | 'last'
 type SectionTone = 'neutral' | 'amber' | 'emerald' | 'praise' | 'slate' | 'invite' | 'correction'
 type AssistantSection = {
   key: string
@@ -113,41 +113,6 @@ type AssistantSection = {
   trailingAction?: 'speak'
   /** Без префикса «Переведи:»/«Переведи далее:», но с тем же акцентом, что у основного блока ассистента. */
   emphasizeMainText?: boolean
-}
-
-function getBubblePosition(
-  previousRole: ChatMessageType['role'] | undefined,
-  currentRole: ChatMessageType['role'],
-  nextRole: ChatMessageType['role'] | undefined
-): BubblePosition {
-  const sameAsPrev = previousRole === currentRole
-  const sameAsNext = nextRole === currentRole
-  if (!sameAsPrev && !sameAsNext) return 'solo'
-  if (!sameAsPrev && sameAsNext) return 'first'
-  if (sameAsPrev && sameAsNext) return 'middle'
-  return 'last'
-}
-
-function bubbleRadiusClass(isUser: boolean, pos: BubblePosition): string {
-  // WhatsApp-логика: в группе скругления на стороне "стыка" уменьшаются.
-  // Хвостики не используем: вместо этого делаем один угол более "острым".
-  if (isUser) {
-    // User справа
-    // Три угла максимально круглые, нижний правый — чуть острее (как «MyEng печатает…»)
-    if (pos === 'solo') return 'rounded-[var(--bubble-radius)] rounded-br-md'
-    if (pos === 'first') return 'rounded-[var(--bubble-radius)] rounded-br-md'
-    // Внутри группы чуть «сцепляем» верхний правый
-    if (pos === 'middle') return 'rounded-[var(--bubble-radius)] rounded-tr-lg rounded-br-md'
-    return 'rounded-[var(--bubble-radius)] rounded-tr-lg rounded-br-md'
-  }
-
-  // Assistant слева
-  // Три угла максимально круглые, нижний левый — чуть острее (как «MyEng печатает…»)
-  if (pos === 'solo') return 'rounded-[var(--bubble-radius)] rounded-bl-md'
-  if (pos === 'first') return 'rounded-[var(--bubble-radius)] rounded-bl-md'
-  // Внутри группы чуть «сцепляем» верхний левый
-  if (pos === 'middle') return 'rounded-[var(--bubble-radius)] rounded-tl-lg rounded-bl-md'
-  return 'rounded-[var(--bubble-radius)] rounded-tl-lg rounded-bl-md'
 }
 
 /**
@@ -2643,7 +2608,6 @@ function MessageBubble({
       )
   const isBubbleEnd = bubblePosition === 'solo' || bubblePosition === 'last'
   const rowSpacingClass = isBubbleEnd ? 'mb-2.5' : 'mb-0.5'
-  const radius = bubbleRadiusClass(isUser, bubblePosition)
   const assistantSections = isUser
     ? []
     : buildAssistantSections({
@@ -2709,19 +2673,13 @@ function MessageBubble({
   if (!hasContent) return null
 
   return (
-    <div
+    <ChatBubbleFrame
+      role={isUser ? 'user' : 'assistant'}
+      position={bubblePosition}
       data-message-index={messageIndex}
       data-role={message.role}
-      className={`flex ${isUser ? 'justify-end' : 'justify-start'} ${rowSpacingClass}`}
+      rowClassName={rowSpacingClass}
     >
-      <div
-        className={`relative flex min-w-0 max-w-[90%] flex-col px-3 py-2 text-[15px] leading-[1.45] ${radius} ${
-          isUser
-            ? 'chat-user-surface border border-[var(--chat-user-bubble-border)] text-[var(--chat-user-text)]'
-            : 'chat-assistant-surface glass-surface border border-[var(--chat-assistant-border)] bg-[var(--chat-assistant-shell)] text-[var(--text)]'
-        }`}
-        style={isUser ? { background: 'var(--chat-user-bubble)' } : undefined}
-      >
         {isUser ? (
           <>
             <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
@@ -2863,8 +2821,7 @@ function MessageBubble({
             ) : null}
           </>
         )}
-      </div>
-    </div>
+    </ChatBubbleFrame>
   )
 }
 
