@@ -102,7 +102,7 @@ export default function LessonStepRenderer({
   const normalizedChoiceEntries = useMemo(
     () =>
       choiceOptions
-        .map((choice) => (typeof choice === 'string' ? choice : choice.text ?? ''))
+        .map((choice) => choice.trim())
         .map((text) => ({ raw: text, normalized: normalizeLessonChoiceText(text) }))
         .filter((choice) => choice.raw),
     [choiceOptions]

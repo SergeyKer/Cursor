@@ -428,7 +428,7 @@ function validateGeneratedStepSemantics(
       )
     }
   }
-  if (candidateStep.exercise && !hasCyrillic(candidateStep.exercise.question)) {
+  if (candidateStep.exercise && typeof candidateStep.exercise.question === 'string' && !hasCyrillic(candidateStep.exercise.question)) {
     issues.push(issue('soft', 'exercise_question_not_russian', 'Question лучше держать на русском для structured lesson.', sourceStep.stepNumber))
   }
   if (hint && correctAnswer && normalizeForPolicyCheck(hint).includes(normalizeForPolicyCheck(correctAnswer))) {
@@ -496,7 +496,7 @@ function validateGeneratedStepSemantics(
       })
     )
   }
-  if (candidateStep.exercise?.options && sourceStep.exercise?.type === 'fill_choice') {
+  if (Array.isArray(candidateStep.exercise?.options) && sourceStep.exercise?.type === 'fill_choice') {
     const options = candidateStep.exercise.options.filter((item): item is string => typeof item === 'string')
     for (const option of options) {
       if (hasCyrillic(option)) {
@@ -599,7 +599,7 @@ function validateGeneratedStepSemantics(
       score += 1
     }
   }
-  if (candidateStep.exercise?.options && sourceStep.exercise?.type === 'fill_choice') {
+  if (Array.isArray(candidateStep.exercise?.options) && sourceStep.exercise?.type === 'fill_choice') {
     maxScore += 1
     const options = candidateStep.exercise.options.filter((item): item is string => typeof item === 'string')
     const naturalEnough = options.every((option) => !hasCyrillic(option) && hasLatin(option))
