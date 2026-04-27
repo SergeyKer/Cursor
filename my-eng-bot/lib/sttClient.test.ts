@@ -4,6 +4,7 @@ import {
   isIosLikeDevice,
   needsVoiceComposerWebMetrics,
   pickRecordingMimeType,
+  resolvePreferredSpeechLocale,
   shouldUseMediaRecorderFallback,
   sttLangFromLocale,
 } from './sttClient'
@@ -115,6 +116,38 @@ describe('sttClient', () => {
   it('maps locale to stt lang', () => {
     expect(sttLangFromLocale('ru-RU')).toBe('ru')
     expect(sttLangFromLocale('en-US')).toBe('en')
+  })
+
+  it('keeps russian locale in communication mode without one-shot override', () => {
+    const firstStart = resolvePreferredSpeechLocale({
+      mode: 'communication',
+      communicationInputExpectedLang: 'ru',
+      forceNextMicLang: null,
+    })
+    const secondStart = resolvePreferredSpeechLocale({
+      mode: 'communication',
+      communicationInputExpectedLang: 'ru',
+      forceNextMicLang: null,
+    })
+    expect(firstStart).toBe('ru-RU')
+    expect(secondStart).toBe('ru-RU')
+  })
+
+  it('respects explicit one-shot override before stable communication language', () => {
+    expect(
+      resolvePreferredSpeechLocale({
+        mode: 'communication',
+        communicationInputExpectedLang: 'ru',
+        forceNextMicLang: 'en',
+      })
+    ).toBe('en-US')
+    expect(
+      resolvePreferredSpeechLocale({
+        mode: 'communication',
+        communicationInputExpectedLang: 'ru',
+        forceNextMicLang: null,
+      })
+    ).toBe('ru-RU')
   })
 
   it('prefers mp4 mime type when available', () => {

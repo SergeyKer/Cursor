@@ -29,6 +29,20 @@ export function sttLangFromLocale(locale: 'ru-RU' | 'en-US'): 'ru' | 'en' {
   return locale.startsWith('ru') ? 'ru' : 'en'
 }
 
+export function resolvePreferredSpeechLocale(params: {
+  mode: 'dialogue' | 'translation' | 'communication'
+  communicationInputExpectedLang: 'ru' | 'en'
+  forceNextMicLang?: 'ru' | 'en' | null
+}): 'ru-RU' | 'en-US' {
+  const forcedLocale =
+    params.forceNextMicLang === 'ru' ? 'ru-RU' : params.forceNextMicLang === 'en' ? 'en-US' : null
+  if (forcedLocale) return forcedLocale
+  if (params.mode === 'communication') {
+    return params.communicationInputExpectedLang === 'ru' ? 'ru-RU' : 'en-US'
+  }
+  return 'en-US'
+}
+
 export function pickRecordingMimeType(
   isTypeSupported: (mime: string) => boolean
 ): string | undefined {

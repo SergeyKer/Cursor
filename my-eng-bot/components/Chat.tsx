@@ -24,6 +24,7 @@ import {
   isIosLikeDevice,
   needsVoiceComposerWebMetrics,
   pickRecordingMimeType,
+  resolvePreferredSpeechLocale,
   shouldUseMediaRecorderFallback,
   sttLangFromLocale,
 } from '@/lib/sttClient'
@@ -1234,9 +1235,11 @@ export default function Chat({
       (window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
       (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
 
-    const forcedLocale =
-      forceNextMicLang === 'ru' ? 'ru-RU' : forceNextMicLang === 'en' ? 'en-US' : null
-    const preferredLocale = forcedLocale ?? ('en-US' as const)
+    const preferredLocale = resolvePreferredSpeechLocale({
+      mode: settings.mode,
+      communicationInputExpectedLang: settings.communicationInputExpectedLang,
+      forceNextMicLang,
+    })
     const sttLangForApi = sttLangFromLocale(preferredLocale)
     const failVoiceSoft = (message: string) => {
       if (isIosDevice) {
@@ -1608,7 +1611,7 @@ export default function Chat({
       startBrowserSpeechRecognition(preferredLocale)
     }
 
-    if (forcedLocale) onConsumeForceNextMicLang?.()
+    if (forceNextMicLang) onConsumeForceNextMicLang?.()
   }, [
     settings.mode,
     forceNextMicLang,
