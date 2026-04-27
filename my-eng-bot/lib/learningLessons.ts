@@ -4,6 +4,10 @@ export type LearningLesson = {
   theoryIntro: string
   actions: LearningLessonAction[]
   followups: Record<LearningLessonActionId, string>
+  footer?: {
+    dynamicText?: string
+    staticText?: string
+  }
 }
 
 export type LearningLessonActionId = 'examples' | 'repeat_translate' | 'fill_phrase' | 'write_own_sentence'
@@ -58,6 +62,10 @@ const LESSONS: Record<string, LearningLesson> = {
         '1) It’s + прилагательное\n' +
         '2) It’s time to + глагол\n' +
         'Напиши 3 своих коротких примера по шаблону.',
+    },
+    footer: {
+      dynamicText: 'Теория: It’s + adjective / It’s time to + verb',
+      staticText: 'Теория A2',
     },
   },
 }

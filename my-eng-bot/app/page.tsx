@@ -57,6 +57,7 @@ import {
 } from '@/lib/learningLessons'
 import type { LessonBlueprint } from '@/lib/lessonBlueprint'
 import type { LessonMenuContext } from '@/components/SlideOutMenu'
+import AppFooter from '@/components/AppFooter'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 
 import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/components/MenuSectionPanels'
@@ -1340,8 +1341,15 @@ export default function Home() {
     return `${modeLabel} - ${tenseLabel}, ${normalizedLevelShort}`
   }
 
-  const activeLessonTitle = activeLearningLessonId ? getLearningLessonById(activeLearningLessonId)?.title ?? null : null
+  const activeLearningLesson = activeLearningLessonId ? getLearningLessonById(activeLearningLessonId) : null
+  const activeLessonTitle = activeLearningLesson?.title ?? null
   const isTutorLessonHeader = activeLessonTitle && lessonMenuContext?.lessonsPanel === 'tutor'
+  const lessonFooterDynamicText =
+    activeLearningLesson?.footer?.dynamicText ?? (activeLearningLesson ? `Урок: ${activeLearningLesson.title}` : null)
+  const lessonFooterStaticText = activeLearningLesson
+    ? activeLearningLesson?.footer?.staticText ??
+      (lessonMenuContext?.lessonsPanel === 'tutor' ? 'Репетитор' : 'Теория')
+    : null
   const pageTitle = !dialogStarted
     ? 'MyEng - мой английский друг'
     : isTutorLessonHeader
@@ -1358,7 +1366,7 @@ export default function Home() {
     '--app-safe-top-inset': 'env(safe-area-inset-top, 0px)',
     '--app-header-row-height': '2.75rem',
     '--app-header-border-width': '1px',
-    '--app-footer-row-height': '2.75rem',
+    '--app-footer-row-height': '5.25rem',
     '--app-bottom-inset': 'max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset))',
     '--app-bottom-offset': 'calc(var(--app-footer-row-height) + var(--app-bottom-inset))',
     '--app-top-offset': appTopOffset,
@@ -1682,11 +1690,13 @@ export default function Home() {
           minHeight: 'var(--app-footer-row-height)',
           paddingBottom: 'var(--app-bottom-inset)',
         }}
-        aria-hidden
       >
-        <div className="chat-shell-x flex min-h-[2.75rem] w-full items-center">
-          <div className={`mx-auto w-full ${dialogStarted ? 'max-w-[29rem]' : 'max-w-[23.2rem]'}`} />
-        </div>
+        <AppFooter
+          dynamicText={lessonFooterDynamicText}
+          staticText={lessonFooterStaticText}
+          isLessonActive={Boolean(activeLearningLesson)}
+          isDialogStarted={dialogStarted}
+        />
       </footer>
 
       <SlideOutMenu
