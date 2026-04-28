@@ -2103,6 +2103,7 @@ export default function Home() {
           staticText={footerStaticText}
           variantProgress={activeStructuredLessonFooterVariantProgress}
           typingKey={footerTypingKey}
+          audience={settings.audience}
           dynamicTone={footerVoiceTone}
           dynamicEmphasis={footerVoiceEmphasis}
           isLessonActive={isLessonActive}

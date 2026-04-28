@@ -2,6 +2,8 @@
 
 import TypingText from './TypingText'
 import type { FooterVoiceEmphasis, FooterVoiceTone } from '@/lib/footerVoice'
+import { resolveFooterPresentation } from '@/lib/footerPresentation'
+import type { Audience } from '@/lib/types'
 
 type AppFooterProps = {
   dynamicText?: string | null
@@ -16,27 +18,11 @@ type AppFooterProps = {
     total: number
     current: number
   } | null
+  audience?: Audience
 }
 
 function normalizeFooterText(text?: string | null): string {
   return typeof text === 'string' ? text.trim() : ''
-}
-
-function getTopLineClassName(tone: FooterVoiceTone, emphasis: FooterVoiceEmphasis): string {
-  const toneClassName =
-    tone === 'celebrate'
-      ? 'font-semibold text-emerald-700'
-      : tone === 'support'
-        ? 'text-emerald-700'
-        : tone === 'hint'
-          ? 'text-amber-700'
-          : tone === 'thinking'
-            ? 'text-sky-700'
-            : tone === 'error'
-              ? 'text-rose-700'
-              : 'text-[var(--text-muted,#6b7280)]'
-
-  return `${toneClassName} ${emphasis === 'pulse' ? 'animate-pulse' : ''}`.trim()
 }
 
 export default function AppFooter({
@@ -49,12 +35,19 @@ export default function AppFooter({
   dynamicTone = 'neutral',
   dynamicEmphasis = 'none',
   variantProgress = null,
+  audience = 'adult',
 }: AppFooterProps) {
   const topLine = normalizeFooterText(dynamicText)
   const bottomLine = normalizeFooterText(staticText)
   const showFooterContent = (isLessonActive || isDialogStarted || showWhenIdle) && (topLine.length > 0 || bottomLine.length > 0)
   const showVariantProgress = Boolean(variantProgress && variantProgress.total > 1 && showFooterContent)
-  const topLineClassName = getTopLineClassName(dynamicTone, dynamicEmphasis)
+  const presentation = resolveFooterPresentation({
+    audience,
+    tone: dynamicTone,
+    emphasis: dynamicEmphasis,
+    typingKey,
+    text: topLine,
+  })
 
   return (
     <div
@@ -68,19 +61,28 @@ export default function AppFooter({
       >
         <div className={`mb-2 min-h-6 overflow-hidden ${showFooterContent ? '' : 'opacity-0'}`}>
           {showFooterContent && topLine ? (
-            <TypingText
-              key={typingKey ?? topLine}
-              text={topLine}
-              speed={40}
-              singleLine
-              className={topLineClassName}
-            />
+            <div className={presentation.topLineRowClassName}>
+              {presentation.markerKind === 'emoji' && presentation.markerText ? (
+                <span className={presentation.markerClassName} aria-hidden>
+                  {presentation.markerText}
+                </span>
+              ) : presentation.markerKind === 'dot' ? (
+                <span className={presentation.markerClassName} aria-hidden />
+              ) : null}
+              <TypingText
+                key={typingKey ?? topLine}
+                text={topLine}
+                speed={presentation.typingSpeed}
+                singleLine
+                className={presentation.topLineClassName}
+              />
+            </div>
           ) : (
             <div className="h-6" aria-hidden />
           )}
         </div>
         <div
-          className={`flex h-8 items-center overflow-hidden text-[10px] font-medium text-gray-400 sm:text-xs ${
+          className={`flex h-8 items-center overflow-hidden ${presentation.bottomLineClassName} ${
             showFooterContent ? '' : 'opacity-0'
           }`}
         >

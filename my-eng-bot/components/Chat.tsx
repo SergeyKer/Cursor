@@ -77,10 +77,18 @@ const HARD_VOICE_ERROR_MARKERS = [
   'https',
 ]
 
+const HIDDEN_VOICE_STATUS_MARKERS = ['не удалось распознать речь', 'речь не распознана', 'ошибка распознавания речи']
+
 function isHardVoiceErrorMessage(message: string | null): boolean {
   if (!message) return false
   const normalized = message.toLowerCase()
   return HARD_VOICE_ERROR_MARKERS.some((marker) => normalized.includes(marker))
+}
+
+function shouldHideVoiceStatusMessage(message: string | null): boolean {
+  if (!message) return true
+  const normalized = message.toLowerCase()
+  return HIDDEN_VOICE_STATUS_MARKERS.some((marker) => normalized.includes(marker))
 }
 
 interface ChatProps {
@@ -1118,6 +1126,7 @@ export default function Chat({
             : null
   const showVoiceStatusMessageBelowInput =
     Boolean(voiceStatusMessage) &&
+    !shouldHideVoiceStatusMessage(voiceStatusMessage) &&
     (!isIosDeviceClient || isHardVoiceErrorMessage(voiceStatusMessage))
 
   useEffect(() => {
