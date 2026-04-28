@@ -112,6 +112,8 @@ export default function LessonStepRenderer({
     messageCount: number
     stepNumber: number
     variantIndex: number
+    /** Последнее сообщение в ленте (id), чтобы ловить смену «Проверяем…» → feedback при том же числе сообщений */
+    tailMessageId: string
   } | null>(null)
   const [choiceResetVersion, setChoiceResetVersion] = useState(0)
   const currentEntry = timeline[timeline.length - 1] ?? null
@@ -326,6 +328,8 @@ export default function LessonStepRenderer({
     return messages
   }, [timeline, blockProgress.visibleCount, status, latestFeedback?.type, currentEntry])
 
+  const tailLessonMessageId = lessonMessages.at(-1)?.id ?? ''
+
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current
     if (!scrollContainer) return
@@ -334,6 +338,7 @@ export default function LessonStepRenderer({
       messageCount: lessonMessages.length,
       stepNumber: currentStep?.stepNumber ?? -1,
       variantIndex: currentVariantIndex,
+      tailMessageId: tailLessonMessageId,
     }
     const previousSnapshot = previousScrollSnapshotRef.current
 
@@ -347,8 +352,9 @@ export default function LessonStepRenderer({
       previousSnapshot.stepNumber !== nextSnapshot.stepNumber ||
       previousSnapshot.variantIndex !== nextSnapshot.variantIndex
     const messageCountIncreased = nextSnapshot.messageCount > previousSnapshot.messageCount
+    const tailChanged = previousSnapshot.tailMessageId !== nextSnapshot.tailMessageId
 
-    if (!stepOrVariantChanged && !messageCountIncreased) {
+    if (!stepOrVariantChanged && !messageCountIncreased && !tailChanged) {
       previousScrollSnapshotRef.current = nextSnapshot
       return
     }
@@ -358,20 +364,26 @@ export default function LessonStepRenderer({
       behavior: stepOrVariantChanged ? 'auto' : 'smooth',
     })
     previousScrollSnapshotRef.current = nextSnapshot
-  }, [lessonMessages.length, currentStep?.stepNumber, currentVariantIndex])
+  }, [lessonMessages.length, currentStep?.stepNumber, currentVariantIndex, tailLessonMessageId])
 
   useEffect(() => {
-    if (!(status === 'feedback' && latestFeedback?.type === 'success')) return
+    if (status !== 'feedback' || !latestFeedback) return
     const scrollContainer = scrollContainerRef.current
     if (!scrollContainer) return
 
-    // В фазе "Верно..." высота ленты может измениться после скрытия текущего блока;
-    // делаем второй доскролл на следующем кадре, чтобы статус не прятался за композером.
-    const rafId = requestAnimationFrame(() => {
-      scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'auto' })
+    // После смены статуса высота ленты может догрузиться на следующем кадре (мультистрочный feedback,
+    // скрытие блока урока и т.д.) — повторяем доскролл, чтобы карточка не обрезалась над композером.
+    let innerRaf = 0
+    const outerRaf = requestAnimationFrame(() => {
+      innerRaf = requestAnimationFrame(() => {
+        scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'auto' })
+      })
     })
-    return () => cancelAnimationFrame(rafId)
-  }, [status, latestFeedback?.type, lessonMessages.length])
+    return () => {
+      cancelAnimationFrame(outerRaf)
+      if (innerRaf) cancelAnimationFrame(innerRaf)
+    }
+  }, [status, latestFeedback, lessonMessages.length, tailLessonMessageId])
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">

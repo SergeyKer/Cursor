@@ -77,6 +77,7 @@ const THEORY_LEVELS: { id: string; label: string }[] = [
 const A2_THEORY_ITEMS: { id: string; label: string; enabled: boolean }[] = [
   { id: '1', label: 'It’s / It’s time to', enabled: true },
   { id: '2', label: 'Who ...?', enabled: true },
+  { id: '3', label: "I don't know where he lives", enabled: true },
 ]
 
 const MODE_OPTIONS: { id: AppMode; label: string }[] = [

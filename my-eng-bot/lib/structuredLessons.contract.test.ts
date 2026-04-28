@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { embeddedQuestionsLesson } from '@/lib/lessons/embedded-questions'
 import { itsTimeToLesson } from '@/lib/lessons/its-time-to'
 import { whoLikesLesson } from '@/lib/lessons/who-likes'
 
-const lessons = [itsTimeToLesson, whoLikesLesson]
+const lessons = [itsTimeToLesson, whoLikesLesson, embeddedQuestionsLesson]
 
 describe('structured lesson 7-step contract', () => {
   it.each(lessons)('keeps original 7-step input methodology for lesson $id', (lesson) => {
