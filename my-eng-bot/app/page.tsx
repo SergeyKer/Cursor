@@ -351,6 +351,7 @@ export default function Home() {
     handleAnswer: handleStructuredLessonAnswer,
     xp: activeStructuredLessonXp,
     combo: activeStructuredLessonCombo,
+    exerciseErrors: activeStructuredLessonExerciseErrors,
     mistakes: activeStructuredLessonMistakes,
     completedSteps: activeStructuredLessonCompletedSteps,
   } = useLessonEngine(activeStructuredLesson)
@@ -2150,7 +2151,7 @@ export default function Home() {
                   timeline={activeStructuredLessonTimeline}
                   status={activeStructuredLessonStatus}
                   blockProgress={activeStructuredLessonBlockProgress}
-                  exerciseErrors={activeStructuredLesson.exerciseErrors}
+                  exerciseErrors={activeStructuredLessonExerciseErrors}
                   onAnswer={handleStructuredLessonAnswer}
                   onPostLessonAction={handlePostLessonAction}
                   postLessonBusy={postLessonBusy}

@@ -1,4 +1,4 @@
-import type { LessonData, LessonRepeatStepBlueprint, LessonRepeatVariantProfile, LessonStep } from '@/types/lesson'
+import type { ExerciseDifficulty, LessonData, LessonRepeatStepBlueprint, LessonRepeatVariantProfile, LessonStep } from '@/types/lesson'
 
 type ItsTimeVariant = {
   id: string
@@ -296,16 +296,19 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
     },
   ]
   const step4Adjectives = Array.from(new Set([variant.adjective, 'cold', 'hot', 'late', 'dark'])).slice(0, 3)
-  const step4Variants = step4Adjectives.map((adjective, index) => ({
-    id: `${variant.id}_step4_${index + 1}`,
-    question: `Переведите на английский: ${normalizeRuPromptLabel(toItsTimeStateTranslation(adjective))}`,
-    correctAnswer: toItsTimeStateSentence(adjective),
-    acceptedAnswers: toItsTimeStateAcceptedAnswers(adjective),
-    hint: 'Напишите короткое предложение по шаблону It is + прилагательное.',
-    difficulty: index === 0 ? 'easy' : index === 1 ? 'medium' : 'hard',
-    answerFormat: 'full_sentence' as const,
-    answerPolicy: 'normalized' as const,
-  }))
+  const step4Variants = step4Adjectives.map((adjective, index) => {
+    const difficulty: ExerciseDifficulty = index === 0 ? 'easy' : index === 1 ? 'medium' : 'hard'
+    return {
+      id: `${variant.id}_step4_${index + 1}`,
+      question: `Переведите на английский: ${normalizeRuPromptLabel(toItsTimeStateTranslation(adjective))}`,
+      correctAnswer: toItsTimeStateSentence(adjective),
+      acceptedAnswers: toItsTimeStateAcceptedAnswers(adjective),
+      hint: 'Напишите короткое предложение по шаблону It is + прилагательное.',
+      difficulty,
+      answerFormat: 'full_sentence' as const,
+      answerPolicy: 'normalized' as const,
+    }
+  })
 
   return [
     {
