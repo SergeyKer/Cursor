@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ExerciseRenderer } from '@/components/ExerciseRenderer'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import PostLessonMenu from '@/components/PostLessonMenu'
+import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import type { BlockProgress, LessonStatus, LessonTimelineEntry } from '@/hooks/useLessonEngine'
@@ -319,6 +320,8 @@ export default function LessonStepRenderer({
                   const isBubbleEnd = position === 'solo' || position === 'last'
 
                   if (message.kind === 'lesson') {
+                    const useUnifiedLessonBubble = message.bubbles.length >= 2 && message.bubbles.length <= 3
+
                     return (
                       <ChatBubbleFrame
                         key={message.id}
@@ -327,22 +330,26 @@ export default function LessonStepRenderer({
                         className="lesson-enter"
                         rowClassName={isBubbleEnd ? 'mb-2.5' : 'mb-0.5'}
                       >
-                        <div className="space-y-1.5">
-                          {message.bubbles.map((bubble, bubbleIndex) => (
-                            <section
-                              key={`${message.id}-${bubbleIndex}-${bubble.type}`}
-                              className={`lesson-enter chat-section-surface glass-surface rounded-xl border px-3 py-2 ${lessonSectionClassByType[bubble.type]}`}
-                              style={{
-                                animationDelay: `${bubbleIndex * 120}ms`,
-                                animationFillMode: 'both',
-                              }}
-                            >
-                              <p className="whitespace-pre-line break-words text-[15px] leading-[1.5] text-[var(--text)]">
-                                {bubble.content}
-                              </p>
-                            </section>
-                          ))}
-                        </div>
+                        {useUnifiedLessonBubble ? (
+                          <UnifiedLessonBubble bubbles={message.bubbles} />
+                        ) : (
+                          <div className="space-y-1.5">
+                            {message.bubbles.map((bubble, bubbleIndex) => (
+                              <section
+                                key={`${message.id}-${bubbleIndex}-${bubble.type}`}
+                                className={`lesson-enter chat-section-surface glass-surface rounded-xl border px-3 py-2 ${lessonSectionClassByType[bubble.type]}`}
+                                style={{
+                                  animationDelay: `${bubbleIndex * 120}ms`,
+                                  animationFillMode: 'both',
+                                }}
+                              >
+                                <p className="whitespace-pre-line break-words text-[15px] leading-[1.5] text-[var(--text)]">
+                                  {bubble.content}
+                                </p>
+                              </section>
+                            ))}
+                          </div>
+                        )}
                       </ChatBubbleFrame>
                     )
                   }

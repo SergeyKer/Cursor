@@ -318,7 +318,9 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         },
         {
           type: 'task',
-          content: `Сначала ориентируйтесь на шаблон: "It is ${variant.step3Adjective}. It is time to ____ ${variant.step3Object}."`,
+          content:
+            `Переведите на английский короткую фразу (состояние + действие), ` +
+            `затем вставьте глагол в шаблон: "It is ${variant.step3Adjective}. It is time to ____ ${variant.step3Object}."`,
         },
       ],
       exercise: {
@@ -377,7 +379,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Теперь потренируем описание состояния в нескольких вариантах.',
+          content: 'Теперь потренируем описание состояния в трёх вариантах: 1, 2 и 3.',
         },
         {
           type: 'info',
@@ -385,7 +387,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         },
         {
           type: 'task',
-          content: 'Переведите короткое описание состояния на английский.',
+          content: 'Переведите короткое описание состояния на английский (пройдите варианты 1, 2 и 3).',
         },
       ],
       exercise: {
