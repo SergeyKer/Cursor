@@ -66,13 +66,14 @@ describe('structuredLessonFactory', () => {
 
   it('rejects practice-fill explanations that reveal the answer directly', () => {
     const brokenSteps = toGeneratedPayload()
+    const leakedAnswer = brokenSteps[2].exercise?.correctAnswer ?? ''
     brokenSteps[2] = {
       ...brokenSteps[2],
       bubbles: [
         brokenSteps[2].bubbles[0],
         {
           type: 'info',
-          content: 'Опорный пример: It is cold. It is time to drink tea.',
+          content: `Опорный пример: ${leakedAnswer}`,
         },
         brokenSteps[2].bubbles[2],
       ],

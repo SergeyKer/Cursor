@@ -2150,6 +2150,7 @@ export default function Home() {
                   timeline={activeStructuredLessonTimeline}
                   status={activeStructuredLessonStatus}
                   blockProgress={activeStructuredLessonBlockProgress}
+                  exerciseErrors={activeStructuredLesson.exerciseErrors}
                   onAnswer={handleStructuredLessonAnswer}
                   onPostLessonAction={handlePostLessonAction}
                   postLessonBusy={postLessonBusy}

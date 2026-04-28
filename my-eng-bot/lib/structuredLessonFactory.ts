@@ -101,7 +101,7 @@ function isBubbleType(value: unknown): value is BubbleType {
 }
 
 function isExerciseType(value: unknown): value is ExerciseType {
-  return value === 'fill_choice' || value === 'translate' || value === 'write_own' || value === 'match' || value === 'micro_quiz'
+  return value === 'fill_choice' || value === 'fill_text' || value === 'translate' || value === 'write_own' || value === 'match' || value === 'micro_quiz'
 }
 
 function normalizeForSemanticCheck(value: string): string {
@@ -468,8 +468,8 @@ function validateGeneratedStepSemantics(
     issues.push(issue('hard', 'hint_reveals_answer', 'Hint не должен раскрывать правильный ответ напрямую.', sourceStep.stepNumber))
   }
   if (
-    sourceStep.stepType === 'practice_fill' &&
-    sourceStep.exercise?.type === 'translate' &&
+    (sourceStep.stepType === 'practice_fill' || sourceStep.stepType === 'practice_match') &&
+    sourceStep.exercise &&
     explanatoryText &&
     correctAnswer &&
     normalizeForPolicyCheck(explanatoryText).includes(normalizeForPolicyCheck(correctAnswer))
@@ -875,8 +875,8 @@ export function buildStructuredCreationSystemPrompt(): string {
     'Не добавляй новую грамматику вне указанного grammar focus.',
     'Если передан selectedVariantId, sourceSituations и sourceSteps, считай их обязательными смысловыми рельсами для нового варианта.',
     'Для fill_choice всегда давай ровно 3 варианта и включай correctAnswer в options.',
-    'Для micro_quiz давай 2 или 3 варианта и включай correctAnswer в options.',
-    'Для practice_fill и translate шагов примеры и пояснения обязаны использовать другой контекст и другую лексику, чем само задание.',
+    'Для шагов 1-4 и 6 с options показывай только выбор из вариантов; для шага 5 не добавляй options.',
+    'Для practice_fill, practice_match и translate шагов примеры и пояснения обязаны использовать другой контекст и другую лексику, чем само задание.',
     'Категорически запрещено писать correctAnswer или его готовую английскую формулировку в bubbles типа positive/info, в hint и в пояснениях.',
     'Не делай hints слишком широкими и не раскрывай ответ напрямую.',
     'Если нужен один допустимый ответ, не добавляй лишние acceptedAnswers.',
@@ -913,8 +913,8 @@ export function buildStructuredRepeatSystemPrompt(): string {
     'Если передан selectedVariantId, sourceSituations и sourceSteps, опирайся именно на них и не возвращайся к предыдущему варианту.',
     'Объяснения и подсказки на русском, правильные ответы на английском.',
     'Для fill_choice всегда давай ровно 3 варианта и включай correctAnswer в options.',
-    'Для micro_quiz давай 2 или 3 варианта и включай correctAnswer в options.',
-    'Для practice_fill и translate шагов примеры и пояснения обязаны использовать другой контекст и другую лексику, чем само задание.',
+    'Для шагов 1-4 и 6 с options показывай только выбор из вариантов; для шага 5 не добавляй options.',
+    'Для practice_fill, practice_match и translate шагов примеры и пояснения обязаны использовать другой контекст и другую лексику, чем само задание.',
     'Категорически запрещено писать correctAnswer или его готовую английскую формулировку в bubbles типа positive/info, в hint и в пояснениях.',
     'Не делай hints слишком широкими и не раскрывай ответ напрямую.',
     'Если нужен один допустимый ответ, не добавляй лишние acceptedAnswers.',

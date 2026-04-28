@@ -79,6 +79,34 @@ const whoLikesVariants: WhoLikesVariant[] = [
   },
 ]
 
+const WHO_OBJECT_TRANSLATIONS: Record<string, string> = {
+  music: 'музыку',
+  tea: 'чай',
+  books: 'книги',
+  football: 'футбол',
+  juice: 'сок',
+  stories: 'истории',
+  coffee: 'кофе',
+  comics: 'комиксы',
+  chess: 'шахматы',
+  water: 'воду',
+  tennis: 'теннис',
+}
+
+function toWhoLikesQuestionRu(verbBase: string, object: string): string {
+  const translatedObject = WHO_OBJECT_TRANSLATIONS[object] ?? object
+  if (verbBase === 'play') {
+    return `Кто играет в ${translatedObject}?`
+  }
+  if (verbBase === 'drink') {
+    return `Кто пьет ${translatedObject}?`
+  }
+  if (verbBase === 'read') {
+    return `Кто читает ${translatedObject}?`
+  }
+  return `Кто любит ${translatedObject}?`
+}
+
 const whoLikesPostLesson = {
   dynamicFooterText: 'Выбор за вами! Любое действие закрепит материал',
   staticFooterText: '🏆 +50 XP | 🔥 COMBO x7! | 📈 [████████] 7/7',
@@ -137,19 +165,19 @@ function buildWhoLikesBlueprints(variant: WhoLikesVariant): LessonRepeatStepBlue
     {
       stepNumber: 3,
       stepType: 'practice_fill',
-      learningGoal: 'Закрепить вопросительное слово Who в коротком паттерне.',
-      exerciseType: 'translate',
+      learningGoal: 'Вписать правильную форму глагола в короткий шаблон с Who или подлежащим.',
+      exerciseType: 'fill_text',
       answerFormat: 'single_word',
       answerPolicy: 'strict',
-      sourceCorrectAnswer: 'Who',
-      sourcePattern: `Who ${variant.verbThird} + noun?`,
-      semanticAnchors: ['who', variant.verbThird],
+      sourceCorrectAnswer: variant.verbThird,
+      sourcePattern: `Who ${variant.verbThird} + noun`,
+      semanticAnchors: [variant.verbThird],
       semanticExpectations: {
         pedagogicalRole: 'controlled_pattern_drill',
-        mustInclude: ['who', variant.verbThird],
-        shouldInclude: [variant.step3Object],
+        mustInclude: [variant.verbThird],
+        shouldInclude: ['who'],
         mustAvoid: ['it is time to', 'present continuous'],
-        hintShouldMention: ['кто'],
+        hintShouldMention: ['глагол', 'форму с -s'],
         requireCyrillicHint: true,
         maxAcceptedAnswers: 1,
       },
@@ -157,10 +185,10 @@ function buildWhoLikesBlueprints(variant: WhoLikesVariant): LessonRepeatStepBlue
     {
       stepNumber: 4,
       stepType: 'practice_fill',
-      learningGoal: 'Собрать полный вопрос с Who на английском.',
+      learningGoal: 'Перевести полный вопрос с Who на английский.',
       exerciseType: 'translate',
       answerFormat: 'full_sentence',
-      answerPolicy: 'strict',
+      answerPolicy: 'normalized',
       sourceCorrectAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,
       sourcePattern: `Who ${variant.verbThird} + noun?`,
       semanticAnchors: ['who', variant.verbThird, variant.introObject],
@@ -200,7 +228,7 @@ function buildWhoLikesBlueprints(variant: WhoLikesVariant): LessonRepeatStepBlue
       stepNumber: 6,
       stepType: 'feedback',
       learningGoal: 'Проверить различие между правильной формой и ошибочными вариантами без окончания -s.',
-      exerciseType: 'micro_quiz',
+      exerciseType: 'fill_choice',
       answerFormat: 'choice',
       answerPolicy: 'strict',
       sourceCorrectAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,
@@ -221,6 +249,65 @@ function buildWhoLikesBlueprints(variant: WhoLikesVariant): LessonRepeatStepBlue
 }
 
 function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
+  const step3Variants = [
+    {
+      id: `${variant.id}_step3_easy`,
+      question: `Дополните одним словом: "Who ___ ${variant.introObject}?"`,
+      correctAnswer: variant.verbThird,
+      hint: 'После Who здесь нужна форма глагола с -s.',
+      difficulty: 'easy' as const,
+      answerFormat: 'single_word' as const,
+      answerPolicy: 'strict' as const,
+    },
+    {
+      id: `${variant.id}_step3_medium`,
+      question: `Дополните одним словом: "Tom ___ ${variant.step3Object}."`,
+      correctAnswer: variant.verbThird,
+      hint: 'После одного человека тоже используем форму глагола с -s.',
+      difficulty: 'medium' as const,
+      answerFormat: 'single_word' as const,
+      answerPolicy: 'strict' as const,
+    },
+    {
+      id: `${variant.id}_step3_hard`,
+      question: `Дополните одним словом: "${variant.step5Subject} ___ ${variant.step5Object}."`,
+      correctAnswer: variant.verbThird,
+      hint: 'Если подлежащее в единственном числе, глагол получает окончание -s.',
+      difficulty: 'hard' as const,
+      answerFormat: 'single_word' as const,
+      answerPolicy: 'strict' as const,
+    },
+  ]
+  const step4Variants = [
+    {
+      id: `${variant.id}_step4_easy`,
+      question: `Переведите на английский: "${variant.introQuestionRu}"`,
+      correctAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,
+      hint: 'Напишите вопрос по шаблону Who + verb-s + noun?',
+      difficulty: 'easy' as const,
+      answerFormat: 'full_sentence' as const,
+      answerPolicy: 'normalized' as const,
+    },
+    {
+      id: `${variant.id}_step4_medium`,
+      question: `Переведите на английский: "${toWhoLikesQuestionRu(variant.verbBase, variant.step3Object)}"`,
+      correctAnswer: `Who ${variant.verbThird} ${variant.step3Object}?`,
+      hint: 'Начните с Who и оставьте у глагола окончание -s.',
+      difficulty: 'medium' as const,
+      answerFormat: 'full_sentence' as const,
+      answerPolicy: 'normalized' as const,
+    },
+    {
+      id: `${variant.id}_step4_hard`,
+      question: `Переведите на английский: "${toWhoLikesQuestionRu(variant.verbBase, variant.step5Object)}"`,
+      correctAnswer: `Who ${variant.verbThird} ${variant.step5Object}?`,
+      hint: 'Соберите полный вопрос: Who + verb-s + noun?',
+      difficulty: 'hard' as const,
+      answerFormat: 'full_sentence' as const,
+      answerPolicy: 'normalized' as const,
+    },
+  ]
+
   return [
     {
       stepNumber: 1,
@@ -236,7 +323,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         },
         {
           type: 'task',
-          content: `Выберите правильный ответ на вопрос: "Who ${variant.verbThird} ${variant.introObject}?"`,
+          content: 'Выберите правильное предложение.',
         },
       ],
       exercise: {
@@ -292,63 +379,29 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Теперь закрепим вопросительное слово в нескольких коротких вопросах.',
+          content: 'Теперь закрепим шаблон Who + verb-s в нескольких коротких примерах.',
         },
         {
           type: 'info',
-          content: 'В таких вопросах первым идет специальное слово, которое спрашивает о человеке.',
+          content: 'Опорный пример с другой лексикой: "Who cooks dinner? Sam cooks dinner."',
         },
         {
           type: 'task',
-          content: 'Дополните вопрос одним словом.',
+          content: 'Впишите пропущенный глагол по шаблону Who + verb-s.',
         },
       ],
       exercise: {
-        type: 'translate',
-        question: 'Напишите одно слово.',
-        correctAnswer: 'Who',
-        acceptedAnswers: ['Who'],
+        type: 'fill_text',
+        question: step3Variants[0].question,
+        correctAnswer: step3Variants[0].correctAnswer,
+        acceptedAnswers: [step3Variants[0].correctAnswer],
         answerFormat: 'single_word',
         answerPolicy: 'strict',
-        hint: 'Нужно короткое вопросительное слово для человека.',
-        variants: [
-          {
-            id: `${variant.id}_step3_easy`,
-            question: `Дополните вопрос: "___ ${variant.verbThird} ${variant.step3Object}?"`,
-            correctAnswer: 'Who',
-            acceptedAnswers: ['Who'],
-            hint: 'Нужно короткое вопросительное слово для человека.',
-            difficulty: 'easy',
-            answerFormat: 'single_word',
-            answerPolicy: 'strict',
-          },
-          {
-            id: `${variant.id}_step3_medium`,
-            question: `Дополните вопрос: "___ ${variant.verbThird} ${variant.introObject}?"`,
-            correctAnswer: 'Who',
-            acceptedAnswers: ['Who'],
-            hint: 'Поставьте в начало вопроса слово, которое спрашивает о человеке.',
-            difficulty: 'medium',
-            answerFormat: 'single_word',
-            answerPolicy: 'strict',
-          },
-          {
-            id: `${variant.id}_step3_hard`,
-            question: 'Дополните вопрос: "___ reads comics?"',
-            correctAnswer: 'Who',
-            acceptedAnswers: ['Who'],
-            hint: 'Начните вопрос со слова о человеке.',
-            difficulty: 'hard',
-            answerFormat: 'single_word',
-            answerPolicy: 'strict',
-          },
-        ],
-        adaptive: {
-          minVariants: 2,
-          maxVariants: 3,
-          startDifficulty: 'easy',
-          errorThreshold: 2,
-        },
+        hint: step3Variants[0].hint,
+        variants: step3Variants.map((stepVariant) => ({
+          ...stepVariant,
+          acceptedAnswers: [stepVariant.correctAnswer],
+        })),
       },
       footerDynamic: 'Practice: Who',
       myEngComment: 'Хорошо, теперь короткий ритм вопроса.',
@@ -363,75 +416,25 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'Сначала ставим вопросительное слово, затем форму глагола для he/she и потом предмет вопроса.',
+          content: 'Опорный пример с другой лексикой: "Who opens the window?"',
         },
         {
           type: 'task',
-          content: 'Переведите вопрос на английский по шаблону.',
+          content: 'Напишите вопрос на английском по знакомому шаблону.',
         },
       ],
       exercise: {
         type: 'translate',
-        question: 'Напишите полный вопрос.',
-        correctAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,
-        acceptedAnswers: [`Who ${variant.verbThird} ${variant.introObject}?`],
+        question: step4Variants[0].question,
+        correctAnswer: step4Variants[0].correctAnswer,
+        acceptedAnswers: [step4Variants[0].correctAnswer],
         answerFormat: 'full_sentence',
-        answerPolicy: 'strict',
-        hint: 'Соберите полный вопрос по знакомому порядку слов.',
-        variants: [
-          {
-            id: `${variant.id}_step4_easy`,
-            question: `Переведите на английский: "${variant.introQuestionRu}"`,
-            correctAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,
-            acceptedAnswers: [`Who ${variant.verbThird} ${variant.introObject}?`],
-            hint: 'Соберите полный вопрос по знакомому порядку слов.',
-            difficulty: 'easy',
-            answerFormat: 'full_sentence',
-            answerPolicy: 'strict',
-          },
-          {
-            id: `${variant.id}_step4_medium`,
-            question: `Переведите на английский: "Кто ${variant.verbBase === 'read' ? 'читает истории' : `любит ${variant.step3Object}` }?"`,
-            correctAnswer:
-              variant.verbBase === 'read'
-                ? `Who ${variant.verbThird} stories?`
-                : `Who ${variant.verbThird} ${variant.step3Object}?`,
-            acceptedAnswers:
-              variant.verbBase === 'read'
-                ? [`Who ${variant.verbThird} stories?`]
-                : [`Who ${variant.verbThird} ${variant.step3Object}?`],
-            hint: 'Сохраните порядок: вопросительное слово, форма глагола для he/she, затем объект.',
-            difficulty: 'medium',
-            answerFormat: 'full_sentence',
-            answerPolicy: 'strict',
-          },
-          {
-            id: `${variant.id}_step4_hard`,
-            question: `Переведите на английский: "Кто ${variant.verbBase === 'play' ? 'играет в теннис' : variant.verbBase === 'drink' ? 'пьет воду' : 'любит музыку'}?"`,
-            correctAnswer:
-              variant.verbBase === 'play'
-                ? `Who ${variant.verbThird} tennis?`
-                : variant.verbBase === 'drink'
-                  ? `Who ${variant.verbThird} water?`
-                  : `Who ${variant.verbThird} music?`,
-            acceptedAnswers:
-              variant.verbBase === 'play'
-                ? [`Who ${variant.verbThird} tennis?`]
-                : variant.verbBase === 'drink'
-                  ? [`Who ${variant.verbThird} water?`]
-                  : [`Who ${variant.verbThird} music?`],
-            hint: 'Соберите вопрос целиком и не забудьте форму глагола для he/she.',
-            difficulty: 'hard',
-            answerFormat: 'full_sentence',
-            answerPolicy: 'strict',
-          },
-        ],
-        adaptive: {
-          minVariants: 2,
-          maxVariants: 3,
-          startDifficulty: 'easy',
-          errorThreshold: 2,
-        },
+        answerPolicy: 'normalized',
+        hint: step4Variants[0].hint,
+        variants: step4Variants.map((stepVariant) => ({
+          ...stepVariant,
+          acceptedAnswers: [stepVariant.correctAnswer],
+        })),
       },
       footerDynamic: 'Practice: full question',
       myEngComment: 'Собираем вопрос уверенно и спокойно.',
@@ -475,7 +478,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: `Карточка: в шаблоне с Who используем форму ${variant.verbThird}, а не ${variant.verbBase}.`,
+          content: 'Карточка: "Who cooks dinner?" = вопрос. "Sam cooks dinner." = ответ.',
         },
         {
           type: 'task',
@@ -483,36 +486,18 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         },
       ],
       exercise: {
-        type: 'micro_quiz',
+        type: 'fill_choice',
         question: 'Какой вопрос правильный?',
         options: [
           `Who ${variant.verbThird} ${variant.introObject}?`,
           `Who ${variant.verbBase} ${variant.introObject}?`,
+          `${variant.introSubject} ${variant.verbThird} ${variant.introObject}.`,
         ],
         correctAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,
         acceptedAnswers: [`Who ${variant.verbThird} ${variant.introObject}?`],
         answerFormat: 'choice',
         answerPolicy: 'strict',
         hint: `Нужна форма ${variant.verbThird}.`,
-        variants: [
-          {
-            id: `${variant.id}_micro_1`,
-            question: 'Какой вопрос правильный?',
-            options: [`Who ${variant.verbThird} ${variant.introObject}?`, `Who ${variant.verbBase} ${variant.introObject}?`],
-            correctAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,
-            acceptedAnswers: [`Who ${variant.verbThird} ${variant.introObject}?`],
-            hint: `Нужна форма ${variant.verbThird}.`,
-            difficulty: 'easy',
-            answerFormat: 'choice',
-            answerPolicy: 'strict',
-          },
-        ],
-        adaptive: {
-          minVariants: 1,
-          maxVariants: 1,
-          startDifficulty: 'easy',
-          errorThreshold: 1,
-        },
       },
       footerDynamic: 'Карточка: Who + verb-s + noun?',
       myEngComment: 'Почти финиш, осталось закрепить.',
@@ -562,6 +547,16 @@ function buildWhoLikesVariantProfile(variant: WhoLikesVariant): LessonRepeatVari
                 ...step.exercise,
                 ...(step.exercise.options ? { options: [...step.exercise.options] } : {}),
                 ...(step.exercise.acceptedAnswers ? { acceptedAnswers: [...step.exercise.acceptedAnswers] } : {}),
+                ...(step.exercise.variants
+                  ? {
+                      variants: step.exercise.variants.map((variantExercise) => ({
+                        ...variantExercise,
+                        ...(variantExercise.options ? { options: [...variantExercise.options] } : {}),
+                        ...(variantExercise.acceptedAnswers ? { acceptedAnswers: [...variantExercise.acceptedAnswers] } : {}),
+                      })),
+                    }
+                  : {}),
+                ...(step.exercise.adaptive ? { adaptive: { ...step.exercise.adaptive } } : {}),
               },
             }
           : {}),

@@ -9,7 +9,7 @@ export type StepType =
 
 export type BubbleType = 'positive' | 'info' | 'task'
 
-export type ExerciseType = 'fill_choice' | 'translate' | 'write_own' | 'match' | 'micro_quiz'
+export type ExerciseType = 'fill_choice' | 'fill_text' | 'translate' | 'write_own' | 'match' | 'micro_quiz'
 export type LessonAnswerPolicy = 'strict' | 'normalized' | 'equivalent_variants'
 export type ExerciseDifficulty = 'easy' | 'medium' | 'hard'
 

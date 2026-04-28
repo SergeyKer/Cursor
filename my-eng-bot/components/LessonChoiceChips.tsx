@@ -32,6 +32,7 @@ export default function LessonChoiceChips({
 }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevDisabledRef = useRef(disabled);
 
   useEffect(() => {
     setSelected(null);
@@ -46,6 +47,15 @@ export default function LessonChoiceChips({
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    // Когда проверка ответа завершилась, очищаем прошлый выбор,
+    // чтобы на следующую попытку чипсы были "с нуля".
+    if (prevDisabledRef.current && !disabled) {
+      setSelected(null);
+    }
+    prevDisabledRef.current = disabled;
+  }, [disabled]);
 
   useEffect(() => {
     if (disabled || !autoSelectText) return;
@@ -81,7 +91,7 @@ export default function LessonChoiceChips({
         return (
           <button
             key={`${choiceText}-${index}`}
-            disabled={disabled || !!selected}
+            disabled={disabled}
             onClick={() => handleSelect(choice)}
             className={`
               max-w-full shrink-0 break-words px-3 py-1.5 text-left
@@ -89,7 +99,7 @@ export default function LessonChoiceChips({
               ${isSelected
                 ? 'bg-blue-500 text-white shadow-md scale-[1.02]'
                 : isOtherSelected
-                  ? 'opacity-0 scale-95 pointer-events-none'
+                  ? 'bg-blue-50/90 text-blue-700 border border-blue-200 opacity-75'
                   : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
               }
             `}

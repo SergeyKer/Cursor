@@ -21,6 +21,29 @@ type ItsTimeVariant = {
   sourceSituations: string[]
 }
 
+const ITS_TIME_STATE_TRANSLATIONS: Record<string, string> = {
+  dark: 'Темно.',
+  cold: 'Холодно.',
+  hot: 'Жарко.',
+  late: 'Уже поздно.',
+}
+
+function toItsTimeStateSentence(adjective: string): string {
+  return `It's ${adjective}.`
+}
+
+function toItsTimeStateAcceptedAnswers(adjective: string): string[] {
+  return [`It's ${adjective}.`, `It is ${adjective}.`]
+}
+
+function toItsTimeStateTranslation(adjective: string): string {
+  return ITS_TIME_STATE_TRANSLATIONS[adjective] ?? 'Выберите описание состояния.'
+}
+
+function normalizeRuPromptLabel(text: string): string {
+  return text.trim().replace(/[.!?…]+$/u, '')
+}
+
 const itsTimeVariants: ItsTimeVariant[] = [
   {
     id: 'evening-dark',
@@ -162,19 +185,19 @@ function buildItsTimeBlueprints(variant: ItsTimeVariant): LessonRepeatStepBluepr
     {
       stepNumber: 3,
       stepType: 'practice_fill',
-      learningGoal: 'Сопоставить состояние и подходящее действие в короткой бытовой ситуации.',
-      exerciseType: 'translate',
+      learningGoal: 'Вписать пропущенный глагол после конструкции It is time to.',
+      exerciseType: 'fill_text',
       answerFormat: 'single_word',
       answerPolicy: 'strict',
       sourceCorrectAnswer: variant.step3Verb,
-      sourcePattern: 'It is + adjective. It is time to + verb + noun',
-      semanticAnchors: [variant.step3Adjective, 'time to', variant.step3Object],
+      sourcePattern: 'It is time to + verb',
+      semanticAnchors: ['time to', variant.step3Verb],
       semanticExpectations: {
         pedagogicalRole: 'controlled_pattern_drill',
-        mustInclude: [variant.step3Adjective, variant.step3Object],
-        shouldInclude: ['time to'],
+        mustInclude: ['time to'],
+        shouldInclude: [variant.step3Verb],
         mustAvoid: ['who likes', 'present continuous'],
-        hintShouldMention: ['обычно делают'],
+        hintShouldMention: ['глагол', 'начальной форме'],
         requireCyrillicHint: true,
         maxAcceptedAnswers: 1,
       },
@@ -182,7 +205,7 @@ function buildItsTimeBlueprints(variant: ItsTimeVariant): LessonRepeatStepBluepr
     {
       stepNumber: 4,
       stepType: 'practice_fill',
-      learningGoal: 'Закрепить описание состояния полным предложением.',
+      learningGoal: 'Перевести короткое описание состояния на английский.',
       exerciseType: 'translate',
       answerFormat: 'full_sentence',
       answerPolicy: 'normalized',
@@ -196,7 +219,7 @@ function buildItsTimeBlueprints(variant: ItsTimeVariant): LessonRepeatStepBluepr
         mustAvoid: ['who likes', 'time to go'],
         hintShouldMention: ['состояние', 'шаблон'],
         requireCyrillicHint: true,
-        maxAcceptedAnswers: 2,
+        maxAcceptedAnswers: 1,
       },
     },
     {
@@ -223,7 +246,7 @@ function buildItsTimeBlueprints(variant: ItsTimeVariant): LessonRepeatStepBluepr
       stepNumber: 6,
       stepType: 'feedback',
       learningGoal: 'Проверить, что пользователь различает состояние и действие в новой ситуации.',
-      exerciseType: 'micro_quiz',
+      exerciseType: 'fill_choice',
       answerFormat: 'choice',
       answerPolicy: 'strict',
       sourceCorrectAnswer: `It's time to ${variant.finalVerbBase}.`,
@@ -243,6 +266,47 @@ function buildItsTimeBlueprints(variant: ItsTimeVariant): LessonRepeatStepBluepr
 }
 
 function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
+  const step3Variants = [
+    {
+      id: `${variant.id}_step3_easy`,
+      question: `Переведите на английский: "${variant.sourceSituations[2]}." - "It's ${variant.step3Adjective}. It is time to ___ ${variant.step3Object}."`,
+      correctAnswer: variant.step3Verb,
+      hint: 'После "time to" нужен глагол в начальной форме.',
+      difficulty: 'easy' as const,
+      answerFormat: 'single_word' as const,
+      answerPolicy: 'strict' as const,
+    },
+    {
+      id: `${variant.id}_step3_medium`,
+      question: `Переведите на английский: "Сейчас ${variant.step3StateRu.toLowerCase()}, поэтому пора что-то сделать." - "It's ${variant.step3Adjective}. It is time to ___ ${variant.step3Object}."`,
+      correctAnswer: variant.step3Verb,
+      hint: 'Смысл тот же, но ситуация переформулирована: нужен базовый глагол после "to".',
+      difficulty: 'medium' as const,
+      answerFormat: 'single_word' as const,
+      answerPolicy: 'strict' as const,
+    },
+    {
+      id: `${variant.id}_step3_hard`,
+      question: `Переведите на английский: "По погоде/состоянию понятно, что пора ${variant.step3Verb} ${variant.step3Object}." - "It's ${variant.step3Adjective}. It is time to ___ ${variant.step3Object}."`,
+      correctAnswer: variant.step3Verb,
+      hint: 'Опирайтесь на смысл действия: после "to" нужна начальная форма глагола.',
+      difficulty: 'hard' as const,
+      answerFormat: 'single_word' as const,
+      answerPolicy: 'strict' as const,
+    },
+  ]
+  const step4Adjectives = Array.from(new Set([variant.adjective, 'cold', 'hot', 'late', 'dark'])).slice(0, 3)
+  const step4Variants = step4Adjectives.map((adjective, index) => ({
+    id: `${variant.id}_step4_${index + 1}`,
+    question: `Переведите на английский: ${normalizeRuPromptLabel(toItsTimeStateTranslation(adjective))}`,
+    correctAnswer: toItsTimeStateSentence(adjective),
+    acceptedAnswers: toItsTimeStateAcceptedAnswers(adjective),
+    hint: 'Напишите короткое предложение по шаблону It is + прилагательное.',
+    difficulty: index === 0 ? 'easy' : index === 1 ? 'medium' : 'hard',
+    answerFormat: 'full_sentence' as const,
+    answerPolicy: 'normalized' as const,
+  }))
+
   return [
     {
       stepNumber: 1,
@@ -258,7 +322,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         },
         {
           type: 'task',
-          content: `Выберите правильное предложение для ситуации: "${variant.introStateRu}".`,
+          content: `Выберите правильное предложение для ситуации: "${variant.introStateRu}"`,
         },
       ],
       exercise: {
@@ -314,63 +378,27 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'Опорный пример с другой лексикой: "It is windy. Time to go home."',
+          content: 'Опорный пример с другой лексикой: "It is rainy. It is time to take a taxi."',
         },
         {
           type: 'task',
-          content:
-            `Переведите на английский короткую фразу (состояние + действие), ` +
-            `затем вставьте глагол в шаблон: "It is ${variant.step3Adjective}. It is time to ____ ${variant.step3Object}."`,
+          content: `Впишите пропущенный глагол в английскую фразу: "${variant.sourceSituations[2]}." - "It's ${variant.step3Adjective}. It is time to ___ ${variant.step3Object}."`,
         },
       ],
       exercise: {
-        type: 'translate',
-        question: 'Напишите пропущенное слово.',
-        correctAnswer: variant.step3Verb,
-        acceptedAnswers: [variant.step3Verb],
+        type: 'fill_text',
+        question: step3Variants[0].question,
+        correctAnswer: step3Variants[0].correctAnswer,
+        acceptedAnswers: [step3Variants[0].correctAnswer],
         answerFormat: 'single_word',
         answerPolicy: 'strict',
-        hint: 'Подумайте, что обычно делают в такой ситуации, и выберите базовый глагол.',
-        variants: [
-          {
-            id: `${variant.id}_step3_easy`,
-            question: `"It is ${variant.step3Adjective}. It is time to ____ ${variant.step3Object}."`,
-            correctAnswer: variant.step3Verb,
-            acceptedAnswers: [variant.step3Verb],
-            hint: 'Подумайте, что обычно делают в такой ситуации, и выберите базовый глагол.',
-            difficulty: 'easy',
-            answerFormat: 'single_word',
-            answerPolicy: 'strict',
-          },
-          {
-            id: `${variant.id}_step3_medium`,
-            question: '"It is cold. It is time to ____ tea."',
-            correctAnswer: 'drink',
-            acceptedAnswers: ['drink'],
-            hint: 'Подумайте, что обычно делают в такой ситуации.',
-            difficulty: 'medium',
-            answerFormat: 'single_word',
-            answerPolicy: 'strict',
-          },
-          {
-            id: `${variant.id}_step3_hard`,
-            question: '"It is thirsty. It is time to ____ water."',
-            correctAnswer: 'drink',
-            acceptedAnswers: ['drink'],
-            hint: 'Подумайте, что обычно делают в такой ситуации, и выберите подходящий глагол.',
-            difficulty: 'hard',
-            answerFormat: 'single_word',
-            answerPolicy: 'strict',
-          },
-        ],
-        adaptive: {
-          minVariants: 2,
-          maxVariants: 3,
-          startDifficulty: 'easy',
-          errorThreshold: 2,
-        },
+        hint: step3Variants[0].hint,
+        variants: step3Variants.map((stepVariant) => ({
+          ...stepVariant,
+          acceptedAnswers: [stepVariant.correctAnswer],
+        })),
       },
-      footerDynamic: 'Практика: выберите правильный глагол',
+      footerDynamic: 'Практика: впишите глагол',
       myEngComment: 'Пора почувствовать разницу вживую.',
     },
     {
@@ -383,61 +411,27 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'Держите тот же шаблон, но без подсказки готового ответа: здесь важно самому собрать короткую фразу о состоянии.',
+          content: 'Опорный пример с другой лексикой: "It is rainy."',
         },
         {
           type: 'task',
-          content: 'Переведите короткое описание состояния на английский.',
+          content: 'Напишите английское предложение для короткого описания состояния.',
         },
       ],
       exercise: {
         type: 'translate',
-        question: 'Напишите полное предложение на английском.',
-        correctAnswer: `It's ${variant.adjective}.`,
-        acceptedAnswers: [`It's ${variant.adjective}.`, `It is ${variant.adjective}.`],
+        question: step4Variants[0]?.question ?? `Переведите на английский: ${normalizeRuPromptLabel(variant.stateTranslationRu)}`,
+        correctAnswer: step4Variants[0]?.correctAnswer ?? `It's ${variant.adjective}.`,
+        acceptedAnswers: step4Variants[0]?.acceptedAnswers ?? toItsTimeStateAcceptedAnswers(variant.adjective),
         answerFormat: 'full_sentence',
         answerPolicy: 'normalized',
-        hint: 'Соберите короткую фразу о состоянии по знакомому шаблону.',
-        variants: [
-          {
-            id: `${variant.id}_step4_easy`,
-            question: `Переведите на английский: "${variant.stateTranslationRu}".`,
-            correctAnswer: `It's ${variant.adjective}.`,
-            acceptedAnswers: [`It's ${variant.adjective}.`, `It is ${variant.adjective}.`],
-            hint: 'Соберите короткую фразу о состоянии по знакомому шаблону.',
-            difficulty: 'easy',
-            answerFormat: 'full_sentence',
-            answerPolicy: 'normalized',
-          },
-          {
-            id: `${variant.id}_step4_medium`,
-            question: 'Переведите на английский: "Холодно."',
-            correctAnswer: "It's cold.",
-            acceptedAnswers: ["It's cold.", 'It is cold.'],
-            hint: 'Нужна короткая фраза, которая описывает состояние целиком.',
-            difficulty: 'medium',
-            answerFormat: 'full_sentence',
-            answerPolicy: 'normalized',
-          },
-          {
-            id: `${variant.id}_step4_hard`,
-            question: 'Переведите на английский: "Уже поздно."',
-            correctAnswer: "It's late.",
-            acceptedAnswers: ["It's late.", 'It is late.'],
-            hint: 'Дайте естественное короткое описание состояния одним предложением.',
-            difficulty: 'hard',
-            answerFormat: 'full_sentence',
-            answerPolicy: 'normalized',
-          },
-        ],
-        adaptive: {
-          minVariants: 2,
-          maxVariants: 3,
-          startDifficulty: 'easy',
-          errorThreshold: 2,
-        },
+        hint: step4Variants[0]?.hint ?? 'Напишите короткое предложение по шаблону It is + прилагательное.',
+        variants: step4Variants.map((stepVariant) => ({
+          ...stepVariant,
+          acceptedAnswers: stepVariant.acceptedAnswers,
+        })),
       },
-      footerDynamic: 'Практика: описание состояния',
+      footerDynamic: 'Практика: напишите предложение',
       myEngComment: 'Хорошо идете, держим темп.',
     },
     {
@@ -454,7 +448,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         },
         {
           type: 'task',
-          content: `Переведите на английский: "${variant.step5ActionRu}".`,
+          content: `Переведите на английский: "${variant.step5ActionRu}"`,
         },
       ],
       exercise: {
@@ -479,43 +473,24 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: `Карточка: It is ${variant.adjective} = состояние. It is time to ${variant.finalVerbBase} = действие.`,
+          content: 'Карточка: "It is sunny." = состояние. "It is time to read." = действие.',
         },
         {
           type: 'task',
-          content: `Быстрая проверка: выберите правильную фразу для "${variant.finalActionRu}".`,
+          content: `Быстрая проверка: выберите правильную фразу для "${variant.finalActionRu}"`,
         },
       ],
       exercise: {
-        type: 'micro_quiz',
+        type: 'fill_choice',
         question: `Выберите правильную фразу: "${variant.finalActionRu}"`,
-        options: [`It's ${variant.finalVerbBase}.`, `It's time to ${variant.finalVerbBase}.`],
+        options: [`It's ${variant.finalVerbBase}.`, `It's time to ${variant.finalVerbBase}.`, `It's ${variant.adjective}.`],
         correctAnswer: `It's time to ${variant.finalVerbBase}.`,
         acceptedAnswers: [`It's time to ${variant.finalVerbBase}.`],
         answerFormat: 'choice',
         answerPolicy: 'strict',
         hint: 'Здесь речь о правильном моменте для действия.',
-        variants: [
-          {
-            id: `${variant.id}_micro_1`,
-            question: `Выберите правильную фразу: "${variant.finalActionRu}"`,
-            options: [`It's ${variant.finalVerbBase}.`, `It's time to ${variant.finalVerbBase}.`],
-            correctAnswer: `It's time to ${variant.finalVerbBase}.`,
-            acceptedAnswers: [`It's time to ${variant.finalVerbBase}.`],
-            hint: 'Здесь речь о действии, а не о состоянии.',
-            difficulty: 'easy',
-            answerFormat: 'choice',
-            answerPolicy: 'strict',
-          },
-        ],
-        adaptive: {
-          minVariants: 1,
-          maxVariants: 1,
-          startDifficulty: 'easy',
-          errorThreshold: 1,
-        },
       },
-      footerDynamic: 'Карточка: It is + adjective | It is time to + verb',
+      footerDynamic: 'Карточка показывает состояние и действие: It is + adjective. It is time to + verb.',
       myEngComment: 'Финиш рядом, осталось одно усилие.',
     },
     {
@@ -563,6 +538,16 @@ function buildItsTimeVariantProfile(variant: ItsTimeVariant): LessonRepeatVarian
                 ...step.exercise,
                 ...(step.exercise.options ? { options: [...step.exercise.options] } : {}),
                 ...(step.exercise.acceptedAnswers ? { acceptedAnswers: [...step.exercise.acceptedAnswers] } : {}),
+                ...(step.exercise.variants
+                  ? {
+                      variants: step.exercise.variants.map((variantExercise) => ({
+                        ...variantExercise,
+                        ...(variantExercise.options ? { options: [...variantExercise.options] } : {}),
+                        ...(variantExercise.acceptedAnswers ? { acceptedAnswers: [...variantExercise.acceptedAnswers] } : {}),
+                      })),
+                    }
+                  : {}),
+                ...(step.exercise.adaptive ? { adaptive: { ...step.exercise.adaptive } } : {}),
               },
             }
           : {}),

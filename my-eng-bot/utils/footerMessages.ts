@@ -22,6 +22,6 @@ export function getLessonRepeatFooterMessage(
   if (!variantInfo || (stepNumber !== 3 && stepNumber !== 4)) return null
 
   return variantInfo.current >= variantInfo.total
-    ? `Последний рывок! (${variantInfo.current} из ${variantInfo.total}) 🎯`
+    ? `Последнее! (${variantInfo.current} из ${variantInfo.total})`
     : `Ещё одно! (${variantInfo.current} из ${variantInfo.total}) 🔥`
 }
