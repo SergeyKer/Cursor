@@ -9,6 +9,8 @@ import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
 import { HomeMenuInstructionBubble } from '@/components/HomeMenuInstructionBubble'
 import HomeEmptyBubble from '@/components/HomeEmptyBubble'
 import { buildCompactGreeting } from '@/lib/homeGreeting'
+import { consumeNextGreetingFactLine } from '@/lib/greetingFactRotation'
+import { consumeNextHomeVoiceLine } from '@/lib/homeVoiceRotation'
 import {
   loadState,
   saveState,
@@ -63,6 +65,7 @@ import type { LessonData, PostLessonAction } from '@/types/lesson'
 import AppFooter from '@/components/AppFooter'
 import LessonStepRenderer from '@/components/LessonStepRenderer'
 import { useLessonEngine } from '@/hooks/useLessonEngine'
+import { pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 
 import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/components/MenuSectionPanels'
@@ -295,6 +298,7 @@ export default function Home() {
   /** Смена «сессии» старта: новый факт из очереди (в т.ч. после выхода из чата домой). */
   const [greetingNonce, setGreetingNonce] = useState(0)
   const [welcomeFactLine, setWelcomeFactLine] = useState<string | null>(null)
+  const [homeVoiceLine, setHomeVoiceLine] = useState<string | null>(null)
   const welcomeFactInitRef = React.useRef<number | null>(null)
   const [storageLoaded, setStorageLoaded] = useState(false)
   const [retryMessage, setRetryMessage] = useState<string | null>(null)
@@ -326,6 +330,8 @@ export default function Home() {
     footerStaticText: activeStructuredLessonFooterStaticText,
     footerVariantProgress: activeStructuredLessonFooterVariantProgress,
     footerTypingKey: activeStructuredLessonFooterTypingKey,
+    footerVoiceTone: activeStructuredLessonFooterVoiceTone,
+    footerVoiceEmphasis: activeStructuredLessonFooterVoiceEmphasis,
     handleAnswer: handleStructuredLessonAnswer,
     xp: activeStructuredLessonXp,
     combo: activeStructuredLessonCombo,
@@ -431,17 +437,18 @@ export default function Home() {
   React.useEffect(() => {
     if (dialogStarted) return
     if (welcomeFactInitRef.current === greetingNonce) return
-    let cancelled = false
-    const nonce = greetingNonce
-    const loadGreetingFact = async () => {
-      const mod = await import('@/lib/greetingFactRotation')
-      if (cancelled) return
-      welcomeFactInitRef.current = nonce
-      setWelcomeFactLine(mod.consumeNextGreetingFactLine())
+    welcomeFactInitRef.current = greetingNonce
+
+    try {
+      setWelcomeFactLine(consumeNextGreetingFactLine())
+    } catch {
+      setWelcomeFactLine('Интересный факт скоро появится.')
     }
-    void loadGreetingFact()
-    return () => {
-      cancelled = true
+
+    try {
+      setHomeVoiceLine(consumeNextHomeVoiceLine())
+    } catch {
+      setHomeVoiceLine('Я снова здесь. Продолжим?')
     }
   }, [dialogStarted, greetingNonce])
 
@@ -1571,16 +1578,167 @@ export default function Home() {
   const isStructuredLessonActive = Boolean(activeStructuredLesson && activeStructuredLessonStep)
   const activeLessonTitle = activeLearningLesson?.title ?? null
   const isTutorLessonHeader = activeLessonTitle && lessonMenuContext?.lessonsPanel === 'tutor'
-  const lessonFooterDynamicText =
+  const learningLessonFooterDynamicText =
     activeStructuredLessonFooterDynamicText ??
     activeLearningLesson?.footer?.dynamicText ??
     (activeLearningLesson ? `Урок: ${activeLearningLesson.title}` : null)
-  const lessonFooterStaticText =
+  const learningLessonFooterStaticText =
     activeStructuredLessonFooterStaticText ??
     (activeLearningLesson
       ? activeLearningLesson?.footer?.staticText ??
         (lessonMenuContext?.lessonsPanel === 'tutor' ? 'Репетитор' : 'Теория')
       : null)
+  const chatFooterVoice = React.useMemo(() => {
+    if (!dialogStarted || isLessonActive) return null
+    const candidates: Array<FooterVoiceCandidate | null> = [
+      lastMessageIsError
+        ? {
+            key: `${settings.mode}-chat-error`,
+            priority: 100,
+            text: 'Связь подвела. Попробуем снова.',
+            compactText: 'Попробуем снова.',
+            tone: 'error',
+          }
+        : null,
+      retryMessage
+        ? {
+            key: `${settings.mode}-chat-retry`,
+            priority: 90,
+            text: 'Почти. Пробую ещё раз.',
+            compactText: 'Пробую еще раз.',
+            tone: 'support',
+          }
+        : null,
+      loadingTranslationIndex !== null
+        ? {
+            key: 'chat-loading-translation',
+            priority: 85,
+            text: 'Подгружаю перевод.',
+            compactText: 'Гружу перевод.',
+            tone: 'thinking',
+          }
+        : null,
+      searchingInternet
+        ? {
+            key: `${settings.mode}-chat-searching`,
+            priority: 80,
+            text: 'Уточняю в интернете.',
+            compactText: 'Ищу точнее.',
+            tone: 'thinking',
+          }
+        : null,
+      loading
+        ? {
+            key: `${settings.mode}-chat-loading`,
+            priority: 75,
+            text:
+              settings.mode === 'translation'
+                ? 'Проверяю формулировку.'
+                : settings.mode === 'dialogue'
+                  ? 'Думаю над ответом.'
+                  : 'Слушаю и отвечаю.',
+            compactText:
+              settings.mode === 'translation'
+                ? 'Проверяю фразу.'
+                : settings.mode === 'dialogue'
+                  ? 'Думаю над ответом.'
+                  : 'Слушаю вас.',
+            tone: 'thinking',
+          }
+        : null,
+      settings.mode === 'translation'
+        ? {
+            key: 'chat-translation-idle',
+            priority: 40,
+            text: 'Готов проверить перевод.',
+            compactText: 'Готов к переводу.',
+            tone: 'neutral',
+          }
+        : null,
+      settings.mode === 'dialogue'
+        ? {
+            key: 'chat-dialogue-idle',
+            priority: 40,
+            text: 'Я с вами в диалоге.',
+            compactText: 'Я с вами.',
+            tone: 'neutral',
+          }
+        : null,
+      settings.mode === 'communication'
+        ? {
+            key: `chat-communication-${settings.communicationInputExpectedLang}`,
+            priority: 40,
+            text:
+              settings.communicationInputExpectedLang === 'en'
+                ? 'Можно говорить по-английски.'
+                : 'Можно говорить как удобно.',
+            compactText: settings.communicationInputExpectedLang === 'en' ? 'Говорим по-английски.' : 'Слушаю вас.',
+            tone: 'neutral',
+          }
+        : null,
+    ]
+    return pickFooterVoice(
+      candidates.filter((candidate): candidate is FooterVoiceCandidate => candidate !== null),
+      { maxLength: 46 }
+    )
+  }, [
+    dialogStarted,
+    isLessonActive,
+    lastMessageIsError,
+    loading,
+    loadingTranslationIndex,
+    retryMessage,
+    searchingInternet,
+    settings.communicationInputExpectedLang,
+    settings.mode,
+  ])
+  const homeFooterVoice = React.useMemo(() => {
+    if (dialogStarted) return null
+    const candidates: Array<FooterVoiceCandidate | null> = [
+      homeVoiceLine
+        ? {
+            key: `home-${greetingNonce}`,
+            priority: 100,
+            text: homeVoiceLine,
+            compactText: homeVoiceLine,
+            tone: 'neutral',
+          }
+        : null,
+    ]
+    return pickFooterVoice(
+      candidates.filter((candidate): candidate is FooterVoiceCandidate => candidate !== null),
+      { maxLength: 46 }
+    )
+  }, [dialogStarted, greetingNonce, homeVoiceLine])
+  const footerDynamicText = isStructuredLessonActive
+    ? activeStructuredLessonFooterDynamicText
+    : isLessonActive
+      ? learningLessonFooterDynamicText
+      : dialogStarted
+        ? chatFooterVoice?.text ?? null
+        : homeFooterVoice?.text ?? null
+  const footerStaticText = isStructuredLessonActive
+    ? activeStructuredLessonFooterStaticText
+    : isLessonActive
+      ? learningLessonFooterStaticText
+      : dialogStarted
+        ? getMenuSummary(false)
+        : 'Главная'
+  const footerTypingKey = isStructuredLessonActive
+    ? activeStructuredLessonFooterTypingKey
+    : dialogStarted
+      ? chatFooterVoice?.typingKey ?? 'chat-footer'
+      : homeFooterVoice?.typingKey ?? 'home-footer'
+  const footerVoiceTone = isStructuredLessonActive
+    ? activeStructuredLessonFooterVoiceTone
+    : dialogStarted
+      ? (chatFooterVoice?.tone ?? 'neutral')
+      : (homeFooterVoice?.tone ?? 'neutral')
+  const footerVoiceEmphasis = isStructuredLessonActive
+    ? activeStructuredLessonFooterVoiceEmphasis
+    : dialogStarted
+      ? (chatFooterVoice?.emphasis ?? 'none')
+      : (homeFooterVoice?.emphasis ?? 'none')
   const pageTitle = !dialogStarted
     ? 'MyEng - мой английский друг'
     : isTutorLessonHeader
@@ -1941,12 +2099,15 @@ export default function Home() {
         }}
       >
         <AppFooter
-          dynamicText={lessonFooterDynamicText}
-          staticText={lessonFooterStaticText}
+          dynamicText={footerDynamicText}
+          staticText={footerStaticText}
           variantProgress={activeStructuredLessonFooterVariantProgress}
-          typingKey={activeStructuredLessonFooterTypingKey}
+          typingKey={footerTypingKey}
+          dynamicTone={footerVoiceTone}
+          dynamicEmphasis={footerVoiceEmphasis}
           isLessonActive={isLessonActive}
           isDialogStarted={dialogStarted}
+          showWhenIdle={!dialogStarted}
         />
       </footer>
 

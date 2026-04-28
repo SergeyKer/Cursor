@@ -2,6 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { AdaptiveConfig, Exercise, LessonData, LessonMistake, PostLessonContent } from '@/types/lesson'
 import { validateAnswer } from '@/utils/validateAnswer'
 import { DEFAULT_ADAPTIVE_CONFIG, getNextVariant } from '@/utils/generateExerciseVariants'
+import {
+  pickFooterVoice,
+  type FooterVoiceCandidate,
+  type FooterVoiceEmphasis,
+  type FooterVoiceTone,
+} from '@/lib/footerVoice'
 
 export type LessonStatus = 'idle' | 'checking' | 'feedback' | 'completed'
 
@@ -27,6 +33,13 @@ export type ExerciseVariantProgress = {
   total: number
   current: number
 } | null
+
+export type LessonFooterVoice = {
+  text: string | null
+  typingKey: string | null
+  tone: FooterVoiceTone
+  emphasis: FooterVoiceEmphasis
+}
 
 const VALIDATION_DELAY_MS = 400
 const AUTO_ADVANCE_DELAY_MS = 1500
@@ -325,17 +338,115 @@ export function useLessonEngine(lesson: LessonData | null) {
     return null
   }, [exerciseErrors, activeExercise?.hint])
 
-  const effectiveFooterDynamicText =
-    feedback?.type === 'error'
-      ? feedback.message
-      : status === 'completed'
-        ? postLesson?.dynamicFooterText ?? step?.footerDynamic ?? null
-        : contextualFooterHint ?? step?.footerDynamic ?? null
+  const footerVoice = useMemo<LessonFooterVoice>(() => {
+    const candidates: Array<FooterVoiceCandidate | null> = [
+        status === 'completed'
+          ? {
+              key: 'lesson-completed',
+              priority: 100,
+              text: step?.myEngComment ?? 'Урок пройден. Готовы дальше?',
+              compactText: 'Урок пройден. Дальше?',
+              tone: 'celebrate',
+              emphasis: 'pulse',
+            }
+          : null,
+        feedback?.type === 'error'
+          ? {
+              key: exerciseErrors >= 2 ? 'lesson-error-support-strong' : 'lesson-error-support',
+              priority: 95,
+              text: exerciseErrors >= 2 ? 'Ничего, еще одна попытка.' : 'Почти. Попробуйте еще раз.',
+              compactText: 'Почти. Еще раз.',
+              tone: 'support',
+            }
+          : null,
+        status === 'checking'
+          ? {
+              key: 'lesson-checking',
+              priority: 90,
+              text: 'Смотрю ваш ответ.',
+              compactText: 'Смотрю ответ.',
+              tone: 'thinking',
+            }
+          : null,
+        feedback?.type === 'success' && combo >= 5
+          ? {
+              key: `lesson-combo-${combo}`,
+              priority: 85,
+              text: `COMBO x${combo}! Вы летите!`,
+              compactText: `COMBO x${combo}!`,
+              tone: 'celebrate',
+              emphasis: 'pulse',
+            }
+          : null,
+        feedback?.type === 'success' && combo >= 3
+          ? {
+              key: `lesson-combo-${combo}`,
+              priority: 80,
+              text: `COMBO x${combo}! Так держать!`,
+              compactText: `COMBO x${combo}!`,
+              tone: 'celebrate',
+            }
+          : null,
+        feedback?.type === 'success'
+          ? {
+              key: 'lesson-success',
+              priority: 75,
+              text: 'Верно. Идем дальше.',
+              compactText: 'Верно. Дальше.',
+              tone: 'support',
+            }
+          : null,
+        step?.myEngComment
+          ? {
+              key: `lesson-step-${step.stepNumber}`,
+              priority: 50,
+              text: step.myEngComment,
+              tone: 'neutral',
+            }
+          : null,
+        contextualFooterHint
+          ? {
+              key: `lesson-context-${step?.stepNumber ?? currentStep}`,
+              priority: 20,
+              text: contextualFooterHint,
+              compactText: 'Есть подсказка.',
+              tone: 'hint',
+            }
+          : null,
+        step?.footerDynamic
+          ? {
+              key: `lesson-fallback-${step.stepNumber}`,
+              priority: 10,
+              text: step.footerDynamic,
+              compactText: step.footerDynamic,
+              tone: 'neutral',
+            }
+          : null,
+      ]
+    const voice = pickFooterVoice(
+      candidates.filter((candidate): candidate is FooterVoiceCandidate => candidate !== null),
+      { maxLength: 46 }
+    )
 
-  const footerTypingKey = useMemo(() => {
-    if (!lesson) return 'lesson-footer'
-    return `${lesson.id}:${lesson.runKey ?? 'static'}:${currentStep}:${currentVariantIndex}:${feedback?.type === 'error' ? 'hint' : contextualFooterHint ? 'context' : 'step'}`
-  }, [lesson, currentStep, currentVariantIndex, feedback?.type, contextualFooterHint])
+    return {
+      text: voice?.text ?? null,
+      typingKey: voice && lesson ? `${lesson.id}:${lesson.runKey ?? 'static'}:${currentStep}:${currentVariantIndex}:${voice.typingKey}` : null,
+      tone: voice?.tone ?? 'neutral',
+      emphasis: voice?.emphasis ?? 'none',
+    }
+  }, [
+    combo,
+    contextualFooterHint,
+    currentStep,
+    currentVariantIndex,
+    exerciseErrors,
+    feedback?.type,
+    lesson,
+    status,
+    step?.footerDynamic,
+    step?.myEngComment,
+    step?.stepNumber,
+  ])
 
   const completedSteps = useMemo(() => {
     if (!lesson) return []
@@ -370,10 +481,12 @@ export function useLessonEngine(lesson: LessonData | null) {
     currentVariantIndex,
     completedSteps,
     blockProgress,
-    footerDynamicText: effectiveFooterDynamicText,
+    footerDynamicText: footerVoice.text,
     footerStaticText,
     footerVariantProgress,
-    footerTypingKey,
+    footerTypingKey: footerVoice.typingKey,
+    footerVoiceTone: footerVoice.tone,
+    footerVoiceEmphasis: footerVoice.emphasis,
     isCompletionStep: step?.stepType === 'completion',
     postLesson,
     handleAnswer,

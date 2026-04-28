@@ -35,7 +35,7 @@ export function generateExerciseVariants({
   const safeRule = rule.trim()
 
   if (topic === 'there-is-are') {
-    return [
+    const variants: ExerciseVariant[] = [
       {
         id: 'v1_easy',
         question: 'There ___ a cat on the roof.',
@@ -69,7 +69,8 @@ export function generateExerciseVariants({
         answerFormat: 'choice',
         answerPolicy: 'strict',
       },
-    ].slice(0, config.maxVariants)
+    ]
+    return variants.slice(0, config.maxVariants)
   }
 
   const fallbackVariants = buildFallbackVariants(baseExamples, config)
@@ -77,7 +78,7 @@ export function generateExerciseVariants({
     return fallbackVariants
   }
 
-  return [
+  const variants: ExerciseVariant[] = [
     {
       id: 'rule_1',
       question: safeRule || 'Примените правило к примеру.',
@@ -87,6 +88,7 @@ export function generateExerciseVariants({
       difficulty: 'easy',
     },
   ]
+  return variants
 }
 
 export function getNextVariant(

@@ -7,10 +7,18 @@ interface TypingTextProps {
   speed?: number
   onComplete?: () => void
   className?: string
+  singleLine?: boolean
 }
 
-export default function TypingText({ text, speed = 30, onComplete, className }: TypingTextProps) {
+export default function TypingText({
+  text,
+  speed = 30,
+  onComplete,
+  className,
+  singleLine = false,
+}: TypingTextProps) {
   const [displayedText, setDisplayedText] = useState('')
+  const [isTypingComplete, setIsTypingComplete] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -25,6 +33,7 @@ export default function TypingText({ text, speed = 30, onComplete, className }: 
     }
 
     setDisplayedText('')
+    setIsTypingComplete(false)
 
     let charIndex = 0
     timeoutRef.current = setTimeout(() => {
@@ -39,6 +48,7 @@ export default function TypingText({ text, speed = 30, onComplete, className }: 
           clearInterval(intervalRef.current)
           intervalRef.current = null
         }
+        setIsTypingComplete(true)
         onComplete?.()
       }, speed)
     }, 100)
@@ -56,20 +66,20 @@ export default function TypingText({ text, speed = 30, onComplete, className }: 
   }, [text, speed, onComplete])
 
   return (
-    <div className="flex min-h-6 w-full items-start gap-1 overflow-hidden">
+    <div className={`flex min-h-6 w-full overflow-hidden ${singleLine ? 'items-center' : 'items-start'}`}>
       <span
-        className={`max-w-full whitespace-normal break-words text-sm leading-tight text-[var(--text-muted,#6b7280)] ${
+        className={`max-w-full text-sm leading-tight text-[var(--text-muted,#6b7280)] ${
+          singleLine ? 'truncate whitespace-nowrap' : 'whitespace-normal break-words'
+        } ${
           className ?? ''
         }`}
+        style={{
+          opacity: isTypingComplete ? 1 : 0.94,
+          transition: 'opacity 180ms ease-out',
+        }}
       >
         {displayedText}
       </span>
-      {displayedText.length < text.length && (
-        <span
-          className="typing-caret mt-0.5 inline-block h-4 w-1.5 shrink-0 rounded-[1px] bg-blue-400"
-          aria-hidden
-        />
-      )}
     </div>
   )
 }

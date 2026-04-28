@@ -254,6 +254,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         hint: `В ответе с ${variant.introSubject} нужен глагол ${variant.verbThird}.`,
       },
       footerDynamic: `Hook: Who ${variant.verbThird} ...?`,
+      myEngComment: 'Начинаем мягко, вы быстро схватите.',
     },
     {
       stepNumber: 2,
@@ -283,6 +284,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         hint: `В таком вопросе нужна форма ${variant.verbThird}.`,
       },
       footerDynamic: `Theory: Who + ${variant.verbThird}`,
+      myEngComment: 'Отлично, ловим форму глагола.',
     },
     {
       stepNumber: 3,
@@ -349,6 +351,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         },
       },
       footerDynamic: 'Practice: Who',
+      myEngComment: 'Хорошо, теперь короткий ритм вопроса.',
     },
     {
       stepNumber: 4,
@@ -431,6 +434,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         },
       },
       footerDynamic: 'Practice: full question',
+      myEngComment: 'Собираем вопрос уверенно и спокойно.',
     },
     {
       stepNumber: 5,
@@ -459,6 +463,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         hint: `Сначала вопрос с Who, потом ответ с ${variant.verbThird}.`,
       },
       footerDynamic: 'Practice: question and answer',
+      myEngComment: 'Теперь звучите уже как в диалоге.',
     },
     {
       stepNumber: 6,
@@ -510,6 +515,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         },
       },
       footerDynamic: 'Карточка: Who + verb-s + noun?',
+      myEngComment: 'Почти финиш, осталось закрепить.',
     },
     {
       stepNumber: 7,
@@ -529,6 +535,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         },
       ],
       footerDynamic: 'Урок завершён',
+      myEngComment: 'Готово. Вопросы с Who уже ваши.',
       postLesson: {
         ...whoLikesPostLesson,
         options: whoLikesPostLesson.options.map((option) => ({ ...option })),
@@ -559,6 +566,7 @@ function buildWhoLikesVariantProfile(variant: WhoLikesVariant): LessonRepeatVari
             }
           : {}),
         footerDynamic: step.footerDynamic,
+        ...(step.myEngComment ? { myEngComment: step.myEngComment } : {}),
       })),
   }
 }

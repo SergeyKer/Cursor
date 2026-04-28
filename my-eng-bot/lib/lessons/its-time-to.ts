@@ -272,6 +272,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         hint: 'Для описания состояния используйте It is + прилагательное.',
       },
       footerDynamic: 'Правило 1: It is + прилагательное',
+      myEngComment: 'Вижу, вы готовы к новой конструкции.',
     },
     {
       stepNumber: 2,
@@ -301,6 +302,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         hint: 'После "to" нужен глагол в начальной форме.',
       },
       footerDynamic: 'Правило 2: It is time to + глагол',
+      myEngComment: 'Отлично, теперь берем действие.',
     },
     {
       stepNumber: 3,
@@ -367,6 +369,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         },
       },
       footerDynamic: 'Практика: выберите правильный глагол',
+      myEngComment: 'Пора почувствовать разницу вживую.',
     },
     {
       stepNumber: 4,
@@ -433,6 +436,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         },
       },
       footerDynamic: 'Практика: описание состояния',
+      myEngComment: 'Хорошо идете, держим темп.',
     },
     {
       stepNumber: 5,
@@ -461,6 +465,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         hint: 'Используйте "It is time to" + глагол.',
       },
       footerDynamic: 'Практика: соберите полное предложение',
+      myEngComment: 'Теперь соберите фразу целиком.',
     },
     {
       stepNumber: 6,
@@ -509,6 +514,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         },
       },
       footerDynamic: 'Карточка: It is + adjective | It is time to + verb',
+      myEngComment: 'Финиш рядом, осталось одно усилие.',
     },
     {
       stepNumber: 7,
@@ -528,6 +534,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         },
       ],
       footerDynamic: 'Урок завершен',
+      myEngComment: 'Урок пройден. Готовы дальше?',
       postLesson: {
         ...itsTimePostLesson,
         options: itsTimePostLesson.options.map((option) => ({ ...option })),
@@ -558,6 +565,7 @@ function buildItsTimeVariantProfile(variant: ItsTimeVariant): LessonRepeatVarian
             }
           : {}),
         footerDynamic: step.footerDynamic,
+        ...(step.myEngComment ? { myEngComment: step.myEngComment } : {}),
       })),
   }
 }

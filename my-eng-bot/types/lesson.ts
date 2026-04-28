@@ -116,6 +116,7 @@ export interface LessonRepeatStepVariant {
   bubbles?: [Bubble, Bubble, Bubble]
   exercise?: Partial<Exercise>
   footerDynamic?: string
+  myEngComment?: string
 }
 
 export interface LessonRepeatVariantProfile {
@@ -155,6 +156,7 @@ export interface LessonStep {
   bubbles: [Bubble, Bubble, Bubble]
   exercise?: Exercise
   footerDynamic: string
+  myEngComment?: string
   postLesson?: PostLessonContent
 }
 

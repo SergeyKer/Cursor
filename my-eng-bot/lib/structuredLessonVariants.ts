@@ -102,6 +102,7 @@ function mergeStep(baseStep: LessonStep, variantStep?: LessonRepeatStepVariant):
     ...cloneStep(baseStep),
     ...(variantStep.bubbles ? { bubbles: variantStep.bubbles.map((bubble) => cloneBubble(bubble)) as LessonStep['bubbles'] } : {}),
     ...(variantStep.footerDynamic ? { footerDynamic: variantStep.footerDynamic } : {}),
+    ...(variantStep.myEngComment ? { myEngComment: variantStep.myEngComment } : {}),
     ...(nextExercise ? { exercise: nextExercise } : {}),
   }
 }

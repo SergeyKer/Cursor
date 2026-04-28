@@ -130,9 +130,10 @@ export default function LessonStepRenderer({
         ? lessonVoiceInput.displayText
         : lessonVoiceInput.draftText
   const showVoiceOverlay = lessonVoiceInput.isVoiceActive && lessonVoiceInput.livePreviewText.length > 0
-  const voiceStatusMessage = LESSON_HIDDEN_VOICE_STATUS_MESSAGES.has(lessonVoiceInput.voiceStatusMessage)
+  const rawVoiceStatusMessage = lessonVoiceInput.voiceStatusMessage ?? ''
+  const voiceStatusMessage = LESSON_HIDDEN_VOICE_STATUS_MESSAGES.has(rawVoiceStatusMessage)
     ? ''
-    : lessonVoiceInput.voiceStatusMessage
+    : rawVoiceStatusMessage
   const normalizedChoiceEntries = useMemo(
     () =>
       choiceOptions
@@ -393,13 +394,13 @@ export default function LessonStepRenderer({
 
             {currentStep && (
               <div
-                className="shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 pt-2.5 sm:px-3"
+                className={`shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 sm:px-3 ${
+                  shouldRenderChoiceChips ? 'pt-0' : 'pt-2.5'
+                }`}
                 style={{ paddingBottom: 'calc(var(--app-bottom-inset) + 0.625rem)' }}
               >
                 {exercise && !hasPostLessonOptions && (
-                  <div className="pb-2">
-                    <ExerciseRenderer exercise={exercise} onAnswer={onAnswer} isChecking={isChecking} />
-                  </div>
+                  <ExerciseRenderer exercise={exercise} onAnswer={onAnswer} isChecking={isChecking} />
                 )}
                 {hasPostLessonOptions ? (
                   <PostLessonMenu
