@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { callProviderChat } from '@/lib/callProviderChat'
 import type { AiProvider } from '@/lib/types'
 import { hasRequiredTheoryStructure, isValidLessonBlueprint, type TutorAdaptiveTemplate } from '@/lib/lessonBlueprint'
+import {
+  buildLessonBlueprintCacheKey,
+  createLessonRouteCorrelationId,
+  logLessonRouteStages,
+  logLessonRouteSummary,
+  readLessonRouteCache,
+  runLessonRouteInflight,
+  writeLessonRouteCache,
+} from '@/lib/lessonRouteRuntime'
 
 type Body = {
   provider?: AiProvider
@@ -77,6 +86,8 @@ function extractJsonObject(raw: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  const startedAt = Date.now()
+  const correlationId = req.headers.get('x-correlation-id')?.trim() || createLessonRouteCorrelationId('blueprint')
   let body: Body
   try {
     body = (await req.json()) as Body
@@ -94,6 +105,39 @@ export async function POST(req: NextRequest) {
   const topic = (body.topic ?? '').trim()
   if (!topic) {
     return NextResponse.json({ error: 'Тема для урока не передана.' }, { status: 400 })
+  }
+  const cacheKey = buildLessonBlueprintCacheKey({
+    topic,
+    level: body.level ?? 'a2',
+    audience: body.audience ?? 'adult',
+    provider,
+    openAiChatPreset,
+    analysisSummary: body.analysisSummary,
+  })
+  const cacheReadStartedAt = Date.now()
+  const cachedResponse = readLessonRouteCache<{ lesson: ReturnType<typeof defaultLesson>; generated: boolean; fallback: boolean }>(cacheKey)
+  if (cachedResponse) {
+    logLessonRouteSummary({
+      correlationId,
+      mode: 'blueprint',
+      lessonId: topic,
+      selectedVariantId: null,
+      durationMs: Date.now() - startedAt,
+      source: 'cache',
+      generated: cachedResponse.generated,
+      fallback: cachedResponse.fallback,
+    })
+    logLessonRouteStages({
+      correlationId,
+      mode: 'blueprint',
+      stages: {
+        cache_read_ms: Date.now() - cacheReadStartedAt,
+        total_ms: Date.now() - startedAt,
+      },
+    })
+    return NextResponse.json(cachedResponse, {
+      headers: { 'x-correlation-id': correlationId },
+    })
   }
 
   const system = [
@@ -127,39 +171,173 @@ export async function POST(req: NextRequest) {
     .filter(Boolean)
     .join('\n')
 
-  const model = await callProviderChat({
-    provider,
-    req,
-    apiMessages: [
-      { role: 'system', content: system },
-      { role: 'user', content: user },
-    ],
-    maxTokens: 1000,
-    openAiChatPreset,
+  const responsePayload = await runLessonRouteInflight(cacheKey, async () => {
+    const providerStartedAt = Date.now()
+    const model = await callProviderChat({
+      provider,
+      req,
+      apiMessages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      maxTokens: 1000,
+      openAiChatPreset,
+      traceLabel: 'lesson-blueprint',
+    })
+
+    if (!model.ok) {
+      const payload = { lesson: defaultLesson(topic), generated: false, fallback: true }
+      writeLessonRouteCache(cacheKey, payload)
+      logLessonRouteSummary({
+        correlationId,
+        mode: 'blueprint',
+        lessonId: topic,
+        selectedVariantId: null,
+        durationMs: Date.now() - startedAt,
+        source: 'provider',
+        generated: false,
+        fallback: true,
+      })
+      logLessonRouteStages({
+        correlationId,
+        mode: 'blueprint',
+        stages: {
+          provider_ms: Date.now() - providerStartedAt,
+          total_ms: Date.now() - startedAt,
+        },
+      })
+      return payload
+    }
+
+    const json = extractJsonObject(model.content)
+    if (!json) {
+      const payload = { lesson: defaultLesson(topic), generated: false, fallback: true }
+      writeLessonRouteCache(cacheKey, payload)
+      logLessonRouteSummary({
+        correlationId,
+        mode: 'blueprint',
+        lessonId: topic,
+        selectedVariantId: null,
+        durationMs: Date.now() - startedAt,
+        source: 'provider',
+        generated: false,
+        fallback: true,
+      })
+      logLessonRouteStages({
+        correlationId,
+        mode: 'blueprint',
+        stages: {
+          provider_ms: Date.now() - providerStartedAt,
+          total_ms: Date.now() - startedAt,
+        },
+      })
+      return payload
+    }
+
+    try {
+      const validationStartedAt = Date.now()
+      const parsed = JSON.parse(json) as unknown
+      if (!isValidLessonBlueprint(parsed)) {
+        const payload = { lesson: defaultLesson(topic), generated: false, fallback: true }
+        writeLessonRouteCache(cacheKey, payload)
+        logLessonRouteSummary({
+          correlationId,
+          mode: 'blueprint',
+          lessonId: topic,
+          selectedVariantId: null,
+          durationMs: Date.now() - startedAt,
+          source: 'provider',
+          generated: false,
+          fallback: true,
+        })
+        logLessonRouteStages({
+          correlationId,
+          mode: 'blueprint',
+          stages: {
+            provider_ms: validationStartedAt - providerStartedAt,
+            validation_ms: Date.now() - validationStartedAt,
+            total_ms: Date.now() - startedAt,
+          },
+        })
+        return payload
+      }
+      const normalizedTheoryIntro = normalizeTheoryIntro(parsed.theoryIntro)
+      if (!hasRequiredTheoryStructure(normalizedTheoryIntro)) {
+        const payload = { lesson: defaultLesson(topic), generated: false, fallback: true }
+        writeLessonRouteCache(cacheKey, payload)
+        logLessonRouteSummary({
+          correlationId,
+          mode: 'blueprint',
+          lessonId: topic,
+          selectedVariantId: null,
+          durationMs: Date.now() - startedAt,
+          source: 'provider',
+          generated: false,
+          fallback: true,
+        })
+        logLessonRouteStages({
+          correlationId,
+          mode: 'blueprint',
+          stages: {
+            provider_ms: validationStartedAt - providerStartedAt,
+            validation_ms: Date.now() - validationStartedAt,
+            total_ms: Date.now() - startedAt,
+          },
+        })
+        return payload
+      }
+      const payload = {
+        lesson: { ...parsed, theoryIntro: normalizedTheoryIntro },
+        generated: true,
+        fallback: false,
+      }
+      writeLessonRouteCache(cacheKey, payload)
+      logLessonRouteSummary({
+        correlationId,
+        mode: 'blueprint',
+        lessonId: topic,
+        selectedVariantId: null,
+        durationMs: Date.now() - startedAt,
+        source: 'provider',
+        generated: true,
+        fallback: false,
+      })
+      logLessonRouteStages({
+        correlationId,
+        mode: 'blueprint',
+        stages: {
+          provider_ms: validationStartedAt - providerStartedAt,
+          validation_ms: Date.now() - validationStartedAt,
+          total_ms: Date.now() - startedAt,
+        },
+      })
+      return payload
+    } catch {
+      const payload = { lesson: defaultLesson(topic), generated: false, fallback: true }
+      writeLessonRouteCache(cacheKey, payload)
+      logLessonRouteSummary({
+        correlationId,
+        mode: 'blueprint',
+        lessonId: topic,
+        selectedVariantId: null,
+        durationMs: Date.now() - startedAt,
+        source: 'provider',
+        generated: false,
+        fallback: true,
+      })
+      logLessonRouteStages({
+        correlationId,
+        mode: 'blueprint',
+        stages: {
+          provider_ms: Date.now() - providerStartedAt,
+          total_ms: Date.now() - startedAt,
+        },
+      })
+      return payload
+    }
   })
 
-  if (!model.ok) {
-    return NextResponse.json({ lesson: defaultLesson(topic), generated: false, fallback: true })
-  }
-
-  const json = extractJsonObject(model.content)
-  if (!json) return NextResponse.json({ lesson: defaultLesson(topic), generated: false, fallback: true })
-
-  try {
-    const parsed = JSON.parse(json) as unknown
-    if (!isValidLessonBlueprint(parsed)) {
-      return NextResponse.json({ lesson: defaultLesson(topic), generated: false, fallback: true })
-    }
-    const normalizedTheoryIntro = normalizeTheoryIntro(parsed.theoryIntro)
-    if (!hasRequiredTheoryStructure(normalizedTheoryIntro)) {
-      return NextResponse.json({ lesson: defaultLesson(topic), generated: false, fallback: true })
-    }
-    return NextResponse.json({
-      lesson: { ...parsed, theoryIntro: normalizedTheoryIntro },
-      generated: true,
-      fallback: false,
-    })
-  } catch {
-    return NextResponse.json({ lesson: defaultLesson(topic), generated: false, fallback: true })
-  }
+  return NextResponse.json(responsePayload, {
+    headers: { 'x-correlation-id': correlationId },
+  })
 }

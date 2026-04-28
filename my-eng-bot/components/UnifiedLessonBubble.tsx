@@ -4,6 +4,10 @@ import type { Bubble } from '@/types/lesson'
 
 type UnifiedLessonBubbleProps = {
   bubbles: Bubble[]
+  variantInfo?: {
+    current: number
+    total: number
+  }
 }
 
 const unifiedSectionClassByType: Record<Bubble['type'], string> = {
@@ -12,9 +16,14 @@ const unifiedSectionClassByType: Record<Bubble['type'], string> = {
   task: 'bg-[rgba(239,246,255,0.96)]',
 }
 
-export default function UnifiedLessonBubble({ bubbles }: UnifiedLessonBubbleProps) {
+export default function UnifiedLessonBubble({ bubbles, variantInfo }: UnifiedLessonBubbleProps) {
   return (
     <div className="chat-section-surface glass-surface overflow-hidden rounded-xl border border-[var(--chat-section-neutral-border)] bg-white/95">
+      {variantInfo && variantInfo.total > 1 ? (
+        <span className="text-xs text-gray-500 font-medium px-4 pt-2 block">
+          📝 Вопрос {variantInfo.current} из {variantInfo.total}
+        </span>
+      ) : null}
       {bubbles.map((bubble, bubbleIndex) => {
         const isLast = bubbleIndex === bubbles.length - 1
 

@@ -11,6 +11,7 @@ import type { BlockProgress, LessonStatus, LessonTimelineEntry } from '@/hooks/u
 import { seededShuffle } from '@/lib/shuffleSeeded'
 import { useLessonVoiceInput } from '@/lib/voice/useLessonVoiceInput'
 import type { Bubble, PostLessonAction } from '@/types/lesson'
+import { getVariantInfo } from '@/utils/footerMessages'
 
 type LessonStepRendererProps = {
   timeline: LessonTimelineEntry[]
@@ -87,6 +88,7 @@ export default function LessonStepRenderer({
   const currentStep = currentEntry?.step ?? null
   const currentFeedback = currentEntry?.feedback ?? null
   const exercise = currentStep?.exercise ?? null
+  const variantInfo = useMemo(() => getVariantInfo(exercise), [exercise])
   const postLesson = currentStep?.stepType === 'completion' ? currentStep.postLesson ?? null : null
   const rawChoiceOptions = exercise?.options
   const choiceOptions = useMemo(() => {
@@ -331,7 +333,10 @@ export default function LessonStepRenderer({
                         rowClassName={isBubbleEnd ? 'mb-2.5' : 'mb-0.5'}
                       >
                         {useUnifiedLessonBubble ? (
-                          <UnifiedLessonBubble bubbles={message.bubbles} />
+                          <UnifiedLessonBubble
+                            bubbles={message.bubbles}
+                            variantInfo={message.id === `lesson-${currentStep?.stepNumber}` ? variantInfo ?? undefined : undefined}
+                          />
                         ) : (
                           <div className="space-y-1.5">
                             {message.bubbles.map((bubble, bubbleIndex) => (

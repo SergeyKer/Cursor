@@ -4,6 +4,7 @@ import { fetchWithProxyFallback } from '@/lib/proxyFetch'
 
 vi.mock('@/lib/proxyFetch', () => ({
   fetchWithProxyFallback: vi.fn(),
+  buildProxyFetchExtra: vi.fn(),
 }))
 
 describe('callProviderChat proxy behavior', () => {

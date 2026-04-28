@@ -8,6 +8,7 @@ import {
   type FooterVoiceEmphasis,
   type FooterVoiceTone,
 } from '@/lib/footerVoice'
+import { getLessonRepeatFooterMessage, getVariantInfo } from '@/utils/footerMessages'
 
 export type LessonStatus = 'idle' | 'checking' | 'feedback' | 'completed'
 
@@ -45,12 +46,8 @@ const VALIDATION_DELAY_MS = 400
 const AUTO_ADVANCE_DELAY_MS = 1500
 const ENABLE_GAMIFICATION = false
 
-function buildLessonHintWithCorrectAnswer(
-  hint: string | undefined,
-  correctAnswer: string
-): string {
-  const baseHint = hint?.trim() || 'Почти. Попробуйте еще раз.'
-  return `${baseHint} Скажи: ${correctAnswer.trim()}`
+function buildLessonHintMessage(hint: string | undefined): string {
+  return hint?.trim() || 'Почти. Попробуйте еще раз.'
 }
 
 function resolveAdaptiveConfig(config?: AdaptiveConfig): AdaptiveConfig {
@@ -270,7 +267,7 @@ export function useLessonEngine(lesson: LessonData | null) {
         })
         const errorFeedback = {
           type: 'error',
-          message: buildLessonHintWithCorrectAnswer(exercise.hint, exercise.correctAnswer),
+          message: buildLessonHintMessage(exercise.hint),
         } as const
         setFeedback(errorFeedback)
         setFeedbackByStep((current) => ({ ...current, [currentStep]: errorFeedback }))
@@ -318,6 +315,11 @@ export function useLessonEngine(lesson: LessonData | null) {
       current: currentVariantIndex,
     }
   }, [rawStep?.exercise?.variants, currentVariantIndex])
+  const footerVariantInfo = useMemo(() => getVariantInfo(activeExercise), [activeExercise])
+  const repeatFooterMessage = useMemo(
+    () => getLessonRepeatFooterMessage(step?.stepNumber, footerVariantInfo),
+    [footerVariantInfo, step?.stepNumber]
+  )
   const footerStaticText = useMemo(() => {
     if (!lesson || totalSteps === 0) return null
 
@@ -396,6 +398,15 @@ export function useLessonEngine(lesson: LessonData | null) {
               tone: 'support',
             }
           : null,
+        repeatFooterMessage
+          ? {
+              key: `lesson-repeat-${step?.stepNumber ?? currentStep}-${footerVariantInfo?.current ?? 0}`,
+              priority: 60,
+              text: repeatFooterMessage,
+              compactText: repeatFooterMessage,
+              tone: 'neutral',
+            }
+          : null,
         step?.myEngComment
           ? {
               key: `lesson-step-${step.stepNumber}`,
@@ -441,7 +452,9 @@ export function useLessonEngine(lesson: LessonData | null) {
     currentVariantIndex,
     exerciseErrors,
     feedback?.type,
+    footerVariantInfo,
     lesson,
+    repeatFooterMessage,
     status,
     step?.footerDynamic,
     step?.myEngComment,

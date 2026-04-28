@@ -64,6 +64,25 @@ describe('structuredLessonFactory', () => {
     expect(validation.issues.some((issue) => issue.code === 'hint_reveals_answer')).toBe(true)
   })
 
+  it('rejects practice-fill explanations that reveal the answer directly', () => {
+    const brokenSteps = toGeneratedPayload()
+    brokenSteps[2] = {
+      ...brokenSteps[2],
+      bubbles: [
+        brokenSteps[2].bubbles[0],
+        {
+          type: 'info',
+          content: 'Опорный пример: It is cold. It is time to drink tea.',
+        },
+        brokenSteps[2].bubbles[2],
+      ],
+    }
+
+    const validation = assessGeneratedSteps(itsTimeToLesson, itsTimeToLesson.steps, brokenSteps)
+    expect(validation.accepted).toBe(false)
+    expect(validation.issues.some((issue) => issue.code === 'support_reveals_answer')).toBe(true)
+  })
+
   it('rejects too many accepted answers without explicit wide policy', () => {
     const brokenSteps = toGeneratedPayload()
     brokenSteps[3] = {

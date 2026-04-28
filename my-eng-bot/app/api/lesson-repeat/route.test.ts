@@ -119,6 +119,28 @@ describe('POST /api/lesson-repeat', () => {
     warnSpy.mockRestore()
   })
 
+  it('deduplicates concurrent identical repeat requests', async () => {
+    callProviderChatMock.mockImplementationOnce(
+      async () =>
+        await new Promise((resolve) =>
+          setTimeout(() => resolve({ ok: true, content: JSON.stringify({ steps: toRepeatModelSteps() }) }), 25)
+        )
+    )
+
+    const [resA, resB] = await Promise.all([
+      POST(makeRequest({ lessonId: '1', recentVariantIds: lesson1RecentVariantIds }) as never),
+      POST(makeRequest({ lessonId: '1', recentVariantIds: lesson1RecentVariantIds }) as never),
+    ])
+    const dataA = (await resA.json()) as { generated: boolean; fallback: boolean }
+    const dataB = (await resB.json()) as { generated: boolean; fallback: boolean }
+
+    expect(resA.status).toBe(200)
+    expect(resB.status).toBe(200)
+    expect(dataA.generated).toBe(true)
+    expect(dataB.generated).toBe(true)
+    expect(callProviderChatMock).toHaveBeenCalledTimes(1)
+  })
+
   it('falls back when correct english drifts into broken grammar', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const brokenSteps = toWhoLikesRepeatSteps()

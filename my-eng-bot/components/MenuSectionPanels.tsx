@@ -138,6 +138,7 @@ export interface MenuSectionPanelsProps {
   onAiChatPanelChange?: (panel: AiChatPanel) => void
   /** Открыть урок из ветки «Обучение». */
   onOpenLearningLesson?: (lessonId: string) => void | Promise<void>
+  onPrefetchLearningLesson?: (lessonId: string, mode?: 'generate' | 'repeat') => void
   onOpenTutorLesson?: (request: { requestedTopic: string; analysisSummary?: string }) => Promise<void> | void
   /** Стартовый уровень lessons-панели при открытии меню. */
   initialLessonsPanel?: LessonsPanel
@@ -157,6 +158,7 @@ export default function MenuSectionPanels({
   onGoHome,
   onAiChatPanelChange,
   onOpenLearningLesson,
+  onPrefetchLearningLesson,
   onOpenTutorLesson,
   initialLessonsPanel,
 }: MenuSectionPanelsProps) {
@@ -218,6 +220,14 @@ export default function MenuSectionPanels({
   React.useEffect(() => {
     if (menuView === 'aiChat') onAiChatPanelChange?.(aiChatPanel)
   }, [menuView, aiChatPanel, onAiChatPanelChange])
+
+  React.useEffect(() => {
+    if (menuView !== 'lessons' || lessonsPanel !== 'a2' || !selectedA2LessonId || !onPrefetchLearningLesson) return
+    const timeoutId = setTimeout(() => {
+      onPrefetchLearningLesson(selectedA2LessonId, 'generate')
+    }, 180)
+    return () => clearTimeout(timeoutId)
+  }, [menuView, lessonsPanel, onPrefetchLearningLesson, selectedA2LessonId])
 
   const isChild = settings.audience === 'child'
   const childAllowedLevels = new Set(['all', 'a1', 'a2'])
@@ -615,6 +625,7 @@ export default function MenuSectionPanels({
                         selected={item.enabled && selectedA2LessonId === item.id}
                         enabled={item.enabled}
                         onClick={item.enabled ? () => setSelectedA2LessonId(item.id) : undefined}
+                        onPrefetch={item.enabled ? () => onPrefetchLearningLesson?.(item.id, 'generate') : undefined}
                       />
                     ))}
                   </div>
@@ -622,6 +633,12 @@ export default function MenuSectionPanels({
                 <div className="pt-2">
                   <button
                     type="button"
+                    onMouseEnter={() => {
+                      if (selectedA2LessonId) onPrefetchLearningLesson?.(selectedA2LessonId, 'generate')
+                    }}
+                    onFocus={() => {
+                      if (selectedA2LessonId) onPrefetchLearningLesson?.(selectedA2LessonId, 'generate')
+                    }}
                     onClick={() => {
                       if (!onOpenLearningLesson || !selectedA2LessonId) return
                       onOpenLearningLesson(selectedA2LessonId)
@@ -1103,11 +1120,13 @@ function A2LessonChoiceRow({
   selected,
   enabled,
   onClick,
+  onPrefetch,
 }: {
   label: string
   selected: boolean
   enabled: boolean
   onClick?: () => void
+  onPrefetch?: () => void
 }) {
   if (!enabled) {
     return (
@@ -1122,6 +1141,8 @@ function A2LessonChoiceRow({
     <button
       type="button"
       onClick={onClick}
+      onMouseEnter={onPrefetch}
+      onFocus={onPrefetch}
       className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
     >
       <span className="text-[15px] font-normal leading-normal text-[var(--text)]">{label}</span>

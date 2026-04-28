@@ -1,4 +1,4 @@
-type LessonRouteMode = 'generate' | 'repeat'
+type LessonRouteMode = 'generate' | 'repeat' | 'blueprint'
 
 type CachedLessonRouteValue<T> = {
   expiresAt: number
@@ -7,9 +7,24 @@ type CachedLessonRouteValue<T> = {
 
 const LESSON_ROUTE_CACHE_TTL_MS = 2 * 60 * 1000
 const lessonRouteCache = new Map<string, CachedLessonRouteValue<unknown>>()
+const lessonRouteInflight = new Map<string, Promise<unknown>>()
+
+function isFlagEnabled(rawValue: string | undefined, defaultValue: boolean): boolean {
+  const value = rawValue?.trim()
+  if (!value) return defaultValue
+  return !/^(?:0|false|off|no)$/i.test(value)
+}
 
 function isLessonRouteCacheEnabled(): boolean {
   return process.env.NODE_ENV !== 'test' && process.env.VITEST !== 'true'
+}
+
+export function isLessonRouteDedupeEnabled(): boolean {
+  return isFlagEnabled(process.env.LESSON_LATENCY_DEDUP_ENABLED, true)
+}
+
+export function isLessonProviderWarmupEnabled(): boolean {
+  return isFlagEnabled(process.env.LESSON_PROVIDER_WARMUP_ENABLED, false)
 }
 
 export function createLessonRouteCorrelationId(mode: LessonRouteMode): string {
@@ -45,6 +60,25 @@ export function buildLessonRouteCacheKey(params: {
   ].join('::')
 }
 
+export function buildLessonBlueprintCacheKey(params: {
+  topic: string
+  level: string
+  audience: string
+  provider: string
+  openAiChatPreset: string
+  analysisSummary?: string
+}): string {
+  return [
+    'blueprint',
+    params.topic.trim(),
+    params.level.trim(),
+    params.audience.trim(),
+    params.provider.trim(),
+    params.openAiChatPreset.trim(),
+    params.analysisSummary?.trim() ?? '',
+  ].join('::')
+}
+
 export function readLessonRouteCache<T>(cacheKey: string): T | null {
   if (!isLessonRouteCacheEnabled()) return null
   const cached = lessonRouteCache.get(cacheKey)
@@ -64,6 +98,25 @@ export function writeLessonRouteCache<T>(cacheKey: string, value: T): void {
   })
 }
 
+export async function runLessonRouteInflight<T>(cacheKey: string, factory: () => Promise<T>): Promise<T> {
+  if (!isLessonRouteDedupeEnabled()) {
+    return factory()
+  }
+  const existing = lessonRouteInflight.get(cacheKey) as Promise<T> | undefined
+  if (existing) {
+    return cloneSerializable(await existing)
+  }
+  const promise = (async () => cloneSerializable(await factory()))()
+  lessonRouteInflight.set(cacheKey, promise as Promise<unknown>)
+  try {
+    return cloneSerializable(await promise)
+  } finally {
+    if (lessonRouteInflight.get(cacheKey) === promise) {
+      lessonRouteInflight.delete(cacheKey)
+    }
+  }
+}
+
 export function logLessonRouteSummary(params: {
   correlationId: string
   mode: LessonRouteMode
@@ -77,6 +130,17 @@ export function logLessonRouteSummary(params: {
   console.info(
     `[${params.correlationId}] lesson-${params.mode} lesson=${params.lessonId} variant=${params.selectedVariantId ?? 'default'} source=${params.source} generated=${params.generated} fallback=${params.fallback} duration_ms=${params.durationMs}`
   )
+}
+
+export function logLessonRouteStages(params: {
+  correlationId: string
+  mode: LessonRouteMode
+  stages: Record<string, number | undefined>
+}): void {
+  const entries = Object.entries(params.stages).filter(([, value]) => typeof value === 'number')
+  if (entries.length === 0) return
+  const body = entries.map(([key, value]) => `${key}=${value}`).join(' ')
+  console.info(`[${params.correlationId}] lesson-${params.mode}-stages ${body}`)
 }
 
 function cloneSerializable<T>(value: T): T {

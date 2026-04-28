@@ -427,6 +427,7 @@ function validateGeneratedStepSemantics(
   const footerDynamic = typeof candidateStep.footerDynamic === 'string' ? candidateStep.footerDynamic : ''
   const hint = typeof candidateStep.exercise?.hint === 'string' ? candidateStep.exercise.hint : ''
   const correctAnswer = typeof candidateStep.exercise?.correctAnswer === 'string' ? candidateStep.exercise.correctAnswer.trim() : ''
+  const explanatoryText = `${infoBubble} ${hint}`.trim()
   const answerPolicy = getAnswerPolicy(blueprint)
   const acceptedAnswers = correctAnswer
     ? uniqueAcceptedAnswers(correctAnswer, candidateStep.exercise?.acceptedAnswers)
@@ -465,6 +466,22 @@ function validateGeneratedStepSemantics(
   }
   if (hint && correctAnswer && normalizeForPolicyCheck(hint).includes(normalizeForPolicyCheck(correctAnswer))) {
     issues.push(issue('hard', 'hint_reveals_answer', 'Hint не должен раскрывать правильный ответ напрямую.', sourceStep.stepNumber))
+  }
+  if (
+    sourceStep.stepType === 'practice_fill' &&
+    sourceStep.exercise?.type === 'translate' &&
+    explanatoryText &&
+    correctAnswer &&
+    normalizeForPolicyCheck(explanatoryText).includes(normalizeForPolicyCheck(correctAnswer))
+  ) {
+    issues.push(
+      issue(
+        'hard',
+        'support_reveals_answer',
+        'Примеры, пояснения и hints не должны содержать правильный ответ.',
+        sourceStep.stepNumber
+      )
+    )
   }
   if (expectations?.requireCyrillicHint && candidateStep.exercise && hint && !hasCyrillic(hint)) {
     issues.push(issue('hard', 'hint_not_russian', 'Hint должен быть на русском.', sourceStep.stepNumber))
@@ -859,6 +876,8 @@ export function buildStructuredCreationSystemPrompt(): string {
     'Если передан selectedVariantId, sourceSituations и sourceSteps, считай их обязательными смысловыми рельсами для нового варианта.',
     'Для fill_choice всегда давай ровно 3 варианта и включай correctAnswer в options.',
     'Для micro_quiz давай 2 или 3 варианта и включай correctAnswer в options.',
+    'Для practice_fill и translate шагов примеры и пояснения обязаны использовать другой контекст и другую лексику, чем само задание.',
+    'Категорически запрещено писать correctAnswer или его готовую английскую формулировку в bubbles типа positive/info, в hint и в пояснениях.',
     'Не делай hints слишком широкими и не раскрывай ответ напрямую.',
     'Если нужен один допустимый ответ, не добавляй лишние acceptedAnswers.',
     'Для каждого шага верни:',
@@ -895,6 +914,8 @@ export function buildStructuredRepeatSystemPrompt(): string {
     'Объяснения и подсказки на русском, правильные ответы на английском.',
     'Для fill_choice всегда давай ровно 3 варианта и включай correctAnswer в options.',
     'Для micro_quiz давай 2 или 3 варианта и включай correctAnswer в options.',
+    'Для practice_fill и translate шагов примеры и пояснения обязаны использовать другой контекст и другую лексику, чем само задание.',
+    'Категорически запрещено писать correctAnswer или его готовую английскую формулировку в bubbles типа positive/info, в hint и в пояснениях.',
     'Не делай hints слишком широкими и не раскрывай ответ напрямую.',
     'Если нужен один допустимый ответ, не добавляй лишние acceptedAnswers.',
     'Формат ответа верхнего уровня: {"steps":[...]}',

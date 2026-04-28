@@ -296,7 +296,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'Если вы спрашиваете "кто?", в начале будет Who.',
+          content: 'В таких вопросах первым идет специальное слово, которое спрашивает о человеке.',
         },
         {
           type: 'task',
@@ -310,14 +310,14 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         acceptedAnswers: ['Who'],
         answerFormat: 'single_word',
         answerPolicy: 'strict',
-        hint: 'Нужно вопросительное слово "кто".',
+        hint: 'Нужно короткое вопросительное слово для человека.',
         variants: [
           {
             id: `${variant.id}_step3_easy`,
             question: `Дополните вопрос: "___ ${variant.verbThird} ${variant.step3Object}?"`,
             correctAnswer: 'Who',
             acceptedAnswers: ['Who'],
-            hint: 'Нужно вопросительное слово "кто".',
+            hint: 'Нужно короткое вопросительное слово для человека.',
             difficulty: 'easy',
             answerFormat: 'single_word',
             answerPolicy: 'strict',
@@ -327,7 +327,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
             question: `Дополните вопрос: "___ ${variant.verbThird} ${variant.introObject}?"`,
             correctAnswer: 'Who',
             acceptedAnswers: ['Who'],
-            hint: 'В начале вопроса о человеке будет Who.',
+            hint: 'Поставьте в начало вопроса слово, которое спрашивает о человеке.',
             difficulty: 'medium',
             answerFormat: 'single_word',
             answerPolicy: 'strict',
@@ -337,7 +337,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
             question: 'Дополните вопрос: "___ reads comics?"',
             correctAnswer: 'Who',
             acceptedAnswers: ['Who'],
-            hint: 'Сначала ставим слово Who.',
+            hint: 'Начните вопрос со слова о человеке.',
             difficulty: 'hard',
             answerFormat: 'single_word',
             answerPolicy: 'strict',
@@ -363,7 +363,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: `Шаблон простой: Who + ${variant.verbThird} + noun?`,
+          content: 'Сначала ставим вопросительное слово, затем форму глагола для he/she и потом предмет вопроса.',
         },
         {
           type: 'task',
@@ -377,14 +377,14 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         acceptedAnswers: [`Who ${variant.verbThird} ${variant.introObject}?`],
         answerFormat: 'full_sentence',
         answerPolicy: 'strict',
-        hint: `Начните с Who и используйте ${variant.verbThird}.`,
+        hint: 'Соберите полный вопрос по знакомому порядку слов.',
         variants: [
           {
             id: `${variant.id}_step4_easy`,
             question: `Переведите на английский: "${variant.introQuestionRu}"`,
             correctAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,
             acceptedAnswers: [`Who ${variant.verbThird} ${variant.introObject}?`],
-            hint: `Начните с Who и используйте ${variant.verbThird}.`,
+            hint: 'Соберите полный вопрос по знакомому порядку слов.',
             difficulty: 'easy',
             answerFormat: 'full_sentence',
             answerPolicy: 'strict',
@@ -400,7 +400,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
               variant.verbBase === 'read'
                 ? [`Who ${variant.verbThird} stories?`]
                 : [`Who ${variant.verbThird} ${variant.step3Object}?`],
-            hint: `Нужен шаблон Who + ${variant.verbThird} + noun?`,
+            hint: 'Сохраните порядок: вопросительное слово, форма глагола для he/she, затем объект.',
             difficulty: 'medium',
             answerFormat: 'full_sentence',
             answerPolicy: 'strict',
@@ -420,7 +420,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
                 : variant.verbBase === 'drink'
                   ? [`Who ${variant.verbThird} water?`]
                   : [`Who ${variant.verbThird} music?`],
-            hint: 'Сначала Who, затем форма глагола с -s.',
+            hint: 'Соберите вопрос целиком и не забудьте форму глагола для he/she.',
             difficulty: 'hard',
             answerFormat: 'full_sentence',
             answerPolicy: 'strict',

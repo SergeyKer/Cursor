@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { fetchWithProxyFallback } from '@/lib/proxyFetch'
+import { buildProxyFetchExtra, fetchWithProxyFallback } from '@/lib/proxyFetch'
 import type { OpenAiChatPreset } from '@/lib/types'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
@@ -26,14 +26,34 @@ function hasExplicitEnvProxy(): boolean {
   return value.trim().length > 0
 }
 
+function shouldTraceLessonTransport(traceLabel: string | undefined): boolean {
+  return Boolean(traceLabel && /^lesson-/.test(traceLabel))
+}
+
+async function maybeWarmLessonTransport(traceLabel: string | undefined): Promise<void> {
+  if (!traceLabel || !/^lesson-/.test(traceLabel)) return
+  if (/^(?:0|false|off|no)$/i.test((process.env.LESSON_PROVIDER_WARMUP_ENABLED ?? '').trim())) return
+  if (!(process.env.LESSON_PROVIDER_WARMUP_ENABLED ?? '').trim()) return
+  try {
+    await buildProxyFetchExtra()
+  } catch {
+    // Warm-up is best effort and must not affect lesson generation.
+  }
+}
+
 export async function callProviderChat(params: {
   provider: 'openrouter' | 'openai'
   req: NextRequest
   apiMessages: { role: string; content: string }[]
   maxTokens?: number
   openAiChatPreset?: OpenAiChatPreset
+  traceLabel?: string
 }): Promise<{ ok: true; content: string } | { ok: false; status: number; errText: string }> {
-  const { provider, req, apiMessages, maxTokens = DEFAULT_MAX_TOKENS, openAiChatPreset = 'gpt-4o-mini' } = params
+  const { provider, req, apiMessages, maxTokens = DEFAULT_MAX_TOKENS, openAiChatPreset = 'gpt-4o-mini', traceLabel } = params
+  const traceTransport = shouldTraceLessonTransport(traceLabel)
+  const transportStartedAt = traceTransport ? Date.now() : 0
+
+  await maybeWarmLessonTransport(traceLabel)
 
   if (provider === 'openai') {
     const key = normalizeKey(process.env.OPENAI_API_KEY ?? '')
@@ -92,6 +112,13 @@ export async function callProviderChat(params: {
       data.choices?.[0]?.text ??
       ''
     ).trim()
+    if (traceTransport) {
+      console.info(
+        `[${traceLabel}] provider=${provider} preset=${openAiChatPreset} transport_ms=${Date.now() - transportStartedAt} proxy_path=${
+          preferProxy ? 'proxy-first' : 'direct-first'
+        }`
+      )
+    }
     return { ok: true, content }
   }
 
@@ -131,5 +158,10 @@ export async function callProviderChat(params: {
   }
   const first = data.choices?.[0]
   const content = (first?.message?.content ?? first?.text ?? '').trim()
+  if (traceTransport) {
+    console.info(
+      `[${traceLabel}] provider=${provider} preset=${openAiChatPreset} transport_ms=${Date.now() - transportStartedAt} proxy_path=direct-first`
+    )
+  }
   return { ok: true, content }
 }

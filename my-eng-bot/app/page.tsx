@@ -72,6 +72,7 @@ import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/component
 
 const Chat = dynamic(() => import('@/components/Chat'))
 const SlideOutMenu = dynamic(() => import('@/components/SlideOutMenu'))
+type StructuredLessonRuntimeMode = 'generate' | 'repeat'
 
 function cloneStructuredLessonWithRunKey(lesson: LessonData): LessonData {
   const cloned = typeof structuredClone === 'function' ? structuredClone(lesson) : JSON.parse(JSON.stringify(lesson))
@@ -79,6 +80,21 @@ function cloneStructuredLessonWithRunKey(lesson: LessonData): LessonData {
     ...cloned,
     runKey: `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
   }
+}
+
+function cloneLessonData<T>(value: T): T {
+  return typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value))
+}
+
+function appendLessonVariantHistory(history: string[], variantId: string): string[] {
+  if (!variantId) return history
+  if (history[history.length - 1] === variantId) return history.slice(-10)
+  return [...history, variantId].slice(-10)
+}
+
+function isLessonUiPrefetchEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_LESSON_UI_PREFETCH_ENABLED ?? 'true'
+  return !/^(?:0|false|off|no)$/i.test(value)
 }
 
 function buildTutorFallbackBlueprint(topic: string): LessonBlueprint {
@@ -363,6 +379,8 @@ export default function Home() {
   /** Не показывать баннер «настройки изменены» сразу после автоперезапуска из меню (до синхронизации с отправкой). */
   const suppressSettingsChangeBannerRef = React.useRef(false)
   const structuredLessonVariantHistoryRef = React.useRef<Record<string, string[]>>({})
+  const prefetchedStructuredLessonRuntimeRef = React.useRef<Record<string, LessonData | null>>({})
+  const structuredLessonRuntimeInFlightRef = React.useRef<Record<string, Promise<LessonData | null>>>({})
   /** iPhone / iPad / iPod и iPadOS с десктопным UA (Macintosh + Mobile). */
   const isIosClient = React.useMemo(() => {
     if (typeof navigator === 'undefined') return false
@@ -857,42 +875,117 @@ export default function Home() {
     setDialogStarted(true)
   }, [resetStructuredLessonSession])
 
-  const fetchStructuredLessonRuntime = useCallback(
-    async (lessonId: string, mode: 'generate' | 'repeat' = 'generate'): Promise<LessonData | null> => {
-      const fallbackLesson = getStructuredLessonById(lessonId)
-      if (!fallbackLesson) return null
-      try {
-        const recentVariantIds = structuredLessonVariantHistoryRef.current[lessonId] ?? []
-        const response = await fetch(mode === 'repeat' ? '/api/lesson-repeat' : '/api/structured-lesson-generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            provider: settings.provider,
-            openAiChatPreset: settings.openAiChatPreset,
-            audience: settings.audience,
-            lessonId,
-            recentVariantIds,
-          }),
-        })
-        const data = (await response.json()) as { lesson?: LessonData }
-        if (response.ok && data.lesson) {
-          if (data.lesson.variantId) {
-            const history = structuredLessonVariantHistoryRef.current[lessonId] ?? []
-            structuredLessonVariantHistoryRef.current[lessonId] = [...history, data.lesson.variantId].slice(-10)
-          }
-          return data.lesson
-        }
-      } catch (error) {
-        console.warn(mode === 'repeat' ? 'lesson-repeat failed:' : 'structured-lesson-generate failed:', error)
-      }
-      const clonedFallback = cloneStructuredLessonWithRunKey(fallbackLesson)
-      if (clonedFallback.variantId) {
-        const history = structuredLessonVariantHistoryRef.current[lessonId] ?? []
-        structuredLessonVariantHistoryRef.current[lessonId] = [...history, clonedFallback.variantId].slice(-10)
-      }
-      return clonedFallback
+  const buildStructuredLessonRuntimeRequestKey = useCallback(
+    (lessonId: string, mode: StructuredLessonRuntimeMode = 'generate') => {
+      const recentVariantIds = structuredLessonVariantHistoryRef.current[lessonId] ?? []
+      return [
+        mode,
+        lessonId,
+        settings.provider,
+        settings.openAiChatPreset,
+        settings.audience,
+        recentVariantIds.join('|'),
+      ].join('::')
     },
     [settings.provider, settings.openAiChatPreset, settings.audience]
+  )
+
+  const loadStructuredLessonRuntime = useCallback(
+    async (
+      lessonId: string,
+      mode: StructuredLessonRuntimeMode = 'generate',
+      options?: { cacheResult?: boolean }
+    ): Promise<LessonData | null> => {
+      const fallbackLesson = getStructuredLessonById(lessonId)
+      if (!fallbackLesson) return null
+      const requestKey = buildStructuredLessonRuntimeRequestKey(lessonId, mode)
+      const prefetched = prefetchedStructuredLessonRuntimeRef.current[requestKey]
+      if (prefetched) {
+        delete prefetchedStructuredLessonRuntimeRef.current[requestKey]
+        if (prefetched.variantId) {
+          const history = structuredLessonVariantHistoryRef.current[lessonId] ?? []
+          structuredLessonVariantHistoryRef.current[lessonId] = appendLessonVariantHistory(history, prefetched.variantId)
+        }
+        return cloneLessonData(prefetched)
+      }
+      const existingInFlight = structuredLessonRuntimeInFlightRef.current[requestKey]
+      if (existingInFlight) {
+        const shared = await existingInFlight
+        if (shared?.variantId) {
+          const history = structuredLessonVariantHistoryRef.current[lessonId] ?? []
+          structuredLessonVariantHistoryRef.current[lessonId] = appendLessonVariantHistory(history, shared.variantId)
+        }
+        return shared ? cloneLessonData(shared) : null
+      }
+
+      const requestPromise = (async () => {
+        const fetchStartedAt = Date.now()
+        try {
+          const recentVariantIds = structuredLessonVariantHistoryRef.current[lessonId] ?? []
+          const response = await fetch(mode === 'repeat' ? '/api/lesson-repeat' : '/api/structured-lesson-generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              provider: settings.provider,
+              openAiChatPreset: settings.openAiChatPreset,
+              audience: settings.audience,
+              lessonId,
+              recentVariantIds,
+            }),
+          })
+          const data = (await response.json()) as { lesson?: LessonData }
+          if (response.ok && data.lesson) {
+            if (data.lesson.variantId && !options?.cacheResult) {
+              const history = structuredLessonVariantHistoryRef.current[lessonId] ?? []
+              structuredLessonVariantHistoryRef.current[lessonId] = appendLessonVariantHistory(history, data.lesson.variantId)
+            }
+            if (options?.cacheResult) {
+              prefetchedStructuredLessonRuntimeRef.current[requestKey] = cloneLessonData(data.lesson)
+            }
+            console.info(
+              `[lesson-ui] mode=${mode} lesson=${lessonId} source=network fetch_ms=${Date.now() - fetchStartedAt}`
+            )
+            return data.lesson
+          }
+        } catch (error) {
+          console.warn(mode === 'repeat' ? 'lesson-repeat failed:' : 'structured-lesson-generate failed:', error)
+        }
+        const clonedFallback = cloneStructuredLessonWithRunKey(fallbackLesson)
+        if (clonedFallback.variantId && !options?.cacheResult) {
+          const history = structuredLessonVariantHistoryRef.current[lessonId] ?? []
+          structuredLessonVariantHistoryRef.current[lessonId] = appendLessonVariantHistory(history, clonedFallback.variantId)
+        }
+        if (options?.cacheResult) {
+          prefetchedStructuredLessonRuntimeRef.current[requestKey] = cloneLessonData(clonedFallback)
+        }
+        console.info(`[lesson-ui] mode=${mode} lesson=${lessonId} source=fallback fetch_ms=${Date.now() - fetchStartedAt}`)
+        return clonedFallback
+      })()
+
+      structuredLessonRuntimeInFlightRef.current[requestKey] = requestPromise
+      try {
+        const resolved = await requestPromise
+        return resolved ? cloneLessonData(resolved) : null
+      } finally {
+        delete structuredLessonRuntimeInFlightRef.current[requestKey]
+      }
+    },
+    [buildStructuredLessonRuntimeRequestKey, settings.provider, settings.openAiChatPreset, settings.audience]
+  )
+
+  const fetchStructuredLessonRuntime = useCallback(
+    async (lessonId: string, mode: StructuredLessonRuntimeMode = 'generate'): Promise<LessonData | null> => {
+      return loadStructuredLessonRuntime(lessonId, mode)
+    },
+    [loadStructuredLessonRuntime]
+  )
+
+  const prefetchStructuredLessonRuntime = useCallback(
+    (lessonId: string, mode: StructuredLessonRuntimeMode = 'generate') => {
+      if (!isLessonUiPrefetchEnabled()) return
+      void loadStructuredLessonRuntime(lessonId, mode, { cacheResult: true })
+    },
+    [loadStructuredLessonRuntime]
   )
 
   const buildCompletedVariants = useCallback(
@@ -1093,6 +1186,11 @@ export default function Home() {
     },
     [activeStructuredLesson, activeStructuredLessonStep, fetchStructuredLessonRuntime, restartChatForNewModeFromMenu]
   )
+
+  useEffect(() => {
+    if (!activeStructuredLessonRuntime?.id || !isLessonUiPrefetchEnabled()) return
+    prefetchStructuredLessonRuntime(activeStructuredLessonRuntime.id, 'repeat')
+  }, [activeStructuredLessonRuntime?.id, activeStructuredLessonRuntime?.runKey, prefetchStructuredLessonRuntime])
 
   useEffect(() => {
     if (!activeStructuredLesson?.runKey) return
@@ -2023,6 +2121,7 @@ export default function Home() {
                     onGoHome={goToStartScreen}
                     onAiChatPanelChange={setHomeAiChatPanel}
                     onOpenLearningLesson={openLearningLesson}
+                    onPrefetchLearningLesson={prefetchStructuredLessonRuntime}
                     onOpenTutorLesson={openTutorLesson}
                   />
                 </div>
@@ -2124,6 +2223,7 @@ export default function Home() {
         onStartChat={handleStartChatFromMenu}
         onGoHome={goToStartScreen}
         onOpenLearningLesson={openLearningLesson}
+        onPrefetchLearningLesson={prefetchStructuredLessonRuntime}
         onOpenTutorLesson={openTutorLesson}
         lessonMenuContext={lessonMenuContext}
         topOffset="var(--app-top-offset)"
