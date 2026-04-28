@@ -81,24 +81,58 @@ export function chooseFinalSpeechText(finalText: string, interimText: string): s
   return normalizedFinal
 }
 
+export function mergeSpeechDisplayText(finalText: string, interimText: string): string {
+  const normalizedFinal = normalizeTranscriptText(finalText)
+  const normalizedInterim = normalizeTranscriptText(interimText)
+  if (!normalizedInterim) return normalizedFinal
+  if (!normalizedFinal) return normalizedInterim
+  if (isStablePrefixExpansion(normalizedFinal, normalizedInterim)) {
+    return normalizedInterim
+  }
+  return appendVoiceText(normalizedFinal, normalizedInterim)
+}
+
 export function buildVoiceDisplayText(params: {
   draftBeforeVoiceText: string
   voiceFinalText: string
   voiceInterimText: string
 }): string {
-  const withFinal = appendVoiceText(params.draftBeforeVoiceText, params.voiceFinalText)
-  return appendVoiceText(withFinal, params.voiceInterimText)
+  const speechText = mergeSpeechDisplayText(params.voiceFinalText, params.voiceInterimText)
+  return appendVoiceText(params.draftBeforeVoiceText, speechText)
 }
 
 export function buildVoiceLivePreviewText(params: {
   voiceFinalText: string
   voiceInterimText: string
 }): string {
-  return appendVoiceText(params.voiceFinalText, params.voiceInterimText)
+  return mergeSpeechDisplayText(params.voiceFinalText, params.voiceInterimText)
 }
 
 function getSpeechRecognitionResultText(result: SpeechRecognitionResult | undefined): string {
   return result?.[0]?.transcript?.trim() ?? ''
+}
+
+function choosePreferredInterimText(current: string, next: string): string {
+  const normalizedCurrent = normalizeTranscriptText(current)
+  const normalizedNext = normalizeTranscriptText(next)
+  if (!normalizedNext) return normalizedCurrent
+  if (!normalizedCurrent) return normalizedNext
+  if (isStablePrefixExpansion(normalizedCurrent, normalizedNext)) return normalizedNext
+  if (isStablePrefixExpansion(normalizedNext, normalizedCurrent)) return normalizedCurrent
+  return normalizedNext.length >= normalizedCurrent.length ? normalizedNext : normalizedCurrent
+}
+
+export function stabilizeInterimAcrossTicks(previous: string, next: string): string {
+  const normalizedPrevious = normalizeTranscriptText(previous)
+  const normalizedNext = normalizeTranscriptText(next)
+  if (!normalizedNext) return ''
+  if (!normalizedPrevious) return normalizedNext
+  if (isStablePrefixExpansion(normalizedPrevious, normalizedNext)) return normalizedNext
+  if (isStablePrefixExpansion(normalizedNext, normalizedPrevious)) return normalizedPrevious
+  if (normalizedPrevious.length > normalizedNext.length) {
+    return normalizedPrevious
+  }
+  return normalizedNext
 }
 
 export function extractSpeechRecognitionTranscript(event: SpeechRecognitionEvent): {
@@ -118,7 +152,7 @@ export function extractSpeechRecognitionTranscript(event: SpeechRecognitionEvent
       continue
     }
     if (i >= startIndex) {
-      interimText = text
+      interimText = choosePreferredInterimText(interimText, text)
     }
   }
 
@@ -126,7 +160,7 @@ export function extractSpeechRecognitionTranscript(event: SpeechRecognitionEvent
     for (let i = event.results.length - 1; i >= 0; i--) {
       const result = event.results[i]
       if (result?.isFinal) continue
-      interimText = getSpeechRecognitionResultText(result)
+      interimText = choosePreferredInterimText(interimText, getSpeechRecognitionResultText(result))
       if (interimText) break
     }
   }

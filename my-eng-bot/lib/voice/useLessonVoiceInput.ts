@@ -6,6 +6,7 @@ import { isLikelySttSilenceHallucination } from '@/lib/voice/isLikelySttSilenceH
 import {
   chooseFinalSpeechText,
   extractSpeechRecognitionTranscript,
+  stabilizeInterimAcrossTicks,
   useVoiceComposer,
   type VoicePhase,
 } from '@/lib/voice/useVoiceComposer'
@@ -63,6 +64,7 @@ export function useLessonVoiceInput({ inviteKey }: UseLessonVoiceInputParams) {
   const {
     draftText,
     displayText,
+    livePreviewText,
     voicePhase,
     statusMessage,
     isVoiceActive,
@@ -417,9 +419,11 @@ export function useLessonVoiceInput({ inviteKey }: UseLessonVoiceInputParams) {
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
         const { finalText, interimText } = extractSpeechRecognitionTranscript(event)
+        const interimBase = finalText === latestFinalText ? latestInterimText : ''
+        const stableInterimText = stabilizeInterimAcrossTicks(interimBase, interimText)
         latestFinalText = finalText
-        latestInterimText = interimText
-        updateVoiceTranscript(finalText, interimText)
+        latestInterimText = stableInterimText
+        updateVoiceTranscript(finalText, stableInterimText)
         clearSilenceTimeout()
         silenceTimeoutId = window.setTimeout(() => {
           stopBrowserRecognition()
@@ -527,7 +531,6 @@ export function useLessonVoiceInput({ inviteKey }: UseLessonVoiceInputParams) {
       hasSpeechRecognition: Boolean(SpeechRecognitionAPI),
       isIosChrome,
     })
-
     if (useFallback) {
       await startMediaRecorderFallback(sttLangForApi)
     } else {
@@ -684,6 +687,7 @@ export function useLessonVoiceInput({ inviteKey }: UseLessonVoiceInputParams) {
   return {
     draftText,
     displayText,
+    livePreviewText,
     voicePhase,
     voiceStatusMessage,
     isVoiceActive,

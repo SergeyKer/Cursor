@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callProviderChat } from '@/lib/callProviderChat'
 import type { AiProvider } from '@/lib/types'
-import { hasRequiredTheoryStructure, isValidLessonBlueprint } from '@/lib/lessonBlueprint'
+import { hasRequiredTheoryStructure, isValidLessonBlueprint, type TutorAdaptiveTemplate } from '@/lib/lessonBlueprint'
 
 type Body = {
   provider?: AiProvider
@@ -26,6 +26,18 @@ function normalizeTheoryIntro(raw: string): string {
 
 function defaultLesson(topic: string) {
   const safeTopic = topic.trim() || 'выбранной теме'
+  const normalizedTopic = safeTopic.toLowerCase()
+  const contrastPair =
+    normalizedTopic.includes('present perfect') && normalizedTopic.includes('past simple')
+      ? (['Present Perfect', 'Past Simple'] as [string, string])
+      : undefined
+  const adaptiveTemplate: TutorAdaptiveTemplate = {
+    grammarFocus: contrastPair ? [...contrastPair] : [safeTopic],
+    ...(contrastPair ? { contrastPair } : {}),
+    recommendedStartDifficulty: 'easy',
+    preferredExerciseModes: contrastPair ? ['contrast', 'drill', 'production', 'micro_quiz'] : ['drill', 'production', 'micro_quiz'],
+    supportsAdaptiveVariants: true,
+  }
   return {
     title: `Тема: ${safeTopic}`,
     theoryIntro:
@@ -52,6 +64,7 @@ function defaultLesson(topic: string) {
       repeat_translate: '**Переведи на английский:**\n1) Это моя тема.\n2) Я хочу изучать это.\n3) Дай короткий пример.',
       write_own_sentence: `**Напиши своё предложение:**\nТема: ${safeTopic}\nНапиши 3 коротких примера.`,
     },
+    adaptiveTemplate,
   }
 }
 
@@ -97,10 +110,12 @@ export async function POST(req: NextRequest) {
     '  "title":"строка",',
     '  "theoryIntro":"строка с \\n",',
     '  "actions":[{"id":"examples","label":"Посмотри примеры"},{"id":"fill_phrase","label":"Подставь слово"},{"id":"repeat_translate","label":"Переведи на английский"},{"id":"write_own_sentence","label":"Напиши своё предложение"}],',
-    '  "followups":{"examples":"строка","fill_phrase":"строка","repeat_translate":"строка","write_own_sentence":"строка"}',
+    '  "followups":{"examples":"строка","fill_phrase":"строка","repeat_translate":"строка","write_own_sentence":"строка"},',
+    '  "adaptiveTemplate":{"grammarFocus":["строка"],"recommendedStartDifficulty":"easy","preferredExerciseModes":["drill","production","micro_quiz"],"supportsAdaptiveVariants":true}',
     '}',
     'Текст секций на русском, английские примеры допустимы.',
     'Не пропускай секции и не меняй порядок заголовков.',
+    'adaptiveTemplate можно вернуть дополнительно, если тема явно задает грамматический контраст или будущую адаптивную практику.',
   ].join('\n')
 
   const user = [

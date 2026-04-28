@@ -56,7 +56,26 @@ export function cloneLessonWithNewRunKey(lesson: LessonData): LessonData {
     steps: lesson.steps.map((step) => ({
       ...step,
       bubbles: step.bubbles.map((bubble) => ({ ...bubble })) as LessonStep['bubbles'],
-      ...(step.exercise ? { exercise: { ...step.exercise, ...(step.exercise.acceptedAnswers ? { acceptedAnswers: [...step.exercise.acceptedAnswers] } : {}) } } : {}),
+      ...(step.exercise
+        ? {
+            exercise: {
+              ...step.exercise,
+              ...(step.exercise.options ? { options: [...step.exercise.options] } : {}),
+              ...(step.exercise.acceptedAnswers ? { acceptedAnswers: [...step.exercise.acceptedAnswers] } : {}),
+              ...(step.exercise.variants
+                ? {
+                    variants: step.exercise.variants.map((variant) => ({
+                      ...variant,
+                      ...(variant.options ? { options: [...variant.options] } : {}),
+                      ...(variant.acceptedAnswers ? { acceptedAnswers: [...variant.acceptedAnswers] } : {}),
+                    })),
+                  }
+                : {}),
+              ...(step.exercise.adaptive ? { adaptive: { ...step.exercise.adaptive } } : {}),
+              ...(step.exercise.difficultyProfile ? { difficultyProfile: { ...step.exercise.difficultyProfile } } : {}),
+            },
+          }
+        : {}),
       ...(step.postLesson
         ? {
             postLesson: {
@@ -82,7 +101,7 @@ function isBubbleType(value: unknown): value is BubbleType {
 }
 
 function isExerciseType(value: unknown): value is ExerciseType {
-  return value === 'fill_choice' || value === 'translate' || value === 'write_own' || value === 'match'
+  return value === 'fill_choice' || value === 'translate' || value === 'write_own' || value === 'match' || value === 'micro_quiz'
 }
 
 function normalizeForSemanticCheck(value: string): string {
@@ -124,6 +143,9 @@ function matchesStepRole(step: GeneratedStepPayload, blueprint: LessonRepeatStep
     return /\s/.test(exercise.correctAnswer.trim())
   }
   if (blueprint.answerFormat === 'choice' && Array.isArray(exercise.options)) {
+    if (blueprint.exerciseType === 'micro_quiz') {
+      return exercise.options.length >= 2
+    }
     return exercise.options.length === 3
   }
   return true
@@ -350,12 +372,23 @@ function validateGeneratedStepShape(
     if (row.exercise.acceptedAnswers !== undefined && !Array.isArray(row.exercise.acceptedAnswers)) {
       issues.push(issue('hard', 'invalid_accepted_answers', 'acceptedAnswers должен быть массивом.', sourceStep.stepNumber))
     }
-    if (sourceStep.exercise.type === 'fill_choice') {
-      if (!Array.isArray(row.exercise.options) || row.exercise.options.length !== 3) {
-        issues.push(issue('hard', 'invalid_choice_options', 'fill_choice требует ровно 3 options.', sourceStep.stepNumber))
+    if (sourceStep.exercise.type === 'fill_choice' || sourceStep.exercise.type === 'micro_quiz') {
+      const requiresExactThreeOptions = sourceStep.exercise.type === 'fill_choice'
+      if (
+        !Array.isArray(row.exercise.options) ||
+        (requiresExactThreeOptions ? row.exercise.options.length !== 3 : row.exercise.options.length < 2)
+      ) {
+        issues.push(
+          issue(
+            'hard',
+            'invalid_choice_options',
+            requiresExactThreeOptions ? 'fill_choice требует ровно 3 options.' : 'micro_quiz требует минимум 2 options.',
+            sourceStep.stepNumber
+          )
+        )
       } else {
         const options = row.exercise.options.filter((item): item is string => typeof item === 'string')
-        if (options.length !== 3) {
+        if (options.length !== row.exercise.options.length) {
           issues.push(issue('hard', 'non_string_choice_option', 'Все options должны быть строками.', sourceStep.stepNumber))
         }
         if (!options.includes(row.exercise.correctAnswer as string)) {
@@ -825,6 +858,7 @@ export function buildStructuredCreationSystemPrompt(): string {
     'Не добавляй новую грамматику вне указанного grammar focus.',
     'Если передан selectedVariantId, sourceSituations и sourceSteps, считай их обязательными смысловыми рельсами для нового варианта.',
     'Для fill_choice всегда давай ровно 3 варианта и включай correctAnswer в options.',
+    'Для micro_quiz давай 2 или 3 варианта и включай correctAnswer в options.',
     'Не делай hints слишком широкими и не раскрывай ответ напрямую.',
     'Если нужен один допустимый ответ, не добавляй лишние acceptedAnswers.',
     'Для каждого шага верни:',
@@ -860,6 +894,7 @@ export function buildStructuredRepeatSystemPrompt(): string {
     'Если передан selectedVariantId, sourceSituations и sourceSteps, опирайся именно на них и не возвращайся к предыдущему варианту.',
     'Объяснения и подсказки на русском, правильные ответы на английском.',
     'Для fill_choice всегда давай ровно 3 варианта и включай correctAnswer в options.',
+    'Для micro_quiz давай 2 или 3 варианта и включай correctAnswer в options.',
     'Не делай hints слишком широкими и не раскрывай ответ напрямую.',
     'Если нужен один допустимый ответ, не добавляй лишние acceptedAnswers.',
     'Формат ответа верхнего уровня: {"steps":[...]}',

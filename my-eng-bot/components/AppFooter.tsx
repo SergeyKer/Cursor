@@ -8,6 +8,10 @@ type AppFooterProps = {
   typingKey?: string | number | null
   isLessonActive?: boolean
   isDialogStarted?: boolean
+  variantProgress?: {
+    total: number
+    current: number
+  } | null
 }
 
 function normalizeFooterText(text?: string | null): string {
@@ -20,10 +24,12 @@ export default function AppFooter({
   typingKey,
   isLessonActive = false,
   isDialogStarted = false,
+  variantProgress = null,
 }: AppFooterProps) {
   const topLine = normalizeFooterText(dynamicText)
   const bottomLine = normalizeFooterText(staticText)
   const showLessonContent = isLessonActive && (topLine.length > 0 || bottomLine.length > 0)
+  const showVariantProgress = Boolean(variantProgress && variantProgress.total > 1 && showLessonContent)
 
   return (
     <div
@@ -47,7 +53,29 @@ export default function AppFooter({
             showLessonContent ? '' : 'opacity-0'
           }`}
         >
-          {showLessonContent ? <span className="truncate">{bottomLine}</span> : <span aria-hidden>&nbsp;</span>}
+          {showLessonContent ? (
+            <div className="flex items-center gap-2">
+              <span className="truncate">{bottomLine}</span>
+              {showVariantProgress && variantProgress && (
+                <div className="flex items-center gap-1" aria-label="Прогресс вариантов упражнения">
+                  {Array.from({ length: variantProgress.total }, (_, index) => (
+                    <div
+                      key={`footer-variant-${index}`}
+                      className={`h-2 w-2 rounded-full transition ${
+                        index < variantProgress.current
+                          ? 'bg-green-400'
+                          : index === variantProgress.current
+                            ? 'bg-blue-400 animate-pulse'
+                            : 'bg-gray-300'
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <span aria-hidden>&nbsp;</span>
+          )}
         </div>
       </div>
     </div>

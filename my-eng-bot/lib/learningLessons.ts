@@ -1,9 +1,12 @@
+import type { TutorAdaptiveTemplate } from '@/lib/lessonBlueprint'
+
 export type LearningLesson = {
   id: string
   title: string
   theoryIntro: string
   actions: LearningLessonAction[]
   followups: Record<LearningLessonActionId, string>
+  adaptiveTemplate?: TutorAdaptiveTemplate
   footer?: {
     dynamicText?: string
     staticText?: string

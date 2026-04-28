@@ -9,8 +9,9 @@ export type StepType =
 
 export type BubbleType = 'positive' | 'info' | 'task'
 
-export type ExerciseType = 'fill_choice' | 'translate' | 'write_own' | 'match'
+export type ExerciseType = 'fill_choice' | 'translate' | 'write_own' | 'match' | 'micro_quiz'
 export type LessonAnswerPolicy = 'strict' | 'normalized' | 'equivalent_variants'
+export type ExerciseDifficulty = 'easy' | 'medium' | 'hard'
 
 export type PostLessonAction =
   | 'repeat_variant'
@@ -25,6 +26,31 @@ export interface Bubble {
   content: string
 }
 
+export interface ExerciseVariant {
+  id: string
+  question: string
+  options?: string[]
+  correctAnswer: string
+  acceptedAnswers?: string[]
+  hint: string
+  difficulty: ExerciseDifficulty
+  answerFormat?: LessonAnswerFormat
+  answerPolicy?: LessonAnswerPolicy
+}
+
+export interface AdaptiveConfig {
+  minVariants: number
+  maxVariants: number
+  startDifficulty: 'easy' | 'medium'
+  errorThreshold: number
+}
+
+export interface DifficultyProfile {
+  levelBand: 'A1_A2' | 'B1_B2' | 'C1_C2'
+  expectedAnswerLength?: 'short' | 'medium' | 'long'
+  preferredExerciseMode?: 'drill' | 'contrast' | 'production' | 'micro_quiz'
+}
+
 export interface Exercise {
   type: ExerciseType
   question: string
@@ -34,6 +60,10 @@ export interface Exercise {
   answerFormat?: LessonAnswerFormat
   answerPolicy?: LessonAnswerPolicy
   hint?: string
+  variants?: ExerciseVariant[]
+  adaptive?: AdaptiveConfig
+  currentVariantIndex?: number
+  difficultyProfile?: DifficultyProfile
 }
 
 export interface PostLessonOption {

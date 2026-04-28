@@ -1,9 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ExerciseRenderer } from '@/components/ExerciseRenderer'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import PostLessonMenu from '@/components/PostLessonMenu'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
+import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import type { BlockProgress, LessonStatus, LessonTimelineEntry } from '@/hooks/useLessonEngine'
 import { seededShuffle } from '@/lib/shuffleSeeded'
 import { useLessonVoiceInput } from '@/lib/voice/useLessonVoiceInput'
@@ -55,6 +57,10 @@ const lessonStatusCardClassByTone: Record<'service' | 'success' | 'error', strin
 }
 
 const CHOICE_REOPEN_DELAY_MS = 900
+const LESSON_HIDDEN_VOICE_STATUS_MESSAGES = new Set([
+  'Голосовой ввод...',
+  '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]',
+])
 
 function normalizeLessonChoiceText(text: string): string {
   return text.trim().replace(/\s+/g, ' ').toLowerCase()
@@ -95,7 +101,10 @@ export default function LessonStepRenderer({
     return seededShuffle(opts, `${choiceShuffleSeed}:step${currentStep?.stepNumber ?? 0}`)
   }, [choiceShuffleSeed, currentStep?.stepNumber, exercise, rawChoiceOptions])
   const hasChoiceOptions = choiceOptions.length > 0
+  const shouldRenderChoiceChips = hasChoiceOptions && exercise?.type !== 'micro_quiz'
   const hasPostLessonOptions = Boolean(postLesson?.options.length)
+  const isChoiceDrivenStep = shouldRenderChoiceChips || hasPostLessonOptions || exercise?.type === 'micro_quiz'
+  const isTextInputAvailable = Boolean(exercise) && !hasPostLessonOptions
   const isChecking = status === 'checking'
   const lessonInviteBubble = useMemo(() => {
     if (!currentEntry?.isCurrent) return null
@@ -114,7 +123,16 @@ export default function LessonStepRenderer({
         : null,
   })
   const { resetVoiceInput } = lessonVoiceInput
-  const inputValue = lessonVoiceInput.isInputLocked ? lessonVoiceInput.displayText : lessonVoiceInput.draftText
+  const inputValue =
+    lessonVoiceInput.isInputLocked && LESSON_HIDDEN_VOICE_STATUS_MESSAGES.has(lessonVoiceInput.displayText)
+      ? ''
+      : lessonVoiceInput.isInputLocked
+        ? lessonVoiceInput.displayText
+        : lessonVoiceInput.draftText
+  const showVoiceOverlay = lessonVoiceInput.isVoiceActive && lessonVoiceInput.livePreviewText.length > 0
+  const voiceStatusMessage = LESSON_HIDDEN_VOICE_STATUS_MESSAGES.has(lessonVoiceInput.voiceStatusMessage)
+    ? ''
+    : lessonVoiceInput.voiceStatusMessage
   const normalizedChoiceEntries = useMemo(
     () =>
       choiceOptions
@@ -124,23 +142,23 @@ export default function LessonStepRenderer({
     [choiceOptions]
   )
   const inputPlaceholder = useMemo(() => {
+    if (isChoiceDrivenStep) {
+      return 'Выберите ответ выше...'
+    }
     if (hasChoiceOptions) {
       return audience === 'child' ? 'Скажи или выбери ответ выше...' : 'Скажите или выберите ответ выше...'
     }
-    if (!exercise) return audience === 'child' ? 'Напиши ответ...' : 'Напишите ответ...'
+    if (!exercise) return audience === 'child' ? 'Напиши ответ...' : 'Скажите ответ...'
     if (exercise.answerFormat === 'full_sentence') {
-      return audience === 'child' ? 'Напиши предложение...' : 'Напишите предложение...'
+      return audience === 'child' ? 'Напиши предложение...' : 'Скажите предложение...'
     }
     if (exercise.answerFormat === 'single_word') {
-      return audience === 'child' ? 'Напиши пропущенное слово...' : 'Напишите пропущенное слово...'
+      return audience === 'child' ? 'Напиши пропущенное слово...' : 'Скажите пропущенное слово...'
     }
-    return audience === 'child' ? 'Напиши ответ...' : 'Напишите ответ...'
-  }, [audience, hasChoiceOptions, exercise])
+    return audience === 'child' ? 'Напиши ответ...' : 'Скажите ответ...'
+  }, [audience, hasChoiceOptions, exercise, isChoiceDrivenStep])
 
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7359/ingest/af82526e-4aca-4df7-8f6b-d839f48f8a8e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9caaa4'},body:JSON.stringify({sessionId:'9caaa4',runId:'pre-fix',hypothesisId:'H6',location:'components/LessonStepRenderer.tsx:stepResetEffect',message:'step_reset_effect_run',data:{stepNumber:currentStep?.stepNumber,voicePhase:lessonVoiceInput.voicePhase,listening:lessonVoiceInput.listening,draftText:lessonVoiceInput.draftText},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     setChoiceResetVersion((current) => current + 1)
     setAutoSelectChoiceText(null)
     resetVoiceInput()
@@ -186,7 +204,7 @@ export default function LessonStepRenderer({
   )
 
   const submitTextAnswer = useCallback(() => {
-    if (!exercise || isChecking || lessonVoiceInput.isInputLocked || !lessonVoiceInput.draftText.trim()) return
+    if (!exercise || isChoiceDrivenStep || isChecking || lessonVoiceInput.isInputLocked || !lessonVoiceInput.draftText.trim()) return
     if (hasChoiceOptions) {
       const normalizedInput = normalizeLessonChoiceText(lessonVoiceInput.draftText)
       const matchedChoice = normalizedChoiceEntries.find((choice) => choice.normalized === normalizedInput)
@@ -198,6 +216,7 @@ export default function LessonStepRenderer({
   }, [
     exercise,
     hasChoiceOptions,
+    isChoiceDrivenStep,
     inputValue,
     isChecking,
     lessonVoiceInput.draftText,
@@ -304,13 +323,18 @@ export default function LessonStepRenderer({
                         key={message.id}
                         role="assistant"
                         position={position}
+                        className="lesson-enter"
                         rowClassName={isBubbleEnd ? 'mb-2.5' : 'mb-0.5'}
                       >
                         <div className="space-y-1.5">
                           {message.bubbles.map((bubble, bubbleIndex) => (
                             <section
                               key={`${message.id}-${bubbleIndex}-${bubble.type}`}
-                              className={`chat-section-surface glass-surface rounded-xl border px-3 py-2 ${lessonSectionClassByType[bubble.type]}`}
+                              className={`lesson-enter chat-section-surface glass-surface rounded-xl border px-3 py-2 ${lessonSectionClassByType[bubble.type]}`}
+                              style={{
+                                animationDelay: `${bubbleIndex * 120}ms`,
+                                animationFillMode: 'both',
+                              }}
                             >
                               <p className="whitespace-pre-line break-words text-[15px] leading-[1.5] text-[var(--text)]">
                                 {bubble.content}
@@ -328,6 +352,7 @@ export default function LessonStepRenderer({
                         key={message.id}
                         role="user"
                         position={position}
+                        className="lesson-enter"
                         rowClassName={isBubbleEnd ? 'mb-2.5' : 'mb-0.5'}
                       >
                         <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
@@ -337,15 +362,26 @@ export default function LessonStepRenderer({
                     )
                   }
 
+                  if (message.tone === 'service') {
+                    return (
+                      <div key={message.id} className="lesson-enter mb-2.5 flex justify-start px-1">
+                        <p dir="ltr" className="w-fit italic typing-indicator-text-shimmer">
+                          {message.text}
+                        </p>
+                      </div>
+                    )
+                  }
+
                   return (
                     <ChatBubbleFrame
                       key={message.id}
                       role="assistant"
                       position={position}
+                      className="lesson-enter"
                       rowClassName={isBubbleEnd ? 'mb-2.5' : 'mb-0.5'}
                     >
                       <section
-                        className={`chat-section-surface glass-surface rounded-xl border px-3 py-2 ${lessonStatusCardClassByTone[message.tone]}`}
+                        className={`lesson-enter chat-section-surface glass-surface rounded-xl border px-3 py-2 ${lessonStatusCardClassByTone[message.tone]}`}
                       >
                         <p className="whitespace-pre-line break-words text-[14px] leading-[1.45]">{message.text}</p>
                       </section>
@@ -355,18 +391,23 @@ export default function LessonStepRenderer({
               </div>
             </div>
 
-            {(exercise || hasPostLessonOptions) && (
+            {currentStep && (
               <div
                 className="shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 pt-2.5 sm:px-3"
                 style={{ paddingBottom: 'calc(var(--app-bottom-inset) + 0.625rem)' }}
               >
+                {exercise && !hasPostLessonOptions && (
+                  <div className="pb-2">
+                    <ExerciseRenderer exercise={exercise} onAnswer={onAnswer} isChecking={isChecking} />
+                  </div>
+                )}
                 {hasPostLessonOptions ? (
                   <PostLessonMenu
                     options={postLesson?.options ?? []}
                     onSelect={(action) => onPostLessonAction?.(action)}
                     disabled={postLessonBusy || !onPostLessonAction}
                   />
-                ) : hasChoiceOptions ? (
+                ) : shouldRenderChoiceChips ? (
                   <LessonChoiceChips
                     key={`choices-${currentStep?.stepNumber ?? 'none'}`}
                     choices={choiceOptions}
@@ -378,19 +419,19 @@ export default function LessonStepRenderer({
                   />
                 ) : null}
 
-                {!hasPostLessonOptions && (
-                  <form
-                    onSubmit={(event) => {
-                      event.preventDefault()
-                      submitTextAnswer()
-                    }}
-                    className="glass-surface flex w-full items-center gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1.5 sm:px-3"
-                    style={{ boxShadow: 'var(--chat-composer-shadow)' }}
-                  >
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    submitTextAnswer()
+                  }}
+                  className="glass-surface flex w-full items-center gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1.5 sm:px-3"
+                  style={{ boxShadow: 'var(--chat-composer-shadow)' }}
+                >
                     <button
                       type="button"
-                      disabled={lessonVoiceInput.voicePhase === 'finalizing'}
+                      disabled={!isTextInputAvailable || isChoiceDrivenStep || lessonVoiceInput.voicePhase === 'finalizing'}
                       onClick={() => {
+                        if (!isTextInputAvailable || isChoiceDrivenStep) return
                         lessonVoiceInput.resetMicAnimation()
                         if (lessonVoiceInput.listening) {
                           lessonVoiceInput.stopListening()
@@ -456,24 +497,39 @@ export default function LessonStepRenderer({
                         </span>
                       )}
                     </button>
-                    <input
-                      type="text"
-                      value={inputValue}
-                      onChange={(event) => lessonVoiceInput.setDraftText(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault()
-                          submitTextAnswer()
-                        }
-                      }}
-                      readOnly={lessonVoiceInput.isInputLocked}
-                      disabled={isChecking}
-                      className="min-w-0 flex-1 border-0 bg-transparent px-1 py-2 text-[15px] text-[var(--text)] outline-none placeholder:text-[var(--text-muted,#6b7280)] disabled:cursor-not-allowed disabled:opacity-70"
-                      placeholder={inputPlaceholder}
-                    />
+                    <div className="relative min-w-0 flex-1">
+                      {showVoiceOverlay && (
+                        <VoiceComposerOverlay
+                          draftBeforeVoiceText=""
+                          livePreviewText={lessonVoiceInput.livePreviewText}
+                          webTextMetricsFix
+                        />
+                      )}
+                      <input
+                        type="text"
+                        value={inputValue}
+                        onChange={(event) => lessonVoiceInput.setDraftText(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault()
+                            submitTextAnswer()
+                          }
+                        }}
+                        readOnly={lessonVoiceInput.isInputLocked}
+                        disabled={!isTextInputAvailable || isChoiceDrivenStep || isChecking}
+                        className={`chat-input-field min-w-0 w-full rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${
+                          showVoiceOverlay ? 'chat-input-voice-web-metrics' : ''
+                        } ${
+                          showVoiceOverlay ? 'text-transparent caret-transparent placeholder:text-transparent' : 'text-[var(--text)]'
+                        }`}
+                        placeholder={inputPlaceholder}
+                      />
+                    </div>
                     <button
                       type="submit"
                       disabled={
+                        !isTextInputAvailable ||
+                        isChoiceDrivenStep ||
                         isChecking ||
                         lessonVoiceInput.isInputLocked ||
                         !lessonVoiceInput.draftText.trim() ||
@@ -501,9 +557,8 @@ export default function LessonStepRenderer({
                         />
                       </svg>
                     </button>
-                  </form>
-                )}
-                {lessonVoiceInput.voiceStatusMessage && (
+                </form>
+                {voiceStatusMessage && (
                   <p
                     role="status"
                     aria-live="polite"
@@ -513,7 +568,7 @@ export default function LessonStepRenderer({
                         : 'text-[var(--text-muted,#6b7280)]'
                     }`}
                   >
-                    {lessonVoiceInput.voiceStatusMessage}
+                    {voiceStatusMessage}
                   </p>
                 )}
               </div>

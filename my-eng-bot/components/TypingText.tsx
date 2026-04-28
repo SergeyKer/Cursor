@@ -6,9 +6,10 @@ interface TypingTextProps {
   text: string
   speed?: number
   onComplete?: () => void
+  className?: string
 }
 
-export default function TypingText({ text, speed = 30, onComplete }: TypingTextProps) {
+export default function TypingText({ text, speed = 30, onComplete, className }: TypingTextProps) {
   const [displayedText, setDisplayedText] = useState('')
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -56,7 +57,11 @@ export default function TypingText({ text, speed = 30, onComplete }: TypingTextP
 
   return (
     <div className="flex min-h-6 w-full items-start gap-1 overflow-hidden">
-      <span className="max-w-full whitespace-normal break-words text-sm leading-tight text-[var(--text-muted,#6b7280)]">
+      <span
+        className={`max-w-full whitespace-normal break-words text-sm leading-tight text-[var(--text-muted,#6b7280)] ${
+          className ?? ''
+        }`}
+      >
         {displayedText}
       </span>
       {displayedText.length < text.length && (

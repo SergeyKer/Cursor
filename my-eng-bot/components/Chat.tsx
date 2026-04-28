@@ -50,7 +50,12 @@ import TypingIndicator from '@/components/TypingIndicator'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import { applyTypoFixes } from '@/lib/voice/applyTypoFixes'
 import { isLikelySttSilenceHallucination } from '@/lib/voice/isLikelySttSilenceHallucination'
-import { chooseFinalSpeechText, extractSpeechRecognitionTranscript, useVoiceComposer } from '@/lib/voice/useVoiceComposer'
+import {
+  chooseFinalSpeechText,
+  extractSpeechRecognitionTranscript,
+  stabilizeInterimAcrossTicks,
+  useVoiceComposer,
+} from '@/lib/voice/useVoiceComposer'
 
 const SR_ONLY_STYLE: React.CSSProperties = {
   position: 'absolute',
@@ -1055,6 +1060,7 @@ export default function Chat({
   const [micVisualState, setMicVisualState] = React.useState<'idle' | 'invite' | 'wait'>('idle')
   const [selectedLessonActionByMessage, setSelectedLessonActionByMessage] = React.useState<Record<number, string>>({})
   const isLearningFlow = learningActions.length > 0 || Object.keys(selectedLessonActionByMessage).length > 0
+  const isLessonBranch = isLearningFlow || Boolean(onSelectLearningAction)
   const appliedComposerSessionKeyRef = React.useRef<number>(0)
   const {
     draftText: input,
@@ -1459,9 +1465,11 @@ export default function Chat({
 
       rec.onresult = (event: SpeechRecognitionEvent) => {
         const { finalText, interimText } = extractSpeechRecognitionTranscript(event)
+        const interimBase = finalText === latestFinalText ? latestInterimText : ''
+        const stableInterimText = stabilizeInterimAcrossTicks(interimBase, interimText)
         latestFinalText = finalText
-        latestInterimText = interimText
-        updateVoiceTranscript(finalText, interimText)
+        latestInterimText = stableInterimText
+        updateVoiceTranscript(finalText, stableInterimText)
         clearSilenceTimeout()
         silenceTimeoutId = window.setTimeout(() => {
           stopBrowserRecognition()
@@ -1569,7 +1577,6 @@ export default function Chat({
       hasSpeechRecognition: Boolean(SpeechRecognitionAPI),
       isIosChrome,
     })
-
     if (useFallback) {
       await startMediaRecorderFallback(sttLangForApi)
     } else {
@@ -1931,7 +1938,7 @@ export default function Chat({
               {messages.length === 0 && (
                 <div className="flex justify-center">
                   <p dir="ltr" className="w-fit text-center italic typing-indicator-text-shimmer">
-                    MyEng печатает...
+                    {isLessonBranch ? 'Урок загружается...' : 'MyEng печатает...'}
                   </p>
                 </div>
               )}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { LessonData, LessonMistake, PostLessonContent } from '@/types/lesson'
+import type { AdaptiveConfig, Exercise, LessonData, LessonMistake, PostLessonContent } from '@/types/lesson'
 import { validateAnswer } from '@/utils/validateAnswer'
+import { DEFAULT_ADAPTIVE_CONFIG, getNextVariant } from '@/utils/generateExerciseVariants'
 
 export type LessonStatus = 'idle' | 'checking' | 'feedback' | 'completed'
 
@@ -22,6 +23,11 @@ export type LessonTimelineEntry = {
   step: LessonData['steps'][number]
 }
 
+export type ExerciseVariantProgress = {
+  total: number
+  current: number
+} | null
+
 const VALIDATION_DELAY_MS = 400
 const AUTO_ADVANCE_DELAY_MS = 1500
 const ENABLE_GAMIFICATION = false
@@ -34,10 +40,43 @@ function buildLessonHintWithCorrectAnswer(
   return `${baseHint} Скажи: ${correctAnswer.trim()}`
 }
 
+function resolveAdaptiveConfig(config?: AdaptiveConfig): AdaptiveConfig {
+  return {
+    ...DEFAULT_ADAPTIVE_CONFIG,
+    ...config,
+  }
+}
+
+export function resolveExerciseForVariant(exercise?: Exercise | null, variantIndex: number = 0): Exercise | null {
+  if (!exercise) return null
+  const variants = exercise.variants ?? []
+  const activeVariant = variants[variantIndex]
+  if (!activeVariant) {
+    return {
+      ...exercise,
+      currentVariantIndex: variantIndex,
+    }
+  }
+
+  return {
+    ...exercise,
+    question: activeVariant.question,
+    options: activeVariant.options,
+    correctAnswer: activeVariant.correctAnswer,
+    acceptedAnswers: activeVariant.acceptedAnswers ?? [activeVariant.correctAnswer],
+    hint: activeVariant.hint,
+    answerFormat: activeVariant.answerFormat ?? exercise.answerFormat,
+    answerPolicy: activeVariant.answerPolicy ?? exercise.answerPolicy,
+    currentVariantIndex: variantIndex,
+  }
+}
+
 export function useLessonEngine(lesson: LessonData | null) {
   const [currentStep, setCurrentStep] = useState(0)
   const [xp, setXp] = useState(0)
   const [combo, setCombo] = useState(0)
+  const [exerciseErrors, setExerciseErrors] = useState(0)
+  const [currentVariantIndex, setCurrentVariantIndex] = useState(0)
   const [status, setStatus] = useState<LessonStatus>('idle')
   const [feedback, setFeedback] = useState<LessonFeedback | null>(null)
   const [feedbackByStep, setFeedbackByStep] = useState<Record<number, LessonFeedback>>({})
@@ -55,6 +94,8 @@ export function useLessonEngine(lesson: LessonData | null) {
     setCurrentStep(0)
     setXp(0)
     setCombo(0)
+    setExerciseErrors(0)
+    setCurrentVariantIndex(0)
     setStatus('idle')
     setFeedback(null)
     setFeedbackByStep({})
@@ -69,13 +110,40 @@ export function useLessonEngine(lesson: LessonData | null) {
   }, [clearTimers])
 
   const totalSteps = lesson?.steps.length ?? 0
-  const step = lesson?.steps[currentStep] ?? null
+  const rawStep = lesson?.steps[currentStep] ?? null
+  const activeExercise = useMemo(
+    () => resolveExerciseForVariant(rawStep?.exercise, currentVariantIndex),
+    [rawStep?.exercise, currentVariantIndex]
+  )
+  const step = useMemo(() => {
+    if (!rawStep) return null
+    if (!activeExercise) return rawStep
+    return {
+      ...rawStep,
+      exercise: {
+        ...activeExercise,
+        variants: rawStep.exercise?.variants,
+        adaptive: rawStep.exercise?.adaptive,
+        difficultyProfile: rawStep.exercise?.difficultyProfile,
+      },
+    }
+  }, [rawStep, activeExercise])
 
   useEffect(() => {
     if (step?.stepType === 'completion') {
       setStatus('completed')
     }
   }, [step?.stepType])
+
+  useEffect(() => {
+    const variants = rawStep?.exercise?.variants ?? []
+    if (variants.length === 0) return
+
+    const startDifficulty = rawStep?.exercise?.adaptive?.startDifficulty
+    const preferredIndex = startDifficulty ? variants.findIndex((variant) => variant.difficulty === startDifficulty) : 0
+    setCurrentVariantIndex(preferredIndex >= 0 ? preferredIndex : 0)
+    setExerciseErrors(0)
+  }, [rawStep?.stepNumber, rawStep?.exercise?.adaptive?.startDifficulty, rawStep?.exercise?.variants])
 
   const blockProgress = useMemo<BlockProgress>(
     () => ({
@@ -91,6 +159,8 @@ export function useLessonEngine(lesson: LessonData | null) {
       clearTimers()
       const boundedIndex = Math.min(Math.max(nextStepIndex, 0), totalSteps - 1)
       setCurrentStep(boundedIndex)
+      setExerciseErrors(0)
+      setCurrentVariantIndex(0)
       setFeedback(null)
       setStatus(lesson.steps[boundedIndex]?.stepType === 'completion' ? 'completed' : 'idle')
     },
@@ -101,10 +171,30 @@ export function useLessonEngine(lesson: LessonData | null) {
     goToStep(currentStep + 1)
   }, [currentStep, goToStep])
 
+  const clearCurrentStepTransientState = useCallback(() => {
+    setSubmittedAnswersByStep((current) => {
+      if (!(currentStep in current)) return current
+      const next = { ...current }
+      delete next[currentStep]
+      return next
+    })
+    setFeedbackByStep((current) => {
+      if (!(currentStep in current)) return current
+      const next = { ...current }
+      delete next[currentStep]
+      return next
+    })
+    setFeedback(null)
+    setStatus(rawStep?.stepType === 'completion' ? 'completed' : 'idle')
+  }, [currentStep, rawStep?.stepType])
+
   const handleAnswer = useCallback(
     (answer: string) => {
-      if (!lesson || !step?.exercise) return
-      const exercise = step.exercise
+      if (!lesson || !rawStep?.exercise || !activeExercise) return
+      const baseExercise = rawStep.exercise
+      const exercise = activeExercise
+      const adaptiveConfig = resolveAdaptiveConfig(baseExercise.adaptive)
+      const variants = baseExercise.variants ?? []
 
       clearTimers()
       setSubmittedAnswersByStep((current) => ({ ...current, [currentStep]: answer.trim() }))
@@ -120,13 +210,30 @@ export function useLessonEngine(lesson: LessonData | null) {
       const isCorrect = validateAnswer(answer, exercise)
       const validationTimer = setTimeout(() => {
         if (isCorrect) {
-          const successFeedback = { type: 'success', message: 'Верно. Переходим дальше.' } as const
+          const nextVariantIndex = variants.length
+            ? getNextVariant(variants, currentVariantIndex, exerciseErrors, adaptiveConfig)
+            : -1
+          const isLastVariant = nextVariantIndex === -1
+          const successFeedback = {
+            type: 'success',
+            message: isLastVariant ? 'Верно. Переходим дальше.' : 'Верно. Следующий вариант.',
+          } as const
           setXp((prev) => prev + 10)
           setCombo((prev) => prev + 1)
-          setMistakes((current) => current.filter((item) => item.step !== step.stepNumber))
+          setExerciseErrors(0)
+          setMistakes((current) => current.filter((item) => item.step !== rawStep.stepNumber))
           setFeedback(successFeedback)
           setFeedbackByStep((current) => ({ ...current, [currentStep]: successFeedback }))
           setStatus('feedback')
+
+          if (!isLastVariant) {
+            const nextVariantTimer = setTimeout(() => {
+              setCurrentVariantIndex(nextVariantIndex)
+              clearCurrentStepTransientState()
+            }, AUTO_ADVANCE_DELAY_MS)
+            timeoutRefs.current.push(nextVariantTimer)
+            return
+          }
 
           if (currentStep < totalSteps - 1) {
             const autoAdvanceTimer = setTimeout(() => {
@@ -138,10 +245,11 @@ export function useLessonEngine(lesson: LessonData | null) {
         }
 
         setCombo(0)
+        setExerciseErrors((prev) => prev + 1)
         setMistakes((current) => {
-          const next = current.filter((item) => item.step !== step.stepNumber)
+          const next = current.filter((item) => item.step !== rawStep.stepNumber)
           next.push({
-            step: step.stepNumber,
+            step: rawStep.stepNumber,
             userAnswer: answer.trim(),
             correctAnswer: exercise.correctAnswer,
           })
@@ -154,19 +262,49 @@ export function useLessonEngine(lesson: LessonData | null) {
         setFeedback(errorFeedback)
         setFeedbackByStep((current) => ({ ...current, [currentStep]: errorFeedback }))
         setStatus('feedback')
+
+        const nextErrorCount = exerciseErrors + 1
+        if (variants.length > 0 && nextErrorCount >= adaptiveConfig.errorThreshold) {
+          const easierIndex = variants.findIndex((variant) => variant.difficulty === 'easy')
+          if (easierIndex >= 0 && easierIndex !== currentVariantIndex) {
+            const easierVariantTimer = setTimeout(() => {
+              setCurrentVariantIndex(easierIndex)
+              clearCurrentStepTransientState()
+            }, AUTO_ADVANCE_DELAY_MS)
+            timeoutRefs.current.push(easierVariantTimer)
+          }
+        }
       }, VALIDATION_DELAY_MS)
 
       timeoutRefs.current.push(validationTimer)
     },
-    [lesson, step, currentStep, totalSteps, clearTimers, goToStep]
+    [
+      lesson,
+      rawStep,
+      activeExercise,
+      currentStep,
+      totalSteps,
+      clearTimers,
+      goToStep,
+      currentVariantIndex,
+      exerciseErrors,
+      clearCurrentStepTransientState,
+    ]
   )
 
-  const footerDynamicText = feedback?.type === 'error' ? feedback.message : step?.footerDynamic ?? null
   const submittedAnswer = step ? submittedAnswersByStep[currentStep] ?? null : null
   const postLesson = useMemo<PostLessonContent | null>(() => {
     if (step?.stepType !== 'completion') return null
     return step.postLesson ?? null
   }, [step])
+  const footerVariantProgress = useMemo<ExerciseVariantProgress>(() => {
+    const variants = rawStep?.exercise?.variants ?? []
+    if (variants.length <= 1) return null
+    return {
+      total: variants.length,
+      current: currentVariantIndex,
+    }
+  }, [rawStep?.exercise?.variants, currentVariantIndex])
   const footerStaticText = useMemo(() => {
     if (!lesson || totalSteps === 0) return null
 
@@ -180,13 +318,24 @@ export function useLessonEngine(lesson: LessonData | null) {
     return `${progressText} | ${xp} XP${comboText}`
   }, [lesson, totalSteps, currentStep, combo, xp, status, postLesson?.staticFooterText])
 
+  const contextualFooterHint = useMemo(() => {
+    if (exerciseErrors > 0 && activeExercise?.hint?.trim()) {
+      return `💡 Подсказка: ${activeExercise.hint.trim()}`
+    }
+    return null
+  }, [exerciseErrors, activeExercise?.hint])
+
   const effectiveFooterDynamicText =
-    feedback?.type === 'error' ? feedback.message : status === 'completed' ? postLesson?.dynamicFooterText ?? step?.footerDynamic ?? null : step?.footerDynamic ?? null
+    feedback?.type === 'error'
+      ? feedback.message
+      : status === 'completed'
+        ? postLesson?.dynamicFooterText ?? step?.footerDynamic ?? null
+        : contextualFooterHint ?? step?.footerDynamic ?? null
 
   const footerTypingKey = useMemo(() => {
     if (!lesson) return 'lesson-footer'
-    return `${lesson.id}:${lesson.runKey ?? 'static'}:${currentStep}:${feedback?.type === 'error' ? 'hint' : 'step'}`
-  }, [lesson, currentStep, feedback?.type])
+    return `${lesson.id}:${lesson.runKey ?? 'static'}:${currentStep}:${currentVariantIndex}:${feedback?.type === 'error' ? 'hint' : contextualFooterHint ? 'context' : 'step'}`
+  }, [lesson, currentStep, currentVariantIndex, feedback?.type, contextualFooterHint])
 
   const completedSteps = useMemo(() => {
     if (!lesson) return []
@@ -201,9 +350,9 @@ export function useLessonEngine(lesson: LessonData | null) {
       submittedAnswer: submittedAnswersByStep[stepIndex] ?? null,
       feedback: stepIndex === currentStep ? feedback : feedbackByStep[stepIndex] ?? null,
       isCurrent: stepIndex === currentStep,
-      step: lessonStep,
+      step: stepIndex === currentStep && step ? step : lessonStep,
     }))
-  }, [lesson, currentStep, submittedAnswersByStep, feedback, feedbackByStep])
+  }, [lesson, currentStep, submittedAnswersByStep, feedback, feedbackByStep, step])
 
   return {
     lesson,
@@ -217,10 +366,13 @@ export function useLessonEngine(lesson: LessonData | null) {
     feedback,
     submittedAnswer,
     mistakes,
+    exerciseErrors,
+    currentVariantIndex,
     completedSteps,
     blockProgress,
     footerDynamicText: effectiveFooterDynamicText,
     footerStaticText,
+    footerVariantProgress,
     footerTypingKey,
     isCompletionStep: step?.stepType === 'completion',
     postLesson,

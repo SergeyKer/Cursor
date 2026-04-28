@@ -324,6 +324,7 @@ export default function Home() {
     blockProgress: activeStructuredLessonBlockProgress,
     footerDynamicText: activeStructuredLessonFooterDynamicText,
     footerStaticText: activeStructuredLessonFooterStaticText,
+    footerVariantProgress: activeStructuredLessonFooterVariantProgress,
     footerTypingKey: activeStructuredLessonFooterTypingKey,
     handleAnswer: handleStructuredLessonAnswer,
     xp: activeStructuredLessonXp,
@@ -1013,6 +1014,7 @@ export default function Home() {
         theoryIntro: lesson.theoryIntro,
         actions: lesson.actions,
         followups: lesson.followups,
+        adaptiveTemplate: lesson.adaptiveTemplate,
       })
       openLearningLesson(lessonId, 'tutor')
     },
@@ -1565,6 +1567,7 @@ export default function Home() {
   }
 
   const activeLearningLesson = activeLearningLessonId ? getLearningLessonById(activeLearningLessonId) : null
+  const isLessonActive = Boolean(activeLearningLesson)
   const isStructuredLessonActive = Boolean(activeStructuredLesson && activeStructuredLessonStep)
   const activeLessonTitle = activeLearningLesson?.title ?? null
   const isTutorLessonHeader = activeLessonTitle && lessonMenuContext?.lessonsPanel === 'tutor'
@@ -1628,7 +1631,7 @@ export default function Home() {
               <MenuIcon />
             </button>
             <div className="pointer-events-auto flex h-10 min-h-[36px] shrink-0 items-center justify-end gap-1.5">
-              {dialogStarted && settings.mode === 'communication' && (
+              {dialogStarted && settings.mode === 'communication' && !isLessonActive && (
                 <button
                   type="button"
                   onClick={() =>
@@ -1940,8 +1943,9 @@ export default function Home() {
         <AppFooter
           dynamicText={lessonFooterDynamicText}
           staticText={lessonFooterStaticText}
+          variantProgress={activeStructuredLessonFooterVariantProgress}
           typingKey={activeStructuredLessonFooterTypingKey}
-          isLessonActive={Boolean(activeLearningLesson)}
+          isLessonActive={isLessonActive}
           isDialogStarted={dialogStarted}
         />
       </footer>

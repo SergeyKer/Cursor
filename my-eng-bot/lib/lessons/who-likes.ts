@@ -200,7 +200,7 @@ function buildWhoLikesBlueprints(variant: WhoLikesVariant): LessonRepeatStepBlue
       stepNumber: 6,
       stepType: 'feedback',
       learningGoal: 'Проверить различие между правильной формой и ошибочными вариантами без окончания -s.',
-      exerciseType: 'fill_choice',
+      exerciseType: 'micro_quiz',
       answerFormat: 'choice',
       answerPolicy: 'strict',
       sourceCorrectAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,
@@ -290,7 +290,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Теперь закрепим вопросительное слово.',
+          content: 'Теперь закрепим вопросительное слово в нескольких коротких вопросах.',
         },
         {
           type: 'info',
@@ -298,7 +298,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         },
         {
           type: 'task',
-          content: `Дополните вопрос одним словом: "___ ${variant.verbThird} ${variant.step3Object}?"`,
+          content: 'Дополните вопрос одним словом.',
         },
       ],
       exercise: {
@@ -309,6 +309,44 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         answerFormat: 'single_word',
         answerPolicy: 'strict',
         hint: 'Нужно вопросительное слово "кто".',
+        variants: [
+          {
+            id: `${variant.id}_step3_easy`,
+            question: `Дополните вопрос: "___ ${variant.verbThird} ${variant.step3Object}?"`,
+            correctAnswer: 'Who',
+            acceptedAnswers: ['Who'],
+            hint: 'Нужно вопросительное слово "кто".',
+            difficulty: 'easy',
+            answerFormat: 'single_word',
+            answerPolicy: 'strict',
+          },
+          {
+            id: `${variant.id}_step3_medium`,
+            question: `Дополните вопрос: "___ ${variant.verbThird} ${variant.introObject}?"`,
+            correctAnswer: 'Who',
+            acceptedAnswers: ['Who'],
+            hint: 'В начале вопроса о человеке будет Who.',
+            difficulty: 'medium',
+            answerFormat: 'single_word',
+            answerPolicy: 'strict',
+          },
+          {
+            id: `${variant.id}_step3_hard`,
+            question: 'Дополните вопрос: "___ reads comics?"',
+            correctAnswer: 'Who',
+            acceptedAnswers: ['Who'],
+            hint: 'Сначала ставим слово Who.',
+            difficulty: 'hard',
+            answerFormat: 'single_word',
+            answerPolicy: 'strict',
+          },
+        ],
+        adaptive: {
+          minVariants: 2,
+          maxVariants: 3,
+          startDifficulty: 'easy',
+          errorThreshold: 2,
+        },
       },
       footerDynamic: 'Practice: Who',
     },
@@ -318,7 +356,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Соберём целый вопрос.',
+          content: 'Соберём целый вопрос в нескольких новых ситуациях.',
         },
         {
           type: 'info',
@@ -326,7 +364,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         },
         {
           type: 'task',
-          content: `Переведите на английский: "${variant.introQuestionRu}"`,
+          content: 'Переведите вопрос на английский по шаблону.',
         },
       ],
       exercise: {
@@ -337,6 +375,60 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         answerFormat: 'full_sentence',
         answerPolicy: 'strict',
         hint: `Начните с Who и используйте ${variant.verbThird}.`,
+        variants: [
+          {
+            id: `${variant.id}_step4_easy`,
+            question: `Переведите на английский: "${variant.introQuestionRu}"`,
+            correctAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,
+            acceptedAnswers: [`Who ${variant.verbThird} ${variant.introObject}?`],
+            hint: `Начните с Who и используйте ${variant.verbThird}.`,
+            difficulty: 'easy',
+            answerFormat: 'full_sentence',
+            answerPolicy: 'strict',
+          },
+          {
+            id: `${variant.id}_step4_medium`,
+            question: `Переведите на английский: "Кто ${variant.verbBase === 'read' ? 'читает истории' : `любит ${variant.step3Object}` }?"`,
+            correctAnswer:
+              variant.verbBase === 'read'
+                ? `Who ${variant.verbThird} stories?`
+                : `Who ${variant.verbThird} ${variant.step3Object}?`,
+            acceptedAnswers:
+              variant.verbBase === 'read'
+                ? [`Who ${variant.verbThird} stories?`]
+                : [`Who ${variant.verbThird} ${variant.step3Object}?`],
+            hint: `Нужен шаблон Who + ${variant.verbThird} + noun?`,
+            difficulty: 'medium',
+            answerFormat: 'full_sentence',
+            answerPolicy: 'strict',
+          },
+          {
+            id: `${variant.id}_step4_hard`,
+            question: `Переведите на английский: "Кто ${variant.verbBase === 'play' ? 'играет в теннис' : variant.verbBase === 'drink' ? 'пьет воду' : 'любит музыку'}?"`,
+            correctAnswer:
+              variant.verbBase === 'play'
+                ? `Who ${variant.verbThird} tennis?`
+                : variant.verbBase === 'drink'
+                  ? `Who ${variant.verbThird} water?`
+                  : `Who ${variant.verbThird} music?`,
+            acceptedAnswers:
+              variant.verbBase === 'play'
+                ? [`Who ${variant.verbThird} tennis?`]
+                : variant.verbBase === 'drink'
+                  ? [`Who ${variant.verbThird} water?`]
+                  : [`Who ${variant.verbThird} music?`],
+            hint: 'Сначала Who, затем форма глагола с -s.',
+            difficulty: 'hard',
+            answerFormat: 'full_sentence',
+            answerPolicy: 'strict',
+          },
+        ],
+        adaptive: {
+          minVariants: 2,
+          maxVariants: 3,
+          startDifficulty: 'easy',
+          errorThreshold: 2,
+        },
       },
       footerDynamic: 'Practice: full question',
     },
@@ -374,32 +466,50 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Финальная проверка: найдите правильную форму.',
+          content: 'Отлично. Осталась быстрая финальная проверка.',
         },
         {
           type: 'info',
-          content: `Помните: в этом шаблоне нам нужна форма ${variant.verbThird}, а не ${variant.verbBase}.`,
+          content: `Карточка: в шаблоне с Who используем форму ${variant.verbThird}, а не ${variant.verbBase}.`,
         },
         {
           type: 'task',
-          content: 'Выберите правильный вопрос.',
+          content: 'Быстрый микро-тест: выберите правильный вопрос.',
         },
       ],
       exercise: {
-        type: 'fill_choice',
-        question: 'Какой вариант правильный?',
+        type: 'micro_quiz',
+        question: 'Какой вопрос правильный?',
         options: [
-          `Who ${variant.verbBase} ${variant.introObject}?`,
           `Who ${variant.verbThird} ${variant.introObject}?`,
-          `Who ${variant.verbIng} ${variant.introObject}?`,
+          `Who ${variant.verbBase} ${variant.introObject}?`,
         ],
         correctAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,
         acceptedAnswers: [`Who ${variant.verbThird} ${variant.introObject}?`],
         answerFormat: 'choice',
         answerPolicy: 'strict',
         hint: `Нужна форма ${variant.verbThird}.`,
+        variants: [
+          {
+            id: `${variant.id}_micro_1`,
+            question: 'Какой вопрос правильный?',
+            options: [`Who ${variant.verbThird} ${variant.introObject}?`, `Who ${variant.verbBase} ${variant.introObject}?`],
+            correctAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,
+            acceptedAnswers: [`Who ${variant.verbThird} ${variant.introObject}?`],
+            hint: `Нужна форма ${variant.verbThird}.`,
+            difficulty: 'easy',
+            answerFormat: 'choice',
+            answerPolicy: 'strict',
+          },
+        ],
+        adaptive: {
+          minVariants: 1,
+          maxVariants: 1,
+          startDifficulty: 'easy',
+          errorThreshold: 1,
+        },
       },
-      footerDynamic: 'Feedback: correct question',
+      footerDynamic: 'Карточка: Who + verb-s + noun?',
     },
     {
       stepNumber: 7,

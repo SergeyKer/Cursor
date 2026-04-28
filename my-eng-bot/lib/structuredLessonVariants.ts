@@ -18,6 +18,17 @@ function cloneExercise(exercise?: Exercise): Exercise | undefined {
     ...exercise,
     ...(exercise.options ? { options: [...exercise.options] } : {}),
     ...(exercise.acceptedAnswers ? { acceptedAnswers: [...exercise.acceptedAnswers] } : {}),
+    ...(exercise.variants
+      ? {
+          variants: exercise.variants.map((variant) => ({
+            ...variant,
+            ...(variant.options ? { options: [...variant.options] } : {}),
+            ...(variant.acceptedAnswers ? { acceptedAnswers: [...variant.acceptedAnswers] } : {}),
+          })),
+        }
+      : {}),
+    ...(exercise.adaptive ? { adaptive: { ...exercise.adaptive } } : {}),
+    ...(exercise.difficultyProfile ? { difficultyProfile: { ...exercise.difficultyProfile } } : {}),
   }
 }
 
@@ -73,6 +84,17 @@ function mergeStep(baseStep: LessonStep, variantStep?: LessonRepeatStepVariant):
       ...variantStep.exercise,
       ...(variantStep.exercise.options ? { options: [...variantStep.exercise.options] } : {}),
       ...(variantStep.exercise.acceptedAnswers ? { acceptedAnswers: [...variantStep.exercise.acceptedAnswers] } : {}),
+      ...(variantStep.exercise.variants
+        ? {
+            variants: variantStep.exercise.variants.map((variant) => ({
+              ...variant,
+              ...(variant.options ? { options: [...variant.options] } : {}),
+              ...(variant.acceptedAnswers ? { acceptedAnswers: [...variant.acceptedAnswers] } : {}),
+            })),
+          }
+        : {}),
+      ...(variantStep.exercise.adaptive ? { adaptive: { ...variantStep.exercise.adaptive } } : {}),
+      ...(variantStep.exercise.difficultyProfile ? { difficultyProfile: { ...variantStep.exercise.difficultyProfile } } : {}),
     }
   }
 

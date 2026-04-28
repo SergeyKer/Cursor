@@ -1,5 +1,6 @@
 import type { Audience, LevelId } from '@/lib/types'
 import type { LearningLesson, LearningLessonActionId } from '@/lib/learningLessons'
+import type { AdaptiveConfig, DifficultyProfile } from '@/types/lesson'
 
 export type LessonOrigin = 'theory' | 'tutor'
 
@@ -11,8 +12,17 @@ export type LessonResolutionContext = {
   analysisSummary?: string
 }
 
+export type TutorAdaptiveTemplate = {
+  grammarFocus: string[]
+  contrastPair?: [string, string]
+  recommendedStartDifficulty: AdaptiveConfig['startDifficulty']
+  preferredExerciseModes: DifficultyProfile['preferredExerciseMode'][]
+  supportsAdaptiveVariants: boolean
+}
+
 export type LessonBlueprint = Pick<LearningLesson, 'title' | 'theoryIntro' | 'actions' | 'followups'> & {
   id?: string
+  adaptiveTemplate?: TutorAdaptiveTemplate
 }
 
 const REQUIRED_THEORY_MARKERS = ['**Урок:**', '**Правило:**', '**Примеры:**', '**Коротко:**', '**Шаблоны:**'] as const
@@ -37,5 +47,35 @@ export function isValidLessonBlueprint(input: unknown): input is LessonBlueprint
   if (!row.followups || typeof row.followups !== 'object') return false
   const followups = row.followups as Record<string, unknown>
   const required: LearningLessonActionId[] = ['examples', 'fill_phrase', 'repeat_translate', 'write_own_sentence']
-  return required.every((id) => typeof followups[id] === 'string')
+  if (!required.every((id) => typeof followups[id] === 'string')) return false
+
+  if (row.adaptiveTemplate === undefined) return true
+  if (!row.adaptiveTemplate || typeof row.adaptiveTemplate !== 'object') return false
+  const adaptiveTemplate = row.adaptiveTemplate as Record<string, unknown>
+  if (!Array.isArray(adaptiveTemplate.grammarFocus) || adaptiveTemplate.grammarFocus.some((item) => typeof item !== 'string')) {
+    return false
+  }
+  if (
+    adaptiveTemplate.contrastPair !== undefined &&
+    (!Array.isArray(adaptiveTemplate.contrastPair) ||
+      adaptiveTemplate.contrastPair.length !== 2 ||
+      adaptiveTemplate.contrastPair.some((item) => typeof item !== 'string'))
+  ) {
+    return false
+  }
+  if (
+    adaptiveTemplate.recommendedStartDifficulty !== 'easy' &&
+    adaptiveTemplate.recommendedStartDifficulty !== 'medium'
+  ) {
+    return false
+  }
+  if (
+    !Array.isArray(adaptiveTemplate.preferredExerciseModes) ||
+    adaptiveTemplate.preferredExerciseModes.some(
+      (item) => item !== 'drill' && item !== 'contrast' && item !== 'production' && item !== 'micro_quiz'
+    )
+  ) {
+    return false
+  }
+  return typeof adaptiveTemplate.supportsAdaptiveVariants === 'boolean'
 }

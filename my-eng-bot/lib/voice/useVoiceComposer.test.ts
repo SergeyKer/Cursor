@@ -6,6 +6,7 @@ import {
   chooseFinalSpeechText,
   extractSpeechRecognitionTranscript,
   initialVoiceComposerState,
+  mergeSpeechDisplayText,
   mergeSpeechFinalSegment,
   voiceComposerReducer,
 } from './useVoiceComposer'
@@ -47,6 +48,22 @@ describe('useVoiceComposer helpers', () => {
         voiceInterimText: 'are you',
       })
     ).toBe('hello how are you')
+  })
+
+  it('collapses cumulative interim text for live preview', () => {
+    expect(mergeSpeechDisplayText('I would like', 'I would like to drink a tea')).toBe(
+      'I would like to drink a tea'
+    )
+  })
+
+  it('collapses cumulative interim text for display text', () => {
+    expect(
+      buildVoiceDisplayText({
+        draftBeforeVoiceText: 'Maybe',
+        voiceFinalText: 'I would like',
+        voiceInterimText: 'I would like to drink a tea',
+      })
+    ).toBe('Maybe I would like to drink a tea')
   })
 
   it('extracts final and interim transcript parts from speech results', () => {

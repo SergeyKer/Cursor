@@ -12,6 +12,14 @@ import {
   extractJsonObject,
   formatLessonValidationIssues,
 } from '@/lib/structuredLessonFactory'
+import {
+  buildLessonRouteCacheKey,
+  createLessonRouteCorrelationId,
+  logLessonRouteSummary,
+  readLessonRouteCache,
+  resolveLessonRouteMaxTokens,
+  writeLessonRouteCache,
+} from '@/lib/lessonRouteRuntime'
 
 type Body = {
   provider?: 'openrouter' | 'openai'
@@ -22,6 +30,8 @@ type Body = {
 }
 
 export async function POST(req: NextRequest) {
+  const startedAt = Date.now()
+  const correlationId = req.headers.get('x-correlation-id')?.trim() || createLessonRouteCorrelationId('repeat')
   let body: Body
   try {
     body = (await req.json()) as Body
@@ -54,14 +64,43 @@ export async function POST(req: NextRequest) {
       : body.openAiChatPreset === 'gpt-5.4-mini-low'
         ? 'gpt-5.4-mini-low'
         : 'gpt-4o-mini'
+  const audience = body.audience ?? 'adult'
+  const cacheKey = buildLessonRouteCacheKey({
+    mode: 'repeat',
+    lessonId: lesson.id,
+    selectedVariantId,
+    audience,
+    provider,
+    openAiChatPreset,
+  })
+  const cachedResponse = readLessonRouteCache<{ lesson: typeof lesson; generated: boolean; fallback: boolean }>(cacheKey)
+  if (cachedResponse) {
+    const responsePayload = {
+      ...cachedResponse,
+      lesson: cloneLessonWithNewRunKey(cachedResponse.lesson),
+    }
+    logLessonRouteSummary({
+      correlationId,
+      mode: 'repeat',
+      lessonId: lesson.id,
+      selectedVariantId,
+      durationMs: Date.now() - startedAt,
+      source: 'cache',
+      generated: cachedResponse.generated,
+      fallback: cachedResponse.fallback,
+    })
+    return NextResponse.json(responsePayload, {
+      headers: { 'x-correlation-id': correlationId },
+    })
+  }
 
-  const system = [buildStructuredRepeatSystemPrompt(), buildStructuredLessonCefrPrompt({ lesson, audience: body.audience ?? 'adult' })].join('\n\n')
+  const system = [buildStructuredRepeatSystemPrompt(), buildStructuredLessonCefrPrompt({ lesson, audience })].join('\n\n')
 
   const user = JSON.stringify(
     {
       topic: lesson.topic,
       level: lesson.level,
-      audience: body.audience ?? 'adult',
+      audience,
       repeatMode: 'change_situations_and_lexis_within_same_grammar_focus',
       selectedVariantId,
       ruleSummary: repeatConfig.ruleSummary,
@@ -87,34 +126,104 @@ export async function POST(req: NextRequest) {
       { role: 'system', content: system },
       { role: 'user', content: user },
     ],
-    maxTokens: 1800,
+    maxTokens: resolveLessonRouteMaxTokens(lesson.level, 'repeat'),
     openAiChatPreset,
   })
 
   if (!model.ok) {
-    return NextResponse.json({ lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true })
+    const responsePayload = { lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true }
+    writeLessonRouteCache(cacheKey, responsePayload)
+    logLessonRouteSummary({
+      correlationId,
+      mode: 'repeat',
+      lessonId: lesson.id,
+      selectedVariantId,
+      durationMs: Date.now() - startedAt,
+      source: 'provider',
+      generated: false,
+      fallback: true,
+    })
+    return NextResponse.json(responsePayload, {
+      headers: { 'x-correlation-id': correlationId },
+    })
   }
 
   const json = extractJsonObject(model.content)
   if (!json) {
-    return NextResponse.json({ lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true })
+    const responsePayload = { lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true }
+    writeLessonRouteCache(cacheKey, responsePayload)
+    logLessonRouteSummary({
+      correlationId,
+      mode: 'repeat',
+      lessonId: lesson.id,
+      selectedVariantId,
+      durationMs: Date.now() - startedAt,
+      source: 'provider',
+      generated: false,
+      fallback: true,
+    })
+    return NextResponse.json(responsePayload, {
+      headers: { 'x-correlation-id': correlationId },
+    })
   }
 
   try {
     const parsed = JSON.parse(json) as { steps?: unknown }
-    const validation = assessGeneratedSteps(lesson, sourceRepeatableSteps, parsed.steps, { audience: body.audience ?? 'adult' })
+    const validation = assessGeneratedSteps(lesson, sourceRepeatableSteps, parsed.steps, { audience })
     if (!validation.validatedSteps) {
       console.warn(
         `lesson-repeat rejected lesson ${lesson.id} variant ${selectedVariantId ?? 'default'}: score=${validation.score.toFixed(2)}; ${formatLessonValidationIssues(validation.issues)}`
       )
-      return NextResponse.json({ lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true })
+      const responsePayload = { lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true }
+      writeLessonRouteCache(cacheKey, responsePayload)
+      logLessonRouteSummary({
+        correlationId,
+        mode: 'repeat',
+        lessonId: lesson.id,
+        selectedVariantId,
+        durationMs: Date.now() - startedAt,
+        source: 'provider',
+        generated: false,
+        fallback: true,
+      })
+      return NextResponse.json(responsePayload, {
+        headers: { 'x-correlation-id': correlationId },
+      })
     }
-    return NextResponse.json({
+    const responsePayload = {
       lesson: buildLessonFromGeneratedSteps(lesson, validation.validatedSteps),
       generated: true,
       fallback: false,
+    }
+    writeLessonRouteCache(cacheKey, responsePayload)
+    logLessonRouteSummary({
+      correlationId,
+      mode: 'repeat',
+      lessonId: lesson.id,
+      selectedVariantId,
+      durationMs: Date.now() - startedAt,
+      source: 'provider',
+      generated: true,
+      fallback: false,
+    })
+    return NextResponse.json(responsePayload, {
+      headers: { 'x-correlation-id': correlationId },
     })
   } catch {
-    return NextResponse.json({ lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true })
+    const responsePayload = { lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true }
+    writeLessonRouteCache(cacheKey, responsePayload)
+    logLessonRouteSummary({
+      correlationId,
+      mode: 'repeat',
+      lessonId: lesson.id,
+      selectedVariantId,
+      durationMs: Date.now() - startedAt,
+      source: 'provider',
+      generated: false,
+      fallback: true,
+    })
+    return NextResponse.json(responsePayload, {
+      headers: { 'x-correlation-id': correlationId },
+    })
   }
 }
