@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import LessonSentencePuzzle from '@/components/LessonSentencePuzzle'
 import PostLessonMenu from '@/components/PostLessonMenu'
-import TypingText from '@/components/TypingText'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
@@ -619,16 +618,13 @@ export default function LessonStepRenderer({
                     ) : null}
                     <div className="relative min-w-0 flex-1">
                       {shouldRenderChoiceChips && !showVoiceOverlay && (
-                        <div className="pointer-events-none absolute inset-x-4 inset-y-0 z-10 flex items-center overflow-hidden">
-                          <TypingText
-                            key={`lesson-choice-placeholder-${currentStep?.stepNumber ?? 'none'}-${currentVariantIndex}-${choiceResetVersion}`}
-                            text={inputPlaceholder}
-                            speed={24}
-                            startDelayMs={0}
-                            fadeWhileTyping={false}
-                            singleLine
-                            className="w-full text-right text-[15px] text-slate-700"
-                          />
+                        <div
+                          key={`lesson-choice-placeholder-${currentStep?.stepNumber ?? 'none'}-${currentVariantIndex}-${choiceResetVersion}`}
+                          className="pointer-events-none absolute inset-x-4 inset-y-0 z-10 flex items-center overflow-hidden lesson-choice-chip-enter"
+                        >
+                          <span className="block w-full truncate whitespace-nowrap text-right text-[15px] text-slate-700">
+                            {inputPlaceholder}
+                          </span>
                         </div>
                       )}
                       {showVoiceOverlay && (
