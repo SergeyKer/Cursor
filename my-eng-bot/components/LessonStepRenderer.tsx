@@ -206,9 +206,6 @@ export default function LessonStepRenderer({
     ? ''
     : rawVoiceStatusMessage
   const inputPlaceholder = useMemo(() => {
-    if (shouldRenderChoiceChips) {
-      return 'Выберите вариант'
-    }
     if (!exercise) return 'Напиши ответ...'
     if (exercise.answerFormat === 'full_sentence') {
       return 'Напиши предложение...'
@@ -217,7 +214,7 @@ export default function LessonStepRenderer({
       return 'Напиши пропущенное слово...'
     }
     return 'Напиши ответ...'
-  }, [exercise, shouldRenderChoiceChips])
+  }, [exercise])
 
   useEffect(() => {
     setChoiceResetVersion((current) => current + 1)
@@ -535,7 +532,7 @@ export default function LessonStepRenderer({
                   />
                 ) : null}
 
-                {exercise && !hasPostLessonOptions && !isSentencePuzzle ? (
+                {exercise && !hasPostLessonOptions && !shouldRenderChoiceChips && !isSentencePuzzle ? (
                   <form
                     onSubmit={(event) => {
                       event.preventDefault()
@@ -544,91 +541,77 @@ export default function LessonStepRenderer({
                     className="glass-surface flex w-full items-center gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1.5 sm:px-3"
                     style={{ boxShadow: 'var(--chat-composer-shadow)' }}
                   >
-                    {!shouldRenderChoiceChips ? (
-                      <button
-                        type="button"
-                        disabled={!isTextInputAvailable || lessonVoiceInput.voicePhase === 'finalizing'}
-                        onClick={() => {
-                          if (!isTextInputAvailable) return
-                          lessonVoiceInput.resetMicAnimation()
-                          if (lessonVoiceInput.listening) {
-                            lessonVoiceInput.stopListening()
-                            return
-                          }
-                          void lessonVoiceInput.startListening()
-                        }}
-                        aria-label={
-                          lessonVoiceInput.listening
-                            ? 'Остановить запись'
-                            : lessonVoiceInput.voicePhase === 'finalizing'
-                              ? 'Распознаю речь'
-                              : 'Голосовой ввод'
+                    <button
+                      type="button"
+                      disabled={!isTextInputAvailable || lessonVoiceInput.voicePhase === 'finalizing'}
+                      onClick={() => {
+                        if (!isTextInputAvailable) return
+                        lessonVoiceInput.resetMicAnimation()
+                        if (lessonVoiceInput.listening) {
+                          lessonVoiceInput.stopListening()
+                          return
                         }
-                        title={
-                          lessonVoiceInput.listening
-                            ? 'Остановить'
-                            : lessonVoiceInput.voicePhase === 'finalizing'
-                              ? 'Распознаю речь'
-                              : 'Голосовой ввод'
+                        void lessonVoiceInput.startListening()
+                      }}
+                      aria-label={
+                        lessonVoiceInput.listening
+                          ? 'Остановить запись'
+                          : lessonVoiceInput.voicePhase === 'finalizing'
+                            ? 'Распознаю речь'
+                            : 'Голосовой ввод'
+                      }
+                      title={
+                        lessonVoiceInput.listening
+                          ? 'Остановить'
+                          : lessonVoiceInput.voicePhase === 'finalizing'
+                            ? 'Распознаю речь'
+                            : 'Голосовой ввод'
+                      }
+                      className={`chat-action-button chat-control-surface relative isolate flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-full p-2.5 touch-manipulation ${
+                        lessonVoiceInput.micActionActive
+                          ? 'text-[var(--chat-control-active-text)]'
+                          : 'text-[var(--chat-control-text)]'
+                      }`}
+                      style={{
+                        background: lessonVoiceInput.micActionActive
+                          ? 'var(--chat-control-active-bg)'
+                          : 'var(--chat-control-bg)',
+                        boxShadow: lessonVoiceInput.micActionActive ? 'var(--chat-control-shadow)' : undefined,
+                      }}
+                      onMouseEnter={(event) => {
+                        if (!lessonVoiceInput.micActionActive) {
+                          event.currentTarget.style.background = 'var(--chat-control-hover)'
                         }
-                        className={`chat-action-button chat-control-surface relative isolate flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-full p-2.5 touch-manipulation ${
-                          lessonVoiceInput.micActionActive
-                            ? 'text-[var(--chat-control-active-text)]'
-                            : 'text-[var(--chat-control-text)]'
-                        }`}
-                        style={{
-                          background: lessonVoiceInput.micActionActive
-                            ? 'var(--chat-control-active-bg)'
-                            : 'var(--chat-control-bg)',
-                          boxShadow: lessonVoiceInput.micActionActive ? 'var(--chat-control-shadow)' : undefined,
-                        }}
-                        onMouseEnter={(event) => {
-                          if (!lessonVoiceInput.micActionActive) {
-                            event.currentTarget.style.background = 'var(--chat-control-hover)'
-                          }
-                        }}
-                        onMouseLeave={(event) => {
-                          if (!lessonVoiceInput.micActionActive) {
-                            event.currentTarget.style.background = 'var(--chat-control-bg)'
-                          }
-                        }}
-                      >
-                        {lessonVoiceInput.micActionActive ? (
-                          <span className="relative z-10 h-5 w-5 rounded-full bg-[var(--chat-control-dot)]" />
-                        ) : (
-                          <span className="relative z-10">
-                            <svg
-                              aria-hidden="true"
-                              viewBox="0 0 24 24"
-                              className="h-5 w-5"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z" />
-                              <path d="M19 11a7 7 0 0 1-14 0" />
-                              <path d="M12 18v3" />
-                              <path d="M8 21h8" />
-                            </svg>
-                          </span>
-                        )}
-                      </button>
-                    ) : null}
-                    <div className="relative isolate min-w-0 flex-1">
-                      {shouldRenderChoiceChips && !showVoiceOverlay && (
-                        <div
-                          key={`lesson-choice-placeholder-${currentStep?.stepNumber ?? 'none'}-${currentVariantIndex}-${choiceResetVersion}`}
-                          className="pointer-events-none absolute inset-x-4 inset-y-0 z-20 flex items-center overflow-hidden"
-                        >
-                          <div className="lesson-choice-chip-enter min-w-0 w-full">
-                            <span className="block min-w-0 w-full truncate whitespace-nowrap text-right text-[15px] leading-[1.45rem] text-slate-700">
-                              {inputPlaceholder}
-                            </span>
-                          </div>
-                        </div>
+                      }}
+                      onMouseLeave={(event) => {
+                        if (!lessonVoiceInput.micActionActive) {
+                          event.currentTarget.style.background = 'var(--chat-control-bg)'
+                        }
+                      }}
+                    >
+                      {lessonVoiceInput.micActionActive ? (
+                        <span className="relative z-10 h-5 w-5 rounded-full bg-[var(--chat-control-dot)]" />
+                      ) : (
+                        <span className="relative z-10">
+                          <svg
+                            aria-hidden="true"
+                            viewBox="0 0 24 24"
+                            className="h-5 w-5"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z" />
+                            <path d="M19 11a7 7 0 0 1-14 0" />
+                            <path d="M12 18v3" />
+                            <path d="M8 21h8" />
+                          </svg>
+                        </span>
                       )}
+                    </button>
+                    <div className="relative isolate min-w-0 flex-1">
                       {showVoiceOverlay && (
                         <VoiceComposerOverlay
                           draftBeforeVoiceText=""
@@ -638,7 +621,7 @@ export default function LessonStepRenderer({
                       )}
                       <input
                         type="text"
-                        value={shouldRenderChoiceChips ? '' : inputValue}
+                        value={inputValue}
                         onChange={(event) => lessonVoiceInput.setDraftText(event.target.value)}
                         onKeyDown={(event) => {
                           if (event.key === 'Enter') {
@@ -646,51 +629,45 @@ export default function LessonStepRenderer({
                             submitTextAnswer()
                           }
                         }}
-                        readOnly={lessonVoiceInput.isInputLocked || shouldRenderChoiceChips}
-                        disabled={!isTextInputAvailable || isChecking || shouldRenderChoiceChips}
-                        autoComplete={shouldRenderChoiceChips ? 'off' : undefined}
-                        aria-label={shouldRenderChoiceChips ? inputPlaceholder : undefined}
+                        readOnly={lessonVoiceInput.isInputLocked}
+                        disabled={!isTextInputAvailable || isChecking}
                         className={`chat-input-field lesson-chat-input-field min-w-0 w-full rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${
                           showVoiceOverlay ? 'chat-input-voice-web-metrics' : ''
                         } ${
                           showVoiceOverlay
                             ? 'text-transparent caret-transparent placeholder:text-transparent'
-                            : shouldRenderChoiceChips
-                              ? 'relative z-0 text-right pr-6 text-transparent caret-transparent placeholder:text-transparent'
-                              : 'text-[var(--text)]'
+                            : 'text-[var(--text)]'
                         }`}
-                        placeholder={shouldRenderChoiceChips ? '' : inputPlaceholder}
+                        placeholder={inputPlaceholder}
                       />
                     </div>
-                    {!shouldRenderChoiceChips ? (
-                      <button
-                        type="submit"
-                        disabled={
-                          !isTextInputAvailable ||
-                          isChecking ||
-                          lessonVoiceInput.isInputLocked ||
-                          !lessonVoiceInput.draftText.trim()
-                        }
-                        aria-label="Отправить ответ"
-                        className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)]"
-                        style={{ background: '#3B82F6' }}
+                    <button
+                      type="submit"
+                      disabled={
+                        !isTextInputAvailable ||
+                        isChecking ||
+                        lessonVoiceInput.isInputLocked ||
+                        !lessonVoiceInput.draftText.trim()
+                      }
+                      aria-label="Отправить ответ"
+                      className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)]"
+                      style={{ background: '#3B82F6' }}
+                    >
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-7 w-7"
+                        fill="none"
                       >
-                        <svg
-                          aria-hidden="true"
-                          viewBox="0 0 24 24"
-                          className="h-7 w-7"
-                          fill="none"
-                        >
-                          <path
-                            d="M21.4 11.6C21.7 11.8 21.7 12.2 21.4 12.4L5.9 19.4C5.2 19.7 4.4 19.2 4.5 18.4L5.3 14.2C5.4 13.9 5.6 13.6 5.9 13.5L12.8 12L5.9 10.5C5.6 10.4 5.4 10.1 5.3 9.8L4.5 5.6C4.4 4.8 5.2 4.3 5.9 4.6L21.4 11.6Z"
-                            stroke="#FFFFFF"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </button>
-                    ) : null}
+                        <path
+                          d="M21.4 11.6C21.7 11.8 21.7 12.2 21.4 12.4L5.9 19.4C5.2 19.7 4.4 19.2 4.5 18.4L5.3 14.2C5.4 13.9 5.6 13.6 5.9 13.5L12.8 12L5.9 10.5C5.6 10.4 5.4 10.1 5.3 9.8L4.5 5.6C4.4 4.8 5.2 4.3 5.9 4.6L21.4 11.6Z"
+                          stroke="#FFFFFF"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
                   </form>
                 ) : null}
                 {voiceStatusMessage && exercise && !hasPostLessonOptions && !shouldRenderChoiceChips && (

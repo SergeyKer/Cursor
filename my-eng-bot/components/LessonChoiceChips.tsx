@@ -82,7 +82,7 @@ export default function LessonChoiceChips({
   };
 
   return (
-    <div className="flex w-full min-w-0 flex-wrap justify-end gap-2 px-3 py-2 animate-fade-in">
+    <div className="flex w-full min-w-0 flex-wrap justify-end gap-1.5 px-1.5 py-1.5 animate-fade-in">
       {choices.map((choice, index) => {
         const choiceText = getChoiceText(choice);
         const isSelected = selected === choiceText;

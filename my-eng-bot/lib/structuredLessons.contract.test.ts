@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getAllStructuredLessons } from '@/lib/structuredLessons'
+import { getAllStructuredLessons, getStructuredLessonById } from '@/lib/structuredLessons'
 
 const lessons = getAllStructuredLessons()
 
@@ -59,5 +59,14 @@ describe('structured lesson 7-step contract', () => {
         expect(variant.options).toBeUndefined()
       }
     }
+  })
+
+  it('keeps the embedded question intro prompt punctuation aligned with choice options', () => {
+    const lesson = getStructuredLessonById('3')
+    const musicLikesProfile = lesson?.repeatConfig?.variantProfiles?.find((profile) => profile.id === 'music-likes')
+    const step1TaskBubble = musicLikesProfile?.steps?.[0]?.bubbles?.find((bubble) => bubble.type === 'task')
+
+    expect(step1TaskBubble?.content).toContain('"Ты знаешь, что ей нравится?"')
+    expect(musicLikesProfile?.steps?.[0]?.exercise?.correctAnswer).toBe('Do you know what she likes?')
   })
 })

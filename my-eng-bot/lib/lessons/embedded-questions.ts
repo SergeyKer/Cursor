@@ -34,6 +34,12 @@ type EmbeddedQuestionVariant = {
   sourceSituations: string[]
 }
 
+function formatQuotedSituationForTask(situation: string): string {
+  const trimmedSituation = situation.trim()
+  const sentencePunctuation = /[.!?…]$/.test(trimmedSituation) ? '' : '.'
+  return `"${trimmedSituation}${sentencePunctuation}"`
+}
+
 const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
   {
     id: 'home-lives',
@@ -129,7 +135,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
   {
     id: 'music-likes',
     label: 'Что ей нравится',
-    introSituationRu: 'Ты знаешь, что ей нравится',
+    introSituationRu: 'Ты знаешь, что ей нравится?',
     introCorrectSentence: 'Do you know what she likes?',
     introWrongSentence: 'Do you know what does she like?',
     introExtraSentence: 'Do you know what she like?',
@@ -680,7 +686,7 @@ function buildEmbeddedQuestionSteps(variant: EmbeddedQuestionVariant): LessonSte
         },
         {
           type: 'task',
-          content: `Выберите правильную фразу для ситуации: "${variant.introSituationRu}".`,
+          content: `Выберите правильную фразу для ситуации: ${formatQuotedSituationForTask(variant.introSituationRu)}`,
         },
       ],
       exercise: {
