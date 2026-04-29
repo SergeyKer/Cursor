@@ -21,6 +21,8 @@ type EmbeddedQuestionVariant = {
   theoryWrongClause: string
   theoryExtraClause: string
   theoryRuleRu: string
+  /** Сравнение прямого вопроса и встроенной части для шага 2 */
+  theoryContrastRu: string
   step3Variants: ExerciseVariant[]
   step4Variants: ExerciseVariant[]
   step5TaskRu: string
@@ -35,32 +37,34 @@ type EmbeddedQuestionVariant = {
 const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
   {
     id: 'home-lives',
-    label: 'Где он живет',
-    introSituationRu: 'Я не знаю, где он живет',
-    introCorrectSentence: "I don't know where he lives.",
-    introWrongSentence: "I don't know where does he live.",
-    introExtraSentence: "I don't know where he live.",
+    label: 'Я знаю, что ей нравится',
+    introSituationRu: 'Я знаю, что ей нравится',
+    introCorrectSentence: 'I know what she likes.',
+    introWrongSentence: 'I know what does she like.',
+    introExtraSentence: 'I know what she like.',
     theoryLeadEn: 'Do you know',
     theoryCorrectClause: 'what she likes',
     theoryWrongClause: 'what does she like',
     theoryExtraClause: 'what she like',
     theoryRuleRu:
       'После do you know, tell me, can you say внутри второй части сохраняем обычный порядок слов: вопросительное слово + подлежащее + глагол.',
+    theoryContrastRu:
+      'Сравните: прямой вопрос — "What does she like?", а во встроенной части — "what she likes".',
     step3Variants: [
       {
         id: 'home-lives_step3_easy',
-        question: "Дополните одним словом: \"I don't know where he ___.\"",
-        correctAnswer: 'lives',
-        hint: 'После where ставим обычный порядок слов: сначала he, потом глагол.',
+        question: 'Дополните одним словом: "I know what she ___."',
+        correctAnswer: 'likes',
+        hint: 'После what she нужен обычный глагол без does.',
         difficulty: 'easy',
         answerFormat: 'single_word',
         answerPolicy: 'strict',
       },
       {
         id: 'home-lives_step3_medium',
-        question: 'Дополните одним словом: "Do you know what she ___?"',
-        correctAnswer: 'likes',
-        hint: 'Во второй части не нужен does: оставляем обычное подлежащее и глагол.',
+        question: "Дополните одним словом: \"I don't know where he ___.\"",
+        correctAnswer: 'lives',
+        hint: 'После where he не нужен does: оставляем подлежащее и глагол.',
         difficulty: 'medium',
         answerFormat: 'single_word',
         answerPolicy: 'strict',
@@ -78,10 +82,9 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
     step4Variants: [
       {
         id: 'home-lives_step4_easy',
-        question: 'Переведите на английский: "Я не знаю, где он живет."',
-        correctAnswer: "I don't know where he lives.",
-        acceptedAnswers: ['I do not know where he lives.'],
-        hint: "Начните с I do not know или I don't know, потом добавьте where + подлежащее + глагол.",
+        question: 'Переведите на английский: "Я знаю, что ей нравится."',
+        correctAnswer: 'I know what she likes.',
+        hint: 'Начните с I know, потом what + подлежащее + глагол без does.',
         difficulty: 'easy',
         answerFormat: 'full_sentence',
         answerPolicy: 'normalized',
@@ -116,7 +119,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
     ],
     step6CorrectAnswer: 'Tell me where Anna works.',
     sourceSituations: [
-      'Я не знаю, где он живет.',
+      'Я знаю, что ей нравится.',
       'Ты знаешь, что ей нравится?',
       'Скажи мне, где находится станция.',
       'Ты знаешь, где живет Алекс?',
@@ -136,6 +139,8 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
     theoryExtraClause: 'when the film start',
     theoryRuleRu:
       'Во вложенном вопросе после can you say или do you know не ставим does перед подлежащим.',
+    theoryContrastRu:
+      'Сравните: прямой вопрос — "When does the film start?", а во встроенной части — "when the film starts".',
     step3Variants: [
       {
         id: 'music-likes_step3_easy',
@@ -226,6 +231,8 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
     theoryExtraClause: 'where the cafe are',
     theoryRuleRu:
       'Во второй части после tell me и can you say используем порядок слов как в обычном сообщении.',
+    theoryContrastRu:
+      'Сравните: прямой вопрос — "Where is the cafe?", а во встроенной части — "where the cafe is".',
     step3Variants: [
       {
         id: 'lesson-starts_step3_easy',
@@ -316,6 +323,8 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
     theoryExtraClause: 'when they starts',
     theoryRuleRu:
       'После I do not know, tell me и can you say во встроенном вопросе порядок слов остаётся обычным.',
+    theoryContrastRu:
+      'Сравните: прямой вопрос — "When do they start?", а во встроенной части — "when they start".',
     step3Variants: [
       {
         id: 'station-is_step3_easy',
@@ -399,7 +408,7 @@ const embeddedQuestionsPostLesson = {
   dynamicFooterText: 'Выбор за вами! Любое действие закрепит тему',
   staticFooterText: '🏆 +50 XP | 🔥 COMBO x7! | 📈 [████████] 7/7',
   interestingFact:
-    'Во встроенных вопросах английский обычно возвращается к обычному порядку слов: where he lives, what she likes, where the station is.',
+    'Во встроенных вопросах английский обычно возвращается к обычному порядку слов: what she likes, where he lives, where the station is.',
   options: [
     { action: 'repeat_variant', label: 'Повторить с новой ситуацией', icon: '🔁' },
     { action: 'learn_interesting', label: 'Узнать интересное', icon: '💡' },
@@ -623,7 +632,7 @@ function buildEmbeddedQuestionsFinale(): LessonFinale {
       },
     ],
     footerDynamic: 'Урок завершен',
-    myEngComment: 'Готово. Теперь where he lives уже звучит естественно.',
+    myEngComment: 'Готово. Теперь what she likes уже звучит естественно.',
     postLesson: {
       ...embeddedQuestionsPostLesson,
       options: embeddedQuestionsPostLesson.options.map((option) => ({ ...option })),
@@ -667,7 +676,7 @@ function buildEmbeddedQuestionSteps(variant: EmbeddedQuestionVariant): LessonSte
         },
         {
           type: 'info',
-          content: 'Во второй части порядок слов обычно такой же, как в обычном предложении: where he lives, what she likes.',
+          content: 'Во второй части порядок слов обычно такой же, как в обычном предложении: what she likes, where he lives.',
         },
         {
           type: 'task',
@@ -697,7 +706,7 @@ function buildEmbeddedQuestionSteps(variant: EmbeddedQuestionVariant): LessonSte
         },
         {
           type: 'info',
-          content: `${variant.theoryRuleRu} Сравните: прямой вопрос — "Where does he live?", а во встроенной части — "where he lives".`,
+          content: `${variant.theoryRuleRu} ${variant.theoryContrastRu}`,
         },
         {
           type: 'task',
@@ -921,7 +930,7 @@ const baseVariant = embeddedQuestionVariants[0]
 
 export const embeddedQuestionsLesson: LessonData = {
   id: '3',
-  topic: "I don't know where he lives",
+  topic: 'I know what she likes',
   level: 'A2',
   intro: {
     topic: 'Встроенные вопросы',
@@ -930,16 +939,16 @@ export const embeddedQuestionsLesson: LessonData = {
     quick: {
       why: [
         'Встроенные вопросы нужны, когда вопрос встроен внутрь другой фразы.',
-        'Мы говорим мягче: не просто Where does he live?, а I know where he lives.',
+        'Мы говорим мягче: не просто What does she like?, а I know what she likes.',
         'Главный смысл: внутри второй части порядок слов становится обычным.',
       ],
       how: [
         'Шаблон: вводная фраза + вопросительное слово + подлежащее + глагол.',
-        'Правильно: I don’t know where he lives.',
-        'Ошибка: I don’t know where does he live.',
+        'Правильно: I know what she likes.',
+        'Ошибка: I know what does she like.',
       ],
       examples: [
-        { en: "I don't know where he lives.", ru: 'Я не знаю, где он живет.', note: 'where + he + lives' },
+        { en: 'I know what she likes.', ru: 'Я знаю, что ей нравится.', note: 'what + she + likes' },
         { en: 'Do you know what she likes?', ru: 'Ты знаешь, что ей нравится?', note: 'без does внутри второй части' },
         { en: 'Tell me where the station is.', ru: 'Скажи мне, где станция.', note: 'обычный порядок слов' },
       ],
@@ -947,8 +956,8 @@ export const embeddedQuestionsLesson: LessonData = {
     },
     details: {
       points: [
-        'В прямом вопросе есть перестановка: Where does he live?',
-        'Во встроенном вопросе перестановка исчезает: where he lives.',
+        'В прямом вопросе есть перестановка: What does she like?',
+        'Во встроенном вопросе перестановка исчезает: what she likes.',
         'Does нужен только в первой части, если она сама вопрос: Do you know...?',
       ],
       examples: [
@@ -958,11 +967,11 @@ export const embeddedQuestionsLesson: LessonData = {
     },
     deepDive: {
       commonMistakes: [
-        "I don't know where does he live.",
+        'I know what does she like.',
         'Do you know what does she like?',
         'Tell me where is the station.',
       ],
-      contrastNotes: ['Where does he live? = прямой вопрос.', "I don't know where he lives. = встроенный вопрос."],
+      contrastNotes: ['What does she like? = прямой вопрос.', 'I know what she likes. = встроенный вопрос.'],
       selfCheckRule: 'Если перед вопросительным словом уже есть вводная фраза, после него ставь подлежащее + глагол.',
     },
     learningPlan: {

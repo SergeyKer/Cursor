@@ -7,11 +7,12 @@ describe('lesson registries', () => {
     const structuredLesson = getStructuredLessonById('3')
     const learningLesson = getLearningLessonById('3')
 
-    expect(structuredLesson?.topic).toBe("I don't know where he lives")
-    expect(learningLesson?.title).toBe("I don't know where he lives")
+    expect(structuredLesson?.topic).toBe('I know what she likes')
+    expect(learningLesson?.title).toBe('I know what she likes')
   })
 
   it('matches embedded question topics through static topic resolver', () => {
+    expect(findStaticLessonByTopic('I know what she likes')?.id).toBe('3')
     expect(findStaticLessonByTopic("I don't know where he lives")?.id).toBe('3')
     expect(findStaticLessonByTopic('Скажи мне, где находится станция')?.id).toBe('3')
   })

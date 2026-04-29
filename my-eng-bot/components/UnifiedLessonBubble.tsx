@@ -56,6 +56,10 @@ function renderBodyLine(line: string, index: number) {
 function renderBubbleContent(content: string) {
   const [title, ...body] = normalizeTranslatePromptPunctuation(content).split('\n')
 
+  if (body.length === 0) {
+    return <div className="break-words text-[15px] leading-[1.45] text-[var(--text)]">{title}</div>
+  }
+
   return (
     <div className="space-y-1.5">
       <div className="text-[13px] font-semibold uppercase tracking-[0.02em] text-slate-700">{title}</div>

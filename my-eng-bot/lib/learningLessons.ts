@@ -123,19 +123,19 @@ const LESSONS: Record<string, LearningLesson> = {
   },
   '3': {
     id: '3',
-    title: "I don't know where he lives",
+    title: 'I know what she likes',
     theoryIntro:
-      "**Урок:** I don't know where he lives\n" +
+      '**Урок:** I know what she likes\n' +
       '**Правило:**\n' +
       '1) После do you know, tell me, can you say, I do not know во второй части используем обычный порядок слов.\n' +
-      '2) Пишем where he lives, what she likes, where the station is, а не where does he live.\n' +
+      '2) Пишем what she likes, where he lives, where the station is, а не what does she like / where does he live.\n' +
       '**Примеры:**\n' +
-      "1) I don't know where he lives.\n" +
+      '1) I know what she likes.\n' +
       '2) Do you know what she likes?\n' +
       '3) Tell me where the station is.\n' +
       '**Коротко:** сначала идет вводная фраза, потом вопросительное слово + подлежащее + глагол.\n' +
       '**Шаблоны:**\n' +
-      "1) I don't know + where/what/when + подлежащее + глагол.\n" +
+      '1) I know / I do not know + where/what/when + подлежащее + глагол.\n' +
       '2) Do you know / Tell me / Can you say + where/what/when + подлежащее + глагол.',
     actions: [
       { id: 'examples', label: 'Посмотри примеры' },
@@ -152,18 +152,18 @@ const LESSONS: Record<string, LearningLesson> = {
         '4) Tell me where the bank is.',
       repeat_translate:
         '**Переведи на английский:**\n' +
-        '1) Я не знаю, где он живет.\n' +
+        '1) Я знаю, что ей нравится.\n' +
         '2) Ты знаешь, что ей нравится?\n' +
         '3) Скажи мне, где находится станция.',
       fill_phrase:
         '**Подставь слово:**\n' +
-        "1) I don't know where he ____. (lives / does live)\n" +
+        '1) I know what she ____. (likes / does like)\n' +
         '2) Do you know what she ____. (likes / does like)\n' +
         '3) Tell me where the station ____. (is / does be)\n' +
         'Выберите вариант с обычным порядком слов.',
       write_own_sentence:
         '**Напиши своё предложение:**\n' +
-        "1) I don't know where ...\n" +
+        '1) I know what ...\n' +
         '2) Do you know what ... ?\n' +
         '3) Tell me where ...\n' +
         'Напиши 3 коротких примера по этим шаблонам.',
@@ -204,6 +204,7 @@ export function findStaticLessonByTopic(topic: string): LearningLesson | null {
   const normalized = normalizeTopic(topic)
   if (!normalized) return null
   if (
+    normalized.includes('i know what') ||
     normalized.includes("i don't know where") ||
     normalized.includes('i do not know where') ||
     normalized.includes('do you know what') ||
@@ -215,6 +216,7 @@ export function findStaticLessonByTopic(topic: string): LearningLesson | null {
     normalized.includes('where he lives') ||
     normalized.includes('встроенн') ||
     normalized.includes('косвен') ||
+    normalized.includes('знаю, что ей нравится') ||
     normalized.includes('где он живет') ||
     normalized.includes('где находится станц')
   ) {

@@ -66,6 +66,10 @@ import type { LessonMenuContext } from '@/components/SlideOutMenu'
 import type { LessonData, PostLessonAction } from '@/types/lesson'
 import AppFooter from '@/components/AppFooter'
 import LessonIntroScreen, { type LessonIntroDepth } from '@/components/LessonIntroScreen'
+import LessonExtraTipsScreen, {
+  type LessonExtraTipsFooterStatus,
+  type LessonExtraTipsSavedState,
+} from '@/components/LessonExtraTipsScreen'
 import LessonStepRenderer from '@/components/LessonStepRenderer'
 import { useLessonEngine } from '@/hooks/useLessonEngine'
 import { pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
@@ -338,8 +342,10 @@ export default function Home() {
   const [postLessonBusy, setPostLessonBusy] = useState(false)
   const [selectedPostLessonAction, setSelectedPostLessonAction] = useState<PostLessonAction | null>(null)
   const [lessonOverlay, setLessonOverlay] = useState<LessonOverlayState | null>(null)
-  const [lessonViewStage, setLessonViewStage] = useState<'intro' | 'lesson'>('intro')
+  const [lessonViewStage, setLessonViewStage] = useState<'intro' | 'tips' | 'lesson'>('intro')
   const [lessonIntroDepth, setLessonIntroDepth] = useState<LessonIntroDepth>('quick')
+  const [lessonExtraTipsStatus, setLessonExtraTipsStatus] = useState<LessonExtraTipsFooterStatus>('idle')
+  const [lessonExtraTipsState, setLessonExtraTipsState] = useState<LessonExtraTipsSavedState | null>(null)
   const activeStructuredLesson =
     activeStructuredLessonRuntime ??
     (structuredLessonLoadingId ? null : activeLearningLessonId ? getStructuredLessonById(activeLearningLessonId) : null)
@@ -852,6 +858,8 @@ export default function Home() {
     setLessonOverlay(null)
     setLessonViewStage('intro')
     setLessonIntroDepth('quick')
+    setLessonExtraTipsStatus('idle')
+    setLessonExtraTipsState(null)
   }, [])
 
   const restartChatForNewModeFromMenu = useCallback(() => {
@@ -1066,6 +1074,8 @@ export default function Home() {
       setLessonOverlay(null)
       setLessonViewStage('intro')
       setLessonIntroDepth('quick')
+      setLessonExtraTipsStatus('idle')
+      setLessonExtraTipsState(null)
       setLessonMenuContext({ menuView: 'lessons', lessonsPanel })
       setActiveLearningLessonId(lessonId)
       setMessages(structuredLesson ? [] : [{ role: 'assistant', content: lesson.theoryIntro }])
@@ -1118,6 +1128,8 @@ export default function Home() {
       setLessonOverlay(null)
       setLessonViewStage('intro')
       setLessonIntroDepth('quick')
+      setLessonExtraTipsStatus('idle')
+      setLessonExtraTipsState(null)
       setMessages([])
       try {
         const response = await fetch('/api/lesson-generate', {
@@ -1753,8 +1765,12 @@ export default function Home() {
     activeLearningLesson?.intro ??
     (activeLearningLessonId ? getStructuredLessonById(activeLearningLessonId)?.intro ?? null : null)
   const isLessonIntroActive = Boolean(activeLessonIntro && activeLearningLesson && lessonViewStage === 'intro')
+  const isLessonTipsActive = Boolean(activeLessonIntro && activeLearningLesson && lessonViewStage === 'tips')
   const isStructuredLessonActive = Boolean(activeStructuredLesson && activeStructuredLessonStep && lessonViewStage === 'lesson')
   const activeLessonTitle = activeLearningLesson?.title ?? null
+  const activeLessonTipsKey = activeLearningLessonId
+    ? `${activeLearningLessonId}:${activeStructuredLesson?.runKey ?? activeStructuredLesson?.variantId ?? activeLessonVariantNumber}`
+    : 'lesson'
   const isTutorLessonHeader = activeLessonTitle && lessonMenuContext?.lessonsPanel === 'tutor'
   const learningLessonFooterDynamicText =
     activeStructuredLessonFooterDynamicText ??
@@ -1902,9 +1918,36 @@ export default function Home() {
       : lessonIntroDepth === 'details'
         ? 'Введение подробнее | 0/7 шагов'
         : 'Введение | 0/7 шагов'
+  const tipsQuizAnsweredCount = lessonExtraTipsState ? Object.keys(lessonExtraTipsState.quizAnswers).length : 0
+  const tipsFooterDynamicText =
+    lessonExtraTipsStatus === 'cached'
+      ? 'Фишки уже готовы. Можно сразу смотреть примеры.'
+      : lessonExtraTipsStatus === 'loading'
+        ? 'Добавляю свежие примеры без повторов.'
+        : lessonExtraTipsStatus === 'fallback'
+          ? 'Показываю базовые фишки, AI догружается.'
+          : lessonExtraTipsStatus === 'error'
+            ? 'Фишки остались на месте. Попробуем позже.'
+            : lessonExtraTipsStatus === 'more-loading'
+              ? 'Ищу ещё один полезный нюанс по теме.'
+              : lessonExtraTipsStatus === 'more-ready'
+                ? 'Добавил новые примеры в карточки.'
+                : lessonExtraTipsStatus === 'quiz-correct'
+                  ? 'Отлично: это уже похоже на живую речь.'
+                  : lessonExtraTipsStatus === 'quiz-error'
+                    ? 'Нормально: эта ловушка как раз частая.'
+                    : 'Собрал живые нюансы темы. Пройдём быстро.'
+  const tipsFooterStaticText =
+    lessonExtraTipsStatus === 'quiz-correct' || lessonExtraTipsStatus === 'quiz-error'
+      ? `Проверь себя | ${Math.min(tipsQuizAnsweredCount, 2)}/2`
+      : lessonExtraTipsStatus === 'more-loading' || lessonExtraTipsStatus === 'more-ready'
+        ? 'Фишки темы | ещё 1 блок'
+        : 'Дополнительные фишки | 0/7 шагов'
   const footerDynamicText = isLessonIntroActive
     ? introFooterDynamicText
-    : isStructuredLessonActive
+    : isLessonTipsActive
+      ? tipsFooterDynamicText
+      : isStructuredLessonActive
       ? activeStructuredLessonFooterDynamicText
       : isLessonActive
       ? learningLessonFooterDynamicText
@@ -1913,7 +1956,9 @@ export default function Home() {
         : homeFooterVoice?.text ?? null
   const footerStaticText = isLessonIntroActive
     ? introFooterStaticText
-    : isStructuredLessonActive
+    : isLessonTipsActive
+      ? tipsFooterStaticText
+      : isStructuredLessonActive
       ? activeStructuredLessonFooterStaticText
       : isLessonActive
       ? learningLessonFooterStaticText
@@ -1922,21 +1967,40 @@ export default function Home() {
         : 'Главная'
   const footerTypingKey = isLessonIntroActive
     ? `${activeLearningLessonId ?? 'lesson'}:intro:${lessonIntroDepth}`
-    : isStructuredLessonActive
+    : isLessonTipsActive
+      ? `${activeLessonTipsKey}:tips:${lessonExtraTipsStatus}`
+      : isStructuredLessonActive
       ? activeStructuredLessonFooterTypingKey
       : dialogStarted
       ? chatFooterVoice?.typingKey ?? 'chat-footer'
       : homeFooterVoice?.typingKey ?? 'home-footer'
   const footerVoiceTone = isLessonIntroActive
     ? 'neutral'
-    : isStructuredLessonActive
+    : isLessonTipsActive
+      ? lessonExtraTipsStatus === 'loading' || lessonExtraTipsStatus === 'more-loading'
+        ? 'thinking'
+        : lessonExtraTipsStatus === 'quiz-correct' || lessonExtraTipsStatus === 'more-ready'
+          ? 'celebrate'
+          : lessonExtraTipsStatus === 'quiz-error' || lessonExtraTipsStatus === 'fallback'
+            ? 'support'
+            : lessonExtraTipsStatus === 'error'
+              ? 'error'
+              : 'hint'
+      : isStructuredLessonActive
       ? activeStructuredLessonFooterVoiceTone
       : dialogStarted
       ? (chatFooterVoice?.tone ?? 'neutral')
       : (homeFooterVoice?.tone ?? 'neutral')
   const footerVoiceEmphasis = isLessonIntroActive
     ? 'none'
-    : isStructuredLessonActive
+    : isLessonTipsActive
+      ? lessonExtraTipsStatus === 'loading' ||
+        lessonExtraTipsStatus === 'more-loading' ||
+        lessonExtraTipsStatus === 'quiz-correct' ||
+        lessonExtraTipsStatus === 'more-ready'
+        ? 'pulse'
+        : 'none'
+      : isStructuredLessonActive
       ? activeStructuredLessonFooterVoiceEmphasis
       : dialogStarted
       ? (chatFooterVoice?.emphasis ?? 'none')
@@ -2238,6 +2302,7 @@ export default function Home() {
         ) : (
           <>
             {!isStructuredLessonActive &&
+              !isLessonTipsActive &&
               dialogStarted &&
               messages.length > 0 &&
               settings.mode !== 'communication' &&
@@ -2266,13 +2331,25 @@ export default function Home() {
                     if (!activeStructuredLesson) return
                     setLessonViewStage('lesson')
                   }}
-                  onShowExtras={() => {
-                    setLessonOverlay({
-                      title: 'Раздел в разработке!',
-                      lines: ['Скоро здесь появятся лайфхаки и нюансы темы.'],
-                    })
-                  }}
+                  onShowExtras={() => setLessonViewStage('tips')}
                   onBack={backToLessonList}
+                />
+              ) : isLessonTipsActive && activeLessonIntro ? (
+                <LessonExtraTipsScreen
+                  lessonKey={activeLessonTipsKey}
+                  intro={activeLessonIntro}
+                  provider={settings.provider}
+                  openAiChatPreset={settings.openAiChatPreset}
+                  audience={settings.audience}
+                  level={settings.level}
+                  savedState={lessonExtraTipsState}
+                  onSavedStateChange={setLessonExtraTipsState}
+                  onFooterStatusChange={setLessonExtraTipsStatus}
+                  onBack={() => setLessonViewStage('intro')}
+                  onStartLesson={() => {
+                    if (!activeStructuredLesson) return
+                    setLessonViewStage('lesson')
+                  }}
                 />
               ) : isStructuredLessonActive && activeStructuredLessonStep ? (
                 <LessonStepRenderer

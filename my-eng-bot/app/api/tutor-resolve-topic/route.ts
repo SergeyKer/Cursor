@@ -68,6 +68,34 @@ function normalizeSuggestionMeta(items: unknown): Array<{ topic: string; whyRu: 
 
 function hasGrammarSignal(input: string): boolean {
   const q = input.toLowerCase()
+  const words = q.match(/[a-zа-яё]+/gi) ?? []
+  if (
+    words.some((word) =>
+      [
+        'am',
+        'is',
+        'are',
+        'was',
+        'were',
+        'be',
+        'been',
+        'being',
+        'do',
+        'does',
+        'did',
+        'has',
+        'have',
+        'had',
+        'who',
+        'where',
+        'what',
+        'when',
+      ].includes(word)
+    )
+  ) {
+    return true
+  }
+
   return [
     'present',
     'past',
@@ -126,16 +154,13 @@ function isLikelyNoise(input: string): boolean {
   return false
 }
 
-function buildClarification(query: string): TopicResolutionResponse {
-  const reason = isLikelyNoise(query)
-    ? 'Не похоже на грамматическую тему.'
-    : 'Запрос слишком общий или похож на отдельное слово без грамматической задачи.'
+function buildNoiseRejection(): TopicResolutionResponse {
   return {
     resolved: false,
-    status: isLikelyNoise(query) ? 'rejected' : 'needs_clarification',
+    status: 'rejected',
     confidence: 'low',
     suggestions: [],
-    clarifyPrompt: `${reason} Напишите, например: Present Simple, much/many, артикли, множественное число.`,
+    clarifyPrompt: 'Не похоже на осмысленный запрос. Напишите, например: Present Simple, much/many, артикли, множественное число.',
   }
 }
 
@@ -151,11 +176,10 @@ function safeFallback(query: string): TopicResolutionResponse {
         'ИИ: не удалось точно определить грамматическую тему. Уточните запрос (например: Present Simple, Have/Has, Articles a/an/the).',
     }
   }
-  if (!hasGrammarSignal(q)) return buildClarification(q)
   return {
     resolved: true,
     status: 'resolved',
-    confidence: 'medium',
+    confidence: hasGrammarSignal(q) ? 'medium' : 'low',
     suggestions: [q],
     suggestionMeta: [{ topic: q, whyRu: 'Тема выбрана по вашему запросу.' }],
     primaryTopic: q,
@@ -167,6 +191,17 @@ function resolvePresetGrammarTopic(query: string): TopicResolutionResponse | nul
   if (!q) return null
 
   // Возвращаем предсказуемые базовые соответствия для частых грамматических запросов.
+  if (/\b(?:am|is|are|was|were|be|been|being)\b|\bto\s+be\b/.test(q)) {
+    return {
+      resolved: true,
+      status: 'resolved',
+      confidence: 'high',
+      suggestions: ['To Be'],
+      suggestionMeta: [{ topic: 'To Be', whyRu: 'Формы глагола-связки be: am, is, are, was, were.' }],
+      primaryTopic: 'To Be',
+    }
+  }
+
   if (/\bmany\b|\bmuch\b|many\/much/.test(q)) {
     return {
       resolved: true,
@@ -230,14 +265,14 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  if (!hasGrammarSignal(query)) {
-    return NextResponse.json(buildClarification(query), { status: 200 })
-  }
-
   // 0) Предустановленные грамматические маршруты для ожидаемых кейсов.
   const preset = resolvePresetGrammarTopic(query)
   if (preset) {
     return NextResponse.json(preset, { status: 200 })
+  }
+
+  if (isLikelyNoise(query)) {
+    return NextResponse.json(buildNoiseRejection(), { status: 200 })
   }
 
   // 1) Сначала ищем готовый урок.
@@ -272,9 +307,10 @@ export async function POST(req: NextRequest) {
     'Правила:',
     '- suggestions: 1..5 коротких грамматических тем на английском.',
     '- Для каждого варианта заполни suggestionMeta с тем же topic и понятным whyRu на русском.',
-    '- Если ввод неясный или это не про грамматику, поставь resolved=false и заполнить clarifyPrompt по-русски.',
-    '- Не предлагай темы про поведение животных/предметов, только грамматика английского.',
-    '- Если пользователь ввел одно лексическое слово без грамматической задачи (например "cat" или "сыр"), поставь resolved=false и попроси уточнить грамматическую тему.',
+    '- Если ввод похож на случайный шум или бессмысленный набор символов, поставь resolved=false и заполнить clarifyPrompt по-русски.',
+    '- Если ввод осмысленный, но широкий или не явно грамматический, НЕ отклоняй его: предложи ближайшие темы грамматики английского.',
+    '- Не предлагай темы про поведение животных/предметов, только грамматику английского вокруг запроса.',
+    '- Если пользователь ввел одно лексическое слово без грамматической задачи (например "cat" или "сыр"), предложи связанные грамматические темы: articles, plural/singular, countable/uncountable nouns и т.п.',
   ].join('\n')
 
   const user = [
@@ -330,10 +366,6 @@ export async function POST(req: NextRequest) {
         } satisfies TopicResolutionResponse,
         { status: 200 }
       )
-    }
-
-    if (!hasGrammarSignal(primaryTopic) && !hasGrammarSignal(query)) {
-      return NextResponse.json(buildClarification(query), { status: 200 })
     }
 
     return NextResponse.json(
