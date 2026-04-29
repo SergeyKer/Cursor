@@ -4,6 +4,7 @@ import { findStaticLessonByTopic } from '@/lib/learningLessons'
 import {
   buildFallbackTutorLearningIntent,
   buildPresetTutorLearningIntents,
+  buildShortExamplesTutorIntent,
   normalizeTutorLearningIntentOptions,
   type TutorLearningIntent,
 } from '@/lib/tutorLearningIntent'
@@ -171,6 +172,18 @@ function buildNoiseRejection(): TopicResolutionResponse {
   }
 }
 
+function buildResponseFromIntents(intents: TutorLearningIntent[], confidence: 'low' | 'medium' | 'high' = 'medium'): TopicResolutionResponse {
+  return {
+    resolved: true,
+    status: 'resolved',
+    confidence,
+    suggestions: intents.map((intent) => intent.title),
+    suggestionMeta: intents.map((intent) => ({ topic: intent.title, whyRu: intent.goalRu })),
+    intentOptions: intents,
+    primaryTopic: intents[0]?.title,
+  }
+}
+
 function safeFallback(query: string): TopicResolutionResponse {
   const q = normalizeTopic(query)
   if (!q) {
@@ -183,15 +196,7 @@ function safeFallback(query: string): TopicResolutionResponse {
         'ИИ: не удалось точно определить грамматическую тему. Уточните запрос (например: Present Simple, Have/Has, Articles a/an/the).',
     }
   }
-  return {
-    resolved: true,
-    status: 'resolved',
-    confidence: hasGrammarSignal(q) ? 'medium' : 'low',
-    suggestions: [q],
-    suggestionMeta: [{ topic: q, whyRu: 'Тема выбрана по вашему запросу.' }],
-    intentOptions: [buildFallbackTutorLearningIntent(q)],
-    primaryTopic: q,
-  }
+  return buildResponseFromIntents([buildShortExamplesTutorIntent(q)], hasGrammarSignal(q) ? 'medium' : 'low')
 }
 
 function resolvePresetGrammarTopic(query: string): TopicResolutionResponse | null {
@@ -280,26 +285,16 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // 0) Предустановленные грамматические маршруты для ожидаемых кейсов.
+  // 0) Предустановленные списки выбора для ожидаемых кейсов.
+  const presetIntents = buildPresetTutorLearningIntents(query)
+  if (presetIntents.length > 0) {
+    return NextResponse.json(buildResponseFromIntents(presetIntents, 'high'), { status: 200 })
+  }
+
+  // 0.1) Базовые грамматические маршруты показываем как один поддержанный смысл.
   const preset = resolvePresetGrammarTopic(query)
   if (preset) {
     return NextResponse.json(preset, { status: 200 })
-  }
-
-  const presetIntents = buildPresetTutorLearningIntents(query)
-  if (presetIntents.length > 0) {
-    return NextResponse.json(
-      {
-        resolved: true,
-        status: 'resolved',
-        confidence: 'high',
-        suggestions: presetIntents.map((intent) => intent.title),
-        suggestionMeta: presetIntents.map((intent) => ({ topic: intent.title, whyRu: intent.goalRu })),
-        intentOptions: presetIntents,
-        primaryTopic: presetIntents[0].title,
-      } satisfies TopicResolutionResponse,
-      { status: 200 }
-    )
   }
 
   if (isLikelyNoise(query)) {
@@ -310,14 +305,7 @@ export async function POST(req: NextRequest) {
   const staticLesson = findStaticLessonByTopic(query)
   if (staticLesson) {
     return NextResponse.json(
-      {
-        resolved: true,
-        status: 'resolved',
-        confidence: 'high',
-        suggestions: [staticLesson.title],
-        suggestionMeta: [{ topic: staticLesson.title, whyRu: 'Найдена готовая тема в базе уроков.' }],
-        primaryTopic: staticLesson.title,
-      } satisfies TopicResolutionResponse,
+      buildResponseFromIntents([buildShortExamplesTutorIntent(staticLesson.title)], 'high'),
       { status: 200 }
     )
   }
@@ -332,7 +320,7 @@ export async function POST(req: NextRequest) {
     '  "resolved": true|false,',
     '  "suggestions": ["Topic 1", "Topic 2"],',
     '  "suggestionMeta": [{"topic":"Topic 1","whyRu":"краткое объяснение по-русски"}],',
-    '  "intentOptions": [{"id":"short-id","title":"Topic 1","learnerQuestionRu":"что ученик хочет понять","topicType":"grammar|vocabulary|contrast|phrase_patterns|concept","goalRu":"что ученик научится делать","targetPatterns":["короткий шаблон"],"examples":[{"en":"English example","ru":"перевод","noteRu":"почему это важно"}],"commonMistakes":["ошибка"],"mustTrain":["что обязательно тренировать"],"mustAvoid":["чего избегать"],"firstPracticeGoalRu":"первый шаг практики"}],',
+    '  "intentOptions": [{"id":"short-id","canonicalKey":"stable_lesson_key","title":"Topic 1","intentType":"single_rule|contrast|phrase_pattern|form_practice|mistake_clinic|short_examples","learnerQuestionRu":"что ученик хочет понять","topicType":"grammar|vocabulary|contrast|phrase_patterns|concept","coreQuestion":"главный вопрос ученика","contrastPair":["A","B"],"meaningFocus":"главный смысловой фокус","goalRu":"что ученик научится делать","targetPatterns":["короткий шаблон"],"examples":[{"en":"English example","ru":"перевод","noteRu":"почему это важно"}],"commonMistakes":["ошибка"],"mustTrain":["что обязательно тренировать"],"mustAvoid":["чего избегать"],"firstPracticeGoalRu":"первый шаг практики"}],',
     '  "primaryTopic": "Topic 1",',
     '  "clarifyPrompt": "строка на русском, если тему нельзя определить"',
     '}',
@@ -341,7 +329,9 @@ export async function POST(req: NextRequest) {
     '- Для каждого варианта заполни suggestionMeta с тем же topic и понятным whyRu на русском.',
     '- intentOptions: 1..5 вариантов, строго соответствуют suggestions по title; каждый вариант описывает, что именно тренировать в уроке.',
     '- В intentOptions.examples давай живые короткие английские фразы, а не служебные фразы про "topic/rule/pattern".',
-    '- Для широких слов вроде colors, numbers, animals, family, get сначала уточняй учебную цель через разные intentOptions.',
+    '- Для широких или неоднозначных слов верни 2-5 реальных смыслов. Для понятного запроса верни 1 вариант.',
+    '- Не предлагай Questions/Negatives/Common Mistakes как отдельные варианты, если пользователь явно не просил вопрос, отрицание или ошибку.',
+    '- intentType выбирай по учебной задаче: contrast для "A или B", form_practice для отдельной формы worked/has done/will be, single_rule для одного правила, short_examples для безопасного fallback.',
     '- Если ввод похож на случайный шум или бессмысленный набор символов, поставь resolved=false и заполнить clarifyPrompt по-русски.',
     '- Если ввод осмысленный, но широкий или не явно грамматический, НЕ отклоняй его: предложи ближайшие темы грамматики английского.',
     '- Не предлагай темы про поведение животных/предметов, только грамматику английского вокруг запроса.',
@@ -406,18 +396,17 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    return NextResponse.json(
-      {
-        resolved: true,
-        status: 'resolved',
-        confidence: hasGrammarSignal(query) ? 'high' : 'medium',
-        suggestions,
-        suggestionMeta,
-        intentOptions,
-        primaryTopic,
-      } satisfies TopicResolutionResponse,
-      { status: 200 }
-    )
+    const response = {
+      resolved: true,
+      status: 'resolved',
+      confidence: hasGrammarSignal(query) ? 'high' : 'medium',
+      suggestions,
+      suggestionMeta,
+      intentOptions,
+      primaryTopic,
+    } satisfies TopicResolutionResponse
+
+    return NextResponse.json(response, { status: 200 })
   } catch {
     return NextResponse.json(safeFallback(query), { status: 200 })
   }

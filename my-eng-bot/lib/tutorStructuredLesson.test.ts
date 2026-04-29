@@ -62,4 +62,21 @@ describe('buildTutorStructuredLesson', () => {
     expect(lessonText).not.toContain('We ___ short examples')
     expect(lesson.tutorIntent?.title).toBe('Colors as Adjectives')
   })
+
+  it('starts with the selected intent meaning instead of asking to guess the topic', () => {
+    const lesson = buildTutorStructuredLesson({
+      id: 'runtime-colors',
+      topic: 'Colors as Adjectives',
+      level: 'a2',
+      blueprint: makeBlueprint(),
+    })
+
+    const firstStepText = JSON.stringify(lesson.steps[0])
+    expect(firstStepText).toContain('Сегодня фокус')
+    expect(firstStepText).toContain('цвет')
+    expect(firstStepText).toContain('a red car')
+    expect(firstStepText).not.toContain('Какая тема урока?')
+    expect(firstStepText).not.toContain('Past Simple only')
+    expect(firstStepText).not.toContain('Articles a/an/the only')
+  })
 })

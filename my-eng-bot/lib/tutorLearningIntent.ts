@@ -1,6 +1,14 @@
 import type { LessonIntro, LessonIntroKind } from '@/types/lesson'
 
 export type TutorTopicType = 'grammar' | 'vocabulary' | 'contrast' | 'phrase_patterns' | 'concept'
+export type TutorIntentType =
+  | 'single_rule'
+  | 'contrast'
+  | 'phrase_pattern'
+  | 'form_practice'
+  | 'mistake_clinic'
+  | 'short_examples'
+  | 'free_explanation'
 
 export type TutorLearningIntentExample = {
   en: string
@@ -10,9 +18,14 @@ export type TutorLearningIntentExample = {
 
 export type TutorLearningIntent = {
   id: string
+  canonicalKey: string
   title: string
+  intentType: TutorIntentType
   learnerQuestionRu: string
   topicType: TutorTopicType
+  coreQuestion: string
+  contrastPair?: [string, string]
+  meaningFocus?: string
   goalRu: string
   targetPatterns: string[]
   examples: TutorLearningIntentExample[]
@@ -51,6 +64,31 @@ function normalizeTopicType(value: unknown): TutorTopicType {
   return 'concept'
 }
 
+function normalizeIntentType(value: unknown, topicType: TutorTopicType): TutorIntentType {
+  if (
+    value === 'single_rule' ||
+    value === 'contrast' ||
+    value === 'phrase_pattern' ||
+    value === 'form_practice' ||
+    value === 'mistake_clinic' ||
+    value === 'short_examples' ||
+    value === 'free_explanation'
+  ) {
+    return value
+  }
+  if (topicType === 'contrast') return 'contrast'
+  if (topicType === 'phrase_patterns') return 'phrase_pattern'
+  if (topicType === 'grammar') return 'single_rule'
+  return 'short_examples'
+}
+
+function normalizeContrastPair(value: unknown): [string, string] | undefined {
+  if (!Array.isArray(value) || value.length !== 2) return undefined
+  const left = compactText(value[0], 80)
+  const right = compactText(value[1], 80)
+  return left && right ? [left, right] : undefined
+}
+
 function normalizeExample(value: unknown): TutorLearningIntentExample | null {
   if (!value || typeof value !== 'object') return null
   const row = value as Record<string, unknown>
@@ -61,10 +99,23 @@ function normalizeExample(value: unknown): TutorLearningIntentExample | null {
   return { en, ru, noteRu }
 }
 
-function makeIntent(params: Omit<TutorLearningIntent, 'id'> & { id?: string }): TutorLearningIntent {
+function makeIntent(
+  params: Omit<TutorLearningIntent, 'id' | 'canonicalKey' | 'intentType' | 'coreQuestion'> & {
+    id?: string
+    canonicalKey?: string
+    intentType?: TutorIntentType
+    coreQuestion?: string
+  }
+): TutorLearningIntent {
+  const topicType = normalizeTopicType(params.topicType)
+  const intentType = normalizeIntentType(params.intentType, topicType)
   return {
     ...params,
     id: params.id?.trim() || slugify(params.title),
+    canonicalKey: params.canonicalKey?.trim() || slugify(params.title),
+    intentType,
+    topicType,
+    coreQuestion: params.coreQuestion?.trim() || params.learnerQuestionRu,
     targetPatterns: params.targetPatterns.filter(Boolean).slice(0, MAX_LIST_ITEMS),
     examples: params.examples.filter((example) => example.en && example.ru).slice(0, MAX_EXAMPLES),
     commonMistakes: params.commonMistakes.filter(Boolean).slice(0, MAX_LIST_ITEMS),
@@ -85,11 +136,17 @@ export function normalizeTutorLearningIntent(input: unknown): TutorLearningInten
   if (!title || !goalRu || examples.length === 0 || targetPatterns.length === 0) return null
   const learnerQuestionRu = compactText(row.learnerQuestionRu, 180) || `Разобраться с темой: ${title}`
   const firstPracticeGoalRu = compactText(row.firstPracticeGoalRu, 180) || goalRu
+  const topicType = normalizeTopicType(row.topicType)
   return makeIntent({
     id: compactText(row.id, 80) || slugify(title),
+    canonicalKey: compactText(row.canonicalKey, 100) || slugify(title),
     title,
+    intentType: normalizeIntentType(row.intentType, topicType),
     learnerQuestionRu,
-    topicType: normalizeTopicType(row.topicType),
+    topicType,
+    coreQuestion: compactText(row.coreQuestion, 180) || learnerQuestionRu,
+    contrastPair: normalizeContrastPair(row.contrastPair),
+    meaningFocus: compactText(row.meaningFocus, 180),
     goalRu,
     targetPatterns,
     examples,
@@ -129,9 +186,12 @@ export function buildFallbackTutorLearningIntent(topic: string): TutorLearningIn
   const safeTopic = compactText(topic, 80) || 'English topic'
   return makeIntent({
     id: slugify(safeTopic),
+    canonicalKey: slugify(safeTopic),
     title: safeTopic,
+    intentType: 'short_examples',
     learnerQuestionRu: `Понять и потренировать тему: ${safeTopic}.`,
     topicType: 'concept',
+    coreQuestion: `Как использовать ${safeTopic} в коротких английских фразах?`,
     goalRu: `Увидеть ${safeTopic} в коротких английских фразах и применить без лишней теории.`,
     targetPatterns: [safeTopic],
     examples: [
@@ -156,6 +216,21 @@ export function buildFallbackTutorLearningIntent(topic: string): TutorLearningIn
     mustAvoid: ['длинные таблицы без практики', 'служебные фразы вместо примеров'],
     firstPracticeGoalRu: `Узнать ${safeTopic} в коротком примере.`,
   })
+}
+
+export function buildShortExamplesTutorIntent(topic: string): TutorLearningIntent {
+  const safeTopic = compactText(topic, 80) || 'English topic'
+  return {
+    ...buildFallbackTutorLearningIntent(safeTopic),
+    id: `${slugify(safeTopic)}-short-examples`,
+    canonicalKey: slugify(safeTopic),
+    title: `${safeTopic}: Short Examples`,
+    intentType: 'short_examples',
+    learnerQuestionRu: `Разобрать ${safeTopic} через короткие живые примеры.`,
+    coreQuestion: `Как ${safeTopic} работает в простых фразах?`,
+    goalRu: `Разобрать ${safeTopic} через короткие английские примеры без лишней теории.`,
+    firstPracticeGoalRu: `Узнать ${safeTopic} в короткой фразе.`,
+  }
 }
 
 export function buildLessonIntroFromTutorIntent(intent: TutorLearningIntent): LessonIntro {
@@ -209,6 +284,309 @@ export function buildLessonIntroFromTutorIntent(intent: TutorLearningIntent): Le
 export function buildPresetTutorLearningIntents(query: string): TutorLearningIntent[] {
   const q = compactText(query, 240).toLowerCase()
   if (!q) return []
+
+  if (/\bpresent\s+simple\b|презент\s+симпл|настоящ(?:ее|ем)\s+прост/.test(q)) {
+    return [
+      makeIntent({
+        id: 'present-simple-positive',
+        canonicalKey: 'present_simple_basics',
+        title: 'Present Simple: Positive Sentences',
+        intentType: 'single_rule',
+        learnerQuestionRu: 'Понять базовый Present Simple через короткие утверждения.',
+        topicType: 'grammar',
+        coreQuestion: 'Когда использовать Present Simple?',
+        meaningFocus: 'регулярное действие, факт или обычное предпочтение',
+        goalRu: 'Научиться говорить о привычках, фактах и регулярных действиях.',
+        targetPatterns: ['I work', 'You like', 'We live'],
+        examples: [
+          { en: 'I work every day.', ru: 'Я работаю каждый день.', noteRu: 'регулярное действие' },
+          { en: 'We live in Moscow.', ru: 'Мы живём в Москве.', noteRu: 'факт о настоящем' },
+          { en: 'They like coffee.', ru: 'Им нравится кофе.', noteRu: 'обычное предпочтение' },
+        ],
+        commonMistakes: ['Добавлять am/is/are перед обычным глаголом.', 'Смешивать Present Simple с Present Continuous.'],
+        mustTrain: ['I work', 'We live', 'They like'],
+        mustAvoid: ['вопросы и отрицания до базового утверждения'],
+        firstPracticeGoalRu: 'Собрать короткую утвердительную фразу о привычке или факте.',
+      }),
+    ]
+  }
+
+  if (/\bpast\s+simple\b|паст\s+симпл|прошедш(?:ее|ем)\s+прост/.test(q)) {
+    return [
+      makeIntent({
+        id: 'past-simple-positive',
+        canonicalKey: 'past_simple_basics',
+        title: 'Past Simple: Positive Sentences',
+        intentType: 'form_practice',
+        learnerQuestionRu: 'Понять Past Simple через завершённые действия в прошлом.',
+        topicType: 'grammar',
+        coreQuestion: 'Как поставить действие в Past Simple?',
+        meaningFocus: 'завершённое действие в прошлом',
+        goalRu: 'Тренировать утвердительные фразы в Past Simple с V2 и -ed.',
+        targetPatterns: ['I worked', 'She went', 'They played'],
+        examples: [
+          { en: 'I worked yesterday.', ru: 'Я работал вчера.', noteRu: 'regular verb + -ed' },
+          { en: 'She went home.', ru: 'Она пошла домой.', noteRu: 'went - форма прошедшего времени' },
+          { en: 'They played football.', ru: 'Они играли в футбол.', noteRu: 'действие завершилось в прошлом' },
+        ],
+        commonMistakes: ['Использовать первую форму глагола вместо V2.', 'Смешивать Past Simple с Present Perfect.'],
+        mustTrain: ['regular verbs with -ed', 'common irregular V2', 'past time markers'],
+        mustAvoid: ['вопросы и отрицания до базовой формы прошлого'],
+        firstPracticeGoalRu: 'Собрать короткую фразу о завершённом действии в прошлом.',
+      }),
+    ]
+  }
+
+  if (/\b(?:a\s*\/\s*an|an\s+и\s+a|a\s+и\s+an|артикл.*\ba\b.*\ban\b|articles?\s+a\s*\/\s*an)\b/.test(q)) {
+    return [
+      makeIntent({
+        id: 'articles-a-an',
+        canonicalKey: 'articles_a_an',
+        title: 'a/an',
+        intentType: 'single_rule',
+        learnerQuestionRu: 'Понять, когда ставить a, а когда an.',
+        topicType: 'grammar',
+        coreQuestion: 'Как выбрать a или an перед словом?',
+        goalRu: 'Научиться выбирать a или an по первому звуку следующего слова.',
+        targetPatterns: ['a + consonant sound', 'an + vowel sound', 'a book / an apple'],
+        examples: [
+          { en: 'a book', ru: 'книга', noteRu: 'b звучит как согласный, поэтому a' },
+          { en: 'an apple', ru: 'яблоко', noteRu: 'a звучит как гласный, поэтому an' },
+          { en: 'an hour', ru: 'час', noteRu: 'h не звучит, первый звук гласный' },
+        ],
+        commonMistakes: ['Смотреть только на букву, а не на звук.', 'Пропускать артикль перед одним исчисляемым предметом.'],
+        mustTrain: ['a book', 'an apple', 'first sound'],
+        mustAvoid: ['смешивать a/an с the на первом шаге'],
+        firstPracticeGoalRu: 'Выбрать a или an перед словом по первому звуку.',
+      }),
+    ]
+  }
+
+  if (/\bthere\s+(?:is|are|was|were)\b|здесь\s+есть|там\s+есть|конструкц.*there/.test(q)) {
+    return [
+      makeIntent({
+        id: 'there-is-there-are',
+        canonicalKey: 'there_is_there_are',
+        title: 'There is / There are',
+        intentType: 'single_rule',
+        learnerQuestionRu: 'Понять, как сказать, что что-то где-то есть.',
+        topicType: 'phrase_patterns',
+        coreQuestion: 'Как сказать “есть/находится” через there is / there are?',
+        goalRu: 'Научиться говорить о наличии предметов через there is для одного и there are для нескольких.',
+        targetPatterns: ['There is a...', 'There are...', 'place at the end'],
+        examples: [
+          { en: 'There is a book on the table.', ru: 'На столе есть книга.', noteRu: 'один предмет -> there is' },
+          { en: 'There are two chairs in the room.', ru: 'В комнате есть два стула.', noteRu: 'несколько предметов -> there are' },
+          { en: 'Is there a cafe near here?', ru: 'Здесь рядом есть кафе?', noteRu: 'в вопросе is выходит перед there' },
+        ],
+        commonMistakes: ['Переводить дословно: It is a book on the table.', 'Использовать there is для множественного числа.'],
+        mustTrain: ['There is a...', 'There are...', 'Is there...?'],
+        mustAvoid: ['смешивать there is с it is'],
+        firstPracticeGoalRu: 'Выбрать there is или there are по количеству предметов.',
+      }),
+    ]
+  }
+
+  if (/\bhave\b.*\bhad\b|\bhad\b.*\bhave\b|have\s+(?:и|vs|or)\s+had|had\s+(?:и|vs|or)\s+have/.test(q)) {
+    return [
+      makeIntent({
+        id: 'have-vs-had',
+        canonicalKey: 'have_vs_had',
+        title: 'Have vs Had',
+        intentType: 'contrast',
+        learnerQuestionRu: 'Понять разницу между have и had.',
+        topicType: 'contrast',
+        coreQuestion: 'Когда have, а когда had?',
+        contrastPair: ['have', 'had'],
+        meaningFocus: 'have = сейчас есть; had = было в прошлом',
+        goalRu: 'Отличить have для настоящего от had для прошлого.',
+        targetPatterns: ['I have ... now', 'I had ... before', 'have vs had'],
+        examples: [
+          { en: 'I have a car now.', ru: 'У меня сейчас есть машина.', noteRu: 'have = есть сейчас' },
+          { en: 'I had a bike before.', ru: 'У меня раньше был велосипед.', noteRu: 'had = было в прошлом' },
+          { en: 'We have time today.', ru: 'У нас сегодня есть время.', noteRu: 'today/now держит настоящее' },
+        ],
+        commonMistakes: ['Использовать had для настоящего.', 'Смешивать had с have had.'],
+        mustTrain: ['have now', 'had before', 'time marker'],
+        mustAvoid: ['уходить в Present Perfect, если ученик спрашивает have vs had'],
+        firstPracticeGoalRu: 'Выбрать have или had по времени ситуации.',
+      }),
+    ]
+  }
+
+  if (/\ba\s+lot\b.*\bmuch\b|\bmuch\b.*\ba\s+lot\b|много.*much|a\s+lot.*почему|почему.*a\s+lot/.test(q)) {
+    return [
+      makeIntent({
+        id: 'a-lot-vs-much',
+        canonicalKey: 'a_lot_vs_much',
+        title: 'a lot vs much',
+        intentType: 'contrast',
+        learnerQuestionRu: 'Понять, почему часто a lot of, а не much.',
+        topicType: 'contrast',
+        coreQuestion: 'Когда звучит a lot of, а когда much?',
+        contrastPair: ['a lot of', 'much'],
+        meaningFocus: 'a lot of естественно в утверждениях; much чаще в вопросах и отрицаниях',
+        goalRu: 'Научиться выбирать a lot of или much по типу фразы и стилю.',
+        targetPatterns: ['a lot of + noun', "not much + noun", 'How much...?'],
+        examples: [
+          { en: 'I have a lot of work.', ru: 'У меня много работы.', noteRu: 'утверждение звучит естественно с a lot of' },
+          { en: "I don't have much time.", ru: 'У меня не так много времени.', noteRu: 'в отрицании much звучит нормально' },
+          { en: 'How much time do we have?', ru: 'Сколько у нас времени?', noteRu: 'в вопросе нужен much' },
+        ],
+        commonMistakes: ['Говорить much в обычном утверждении там, где естественнее a lot of.', 'Забывать of перед существительным.'],
+        mustTrain: ['a lot of work', "don't have much time", 'How much time'],
+        mustAvoid: ['объяснять только перевод “много” без типа фразы'],
+        firstPracticeGoalRu: 'Выбрать a lot of или much по утверждению, вопросу или отрицанию.',
+      }),
+    ]
+  }
+
+  if (/\bmust\b.*\bcould\b|\bcould\b.*\bmust\b|must.*почему|почему.*must/.test(q)) {
+    return [
+      makeIntent({
+        id: 'must-vs-could',
+        canonicalKey: 'must_vs_could',
+        title: 'Must vs Could',
+        intentType: 'contrast',
+        learnerQuestionRu: 'Понять, почему must и could дают разный смысл.',
+        topicType: 'contrast',
+        coreQuestion: 'Когда must, а когда could?',
+        contrastPair: ['must', 'could'],
+        meaningFocus: 'must = необходимость; could = возможность или мягкий вариант',
+        goalRu: 'Отличить обязанность/необходимость от возможности или мягкого предложения.',
+        targetPatterns: ['must + verb', 'could + verb', 'obligation vs possibility'],
+        examples: [
+          { en: 'You must stop.', ru: 'Ты должен остановиться.', noteRu: 'must звучит как необходимость' },
+          { en: 'You could stop here.', ru: 'Ты мог бы остановиться здесь.', noteRu: 'could звучит мягче, как вариант' },
+          { en: 'We must finish today.', ru: 'Мы должны закончить сегодня.', noteRu: 'сильное требование или необходимость' },
+        ],
+        commonMistakes: ['Использовать could там, где нужна обязанность.', 'Использовать must там, где нужен мягкий совет.'],
+        mustTrain: ['must stop', 'could stop', 'obligation vs possibility'],
+        mustAvoid: ['переводить оба слова как “можно/надо” без ситуации'],
+        firstPracticeGoalRu: 'Выбрать must или could по силе смысла.',
+      }),
+    ]
+  }
+
+  if (/\bworked\b|работал.*worked|worked.*прош/.test(q)) {
+    return [
+      makeIntent({
+        id: 'past-simple-regular-worked',
+        canonicalKey: 'past_simple_regular_verbs',
+        title: 'Past Simple: regular verbs',
+        intentType: 'form_practice',
+        learnerQuestionRu: 'Понять форму worked и другие regular verbs в Past Simple.',
+        topicType: 'grammar',
+        coreQuestion: 'Почему worked получает -ed?',
+        meaningFocus: 'regular verb + -ed для завершённого прошлого',
+        goalRu: 'Научиться строить Past Simple с правильными глаголами через -ed.',
+        targetPatterns: ['work -> worked', 'play -> played', 'finish -> finished'],
+        examples: [
+          { en: 'I worked yesterday.', ru: 'Я работал вчера.', noteRu: 'yesterday показывает завершённое прошлое' },
+          { en: 'She worked at home.', ru: 'Она работала дома.', noteRu: 'worked = форма прошлого' },
+          { en: 'We played tennis.', ru: 'Мы играли в теннис.', noteRu: 'play -> played' },
+        ],
+        commonMistakes: ['Оставлять первую форму после маркера прошлого.', 'Добавлять -ed к неправильным глаголам вроде go.'],
+        mustTrain: ['worked', 'played', 'finished'],
+        mustAvoid: ['смешивать regular и irregular verbs без примеров'],
+        firstPracticeGoalRu: 'Поставить -ed к правильному глаголу для прошлого.',
+      }),
+    ]
+  }
+
+  if (/\bwill\s+be\b|будет.*will\s+be|will\s+be.*буд/.test(q)) {
+    return [
+      makeIntent({
+        id: 'future-simple-will-be',
+        canonicalKey: 'future_simple_will_be',
+        title: 'Future Simple with be',
+        intentType: 'form_practice',
+        learnerQuestionRu: 'Понять will be как “будет/буду/будут”.',
+        topicType: 'grammar',
+        coreQuestion: 'Когда говорить will be?',
+        meaningFocus: 'will be = be в будущем',
+        goalRu: 'Научиться строить короткие фразы с will be для будущего состояния или места.',
+        targetPatterns: ['will be + adjective', 'will be at/in...', 'will be ready'],
+        examples: [
+          { en: 'I will be ready.', ru: 'Я буду готов.', noteRu: 'буду + состояние' },
+          { en: 'She will be at home.', ru: 'Она будет дома.', noteRu: 'будет + место' },
+          { en: 'It will be cold tomorrow.', ru: 'Завтра будет холодно.', noteRu: 'tomorrow показывает будущее' },
+        ],
+        commonMistakes: ['Говорить will is вместо will be.', 'Забывать be после will.'],
+        mustTrain: ['will be ready', 'will be at home', 'will be cold'],
+        mustAvoid: ['смешивать will be с will + обычный глагол без необходимости'],
+        firstPracticeGoalRu: 'Собрать короткую фразу с will be.',
+      }),
+    ]
+  }
+
+  if (/^has$/.test(q)) {
+    return [
+      makeIntent({
+        id: 'have-has-possession',
+        canonicalKey: 'have_has_possession',
+        title: 'Have / Has — possession',
+        intentType: 'single_rule',
+        learnerQuestionRu: 'Понять has как “имеет/есть у него или неё”.',
+        topicType: 'grammar',
+        coreQuestion: 'Когда использовать has?',
+        meaningFocus: 'has = have для he/she/it',
+        goalRu: 'Научиться использовать has с he, she, it.',
+        targetPatterns: ['I have', 'She has', 'He has'],
+        examples: [
+          { en: 'I have a car.', ru: 'У меня есть машина.', noteRu: 'с I используем have' },
+          { en: 'She has a dog.', ru: 'У неё есть собака.', noteRu: 'с she используем has' },
+          { en: 'He has time.', ru: 'У него есть время.', noteRu: 'с he используем has' },
+        ],
+        commonMistakes: ['Говорить she have.', 'Путать has как “имеет” и has + V3 в Present Perfect.'],
+        mustTrain: ['she has', 'he has', 'it has'],
+        mustAvoid: ['сразу смешивать has possession и Present Perfect'],
+        firstPracticeGoalRu: 'Выбрать have или has по подлежащему.',
+      }),
+      makeIntent({
+        id: 'present-perfect-with-has',
+        canonicalKey: 'present_perfect_has',
+        title: 'Has + V3 — Present Perfect',
+        intentType: 'form_practice',
+        learnerQuestionRu: 'Понять has как часть Present Perfect.',
+        topicType: 'grammar',
+        coreQuestion: 'Когда has означает Present Perfect?',
+        meaningFocus: 'has + V3 = результат или опыт к настоящему',
+        goalRu: 'Отличить has как “имеет” от has + третья форма глагола.',
+        targetPatterns: ['has done', 'has finished', 'has gone'],
+        examples: [
+          { en: 'She has finished.', ru: 'Она закончила.', noteRu: 'has + V3 показывает результат' },
+          { en: 'He has gone home.', ru: 'Он ушёл домой.', noteRu: 'gone = третья форма' },
+          { en: 'It has started.', ru: 'Это началось.', noteRu: 'результат важен сейчас' },
+        ],
+        commonMistakes: ['Путать has a dog и has finished.', 'Использовать has с конкретным finished time вроде yesterday.'],
+        mustTrain: ['has + V3', 'result now', 'finished/gone/started'],
+        mustAvoid: ['смешивать Present Perfect с Past Simple без контекста'],
+        firstPracticeGoalRu: 'Увидеть has + V3 как Present Perfect.',
+      }),
+      makeIntent({
+        id: 'has-to-obligation',
+        canonicalKey: 'has_to_obligation',
+        title: 'Has to — obligation',
+        intentType: 'single_rule',
+        learnerQuestionRu: 'Понять has to как “должен/вынужден”.',
+        topicType: 'grammar',
+        coreQuestion: 'Когда has to означает обязанность?',
+        meaningFocus: 'has to + verb = обязанность для he/she/it',
+        goalRu: 'Научиться использовать has to для обязанности.',
+        targetPatterns: ['has to work', 'has to go', 'has to wait'],
+        examples: [
+          { en: 'She has to work.', ru: 'Она должна работать.', noteRu: 'has to показывает обязанность' },
+          { en: 'He has to go.', ru: 'Ему нужно идти.', noteRu: 'после has to идёт первая форма' },
+          { en: 'It has to be ready.', ru: 'Это должно быть готово.', noteRu: 'обязанность/требование' },
+        ],
+        commonMistakes: ['Пропускать to после has.', 'Путать has to и has как “имеет”.'],
+        mustTrain: ['has to + verb', 'obligation', 'she/he/it'],
+        mustAvoid: ['смешивать has to с Present Perfect'],
+        firstPracticeGoalRu: 'Собрать короткую фразу has to + verb.',
+      }),
+    ]
+  }
 
   if (/\bcolou?rs?\b|цвет/.test(q)) {
     return [

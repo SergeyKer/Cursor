@@ -145,6 +145,48 @@ function buildTutorFinale(topic: string): LessonFinale {
   }
 }
 
+function buildOpeningStep(params: {
+  topic: string
+  tutorIntent: TutorLearningIntent
+  focusLabel: string
+  firstExample: TutorLearningIntentExample
+}): LessonStep {
+  const { topic, tutorIntent, focusLabel, firstExample } = params
+  const correctAnswer = tutorIntent.firstPracticeGoalRu
+  const distractorsByType: Record<TutorLearningIntent['intentType'], [string, string]> = {
+    single_rule: ['Выучить название правила без примеров', 'Перевести русскую фразу дословно'],
+    contrast: ['Считать обе формы полностью одинаковыми', 'Выбирать форму только по русскому переводу'],
+    phrase_pattern: ['Менять порядок слов как в русском', 'Учить отдельные слова без шаблона'],
+    form_practice: ['Оставить глагол в любой форме', 'Игнорировать маркер времени или подлежащее'],
+    mistake_clinic: ['Запомнить ошибку как вариант нормы', 'Исправлять фразу без понимания причины'],
+    short_examples: ['Начать с длинной таблицы исключений', 'Учить только название темы'],
+    free_explanation: ['Сразу делать упражнение без смысла', 'Игнорировать вопрос ученика'],
+  }
+  const [firstDistractor, secondDistractor] = distractorsByType[tutorIntent.intentType]
+
+  return {
+    stepNumber: 1,
+    stepType: 'hook',
+    bubbles: [
+      { type: 'positive', content: 'Начнём с главного смысла.' },
+      { type: 'info', content: `Сегодня фокус: ${focusLabel}. ${tutorIntent.goalRu}` },
+      { type: 'task', content: `${tutorIntent.coreQuestion} Пример: ${firstExample.en} — ${firstExample.ru}.` },
+    ],
+    exercise: {
+      type: 'micro_quiz',
+      question: 'Что сейчас важнее всего понять?',
+      options: [correctAnswer, firstDistractor, secondDistractor],
+      correctAnswer,
+      acceptedAnswers: [correctAnswer],
+      answerFormat: 'choice',
+      answerPolicy: 'strict',
+      hint: firstExample.noteRu || `Держим фокус: ${topic}.`,
+    },
+    footerDynamic: `Репетитор: ${topic}`,
+    myEngComment: 'Сначала фиксируем смысл, потом тренируем форму.',
+  }
+}
+
 export function buildTutorStructuredLesson(params: {
   id: string
   topic: string
@@ -159,27 +201,7 @@ export function buildTutorStructuredLesson(params: {
   const [firstExample, secondExample, thirdExample] = getIntentExamples(tutorIntent)
   const cloze = buildCloze(firstExample)
   const steps: LessonStep[] = [
-    {
-      stepNumber: 1,
-      stepType: 'hook',
-      bubbles: [
-        { type: 'positive', content: 'Начнем с узнавания темы в контексте.' },
-        { type: 'info', content: `Сегодня фокус: ${focusLabel}.` },
-        { type: 'task', content: 'Выберите, какая тема сейчас тренируется.' },
-      ],
-      exercise: {
-        type: 'fill_choice',
-        question: 'Какая тема урока?',
-        options: [topic, 'Past Simple only', 'Articles a/an/the only'],
-        correctAnswer: topic,
-        acceptedAnswers: [topic],
-        answerFormat: 'choice',
-        answerPolicy: 'strict',
-        hint: 'Выберите тему, которую вы указали Репетитору.',
-      },
-      footerDynamic: `Репетитор: ${topic}`,
-      myEngComment: 'Сначала закрепим фокус урока.',
-    },
+    buildOpeningStep({ topic, tutorIntent, focusLabel, firstExample }),
     {
       stepNumber: 2,
       stepType: 'theory',

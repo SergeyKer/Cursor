@@ -6,6 +6,7 @@ import {
   normalizeLessonExtraTips,
 } from '@/lib/lessonExtraTips'
 import { buildFallbackLessonIntro } from '@/lib/lessonIntro'
+import { buildFallbackTutorLearningIntent } from '@/lib/tutorLearningIntent'
 
 const intro = buildFallbackLessonIntro('to be')
 
@@ -159,6 +160,28 @@ describe('lessonExtraTips', () => {
     expect(context?.rule).toContain('разного тона')
     expect(context?.examples[0].right).toContain('formal')
     expect(context?.examples[1].note).toContain('кто слушает')
+  })
+
+  it('keeps tutor intent examples in fallback tips', () => {
+    const intent = {
+      ...buildFallbackTutorLearningIntent('a/an'),
+      title: 'a/an',
+      targetPatterns: ['a + consonant sound', 'an + vowel sound'],
+      examples: [
+        { en: 'a book', ru: 'книга', noteRu: 'b звучит как согласный' },
+        { en: 'an apple', ru: 'яблоко', noteRu: 'a звучит как гласный' },
+        { en: 'an hour', ru: 'час', noteRu: 'h не звучит' },
+      ],
+      mustTrain: ['a book', 'an apple'],
+      firstPracticeGoalRu: 'Выбрать a или an по первому звуку.',
+    }
+    const tips = buildFallbackLessonExtraTips(buildFallbackLessonIntro('a/an'), intent)
+    const serialized = JSON.stringify(tips)
+
+    expect(serialized).toContain('a book')
+    expect(serialized).toContain('an apple')
+    expect(serialized).toContain('a + consonant sound')
+    expect(serialized).not.toContain('How does ... work?')
   })
 
   it('builds a stable versioned storage key by audience, level and topic', () => {
