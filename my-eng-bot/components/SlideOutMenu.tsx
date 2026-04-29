@@ -29,7 +29,8 @@ interface SlideOutMenuProps {
   chatActive?: boolean
   /** Открыть урок из ветки «Обучение». */
   onOpenLearningLesson?: (lessonId: string) => void
-  onPrefetchLearningLesson?: (lessonId: string, mode?: 'generate' | 'repeat') => void
+  /** Сгенерировать новый вариант урока через LLM. */
+  onGenerateLearningLesson?: (lessonId: string) => Promise<void> | void
   /** Открыть урок из ветки «Репетитор». */
   onOpenTutorLesson?: (request: {
     requestedTopic: string
@@ -58,7 +59,7 @@ export default function SlideOutMenu({
   onGoHome,
   chatActive = false,
   onOpenLearningLesson,
-  onPrefetchLearningLesson,
+  onGenerateLearningLesson,
   onOpenTutorLesson,
   lessonMenuContext,
   topOffset = 'calc(2.75rem + env(safe-area-inset-top, 0px))',
@@ -140,7 +141,7 @@ export default function SlideOutMenu({
             onStartHomeChat={onStartChat}
             onGoHome={onGoHome}
             onOpenLearningLesson={onOpenLearningLesson}
-            onPrefetchLearningLesson={onPrefetchLearningLesson}
+            onGenerateLearningLesson={onGenerateLearningLesson}
             onOpenTutorLesson={onOpenTutorLesson}
             initialLessonsPanel={menuView === 'lessons' ? lessonMenuContext?.lessonsPanel : undefined}
           />

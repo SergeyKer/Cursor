@@ -81,6 +81,12 @@ import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/component
 const Chat = dynamic(() => import('@/components/Chat'))
 const SlideOutMenu = dynamic(() => import('@/components/SlideOutMenu'))
 type StructuredLessonRuntimeMode = 'generate' | 'repeat'
+type LessonRepeatResponse = {
+  lesson?: LessonData
+  generated?: boolean
+  fallback?: boolean
+  error?: string
+}
 
 function cloneStructuredLessonWithRunKey(lesson: LessonData): LessonData {
   const cloned = typeof structuredClone === 'function' ? structuredClone(lesson) : JSON.parse(JSON.stringify(lesson))
@@ -98,11 +104,6 @@ function appendLessonVariantHistory(history: string[], variantId: string): strin
   if (!variantId) return history
   if (history[history.length - 1] === variantId) return history.slice(-10)
   return [...history, variantId].slice(-10)
-}
-
-function isLessonUiPrefetchEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_LESSON_UI_PREFETCH_ENABLED ?? 'true'
-  return !/^(?:0|false|off|no)$/i.test(value)
 }
 
 function buildTutorFallbackBlueprint(topic: string): LessonBlueprint {
@@ -916,7 +917,7 @@ export default function Home() {
   const loadStructuredLessonRuntime = useCallback(
     async (
       lessonId: string,
-      mode: StructuredLessonRuntimeMode = 'generate',
+      mode: StructuredLessonRuntimeMode,
       options?: { cacheResult?: boolean }
     ): Promise<LessonData | null> => {
       const fallbackLesson = getStructuredLessonById(lessonId)
@@ -997,16 +998,8 @@ export default function Home() {
   )
 
   const fetchStructuredLessonRuntime = useCallback(
-    async (lessonId: string, mode: StructuredLessonRuntimeMode = 'generate'): Promise<LessonData | null> => {
+    async (lessonId: string, mode: StructuredLessonRuntimeMode): Promise<LessonData | null> => {
       return loadStructuredLessonRuntime(lessonId, mode)
-    },
-    [loadStructuredLessonRuntime]
-  )
-
-  const prefetchStructuredLessonRuntime = useCallback(
-    (lessonId: string, mode: StructuredLessonRuntimeMode = 'generate') => {
-      if (!isLessonUiPrefetchEnabled()) return
-      void loadStructuredLessonRuntime(lessonId, mode, { cacheResult: true })
     },
     [loadStructuredLessonRuntime]
   )
@@ -1068,9 +1061,9 @@ export default function Home() {
       setLoadingTranslationIndex(null)
       setForceNextMicLang(null)
       setSettingsAtLastSend(null)
-      setLoading(Boolean(structuredLesson))
+      setLoading(false)
       setActiveStructuredLessonRuntime(null)
-      setStructuredLessonLoadingId(structuredLesson ? lessonId : null)
+      setStructuredLessonLoadingId(null)
       setPendingTutorLessonTitle(null)
       setActiveLessonVariantNumber(1)
       setSelectedPostLessonAction(null)
@@ -1084,19 +1077,98 @@ export default function Home() {
       setActiveLearningLessonId(lessonId)
       setMessages(structuredLesson ? [] : [{ role: 'assistant', content: lesson.theoryIntro }])
 
-      if (!structuredLesson) return
-
-      setStructuredLessonShuffleNonce((n) => n + 1)
-      const runtimeLesson = await fetchStructuredLessonRuntime(lessonId)
-      if (requestId !== lessonOpenRequestIdRef.current) return
-      setStructuredLessonLoadingId(null)
-      setLoading(false)
-      setMessages([])
-      if (runtimeLesson) {
-        setActiveStructuredLessonRuntime(runtimeLesson)
+      if (structuredLesson) {
+        setStructuredLessonShuffleNonce((n) => n + 1)
+        if (requestId !== lessonOpenRequestIdRef.current) return
+        setMessages([])
+        setActiveStructuredLessonRuntime(cloneStructuredLessonWithRunKey(structuredLesson))
       }
     },
-    [fetchStructuredLessonRuntime]
+    []
+  )
+
+  const openGeneratedLearningLesson = useCallback(
+    async (lessonId: string, lessonsPanel: LessonsPanel = 'a2') => {
+      const baseLesson = getLearningLessonById(lessonId)
+      const structuredLesson = getStructuredLessonById(lessonId)
+      if (!baseLesson || !structuredLesson) {
+        throw new Error('Для выбранного урока пока нет алгоритма генерации.')
+      }
+
+      const requestId = ++lessonOpenRequestIdRef.current
+      const fetchStartedAt = Date.now()
+      setStructuredLessonLoadingId(lessonId)
+      setLoading(true)
+      setRetryMessage(null)
+
+      try {
+        const recentVariantIds = structuredLessonVariantHistoryRef.current[lessonId] ?? []
+        const response = await fetch('/api/lesson-repeat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: settings.provider,
+            openAiChatPreset: settings.openAiChatPreset,
+            audience: settings.audience,
+            lessonId,
+            recentVariantIds,
+            bypassCache: true,
+          }),
+        })
+        const data = (await response.json()) as LessonRepeatResponse
+        if (!response.ok) {
+          throw new Error(data.error ?? 'Не удалось сгенерировать урок через LLM.')
+        }
+        if (!data.generated || data.fallback || !data.lesson) {
+          console.warn('lesson-repeat returned fallback for menu generation:', {
+            lessonId,
+            generated: data.generated,
+            fallback: data.fallback,
+          })
+          throw new Error('LLM не вернула новый урок: получен fallback вместо генерации.')
+        }
+        if (requestId !== lessonOpenRequestIdRef.current) return
+
+        if (data.lesson.variantId) {
+          const history = structuredLessonVariantHistoryRef.current[lessonId] ?? []
+          structuredLessonVariantHistoryRef.current[lessonId] = appendLessonVariantHistory(history, data.lesson.variantId)
+        }
+
+        firstMessageRequestIdRef.current += 1
+        firstMessageInFlightRef.current = false
+        suppressSettingsChangeBannerRef.current = true
+        setDialogStarted(true)
+        setMenuOpen(false)
+        setHomeMenuView('lessons')
+        setRetryMessage(null)
+        setSearchingInternet(false)
+        setLoadingTranslationIndex(null)
+        setForceNextMicLang(null)
+        setSettingsAtLastSend(null)
+        setActiveLearningLessonId(lessonId)
+        setActiveStructuredLessonRuntime(data.lesson)
+        setActiveLessonVariantNumber(1)
+        setSelectedPostLessonAction(null)
+        setPostLessonBusy(false)
+        setLessonOverlay(null)
+        setLessonViewStage('intro')
+        setLessonIntroDepth('quick')
+        setLessonExtraTipsStatus('idle')
+        setLessonExtraTipsState(null)
+        setLessonMenuContext({ menuView: 'lessons', lessonsPanel })
+        setMessages([])
+        console.info(`[lesson-ui] mode=menu-generate lesson=${lessonId} source=llm fetch_ms=${Date.now() - fetchStartedAt}`)
+      } catch (error) {
+        console.warn('menu lesson generation failed:', error)
+        throw error
+      } finally {
+        if (requestId === lessonOpenRequestIdRef.current) {
+          setStructuredLessonLoadingId(null)
+          setLoading(false)
+        }
+      }
+    },
+    [settings.provider, settings.openAiChatPreset, settings.audience]
   )
 
   const openTutorLesson = useCallback(
@@ -1274,11 +1346,6 @@ export default function Home() {
     },
     [activeStructuredLesson, activeStructuredLessonStep, fetchStructuredLessonRuntime, restartChatForNewModeFromMenu]
   )
-
-  useEffect(() => {
-    if (!activeStructuredLessonRuntime?.id || !isLessonUiPrefetchEnabled()) return
-    prefetchStructuredLessonRuntime(activeStructuredLessonRuntime.id, 'repeat')
-  }, [activeStructuredLessonRuntime?.id, activeStructuredLessonRuntime?.runKey, prefetchStructuredLessonRuntime])
 
   useEffect(() => {
     if (!activeStructuredLesson?.runKey) return
@@ -2310,7 +2377,7 @@ export default function Home() {
                     onGoHome={goToStartScreen}
                     onAiChatPanelChange={setHomeAiChatPanel}
                     onOpenLearningLesson={openLearningLesson}
-                    onPrefetchLearningLesson={prefetchStructuredLessonRuntime}
+                    onGenerateLearningLesson={openGeneratedLearningLesson}
                     onOpenTutorLesson={openTutorLesson}
                   />
                 </div>
@@ -2459,7 +2526,7 @@ export default function Home() {
         onStartChat={handleStartChatFromMenu}
         onGoHome={goToStartScreen}
         onOpenLearningLesson={openLearningLesson}
-        onPrefetchLearningLesson={prefetchStructuredLessonRuntime}
+        onGenerateLearningLesson={openGeneratedLearningLesson}
         onOpenTutorLesson={openTutorLesson}
         lessonMenuContext={lessonMenuContext}
         topOffset="var(--app-top-offset)"

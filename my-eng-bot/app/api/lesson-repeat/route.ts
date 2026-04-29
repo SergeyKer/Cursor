@@ -30,6 +30,7 @@ type Body = {
   audience?: Audience
   lessonId?: string
   recentVariantIds?: string[]
+  bypassCache?: boolean
 }
 
 export async function POST(req: NextRequest) {
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
   })
   const cacheReadStartedAt = Date.now()
   const cachedResponse = readLessonRouteCache<{ lesson: typeof lesson; generated: boolean; fallback: boolean }>(cacheKey)
-  if (cachedResponse) {
+  if (!body.bypassCache && cachedResponse) {
     const responsePayload = {
       ...cachedResponse,
       lesson: cloneLessonWithNewRunKey(cachedResponse.lesson),

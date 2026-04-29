@@ -140,7 +140,8 @@ export interface MenuSectionPanelsProps {
   onAiChatPanelChange?: (panel: AiChatPanel) => void
   /** Открыть урок из ветки «Обучение». */
   onOpenLearningLesson?: (lessonId: string) => void | Promise<void>
-  onPrefetchLearningLesson?: (lessonId: string, mode?: 'generate' | 'repeat') => void
+  /** Сгенерировать новый вариант урока через LLM, не открывая локальную версию. */
+  onGenerateLearningLesson?: (lessonId: string) => void | Promise<void>
   onOpenTutorLesson?: (request: {
     requestedTopic: string
     originalQuery?: string
@@ -165,7 +166,7 @@ export default function MenuSectionPanels({
   onGoHome,
   onAiChatPanelChange,
   onOpenLearningLesson,
-  onPrefetchLearningLesson,
+  onGenerateLearningLesson,
   onOpenTutorLesson,
   initialLessonsPanel,
 }: MenuSectionPanelsProps) {
@@ -193,6 +194,8 @@ export default function MenuSectionPanels({
   const [tutorClarifyPrompt, setTutorClarifyPrompt] = React.useState<string | null>(null)
   const [tutorStep, setTutorStep] = React.useState<'input' | 'select'>('input')
   const [tutorStartingLesson, setTutorStartingLesson] = React.useState(false)
+  const [generatingLessonId, setGeneratingLessonId] = React.useState<string | null>(null)
+  const [generateLessonError, setGenerateLessonError] = React.useState<string | null>(null)
   const uploadInputRef = React.useRef<HTMLInputElement | null>(null)
   const cameraInputRef = React.useRef<HTMLInputElement | null>(null)
 
@@ -229,14 +232,6 @@ export default function MenuSectionPanels({
   React.useEffect(() => {
     if (menuView === 'aiChat') onAiChatPanelChange?.(aiChatPanel)
   }, [menuView, aiChatPanel, onAiChatPanelChange])
-
-  React.useEffect(() => {
-    if (menuView !== 'lessons' || lessonsPanel !== 'a2' || !selectedA2LessonId || !onPrefetchLearningLesson) return
-    const timeoutId = setTimeout(() => {
-      onPrefetchLearningLesson(selectedA2LessonId, 'generate')
-    }, 180)
-    return () => clearTimeout(timeoutId)
-  }, [menuView, lessonsPanel, onPrefetchLearningLesson, selectedA2LessonId])
 
   const isChild = settings.audience === 'child'
   const childAllowedLevels = new Set(['all', 'a1', 'a2'])
@@ -655,21 +650,21 @@ export default function MenuSectionPanels({
                         label={item.label}
                         selected={item.enabled && selectedA2LessonId === item.id}
                         enabled={item.enabled}
-                        onClick={item.enabled ? () => setSelectedA2LessonId(item.id) : undefined}
-                        onPrefetch={item.enabled ? () => onPrefetchLearningLesson?.(item.id, 'generate') : undefined}
+                        onClick={
+                          item.enabled
+                            ? () => {
+                                setSelectedA2LessonId(item.id)
+                                setGenerateLessonError(null)
+                              }
+                            : undefined
+                        }
                       />
                     ))}
                   </div>
                 </div>
-                <div className="pt-2">
+                <div className="space-y-2 pt-2">
                   <button
                     type="button"
-                    onMouseEnter={() => {
-                      if (selectedA2LessonId) onPrefetchLearningLesson?.(selectedA2LessonId, 'generate')
-                    }}
-                    onFocus={() => {
-                      if (selectedA2LessonId) onPrefetchLearningLesson?.(selectedA2LessonId, 'generate')
-                    }}
                     onClick={() => {
                       if (!onOpenLearningLesson || !selectedA2LessonId) return
                       onOpenLearningLesson(selectedA2LessonId)
@@ -679,6 +674,32 @@ export default function MenuSectionPanels({
                   >
                     Начать урок
                   </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!onGenerateLearningLesson || !selectedA2LessonId || generatingLessonId) return
+                      setGenerateLessonError(null)
+                      setGeneratingLessonId(selectedA2LessonId)
+                      try {
+                        await onGenerateLearningLesson(selectedA2LessonId)
+                      } catch (error) {
+                        const message =
+                          error instanceof Error ? error.message : 'Не удалось сгенерировать урок через LLM.'
+                        setGenerateLessonError(message)
+                      } finally {
+                        setGeneratingLessonId(null)
+                      }
+                    }}
+                    disabled={!onGenerateLearningLesson || !selectedA2LessonId || Boolean(generatingLessonId)}
+                    className="btn-3d-menu w-full rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--status-info-text)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {generatingLessonId === selectedA2LessonId ? 'Генерируем урок...' : 'Сгенерировать урок'}
+                  </button>
+                  {generateLessonError && (
+                    <p className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
+                      {generateLessonError}
+                    </p>
+                  )}
                 </div>
               </>
             )}
@@ -1161,13 +1182,11 @@ function A2LessonChoiceRow({
   selected,
   enabled,
   onClick,
-  onPrefetch,
 }: {
   label: string
   selected: boolean
   enabled: boolean
   onClick?: () => void
-  onPrefetch?: () => void
 }) {
   if (!enabled) {
     return (
@@ -1182,8 +1201,6 @@ function A2LessonChoiceRow({
     <button
       type="button"
       onClick={onClick}
-      onMouseEnter={onPrefetch}
-      onFocus={onPrefetch}
       className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
     >
       <span className="text-[15px] font-normal leading-normal text-[var(--text)]">{label}</span>
