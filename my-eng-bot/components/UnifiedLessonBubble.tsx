@@ -4,6 +4,7 @@ import type { Bubble } from '@/types/lesson'
 
 type UnifiedLessonBubbleProps = {
   bubbles: Bubble[]
+  animateSections?: boolean
 }
 
 function normalizeTranslatePromptPunctuation(text: string): string {
@@ -16,7 +17,7 @@ const unifiedSectionClassByType: Record<Bubble['type'], string> = {
   task: 'bg-[rgba(220,252,231,0.98)]',
 }
 
-export default function UnifiedLessonBubble({ bubbles }: UnifiedLessonBubbleProps) {
+export default function UnifiedLessonBubble({ bubbles, animateSections = true }: UnifiedLessonBubbleProps) {
   return (
     <div className="chat-section-surface glass-surface relative overflow-hidden rounded-xl border border-[var(--chat-section-neutral-border)] bg-white/95">
       {bubbles.map((bubble, bubbleIndex) => {
@@ -25,9 +26,17 @@ export default function UnifiedLessonBubble({ bubbles }: UnifiedLessonBubbleProp
         return (
           <section
             key={`${bubble.type}-${bubbleIndex}`}
-            className={`px-3 py-2 ${unifiedSectionClassByType[bubble.type]} ${
+            className={`${animateSections ? 'lesson-enter' : ''} px-3 py-2 ${unifiedSectionClassByType[bubble.type]} ${
               isLast ? '' : 'border-b border-[var(--chat-section-neutral-border)]'
             }`}
+            style={
+              animateSections
+                ? {
+                    animationDelay: `${bubbleIndex * 90}ms`,
+                    animationFillMode: 'both',
+                  }
+                : undefined
+            }
           >
             <p className="whitespace-pre-line break-words text-[15px] leading-[1.5] text-[var(--text)]">
               {normalizeTranslatePromptPunctuation(bubble.content)}

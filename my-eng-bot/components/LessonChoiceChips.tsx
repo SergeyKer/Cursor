@@ -90,10 +90,12 @@ export default function LessonChoiceChips({
 
         return (
           <button
-            key={`${choiceText}-${index}`}
+            key={`${resetKey}-${choiceText}-${index}`}
             disabled={disabled}
             onClick={() => handleSelect(choice)}
+            style={{ animationDelay: `${index * 85}ms` }}
             className={`
+              lesson-choice-chip-enter
               max-w-full shrink-0 break-words px-3 py-1.5 text-left
               rounded-xl text-[15px] leading-[1.5] font-normal transition-all duration-200
               ${isSelected

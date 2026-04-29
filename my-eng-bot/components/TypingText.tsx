@@ -8,6 +8,8 @@ interface TypingTextProps {
   onComplete?: () => void
   className?: string
   singleLine?: boolean
+  startDelayMs?: number
+  fadeWhileTyping?: boolean
 }
 
 export default function TypingText({
@@ -16,6 +18,8 @@ export default function TypingText({
   onComplete,
   className,
   singleLine = false,
+  startDelayMs = 100,
+  fadeWhileTyping = true,
 }: TypingTextProps) {
   const [displayedText, setDisplayedText] = useState('')
   const [isTypingComplete, setIsTypingComplete] = useState(false)
@@ -51,7 +55,7 @@ export default function TypingText({
         setIsTypingComplete(true)
         onComplete?.()
       }, speed)
-    }, 100)
+    }, startDelayMs)
 
     return () => {
       if (timeoutRef.current) {
@@ -63,7 +67,7 @@ export default function TypingText({
         intervalRef.current = null
       }
     }
-  }, [text, speed, onComplete])
+  }, [text, speed, onComplete, startDelayMs])
 
   return (
     <div className={`flex min-h-6 w-full overflow-hidden ${singleLine ? 'items-center' : 'items-start'}`}>
@@ -74,8 +78,8 @@ export default function TypingText({
           className ?? ''
         }`}
         style={{
-          opacity: isTypingComplete ? 1 : 0.94,
-          transition: 'opacity 180ms ease-out',
+          opacity: !fadeWhileTyping || isTypingComplete ? 1 : 0.94,
+          transition: fadeWhileTyping ? 'opacity 180ms ease-out' : 'none',
         }}
       >
         {displayedText}

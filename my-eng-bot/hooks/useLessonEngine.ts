@@ -74,6 +74,7 @@ export function resolveExerciseForVariant(exercise?: Exercise | null, variantInd
       activeVariant.acceptedAnswers ??
       exercise.acceptedAnswers ??
       [activeVariant.correctAnswer],
+    singleWordCueRu: activeVariant.singleWordCueRu ?? exercise.singleWordCueRu,
     hint: activeVariant.hint ?? exercise.hint,
     answerFormat: activeVariant.answerFormat ?? exercise.answerFormat,
     answerPolicy: activeVariant.answerPolicy ?? exercise.answerPolicy,

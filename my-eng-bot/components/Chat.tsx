@@ -1069,6 +1069,7 @@ export default function Chat({
   const [selectedLessonActionByMessage, setSelectedLessonActionByMessage] = React.useState<Record<number, string>>({})
   const isLearningFlow = learningActions.length > 0 || Object.keys(selectedLessonActionByMessage).length > 0
   const isLessonBranch = isLearningFlow || Boolean(onSelectLearningAction)
+  const isLessonLoadingState = isLessonBranch && messages.length === 0
   const appliedComposerSessionKeyRef = React.useRef<number>(0)
   const {
     draftText: input,
@@ -1912,7 +1913,9 @@ export default function Chat({
   const isSearchingIndicatorEnglish = settings.mode === 'communication' && searchingInternetLang === 'en'
   const sendButtonAriaLabel =
     settings.mode === 'communication' && settings.communicationInputExpectedLang === 'en' ? 'Send' : 'Отправить'
-  const composerPlaceholder = isVoiceActive
+  const composerPlaceholder = isLessonLoadingState
+    ? ''
+    : isVoiceActive
     ? ''
     : settings.mode === 'communication'
       ? settings.communicationInputExpectedLang === 'en'
@@ -2091,7 +2094,7 @@ export default function Chat({
               >
                 <button
                   type="button"
-                  disabled={voicePhase === 'finalizing'}
+                  disabled={voicePhase === 'finalizing' || isLessonLoadingState}
                   onClick={() => {
                     resetMicAnimation()
                     if (listening) {
@@ -2172,6 +2175,7 @@ export default function Chat({
                     rows={1}
                     value={composerText}
                     readOnly={isTextareaReadOnly}
+                    disabled={isLessonLoadingState}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
@@ -2187,7 +2191,7 @@ export default function Chat({
                           ? 'Поле ввода ответа'
                           : 'Поле ввода сообщения'
                     }
-                    className={`chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] ${
+                    className={`chat-input-field communication-chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] ${
                       voiceWebMetricsActive ? 'chat-input-voice-web-metrics' : ''
                     } ${
                       showVoiceOverlay
@@ -2199,7 +2203,7 @@ export default function Chat({
                 </div>
                 <button
                   type="submit"
-                  disabled={!input.trim() || loading || atLimit || isVoiceActive}
+                  disabled={!input.trim() || loading || atLimit || isVoiceActive || isLessonLoadingState}
                   className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)]"
                   style={{ background: '#3B82F6' }}
                   aria-label={sendButtonAriaLabel}

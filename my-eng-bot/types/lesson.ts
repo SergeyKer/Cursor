@@ -32,6 +32,7 @@ export interface ExerciseVariant {
   options?: string[]
   correctAnswer: string
   acceptedAnswers?: string[]
+  singleWordCueRu?: string
   hint: string
   difficulty: ExerciseDifficulty
   answerFormat?: LessonAnswerFormat
@@ -57,6 +58,7 @@ export interface Exercise {
   options?: string[]
   correctAnswer: string
   acceptedAnswers?: string[]
+  singleWordCueRu?: string
   answerFormat?: LessonAnswerFormat
   answerPolicy?: LessonAnswerPolicy
   hint?: string

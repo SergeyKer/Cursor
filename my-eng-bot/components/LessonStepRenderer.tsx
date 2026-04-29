@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import PostLessonMenu from '@/components/PostLessonMenu'
+import TypingText from '@/components/TypingText'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import type { BlockProgress, LessonStatus, LessonTimelineEntry } from '@/hooks/useLessonEngine'
+import { getLessonSingleWordRuCue } from '@/lib/lessonSingleWordCue'
 import { seededShuffle } from '@/lib/shuffleSeeded'
 import { useLessonVoiceInput } from '@/lib/voice/useLessonVoiceInput'
 import type { Bubble, PostLessonAction } from '@/types/lesson'
@@ -30,6 +32,7 @@ type LessonMessage =
       role: 'assistant'
       kind: 'lesson'
       bubbles: Bubble[]
+      isHistorical: boolean
     }
   | {
       id: string
@@ -71,9 +74,23 @@ function normalizeTranslatePromptPunctuation(text: string): string {
   return text.replace(/(Переведите на английский:\s*"[^"\n]*")([.!?…]+)/g, '$1')
 }
 
+function injectRussianSingleWordCue(question: string, exercise: LessonTimelineEntry['step']['exercise']): string {
+  if (!exercise || exercise.answerFormat !== 'single_word') return question
+  if (!/^Дополните одним словом:/i.test(question)) return question
+  // Не дублируем, если подсказка уже встроена в вопрос.
+  if (/^Дополните одним словом:\s*"[^"\n]+"\s*-\s*/i.test(question)) return question
+
+  const ruHint = exercise.singleWordCueRu?.trim() || getLessonSingleWordRuCue(exercise.correctAnswer)
+  if (!ruHint) return question
+
+  const questionTailMatch = question.match(/^Дополните одним словом:\s*(.+)$/i)
+  if (!questionTailMatch) return question
+  return `Дополните одним словом: "${ruHint}" - ${questionTailMatch[1]}`
+}
+
 function injectVariantQuestionIntoTaskBubble(bubbles: Bubble[], exercise: LessonTimelineEntry['step']['exercise']): Bubble[] {
   if (!exercise?.variants || exercise.variants.length <= 1) return bubbles
-  const question = normalizeTranslatePromptPunctuation(exercise.question?.trim() ?? '')
+  const question = normalizeTranslatePromptPunctuation(injectRussianSingleWordCue(exercise.question?.trim() ?? '', exercise))
   if (!question) return bubbles
 
   let taskBubbleIndex = -1
@@ -92,6 +109,13 @@ function injectVariantQuestionIntoTaskBubble(bubbles: Bubble[], exercise: Lesson
     content: question,
   }
   return nextBubbles
+}
+
+function compactToTaskOnly(bubbles: Bubble[]): Bubble[] {
+  const taskBubbles = bubbles.filter((bubble) => bubble.type === 'task')
+  if (taskBubbles.length > 0) return taskBubbles
+  const lastBubble = bubbles.at(-1)
+  return lastBubble ? [lastBubble] : []
 }
 
 export default function LessonStepRenderer({
@@ -241,46 +265,35 @@ export default function LessonStepRenderer({
 
   const lessonMessages = useMemo<LessonMessage[]>(() => {
     const messages: LessonMessage[] = []
-    const historicalAttemptIndexesToHideLessonBubbles = new Set<number>()
-    let hasFirstHistoricalAttemptForCurrentStep = false
+    const seenAttemptCountByStep = new Map<number, number>()
+    const attemptOrdinalByEntryIndex = new Map<number, number>()
 
     timeline.forEach((entry, entryIndex) => {
-      const isHistoricalAttemptForCurrentStep =
-        !entry.isCurrent &&
-        currentEntry != null &&
-        entry.stepIndex === currentEntry.stepIndex &&
-        Boolean(entry.step.exercise) &&
-        entry.feedback?.type === 'error'
-      if (!isHistoricalAttemptForCurrentStep) return
-      if (!hasFirstHistoricalAttemptForCurrentStep) {
-        hasFirstHistoricalAttemptForCurrentStep = true
-        return
-      }
-      historicalAttemptIndexesToHideLessonBubbles.add(entryIndex)
+      if (!entry.step.exercise) return
+      const nextAttemptOrdinal = (seenAttemptCountByStep.get(entry.stepIndex) ?? 0) + 1
+      seenAttemptCountByStep.set(entry.stepIndex, nextAttemptOrdinal)
+      attemptOrdinalByEntryIndex.set(entryIndex, nextAttemptOrdinal)
     })
 
     timeline.forEach((entry, entryIndex) => {
       const messageBaseId = `${entry.step.stepNumber}-${entry.stepIndex}-${entryIndex}-${entry.isCurrent ? 'current' : 'history'}`
-      const hasHistoricalAttemptsForCurrentStep =
-        entry.isCurrent &&
-        currentEntry != null &&
-        timeline.some(
-          (timelineEntry) =>
-            !timelineEntry.isCurrent &&
-            timelineEntry.stepIndex === currentEntry.stepIndex &&
-            Boolean(timelineEntry.step.exercise)
-        )
       const shouldHideCurrentLessonBubbles =
         entry.isCurrent &&
-        ((hasHistoricalAttemptsForCurrentStep && latestFeedback?.type === 'error') ||
-          (status === 'feedback' && latestFeedback?.type === 'success'))
-      const shouldHideLessonBubblesForHistoricalAttempt = historicalAttemptIndexesToHideLessonBubbles.has(entryIndex)
-      const baseBubbles = shouldHideCurrentLessonBubbles || shouldHideLessonBubblesForHistoricalAttempt
+        status === 'feedback' &&
+        latestFeedback?.type === 'success'
+      const baseBubbles = shouldHideCurrentLessonBubbles
         ? []
         : entry.isCurrent
           ? entry.step.bubbles.slice(0, blockProgress.visibleCount)
           : entry.step.bubbles
-      const bubbles = injectVariantQuestionIntoTaskBubble(baseBubbles, entry.step.exercise)
+      const bubblesWithVariantQuestion = injectVariantQuestionIntoTaskBubble(baseBubbles, entry.step.exercise)
+      const attemptOrdinal = attemptOrdinalByEntryIndex.get(entryIndex) ?? 0
+      const isRepeatAttempt = attemptOrdinal > 1
+      const isThreePartLessonBlock = bubblesWithVariantQuestion.length === 3
+      const shouldCompactToTaskOnly = isRepeatAttempt && isThreePartLessonBlock
+      const bubbles = shouldCompactToTaskOnly
+        ? compactToTaskOnly(bubblesWithVariantQuestion)
+        : bubblesWithVariantQuestion
 
       if (bubbles.length > 0) {
         messages.push({
@@ -288,6 +301,7 @@ export default function LessonStepRenderer({
           role: 'assistant',
           kind: 'lesson',
           bubbles,
+          isHistorical: !entry.isCurrent,
         })
       }
 
@@ -326,7 +340,7 @@ export default function LessonStepRenderer({
     })
 
     return messages
-  }, [timeline, blockProgress.visibleCount, status, latestFeedback?.type, currentEntry])
+  }, [timeline, blockProgress.visibleCount, status, latestFeedback?.type])
 
   const tailLessonMessageId = lessonMessages.at(-1)?.id ?? ''
 
@@ -406,17 +420,18 @@ export default function LessonStepRenderer({
 
                   if (message.kind === 'lesson') {
                     const useUnifiedLessonBubble = message.bubbles.length >= 2 && message.bubbles.length <= 3
+                    const shouldAnimateLessonMessage = !message.isHistorical
 
                     return (
                       <ChatBubbleFrame
                         key={message.id}
                         role="assistant"
                         position={position}
-                        className="lesson-enter"
+                        className={shouldAnimateLessonMessage ? 'lesson-enter' : ''}
                         rowClassName={isBubbleEnd ? 'mb-2.5' : 'mb-0.5'}
                       >
                         {useUnifiedLessonBubble ? (
-                          <UnifiedLessonBubble bubbles={message.bubbles} />
+                          <UnifiedLessonBubble bubbles={message.bubbles} animateSections={shouldAnimateLessonMessage} />
                         ) : (
                           <div className="space-y-1.5">
                             {message.bubbles.map((bubble, bubbleIndex) => (
@@ -585,6 +600,19 @@ export default function LessonStepRenderer({
                       </button>
                     ) : null}
                     <div className="relative min-w-0 flex-1">
+                      {shouldRenderChoiceChips && !showVoiceOverlay && (
+                        <div className="pointer-events-none absolute inset-x-4 inset-y-0 z-10 flex items-center overflow-hidden">
+                          <TypingText
+                            key={`lesson-choice-placeholder-${currentStep?.stepNumber ?? 'none'}-${currentVariantIndex}-${choiceResetVersion}`}
+                            text={inputPlaceholder}
+                            speed={24}
+                            startDelayMs={0}
+                            fadeWhileTyping={false}
+                            singleLine
+                            className="w-full text-right text-[15px] text-slate-700"
+                          />
+                        </div>
+                      )}
                       {showVoiceOverlay && (
                         <VoiceComposerOverlay
                           draftBeforeVoiceText=""
@@ -604,12 +632,14 @@ export default function LessonStepRenderer({
                         }}
                         readOnly={lessonVoiceInput.isInputLocked || shouldRenderChoiceChips}
                         disabled={!isTextInputAvailable || isChecking || shouldRenderChoiceChips}
-                        className={`chat-input-field min-w-0 w-full rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${
+                        className={`chat-input-field lesson-chat-input-field min-w-0 w-full rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${
                           showVoiceOverlay ? 'chat-input-voice-web-metrics' : ''
+                        } ${
+                          shouldRenderChoiceChips ? 'text-right pr-6 placeholder:text-slate-700' : ''
                         } ${
                           showVoiceOverlay ? 'text-transparent caret-transparent placeholder:text-transparent' : 'text-[var(--text)]'
                         }`}
-                        placeholder={inputPlaceholder}
+                        placeholder={shouldRenderChoiceChips ? '' : inputPlaceholder}
                       />
                     </div>
                     {!shouldRenderChoiceChips ? (

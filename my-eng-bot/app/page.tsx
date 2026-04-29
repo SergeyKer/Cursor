@@ -1850,12 +1850,15 @@ export default function Home() {
   /** Совпадает с фактической высотой шапки: safe-area + строка меню + нижний border (см. `header` без minHeight на внешнем блоке). */
   const appTopOffset =
     'calc(var(--app-safe-top-inset) + var(--app-header-row-height) + var(--app-header-border-width))'
+  const appBottomInset = isIosClient
+    ? 'max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset))'
+    : 'env(safe-area-inset-bottom, 0px)'
   const appLayoutVars = {
     '--app-safe-top-inset': 'env(safe-area-inset-top, 0px)',
     '--app-header-row-height': '2.75rem',
     '--app-header-border-width': '1px',
     '--app-footer-row-height': '5.25rem',
-    '--app-bottom-inset': 'max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset))',
+    '--app-bottom-inset': appBottomInset,
     '--app-bottom-offset': 'calc(var(--app-footer-row-height) + var(--app-bottom-inset))',
     '--app-top-offset': appTopOffset,
   } as React.CSSProperties
