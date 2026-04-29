@@ -349,6 +349,7 @@ export default function Home() {
     footerVoiceTone: activeStructuredLessonFooterVoiceTone,
     footerVoiceEmphasis: activeStructuredLessonFooterVoiceEmphasis,
     handleAnswer: handleStructuredLessonAnswer,
+    completeCurrentStep: completeStructuredLessonStep,
     xp: activeStructuredLessonXp,
     combo: activeStructuredLessonCombo,
     exerciseErrors: activeStructuredLessonExerciseErrors,
@@ -2156,6 +2157,7 @@ export default function Home() {
                   blockProgress={activeStructuredLessonBlockProgress}
                   exerciseErrors={activeStructuredLessonExerciseErrors}
                   onAnswer={handleStructuredLessonAnswer}
+                  onCompleteStep={completeStructuredLessonStep}
                   onPostLessonAction={handlePostLessonAction}
                   postLessonBusy={postLessonBusy}
                   audience={settings.audience}

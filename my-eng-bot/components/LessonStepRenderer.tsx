@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
+import LessonSentencePuzzle from '@/components/LessonSentencePuzzle'
 import PostLessonMenu from '@/components/PostLessonMenu'
 import TypingText from '@/components/TypingText'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
@@ -19,6 +20,7 @@ type LessonStepRendererProps = {
   blockProgress: BlockProgress
   exerciseErrors?: number
   onAnswer: (answer: string) => void
+  onCompleteStep?: (options?: { submittedAnswer?: string; message?: string; xpAward?: number }) => void
   onPostLessonAction?: (action: PostLessonAction) => void
   postLessonBusy?: boolean
   audience: 'child' | 'adult'
@@ -124,6 +126,7 @@ export default function LessonStepRenderer({
   blockProgress,
   exerciseErrors = 0,
   onAnswer,
+  onCompleteStep,
   onPostLessonAction,
   postLessonBusy = false,
   audience,
@@ -155,6 +158,7 @@ export default function LessonStepRenderer({
   const currentVariantIndex = exercise?.currentVariantIndex ?? 0
   const postLesson = currentStep?.stepType === 'completion' ? currentStep.postLesson ?? null : null
   const rawChoiceOptions = exercise?.options
+  const isSentencePuzzle = exercise?.type === 'sentence_puzzle'
   const isChoiceExercise = exercise?.type === 'fill_choice' || exercise?.type === 'micro_quiz'
   const choiceOptions = useMemo(() => {
     const opts = rawChoiceOptions ?? []
@@ -171,8 +175,8 @@ export default function LessonStepRenderer({
   const hasChoiceOptions = isChoiceExercise && choiceOptions.length > 0
   const shouldRenderChoiceChips = hasChoiceOptions
   const hasPostLessonOptions = Boolean(postLesson?.options.length)
-  const isChoiceDrivenStep = shouldRenderChoiceChips || hasPostLessonOptions
-  const isTextInputAvailable = Boolean(exercise) && !hasPostLessonOptions && !shouldRenderChoiceChips
+  const isChoiceDrivenStep = shouldRenderChoiceChips || hasPostLessonOptions || isSentencePuzzle
+  const isTextInputAvailable = Boolean(exercise) && !hasPostLessonOptions && !shouldRenderChoiceChips && !isSentencePuzzle
   const isChecking = status === 'checking'
   const lessonInviteBubble = useMemo(() => {
     if (!currentEntry?.isCurrent) return null
@@ -183,7 +187,7 @@ export default function LessonStepRenderer({
     }
     return null
   }, [blockProgress.visibleCount, currentEntry])
-  const canUseLessonVoiceInput = Boolean(exercise) && !hasPostLessonOptions && !isChecking && !shouldRenderChoiceChips
+  const canUseLessonVoiceInput = Boolean(exercise) && !hasPostLessonOptions && !isChecking && !shouldRenderChoiceChips && !isSentencePuzzle
   const lessonVoiceInput = useLessonVoiceInput({
     inviteKey:
       canUseLessonVoiceInput && lessonInviteBubble
@@ -508,6 +512,20 @@ export default function LessonStepRenderer({
                     onSelect={(action) => onPostLessonAction?.(action)}
                     disabled={postLessonBusy || !onPostLessonAction}
                   />
+                ) : isSentencePuzzle && exercise ? (
+                  <LessonSentencePuzzle
+                    key={`sentence-puzzle-${choiceShuffleSeed ?? 'static'}-${currentStep?.stepNumber ?? 'step'}`}
+                    exercise={exercise}
+                    disabled={isChecking || !onCompleteStep}
+                    progressKey={`${choiceShuffleSeed ?? 'static'}:${currentStep?.stepNumber ?? 'step'}:${currentVariantIndex}`}
+                    onComplete={(summary) =>
+                      onCompleteStep?.({
+                        submittedAnswer: summary.submittedAnswer,
+                        message: summary.message,
+                        xpAward: exercise.bonusXp ?? 30,
+                      })
+                    }
+                  />
                 ) : shouldRenderChoiceChips ? (
                   <LessonChoiceChips
                     key={`choices-${currentStep?.stepNumber ?? 'none'}-${currentVariantIndex}`}
@@ -518,7 +536,7 @@ export default function LessonStepRenderer({
                   />
                 ) : null}
 
-                {exercise && !hasPostLessonOptions ? (
+                {exercise && !hasPostLessonOptions && !isSentencePuzzle ? (
                   <form
                     onSubmit={(event) => {
                       event.preventDefault()

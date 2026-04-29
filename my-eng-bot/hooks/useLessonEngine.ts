@@ -7,6 +7,7 @@ import {
   type FooterVoiceEmphasis,
   type FooterVoiceTone,
 } from '@/lib/footerVoice'
+import { buildFinaleTimelineStep, getLessonLearningSteps, resolveLessonFinale } from '@/lib/lessonFinale'
 import { getLessonRepeatFooterMessage, getVariantInfo } from '@/utils/footerMessages'
 
 export type LessonStatus = 'idle' | 'checking' | 'feedback' | 'completed'
@@ -84,6 +85,7 @@ export function resolveExerciseForVariant(exercise?: Exercise | null, variantInd
 
 export function useLessonEngine(lesson: LessonData | null) {
   const [currentStep, setCurrentStep] = useState(0)
+  const [phase, setPhase] = useState<'lesson' | 'finale'>('lesson')
   const [xp, setXp] = useState(0)
   const [combo, setCombo] = useState(0)
   const [exerciseErrors, setExerciseErrors] = useState(0)
@@ -104,6 +106,7 @@ export function useLessonEngine(lesson: LessonData | null) {
   useEffect(() => {
     clearTimers()
     setCurrentStep(0)
+    setPhase('lesson')
     setXp(0)
     setCombo(0)
     setExerciseErrors(0)
@@ -122,8 +125,15 @@ export function useLessonEngine(lesson: LessonData | null) {
     }
   }, [clearTimers])
 
-  const totalSteps = lesson?.steps.length ?? 0
-  const rawStep = lesson?.steps[currentStep] ?? null
+  const learningSteps = useMemo(() => getLessonLearningSteps(lesson), [lesson])
+  const finale = useMemo(() => resolveLessonFinale(lesson), [lesson])
+  const totalSteps = learningSteps.length
+  const isFinale = phase === 'finale'
+  const finaleStep = useMemo(
+    () => (lesson && finale ? buildFinaleTimelineStep(lesson, finale, totalSteps + 1) : null),
+    [finale, lesson, totalSteps]
+  )
+  const rawStep = isFinale ? finaleStep : learningSteps[currentStep] ?? null
   const activeExercise = useMemo(
     () => resolveExerciseForVariant(rawStep?.exercise, currentVariantIndex),
     [rawStep?.exercise, currentVariantIndex]
@@ -143,10 +153,10 @@ export function useLessonEngine(lesson: LessonData | null) {
   }, [rawStep, activeExercise])
 
   useEffect(() => {
-    if (step?.stepType === 'completion') {
+    if (isFinale) {
       setStatus('completed')
     }
-  }, [step?.stepType])
+  }, [isFinale])
 
   useEffect(() => {
     const variants = rawStep?.exercise?.variants ?? []
@@ -168,6 +178,7 @@ export function useLessonEngine(lesson: LessonData | null) {
       if (!lesson || totalSteps === 0) return
       clearTimers()
       const boundedIndex = Math.min(Math.max(nextStepIndex, 0), totalSteps - 1)
+      setPhase('lesson')
       setCurrentStep(boundedIndex)
       setExerciseErrors(0)
       setCurrentVariantIndex(0)
@@ -178,10 +189,20 @@ export function useLessonEngine(lesson: LessonData | null) {
         delete next[boundedIndex]
         return next
       })
-      setStatus(lesson.steps[boundedIndex]?.stepType === 'completion' ? 'completed' : 'idle')
+      setStatus('idle')
     },
     [lesson, totalSteps, clearTimers]
   )
+
+  const goToFinale = useCallback(() => {
+    if (!lesson || !finale) return
+    clearTimers()
+    setPhase('finale')
+    setExerciseErrors(0)
+    setCurrentVariantIndex(0)
+    setFeedback(null)
+    setStatus('completed')
+  }, [clearTimers, finale, lesson])
 
   const goToNext = useCallback(() => {
     goToStep(currentStep + 1)
@@ -201,8 +222,8 @@ export function useLessonEngine(lesson: LessonData | null) {
       return next
     })
     setFeedback(null)
-    setStatus(rawStep?.stepType === 'completion' ? 'completed' : 'idle')
-  }, [currentStep, rawStep?.stepType])
+    setStatus(isFinale ? 'completed' : 'idle')
+  }, [currentStep, isFinale])
 
   const handleAnswer = useCallback(
     (answer: string) => {
@@ -274,6 +295,11 @@ export function useLessonEngine(lesson: LessonData | null) {
               goToStep(currentStep + 1)
             }, AUTO_ADVANCE_DELAY_MS)
             timeoutRefs.current.push(autoAdvanceTimer)
+          } else if (finale) {
+            const finaleTimer = setTimeout(() => {
+              goToFinale()
+            }, AUTO_ADVANCE_DELAY_MS)
+            timeoutRefs.current.push(finaleTimer)
           }
           return
         }
@@ -325,18 +351,63 @@ export function useLessonEngine(lesson: LessonData | null) {
       activeExercise,
       currentStep,
       totalSteps,
+      finale,
       clearTimers,
       goToStep,
+      goToFinale,
       currentVariantIndex,
       clearCurrentStepTransientState,
     ]
   )
 
+  const completeCurrentStep = useCallback(
+    (options?: { submittedAnswer?: string; message?: string; xpAward?: number }) => {
+      if (!lesson || !rawStep?.exercise || isFinale) return
+      clearTimers()
+      const submitted = options?.submittedAnswer?.trim() || rawStep.exercise.correctAnswer
+      const successFeedback = {
+        type: 'success',
+        message: options?.message ?? 'Верно. Переходим дальше.',
+      } as const
+
+      setSubmittedAnswersByStep((current) => ({ ...current, [currentStep]: submitted }))
+      setFeedback(successFeedback)
+      setFeedbackByStep((current) => ({ ...current, [currentStep]: successFeedback }))
+      setAttemptHistoryByStep((current) => ({
+        ...current,
+        [currentStep]: [
+          ...(current[currentStep] ?? []),
+          {
+            submittedAnswer: submitted,
+            feedback: successFeedback,
+            stepSnapshot: rawStep,
+          },
+        ],
+      }))
+      setXp((prev) => prev + (options?.xpAward ?? 10))
+      setCombo((prev) => prev + 1)
+      setExerciseErrors(0)
+      setMistakes((current) => current.filter((item) => item.step !== rawStep.stepNumber))
+      setStatus('feedback')
+
+      const nextTimer = setTimeout(() => {
+        if (currentStep < totalSteps - 1) {
+          goToStep(currentStep + 1)
+          return
+        }
+        if (finale) {
+          goToFinale()
+        }
+      }, AUTO_ADVANCE_DELAY_MS)
+      timeoutRefs.current.push(nextTimer)
+    },
+    [clearTimers, currentStep, finale, goToFinale, goToStep, isFinale, lesson, rawStep, totalSteps]
+  )
+
   const submittedAnswer = step ? submittedAnswersByStep[currentStep] ?? null : null
   const postLesson = useMemo<PostLessonContent | null>(() => {
-    if (step?.stepType !== 'completion') return null
-    return step.postLesson ?? null
-  }, [step])
+    return isFinale ? finale?.postLesson ?? null : null
+  }, [finale?.postLesson, isFinale])
   const footerVariantProgress = useMemo<ExerciseVariantProgress>(() => {
     const variants = rawStep?.exercise?.variants ?? []
     if (variants.length <= 1) return null
@@ -353,12 +424,12 @@ export function useLessonEngine(lesson: LessonData | null) {
   const footerStaticText = useMemo(() => {
     if (!lesson || totalSteps === 0) return null
 
-    if (status === 'completed' && postLesson?.staticFooterText) {
+    if (isFinale && postLesson?.staticFooterText) {
       return postLesson.staticFooterText
     }
     const progressText = `Шаг ${Math.min(currentStep + 1, totalSteps)}/${totalSteps}`
     return `${progressText} | ${xp} XP | COMBO x${combo}`
-  }, [lesson, totalSteps, currentStep, combo, xp, status, postLesson?.staticFooterText])
+  }, [combo, currentStep, isFinale, lesson, postLesson?.staticFooterText, totalSteps, xp])
 
   const contextualFooterHint = useMemo(() => {
     if (exerciseErrors > 0 && activeExercise?.hint?.trim()) {
@@ -369,11 +440,11 @@ export function useLessonEngine(lesson: LessonData | null) {
 
   const footerVoice = useMemo<LessonFooterVoice>(() => {
     const candidates: Array<FooterVoiceCandidate | null> = [
-        status === 'completed'
+        isFinale
           ? {
               key: 'lesson-completed',
               priority: 100,
-              text: step?.myEngComment ?? 'Урок пройден. Готовы дальше?',
+              text: finale?.myEngComment ?? 'Урок пройден. Готовы дальше?',
               compactText: 'Урок пройден. Дальше?',
               tone: 'celebrate',
               emphasis: 'pulse',
@@ -479,7 +550,9 @@ export function useLessonEngine(lesson: LessonData | null) {
     currentVariantIndex,
     exerciseErrors,
     feedback?.type,
+    finale?.myEngComment,
     footerVariantInfo,
+    isFinale,
     lesson,
     repeatFooterMessage,
     status,
@@ -490,13 +563,15 @@ export function useLessonEngine(lesson: LessonData | null) {
 
   const completedSteps = useMemo(() => {
     if (!lesson) return []
-    return lesson.steps.slice(0, currentStep + 1).map((lessonStep) => lessonStep.stepNumber)
-  }, [lesson, currentStep])
+    const visibleCount = isFinale ? totalSteps : Math.min(currentStep + 1, totalSteps)
+    return learningSteps.slice(0, visibleCount).map((lessonStep) => lessonStep.stepNumber)
+  }, [currentStep, isFinale, learningSteps, lesson, totalSteps])
 
   const timeline = useMemo<LessonTimelineEntry[]>(() => {
     if (!lesson) return []
 
-    const completedEntries = lesson.steps.slice(0, currentStep).flatMap((lessonStep, stepIndex) => {
+    const completedLearningCount = isFinale ? totalSteps : currentStep
+    const completedEntries = learningSteps.slice(0, completedLearningCount).flatMap((lessonStep, stepIndex) => {
       const attempts = attemptHistoryByStep[stepIndex] ?? []
       if (attempts.length > 0) {
         return attempts.map((attempt) => ({
@@ -518,10 +593,10 @@ export function useLessonEngine(lesson: LessonData | null) {
       ]
     })
 
-    const currentLessonStep = lesson.steps[currentStep]
+    const currentLessonStep = isFinale ? finaleStep : learningSteps[currentStep]
     if (!currentLessonStep) return completedEntries
 
-    const currentStepAttempts = attemptHistoryByStep[currentStep] ?? []
+    const currentStepAttempts = isFinale ? [] : attemptHistoryByStep[currentStep] ?? []
     const currentAttemptEntries: LessonTimelineEntry[] = currentStepAttempts.map((attempt) => ({
       stepIndex: currentStep,
       submittedAnswer: attempt.submittedAnswer,
@@ -532,15 +607,27 @@ export function useLessonEngine(lesson: LessonData | null) {
 
     const hasRenderedAttempts = currentStepAttempts.length > 0
     const currentEntry: LessonTimelineEntry = {
-      stepIndex: currentStep,
-      submittedAnswer: hasRenderedAttempts ? null : submittedAnswersByStep[currentStep] ?? null,
+      stepIndex: isFinale ? totalSteps : currentStep,
+      submittedAnswer: isFinale ? null : hasRenderedAttempts ? null : submittedAnswersByStep[currentStep] ?? null,
       feedback: hasRenderedAttempts ? null : feedback,
       isCurrent: true,
       step: step ?? currentLessonStep,
     }
 
     return [...completedEntries, ...currentAttemptEntries, currentEntry]
-  }, [lesson, currentStep, submittedAnswersByStep, feedback, feedbackByStep, step, attemptHistoryByStep])
+  }, [
+    lesson,
+    isFinale,
+    totalSteps,
+    currentStep,
+    learningSteps,
+    finaleStep,
+    submittedAnswersByStep,
+    feedback,
+    feedbackByStep,
+    step,
+    attemptHistoryByStep,
+  ])
 
   return {
     lesson,
@@ -548,6 +635,7 @@ export function useLessonEngine(lesson: LessonData | null) {
     timeline,
     currentStep,
     totalSteps,
+    phase,
     xp,
     combo,
     status,
@@ -564,9 +652,12 @@ export function useLessonEngine(lesson: LessonData | null) {
     footerTypingKey: footerVoice.typingKey,
     footerVoiceTone: footerVoice.tone,
     footerVoiceEmphasis: footerVoice.emphasis,
-    isCompletionStep: step?.stepType === 'completion',
+    isCompletionStep: isFinale,
+    isFinale,
+    finale,
     postLesson,
     handleAnswer,
+    completeCurrentStep,
     goToNext,
     goToStep,
     resetCombo: () => setCombo(0),

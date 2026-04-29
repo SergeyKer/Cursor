@@ -1,36 +1,48 @@
 import { describe, expect, it } from 'vitest'
-import { embeddedQuestionsLesson } from '@/lib/lessons/embedded-questions'
-import { itsTimeToLesson } from '@/lib/lessons/its-time-to'
-import { whoLikesLesson } from '@/lib/lessons/who-likes'
+import { getAllStructuredLessons } from '@/lib/structuredLessons'
 
-const lessons = [itsTimeToLesson, whoLikesLesson, embeddedQuestionsLesson]
+const lessons = getAllStructuredLessons()
 
 describe('structured lesson 7-step contract', () => {
-  it.each(lessons)('keeps original 7-step input methodology for lesson $id', (lesson) => {
+  it.each(lessons)('keeps 7 learning steps plus finale for lesson $id', (lesson) => {
+    expect(lesson.steps).toHaveLength(7)
+    expect(lesson.finale?.postLesson.options.length).toBeGreaterThan(0)
+
     const step1 = lesson.steps[0]?.exercise
     const step2 = lesson.steps[1]?.exercise
     const step3 = lesson.steps[2]?.exercise
     const step4 = lesson.steps[3]?.exercise
     const step5 = lesson.steps[4]?.exercise
     const step6 = lesson.steps[5]?.exercise
+    const step7 = lesson.steps[6]?.exercise
 
     expect(step1?.type).toBe('fill_choice')
     expect(step2?.type).toBe('fill_choice')
     expect(step3?.type).toBe('fill_text')
     expect(step4?.type).toBe('translate')
-    expect(step5?.type === 'translate' || step5?.type === 'write_own').toBe(true)
-    expect(step6?.type).toBe('fill_choice')
+    expect(step5?.type).toBe('sentence_puzzle')
+    expect(step6?.type === 'translate' || step6?.type === 'write_own').toBe(true)
+    expect(step7?.type).toBe('fill_choice')
 
     expect(step1?.options).toHaveLength(3)
     expect(step2?.options).toHaveLength(3)
     expect(step3?.options).toBeUndefined()
     expect(step4?.options).toBeUndefined()
-    expect(step6?.options).toHaveLength(3)
-    expect(step5?.options).toBeUndefined()
+    expect(step5?.puzzleVariants).toHaveLength(3)
+    expect(step6?.puzzleVariants).toBeUndefined()
+    expect(step7?.options).toHaveLength(3)
+    expect(step6?.options).toBeUndefined()
 
     expect(step3?.answerFormat).toBe('single_word')
     expect(step4?.answerFormat).toBe('full_sentence')
     expect(step5?.answerFormat).toBe('full_sentence')
+    expect(step6?.answerFormat).toBe('full_sentence')
+
+    const blueprint5 = lesson.repeatConfig?.stepBlueprints[4]
+    const blueprint6 = lesson.repeatConfig?.stepBlueprints[5]
+    expect(blueprint5?.exerciseType).toBe('sentence_puzzle')
+    expect(blueprint6?.exerciseType === 'translate' || blueprint6?.exerciseType === 'write_own').toBe(true)
+    expect(blueprint6?.answerFormat).toBe('full_sentence')
   })
 
   it.each(lessons)('keeps text-only multi-variant practice on steps 3 and 4 for lesson $id', (lesson) => {

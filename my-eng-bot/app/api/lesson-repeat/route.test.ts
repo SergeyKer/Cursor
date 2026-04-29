@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { itsTimeToLesson } from '@/lib/lessons/its-time-to'
 import { whoLikesLesson } from '@/lib/lessons/who-likes'
+import type { GeneratedStepPayload } from '@/lib/structuredLessonFactory'
 
 const callProviderChatMock = vi.hoisted(() => vi.fn())
 
@@ -23,7 +24,7 @@ function makeRequest(body: unknown): Request {
   })
 }
 
-function toRepeatModelSteps() {
+function toRepeatModelSteps(): GeneratedStepPayload[] {
   return itsTimeToLesson.steps
     .filter((step) => step.stepType !== 'completion')
     .map((step) => ({
@@ -37,6 +38,8 @@ function toRepeatModelSteps() {
               correctAnswer: step.exercise.correctAnswer,
               acceptedAnswers: step.exercise.acceptedAnswers,
               hint: step.exercise.hint,
+              puzzleVariants: step.exercise.puzzleVariants,
+              bonusXp: step.exercise.bonusXp,
             },
           }
         : {}),
@@ -44,7 +47,7 @@ function toRepeatModelSteps() {
     }))
 }
 
-function toWhoLikesRepeatSteps() {
+function toWhoLikesRepeatSteps(): GeneratedStepPayload[] {
   return whoLikesLesson.steps
     .filter((step) => step.stepType !== 'completion')
     .map((step) => ({
@@ -58,6 +61,8 @@ function toWhoLikesRepeatSteps() {
               correctAnswer: step.exercise.correctAnswer,
               acceptedAnswers: step.exercise.acceptedAnswers,
               hint: step.exercise.hint,
+              puzzleVariants: step.exercise.puzzleVariants,
+              bonusXp: step.exercise.bonusXp,
             },
           }
         : {}),

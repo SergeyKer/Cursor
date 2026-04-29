@@ -9,7 +9,14 @@ export type StepType =
 
 export type BubbleType = 'positive' | 'info' | 'task'
 
-export type ExerciseType = 'fill_choice' | 'fill_text' | 'translate' | 'write_own' | 'match' | 'micro_quiz'
+export type ExerciseType =
+  | 'fill_choice'
+  | 'fill_text'
+  | 'translate'
+  | 'write_own'
+  | 'match'
+  | 'micro_quiz'
+  | 'sentence_puzzle'
 export type LessonAnswerPolicy = 'strict' | 'normalized' | 'equivalent_variants'
 export type ExerciseDifficulty = 'easy' | 'medium' | 'hard'
 
@@ -39,6 +46,37 @@ export interface ExerciseVariant {
   answerPolicy?: LessonAnswerPolicy
 }
 
+export type SentencePuzzleStageType = 'word_order' | 'translation'
+
+export interface SentencePuzzleStage {
+  type: SentencePuzzleStageType
+  title: string
+  instruction: string
+  prompt?: string
+  words?: string[]
+  correctOrder?: string[]
+  options?: string[]
+  correctAnswer: string
+  successText: string
+  errorText: string
+  hintText: string
+  hintFirstWord?: string
+}
+
+export interface SentencePuzzleVariant {
+  id: string
+  title: string
+  instruction: string
+  words: string[]
+  correctOrder: string[]
+  correctAnswer: string
+  successText: string
+  errorText: string
+  hintText: string
+  hintFirstWord?: string
+  myEngComment: string
+}
+
 export interface AdaptiveConfig {
   minVariants: number
   maxVariants: number
@@ -63,6 +101,8 @@ export interface Exercise {
   answerPolicy?: LessonAnswerPolicy
   hint?: string
   variants?: ExerciseVariant[]
+  puzzleVariants?: [SentencePuzzleVariant, SentencePuzzleVariant, SentencePuzzleVariant]
+  bonusXp?: number
   adaptive?: AdaptiveConfig
   currentVariantIndex?: number
   difficultyProfile?: DifficultyProfile
@@ -162,6 +202,13 @@ export interface LessonStep {
   postLesson?: PostLessonContent
 }
 
+export interface LessonFinale {
+  bubbles: [Bubble, Bubble, Bubble]
+  footerDynamic: string
+  myEngComment?: string
+  postLesson: PostLessonContent
+}
+
 export interface LessonData {
   id: string
   runKey?: string
@@ -169,5 +216,6 @@ export interface LessonData {
   topic: string
   level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1'
   steps: LessonStep[]
+  finale?: LessonFinale
   repeatConfig?: LessonRepeatConfig
 }

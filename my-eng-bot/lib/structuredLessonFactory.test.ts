@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { itsTimeToLesson } from '@/lib/lessons/its-time-to'
-import { assessGeneratedSteps, validateGeneratedSteps } from '@/lib/structuredLessonFactory'
+import { assessGeneratedSteps, validateGeneratedSteps, type GeneratedStepPayload } from '@/lib/structuredLessonFactory'
 
-function toGeneratedPayload() {
+function toGeneratedPayload(): GeneratedStepPayload[] {
   return itsTimeToLesson.steps.map((step) => ({
     stepNumber: step.stepNumber,
     bubbles: step.bubbles.map((bubble) => ({ ...bubble })),
@@ -14,6 +14,8 @@ function toGeneratedPayload() {
             correctAnswer: step.exercise.correctAnswer,
             acceptedAnswers: step.exercise.acceptedAnswers,
             hint: step.exercise.hint,
+            puzzleVariants: step.exercise.puzzleVariants,
+            bonusXp: step.exercise.bonusXp,
           },
         }
       : {}),
@@ -51,11 +53,11 @@ describe('structuredLessonFactory', () => {
 
   it('rejects hints that reveal the answer directly', () => {
     const brokenSteps = toGeneratedPayload()
-    brokenSteps[4] = {
-      ...brokenSteps[4],
+    brokenSteps[5] = {
+      ...brokenSteps[5],
       exercise: {
-        ...brokenSteps[4].exercise!,
-        hint: "Правильный ответ: It's time to go home.",
+        ...brokenSteps[5].exercise!,
+        hint: `Правильный ответ: ${brokenSteps[5].exercise?.correctAnswer ?? ''}`,
       },
     }
 
@@ -70,12 +72,12 @@ describe('structuredLessonFactory', () => {
     brokenSteps[2] = {
       ...brokenSteps[2],
       bubbles: [
-        brokenSteps[2].bubbles[0],
+        brokenSteps[2].bubbles![0],
         {
           type: 'info',
           content: `Опорный пример: ${leakedAnswer}`,
         },
-        brokenSteps[2].bubbles[2],
+        brokenSteps[2].bubbles![2],
       ],
     }
 
@@ -101,10 +103,10 @@ describe('structuredLessonFactory', () => {
 
   it('does not false-reject a lesson with a valid normalized variant', () => {
     const acceptableSteps = toGeneratedPayload()
-    acceptableSteps[4] = {
-      ...acceptableSteps[4],
+    acceptableSteps[5] = {
+      ...acceptableSteps[5],
       exercise: {
-        ...acceptableSteps[4].exercise!,
+        ...acceptableSteps[5].exercise!,
         correctAnswer: 'It is time to go home.',
         acceptedAnswers: ['It is time to go home.'],
       },
@@ -132,10 +134,10 @@ describe('structuredLessonFactory', () => {
 
   it('rejects CEFR-inappropriate advanced vocabulary for A2 lesson', () => {
     const brokenSteps = toGeneratedPayload()
-    brokenSteps[4] = {
-      ...brokenSteps[4],
+    brokenSteps[5] = {
+      ...brokenSteps[5],
       exercise: {
-        ...brokenSteps[4].exercise!,
+        ...brokenSteps[5].exercise!,
         correctAnswer: "It's time to discuss quarterly monetization strategy.",
         acceptedAnswers: ["It's time to discuss quarterly monetization strategy."],
       },
@@ -148,10 +150,10 @@ describe('structuredLessonFactory', () => {
 
   it('keeps acceptable A2 answer within CEFR limits', () => {
     const acceptableSteps = toGeneratedPayload()
-    acceptableSteps[4] = {
-      ...acceptableSteps[4],
+    acceptableSteps[5] = {
+      ...acceptableSteps[5],
       exercise: {
-        ...acceptableSteps[4].exercise!,
+        ...acceptableSteps[5].exercise!,
         correctAnswer: "It's time to go home now.",
         acceptedAnswers: ["It's time to go home now.", 'It is time to go home now.'],
       },
@@ -166,12 +168,12 @@ describe('structuredLessonFactory', () => {
     brokenSteps[1] = {
       ...brokenSteps[1],
       bubbles: [
-        brokenSteps[1].bubbles[0],
+        brokenSteps[1].bubbles![0],
         {
           type: 'info',
           content: 'После time to используем форму: quarterly monetization strategy.',
         },
-        brokenSteps[1].bubbles[2],
+        brokenSteps[1].bubbles![2],
       ],
     }
 
@@ -182,8 +184,8 @@ describe('structuredLessonFactory', () => {
 
   it('rejects CEFR drift inside english fragment in footerDynamic', () => {
     const brokenSteps = toGeneratedPayload()
-    brokenSteps[4] = {
-      ...brokenSteps[4],
+    brokenSteps[5] = {
+      ...brokenSteps[5],
       footerDynamic: 'Practice: quarterly monetization strategy',
     }
 
@@ -194,10 +196,10 @@ describe('structuredLessonFactory', () => {
 
   it('rejects CEFR drift inside english fragment in hint', () => {
     const brokenSteps = toGeneratedPayload()
-    brokenSteps[4] = {
-      ...brokenSteps[4],
+    brokenSteps[5] = {
+      ...brokenSteps[5],
       exercise: {
-        ...brokenSteps[4].exercise!,
+        ...brokenSteps[5].exercise!,
         hint: 'Подсказка: используйте quarterly monetization strategy.',
       },
     }

@@ -1,4 +1,4 @@
-import type { ExerciseDifficulty, LessonData, LessonRepeatStepBlueprint, LessonRepeatVariantProfile, LessonStep } from '@/types/lesson'
+import type { ExerciseDifficulty, LessonData, LessonFinale, LessonRepeatStepBlueprint, LessonRepeatVariantProfile, LessonStep, SentencePuzzleVariant } from '@/types/lesson'
 
 type ItsTimeVariant = {
   id: string
@@ -219,11 +219,31 @@ function buildItsTimeBlueprints(variant: ItsTimeVariant): LessonRepeatStepBluepr
         mustAvoid: ['who likes', 'time to go'],
         hintShouldMention: ['состояние', 'шаблон'],
         requireCyrillicHint: true,
-        maxAcceptedAnswers: 1,
+        maxAcceptedAnswers: 2,
       },
     },
     {
       stepNumber: 5,
+      stepType: 'practice_apply',
+      learningGoal: 'Собрать три коротких предложения по It is и It is time to в puzzle-формате.',
+      exerciseType: 'sentence_puzzle',
+      answerFormat: 'full_sentence',
+      answerPolicy: 'strict',
+      sourceCorrectAnswer: `It's time to ${variant.finalVerbBase}.`,
+      sourcePattern: "word order puzzle for It's time to + verb",
+      semanticAnchors: ['time to', variant.finalVerbBase],
+      semanticExpectations: {
+        pedagogicalRole: 'apply_in_new_situation',
+        mustInclude: ['time to', variant.finalVerbBase],
+        shouldInclude: ["it's", 'пазл'],
+        mustAvoid: ['who likes', 'past simple'],
+        hintShouldMention: ['первое слово', 'порядок'],
+        requireCyrillicHint: true,
+        maxAcceptedAnswers: 1,
+      },
+    },
+    {
+      stepNumber: 6,
       stepType: 'practice_apply',
       learningGoal: 'Закрепить конструкцию It is time to + verb полным предложением.',
       exerciseType: 'translate',
@@ -243,7 +263,7 @@ function buildItsTimeBlueprints(variant: ItsTimeVariant): LessonRepeatStepBluepr
       },
     },
     {
-      stepNumber: 6,
+      stepNumber: 7,
       stepType: 'feedback',
       learningGoal: 'Проверить, что пользователь различает состояние и действие в новой ситуации.',
       exerciseType: 'fill_choice',
@@ -263,6 +283,78 @@ function buildItsTimeBlueprints(variant: ItsTimeVariant): LessonRepeatStepBluepr
       },
     },
   ]
+}
+
+function toSentenceCards(sentence: string): string[] {
+  return sentence
+    .replace(/([?.])/g, ' $1')
+    .split(/\s+/)
+    .filter(Boolean)
+}
+
+function buildItsTimePuzzleVariant(id: string, title: string, instruction: string, answer: string): SentencePuzzleVariant {
+  const correctOrder = toSentenceCards(answer)
+  return {
+    id,
+    title,
+    instruction,
+    words: [...correctOrder],
+    correctOrder,
+    correctAnswer: answer,
+    successText: `Верно! ${answer}`,
+    errorText: 'Порядок неверный. Попробуйте ещё раз.',
+    hintText: `Подсказка: первое слово — ${correctOrder[0]}.`,
+    hintFirstWord: correctOrder[0],
+    myEngComment: 'Отлично. Берём следующий вариант.',
+  }
+}
+
+function buildItsTimeSentencePuzzleVariants(variant: ItsTimeVariant): [SentencePuzzleVariant, SentencePuzzleVariant, SentencePuzzleVariant] {
+  return [
+    buildItsTimePuzzleVariant(
+      `${variant.id}_puzzle_state`,
+      'Пазл 1/3: состояние',
+      'Соберите короткое предложение про состояние.',
+      `It's ${variant.adjective}.`
+    ),
+    buildItsTimePuzzleVariant(
+      `${variant.id}_puzzle_action`,
+      'Пазл 2/3: пора действовать',
+      'Теперь соберите фразу с It is time to.',
+      `It's time to ${variant.finalVerbBase}.`
+    ),
+    buildItsTimePuzzleVariant(
+      `${variant.id}_puzzle_new_action`,
+      'Пазл 3/3: новая фраза',
+      'Соберите ещё одну фразу с действием после time to.',
+      `It's time to ${variant.step5ActionEn}.`
+    ),
+  ]
+}
+
+function buildItsTimeFinale(): LessonFinale {
+  return {
+    bubbles: [
+      {
+        type: 'positive',
+        content: 'Урок завершен. Теперь вы различаете It is + прилагательное и It is time to + глагол.',
+      },
+      {
+        type: 'info',
+        content: 'Используйте первую конструкцию для состояния, а вторую — когда пора что-то сделать.',
+      },
+      {
+        type: 'task',
+        content: 'Вы готовы к следующему уроку.',
+      },
+    ],
+    footerDynamic: 'Урок завершен',
+    myEngComment: 'Урок пройден. Готовы дальше?',
+    postLesson: {
+      ...itsTimePostLesson,
+      options: itsTimePostLesson.options.map((option) => ({ ...option })),
+    },
+  }
 }
 
 function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
@@ -443,6 +535,37 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
+          content: 'Финальная сборка: теперь соберите предложения из слов.',
+        },
+        {
+          type: 'info',
+          content: 'Будет три коротких пазла: состояние, действие и новая фраза.',
+        },
+        {
+          type: 'task',
+          content: 'Расставьте слова в правильном порядке.',
+        },
+      ],
+      exercise: {
+        type: 'sentence_puzzle',
+        question: 'Соберите три предложения из слов.',
+        correctAnswer: `It's time to ${variant.finalVerbBase}.`,
+        acceptedAnswers: [`It's time to ${variant.finalVerbBase}.`],
+        answerFormat: 'full_sentence',
+        answerPolicy: 'strict',
+        hint: 'Подсказка про первое слово: начните с It’s и следите за порядком time to + глагол.',
+        bonusXp: 30,
+        puzzleVariants: buildItsTimeSentencePuzzleVariants(variant),
+      },
+      footerDynamic: 'Пазл: соберите 3 предложения',
+      myEngComment: 'Соберите порядок слов — правило уже почти ваше.',
+    },
+    {
+      stepNumber: 6,
+      stepType: 'practice_apply',
+      bubbles: [
+        {
+          type: 'positive',
           content: 'Отлично. Теперь используем конструкцию действия в полном предложении.',
         },
         {
@@ -467,7 +590,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
       myEngComment: 'Теперь соберите фразу целиком.',
     },
     {
-      stepNumber: 6,
+      stepNumber: 7,
       stepType: 'feedback',
       bubbles: [
         {
@@ -495,30 +618,6 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
       },
       footerDynamic: 'Карточка показывает состояние и действие: It is + adjective. It is time to + verb.',
       myEngComment: 'Финиш рядом, осталось одно усилие.',
-    },
-    {
-      stepNumber: 7,
-      stepType: 'completion',
-      bubbles: [
-        {
-          type: 'positive',
-          content: 'Урок завершен. Теперь вы различаете It is + прилагательное и It is time to + глагол.',
-        },
-        {
-          type: 'info',
-          content: 'Используйте первую конструкцию для состояния, а вторую — когда пора что-то сделать.',
-        },
-        {
-          type: 'task',
-          content: 'Вы готовы к следующему уроку.',
-        },
-      ],
-      footerDynamic: 'Урок завершен',
-      myEngComment: 'Урок пройден. Готовы дальше?',
-      postLesson: {
-        ...itsTimePostLesson,
-        options: itsTimePostLesson.options.map((option) => ({ ...option })),
-      },
     },
   ]
 }
@@ -550,6 +649,16 @@ function buildItsTimeVariantProfile(variant: ItsTimeVariant): LessonRepeatVarian
                       })),
                     }
                   : {}),
+                ...(step.exercise.puzzleVariants
+                  ? {
+                      puzzleVariants: step.exercise.puzzleVariants.map((puzzleVariant) => ({
+                        ...puzzleVariant,
+                        words: [...puzzleVariant.words],
+                        correctOrder: [...puzzleVariant.correctOrder],
+                      })) as typeof step.exercise.puzzleVariants,
+                    }
+                  : {}),
+                ...(typeof step.exercise.bonusXp === 'number' ? { bonusXp: step.exercise.bonusXp } : {}),
                 ...(step.exercise.adaptive ? { adaptive: { ...step.exercise.adaptive } } : {}),
               },
             }
@@ -567,6 +676,7 @@ export const itsTimeToLesson: LessonData = {
   topic: "Это / Пора",
   level: 'A2',
   variantId: baseVariant.id,
+  finale: buildItsTimeFinale(),
   repeatConfig: {
     ruleSummary: 'Различаем It is + прилагательное для состояния и It is time to + глагол для действия.',
     grammarFocus: ['It is + adjective', 'It is time to + verb'],

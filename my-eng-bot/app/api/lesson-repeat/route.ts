@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { callProviderChat } from '@/lib/callProviderChat'
 import type { OpenAiChatPreset, Audience } from '@/lib/types'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
+import { getLessonLearningSteps } from '@/lib/lessonFinale'
 import { selectStructuredLessonVariant } from '@/lib/structuredLessonVariants'
 import {
   assessGeneratedSteps,
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Нет repeatConfig для structured-урока.' }, { status: 400 })
   }
 
-  const sourceRepeatableSteps = lesson.steps.filter((step) => step.stepType !== 'completion')
+  const sourceRepeatableSteps = getLessonLearningSteps(lesson)
   if (!sourceRepeatableSteps.length) {
     return NextResponse.json({ lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true })
   }

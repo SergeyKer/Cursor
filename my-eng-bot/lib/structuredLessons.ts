@@ -9,6 +9,10 @@ const STRUCTURED_LESSONS: Record<string, LessonData> = {
   '3': embeddedQuestionsLesson,
 }
 
+export function getAllStructuredLessons(): LessonData[] {
+  return Object.values(STRUCTURED_LESSONS)
+}
+
 export function getStructuredLessonById(lessonId: string): LessonData | null {
   return STRUCTURED_LESSONS[lessonId] ?? null
 }

@@ -27,6 +27,16 @@ function cloneExercise(exercise?: Exercise): Exercise | undefined {
           })),
         }
       : {}),
+    ...(exercise.puzzleVariants
+      ? {
+          puzzleVariants: exercise.puzzleVariants.map((variant) => ({
+            ...variant,
+            words: [...variant.words],
+            correctOrder: [...variant.correctOrder],
+          })) as typeof exercise.puzzleVariants,
+        }
+      : {}),
+    ...(typeof exercise.bonusXp === 'number' ? { bonusXp: exercise.bonusXp } : {}),
     ...(exercise.adaptive ? { adaptive: { ...exercise.adaptive } } : {}),
     ...(exercise.difficultyProfile ? { difficultyProfile: { ...exercise.difficultyProfile } } : {}),
   }
@@ -93,6 +103,16 @@ function mergeStep(baseStep: LessonStep, variantStep?: LessonRepeatStepVariant):
             })),
           }
         : {}),
+      ...(variantStep.exercise.puzzleVariants
+        ? {
+            puzzleVariants: variantStep.exercise.puzzleVariants.map((variant) => ({
+              ...variant,
+              words: [...variant.words],
+              correctOrder: [...variant.correctOrder],
+            })) as typeof variantStep.exercise.puzzleVariants,
+          }
+        : {}),
+      ...(typeof variantStep.exercise.bonusXp === 'number' ? { bonusXp: variantStep.exercise.bonusXp } : {}),
       ...(variantStep.exercise.adaptive ? { adaptive: { ...variantStep.exercise.adaptive } } : {}),
       ...(variantStep.exercise.difficultyProfile ? { difficultyProfile: { ...variantStep.exercise.difficultyProfile } } : {}),
     }
@@ -115,6 +135,18 @@ export function applyStructuredLessonVariant(
     return {
       ...lesson,
       steps: lesson.steps.map((step) => cloneStep(step)),
+      ...(lesson.finale
+        ? {
+            finale: {
+              ...lesson.finale,
+              bubbles: lesson.finale.bubbles.map((bubble) => cloneBubble(bubble)) as NonNullable<LessonData['finale']>['bubbles'],
+              postLesson: {
+                ...lesson.finale.postLesson,
+                options: lesson.finale.postLesson.options.map((option) => ({ ...option })),
+              },
+            },
+          }
+        : {}),
       repeatConfig: lesson.repeatConfig
         ? {
             ...lesson.repeatConfig,
@@ -133,6 +165,18 @@ export function applyStructuredLessonVariant(
     ...lesson,
     variantId: variantProfile.id,
     steps: lesson.steps.map((step) => mergeStep(step, stepOverrides.get(step.stepNumber))),
+    ...(lesson.finale
+      ? {
+          finale: {
+            ...lesson.finale,
+            bubbles: lesson.finale.bubbles.map((bubble) => cloneBubble(bubble)) as NonNullable<LessonData['finale']>['bubbles'],
+            postLesson: {
+              ...lesson.finale.postLesson,
+              options: lesson.finale.postLesson.options.map((option) => ({ ...option })),
+            },
+          },
+        }
+      : {}),
     repeatConfig: {
       ...lesson.repeatConfig,
       sourceSituations: [...(variantProfile.sourceSituations ?? lesson.repeatConfig.sourceSituations)],

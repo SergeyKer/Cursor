@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { itsTimeToLesson } from '@/lib/lessons/its-time-to'
+import type { GeneratedStepPayload } from '@/lib/structuredLessonFactory'
 
 const callProviderChatMock = vi.hoisted(() => vi.fn())
 
@@ -20,7 +21,7 @@ function makeRequest(body: unknown): Request {
   })
 }
 
-function toModelSteps() {
+function toModelSteps(): GeneratedStepPayload[] {
   return itsTimeToLesson.steps.map((step) => ({
     stepNumber: step.stepNumber,
     bubbles: step.bubbles.map((bubble) => ({ ...bubble })),
@@ -32,6 +33,8 @@ function toModelSteps() {
             correctAnswer: step.exercise.correctAnswer,
             acceptedAnswers: step.exercise.acceptedAnswers,
             hint: step.exercise.hint,
+            puzzleVariants: step.exercise.puzzleVariants,
+            bonusXp: step.exercise.bonusXp,
           },
         }
       : {}),
@@ -62,11 +65,11 @@ describe('POST /api/structured-lesson-generate', () => {
   it('falls back and audit-logs when semantic validation rejects the lesson', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const brokenSteps = toModelSteps()
-    brokenSteps[4] = {
-      ...brokenSteps[4],
+    brokenSteps[5] = {
+      ...brokenSteps[5],
       exercise: {
-        ...brokenSteps[4].exercise!,
-        hint: "Правильный ответ: It's time to go home.",
+        ...brokenSteps[5].exercise!,
+        hint: `Правильный ответ: ${brokenSteps[5].exercise?.correctAnswer ?? ''}`,
       },
     }
     callProviderChatMock.mockResolvedValueOnce({
@@ -89,10 +92,10 @@ describe('POST /api/structured-lesson-generate', () => {
 
   it('does not false-reject a normalized but natural variant', async () => {
     const steps = toModelSteps()
-    steps[4] = {
-      ...steps[4],
+    steps[5] = {
+      ...steps[5],
       exercise: {
-        ...steps[4].exercise!,
+        ...steps[5].exercise!,
         correctAnswer: 'It is time to go home.',
         acceptedAnswers: ['It is time to go home.'],
       },
@@ -135,10 +138,10 @@ describe('POST /api/structured-lesson-generate', () => {
   it('falls back when payload exceeds CEFR lexical ceiling for A2', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const steps = toModelSteps()
-    steps[4] = {
-      ...steps[4],
+    steps[5] = {
+      ...steps[5],
       exercise: {
-        ...steps[4].exercise!,
+        ...steps[5].exercise!,
         correctAnswer: "It's time to discuss quarterly monetization strategy.",
         acceptedAnswers: ["It's time to discuss quarterly monetization strategy."],
       },
@@ -166,9 +169,9 @@ describe('POST /api/structured-lesson-generate', () => {
     steps[1] = {
       ...steps[1],
       bubbles: [
-        steps[1].bubbles[0],
+        steps[1].bubbles![0],
         { type: 'info', content: 'После time to пример такой: quarterly monetization strategy.' },
-        steps[1].bubbles[2],
+        steps[1].bubbles![2],
       ],
     }
     callProviderChatMock.mockResolvedValueOnce({

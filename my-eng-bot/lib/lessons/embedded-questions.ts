@@ -2,9 +2,11 @@ import type {
   ExerciseDifficulty,
   ExerciseVariant,
   LessonData,
+  LessonFinale,
   LessonRepeatStepBlueprint,
   LessonRepeatVariantProfile,
   LessonStep,
+  SentencePuzzleVariant,
 } from '@/types/lesson'
 
 type EmbeddedQuestionVariant = {
@@ -496,6 +498,26 @@ function buildEmbeddedQuestionBlueprints(variant: EmbeddedQuestionVariant): Less
     {
       stepNumber: 5,
       stepType: 'practice_apply',
+      learningGoal: 'Собрать три встроенных вопроса в правильном порядке слов.',
+      exerciseType: 'sentence_puzzle',
+      answerFormat: 'full_sentence',
+      answerPolicy: 'strict',
+      sourceCorrectAnswer: variant.step6CorrectAnswer,
+      sourcePattern: 'word order puzzle for embedded questions',
+      semanticAnchors: [variant.step6CorrectAnswer.toLowerCase()],
+      semanticExpectations: {
+        pedagogicalRole: 'apply_in_new_situation',
+        mustInclude: [extractWhWord(variant.step6CorrectAnswer)],
+        shouldInclude: ['пазл', 'порядок слов'],
+        mustAvoid: ['if', 'whether', 'present continuous'],
+        hintShouldMention: ['первое слово', 'порядок'],
+        requireCyrillicHint: true,
+        maxAcceptedAnswers: 1,
+      },
+    },
+    {
+      stepNumber: 6,
+      stepType: 'practice_apply',
       learningGoal: 'Собрать маленький бытовой диалог со встроенным вопросом.',
       exerciseType: 'translate',
       answerFormat: 'full_sentence',
@@ -515,7 +537,7 @@ function buildEmbeddedQuestionBlueprints(variant: EmbeddedQuestionVariant): Less
       },
     },
     {
-      stepNumber: 6,
+      stepNumber: 7,
       stepType: 'feedback',
       learningGoal: 'Отличить правильный встроенный вопрос от ошибки с инверсией.',
       exerciseType: 'fill_choice',
@@ -535,6 +557,78 @@ function buildEmbeddedQuestionBlueprints(variant: EmbeddedQuestionVariant): Less
       },
     },
   ]
+}
+
+function toSentenceCards(sentence: string): string[] {
+  return sentence
+    .replace(/([?.])/g, ' $1')
+    .split(/\s+/)
+    .filter(Boolean)
+}
+
+function buildEmbeddedPuzzleVariant(id: string, title: string, instruction: string, answer: string): SentencePuzzleVariant {
+  const correctOrder = toSentenceCards(answer)
+  return {
+    id,
+    title,
+    instruction,
+    words: [...correctOrder],
+    correctOrder,
+    correctAnswer: answer,
+    successText: `Верно! ${answer}`,
+    errorText: 'Порядок неверный. Попробуйте ещё раз.',
+    hintText: `Подсказка: первое слово — ${correctOrder[0]}.`,
+    hintFirstWord: correctOrder[0],
+    myEngComment: 'Отлично. Собираем следующий вариант.',
+  }
+}
+
+function buildEmbeddedSentencePuzzleVariants(variant: EmbeddedQuestionVariant): [SentencePuzzleVariant, SentencePuzzleVariant, SentencePuzzleVariant] {
+  return [
+    buildEmbeddedPuzzleVariant(
+      `${variant.id}_puzzle_intro`,
+      'Пазл 1/3: встроенный вопрос',
+      'Соберите фразу с обычным порядком слов после where/what/when.',
+      variant.introCorrectSentence
+    ),
+    buildEmbeddedPuzzleVariant(
+      `${variant.id}_puzzle_practice`,
+      'Пазл 2/3: новая фраза',
+      'Теперь соберите похожую фразу без лишней инверсии.',
+      variant.step4Variants[0]?.correctAnswer ?? variant.introCorrectSentence
+    ),
+    buildEmbeddedPuzzleVariant(
+      `${variant.id}_puzzle_check`,
+      'Пазл 3/3: финальная сборка',
+      'Соберите проверочную фразу целиком.',
+      variant.step6CorrectAnswer
+    ),
+  ]
+}
+
+function buildEmbeddedQuestionsFinale(): LessonFinale {
+  return {
+    bubbles: [
+      {
+        type: 'positive',
+        content: 'Урок завершен. Теперь вы лучше чувствуете порядок слов во встроенных вопросах.',
+      },
+      {
+        type: 'info',
+        content: 'После do you know, tell me, can you say используйте wh-word + subject + verb.',
+      },
+      {
+        type: 'task',
+        content: 'Можно закрепить тему на новых бытовых ситуациях.',
+      },
+    ],
+    footerDynamic: 'Урок завершен',
+    myEngComment: 'Готово. Теперь where he lives уже звучит естественно.',
+    postLesson: {
+      ...embeddedQuestionsPostLesson,
+      options: embeddedQuestionsPostLesson.options.map((option) => ({ ...option })),
+    },
+  }
 }
 
 function cloneExerciseVariant(variant: ExerciseVariant): ExerciseVariant {
@@ -689,6 +783,37 @@ function buildEmbeddedQuestionSteps(variant: EmbeddedQuestionVariant): LessonSte
       bubbles: [
         {
           type: 'positive',
+          content: 'Теперь соберите порядок слов руками: без лишней инверсии внутри второй части.',
+        },
+        {
+          type: 'info',
+          content: 'Будет три коротких пазла со встроенными вопросами.',
+        },
+        {
+          type: 'task',
+          content: 'Расставьте слова в правильном порядке.',
+        },
+      ],
+      exercise: {
+        type: 'sentence_puzzle',
+        question: 'Соберите три фразы из слов.',
+        correctAnswer: variant.step6CorrectAnswer,
+        acceptedAnswers: [variant.step6CorrectAnswer],
+        answerFormat: 'full_sentence',
+        answerPolicy: 'strict',
+        hint: 'Подсказка про первое слово: во второй части используйте обычный порядок слов: wh-word + subject + verb.',
+        bonusXp: 30,
+        puzzleVariants: buildEmbeddedSentencePuzzleVariants(variant),
+      },
+      footerDynamic: 'Пазл: порядок слов во встроенном вопросе',
+      myEngComment: 'Соберите фразу — и правило станет заметнее.',
+    },
+    {
+      stepNumber: 6,
+      stepType: 'practice_apply',
+      bubbles: [
+        {
+          type: 'positive',
           content: 'Переходим к короткому живому мини-диалогу.',
         },
         {
@@ -713,7 +838,7 @@ function buildEmbeddedQuestionSteps(variant: EmbeddedQuestionVariant): LessonSte
       myEngComment: 'Теперь это уже звучит как реальная речь.',
     },
     {
-      stepNumber: 6,
+      stepNumber: 7,
       stepType: 'feedback',
       bubbles: [
         {
@@ -741,30 +866,6 @@ function buildEmbeddedQuestionSteps(variant: EmbeddedQuestionVariant): LessonSte
       },
       footerDynamic: 'Проверка: прямой вопрос и встроенный вопрос',
       myEngComment: 'Финиш рядом, осталось увидеть ошибку сразу.',
-    },
-    {
-      stepNumber: 7,
-      stepType: 'completion',
-      bubbles: [
-        {
-          type: 'positive',
-          content: 'Урок завершен. Теперь вы лучше чувствуете порядок слов во встроенных вопросах.',
-        },
-        {
-          type: 'info',
-          content: 'После do you know, tell me, can you say используйте wh-word + subject + verb.',
-        },
-        {
-          type: 'task',
-          content: 'Можно закрепить тему на новых бытовых ситуациях.',
-        },
-      ],
-      footerDynamic: 'Урок завершен',
-      myEngComment: 'Готово. Теперь where he lives уже звучит естественно.',
-      postLesson: {
-        ...embeddedQuestionsPostLesson,
-        options: embeddedQuestionsPostLesson.options.map((option) => ({ ...option })),
-      },
     },
   ]
 }
@@ -796,6 +897,16 @@ function buildEmbeddedQuestionVariantProfile(variant: EmbeddedQuestionVariant): 
                       })),
                     }
                   : {}),
+                ...(step.exercise.puzzleVariants
+                  ? {
+                      puzzleVariants: step.exercise.puzzleVariants.map((puzzleVariant) => ({
+                        ...puzzleVariant,
+                        words: [...puzzleVariant.words],
+                        correctOrder: [...puzzleVariant.correctOrder],
+                      })) as typeof step.exercise.puzzleVariants,
+                    }
+                  : {}),
+                ...(typeof step.exercise.bonusXp === 'number' ? { bonusXp: step.exercise.bonusXp } : {}),
                 ...(step.exercise.adaptive ? { adaptive: { ...step.exercise.adaptive } } : {}),
               },
             }
@@ -813,6 +924,7 @@ export const embeddedQuestionsLesson: LessonData = {
   topic: "I don't know where he lives",
   level: 'A2',
   variantId: baseVariant.id,
+  finale: buildEmbeddedQuestionsFinale(),
   repeatConfig: {
     ruleSummary:
       'После do you know, tell me, can you say и I do not know во второй части используем обычный порядок слов: wh-word + subject + verb.',

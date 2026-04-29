@@ -17,6 +17,8 @@ export type GeneratedExercisePayload = {
   correctAnswer?: unknown
   acceptedAnswers?: unknown
   hint?: unknown
+  puzzleVariants?: unknown
+  bonusXp?: unknown
 }
 
 export type GeneratedStepPayload = {
@@ -71,6 +73,16 @@ export function cloneLessonWithNewRunKey(lesson: LessonData): LessonData {
                     })),
                   }
                 : {}),
+              ...(step.exercise.puzzleVariants
+                ? {
+                    puzzleVariants: step.exercise.puzzleVariants.map((variant) => ({
+                      ...variant,
+                      words: [...variant.words],
+                      correctOrder: [...variant.correctOrder],
+                    })) as typeof step.exercise.puzzleVariants,
+                  }
+                : {}),
+              ...(typeof step.exercise.bonusXp === 'number' ? { bonusXp: step.exercise.bonusXp } : {}),
               ...(step.exercise.adaptive ? { adaptive: { ...step.exercise.adaptive } } : {}),
               ...(step.exercise.difficultyProfile ? { difficultyProfile: { ...step.exercise.difficultyProfile } } : {}),
             },
@@ -85,6 +97,18 @@ export function cloneLessonWithNewRunKey(lesson: LessonData): LessonData {
           }
         : {}),
     })),
+    ...(lesson.finale
+      ? {
+          finale: {
+            ...lesson.finale,
+            bubbles: lesson.finale.bubbles.map((bubble) => ({ ...bubble })) as NonNullable<LessonData['finale']>['bubbles'],
+            postLesson: {
+              ...lesson.finale.postLesson,
+              options: lesson.finale.postLesson.options.map((option) => ({ ...option })),
+            },
+          },
+        }
+      : {}),
   }
 }
 
@@ -101,7 +125,15 @@ function isBubbleType(value: unknown): value is BubbleType {
 }
 
 function isExerciseType(value: unknown): value is ExerciseType {
-  return value === 'fill_choice' || value === 'fill_text' || value === 'translate' || value === 'write_own' || value === 'match' || value === 'micro_quiz'
+  return (
+    value === 'fill_choice' ||
+    value === 'fill_text' ||
+    value === 'translate' ||
+    value === 'write_own' ||
+    value === 'match' ||
+    value === 'micro_quiz' ||
+    value === 'sentence_puzzle'
+  )
 }
 
 function normalizeForSemanticCheck(value: string): string {
@@ -119,6 +151,19 @@ function toSemanticText(step: GeneratedStepPayload): string {
         typeof step.exercise.question === 'string' ? step.exercise.question : '',
         typeof step.exercise.correctAnswer === 'string' ? step.exercise.correctAnswer : '',
         Array.isArray(step.exercise.options) ? step.exercise.options.filter((item): item is string => typeof item === 'string').join(' ') : '',
+        Array.isArray(step.exercise.puzzleVariants)
+          ? step.exercise.puzzleVariants
+              .map((variant) =>
+                variant && typeof variant === 'object'
+                  ? [
+                      String((variant as { title?: unknown }).title ?? ''),
+                      String((variant as { instruction?: unknown }).instruction ?? ''),
+                      String((variant as { correctAnswer?: unknown }).correctAnswer ?? ''),
+                    ].join(' ')
+                  : ''
+              )
+              .join(' ')
+          : '',
       ].join(' ')
     : ''
   return normalizeForSemanticCheck(`${bubbles} ${exercise} ${typeof step.footerDynamic === 'string' ? step.footerDynamic : ''}`)
@@ -397,6 +442,47 @@ function validateGeneratedStepShape(
         if (new Set(options.map((item) => normalizeForPolicyCheck(item))).size !== options.length) {
           issues.push(issue('hard', 'duplicate_choice_options', 'options не должны дублироваться.', sourceStep.stepNumber))
         }
+      }
+    } else if (sourceStep.exercise.type === 'sentence_puzzle') {
+      const puzzleVariants = row.exercise.puzzleVariants
+      if (!Array.isArray(puzzleVariants) || puzzleVariants.length !== 3) {
+        issues.push(issue('hard', 'invalid_sentence_puzzle_variants', 'sentence_puzzle требует ровно 3 puzzle-варианта.', sourceStep.stepNumber))
+      } else {
+        for (const [variantIndex, variant] of puzzleVariants.entries()) {
+          const item = variant as {
+            title?: unknown
+            instruction?: unknown
+            words?: unknown
+            correctOrder?: unknown
+            correctAnswer?: unknown
+            successText?: unknown
+            errorText?: unknown
+            hintText?: unknown
+            myEngComment?: unknown
+          }
+          const label = `sentence_puzzle variant ${variantIndex + 1}`
+          if (
+            typeof item.title !== 'string' ||
+            typeof item.instruction !== 'string' ||
+            typeof item.correctAnswer !== 'string' ||
+            typeof item.successText !== 'string' ||
+            typeof item.errorText !== 'string' ||
+            typeof item.hintText !== 'string' ||
+            typeof item.myEngComment !== 'string'
+          ) {
+            issues.push(issue('hard', 'invalid_sentence_puzzle_text_blocks', `${label}: нужны все текстовые блоки.`, sourceStep.stepNumber))
+          }
+          if (!Array.isArray(item.words) || !Array.isArray(item.correctOrder) || item.correctOrder.length === 0) {
+            issues.push(issue('hard', 'invalid_sentence_puzzle_words', `${label}: нужны words и correctOrder.`, sourceStep.stepNumber))
+          } else if (item.words.length !== item.correctOrder.length) {
+            issues.push(issue('hard', 'sentence_puzzle_word_count_mismatch', `${label}: words и correctOrder должны быть одной длины.`, sourceStep.stepNumber))
+          } else if (![...item.words, ...item.correctOrder].every((word) => typeof word === 'string' && word.trim().length > 0)) {
+            issues.push(issue('hard', 'sentence_puzzle_non_string_word', `${label}: все слова должны быть непустыми строками.`, sourceStep.stepNumber))
+          }
+        }
+      }
+      if (row.exercise.bonusXp !== undefined && typeof row.exercise.bonusXp !== 'number') {
+        issues.push(issue('hard', 'invalid_sentence_puzzle_bonus', 'bonusXp должен быть числом.', sourceStep.stepNumber))
       }
     } else if (row.exercise.options !== undefined && !Array.isArray(row.exercise.options)) {
       issues.push(issue('hard', 'unexpected_options_shape', 'options должны быть массивом, если они переданы.', sourceStep.stepNumber))
@@ -834,6 +920,10 @@ export function buildLessonFromGeneratedSteps(sourceLesson: LessonData, generate
               question: generated.exercise.question as string,
               correctAnswer: generated.exercise.correctAnswer as string,
               ...(Array.isArray(generated.exercise.options) ? { options: generated.exercise.options as string[] } : {}),
+              ...(Array.isArray(generated.exercise.puzzleVariants)
+                ? { puzzleVariants: generated.exercise.puzzleVariants as Exercise['puzzleVariants'] }
+                : {}),
+              ...(typeof generated.exercise.bonusXp === 'number' ? { bonusXp: generated.exercise.bonusXp } : {}),
               ...(typeof generated.exercise.hint === 'string' ? { hint: generated.exercise.hint } : {}),
               ...(blueprint?.answerFormat ? { answerFormat: blueprint.answerFormat } : {}),
               ...(blueprint?.answerPolicy ? { answerPolicy: blueprint.answerPolicy } : {}),
@@ -861,6 +951,18 @@ export function buildLessonFromGeneratedSteps(sourceLesson: LessonData, generate
     ...sourceLesson,
     runKey: createLessonRunKey(),
     steps: nextSteps,
+    ...(sourceLesson.finale
+      ? {
+          finale: {
+            ...sourceLesson.finale,
+            bubbles: sourceLesson.finale.bubbles.map((bubble) => ({ ...bubble })) as NonNullable<LessonData['finale']>['bubbles'],
+            postLesson: {
+              ...sourceLesson.finale.postLesson,
+              options: sourceLesson.finale.postLesson.options.map((option) => ({ ...option })),
+            },
+          },
+        }
+      : {}),
   }
 }
 
@@ -875,7 +977,10 @@ export function buildStructuredCreationSystemPrompt(): string {
     'Не добавляй новую грамматику вне указанного grammar focus.',
     'Если передан selectedVariantId, sourceSituations и sourceSteps, считай их обязательными смысловыми рельсами для нового варианта.',
     'Для fill_choice всегда давай ровно 3 варианта и включай correctAnswer в options.',
-    'Для шагов 1-4 и 6 с options показывай только выбор из вариантов; для шага 5 не добавляй options.',
+    'Для sentence_puzzle всегда давай ровно 3 puzzleVariants. В каждом puzzle-варианте нужны title, instruction, words, correctOrder, correctAnswer, successText, errorText, hintText, myEngComment.',
+    'Шаг 5 всегда должен быть sentence_puzzle с ровно 3 puzzleVariants.',
+    'Шаг 6 должен быть текстовым вводом полного предложения: translate или write_own, answerFormat full_sentence, без options и без puzzleVariants.',
+    'Для шагов 1-4 с options показывай только выбор из вариантов.',
     'Для practice_fill, practice_match и translate шагов примеры и пояснения обязаны использовать другой контекст и другую лексику, чем само задание.',
     'Категорически запрещено писать correctAnswer или его готовую английскую формулировку в bubbles типа positive/info, в hint и в пояснениях.',
     'Не делай hints слишком широкими и не раскрывай ответ напрямую.',
@@ -893,6 +998,8 @@ export function buildStructuredCreationSystemPrompt(): string {
     '    "options": ["...", "...", "..."],',
     '    "correctAnswer": "...",',
     '    "acceptedAnswers": ["..."],',
+    '    "puzzleVariants": [{"id":"...","title":"...","instruction":"...","words":["..."],"correctOrder":["..."],"correctAnswer":"...","successText":"...","errorText":"...","hintText":"...","myEngComment":"..."}],',
+    '    "bonusXp": 30,',
     '    "hint": "..."',
     '  },',
     '  "footerDynamic": "..."',
@@ -913,7 +1020,10 @@ export function buildStructuredRepeatSystemPrompt(): string {
     'Если передан selectedVariantId, sourceSituations и sourceSteps, опирайся именно на них и не возвращайся к предыдущему варианту.',
     'Объяснения и подсказки на русском, правильные ответы на английском.',
     'Для fill_choice всегда давай ровно 3 варианта и включай correctAnswer в options.',
-    'Для шагов 1-4 и 6 с options показывай только выбор из вариантов; для шага 5 не добавляй options.',
+    'Для sentence_puzzle всегда давай ровно 3 puzzleVariants. В каждом puzzle-варианте нужны title, instruction, words, correctOrder, correctAnswer, successText, errorText, hintText, myEngComment.',
+    'Шаг 5 всегда должен быть sentence_puzzle с ровно 3 puzzleVariants.',
+    'Шаг 6 должен быть текстовым вводом полного предложения: translate или write_own, answerFormat full_sentence, без options и без puzzleVariants.',
+    'Для шагов 1-4 с options показывай только выбор из вариантов.',
     'Для practice_fill, practice_match и translate шагов примеры и пояснения обязаны использовать другой контекст и другую лексику, чем само задание.',
     'Категорически запрещено писать correctAnswer или его готовую английскую формулировку в bubbles типа positive/info, в hint и в пояснениях.',
     'Не делай hints слишком широкими и не раскрывай ответ напрямую.',

@@ -1,4 +1,4 @@
-import type { LessonData, LessonRepeatStepBlueprint, LessonRepeatVariantProfile, LessonStep } from '@/types/lesson'
+import type { LessonData, LessonFinale, LessonRepeatStepBlueprint, LessonRepeatVariantProfile, LessonStep, SentencePuzzleVariant } from '@/types/lesson'
 
 type WhoLikesVariant = {
   id: string
@@ -206,6 +206,27 @@ function buildWhoLikesBlueprints(variant: WhoLikesVariant): LessonRepeatStepBlue
     {
       stepNumber: 5,
       stepType: 'practice_apply',
+      learningGoal: 'Собрать правильные предложения по теме Who в трёх коротких puzzle-вариантах.',
+      exerciseType: 'sentence_puzzle',
+      answerFormat: 'full_sentence',
+      answerPolicy: 'strict',
+      sourceCorrectAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,
+      sourcePattern: `word order puzzle for Who + ${variant.verbThird}`,
+      semanticAnchors: ['who', variant.verbThird, variant.introObject],
+      semanticExpectations: {
+        pedagogicalRole: 'apply_in_new_situation',
+        mustInclude: ['who', variant.verbThird, variant.introObject],
+        shouldInclude: [variant.introSubject.toLowerCase(), 'пазл'],
+        mustAvoid: ['it is time to', 'past simple'],
+        hintShouldMention: ['первое слово', 'порядок'],
+        requireCyrillicHint: true,
+        requireQuestionMarkInAnswer: true,
+        maxAcceptedAnswers: 1,
+      },
+    },
+    {
+      stepNumber: 6,
+      stepType: 'practice_apply',
       learningGoal: 'Дать вопрос и ответ в коротком бытовом мини-диалоге.',
       exerciseType: 'translate',
       answerFormat: 'full_sentence',
@@ -225,7 +246,7 @@ function buildWhoLikesBlueprints(variant: WhoLikesVariant): LessonRepeatStepBlue
       },
     },
     {
-      stepNumber: 6,
+      stepNumber: 7,
       stepType: 'feedback',
       learningGoal: 'Проверить различие между правильной формой и ошибочными вариантами без окончания -s.',
       exerciseType: 'fill_choice',
@@ -246,6 +267,78 @@ function buildWhoLikesBlueprints(variant: WhoLikesVariant): LessonRepeatStepBlue
       },
     },
   ]
+}
+
+function toSentenceCards(sentence: string): string[] {
+  return sentence
+    .replace(/([?.])/g, ' $1')
+    .split(/\s+/)
+    .filter(Boolean)
+}
+
+function buildWhoPuzzleVariant(id: string, title: string, instruction: string, answer: string): SentencePuzzleVariant {
+  const correctOrder = toSentenceCards(answer)
+  return {
+    id,
+    title,
+    instruction,
+    words: [...correctOrder],
+    correctOrder,
+    correctAnswer: answer,
+    successText: `Верно! ${answer}`,
+    errorText: 'Порядок неверный. Попробуйте ещё раз.',
+    hintText: `Подсказка: первое слово — ${correctOrder[0]}.`,
+    hintFirstWord: correctOrder[0],
+    myEngComment: 'Отлично. Собираем следующий вариант.',
+  }
+}
+
+function buildWhoSentencePuzzleVariants(variant: WhoLikesVariant): [SentencePuzzleVariant, SentencePuzzleVariant, SentencePuzzleVariant] {
+  return [
+    buildWhoPuzzleVariant(
+      `${variant.id}_puzzle_question`,
+      'Пазл 1/3: соберите вопрос',
+      'Нажимайте слова в правильном порядке.',
+      `Who ${variant.verbThird} ${variant.introObject}?`
+    ),
+    buildWhoPuzzleVariant(
+      `${variant.id}_puzzle_answer`,
+      'Пазл 2/3: соберите ответ',
+      'Теперь соберите короткий ответ полным предложением.',
+      `${variant.introSubject} ${variant.verbThird} ${variant.introObject}.`
+    ),
+    buildWhoPuzzleVariant(
+      `${variant.id}_puzzle_new_question`,
+      'Пазл 3/3: новая ситуация',
+      'Соберите вопрос с новым словом и тем же правилом.',
+      `Who ${variant.verbThird} ${variant.step5Object}?`
+    ),
+  ]
+}
+
+function buildWhoLikesFinale(): LessonFinale {
+  return {
+    bubbles: [
+      {
+        type: 'positive',
+        content: 'Урок завершён. Теперь вы умеете строить простые вопросы с Who и отвечать на них.',
+      },
+      {
+        type: 'info',
+        content: 'Используйте шаблон Who + verb-s + noun? и давайте короткий ясный ответ.',
+      },
+      {
+        type: 'task',
+        content: 'Можно закрепить тему на новых ситуациях.',
+      },
+    ],
+    footerDynamic: 'Урок завершён',
+    myEngComment: 'Готово. Вопросы с Who уже ваши.',
+    postLesson: {
+      ...whoLikesPostLesson,
+      options: whoLikesPostLesson.options.map((option) => ({ ...option })),
+    },
+  }
 }
 
 function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
@@ -445,6 +538,37 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
+          content: 'Теперь финальный пазл: соберите правильный порядок слов.',
+        },
+        {
+          type: 'info',
+          content: 'Будет три коротких сборки: вопрос, ответ и новая ситуация.',
+        },
+        {
+          type: 'task',
+          content: 'Соберите слова в правильном порядке.',
+        },
+      ],
+      exercise: {
+        type: 'sentence_puzzle',
+        question: 'Соберите три предложения из слов.',
+        correctAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,
+        acceptedAnswers: [`Who ${variant.verbThird} ${variant.introObject}?`],
+        answerFormat: 'full_sentence',
+        answerPolicy: 'strict',
+        hint: 'Подсказка про первое слово: начинайте вопрос с Who, а глагол оставляйте с -s.',
+        bonusXp: 30,
+        puzzleVariants: buildWhoSentencePuzzleVariants(variant),
+      },
+      footerDynamic: 'Пазл: соберите 3 предложения',
+      myEngComment: 'Соберите порядок слов — это финальная сборка правила.',
+    },
+    {
+      stepNumber: 6,
+      stepType: 'practice_apply',
+      bubbles: [
+        {
+          type: 'positive',
           content: 'Теперь используем вопрос и ответ вместе.',
         },
         {
@@ -469,7 +593,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
       myEngComment: 'Теперь звучите уже как в диалоге.',
     },
     {
-      stepNumber: 6,
+      stepNumber: 7,
       stepType: 'feedback',
       bubbles: [
         {
@@ -502,30 +626,6 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
       footerDynamic: 'Карточка: Who + verb-s + noun?',
       myEngComment: 'Почти финиш, осталось закрепить.',
     },
-    {
-      stepNumber: 7,
-      stepType: 'completion',
-      bubbles: [
-        {
-          type: 'positive',
-          content: 'Урок завершён. Теперь вы умеете строить простые вопросы с Who и отвечать на них.',
-        },
-        {
-          type: 'info',
-          content: 'Используйте шаблон Who + verb-s + noun? и давайте короткий ясный ответ.',
-        },
-        {
-          type: 'task',
-          content: 'Можно закрепить тему на новых ситуациях.',
-        },
-      ],
-      footerDynamic: 'Урок завершён',
-      myEngComment: 'Готово. Вопросы с Who уже ваши.',
-      postLesson: {
-        ...whoLikesPostLesson,
-        options: whoLikesPostLesson.options.map((option) => ({ ...option })),
-      },
-    },
   ]
 }
 
@@ -556,6 +656,16 @@ function buildWhoLikesVariantProfile(variant: WhoLikesVariant): LessonRepeatVari
                       })),
                     }
                   : {}),
+                ...(step.exercise.puzzleVariants
+                  ? {
+                      puzzleVariants: step.exercise.puzzleVariants.map((puzzleVariant) => ({
+                        ...puzzleVariant,
+                        words: [...puzzleVariant.words],
+                        correctOrder: [...puzzleVariant.correctOrder],
+                      })) as typeof step.exercise.puzzleVariants,
+                    }
+                  : {}),
+                ...(typeof step.exercise.bonusXp === 'number' ? { bonusXp: step.exercise.bonusXp } : {}),
                 ...(step.exercise.adaptive ? { adaptive: { ...step.exercise.adaptive } } : {}),
               },
             }
@@ -573,6 +683,7 @@ export const whoLikesLesson: LessonData = {
   topic: 'Who ...?',
   level: 'A2',
   variantId: baseVariant.id,
+  finale: buildWhoLikesFinale(),
   repeatConfig: {
     ruleSummary: 'Строим вопросы с Who в Present Simple и отвечаем полными фразами с третьим лицом.',
     grammarFocus: ['Who questions', 'Present Simple', 'third person singular'],

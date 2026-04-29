@@ -14,7 +14,8 @@ describe('structuredLessonVariants', () => {
 
     expect(lesson.variantId).toBe('cold-study')
     expect(lesson.steps[0].exercise?.correctAnswer).toBe("It's cold.")
-    expect(lesson.steps[4].exercise?.correctAnswer).toBe("It's time to do homework.")
+    expect(lesson.steps[4].exercise?.type).toBe('sentence_puzzle')
+    expect(lesson.steps[5].exercise?.correctAnswer).toBe("It's time to do homework.")
     expect(lesson.repeatConfig?.stepBlueprints[0]?.semanticExpectations?.mustInclude).toEqual(['cold'])
   })
 
@@ -38,7 +39,8 @@ describe('structuredLessonVariants', () => {
 
     expect(lesson.variantId).toBe('station-is')
     expect(lesson.steps[0].exercise?.correctAnswer).toBe('Tell me where the station is.')
-    expect(lesson.steps[4].exercise?.correctAnswer).toBe('Tell me where the museum is. It is near the school.')
+    expect(lesson.steps[4].exercise?.type).toBe('sentence_puzzle')
+    expect(lesson.steps[5].exercise?.correctAnswer).toBe('Tell me where the museum is. It is near the school.')
     expect(lesson.repeatConfig?.stepBlueprints[3]?.sourceCorrectAnswer).toBe('Tell me where the station is.')
   })
 })

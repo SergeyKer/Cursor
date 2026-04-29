@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callProviderChat } from '@/lib/callProviderChat'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
+import { getLessonLearningSteps } from '@/lib/lessonFinale'
 import { selectStructuredLessonVariant } from '@/lib/structuredLessonVariants'
 import {
   assessGeneratedSteps,
@@ -53,6 +54,7 @@ export async function POST(req: NextRequest) {
   if (!repeatConfig) {
     return NextResponse.json({ error: 'Нет repeatConfig для structured-урока.' }, { status: 400 })
   }
+  const sourceSteps = getLessonLearningSteps(lesson)
 
   const provider = body.provider === 'openrouter' ? 'openrouter' : 'openai'
   const openAiChatPreset =
@@ -120,7 +122,7 @@ export async function POST(req: NextRequest) {
       grammarFocus: repeatConfig.grammarFocus,
       sourceSituations: repeatConfig.sourceSituations,
       stepBlueprints: repeatConfig.stepBlueprints,
-      sourceSteps: lesson.steps.map((step) => ({
+      sourceSteps: sourceSteps.map((step) => ({
         stepNumber: step.stepNumber,
         stepType: step.stepType,
         bubbles: step.bubbles,
@@ -198,7 +200,7 @@ export async function POST(req: NextRequest) {
     try {
       const validationStartedAt = Date.now()
       const parsed = JSON.parse(json) as { steps?: unknown }
-      const validation = assessGeneratedSteps(lesson, lesson.steps, parsed.steps, { audience })
+      const validation = assessGeneratedSteps(lesson, sourceSteps, parsed.steps, { audience })
       if (!validation.validatedSteps) {
         console.warn(
           `structured-lesson-generate rejected lesson ${lesson.id} variant ${selectedVariantId ?? 'default'}: score=${validation.score.toFixed(2)}; ${formatLessonValidationIssues(validation.issues)}`
@@ -227,7 +229,7 @@ export async function POST(req: NextRequest) {
         return responsePayload
       }
       const responsePayload = {
-        lesson: buildLessonFromGeneratedSteps(lesson, validation.validatedSteps),
+        lesson: buildLessonFromGeneratedSteps({ ...lesson, steps: sourceSteps }, validation.validatedSteps),
         generated: true,
         fallback: false,
       }
