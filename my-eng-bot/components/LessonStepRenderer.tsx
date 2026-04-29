@@ -616,11 +616,11 @@ export default function LessonStepRenderer({
                         )}
                       </button>
                     ) : null}
-                    <div className="relative min-w-0 flex-1">
+                    <div className="relative isolate min-w-0 flex-1">
                       {shouldRenderChoiceChips && !showVoiceOverlay && (
                         <div
                           key={`lesson-choice-placeholder-${currentStep?.stepNumber ?? 'none'}-${currentVariantIndex}-${choiceResetVersion}`}
-                          className="pointer-events-none absolute inset-x-4 inset-y-0 z-10 flex items-center overflow-hidden lesson-choice-chip-enter"
+                          className="pointer-events-none absolute inset-x-4 inset-y-0 z-20 flex items-center overflow-hidden lesson-choice-chip-enter"
                         >
                           <span className="block w-full truncate whitespace-nowrap text-right text-[15px] text-slate-700">
                             {inputPlaceholder}
@@ -636,7 +636,7 @@ export default function LessonStepRenderer({
                       )}
                       <input
                         type="text"
-                        value={inputValue}
+                        value={shouldRenderChoiceChips ? '' : inputValue}
                         onChange={(event) => lessonVoiceInput.setDraftText(event.target.value)}
                         onKeyDown={(event) => {
                           if (event.key === 'Enter') {
@@ -646,12 +646,16 @@ export default function LessonStepRenderer({
                         }}
                         readOnly={lessonVoiceInput.isInputLocked || shouldRenderChoiceChips}
                         disabled={!isTextInputAvailable || isChecking || shouldRenderChoiceChips}
+                        autoComplete={shouldRenderChoiceChips ? 'off' : undefined}
+                        aria-label={shouldRenderChoiceChips ? inputPlaceholder : undefined}
                         className={`chat-input-field lesson-chat-input-field min-w-0 w-full rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${
                           showVoiceOverlay ? 'chat-input-voice-web-metrics' : ''
                         } ${
-                          shouldRenderChoiceChips ? 'text-right pr-6 placeholder:text-slate-700' : ''
-                        } ${
-                          showVoiceOverlay ? 'text-transparent caret-transparent placeholder:text-transparent' : 'text-[var(--text)]'
+                          showVoiceOverlay
+                            ? 'text-transparent caret-transparent placeholder:text-transparent'
+                            : shouldRenderChoiceChips
+                              ? 'relative z-0 text-right pr-6 text-transparent caret-transparent placeholder:text-transparent'
+                              : 'text-[var(--text)]'
                         }`}
                         placeholder={shouldRenderChoiceChips ? '' : inputPlaceholder}
                       />
