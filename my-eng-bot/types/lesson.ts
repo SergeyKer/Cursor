@@ -33,6 +33,41 @@ export interface Bubble {
   content: string
 }
 
+export type LessonIntroKind = 'single_rule' | 'contrast' | 'concept' | 'tense' | 'structure'
+export type LessonIntroComplexity = 'simple' | 'medium' | 'advanced'
+
+export interface LessonIntroExample {
+  en: string
+  ru: string
+  note: string
+}
+
+export interface LessonIntro {
+  topic: string
+  kind: LessonIntroKind
+  complexity: LessonIntroComplexity
+  quick: {
+    why: string[]
+    how: string[]
+    examples: LessonIntroExample[]
+    takeaway: string
+  }
+  details?: {
+    points: string[]
+    examples?: LessonIntroExample[]
+  }
+  deepDive?: {
+    commonMistakes: string[]
+    contrastNotes?: string[]
+    selfCheckRule: string
+  }
+  learningPlan?: {
+    grammarFocus: string[]
+    contrastPair?: [string, string]
+    firstPracticeGoal: string
+  }
+}
+
 export interface ExerciseVariant {
   id: string
   question: string
@@ -215,6 +250,7 @@ export interface LessonData {
   variantId?: string
   topic: string
   level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1'
+  intro?: LessonIntro
   steps: LessonStep[]
   finale?: LessonFinale
   repeatConfig?: LessonRepeatConfig

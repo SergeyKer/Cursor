@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { callProviderChat } from '@/lib/callProviderChat'
 import type { AiProvider } from '@/lib/types'
 import { hasRequiredTheoryStructure, isValidLessonBlueprint, type TutorAdaptiveTemplate } from '@/lib/lessonBlueprint'
+import { buildFallbackLessonIntro } from '@/lib/lessonIntro'
 import {
   buildLessonBlueprintCacheKey,
   createLessonRouteCorrelationId,
@@ -49,6 +50,7 @@ function defaultLesson(topic: string) {
   }
   return {
     title: `Тема: ${safeTopic}`,
+    intro: buildFallbackLessonIntro(safeTopic),
     theoryIntro:
       `**Урок:** ${safeTopic}\n` +
       '**Правило:**\n' +
@@ -152,12 +154,17 @@ export async function POST(req: NextRequest) {
     'Формат:',
     '{',
     '  "title":"строка",',
+    '  "intro":{"topic":"строка","kind":"single_rule|contrast|concept|tense|structure","complexity":"simple|medium|advanced","quick":{"why":["до 3 пунктов"],"how":["до 3 пунктов"],"examples":[{"en":"English sentence","ru":"перевод","note":"пояснение"}],"takeaway":"одна главная мысль"},"details":{"points":["2-3 пункта"],"examples":[{"en":"English sentence","ru":"перевод","note":"пояснение"}]},"deepDive":{"commonMistakes":["2-3 ошибки"],"contrastNotes":["1-3 нюанса"],"selfCheckRule":"правило самопроверки"},"learningPlan":{"grammarFocus":["строка"],"contrastPair":["A","B"],"firstPracticeGoal":"строка"}}',
     '  "theoryIntro":"строка с \\n",',
     '  "actions":[{"id":"examples","label":"Посмотри примеры"},{"id":"fill_phrase","label":"Подставь слово"},{"id":"repeat_translate","label":"Переведи на английский"},{"id":"write_own_sentence","label":"Напиши своё предложение"}],',
     '  "followups":{"examples":"строка","fill_phrase":"строка","repeat_translate":"строка","write_own_sentence":"строка"},',
     '  "adaptiveTemplate":{"grammarFocus":["строка"],"recommendedStartDifficulty":"easy","preferredExerciseModes":["drill","production","micro_quiz"],"supportsAdaptiveVariants":true}',
     '}',
     'Текст секций на русском, английские примеры допустимы.',
+    'Не используй английские грамматические термины, если есть понятный русский вариант: embedded questions -> встроенные вопросы, wh-word -> вопросительное слово, subject -> подлежащее, verb -> глагол, intro phrase -> вводная фраза.',
+    'Английские слова оставляй только в самих примерах, фразах-шаблонах и названиях форм без устойчивого русского аналога.',
+    'intro.quick должен быть очень коротким: пользователь должен сразу понять зачем тема нужна и как она работает.',
+    'Не добавляй инфошум, длинные таблицы, редкие исключения и академические определения в intro.quick.',
     'Не пропускай секции и не меняй порядок заголовков.',
     'adaptiveTemplate можно вернуть дополнительно, если тема явно задает грамматический контраст или будущую адаптивную практику.',
   ].join('\n')
@@ -180,7 +187,7 @@ export async function POST(req: NextRequest) {
         { role: 'system', content: system },
         { role: 'user', content: user },
       ],
-      maxTokens: 1000,
+      maxTokens: 1800,
       openAiChatPreset,
       traceLabel: 'lesson-blueprint',
     })

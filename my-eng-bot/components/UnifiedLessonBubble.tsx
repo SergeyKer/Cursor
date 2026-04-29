@@ -12,14 +12,61 @@ function normalizeTranslatePromptPunctuation(text: string): string {
 }
 
 const unifiedSectionClassByType: Record<Bubble['type'], string> = {
-  positive: 'bg-[rgba(254,249,195,0.98)]',
-  info: 'bg-white/95',
-  task: 'bg-[rgba(220,252,231,0.98)]',
+  positive: 'bg-[#FFFBEB]',
+  info: 'bg-[#FFFFFF]',
+  task: 'bg-[#F0FDF4]',
+}
+
+function splitLabel(line: string): { label: string; rest: string } | null {
+  const match = /^([^:]{2,28}):\s*(.+)$/.exec(line)
+  if (!match) return null
+  return { label: match[1], rest: match[2] }
+}
+
+function renderBodyLine(line: string, index: number) {
+  if (!line.trim()) {
+    return <div key={index} className="h-1" aria-hidden />
+  }
+
+  const markerMatch = /^(•|✓|🎯|🧭|⚠️)\s*(.+)$/.exec(line)
+  const marker = markerMatch?.[1]
+  const text = markerMatch?.[2] ?? line
+  const label = splitLabel(text)
+
+  return (
+    <div key={index} className="flex gap-2 text-[15px] leading-[1.45] text-[var(--text)]">
+      {marker && (
+        <span className="mt-[0.15rem] inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white/80 text-[12px] shadow-sm">
+          {marker}
+        </span>
+      )}
+      <span className="min-w-0 flex-1">
+        {label ? (
+          <>
+            <span className="font-semibold text-slate-700">{label.label}:</span> {label.rest}
+          </>
+        ) : (
+          text
+        )}
+      </span>
+    </div>
+  )
+}
+
+function renderBubbleContent(content: string) {
+  const [title, ...body] = normalizeTranslatePromptPunctuation(content).split('\n')
+
+  return (
+    <div className="space-y-1.5">
+      <div className="text-[13px] font-semibold uppercase tracking-[0.02em] text-slate-700">{title}</div>
+      <div className="space-y-1.5">{body.map(renderBodyLine)}</div>
+    </div>
+  )
 }
 
 export default function UnifiedLessonBubble({ bubbles, animateSections = true }: UnifiedLessonBubbleProps) {
   return (
-    <div className="chat-section-surface glass-surface relative overflow-hidden rounded-xl border border-[var(--chat-section-neutral-border)] bg-white/95">
+    <div className="chat-section-surface glass-surface relative overflow-hidden rounded-[1.5rem] border border-[var(--chat-section-neutral-border)] bg-white/95">
       {bubbles.map((bubble, bubbleIndex) => {
         const isLast = bubbleIndex === bubbles.length - 1
 
@@ -38,9 +85,7 @@ export default function UnifiedLessonBubble({ bubbles, animateSections = true }:
                 : undefined
             }
           >
-            <p className="whitespace-pre-line break-words text-[15px] leading-[1.5] text-[var(--text)]">
-              {normalizeTranslatePromptPunctuation(bubble.content)}
-            </p>
+            {renderBubbleContent(bubble.content)}
           </section>
         )
       })}

@@ -59,10 +59,13 @@ import {
   type LearningLessonActionId,
 } from '@/lib/learningLessons'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
+import { buildFallbackLessonIntro } from '@/lib/lessonIntro'
+import { buildTutorStructuredLesson } from '@/lib/tutorStructuredLesson'
 import type { LessonBlueprint } from '@/lib/lessonBlueprint'
 import type { LessonMenuContext } from '@/components/SlideOutMenu'
 import type { LessonData, PostLessonAction } from '@/types/lesson'
 import AppFooter from '@/components/AppFooter'
+import LessonIntroScreen, { type LessonIntroDepth } from '@/components/LessonIntroScreen'
 import LessonStepRenderer from '@/components/LessonStepRenderer'
 import { useLessonEngine } from '@/hooks/useLessonEngine'
 import { pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
@@ -101,6 +104,7 @@ function buildTutorFallbackBlueprint(topic: string): LessonBlueprint {
   const safeTopic = topic.trim() || 'Выбранная тема'
   return {
     title: safeTopic,
+    intro: buildFallbackLessonIntro(safeTopic),
     theoryIntro:
       `**Урок:** ${safeTopic}\n` +
       '**Правило:**\n' +
@@ -334,6 +338,8 @@ export default function Home() {
   const [postLessonBusy, setPostLessonBusy] = useState(false)
   const [selectedPostLessonAction, setSelectedPostLessonAction] = useState<PostLessonAction | null>(null)
   const [lessonOverlay, setLessonOverlay] = useState<LessonOverlayState | null>(null)
+  const [lessonViewStage, setLessonViewStage] = useState<'intro' | 'lesson'>('intro')
+  const [lessonIntroDepth, setLessonIntroDepth] = useState<LessonIntroDepth>('quick')
   const activeStructuredLesson =
     activeStructuredLessonRuntime ??
     (structuredLessonLoadingId ? null : activeLearningLessonId ? getStructuredLessonById(activeLearningLessonId) : null)
@@ -383,6 +389,7 @@ export default function Home() {
   const structuredLessonVariantHistoryRef = React.useRef<Record<string, string[]>>({})
   const prefetchedStructuredLessonRuntimeRef = React.useRef<Record<string, LessonData | null>>({})
   const structuredLessonRuntimeInFlightRef = React.useRef<Record<string, Promise<LessonData | null>>>({})
+  const lessonOpenRequestIdRef = React.useRef(0)
   /** iPhone / iPad / iPod и iPadOS с десктопным UA (Macintosh + Mobile). */
   const isIosClient = React.useMemo(() => {
     if (typeof navigator === 'undefined') return false
@@ -834,6 +841,7 @@ export default function Home() {
   ensureFirstMessageRef.current = ensureFirstMessage
 
   const resetStructuredLessonSession = useCallback(() => {
+    lessonOpenRequestIdRef.current += 1
     setLessonMenuContext(null)
     setActiveLearningLessonId(null)
     setActiveStructuredLessonRuntime(null)
@@ -842,6 +850,8 @@ export default function Home() {
     setSelectedPostLessonAction(null)
     setPostLessonBusy(false)
     setLessonOverlay(null)
+    setLessonViewStage('intro')
+    setLessonIntroDepth('quick')
   }, [])
 
   const restartChatForNewModeFromMenu = useCallback(() => {
@@ -1001,6 +1011,7 @@ export default function Home() {
   const persistActiveStructuredLessonProgress = useCallback(
     (overrides?: { postLessonChoice?: PostLessonAction; lastCompleted?: string }) => {
       if (!activeStructuredLesson) return
+      if (lessonViewStage !== 'lesson') return
       saveLessonProgress({
         lessonId: activeStructuredLesson.id,
         topic: activeStructuredLesson.topic,
@@ -1024,6 +1035,7 @@ export default function Home() {
       activeStructuredLessonCombo,
       activeStructuredLessonMistakes,
       buildCompletedVariants,
+      lessonViewStage,
     ]
   )
 
@@ -1031,6 +1043,7 @@ export default function Home() {
     async (lessonId: string, lessonsPanel: LessonsPanel = 'a2') => {
       const lesson = getLearningLessonById(lessonId)
       if (!lesson) return
+      const requestId = ++lessonOpenRequestIdRef.current
       const structuredLesson = getStructuredLessonById(lessonId)
       firstMessageRequestIdRef.current += 1
       firstMessageInFlightRef.current = false
@@ -1051,6 +1064,8 @@ export default function Home() {
       setSelectedPostLessonAction(null)
       setPostLessonBusy(false)
       setLessonOverlay(null)
+      setLessonViewStage('intro')
+      setLessonIntroDepth('quick')
       setLessonMenuContext({ menuView: 'lessons', lessonsPanel })
       setActiveLearningLessonId(lessonId)
       setMessages(structuredLesson ? [] : [{ role: 'assistant', content: lesson.theoryIntro }])
@@ -1059,6 +1074,7 @@ export default function Home() {
 
       setStructuredLessonShuffleNonce((n) => n + 1)
       const runtimeLesson = await fetchStructuredLessonRuntime(lessonId)
+      if (requestId !== lessonOpenRequestIdRef.current) return
       setStructuredLessonLoadingId(null)
       setLoading(false)
       setMessages([])
@@ -1080,7 +1096,29 @@ export default function Home() {
         return
       }
 
+      const requestId = ++lessonOpenRequestIdRef.current
       let lesson: LessonBlueprint | null = null
+      firstMessageRequestIdRef.current += 1
+      firstMessageInFlightRef.current = false
+      suppressSettingsChangeBannerRef.current = true
+      setDialogStarted(true)
+      setMenuOpen(false)
+      setHomeMenuView('lessons')
+      setLoading(true)
+      setRetryMessage(null)
+      setSearchingInternet(false)
+      setLoadingTranslationIndex(null)
+      setForceNextMicLang(null)
+      setSettingsAtLastSend(null)
+      setActiveStructuredLessonRuntime(null)
+      setStructuredLessonLoadingId('tutor')
+      setActiveLessonVariantNumber(1)
+      setSelectedPostLessonAction(null)
+      setPostLessonBusy(false)
+      setLessonOverlay(null)
+      setLessonViewStage('intro')
+      setLessonIntroDepth('quick')
+      setMessages([])
       try {
         const response = await fetch('/api/lesson-generate', {
           method: 'POST',
@@ -1110,15 +1148,27 @@ export default function Home() {
       if (!lesson) {
         lesson = buildTutorFallbackBlueprint(topic)
       }
+      if (requestId !== lessonOpenRequestIdRef.current) return
 
       const lessonId = registerRuntimeLearningLesson({
         title: lesson.title,
+        intro: lesson.intro,
         theoryIntro: lesson.theoryIntro,
         actions: lesson.actions,
         followups: lesson.followups,
         adaptiveTemplate: lesson.adaptiveTemplate,
       })
-      openLearningLesson(lessonId, 'tutor')
+      const runtimeLesson = buildTutorStructuredLesson({
+        id: lessonId,
+        topic: lesson.title || topic,
+        level: settings.level,
+        blueprint: lesson,
+      })
+      setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'tutor' })
+      setActiveLearningLessonId(lessonId)
+      setActiveStructuredLessonRuntime(runtimeLesson)
+      setStructuredLessonLoadingId(null)
+      setLoading(false)
     },
     [openLearningLesson, settings.provider, settings.openAiChatPreset, settings.level, settings.audience]
   )
@@ -1154,6 +1204,14 @@ export default function Home() {
       }
 
       if (action === 'repeat_variant') {
+        if (!getStructuredLessonById(activeStructuredLesson.id)) {
+          setLessonOverlay(null)
+          setActiveStructuredLessonRuntime(cloneStructuredLessonWithRunKey(activeStructuredLesson))
+          setActiveLessonVariantNumber((current) => current + 1)
+          setSelectedPostLessonAction(null)
+          setPostLessonBusy(false)
+          return
+        }
         try {
           setLessonOverlay(null)
           setStructuredLessonLoadingId(activeStructuredLesson.id)
@@ -1257,6 +1315,21 @@ export default function Home() {
     setGreetingNonce((n) => n + 1)
     saveState([], settings)
   }, [resetStructuredLessonSession, settings])
+
+  const backToLessonList = useCallback(() => {
+    firstMessageRequestIdRef.current += 1
+    firstMessageInFlightRef.current = false
+    setDialogStarted(false)
+    setMessages([])
+    setSettingsAtLastSend(null)
+    setHomeMenuView('lessons')
+    setMenuOpen(false)
+    setLoading(false)
+    setRetryMessage(null)
+    setForceNextMicLang(null)
+    setLoadingTranslationIndex(null)
+    resetStructuredLessonSession()
+  }, [resetStructuredLessonSession])
 
   const retryFirstMessage = useCallback(async () => {
     const requestId = ++firstMessageRequestIdRef.current
@@ -1675,7 +1748,12 @@ export default function Home() {
 
   const activeLearningLesson = activeLearningLessonId ? getLearningLessonById(activeLearningLessonId) : null
   const isLessonActive = Boolean(activeLearningLesson)
-  const isStructuredLessonActive = Boolean(activeStructuredLesson && activeStructuredLessonStep)
+  const activeLessonIntro =
+    activeStructuredLesson?.intro ??
+    activeLearningLesson?.intro ??
+    (activeLearningLessonId ? getStructuredLessonById(activeLearningLessonId)?.intro ?? null : null)
+  const isLessonIntroActive = Boolean(activeLessonIntro && activeLearningLesson && lessonViewStage === 'intro')
+  const isStructuredLessonActive = Boolean(activeStructuredLesson && activeStructuredLessonStep && lessonViewStage === 'lesson')
   const activeLessonTitle = activeLearningLesson?.title ?? null
   const isTutorLessonHeader = activeLessonTitle && lessonMenuContext?.lessonsPanel === 'tutor'
   const learningLessonFooterDynamicText =
@@ -1810,33 +1888,57 @@ export default function Home() {
       { maxLength: 46 }
     )
   }, [dialogStarted, greetingNonce, homeVoiceLine])
-  const footerDynamicText = isStructuredLessonActive
-    ? activeStructuredLessonFooterDynamicText
-    : isLessonActive
+  const introFooterDynamicText = lessonMenuContext?.lessonsPanel === 'tutor'
+    ? 'MyEng собрал тему. Сначала быстро поймём смысл.'
+    : lessonIntroDepth === 'deep'
+      ? 'Теперь видно нюансы и частые ошибки.'
+      : lessonIntroDepth === 'details'
+        ? 'Добавил чуть больше логики перед практикой.'
+        : 'Сначала коротко разберём смысл темы.'
+  const introFooterStaticText = lessonMenuContext?.lessonsPanel === 'tutor'
+    ? 'Репетитор | Введение'
+    : lessonIntroDepth === 'deep'
+      ? 'Глубокое введение | 0/7 шагов'
+      : lessonIntroDepth === 'details'
+        ? 'Введение подробнее | 0/7 шагов'
+        : 'Введение | 0/7 шагов'
+  const footerDynamicText = isLessonIntroActive
+    ? introFooterDynamicText
+    : isStructuredLessonActive
+      ? activeStructuredLessonFooterDynamicText
+      : isLessonActive
       ? learningLessonFooterDynamicText
       : dialogStarted
         ? chatFooterVoice?.text ?? null
         : homeFooterVoice?.text ?? null
-  const footerStaticText = isStructuredLessonActive
-    ? activeStructuredLessonFooterStaticText
-    : isLessonActive
+  const footerStaticText = isLessonIntroActive
+    ? introFooterStaticText
+    : isStructuredLessonActive
+      ? activeStructuredLessonFooterStaticText
+      : isLessonActive
       ? learningLessonFooterStaticText
       : dialogStarted
         ? getMenuSummary(false)
         : 'Главная'
-  const footerTypingKey = isStructuredLessonActive
-    ? activeStructuredLessonFooterTypingKey
-    : dialogStarted
+  const footerTypingKey = isLessonIntroActive
+    ? `${activeLearningLessonId ?? 'lesson'}:intro:${lessonIntroDepth}`
+    : isStructuredLessonActive
+      ? activeStructuredLessonFooterTypingKey
+      : dialogStarted
       ? chatFooterVoice?.typingKey ?? 'chat-footer'
       : homeFooterVoice?.typingKey ?? 'home-footer'
-  const footerVoiceTone = isStructuredLessonActive
-    ? activeStructuredLessonFooterVoiceTone
-    : dialogStarted
+  const footerVoiceTone = isLessonIntroActive
+    ? 'neutral'
+    : isStructuredLessonActive
+      ? activeStructuredLessonFooterVoiceTone
+      : dialogStarted
       ? (chatFooterVoice?.tone ?? 'neutral')
       : (homeFooterVoice?.tone ?? 'neutral')
-  const footerVoiceEmphasis = isStructuredLessonActive
-    ? activeStructuredLessonFooterVoiceEmphasis
-    : dialogStarted
+  const footerVoiceEmphasis = isLessonIntroActive
+    ? 'none'
+    : isStructuredLessonActive
+      ? activeStructuredLessonFooterVoiceEmphasis
+      : dialogStarted
       ? (chatFooterVoice?.emphasis ?? 'none')
       : (homeFooterVoice?.emphasis ?? 'none')
   const pageTitle = !dialogStarted
@@ -2150,7 +2252,29 @@ export default function Home() {
             {/* На iOS после закрытия клавиатуры иногда остаётся небольшой технический зазор.
                Чтобы не просвечивал серый фон страницы, держим фон тем же, что и у чата. */}
             <div className="min-h-0 flex-1 bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
-              {isStructuredLessonActive && activeStructuredLessonStep ? (
+              {isLessonIntroActive && activeLessonIntro ? (
+                <LessonIntroScreen
+                  intro={activeLessonIntro}
+                  depth={lessonIntroDepth}
+                  loadingLesson={Boolean(structuredLessonLoadingId) || loading || !activeStructuredLesson}
+                  provider={settings.provider}
+                  openAiChatPreset={settings.openAiChatPreset}
+                  audience={settings.audience}
+                  onShowDetails={() => setLessonIntroDepth('details')}
+                  onShowDeepDive={() => setLessonIntroDepth('deep')}
+                  onStartLesson={() => {
+                    if (!activeStructuredLesson) return
+                    setLessonViewStage('lesson')
+                  }}
+                  onShowExtras={() => {
+                    setLessonOverlay({
+                      title: 'Раздел в разработке!',
+                      lines: ['Скоро здесь появятся лайфхаки и нюансы темы.'],
+                    })
+                  }}
+                  onBack={backToLessonList}
+                />
+              ) : isStructuredLessonActive && activeStructuredLessonStep ? (
                 <LessonStepRenderer
                   timeline={activeStructuredLessonTimeline}
                   status={activeStructuredLessonStatus}

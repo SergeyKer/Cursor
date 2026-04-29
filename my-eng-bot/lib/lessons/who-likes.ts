@@ -682,6 +682,53 @@ export const whoLikesLesson: LessonData = {
   id: '2',
   topic: 'Who ...?',
   level: 'A2',
+  intro: {
+    topic: 'Who questions',
+    kind: 'structure',
+    complexity: 'simple',
+    quick: {
+      why: [
+        'Who-вопросы помогают спросить, кто делает действие.',
+        'В таком вопросе неизвестный человек обычно считается как he/she/it.',
+        'Поэтому в Present Simple глагол часто получает -s.',
+      ],
+      how: [
+        'Шаблон вопроса: Who + verb-s + noun?',
+        'Шаблон ответа: Name + verb-s + noun.',
+        'Не говорим Who like music?, если спрашиваем про одного человека.',
+      ],
+      examples: [
+        { en: 'Who likes music?', ru: 'Кто любит музыку?', note: 'после Who ставим likes' },
+        { en: 'Anna likes tea.', ru: 'Анна любит чай.', note: 'Anna = she' },
+        { en: 'Who reads books?', ru: 'Кто читает книги?', note: 'read превращается в reads' },
+      ],
+      takeaway: 'Думай так: Who = один неизвестный человек, поэтому глагол часто с -s.',
+    },
+    details: {
+      points: [
+        'Who здесь не просит вспомогательный do/does в начале вопроса.',
+        'Форма с -s нужна и в вопросе, и в коротком полном ответе.',
+        'Главная ошибка — убрать -s, потому что по-русски такой формы нет.',
+      ],
+      examples: [
+        { en: 'Who drinks coffee?', ru: 'Кто пьет кофе?', note: 'drinks, не drink' },
+        { en: 'Max drinks coffee.', ru: 'Макс пьет кофе.', note: 'ответ тем же глаголом' },
+      ],
+    },
+    deepDive: {
+      commonMistakes: [
+        'Who like music? вместо Who likes music?',
+        'Who does likes music? — лишний does рядом с likes.',
+        'Anna like music. вместо Anna likes music.',
+      ],
+      contrastNotes: ['Who likes music? = вопрос.', 'Anna likes music. = ответ.'],
+      selfCheckRule: 'Если Who спрашивает про одного человека, проверь -s у глагола.',
+    },
+    learningPlan: {
+      grammarFocus: ['Who questions', 'Present Simple', 'third person singular'],
+      firstPracticeGoal: 'Увидеть форму verb-s после Who.',
+    },
+  },
   variantId: baseVariant.id,
   finale: buildWhoLikesFinale(),
   repeatConfig: {

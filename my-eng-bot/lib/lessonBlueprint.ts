@@ -1,6 +1,7 @@
 import type { Audience, LevelId } from '@/lib/types'
 import type { LearningLesson, LearningLessonActionId } from '@/lib/learningLessons'
 import type { AdaptiveConfig, DifficultyProfile } from '@/types/lesson'
+import { isValidLessonIntro } from '@/lib/lessonIntro'
 
 export type LessonOrigin = 'theory' | 'tutor'
 
@@ -22,6 +23,7 @@ export type TutorAdaptiveTemplate = {
 
 export type LessonBlueprint = Pick<LearningLesson, 'title' | 'theoryIntro' | 'actions' | 'followups'> & {
   id?: string
+  intro?: LearningLesson['intro']
   adaptiveTemplate?: TutorAdaptiveTemplate
 }
 
@@ -48,6 +50,7 @@ export function isValidLessonBlueprint(input: unknown): input is LessonBlueprint
   const followups = row.followups as Record<string, unknown>
   const required: LearningLessonActionId[] = ['examples', 'fill_phrase', 'repeat_translate', 'write_own_sentence']
   if (!required.every((id) => typeof followups[id] === 'string')) return false
+  if (row.intro !== undefined && !isValidLessonIntro(row.intro)) return false
 
   if (row.adaptiveTemplate === undefined) return true
   if (!row.adaptiveTemplate || typeof row.adaptiveTemplate !== 'object') return false

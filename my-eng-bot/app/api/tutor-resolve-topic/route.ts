@@ -14,6 +14,8 @@ type Body = {
 
 type TopicResolutionResponse = {
   resolved: boolean
+  status?: 'resolved' | 'needs_clarification' | 'rejected'
+  confidence?: 'low' | 'medium' | 'high'
   suggestions: string[]
   suggestionMeta?: Array<{ topic: string; whyRu: string }>
   primaryTopic?: string
@@ -64,18 +66,96 @@ function normalizeSuggestionMeta(items: unknown): Array<{ topic: string; whyRu: 
   return result
 }
 
+function hasGrammarSignal(input: string): boolean {
+  const q = input.toLowerCase()
+  return [
+    'present',
+    'past',
+    'future',
+    'perfect',
+    'continuous',
+    'simple',
+    'tense',
+    'much',
+    'many',
+    'few',
+    'little',
+    'some',
+    'any',
+    'to be',
+    'have',
+    'has',
+    'have been',
+    'has been',
+    'do',
+    'does',
+    'did',
+    'article',
+    'articles',
+    'plural',
+    'singular',
+    'preposition',
+    'question',
+    'who',
+    'where',
+    'what',
+    'when',
+    'grammar',
+    'граммат',
+    'время',
+    'времена',
+    'артик',
+    'предлог',
+    'множествен',
+    'единствен',
+    'вопрос',
+    'глагол',
+    'местоим',
+    'разниц',
+    'отлич',
+    'правило',
+  ].some((marker) => q.includes(marker))
+}
+
+function isLikelyNoise(input: string): boolean {
+  const q = normalizeTopic(input).toLowerCase()
+  if (q.length < 3) return true
+  if (!/[a-zа-яё]/i.test(q)) return true
+  if (/^[a-zа-яё]{3,}$/i.test(q) && !/[aeiouаеёиоуыэюя]/i.test(q)) return true
+  if (/^(.)\1{2,}$/u.test(q)) return true
+  return false
+}
+
+function buildClarification(query: string): TopicResolutionResponse {
+  const reason = isLikelyNoise(query)
+    ? 'Не похоже на грамматическую тему.'
+    : 'Запрос слишком общий или похож на отдельное слово без грамматической задачи.'
+  return {
+    resolved: false,
+    status: isLikelyNoise(query) ? 'rejected' : 'needs_clarification',
+    confidence: 'low',
+    suggestions: [],
+    clarifyPrompt: `${reason} Напишите, например: Present Simple, much/many, артикли, множественное число.`,
+  }
+}
+
 function safeFallback(query: string): TopicResolutionResponse {
   const q = normalizeTopic(query)
   if (!q) {
     return {
       resolved: false,
+      status: 'needs_clarification',
+      confidence: 'low',
       suggestions: [],
       clarifyPrompt:
         'ИИ: не удалось точно определить грамматическую тему. Уточните запрос (например: Present Simple, Have/Has, Articles a/an/the).',
     }
   }
+  if (!hasGrammarSignal(q)) return buildClarification(q)
   return {
     resolved: true,
+    status: 'resolved',
+    confidence: 'medium',
     suggestions: [q],
     suggestionMeta: [{ topic: q, whyRu: 'Тема выбрана по вашему запросу.' }],
     primaryTopic: q,
@@ -90,6 +170,8 @@ function resolvePresetGrammarTopic(query: string): TopicResolutionResponse | nul
   if (/\bmany\b|\bmuch\b|many\/much/.test(q)) {
     return {
       resolved: true,
+      status: 'resolved',
+      confidence: 'high',
       suggestions: ['Many/Much'],
       suggestionMeta: [{ topic: 'Many/Much', whyRu: 'Выбор между many и much для количества.' }],
       primaryTopic: 'Many/Much',
@@ -99,6 +181,8 @@ function resolvePresetGrammarTopic(query: string): TopicResolutionResponse | nul
   if (/\bhave\s+been\b/.test(q)) {
     return {
       resolved: true,
+      status: 'resolved',
+      confidence: 'high',
       suggestions: ['Present Perfect', 'Present Perfect Continuous', 'To Be'],
       suggestionMeta: [
         { topic: 'Present Perfect', whyRu: 'Конструкция have/has + V3: связь прошлого с настоящим.' },
@@ -136,12 +220,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         resolved: false,
+        status: 'needs_clarification',
+        confidence: 'low',
         suggestions: [],
         clarifyPrompt:
           'ИИ: не удалось точно определить грамматическую тему. Уточните запрос (например: Present Simple, Have/Has, Articles a/an/the).',
       } satisfies TopicResolutionResponse,
       { status: 200 }
     )
+  }
+
+  if (!hasGrammarSignal(query)) {
+    return NextResponse.json(buildClarification(query), { status: 200 })
   }
 
   // 0) Предустановленные грамматические маршруты для ожидаемых кейсов.
@@ -156,6 +246,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         resolved: true,
+        status: 'resolved',
+        confidence: 'high',
         suggestions: [staticLesson.title],
         suggestionMeta: [{ topic: staticLesson.title, whyRu: 'Найдена готовая тема в базе уроков.' }],
         primaryTopic: staticLesson.title,
@@ -182,7 +274,7 @@ export async function POST(req: NextRequest) {
     '- Для каждого варианта заполни suggestionMeta с тем же topic и понятным whyRu на русском.',
     '- Если ввод неясный или это не про грамматику, поставь resolved=false и заполнить clarifyPrompt по-русски.',
     '- Не предлагай темы про поведение животных/предметов, только грамматика английского.',
-    '- Если слово похоже на лексику (например "cat"), предложи полезные грамматические варианты, связанные с этим словом (например Nouns singular/plural, Articles a/an/the, There is/There are).',
+    '- Если пользователь ввел одно лексическое слово без грамматической задачи (например "cat" или "сыр"), поставь resolved=false и попроси уточнить грамматическую тему.',
   ].join('\n')
 
   const user = [
@@ -229,6 +321,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           resolved: false,
+          status: 'needs_clarification',
+          confidence: 'low',
           suggestions: [],
           clarifyPrompt:
             clarifyPromptRaw ||
@@ -238,9 +332,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    if (!hasGrammarSignal(primaryTopic) && !hasGrammarSignal(query)) {
+      return NextResponse.json(buildClarification(query), { status: 200 })
+    }
+
     return NextResponse.json(
       {
         resolved: true,
+        status: 'resolved',
+        confidence: hasGrammarSignal(query) ? 'high' : 'medium',
         suggestions,
         suggestionMeta,
         primaryTopic,

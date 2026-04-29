@@ -1,9 +1,11 @@
 import type { TutorAdaptiveTemplate } from '@/lib/lessonBlueprint'
+import type { LessonIntro } from '@/types/lesson'
 
 export type LearningLesson = {
   id: string
   title: string
   theoryIntro: string
+  intro?: LessonIntro
   actions: LearningLessonAction[]
   followups: Record<LearningLessonActionId, string>
   adaptiveTemplate?: TutorAdaptiveTemplate
@@ -131,10 +133,10 @@ const LESSONS: Record<string, LearningLesson> = {
       "1) I don't know where he lives.\n" +
       '2) Do you know what she likes?\n' +
       '3) Tell me where the station is.\n' +
-      '**Коротко:** сначала идет вводная фраза, потом wh-word + subject + verb.\n' +
+      '**Коротко:** сначала идет вводная фраза, потом вопросительное слово + подлежащее + глагол.\n' +
       '**Шаблоны:**\n' +
-      "1) I don't know + where/what/when + subject + verb.\n" +
-      '2) Do you know / Tell me / Can you say + where/what/when + subject + verb.',
+      "1) I don't know + where/what/when + подлежащее + глагол.\n" +
+      '2) Do you know / Tell me / Can you say + where/what/when + подлежащее + глагол.',
     actions: [
       { id: 'examples', label: 'Посмотри примеры' },
       { id: 'fill_phrase', label: 'Подставь слово' },

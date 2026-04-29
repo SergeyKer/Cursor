@@ -675,6 +675,53 @@ export const itsTimeToLesson: LessonData = {
   id: '1',
   topic: "Это / Пора",
   level: 'A2',
+  intro: {
+    topic: "It's / It's time to",
+    kind: 'structure',
+    complexity: 'simple',
+    quick: {
+      why: [
+        "It's помогает описать состояние: темно, холодно, поздно.",
+        "It's time to помогает сказать, что пора что-то делать.",
+        'Главный выбор: описываем ситуацию или зовем к действию.',
+      ],
+      how: [
+        "It's + adjective: It's cold.",
+        "It's time to + verb: It's time to go.",
+        'После time to нужен обычный глагол без -ing и без -s.',
+      ],
+      examples: [
+        { en: "It's dark.", ru: 'Темно.', note: 'описали состояние' },
+        { en: "It's time to sleep.", ru: 'Пора спать.', note: 'переходим к действию' },
+        { en: "It's late. It's time to go.", ru: 'Поздно. Пора идти.', note: 'состояние объясняет действие' },
+      ],
+      takeaway: "Думай так: It's описывает, а It's time to подталкивает к действию.",
+    },
+    details: {
+      points: [
+        "В It's cold слово cold не действие, а описание ситуации.",
+        "В It's time to go слово go уже действие, поэтому перед ним стоит time to.",
+        "Не добавляй лишнюю форму: It's time to goes и It's time to going звучат неверно.",
+      ],
+      examples: [
+        { en: "It's hot.", ru: 'Жарко.', note: 'только состояние' },
+        { en: "It's time to open the window.", ru: 'Пора открыть окно.', note: 'уже действие' },
+      ],
+    },
+    deepDive: {
+      commonMistakes: [
+        "It's time to going вместо It's time to go.",
+        "It's time to sleeps вместо It's time to sleep.",
+        'Пытаться переводить каждое русское "пора" через одно слово без шаблона time to.',
+      ],
+      contrastNotes: ["It's late = уже поздно.", "It's time to leave = пора уходить."],
+      selfCheckRule: 'Если после фразы можно спросить "что делать?", используй It’s time to + verb.',
+    },
+    learningPlan: {
+      grammarFocus: ['It is + adjective', 'It is time to + verb'],
+      firstPracticeGoal: 'Отличить описание состояния от действия.',
+    },
+  },
   variantId: baseVariant.id,
   finale: buildItsTimeFinale(),
   repeatConfig: {
