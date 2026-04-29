@@ -93,7 +93,7 @@
   --chat-assistant-shell: rgba(255,255,255,0.82);
   --chat-assistant-border: rgba(209,213,219,0.95);
   --chat-section-neutral: #f8faf8;
-  --chat-section-amber: #fff8e5;
+  --chat-section-amber: #eef6ff;
   --chat-section-emerald: #effaf3;
   /* Положительный комментарий: лёгкий мятный фон, насыщенность как у slate-карточек */
   --chat-section-praise: #f0f7f4;
@@ -122,7 +122,7 @@
   --chat-source-link: #334155;
   --chat-source-link-hover: #0f172a;
   --chat-section-neutral-border: #d1d5db;
-  --chat-section-amber-border: #fde68a;
+  --chat-section-amber-border: #bfdbfe;
   --chat-section-emerald-border: #a7f3d0;
   --chat-section-praise-border: #6ee7b7;
   --chat-section-slate-border: #cbd5e1;
@@ -217,7 +217,7 @@ html[data-theme='futuristic'] {
   --chat-assistant-shell: var(--bubble-ai-bg);
   --chat-assistant-border: rgba(255, 255, 255, 0.52);
   --chat-section-neutral: rgba(255, 255, 255, 0.65);
-  --chat-section-amber: rgba(255, 248, 220, 0.8);
+  --chat-section-amber: rgba(236, 245, 255, 0.82);
   --chat-section-emerald: rgba(236, 253, 245, 0.82);
   --chat-section-praise: rgba(240, 253, 250, 0.85);
   --chat-section-slate: rgba(241, 245, 249, 0.8);
@@ -243,7 +243,7 @@ html[data-theme='futuristic'] {
   --chat-source-link: #1e293b;
   --chat-source-link-hover: #0f172a;
   --chat-section-neutral-border: rgba(148, 163, 184, 0.45);
-  --chat-section-amber-border: rgba(245, 158, 11, 0.45);
+  --chat-section-amber-border: rgba(96, 165, 250, 0.42);
   --chat-section-emerald-border: rgba(16, 185, 129, 0.4);
   --chat-section-praise-border: rgba(16, 185, 129, 0.35);
   --chat-section-slate-border: rgba(148, 163, 184, 0.38);
@@ -302,7 +302,7 @@ html[data-theme='bubble1'] {
   --chat-assistant-shell: var(--bubble-ai-bg);
   --chat-assistant-border: rgba(255, 255, 255, 0.56);
   --chat-section-neutral: rgba(255, 255, 255, 0.68);
-  --chat-section-amber: rgba(255, 243, 214, 0.9);
+  --chat-section-amber: rgba(231, 243, 255, 0.9);
   --chat-section-emerald: rgba(207, 248, 232, 0.92);
   --chat-section-praise: rgba(221, 250, 240, 0.9);
   --chat-section-slate: rgba(247, 251, 255, 0.82);
@@ -328,7 +328,7 @@ html[data-theme='bubble1'] {
   --chat-source-link: #2b4f7f;
   --chat-source-link-hover: #183a64;
   --chat-section-neutral-border: rgba(190, 205, 230, 0.7);
-  --chat-section-amber-border: rgba(255, 204, 112, 0.78);
+  --chat-section-amber-border: rgba(125, 176, 255, 0.72);
   --chat-section-emerald-border: rgba(120, 220, 180, 0.78);
   --chat-section-praise-border: rgba(120, 220, 180, 0.72);
   --chat-section-slate-border: rgba(190, 205, 230, 0.74);
@@ -353,7 +353,7 @@ html[data-theme='bubble1'] [data-audience='adult'] {
   --chat-wallpaper: #d7e8ff;
   --chat-message-wallpaper: rgba(255, 255, 255, 0.36);
   --chat-assistant-shell: rgba(255, 255, 255, 0.62);
-  --chat-section-amber: rgba(255, 243, 214, 0.9);
+  --chat-section-amber: rgba(231, 243, 255, 0.9);
   --chat-section-emerald: rgba(207, 248, 232, 0.92);
   --chat-control-bg: rgba(191, 246, 226, 0.85);
   --chat-control-hover: rgba(191, 246, 226, 0.98);
@@ -371,7 +371,7 @@ html[data-theme='bubble1'] [data-audience='child'] {
   --chat-wallpaper: #ffe9cc;
   --chat-message-wallpaper: rgba(255, 255, 255, 0.52);
   --chat-assistant-shell: rgba(255, 255, 255, 0.78);
-  --chat-section-amber: rgba(255, 238, 201, 0.98);
+  --chat-section-amber: rgba(229, 244, 255, 0.96);
   --chat-section-emerald: rgba(216, 252, 237, 0.96);
   --chat-control-bg: rgba(187, 247, 208, 0.95);
   --chat-control-hover: rgba(187, 247, 208, 1);
@@ -463,7 +463,7 @@ html[data-theme='bubble2'] {
   --chat-assistant-shell: rgba(255, 255, 255, 0.4);
   --chat-assistant-border: var(--bubble2-color-border-ai-bubble);
   --chat-section-neutral: var(--bubble2-color-surface-feedback-neutral);
-  --chat-section-amber: var(--bubble2-color-surface-feedback-warning);
+  --chat-section-amber: rgba(231, 244, 255, 0.52);
   --chat-section-emerald: var(--bubble2-color-surface-feedback-success);
   --chat-section-praise: rgba(255, 255, 255, 0.46);
   --chat-section-slate: rgba(255, 255, 255, 0.7);
@@ -489,7 +489,7 @@ html[data-theme='bubble2'] {
   --chat-source-link: #3f74cb;
   --chat-source-link-hover: #285aa8;
   --chat-section-neutral-border: var(--bubble2-color-border-ai-bubble);
-  --chat-section-amber-border: var(--bubble2-color-border-warning);
+  --chat-section-amber-border: rgba(95, 160, 255, 0.34);
   --chat-section-emerald-border: var(--bubble2-color-border-success);
   --chat-section-praise-border: var(--bubble2-color-border-ai-bubble);
   --chat-section-slate-border: var(--bubble2-color-border-ai-bubble);

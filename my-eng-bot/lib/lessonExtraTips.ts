@@ -1,4 +1,5 @@
 import type { Audience, LevelId } from '@/lib/types'
+import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { LessonIntro } from '@/types/lesson'
 
 export type LessonTipCategory =
@@ -37,7 +38,7 @@ export type LessonExtraTips = {
 }
 
 export type CachedLessonExtraTips = {
-  version: 1
+  version: number
   createdAt: number
   tips: LessonExtraTips
 }
@@ -202,10 +203,19 @@ function examplesFromIntro(intro: LessonIntro): LessonTipExample[] {
   }))
 }
 
-function buildFallbackExamples(intro: LessonIntro, category: LessonTipCategory): LessonTipExample[] {
+function examplesFromIntent(intent?: TutorLearningIntent | null): LessonTipExample[] {
+  if (!intent) return []
+  return intent.examples.map((example) => ({
+    right: example.en,
+    wrong: example.ru,
+    note: example.noteRu,
+  }))
+}
+
+function buildFallbackExamples(intro: LessonIntro, category: LessonTipCategory, intent?: TutorLearningIntent | null): LessonTipExample[] {
   const topic = normalizeTopic(intro.topic) || 'эта тема'
   const topicEn = englishTopicPlaceholder(topic)
-  const introExamples = examplesFromIntro(intro)
+  const introExamples = uniqueExamples([...examplesFromIntent(intent), ...examplesFromIntro(intro)])
   const firstExample = introExamples[0] ?? {
     wrong: 'Русский порядок слов',
     right: `Use ${topicEn} in a short English phrase.`,
@@ -213,6 +223,21 @@ function buildFallbackExamples(intro: LessonIntro, category: LessonTipCategory):
   }
 
   if (category === 'native_speech') {
+    if (intent) {
+      return uniqueExamples([
+        {
+          wrong: intent.learnerQuestionRu,
+          right: firstExample.right,
+          note: `живой короткий пример для цели: ${intent.goalRu}`,
+        },
+        {
+          wrong: intent.targetPatterns[0] ?? intent.title,
+          right: introExamples[1]?.right ?? firstExample.right,
+          note: intent.firstPracticeGoalRu,
+        },
+        ...introExamples,
+      ])
+    }
     return uniqueExamples([
       {
         wrong: firstExample.wrong,
@@ -235,6 +260,21 @@ function buildFallbackExamples(intro: LessonIntro, category: LessonTipCategory):
 
   if (category === 'russian_traps') {
     const commonMistake = intro.deepDive?.commonMistakes[0]
+    if (intent) {
+      return uniqueExamples([
+        {
+          wrong: intent.commonMistakes[0] ?? commonMistake ?? firstExample.wrong,
+          right: firstExample.right,
+          note: 'сначала выбираем английский шаблон из intent, потом подставляем смысл',
+        },
+        {
+          wrong: intent.targetPatterns[0] ?? intent.title,
+          right: introExamples[1]?.right ?? firstExample.right,
+          note: intent.commonMistakes[1] ?? intent.firstPracticeGoalRu,
+        },
+        ...introExamples,
+      ])
+    }
     return uniqueExamples([
       {
         wrong: commonMistake ?? firstExample.wrong,
@@ -251,6 +291,21 @@ function buildFallbackExamples(intro: LessonIntro, category: LessonTipCategory):
   }
 
   if (category === 'questions_negatives') {
+    if (intent) {
+      return uniqueExamples([
+        {
+          wrong: intent.commonMistakes[0] ? `✗ ${intent.commonMistakes[0]}` : undefined,
+          right: `✓ ${firstExample.right}`,
+          note: 'проверяем форму по выбранному шаблону',
+        },
+        {
+          wrong: `Что тренируем: ${intent.mustTrain[0] ?? intent.targetPatterns[0] ?? intent.title}?`,
+          right: introExamples[1]?.right ?? firstExample.right,
+          note: intent.firstPracticeGoalRu,
+        },
+        ...introExamples,
+      ])
+    }
     return uniqueExamples([
       {
         wrong: `✗ You like ${topicEn}?`,
@@ -267,6 +322,21 @@ function buildFallbackExamples(intro: LessonIntro, category: LessonTipCategory):
   }
 
   if (category === 'emphasis_emotion') {
+    if (intent) {
+      return uniqueExamples([
+        {
+          wrong: firstExample.right,
+          right: firstExample.right.replace(/\.$/, '!'),
+          note: `усиливаем живую фразу, но не выходим за цель: ${intent.goalRu}`,
+        },
+        {
+          wrong: introExamples[1]?.right ?? firstExample.right,
+          right: introExamples[1]?.right ?? firstExample.right,
+          note: 'лучше уверенная короткая фраза, чем длинное объяснение правила',
+        },
+        ...introExamples,
+      ])
+    }
     const boosterTopic = englishTopicPlaceholder(topic)
     return uniqueExamples([
       {
@@ -284,6 +354,21 @@ function buildFallbackExamples(intro: LessonIntro, category: LessonTipCategory):
   }
 
   if (category === 'context_culture') {
+    if (intent) {
+      return uniqueExamples([
+        {
+          wrong: firstExample.right,
+          right: introExamples[1]?.right ?? firstExample.right,
+          note: 'выбор фразы зависит от ситуации, но учебный фокус остаётся тем же',
+        },
+        {
+          wrong: intent.mustAvoid[0] ?? 'лишняя теория вместо короткой фразы',
+          right: introExamples[2]?.right ?? firstExample.right,
+          note: intent.firstPracticeGoalRu,
+        },
+        ...introExamples,
+      ])
+    }
     return uniqueExamples([
       {
         wrong: `Chat: keep ${topicEn} short and natural.`,
@@ -312,8 +397,15 @@ function buildFallbackExamples(intro: LessonIntro, category: LessonTipCategory):
   ])
 }
 
-function buildFallbackRule(intro: LessonIntro, category: LessonTipCategory): string {
+function buildFallbackRule(intro: LessonIntro, category: LessonTipCategory, intent?: TutorLearningIntent | null): string {
   const topic = normalizeTopic(intro.topic) || 'тема'
+  if (intent) {
+    if (category === 'native_speech') return `Живой фокус: ${intent.goalRu} Носитель опирается на короткий шаблон: ${intent.targetPatterns[0] ?? intent.title}.`
+    if (category === 'russian_traps') return `Не переводи дословно. Сначала выбери шаблон ${intent.targetPatterns[0] ?? intent.title}, потом добавь смысл.`
+    if (category === 'questions_negatives') return `Проверяй форму через цель: ${intent.firstPracticeGoalRu}`
+    if (category === 'emphasis_emotion') return `Добавляй эмоцию только к готовой правильной фразе, не меняя учебный паттерн.`
+    if (category === 'context_culture') return `Ситуация меняет тон, но не должна уводить от главного фокуса: ${intent.mustTrain[0] ?? intent.title}.`
+  }
   if (category === 'native_speech') {
     return `В быстрой речи ${topic} лучше запоминать как готовую фразу. Носитель выбирает короткий вариант по ситуации.`
   }
@@ -330,14 +422,14 @@ function buildFallbackRule(intro: LessonIntro, category: LessonTipCategory): str
   return `Выбирай форму под ситуацию: чат, разговор и письмо требуют разной степени формальности.`
 }
 
-export function buildFallbackLessonExtraTips(intro: LessonIntro): LessonExtraTips {
+export function buildFallbackLessonExtraTips(intro: LessonIntro, intent?: TutorLearningIntent | null): LessonExtraTips {
   const topic = normalizeTopic(intro.topic) || 'выбранная тема'
   return {
     topic,
     cards: LESSON_TIP_CATEGORIES.map((base) => ({
       ...base,
-      rule: buildFallbackRule(intro, base.category),
-      examples: buildFallbackExamples(intro, base.category).slice(0, 3),
+      rule: buildFallbackRule(intro, base.category, intent),
+      examples: buildFallbackExamples(intro, base.category, intent).slice(0, 3),
     })),
     quiz: [
       {
@@ -414,8 +506,8 @@ function normalizeQuiz(input: unknown, fallback: LessonExtraTips): LessonTipQuiz
   return quiz.length === MAX_QUIZ_QUESTIONS ? quiz : fallback.quiz
 }
 
-export function normalizeLessonExtraTips(input: unknown, intro: LessonIntro): LessonExtraTips {
-  const fallback = buildFallbackLessonExtraTips(intro)
+export function normalizeLessonExtraTips(input: unknown, intro: LessonIntro, intent?: TutorLearningIntent | null): LessonExtraTips {
+  const fallback = buildFallbackLessonExtraTips(intro, intent)
   const usedCategories = new Set<LessonTipCategory>()
   const normalizedCards = extractRawCards(input)
     .map((card) => normalizeCard(card, intro, usedCategories))
@@ -427,8 +519,8 @@ export function normalizeLessonExtraTips(input: unknown, intro: LessonIntro): Le
     if (generated) return generated
     return fallback.cards.find((card) => card.category === base.category) ?? {
       ...base,
-      rule: buildFallbackRule(intro, base.category),
-      examples: buildFallbackExamples(intro, base.category).slice(0, 3),
+      rule: buildFallbackRule(intro, base.category, intent),
+      examples: buildFallbackExamples(intro, base.category, intent).slice(0, 3),
     }
   })
 

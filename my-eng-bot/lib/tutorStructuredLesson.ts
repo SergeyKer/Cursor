@@ -1,5 +1,6 @@
 import { buildFallbackLessonIntro } from '@/lib/lessonIntro'
 import type { LessonBlueprint } from '@/lib/lessonBlueprint'
+import { buildFallbackTutorLearningIntent, type TutorLearningIntent, type TutorLearningIntentExample } from '@/lib/tutorLearningIntent'
 import type { LevelId } from '@/lib/types'
 import type { LessonData, LessonFinale, LessonStep, SentencePuzzleVariant } from '@/types/lesson'
 
@@ -19,8 +20,55 @@ function sanitizeTopic(topic: string): string {
   return topic.replace(/\s+/g, ' ').trim() || 'English grammar'
 }
 
-function buildPuzzleVariants(topic: string): [SentencePuzzleVariant, SentencePuzzleVariant, SentencePuzzleVariant] {
+function normalizeSentenceWords(sentence: string): string[] {
+  return sentence
+    .replace(/([?.!])/g, ' $1')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+}
+
+function getIntentExamples(intent: TutorLearningIntent): [TutorLearningIntentExample, TutorLearningIntentExample, TutorLearningIntentExample] {
+  const fallback = buildFallbackTutorLearningIntent(intent.title).examples
+  const examples = [...intent.examples, ...fallback]
+  return [examples[0], examples[1], examples[2]]
+}
+
+function buildCloze(example: TutorLearningIntentExample): { question: string; correctAnswer: string; hint: string } {
+  const words = example.en.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean)
+  const blankIndex = words.length >= 3 ? 1 : 0
+  const rawAnswer = words[blankIndex] ?? example.en
+  const correctAnswer = rawAnswer.replace(/^[^A-Za-z']+|[^A-Za-z']+$/g, '') || rawAnswer
+  const questionWords = words.map((word, index) => (index === blankIndex ? word.replace(/[A-Za-z']+/, '___') : word))
+  return {
+    question: `Дополните одним словом: "${questionWords.join(' ')}"`,
+    correctAnswer,
+    hint: example.noteRu,
+  }
+}
+
+function buildPuzzleVariants(topic: string, intent?: TutorLearningIntent): [SentencePuzzleVariant, SentencePuzzleVariant, SentencePuzzleVariant] {
   const safeTopic = sanitizeTopic(topic)
+  if (intent) {
+    const examples = getIntentExamples(intent)
+    return examples.map((example, index) => {
+      const words = normalizeSentenceWords(example.en)
+      return {
+        id: `tutor-puzzle-intent-${index + 1}`,
+        title: index === 0 ? 'Соберите главный шаблон' : 'Соберите пример',
+        instruction: 'Поставьте слова в правильном порядке.',
+        words,
+        correctOrder: words,
+        correctAnswer: example.en,
+        successText: 'Верно, смысл темы сохранился.',
+        errorText: 'Проверьте порядок слов в английском шаблоне.',
+        hintText: example.noteRu,
+        hintFirstWord: words[0],
+        myEngComment: example.noteRu,
+      }
+    }) as [SentencePuzzleVariant, SentencePuzzleVariant, SentencePuzzleVariant]
+  }
   return [
     {
       id: 'tutor-puzzle-pattern',
@@ -104,9 +152,12 @@ export function buildTutorStructuredLesson(params: {
   blueprint: LessonBlueprint
 }): LessonData {
   const topic = sanitizeTopic(params.topic)
+  const tutorIntent = params.blueprint.tutorIntent ?? buildFallbackTutorLearningIntent(topic)
   const intro = params.blueprint.intro ?? buildFallbackLessonIntro(topic)
-  const grammarFocus = params.blueprint.adaptiveTemplate?.grammarFocus ?? intro.learningPlan?.grammarFocus ?? [topic]
+  const grammarFocus = params.blueprint.adaptiveTemplate?.grammarFocus ?? intro.learningPlan?.grammarFocus ?? tutorIntent.mustTrain ?? [topic]
   const focusLabel = grammarFocus.join(' / ')
+  const [firstExample, secondExample, thirdExample] = getIntentExamples(tutorIntent)
+  const cloze = buildCloze(firstExample)
   const steps: LessonStep[] = [
     {
       stepNumber: 1,
@@ -134,20 +185,20 @@ export function buildTutorStructuredLesson(params: {
       stepType: 'theory',
       bubbles: [
         { type: 'positive', content: 'Теперь отделим смысл от формы.' },
-        { type: 'info', content: intro.quick.takeaway },
+        { type: 'info', content: tutorIntent.goalRu || intro.quick.takeaway },
         { type: 'task', content: 'Что важнее всего сделать перед практикой?' },
       ],
       exercise: {
         type: 'micro_quiz',
         question: 'Выберите лучший первый шаг.',
-        options: ['Понять ситуацию правила', 'Выучить все исключения сразу', 'Игнорировать примеры'],
-        correctAnswer: 'Понять ситуацию правила',
-        acceptedAnswers: ['Понять ситуацию правила'],
+        options: [tutorIntent.firstPracticeGoalRu, 'Выучить все исключения сразу', 'Игнорировать примеры'],
+        correctAnswer: tutorIntent.firstPracticeGoalRu,
+        acceptedAnswers: [tutorIntent.firstPracticeGoalRu],
         answerFormat: 'choice',
         answerPolicy: 'strict',
         hint: 'Сначала смысл, потом детали.',
       },
-      footerDynamic: 'Сначала смысл, потом форма',
+      footerDynamic: 'Сначала смысл выбранной темы',
       myEngComment: 'Это делает сложную тему управляемой.',
     },
     {
@@ -155,39 +206,39 @@ export function buildTutorStructuredLesson(params: {
       stepType: 'practice_fill',
       bubbles: [
         { type: 'positive', content: 'Переходим к короткой фразе.' },
-        { type: 'info', content: 'В учебной практике лучше начинать с простого действия.' },
+        { type: 'info', content: firstExample.noteRu },
         { type: 'task', content: 'Дополните одним словом.' },
       ],
       exercise: {
         type: 'fill_text',
-        question: 'Дополните одним словом: "We ___ short examples."',
-        correctAnswer: 'practice',
-        acceptedAnswers: ['practice'],
+        question: cloze.question,
+        correctAnswer: cloze.correctAnswer,
+        acceptedAnswers: [cloze.correctAnswer],
         answerFormat: 'single_word',
         answerPolicy: 'strict',
-        hint: 'Нужно слово "тренируем".',
+        hint: cloze.hint,
         variants: [
           {
             id: 'tutor-step3-practice',
-            question: 'Дополните одним словом: "We ___ short examples."',
-            correctAnswer: 'practice',
-            hint: 'Нужно слово "тренируем".',
+            question: cloze.question,
+            correctAnswer: cloze.correctAnswer,
+            hint: cloze.hint,
             difficulty: 'easy',
             answerFormat: 'single_word',
             answerPolicy: 'strict',
           },
           {
             id: 'tutor-step3-use',
-            question: 'Дополните одним словом: "I ___ the rule in context."',
-            correctAnswer: 'use',
-            hint: 'Нужно слово "использую".',
+            question: buildCloze(secondExample).question,
+            correctAnswer: buildCloze(secondExample).correctAnswer,
+            hint: secondExample.noteRu,
             difficulty: 'medium',
             answerFormat: 'single_word',
             answerPolicy: 'strict',
           },
         ],
       },
-      footerDynamic: 'Тренируем короткую фразу',
+      footerDynamic: `Тренируем: ${tutorIntent.targetPatterns[0] ?? topic}`,
       myEngComment: 'Короткий ответ помогает не перегрузиться.',
     },
     {
@@ -195,41 +246,41 @@ export function buildTutorStructuredLesson(params: {
       stepType: 'practice_fill',
       bubbles: [
         { type: 'positive', content: 'Теперь переведем смысл целиком.' },
-        { type: 'info', content: `Держите фокус на теме: ${topic}.` },
+        { type: 'info', content: secondExample.noteRu },
         { type: 'task', content: 'Переведите короткую фразу на английский.' },
       ],
       exercise: {
         type: 'translate',
-        question: 'Переведите на английский: "Я понимаю это правило."',
-        correctAnswer: 'I understand this rule.',
-        acceptedAnswers: ['I understand this rule'],
+        question: `Переведите на английский: "${secondExample.ru}"`,
+        correctAnswer: secondExample.en,
+        acceptedAnswers: [secondExample.en],
         answerFormat: 'full_sentence',
         answerPolicy: 'normalized',
-        hint: 'Начните с I understand.',
+        hint: secondExample.noteRu,
         variants: [
           {
             id: 'tutor-step4-understand',
-            question: 'Переведите на английский: "Я понимаю это правило."',
-            correctAnswer: 'I understand this rule.',
-            acceptedAnswers: ['I understand this rule'],
-            hint: 'Начните с I understand.',
+            question: `Переведите на английский: "${secondExample.ru}"`,
+            correctAnswer: secondExample.en,
+            acceptedAnswers: [secondExample.en],
+            hint: secondExample.noteRu,
             difficulty: 'easy',
             answerFormat: 'full_sentence',
             answerPolicy: 'normalized',
           },
           {
             id: 'tutor-step4-context',
-            question: 'Переведите на английский: "Я использую это в контексте."',
-            correctAnswer: 'I use this in context.',
-            acceptedAnswers: ['I use it in context.'],
-            hint: 'Начните с I use.',
+            question: `Переведите на английский: "${thirdExample.ru}"`,
+            correctAnswer: thirdExample.en,
+            acceptedAnswers: [thirdExample.en],
+            hint: thirdExample.noteRu,
             difficulty: 'medium',
             answerFormat: 'full_sentence',
             answerPolicy: 'normalized',
           },
         ],
       },
-      footerDynamic: 'Переводим коротко и точно',
+      footerDynamic: 'Переводим выбранный смысл',
       myEngComment: 'Перевод проверяет, держится ли смысл.',
     },
     {
@@ -237,16 +288,16 @@ export function buildTutorStructuredLesson(params: {
       stepType: 'practice_apply',
       bubbles: [
         { type: 'positive', content: 'Соберем несколько фраз руками.' },
-        { type: 'info', content: 'Порядок слов помогает почувствовать английский шаблон.' },
+        { type: 'info', content: `Шаблон: ${tutorIntent.targetPatterns[0] ?? topic}.` },
         { type: 'task', content: 'Соберите предложения в пазле.' },
       ],
       exercise: {
         type: 'sentence_puzzle',
         question: 'Соберите предложение.',
-        correctAnswer: 'I understand the pattern.',
+        correctAnswer: firstExample.en,
         answerFormat: 'full_sentence',
         answerPolicy: 'strict',
-        puzzleVariants: buildPuzzleVariants(topic),
+        puzzleVariants: buildPuzzleVariants(topic, tutorIntent),
         bonusXp: 30,
         hint: 'Начните с подлежащего.',
       },
@@ -258,17 +309,17 @@ export function buildTutorStructuredLesson(params: {
       stepType: 'practice_apply',
       bubbles: [
         { type: 'positive', content: 'Теперь применим тему в своей фразе.' },
-        { type: 'info', content: 'Можно написать простое предложение: главное — не усложнять.' },
+        { type: 'info', content: tutorIntent.firstPracticeGoalRu },
         { type: 'task', content: 'Напишите фразу по образцу.' },
       ],
       exercise: {
         type: 'write_own',
-        question: 'Напишите на английском: "Я могу использовать это правило."',
-        correctAnswer: 'I can use this rule.',
-        acceptedAnswers: ['I can use this rule'],
+        question: `Напишите на английском: "${thirdExample.ru}"`,
+        correctAnswer: thirdExample.en,
+        acceptedAnswers: [thirdExample.en],
         answerFormat: 'full_sentence',
         answerPolicy: 'normalized',
-        hint: 'Начните с I can use.',
+        hint: `Используйте шаблон: ${tutorIntent.targetPatterns[0] ?? topic}.`,
       },
       footerDynamic: 'Применяем правило',
       myEngComment: 'Своя фраза — первый шаг к речи.',
@@ -278,15 +329,15 @@ export function buildTutorStructuredLesson(params: {
       stepType: 'feedback',
       bubbles: [
         { type: 'positive', content: 'Финальная проверка: что главное?' },
-        { type: 'info', content: 'Хорошее правило всегда связано с понятной ситуацией.' },
+        { type: 'info', content: tutorIntent.firstPracticeGoalRu },
         { type: 'task', content: 'Выберите лучший вывод.' },
       ],
       exercise: {
         type: 'fill_choice',
         question: 'Как лучше работать с новой темой?',
-        options: ['Понять смысл и потренировать коротко', 'Сразу учить все исключения', 'Не смотреть на примеры'],
-        correctAnswer: 'Понять смысл и потренировать коротко',
-        acceptedAnswers: ['Понять смысл и потренировать коротко'],
+        options: [tutorIntent.firstPracticeGoalRu, 'Сразу учить все исключения', 'Не смотреть на примеры'],
+        correctAnswer: tutorIntent.firstPracticeGoalRu,
+        acceptedAnswers: [tutorIntent.firstPracticeGoalRu],
         answerFormat: 'choice',
         answerPolicy: 'strict',
         hint: 'Нужен путь от смысла к короткой практике.',
@@ -302,6 +353,7 @@ export function buildTutorStructuredLesson(params: {
     topic,
     level: normalizeLessonLevel(params.level),
     intro,
+    tutorIntent,
     steps,
     finale: buildTutorFinale(topic),
   }

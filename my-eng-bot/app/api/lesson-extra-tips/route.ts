@@ -3,6 +3,7 @@ import { callProviderChat } from '@/lib/callProviderChat'
 import { extractJsonObject } from '@/lib/structuredLessonFactory'
 import { buildFallbackLessonExtraTips, normalizeLessonExtraTips } from '@/lib/lessonExtraTips'
 import { isValidLessonIntro } from '@/lib/lessonIntro'
+import { normalizeTutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { AiProvider, Audience, LevelId, OpenAiChatPreset } from '@/lib/types'
 import type { LessonIntro } from '@/types/lesson'
 
@@ -14,6 +15,7 @@ type Body = {
   audience?: Audience
   level?: LevelId
   intro?: unknown
+  intent?: unknown
   mode?: TipsMode
   previousItems?: unknown
 }
@@ -47,12 +49,13 @@ function normalizePreviousItems(value: unknown): string[] {
 
 function buildPrompt(params: {
   intro: LessonIntro
+  intent?: ReturnType<typeof normalizeTutorLearningIntent>
   audience: Audience
   level: LevelId | undefined
   mode: TipsMode
   previousItems: string[]
 }): string {
-  const { intro, audience, level, mode, previousItems } = params
+  const { intro, intent, audience, level, mode, previousItems } = params
   return JSON.stringify(
     {
       task:
@@ -64,6 +67,7 @@ function buildPrompt(params: {
       level: level ?? 'all',
       mode,
       topic: intro.topic,
+      tutorIntent: intent,
       lessonKind: intro.kind,
       complexity: intro.complexity,
       knownIntro: {
@@ -204,6 +208,7 @@ export async function POST(req: NextRequest) {
     'Пиши как профессор лингвистики, который объясняет простыми словами: практично, точно и интересно, без длинной теории.',
     'Для native_speech пиши как UX-копирайтер для карточки "Как говорят носители": коротко, дружески, живо, 0% академизма.',
     'native_speech всегда привязывай к topic: не подставляй универсальные wanna/gonna/lemme, если тема не про них.',
+    'Если передан tutorIntent, обязательно используй его targetPatterns, examples, mustTrain и mustAvoid. Не уходи в общие учебные фразы.',
     'В native_speech rule = "Логика носителя": один главный принцип мышления носителя, 1-2 короткие строки по-русски.',
     'В native_speech examples[0] = "Живая подмена": wrong = школьная/длинная форма, right = живой вариант, note = короткий перевод или нюанс.',
     'В native_speech examples[1] = "Быстрый приём": note = конкретный лайфхак, который можно применить сразу; без теории.',
@@ -240,7 +245,8 @@ export async function POST(req: NextRequest) {
     'Не повторяй previousItems.',
   ].join('\n')
 
-  const fallback = buildFallbackLessonExtraTips(intro)
+  const intent = normalizeTutorLearningIntent(body.intent)
+  const fallback = buildFallbackLessonExtraTips(intro, intent)
   const model = await callProviderChat({
     provider,
     req,
@@ -250,6 +256,7 @@ export async function POST(req: NextRequest) {
         role: 'user',
         content: buildPrompt({
           intro,
+          intent,
           audience,
           level: body.level,
           mode,
@@ -268,7 +275,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const parsed = JSON.parse(extractJsonObject(model.content))
-    const tips = normalizeLessonExtraTips(parsed, intro)
+    const tips = normalizeLessonExtraTips(parsed, intro, intent)
     return NextResponse.json({ tips, generated: true, fallback: false })
   } catch {
     return NextResponse.json({ tips: fallback, generated: false, fallback: true }, { status: 200 })

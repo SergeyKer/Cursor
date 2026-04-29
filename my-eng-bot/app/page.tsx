@@ -62,6 +62,7 @@ import { getStructuredLessonById } from '@/lib/structuredLessons'
 import { buildFallbackLessonIntro } from '@/lib/lessonIntro'
 import { buildTutorStructuredLesson } from '@/lib/tutorStructuredLesson'
 import type { LessonBlueprint } from '@/lib/lessonBlueprint'
+import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { LessonMenuContext } from '@/components/SlideOutMenu'
 import type { LessonData, PostLessonAction } from '@/types/lesson'
 import AppFooter from '@/components/AppFooter'
@@ -336,6 +337,7 @@ export default function Home() {
   const [activeLearningLessonId, setActiveLearningLessonId] = useState<string | null>(null)
   const [activeStructuredLessonRuntime, setActiveStructuredLessonRuntime] = useState<LessonData | null>(null)
   const [structuredLessonLoadingId, setStructuredLessonLoadingId] = useState<string | null>(null)
+  const [pendingTutorLessonTitle, setPendingTutorLessonTitle] = useState<string | null>(null)
   const [activeLessonVariantNumber, setActiveLessonVariantNumber] = useState(1)
   /** Если у урока нет runKey, порядок вариантов fill_choice зависит от nonce на каждый новый вход. */
   const [structuredLessonShuffleNonce, setStructuredLessonShuffleNonce] = useState(0)
@@ -852,6 +854,7 @@ export default function Home() {
     setActiveLearningLessonId(null)
     setActiveStructuredLessonRuntime(null)
     setStructuredLessonLoadingId(null)
+    setPendingTutorLessonTitle(null)
     setActiveLessonVariantNumber(1)
     setSelectedPostLessonAction(null)
     setPostLessonBusy(false)
@@ -1068,6 +1071,7 @@ export default function Home() {
       setLoading(Boolean(structuredLesson))
       setActiveStructuredLessonRuntime(null)
       setStructuredLessonLoadingId(structuredLesson ? lessonId : null)
+      setPendingTutorLessonTitle(null)
       setActiveLessonVariantNumber(1)
       setSelectedPostLessonAction(null)
       setPostLessonBusy(false)
@@ -1096,7 +1100,12 @@ export default function Home() {
   )
 
   const openTutorLesson = useCallback(
-    async (request: { requestedTopic: string; analysisSummary?: string }) => {
+    async (request: {
+      requestedTopic: string
+      originalQuery?: string
+      selectedIntent?: TutorLearningIntent
+      analysisSummary?: string
+    }) => {
       const topic = request.requestedTopic.trim()
       if (!topic) return
 
@@ -1120,8 +1129,10 @@ export default function Home() {
       setLoadingTranslationIndex(null)
       setForceNextMicLang(null)
       setSettingsAtLastSend(null)
+      setActiveLearningLessonId(null)
       setActiveStructuredLessonRuntime(null)
       setStructuredLessonLoadingId('tutor')
+      setPendingTutorLessonTitle(request.selectedIntent?.title ?? topic)
       setActiveLessonVariantNumber(1)
       setSelectedPostLessonAction(null)
       setPostLessonBusy(false)
@@ -1139,6 +1150,8 @@ export default function Home() {
             provider: settings.provider,
             openAiChatPreset: settings.openAiChatPreset,
             topic,
+            originalQuery: request.originalQuery,
+            intent: request.selectedIntent,
             level: settings.level,
             audience: settings.audience,
             analysisSummary: request.analysisSummary,
@@ -1160,6 +1173,7 @@ export default function Home() {
       if (!lesson) {
         lesson = buildTutorFallbackBlueprint(topic)
       }
+      const tutorIntent = lesson.tutorIntent ?? request.selectedIntent
       if (requestId !== lessonOpenRequestIdRef.current) return
 
       const lessonId = registerRuntimeLearningLesson({
@@ -1169,17 +1183,19 @@ export default function Home() {
         actions: lesson.actions,
         followups: lesson.followups,
         adaptiveTemplate: lesson.adaptiveTemplate,
+        tutorIntent,
       })
       const runtimeLesson = buildTutorStructuredLesson({
         id: lessonId,
         topic: lesson.title || topic,
         level: settings.level,
-        blueprint: lesson,
+        blueprint: { ...lesson, tutorIntent },
       })
       setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'tutor' })
       setActiveLearningLessonId(lessonId)
       setActiveStructuredLessonRuntime(runtimeLesson)
       setStructuredLessonLoadingId(null)
+      setPendingTutorLessonTitle(null)
       setLoading(false)
     },
     [openLearningLesson, settings.provider, settings.openAiChatPreset, settings.level, settings.audience]
@@ -1764,6 +1780,8 @@ export default function Home() {
     activeStructuredLesson?.intro ??
     activeLearningLesson?.intro ??
     (activeLearningLessonId ? getStructuredLessonById(activeLearningLessonId)?.intro ?? null : null)
+  const activeTutorIntent = activeStructuredLesson?.tutorIntent ?? activeLearningLesson?.tutorIntent ?? null
+  const isTutorLessonPending = structuredLessonLoadingId === 'tutor' && Boolean(pendingTutorLessonTitle)
   const isLessonIntroActive = Boolean(activeLessonIntro && activeLearningLesson && lessonViewStage === 'intro')
   const isLessonTipsActive = Boolean(activeLessonIntro && activeLearningLesson && lessonViewStage === 'tips')
   const isStructuredLessonActive = Boolean(activeStructuredLesson && activeStructuredLessonStep && lessonViewStage === 'lesson')
@@ -2317,7 +2335,16 @@ export default function Home() {
             {/* На iOS после закрытия клавиатуры иногда остаётся небольшой технический зазор.
                Чтобы не просвечивал серый фон страницы, держим фон тем же, что и у чата. */}
             <div className="min-h-0 flex-1 bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
-              {isLessonIntroActive && activeLessonIntro ? (
+              {isTutorLessonPending ? (
+                <div className="flex h-full min-h-0 items-center justify-center bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)] px-4">
+                  <div className="lesson-enter glass-surface w-full max-w-[24rem] rounded-[1.5rem] border border-[var(--chat-section-neutral-border)] bg-white/95 px-4 py-5 text-center shadow-sm">
+                    <p className="text-[15px] font-semibold text-[var(--text)]">MyEng составляет урок...</p>
+                    <p className="mt-2 text-[14px] leading-relaxed text-[var(--text-muted)]">
+                      Тема: {pendingTutorLessonTitle}. Сейчас подготовлю короткие примеры и задания по выбранному смыслу.
+                    </p>
+                  </div>
+                </div>
+              ) : isLessonIntroActive && activeLessonIntro ? (
                 <LessonIntroScreen
                   intro={activeLessonIntro}
                   depth={lessonIntroDepth}
@@ -2338,6 +2365,7 @@ export default function Home() {
                 <LessonExtraTipsScreen
                   lessonKey={activeLessonTipsKey}
                   intro={activeLessonIntro}
+                  intent={activeTutorIntent}
                   provider={settings.provider}
                   openAiChatPreset={settings.openAiChatPreset}
                   audience={settings.audience}

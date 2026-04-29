@@ -11,6 +11,7 @@ import {
   type LessonTipCategory,
 } from '@/lib/lessonExtraTips'
 import type { AiProvider, Audience, LevelId, OpenAiChatPreset } from '@/lib/types'
+import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { LessonIntro } from '@/types/lesson'
 
 export type LessonExtraTipsFooterStatus =
@@ -35,6 +36,7 @@ export type LessonExtraTipsSavedState = {
 type LessonExtraTipsScreenProps = {
   lessonKey: string
   intro: LessonIntro
+  intent?: TutorLearningIntent | null
   provider: AiProvider
   openAiChatPreset?: OpenAiChatPreset
   audience: Audience
@@ -116,6 +118,7 @@ function normalizeAnswer(value: string): string {
 export default function LessonExtraTipsScreen({
   lessonKey,
   intro,
+  intent,
   provider,
   openAiChatPreset,
   audience,
@@ -126,7 +129,7 @@ export default function LessonExtraTipsScreen({
   onBack,
   onStartLesson,
 }: LessonExtraTipsScreenProps) {
-  const fallbackTips = useMemo(() => buildFallbackLessonExtraTips(intro), [intro])
+  const fallbackTips = useMemo(() => buildFallbackLessonExtraTips(intro, intent), [intent, intro])
   const storageKey = useMemo(
     () => buildTipsStorageKey({ topic: intro.topic, audience, level }),
     [audience, intro.topic, level]
@@ -204,6 +207,7 @@ export default function LessonExtraTipsScreen({
             audience,
             level,
             intro,
+            intent,
             mode: 'initial',
             previousItems: flattenTipItems(tips),
           }),
@@ -235,7 +239,7 @@ export default function LessonExtraTipsScreen({
     }
     // `tips` намеренно не в зависимостях: initial-запрос должен стартовать один раз на lesson/storage key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [audience, intro, level, lessonKey, onFooterStatusChange, openAiChatPreset, provider, storageKey])
+  }, [audience, intent, intro, level, lessonKey, onFooterStatusChange, openAiChatPreset, provider, storageKey])
 
   const handleToggleCategory = (category: LessonTipCategory) => {
     setExpandedCategories((current) => {
@@ -286,6 +290,7 @@ export default function LessonExtraTipsScreen({
           audience,
           level,
           intro,
+          intent,
           mode: 'more',
           previousItems: flattenTipItems(tips),
         }),

@@ -4,6 +4,13 @@ import type { AiProvider } from '@/lib/types'
 import { hasRequiredTheoryStructure, isValidLessonBlueprint, type TutorAdaptiveTemplate } from '@/lib/lessonBlueprint'
 import { buildFallbackLessonIntro } from '@/lib/lessonIntro'
 import {
+  buildFallbackTutorLearningIntent,
+  buildLessonIntroFromTutorIntent,
+  createTutorLearningIntentCacheKey,
+  normalizeTutorLearningIntent,
+  type TutorLearningIntent,
+} from '@/lib/tutorLearningIntent'
+import {
   buildLessonBlueprintCacheKey,
   createLessonRouteCorrelationId,
   logLessonRouteStages,
@@ -17,6 +24,8 @@ type Body = {
   provider?: AiProvider
   openAiChatPreset?: 'gpt-4o-mini' | 'gpt-5.4-mini-none' | 'gpt-5.4-mini-low'
   topic?: string
+  originalQuery?: string
+  intent?: unknown
   level?: string
   audience?: string
   analysisSummary?: string
@@ -34,15 +43,17 @@ function normalizeTheoryIntro(raw: string): string {
   return text.trim()
 }
 
-function defaultLesson(topic: string) {
+function defaultLesson(topic: string, intent?: TutorLearningIntent | null) {
   const safeTopic = topic.trim() || 'выбранной теме'
+  const resolvedIntent = intent ?? buildFallbackTutorLearningIntent(safeTopic)
+  const intro = intent ? buildLessonIntroFromTutorIntent(intent) : buildFallbackLessonIntro(safeTopic)
   const normalizedTopic = safeTopic.toLowerCase()
   const contrastPair =
     normalizedTopic.includes('present perfect') && normalizedTopic.includes('past simple')
       ? (['Present Perfect', 'Past Simple'] as [string, string])
       : undefined
   const adaptiveTemplate: TutorAdaptiveTemplate = {
-    grammarFocus: contrastPair ? [...contrastPair] : [safeTopic],
+    grammarFocus: contrastPair ? [...contrastPair] : resolvedIntent.mustTrain.length ? resolvedIntent.mustTrain : [safeTopic],
     ...(contrastPair ? { contrastPair } : {}),
     recommendedStartDifficulty: 'easy',
     preferredExerciseModes: contrastPair ? ['contrast', 'drill', 'production', 'micro_quiz'] : ['drill', 'production', 'micro_quiz'],
@@ -50,19 +61,24 @@ function defaultLesson(topic: string) {
   }
   return {
     title: `Тема: ${safeTopic}`,
-    intro: buildFallbackLessonIntro(safeTopic),
+    intro,
     theoryIntro:
       `**Урок:** ${safeTopic}\n` +
       '**Правило:**\n' +
-      '1) Берем ключевую тему и применяем в коротких фразах.\n' +
-      '2) Используем тему в понятном контексте.\n' +
+      `1) ${resolvedIntent.goalRu}\n` +
+      `2) Первый шаг: ${resolvedIntent.firstPracticeGoalRu}\n` +
       '**Примеры:**\n' +
-      `1) We practice ${safeTopic} in simple phrases.\n` +
-      `2) This sentence is about ${safeTopic}.\n` +
-      '**Коротко:** это правило нужно, чтобы уверенно использовать тему в речи.\n' +
+      resolvedIntent.examples
+        .slice(0, 2)
+        .map((example, index) => `${index + 1}) ${example.en} — ${example.ru}.`)
+        .join('\n') +
+      '\n' +
+      `**Коротко:** ${resolvedIntent.firstPracticeGoalRu}\n` +
       '**Шаблоны:**\n' +
-      `1) I use ${safeTopic} in context.\n` +
-      `2) This is about ${safeTopic}.`,
+      resolvedIntent.targetPatterns
+        .slice(0, 3)
+        .map((pattern, index) => `${index + 1}) ${pattern}`)
+        .join('\n'),
     actions: [
       { id: 'examples', label: 'Посмотри примеры' },
       { id: 'fill_phrase', label: 'Подставь слово' },
@@ -70,12 +86,16 @@ function defaultLesson(topic: string) {
       { id: 'write_own_sentence', label: 'Напиши своё предложение' },
     ],
     followups: {
-      examples: `**Примеры по теме "${safeTopic}":**\n1) First short example.\n2) Second short example.\n3) Third short example.`,
-      fill_phrase: '**Подставь слово:**\n1) I ____ this topic.\n2) This is ____ example.\nВыбери подходящее слово.',
-      repeat_translate: '**Переведи на английский:**\n1) Это моя тема.\n2) Я хочу изучать это.\n3) Дай короткий пример.',
-      write_own_sentence: `**Напиши своё предложение:**\nТема: ${safeTopic}\nНапиши 3 коротких примера.`,
+      examples: `**Примеры по теме "${safeTopic}":**\n${resolvedIntent.examples.map((example, index) => `${index + 1}) ${example.en} — ${example.ru}`).join('\n')}`,
+      fill_phrase: `**Подставь слово:**\n1) ${resolvedIntent.examples[0]?.en ?? `Use ${safeTopic}.`}\n2) Шаблон: ${resolvedIntent.targetPatterns[0] ?? safeTopic}\nВыбери слово или форму по смыслу.`,
+      repeat_translate: `**Переведи на английский:**\n${resolvedIntent.examples
+        .slice(0, 3)
+        .map((example, index) => `${index + 1}) ${example.ru}`)
+        .join('\n')}`,
+      write_own_sentence: `**Напиши своё предложение:**\nТема: ${safeTopic}\nИспользуй один шаблон: ${resolvedIntent.targetPatterns[0] ?? safeTopic}.`,
     },
     adaptiveTemplate,
+    tutorIntent: resolvedIntent,
   }
 }
 
@@ -108,6 +128,7 @@ export async function POST(req: NextRequest) {
   if (!topic) {
     return NextResponse.json({ error: 'Тема для урока не передана.' }, { status: 400 })
   }
+  const intent = normalizeTutorLearningIntent(body.intent)
   const cacheKey = buildLessonBlueprintCacheKey({
     topic,
     level: body.level ?? 'a2',
@@ -115,6 +136,7 @@ export async function POST(req: NextRequest) {
     provider,
     openAiChatPreset,
     analysisSummary: body.analysisSummary,
+    intentKey: createTutorLearningIntentCacheKey(intent),
   })
   const cacheReadStartedAt = Date.now()
   const cachedResponse = readLessonRouteCache<{ lesson: ReturnType<typeof defaultLesson>; generated: boolean; fallback: boolean }>(cacheKey)
@@ -165,12 +187,16 @@ export async function POST(req: NextRequest) {
     'Английские слова оставляй только в самих примерах, фразах-шаблонах и названиях форм без устойчивого русского аналога.',
     'intro.quick должен быть очень коротким: пользователь должен сразу понять зачем тема нужна и как она работает.',
     'Не добавляй инфошум, длинные таблицы, редкие исключения и академические определения в intro.quick.',
+    'Если передан tutorIntent, строго строй урок вокруг его goalRu, targetPatterns, examples, mustTrain и mustAvoid.',
+    'Не используй служебные фразы как основной материал: "I understand this rule", "We practice short examples", "This sentence is about...".',
     'Не пропускай секции и не меняй порядок заголовков.',
     'adaptiveTemplate можно вернуть дополнительно, если тема явно задает грамматический контраст или будущую адаптивную практику.',
   ].join('\n')
 
   const user = [
     `Тема: ${topic}`,
+    body.originalQuery ? `Исходный запрос ученика: ${body.originalQuery}` : '',
+    intent ? `Tutor intent JSON: ${JSON.stringify(intent)}` : '',
     `Уровень: ${body.level ?? 'a2'}`,
     `Аудитория: ${body.audience ?? 'adult'}`,
     body.analysisSummary ? `Контекст с фото: ${body.analysisSummary}` : '',
@@ -193,7 +219,7 @@ export async function POST(req: NextRequest) {
     })
 
     if (!model.ok) {
-      const payload = { lesson: defaultLesson(topic), generated: false, fallback: true }
+      const payload = { lesson: defaultLesson(topic, intent), generated: false, fallback: true }
       writeLessonRouteCache(cacheKey, payload)
       logLessonRouteSummary({
         correlationId,
@@ -218,7 +244,7 @@ export async function POST(req: NextRequest) {
 
     const json = extractJsonObject(model.content)
     if (!json) {
-      const payload = { lesson: defaultLesson(topic), generated: false, fallback: true }
+      const payload = { lesson: defaultLesson(topic, intent), generated: false, fallback: true }
       writeLessonRouteCache(cacheKey, payload)
       logLessonRouteSummary({
         correlationId,
@@ -245,7 +271,7 @@ export async function POST(req: NextRequest) {
       const validationStartedAt = Date.now()
       const parsed = JSON.parse(json) as unknown
       if (!isValidLessonBlueprint(parsed)) {
-        const payload = { lesson: defaultLesson(topic), generated: false, fallback: true }
+        const payload = { lesson: defaultLesson(topic, intent), generated: false, fallback: true }
         writeLessonRouteCache(cacheKey, payload)
         logLessonRouteSummary({
           correlationId,
@@ -270,7 +296,7 @@ export async function POST(req: NextRequest) {
       }
       const normalizedTheoryIntro = normalizeTheoryIntro(parsed.theoryIntro)
       if (!hasRequiredTheoryStructure(normalizedTheoryIntro)) {
-        const payload = { lesson: defaultLesson(topic), generated: false, fallback: true }
+        const payload = { lesson: defaultLesson(topic, intent), generated: false, fallback: true }
         writeLessonRouteCache(cacheKey, payload)
         logLessonRouteSummary({
           correlationId,
@@ -294,7 +320,7 @@ export async function POST(req: NextRequest) {
         return payload
       }
       const payload = {
-        lesson: { ...parsed, theoryIntro: normalizedTheoryIntro },
+        lesson: { ...parsed, theoryIntro: normalizedTheoryIntro, ...(intent ? { tutorIntent: intent } : {}) },
         generated: true,
         fallback: false,
       }
@@ -320,7 +346,7 @@ export async function POST(req: NextRequest) {
       })
       return payload
     } catch {
-      const payload = { lesson: defaultLesson(topic), generated: false, fallback: true }
+      const payload = { lesson: defaultLesson(topic, intent), generated: false, fallback: true }
       writeLessonRouteCache(cacheKey, payload)
       logLessonRouteSummary({
         correlationId,

@@ -67,6 +67,7 @@ export function buildLessonBlueprintCacheKey(params: {
   provider: string
   openAiChatPreset: string
   analysisSummary?: string
+  intentKey?: string
 }): string {
   return [
     'blueprint',
@@ -76,6 +77,7 @@ export function buildLessonBlueprintCacheKey(params: {
     params.provider.trim(),
     params.openAiChatPreset.trim(),
     params.analysisSummary?.trim() ?? '',
+    params.intentKey?.trim() ?? '',
   ].join('::')
 }
 

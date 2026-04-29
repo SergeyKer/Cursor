@@ -4,6 +4,7 @@ import React from 'react'
 import type { Settings, UsageInfo } from '@/lib/types'
 import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/components/MenuSectionPanels'
 import { SLIDE_OUT_NEW_CHAT_BUTTON_CLASS } from '@/lib/homeCtaStyles'
+import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 
 export type LessonMenuContext = {
   menuView: 'lessons'
@@ -30,7 +31,12 @@ interface SlideOutMenuProps {
   onOpenLearningLesson?: (lessonId: string) => void
   onPrefetchLearningLesson?: (lessonId: string, mode?: 'generate' | 'repeat') => void
   /** Открыть урок из ветки «Репетитор». */
-  onOpenTutorLesson?: (request: { requestedTopic: string; analysisSummary?: string }) => Promise<void> | void
+  onOpenTutorLesson?: (request: {
+    requestedTopic: string
+    originalQuery?: string
+    selectedIntent?: TutorLearningIntent
+    analysisSummary?: string
+  }) => Promise<void> | void
   /** Контекст меню, из которого открыт урок. */
   lessonMenuContext?: LessonMenuContext | null
   /** Верхний offset (шапка + safe-area), общий с основным layout. */

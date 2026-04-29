@@ -251,6 +251,7 @@ export interface LessonData {
   topic: string
   level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1'
   intro?: LessonIntro
+  tutorIntent?: import('@/lib/tutorLearningIntent').TutorLearningIntent
   steps: LessonStep[]
   finale?: LessonFinale
   repeatConfig?: LessonRepeatConfig

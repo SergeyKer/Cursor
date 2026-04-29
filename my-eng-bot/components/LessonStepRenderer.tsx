@@ -620,11 +620,13 @@ export default function LessonStepRenderer({
                       {shouldRenderChoiceChips && !showVoiceOverlay && (
                         <div
                           key={`lesson-choice-placeholder-${currentStep?.stepNumber ?? 'none'}-${currentVariantIndex}-${choiceResetVersion}`}
-                          className="pointer-events-none absolute inset-x-4 inset-y-0 z-20 flex items-center overflow-hidden lesson-choice-chip-enter"
+                          className="pointer-events-none absolute inset-x-4 inset-y-0 z-20 flex items-center overflow-hidden"
                         >
-                          <span className="block w-full truncate whitespace-nowrap text-right text-[15px] text-slate-700">
-                            {inputPlaceholder}
-                          </span>
+                          <div className="lesson-choice-chip-enter min-w-0 w-full">
+                            <span className="block min-w-0 w-full truncate whitespace-nowrap text-right text-[15px] leading-[1.45rem] text-slate-700">
+                              {inputPlaceholder}
+                            </span>
+                          </div>
                         </div>
                       )}
                       {showVoiceOverlay && (

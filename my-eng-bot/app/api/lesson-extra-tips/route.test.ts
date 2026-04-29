@@ -108,7 +108,9 @@ describe('POST /api/lesson-extra-tips', () => {
 
     const userPrompt = JSON.parse(apiMessages[1].content) as {
       topic: string
-      requiredJsonShape: { cards: Array<{ category: string; rule: string; examples: Array<{ wrong: string; note: string }> }> }
+      requiredJsonShape: {
+        cards: Array<{ category: string; title: string; rule: string; examples: Array<{ wrong: string; note: string }> }>
+      }
     }
     const nativeSpeechShape = userPrompt.requiredJsonShape.cards[0]
     const russianTrapsShape = userPrompt.requiredJsonShape.cards[1]

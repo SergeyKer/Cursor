@@ -1,4 +1,5 @@
 import type { TutorAdaptiveTemplate } from '@/lib/lessonBlueprint'
+import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { LessonIntro } from '@/types/lesson'
 
 export type LearningLesson = {
@@ -9,6 +10,7 @@ export type LearningLesson = {
   actions: LearningLessonAction[]
   followups: Record<LearningLessonActionId, string>
   adaptiveTemplate?: TutorAdaptiveTemplate
+  tutorIntent?: TutorLearningIntent
   footer?: {
     dynamicText?: string
     staticText?: string

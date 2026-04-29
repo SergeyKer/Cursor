@@ -20,6 +20,7 @@ import { MENU_PRIMARY_CTA_CLASS } from '@/lib/homeCtaStyles'
 import type { ImageAnalysisResult } from '@/lib/types'
 import ThemeSelector from '@/components/settings/ThemeSelector'
 import { useTheme } from '@/contexts/ThemeContext'
+import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 
 const CHILD_TENSE_SET = new Set(CHILD_TENSES)
 const CHILD_SAFE_TOPICS = new Set<TopicId>([
@@ -140,7 +141,12 @@ export interface MenuSectionPanelsProps {
   /** Открыть урок из ветки «Обучение». */
   onOpenLearningLesson?: (lessonId: string) => void | Promise<void>
   onPrefetchLearningLesson?: (lessonId: string, mode?: 'generate' | 'repeat') => void
-  onOpenTutorLesson?: (request: { requestedTopic: string; analysisSummary?: string }) => Promise<void> | void
+  onOpenTutorLesson?: (request: {
+    requestedTopic: string
+    originalQuery?: string
+    selectedIntent?: TutorLearningIntent
+    analysisSummary?: string
+  }) => Promise<void> | void
   /** Стартовый уровень lessons-панели при открытии меню. */
   initialLessonsPanel?: LessonsPanel
 }
@@ -181,7 +187,9 @@ export default function MenuSectionPanels({
   const [tutorResult, setTutorResult] = React.useState<ImageAnalysisResult | null>(null)
   const [tutorSuggestedTopics, setTutorSuggestedTopics] = React.useState<string[]>([])
   const [tutorTopicHintsByTopic, setTutorTopicHintsByTopic] = React.useState<Record<string, string>>({})
+  const [tutorIntentOptions, setTutorIntentOptions] = React.useState<TutorLearningIntent[]>([])
   const [selectedTutorTopic, setSelectedTutorTopic] = React.useState<string | null>(null)
+  const [selectedTutorIntent, setSelectedTutorIntent] = React.useState<TutorLearningIntent | null>(null)
   const [tutorClarifyPrompt, setTutorClarifyPrompt] = React.useState<string | null>(null)
   const [tutorStep, setTutorStep] = React.useState<'input' | 'select'>('input')
   const [tutorStartingLesson, setTutorStartingLesson] = React.useState(false)
@@ -328,7 +336,9 @@ export default function MenuSectionPanels({
     setTutorCustomFocus('')
     setTutorSuggestedTopics([])
     setTutorTopicHintsByTopic({})
+    setTutorIntentOptions([])
     setSelectedTutorTopic(null)
+    setSelectedTutorIntent(null)
     setTutorClarifyPrompt(null)
     setTutorStep('input')
     setTutorStartingLesson(false)
@@ -356,7 +366,9 @@ export default function MenuSectionPanels({
       setTutorResult(null)
       setTutorSuggestedTopics([])
       setTutorTopicHintsByTopic({})
+      setTutorIntentOptions([])
       setSelectedTutorTopic(null)
+      setSelectedTutorIntent(null)
       setTutorClarifyPrompt(null)
       setTutorStep('input')
     }
@@ -383,6 +395,7 @@ export default function MenuSectionPanels({
         resolved?: boolean
         suggestions?: string[]
         suggestionMeta?: Array<{ topic?: string; whyRu?: string }>
+        intentOptions?: TutorLearningIntent[]
         primaryTopic?: string
         clarifyPrompt?: string
         error?: string
@@ -394,6 +407,7 @@ export default function MenuSectionPanels({
         resolved: Boolean(data.resolved),
         suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
         suggestionMeta: Array.isArray(data.suggestionMeta) ? data.suggestionMeta : [],
+        intentOptions: Array.isArray(data.intentOptions) ? data.intentOptions : [],
         primaryTopic: typeof data.primaryTopic === 'string' ? data.primaryTopic : undefined,
         clarifyPrompt: typeof data.clarifyPrompt === 'string' ? data.clarifyPrompt : undefined,
       }
@@ -413,7 +427,9 @@ export default function MenuSectionPanels({
         if (!resolution.resolved || !resolution.primaryTopic) {
           setTutorSuggestedTopics([])
           setTutorTopicHintsByTopic({})
+          setTutorIntentOptions([])
           setSelectedTutorTopic(null)
+          setSelectedTutorIntent(null)
           setTutorStep('input')
           setTutorClarifyPrompt(
             resolution.clarifyPrompt ??
@@ -425,6 +441,7 @@ export default function MenuSectionPanels({
         setTutorResult(null)
         setTutorClarifyPrompt(null)
         setTutorSuggestedTopics(resolution.suggestions)
+        setTutorIntentOptions(resolution.intentOptions)
         const hints: Record<string, string> = {}
         for (const item of resolution.suggestionMeta) {
           if (!item || typeof item.topic !== 'string' || typeof item.whyRu !== 'string') continue
@@ -435,6 +452,9 @@ export default function MenuSectionPanels({
         }
         setTutorTopicHintsByTopic(hints)
         setSelectedTutorTopic(resolution.primaryTopic)
+        setSelectedTutorIntent(
+          resolution.intentOptions.find((intent) => intent.title === resolution.primaryTopic) ?? resolution.intentOptions[0] ?? null
+        )
         setTutorStep('select')
       } catch (error) {
         const message =
@@ -442,7 +462,9 @@ export default function MenuSectionPanels({
         setTutorImageError(message)
         setTutorSuggestedTopics([])
         setTutorTopicHintsByTopic({})
+        setTutorIntentOptions([])
         setSelectedTutorTopic(null)
+        setSelectedTutorIntent(null)
         setTutorStep('input')
       } finally {
         setTutorLoading(false)
@@ -475,7 +497,9 @@ export default function MenuSectionPanels({
       if (!resolution.resolved || !resolution.primaryTopic) {
         setTutorSuggestedTopics([])
         setTutorTopicHintsByTopic({})
+        setTutorIntentOptions([])
         setSelectedTutorTopic(null)
+        setSelectedTutorIntent(null)
         setTutorStep('input')
         setTutorClarifyPrompt(
           resolution.clarifyPrompt ??
@@ -485,6 +509,7 @@ export default function MenuSectionPanels({
       }
       setTutorClarifyPrompt(null)
       setTutorSuggestedTopics(resolution.suggestions)
+      setTutorIntentOptions(resolution.intentOptions)
       const hints: Record<string, string> = {}
       for (const item of resolution.suggestionMeta) {
         if (!item || typeof item.topic !== 'string' || typeof item.whyRu !== 'string') continue
@@ -495,11 +520,16 @@ export default function MenuSectionPanels({
       }
       setTutorTopicHintsByTopic(hints)
       setSelectedTutorTopic(resolution.primaryTopic)
+      setSelectedTutorIntent(
+        resolution.intentOptions.find((intent) => intent.title === resolution.primaryTopic) ?? resolution.intentOptions[0] ?? null
+      )
       setTutorStep('select')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Нет связи с сервером. Проверьте интернет и попробуйте снова.'
       setTutorImageError(message)
       setTutorResult(null)
+      setTutorIntentOptions([])
+      setSelectedTutorIntent(null)
     } finally {
       setTutorLoading(false)
     }
@@ -684,7 +714,9 @@ export default function MenuSectionPanels({
                         onChange={(event) => {
                           setTutorCustomFocus(event.target.value)
                           setTutorSuggestedTopics([])
+                          setTutorIntentOptions([])
                           setSelectedTutorTopic(null)
+                          setSelectedTutorIntent(null)
                           setTutorClarifyPrompt(null)
                           setTutorStep('input')
                         }}
@@ -747,17 +779,22 @@ export default function MenuSectionPanels({
                         Выберите тему и нажмите «Начать».
                       </p>
                       <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] p-2">
-                        {tutorSuggestedTopics.map((topic) => (
+                        {tutorSuggestedTopics.map((topic) => {
+                          const intent = tutorIntentOptions.find((item) => item.title === topic)
+                          return (
                           <button
                             key={topic}
                             type="button"
-                            onClick={() => setSelectedTutorTopic(topic)}
+                            onClick={() => {
+                              setSelectedTutorTopic(topic)
+                              setSelectedTutorIntent(intent ?? null)
+                            }}
                             className="flex w-full items-center justify-between rounded-lg border border-[var(--border)] px-3 py-2 text-left text-[14px] text-[var(--text)] hover:bg-[var(--border)]/20"
                           >
                             <span className="pr-2">
                               <span className="block">{topic}</span>
                               <span className="block text-[12px] leading-snug text-[var(--text-muted)]">
-                                {tutorTopicHintsByTopic[topic] ?? 'Выберите самый близкий вариант к вашему запросу.'}
+                                {intent?.goalRu ?? tutorTopicHintsByTopic[topic] ?? 'Выберите самый близкий вариант к вашему запросу.'}
                               </span>
                             </span>
                             {selectedTutorTopic === topic ? (
@@ -766,7 +803,8 @@ export default function MenuSectionPanels({
                               <span className="h-4 w-4 shrink-0" aria-hidden />
                             )}
                           </button>
-                        ))}
+                          )
+                        })}
                       </div>
                       <button
                         type="button"
@@ -777,6 +815,8 @@ export default function MenuSectionPanels({
                           try {
                             await onOpenTutorLesson({
                               requestedTopic: selectedTutorTopic,
+                              originalQuery: tutorCustomFocus.trim() || undefined,
+                              selectedIntent: selectedTutorIntent ?? undefined,
                               analysisSummary: tutorResult?.whatISee.summaryRu,
                             })
                           } finally {

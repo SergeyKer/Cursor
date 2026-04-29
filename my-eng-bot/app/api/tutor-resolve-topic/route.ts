@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callProviderChat } from '@/lib/callProviderChat'
 import { findStaticLessonByTopic } from '@/lib/learningLessons'
+import {
+  buildFallbackTutorLearningIntent,
+  buildPresetTutorLearningIntents,
+  normalizeTutorLearningIntentOptions,
+  type TutorLearningIntent,
+} from '@/lib/tutorLearningIntent'
 import type { AiProvider, Audience, LevelId } from '@/lib/types'
 
 type Body = {
@@ -18,6 +24,7 @@ type TopicResolutionResponse = {
   confidence?: 'low' | 'medium' | 'high'
   suggestions: string[]
   suggestionMeta?: Array<{ topic: string; whyRu: string }>
+  intentOptions?: TutorLearningIntent[]
   primaryTopic?: string
   clarifyPrompt?: string
 }
@@ -182,6 +189,7 @@ function safeFallback(query: string): TopicResolutionResponse {
     confidence: hasGrammarSignal(q) ? 'medium' : 'low',
     suggestions: [q],
     suggestionMeta: [{ topic: q, whyRu: 'Тема выбрана по вашему запросу.' }],
+    intentOptions: [buildFallbackTutorLearningIntent(q)],
     primaryTopic: q,
   }
 }
@@ -198,6 +206,7 @@ function resolvePresetGrammarTopic(query: string): TopicResolutionResponse | nul
       confidence: 'high',
       suggestions: ['To Be'],
       suggestionMeta: [{ topic: 'To Be', whyRu: 'Формы глагола-связки be: am, is, are, was, were.' }],
+      intentOptions: [buildFallbackTutorLearningIntent('To Be')],
       primaryTopic: 'To Be',
     }
   }
@@ -209,6 +218,7 @@ function resolvePresetGrammarTopic(query: string): TopicResolutionResponse | nul
       confidence: 'high',
       suggestions: ['Many/Much'],
       suggestionMeta: [{ topic: 'Many/Much', whyRu: 'Выбор между many и much для количества.' }],
+      intentOptions: [buildFallbackTutorLearningIntent('Many/Much')],
       primaryTopic: 'Many/Much',
     }
   }
@@ -225,6 +235,11 @@ function resolvePresetGrammarTopic(query: string): TopicResolutionResponse | nul
         { topic: 'To Be', whyRu: 'Базовый глагол-связка и его формы в разных временах.' },
       ],
       primaryTopic: 'Present Perfect',
+      intentOptions: [
+        buildFallbackTutorLearningIntent('Present Perfect'),
+        buildFallbackTutorLearningIntent('Present Perfect Continuous'),
+        buildFallbackTutorLearningIntent('To Be'),
+      ],
     }
   }
 
@@ -271,6 +286,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(preset, { status: 200 })
   }
 
+  const presetIntents = buildPresetTutorLearningIntents(query)
+  if (presetIntents.length > 0) {
+    return NextResponse.json(
+      {
+        resolved: true,
+        status: 'resolved',
+        confidence: 'high',
+        suggestions: presetIntents.map((intent) => intent.title),
+        suggestionMeta: presetIntents.map((intent) => ({ topic: intent.title, whyRu: intent.goalRu })),
+        intentOptions: presetIntents,
+        primaryTopic: presetIntents[0].title,
+      } satisfies TopicResolutionResponse,
+      { status: 200 }
+    )
+  }
+
   if (isLikelyNoise(query)) {
     return NextResponse.json(buildNoiseRejection(), { status: 200 })
   }
@@ -301,12 +332,16 @@ export async function POST(req: NextRequest) {
     '  "resolved": true|false,',
     '  "suggestions": ["Topic 1", "Topic 2"],',
     '  "suggestionMeta": [{"topic":"Topic 1","whyRu":"краткое объяснение по-русски"}],',
+    '  "intentOptions": [{"id":"short-id","title":"Topic 1","learnerQuestionRu":"что ученик хочет понять","topicType":"grammar|vocabulary|contrast|phrase_patterns|concept","goalRu":"что ученик научится делать","targetPatterns":["короткий шаблон"],"examples":[{"en":"English example","ru":"перевод","noteRu":"почему это важно"}],"commonMistakes":["ошибка"],"mustTrain":["что обязательно тренировать"],"mustAvoid":["чего избегать"],"firstPracticeGoalRu":"первый шаг практики"}],',
     '  "primaryTopic": "Topic 1",',
     '  "clarifyPrompt": "строка на русском, если тему нельзя определить"',
     '}',
     'Правила:',
     '- suggestions: 1..5 коротких грамматических тем на английском.',
     '- Для каждого варианта заполни suggestionMeta с тем же topic и понятным whyRu на русском.',
+    '- intentOptions: 1..5 вариантов, строго соответствуют suggestions по title; каждый вариант описывает, что именно тренировать в уроке.',
+    '- В intentOptions.examples давай живые короткие английские фразы, а не служебные фразы про "topic/rule/pattern".',
+    '- Для широких слов вроде colors, numbers, animals, family, get сначала уточняй учебную цель через разные intentOptions.',
     '- Если ввод похож на случайный шум или бессмысленный набор символов, поставь resolved=false и заполнить clarifyPrompt по-русски.',
     '- Если ввод осмысленный, но широкий или не явно грамматический, НЕ отклоняй его: предложи ближайшие темы грамматики английского.',
     '- Не предлагай темы про поведение животных/предметов, только грамматику английского вокруг запроса.',
@@ -349,6 +384,9 @@ export async function POST(req: NextRequest) {
       const existing = suggestionMetaRaw.find((meta) => meta.topic.toLowerCase() === topic.toLowerCase())
       return existing ?? { topic, whyRu: 'Подходит как грамматический фокус для вашего запроса.' }
     })
+    const normalizedIntents = normalizeTutorLearningIntentOptions(parsed.intentOptions)
+    const intentByTitle = new Map(normalizedIntents.map((intent) => [intent.title.toLowerCase(), intent]))
+    const intentOptions = suggestions.map((topic) => intentByTitle.get(topic.toLowerCase()) ?? buildFallbackTutorLearningIntent(topic))
     const primaryTopicRaw = typeof parsed.primaryTopic === 'string' ? normalizeTopic(parsed.primaryTopic) : ''
     const primaryTopic = primaryTopicRaw || suggestions[0]
     const clarifyPromptRaw = typeof parsed.clarifyPrompt === 'string' ? normalizeTopic(parsed.clarifyPrompt) : ''
@@ -375,6 +413,7 @@ export async function POST(req: NextRequest) {
         confidence: hasGrammarSignal(query) ? 'high' : 'medium',
         suggestions,
         suggestionMeta,
+        intentOptions,
         primaryTopic,
       } satisfies TopicResolutionResponse,
       { status: 200 }
