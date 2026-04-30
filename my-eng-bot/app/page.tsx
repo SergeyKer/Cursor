@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import React, { useCallback, useEffect, useState } from 'react'
 import type { AiChatPanel } from '@/lib/aiChatPanel'
 import { getHomeMenuInstruction } from '@/lib/homeMenuInstruction'
+import { featureFlags } from '@/lib/featureFlags'
 import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
 import { HomeMenuInstructionBubble } from '@/components/HomeMenuInstructionBubble'
 import HomeEmptyBubble from '@/components/HomeEmptyBubble'
@@ -59,12 +60,21 @@ import {
   type LearningLessonActionId,
 } from '@/lib/learningLessons'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
+import { getPracticeLessonById, pickQuickStartPracticeTopic } from '@/lib/lessonCatalog'
 import { buildFallbackLessonIntro } from '@/lib/lessonIntro'
 import { buildTutorStructuredLesson } from '@/lib/tutorStructuredLesson'
 import type { LessonBlueprint } from '@/lib/lessonBlueprint'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { LessonMenuContext } from '@/components/SlideOutMenu'
 import type { LessonData, PostLessonAction } from '@/types/lesson'
+import type {
+  PracticeBuildConfig,
+  PracticeEntrySource,
+  PracticeMode,
+  PracticeQuestion,
+  PracticeSession,
+  PracticeSource,
+} from '@/types/practice'
 import AppFooter from '@/components/AppFooter'
 import LessonIntroScreen, { type LessonIntroDepth } from '@/components/LessonIntroScreen'
 import LessonExtraTipsScreen, {
@@ -73,6 +83,9 @@ import LessonExtraTipsScreen, {
 } from '@/components/LessonExtraTipsScreen'
 import LessonStepRenderer from '@/components/LessonStepRenderer'
 import { useLessonEngine } from '@/hooks/useLessonEngine'
+import { usePracticeSession } from '@/hooks/usePracticeSession'
+import PracticeScreen from '@/components/practice/PracticeScreen'
+import { getPracticeFooterView } from '@/lib/practice/practiceFooter'
 import { pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 
@@ -82,6 +95,26 @@ const Chat = dynamic(() => import('@/components/Chat'))
 const SlideOutMenu = dynamic(() => import('@/components/SlideOutMenu'))
 type StructuredLessonRuntimeMode = 'generate' | 'repeat'
 type LessonRepeatFallbackReason = 'provider' | 'parse' | 'validation' | 'exception' | 'no_steps'
+type PracticeOpenRequest = {
+  lessonId?: string
+  mode: PracticeMode
+  entrySource: PracticeEntrySource
+  customTopic?: string
+}
+type PracticeGenerateResponse = {
+  questions?: PracticeQuestion[]
+  generated?: boolean
+  fallback?: boolean
+  fallbackReason?: string
+  error?: string
+}
+type PracticeTopicResolutionResponse = {
+  resolved?: boolean
+  primaryTopic?: string
+  suggestions?: string[]
+  intentOptions?: TutorLearningIntent[]
+  error?: string
+}
 type LessonRepeatResponse = {
   lesson?: LessonData
   generated?: boolean
@@ -381,6 +414,8 @@ export default function Home() {
     mistakes: activeStructuredLessonMistakes,
     completedSteps: activeStructuredLessonCompletedSteps,
   } = useLessonEngine(activeStructuredLesson)
+  const practiceSession = usePracticeSession()
+  const { abandonSession: abandonPracticeSession, startSession: startPracticeSession } = practiceSession
   const structuredLessonChoiceShuffleSeed =
     activeStructuredLesson == null
       ? undefined
@@ -861,6 +896,7 @@ export default function Home() {
 
   const resetStructuredLessonSession = useCallback(() => {
     lessonOpenRequestIdRef.current += 1
+    abandonPracticeSession()
     setLessonMenuContext(null)
     setActiveLearningLessonId(null)
     setActiveStructuredLessonRuntime(null)
@@ -874,7 +910,7 @@ export default function Home() {
     setLessonIntroDepth('quick')
     setLessonExtraTipsStatus('idle')
     setLessonExtraTipsState(null)
-  }, [])
+  }, [abandonPracticeSession])
 
   const restartChatForNewModeFromMenu = useCallback(() => {
     suppressSettingsChangeBannerRef.current = true
@@ -1302,6 +1338,260 @@ export default function Home() {
     [activeLearningLessonId]
   )
 
+  const startPracticeFromLesson = useCallback(
+    (config: PracticeBuildConfig) => {
+      resetStructuredLessonSession()
+      firstMessageRequestIdRef.current += 1
+      firstMessageInFlightRef.current = false
+      suppressSettingsChangeBannerRef.current = true
+      setDialogStarted(true)
+      setMenuOpen(false)
+      setHomeMenuView('lessons')
+      setMessages([])
+      setLoading(false)
+      setRetryMessage(null)
+      setSearchingInternet(false)
+      setLoadingTranslationIndex(null)
+      setForceNextMicLang(null)
+      setSettingsAtLastSend(null)
+      setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'practice' })
+      startPracticeSession(config)
+    },
+    [resetStructuredLessonSession, startPracticeSession]
+  )
+
+  const resolvePracticeRequest = useCallback(
+    async (request: PracticeOpenRequest, generationSource: PracticeBuildConfig['generationSource']): Promise<PracticeBuildConfig> => {
+      const customTopic = request.customTopic?.trim()
+      let resolvedLessonId = request.lessonId ?? null
+      let lesson: LessonData | null = null
+      let source: PracticeSource | null = null
+
+      if (!resolvedLessonId && customTopic) {
+        const staticMatch = findStaticLessonByTopic(customTopic)
+        resolvedLessonId = staticMatch?.id ?? null
+
+        if (!resolvedLessonId) {
+          const resolutionResponse = await fetch('/api/tutor-resolve-topic', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              provider: settings.provider,
+              openAiChatPreset: settings.openAiChatPreset,
+              query: customTopic,
+              level: settings.level,
+              audience: settings.audience,
+            }),
+          })
+          const resolution = (await resolutionResponse.json()) as PracticeTopicResolutionResponse
+          const selectedIntent = resolution.intentOptions?.[0]
+          const resolvedTopic = resolution.primaryTopic ?? selectedIntent?.title ?? resolution.suggestions?.[0] ?? customTopic
+          const resolvedStaticMatch = findStaticLessonByTopic(resolvedTopic)
+          resolvedLessonId = resolvedStaticMatch?.id ?? null
+
+          if (!resolvedLessonId) {
+            let blueprint: LessonBlueprint | null = null
+            try {
+              const lessonResponse = await fetch('/api/lesson-generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  provider: settings.provider,
+                  openAiChatPreset: settings.openAiChatPreset,
+                  topic: resolvedTopic,
+                  originalQuery: customTopic,
+                  intent: selectedIntent,
+                  level: settings.level,
+                  audience: settings.audience,
+                }),
+              })
+              const lessonData = (await lessonResponse.json()) as { lesson?: LessonBlueprint; error?: string }
+              if (lessonResponse.ok && lessonData.lesson) {
+                blueprint = lessonData.lesson
+              }
+            } catch (error) {
+              console.warn('practice custom lesson-generate failed, fallback blueprint will be used:', error)
+            }
+
+            const finalBlueprint = blueprint ?? buildTutorFallbackBlueprint(resolvedTopic)
+            const tutorIntent = finalBlueprint.tutorIntent ?? selectedIntent
+            const runtimeLessonId = registerRuntimeLearningLesson({
+              title: finalBlueprint.title,
+              intro: finalBlueprint.intro,
+              theoryIntro: finalBlueprint.theoryIntro,
+              actions: finalBlueprint.actions,
+              followups: finalBlueprint.followups,
+              adaptiveTemplate: finalBlueprint.adaptiveTemplate,
+              tutorIntent,
+            })
+            lesson = buildTutorStructuredLesson({
+              id: runtimeLessonId,
+              topic: finalBlueprint.title || resolvedTopic,
+              level: settings.level,
+              blueprint: { ...finalBlueprint, tutorIntent },
+            })
+            source = {
+              kind: 'runtime_lesson',
+              lesson,
+              origin: 'tutor',
+              topicInput: customTopic,
+              tutorIntent,
+            }
+          }
+        }
+      }
+
+      resolvedLessonId = resolvedLessonId ?? pickQuickStartPracticeTopic('A2')?.id ?? null
+      if (!lesson && resolvedLessonId) {
+        lesson = getPracticeLessonById(resolvedLessonId)
+        source = { kind: 'static_lesson', lessonId: resolvedLessonId }
+      }
+
+      if (!lesson) {
+        throw new Error('Для этой темы пока нет практики.')
+      }
+
+      let questions: PracticeQuestion[] | undefined
+      if (generationSource === 'ai_generated') {
+        const response = await fetch('/api/practice-generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: settings.provider,
+            openAiChatPreset: settings.openAiChatPreset,
+            audience: settings.audience,
+            lessonId: source?.kind === 'static_lesson' ? source.lessonId : undefined,
+            lesson: source?.kind === 'runtime_lesson' ? lesson : undefined,
+            mode: request.mode,
+          }),
+        })
+        const data = (await response.json()) as PracticeGenerateResponse
+        if (!response.ok) {
+          throw new Error(data.error ?? 'Не удалось сгенерировать практику.')
+        }
+        if (Array.isArray(data.questions) && data.questions.length > 0) {
+          questions = data.questions
+        }
+      }
+
+      return {
+        source: source ?? { kind: 'static_lesson', lessonId: lesson.id },
+        lesson,
+        mode: request.mode,
+        entrySource: request.entrySource,
+        generationSource,
+        questions,
+      }
+    },
+    [settings.audience, settings.level, settings.openAiChatPreset, settings.provider]
+  )
+
+  const openPracticeSession = useCallback(
+    async (request: PracticeOpenRequest) => {
+      const config = await resolvePracticeRequest(request, 'local')
+      startPracticeFromLesson(config)
+    },
+    [resolvePracticeRequest, startPracticeFromLesson]
+  )
+
+  const generatePracticeSession = useCallback(
+    async (request: PracticeOpenRequest) => {
+      const config = await resolvePracticeRequest(request, 'ai_generated')
+      startPracticeFromLesson(config)
+    },
+    [resolvePracticeRequest, startPracticeFromLesson]
+  )
+
+  const restartPracticeFromExistingSession = useCallback(
+    async (session: PracticeSession, mode: PracticeMode, generationSource: PracticeBuildConfig['generationSource']) => {
+      if (session.source.kind === 'static_lesson') {
+        const request = { lessonId: session.source.lessonId, mode, entrySource: 'menu' as const }
+        if (generationSource === 'ai_generated') {
+          await generatePracticeSession(request)
+        } else {
+          await openPracticeSession(request)
+        }
+        return
+      }
+
+      let questions: PracticeQuestion[] | undefined
+      const lesson = session.source.lesson
+      if (generationSource === 'ai_generated') {
+        const response = await fetch('/api/practice-generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: settings.provider,
+            openAiChatPreset: settings.openAiChatPreset,
+            audience: settings.audience,
+            lesson,
+            mode,
+          }),
+        })
+        const data = (await response.json()) as PracticeGenerateResponse
+        if (response.ok && Array.isArray(data.questions) && data.questions.length > 0) {
+          questions = data.questions
+        }
+      }
+
+      startPracticeFromLesson({
+        source: session.source,
+        lesson,
+        mode,
+        entrySource: 'menu',
+        generationSource,
+        questions,
+      })
+    },
+    [
+      generatePracticeSession,
+      openPracticeSession,
+      settings.audience,
+      settings.openAiChatPreset,
+      settings.provider,
+      startPracticeFromLesson,
+    ]
+  )
+
+  const openLessonFromPractice = useCallback(
+    (session: PracticeSession) => {
+      if (session.source.kind === 'static_lesson') {
+        void openLearningLesson(session.source.lessonId, 'a2')
+        return
+      }
+
+      const runtimeLesson = session.source.lesson
+      abandonPracticeSession()
+      firstMessageRequestIdRef.current += 1
+      firstMessageInFlightRef.current = false
+      suppressSettingsChangeBannerRef.current = true
+      setDialogStarted(true)
+      setMenuOpen(false)
+      setHomeMenuView('lessons')
+      setLoading(false)
+      setRetryMessage(null)
+      setSearchingInternet(false)
+      setLoadingTranslationIndex(null)
+      setForceNextMicLang(null)
+      setSettingsAtLastSend(null)
+      setActiveLearningLessonId(runtimeLesson.id)
+      setActiveStructuredLessonRuntime(runtimeLesson)
+      setStructuredLessonLoadingId(null)
+      setPendingTutorLessonTitle(null)
+      setActiveLessonVariantNumber(1)
+      setSelectedPostLessonAction(null)
+      setPostLessonBusy(false)
+      setLessonOverlay(null)
+      setLessonViewStage('intro')
+      setLessonIntroDepth('quick')
+      setLessonExtraTipsStatus('idle')
+      setLessonExtraTipsState(null)
+      setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'tutor' })
+      setMessages([])
+    },
+    [abandonPracticeSession, openLearningLesson]
+  )
+
   const handlePostLessonAction = useCallback(
     async (action: PostLessonAction) => {
       if (!activeStructuredLesson || !activeStructuredLessonStep?.postLesson) return
@@ -1352,7 +1642,40 @@ export default function Home() {
         return
       }
 
-      const nextMode: Settings['mode'] = action === 'independent_practice' ? 'translation' : 'communication'
+      if (action === 'independent_practice') {
+        if (!featureFlags.practiceEngineV1) {
+          const nextMode: Settings['mode'] = 'translation'
+          setLessonOverlay(null)
+          setSettings((prev) => ({
+            ...prev,
+            mode: nextMode,
+          }))
+          setTimeout(() => {
+            restartChatForNewModeFromMenu()
+          }, 0)
+          return
+        }
+        const source: PracticeSource =
+          lessonMenuContext?.lessonsPanel === 'tutor' || !getStructuredLessonById(activeStructuredLesson.id)
+            ? {
+                kind: 'runtime_lesson',
+                lesson: activeStructuredLesson,
+                origin: 'tutor',
+                tutorIntent: activeStructuredLesson.tutorIntent,
+              }
+            : { kind: 'static_lesson', lessonId: activeStructuredLesson.id }
+        startPracticeFromLesson({
+          source,
+          lesson: activeStructuredLesson,
+          mode: 'relaxed',
+          entrySource: lessonMenuContext?.lessonsPanel === 'tutor' ? 'tutor_after_lesson' : 'after_lesson',
+          generationSource: 'local',
+        })
+        setPostLessonBusy(false)
+        return
+      }
+
+      const nextMode: Settings['mode'] = 'communication'
       setLessonOverlay(null)
       setSettings((prev) => ({
         ...prev,
@@ -1362,7 +1685,14 @@ export default function Home() {
         restartChatForNewModeFromMenu()
       }, 0)
     },
-    [activeStructuredLesson, activeStructuredLessonStep, fetchStructuredLessonRuntime, restartChatForNewModeFromMenu]
+    [
+      activeStructuredLesson,
+      activeStructuredLessonStep,
+      fetchStructuredLessonRuntime,
+      lessonMenuContext?.lessonsPanel,
+      restartChatForNewModeFromMenu,
+      startPracticeFromLesson,
+    ]
   )
 
   useEffect(() => {
@@ -1861,6 +2191,7 @@ export default function Home() {
 
   const activeLearningLesson = activeLearningLessonId ? getLearningLessonById(activeLearningLessonId) : null
   const isLessonActive = Boolean(activeLearningLesson)
+  const isPracticeActive = Boolean(practiceSession.session)
   const activeLessonIntro =
     activeStructuredLesson?.intro ??
     activeLearningLesson?.intro ??
@@ -1885,6 +2216,9 @@ export default function Home() {
       ? activeLearningLesson?.footer?.staticText ??
         (lessonMenuContext?.lessonsPanel === 'tutor' ? 'Репетитор' : 'Теория')
       : null)
+  const practiceFooterView = practiceSession.session
+    ? getPracticeFooterView(practiceSession.session, practiceSession.state === 'active' ? 'idle' : practiceSession.state)
+    : null
   const chatFooterVoice = React.useMemo(() => {
     if (!dialogStarted || isLessonActive) return null
     const candidates: Array<FooterVoiceCandidate | null> = [
@@ -2046,9 +2380,11 @@ export default function Home() {
       : lessonExtraTipsStatus === 'more-loading' || lessonExtraTipsStatus === 'more-ready'
         ? 'Фишки темы | ещё 1 блок'
         : 'Дополнительные фишки | 0/7 шагов'
-  const footerDynamicText = isLessonIntroActive
-    ? introFooterDynamicText
-    : isLessonTipsActive
+  const footerDynamicText = isPracticeActive
+    ? practiceFooterView?.dynamicText ?? null
+    : isLessonIntroActive
+      ? introFooterDynamicText
+      : isLessonTipsActive
       ? tipsFooterDynamicText
       : isStructuredLessonActive
       ? activeStructuredLessonFooterDynamicText
@@ -2057,9 +2393,11 @@ export default function Home() {
       : dialogStarted
         ? chatFooterVoice?.text ?? null
         : homeFooterVoice?.text ?? null
-  const footerStaticText = isLessonIntroActive
-    ? introFooterStaticText
-    : isLessonTipsActive
+  const footerStaticText = isPracticeActive
+    ? practiceFooterView?.staticText ?? 'Практика'
+    : isLessonIntroActive
+      ? introFooterStaticText
+      : isLessonTipsActive
       ? tipsFooterStaticText
       : isStructuredLessonActive
       ? activeStructuredLessonFooterStaticText
@@ -2068,18 +2406,26 @@ export default function Home() {
       : dialogStarted
         ? getMenuSummary(false)
         : 'Главная'
-  const footerTypingKey = isLessonIntroActive
-    ? `${activeLearningLessonId ?? 'lesson'}:intro:${lessonIntroDepth}`
-    : isLessonTipsActive
+  const footerTypingKey = isPracticeActive
+    ? practiceFooterView?.typingKey ?? 'practice-footer'
+    : isLessonIntroActive
+      ? `${activeLearningLessonId ?? 'lesson'}:intro:${lessonIntroDepth}`
+      : isLessonTipsActive
       ? `${activeLessonTipsKey}:tips:${lessonExtraTipsStatus}`
       : isStructuredLessonActive
       ? activeStructuredLessonFooterTypingKey
       : dialogStarted
       ? chatFooterVoice?.typingKey ?? 'chat-footer'
       : homeFooterVoice?.typingKey ?? 'home-footer'
-  const footerVoiceTone = isLessonIntroActive
-    ? 'neutral'
-    : isLessonTipsActive
+  const footerVoiceTone = isPracticeActive
+    ? practiceSession.state === 'correction'
+      ? 'hint'
+      : practiceSession.state === 'completed'
+        ? 'support'
+        : 'neutral'
+    : isLessonIntroActive
+      ? 'neutral'
+      : isLessonTipsActive
       ? lessonExtraTipsStatus === 'loading' || lessonExtraTipsStatus === 'more-loading'
         ? 'thinking'
         : lessonExtraTipsStatus === 'quiz-correct' || lessonExtraTipsStatus === 'more-ready'
@@ -2094,9 +2440,13 @@ export default function Home() {
       : dialogStarted
       ? (chatFooterVoice?.tone ?? 'neutral')
       : (homeFooterVoice?.tone ?? 'neutral')
-  const footerVoiceEmphasis = isLessonIntroActive
-    ? 'none'
-    : isLessonTipsActive
+  const footerVoiceEmphasis = isPracticeActive
+    ? practiceSession.state === 'completed'
+      ? 'pulse'
+      : 'none'
+    : isLessonIntroActive
+      ? 'none'
+      : isLessonTipsActive
       ? lessonExtraTipsStatus === 'loading' ||
         lessonExtraTipsStatus === 'more-loading' ||
         lessonExtraTipsStatus === 'quiz-correct' ||
@@ -2110,6 +2460,8 @@ export default function Home() {
       : (homeFooterVoice?.emphasis ?? 'none')
   const pageTitle = !dialogStarted
     ? 'MyEng - мой английский друг'
+    : isPracticeActive
+      ? 'Практика MyEng'
     : isTutorLessonHeader
       ? 'Репетитор с MyEng'
       : activeLessonTitle
@@ -2396,6 +2748,8 @@ export default function Home() {
                     onAiChatPanelChange={setHomeAiChatPanel}
                     onOpenLearningLesson={openLearningLesson}
                     onGenerateLearningLesson={openGeneratedLearningLesson}
+                    onOpenPracticeSession={openPracticeSession}
+                    onGeneratePracticeSession={generatePracticeSession}
                     onOpenTutorLesson={openTutorLesson}
                   />
                 </div>
@@ -2420,7 +2774,36 @@ export default function Home() {
             {/* На iOS после закрытия клавиатуры иногда остаётся небольшой технический зазор.
                Чтобы не просвечивал серый фон страницы, держим фон тем же, что и у чата. */}
             <div className="min-h-0 flex-1 bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
-              {isTutorLessonPending ? (
+              {isPracticeActive && practiceSession.session ? (
+                <PracticeScreen
+                  session={practiceSession.session}
+                  state={practiceSession.state}
+                  currentQuestion={practiceSession.currentQuestion}
+                  feedback={practiceSession.feedback}
+                  canSubmit={practiceSession.canSubmit}
+                  onSubmitAnswer={practiceSession.submitAnswer}
+                  onNextQuestion={practiceSession.nextQuestion}
+                  onRepeat={() => {
+                    if (!practiceSession.session) return
+                    void restartPracticeFromExistingSession(practiceSession.session, practiceSession.session.mode, 'ai_generated')
+                  }}
+                  onStartMode={(mode) => {
+                    if (!practiceSession.session) return
+                    void restartPracticeFromExistingSession(practiceSession.session, mode, 'local')
+                  }}
+                  onOpenLesson={() => {
+                    if (!practiceSession.session) return
+                    openLessonFromPractice(practiceSession.session)
+                  }}
+                  onBackToPracticeMenu={() => {
+                    practiceSession.abandonSession()
+                    setDialogStarted(false)
+                    setHomeMenuView('lessons')
+                    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'practice' })
+                  }}
+                  generationBusy={loading}
+                />
+              ) : isTutorLessonPending ? (
                 <div className="flex h-full min-h-0 items-center justify-center bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)] px-4">
                   <div className="lesson-enter glass-surface w-full max-w-[24rem] rounded-[1.5rem] border border-[var(--chat-section-neutral-border)] bg-white/95 px-4 py-5 text-center shadow-sm">
                     <p className="text-[15px] font-semibold text-[var(--text)]">MyEng составляет урок...</p>
@@ -2545,6 +2928,8 @@ export default function Home() {
         onGoHome={goToStartScreen}
         onOpenLearningLesson={openLearningLesson}
         onGenerateLearningLesson={openGeneratedLearningLesson}
+        onOpenPracticeSession={openPracticeSession}
+        onGeneratePracticeSession={generatePracticeSession}
         onOpenTutorLesson={openTutorLesson}
         lessonMenuContext={lessonMenuContext}
         topOffset="var(--app-top-offset)"

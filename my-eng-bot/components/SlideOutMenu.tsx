@@ -5,6 +5,7 @@ import type { Settings, UsageInfo } from '@/lib/types'
 import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/components/MenuSectionPanels'
 import { SLIDE_OUT_NEW_CHAT_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
+import type { PracticeEntrySource, PracticeMode } from '@/types/practice'
 
 export type LessonMenuContext = {
   menuView: 'lessons'
@@ -31,6 +32,18 @@ interface SlideOutMenuProps {
   onOpenLearningLesson?: (lessonId: string) => void
   /** Сгенерировать новый вариант урока через LLM. */
   onGenerateLearningLesson?: (lessonId: string) => Promise<void> | void
+  onOpenPracticeSession?: (request: {
+    lessonId?: string
+    mode: PracticeMode
+    entrySource: PracticeEntrySource
+    customTopic?: string
+  }) => Promise<void> | void
+  onGeneratePracticeSession?: (request: {
+    lessonId?: string
+    mode: PracticeMode
+    entrySource: PracticeEntrySource
+    customTopic?: string
+  }) => Promise<void> | void
   /** Открыть урок из ветки «Репетитор». */
   onOpenTutorLesson?: (request: {
     requestedTopic: string
@@ -60,6 +73,8 @@ export default function SlideOutMenu({
   chatActive = false,
   onOpenLearningLesson,
   onGenerateLearningLesson,
+  onOpenPracticeSession,
+  onGeneratePracticeSession,
   onOpenTutorLesson,
   lessonMenuContext,
   topOffset = 'calc(2.75rem + env(safe-area-inset-top, 0px))',
@@ -142,6 +157,8 @@ export default function SlideOutMenu({
             onGoHome={onGoHome}
             onOpenLearningLesson={onOpenLearningLesson}
             onGenerateLearningLesson={onGenerateLearningLesson}
+            onOpenPracticeSession={onOpenPracticeSession}
+            onGeneratePracticeSession={onGeneratePracticeSession}
             onOpenTutorLesson={onOpenTutorLesson}
             initialLessonsPanel={menuView === 'lessons' ? lessonMenuContext?.lessonsPanel : undefined}
           />

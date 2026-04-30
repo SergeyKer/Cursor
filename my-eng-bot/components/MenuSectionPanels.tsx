@@ -17,10 +17,13 @@ import type {
 } from '@/lib/types'
 import type { AiChatPanel } from '@/lib/aiChatPanel'
 import { MENU_PRIMARY_CTA_CLASS } from '@/lib/homeCtaStyles'
+import { featureFlags } from '@/lib/featureFlags'
+import { getPracticeLessonTopics, getTheoryLessonTopics, pickQuickStartPracticeTopic } from '@/lib/lessonCatalog'
 import type { ImageAnalysisResult } from '@/lib/types'
 import ThemeSelector from '@/components/settings/ThemeSelector'
 import { useTheme } from '@/contexts/ThemeContext'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
+import type { PracticeEntrySource, PracticeMode } from '@/types/practice'
 
 const CHILD_TENSE_SET = new Set(CHILD_TENSES)
 const CHILD_SAFE_TOPICS = new Set<TopicId>([
@@ -39,7 +42,7 @@ export type MenuView = 'root' | 'lessons' | 'aiChat' | 'settings' | 'progress' |
 
 export type { AiChatPanel }
 
-export type LessonsPanel = 'summary' | 'theory' | 'a2' | 'tutor'
+export type LessonsPanel = 'summary' | 'theory' | 'a2' | 'practice' | 'tutor'
 
 const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
   summary: 'Чат с MyEng',
@@ -65,6 +68,7 @@ const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
   summary: 'Уроки',
   theory: 'Теория',
   a2: 'A2',
+  practice: 'Практика',
   tutor: 'Репетитор',
 }
 
@@ -75,10 +79,22 @@ const THEORY_LEVELS: { id: string; label: string }[] = [
   { id: 'B2', label: 'B2 - выше среднего' },
 ]
 
-const A2_THEORY_ITEMS: { id: string; label: string; enabled: boolean }[] = [
-  { id: '1', label: 'It’s / It’s time to', enabled: true },
-  { id: '2', label: 'Who ...?', enabled: true },
-  { id: '3', label: 'I know what she likes', enabled: true },
+const A2_THEORY_ITEMS = getTheoryLessonTopics('A2').map((item) => ({
+  id: item.id,
+  label: item.title,
+  enabled: item.enabled,
+}))
+
+const A2_PRACTICE_ITEMS = getPracticeLessonTopics('A2').map((item) => ({
+  id: item.id,
+  label: item.title,
+  enabled: item.enabled,
+}))
+
+const PRACTICE_MODE_OPTIONS: { id: PracticeMode; label: string }[] = [
+  { id: 'relaxed', label: 'Relaxed · 6 заданий' },
+  { id: 'balanced', label: 'Balanced · 10 заданий' },
+  { id: 'challenge', label: 'Challenge · 12 заданий' },
 ]
 
 const MODE_OPTIONS: { id: AppMode; label: string }[] = [
@@ -142,6 +158,18 @@ export interface MenuSectionPanelsProps {
   onOpenLearningLesson?: (lessonId: string) => void | Promise<void>
   /** Сгенерировать новый вариант урока через LLM, не открывая локальную версию. */
   onGenerateLearningLesson?: (lessonId: string) => void | Promise<void>
+  onOpenPracticeSession?: (request: {
+    lessonId?: string
+    mode: PracticeMode
+    entrySource: PracticeEntrySource
+    customTopic?: string
+  }) => void | Promise<void>
+  onGeneratePracticeSession?: (request: {
+    lessonId?: string
+    mode: PracticeMode
+    entrySource: PracticeEntrySource
+    customTopic?: string
+  }) => void | Promise<void>
   onOpenTutorLesson?: (request: {
     requestedTopic: string
     originalQuery?: string
@@ -167,6 +195,8 @@ export default function MenuSectionPanels({
   onAiChatPanelChange,
   onOpenLearningLesson,
   onGenerateLearningLesson,
+  onOpenPracticeSession,
+  onGeneratePracticeSession,
   onOpenTutorLesson,
   initialLessonsPanel,
 }: MenuSectionPanelsProps) {
@@ -180,7 +210,16 @@ export default function MenuSectionPanels({
     () => A2_THEORY_ITEMS.find((item) => item.enabled)?.id ?? null,
     []
   )
+  const defaultPracticeLessonId = React.useMemo(
+    () => A2_PRACTICE_ITEMS.find((item) => item.enabled)?.id ?? null,
+    []
+  )
   const [selectedA2LessonId, setSelectedA2LessonId] = React.useState<string | null>(defaultA2LessonId)
+  const [selectedPracticeLessonId, setSelectedPracticeLessonId] = React.useState<string | null>(defaultPracticeLessonId)
+  const [selectedPracticeMode, setSelectedPracticeMode] = React.useState<PracticeMode>('relaxed')
+  const [customPracticeTopic, setCustomPracticeTopic] = React.useState('')
+  const [practiceBusy, setPracticeBusy] = React.useState(false)
+  const [practiceError, setPracticeError] = React.useState<string | null>(null)
   const [tutorImageDataUrl, setTutorImageDataUrl] = React.useState<string | null>(null)
   const [tutorCustomFocus, setTutorCustomFocus] = React.useState('')
   const [tutorImageError, setTutorImageError] = React.useState<string | null>(null)
@@ -224,6 +263,18 @@ export default function MenuSectionPanels({
   }, [lessonsPanel, selectedA2LessonId, defaultA2LessonId])
 
   React.useEffect(() => {
+    if (lessonsPanel !== 'practice') return
+    if (!selectedPracticeLessonId) {
+      setSelectedPracticeLessonId(defaultPracticeLessonId)
+      return
+    }
+    const selected = A2_PRACTICE_ITEMS.find((item) => item.id === selectedPracticeLessonId)
+    if (!selected?.enabled) {
+      setSelectedPracticeLessonId(defaultPracticeLessonId)
+    }
+  }, [lessonsPanel, selectedPracticeLessonId, defaultPracticeLessonId])
+
+  React.useEffect(() => {
     if (menuView !== 'lessons') return
     if (!initialLessonsPanel) return
     setLessonsPanel(initialLessonsPanel)
@@ -245,6 +296,23 @@ export default function MenuSectionPanels({
   const tenseOptions = TENSES.filter((t) => allowedTenseMenuSet.has(t.id))
   const update = (patch: Partial<Settings>) => {
     onSettingsChange({ ...settings, ...patch })
+  }
+
+  const runPracticeRequest = async (
+    handler: MenuSectionPanelsProps['onOpenPracticeSession'] | MenuSectionPanelsProps['onGeneratePracticeSession'],
+    request: { lessonId?: string; mode: PracticeMode; entrySource: PracticeEntrySource; customTopic?: string }
+  ) => {
+    if (!handler || practiceBusy) return
+    setPracticeBusy(true)
+    setPracticeError(null)
+    try {
+      await handler(request)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось подготовить практику.'
+      setPracticeError(message)
+    } finally {
+      setPracticeBusy(false)
+    }
   }
 
   const modeLabel = MODE_OPTIONS.find((m) => m.id === settings.mode)?.label ?? settings.mode
@@ -611,6 +679,9 @@ export default function MenuSectionPanels({
               <div className={MENU_GROUP_OUTER}>
                 <div className={MENU_GROUP_CLASS}>
                   <MenuNavRow label="Теория" onClick={() => setLessonsPanel('theory')} />
+                  {featureFlags.practiceEngineV1 && (
+                    <MenuNavRow label="Практика" onClick={() => setLessonsPanel('practice')} />
+                  )}
                   <LessonTopicRow label="Произношение" />
                   <MenuNavRow
                     label="Репетитор"
@@ -701,6 +772,132 @@ export default function MenuSectionPanels({
                     </p>
                   )}
                 </div>
+              </>
+            )}
+            {lessonsPanel === 'practice' && (
+              <>
+                <div className="space-y-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const topic = pickQuickStartPracticeTopic('A2')
+                      if (!topic) {
+                        setPracticeError('Пока нет доступных тем для быстрого старта.')
+                        return
+                      }
+                      setSelectedPracticeLessonId(topic.id)
+                      void runPracticeRequest(onOpenPracticeSession, {
+                        lessonId: topic.id,
+                        mode: 'relaxed',
+                        entrySource: 'quick_start',
+                      })
+                    }}
+                    disabled={!onOpenPracticeSession || practiceBusy}
+                    className={MENU_PRIMARY_CTA_CLASS}
+                  >
+                    Быстрый старт
+                  </button>
+                </div>
+
+                <div className={MENU_GROUP_OUTER}>
+                  <div className={MENU_GROUP_CLASS}>
+                    {A2_PRACTICE_ITEMS.map((item) => (
+                      <A2LessonChoiceRow
+                        key={item.id}
+                        label={item.label}
+                        selected={item.enabled && selectedPracticeLessonId === item.id}
+                        enabled={item.enabled}
+                        onClick={
+                          item.enabled
+                            ? () => {
+                                setSelectedPracticeLessonId(item.id)
+                                setPracticeError(null)
+                              }
+                            : undefined
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className={MENU_GROUP_OUTER}>
+                  <div className={MENU_GROUP_CLASS}>
+                    {PRACTICE_MODE_OPTIONS.map((mode) => (
+                      <A2LessonChoiceRow
+                        key={mode.id}
+                        label={mode.label}
+                        selected={selectedPracticeMode === mode.id}
+                        enabled
+                        onClick={() => setSelectedPracticeMode(mode.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void runPracticeRequest(onOpenPracticeSession, {
+                        lessonId: selectedPracticeLessonId ?? undefined,
+                        mode: selectedPracticeMode,
+                        entrySource: 'menu',
+                      })
+                    }
+                    disabled={!onOpenPracticeSession || !selectedPracticeLessonId || practiceBusy}
+                    className={MENU_PRIMARY_CTA_CLASS}
+                  >
+                    {practiceBusy ? 'Готовим практику...' : 'Запустить практику'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void runPracticeRequest(onGeneratePracticeSession, {
+                        lessonId: selectedPracticeLessonId ?? undefined,
+                        mode: selectedPracticeMode,
+                        entrySource: 'menu',
+                      })
+                    }
+                    disabled={!onGeneratePracticeSession || !selectedPracticeLessonId || practiceBusy}
+                    className="btn-3d-menu w-full rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--status-info-text)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {practiceBusy ? 'Генерируем практику...' : 'Сгенерировать вариант'}
+                  </button>
+                </div>
+
+                <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  <label className="block text-[13px] font-medium text-[var(--text-muted)]" htmlFor={pid('custom-practice-topic')}>
+                    Своя тема
+                  </label>
+                  <input
+                    id={pid('custom-practice-topic')}
+                    type="text"
+                    value={customPracticeTopic}
+                    onChange={(event) => setCustomPracticeTopic(event.target.value)}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[15px] text-[var(--text)] outline-none"
+                    placeholder="Например: Present Perfect в поездке"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void runPracticeRequest(onOpenPracticeSession, {
+                        customTopic: customPracticeTopic.trim(),
+                        mode: selectedPracticeMode,
+                        entrySource: 'custom_topic',
+                      })
+                    }
+                    disabled={!onOpenPracticeSession || !customPracticeTopic.trim() || practiceBusy}
+                    className="btn-3d-menu w-full rounded-xl border border-[var(--border)] bg-white px-4 py-2.5 text-center text-sm font-semibold text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Подобрать тему
+                  </button>
+                </div>
+
+                {practiceError && (
+                  <p className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
+                    {practiceError}
+                  </p>
+                )}
               </>
             )}
             {lessonsPanel === 'tutor' && (
