@@ -65,6 +65,30 @@ describe('callProviderChat proxy behavior', () => {
     }
   })
 
+  it('treats empty OpenRouter content as a provider failure', async () => {
+    mockedFetchWithProxyFallback.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: '' } }],
+        }),
+        { status: 200 }
+      )
+    )
+
+    const req = { nextUrl: { origin: 'http://localhost:3007' } } as unknown as Parameters<typeof callProviderChat>[0]['req']
+    const result = await callProviderChat({
+      provider: 'openrouter',
+      req,
+      apiMessages: [{ role: 'user', content: 'hi' }],
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.status).toBe(502)
+      expect(result.errText).toContain('empty content')
+    }
+  })
+
   it('uses direct-first strategy for OpenAI when proxy is not configured', async () => {
     mockedFetchWithProxyFallback.mockResolvedValueOnce(
       new Response(

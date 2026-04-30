@@ -113,15 +113,65 @@ describe('POST /api/lesson-repeat', () => {
     })
 
     const res = await POST(makeRequest({ lessonId: '1', recentVariantIds: lesson1RecentVariantIds }) as never)
-    const data = (await res.json()) as { generated: boolean; fallback: boolean }
+    const data = (await res.json()) as { generated: boolean; fallback: boolean; fallbackReason?: string }
 
     expect(res.status).toBe(200)
     expect(data.generated).toBe(false)
     expect(data.fallback).toBe(true)
+    expect(data.fallbackReason).toBe('validation')
     expect(warnSpy).toHaveBeenCalled()
     expect(warnSpy.mock.calls[0]?.[0]).toContain('missing_required_semantics')
 
     warnSpy.mockRestore()
+  })
+
+  it('retries transient provider failures for bypass-cache menu generation', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({ ok: false, status: 502, errText: 'temporary provider error' })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: JSON.stringify({ steps: toRepeatModelSteps() }),
+      })
+
+    const res = await POST(makeRequest({ lessonId: '1', recentVariantIds: lesson1RecentVariantIds, bypassCache: true }) as never)
+    const data = (await res.json()) as { generated: boolean; fallback: boolean }
+
+    expect(res.status).toBe(200)
+    expect(data.generated).toBe(true)
+    expect(data.fallback).toBe(false)
+    expect(callProviderChatMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('retries parse failures for bypass-cache menu generation', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({ ok: true, content: 'not json' })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: JSON.stringify({ steps: toRepeatModelSteps() }),
+      })
+
+    const res = await POST(makeRequest({ lessonId: '1', recentVariantIds: lesson1RecentVariantIds, bypassCache: true }) as never)
+    const data = (await res.json()) as { generated: boolean; fallback: boolean }
+
+    expect(res.status).toBe(200)
+    expect(data.generated).toBe(true)
+    expect(data.fallback).toBe(false)
+    expect(callProviderChatMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('returns provider fallback reason after exhausted bypass-cache retries', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({ ok: false, status: 502, errText: 'temporary provider error' })
+      .mockResolvedValueOnce({ ok: false, status: 502, errText: 'temporary provider error' })
+
+    const res = await POST(makeRequest({ lessonId: '1', recentVariantIds: lesson1RecentVariantIds, bypassCache: true }) as never)
+    const data = (await res.json()) as { generated: boolean; fallback: boolean; fallbackReason?: string }
+
+    expect(res.status).toBe(200)
+    expect(data.generated).toBe(false)
+    expect(data.fallback).toBe(true)
+    expect(data.fallbackReason).toBe('provider')
+    expect(callProviderChatMock).toHaveBeenCalledTimes(2)
   })
 
   it('deduplicates concurrent identical repeat requests', async () => {

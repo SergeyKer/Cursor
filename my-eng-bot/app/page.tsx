@@ -81,11 +81,21 @@ import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/component
 const Chat = dynamic(() => import('@/components/Chat'))
 const SlideOutMenu = dynamic(() => import('@/components/SlideOutMenu'))
 type StructuredLessonRuntimeMode = 'generate' | 'repeat'
+type LessonRepeatFallbackReason = 'provider' | 'parse' | 'validation' | 'exception' | 'no_steps'
 type LessonRepeatResponse = {
   lesson?: LessonData
   generated?: boolean
   fallback?: boolean
+  fallbackReason?: LessonRepeatFallbackReason
   error?: string
+}
+
+function getMenuGenerationFallbackMessage(reason: LessonRepeatFallbackReason | undefined): string {
+  if (reason === 'provider') return 'Проблема с доступом к модели. Попробуйте сгенерировать урок ещё раз.'
+  if (reason === 'parse') return 'Модель вернула ответ не в том формате. Попробуйте сгенерировать урок ещё раз.'
+  if (reason === 'validation') return 'Модель сгенерировала урок низкого качества. Повторите генерацию.'
+  if (reason === 'no_steps') return 'Для этого урока пока нет шагов для генерации.'
+  return 'Не удалось сгенерировать новый урок. Попробуйте ещё раз.'
 }
 
 function cloneStructuredLessonWithRunKey(lesson: LessonData): LessonData {
@@ -1100,12 +1110,15 @@ export default function Home() {
       setStructuredLessonLoadingId(lessonId)
       setLoading(true)
       setRetryMessage(null)
+      const abortController = new AbortController()
+      const timeoutId = setTimeout(() => abortController.abort(), API_TIMEOUT_MS)
 
       try {
         const recentVariantIds = structuredLessonVariantHistoryRef.current[lessonId] ?? []
         const response = await fetch('/api/lesson-repeat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: abortController.signal,
           body: JSON.stringify({
             provider: settings.provider,
             openAiChatPreset: settings.openAiChatPreset,
@@ -1124,8 +1137,9 @@ export default function Home() {
             lessonId,
             generated: data.generated,
             fallback: data.fallback,
+            fallbackReason: data.fallbackReason,
           })
-          throw new Error('LLM не вернула новый урок: получен fallback вместо генерации.')
+          throw new Error(getMenuGenerationFallbackMessage(data.fallbackReason))
         }
         if (requestId !== lessonOpenRequestIdRef.current) return
 
@@ -1160,8 +1174,12 @@ export default function Home() {
         console.info(`[lesson-ui] mode=menu-generate lesson=${lessonId} source=llm fetch_ms=${Date.now() - fetchStartedAt}`)
       } catch (error) {
         console.warn('menu lesson generation failed:', error)
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new Error('Генерация заняла слишком много времени. Попробуйте ещё раз.')
+        }
         throw error
       } finally {
+        clearTimeout(timeoutId)
         if (requestId === lessonOpenRequestIdRef.current) {
           setStructuredLessonLoadingId(null)
           setLoading(false)

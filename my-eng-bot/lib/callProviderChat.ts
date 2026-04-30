@@ -112,6 +112,7 @@ export async function callProviderChat(params: {
       data.choices?.[0]?.text ??
       ''
     ).trim()
+    if (!content) return { ok: false, status: 502, errText: 'OpenAI returned empty content' }
     if (traceTransport) {
       console.info(
         `[${traceLabel}] provider=${provider} preset=${openAiChatPreset} transport_ms=${Date.now() - transportStartedAt} proxy_path=${
@@ -158,6 +159,7 @@ export async function callProviderChat(params: {
   }
   const first = data.choices?.[0]
   const content = (first?.message?.content ?? first?.text ?? '').trim()
+  if (!content) return { ok: false, status: 502, errText: 'OpenRouter returned empty content' }
   if (traceTransport) {
     console.info(
       `[${traceLabel}] provider=${provider} preset=${openAiChatPreset} transport_ms=${Date.now() - transportStartedAt} proxy_path=direct-first`

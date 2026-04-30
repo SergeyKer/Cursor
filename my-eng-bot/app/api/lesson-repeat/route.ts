@@ -33,6 +33,8 @@ type Body = {
   bypassCache?: boolean
 }
 
+type LessonRepeatFallbackReason = 'provider' | 'parse' | 'validation' | 'exception' | 'no_steps'
+
 export async function POST(req: NextRequest) {
   const startedAt = Date.now()
   const correlationId = req.headers.get('x-correlation-id')?.trim() || createLessonRouteCorrelationId('repeat')
@@ -58,7 +60,12 @@ export async function POST(req: NextRequest) {
 
   const sourceRepeatableSteps = getLessonLearningSteps(lesson)
   if (!sourceRepeatableSteps.length) {
-    return NextResponse.json({ lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true })
+    return NextResponse.json({
+      lesson: cloneLessonWithNewRunKey(lesson),
+      generated: false,
+      fallback: true,
+      fallbackReason: 'no_steps' satisfies LessonRepeatFallbackReason,
+    })
   }
 
   const provider = body.provider === 'openrouter' ? 'openrouter' : 'openai'
@@ -78,7 +85,12 @@ export async function POST(req: NextRequest) {
     openAiChatPreset,
   })
   const cacheReadStartedAt = Date.now()
-  const cachedResponse = readLessonRouteCache<{ lesson: typeof lesson; generated: boolean; fallback: boolean }>(cacheKey)
+  const cachedResponse = readLessonRouteCache<{
+    lesson: typeof lesson
+    generated: boolean
+    fallback: boolean
+    fallbackReason?: LessonRepeatFallbackReason
+  }>(cacheKey)
   if (!body.bypassCache && cachedResponse) {
     const responsePayload = {
       ...cachedResponse,
@@ -133,22 +145,18 @@ export async function POST(req: NextRequest) {
   )
 
   const sharedResponse = await runLessonRouteInflight(cacheKey, async () => {
-    const providerStartedAt = Date.now()
-    const model = await callProviderChat({
-      provider,
-      req,
-      apiMessages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-      maxTokens: resolveLessonRouteMaxTokens(lesson.level, 'repeat'),
-      openAiChatPreset,
-      traceLabel: 'lesson-repeat',
+    const shouldCacheFallback = !body.bypassCache
+    const maxAttempts = body.bypassCache ? 2 : 1
+    const createFallbackPayload = (fallbackReason: LessonRepeatFallbackReason) => ({
+      lesson: cloneLessonWithNewRunKey(lesson),
+      generated: false,
+      fallback: true,
+      fallbackReason,
     })
-
-    if (!model.ok) {
-      const responsePayload = { lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true }
-      writeLessonRouteCache(cacheKey, responsePayload)
+    const maybeWriteFallbackCache = (responsePayload: ReturnType<typeof createFallbackPayload>) => {
+      if (shouldCacheFallback) writeLessonRouteCache(cacheKey, responsePayload)
+    }
+    const logFallback = (stages: Record<string, number>) => {
       logLessonRouteSummary({
         correlationId,
         mode: 'repeat',
@@ -163,47 +171,85 @@ export async function POST(req: NextRequest) {
         correlationId,
         mode: 'repeat',
         stages: {
-          provider_ms: Date.now() - providerStartedAt,
+          ...stages,
           total_ms: Date.now() - startedAt,
         },
       })
-      return responsePayload
     }
 
-    const json = extractJsonObject(model.content)
-    if (!json) {
-      const responsePayload = { lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true }
-      writeLessonRouteCache(cacheKey, responsePayload)
-      logLessonRouteSummary({
-        correlationId,
-        mode: 'repeat',
-        lessonId: lesson.id,
-        selectedVariantId,
-        durationMs: Date.now() - startedAt,
-        source: 'provider',
-        generated: false,
-        fallback: true,
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const providerStartedAt = Date.now()
+      const model = await callProviderChat({
+        provider,
+        req,
+        apiMessages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        maxTokens: resolveLessonRouteMaxTokens(lesson.level, 'repeat'),
+        openAiChatPreset,
+        traceLabel: 'lesson-repeat',
       })
-      logLessonRouteStages({
-        correlationId,
-        mode: 'repeat',
-        stages: {
+
+      if (!model.ok) {
+        if (attempt < maxAttempts) continue
+        const responsePayload = createFallbackPayload('provider')
+        maybeWriteFallbackCache(responsePayload)
+        logFallback({
+          attempts: attempt,
           provider_ms: Date.now() - providerStartedAt,
-          total_ms: Date.now() - startedAt,
-        },
-      })
-      return responsePayload
-    }
+        })
+        return responsePayload
+      }
 
-    try {
+      const json = extractJsonObject(model.content)
+      if (!json) {
+        if (attempt < maxAttempts) continue
+        const responsePayload = createFallbackPayload('parse')
+        maybeWriteFallbackCache(responsePayload)
+        logFallback({
+          attempts: attempt,
+          provider_ms: Date.now() - providerStartedAt,
+        })
+        return responsePayload
+      }
+
+      let parsed: { steps?: unknown }
+      try {
+        parsed = JSON.parse(json) as { steps?: unknown }
+      } catch {
+        if (attempt < maxAttempts) continue
+        const responsePayload = createFallbackPayload('parse')
+        maybeWriteFallbackCache(responsePayload)
+        logFallback({
+          attempts: attempt,
+          provider_ms: Date.now() - providerStartedAt,
+        })
+        return responsePayload
+      }
+
       const validationStartedAt = Date.now()
-      const parsed = JSON.parse(json) as { steps?: unknown }
       const validation = assessGeneratedSteps(lesson, sourceRepeatableSteps, parsed.steps, { audience })
       if (!validation.validatedSteps) {
         console.warn(
           `lesson-repeat rejected lesson ${lesson.id} variant ${selectedVariantId ?? 'default'}: score=${validation.score.toFixed(2)}; ${formatLessonValidationIssues(validation.issues)}`
         )
-        const responsePayload = { lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true }
+        const responsePayload = createFallbackPayload('validation')
+        maybeWriteFallbackCache(responsePayload)
+        logFallback({
+          attempts: attempt,
+          provider_ms: validationStartedAt - providerStartedAt,
+          validation_ms: Date.now() - validationStartedAt,
+        })
+        return responsePayload
+      }
+
+      try {
+        const responsePayload = {
+          lesson: buildLessonFromGeneratedSteps(lesson, validation.validatedSteps),
+          generated: true,
+          fallback: false,
+        }
         writeLessonRouteCache(cacheKey, responsePayload)
         logLessonRouteSummary({
           correlationId,
@@ -212,69 +258,35 @@ export async function POST(req: NextRequest) {
           selectedVariantId,
           durationMs: Date.now() - startedAt,
           source: 'provider',
-          generated: false,
-          fallback: true,
+          generated: true,
+          fallback: false,
         })
         logLessonRouteStages({
           correlationId,
           mode: 'repeat',
           stages: {
+            attempts: attempt,
             provider_ms: validationStartedAt - providerStartedAt,
             validation_ms: Date.now() - validationStartedAt,
             total_ms: Date.now() - startedAt,
           },
         })
         return responsePayload
-      }
-      const responsePayload = {
-        lesson: buildLessonFromGeneratedSteps(lesson, validation.validatedSteps),
-        generated: true,
-        fallback: false,
-      }
-      writeLessonRouteCache(cacheKey, responsePayload)
-      logLessonRouteSummary({
-        correlationId,
-        mode: 'repeat',
-        lessonId: lesson.id,
-        selectedVariantId,
-        durationMs: Date.now() - startedAt,
-        source: 'provider',
-        generated: true,
-        fallback: false,
-      })
-      logLessonRouteStages({
-        correlationId,
-        mode: 'repeat',
-        stages: {
-          provider_ms: validationStartedAt - providerStartedAt,
-          validation_ms: Date.now() - validationStartedAt,
-          total_ms: Date.now() - startedAt,
-        },
-      })
-      return responsePayload
-    } catch {
-      const responsePayload = { lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true }
-      writeLessonRouteCache(cacheKey, responsePayload)
-      logLessonRouteSummary({
-        correlationId,
-        mode: 'repeat',
-        lessonId: lesson.id,
-        selectedVariantId,
-        durationMs: Date.now() - startedAt,
-        source: 'provider',
-        generated: false,
-        fallback: true,
-      })
-      logLessonRouteStages({
-        correlationId,
-        mode: 'repeat',
-        stages: {
+      } catch {
+        const responsePayload = createFallbackPayload('exception')
+        maybeWriteFallbackCache(responsePayload)
+        logFallback({
+          attempts: attempt,
           provider_ms: Date.now() - providerStartedAt,
-          total_ms: Date.now() - startedAt,
-        },
-      })
-      return responsePayload
+        })
+        return responsePayload
+      }
     }
+
+    const responsePayload = createFallbackPayload('exception')
+    maybeWriteFallbackCache(responsePayload)
+    logFallback({ attempts: maxAttempts })
+    return responsePayload
   })
 
   const responsePayload = {
