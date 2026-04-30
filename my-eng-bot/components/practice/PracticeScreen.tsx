@@ -247,8 +247,11 @@ export default function PracticeScreen({
             </div>
 
             <div
-              className="shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 pt-2.5 sm:px-3"
-              style={{ paddingBottom: 'calc(var(--app-bottom-inset) + 0.625rem)' }}
+              className="shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 sm:px-3"
+              style={{
+                paddingTop: 'calc(var(--app-bottom-inset) + 0.625rem)',
+                paddingBottom: 'calc(var(--app-bottom-inset) + 0.625rem)',
+              }}
             >
               {state === 'completed' ? (
                 <PracticeFinale

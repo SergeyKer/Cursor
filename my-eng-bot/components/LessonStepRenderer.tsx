@@ -498,9 +498,9 @@ export default function LessonStepRenderer({
             {currentStep && (
               <div
                 className={`shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 sm:px-3 ${
-                  shouldRenderChoiceChips ? 'pt-0' : 'pt-2.5'
+                  shouldRenderChoiceChips ? 'pt-1' : 'pt-2.5'
                 }`}
-                style={{ paddingBottom: 'calc(var(--app-bottom-inset) + 0.625rem)' }}
+                style={{ paddingBottom: 'calc(var(--app-bottom-inset) + 0.375rem)' }}
               >
                 {hasPostLessonOptions ? (
                   <PostLessonMenu
