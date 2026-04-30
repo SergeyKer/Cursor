@@ -5,7 +5,7 @@ import PracticeFinale from '@/components/practice/PracticeFinale'
 import PracticeQuestionRenderer from '@/components/practice/PracticeQuestionRenderer'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
-import type { PracticeFeedback, PracticeFlowState } from '@/hooks/usePracticeSession'
+import type { PracticeFlowState } from '@/hooks/usePracticeSession'
 import type { Bubble } from '@/types/lesson'
 import type { PracticeMode, PracticeQuestion, PracticeSession } from '@/types/practice'
 
@@ -35,7 +35,6 @@ interface PracticeScreenProps {
   session: PracticeSession
   state: PracticeFlowState
   currentQuestion: PracticeQuestion | null
-  feedback: PracticeFeedback | null
   canSubmit: boolean
   onSubmitAnswer: (answer: string) => void
   onNextQuestion: () => void
@@ -95,7 +94,6 @@ export default function PracticeScreen({
   session,
   state,
   currentQuestion,
-  feedback,
   canSubmit,
   onSubmitAnswer,
   onNextQuestion,
@@ -159,18 +157,10 @@ export default function PracticeScreen({
 
     if (state === 'checking') {
       result.push({ id: 'practice-checking', role: 'assistant', kind: 'status', text: 'Проверяем ответ...', tone: 'service' })
-    } else if (feedback && state !== 'completed') {
-      result.push({
-        id: `practice-live-feedback-${state}-${session.currentIndex}`,
-        role: 'assistant',
-        kind: 'status',
-        text: feedback.message,
-        tone: feedback.type,
-      })
     }
 
     return result
-  }, [feedback, session, state])
+  }, [session, state])
 
   const tailMessageId = messages.at(-1)?.id ?? ''
 

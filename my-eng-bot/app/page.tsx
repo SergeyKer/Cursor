@@ -1093,6 +1093,7 @@ export default function Home() {
     async (lessonId: string, lessonsPanel: LessonsPanel = 'a2') => {
       const lesson = getLearningLessonById(lessonId)
       if (!lesson) return
+      abandonPracticeSession()
       const requestId = ++lessonOpenRequestIdRef.current
       const structuredLesson = getStructuredLessonById(lessonId)
       firstMessageRequestIdRef.current += 1
@@ -1130,7 +1131,7 @@ export default function Home() {
         setActiveStructuredLessonRuntime(cloneStructuredLessonWithRunKey(structuredLesson))
       }
     },
-    []
+    [abandonPracticeSession]
   )
 
   const openGeneratedLearningLesson = useCallback(
@@ -1179,6 +1180,8 @@ export default function Home() {
         }
         if (requestId !== lessonOpenRequestIdRef.current) return
 
+        abandonPracticeSession()
+
         if (data.lesson.variantId) {
           const history = structuredLessonVariantHistoryRef.current[lessonId] ?? []
           structuredLessonVariantHistoryRef.current[lessonId] = appendLessonVariantHistory(history, data.lesson.variantId)
@@ -1222,7 +1225,7 @@ export default function Home() {
         }
       }
     },
-    [settings.provider, settings.openAiChatPreset, settings.audience]
+    [abandonPracticeSession, settings.provider, settings.openAiChatPreset, settings.audience]
   )
 
   const openTutorLesson = useCallback(
@@ -1242,6 +1245,7 @@ export default function Home() {
       }
 
       const requestId = ++lessonOpenRequestIdRef.current
+      abandonPracticeSession()
       let lesson: LessonBlueprint | null = null
       firstMessageRequestIdRef.current += 1
       firstMessageInFlightRef.current = false
@@ -1324,7 +1328,7 @@ export default function Home() {
       setPendingTutorLessonTitle(null)
       setLoading(false)
     },
-    [openLearningLesson, settings.provider, settings.openAiChatPreset, settings.level, settings.audience]
+    [abandonPracticeSession, openLearningLesson, settings.provider, settings.openAiChatPreset, settings.level, settings.audience]
   )
 
   const handleSelectLearningAction = useCallback(
@@ -2779,7 +2783,6 @@ export default function Home() {
                   session={practiceSession.session}
                   state={practiceSession.state}
                   currentQuestion={practiceSession.currentQuestion}
-                  feedback={practiceSession.feedback}
                   canSubmit={practiceSession.canSubmit}
                   onSubmitAnswer={practiceSession.submitAnswer}
                   onNextQuestion={practiceSession.nextQuestion}
