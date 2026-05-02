@@ -15,7 +15,7 @@ export const PRACTICE_MODE_PLANS: Record<PracticeMode, PracticeModePlan> = {
     boss: false,
   },
   balanced: {
-    length: 10,
+    length: 9,
     timeBudgetMinutes: [5, 8],
     types: [
       'choice',

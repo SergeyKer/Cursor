@@ -44,7 +44,7 @@ interface SlideOutMenuProps {
     entrySource: PracticeEntrySource
     customTopic?: string
   }) => Promise<void> | void
-  onOpenAccentTrainer?: () => void
+  onOpenAccentTrainer?: (lessonId?: string) => void
   /** Открыть урок из ветки «Репетитор». */
   onOpenTutorLesson?: (request: {
     requestedTopic: string

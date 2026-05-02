@@ -19,6 +19,8 @@ import type { AiChatPanel } from '@/lib/aiChatPanel'
 import { MENU_PRIMARY_CTA_CLASS } from '@/lib/homeCtaStyles'
 import { featureFlags } from '@/lib/featureFlags'
 import { getPracticeLessonTopics, getTheoryLessonTopics, pickQuickStartPracticeTopic } from '@/lib/lessonCatalog'
+import { ACCENT_SECTIONS, RUSSIAN_SPEAKER_GROUPS, getAccentLessonById, getFirstAccentLessonId } from '@/lib/accent/soundCatalog'
+import AccentProgressBadge from '@/components/accent/AccentProgressBadge'
 import type { ImageAnalysisResult } from '@/lib/types'
 import ThemeSelector from '@/components/settings/ThemeSelector'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -42,7 +44,20 @@ export type MenuView = 'root' | 'lessons' | 'aiChat' | 'settings' | 'progress' |
 
 export type { AiChatPanel }
 
-export type LessonsPanel = 'summary' | 'theory' | 'a2' | 'practice' | 'tutor'
+export type LessonsPanel =
+  | 'summary'
+  | 'theory'
+  | 'a2'
+  | 'practice'
+  | 'practiceLevel'
+  | 'practiceLevelTopics'
+  | 'practiceFormat'
+  | 'pronunciation'
+  | 'pronunciationRussian'
+  | 'pronunciationRussianGroup'
+  | 'pronunciationAll'
+  | 'pronunciationSection'
+  | 'tutor'
 
 const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
   summary: 'Чат с MyEng',
@@ -69,6 +84,14 @@ const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
   theory: 'Теория',
   a2: 'A2',
   practice: 'Практика',
+  practiceLevel: 'Уровень',
+  practiceLevelTopics: 'Темы',
+  practiceFormat: 'Формат',
+  pronunciation: 'Произношение',
+  pronunciationRussian: 'Для русскоговорящих',
+  pronunciationRussianGroup: 'Группа звуков',
+  pronunciationAll: 'Все звуки',
+  pronunciationSection: 'Раздел звуков',
   tutor: 'Репетитор',
 }
 
@@ -85,17 +108,51 @@ const A2_THEORY_ITEMS = getTheoryLessonTopics('A2').map((item) => ({
   enabled: item.enabled,
 }))
 
+const PRACTICE_TOPIC_COPY: Record<string, { badge: string; summary: string }> = {
+  '1': {
+    badge: 'Фразы и ситуации',
+    summary: 'Отработать It is / It is time to в коротких бытовых репликах.',
+  },
+  '2': {
+    badge: 'Вопросы',
+    summary: 'Тренировка Who ...? для вопросов о людях, привычках и действиях.',
+  },
+  '3': {
+    badge: 'Сложнее',
+    summary: 'Практика вложенных вопросов: I know what..., Tell me where...',
+  },
+}
+
 const A2_PRACTICE_ITEMS = getPracticeLessonTopics('A2').map((item) => ({
   id: item.id,
   label: item.title,
   enabled: item.enabled,
+  badge: PRACTICE_TOPIC_COPY[item.id]?.badge ?? item.level,
+  summary: PRACTICE_TOPIC_COPY[item.id]?.summary ?? 'Короткая практика по выбранной теме.',
 }))
 
-const PRACTICE_MODE_OPTIONS: { id: PracticeMode; label: string }[] = [
-  { id: 'relaxed', label: 'Relaxed · 6 заданий' },
-  { id: 'balanced', label: 'Balanced · 10 заданий' },
-  { id: 'challenge', label: 'Challenge · 12 заданий' },
+const PRACTICE_MODE_OPTIONS: { id: PracticeMode; title: string; meta: string; description: string }[] = [
+  {
+    id: 'relaxed',
+    title: 'Лёгкая',
+    meta: '6 заданий',
+    description: 'Быстро вспомнить правило без перегруза.',
+  },
+  {
+    id: 'balanced',
+    title: 'Обычная',
+    meta: '9 заданий',
+    description: 'Оптимальный вариант для закрепления.',
+  },
+  {
+    id: 'challenge',
+    title: 'Челлендж',
+    meta: '12 заданий',
+    description: 'Больше проверки и меньше подсказок.',
+  },
 ]
+
+const ACCENT_QUICK_START_LESSON_ID = getFirstAccentLessonId()
 
 const MODE_OPTIONS: { id: AppMode; label: string }[] = [
   { id: 'communication', label: 'Общение' },
@@ -170,7 +227,7 @@ export interface MenuSectionPanelsProps {
     entrySource: PracticeEntrySource
     customTopic?: string
   }) => void | Promise<void>
-  onOpenAccentTrainer?: () => void
+  onOpenAccentTrainer?: (lessonId?: string) => void
   onOpenTutorLesson?: (request: {
     requestedTopic: string
     originalQuery?: string
@@ -218,6 +275,8 @@ export default function MenuSectionPanels({
   )
   const [selectedA2LessonId, setSelectedA2LessonId] = React.useState<string | null>(defaultA2LessonId)
   const [selectedPracticeLessonId, setSelectedPracticeLessonId] = React.useState<string | null>(defaultPracticeLessonId)
+  const [selectedAccentGroupId, setSelectedAccentGroupId] = React.useState<string | null>(null)
+  const [selectedAccentSectionId, setSelectedAccentSectionId] = React.useState<string | null>(null)
   const [selectedPracticeMode, setSelectedPracticeMode] = React.useState<PracticeMode>('relaxed')
   const [customPracticeTopic, setCustomPracticeTopic] = React.useState('')
   const [practiceBusy, setPracticeBusy] = React.useState(false)
@@ -317,6 +376,10 @@ export default function MenuSectionPanels({
     }
   }
 
+  const openAccentLesson = (lessonId: string) => {
+    onOpenAccentTrainer?.(lessonId)
+  }
+
   const modeLabel = MODE_OPTIONS.find((m) => m.id === settings.mode)?.label ?? settings.mode
   const audienceLabel = AUDIENCE_OPTIONS.find((a) => a.id === settings.audience)?.label ?? settings.audience
   const levelLabel = levelOptions.find((l) => l.id === settings.level)?.label ?? settings.level
@@ -347,6 +410,26 @@ export default function MenuSectionPanels({
         setLessonsPanel('theory')
         return
       }
+      if (lessonsPanel === 'practiceLevelTopics') {
+        setLessonsPanel('practiceLevel')
+        return
+      }
+      if (lessonsPanel === 'practiceLevel' || lessonsPanel === 'practiceFormat') {
+        setLessonsPanel('practice')
+        return
+      }
+      if (lessonsPanel === 'pronunciationRussianGroup') {
+        setLessonsPanel('pronunciationRussian')
+        return
+      }
+      if (lessonsPanel === 'pronunciationSection') {
+        setLessonsPanel('pronunciationAll')
+        return
+      }
+      if (lessonsPanel === 'pronunciationRussian' || lessonsPanel === 'pronunciationAll') {
+        setLessonsPanel('pronunciation')
+        return
+      }
       if (lessonsPanel === 'tutor') {
         setLessonsPanel('summary')
         return
@@ -373,20 +456,30 @@ export default function MenuSectionPanels({
     className ??
     (homeLayout ? 'flex min-h-0 flex-col' : 'flex min-h-0 flex-1 flex-col')
 
-  const headerTitle =
-    menuView === 'lessons'
-      ? LESSONS_PANEL_TITLE[lessonsPanel]
-      : menuView === 'aiChat'
-        ? AI_CHAT_PANEL_TITLE[aiChatPanel]
-        : menuView === 'settings'
-          ? SETTINGS_PANEL_TITLE[settingsPanel]
-          : menuView === 'progress'
-            ? 'Прогресс'
-            : menuView === 'profile'
-              ? 'Профиль'
-              : !homeLayout
-                ? 'Главная'
-                : ''
+  const selectedAccentGroup = RUSSIAN_SPEAKER_GROUPS.find((group) => group.id === selectedAccentGroupId) ?? null
+  const selectedAccentSection = ACCENT_SECTIONS.find((section) => section.id === selectedAccentSectionId) ?? null
+  const selectedPracticeTopic = A2_PRACTICE_ITEMS.find((item) => item.id === selectedPracticeLessonId) ?? null
+  const selectedPracticeModeOption =
+    PRACTICE_MODE_OPTIONS.find((mode) => mode.id === selectedPracticeMode) ?? PRACTICE_MODE_OPTIONS[0]
+  const selectedPracticeLevelLabel = selectedPracticeTopic?.badge ?? 'Выберите уровень'
+  const selectedPracticeModeLabel = selectedPracticeModeOption
+    ? `${selectedPracticeModeOption.title} · ${selectedPracticeModeOption.meta}`
+    : 'Выберите формат'
+
+  const headerTitle = (() => {
+    if (menuView === 'lessons' && lessonsPanel === 'pronunciationRussianGroup' && selectedAccentGroup) {
+      return selectedAccentGroup.title
+    }
+    if (menuView === 'lessons' && lessonsPanel === 'pronunciationSection' && selectedAccentSection) {
+      return selectedAccentSection.title
+    }
+    if (menuView === 'lessons') return LESSONS_PANEL_TITLE[lessonsPanel]
+    if (menuView === 'aiChat') return AI_CHAT_PANEL_TITLE[aiChatPanel]
+    if (menuView === 'settings') return SETTINGS_PANEL_TITLE[settingsPanel]
+    if (menuView === 'progress') return 'Прогресс'
+    if (menuView === 'profile') return 'Профиль'
+    return !homeLayout ? 'Главная' : ''
+  })()
 
   const handleGoHome = () => {
     if (onGoHome) onGoHome()
@@ -685,7 +778,7 @@ export default function MenuSectionPanels({
                     <MenuNavRow label="Практика" onClick={() => setLessonsPanel('practice')} />
                   )}
                   {featureFlags.accentTrainerV1 ? (
-                    <LessonTopicRow label="Произношение" onClick={onOpenAccentTrainer} />
+                    <MenuNavRow label="Произношение" onClick={() => setLessonsPanel('pronunciation')} />
                   ) : (
                     <LessonTopicRow label="Произношение" />
                   )}
@@ -699,6 +792,122 @@ export default function MenuSectionPanels({
                   <LessonTopicRow label="1000 необходимых слов" />
                 </div>
               </div>
+            )}
+
+            {lessonsPanel === 'pronunciation' && (
+              <>
+                <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">
+                    Выберите короткий старт, типичные сложности русскоговорящих или полный список звуков.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => openAccentLesson(ACCENT_QUICK_START_LESSON_ID)}
+                    disabled={!onOpenAccentTrainer}
+                    className={MENU_PRIMARY_CTA_CLASS}
+                  >
+                    Быстрый старт
+                  </button>
+                </div>
+                <div className={MENU_GROUP_OUTER}>
+                  <div className={MENU_GROUP_CLASS}>
+                    <MenuNavRow label="Сложные звуки для русскоговорящих" onClick={() => setLessonsPanel('pronunciationRussian')} />
+                    <MenuNavRow label="Все звуки" onClick={() => setLessonsPanel('pronunciationAll')} />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {lessonsPanel === 'pronunciationRussian' && (
+              <>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2 text-[13px] leading-relaxed text-[var(--text-muted)] shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  Начните с групп, которые чаще всего выдают русский акцент в английской речи.
+                </div>
+                <div className={MENU_GROUP_OUTER}>
+                  <div className={MENU_GROUP_CLASS}>
+                    {RUSSIAN_SPEAKER_GROUPS.map((group) => (
+                      <MenuNavRow
+                        key={group.id}
+                        label={group.title}
+                        onClick={() => {
+                          setSelectedAccentGroupId(group.id)
+                          setLessonsPanel('pronunciationRussianGroup')
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {lessonsPanel === 'pronunciationRussianGroup' && selectedAccentGroup && (
+              <>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2 text-[13px] leading-relaxed text-[var(--text-muted)] shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  {selectedAccentGroup.subtitle}
+                </div>
+                <div className={MENU_GROUP_OUTER}>
+                  <div className={MENU_GROUP_CLASS}>
+                    {selectedAccentGroup.lessonIds.map((lessonId) => {
+                      const lesson = getAccentLessonById(lessonId)
+                      if (!lesson) return null
+                      return (
+                        <AccentLessonRow
+                          key={lesson.id}
+                          label={lesson.title}
+                          lessonId={lesson.id}
+                          onClick={() => openAccentLesson(lesson.id)}
+                        />
+                      )
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {lessonsPanel === 'pronunciationAll' && (
+              <>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2 text-[13px] leading-relaxed text-[var(--text-muted)] shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  Полный каталог по звукам и речевым навыкам. Если не знаете, с чего начать, вернитесь к быстрому старту.
+                </div>
+                <div className={MENU_GROUP_OUTER}>
+                  <div className={MENU_GROUP_CLASS}>
+                    {ACCENT_SECTIONS.map((section) => (
+                      <MenuNavRow
+                        key={section.id}
+                        label={section.title}
+                        onClick={() => {
+                          setSelectedAccentSectionId(section.id)
+                          setLessonsPanel('pronunciationSection')
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {lessonsPanel === 'pronunciationSection' && selectedAccentSection && (
+              <>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2 text-[13px] leading-relaxed text-[var(--text-muted)] shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  {selectedAccentSection.subtitle}
+                </div>
+                <div className={MENU_GROUP_OUTER}>
+                  <div className={MENU_GROUP_CLASS}>
+                    {selectedAccentSection.lessonIds.map((lessonId) => {
+                      const lesson = getAccentLessonById(lessonId)
+                      if (!lesson) return null
+                      return (
+                        <AccentLessonRow
+                          key={lesson.id}
+                          label={lesson.shortTitle}
+                          lessonId={lesson.id}
+                          onClick={() => openAccentLesson(lesson.id)}
+                        />
+                      )
+                    })}
+                  </div>
+                </div>
+              </>
             )}
 
             {lessonsPanel === 'theory' && (
@@ -782,7 +991,13 @@ export default function MenuSectionPanels({
             )}
             {lessonsPanel === 'practice' && (
               <>
-                <div className="space-y-2 pt-1">
+                <div className="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  <div className="space-y-1">
+                    <p className="text-[15px] font-semibold leading-snug text-[var(--text)]">Практика без лишних настроек</p>
+                    <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">
+                      Выберите тему и темп, затем запустите готовую тренировку или попросите MyEng сгенерировать новый вариант.
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={() => {
@@ -805,42 +1020,20 @@ export default function MenuSectionPanels({
                   </button>
                 </div>
 
-                <div className={MENU_GROUP_OUTER}>
+                <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">
+                    Настройки практики вынесены в подпункты, чтобы большой каталог тем оставался удобным.
+                  </p>
                   <div className={MENU_GROUP_CLASS}>
-                    {A2_PRACTICE_ITEMS.map((item) => (
-                      <A2LessonChoiceRow
-                        key={item.id}
-                        label={item.label}
-                        selected={item.enabled && selectedPracticeLessonId === item.id}
-                        enabled={item.enabled}
-                        onClick={
-                          item.enabled
-                            ? () => {
-                                setSelectedPracticeLessonId(item.id)
-                                setPracticeError(null)
-                              }
-                            : undefined
-                        }
-                      />
-                    ))}
+                    <MenuSettingRow label="Уровень" value={selectedPracticeLevelLabel} onClick={() => setLessonsPanel('practiceLevel')} />
+                    <MenuSettingRow label="Формат" value={selectedPracticeModeLabel} onClick={() => setLessonsPanel('practiceFormat')} />
                   </div>
                 </div>
 
-                <div className={MENU_GROUP_OUTER}>
-                  <div className={MENU_GROUP_CLASS}>
-                    {PRACTICE_MODE_OPTIONS.map((mode) => (
-                      <A2LessonChoiceRow
-                        key={mode.id}
-                        label={mode.label}
-                        selected={selectedPracticeMode === mode.id}
-                        enabled
-                        onClick={() => setSelectedPracticeMode(mode.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2 pt-2">
+                <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">
+                    Готово: тема выбрана, формат настроен. Можно начать сразу или сгенерировать свежие задания.
+                  </p>
                   <button
                     type="button"
                     onClick={() =>
@@ -904,6 +1097,76 @@ export default function MenuSectionPanels({
                     {practiceError}
                   </p>
                 )}
+              </>
+            )}
+            {lessonsPanel === 'practiceLevel' && (
+              <>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2 text-[13px] leading-relaxed text-[var(--text-muted)] shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  Выберите уровень, затем тема откроется внутри него. Так каталог будет расти без перегрузки меню.
+                </div>
+                <div className={MENU_GROUP_OUTER}>
+                  <div className={MENU_GROUP_CLASS}>
+                    {THEORY_LEVELS.map((level) => (
+                      <LessonLevelRow
+                        key={level.id}
+                        label={level.label}
+                        onClick={level.id === 'A2' ? () => setLessonsPanel('practiceLevelTopics') : undefined}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {lessonsPanel === 'practiceLevelTopics' && (
+              <>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2 text-[13px] leading-relaxed text-[var(--text-muted)] shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  A2-темы для практики. Выберите одну, затем запустите тренировку из раздела «Практика».
+                </div>
+                <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  {A2_PRACTICE_ITEMS.map((item) => (
+                    <PracticeTopicChoiceCard
+                      key={item.id}
+                      label={item.label}
+                      badge={item.badge}
+                      summary={item.summary}
+                      selected={item.enabled && selectedPracticeLessonId === item.id}
+                      enabled={item.enabled}
+                      onClick={
+                        item.enabled
+                          ? () => {
+                              setSelectedPracticeLessonId(item.id)
+                              setPracticeError(null)
+                              setLessonsPanel('practice')
+                            }
+                          : undefined
+                      }
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {lessonsPanel === 'practiceFormat' && (
+              <>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2 text-[13px] leading-relaxed text-[var(--text-muted)] shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  Формат определяет длину тренировки и плотность проверки.
+                </div>
+                <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  {PRACTICE_MODE_OPTIONS.map((mode) => (
+                    <PracticeModeChoiceCard
+                      key={mode.id}
+                      title={mode.title}
+                      meta={mode.meta}
+                      description={mode.description}
+                      selected={selectedPracticeMode === mode.id}
+                      onClick={() => {
+                        setSelectedPracticeMode(mode.id)
+                        setLessonsPanel('practice')
+                      }}
+                    />
+                  ))}
+                </div>
               </>
             )}
             {lessonsPanel === 'tutor' && (
@@ -1412,6 +1675,123 @@ function A2LessonChoiceRow({
       ) : (
         <span className="h-4 w-4 shrink-0" aria-hidden />
       )}
+    </button>
+  )
+}
+
+function PracticeTopicChoiceCard({
+  label,
+  badge,
+  summary,
+  selected,
+  enabled,
+  onClick,
+}: {
+  label: string
+  badge: string
+  summary: string
+  selected: boolean
+  enabled: boolean
+  onClick?: () => void
+}) {
+  if (!enabled) {
+    return (
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2.5 opacity-75">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[15px] font-semibold leading-snug text-[var(--text)]">{label}</p>
+            <p className="mt-1 text-[12px] leading-snug text-[var(--text-muted)]">{summary}</p>
+          </div>
+          <span className="shrink-0 rounded-full border border-[var(--border)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
+            Скоро
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full rounded-xl border px-3 py-2.5 text-left transition-colors touch-manipulation ${
+        selected
+          ? 'border-[var(--accent)] bg-[var(--status-info-bg)] shadow-[0_1px_4px_rgba(0,0,0,0.08)]'
+          : 'border-[var(--border)] bg-[var(--menu-control-bg)] hover:bg-[var(--border)]/20 active:bg-[var(--border)]/30'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[15px] font-semibold leading-snug text-[var(--text)]">{label}</span>
+            <span className="rounded-full border border-[var(--border)] bg-[var(--menu-card-bg)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
+              {badge}
+            </span>
+          </div>
+          <p className="mt-1 text-[12px] leading-snug text-[var(--text-muted)]">{summary}</p>
+        </div>
+        {selected ? (
+          <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden />
+        ) : (
+          <span className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+        )}
+      </div>
+    </button>
+  )
+}
+
+function PracticeModeChoiceCard({
+  title,
+  meta,
+  description,
+  selected,
+  onClick,
+}: {
+  title: string
+  meta: string
+  description: string
+  selected: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full rounded-xl border px-3 py-2.5 text-left transition-colors touch-manipulation ${
+        selected
+          ? 'border-[var(--accent)] bg-[var(--status-info-bg)]'
+          : 'border-[var(--border)] bg-[var(--menu-control-bg)] hover:bg-[var(--border)]/20 active:bg-[var(--border)]/30'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span className="min-w-0">
+          <span className="block text-[14px] font-semibold leading-snug text-[var(--text)]">{title}</span>
+          <span className="block text-[12px] leading-snug text-[var(--text-muted)]">{description}</span>
+        </span>
+        <span className="flex shrink-0 items-center gap-1.5">
+          <span className="rounded-full border border-[var(--border)] bg-[var(--menu-card-bg)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
+            {meta}
+          </span>
+          {selected ? (
+            <CheckIcon className="h-4 w-4 text-[var(--accent)]" aria-hidden />
+          ) : (
+            <span className="h-4 w-4" aria-hidden />
+          )}
+        </span>
+      </div>
+    </button>
+  )
+}
+
+function AccentLessonRow({ label, lessonId, onClick }: { label: string; lessonId: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
+    >
+      <span className="min-w-0 text-[15px] font-normal leading-normal text-[var(--text)]">{label}</span>
+      <AccentProgressBadge lessonId={lessonId} />
     </button>
   )
 }

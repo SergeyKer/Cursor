@@ -418,6 +418,8 @@ export default function Home() {
   const practiceSession = usePracticeSession()
   const { abandonSession: abandonPracticeSession, startSession: startPracticeSession } = practiceSession
   const [accentTrainerActive, setAccentTrainerActive] = useState(false)
+  const [activeAccentLessonId, setActiveAccentLessonId] = useState<string | null>(null)
+  const [accentLessonRequestKey, setAccentLessonRequestKey] = useState(0)
   const [accentFooterView, setAccentFooterView] = useState<AccentFooterView | null>(null)
   const structuredLessonChoiceShuffleSeed =
     activeStructuredLesson == null
@@ -901,6 +903,8 @@ export default function Home() {
     lessonOpenRequestIdRef.current += 1
     abandonPracticeSession()
     setAccentTrainerActive(false)
+    setActiveAccentLessonId(null)
+    setAccentLessonRequestKey((value) => value + 1)
     setAccentFooterView(null)
     setLessonMenuContext(null)
     setActiveLearningLessonId(null)
@@ -1503,13 +1507,15 @@ export default function Home() {
     [resolvePracticeRequest, startPracticeFromLesson]
   )
 
-  const openAccentTrainer = useCallback(() => {
+  const openAccentTrainer = useCallback((lessonId?: string) => {
     resetStructuredLessonSession()
+    setActiveAccentLessonId(lessonId ?? null)
+    setAccentLessonRequestKey((value) => value + 1)
     setAccentTrainerActive(true)
     setDialogStarted(true)
     setMenuOpen(false)
     setHomeMenuView('lessons')
-    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'summary' })
+    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'pronunciation' })
   }, [resetStructuredLessonSession])
 
   const generatePracticeSession = useCallback(
@@ -2809,6 +2815,8 @@ export default function Home() {
                   audience={settings.audience}
                   onClose={goToStartScreen}
                   onFooterViewChange={setAccentFooterView}
+                  initialLessonId={activeAccentLessonId}
+                  initialLessonRequestKey={accentLessonRequestKey}
                 />
               ) : isPracticeActive && practiceSession.session ? (
                 <PracticeScreen

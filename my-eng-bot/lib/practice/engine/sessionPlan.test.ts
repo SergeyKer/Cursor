@@ -3,6 +3,12 @@ import { PRACTICE_EXERCISE_REGISTRY } from '@/lib/practice/registry'
 import { PRACTICE_MODE_PLANS } from '@/lib/practice/engine/sessionPlan'
 
 describe('PRACTICE_MODE_PLANS', () => {
+  it('keeps mode lengths aligned with the format selector copy', () => {
+    expect(PRACTICE_MODE_PLANS.relaxed.length).toBe(6)
+    expect(PRACTICE_MODE_PLANS.balanced.length).toBe(9)
+    expect(PRACTICE_MODE_PLANS.challenge.length).toBe(12)
+  })
+
   it('covers every registered exercise type across practice modes', () => {
     const plannedTypes = new Set(Object.values(PRACTICE_MODE_PLANS).flatMap((plan) => plan.types))
     const registeredTypes = Object.keys(PRACTICE_EXERCISE_REGISTRY)

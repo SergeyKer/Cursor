@@ -29,6 +29,8 @@ interface AccentTrainerProps {
   audience: AccentAudience
   onClose: () => void
   onFooterViewChange?: (view: AccentFooterView | null) => void
+  initialLessonId?: string | null
+  initialLessonRequestKey?: number
 }
 
 const BLOCK_ORDER: AccentBlockType[] = ['words', 'pairs', 'progressive']
@@ -107,13 +109,20 @@ function createFooterView(params: {
   }
 }
 
-export default function AccentTrainer({ audience, onClose, onFooterViewChange }: AccentTrainerProps) {
-  const [selectedLessonId, setSelectedLessonId] = React.useState<string | null>(null)
+export default function AccentTrainer({
+  audience,
+  onClose,
+  onFooterViewChange,
+  initialLessonId = null,
+  initialLessonRequestKey = 0,
+}: AccentTrainerProps) {
+  const [selectedLessonId, setSelectedLessonId] = React.useState<string | null>(initialLessonId)
   const [mode, setMode] = React.useState<AccentSessionMode>(() => getDefaultAccentMode(audience))
   const [blockIndex, setBlockIndex] = React.useState(0)
   const [lastFeedback, setLastFeedback] = React.useState<AccentBlockFeedback | null>(null)
   const [manualTranscript, setManualTranscript] = React.useState('')
   const scrollContainerRef = React.useRef<HTMLDivElement | null>(null)
+  const previousInitialLessonRequestKeyRef = React.useRef(initialLessonRequestKey)
 
   const stateMachine = useAccentBlockStateMachine()
   const speech = useAccentSpeechRecognition()
@@ -152,6 +161,14 @@ export default function AccentTrainer({ audience, onClose, onFooterViewChange }:
     setManualTranscript('')
     setLastFeedback(null)
   }, [audio, speech, stateMachine])
+
+  React.useEffect(() => {
+    if (previousInitialLessonRequestKeyRef.current === initialLessonRequestKey) return
+    previousInitialLessonRequestKeyRef.current = initialLessonRequestKey
+    setSelectedLessonId(initialLessonId)
+    setBlockIndex(0)
+    resetBlock()
+  }, [initialLessonId, initialLessonRequestKey, resetBlock])
 
   const openLesson = React.useCallback(
     (lessonId: string) => {
