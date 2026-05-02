@@ -3847,23 +3847,23 @@ function buildTranslationJunkComment(params: {
   const adultByReason: Record<TranslationJunkReason, string[]> = {
     cyrillic: [
       'Похоже, это ответ на русском. В этом режиме нужен перевод на английском.',
-      'Сейчас введён русский текст. Напиши полный вариант на английском.',
+      'Сейчас введён русский текст. Напишите полный вариант на английском.',
       'Вижу русский ввод. Для этого шага нужен один полный английский перевод.',
     ],
     mixed: [
       'В ответе смешаны русский и английский. Нужна одна фраза полностью на английском.',
-      'Здесь смешан язык ответа. Напиши перевод целиком на английском.',
+      'Здесь смешан язык ответа. Напишите перевод целиком на английском.',
       'Вижу смешанный ввод. Нужен полный английский вариант без русских слов.',
     ],
     noise: [
       'Похоже на случайный набор символов. Нужен осмысленный перевод на английском.',
-      'Ответ выглядит как шум. Напиши полный английский перевод одной фразой.',
-      'Вижу набор символов вместо перевода. Введи корректную фразу на английском.',
+      'Ответ выглядит как шум. Напишите полный английский перевод одной фразой.',
+      'Вижу набор символов вместо перевода. Введите корректную фразу на английском.',
     ],
     non_english: [
-      'Пока не могу засчитать ответ. Напиши полный перевод на английском.',
+      'Пока не могу засчитать ответ. Напишите полный перевод на английском.',
       'Этот ввод не распознан как перевод. Нужна одна фраза на английском.',
-      'Ответ не похож на английский перевод. Введи корректный вариант на английском.',
+      'Ответ не похож на английский перевод. Введите корректный вариант на английском.',
     ],
   }
   const childByReason: Record<TranslationJunkReason, string[]> = {
@@ -5814,7 +5814,6 @@ function ensureTranslationErrorsMentionCyrillicAnswer(content: string, userText:
   if (/["'«»][а-яё]+["'«»]\s*[→-]+\s*["'«»]?(?:[a-z]|\[перевод по контексту\])/i.test(bodyText)) return content
 
   const specificReplacementHint = buildCyrillicWordReplacementHint(ut)
-  if (!specificReplacementHint && bodyLines.some((line) => line.trim().length > 0)) return content
   const newBody = [specificReplacementHint ?? CYRILLIC_IN_ANSWER_ERRORS_HINT, ...bodyLines.filter(Boolean)]
   const before = lines.slice(0, errIdx)
   const after = lines.slice(j)
@@ -6441,6 +6440,17 @@ export async function POST(req: NextRequest) {
           priorEn!.trim(),
           ruForTranslationRepeatClamp ?? lastTranslationPrompt
         )
+      if (activeRepeatChain && priorEn?.trim()) {
+        const junkPayload = buildTranslationJunkResponsePayload({
+          goldEnglish: priorEn.trim(),
+          audience,
+          userText: lastUserText,
+          verdictReasons: [],
+        })
+        if (junkPayload.trim()) {
+          return NextResponse.json({ content: junkPayload })
+        }
+      }
       const ruPromptRaw = (ruForTranslationRepeatClamp ?? lastTranslationPrompt)?.trim() ?? ''
       const ruPromptBody = ruPromptRaw
         ? normalizeDrillRuSentenceForSentenceType(ruPromptRaw, translationDrillSentenceType)

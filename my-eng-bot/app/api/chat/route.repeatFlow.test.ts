@@ -1569,10 +1569,11 @@ describe('POST /api/chat repeat cycle stability', () => {
     const data = (await res.json()) as { content: string }
 
     expect(res.status).toBe(200)
-    expect(data.content).toContain('Комментарий:')
-    expect(data.content).toContain('Некорректный ввод')
+    expect(callProviderChatMock).not.toHaveBeenCalled()
+    expect(data.content).toContain('Комментарий_мусор:')
     expect(data.content).toMatch(/^(?:Скажи|Say)\s*:/im)
     expect(data.content).not.toContain('Переведи далее:')
+    expect(data.content).not.toContain('Ошибки:')
   })
 
   it('translation success clamps repeat to the Russian prompt keywords', async () => {
@@ -2264,6 +2265,64 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).not.toContain('Переведи далее:')
   })
 
+  it('translation low-signal: short latin noise returns compact junk + current-cycle Скажи', async () => {
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'family_friends',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'У тебя есть сестра?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you have a sister?',
+        },
+        { role: 'user', content: 'sdf' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(callProviderChatMock).not.toHaveBeenCalled()
+    expect(data.content).toContain('Комментарий_мусор:')
+    expect(data.content).toContain('Скажи: Do you have a sister?')
+    expect(data.content).not.toMatch(/\b(?:Напиши|Введи)\b/)
+    expect(data.content).not.toContain('Переведи далее:')
+    expect(data.content).not.toContain('Переведи на английский')
+    expect(data.content).not.toContain('Ошибки:')
+  })
+
+  it('translation low-signal: short russian answer returns compact junk + current-cycle Скажи', async () => {
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'family_friends',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'У тебя есть братья или сёстры?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you have brothers or sisters?',
+        },
+        { role: 'user', content: 'не знаю' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(callProviderChatMock).not.toHaveBeenCalled()
+    expect(data.content).toContain('Комментарий_мусор:')
+    expect(data.content).toContain('Скажи: Do you have brothers or sisters?')
+    expect(data.content).not.toContain('Переведи далее:')
+    expect(data.content).not.toContain('Ошибки:')
+  })
+
   it('translation junk final payload keeps only two visible protocol blocks', async () => {
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,
@@ -2432,6 +2491,40 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(res.status).toBe(200)
     expect(repeatLine).toContain('Do you have brothers or sisters?')
     expect(repeatBody).not.toMatch(/[А-Яа-яЁё]/)
+  })
+
+  it('translation mixed latin+cyrillic keeps explicit cyrillic hint for unknown russian words', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий_перевод: Почти правильно.\nОшибки:\n📖 Проверь лексику.\nСкажи: Do you have brothers or sisters?',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'family_friends',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'У тебя есть братья или сёстры?\nПереведи на английский.\n__TRAN_REPEAT_REF__: Do you have brothers or sisters?',
+        },
+        { role: 'user', content: 'Do you have кракозябра brothers?' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий_перевод:')
+    expect(data.content).toContain('Ошибки:')
+    expect(data.content).toMatch(/Русские слова в ответе нужно перевести на английский|"кракозябра"\s*→\s*"\[перевод по контексту\]"/)
+    expect(data.content).toContain('Скажи: Do you have brothers or sisters?')
+    expect(data.content).not.toContain('Переведи далее:')
   })
 
   it('translation gibberish provocation keeps same frozen Скажи and no next drill', async () => {
