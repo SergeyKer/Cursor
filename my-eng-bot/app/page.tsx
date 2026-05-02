@@ -85,6 +85,7 @@ import LessonStepRenderer from '@/components/LessonStepRenderer'
 import { useLessonEngine } from '@/hooks/useLessonEngine'
 import { usePracticeSession } from '@/hooks/usePracticeSession'
 import PracticeScreen from '@/components/practice/PracticeScreen'
+import AccentTrainer, { type AccentFooterView } from '@/components/accent/AccentTrainer'
 import { getPracticeFooterView } from '@/lib/practice/practiceFooter'
 import { pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
 import { isIosChromeBrowser } from '@/lib/sttClient'
@@ -416,6 +417,8 @@ export default function Home() {
   } = useLessonEngine(activeStructuredLesson)
   const practiceSession = usePracticeSession()
   const { abandonSession: abandonPracticeSession, startSession: startPracticeSession } = practiceSession
+  const [accentTrainerActive, setAccentTrainerActive] = useState(false)
+  const [accentFooterView, setAccentFooterView] = useState<AccentFooterView | null>(null)
   const structuredLessonChoiceShuffleSeed =
     activeStructuredLesson == null
       ? undefined
@@ -897,6 +900,8 @@ export default function Home() {
   const resetStructuredLessonSession = useCallback(() => {
     lessonOpenRequestIdRef.current += 1
     abandonPracticeSession()
+    setAccentTrainerActive(false)
+    setAccentFooterView(null)
     setLessonMenuContext(null)
     setActiveLearningLessonId(null)
     setActiveStructuredLessonRuntime(null)
@@ -1497,6 +1502,15 @@ export default function Home() {
     },
     [resolvePracticeRequest, startPracticeFromLesson]
   )
+
+  const openAccentTrainer = useCallback(() => {
+    resetStructuredLessonSession()
+    setAccentTrainerActive(true)
+    setDialogStarted(true)
+    setMenuOpen(false)
+    setHomeMenuView('lessons')
+    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'summary' })
+  }, [resetStructuredLessonSession])
 
   const generatePracticeSession = useCallback(
     async (request: PracticeOpenRequest) => {
@@ -2196,6 +2210,7 @@ export default function Home() {
   const activeLearningLesson = activeLearningLessonId ? getLearningLessonById(activeLearningLessonId) : null
   const isLessonActive = Boolean(activeLearningLesson)
   const isPracticeActive = Boolean(practiceSession.session)
+  const isAccentActive = accentTrainerActive
   const activeLessonIntro =
     activeStructuredLesson?.intro ??
     activeLearningLesson?.intro ??
@@ -2384,7 +2399,9 @@ export default function Home() {
       : lessonExtraTipsStatus === 'more-loading' || lessonExtraTipsStatus === 'more-ready'
         ? 'Фишки темы | ещё 1 блок'
         : 'Дополнительные фишки | 0/7 шагов'
-  const footerDynamicText = isPracticeActive
+  const footerDynamicText = isAccentActive
+    ? accentFooterView?.dynamicText ?? null
+    : isPracticeActive
     ? practiceFooterView?.dynamicText ?? null
     : isLessonIntroActive
       ? introFooterDynamicText
@@ -2397,7 +2414,9 @@ export default function Home() {
       : dialogStarted
         ? chatFooterVoice?.text ?? null
         : homeFooterVoice?.text ?? null
-  const footerStaticText = isPracticeActive
+  const footerStaticText = isAccentActive
+    ? accentFooterView?.staticText ?? 'Произношение'
+    : isPracticeActive
     ? practiceFooterView?.staticText ?? 'Практика'
     : isLessonIntroActive
       ? introFooterStaticText
@@ -2410,7 +2429,9 @@ export default function Home() {
       : dialogStarted
         ? getMenuSummary(false)
         : 'Главная'
-  const footerTypingKey = isPracticeActive
+  const footerTypingKey = isAccentActive
+    ? accentFooterView?.typingKey ?? 'accent-footer'
+    : isPracticeActive
     ? practiceFooterView?.typingKey ?? 'practice-footer'
     : isLessonIntroActive
       ? `${activeLearningLessonId ?? 'lesson'}:intro:${lessonIntroDepth}`
@@ -2421,7 +2442,9 @@ export default function Home() {
       : dialogStarted
       ? chatFooterVoice?.typingKey ?? 'chat-footer'
       : homeFooterVoice?.typingKey ?? 'home-footer'
-  const footerVoiceTone = isPracticeActive
+  const footerVoiceTone = isAccentActive
+    ? accentFooterView?.tone ?? 'neutral'
+    : isPracticeActive
     ? practiceSession.state === 'correction'
       ? 'hint'
       : practiceSession.state === 'completed'
@@ -2444,7 +2467,9 @@ export default function Home() {
       : dialogStarted
       ? (chatFooterVoice?.tone ?? 'neutral')
       : (homeFooterVoice?.tone ?? 'neutral')
-  const footerVoiceEmphasis = isPracticeActive
+  const footerVoiceEmphasis = isAccentActive
+    ? accentFooterView?.emphasis ?? 'none'
+    : isPracticeActive
     ? practiceSession.state === 'completed'
       ? 'pulse'
       : 'none'
@@ -2754,6 +2779,7 @@ export default function Home() {
                     onGenerateLearningLesson={openGeneratedLearningLesson}
                     onOpenPracticeSession={openPracticeSession}
                     onGeneratePracticeSession={generatePracticeSession}
+                    onOpenAccentTrainer={openAccentTrainer}
                     onOpenTutorLesson={openTutorLesson}
                   />
                 </div>
@@ -2778,7 +2804,13 @@ export default function Home() {
             {/* На iOS после закрытия клавиатуры иногда остаётся небольшой технический зазор.
                Чтобы не просвечивал серый фон страницы, держим фон тем же, что и у чата. */}
             <div className="min-h-0 flex-1 bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
-              {isPracticeActive && practiceSession.session ? (
+              {isAccentActive ? (
+                <AccentTrainer
+                  audience={settings.audience}
+                  onClose={goToStartScreen}
+                  onFooterViewChange={setAccentFooterView}
+                />
+              ) : isPracticeActive && practiceSession.session ? (
                 <PracticeScreen
                   session={practiceSession.session}
                   state={practiceSession.state}
@@ -2933,6 +2965,7 @@ export default function Home() {
         onGenerateLearningLesson={openGeneratedLearningLesson}
         onOpenPracticeSession={openPracticeSession}
         onGeneratePracticeSession={generatePracticeSession}
+        onOpenAccentTrainer={openAccentTrainer}
         onOpenTutorLesson={openTutorLesson}
         lessonMenuContext={lessonMenuContext}
         topOffset="var(--app-top-offset)"

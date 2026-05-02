@@ -1,0 +1,35 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AccentTemplate {
+  id          String             @id @default(cuid())
+  sound       String
+  type        String
+  difficulty  String
+  source      String
+  contentJson Json
+  likes       Int                @default(0)
+  dislikes    Int                @default(0)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  votes       AccentTemplateVote[]
+
+  @@index([sound, type, difficulty, likes])
+}
+
+model AccentTemplateVote {
+  id         String         @id @default(cuid())
+  templateId String
+  deviceId   String
+  vote       String
+  createdAt  DateTime       @default(now())
+  template   AccentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, deviceId])
+}

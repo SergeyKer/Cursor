@@ -170,6 +170,7 @@ export interface MenuSectionPanelsProps {
     entrySource: PracticeEntrySource
     customTopic?: string
   }) => void | Promise<void>
+  onOpenAccentTrainer?: () => void
   onOpenTutorLesson?: (request: {
     requestedTopic: string
     originalQuery?: string
@@ -197,6 +198,7 @@ export default function MenuSectionPanels({
   onGenerateLearningLesson,
   onOpenPracticeSession,
   onGeneratePracticeSession,
+  onOpenAccentTrainer,
   onOpenTutorLesson,
   initialLessonsPanel,
 }: MenuSectionPanelsProps) {
@@ -682,7 +684,11 @@ export default function MenuSectionPanels({
                   {featureFlags.practiceEngineV1 && (
                     <MenuNavRow label="Практика" onClick={() => setLessonsPanel('practice')} />
                   )}
-                  <LessonTopicRow label="Произношение" />
+                  {featureFlags.accentTrainerV1 ? (
+                    <LessonTopicRow label="Произношение" onClick={onOpenAccentTrainer} />
+                  ) : (
+                    <LessonTopicRow label="Произношение" />
+                  )}
                   <MenuNavRow
                     label="Репетитор"
                     onClick={() => {

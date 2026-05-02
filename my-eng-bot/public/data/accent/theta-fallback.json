@@ -1,0 +1,31 @@
+{
+  "source": "local_fallback",
+  "lessons": [
+    {
+      "id": "th-think-fallback",
+      "sectionId": "dental-th",
+      "title": "TH think fallback",
+      "shortTitle": "think",
+      "targetSound": "/theta/",
+      "marker": "think не должен звучать как sink или tink.",
+      "childMarker": "Поймаем TH, чтобы think не убегал в sink.",
+      "teacherNote": "Локальный fallback для тренировки TH без обращения к AI.",
+      "words": ["think", "thin", "thick", "thank", "three", "throw", "truth", "bath", "mouth", "teeth"],
+      "minimalPairs": [
+        { "target": "think", "contrast": "sink" },
+        { "target": "thin", "contrast": "tin" },
+        { "target": "thank", "contrast": "tank" },
+        { "target": "three", "contrast": "tree" }
+      ],
+      "progressiveLines": ["three", "three thin", "three thin thinkers"],
+      "knownSubstitutions": [
+        {
+          "id": "th_to_t",
+          "label": "TH -> T",
+          "examples": { "thank": ["tank"], "think": ["tink"], "three": ["tree"] },
+          "hint": "TH ушёл в T. Не превращай начало слова в резкий T."
+        }
+      ]
+    }
+  ]
+}
