@@ -94,7 +94,11 @@ import {
   isKommentariyPurePraiseOnly,
   shouldStripRepeatOnPraise,
 } from '@/lib/dialoguePraiseComment'
-import { buildMixedDialogueFallbackComment, buildMixedInputRepeatFallback } from '@/lib/mixedInputRepeatFallback'
+import {
+  buildMixedDialogueFallbackComment,
+  buildMixedInputRepeatFallback,
+  hasRussianDialogueFallbackSignal,
+} from '@/lib/mixedInputRepeatFallback'
 import { normalizeEnglishForLearnerAnswerMatch } from '@/lib/normalizeEnglishForLearnerAnswerMatch'
 import { answersMatchAllowingLikeLove } from '@/lib/translationLikeLoveContext'
 import {
@@ -1186,6 +1190,10 @@ function defaultNextQuestion(tense: string): string {
 
 function isMixedLatinCyrillicText(text: string): boolean {
   return /[A-Za-z]/.test(text) && /[А-Яа-яЁё]/.test(text)
+}
+
+function isCyrillicOnlyText(text: string): boolean {
+  return /[А-Яа-яЁё]/.test(text) && !/[A-Za-z]/.test(text)
 }
 
 function extractLastDialogueQuestionLine(content: string): string | null {
@@ -6050,6 +6058,10 @@ function buildDialogueLowSignalFallback(params: {
       ? 'Комментарий: Я не понял ответ. Давай вернемся к вопросу и ответим полным предложением на английском.'
       : 'Комментарий: Я не понял ответ. Давайте вернемся к вопросу и ответим полным предложением на английском.'
     : 'Комментарий: Ответ не удалось распознать. Давайте вернемся к текущему вопросу и ответим полным предложением на английском.'
+  const repeatAnchor = extractRepeatSentencesFromAssistantHistory(params.messages).at(-1)?.trim()
+  if (repeatAnchor) {
+    return `${invalidInputComment}\nПовтори: ${repeatAnchor}`
+  }
 
   const currentCycleQuestion = extractLastAssistantQuestionSentence(params.messages)
   if (currentCycleQuestion && isEnglishQuestionLine(currentCycleQuestion)) {
@@ -6507,6 +6519,28 @@ export async function POST(req: NextRequest) {
         ? dialoguePinnedRepeatEnglish ??
           pickDialogueForcedRepeatAnchorFromHistory(recentMessages, lastUserText, tutorGradingTense)
         : null
+    if (
+      mode === 'dialogue' &&
+      !isFirstTurn &&
+      !isTopicChoiceTurn &&
+      isCyrillicOnlyText(lastUserContentForResponse) &&
+      (Boolean(forcedRepeatSentence?.trim()) || hasRussianDialogueFallbackSignal(lastUserContentForResponse))
+    ) {
+      const repeatBody = forcedRepeatSentence?.trim() || buildMixedInputRepeatFallback({
+        userText: lastUserContentForResponse,
+        tense: tutorGradingTense,
+      })
+      if (repeatBody && /[A-Za-z]/.test(repeatBody) && !/[А-Яа-яЁё]/.test(repeatBody)) {
+        return NextResponse.json({
+          content: `${buildMixedDialogueFallbackComment({
+            audience,
+            level,
+            userText: lastUserContentForResponse,
+          })}\nПовтори: ${repeatBody}`,
+          dialogueCorrect: false,
+        })
+      }
+    }
     const lastUserContentRaw = lastUserText
     const lastAssistantContentForLangTie = recentMessages.filter((m: ChatMessage) => m.role === 'assistant').pop()?.content ?? ''
     const lastAssistantLang = detectLangFromText(lastAssistantContentForLangTie, 'ru')

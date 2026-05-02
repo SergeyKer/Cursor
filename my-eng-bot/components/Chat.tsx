@@ -1078,6 +1078,7 @@ export default function Chat({
     voicePhase,
     statusMessage: voiceStatusMessage,
     displayText: voiceDisplayText,
+    lastCommittedVoiceText,
     isVoiceActive,
     isTextareaReadOnly,
     setDraftText: setInput,
@@ -1115,6 +1116,11 @@ export default function Chat({
   const showVoiceOverlay = isVoiceActive && composerText.length > 0
   const voiceWebMetricsActive = showVoiceOverlay && voiceWebMetricsClient
   const micActionActive = listening || voicePhase === 'finalizing'
+  const showVoicePlaybackButton =
+    !isVoiceActive &&
+    !isLessonLoadingState &&
+    Boolean(lastCommittedVoiceText) &&
+    input.trim() === lastCommittedVoiceText
   const iosChromeVoiceStatusMessage =
     !isIosChromeClient
       ? null
@@ -2192,6 +2198,8 @@ export default function Chat({
                           : 'Поле ввода сообщения'
                     }
                     className={`chat-input-field communication-chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] ${
+                      showVoicePlaybackButton ? 'pr-12' : ''
+                    } ${
                       voiceWebMetricsActive ? 'chat-input-voice-web-metrics' : ''
                     } ${
                       showVoiceOverlay
@@ -2200,6 +2208,17 @@ export default function Chat({
                     }`}
                     style={{ maxHeight: INPUT_MAX_HEIGHT_PX }}
                   />
+                  {showVoicePlaybackButton && (
+                    <button
+                      type="button"
+                      onClick={() => speak(lastCommittedVoiceText, settings.voiceId)}
+                      className="chat-action-button absolute right-2 top-1/2 z-10 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)]"
+                      title="Прослушать"
+                      aria-label="Прослушать распознанный текст"
+                    >
+                      <SpeakerIcon />
+                    </button>
+                  )}
                 </div>
                 <button
                   type="submit"

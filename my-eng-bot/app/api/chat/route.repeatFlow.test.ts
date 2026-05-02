@@ -129,6 +129,77 @@ describe('POST /api/chat repeat cycle stability', () => {
       expect(data.content).toContain('What do you think about speed track?')
       expect(data.content).not.toMatch(/^(?:Скажи|Повтори)\s*:/im)
     })
+
+    it('noise flow hold: gibberish preserves unresolved repeat instead of moving to a question', async () => {
+      const req = makeRequest({
+        mode: 'dialogue',
+        topic: 'sports',
+        audience: 'adult',
+        level: 'a2',
+        tenses: ['past_simple'],
+        messages: [
+          { role: 'assistant', content: 'What did you play yesterday?' },
+          { role: 'user', content: 'I play football.' },
+          { role: 'assistant', content: 'Комментарий: Нужен Past Simple.\nПовтори: I played football yesterday.' },
+          { role: 'user', content: 'sdfsdf' },
+        ],
+      })
+
+      const res = await POST(req as never)
+      const data = (await res.json()) as { content: string }
+
+      expect(res.status).toBe(200)
+      expect(callProviderChatMock).not.toHaveBeenCalled()
+      expect(data.content).toContain('Комментарий:')
+      expect(data.content).toContain('Повтори: I played football yesterday.')
+      expect(data.content).not.toContain('What did you play yesterday?')
+    })
+
+    it('russian answer help: builds an English repeat without calling the provider', async () => {
+      const req = makeRequest({
+        mode: 'dialogue',
+        topic: 'daily_life',
+        audience: 'adult',
+        level: 'a2',
+        tenses: ['present_simple'],
+        messages: [
+          { role: 'assistant', content: 'What do you like in this car?' },
+          { role: 'user', content: 'я люблю фары' },
+        ],
+      })
+
+      const res = await POST(req as never)
+      const data = (await res.json()) as { content: string }
+
+      expect(res.status).toBe(200)
+      expect(callProviderChatMock).not.toHaveBeenCalled()
+      expect(data.content).toContain('фары = headlights')
+      expect(data.content).toContain('Повтори: I like headlights.')
+    })
+
+    it('russian answer hold: keeps unresolved repeat even when Russian text has no known gloss', async () => {
+      const req = makeRequest({
+        mode: 'dialogue',
+        topic: 'daily_life',
+        audience: 'adult',
+        level: 'a2',
+        tenses: ['past_simple'],
+        messages: [
+          { role: 'assistant', content: 'What did you do yesterday?' },
+          { role: 'user', content: 'I go to the park.' },
+          { role: 'assistant', content: 'Комментарий: Нужен Past Simple.\nПовтори: I went to the park.' },
+          { role: 'user', content: 'не знаю' },
+        ],
+      })
+
+      const res = await POST(req as never)
+      const data = (await res.json()) as { content: string }
+
+      expect(res.status).toBe(200)
+      expect(callProviderChatMock).not.toHaveBeenCalled()
+      expect(data.content).toContain('Повтори: I went to the park.')
+      expect(data.content).not.toContain('What did you do yesterday?')
+    })
   })
 
   it('keeps repeat cycle (no next question) when previous repeat is still unresolved', async () => {

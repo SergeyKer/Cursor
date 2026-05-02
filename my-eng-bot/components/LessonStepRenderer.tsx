@@ -9,6 +9,7 @@ import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/component
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import type { BlockProgress, LessonStatus, LessonTimelineEntry } from '@/hooks/useLessonEngine'
 import { getLessonSingleWordRuCue } from '@/lib/lessonSingleWordCue'
+import { speak } from '@/lib/speech'
 import { seededShuffle } from '@/lib/shuffleSeeded'
 import { useLessonVoiceInput } from '@/lib/voice/useLessonVoiceInput'
 import type { Bubble, PostLessonAction } from '@/types/lesson'
@@ -23,6 +24,7 @@ type LessonStepRendererProps = {
   onPostLessonAction?: (action: PostLessonAction) => void
   postLessonBusy?: boolean
   audience: 'child' | 'adult'
+  voiceId: string
   /** Новый ключ (например `runKey` урока) — новый порядок вариантов в fill_choice на каждый проход. */
   choiceShuffleSeed?: string
 }
@@ -129,6 +131,7 @@ export default function LessonStepRenderer({
   onPostLessonAction,
   postLessonBusy = false,
   audience,
+  voiceId,
   choiceShuffleSeed,
 }: LessonStepRendererProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -201,6 +204,12 @@ export default function LessonStepRenderer({
         ? lessonVoiceInput.displayText
         : lessonVoiceInput.draftText
   const showVoiceOverlay = lessonVoiceInput.isVoiceActive && lessonVoiceInput.livePreviewText.length > 0
+  const showVoicePlaybackButton =
+    isTextInputAvailable &&
+    !lessonVoiceInput.isVoiceActive &&
+    !isChecking &&
+    Boolean(lessonVoiceInput.lastCommittedVoiceText) &&
+    lessonVoiceInput.draftText.trim() === lessonVoiceInput.lastCommittedVoiceText
   const rawVoiceStatusMessage = lessonVoiceInput.voiceStatusMessage ?? ''
   const voiceStatusMessage = LESSON_HIDDEN_VOICE_STATUS_MESSAGES.has(rawVoiceStatusMessage)
     ? ''
@@ -632,6 +641,8 @@ export default function LessonStepRenderer({
                         readOnly={lessonVoiceInput.isInputLocked}
                         disabled={!isTextInputAvailable || isChecking}
                         className={`chat-input-field lesson-chat-input-field min-w-0 w-full rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${
+                          showVoicePlaybackButton ? 'pr-12' : ''
+                        } ${
                           showVoiceOverlay ? 'chat-input-voice-web-metrics' : ''
                         } ${
                           showVoiceOverlay
@@ -640,6 +651,17 @@ export default function LessonStepRenderer({
                         }`}
                         placeholder={inputPlaceholder}
                       />
+                      {showVoicePlaybackButton && (
+                        <button
+                          type="button"
+                          onClick={() => speak(lessonVoiceInput.lastCommittedVoiceText, voiceId)}
+                          className="chat-action-button absolute right-2 top-1/2 z-10 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)]"
+                          title="Прослушать"
+                          aria-label="Прослушать распознанный текст"
+                        >
+                          <LessonSpeakerIcon />
+                        </button>
+                      )}
                     </div>
                     <button
                       type="submit"
@@ -689,5 +711,18 @@ export default function LessonStepRenderer({
         </div>
       </div>
     </div>
+  )
+}
+
+function LessonSpeakerIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+      />
+    </svg>
   )
 }

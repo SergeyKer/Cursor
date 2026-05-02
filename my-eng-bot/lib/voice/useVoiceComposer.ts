@@ -7,6 +7,7 @@ export type VoiceComposerState = {
   draftBeforeVoiceText: string
   voiceFinalText: string
   voiceInterimText: string
+  lastCommittedVoiceText: string
   voicePhase: VoicePhase
   statusMessage: string | null
 }
@@ -27,6 +28,7 @@ export const initialVoiceComposerState: VoiceComposerState = {
   draftBeforeVoiceText: '',
   voiceFinalText: '',
   voiceInterimText: '',
+  lastCommittedVoiceText: '',
   voicePhase: 'idle',
   statusMessage: null,
 }
@@ -177,6 +179,7 @@ export function voiceComposerReducer(
       return {
         ...state,
         draftText: action.text,
+        lastCommittedVoiceText: '',
         statusMessage: state.voicePhase === 'error' ? null : state.statusMessage,
       }
     case 'startRecording':
@@ -185,6 +188,7 @@ export function voiceComposerReducer(
         draftBeforeVoiceText: '',
         voiceFinalText: '',
         voiceInterimText: '',
+        lastCommittedVoiceText: '',
         draftText: '',
         voicePhase: 'recording',
         statusMessage: null,
@@ -209,6 +213,7 @@ export function voiceComposerReducer(
         draftBeforeVoiceText: '',
         voiceFinalText: '',
         voiceInterimText: '',
+        lastCommittedVoiceText: action.text.trim(),
         voicePhase: 'idle',
         statusMessage: null,
       }
@@ -218,6 +223,7 @@ export function voiceComposerReducer(
         draftBeforeVoiceText: '',
         voiceFinalText: '',
         voiceInterimText: '',
+        lastCommittedVoiceText: '',
         voicePhase: 'error',
         statusMessage: action.statusMessage,
       }
@@ -227,6 +233,7 @@ export function voiceComposerReducer(
         draftBeforeVoiceText: '',
         voiceFinalText: '',
         voiceInterimText: '',
+        lastCommittedVoiceText: '',
         voicePhase: 'idle',
         statusMessage: action.statusMessage ?? null,
       }

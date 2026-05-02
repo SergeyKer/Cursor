@@ -166,8 +166,24 @@ describe('useVoiceComposer helpers', () => {
     })
 
     expect(committed.draftText).toBe('spoken ending')
+    expect(committed.lastCommittedVoiceText).toBe('spoken ending')
     expect(committed.voicePhase).toBe('idle')
     expect(committed.voiceInterimText).toBe('')
+  })
+
+  it('clears the committed voice marker after manual edits', () => {
+    const committed = voiceComposerReducer(initialVoiceComposerState, {
+      type: 'commitVoiceText',
+      text: 'spoken answer',
+    })
+
+    const edited = voiceComposerReducer(committed, {
+      type: 'setDraftText',
+      text: 'spoken answer edited',
+    })
+
+    expect(edited.draftText).toBe('spoken answer edited')
+    expect(edited.lastCommittedVoiceText).toBe('')
   })
 
   it('reset restores initial composer state', () => {

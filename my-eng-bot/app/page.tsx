@@ -2893,6 +2893,7 @@ export default function Home() {
                   onPostLessonAction={handlePostLessonAction}
                   postLessonBusy={postLessonBusy}
                   audience={settings.audience}
+                  voiceId={settings.voiceId}
                   choiceShuffleSeed={structuredLessonChoiceShuffleSeed}
                 />
               ) : (

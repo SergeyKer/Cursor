@@ -51,6 +51,15 @@ describe('validateDialogueMixedInputOutput', () => {
     expect(res).toEqual({ ok: true })
   })
 
+  it('passes for mixed input with an explicit headlight gloss and english repeat', () => {
+    const res = validateDialogueMixedInputOutput({
+      userText: 'I like фара',
+      content:
+        'Комментарий: фара = headlight, замените русское слово английским.\nПовтори: I like the headlight.',
+    })
+    expect(res).toEqual({ ok: true })
+  })
+
   it('passes for mixed input with Комментарий_ошибка and Повтори', () => {
     const res = validateDialogueMixedInputOutput({
       userText: 'I see лес',
