@@ -655,7 +655,7 @@ export default function LessonStepRenderer({
                         <button
                           type="button"
                           onClick={() => speak(lessonVoiceInput.lastCommittedVoiceText, voiceId)}
-                          className="chat-action-button absolute right-2 top-1/2 z-10 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)]"
+                          className="chat-action-button absolute right-2 top-0 bottom-0 z-10 my-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)]"
                           title="Прослушать"
                           aria-label="Прослушать распознанный текст"
                         >
