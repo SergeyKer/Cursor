@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { parseCorrection } from '@/lib/parseCorrection'
 import {
   dedupeTranslationPraiseParagraphs,
@@ -1820,9 +1820,13 @@ export default function Chat({
   const adjustInputHeight = useCallback(() => {
     const el = textareaRef.current
     if (!el) return
-    el.style.height = 'auto'
-    const h = Math.min(el.scrollHeight, INPUT_MAX_HEIGHT_PX)
+    // Сбрасываем высоту перед измерением: иначе после схлопывания пробелов (голос)
+    // или переносов scrollHeight иногда остаётся «однострочным» и нижняя строка клипится.
+    el.style.height = '0px'
+    const fullScroll = el.scrollHeight
+    const h = Math.min(fullScroll, INPUT_MAX_HEIGHT_PX)
     el.style.height = `${h}px`
+    el.style.overflowY = fullScroll > INPUT_MAX_HEIGHT_PX ? 'auto' : ''
   }, [])
 
   const syncComposerHeight = useCallback(() => {
@@ -1834,9 +1838,9 @@ export default function Chat({
     root.style.setProperty('--chat-input-height', `${height}px`)
   }, [])
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     adjustInputHeight()
-  }, [composerText, adjustInputHeight])
+  }, [composerText, adjustInputHeight, showVoicePlaybackButton, voiceWebMetricsActive])
 
   React.useEffect(() => {
     syncComposerHeight()
