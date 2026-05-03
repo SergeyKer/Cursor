@@ -1,43 +1,76 @@
-import type { AccentBlockFeedback, AccentLessonProgress, AccentLessonStage, AccentProgressSummary } from '@/types/accent'
+import type { AccentBlockFeedback, AccentBlockType, AccentLessonProgress, AccentProgressSummary } from '@/types/accent'
 
 const STORAGE_KEY = 'myeng.accent.progress.v1'
-const STORAGE_VERSION = 1
+const STORAGE_VERSION = 2
 const MAX_COMPLETED_DATES = 40
+const SEGMENT_TARGET = 20
+const PROGRESS_UPDATED_EVENT = 'myeng:accent-progress-updated'
 
-const STAGE_THRESHOLDS: Array<{ stage: AccentLessonStage; successfulAttempts: number; label: string }> = [
-  { stage: 'new', successfulAttempts: 0, label: 'Новый звук' },
-  { stage: 'started', successfulAttempts: 1, label: 'Старт есть' },
-  { stage: 'in_progress', successfulAttempts: 3, label: 'Набираем устойчивость' },
-  { stage: 'first_shift', successfulAttempts: 5, label: 'Первые сдвиги' },
-  { stage: 'stabilizing', successfulAttempts: 10, label: 'Стабилизация' },
-  { stage: 'anchoring', successfulAttempts: 15, label: 'Закрепление' },
-  { stage: 'maintenance', successfulAttempts: 20, label: 'Поддержание' },
-]
+const BLOCK_TYPES: AccentBlockType[] = ['words', 'pairs', 'progressive']
 
 type ProgressMap = Record<string, AccentLessonProgress>
+
+function createEmptySegmentMap(): Record<AccentBlockType, number> {
+  return {
+    words: 0,
+    pairs: 0,
+    progressive: 0,
+  }
+}
 
 function createEmptyProgress(lessonId: string): AccentLessonProgress {
   return {
     lessonId,
     version: STORAGE_VERSION,
     attempts: 0,
-    successfulAttempts: 0,
     lastScore: 0,
     bestScore: 0,
     lastCompletedAt: null,
     completedDates: [],
-    stage: 'new',
+    segmentAttempts: createEmptySegmentMap(),
+    segmentSuccessfulAttempts: createEmptySegmentMap(),
   }
-}
-
-function getStage(successfulAttempts: number): AccentLessonStage {
-  return [...STAGE_THRESHOLDS]
-    .reverse()
-    .find((entry) => successfulAttempts >= entry.successfulAttempts)?.stage ?? 'new'
 }
 
 function isStorageAvailable(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+}
+
+function normalizeSegmentMap(value: unknown): Record<AccentBlockType, number> {
+  const initial = createEmptySegmentMap()
+  if (!value || typeof value !== 'object') return initial
+  for (const blockType of BLOCK_TYPES) {
+    const raw = (value as Record<string, unknown>)[blockType]
+    const numeric = Number(raw)
+    initial[blockType] = Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : 0
+  }
+  return initial
+}
+
+function migrateLegacyProgress(raw: unknown, lessonId: string): AccentLessonProgress {
+  const initial = createEmptyProgress(lessonId)
+  if (!raw || typeof raw !== 'object') return initial
+  const source = raw as Record<string, unknown>
+  const successfulAttempts = Math.max(0, Math.floor(Number(source.successfulAttempts) || 0))
+  const attempts = Math.max(0, Math.floor(Number(source.attempts) || 0))
+  return {
+    ...initial,
+    attempts,
+    lastScore: Number(source.lastScore) || 0,
+    bestScore: Number(source.bestScore) || 0,
+    lastCompletedAt: typeof source.lastCompletedAt === 'string' ? source.lastCompletedAt : null,
+    completedDates: Array.isArray(source.completedDates) ? source.completedDates.filter((date): date is string => typeof date === 'string').slice(0, MAX_COMPLETED_DATES) : [],
+    segmentAttempts: {
+      words: attempts,
+      pairs: attempts,
+      progressive: attempts,
+    },
+    segmentSuccessfulAttempts: {
+      words: Math.min(SEGMENT_TARGET, successfulAttempts),
+      pairs: Math.min(SEGMENT_TARGET, successfulAttempts),
+      progressive: Math.min(SEGMENT_TARGET, successfulAttempts),
+    },
+  }
 }
 
 function readMap(): ProgressMap {
@@ -57,6 +90,7 @@ function writeMap(map: ProgressMap): void {
   if (!isStorageAvailable()) return
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map))
+    window.dispatchEvent(new CustomEvent(PROGRESS_UPDATED_EVENT))
   } catch {
     // Local progress is helpful, not required for the lesson to work.
   }
@@ -64,25 +98,20 @@ function writeMap(map: ProgressMap): void {
 
 export function getAccentLessonProgress(lessonId: string): AccentLessonProgress {
   const stored = readMap()[lessonId]
-  if (!stored || stored.version !== STORAGE_VERSION) return createEmptyProgress(lessonId)
+  if (!stored) return createEmptyProgress(lessonId)
+  if (stored.version !== STORAGE_VERSION) return migrateLegacyProgress(stored, lessonId)
   return {
     ...createEmptyProgress(lessonId),
     ...stored,
     completedDates: Array.isArray(stored.completedDates) ? stored.completedDates.slice(0, MAX_COMPLETED_DATES) : [],
-    stage: getStage(Math.max(0, Number(stored.successfulAttempts) || 0)),
+    segmentAttempts: normalizeSegmentMap(stored.segmentAttempts),
+    segmentSuccessfulAttempts: normalizeSegmentMap(stored.segmentSuccessfulAttempts),
   }
 }
 
 export function summarizeAccentProgress(lessonId: string): AccentProgressSummary {
-  const progress = getAccentLessonProgress(lessonId)
-  const next = STAGE_THRESHOLDS.find((entry) => entry.successfulAttempts > progress.successfulAttempts)
-  const current = [...STAGE_THRESHOLDS].reverse().find((entry) => progress.successfulAttempts >= entry.successfulAttempts)
-
   return {
-    progress,
-    remainingToNextStage: next ? Math.max(0, next.successfulAttempts - progress.successfulAttempts) : 0,
-    nextStage: next?.stage ?? null,
-    label: current?.label ?? 'Новый звук',
+    progress: getAccentLessonProgress(lessonId),
   }
 }
 
@@ -91,19 +120,40 @@ export function recordAccentBlockFeedback(feedback: AccentBlockFeedback): Accent
   const previous = getAccentLessonProgress(feedback.lessonId)
   const now = new Date().toISOString()
   const isSuccessful = feedback.score >= 80
+  const previousBlockAttempts = previous.segmentAttempts[feedback.blockType] ?? 0
+  const previousBlockSuccessfulAttempts = previous.segmentSuccessfulAttempts[feedback.blockType] ?? 0
   const next: AccentLessonProgress = {
     ...previous,
     attempts: previous.attempts + 1,
-    successfulAttempts: previous.successfulAttempts + (isSuccessful ? 1 : 0),
     lastScore: feedback.score,
     bestScore: Math.max(previous.bestScore, feedback.score),
     lastCompletedAt: now,
     completedDates: [now, ...previous.completedDates].slice(0, MAX_COMPLETED_DATES),
+    segmentAttempts: {
+      ...previous.segmentAttempts,
+      [feedback.blockType]: previousBlockAttempts + 1,
+    },
+    segmentSuccessfulAttempts: {
+      ...previous.segmentSuccessfulAttempts,
+      [feedback.blockType]: isSuccessful
+        ? Math.min(SEGMENT_TARGET, previousBlockSuccessfulAttempts + 1)
+        : previousBlockSuccessfulAttempts,
+    },
   }
-  next.stage = getStage(next.successfulAttempts)
   map[feedback.lessonId] = next
   writeMap(map)
   return next
+}
+
+export function subscribeAccentProgress(listener: () => void): () => void {
+  if (typeof window === 'undefined') return () => {}
+  const handler = () => listener()
+  window.addEventListener(PROGRESS_UPDATED_EVENT, handler)
+  window.addEventListener('storage', handler)
+  return () => {
+    window.removeEventListener(PROGRESS_UPDATED_EVENT, handler)
+    window.removeEventListener('storage', handler)
+  }
 }
 
 export function resetAccentProgressForTests(): void {

@@ -5,7 +5,7 @@ export type AccentAudience = Audience
 export type AccentBlockType = 'words' | 'pairs' | 'progressive'
 export type AccentBlockState = 'idle' | 'recording' | 'preview' | 'submitting' | 'feedback' | 'complete'
 export type AccentSessionMode = 'mini' | 'quick' | 'standard' | 'expert' | 'problem_only'
-export type AccentLessonStage = 'new' | 'started' | 'in_progress' | 'first_shift' | 'stabilizing' | 'anchoring' | 'maintenance'
+export type AccentLessonSessionKind = 'full' | 'single'
 
 export interface AccentMinimalPair {
   target: string
@@ -105,19 +105,16 @@ export interface AccentLessonProgress {
   lessonId: string
   version: number
   attempts: number
-  successfulAttempts: number
   lastScore: number
   bestScore: number
   lastCompletedAt: string | null
   completedDates: string[]
-  stage: AccentLessonStage
+  segmentAttempts: Record<AccentBlockType, number>
+  segmentSuccessfulAttempts: Record<AccentBlockType, number>
 }
 
 export interface AccentProgressSummary {
   progress: AccentLessonProgress
-  remainingToNextStage: number
-  nextStage: AccentLessonStage | null
-  label: string
 }
 
 export interface AccentAttemptRuntime {

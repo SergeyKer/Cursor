@@ -53,20 +53,46 @@ export function getDefaultAccentMode(audience: AccentAudience): AccentSessionMod
 }
 
 function takeWithCycle<T>(items: T[], count: number): T[] {
+  return takeWithOffset(items, count, 0)
+}
+
+function takeWithOffset<T>(items: T[], count: number, startOffset: number): T[] {
   if (count <= 0 || items.length === 0) return []
   const result: T[] = []
+  const normalizedOffset = ((startOffset % items.length) + items.length) % items.length
   for (let i = 0; i < count; i += 1) {
-    result.push(items[i % items.length])
+    result.push(items[(normalizedOffset + i) % items.length])
   }
   return result
 }
 
-export function buildAccentLessonBlocks(lesson: AccentLesson, mode: AccentSessionMode) {
+function hashSeed(value: string): number {
+  let hash = 0
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0
+  }
+  return hash
+}
+
+function buildOffset(lessonId: string, blockType: 'words' | 'pairs' | 'progressive', variantSeed: number, length: number): number {
+  if (variantSeed <= 0 || length <= 0) return 0
+  return hashSeed(`${lessonId}:${blockType}:${variantSeed}`) % length
+}
+
+export function buildAccentLessonBlocks(
+  lesson: AccentLesson,
+  mode: AccentSessionMode,
+  options?: { variantSeed?: number }
+) {
   const plan = ACCENT_SESSION_PLANS[mode]
+  const variantSeed = options?.variantSeed ?? 0
+  const wordsOffset = buildOffset(lesson.id, 'words', variantSeed, lesson.words.length)
+  const pairsOffset = buildOffset(lesson.id, 'pairs', variantSeed, lesson.minimalPairs.length)
+  const progressiveOffset = buildOffset(lesson.id, 'progressive', variantSeed, lesson.progressiveLines.length)
   return {
     plan,
-    words: takeWithCycle(lesson.words, plan.wordCount),
-    pairs: takeWithCycle<AccentMinimalPair>(lesson.minimalPairs, plan.pairCount),
-    progressiveLines: lesson.progressiveLines.slice(0, plan.progressiveLineCount),
+    words: takeWithOffset(lesson.words, plan.wordCount, wordsOffset),
+    pairs: takeWithOffset<AccentMinimalPair>(lesson.minimalPairs, plan.pairCount, pairsOffset),
+    progressiveLines: takeWithOffset(lesson.progressiveLines, plan.progressiveLineCount, progressiveOffset),
   }
 }

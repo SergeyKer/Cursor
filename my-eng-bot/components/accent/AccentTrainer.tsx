@@ -10,11 +10,18 @@ import { useAccentBlockStateMachine } from '@/hooks/useAccentBlockStateMachine'
 import { useAccentSpeechRecognition } from '@/hooks/useAccentSpeechRecognition'
 import { useAudioPreview } from '@/hooks/useAudioPreview'
 import { analyzeAccentAttempt } from '@/lib/accent/phoneticFeedback'
-import { recordAccentBlockFeedback, summarizeAccentProgress } from '@/lib/accent/progressStorage'
+import { recordAccentBlockFeedback, subscribeAccentProgress, summarizeAccentProgress } from '@/lib/accent/progressStorage'
 import { RUSSIAN_SPEAKER_GROUPS, ACCENT_SECTIONS, getAccentLessonById } from '@/lib/accent/soundCatalog'
 import { ACCENT_SESSION_PLANS, buildAccentLessonBlocks, getDefaultAccentMode } from '@/lib/accent/sessionPlan'
 import { ALL_ACCENT_LESSONS } from '@/lib/accent/staticContent'
-import type { AccentAudience, AccentBlockFeedback, AccentBlockType, AccentLesson, AccentSessionMode } from '@/types/accent'
+import type {
+  AccentAudience,
+  AccentBlockFeedback,
+  AccentBlockType,
+  AccentLesson,
+  AccentLessonSessionKind,
+  AccentSessionMode,
+} from '@/types/accent'
 import type { Bubble } from '@/types/lesson'
 
 export interface AccentFooterView {
@@ -30,8 +37,12 @@ interface AccentTrainerProps {
   onClose: () => void
   onFooterViewChange?: (view: AccentFooterView | null) => void
   initialLessonId?: string | null
+  initialSessionKind?: AccentLessonSessionKind | null
+  initialSessionBlockType?: AccentBlockType | null
   initialLessonRequestKey?: number
 }
+
+type AccentLessonSession = { kind: 'full' } | { kind: 'single'; blockType: AccentBlockType }
 
 const BLOCK_ORDER: AccentBlockType[] = ['words', 'pairs', 'progressive']
 
@@ -75,6 +86,7 @@ function blockInstruction(blockType: AccentBlockType): string {
 
 function createFooterView(params: {
   lesson: AccentLesson | null
+  session: AccentLessonSession | null
   blockType: AccentBlockType
   blockIndex: number
   state: string
@@ -90,7 +102,19 @@ function createFooterView(params: {
     }
   }
 
+  if (!params.session) {
+    return {
+      dynamicText: 'Выбери формат: полный урок, слова, пары или предложение.',
+      staticText: `${params.lesson.shortTitle} | Выбор формата`,
+      typingKey: `accent-${params.lesson.id}-mode-picker`,
+      tone: 'neutral',
+      emphasis: 'none',
+    }
+  }
+
   const progress = summarizeAccentProgress(params.lesson.id)
+  const blockProgress = progress.progress.segmentSuccessfulAttempts[params.blockType]
+  const stepLabel = params.session.kind === 'full' ? `${params.blockIndex + 1}/3` : '1/1'
   const dynamicText =
     params.state === 'recording'
       ? 'Запись идёт локально. Читай спокойно, без спешки.'
@@ -102,7 +126,7 @@ function createFooterView(params: {
 
   return {
     dynamicText,
-    staticText: `${params.lesson.shortTitle} | ${blockLabels[params.blockType]} ${params.blockIndex + 1}/3 | ${progress.progress.successfulAttempts}/20`,
+    staticText: `${params.lesson.shortTitle} | ${blockLabels[params.blockType]} ${stepLabel} | ${blockProgress}/20`,
     typingKey: `accent-${params.lesson.id}-${params.blockType}-${params.state}-${params.mode}`,
     tone: params.state === 'feedback' ? 'support' : params.state === 'recording' ? 'thinking' : 'neutral',
     emphasis: 'none',
@@ -114,11 +138,19 @@ export default function AccentTrainer({
   onClose,
   onFooterViewChange,
   initialLessonId = null,
+  initialSessionKind = null,
+  initialSessionBlockType = null,
   initialLessonRequestKey = 0,
 }: AccentTrainerProps) {
   const [selectedLessonId, setSelectedLessonId] = React.useState<string | null>(initialLessonId)
   const [mode, setMode] = React.useState<AccentSessionMode>(() => getDefaultAccentMode(audience))
+  const [selectedSession, setSelectedSession] = React.useState<AccentLessonSession | null>(() => {
+    if (!initialSessionKind) return null
+    if (initialSessionKind === 'single' && initialSessionBlockType) return { kind: 'single', blockType: initialSessionBlockType }
+    return { kind: 'full' }
+  })
   const [blockIndex, setBlockIndex] = React.useState(0)
+  const [lessonVariantSeed, setLessonVariantSeed] = React.useState(0)
   const [lastFeedback, setLastFeedback] = React.useState<AccentBlockFeedback | null>(null)
   const [manualTranscript, setManualTranscript] = React.useState('')
   const scrollContainerRef = React.useRef<HTMLDivElement | null>(null)
@@ -128,17 +160,18 @@ export default function AccentTrainer({
   const speech = useAccentSpeechRecognition()
   const audio = useAudioPreview()
   const lesson = selectedLessonId ? getAccentLessonById(selectedLessonId) : null
-  const blockType = BLOCK_ORDER[blockIndex] ?? 'words'
+  const blockType = selectedSession?.kind === 'single' ? selectedSession.blockType : BLOCK_ORDER[blockIndex] ?? 'words'
 
   const blocks = React.useMemo(() => {
     if (!lesson) return null
-    return buildAccentLessonBlocks(lesson, mode)
-  }, [lesson, mode])
+    return buildAccentLessonBlocks(lesson, mode, { variantSeed: lessonVariantSeed })
+  }, [lesson, lessonVariantSeed, mode])
 
   React.useEffect(() => {
     onFooterViewChange?.(
       createFooterView({
         lesson,
+        session: selectedSession,
         blockType,
         blockIndex,
         state: stateMachine.runtime.state,
@@ -146,7 +179,7 @@ export default function AccentTrainer({
       })
     )
     return () => onFooterViewChange?.(null)
-  }, [blockIndex, blockType, lesson, mode, onFooterViewChange, stateMachine.runtime.state])
+  }, [blockIndex, blockType, lesson, mode, onFooterViewChange, selectedSession, stateMachine.runtime.state])
 
   React.useEffect(() => {
     const container = scrollContainerRef.current
@@ -166,14 +199,31 @@ export default function AccentTrainer({
     if (previousInitialLessonRequestKeyRef.current === initialLessonRequestKey) return
     previousInitialLessonRequestKeyRef.current = initialLessonRequestKey
     setSelectedLessonId(initialLessonId)
+    setSelectedSession(() => {
+      if (!initialSessionKind) return null
+      if (initialSessionKind === 'single' && initialSessionBlockType) return { kind: 'single', blockType: initialSessionBlockType }
+      return { kind: 'full' }
+    })
     setBlockIndex(0)
+    setLessonVariantSeed(0)
     resetBlock()
-  }, [initialLessonId, initialLessonRequestKey, resetBlock])
+  }, [initialLessonId, initialLessonRequestKey, initialSessionBlockType, initialSessionKind, resetBlock])
 
   const openLesson = React.useCallback(
     (lessonId: string) => {
       setSelectedLessonId(lessonId)
+      setSelectedSession(null)
       setBlockIndex(0)
+      setLessonVariantSeed(0)
+      resetBlock()
+    },
+    [resetBlock]
+  )
+
+  const selectSession = React.useCallback(
+    (session: AccentLessonSession) => {
+      setSelectedSession(session)
+      setBlockIndex(session.kind === 'single' ? BLOCK_ORDER.indexOf(session.blockType) : 0)
       resetBlock()
     },
     [resetBlock]
@@ -211,15 +261,24 @@ export default function AccentTrainer({
 
   const goNext = React.useCallback(() => {
     stateMachine.completeBlock()
-    if (blockIndex < BLOCK_ORDER.length - 1) {
+    if (selectedSession?.kind === 'full' && blockIndex < BLOCK_ORDER.length - 1) {
       setBlockIndex((value) => value + 1)
       resetBlock()
     }
-  }, [blockIndex, resetBlock, stateMachine])
+  }, [blockIndex, resetBlock, selectedSession?.kind, stateMachine])
 
-  const isLastBlock = blockIndex >= BLOCK_ORDER.length - 1
+  const regenerateCurrentBlock = React.useCallback(() => {
+    setLessonVariantSeed((value) => value + 1)
+    resetBlock()
+  }, [resetBlock])
+
+  const isLastBlock = selectedSession?.kind === 'single' || blockIndex >= BLOCK_ORDER.length - 1
+  const canAdvance = selectedSession?.kind === 'full'
+  const showRegenerate = selectedSession?.kind === 'single'
   const transcriptValue = manualTranscript || speech.transcript
   const canCheck = transcriptValue.trim().length > 0
+  const isPracticeReady = Boolean(lesson && blocks && selectedSession)
+  const progressSummary = lesson ? summarizeAccentProgress(lesson.id) : null
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
@@ -230,7 +289,7 @@ export default function AccentTrainer({
             style={{ boxShadow: 'var(--chat-shell-shadow)' }}
           >
             <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3">
-              {lesson && blocks ? (
+              {lesson && blocks && selectedSession ? (
                 <div>
                   <ChatBubbleFrame role="assistant" position="solo" className="lesson-enter" rowClassName="mb-2.5">
                     <UnifiedLessonBubble bubbles={buildIntroBubbles(lesson, audience)} animateSections />
@@ -288,18 +347,39 @@ export default function AccentTrainer({
                       </section>
                     </ChatBubbleFrame>
                   )}
+                  {stateMachine.runtime.state === 'complete' && isLastBlock && selectedSession.kind === 'full' && progressSummary && (
+                    <ChatBubbleFrame role="assistant" position="solo" className="lesson-enter" rowClassName="mb-2.5">
+                      <section className="chat-section-surface glass-surface rounded-xl border border-[var(--chat-section-neutral-border)] bg-white/95 px-3 py-3 text-[var(--text)]">
+                        <h3 className="text-sm font-semibold">Прогресс по блокам</h3>
+                        <p className="mt-1 text-sm">Слова: {progressSummary.progress.segmentSuccessfulAttempts.words}/20</p>
+                        <p className="text-sm">Пары: {progressSummary.progress.segmentSuccessfulAttempts.pairs}/20</p>
+                        <p className="text-sm">Предложение: {progressSummary.progress.segmentSuccessfulAttempts.progressive}/20</p>
+                      </section>
+                    </ChatBubbleFrame>
+                  )}
                 </div>
+              ) : lesson ? (
+                <AccentLessonModePicker
+                  lesson={lesson}
+                  onSelectFull={() => selectSession({ kind: 'full' })}
+                  onSelectSingle={(type) => selectSession({ kind: 'single', blockType: type })}
+                />
               ) : (
                 <AccentHub onOpenLesson={openLesson} onClose={onClose} mode={mode} onModeChange={setMode} audience={audience} />
               )}
             </div>
             <AccentActionBar
-              selected={Boolean(lesson)}
+              selectedLesson={Boolean(lesson)}
+              interactive={isPracticeReady}
               state={stateMachine.runtime.state}
               canCheck={canCheck}
               isLastBlock={isLastBlock}
+              allowNext={Boolean(canAdvance)}
+              showRegenerate={Boolean(showRegenerate)}
               onBack={() => {
                 setSelectedLessonId(null)
+                setSelectedSession(null)
+                setLessonVariantSeed(0)
                 resetBlock()
               }}
               onClose={onClose}
@@ -307,6 +387,7 @@ export default function AccentTrainer({
               onStop={stopRecording}
               onCheck={submitPreview}
               onRepeat={resetBlock}
+              onRegenerate={regenerateCurrentBlock}
               onNext={goNext}
               speechSupported={speech.supported}
               speechMessage={speech.constructiveMessage}
@@ -428,32 +509,95 @@ function AccentHub({
   )
 }
 
+function AccentLessonModePicker({
+  lesson,
+  onSelectFull,
+  onSelectSingle,
+}: {
+  lesson: AccentLesson
+  onSelectFull: () => void
+  onSelectSingle: (blockType: AccentBlockType) => void
+}) {
+  const [summary, setSummary] = React.useState(() => summarizeAccentProgress(lesson.id))
+
+  React.useEffect(() => {
+    const refresh = () => setSummary(summarizeAccentProgress(lesson.id))
+    refresh()
+    const unsubscribe = subscribeAccentProgress(refresh)
+    return unsubscribe
+  }, [lesson.id])
+
+  const segment = summary.progress.segmentSuccessfulAttempts
+
+  return (
+    <div className="space-y-3">
+      <ChatBubbleFrame role="assistant" position="solo" className="lesson-enter" rowClassName="mb-2.5">
+        <UnifiedLessonBubble
+          bubbles={[
+            { type: 'positive', content: lesson.marker },
+            { type: 'info', content: 'Выбери формат: полный урок, слова, пары или предложение.' },
+          ]}
+          animateSections
+        />
+      </ChatBubbleFrame>
+      <section className="chat-section-surface glass-surface rounded-xl border border-[var(--chat-section-neutral-border)] bg-white/95 px-3 py-3">
+        <h2 className="text-base font-semibold text-[var(--text)]">{lesson.title}</h2>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">
+          С {segment.words}/20 · П {segment.pairs}/20 · Ц {segment.progressive}/20
+        </p>
+        <div className="mt-3 space-y-2">
+          <button type="button" onClick={onSelectFull} className="btn-3d-menu w-full rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-left font-semibold text-blue-800">
+            Полный урок (1→2→3)
+          </button>
+          <button type="button" onClick={() => onSelectSingle('words')} className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-2.5 text-left font-semibold text-[var(--text)]">
+            Слова
+          </button>
+          <button type="button" onClick={() => onSelectSingle('pairs')} className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-2.5 text-left font-semibold text-[var(--text)]">
+            Пары
+          </button>
+          <button type="button" onClick={() => onSelectSingle('progressive')} className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-2.5 text-left font-semibold text-[var(--text)]">
+            Предложение
+          </button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
 function AccentActionBar({
-  selected,
+  selectedLesson,
+  interactive,
   state,
   canCheck,
   isLastBlock,
+  allowNext,
+  showRegenerate,
   onBack,
   onClose,
   onStart,
   onStop,
   onCheck,
   onRepeat,
+  onRegenerate,
   onNext,
   speechSupported,
   speechMessage,
   audioMessage,
 }: {
-  selected: boolean
+  selectedLesson: boolean
+  interactive: boolean
   state: string
   canCheck: boolean
   isLastBlock: boolean
+  allowNext: boolean
+  showRegenerate: boolean
   onBack: () => void
   onClose: () => void
   onStart: () => void
   onStop: () => void
   onCheck: () => void
   onRepeat: () => void
+  onRegenerate: () => void
   onNext: () => void
   speechSupported: boolean
   speechMessage: string | null
@@ -461,16 +605,25 @@ function AccentActionBar({
 }) {
   return (
     <div className="shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 sm:px-3" style={{ paddingTop: 'calc(var(--app-bottom-inset) + 0.625rem)', paddingBottom: 'calc(var(--app-bottom-inset) + 0.625rem)' }}>
-      {(speechMessage || audioMessage || !speechSupported) && selected && (
+      {(speechMessage || audioMessage || !speechSupported) && interactive && (
         <p className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-[1.35] text-amber-800">
           {speechMessage ?? audioMessage ?? 'Распознавание недоступно в этом браузере. Используй ручной ввод после записи.'}
         </p>
       )}
       <div className="flex flex-wrap gap-2">
-        {!selected ? (
+        {!selectedLesson ? (
           <button type="button" onClick={onClose} className="btn-3d-menu flex-1 rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-center font-semibold text-[var(--text)]">
             На главную
           </button>
+        ) : !interactive ? (
+          <>
+            <button type="button" onClick={onBack} className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm font-semibold text-[var(--text-muted)]">
+              К звукам
+            </button>
+            <p className="flex flex-1 items-center justify-center rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--text-muted)]">
+              Выбери формат урока
+            </p>
+          </>
         ) : (
           <>
             <button type="button" onClick={onBack} className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm font-semibold text-[var(--text-muted)]">
@@ -501,15 +654,29 @@ function AccentActionBar({
                 <button type="button" onClick={onRepeat} className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm font-semibold text-[var(--text)]">
                   Повторить
                 </button>
-                <button type="button" onClick={onNext} className="btn-3d-menu flex-1 rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-center font-semibold text-blue-800">
-                  {isLastBlock ? 'Завершить' : 'Далее'}
-                </button>
+                {showRegenerate && (
+                  <button type="button" onClick={onRegenerate} className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm font-semibold text-[var(--text)]">
+                    Новый набор
+                  </button>
+                )}
+                {allowNext && (
+                  <button type="button" onClick={onNext} className="btn-3d-menu flex-1 rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-center font-semibold text-blue-800">
+                    {isLastBlock ? 'Завершить' : 'Далее'}
+                  </button>
+                )}
               </>
             )}
             {state === 'complete' && isLastBlock && (
-              <button type="button" onClick={onRepeat} className="btn-3d-menu flex-1 rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-center font-semibold text-blue-800">
-                Ещё подход
-              </button>
+              <>
+                <button type="button" onClick={onRepeat} className="btn-3d-menu flex-1 rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-center font-semibold text-blue-800">
+                  Ещё подход
+                </button>
+                {showRegenerate && (
+                  <button type="button" onClick={onRegenerate} className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm font-semibold text-[var(--text)]">
+                    Новый набор
+                  </button>
+                )}
+              </>
             )}
           </>
         )}
