@@ -1,6 +1,6 @@
 /** Ключ активной или только что поставленной в очередь озвучки (для повторного клика «стоп»). */
 let activeSpeakSessionKey: string | null = null
-let androidSpeakRetryTimer: ReturnType<typeof window.setTimeout> | null = null
+let androidSpeakRetryTimer: number | null = null
 
 function makeSpeakSessionKey(text: string, voiceId: string): string {
   return `${text}\0${voiceId}`
