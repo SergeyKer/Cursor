@@ -14,6 +14,8 @@ type LessonIntroScreenProps = {
   loadingLesson?: boolean
   /** Фоновая подмена варианта урока от ИИ (меню «Сгенерировать урок»): кнопка «Начать урок» показывает прогресс. */
   footerVariantRegenerating?: boolean
+  /** Вход в урок через меню «Сгенерировать урок» — на кнопке показываем «Сгенерированный урок». */
+  startLessonCtaFromMenuGenerate?: boolean
   provider: AiProvider
   openAiChatPreset?: OpenAiChatPreset
   audience: Audience
@@ -181,6 +183,7 @@ export default function LessonIntroScreen({
   depth,
   loadingLesson = false,
   footerVariantRegenerating = false,
+  startLessonCtaFromMenuGenerate = false,
   provider,
   openAiChatPreset,
   audience,
@@ -369,7 +372,7 @@ export default function LessonIntroScreen({
                         className="lesson-enter"
                         rowClassName="mb-2.5"
                       >
-                        <UnifiedLessonBubble bubbles={message.bubbles} animateSections />
+                        <UnifiedLessonBubble bubbles={message.bubbles} animateSections layout="detached" />
                       </ChatBubbleFrame>
                     </div>
                   )
@@ -415,7 +418,9 @@ export default function LessonIntroScreen({
                           ? 'Готовлю урок...'
                           : footerVariantRegenerating
                             ? 'Генерируется новый вариант...'
-                            : 'Начать урок'}
+                            : startLessonCtaFromMenuGenerate
+                              ? 'Сгенерированный урок'
+                              : 'Начать урок'}
                       </span>
                     </span>
                   </IntroChip>
