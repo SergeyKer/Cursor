@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  areTipsTooSimilar,
   buildFallbackLessonExtraTips,
   buildTipsStorageKey,
+  isValidCachedLessonExtraTips,
   mergeGeneratedTipAddons,
   normalizeLessonExtraTips,
+  toCachedLessonExtraTips,
 } from '@/lib/lessonExtraTips'
 import { buildFallbackLessonIntro } from '@/lib/lessonIntro'
 import { buildFallbackTutorLearningIntent } from '@/lib/tutorLearningIntent'
@@ -185,8 +188,19 @@ describe('lessonExtraTips', () => {
   })
 
   it('builds a stable versioned storage key by audience, level and topic', () => {
-    expect(buildTipsStorageKey({ topic: 'To   Be', audience: 'adult', level: 'a2' })).toBe('tips_v7_adult_a2_to_be')
-    expect(buildTipsStorageKey({ topic: 'To Be', audience: 'child', level: 'a2' })).toBe('tips_v7_child_a2_to_be')
+    expect(buildTipsStorageKey({ lessonKey: 'lesson-1:variant-a', audience: 'adult', level: 'a2' })).toBe(
+      'tips_v8_adult_a2_lesson_1_variant_a'
+    )
+    expect(buildTipsStorageKey({ lessonKey: 'lesson-1:variant-a', audience: 'child', level: 'a2' })).toBe(
+      'tips_v8_child_a2_lesson_1_variant_a'
+    )
+  })
+
+  it('accepts only versioned generated cache entries', () => {
+    const cached = toCachedLessonExtraTips(buildFallbackLessonExtraTips(intro), true, 123)
+
+    expect(isValidCachedLessonExtraTips(cached)).toBe(true)
+    expect(isValidCachedLessonExtraTips({ ...cached, generated: 'yes' })).toBe(false)
   })
 
   it('merges generated addons without duplicating examples', () => {
@@ -215,5 +229,37 @@ describe('lessonExtraTips', () => {
 
     expect(nativeExamples.filter((example) => example.right === duplicate.right)).toHaveLength(1)
     expect(nativeExamples.some((example) => example.right === 'It is what it is.')).toBe(true)
+  })
+
+  it('treats near-identical tip sets as too similar for refresh', () => {
+    const current = buildFallbackLessonExtraTips(intro)
+    const next = buildFallbackLessonExtraTips(intro)
+
+    expect(areTipsTooSimilar(current, next)).toBe(true)
+  })
+
+  it('allows refresh when at least several cards meaningfully change', () => {
+    const current = buildFallbackLessonExtraTips(intro)
+    const next = {
+      ...current,
+      cards: current.cards.map((card, index) =>
+        index < 3
+          ? {
+              ...card,
+              rule: `${card.rule} Новый угол ${index + 1}.`,
+              examples: card.examples.map((example, exampleIndex) =>
+                exampleIndex === 0
+                  ? {
+                      ...example,
+                      right: `${example.right} changed ${index + 1}`,
+                    }
+                  : example
+              ),
+            }
+          : card
+      ),
+    }
+
+    expect(areTipsTooSimilar(current, next)).toBe(false)
   })
 })

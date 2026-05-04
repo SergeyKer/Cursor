@@ -1090,6 +1090,14 @@ select.select-chevron {
   button.chat-assistant-chip-button {
     min-height: 36px;
   }
+
+  /* Круг «Прослушать» в поле ввода: не растягивать по высоте многострочного textarea. */
+  button.chat-input-inline-speaker-button {
+    min-height: 2rem;
+    min-width: 2rem;
+    max-height: 2rem;
+    max-width: 2rem;
+  }
   input[type="text"],
   input[type="password"] {
     font-size: 16px; /* Предотвращает авто-зум при фокусе в Safari (iOS) и Chrome (Android) */

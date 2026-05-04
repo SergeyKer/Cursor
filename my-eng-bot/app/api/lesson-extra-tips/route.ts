@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callProviderChat } from '@/lib/callProviderChat'
 import { extractJsonObject } from '@/lib/structuredLessonFactory'
-import { buildFallbackLessonExtraTips, normalizeLessonExtraTips } from '@/lib/lessonExtraTips'
+import { areTipsTooSimilar, buildFallbackLessonExtraTips, normalizeLessonExtraTips, type LessonExtraTips } from '@/lib/lessonExtraTips'
 import { isValidLessonIntro } from '@/lib/lessonIntro'
 import { normalizeTutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { AiProvider, Audience, LevelId, OpenAiChatPreset } from '@/lib/types'
 import type { LessonIntro } from '@/types/lesson'
 
-type TipsMode = 'initial' | 'more'
+type TipsMode = 'initial' | 'refresh'
 
 type Body = {
   provider?: AiProvider
@@ -18,6 +18,7 @@ type Body = {
   intent?: unknown
   mode?: TipsMode
   previousItems?: unknown
+  currentTips?: unknown
 }
 
 function normalizeProvider(value: unknown): AiProvider {
@@ -35,7 +36,7 @@ function normalizeAudience(value: unknown): Audience {
 }
 
 function normalizeMode(value: unknown): TipsMode {
-  return value === 'more' ? 'more' : 'initial'
+  return value === 'refresh' || value === 'more' ? 'refresh' : 'initial'
 }
 
 function normalizePreviousItems(value: unknown): string[] {
@@ -54,13 +55,14 @@ function buildPrompt(params: {
   level: LevelId | undefined
   mode: TipsMode
   previousItems: string[]
+  currentTips: LessonExtraTips | null
 }): string {
-  const { intro, intent, audience, level, mode, previousItems } = params
+  const { intro, intent, audience, level, mode, previousItems, currentTips } = params
   return JSON.stringify(
     {
       task:
-        mode === 'more'
-          ? 'Generate fresh extra examples for an existing short English lesson tips section.'
+        mode === 'refresh'
+          ? 'Generate a fresh full replacement for an existing short English lesson tips section.'
           : 'Generate a short extra tips section for an English lesson.',
       outputLanguage: 'ru',
       audience,
@@ -70,6 +72,10 @@ function buildPrompt(params: {
       tutorIntent: intent,
       lessonKind: intro.kind,
       complexity: intro.complexity,
+      refreshGoal:
+        mode === 'refresh'
+          ? 'Return a noticeably different pedagogical angle for at least several cards, not a cosmetic rewrite of the current tips.'
+          : null,
       knownIntro: {
         quick: intro.quick,
         details: intro.details ?? null,
@@ -77,6 +83,18 @@ function buildPrompt(params: {
         learningPlan: intro.learningPlan ?? null,
       },
       previousItems,
+      currentTips:
+        mode === 'refresh' && currentTips
+          ? {
+              topic: currentTips.topic,
+              cards: currentTips.cards.map((card) => ({
+                category: card.category,
+                title: card.title,
+                rule: card.rule,
+                examples: card.examples.slice(0, 2),
+              })),
+            }
+          : null,
       requiredJsonShape: {
         cards: [
           {
@@ -243,10 +261,14 @@ export async function POST(req: NextRequest) {
     'quiz: ровно 2 коротких вопроса, options 2-3, correctAnswer обязан совпадать с одним option.',
     'Пиши объяснения по-русски, английский оставляй только в примерах.',
     'Не повторяй previousItems.',
+    'Если mode=refresh, перепиши набор как новый полезный ракурс по той же теме, а не как косметический рерайт.',
+    'Если mode=refresh, для минимум 2-3 карточек смени педагогический угол: другой типичный промах, другой контекст, другой триггер проверки, другой стиль ситуации или другой способ объяснить шаблон.',
+    'Если mode=refresh, избегай почти тех же первых примеров и почти тех же rules, что уже были в currentTips.',
   ].join('\n')
 
   const intent = normalizeTutorLearningIntent(body.intent)
   const fallback = buildFallbackLessonExtraTips(intro, intent)
+  const currentTips = body.currentTips ? normalizeLessonExtraTips(body.currentTips, intro, intent) : null
   const model = await callProviderChat({
     provider,
     req,
@@ -261,10 +283,11 @@ export async function POST(req: NextRequest) {
           level: body.level,
           mode,
           previousItems,
+          currentTips,
         }),
       },
     ],
-    maxTokens: mode === 'more' ? 900 : 1300,
+    maxTokens: mode === 'refresh' ? 1300 : 1300,
     openAiChatPreset,
     traceLabel: 'lesson-extra-tips',
   })
@@ -276,6 +299,9 @@ export async function POST(req: NextRequest) {
   try {
     const parsed = JSON.parse(extractJsonObject(model.content))
     const tips = normalizeLessonExtraTips(parsed, intro, intent)
+    if (mode === 'refresh' && currentTips && areTipsTooSimilar(currentTips, tips)) {
+      return NextResponse.json({ tips, generated: false, fallback: false, tooSimilar: true }, { status: 200 })
+    }
     return NextResponse.json({ tips, generated: true, fallback: false })
   } catch {
     return NextResponse.json({ tips: fallback, generated: false, fallback: true }, { status: 200 })

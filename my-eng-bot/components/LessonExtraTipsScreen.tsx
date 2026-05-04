@@ -5,8 +5,8 @@ import {
   buildFallbackLessonExtraTips,
   buildTipsStorageKey,
   isValidCachedLessonExtraTips,
-  mergeGeneratedTipAddons,
   toCachedLessonExtraTips,
+  type CachedLessonExtraTips,
   type LessonExtraTips,
   type LessonTipCategory,
 } from '@/lib/lessonExtraTips'
@@ -31,6 +31,7 @@ export type LessonExtraTipsSavedState = {
   tips: LessonExtraTips | null
   expandedCategories: LessonTipCategory[]
   quizAnswers: Record<string, string>
+  generated: boolean
 }
 
 type LessonExtraTipsScreenProps = {
@@ -52,9 +53,8 @@ type TipsApiResponse = {
   tips?: LessonExtraTips
   generated?: boolean
   fallback?: boolean
+  tooSimilar?: boolean
 }
-
-const TIPS_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
 function buildTrapDistractorAnswer(answer: string): string {
   const trimmed = answer.trim()
@@ -89,23 +89,23 @@ function flattenTipItems(tips: LessonExtraTips): string[] {
   return tips.cards.flatMap((card) => [card.rule, ...card.examples.flatMap((example) => [example.wrong ?? '', example.right, example.note])])
 }
 
-function readCachedTips(storageKey: string): LessonExtraTips | null {
+function readCachedTips(storageKey: string): CachedLessonExtraTips | null {
   if (typeof window === 'undefined') return null
   try {
     const raw = window.localStorage.getItem(storageKey)
     if (!raw) return null
     const parsed = JSON.parse(raw)
-    if (!isValidCachedLessonExtraTips(parsed, TIPS_CACHE_TTL_MS)) return null
-    return parsed.tips
+    if (!isValidCachedLessonExtraTips(parsed)) return null
+    return parsed
   } catch {
     return null
   }
 }
 
-function writeCachedTips(storageKey: string, tips: LessonExtraTips) {
+function writeCachedTips(storageKey: string, tips: LessonExtraTips, generated = true) {
   if (typeof window === 'undefined') return
   try {
-    window.localStorage.setItem(storageKey, JSON.stringify(toCachedLessonExtraTips(tips)))
+    window.localStorage.setItem(storageKey, JSON.stringify(toCachedLessonExtraTips(tips, generated)))
   } catch {
     // localStorage может быть недоступен в приватном режиме; UI всё равно работает через state.
   }
@@ -131,11 +131,12 @@ export default function LessonExtraTipsScreen({
 }: LessonExtraTipsScreenProps) {
   const fallbackTips = useMemo(() => buildFallbackLessonExtraTips(intro, intent), [intent, intro])
   const storageKey = useMemo(
-    () => buildTipsStorageKey({ topic: intro.topic, audience, level }),
-    [audience, intro.topic, level]
+    () => buildTipsStorageKey({ lessonKey, audience, level }),
+    [audience, lessonKey, level]
   )
   const initialStateMatchesLesson = savedState?.lessonKey === lessonKey
   const [tips, setTips] = useState<LessonExtraTips>(() => (initialStateMatchesLesson && savedState?.tips ? savedState.tips : fallbackTips))
+  const [tipsGenerated, setTipsGenerated] = useState<boolean>(() => (initialStateMatchesLesson ? Boolean(savedState?.generated) : false))
   const [expandedCategories, setExpandedCategories] = useState<Set<LessonTipCategory>>(() =>
     initialStateMatchesLesson && savedState?.expandedCategories.length
       ? new Set(savedState.expandedCategories)
@@ -148,31 +149,47 @@ export default function LessonExtraTipsScreen({
   const [selectedTipAnswers, setSelectedTipAnswers] = useState<Record<string, string>>({})
   const [loadingInitial, setLoadingInitial] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [refreshMarker, setRefreshMarker] = useState<string | null>(null)
   const requestIdRef = useRef(0)
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null)
+  const quizRowRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const pendingQuizScrollRef = useRef<string | null>(null)
+  const refreshMarkerTimeoutRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (refreshMarkerTimeoutRef.current !== null) {
+        window.clearTimeout(refreshMarkerTimeoutRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const cached = readCachedTips(storageKey)
     if (savedState?.lessonKey === lessonKey && savedState.tips) {
       setTips(savedState.tips)
+      setTipsGenerated(Boolean(savedState.generated))
       setExpandedCategories(
         savedState.expandedCategories.length
           ? new Set(savedState.expandedCategories)
           : getInitialExpanded(savedState.tips.cards.map((card) => card.category))
       )
       setQuizAnswers(savedState.quizAnswers)
-      onFooterStatusChange('ready')
+      onFooterStatusChange(savedState.generated ? 'ready' : 'fallback')
       return
     }
 
-    if (cached) {
-      setTips(cached)
-      setExpandedCategories(getInitialExpanded(cached.cards.map((card) => card.category)))
+    if (cached?.generated) {
+      setTips(cached.tips)
+      setTipsGenerated(true)
+      setExpandedCategories(getInitialExpanded(cached.tips.cards.map((card) => card.category)))
       setQuizAnswers({})
       onFooterStatusChange('cached')
       return
     }
 
     setTips(fallbackTips)
+    setTipsGenerated(false)
     setExpandedCategories(getInitialExpanded(fallbackTips.cards.map((card) => card.category)))
     setQuizAnswers({})
     onFooterStatusChange('fallback')
@@ -186,10 +203,32 @@ export default function LessonExtraTipsScreen({
       tips,
       expandedCategories: Array.from(expandedCategories),
       quizAnswers,
+      generated: tipsGenerated,
     })
-  }, [expandedCategories, lessonKey, onSavedStateChange, quizAnswers, tips])
+  }, [expandedCategories, lessonKey, onSavedStateChange, quizAnswers, tips, tipsGenerated])
 
   useEffect(() => {
+    const pendingQuestionId = pendingQuizScrollRef.current
+    if (!pendingQuestionId || !quizAnswers[pendingQuestionId]) return
+
+    const frameId = window.requestAnimationFrame(() => {
+      quizRowRefs.current[pendingQuestionId]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'end',
+      })
+      pendingQuizScrollRef.current = null
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [quizAnswers])
+
+  useEffect(() => {
+    const cached = readCachedTips(storageKey)
+    const sessionTips = savedState?.lessonKey === lessonKey && savedState.tips ? savedState.tips : null
+    const sessionGenerated = savedState?.lessonKey === lessonKey && savedState.generated
+    if (sessionGenerated || cached?.generated) return
+
+    const initialTipsSource = sessionTips ?? fallbackTips
     const requestId = ++requestIdRef.current
     const controller = new AbortController()
 
@@ -209,15 +248,22 @@ export default function LessonExtraTipsScreen({
             intro,
             intent,
             mode: 'initial',
-            previousItems: flattenTipItems(tips),
+            previousItems: flattenTipItems(initialTipsSource),
           }),
         })
         const data = (await response.json()) as TipsApiResponse
         if (controller.signal.aborted || requestId !== requestIdRef.current) return
+        if (response.ok && data.tips && data.generated && !data.fallback) {
+          setTips(data.tips)
+          setTipsGenerated(true)
+          writeCachedTips(storageKey, data.tips, true)
+          onFooterStatusChange('ready')
+          return
+        }
         if (response.ok && data.tips) {
           setTips(data.tips)
-          writeCachedTips(storageKey, data.tips)
-          onFooterStatusChange(data.generated ? 'ready' : 'fallback')
+          setTipsGenerated(false)
+          onFooterStatusChange('fallback')
           return
         }
         onFooterStatusChange('error')
@@ -237,9 +283,9 @@ export default function LessonExtraTipsScreen({
       window.clearTimeout(timer)
       controller.abort()
     }
-    // `tips` намеренно не в зависимостях: initial-запрос должен стартовать один раз на lesson/storage key.
+    // savedState намеренно не в зависимостях: initial-запрос должен оцениваться один раз на lesson/storage key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [audience, intent, intro, level, lessonKey, onFooterStatusChange, openAiChatPreset, provider, storageKey])
+  }, [audience, fallbackTips, intent, intro, lessonKey, level, onFooterStatusChange, openAiChatPreset, provider, storageKey])
 
   const handleToggleCategory = (category: LessonTipCategory) => {
     setExpandedCategories((current) => {
@@ -254,6 +300,7 @@ export default function LessonExtraTipsScreen({
   }
 
   const handleQuizAnswer = (questionId: string, answer: string, correctAnswer: string) => {
+    pendingQuizScrollRef.current = questionId
     setQuizAnswers((current) => ({ ...current, [questionId]: answer }))
     onFooterStatusChange(normalizeAnswer(answer) === normalizeAnswer(correctAnswer) ? 'quiz-correct' : 'quiz-error')
   }
@@ -291,19 +338,36 @@ export default function LessonExtraTipsScreen({
           level,
           intro,
           intent,
-          mode: 'more',
+          mode: 'refresh',
           previousItems: flattenTipItems(tips),
+          currentTips: tips,
         }),
       })
       const data = (await response.json()) as TipsApiResponse
       if (requestId !== requestIdRef.current) return
-      if (response.ok && data.tips) {
-        setTips((current) => {
-          const merged = mergeGeneratedTipAddons(current, data.tips!)
-          writeCachedTips(storageKey, merged)
-          return merged
-        })
+      if (response.ok && data.tips && data.generated && !data.fallback) {
+        setTips(data.tips)
+        setTipsGenerated(true)
+        setQuizAnswers({})
+        writeCachedTips(storageKey, data.tips, true)
+        setRefreshMarker('Новый ракурс по теме')
+        if (refreshMarkerTimeoutRef.current !== null) {
+          window.clearTimeout(refreshMarkerTimeoutRef.current)
+        }
+        refreshMarkerTimeoutRef.current = window.setTimeout(() => {
+          setRefreshMarker(null)
+          refreshMarkerTimeoutRef.current = null
+        }, 2600)
         onFooterStatusChange('more-ready')
+        window.requestAnimationFrame(() => {
+          if (scrollAreaRef.current) {
+            scrollAreaRef.current.scrollTop = 0
+          }
+        })
+        return
+      }
+      if (response.ok && data.tooSimilar) {
+        onFooterStatusChange('error')
         return
       }
       onFooterStatusChange('error')
@@ -326,12 +390,24 @@ export default function LessonExtraTipsScreen({
             className="glass-surface flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
             style={{ boxShadow: 'var(--chat-shell-shadow)' }}
           >
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 pb-4 scroll-smooth sm:p-3">
+            <div
+              ref={scrollAreaRef}
+              className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 scroll-smooth sm:p-3"
+              style={{
+                paddingBottom: 'calc(var(--app-bottom-inset) + 7rem)',
+                scrollPaddingBottom: 'calc(var(--app-bottom-inset) + 7rem)',
+              }}
+            >
               <div className="lesson-enter mb-2.5 flex items-center gap-2 rounded-[1.25rem] border border-[var(--chat-section-neutral-border)] bg-white/85 px-3 py-2 shadow-sm">
                 <span className="shrink-0 text-[13px] font-semibold uppercase tracking-[0.02em] text-slate-600">Фишки</span>
                 <span className="h-1 w-1 shrink-0 rounded-full bg-slate-300" aria-hidden />
                 <h2 className="min-w-0 truncate text-[15px] font-semibold leading-tight text-[var(--text)]">{tips.topic}</h2>
               </div>
+              {refreshMarker && (
+                <div className="lesson-enter mb-2 rounded-2xl border border-emerald-200 bg-emerald-50/95 px-3 py-2 text-sm font-medium text-emerald-800 shadow-sm">
+                  {refreshMarker}
+                </div>
+              )}
 
               <div className="space-y-2.5">
                 {tips.cards.map((card, index) => {
@@ -412,11 +488,11 @@ export default function LessonExtraTipsScreen({
                               <p className="mt-1 break-words">
                                 {nativeSpeechSwap.wrong ? (
                                   <>
-                                    <span className="font-semibold text-slate-700">В школе:</span> {nativeSpeechSwap.wrong}{' '}
+                                    <span className="font-semibold text-slate-700">Как учат в школе:</span> {nativeSpeechSwap.wrong}{' '}
                                     <span className="text-slate-400">→</span>{' '}
                                   </>
                                 ) : null}
-                                <span className="font-semibold text-slate-700">В жизни:</span> {nativeSpeechSwap.right}
+                                <span className="font-semibold text-slate-700">Как реально говорят:</span> {nativeSpeechSwap.right}
                               </p>
                             </div>
                             <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
@@ -664,7 +740,14 @@ export default function LessonExtraTipsScreen({
                     const answered = Boolean(selected)
                     const correct = answered && normalizeAnswer(selected) === normalizeAnswer(question.correctAnswer)
                     return (
-                      <div key={question.id} className="py-2.5">
+                      <div
+                        key={question.id}
+                        className="py-2.5"
+                        ref={(node) => {
+                          quizRowRefs.current[question.id] = node
+                        }}
+                        style={{ scrollMarginBottom: 'calc(var(--app-bottom-inset) + 7rem)' }}
+                      >
                         <p className="text-[15px] font-semibold leading-[1.45] text-[var(--text)]">
                           {index + 1}. {question.question}
                         </p>

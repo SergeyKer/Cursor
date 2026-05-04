@@ -40,6 +40,7 @@ export type LessonExtraTips = {
 export type CachedLessonExtraTips = {
   version: number
   createdAt: number
+  generated: boolean
   tips: LessonExtraTips
 }
 
@@ -64,7 +65,7 @@ type RawQuizQuestion = {
   explanation?: unknown
 }
 
-const CACHE_VERSION = 7
+const CACHE_VERSION = 8
 const MAX_RULE_LENGTH = 220
 const MAX_EXAMPLES_PER_CARD = 6
 const MIN_EXAMPLES_PER_CARD = 2
@@ -122,22 +123,22 @@ function englishTopicPlaceholder(topic: string): string {
   return /^[a-z0-9\s'"-]+$/i.test(topic) ? topic : 'this topic'
 }
 
-function slugifyTopic(topic: string): string {
-  const normalized = normalizeTopic(topic).toLowerCase()
+function slugifyValue(value: string): string {
+  const normalized = normalizeText(value, 120).toLowerCase()
   const slug = normalized
     .replace(/['"`]/g, '')
     .replace(/[^a-zа-яё0-9]+/gi, '_')
     .replace(/^_+|_+$/g, '')
-  return slug || 'topic'
+  return slug || 'value'
 }
 
 export function buildTipsStorageKey(params: {
-  topic: string
+  lessonKey: string
   audience: Audience
   level?: LevelId | string
 }): string {
   const level = normalizeText(params.level ?? 'all', 24).toLowerCase() || 'all'
-  return `tips_v${CACHE_VERSION}_${params.audience}_${level}_${slugifyTopic(params.topic)}`
+  return `tips_v${CACHE_VERSION}_${params.audience}_${level}_${slugifyValue(params.lessonKey)}`
 }
 
 function getCategoryBase(category: LessonTipCategory): LessonTipCard {
@@ -546,19 +547,56 @@ export function mergeGeneratedTipAddons(current: LessonExtraTips, generated: Les
   }
 }
 
-export function isValidCachedLessonExtraTips(input: unknown, maxAgeMs: number): input is CachedLessonExtraTips {
+export function getTipSetSignature(tips: LessonExtraTips): string[] {
+  return [
+    ...tips.cards.flatMap((card) => [card.rule, ...card.examples.flatMap((example) => [example.wrong ?? '', example.right, example.note])]),
+    ...tips.quiz.flatMap((question) => [question.question, ...question.options, question.correctAnswer, question.explanation]),
+  ]
+    .map((item) => normalizeText(item, 220).toLowerCase())
+    .filter(Boolean)
+}
+
+export function areTipsTooSimilar(current: LessonExtraTips, next: LessonExtraTips): boolean {
+  const currentSignature = new Set(getTipSetSignature(current))
+  const nextSignature = getTipSetSignature(next)
+  if (nextSignature.length === 0) return true
+
+  let overlap = 0
+  for (const item of nextSignature) {
+    if (currentSignature.has(item)) overlap += 1
+  }
+
+  const overlapRatio = overlap / nextSignature.length
+  let changedCards = 0
+  for (let index = 0; index < next.cards.length; index += 1) {
+    const currentCard = current.cards[index]
+    const nextCard = next.cards[index]
+    if (!currentCard || !nextCard) continue
+    const sameRule = normalizeText(currentCard.rule, 220).toLowerCase() === normalizeText(nextCard.rule, 220).toLowerCase()
+    const sameExamples =
+      currentCard.examples
+        .map((example) => exampleKey(example))
+        .join('||') === nextCard.examples.map((example) => exampleKey(example)).join('||')
+    if (!sameRule || !sameExamples) changedCards += 1
+  }
+
+  return overlapRatio >= 0.9 && changedCards < 2
+}
+
+export function isValidCachedLessonExtraTips(input: unknown): input is CachedLessonExtraTips {
   if (!input || typeof input !== 'object') return false
   const row = input as Record<string, unknown>
   if (row.version !== CACHE_VERSION || typeof row.createdAt !== 'number' || !Number.isFinite(row.createdAt)) return false
-  if (Date.now() - row.createdAt > maxAgeMs) return false
+  if (typeof row.generated !== 'boolean') return false
   const tips = row.tips as Record<string, unknown> | undefined
   return Boolean(tips && typeof tips.topic === 'string' && Array.isArray(tips.cards) && Array.isArray(tips.quiz))
 }
 
-export function toCachedLessonExtraTips(tips: LessonExtraTips, now = Date.now()): CachedLessonExtraTips {
+export function toCachedLessonExtraTips(tips: LessonExtraTips, generated = true, now = Date.now()): CachedLessonExtraTips {
   return {
     version: CACHE_VERSION,
     createdAt: now,
+    generated,
     tips,
   }
 }

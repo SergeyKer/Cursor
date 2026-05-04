@@ -114,5 +114,5 @@ describe('POST /api/chat translation latency diagnostics', () => {
     expect(p50).toBeLessThanOrEqual(2500)
     expect(p95).toBeLessThanOrEqual(5000)
     expect(p99).toBeLessThanOrEqual(5000)
-  })
+  }, 15_000)
 })

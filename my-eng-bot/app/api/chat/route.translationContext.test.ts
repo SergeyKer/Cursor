@@ -351,7 +351,7 @@ describe('POST /api/chat translation provider payload', () => {
   })
 
   describe('translation low-signal gibberish (early return)', () => {
-    it('returns Комментарий + Переведи + prompt on first user turn', async () => {
+    it('returns Комментарий_мусор + Скажи + __TRAN__ (без блока Переведи) на первом ходе', async () => {
       const req = makeRequest({
         mode: 'translation',
         audience: 'adult',
@@ -371,13 +371,14 @@ describe('POST /api/chat translation provider payload', () => {
       expect(res.status).toBe(200)
       expect(callProviderChatMock).not.toHaveBeenCalled()
       const data = (await res.json()) as { content: string }
-      expect(data.content).toMatch(/Комментарий\s*:/i)
-      expect(data.content).toMatch(/Переведи:\s*У тебя есть сестра/)
-      expect(data.content).toContain('Переведи на английский язык.')
-      expect(data.content).not.toMatch(/Переведи далее:\s*У тебя есть сестра/)
+      expect(data.content).toMatch(/Комментарий_мусор\s*:/i)
+      expect(data.content).toMatch(/Скажи:\s*Do you have a sister\?/i)
+      expect(data.content).toContain('__TRAN_REPEAT_REF__: Do you have a sister?')
+      expect(data.content).not.toMatch(/Переведи:\s*У тебя есть сестра/)
+      expect(data.content).not.toMatch(/Переведи далее:/)
     })
 
-    it('returns Комментарий + Переведи далее + prompt after first completed drill', async () => {
+    it('после успешного хода: мусорный ввод даёт эталон текущего «Переведи далее» через Скажи/__TRAN__', async () => {
       const req = makeRequest({
         mode: 'translation',
         audience: 'adult',
@@ -404,10 +405,11 @@ describe('POST /api/chat translation provider payload', () => {
       expect(res.status).toBe(200)
       expect(callProviderChatMock).not.toHaveBeenCalled()
       const data = (await res.json()) as { content: string }
-      expect(data.content).toMatch(/Комментарий\s*:/i)
-      expect(data.content).toMatch(/Переведи далее:\s*У меня есть хорошие друзья/)
-      expect(data.content).toContain('Переведи на английский язык.')
+      expect(data.content).toMatch(/Комментарий_мусор\s*:/i)
+      expect(data.content).toMatch(/Скажи:\s*I have good friends\./i)
+      expect(data.content).toContain('__TRAN_REPEAT_REF__: I have good friends.')
       expect(data.content).not.toMatch(/Переведи:\s*У меня есть хорошие друзья/)
+      expect(data.content).not.toMatch(/Переведи далее:\s*У меня есть хорошие друзья/)
     })
 
     it('appends Скажи repeat when prior __TRAN__ exists and input is low-signal', async () => {

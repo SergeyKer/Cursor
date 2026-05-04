@@ -652,15 +652,17 @@ export default function LessonStepRenderer({
                         placeholder={inputPlaceholder}
                       />
                       {showVoicePlaybackButton && (
-                        <button
-                          type="button"
-                          onClick={() => speak(lessonVoiceInput.lastCommittedVoiceText, voiceId)}
-                          className="chat-action-button absolute right-2 top-0 bottom-0 z-10 my-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)]"
-                          title="Прослушать"
-                          aria-label="Прослушать распознанный текст"
-                        >
-                          <LessonSpeakerIcon />
-                        </button>
+                        <div className="pointer-events-none absolute inset-y-0 right-2 z-10 flex items-center">
+                          <button
+                            type="button"
+                            onClick={() => speak(lessonVoiceInput.lastCommittedVoiceText, voiceId)}
+                            className="chat-input-inline-speaker-button chat-action-button pointer-events-auto inline-flex h-8 w-8 min-h-8 min-w-8 max-h-8 max-w-8 shrink-0 items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)]"
+                            title="Прослушать"
+                            aria-label="Прослушать распознанный текст"
+                          >
+                            <LessonSpeakerIcon />
+                          </button>
+                        </div>
                       )}
                     </div>
                     <button

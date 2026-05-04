@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildFallbackLessonIntro } from '@/lib/lessonIntro'
+import { buildFallbackLessonExtraTips } from '@/lib/lessonExtraTips'
 
 const callProviderChatMock = vi.hoisted(() => vi.fn())
 
@@ -158,6 +159,37 @@ describe('POST /api/lesson-extra-tips', () => {
     expect(data.generated).toBe(false)
     expect(data.fallback).toBe(true)
     expect(data.tips?.cards).toHaveLength(5)
+  })
+
+  it('uses refresh prompt and flags responses that are too similar', async () => {
+    const currentTips = buildFallbackLessonExtraTips(intro)
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: JSON.stringify(currentTips),
+    })
+
+    const res = await POST(
+      makeRequest({
+        intro,
+        provider: 'openai',
+        audience: 'adult',
+        mode: 'refresh',
+        currentTips,
+        previousItems: ['old rule'],
+      }) as never
+    )
+    const data = (await res.json()) as { generated: boolean; fallback: boolean; tooSimilar?: boolean }
+
+    expect(res.status).toBe(200)
+    expect(data.generated).toBe(false)
+    expect(data.fallback).toBe(false)
+    expect(data.tooSimilar).toBe(true)
+
+    const apiMessages = callProviderChatMock.mock.calls[0][0].apiMessages as Array<{ role: string; content: string }>
+    expect(apiMessages[0].content).toContain('mode=refresh')
+    const userPrompt = JSON.parse(apiMessages[1].content) as { refreshGoal: string; currentTips: { cards: unknown[] } }
+    expect(userPrompt.refreshGoal).toContain('different pedagogical angle')
+    expect(userPrompt.currentTips.cards).toHaveLength(5)
   })
 
   it('rejects invalid lesson intro', async () => {
