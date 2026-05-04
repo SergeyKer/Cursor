@@ -111,6 +111,10 @@ describe('POST /api/lesson-repeat', () => {
       ok: true,
       content: JSON.stringify({ steps: brokenSteps }),
     })
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: JSON.stringify({ steps: brokenSteps }),
+    })
 
     const res = await POST(makeRequest({ lessonId: '1', recentVariantIds: lesson1RecentVariantIds }) as never)
     const data = (await res.json()) as { generated: boolean; fallback: boolean; fallbackReason?: string }
@@ -159,8 +163,46 @@ describe('POST /api/lesson-repeat', () => {
     expect(callProviderChatMock).toHaveBeenCalledTimes(2)
   })
 
+  it('repairs validation failures for bypass-cache menu generation', async () => {
+    const brokenSteps = toRepeatModelSteps()
+    brokenSteps[0] = {
+      ...brokenSteps[0],
+      bubbles: [
+        { type: 'positive', content: 'Сегодня говорим только про музыку.' },
+        { type: 'info', content: 'Никаких состояний и времени действия.' },
+        { type: 'task', content: 'Выберите что-то случайное.' },
+      ],
+      exercise: {
+        question: 'Случайный вопрос',
+        options: ['Blue', 'Green', 'Red'],
+        correctAnswer: 'Blue',
+        hint: 'Без связи с темой',
+      },
+    }
+
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: JSON.stringify({ steps: brokenSteps }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: JSON.stringify({ steps: toRepeatModelSteps() }),
+      })
+
+    const res = await POST(makeRequest({ lessonId: '1', recentVariantIds: lesson1RecentVariantIds, bypassCache: true }) as never)
+    const data = (await res.json()) as { generated: boolean; fallback: boolean }
+
+    expect(res.status).toBe(200)
+    expect(data.generated).toBe(true)
+    expect(data.fallback).toBe(false)
+    expect(callProviderChatMock).toHaveBeenCalledTimes(2)
+    expect(callProviderChatMock.mock.calls[1]?.[0]?.apiMessages.at(-1)?.content).toContain('Предыдущий вариант не прошёл quality gate')
+  })
+
   it('returns provider fallback reason after exhausted bypass-cache retries', async () => {
     callProviderChatMock
+      .mockResolvedValueOnce({ ok: false, status: 502, errText: 'temporary provider error' })
       .mockResolvedValueOnce({ ok: false, status: 502, errText: 'temporary provider error' })
       .mockResolvedValueOnce({ ok: false, status: 502, errText: 'temporary provider error' })
 
@@ -171,7 +213,7 @@ describe('POST /api/lesson-repeat', () => {
     expect(data.generated).toBe(false)
     expect(data.fallback).toBe(true)
     expect(data.fallbackReason).toBe('provider')
-    expect(callProviderChatMock).toHaveBeenCalledTimes(2)
+    expect(callProviderChatMock).toHaveBeenCalledTimes(3)
   })
 
   it('deduplicates concurrent identical repeat requests', async () => {
@@ -212,6 +254,10 @@ describe('POST /api/lesson-repeat', () => {
       ok: true,
       content: JSON.stringify({ steps: brokenSteps }),
     })
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: JSON.stringify({ steps: brokenSteps }),
+    })
 
     const res = await POST(makeRequest({ lessonId: '2', recentVariantIds: lesson2RecentVariantIds }) as never)
     const data = (await res.json()) as { generated: boolean; fallback: boolean }
@@ -241,6 +287,10 @@ describe('POST /api/lesson-repeat', () => {
       ok: true,
       content: JSON.stringify({ steps: brokenSteps }),
     })
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: JSON.stringify({ steps: brokenSteps }),
+    })
 
     const res = await POST(makeRequest({ lessonId: '2', audience: 'child', recentVariantIds: lesson2RecentVariantIds }) as never)
     const data = (await res.json()) as { generated: boolean; fallback: boolean }
@@ -262,6 +312,10 @@ describe('POST /api/lesson-repeat', () => {
       footerDynamic: 'Practice: quarterly monetization strategy',
     }
 
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: JSON.stringify({ steps: brokenSteps }),
+    })
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,
       content: JSON.stringify({ steps: brokenSteps }),

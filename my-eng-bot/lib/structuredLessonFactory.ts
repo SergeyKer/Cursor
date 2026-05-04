@@ -1009,10 +1009,19 @@ export function buildStructuredCreationSystemPrompt(): string {
   ].join('\n')
 }
 
+export function buildStructuredVariantDiversifyInstruction(): string {
+  return [
+    'Для этого урока обязательно сгенерируй новый вариант: не копируй дословно sourceSteps.',
+    'Меняй формулировки, примеры, микро-ситуации и лексику, сохраняя тот же grammar focus и шаги.',
+    'Недостаточно заменить she на he, имя персонажа, одно слово или порядок двух фраз.',
+    'Новый вариант должен ощущаться как другой сценарий той же учебной цели.',
+  ].join(' ')
+}
+
 export function buildStructuredRepeatSystemPrompt(): string {
   return [
     'Ты методист MyEng и генерируешь новый повтор уже существующего structured-урока.',
-    'Верни ТОЛЬКО JSON без пояснений.',
+    'Верни ТОЛЬКО JSON без пояснений и markdown.',
     'Сгенерируй только новые ситуации, примеры и формулировки.',
     'Нельзя менять правило, сложность, порядок шагов, stepNumber и тип упражнения.',
     'Каждый шаг должен сохранять свою педагогическую роль.',
@@ -1030,6 +1039,45 @@ export function buildStructuredRepeatSystemPrompt(): string {
     'Если нужен один допустимый ответ, не добавляй лишние acceptedAnswers.',
     'Формат ответа верхнего уровня: {"steps":[...]}',
   ].join('\n')
+}
+
+export function buildLessonRepairUserMessage(params: {
+  reason: 'parse' | 'validation'
+  attempt: number
+  maxAttempts: number
+  issues?: LessonValidationIssue[]
+  score?: number
+}): string {
+  const lines = [
+    `Исправь предыдущий ответ и верни полный JSON урока заново. Попытка ${params.attempt} из ${params.maxAttempts}.`,
+    'Сохрани тот же контракт: то же число шагов, те же stepNumber, те же типы упражнений и тот же grammar focus.',
+    'Нужен именно новый сценарий урока: не копируй эталон и не ограничивайся косметическими заменами.',
+    'Верни только JSON вида {"steps":[...]} без markdown и без пояснений.',
+  ]
+
+  if (params.reason === 'parse') {
+    lines.splice(
+      1,
+      0,
+      'Предыдущий ответ не удалось распарсить как валидный JSON. Исправь формат и убедись, что верхний уровень равен {"steps":[...]}.'
+    )
+    return lines.join('\n')
+  }
+
+  const issues = (params.issues ?? []).slice(0, 8)
+  if (typeof params.score === 'number') {
+    lines.splice(1, 0, `Предыдущий вариант не прошёл quality gate. Score=${params.score.toFixed(2)}.`)
+  } else {
+    lines.splice(1, 0, 'Предыдущий вариант не прошёл quality gate.')
+  }
+  if (issues.length > 0) {
+    lines.push('Исправь следующие проблемы:')
+    for (const issue of issues) {
+      const stepLabel = issue.stepNumber === null ? 'lesson' : `step ${issue.stepNumber}`
+      lines.push(`- [${issue.severity}] ${stepLabel} ${issue.code}: ${issue.message}`)
+    }
+  }
+  return lines.join('\n')
 }
 
 export function buildStructuredLessonCefrPrompt(params: {

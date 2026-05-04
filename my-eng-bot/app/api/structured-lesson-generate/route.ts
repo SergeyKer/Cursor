@@ -5,9 +5,11 @@ import { getLessonLearningSteps } from '@/lib/lessonFinale'
 import { selectStructuredLessonVariant } from '@/lib/structuredLessonVariants'
 import {
   assessGeneratedSteps,
+  buildLessonRepairUserMessage,
   buildLessonFromGeneratedSteps,
   buildStructuredLessonCefrPrompt,
   buildStructuredCreationSystemPrompt,
+  buildStructuredVariantDiversifyInstruction,
   cloneLessonWithNewRunKey,
   extractJsonObject,
   formatLessonValidationIssues,
@@ -102,11 +104,9 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  const diversifyInstruction =
-    'Для этого урока обязательно сгенерируй новый вариант: не копируй дословно sourceSteps, поменяй формулировки, примеры и микро-ситуации, сохранив тот же grammar focus и шаги.'
   const system = [
     buildStructuredCreationSystemPrompt(),
-    diversifyInstruction,
+    buildStructuredVariantDiversifyInstruction(),
     buildStructuredLessonCefrPrompt({ lesson, audience }),
   ]
     .filter(Boolean)
@@ -135,77 +135,27 @@ export async function POST(req: NextRequest) {
   )
 
   const sharedResponse = await runLessonRouteInflight(cacheKey, async () => {
-    const providerStartedAt = Date.now()
-    const model = await callProviderChat({
-      provider,
-      req,
-      apiMessages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-      maxTokens: resolveLessonRouteMaxTokens(lesson.level, 'generate'),
-      openAiChatPreset,
-      traceLabel: 'lesson-generate',
-    })
+    const maxAttempts = 2
+    const apiMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ]
+    const createFallbackPayload = () => ({ lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true })
 
-    if (!model.ok) {
-      const responsePayload = { lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true }
-      writeLessonRouteCache(cacheKey, responsePayload)
-      logLessonRouteSummary({
-        correlationId,
-        mode: 'generate',
-        lessonId: lesson.id,
-        selectedVariantId,
-        durationMs: Date.now() - startedAt,
-        source: 'provider',
-        generated: false,
-        fallback: true,
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const providerStartedAt = Date.now()
+      const model = await callProviderChat({
+        provider,
+        req,
+        apiMessages,
+        maxTokens: resolveLessonRouteMaxTokens(lesson.level, 'generate'),
+        openAiChatPreset,
+        traceLabel: 'lesson-generate',
       })
-      logLessonRouteStages({
-        correlationId,
-        mode: 'generate',
-        stages: {
-          provider_ms: Date.now() - providerStartedAt,
-          total_ms: Date.now() - startedAt,
-        },
-      })
-      return responsePayload
-    }
 
-    const json = extractJsonObject(model.content)
-    if (!json) {
-      const responsePayload = { lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true }
-      writeLessonRouteCache(cacheKey, responsePayload)
-      logLessonRouteSummary({
-        correlationId,
-        mode: 'generate',
-        lessonId: lesson.id,
-        selectedVariantId,
-        durationMs: Date.now() - startedAt,
-        source: 'provider',
-        generated: false,
-        fallback: true,
-      })
-      logLessonRouteStages({
-        correlationId,
-        mode: 'generate',
-        stages: {
-          provider_ms: Date.now() - providerStartedAt,
-          total_ms: Date.now() - startedAt,
-        },
-      })
-      return responsePayload
-    }
-
-    try {
-      const validationStartedAt = Date.now()
-      const parsed = JSON.parse(json) as { steps?: unknown }
-      const validation = assessGeneratedSteps(lesson, sourceSteps, parsed.steps, { audience })
-      if (!validation.validatedSteps) {
-        console.warn(
-          `structured-lesson-generate rejected lesson ${lesson.id} variant ${selectedVariantId ?? 'default'}: score=${validation.score.toFixed(2)}; ${formatLessonValidationIssues(validation.issues)}`
-        )
-        const responsePayload = { lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true }
+      if (!model.ok) {
+        if (attempt < maxAttempts) continue
+        const responsePayload = createFallbackPayload()
         writeLessonRouteCache(cacheKey, responsePayload)
         logLessonRouteSummary({
           correlationId,
@@ -221,62 +171,175 @@ export async function POST(req: NextRequest) {
           correlationId,
           mode: 'generate',
           stages: {
+            attempts: attempt,
+            provider_ms: Date.now() - providerStartedAt,
+            total_ms: Date.now() - startedAt,
+          },
+        })
+        return responsePayload
+      }
+
+      const json = extractJsonObject(model.content)
+      if (!json) {
+        if (attempt < maxAttempts) {
+          apiMessages.push({ role: 'assistant', content: model.content })
+          apiMessages.push({
+            role: 'user',
+            content: buildLessonRepairUserMessage({ reason: 'parse', attempt: attempt + 1, maxAttempts }),
+          })
+          continue
+        }
+        const responsePayload = createFallbackPayload()
+        writeLessonRouteCache(cacheKey, responsePayload)
+        logLessonRouteSummary({
+          correlationId,
+          mode: 'generate',
+          lessonId: lesson.id,
+          selectedVariantId,
+          durationMs: Date.now() - startedAt,
+          source: 'provider',
+          generated: false,
+          fallback: true,
+        })
+        logLessonRouteStages({
+          correlationId,
+          mode: 'generate',
+          stages: {
+            attempts: attempt,
+            provider_ms: Date.now() - providerStartedAt,
+            total_ms: Date.now() - startedAt,
+          },
+        })
+        return responsePayload
+      }
+
+      try {
+        const validationStartedAt = Date.now()
+        const parsed = JSON.parse(json) as { steps?: unknown }
+        const validation = assessGeneratedSteps(lesson, sourceSteps, parsed.steps, { audience })
+        if (!validation.validatedSteps) {
+          console.warn(
+            `structured-lesson-generate rejected lesson ${lesson.id} variant ${selectedVariantId ?? 'default'}: score=${validation.score.toFixed(2)}; ${formatLessonValidationIssues(validation.issues)}`
+          )
+          if (attempt < maxAttempts) {
+            apiMessages.push({ role: 'assistant', content: json })
+            apiMessages.push({
+              role: 'user',
+              content: buildLessonRepairUserMessage({
+                reason: 'validation',
+                attempt: attempt + 1,
+                maxAttempts,
+                issues: validation.issues,
+                score: validation.score,
+              }),
+            })
+            continue
+          }
+          const responsePayload = createFallbackPayload()
+          logLessonRouteSummary({
+            correlationId,
+            mode: 'generate',
+            lessonId: lesson.id,
+            selectedVariantId,
+            durationMs: Date.now() - startedAt,
+            source: 'provider',
+            generated: false,
+            fallback: true,
+          })
+          logLessonRouteStages({
+            correlationId,
+            mode: 'generate',
+            stages: {
+              attempts: attempt,
+              provider_ms: validationStartedAt - providerStartedAt,
+              validation_ms: Date.now() - validationStartedAt,
+              total_ms: Date.now() - startedAt,
+            },
+          })
+          return responsePayload
+        }
+
+        const responsePayload = {
+          lesson: buildLessonFromGeneratedSteps({ ...lesson, steps: sourceSteps }, validation.validatedSteps),
+          generated: true,
+          fallback: false,
+        }
+        writeLessonRouteCache(cacheKey, responsePayload)
+        logLessonRouteSummary({
+          correlationId,
+          mode: 'generate',
+          lessonId: lesson.id,
+          selectedVariantId,
+          durationMs: Date.now() - startedAt,
+          source: 'provider',
+          generated: true,
+          fallback: false,
+        })
+        logLessonRouteStages({
+          correlationId,
+          mode: 'generate',
+          stages: {
+            attempts: attempt,
             provider_ms: validationStartedAt - providerStartedAt,
             validation_ms: Date.now() - validationStartedAt,
             total_ms: Date.now() - startedAt,
           },
         })
         return responsePayload
+      } catch {
+        if (attempt < maxAttempts) {
+          apiMessages.push({ role: 'assistant', content: model.content })
+          apiMessages.push({
+            role: 'user',
+            content: buildLessonRepairUserMessage({ reason: 'parse', attempt: attempt + 1, maxAttempts }),
+          })
+          continue
+        }
+        const responsePayload = createFallbackPayload()
+        writeLessonRouteCache(cacheKey, responsePayload)
+        logLessonRouteSummary({
+          correlationId,
+          mode: 'generate',
+          lessonId: lesson.id,
+          selectedVariantId,
+          durationMs: Date.now() - startedAt,
+          source: 'provider',
+          generated: false,
+          fallback: true,
+        })
+        logLessonRouteStages({
+          correlationId,
+          mode: 'generate',
+          stages: {
+            attempts: attempt,
+            provider_ms: Date.now() - providerStartedAt,
+            total_ms: Date.now() - startedAt,
+          },
+        })
+        return responsePayload
       }
-      const responsePayload = {
-        lesson: buildLessonFromGeneratedSteps({ ...lesson, steps: sourceSteps }, validation.validatedSteps),
-        generated: true,
-        fallback: false,
-      }
-      writeLessonRouteCache(cacheKey, responsePayload)
-      logLessonRouteSummary({
-        correlationId,
-        mode: 'generate',
-        lessonId: lesson.id,
-        selectedVariantId,
-        durationMs: Date.now() - startedAt,
-        source: 'provider',
-        generated: true,
-        fallback: false,
-      })
-      logLessonRouteStages({
-        correlationId,
-        mode: 'generate',
-        stages: {
-          provider_ms: validationStartedAt - providerStartedAt,
-          validation_ms: Date.now() - validationStartedAt,
-          total_ms: Date.now() - startedAt,
-        },
-      })
-      return responsePayload
-    } catch {
-      const responsePayload = { lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true }
-      writeLessonRouteCache(cacheKey, responsePayload)
-      logLessonRouteSummary({
-        correlationId,
-        mode: 'generate',
-        lessonId: lesson.id,
-        selectedVariantId,
-        durationMs: Date.now() - startedAt,
-        source: 'provider',
-        generated: false,
-        fallback: true,
-      })
-      logLessonRouteStages({
-        correlationId,
-        mode: 'generate',
-        stages: {
-          provider_ms: Date.now() - providerStartedAt,
-          total_ms: Date.now() - startedAt,
-        },
-      })
-      return responsePayload
     }
+
+    const responsePayload = createFallbackPayload()
+    logLessonRouteSummary({
+      correlationId,
+      mode: 'generate',
+      lessonId: lesson.id,
+      selectedVariantId,
+      durationMs: Date.now() - startedAt,
+      source: 'provider',
+      generated: false,
+      fallback: true,
+    })
+    logLessonRouteStages({
+      correlationId,
+      mode: 'generate',
+      stages: {
+        attempts: maxAttempts,
+        total_ms: Date.now() - startedAt,
+      },
+    })
+    return responsePayload
   })
 
   const responsePayload = {

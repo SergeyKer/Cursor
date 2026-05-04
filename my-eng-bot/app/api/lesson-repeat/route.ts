@@ -6,9 +6,11 @@ import { getLessonLearningSteps } from '@/lib/lessonFinale'
 import { selectStructuredLessonVariant } from '@/lib/structuredLessonVariants'
 import {
   assessGeneratedSteps,
+  buildLessonRepairUserMessage,
   buildLessonFromGeneratedSteps,
   buildStructuredLessonCefrPrompt,
   buildStructuredRepeatSystemPrompt,
+  buildStructuredVariantDiversifyInstruction,
   cloneLessonWithNewRunKey,
   extractJsonObject,
   formatLessonValidationIssues,
@@ -119,7 +121,11 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  const system = [buildStructuredRepeatSystemPrompt(), buildStructuredLessonCefrPrompt({ lesson, audience })].join('\n\n')
+  const system = [
+    buildStructuredRepeatSystemPrompt(),
+    buildStructuredVariantDiversifyInstruction(),
+    buildStructuredLessonCefrPrompt({ lesson, audience }),
+  ].join('\n\n')
 
   const user = JSON.stringify(
     {
@@ -146,7 +152,7 @@ export async function POST(req: NextRequest) {
 
   const sharedResponse = await runLessonRouteInflight(cacheKey, async () => {
     const shouldCacheFallback = !body.bypassCache
-    const maxAttempts = body.bypassCache ? 2 : 1
+    const maxAttempts = body.bypassCache ? 3 : 2
     const createFallbackPayload = (fallbackReason: LessonRepeatFallbackReason) => ({
       lesson: cloneLessonWithNewRunKey(lesson),
       generated: false,
@@ -176,16 +182,17 @@ export async function POST(req: NextRequest) {
         },
       })
     }
+    const apiMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ]
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const providerStartedAt = Date.now()
       const model = await callProviderChat({
         provider,
         req,
-        apiMessages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
+        apiMessages,
         maxTokens: resolveLessonRouteMaxTokens(lesson.level, 'repeat'),
         openAiChatPreset,
         traceLabel: 'lesson-repeat',
@@ -204,7 +211,18 @@ export async function POST(req: NextRequest) {
 
       const json = extractJsonObject(model.content)
       if (!json) {
-        if (attempt < maxAttempts) continue
+        if (attempt < maxAttempts) {
+          apiMessages.push({ role: 'assistant', content: model.content })
+          apiMessages.push({
+            role: 'user',
+            content: buildLessonRepairUserMessage({
+              reason: 'parse',
+              attempt: attempt + 1,
+              maxAttempts,
+            }),
+          })
+          continue
+        }
         const responsePayload = createFallbackPayload('parse')
         maybeWriteFallbackCache(responsePayload)
         logFallback({
@@ -218,7 +236,18 @@ export async function POST(req: NextRequest) {
       try {
         parsed = JSON.parse(json) as { steps?: unknown }
       } catch {
-        if (attempt < maxAttempts) continue
+        if (attempt < maxAttempts) {
+          apiMessages.push({ role: 'assistant', content: model.content })
+          apiMessages.push({
+            role: 'user',
+            content: buildLessonRepairUserMessage({
+              reason: 'parse',
+              attempt: attempt + 1,
+              maxAttempts,
+            }),
+          })
+          continue
+        }
         const responsePayload = createFallbackPayload('parse')
         maybeWriteFallbackCache(responsePayload)
         logFallback({
@@ -234,6 +263,20 @@ export async function POST(req: NextRequest) {
         console.warn(
           `lesson-repeat rejected lesson ${lesson.id} variant ${selectedVariantId ?? 'default'}: score=${validation.score.toFixed(2)}; ${formatLessonValidationIssues(validation.issues)}`
         )
+        if (attempt < maxAttempts) {
+          apiMessages.push({ role: 'assistant', content: json })
+          apiMessages.push({
+            role: 'user',
+            content: buildLessonRepairUserMessage({
+              reason: 'validation',
+              attempt: attempt + 1,
+              maxAttempts,
+              issues: validation.issues,
+              score: validation.score,
+            }),
+          })
+          continue
+        }
         const responsePayload = createFallbackPayload('validation')
         maybeWriteFallbackCache(responsePayload)
         logFallback({

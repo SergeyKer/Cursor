@@ -76,6 +76,10 @@ describe('POST /api/structured-lesson-generate', () => {
       ok: true,
       content: JSON.stringify({ steps: brokenSteps }),
     })
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: JSON.stringify({ steps: brokenSteps }),
+    })
 
     const res = await POST(makeRequest({ lessonId: '1', recentVariantIds: lesson1RecentVariantIds }) as never)
     const data = (await res.json()) as { generated: boolean; fallback: boolean; lesson?: { runKey?: string } }
@@ -104,6 +108,10 @@ describe('POST /api/structured-lesson-generate', () => {
       ok: true,
       content: JSON.stringify({ steps }),
     })
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: JSON.stringify({ steps }),
+    })
 
     const res = await POST(makeRequest({ lessonId: '1', recentVariantIds: lesson1RecentVariantIds }) as never)
     const data = (await res.json()) as { generated: boolean; fallback: boolean }
@@ -111,6 +119,35 @@ describe('POST /api/structured-lesson-generate', () => {
     expect(res.status).toBe(200)
     expect(data.generated).toBe(true)
     expect(data.fallback).toBe(false)
+  })
+
+  it('repairs validation failures on a second generation attempt', async () => {
+    const brokenSteps = toModelSteps()
+    brokenSteps[5] = {
+      ...brokenSteps[5],
+      exercise: {
+        ...brokenSteps[5].exercise!,
+        hint: `Правильный ответ: ${brokenSteps[5].exercise?.correctAnswer ?? ''}`,
+      },
+    }
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: JSON.stringify({ steps: brokenSteps }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: JSON.stringify({ steps: toModelSteps() }),
+      })
+
+    const res = await POST(makeRequest({ lessonId: '1', recentVariantIds: lesson1RecentVariantIds }) as never)
+    const data = (await res.json()) as { generated: boolean; fallback: boolean }
+
+    expect(res.status).toBe(200)
+    expect(data.generated).toBe(true)
+    expect(data.fallback).toBe(false)
+    expect(callProviderChatMock).toHaveBeenCalledTimes(2)
+    expect(callProviderChatMock.mock.calls[1]?.[0]?.apiMessages.at(-1)?.content).toContain('Предыдущий вариант не прошёл quality gate')
   })
 
   it('deduplicates concurrent identical generation requests', async () => {
@@ -150,6 +187,18 @@ describe('POST /api/structured-lesson-generate', () => {
       ok: true,
       content: JSON.stringify({ steps }),
     })
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: JSON.stringify({ steps }),
+    })
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: JSON.stringify({ steps }),
+    })
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: JSON.stringify({ steps }),
+    })
 
     const res = await POST(makeRequest({ lessonId: '1', audience: 'adult', recentVariantIds: lesson1RecentVariantIds }) as never)
     const data = (await res.json()) as { generated: boolean; fallback: boolean }
@@ -174,6 +223,10 @@ describe('POST /api/structured-lesson-generate', () => {
         steps[1].bubbles![2],
       ],
     }
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: JSON.stringify({ steps }),
+    })
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,
       content: JSON.stringify({ steps }),
