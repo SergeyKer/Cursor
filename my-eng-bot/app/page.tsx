@@ -9,7 +9,7 @@ import { featureFlags } from '@/lib/featureFlags'
 import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
 import { HomeMenuInstructionBubble } from '@/components/HomeMenuInstructionBubble'
 import HomeEmptyBubble from '@/components/HomeEmptyBubble'
-import MenuSectionPanels from '@/components/MenuSectionPanels'
+import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/components/MenuSectionPanels'
 import { buildCompactGreeting } from '@/lib/homeGreeting'
 import { consumeNextGreetingFactLine } from '@/lib/greetingFactRotation'
 import { consumeNextHomeVoiceLine } from '@/lib/homeVoiceRotation'
@@ -402,6 +402,8 @@ export default function Home() {
   const [menuLessonBgError, setMenuLessonBgError] = useState<string | null>(null)
   /** Фоновая генерация варианта structured-урока: кнопка «Начать урок» на intro/tips. */
   const [structuredLessonVariantRegenerating, setStructuredLessonVariantRegenerating] = useState(false)
+  /** Урок открыт из меню «Сгенерировать урок» — подпись основной кнопки на intro/tips. */
+  const [startLessonCtaFromMenuGenerate, setStartLessonCtaFromMenuGenerate] = useState(false)
   const [pendingTutorLessonTitle, setPendingTutorLessonTitle] = useState<string | null>(null)
   const [activeLessonVariantNumber, setActiveLessonVariantNumber] = useState(1)
   /** Если у урока нет runKey, порядок вариантов fill_choice зависит от nonce на каждый новый вход. */
@@ -947,6 +949,7 @@ export default function Home() {
     setLessonIntroDepth('quick')
     setLessonExtraTipsStatus('idle')
     setLessonExtraTipsState(null)
+    setStartLessonCtaFromMenuGenerate(false)
   }, [abandonPracticeSession])
 
   const restartChatForNewModeFromMenu = useCallback(() => {
@@ -1133,6 +1136,7 @@ export default function Home() {
       menuLessonGenerateCleanupRef.current?.()
       menuLessonBgFetchEpochRef.current += 1
       setStructuredLessonVariantRegenerating(false)
+      setStartLessonCtaFromMenuGenerate(false)
       abandonPracticeSession()
       const requestId = ++lessonOpenRequestIdRef.current
       const structuredLesson = getStructuredLessonById(lessonId)
@@ -1202,6 +1206,7 @@ export default function Home() {
         throw new Error('Для выбранного урока пока нет алгоритма генерации.')
       }
 
+      setStartLessonCtaFromMenuGenerate(true)
       menuLessonGenerateCleanupRef.current?.()
 
       abandonPracticeSession()
@@ -1344,6 +1349,7 @@ export default function Home() {
       menuLessonGenerateCleanupRef.current?.()
       menuLessonBgFetchEpochRef.current += 1
       setStructuredLessonVariantRegenerating(false)
+      setStartLessonCtaFromMenuGenerate(false)
       abandonPracticeSession()
       let lesson: LessonBlueprint | null = null
       firstMessageRequestIdRef.current += 1
@@ -2966,12 +2972,14 @@ export default function Home() {
                   onShowExtras={() => setLessonViewStage('tips')}
                   onBack={backToLessonList}
                   footerVariantRegenerating={structuredLessonVariantRegenerating}
+                  startLessonCtaFromMenuGenerate={startLessonCtaFromMenuGenerate}
                 />
               ) : isLessonTipsActive && activeLessonIntro ? (
                 <LessonExtraTipsScreen
                   lessonKey={activeLessonTipsKey}
                   intro={activeLessonIntro}
                   footerVariantRegenerating={structuredLessonVariantRegenerating}
+                  startLessonCtaFromMenuGenerate={startLessonCtaFromMenuGenerate}
                   intent={activeTutorIntent}
                   provider={settings.provider}
                   openAiChatPreset={settings.openAiChatPreset}
