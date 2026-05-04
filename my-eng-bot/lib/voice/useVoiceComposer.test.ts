@@ -119,6 +119,23 @@ describe('useVoiceComposer helpers', () => {
     expect(mergeSpeechFinalSegment('hello', 'dear world')).toBe('hello dear world')
   })
 
+  it('drops a shorter final that restarts as a prefix of the accumulated text', () => {
+    expect(
+      mergeSpeechFinalSegment('tell me please about Mitsubishi', 'tell me please about')
+    ).toBe('tell me please about Mitsubishi')
+    expect(mergeSpeechFinalSegment('hello dear world', 'hello')).toBe('hello dear world')
+  })
+
+  it('merges overlapping phrase tails across segments', () => {
+    expect(mergeSpeechFinalSegment('New York', 'York City')).toBe('New York City')
+    expect(mergeSpeechFinalSegment('I went to', 'to the store')).toBe('I went to the store')
+    expect(mergeSpeechFinalSegment('alpha', 'alphabet')).toBe('alphabet')
+  })
+
+  it('merges display final and interim when interim overlaps without being a prefix extension', () => {
+    expect(mergeSpeechDisplayText('New York', 'York City')).toBe('New York City')
+  })
+
   it('collapses cumulative final chunks in Android-like flow', () => {
     const event = createSpeechRecognitionEvent([
       { transcript: 'I am', isFinal: true },
@@ -218,5 +235,13 @@ describe('useVoiceComposer helpers', () => {
   it('prefers the longer interim when final is its stable prefix', () => {
     expect(chooseFinalSpeechText('I am swimming', 'I am swimming in the sea')).toBe('I am swimming in the sea')
     expect(chooseFinalSpeechText('I am swimming in the sea', 'I am')).toBe('I am swimming in the sea')
+  })
+
+  it('merges overlapping interim into final when resolving committed text', () => {
+    expect(chooseFinalSpeechText('New York', 'York City')).toBe('New York City')
+  })
+
+  it('keeps the final text when interim is an unrelated hypothesis', () => {
+    expect(chooseFinalSpeechText('hello there', 'what time is it')).toBe('hello there')
   })
 })

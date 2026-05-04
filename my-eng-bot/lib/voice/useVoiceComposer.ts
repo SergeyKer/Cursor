@@ -61,15 +61,70 @@ function isStablePrefixExpansion(base: string, candidate: string): boolean {
   return nextChar == null || /\s|[,.!?;:)\]}]/.test(nextChar)
 }
 
-export function mergeSpeechFinalSegment(base: string, next: string): string {
-  const normalizedBase = normalizeTranscriptText(base)
-  const normalizedNext = normalizeTranscriptText(next)
+/** Longest k where a ends with b's first k chars; conservative to avoid mid-word false joins. */
+function longestSafeSuffixPrefixOverlap(a: string, b: string): number {
+  const maxK = Math.min(a.length, b.length)
+  for (let k = maxK; k >= 2; k -= 1) {
+    if (a.slice(-k) !== b.slice(0, k)) continue
+    if (k < a.length) {
+      const charBeforeOverlap = a[a.length - k - 1]
+      if (charBeforeOverlap && !/\s/.test(charBeforeOverlap)) continue
+    }
+    if (k < b.length && k < 4) {
+      const atSeamInB = b[k]
+      if (atSeamInB && /\w/.test(a[a.length - 1]) && /\w/.test(atSeamInB)) continue
+    }
+    return k
+  }
+  return 0
+}
+
+/**
+ * Merges two normalized transcript chunks for display or final accumulation.
+ * Callers pass strings already passed through normalizeTranscriptText.
+ */
+function mergeAdjacentTranscriptSegments(normalizedBase: string, normalizedNext: string): string {
   if (!normalizedNext) return normalizedBase
   if (!normalizedBase) return normalizedNext
   if (isStablePrefixExpansion(normalizedBase, normalizedNext)) {
     return normalizedNext
   }
+  if (normalizedBase.startsWith(normalizedNext)) {
+    return normalizedBase
+  }
+  if (normalizedNext.startsWith(normalizedBase)) {
+    return normalizedNext
+  }
+  const overlap = longestSafeSuffixPrefixOverlap(normalizedBase, normalizedNext)
+  if (overlap > 0) {
+    return `${normalizedBase}${normalizedNext.slice(overlap)}`
+  }
   return appendVoiceText(normalizedBase, normalizedNext)
+}
+
+function mergeOnlyOverlappingTranscriptSegments(normalizedBase: string, normalizedNext: string): string {
+  if (!normalizedNext) return normalizedBase
+  if (!normalizedBase) return normalizedNext
+  if (isStablePrefixExpansion(normalizedBase, normalizedNext)) {
+    return normalizedNext
+  }
+  if (normalizedBase.startsWith(normalizedNext)) {
+    return normalizedBase
+  }
+  if (normalizedNext.startsWith(normalizedBase)) {
+    return normalizedNext
+  }
+  const overlap = longestSafeSuffixPrefixOverlap(normalizedBase, normalizedNext)
+  if (overlap > 0) {
+    return `${normalizedBase}${normalizedNext.slice(overlap)}`
+  }
+  return normalizedBase
+}
+
+export function mergeSpeechFinalSegment(base: string, next: string): string {
+  const normalizedBase = normalizeTranscriptText(base)
+  const normalizedNext = normalizeTranscriptText(next)
+  return mergeAdjacentTranscriptSegments(normalizedBase, normalizedNext)
 }
 
 export function chooseFinalSpeechText(finalText: string, interimText: string): string {
@@ -77,21 +132,13 @@ export function chooseFinalSpeechText(finalText: string, interimText: string): s
   const normalizedInterim = normalizeTranscriptText(interimText)
   if (!normalizedInterim) return normalizedFinal
   if (!normalizedFinal) return normalizedInterim
-  if (isStablePrefixExpansion(normalizedFinal, normalizedInterim)) {
-    return normalizedInterim
-  }
-  return normalizedFinal
+  return mergeOnlyOverlappingTranscriptSegments(normalizedFinal, normalizedInterim)
 }
 
 export function mergeSpeechDisplayText(finalText: string, interimText: string): string {
   const normalizedFinal = normalizeTranscriptText(finalText)
   const normalizedInterim = normalizeTranscriptText(interimText)
-  if (!normalizedInterim) return normalizedFinal
-  if (!normalizedFinal) return normalizedInterim
-  if (isStablePrefixExpansion(normalizedFinal, normalizedInterim)) {
-    return normalizedInterim
-  }
-  return appendVoiceText(normalizedFinal, normalizedInterim)
+  return mergeAdjacentTranscriptSegments(normalizedFinal, normalizedInterim)
 }
 
 export function buildVoiceDisplayText(params: {
