@@ -743,6 +743,7 @@ export const whoLikesLesson: LessonData = {
       minScore: 0.6,
       maxSoftIssues: 4,
       rejectOnHardFailures: true,
+      maxAllowedHardIssues: 2,
     },
   },
   steps: buildWhoLikesSteps(baseVariant),

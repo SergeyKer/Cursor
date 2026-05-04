@@ -11,11 +11,11 @@ function normalizeTranslatePromptPunctuation(text: string): string {
   return text.replace(/(Переведите на английский:\s*"[^"\n]*")([.!?…]+)/g, '$1')
 }
 
-/** Как `lessonSectionClassByType` в LessonStepRenderer и карточки SectionCard в переводе: отдельные блоки с rounded-xl. */
+/** Фоны горизонтальных полос внутри одной карточки урока (positive / info / task). */
 const unifiedSectionClassByType: Record<Bubble['type'], string> = {
-  positive: 'border-emerald-200/90 bg-white/95',
-  info: 'border-[var(--chat-section-neutral-border)] bg-white/95',
-  task: 'border-blue-200/90 bg-[rgba(239,246,255,0.96)]',
+  positive: 'bg-[#FFFBEB]',
+  info: 'bg-[#FFFFFF]',
+  task: 'bg-[#F0FDF4]',
 }
 
 function splitLabel(line: string): { label: string; rest: string } | null {
@@ -71,23 +71,29 @@ function renderBubbleContent(content: string) {
 
 export default function UnifiedLessonBubble({ bubbles, animateSections = true }: UnifiedLessonBubbleProps) {
   return (
-    <div className="flex w-full min-w-0 flex-col gap-1.5">
-      {bubbles.map((bubble, bubbleIndex) => (
-        <section
-          key={`${bubble.type}-${bubbleIndex}`}
-          className={`${animateSections ? 'lesson-enter' : ''} chat-section-surface glass-surface rounded-xl border px-3 py-2 ${unifiedSectionClassByType[bubble.type]}`}
-          style={
-            animateSections
-              ? {
-                  animationDelay: `${bubbleIndex * 90}ms`,
-                  animationFillMode: 'both',
-                }
-              : undefined
-          }
-        >
-          {renderBubbleContent(bubble.content)}
-        </section>
-      ))}
+    <div className="chat-section-surface glass-surface relative w-full min-w-0 overflow-hidden rounded-[1.5rem] border border-[var(--chat-section-neutral-border)] bg-white/95">
+      {bubbles.map((bubble, bubbleIndex) => {
+        const isLast = bubbleIndex === bubbles.length - 1
+
+        return (
+          <section
+            key={`${bubble.type}-${bubbleIndex}`}
+            className={`${animateSections ? 'lesson-enter' : ''} px-3 py-2 ${unifiedSectionClassByType[bubble.type]} ${
+              isLast ? '' : 'border-b border-[var(--chat-section-neutral-border)]'
+            }`}
+            style={
+              animateSections
+                ? {
+                    animationDelay: `${bubbleIndex * 90}ms`,
+                    animationFillMode: 'both',
+                  }
+                : undefined
+            }
+          >
+            {renderBubbleContent(bubble.content)}
+          </section>
+        )
+      })}
     </div>
   )
 }

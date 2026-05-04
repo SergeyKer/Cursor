@@ -1,5 +1,9 @@
 import type { NextRequest } from 'next/server'
 import { buildProxyFetchExtra, fetchWithProxyFallback } from '@/lib/proxyFetch'
+import {
+  fetchWithLessonProviderDeadline,
+  isLessonProviderAbortError,
+} from '@/lib/lessonProviderTimeouts'
 import type { OpenAiChatPreset } from '@/lib/types'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
@@ -72,7 +76,7 @@ export async function callProviderChat(params: {
           messages: apiMessages,
           max_tokens: maxTokens,
         }
-    const requestInit: RequestInit = {
+    const baseInit: RequestInit = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -88,15 +92,35 @@ export async function callProviderChat(params: {
         // При явном VPN/прокси из env сначала идём через прокси.
         // Если прокси недоступен, делаем прямой fallback.
         try {
-          res = await fetchWithProxyFallback(isGpt54Preset ? OPENAI_RESPONSES_URL : OPENAI_URL, requestInit)
-        } catch {
-          res = await fetch(isGpt54Preset ? OPENAI_RESPONSES_URL : OPENAI_URL, requestInit)
+          res = await fetchWithLessonProviderDeadline((signal) =>
+            fetchWithProxyFallback(isGpt54Preset ? OPENAI_RESPONSES_URL : OPENAI_URL, { ...baseInit, signal })
+          )
+        } catch (firstError) {
+          if (isLessonProviderAbortError(firstError)) {
+            return { ok: false, status: 504, errText: 'OpenAI request timed out' }
+          }
+          try {
+            res = await fetchWithLessonProviderDeadline((signal) =>
+              fetch(isGpt54Preset ? OPENAI_RESPONSES_URL : OPENAI_URL, { ...baseInit, signal })
+            )
+          } catch (secondError) {
+            if (isLessonProviderAbortError(secondError)) {
+              return { ok: false, status: 504, errText: 'OpenAI request timed out' }
+            }
+            return { ok: false, status: 502, errText: 'OpenAI fetch failed' }
+          }
         }
       } else {
-        // Без прокси сначала пробуем прямой канал и затем прокси-кандидаты.
-        res = await fetchWithProxyFallback(isGpt54Preset ? OPENAI_RESPONSES_URL : OPENAI_URL, requestInit, { directFirst: true })
+        res = await fetchWithLessonProviderDeadline((signal) =>
+          fetchWithProxyFallback(isGpt54Preset ? OPENAI_RESPONSES_URL : OPENAI_URL, { ...baseInit, signal }, {
+            directFirst: true,
+          })
+        )
       }
-    } catch {
+    } catch (error) {
+      if (isLessonProviderAbortError(error)) {
+        return { ok: false, status: 504, errText: 'OpenAI request timed out' }
+      }
       return { ok: false, status: 502, errText: 'OpenAI fetch failed' }
     }
     if (!res.ok) return { ok: false, status: res.status, errText: await res.text() }
@@ -127,29 +151,35 @@ export async function callProviderChat(params: {
   if (!key) return { ok: false, status: 500, errText: 'Missing OPENROUTER_API_KEY' }
   let res: Response
   try {
-    res = await fetchWithProxyFallback(
-      OPENROUTER_URL,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${key}`,
-          'HTTP-Referer': req.nextUrl?.origin ?? '',
+    res = await fetchWithLessonProviderDeadline((signal) =>
+      fetchWithProxyFallback(
+        OPENROUTER_URL,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${key}`,
+            'HTTP-Referer': req.nextUrl?.origin ?? '',
+          },
+          body: JSON.stringify({
+            model: FREE_MODEL,
+            messages: apiMessages,
+            max_tokens: maxTokens,
+          }),
+          signal,
         },
-        body: JSON.stringify({
-          model: FREE_MODEL,
-          messages: apiMessages,
-          max_tokens: maxTokens,
-        }),
-      },
-      {
-        // OpenRouter не должен зависеть от системного прокси Windows.
-        // Если задан явный env-прокси — можно попробовать его после прямого канала.
-        includeSystemProxy: false,
-        directFirst: true,
-      }
+        {
+          // OpenRouter не должен зависеть от системного прокси Windows.
+          // Если задан явный env-прокси — можно попробовать его после прямого канала.
+          includeSystemProxy: false,
+          directFirst: true,
+        }
+      )
     )
   } catch (error) {
+    if (isLessonProviderAbortError(error)) {
+      return { ok: false, status: 504, errText: 'OpenRouter request timed out' }
+    }
     const errText = error instanceof Error ? `OpenRouter fetch failed: ${error.message}` : 'OpenRouter fetch failed'
     return { ok: false, status: 502, errText }
   }

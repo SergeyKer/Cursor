@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { LessonData } from '@/types/lesson'
 import { itsTimeToLesson } from '@/lib/lessons/its-time-to'
 import type { GeneratedStepPayload } from '@/lib/structuredLessonFactory'
 
@@ -7,6 +8,31 @@ const callProviderChatMock = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/callProviderChat', () => ({
   callProviderChat: callProviderChatMock,
 }))
+
+function withStrictQualityGate(lesson: LessonData): LessonData {
+  const rc = lesson.repeatConfig
+  if (!rc) return lesson
+  return {
+    ...lesson,
+    repeatConfig: {
+      ...rc,
+      qualityGate: { minScore: 0.6, maxSoftIssues: 4, rejectOnHardFailures: true },
+    },
+  }
+}
+
+vi.mock('@/lib/structuredLessons', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@/lib/structuredLessons')>()
+  return {
+    ...mod,
+    getStructuredLessonById: (id: string) => {
+      const raw = mod.getStructuredLessonById(id)
+      if (!raw) return null
+      if (id === '1' || id === '2') return withStrictQualityGate(raw)
+      return raw
+    },
+  }
+})
 
 import { POST } from './route'
 

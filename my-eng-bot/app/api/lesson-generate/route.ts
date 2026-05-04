@@ -20,6 +20,8 @@ import {
   writeLessonRouteCache,
 } from '@/lib/lessonRouteRuntime'
 
+export const maxDuration = 150
+
 type Body = {
   provider?: AiProvider
   openAiChatPreset?: 'gpt-4o-mini' | 'gpt-5.4-mini-none' | 'gpt-5.4-mini-low'

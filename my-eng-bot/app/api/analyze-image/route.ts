@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callProviderVision } from '@/lib/callProviderVision'
-import type { AiProvider, ImageAnalysisResult, LevelId, Audience } from '@/lib/types'
+import type { AiProvider, ImageAnalysisResult, LevelId, Audience, OpenAiChatPreset } from '@/lib/types'
 
 type AnalyzeImageBody = {
   provider?: AiProvider
+  openAiChatPreset?: OpenAiChatPreset
   imageDataUrl?: string
   level?: LevelId
   audience?: Audience
@@ -131,6 +132,12 @@ export async function POST(req: NextRequest) {
   }
 
   const provider: AiProvider = body.provider === 'openrouter' ? 'openrouter' : 'openai'
+  const openAiChatPreset: OpenAiChatPreset =
+    body.openAiChatPreset === 'gpt-5.4-mini-none'
+      ? 'gpt-5.4-mini-none'
+      : body.openAiChatPreset === 'gpt-5.4-mini-low'
+        ? 'gpt-5.4-mini-low'
+        : 'gpt-4o-mini'
   const level: LevelId = body.level ?? 'a2'
   const audience: Audience = body.audience ?? 'adult'
   const customFocus = typeof body.customFocus === 'string' ? body.customFocus : undefined
@@ -148,6 +155,7 @@ export async function POST(req: NextRequest) {
     req,
     imageDataUrl,
     prompt: buildPrompt(level, audience, customFocus),
+    openAiChatPreset,
   })
   if (!modelResult.ok) {
     const text = modelResult.errText || 'Не удалось выполнить анализ изображения.'

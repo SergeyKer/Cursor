@@ -51,12 +51,6 @@ type LessonMessage =
       tone: 'service' | 'success' | 'error'
     }
 
-const lessonSectionClassByType: Record<Bubble['type'], string> = {
-  positive: 'border-emerald-200/90 bg-white/95',
-  info: 'border-[var(--chat-section-neutral-border)] bg-white/95',
-  task: 'border-blue-200/90 bg-[rgba(239,246,255,0.96)]',
-}
-
 const lessonStatusCardClassByTone: Record<'service' | 'success' | 'error', string> = {
   service: 'border-[var(--chat-section-neutral-border)] bg-white/90 text-[var(--text-muted,#6b7280)]',
   success: 'border-green-200/90 bg-green-50/95 text-green-700',
@@ -428,7 +422,6 @@ export default function LessonStepRenderer({
                   const isBubbleEnd = position === 'solo' || position === 'last'
 
                   if (message.kind === 'lesson') {
-                    const useUnifiedLessonBubble = message.bubbles.length >= 2 && message.bubbles.length <= 3
                     const shouldAnimateLessonMessage = !message.isHistorical
 
                     return (
@@ -439,22 +432,7 @@ export default function LessonStepRenderer({
                         className={shouldAnimateLessonMessage ? 'lesson-enter' : ''}
                         rowClassName={isBubbleEnd ? 'mb-2.5' : 'mb-0.5'}
                       >
-                        {useUnifiedLessonBubble ? (
-                          <UnifiedLessonBubble bubbles={message.bubbles} animateSections={shouldAnimateLessonMessage} />
-                        ) : (
-                          <div className="space-y-1.5">
-                            {message.bubbles.map((bubble, bubbleIndex) => (
-                              <section
-                                key={`${message.id}-${bubbleIndex}-${bubble.type}`}
-                                className={`chat-section-surface glass-surface rounded-xl border px-3 py-2 ${lessonSectionClassByType[bubble.type]}`}
-                              >
-                                <p className="whitespace-pre-line break-words text-[15px] leading-[1.5] text-[var(--text)]">
-                                  {normalizeTranslatePromptPunctuation(bubble.content)}
-                                </p>
-                              </section>
-                            ))}
-                          </div>
-                        )}
+                        <UnifiedLessonBubble bubbles={message.bubbles} animateSections={shouldAnimateLessonMessage} />
                       </ChatBubbleFrame>
                     )
                   }

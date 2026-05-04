@@ -1,4 +1,8 @@
 import type { NextRequest } from 'next/server'
+import {
+  fetchWithLessonProviderDeadline,
+  isLessonProviderAbortError,
+} from '@/lib/lessonProviderTimeouts'
 import { fetchWithProxyFallback } from '@/lib/proxyFetch'
 import type { AiProvider, OpenAiChatPreset } from '@/lib/types'
 
@@ -29,35 +33,41 @@ export async function callProviderVision(params: {
 
   let res: Response
   try {
-    res = await fetchWithProxyFallback(OPENAI_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${key}`,
-      },
-      body: JSON.stringify({
-        model:
-          openAiChatPreset === 'gpt-5.4-mini-none' || openAiChatPreset === 'gpt-5.4-mini-low'
-            ? 'gpt-5.4-mini'
-            : 'gpt-4o-mini',
-        ...(openAiChatPreset === 'gpt-5.4-mini-none'
-          ? { reasoning_effort: 'none' }
-          : openAiChatPreset === 'gpt-5.4-mini-low'
-            ? { reasoning_effort: 'low' }
-            : {}),
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: prompt },
-              { type: 'image_url', image_url: { url: imageDataUrl } },
-            ],
-          },
-        ],
-        max_tokens: 700,
-      }),
-    })
-  } catch {
+    res = await fetchWithLessonProviderDeadline((signal) =>
+      fetchWithProxyFallback(OPENAI_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${key}`,
+        },
+        signal,
+        body: JSON.stringify({
+          model:
+            openAiChatPreset === 'gpt-5.4-mini-none' || openAiChatPreset === 'gpt-5.4-mini-low'
+              ? 'gpt-5.4-mini'
+              : 'gpt-4o-mini',
+          ...(openAiChatPreset === 'gpt-5.4-mini-none'
+            ? { reasoning_effort: 'none' }
+            : openAiChatPreset === 'gpt-5.4-mini-low'
+              ? { reasoning_effort: 'low' }
+              : {}),
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                { type: 'image_url', image_url: { url: imageDataUrl } },
+              ],
+            },
+          ],
+          max_tokens: 700,
+        }),
+      })
+    )
+  } catch (error) {
+    if (isLessonProviderAbortError(error)) {
+      return { ok: false, status: 504, errText: 'OpenAI vision request timed out' }
+    }
     return { ok: false, status: 502, errText: 'OpenAI vision fetch failed' }
   }
 

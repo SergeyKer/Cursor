@@ -45,6 +45,7 @@ export async function rewriteWebSearchAnswerForLearner(params: {
     userQuery: params.userQuery,
     learnerEnglishSamples: params.learnerEnglishSamples,
     sourceKind: 'web_search',
+    openAiChatPreset: params.openAiChatPreset,
   })
 }
 

@@ -11,6 +11,14 @@ import type {
 import type { Audience, LevelId } from '@/lib/types'
 import { getCefrDenyWords, getCefrSpec, buildCefrPromptBlock } from '@/lib/cefr/cefrSpec'
 
+/** Текст карточек: тот же формат, что ожидает `UnifiedLessonBubble` (см. вступление `LessonIntroScreen`). */
+const BUBBLE_CONTENT_FORMAT_RULES = [
+  'Оформление поля content в bubbles (как у локальных уроков в приложении):',
+  'Если в одном bubble больше одной строки: первая строка — короткий заголовок; для type positive префикс заголовка «🟡 », для info — «⚪ », для task — «🟢 ».',
+  'Списки: строки с префиксом «• ». Примеры: «✓ English sentence → русский (краткое пояснение)».',
+  'Без markdown (** __ #) и без HTML — только обычный текст с переносами строк.',
+].join('\n')
+
 export type GeneratedExercisePayload = {
   question?: unknown
   options?: unknown
@@ -853,9 +861,10 @@ export function assessGeneratedSteps(
   const hardFailures = issues.filter((item) => item.severity === 'hard')
   const softFailures = issues.filter((item) => item.severity === 'soft')
   const finalScore = maxScore === 0 ? 1 : score / maxScore
+  const maxHardAllowed = gate.rejectOnHardFailures ? (gate.maxAllowedHardIssues ?? 0) : Number.POSITIVE_INFINITY
   const accepted =
     validated.length === sourceSteps.length &&
-    (!gate.rejectOnHardFailures || hardFailures.length === 0) &&
+    hardFailures.length <= maxHardAllowed &&
     softFailures.length <= gate.maxSoftIssues &&
     finalScore >= gate.minScore
 
@@ -973,6 +982,7 @@ export function buildStructuredCreationSystemPrompt(): string {
     'Сгенерируй lesson строго по переданному контракту.',
     'Нельзя менять число шагов, порядок stepNumber, stepType, сложность и grammar focus.',
     'Каждый шаг должен выполнять свою учебную функцию по смыслу.',
+    BUBBLE_CONTENT_FORMAT_RULES,
     'Объяснения и hints на русском, правильные ответы на английском.',
     'Не добавляй новую грамматику вне указанного grammar focus.',
     'Если передан selectedVariantId, sourceSituations и sourceSteps, считай их обязательными смысловыми рельсами для нового варианта.',
@@ -1025,6 +1035,7 @@ export function buildStructuredRepeatSystemPrompt(): string {
     'Сгенерируй только новые ситуации, примеры и формулировки.',
     'Нельзя менять правило, сложность, порядок шагов, stepNumber и тип упражнения.',
     'Каждый шаг должен сохранять свою педагогическую роль.',
+    BUBBLE_CONTENT_FORMAT_RULES,
     'Не добавляй новую грамматику.',
     'Если передан selectedVariantId, sourceSituations и sourceSteps, опирайся именно на них и не возвращайся к предыдущему варианту.',
     'Объяснения и подсказки на русском, правильные ответы на английском.',

@@ -25,6 +25,10 @@ import {
   runLessonRouteInflight,
   writeLessonRouteCache,
 } from '@/lib/lessonRouteRuntime'
+import {
+  LESSON_REPEAT_MENU_BYPASS_MAX_OUTPUT_TOKENS_CAP,
+  resolveLessonRepeatMenuBypassMaxAttempts,
+} from '@/lib/lessonProviderTimeouts'
 
 type Body = {
   provider?: 'openrouter' | 'openai'
@@ -36,6 +40,8 @@ type Body = {
 }
 
 type LessonRepeatFallbackReason = 'provider' | 'parse' | 'validation' | 'exception' | 'no_steps'
+
+export const maxDuration = 150
 
 export async function POST(req: NextRequest) {
   const startedAt = Date.now()
@@ -152,7 +158,7 @@ export async function POST(req: NextRequest) {
 
   const sharedResponse = await runLessonRouteInflight(cacheKey, async () => {
     const shouldCacheFallback = !body.bypassCache
-    const maxAttempts = body.bypassCache ? 3 : 2
+    const maxAttempts = body.bypassCache ? resolveLessonRepeatMenuBypassMaxAttempts() : 2
     const createFallbackPayload = (fallbackReason: LessonRepeatFallbackReason) => ({
       lesson: cloneLessonWithNewRunKey(lesson),
       generated: false,
@@ -187,13 +193,18 @@ export async function POST(req: NextRequest) {
       { role: 'user', content: user },
     ]
 
+    const repeatBaseMaxTokens = resolveLessonRouteMaxTokens(lesson.level, 'repeat')
+    const repeatMaxTokens = body.bypassCache
+      ? Math.min(repeatBaseMaxTokens, LESSON_REPEAT_MENU_BYPASS_MAX_OUTPUT_TOKENS_CAP)
+      : repeatBaseMaxTokens
+
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const providerStartedAt = Date.now()
       const model = await callProviderChat({
         provider,
         req,
         apiMessages,
-        maxTokens: resolveLessonRouteMaxTokens(lesson.level, 'repeat'),
+        maxTokens: repeatMaxTokens,
         openAiChatPreset,
         traceLabel: 'lesson-repeat',
       })

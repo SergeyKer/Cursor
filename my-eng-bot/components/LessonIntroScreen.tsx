@@ -12,6 +12,8 @@ type LessonIntroScreenProps = {
   intro: LessonIntro
   depth: LessonIntroDepth
   loadingLesson?: boolean
+  /** Фоновая подмена варианта урока от ИИ (меню «Сгенерировать урок»): кнопка «Начать урок» показывает прогресс. */
+  footerVariantRegenerating?: boolean
   provider: AiProvider
   openAiChatPreset?: OpenAiChatPreset
   audience: Audience
@@ -178,6 +180,7 @@ export default function LessonIntroScreen({
   intro,
   depth,
   loadingLesson = false,
+  footerVariantRegenerating = false,
   provider,
   openAiChatPreset,
   audience,
@@ -398,13 +401,21 @@ export default function LessonIntroScreen({
                   )}
                 </div>
                 <div className="flex w-full">
-                  <IntroChip variant="primary" onClick={onStartLesson} disabled={loadingLesson}>
+                  <IntroChip
+                    variant="primary"
+                    onClick={onStartLesson}
+                    disabled={loadingLesson || footerVariantRegenerating}
+                  >
                     <span className="inline-grid justify-items-center whitespace-nowrap">
                       <span className="invisible col-start-1 row-start-1" aria-hidden>
-                        Готовлю урок...
+                        Генерируется новый вариант...
                       </span>
                       <span className="col-start-1 row-start-1">
-                        {loadingLesson ? 'Готовлю урок...' : 'Начать урок'}
+                        {loadingLesson
+                          ? 'Готовлю урок...'
+                          : footerVariantRegenerating
+                            ? 'Генерируется новый вариант...'
+                            : 'Начать урок'}
                       </span>
                     </span>
                   </IntroChip>

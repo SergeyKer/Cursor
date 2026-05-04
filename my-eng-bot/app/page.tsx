@@ -9,6 +9,7 @@ import { featureFlags } from '@/lib/featureFlags'
 import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
 import { HomeMenuInstructionBubble } from '@/components/HomeMenuInstructionBubble'
 import HomeEmptyBubble from '@/components/HomeEmptyBubble'
+import MenuSectionPanels from '@/components/MenuSectionPanels'
 import { buildCompactGreeting } from '@/lib/homeGreeting'
 import { consumeNextGreetingFactLine } from '@/lib/greetingFactRotation'
 import { consumeNextHomeVoiceLine } from '@/lib/homeVoiceRotation'
@@ -90,7 +91,10 @@ import { getPracticeFooterView } from '@/lib/practice/practiceFooter'
 import { pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 
-import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/components/MenuSectionPanels'
+import {
+  LESSON_PROVIDER_FETCH_TIMEOUT_MS_DEFAULT,
+  lessonMenuGenerateClientTimeoutMs,
+} from '@/lib/lessonProviderTimeouts'
 
 const Chat = dynamic(() => import('@/components/Chat'))
 const SlideOutMenu = dynamic(() => import('@/components/SlideOutMenu'))
@@ -315,7 +319,19 @@ function createDialogSeed(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
+function readPublicLessonProviderTimeoutMs(): number {
+  const raw =
+    typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_LESSON_PROVIDER_FETCH_TIMEOUT_MS?.trim() ?? '' : ''
+  if (raw && /^\d+$/.test(raw)) {
+    const n = parseInt(raw, 10)
+    return Math.min(Math.max(n, 5000), 300_000)
+  }
+  return LESSON_PROVIDER_FETCH_TIMEOUT_MS_DEFAULT
+}
+
 const API_TIMEOUT_MS = 60_000
+/** Меню «Сгенерировать урок» → `/api/lesson-repeat` с bypassCache; клиентский бюджет: `lessonMenuGenerateClientTimeoutMs` (попытки из `resolveLessonRepeatMenuBypassMaxAttempts`, см. `lib/lessonProviderTimeouts.ts`). */
+const LESSON_MENU_GENERATE_TIMEOUT_MS = lessonMenuGenerateClientTimeoutMs(readPublicLessonProviderTimeoutMs())
 const MAX_ATTEMPTS = 3
 const RETRY_DELAY_MS = 2500
 /** При 429 OpenRouter даёт 20 запросов в минуту — пауза должна увести попытку в следующую минуту. */
@@ -382,6 +398,10 @@ export default function Home() {
   const [activeLearningLessonId, setActiveLearningLessonId] = useState<string | null>(null)
   const [activeStructuredLessonRuntime, setActiveStructuredLessonRuntime] = useState<LessonData | null>(null)
   const [structuredLessonLoadingId, setStructuredLessonLoadingId] = useState<string | null>(null)
+  /** Ошибка фоновой генерации варианта урока (меню «Сгенерировать урок»); урок уже открыт со статическим клоном. */
+  const [menuLessonBgError, setMenuLessonBgError] = useState<string | null>(null)
+  /** Фоновая генерация варианта structured-урока: кнопка «Начать урок» на intro/tips. */
+  const [structuredLessonVariantRegenerating, setStructuredLessonVariantRegenerating] = useState(false)
   const [pendingTutorLessonTitle, setPendingTutorLessonTitle] = useState<string | null>(null)
   const [activeLessonVariantNumber, setActiveLessonVariantNumber] = useState(1)
   /** Если у урока нет runKey, порядок вариантов fill_choice зависит от nonce на каждый новый вход. */
@@ -449,6 +469,10 @@ export default function Home() {
   const prefetchedStructuredLessonRuntimeRef = React.useRef<Record<string, LessonData | null>>({})
   const structuredLessonRuntimeInFlightRef = React.useRef<Record<string, Promise<LessonData | null>>>({})
   const lessonOpenRequestIdRef = React.useRef(0)
+  /** Отмена предыдущего «Сгенерировать урок», чтобы не было параллельных POST и залипания loading. */
+  const menuLessonGenerateCleanupRef = React.useRef<(() => void) | null>(null)
+  /** Инкремент при каждом новом фоновом запросе variant; finally сравнивает эпоху, чтобы не сбросить флаг чужого завершения. */
+  const menuLessonBgFetchEpochRef = React.useRef(0)
   /** iPhone / iPad / iPod и iPadOS с десктопным UA (Macintosh + Mobile). */
   const isIosClient = React.useMemo(() => {
     if (typeof navigator === 'undefined') return false
@@ -900,6 +924,9 @@ export default function Home() {
   ensureFirstMessageRef.current = ensureFirstMessage
 
   const resetStructuredLessonSession = useCallback(() => {
+    menuLessonGenerateCleanupRef.current?.()
+    menuLessonBgFetchEpochRef.current += 1
+    setStructuredLessonVariantRegenerating(false)
     lessonOpenRequestIdRef.current += 1
     abandonPracticeSession()
     setAccentTrainerActive(false)
@@ -910,6 +937,7 @@ export default function Home() {
     setActiveLearningLessonId(null)
     setActiveStructuredLessonRuntime(null)
     setStructuredLessonLoadingId(null)
+    setMenuLessonBgError(null)
     setPendingTutorLessonTitle(null)
     setActiveLessonVariantNumber(1)
     setSelectedPostLessonAction(null)
@@ -1102,6 +1130,9 @@ export default function Home() {
     async (lessonId: string, lessonsPanel: LessonsPanel = 'a2') => {
       const lesson = getLearningLessonById(lessonId)
       if (!lesson) return
+      menuLessonGenerateCleanupRef.current?.()
+      menuLessonBgFetchEpochRef.current += 1
+      setStructuredLessonVariantRegenerating(false)
       abandonPracticeSession()
       const requestId = ++lessonOpenRequestIdRef.current
       const structuredLesson = getStructuredLessonById(lessonId)
@@ -1120,6 +1151,7 @@ export default function Home() {
       setLoading(false)
       setActiveStructuredLessonRuntime(null)
       setStructuredLessonLoadingId(null)
+      setMenuLessonBgError(null)
       setPendingTutorLessonTitle(null)
       setActiveLessonVariantNumber(1)
       setSelectedPostLessonAction(null)
@@ -1143,6 +1175,25 @@ export default function Home() {
     [abandonPracticeSession]
   )
 
+  /** Меню «Начать урок»: не сбрасывать runtime (в т.ч. сгенерированный), если урок уже открыт на intro/tips. */
+  const openOrContinueLearningLesson = useCallback(
+    (lessonId: string) => {
+      const structured = getStructuredLessonById(lessonId)
+      if (
+        dialogStarted &&
+        activeLearningLessonId === lessonId &&
+        structured &&
+        (lessonViewStage === 'intro' || lessonViewStage === 'tips')
+      ) {
+        setMenuOpen(false)
+        setLessonViewStage('lesson')
+        return
+      }
+      void openLearningLesson(lessonId, 'a2')
+    },
+    [activeLearningLessonId, dialogStarted, lessonViewStage, openLearningLesson]
+  )
+
   const openGeneratedLearningLesson = useCallback(
     async (lessonId: string, lessonsPanel: LessonsPanel = 'a2') => {
       const baseLesson = getLearningLessonById(lessonId)
@@ -1151,88 +1202,124 @@ export default function Home() {
         throw new Error('Для выбранного урока пока нет алгоритма генерации.')
       }
 
+      menuLessonGenerateCleanupRef.current?.()
+
+      abandonPracticeSession()
       const requestId = ++lessonOpenRequestIdRef.current
       const fetchStartedAt = Date.now()
-      setStructuredLessonLoadingId(lessonId)
-      setLoading(true)
+      setMenuLessonBgError(null)
       setRetryMessage(null)
+
+      firstMessageRequestIdRef.current += 1
+      firstMessageInFlightRef.current = false
+      suppressSettingsChangeBannerRef.current = true
+      setDialogStarted(true)
+      setMenuOpen(false)
+      setHomeMenuView('lessons')
+      setStructuredLessonLoadingId(null)
+      setLoading(false)
+      setSearchingInternet(false)
+      setLoadingTranslationIndex(null)
+      setForceNextMicLang(null)
+      setSettingsAtLastSend(null)
+      setActiveStructuredLessonRuntime(null)
+      setPendingTutorLessonTitle(null)
+      setActiveLessonVariantNumber(1)
+      setSelectedPostLessonAction(null)
+      setPostLessonBusy(false)
+      setLessonOverlay(null)
+      setLessonViewStage('intro')
+      setLessonIntroDepth('quick')
+      setLessonExtraTipsStatus('idle')
+      setLessonExtraTipsState(null)
+      setLessonMenuContext({ menuView: 'lessons', lessonsPanel })
+      setActiveLearningLessonId(lessonId)
+      setStructuredLessonShuffleNonce((n) => n + 1)
+      setMessages([])
+      setActiveStructuredLessonRuntime(cloneStructuredLessonWithRunKey(structuredLesson))
+
+      menuLessonBgFetchEpochRef.current += 1
+      const fetchEpoch = menuLessonBgFetchEpochRef.current
+      setStructuredLessonVariantRegenerating(true)
+
+      const timedOutRef = { current: false }
       const abortController = new AbortController()
-      const timeoutId = setTimeout(() => abortController.abort(), API_TIMEOUT_MS)
-
-      try {
-        const recentVariantIds = structuredLessonVariantHistoryRef.current[lessonId] ?? []
-        const response = await fetch('/api/lesson-repeat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: abortController.signal,
-          body: JSON.stringify({
-            provider: settings.provider,
-            openAiChatPreset: settings.openAiChatPreset,
-            audience: settings.audience,
-            lessonId,
-            recentVariantIds,
-            bypassCache: true,
-          }),
-        })
-        const data = (await response.json()) as LessonRepeatResponse
-        if (!response.ok) {
-          throw new Error(data.error ?? 'Не удалось сгенерировать урок через LLM.')
-        }
-        if (!data.generated || data.fallback || !data.lesson) {
-          console.warn('lesson-repeat returned fallback for menu generation:', {
-            lessonId,
-            generated: data.generated,
-            fallback: data.fallback,
-            fallbackReason: data.fallbackReason,
-          })
-          throw new Error(getMenuGenerationFallbackMessage(data.fallbackReason))
-        }
-        if (requestId !== lessonOpenRequestIdRef.current) return
-
-        abandonPracticeSession()
-
-        if (data.lesson.variantId) {
-          const history = structuredLessonVariantHistoryRef.current[lessonId] ?? []
-          structuredLessonVariantHistoryRef.current[lessonId] = appendLessonVariantHistory(history, data.lesson.variantId)
-        }
-
-        firstMessageRequestIdRef.current += 1
-        firstMessageInFlightRef.current = false
-        suppressSettingsChangeBannerRef.current = true
-        setDialogStarted(true)
-        setMenuOpen(false)
-        setHomeMenuView('lessons')
-        setRetryMessage(null)
-        setSearchingInternet(false)
-        setLoadingTranslationIndex(null)
-        setForceNextMicLang(null)
-        setSettingsAtLastSend(null)
-        setActiveLearningLessonId(lessonId)
-        setActiveStructuredLessonRuntime(data.lesson)
-        setActiveLessonVariantNumber(1)
-        setSelectedPostLessonAction(null)
-        setPostLessonBusy(false)
-        setLessonOverlay(null)
-        setLessonViewStage('intro')
-        setLessonIntroDepth('quick')
-        setLessonExtraTipsStatus('idle')
-        setLessonExtraTipsState(null)
-        setLessonMenuContext({ menuView: 'lessons', lessonsPanel })
-        setMessages([])
-        console.info(`[lesson-ui] mode=menu-generate lesson=${lessonId} source=llm fetch_ms=${Date.now() - fetchStartedAt}`)
-      } catch (error) {
-        console.warn('menu lesson generation failed:', error)
-        if (error instanceof Error && error.name === 'AbortError') {
-          throw new Error('Генерация заняла слишком много времени. Попробуйте ещё раз.')
-        }
-        throw error
-      } finally {
+      const timeoutId = setTimeout(() => {
+        timedOutRef.current = true
+        abortController.abort()
+      }, LESSON_MENU_GENERATE_TIMEOUT_MS)
+      const cleanupThisMenuGenerateAttempt = () => {
         clearTimeout(timeoutId)
-        if (requestId === lessonOpenRequestIdRef.current) {
-          setStructuredLessonLoadingId(null)
-          setLoading(false)
-        }
+        abortController.abort()
       }
+      menuLessonGenerateCleanupRef.current = cleanupThisMenuGenerateAttempt
+
+      void (async () => {
+        try {
+          const recentVariantIds = structuredLessonVariantHistoryRef.current[lessonId] ?? []
+          const response = await fetch('/api/lesson-repeat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: abortController.signal,
+            body: JSON.stringify({
+              provider: settings.provider,
+              openAiChatPreset: settings.openAiChatPreset,
+              audience: settings.audience,
+              lessonId,
+              recentVariantIds,
+              bypassCache: true,
+            }),
+          })
+          const data = (await response.json()) as LessonRepeatResponse
+          if (!response.ok) {
+            throw new Error(data.error ?? 'Не удалось обновить вариант урока от ИИ.')
+          }
+          if (!data.lesson) {
+            throw new Error(getMenuGenerationFallbackMessage(data.fallbackReason))
+          }
+          const menuGenerationFallback = Boolean(!data.generated || data.fallback)
+          if (menuGenerationFallback) {
+            console.warn('lesson-repeat returned fallback for menu background generation:', {
+              lessonId,
+              generated: data.generated,
+              fallback: data.fallback,
+              fallbackReason: data.fallbackReason,
+            })
+          }
+          if (requestId !== lessonOpenRequestIdRef.current) return
+
+          if (data.lesson.variantId) {
+            const history = structuredLessonVariantHistoryRef.current[lessonId] ?? []
+            structuredLessonVariantHistoryRef.current[lessonId] = appendLessonVariantHistory(history, data.lesson.variantId)
+          }
+
+          setActiveStructuredLessonRuntime(data.lesson)
+          setMenuLessonBgError(null)
+          console.info(
+            `[lesson-ui] mode=menu-generate-bg lesson=${lessonId} source=${menuGenerationFallback ? 'fallback' : 'llm'} fetch_ms=${Date.now() - fetchStartedAt}`
+          )
+        } catch (error) {
+          if (error instanceof Error && error.name === 'AbortError') {
+            if (!timedOutRef.current) return
+            setMenuLessonBgError(
+              'Генерация нового варианта заняла слишком много времени. Урок уже открыт — позже можно снова нажать «Сгенерировать урок».'
+            )
+            return
+          }
+          const message =
+            error instanceof Error ? error.message : 'Не удалось обновить вариант урока от ИИ.'
+          setMenuLessonBgError(message)
+          console.warn('menu lesson background generation failed:', error)
+        } finally {
+          clearTimeout(timeoutId)
+          if (menuLessonGenerateCleanupRef.current === cleanupThisMenuGenerateAttempt) {
+            menuLessonGenerateCleanupRef.current = null
+          }
+          if (fetchEpoch === menuLessonBgFetchEpochRef.current) {
+            setStructuredLessonVariantRegenerating(false)
+          }
+        }
+      })()
     },
     [abandonPracticeSession, settings.provider, settings.openAiChatPreset, settings.audience]
   )
@@ -1254,6 +1341,9 @@ export default function Home() {
       }
 
       const requestId = ++lessonOpenRequestIdRef.current
+      menuLessonGenerateCleanupRef.current?.()
+      menuLessonBgFetchEpochRef.current += 1
+      setStructuredLessonVariantRegenerating(false)
       abandonPracticeSession()
       let lesson: LessonBlueprint | null = null
       firstMessageRequestIdRef.current += 1
@@ -1271,6 +1361,7 @@ export default function Home() {
       setActiveLearningLessonId(null)
       setActiveStructuredLessonRuntime(null)
       setStructuredLessonLoadingId('tutor')
+      setMenuLessonBgError(null)
       setPendingTutorLessonTitle(request.selectedIntent?.title ?? topic)
       setActiveLessonVariantNumber(1)
       setSelectedPostLessonAction(null)
@@ -2048,10 +2139,10 @@ export default function Home() {
       | { ok: true; content: string }
       | { ok: false; error: string; errorCode?: TranslateErrorCode; provider: TranslateProvider }
 
-    const providerOrder: TranslateProvider[] =
-      settings.provider === 'openai' ? ['openai', 'openrouter'] : ['openrouter', 'openai']
+    /** Строго выбранный в меню провайдер — без автоматического переключения OpenAI ↔ OpenRouter. */
+    const provider: TranslateProvider = settings.provider === 'openai' ? 'openai' : 'openrouter'
 
-    const requestTranslateOnce = async (provider: TranslateProvider): Promise<AttemptResult> => {
+    const requestTranslateOnce = async (): Promise<AttemptResult> => {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
       try {
@@ -2100,49 +2191,34 @@ export default function Home() {
     }
 
     let translated = false
-    let attemptedFallback = false
-    let allowProviderFallback = true
-    for (let pIdx = 0; pIdx < providerOrder.length && !translated; pIdx++) {
-      const provider = providerOrder[pIdx]
-      const maxAttemptsForProvider = provider === 'openrouter' ? MAX_ATTEMPTS : 1
+    const maxAttemptsForProvider = provider === 'openrouter' ? MAX_ATTEMPTS : 1
 
-      for (let attempt = 0; attempt < maxAttemptsForProvider; attempt++) {
-        const result = await requestTranslateOnce(provider)
-        if (result.ok) {
-          setLoadingTranslationIndex(null)
-          setResult(result.content)
-          translated = true
-          break
-        }
-
-        lastError = result.error
-        const isRateLimit = result.errorCode === 'rate_limit' || /лимит|Too Many Requests/i.test(lastError)
-        const isForbidden = result.errorCode === 'forbidden'
-        const isUnauthorized = result.errorCode === 'unauthorized'
-        const isNetworkLike = /Нет связи с сервером|занял слишком много времени/i.test(lastError)
-
-        if (provider === 'openai' && (isForbidden || isUnauthorized)) {
-          allowProviderFallback = false
-          break
-        }
-
-        const canRetryThisProvider =
-          attempt < maxAttemptsForProvider - 1 && (isRateLimit || isNetworkLike || isRetryableTranslationError(lastError))
-        if (!canRetryThisProvider) break
-
-        await sleep(150)
-        const backoffMs = isRateLimit ? RETRY_DELAY_RATE_LIMIT_MS : RETRY_DELAY_MS
-        await sleep(backoffMs)
+    for (let attempt = 0; attempt < maxAttemptsForProvider && !translated; attempt++) {
+      const result = await requestTranslateOnce()
+      if (result.ok) {
+        setLoadingTranslationIndex(null)
+        setResult(result.content)
+        translated = true
+        break
       }
 
-      if (!translated && !allowProviderFallback) break
-      if (!translated && pIdx < providerOrder.length - 1) {
-        attemptedFallback = true
-      }
-    }
+      lastError = result.error
+      const isRateLimit = result.errorCode === 'rate_limit' || /лимит|Too Many Requests/i.test(lastError)
+      const isForbidden = result.errorCode === 'forbidden'
+      const isUnauthorized = result.errorCode === 'unauthorized'
+      const isNetworkLike = /Нет связи с сервером|занял слишком много времени/i.test(lastError)
 
-    if (attemptedFallback && !translated && !/Попробуйте снова|Проверьте/i.test(lastError)) {
-      lastError = `${lastError} Попробуйте другого провайдера в меню.`
+      if (provider === 'openai' && (isForbidden || isUnauthorized)) {
+        break
+      }
+
+      const canRetryThisProvider =
+        attempt < maxAttemptsForProvider - 1 && (isRateLimit || isNetworkLike || isRetryableTranslationError(lastError))
+      if (!canRetryThisProvider) break
+
+      await sleep(150)
+      const backoffMs = isRateLimit ? RETRY_DELAY_RATE_LIMIT_MS : RETRY_DELAY_MS
+      await sleep(backoffMs)
     }
 
     if (!translated) {
@@ -2781,7 +2857,7 @@ export default function Home() {
                     onStartHomeChat={handleStartChatFromHome}
                     onGoHome={goToStartScreen}
                     onAiChatPanelChange={setHomeAiChatPanel}
-                    onOpenLearningLesson={openLearningLesson}
+                    onOpenLearningLesson={openOrContinueLearningLesson}
                     onGenerateLearningLesson={openGeneratedLearningLesson}
                     onOpenPracticeSession={openPracticeSession}
                     onGeneratePracticeSession={generatePracticeSession}
@@ -2809,8 +2885,26 @@ export default function Home() {
             )}
             {/* На iOS после закрытия клавиатуры иногда остаётся небольшой технический зазор.
                Чтобы не просвечивал серый фон страницы, держим фон тем же, что и у чата. */}
-            <div className="min-h-0 flex-1 bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
-              {isAccentActive ? (
+            <div className="flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
+              {menuLessonBgError && (
+                <div
+                  role="status"
+                  className="shrink-0 border-b border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]"
+                >
+                  <div className="mx-auto flex max-w-[28rem] items-start justify-between gap-2">
+                    <p className="min-w-0 flex-1 leading-snug">{menuLessonBgError}</p>
+                    <button
+                      type="button"
+                      onClick={() => setMenuLessonBgError(null)}
+                      className="shrink-0 rounded-md border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1 text-[12px] font-medium text-[var(--text)] hover:opacity-90"
+                    >
+                      Закрыть
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="flex min-h-0 flex-1 flex-col">
+                {isAccentActive ? (
                 <AccentTrainer
                   audience={settings.audience}
                   onClose={goToStartScreen}
@@ -2871,11 +2965,13 @@ export default function Home() {
                   }}
                   onShowExtras={() => setLessonViewStage('tips')}
                   onBack={backToLessonList}
+                  footerVariantRegenerating={structuredLessonVariantRegenerating}
                 />
               ) : isLessonTipsActive && activeLessonIntro ? (
                 <LessonExtraTipsScreen
                   lessonKey={activeLessonTipsKey}
                   intro={activeLessonIntro}
+                  footerVariantRegenerating={structuredLessonVariantRegenerating}
                   intent={activeTutorIntent}
                   provider={settings.provider}
                   openAiChatPreset={settings.openAiChatPreset}
@@ -2931,6 +3027,7 @@ export default function Home() {
                   composerSessionKey={composerSessionKey}
                 />
               )}
+              </div>
             </div>
           </>
         )}
@@ -2970,7 +3067,7 @@ export default function Home() {
         dialogueCorrectAnswers={dialogueCorrectAnswers}
         onStartChat={handleStartChatFromMenu}
         onGoHome={goToStartScreen}
-        onOpenLearningLesson={openLearningLesson}
+        onOpenLearningLesson={openOrContinueLearningLesson}
         onGenerateLearningLesson={openGeneratedLearningLesson}
         onOpenPracticeSession={openPracticeSession}
         onGeneratePracticeSession={generatePracticeSession}

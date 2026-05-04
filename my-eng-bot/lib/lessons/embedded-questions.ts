@@ -990,7 +990,11 @@ export const embeddedQuestionsLesson: LessonData = {
   repeatConfig: {
     ruleSummary:
       'После do you know, tell me, can you say и I do not know во второй части используем обычный порядок слов: вопросительное слово + подлежащее + глагол.',
-    grammarFocus: ['встроенный вопрос', 'вопросительное слово', 'порядок слов'],
+    grammarFocus: [
+      'Do you know what she likes',
+      'Tell me where the station is',
+      'question word subject verb',
+    ],
     sourceSituations: Array.from(new Set(embeddedQuestionVariants.flatMap((variant) => variant.sourceSituations))),
     stepBlueprints: buildEmbeddedQuestionBlueprints(baseVariant),
     variantProfiles: embeddedQuestionVariants.map((variant) => buildEmbeddedQuestionVariantProfile(variant)),
@@ -1000,6 +1004,7 @@ export const embeddedQuestionsLesson: LessonData = {
       minScore: 0.6,
       maxSoftIssues: 4,
       rejectOnHardFailures: true,
+      maxAllowedHardIssues: 2,
     },
   },
   steps: buildEmbeddedQuestionSteps(baseVariant),

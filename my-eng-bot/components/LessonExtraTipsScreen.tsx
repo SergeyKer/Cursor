@@ -37,6 +37,8 @@ export type LessonExtraTipsSavedState = {
 type LessonExtraTipsScreenProps = {
   lessonKey: string
   intro: LessonIntro
+  /** Фоновая подмена варианта structured-урока: блокируем «Начать урок» до ответа ИИ. */
+  footerVariantRegenerating?: boolean
   intent?: TutorLearningIntent | null
   provider: AiProvider
   openAiChatPreset?: OpenAiChatPreset
@@ -118,6 +120,7 @@ function normalizeAnswer(value: string): string {
 export default function LessonExtraTipsScreen({
   lessonKey,
   intro,
+  footerVariantRegenerating = false,
   intent,
   provider,
   openAiChatPreset,
@@ -806,9 +809,10 @@ export default function LessonExtraTipsScreen({
                 <button
                   type="button"
                   onClick={onStartLesson}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#3B82F6] to-[#2563EB] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01]"
+                  disabled={loadingMore || loadingInitial || footerVariantRegenerating}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#3B82F6] to-[#2563EB] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Начать урок
+                  {footerVariantRegenerating ? 'Генерируется новый вариант...' : 'Начать урок'}
                 </button>
               </div>
             </div>

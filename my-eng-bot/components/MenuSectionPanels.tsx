@@ -543,6 +543,7 @@ export default function MenuSectionPanels({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           provider: settings.provider,
+          openAiChatPreset: settings.openAiChatPreset ?? 'gpt-4o-mini',
           query,
           level: settings.level,
           audience: settings.audience,
@@ -637,6 +638,7 @@ export default function MenuSectionPanels({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           provider: settings.provider,
+          openAiChatPreset: settings.openAiChatPreset ?? 'gpt-4o-mini',
           imageDataUrl: tutorImageDataUrl,
           level: settings.level,
           audience: settings.audience,
@@ -695,6 +697,7 @@ export default function MenuSectionPanels({
     tutorImageDataUrl,
     tutorCustomFocus,
     settings.provider,
+    settings.openAiChatPreset,
     settings.level,
     settings.audience,
   ])

@@ -34,6 +34,8 @@ type Body = {
   recentVariantIds?: string[]
 }
 
+export const maxDuration = 150
+
 export async function POST(req: NextRequest) {
   const startedAt = Date.now()
   const correlationId = req.headers.get('x-correlation-id')?.trim() || createLessonRouteCorrelationId('generate')

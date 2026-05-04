@@ -208,6 +208,8 @@ export interface LessonQualityGate {
   minScore: number
   maxSoftIssues: number
   rejectOnHardFailures: boolean
+  /** При rejectOnHardFailures: допускается столько hard-issues (по умолчанию 0). */
+  maxAllowedHardIssues?: number
 }
 
 export interface LessonRepeatConfig {

@@ -14,6 +14,7 @@ describe('callProviderChat proxy behavior', () => {
     mockedFetchWithProxyFallback.mockReset()
     process.env.OPENAI_API_KEY = 'openai-key'
     process.env.OPENROUTER_API_KEY = 'openrouter-key'
+    delete process.env.LESSON_PROVIDER_FETCH_TIMEOUT_MS
     process.env.HTTPS_PROXY = ''
     process.env.https_proxy = ''
     process.env.HTTP_PROXY = ''

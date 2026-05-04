@@ -1,6 +1,21 @@
 import { describe, expect, it } from 'vitest'
+import type { LessonData } from '@/types/lesson'
 import { itsTimeToLesson } from '@/lib/lessons/its-time-to'
 import { assessGeneratedSteps, validateGeneratedSteps, type GeneratedStepPayload } from '@/lib/structuredLessonFactory'
+
+function withStrictQualityGate(lesson: LessonData): LessonData {
+  const rc = lesson.repeatConfig
+  if (!rc) return lesson
+  return {
+    ...lesson,
+    repeatConfig: {
+      ...rc,
+      qualityGate: { minScore: 0.6, maxSoftIssues: 4, rejectOnHardFailures: true },
+    },
+  }
+}
+
+const itsTimeStrict = withStrictQualityGate(itsTimeToLesson)
 
 function toGeneratedPayload(): GeneratedStepPayload[] {
   return itsTimeToLesson.steps.map((step) => ({
@@ -48,7 +63,7 @@ describe('structuredLessonFactory', () => {
       },
     }
 
-    expect(validateGeneratedSteps(itsTimeToLesson, itsTimeToLesson.steps, brokenSteps)).toBeNull()
+    expect(validateGeneratedSteps(itsTimeStrict, itsTimeStrict.steps, brokenSteps)).toBeNull()
   })
 
   it('rejects hints that reveal the answer directly', () => {
@@ -61,7 +76,7 @@ describe('structuredLessonFactory', () => {
       },
     }
 
-    const validation = assessGeneratedSteps(itsTimeToLesson, itsTimeToLesson.steps, brokenSteps)
+    const validation = assessGeneratedSteps(itsTimeStrict, itsTimeStrict.steps, brokenSteps)
     expect(validation.accepted).toBe(false)
     expect(validation.issues.some((issue) => issue.code === 'hint_reveals_answer')).toBe(true)
   })
@@ -81,7 +96,7 @@ describe('structuredLessonFactory', () => {
       ],
     }
 
-    const validation = assessGeneratedSteps(itsTimeToLesson, itsTimeToLesson.steps, brokenSteps)
+    const validation = assessGeneratedSteps(itsTimeStrict, itsTimeStrict.steps, brokenSteps)
     expect(validation.accepted).toBe(false)
     expect(validation.issues.some((issue) => issue.code === 'support_reveals_answer')).toBe(true)
   })
@@ -96,7 +111,7 @@ describe('structuredLessonFactory', () => {
       },
     }
 
-    const validation = assessGeneratedSteps(itsTimeToLesson, itsTimeToLesson.steps, brokenSteps)
+    const validation = assessGeneratedSteps(itsTimeStrict, itsTimeStrict.steps, brokenSteps)
     expect(validation.accepted).toBe(false)
     expect(validation.issues.some((issue) => issue.code === 'too_many_answer_variants')).toBe(true)
   })
@@ -127,7 +142,7 @@ describe('structuredLessonFactory', () => {
       },
     }
 
-    const validation = assessGeneratedSteps(itsTimeToLesson, itsTimeToLesson.steps, brokenSteps)
+    const validation = assessGeneratedSteps(itsTimeStrict, itsTimeStrict.steps, brokenSteps)
     expect(validation.accepted).toBe(false)
     expect(validation.issues.some((issue) => issue.code === 'unnatural_english_answer')).toBe(true)
   })
@@ -143,7 +158,7 @@ describe('structuredLessonFactory', () => {
       },
     }
 
-    const validation = assessGeneratedSteps(itsTimeToLesson, itsTimeToLesson.steps, brokenSteps, { audience: 'adult' })
+    const validation = assessGeneratedSteps(itsTimeStrict, itsTimeStrict.steps, brokenSteps, { audience: 'adult' })
     expect(validation.accepted).toBe(false)
     expect(validation.issues.some((issue) => issue.code === 'cefr_deny_word')).toBe(true)
   })
@@ -177,7 +192,7 @@ describe('structuredLessonFactory', () => {
       ],
     }
 
-    const validation = assessGeneratedSteps(itsTimeToLesson, itsTimeToLesson.steps, brokenSteps, { audience: 'adult' })
+    const validation = assessGeneratedSteps(itsTimeStrict, itsTimeStrict.steps, brokenSteps, { audience: 'adult' })
     expect(validation.accepted).toBe(false)
     expect(validation.issues.some((issue) => issue.code === 'cefr_deny_word' && issue.message.includes('bubble_content'))).toBe(true)
   })
@@ -189,7 +204,7 @@ describe('structuredLessonFactory', () => {
       footerDynamic: 'Practice: quarterly monetization strategy',
     }
 
-    const validation = assessGeneratedSteps(itsTimeToLesson, itsTimeToLesson.steps, brokenSteps, { audience: 'adult' })
+    const validation = assessGeneratedSteps(itsTimeStrict, itsTimeStrict.steps, brokenSteps, { audience: 'adult' })
     expect(validation.accepted).toBe(false)
     expect(validation.issues.some((issue) => issue.code === 'cefr_deny_word' && issue.message.includes('footer_dynamic'))).toBe(true)
   })
@@ -204,7 +219,7 @@ describe('structuredLessonFactory', () => {
       },
     }
 
-    const validation = assessGeneratedSteps(itsTimeToLesson, itsTimeToLesson.steps, brokenSteps, { audience: 'adult' })
+    const validation = assessGeneratedSteps(itsTimeStrict, itsTimeStrict.steps, brokenSteps, { audience: 'adult' })
     expect(validation.accepted).toBe(false)
     expect(validation.issues.some((issue) => issue.code === 'cefr_deny_word' && issue.message.includes('hint'))).toBe(true)
   })

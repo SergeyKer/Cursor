@@ -736,6 +736,7 @@ export const itsTimeToLesson: LessonData = {
       minScore: 0.6,
       maxSoftIssues: 4,
       rejectOnHardFailures: true,
+      maxAllowedHardIssues: 2,
     },
   },
   steps: buildItsTimeSteps(baseVariant),
