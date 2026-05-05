@@ -1,4 +1,9 @@
-import type { StoredState, Settings, ChatMessage, TenseId } from './types'
+import type { StoredState, Settings, ChatMessage, TenseId, OpenAiChatPreset } from './types'
+
+export function normalizeOpenAiChatPreset(value: unknown): OpenAiChatPreset {
+  if (value === 'gpt-5.4-mini-none' || value === 'gpt-5.4-mini-low') return value
+  return 'gpt-4o-mini'
+}
 
 const STORAGE_KEY = 'my-eng-bot-state'
 const USAGE_COUNT_STORAGE = 'my-eng-bot-usage-today'
@@ -30,7 +35,7 @@ function migrateStorageIfNeeded(): void {
 }
 
 const DEFAULT_SETTINGS: Settings = {
-  provider: 'openrouter',
+  provider: 'openai',
   openAiChatPreset: 'gpt-4o-mini',
   mode: 'dialogue',
   sentenceType: 'mixed',
@@ -57,6 +62,7 @@ export function loadState(): StoredState {
       merged.tenses = [parsedSettings.tense as TenseId]
     }
     if ('tense' in merged) delete (merged as Record<string, unknown>).tense
+    merged.openAiChatPreset = normalizeOpenAiChatPreset(merged.openAiChatPreset)
     return {
       messages: Array.isArray(parsed.messages) ? parsed.messages : [],
       settings: merged as Settings,

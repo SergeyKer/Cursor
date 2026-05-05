@@ -20,6 +20,7 @@ import {
   incrementUsageToday,
   DEFAULT_SETTINGS,
   loadFreeTalkTopicRotationState,
+  normalizeOpenAiChatPreset,
   saveFreeTalkTopicRotationState,
 } from '@/lib/storage'
 import { countDialogueFinalCorrectAnswers } from '@/lib/dialogueStats'
@@ -479,6 +480,8 @@ export default function Home() {
   const menuLessonGenerateCleanupRef = React.useRef<(() => void) | null>(null)
   /** Инкремент при каждом новом фоновом запросе variant; finally сравнивает эпоху, чтобы не сбросить флаг чужого завершения. */
   const menuLessonBgFetchEpochRef = React.useRef(0)
+  /** Предыдущий экран меню на главной: для сброса модели при возврате на корень (root). */
+  const prevHomeMenuViewForModelResetRef = React.useRef<MenuView | null>(null)
   /** iPhone / iPad / iPod и iPadOS с десктопным UA (Macintosh + Mobile). */
   const isIosClient = React.useMemo(() => {
     if (typeof navigator === 'undefined') return false
@@ -500,12 +503,14 @@ export default function Home() {
   }, [])
 
   function normalizeSettingsForAudience(s: Settings): Settings {
+    const openAiChatPreset = normalizeOpenAiChatPreset(s.openAiChatPreset)
     const normalizedLevel: Settings['level'] = s.level === 'starter' ? 'a1' : s.level
     const normalizedTopic = s.topic
 
     if (s.audience !== 'child') {
       return {
         ...s,
+        openAiChatPreset,
         level: normalizedLevel,
         topic: normalizedTopic,
         tenses: normalizeSingleTense(
@@ -522,6 +527,7 @@ export default function Home() {
 
     return {
       ...s,
+      openAiChatPreset,
       level: childLevel,
       topic: normalizedTopic === 'free_talk' ? 'free_talk' : safeChildTopic,
       tenses: normalizeSingleTense(
@@ -578,6 +584,17 @@ export default function Home() {
     },
     [homeMenuView, dialogStarted]
   )
+
+  React.useEffect(() => {
+    const prev = prevHomeMenuViewForModelResetRef.current
+    prevHomeMenuViewForModelResetRef.current = homeMenuView
+    if (dialogStarted) return
+    if (prev === null) return
+    if (prev === 'root' || homeMenuView !== 'root') return
+    setSettings((s) =>
+      normalizeSettingsForAudience({ ...s, openAiChatPreset: 'gpt-4o-mini' })
+    )
+  }, [homeMenuView, dialogStarted])
 
   React.useEffect(() => {
     if (homeMenuView !== 'aiChat') setHomeAiChatPanel('summary')
@@ -1877,6 +1894,11 @@ export default function Home() {
   const goToStartScreen = useCallback(() => {
     firstMessageRequestIdRef.current += 1
     firstMessageInFlightRef.current = false
+    const nextSettings = normalizeSettingsForAudience({
+      ...settings,
+      openAiChatPreset: 'gpt-4o-mini',
+    })
+    setSettings(nextSettings)
     setDialogStarted(false)
     setMessages([])
     setSettingsAtLastSend(null)
@@ -1892,7 +1914,7 @@ export default function Home() {
     newDialogRef.current = false
     setWelcomeCompact(false)
     setGreetingNonce((n) => n + 1)
-    saveState([], settings)
+    saveState([], nextSettings)
   }, [resetStructuredLessonSession, settings])
 
   const backToLessonList = useCallback(() => {
@@ -1970,7 +1992,12 @@ export default function Home() {
     if (!initialLoadDoneRef.current) {
       initialLoadDoneRef.current = true
       setMessages([])
-      setSettings(normalizeSettingsForAudience(state.settings))
+      setSettings(
+        normalizeSettingsForAudience({
+          ...state.settings,
+          openAiChatPreset: 'gpt-4o-mini',
+        })
+      )
       setDialogStarted(false)
     }
     setInitialized(true)
