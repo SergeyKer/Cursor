@@ -99,7 +99,7 @@ function computeSideInsetsPx(): { left: number; right: number } {
 }
 
 export default function VisualViewportInsets() {
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     if (typeof window === 'undefined') return
 
     const root = document.documentElement
@@ -125,7 +125,7 @@ export default function VisualViewportInsets() {
       raf = window.requestAnimationFrame(apply)
     }
 
-    scheduleApply()
+    apply()
 
     window.addEventListener('resize', scheduleApply, { passive: true })
     window.addEventListener('orientationchange', scheduleApply, { passive: true })
