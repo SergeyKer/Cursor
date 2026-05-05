@@ -98,6 +98,7 @@ import {
   buildMixedDialogueFallbackComment,
   buildMixedInputRepeatFallback,
   hasRussianDialogueFallbackSignal,
+  isGenericDialogueAnsweredInEnglishRepeat,
 } from '@/lib/mixedInputRepeatFallback'
 import { normalizeEnglishForLearnerAnswerMatch } from '@/lib/normalizeEnglishForLearnerAnswerMatch'
 import { answersMatchAllowingLikeLove } from '@/lib/translationLikeLoveContext'
@@ -2898,18 +2899,13 @@ type ResolveGoldTranslation = (params: {
   audience: Audience
 }) => Promise<string | null>
 
-function ensureSentence(text: string): string {
-  const t = text.trim()
-  if (!t) return ''
-  return /[.!?]$/.test(t) ? t : `${t}.`
-}
-
 function ensureRepeatWhenCommentRequestsCorrection(params: {
   content: string
   userText: string
   requiredTense: string
+  dialogueRepeatAnchorTense?: string | null
 }): string {
-  const { content, userText, requiredTense } = params
+  const { content, userText, requiredTense, dialogueRepeatAnchorTense } = params
   const trimmed = content.trim()
   if (!trimmed) return content
   if (!/(^|\n)\s*Комментарий(?:_ошибка)?\s*:/im.test(trimmed)) return content
@@ -2927,12 +2923,11 @@ function ensureRepeatWhenCommentRequestsCorrection(params: {
     )
   if (!commentSuggestsCorrection) return content
 
-  const fallbackRepeat = isMixedLatinCyrillicText(userText)
-    ? buildMixedInputRepeatFallback({
-        userText,
-        tense: requiredTense,
-      })
-    : ensureSentence(userText)
+  const fallbackRepeat = buildMixedInputRepeatFallback({
+    userText,
+    tense: requiredTense,
+    dialogueRepeatAnchorTense,
+  })
 
   if (!/[A-Za-z]/.test(fallbackRepeat) || /[А-Яа-яЁё]/.test(fallbackRepeat)) return content
   return `${trimmed}\nПовтори: ${fallbackRepeat}`.trim()
@@ -4835,6 +4830,49 @@ function replaceDialogueRepeatInContent(content: string, repeatSentence: string)
   return out.join('\n').trim()
 }
 
+/** Заменяет мета-«answered in English» на осмысленный fallback при смешанном вводе или почти нулевом пересечении с ответом. */
+function replaceGenericDialogueMetaRepeatIfNeeded(params: {
+  content: string
+  userText: string
+  tutorGradingTense: string
+  dialogueRepeatAnchorTense: string | null
+}): string {
+  const repeat = getDialogueRepeatSentence(params.content)
+  if (!repeat || !isGenericDialogueAnsweredInEnglishRepeat(repeat)) return params.content
+
+  const mixed = isMixedLatinCyrillicText(params.userText)
+  const overlap = scoreUserRepeatOverlap(params.userText, repeat)
+  if (!mixed && overlap > 1) return params.content
+
+  const rebuilt = buildMixedInputRepeatFallback({
+    userText: params.userText,
+    tense: params.tutorGradingTense,
+    dialogueRepeatAnchorTense: params.dialogueRepeatAnchorTense,
+  })
+  if (!rebuilt?.trim()) return params.content
+  if (isGenericDialogueAnsweredInEnglishRepeat(rebuilt)) return params.content
+  if (rebuilt.trim().toLowerCase() === repeat.trim().toLowerCase()) return params.content
+  return replaceDialogueRepeatInContent(params.content, rebuilt)
+}
+
+/** Не клампить только если pin сам невалиден по времени (плохой эталон не закрепляем выше по пайплайну). */
+function shouldClampDialoguePinnedRepeatToPinnedBody(params: {
+  pinnedEnglish: string
+  tutorGradingTense: string
+  priorAssistantContent: string | null
+}): boolean {
+  const pin = params.pinnedEnglish.trim()
+  if (!pin) return false
+  const pinTense =
+    params.tutorGradingTense === 'all'
+      ? params.priorAssistantContent
+        ? inferTenseFromDialogueAssistantContent(params.priorAssistantContent)
+        : null
+      : params.tutorGradingTense
+  if (pinTense && !isUserLikelyCorrectForTense(pin, pinTense)) return false
+  return true
+}
+
 /** В открытом цикле исправлений подменяет тело «Повтори» на закреплённый эталон (только dialogue). */
 function clampDialoguePinnedRepeatInContent(content: string, pinnedEnglish: string | null): string {
   const p = pinnedEnglish?.trim()
@@ -6511,12 +6549,27 @@ export async function POST(req: NextRequest) {
         ? buildCommunicationMaxTokens(communicationDetailLevel, MAX_RESPONSE_TOKENS)
         : MAX_RESPONSE_TOKENS
     const lastUserContentForResponse = stripWebSearchForceCode(lastUserText)
+    const priorAssistantContentForDialogue =
+      mode === 'dialogue' ? getLastAssistantContent(recentMessages) : null
+    const dialogueRepeatAnchorTense =
+      mode === 'dialogue'
+        ? tutorGradingTense === 'all'
+          ? priorAssistantContentForDialogue
+            ? inferTenseFromDialogueAssistantContent(priorAssistantContentForDialogue)
+            : null
+          : tutorGradingTense
+        : null
     const dialoguePinCandidate =
       mode === 'dialogue' && !isFirstTurn && !isTopicChoiceTurn
         ? findDialoguePinCandidateFromMessages(recentMessages)
         : null
+    const pinTenseForBody = tutorGradingTense === 'all' ? dialogueRepeatAnchorTense : tutorGradingTense
+    const dialoguePinBodyMeetsTense =
+      !dialoguePinCandidate ||
+      (pinTenseForBody ? isUserLikelyCorrectForTense(dialoguePinCandidate, pinTenseForBody) : false)
     const dialoguePinnedRepeatEnglish =
       dialoguePinCandidate &&
+      dialoguePinBodyMeetsTense &&
       !isDialogueAnswerEffectivelyCorrect(
         lastUserContentForResponse,
         dialoguePinCandidate,
@@ -6539,6 +6592,7 @@ export async function POST(req: NextRequest) {
       const repeatBody = forcedRepeatSentence?.trim() || buildMixedInputRepeatFallback({
         userText: lastUserContentForResponse,
         tense: tutorGradingTense,
+        dialogueRepeatAnchorTense,
       })
       if (repeatBody && /[A-Za-z]/.test(repeatBody) && !/[А-Яа-яЁё]/.test(repeatBody)) {
         return NextResponse.json({
@@ -7181,6 +7235,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         content: sanitized,
         userText: lastUserContentForResponse,
         requiredTense: tutorGradingTense,
+        dialogueRepeatAnchorTense,
+      })
+      sanitized = replaceGenericDialogueMetaRepeatIfNeeded({
+        content: sanitized,
+        userText: lastUserContentForResponse,
+        tutorGradingTense,
+        dialogueRepeatAnchorTense,
       })
     }
     if (mode !== 'translation') {
@@ -7263,7 +7324,14 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         maxTokens: communicationMaxTokens,
         openAiChatPreset,
       })
-      if (dialoguePinnedRepeatEnglish) {
+      if (
+        dialoguePinnedRepeatEnglish &&
+        shouldClampDialoguePinnedRepeatToPinnedBody({
+          pinnedEnglish: dialoguePinnedRepeatEnglish,
+          tutorGradingTense,
+          priorAssistantContent: priorAssistantContentForDialogue,
+        })
+      ) {
         sanitized = clampDialoguePinnedRepeatInContent(sanitized, dialoguePinnedRepeatEnglish)
       }
     }
@@ -8239,7 +8307,15 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       )
     }
 
-    if (mode === 'dialogue' && dialoguePinnedRepeatEnglish) {
+    if (
+      mode === 'dialogue' &&
+      dialoguePinnedRepeatEnglish &&
+      shouldClampDialoguePinnedRepeatToPinnedBody({
+        pinnedEnglish: dialoguePinnedRepeatEnglish,
+        tutorGradingTense,
+        priorAssistantContent: priorAssistantContentForDialogue,
+      })
+    ) {
       sanitized = clampDialoguePinnedRepeatInContent(sanitized, dialoguePinnedRepeatEnglish)
     }
 
@@ -8509,7 +8585,14 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           }
           if (mode === 'dialogue') {
             repaired = formatDialogueCommentAsSeparateLines(repaired)
-            if (dialoguePinnedRepeatEnglish) {
+            if (
+              dialoguePinnedRepeatEnglish &&
+              shouldClampDialoguePinnedRepeatToPinnedBody({
+                pinnedEnglish: dialoguePinnedRepeatEnglish,
+                tutorGradingTense,
+                priorAssistantContent: priorAssistantContentForDialogue,
+              })
+            ) {
               repaired = clampDialoguePinnedRepeatInContent(repaired, dialoguePinnedRepeatEnglish)
             }
           }
@@ -8659,6 +8742,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           buildMixedInputRepeatFallback({
             userText: lastUserContentForResponse,
             tense: tutorGradingTense,
+            dialogueRepeatAnchorTense,
           })
         const correctionWithoutRepeat = hasCommentRequestingCorrectionWithoutRepeat(sanitized)
         if (correctionWithoutRepeat) {
@@ -8906,6 +8990,13 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         content: sanitized,
         userText: lastUserContentForResponse,
         requiredTense: tutorGradingTense,
+        dialogueRepeatAnchorTense,
+      })
+      sanitized = replaceGenericDialogueMetaRepeatIfNeeded({
+        content: sanitized,
+        userText: lastUserContentForResponse,
+        tutorGradingTense,
+        dialogueRepeatAnchorTense,
       })
     }
 
@@ -8917,7 +9008,14 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     })
     sanitized = dialogueGuard.content
     sanitized = formatDialogueCommentAsSeparateLines(sanitized)
-    if (dialoguePinnedRepeatEnglish) {
+    if (
+      dialoguePinnedRepeatEnglish &&
+      shouldClampDialoguePinnedRepeatToPinnedBody({
+        pinnedEnglish: dialoguePinnedRepeatEnglish,
+        tutorGradingTense,
+        priorAssistantContent: priorAssistantContentForDialogue,
+      })
+    ) {
       sanitized = clampDialoguePinnedRepeatInContent(sanitized, dialoguePinnedRepeatEnglish)
     }
 

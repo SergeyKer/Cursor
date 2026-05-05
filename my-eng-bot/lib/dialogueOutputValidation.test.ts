@@ -107,4 +107,15 @@ describe('isDialogueOutputLikelyInRequiredTense', () => {
       })
     ).toEqual({ ok: false, reason: 'required_tense_mismatch' })
   })
+
+  it('requiredTense=all: при отсутствии prior нельзя пропустить плохое Повтори', () => {
+    const content = 'Комментарий: Ошибка.\nПовтори: I wontn have car.'
+    expect(
+      validateDialogueOutputTense({
+        content,
+        requiredTense: 'all',
+        priorAssistantContent: null,
+      })
+    ).toEqual({ ok: false, reason: 'required_tense_mismatch' })
+  })
 })

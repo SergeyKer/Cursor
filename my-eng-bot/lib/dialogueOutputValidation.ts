@@ -48,7 +48,10 @@ export function validateDialogueOutputTense(params: {
     }
     if (requiredTense === 'all') {
       const inferred = priorAssistantContent ? inferTenseFromDialogueAssistantContent(priorAssistantContent) : null
-      if (inferred && !isUserLikelyCorrectForTense(repeatSentence, inferred)) {
+      if (!inferred) {
+        return { ok: false, reason: 'required_tense_mismatch' }
+      }
+      if (!isUserLikelyCorrectForTense(repeatSentence, inferred)) {
         return { ok: false, reason: 'required_tense_mismatch' }
       }
       return { ok: true }

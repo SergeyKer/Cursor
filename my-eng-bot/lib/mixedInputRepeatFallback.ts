@@ -1,4 +1,5 @@
-import { RU_TOPIC_KEYWORD_TO_EN, normalizeRuTopicKeyword, normalizeTopicToken } from '@/lib/ruTopicKeywordMap'
+import { isUserLikelyCorrectForTense } from '@/lib/dialogueTenseInference'
+import { RU_TOPIC_KEYWORD_TO_EN, normalizeRuTopicKeyword } from '@/lib/ruTopicKeywordMap'
 
 function isSoftCommentTone(audience: 'child' | 'adult', level: string): boolean {
   return audience === 'child' || (audience === 'adult' && ['starter', 'a1', 'a2'].includes(level))
@@ -92,8 +93,8 @@ function replaceCyrillicWordsWithEnglish(
   let replacedAny = false
   const words = userText.match(/[А-Яа-яЁё]+/g) ?? []
   for (const w of words) {
-    const n = normalizeTopicToken(w)
-    const en = map[n]
+    const n = normalizeRuTopicKeyword(w)
+    const en = n ? map[n] : undefined
     if (en) {
       const re = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
       text = text.replace(re, en)
@@ -139,36 +140,147 @@ function isPlausibleLearnerSentence(s: string): boolean {
   return words.length >= 2
 }
 
+/** Латиница для «Повтори» в диалоге: без сырого мусора; при tense=all нужен якорь времени из последнего вопроса. */
+function isAcceptableDialogueLatinRepeatCandidate(
+  english: string,
+  tense: string,
+  dialogueRepeatAnchorTense: string | null | undefined
+): boolean {
+  const trimmed = english.trim()
+  if (!trimmed) return false
+  // Явные опечатки/шум, при которых isUserLikelyCorrectForTense даёт ложноположительные (например PP из-за «have»).
+  if (/\bwontn\b/i.test(trimmed)) return false
+  const effectiveTense =
+    tense === 'all' ? (dialogueRepeatAnchorTense && dialogueRepeatAnchorTense.length ? dialogueRepeatAnchorTense : null) : tense
+  if (!effectiveTense) return false
+  return isUserLikelyCorrectForTense(trimmed, effectiveTense)
+}
+
+/** Значения мета-fallback «Повтори» (не про смысл ответа ученика). */
+const GENERIC_REPEAT_BY_TENSE: Record<string, string> = {
+  all: 'I answered in English.',
+  present_simple: 'I usually answer in English.',
+  present_continuous: 'I am answering in English now.',
+  present_perfect: 'I have answered in English.',
+  present_perfect_continuous: 'I have been answering in English.',
+  past_simple: 'I answered in English.',
+  past_continuous: 'I was answering in English.',
+  past_perfect: 'I had answered in English.',
+  past_perfect_continuous: 'I had been answering in English.',
+  future_simple: 'I will answer in English.',
+  future_continuous: 'I will be answering in English.',
+  future_perfect: 'I will have answered in English.',
+  future_perfect_continuous: 'I will have been answering in English.',
+}
+
+const GENERIC_REPEAT_PHRASES_LOWER = new Set(
+  Object.values(GENERIC_REPEAT_BY_TENSE).map((s) => s.trim().replace(/\s+/g, ' ').toLowerCase()),
+)
+
+export function isGenericDialogueAnsweredInEnglishRepeat(text: string): boolean {
+  const n = text.trim().replace(/\s+/g, ' ')
+  if (!n) return false
+  return GENERIC_REPEAT_PHRASES_LOWER.has(n.toLowerCase())
+}
+
 function genericRepeatByTense(tense: string): string {
-  switch (tense) {
-    case 'present_simple':
-      return 'I usually answer in English.'
-    case 'present_continuous':
-      return 'I am answering in English now.'
-    case 'present_perfect':
-      return 'I have answered in English.'
-    case 'present_perfect_continuous':
-      return 'I have been answering in English.'
-    case 'past_simple':
-      return 'I answered in English.'
-    case 'past_continuous':
-      return 'I was answering in English.'
-    case 'past_perfect':
-      return 'I had answered in English.'
-    case 'past_perfect_continuous':
-      return 'I had been answering in English.'
-    case 'future_simple':
-      return 'I will answer in English.'
-    case 'future_continuous':
-      return 'I will be answering in English.'
-    case 'future_perfect':
-      return 'I will have answered in English.'
-    case 'future_perfect_continuous':
-      return 'I will have been answering in English.'
-    case 'all':
-    default:
-      return 'I answered in English.'
+  return GENERIC_REPEAT_BY_TENSE[tense] ?? GENERIC_REPEAT_BY_TENSE.all
+}
+
+/** Не дублировать артикль, если ученик уже указал ограничитель. */
+const COERCE_SKIP_THE_BEFORE = new Set(
+  ['a', 'an', 'the', 'my', 'your', 'his', 'her', 'our', 'their', 'this', 'that', 'these', 'those', 'some', 'any', 'no'].map(
+    (s) => s.toLowerCase(),
+  ),
+)
+
+const COERCE_IRREGULAR_PP: Record<string, string> = {
+  go: 'gone',
+  do: 'done',
+  see: 'seen',
+  make: 'made',
+  take: 'taken',
+  give: 'given',
+  know: 'known',
+  think: 'thought',
+  come: 'come',
+  buy: 'bought',
+  bring: 'brought',
+  get: 'got',
+  write: 'written',
+  drive: 'driven',
+  eat: 'eaten',
+  fall: 'fallen',
+  choose: 'chosen',
+  speak: 'spoken',
+  break: 'broken',
+}
+
+function pastParticipleForCoerceVerb(verb: string): string | null {
+  const v = verb.toLowerCase()
+  if (!v || v === 'be' || v === 'have') return null
+  if (COERCE_IRREGULAR_PP[v]) return COERCE_IRREGULAR_PP[v]
+  return toPastParticiple(v)
+}
+
+/**
+ * Узкое приведение: Future Simple «I will (not) V …» → Future Perfect «I will (not) have V3 …» для диалогового fallback.
+ */
+function tryCoerceLatinRepeatToFuturePerfect(latin: string): string | null {
+  const trimmed = latin.trim()
+  const m = /^\s*I\s+will\s+(not\s+)?(?!have\b|be\b)([a-z]+)\b(.*)$/i.exec(trimmed)
+  if (!m) return null
+  const neg = m[1] ? 'not ' : ''
+  const verb = (m[2] ?? '').toLowerCase().trim()
+  const restRaw = m[3] ?? ''
+  const pp = pastParticipleForCoerceVerb(verb)
+  if (!pp) return null
+
+  const restTrim = restRaw.trim()
+  let tail = ''
+  if (restTrim) {
+    const tokens = restTrim.split(/\s+/).filter(Boolean)
+    if (
+      tokens.length === 1 &&
+      !COERCE_SKIP_THE_BEFORE.has(tokens[0]!.toLowerCase())
+    ) {
+      tail = ` the ${tokens[0]!.toLowerCase()}`
+    } else {
+      tail = restRaw.startsWith(' ') ? restRaw : ` ${restTrim}`
+    }
   }
+
+  return `I will ${neg}have ${pp}${tail}`
+}
+
+function tryCoerceLatinRepeatToTense(
+  latin: string,
+  tense: string,
+  dialogueRepeatAnchorTense: string | null | undefined,
+): string | null {
+  const effectiveTense =
+    tense === 'all' ? (dialogueRepeatAnchorTense && dialogueRepeatAnchorTense.length ? dialogueRepeatAnchorTense : null) : tense
+  if (effectiveTense === 'future_perfect') {
+    return tryCoerceLatinRepeatToFuturePerfect(latin)
+  }
+  return null
+}
+
+function tryFinalizeCoercedLatinRepeat(params: {
+  latin: string
+  tense: string
+  dialogueRepeatAnchorTense: string | null | undefined
+}): string | null {
+  const { latin, tense, dialogueRepeatAnchorTense } = params
+  if (!latin.trim()) return null
+  if (!isAcceptableRepeat(latin) || !isPlausibleLearnerSentence(latin)) return null
+  if (isAcceptableDialogueLatinRepeatCandidate(latin, tense, dialogueRepeatAnchorTense)) return null
+
+  const coerced = tryCoerceLatinRepeatToTense(latin, tense, dialogueRepeatAnchorTense)
+  if (!coerced?.trim()) return null
+  if (!isAcceptableRepeat(coerced) || !isPlausibleLearnerSentence(coerced)) return null
+  if (!isAcceptableDialogueLatinRepeatCandidate(coerced, tense, dialogueRepeatAnchorTense)) return null
+  return finalizeEnglishSentence(coerced)
 }
 
 function hasRussianLikeIntent(tokens: string[]): boolean {
@@ -330,8 +442,13 @@ function englishVerbForTense(base: string, tense: string): string {
   }
 }
 
-export function buildMixedInputRepeatFallback(params: { userText: string; tense: string }): string {
-  const { userText, tense } = params
+export function buildMixedInputRepeatFallback(params: {
+  userText: string
+  tense: string
+  /** Для `tense === 'all'`: время последнего вопроса ассистента (иначе латиница уходит в generic). */
+  dialogueRepeatAnchorTense?: string | null
+}): string {
+  const { userText, tense, dialogueRepeatAnchorTense } = params
   const lower = userText.toLowerCase()
   const ruTokens = (userText.match(/[А-Яа-яЁё]+/g) ?? [])
     .map((t) => normalizeRuTopicKeyword(t))
@@ -373,15 +490,41 @@ export function buildMixedInputRepeatFallback(params: { userText: string; tense:
   const afterLike = applyCommonLearnerLatinTypos(fixLikePlusKnownObject(fixLikePlusBareInfinitive(afterCyrillic)))
   const changedLike = afterLike !== afterCyrillic
 
-  if ((replacedAny || changedLike) && isAcceptableRepeat(afterLike) && isPlausibleLearnerSentence(afterLike)) {
+  if (
+    (replacedAny || changedLike) &&
+    isAcceptableRepeat(afterLike) &&
+    isPlausibleLearnerSentence(afterLike) &&
+    isAcceptableDialogueLatinRepeatCandidate(afterLike, tense, dialogueRepeatAnchorTense)
+  ) {
     return finalizeEnglishSentence(afterLike)
   }
 
   const stripped = applyCommonLearnerLatinTypos(
     afterLike.replace(/[А-Яа-яЁё]+/g, ' ').replace(/\s+/g, ' ').trim(),
   )
-  if (stripped && isAcceptableRepeat(stripped) && isPlausibleLearnerSentence(stripped)) {
+  if (
+    stripped &&
+    isAcceptableRepeat(stripped) &&
+    isPlausibleLearnerSentence(stripped) &&
+    isAcceptableDialogueLatinRepeatCandidate(stripped, tense, dialogueRepeatAnchorTense)
+  ) {
     return finalizeEnglishSentence(stripped)
+  }
+
+  const coercedAfterLike = tryFinalizeCoercedLatinRepeat({
+    latin: afterLike,
+    tense,
+    dialogueRepeatAnchorTense,
+  })
+  if (coercedAfterLike) return coercedAfterLike
+
+  if (stripped) {
+    const coercedStripped = tryFinalizeCoercedLatinRepeat({
+      latin: stripped,
+      tense,
+      dialogueRepeatAnchorTense,
+    })
+    if (coercedStripped) return coercedStripped
   }
 
   return genericRepeatByTense(tense)
