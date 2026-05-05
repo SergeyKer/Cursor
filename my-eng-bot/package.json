@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "build:icons": "tsx scripts/round-icon.ts",
+    "build:necessary-words": "tsx scripts/build-necessary-words.ts",
+    "export:necessary-words-txt": "tsx scripts/export-necessary-words-txt.ts",
     "build:header-robot": "node scripts/header-robot-match-bg.mjs",
     "start": "next start",
     "lint": "next lint",

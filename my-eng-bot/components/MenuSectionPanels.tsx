@@ -58,6 +58,7 @@ export type LessonsPanel =
   | 'pronunciationAll'
   | 'pronunciationSection'
   | 'tutor'
+  | 'vocabulary'
 
 const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
   summary: 'Чат с MyEng',
@@ -93,6 +94,7 @@ const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
   pronunciationAll: 'Все звуки',
   pronunciationSection: 'Раздел звуков',
   tutor: 'Репетитор',
+  vocabulary: 'Необходимые слова',
 }
 
 const THEORY_LEVELS: { id: string; label: string }[] = [
@@ -228,6 +230,7 @@ export interface MenuSectionPanelsProps {
     customTopic?: string
   }) => void | Promise<void>
   onOpenAccentTrainer?: (lessonId?: string) => void
+  onOpenVocabularyWorlds?: () => void | Promise<void>
   onOpenTutorLesson?: (request: {
     requestedTopic: string
     originalQuery?: string
@@ -256,6 +259,7 @@ export default function MenuSectionPanels({
   onOpenPracticeSession,
   onGeneratePracticeSession,
   onOpenAccentTrainer,
+  onOpenVocabularyWorlds,
   onOpenTutorLesson,
   initialLessonsPanel,
 }: MenuSectionPanelsProps) {
@@ -792,7 +796,31 @@ export default function MenuSectionPanels({
                       setLessonsPanel('tutor')
                     }}
                   />
-                  <LessonTopicRow label="1000 необходимых слов" />
+                  <MenuNavRow label="Самые необходимые слова" onClick={() => setLessonsPanel('vocabulary')} />
+                </div>
+              </div>
+            )}
+
+            {lessonsPanel === 'vocabulary' && (
+              <div className="space-y-3">
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  <p className="text-[15px] font-semibold leading-snug text-[var(--text)]">Самые необходимые слова</p>
+                  <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
+                    Короткие игровые сессии по базовым словам: миры, повторение, мини-игра и голосовой шаг.
+                  </p>
+                </div>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">
+                    Раздел работает отдельно и не меняет существующие сценарии диалога, практики и произношения.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void onOpenVocabularyWorlds?.()}
+                    disabled={!onOpenVocabularyWorlds}
+                    className={`${MENU_PRIMARY_CTA_CLASS} mt-3`}
+                  >
+                    Открыть миры слов
+                  </button>
                 </div>
               </div>
             )}

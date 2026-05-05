@@ -1,0 +1,746 @@
+Словарь necessary-words v1 (только активные слова)
+Сгенерировано (JSON): 2026-05-05T07:34:19.626Z
+Исходный файл: english_words_with_russian.txt
+Выгрузка TXT: 2026-05-05T07:52:51.679Z
+Всего активных: 710
+
+========================================================================
+🏠 Дом и семья (home)
+Семья, дом, еда, цвета, животные и тело.
+Записей в мире: 238
+------------------------------------------------------------------------
+180. Health [helθ] — здоровье
+181. Window [ˈwɪndəʊ] — окно
+182. Door [dɔː(r)] — дверь
+185. Face [feɪs] — лицо
+187. Body [ˈbɒdi] — тело
+203. Eye [aɪ] — глаз
+220. Mother [ˈmʌðə(r)] — мать
+221. Room, [ruːm], [rʊm] — комната, номер
+222. Water [ˈwɔːtə(r)] — вода
+223. Home [həʊm] — дом
+224. Point [pɔɪnt] — точка
+225. Night [naɪt] — ночь
+226. Type [taɪp] — тип
+227. Nation [ˈneɪʃn] — нация
+228. Heart [hɑːt] — сердце
+229. Value [ˈvæljuː] — ценность, значение
+230. Report [rɪˈpɔːt] — отчет
+231. Government [ˈɡʌvənmənt] — правительство
+232. Question [ˈkwestʃən] — вопрос
+233. Way [weɪ] — путь
+234. System [ˈsɪstəm] — система
+235. Company [ˈkʌmpəni] — компания
+236. Case [keɪs] — случай
+237. Place [pleɪs] — место
+238. Hand [hænd] — кисть руки
+239. Country [ˈkʌntri] — страна
+240. Group [ɡruːp] — группа
+241. World [wɜːld] — мир, вселенная
+242. Life [laɪf] — жизнь
+243. Daughter [ˈdɔːtə(r)] — дочь
+244. Son [sʌn] — сын
+245. Grandma [ˈɡrænmɑː] — бабушка
+246. Brother [ˈbrʌðə(r)] — брат
+247. Sister [ˈsɪstə(r)] — сестра
+248. Grandpa [ˈɡrænpɑː] — дедушка
+249. Dad [dæd] — папа
+250. Mum [mʌm] — мама
+251. Autumn [ˈɔːtəm] — осень
+252. Spring [sprɪŋ] — весна
+253. Winter [ˈwɪntə(r)] — зима
+254. Summer [ˈsʌmə(r)] — лето
+255. End [end] — конец
+256. Line [laɪn] — очередь; линия
+257. Power [ˈpaʊə(r)] — сила
+258. Father [ˈfɑːðə(r)] — отец
+259. Floor [ˈflɔː(r)] — пол (в здании); этаж
+260. Stuff [stʌf] — вещи
+261. Range [reɪndʒ] — ряд, диапазон
+262. Weight [weɪt] — вес
+263. Service [ˈsɜːvɪs] — услуга, сервис
+264. House [haʊs] — дом
+265. Measure [ˈmeʒə(r)] — мера, степень
+266. Head [hed] — голова
+268. Business [ˈbɪznəs] — бизнес, дело
+269. Pharmacy [ˈfɑːməsi] — аптека
+270. Lyrics [ˈlɪrɪks] — текст песни
+271. Verse [vɜːs] — стих
+272. Record [ˈrekɔːd] — запись
+274. Job [dʒɒb] — работа, занятие
+275. Order [ˈɔːdə(r)] — заказ
+276. Genre [ˈʒɒnrə] — жанр
+277. Flat [flæt] — квартира
+278. Theory [ˈθɪəri] — теория
+279. Trainers [ˈtreɪnəz] — кроссовки, спортивная обувь
+280. Base [beɪs] — база
+281. Pack [pæk] — упаковка
+282. Bumbag [ˈbʌmbæɡ] — поясная сумка
+283. Trousers [ˈtraʊzəz] — брюки
+285. Box [bɒks] — коробка
+286. Knowledge [ˈnɒlɪdʒ] — знание
+287. Thing [θɪŋ] — вещь
+289. Problem [ˈprɒbləm] — проблема
+291. Truth [truːθ] — правда
+292. Food [fuːd] — еда
+293. City [ˈsɪti] — город
+294. To sip [sɪp] — потягивать (напиток)
+295. To drink [drɪŋk] — пить
+296. Savoury [ˈseɪvəri] — пикантный
+297. Aperitif [əˌperəˈtiːf] — аперитив
+299. Bitter [ˈbɪtə(r)] — горький
+420. Reservation [ˌrezəˈveɪʃn] — бронирование
+421. Shower [ˈʃaʊə(r)] — душ
+422. Suite [swiːt] — номер люкс
+423. Key [kiː] — ключ
+424. Receipt [rɪˈsiːt] — чек
+425. Hairdryer [ˈheədraɪə(r)] — фен
+426. Battery, [ˈbætri], [ˈbætəri] — аккумулятор
+427. Part [pɑːt] — часть
+428. Police [pəˈliːs] — полиция
+429. Station [ˈsteɪʃn] — станция
+430. Price [praɪs] — цена
+431. Resort [rɪˈzɔːt] — курорт
+432. Breakfast [ˈbrekfəst] — завтрак
+433. Air conditioner [ˈeə kəndɪʃənə(r)] — кондиционер
+434. Bath [bɑːθ] — ванна
+435. Towel [ˈtaʊəl] — полотенце
+436. Tip [tɪp] — чаевые
+437. Cash [kæʃ] — наличные
+438. Rate [reɪt] — стоимость, курс валюты
+439. Electrical [ɪˈlektrɪkl] — электрический
+440. Successful [səkˈsesfl] — успешный
+441. Significant [sɪɡˈnɪfɪkənt] — значительный
+442. Former [ˈfɔːmə(r)] — бывший
+443. Sick [sɪk] — больной
+444. Ready [ˈredi] — готовый
+445. Bored [bɔːd] — скучающий
+446. Traditional [trəˈdɪʃənl] — традиционный
+447. Medical [ˈmedɪkl] — медицинский
+448. Financial, [faɪˈnænʃl], [fəˈnænʃl] — финансовый
+449. Major [ˈmeɪdʒə(r)] — основной
+450. Expensive [ɪkˈspensɪv] — дорогой
+451. Slow [sləʊ] — медленный
+452. Similar [ˈsɪmələ(r)] — похожий
+453. Weird [wɪəd] — странный
+454. Good [ɡʊd] — хороший
+455. Curious [ˈkjʊəriəs] — любопытный
+456. Cool [kuːl] — крутой
+457. Additional [əˈdɪʃənl] — дополнительный
+458. Mental [ˈmentl] — ментальный
+459. Useful [ˈjuːsfl] — полезный
+460. Late [leɪt] — поздний
+461. Shocked [ʃɒkt] — потрясённый
+462. Excited [ɪkˈsaɪtɪd] — взволнованный, но в хорошем смысле
+463. Difficult [ˈdɪfɪkəlt] — сложный
+464. Fresh [freʃ] — свежий
+465. Different [ˈdɪfrənt] — другой, разный действительный
+466. Favourite [ˈfeɪvərɪt] — любимый
+467. Available [əˈveɪləbl] — доступный
+468. Possible [ˈpɒsəbl] — возможный
+469. Physical [ˈfɪzɪkl] — физический
+470. Casual [ˈkæʒuəl] — повседневный
+471. Happy [ˈhæpi] — счастливый
+472. Correct [kəˈrekt] — правильный
+473. Personal [ˈpɜːsənl] — личный
+474. Serious [ˈsɪəriəs] — серьёзный
+475. Visible [ˈvɪzəbl] — видимый
+476. Short [ʃɔːt] — короткий
+477. Right [raɪt] — правый, правильный
+478. Bad [bæd] — плохой
+479. Nice [naɪs] — хороший
+480. Large [lɑːdʒ] — очень большой
+481. Black [blæk] — чёрный
+482. White [waɪt] — белый
+483. Leather [ˈleðə(r)] — кожаный
+484. Rare [reə(r)] — редкий
+485. Wooden [ˈwʊdn] — деревянный
+486. Wide [waɪd] — широкий
+487. Warm [wɔːm] — тёплый
+488. Wrong [rɒŋ] — неверный
+489. Common [ˈkɒmən] — общий
+490. Sweet [swiːt] — сладкий
+491. Safe [seɪf] — безопасный
+492. Round [raʊnd] — круглый
+493. Rich [rɪtʃ] — богатый
+494. Natural [ˈnætʃrəl] — натуральный
+495. Red [red] — красный
+496. Quick [kwɪk] — быстрый
+497. Loud [laʊd] — громкий
+498. Lonely [ˈləʊnli] — одинокий
+499. Long [lɒŋ] — долгий, длинный
+500. Poor, [pɔː(r)], [pʊə(r)] — бедный
+501. Heavy [ˈhevi] — тяжёлый
+502. Green [ɡriːn] — зелёный
+503. Full [fʊl] — полный
+504. Empty [ˈempti] — пустой
+505. Deep [diːp] — глубокий
+506. Cold [kəʊld] — холодный
+507. Lost [lɒst] — потерянный
+508. Brown [braʊn] — коричневый
+509. Blue [bluː] — синий
+510. Recent [ˈriːsnt] — недавний
+511. Actual [ˈæktʃuəl] — актуальный,
+512. Strong [strɒŋ] — сильный
+513. Basic [ˈbeɪsɪk] — базовый
+514. Important [ɪmˈpɔːtnt] — важный
+515. Serious [ˈsɪəriəs] — серьёзный
+516. Known [nəʊn] — известный
+517. Huge [hjuːdʒ] — огромный
+518. Decent [ˈdiːsnt] — приличный
+519. Fun [fʌn] — веселый
+520. United [juˈnaɪtɪd] — объединённый
+521. Several [ˈsevrəl] — некоторый
+522. Certain [ˈsɜːtn] — определённый
+523. Necessary [ˈnesəsəri] — необходимый
+524. Best [best] — лучший
+525. Particular [pəˈtɪkjələ(r)] — конкретный
+526. Entire [ɪnˈtaɪə(r)] — целый
+527. Various [ˈveəriəs] — разнообразный
+528. Ugly [ˈʌɡli] — уродливый
+529. Accurate [ˈækjərət] — точный
+530. Great [ɡreɪt] — отличный
+531. Beautiful [ˈbjuːtɪfl] — красивый
+532. Small [smɔːl] — маленький
+533. Dark [dɑːk] — темный
+534. Calm [kɑːm] — спокойный
+535. Relevant [ˈreləvənt] — соответствующий, уместный
+536. Surprised [səˈpraɪzd] — удивлённый
+537. Impossible [ɪmˈpɒsəbl] — невозможный
+538. Freezing [ˈfriːzɪŋ] — ледяной
+539. Warming [ˈwɔːmɪŋ] — согревающий
+540. Other [ˈʌðə(r)] — другой
+541. Many [ˈmeni] — многий
+542. Same [seɪm] — такой же, аналогичный
+543. New [njuː] — новый
+544. First [fɜːst] — первый
+546. Little [ˈlɪtl] — маленький
+547. Own [əʊn] — собственный
+548. Old [əʊld] — старый
+549. Big [bɪɡ] — большой
+550. Next [nekst] — следующий
+551. Young [jʌŋ] — молодой
+552. Public [ˈpʌblɪk] — общественный
+553. Bright [braɪt] — яркий
+554. Fast [fɑːst] — быстрый
+555. Easy [ˈiːzi] — лёгкий
+556. Busy [ˈbɪzi] — занятой
+557. Dangerous [ˈdeɪndʒərəs] — опасный
+558. Clean [kliːn] — чистый
+559. Quiet [ˈkwaɪət] — тихий
+560. Charming [ˈtʃɑːmɪŋ] — очаровательный
+561. Confident [ˈkɒnfɪdənt] — уверенный
+562. Willing [ˈwɪlɪŋ] — желающий что-то сделать
+563. Helpful [ˈhelpfl] — отзывчивый
+564. Terrible [ˈterəbl] — ужасный
+565. Interesting, [ˈɪntrəstɪŋ], [ˈɪntrestɪŋ] — интересный
+566. Responsible [rɪˈspɒnsəbl] — ответственный
+567. Pregnant [ˈpreɡnənt] — беременный
+568. Healthy [ˈhelθi] — здоровый
+569. Political [pəˈlɪtɪkl] — политически активный
+570. Emotional [ɪˈməʊʃənl] — эмоциональный
+571. Scared [skeəd] — испуганный
+573. Sad [sæd] — грустный
+574. Smart [smɑːt] — умный
+575. Aware [əˈweə(r)] — осведомлённый
+576. Desperate [ˈdespərət] — отчаянный
+577. Critical [ˈkrɪtɪkl] — критичный
+578. Cute [kjuːt] — милый
+579. Competitive [kəmˈpetətɪv] — конкурентный
+
+========================================================================
+🎒 Школа и хобби (school)
+Учёба, время, игры, музыка и увлечения.
+Записей в мире: 44
+------------------------------------------------------------------------
+153. Time [taɪm] — время
+155. Year, [jɪə(r)], [jɜː(r)] — год
+159. Day [deɪ] — день
+165. Teacher [ˈtiːtʃə(r)] — учитель
+173. Morning [ˈmɔːnɪŋ] — утро
+176. History [ˈhɪstri] — история (наука)
+183. Office [ˈɒfɪs] — офис
+184. Level [ˈlevl] — уровень
+186. Parent [ˈpeərənt] — родитель
+188. Kid [kɪd] — ребёнок
+189. Century [ˈsentʃəri] — век
+190. Evidence [ˈevɪdəns] — доказательство
+191. Chance [tʃɑːns] — шанс
+192. Period [ˈpɪəriəd] — период
+193. Future [ˈfjuːtʃə(r)] — будущее
+194. Behaviour [bɪˈheɪvjə(r)] — поведение
+195. Performance [pəˈfɔːməns] — выступление
+196. Blood [blʌd] — кровь
+197. Colour [ˈkʌlə(r)] — цвет
+198. Idea [aɪˈdɪə] — идея
+199. Minute [ˈmɪnɪt] — минута
+200. Team [tiːm] — команда
+201. Comfort [ˈkʌmfət] — комфорт
+202. President [ˈprezɪdənt] — президент
+204. Book [bʊk] — книга
+205. Month [mʌnθ] — месяц
+206. Number [ˈnʌmbə(r)] — номер
+207. Store [stɔː(r)] — магазин
+208. Movement [ˈmuːvmənt] — движение
+209. Decade, [ˈdekeɪd], [dɪˈkeɪd] — десятилетие
+210. Treatment [ˈtriːtmənt] — уход, отношение
+211. Dream [driːm] — мечта
+212. Middle [ˈmɪdl] — середина
+213. Trouble [ˈtrʌbl] — проблема, неприятность
+214. Pain [peɪn] — боль
+215. Peace [piːs] — мир, покой
+216. Fact [fækt] — факт
+217. Story [ˈstɔːri] — рассказ
+218. Money [ˈmʌni] — деньги
+219. Area [ˈeəriə] — место, зона
+273. Rhythm [ˈrɪðəm] — ритм
+284. Eraser [ɪˈreɪzə(r)] — ластик
+288. School [skuːl] — школа
+290. Student [ˈstjuːdnt] — студент
+
+========================================================================
+✈️ Путешествия (travel)
+Поездки, транспорт, природа и места.
+Записей в мире: 116
+------------------------------------------------------------------------
+300. Acerb [əˈsɜːb] — терпкий
+301. Sourness [ˈsaʊənəs] — кислинка
+302. Tasting [ˈteɪstɪŋ] — дегустация
+303. Glass [ɡlɑːs] — стакан
+304. Flight [flaɪt] — перелёт; рейс
+305. To check in [tʃek ɪn] — зарегистрироваться
+306. To explore [ɪkˈsplɔː(r)] — исследовать
+307. Boarding [ˈbɔːdɪŋ] — посадка
+308. Suitcase [ˈsuːtkeɪs] — чемодан
+309. Bag [bæɡ] — сумка
+310. Itinerary [aɪˈtɪnərəri] — маршрут
+311. To navigate [ˈnævɪɡeɪt] — ориентироваться, перемещаться
+312. Vacation, [veɪˈkeɪʃn], [vəˈkeɪʃn] — отпуск
+313. Wanderlust [ˈwɒndəlʌst] — страсть
+314. Driver [ˈdraɪvə(r)] — водитель
+315. Accommodation [əˌkɒməˈdeɪʃn] — жильё, размещение
+316. Hotel [həʊˈtel] — отель
+317. Hostel [ˈhɒstl] — хостел, гостиница
+319. Visa [ˈviːzə] — виза
+320. Passport control [ˌpɑːspɔːt kənˈtrəʊl] — паспортный
+321. Immigration [ˌɪmɪˈɡreɪʃn] — иммиграция
+322. Bus [bʌs] — автобус
+323. To take off [ˈteɪk ɒf] — отправляться
+324. Airport [ˈeəpɔːt] — аэропорт
+325. Terminal [ˈtɜːmɪnl] — терминал
+326. Ticket [ˈtɪkɪt] — билет
+327. Luggage [ˈlʌɡɪdʒ] — багаж
+328. Departure [dɪˈpɑːtʃə(r)] — отправление
+329. Stopover [ˈstɒpəʊvə(r)] — остановка
+330. Transit [ˈtrænzɪt] — транзит, прохождение
+331. Cruise [kruːz] — круиз
+332. Ship [ʃɪp] — корабль
+333. Ferry [ˈferi] — паром
+334. To rent [rent] — арендовать
+336. To move [muːv] — двигаться
+337. To come [kʌm] — идти
+338. Underground [ˌʌndəˈɡraʊnd] — метро к путешествиям
+339. View [vjuː] — вид
+340. Bicycle [ˈbaɪsɪkl] — велосипед
+341. Sightseeing [ˈsaɪtsiːɪŋ] — осмотр достопримечательностей
+342. Landmark [ˈlændmɑːk] — ориентир, знак
+343. Museum [mjuˈziːəm] — музей
+344. Gallery [ˈɡæləri] — галерея
+345. Bank [bæŋk] — банк
+346. Building [ˈbɪldɪŋ] — здание контроль
+347. Beach [biːtʃ] — пляж
+348. Stop [stɒp] — остановка
+349. To request [rɪˈkwest] — просить
+350. To delay [dɪˈleɪ] — задерживаться
+351. To book [bʊk] — бронировать
+352. To land [lænd] — приземляться
+353. International [ˌɪntəˈnæʃnəl] — международный
+354. Transfer [ˈtrænsfɜː(r)] — пересадка
+355. Reclaim [rɪˈkleɪm] — выдача (багажа) налегке
+356. To expect [ɪkˈspekt] — ожидать (с рюкзаком)
+357. Tourist, [ˈtʊərɪst], [ˈtɔːrɪst] — турист
+358. Passenger [ˈpæsɪndʒə(r)] — пассажир в палатке
+359. Stairs [steəz] — лестница
+360. Cinema, [ˈsɪnəmə], [ˈsɪnəmɑː] — кинотеатр
+361. To wave [weɪv] — махать
+362. Gate [ɡeɪt] — выход на посадку и завтраком
+363. Train [treɪn] — поезд
+364. Exploration [ˌekspləˈreɪʃn] — исследование
+365. Mountain [ˈmaʊntən] — гора парк
+366. Hiking [ˈhaɪkɪŋ] — пешие прогулки
+367. Trekking [ˈtrekɪŋ] — походы
+368. Diving [ˈdaɪvɪŋ] — дайвинг
+369. Surfing [ˈsɜːfɪŋ] — серфинг
+370. Skiing [ˈskiːɪŋ] — лыжный спорт
+371. Wonderful [ˈwʌndəfl] — замечательный
+372. Cuisine [kwɪˈziːn] — кулинария, кухня
+373. Taxi [ˈtæksi] — такси
+374. Seat [siːt] — место
+375. Restaurant [ˈrestrɒnt] — ресторан (как занятие)
+376. Street food [ˈstriːt fuːd] — уличная еда
+377. Market [ˈmɑːkɪt] — рынок
+378. Shopping [ˈʃɒpɪŋ] — шопинг
+379. Souvenir [ˌsuːvəˈnɪə(r)] — сувенир
+380. Currency [ˈkʌrənsi] — валюта
+381. Exchange [ɪksˈtʃeɪndʒ] — обмен
+382. ATM [ˌeɪ tiː ˈem] — банкомат
+383. Budget [ˈbʌdʒɪt] — бюджет
+384. Expense [ɪkˈspens] — расходы
+385. Insurance, [ɪnˈʃʊərəns], [ɪnˈʃɔːrəns] — страховка
+386. Safety [ˈseɪfti] — безопасность
+387. Vaccination [ˌvæksɪˈneɪʃn] — вакцинация
+388. Culture [ˈkʌltʃə(r)] — культура
+389. Local [ˈləʊkl] — местный
+390. Guide [ɡaɪd] — экскурсовод; гайд
+391. Map [mæp] — карта
+393. Tour, [tʊə(r)], [tɔː(r)] — тур
+394. Package [ˈpækɪdʒ] — посылка
+395. Festival [ˈfestɪvl] — фестиваль
+396. Season [ˈsiːzn] — сезон; время года
+397. Climate [ˈklaɪmət] — климат
+398. Tropical [ˈtrɒpɪkl] — тропический
+399. Sunscreen [ˈsʌnskriːn] — солнцезащитный
+400. Backpacking [ˈbækpækɪŋ] — путешествия
+401. Camping [ˈkæmpɪŋ] — кемпинг; отдых
+402. Wildlife [ˈwaɪldlaɪf] — дикая природа
+403. Nature [ˈneɪtʃə(r)] — природа
+405. Adventure [ədˈventʃə(r)] — приключение
+406. National park [ˈnæʃnəl ˈpɑːk] — национальный
+407. Heritage [ˈherɪtɪdʒ] — наследие
+408. To arrive [əˈraɪv] — прибывать
+409. Architecture [ˈɑːkɪtektʃə(r)] — архитектура
+410. Ruins [ˈruːɪnz] — руины
+411. Temple [ˈtempl] — храм
+412. Church [tʃɜːtʃ] — церковь
+413. Mosque [mɒsk] — мечеть
+414. Monument [ˈmɒnjumənt] — памятник
+415. Photography [fəˈtɒɡrəfi] — фотография
+416. Memory [ˈmeməri] — память
+417. Experience [ɪkˈspɪəriəns] — опыт
+418. Escape [ɪˈskeɪp] — побег
+419. Customs [ˈkʌstəmz] — таможня
+
+========================================================================
+🎮 Цифровой мир (digital)
+Технологии, интернет и гаджеты.
+Записей в мире: 64
+------------------------------------------------------------------------
+820. Feed [fiːd] — лента (новостей)
+821. Like [laɪk] — лайк
+822. Comment [ˈkɒment] — комментарий
+823. Post [pəʊst] — пост, выкладывать пост
+824. To share [ʃeə(r)] — делиться в соцсетях
+825. To follow [ˈfɒləʊ] — подписаться, отслеживать
+826. To unfollow [ˌʌnˈfɒləʊ] — отписаться
+827. Bio [baɪəʊ] — биография в шапке профиля
+828. Hashtag [ˈhæʃtæɡ] — хештег
+829. Tag [tæɡ] — тег
+830. Filter [ˈfɪltə(r)] — фильтр
+831. Caption [ˈkæpʃn] — подпись
+832. Shorts [ʃɔːts] — шортсы
+833. Algorithm [ˈælɡərɪðəm] — алгоритм
+834. Engagement [ɪnˈɡeɪdʒmənt] — вовлечение
+835. Follower [ˈfɒləʊə(r)] — подписчик
+836. Creator [kriˈeɪtə(r)] — креатор
+837. Shout-out [ˈʃaʊt aʊt] — публичная благодарность
+838. Repost [rɪˈpəʊst] — репост
+839. Trend [trend] — тренд
+840. Theme [θiːm] — тема
+841. Brand [brænd] — бренд
+842. Highlights [ˈhaɪlaɪts] — хайлайты
+843. Archive [ˈɑːkaɪv] — архив
+844. Vlog [vlɒɡ] — влог, видеоблог
+845. Blogger [ˈblɒɡə(r)] — блогер
+846. Fashion [ˈfæʃn] — мода
+847. Promo (promotion) [ˈprəʊməʊ] — промо
+848. Affiliate [əˈfɪliət] — партнёр
+849. Ad (advertisement) [æd], [ədˈvɜːtɪsmənt] — реклама
+850. Sponsored [ˈspɒnsəd] — спонсируемый
+851. Emoji [ɪˈməʊdʒi] — эмодзи
+852. Clickbait [ˈklɪkbeɪt] — кликбейт (контент
+853. Link [lɪŋk] — ссылка
+854. Geotag [ˈdʒiːəʊtæɡ] — геометка
+855. Location [ləʊˈkeɪʃn] — местоположение
+856. Notification [ˌnəʊtɪfɪˈkeɪʃn] — уведомление
+857. Verified [ˈverɪfaɪd] — проверенный
+858. Icon [ˈaɪkɒn] — икона, иконка
+859. Collaboration [kəˌlæbəˈreɪʃn] — коллаборация
+860. Challenge [ˈtʃælɪndʒ] — челлендж
+861. Tutorial [tjuːˈtɔːriəl] — обучающий контент
+862. Review [rɪˈvjuː] — обзор
+863. Unboxing [ˌʌnˈbɒksɪŋ] — распаковка
+864. Giveaway [ˈɡɪvəweɪ] — конкурс с призами
+865. Contest [ˈkɒntest] — конкурс
+866. FOMO (fear [ˈfəʊməʊ] — страх упустить
+867. BFF (best friend [ˌbiː ef ˈef] — лучший друг
+868. Live [laɪv] — в прямом эфире
+869. Shopping [ˈʃɒpɪŋ] — шопинг
+870. Discovery [dɪˈskʌvəri] — открытие
+871. Niche, [niːʃ], [nɪtʃ] — ниша
+872. To connect [kəˈnekt] — связываться
+873. To inspire [ɪnˈspaɪə(r)] — вдохновляться
+874. Culture [ˈkʌltʃə(r)] — культура
+875. Creativity [ˌkriːeɪˈtɪvəti] — креативность
+876. Authenticity [ˌɔːθenˈtɪsəti] — аутентичность
+877. Visuals [ˈvɪʒuəlz] — визуальные эффекты
+878. Portfolio [pɔːtˈfəʊliəʊ] — портфолио
+879. Technology [tekˈnɒlədʒi] — технология
+880. Online [ˌɒnˈlaɪn] — онлайн
+881. App [æp] — приложение
+882. Search [sɜːtʃ] — поиск
+883. To spill [spɪl] — проливать
+
+========================================================================
+🌟 Главные слова (core)
+Базовые глаголы, местоимения и полезные связки.
+Записей в мире: 248
+------------------------------------------------------------------------
+40. The,, [ðiː], [ði], [ðə] — определённый артикль
+42. To be [biː] — быть
+43. And [ænd] — и
+44. If [ɪf] — если
+45. Or [ɔː(r)] — или
+46. But [bʌt] — но
+47. Because [bɪˈkɒz] — потому что
+48. So [səʊ] — поэтому
+49. After [ˈɑːftə(r)] — после того как
+50. Before [bɪˈfɔː(r)] — до того как
+51. Than [ðæn] — чем
+52. Until [ənˈtɪl] — до тех пор пока
+53. To [tuː] — к, в
+54. Of [ʌv] — из, от, о
+55. In [ɪn] — в
+56. For [fɔː(r)] — для
+57. On [ɒn] — на
+58. With [wɪð] — с
+59. At [æt] — в, на
+60. By [baɪ] — к, по, от
+61. From [frɒm] — из
+62. Into [ˈɪntuː] — в, к
+63. Through [θruː] — через
+64. Over [ˈəʊvə(r)] — над
+65. Inside [ˌɪnˈsaɪd] — в, внутрь
+66. Above [əˈbʌv] — над
+67. Across [əˈkrɒs] — через
+68. Between [bɪˈtwiːn] — между
+69. Near [nɪə(r)] — возле
+70. Except [ɪkˈsept] — кроме
+71. Despite [dɪˈspaɪt] — несмотря на
+72. There [ðeə(r)] — там
+73. Better [ˈbetə(r)] — лучше
+74. Here [hɪə(r)] — здесь
+75. When [wen] — когда
+76. Where [weə(r)] — где
+77. As [æz] — как
+78. Out [aʊt] — вне
+79. Up [ʌp] — вверх
+80. Only [ˈəʊnli] — только
+81. Then [ðen] — тогда
+82. How [haʊ] — как
+83. Lot [lɒt] — много
+84. Why [waɪ] — почему
+85. Already [ɔːlˈredi] — уже
+86. Yet [jet] — ещё
+87. Yesterday, [ˈjestədeɪ], [ˈjestədi] — вчера
+88. Tomorrow [təˈmɒrəʊ] — завтра
+89. Today [təˈdeɪ] — сегодня
+90. Tonight [təˈnaɪt] — сегодня вечером
+91. Exactly [ɪɡˈzæktli] — точно
+92. Back [bæk] — назад
+93. Still [stɪl] — всё ещё
+94. Too [tuː] — слишком; тоже
+95. Down [daʊn] — вниз
+96. Simply [ˈsɪmpli] — просто
+97. Less [les] — меньше
+98. Beyond [bɪˈjɒnd] — вне
+99. Rather [ˈrɑːðə(r)] — довольно
+100. Suddenly [ˈsʌdənli] — вдруг
+101. Obviously [ˈɒbviəsli] — очевидно
+102. Also [ˈɔːlsəʊ] — тоже
+103. Well [wel] — хорошо
+104. Soon [suːn] — скоро
+105. Again, [əˈɡen], [əˈɡeɪn] — снова
+106. Almost [ˈɔːlməʊst] — почти
+107. Always [ˈɔːlweɪz] — всегда
+108. Sometimes [ˈsʌmtaɪmz] — иногда
+109. Else [els] — ещё
+110. Enough [ɪˈnʌf] — достаточно
+111. Ever [ˈevər] — когда-либо
+112. Never [ˈnevər] — никогда
+113. Far [fɑː(r)] — далеко
+114. Really [ˈriːəli] — на самом деле
+115. Ago [əˈɡəʊ] — тому назад
+116. Finally [ˈfaɪnəli] — наконец
+117. Instead [ɪnˈsted] — вместо
+118. Likely [ˈlaɪkli] — вероятно
+119. Maybe [ˈmeɪbi] — возможно
+120. Very [ˈveri] — очень
+121. Once [wʌns] — однажды
+122. All [ɔːl] — всё
+123. That [ðæt] — который, тот
+124. I [aɪ] — я
+125. Any [ˈeni] — любой
+126. It [ɪt] — оно
+127. He [hi] — он
+128. You [juː] — ты
+129. This [ðɪs] — этот
+130. My [maɪ] — мой
+133. Some [sʌm] — некоторый
+134. Me [miː] — мне, меня
+137. These [ðiːz] — эти
+138. Us [ʌs] — нас
+139. Their [ðeə(r)] — их (чьё?)
+140. She [ʃiː] — она
+141. We [wiː] — мы
+142. They [ðeɪ] — они
+143. His, [hɪz], [ɪz] — его (чей?)
+144. Its [ɪts] — его (чей?) (о неодушевленных
+145. Them [ðəm] — их (кого?)
+146. Who [huː] — кто
+147. Which [wɪtʃ] — который
+148. Someone [ˈsʌmwʌn] — кто-то
+149. Somebody [ˈsʌmbədi] — кто-нибудь
+150. Everything [ˈevriθɪŋ] — всё ААААААААААААА Так, потренируемся жаловаться на английском Времени достаточно, чтобы повторить с Машей наиболее часто употребляемые
+151. Man [mæn] — человек, мужчина
+152. Woman [ˈwʊmən] — женщина
+154. State [steɪt] — состояние; государство, штат
+156. People [ˈpiːpl] — люди
+157. Work [wɜːk] — работа
+158. Age [eɪdʒ] — возраст
+160. Name [neɪm] — имя
+161. Light [laɪt] — свет
+162. Information [ˌɪnfəˈmeɪʃn] — информация
+163. Education [ˌedʒuˈkeɪʃn] — образование
+164. Force [fɔːs] — сила
+166. Air [eə(r)] — воздух
+167. Moment [ˈməʊmənt] — момент
+168. Guy [ɡaɪ] — парень
+169. Girl [ɡɜːl] — девочка, девушка
+170. Research, [rɪˈsɜːtʃ], [ˈriːsɜːtʃ] — исследование
+171. List [lɪst] — список
+172. Reason [ˈriːzn] — причина
+174. Result [rɪˈzʌlt] — результат
+175. Party [ˈpɑːti] — вечеринка
+177. Conflict [ˈkɒnflɪkt] — конфликт
+178. Art [ɑːt] — искусство
+179. Person [ˈpɜːsn] — человек, персона
+580. Kind [kaɪnd] — добрый
+581. Capable [ˈkeɪpəbl] — способный
+884. Should [ʃʊd] — следует
+885. To say [seɪ] — сказать
+886. To believe [bɪˈliːv] — верить
+887. To make [meɪk] — делать
+888. To tell [tel] — рассказывать
+889. To give [ɡɪv] — давать
+890. To get [ɡet] — получать
+891. To know [nəʊ] — знать
+892. To find [faɪnd] — находить
+893. To hope [həʊp] — надеяться
+894. To kill [kɪl] — убивать
+895. To look [lʊk] — смотреть, выглядеть
+896. To like [laɪk] — нравиться
+897. To worry [ˈwʌri] — беспокоиться
+898. To listen [ˈlɪsn] — слушать
+899. To use [juːz] — использовать
+900. To change [tʃeɪndʒ] — менять
+901. To try [traɪ] — пытаться, пробовать
+902. To want [wɒnt] — хотеть
+903. To sound [saʊnd] — звучать
+904. To let [let] — позволять
+905. To run [rʌn] — бежать
+906. To go [ɡəʊ] — идти
+907. To cost [kɒst] — стоить
+908. To take [teɪk] — брать
+909. To think [θɪŋk] — думать
+910. To stay [steɪ] — оставаться
+911. To lose [luːz] — терять
+912. To support [səˈpɔːt] — поддерживать
+913. To prefer [prɪˈfɜː(r)] — предпочитать
+914. To talk [tɔːk] — разговаривать
+915. To ask [ɑːsk] — спрашивать
+916. To answer [ˈɑːnsə(r)] — отвечать
+917. To start [stɑːt] — начинать
+918. To eat [iːt] — есть
+919. To join [dʒɔɪn] — присоединяться
+920. To see [siː] — смотреть
+921. To love [lʌv] — любить
+922. To remain [rɪˈmeɪn] — оставаться
+923. To put [pʊt] — класть, помещать
+924. To reach [riːtʃ] — достигать
+925. To cut [kʌt] — резать
+926. To fall [fɔːl] — падать
+927. To wait [weɪt] — ждать
+928. To write [raɪt] — писать
+929. To bring [brɪŋ] — приносить
+930. To realise, [ˈriːəlaɪz], [ˈrɪəlaɪz] — понимать
+931. To involve [ɪnˈvɒlv] — вовлекать
+932. To reduce [rɪˈdjuːs] — сокращать
+933. To concern [kənˈsɜːn] — беспокоить
+934. To fly [flaɪ] — летать
+935. To raise [reɪz] — поднимать, повышать
+936. To manage [ˈmænɪdʒ] — управлять, справляться
+937. To apply [əˈplaɪ] — обращаться; применять
+938. To spend [spend] — проводить; тратить
+939. To keep [kiːp] — хранить
+940. To smell [smel] — пахнуть, нюхать
+941. To begin [bɪˈɡɪn] — начинать
+942. To enjoy [ɪnˈdʒɔɪ] — получать удовольствие
+943. To pretend [prɪˈtend] — притворяться
+944. To stop [stɒp] — останавливаться
+945. To build [bɪld] — строить
+946. To meet [miːt] — встречаться, знакомиться
+947. To stand [stænd] — стоять
+948. To continue [kənˈtɪnjuː] — продолжать
+949. To buy [baɪ] — покупать
+950. To walk [wɔːk] — гулять
+951. To open [ˈəʊpən] — открывать
+952. To offer [ˈɒfə(r)] — предлагать
+953. To imagine [ɪˈmædʒɪn] — воображать
+954. To send [send] — отправлять
+955. To die [daɪ] — умирать
+956. To serve [sɜːv] — служить
+957. To appear [əˈpɪə(r)] — появляться
+958. To return [rɪˈtɜːn] — возвращаться
+959. To consider [kənˈsɪdə(r)] — рассматривать, учитывать
+960. To remember [rɪˈmembə(r)] — помнить
+961. To win [wɪn] — побеждать
+962. To read [riːd] — читать
+963. To expect [ɪkˈspekt] — ожидать
+964. To break [breɪk] — прерывать, ломать
+965. To grow [ɡrəʊ] — расти
+966. To add [æd] — добавлять
+967. To allow [əˈlaʊ] — позволять
+968. To speak [spiːk] — говорить
+969. To create [kriˈeɪt] — создавать
+970. To avoid [əˈvɔɪd] — избегать
+971. To sleep [sliːp] — спать
+972. To understand [ˌʌndəˈstænd] — понимать
+973. To lead [liːd] — вести
+974. To learn [lɜːn] — учить, запоминать
+975. To set [set] — устанавливать
+976. To include [ɪnˈkluːd] — включать
+977. To pay [peɪ] — платить
+978. To feel [fiːl] — чувствовать
+979. To happen [ˈhæpən] — происходить
+980. To sit [sɪt] — сидеть
+981. To provide [prəˈvaɪd] — предоставлять
+982. Must [mʌst] — быть обязанным
+983. To hold [həʊld] — держать
+984. To live [lɪv] — жить
+985. To play [pleɪ] — играть
+986. To leave [liːv] — покидать, оставлять
+987. To seem [siːm] — казаться
+988. To hear [hɪə(r)] — слышать
+989. To care [keə(r)] — заботиться
+990. To show [ʃəʊ] — показывать
+991. To turn [tɜːn] — поворачивать
+992. To help [help] — помогать
+993. To mean [miːn] — иметь в виду
+994. To become [bɪˈkʌm] — становиться
+995. To need [niːd] — нуждаться
+996. To call [kɔːl] — звать
+997. May [meɪ] — мочь
+998. To study [ˈstʌdi] — изучать
+999. To behave [bɪˈheɪv] — вести себя
+1000. To suggest [səˈdʒest] — предлагать
+

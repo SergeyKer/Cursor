@@ -45,6 +45,7 @@ interface SlideOutMenuProps {
     customTopic?: string
   }) => Promise<void> | void
   onOpenAccentTrainer?: (lessonId?: string) => void
+  onOpenVocabularyWorlds?: () => Promise<void> | void
   /** Открыть урок из ветки «Репетитор». */
   onOpenTutorLesson?: (request: {
     requestedTopic: string
@@ -77,6 +78,7 @@ export default function SlideOutMenu({
   onOpenPracticeSession,
   onGeneratePracticeSession,
   onOpenAccentTrainer,
+  onOpenVocabularyWorlds,
   onOpenTutorLesson,
   lessonMenuContext,
   topOffset = 'calc(2.75rem + env(safe-area-inset-top, 0px))',
@@ -162,6 +164,7 @@ export default function SlideOutMenu({
             onOpenPracticeSession={onOpenPracticeSession}
             onGeneratePracticeSession={onGeneratePracticeSession}
             onOpenAccentTrainer={onOpenAccentTrainer}
+            onOpenVocabularyWorlds={onOpenVocabularyWorlds}
             onOpenTutorLesson={onOpenTutorLesson}
             initialLessonsPanel={menuView === 'lessons' ? lessonMenuContext?.lessonsPanel : undefined}
           />
