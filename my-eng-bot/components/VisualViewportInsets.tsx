@@ -67,6 +67,17 @@ function computeBottomInsetPx(): number {
   return vvInset
 }
 
+/** Высота видимой области для корня layout — только iOS Safari (см. page.tsx). */
+function computeIosSafariViewportHeightPx(): number | null {
+  if (typeof window === 'undefined') return null
+  const ua = navigator.userAgent
+  if (!isIosSafari(ua)) return null
+  const vv = window.visualViewport
+  if (!vv) return null
+  const h = vv.height
+  return Number.isFinite(h) ? Math.max(1, Math.round(h)) : null
+}
+
 function computeSideInsetsPx(): { left: number; right: number } {
   if (typeof window === 'undefined') return { left: 0, right: 0 }
   const vv = window.visualViewport
@@ -100,6 +111,13 @@ export default function VisualViewportInsets() {
       const sideInsets = computeSideInsetsPx()
       root.style.setProperty('--vv-left-inset', `${sideInsets.left}px`)
       root.style.setProperty('--vv-right-inset', `${sideInsets.right}px`)
+
+      const iosSafariH = computeIosSafariViewportHeightPx()
+      if (iosSafariH !== null) {
+        root.style.setProperty('--ios-safari-vv-height', `${iosSafariH}px`)
+      } else {
+        root.style.removeProperty('--ios-safari-vv-height')
+      }
     }
 
     const scheduleApply = () => {
@@ -122,6 +140,7 @@ export default function VisualViewportInsets() {
       window.removeEventListener('orientationchange', scheduleApply)
       vv?.removeEventListener?.('resize', scheduleApply)
       vv?.removeEventListener?.('scroll', scheduleApply)
+      root.style.removeProperty('--ios-safari-vv-height')
     }
   }, [])
 

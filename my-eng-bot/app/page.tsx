@@ -2648,10 +2648,21 @@ export default function Home() {
   } as React.CSSProperties
 
   const rootShellClass =
-    'flex min-h-[100dvh] flex-col ' + (isIosClient ? 'h-full' : 'h-[100dvh]')
+    'flex min-h-[100dvh] flex-col ' +
+    (isIosSafariClient ? '' : isIosClient ? 'h-full' : 'h-[100dvh]')
+
+  const rootShellStyle = {
+    ...appLayoutVars,
+    ...(isIosSafariClient
+      ? ({
+          minHeight: 'var(--ios-safari-vv-height, 100dvh)',
+          height: 'var(--ios-safari-vv-height, 100dvh)',
+        } as React.CSSProperties)
+      : {}),
+  } as React.CSSProperties
 
   return (
-    <div data-audience={settings.audience} className={rootShellClass} style={appLayoutVars}>
+    <div data-audience={settings.audience} className={rootShellClass} style={rootShellStyle}>
       <header
         className="app-header-surface fixed left-0 right-0 top-0 z-[60] border-b border-[var(--app-header-border)]"
         style={{
@@ -3093,7 +3104,15 @@ export default function Home() {
       </main>
 
       {/* Как и шапка: футер — fixed поверх бокового меню (z-50); спейсер оставляет тот же запас, что и блок в потоке. */}
-      <div className="shrink-0" style={{ height: 'var(--app-bottom-offset)' }} aria-hidden />
+      <div
+        className={`shrink-0 ${
+          isIosSafariClient && dialogStarted
+            ? 'bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]'
+            : ''
+        }`}
+        style={{ height: 'var(--app-bottom-offset)' }}
+        aria-hidden
+      />
       <footer
         className="app-footer-surface pointer-events-none fixed bottom-0 left-0 right-0 z-[60] border-t border-[var(--app-footer-border)]"
         style={{
