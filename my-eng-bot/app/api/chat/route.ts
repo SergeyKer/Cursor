@@ -75,6 +75,7 @@ import {
 } from '@/lib/dialogueTenseInference'
 import { enrichDialogueCommentWithLearningReason } from '@/lib/dialogueTenseReasoning'
 import { isDialogueOutputLikelyInRequiredTense, validateDialogueOutputTense } from '@/lib/dialogueOutputValidation'
+import { isDialogueRepeatAcceptable } from '@/lib/dialogueRepeatValidator'
 import { isRepeatSemanticallySafe } from '@/lib/dialogueSemanticGuard'
 import { validateDialogueRussianNaturalness } from '@/lib/dialogueRussianNaturalness'
 import { validateDialogueMixedInputOutput } from '@/lib/dialogueMixedInputGuard'
@@ -97,6 +98,7 @@ import {
 import {
   buildMixedDialogueFallbackComment,
   buildMixedInputRepeatFallback,
+  genericRepeatByTense,
   hasRussianDialogueFallbackSignal,
   isGenericDialogueAnsweredInEnglishRepeat,
 } from '@/lib/mixedInputRepeatFallback'
@@ -2899,13 +2901,77 @@ type ResolveGoldTranslation = (params: {
   audience: Audience
 }) => Promise<string | null>
 
+function resolveDialogueRepeatFallbackTense(requiredTense: string, priorAssistantContent: string | null): string {
+  if (requiredTense !== 'all') return requiredTense
+  const inferred = priorAssistantContent ? inferTenseFromDialogueAssistantContent(priorAssistantContent) : null
+  return inferred ?? 'all'
+}
+
+function finalizeDialogueRepeatEnglishBody(params: {
+  candidateRepeat: string | null
+  pinnedRepeat: string | null
+  userText: string
+  requiredTense: string
+  priorAssistantContent: string | null
+}): string {
+  const tryAccept = (repeat: string | null): string | null => {
+    const trimmed = repeat?.trim()
+    if (!trimmed) return null
+    return isDialogueRepeatAcceptable({
+      repeatEnglish: trimmed,
+      userText: params.userText,
+      requiredTense: params.requiredTense,
+      priorAssistantContent: params.priorAssistantContent,
+    })
+      ? trimmed
+      : null
+  }
+
+  const acceptedCandidate = tryAccept(params.candidateRepeat)
+  if (
+    acceptedCandidate &&
+    (!isGenericDialogueAnsweredInEnglishRepeat(acceptedCandidate) || !params.pinnedRepeat?.trim())
+  ) {
+    return acceptedCandidate
+  }
+
+  const acceptedPinned = tryAccept(params.pinnedRepeat)
+  if (acceptedPinned) return acceptedPinned
+
+  if (acceptedCandidate) return acceptedCandidate
+
+  return genericRepeatByTense(resolveDialogueRepeatFallbackTense(params.requiredTense, params.priorAssistantContent))
+}
+
+function finalizeDialogueRepeatInContent(params: {
+  content: string
+  pinnedRepeat: string | null
+  userText: string
+  requiredTense: string
+  priorAssistantContent: string | null
+}): string {
+  const repeatSentence = getDialogueRepeatSentence(params.content)
+  if (!repeatSentence) return params.content
+  const finalizedRepeat = finalizeDialogueRepeatEnglishBody({
+    candidateRepeat: repeatSentence,
+    pinnedRepeat: params.pinnedRepeat,
+    userText: params.userText,
+    requiredTense: params.requiredTense,
+    priorAssistantContent: params.priorAssistantContent,
+  })
+  if (finalizedRepeat.trim() === repeatSentence.trim()) return params.content
+  return replaceDialogueRepeatInContent(params.content, finalizedRepeat)
+}
+
 function ensureRepeatWhenCommentRequestsCorrection(params: {
   content: string
   userText: string
   requiredTense: string
   dialogueRepeatAnchorTense?: string | null
+  pinnedRepeat?: string | null
+  priorAssistantContent?: string | null
 }): string {
-  const { content, userText, requiredTense, dialogueRepeatAnchorTense } = params
+  const { content, userText, requiredTense, dialogueRepeatAnchorTense, pinnedRepeat, priorAssistantContent } = params
   const trimmed = content.trim()
   if (!trimmed) return content
   if (!/(^|\n)\s*Комментарий(?:_ошибка)?\s*:/im.test(trimmed)) return content
@@ -2930,7 +2996,14 @@ function ensureRepeatWhenCommentRequestsCorrection(params: {
   })
 
   if (!/[A-Za-z]/.test(fallbackRepeat) || /[А-Яа-яЁё]/.test(fallbackRepeat)) return content
-  return `${trimmed}\nПовтори: ${fallbackRepeat}`.trim()
+  const finalizedRepeat = finalizeDialogueRepeatEnglishBody({
+    candidateRepeat: fallbackRepeat,
+    pinnedRepeat: pinnedRepeat ?? null,
+    userText,
+    requiredTense,
+    priorAssistantContent: priorAssistantContent ?? null,
+  })
+  return `${trimmed}\nПовтори: ${finalizedRepeat}`.trim()
 }
 
 function hasCommentRequestingCorrectionWithoutRepeat(content: string): boolean {
@@ -4836,6 +4909,8 @@ function replaceGenericDialogueMetaRepeatIfNeeded(params: {
   userText: string
   tutorGradingTense: string
   dialogueRepeatAnchorTense: string | null
+  pinnedRepeat?: string | null
+  priorAssistantContent?: string | null
 }): string {
   const repeat = getDialogueRepeatSentence(params.content)
   if (!repeat || !isGenericDialogueAnsweredInEnglishRepeat(repeat)) return params.content
@@ -4850,9 +4925,15 @@ function replaceGenericDialogueMetaRepeatIfNeeded(params: {
     dialogueRepeatAnchorTense: params.dialogueRepeatAnchorTense,
   })
   if (!rebuilt?.trim()) return params.content
-  if (isGenericDialogueAnsweredInEnglishRepeat(rebuilt)) return params.content
-  if (rebuilt.trim().toLowerCase() === repeat.trim().toLowerCase()) return params.content
-  return replaceDialogueRepeatInContent(params.content, rebuilt)
+  const finalizedRepeat = finalizeDialogueRepeatEnglishBody({
+    candidateRepeat: rebuilt,
+    pinnedRepeat: params.pinnedRepeat ?? null,
+    userText: params.userText,
+    requiredTense: params.tutorGradingTense,
+    priorAssistantContent: params.priorAssistantContent ?? null,
+  })
+  if (finalizedRepeat.trim().toLowerCase() === repeat.trim().toLowerCase()) return params.content
+  return replaceDialogueRepeatInContent(params.content, finalizedRepeat)
 }
 
 /** Не клампить только если pin сам невалиден по времени (плохой эталон не закрепляем выше по пайплайну). */
@@ -6589,10 +6670,16 @@ export async function POST(req: NextRequest) {
       isCyrillicOnlyText(lastUserContentForResponse) &&
       (Boolean(forcedRepeatSentence?.trim()) || hasRussianDialogueFallbackSignal(lastUserContentForResponse))
     ) {
-      const repeatBody = forcedRepeatSentence?.trim() || buildMixedInputRepeatFallback({
+      const repeatBody = finalizeDialogueRepeatEnglishBody({
+        candidateRepeat: buildMixedInputRepeatFallback({
+          userText: lastUserContentForResponse,
+          tense: tutorGradingTense,
+          dialogueRepeatAnchorTense,
+        }),
+        pinnedRepeat: forcedRepeatSentence?.trim() ?? null,
         userText: lastUserContentForResponse,
-        tense: tutorGradingTense,
-        dialogueRepeatAnchorTense,
+        requiredTense: tutorGradingTense,
+        priorAssistantContent: priorAssistantContentForDialogue,
       })
       if (repeatBody && /[A-Za-z]/.test(repeatBody) && !/[А-Яа-яЁё]/.test(repeatBody)) {
         return NextResponse.json({
@@ -7236,12 +7323,23 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         userText: lastUserContentForResponse,
         requiredTense: tutorGradingTense,
         dialogueRepeatAnchorTense,
+        pinnedRepeat: dialoguePinnedRepeatEnglish,
+        priorAssistantContent: priorAssistantContentForDialogue,
       })
       sanitized = replaceGenericDialogueMetaRepeatIfNeeded({
         content: sanitized,
         userText: lastUserContentForResponse,
         tutorGradingTense,
         dialogueRepeatAnchorTense,
+        pinnedRepeat: dialoguePinnedRepeatEnglish,
+        priorAssistantContent: priorAssistantContentForDialogue,
+      })
+      sanitized = finalizeDialogueRepeatInContent({
+        content: sanitized,
+        pinnedRepeat: dialoguePinnedRepeatEnglish,
+        userText: lastUserContentForResponse,
+        requiredTense: tutorGradingTense,
+        priorAssistantContent: priorAssistantContentForDialogue,
       })
     }
     if (mode !== 'translation') {
@@ -8737,13 +8835,17 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         })
       }
       if (mode === 'dialogue' && !isFirstTurn && !isTopicChoiceTurn && !isLowSignalDialogueInput(lastUserContentForResponse)) {
-        const dialogueFallbackRepeatBody =
-          dialoguePinnedRepeatEnglish?.trim() ||
-          buildMixedInputRepeatFallback({
+        const dialogueFallbackRepeatBody = finalizeDialogueRepeatEnglishBody({
+          candidateRepeat: buildMixedInputRepeatFallback({
             userText: lastUserContentForResponse,
             tense: tutorGradingTense,
             dialogueRepeatAnchorTense,
-          })
+          }),
+          pinnedRepeat: dialoguePinnedRepeatEnglish?.trim() ?? null,
+          userText: lastUserContentForResponse,
+          requiredTense: tutorGradingTense,
+          priorAssistantContent: priorAssistantContentForDialogue,
+        })
         const correctionWithoutRepeat = hasCommentRequestingCorrectionWithoutRepeat(sanitized)
         if (correctionWithoutRepeat) {
           if (isMixedDialogueInput) {
@@ -8991,12 +9093,23 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         userText: lastUserContentForResponse,
         requiredTense: tutorGradingTense,
         dialogueRepeatAnchorTense,
+        pinnedRepeat: dialoguePinnedRepeatEnglish,
+        priorAssistantContent: priorAssistantContentForDialogue,
       })
       sanitized = replaceGenericDialogueMetaRepeatIfNeeded({
         content: sanitized,
         userText: lastUserContentForResponse,
         tutorGradingTense,
         dialogueRepeatAnchorTense,
+        pinnedRepeat: dialoguePinnedRepeatEnglish,
+        priorAssistantContent: priorAssistantContentForDialogue,
+      })
+      sanitized = finalizeDialogueRepeatInContent({
+        content: sanitized,
+        pinnedRepeat: dialoguePinnedRepeatEnglish,
+        userText: lastUserContentForResponse,
+        requiredTense: tutorGradingTense,
+        priorAssistantContent: priorAssistantContentForDialogue,
       })
     }
 

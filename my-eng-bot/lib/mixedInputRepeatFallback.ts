@@ -183,7 +183,7 @@ export function isGenericDialogueAnsweredInEnglishRepeat(text: string): boolean 
   return GENERIC_REPEAT_PHRASES_LOWER.has(n.toLowerCase())
 }
 
-function genericRepeatByTense(tense: string): string {
+export function genericRepeatByTense(tense: string): string {
   return GENERIC_REPEAT_BY_TENSE[tense] ?? GENERIC_REPEAT_BY_TENSE.all
 }
 
@@ -218,7 +218,7 @@ const COERCE_IRREGULAR_PP: Record<string, string> = {
 
 function pastParticipleForCoerceVerb(verb: string): string | null {
   const v = verb.toLowerCase()
-  if (!v || v === 'be' || v === 'have') return null
+  if (!v || v === 'be' || v === 'have' || v === 'has' || v === 'had') return null
   if (COERCE_IRREGULAR_PP[v]) return COERCE_IRREGULAR_PP[v]
   return toPastParticiple(v)
 }
@@ -228,7 +228,7 @@ function pastParticipleForCoerceVerb(verb: string): string | null {
  */
 function tryCoerceLatinRepeatToFuturePerfect(latin: string): string | null {
   const trimmed = latin.trim()
-  const m = /^\s*I\s+will\s+(not\s+)?(?!have\b|be\b)([a-z]+)\b(.*)$/i.exec(trimmed)
+  const m = /^\s*I\s+will\s+(not\s+)?(?!have\b|has\b|had\b|be\b)([a-z]+)\b(.*)$/i.exec(trimmed)
   if (!m) return null
   const neg = m[1] ? 'not ' : ''
   const verb = (m[2] ?? '').toLowerCase().trim()

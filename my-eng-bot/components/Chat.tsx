@@ -2675,7 +2675,8 @@ function MessageBubble({
         translationHeadingWelcome: translationMainDrillHeadingWelcome,
       })
 
-  React.useEffect(() => {
+  // До paint: иначе один кадр без loadingTranslationIndex → мигание «Не удалось загрузить…».
+  React.useLayoutEffect(() => {
     if (!showTranslation) {
       translationRequestedRef.current = false
       return

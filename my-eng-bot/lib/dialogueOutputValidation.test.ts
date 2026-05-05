@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { isDialogueOutputLikelyInRequiredTense, validateDialogueOutputTense } from './dialogueOutputValidation'
+import {
+  isDialogueOutputLikelyInRequiredTense,
+  validateDialogueOutputTense,
+  validateDialogueRepeatTense,
+} from './dialogueOutputValidation'
 
 describe('isDialogueOutputLikelyInRequiredTense', () => {
   it('Комментарий + вопрос в Past Simple: при requiredTense present_simple без expectedNext — несовпадение', () => {
@@ -117,5 +121,35 @@ describe('isDialogueOutputLikelyInRequiredTense', () => {
         priorAssistantContent: null,
       })
     ).toEqual({ ok: false, reason: 'required_tense_mismatch' })
+  })
+})
+
+describe('validateDialogueRepeatTense', () => {
+  it('валидирует Повтори по requiredTense', () => {
+    expect(
+      validateDialogueRepeatTense({
+        repeatEnglish: 'I have been cooking for two hours.',
+        requiredTense: 'present_perfect_continuous',
+        priorAssistantContent: null,
+      })
+    ).toBe(true)
+  })
+
+  it('для requiredTense=all опирается на previous assistant tense', () => {
+    expect(
+      validateDialogueRepeatTense({
+        repeatEnglish: 'I was swimming in the river yesterday evening.',
+        requiredTense: 'all',
+        priorAssistantContent: 'What were you doing near the river yesterday evening?',
+      })
+    ).toBe(true)
+
+    expect(
+      validateDialogueRepeatTense({
+        repeatEnglish: 'I swim in the river.',
+        requiredTense: 'all',
+        priorAssistantContent: 'What were you doing near the river yesterday evening?',
+      })
+    ).toBe(false)
   })
 })

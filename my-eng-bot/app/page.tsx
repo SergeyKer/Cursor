@@ -2144,6 +2144,8 @@ export default function Home() {
 
   const handleRequestTranslation = useCallback(async (index: number, text: string) => {
     if (!text.trim()) return
+    const resolvedIndex = findAssistantIndexByTranslationText(messages, index, text)
+    setLoadingTranslationIndex(resolvedIndex)
     const setResult = (translation?: string, translationError?: string) => {
       setMessages((prev) => {
         const next = [...prev]
@@ -2155,11 +2157,10 @@ export default function Home() {
       })
     }
     setMessages((prev) => {
-      const resolvedIndex = findAssistantIndexByTranslationText(prev, index, text)
-      setLoadingTranslationIndex(resolvedIndex)
+      const ri = findAssistantIndexByTranslationText(prev, index, text)
       const next = [...prev]
-      if (next[resolvedIndex]?.role === 'assistant') {
-        next[resolvedIndex] = { ...next[resolvedIndex], translation: undefined, translationError: undefined }
+      if (next[ri]?.role === 'assistant') {
+        next[ri] = { ...next[ri], translation: undefined, translationError: undefined }
       }
       return next
     })
@@ -2262,7 +2263,7 @@ export default function Home() {
       setLoadingTranslationIndex(null)
       setResult(undefined, lastError)
     }
-  }, [settings.provider, settings.openAiChatPreset, settings.audience, settings.mode, settings.tenses])
+  }, [messages, settings.provider, settings.openAiChatPreset, settings.audience, settings.mode, settings.tenses])
 
   /** Сравнение для баннера в шапке. В «Диалог» и «Перевод»: предупреждение только если изменился только уровень (без перезапуска из меню). Смена темы/времени/ребёнок–взрослый/типа даёт новый чат — баннер не нужен. */
   function settingsDiffersFromLastSendForBanner(current: Settings, last: Settings | null): boolean {

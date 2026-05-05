@@ -109,6 +109,17 @@ describe('buildMixedInputRepeatFallback', () => {
     expect(out).toBe('I will have answered in English.')
   })
 
+  it('does not build "hased the prepare" from broken future perfect attempt', () => {
+    const out = buildMixedInputRepeatFallback({
+      userText: 'I will has prepare шашлык',
+      tense: 'future_perfect',
+    })
+
+    expect(out.toLowerCase()).not.toContain('hased')
+    expect(out.toLowerCase()).not.toContain('the prepare')
+    expect(out).toBe('I will have answered in English.')
+  })
+
   it.each(DIALOGUE_TENSE_INFERENCE_ORDER.filter((t) => t !== 'all'))(
     'Latin noise "I wontn have car" never becomes repeat body for %s',
     (tense) => {

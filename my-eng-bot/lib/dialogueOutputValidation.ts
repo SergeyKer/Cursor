@@ -22,6 +22,25 @@ export type DialogueTenseValidationReason =
   | 'required_tense_mismatch'
   | 'semantic_mismatch'
 
+export function validateDialogueRepeatTense(params: {
+  repeatEnglish: string
+  requiredTense?: string
+  priorAssistantContent?: string | null
+}): boolean {
+  const { repeatEnglish, requiredTense, priorAssistantContent } = params
+  if (!requiredTense) return true
+  const repeatSentence = repeatEnglish.trim()
+  if (!repeatSentence) return false
+
+  if (requiredTense === 'all') {
+    const inferred = priorAssistantContent ? inferTenseFromDialogueAssistantContent(priorAssistantContent) : null
+    if (!inferred) return false
+    return isUserLikelyCorrectForTense(repeatSentence, inferred)
+  }
+
+  return isUserLikelyCorrectForTense(repeatSentence, requiredTense)
+}
+
 export function validateDialogueOutputTense(params: {
   content: string
   requiredTense?: string
@@ -46,17 +65,11 @@ export function validateDialogueOutputTense(params: {
     if (lastUserText && !isRepeatSemanticallySafe({ userText: lastUserText, repeatSentence })) {
       return { ok: false, reason: 'semantic_mismatch' }
     }
-    if (requiredTense === 'all') {
-      const inferred = priorAssistantContent ? inferTenseFromDialogueAssistantContent(priorAssistantContent) : null
-      if (!inferred) {
-        return { ok: false, reason: 'required_tense_mismatch' }
-      }
-      if (!isUserLikelyCorrectForTense(repeatSentence, inferred)) {
-        return { ok: false, reason: 'required_tense_mismatch' }
-      }
-      return { ok: true }
-    }
-    return isUserLikelyCorrectForTense(repeatSentence, requiredTense)
+    return validateDialogueRepeatTense({
+      repeatEnglish: repeatSentence,
+      requiredTense,
+      priorAssistantContent,
+    })
       ? { ok: true }
       : { ok: false, reason: 'required_tense_mismatch' }
   }

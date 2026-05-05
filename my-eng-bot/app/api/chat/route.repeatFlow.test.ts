@@ -603,6 +603,39 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content.toLowerCase()).not.toMatch(/повтори:.*\b2\s*\.?\s*$/im)
   })
 
+  it('dialogue fallback with requiredTense=all keeps anchor tense in repeat fallback', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: 'Комментарий: Исправьте ответ полностью.',
+    })
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: 'Комментарий: Исправьте ответ полностью.',
+    })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      topic: 'food',
+      audience: 'adult',
+      level: 'all',
+      tenses: ['all'],
+      messages: [
+        {
+          role: 'assistant',
+          content: 'What special meals will you have prepared at your country house by the end of your visit?',
+        },
+        { role: 'user', content: 'I wontn have car шашлык' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Повтори: I will have answered in English.')
+    expect(data.content).not.toContain('Повтори: I answered in English.')
+  })
+
   it('returns to normal flow after gibberish when user gives valid answer', async () => {
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,
