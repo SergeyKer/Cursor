@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
+import { ensurePracticeChoiceOptions, isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
 import type { PracticeQuestion } from '@/types/practice'
 
 interface PracticeQuestionRendererProps {
@@ -42,7 +43,8 @@ function wordBank(question: PracticeQuestion): string[] {
 function helperText(question: PracticeQuestion): string {
   if (question.type === 'dropdown-fill') return 'Выберите вариант и отправьте ответ.'
   if (question.type === 'listening-select') return 'Сначала прослушайте фразу, затем выберите ответ.'
-  if (question.type === 'voice-shadow') return 'Прослушайте и повторите вслух. Затем подтвердите повтор.'
+  if (question.type === 'voice-shadow')
+    return 'Прослушайте и повторите вслух или введите ту же фразу текстом ниже.'
   if (question.type === 'word-builder-pro') return 'Нажимайте слова в правильном порядке.'
   if (question.type === 'dictation') return 'Прослушайте фразу и напишите её по памяти.'
   if (question.type === 'roleplay-mini') return 'Ответьте коротко, как в настоящем диалоге.'
@@ -59,10 +61,17 @@ export default function PracticeQuestionRenderer({
   onSubmit,
 }: PracticeQuestionRendererProps) {
   const [draft, setDraft] = useState('')
+  const [voiceTextDraft, setVoiceTextDraft] = useState('')
   const [selectedOption, setSelectedOption] = useState('')
   const [selectedWords, setSelectedWords] = useState<string[]>([])
   const [remainingWords, setRemainingWords] = useState<string[]>(() => wordBank(question))
-  const choices = useMemo(() => question.options ?? [], [question.options])
+  const choices = useMemo(() => {
+    const raw = question.options ?? []
+    if (isChoiceLikePracticeType(question.type) && raw.length < 2) {
+      return ensurePracticeChoiceOptions(raw, question.targetAnswer)
+    }
+    return raw
+  }, [question.options, question.targetAnswer, question.type])
   const canUseChoices =
     choices.length > 0 &&
     !correctionMode &&
@@ -78,6 +87,7 @@ export default function PracticeQuestionRenderer({
 
   useEffect(() => {
     setDraft('')
+    setVoiceTextDraft('')
     setSelectedOption('')
     setSelectedWords([])
     setRemainingWords(wordBank(question))
@@ -215,6 +225,30 @@ export default function PracticeQuestionRenderer({
         >
           Я повторил вслух
         </button>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            const text = voiceTextDraft.trim()
+            if (!text || disabled) return
+            setVoiceTextDraft('')
+            onSubmit(text)
+          }}
+          className="flex flex-col gap-2 border-t border-[var(--chat-shell-border)] pt-2"
+        >
+          <p className="text-[12px] leading-relaxed text-[var(--text-muted)]">Или введите ту же фразу текстом:</p>
+          <div className="flex items-end gap-2">
+            <input
+              type="text"
+              value={voiceTextDraft}
+              onChange={(event) => setVoiceTextDraft(event.target.value)}
+              disabled={disabled}
+              className="chat-input-field lesson-chat-input-field min-w-0 flex-1 rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] text-[var(--text)] outline-none disabled:opacity-70"
+              placeholder="Напечатайте фразу на английском..."
+              autoComplete="off"
+            />
+            <SubmitRoundButton disabled={disabled || !voiceTextDraft.trim()} />
+          </div>
+        </form>
       </div>
     )
   }

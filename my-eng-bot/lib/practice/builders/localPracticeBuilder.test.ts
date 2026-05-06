@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
 import { buildLocalPracticeSession } from '@/lib/practice/builders/localPracticeBuilder'
+import { isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
 import type { PracticeExerciseType } from '@/types/practice'
 
 describe('buildLocalPracticeSession', () => {
@@ -69,6 +70,12 @@ describe('buildLocalPracticeSession', () => {
     expect(questionsByType.get('word-builder-pro')?.shuffledWords?.length).toBeGreaterThan(0)
     expect(questionsByType.get('roleplay-mini')?.keywords?.length).toBeGreaterThan(0)
     expect(questionsByType.get('boss-challenge')?.minWords).toBeGreaterThanOrEqual(5)
+
+    const choiceLikeTypes = session.questions.filter((q) => isChoiceLikePracticeType(q.type))
+    expect(choiceLikeTypes.length).toBeGreaterThan(0)
+    for (const question of choiceLikeTypes) {
+      expect(question.options?.length ?? 0).toBeGreaterThanOrEqual(2)
+    }
   })
 })
 

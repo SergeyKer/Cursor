@@ -1,4 +1,6 @@
+import { ensurePracticeChoiceOptions } from '@/lib/practice/ensurePracticeChoiceOptions'
 import { getPracticeExerciseMetadata } from '@/lib/practice/registry'
+import { resolveLessonExerciseVariant } from '@/lib/practice/resolveLessonExerciseVariant'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
 import type { Exercise, LessonData, LessonStep } from '@/types/lesson'
 import type {
@@ -21,12 +23,6 @@ function cloneOptions(options: string[] | undefined): string[] | undefined {
   return options && options.length > 0 ? [...options] : undefined
 }
 
-function ensureChoiceOptions(options: string[] | undefined, targetAnswer: string): string[] {
-  const unique = Array.from(new Set([targetAnswer, ...(options ?? [])].map((item) => item.trim()).filter(Boolean)))
-  if (unique.length >= 2) return unique
-  return [targetAnswer, "I don't know yet"]
-}
-
 function optionsForType(type: PracticeExerciseType, exercise: Exercise, targetAnswer: string): string[] | undefined {
   if (
     type === 'choice' ||
@@ -35,17 +31,34 @@ function optionsForType(type: PracticeExerciseType, exercise: Exercise, targetAn
     type === 'speed-round' ||
     type === 'context-clue'
   ) {
-    return ensureChoiceOptions(exercise.options, targetAnswer)
+    return ensurePracticeChoiceOptions(exercise.options, targetAnswer)
   }
   return cloneOptions(exercise.options)
 }
 
-function shuffleWords(text: string): string[] {
-  return text
+function wordTokensInPedagogicalOrder(exercise: Exercise, targetAnswer: string): string[] {
+  if (exercise.type === 'sentence_puzzle' && exercise.puzzleVariants?.[0]) {
+    const variant = exercise.puzzleVariants[0]
+    const order = variant.correctOrder.length > 0 ? variant.correctOrder : variant.words
+    if (order.length > 0) return order.map((word) => word.trim()).filter(Boolean)
+  }
+  return targetAnswer
     .replace(/[.!?]$/g, '')
     .split(/\s+/)
     .filter(Boolean)
-    .sort((left, right) => left.localeCompare(right))
+}
+
+function shuffledWordBank(exercise: Exercise, targetAnswer: string): string[] {
+  const tokens = wordTokensInPedagogicalOrder(exercise, targetAnswer)
+  if (tokens.length === 0) return []
+  const copy = [...tokens]
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const tmp = copy[i]!
+    copy[i] = copy[j]!
+    copy[j] = tmp
+  }
+  return copy
 }
 
 function acceptedAnswersFor(exercise: Exercise): string[] {
@@ -67,20 +80,25 @@ function createQuestion(params: {
   exercise: Exercise
   type: PracticeExerciseType
   index: number
+  variantIndex?: number
 }): PracticeQuestion {
   const meta = getPracticeExerciseMetadata(params.type)
   const acceptedAnswers = acceptedAnswersFor(params.exercise)
   const targetAnswer = acceptedAnswers[0] ?? params.exercise.correctAnswer
   const prompt = params.exercise.question?.trim() || params.step.bubbles.at(-1)?.content || 'Ответьте по теме урока.'
+  const variantSuffix = params.variantIndex != null ? `-v${params.variantIndex}` : ''
   return {
-    id: `${params.lesson.id}-${params.step.stepNumber}-${params.type}-${params.index}`,
+    id: `${params.lesson.id}-${params.step.stepNumber}-${params.type}-${params.index}${variantSuffix}`,
     lessonId: params.lesson.id,
     type: params.type,
     prompt,
     targetAnswer,
     acceptedAnswers,
     options: optionsForType(params.type, params.exercise, targetAnswer),
-    shuffledWords: params.type === 'sentence-surgery' || params.type === 'word-builder-pro' ? shuffleWords(targetAnswer) : undefined,
+    shuffledWords:
+      params.type === 'sentence-surgery' || params.type === 'word-builder-pro'
+        ? shuffledWordBank(params.exercise, targetAnswer)
+        : undefined,
     audioText: params.type === 'dictation' || params.type === 'listening-select' || params.type === 'voice-shadow' ? targetAnswer : undefined,
     keywords: params.type === 'free-response' || params.type === 'roleplay-mini' ? targetAnswer.split(/\s+/).slice(0, 3) : undefined,
     minWords: params.type === 'boss-challenge' ? 5 : params.type === 'free-response' || params.type === 'roleplay-mini' ? 3 : undefined,
@@ -125,11 +143,24 @@ function buildQuestions(lesson: LessonData, mode: PracticeBuildConfig['mode']): 
   let sourceIndex = 0
   for (let index = 0; index < plan.length; index += 1) {
     const source = sourceSteps[sourceIndex % sourceSteps.length]
+    const variantCount = source.exercise.variants?.length ?? 0
+    const variantIndex = variantCount > 0 ? index % variantCount : 0
+    const resolvedExercise =
+      variantCount > 0 ? resolveLessonExerciseVariant(source.exercise, variantIndex) : source.exercise
     const preferredType = plan.boss && index === plan.length - 1 ? 'boss-challenge' : plan.types[index % plan.types.length]
-    const type = mapExerciseType(source.exercise, preferredType)
+    const type = mapExerciseType(resolvedExercise, preferredType)
     const previous = questions.at(-1)
-    const finalType = previous?.type === type && source.exercise.options?.length ? 'choice' : type
-    questions.push(createQuestion({ lesson, step: source.step, exercise: source.exercise, type: finalType, index }))
+    const finalType = previous?.type === type && resolvedExercise.options?.length ? 'choice' : type
+    questions.push(
+      createQuestion({
+        lesson,
+        step: source.step,
+        exercise: resolvedExercise,
+        type: finalType,
+        index,
+        variantIndex: variantCount > 0 ? variantIndex : undefined,
+      })
+    )
     sourceIndex += 1
   }
 

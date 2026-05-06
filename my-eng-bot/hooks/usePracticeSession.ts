@@ -34,6 +34,7 @@ export interface PracticeSessionControls {
 }
 
 const CHECKING_DELAY_MS = 260
+const FEEDBACK_AUTO_ADVANCE_MS = 1400
 
 function applyStatus(session: PracticeSession, status: PracticeSessionStatus): PracticeSession {
   return { ...session, status, completedAt: status === 'completed' ? Date.now() : session.completedAt }
@@ -67,6 +68,15 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
   const submittingRef = useRef(false)
   const pendingCorrectionRef = useRef<PracticeQuestion | null>(null)
   const checkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const feedbackAutoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const nextQuestionRef = useRef<() => void>(() => {})
+
+  const clearFeedbackAutoAdvance = useCallback(() => {
+    if (feedbackAutoAdvanceRef.current) {
+      clearTimeout(feedbackAutoAdvanceRef.current)
+      feedbackAutoAdvanceRef.current = null
+    }
+  }, [])
 
   useEffect(() => {
     const restored = storage.loadActiveSession()
@@ -79,8 +89,9 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
   useEffect(() => {
     return () => {
       if (checkingTimerRef.current) clearTimeout(checkingTimerRef.current)
+      clearFeedbackAutoAdvance()
     }
-  }, [])
+  }, [clearFeedbackAutoAdvance])
 
   const currentQuestion = useMemo(() => {
     if (!session || session.status !== 'active') return null
@@ -97,44 +108,8 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
     [storage]
   )
 
-  const startSession = useCallback(
-    (config: PracticeBuildConfig) => {
-      const nextSession = config.questions?.length
-        ? buildPracticeSessionFromQuestions(config, config.questions)
-        : buildLocalPracticeSession(config)
-      pendingCorrectionRef.current = null
-      questionStartedAtRef.current = Date.now()
-      setFeedback(null)
-      setState('active')
-      persistSession(nextSession)
-      return nextSession
-    },
-    [persistSession]
-  )
-
-  const resumeSession = useCallback(() => {
-    const restored = storage.loadActiveSession()
-    if (!restored || restored.status !== 'active') return null
-    pendingCorrectionRef.current = null
-    questionStartedAtRef.current = Date.now()
-    setFeedback(null)
-    setState('active')
-    setSession(restored)
-    return restored
-  }, [storage])
-
-  const completeSession = useCallback(() => {
-    setSession((current) => {
-      if (!current) return current
-      const completed = applyStatus(current, 'completed')
-      storage.saveCompletedSession(completed)
-      storage.clearActiveSession()
-      setState('completed')
-      return completed
-    })
-  }, [storage])
-
   const nextQuestion = useCallback(() => {
+    clearFeedbackAutoAdvance()
     setSession((current) => {
       if (!current) return current
       if (current.currentIndex >= current.questions.length - 1) {
@@ -152,13 +127,60 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
       storage.saveActiveSession(next)
       return next
     })
-  }, [storage])
+  }, [clearFeedbackAutoAdvance, storage])
+
+  useEffect(() => {
+    nextQuestionRef.current = () => {
+      nextQuestion()
+    }
+  }, [nextQuestion])
+
+  const startSession = useCallback(
+    (config: PracticeBuildConfig) => {
+      clearFeedbackAutoAdvance()
+      const nextSession = config.questions?.length
+        ? buildPracticeSessionFromQuestions(config, config.questions)
+        : buildLocalPracticeSession(config)
+      pendingCorrectionRef.current = null
+      questionStartedAtRef.current = Date.now()
+      setFeedback(null)
+      setState('active')
+      persistSession(nextSession)
+      return nextSession
+    },
+    [clearFeedbackAutoAdvance, persistSession]
+  )
+
+  const resumeSession = useCallback(() => {
+    clearFeedbackAutoAdvance()
+    const restored = storage.loadActiveSession()
+    if (!restored || restored.status !== 'active') return null
+    pendingCorrectionRef.current = null
+    questionStartedAtRef.current = Date.now()
+    setFeedback(null)
+    setState('active')
+    setSession(restored)
+    return restored
+  }, [clearFeedbackAutoAdvance, storage])
+
+  const completeSession = useCallback(() => {
+    clearFeedbackAutoAdvance()
+    setSession((current) => {
+      if (!current) return current
+      const completed = applyStatus(current, 'completed')
+      storage.saveCompletedSession(completed)
+      storage.clearActiveSession()
+      setState('completed')
+      return completed
+    })
+  }, [clearFeedbackAutoAdvance, storage])
 
   const submitAnswer = useCallback(
     (answer: string) => {
       const cleanAnswer = answer.trim()
       if (!session || !currentQuestion || !cleanAnswer || submittingRef.current) return
 
+      clearFeedbackAutoAdvance()
       submittingRef.current = true
       setState('checking')
 
@@ -203,6 +225,11 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
             message: correctionQuestion ? 'Отлично, закрепили. Идём дальше.' : 'Верно. Хороший ответ.',
           })
           setState('feedback')
+          clearFeedbackAutoAdvance()
+          feedbackAutoAdvanceRef.current = setTimeout(() => {
+            feedbackAutoAdvanceRef.current = null
+            nextQuestionRef.current()
+          }, FEEDBACK_AUTO_ADVANCE_MS)
         } else {
           pendingCorrectionRef.current = questionToValidate
           setFeedback({
@@ -215,16 +242,17 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
         submittingRef.current = false
       }, CHECKING_DELAY_MS)
     },
-    [currentQuestion, session, storage]
+    [clearFeedbackAutoAdvance, currentQuestion, session, storage]
   )
 
   const abandonSession = useCallback(() => {
+    clearFeedbackAutoAdvance()
     pendingCorrectionRef.current = null
     setFeedback(null)
     setState('idle')
     setSession(null)
     storage.clearActiveSession()
-  }, [storage])
+  }, [clearFeedbackAutoAdvance, storage])
 
   return {
     session,

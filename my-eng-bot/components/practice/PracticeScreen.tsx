@@ -263,13 +263,18 @@ export default function PracticeScreen({
                   busy={generationBusy}
                 />
               ) : state === 'feedback' ? (
-                <button
-                  type="button"
-                  onClick={onNextQuestion}
-                  className="btn-3d-menu w-full rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--status-info-text)]"
-                >
-                  {session.currentIndex >= session.questions.length - 1 ? 'Завершить практику' : 'Следующее задание'}
-                </button>
+                <div className="space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={onNextQuestion}
+                    className="btn-3d-menu w-full rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--status-info-text)]"
+                  >
+                    {session.currentIndex >= session.questions.length - 1 ? 'Завершить практику' : 'Следующее задание'}
+                  </button>
+                  <p className="px-1 text-center text-[12px] leading-snug text-[var(--text-muted)]">
+                    Переход выполнится автоматически через пару секунд — кнопка ускоряет шаг.
+                  </p>
+                </div>
               ) : currentQuestion ? (
                 <PracticeQuestionRenderer
                   question={currentQuestion}

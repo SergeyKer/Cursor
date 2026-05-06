@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { callProviderChat } from '@/lib/callProviderChat'
 import { buildLocalPracticeSession } from '@/lib/practice/builders/localPracticeBuilder'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
-import { getPracticeExerciseMetadata } from '@/lib/practice/registry'
+import { normalizeAiPracticeQuestion } from '@/lib/practice/normalizeAiPracticeQuestion'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
 import type { AiProvider, Audience, OpenAiChatPreset } from '@/lib/types'
 import type { LessonData } from '@/types/lesson'
-import type { PracticeExerciseType, PracticeMode, PracticeQuestion } from '@/types/practice'
+import type { PracticeMode, PracticeQuestion } from '@/types/practice'
 
 type Body = {
   provider?: AiProvider
@@ -31,23 +31,6 @@ function isPracticeMode(value: unknown): value is PracticeMode {
   return value === 'relaxed' || value === 'balanced' || value === 'challenge'
 }
 
-function isPracticeExerciseType(value: unknown): value is PracticeExerciseType {
-  return (
-    value === 'choice' ||
-    value === 'voice-shadow' ||
-    value === 'dropdown-fill' ||
-    value === 'listening-select' ||
-    value === 'sentence-surgery' ||
-    value === 'free-response' ||
-    value === 'word-builder-pro' ||
-    value === 'dictation' ||
-    value === 'roleplay-mini' ||
-    value === 'boss-challenge' ||
-    value === 'speed-round' ||
-    value === 'context-clue'
-  )
-}
-
 function fallbackQuestions(lesson: LessonData, mode: PracticeMode): PracticeQuestion[] {
   return buildLocalPracticeSession({
     lesson,
@@ -58,60 +41,13 @@ function fallbackQuestions(lesson: LessonData, mode: PracticeMode): PracticeQues
   }).questions
 }
 
-function normalizeQuestion(row: unknown, lesson: LessonData, index: number): PracticeQuestion | null {
-  if (!row || typeof row !== 'object') return null
-  const source = row as Record<string, unknown>
-  const type = isPracticeExerciseType(source.type) ? source.type : null
-  const prompt = typeof source.prompt === 'string' ? source.prompt.trim() : ''
-  const targetAnswer = typeof source.targetAnswer === 'string' ? source.targetAnswer.trim() : ''
-  if (!type || !prompt || !targetAnswer) return null
-
-  const meta = getPracticeExerciseMetadata(type)
-  const acceptedAnswers = Array.isArray(source.acceptedAnswers)
-    ? source.acceptedAnswers.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-    : []
-  const options = Array.isArray(source.options)
-    ? source.options.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).slice(0, 5)
-    : undefined
-  const shuffledWords = Array.isArray(source.shuffledWords)
-    ? source.shuffledWords.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-    : undefined
-  const extraWords = Array.isArray(source.extraWords)
-    ? source.extraWords.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-    : undefined
-  const keywords = Array.isArray(source.keywords)
-    ? source.keywords.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-    : undefined
-
-  return {
-    id: `ai-practice-${lesson.id}-${index}-${Math.random().toString(36).slice(2, 8)}`,
-    lessonId: lesson.id,
-    type,
-    prompt,
-    targetAnswer,
-    acceptedAnswers: Array.from(new Set([targetAnswer, ...acceptedAnswers])),
-    options: options && options.length >= 2 ? options : undefined,
-    shuffledWords: shuffledWords && shuffledWords.length > 0 ? shuffledWords : undefined,
-    extraWords: extraWords && extraWords.length > 0 ? extraWords : undefined,
-    audioText: typeof source.audioText === 'string' ? source.audioText.trim() : targetAnswer,
-    keywords: keywords && keywords.length > 0 ? keywords : undefined,
-    minWords: typeof source.minWords === 'number' && source.minWords > 0 ? Math.min(20, source.minWords) : undefined,
-    hint: typeof source.hint === 'string' ? source.hint.trim() : undefined,
-    explanation: typeof source.explanation === 'string' ? source.explanation.trim() : undefined,
-    correctionPrompt: `Закрепим правильный вариант: ${targetAnswer}`,
-    xpBase: meta.xpBase,
-    difficulty: meta.difficulty,
-    tolerance: meta.tolerance,
-  }
-}
-
 function normalizeQuestions(rawQuestions: unknown, lesson: LessonData, mode: PracticeMode): PracticeQuestion[] {
   if (!Array.isArray(rawQuestions)) return []
   const plan = getPracticeModePlan(mode)
   const allowedTypes = new Set(plan.types)
   const questions = rawQuestions
     .slice(0, plan.length)
-    .map((row, index) => normalizeQuestion(row, lesson, index))
+    .map((row, index) => normalizeAiPracticeQuestion(row, lesson, index))
     .filter((question): question is PracticeQuestion => Boolean(question))
     .filter((question) => allowedTypes.has(question.type) || (plan.boss && question.type === 'boss-challenge'))
 
