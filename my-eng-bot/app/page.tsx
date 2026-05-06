@@ -90,6 +90,7 @@ import PracticeScreen from '@/components/practice/PracticeScreen'
 import AccentTrainer, { type AccentFooterView } from '@/components/accent/AccentTrainer'
 import { getPracticeFooterView } from '@/lib/practice/practiceFooter'
 import { pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
+import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 import type { VocabularyFooterView } from '@/types/vocabulary'
 
@@ -101,6 +102,7 @@ import {
 const Chat = dynamic(() => import('@/components/Chat'))
 const SlideOutMenu = dynamic(() => import('@/components/SlideOutMenu'))
 const VocabularyWorldsScreen = dynamic(() => import('@/components/vocabulary/VocabularyWorldsScreen'))
+const AdaptiveDailyHub = dynamic(() => import('@/components/adaptiveRetention/AdaptiveDailyHub'), { ssr: false })
 type StructuredLessonRuntimeMode = 'generate' | 'repeat'
 type LessonRepeatFallbackReason = 'provider' | 'parse' | 'validation' | 'exception' | 'no_steps'
 type PracticeOpenRequest = {
@@ -448,6 +450,7 @@ export default function Home() {
   const [accentFooterView, setAccentFooterView] = useState<AccentFooterView | null>(null)
   const [vocabularyWorldsActive, setVocabularyWorldsActive] = useState(false)
   const [vocabularyFooterView, setVocabularyFooterView] = useState<VocabularyFooterView | null>(null)
+  const [adaptiveFooterView, setAdaptiveFooterView] = useState<AdaptiveFooterView | null>(null)
   const structuredLessonChoiceShuffleSeed =
     activeStructuredLesson == null
       ? undefined
@@ -958,6 +961,7 @@ export default function Home() {
     setAccentFooterView(null)
     setVocabularyWorldsActive(false)
     setVocabularyFooterView(null)
+    setAdaptiveFooterView(null)
     setLessonMenuContext(null)
     setActiveLearningLessonId(null)
     setActiveStructuredLessonRuntime(null)
@@ -1640,6 +1644,7 @@ export default function Home() {
 
   const openVocabularyWorlds = useCallback(() => {
     resetStructuredLessonSession()
+    setAdaptiveFooterView(null)
     setVocabularyWorldsActive(true)
     setDialogStarted(true)
     setMenuOpen(false)
@@ -1653,6 +1658,22 @@ export default function Home() {
       startPracticeFromLesson(config)
     },
     [resolvePracticeRequest, startPracticeFromLesson]
+  )
+
+  const openAdaptivePracticeTopic = useCallback(
+    (topic: string) => {
+      setAdaptiveFooterView(null)
+      void openPracticeSession({
+        mode: 'balanced',
+        entrySource: 'custom_topic',
+        customTopic: topic,
+      }).catch((error) => {
+        const message = error instanceof Error ? error.message : 'Не удалось открыть практику по выбранной цели.'
+        setMenuLessonBgError(message)
+        setHomeMenuView('lessons')
+      })
+    },
+    [openPracticeSession]
   )
 
   const restartPracticeFromExistingSession = useCallback(
@@ -2563,7 +2584,7 @@ export default function Home() {
       ? learningLessonFooterDynamicText
       : dialogStarted
         ? chatFooterVoice?.text ?? null
-        : homeFooterVoice?.text ?? null
+        : adaptiveFooterView?.dynamicText ?? homeFooterVoice?.text ?? null
   const footerStaticText = isAccentActive
     ? accentFooterView?.staticText ?? 'Произношение'
     : isVocabularyActive
@@ -2580,7 +2601,7 @@ export default function Home() {
       ? learningLessonFooterStaticText
       : dialogStarted
         ? getMenuSummary(false)
-        : 'Главная'
+        : adaptiveFooterView?.staticText ?? 'Главная'
   const footerTypingKey = isAccentActive
     ? accentFooterView?.typingKey ?? 'accent-footer'
     : isVocabularyActive
@@ -2595,7 +2616,7 @@ export default function Home() {
       ? activeStructuredLessonFooterTypingKey
       : dialogStarted
       ? chatFooterVoice?.typingKey ?? 'chat-footer'
-      : homeFooterVoice?.typingKey ?? 'home-footer'
+      : adaptiveFooterView?.typingKey ?? homeFooterVoice?.typingKey ?? 'home-footer'
   const footerVoiceTone = isAccentActive
     ? accentFooterView?.tone ?? 'neutral'
     : isVocabularyActive
@@ -2622,7 +2643,7 @@ export default function Home() {
       ? activeStructuredLessonFooterVoiceTone
       : dialogStarted
       ? (chatFooterVoice?.tone ?? 'neutral')
-      : (homeFooterVoice?.tone ?? 'neutral')
+      : (adaptiveFooterView?.tone ?? homeFooterVoice?.tone ?? 'neutral')
   const footerVoiceEmphasis = isAccentActive
     ? accentFooterView?.emphasis ?? 'none'
     : isVocabularyActive
@@ -2644,7 +2665,7 @@ export default function Home() {
       ? activeStructuredLessonFooterVoiceEmphasis
       : dialogStarted
       ? (chatFooterVoice?.emphasis ?? 'none')
-      : (homeFooterVoice?.emphasis ?? 'none')
+      : (adaptiveFooterView?.emphasis ?? homeFooterVoice?.emphasis ?? 'none')
   const pageTitle = !dialogStarted
     ? 'MyEng - мой английский друг'
     : isVocabularyActive
@@ -2889,15 +2910,20 @@ export default function Home() {
                             Начать Чат с MyEng
                           </button>
                         </div>
-                        <div className="flex w-full items-center justify-end">
-                          <button
-                            type="button"
-                            onClick={() => setHomeMenuView('lessons')}
-                            className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}
-                          >
-                            Начать делать Уроки
-                          </button>
-                        </div>
+                        <AdaptiveDailyHub
+                          settings={settings}
+                          onFooterViewChange={setAdaptiveFooterView}
+                          onOpenVocabularyWorlds={openVocabularyWorlds}
+                          onOpenPracticeTopic={openAdaptivePracticeTopic}
+                          onStartChat={handleStartChatFromHome}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setHomeMenuView('lessons')}
+                          className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}
+                        >
+                          Все уроки и режимы
+                        </button>
                       </>
                     )}
                   </div>
