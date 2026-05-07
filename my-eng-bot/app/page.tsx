@@ -1512,6 +1512,10 @@ export default function Home() {
       let lesson: LessonData | null = null
       let source: PracticeSource | null = null
 
+      if (request.entrySource === 'custom_topic' && !resolvedLessonId) {
+        throw new Error('Сначала выберите тему из каталога практики.')
+      }
+
       if (!resolvedLessonId && customTopic) {
         const staticMatch = findStaticLessonByTopic(customTopic)
         resolvedLessonId = staticMatch?.id ?? null
@@ -1586,7 +1590,9 @@ export default function Home() {
         }
       }
 
-      resolvedLessonId = resolvedLessonId ?? pickQuickStartPracticeTopic('A2')?.id ?? null
+      if (!resolvedLessonId && request.entrySource === 'quick_start') {
+        resolvedLessonId = pickQuickStartPracticeTopic('A2')?.id ?? null
+      }
       if (!lesson && resolvedLessonId) {
         lesson = getPracticeLessonById(resolvedLessonId)
         source = { kind: 'static_lesson', lessonId: resolvedLessonId }
