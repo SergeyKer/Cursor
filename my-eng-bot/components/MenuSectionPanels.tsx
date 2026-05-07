@@ -336,7 +336,7 @@ export default function MenuSectionPanels({
       A2_THEORY_ITEMS.map((item) => ({
         ...item,
         short: a2PracticeTopicCopy[item.id]?.short ?? 'Тема урока',
-        long: a2PracticeTopicCopy[item.id]?.long ?? `Тема: ${item.title}`,
+        long: a2PracticeTopicCopy[item.id]?.long ?? `Тема: ${item.label}`,
       })),
     [a2PracticeTopicCopy]
   )
@@ -345,7 +345,7 @@ export default function MenuSectionPanels({
       A2_PRACTICE_ITEMS.map((item) => ({
         ...item,
         short: a2PracticeTopicCopy[item.id]?.short ?? 'Тема урока',
-        long: a2PracticeTopicCopy[item.id]?.long ?? `Тема: ${item.title}`,
+        long: a2PracticeTopicCopy[item.id]?.long ?? `Тема: ${item.label}`,
       })),
     [a2PracticeTopicCopy]
   )
