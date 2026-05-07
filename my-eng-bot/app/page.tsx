@@ -953,7 +953,7 @@ export default function Home() {
   }, [sendToApi, fetchUsage, settings])
   ensureFirstMessageRef.current = ensureFirstMessage
 
-  const resetStructuredLessonSession = useCallback(() => {
+  const resetStructuredLessonSession = useCallback((options?: { keepLessonMenuContext?: boolean }) => {
     menuLessonGenerateCleanupRef.current?.()
     menuLessonBgFetchEpochRef.current += 1
     setStructuredLessonVariantRegenerating(false)
@@ -967,7 +967,9 @@ export default function Home() {
     setVocabularyByLevelActive(false)
     setVocabularyFooterView(null)
     setAdaptiveFooterView(null)
-    setLessonMenuContext(null)
+    if (!options?.keepLessonMenuContext) {
+      setLessonMenuContext(null)
+    }
     setActiveLearningLessonId(null)
     setActiveStructuredLessonRuntime(null)
     setStructuredLessonLoadingId(null)
@@ -2050,7 +2052,8 @@ export default function Home() {
     setRetryMessage(null)
     setForceNextMicLang(null)
     setLoadingTranslationIndex(null)
-    resetStructuredLessonSession()
+    // Сохраняем контекст ветки уроков, чтобы "Назад" возвращал в тот же раздел.
+    resetStructuredLessonSession({ keepLessonMenuContext: true })
   }, [resetStructuredLessonSession])
 
   const backToVocabularyMenu = useCallback(() => {
@@ -3077,6 +3080,7 @@ export default function Home() {
                     onOpenVocabularyByLevel={openVocabularyByLevel}
                     onOpenAdaptivePracticeTopic={openAdaptivePracticeTopic}
                     onOpenTutorLesson={openTutorLesson}
+                    initialLessonsPanel={homeMenuView === 'lessons' ? lessonMenuContext?.lessonsPanel : undefined}
                   />
                 </div>
               </>

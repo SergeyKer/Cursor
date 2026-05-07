@@ -114,3 +114,42 @@ export function getPracticeTopicSearchTexts(topic: LessonTopicCatalogItem, audie
   const copy = PRACTICE_TOPICS_BY_AUDIENCE[audience][topic.id]
   return [topic.title, topic.slug, copy?.short ?? '', copy?.long ?? ''].filter(Boolean)
 }
+
+function normalizeTopicLabel(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[’`]/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export function getMenuTopicCopyByIntroTopic(
+  topic: string,
+  audience: Audience,
+  fallback?: { short?: string; long?: string }
+): { title: string; short: string; long: string } {
+  const fallbackShort = fallback?.short?.trim() || 'Тема из меню уроков'
+  const fallbackLong = fallback?.long?.trim() || 'Открыли выбранный урок.'
+  const normalizedTopic = normalizeTopicLabel(topic)
+  if (!normalizedTopic) {
+    return {
+      title: topic.trim() || 'Урок',
+      short: fallbackShort,
+      long: fallbackLong,
+    }
+  }
+  const catalogTopic = getLessonTopicCatalog().find((item) => normalizeTopicLabel(item.title) === normalizedTopic)
+  if (!catalogTopic) {
+    return {
+      title: topic.trim(),
+      short: fallbackShort,
+      long: fallbackLong,
+    }
+  }
+  const copy = PRACTICE_TOPICS_BY_AUDIENCE[audience][catalogTopic.id]
+  return {
+    title: catalogTopic.title,
+    short: copy?.short ?? fallbackShort,
+    long: copy?.long ?? fallbackLong,
+  }
+}

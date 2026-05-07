@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
+import { getMenuTopicCopyByIntroTopic } from '@/lib/lessonCatalog'
 import type { AiProvider, Audience, OpenAiChatPreset } from '@/lib/types'
 import type { Bubble, LessonIntro } from '@/types/lesson'
 
@@ -41,7 +42,32 @@ type IntroUserMessage = {
 type IntroChatMessage = IntroMessage | IntroUserMessage
 
 const INTRO_FOLLOWUP_DELAY_MS = 520
+const INTRO_MAIN_BLOCK_DELAY_MS = 500
 const INTRO_CHAT_ANCHOR_OFFSET_PX = -4
+
+function formatExtraDeepDiveError(raw?: string): string {
+  const fallback = 'Не удалось сгенерировать блок. Проверьте провайдера в Настройках -> ИИ.'
+  if (!raw) return fallback
+  const trimmed = raw.trim()
+  if (!trimmed) return fallback
+
+  if (
+    trimmed.includes('unsupported_country_region_territory') ||
+    trimmed.includes('Country, region, or territory not supported')
+  ) {
+    return 'Регион провайдера не поддерживается. Смените провайдера в Настройках -> ИИ.'
+  }
+
+  if (trimmed.includes('Missing OPENAI_API_KEY') || trimmed.includes('Missing OPENROUTER_API_KEY')) {
+    return 'Не задан API-ключ провайдера. Проверьте .env и настройки ИИ.'
+  }
+
+  if (trimmed.includes('timed out')) {
+    return 'Провайдер отвечает слишком долго. Попробуйте еще раз.'
+  }
+
+  return fallback
+}
 
 function formatList(items: string[]): string {
   return items.map((item) => `• ${item}`).join('\n')
@@ -83,6 +109,17 @@ function buildQuickBubbles(intro: LessonIntro): [Bubble, Bubble, Bubble] {
       content: `🟢 ПРИМЕРЫ И ВЫВОД\n${formatExamples(intro.quick.examples)}\n\n${intro.quick.takeaway}`,
     },
   ]
+}
+
+function buildMenuEntryBubble(intro: LessonIntro, audience: Audience): Bubble {
+  const copy = getMenuTopicCopyByIntroTopic(intro.topic, audience, {
+    long: intro.quick.takeaway,
+  })
+  const detailsLine = copy.short ? `• ${copy.short}: ${copy.long}` : `• ${copy.long}`
+  return {
+    type: 'info',
+    content: `📘 ТЕМА УРОКА - ${copy.title}\n${detailsLine}`,
+  }
 }
 
 function buildDetailsBubbles(intro: LessonIntro): [Bubble, Bubble, Bubble] | null {
@@ -199,13 +236,19 @@ export default function LessonIntroScreen({
   const [pendingDepth, setPendingDepth] = useState<Exclude<LessonIntroDepth, 'quick'> | null>(null)
   const [extraDeepDives, setExtraDeepDives] = useState<Bubble[][]>([])
   const [extraDeepDiveLoading, setExtraDeepDiveLoading] = useState(false)
+  const [extraDeepDiveError, setExtraDeepDiveError] = useState<string | null>(null)
+  const [showMainIntroBlock, setShowMainIntroBlock] = useState(false)
   const messages = useMemo<IntroChatMessage[]>(() => {
-    const next: IntroChatMessage[] = [{ id: 'quick', role: 'assistant', bubbles: buildQuickBubbles(intro) }]
+    const next: IntroChatMessage[] = []
+    next.push({ id: 'menu-entry', role: 'assistant', bubbles: [buildMenuEntryBubble(intro, audience)] })
+    if (showMainIntroBlock) {
+      next.push({ id: 'quick', role: 'assistant', bubbles: buildQuickBubbles(intro) })
+    }
     const details = buildDetailsBubbles(intro)
     const shouldShowDetailsRequest = pendingDepth === 'details' || pendingDepth === 'deep' || depth === 'details' || depth === 'deep'
     const shouldShowDetailsAnswer = depth === 'details' || depth === 'deep'
     if (details && shouldShowDetailsRequest) {
-      next.push({ id: 'details-request', role: 'user', text: 'Подробнее' })
+      next.push({ id: 'details-request', role: 'user', text: 'Почему так...' })
     }
     if (details && shouldShowDetailsAnswer) {
       next.push({ id: 'details', role: 'assistant', bubbles: details })
@@ -213,19 +256,19 @@ export default function LessonIntroScreen({
     const deepDive = buildDeepDiveBubbles(intro)
     const shouldShowDeepRequest = pendingDepth === 'deep' || depth === 'deep'
     if (deepDive && shouldShowDeepRequest) {
-      next.push({ id: 'deep-request', role: 'user', text: 'Еще подробнее' })
+      next.push({ id: 'deep-request', role: 'user', text: 'Частые ошибки...' })
     }
     if (depth === 'deep' && deepDive) {
       next.push({ id: 'deep', role: 'assistant', bubbles: deepDive })
     }
     if (depth === 'deep') {
       extraDeepDives.forEach((bubbles, index) => {
-        next.push({ id: `extra-request-${index}`, role: 'user', text: 'Еще подробнее' })
+        next.push({ id: `extra-request-${index}`, role: 'user', text: 'Частые ошибки...' })
         next.push({ id: `extra-${index}`, role: 'assistant', bubbles })
       })
     }
     return next
-  }, [depth, extraDeepDives, intro, pendingDepth])
+  }, [audience, depth, extraDeepDives, intro, pendingDepth, showMainIntroBlock])
 
   useEffect(() => {
     return () => {
@@ -234,9 +277,16 @@ export default function LessonIntroScreen({
   }, [])
 
   useEffect(() => {
+    setShowMainIntroBlock(false)
+    const timer = setTimeout(() => setShowMainIntroBlock(true), INTRO_MAIN_BLOCK_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [intro])
+
+  useEffect(() => {
     if (depth !== 'deep') {
       setExtraDeepDives([])
       setExtraDeepDiveLoading(false)
+      setExtraDeepDiveError(null)
     }
   }, [depth, intro])
 
@@ -287,6 +337,7 @@ export default function LessonIntroScreen({
       if (extraDeepDiveLoading) return
       const nextIndex = extraDeepDives.length
       setExtraDeepDiveLoading(true)
+      setExtraDeepDiveError(null)
       try {
         const response = await fetch('/api/lesson-intro-extra', {
           method: 'POST',
@@ -300,13 +351,15 @@ export default function LessonIntroScreen({
             previousBlocks: extraDeepDives.flatMap((bubbles) => bubbles.map((bubble) => bubble.content)),
           }),
         })
-        const data = (await response.json()) as { bubbles?: Bubble[] }
+        const data = (await response.json()) as { bubbles?: Bubble[]; error?: string }
         if (response.ok && data.bubbles?.length) {
           setExtraDeepDives((items) => [...items, data.bubbles as Bubble[]])
           return
         }
+        setExtraDeepDiveError(formatExtraDeepDiveError(data.error))
+        return
       } catch {
-        // Если генерация недоступна, всё равно даём следующий полезный блок из данных урока.
+        // При сетевом сбое даём локальный блок, чтобы пользователь не застрял.
       } finally {
         setExtraDeepDiveLoading(false)
       }
@@ -394,15 +447,20 @@ export default function LessonIntroScreen({
                   </IntroChip>
                   {canShowDetails && (
                     <IntroChip onClick={() => queueFollowup('details')}>
-                      Подробнее
+                      Почему так...
                     </IntroChip>
                   )}
                   {canShowDeepDive && (
                     <IntroChip variant="deep" onClick={handleDeepDiveClick} disabled={extraDeepDiveLoading}>
-                      {extraDeepDiveLoading ? 'Создаю карточку...' : depth === 'deep' ? 'Сгенерировать ещё' : 'Еще подробнее'}
+                      {extraDeepDiveLoading ? 'Создаю карточку...' : depth === 'deep' ? 'Сгенерировать ещё' : 'Частые ошибки...'}
                     </IntroChip>
                   )}
                 </div>
+                {extraDeepDiveError && (
+                  <p className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] leading-relaxed text-[var(--status-warning-text)]">
+                    {extraDeepDiveError}
+                  </p>
+                )}
                 <div className="flex w-full">
                   <IntroChip
                     variant="primary"

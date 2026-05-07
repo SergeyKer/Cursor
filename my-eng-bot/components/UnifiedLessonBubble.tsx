@@ -1,6 +1,7 @@
 'use client'
 
 import type { Bubble } from '@/types/lesson'
+import { LESSON_HIGHLIGHT_EXACT_REGEX, LESSON_HIGHLIGHT_SPLIT_REGEX } from '@/lib/lessonHighlightPhrases'
 
 export type UnifiedLessonBubbleLayout = 'unified' | 'detached'
 
@@ -30,6 +31,20 @@ function splitLabel(line: string): { label: string; rest: string } | null {
 
 type BulletStyle = 'badge' | 'dot'
 
+function renderHighlightedCorePhrases(text: string) {
+  const parts = text.split(LESSON_HIGHLIGHT_SPLIT_REGEX)
+  if (parts.length === 1) return text
+  return parts.map((part, index) =>
+    LESSON_HIGHLIGHT_EXACT_REGEX.test(part) ? (
+      <strong key={`${part}-${index}`} className="font-semibold text-slate-700">
+        {part}
+      </strong>
+    ) : (
+      <span key={`${part}-${index}`}>{part}</span>
+    )
+  )
+}
+
 function renderBodyLine(line: string, index: number, bulletStyle: BulletStyle = 'badge') {
   if (!line.trim()) {
     return <div key={index} className="h-1" aria-hidden />
@@ -56,7 +71,7 @@ function renderBodyLine(line: string, index: number, bulletStyle: BulletStyle = 
             <span className="font-semibold text-slate-700">{label.label}:</span> {label.rest}
           </>
         ) : (
-          text
+          renderHighlightedCorePhrases(text)
         )}
       </span>
     </div>

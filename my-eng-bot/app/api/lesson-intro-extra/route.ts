@@ -141,7 +141,13 @@ export async function POST(req: NextRequest) {
   })
 
   if (!model.ok) {
-    return NextResponse.json({ error: 'Не удалось сгенерировать продолжение.' }, { status: 502 })
+    console.error('[lesson-intro-extra] provider call failed', {
+      status: model.status,
+      errText: model.errText,
+      provider,
+      preset: openAiChatPreset,
+    })
+    return NextResponse.json({ error: `Не удалось сгенерировать продолжение: ${model.errText}` }, { status: 502 })
   }
 
   try {
