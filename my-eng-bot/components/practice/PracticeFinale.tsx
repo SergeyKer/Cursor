@@ -12,6 +12,7 @@ interface PracticeFinaleProps {
 }
 
 function nextModeLabel(mode: PracticeMode): string {
+  if (mode === 'reference') return 'Перейти в Challenge'
   if (mode === 'relaxed') return 'Продолжить до Balanced'
   if (mode === 'balanced') return 'Challenge на 12 заданий'
   return 'Повторить Challenge'

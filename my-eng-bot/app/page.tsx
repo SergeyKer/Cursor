@@ -72,6 +72,7 @@ import type { LessonData, PostLessonAction } from '@/types/lesson'
 import type {
   PracticeBuildConfig,
   PracticeEntrySource,
+  PracticeExerciseType,
   PracticeMode,
   PracticeQuestion,
   PracticeSession,
@@ -110,6 +111,7 @@ type PracticeOpenRequest = {
   mode: PracticeMode
   entrySource: PracticeEntrySource
   customTopic?: string
+  referenceExerciseType?: PracticeExerciseType
 }
 type PracticeGenerateResponse = {
   questions?: PracticeQuestion[]
@@ -484,6 +486,7 @@ export default function Home() {
   const menuLessonGenerateCleanupRef = React.useRef<(() => void) | null>(null)
   /** Инкремент при каждом новом фоновом запросе variant; finally сравнивает эпоху, чтобы не сбросить флаг чужого завершения. */
   const menuLessonBgFetchEpochRef = React.useRef(0)
+  const referenceNextQuestionInFlightRef = React.useRef(false)
   /** Предыдущий экран меню на главной: для сброса модели при возврате на корень (root). */
   const prevHomeMenuViewForModelResetRef = React.useRef<MenuView | null>(null)
   /** iPhone / iPad / iPod и iPadOS с десктопным UA (Macintosh + Mobile). */
@@ -1501,6 +1504,9 @@ export default function Home() {
 
   const resolvePracticeRequest = useCallback(
     async (request: PracticeOpenRequest, generationSource: PracticeBuildConfig['generationSource']): Promise<PracticeBuildConfig> => {
+      if (request.mode === 'reference' && generationSource !== 'ai_generated') {
+        throw new Error('Эталонный режим доступен только с генерацией от ИИ.')
+      }
       const customTopic = request.customTopic?.trim()
       let resolvedLessonId = request.lessonId ?? null
       let lesson: LessonData | null = null
@@ -1602,6 +1608,10 @@ export default function Home() {
             lessonId: source?.kind === 'static_lesson' ? source.lessonId : undefined,
             lesson: source?.kind === 'runtime_lesson' ? lesson : undefined,
             mode: request.mode,
+            referenceExerciseType: request.referenceExerciseType,
+            referenceStepIndex: request.mode === 'reference' ? 0 : undefined,
+            referenceTotal: request.mode === 'reference' ? 7 : undefined,
+            recentPrompts: request.mode === 'reference' ? [] : undefined,
           }),
         })
         const data = (await response.json()) as PracticeGenerateResponse
@@ -1619,7 +1629,8 @@ export default function Home() {
         mode: request.mode,
         entrySource: request.entrySource,
         generationSource,
-        questions,
+        questions: request.mode === 'reference' ? questions?.slice(0, 1) : questions,
+        targetQuestionCount: request.mode === 'reference' ? 7 : undefined,
       }
     },
     [settings.audience, settings.level, settings.openAiChatPreset, settings.provider]
@@ -1693,7 +1704,12 @@ export default function Home() {
   const restartPracticeFromExistingSession = useCallback(
     async (session: PracticeSession, mode: PracticeMode, generationSource: PracticeBuildConfig['generationSource']) => {
       if (session.source.kind === 'static_lesson') {
-        const request = { lessonId: session.source.lessonId, mode, entrySource: 'menu' as const }
+        const request = {
+          lessonId: session.source.lessonId,
+          mode,
+          entrySource: 'menu' as const,
+          referenceExerciseType: mode === 'reference' ? session.questions[0]?.type : undefined,
+        }
         if (generationSource === 'ai_generated') {
           await generatePracticeSession(request)
         } else {
@@ -1714,11 +1730,15 @@ export default function Home() {
             audience: settings.audience,
             lesson,
             mode,
+            referenceExerciseType: session.mode === 'reference' ? session.questions[0]?.type : undefined,
+            referenceStepIndex: mode === 'reference' ? 0 : undefined,
+            referenceTotal: mode === 'reference' ? 7 : undefined,
+            recentPrompts: mode === 'reference' ? [] : undefined,
           }),
         })
         const data = (await response.json()) as PracticeGenerateResponse
         if (response.ok && Array.isArray(data.questions) && data.questions.length > 0) {
-          questions = data.questions
+          questions = mode === 'reference' ? data.questions.slice(0, 1) : data.questions
         }
       }
 
@@ -1729,6 +1749,7 @@ export default function Home() {
         entrySource: 'menu',
         generationSource,
         questions,
+        targetQuestionCount: mode === 'reference' ? 7 : undefined,
       })
     },
     [
@@ -1740,6 +1761,65 @@ export default function Home() {
       startPracticeFromLesson,
     ]
   )
+
+  useEffect(() => {
+    const session = practiceSession.session
+    if (!session || session.mode !== 'reference') return
+    if (practiceSession.state !== 'generating_next') return
+    if (referenceNextQuestionInFlightRef.current) return
+
+    const target = session.targetQuestionCount ?? 7
+    if (session.questions.length >= target) {
+      practiceSession.nextQuestion()
+      return
+    }
+
+    referenceNextQuestionInFlightRef.current = true
+    void (async () => {
+      setLoading(true)
+      try {
+        const response = await fetch('/api/practice-generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: settings.provider,
+            openAiChatPreset: settings.openAiChatPreset,
+            audience: settings.audience,
+            lessonId: session.source.kind === 'static_lesson' ? session.source.lessonId : undefined,
+            lesson: session.source.kind === 'runtime_lesson' ? session.source.lesson : undefined,
+            mode: 'reference',
+            referenceExerciseType: session.questions[0]?.type,
+            referenceStepIndex: session.questions.length,
+            referenceTotal: target,
+            recentPrompts: session.questions.slice(-3).map((item) => item.prompt),
+          }),
+        })
+        const data = (await response.json()) as PracticeGenerateResponse
+        if (!response.ok || !Array.isArray(data.questions) || data.questions.length === 0) {
+          throw new Error(data.error ?? 'Не удалось подготовить следующее эталонное задание.')
+        }
+        const nextQuestion = data.questions[0]
+        if (!nextQuestion) {
+          throw new Error('Пустой ответ генерации для следующего эталонного задания.')
+        }
+        practiceSession.appendGeneratedQuestion(nextQuestion)
+        practiceSession.nextQuestion()
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Не удалось подготовить следующее эталонное задание.'
+        practiceSession.failGeneratingNext(message)
+      } finally {
+        setLoading(false)
+        referenceNextQuestionInFlightRef.current = false
+      }
+    })()
+  }, [
+    practiceSession,
+    practiceSession.session,
+    practiceSession.state,
+    settings.audience,
+    settings.openAiChatPreset,
+    settings.provider,
+  ])
 
   const openLessonFromPractice = useCallback(
     (session: PracticeSession) => {

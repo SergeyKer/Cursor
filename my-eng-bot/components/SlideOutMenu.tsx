@@ -5,7 +5,7 @@ import type { Settings, UsageInfo } from '@/lib/types'
 import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/components/MenuSectionPanels'
 import { SLIDE_OUT_NEW_CHAT_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
-import type { PracticeEntrySource, PracticeMode } from '@/types/practice'
+import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
 
 export type LessonMenuContext = {
   menuView: 'lessons'
@@ -37,12 +37,14 @@ interface SlideOutMenuProps {
     mode: PracticeMode
     entrySource: PracticeEntrySource
     customTopic?: string
+    referenceExerciseType?: PracticeExerciseType
   }) => Promise<void> | void
   onGeneratePracticeSession?: (request: {
     lessonId?: string
     mode: PracticeMode
     entrySource: PracticeEntrySource
     customTopic?: string
+    referenceExerciseType?: PracticeExerciseType
   }) => Promise<void> | void
   onOpenAccentTrainer?: (lessonId?: string) => void
   onOpenVocabularyWorlds?: () => Promise<void> | void

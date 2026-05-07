@@ -49,6 +49,25 @@ export const PRACTICE_MODE_PLANS: Record<PracticeMode, PracticeModePlan> = {
     ],
     boss: true,
   },
+  reference: {
+    length: 7,
+    timeBudgetMinutes: [4, 7],
+    types: [
+      'choice',
+      'voice-shadow',
+      'dropdown-fill',
+      'listening-select',
+      'context-clue',
+      'sentence-surgery',
+      'free-response',
+      'word-builder-pro',
+      'dictation',
+      'roleplay-mini',
+      'speed-round',
+      'boss-challenge',
+    ],
+    boss: false,
+  },
 }
 
 export function getPracticeModePlan(mode: PracticeMode): PracticeModePlan {

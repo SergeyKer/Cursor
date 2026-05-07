@@ -111,7 +111,7 @@ function createQuestion(params: {
   }
 }
 
-function mapExerciseType(exercise: Exercise, preferred: PracticeExerciseType): PracticeExerciseType {
+function mapExerciseType(exercise: Exercise, preferred?: PracticeExerciseType): PracticeExerciseType {
   if (preferred === 'boss-challenge') return 'boss-challenge'
   if (preferred === 'voice-shadow') return 'voice-shadow'
   if (preferred === 'listening-select') return 'listening-select'
@@ -134,34 +134,46 @@ function getExerciseSteps(lesson: LessonData): Array<{ step: LessonStep; exercis
     .map((step) => ({ step, exercise: step.exercise as Exercise }))
 }
 
+function resolveExerciseForIndex(
+  sourceSteps: Array<{ step: LessonStep; exercise: Exercise }>,
+  index: number,
+  mode: PracticeBuildConfig['mode']
+): { step: LessonStep; exercise: Exercise; variantIndex?: number } {
+  // Reference mode intentionally reuses the same source exercise in a cycle.
+  const source = mode === 'reference' ? sourceSteps[0]! : sourceSteps[index % sourceSteps.length]!
+  const variantCount = source.exercise.variants?.length ?? 0
+  const variantIndex = variantCount > 0 ? index % variantCount : 0
+  const exercise = variantCount > 0 ? resolveLessonExerciseVariant(source.exercise, variantIndex) : source.exercise
+  return { step: source.step, exercise, variantIndex: variantCount > 0 ? variantIndex : undefined }
+}
+
 function buildQuestions(lesson: LessonData, mode: PracticeBuildConfig['mode']): PracticeQuestion[] {
   const plan = getPracticeModePlan(mode)
   const sourceSteps = getExerciseSteps(lesson)
   if (sourceSteps.length === 0) return []
 
   const questions: PracticeQuestion[] = []
-  let sourceIndex = 0
   for (let index = 0; index < plan.length; index += 1) {
-    const source = sourceSteps[sourceIndex % sourceSteps.length]
-    const variantCount = source.exercise.variants?.length ?? 0
-    const variantIndex = variantCount > 0 ? index % variantCount : 0
-    const resolvedExercise =
-      variantCount > 0 ? resolveLessonExerciseVariant(source.exercise, variantIndex) : source.exercise
-    const preferredType = plan.boss && index === plan.length - 1 ? 'boss-challenge' : plan.types[index % plan.types.length]
-    const type = mapExerciseType(resolvedExercise, preferredType)
+    const resolved = resolveExerciseForIndex(sourceSteps, index, mode)
+    const preferredType =
+      mode === 'reference'
+        ? undefined
+        : plan.boss && index === plan.length - 1
+          ? 'boss-challenge'
+          : plan.types[index % plan.types.length]
+    const type = mapExerciseType(resolved.exercise, preferredType)
     const previous = questions.at(-1)
-    const finalType = previous?.type === type && resolvedExercise.options?.length ? 'choice' : type
+    const finalType = previous?.type === type && resolved.exercise.options?.length ? 'choice' : type
     questions.push(
       createQuestion({
         lesson,
-        step: source.step,
-        exercise: resolvedExercise,
+        step: resolved.step,
+        exercise: resolved.exercise,
         type: finalType,
         index,
-        variantIndex: variantCount > 0 ? variantIndex : undefined,
+        variantIndex: resolved.variantIndex,
       })
     )
-    sourceIndex += 1
   }
 
   return questions
@@ -187,6 +199,7 @@ function createPracticeSession(config: PracticeBuildConfig, questions: PracticeQ
     streak: 0,
     startedAt: now,
     version: PRACTICE_SESSION_VERSION,
+    targetQuestionCount: config.targetQuestionCount ?? questions.length,
   }
 }
 

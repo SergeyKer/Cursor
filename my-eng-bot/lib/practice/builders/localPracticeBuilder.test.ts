@@ -77,5 +77,21 @@ describe('buildLocalPracticeSession', () => {
       expect(question.options?.length ?? 0).toBeGreaterThanOrEqual(2)
     }
   })
+
+  it('repeats one reference exercise 7 times in reference mode', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const session = buildLocalPracticeSession({
+      lesson: lesson!,
+      source: { kind: 'static_lesson', lessonId: '1' },
+      mode: 'reference',
+      entrySource: 'menu',
+    })
+
+    expect(session.questions).toHaveLength(7)
+    expect(new Set(session.questions.map((question) => question.type)).size).toBe(1)
+    expect(new Set(session.questions.map((question) => question.prompt)).size).toBe(1)
+  })
 })
 

@@ -12,7 +12,7 @@ import type {
   PracticeSessionStatus,
 } from '@/types/practice'
 
-export type PracticeFlowState = 'idle' | 'active' | 'checking' | 'feedback' | 'correction' | 'completed' | 'error'
+export type PracticeFlowState = 'idle' | 'active' | 'checking' | 'feedback' | 'correction' | 'generating_next' | 'completed' | 'error'
 
 export interface PracticeFeedback {
   type: 'success' | 'error'
@@ -29,6 +29,8 @@ export interface PracticeSessionControls {
   resumeSession: () => PracticeSession | null
   submitAnswer: (answer: string) => void
   nextQuestion: () => void
+  appendGeneratedQuestion: (question: PracticeQuestion) => void
+  failGeneratingNext: (message: string) => void
   completeSession: () => void
   abandonSession: () => void
 }
@@ -220,6 +222,17 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
 
         if (isCorrect) {
           pendingCorrectionRef.current = null
+          const targetQuestionCount = session.targetQuestionCount ?? session.questions.length
+          const isReferenceAwaitingGeneration =
+            session.mode === 'reference' &&
+            session.currentIndex >= session.questions.length - 1 &&
+            session.questions.length < targetQuestionCount
+          if (isReferenceAwaitingGeneration) {
+            setFeedback(null)
+            setState('generating_next')
+            submittingRef.current = false
+            return
+          }
           setFeedback({
             type: 'success',
             message: correctionQuestion ? 'Отлично, закрепили. Идём дальше.' : 'Верно. Хороший ответ.',
@@ -254,6 +267,23 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
     storage.clearActiveSession()
   }, [clearFeedbackAutoAdvance, storage])
 
+  const appendGeneratedQuestion = useCallback(
+    (question: PracticeQuestion) => {
+      setSession((current) => {
+        if (!current || current.status !== 'active') return current
+        const next = { ...current, questions: [...current.questions, question] }
+        storage.saveActiveSession(next)
+        return next
+      })
+    },
+    [storage]
+  )
+
+  const failGeneratingNext = useCallback((message: string) => {
+    setFeedback({ type: 'error', message })
+    setState('error')
+  }, [])
+
   return {
     session,
     currentQuestion,
@@ -264,6 +294,8 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
     resumeSession,
     submitAnswer,
     nextQuestion,
+    appendGeneratedQuestion,
+    failGeneratingNext,
     completeSession,
     abandonSession,
   }

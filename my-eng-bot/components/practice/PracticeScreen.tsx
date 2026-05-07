@@ -6,6 +6,7 @@ import PracticeQuestionRenderer from '@/components/practice/PracticeQuestionRend
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import type { PracticeFlowState } from '@/hooks/usePracticeSession'
+import { showDebugQuestionIndex } from '@/lib/practice/debug'
 import type { Bubble } from '@/types/lesson'
 import type { PracticeMode, PracticeQuestion, PracticeSession } from '@/types/practice'
 
@@ -80,11 +81,15 @@ function buildQuestionBubbles(params: {
   return [
     { type: 'positive', content: opening },
     { type: 'info', content: practiceTypeLabel(params.question) },
-    { type: 'task', content: params.question.prompt },
+    {
+      type: 'task',
+      content: showDebugQuestionIndex ? `#${params.questionIndex + 1} ${params.question.prompt}` : params.question.prompt,
+    },
   ]
 }
 
 function nextMode(mode: PracticeMode): PracticeMode {
+  if (mode === 'reference') return 'challenge'
   if (mode === 'relaxed') return 'balanced'
   if (mode === 'balanced') return 'challenge'
   return 'challenge'
@@ -155,8 +160,14 @@ export default function PracticeScreen({
       })
     })
 
-    if (state === 'checking') {
-      result.push({ id: 'practice-checking', role: 'assistant', kind: 'status', text: 'Проверяем ответ...', tone: 'service' })
+    if (state === 'checking' || state === 'generating_next') {
+      result.push({
+        id: state === 'checking' ? 'practice-checking' : 'practice-generating-next',
+        role: 'assistant',
+        kind: 'status',
+        text: state === 'checking' ? 'Проверяем ответ...' : 'MyEng печатает...',
+        tone: 'service',
+      })
     }
 
     return result
@@ -264,16 +275,24 @@ export default function PracticeScreen({
                 />
               ) : state === 'feedback' ? (
                 <div className="space-y-1.5">
-                  <button
-                    type="button"
-                    onClick={onNextQuestion}
-                    className="btn-3d-menu w-full rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--status-info-text)]"
-                  >
-                    {session.currentIndex >= session.questions.length - 1 ? 'Завершить практику' : 'Следующее задание'}
-                  </button>
-                  <p className="px-1 text-center text-[12px] leading-snug text-[var(--text-muted)]">
-                    Переход выполнится автоматически через пару секунд — кнопка ускоряет шаг.
-                  </p>
+                  {session.mode === 'reference' ? (
+                    <p className="px-1 text-center text-[12px] leading-snug text-[var(--text-muted)]">
+                      MyEng готовит следующий шаг автоматически.
+                    </p>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={onNextQuestion}
+                        className="btn-3d-menu w-full rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--status-info-text)]"
+                      >
+                        {session.currentIndex >= session.questions.length - 1 ? 'Завершить практику' : 'Следующее задание'}
+                      </button>
+                      <p className="px-1 text-center text-[12px] leading-snug text-[var(--text-muted)]">
+                        Переход выполнится автоматически через пару секунд — кнопка ускоряет шаг.
+                      </p>
+                    </>
+                  )}
                 </div>
               ) : currentQuestion ? (
                 <PracticeQuestionRenderer

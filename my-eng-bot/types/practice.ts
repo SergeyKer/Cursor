@@ -1,7 +1,7 @@
 import type { LessonData } from '@/types/lesson'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 
-export type PracticeMode = 'relaxed' | 'balanced' | 'challenge'
+export type PracticeMode = 'relaxed' | 'balanced' | 'challenge' | 'reference'
 
 export type PracticeExerciseType =
   | 'choice'
@@ -102,6 +102,7 @@ export interface PracticeSession {
   startedAt: number
   completedAt?: number
   version: number
+  targetQuestionCount?: number
 }
 
 export interface PracticeBuildConfig {
@@ -112,4 +113,5 @@ export interface PracticeBuildConfig {
   generationSource?: PracticeGenerationSource
   questions?: PracticeQuestion[]
   seed?: string
+  targetQuestionCount?: number
 }

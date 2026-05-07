@@ -7,6 +7,7 @@ describe('PRACTICE_MODE_PLANS', () => {
     expect(PRACTICE_MODE_PLANS.relaxed.length).toBe(6)
     expect(PRACTICE_MODE_PLANS.balanced.length).toBe(9)
     expect(PRACTICE_MODE_PLANS.challenge.length).toBe(12)
+    expect(PRACTICE_MODE_PLANS.reference.length).toBe(7)
   })
 
   it('covers every registered exercise type across practice modes', () => {
@@ -20,6 +21,7 @@ describe('PRACTICE_MODE_PLANS', () => {
     expect(PRACTICE_MODE_PLANS.relaxed.boss).toBe(false)
     expect(PRACTICE_MODE_PLANS.balanced.boss).toBe(false)
     expect(PRACTICE_MODE_PLANS.challenge.boss).toBe(true)
+    expect(PRACTICE_MODE_PLANS.reference.boss).toBe(false)
     expect(PRACTICE_MODE_PLANS.challenge.types.at(-1)).toBe('boss-challenge')
   })
 })

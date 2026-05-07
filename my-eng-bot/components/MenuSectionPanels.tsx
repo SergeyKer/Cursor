@@ -26,7 +26,7 @@ import type { ImageAnalysisResult } from '@/lib/types'
 import ThemeSelector from '@/components/settings/ThemeSelector'
 import { useTheme } from '@/contexts/ThemeContext'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
-import type { PracticeEntrySource, PracticeMode } from '@/types/practice'
+import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
 
 const AdaptiveDailyHub = dynamic(() => import('@/components/adaptiveRetention/AdaptiveDailyHub'), { ssr: false })
 
@@ -55,6 +55,7 @@ export type LessonsPanel =
   | 'practiceLevel'
   | 'practiceLevelTopics'
   | 'practiceFormat'
+  | 'practiceReferenceType'
   | 'pronunciation'
   | 'pronunciationRussian'
   | 'pronunciationRussianGroup'
@@ -94,6 +95,7 @@ const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
   practiceLevel: 'Уровень',
   practiceLevelTopics: 'Темы',
   practiceFormat: 'Формат',
+  practiceReferenceType: 'Эталон: тип упражнения',
   pronunciation: 'Произношение',
   pronunciationRussian: 'Для русскоговорящих',
   pronunciationRussianGroup: 'Группа звуков',
@@ -119,28 +121,45 @@ const A2_THEORY_ITEMS = getTheoryLessonTopics('A2').map((item) => ({
   enabled: item.enabled,
 }))
 
-const PRACTICE_TOPIC_COPY: Record<string, { badge: string; summary: string }> = {
-  '1': {
-    badge: 'Фразы и ситуации',
-    summary: 'Отработать It is / It is time to в коротких бытовых репликах.',
-  },
-  '2': {
-    badge: 'Вопросы',
-    summary: 'Тренировка Who ...? для вопросов о людях, привычках и действиях.',
-  },
-  '3': {
-    badge: 'Сложнее',
-    summary: 'Практика вложенных вопросов: I know what..., Tell me where...',
-  },
-}
-
 const A2_PRACTICE_ITEMS = getPracticeLessonTopics('A2').map((item) => ({
   id: item.id,
   label: item.title,
   enabled: item.enabled,
-  badge: PRACTICE_TOPIC_COPY[item.id]?.badge ?? item.level,
-  summary: PRACTICE_TOPIC_COPY[item.id]?.summary ?? 'Короткая практика по выбранной теме.',
 }))
+
+const A2_PRACTICE_TOPICS_BY_AUDIENCE: Record<
+  Settings['audience'],
+  Record<string, { short: string; long: string }>
+> = {
+  child: {
+    '1': {
+      short: 'Состояние и действие',
+      long: 'Говорим, как вокруг, и что пора делать.',
+    },
+    '2': {
+      short: 'Вопросы с Who',
+      long: 'Спрашиваем, кто что любит и делает.',
+    },
+    '3': {
+      short: 'Вопрос внутри фразы',
+      long: 'Соединяем две мысли в одном предложении.',
+    },
+  },
+  adult: {
+    '1': {
+      short: 'Состояние и действие',
+      long: 'Описываем состояние и говорим, что пора действовать.',
+    },
+    '2': {
+      short: 'Вопросы с Who',
+      long: 'Задаем вопросы с Who и строим короткие ответы.',
+    },
+    '3': {
+      short: 'Вложенные вопросы',
+      long: 'Строим вложенные вопросы и утверждения с what/where/how.',
+    },
+  },
+}
 
 const PRACTICE_MODE_OPTIONS: { id: PracticeMode; title: string; meta: string; description: string }[] = [
   {
@@ -161,6 +180,27 @@ const PRACTICE_MODE_OPTIONS: { id: PracticeMode; title: string; meta: string; de
     meta: '12 заданий',
     description: 'Больше проверки и меньше подсказок.',
   },
+  {
+    id: 'reference',
+    title: 'Эталон',
+    meta: '7 повторов',
+    description: 'Одно упражнение по кругу для отладки и полировки.',
+  },
+]
+
+const REFERENCE_EXERCISE_OPTIONS: Array<{ id: PracticeExerciseType; label: string; summary: string }> = [
+  { id: 'choice', label: 'Выбор варианта', summary: 'Нужно выбрать лучший ответ из нескольких вариантов.' },
+  { id: 'voice-shadow', label: 'Повтори за диктором', summary: 'Прослушайте фразу и повторите ее вслух или текстом.' },
+  { id: 'dropdown-fill', label: 'Пропуск в предложении', summary: 'Выберите правильный вариант из выпадающего списка.' },
+  { id: 'listening-select', label: 'Слушай и выбирай', summary: 'Сначала прослушайте фразу, затем выберите ответ.' },
+  { id: 'sentence-surgery', label: 'Собери предложение', summary: 'Соберите правильную фразу из набора слов.' },
+  { id: 'free-response', label: 'Свободный ответ', summary: 'Ответьте своим предложением по теме задания.' },
+  { id: 'word-builder-pro', label: 'Конструктор фразы', summary: 'Постройте фразу из слов в правильном порядке.' },
+  { id: 'dictation', label: 'Диктант', summary: 'Прослушайте и напишите фразу по памяти.' },
+  { id: 'roleplay-mini', label: 'Мини-диалог', summary: 'Дайте короткий ответ как в реальном диалоге.' },
+  { id: 'boss-challenge', label: 'Финальный вызов', summary: 'Расширенный ответ с применением темы целиком.' },
+  { id: 'speed-round', label: 'Быстрый раунд', summary: 'Серия быстрых выборов без длинных пауз.' },
+  { id: 'context-clue', label: 'Подсказка по контексту', summary: 'Выберите ответ, опираясь на контекст задачи.' },
 ]
 
 const ACCENT_QUICK_START_LESSON_ID = getFirstAccentLessonId()
@@ -231,12 +271,14 @@ export interface MenuSectionPanelsProps {
     mode: PracticeMode
     entrySource: PracticeEntrySource
     customTopic?: string
+    referenceExerciseType?: PracticeExerciseType
   }) => void | Promise<void>
   onGeneratePracticeSession?: (request: {
     lessonId?: string
     mode: PracticeMode
     entrySource: PracticeEntrySource
     customTopic?: string
+    referenceExerciseType?: PracticeExerciseType
   }) => void | Promise<void>
   onOpenAccentTrainer?: (lessonId?: string) => void
   onOpenVocabularyWorlds?: () => void | Promise<void>
@@ -296,6 +338,7 @@ export default function MenuSectionPanels({
   const [selectedAccentGroupId, setSelectedAccentGroupId] = React.useState<string | null>(null)
   const [selectedAccentSectionId, setSelectedAccentSectionId] = React.useState<string | null>(null)
   const [selectedPracticeMode, setSelectedPracticeMode] = React.useState<PracticeMode>('relaxed')
+  const [selectedReferenceExerciseType, setSelectedReferenceExerciseType] = React.useState<PracticeExerciseType>('choice')
   const [customPracticeTopic, setCustomPracticeTopic] = React.useState('')
   const [practiceBusy, setPracticeBusy] = React.useState(false)
   const [practiceError, setPracticeError] = React.useState<string | null>(null)
@@ -316,6 +359,25 @@ export default function MenuSectionPanels({
   const [generateLessonError, setGenerateLessonError] = React.useState<string | null>(null)
   const uploadInputRef = React.useRef<HTMLInputElement | null>(null)
   const cameraInputRef = React.useRef<HTMLInputElement | null>(null)
+  const a2PracticeTopicCopy = A2_PRACTICE_TOPICS_BY_AUDIENCE[settings.audience]
+  const a2TheoryItems = React.useMemo(
+    () =>
+      A2_THEORY_ITEMS.map((item) => ({
+        ...item,
+        short: a2PracticeTopicCopy[item.id]?.short ?? 'Тема урока',
+        long: a2PracticeTopicCopy[item.id]?.long ?? `Тема: ${item.title}`,
+      })),
+    [a2PracticeTopicCopy]
+  )
+  const a2PracticeItems = React.useMemo(
+    () =>
+      A2_PRACTICE_ITEMS.map((item) => ({
+        ...item,
+        short: a2PracticeTopicCopy[item.id]?.short ?? 'Тема урока',
+        long: a2PracticeTopicCopy[item.id]?.long ?? `Тема: ${item.title}`,
+      })),
+    [a2PracticeTopicCopy]
+  )
 
   React.useEffect(() => {
     if (menuView !== 'aiChat') setAiChatPanel('summary')
@@ -347,11 +409,11 @@ export default function MenuSectionPanels({
       setSelectedPracticeLessonId(defaultPracticeLessonId)
       return
     }
-    const selected = A2_PRACTICE_ITEMS.find((item) => item.id === selectedPracticeLessonId)
+    const selected = a2PracticeItems.find((item) => item.id === selectedPracticeLessonId)
     if (!selected?.enabled) {
       setSelectedPracticeLessonId(defaultPracticeLessonId)
     }
-  }, [lessonsPanel, selectedPracticeLessonId, defaultPracticeLessonId])
+  }, [lessonsPanel, selectedPracticeLessonId, defaultPracticeLessonId, a2PracticeItems])
 
   React.useEffect(() => {
     if (menuView !== 'lessons') return
@@ -379,7 +441,13 @@ export default function MenuSectionPanels({
 
   const runPracticeRequest = async (
     handler: MenuSectionPanelsProps['onOpenPracticeSession'] | MenuSectionPanelsProps['onGeneratePracticeSession'],
-    request: { lessonId?: string; mode: PracticeMode; entrySource: PracticeEntrySource; customTopic?: string }
+    request: {
+      lessonId?: string
+      mode: PracticeMode
+      entrySource: PracticeEntrySource
+      customTopic?: string
+      referenceExerciseType?: PracticeExerciseType
+    }
   ) => {
     if (!handler || practiceBusy) return
     setPracticeBusy(true)
@@ -432,7 +500,7 @@ export default function MenuSectionPanels({
         setLessonsPanel('practiceLevel')
         return
       }
-      if (lessonsPanel === 'practiceLevel' || lessonsPanel === 'practiceFormat') {
+      if (lessonsPanel === 'practiceLevel' || lessonsPanel === 'practiceFormat' || lessonsPanel === 'practiceReferenceType') {
         setLessonsPanel('practice')
         return
       }
@@ -492,10 +560,17 @@ export default function MenuSectionPanels({
 
   const selectedAccentGroup = RUSSIAN_SPEAKER_GROUPS.find((group) => group.id === selectedAccentGroupId) ?? null
   const selectedAccentSection = ACCENT_SECTIONS.find((section) => section.id === selectedAccentSectionId) ?? null
-  const selectedPracticeTopic = A2_PRACTICE_ITEMS.find((item) => item.id === selectedPracticeLessonId) ?? null
+  const selectedPracticeTopic = a2PracticeItems.find((item) => item.id === selectedPracticeLessonId) ?? null
   const selectedPracticeModeOption =
     PRACTICE_MODE_OPTIONS.find((mode) => mode.id === selectedPracticeMode) ?? PRACTICE_MODE_OPTIONS[0]
-  const selectedPracticeLevelLabel = selectedPracticeTopic?.badge ?? 'Выберите уровень'
+  const isReferenceMode = selectedPracticeMode === 'reference'
+  const selectedReferenceExerciseOption =
+    REFERENCE_EXERCISE_OPTIONS.find((item) => item.id === selectedReferenceExerciseType) ?? REFERENCE_EXERCISE_OPTIONS[0]
+  const selectedReferenceExerciseIndex = Math.max(
+    0,
+    REFERENCE_EXERCISE_OPTIONS.findIndex((item) => item.id === selectedReferenceExerciseOption?.id)
+  )
+  const selectedPracticeLessonLabel = selectedPracticeTopic?.label ?? 'Выберите урок'
   const selectedPracticeModeLabel = selectedPracticeModeOption
     ? `${selectedPracticeModeOption.title} · ${selectedPracticeModeOption.meta}`
     : 'Выберите формат'
@@ -1034,10 +1109,12 @@ export default function MenuSectionPanels({
               <>
                 <div className={MENU_GROUP_OUTER}>
                   <div className={MENU_GROUP_CLASS}>
-                    {A2_THEORY_ITEMS.map((item) => (
+                    {a2TheoryItems.map((item) => (
                       <A2LessonChoiceRow
                         key={item.id}
                         label={item.label}
+                        subtitle={item.short}
+                        description={item.long}
                         selected={item.enabled && selectedA2LessonId === item.id}
                         enabled={item.enabled}
                         onClick={
@@ -1129,8 +1206,15 @@ export default function MenuSectionPanels({
                     Настройки практики вынесены в подпункты, чтобы большой каталог тем оставался удобным.
                   </p>
                   <div className={MENU_GROUP_CLASS}>
-                    <MenuSettingRow label="Уровень" value={selectedPracticeLevelLabel} onClick={() => setLessonsPanel('practiceLevel')} />
+                    <MenuSettingRow label="Урок" value={selectedPracticeLessonLabel} onClick={() => setLessonsPanel('practiceLevel')} />
                     <MenuSettingRow label="Формат" value={selectedPracticeModeLabel} onClick={() => setLessonsPanel('practiceFormat')} />
+                    {isReferenceMode && selectedReferenceExerciseOption ? (
+                      <MenuSettingRow
+                        label="Упражнение"
+                        value={`#${selectedReferenceExerciseIndex + 1} ${selectedReferenceExerciseOption.label}`}
+                        onClick={() => setLessonsPanel('practiceReferenceType')}
+                      />
+                    ) : null}
                   </div>
                 </div>
 
@@ -1140,17 +1224,24 @@ export default function MenuSectionPanels({
                   </p>
                   <button
                     type="button"
-                    onClick={() =>
-                      void runPracticeRequest(onOpenPracticeSession, {
+                    onClick={() => {
+                      const handler = isReferenceMode ? onGeneratePracticeSession : onOpenPracticeSession
+                      void runPracticeRequest(handler, {
                         lessonId: selectedPracticeLessonId ?? undefined,
                         mode: selectedPracticeMode,
                         entrySource: 'menu',
+                        referenceExerciseType: isReferenceMode ? selectedReferenceExerciseType : undefined,
                       })
+                    }}
+                    disabled={
+                      !(isReferenceMode ? onGeneratePracticeSession : onOpenPracticeSession) ||
+                      !selectedPracticeLessonId ||
+                      practiceBusy ||
+                      (isReferenceMode && !selectedReferenceExerciseType)
                     }
-                    disabled={!onOpenPracticeSession || !selectedPracticeLessonId || practiceBusy}
                     className={MENU_PRIMARY_CTA_CLASS}
                   >
-                    {practiceBusy ? 'Готовим практику...' : 'Запустить практику'}
+                    {practiceBusy ? 'Готовим практику...' : isReferenceMode ? 'Запустить эталон' : 'Запустить практику'}
                   </button>
                   <button
                     type="button"
@@ -1159,12 +1250,13 @@ export default function MenuSectionPanels({
                         lessonId: selectedPracticeLessonId ?? undefined,
                         mode: selectedPracticeMode,
                         entrySource: 'menu',
+                        referenceExerciseType: isReferenceMode ? selectedReferenceExerciseType : undefined,
                       })
                     }
                     disabled={!onGeneratePracticeSession || !selectedPracticeLessonId || practiceBusy}
                     className="btn-3d-menu w-full rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--status-info-text)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {practiceBusy ? 'Генерируем практику...' : 'Сгенерировать вариант'}
+                    {practiceBusy ? 'Генерируем практику...' : isReferenceMode ? 'Перегенерировать эталон' : 'Сгенерировать вариант'}
                   </button>
                 </div>
 
@@ -1182,14 +1274,20 @@ export default function MenuSectionPanels({
                   />
                   <button
                     type="button"
-                    onClick={() =>
-                      void runPracticeRequest(onOpenPracticeSession, {
+                    onClick={() => {
+                      const handler = isReferenceMode ? onGeneratePracticeSession : onOpenPracticeSession
+                      void runPracticeRequest(handler, {
                         customTopic: customPracticeTopic.trim(),
                         mode: selectedPracticeMode,
                         entrySource: 'custom_topic',
+                        referenceExerciseType: isReferenceMode ? selectedReferenceExerciseType : undefined,
                       })
+                    }}
+                    disabled={
+                      !(isReferenceMode ? onGeneratePracticeSession : onOpenPracticeSession) ||
+                      !customPracticeTopic.trim() ||
+                      practiceBusy
                     }
-                    disabled={!onOpenPracticeSession || !customPracticeTopic.trim() || practiceBusy}
                     className="btn-3d-menu w-full rounded-xl border border-[var(--border)] bg-white px-4 py-2.5 text-center text-sm font-semibold text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Подобрать тему
@@ -1224,16 +1322,14 @@ export default function MenuSectionPanels({
 
             {lessonsPanel === 'practiceLevelTopics' && (
               <>
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2 text-[13px] leading-relaxed text-[var(--text-muted)] shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-                  A2-темы для практики. Выберите одну, затем запустите тренировку из раздела «Практика».
-                </div>
-                <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-                  {A2_PRACTICE_ITEMS.map((item) => (
-                    <PracticeTopicChoiceCard
+                <div className={MENU_GROUP_OUTER}>
+                  <div className={MENU_GROUP_CLASS}>
+                  {a2PracticeItems.map((item) => (
+                    <A2LessonChoiceRow
                       key={item.id}
                       label={item.label}
-                      badge={item.badge}
-                      summary={item.summary}
+                      subtitle={item.short}
+                      description={item.long}
                       selected={item.enabled && selectedPracticeLessonId === item.id}
                       enabled={item.enabled}
                       onClick={
@@ -1247,6 +1343,7 @@ export default function MenuSectionPanels({
                       }
                     />
                   ))}
+                  </div>
                 </div>
               </>
             )}
@@ -1266,6 +1363,33 @@ export default function MenuSectionPanels({
                       selected={selectedPracticeMode === mode.id}
                       onClick={() => {
                         setSelectedPracticeMode(mode.id)
+                        if (mode.id === 'reference') {
+                          setLessonsPanel('practiceReferenceType')
+                          return
+                        }
+                        setLessonsPanel('practice')
+                      }}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+            {lessonsPanel === 'practiceReferenceType' && (
+              <>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2 text-[13px] leading-relaxed text-[var(--text-muted)] shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  Выберите эталонный тип упражнения. В сессии будет 7 повторов именно этого типа.
+                </div>
+                <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  {REFERENCE_EXERCISE_OPTIONS.map((item, index) => (
+                    <PracticeModeChoiceCard
+                      key={item.id}
+                      title={`#${index + 1} ${item.label}`}
+                      meta="Эталон"
+                      description={item.summary}
+                      selected={selectedReferenceExerciseType === item.id}
+                      onClick={() => {
+                        setSelectedPracticeMode('reference')
+                        setSelectedReferenceExerciseType(item.id)
                         setLessonsPanel('practice')
                       }}
                     />
@@ -1749,11 +1873,15 @@ function LessonTopicRow({ label, onClick }: { label: string; onClick?: () => voi
 
 function A2LessonChoiceRow({
   label,
+  subtitle,
+  description,
   selected,
   enabled,
   onClick,
 }: {
   label: string
+  subtitle?: string
+  description?: string
   selected: boolean
   enabled: boolean
   onClick?: () => void
@@ -1761,7 +1889,11 @@ function A2LessonChoiceRow({
   if (!enabled) {
     return (
       <div className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 last:border-b-0">
-        <span className="text-[15px] font-normal leading-normal text-[var(--text)]">{label}</span>
+        <span className="min-w-0">
+          <span className="block text-[15px] font-normal leading-normal text-[var(--text)]">{label}</span>
+          {subtitle ? <span className="mt-0.5 block text-[13px] font-medium leading-snug text-slate-700">{subtitle}</span> : null}
+          {description ? <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">{description}</span> : null}
+        </span>
         <span className="text-[13px] leading-normal text-[var(--text-muted)]">Скоро</span>
       </div>
     )
@@ -1773,73 +1905,16 @@ function A2LessonChoiceRow({
       onClick={onClick}
       className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
     >
-      <span className="text-[15px] font-normal leading-normal text-[var(--text)]">{label}</span>
+      <span className="min-w-0">
+        <span className="block text-[15px] font-normal leading-normal text-[var(--text)]">{label}</span>
+        {subtitle ? <span className="mt-0.5 block text-[13px] font-medium leading-snug text-slate-700">{subtitle}</span> : null}
+        {description ? <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">{description}</span> : null}
+      </span>
       {selected ? (
         <CheckIcon className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden />
       ) : (
         <span className="h-4 w-4 shrink-0" aria-hidden />
       )}
-    </button>
-  )
-}
-
-function PracticeTopicChoiceCard({
-  label,
-  badge,
-  summary,
-  selected,
-  enabled,
-  onClick,
-}: {
-  label: string
-  badge: string
-  summary: string
-  selected: boolean
-  enabled: boolean
-  onClick?: () => void
-}) {
-  if (!enabled) {
-    return (
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2.5 opacity-75">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-[15px] font-semibold leading-snug text-[var(--text)]">{label}</p>
-            <p className="mt-1 text-[12px] leading-snug text-[var(--text-muted)]">{summary}</p>
-          </div>
-          <span className="shrink-0 rounded-full border border-[var(--border)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
-            Скоро
-          </span>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full rounded-xl border px-3 py-2.5 text-left transition-colors touch-manipulation ${
-        selected
-          ? 'border-[var(--accent)] bg-[var(--status-info-bg)] shadow-[0_1px_4px_rgba(0,0,0,0.08)]'
-          : 'border-[var(--border)] bg-[var(--menu-control-bg)] hover:bg-[var(--border)]/20 active:bg-[var(--border)]/30'
-      }`}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[15px] font-semibold leading-snug text-[var(--text)]">{label}</span>
-            <span className="rounded-full border border-[var(--border)] bg-[var(--menu-card-bg)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
-              {badge}
-            </span>
-          </div>
-          <p className="mt-1 text-[12px] leading-snug text-[var(--text-muted)]">{summary}</p>
-        </div>
-        {selected ? (
-          <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden />
-        ) : (
-          <span className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-        )}
-      </div>
     </button>
   )
 }

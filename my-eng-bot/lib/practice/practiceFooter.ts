@@ -1,6 +1,14 @@
 import type { PracticeSession } from '@/types/practice'
 
-export type PracticeFooterState = 'idle' | 'checking' | 'feedback' | 'correction' | 'completed' | 'generating' | 'error'
+export type PracticeFooterState =
+  | 'idle'
+  | 'checking'
+  | 'feedback'
+  | 'correction'
+  | 'generating'
+  | 'generating_next'
+  | 'completed'
+  | 'error'
 
 export interface PracticeFooterView {
   dynamicText: string
@@ -9,6 +17,7 @@ export interface PracticeFooterView {
 }
 
 function modeLabel(mode: PracticeSession['mode']): string {
+  if (mode === 'reference') return 'Reference'
   if (mode === 'relaxed') return 'Relaxed'
   if (mode === 'balanced') return 'Balanced'
   return 'Challenge'
@@ -25,6 +34,8 @@ export function getPracticeFooterView(session: PracticeSession, state: PracticeF
   const dynamicText =
     state === 'checking'
       ? 'Смотрю ваш ответ.'
+      : state === 'generating_next'
+        ? 'MyEng печатает следующий шаг.'
       : state === 'correction'
         ? 'Почти. Сейчас закрепим правильный вариант.'
         : state === 'completed'
