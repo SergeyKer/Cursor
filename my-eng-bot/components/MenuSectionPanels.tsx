@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import Image from 'next/image'
 import React from 'react'
 import { manropeHome } from '@/lib/manropeHome'
 import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES, CHILD_TENSES } from '@/lib/constants'
@@ -1511,7 +1512,14 @@ export default function MenuSectionPanels({
                     />
                     {tutorImageDataUrl && (
                       <div className="overflow-hidden rounded-lg border border-[var(--border)]">
-                        <img src={tutorImageDataUrl} alt="Фото для анализа" className="h-auto w-full object-cover" />
+                        <Image
+                          src={tutorImageDataUrl}
+                          alt="Фото для анализа"
+                          width={1200}
+                          height={800}
+                          unoptimized
+                          className="h-auto w-full object-cover"
+                        />
                       </div>
                     )}
                     {tutorImageError && (

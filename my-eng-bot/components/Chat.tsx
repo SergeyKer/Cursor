@@ -1602,6 +1602,7 @@ export default function Chat({
     if (forceNextMicLang) onConsumeForceNextMicLang?.()
   }, [
     settings.mode,
+    settings.communicationInputExpectedLang,
     forceNextMicLang,
     onConsumeForceNextMicLang,
     startVoiceSession,

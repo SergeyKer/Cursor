@@ -324,7 +324,7 @@ export default function VocabularyWorldsScreen({
         return { ...current, quizAnswers: nextAnswers, quizIndex: current.quizIndex + 1 }
       })
     },
-    [currentQuizWord, progress]
+    [currentQuizWord]
   )
 
   const finishVoiceStep = React.useCallback((accepted: boolean) => {
@@ -422,7 +422,7 @@ export default function VocabularyWorldsScreen({
         text: `Сессия завершена. Ты заработал ${coinsEarned} 🪙. Хочешь потом обсудить эти слова с MyEng — кнопка уже готова.`,
       },
     ])
-  }, [session, worldMap])
+  }, [session])
 
   React.useEffect(() => {
     if (session?.phase !== 'reward') return

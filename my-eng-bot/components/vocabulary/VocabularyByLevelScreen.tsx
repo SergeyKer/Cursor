@@ -378,7 +378,7 @@ export default function VocabularyByLevelScreen({
         return { ...current, quizAnswers: nextAnswers, quizIndex: current.quizIndex + 1 }
       })
     },
-    [currentQuizWord, progress, session]
+    [currentQuizWord, session]
   )
 
   const finishVoiceStep = React.useCallback(
