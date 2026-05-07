@@ -1,3 +1,4 @@
+import { isWordStrictlyLearned } from '@/lib/vocabulary/learned'
 import type { NecessaryWord, VocabularyWordProgress } from '@/types/vocabulary'
 
 export const SRS_INTERVAL_DAYS = [0, 1, 3, 7, 14, 30] as const
@@ -40,7 +41,7 @@ export function isWordDue(progress: VocabularyWordProgress | null | undefined, n
   return progress.nextReviewAt <= now
 }
 
-export function buildWorldSessionWords(params: {
+export function buildSessionWords(params: {
   words: NecessaryWord[]
   progressMap: Record<string, VocabularyWordProgress>
   size?: number
@@ -48,12 +49,13 @@ export function buildWorldSessionWords(params: {
 }): NecessaryWord[] {
   const size = params.size ?? 5
   const now = params.now ?? Date.now()
-  const dueWords = params.words.filter((word) => isWordDue(params.progressMap[String(word.id)], now))
+  const eligible = params.words.filter((word) => !isWordStrictlyLearned(params.progressMap[String(word.id)]))
+  const dueWords = eligible.filter((word) => isWordDue(params.progressMap[String(word.id)], now))
   const freshWords = dueWords.filter((word) => !params.progressMap[String(word.id)]?.attempts)
   const reviewWords = dueWords.filter((word) => params.progressMap[String(word.id)]?.attempts)
 
   const result: NecessaryWord[] = []
-  for (const bucket of [reviewWords, freshWords, params.words]) {
+  for (const bucket of [reviewWords, freshWords, eligible]) {
     for (const word of bucket) {
       if (result.length >= size) break
       if (result.some((item) => item.id === word.id)) continue
@@ -62,4 +64,14 @@ export function buildWorldSessionWords(params: {
   }
 
   return result.slice(0, size)
+}
+
+/** @deprecated используйте buildSessionWords */
+export function buildWorldSessionWords(params: {
+  words: NecessaryWord[]
+  progressMap: Record<string, VocabularyWordProgress>
+  size?: number
+  now?: number
+}): NecessaryWord[] {
+  return buildSessionWords(params)
 }

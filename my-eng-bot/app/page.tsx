@@ -102,7 +102,7 @@ import {
 const Chat = dynamic(() => import('@/components/Chat'))
 const SlideOutMenu = dynamic(() => import('@/components/SlideOutMenu'))
 const VocabularyWorldsScreen = dynamic(() => import('@/components/vocabulary/VocabularyWorldsScreen'))
-const AdaptiveDailyHub = dynamic(() => import('@/components/adaptiveRetention/AdaptiveDailyHub'), { ssr: false })
+const VocabularyByLevelScreen = dynamic(() => import('@/components/vocabulary/VocabularyByLevelScreen'))
 type StructuredLessonRuntimeMode = 'generate' | 'repeat'
 type LessonRepeatFallbackReason = 'provider' | 'parse' | 'validation' | 'exception' | 'no_steps'
 type PracticeOpenRequest = {
@@ -449,6 +449,7 @@ export default function Home() {
   const [accentLessonRequestKey, setAccentLessonRequestKey] = useState(0)
   const [accentFooterView, setAccentFooterView] = useState<AccentFooterView | null>(null)
   const [vocabularyWorldsActive, setVocabularyWorldsActive] = useState(false)
+  const [vocabularyByLevelActive, setVocabularyByLevelActive] = useState(false)
   const [vocabularyFooterView, setVocabularyFooterView] = useState<VocabularyFooterView | null>(null)
   const [adaptiveFooterView, setAdaptiveFooterView] = useState<AdaptiveFooterView | null>(null)
   const structuredLessonChoiceShuffleSeed =
@@ -960,6 +961,7 @@ export default function Home() {
     setAccentLessonRequestKey((value) => value + 1)
     setAccentFooterView(null)
     setVocabularyWorldsActive(false)
+    setVocabularyByLevelActive(false)
     setVocabularyFooterView(null)
     setAdaptiveFooterView(null)
     setLessonMenuContext(null)
@@ -1645,11 +1647,23 @@ export default function Home() {
   const openVocabularyWorlds = useCallback(() => {
     resetStructuredLessonSession()
     setAdaptiveFooterView(null)
+    setVocabularyByLevelActive(false)
     setVocabularyWorldsActive(true)
     setDialogStarted(true)
     setMenuOpen(false)
     setHomeMenuView('lessons')
     setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'vocabulary' })
+  }, [resetStructuredLessonSession])
+
+  const openVocabularyByLevel = useCallback(() => {
+    resetStructuredLessonSession()
+    setAdaptiveFooterView(null)
+    setVocabularyWorldsActive(false)
+    setVocabularyByLevelActive(true)
+    setDialogStarted(true)
+    setMenuOpen(false)
+    setHomeMenuView('lessons')
+    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'wordsByLevel' })
   }, [resetStructuredLessonSession])
 
   const generatePracticeSession = useCallback(
@@ -1966,7 +1980,7 @@ export default function Home() {
     setForceNextMicLang(null)
     setLoadingTranslationIndex(null)
     resetStructuredLessonSession()
-    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'vocabulary' })
+    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'words' })
   }, [resetStructuredLessonSession])
 
   const retryFirstMessage = useCallback(async () => {
@@ -2051,9 +2065,9 @@ export default function Home() {
     if (!storageLoaded) return
     if (newDialogRef.current) return
     if (loading) return
-    if (activeStructuredLesson || vocabularyWorldsActive) return
+    if (activeStructuredLesson || vocabularyWorldsActive || vocabularyByLevelActive) return
     if (initialized && dialogStarted && messages.length === 0) ensureFirstMessage()
-  }, [storageLoaded, initialized, dialogStarted, messages.length, loading, ensureFirstMessage, activeStructuredLesson, vocabularyWorldsActive])
+  }, [storageLoaded, initialized, dialogStarted, messages.length, loading, ensureFirstMessage, activeStructuredLesson, vocabularyWorldsActive, vocabularyByLevelActive])
 
   useEffect(() => {
     if (!storageLoaded) return
@@ -2379,7 +2393,7 @@ export default function Home() {
   const isLessonActive = Boolean(activeLearningLesson)
   const isPracticeActive = Boolean(practiceSession.session)
   const isAccentActive = accentTrainerActive
-  const isVocabularyActive = vocabularyWorldsActive
+  const isVocabularyHubActive = vocabularyWorldsActive || vocabularyByLevelActive
   const activeLessonIntro =
     activeStructuredLesson?.intro ??
     activeLearningLesson?.intro ??
@@ -2570,8 +2584,9 @@ export default function Home() {
         : 'Дополнительные фишки | 0/7 шагов'
   const footerDynamicText = isAccentActive
     ? accentFooterView?.dynamicText ?? null
-    : isVocabularyActive
-    ? vocabularyFooterView?.dynamicText ?? 'Выбери мир и начни короткую сессию.'
+    : isVocabularyHubActive
+    ? vocabularyFooterView?.dynamicText ??
+      (vocabularyByLevelActive ? 'Выбери уровень CEFR или тему.' : 'Выбери мир и начни короткую сессию.')
     : isPracticeActive
     ? practiceFooterView?.dynamicText ?? null
     : isLessonIntroActive
@@ -2587,8 +2602,8 @@ export default function Home() {
         : adaptiveFooterView?.dynamicText ?? homeFooterVoice?.text ?? null
   const footerStaticText = isAccentActive
     ? accentFooterView?.staticText ?? 'Произношение'
-    : isVocabularyActive
-    ? vocabularyFooterView?.staticText ?? 'Необходимые слова'
+    : isVocabularyHubActive
+    ? vocabularyFooterView?.staticText ?? (vocabularyByLevelActive ? 'Слова по уровням' : 'Необходимые слова')
     : isPracticeActive
     ? practiceFooterView?.staticText ?? 'Практика'
     : isLessonIntroActive
@@ -2604,7 +2619,7 @@ export default function Home() {
         : adaptiveFooterView?.staticText ?? 'Главная'
   const footerTypingKey = isAccentActive
     ? accentFooterView?.typingKey ?? 'accent-footer'
-    : isVocabularyActive
+    : isVocabularyHubActive
     ? vocabularyFooterView?.typingKey ?? 'vocabulary-footer'
     : isPracticeActive
     ? practiceFooterView?.typingKey ?? 'practice-footer'
@@ -2619,7 +2634,7 @@ export default function Home() {
       : adaptiveFooterView?.typingKey ?? homeFooterVoice?.typingKey ?? 'home-footer'
   const footerVoiceTone = isAccentActive
     ? accentFooterView?.tone ?? 'neutral'
-    : isVocabularyActive
+    : isVocabularyHubActive
     ? 'support'
     : isPracticeActive
     ? practiceSession.state === 'correction'
@@ -2646,7 +2661,7 @@ export default function Home() {
       : (adaptiveFooterView?.tone ?? homeFooterVoice?.tone ?? 'neutral')
   const footerVoiceEmphasis = isAccentActive
     ? accentFooterView?.emphasis ?? 'none'
-    : isVocabularyActive
+    : isVocabularyHubActive
     ? 'none'
     : isPracticeActive
     ? practiceSession.state === 'completed'
@@ -2668,8 +2683,10 @@ export default function Home() {
       : (adaptiveFooterView?.emphasis ?? homeFooterVoice?.emphasis ?? 'none')
   const pageTitle = !dialogStarted
     ? 'MyEng - мой английский друг'
-    : isVocabularyActive
-      ? 'Самые необходимые слова MyEng'
+    : isVocabularyHubActive
+      ? vocabularyByLevelActive
+        ? 'Слова по уровням MyEng'
+        : 'Самые необходимые слова MyEng'
     : isPracticeActive
       ? 'Практика MyEng'
     : isTutorLessonHeader
@@ -2810,7 +2827,7 @@ export default function Home() {
 
       <main
         className={`flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)] ${
-          dialogStarted ? 'overflow-hidden' : 'overflow-y-auto'
+          dialogStarted && !isVocabularyHubActive ? 'overflow-hidden' : 'overflow-y-auto'
         }`}
         style={{
           paddingTop: 'var(--app-top-offset)',
@@ -2910,13 +2927,6 @@ export default function Home() {
                             Начать Чат с MyEng
                           </button>
                         </div>
-                        <AdaptiveDailyHub
-                          settings={settings}
-                          onFooterViewChange={setAdaptiveFooterView}
-                          onOpenVocabularyWorlds={openVocabularyWorlds}
-                          onOpenPracticeTopic={openAdaptivePracticeTopic}
-                          onStartChat={handleStartChatFromHome}
-                        />
                         <button
                           type="button"
                           onClick={() => setHomeMenuView('lessons')}
@@ -2978,6 +2988,8 @@ export default function Home() {
                     onGeneratePracticeSession={generatePracticeSession}
                     onOpenAccentTrainer={openAccentTrainer}
                     onOpenVocabularyWorlds={openVocabularyWorlds}
+                    onOpenVocabularyByLevel={openVocabularyByLevel}
+                    onOpenAdaptivePracticeTopic={openAdaptivePracticeTopic}
                     onOpenTutorLesson={openTutorLesson}
                   />
                 </div>
@@ -3020,12 +3032,19 @@ export default function Home() {
                 </div>
               )}
               <div className="flex min-h-0 flex-1 flex-col">
-                {isVocabularyActive ? (
-                <VocabularyWorldsScreen
-                  onBackToLessons={backToVocabularyMenu}
-                  onFooterViewChange={setVocabularyFooterView}
-                />
-              ) : isAccentActive ? (
+                {isVocabularyHubActive ? (
+                  vocabularyWorldsActive ? (
+                    <VocabularyWorldsScreen
+                      onBackToLessons={backToVocabularyMenu}
+                      onFooterViewChange={setVocabularyFooterView}
+                    />
+                  ) : (
+                    <VocabularyByLevelScreen
+                      onBackToLessons={backToVocabularyMenu}
+                      onFooterViewChange={setVocabularyFooterView}
+                    />
+                  )
+                ) : isAccentActive ? (
                 <AccentTrainer
                   audience={settings.audience}
                   onClose={goToStartScreen}
@@ -3204,6 +3223,8 @@ export default function Home() {
         onGeneratePracticeSession={generatePracticeSession}
         onOpenAccentTrainer={openAccentTrainer}
         onOpenVocabularyWorlds={openVocabularyWorlds}
+        onOpenVocabularyByLevel={openVocabularyByLevel}
+        onOpenAdaptivePracticeTopic={openAdaptivePracticeTopic}
         onOpenTutorLesson={openTutorLesson}
         lessonMenuContext={lessonMenuContext}
         topOffset="var(--app-top-offset)"

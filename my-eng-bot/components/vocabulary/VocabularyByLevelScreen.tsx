@@ -4,9 +4,9 @@ import React from 'react'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import { speak } from '@/lib/speech'
 import { buildNecessaryWordsChatPrompt } from '@/lib/vocabulary/chatStub'
-import { isWordInProgress } from '@/lib/vocabulary/learned'
-import { formatVocabularySessionRouteTitle } from '@/lib/vocabulary/sessionRoute'
-import { buildWorldSessionWords } from '@/lib/vocabulary/srs'
+import { isWordInProgress, listStrictlyLearnedWords } from '@/lib/vocabulary/learned'
+import { VOCABULARY_LEVELS } from '@/lib/vocabulary/levels'
+import { buildSessionWords } from '@/lib/vocabulary/srs'
 import {
   createEmptyVocabularyProgress,
   finalizeVocabularySession,
@@ -14,13 +14,14 @@ import {
   recordWordReview,
   saveVocabularyProgress,
 } from '@/lib/vocabulary/storage'
-import { VOCABULARY_WORLDS } from '@/lib/vocabulary/worlds'
+import { VOCABULARY_TOPICS } from '@/lib/vocabulary/topics'
 import type {
   NecessaryWord,
   NecessaryWordsCatalog,
   VocabularyFooterView,
+  VocabularyLevelId,
   VocabularyProgressState,
-  VocabularyWorldId,
+  VocabularyTopicId,
 } from '@/types/vocabulary'
 
 type SessionPhase = 'cards' | 'quiz' | 'voice' | 'reward'
@@ -39,7 +40,8 @@ type SessionAnswer = {
 
 type SessionRun = {
   id: string
-  worldId: VocabularyWorldId
+  levelId: VocabularyLevelId
+  topicId: VocabularyTopicId
   words: NecessaryWord[]
   phase: SessionPhase
   cardIndex: number
@@ -51,7 +53,9 @@ type SessionRun = {
   promptPreview: string
 }
 
-type VocabularyWorldsScreenProps = {
+type HubTab = 'levels' | 'learned'
+
+type VocabularyByLevelScreenProps = {
   onBackToLessons: () => void
   onFooterViewChange?: (view: VocabularyFooterView | null) => void
 }
@@ -73,18 +77,33 @@ function normalizeSpeechText(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-function getWorldTitle(worldId: VocabularyWorldId): string {
-  return VOCABULARY_WORLDS.find((world) => world.id === worldId)?.title ?? 'Мир'
+function normalizeCatalogPayload(data: NecessaryWordsCatalog): NecessaryWordsCatalog {
+  const levels = data.levels?.length ? data.levels : VOCABULARY_LEVELS
+  const topics = data.topics?.length ? data.topics : VOCABULARY_TOPICS
+  const words = data.words.map((word) => ({
+    ...word,
+    primaryLevel: word.primaryLevel ?? 'a2',
+    primaryVocabularyTopic: word.primaryVocabularyTopic ?? 'core',
+  }))
+  return { ...data, levels, topics, words }
 }
 
-function buildWorldCounts(words: NecessaryWord[]): Record<VocabularyWorldId, NecessaryWord[]> {
-  return words.reduce<Record<VocabularyWorldId, NecessaryWord[]>>(
-    (acc, word) => {
-      acc[word.primaryWorld].push(word)
-      return acc
-    },
-    { home: [], school: [], travel: [], digital: [], core: [] }
-  )
+function getLevelPrefix(levelId: VocabularyLevelId, catalog: NecessaryWordsCatalog | null): string {
+  const list = catalog?.levels?.length ? catalog.levels : VOCABULARY_LEVELS
+  return list.find((level) => level.id === levelId)?.prefixLabel ?? levelId.toUpperCase()
+}
+
+function getTopicTitle(topicId: VocabularyTopicId, catalog: NecessaryWordsCatalog | null): string {
+  const list = catalog?.topics?.length ? catalog.topics : VOCABULARY_TOPICS
+  return list.find((topic) => topic.id === topicId)?.title ?? topicId
+}
+
+function wordsForLevelTopic(words: NecessaryWord[], levelId: VocabularyLevelId, topicId: VocabularyTopicId): NecessaryWord[] {
+  return words.filter((word) => word.primaryLevel === levelId && word.primaryVocabularyTopic === topicId)
+}
+
+function wordsForLevel(words: NecessaryWord[], levelId: VocabularyLevelId): NecessaryWord[] {
+  return words.filter((word) => word.primaryLevel === levelId)
 }
 
 function countWordsInProgress(state: VocabularyProgressState, words: NecessaryWord[]): number {
@@ -102,11 +121,18 @@ function buildQuizOptions(targetWord: NecessaryWord, pool: NecessaryWord[]): str
   return shuffle([targetWord.ru, ...distractors])
 }
 
-function createSession(worldId: VocabularyWorldId, words: NecessaryWord[]): SessionRun | null {
+function createLevelSession(
+  levelId: VocabularyLevelId,
+  topicId: VocabularyTopicId,
+  words: NecessaryWord[],
+  catalog: NecessaryWordsCatalog | null
+): SessionRun | null {
   if (words.length === 0) return null
+  const label = `${getLevelPrefix(levelId, catalog)} · ${getTopicTitle(topicId, catalog)}`
   return {
-    id: `vocab-${Date.now()}`,
-    worldId,
+    id: `vocab-level-${Date.now()}`,
+    levelId,
+    topicId,
     words,
     phase: 'cards',
     cardIndex: 0,
@@ -115,21 +141,23 @@ function createSession(worldId: VocabularyWorldId, words: NecessaryWord[]): Sess
     quizAnswers: [],
     voiceAcceptedIds: [],
     startedAt: Date.now(),
-    promptPreview: buildNecessaryWordsChatPrompt(words, getWorldTitle(worldId)),
+    promptPreview: buildNecessaryWordsChatPrompt(words, label),
   }
 }
 
-export default function VocabularyWorldsScreen({
+export default function VocabularyByLevelScreen({
   onBackToLessons,
   onFooterViewChange,
-}: VocabularyWorldsScreenProps) {
+}: VocabularyByLevelScreenProps) {
   const [catalog, setCatalog] = React.useState<NecessaryWordsCatalog | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [progress, setProgress] = React.useState<VocabularyProgressState>(createEmptyVocabularyProgress())
   const [messages, setMessages] = React.useState<LocalMessage[]>([])
   const [session, setSession] = React.useState<SessionRun | null>(null)
-  const [showStats, setShowStats] = React.useState(false)
+  const [hubTab, setHubTab] = React.useState<HubTab>('levels')
+  const [browseLevelId, setBrowseLevelId] = React.useState<VocabularyLevelId | null>(null)
+  const [learnedFilter, setLearnedFilter] = React.useState('')
   const [chatStubCopied, setChatStubCopied] = React.useState(false)
   const [voiceTranscript, setVoiceTranscript] = React.useState('')
   const [voiceListening, setVoiceListening] = React.useState(false)
@@ -148,10 +176,10 @@ export default function VocabularyWorldsScreen({
         setLoading(true)
         setLoadError(null)
         const response = await fetch('/data/vocabulary/necessary-words.json')
-        const data = (await response.json()) as NecessaryWordsCatalog
+        const raw = (await response.json()) as NecessaryWordsCatalog
         if (!response.ok) throw new Error('Не удалось загрузить словарь.')
         if (!active) return
-        setCatalog(data)
+        setCatalog(normalizeCatalogPayload(raw))
       } catch (error) {
         if (!active) return
         setLoadError(error instanceof Error ? error.message : 'Не удалось загрузить словарь.')
@@ -182,72 +210,98 @@ export default function VocabularyWorldsScreen({
     () => (catalog?.words ?? []).filter((word) => word.status === 'active'),
     [catalog]
   )
-  const worldMap = React.useMemo(() => buildWorldCounts(activeWords), [activeWords])
+
+  const levelList = catalog?.levels?.length ? catalog.levels : VOCABULARY_LEVELS
+  const topicList = catalog?.topics?.length ? catalog.topics : VOCABULARY_TOPICS
 
   React.useEffect(() => {
-    if (!session) {
+    if (session) {
+      const routeTitle = `${getLevelPrefix(session.levelId, catalog)} · ${getTopicTitle(session.topicId, catalog)}`
+      const footerByPhase: Record<SessionPhase, VocabularyFooterView> = {
+        cards: {
+          dynamicText: 'Слушай слово, смотри на карточку и двигайся дальше.',
+          staticText: `${routeTitle} | Карточки ${Math.min(session.cardIndex + 1, session.words.length)}/${session.words.length}`,
+          typingKey: `vocab-lvl-cards-${session.id}-${session.cardIndex}`,
+        },
+        quiz: {
+          dynamicText: 'Мини-игра: выбери правильный перевод.',
+          staticText: `${routeTitle} | Игра ${Math.min(session.quizIndex + 1, session.words.length)}/${session.words.length}`,
+          typingKey: `vocab-lvl-quiz-${session.id}-${session.quizIndex}`,
+        },
+        voice: {
+          dynamicText: 'Скажи слово вслух и закрепи его голосом.',
+          staticText: `${routeTitle} | Голос ${Math.min(session.voiceIndex + 1, Math.min(2, session.words.length))}/${Math.min(2, session.words.length)}`,
+          typingKey: `vocab-lvl-voice-${session.id}-${session.voiceIndex}`,
+        },
+        reward: {
+          dynamicText: 'Сессия готова. Забирай монеты и двигайся дальше.',
+          staticText: `${routeTitle} | Награда`,
+          typingKey: `vocab-lvl-reward-${session.id}`,
+        },
+      }
+      onFooterViewChange?.(footerByPhase[session.phase])
+      return
+    }
+
+    if (hubTab === 'learned') {
       onFooterViewChange?.({
-        dynamicText: showStats ? 'Смотри, как растёт прогресс по словам.' : 'Выбери мир и начни короткую сессию.',
-        staticText: showStats ? 'Необходимые слова | Статистика' : 'Необходимые слова | Карта миров',
-        typingKey: showStats ? 'vocab-stats-footer' : 'vocab-hub-footer',
+        dynamicText: 'Здесь слова со стабильным закреплением по SRS.',
+        staticText: 'Слова по уровням | Выученные',
+        typingKey: 'vocab-level-learned-footer',
       })
       return
     }
 
-    const currentWorldTitle = getWorldTitle(session.worldId)
-    const footerByPhase: Record<SessionPhase, VocabularyFooterView> = {
-      cards: {
-        dynamicText: 'Слушай слово, смотри на карточку и двигайся дальше.',
-        staticText: `${currentWorldTitle} | Карточки ${Math.min(session.cardIndex + 1, session.words.length)}/${session.words.length}`,
-        typingKey: `vocab-cards-${session.id}-${session.cardIndex}`,
-      },
-      quiz: {
-        dynamicText: 'Мини-игра: выбери правильный перевод.',
-        staticText: `${currentWorldTitle} | Игра ${Math.min(session.quizIndex + 1, session.words.length)}/${session.words.length}`,
-        typingKey: `vocab-quiz-${session.id}-${session.quizIndex}`,
-      },
-      voice: {
-        dynamicText: 'Скажи слово вслух и закрепи его голосом.',
-        staticText: `${currentWorldTitle} | Голос ${Math.min(session.voiceIndex + 1, Math.min(2, session.words.length))}/${Math.min(2, session.words.length)}`,
-        typingKey: `vocab-voice-${session.id}-${session.voiceIndex}`,
-      },
-      reward: {
-        dynamicText: 'Сессия готова. Забирай монеты и двигайся дальше.',
-        staticText: `${currentWorldTitle} | Награда`,
-        typingKey: `vocab-reward-${session.id}`,
-      },
+    if (browseLevelId) {
+      onFooterViewChange?.({
+        dynamicText: 'Выбери тему и начни короткую сессию.',
+        staticText: `Слова по уровням | ${getLevelPrefix(browseLevelId, catalog)}`,
+        typingKey: `vocab-level-topics-${browseLevelId}`,
+      })
+      return
     }
 
-    onFooterViewChange?.(footerByPhase[session.phase])
-  }, [onFooterViewChange, session, showStats])
+    onFooterViewChange?.({
+      dynamicText: 'Выбери уровень CEFR или открой список выученных слов.',
+      staticText: 'Слова по уровням | Уровни',
+      typingKey: 'vocab-level-hub-footer',
+    })
+  }, [onFooterViewChange, session, hubTab, browseLevelId, catalog])
 
-  const startWorldSession = React.useCallback(
-    (worldId: VocabularyWorldId) => {
-      const pool = worldMap[worldId] ?? []
-      const plannedWords = buildWorldSessionWords({ words: pool, progressMap: progress.words, size: 5 })
-      const nextSession = createSession(worldId, plannedWords)
+  const startTopicSession = React.useCallback(
+    (levelId: VocabularyLevelId, topicId: VocabularyTopicId) => {
+      const pool = wordsForLevelTopic(activeWords, levelId, topicId)
+      const plannedWords = buildSessionWords({ words: pool, progressMap: progress.words, size: 5 })
+      const nextSession = createLevelSession(levelId, topicId, plannedWords, catalog)
       if (!nextSession) return
 
+      const title = `${getLevelPrefix(levelId, catalog)} · ${getTopicTitle(topicId, catalog)}`
       setMessages([
         {
           id: `${nextSession.id}-intro`,
           role: 'assistant',
-          text: `Привет! Начинаем мир «${getWorldTitle(worldId)}». Сначала посмотрим несколько слов, потом сыграем и в конце повторим их вслух.`,
+          text: `Привет! Уровень и тема: «${title}». Сначала карточки, потом мини-игра и короткий голосовой шаг.`,
         },
       ])
       setVoiceTranscript('')
       setVoiceError(null)
       setChatStubCopied(false)
       setSession(nextSession)
-      setShowStats(false)
     },
-    [progress.words, worldMap]
+    [activeWords, catalog, progress.words]
   )
+
+  const topicPool = React.useMemo(() => {
+    if (!session) return []
+    return wordsForLevelTopic(activeWords, session.levelId, session.topicId)
+  }, [activeWords, session])
 
   const currentCardWord = session?.phase === 'cards' ? session.words[session.cardIndex] ?? null : null
   const currentQuizWord = session?.phase === 'quiz' ? session.words[session.quizIndex] ?? null : null
   const currentVoiceWord =
-    session?.phase === 'voice' ? session.words[Math.min(session.voiceIndex, Math.min(2, session.words.length) - 1)] ?? null : null
+    session?.phase === 'voice'
+      ? session.words[Math.min(session.voiceIndex, Math.min(2, session.words.length) - 1)] ?? null
+      : null
 
   const handleNextCard = React.useCallback(() => {
     setSession((current) => {
@@ -282,7 +336,7 @@ export default function VocabularyWorldsScreen({
 
   const handleQuizAnswer = React.useCallback(
     (selected: string) => {
-      if (!currentQuizWord) return
+      if (!currentQuizWord || !session) return
       const wasCorrect = selected === currentQuizWord.ru
 
       setSession((current) => {
@@ -324,42 +378,45 @@ export default function VocabularyWorldsScreen({
         return { ...current, quizAnswers: nextAnswers, quizIndex: current.quizIndex + 1 }
       })
     },
-    [currentQuizWord, progress]
+    [currentQuizWord, progress, session]
   )
 
-  const finishVoiceStep = React.useCallback((accepted: boolean) => {
-    setSession((current) => {
-      if (!current || current.phase !== 'voice' || !currentVoiceWord) return current
-      const nextAcceptedIds = accepted && !current.voiceAcceptedIds.includes(currentVoiceWord.id)
-        ? [...current.voiceAcceptedIds, currentVoiceWord.id]
-        : current.voiceAcceptedIds
+  const finishVoiceStep = React.useCallback(
+    (accepted: boolean) => {
+      setSession((current) => {
+        if (!current || current.phase !== 'voice' || !currentVoiceWord) return current
+        const nextAcceptedIds =
+          accepted && !current.voiceAcceptedIds.includes(currentVoiceWord.id)
+            ? [...current.voiceAcceptedIds, currentVoiceWord.id]
+            : current.voiceAcceptedIds
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `${current.id}-voice-feedback-${currentVoiceWord.id}-${current.voiceIndex}`,
-          role: 'assistant',
-          text: accepted
-            ? `Отлично, слово "${currentVoiceWord.en}" прозвучало уверенно.`
-            : `Хорошая попытка. Слово "${currentVoiceWord.en}" можно будет повторить ещё раз позже.`,
-        },
-      ])
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `${current.id}-voice-feedback-${currentVoiceWord.id}-${current.voiceIndex}`,
+            role: 'assistant',
+            text: accepted
+              ? `Отлично, слово "${currentVoiceWord.en}" прозвучало уверенно.`
+              : `Хорошая попытка. Слово "${currentVoiceWord.en}" можно будет повторить ещё раз позже.`,
+          },
+        ])
 
-      const voiceStepsTotal = Math.min(2, current.words.length)
-      if (current.voiceIndex >= voiceStepsTotal - 1) {
-        return { ...current, phase: 'reward', voiceAcceptedIds: nextAcceptedIds }
-      }
+        const voiceStepsTotal = Math.min(2, current.words.length)
+        if (current.voiceIndex >= voiceStepsTotal - 1) {
+          return { ...current, phase: 'reward', voiceAcceptedIds: nextAcceptedIds }
+        }
 
-      return { ...current, voiceAcceptedIds: nextAcceptedIds, voiceIndex: current.voiceIndex + 1 }
-    })
-    setVoiceTranscript('')
-    setVoiceError(null)
-  }, [currentVoiceWord])
+        return { ...current, voiceAcceptedIds: nextAcceptedIds, voiceIndex: current.voiceIndex + 1 }
+      })
+      setVoiceTranscript('')
+      setVoiceError(null)
+    },
+    [currentVoiceWord]
+  )
 
   const handleStartVoiceRecognition = React.useCallback(() => {
-    const RecognitionCtor = typeof window !== 'undefined'
-      ? window.SpeechRecognition ?? window.webkitSpeechRecognition
-      : undefined
+    const RecognitionCtor =
+      typeof window !== 'undefined' ? window.SpeechRecognition ?? window.webkitSpeechRecognition : undefined
 
     if (!RecognitionCtor) {
       setVoiceError('В этом браузере микрофон недоступен. Нажми кнопку «Я повторил вслух».')
@@ -396,11 +453,12 @@ export default function VocabularyWorldsScreen({
   const completeSession = React.useCallback(() => {
     if (!session) return
 
-    const coinsEarned = session.quizAnswers.filter((answer) => answer.isCorrect).length * 4 + session.voiceAcceptedIds.length * 3 + 6
+    const coinsEarned =
+      session.quizAnswers.filter((answer) => answer.isCorrect).length * 4 + session.voiceAcceptedIds.length * 3 + 6
     const learnedWordIds = session.quizAnswers.filter((answer) => answer.isCorrect).map((answer) => answer.wordId)
     const historyItem = {
       id: session.id,
-      route: { kind: 'world' as const, worldId: session.worldId },
+      route: { kind: 'level' as const, levelId: session.levelId, topicId: session.topicId },
       startedAt: session.startedAt,
       completedAt: Date.now(),
       reviewedWordIds: session.words.map((word) => word.id),
@@ -422,7 +480,7 @@ export default function VocabularyWorldsScreen({
         text: `Сессия завершена. Ты заработал ${coinsEarned} 🪙. Хочешь потом обсудить эти слова с MyEng — кнопка уже готова.`,
       },
     ])
-  }, [session, worldMap])
+  }, [session])
 
   React.useEffect(() => {
     if (session?.phase !== 'reward') return
@@ -440,22 +498,173 @@ export default function VocabularyWorldsScreen({
     }
   }, [session])
 
-  const worldCards = VOCABULARY_WORLDS.map((world) => {
-    const words = worldMap[world.id] ?? []
-    const reviewed = countWordsInProgress(progress, words)
-    const unlocked = words.length > 0
+  const strictlyLearnedEntries = React.useMemo(
+    () => listStrictlyLearnedWords(activeWords, progress.words),
+    [activeWords, progress.words]
+  )
 
-    return { world, words, reviewed, unlocked }
-  })
+  const filteredLearned = React.useMemo(() => {
+    const query = learnedFilter.trim().toLowerCase()
+    if (!query) return strictlyLearnedEntries
+    return strictlyLearnedEntries.filter(
+      (entry) =>
+        entry.word.en.toLowerCase().includes(query) ||
+        entry.word.ru.toLowerCase().includes(query)
+    )
+  }, [strictlyLearnedEntries, learnedFilter])
+
+  const hubBody = !session && (
+    <>
+      <div className="flex gap-2 rounded-[1rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] p-1 shadow-sm">
+        <button
+          type="button"
+          onClick={() => {
+            setHubTab('levels')
+            setBrowseLevelId(null)
+          }}
+          className={`flex-1 rounded-lg px-3 py-2 text-[13px] font-semibold ${
+            hubTab === 'levels' ? 'bg-white text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)]'
+          }`}
+        >
+          Уровни
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setHubTab('learned')
+            setBrowseLevelId(null)
+          }}
+          className={`flex-1 rounded-lg px-3 py-2 text-[13px] font-semibold ${
+            hubTab === 'learned' ? 'bg-white text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)]'
+          }`}
+        >
+          Выученные
+        </button>
+      </div>
+
+      {hubTab === 'levels' && !browseLevelId && (
+        <div className="space-y-2">
+          {levelList.map((level) => {
+            const pool = wordsForLevel(activeWords, level.id)
+            const reviewed = countWordsInProgress(progress, pool)
+            const empty = pool.length === 0
+            return (
+              <button
+                key={level.id}
+                type="button"
+                disabled={empty}
+                onClick={() => !empty && setBrowseLevelId(level.id)}
+                className={`btn-3d-menu flex w-full items-center justify-between gap-3 rounded-[1.15rem] border px-4 py-4 text-left shadow-sm ${
+                  empty
+                    ? 'cursor-not-allowed border-[var(--border)] bg-[var(--menu-control-bg)] opacity-60'
+                    : 'border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]'
+                }`}
+              >
+                <span className="text-[16px] font-semibold text-[var(--text)]">{level.prefixLabel}</span>
+                {empty ? (
+                  <span className="text-[12px] font-medium text-[var(--text-muted)]">Скоро</span>
+                ) : (
+                  <span className="text-[13px] font-medium text-[var(--text-muted)]">
+                    Пройдено {reviewed}/{pool.length} ›
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {hubTab === 'levels' && browseLevelId && (
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => setBrowseLevelId(null)}
+            className="btn-3d-menu rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[13px] font-semibold text-[var(--text)]"
+          >
+            ← Все уровни
+          </button>
+          <p className="text-[14px] font-semibold text-[var(--text)]">{getLevelPrefix(browseLevelId, catalog)}</p>
+          <div className="space-y-3">
+            {topicList.map((topic) => {
+              const pool = wordsForLevelTopic(activeWords, browseLevelId, topic.id)
+              if (pool.length === 0) return null
+              const reviewed = countWordsInProgress(progress, pool)
+              return (
+                <div
+                  key={topic.id}
+                  className="rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-4 py-4 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[17px] font-semibold text-[var(--text)]">
+                        {topic.badge} {topic.title}
+                      </p>
+                      <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-muted)]">{topic.description}</p>
+                      <p className="mt-2 text-[12px] font-medium text-[var(--text-muted)]">
+                        Пройдено слов: {reviewed}/{pool.length}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => startTopicSession(browseLevelId, topic.id)}
+                      className="btn-3d-menu shrink-0 rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-[13px] font-semibold text-[var(--text)]"
+                    >
+                      Играть
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {hubTab === 'learned' && (
+        <div className="space-y-3">
+          <input
+            value={learnedFilter}
+            onChange={(event) => setLearnedFilter(event.target.value)}
+            placeholder="Поиск по слову или переводу..."
+            className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-[14px] text-[var(--text)] outline-none"
+          />
+          {filteredLearned.length === 0 ? (
+            <div className="rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-4 py-5 text-[14px] leading-relaxed text-[var(--text-muted)] shadow-sm">
+              Пока нет слов в архиве «выучено». Нужны несколько верных ответов подряд по SRS — после этого слово попадёт сюда и
+              не будет мешать в новых сессиях.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredLearned.map((entry) => (
+                <div
+                  key={entry.word.id}
+                  className="rounded-xl border border-[var(--border)] bg-[var(--chat-shell-bg)] px-3 py-3 shadow-sm"
+                >
+                  <p className="text-[16px] font-bold text-[var(--text)]">{entry.word.en}</p>
+                  <p className="text-[13px] text-[var(--text-muted)]">{entry.word.transcription}</p>
+                  <p className="mt-1 text-[15px] font-semibold text-[var(--text)]">{entry.word.ru}</p>
+                  <p className="mt-2 text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
+                    {getLevelPrefix(entry.word.primaryLevel, catalog)} · {getTopicTitle(entry.word.primaryVocabularyTopic, catalog)}
+                    {entry.lastReviewedAt
+                      ? ` · ${new Date(entry.lastReviewedAt).toLocaleDateString('ru-RU')}`
+                      : ''}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  )
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
       <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
-        <div className="mx-auto flex min-h-0 w-full max-w-[29rem] flex-1 flex-col gap-3">
+        <div className="mx-auto flex min-h-0 w-full max-w-[29rem] flex-1 flex-col gap-3 overflow-y-auto pb-3">
           <div className="flex items-center justify-between gap-2 rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-4 py-3 shadow-sm">
             <div className="min-w-0">
-              <p className="text-[17px] font-semibold text-[var(--text)]">Самые необходимые слова</p>
-              <p className="text-[13px] text-[var(--text-muted)]">Короткие сессии, миры и мягкое повторение.</p>
+              <p className="text-[17px] font-semibold text-[var(--text)]">Слова по уровням</p>
+              <p className="text-[13px] text-[var(--text-muted)]">CEFR A1–C2, темы и архив выученных слов.</p>
             </div>
             <button
               type="button"
@@ -468,85 +677,14 @@ export default function VocabularyWorldsScreen({
 
           {loading ? (
             <div className="rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-4 py-5 text-center text-[15px] text-[var(--text)] shadow-sm">
-              Загружаю самые необходимые слова...
+              Загружаю словарь...
             </div>
           ) : loadError ? (
             <div className="rounded-[1.15rem] border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-4 py-5 text-center text-[14px] text-[var(--status-warning-text)] shadow-sm">
               {loadError}
             </div>
           ) : !session ? (
-            <>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-[1rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-3 py-3 shadow-sm">
-                  <p className="text-[12px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Монеты</p>
-                  <p className="mt-1 text-[22px] font-bold text-[var(--text)]">{progress.stats.coins}</p>
-                </div>
-                <div className="rounded-[1rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-3 py-3 shadow-sm">
-                  <p className="text-[12px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Сессии</p>
-                  <p className="mt-1 text-[22px] font-bold text-[var(--text)]">{progress.stats.completedSessions}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[13px] font-medium text-[var(--text-muted)]">Выбери мир и начни сессию на 5-7 минут.</p>
-                <button
-                  type="button"
-                  onClick={() => setShowStats((value) => !value)}
-                  className="btn-3d-menu rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[13px] font-semibold text-[var(--text)]"
-                >
-                  {showStats ? 'Скрыть' : 'Статистика'}
-                </button>
-              </div>
-
-              {showStats && (
-                <div className="rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-4 py-4 shadow-sm">
-                  <p className="text-[15px] font-semibold text-[var(--text)]">Локальная история</p>
-                  <div className="mt-3 space-y-2 text-[13px] text-[var(--text-muted)]">
-                    {progress.history.length === 0 ? (
-                      <p>Пока нет завершённых сессий. Начни с любого открытого мира.</p>
-                    ) : (
-                      progress.history.slice(0, 5).map((item) => (
-                        <div key={item.id} className="rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2">
-                          <p className="font-semibold text-[var(--text)]">{formatVocabularySessionRouteTitle(item.route)}</p>
-                          <p>{item.reviewedWordIds.length} слов, {item.coinsEarned} 🪙, {new Date(item.completedAt).toLocaleDateString('ru-RU')}</p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-3">
-                {worldCards.map(({ world, words, reviewed, unlocked }) => (
-                  <div
-                    key={world.id}
-                    className={`rounded-[1.15rem] border px-4 py-4 shadow-sm ${
-                      unlocked
-                        ? 'border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]'
-                        : 'border-[var(--border)] bg-[var(--menu-control-bg)] opacity-70'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[17px] font-semibold text-[var(--text)]">{world.badge} {world.title}</p>
-                        <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-muted)]">{world.description}</p>
-                        <p className="mt-2 text-[12px] font-medium text-[var(--text-muted)]">
-                          Пройдено слов: {reviewed}/{words.length}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={!unlocked || words.length === 0}
-                        onClick={() => startWorldSession(world.id)}
-                        className="btn-3d-menu rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-[13px] font-semibold text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {unlocked ? 'Играть' : 'Закрыт'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
+            hubBody
           ) : (
             <>
               <div
@@ -601,7 +739,7 @@ export default function VocabularyWorldsScreen({
                     <p className="text-[12px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Мини-игра</p>
                     <p className="mt-2 text-[20px] font-bold text-[var(--text)]">{currentQuizWord.en}</p>
                     <div className="mt-4 space-y-2">
-                      {buildQuizOptions(currentQuizWord, worldMap[session.worldId] ?? session.words).map((option) => (
+                      {buildQuizOptions(currentQuizWord, topicPool.length > 1 ? topicPool : session.words).map((option) => (
                         <button
                           key={`${currentQuizWord.id}-${option}`}
                           type="button"
@@ -672,7 +810,7 @@ export default function VocabularyWorldsScreen({
                   <div className="mt-3 rounded-[1rem] border border-emerald-200 bg-emerald-50 px-4 py-4 shadow-sm">
                     <p className="text-[20px] font-bold text-emerald-700">Награда готова</p>
                     <p className="mt-2 text-[14px] leading-relaxed text-emerald-800">
-                      Слова из сессии уже записаны в локальный прогресс. Когда захотите, можно перейти в чат позже по готовому промпту.
+                      Слова из сессии уже записаны в локальный прогресс.
                     </p>
                     <div className="mt-4 space-y-2">
                       <button
@@ -692,7 +830,7 @@ export default function VocabularyWorldsScreen({
                         }}
                         className="btn-3d-menu w-full rounded-xl border border-[var(--border)] bg-[var(--menu-control-bg)] px-4 py-3 text-base font-semibold text-[var(--text)]"
                       >
-                        Вернуться к мирам
+                        Вернуться к уровням
                       </button>
                     </div>
                     <p className="mt-2 text-[12px] text-[var(--text-muted)]">

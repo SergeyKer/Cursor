@@ -1,5 +1,6 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import React from 'react'
 import { manropeHome } from '@/lib/manropeHome'
 import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES, CHILD_TENSES } from '@/lib/constants'
@@ -26,6 +27,8 @@ import ThemeSelector from '@/components/settings/ThemeSelector'
 import { useTheme } from '@/contexts/ThemeContext'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { PracticeEntrySource, PracticeMode } from '@/types/practice'
+
+const AdaptiveDailyHub = dynamic(() => import('@/components/adaptiveRetention/AdaptiveDailyHub'), { ssr: false })
 
 const CHILD_TENSE_SET = new Set(CHILD_TENSES)
 const CHILD_SAFE_TOPICS = new Set<TopicId>([
@@ -59,6 +62,9 @@ export type LessonsPanel =
   | 'pronunciationSection'
   | 'tutor'
   | 'vocabulary'
+  | 'words'
+  | 'wordsAll'
+  | 'wordsByLevel'
 
 const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
   summary: 'Чат с MyEng',
@@ -94,7 +100,10 @@ const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
   pronunciationAll: 'Все звуки',
   pronunciationSection: 'Раздел звуков',
   tutor: 'Репетитор',
-  vocabulary: 'Необходимые слова',
+  vocabulary: 'Самые необходимые слова',
+  words: 'Слова',
+  wordsAll: 'Сегодня, темы и свои списки',
+  wordsByLevel: 'Слова по уровням (A1-C2)',
 }
 
 const THEORY_LEVELS: { id: string; label: string }[] = [
@@ -231,6 +240,9 @@ export interface MenuSectionPanelsProps {
   }) => void | Promise<void>
   onOpenAccentTrainer?: (lessonId?: string) => void
   onOpenVocabularyWorlds?: () => void | Promise<void>
+  onOpenVocabularyByLevel?: () => void | Promise<void>
+  /** Практика по теме из adaptive-хаба («Сегодня, темы и свои списки»). */
+  onOpenAdaptivePracticeTopic?: (topic: string) => void
   onOpenTutorLesson?: (request: {
     requestedTopic: string
     originalQuery?: string
@@ -260,6 +272,8 @@ export default function MenuSectionPanels({
   onGeneratePracticeSession,
   onOpenAccentTrainer,
   onOpenVocabularyWorlds,
+  onOpenVocabularyByLevel,
+  onOpenAdaptivePracticeTopic,
   onOpenTutorLesson,
   initialLessonsPanel,
 }: MenuSectionPanelsProps) {
@@ -432,6 +446,22 @@ export default function MenuSectionPanels({
       }
       if (lessonsPanel === 'pronunciationRussian' || lessonsPanel === 'pronunciationAll') {
         setLessonsPanel('pronunciation')
+        return
+      }
+      if (lessonsPanel === 'wordsAll') {
+        setLessonsPanel('words')
+        return
+      }
+      if (lessonsPanel === 'vocabulary') {
+        setLessonsPanel('words')
+        return
+      }
+      if (lessonsPanel === 'wordsByLevel') {
+        setLessonsPanel('words')
+        return
+      }
+      if (lessonsPanel === 'words') {
+        setLessonsPanel('summary')
         return
       }
       if (lessonsPanel === 'tutor') {
@@ -796,7 +826,20 @@ export default function MenuSectionPanels({
                       setLessonsPanel('tutor')
                     }}
                   />
+                  <MenuNavRow label="Слова" onClick={() => setLessonsPanel('words')} />
+                </div>
+              </div>
+            )}
+
+            {lessonsPanel === 'words' && (
+              <div className={MENU_GROUP_OUTER}>
+                <div className={MENU_GROUP_CLASS}>
                   <MenuNavRow label="Самые необходимые слова" onClick={() => setLessonsPanel('vocabulary')} />
+                  <MenuNavRow label="Слова по уровням (A1-C2)" onClick={() => setLessonsPanel('wordsByLevel')} />
+                  <MenuNavRow
+                    label="Сегодня, темы и свои списки"
+                    onClick={() => setLessonsPanel('wordsAll')}
+                  />
                 </div>
               </div>
             )}
@@ -823,6 +866,36 @@ export default function MenuSectionPanels({
                   </button>
                 </div>
               </div>
+            )}
+
+            {lessonsPanel === 'wordsByLevel' && (
+              <div className="space-y-3">
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  <p className="text-[15px] font-semibold leading-snug text-[var(--text)]">Слова по уровням (A1-C2)</p>
+                  <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
+                    Уровень CEFR, тематические подборки и отдельный список выученных слов. Прогресс общий с режимом «миры».
+                  </p>
+                </div>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  <button
+                    type="button"
+                    onClick={() => void onOpenVocabularyByLevel?.()}
+                    disabled={!onOpenVocabularyByLevel}
+                    className={`${MENU_PRIMARY_CTA_CLASS} mt-1`}
+                  >
+                    Открыть слова по уровням
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {lessonsPanel === 'wordsAll' && onOpenAdaptivePracticeTopic && onStartHomeChat && (
+              <AdaptiveDailyHub
+                settings={settings}
+                onOpenVocabularyWorlds={() => void onOpenVocabularyWorlds?.()}
+                onOpenPracticeTopic={onOpenAdaptivePracticeTopic}
+                onStartChat={onStartHomeChat}
+              />
             )}
 
             {lessonsPanel === 'pronunciation' && (
@@ -2016,7 +2089,7 @@ function MenuNavRow({
       onClick={onClick}
       className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left text-[15px] font-normal leading-normal text-[var(--text)] transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation [font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif]"
     >
-      <span>{label}</span>
+      <span className="min-w-0 flex-1 text-left leading-snug">{label}</span>
       <ChevronRightIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />
     </button>
   )

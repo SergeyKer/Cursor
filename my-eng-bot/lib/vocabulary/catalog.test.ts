@@ -19,6 +19,9 @@ describe('necessary words catalog', () => {
     expect(byId[223]?.primaryWorld).toBe('home')
     expect(byId[324]?.primaryWorld).toBe('travel')
     expect(byId[881]?.primaryWorld).toBe('digital')
+    expect(byId[42]?.primaryLevel).toBe('a1')
+    expect(byId[223]?.primaryLevel).toBeDefined()
+    expect(byId[223]?.primaryVocabularyTopic).toBe('family')
   })
 
   it('filters excluded words out of active learning', () => {

@@ -54,7 +54,7 @@ describe('vocabulary storage', () => {
       coinsEarned: 9,
       historyItem: {
         id: 'session-1',
-        worldId: 'home',
+        route: { kind: 'world', worldId: 'home' },
         startedAt: 1,
         completedAt: 2,
         reviewedWordIds: [42],

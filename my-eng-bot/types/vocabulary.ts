@@ -1,5 +1,18 @@
 export type VocabularyWorldId = 'home' | 'school' | 'travel' | 'digital' | 'core'
 
+export type VocabularyLevelId = 'a1' | 'a2' | 'b1' | 'b2' | 'c1' | 'c2'
+
+export type VocabularyTopicId =
+  | 'travel'
+  | 'food'
+  | 'work'
+  | 'family'
+  | 'health'
+  | 'tech'
+  | 'education'
+  | 'culture'
+  | 'core'
+
 export type NecessaryWordStatus = 'active' | 'excluded' | 'needsReview'
 
 export interface ParsedNecessaryWord {
@@ -15,10 +28,29 @@ export interface NecessaryWord extends ParsedNecessaryWord {
   status: NecessaryWordStatus
   primaryWorld: VocabularyWorldId
   secondaryWorld?: VocabularyWorldId
+  primaryLevel: VocabularyLevelId
+  secondaryLevel?: VocabularyLevelId
+  primaryVocabularyTopic: VocabularyTopicId
+  secondaryVocabularyTopic?: VocabularyTopicId
 }
 
 export interface VocabularyWorldDefinition {
   id: VocabularyWorldId
+  title: string
+  badge: string
+  description: string
+}
+
+export interface VocabularyLevelDefinition {
+  id: VocabularyLevelId
+  title: string
+  /** Например «A1 - начальный» */
+  prefixLabel: string
+  hint?: string
+}
+
+export interface VocabularyTopicDefinition {
+  id: VocabularyTopicId
   title: string
   badge: string
   description: string
@@ -29,8 +61,14 @@ export interface NecessaryWordsCatalog {
   generatedAt: string
   sourceFile: string
   worlds: VocabularyWorldDefinition[]
+  levels: VocabularyLevelDefinition[]
+  topics: VocabularyTopicDefinition[]
   words: NecessaryWord[]
 }
+
+export type VocabularySessionRoute =
+  | { kind: 'world'; worldId: VocabularyWorldId }
+  | { kind: 'level'; levelId: VocabularyLevelId; topicId: VocabularyTopicId }
 
 export interface VocabularyWordProgress {
   wordId: number
@@ -44,7 +82,7 @@ export interface VocabularyWordProgress {
 
 export interface VocabularySessionHistoryItem {
   id: string
-  worldId: VocabularyWorldId
+  route: VocabularySessionRoute
   startedAt: number
   completedAt: number
   reviewedWordIds: number[]

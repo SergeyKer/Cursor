@@ -1,3 +1,4 @@
+import { normalizeVocabularySessionRoute } from '@/lib/vocabulary/sessionRoute'
 import { applyVocabularyReview, createEmptyWordProgress } from '@/lib/vocabulary/srs'
 import type {
   VocabularyProgressState,
@@ -45,6 +46,32 @@ function normalizeWordProgress(raw: unknown): VocabularyWordProgress | null {
   }
 }
 
+function normalizeHistoryItem(raw: unknown): VocabularySessionHistoryItem | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  if (typeof row.id !== 'string') return null
+  const route = normalizeVocabularySessionRoute(raw)
+  if (!route) return null
+
+  const reviewedWordIds = Array.isArray(row.reviewedWordIds)
+    ? row.reviewedWordIds.filter((value): value is number => typeof value === 'number')
+    : []
+  const learnedWordIds = Array.isArray(row.learnedWordIds)
+    ? row.learnedWordIds.filter((value): value is number => typeof value === 'number')
+    : []
+
+  return {
+    id: row.id,
+    route,
+    startedAt: typeof row.startedAt === 'number' ? row.startedAt : 0,
+    completedAt: typeof row.completedAt === 'number' ? row.completedAt : 0,
+    reviewedWordIds,
+    learnedWordIds,
+    coinsEarned: typeof row.coinsEarned === 'number' ? row.coinsEarned : 0,
+    promptPreview: typeof row.promptPreview === 'string' ? row.promptPreview : '',
+  }
+}
+
 function normalizeProgress(raw: unknown): VocabularyProgressState {
   const fallback = createEmptyVocabularyProgress()
   if (!raw || typeof raw !== 'object') return fallback
@@ -57,13 +84,10 @@ function normalizeProgress(raw: unknown): VocabularyProgressState {
   )
 
   const history = Array.isArray(source.history)
-    ? source.history.filter(
-        (item): item is VocabularySessionHistoryItem =>
-          Boolean(item) &&
-          typeof item === 'object' &&
-          typeof (item as VocabularySessionHistoryItem).id === 'string' &&
-          typeof (item as VocabularySessionHistoryItem).worldId === 'string'
-      ).slice(0, MAX_HISTORY)
+    ? source.history
+        .map((item) => normalizeHistoryItem(item))
+        .filter((item): item is VocabularySessionHistoryItem => Boolean(item))
+        .slice(0, MAX_HISTORY)
     : []
 
   return {
