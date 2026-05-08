@@ -103,7 +103,7 @@ import {
 } from '@/lib/engvo/constants'
 import { buildEngvoRealtimeInstructionsClient } from '@/lib/engvo/instructionsClient'
 import { loadEngvoCefrLevel, loadEngvoRealtimeVoice, saveEngvoCefrLevel, saveEngvoRealtimeVoice } from '@/lib/engvo/preferences'
-import { canCommitEngvoAssistantMessage, getEngvoFooterView, shouldShowEngvoTypingIndicator, type EngvoCallPhase } from '@/lib/engvo/state'
+import { canCommitEngvoAssistantMessage, getEngvoFooterView, type EngvoCallPhase } from '@/lib/engvo/state'
 import { shouldAutoRequestFirstChatMessage } from '@/lib/engvo/guards'
 import {
   createRealtimeTranscriptState,
@@ -398,10 +398,6 @@ function normalizeForEchoCompare(text: string): string {
   return text.trim().toLowerCase().replace(/[^\p{L}\p{N}\s']/gu, '').replace(/\s+/g, ' ')
 }
 
-function hasCyrillic(text: string): boolean {
-  return /[А-Яа-яЁё]/.test(text)
-}
-
 const ENGVO_CALL_HALLUCINATION_PHRASES = new Set(['thank you', 'thanks', 'you', 'okay', 'ok', 'bye'])
 
 function isLikelyEngvoCallHallucination(text: string): boolean {
@@ -557,6 +553,9 @@ export default function Home() {
   const [engvoErrorText, setEngvoErrorText] = useState<string | null>(null)
   const [engvoUserInterimText, setEngvoUserInterimText] = useState('')
   const [engvoAssistantPendingText, setEngvoAssistantPendingText] = useState('')
+  const [engvoBootstrapServiceStatusVisible, setEngvoBootstrapServiceStatusVisible] = useState(false)
+  const [engvoLocalAudioStream, setEngvoLocalAudioStream] = useState<MediaStream | null>(null)
+  const [engvoRemoteAudioStream, setEngvoRemoteAudioStream] = useState<MediaStream | null>(null)
   const structuredLessonChoiceShuffleSeed =
     activeStructuredLesson == null
       ? undefined
@@ -606,6 +605,7 @@ export default function Home() {
   const engvoSessionAckTimeoutRef = React.useRef<number | null>(null)
   const engvoDisconnectTimeoutRef = React.useRef<number | null>(null)
   const engvoResponseDoneFallbackTimeoutRef = React.useRef<number | null>(null)
+  const engvoInactivityTimeoutRef = React.useRef<number | null>(null)
   const resetStructuredLessonSessionRef = React.useRef<((options?: { keepLessonMenuContext?: boolean }) => void) | null>(null)
   /** Отмена предыдущего «Сгенерировать урок», чтобы не было параллельных POST и залипания loading. */
   const menuLessonGenerateCleanupRef = React.useRef<(() => void) | null>(null)
@@ -752,48 +752,6 @@ export default function Home() {
     void fetchUsage()
   }, [fetchUsage])
 
-  const translateEngvoUserTextToEnglish = useCallback(
-    async (text: string): Promise<string> => {
-      const trimmed = text.trim()
-      if (!trimmed) return ''
-      if (!hasCyrillic(trimmed)) return trimmed
-
-      const requestTranslation = async (provider: Settings['provider']): Promise<string> => {
-        const response = await fetch('/api/translate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: trimmed,
-            direction: 'ru_to_en',
-            provider,
-            openAiChatPreset: settings.openAiChatPreset,
-            audience: settings.audience,
-            mode: 'communication',
-          }),
-        })
-        const data = (await response.json().catch(() => ({}))) as { content?: string; error?: string }
-        const translated = (data.content ?? '').trim()
-        return response.ok ? translated : ''
-      }
-
-      try {
-        const translatedPrimary = await requestTranslation(settings.provider)
-        if (translatedPrimary && !hasCyrillic(translatedPrimary)) return translatedPrimary
-
-        // Fallback provider for cases when current provider returns source text unchanged.
-        if (settings.provider !== 'openai') {
-          const translatedFallback = await requestTranslation('openai')
-          if (translatedFallback && !hasCyrillic(translatedFallback)) return translatedFallback
-        }
-
-        return trimmed
-      } catch {
-        return trimmed
-      }
-    },
-    [settings.audience, settings.openAiChatPreset, settings.provider]
-  )
-
   const resetEngvoAssistantTurn = useCallback((options?: { markIgnored?: boolean }) => {
     const responseId = engvoAssistantResponseIdRef.current
     if (options?.markIgnored && responseId) {
@@ -867,6 +825,18 @@ export default function Home() {
     }
   }, [])
 
+  const clearEngvoInactivityTimeout = useCallback(() => {
+    clearEngvoTimeout(engvoInactivityTimeoutRef)
+  }, [clearEngvoTimeout])
+
+  const appendEngvoCallFinishedMessage = useCallback(() => {
+    setMessages((prev) => {
+      const last = prev[prev.length - 1]
+      if (last?.role === 'assistant' && last.content.trim() === 'Call is finished') return prev
+      return [...prev, { role: 'assistant', content: 'Call is finished' }]
+    })
+  }, [])
+
   const stopEngvoPlayback = useCallback(
     (markIgnoredCurrent = false) => {
       const hasActiveAssistantResponse =
@@ -889,6 +859,7 @@ export default function Home() {
 
   const cleanupEngvoRuntime = useCallback(
     (options?: { markIgnoredCurrent?: boolean }) => {
+      clearEngvoInactivityTimeout()
       stopEngvoPlayback(options?.markIgnoredCurrent ?? true)
 
       clearEngvoTimeout(engvoPcConnectTimeoutRef)
@@ -906,6 +877,8 @@ export default function Home() {
       engvoDataChannelRef.current = null
       engvoRemoteAudioElRef.current = null
       engvoMediaStreamRef.current = null
+      setEngvoLocalAudioStream(null)
+      setEngvoRemoteAudioStream(null)
 
       if (mediaStream) {
         for (const track of mediaStream.getTracks()) track.stop()
@@ -950,8 +923,16 @@ export default function Home() {
       setEngvoUserInterimText('')
       setEngvoAssistantPendingText('')
     },
-    [clearEngvoTimeout, stopEngvoPlayback]
+    [clearEngvoInactivityTimeout, clearEngvoTimeout, stopEngvoPlayback]
   )
+
+  const finishEngvoCall = useCallback(() => {
+    cleanupEngvoRuntime({ markIgnoredCurrent: true })
+    setEngvoCallPhase('ended')
+    setEngvoErrorText(null)
+    setEngvoBootstrapServiceStatusVisible(false)
+    appendEngvoCallFinishedMessage()
+  }, [appendEngvoCallFinishedMessage, cleanupEngvoRuntime])
 
   const setEngvoSessionError = useCallback(
     (message: string) => {
@@ -967,6 +948,7 @@ export default function Home() {
       })
       setEngvoErrorText(null)
       setEngvoCallPhase('ended')
+      setEngvoBootstrapServiceStatusVisible(false)
     },
     [cleanupEngvoRuntime]
   )
@@ -1114,9 +1096,8 @@ export default function Home() {
             setEngvoCallPhase('listening')
             return
           }
-          const bubbleText = await translateEngvoUserTextToEnglish(transcript)
-          if (bubbleText) {
-            setMessages((prev) => [...prev, { role: 'user', content: bubbleText }])
+          if (transcript) {
+            setMessages((prev) => [...prev, { role: 'user', content: transcript }])
           }
           setEngvoCallPhase('assistantPending')
         }
@@ -1225,7 +1206,6 @@ export default function Home() {
       engvoAssistantPendingText,
       setEngvoSessionError,
       stopEngvoPlayback,
-      translateEngvoUserTextToEnglish,
     ]
   )
 
@@ -1237,8 +1217,10 @@ export default function Home() {
 
     cleanupEngvoRuntime({ markIgnoredCurrent: true })
     resetStructuredLessonSessionRef.current?.()
+    setMessages([])
     setDialogStarted(true)
     setEngvoVoiceMode(true)
+    setEngvoBootstrapServiceStatusVisible(true)
     setEngvoCallPhase('connecting')
     setEngvoErrorText(null)
     setRetryMessage(null)
@@ -1255,6 +1237,7 @@ export default function Home() {
         },
       })
       engvoMediaStreamRef.current = mediaStream
+      setEngvoLocalAudioStream(mediaStream)
 
       const peerConnection = new RTCPeerConnection({
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
@@ -1276,6 +1259,7 @@ export default function Home() {
       peerConnection.ontrack = (event) => {
         const stream = event.streams[0]
         if (stream) {
+          setEngvoRemoteAudioStream(stream)
           remoteAudioEl.srcObject = stream
           void remoteAudioEl.play().catch(() => {})
           console.info('[engvo] track-received')
@@ -1425,10 +1409,33 @@ export default function Home() {
   ])
 
   const hangUpEngvoCall = useCallback(() => {
-    cleanupEngvoRuntime({ markIgnoredCurrent: true })
-    setEngvoCallPhase('ended')
-    setEngvoErrorText(null)
-  }, [cleanupEngvoRuntime])
+    finishEngvoCall()
+  }, [finishEngvoCall])
+
+  useEffect(() => {
+    if (!engvoVoiceMode) {
+      clearEngvoInactivityTimeout()
+      return
+    }
+    if (engvoCallPhase !== 'listening' || engvoUserInterimText.trim()) {
+      clearEngvoInactivityTimeout()
+      return
+    }
+    engvoInactivityTimeoutRef.current = window.setTimeout(() => {
+      finishEngvoCall()
+    }, 30_000)
+    return clearEngvoInactivityTimeout
+  }, [clearEngvoInactivityTimeout, engvoCallPhase, engvoUserInterimText, engvoVoiceMode, finishEngvoCall])
+
+  useEffect(() => {
+    if (!engvoVoiceMode) {
+      setEngvoBootstrapServiceStatusVisible(false)
+      return
+    }
+    if (engvoBootstrapServiceStatusVisible && messages.length > 0) {
+      setEngvoBootstrapServiceStatusVisible(false)
+    }
+  }, [engvoBootstrapServiceStatusVisible, engvoVoiceMode, messages.length])
 
   const handleEngvoVoiceChange = useCallback(
     (voice: EngvoRealtimeVoice) => {
@@ -3418,6 +3425,9 @@ export default function Home() {
   const chatFooterVoice = React.useMemo(() => {
     if (!dialogStarted || isLessonActive) return null
     if (engvoVoiceMode) {
+      const isBootstrapStatusPhase =
+        engvoCallPhase === 'connecting' || engvoCallPhase === 'assistantPending' || engvoCallPhase === 'assistantSpeaking'
+      if (engvoBootstrapServiceStatusVisible && isBootstrapStatusPhase) return null
       const engvoFooter = getEngvoFooterView({
         phase: engvoCallPhase,
         userInterimText: engvoUserInterimText,
@@ -3525,6 +3535,7 @@ export default function Home() {
     )
   }, [
     dialogStarted,
+    engvoBootstrapServiceStatusVisible,
     engvoCallPhase,
     engvoErrorText,
     engvoUserInterimText,
@@ -3694,6 +3705,14 @@ export default function Home() {
       : dialogStarted
       ? (chatFooterVoice?.emphasis ?? 'none')
       : (adaptiveFooterView?.emphasis ?? homeFooterVoice?.emphasis ?? 'none')
+  const engvoBootstrapServiceIndicatorText =
+    engvoCallPhase === 'connecting'
+      ? 'Подключаюсь...'
+      : engvoCallPhase === 'assistantPending' || engvoCallPhase === 'assistantSpeaking'
+        ? 'Engvo отвечает...'
+        : null
+  const showEngvoBootstrapServiceIndicator =
+    engvoVoiceMode && engvoBootstrapServiceStatusVisible && !!engvoBootstrapServiceIndicatorText
   const pageTitle = !dialogStarted
     ? 'MyEng - мой английский друг'
     : isVocabularyHubActive
@@ -3704,11 +3723,29 @@ export default function Home() {
       ? 'Практика MyEng'
     : isTutorLessonHeader
       ? 'Репетитор с MyEng'
+    : engvoVoiceMode
+      ? 'Call to Engvo'
       : activeLessonTitle
       ? `Урок: ${activeLessonTitle}`
       : storageLoaded
         ? getMenuSummary(true)
         : 'MyEng'
+
+  const handleMenuButtonClick = useCallback(() => {
+    setMenuOpen((prev) => {
+      const nextOpen = !prev
+      if (nextOpen && engvoVoiceMode) {
+        cleanupEngvoRuntime({ markIgnoredCurrent: true })
+        setEngvoVoiceMode(false)
+        setEngvoCallPhase('idle')
+        setEngvoErrorText(null)
+        setDialogStarted(false)
+        setLessonMenuContext(null)
+        setHomeMenuView('lessons')
+      }
+      return nextOpen
+    })
+  }, [cleanupEngvoRuntime, engvoVoiceMode])
   /** Совпадает с фактической высотой шапки: safe-area + строка меню + нижний border (см. `header` без minHeight на внешнем блоке). */
   const appTopOffset =
     'calc(var(--app-safe-top-inset) + var(--app-header-row-height) + var(--app-header-border-width))'
@@ -3755,7 +3792,7 @@ export default function Home() {
           >
             <button
               type="button"
-              onClick={() => setMenuOpen((v) => !v)}
+              onClick={handleMenuButtonClick}
               className="app-header-control chat-action-button flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center border text-[var(--app-header-text)] touch-manipulation"
               style={{ borderRadius: 'var(--app-header-control-radius)' }}
               aria-label={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
@@ -3764,7 +3801,7 @@ export default function Home() {
               <MenuIcon />
             </button>
             <div className="pointer-events-auto flex h-10 min-h-[36px] shrink-0 items-center justify-end gap-1.5">
-              {dialogStarted && settings.mode === 'communication' && !isLessonActive && (
+              {dialogStarted && settings.mode === 'communication' && !isLessonActive && !engvoVoiceMode && (
                 <button
                   type="button"
                   onClick={() =>
@@ -3826,7 +3863,7 @@ export default function Home() {
             style={{ fontFamily: 'var(--app-header-font-family)' }}
             title={pageTitle}
           >
-            {!dialogStarted || !storageLoaded || activeLessonTitle ? (
+            {!dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode ? (
               pageTitle
             ) : (
               <>
@@ -3995,6 +4032,11 @@ export default function Home() {
                     onStartHomeChat={handleStartChatFromHome}
                     onGoHome={goToStartScreen}
                     onAiChatPanelChange={setHomeAiChatPanel}
+                    onOpenEngvoVoiceChat={handleOpenEngvoVoiceChat}
+                    engvoRealtimeVoice={engvoRealtimeVoice}
+                    engvoCefrLevel={engvoCefrLevel}
+                    onEngvoVoiceChange={handleEngvoVoiceChange}
+                    onEngvoLevelChange={handleEngvoLevelChange}
                     onOpenLearningLesson={openOrContinueLearningLesson}
                     onGenerateLearningLesson={openGeneratedLearningLesson}
                     onOpenPracticeSession={openPracticeSession}
@@ -4188,12 +4230,10 @@ export default function Home() {
                     realtimeVoice: engvoRealtimeVoice,
                     cefrLevel: engvoCefrLevel,
                     interimUserText: engvoUserInterimText,
-                    showAssistantPending: shouldShowEngvoTypingIndicator({
-                      engvoVoiceMode,
-                      phase: engvoCallPhase,
-                      messagesLength: messages.length,
-                    }),
-                    assistantIndicatorText: 'Engvo отвечает...',
+                    localAudioStream: engvoLocalAudioStream,
+                    remoteAudioStream: engvoRemoteAudioStream,
+                    showAssistantPending: showEngvoBootstrapServiceIndicator,
+                    assistantIndicatorText: engvoBootstrapServiceIndicatorText ?? 'Engvo отвечает...',
                     onStartCall: () => {
                       void startEngvoCall()
                     },
@@ -4251,6 +4291,10 @@ export default function Home() {
         dialogueCorrectAnswers={dialogueCorrectAnswers}
         onStartChat={handleStartChatFromMenu}
         onOpenEngvoVoiceChat={handleOpenEngvoVoiceChat}
+        engvoRealtimeVoice={engvoRealtimeVoice}
+        engvoCefrLevel={engvoCefrLevel}
+        onEngvoVoiceChange={handleEngvoVoiceChange}
+        onEngvoLevelChange={handleEngvoLevelChange}
         onGoHome={goToStartScreen}
         onOpenLearningLesson={openOrContinueLearningLesson}
         onGenerateLearningLesson={openGeneratedLearningLesson}

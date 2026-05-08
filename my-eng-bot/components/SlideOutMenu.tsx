@@ -6,6 +6,7 @@ import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/component
 import { SLIDE_OUT_NEW_CHAT_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
+import type { EngvoCefrLevel, EngvoRealtimeVoice } from '@/lib/engvo/constants'
 
 export type LessonMenuContext = {
   menuView: 'lessons'
@@ -25,6 +26,10 @@ interface SlideOutMenuProps {
   /** Кнопка «Начать …» в «Чат с MyEng» (старт или новый диалог). */
   onStartChat?: () => void
   onOpenEngvoVoiceChat?: () => void
+  engvoRealtimeVoice?: EngvoRealtimeVoice
+  engvoCefrLevel?: EngvoCefrLevel
+  onEngvoVoiceChange?: (voice: EngvoRealtimeVoice) => void
+  onEngvoLevelChange?: (level: EngvoCefrLevel) => void
   /** Кнопка «домик»: на стартовый экран приложения. */
   onGoHome?: () => void
   /** Если чат уже идёт — при открытии меню сразу «Чат с MyEng»; если нет — корень списка разделов. */
@@ -77,6 +82,10 @@ export default function SlideOutMenu({
   hideButton = false,
   onStartChat,
   onOpenEngvoVoiceChat,
+  engvoRealtimeVoice,
+  engvoCefrLevel,
+  onEngvoVoiceChange,
+  onEngvoLevelChange,
   onGoHome,
   chatActive = false,
   onOpenLearningLesson,
@@ -167,6 +176,10 @@ export default function SlideOutMenu({
             className="flex min-h-0 flex-1 flex-col"
             onStartHomeChat={onStartChat}
             onOpenEngvoVoiceChat={onOpenEngvoVoiceChat}
+            engvoRealtimeVoice={engvoRealtimeVoice}
+            engvoCefrLevel={engvoCefrLevel}
+            onEngvoVoiceChange={onEngvoVoiceChange}
+            onEngvoLevelChange={onEngvoLevelChange}
             onGoHome={onGoHome}
             onOpenLearningLesson={onOpenLearningLesson}
             onGenerateLearningLesson={onGenerateLearningLesson}

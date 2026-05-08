@@ -29,6 +29,12 @@ import ThemeSelector from '@/components/settings/ThemeSelector'
 import { useTheme } from '@/contexts/ThemeContext'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
+import {
+  ENGVO_LEVEL_OPTIONS,
+  ENGVO_REALTIME_VOICES,
+  type EngvoCefrLevel,
+  type EngvoRealtimeVoice,
+} from '@/lib/engvo/constants'
 
 const AdaptiveDailyHub = dynamic(() => import('@/components/adaptiveRetention/AdaptiveDailyHub'), { ssr: false })
 
@@ -45,7 +51,7 @@ const CHILD_SAFE_TOPICS = new Set<TopicId>([
   'travel',
 ])
 
-export type MenuView = 'root' | 'lessons' | 'aiChat' | 'settings' | 'progress' | 'profile'
+export type MenuView = 'root' | 'lessons' | 'aiChat' | 'settings' | 'progress' | 'profile' | 'engvo'
 
 export type { AiChatPanel }
 
@@ -80,6 +86,7 @@ const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
 }
 
 type SettingsMenuPanel = 'summary' | 'provider' | 'openAiModel' | 'voice' | 'theme'
+type EngvoPanel = 'summary' | 'setup'
 
 const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
   summary: 'Настройки',
@@ -87,6 +94,10 @@ const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
   openAiModel: 'Модель чата',
   voice: 'Голос',
   theme: 'Внешний вид',
+}
+const ENGVO_PANEL_TITLE: Record<EngvoPanel, string> = {
+  summary: 'Позвонить',
+  setup: 'Настройки звонка',
 }
 
 const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
@@ -229,6 +240,10 @@ export interface MenuSectionPanelsProps {
   onStartHomeChat?: () => void
   onGoHome?: () => void
   onOpenEngvoVoiceChat?: () => void
+  engvoRealtimeVoice?: EngvoRealtimeVoice
+  engvoCefrLevel?: EngvoCefrLevel
+  onEngvoVoiceChange?: (voice: EngvoRealtimeVoice) => void
+  onEngvoLevelChange?: (level: EngvoCefrLevel) => void
   /** Стартовый экран: синхронизация подпанели «Чат с MyEng» для подсказки под меню. */
   onAiChatPanelChange?: (panel: AiChatPanel) => void
   /** Открыть урок из ветки «Обучение». */
@@ -277,6 +292,10 @@ export default function MenuSectionPanels({
   onStartHomeChat,
   onGoHome,
   onOpenEngvoVoiceChat,
+  engvoRealtimeVoice,
+  engvoCefrLevel,
+  onEngvoVoiceChange,
+  onEngvoLevelChange,
   onAiChatPanelChange,
   onOpenLearningLesson,
   onGenerateLearningLesson,
@@ -294,6 +313,7 @@ export default function MenuSectionPanels({
 
   const [aiChatPanel, setAiChatPanel] = React.useState<AiChatPanel>('summary')
   const [settingsPanel, setSettingsPanel] = React.useState<SettingsMenuPanel>('summary')
+  const [engvoPanel, setEngvoPanel] = React.useState<EngvoPanel>('summary')
   const [lessonsPanel, setLessonsPanel] = React.useState<LessonsPanel>('summary')
   const defaultA2LessonId = React.useMemo(
     () => A2_THEORY_ITEMS.find((item) => item.enabled)?.id ?? null,
@@ -359,6 +379,10 @@ export default function MenuSectionPanels({
 
   React.useEffect(() => {
     if (menuView !== 'settings') setSettingsPanel('summary')
+  }, [menuView])
+
+  React.useEffect(() => {
+    if (menuView !== 'engvo') setEngvoPanel('summary')
   }, [menuView])
 
   React.useEffect(() => {
@@ -548,6 +572,10 @@ export default function MenuSectionPanels({
       setSettingsPanel('summary')
       return
     }
+    if (menuView === 'engvo' && engvoPanel !== 'summary') {
+      setEngvoPanel('summary')
+      return
+    }
     onMenuViewChange('root')
   }
 
@@ -582,6 +610,7 @@ export default function MenuSectionPanels({
     if (menuView === 'lessons') return LESSONS_PANEL_TITLE[lessonsPanel]
     if (menuView === 'aiChat') return AI_CHAT_PANEL_TITLE[aiChatPanel]
     if (menuView === 'settings') return SETTINGS_PANEL_TITLE[settingsPanel]
+    if (menuView === 'engvo') return ENGVO_PANEL_TITLE[engvoPanel]
     if (menuView === 'progress') return 'Прогресс'
     if (menuView === 'profile') return 'Профиль'
     return !homeLayout ? 'Главная' : ''
@@ -857,6 +886,8 @@ export default function MenuSectionPanels({
               ? `lessons-${lessonsPanel}`
               : menuView === 'settings'
                 ? `settings-${settingsPanel}`
+                : menuView === 'engvo'
+                  ? `engvo-${engvoPanel}`
                 : menuView
         }
         className={
@@ -870,13 +901,71 @@ export default function MenuSectionPanels({
             <div className={MENU_GROUP_CLASS}>
               <MenuNavRow label="Чат с MyEng" onClick={() => onMenuViewChange('aiChat')} />
               {featureFlags.engvoVoiceV1 && onOpenEngvoVoiceChat && (
-                <MenuNavRow label="Позвонить" onClick={onOpenEngvoVoiceChat} />
+                <MenuNavRow label="Позвонить" onClick={() => onMenuViewChange('engvo')} />
               )}
               <MenuNavRow label="Уроки" onClick={() => onMenuViewChange('lessons')} />
               <MenuNavRow label="Прогресс" onClick={() => onMenuViewChange('progress')} />
               <MenuNavRow label="Настройки" onClick={() => onMenuViewChange('settings')} />
               <MenuNavRow label="Профиль" onClick={() => onMenuViewChange('profile')} />
             </div>
+          </div>
+        )}
+
+        {menuView === 'engvo' && (
+          <div className={MENU_GROUP_OUTER}>
+            {engvoPanel === 'summary' && (
+              <div className={MENU_GROUP_CLASS}>
+                <MenuNavRow label="Параметры звонка" onClick={() => setEngvoPanel('setup')} />
+                <button
+                  type="button"
+                  onClick={onOpenEngvoVoiceChat}
+                  className={`${MENU_PRIMARY_CTA_CLASS} mx-3 mt-2 mb-3 w-[calc(100%-1.5rem)]`}
+                >
+                  Перейти к звонку
+                </button>
+              </div>
+            )}
+            {engvoPanel === 'setup' && (
+              <div className={`${MENU_GROUP_CLASS} p-3`}>
+                <div className="space-y-2.5">
+                  <div className="flex w-full items-center gap-3">
+                    <span className={MENU_FIELD_LABEL}>Голос</span>
+                    <div className="min-w-0 flex-1">
+                      <select
+                        value={engvoRealtimeVoice ?? 'alloy'}
+                        onChange={(event) => onEngvoVoiceChange?.(event.target.value as EngvoRealtimeVoice)}
+                        className={FIELD_SELECT}
+                        aria-label="Голос Engvo"
+                      >
+                        {ENGVO_REALTIME_VOICES.map((voice) => (
+                          <option key={voice} value={voice}>
+                            {voice}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex w-full items-center gap-3">
+                    <span className={MENU_FIELD_LABEL}>Уровень</span>
+                    <div className="min-w-0 flex-1">
+                      <select
+                        value={engvoCefrLevel ?? 'a2'}
+                        onChange={(event) => onEngvoLevelChange?.(event.target.value as EngvoCefrLevel)}
+                        className={FIELD_SELECT}
+                        aria-label="Уровень CEFR для звонка"
+                      >
+                        {ENGVO_LEVEL_OPTIONS.map((level) => (
+                          <option key={level.id} value={level.id}>
+                            {level.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

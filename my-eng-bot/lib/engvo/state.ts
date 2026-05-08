@@ -24,14 +24,8 @@ export function getEngvoFooterView(params: {
       tone: 'error',
     }
   }
-  if (params.phase === 'connecting') {
-    return { text: 'Подключаюсь…', tone: 'thinking' }
-  }
   if (params.phase === 'userFinalizing') {
     return { text: 'Фиксирую фразу…', tone: 'thinking' }
-  }
-  if (params.phase === 'assistantPending' || params.phase === 'assistantSpeaking') {
-    return { text: 'Engvo отвечает…', tone: 'thinking' }
   }
   if (params.phase === 'listening' && params.userInterimText.trim()) {
     return { text: 'Слышу…', tone: 'neutral' }

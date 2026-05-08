@@ -31,8 +31,8 @@ import {
 import { normalizeWebSearchSourceUrl } from '@/lib/openAiWebSearchShared'
 import type { ChatMessage as ChatMessageType, Settings } from '@/lib/types'
 import type { EngvoCefrLevel, EngvoRealtimeVoice } from '@/lib/engvo/constants'
-import { ENGVO_LEVEL_OPTIONS, ENGVO_REALTIME_VOICES } from '@/lib/engvo/constants'
 import type { EngvoCallPhase } from '@/lib/engvo/state'
+import EngvoVoiceMeter from '@/components/EngvoVoiceMeter'
 import { stripWrappingQuotesFromDrillRussianLine } from '@/lib/extractSingleTranslationNextSentence'
 import {
   extractCanonicalRepeatRefEnglishFromContent,
@@ -121,6 +121,8 @@ interface ChatProps {
     realtimeVoice: EngvoRealtimeVoice
     cefrLevel: EngvoCefrLevel
     interimUserText: string
+    localAudioStream?: MediaStream | null
+    remoteAudioStream?: MediaStream | null
     showAssistantPending: boolean
     assistantIndicatorText: string
     onStartCall: () => void
@@ -1937,7 +1939,7 @@ export default function Chat({
 
   const canShowTypingIndicator =
     showTypingIndicator &&
-    ((loading && lastMessageRole === 'user') || (isEngvoAssistantPending && messages.length > 0))
+    ((loading && lastMessageRole === 'user') || isEngvoAssistantPending)
 
   React.useEffect(() => {
     if (messages.length === 0) setSelectedLessonActionByMessage({})
@@ -1956,6 +1958,17 @@ export default function Chat({
     ['connecting', 'listening', 'userFinalizing', 'assistantPending', 'assistantSpeaking'].includes(
       engvo?.callPhase ?? 'idle'
     )
+  const engvoPhase = engvo?.callPhase ?? 'idle'
+  const isEngvoAssistantTurn = engvoPhase === 'assistantPending' || engvoPhase === 'assistantSpeaking'
+  const isEngvoUserTurn = engvoPhase === 'listening' || engvoPhase === 'userFinalizing'
+  const engvoMeterStream = isEngvoAssistantTurn
+    ? (engvo?.remoteAudioStream ?? null)
+    : isEngvoUserTurn
+      ? (engvo?.localAudioStream ?? null)
+      : null
+  const engvoMeterActive = isEngvoAssistantTurn || isEngvoUserTurn
+  const engvoMeterAriaLabel = isEngvoAssistantTurn ? 'Уровень голоса Engvo' : 'Уровень вашего голоса'
+  const engvoMeterFrozen = engvoPhase === 'ended'
   const composerPlaceholder = isEngvoActive
     ? ''
     : isLessonLoadingState
@@ -1994,7 +2007,7 @@ export default function Chat({
                 scrollPaddingBottom: `calc(0.625rem + var(--chat-input-height) + ${INPUT_GAP_PX}px)`,
               }}
             >
-              {messages.length === 0 && (
+              {messages.length === 0 && !isEngvoActive && (
                 <div className="flex justify-center">
                   <p dir="ltr" className="w-fit text-center italic typing-indicator-text-shimmer">
                     {isLessonBranch ? 'Урок загружается...' : 'MyEng печатает...'}
@@ -2133,7 +2146,7 @@ export default function Chat({
                   </p>
                 </ChatBubbleFrame>
               )}
-              {messages.length > 0 && (
+              {(messages.length > 0 || isEngvoAssistantPending) && (
                 <TypingIndicator
                   isVisible={canShowTypingIndicator}
                   label={typingIndicatorText}
@@ -2181,45 +2194,19 @@ export default function Chat({
                         />
                       </svg>
                     </button>
-                    <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
-                      <label className="min-w-0">
-                        <span style={SR_ONLY_STYLE}>Голос Engvo</span>
-                        <select
-                          value={engvo?.realtimeVoice ?? 'alloy'}
-                          onChange={(e) => engvo?.onVoiceChange(e.target.value as EngvoRealtimeVoice)}
-                          disabled={isLessonLoadingState}
-                          className="chat-input-field min-w-0 w-full rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-3 py-2 text-sm text-[var(--text)]"
-                          aria-label="Голос Engvo"
-                        >
-                          {ENGVO_REALTIME_VOICES.map((voice) => (
-                            <option key={voice} value={voice}>
-                              {voice}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="min-w-0">
-                        <span style={SR_ONLY_STYLE}>Уровень CEFR</span>
-                        <select
-                          value={engvo?.cefrLevel ?? 'a2'}
-                          onChange={(e) => engvo?.onLevelChange(e.target.value as EngvoCefrLevel)}
-                          disabled={isLessonLoadingState}
-                          className="chat-input-field min-w-0 w-full rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-3 py-2 text-sm text-[var(--text)]"
-                          aria-label="Уровень CEFR"
-                        >
-                          {ENGVO_LEVEL_OPTIONS.map((level) => (
-                            <option key={level.id} value={level.id}>
-                              {level.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                    <div className="chat-input-field flex min-w-0 flex-1 items-center justify-center rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-2.5 py-2 text-[13px] text-[var(--text)] sm:px-3 sm:text-sm">
+                      <EngvoVoiceMeter
+                        stream={engvoMeterStream}
+                        active={engvoMeterActive}
+                        frozen={engvoMeterFrozen}
+                        ariaLabel={engvoMeterAriaLabel}
+                      />
                     </div>
                     <button
                       type="button"
                       onClick={engvo?.onHangUp}
                       disabled={!engvoCallInProgress}
-                      className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-[#ef9a9a] p-0 text-xl leading-none shadow-[0_10px_24px_rgba(239,68,68,0.26)] transition-all duration-200 hover:scale-105 hover:bg-[#ef4444] active:scale-95 focus:outline-none focus:ring-4 focus:ring-red-300 disabled:opacity-70 disabled:hover:scale-100 disabled:hover:bg-[#ef9a9a]"
+                      className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-[#ef4444] p-0 text-xl leading-none shadow-[0_10px_24px_rgba(239,68,68,0.26)] transition-all duration-200 hover:scale-105 hover:bg-[#dc2626] active:scale-95 focus:outline-none focus:ring-4 focus:ring-red-300 disabled:opacity-100 disabled:hover:scale-100 disabled:bg-[#ef4444] disabled:hover:bg-[#ef4444]"
                       aria-label={sendButtonAriaLabel}
                       title="Положить трубку"
                     >

@@ -4,16 +4,20 @@ import { canCommitEngvoAssistantMessage, getEngvoFooterView, shouldShowEngvoTypi
 describe('engvo state helpers', () => {
   it('maps phases to footer text', () => {
     expect(getEngvoFooterView({ phase: 'connecting', userInterimText: '' })).toEqual({
-      text: 'Подключаюсь…',
-      tone: 'thinking',
+      text: null,
+      tone: 'neutral',
     })
     expect(getEngvoFooterView({ phase: 'listening', userInterimText: 'hello' })).toEqual({
       text: 'Слышу…',
       tone: 'neutral',
     })
-    expect(getEngvoFooterView({ phase: 'assistantPending', userInterimText: '' })).toEqual({
-      text: 'Engvo отвечает…',
+    expect(getEngvoFooterView({ phase: 'userFinalizing', userInterimText: '' })).toEqual({
+      text: 'Фиксирую фразу…',
       tone: 'thinking',
+    })
+    expect(getEngvoFooterView({ phase: 'assistantPending', userInterimText: '' })).toEqual({
+      text: null,
+      tone: 'neutral',
     })
   })
 
