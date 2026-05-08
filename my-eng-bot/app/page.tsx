@@ -1245,7 +1245,6 @@ export default function Home() {
       const dataChannel = peerConnection.createDataChannel('oai-events')
       const remoteAudioEl = document.createElement('audio')
       remoteAudioEl.autoplay = true
-      remoteAudioEl.playsInline = true
 
       engvoPeerConnectionRef.current = peerConnection
       engvoDataChannelRef.current = dataChannel

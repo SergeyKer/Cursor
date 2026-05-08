@@ -3,6 +3,7 @@ import { AI_CHAT_PANEL_HINTS, type AiChatPanel } from '@/lib/aiChatPanel'
 
 /** Инструкция в пузыре справа от робота на стартовом экране (не-root), без призывов к действию. */
 const SECTION_INSTRUCTIONS: Record<Exclude<MenuView, 'root' | 'aiChat'>, string> = {
+  engvo: 'Engvo: живой разговор с голосовым ассистентом.',
   lessons: 'Уроки: теория, произношение\nи новые слова.',
   settings: 'Провайдер ИИ и голос озвучки.',
   progress: 'Счётчики: диалог и запросы к ИИ.',
