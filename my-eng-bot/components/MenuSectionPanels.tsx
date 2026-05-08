@@ -228,6 +228,7 @@ export interface MenuSectionPanelsProps {
   homeLayout?: boolean
   onStartHomeChat?: () => void
   onGoHome?: () => void
+  onOpenEngvoVoiceChat?: () => void
   /** Стартовый экран: синхронизация подпанели «Чат с MyEng» для подсказки под меню. */
   onAiChatPanelChange?: (panel: AiChatPanel) => void
   /** Открыть урок из ветки «Обучение». */
@@ -275,6 +276,7 @@ export default function MenuSectionPanels({
   homeLayout = false,
   onStartHomeChat,
   onGoHome,
+  onOpenEngvoVoiceChat,
   onAiChatPanelChange,
   onOpenLearningLesson,
   onGenerateLearningLesson,
@@ -867,6 +869,9 @@ export default function MenuSectionPanels({
           <div className={MENU_GROUP_OUTER}>
             <div className={MENU_GROUP_CLASS}>
               <MenuNavRow label="Чат с MyEng" onClick={() => onMenuViewChange('aiChat')} />
+              {featureFlags.engvoVoiceV1 && onOpenEngvoVoiceChat && (
+                <MenuNavRow label="Позвонить" onClick={onOpenEngvoVoiceChat} />
+              )}
               <MenuNavRow label="Уроки" onClick={() => onMenuViewChange('lessons')} />
               <MenuNavRow label="Прогресс" onClick={() => onMenuViewChange('progress')} />
               <MenuNavRow label="Настройки" onClick={() => onMenuViewChange('settings')} />

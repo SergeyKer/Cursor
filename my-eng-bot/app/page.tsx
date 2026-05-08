@@ -94,6 +94,24 @@ import { pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 import type { VocabularyFooterView } from '@/types/vocabulary'
+import {
+  ENGVO_DEFAULT_LEVEL,
+  ENGVO_DEFAULT_VOICE,
+  ENGVO_REALTIME_MODEL,
+  type EngvoCefrLevel,
+  type EngvoRealtimeVoice,
+} from '@/lib/engvo/constants'
+import { buildEngvoRealtimeInstructionsClient } from '@/lib/engvo/instructionsClient'
+import { loadEngvoCefrLevel, loadEngvoRealtimeVoice, saveEngvoCefrLevel, saveEngvoRealtimeVoice } from '@/lib/engvo/preferences'
+import { canCommitEngvoAssistantMessage, getEngvoFooterView, shouldShowEngvoTypingIndicator, type EngvoCallPhase } from '@/lib/engvo/state'
+import { shouldAutoRequestFirstChatMessage } from '@/lib/engvo/guards'
+import { decodePcm16Base64, downsampleFloat32ToRate, encodePcm16Base64 } from '@/lib/engvo/audio'
+import {
+  createRealtimeTranscriptState,
+  getRealtimeTranscriptView,
+  reduceRealtimeTranscriptEvent,
+  type RealtimeTranscriptState,
+} from '@/lib/realtimeStt'
 
 import {
   LESSON_PROVIDER_FETCH_TIMEOUT_MS_DEFAULT,
@@ -347,7 +365,6 @@ const RETRY_DELAY_RATE_LIMIT_BASE_MS = 5_000
 const RETRY_MESSAGES = ['Пробую ещё раз…', 'Вот-вот, почти!']
 const ERROR_FIRST_MESSAGE = 'Не удалось загрузить ответ. Проверьте сеть и настройки сервера.'
 const EMPTY_RESPONSE_FALLBACK = 'ИИ не отвечает. Проверьте сеть и попробуйте снова.'
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -374,6 +391,37 @@ function parseContentWithTranslation(raw: string): { content: string; translatio
   )
   return { content: cleanNewlines(filtered.join('\n')) }
 }
+
+function extractRealtimeTextFromResponseDone(payload: unknown): string {
+  const response = (payload as { response?: { output?: Array<{ content?: Array<{ type?: string; text?: string; transcript?: string }> }> } })
+    ?.response
+  const output = Array.isArray(response?.output) ? response.output : []
+  const parts: string[] = []
+
+  for (const item of output) {
+    const content = Array.isArray(item?.content) ? item.content : []
+    for (const part of content) {
+      if (part?.type === 'output_text' && typeof part.text === 'string' && part.text.trim()) {
+        parts.push(part.text.trim())
+      } else if (part?.type === 'audio' && typeof part.transcript === 'string' && part.transcript.trim()) {
+        parts.push(part.transcript.trim())
+      }
+    }
+  }
+
+  return parts.join(' ').replace(/\s+/g, ' ').trim()
+}
+
+type EngvoRealtimeEvent = {
+  type?: string
+  response_id?: string
+  item_id?: string
+  delta?: string
+  text?: string
+  transcript?: string
+  response?: unknown
+  error?: { message?: string }
+} & Record<string, unknown>
 
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -454,6 +502,13 @@ export default function Home() {
   const [vocabularyByLevelActive, setVocabularyByLevelActive] = useState(false)
   const [vocabularyFooterView, setVocabularyFooterView] = useState<VocabularyFooterView | null>(null)
   const [adaptiveFooterView, setAdaptiveFooterView] = useState<AdaptiveFooterView | null>(null)
+  const [engvoVoiceMode, setEngvoVoiceMode] = useState(false)
+  const [engvoRealtimeVoice, setEngvoRealtimeVoice] = useState<EngvoRealtimeVoice>(ENGVO_DEFAULT_VOICE)
+  const [engvoCefrLevel, setEngvoCefrLevel] = useState<EngvoCefrLevel>(ENGVO_DEFAULT_LEVEL)
+  const [engvoCallPhase, setEngvoCallPhase] = useState<EngvoCallPhase>('idle')
+  const [engvoErrorText, setEngvoErrorText] = useState<string | null>(null)
+  const [engvoUserInterimText, setEngvoUserInterimText] = useState('')
+  const [engvoAssistantPendingText, setEngvoAssistantPendingText] = useState('')
   const structuredLessonChoiceShuffleSeed =
     activeStructuredLesson == null
       ? undefined
@@ -482,6 +537,26 @@ export default function Home() {
   const prefetchedStructuredLessonRuntimeRef = React.useRef<Record<string, LessonData | null>>({})
   const structuredLessonRuntimeInFlightRef = React.useRef<Record<string, Promise<LessonData | null>>>({})
   const lessonOpenRequestIdRef = React.useRef(0)
+  const engvoWebSocketRef = React.useRef<WebSocket | null>(null)
+  const engvoMediaStreamRef = React.useRef<MediaStream | null>(null)
+  const engvoInputAudioContextRef = React.useRef<AudioContext | null>(null)
+  const engvoInputSourceRef = React.useRef<MediaStreamAudioSourceNode | null>(null)
+  const engvoProcessorNodeRef = React.useRef<ScriptProcessorNode | null>(null)
+  const engvoOutputAudioContextRef = React.useRef<AudioContext | null>(null)
+  const engvoPlaybackTimeRef = React.useRef(0)
+  const engvoPlaybackSourcesRef = React.useRef<Set<AudioBufferSourceNode>>(new Set())
+  const engvoPlaybackPendingCountRef = React.useRef(0)
+  const engvoAssistantResponseIdRef = React.useRef<string | null>(null)
+  const engvoAssistantResponseDoneRef = React.useRef(false)
+  const engvoCommittedResponseIdsRef = React.useRef<Set<string>>(new Set())
+  const engvoCommittedUserItemIdsRef = React.useRef<Set<string>>(new Set())
+  const engvoIgnoredResponseIdsRef = React.useRef<Set<string>>(new Set())
+  const engvoFinalAssistantTextRef = React.useRef('')
+  const engvoSessionStartedRef = React.useRef(false)
+  const engvoVoiceLockedRef = React.useRef(false)
+  const engvoTranscriptStateRef = React.useRef<RealtimeTranscriptState>(createRealtimeTranscriptState())
+  const engvoIntentionalCloseRef = React.useRef(false)
+  const resetStructuredLessonSessionRef = React.useRef<((options?: { keepLessonMenuContext?: boolean }) => void) | null>(null)
   /** Отмена предыдущего «Сгенерировать урок», чтобы не было параллельных POST и залипания loading. */
   const menuLessonGenerateCleanupRef = React.useRef<(() => void) | null>(null)
   /** Инкремент при каждом новом фоновом запросе variant; finally сравнивает эпоху, чтобы не сбросить флаг чужого завершения. */
@@ -626,6 +701,531 @@ export default function Home() {
     usageRequestStartedRef.current = true
     void fetchUsage()
   }, [fetchUsage])
+
+  const translateEngvoUserTextToEnglish = useCallback(
+    async (text: string): Promise<string> => {
+      const trimmed = text.trim()
+      if (!trimmed) return ''
+      if (!/[А-Яа-яЁё]/.test(trimmed)) return trimmed
+
+      try {
+        const response = await fetch('/api/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: trimmed,
+            direction: 'ru_to_en',
+            provider: settings.provider,
+            openAiChatPreset: settings.openAiChatPreset,
+            audience: settings.audience,
+            mode: 'communication',
+            tenses: settings.tenses,
+          }),
+        })
+        const data = (await response.json().catch(() => ({}))) as { translation?: string; error?: string }
+        const translated = (data.translation ?? '').trim()
+        if (response.ok && translated) return translated
+        return trimmed
+      } catch {
+        return trimmed
+      }
+    },
+    [settings.audience, settings.openAiChatPreset, settings.provider, settings.tenses]
+  )
+
+  const resetEngvoAssistantTurn = useCallback((options?: { markIgnored?: boolean }) => {
+    const responseId = engvoAssistantResponseIdRef.current
+    if (options?.markIgnored && responseId) {
+      engvoIgnoredResponseIdsRef.current.add(responseId)
+    }
+    engvoAssistantResponseIdRef.current = null
+    engvoAssistantResponseDoneRef.current = false
+    engvoFinalAssistantTextRef.current = ''
+    setEngvoAssistantPendingText('')
+  }, [])
+
+  const maybeCommitEngvoAssistantMessage = useCallback(() => {
+    const responseId = engvoAssistantResponseIdRef.current
+    const finalText = cleanNewlines(engvoFinalAssistantTextRef.current)
+    if (
+      !canCommitEngvoAssistantMessage({
+        responseDone: engvoAssistantResponseDoneRef.current,
+        playbackPendingCount: engvoPlaybackPendingCountRef.current,
+        finalText,
+        alreadyCommittedResponseIds: engvoCommittedResponseIdsRef.current,
+        responseId,
+      })
+    ) {
+      return
+    }
+
+    engvoCommittedResponseIdsRef.current.add(responseId as string)
+    setMessages((prev) => [...prev, { role: 'assistant', content: finalText }])
+    resetEngvoAssistantTurn()
+    setEngvoCallPhase('listening')
+    setEngvoErrorText(null)
+  }, [resetEngvoAssistantTurn])
+
+  const stopEngvoPlayback = useCallback(
+    (markIgnoredCurrent = false) => {
+      if (markIgnoredCurrent) {
+        resetEngvoAssistantTurn({ markIgnored: true })
+      }
+
+      for (const source of engvoPlaybackSourcesRef.current) {
+        try {
+          source.onended = null
+          source.stop()
+        } catch {
+          // ignore
+        }
+      }
+      engvoPlaybackSourcesRef.current.clear()
+      engvoPlaybackPendingCountRef.current = 0
+      const outputCtx = engvoOutputAudioContextRef.current
+      if (outputCtx) {
+        engvoPlaybackTimeRef.current = outputCtx.currentTime
+      }
+    },
+    [resetEngvoAssistantTurn]
+  )
+
+  const cleanupEngvoRuntime = useCallback(
+    (options?: { markIgnoredCurrent?: boolean }) => {
+      stopEngvoPlayback(options?.markIgnoredCurrent ?? true)
+
+      const processor = engvoProcessorNodeRef.current
+      const inputSource = engvoInputSourceRef.current
+      const mediaStream = engvoMediaStreamRef.current
+      const inputCtx = engvoInputAudioContextRef.current
+      const outputCtx = engvoOutputAudioContextRef.current
+      const ws = engvoWebSocketRef.current
+
+      engvoProcessorNodeRef.current = null
+      engvoInputSourceRef.current = null
+      engvoMediaStreamRef.current = null
+      engvoInputAudioContextRef.current = null
+      engvoOutputAudioContextRef.current = null
+      engvoWebSocketRef.current = null
+
+      if (processor) {
+        try {
+          processor.disconnect()
+        } catch {
+          // ignore
+        }
+      }
+      if (inputSource) {
+        try {
+          inputSource.disconnect()
+        } catch {
+          // ignore
+        }
+      }
+      if (mediaStream) {
+        for (const track of mediaStream.getTracks()) track.stop()
+      }
+      if (inputCtx) {
+        void inputCtx.close().catch(() => {})
+      }
+      if (outputCtx) {
+        void outputCtx.close().catch(() => {})
+      }
+      if (ws) {
+        engvoIntentionalCloseRef.current = true
+        try {
+          if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+            ws.close()
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      engvoTranscriptStateRef.current = createRealtimeTranscriptState()
+      engvoPlaybackTimeRef.current = 0
+      engvoSessionStartedRef.current = false
+      engvoVoiceLockedRef.current = false
+      engvoCommittedResponseIdsRef.current.clear()
+      engvoCommittedUserItemIdsRef.current.clear()
+      engvoIgnoredResponseIdsRef.current.clear()
+      setEngvoUserInterimText('')
+      setEngvoAssistantPendingText('')
+    },
+    [stopEngvoPlayback]
+  )
+
+  const setEngvoSessionError = useCallback(
+    (message: string) => {
+      cleanupEngvoRuntime({ markIgnoredCurrent: true })
+      setEngvoErrorText(message)
+      setEngvoCallPhase('error')
+    },
+    [cleanupEngvoRuntime]
+  )
+
+  const scheduleEngvoAudioPlayback = useCallback(
+    (base64Audio: string, responseId: string) => {
+      if (!base64Audio || engvoIgnoredResponseIdsRef.current.has(responseId)) return
+      const outputCtx = engvoOutputAudioContextRef.current ?? new AudioContext()
+      engvoOutputAudioContextRef.current = outputCtx
+      void outputCtx.resume().catch(() => {})
+
+      const floatData = decodePcm16Base64(base64Audio)
+      const buffer = outputCtx.createBuffer(1, floatData.length, 24_000)
+      buffer.copyToChannel(new Float32Array(floatData), 0)
+
+      const source = outputCtx.createBufferSource()
+      source.buffer = buffer
+      source.connect(outputCtx.destination)
+
+      const startAt = Math.max(outputCtx.currentTime + 0.01, engvoPlaybackTimeRef.current)
+      engvoPlaybackTimeRef.current = startAt + buffer.duration
+      engvoPlaybackPendingCountRef.current += 1
+      engvoPlaybackSourcesRef.current.add(source)
+      engvoVoiceLockedRef.current = true
+      setEngvoCallPhase('assistantSpeaking')
+
+      source.onended = () => {
+        engvoPlaybackSourcesRef.current.delete(source)
+        engvoPlaybackPendingCountRef.current = Math.max(0, engvoPlaybackPendingCountRef.current - 1)
+        maybeCommitEngvoAssistantMessage()
+      }
+
+      source.start(startAt)
+    },
+    [maybeCommitEngvoAssistantMessage]
+  )
+
+  const updateEngvoRealtimeSession = useCallback(
+    (payload: { voice?: EngvoRealtimeVoice; level?: EngvoCefrLevel }) => {
+      const ws = engvoWebSocketRef.current
+      if (!ws || ws.readyState !== WebSocket.OPEN) return
+
+      const session: Record<string, unknown> = {
+        instructions: buildEngvoRealtimeInstructionsClient({
+          audience: settings.audience,
+          level: payload.level ?? engvoCefrLevel,
+        }),
+      }
+
+      if (payload.voice && !engvoVoiceLockedRef.current) {
+        session.voice = payload.voice
+      }
+
+      ws.send(
+        JSON.stringify({
+          type: 'session.update',
+          session,
+        })
+      )
+    },
+    [engvoCefrLevel, settings.audience]
+  )
+
+  const handleEngvoRealtimeMessage = useCallback(
+    async (raw: string) => {
+      if (!raw) return
+
+      let parsed: EngvoRealtimeEvent | null = null
+      try {
+        parsed = JSON.parse(raw) as EngvoRealtimeEvent
+      } catch {
+        return
+      }
+      if (!parsed?.type) return
+
+      const responseId = typeof parsed.response_id === 'string' ? parsed.response_id : null
+      if (responseId && engvoIgnoredResponseIdsRef.current.has(responseId)) return
+
+      if (parsed.type === 'error') {
+        setEngvoSessionError(parsed.error?.message ?? 'Ошибка Realtime-сессии')
+        return
+      }
+
+      if (parsed.type === 'session.created' || parsed.type === 'session.updated') {
+        engvoSessionStartedRef.current = true
+        setEngvoErrorText(null)
+        setEngvoCallPhase((current) => (current === 'connecting' ? 'listening' : current))
+        return
+      }
+
+      if (parsed.type === 'input_audio_buffer.speech_started') {
+        stopEngvoPlayback(true)
+        const ws = engvoWebSocketRef.current
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'response.cancel' }))
+        }
+        setEngvoCallPhase('listening')
+        return
+      }
+
+      if (parsed.type === 'input_audio_buffer.speech_stopped') {
+        setEngvoCallPhase('userFinalizing')
+        return
+      }
+
+      if (
+        parsed.type === 'input_audio_buffer.committed' ||
+        parsed.type === 'conversation.item.input_audio_transcription.delta' ||
+        parsed.type === 'conversation.item.input_audio_transcription.completed'
+      ) {
+        engvoTranscriptStateRef.current = reduceRealtimeTranscriptEvent(
+          engvoTranscriptStateRef.current,
+          parsed as never
+        )
+        const transcriptView = getRealtimeTranscriptView(engvoTranscriptStateRef.current)
+        setEngvoUserInterimText(transcriptView.interimText)
+
+        if (
+          parsed.type === 'conversation.item.input_audio_transcription.completed' &&
+          typeof parsed.item_id === 'string' &&
+          !engvoCommittedUserItemIdsRef.current.has(parsed.item_id)
+        ) {
+          engvoCommittedUserItemIdsRef.current.add(parsed.item_id)
+          setEngvoUserInterimText('')
+          setEngvoCallPhase('userFinalizing')
+          const transcript = (parsed.transcript ?? '').trim()
+          const bubbleText = await translateEngvoUserTextToEnglish(transcript)
+          if (bubbleText) {
+            setMessages((prev) => [...prev, { role: 'user', content: bubbleText }])
+          }
+          setEngvoCallPhase('assistantPending')
+        }
+        return
+      }
+
+      if (parsed.type === 'response.created') {
+        if (responseId) {
+          engvoAssistantResponseIdRef.current = responseId
+          engvoAssistantResponseDoneRef.current = false
+          engvoFinalAssistantTextRef.current = ''
+          setEngvoAssistantPendingText('')
+        }
+        setEngvoCallPhase('assistantPending')
+        return
+      }
+
+      if (parsed.type === 'response.output_text.delta') {
+        if (typeof parsed.delta === 'string' && parsed.delta.trim()) {
+          setEngvoAssistantPendingText((prev) => `${prev}${parsed.delta}`)
+        }
+        return
+      }
+
+      if (parsed.type === 'response.output_text.done') {
+        const finalText = typeof parsed.text === 'string' && parsed.text.trim() ? parsed.text : parsed.delta ?? ''
+        if (finalText.trim()) {
+          engvoFinalAssistantTextRef.current = finalText.trim()
+          setEngvoAssistantPendingText(finalText.trim())
+        }
+        return
+      }
+
+      if (parsed.type === 'response.output_audio.delta') {
+        if (!responseId) return
+        if (!engvoAssistantResponseIdRef.current) {
+          engvoAssistantResponseIdRef.current = responseId
+        }
+        if (typeof parsed.delta === 'string' && parsed.delta) {
+          scheduleEngvoAudioPlayback(parsed.delta, responseId)
+        }
+        return
+      }
+
+      if (parsed.type === 'response.done') {
+        if (responseId && !engvoAssistantResponseIdRef.current) {
+          engvoAssistantResponseIdRef.current = responseId
+        }
+        const extracted = extractRealtimeTextFromResponseDone(parsed)
+        if (extracted) {
+          engvoFinalAssistantTextRef.current = extracted
+          setEngvoAssistantPendingText(extracted)
+        }
+        engvoAssistantResponseDoneRef.current = true
+        maybeCommitEngvoAssistantMessage()
+      }
+    },
+    [
+      maybeCommitEngvoAssistantMessage,
+      scheduleEngvoAudioPlayback,
+      setEngvoSessionError,
+      stopEngvoPlayback,
+      translateEngvoUserTextToEnglish,
+    ]
+  )
+
+  const startEngvoCall = useCallback(async () => {
+    if (!featureFlags.engvoVoiceV1) return
+    if (engvoCallPhase === 'connecting' || engvoCallPhase === 'listening' || engvoCallPhase === 'assistantPending' || engvoCallPhase === 'assistantSpeaking' || engvoCallPhase === 'userFinalizing') {
+      return
+    }
+
+    cleanupEngvoRuntime({ markIgnoredCurrent: true })
+    resetStructuredLessonSessionRef.current?.()
+    setDialogStarted(true)
+    setEngvoVoiceMode(true)
+    setEngvoCallPhase('connecting')
+    setEngvoErrorText(null)
+    setRetryMessage(null)
+    setLoading(false)
+    setSearchingInternet(false)
+    setLoadingTranslationIndex(null)
+
+    try {
+      const sessionResponse = await fetch('/api/realtime-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audience: settings.audience,
+          voice: engvoRealtimeVoice,
+          level: engvoCefrLevel,
+        }),
+      })
+      const sessionData = (await sessionResponse.json()) as {
+        clientSecret?: string
+        error?: string
+      }
+      if (!sessionResponse.ok || !sessionData.clientSecret) {
+        throw new Error(sessionData.error ?? 'Не удалось получить эфемерный токен')
+      }
+
+      const ws = new WebSocket(`wss://api.openai.com/v1/realtime?model=${ENGVO_REALTIME_MODEL}`, [
+        'realtime',
+        `openai-insecure-api-key.${sessionData.clientSecret}`,
+      ])
+
+      engvoIntentionalCloseRef.current = false
+      engvoWebSocketRef.current = ws
+      ws.onmessage = (event) => {
+        void handleEngvoRealtimeMessage(typeof event.data === 'string' ? event.data : '')
+      }
+      ws.onclose = () => {
+        if (engvoIntentionalCloseRef.current) {
+          engvoIntentionalCloseRef.current = false
+          return
+        }
+        setEngvoSessionError('Соединение Engvo прервалось. Попробуйте снова.')
+      }
+      ws.onerror = () => {
+        setEngvoSessionError('Не удалось открыть Realtime WebSocket.')
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        ws.onopen = () => resolve()
+        ws.onerror = () => reject(new Error('Не удалось открыть Realtime WebSocket.'))
+      })
+
+      ws.send(
+        JSON.stringify({
+          type: 'session.update',
+          session: {
+            voice: engvoRealtimeVoice,
+            instructions: buildEngvoRealtimeInstructionsClient({
+              audience: settings.audience,
+              level: engvoCefrLevel,
+            }),
+            input_audio_format: 'pcm16',
+            output_audio_format: 'pcm16',
+            input_audio_transcription: {
+              model: 'whisper-1',
+            },
+            turn_detection: {
+              type: 'server_vad',
+              threshold: 0.5,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 500,
+            },
+          },
+        })
+      )
+
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      })
+      engvoMediaStreamRef.current = mediaStream
+
+      const inputCtx = new AudioContext()
+      engvoInputAudioContextRef.current = inputCtx
+      await inputCtx.resume()
+
+      const outputCtx = new AudioContext()
+      engvoOutputAudioContextRef.current = outputCtx
+      await outputCtx.resume()
+      engvoPlaybackTimeRef.current = outputCtx.currentTime
+
+      const source = inputCtx.createMediaStreamSource(mediaStream)
+      const processor = inputCtx.createScriptProcessor(4096, 1, 1)
+      const muteGain = inputCtx.createGain()
+      muteGain.gain.value = 0
+      source.connect(processor)
+      processor.connect(muteGain)
+      muteGain.connect(inputCtx.destination)
+
+      processor.onaudioprocess = (event) => {
+        const socket = engvoWebSocketRef.current
+        if (!socket || socket.readyState !== WebSocket.OPEN || !engvoSessionStartedRef.current) return
+        const mono = event.inputBuffer.getChannelData(0)
+        const downsampled = downsampleFloat32ToRate(new Float32Array(mono), inputCtx.sampleRate, 24_000)
+        if (downsampled.length === 0) return
+        socket.send(
+          JSON.stringify({
+            type: 'input_audio_buffer.append',
+            audio: encodePcm16Base64(downsampled),
+          })
+        )
+      }
+
+      engvoInputSourceRef.current = source
+      engvoProcessorNodeRef.current = processor
+      setEngvoCallPhase('listening')
+    } catch (error) {
+      setEngvoSessionError(error instanceof Error ? error.message : 'Не удалось начать звонок Engvo')
+    }
+  }, [
+    cleanupEngvoRuntime,
+    engvoCallPhase,
+    engvoCefrLevel,
+    engvoRealtimeVoice,
+    handleEngvoRealtimeMessage,
+    setEngvoSessionError,
+    settings.audience,
+  ])
+
+  const hangUpEngvoCall = useCallback(() => {
+    cleanupEngvoRuntime({ markIgnoredCurrent: true })
+    setEngvoCallPhase('ended')
+    setEngvoErrorText(null)
+  }, [cleanupEngvoRuntime])
+
+  const handleEngvoVoiceChange = useCallback(
+    (voice: EngvoRealtimeVoice) => {
+      setEngvoRealtimeVoice(voice)
+      if (engvoVoiceMode) {
+        updateEngvoRealtimeSession({ voice })
+      }
+    },
+    [engvoVoiceMode, updateEngvoRealtimeSession]
+  )
+
+  const handleEngvoLevelChange = useCallback(
+    (level: EngvoCefrLevel) => {
+      setEngvoCefrLevel(level)
+      if (engvoVoiceMode) {
+        updateEngvoRealtimeSession({ level })
+      }
+    },
+    [engvoVoiceMode, updateEngvoRealtimeSession]
+  )
+
+  useEffect(() => {
+    if (!engvoVoiceMode || !engvoSessionStartedRef.current) return
+    updateEngvoRealtimeSession({ level: engvoCefrLevel })
+  }, [engvoVoiceMode, engvoCefrLevel, settings.audience, updateEngvoRealtimeSession])
 
   function getCommunicationInputExpectedFromText(text: string, current: Settings['communicationInputExpectedLang']) {
     return detectCommunicationUserMessageLang(text, current) as Settings['communicationInputExpectedLang']
@@ -985,9 +1585,14 @@ export default function Home() {
     setLessonExtraTipsState(null)
     setStartLessonCtaFromMenuGenerate(false)
   }, [abandonPracticeSession])
+  resetStructuredLessonSessionRef.current = resetStructuredLessonSession
 
   const restartChatForNewModeFromMenu = useCallback(() => {
     suppressSettingsChangeBannerRef.current = true
+    cleanupEngvoRuntime({ markIgnoredCurrent: true })
+    setEngvoVoiceMode(false)
+    setEngvoCallPhase('idle')
+    setEngvoErrorText(null)
     resetStructuredLessonSession()
     firstMessageRequestIdRef.current += 1
     firstMessageInFlightRef.current = false
@@ -998,10 +1603,14 @@ export default function Home() {
     setTimeout(() => {
       ensureFirstMessage()
     }, 50)
-  }, [ensureFirstMessage, resetStructuredLessonSession])
+  }, [cleanupEngvoRuntime, ensureFirstMessage, resetStructuredLessonSession])
 
   const handleStartChatFromMenu = useCallback(() => {
     setComposerSessionKey((k) => k + 1)
+    cleanupEngvoRuntime({ markIgnoredCurrent: true })
+    setEngvoVoiceMode(false)
+    setEngvoCallPhase('idle')
+    setEngvoErrorText(null)
     if (!dialogStarted) {
       resetStructuredLessonSession()
       setDialogStarted(true)
@@ -1011,12 +1620,26 @@ export default function Home() {
     resetStructuredLessonSession()
     restartChatForNewModeFromMenu()
     setMenuOpen(false)
-  }, [dialogStarted, restartChatForNewModeFromMenu, resetStructuredLessonSession])
+  }, [cleanupEngvoRuntime, dialogStarted, restartChatForNewModeFromMenu, resetStructuredLessonSession])
 
   const handleStartChatFromHome = useCallback(() => {
     setComposerSessionKey((k) => k + 1)
+    cleanupEngvoRuntime({ markIgnoredCurrent: true })
+    setEngvoVoiceMode(false)
+    setEngvoCallPhase('idle')
+    setEngvoErrorText(null)
     resetStructuredLessonSession()
     setDialogStarted(true)
+  }, [cleanupEngvoRuntime, resetStructuredLessonSession])
+
+  const handleOpenEngvoVoiceChat = useCallback(() => {
+    setComposerSessionKey((k) => k + 1)
+    resetStructuredLessonSession()
+    setDialogStarted(true)
+    setEngvoVoiceMode(true)
+    setEngvoCallPhase('idle')
+    setEngvoErrorText(null)
+    setMenuOpen(false)
   }, [resetStructuredLessonSession])
 
   const buildStructuredLessonRuntimeRequestKey = useCallback(
@@ -2004,6 +2627,7 @@ export default function Home() {
     const snap = menuOpenSnapshotRef.current
     menuOpenSnapshotRef.current = null
     if (!dialogStarted) return
+    if (engvoVoiceMode) return
     if (snap === null) return
     if (snap.mode !== settings.mode) {
       restartChatForNewModeFromMenu()
@@ -2012,7 +2636,7 @@ export default function Home() {
     if (menuSettingsRestartNeeded(snap, settings)) {
       restartChatForNewModeFromMenu()
     }
-  }, [menuOpen, dialogStarted, settings, restartChatForNewModeFromMenu])
+  }, [menuOpen, dialogStarted, engvoVoiceMode, settings, restartChatForNewModeFromMenu])
 
   const goToStartScreen = useCallback(() => {
     firstMessageRequestIdRef.current += 1
@@ -2032,13 +2656,17 @@ export default function Home() {
     setRetryMessage(null)
     setForceNextMicLang(null)
     setLoadingTranslationIndex(null)
+    cleanupEngvoRuntime({ markIgnoredCurrent: true })
+    setEngvoVoiceMode(false)
+    setEngvoCallPhase('idle')
+    setEngvoErrorText(null)
     resetStructuredLessonSession()
     dialogSeedRef.current = createDialogSeed()
     newDialogRef.current = false
     setWelcomeCompact(false)
     setGreetingNonce((n) => n + 1)
     saveState([], nextSettings)
-  }, [resetStructuredLessonSession, settings])
+  }, [cleanupEngvoRuntime, resetStructuredLessonSession, settings])
 
   const backToLessonList = useCallback(() => {
     firstMessageRequestIdRef.current += 1
@@ -2052,9 +2680,13 @@ export default function Home() {
     setRetryMessage(null)
     setForceNextMicLang(null)
     setLoadingTranslationIndex(null)
+    cleanupEngvoRuntime({ markIgnoredCurrent: true })
+    setEngvoVoiceMode(false)
+    setEngvoCallPhase('idle')
+    setEngvoErrorText(null)
     // Сохраняем контекст ветки уроков, чтобы "Назад" возвращал в тот же раздел.
     resetStructuredLessonSession({ keepLessonMenuContext: true })
-  }, [resetStructuredLessonSession])
+  }, [cleanupEngvoRuntime, resetStructuredLessonSession])
 
   const backToVocabularyMenu = useCallback(() => {
     firstMessageRequestIdRef.current += 1
@@ -2068,9 +2700,13 @@ export default function Home() {
     setRetryMessage(null)
     setForceNextMicLang(null)
     setLoadingTranslationIndex(null)
+    cleanupEngvoRuntime({ markIgnoredCurrent: true })
+    setEngvoVoiceMode(false)
+    setEngvoCallPhase('idle')
+    setEngvoErrorText(null)
     resetStructuredLessonSession()
     setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'words' })
-  }, [resetStructuredLessonSession])
+  }, [cleanupEngvoRuntime, resetStructuredLessonSession])
 
   const retryFirstMessage = useCallback(async () => {
     const requestId = ++firstMessageRequestIdRef.current
@@ -2123,10 +2759,22 @@ export default function Home() {
         })
       )
       setDialogStarted(false)
+      setEngvoRealtimeVoice(loadEngvoRealtimeVoice())
+      setEngvoCefrLevel(loadEngvoCefrLevel())
     }
     setInitialized(true)
     setStorageLoaded(true)
   }, [])
+
+  useEffect(() => {
+    if (!storageLoaded) return
+    saveEngvoRealtimeVoice(engvoRealtimeVoice)
+  }, [engvoRealtimeVoice, storageLoaded])
+
+  useEffect(() => {
+    if (!storageLoaded) return
+    saveEngvoCefrLevel(engvoCefrLevel)
+  }, [engvoCefrLevel, storageLoaded])
 
   useEffect(() => {
     if (!storageLoaded) return
@@ -2151,12 +2799,40 @@ export default function Home() {
   }, [storageLoaded, settings.audience])
 
   useEffect(() => {
-    if (!storageLoaded) return
     if (newDialogRef.current) return
-    if (loading) return
-    if (activeStructuredLesson || vocabularyWorldsActive || vocabularyByLevelActive) return
-    if (initialized && dialogStarted && messages.length === 0) ensureFirstMessage()
-  }, [storageLoaded, initialized, dialogStarted, messages.length, loading, ensureFirstMessage, activeStructuredLesson, vocabularyWorldsActive, vocabularyByLevelActive])
+    if (
+      shouldAutoRequestFirstChatMessage({
+        storageLoaded,
+        initialized,
+        dialogStarted,
+        messagesLength: messages.length,
+        loading,
+        activeStructuredLesson: Boolean(activeStructuredLesson),
+        vocabularyWorldsActive,
+        vocabularyByLevelActive,
+        engvoVoiceMode,
+      })
+    ) {
+      ensureFirstMessage()
+    }
+  }, [
+    storageLoaded,
+    initialized,
+    dialogStarted,
+    messages.length,
+    loading,
+    ensureFirstMessage,
+    activeStructuredLesson,
+    vocabularyWorldsActive,
+    vocabularyByLevelActive,
+    engvoVoiceMode,
+  ])
+
+  useEffect(() => {
+    return () => {
+      cleanupEngvoRuntime({ markIgnoredCurrent: true })
+    }
+  }, [cleanupEngvoRuntime])
 
   useEffect(() => {
     if (!storageLoaded) return
@@ -2166,6 +2842,7 @@ export default function Home() {
 
   const handleSend = useCallback(
     async (text: string) => {
+      if (engvoVoiceMode) return
       if (atLimit) return
       suppressSettingsChangeBannerRef.current = false
       const explicitTranslateTarget =
@@ -2280,7 +2957,7 @@ export default function Home() {
         setSearchingInternet(false)
       }
     },
-    [messages, atLimit, sendToApi, fetchUsage, settings, ensureFirstMessage]
+    [messages, atLimit, sendToApi, fetchUsage, settings, ensureFirstMessage, engvoVoiceMode]
   )
 
   function isRetryableTranslationError(message: string): boolean {
@@ -2512,6 +3189,21 @@ export default function Home() {
     : null
   const chatFooterVoice = React.useMemo(() => {
     if (!dialogStarted || isLessonActive) return null
+    if (engvoVoiceMode) {
+      const engvoFooter = getEngvoFooterView({
+        phase: engvoCallPhase,
+        userInterimText: engvoUserInterimText,
+        errorText: engvoErrorText,
+      })
+      if (!engvoFooter.text) return null
+      return {
+        typingKey: `engvo-${engvoCallPhase}`,
+        text: engvoFooter.text,
+        compactText: engvoFooter.text,
+        tone: engvoFooter.tone,
+        emphasis: engvoFooter.tone === 'thinking' ? ('pulse' as const) : ('none' as const),
+      }
+    }
     const candidates: Array<FooterVoiceCandidate | null> = [
       lastMessageIsError
         ? {
@@ -2605,6 +3297,10 @@ export default function Home() {
     )
   }, [
     dialogStarted,
+    engvoCallPhase,
+    engvoErrorText,
+    engvoUserInterimText,
+    engvoVoiceMode,
     isLessonActive,
     lastMessageIsError,
     loading,
@@ -3091,6 +3787,7 @@ export default function Home() {
             {!isStructuredLessonActive &&
               !isLessonTipsActive &&
               dialogStarted &&
+              !engvoVoiceMode &&
               messages.length > 0 &&
               settings.mode !== 'communication' &&
               !suppressSettingsChangeBannerRef.current &&
@@ -3255,8 +3952,27 @@ export default function Home() {
                       ? getLearningLessonActions(activeLearningLessonId)
                       : []
                   }
-                  onSelectLearningAction={handleSelectLearningAction}
+                  onSelectLearningAction={activeLearningLessonId ? handleSelectLearningAction : undefined}
                   composerSessionKey={composerSessionKey}
+                  engvo={{
+                    active: engvoVoiceMode,
+                    callPhase: engvoCallPhase,
+                    realtimeVoice: engvoRealtimeVoice,
+                    cefrLevel: engvoCefrLevel,
+                    interimUserText: engvoUserInterimText,
+                    showAssistantPending: shouldShowEngvoTypingIndicator({
+                      engvoVoiceMode,
+                      phase: engvoCallPhase,
+                      messagesLength: messages.length,
+                    }),
+                    assistantIndicatorText: 'Engvo отвечает...',
+                    onStartCall: () => {
+                      void startEngvoCall()
+                    },
+                    onHangUp: hangUpEngvoCall,
+                    onVoiceChange: handleEngvoVoiceChange,
+                    onLevelChange: handleEngvoLevelChange,
+                  }}
                 />
               )}
               </div>
@@ -3306,6 +4022,7 @@ export default function Home() {
         usage={usage}
         dialogueCorrectAnswers={dialogueCorrectAnswers}
         onStartChat={handleStartChatFromMenu}
+        onOpenEngvoVoiceChat={handleOpenEngvoVoiceChat}
         onGoHome={goToStartScreen}
         onOpenLearningLesson={openOrContinueLearningLesson}
         onGenerateLearningLesson={openGeneratedLearningLesson}

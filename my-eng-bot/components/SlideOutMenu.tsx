@@ -24,6 +24,7 @@ interface SlideOutMenuProps {
   hideButton?: boolean
   /** Кнопка «Начать …» в «Чат с MyEng» (старт или новый диалог). */
   onStartChat?: () => void
+  onOpenEngvoVoiceChat?: () => void
   /** Кнопка «домик»: на стартовый экран приложения. */
   onGoHome?: () => void
   /** Если чат уже идёт — при открытии меню сразу «Чат с MyEng»; если нет — корень списка разделов. */
@@ -75,6 +76,7 @@ export default function SlideOutMenu({
   onNewDialog,
   hideButton = false,
   onStartChat,
+  onOpenEngvoVoiceChat,
   onGoHome,
   chatActive = false,
   onOpenLearningLesson,
@@ -164,6 +166,7 @@ export default function SlideOutMenu({
             idPrefix="slide-"
             className="flex min-h-0 flex-1 flex-col"
             onStartHomeChat={onStartChat}
+            onOpenEngvoVoiceChat={onOpenEngvoVoiceChat}
             onGoHome={onGoHome}
             onOpenLearningLesson={onOpenLearningLesson}
             onGenerateLearningLesson={onGenerateLearningLesson}

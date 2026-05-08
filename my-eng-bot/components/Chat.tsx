@@ -30,6 +30,9 @@ import {
 } from '@/lib/sttClient'
 import { normalizeWebSearchSourceUrl } from '@/lib/openAiWebSearchShared'
 import type { ChatMessage as ChatMessageType, Settings } from '@/lib/types'
+import type { EngvoCefrLevel, EngvoRealtimeVoice } from '@/lib/engvo/constants'
+import { ENGVO_LEVEL_OPTIONS, ENGVO_REALTIME_VOICES } from '@/lib/engvo/constants'
+import type { EngvoCallPhase } from '@/lib/engvo/state'
 import { stripWrappingQuotesFromDrillRussianLine } from '@/lib/extractSingleTranslationNextSentence'
 import {
   extractCanonicalRepeatRefEnglishFromContent,
@@ -112,6 +115,19 @@ interface ChatProps {
   onSelectLearningAction?: (actionId: string) => void
   /** Счётчик увеличения — сброс поля ввода/голоса (напр. «Начать общение» из меню). */
   composerSessionKey?: number
+  engvo?: {
+    active: boolean
+    callPhase: EngvoCallPhase
+    realtimeVoice: EngvoRealtimeVoice
+    cefrLevel: EngvoCefrLevel
+    interimUserText: string
+    showAssistantPending: boolean
+    assistantIndicatorText: string
+    onStartCall: () => void
+    onHangUp: () => void
+    onVoiceChange: (voice: EngvoRealtimeVoice) => void
+    onLevelChange: (level: EngvoCefrLevel) => void
+  }
 }
 
 type SectionTone = 'neutral' | 'amber' | 'emerald' | 'praise' | 'slate' | 'invite' | 'correction'
@@ -1063,6 +1079,7 @@ export default function Chat({
   learningActions = [],
   onSelectLearningAction,
   composerSessionKey = 0,
+  engvo,
 }: ChatProps) {
   const [listening, setListening] = React.useState(false)
   const [micVisualState, setMicVisualState] = React.useState<'idle' | 'invite' | 'wait'>('idle')
@@ -1700,6 +1717,8 @@ export default function Chat({
   const SHOW_TYPING_DELAY_MS = 220
   const [showTypingIndicator, setShowTypingIndicator] = useState(false)
   const typingDelayTimerRef = useRef<number | null>(null)
+  const isEngvoActive = Boolean(engvo?.active)
+  const isEngvoAssistantPending = Boolean(engvo?.active && engvo.showAssistantPending)
 
   // Чтобы индикатор «MyEng печатает…» не мигал при очень быстром ответе от сервера,
   // показываем его только после небольшой задержки, если loading всё ещё true.
@@ -1739,8 +1758,10 @@ export default function Chat({
     voicePhase,
   ])
 
+  const typingIndicatorSourceActive = loading || isEngvoAssistantPending
+
   useEffect(() => {
-    if (!loading || messages.length === 0) {
+    if (!typingIndicatorSourceActive || messages.length === 0) {
       if (typingDelayTimerRef.current) window.clearTimeout(typingDelayTimerRef.current)
       typingDelayTimerRef.current = null
       setShowTypingIndicator(false)
@@ -1756,7 +1777,7 @@ export default function Chat({
       if (typingDelayTimerRef.current) window.clearTimeout(typingDelayTimerRef.current)
       typingDelayTimerRef.current = null
     }
-  }, [loading, messages.length])
+  }, [typingIndicatorSourceActive, messages.length])
 
   const lastMessageRole = messages[messages.length - 1]?.role ?? null
   const lastAssistantInviteKeyRef = useRef<string | null>(null)
@@ -1892,7 +1913,7 @@ export default function Chat({
       }
     }
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
-  }, [messages, isLearningFlow])
+  }, [messages, isLearningFlow, engvo?.interimUserText, engvo?.showAssistantPending])
 
   // Индекс последнего assistant-сообщения нужен, чтобы автоскрывать
   // карточку перевода у предыдущих сообщений.
@@ -1914,7 +1935,9 @@ export default function Chat({
     return -1
   }, [messages, settings.mode])
 
-  const canShowTypingIndicator = showTypingIndicator && loading && lastMessageRole === 'user'
+  const canShowTypingIndicator =
+    showTypingIndicator &&
+    ((loading && lastMessageRole === 'user') || (isEngvoAssistantPending && messages.length > 0))
 
   React.useEffect(() => {
     if (messages.length === 0) setSelectedLessonActionByMessage({})
@@ -1923,8 +1946,19 @@ export default function Chat({
   /** Текст индикатора ожидания ответа: «MyEng печатает…»; при веб-поиске — отдельные строки. */
   const isSearchingIndicatorEnglish = settings.mode === 'communication' && searchingInternetLang === 'en'
   const sendButtonAriaLabel =
-    settings.mode === 'communication' && settings.communicationInputExpectedLang === 'en' ? 'Send' : 'Отправить'
-  const composerPlaceholder = isLessonLoadingState
+    isEngvoActive
+      ? 'Завершить звонок'
+      : settings.mode === 'communication' && settings.communicationInputExpectedLang === 'en'
+        ? 'Send'
+        : 'Отправить'
+  const engvoCallInProgress =
+    isEngvoActive &&
+    ['connecting', 'listening', 'userFinalizing', 'assistantPending', 'assistantSpeaking'].includes(
+      engvo?.callPhase ?? 'idle'
+    )
+  const composerPlaceholder = isEngvoActive
+    ? ''
+    : isLessonLoadingState
     ? ''
     : isVoiceActive
     ? ''
@@ -1934,7 +1968,9 @@ export default function Chat({
         : 'Ответ...'
       : 'Reply...'
   const typingIndicatorText =
-    settings.mode === 'translation'
+    isEngvoAssistantPending
+      ? engvo?.assistantIndicatorText ?? 'Engvo отвечает...'
+      : settings.mode === 'translation'
       ? `MyEng печатает${retryMessage ? `… ${retryMessage}` : '…'}`
       : searchingInternet
         ? isSearchingIndicatorEnglish
@@ -2080,11 +2116,34 @@ export default function Chat({
                   </React.Fragment>
                 )
               })}
+              {isEngvoActive && engvo?.interimUserText.trim() && (
+                <ChatBubbleFrame
+                  role="user"
+                  position="solo"
+                  rowClassName="mb-2.5"
+                  className="italic"
+                  style={{
+                    background: 'var(--chat-user-bubble)',
+                    color: 'var(--text-muted)',
+                    opacity: 0.84,
+                  }}
+                >
+                  <p aria-live="polite" tabIndex={-1} className="whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
+                    {engvo.interimUserText}
+                  </p>
+                </ChatBubbleFrame>
+              )}
               {messages.length > 0 && (
                 <TypingIndicator
                   isVisible={canShowTypingIndicator}
                   label={typingIndicatorText}
-                  title={searchingInternet ? 'Поиск информации в интернете' : 'Ожидание ответа от ИИ'}
+                  title={
+                    isEngvoAssistantPending
+                      ? 'Ожидание ответа от Engvo'
+                      : searchingInternet
+                        ? 'Поиск информации в интернете'
+                        : 'Ожидание ответа от ИИ'
+                  }
                 />
               )}
             </div>
@@ -2103,154 +2162,219 @@ export default function Chat({
                 className="glass-surface flex w-full items-center gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1.5 sm:px-3"
                 style={{ boxShadow: 'var(--chat-composer-shadow)' }}
               >
-                <button
-                  type="button"
-                  disabled={voicePhase === 'finalizing' || isLessonLoadingState}
-                  onClick={() => {
-                    resetMicAnimation()
-                    if (listening) {
-                      stopListening()
-                      return
-                    }
-                    void startListening()
-                  }}
-                  className={`chat-action-button chat-control-surface relative isolate flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-full p-2.5 touch-manipulation ${
-                    micActionActive
-                      ? 'text-[var(--chat-control-active-text)]'
-                      : 'text-[var(--chat-control-text)]'
-                  } ${micVisualState === 'invite' ? 'animate-invite' : ''}`}
-                  style={{
-                    background: micActionActive ? 'var(--chat-control-active-bg)' : 'var(--chat-control-bg)',
-                    boxShadow: micActionActive ? 'var(--chat-control-shadow)' : undefined,
-                  }}
-                  title={listening ? 'Остановить' : voicePhase === 'finalizing' ? 'Распознаю речь' : 'Голосовой ввод'}
-                  aria-label={listening ? 'Остановить запись' : voicePhase === 'finalizing' ? 'Распознаю речь' : 'Голосовой ввод'}
-                  onMouseEnter={(e) => {
-                    if (!micActionActive && micVisualState !== 'wait') e.currentTarget.style.background = 'var(--chat-control-hover)'
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!micActionActive && micVisualState !== 'wait') e.currentTarget.style.background = 'var(--chat-control-bg)'
-                  }}
-                >
-                  {micVisualState === 'wait' && (
-                    <span
-                      aria-hidden="true"
-                      className="animate-wait pointer-events-none absolute inset-0 rounded-full"
-                      style={{
-                        opacity: 0.82,
-                        backgroundImage:
-                          'linear-gradient(250deg, transparent 12%, rgba(255, 255, 255, 0.1) 38%, rgba(255, 255, 255, 0.42) 52%, rgba(255, 255, 255, 0.14) 72%, transparent 90%)',
-                        animationDuration: '9s',
-                      }}
-                    />
-                  )}
-                  {micActionActive ? (
-                    <span className="relative z-10 h-5 w-5 rounded-full bg-[var(--chat-control-dot)] animate-pulse" />
-                  ) : (
-                    <span className="relative z-10">
-                      <MicIcon />
-                    </span>
-                  )}
-                </button>
-                <div className="relative min-w-0 flex-1">
-                  {showVoiceOverlay && (
-                    <VoiceComposerOverlay
-                      draftBeforeVoiceText={draftBeforeVoiceText}
-                      livePreviewText={livePreviewText}
-                      webTextMetricsFix={voiceWebMetricsClient}
-                    />
-                  )}
-                  {iosChromeVoiceStatusMessage && (
-                    <>
-                      <span role="status" aria-live="polite" style={SR_ONLY_STYLE}>
-                        {iosChromeVoiceStatusMessage}
-                      </span>
-                      <div
-                        aria-hidden="true"
-                        className={`ios-chrome-voice-status-overlay pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-2xl font-sans text-[14px] italic leading-snug ${
-                          voiceWebMetricsActive ? 'voice-composer-web-metrics' : 'px-4 py-2'
-                        }`}
-                        style={{
-                          color:
-                            voicePhase === 'error'
-                              ? 'var(--status-danger-text, #dc2626)'
-                              : 'var(--text-muted)',
-                        }}
-                      >
-                        {iosChromeVoiceStatusMessage}
-                      </div>
-                    </>
-                  )}
-                  <textarea
-                    ref={textareaRef}
-                    rows={1}
-                    value={composerText}
-                    readOnly={isTextareaReadOnly}
-                    disabled={isLessonLoadingState}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault()
-                        formRef.current?.requestSubmit()
-                      }
-                    }}
-                    placeholder={composerPlaceholder}
-                    aria-label={
-                      settings.mode === 'translation'
-                        ? 'Поле ввода перевода'
-                        : settings.mode === 'communication'
-                          ? 'Поле ввода ответа'
-                          : 'Поле ввода сообщения'
-                    }
-                    className={`chat-input-field communication-chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] ${
-                      showVoicePlaybackButton ? 'pr-12' : ''
-                    } ${
-                      voiceWebMetricsActive ? 'chat-input-voice-web-metrics' : ''
-                    } ${
-                      showVoiceOverlay
-                        ? 'text-transparent caret-transparent placeholder:text-transparent'
-                        : 'text-[var(--text)] placeholder:text-[var(--text-muted)]'
-                    }`}
-                    style={{ maxHeight: INPUT_MAX_HEIGHT_PX }}
-                  />
-                  {showVoicePlaybackButton && (
-                    <div className="pointer-events-none absolute inset-y-0 right-2 z-10 flex items-center">
-                      <button
-                        type="button"
-                        onClick={() => speak(lastCommittedVoiceText, settings.voiceId)}
-                        className="chat-input-inline-speaker-button chat-action-button pointer-events-auto inline-flex h-8 w-8 min-h-8 min-w-8 max-h-8 max-w-8 shrink-0 items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)]"
-                        title="Прослушать"
-                        aria-label="Прослушать распознанный текст"
-                      >
-                        <SpeakerIcon />
-                      </button>
+                {isEngvoActive ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={engvoCallInProgress || isLessonLoadingState}
+                      onClick={engvo?.onStartCall}
+                      className="chat-action-button inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full p-0 text-xl leading-none"
+                      style={{ background: '#22C55E' }}
+                      aria-label="Поднять трубку"
+                      title="Поднять трубку"
+                    >
+                      <span aria-hidden="true">📞</span>
+                    </button>
+                    <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+                      <label className="min-w-0">
+                        <span style={SR_ONLY_STYLE}>Голос Engvo</span>
+                        <select
+                          value={engvo?.realtimeVoice ?? 'alloy'}
+                          onChange={(e) => engvo?.onVoiceChange(e.target.value as EngvoRealtimeVoice)}
+                          disabled={isLessonLoadingState}
+                          className="chat-input-field min-w-0 w-full rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-3 py-2 text-sm text-[var(--text)]"
+                          aria-label="Голос Engvo"
+                        >
+                          {ENGVO_REALTIME_VOICES.map((voice) => (
+                            <option key={voice} value={voice}>
+                              {voice}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="min-w-0">
+                        <span style={SR_ONLY_STYLE}>Уровень CEFR</span>
+                        <select
+                          value={engvo?.cefrLevel ?? 'a2'}
+                          onChange={(e) => engvo?.onLevelChange(e.target.value as EngvoCefrLevel)}
+                          disabled={isLessonLoadingState}
+                          className="chat-input-field min-w-0 w-full rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-3 py-2 text-sm text-[var(--text)]"
+                          aria-label="Уровень CEFR"
+                        >
+                          {ENGVO_LEVEL_OPTIONS.map((level) => (
+                            <option key={level.id} value={level.id}>
+                              {level.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
-                  )}
-                </div>
-                <button
-                  type="submit"
-                  disabled={!input.trim() || loading || atLimit || isVoiceActive || isLessonLoadingState}
-                  className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)]"
-                  style={{ background: '#3B82F6' }}
-                  aria-label={sendButtonAriaLabel}
-                >
-                  <svg
-                    aria-hidden="true"
-                    viewBox="0 0 24 24"
-                    className="h-7 w-7"
-                    fill="none"
-                  >
-                    <path
-                      d="M21.4 11.6C21.7 11.8 21.7 12.2 21.4 12.4L5.9 19.4C5.2 19.7 4.4 19.2 4.5 18.4L5.3 14.2C5.4 13.9 5.6 13.6 5.9 13.5L12.8 12L5.9 10.5C5.6 10.4 5.4 10.1 5.3 9.8L4.5 5.6C4.4 4.8 5.2 4.3 5.9 4.6L21.4 11.6Z"
-                      stroke="#FFFFFF"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
+                    <button
+                      type="button"
+                      onClick={engvo?.onHangUp}
+                      disabled={!engvoCallInProgress}
+                      className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full p-0 text-xl leading-none"
+                      style={{ background: '#EF4444' }}
+                      aria-label={sendButtonAriaLabel}
+                      title="Положить трубку"
+                    >
+                      <span aria-hidden="true" className="inline-block rotate-[135deg]">
+                        📞
+                      </span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      disabled={voicePhase === 'finalizing' || isLessonLoadingState}
+                      onClick={() => {
+                        resetMicAnimation()
+                        if (listening) {
+                          stopListening()
+                          return
+                        }
+                        void startListening()
+                      }}
+                      className={`chat-action-button chat-control-surface relative isolate flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-full p-2.5 touch-manipulation ${
+                        micActionActive
+                          ? 'text-[var(--chat-control-active-text)]'
+                          : 'text-[var(--chat-control-text)]'
+                      } ${micVisualState === 'invite' ? 'animate-invite' : ''}`}
+                      style={{
+                        background: micActionActive ? 'var(--chat-control-active-bg)' : 'var(--chat-control-bg)',
+                        boxShadow: micActionActive ? 'var(--chat-control-shadow)' : undefined,
+                      }}
+                      title={listening ? 'Остановить' : voicePhase === 'finalizing' ? 'Распознаю речь' : 'Голосовой ввод'}
+                      aria-label={listening ? 'Остановить запись' : voicePhase === 'finalizing' ? 'Распознаю речь' : 'Голосовой ввод'}
+                      onMouseEnter={(e) => {
+                        if (!micActionActive && micVisualState !== 'wait') e.currentTarget.style.background = 'var(--chat-control-hover)'
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!micActionActive && micVisualState !== 'wait') e.currentTarget.style.background = 'var(--chat-control-bg)'
+                      }}
+                    >
+                      {micVisualState === 'wait' && (
+                        <span
+                          aria-hidden="true"
+                          className="animate-wait pointer-events-none absolute inset-0 rounded-full"
+                          style={{
+                            opacity: 0.82,
+                            backgroundImage:
+                              'linear-gradient(250deg, transparent 12%, rgba(255, 255, 255, 0.1) 38%, rgba(255, 255, 255, 0.42) 52%, rgba(255, 255, 255, 0.14) 72%, transparent 90%)',
+                            animationDuration: '9s',
+                          }}
+                        />
+                      )}
+                      {micActionActive ? (
+                        <span className="relative z-10 h-5 w-5 rounded-full bg-[var(--chat-control-dot)] animate-pulse" />
+                      ) : (
+                        <span className="relative z-10">
+                          <MicIcon />
+                        </span>
+                      )}
+                    </button>
+                    <div className="relative min-w-0 flex-1">
+                      {showVoiceOverlay && (
+                        <VoiceComposerOverlay
+                          draftBeforeVoiceText={draftBeforeVoiceText}
+                          livePreviewText={livePreviewText}
+                          webTextMetricsFix={voiceWebMetricsClient}
+                        />
+                      )}
+                      {iosChromeVoiceStatusMessage && (
+                        <>
+                          <span role="status" aria-live="polite" style={SR_ONLY_STYLE}>
+                            {iosChromeVoiceStatusMessage}
+                          </span>
+                          <div
+                            aria-hidden="true"
+                            className={`ios-chrome-voice-status-overlay pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-2xl font-sans text-[14px] italic leading-snug ${
+                              voiceWebMetricsActive ? 'voice-composer-web-metrics' : 'px-4 py-2'
+                            }`}
+                            style={{
+                              color:
+                                voicePhase === 'error'
+                                  ? 'var(--status-danger-text, #dc2626)'
+                                  : 'var(--text-muted)',
+                            }}
+                          >
+                            {iosChromeVoiceStatusMessage}
+                          </div>
+                        </>
+                      )}
+                      <textarea
+                        ref={textareaRef}
+                        rows={1}
+                        value={composerText}
+                        readOnly={isTextareaReadOnly}
+                        disabled={isLessonLoadingState}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            formRef.current?.requestSubmit()
+                          }
+                        }}
+                        placeholder={composerPlaceholder}
+                        aria-label={
+                          settings.mode === 'translation'
+                            ? 'Поле ввода перевода'
+                            : settings.mode === 'communication'
+                              ? 'Поле ввода ответа'
+                              : 'Поле ввода сообщения'
+                        }
+                        className={`chat-input-field communication-chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] ${
+                          showVoicePlaybackButton ? 'pr-12' : ''
+                        } ${
+                          voiceWebMetricsActive ? 'chat-input-voice-web-metrics' : ''
+                        } ${
+                          showVoiceOverlay
+                            ? 'text-transparent caret-transparent placeholder:text-transparent'
+                            : 'text-[var(--text)] placeholder:text-[var(--text-muted)]'
+                        }`}
+                        style={{ maxHeight: INPUT_MAX_HEIGHT_PX }}
+                      />
+                      {showVoicePlaybackButton && (
+                        <div className="pointer-events-none absolute inset-y-0 right-2 z-10 flex items-center">
+                          <button
+                            type="button"
+                            onClick={() => speak(lastCommittedVoiceText, settings.voiceId)}
+                            className="chat-input-inline-speaker-button chat-action-button pointer-events-auto inline-flex h-8 w-8 min-h-8 min-w-8 max-h-8 max-w-8 shrink-0 items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)]"
+                            title="Прослушать"
+                            aria-label="Прослушать распознанный текст"
+                          >
+                            <SpeakerIcon />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={!input.trim() || loading || atLimit || isVoiceActive || isLessonLoadingState}
+                      className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)]"
+                      style={{ background: '#3B82F6' }}
+                      aria-label={sendButtonAriaLabel}
+                    >
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-7 w-7"
+                        fill="none"
+                      >
+                        <path
+                          d="M21.4 11.6C21.7 11.8 21.7 12.2 21.4 12.4L5.9 19.4C5.2 19.7 4.4 19.2 4.5 18.4L5.3 14.2C5.4 13.9 5.6 13.6 5.9 13.5L12.8 12L5.9 10.5C5.6 10.4 5.4 10.1 5.3 9.8L4.5 5.6C4.4 4.8 5.2 4.3 5.9 4.6L21.4 11.6Z"
+                          stroke="#FFFFFF"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  </>
+                )}
               </form>
-              {showVoiceStatusMessageBelowInput && (
+              {!isEngvoActive && showVoiceStatusMessageBelowInput && (
                 <p
                   role="status"
                   aria-live="polite"
