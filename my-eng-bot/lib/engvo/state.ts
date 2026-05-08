@@ -13,6 +13,19 @@ export type EngvoFooterView = {
   tone: 'neutral' | 'thinking' | 'error'
 }
 
+/** Общие подписи для футера и индикатора ожидания в чате при звонке Engvo. */
+export const ENGVO_STATUS_CONNECTING = 'Соединяюсь…'
+export const ENGVO_STATUS_ASSISTANT_PENDING = 'Получаю ответ…'
+export const ENGVO_STATUS_ASSISTANT_SPEAKING = 'Engvo отвечает…'
+
+/** Текст для полоски «ассистент думает» в чате до первого сообщения в сессии. */
+export function getEngvoBootstrapServiceIndicatorText(phase: EngvoCallPhase): string | null {
+  if (phase === 'connecting') return ENGVO_STATUS_CONNECTING
+  if (phase === 'assistantPending') return ENGVO_STATUS_ASSISTANT_PENDING
+  if (phase === 'assistantSpeaking') return ENGVO_STATUS_ASSISTANT_SPEAKING
+  return null
+}
+
 export function getEngvoFooterView(params: {
   phase: EngvoCallPhase
   userInterimText: string
@@ -32,6 +45,15 @@ export function getEngvoFooterView(params: {
   }
   if (params.phase === 'listening') {
     return { text: 'В эфире.', tone: 'neutral' }
+  }
+  if (params.phase === 'connecting') {
+    return { text: ENGVO_STATUS_CONNECTING, tone: 'thinking' }
+  }
+  if (params.phase === 'assistantPending') {
+    return { text: ENGVO_STATUS_ASSISTANT_PENDING, tone: 'thinking' }
+  }
+  if (params.phase === 'assistantSpeaking') {
+    return { text: ENGVO_STATUS_ASSISTANT_SPEAKING, tone: 'thinking' }
   }
   return { text: null, tone: 'neutral' }
 }

@@ -86,7 +86,7 @@ const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
 }
 
 type SettingsMenuPanel = 'summary' | 'provider' | 'openAiModel' | 'voice' | 'theme'
-type EngvoPanel = 'summary' | 'setup'
+type EngvoPanel = 'summary' | 'setup' | 'voice' | 'level'
 
 const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
   summary: 'Настройки',
@@ -98,6 +98,8 @@ const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
 const ENGVO_PANEL_TITLE: Record<EngvoPanel, string> = {
   summary: 'Позвонить',
   setup: 'Настройки звонка',
+  voice: 'Голос',
+  level: 'Уровень',
 }
 
 const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
@@ -510,6 +512,9 @@ export default function MenuSectionPanels({
         : theme === 'bubble2'
           ? 'Bubble2'
           : 'Basic'
+  const engvoVoiceLabel = engvoRealtimeVoice ?? 'alloy'
+  const engvoLevelLabel =
+    ENGVO_LEVEL_OPTIONS.find((l) => l.id === (engvoCefrLevel ?? 'a2'))?.label ?? 'A2'
 
   const handleMenuBack = () => {
     if (menuView === 'lessons' && lessonsPanel !== 'summary') {
@@ -573,8 +578,14 @@ export default function MenuSectionPanels({
       return
     }
     if (menuView === 'engvo' && engvoPanel !== 'summary') {
-      setEngvoPanel('summary')
-      return
+      if (engvoPanel === 'voice' || engvoPanel === 'level') {
+        setEngvoPanel('setup')
+        return
+      }
+      if (engvoPanel === 'setup') {
+        setEngvoPanel('summary')
+        return
+      }
     }
     onMenuViewChange('root')
   }
@@ -853,7 +864,11 @@ export default function MenuSectionPanels({
                     ? 'Назад к настройкам чата'
                     : menuView === 'settings' && settingsPanel !== 'summary'
                       ? 'Назад к настройкам'
-                      : 'Назад к разделам'
+                      : menuView === 'engvo' && (engvoPanel === 'voice' || engvoPanel === 'level')
+                        ? 'Назад к настройкам звонка'
+                        : menuView === 'engvo' && engvoPanel === 'setup'
+                          ? 'Назад к позвонить'
+                          : 'Назад к разделам'
               }
             >
               <span className="flex justify-end pr-0.5" aria-hidden>
@@ -912,61 +927,48 @@ export default function MenuSectionPanels({
         )}
 
         {menuView === 'engvo' && (
-          <div className={MENU_GROUP_OUTER}>
+          <>
             {engvoPanel === 'summary' && (
-              <div className={MENU_GROUP_CLASS}>
-                <MenuNavRow label="Параметры звонка" onClick={() => setEngvoPanel('setup')} />
-                <button
-                  type="button"
-                  onClick={onOpenEngvoVoiceChat}
-                  className={`${MENU_PRIMARY_CTA_CLASS} mx-3 mt-2 mb-3 w-[calc(100%-1.5rem)]`}
-                >
-                  Перейти к звонку
-                </button>
-              </div>
-            )}
-            {engvoPanel === 'setup' && (
-              <div className={`${MENU_GROUP_CLASS} p-3`}>
-                <div className="space-y-2.5">
-                  <div className="flex w-full items-center gap-3">
-                    <span className={MENU_FIELD_LABEL}>Голос</span>
-                    <div className="min-w-0 flex-1">
-                      <select
-                        value={engvoRealtimeVoice ?? 'alloy'}
-                        onChange={(event) => onEngvoVoiceChange?.(event.target.value as EngvoRealtimeVoice)}
-                        className={FIELD_SELECT}
-                        aria-label="Голос Engvo"
-                      >
-                        {ENGVO_REALTIME_VOICES.map((voice) => (
-                          <option key={voice} value={voice}>
-                            {voice}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="flex w-full items-center gap-3">
-                    <span className={MENU_FIELD_LABEL}>Уровень</span>
-                    <div className="min-w-0 flex-1">
-                      <select
-                        value={engvoCefrLevel ?? 'a2'}
-                        onChange={(event) => onEngvoLevelChange?.(event.target.value as EngvoCefrLevel)}
-                        className={FIELD_SELECT}
-                        aria-label="Уровень CEFR для звонка"
-                      >
-                        {ENGVO_LEVEL_OPTIONS.map((level) => (
-                          <option key={level.id} value={level.id}>
-                            {level.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+              <div className={MENU_GROUP_OUTER}>
+                <div className={MENU_GROUP_CLASS}>
+                  <MenuNavRow label="Параметры звонка" onClick={() => setEngvoPanel('setup')} />
+                  <div className="px-3 pt-2 pb-3">
+                    <button type="button" onClick={onOpenEngvoVoiceChat} className={MENU_PRIMARY_CTA_CLASS}>
+                      Перейти к звонку
+                    </button>
                   </div>
                 </div>
               </div>
             )}
-          </div>
+            {engvoPanel === 'setup' && (
+              <div className={MENU_GROUP_OUTER}>
+                <div className={MENU_GROUP_CLASS}>
+                  <MenuSettingRow label="Голос" value={engvoVoiceLabel} onClick={() => setEngvoPanel('voice')} />
+                  <MenuSettingRow label="Уровень" value={engvoLevelLabel} onClick={() => setEngvoPanel('level')} />
+                </div>
+              </div>
+            )}
+            {engvoPanel === 'voice' && (
+              <PickerList
+                options={ENGVO_REALTIME_VOICES.map((voice) => ({ id: voice, label: voice }))}
+                value={engvoRealtimeVoice ?? 'alloy'}
+                onSelect={(id) => {
+                  onEngvoVoiceChange?.(id as EngvoRealtimeVoice)
+                  setEngvoPanel('setup')
+                }}
+              />
+            )}
+            {engvoPanel === 'level' && (
+              <PickerList
+                options={ENGVO_LEVEL_OPTIONS.map((l) => ({ id: l.id, label: l.label }))}
+                value={engvoCefrLevel ?? 'a2'}
+                onSelect={(id) => {
+                  onEngvoLevelChange?.(id as EngvoCefrLevel)
+                  setEngvoPanel('setup')
+                }}
+              />
+            )}
+          </>
         )}
 
         {menuView === 'lessons' && (

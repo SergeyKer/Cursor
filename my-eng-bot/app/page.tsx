@@ -103,7 +103,12 @@ import {
 } from '@/lib/engvo/constants'
 import { buildEngvoRealtimeInstructionsClient } from '@/lib/engvo/instructionsClient'
 import { loadEngvoCefrLevel, loadEngvoRealtimeVoice, saveEngvoCefrLevel, saveEngvoRealtimeVoice } from '@/lib/engvo/preferences'
-import { canCommitEngvoAssistantMessage, getEngvoFooterView, type EngvoCallPhase } from '@/lib/engvo/state'
+import {
+  canCommitEngvoAssistantMessage,
+  getEngvoBootstrapServiceIndicatorText,
+  getEngvoFooterView,
+  type EngvoCallPhase,
+} from '@/lib/engvo/state'
 import { shouldAutoRequestFirstChatMessage } from '@/lib/engvo/guards'
 import {
   createRealtimeTranscriptState,
@@ -3424,9 +3429,6 @@ export default function Home() {
   const chatFooterVoice = React.useMemo(() => {
     if (!dialogStarted || isLessonActive) return null
     if (engvoVoiceMode) {
-      const isBootstrapStatusPhase =
-        engvoCallPhase === 'connecting' || engvoCallPhase === 'assistantPending' || engvoCallPhase === 'assistantSpeaking'
-      if (engvoBootstrapServiceStatusVisible && isBootstrapStatusPhase) return null
       const engvoFooter = getEngvoFooterView({
         phase: engvoCallPhase,
         userInterimText: engvoUserInterimText,
@@ -3534,7 +3536,6 @@ export default function Home() {
     )
   }, [
     dialogStarted,
-    engvoBootstrapServiceStatusVisible,
     engvoCallPhase,
     engvoErrorText,
     engvoUserInterimText,
@@ -3704,12 +3705,7 @@ export default function Home() {
       : dialogStarted
       ? (chatFooterVoice?.emphasis ?? 'none')
       : (adaptiveFooterView?.emphasis ?? homeFooterVoice?.emphasis ?? 'none')
-  const engvoBootstrapServiceIndicatorText =
-    engvoCallPhase === 'connecting'
-      ? 'Подключаюсь...'
-      : engvoCallPhase === 'assistantPending' || engvoCallPhase === 'assistantSpeaking'
-        ? 'Engvo отвечает...'
-        : null
+  const engvoBootstrapServiceIndicatorText = getEngvoBootstrapServiceIndicatorText(engvoCallPhase)
   const showEngvoBootstrapServiceIndicator =
     engvoVoiceMode && engvoBootstrapServiceStatusVisible && !!engvoBootstrapServiceIndicatorText
   const pageTitle = !dialogStarted

@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { canCommitEngvoAssistantMessage, getEngvoFooterView, shouldShowEngvoTypingIndicator } from './state'
+import {
+  canCommitEngvoAssistantMessage,
+  ENGVO_STATUS_ASSISTANT_PENDING,
+  ENGVO_STATUS_ASSISTANT_SPEAKING,
+  ENGVO_STATUS_CONNECTING,
+  getEngvoBootstrapServiceIndicatorText,
+  getEngvoFooterView,
+  shouldShowEngvoTypingIndicator,
+} from './state'
 
 describe('engvo state helpers', () => {
   it('maps phases to footer text', () => {
     expect(getEngvoFooterView({ phase: 'connecting', userInterimText: '' })).toEqual({
-      text: null,
-      tone: 'neutral',
+      text: ENGVO_STATUS_CONNECTING,
+      tone: 'thinking',
     })
     expect(getEngvoFooterView({ phase: 'listening', userInterimText: 'hello' })).toEqual({
       text: 'Слышу…',
@@ -16,9 +24,20 @@ describe('engvo state helpers', () => {
       tone: 'thinking',
     })
     expect(getEngvoFooterView({ phase: 'assistantPending', userInterimText: '' })).toEqual({
-      text: null,
-      tone: 'neutral',
+      text: ENGVO_STATUS_ASSISTANT_PENDING,
+      tone: 'thinking',
     })
+    expect(getEngvoFooterView({ phase: 'assistantSpeaking', userInterimText: '' })).toEqual({
+      text: ENGVO_STATUS_ASSISTANT_SPEAKING,
+      tone: 'thinking',
+    })
+  })
+
+  it('maps bootstrap indicator text to phases', () => {
+    expect(getEngvoBootstrapServiceIndicatorText('connecting')).toBe(ENGVO_STATUS_CONNECTING)
+    expect(getEngvoBootstrapServiceIndicatorText('assistantPending')).toBe(ENGVO_STATUS_ASSISTANT_PENDING)
+    expect(getEngvoBootstrapServiceIndicatorText('assistantSpeaking')).toBe(ENGVO_STATUS_ASSISTANT_SPEAKING)
+    expect(getEngvoBootstrapServiceIndicatorText('listening')).toBeNull()
   })
 
   it('shows typing indicator only for assistant pending/speaking in engvo mode', () => {
