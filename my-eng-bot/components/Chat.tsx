@@ -2168,12 +2168,18 @@ export default function Chat({
                       type="button"
                       disabled={engvoCallInProgress || isLessonLoadingState}
                       onClick={engvo?.onStartCall}
-                      className="chat-action-button inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full p-0 text-xl leading-none"
-                      style={{ background: '#22C55E' }}
+                      className="chat-action-button inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-[#22c55e] p-0 text-xl leading-none shadow-[0_10px_24px_rgba(34,197,94,0.34)] transition-all duration-200 hover:scale-105 hover:bg-[#16a34a] active:scale-95 focus:outline-none focus:ring-4 focus:ring-green-300 disabled:opacity-70 disabled:hover:scale-100 disabled:hover:bg-[#22c55e]"
                       aria-label="Поднять трубку"
                       title="Поднять трубку"
                     >
-                      <span aria-hidden="true">📞</span>
+                      <svg className="h-6 w-6 rotate-[8deg] text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.91.33 1.81.61 2.67a2 2 0 0 1-.45 2.11L8 9.91a16 16 0 0 0 6.09 6.09l1.41-1.27a2 2 0 0 1 2.11-.45c.86.28 1.76.49 2.67.61A2 2 0 0 1 22 16.92z"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
                     </button>
                     <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
                       <label className="min-w-0">
@@ -2213,14 +2219,18 @@ export default function Chat({
                       type="button"
                       onClick={engvo?.onHangUp}
                       disabled={!engvoCallInProgress}
-                      className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full p-0 text-xl leading-none"
-                      style={{ background: '#EF4444' }}
+                      className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-[#ef9a9a] p-0 text-xl leading-none shadow-[0_10px_24px_rgba(239,68,68,0.26)] transition-all duration-200 hover:scale-105 hover:bg-[#ef4444] active:scale-95 focus:outline-none focus:ring-4 focus:ring-red-300 disabled:opacity-70 disabled:hover:scale-100 disabled:hover:bg-[#ef9a9a]"
                       aria-label={sendButtonAriaLabel}
                       title="Положить трубку"
                     >
-                      <span aria-hidden="true" className="inline-block rotate-[135deg]">
-                        📞
-                      </span>
+                      <svg className="h-6 w-6 rotate-[135deg] text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.91.33 1.81.61 2.67a2 2 0 0 1-.45 2.11L8 9.91a16 16 0 0 0 6.09 6.09l1.41-1.27a2 2 0 0 1 2.11-.45c.86.28 1.76.49 2.67.61A2 2 0 0 1 22 16.92z"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
                     </button>
                   </>
                 ) : (
