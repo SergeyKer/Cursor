@@ -2766,6 +2766,7 @@ function MessageBubble({
 
   const mainAfterVisibleForBubble =
     Boolean(mainAfter) && !effectiveMainBefore && !effectiveInvitationText
+
   const hasContent = isUser
     ? Boolean(message.content)
     : Boolean(

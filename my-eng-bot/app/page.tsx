@@ -97,7 +97,7 @@ import type { VocabularyFooterView } from '@/types/vocabulary'
 import {
   ENGVO_DEFAULT_LEVEL,
   ENGVO_DEFAULT_VOICE,
-  ENGVO_REALTIME_MODEL,
+  ENGVO_TRANSCRIPTION_MODEL,
   type EngvoCefrLevel,
   type EngvoRealtimeVoice,
 } from '@/lib/engvo/constants'
@@ -105,7 +105,6 @@ import { buildEngvoRealtimeInstructionsClient } from '@/lib/engvo/instructionsCl
 import { loadEngvoCefrLevel, loadEngvoRealtimeVoice, saveEngvoCefrLevel, saveEngvoRealtimeVoice } from '@/lib/engvo/preferences'
 import { canCommitEngvoAssistantMessage, getEngvoFooterView, shouldShowEngvoTypingIndicator, type EngvoCallPhase } from '@/lib/engvo/state'
 import { shouldAutoRequestFirstChatMessage } from '@/lib/engvo/guards'
-import { decodePcm16Base64, downsampleFloat32ToRate, encodePcm16Base64 } from '@/lib/engvo/audio'
 import {
   createRealtimeTranscriptState,
   getRealtimeTranscriptView,
@@ -355,6 +354,10 @@ function readPublicLessonProviderTimeoutMs(): number {
 }
 
 const API_TIMEOUT_MS = 60_000
+const ENGVO_SDP_FETCH_TIMEOUT_MS = 25_000
+const ENGVO_CONNECTION_TIMEOUT_MS = 20_000
+const ENGVO_SESSION_ACK_TIMEOUT_MS = 15_000
+const ENGVO_RESPONSE_DONE_FALLBACK_MS = 1_200
 /** Меню «Сгенерировать урок» → `/api/lesson-repeat` с bypassCache; клиентский бюджет: `lessonMenuGenerateClientTimeoutMs` (попытки из `resolveLessonRepeatMenuBypassMaxAttempts`, см. `lib/lessonProviderTimeouts.ts`). */
 const LESSON_MENU_GENERATE_TIMEOUT_MS = lessonMenuGenerateClientTimeoutMs(readPublicLessonProviderTimeoutMs())
 const MAX_ATTEMPTS = 3
@@ -365,6 +368,51 @@ const RETRY_DELAY_RATE_LIMIT_BASE_MS = 5_000
 const RETRY_MESSAGES = ['Пробую ещё раз…', 'Вот-вот, почти!']
 const ERROR_FIRST_MESSAGE = 'Не удалось загрузить ответ. Проверьте сеть и настройки сервера.'
 const EMPTY_RESPONSE_FALLBACK = 'ИИ не отвечает. Проверьте сеть и попробуйте снова.'
+function normalizeEngvoErrorMessage(raw: string): string {
+  const message = raw.trim()
+  if (!message) return ''
+  try {
+    const parsed = JSON.parse(message) as {
+      error?: { message?: string; code?: string } | string
+      diagnostics?: { openAiStatus?: number }
+    }
+    if (typeof parsed?.error === 'string' && parsed.error.trim()) {
+      return parsed.error.trim()
+    }
+    if (parsed?.error && typeof parsed.error === 'object') {
+      const detailed = parsed.error.message?.trim() ?? ''
+      if (detailed) return detailed
+      const fallbackCode = parsed.error.code?.trim()
+      if (fallbackCode) return `Ошибка Realtime: ${fallbackCode}`
+    }
+    if (parsed?.diagnostics?.openAiStatus) {
+      return `Ошибка Realtime (HTTP ${parsed.diagnostics.openAiStatus}).`
+    }
+  } catch {
+    // not json
+  }
+  return message
+}
+
+function normalizeForEchoCompare(text: string): string {
+  return text.trim().toLowerCase().replace(/[^\p{L}\p{N}\s']/gu, '').replace(/\s+/g, ' ')
+}
+
+function hasCyrillic(text: string): boolean {
+  return /[А-Яа-яЁё]/.test(text)
+}
+
+const ENGVO_CALL_HALLUCINATION_PHRASES = new Set(['thank you', 'thanks', 'you', 'okay', 'ok', 'bye'])
+
+function isLikelyEngvoCallHallucination(text: string): boolean {
+  const normalized = text
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/[.!?…]+$/g, '')
+  return ENGVO_CALL_HALLUCINATION_PHRASES.has(normalized)
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -537,14 +585,10 @@ export default function Home() {
   const prefetchedStructuredLessonRuntimeRef = React.useRef<Record<string, LessonData | null>>({})
   const structuredLessonRuntimeInFlightRef = React.useRef<Record<string, Promise<LessonData | null>>>({})
   const lessonOpenRequestIdRef = React.useRef(0)
-  const engvoWebSocketRef = React.useRef<WebSocket | null>(null)
+  const engvoPeerConnectionRef = React.useRef<RTCPeerConnection | null>(null)
+  const engvoDataChannelRef = React.useRef<RTCDataChannel | null>(null)
+  const engvoRemoteAudioElRef = React.useRef<HTMLAudioElement | null>(null)
   const engvoMediaStreamRef = React.useRef<MediaStream | null>(null)
-  const engvoInputAudioContextRef = React.useRef<AudioContext | null>(null)
-  const engvoInputSourceRef = React.useRef<MediaStreamAudioSourceNode | null>(null)
-  const engvoProcessorNodeRef = React.useRef<ScriptProcessorNode | null>(null)
-  const engvoOutputAudioContextRef = React.useRef<AudioContext | null>(null)
-  const engvoPlaybackTimeRef = React.useRef(0)
-  const engvoPlaybackSourcesRef = React.useRef<Set<AudioBufferSourceNode>>(new Set())
   const engvoPlaybackPendingCountRef = React.useRef(0)
   const engvoAssistantResponseIdRef = React.useRef<string | null>(null)
   const engvoAssistantResponseDoneRef = React.useRef(false)
@@ -552,10 +596,16 @@ export default function Home() {
   const engvoCommittedUserItemIdsRef = React.useRef<Set<string>>(new Set())
   const engvoIgnoredResponseIdsRef = React.useRef<Set<string>>(new Set())
   const engvoFinalAssistantTextRef = React.useRef('')
+  const engvoStreamingAssistantIndexRef = React.useRef<number | null>(null)
   const engvoSessionStartedRef = React.useRef(false)
+  const engvoGreetingTriggeredRef = React.useRef(false)
   const engvoVoiceLockedRef = React.useRef(false)
   const engvoTranscriptStateRef = React.useRef<RealtimeTranscriptState>(createRealtimeTranscriptState())
-  const engvoIntentionalCloseRef = React.useRef(false)
+  const engvoPcConnectTimeoutRef = React.useRef<number | null>(null)
+  const engvoDcOpenTimeoutRef = React.useRef<number | null>(null)
+  const engvoSessionAckTimeoutRef = React.useRef<number | null>(null)
+  const engvoDisconnectTimeoutRef = React.useRef<number | null>(null)
+  const engvoResponseDoneFallbackTimeoutRef = React.useRef<number | null>(null)
   const resetStructuredLessonSessionRef = React.useRef<((options?: { keepLessonMenuContext?: boolean }) => void) | null>(null)
   /** Отмена предыдущего «Сгенерировать урок», чтобы не было параллельных POST и залипания loading. */
   const menuLessonGenerateCleanupRef = React.useRef<(() => void) | null>(null)
@@ -706,31 +756,42 @@ export default function Home() {
     async (text: string): Promise<string> => {
       const trimmed = text.trim()
       if (!trimmed) return ''
-      if (!/[А-Яа-яЁё]/.test(trimmed)) return trimmed
+      if (!hasCyrillic(trimmed)) return trimmed
 
-      try {
+      const requestTranslation = async (provider: Settings['provider']): Promise<string> => {
         const response = await fetch('/api/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text: trimmed,
             direction: 'ru_to_en',
-            provider: settings.provider,
+            provider,
             openAiChatPreset: settings.openAiChatPreset,
             audience: settings.audience,
             mode: 'communication',
-            tenses: settings.tenses,
           }),
         })
-        const data = (await response.json().catch(() => ({}))) as { translation?: string; error?: string }
-        const translated = (data.translation ?? '').trim()
-        if (response.ok && translated) return translated
+        const data = (await response.json().catch(() => ({}))) as { content?: string; error?: string }
+        const translated = (data.content ?? '').trim()
+        return response.ok ? translated : ''
+      }
+
+      try {
+        const translatedPrimary = await requestTranslation(settings.provider)
+        if (translatedPrimary && !hasCyrillic(translatedPrimary)) return translatedPrimary
+
+        // Fallback provider for cases when current provider returns source text unchanged.
+        if (settings.provider !== 'openai') {
+          const translatedFallback = await requestTranslation('openai')
+          if (translatedFallback && !hasCyrillic(translatedFallback)) return translatedFallback
+        }
+
         return trimmed
       } catch {
         return trimmed
       }
     },
-    [settings.audience, settings.openAiChatPreset, settings.provider, settings.tenses]
+    [settings.audience, settings.openAiChatPreset, settings.provider]
   )
 
   const resetEngvoAssistantTurn = useCallback((options?: { markIgnored?: boolean }) => {
@@ -741,6 +802,7 @@ export default function Home() {
     engvoAssistantResponseIdRef.current = null
     engvoAssistantResponseDoneRef.current = false
     engvoFinalAssistantTextRef.current = ''
+    engvoStreamingAssistantIndexRef.current = null
     setEngvoAssistantPendingText('')
   }, [])
 
@@ -766,25 +828,60 @@ export default function Home() {
     setEngvoErrorText(null)
   }, [resetEngvoAssistantTurn])
 
+  const commitEngvoAssistantText = useCallback(
+    (text: string, responseId?: string | null) => {
+      const cleanText = cleanNewlines(text)
+      if (!cleanText) return
+      if (responseId) {
+        if (engvoCommittedResponseIdsRef.current.has(responseId)) return
+        engvoCommittedResponseIdsRef.current.add(responseId)
+      }
+      setMessages((prev) => {
+        const streamingIndex = engvoStreamingAssistantIndexRef.current
+        if (streamingIndex !== null && streamingIndex >= 0 && streamingIndex < prev.length) {
+          const candidate = prev[streamingIndex]
+          if (candidate?.role === 'assistant') {
+            const updated = [...prev]
+            updated[streamingIndex] = { ...candidate, content: cleanText }
+            return updated
+          }
+        }
+        const last = prev[prev.length - 1]
+        if (last?.role === 'assistant') {
+          return prev
+        }
+        return [...prev, { role: 'assistant', content: cleanText }]
+      })
+      resetEngvoAssistantTurn()
+      setEngvoCallPhase('listening')
+      setEngvoErrorText(null)
+    },
+    [resetEngvoAssistantTurn]
+  )
+
+  const clearEngvoTimeout = useCallback((timeoutRef: React.MutableRefObject<number | null>) => {
+    const timeoutId = timeoutRef.current
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId)
+      timeoutRef.current = null
+    }
+  }, [])
+
   const stopEngvoPlayback = useCallback(
     (markIgnoredCurrent = false) => {
+      const hasActiveAssistantResponse =
+        !!engvoAssistantResponseIdRef.current && !engvoAssistantResponseDoneRef.current
       if (markIgnoredCurrent) {
         resetEngvoAssistantTurn({ markIgnored: true })
       }
-
-      for (const source of engvoPlaybackSourcesRef.current) {
+      engvoPlaybackPendingCountRef.current = 0
+      const dataChannel = engvoDataChannelRef.current
+      if (hasActiveAssistantResponse && dataChannel?.readyState === 'open') {
         try {
-          source.onended = null
-          source.stop()
+          dataChannel.send(JSON.stringify({ type: 'response.cancel' }))
         } catch {
           // ignore
         }
-      }
-      engvoPlaybackSourcesRef.current.clear()
-      engvoPlaybackPendingCountRef.current = 0
-      const outputCtx = engvoOutputAudioContextRef.current
-      if (outputCtx) {
-        engvoPlaybackTimeRef.current = outputCtx.currentTime
       }
     },
     [resetEngvoAssistantTurn]
@@ -794,56 +891,57 @@ export default function Home() {
     (options?: { markIgnoredCurrent?: boolean }) => {
       stopEngvoPlayback(options?.markIgnoredCurrent ?? true)
 
-      const processor = engvoProcessorNodeRef.current
-      const inputSource = engvoInputSourceRef.current
+      clearEngvoTimeout(engvoPcConnectTimeoutRef)
+      clearEngvoTimeout(engvoDcOpenTimeoutRef)
+      clearEngvoTimeout(engvoSessionAckTimeoutRef)
+      clearEngvoTimeout(engvoDisconnectTimeoutRef)
+      clearEngvoTimeout(engvoResponseDoneFallbackTimeoutRef)
+
+      const peerConnection = engvoPeerConnectionRef.current
+      const dataChannel = engvoDataChannelRef.current
+      const remoteAudioEl = engvoRemoteAudioElRef.current
       const mediaStream = engvoMediaStreamRef.current
-      const inputCtx = engvoInputAudioContextRef.current
-      const outputCtx = engvoOutputAudioContextRef.current
-      const ws = engvoWebSocketRef.current
 
-      engvoProcessorNodeRef.current = null
-      engvoInputSourceRef.current = null
+      engvoPeerConnectionRef.current = null
+      engvoDataChannelRef.current = null
+      engvoRemoteAudioElRef.current = null
       engvoMediaStreamRef.current = null
-      engvoInputAudioContextRef.current = null
-      engvoOutputAudioContextRef.current = null
-      engvoWebSocketRef.current = null
 
-      if (processor) {
-        try {
-          processor.disconnect()
-        } catch {
-          // ignore
-        }
-      }
-      if (inputSource) {
-        try {
-          inputSource.disconnect()
-        } catch {
-          // ignore
-        }
-      }
       if (mediaStream) {
         for (const track of mediaStream.getTracks()) track.stop()
       }
-      if (inputCtx) {
-        void inputCtx.close().catch(() => {})
-      }
-      if (outputCtx) {
-        void outputCtx.close().catch(() => {})
-      }
-      if (ws) {
-        engvoIntentionalCloseRef.current = true
+      if (remoteAudioEl) {
         try {
-          if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-            ws.close()
-          }
+          remoteAudioEl.pause()
+          remoteAudioEl.srcObject = null
+        } catch {
+          // ignore
+        }
+      }
+      if (dataChannel) {
+        try {
+          dataChannel.onmessage = null
+          dataChannel.onopen = null
+          dataChannel.onerror = null
+          dataChannel.onclose = null
+          dataChannel.close()
+        } catch {
+          // ignore
+        }
+      }
+      if (peerConnection) {
+        try {
+          peerConnection.ontrack = null
+          peerConnection.onconnectionstatechange = null
+          peerConnection.oniceconnectionstatechange = null
+          peerConnection.close()
         } catch {
           // ignore
         }
       }
 
       engvoTranscriptStateRef.current = createRealtimeTranscriptState()
-      engvoPlaybackTimeRef.current = 0
+      engvoGreetingTriggeredRef.current = false
       engvoSessionStartedRef.current = false
       engvoVoiceLockedRef.current = false
       engvoCommittedResponseIdsRef.current.clear()
@@ -852,56 +950,40 @@ export default function Home() {
       setEngvoUserInterimText('')
       setEngvoAssistantPendingText('')
     },
-    [stopEngvoPlayback]
+    [clearEngvoTimeout, stopEngvoPlayback]
   )
 
   const setEngvoSessionError = useCallback(
     (message: string) => {
       cleanupEngvoRuntime({ markIgnoredCurrent: true })
-      setEngvoErrorText(message)
-      setEngvoCallPhase('error')
+      setMessages((prev) => {
+        const trimmed = normalizeEngvoErrorMessage(message)
+        if (!trimmed) return prev
+        const last = prev[prev.length - 1]
+        if (last?.role === 'assistant' && last.content.trim() === trimmed) {
+          return prev
+        }
+        return [...prev, { role: 'assistant', content: trimmed }]
+      })
+      setEngvoErrorText(null)
+      setEngvoCallPhase('ended')
     },
     [cleanupEngvoRuntime]
   )
 
-  const scheduleEngvoAudioPlayback = useCallback(
-    (base64Audio: string, responseId: string) => {
-      if (!base64Audio || engvoIgnoredResponseIdsRef.current.has(responseId)) return
-      const outputCtx = engvoOutputAudioContextRef.current ?? new AudioContext()
-      engvoOutputAudioContextRef.current = outputCtx
-      void outputCtx.resume().catch(() => {})
-
-      const floatData = decodePcm16Base64(base64Audio)
-      const buffer = outputCtx.createBuffer(1, floatData.length, 24_000)
-      buffer.copyToChannel(new Float32Array(floatData), 0)
-
-      const source = outputCtx.createBufferSource()
-      source.buffer = buffer
-      source.connect(outputCtx.destination)
-
-      const startAt = Math.max(outputCtx.currentTime + 0.01, engvoPlaybackTimeRef.current)
-      engvoPlaybackTimeRef.current = startAt + buffer.duration
-      engvoPlaybackPendingCountRef.current += 1
-      engvoPlaybackSourcesRef.current.add(source)
-      engvoVoiceLockedRef.current = true
-      setEngvoCallPhase('assistantSpeaking')
-
-      source.onended = () => {
-        engvoPlaybackSourcesRef.current.delete(source)
-        engvoPlaybackPendingCountRef.current = Math.max(0, engvoPlaybackPendingCountRef.current - 1)
-        maybeCommitEngvoAssistantMessage()
-      }
-
-      source.start(startAt)
-    },
-    [maybeCommitEngvoAssistantMessage]
-  )
+  const sendEngvoRealtimeEvent = useCallback((payload: Record<string, unknown>): boolean => {
+    const dataChannel = engvoDataChannelRef.current
+    if (!dataChannel || dataChannel.readyState !== 'open') return false
+    try {
+      dataChannel.send(JSON.stringify(payload))
+      return true
+    } catch {
+      return false
+    }
+  }, [])
 
   const updateEngvoRealtimeSession = useCallback(
     (payload: { voice?: EngvoRealtimeVoice; level?: EngvoCefrLevel }) => {
-      const ws = engvoWebSocketRef.current
-      if (!ws || ws.readyState !== WebSocket.OPEN) return
-
       const session: Record<string, unknown> = {
         instructions: buildEngvoRealtimeInstructionsClient({
           audience: settings.audience,
@@ -913,14 +995,25 @@ export default function Home() {
         session.voice = payload.voice
       }
 
-      ws.send(
-        JSON.stringify({
-          type: 'session.update',
-          session,
-        })
-      )
+      sendEngvoRealtimeEvent({
+        type: 'session.update',
+        session: {
+          ...session,
+          input_audio_transcription: {
+            model: ENGVO_TRANSCRIPTION_MODEL,
+            language: 'ru',
+          },
+          turn_detection: {
+            type: 'server_vad',
+            threshold: 0.5,
+            prefix_padding_ms: 300,
+            silence_duration_ms: 500,
+            create_response: true,
+          },
+        },
+      })
     },
-    [engvoCefrLevel, settings.audience]
+    [engvoCefrLevel, sendEngvoRealtimeEvent, settings.audience]
   )
 
   const handleEngvoRealtimeMessage = useCallback(
@@ -937,25 +1030,44 @@ export default function Home() {
 
       const responseId = typeof parsed.response_id === 'string' ? parsed.response_id : null
       if (responseId && engvoIgnoredResponseIdsRef.current.has(responseId)) return
+      const activeResponseId = engvoAssistantResponseIdRef.current
+      const hasActiveAssistantTurn = !!activeResponseId && !engvoAssistantResponseDoneRef.current
 
       if (parsed.type === 'error') {
-        setEngvoSessionError(parsed.error?.message ?? 'Ошибка Realtime-сессии')
+        const errorMessage = parsed.error?.message ?? 'Ошибка Realtime-сессии'
+        const normalized = errorMessage.toLowerCase()
+        if (normalized.includes('cancellation failed') && normalized.includes('no active response found')) {
+          return
+        }
+        setEngvoSessionError(errorMessage)
         return
       }
 
       if (parsed.type === 'session.created' || parsed.type === 'session.updated') {
+        clearEngvoTimeout(engvoSessionAckTimeoutRef)
+        console.info('[engvo] session-ack', parsed.type)
         engvoSessionStartedRef.current = true
         setEngvoErrorText(null)
-        setEngvoCallPhase((current) => (current === 'connecting' ? 'listening' : current))
+        setEngvoCallPhase('listening')
+
+        if (parsed.type === 'session.created' && !engvoGreetingTriggeredRef.current) {
+          const greetingSent = sendEngvoRealtimeEvent({
+            type: 'response.create',
+            response: {
+              modalities: ['audio', 'text'],
+              instructions:
+                'Greet the learner briefly in English in one short sentence and ask one open-ended question to start a friendly conversation. Match configured CEFR level and audience.',
+            },
+          })
+          if (greetingSent) {
+            engvoGreetingTriggeredRef.current = true
+          }
+        }
         return
       }
 
       if (parsed.type === 'input_audio_buffer.speech_started') {
         stopEngvoPlayback(true)
-        const ws = engvoWebSocketRef.current
-        if (ws?.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'response.cancel' }))
-        }
         setEngvoCallPhase('listening')
         return
       }
@@ -986,6 +1098,22 @@ export default function Home() {
           setEngvoUserInterimText('')
           setEngvoCallPhase('userFinalizing')
           const transcript = (parsed.transcript ?? '').trim()
+          const normalizedTranscript = normalizeForEchoCompare(transcript)
+          const normalizedAssistantPending = normalizeForEchoCompare(engvoAssistantPendingText)
+          const lastMessage = messages[messages.length - 1]
+          const normalizedLastAssistant =
+            lastMessage?.role === 'assistant' ? normalizeForEchoCompare(lastMessage.content) : ''
+          const looksLikeAssistantEcho =
+            !!normalizedTranscript &&
+            (normalizedTranscript === normalizedAssistantPending || normalizedTranscript === normalizedLastAssistant)
+          if (looksLikeAssistantEcho) {
+            setEngvoCallPhase('listening')
+            return
+          }
+          if (isLikelyEngvoCallHallucination(transcript)) {
+            setEngvoCallPhase('listening')
+            return
+          }
           const bubbleText = await translateEngvoUserTextToEnglish(transcript)
           if (bubbleText) {
             setMessages((prev) => [...prev, { role: 'user', content: bubbleText }])
@@ -996,10 +1124,19 @@ export default function Home() {
       }
 
       if (parsed.type === 'response.created') {
+        clearEngvoTimeout(engvoResponseDoneFallbackTimeoutRef)
+        if (hasActiveAssistantTurn && responseId && responseId !== activeResponseId) {
+          engvoIgnoredResponseIdsRef.current.add(responseId)
+          return
+        }
+        if (hasActiveAssistantTurn && !responseId) {
+          return
+        }
         if (responseId) {
           engvoAssistantResponseIdRef.current = responseId
           engvoAssistantResponseDoneRef.current = false
           engvoFinalAssistantTextRef.current = ''
+          engvoStreamingAssistantIndexRef.current = null
           setEngvoAssistantPendingText('')
         }
         setEngvoCallPhase('assistantPending')
@@ -1007,33 +1144,66 @@ export default function Home() {
       }
 
       if (parsed.type === 'response.output_text.delta') {
-        if (typeof parsed.delta === 'string' && parsed.delta.trim()) {
-          setEngvoAssistantPendingText((prev) => `${prev}${parsed.delta}`)
+        if (hasActiveAssistantTurn && responseId && responseId !== activeResponseId) return
+        if (typeof parsed.delta === 'string' && parsed.delta.length > 0) {
+          setEngvoCallPhase('assistantSpeaking')
+          const chunk = parsed.delta
+          setEngvoAssistantPendingText((prev) => `${prev}${chunk}`)
         }
         return
       }
 
       if (parsed.type === 'response.output_text.done') {
+        if (hasActiveAssistantTurn && responseId && responseId !== activeResponseId) return
         const finalText = typeof parsed.text === 'string' && parsed.text.trim() ? parsed.text : parsed.delta ?? ''
         if (finalText.trim()) {
-          engvoFinalAssistantTextRef.current = finalText.trim()
-          setEngvoAssistantPendingText(finalText.trim())
+          const cleanFinalText = finalText.trim()
+          engvoFinalAssistantTextRef.current = cleanFinalText
+          setEngvoAssistantPendingText(cleanFinalText)
+          clearEngvoTimeout(engvoResponseDoneFallbackTimeoutRef)
+          engvoResponseDoneFallbackTimeoutRef.current = window.setTimeout(() => {
+            if (engvoAssistantResponseDoneRef.current) return
+            const fallbackText = engvoFinalAssistantTextRef.current || cleanFinalText
+            if (!fallbackText.trim()) return
+            engvoAssistantResponseDoneRef.current = true
+            commitEngvoAssistantText(fallbackText, responseId)
+          }, ENGVO_RESPONSE_DONE_FALLBACK_MS)
         }
         return
       }
 
-      if (parsed.type === 'response.output_audio.delta') {
-        if (!responseId) return
-        if (!engvoAssistantResponseIdRef.current) {
-          engvoAssistantResponseIdRef.current = responseId
+      if (parsed.type === 'response.audio_transcript.delta') {
+        if (hasActiveAssistantTurn && responseId && responseId !== activeResponseId) return
+        if (typeof parsed.delta === 'string' && parsed.delta.length > 0) {
+          setEngvoCallPhase('assistantSpeaking')
+          const chunk = parsed.delta
+          setEngvoAssistantPendingText((prev) => `${prev}${chunk}`)
         }
-        if (typeof parsed.delta === 'string' && parsed.delta) {
-          scheduleEngvoAudioPlayback(parsed.delta, responseId)
+        return
+      }
+
+      if (parsed.type === 'response.audio_transcript.done') {
+        if (hasActiveAssistantTurn && responseId && responseId !== activeResponseId) return
+        const finalTranscript =
+          typeof parsed.transcript === 'string' && parsed.transcript.trim() ? parsed.transcript : ''
+        if (finalTranscript) {
+          engvoFinalAssistantTextRef.current = finalTranscript
+          setEngvoAssistantPendingText(finalTranscript)
+          clearEngvoTimeout(engvoResponseDoneFallbackTimeoutRef)
+          engvoResponseDoneFallbackTimeoutRef.current = window.setTimeout(() => {
+            if (engvoAssistantResponseDoneRef.current) return
+            const fallbackText = engvoFinalAssistantTextRef.current || finalTranscript
+            if (!fallbackText.trim()) return
+            engvoAssistantResponseDoneRef.current = true
+            commitEngvoAssistantText(fallbackText, responseId)
+          }, ENGVO_RESPONSE_DONE_FALLBACK_MS)
         }
         return
       }
 
       if (parsed.type === 'response.done') {
+        clearEngvoTimeout(engvoResponseDoneFallbackTimeoutRef)
+        if (hasActiveAssistantTurn && responseId && responseId !== activeResponseId) return
         if (responseId && !engvoAssistantResponseIdRef.current) {
           engvoAssistantResponseIdRef.current = responseId
         }
@@ -1043,12 +1213,16 @@ export default function Home() {
           setEngvoAssistantPendingText(extracted)
         }
         engvoAssistantResponseDoneRef.current = true
-        maybeCommitEngvoAssistantMessage()
+        const fallbackText = extracted || engvoFinalAssistantTextRef.current || engvoAssistantPendingText
+        commitEngvoAssistantText(fallbackText, responseId)
       }
     },
     [
-      maybeCommitEngvoAssistantMessage,
-      scheduleEngvoAudioPlayback,
+      clearEngvoTimeout,
+      sendEngvoRealtimeEvent,
+      commitEngvoAssistantText,
+      messages,
+      engvoAssistantPendingText,
       setEngvoSessionError,
       stopEngvoPlayback,
       translateEngvoUserTextToEnglish,
@@ -1073,73 +1247,6 @@ export default function Home() {
     setLoadingTranslationIndex(null)
 
     try {
-      const sessionResponse = await fetch('/api/realtime-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          audience: settings.audience,
-          voice: engvoRealtimeVoice,
-          level: engvoCefrLevel,
-        }),
-      })
-      const sessionData = (await sessionResponse.json()) as {
-        clientSecret?: string
-        error?: string
-      }
-      if (!sessionResponse.ok || !sessionData.clientSecret) {
-        throw new Error(sessionData.error ?? 'Не удалось получить эфемерный токен')
-      }
-
-      const ws = new WebSocket(`wss://api.openai.com/v1/realtime?model=${ENGVO_REALTIME_MODEL}`, [
-        'realtime',
-        `openai-insecure-api-key.${sessionData.clientSecret}`,
-      ])
-
-      engvoIntentionalCloseRef.current = false
-      engvoWebSocketRef.current = ws
-      ws.onmessage = (event) => {
-        void handleEngvoRealtimeMessage(typeof event.data === 'string' ? event.data : '')
-      }
-      ws.onclose = () => {
-        if (engvoIntentionalCloseRef.current) {
-          engvoIntentionalCloseRef.current = false
-          return
-        }
-        setEngvoSessionError('Соединение Engvo прервалось. Попробуйте снова.')
-      }
-      ws.onerror = () => {
-        setEngvoSessionError('Не удалось открыть Realtime WebSocket.')
-      }
-
-      await new Promise<void>((resolve, reject) => {
-        ws.onopen = () => resolve()
-        ws.onerror = () => reject(new Error('Не удалось открыть Realtime WebSocket.'))
-      })
-
-      ws.send(
-        JSON.stringify({
-          type: 'session.update',
-          session: {
-            voice: engvoRealtimeVoice,
-            instructions: buildEngvoRealtimeInstructionsClient({
-              audience: settings.audience,
-              level: engvoCefrLevel,
-            }),
-            input_audio_format: 'pcm16',
-            output_audio_format: 'pcm16',
-            input_audio_transcription: {
-              model: 'whisper-1',
-            },
-            turn_detection: {
-              type: 'server_vad',
-              threshold: 0.5,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 500,
-            },
-          },
-        })
-      )
-
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -1149,49 +1256,170 @@ export default function Home() {
       })
       engvoMediaStreamRef.current = mediaStream
 
-      const inputCtx = new AudioContext()
-      engvoInputAudioContextRef.current = inputCtx
-      await inputCtx.resume()
+      const peerConnection = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      })
+      const dataChannel = peerConnection.createDataChannel('oai-events')
+      const remoteAudioEl = document.createElement('audio')
+      remoteAudioEl.autoplay = true
+      remoteAudioEl.playsInline = true
 
-      const outputCtx = new AudioContext()
-      engvoOutputAudioContextRef.current = outputCtx
-      await outputCtx.resume()
-      engvoPlaybackTimeRef.current = outputCtx.currentTime
+      engvoPeerConnectionRef.current = peerConnection
+      engvoDataChannelRef.current = dataChannel
+      engvoRemoteAudioElRef.current = remoteAudioEl
+      engvoGreetingTriggeredRef.current = false
 
-      const source = inputCtx.createMediaStreamSource(mediaStream)
-      const processor = inputCtx.createScriptProcessor(4096, 1, 1)
-      const muteGain = inputCtx.createGain()
-      muteGain.gain.value = 0
-      source.connect(processor)
-      processor.connect(muteGain)
-      muteGain.connect(inputCtx.destination)
-
-      processor.onaudioprocess = (event) => {
-        const socket = engvoWebSocketRef.current
-        if (!socket || socket.readyState !== WebSocket.OPEN || !engvoSessionStartedRef.current) return
-        const mono = event.inputBuffer.getChannelData(0)
-        const downsampled = downsampleFloat32ToRate(new Float32Array(mono), inputCtx.sampleRate, 24_000)
-        if (downsampled.length === 0) return
-        socket.send(
-          JSON.stringify({
-            type: 'input_audio_buffer.append',
-            audio: encodePcm16Base64(downsampled),
-          })
-        )
+      for (const track of mediaStream.getTracks()) {
+        peerConnection.addTrack(track, mediaStream)
       }
 
-      engvoInputSourceRef.current = source
-      engvoProcessorNodeRef.current = processor
-      setEngvoCallPhase('listening')
+      peerConnection.ontrack = (event) => {
+        const stream = event.streams[0]
+        if (stream) {
+          remoteAudioEl.srcObject = stream
+          void remoteAudioEl.play().catch(() => {})
+          console.info('[engvo] track-received')
+        }
+      }
+
+      remoteAudioEl.onplaying = () => {
+        setEngvoCallPhase('assistantSpeaking')
+      }
+      remoteAudioEl.onended = () => {
+        maybeCommitEngvoAssistantMessage()
+      }
+
+      peerConnection.oniceconnectionstatechange = () => {
+        console.info('[engvo] ice-state', peerConnection.iceConnectionState)
+      }
+
+      peerConnection.onconnectionstatechange = () => {
+        const state = peerConnection.connectionState
+        console.info('[engvo] pc-state', state)
+        if (state === 'connected') {
+          clearEngvoTimeout(engvoPcConnectTimeoutRef)
+          clearEngvoTimeout(engvoDisconnectTimeoutRef)
+          if (dataChannel.readyState !== 'open' && engvoDcOpenTimeoutRef.current === null) {
+            engvoDcOpenTimeoutRef.current = window.setTimeout(() => {
+              setEngvoSessionError('Канал управления Realtime не открылся. Проверьте сеть/VPN.')
+            }, ENGVO_SESSION_ACK_TIMEOUT_MS)
+          }
+        } else if (state === 'disconnected') {
+          clearEngvoTimeout(engvoDisconnectTimeoutRef)
+          engvoDisconnectTimeoutRef.current = window.setTimeout(() => {
+            setEngvoSessionError('Соединение Engvo прервалось. Попробуйте снова.')
+          }, 5_000)
+        } else if (state === 'failed' || state === 'closed') {
+          setEngvoSessionError('Не удалось установить медиа-соединение. Проверьте сеть/VPN.')
+        }
+      }
+
+      dataChannel.onopen = () => {
+        clearEngvoTimeout(engvoDcOpenTimeoutRef)
+        console.info('[engvo] dc-open')
+        const sent = sendEngvoRealtimeEvent({
+          type: 'session.update',
+          session: {
+            voice: engvoRealtimeVoice,
+            instructions: buildEngvoRealtimeInstructionsClient({
+              audience: settings.audience,
+              level: engvoCefrLevel,
+            }),
+            input_audio_transcription: {
+              model: ENGVO_TRANSCRIPTION_MODEL,
+              language: 'ru',
+            },
+            turn_detection: {
+              type: 'server_vad',
+              threshold: 0.5,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 500,
+              create_response: true,
+            },
+          },
+        })
+        if (!sent) {
+          setEngvoSessionError('Не удалось отправить параметры Realtime-сессии.')
+          return
+        }
+        clearEngvoTimeout(engvoSessionAckTimeoutRef)
+        engvoSessionAckTimeoutRef.current = window.setTimeout(() => {
+          setEngvoSessionError('OpenAI не подтвердил Realtime-сессию. Проверьте сеть/VPN.')
+        }, ENGVO_SESSION_ACK_TIMEOUT_MS)
+      }
+
+      dataChannel.onmessage = (event) => {
+        void handleEngvoRealtimeMessage(typeof event.data === 'string' ? event.data : '')
+      }
+      dataChannel.onerror = () => {
+        console.error('[engvo] data-channel-error', { readyState: dataChannel.readyState })
+      }
+      dataChannel.onclose = () => {
+        console.warn('[engvo] data-channel-closed')
+      }
+
+      const offer = await peerConnection.createOffer()
+      await peerConnection.setLocalDescription(offer)
+      console.info('[engvo] offer-created')
+
+      const localSdp = peerConnection.localDescription?.sdp
+      if (!localSdp) {
+        throw new Error('Не удалось подготовить SDP offer.')
+      }
+
+      const sdpController = new AbortController()
+      const sdpTimeoutId = window.setTimeout(() => sdpController.abort(), ENGVO_SDP_FETCH_TIMEOUT_MS)
+      const sessionResponse = await fetch('/api/realtime-session/sdp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sdp: localSdp,
+          audience: settings.audience,
+          voice: engvoRealtimeVoice,
+          level: engvoCefrLevel,
+        }),
+        signal: sdpController.signal,
+      }).finally(() => {
+        window.clearTimeout(sdpTimeoutId)
+      })
+
+      const sessionData = (await sessionResponse.json().catch(() => ({}))) as {
+        sdp?: string
+        error?: string
+      }
+      if (!sessionResponse.ok || !sessionData.sdp) {
+        throw new Error(sessionData.error ?? 'Не удалось получить SDP answer от сервера.')
+      }
+      console.info('[engvo] sdp-answer-received')
+      await peerConnection.setRemoteDescription({
+        type: 'answer',
+        sdp: sessionData.sdp,
+      })
+
+      clearEngvoTimeout(engvoPcConnectTimeoutRef)
+      engvoPcConnectTimeoutRef.current = window.setTimeout(() => {
+        setEngvoSessionError('Не удалось установить медиа-соединение. Проверьте сеть/VPN.')
+      }, ENGVO_CONNECTION_TIMEOUT_MS)
     } catch (error) {
+      if (error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'NotFoundError')) {
+        setEngvoSessionError('Не удалось получить доступ к микрофону. Проверьте разрешения браузера.')
+        return
+      }
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setEngvoSessionError('Не удалось получить ответ от сервера. Проверьте сеть/VPN.')
+        return
+      }
       setEngvoSessionError(error instanceof Error ? error.message : 'Не удалось начать звонок Engvo')
     }
   }, [
+    clearEngvoTimeout,
     cleanupEngvoRuntime,
     engvoCallPhase,
     engvoCefrLevel,
     engvoRealtimeVoice,
     handleEngvoRealtimeMessage,
+    maybeCommitEngvoAssistantMessage,
+    sendEngvoRealtimeEvent,
     setEngvoSessionError,
     settings.audience,
   ])

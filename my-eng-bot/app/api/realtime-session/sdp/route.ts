@@ -13,7 +13,8 @@ import type { Audience } from '@/lib/types'
 
 export const runtime = 'nodejs'
 
-const OPENAI_REALTIME_SESSIONS_URL = 'https://api.openai.com/v1/realtime/sessions'
+const OPENAI_REALTIME_CALLS_URL = 'https://api.openai.com/v1/realtime/calls'
+const OPENAI_REALTIME_URL = `https://api.openai.com/v1/realtime?model=${ENGVO_REALTIME_MODEL}`
 const EGRESS_IP_URL = 'https://api.ipify.org?format=json'
 const EGRESS_GEO_URL = 'http://ip-api.com/json'
 
@@ -78,9 +79,15 @@ export async function POST(req: NextRequest) {
     }
 
     const body = (await req.json().catch(() => ({}))) as {
+      sdp?: string
       audience?: Audience
       voice?: string
       level?: string
+    }
+    const sdpRaw = typeof body.sdp === 'string' ? body.sdp : ''
+    const sdp = sdpRaw
+    if (!sdpRaw.trim()) {
+      return NextResponse.json({ error: 'SDP offer is required' }, { status: 400 })
     }
 
     const audience: Audience = body.audience === 'child' ? 'child' : 'adult'
@@ -90,72 +97,73 @@ export async function POST(req: NextRequest) {
     const level = isEngvoCefrLevel(requestedLevel) ? requestedLevel : ENGVO_DEFAULT_LEVEL
     const instructions = buildEngvoRealtimeInstructions({ audience, level })
 
-    const response = await fetchWithProxyFallback(OPENAI_REALTIME_SESSIONS_URL, {
+    // OpenAI Realtime server path differs across model families/releases.
+    // We try raw SDP first, then FormData fallback.
+    const rawResponse = await fetchWithProxyFallback(OPENAI_REALTIME_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/sdp',
       },
-      body: JSON.stringify({
+      body: sdp,
+    })
+    const rawAnswer = await rawResponse.text()
+    if (rawResponse.ok && rawAnswer.trim()) {
+      return NextResponse.json({ sdp: rawAnswer })
+    }
+
+    const form = new FormData()
+    form.append('sdp', sdp)
+    form.append(
+      'session',
+      JSON.stringify({
         model: ENGVO_REALTIME_MODEL,
-        modalities: ['audio', 'text'],
         voice,
         instructions,
-        input_audio_format: 'pcm16',
-        output_audio_format: 'pcm16',
-        input_audio_transcription: {
-          model: ENGVO_TRANSCRIPTION_MODEL,
-        },
-        turn_detection: {
-          type: 'server_vad',
-          threshold: 0.5,
-          prefix_padding_ms: 300,
-          silence_duration_ms: 500,
-        },
-      }),
-    })
-
-    const data = (await response.json().catch(() => null)) as
-      | {
-          id?: string
-          client_secret?: { value?: string; expires_at?: number }
-          model?: string
-          voice?: string
-          error?: { message?: string } | string
-        }
-      | null
-
-    if (!response.ok) {
-      const errorMessage =
-        typeof data?.error === 'string'
-          ? data.error
-          : data?.error?.message || 'Не удалось открыть Realtime-сессию'
-      const egress = await resolveServerEgressInfo()
-      return NextResponse.json(
-        {
-          error: errorMessage,
-          diagnostics: {
-            openAiStatus: response.status || 502,
-            egress,
+        audio: {
+          input: {
+            transcription: {
+              model: ENGVO_TRANSCRIPTION_MODEL,
+              language: 'ru',
+            },
+            turn_detection: {
+              type: 'server_vad',
+              threshold: 0.5,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 500,
+              create_response: true,
+            },
           },
         },
-        { status: response.status || 502 }
-      )
-    }
+      })
+    )
 
-    const clientSecret = data?.client_secret?.value?.trim() ?? ''
-    if (!clientSecret) {
-      return NextResponse.json({ error: 'OpenAI не вернул client_secret' }, { status: 502 })
-    }
-
-    return NextResponse.json({
-      id: data?.id ?? null,
-      clientSecret,
-      expiresAt: data?.client_secret?.expires_at ?? null,
-      model: data?.model ?? ENGVO_REALTIME_MODEL,
-      voice: data?.voice ?? voice,
-      instructions,
+    const callsResponse = await fetchWithProxyFallback(OPENAI_REALTIME_CALLS_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${key}`,
+      },
+      body: form,
     })
+    const callsAnswer = await callsResponse.text()
+    if (callsResponse.ok && callsAnswer.trim()) {
+      return NextResponse.json({ sdp: callsAnswer })
+    }
+
+    const egress = await resolveServerEgressInfo()
+    return NextResponse.json(
+      {
+        error: callsAnswer || rawAnswer || 'Failed to initialize realtime session',
+        diagnostics: {
+          openAiStatus: callsResponse.status || rawResponse.status || 502,
+          primaryStatus: rawResponse.status || null,
+          fallbackStatus: callsResponse.status || null,
+          sdpLength: sdp.length,
+          egress,
+        },
+      },
+      { status: callsResponse.status || rawResponse.status || 502 }
+    )
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },
