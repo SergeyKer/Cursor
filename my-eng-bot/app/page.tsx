@@ -580,6 +580,8 @@ export default function Home() {
   const [engvoBootstrapServiceStatusVisible, setEngvoBootstrapServiceStatusVisible] = useState(false)
   const [engvoLocalAudioStream, setEngvoLocalAudioStream] = useState<MediaStream | null>(null)
   const [engvoRemoteAudioStream, setEngvoRemoteAudioStream] = useState<MediaStream | null>(null)
+  /** Пока `<audio>` реально играет удалённый WebRTC-поток — метер в чате должен смотреть на remote, даже если фаза уже `listening` (эхо/VAD). */
+  const [engvoRemotePlaybackActive, setEngvoRemotePlaybackActive] = useState(false)
   const structuredLessonChoiceShuffleSeed =
     activeStructuredLesson == null
       ? undefined
@@ -918,6 +920,7 @@ export default function Home() {
       engvoMediaStreamRef.current = null
       setEngvoLocalAudioStream(null)
       setEngvoRemoteAudioStream(null)
+      setEngvoRemotePlaybackActive(false)
 
       if (mediaStream) {
         for (const track of mediaStream.getTracks()) track.stop()
@@ -1350,10 +1353,18 @@ export default function Home() {
       }
 
       remoteAudioEl.onplaying = () => {
+        setEngvoRemotePlaybackActive(true)
         setEngvoCallPhase('assistantSpeaking')
       }
+      remoteAudioEl.onpause = () => {
+        setEngvoRemotePlaybackActive(false)
+      }
       remoteAudioEl.onended = () => {
+        setEngvoRemotePlaybackActive(false)
         maybeCommitEngvoAssistantMessage()
+      }
+      remoteAudioEl.onemptied = () => {
+        setEngvoRemotePlaybackActive(false)
       }
 
       peerConnection.oniceconnectionstatechange = () => {
@@ -4332,6 +4343,7 @@ export default function Home() {
                     interimUserText: engvoUserInterimText,
                     localAudioStream: engvoLocalAudioStream,
                     remoteAudioStream: engvoRemoteAudioStream,
+                    remoteAssistantPlaybackActive: engvoRemotePlaybackActive,
                     showAssistantPending: showEngvoBootstrapServiceIndicator,
                     assistantIndicatorText: engvoBootstrapServiceIndicatorText ?? 'Engvo отвечает...',
                     onStartCall: () => {

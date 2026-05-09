@@ -10,9 +10,11 @@ type EngvoVoiceMeterProps = {
 }
 
 const BAR_COUNT = 9
-const BASELINE_SCALE = 0.14
+const BAR_PIXEL_MAX = 22
+const BASELINE_SCALE = 0.16
 const MAX_SCALE = 1
 const IDLE_MAX_SCALE = 0.42
+const RMS_TO_LEVEL = 5.6
 
 type SharedAudioState = {
   context: AudioContext
@@ -37,7 +39,8 @@ function animateBars(barNodesRef: React.MutableRefObject<Array<HTMLSpanElement |
   for (let index = 0; index < BAR_COUNT; index += 1) {
     const bar = barNodesRef.current[index]
     if (!bar) continue
-    bar.style.transform = `scaleY(${levels[index]})`
+    const h = Math.max(2, levels[index] * BAR_PIXEL_MAX)
+    bar.style.height = `${h}px`
   }
 }
 
@@ -119,8 +122,8 @@ export default function EngvoVoiceMeter({
 
     const sourceNode = context.createMediaStreamSource(stream)
     const analyserNode = context.createAnalyser()
-    analyserNode.fftSize = 64
-    analyserNode.smoothingTimeConstant = 0.7
+    analyserNode.fftSize = 128
+    analyserNode.smoothingTimeConstant = 0.42
 
     sourceNode.connect(analyserNode)
     sourceNodeRef.current = sourceNode
@@ -137,7 +140,7 @@ export default function EngvoVoiceMeter({
         energy += centered * centered
       }
       const rms = Math.sqrt(energy / timeDomainData.length)
-      const boosted = clamp(rms * 3.2, 0, 1)
+      const boosted = clamp(rms * RMS_TO_LEVEL, 0, 1)
 
       const nextLevels = new Array<number>(BAR_COUNT)
       const center = (BAR_COUNT - 1) / 2
@@ -147,12 +150,12 @@ export default function EngvoVoiceMeter({
         const envelope = clamp(1 - distance * 0.18, 0.32, 1)
         const microMotion = (Math.sin((performance.now() * 0.012) + barIndex * 0.55) + 1) * 0.5
         const target = clamp(
-          BASELINE_SCALE + boosted * 0.92 * envelope + microMotion * 0.04 * envelope,
+          BASELINE_SCALE + boosted * 0.95 * envelope + microMotion * 0.03 * envelope,
           BASELINE_SCALE,
           MAX_SCALE
         )
         const prev = currentLevelsRef.current[barIndex] ?? BASELINE_SCALE
-        nextLevels[barIndex] = prev * 0.76 + target * 0.24
+        nextLevels[barIndex] = prev * 0.58 + target * 0.42
       }
 
       currentLevelsRef.current = nextLevels
@@ -170,17 +173,16 @@ export default function EngvoVoiceMeter({
       aria-label={ariaLabel}
       className="flex w-full min-w-0 items-center justify-center overflow-hidden"
     >
-      <div className="flex h-[22px] w-full items-center justify-center gap-[4px]">
+      <div className="flex h-[22px] w-full items-end justify-center gap-[4px]">
         {Array.from({ length: BAR_COUNT }).map((_, index) => (
           <span
             key={index}
             ref={(element) => {
               barsRef.current[index] = element
             }}
-            className="h-[22px] w-[4px] rounded-full bg-[#6b8ef6]"
+            className="w-[4px] shrink-0 rounded-none bg-[#6b8ef6]"
             style={{
-              transformOrigin: 'center',
-              transform: `scaleY(${BASELINE_SCALE})`,
+              height: `${Math.max(2, BASELINE_SCALE * BAR_PIXEL_MAX)}px`,
             }}
             aria-hidden
           />

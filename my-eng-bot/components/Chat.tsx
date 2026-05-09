@@ -131,6 +131,8 @@ interface ChatProps {
     interimUserText: string
     localAudioStream?: MediaStream | null
     remoteAudioStream?: MediaStream | null
+    /** Удалённый ответ Engvo сейчас воспроизводится в `<audio>` (см. page). */
+    remoteAssistantPlaybackActive?: boolean
     showAssistantPending: boolean
     assistantIndicatorText: string
     onStartCall: () => void
@@ -1944,7 +1946,7 @@ export default function Chat({
       }
     }
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
-  }, [messages, isLearningFlow, engvo?.interimUserText, engvo?.showAssistantPending])
+  }, [messages, isLearningFlow, engvo?.showAssistantPending])
 
   // Индекс последнего assistant-сообщения нужен, чтобы автоскрывать
   // карточку перевода у предыдущих сообщений.
@@ -1990,13 +1992,18 @@ export default function Chat({
   const engvoPhase = engvo?.callPhase ?? 'idle'
   const isEngvoAssistantTurn = engvoPhase === 'assistantPending' || engvoPhase === 'assistantSpeaking'
   const isEngvoUserTurn = engvoPhase === 'listening' || engvoPhase === 'userFinalizing'
-  const engvoMeterStream = isEngvoAssistantTurn
-    ? (engvo?.remoteAudioStream ?? null)
+  const remoteStream = engvo?.remoteAudioStream ?? null
+  const remotePlaybackActive = Boolean(engvo?.remoteAssistantPlaybackActive && remoteStream)
+  const useRemoteForMeter =
+    (isEngvoAssistantTurn && Boolean(remoteStream)) || (isEngvoUserTurn && remotePlaybackActive)
+  const engvoMeterStream = useRemoteForMeter
+    ? remoteStream
     : isEngvoUserTurn
       ? (engvo?.localAudioStream ?? null)
       : null
   const engvoMeterActive = isEngvoAssistantTurn || isEngvoUserTurn
-  const engvoMeterAriaLabel = isEngvoAssistantTurn ? 'Уровень голоса Engvo' : 'Уровень вашего голоса'
+  const engvoMeterAriaLabel =
+    useRemoteForMeter || isEngvoAssistantTurn ? 'Уровень голоса Engvo' : 'Уровень вашего голоса'
   const engvoMeterFrozen = engvoPhase === 'ended'
   const composerPlaceholder = isEngvoActive
     ? ''
@@ -2158,23 +2165,6 @@ export default function Chat({
                   </React.Fragment>
                 )
               })}
-              {isEngvoActive && engvo?.interimUserText.trim() && (
-                <ChatBubbleFrame
-                  role="user"
-                  position="solo"
-                  rowClassName="mb-2.5"
-                  className="italic"
-                  style={{
-                    background: 'var(--chat-user-bubble)',
-                    color: 'var(--text-muted)',
-                    opacity: 0.84,
-                  }}
-                >
-                  <p aria-live="polite" tabIndex={-1} className="whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
-                    {engvo.interimUserText}
-                  </p>
-                </ChatBubbleFrame>
-              )}
               {(messages.length > 0 || isEngvoAssistantPending) && (
                 <TypingIndicator
                   isVisible={canShowTypingIndicator}
