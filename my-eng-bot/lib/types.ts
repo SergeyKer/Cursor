@@ -21,6 +21,8 @@ export interface ChatMessage {
   webSearchSourcesHiddenCount?: number
   /** Был ли этот ответ получен через web-search ветку на сервере. */
   webSearchTriggered?: boolean
+  /** Локальное приветствие при входе в Engvo («Перейти к звонку»), не от API. */
+  engvoLocalWelcome?: boolean
 }
 
 export type AiProvider = 'openrouter' | 'openai'

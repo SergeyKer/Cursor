@@ -122,6 +122,7 @@ import {
   type EngvoCallPhase,
 } from '@/lib/engvo/state'
 import { shouldAutoRequestFirstChatMessage } from '@/lib/engvo/guards'
+import { consumeNextEngvoWelcomeMessage } from '@/lib/engvo/welcomeMessageRotation'
 import {
   createRealtimeTranscriptState,
   getRealtimeTranscriptView,
@@ -809,10 +810,8 @@ export default function Home() {
     (text: string, responseId?: string | null) => {
       const cleanText = cleanNewlines(text)
       if (!cleanText) return
-      if (responseId) {
-        if (engvoCommittedResponseIdsRef.current.has(responseId)) return
-        engvoCommittedResponseIdsRef.current.add(responseId)
-      }
+      if (responseId && engvoCommittedResponseIdsRef.current.has(responseId)) return
+
       setMessages((prev) => {
         const streamingIndex = engvoStreamingAssistantIndexRef.current
         if (streamingIndex !== null && streamingIndex >= 0 && streamingIndex < prev.length) {
@@ -820,13 +819,15 @@ export default function Home() {
           if (candidate?.role === 'assistant') {
             const updated = [...prev]
             updated[streamingIndex] = { ...candidate, content: cleanText }
+            if (responseId) engvoCommittedResponseIdsRef.current.add(responseId)
             return updated
           }
         }
         const last = prev[prev.length - 1]
-        if (last?.role === 'assistant') {
+        if (last?.role === 'assistant' && last.engvoLocalWelcome !== true) {
           return prev
         }
+        if (responseId) engvoCommittedResponseIdsRef.current.add(responseId)
         return [...prev, { role: 'assistant', content: cleanText }]
       })
       resetEngvoAssistantTurn()
@@ -1239,7 +1240,6 @@ export default function Home() {
 
     cleanupEngvoRuntime({ markIgnoredCurrent: true })
     resetStructuredLessonSessionRef.current?.()
-    setMessages([])
     setDialogStarted(true)
     setEngvoVoiceMode(true)
     setEngvoBootstrapServiceStatusVisible(true)
@@ -1456,10 +1456,13 @@ export default function Home() {
       setEngvoBootstrapServiceStatusVisible(false)
       return
     }
-    if (engvoBootstrapServiceStatusVisible && messages.length > 0) {
+    const hasNonWelcomeAssistant = messages.some(
+      (m) => m.role === 'assistant' && m.engvoLocalWelcome !== true
+    )
+    if (engvoBootstrapServiceStatusVisible && hasNonWelcomeAssistant) {
       setEngvoBootstrapServiceStatusVisible(false)
     }
-  }, [engvoBootstrapServiceStatusVisible, engvoVoiceMode, messages.length])
+  }, [engvoBootstrapServiceStatusVisible, engvoVoiceMode, messages])
 
   const handleEngvoVoiceChange = useCallback(
     (voice: EngvoRealtimeVoice) => {
@@ -1905,7 +1908,13 @@ export default function Home() {
     setComposerSessionKey((k) => k + 1)
     cleanupEngvoRuntime({ markIgnoredCurrent: true })
     resetStructuredLessonSession()
-    setMessages([])
+    setMessages([
+      {
+        role: 'assistant',
+        content: consumeNextEngvoWelcomeMessage(settings.audience),
+        engvoLocalWelcome: true,
+      },
+    ])
     setLoading(false)
     setSearchingInternet(false)
     setLoadingTranslationIndex(null)
@@ -1917,7 +1926,7 @@ export default function Home() {
     setEngvoCallPhase('idle')
     setEngvoErrorText(null)
     setMenuOpen(false)
-  }, [cleanupEngvoRuntime, resetStructuredLessonSession])
+  }, [cleanupEngvoRuntime, resetStructuredLessonSession, settings.audience])
 
   const buildStructuredLessonRuntimeRequestKey = useCallback(
     (lessonId: string, mode: StructuredLessonRuntimeMode = 'generate') => {

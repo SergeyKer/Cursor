@@ -2028,7 +2028,7 @@ export default function Chat({
                       messageIndex={i}
                       activeAssistantIndex={lastAssistantIndex}
                       voiceId={settings.voiceId}
-                      mode={settings.mode}
+                      mode={isEngvoActive ? 'communication' : settings.mode}
                       bubblePosition={bubblePosition}
                       onRequestTranslation={onRequestTranslation}
                       isLoadingTranslation={loadingTranslationIndex === i}
