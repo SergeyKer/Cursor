@@ -5,6 +5,7 @@ import {
   ENGVO_DEFAULT_VOICE,
   ENGVO_REALTIME_MODEL,
   ENGVO_TRANSCRIPTION_MODEL,
+  clampEngvoRealtimeSpeed,
   isEngvoCefrLevel,
   isEngvoRealtimeVoice,
 } from '@/lib/engvo/constants'
@@ -83,6 +84,7 @@ export async function POST(req: NextRequest) {
       audience?: Audience
       voice?: string
       level?: string
+      speed?: unknown
     }
     const sdpRaw = typeof body.sdp === 'string' ? body.sdp : ''
     const sdp = sdpRaw
@@ -96,6 +98,8 @@ export async function POST(req: NextRequest) {
     const voice = isEngvoRealtimeVoice(requestedVoice) ? requestedVoice : ENGVO_DEFAULT_VOICE
     const level = isEngvoCefrLevel(requestedLevel) ? requestedLevel : ENGVO_DEFAULT_LEVEL
     const instructions = buildEngvoRealtimeInstructions({ audience, level })
+    const speed =
+      typeof body.speed === 'number' && Number.isFinite(body.speed) ? clampEngvoRealtimeSpeed(body.speed) : 1
 
     // OpenAI Realtime server path differs across model families/releases.
     // We try raw SDP first, then FormData fallback.
@@ -120,6 +124,7 @@ export async function POST(req: NextRequest) {
         model: ENGVO_REALTIME_MODEL,
         voice,
         instructions,
+        speed,
         audio: {
           input: {
             transcription: {

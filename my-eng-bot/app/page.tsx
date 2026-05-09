@@ -98,11 +98,23 @@ import {
   ENGVO_DEFAULT_LEVEL,
   ENGVO_DEFAULT_VOICE,
   ENGVO_TRANSCRIPTION_MODEL,
+  clampEngvoRealtimeSpeed,
+  engvoSpeechSpeedFromPreset,
+  getEngvoDefaultSpeechSpeedPreset,
   type EngvoCefrLevel,
   type EngvoRealtimeVoice,
+  type EngvoSpeechSpeedPresetId,
+  ENGVO_CALL_FINISHED_ASSISTANT_TEXT,
 } from '@/lib/engvo/constants'
 import { buildEngvoRealtimeInstructionsClient } from '@/lib/engvo/instructionsClient'
-import { loadEngvoCefrLevel, loadEngvoRealtimeVoice, saveEngvoCefrLevel, saveEngvoRealtimeVoice } from '@/lib/engvo/preferences'
+import {
+  loadEngvoCefrLevel,
+  loadEngvoRealtimeVoice,
+  loadEngvoSpeechSpeedPreset,
+  saveEngvoCefrLevel,
+  saveEngvoRealtimeVoice,
+  saveEngvoSpeechSpeedPreset,
+} from '@/lib/engvo/preferences'
 import {
   canCommitEngvoAssistantMessage,
   getEngvoBootstrapServiceIndicatorText,
@@ -554,6 +566,8 @@ export default function Home() {
   const [engvoVoiceMode, setEngvoVoiceMode] = useState(false)
   const [engvoRealtimeVoice, setEngvoRealtimeVoice] = useState<EngvoRealtimeVoice>(ENGVO_DEFAULT_VOICE)
   const [engvoCefrLevel, setEngvoCefrLevel] = useState<EngvoCefrLevel>(ENGVO_DEFAULT_LEVEL)
+  const [engvoSpeechSpeedPreset, setEngvoSpeechSpeedPreset] =
+    useState<EngvoSpeechSpeedPresetId>('conversational')
   const [engvoCallPhase, setEngvoCallPhase] = useState<EngvoCallPhase>('idle')
   const [engvoErrorText, setEngvoErrorText] = useState<string | null>(null)
   const [engvoUserInterimText, setEngvoUserInterimText] = useState('')
@@ -837,8 +851,8 @@ export default function Home() {
   const appendEngvoCallFinishedMessage = useCallback(() => {
     setMessages((prev) => {
       const last = prev[prev.length - 1]
-      if (last?.role === 'assistant' && last.content.trim() === 'Call is finished') return prev
-      return [...prev, { role: 'assistant', content: 'Call is finished' }]
+      if (last?.role === 'assistant' && last.content.trim() === ENGVO_CALL_FINISHED_ASSISTANT_TEXT) return prev
+      return [...prev, { role: 'assistant', content: ENGVO_CALL_FINISHED_ASSISTANT_TEXT }]
     })
   }, [])
 
@@ -970,12 +984,15 @@ export default function Home() {
   }, [])
 
   const updateEngvoRealtimeSession = useCallback(
-    (payload: { voice?: EngvoRealtimeVoice; level?: EngvoCefrLevel }) => {
+    (payload: { voice?: EngvoRealtimeVoice; level?: EngvoCefrLevel; speed?: number }) => {
       const session: Record<string, unknown> = {
         instructions: buildEngvoRealtimeInstructionsClient({
           audience: settings.audience,
           level: payload.level ?? engvoCefrLevel,
         }),
+        speed: clampEngvoRealtimeSpeed(
+          payload.speed ?? engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset)
+        ),
       }
 
       if (payload.voice && !engvoVoiceLockedRef.current) {
@@ -1000,7 +1017,7 @@ export default function Home() {
         },
       })
     },
-    [engvoCefrLevel, sendEngvoRealtimeEvent, settings.audience]
+    [engvoCefrLevel, engvoSpeechSpeedPreset, sendEngvoRealtimeEvent, settings.audience]
   )
 
   const handleEngvoRealtimeMessage = useCallback(
@@ -1313,6 +1330,7 @@ export default function Home() {
               audience: settings.audience,
               level: engvoCefrLevel,
             }),
+            speed: clampEngvoRealtimeSpeed(engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset)),
             input_audio_transcription: {
               model: ENGVO_TRANSCRIPTION_MODEL,
               language: 'ru',
@@ -1365,6 +1383,7 @@ export default function Home() {
           audience: settings.audience,
           voice: engvoRealtimeVoice,
           level: engvoCefrLevel,
+          speed: clampEngvoRealtimeSpeed(engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset)),
         }),
         signal: sdpController.signal,
       }).finally(() => {
@@ -1405,6 +1424,7 @@ export default function Home() {
     engvoCallPhase,
     engvoCefrLevel,
     engvoRealtimeVoice,
+    engvoSpeechSpeedPreset,
     handleEngvoRealtimeMessage,
     maybeCommitEngvoAssistantMessage,
     sendEngvoRealtimeEvent,
@@ -1456,6 +1476,16 @@ export default function Home() {
       setEngvoCefrLevel(level)
       if (engvoVoiceMode) {
         updateEngvoRealtimeSession({ level })
+      }
+    },
+    [engvoVoiceMode, updateEngvoRealtimeSession]
+  )
+
+  const handleEngvoSpeechSpeedChange = useCallback(
+    (preset: EngvoSpeechSpeedPresetId) => {
+      setEngvoSpeechSpeedPreset(preset)
+      if (engvoVoiceMode) {
+        updateEngvoRealtimeSession({ speed: engvoSpeechSpeedFromPreset(preset) })
       }
     },
     [engvoVoiceMode, updateEngvoRealtimeSession]
@@ -1873,13 +1903,21 @@ export default function Home() {
 
   const handleOpenEngvoVoiceChat = useCallback(() => {
     setComposerSessionKey((k) => k + 1)
+    cleanupEngvoRuntime({ markIgnoredCurrent: true })
     resetStructuredLessonSession()
+    setMessages([])
+    setLoading(false)
+    setSearchingInternet(false)
+    setLoadingTranslationIndex(null)
+    setRetryMessage(null)
+    setSettingsAtLastSend(null)
+    setEngvoBootstrapServiceStatusVisible(false)
     setDialogStarted(true)
     setEngvoVoiceMode(true)
     setEngvoCallPhase('idle')
     setEngvoErrorText(null)
     setMenuOpen(false)
-  }, [resetStructuredLessonSession])
+  }, [cleanupEngvoRuntime, resetStructuredLessonSession])
 
   const buildStructuredLessonRuntimeRequestKey = useCallback(
     (lessonId: string, mode: StructuredLessonRuntimeMode = 'generate') => {
@@ -2991,15 +3029,16 @@ export default function Home() {
     if (!initialLoadDoneRef.current) {
       initialLoadDoneRef.current = true
       setMessages([])
-      setSettings(
-        normalizeSettingsForAudience({
-          ...state.settings,
-          openAiChatPreset: 'gpt-4o-mini',
-        })
-      )
+      const mergedSettings = normalizeSettingsForAudience({
+        ...state.settings,
+        openAiChatPreset: 'gpt-4o-mini',
+      })
+      setSettings(mergedSettings)
       setDialogStarted(false)
       setEngvoRealtimeVoice(loadEngvoRealtimeVoice())
       setEngvoCefrLevel(loadEngvoCefrLevel())
+      const storedSpeechSpeed = loadEngvoSpeechSpeedPreset()
+      setEngvoSpeechSpeedPreset(storedSpeechSpeed ?? getEngvoDefaultSpeechSpeedPreset(mergedSettings.audience))
     }
     setInitialized(true)
     setStorageLoaded(true)
@@ -3014,6 +3053,11 @@ export default function Home() {
     if (!storageLoaded) return
     saveEngvoCefrLevel(engvoCefrLevel)
   }, [engvoCefrLevel, storageLoaded])
+
+  useEffect(() => {
+    if (!storageLoaded) return
+    saveEngvoSpeechSpeedPreset(engvoSpeechSpeedPreset)
+  }, [engvoSpeechSpeedPreset, storageLoaded])
 
   useEffect(() => {
     if (!storageLoaded) return
@@ -3727,20 +3771,8 @@ export default function Home() {
         : 'MyEng'
 
   const handleMenuButtonClick = useCallback(() => {
-    setMenuOpen((prev) => {
-      const nextOpen = !prev
-      if (nextOpen && engvoVoiceMode) {
-        cleanupEngvoRuntime({ markIgnoredCurrent: true })
-        setEngvoVoiceMode(false)
-        setEngvoCallPhase('idle')
-        setEngvoErrorText(null)
-        setDialogStarted(false)
-        setLessonMenuContext(null)
-        setHomeMenuView('lessons')
-      }
-      return nextOpen
-    })
-  }, [cleanupEngvoRuntime, engvoVoiceMode])
+    setMenuOpen((v) => !v)
+  }, [])
   /** Совпадает с фактической высотой шапки: safe-area + строка меню + нижний border (см. `header` без minHeight на внешнем блоке). */
   const appTopOffset =
     'calc(var(--app-safe-top-inset) + var(--app-header-row-height) + var(--app-header-border-width))'
@@ -4030,8 +4062,10 @@ export default function Home() {
                     onOpenEngvoVoiceChat={handleOpenEngvoVoiceChat}
                     engvoRealtimeVoice={engvoRealtimeVoice}
                     engvoCefrLevel={engvoCefrLevel}
+                    engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}
                     onEngvoVoiceChange={handleEngvoVoiceChange}
                     onEngvoLevelChange={handleEngvoLevelChange}
+                    onEngvoSpeechSpeedChange={handleEngvoSpeechSpeedChange}
                     onOpenLearningLesson={openOrContinueLearningLesson}
                     onGenerateLearningLesson={openGeneratedLearningLesson}
                     onOpenPracticeSession={openPracticeSession}
@@ -4280,6 +4314,7 @@ export default function Home() {
         onToggle={() => setMenuOpen((v) => !v)}
         hideButton
         chatActive={dialogStarted}
+        engvoVoiceMode={engvoVoiceMode}
         settings={settings}
         onSettingsChange={(s) => setSettings(normalizeSettingsForAudience(s))}
         usage={usage}
@@ -4288,8 +4323,10 @@ export default function Home() {
         onOpenEngvoVoiceChat={handleOpenEngvoVoiceChat}
         engvoRealtimeVoice={engvoRealtimeVoice}
         engvoCefrLevel={engvoCefrLevel}
+        engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}
         onEngvoVoiceChange={handleEngvoVoiceChange}
         onEngvoLevelChange={handleEngvoLevelChange}
+        onEngvoSpeechSpeedChange={handleEngvoSpeechSpeedChange}
         onGoHome={goToStartScreen}
         onOpenLearningLesson={openOrContinueLearningLesson}
         onGenerateLearningLesson={openGeneratedLearningLesson}

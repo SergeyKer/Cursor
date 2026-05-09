@@ -32,8 +32,10 @@ import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/
 import {
   ENGVO_LEVEL_OPTIONS,
   ENGVO_REALTIME_VOICES,
+  ENGVO_SPEECH_SPEED_PRESETS,
   type EngvoCefrLevel,
   type EngvoRealtimeVoice,
+  type EngvoSpeechSpeedPresetId,
 } from '@/lib/engvo/constants'
 
 const AdaptiveDailyHub = dynamic(() => import('@/components/adaptiveRetention/AdaptiveDailyHub'), { ssr: false })
@@ -86,7 +88,7 @@ const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
 }
 
 type SettingsMenuPanel = 'summary' | 'provider' | 'openAiModel' | 'voice' | 'theme'
-type EngvoPanel = 'summary' | 'setup' | 'voice' | 'level'
+type EngvoPanel = 'summary' | 'setup' | 'voice' | 'level' | 'speed'
 
 const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
   summary: 'Настройки',
@@ -100,6 +102,7 @@ const ENGVO_PANEL_TITLE: Record<EngvoPanel, string> = {
   setup: 'Настройки звонка',
   voice: 'Голос',
   level: 'Уровень',
+  speed: 'Скорость речи',
 }
 
 const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
@@ -244,8 +247,10 @@ export interface MenuSectionPanelsProps {
   onOpenEngvoVoiceChat?: () => void
   engvoRealtimeVoice?: EngvoRealtimeVoice
   engvoCefrLevel?: EngvoCefrLevel
+  engvoSpeechSpeedPreset?: EngvoSpeechSpeedPresetId
   onEngvoVoiceChange?: (voice: EngvoRealtimeVoice) => void
   onEngvoLevelChange?: (level: EngvoCefrLevel) => void
+  onEngvoSpeechSpeedChange?: (preset: EngvoSpeechSpeedPresetId) => void
   /** Стартовый экран: синхронизация подпанели «Чат с MyEng» для подсказки под меню. */
   onAiChatPanelChange?: (panel: AiChatPanel) => void
   /** Открыть урок из ветки «Обучение». */
@@ -296,8 +301,10 @@ export default function MenuSectionPanels({
   onOpenEngvoVoiceChat,
   engvoRealtimeVoice,
   engvoCefrLevel,
+  engvoSpeechSpeedPreset,
   onEngvoVoiceChange,
   onEngvoLevelChange,
+  onEngvoSpeechSpeedChange,
   onAiChatPanelChange,
   onOpenLearningLesson,
   onGenerateLearningLesson,
@@ -515,6 +522,9 @@ export default function MenuSectionPanels({
   const engvoVoiceLabel = engvoRealtimeVoice ?? 'alloy'
   const engvoLevelLabel =
     ENGVO_LEVEL_OPTIONS.find((l) => l.id === (engvoCefrLevel ?? 'a2'))?.label ?? 'A2'
+  const engvoSpeechSpeedLabel =
+    ENGVO_SPEECH_SPEED_PRESETS.find((p) => p.id === (engvoSpeechSpeedPreset ?? 'conversational'))?.label ??
+    'Разговорная'
 
   const handleMenuBack = () => {
     if (menuView === 'lessons' && lessonsPanel !== 'summary') {
@@ -578,7 +588,7 @@ export default function MenuSectionPanels({
       return
     }
     if (menuView === 'engvo' && engvoPanel !== 'summary') {
-      if (engvoPanel === 'voice' || engvoPanel === 'level') {
+      if (engvoPanel === 'voice' || engvoPanel === 'level' || engvoPanel === 'speed') {
         setEngvoPanel('setup')
         return
       }
@@ -864,7 +874,7 @@ export default function MenuSectionPanels({
                     ? 'Назад к настройкам чата'
                     : menuView === 'settings' && settingsPanel !== 'summary'
                       ? 'Назад к настройкам'
-                      : menuView === 'engvo' && (engvoPanel === 'voice' || engvoPanel === 'level')
+                      : menuView === 'engvo' && (engvoPanel === 'voice' || engvoPanel === 'level' || engvoPanel === 'speed')
                         ? 'Назад к настройкам звонка'
                         : menuView === 'engvo' && engvoPanel === 'setup'
                           ? 'Назад к позвонить'
@@ -945,6 +955,11 @@ export default function MenuSectionPanels({
                 <div className={MENU_GROUP_CLASS}>
                   <MenuSettingRow label="Голос" value={engvoVoiceLabel} onClick={() => setEngvoPanel('voice')} />
                   <MenuSettingRow label="Уровень" value={engvoLevelLabel} onClick={() => setEngvoPanel('level')} />
+                  <MenuSettingRow
+                    label="Скорость речи"
+                    value={engvoSpeechSpeedLabel}
+                    onClick={() => setEngvoPanel('speed')}
+                  />
                 </div>
               </div>
             )}
@@ -964,6 +979,16 @@ export default function MenuSectionPanels({
                 value={engvoCefrLevel ?? 'a2'}
                 onSelect={(id) => {
                   onEngvoLevelChange?.(id as EngvoCefrLevel)
+                  setEngvoPanel('setup')
+                }}
+              />
+            )}
+            {engvoPanel === 'speed' && (
+              <PickerList
+                options={ENGVO_SPEECH_SPEED_PRESETS.map((p) => ({ id: p.id, label: p.label }))}
+                value={engvoSpeechSpeedPreset ?? 'conversational'}
+                onSelect={(id) => {
+                  onEngvoSpeechSpeedChange?.(id as EngvoSpeechSpeedPresetId)
                   setEngvoPanel('setup')
                 }}
               />

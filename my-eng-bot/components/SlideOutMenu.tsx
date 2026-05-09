@@ -6,7 +6,7 @@ import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/component
 import { SLIDE_OUT_NEW_CHAT_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
-import type { EngvoCefrLevel, EngvoRealtimeVoice } from '@/lib/engvo/constants'
+import type { EngvoCefrLevel, EngvoRealtimeVoice, EngvoSpeechSpeedPresetId } from '@/lib/engvo/constants'
 
 export type LessonMenuContext = {
   menuView: 'lessons'
@@ -28,12 +28,16 @@ interface SlideOutMenuProps {
   onOpenEngvoVoiceChat?: () => void
   engvoRealtimeVoice?: EngvoRealtimeVoice
   engvoCefrLevel?: EngvoCefrLevel
+  engvoSpeechSpeedPreset?: EngvoSpeechSpeedPresetId
   onEngvoVoiceChange?: (voice: EngvoRealtimeVoice) => void
   onEngvoLevelChange?: (level: EngvoCefrLevel) => void
+  onEngvoSpeechSpeedChange?: (preset: EngvoSpeechSpeedPresetId) => void
   /** Кнопка «домик»: на стартовый экран приложения. */
   onGoHome?: () => void
   /** Если чат уже идёт — при открытии меню сразу «Чат с MyEng»; если нет — корень списка разделов. */
   chatActive?: boolean
+  /** Режим звонка Engvo: при открытии меню показать «Позвонить» (как при переходе к звонку). */
+  engvoVoiceMode?: boolean
   /** Открыть урок из ветки «Обучение». */
   onOpenLearningLesson?: (lessonId: string) => void
   /** Сгенерировать новый вариант урока через LLM. */
@@ -84,10 +88,13 @@ export default function SlideOutMenu({
   onOpenEngvoVoiceChat,
   engvoRealtimeVoice,
   engvoCefrLevel,
+  engvoSpeechSpeedPreset,
   onEngvoVoiceChange,
   onEngvoLevelChange,
+  onEngvoSpeechSpeedChange,
   onGoHome,
   chatActive = false,
+  engvoVoiceMode = false,
   onOpenLearningLesson,
   onGenerateLearningLesson,
   onOpenPracticeSession,
@@ -112,8 +119,12 @@ export default function SlideOutMenu({
       setMenuView('lessons')
       return
     }
+    if (chatActive && engvoVoiceMode) {
+      setMenuView('engvo')
+      return
+    }
     setMenuView(chatActive ? 'aiChat' : 'root')
-  }, [open, chatActive, lessonMenuContext])
+  }, [open, chatActive, engvoVoiceMode, lessonMenuContext])
 
   return (
     <>
@@ -178,8 +189,10 @@ export default function SlideOutMenu({
             onOpenEngvoVoiceChat={onOpenEngvoVoiceChat}
             engvoRealtimeVoice={engvoRealtimeVoice}
             engvoCefrLevel={engvoCefrLevel}
+            engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}
             onEngvoVoiceChange={onEngvoVoiceChange}
             onEngvoLevelChange={onEngvoLevelChange}
+            onEngvoSpeechSpeedChange={onEngvoSpeechSpeedChange}
             onGoHome={onGoHome}
             onOpenLearningLesson={onOpenLearningLesson}
             onGenerateLearningLesson={onGenerateLearningLesson}

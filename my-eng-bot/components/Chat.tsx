@@ -30,7 +30,7 @@ import {
 } from '@/lib/sttClient'
 import { normalizeWebSearchSourceUrl } from '@/lib/openAiWebSearchShared'
 import type { ChatMessage as ChatMessageType, Settings } from '@/lib/types'
-import type { EngvoCefrLevel, EngvoRealtimeVoice } from '@/lib/engvo/constants'
+import { ENGVO_CALL_FINISHED_ASSISTANT_TEXT, type EngvoCefrLevel, type EngvoRealtimeVoice } from '@/lib/engvo/constants'
 import type { EngvoCallPhase } from '@/lib/engvo/state'
 import EngvoVoiceMeter from '@/components/EngvoVoiceMeter'
 import { stripWrappingQuotesFromDrillRussianLine } from '@/lib/extractSingleTranslationNextSentence'
@@ -1763,7 +1763,7 @@ export default function Chat({
   const typingIndicatorSourceActive = loading || isEngvoAssistantPending
 
   useEffect(() => {
-    if (!typingIndicatorSourceActive || messages.length === 0) {
+    if (!typingIndicatorSourceActive || (messages.length === 0 && !isEngvoAssistantPending)) {
       if (typingDelayTimerRef.current) window.clearTimeout(typingDelayTimerRef.current)
       typingDelayTimerRef.current = null
       setShowTypingIndicator(false)
@@ -1779,7 +1779,7 @@ export default function Chat({
       if (typingDelayTimerRef.current) window.clearTimeout(typingDelayTimerRef.current)
       typingDelayTimerRef.current = null
     }
-  }, [typingIndicatorSourceActive, messages.length])
+  }, [typingIndicatorSourceActive, messages.length, isEngvoAssistantPending])
 
   const lastMessageRole = messages[messages.length - 1]?.role ?? null
   const lastAssistantInviteKeyRef = useRef<string | null>(null)
@@ -2501,9 +2501,16 @@ function MessageBubble({
   let repeatTextForCard = effectiveRepeatPrompt?.repeatText ?? null
 
   const errorLike = !isUser && isErrorLikeMessage(visibleContent)
+  const isEngvoCallFinishedLine =
+    !isUser && message.content.trim() === ENGVO_CALL_FINISHED_ASSISTANT_TEXT
   const hasTranslationData = !isUser && Boolean(message.translation)
   const hasTranslationError = !isUser && Boolean(message.translationError)
-  const hasTranslationButton = !isUser && mode !== 'translation' && !errorLike && (mode === 'dialogue' || isCommunicationEnglish)
+  const hasTranslationButton =
+    !isUser &&
+    !isEngvoCallFinishedLine &&
+    mode !== 'translation' &&
+    !errorLike &&
+    (mode === 'dialogue' || isCommunicationEnglish)
   const webSearchSources = message.webSearchSources ?? []
   const showAllWebSearchSources = Boolean(message.webSearchSourcesShowAll)
   const visibleWebSearchSources = showAllWebSearchSources ? webSearchSources : webSearchSources.slice(0, 5)
@@ -2746,6 +2753,7 @@ function MessageBubble({
 
   const showSpeakButton =
     !isUser &&
+    !isEngvoCallFinishedLine &&
     !errorLike &&
     Boolean(speakBodyStripped) &&
     !hideSpeakForTranslationDrillInBubble &&

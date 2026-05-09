@@ -14,7 +14,7 @@ export type EngvoFooterView = {
 }
 
 /** Общие подписи для футера и индикатора ожидания в чате при звонке Engvo. */
-export const ENGVO_STATUS_CONNECTING = 'Соединяюсь…'
+export const ENGVO_STATUS_CONNECTING = 'Набираем Engvo…'
 export const ENGVO_STATUS_ASSISTANT_PENDING = 'Получаю ответ…'
 export const ENGVO_STATUS_ASSISTANT_SPEAKING = 'Engvo отвечает…'
 
