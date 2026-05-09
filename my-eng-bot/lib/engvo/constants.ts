@@ -12,6 +12,9 @@ export const ENGVO_SPEECH_SPEED_STORAGE_KEY = 'myeng-engvo-speech-speed-preset'
 /** Служебное сообщение в чате после завершения звонка Engvo (без кнопок озвучки/перевода). */
 export const ENGVO_CALL_FINISHED_ASSISTANT_TEXT = 'Call is finished'
 
+/** Служебная строка при повторном соединении (как индикатор «Набираем Engvo…» в футере). */
+export const ENGVO_DIALING_ASSISTANT_TEXT = 'Набираем Engvo…'
+
 /** Диапазон `speed` в OpenAI Realtime session. */
 export const ENGVO_REALTIME_SPEED_MIN = 0.25
 export const ENGVO_REALTIME_SPEED_MAX = 1.5

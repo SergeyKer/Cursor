@@ -105,7 +105,9 @@ import {
   type EngvoRealtimeVoice,
   type EngvoSpeechSpeedPresetId,
   ENGVO_CALL_FINISHED_ASSISTANT_TEXT,
+  ENGVO_DIALING_ASSISTANT_TEXT,
 } from '@/lib/engvo/constants'
+import type { EngvoRealtimeReplayItem } from '@/lib/engvo/realtimeReplay'
 import { buildEngvoRealtimeInstructionsClient } from '@/lib/engvo/instructionsClient'
 import {
   loadEngvoCefrLevel,
@@ -119,6 +121,8 @@ import {
   canCommitEngvoAssistantMessage,
   getEngvoBootstrapServiceIndicatorText,
   getEngvoFooterView,
+  hasEngvoAssistantChatBubble,
+  hasEngvoDialingServiceLineInThread,
   type EngvoCallPhase,
 } from '@/lib/engvo/state'
 import { shouldAutoRequestFirstChatMessage } from '@/lib/engvo/guards'
@@ -618,6 +622,8 @@ export default function Home() {
   const engvoStreamingAssistantIndexRef = React.useRef<number | null>(null)
   const engvoSessionStartedRef = React.useRef(false)
   const engvoGreetingTriggeredRef = React.useRef(false)
+  /** После таймера/трубки: следующий `startEngvoCall` сбрасывает чат и показывает только строку набора. */
+  const engvoRedialWithoutWelcomeRef = React.useRef(false)
   const engvoVoiceLockedRef = React.useRef(false)
   const engvoTranscriptStateRef = React.useRef<RealtimeTranscriptState>(createRealtimeTranscriptState())
   const engvoPcConnectTimeoutRef = React.useRef<number | null>(null)
@@ -626,6 +632,8 @@ export default function Home() {
   const engvoDisconnectTimeoutRef = React.useRef<number | null>(null)
   const engvoResponseDoneFallbackTimeoutRef = React.useRef<number | null>(null)
   const engvoInactivityTimeoutRef = React.useRef<number | null>(null)
+  /** Снимок истории для передачи в новую Realtime-сессию после разрыва звонка; опустошается в `session.created`. */
+  const engvoRealtimeReplayItemsRef = React.useRef<EngvoRealtimeReplayItem[] | null>(null)
   const resetStructuredLessonSessionRef = React.useRef<((options?: { keepLessonMenuContext?: boolean }) => void) | null>(null)
   /** Отмена предыдущего «Сгенерировать урок», чтобы не было параллельных POST и залипания loading. */
   const menuLessonGenerateCleanupRef = React.useRef<(() => void) | null>(null)
@@ -800,7 +808,7 @@ export default function Home() {
     }
 
     engvoCommittedResponseIdsRef.current.add(responseId as string)
-    setMessages((prev) => [...prev, { role: 'assistant', content: finalText }])
+    setMessages((prev) => [...prev.filter((m) => !m.engvoServiceLine), { role: 'assistant', content: finalText }])
     resetEngvoAssistantTurn()
     setEngvoCallPhase('listening')
     setEngvoErrorText(null)
@@ -813,22 +821,33 @@ export default function Home() {
       if (responseId && engvoCommittedResponseIdsRef.current.has(responseId)) return
 
       setMessages((prev) => {
+        const withoutDial = prev.filter((m) => !m.engvoServiceLine)
         const streamingIndex = engvoStreamingAssistantIndexRef.current
-        if (streamingIndex !== null && streamingIndex >= 0 && streamingIndex < prev.length) {
-          const candidate = prev[streamingIndex]
+        if (streamingIndex !== null && streamingIndex >= 0 && streamingIndex < withoutDial.length) {
+          const candidate = withoutDial[streamingIndex]
           if (candidate?.role === 'assistant') {
-            const updated = [...prev]
-            updated[streamingIndex] = { ...candidate, content: cleanText }
+            const updated = [...withoutDial]
+            updated[streamingIndex] = {
+              ...candidate,
+              content: cleanText,
+              engvoServiceLine: undefined,
+            }
             if (responseId) engvoCommittedResponseIdsRef.current.add(responseId)
             return updated
           }
         }
-        const last = prev[prev.length - 1]
-        if (last?.role === 'assistant' && last.engvoLocalWelcome !== true) {
-          return prev
+        const last = withoutDial[withoutDial.length - 1]
+        const lastTrimmed = last?.content.trim() ?? ''
+        if (
+          last?.role === 'assistant' &&
+          last.engvoLocalWelcome !== true &&
+          !last.engvoServiceLine &&
+          lastTrimmed !== ENGVO_CALL_FINISHED_ASSISTANT_TEXT
+        ) {
+          return withoutDial
         }
         if (responseId) engvoCommittedResponseIdsRef.current.add(responseId)
-        return [...prev, { role: 'assistant', content: cleanText }]
+        return [...withoutDial, { role: 'assistant', content: cleanText }]
       })
       resetEngvoAssistantTurn()
       setEngvoCallPhase('listening')
@@ -947,6 +966,7 @@ export default function Home() {
   )
 
   const finishEngvoCall = useCallback(() => {
+    engvoRedialWithoutWelcomeRef.current = true
     cleanupEngvoRuntime({ markIgnoredCurrent: true })
     setEngvoCallPhase('ended')
     setEngvoErrorText(null)
@@ -958,13 +978,14 @@ export default function Home() {
     (message: string) => {
       cleanupEngvoRuntime({ markIgnoredCurrent: true })
       setMessages((prev) => {
+        const base = prev.filter((m) => !m.engvoServiceLine)
         const trimmed = normalizeEngvoErrorMessage(message)
-        if (!trimmed) return prev
-        const last = prev[prev.length - 1]
+        if (!trimmed) return base
+        const last = base[base.length - 1]
         if (last?.role === 'assistant' && last.content.trim() === trimmed) {
-          return prev
+          return base
         }
-        return [...prev, { role: 'assistant', content: trimmed }]
+        return [...base, { role: 'assistant', content: trimmed }]
       })
       setEngvoErrorText(null)
       setEngvoCallPhase('ended')
@@ -1055,17 +1076,41 @@ export default function Home() {
         setEngvoErrorText(null)
         setEngvoCallPhase('listening')
 
-        if (parsed.type === 'session.created' && !engvoGreetingTriggeredRef.current) {
-          const greetingSent = sendEngvoRealtimeEvent({
-            type: 'response.create',
-            response: {
-              modalities: ['audio', 'text'],
-              instructions:
-                'Greet the learner briefly in English in one short sentence and ask one open-ended question to start a friendly conversation. Match configured CEFR level and audience.',
-            },
-          })
-          if (greetingSent) {
-            engvoGreetingTriggeredRef.current = true
+        if (parsed.type === 'session.created') {
+          const replayItems = engvoRealtimeReplayItemsRef.current
+          engvoRealtimeReplayItemsRef.current = null
+
+          if (replayItems && replayItems.length > 0) {
+            for (const item of replayItems) {
+              sendEngvoRealtimeEvent({
+                type: 'conversation.item.create',
+                item,
+              })
+            }
+            const continuationSent = sendEngvoRealtimeEvent({
+              type: 'response.create',
+              response: {
+                modalities: ['audio', 'text'],
+                instructions:
+                  'The learner reconnected after a short break. Continue the conversation naturally in English from where it left off: reply briefly, react to their last point if relevant, and ask one friendly follow-up question. Match the configured CEFR level and audience from session instructions.',
+              },
+            })
+            if (continuationSent) {
+              engvoGreetingTriggeredRef.current = true
+            }
+            setMessages((prev) => prev.filter((m) => !m.engvoServiceLine))
+          } else if (!engvoGreetingTriggeredRef.current) {
+            const greetingSent = sendEngvoRealtimeEvent({
+              type: 'response.create',
+              response: {
+                modalities: ['audio', 'text'],
+                instructions:
+                  'Greet the learner briefly in English in one short sentence and ask one open-ended question to start a friendly conversation. Match configured CEFR level and audience.',
+              },
+            })
+            if (greetingSent) {
+              engvoGreetingTriggeredRef.current = true
+            }
           }
         }
         return
@@ -1237,6 +1282,23 @@ export default function Home() {
     if (engvoCallPhase === 'connecting' || engvoCallPhase === 'listening' || engvoCallPhase === 'assistantPending' || engvoCallPhase === 'assistantSpeaking' || engvoCallPhase === 'userFinalizing') {
       return
     }
+
+    suppressSettingsChangeBannerRef.current = true
+    if (engvoRedialWithoutWelcomeRef.current) {
+      engvoRedialWithoutWelcomeRef.current = false
+      setMessages([
+        { role: 'assistant', content: ENGVO_DIALING_ASSISTANT_TEXT, engvoServiceLine: true },
+      ])
+    } else {
+      setMessages((prev) =>
+        prev.filter(
+          (m) =>
+            !m.engvoServiceLine &&
+            !(m.role === 'assistant' && m.content.trim() === ENGVO_CALL_FINISHED_ASSISTANT_TEXT)
+        )
+      )
+    }
+    engvoRealtimeReplayItemsRef.current = null
 
     cleanupEngvoRuntime({ markIgnoredCurrent: true })
     resetStructuredLessonSessionRef.current?.()
@@ -1417,6 +1479,8 @@ export default function Home() {
         return
       }
       setEngvoSessionError(error instanceof Error ? error.message : 'Не удалось начать звонок Engvo')
+    } finally {
+      suppressSettingsChangeBannerRef.current = false
     }
   }, [
     clearEngvoTimeout,
@@ -1454,15 +1518,8 @@ export default function Home() {
   useEffect(() => {
     if (!engvoVoiceMode) {
       setEngvoBootstrapServiceStatusVisible(false)
-      return
     }
-    const hasNonWelcomeAssistant = messages.some(
-      (m) => m.role === 'assistant' && m.engvoLocalWelcome !== true
-    )
-    if (engvoBootstrapServiceStatusVisible && hasNonWelcomeAssistant) {
-      setEngvoBootstrapServiceStatusVisible(false)
-    }
-  }, [engvoBootstrapServiceStatusVisible, engvoVoiceMode, messages])
+  }, [engvoVoiceMode])
 
   const handleEngvoVoiceChange = useCallback(
     (voice: EngvoRealtimeVoice) => {
@@ -1905,6 +1962,7 @@ export default function Home() {
   }, [cleanupEngvoRuntime, resetStructuredLessonSession])
 
   const handleOpenEngvoVoiceChat = useCallback(() => {
+    engvoRedialWithoutWelcomeRef.current = false
     setComposerSessionKey((k) => k + 1)
     cleanupEngvoRuntime({ markIgnoredCurrent: true })
     resetStructuredLessonSession()
@@ -3760,7 +3818,11 @@ export default function Home() {
       : (adaptiveFooterView?.emphasis ?? homeFooterVoice?.emphasis ?? 'none')
   const engvoBootstrapServiceIndicatorText = getEngvoBootstrapServiceIndicatorText(engvoCallPhase)
   const showEngvoBootstrapServiceIndicator =
-    engvoVoiceMode && engvoBootstrapServiceStatusVisible && !!engvoBootstrapServiceIndicatorText
+    engvoVoiceMode &&
+    engvoBootstrapServiceStatusVisible &&
+    !hasEngvoAssistantChatBubble(messages) &&
+    !hasEngvoDialingServiceLineInThread(messages) &&
+    !!engvoBootstrapServiceIndicatorText
   const pageTitle = !dialogStarted
     ? 'MyEng - мой английский друг'
     : isVocabularyHubActive

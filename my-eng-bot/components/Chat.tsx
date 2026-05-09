@@ -30,8 +30,13 @@ import {
 } from '@/lib/sttClient'
 import { normalizeWebSearchSourceUrl } from '@/lib/openAiWebSearchShared'
 import type { ChatMessage as ChatMessageType, Settings } from '@/lib/types'
-import { ENGVO_CALL_FINISHED_ASSISTANT_TEXT, type EngvoCefrLevel, type EngvoRealtimeVoice } from '@/lib/engvo/constants'
-import type { EngvoCallPhase } from '@/lib/engvo/state'
+import {
+  ENGVO_CALL_FINISHED_ASSISTANT_TEXT,
+  type EngvoCefrLevel,
+  type EngvoRealtimeVoice,
+} from '@/lib/engvo/constants'
+import { isErrorLikeAssistantMessage } from '@/lib/errorLikeAssistantMessage'
+import { hasEngvoAssistantChatBubble, type EngvoCallPhase } from '@/lib/engvo/state'
 import EngvoVoiceMeter from '@/components/EngvoVoiceMeter'
 import { stripWrappingQuotesFromDrillRussianLine } from '@/lib/extractSingleTranslationNextSentence'
 import {
@@ -71,6 +76,9 @@ const SR_ONLY_STYLE: React.CSSProperties = {
   whiteSpace: 'nowrap',
   border: 0,
 }
+
+/** Центрированная строка статуса: пустой чат (перевод) и служебная строка Engvo в ленте. */
+const CHAT_CENTERED_TYPING_STATUS_P_CLASS = 'w-fit text-center italic typing-indicator-text-shimmer'
 
 const HARD_VOICE_ERROR_MARKERS = [
   'микрофон',
@@ -1721,6 +1729,9 @@ export default function Chat({
   const typingDelayTimerRef = useRef<number | null>(null)
   const isEngvoActive = Boolean(engvo?.active)
   const isEngvoAssistantPending = Boolean(engvo?.active && engvo.showAssistantPending)
+  /** Нижний bootstrap-индикатор Engvo: родитель может на один кадр отставать от messages — не показываем, если пузырь уже в ленте. */
+  const engvoBootstrapTypingActive =
+    isEngvoAssistantPending && !hasEngvoAssistantChatBubble(messages)
 
   // Чтобы индикатор «MyEng печатает…» не мигал при очень быстром ответе от сервера,
   // показываем его только после небольшой задержки, если loading всё ещё true.
@@ -1760,7 +1771,7 @@ export default function Chat({
     voicePhase,
   ])
 
-  const typingIndicatorSourceActive = loading || isEngvoAssistantPending
+  const typingIndicatorSourceActive = loading || engvoBootstrapTypingActive
 
   useEffect(() => {
     if (!typingIndicatorSourceActive || (messages.length === 0 && !isEngvoAssistantPending)) {
@@ -1768,6 +1779,16 @@ export default function Chat({
       typingDelayTimerRef.current = null
       setShowTypingIndicator(false)
       return
+    }
+
+    if (engvoBootstrapTypingActive) {
+      if (typingDelayTimerRef.current) window.clearTimeout(typingDelayTimerRef.current)
+      typingDelayTimerRef.current = null
+      setShowTypingIndicator(true)
+      return () => {
+        if (typingDelayTimerRef.current) window.clearTimeout(typingDelayTimerRef.current)
+        typingDelayTimerRef.current = null
+      }
     }
 
     if (typingDelayTimerRef.current) window.clearTimeout(typingDelayTimerRef.current)
@@ -1779,7 +1800,15 @@ export default function Chat({
       if (typingDelayTimerRef.current) window.clearTimeout(typingDelayTimerRef.current)
       typingDelayTimerRef.current = null
     }
-  }, [typingIndicatorSourceActive, messages.length, isEngvoAssistantPending])
+  }, [typingIndicatorSourceActive, messages.length, engvoBootstrapTypingActive, isEngvoAssistantPending])
+
+  /** Синхронно гасим «типинг» при появлении пузыря Engvo, чтобы не было кадра с showTypingIndicator=true. */
+  React.useLayoutEffect(() => {
+    if (!isEngvoActive || loading) return
+    if (!engvoBootstrapTypingActive && showTypingIndicator) {
+      setShowTypingIndicator(false)
+    }
+  }, [isEngvoActive, loading, engvoBootstrapTypingActive, showTypingIndicator])
 
   const lastMessageRole = messages[messages.length - 1]?.role ?? null
   const lastAssistantInviteKeyRef = useRef<string | null>(null)
@@ -1939,7 +1968,7 @@ export default function Chat({
 
   const canShowTypingIndicator =
     showTypingIndicator &&
-    ((loading && lastMessageRole === 'user') || isEngvoAssistantPending)
+    ((loading && lastMessageRole === 'user') || engvoBootstrapTypingActive)
 
   React.useEffect(() => {
     if (messages.length === 0) setSelectedLessonActionByMessage({})
@@ -1981,7 +2010,7 @@ export default function Chat({
         : 'Ответ...'
       : 'Reply...'
   const typingIndicatorText =
-    isEngvoAssistantPending
+    engvoBootstrapTypingActive
       ? engvo?.assistantIndicatorText ?? 'Engvo отвечает...'
       : settings.mode === 'translation'
       ? `MyEng печатает${retryMessage ? `… ${retryMessage}` : '…'}`
@@ -2009,7 +2038,7 @@ export default function Chat({
             >
               {messages.length === 0 && !isEngvoActive && (
                 <div className="flex justify-center">
-                  <p dir="ltr" className="w-fit text-center italic typing-indicator-text-shimmer">
+                  <p dir="ltr" className={CHAT_CENTERED_TYPING_STATUS_P_CLASS}>
                     {isLessonBranch ? 'Урок загружается...' : 'MyEng печатает...'}
                   </p>
                 </div>
@@ -2149,9 +2178,10 @@ export default function Chat({
               {(messages.length > 0 || isEngvoAssistantPending) && (
                 <TypingIndicator
                   isVisible={canShowTypingIndicator}
+                  exitTransitionMs={isEngvoActive ? 0 : undefined}
                   label={typingIndicatorText}
                   title={
-                    isEngvoAssistantPending
+                    engvoBootstrapTypingActive
                       ? 'Ожидание ответа от Engvo'
                       : searchingInternet
                         ? 'Поиск информации в интернете'
@@ -2389,26 +2419,6 @@ export default function Chat({
   )
 }
 
-function isErrorLikeMessage(content: string): boolean {
-  return (
-    content === 'Не удалось загрузить ответ. Проверьте сеть и настройки сервера.' ||
-    content.startsWith('ИИ не отвечает') ||
-    content.startsWith('Модель вернула некорректный ответ') ||
-    content.startsWith('Модель вернула пустой ответ') ||
-    content.startsWith('Диалог слишком длинный') ||
-    content.startsWith('Ответ занял слишком много времени') ||
-    content.startsWith('Загрузка занимает слишком много времени') ||
-    content.startsWith('Не удалось получить ответ') ||
-    content.includes('OPENROUTER_API_KEY') ||
-    content.startsWith('Неверный ключ') ||
-    content.startsWith('Превышен лимит') ||
-    content.startsWith('Сервис ИИ временно') ||
-    content.startsWith('ИИ сейчас перегружен и немного «ушёл отдыхать»') ||
-    content.startsWith('Слишком много запросов к ИИ') ||
-    content.startsWith('Сейчас ИИ недоступен')
-  )
-}
-
 function detectTextLang(text: string): 'ru' | 'en' {
   const cyrCount = (text.match(/[А-Яа-яЁё]/g) ?? []).length
   const latCount = (text.match(/[A-Za-z]/g) ?? []).length
@@ -2500,14 +2510,16 @@ function MessageBubble({
   const effectiveRepeatPrompt = isCorrectAnswerPraise ? null : repeatPrompt
   let repeatTextForCard = effectiveRepeatPrompt?.repeatText ?? null
 
-  const errorLike = !isUser && isErrorLikeMessage(visibleContent)
+  const errorLike = !isUser && isErrorLikeAssistantMessage(visibleContent)
   const isEngvoCallFinishedLine =
     !isUser && message.content.trim() === ENGVO_CALL_FINISHED_ASSISTANT_TEXT
+  const isEngvoServiceLineBubble = !isUser && message.engvoServiceLine === true
   const hasTranslationData = !isUser && Boolean(message.translation)
   const hasTranslationError = !isUser && Boolean(message.translationError)
   const hasTranslationButton =
     !isUser &&
     !isEngvoCallFinishedLine &&
+    !isEngvoServiceLineBubble &&
     mode !== 'translation' &&
     !errorLike &&
     (mode === 'dialogue' || isCommunicationEnglish)
@@ -2754,6 +2766,7 @@ function MessageBubble({
   const showSpeakButton =
     !isUser &&
     !isEngvoCallFinishedLine &&
+    !isEngvoServiceLineBubble &&
     !errorLike &&
     Boolean(speakBodyStripped) &&
     !hideSpeakForTranslationDrillInBubble &&
@@ -2846,6 +2859,23 @@ function MessageBubble({
     if (activeAssistantIndex < 0) return
     if (messageIndex !== activeAssistantIndex) setShowTranslation(false)
   }, [activeAssistantIndex, messageIndex, showTranslation])
+
+  if (!isUser && isEngvoServiceLineBubble) {
+    return (
+      <div
+        className="flex justify-center"
+        dir="ltr"
+        role="status"
+        aria-live="polite"
+        data-message-index={messageIndex}
+        data-role={message.role}
+      >
+        <p dir="ltr" className={CHAT_CENTERED_TYPING_STATUS_P_CLASS}>
+          {message.content.trim()}
+        </p>
+      </div>
+    )
+  }
 
   if (!hasContent) return null
 

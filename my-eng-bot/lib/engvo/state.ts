@@ -1,3 +1,5 @@
+import type { ChatMessage } from '@/lib/types'
+
 export type EngvoCallPhase =
   | 'idle'
   | 'connecting'
@@ -15,14 +17,40 @@ export type EngvoFooterView = {
 
 /** Общие подписи для футера и индикатора ожидания в чате при звонке Engvo. */
 export const ENGVO_STATUS_CONNECTING = 'Набираем Engvo…'
+export const ENGVO_STATUS_LISTENING_CHAT = 'В эфире.'
+export const ENGVO_STATUS_USER_FINALIZING_CHAT = 'Фиксирую фразу…'
 export const ENGVO_STATUS_ASSISTANT_PENDING = 'Получаю ответ…'
 export const ENGVO_STATUS_ASSISTANT_SPEAKING = 'Engvo отвечает…'
 
-/** Текст для полоски «ассистент думает» в чате до первого сообщения в сессии. */
+/** Содержательный ответ ассистента в ленте (не приветствие и не служебная строка набора). */
+export function hasEngvoAssistantChatBubble(messages: readonly ChatMessage[]): boolean {
+  return messages.some(
+    (m) =>
+      m.role === 'assistant' &&
+      m.engvoLocalWelcome !== true &&
+      !m.engvoServiceLine
+  )
+}
+
+/** Центрированная строка набора («Набираем Engvo…») ещё в ленте. */
+export function hasEngvoDialingServiceLineInThread(messages: readonly ChatMessage[]): boolean {
+  return messages.some((m) => Boolean(m.engvoServiceLine))
+}
+
+/**
+ * Текст полоски ожидания в чате до первого ответа ассистента в ленте.
+ * Два стабильных состояния: набор, затем «Engvo отвечает…» без смены подписи на каждую фазу.
+ */
 export function getEngvoBootstrapServiceIndicatorText(phase: EngvoCallPhase): string | null {
   if (phase === 'connecting') return ENGVO_STATUS_CONNECTING
-  if (phase === 'assistantPending') return ENGVO_STATUS_ASSISTANT_PENDING
-  if (phase === 'assistantSpeaking') return ENGVO_STATUS_ASSISTANT_SPEAKING
+  if (
+    phase === 'listening' ||
+    phase === 'userFinalizing' ||
+    phase === 'assistantPending' ||
+    phase === 'assistantSpeaking'
+  ) {
+    return ENGVO_STATUS_ASSISTANT_SPEAKING
+  }
   return null
 }
 
@@ -38,13 +66,13 @@ export function getEngvoFooterView(params: {
     }
   }
   if (params.phase === 'userFinalizing') {
-    return { text: 'Фиксирую фразу…', tone: 'thinking' }
+    return { text: ENGVO_STATUS_USER_FINALIZING_CHAT, tone: 'thinking' }
   }
   if (params.phase === 'listening' && params.userInterimText.trim()) {
     return { text: 'Слышу…', tone: 'neutral' }
   }
   if (params.phase === 'listening') {
-    return { text: 'В эфире.', tone: 'neutral' }
+    return { text: ENGVO_STATUS_LISTENING_CHAT, tone: 'neutral' }
   }
   if (params.phase === 'connecting') {
     return { text: ENGVO_STATUS_CONNECTING, tone: 'thinking' }

@@ -6,6 +6,8 @@ import {
   ENGVO_STATUS_CONNECTING,
   getEngvoBootstrapServiceIndicatorText,
   getEngvoFooterView,
+  hasEngvoAssistantChatBubble,
+  hasEngvoDialingServiceLineInThread,
   shouldShowEngvoTypingIndicator,
 } from './state'
 
@@ -35,9 +37,29 @@ describe('engvo state helpers', () => {
 
   it('maps bootstrap indicator text to phases', () => {
     expect(getEngvoBootstrapServiceIndicatorText('connecting')).toBe(ENGVO_STATUS_CONNECTING)
-    expect(getEngvoBootstrapServiceIndicatorText('assistantPending')).toBe(ENGVO_STATUS_ASSISTANT_PENDING)
-    expect(getEngvoBootstrapServiceIndicatorText('assistantSpeaking')).toBe(ENGVO_STATUS_ASSISTANT_SPEAKING)
-    expect(getEngvoBootstrapServiceIndicatorText('listening')).toBeNull()
+    for (const phase of ['listening', 'userFinalizing', 'assistantPending', 'assistantSpeaking'] as const) {
+      expect(getEngvoBootstrapServiceIndicatorText(phase)).toBe(ENGVO_STATUS_ASSISTANT_SPEAKING)
+    }
+    expect(getEngvoBootstrapServiceIndicatorText('idle')).toBeNull()
+    expect(getEngvoBootstrapServiceIndicatorText('ended')).toBeNull()
+  })
+
+  it('detects assistant chat bubble excluding welcome and service line', () => {
+    expect(hasEngvoAssistantChatBubble([])).toBe(false)
+    expect(
+      hasEngvoAssistantChatBubble([{ role: 'assistant', content: 'Hi', engvoLocalWelcome: true }])
+    ).toBe(false)
+    expect(
+      hasEngvoAssistantChatBubble([{ role: 'assistant', content: 'Dial', engvoServiceLine: true }])
+    ).toBe(false)
+    expect(hasEngvoAssistantChatBubble([{ role: 'assistant', content: 'Reply' }])).toBe(true)
+  })
+
+  it('detects dialing service line in thread', () => {
+    expect(hasEngvoDialingServiceLineInThread([])).toBe(false)
+    expect(
+      hasEngvoDialingServiceLineInThread([{ role: 'assistant', content: '…', engvoServiceLine: true }])
+    ).toBe(true)
   })
 
   it('shows typing indicator only for assistant pending/speaking in engvo mode', () => {

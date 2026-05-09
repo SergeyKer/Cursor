@@ -23,6 +23,8 @@ export interface ChatMessage {
   webSearchTriggered?: boolean
   /** Локальное приветствие при входе в Engvo («Перейти к звонку»), не от API. */
   engvoLocalWelcome?: boolean
+  /** Служебная строка Engvo (например «Набираем…»), без озвучки/перевода. */
+  engvoServiceLine?: boolean
 }
 
 export type AiProvider = 'openrouter' | 'openai'
