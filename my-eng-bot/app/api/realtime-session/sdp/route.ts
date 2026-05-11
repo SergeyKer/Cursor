@@ -4,6 +4,7 @@ import {
   ENGVO_DEFAULT_LEVEL,
   ENGVO_DEFAULT_VOICE,
   ENGVO_REALTIME_MODEL,
+  ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION,
   ENGVO_TRANSCRIPTION_MODEL,
   clampEngvoRealtimeSpeed,
   isEngvoCefrLevel,
@@ -131,13 +132,7 @@ export async function POST(req: NextRequest) {
               model: ENGVO_TRANSCRIPTION_MODEL,
               language: 'ru',
             },
-            turn_detection: {
-              type: 'server_vad',
-              threshold: 0.5,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 500,
-              create_response: true,
-            },
+            turn_detection: { ...ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION },
           },
         },
       })

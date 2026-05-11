@@ -97,6 +97,7 @@ import type { VocabularyFooterView } from '@/types/vocabulary'
 import {
   ENGVO_DEFAULT_LEVEL,
   ENGVO_DEFAULT_VOICE,
+  ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION,
   ENGVO_TRANSCRIPTION_MODEL,
   clampEngvoRealtimeSpeed,
   engvoSpeechSpeedFromPreset,
@@ -890,6 +891,7 @@ export default function Home() {
       if (hasActiveAssistantResponse && dataChannel?.readyState === 'open') {
         try {
           dataChannel.send(JSON.stringify({ type: 'response.cancel' }))
+          dataChannel.send(JSON.stringify({ type: 'output_audio_buffer.clear' }))
         } catch {
           // ignore
         }
@@ -1032,13 +1034,7 @@ export default function Home() {
             model: ENGVO_TRANSCRIPTION_MODEL,
             language: 'ru',
           },
-          turn_detection: {
-            type: 'server_vad',
-            threshold: 0.5,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 500,
-            create_response: true,
-          },
+          turn_detection: { ...ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION },
         },
       })
     },
@@ -1066,6 +1062,12 @@ export default function Home() {
         const errorMessage = parsed.error?.message ?? 'Ошибка Realtime-сессии'
         const normalized = errorMessage.toLowerCase()
         if (normalized.includes('cancellation failed') && normalized.includes('no active response found')) {
+          return
+        }
+        if (normalized.includes('audio content') && normalized.includes('already shorter than')) {
+          console.warn('[engvo] ignorable realtime audio duration race', errorMessage)
+          resetEngvoAssistantTurn({ markIgnored: true })
+          setEngvoCallPhase('listening')
           return
         }
         setEngvoSessionError(errorMessage)
@@ -1275,6 +1277,7 @@ export default function Home() {
       commitEngvoAssistantText,
       messages,
       engvoAssistantPendingText,
+      resetEngvoAssistantTurn,
       setEngvoSessionError,
       stopEngvoPlayback,
     ]
@@ -1408,13 +1411,7 @@ export default function Home() {
               model: ENGVO_TRANSCRIPTION_MODEL,
               language: 'ru',
             },
-            turn_detection: {
-              type: 'server_vad',
-              threshold: 0.5,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 500,
-              create_response: true,
-            },
+            turn_detection: { ...ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION },
           },
         })
         if (!sent) {

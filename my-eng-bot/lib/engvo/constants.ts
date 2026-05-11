@@ -72,3 +72,13 @@ export function engvoSpeechSpeedFromPreset(id: EngvoSpeechSpeedPresetId): number
 export function getEngvoDefaultSpeechSpeedPreset(audience: Audience): EngvoSpeechSpeedPresetId {
   return audience === 'child' ? 'normal' : 'conversational'
 }
+
+/** Server VAD для Engvo Realtime; прерывание ответа только на клиенте (избегаем гонки с авто-interrupt сервера). */
+export const ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION = {
+  type: 'server_vad' as const,
+  threshold: 0.5,
+  prefix_padding_ms: 300,
+  silence_duration_ms: 500,
+  create_response: true,
+  interrupt_response: false,
+}
