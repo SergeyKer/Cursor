@@ -95,10 +95,11 @@ import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 import type { VocabularyFooterView } from '@/types/vocabulary'
 import {
+  buildEngvoInputAudioTranscriptionConfig,
   ENGVO_DEFAULT_LEVEL,
   ENGVO_DEFAULT_VOICE,
+  ENGVO_INACTIVITY_HANGUP_MS,
   ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION,
-  ENGVO_TRANSCRIPTION_MODEL,
   clampEngvoRealtimeSpeed,
   engvoSpeechSpeedFromPreset,
   getEngvoDefaultSpeechSpeedPreset,
@@ -107,6 +108,7 @@ import {
   type EngvoSpeechSpeedPresetId,
   ENGVO_CALL_FINISHED_ASSISTANT_TEXT,
   ENGVO_DIALING_ASSISTANT_TEXT,
+  ENGVO_TRANSCRIPTION_MODEL,
 } from '@/lib/engvo/constants'
 import type { EngvoRealtimeReplayItem } from '@/lib/engvo/realtimeReplay'
 import { buildEngvoRealtimeInstructionsClient } from '@/lib/engvo/instructionsClient'
@@ -421,7 +423,7 @@ function normalizeForEchoCompare(text: string): string {
   return text.trim().toLowerCase().replace(/[^\p{L}\p{N}\s']/gu, '').replace(/\s+/g, ' ')
 }
 
-const ENGVO_CALL_HALLUCINATION_PHRASES = new Set(['thank you', 'thanks', 'you', 'okay', 'ok', 'bye'])
+const ENGVO_CALL_HALLUCINATION_PHRASES = new Set(['you'])
 
 function isLikelyEngvoCallHallucination(text: string): boolean {
   const normalized = text
@@ -429,6 +431,7 @@ function isLikelyEngvoCallHallucination(text: string): boolean {
     .trim()
     .toLowerCase()
     .replace(/[.!?…]+$/g, '')
+  if (normalized.length >= 4) return false
   return ENGVO_CALL_HALLUCINATION_PHRASES.has(normalized)
 }
 
@@ -578,6 +581,7 @@ export default function Home() {
   const [engvoErrorText, setEngvoErrorText] = useState<string | null>(null)
   const [engvoUserInterimText, setEngvoUserInterimText] = useState('')
   const [engvoAssistantPendingText, setEngvoAssistantPendingText] = useState('')
+  const [engvoSessionUpdateTick, setEngvoSessionUpdateTick] = useState(0)
   const [engvoBootstrapServiceStatusVisible, setEngvoBootstrapServiceStatusVisible] = useState(false)
   const [engvoLocalAudioStream, setEngvoLocalAudioStream] = useState<MediaStream | null>(null)
   const [engvoRemoteAudioStream, setEngvoRemoteAudioStream] = useState<MediaStream | null>(null)
@@ -627,7 +631,14 @@ export default function Home() {
   const engvoGreetingTriggeredRef = React.useRef(false)
   /** После таймера/трубки: следующий `startEngvoCall` сбрасывает чат и показывает только строку набора. */
   const engvoRedialWithoutWelcomeRef = React.useRef(false)
-  const engvoVoiceLockedRef = React.useRef(false)
+  const engvoPendingRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | null>(null)
+  const engvoPendingRealtimeSpeedRef = React.useRef<number | null>(null)
+  const engvoLastAppliedRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | null>(null)
+  const engvoLastAppliedRealtimeSpeedRef = React.useRef<number | null>(null)
+  const engvoApplyingRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | null>(null)
+  const engvoApplyingRealtimeSpeedRef = React.useRef<number | null>(null)
+  const engvoSessionUpdateInFlightRef = React.useRef(false)
+  const engvoSessionUpdateRetryTimeoutRef = React.useRef<number | null>(null)
   const engvoTranscriptStateRef = React.useRef<RealtimeTranscriptState>(createRealtimeTranscriptState())
   const engvoPcConnectTimeoutRef = React.useRef<number | null>(null)
   const engvoDcOpenTimeoutRef = React.useRef<number | null>(null)
@@ -960,14 +971,21 @@ export default function Home() {
       engvoTranscriptStateRef.current = createRealtimeTranscriptState()
       engvoGreetingTriggeredRef.current = false
       engvoSessionStartedRef.current = false
-      engvoVoiceLockedRef.current = false
+      engvoPendingRealtimeVoiceRef.current = null
+      engvoPendingRealtimeSpeedRef.current = null
+      engvoLastAppliedRealtimeVoiceRef.current = null
+      engvoLastAppliedRealtimeSpeedRef.current = null
+      engvoApplyingRealtimeVoiceRef.current = null
+      engvoApplyingRealtimeSpeedRef.current = null
+      engvoSessionUpdateInFlightRef.current = false
+      clearEngvoSessionUpdateRetry()
       engvoCommittedResponseIdsRef.current.clear()
       engvoCommittedUserItemIdsRef.current.clear()
       engvoIgnoredResponseIdsRef.current.clear()
       setEngvoUserInterimText('')
       setEngvoAssistantPendingText('')
     },
-    [clearEngvoInactivityTimeout, clearEngvoTimeout, stopEngvoPlayback]
+    [clearEngvoInactivityTimeout, clearEngvoSessionUpdateRetry, clearEngvoTimeout, stopEngvoPlayback]
   )
 
   const finishEngvoCall = useCallback(() => {
@@ -1011,7 +1029,7 @@ export default function Home() {
   }, [])
 
   const updateEngvoRealtimeSession = useCallback(
-    (payload: { voice?: EngvoRealtimeVoice; level?: EngvoCefrLevel; speed?: number }) => {
+    (payload: { voice?: EngvoRealtimeVoice; level?: EngvoCefrLevel; speed?: number }): boolean => {
       const session: Record<string, unknown> = {
         instructions: buildEngvoRealtimeInstructionsClient({
           audience: settings.audience,
@@ -1022,11 +1040,11 @@ export default function Home() {
         ),
       }
 
-      if (payload.voice && !engvoVoiceLockedRef.current) {
+      if (payload.voice) {
         session.voice = payload.voice
       }
 
-      sendEngvoRealtimeEvent({
+      return sendEngvoRealtimeEvent({
         type: 'session.update',
         session: {
           ...session,
@@ -1040,6 +1058,95 @@ export default function Home() {
     },
     [engvoCefrLevel, engvoSpeechSpeedPreset, sendEngvoRealtimeEvent, settings.audience]
   )
+
+  const scheduleEngvoSessionUpdateRetry = useCallback(() => {
+    if (engvoSessionUpdateRetryTimeoutRef.current !== null) return
+    engvoSessionUpdateRetryTimeoutRef.current = window.setTimeout(() => {
+      engvoSessionUpdateRetryTimeoutRef.current = null
+      setEngvoSessionUpdateTick((prev) => prev + 1)
+    }, 300)
+  }, [])
+
+  const clearEngvoSessionUpdateRetry = useCallback(() => {
+    if (engvoSessionUpdateRetryTimeoutRef.current === null) return
+    window.clearTimeout(engvoSessionUpdateRetryTimeoutRef.current)
+    engvoSessionUpdateRetryTimeoutRef.current = null
+  }, [])
+
+  const isEngvoSafeForSessionUpdate = useCallback((): boolean => {
+    if (!engvoVoiceMode) return false
+    if (!engvoSessionStartedRef.current) return false
+    if (engvoCallPhase !== 'listening') return false
+    if (engvoRemotePlaybackActive) return false
+    const dataChannel = engvoDataChannelRef.current
+    if (!dataChannel || dataChannel.readyState !== 'open') return false
+    const hasActiveAssistantTurn =
+      !!engvoAssistantResponseIdRef.current && !engvoAssistantResponseDoneRef.current
+    return !hasActiveAssistantTurn
+  }, [engvoCallPhase, engvoRemotePlaybackActive, engvoVoiceMode])
+
+  const flushEngvoPendingRealtimeSessionUpdates = useCallback(() => {
+    if (!isEngvoSafeForSessionUpdate()) return
+    if (engvoSessionUpdateInFlightRef.current) return
+
+    const pendingVoice = engvoPendingRealtimeVoiceRef.current
+    const pendingSpeed = engvoPendingRealtimeSpeedRef.current
+
+    const voiceToSend =
+      pendingVoice && pendingVoice !== engvoLastAppliedRealtimeVoiceRef.current ? pendingVoice : undefined
+    const speedToSend =
+      typeof pendingSpeed === 'number' && pendingSpeed !== engvoLastAppliedRealtimeSpeedRef.current
+        ? pendingSpeed
+        : undefined
+
+    if (!voiceToSend && typeof speedToSend !== 'number') return
+
+    const sent = updateEngvoRealtimeSession({
+      ...(voiceToSend ? { voice: voiceToSend } : {}),
+      ...(typeof speedToSend === 'number' ? { speed: speedToSend } : {}),
+    })
+
+    if (!sent) {
+      scheduleEngvoSessionUpdateRetry()
+      return
+    }
+
+    engvoSessionUpdateInFlightRef.current = true
+    engvoApplyingRealtimeVoiceRef.current = voiceToSend ?? null
+    engvoApplyingRealtimeSpeedRef.current = typeof speedToSend === 'number' ? speedToSend : null
+  }, [isEngvoSafeForSessionUpdate, scheduleEngvoSessionUpdateRetry, updateEngvoRealtimeSession])
+
+  const markEngvoSessionUpdateAck = useCallback(() => {
+    const appliedVoice = engvoApplyingRealtimeVoiceRef.current
+    const appliedSpeed = engvoApplyingRealtimeSpeedRef.current
+    engvoSessionUpdateInFlightRef.current = false
+    engvoApplyingRealtimeVoiceRef.current = null
+    engvoApplyingRealtimeSpeedRef.current = null
+    clearEngvoSessionUpdateRetry()
+
+    if (appliedVoice) {
+      engvoLastAppliedRealtimeVoiceRef.current = appliedVoice
+      if (engvoPendingRealtimeVoiceRef.current === appliedVoice) {
+        engvoPendingRealtimeVoiceRef.current = null
+      }
+    }
+    if (typeof appliedSpeed === 'number') {
+      engvoLastAppliedRealtimeSpeedRef.current = appliedSpeed
+      if (engvoPendingRealtimeSpeedRef.current === appliedSpeed) {
+        engvoPendingRealtimeSpeedRef.current = null
+      }
+    }
+  }, [clearEngvoSessionUpdateRetry])
+
+  const isEngvoDeferredSessionUpdateConflict = useCallback((normalizedError: string): boolean => {
+    if (!normalizedError.includes('cannot update')) return false
+    if (!normalizedError.includes('audio')) return false
+    return (
+      normalizedError.includes('voice') ||
+      normalizedError.includes('speed') ||
+      normalizedError.includes('session')
+    )
+  }, [])
 
   const handleEngvoRealtimeMessage = useCallback(
     async (raw: string) => {
@@ -1070,16 +1177,26 @@ export default function Home() {
           setEngvoCallPhase('listening')
           return
         }
+        if (isEngvoDeferredSessionUpdateConflict(normalized)) {
+          console.warn('[engvo] deferred session.update conflict, retrying', errorMessage)
+          engvoSessionUpdateInFlightRef.current = false
+          engvoApplyingRealtimeVoiceRef.current = null
+          engvoApplyingRealtimeSpeedRef.current = null
+          scheduleEngvoSessionUpdateRetry()
+          return
+        }
         setEngvoSessionError(errorMessage)
         return
       }
 
       if (parsed.type === 'session.created' || parsed.type === 'session.updated') {
+        markEngvoSessionUpdateAck()
         clearEngvoTimeout(engvoSessionAckTimeoutRef)
         console.info('[engvo] session-ack', parsed.type)
         engvoSessionStartedRef.current = true
         setEngvoErrorText(null)
         setEngvoCallPhase('listening')
+        setEngvoSessionUpdateTick((prev) => prev + 1)
 
         if (parsed.type === 'session.created') {
           const replayItems = engvoRealtimeReplayItemsRef.current
@@ -1279,6 +1396,9 @@ export default function Home() {
       engvoAssistantPendingText,
       resetEngvoAssistantTurn,
       setEngvoSessionError,
+      isEngvoDeferredSessionUpdateConflict,
+      markEngvoSessionUpdateAck,
+      scheduleEngvoSessionUpdateRetry,
       stopEngvoPlayback,
     ]
   )
@@ -1317,6 +1437,16 @@ export default function Home() {
     setLoading(false)
     setSearchingInternet(false)
     setLoadingTranslationIndex(null)
+    clearEngvoSessionUpdateRetry()
+    engvoSessionUpdateInFlightRef.current = false
+    engvoApplyingRealtimeVoiceRef.current = null
+    engvoApplyingRealtimeSpeedRef.current = null
+    engvoPendingRealtimeVoiceRef.current = null
+    engvoPendingRealtimeSpeedRef.current = null
+    engvoLastAppliedRealtimeVoiceRef.current = engvoRealtimeVoice
+    engvoLastAppliedRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(
+      engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset)
+    )
 
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -1407,10 +1537,7 @@ export default function Home() {
               level: engvoCefrLevel,
             }),
             speed: clampEngvoRealtimeSpeed(engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset)),
-            input_audio_transcription: {
-              model: ENGVO_TRANSCRIPTION_MODEL,
-              language: 'ru',
-            },
+            input_audio_transcription: buildEngvoInputAudioTranscriptionConfig(),
             turn_detection: { ...ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION },
           },
         })
@@ -1500,6 +1627,7 @@ export default function Home() {
     handleEngvoRealtimeMessage,
     maybeCommitEngvoAssistantMessage,
     sendEngvoRealtimeEvent,
+    clearEngvoSessionUpdateRetry,
     setEngvoSessionError,
     settings.audience,
   ])
@@ -1519,7 +1647,7 @@ export default function Home() {
     }
     engvoInactivityTimeoutRef.current = window.setTimeout(() => {
       finishEngvoCall()
-    }, 30_000)
+    }, ENGVO_INACTIVITY_HANGUP_MS)
     return clearEngvoInactivityTimeout
   }, [clearEngvoInactivityTimeout, engvoCallPhase, engvoUserInterimText, engvoVoiceMode, finishEngvoCall])
 
@@ -1533,10 +1661,11 @@ export default function Home() {
     (voice: EngvoRealtimeVoice) => {
       setEngvoRealtimeVoice(voice)
       if (engvoVoiceMode) {
-        updateEngvoRealtimeSession({ voice })
+        engvoPendingRealtimeVoiceRef.current = voice
+        setEngvoSessionUpdateTick((prev) => prev + 1)
       }
     },
-    [engvoVoiceMode, updateEngvoRealtimeSession]
+    [engvoVoiceMode]
   )
 
   const handleEngvoLevelChange = useCallback(
@@ -1553,16 +1682,28 @@ export default function Home() {
     (preset: EngvoSpeechSpeedPresetId) => {
       setEngvoSpeechSpeedPreset(preset)
       if (engvoVoiceMode) {
-        updateEngvoRealtimeSession({ speed: engvoSpeechSpeedFromPreset(preset) })
+        engvoPendingRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(engvoSpeechSpeedFromPreset(preset))
+        setEngvoSessionUpdateTick((prev) => prev + 1)
       }
     },
-    [engvoVoiceMode, updateEngvoRealtimeSession]
+    [engvoVoiceMode]
   )
 
   useEffect(() => {
     if (!engvoVoiceMode || !engvoSessionStartedRef.current) return
     updateEngvoRealtimeSession({ level: engvoCefrLevel })
   }, [engvoVoiceMode, engvoCefrLevel, settings.audience, updateEngvoRealtimeSession])
+
+  useEffect(() => {
+    if (!engvoVoiceMode) return
+    flushEngvoPendingRealtimeSessionUpdates()
+  }, [
+    engvoVoiceMode,
+    engvoCallPhase,
+    engvoRemotePlaybackActive,
+    engvoSessionUpdateTick,
+    flushEngvoPendingRealtimeSessionUpdates,
+  ])
 
   function getCommunicationInputExpectedFromText(text: string, current: Settings['communicationInputExpectedLang']) {
     return detectCommunicationUserMessageLang(text, current) as Settings['communicationInputExpectedLang']

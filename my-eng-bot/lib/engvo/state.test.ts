@@ -4,6 +4,8 @@ import {
   ENGVO_STATUS_ASSISTANT_PENDING,
   ENGVO_STATUS_ASSISTANT_SPEAKING,
   ENGVO_STATUS_CONNECTING,
+  ENGVO_STATUS_LISTENING_CHAT,
+  ENGVO_STATUS_USER_FINALIZING_CHAT,
   getEngvoBootstrapServiceIndicatorText,
   getEngvoFooterView,
   hasEngvoAssistantChatBubble,
@@ -37,9 +39,10 @@ describe('engvo state helpers', () => {
 
   it('maps bootstrap indicator text to phases', () => {
     expect(getEngvoBootstrapServiceIndicatorText('connecting')).toBe(ENGVO_STATUS_CONNECTING)
-    for (const phase of ['listening', 'userFinalizing', 'assistantPending', 'assistantSpeaking'] as const) {
-      expect(getEngvoBootstrapServiceIndicatorText(phase)).toBe(ENGVO_STATUS_ASSISTANT_SPEAKING)
-    }
+    expect(getEngvoBootstrapServiceIndicatorText('listening')).toBe(ENGVO_STATUS_LISTENING_CHAT)
+    expect(getEngvoBootstrapServiceIndicatorText('userFinalizing')).toBe(ENGVO_STATUS_USER_FINALIZING_CHAT)
+    expect(getEngvoBootstrapServiceIndicatorText('assistantPending')).toBe(ENGVO_STATUS_ASSISTANT_PENDING)
+    expect(getEngvoBootstrapServiceIndicatorText('assistantSpeaking')).toBe(ENGVO_STATUS_ASSISTANT_SPEAKING)
     expect(getEngvoBootstrapServiceIndicatorText('idle')).toBeNull()
     expect(getEngvoBootstrapServiceIndicatorText('ended')).toBeNull()
   })

@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import type { AppMode, Audience, LevelId } from '@/lib/types'
 import { callProviderChat } from '@/lib/callProviderChat'
-import { buildCefrPromptBlock } from '@/lib/cefr/cefrSpec'
+import { buildCefrPromptBlock } from '@/lib/cefr/cefrSpec.server'
 
 function buildRewriteDetailInstruction(detailLevel: 0 | 1 | 2): string {
   if (detailLevel === 2) {

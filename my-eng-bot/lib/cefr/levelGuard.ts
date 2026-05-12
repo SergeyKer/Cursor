@@ -1,5 +1,5 @@
 import type { Audience, LevelId } from '@/lib/types'
-import { getCefrDenyWords, getCefrSpec } from '@/lib/cefr/cefrSpec'
+import { getCefrDenyWords, getCefrSpec } from '@/lib/cefr/cefrSpec.server'
 
 type GuardMode = 'dialogue' | 'translation' | 'communication'
 

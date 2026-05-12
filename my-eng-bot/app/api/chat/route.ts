@@ -129,9 +129,9 @@ import {
 import { applyFreeTalkTopicChoiceTenseAnchorFallback } from '@/lib/freeTalkTopicChoiceAnchorFallback'
 import { buildStrictTopicPromptBlock } from '@/lib/topicGuardPrompts'
 import { RUSSIAN_TRANSLATION_DRILL_HINTS } from '@/lib/russianDrillAndTranslateHints'
-import { buildCefrPromptBlock } from '@/lib/cefr/cefrSpec'
+import { buildCefrPromptBlock } from '@/lib/cefr/cefrSpec.server'
 import { applyCefrOutputGuard } from '@/lib/cefr/levelGuard'
-import { getCefrLevelConfig } from '@/lib/cefr/cefrConfig'
+import { getCefrLevelConfig } from '@/lib/cefr/cefrConfig.server'
 import {
   collectLearnerEnglishSamples,
   rewriteWebSearchAnswerForLearner,

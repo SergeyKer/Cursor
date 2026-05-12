@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { buildEngvoRealtimeInstructions } from '@/lib/engvo/instructions'
 import {
+  buildEngvoInputAudioTranscriptionConfig,
   ENGVO_DEFAULT_LEVEL,
   ENGVO_DEFAULT_VOICE,
   ENGVO_REALTIME_MODEL,
   ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION,
-  ENGVO_TRANSCRIPTION_MODEL,
   clampEngvoRealtimeSpeed,
   isEngvoCefrLevel,
   isEngvoRealtimeVoice,
@@ -128,10 +128,7 @@ export async function POST(req: NextRequest) {
         speed,
         audio: {
           input: {
-            transcription: {
-              model: ENGVO_TRANSCRIPTION_MODEL,
-              language: 'ru',
-            },
+            transcription: buildEngvoInputAudioTranscriptionConfig(),
             turn_detection: { ...ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION },
           },
         },

@@ -20,6 +20,16 @@ function buildEngvoAudienceToneRule(audience: Audience): string {
   ].join(' ')
 }
 
+function buildRussianInputCoachingRule(): string {
+  return [
+    'When the learner speaks in Russian, stay in English only and use the English version itself as the teaching response.',
+    'Do not mention Russian, do not add labels such as "In English:", and do not switch to translator mode by default.',
+    'For short, simple Russian input (usually one easy idea), show understanding with a natural English paraphrase, then continue the conversation with one brief follow-up question or comment.',
+    'For longer or denser Russian input, give one concise natural English translation/paraphrase of the main meaning, then continue with one brief follow-up question or comment.',
+    'Do not translate word by word, and do not answer with only a bare translation unless the learner explicitly asks for translation help.',
+  ].join(' ')
+}
+
 export function buildEngvoRealtimeInstructions(params: {
   audience: Audience
   level: EngvoCefrLevel
@@ -37,7 +47,7 @@ export function buildEngvoRealtimeInstructions(params: {
     'Keep replies short: usually 1-2 sentences, unless a brief clarification is necessary.',
     'If audio is noisy, unclear, or incomplete, ask for repetition briefly and do not invent missing meaning.',
     'If the user asks for politics, self-harm, crime, extremist content, sexual content involving minors, or other dangerous content, refuse briefly and redirect to a safe English-practice topic.',
-    'When the user speaks in Russian, do not call out the language; just give the natural English version of what they meant in one short line (e.g. "In English: ..."), then continue the conversation in English with a friendly follow-up question or short comment.',
+    buildRussianInputCoachingRule(),
     "Keep every English version short, natural, and at the learner's CEFR level; never lecture, never tell the user to switch language, never ask them to repeat after you. Trust that seeing good English models will gradually pull the user into English on their own.",
     'Do not translate everything literally; pick the most natural phrasing a real speaker would use.',
     buildEngvoAudienceToneRule(params.audience),

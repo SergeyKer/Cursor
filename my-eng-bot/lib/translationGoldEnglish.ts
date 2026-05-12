@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import type { Audience, LevelId } from '@/lib/types'
 import { callProviderChat } from '@/lib/callProviderChat'
 import { normalizeEnglishLearnerContractions } from '@/lib/englishLearnerContractions'
-import { getCefrLevelConfig } from '@/lib/cefr/cefrConfig'
+import { getCefrLevelConfig } from '@/lib/cefr/cefrConfig.server'
 
 export function normalizeGoldEnglishSentence(text: string): string {
   const compact = text.replace(/\s+/g, ' ').trim()

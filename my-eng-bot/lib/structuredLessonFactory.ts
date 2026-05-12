@@ -9,7 +9,7 @@ import type {
   LessonStep,
 } from '@/types/lesson'
 import type { Audience, LevelId } from '@/lib/types'
-import { getCefrDenyWords, getCefrSpec, buildCefrPromptBlock } from '@/lib/cefr/cefrSpec'
+import { getCefrDenyWords, getCefrSpec, buildCefrPromptBlock } from '@/lib/cefr/cefrSpec.server'
 
 /** Текст карточек: тот же формат, что ожидает `UnifiedLessonBubble` (см. вступление `LessonIntroScreen`). */
 const BUBBLE_CONTENT_FORMAT_RULES = [

@@ -8,6 +8,7 @@ export const ENGVO_DEFAULT_LEVEL: Extract<LevelId, 'a1' | 'a2' | 'b1' | 'b2' | '
 export const ENGVO_VOICE_STORAGE_KEY = 'myeng-engvo-realtime-voice'
 export const ENGVO_LEVEL_STORAGE_KEY = 'myeng-engvo-cefr-level'
 export const ENGVO_SPEECH_SPEED_STORAGE_KEY = 'myeng-engvo-speech-speed-preset'
+export const ENGVO_INACTIVITY_HANGUP_MS = 45_000
 
 /** Служебное сообщение в чате после завершения звонка Engvo (без кнопок озвучки/перевода). */
 export const ENGVO_CALL_FINISHED_ASSISTANT_TEXT = 'Call is finished'
@@ -73,12 +74,20 @@ export function getEngvoDefaultSpeechSpeedPreset(audience: Audience): EngvoSpeec
   return audience === 'child' ? 'normal' : 'conversational'
 }
 
+export function buildEngvoInputAudioTranscriptionConfig(): {
+  model: typeof ENGVO_TRANSCRIPTION_MODEL
+} {
+  return {
+    model: ENGVO_TRANSCRIPTION_MODEL,
+  }
+}
+
 /** Server VAD для Engvo Realtime; прерывание ответа только на клиенте (избегаем гонки с авто-interrupt сервера). */
 export const ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION = {
   type: 'server_vad' as const,
   threshold: 0.5,
   prefix_padding_ms: 300,
-  silence_duration_ms: 500,
+  silence_duration_ms: 700,
   create_response: true,
   interrupt_response: false,
 }
