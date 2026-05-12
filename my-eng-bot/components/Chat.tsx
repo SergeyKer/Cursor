@@ -1863,7 +1863,10 @@ export default function Chat({
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const lastComposerShellHeightRef = useRef<number>(0)
+  const singleLineInputHeightRef = useRef<number>(44)
 
+  const INPUT_MIN_HEIGHT_PX = 44
   const INPUT_MAX_HEIGHT_PX = 260
   const INPUT_GAP_PX = 10
   /** База 0.625rem (как `pt-2.5`) + только safe-area.
@@ -1875,14 +1878,34 @@ export default function Chat({
   const adjustInputHeight = useCallback(() => {
     const el = textareaRef.current
     if (!el) return
-    // Сбрасываем высоту перед измерением: иначе после схлопывания пробелов (голос)
-    // или переносов scrollHeight иногда остаётся «однострочным» и нижняя строка клипится.
-    el.style.height = '0px'
+    const styles = window.getComputedStyle(el)
+    const parsedLineHeight = Number.parseFloat(styles.lineHeight)
+    const parsedFontSize = Number.parseFloat(styles.fontSize)
+    const lineHeight =
+      Number.isFinite(parsedLineHeight) && parsedLineHeight > 0
+        ? parsedLineHeight
+        : Number.isFinite(parsedFontSize) && parsedFontSize > 0
+          ? parsedFontSize * 1.45
+          : INPUT_MIN_HEIGHT_PX
+    const verticalPadding = Number.parseFloat(styles.paddingTop) + Number.parseFloat(styles.paddingBottom)
+    const verticalBorder = Number.parseFloat(styles.borderTopWidth) + Number.parseFloat(styles.borderBottomWidth)
+    const measuredSingleLineHeight = Math.round(lineHeight + verticalPadding + verticalBorder)
+    const baseHeight = Math.max(INPUT_MIN_HEIGHT_PX, measuredSingleLineHeight)
+    singleLineInputHeightRef.current = baseHeight
+
+    if (isVoiceActive) {
+      el.style.height = `${singleLineInputHeightRef.current}px`
+      el.style.overflowY = 'hidden'
+      return
+    }
+    // Держим стабильный baseline для измерения, чтобы не было кратковременного схлопывания
+    // и визуального «прыжка» нижней панели между кадрами.
+    el.style.height = `${singleLineInputHeightRef.current}px`
     const fullScroll = el.scrollHeight
-    const h = Math.min(fullScroll, INPUT_MAX_HEIGHT_PX)
+    const h = Math.max(singleLineInputHeightRef.current, Math.min(fullScroll, INPUT_MAX_HEIGHT_PX))
     el.style.height = `${h}px`
     el.style.overflowY = fullScroll > INPUT_MAX_HEIGHT_PX ? 'auto' : ''
-  }, [])
+  }, [INPUT_MAX_HEIGHT_PX, INPUT_MIN_HEIGHT_PX, isVoiceActive])
 
   const syncComposerHeight = useCallback(() => {
     const form = formRef.current
@@ -1890,6 +1913,8 @@ export default function Chat({
     const root = document.documentElement
     const rect = form.getBoundingClientRect()
     const height = Math.max(0, Math.round(rect.height))
+    if (height === lastComposerShellHeightRef.current) return
+    lastComposerShellHeightRef.current = height
     root.style.setProperty('--chat-input-height', `${height}px`)
   }, [])
 

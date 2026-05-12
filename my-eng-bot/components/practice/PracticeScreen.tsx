@@ -1,12 +1,16 @@
 'use client'
 
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import PracticeFinale from '@/components/practice/PracticeFinale'
 import PracticeQuestionRenderer from '@/components/practice/PracticeQuestionRenderer'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import type { PracticeFlowState } from '@/hooks/usePracticeSession'
 import { showDebugQuestionIndex } from '@/lib/practice/debug'
+import {
+  getPracticeExerciseTypeCatalogNumber,
+  PRACTICE_EXERCISE_TYPE_CATALOG_SIZE,
+} from '@/lib/practice/practiceExerciseTypeCatalog'
 import type { Bubble } from '@/types/lesson'
 import type { PracticeMode, PracticeQuestion, PracticeSession } from '@/types/practice'
 
@@ -66,6 +70,22 @@ function practiceTypeLabel(question: PracticeQuestion): string {
   return 'Ответьте самостоятельно.'
 }
 
+function normalizeInstruction(text: string | undefined): string {
+  const trimmed = text?.trim() ?? ''
+  if (!trimmed) return ''
+  return /[.!?…]$/.test(trimmed) ? trimmed : `${trimmed}.`
+}
+
+function practiceInfoLabel(question: PracticeQuestion): string {
+  const hint = normalizeInstruction(question.hint)
+  const base = normalizeInstruction(practiceTypeLabel(question))
+  if (!hint) return base
+  const normalizedHint = hint.toLowerCase().replace(/[.!?…]/g, '').replace(/\s+/g, ' ').trim()
+  const normalizedBase = base.toLowerCase().replace(/[.!?…]/g, '').replace(/\s+/g, ' ').trim()
+  if (normalizedHint === normalizedBase) return base
+  return `${hint} ${base}`
+}
+
 function buildQuestionBubbles(params: {
   session: PracticeSession
   question: PracticeQuestion
@@ -80,10 +100,12 @@ function buildQuestionBubbles(params: {
         : 'Ошибку уже разобрали. Теперь закрепим похожий паттерн.'
   return [
     { type: 'positive', content: opening },
-    { type: 'info', content: practiceTypeLabel(params.question) },
+    { type: 'info', content: practiceInfoLabel(params.question) },
     {
       type: 'task',
-      content: showDebugQuestionIndex ? `#${params.questionIndex + 1} ${params.question.prompt}` : params.question.prompt,
+      content: showDebugQuestionIndex
+        ? `шаг ${params.questionIndex + 1} · тип ${getPracticeExerciseTypeCatalogNumber(params.question.type)}/${PRACTICE_EXERCISE_TYPE_CATALOG_SIZE} (${params.question.type}) · ${params.question.prompt}`
+        : params.question.prompt,
     },
   ]
 }
@@ -108,7 +130,11 @@ export default function PracticeScreen({
   onBackToPracticeMenu,
   generationBusy = false,
 }: PracticeScreenProps) {
+  const INPUT_GAP_PX = 10
+  const INPUT_COMPOSER_PADDING_BOTTOM = 'calc(0.625rem + env(safe-area-inset-bottom, 0px))'
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
+  const composerRef = useRef<HTMLDivElement | null>(null)
+  const [composerHeight, setComposerHeight] = useState(0)
 
   const messages = useMemo<PracticeMessage[]>(() => {
     const result: PracticeMessage[] = []
@@ -181,6 +207,27 @@ export default function PracticeScreen({
     container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' })
   }, [tailMessageId, messages.length, session.currentIndex])
 
+  useEffect(() => {
+    const composer = composerRef.current
+    if (!composer) return
+
+    const syncComposerHeight = () => {
+      setComposerHeight(composer.getBoundingClientRect().height)
+    }
+
+    syncComposerHeight()
+
+    if (typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver(() => {
+      syncComposerHeight()
+    })
+    observer.observe(composer)
+    return () => observer.disconnect()
+  }, [state, currentQuestion?.id])
+
+  const composerHeightCss = composerHeight > 0 ? `${composerHeight}px` : 'var(--chat-input-height)'
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
       <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
@@ -192,6 +239,10 @@ export default function PracticeScreen({
             <div
               ref={scrollContainerRef}
               className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3"
+              style={{
+                paddingBottom: `calc(0.625rem + ${composerHeightCss} + ${INPUT_GAP_PX}px)`,
+                scrollPaddingBottom: `calc(0.625rem + ${composerHeightCss} + ${INPUT_GAP_PX}px)`,
+              }}
             >
               <div>
                 {messages.map((message, index) => {
@@ -258,10 +309,10 @@ export default function PracticeScreen({
             </div>
 
             <div
-              className="shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 sm:px-3"
+              ref={composerRef}
+              className="shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 pt-2.5 sm:px-3"
               style={{
-                paddingTop: 'calc(var(--app-bottom-inset) + 0.625rem)',
-                paddingBottom: 'calc(var(--app-bottom-inset) + 0.625rem)',
+                paddingBottom: INPUT_COMPOSER_PADDING_BOTTOM,
               }}
             >
               {state === 'completed' ? (

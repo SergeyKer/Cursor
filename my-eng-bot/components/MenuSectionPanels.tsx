@@ -1411,6 +1411,11 @@ export default function MenuSectionPanels({
                     >
                       {practiceBusy ? 'Генерируем практику...' : isReferenceMode ? 'Перегенерировать эталон' : 'Сгенерировать вариант'}
                     </button>
+                    {practiceError && (
+                      <p className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
+                        {practiceError}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1514,12 +1519,6 @@ export default function MenuSectionPanels({
                     </div>
                   )}
                 </div>
-
-                {practiceError && (
-                  <p className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
-                    {practiceError}
-                  </p>
-                )}
               </>
             )}
             {lessonsPanel === 'practiceLevel' && (

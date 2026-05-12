@@ -20,6 +20,20 @@ function isPracticeExerciseType(value: unknown): value is PracticeExerciseType {
   )
 }
 
+function normalizeChoiceText(value: string): string {
+  return value.trim().toLowerCase().replace(/[.,!?;:]/g, '').replace(/\s+/g, ' ')
+}
+
+function findLessonChoiceOptions(lesson: LessonData, targetAnswer: string): string[] | undefined {
+  const normalizedTargetAnswer = normalizeChoiceText(targetAnswer)
+  const matchedExercise = lesson.steps.find((step) => {
+    const exercise = step.exercise
+    if (!exercise || !Array.isArray(exercise.options) || exercise.options.length < 2) return false
+    return normalizeChoiceText(exercise.correctAnswer) === normalizedTargetAnswer
+  })?.exercise
+  return matchedExercise?.options && matchedExercise.options.length >= 2 ? matchedExercise.options : undefined
+}
+
 export function normalizeAiPracticeQuestion(row: unknown, lesson: LessonData, index: number): PracticeQuestion | null {
   if (!row || typeof row !== 'object') return null
   const source = row as Record<string, unknown>
@@ -44,12 +58,15 @@ export function normalizeAiPracticeQuestion(row: unknown, lesson: LessonData, in
   const keywords = Array.isArray(source.keywords)
     ? source.keywords.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
     : undefined
+  const lessonChoiceOptions = isChoiceLikePracticeType(type) ? findLessonChoiceOptions(lesson, targetAnswer) : undefined
 
   const options = isChoiceLikePracticeType(type)
-    ? ensurePracticeChoiceOptions(rawOptions, targetAnswer)
+    ? lessonChoiceOptions ?? (rawOptions && rawOptions.length >= 2 ? ensurePracticeChoiceOptions(rawOptions, targetAnswer) : undefined)
     : rawOptions && rawOptions.length >= 2
       ? rawOptions
       : undefined
+
+  if (isChoiceLikePracticeType(type) && !options) return null
 
   return {
     id: `ai-practice-${lesson.id}-${index}-${Math.random().toString(36).slice(2, 8)}`,

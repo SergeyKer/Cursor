@@ -147,6 +147,21 @@ describe('structuredLessonFactory', () => {
     expect(validation.issues.some((issue) => issue.code === 'unnatural_english_answer')).toBe(true)
   })
 
+  it('rejects unnatural english in choice distractors too', () => {
+    const brokenSteps = toGeneratedPayload()
+    brokenSteps[0] = {
+      ...brokenSteps[0],
+      exercise: {
+        ...brokenSteps[0].exercise!,
+        options: ["It's dark.", "It's time to go.", "It's dark to go."],
+      },
+    }
+
+    const validation = assessGeneratedSteps(itsTimeStrict, itsTimeStrict.steps, brokenSteps)
+    expect(validation.accepted).toBe(false)
+    expect(validation.issues.some((issue) => issue.code === 'choice_option_unnatural')).toBe(true)
+  })
+
   it('rejects CEFR-inappropriate advanced vocabulary for A2 lesson', () => {
     const brokenSteps = toGeneratedPayload()
     brokenSteps[5] = {

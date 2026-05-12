@@ -423,12 +423,11 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
       exercise: {
         type: 'fill_choice',
         question: 'Какое предложение подходит по смыслу?',
-        options: [`It's ${variant.adjective}.`, `It's time to ${variant.adjective}.`, `It's ${variant.adjective} to go.`],
+        options: [`It's ${variant.adjective}.`, `It's time to ${variant.step2VerbBase}.`, `It's time to ${variant.step3Verb}.`],
         correctAnswer: `It's ${variant.adjective}.`,
         acceptedAnswers: [`It's ${variant.adjective}.`],
         answerFormat: 'choice',
         answerPolicy: 'strict',
-        hint: 'Для описания состояния используйте It is + прилагательное.',
       },
       footerDynamic: 'Правило 1: It is + прилагательное',
       myEngComment: 'Вижу, вы готовы к новой конструкции.',
@@ -549,8 +548,8 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
       exercise: {
         type: 'sentence_puzzle',
         question: 'Соберите три предложения из слов.',
-        correctAnswer: `It's time to ${variant.finalVerbBase}.`,
-        acceptedAnswers: [`It's time to ${variant.finalVerbBase}.`],
+        correctAnswer: `It's time to ${variant.step5ActionEn}.`,
+        acceptedAnswers: [`It's time to ${variant.step5ActionEn}.`],
         answerFormat: 'full_sentence',
         answerPolicy: 'strict',
         hint: 'Подсказка про первое слово: начните с It’s и следите за порядком time to + глагол.',
@@ -609,7 +608,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
       exercise: {
         type: 'fill_choice',
         question: `Выберите правильную фразу: "${variant.finalActionRu}"`,
-        options: [`It's ${variant.finalVerbBase}.`, `It's time to ${variant.finalVerbBase}.`, `It's ${variant.adjective}.`],
+        options: ["It's late.", `It's time to ${variant.finalVerbBase}.`, `It's ${variant.adjective}.`],
         correctAnswer: `It's time to ${variant.finalVerbBase}.`,
         acceptedAnswers: [`It's time to ${variant.finalVerbBase}.`],
         answerFormat: 'choice',

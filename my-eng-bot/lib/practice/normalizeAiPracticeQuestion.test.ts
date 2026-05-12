@@ -4,20 +4,24 @@ import { normalizeAiPracticeQuestion } from '@/lib/practice/normalizeAiPracticeQ
 import { isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
 
 describe('normalizeAiPracticeQuestion', () => {
-  it('fills choice-like options when the model returns too few', () => {
+  it('restores choice-like options from the lesson when the model omits them', () => {
     const lesson = getStructuredLessonById('1')
     expect(lesson).not.toBeNull()
+    const sourceStep = lesson!.steps.find(
+      (step) => step.exercise && Array.isArray(step.exercise.options) && step.exercise.options.length >= 2
+    )
+    expect(sourceStep?.exercise).toBeTruthy()
     const row = {
       type: 'choice',
       prompt: 'Pick one.',
-      targetAnswer: 'Hello.',
+      targetAnswer: sourceStep!.exercise!.correctAnswer,
       acceptedAnswers: [],
-      options: ['Hello.'],
+      options: [sourceStep!.exercise!.correctAnswer],
     }
     const q = normalizeAiPracticeQuestion(row, lesson!, 0)
     expect(q).not.toBeNull()
     expect(q!.options?.length).toBeGreaterThanOrEqual(2)
-    expect(q!.options).toContain('Hello.')
+    expect(q!.options).toEqual(sourceStep!.exercise!.options)
   })
 
   it('keeps short options undefined for non-choice types', () => {

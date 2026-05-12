@@ -10,6 +10,7 @@ import type {
 } from '@/types/lesson'
 import type { Audience, LevelId } from '@/lib/types'
 import { getCefrDenyWords, getCefrSpec, buildCefrPromptBlock } from '@/lib/cefr/cefrSpec.server'
+import { detectBrokenEnglishPattern } from '@/lib/englishPatternGuard'
 
 /** Текст карточек: тот же формат, что ожидает `UnifiedLessonBubble` (см. вступление `LessonIntroScreen`). */
 const BUBBLE_CONTENT_FORMAT_RULES = [
@@ -224,18 +225,6 @@ function extractEnglishTokens(text: string): string[] {
     .filter(Boolean)
 }
 
-function brokenEnglishPattern(text: string): string | null {
-  const normalized = normalizeForPolicyCheck(text)
-  if (!normalized) return null
-  if (/\bto to\b/.test(normalized)) return 'double_to'
-  if (/\bwho like\b/.test(normalized)) return 'who_like_without_s'
-  if (/\bwho liking\b/.test(normalized)) return 'who_liking'
-  if (/\bit(?:'s| is) sleep\b/.test(normalized)) return 'its_sleep'
-  if (/\bit(?:'s| is) (?!time\b)[a-z]+ to\b/.test(normalized)) return 'broken_it_is_to_pattern'
-  if (/\b[a-z]+ing time to\b/.test(normalized)) return 'broken_ing_time_to'
-  return null
-}
-
 function englishFrameTokens(blueprint: LessonRepeatStepBlueprint | undefined, correctAnswer: string): string[] {
   const raw = [
     correctAnswer,
@@ -249,6 +238,16 @@ function englishFrameTokens(blueprint: LessonRepeatStepBlueprint | undefined, co
 function overlapSize(left: string[], right: string[]): number {
   const rightSet = new Set(right)
   return left.filter((item) => rightSet.has(item)).length
+}
+
+function buildAnswerFrequencyMap(steps: Array<LessonStep | GeneratedStepPayload>): Map<string, number> {
+  const frequency = new Map<string, number>()
+  for (const step of steps) {
+    const answer = typeof step.exercise?.correctAnswer === 'string' ? normalizeForSemanticCheck(step.exercise.correctAnswer) : ''
+    if (!answer) continue
+    frequency.set(answer, (frequency.get(answer) ?? 0) + 1)
+  }
+  return frequency
 }
 
 function normalizeLessonLevelToCefrLevel(level: LessonData['level']): LevelId {
@@ -636,7 +635,7 @@ function validateGeneratedStepSemantics(
     if (!hasLatin(correctAnswer)) {
       issues.push(issue('hard', 'english_answer_missing_latin', 'Correct answer должен содержать английский текст.', sourceStep.stepNumber))
     }
-    const brokenPattern = brokenEnglishPattern(correctAnswer)
+    const brokenPattern = detectBrokenEnglishPattern(correctAnswer)
     if (brokenPattern) {
       issues.push(issue('hard', 'unnatural_english_answer', `Correct answer выглядит неестественно: ${brokenPattern}.`, sourceStep.stepNumber))
     }
@@ -657,9 +656,11 @@ function validateGeneratedStepSemantics(
         issues.push(issue('hard', 'choice_option_contains_cyrillic', 'Английский option не должен содержать кириллицу.', sourceStep.stepNumber))
         continue
       }
-      const brokenPattern = brokenEnglishPattern(option)
-      if (brokenPattern && normalizeForPolicyCheck(option) === normalizeForPolicyCheck(correctAnswer)) {
-        issues.push(issue('hard', 'correct_choice_unnatural', `Правильный option выглядит неестественно: ${brokenPattern}.`, sourceStep.stepNumber))
+      const brokenPattern = detectBrokenEnglishPattern(option)
+      if (brokenPattern) {
+        const optionIssueCode =
+          normalizeForPolicyCheck(option) === normalizeForPolicyCheck(correctAnswer) ? 'correct_choice_unnatural' : 'choice_option_unnatural'
+        issues.push(issue('hard', optionIssueCode, `Option выглядит неестественно: ${brokenPattern}.`, sourceStep.stepNumber))
       }
       issues.push(
         ...validateCefrEnglishText({
@@ -749,7 +750,7 @@ function validateGeneratedStepSemantics(
   }
   if (correctAnswer) {
     maxScore += 1
-    if (!brokenEnglishPattern(correctAnswer) && hasLatin(correctAnswer) && !hasCyrillic(correctAnswer)) {
+    if (!detectBrokenEnglishPattern(correctAnswer) && hasLatin(correctAnswer) && !hasCyrillic(correctAnswer)) {
       score += 1
     }
   }
@@ -814,6 +815,18 @@ function validateLessonCoherence(
     } else {
       issues.push(issue('soft', 'grammar_focus_not_visible', 'Во всём уроке слабо виден заявленный grammar focus.', null))
     }
+  }
+
+  const sourceAnswerFrequency = buildAnswerFrequencyMap(sourceSteps)
+  const generatedAnswerFrequency = buildAnswerFrequencyMap(generatedSteps)
+  const repeatedCorrectAnswerFound = Array.from(generatedAnswerFrequency.entries()).some(
+    ([answer, count]) => count > 1 && count > (sourceAnswerFrequency.get(answer) ?? 0)
+  )
+  maxScore += 1
+  if (repeatedCorrectAnswerFound) {
+    issues.push(issue('hard', 'repeated_correct_answer', 'В эталоне повторился уже использованный правильный ответ.', null))
+  } else {
+    score += 1
   }
 
   return { issues, score, maxScore }
@@ -987,6 +1000,7 @@ export function buildStructuredCreationSystemPrompt(): string {
     'Не добавляй новую грамматику вне указанного grammar focus.',
     'Если передан selectedVariantId, sourceSituations и sourceSteps, считай их обязательными смысловыми рельсами для нового варианта.',
     'Для fill_choice всегда давай ровно 3 варианта и включай correctAnswer в options.',
+    'Все английские options, включая distractors, должны быть естественными и грамматически корректными фразами. Нельзя придумывать ломанный английский вроде "It\'s dark to go.".',
     'Для sentence_puzzle всегда давай ровно 3 puzzleVariants. В каждом puzzle-варианте нужны title, instruction, words, correctOrder, correctAnswer, successText, errorText, hintText, myEngComment.',
     'Шаг 5 всегда должен быть sentence_puzzle с ровно 3 puzzleVariants.',
     'Шаг 6 должен быть текстовым вводом полного предложения: translate или write_own, answerFormat full_sentence, без options и без puzzleVariants.',
@@ -1040,6 +1054,7 @@ export function buildStructuredRepeatSystemPrompt(): string {
     'Если передан selectedVariantId, sourceSituations и sourceSteps, опирайся именно на них и не возвращайся к предыдущему варианту.',
     'Объяснения и подсказки на русском, правильные ответы на английском.',
     'Для fill_choice всегда давай ровно 3 варианта и включай correctAnswer в options.',
+    'Все английские options, включая distractors, должны быть естественными и грамматически корректными фразами. Нельзя придумывать ломанный английский вроде "It\'s dark to go.".',
     'Для sentence_puzzle всегда давай ровно 3 puzzleVariants. В каждом puzzle-варианте нужны title, instruction, words, correctOrder, correctAnswer, successText, errorText, hintText, myEngComment.',
     'Шаг 5 всегда должен быть sentence_puzzle с ровно 3 puzzleVariants.',
     'Шаг 6 должен быть текстовым вводом полного предложения: translate или write_own, answerFormat full_sentence, без options и без puzzleVariants.',

@@ -614,7 +614,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         question: 'Какой вопрос правильный?',
         options: [
           `Who ${variant.verbThird} ${variant.introObject}?`,
-          `Who ${variant.verbBase} ${variant.introObject}?`,
+          'Who likes sports?',
           `${variant.introSubject} ${variant.verbThird} ${variant.introObject}.`,
         ],
         correctAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,

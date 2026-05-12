@@ -90,6 +90,8 @@ import { usePracticeSession } from '@/hooks/usePracticeSession'
 import PracticeScreen from '@/components/practice/PracticeScreen'
 import AccentTrainer, { type AccentFooterView } from '@/components/accent/AccentTrainer'
 import { getPracticeFooterView } from '@/lib/practice/practiceFooter'
+import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
+import { buildPracticeQuestionFingerprintFromQuestion } from '@/lib/practice/questionFingerprint'
 import { pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
@@ -180,6 +182,34 @@ type LessonRepeatResponse = {
   fallback?: boolean
   fallbackReason?: LessonRepeatFallbackReason
   error?: string
+}
+
+const PRACTICE_AI_INITIAL_BATCH_SIZE = 2
+const PRACTICE_PREFETCH_BUFFER_TARGET = 1
+const PRACTICE_SEEN_KEYS_LIMIT = 80
+const PRACTICE_PREFETCH_TIMEOUT_MS = 12_000
+const PRACTICE_GENERATE_NEXT_TIMEOUT_MS = 16_000
+
+function buildSeenPracticeKeys(questions: PracticeQuestion[]): string[] {
+  const unique = new Set<string>()
+  for (const question of questions) {
+    const key = buildPracticeQuestionFingerprintFromQuestion(question)
+    if (!key) continue
+    unique.add(key)
+  }
+  return Array.from(unique).slice(-PRACTICE_SEEN_KEYS_LIMIT)
+}
+
+function pickUniquePracticeQuestions(candidates: PracticeQuestion[], existing: PracticeQuestion[]): PracticeQuestion[] {
+  const seen = new Set(buildSeenPracticeKeys(existing))
+  const fresh: PracticeQuestion[] = []
+  for (const candidate of candidates) {
+    const key = buildPracticeQuestionFingerprintFromQuestion(candidate)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    fresh.push(candidate)
+  }
+  return fresh
 }
 
 function getMenuGenerationFallbackMessage(reason: LessonRepeatFallbackReason | undefined): string {
@@ -658,7 +688,8 @@ export default function Home() {
   const menuLessonGenerateCleanupRef = React.useRef<(() => void) | null>(null)
   /** Инкремент при каждом новом фоновом запросе variant; finally сравнивает эпоху, чтобы не сбросить флаг чужого завершения. */
   const menuLessonBgFetchEpochRef = React.useRef(0)
-  const referenceNextQuestionInFlightRef = React.useRef(false)
+  const practicePrefetchInFlightRef = React.useRef(false)
+  const practicePrefetchAbortRef = React.useRef<AbortController | null>(null)
   /** Предыдущий экран меню на главной: для сброса модели при возврате на корень (root). */
   const prevHomeMenuViewForModelResetRef = React.useRef<MenuView | null>(null)
   /** iPhone / iPad / iPod и iPadOS с десктопным UA (Macintosh + Mobile). */
@@ -2622,6 +2653,10 @@ export default function Home() {
 
   const startPracticeFromLesson = useCallback(
     (config: PracticeBuildConfig) => {
+      // Закрытие меню после запуска практики триггерит эффект «снимок настроек при открытии меню»:
+      // при расхождении он вызывает restartChatForNewModeFromMenu → abandonPracticeSession и сносит сессию.
+      // Сбрасываем снимок: переход в практику — намеренное действие, не «закрыли меню после правок чата».
+      menuOpenSnapshotRef.current = null
       resetStructuredLessonSession()
       firstMessageRequestIdRef.current += 1
       firstMessageInFlightRef.current = false
@@ -2742,8 +2777,10 @@ export default function Home() {
         throw new Error('Для этой темы пока нет практики.')
       }
 
+      const totalQuestionCount = request.mode === 'reference' ? 7 : getPracticeModePlan(request.mode).length
       let questions: PracticeQuestion[] | undefined
       if (generationSource === 'ai_generated') {
+        const initialCount = Math.min(PRACTICE_AI_INITIAL_BATCH_SIZE, totalQuestionCount)
         const response = await fetch('/api/practice-generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2758,15 +2795,20 @@ export default function Home() {
             referenceStepIndex: request.mode === 'reference' ? 0 : undefined,
             referenceTotal: request.mode === 'reference' ? 7 : undefined,
             recentPrompts: request.mode === 'reference' ? [] : undefined,
+            count: request.mode === 'reference' ? 1 : initialCount,
+            fromIndex: 0,
+            seenKeys: [],
           }),
         })
         const data = (await response.json()) as PracticeGenerateResponse
         if (!response.ok) {
           throw new Error(data.error ?? 'Не удалось сгенерировать практику.')
         }
-        if (Array.isArray(data.questions) && data.questions.length > 0) {
-          questions = data.questions
+        const nextQuestions = Array.isArray(data.questions) ? pickUniquePracticeQuestions(data.questions, []) : []
+        if (nextQuestions.length === 0) {
+          throw new Error('Не удалось получить стартовые задания для сгенерированного варианта.')
         }
+        questions = nextQuestions
       }
 
       return {
@@ -2775,8 +2817,8 @@ export default function Home() {
         mode: request.mode,
         entrySource: request.entrySource,
         generationSource,
-        questions: request.mode === 'reference' ? questions?.slice(0, 1) : questions,
-        targetQuestionCount: request.mode === 'reference' ? 7 : undefined,
+        questions,
+        targetQuestionCount: generationSource === 'ai_generated' ? totalQuestionCount : undefined,
       }
     },
     [settings.audience, settings.level, settings.openAiChatPreset, settings.provider]
@@ -2866,7 +2908,9 @@ export default function Home() {
 
       let questions: PracticeQuestion[] | undefined
       const lesson = session.source.lesson
+      const totalQuestionCount = mode === 'reference' ? 7 : getPracticeModePlan(mode).length
       if (generationSource === 'ai_generated') {
+        const initialCount = Math.min(PRACTICE_AI_INITIAL_BATCH_SIZE, totalQuestionCount)
         const response = await fetch('/api/practice-generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2880,11 +2924,17 @@ export default function Home() {
             referenceStepIndex: mode === 'reference' ? 0 : undefined,
             referenceTotal: mode === 'reference' ? 7 : undefined,
             recentPrompts: mode === 'reference' ? [] : undefined,
+            count: mode === 'reference' ? 1 : initialCount,
+            fromIndex: 0,
+            seenKeys: [],
           }),
         })
         const data = (await response.json()) as PracticeGenerateResponse
         if (response.ok && Array.isArray(data.questions) && data.questions.length > 0) {
-          questions = mode === 'reference' ? data.questions.slice(0, 1) : data.questions
+          const fresh = pickUniquePracticeQuestions(data.questions, [])
+          if (fresh.length > 0) {
+            questions = fresh
+          }
         }
       }
 
@@ -2895,7 +2945,7 @@ export default function Home() {
         entrySource: 'menu',
         generationSource,
         questions,
-        targetQuestionCount: mode === 'reference' ? 7 : undefined,
+        targetQuestionCount: generationSource === 'ai_generated' ? totalQuestionCount : undefined,
       })
     },
     [
@@ -2908,60 +2958,189 @@ export default function Home() {
     ]
   )
 
+  const activePracticeSession = practiceSession.session
+  const practiceFlowState = practiceSession.state
+  const appendGeneratedPracticeQuestion = practiceSession.appendGeneratedQuestion
+  const failGeneratingPracticeQuestion = practiceSession.failGeneratingNext
+  const nextPracticeQuestion = practiceSession.nextQuestion
+
   useEffect(() => {
-    const session = practiceSession.session
-    if (!session || session.mode !== 'reference') return
-    if (practiceSession.state !== 'generating_next') return
-    if (referenceNextQuestionInFlightRef.current) return
-
-    const target = session.targetQuestionCount ?? 7
-    if (session.questions.length >= target) {
-      practiceSession.nextQuestion()
-      return
+    return () => {
+      practicePrefetchAbortRef.current?.abort()
+      practicePrefetchAbortRef.current = null
+      practicePrefetchInFlightRef.current = false
     }
+  }, [])
 
-    referenceNextQuestionInFlightRef.current = true
+  useEffect(() => {
+    const session = activePracticeSession
+    if (!session || session.generationSource !== 'ai_generated') return
+    if (practiceFlowState === 'completed' || practiceFlowState === 'error' || practiceFlowState === 'generating_next') return
+    if (practicePrefetchInFlightRef.current) return
+
+    const target = session.targetQuestionCount ?? getPracticeModePlan(session.mode).length
+    const remaining = target - session.questions.length
+    if (remaining <= 0) return
+
+    const bufferedAhead = session.questions.length - session.currentIndex - 1
+    if (bufferedAhead >= PRACTICE_PREFETCH_BUFFER_TARGET) return
+
+    const fetchCount = Math.min(PRACTICE_AI_INITIAL_BATCH_SIZE, remaining)
+    const abortController = new AbortController()
+    const timedOutRef = { current: false }
+    const timeoutId = setTimeout(() => {
+      timedOutRef.current = true
+      abortController.abort()
+    }, PRACTICE_PREFETCH_TIMEOUT_MS)
+    practicePrefetchAbortRef.current?.abort()
+    practicePrefetchAbortRef.current = abortController
+    practicePrefetchInFlightRef.current = true
+
     void (async () => {
-      setLoading(true)
       try {
         const response = await fetch('/api/practice-generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: abortController.signal,
           body: JSON.stringify({
             provider: settings.provider,
             openAiChatPreset: settings.openAiChatPreset,
             audience: settings.audience,
             lessonId: session.source.kind === 'static_lesson' ? session.source.lessonId : undefined,
             lesson: session.source.kind === 'runtime_lesson' ? session.source.lesson : undefined,
-            mode: 'reference',
-            referenceExerciseType: session.questions[0]?.type,
-            referenceStepIndex: session.questions.length,
+            mode: session.mode,
+            referenceExerciseType: session.mode === 'reference' ? session.questions[0]?.type : undefined,
+            referenceStepIndex: session.mode === 'reference' ? session.questions.length : undefined,
             referenceTotal: target,
-            recentPrompts: session.questions.slice(-3).map((item) => item.prompt),
+            recentPrompts: session.mode === 'reference' ? session.questions.slice(-3).map((item) => item.prompt) : undefined,
+            count: fetchCount,
+            fromIndex: session.questions.length,
+            seenKeys: buildSeenPracticeKeys(session.questions),
           }),
         })
         const data = (await response.json()) as PracticeGenerateResponse
         if (!response.ok || !Array.isArray(data.questions) || data.questions.length === 0) {
-          throw new Error(data.error ?? 'Не удалось подготовить следующее эталонное задание.')
+          return
         }
-        const nextQuestion = data.questions[0]
-        if (!nextQuestion) {
-          throw new Error('Пустой ответ генерации для следующего эталонного задания.')
+        const freshQuestions = pickUniquePracticeQuestions(data.questions, session.questions)
+        if (freshQuestions.length === 0) return
+        for (const question of freshQuestions) {
+          appendGeneratedPracticeQuestion(question)
         }
-        practiceSession.appendGeneratedQuestion(nextQuestion)
-        practiceSession.nextQuestion()
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Не удалось подготовить следующее эталонное задание.'
-        practiceSession.failGeneratingNext(message)
+        if (error instanceof Error && error.name === 'AbortError') {
+          if (timedOutRef.current) {
+            console.warn('practice prefetch timed out')
+          }
+          return
+        }
+        console.warn('practice prefetch failed:', error)
       } finally {
-        setLoading(false)
-        referenceNextQuestionInFlightRef.current = false
+        clearTimeout(timeoutId)
+        if (practicePrefetchAbortRef.current === abortController) {
+          practicePrefetchAbortRef.current = null
+          practicePrefetchInFlightRef.current = false
+        }
       }
     })()
   }, [
-    practiceSession,
-    practiceSession.session,
-    practiceSession.state,
+    activePracticeSession,
+    appendGeneratedPracticeQuestion,
+    practiceFlowState,
+    settings.audience,
+    settings.openAiChatPreset,
+    settings.provider,
+  ])
+
+  useEffect(() => {
+    const session = activePracticeSession
+    if (!session || session.generationSource !== 'ai_generated') return
+    if (practiceFlowState !== 'generating_next') return
+
+    if (session.currentIndex < session.questions.length - 1) {
+      nextPracticeQuestion()
+      return
+    }
+    if (practicePrefetchInFlightRef.current) {
+      // В критичном пути не ждём подвисший prefetch: форсируем отдельную догрузку.
+      practicePrefetchAbortRef.current?.abort()
+      practicePrefetchAbortRef.current = null
+      practicePrefetchInFlightRef.current = false
+    }
+
+    const target = session.targetQuestionCount ?? getPracticeModePlan(session.mode).length
+    if (session.questions.length >= target) {
+      nextPracticeQuestion()
+      return
+    }
+
+    const abortController = new AbortController()
+    const timedOutRef = { current: false }
+    const timeoutId = setTimeout(() => {
+      timedOutRef.current = true
+      abortController.abort()
+    }, PRACTICE_GENERATE_NEXT_TIMEOUT_MS)
+    practicePrefetchAbortRef.current?.abort()
+    practicePrefetchAbortRef.current = abortController
+    practicePrefetchInFlightRef.current = true
+
+    void (async () => {
+      setLoading(true)
+      try {
+        const response = await fetch('/api/practice-generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: abortController.signal,
+          body: JSON.stringify({
+            provider: settings.provider,
+            openAiChatPreset: settings.openAiChatPreset,
+            audience: settings.audience,
+            lessonId: session.source.kind === 'static_lesson' ? session.source.lessonId : undefined,
+            lesson: session.source.kind === 'runtime_lesson' ? session.source.lesson : undefined,
+            mode: session.mode,
+            referenceExerciseType: session.mode === 'reference' ? session.questions[0]?.type : undefined,
+            referenceStepIndex: session.mode === 'reference' ? session.questions.length : undefined,
+            referenceTotal: target,
+            recentPrompts: session.mode === 'reference' ? session.questions.slice(-3).map((item) => item.prompt) : undefined,
+            count: 1,
+            fromIndex: session.questions.length,
+            seenKeys: buildSeenPracticeKeys(session.questions),
+          }),
+        })
+        const data = (await response.json()) as PracticeGenerateResponse
+        if (!response.ok || !Array.isArray(data.questions) || data.questions.length === 0) {
+          throw new Error(data.error ?? 'Не удалось подготовить следующее задание.')
+        }
+        const freshQuestions = pickUniquePracticeQuestions(data.questions, session.questions)
+        if (freshQuestions.length === 0) {
+          throw new Error('Не удалось получить уникальное следующее задание.')
+        }
+        appendGeneratedPracticeQuestion(freshQuestions[0]!)
+        nextPracticeQuestion()
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          if (timedOutRef.current) {
+            failGeneratingPracticeQuestion('Подготовка следующего задания заняла слишком много времени. Попробуйте ещё раз.')
+          }
+          return
+        }
+        const message = error instanceof Error ? error.message : 'Не удалось подготовить следующее задание.'
+        failGeneratingPracticeQuestion(message)
+      } finally {
+        clearTimeout(timeoutId)
+        setLoading(false)
+        if (practicePrefetchAbortRef.current === abortController) {
+          practicePrefetchAbortRef.current = null
+          practicePrefetchInFlightRef.current = false
+        }
+      }
+    })()
+  }, [
+    activePracticeSession,
+    appendGeneratedPracticeQuestion,
+    failGeneratingPracticeQuestion,
+    nextPracticeQuestion,
+    practiceFlowState,
     settings.audience,
     settings.openAiChatPreset,
     settings.provider,
@@ -4001,7 +4180,15 @@ export default function Home() {
         ? 'Слова по уровням MyEng'
         : 'Самые необходимые слова MyEng'
     : isPracticeActive
-      ? 'Практика MyEng'
+      ? `Практика ${
+          practiceSession.session.mode === 'reference'
+            ? 'Reference'
+            : practiceSession.session.mode === 'relaxed'
+              ? 'Relaxed'
+              : practiceSession.session.mode === 'balanced'
+                ? 'Balanced'
+                : 'Challenge'
+        }`
     : isTutorLessonHeader
       ? 'Репетитор с MyEng'
     : engvoVoiceMode
@@ -4132,7 +4319,7 @@ export default function Home() {
             style={{ fontFamily: 'var(--app-header-font-family)' }}
             title={pageTitle}
           >
-            {!dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode ? (
+            {!dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode || isPracticeActive ? (
               pageTitle
             ) : (
               <>

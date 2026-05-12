@@ -1,7 +1,59 @@
 import { describe, expect, it } from 'vitest'
+import { detectBrokenEnglishPattern } from '@/lib/englishPatternGuard'
 import { getAllStructuredLessons, getStructuredLessonById } from '@/lib/structuredLessons'
+import type { Exercise, ExerciseVariant, LessonData, LessonRepeatStepVariant, LessonStep, SentencePuzzleVariant } from '@/types/lesson'
 
 const lessons = getAllStructuredLessons()
+
+function collectExerciseStrings(exercise?: Partial<Exercise>) {
+  if (!exercise) return [] as Array<{ label: string; value: string }>
+
+  const values: Array<{ label: string; value: string }> = []
+  if (typeof exercise.correctAnswer === 'string') {
+    values.push({ label: 'correctAnswer', value: exercise.correctAnswer })
+  }
+  for (const [index, option] of (exercise.options ?? []).entries()) {
+    values.push({ label: `options[${index}]`, value: option })
+  }
+  for (const [index, variant] of (exercise.variants ?? []).entries()) {
+    values.push(...collectVariantStrings(variant, `variants[${index}]`))
+  }
+  for (const [index, variant] of (exercise.puzzleVariants ?? []).entries()) {
+    values.push(...collectPuzzleStrings(variant, `puzzleVariants[${index}]`))
+  }
+  return values
+}
+
+function collectVariantStrings(variant: ExerciseVariant, prefix: string) {
+  const values: Array<{ label: string; value: string }> = [{ label: `${prefix}.correctAnswer`, value: variant.correctAnswer }]
+  for (const [index, option] of (variant.options ?? []).entries()) {
+    values.push({ label: `${prefix}.options[${index}]`, value: option })
+  }
+  return values
+}
+
+function collectPuzzleStrings(variant: SentencePuzzleVariant, prefix: string) {
+  return [{ label: `${prefix}.correctAnswer`, value: variant.correctAnswer }]
+}
+
+function expectNoBrokenEnglishStrings(scope: string, exercise?: Partial<Exercise>) {
+  for (const entry of collectExerciseStrings(exercise)) {
+    const pattern = detectBrokenEnglishPattern(entry.value)
+    expect(pattern, `${scope} -> ${entry.label}: ${entry.value}`).toBeNull()
+  }
+}
+
+function expectLessonHasNoBrokenEnglish(lesson: LessonData) {
+  lesson.steps.forEach((step: LessonStep, index) => {
+    expectNoBrokenEnglishStrings(`lesson ${lesson.id} step ${index + 1}`, step.exercise)
+  })
+
+  lesson.repeatConfig?.variantProfiles?.forEach((profile) => {
+    profile.steps?.forEach((step: LessonRepeatStepVariant, index) => {
+      expectNoBrokenEnglishStrings(`lesson ${lesson.id} variant ${profile.id} step ${index + 1}`, step.exercise)
+    })
+  })
+}
 
 describe('structured lesson 7-step contract', () => {
   it.each(lessons)('keeps 7 learning steps plus finale for lesson $id', (lesson) => {
@@ -68,5 +120,9 @@ describe('structured lesson 7-step contract', () => {
 
     expect(step1TaskBubble?.content).toContain('"Ты знаешь, что ей нравится?"')
     expect(musicLikesProfile?.steps?.[0]?.exercise?.correctAnswer).toBe('Do you know what she likes?')
+  })
+
+  it.each(lessons)('rejects broken english patterns in local lesson payloads for lesson $id', (lesson) => {
+    expectLessonHasNoBrokenEnglish(lesson)
   })
 })

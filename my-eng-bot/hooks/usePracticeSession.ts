@@ -223,11 +223,11 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
         if (isCorrect) {
           pendingCorrectionRef.current = null
           const targetQuestionCount = session.targetQuestionCount ?? session.questions.length
-          const isReferenceAwaitingGeneration =
-            session.mode === 'reference' &&
+          const isAiAwaitingGeneration =
+            session.generationSource === 'ai_generated' &&
             session.currentIndex >= session.questions.length - 1 &&
             session.questions.length < targetQuestionCount
-          if (isReferenceAwaitingGeneration) {
+          if (isAiAwaitingGeneration) {
             setFeedback(null)
             setState('generating_next')
             submittingRef.current = false
