@@ -359,6 +359,48 @@ function englishSunbatheAtDachaForTense(tense: string): string {
   }
 }
 
+function englishCouchChillForTense(tense: string, hasAllDay: boolean): string {
+  const timeTail = hasAllDay ? ' all day' : ''
+  switch (tense) {
+    case 'present_continuous':
+      return `I am lying on the couch and chilling${timeTail}.`
+    case 'present_perfect':
+      return `I have been lying on the couch and chilling${timeTail}.`
+    case 'present_perfect_continuous':
+      return `I have been lying on the couch and chilling${timeTail}.`
+    case 'past_simple':
+      return hasAllDay
+        ? 'I spent all day lying on the couch and chilling.'
+        : 'I lay on the couch and chilled.'
+    case 'past_continuous':
+      return `I was lying on the couch and chilling${timeTail}.`
+    case 'past_perfect':
+      return hasAllDay
+        ? 'I had spent all day lying on the couch and chilling.'
+        : 'I had lain on the couch and chilled.'
+    case 'past_perfect_continuous':
+      return `I had been lying on the couch and chilling${timeTail}.`
+    case 'future_simple':
+      return hasAllDay
+        ? 'I will spend all day lying on the couch and chilling.'
+        : 'I will lie on the couch and chill.'
+    case 'future_continuous':
+      return `I will be lying on the couch and chilling${timeTail}.`
+    case 'future_perfect':
+      return hasAllDay
+        ? 'I will have spent all day lying on the couch and chilling.'
+        : 'I will have lain on the couch and chilled.'
+    case 'future_perfect_continuous':
+      return `I will have been lying on the couch and chilling${timeTail}.`
+    case 'all':
+    case 'present_simple':
+    default:
+      return hasAllDay
+        ? 'I spend all day lying on the couch and chilling.'
+        : 'I lie on the couch and chill.'
+  }
+}
+
 const RU_VERB_TO_EN_BASE: Record<string, string> = {
   сплю: 'sleep',
   спать: 'sleep',
@@ -470,6 +512,17 @@ export function buildMixedInputRepeatFallback(params: {
   const hasDachaPlace = ruTokens.some((t) => ['дача', 'даче', 'дачу', 'дачей'].includes(t))
   if (hasSunbatheIntent && hasDachaPlace) {
     return englishSunbatheAtDachaForTense(tense)
+  }
+
+  const hasCouchPlace = ruTokens.some((t) => ['диван', 'диване', 'дивану', 'диваном'].includes(t))
+  const hasChillIntent = ruTokens.some((t) =>
+    ['балдю', 'балдею', 'балдеть', 'кайфую', 'кайфовать', 'чилю', 'чиллю', 'чилить'].includes(t)
+  )
+  const hasAllDayIntent = ruTokens.some((t) =>
+    ['целый', 'весь', 'день', 'сутки'].includes(t)
+  )
+  if (hasCouchPlace && hasChillIntent) {
+    return englishCouchChillForTense(tense, hasAllDayIntent)
   }
 
   // Кейс вида "I сплю": извлекаем русскую глагольную основу и строим ответ в нужном времени.

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { featureFlags } from '@/lib/featureFlags'
 import { parseCorrection } from '@/lib/parseCorrection'
 import {
   dedupeTranslationPraiseParagraphs,
@@ -119,6 +120,7 @@ interface ChatProps {
   loadingTranslationIndex?: number | null
   forceNextMicLang?: 'ru' | 'en' | null
   onConsumeForceNextMicLang?: () => void
+  communicationVoiceInputMode?: 'ru' | 'en' | 'mix'
   learningActions?: LearningLessonAction[]
   onSelectLearningAction?: (actionId: string) => void
   /** Счётчик увеличения — сброс поля ввода/голоса (напр. «Начать общение» из меню). */
@@ -1088,6 +1090,7 @@ export default function Chat({
   loadingTranslationIndex,
   forceNextMicLang,
   onConsumeForceNextMicLang,
+  communicationVoiceInputMode,
   learningActions = [],
   onSelectLearningAction,
   composerSessionKey = 0,
@@ -1256,6 +1259,13 @@ export default function Chat({
       communicationInputExpectedLang: settings.communicationInputExpectedLang,
       forceNextMicLang,
     })
+    const effectiveCommunicationVoiceInputMode =
+      featureFlags.communicationMixVoiceInputV1 &&
+      settings.mode === 'communication' &&
+      communicationVoiceInputMode === 'mix'
+        ? 'mix'
+        : null
+    const isCommunicationMixMode = effectiveCommunicationVoiceInputMode === 'mix'
     const sttLangForApi = sttLangFromLocale(preferredLocale)
     const failVoiceSoft = (message: string) => {
       if (isIosDevice) {
@@ -1268,7 +1278,9 @@ export default function Chat({
     startVoiceSession()
     setVoiceStatusMessage(null)
 
-    const startMediaRecorderFallback = async (sttLang: 'ru' | 'en') => {
+    const startMediaRecorderFallback = async (sttLang: 'ru' | 'en' | 'auto') => {
+      const skipAllowedBySilence = sttLang !== 'auto'
+      const shouldPreStopFinalizing = sttLang !== 'auto'
       if (!window.isSecureContext) {
         failVoiceSession('[Голосовой ввод работает только в защищённом контексте (HTTPS).]')
         return
@@ -1290,6 +1302,9 @@ export default function Chat({
         mediaRecorderSpeechDetectedRef.current = false
         mediaRecorderSkipSttAfterSilenceRef.current = false
         setListening(true)
+        if (sttLang === 'auto') {
+          setVoiceStatusMessage('Слушаю...')
+        }
 
         recorder.ondataavailable = (e: BlobEvent) => {
           if (e.data && e.data.size > 0) {
@@ -1313,7 +1328,7 @@ export default function Chat({
           mediaRecorderSkipSttAfterSilenceRef.current = false
           releaseMediaRecorderResources()
           setListening(false)
-          if (skipSttAfterSilence) {
+          if (skipSttAfterSilence && skipAllowedBySilence) {
             finishVoiceSession()
             return
           }
@@ -1401,7 +1416,9 @@ export default function Chat({
 
               if (hasHeardSpeech && now - lastSpeechAt >= BROWSER_SILENCE_MS) {
                 if (mediaRecorderRef.current === recorder && recorderRuntimeState() !== 'inactive') {
-                  beginVoiceFinalizing('Распознаю речь...')
+                  if (shouldPreStopFinalizing) {
+                    beginVoiceFinalizing('Распознаю речь...')
+                  }
                   recorder.stop()
                 }
                 mediaSilenceRafRef.current = null
@@ -1419,8 +1436,10 @@ export default function Chat({
         mediaStopTimerRef.current = window.setTimeout(() => {
           if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
             if (mediaRecorderSpeechDetectedRef.current) {
-              beginVoiceFinalizing('Распознаю речь...')
-            } else {
+              if (shouldPreStopFinalizing) {
+                beginVoiceFinalizing('Распознаю речь...')
+              }
+            } else if (skipAllowedBySilence) {
               mediaRecorderSkipSttAfterSilenceRef.current = true
             }
             mediaRecorderRef.current.stop()
@@ -1449,7 +1468,10 @@ export default function Chat({
       }
     }
 
-    const startBrowserSpeechRecognition = (lang: 'ru-RU' | 'en-US') => {
+    const startBrowserSpeechRecognition = (
+      lang: 'ru-RU' | 'en-US',
+      mixSecondaryLocale: 'ru-RU' | 'en-US' | null = null
+    ) => {
       if (!SpeechRecognitionAPI) {
         void startMediaRecorderFallback(sttLangForApi)
         return
@@ -1469,8 +1491,19 @@ export default function Chat({
       let didFallbackToRecorder = false
       let timedOut = false
       let fellBackToRecorder = false
+      let retriedWithMixSecondaryLocale = false
       let safetyTimeoutId: number | null = null
       let silenceTimeoutId: number | null = null
+
+      const retryMixWithSecondaryLocale = () => {
+        if (!isCommunicationMixMode) return false
+        if (!mixSecondaryLocale || mixSecondaryLocale === lang) return false
+        if (retriedWithMixSecondaryLocale) return false
+        retriedWithMixSecondaryLocale = true
+        updateVoiceTranscript('', '')
+        startBrowserSpeechRecognition(mixSecondaryLocale, null)
+        return true
+      }
 
       const clearSafetyTimeout = () => {
         if (safetyTimeoutId != null) {
@@ -1541,6 +1574,9 @@ export default function Chat({
           return
         }
         const resolvedFinalText = chooseFinalSpeechText(latestFinalText, latestInterimText)
+        if (!resolvedFinalText && retryMixWithSecondaryLocale()) {
+          return
+        }
         const correctedFinalText = applyTypoFixes(resolvedFinalText)
         if (correctedFinalText) {
           if (isIosDevice && isLikelySttSilenceHallucination(correctedFinalText)) {
@@ -1593,6 +1629,9 @@ export default function Chat({
         }
 
         if (/no-speech/i.test(code)) {
+          if (retryMixWithSecondaryLocale()) {
+            return
+          }
           if (isIosChrome && !didFallbackToRecorder) {
             didFallbackToRecorder = true
             fellBackToRecorder = true
@@ -1618,20 +1657,30 @@ export default function Chat({
       }
     }
 
-    const useFallback = shouldUseMediaRecorderFallback({
-      hasSpeechRecognition: Boolean(SpeechRecognitionAPI),
-      isIosChrome,
-    })
-    if (useFallback) {
-      await startMediaRecorderFallback(sttLangForApi)
+    if (isCommunicationMixMode) {
+      const mixHasBrowserSpeechRecognition = Boolean(SpeechRecognitionAPI)
+      if (mixHasBrowserSpeechRecognition) {
+        startBrowserSpeechRecognition('ru-RU', 'en-US')
+      } else {
+        await startMediaRecorderFallback(sttLangForApi)
+      }
     } else {
-      startBrowserSpeechRecognition(preferredLocale)
+      const useFallback = shouldUseMediaRecorderFallback({
+        hasSpeechRecognition: Boolean(SpeechRecognitionAPI),
+        isIosChrome,
+      })
+      if (useFallback) {
+        await startMediaRecorderFallback(sttLangForApi)
+      } else {
+        startBrowserSpeechRecognition(preferredLocale)
+      }
     }
 
     if (forceNextMicLang) onConsumeForceNextMicLang?.()
   }, [
     settings.mode,
     settings.communicationInputExpectedLang,
+    communicationVoiceInputMode,
     forceNextMicLang,
     onConsumeForceNextMicLang,
     startVoiceSession,
@@ -1865,6 +1914,8 @@ export default function Chat({
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const lastComposerShellHeightRef = useRef<number>(0)
   const singleLineInputHeightRef = useRef<number>(44)
+  /** Однострочная высота без оверлея STT (см. `.communication-chat-input-field` vs `chat-input-voice-web-metrics`). */
+  const idleSingleLineInputHeightRef = useRef<number>(44)
 
   const INPUT_MIN_HEIGHT_PX = 44
   const INPUT_MAX_HEIGHT_PX = 260
@@ -1891,21 +1942,23 @@ export default function Chat({
     const verticalBorder = Number.parseFloat(styles.borderTopWidth) + Number.parseFloat(styles.borderBottomWidth)
     const measuredSingleLineHeight = Math.round(lineHeight + verticalPadding + verticalBorder)
     const baseHeight = Math.max(INPUT_MIN_HEIGHT_PX, measuredSingleLineHeight)
-    singleLineInputHeightRef.current = baseHeight
 
-    if (isVoiceActive) {
-      el.style.height = `${singleLineInputHeightRef.current}px`
-      el.style.overflowY = 'hidden'
-      return
+    if (!showVoiceOverlay && !isVoiceActive) {
+      idleSingleLineInputHeightRef.current = baseHeight
     }
-    // Держим стабильный baseline для измерения, чтобы не было кратковременного схлопывания
-    // и визуального «прыжка» нижней панели между кадрами.
+
+    const effectiveSingleLine = showVoiceOverlay
+      ? Math.max(baseHeight, idleSingleLineInputHeightRef.current)
+      : baseHeight
+    singleLineInputHeightRef.current = effectiveSingleLine
+
+    // Baseline одной строки, затем рост по scrollHeight (в т.ч. при надиктовке).
     el.style.height = `${singleLineInputHeightRef.current}px`
     const fullScroll = el.scrollHeight
     const h = Math.max(singleLineInputHeightRef.current, Math.min(fullScroll, INPUT_MAX_HEIGHT_PX))
     el.style.height = `${h}px`
     el.style.overflowY = fullScroll > INPUT_MAX_HEIGHT_PX ? 'auto' : ''
-  }, [INPUT_MAX_HEIGHT_PX, INPUT_MIN_HEIGHT_PX, isVoiceActive])
+  }, [INPUT_MAX_HEIGHT_PX, INPUT_MIN_HEIGHT_PX, isVoiceActive, showVoiceOverlay])
 
   const syncComposerHeight = useCallback(() => {
     const form = formRef.current
@@ -2037,7 +2090,9 @@ export default function Chat({
     : isVoiceActive
     ? ''
     : settings.mode === 'communication'
-      ? settings.communicationInputExpectedLang === 'en'
+      ? communicationVoiceInputMode === 'mix'
+        ? 'Reply...'
+        : settings.communicationInputExpectedLang === 'en'
         ? 'Reply...'
         : 'Ответ...'
       : 'Reply...'

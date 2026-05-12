@@ -38,6 +38,7 @@ import type {
   AppMode,
   Audience,
   ChatMessage,
+  CommunicationVoiceInputMode,
   SentenceType,
   Settings,
   TenseId,
@@ -293,27 +294,6 @@ function MenuIcon() {
   )
 }
 
-/** Жирная стрелка Ru↔En в шапке: на мобильных Unicode → почти не видна. */
-function CommunicationLangDirectionArrow() {
-  return (
-    <svg
-      className="mx-px h-[11px] w-[11px] shrink-0 translate-y-px text-[var(--text)] sm:h-3 sm:w-3 sm:translate-y-[1.5px]"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden
-    >
-      <path
-        d="M5 12h14M13 6l6 6-6 6"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
 /** Снимок настроек при открытии меню (для перезапуска чата без смены режима). */
 type MenuOpenSnapshot = {
   mode: AppMode
@@ -365,6 +345,14 @@ function menuSettingsRestartNeeded(snap: MenuOpenSnapshot, current: Settings): b
     )
   }
   return false
+}
+
+function getCommunicationVoiceInputMode(settings: Settings): CommunicationVoiceInputMode {
+  const fallback: Exclude<CommunicationVoiceInputMode, 'mix'> =
+    settings.communicationInputExpectedLang === 'ru' ? 'ru' : 'en'
+  if (!featureFlags.communicationMixVoiceInputV1) return fallback
+  const stored = settings.communicationVoiceInputMode
+  return stored === 'ru' || stored === 'en' || stored === 'mix' ? stored : fallback
 }
 
 /** Перевод в диалоге: актуальный assistant-пузырь после await. */
@@ -532,6 +520,7 @@ export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [communicationVoiceDropdownOpen, setCommunicationVoiceDropdownOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [usage, setUsage] = useState<UsageInfo>({ used: 0, limit: 50 })
   const [initialized, setInitialized] = useState(false)
@@ -641,6 +630,8 @@ export default function Home() {
   /** Актуальный язык ожидаемого ввода в общении — для тела fetch без гонки замыкания sendToApi/setTimeout. */
   const communicationInputExpectedLangRef = React.useRef(settings.communicationInputExpectedLang)
   communicationInputExpectedLangRef.current = settings.communicationInputExpectedLang
+  const communicationVoiceInputMode = getCommunicationVoiceInputMode(settings)
+  const communicationVoiceDropdownRef = React.useRef<HTMLDivElement | null>(null)
   /** Настройки при открытии меню: режим + поля для сравнения при закрытии (без уровня). */
   const menuOpenSnapshotRef = React.useRef<MenuOpenSnapshot | null>(null)
   const prevMenuOpenForSnapshotRef = React.useRef(false)
@@ -1758,7 +1749,15 @@ export default function Home() {
     flushEngvoPendingRealtimeSessionUpdates,
   ])
 
-  function getCommunicationInputExpectedFromText(text: string, current: Settings['communicationInputExpectedLang']) {
+  function getCommunicationInputExpectedFromText(
+    text: string,
+    current: Settings['communicationInputExpectedLang'],
+    voiceInputMode?: CommunicationVoiceInputMode
+  ) {
+    const hasCyr = /[А-Яа-яЁё]/.test(text)
+    const hasLat = /[A-Za-z]/.test(text)
+    // В режиме Mix смешанный ввод трактуем как попытку говорить по-английски с русскими вставками.
+    if (voiceInputMode === 'mix' && hasCyr && hasLat) return 'en'
     return detectCommunicationUserMessageLang(text, current) as Settings['communicationInputExpectedLang']
   }
 
@@ -1843,6 +1842,12 @@ export default function Home() {
                         communicationInputExpectedLangRef.current === 'ru'
                           ? communicationInputExpectedLangRef.current
                           : 'ru',
+                      communicationVoiceInputMode:
+                        communicationVoiceInputMode === 'ru' ||
+                        communicationVoiceInputMode === 'en' ||
+                        communicationVoiceInputMode === 'mix'
+                          ? communicationVoiceInputMode
+                          : 'en',
                     }
                   : {}),
               }),
@@ -3556,11 +3561,28 @@ export default function Home() {
         !explicitTranslateTarget &&
         shouldRequestAllOpenAiWebSearchSources(text)
       const userMsg: ChatMessage = { role: 'user', content: text }
+      const nextCommunicationExpectedLang =
+        settings.mode === 'communication'
+          ? getCommunicationInputExpectedFromText(
+              text,
+              settings.communicationInputExpectedLang,
+              communicationVoiceInputMode
+            )
+          : null
       if (settings.mode === 'communication') {
-        setSettings((prev) => ({
-          ...prev,
-          communicationInputExpectedLang: getCommunicationInputExpectedFromText(text, prev.communicationInputExpectedLang),
-        }))
+        if (nextCommunicationExpectedLang) {
+          communicationInputExpectedLangRef.current = nextCommunicationExpectedLang
+        }
+        setSettings((prev) => {
+          const nextExpectedLang = nextCommunicationExpectedLang ?? prev.communicationInputExpectedLang
+          const nextVoiceMode =
+            prev.communicationVoiceInputMode === 'mix' ? 'mix' : (nextExpectedLang as Exclude<CommunicationVoiceInputMode, 'mix'>)
+          return {
+            ...prev,
+            communicationInputExpectedLang: nextExpectedLang,
+            communicationVoiceInputMode: nextVoiceMode,
+          }
+        })
       }
       const nextMessages = [...messages, userMsg]
       const shouldSearchInternet = predictWillFetchFromInternet({
@@ -3572,7 +3594,8 @@ export default function Home() {
       setMessages(nextMessages)
       if (settings.mode === 'communication') {
         const indicatorLang = getExpectedCommunicationReplyLang(nextMessages, {
-          inputPreference: settings.communicationInputExpectedLang,
+          inputPreference: nextCommunicationExpectedLang ?? settings.communicationInputExpectedLang,
+          voiceInputMode: communicationVoiceInputMode,
         })
         setSearchingInternetLang(indicatorLang === 'en' ? 'en' : 'ru')
       }
@@ -3657,7 +3680,7 @@ export default function Home() {
         setSearchingInternet(false)
       }
     },
-    [messages, atLimit, sendToApi, fetchUsage, settings, ensureFirstMessage, engvoVoiceMode]
+    [messages, atLimit, sendToApi, fetchUsage, settings, ensureFirstMessage, engvoVoiceMode, communicationVoiceInputMode]
   )
 
   function isRetryableTranslationError(message: string): boolean {
@@ -3829,6 +3852,7 @@ export default function Home() {
       const levelShort = levelEntry ? (levelEntry.label.split(' - ')[0]?.trim() ?? levelEntry.label) : settings.level
       const lang = getExpectedCommunicationReplyLang(messages, {
         inputPreference: settings.communicationInputExpectedLang,
+        voiceInputMode: communicationVoiceInputMode,
       })
       const titlePrefix = lang === 'ru' ? 'Чат' : 'Chat'
       return `${titlePrefix} - ${levelShort}`
@@ -3980,13 +4004,20 @@ export default function Home() {
         : null,
       settings.mode === 'communication'
         ? {
-            key: `chat-communication-${settings.communicationInputExpectedLang}`,
+            key: `chat-communication-${communicationVoiceInputMode}-${settings.communicationInputExpectedLang}`,
             priority: 40,
             text:
-              settings.communicationInputExpectedLang === 'en'
-                ? 'Можно говорить по-английски.'
-                : 'Можно говорить как удобно.',
-            compactText: settings.communicationInputExpectedLang === 'en' ? 'Говорим по-английски.' : 'Слушаю вас.',
+              communicationVoiceInputMode === 'mix'
+                ? 'говори на En/Ru - я пойму и помогу'
+                : settings.communicationInputExpectedLang === 'en'
+                  ? 'En: говори по-английски - я пойму и помогу'
+                  : 'Ru: можно говорить свободно.',
+            compactText:
+              communicationVoiceInputMode === 'mix'
+                ? 'говори на En/Ru - я пойму и помогу'
+                : settings.communicationInputExpectedLang === 'en'
+                  ? 'En: говори по-английски - я пойму и помогу'
+                  : 'Ru: жду реплику.',
             tone: 'neutral',
           }
         : null,
@@ -4007,6 +4038,7 @@ export default function Home() {
     loadingTranslationIndex,
     retryMessage,
     searchingInternet,
+    communicationVoiceInputMode,
     settings.communicationInputExpectedLang,
     settings.mode,
   ])
@@ -4173,6 +4205,45 @@ export default function Home() {
     !hasEngvoAssistantChatBubble(messages) &&
     !hasEngvoDialingServiceLineInThread(messages) &&
     !!engvoBootstrapServiceIndicatorText
+  const communicationVoiceTabs = featureFlags.communicationMixVoiceInputV1
+    ? (['ru', 'en', 'mix'] as const)
+    : (['ru', 'en'] as const)
+  const communicationVoiceOptions = communicationVoiceTabs.map((mode) => {
+    if (mode === 'ru') {
+      return { mode, label: 'Ru', title: 'Русский ввод', ariaLabel: 'Ожидается русский ввод' }
+    }
+    if (mode === 'en') {
+      return { mode, label: 'En', title: 'English input', ariaLabel: 'Ожидается английский ввод' }
+    }
+    return {
+      mode,
+      label: 'En (mix)',
+      title: 'Для фраз с русскими вставками',
+      ariaLabel: 'Можно говорить по-английски с русскими вставками',
+    }
+  })
+  const activeCommunicationVoiceOption =
+    communicationVoiceOptions.find((option) => option.mode === communicationVoiceInputMode) ?? communicationVoiceOptions[0]
+  const activeCommunicationVoiceIsMix = activeCommunicationVoiceOption.mode === 'mix'
+
+  const applyCommunicationVoiceMode = useCallback((mode: (typeof communicationVoiceTabs)[number]) => {
+    setSettings((s) => {
+      if (mode === 'mix') {
+        setForceNextMicLang(null)
+        return {
+          ...s,
+          communicationVoiceInputMode: 'mix',
+        }
+      }
+      const nextLang = mode
+      setForceNextMicLang(nextLang)
+      return {
+        ...s,
+        communicationInputExpectedLang: nextLang,
+        communicationVoiceInputMode: nextLang,
+      }
+    })
+  }, [])
   const pageTitle = !dialogStarted
     ? 'MyEng - мой английский друг'
     : isVocabularyHubActive
@@ -4202,6 +4273,31 @@ export default function Home() {
   const handleMenuButtonClick = useCallback(() => {
     setMenuOpen((v) => !v)
   }, [])
+
+  useEffect(() => {
+    if (!communicationVoiceDropdownOpen) return
+    const onDocumentPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null
+      if (!target) return
+      if (communicationVoiceDropdownRef.current?.contains(target)) return
+      setCommunicationVoiceDropdownOpen(false)
+    }
+    const onDocumentKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setCommunicationVoiceDropdownOpen(false)
+    }
+    document.addEventListener('pointerdown', onDocumentPointerDown)
+    document.addEventListener('keydown', onDocumentKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onDocumentPointerDown)
+      document.removeEventListener('keydown', onDocumentKeyDown)
+    }
+  }, [communicationVoiceDropdownOpen])
+
+  useEffect(() => {
+    if (dialogStarted && settings.mode === 'communication' && !isLessonActive && !engvoVoiceMode) return
+    setCommunicationVoiceDropdownOpen(false)
+  }, [dialogStarted, settings.mode, isLessonActive, engvoVoiceMode])
   /** Совпадает с фактической высотой шапки: safe-area + строка меню + нижний border (см. `header` без minHeight на внешнем блоке). */
   const appTopOffset =
     'calc(var(--app-safe-top-inset) + var(--app-header-row-height) + var(--app-header-border-width))'
@@ -4256,50 +4352,78 @@ export default function Home() {
             >
               <MenuIcon />
             </button>
-            <div className="pointer-events-auto flex h-10 min-h-[36px] shrink-0 items-center justify-end gap-1.5">
+            <div className="pointer-events-auto flex h-10 min-h-[36px] shrink-0 items-center justify-end gap-1">
               {dialogStarted && settings.mode === 'communication' && !isLessonActive && !engvoVoiceMode && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSettings((s) => {
-                      const nextLang = s.communicationInputExpectedLang === 'ru' ? 'en' : 'ru'
-                      setForceNextMicLang(nextLang)
-                      return {
-                        ...s,
-                        communicationInputExpectedLang: nextLang,
-                      }
-                    })
-                  }
-                  className="app-header-control chat-action-button flex h-10 min-h-[36px] min-w-[3.25rem] shrink-0 items-center justify-center gap-px border px-1.5 text-[11px] font-semibold leading-none text-[var(--app-header-text)] touch-manipulation sm:min-w-[3.5rem]"
-                  style={{ borderRadius: 'var(--app-header-control-radius)' }}
-                  aria-label={
-                    settings.communicationInputExpectedLang === 'ru'
-                      ? 'Ожидается русский ввод. Переключить на английский'
-                      : 'Ожидается английский ввод. Переключить на русский'
-                  }
-                  title={
-                    settings.communicationInputExpectedLang === 'ru'
-                      ? 'Сейчас ожидается русский ввод. Нажмите для ожидания английского'
-                      : 'Сейчас ожидается английский ввод. Нажмите для ожидания русского'
-                  }
+                <div
+                  ref={communicationVoiceDropdownRef}
+                  className="app-header-dropdown relative shrink-0"
                 >
-                  {settings.communicationInputExpectedLang === 'ru' ? (
-                    <span className="inline-flex items-center">
-                      <span>Ru</span>
-                      <CommunicationLangDirectionArrow />
-                      <span>En</span>
+                  <button
+                    type="button"
+                    className="app-header-control chat-action-button app-header-dropdown-trigger relative flex h-10 min-h-[36px] shrink-0 items-center justify-center border px-2 py-1 touch-manipulation"
+                    style={{ borderRadius: 'var(--app-header-control-radius)' }}
+                    aria-label="Режим голосового ввода в общении"
+                    aria-haspopup="menu"
+                    aria-expanded={communicationVoiceDropdownOpen}
+                    title={activeCommunicationVoiceOption.title}
+                    onClick={() => setCommunicationVoiceDropdownOpen((v) => !v)}
+                  >
+                    <span className="pointer-events-none text-[12px] font-semibold leading-none text-[var(--app-header-text)]">
+                      {activeCommunicationVoiceIsMix ? (
+                        <>
+                          <span className="hidden sm:inline">En (mix)</span>
+                          <span className="inline-flex items-baseline gap-0.5 sm:hidden">
+                            <span>En</span>
+                            <span className="text-[9px] font-semibold opacity-55">(mix)</span>
+                          </span>
+                        </>
+                      ) : (
+                        activeCommunicationVoiceOption.label
+                      )}
                     </span>
-                  ) : (
-                    <span className="inline-flex items-center">
-                      <span>En</span>
-                      <CommunicationLangDirectionArrow />
-                      <span>Ru</span>
-                    </span>
+                    <span
+                      className={`app-header-dropdown-chevron absolute right-2 top-1/2 ${communicationVoiceDropdownOpen ? 'is-open' : ''}`}
+                      aria-hidden
+                    />
+                  </button>
+                  {communicationVoiceDropdownOpen && (
+                    <div
+                      className="app-header-dropdown-menu absolute right-0 top-[calc(100%+0.3rem)] z-[80] min-w-[6.25rem] border p-1"
+                      style={{ borderRadius: 'var(--app-header-control-radius)' }}
+                      role="menu"
+                      aria-label="Режим голосового ввода в общении"
+                    >
+                      {communicationVoiceOptions.map((option) => {
+                        const active = communicationVoiceInputMode === option.mode
+                        return (
+                          <button
+                            key={option.mode}
+                            type="button"
+                            className={`app-header-dropdown-item flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[12px] font-semibold leading-none ${
+                              active ? 'is-active' : ''
+                            }`}
+                            role="menuitemradio"
+                            aria-checked={active}
+                            aria-label={option.ariaLabel}
+                            title={option.title}
+                            onClick={() => {
+                              applyCommunicationVoiceMode(option.mode)
+                              setCommunicationVoiceDropdownOpen(false)
+                            }}
+                          >
+                            <span>{option.label}</span>
+                            <span className={`app-header-dropdown-check ${active ? 'is-active' : ''}`} aria-hidden>
+                              {active ? '✓' : ''}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
                   )}
-                </button>
+                </div>
               )}
               {dialogStarted && (
-                <span className="app-header-avatar mr-2 flex h-10 w-10 shrink-0 items-center justify-center p-1" aria-hidden>
+                <span className="app-header-avatar mr-1 sm:mr-2 flex h-10 w-10 shrink-0 items-center justify-center p-1" aria-hidden>
                   <Image
                     src="/header-robot.png"
                     alt=""
@@ -4675,6 +4799,7 @@ export default function Home() {
                   loadingTranslationIndex={loadingTranslationIndex}
                   forceNextMicLang={forceNextMicLang}
                   onConsumeForceNextMicLang={() => setForceNextMicLang(null)}
+                  communicationVoiceInputMode={communicationVoiceInputMode}
                   learningActions={
                     activeLearningLessonId && !activeStructuredLesson && !structuredLessonLoadingId
                       ? getLearningLessonActions(activeLearningLessonId)

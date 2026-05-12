@@ -46,4 +46,24 @@ describe('getExpectedCommunicationReplyLang', () => {
     ]
     expect(getExpectedCommunicationReplyLang(messages, { inputPreference: 'ru' })).toBe('en')
   })
+
+  it('mix mode: russian-only user input still keeps english reply', () => {
+    const messages: ChatMessage[] = [
+      { role: 'assistant', content: 'Hello! How are you doing today?' },
+      { role: 'user', content: 'как дела дружище' },
+    ]
+    expect(
+      getExpectedCommunicationReplyLang(messages, { inputPreference: 'ru', voiceInputMode: 'mix' }),
+    ).toBe('en')
+  })
+
+  it('mix mode: detail-only keyword keeps english reply', () => {
+    const messages: ChatMessage[] = [
+      { role: 'assistant', content: 'Hello! I can explain this in more detail.' },
+      { role: 'user', content: 'Подробнее' },
+    ]
+    expect(
+      getExpectedCommunicationReplyLang(messages, { inputPreference: 'ru', voiceInputMode: 'mix' }),
+    ).toBe('en')
+  })
 })

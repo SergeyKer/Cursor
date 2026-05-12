@@ -495,7 +495,7 @@ function getDialogueTenseSeedMessages(messages: ChatMessage[]): ChatMessage[] {
   return messages
 }
 
-function buildSystemPrompt(params: {
+export function buildSystemPrompt(params: {
   mode: string
   sentenceType?: string
   topic: string
@@ -510,6 +510,7 @@ function buildSystemPrompt(params: {
   communicationDetailLevel?: 0 | 1 | 2
   communicationLanguageHint?: 'Russian' | 'English'
   communicationDetailOnly?: boolean
+  communicationVoiceInputMode?: 'ru' | 'en' | 'mix'
   translationPromptLevel?: string
   translationPromptTense?: string
   translationDrillSentenceType?: string
@@ -529,6 +530,7 @@ function buildSystemPrompt(params: {
     communicationDetailLevel = 0,
     communicationLanguageHint = 'Russian',
     communicationDetailOnly = false,
+    communicationVoiceInputMode = 'en',
     translationPromptLevel,
     translationPromptTense,
     translationDrillSentenceType,
@@ -568,6 +570,7 @@ function buildSystemPrompt(params: {
       : ''
 
   if (mode === 'communication') {
+    const isCommunicationMixMode = communicationVoiceInputMode === 'mix'
     const personalizationRule = buildCommunicationPersonalizationRule({
       audience,
       level,
@@ -579,6 +582,10 @@ Rules:
 - Language: detect the user's language from their last message (Russian/English). Answer in the same language. If unclear, default to Russian.
 - Language detection rule (must match app logic): if the user's last message has mixed Cyrillic + Latin, use current conversation language. Otherwise: any Cyrillic -> Russian, any Latin -> English. If no letters, use current conversation language.
 - Mixed learner input rule: if the message contains both Latin and Cyrillic and current conversation language is English, treat this as an English attempt with Russian word substitutions. Infer intended meaning and CONTINUE the topic in English (1 short reaction + 1 short follow-up question). Do not default to "What do you mean?" if the core intent is understandable.
+- For mixed colloquial Russian inserts (especially kids' slang), infer natural English meaning instead of literal word-by-word translation. Example intent mapping: "I целый день лежу на диване и балдю" -> "I'm lying on the couch all day and chilling."
+${isCommunicationMixMode
+        ? '- Mix mode learning rule (strict): ALWAYS reply in English only, even if the learner writes fully in Russian. For short Russian input, show understanding with a natural English paraphrase, then add one brief follow-up question/comment. For longer or denser Russian input, give one concise natural English paraphrase of the main meaning, then add one brief follow-up question/comment. Do not translate word-by-word, and do not fallback to "What do you mean?" when the core meaning is inferable.'
+        : ''}
 - Detail keywords are language-neutral: "Подробнее", "Ещё подробнее", "more details", and "even more details" only change depth, not language. If the last user message is only a detail keyword, keep the current conversation language.
 - Current conversation language: ${communicationLanguageHint}. ${communicationDetailOnly ? 'The last user message is only a detail keyword, so preserve this language exactly.' : 'Preserve this language across follow-up detail requests.'}
 - Translation-only rule: ONLY when the user explicitly asks to translate (for example: "переведи", "translate", "нужен перевод"), return ONLY the English translation of the requested phrase with no extra comments or follow-up questions.
@@ -6698,21 +6705,33 @@ export async function POST(req: NextRequest) {
     const rawInputLang = body.communicationInputExpectedLang
     const communicationInputExpectedLang: 'ru' | 'en' =
       rawInputLang === 'en' || rawInputLang === 'ru' ? rawInputLang : 'ru'
+    const rawCommunicationVoiceInputMode = body.communicationVoiceInputMode
+    const communicationVoiceInputMode: 'ru' | 'en' | 'mix' =
+      rawCommunicationVoiceInputMode === 'ru' ||
+      rawCommunicationVoiceInputMode === 'en' ||
+      rawCommunicationVoiceInputMode === 'mix'
+        ? rawCommunicationVoiceInputMode
+        : communicationInputExpectedLang
     const hasAssistantInThread = recentMessages.some((m: ChatMessage) => m.role === 'assistant')
     const communicationDetailOnly =
       mode === 'communication' ? isCommunicationDetailOnlyMessage(lastUserContentForResponse) : false
     const detectedUserLang =
       mode === 'communication'
-        ? getExpectedCommunicationReplyLang(recentMessages, { inputPreference: communicationInputExpectedLang })
+        ? getExpectedCommunicationReplyLang(recentMessages, {
+            inputPreference: communicationInputExpectedLang,
+            voiceInputMode: communicationVoiceInputMode,
+          })
         : detectLangFromText(lastUserContentForResponse, lastAssistantLang)
     const communicationLanguageHint: 'Russian' | 'English' =
-      mode === 'communication' && !hasAssistantInThread
-        ? detectedUserLang === 'en'
-          ? 'English'
-          : 'Russian'
-        : lastAssistantLang === 'en'
-          ? 'English'
-          : 'Russian'
+      mode === 'communication' && communicationVoiceInputMode === 'mix'
+        ? 'English'
+        : mode === 'communication' && !hasAssistantInThread
+          ? detectedUserLang === 'en'
+            ? 'English'
+            : 'Russian'
+          : lastAssistantLang === 'en'
+            ? 'English'
+            : 'Russian'
     const communicationSearchDecision = getCommunicationWebSearchDecision({
       mode,
       explicitTranslateTarget,
@@ -6830,6 +6849,7 @@ export async function POST(req: NextRequest) {
         communicationDetailLevel,
         communicationLanguageHint,
         communicationDetailOnly,
+        communicationVoiceInputMode,
       })
 
       const communicationSearchResult = await callOpenAiWebSearchAnswer({
@@ -7057,6 +7077,7 @@ export async function POST(req: NextRequest) {
       communicationDetailLevel,
       communicationLanguageHint,
       communicationDetailOnly,
+      communicationVoiceInputMode,
       ...(mode === 'translation'
         ? {
             translationPromptLevel: translationDrillLevel,

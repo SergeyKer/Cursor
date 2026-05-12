@@ -45,6 +45,7 @@ const DEFAULT_SETTINGS: Settings = {
   audience: 'adult',
   voiceId: '',
   communicationInputExpectedLang: 'en',
+  communicationVoiceInputMode: 'en',
 }
 
 export function loadState(): StoredState {
@@ -62,6 +63,16 @@ export function loadState(): StoredState {
       merged.tenses = [parsedSettings.tense as TenseId]
     }
     if ('tense' in merged) delete (merged as Record<string, unknown>).tense
+    merged.communicationInputExpectedLang =
+      merged.communicationInputExpectedLang === 'ru' || merged.communicationInputExpectedLang === 'en'
+        ? merged.communicationInputExpectedLang
+        : DEFAULT_SETTINGS.communicationInputExpectedLang
+    merged.communicationVoiceInputMode =
+      merged.communicationVoiceInputMode === 'ru' ||
+      merged.communicationVoiceInputMode === 'en' ||
+      merged.communicationVoiceInputMode === 'mix'
+        ? merged.communicationVoiceInputMode
+        : merged.communicationInputExpectedLang
     merged.openAiChatPreset = normalizeOpenAiChatPreset(merged.openAiChatPreset)
     return {
       messages: Array.isArray(parsed.messages) ? parsed.messages : [],

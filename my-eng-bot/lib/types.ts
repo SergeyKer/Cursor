@@ -34,6 +34,7 @@ export type AppMode = 'dialogue' | 'translation' | 'communication'
 export type SentenceType = 'general' | 'interrogative' | 'negative' | 'mixed'
 export type Audience = 'child' | 'adult'
 export type CommunicationInputExpectedLang = 'ru' | 'en'
+export type CommunicationVoiceInputMode = 'ru' | 'en' | 'mix'
 
 export type LevelId =
   | 'all'
@@ -88,6 +89,8 @@ export interface Settings {
   voiceId: string
   /** Режим «Общение»: ожидаемый язык следующего ввода (tie-break для пустого/безбуквенного текста). */
   communicationInputExpectedLang: CommunicationInputExpectedLang
+  /** Режим голосового ввода в «Общение»: обычный язык или смешанный (`mix`). */
+  communicationVoiceInputMode?: CommunicationVoiceInputMode
 }
 
 export interface UsageInfo {
