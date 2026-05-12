@@ -1958,7 +1958,7 @@ export default function Home() {
         onRetryStatus?.(null)
       }
     },
-    [settings]
+    [settings, communicationVoiceInputMode]
   )
 
   const isErrorMessage = useCallback((content: string) => {

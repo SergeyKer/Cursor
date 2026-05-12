@@ -1,18 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildSystemPrompt } from './route'
+import { buildCommunicationMixLearningRule } from '@/lib/communicationMixLearningRule'
 
 describe('buildSystemPrompt communication mix learning rule', () => {
   it('adds mix learning rule for communication mix mode', () => {
-    const systemPrompt = buildSystemPrompt({
-      mode: 'communication',
-      sentenceType: 'mixed',
-      topic: 'free_talk',
-      level: 'a2',
-      tense: 'present_simple',
-      audience: 'adult',
-      communicationLanguageHint: 'English',
-      communicationVoiceInputMode: 'mix',
-    })
+    const systemPrompt = buildCommunicationMixLearningRule('mix')
 
     expect(systemPrompt).toContain('Mix mode learning rule (strict): ALWAYS reply in English only')
     expect(systemPrompt).toContain('For longer or denser Russian input')
@@ -20,16 +11,7 @@ describe('buildSystemPrompt communication mix learning rule', () => {
   })
 
   it('does not add mix learning rule outside mix mode', () => {
-    const systemPrompt = buildSystemPrompt({
-      mode: 'communication',
-      sentenceType: 'mixed',
-      topic: 'free_talk',
-      level: 'a2',
-      tense: 'present_simple',
-      audience: 'adult',
-      communicationLanguageHint: 'Russian',
-      communicationVoiceInputMode: 'ru',
-    })
+    const systemPrompt = buildCommunicationMixLearningRule('ru')
 
     expect(systemPrompt).not.toContain('Mix mode learning rule (strict): ALWAYS reply in English only')
   })
