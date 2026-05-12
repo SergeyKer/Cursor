@@ -4179,7 +4179,7 @@ export default function Home() {
       ? vocabularyByLevelActive
         ? 'Слова по уровням MyEng'
         : 'Самые необходимые слова MyEng'
-    : isPracticeActive
+    : practiceSession.session
       ? `Практика ${
           practiceSession.session.mode === 'reference'
             ? 'Reference'
