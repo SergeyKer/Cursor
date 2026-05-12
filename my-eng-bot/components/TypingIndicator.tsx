@@ -8,6 +8,8 @@ type TypingIndicatorProps = {
   isVisible: boolean
   label?: string
   title?: string
+  /** Без шиммера и полоски — спокойный статичный текст (напр. полоска Engvo в чате). */
+  plainStatus?: boolean
   /**
    * Задержка перед снятием с дерева после скрытия. `0` — убрать без анимации выхода
    * (убирает «миг» под только что появившимся пузырём, напр. при Engvo).
@@ -19,6 +21,7 @@ export default function TypingIndicator({
   isVisible,
   label = 'MyEng печатает...',
   title = 'Ожидание ответа от ИИ',
+  plainStatus = false,
   exitTransitionMs = DEFAULT_EXIT_TRANSITION_MS,
 }: TypingIndicatorProps) {
   const [shouldRender, setShouldRender] = React.useState(isVisible)
@@ -66,13 +69,17 @@ export default function TypingIndicator({
         dir="ltr"
         aria-live={isVisible ? 'polite' : 'off'}
         role="status"
-        className={`typing-indicator chat-section-surface glass-surface relative flex items-center gap-2 overflow-hidden rounded-[var(--bubble-radius)] rounded-bl-md border px-3 py-2 text-[14px] text-[var(--text)] ${motionInner} ${
+        className={`typing-indicator chat-section-surface glass-surface relative flex items-center overflow-hidden rounded-[var(--bubble-radius)] rounded-bl-md border px-3 py-2 text-[14px] text-[var(--text)] ${plainStatus ? 'gap-0' : 'gap-2'} ${motionInner} ${
           isVisible ? 'scale-100 translate-y-0' : 'scale-[0.96] -translate-y-1'
         }`}
         title={title}
       >
-        <span className="typing-indicator-shimmer" aria-hidden="true" />
-        <span className="relative z-[1] italic typing-indicator-text-shimmer">{label}</span>
+        {!plainStatus ? <span className="typing-indicator-shimmer" aria-hidden="true" /> : null}
+        <span
+          className={`relative z-[1] italic ${plainStatus ? '' : 'typing-indicator-text-shimmer'}`}
+        >
+          {label}
+        </span>
       </div>
     </div>
   )

@@ -43,10 +43,14 @@ export function hasEngvoDialingServiceLineInThread(messages: readonly ChatMessag
  */
 export function getEngvoBootstrapServiceIndicatorText(phase: EngvoCallPhase): string | null {
   if (phase === 'connecting') return ENGVO_STATUS_CONNECTING
-  if (phase === 'listening') return ENGVO_STATUS_LISTENING_CHAT
-  if (phase === 'userFinalizing') return ENGVO_STATUS_USER_FINALIZING_CHAT
-  if (phase === 'assistantPending') return ENGVO_STATUS_ASSISTANT_PENDING
-  if (phase === 'assistantSpeaking') return ENGVO_STATUS_ASSISTANT_SPEAKING
+  if (
+    phase === 'listening' ||
+    phase === 'userFinalizing' ||
+    phase === 'assistantPending' ||
+    phase === 'assistantSpeaking'
+  ) {
+    return ENGVO_STATUS_ASSISTANT_SPEAKING
+  }
   return null
 }
 

@@ -1,32 +1,42 @@
 import { describe, expect, it } from 'vitest'
-import { buildEngvoRealtimeInstructions } from './instructions'
+import {
+  buildEngvoContinuationResponseInstructions,
+  buildEngvoFirstTurnResponseInstructions,
+  buildEngvoRealtimeInstructions,
+} from './instructions'
 import { buildEngvoRealtimeInstructionsClient } from './instructionsClient'
 
 describe('buildEngvoRealtimeInstructions', () => {
-  it('includes safety, english-only rule, CEFR and adult tone', () => {
+  it('includes safety, english-only rule, CEFR, topic and adult tone', () => {
     const result = buildEngvoRealtimeInstructions({
       audience: 'adult',
       level: 'a2',
+      topic: 'travel',
     })
 
     expect(result).toContain('14+')
     expect(result).toContain('always answer in English only')
     expect(result).toContain('Audience style: ADULT.')
     expect(result).toContain('CEFR lexical ceiling (A2)')
+    expect(result).toContain('Active conversation topic: Travel.')
     expect(result).toContain('respectful, concise, and calm')
     expect(result).toContain('For short, simple Russian input')
     expect(result).toContain('Do not mention Russian')
   })
 
-  it('includes child tone and child-safe wording guidance', () => {
+  it('includes child tone, child-safe topic guidance and lexical guardrails', () => {
     const result = buildEngvoRealtimeInstructions({
       audience: 'child',
       level: 'a1',
+      topic: 'technology',
     })
 
     expect(result).toContain('Audience style: CHILD.')
     expect(result).toContain('warm, simple, age-appropriate English')
     expect(result).toContain('CEFR lexical ceiling (A1)')
+    expect(result).toContain('Active conversation topic: Movies and series.')
+    expect(result).toContain('Low-level reinforcement (A1)')
+    expect(result).toContain('Do not jump to A2/B1 vocabulary')
     expect(result).toContain('Avoid bureaucratic, overly formal, or adult business language.')
   })
 
@@ -35,12 +45,40 @@ describe('buildEngvoRealtimeInstructions', () => {
       buildEngvoRealtimeInstructionsClient({
         audience: 'adult',
         level: 'b1',
+        topic: 'music',
       })
     ).toBe(
       buildEngvoRealtimeInstructions({
         audience: 'adult',
         level: 'b1',
+        topic: 'music',
       })
     )
+  })
+
+  it('builds a low-level first-turn instruction inside the selected topic', () => {
+    const result = buildEngvoFirstTurnResponseInstructions({
+      audience: 'child',
+      level: 'a1',
+      topic: 'hobbies',
+    })
+
+    expect(result).toContain('exactly one short greeting and one short question')
+    expect(result).toContain('For A1/A2, use very common everyday words')
+    expect(result).toContain('The first question must be directly about Hobbies and interests.')
+    expect(result).toContain('Do not add extra filler')
+  })
+
+  it('builds a continuation instruction that keeps CEFR and topic stable', () => {
+    const result = buildEngvoContinuationResponseInstructions({
+      audience: 'adult',
+      level: 'b1',
+      topic: 'travel',
+    })
+
+    expect(result).toContain('The learner reconnected after a short break.')
+    expect(result).toContain('Keep the conversation on Travel')
+    expect(result).toContain('Keep the same audience style, CEFR level, and vocabulary limits')
+    expect(result).toContain('Do not widen the topic or increase vocabulary difficulty.')
   })
 })

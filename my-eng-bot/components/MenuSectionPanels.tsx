@@ -88,7 +88,7 @@ const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
 }
 
 type SettingsMenuPanel = 'summary' | 'provider' | 'openAiModel' | 'voice' | 'theme'
-type EngvoPanel = 'summary' | 'setup' | 'voice' | 'level' | 'speed'
+type EngvoPanel = 'summary' | 'setup' | 'audience' | 'topic' | 'voice' | 'level' | 'speed'
 
 const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
   summary: 'Настройки',
@@ -100,6 +100,8 @@ const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
 const ENGVO_PANEL_TITLE: Record<EngvoPanel, string> = {
   summary: 'Позвонить',
   setup: 'Настройки звонка',
+  audience: 'Стиль общения',
+  topic: 'Тема',
   voice: 'Голос',
   level: 'Уровень',
   speed: 'Скорость речи',
@@ -446,6 +448,19 @@ export default function MenuSectionPanels({
     onSettingsChange({ ...settings, ...patch })
   }
 
+  const applyAudienceSelection = (id: Settings['audience']) => {
+    if (id === 'child') {
+      const safeTopic = CHILD_SAFE_TOPICS.has(settings.topic) ? settings.topic : 'hobbies'
+      update({ audience: id, level: 'all', tenses: ['present_simple'], topic: safeTopic })
+      return
+    }
+    update({ audience: id })
+  }
+
+  const applyTopicSelection = (id: TopicId) => {
+    update({ topic: id })
+  }
+
   const runPracticeRequest = async (
     handler: MenuSectionPanelsProps['onOpenPracticeSession'] | MenuSectionPanelsProps['onGeneratePracticeSession'],
     request: {
@@ -588,7 +603,13 @@ export default function MenuSectionPanels({
       return
     }
     if (menuView === 'engvo' && engvoPanel !== 'summary') {
-      if (engvoPanel === 'voice' || engvoPanel === 'level' || engvoPanel === 'speed') {
+      if (
+        engvoPanel === 'audience' ||
+        engvoPanel === 'topic' ||
+        engvoPanel === 'voice' ||
+        engvoPanel === 'level' ||
+        engvoPanel === 'speed'
+      ) {
         setEngvoPanel('setup')
         return
       }
@@ -874,7 +895,14 @@ export default function MenuSectionPanels({
                     ? 'Назад к настройкам чата'
                     : menuView === 'settings' && settingsPanel !== 'summary'
                       ? 'Назад к настройкам'
-                      : menuView === 'engvo' && (engvoPanel === 'voice' || engvoPanel === 'level' || engvoPanel === 'speed')
+                      : menuView === 'engvo' &&
+                          (
+                            engvoPanel === 'audience' ||
+                            engvoPanel === 'topic' ||
+                            engvoPanel === 'voice' ||
+                            engvoPanel === 'level' ||
+                            engvoPanel === 'speed'
+                          )
                         ? 'Назад к настройкам звонка'
                         : menuView === 'engvo' && engvoPanel === 'setup'
                           ? 'Назад к позвонить'
@@ -953,6 +981,8 @@ export default function MenuSectionPanels({
             {engvoPanel === 'setup' && (
               <div className={MENU_GROUP_OUTER}>
                 <div className={MENU_GROUP_CLASS}>
+                  <MenuSettingRow label="Стиль общения" value={audienceLabel} onClick={() => setEngvoPanel('audience')} />
+                  <MenuSettingRow label="Тема" value={topicLabel} onClick={() => setEngvoPanel('topic')} />
                   <MenuSettingRow label="Голос" value={engvoVoiceLabel} onClick={() => setEngvoPanel('voice')} />
                   <MenuSettingRow label="Уровень" value={engvoLevelLabel} onClick={() => setEngvoPanel('level')} />
                   <MenuSettingRow
@@ -962,6 +992,26 @@ export default function MenuSectionPanels({
                   />
                 </div>
               </div>
+            )}
+            {engvoPanel === 'audience' && (
+              <PickerList
+                options={AUDIENCE_OPTIONS}
+                value={settings.audience}
+                onSelect={(id) => {
+                  applyAudienceSelection(id as Settings['audience'])
+                  setEngvoPanel('setup')
+                }}
+              />
+            )}
+            {engvoPanel === 'topic' && (
+              <PickerList
+                options={topicOptions.map((t) => ({ id: t.id, label: t.label }))}
+                value={settings.topic}
+                onSelect={(id) => {
+                  applyTopicSelection(id as TopicId)
+                  setEngvoPanel('setup')
+                }}
+              />
             )}
             {engvoPanel === 'voice' && (
               <PickerList
@@ -1851,14 +1901,7 @@ export default function MenuSectionPanels({
             options={AUDIENCE_OPTIONS}
             value={settings.audience}
             onSelect={(id) => {
-              if (id === 'child') {
-                const safeTopic = CHILD_SAFE_TOPICS.has(settings.topic)
-                  ? settings.topic
-                  : 'hobbies'
-                update({ audience: id, level: 'all', tenses: ['present_simple'], topic: safeTopic })
-              } else {
-                update({ audience: id })
-              }
+              applyAudienceSelection(id as Settings['audience'])
               setAiChatPanel('summary')
             }}
           />
@@ -1891,7 +1934,7 @@ export default function MenuSectionPanels({
             options={topicOptions.map((t) => ({ id: t.id, label: t.label }))}
             value={settings.topic}
             onSelect={(id) => {
-              update({ topic: id as TopicId })
+              applyTopicSelection(id as TopicId)
               setAiChatPanel('summary')
             }}
           />

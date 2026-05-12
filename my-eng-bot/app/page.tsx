@@ -111,6 +111,10 @@ import {
   ENGVO_TRANSCRIPTION_MODEL,
 } from '@/lib/engvo/constants'
 import type { EngvoRealtimeReplayItem } from '@/lib/engvo/realtimeReplay'
+import {
+  buildEngvoContinuationResponseInstructions,
+  buildEngvoFirstTurnResponseInstructions,
+} from '@/lib/engvo/instructions'
 import { buildEngvoRealtimeInstructionsClient } from '@/lib/engvo/instructionsClient'
 import {
   loadEngvoCefrLevel,
@@ -129,6 +133,7 @@ import {
   type EngvoCallPhase,
 } from '@/lib/engvo/state'
 import { shouldAutoRequestFirstChatMessage } from '@/lib/engvo/guards'
+import { shouldShowEngvoVoiceUserTranscript } from '@/lib/engvo/transcriptGuard'
 import { consumeNextEngvoWelcomeMessage } from '@/lib/engvo/welcomeMessageRotation'
 import {
   createRealtimeTranscriptState,
@@ -911,6 +916,20 @@ export default function Home() {
     [resetEngvoAssistantTurn]
   )
 
+  const scheduleEngvoSessionUpdateRetry = useCallback(() => {
+    if (engvoSessionUpdateRetryTimeoutRef.current !== null) return
+    engvoSessionUpdateRetryTimeoutRef.current = window.setTimeout(() => {
+      engvoSessionUpdateRetryTimeoutRef.current = null
+      setEngvoSessionUpdateTick((prev) => prev + 1)
+    }, 300)
+  }, [])
+
+  const clearEngvoSessionUpdateRetry = useCallback(() => {
+    if (engvoSessionUpdateRetryTimeoutRef.current === null) return
+    window.clearTimeout(engvoSessionUpdateRetryTimeoutRef.current)
+    engvoSessionUpdateRetryTimeoutRef.current = null
+  }, [])
+
   const cleanupEngvoRuntime = useCallback(
     (options?: { markIgnoredCurrent?: boolean }) => {
       clearEngvoInactivityTimeout()
@@ -1034,6 +1053,7 @@ export default function Home() {
         instructions: buildEngvoRealtimeInstructionsClient({
           audience: settings.audience,
           level: payload.level ?? engvoCefrLevel,
+          topic: settings.topic,
         }),
         speed: clampEngvoRealtimeSpeed(
           payload.speed ?? engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset)
@@ -1056,22 +1076,8 @@ export default function Home() {
         },
       })
     },
-    [engvoCefrLevel, engvoSpeechSpeedPreset, sendEngvoRealtimeEvent, settings.audience]
+    [engvoCefrLevel, engvoSpeechSpeedPreset, sendEngvoRealtimeEvent, settings.audience, settings.topic]
   )
-
-  const scheduleEngvoSessionUpdateRetry = useCallback(() => {
-    if (engvoSessionUpdateRetryTimeoutRef.current !== null) return
-    engvoSessionUpdateRetryTimeoutRef.current = window.setTimeout(() => {
-      engvoSessionUpdateRetryTimeoutRef.current = null
-      setEngvoSessionUpdateTick((prev) => prev + 1)
-    }, 300)
-  }, [])
-
-  const clearEngvoSessionUpdateRetry = useCallback(() => {
-    if (engvoSessionUpdateRetryTimeoutRef.current === null) return
-    window.clearTimeout(engvoSessionUpdateRetryTimeoutRef.current)
-    engvoSessionUpdateRetryTimeoutRef.current = null
-  }, [])
 
   const isEngvoSafeForSessionUpdate = useCallback((): boolean => {
     if (!engvoVoiceMode) return false
@@ -1213,8 +1219,11 @@ export default function Home() {
               type: 'response.create',
               response: {
                 modalities: ['audio', 'text'],
-                instructions:
-                  'The learner reconnected after a short break. Continue the conversation naturally in English from where it left off: reply briefly, react to their last point if relevant, and ask one friendly follow-up question. Match the configured CEFR level and audience from session instructions.',
+                instructions: buildEngvoContinuationResponseInstructions({
+                  audience: settings.audience,
+                  level: engvoCefrLevel,
+                  topic: settings.topic,
+                }),
               },
             })
             if (continuationSent) {
@@ -1226,8 +1235,11 @@ export default function Home() {
               type: 'response.create',
               response: {
                 modalities: ['audio', 'text'],
-                instructions:
-                  'Greet the learner briefly in English in one short sentence and ask one open-ended question to start a friendly conversation. Match configured CEFR level and audience.',
+                instructions: buildEngvoFirstTurnResponseInstructions({
+                  audience: settings.audience,
+                  level: engvoCefrLevel,
+                  topic: settings.topic,
+                }),
               },
             })
             if (greetingSent) {
@@ -1283,6 +1295,10 @@ export default function Home() {
             return
           }
           if (isLikelyEngvoCallHallucination(transcript)) {
+            setEngvoCallPhase('listening')
+            return
+          }
+          if (transcript && !shouldShowEngvoVoiceUserTranscript(transcript)) {
             setEngvoCallPhase('listening')
             return
           }
@@ -1392,12 +1408,15 @@ export default function Home() {
       clearEngvoTimeout,
       sendEngvoRealtimeEvent,
       commitEngvoAssistantText,
+      engvoCefrLevel,
       messages,
       engvoAssistantPendingText,
       resetEngvoAssistantTurn,
       setEngvoSessionError,
       isEngvoDeferredSessionUpdateConflict,
       markEngvoSessionUpdateAck,
+      settings.audience,
+      settings.topic,
       scheduleEngvoSessionUpdateRetry,
       stopEngvoPlayback,
     ]
@@ -1535,6 +1554,7 @@ export default function Home() {
             instructions: buildEngvoRealtimeInstructionsClient({
               audience: settings.audience,
               level: engvoCefrLevel,
+              topic: settings.topic,
             }),
             speed: clampEngvoRealtimeSpeed(engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset)),
             input_audio_transcription: buildEngvoInputAudioTranscriptionConfig(),
@@ -1578,6 +1598,7 @@ export default function Home() {
         body: JSON.stringify({
           sdp: localSdp,
           audience: settings.audience,
+          topic: settings.topic,
           voice: engvoRealtimeVoice,
           level: engvoCefrLevel,
           speed: clampEngvoRealtimeSpeed(engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset)),
@@ -1630,6 +1651,7 @@ export default function Home() {
     clearEngvoSessionUpdateRetry,
     setEngvoSessionError,
     settings.audience,
+    settings.topic,
   ])
 
   const hangUpEngvoCall = useCallback(() => {
@@ -1692,7 +1714,7 @@ export default function Home() {
   useEffect(() => {
     if (!engvoVoiceMode || !engvoSessionStartedRef.current) return
     updateEngvoRealtimeSession({ level: engvoCefrLevel })
-  }, [engvoVoiceMode, engvoCefrLevel, settings.audience, updateEngvoRealtimeSession])
+  }, [engvoVoiceMode, engvoCefrLevel, settings.audience, settings.topic, updateEngvoRealtimeSession])
 
   useEffect(() => {
     if (!engvoVoiceMode) return

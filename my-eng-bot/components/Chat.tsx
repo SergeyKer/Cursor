@@ -2066,6 +2066,7 @@ export default function Chat({
                       voiceId={settings.voiceId}
                       mode={isEngvoActive ? 'communication' : settings.mode}
                       bubblePosition={bubblePosition}
+                      engvoSlideEnter={isEngvoActive}
                       onRequestTranslation={onRequestTranslation}
                       isLoadingTranslation={loadingTranslationIndex === i}
                       translationHeadingWelcome={
@@ -2169,6 +2170,7 @@ export default function Chat({
                 <TypingIndicator
                   isVisible={canShowTypingIndicator}
                   exitTransitionMs={isEngvoActive ? 0 : undefined}
+                  plainStatus={engvoBootstrapTypingActive}
                   label={typingIndicatorText}
                   title={
                     engvoBootstrapTypingActive
@@ -2449,6 +2451,7 @@ function MessageBubble({
   voiceId,
   mode,
   bubblePosition,
+  engvoSlideEnter = false,
   onRequestTranslation,
   isLoadingTranslation,
   translationHeadingWelcome = true,
@@ -2460,6 +2463,8 @@ function MessageBubble({
   voiceId: string
   mode: 'dialogue' | 'translation' | 'communication'
   bubblePosition: BubblePosition
+  /** В звонке Engvo — такое же появление пузыря снизу, как в уроках (`.lesson-enter`). */
+  engvoSlideEnter?: boolean
   onRequestTranslation?: (index: number, text: string) => void
   isLoadingTranslation?: boolean
   /** Первое задание перевода в чате — подпись «Переведи:»; иначе «Переведи далее:». */
@@ -2853,7 +2858,7 @@ function MessageBubble({
   if (!isUser && isEngvoServiceLineBubble) {
     return (
       <div
-        className="flex justify-center"
+        className={engvoSlideEnter ? 'lesson-enter flex justify-center' : 'flex justify-center'}
         dir="ltr"
         role="status"
         aria-live="polite"
@@ -2876,6 +2881,7 @@ function MessageBubble({
       data-message-index={messageIndex}
       data-role={message.role}
       rowClassName={rowSpacingClass}
+      className={engvoSlideEnter ? 'lesson-enter' : undefined}
     >
         {isUser ? (
           <>

@@ -10,8 +10,9 @@ import {
   isEngvoCefrLevel,
   isEngvoRealtimeVoice,
 } from '@/lib/engvo/constants'
+import { TOPICS } from '@/lib/constants'
 import { fetchWithProxyFallback } from '@/lib/proxyFetch'
-import type { Audience } from '@/lib/types'
+import type { Audience, TopicId } from '@/lib/types'
 
 export const runtime = 'nodejs'
 
@@ -83,6 +84,7 @@ export async function POST(req: NextRequest) {
     const body = (await req.json().catch(() => ({}))) as {
       sdp?: string
       audience?: Audience
+      topic?: string
       voice?: string
       level?: string
       speed?: unknown
@@ -96,9 +98,12 @@ export async function POST(req: NextRequest) {
     const audience: Audience = body.audience === 'child' ? 'child' : 'adult'
     const requestedVoice = body.voice ?? ''
     const requestedLevel = body.level ?? ''
+    const requestedTopic = body.topic ?? ''
     const voice = isEngvoRealtimeVoice(requestedVoice) ? requestedVoice : ENGVO_DEFAULT_VOICE
     const level = isEngvoCefrLevel(requestedLevel) ? requestedLevel : ENGVO_DEFAULT_LEVEL
-    const instructions = buildEngvoRealtimeInstructions({ audience, level })
+    const topicIds = new Set<TopicId>(TOPICS.map((item) => item.id))
+    const topic = topicIds.has(requestedTopic as TopicId) ? (requestedTopic as TopicId) : 'free_talk'
+    const instructions = buildEngvoRealtimeInstructions({ audience, level, topic })
     const speed =
       typeof body.speed === 'number' && Number.isFinite(body.speed) ? clampEngvoRealtimeSpeed(body.speed) : 1
 
