@@ -528,6 +528,10 @@ type EngvoRealtimeEvent = {
   error?: { message?: string }
 } & Record<string, unknown>
 
+/** Попап XP чуть позже ответа ИИ, чтобы не сливались по времени с появлением сообщения. */
+const REWARD_POPUP_DELAY_AFTER_MESSAGE_MS = 550
+const REWARD_POPUP_VISIBLE_MS = 3200
+
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
@@ -3642,10 +3646,16 @@ export default function Home() {
     const popupText = levelUpNow
       ? `+${rewardAmount} XP • Новый уровень: ${levelUpNow.to}`
       : `+${rewardAmount} XP`
-    setRewardPopupText(popupText)
-    const timerId = window.setTimeout(() => setRewardPopupText(null), 3200)
+    setRewardPopupText(null)
+    const showTimerId = window.setTimeout(() => {
+      setRewardPopupText(popupText)
+    }, REWARD_POPUP_DELAY_AFTER_MESSAGE_MS)
+    const hideTimerId = window.setTimeout(() => {
+      setRewardPopupText(null)
+    }, REWARD_POPUP_DELAY_AFTER_MESSAGE_MS + REWARD_POPUP_VISIBLE_MS)
     return () => {
-      window.clearTimeout(timerId)
+      window.clearTimeout(showTimerId)
+      window.clearTimeout(hideTimerId)
     }
   }, [storageLoaded, rewardsState.ui.lastLevelUp, rewardsState.ui.lastReward])
 
@@ -4214,25 +4224,38 @@ export default function Home() {
     if (Number.isNaN(timestamp)) return null
     return Date.now() - timestamp <= 35_000 ? ticker : null
   }, [rewardsState.ui.footerTicker, rewardsState.ui.lastReward?.at])
+  // Тикер награды (например «Ответы 3/7») привязан к активной сессии: на простом доме/меню без чата и урока
+  // не подмешиваем его, иначе после «домика» верхняя строка футера остаётся от прошлого контекста до TTL.
+  const footerContextRewardTicker =
+    dialogStarted ||
+    isLessonActive ||
+    isLessonIntroActive ||
+    isLessonTipsActive ||
+    isStructuredLessonActive ||
+    isPracticeActive ||
+    isAccentActive ||
+    isVocabularyHubActive
+      ? recentRewardTicker
+      : null
   const footerDynamicText = isAccentActive
-    ? recentRewardTicker ?? accentFooterView?.dynamicText ?? null
+    ? footerContextRewardTicker ?? accentFooterView?.dynamicText ?? null
     : isVocabularyHubActive
-    ? recentRewardTicker ??
+    ? footerContextRewardTicker ??
       vocabularyFooterView?.dynamicText ??
       (vocabularyByLevelActive ? 'Выбери уровень CEFR или тему.' : 'Выбери мир и начни короткую сессию.')
     : isPracticeActive
-    ? recentRewardTicker ?? practiceFooterView?.dynamicText ?? null
+    ? footerContextRewardTicker ?? practiceFooterView?.dynamicText ?? null
     : isLessonIntroActive
-      ? recentRewardTicker ?? introFooterDynamicText
+      ? footerContextRewardTicker ?? introFooterDynamicText
       : isLessonTipsActive
-      ? recentRewardTicker ?? tipsFooterDynamicText
+      ? footerContextRewardTicker ?? tipsFooterDynamicText
       : isStructuredLessonActive
-      ? recentRewardTicker ?? activeStructuredLessonFooterDynamicText
+      ? footerContextRewardTicker ?? activeStructuredLessonFooterDynamicText
       : isLessonActive
-      ? recentRewardTicker ?? learningLessonFooterDynamicText
+      ? footerContextRewardTicker ?? learningLessonFooterDynamicText
       : dialogStarted
-        ? recentRewardTicker ?? chatFooterVoice?.text ?? null
-        : recentRewardTicker ?? adaptiveFooterView?.dynamicText ?? homeFooterVoice?.text ?? null
+        ? footerContextRewardTicker ?? chatFooterVoice?.text ?? null
+        : footerContextRewardTicker ?? adaptiveFooterView?.dynamicText ?? homeFooterVoice?.text ?? null
   const baseFooterStaticText = isAccentActive
     ? accentFooterView?.staticText ?? 'Произношение'
     : isVocabularyHubActive
@@ -4270,7 +4293,7 @@ export default function Home() {
       : dialogStarted
       ? chatFooterVoice?.typingKey ?? 'chat-footer'
       : adaptiveFooterView?.typingKey ?? homeFooterVoice?.typingKey ?? 'home-footer'
-  const footerTypingKey = recentRewardTicker
+  const footerTypingKey = footerContextRewardTicker
     ? `reward-${rewardsState.ui.lastReward?.at ?? rewardsState.timestamp}`
     : baseFooterTypingKey
   const baseFooterVoiceTone = isAccentActive
@@ -4300,7 +4323,7 @@ export default function Home() {
       : dialogStarted
       ? (chatFooterVoice?.tone ?? 'neutral')
       : (adaptiveFooterView?.tone ?? homeFooterVoice?.tone ?? 'neutral')
-  const footerVoiceTone = recentRewardTicker ? 'celebrate' : baseFooterVoiceTone
+  const footerVoiceTone = footerContextRewardTicker ? 'celebrate' : baseFooterVoiceTone
   const baseFooterVoiceEmphasis = isAccentActive
     ? accentFooterView?.emphasis ?? 'none'
     : isVocabularyHubActive
@@ -4323,7 +4346,7 @@ export default function Home() {
       : dialogStarted
       ? (chatFooterVoice?.emphasis ?? 'none')
       : (adaptiveFooterView?.emphasis ?? homeFooterVoice?.emphasis ?? 'none')
-  const footerVoiceEmphasis = recentRewardTicker ? 'pulse' : baseFooterVoiceEmphasis
+  const footerVoiceEmphasis = footerContextRewardTicker ? 'pulse' : baseFooterVoiceEmphasis
   const engvoBootstrapServiceIndicatorText = getEngvoBootstrapServiceIndicatorText(engvoCallPhase)
   const showEngvoBootstrapServiceIndicator =
     engvoVoiceMode &&
