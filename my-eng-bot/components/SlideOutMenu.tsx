@@ -22,6 +22,7 @@ interface SlideOutMenuProps {
   usage: UsageInfo
   dialogueCorrectAnswers: number
   rewardsState?: RewardsState
+  onRewardsStateChange?: (state: RewardsState) => void
   onNewDialog?: () => void
   /** Не рендерить встроенную кнопку (кнопка вынесена в шапку страницы) */
   hideButton?: boolean
@@ -85,6 +86,7 @@ export default function SlideOutMenu({
   usage,
   dialogueCorrectAnswers,
   rewardsState,
+  onRewardsStateChange,
   onNewDialog,
   hideButton = false,
   onStartChat,
@@ -187,6 +189,7 @@ export default function SlideOutMenu({
             usage={usage}
             dialogueCorrectAnswers={dialogueCorrectAnswers}
             rewardsState={rewardsState}
+            onRewardsStateChange={onRewardsStateChange}
             idPrefix="slide-"
             className="flex min-h-0 flex-1 flex-col"
             onStartHomeChat={onStartChat}

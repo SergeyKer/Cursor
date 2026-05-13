@@ -88,7 +88,9 @@ export default function AppFooter({
         >
           {showFooterContent ? (
             <div className="flex items-center gap-2">
-              <span className="truncate">{bottomLine}</span>
+              <span className="truncate" title={bottomLine}>
+                {bottomLine}
+              </span>
               {showVariantProgress && variantProgress && (
                 <div className="flex items-center gap-1" aria-label="Прогресс вариантов упражнения">
                   {Array.from({ length: variantProgress.total }, (_, index) => (

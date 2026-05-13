@@ -36,6 +36,7 @@ interface AccentTrainerProps {
   audience: AccentAudience
   onClose: () => void
   onFooterViewChange?: (view: AccentFooterView | null) => void
+  onSessionCompleted?: (event: { lessonId: string; sessionKind: AccentLessonSessionKind; blockType: AccentBlockType }) => void
   initialLessonId?: string | null
   initialSessionKind?: AccentLessonSessionKind | null
   initialSessionBlockType?: AccentBlockType | null
@@ -137,6 +138,7 @@ export default function AccentTrainer({
   audience,
   onClose,
   onFooterViewChange,
+  onSessionCompleted,
   initialLessonId = null,
   initialSessionKind = null,
   initialSessionBlockType = null,
@@ -155,6 +157,7 @@ export default function AccentTrainer({
   const [manualTranscript, setManualTranscript] = React.useState('')
   const scrollContainerRef = React.useRef<HTMLDivElement | null>(null)
   const previousInitialLessonRequestKeyRef = React.useRef(initialLessonRequestKey)
+  const completionEventRef = React.useRef<string | null>(null)
 
   const stateMachine = useAccentBlockStateMachine()
   const speech = useAccentSpeechRecognition()
@@ -193,6 +196,7 @@ export default function AccentTrainer({
     audio.clear()
     setManualTranscript('')
     setLastFeedback(null)
+    completionEventRef.current = null
   }, [audio, speech, stateMachine])
 
   React.useEffect(() => {
@@ -279,6 +283,18 @@ export default function AccentTrainer({
   const canCheck = transcriptValue.trim().length > 0
   const isPracticeReady = Boolean(lesson && blocks && selectedSession)
   const progressSummary = lesson ? summarizeAccentProgress(lesson.id) : null
+
+  React.useEffect(() => {
+    if (stateMachine.runtime.state !== 'complete' || !isLastBlock || !selectedSession || !lesson) return
+    const signature = `${lesson.id}:${selectedSession.kind}:${blockType}`
+    if (completionEventRef.current === signature) return
+    completionEventRef.current = signature
+    onSessionCompleted?.({
+      lessonId: lesson.id,
+      sessionKind: selectedSession.kind,
+      blockType,
+    })
+  }, [blockType, isLastBlock, lesson, onSessionCompleted, selectedSession, stateMachine.runtime.state])
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">

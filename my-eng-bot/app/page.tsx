@@ -24,16 +24,16 @@ import {
   saveFreeTalkTopicRotationState,
 } from '@/lib/storage'
 import {
-  awardGlobalXp,
+  appendFooterRewardSnapshot,
   createDefaultRewardsState,
+  loadRewardsState,
+  reconcileModeGoalSessions,
+  saveRewardsState,
   formatGlobalFooterStats,
   formatModeGoalFooter,
-  incrementModeGoal,
-  loadRewardsState,
-  saveRewardsState,
-  withDailyActivity,
   type RewardsState,
 } from '@/lib/rewardsState'
+import { applyRewardsEvent } from '@/lib/rewardsEvents'
 import { countDialogueFinalCorrectAnswers } from '@/lib/dialogueStats'
 import { TOPICS, LEVELS, TENSES } from '@/lib/constants'
 import { allowedTensesForAudience } from '@/lib/levelAllowedTenses'
@@ -91,6 +91,7 @@ import type {
   PracticeSource,
 } from '@/types/practice'
 import AppFooter from '@/components/AppFooter'
+import RewardPopup from '@/components/RewardPopup'
 import LessonIntroScreen, { type LessonIntroDepth } from '@/components/LessonIntroScreen'
 import LessonExtraTipsScreen, {
   type LessonExtraTipsFooterStatus,
@@ -531,6 +532,7 @@ export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [rewardsState, setRewardsState] = useState<RewardsState>(createDefaultRewardsState())
+  const [rewardPopupText, setRewardPopupText] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [communicationVoiceDropdownOpen, setCommunicationVoiceDropdownOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -631,6 +633,8 @@ export default function Home() {
   const dialogueCorrectAnswers = React.useMemo(() => countDialogueFinalCorrectAnswers(messages), [messages])
   const rewardedStructuredLessonRef = React.useRef<string | null>(null)
   const rewardedPracticeSessionRef = React.useRef<string | null>(null)
+  const rewardedLessonStepSnapshotRef = React.useRef<{ key: string; count: number } | null>(null)
+  const rewardPopupSeenRef = React.useRef<string | null>(null)
   /** Настройки на момент последней отправки сообщения; для баннера «настройки изменены». */
   const [settingsAtLastSend, setSettingsAtLastSend] = useState<Settings | null>(null)
   const initialLoadDoneRef = React.useRef(false)
@@ -698,18 +702,13 @@ export default function Home() {
   /** Предыдущий экран меню на главной: для сброса модели при возврате на корень (root). */
   const prevHomeMenuViewForModelResetRef = React.useRef<MenuView | null>(null)
   const bumpCommunicationGoal = useCallback(() => {
-    setRewardsState((prev) =>
-      incrementModeGoal(prev, 'communication', {
-        completionXp: 35,
-      })
-    )
+    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'communication_turn_completed' }))
   }, [])
   const bumpEngvoGoal = useCallback(() => {
-    setRewardsState((prev) =>
-      incrementModeGoal(prev, 'engvo', {
-        completionXp: 35,
-      })
-    )
+    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'engvo_turn_completed' }))
+  }, [])
+  const handleAccentSessionCompleted = useCallback(() => {
+    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'accent_session_completed' }))
   }, [])
   /** iPhone / iPad / iPod и iPadOS с десктопным UA (Macintosh + Mobile). */
   const isIosClient = React.useMemo(() => {
@@ -3478,7 +3477,7 @@ export default function Home() {
 
   useEffect(() => {
     const state = loadState()
-    const rewards = loadRewardsState()
+    const rewards = reconcileModeGoalSessions(loadRewardsState())
     if (!initialLoadDoneRef.current) {
       initialLoadDoneRef.current = true
       setMessages([])
@@ -3579,19 +3578,44 @@ export default function Home() {
 
   useEffect(() => {
     if (!storageLoaded) return
+    setRewardsState((prev) => reconcileModeGoalSessions(prev))
+  }, [storageLoaded, dialogStarted, settings.mode, engvoVoiceMode])
+
+  useEffect(() => {
+    if (!storageLoaded) return
     saveRewardsState(rewardsState)
   }, [storageLoaded, rewardsState])
+
+  useEffect(() => {
+    if (!storageLoaded || !activeStructuredLesson) {
+      rewardedLessonStepSnapshotRef.current = null
+      return
+    }
+    const lessonKey = `${activeStructuredLesson.id}:${activeStructuredLesson.runKey ?? 'static'}`
+    const currentCount = activeStructuredLessonCompletedSteps.length
+    const snapshot = rewardedLessonStepSnapshotRef.current
+    if (!snapshot || snapshot.key !== lessonKey) {
+      rewardedLessonStepSnapshotRef.current = { key: lessonKey, count: currentCount }
+      return
+    }
+    if (currentCount <= snapshot.count) return
+    const delta = currentCount - snapshot.count
+    rewardedLessonStepSnapshotRef.current = { key: lessonKey, count: currentCount }
+    setRewardsState((prev) => {
+      let next = prev
+      for (let index = 0; index < delta; index += 1) {
+        next = applyRewardsEvent(next, { type: 'lesson_step_completed' })
+      }
+      return next
+    })
+  }, [storageLoaded, activeStructuredLesson, activeStructuredLessonCompletedSteps.length])
 
   useEffect(() => {
     if (!storageLoaded || !activeStructuredLesson || activeStructuredLessonStatus !== 'completed') return
     const lessonRewardKey = `${activeStructuredLesson.id}:${activeStructuredLesson.runKey ?? 'static'}`
     if (rewardedStructuredLessonRef.current === lessonRewardKey) return
     rewardedStructuredLessonRef.current = lessonRewardKey
-    setRewardsState((prev) =>
-      awardGlobalXp(withDailyActivity(prev), 45, 'lesson_completed', {
-        ticker: 'Урок завершён. +45 XP за полное прохождение.',
-      })
-    )
+    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'lesson_completed' }))
   }, [storageLoaded, activeStructuredLesson, activeStructuredLessonStatus])
 
   useEffect(() => {
@@ -3599,12 +3623,31 @@ export default function Home() {
     const practiceRewardKey = practiceSession.session.id
     if (rewardedPracticeSessionRef.current === practiceRewardKey) return
     rewardedPracticeSessionRef.current = practiceRewardKey
-    setRewardsState((prev) =>
-      awardGlobalXp(withDailyActivity(prev), 30, 'practice_completed', {
-        ticker: 'Практика завершена. +30 XP за закрытую сессию.',
-      })
-    )
+    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'practice_completed' }))
   }, [storageLoaded, practiceSession.session])
+
+  useEffect(() => {
+    if (!storageLoaded) return
+    const rewardAt = rewardsState.ui.lastReward?.at
+    if (!rewardAt) return
+    const marker = `${rewardAt}:${rewardsState.ui.lastLevelUp?.at ?? ''}`
+    if (rewardPopupSeenRef.current === null) {
+      rewardPopupSeenRef.current = marker
+      return
+    }
+    if (rewardPopupSeenRef.current === marker) return
+    rewardPopupSeenRef.current = marker
+    const rewardAmount = rewardsState.ui.lastReward?.amount ?? 0
+    const levelUpNow = rewardsState.ui.lastLevelUp?.at === rewardAt ? rewardsState.ui.lastLevelUp : null
+    const popupText = levelUpNow
+      ? `+${rewardAmount} XP • Новый уровень: ${levelUpNow.to}`
+      : `+${rewardAmount} XP`
+    setRewardPopupText(popupText)
+    const timerId = window.setTimeout(() => setRewardPopupText(null), 3200)
+    return () => {
+      window.clearTimeout(timerId)
+    }
+  }, [storageLoaded, rewardsState.ui.lastLevelUp, rewardsState.ui.lastReward])
 
   const handleSend = useCallback(
     async (text: string) => {
@@ -3653,9 +3696,6 @@ export default function Home() {
         messagesWithCurrentUser: nextMessages,
       })
       setMessages(nextMessages)
-      if (settings.mode === 'communication') {
-        bumpCommunicationGoal()
-      }
       if (settings.mode === 'communication') {
         const indicatorLang = getExpectedCommunicationReplyLang(nextMessages, {
           inputPreference: nextCommunicationExpectedLang ?? settings.communicationInputExpectedLang,
@@ -3718,6 +3758,9 @@ export default function Home() {
             webSearchTriggered: response.webSearchTriggered,
           },
         ])
+        if (settings.mode === 'communication') {
+          bumpCommunicationGoal()
+        }
         setSettingsAtLastSend(settings)
         void fetchUsage()
       } catch (e) {
@@ -4163,29 +4206,34 @@ export default function Home() {
       : lessonExtraTipsStatus === 'more-loading' || lessonExtraTipsStatus === 'more-ready'
         ? 'Фишки темы | ещё 1 блок'
         : 'Дополнительные фишки | 0/7 шагов'
+  const recentRewardTicker = React.useMemo(() => {
+    const ticker = rewardsState.ui.footerTicker?.trim()
+    const lastRewardAt = rewardsState.ui.lastReward?.at
+    if (!ticker || !lastRewardAt) return null
+    const timestamp = new Date(lastRewardAt).getTime()
+    if (Number.isNaN(timestamp)) return null
+    return Date.now() - timestamp <= 35_000 ? ticker : null
+  }, [rewardsState.ui.footerTicker, rewardsState.ui.lastReward?.at])
   const footerDynamicText = isAccentActive
-    ? accentFooterView?.dynamicText ?? null
+    ? recentRewardTicker ?? accentFooterView?.dynamicText ?? null
     : isVocabularyHubActive
-    ? vocabularyFooterView?.dynamicText ??
+    ? recentRewardTicker ??
+      vocabularyFooterView?.dynamicText ??
       (vocabularyByLevelActive ? 'Выбери уровень CEFR или тему.' : 'Выбери мир и начни короткую сессию.')
     : isPracticeActive
-    ? practiceFooterView?.dynamicText ?? null
+    ? recentRewardTicker ?? practiceFooterView?.dynamicText ?? null
     : isLessonIntroActive
-      ? introFooterDynamicText
+      ? recentRewardTicker ?? introFooterDynamicText
       : isLessonTipsActive
-      ? tipsFooterDynamicText
+      ? recentRewardTicker ?? tipsFooterDynamicText
       : isStructuredLessonActive
-      ? activeStructuredLessonFooterDynamicText
+      ? recentRewardTicker ?? activeStructuredLessonFooterDynamicText
       : isLessonActive
-      ? learningLessonFooterDynamicText
+      ? recentRewardTicker ?? learningLessonFooterDynamicText
       : dialogStarted
-        ? settings.mode === 'communication'
-          ? rewardsState.ui.footerTicker ?? chatFooterVoice?.text ?? null
-          : engvoVoiceMode
-            ? rewardsState.ui.footerTicker ?? chatFooterVoice?.text ?? null
-            : chatFooterVoice?.text ?? null
-        : adaptiveFooterView?.dynamicText ?? rewardsState.ui.footerTicker ?? homeFooterVoice?.text ?? null
-  const footerStaticText = isAccentActive
+        ? recentRewardTicker ?? chatFooterVoice?.text ?? null
+        : recentRewardTicker ?? adaptiveFooterView?.dynamicText ?? homeFooterVoice?.text ?? null
+  const baseFooterStaticText = isAccentActive
     ? accentFooterView?.staticText ?? 'Произношение'
     : isVocabularyHubActive
     ? vocabularyFooterView?.staticText ?? (vocabularyByLevelActive ? 'Слова по уровням' : 'Необходимые слова')
@@ -4206,7 +4254,8 @@ export default function Home() {
             ? formatModeGoalFooter('engvo', rewardsState)
             : getMenuSummary(false)
         : adaptiveFooterView?.staticText ?? formatGlobalFooterStats(rewardsState)
-  const footerTypingKey = isAccentActive
+  const footerStaticText = appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)
+  const baseFooterTypingKey = isAccentActive
     ? accentFooterView?.typingKey ?? 'accent-footer'
     : isVocabularyHubActive
     ? vocabularyFooterView?.typingKey ?? 'vocabulary-footer'
@@ -4221,7 +4270,10 @@ export default function Home() {
       : dialogStarted
       ? chatFooterVoice?.typingKey ?? 'chat-footer'
       : adaptiveFooterView?.typingKey ?? homeFooterVoice?.typingKey ?? 'home-footer'
-  const footerVoiceTone = isAccentActive
+  const footerTypingKey = recentRewardTicker
+    ? `reward-${rewardsState.ui.lastReward?.at ?? rewardsState.timestamp}`
+    : baseFooterTypingKey
+  const baseFooterVoiceTone = isAccentActive
     ? accentFooterView?.tone ?? 'neutral'
     : isVocabularyHubActive
     ? 'support'
@@ -4248,7 +4300,8 @@ export default function Home() {
       : dialogStarted
       ? (chatFooterVoice?.tone ?? 'neutral')
       : (adaptiveFooterView?.tone ?? homeFooterVoice?.tone ?? 'neutral')
-  const footerVoiceEmphasis = isAccentActive
+  const footerVoiceTone = recentRewardTicker ? 'celebrate' : baseFooterVoiceTone
+  const baseFooterVoiceEmphasis = isAccentActive
     ? accentFooterView?.emphasis ?? 'none'
     : isVocabularyHubActive
     ? 'none'
@@ -4270,6 +4323,7 @@ export default function Home() {
       : dialogStarted
       ? (chatFooterVoice?.emphasis ?? 'none')
       : (adaptiveFooterView?.emphasis ?? homeFooterVoice?.emphasis ?? 'none')
+  const footerVoiceEmphasis = recentRewardTicker ? 'pulse' : baseFooterVoiceEmphasis
   const engvoBootstrapServiceIndicatorText = getEngvoBootstrapServiceIndicatorText(engvoCallPhase)
   const showEngvoBootstrapServiceIndicator =
     engvoVoiceMode &&
@@ -4679,6 +4733,7 @@ export default function Home() {
                     usage={usage}
                     dialogueCorrectAnswers={dialogueCorrectAnswers}
                     rewardsState={rewardsState}
+                    onRewardsStateChange={setRewardsState}
                     idPrefix="home-"
                     className="flex min-h-0 flex-col"
                     homeLayout
@@ -4761,6 +4816,7 @@ export default function Home() {
                   audience={settings.audience}
                   onClose={goToStartScreen}
                   onFooterViewChange={setAccentFooterView}
+                  onSessionCompleted={handleAccentSessionCompleted}
                   initialLessonId={activeAccentLessonId}
                   initialLessonRequestKey={accentLessonRequestKey}
                 />
@@ -4906,6 +4962,8 @@ export default function Home() {
         )}
       </main>
 
+      <RewardPopup text={rewardPopupText ?? ''} visible={Boolean(rewardPopupText)} />
+
       {/* Как и шапка: футер — fixed поверх бокового меню (z-50); спейсер оставляет тот же запас, что и блок в потоке. */}
       <div
         className={`shrink-0 ${
@@ -4948,6 +5006,7 @@ export default function Home() {
         usage={usage}
         dialogueCorrectAnswers={dialogueCorrectAnswers}
         rewardsState={rewardsState}
+        onRewardsStateChange={setRewardsState}
         onStartChat={handleStartChatFromMenu}
         onOpenEngvoVoiceChat={handleOpenEngvoVoiceChat}
         engvoRealtimeVoice={engvoRealtimeVoice}

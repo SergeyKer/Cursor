@@ -49,6 +49,11 @@ export interface RewardUiState {
     reason: string
     at: string
   } | null
+  lastLevelUp: {
+    from: number
+    to: number
+    at: string
+  } | null
 }
 
 export interface RewardsState {
@@ -60,6 +65,8 @@ export interface RewardsState {
   modeGoals: Record<ModeGoalId, ModeGoalState>
   ui: RewardUiState
 }
+
+const MODE_GOAL_SESSION_TTL_MS = 45 * 60 * 1000
 
 export function getTodayDateString(date: Date = new Date()): string {
   const y = date.getFullYear()
@@ -125,6 +132,7 @@ export function createDefaultRewardsState(): RewardsState {
     ui: {
       footerTicker: 'Готов к следующему шагу.',
       lastReward: null,
+      lastLevelUp: null,
     },
   }
 }
@@ -173,7 +181,7 @@ function normalizeRewardsState(raw: unknown): RewardsState {
   const src = raw as Partial<RewardsState>
   const totalXP = typeof src.progress?.totalXP === 'number' ? Math.max(0, Math.floor(src.progress.totalXP)) : 0
   const levelView = calculateLevel(totalXP)
-  return {
+  const normalized: RewardsState = {
     version: REWARDS_STATE_VERSION,
     timestamp: typeof src.timestamp === 'string' ? src.timestamp : new Date().toISOString(),
     profile: {
@@ -229,8 +237,20 @@ function normalizeRewardsState(raw: unknown): RewardsState {
               at: src.ui.lastReward.at,
             }
           : null,
+      lastLevelUp:
+        src.ui?.lastLevelUp &&
+        typeof src.ui.lastLevelUp.from === 'number' &&
+        typeof src.ui.lastLevelUp.to === 'number' &&
+        typeof src.ui.lastLevelUp.at === 'string'
+          ? {
+              from: Math.max(1, Math.floor(src.ui.lastLevelUp.from)),
+              to: Math.max(1, Math.floor(src.ui.lastLevelUp.to)),
+              at: src.ui.lastLevelUp.at,
+            }
+          : null,
     },
   }
+  return reconcileModeGoalSessions(normalized)
 }
 
 export function loadRewardsState(): RewardsState {
@@ -289,6 +309,8 @@ export function awardGlobalXp(
   const totalXP = nextState.progress.totalXP + safeAmount
   const levelView = calculateLevel(totalXP)
   const ticker = options?.ticker ?? `+${safeAmount} XP. Отличный шаг вперёд.`
+  const leveledUp = levelView.level > nextState.progress.level
+  const rewardAt = new Date().toISOString()
   return {
     ...nextState,
     progress: {
@@ -304,9 +326,57 @@ export function awardGlobalXp(
       lastReward: {
         amount: safeAmount,
         reason,
-        at: new Date().toISOString(),
+        at: rewardAt,
       },
+      lastLevelUp: leveledUp
+        ? {
+            from: nextState.progress.level,
+            to: levelView.level,
+            at: rewardAt,
+          }
+        : nextState.ui.lastLevelUp,
     },
+  }
+}
+
+function resolveGoalSessionExpiry(goal: ModeGoalState, nowTs: number): boolean {
+  if (goal.status !== 'in_progress') return false
+  const started = parseDateOrNull(goal.sessionStartedAt)
+  if (!started) return false
+  return nowTs - started.getTime() > MODE_GOAL_SESSION_TTL_MS
+}
+
+function abandonGoalSession(goal: ModeGoalState): ModeGoalState {
+  return {
+    ...goal,
+    status: 'abandoned',
+    completed: false,
+    goalProgress: 0,
+    sessionStartedAt: null,
+    sessionCompletedAt: null,
+  }
+}
+
+export function reconcileModeGoalSessions(state: RewardsState, now: Date = new Date()): RewardsState {
+  const nowTs = now.getTime()
+  let changed = false
+  const nextGoals = (Object.keys(state.modeGoals) as ModeGoalId[]).reduce<Record<ModeGoalId, ModeGoalState>>(
+    (acc, mode) => {
+      const existing = state.modeGoals[mode]
+      if (resolveGoalSessionExpiry(existing, nowTs)) {
+        changed = true
+        acc[mode] = abandonGoalSession(existing)
+      } else {
+        acc[mode] = existing
+      }
+      return acc
+    },
+    {} as Record<ModeGoalId, ModeGoalState>
+  )
+  if (!changed) return state
+  return {
+    ...state,
+    modeGoals: nextGoals,
   }
 }
 
@@ -315,7 +385,8 @@ export function incrementModeGoal(
   mode: ModeGoalId,
   options?: { progressXp?: number; completionXp?: number; tickerOnProgress?: string; tickerOnComplete?: string }
 ): RewardsState {
-  const existing = state.modeGoals[mode]
+  const lifecycleState = reconcileModeGoalSessions(state)
+  const existing = lifecycleState.modeGoals[mode]
   const shouldStartNewSession =
     existing.status === 'not_started' || existing.status === 'abandoned' || existing.completed
   const inProgress: ModeGoalState = shouldStartNewSession
@@ -332,9 +403,9 @@ export function incrementModeGoal(
   const nextProgress = Math.min(inProgress.goalTarget, inProgress.goalProgress + 1)
   const completedNow = !inProgress.completed && nextProgress >= inProgress.goalTarget
   let nextState: RewardsState = {
-    ...state,
+    ...lifecycleState,
     modeGoals: {
-      ...state.modeGoals,
+      ...lifecycleState.modeGoals,
       [mode]: {
         ...inProgress,
         goalProgress: nextProgress,
@@ -371,8 +442,20 @@ export function formatGlobalFooterStats(state: RewardsState): string {
   return `⭐ ${state.progress.totalXP} | 🔥 ${state.progress.dailyStreak} | 🪙 ${state.currencies.coins} | 💎 ${state.currencies.gems} | 🎫 ${state.currencies.tickets}`
 }
 
+export function formatCompactFooterStats(state: RewardsState): string {
+  return `⭐ ${state.progress.totalXP} | 🔥 ${state.progress.dailyStreak}`
+}
+
 export function formatModeGoalFooter(mode: ModeGoalId, state: RewardsState): string {
   const goal = state.modeGoals[mode]
   const label = mode === 'communication' ? 'Ответы' : 'Реплики'
   return `${label} ${goal.goalProgress}/${goal.goalTarget} | ⭐ ${state.progress.totalXP} | 🔥 ${state.progress.dailyStreak}`
+}
+
+export function appendFooterRewardSnapshot(baseText: string | null | undefined, state: RewardsState): string {
+  const context = typeof baseText === 'string' ? baseText.trim() : ''
+  const compact = formatCompactFooterStats(state)
+  if (!context) return compact
+  if (context.includes('⭐') && context.includes('🔥')) return context
+  return `${context} | ${compact}`
 }

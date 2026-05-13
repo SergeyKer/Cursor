@@ -235,6 +235,14 @@ const MENU_CHOICE_TEXT_CLASS =
 
 const VOICE_DROPDOWN_LANG_PREFIXES: string[] = ['en']
 
+function getTodayDateString(): string {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 export interface MenuSectionPanelsProps {
   menuView: MenuView
   onMenuViewChange: (v: MenuView) => void
@@ -243,6 +251,7 @@ export interface MenuSectionPanelsProps {
   usage: UsageInfo
   dialogueCorrectAnswers: number
   rewardsState?: RewardsState
+  onRewardsStateChange?: (state: RewardsState) => void
   idPrefix?: string
   className?: string
   homeLayout?: boolean
@@ -298,6 +307,7 @@ export default function MenuSectionPanels({
   usage,
   dialogueCorrectAnswers,
   rewardsState,
+  onRewardsStateChange,
   idPrefix = 'menu-',
   className,
   homeLayout = false,
@@ -365,6 +375,20 @@ export default function MenuSectionPanels({
   const [tutorStartingLesson, setTutorStartingLesson] = React.useState(false)
   const [generatingLessonId, setGeneratingLessonId] = React.useState<string | null>(null)
   const [generateLessonError, setGenerateLessonError] = React.useState<string | null>(null)
+  const [profileSavedMessage, setProfileSavedMessage] = React.useState<string | null>(null)
+  const [profileDraft, setProfileDraft] = React.useState<{
+    name: string
+    englishLevel: RewardsState['profile']['englishLevel']
+    language: RewardsState['profile']['preferences']['language']
+    notifications: boolean
+    theme: RewardsState['profile']['preferences']['theme']
+  }>({
+    name: '',
+    englishLevel: 'not_set',
+    language: 'ru',
+    notifications: true,
+    theme: 'default',
+  })
   const uploadInputRef = React.useRef<HTMLInputElement | null>(null)
   const cameraInputRef = React.useRef<HTMLInputElement | null>(null)
   const a2PracticeTopicCopy = PRACTICE_TOPICS_BY_AUDIENCE[settings.audience]
@@ -434,8 +458,95 @@ export default function MenuSectionPanels({
   }, [menuView, initialLessonsPanel])
 
   React.useEffect(() => {
+    if (!rewardsState) return
+    setProfileDraft({
+      name: rewardsState.profile.name ?? '',
+      englishLevel: rewardsState.profile.englishLevel,
+      language: rewardsState.profile.preferences.language,
+      notifications: rewardsState.profile.preferences.notifications,
+      theme: rewardsState.profile.preferences.theme,
+    })
+  }, [rewardsState])
+
+  React.useEffect(() => {
     if (menuView === 'aiChat') onAiChatPanelChange?.(aiChatPanel)
   }, [menuView, aiChatPanel, onAiChatPanelChange])
+
+  const hasProfileChanges = React.useMemo(() => {
+    if (!rewardsState) return false
+    return (
+      profileDraft.name.trim() !== (rewardsState.profile.name ?? '').trim() ||
+      profileDraft.englishLevel !== rewardsState.profile.englishLevel ||
+      profileDraft.language !== rewardsState.profile.preferences.language ||
+      profileDraft.notifications !== rewardsState.profile.preferences.notifications ||
+      profileDraft.theme !== rewardsState.profile.preferences.theme
+    )
+  }, [profileDraft, rewardsState])
+
+  const saveProfileDraft = React.useCallback(() => {
+    if (!rewardsState || !onRewardsStateChange) return
+    onRewardsStateChange({
+      ...rewardsState,
+      profile: {
+        ...rewardsState.profile,
+        name: profileDraft.name.trim(),
+        englishLevel: profileDraft.englishLevel,
+        preferences: {
+          ...rewardsState.profile.preferences,
+          language: profileDraft.language,
+          notifications: profileDraft.notifications,
+          theme: profileDraft.theme,
+        },
+      },
+    })
+    setProfileSavedMessage('Профиль сохранён.')
+    window.setTimeout(() => setProfileSavedMessage(null), 1800)
+  }, [onRewardsStateChange, profileDraft, rewardsState])
+
+  const nextBestAction = React.useMemo(() => {
+    const communication = rewardsState?.modeGoals.communication
+    const engvo = rewardsState?.modeGoals.engvo
+    const today = getTodayDateString()
+    const activeToday = rewardsState?.progress.lastActiveDate === today
+    const streakText = activeToday
+      ? 'Серия на сегодня зафиксирована.'
+      : 'Закройте хотя бы одну цель сегодня, чтобы сохранить серию.'
+    if (communication?.status === 'in_progress' && !communication.completed) {
+      const left = Math.max(0, communication.goalTarget - communication.goalProgress)
+      return {
+        title: `Довести «Общение» до ${communication.goalTarget}/${communication.goalTarget}`,
+        detail: left > 0 ? `Осталось ${left} ответ(ов).` : 'Ещё один шаг до закрытия цикла.',
+        streak: streakText,
+      }
+    }
+    if (engvo?.status === 'in_progress' && !engvo.completed) {
+      const left = Math.max(0, engvo.goalTarget - engvo.goalProgress)
+      return {
+        title: `Довести «Звонок» до ${engvo.goalTarget}/${engvo.goalTarget}`,
+        detail: left > 0 ? `Осталось ${left} реплик.` : 'Ещё один шаг до закрытия цикла.',
+        streak: streakText,
+      }
+    }
+    if ((communication?.status === 'not_started' || communication?.status === 'abandoned') && communication) {
+      return {
+        title: 'Следующий лучший шаг: начать «Общение»',
+        detail: `Цель: ${communication.goalTarget} ответов за короткую сессию.`,
+        streak: streakText,
+      }
+    }
+    if ((engvo?.status === 'not_started' || engvo?.status === 'abandoned') && engvo) {
+      return {
+        title: 'Следующий лучший шаг: начать «Звонок»',
+        detail: `Цель: ${engvo.goalTarget} реплик за короткую сессию.`,
+        streak: streakText,
+      }
+    }
+    return {
+      title: 'Цели дня закрыты',
+      detail: 'Можно запустить новый цикл или перейти к уроку/практике.',
+      streak: streakText,
+    }
+  }, [rewardsState])
 
   const isChild = settings.audience === 'child'
   const childAllowedLevels = new Set(['all', 'a1', 'a2'])
@@ -1856,6 +1967,105 @@ export default function MenuSectionPanels({
               </p>
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
+              <p className="text-[13px] font-medium text-[var(--text-muted)]">Редактировать</p>
+              <div className="mt-2 space-y-2">
+                <label className="block">
+                  <span className="text-[12px] text-[var(--text-muted)]">Имя</span>
+                  <input
+                    type="text"
+                    value={profileDraft.name}
+                    onChange={(event) =>
+                      setProfileDraft((prev) => ({
+                        ...prev,
+                        name: event.target.value,
+                      }))
+                    }
+                    placeholder="Введите имя"
+                    className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[14px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[12px] text-[var(--text-muted)]">Уровень английского</span>
+                  <select
+                    value={profileDraft.englishLevel}
+                    onChange={(event) =>
+                      setProfileDraft((prev) => ({
+                        ...prev,
+                        englishLevel: event.target.value as RewardsState['profile']['englishLevel'],
+                      }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[14px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
+                  >
+                    <option value="not_set">Не указан</option>
+                    <option value="A1">A1</option>
+                    <option value="A2">A2</option>
+                    <option value="B1">B1</option>
+                    <option value="B2">B2</option>
+                    <option value="C1">C1</option>
+                    <option value="C2">C2</option>
+                  </select>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block">
+                    <span className="text-[12px] text-[var(--text-muted)]">Язык</span>
+                    <select
+                      value={profileDraft.language}
+                      onChange={(event) =>
+                        setProfileDraft((prev) => ({
+                          ...prev,
+                          language: event.target.value as RewardsState['profile']['preferences']['language'],
+                        }))
+                      }
+                      className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[14px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
+                    >
+                      <option value="ru">Русский</option>
+                      <option value="en">English</option>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-[12px] text-[var(--text-muted)]">Тема профиля</span>
+                    <select
+                      value={profileDraft.theme}
+                      onChange={(event) =>
+                        setProfileDraft((prev) => ({
+                          ...prev,
+                          theme: event.target.value as RewardsState['profile']['preferences']['theme'],
+                        }))
+                      }
+                      className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[14px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
+                    >
+                      <option value="default">Default</option>
+                      <option value="futuristic">Futuristic</option>
+                      <option value="minimal">Minimal</option>
+                    </select>
+                  </label>
+                </div>
+                <label className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[13px] text-[var(--text)]">
+                  <input
+                    type="checkbox"
+                    checked={profileDraft.notifications}
+                    onChange={(event) =>
+                      setProfileDraft((prev) => ({
+                        ...prev,
+                        notifications: event.target.checked,
+                      }))
+                    }
+                    className="h-4 w-4 rounded border-[var(--border)]"
+                  />
+                  Уведомления включены
+                </label>
+                <button
+                  type="button"
+                  onClick={saveProfileDraft}
+                  disabled={!rewardsState || !onRewardsStateChange || !hasProfileChanges}
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--accent)] px-3 py-2 text-[14px] font-semibold text-[var(--accent-text)] disabled:opacity-50"
+                >
+                  Сохранить профиль
+                </button>
+                {profileSavedMessage ? <p className="text-[12px] text-emerald-600">{profileSavedMessage}</p> : null}
+              </div>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
               <p className="text-[13px] font-medium text-[var(--text-muted)]">Игровая сводка</p>
               <p className="mt-1 text-[13px] text-[var(--text)]">
                 Уровень {rewardsState?.progress.level ?? 1} • ⭐ {rewardsState?.progress.totalXP ?? 0} • 🔥 {rewardsState?.progress.dailyStreak ?? 0}
@@ -2047,12 +2257,36 @@ export default function MenuSectionPanels({
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
               <p className="text-[13px] font-medium text-[var(--text-muted)]">Цели режимов</p>
-              <p className="mt-1 text-[13px] text-[var(--text)]">
-                Общение: {rewardsState?.modeGoals.communication.goalProgress ?? 0}/{rewardsState?.modeGoals.communication.goalTarget ?? 7}
-              </p>
-              <p className="mt-0.5 text-[13px] text-[var(--text)]">
-                Звонок: {rewardsState?.modeGoals.engvo.goalProgress ?? 0}/{rewardsState?.modeGoals.engvo.goalTarget ?? 7}
-              </p>
+              {(['communication', 'engvo'] as const).map((mode) => {
+                const goal = rewardsState?.modeGoals[mode]
+                const label = mode === 'communication' ? 'Общение' : 'Звонок'
+                const statusLabel =
+                  goal?.status === 'completed'
+                    ? 'Завершено'
+                    : goal?.status === 'in_progress'
+                      ? 'В процессе'
+                      : goal?.status === 'abandoned'
+                        ? 'Прервано'
+                        : 'Не начато'
+                return (
+                  <div key={mode} className="mt-1 rounded-md border border-[var(--border)]/70 bg-[var(--menu-control-bg)] px-2.5 py-2">
+                    <p className="text-[13px] text-[var(--text)]">
+                      {label}: {goal?.goalProgress ?? 0}/{goal?.goalTarget ?? 7}
+                    </p>
+                    <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">
+                      Статус: {statusLabel}
+                      {goal?.assigned ? ' • Задание' : ''}
+                      {goal?.estimatedDurationMinutes ? ` • ~${goal.estimatedDurationMinutes} мин` : ''}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
+              <p className="text-[13px] font-medium text-[var(--text-muted)]">Цель дня</p>
+              <p className="mt-1 text-[14px] font-semibold text-[var(--text)]">{nextBestAction.title}</p>
+              <p className="mt-1 text-[13px] text-[var(--text)]">{nextBestAction.detail}</p>
+              <p className="mt-1 text-[12px] text-[var(--text-muted)]">{nextBestAction.streak}</p>
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
               <p className="text-[13px] font-medium text-[var(--text-muted)]">Статистика</p>
