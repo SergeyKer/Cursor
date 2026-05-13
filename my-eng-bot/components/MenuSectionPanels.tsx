@@ -89,7 +89,7 @@ const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
 }
 
 type SettingsMenuPanel = 'summary' | 'provider' | 'openAiModel' | 'voice' | 'theme'
-type EngvoPanel = 'summary' | 'setup' | 'audience' | 'topic' | 'voice' | 'level' | 'speed'
+type EngvoPanel = 'summary' | 'audience' | 'topic' | 'voice' | 'level' | 'speed'
 
 const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
   summary: 'Настройки',
@@ -100,7 +100,6 @@ const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
 }
 const ENGVO_PANEL_TITLE: Record<EngvoPanel, string> = {
   summary: 'Позвонить',
-  setup: 'Настройки звонка',
   audience: 'Стиль общения',
   topic: 'Тема',
   voice: 'Голос',
@@ -724,10 +723,6 @@ export default function MenuSectionPanels({
         engvoPanel === 'level' ||
         engvoPanel === 'speed'
       ) {
-        setEngvoPanel('setup')
-        return
-      }
-      if (engvoPanel === 'setup') {
         setEngvoPanel('summary')
         return
       }
@@ -1017,10 +1012,8 @@ export default function MenuSectionPanels({
                             engvoPanel === 'level' ||
                             engvoPanel === 'speed'
                           )
-                        ? 'Назад к настройкам звонка'
-                        : menuView === 'engvo' && engvoPanel === 'setup'
-                          ? 'Назад к позвонить'
-                          : 'Назад к разделам'
+                        ? 'Назад к позвонить'
+                        : 'Назад к разделам'
               }
             >
               <span className="flex justify-end pr-0.5" aria-hidden>
@@ -1081,31 +1074,28 @@ export default function MenuSectionPanels({
         {menuView === 'engvo' && (
           <>
             {engvoPanel === 'summary' && (
-              <div className={MENU_GROUP_OUTER}>
-                <div className={MENU_GROUP_CLASS}>
-                  <MenuNavRow label="Параметры звонка" onClick={() => setEngvoPanel('setup')} />
-                  <div className="px-3 pt-2 pb-3">
+              <>
+                <div className={MENU_GROUP_OUTER}>
+                  <div className={MENU_GROUP_CLASS}>
+                    <MenuSettingRow label="Стиль общения" value={audienceLabel} onClick={() => setEngvoPanel('audience')} />
+                    <MenuSettingRow label="Тема" value={topicLabel} onClick={() => setEngvoPanel('topic')} />
+                    <MenuSettingRow label="Голос" value={engvoVoiceLabel} onClick={() => setEngvoPanel('voice')} />
+                    <MenuSettingRow label="Уровень" value={engvoLevelLabel} onClick={() => setEngvoPanel('level')} />
+                    <MenuSettingRow
+                      label="Скорость речи"
+                      value={engvoSpeechSpeedLabel}
+                      onClick={() => setEngvoPanel('speed')}
+                    />
+                  </div>
+                </div>
+                {onOpenEngvoVoiceChat && (
+                  <div className="pt-2">
                     <button type="button" onClick={onOpenEngvoVoiceChat} className={MENU_PRIMARY_CTA_CLASS}>
                       Перейти к звонку
                     </button>
                   </div>
-                </div>
-              </div>
-            )}
-            {engvoPanel === 'setup' && (
-              <div className={MENU_GROUP_OUTER}>
-                <div className={MENU_GROUP_CLASS}>
-                  <MenuSettingRow label="Стиль общения" value={audienceLabel} onClick={() => setEngvoPanel('audience')} />
-                  <MenuSettingRow label="Тема" value={topicLabel} onClick={() => setEngvoPanel('topic')} />
-                  <MenuSettingRow label="Голос" value={engvoVoiceLabel} onClick={() => setEngvoPanel('voice')} />
-                  <MenuSettingRow label="Уровень" value={engvoLevelLabel} onClick={() => setEngvoPanel('level')} />
-                  <MenuSettingRow
-                    label="Скорость речи"
-                    value={engvoSpeechSpeedLabel}
-                    onClick={() => setEngvoPanel('speed')}
-                  />
-                </div>
-              </div>
+                )}
+              </>
             )}
             {engvoPanel === 'audience' && (
               <PickerList
@@ -1113,7 +1103,7 @@ export default function MenuSectionPanels({
                 value={settings.audience}
                 onSelect={(id) => {
                   applyAudienceSelection(id as Settings['audience'])
-                  setEngvoPanel('setup')
+                  setEngvoPanel('summary')
                 }}
               />
             )}
@@ -1123,7 +1113,7 @@ export default function MenuSectionPanels({
                 value={settings.topic}
                 onSelect={(id) => {
                   applyTopicSelection(id as TopicId)
-                  setEngvoPanel('setup')
+                  setEngvoPanel('summary')
                 }}
               />
             )}
@@ -1133,7 +1123,7 @@ export default function MenuSectionPanels({
                 value={engvoRealtimeVoice ?? 'alloy'}
                 onSelect={(id) => {
                   onEngvoVoiceChange?.(id as EngvoRealtimeVoice)
-                  setEngvoPanel('setup')
+                  setEngvoPanel('summary')
                 }}
               />
             )}
@@ -1143,7 +1133,7 @@ export default function MenuSectionPanels({
                 value={engvoCefrLevel ?? 'a2'}
                 onSelect={(id) => {
                   onEngvoLevelChange?.(id as EngvoCefrLevel)
-                  setEngvoPanel('setup')
+                  setEngvoPanel('summary')
                 }}
               />
             )}
@@ -1153,7 +1143,7 @@ export default function MenuSectionPanels({
                 value={engvoSpeechSpeedPreset ?? 'conversational'}
                 onSelect={(id) => {
                   onEngvoSpeechSpeedChange?.(id as EngvoSpeechSpeedPresetId)
-                  setEngvoPanel('setup')
+                  setEngvoPanel('summary')
                 }}
               />
             )}
