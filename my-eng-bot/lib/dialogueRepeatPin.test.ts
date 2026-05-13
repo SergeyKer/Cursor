@@ -21,6 +21,16 @@ describe('isDialogueRepeatPinCandidate', () => {
   it('rejects cyrillic in body', () => {
     expect(isDialogueRepeatPinCandidate('I see лес')).toBe(false)
   })
+  it('rejects incomplete sentence tail', () => {
+    expect(isDialogueRepeatPinCandidate('I have been cooking with')).toBe(false)
+  })
+  it('rejects overflow run-on repeat candidate', () => {
+    expect(
+      isDialogueRepeatPinCandidate(
+        'I play with cars at home every day because I like speed and I also play with friends after school and we usually talk about many things together.'
+      )
+    ).toBe(false)
+  })
 })
 
 describe('findDialoguePinCandidateFromMessages', () => {

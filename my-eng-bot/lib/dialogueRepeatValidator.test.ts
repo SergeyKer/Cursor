@@ -6,6 +6,16 @@ describe('isRepeatLexicallyPlausible', () => {
     expect(isRepeatLexicallyPlausible('I will have hased the prepare.')).toBe(false)
     expect(isRepeatLexicallyPlausible('I wontn have car.')).toBe(false)
   })
+  it('rejects incomplete tail sentence', () => {
+    expect(isRepeatLexicallyPlausible('I have been cooking with')).toBe(false)
+  })
+  it('rejects overflow sentence', () => {
+    expect(
+      isRepeatLexicallyPlausible(
+        'I play with cars at home every day because I like speed and I also play with friends after school and we usually talk about many things together before dinner and after lessons.'
+      )
+    ).toBe(false)
+  })
 })
 
 describe('isDialogueRepeatAcceptable', () => {

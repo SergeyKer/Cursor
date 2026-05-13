@@ -22,6 +22,44 @@ function isEnglishQuestionSentence(text: string): boolean {
   return /[A-Za-z]/.test(s)
 }
 
+const INCOMPLETE_TAIL_TOKENS = new Set([
+  'to',
+  'and',
+  'or',
+  'but',
+  'because',
+  'if',
+  'when',
+  'while',
+  'that',
+  'which',
+  'who',
+  'whom',
+  'whose',
+  'where',
+  'after',
+  'before',
+  'with',
+  'without',
+  'for',
+  'from',
+  'in',
+  'on',
+  'at',
+  'of',
+  'about',
+])
+
+function looksLikeIncompleteOrOverflowRepeat(text: string, words: string[]): boolean {
+  const lowerWords = words.map((w) => w.toLowerCase())
+  const lastWord = lowerWords[lowerWords.length - 1] ?? ''
+  if (INCOMPLETE_TAIL_TOKENS.has(lastWord)) return true
+  if (words.length > 22) return true
+  const sentencePunctuationCount = (text.match(/[.!?]/g) ?? []).length
+  if (sentencePunctuationCount > 1) return true
+  return false
+}
+
 /** Минимальная здравость тела «Повтори» для закрепления (отсекаем обрубки вроде «... 2.»). */
 export function isDialogueRepeatPinCandidate(englishRepeatBody: string): boolean {
   const t = englishRepeatBody.trim()
@@ -35,6 +73,7 @@ export function isDialogueRepeatPinCandidate(englishRepeatBody: string): boolean
     .split(/\s+/)
     .filter(Boolean)
   if (words.length < 3) return false
+  if (looksLikeIncompleteOrOverflowRepeat(t, words)) return false
   const last = words[words.length - 1] ?? ''
   if (/^\d+$/.test(last)) return false
   return true

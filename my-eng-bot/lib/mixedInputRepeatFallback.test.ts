@@ -35,6 +35,31 @@ describe('buildMixedInputRepeatFallback', () => {
     expect(out.toLowerCase()).not.toContain('wisited')
   })
 
+  it('maps курицу to chicken in mixed answer instead of stripping to "I eat."', () => {
+    const out = buildMixedInputRepeatFallback({
+      userText: 'I eat курицу',
+      tense: 'present_simple',
+    })
+    expect(out).toBe('I eat chicken.')
+  })
+
+  it('maps мясо to meat in mixed answer', () => {
+    const out = buildMixedInputRepeatFallback({
+      userText: 'I eat мясо',
+      tense: 'present_simple',
+    })
+    expect(out).toBe('I eat meat.')
+  })
+
+  it('for unknown cyrillic object avoids service meta and expands short repeat', () => {
+    const out = buildMixedInputRepeatFallback({
+      userText: 'I eat кашку',
+      tense: 'present_simple',
+    })
+    expect(out).toBe('I eat food.')
+    expect(out).not.toBe('I usually answer in English.')
+  })
+
   it('replaces Russian noun after like without adding infinitive advice', () => {
     const out = buildMixedInputRepeatFallback({
       userText: 'I like фара',
@@ -79,6 +104,22 @@ describe('buildMixedInputRepeatFallback', () => {
     expect(comment).toContain('даче = dacha')
   })
 
+  it('builds a specific English repeat for mixed get-out-of-bed input', () => {
+    const out = buildMixedInputRepeatFallback({
+      userText: 'I встаю с постели',
+      tense: 'present_simple',
+    })
+    const comment = buildMixedDialogueFallbackComment({
+      audience: 'adult',
+      level: 'a2',
+      userText: 'I встаю с постели',
+    })
+
+    expect(out).toBe('I get out of bed.')
+    expect(comment).toContain('встаю = get up')
+    expect(comment).toContain('постели = bed')
+  })
+
   it('builds a specific English repeat for fully Russian dacha sunbathing input', () => {
     const out = buildMixedInputRepeatFallback({
       userText: 'я загораю на даче',
@@ -98,6 +139,15 @@ describe('buildMixedInputRepeatFallback', () => {
     expect(out.toLowerCase()).toContain('repaired')
     expect(out.toLowerCase()).toContain('will have')
     expect(out.toLowerCase()).not.toContain('answered in english')
+  })
+
+  it('normalizes pure-English "I go walk" into a natural repeat', () => {
+    const out = buildMixedInputRepeatFallback({
+      userText: 'I go walk',
+      tense: 'present_simple',
+    })
+    expect(out).toBe('I go for a walk.')
+    expect(out).not.toBe('I usually answer in English.')
   })
 
   it('does not echo noisy Latin learner junk as repeat (future_perfect)', () => {

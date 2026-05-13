@@ -120,6 +120,14 @@ function applyCommonLearnerLatinTypos(s: string): string {
   return t
 }
 
+/** Узкие безопасные правки распространённых грамматических шаблонов в латинице. */
+function applyCommonLearnerLatinGrammarFixes(s: string): string {
+  let t = s
+  t = t.replace(/\bi\s+go\s+walk\b/gi, 'I go for a walk')
+  t = t.replace(/\bi\s+go\s+for\s+walk\b/gi, 'I go for a walk')
+  return t
+}
+
 function fixLikePlusKnownObject(s: string): string {
   return s.replace(/\blike\s+(headlight)\b/gi, (_, noun: string) => `like the ${noun.toLowerCase()}`)
 }
@@ -138,6 +146,26 @@ function isAcceptableRepeat(s: string): boolean {
 function isPlausibleLearnerSentence(s: string): boolean {
   const words = s.trim().split(/\s+/).filter(Boolean)
   return words.length >= 2
+}
+
+const SHORT_REPEAT_OBJECT_BY_VERB: Record<string, string> = {
+  eat: 'food',
+  drink: 'water',
+  play: 'games',
+  read: 'books',
+  watch: 'movies',
+  cook: 'food',
+}
+
+function expandShortLatinRepeatForUnknownCyrillic(s: string): string | null {
+  const words = s.trim().split(/\s+/).filter(Boolean)
+  if (words.length !== 2) return null
+  const subj = (words[0] ?? '').toLowerCase()
+  const verb = (words[1] ?? '').toLowerCase()
+  if (!['i', 'you', 'we', 'they'].includes(subj)) return null
+  const object = SHORT_REPEAT_OBJECT_BY_VERB[verb]
+  if (!object) return null
+  return `${subj} ${verb} ${object}`
 }
 
 /** Латиница для «Повтори» в диалоге: без сырого мусора; при tense=all нужен якорь времени из последнего вопроса. */
@@ -359,6 +387,37 @@ function englishSunbatheAtDachaForTense(tense: string): string {
   }
 }
 
+function englishGetOutOfBedForTense(tense: string): string {
+  switch (tense) {
+    case 'present_continuous':
+      return 'I am getting out of bed.'
+    case 'present_perfect':
+      return 'I have gotten out of bed.'
+    case 'present_perfect_continuous':
+      return 'I have been getting out of bed.'
+    case 'past_simple':
+      return 'I got out of bed.'
+    case 'past_continuous':
+      return 'I was getting out of bed.'
+    case 'past_perfect':
+      return 'I had gotten out of bed.'
+    case 'past_perfect_continuous':
+      return 'I had been getting out of bed.'
+    case 'future_simple':
+      return 'I will get out of bed.'
+    case 'future_continuous':
+      return 'I will be getting out of bed.'
+    case 'future_perfect':
+      return 'I will have gotten out of bed.'
+    case 'future_perfect_continuous':
+      return 'I will have been getting out of bed.'
+    case 'all':
+    case 'present_simple':
+    default:
+      return 'I get out of bed.'
+  }
+}
+
 function englishCouchChillForTense(tense: string, hasAllDay: boolean): string {
   const timeTail = hasAllDay ? ' all day' : ''
   switch (tense) {
@@ -492,6 +551,7 @@ export function buildMixedInputRepeatFallback(params: {
 }): string {
   const { userText, tense, dialogueRepeatAnchorTense } = params
   const lower = userText.toLowerCase()
+  const hasCyrillicInUserText = /[А-Яа-яЁё]/.test(userText)
   const ruTokens = (userText.match(/[А-Яа-яЁё]+/g) ?? [])
     .map((t) => normalizeRuTopicKeyword(t))
     .filter(Boolean)
@@ -512,6 +572,14 @@ export function buildMixedInputRepeatFallback(params: {
   const hasDachaPlace = ruTokens.some((t) => ['дача', 'даче', 'дачу', 'дачей'].includes(t))
   if (hasSunbatheIntent && hasDachaPlace) {
     return englishSunbatheAtDachaForTense(tense)
+  }
+
+  const hasGetOutOfBedIntent = ruTokens.some((t) =>
+    ['встаю', 'вставать', 'встаешь', 'встаёшь', 'встает', 'встаёт', 'встаем', 'встаём', 'встаете', 'встаёте', 'встают', 'встал', 'встала', 'встали'].includes(t)
+  )
+  const hasBedObject = ruTokens.some((t) => ['постель', 'постели'].includes(t))
+  if (hasGetOutOfBedIntent && hasBedObject) {
+    return englishGetOutOfBedForTense(tense)
   }
 
   const hasCouchPlace = ruTokens.some((t) => ['диван', 'диване', 'дивану', 'диваном'].includes(t))
@@ -540,7 +608,9 @@ export function buildMixedInputRepeatFallback(params: {
 
   const phrased = applyMixedRuPhrases(userText)
   const { text: afterCyrillic, replacedAny } = replaceCyrillicWordsWithEnglish(phrased, RU_TOPIC_KEYWORD_TO_EN)
-  const afterLike = applyCommonLearnerLatinTypos(fixLikePlusKnownObject(fixLikePlusBareInfinitive(afterCyrillic)))
+  const afterLike = applyCommonLearnerLatinGrammarFixes(
+    applyCommonLearnerLatinTypos(fixLikePlusKnownObject(fixLikePlusBareInfinitive(afterCyrillic))),
+  )
   const changedLike = afterLike !== afterCyrillic
 
   if (
@@ -555,10 +625,25 @@ export function buildMixedInputRepeatFallback(params: {
   const stripped = applyCommonLearnerLatinTypos(
     afterLike.replace(/[А-Яа-яЁё]+/g, ' ').replace(/\s+/g, ' ').trim(),
   )
+  const strippedWords = stripped.split(/\s+/).filter(Boolean)
+  if (hasCyrillicInUserText && !replacedAny && !changedLike && strippedWords.length <= 2) {
+    const expanded = expandShortLatinRepeatForUnknownCyrillic(stripped)
+    if (
+      expanded &&
+      isAcceptableRepeat(expanded) &&
+      isPlausibleLearnerSentence(expanded) &&
+      isAcceptableDialogueLatinRepeatCandidate(expanded, tense, dialogueRepeatAnchorTense)
+    ) {
+      return finalizeEnglishSentence(expanded)
+    }
+  }
   if (
     stripped &&
     isAcceptableRepeat(stripped) &&
     isPlausibleLearnerSentence(stripped) &&
+    // Если в исходном ответе была кириллица, но мы не смогли ничего безопасно перевести,
+    // не возвращаем короткий обрезок вроде "I eat." — лучше уйти в нейтральный fallback.
+    !(hasCyrillicInUserText && !replacedAny && !changedLike && strippedWords.length <= 2) &&
     isAcceptableDialogueLatinRepeatCandidate(stripped, tense, dialogueRepeatAnchorTense)
   ) {
     return finalizeEnglishSentence(stripped)

@@ -177,6 +177,195 @@ describe('POST /api/chat repeat cycle stability', () => {
       expect(data.content).toContain('Повтори: I like headlights.')
     })
 
+  it('mixed input keeps lexical meaning: "I eat курицу" -> "I eat chicken."', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: 'Комментарий: Используйте только английские слова.\nПовтори: I eat chicken.',
+    })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      topic: 'food',
+      audience: 'adult',
+      level: 'a1',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'What do you usually eat for your favorite food?' },
+        { role: 'user', content: 'I eat курицу' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^(?:Скажи|Повтори)\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine).toContain('I eat chicken.')
+    expect(repeatLine).not.toContain('I eat.')
+  })
+
+  it('mixed input replaces service meta repeat with lexical repeat: "I eat мясо" -> "I eat meat."', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Тут нужно другое слово. "Мясо" по-английски — "meat".\nПовтори: I usually answer in English.',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Тут нужно другое слово. "Мясо" по-английски — "meat".\nПовтори: I usually answer in English.',
+      })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      topic: 'food',
+      audience: 'adult',
+      level: 'a1',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'What do you usually eat for breakfast?' },
+        { role: 'user', content: 'I eat мясо' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^(?:Скажи|Повтори)\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine).toContain('I eat meat.')
+    expect(repeatLine).not.toContain('I usually answer in English.')
+  })
+
+  it('mixed input with unknown cyrillic word never returns service meta repeat', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Напиши полностью по-английски.\nПовтори: I usually answer in English.',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Напиши полностью по-английски.\nПовтори: I usually answer in English.',
+      })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      topic: 'food',
+      audience: 'adult',
+      level: 'a1',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'What do you usually eat for breakfast?' },
+        { role: 'user', content: 'I eat кашку' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^(?:Скажи|Повтори)\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine).toContain('I eat food.')
+    expect(repeatLine).not.toContain('I usually answer in English.')
+  })
+
+  it('mixed input rebuilds service meta repeat for "I встаю с постели"', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Напиши полностью по-английски.\nПовтори: I usually answer in English.',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Напиши полностью по-английски.\nПовтори: I usually answer in English.',
+      })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      topic: 'daily_life',
+      audience: 'adult',
+      level: 'a1',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'What do you usually do in the morning?' },
+        { role: 'user', content: 'I встаю с постели' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^(?:Скажи|Повтори)\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine).toContain('I get out of bed.')
+    expect(repeatLine).not.toContain('I usually answer in English.')
+  })
+
+  it('pure-English input rebuilds service meta repeat for "I go walk"', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Тут нужна другая форма глагола.\nПовтори: I usually answer in English.',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Тут нужна другая форма глагола.\nПовтори: I usually answer in English.',
+      })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      topic: 'daily_life',
+      audience: 'adult',
+      level: 'a1',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'What do you usually do in the morning?' },
+        { role: 'user', content: 'I go walk' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^(?:Скажи|Повтори)\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine).toContain('I go for a walk.')
+    expect(repeatLine).not.toContain('I usually answer in English.')
+  })
+
+  it('pure-English correction without repeat uses pinned sentence, not service meta', async () => {
+    callProviderChatMock
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Тут нужна другая форма глагола. Употребляй "walking" в данном случае.',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Тут нужна другая форма глагола. Употребляй "walking" в данном случае.',
+      })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      topic: 'daily_life',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'What do you usually do in the morning?' },
+        { role: 'user', content: 'I go walk' },
+        { role: 'assistant', content: 'Комментарий: Нужен Present Simple.\nСкажи: I go for a walk in the morning.' },
+        { role: 'user', content: 'I go walk' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^(?:Скажи|Повтори)\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine).toContain('I go for a walk in the morning.')
+    expect(repeatLine).not.toContain('I usually answer in English.')
+  })
+
     it('russian answer hold: keeps unresolved repeat even when Russian text has no known gloss', async () => {
       const req = makeRequest({
         mode: 'dialogue',
@@ -199,6 +388,36 @@ describe('POST /api/chat repeat cycle stability', () => {
       expect(callProviderChatMock).not.toHaveBeenCalled()
       expect(data.content).toContain('Повтори: I went to the park.')
       expect(data.content).not.toContain('What did you do yesterday?')
+    })
+
+    it('does not reuse stale repeat from previous cycle after a new question', async () => {
+      callProviderChatMock.mockResolvedValueOnce({
+        ok: true,
+        content: 'Комментарий: Ответь полным предложением.\nWhy do you like school?',
+      })
+
+      const req = makeRequest({
+        mode: 'dialogue',
+        topic: 'daily_life',
+        audience: 'adult',
+        level: 'a2',
+        tenses: ['present_simple'],
+        messages: [
+          { role: 'assistant', content: 'What places do you visit often?' },
+          { role: 'user', content: 'I visit school' },
+          { role: 'assistant', content: 'Комментарий: Почти верно.\nПовтори: I visit school.' },
+          { role: 'user', content: 'I visit school.' },
+          { role: 'assistant', content: 'Why do you like school?' },
+          { role: 'user', content: 'не знаю' },
+        ],
+      })
+
+      const res = await POST(req as never)
+      const data = (await res.json()) as { content: string }
+
+      expect(res.status).toBe(200)
+      expect(data.content).not.toContain('Повтори: I visit school.')
+      expect(data.content).toMatch(/Why do you like school\?|Повтори:\s*I usually answer in English\./)
     })
   })
 
@@ -1400,6 +1619,124 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(repeatLine).toContain('I play with cars at home.')
     expect(repeatLine).not.toContain('wtih')
     expect(callProviderChatMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps locked repeat when user gives incomplete sentence', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: 'Комментарий: Предложение неполное.\nСкажи: I play with cars at',
+    })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      audience: 'adult',
+      level: 'a1',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'What do you play with at home?' },
+        { role: 'user', content: 'I play with car at home' },
+        { role: 'assistant', content: 'Комментарий: Нужна форма множественного числа.\nСкажи: I play with cars at home.' },
+        { role: 'user', content: 'I play with cars' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^(?:Скажи|Повтори)\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine).toContain('I play with cars at home.')
+    expect(repeatLine).not.toMatch(/\bat\s*$/i)
+    expect(data.content).not.toContain('What do you play with at home?')
+  })
+
+  it('keeps locked repeat when model emits overflow repeat sentence', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content:
+        'Комментарий: Здесь есть лишние части.\nСкажи: I play with cars at home every day and I also play in the yard and at school and in the park and I will play tomorrow too with my friends.',
+    })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'What do you play with at home?' },
+        { role: 'user', content: 'I play with car at home' },
+        { role: 'assistant', content: 'Комментарий: Нужно сохранить простую форму.\nСкажи: I play with cars at home.' },
+        {
+          role: 'user',
+          content: 'I play with cars at home and yesterday I was playing outside and tomorrow I will play again',
+        },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^(?:Скажи|Повтори)\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine).toContain('I play with cars at home.')
+    expect(repeatLine).not.toContain('tomorrow')
+    expect(repeatLine).not.toContain('yesterday')
+  })
+
+  it('keeps locked repeat when user repeats wrong lexical word again', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: 'Комментарий: Нужно исправить слово car.\nСкажи: I play with car at home.',
+    })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      audience: 'adult',
+      level: 'a1',
+      tenses: ['present_simple'],
+      messages: [
+        { role: 'assistant', content: 'What do you play with at home?' },
+        { role: 'user', content: 'I play with car at home' },
+        { role: 'assistant', content: 'Комментарий: Здесь нужно множественное число.\nСкажи: I play with cars at home.' },
+        { role: 'user', content: 'I play with car at home' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^(?:Скажи|Повтори)\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine).toContain('I play with cars at home.')
+    expect(repeatLine).not.toContain('I play with car at home.')
+  })
+
+  it('keeps locked repeat tense in all-tenses mode during unresolved cycle', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: 'Комментарий: Нужен тот же контекст.\nСкажи: I will play football tomorrow.',
+    })
+
+    const req = makeRequest({
+      mode: 'dialogue',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['all'],
+      messages: [
+        { role: 'assistant', content: 'What were you playing yesterday evening?' },
+        { role: 'user', content: 'I play football' },
+        { role: 'assistant', content: 'Комментарий: Нужен Past Continuous.\nСкажи: I was playing football yesterday evening.' },
+        { role: 'user', content: 'I will play football tomorrow' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = await res.json() as { content: string }
+    const repeatLine = data.content.split(/\r?\n/).find((line) => /^(?:Скажи|Повтори)\s*:/i.test(line)) ?? ''
+
+    expect(res.status).toBe(200)
+    expect(repeatLine).toContain('I was playing football yesterday evening.')
+    expect(repeatLine).not.toContain('I will play football tomorrow.')
   })
 
   it('translation success (affirmative) keeps contextual comment and explicit +/?/- construction', async () => {

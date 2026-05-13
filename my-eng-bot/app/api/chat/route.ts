@@ -2933,15 +2933,13 @@ function finalizeDialogueRepeatEnglishBody(params: {
   }
 
   const acceptedCandidate = tryAccept(params.candidateRepeat)
-  if (
-    acceptedCandidate &&
-    (!isGenericDialogueAnsweredInEnglishRepeat(acceptedCandidate) || !params.pinnedRepeat?.trim())
-  ) {
+  const acceptedPinnedRaw = tryAccept(params.pinnedRepeat)
+  const acceptedPinned = acceptedPinnedRaw && !/\?\s*$/.test(acceptedPinnedRaw) ? acceptedPinnedRaw : null
+  if (acceptedPinned) return acceptedPinned
+
+  if (acceptedCandidate && !isGenericDialogueAnsweredInEnglishRepeat(acceptedCandidate)) {
     return acceptedCandidate
   }
-
-  const acceptedPinned = tryAccept(params.pinnedRepeat)
-  if (acceptedPinned) return acceptedPinned
 
   if (acceptedCandidate) return acceptedCandidate
 
@@ -3008,6 +3006,9 @@ function ensureRepeatWhenCommentRequestsCorrection(params: {
     requiredTense,
     priorAssistantContent: priorAssistantContent ?? null,
   })
+  if (isGenericDialogueAnsweredInEnglishRepeat(finalizedRepeat)) {
+    return content
+  }
   return `${trimmed}\nПовтори: ${finalizedRepeat}`.trim()
 }
 
@@ -4920,10 +4921,6 @@ function replaceGenericDialogueMetaRepeatIfNeeded(params: {
   const repeat = getDialogueRepeatSentence(params.content)
   if (!repeat || !isGenericDialogueAnsweredInEnglishRepeat(repeat)) return params.content
 
-  const mixed = isMixedLatinCyrillicText(params.userText)
-  const overlap = scoreUserRepeatOverlap(params.userText, repeat)
-  if (!mixed && overlap > 1) return params.content
-
   const rebuilt = buildMixedInputRepeatFallback({
     userText: params.userText,
     tense: params.tutorGradingTense,
@@ -6004,9 +6001,13 @@ function isUnusableDialogueRepeatCandidate(text: string): boolean {
 }
 
 /** Все фразы «Скажи:» из ответов ассистента по порядку (для замкнутого цикла при смене эталона моделью). */
-function extractRepeatSentencesFromAssistantHistory(messages: ChatMessage[]): string[] {
+function extractRepeatSentencesFromAssistantHistory(
+  messages: ChatMessage[],
+  startFromIndexInclusive = 0
+): string[] {
   const out: string[] = []
-  for (const m of messages) {
+  for (let i = Math.max(0, startFromIndexInclusive); i < messages.length; i++) {
+    const m = messages[i]
     if (m.role !== 'assistant') continue
     const match = ASSISTANT_REPEAT_LINE_RE.exec(m.content)
     if (!match?.[1]) continue
@@ -6014,6 +6015,28 @@ function extractRepeatSentencesFromAssistantHistory(messages: ChatMessage[]): st
     if (cleaned && !isUnusableDialogueRepeatCandidate(cleaned)) out.push(cleaned)
   }
   return out
+}
+
+function findLastAssistantBoundaryWithoutRepeat(messages: ChatMessage[]): number {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i]
+    if (message.role !== 'assistant') continue
+    if (!ASSISTANT_REPEAT_LINE_RE.test(message.content)) return i
+  }
+  return -1
+}
+
+/**
+ * Повторы только в рамках текущего dialogue-цикла.
+ * Цикл начинается после последнего ассистентского сообщения без «Скажи/Повтори» (обычно новый вопрос).
+ */
+function extractRepeatSentencesFromCurrentDialogueCycle(messages: ChatMessage[]): string[] {
+  const boundaryIdx = findLastAssistantBoundaryWithoutRepeat(messages)
+  if (boundaryIdx === -1) {
+    // Фолбэк для нестандартной истории, где нет явной границы цикла.
+    return extractRepeatSentencesFromAssistantHistory(messages)
+  }
+  return extractRepeatSentencesFromAssistantHistory(messages, boundaryIdx + 1)
 }
 
 function scoreUserRepeatOverlap(userText: string, candidate: string): number {
@@ -6067,7 +6090,7 @@ function pickDialogueForcedRepeatAnchorFromHistory(
   lastUserText: string,
   gradingTense: string
 ): string | null {
-  const c = extractRepeatSentencesFromAssistantHistory(messages)
+  const c = extractRepeatSentencesFromCurrentDialogueCycle(messages)
   if (c.length === 0) return null
   if (c.length === 1) return c[0] ?? null
 
@@ -6181,7 +6204,7 @@ function buildDialogueLowSignalFallback(params: {
       ? 'Комментарий: Я не понял ответ. Давай вернемся к вопросу и ответим полным предложением на английском.'
       : 'Комментарий: Я не понял ответ. Давайте вернемся к вопросу и ответим полным предложением на английском.'
     : 'Комментарий: Ответ не удалось распознать. Давайте вернемся к текущему вопросу и ответим полным предложением на английском.'
-  const repeatAnchor = extractRepeatSentencesFromAssistantHistory(params.messages).at(-1)?.trim()
+  const repeatAnchor = extractRepeatSentencesFromCurrentDialogueCycle(params.messages).at(-1)?.trim()
   if (repeatAnchor) {
     return `${invalidInputComment}\nПовтори: ${repeatAnchor}`
   }
@@ -6668,6 +6691,7 @@ export async function POST(req: NextRequest) {
         ? dialoguePinnedRepeatEnglish ??
           pickDialogueForcedRepeatAnchorFromHistory(recentMessages, lastUserText, tutorGradingTense)
         : null
+    const lockedDialogueRepeatAnchor = mode === 'dialogue' ? (forcedRepeatSentence?.trim() ?? null) : null
     if (
       mode === 'dialogue' &&
       !isFirstTurn &&
@@ -7342,7 +7366,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         userText: lastUserContentForResponse,
         requiredTense: tutorGradingTense,
         dialogueRepeatAnchorTense,
-        pinnedRepeat: dialoguePinnedRepeatEnglish,
+        pinnedRepeat: lockedDialogueRepeatAnchor,
         priorAssistantContent: priorAssistantContentForDialogue,
       })
       sanitized = replaceGenericDialogueMetaRepeatIfNeeded({
@@ -7350,12 +7374,12 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         userText: lastUserContentForResponse,
         tutorGradingTense,
         dialogueRepeatAnchorTense,
-        pinnedRepeat: dialoguePinnedRepeatEnglish,
+        pinnedRepeat: lockedDialogueRepeatAnchor,
         priorAssistantContent: priorAssistantContentForDialogue,
       })
       sanitized = finalizeDialogueRepeatInContent({
         content: sanitized,
-        pinnedRepeat: dialoguePinnedRepeatEnglish,
+        pinnedRepeat: lockedDialogueRepeatAnchor,
         userText: lastUserContentForResponse,
         requiredTense: tutorGradingTense,
         priorAssistantContent: priorAssistantContentForDialogue,
@@ -7442,14 +7466,14 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         openAiChatPreset,
       })
       if (
-        dialoguePinnedRepeatEnglish &&
+        lockedDialogueRepeatAnchor &&
         shouldClampDialoguePinnedRepeatToPinnedBody({
-          pinnedEnglish: dialoguePinnedRepeatEnglish,
+          pinnedEnglish: lockedDialogueRepeatAnchor,
           tutorGradingTense,
           priorAssistantContent: priorAssistantContentForDialogue,
         })
       ) {
-        sanitized = clampDialoguePinnedRepeatInContent(sanitized, dialoguePinnedRepeatEnglish)
+        sanitized = clampDialoguePinnedRepeatInContent(sanitized, lockedDialogueRepeatAnchor)
       }
     }
     let translationSuccessFlow = false
@@ -8426,14 +8450,14 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
 
     if (
       mode === 'dialogue' &&
-      dialoguePinnedRepeatEnglish &&
+      lockedDialogueRepeatAnchor &&
       shouldClampDialoguePinnedRepeatToPinnedBody({
-        pinnedEnglish: dialoguePinnedRepeatEnglish,
+        pinnedEnglish: lockedDialogueRepeatAnchor,
         tutorGradingTense,
         priorAssistantContent: priorAssistantContentForDialogue,
       })
     ) {
-      sanitized = clampDialoguePinnedRepeatInContent(sanitized, dialoguePinnedRepeatEnglish)
+      sanitized = clampDialoguePinnedRepeatInContent(sanitized, lockedDialogueRepeatAnchor)
     }
 
     const tenseValidation = validateDialogueOutputTense({
@@ -8703,14 +8727,14 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           if (mode === 'dialogue') {
             repaired = formatDialogueCommentAsSeparateLines(repaired)
             if (
-              dialoguePinnedRepeatEnglish &&
+              lockedDialogueRepeatAnchor &&
               shouldClampDialoguePinnedRepeatToPinnedBody({
-                pinnedEnglish: dialoguePinnedRepeatEnglish,
+                pinnedEnglish: lockedDialogueRepeatAnchor,
                 tutorGradingTense,
                 priorAssistantContent: priorAssistantContentForDialogue,
               })
             ) {
-              repaired = clampDialoguePinnedRepeatInContent(repaired, dialoguePinnedRepeatEnglish)
+              repaired = clampDialoguePinnedRepeatInContent(repaired, lockedDialogueRepeatAnchor)
             }
           }
           const repairedValid = isValidTutorOutput({
@@ -8860,7 +8884,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             tense: tutorGradingTense,
             dialogueRepeatAnchorTense,
           }),
-          pinnedRepeat: dialoguePinnedRepeatEnglish?.trim() ?? null,
+          pinnedRepeat: lockedDialogueRepeatAnchor,
           userText: lastUserContentForResponse,
           requiredTense: tutorGradingTense,
           priorAssistantContent: priorAssistantContentForDialogue,
@@ -9112,7 +9136,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         userText: lastUserContentForResponse,
         requiredTense: tutorGradingTense,
         dialogueRepeatAnchorTense,
-        pinnedRepeat: dialoguePinnedRepeatEnglish,
+        pinnedRepeat: lockedDialogueRepeatAnchor,
         priorAssistantContent: priorAssistantContentForDialogue,
       })
       sanitized = replaceGenericDialogueMetaRepeatIfNeeded({
@@ -9120,12 +9144,12 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         userText: lastUserContentForResponse,
         tutorGradingTense,
         dialogueRepeatAnchorTense,
-        pinnedRepeat: dialoguePinnedRepeatEnglish,
+        pinnedRepeat: lockedDialogueRepeatAnchor,
         priorAssistantContent: priorAssistantContentForDialogue,
       })
       sanitized = finalizeDialogueRepeatInContent({
         content: sanitized,
-        pinnedRepeat: dialoguePinnedRepeatEnglish,
+        pinnedRepeat: lockedDialogueRepeatAnchor,
         userText: lastUserContentForResponse,
         requiredTense: tutorGradingTense,
         priorAssistantContent: priorAssistantContentForDialogue,
@@ -9141,14 +9165,14 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     sanitized = dialogueGuard.content
     sanitized = formatDialogueCommentAsSeparateLines(sanitized)
     if (
-      dialoguePinnedRepeatEnglish &&
+      lockedDialogueRepeatAnchor &&
       shouldClampDialoguePinnedRepeatToPinnedBody({
-        pinnedEnglish: dialoguePinnedRepeatEnglish,
+        pinnedEnglish: lockedDialogueRepeatAnchor,
         tutorGradingTense,
         priorAssistantContent: priorAssistantContentForDialogue,
       })
     ) {
-      sanitized = clampDialoguePinnedRepeatInContent(sanitized, dialoguePinnedRepeatEnglish)
+      sanitized = clampDialoguePinnedRepeatInContent(sanitized, lockedDialogueRepeatAnchor)
     }
 
     logRetentionSignals({
