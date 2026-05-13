@@ -12,6 +12,8 @@ export interface FooterPresentation {
   typingSpeed: number
   topLineRowClassName: string
   topLineClassName: string
+  /** Горизонтальный отступ нижней строки, чтобы совпадать с началом текста верхней (после маркера / внутреннего padding «таблетки»). */
+  bottomLineRowClassName: string
   bottomLineClassName: string
   markerKind: FooterMarkerKind
   markerText: string | null
@@ -105,6 +107,7 @@ export function resolveFooterPresentation({
       typingSpeed: 40,
       topLineRowClassName: 'flex items-center gap-2',
       topLineClassName,
+      bottomLineRowClassName: '',
       bottomLineClassName: 'text-[10px] font-medium text-gray-400 sm:text-xs',
       markerKind: 'none',
       markerText: null,
@@ -121,6 +124,7 @@ export function resolveFooterPresentation({
       typingSpeed: 44,
       topLineRowClassName: 'flex items-center gap-2 rounded-full bg-white/35 px-2 backdrop-blur-[2px]',
       topLineClassName,
+      bottomLineRowClassName: 'pl-2',
       bottomLineClassName: 'text-[11px] font-semibold text-[var(--chat-label-main)] sm:text-xs',
       markerKind: 'emoji',
       markerText,
@@ -134,6 +138,7 @@ export function resolveFooterPresentation({
     typingSpeed: 28,
     topLineRowClassName: 'flex items-center gap-2',
     topLineClassName,
+    bottomLineRowClassName: 'pl-4',
     bottomLineClassName: 'text-[10px] font-medium tracking-wide text-gray-400 sm:text-xs',
     markerKind: 'dot',
     markerText: null,

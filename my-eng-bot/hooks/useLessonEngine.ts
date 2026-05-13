@@ -428,7 +428,8 @@ export function useLessonEngine(lesson: LessonData | null) {
       return postLesson.staticFooterText
     }
     const progressText = `Шаг ${Math.min(currentStep + 1, totalSteps)}/${totalSteps}`
-    return `${progressText} | ${xp} XP | COMBO x${combo}`
+    const xpLabel = xp === 0 ? '0 XP' : `+${xp} XP`
+    return `${progressText} | ${xpLabel} | COMBO x${combo}`
   }, [combo, currentStep, isFinale, lesson, postLesson?.staticFooterText, totalSteps, xp])
 
   const contextualFooterHint = useMemo(() => {

@@ -3,6 +3,7 @@
 import TypingText from './TypingText'
 import type { FooterVoiceEmphasis, FooterVoiceTone } from '@/lib/footerVoice'
 import { resolveFooterPresentation } from '@/lib/footerPresentation'
+import { splitFooterStaticSegments } from '@/lib/footerStaticSegments'
 import type { Audience } from '@/lib/types'
 
 type AppFooterProps = {
@@ -39,6 +40,8 @@ export default function AppFooter({
 }: AppFooterProps) {
   const topLine = normalizeFooterText(dynamicText)
   const bottomLine = normalizeFooterText(staticText)
+  const bottomSegments = splitFooterStaticSegments(bottomLine)
+  const bottomLineTitle = bottomSegments.length > 0 ? bottomSegments.join(' · ') : bottomLine
   const showFooterContent = (isLessonActive || isDialogStarted || showWhenIdle) && (topLine.length > 0 || bottomLine.length > 0)
   const showVariantProgress = Boolean(variantProgress && variantProgress.total > 1 && showFooterContent)
   const presentation = resolveFooterPresentation({
@@ -55,7 +58,7 @@ export default function AppFooter({
       aria-hidden={!showFooterContent}
     >
       <div
-        className={`mx-auto flex w-full flex-col justify-center ${
+        className={`mx-auto flex w-full min-w-0 flex-col justify-center ${
           isDialogStarted ? 'max-w-[29rem]' : 'max-w-[23.2rem]'
         } px-2 py-2 sm:px-3 sm:py-3`}
       >
@@ -82,17 +85,33 @@ export default function AppFooter({
           )}
         </div>
         <div
-          className={`flex h-8 items-center overflow-hidden ${presentation.bottomLineClassName} ${
+          className={`flex h-8 w-full min-w-0 items-center overflow-hidden ${presentation.bottomLineRowClassName} ${presentation.bottomLineClassName} ${
             showFooterContent ? '' : 'opacity-0'
           }`}
         >
           {showFooterContent ? (
-            <div className="flex items-center gap-2">
-              <span className="truncate" title={bottomLine}>
-                {bottomLine}
-              </span>
+            <div className="flex w-full min-w-0 items-center gap-2">
+              {bottomSegments.length > 0 ? (
+                <div
+                  className="grid min-w-0 flex-1 gap-0"
+                  style={{
+                    gridTemplateColumns: `repeat(${bottomSegments.length}, minmax(0, 1fr))`,
+                  }}
+                  title={bottomLineTitle}
+                >
+                  {bottomSegments.map((segment, index) => (
+                    <span key={`footer-seg-${index}`} className="min-w-0 truncate text-center">
+                      {segment}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span className="min-w-0 flex-1 truncate" title={bottomLineTitle} aria-hidden>
+                  &nbsp;
+                </span>
+              )}
               {showVariantProgress && variantProgress && (
-                <div className="flex items-center gap-1" aria-label="Прогресс вариантов упражнения">
+                <div className="flex shrink-0 items-center gap-1" aria-label="Прогресс вариантов упражнения">
                   {Array.from({ length: variantProgress.total }, (_, index) => (
                     <div
                       key={`footer-variant-${index}`}

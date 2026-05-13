@@ -23,6 +23,7 @@ describe('resolveFooterPresentation', () => {
     expect(first.markerKind).toBe('emoji')
     expect(first.markerText).toBe(second.markerText)
     expect(first.typingSpeed).toBe(44)
+    expect(first.bottomLineRowClassName).toBe('pl-2')
   })
 
   it('falls back to stable text-based seed when typing key is missing', () => {
@@ -57,5 +58,6 @@ describe('resolveFooterPresentation', () => {
     expect(presentation.markerKind).toBe('dot')
     expect(presentation.markerText).toBe(null)
     expect(presentation.typingSpeed).toBe(28)
+    expect(presentation.bottomLineRowClassName).toBe('pl-4')
   })
 })
