@@ -6549,6 +6549,19 @@ export async function POST(req: NextRequest) {
       return pool
     })()
 
+    const freeTalkExpectedNextQuestionTense: string | null =
+      mode === 'dialogue' &&
+      topic === 'free_talk' &&
+      !isFirstTurn &&
+      !isTopicChoiceTurn &&
+      inferredLastAssistantTense
+        ? pickWeightedFreeTalkTense({
+            candidates: tensePoolForFreeTalkWeighted,
+            seed: `${dialogSeed}|nextQ|${recentMessages.length}|${lastUserText}`,
+            excludeTense: inferredLastAssistantTense,
+          })
+        : null
+
     let dialogueEffectiveTense = normalizedTense
     if (mode === 'dialogue' && topic === 'free_talk') {
       if (isTopicChoiceTurn) {
@@ -7290,18 +7303,6 @@ export async function POST(req: NextRequest) {
             return `\n\nIMPORTANT: Your last question was in ${name}. The user MUST answer in ${name}. If their answer uses a different tense, treat it as a tense error: explain in Комментарий that ${name} is required, and write the corrected sentence in ${name} after "Повтори:".`
           })()
         : ''
-    const freeTalkExpectedNextQuestionTense: string | null =
-      mode === 'dialogue' &&
-      topic === 'free_talk' &&
-      !isFirstTurn &&
-      !isTopicChoiceTurn &&
-      inferredLastAssistantTense
-        ? pickWeightedFreeTalkTense({
-            candidates: tensePoolForFreeTalkWeighted,
-            seed: `${dialogSeed}|nextQ|${recentMessages.length}|${lastUserText}`,
-            excludeTense: inferredLastAssistantTense,
-          })
-        : null
     const freeTalkPromptSuffix =
       mode === 'dialogue' &&
       topic === 'free_talk' &&
