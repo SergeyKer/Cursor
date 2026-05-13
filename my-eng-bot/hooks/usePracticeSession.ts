@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { buildLocalPracticeSession, buildPracticeSessionFromQuestions } from '@/lib/practice/builders/localPracticeBuilder'
+import { resolvePracticeRetryPolicy } from '@/lib/practice/practiceRetryPolicy'
 import { practiceStorage, type PracticeStorage } from '@/lib/practice/storage/practiceStorage'
 import { validatePracticeAnswer } from '@/lib/practice/practiceValidation'
 import type {
@@ -38,6 +39,26 @@ export interface PracticeSessionControls {
 const CHECKING_DELAY_MS = 260
 const FEEDBACK_AUTO_ADVANCE_MS = 1400
 
+const PRACTICE_WRONG_LIMIT_ENCOURAGEMENTS = [
+  'Ты хорошо стараешься. Идём дальше — на следующем шаге точно получится.',
+  'Хороший темп. Перейдём к следующему шагу и закрепим там.',
+  'Это непростой момент, и ты справляешься. Двигаемся дальше.',
+]
+
+function pickPracticeWrongLimitEncouragement(seed: string): string {
+  if (PRACTICE_WRONG_LIMIT_ENCOURAGEMENTS.length === 0) {
+    return 'Ты хорошо стараешься. Идём дальше — на следующем шаге точно получится.'
+  }
+  let hash = 0
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0
+  }
+  return (
+    PRACTICE_WRONG_LIMIT_ENCOURAGEMENTS[hash % PRACTICE_WRONG_LIMIT_ENCOURAGEMENTS.length] ??
+    PRACTICE_WRONG_LIMIT_ENCOURAGEMENTS[0]!
+  )
+}
+
 function applyStatus(session: PracticeSession, status: PracticeSessionStatus): PracticeSession {
   return { ...session, status, completedAt: status === 'completed' ? Date.now() : session.completedAt }
 }
@@ -47,6 +68,8 @@ function createAnswer(params: {
   userAnswer: string
   isCorrect: boolean
   corrected: boolean
+  feedbackMessage: string
+  feedbackTone: 'success' | 'error'
   startedAt: number
 }): PracticeAnswer {
   const xpEarned = params.isCorrect ? params.question.xpBase : params.corrected ? Math.max(1, Math.floor(params.question.xpBase * 0.4)) : 0
@@ -56,6 +79,8 @@ function createAnswer(params: {
     correctAnswer: params.question.targetAnswer,
     isCorrect: params.isCorrect,
     corrected: params.corrected,
+    feedbackMessage: params.feedbackMessage,
+    feedbackTone: params.feedbackTone,
     xpEarned,
     responseTimeMs: Math.max(0, Date.now() - params.startedAt),
     timestamp: Date.now(),
@@ -83,7 +108,11 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
   useEffect(() => {
     const restored = storage.loadActiveSession()
     if (!restored || restored.status !== 'active') return
-    setSession(restored)
+    const normalized = {
+      ...restored,
+      wrongAttemptsOnCurrentQuestion: restored.wrongAttemptsOnCurrentQuestion ?? 0,
+    }
+    setSession(normalized)
     setState('active')
     questionStartedAtRef.current = Date.now()
   }, [storage])
@@ -126,8 +155,9 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
       pendingCorrectionRef.current = null
       setFeedback(null)
       setState('active')
-      storage.saveActiveSession(next)
-      return next
+      const normalizedNext = { ...next, wrongAttemptsOnCurrentQuestion: 0 }
+      storage.saveActiveSession(normalizedNext)
+      return normalizedNext
     })
   }, [clearFeedbackAutoAdvance, storage])
 
@@ -157,12 +187,16 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
     clearFeedbackAutoAdvance()
     const restored = storage.loadActiveSession()
     if (!restored || restored.status !== 'active') return null
+    const normalized = {
+      ...restored,
+      wrongAttemptsOnCurrentQuestion: restored.wrongAttemptsOnCurrentQuestion ?? 0,
+    }
     pendingCorrectionRef.current = null
     questionStartedAtRef.current = Date.now()
     setFeedback(null)
     setState('active')
-    setSession(restored)
-    return restored
+    setSession(normalized)
+    return normalized
   }, [clearFeedbackAutoAdvance, storage])
 
   const completeSession = useCallback(() => {
@@ -191,19 +225,31 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
         const correctionQuestion = pendingCorrectionRef.current
         const questionToValidate = correctionQuestion ?? currentQuestion
         const isCorrect = validatePracticeAnswer(cleanAnswer, questionToValidate)
-
-        if (correctionQuestion && !isCorrect) {
-          setFeedback({ type: 'error', message: `Ещё раз мягко: ${questionToValidate.targetAnswer}` })
-          setState('correction')
-          submittingRef.current = false
-          return
-        }
+        const retryResolution = resolvePracticeRetryPolicy({
+          currentWrongAttemptsOnQuestion: session.wrongAttemptsOnCurrentQuestion ?? 0,
+          isCorrect,
+        })
+        const shouldAutoAdvanceAfterWrongLimit = !isCorrect && retryResolution.shouldAutoAdvanceToNextQuestion
+        const answerFeedbackTone: 'success' | 'error' = isCorrect || shouldAutoAdvanceAfterWrongLimit ? 'success' : 'error'
+        const answerFeedbackMessage = isCorrect
+          ? correctionQuestion
+            ? 'Отлично, закрепили. Идём дальше.'
+            : 'Верно. Хороший ответ.'
+          : shouldAutoAdvanceAfterWrongLimit
+            ? pickPracticeWrongLimitEncouragement(
+                `${questionToValidate.id}|${session.answers.length}|${cleanAnswer.toLowerCase()}`
+              )
+            : correctionQuestion
+              ? `Ещё раз мягко: ${questionToValidate.targetAnswer}`
+              : `Почти. Правильный вариант: ${questionToValidate.targetAnswer}`
 
         const answerRecord = createAnswer({
           question: questionToValidate,
           userAnswer: cleanAnswer,
           isCorrect,
-          corrected: Boolean(correctionQuestion),
+          corrected: Boolean(correctionQuestion) && isCorrect,
+          feedbackMessage: answerFeedbackMessage,
+          feedbackTone: answerFeedbackTone,
           startedAt: questionStartedAtRef.current,
         })
 
@@ -215,6 +261,7 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
             score: current.score + (answerRecord.isCorrect ? 1 : 0),
             xp: current.xp + answerRecord.xpEarned,
             streak: answerRecord.isCorrect ? current.streak + 1 : 0,
+            wrongAttemptsOnCurrentQuestion: retryResolution.nextWrongAttemptsOnCurrentQuestion,
           }
           storage.saveActiveSession(next)
           return next
@@ -234,8 +281,8 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
             return
           }
           setFeedback({
-            type: 'success',
-            message: correctionQuestion ? 'Отлично, закрепили. Идём дальше.' : 'Верно. Хороший ответ.',
+            type: answerFeedbackTone,
+            message: answerFeedbackMessage,
           })
           setState('feedback')
           clearFeedbackAutoAdvance()
@@ -244,12 +291,26 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
             nextQuestionRef.current()
           }, FEEDBACK_AUTO_ADVANCE_MS)
         } else {
-          pendingCorrectionRef.current = questionToValidate
-          setFeedback({
-            type: 'error',
-            message: `Почти. Правильный вариант: ${questionToValidate.targetAnswer}`,
-          })
-          setState('correction')
+          if (shouldAutoAdvanceAfterWrongLimit) {
+            pendingCorrectionRef.current = null
+            setFeedback({
+              type: answerFeedbackTone,
+              message: answerFeedbackMessage,
+            })
+            setState('feedback')
+            clearFeedbackAutoAdvance()
+            feedbackAutoAdvanceRef.current = setTimeout(() => {
+              feedbackAutoAdvanceRef.current = null
+              nextQuestionRef.current()
+            }, FEEDBACK_AUTO_ADVANCE_MS)
+          } else {
+            pendingCorrectionRef.current = questionToValidate
+            setFeedback({
+              type: answerFeedbackTone,
+              message: answerFeedbackMessage,
+            })
+            setState('correction')
+          }
         }
 
         submittingRef.current = false

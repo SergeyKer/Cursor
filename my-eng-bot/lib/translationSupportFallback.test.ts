@@ -34,7 +34,7 @@ describe('translationSupportFallback', () => {
       'adult',
       'incomplete'
     )
-    expect(s).toMatch(/перевод пока неполный/i)
+    expect(s).toMatch(/(перевод пока неполный|дописать перевод целиком)/i)
     expect(s).toMatch(/Хорошее начало/i)
   })
 

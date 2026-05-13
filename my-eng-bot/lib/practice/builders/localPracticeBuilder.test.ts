@@ -19,6 +19,7 @@ describe('buildLocalPracticeSession', () => {
     expect(session.questions).toHaveLength(6)
     expect(session.generationSource).toBe('local')
     expect(session.questions.every((question) => question.lessonId === '1')).toBe(true)
+    expect(session.wrongAttemptsOnCurrentQuestion).toBe(0)
   })
 
   it('puts a boss challenge at the end of challenge mode', () => {

@@ -27,8 +27,8 @@ function detectTranslationPromptKind(prompt: string | null | undefined): Transla
 
 function buildNeutralTranslationSupport(audience: 'child' | 'adult'): string {
   return audience === 'child'
-    ? 'Вижу, что ты стараешься. Давай спокойно поправим это ниже.'
-    : 'Вижу, что вы стараетесь. Давайте спокойно поправим это ниже.'
+    ? 'Вижу, что ты стараешься. Сейчас спокойно поправим ключевой момент ниже.'
+    : 'Вижу, что вы стараетесь. Сейчас спокойно поправим ключевой момент ниже.'
 }
 
 function supportHasFalseStructurePraise(
@@ -245,8 +245,8 @@ export function ensureTranslationProtocolBlocks(
     } else {
       supportBlock =
         params.audience === 'child'
-          ? '💡 Есть хорошая основа, но нужно исправить главную неточность по образцу ниже.'
-          : '💡 Есть хорошая основа, но нужно исправить основную неточность по образцу ниже.'
+          ? '💡 Уже есть хорошая основа. Исправим главную неточность по образцу ниже.'
+          : '💡 Уже есть хорошая основа. Исправим основную неточность по образцу ниже.'
     }
   }
   if (needsErrorProtocol && !(String(errorsBlock ?? '').trim())) {

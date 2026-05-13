@@ -66,6 +66,8 @@ export interface PracticeAnswer {
   correctAnswer: string
   isCorrect: boolean
   corrected: boolean
+  feedbackMessage?: string
+  feedbackTone?: 'success' | 'error'
   xpEarned: number
   responseTimeMs: number
   timestamp: number
@@ -103,6 +105,7 @@ export interface PracticeSession {
   completedAt?: number
   version: number
   targetQuestionCount?: number
+  wrongAttemptsOnCurrentQuestion?: number
 }
 
 export interface PracticeBuildConfig {

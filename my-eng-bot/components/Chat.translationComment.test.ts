@@ -172,7 +172,7 @@ describe('buildAssistantSectionsForTranslationJunkRepeatTest', () => {
     expect(keys).toEqual(['translation-junk-protocol', 'repeat-translation'])
     expect(keys).not.toContain('translation-invitation')
     expect(keys).not.toContain('main')
-    expect(sections.find((s) => s.key === 'translation-junk-protocol')?.label).toBe('Комментарий_мусор')
+    expect(sections.find((s) => s.key === 'translation-junk-protocol')?.label).toBe('⚠️')
     expect(sections.find((s) => s.key === 'repeat-translation')?.label).toBe('Скажи')
   })
 })

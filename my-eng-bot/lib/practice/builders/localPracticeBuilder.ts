@@ -200,6 +200,7 @@ function createPracticeSession(config: PracticeBuildConfig, questions: PracticeQ
     startedAt: now,
     version: PRACTICE_SESSION_VERSION,
     targetQuestionCount: config.targetQuestionCount ?? questions.length,
+    wrongAttemptsOnCurrentQuestion: 0,
   }
 }
 

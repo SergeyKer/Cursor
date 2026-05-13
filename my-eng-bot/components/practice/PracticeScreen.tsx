@@ -176,12 +176,14 @@ export default function PracticeScreen({
           id: `practice-feedback-${answer.questionId}-${answer.timestamp}-${answerIndex}`,
           role: 'assistant',
           kind: 'status',
-          text: answer.isCorrect
-            ? answer.corrected
-              ? 'Отлично, теперь правильно закреплено.'
-              : 'Верно. Хороший ответ.'
-            : `Почти. Правильный вариант: ${answer.correctAnswer}`,
-          tone: answer.isCorrect ? 'success' : 'error',
+          text:
+            answer.feedbackMessage ??
+            (answer.isCorrect
+              ? answer.corrected
+                ? 'Отлично, теперь правильно закреплено.'
+                : 'Верно. Хороший ответ.'
+              : `Почти. Правильный вариант: ${answer.correctAnswer}`),
+          tone: answer.feedbackTone ?? (answer.isCorrect ? 'success' : 'error'),
         })
       })
     })

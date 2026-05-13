@@ -4616,11 +4616,11 @@ function forceTranslationWordErrorProtocol(
   } else {
     const supportLineRaw =
       lines.find((line) => /^Комментарий_перевод\s*:/i.test(line)) ??
-      'Комментарий_перевод: 💡 Есть хорошая основа, но нужно исправить основную неточность по образцу ниже.'
+      'Комментарий_перевод: 💡 Уже есть хорошая база. Осталось спокойно поправить ключевую неточность по образцу ниже.'
     supportBodyResolved = supportLineRaw.replace(/^Комментарий_перевод\s*:\s*/i, '').trim()
     if (!supportBodyResolved) {
       supportBodyResolved =
-        '💡 Есть хорошая основа, но нужно исправить основную неточность по образцу ниже.'
+        '💡 Уже есть хорошая база. Осталось спокойно поправить ключевую неточность по образцу ниже.'
     }
   }
 
@@ -6043,6 +6043,103 @@ function countDialogueRepeatAttemptsInCurrentCycle(messages: ChatMessage[]): num
   return extractRepeatSentencesFromCurrentDialogueCycle(messages).length
 }
 
+function buildTranslationTaskIdFromAssistantMessage(params: {
+  content: string
+  tense: string
+  level: string
+  sentenceType: SentenceType
+  audience: Audience
+}): string | null {
+  const looksLikePromptCard =
+    /(?:^|\n)\s*(?:Переведи|Переведите)(?:\s+далее)?\s*:/im.test(params.content) ||
+    /(?:^|\n)\s*(?:Переведи|Переведите)\s+на\s+английск/i.test(params.content)
+  if (!looksLikePromptCard) return null
+  const ruPrompt = extractRussianTranslationTaskFromAssistantContent(params.content)
+  if (!ruPrompt) return null
+  return buildTranslationTaskId({
+    ruPrompt,
+    tense: params.tense,
+    level: params.level,
+    sentenceType: params.sentenceType,
+    audience: params.audience,
+  })
+}
+
+/**
+ * Считает количество завершённых correction-итераций («Скажи») в текущем translation-цикле.
+ * Цикл ограничивается последней карточкой задания с тем же taskId.
+ */
+function countTranslationRepeatAttemptsInCurrentCycle(params: {
+  messages: ChatMessage[]
+  activeTaskId: string | null
+  tense: string
+  level: string
+  sentenceType: SentenceType
+  audience: Audience
+}): number {
+  const { messages, activeTaskId, tense, level, sentenceType, audience } = params
+
+  let taskBoundaryIndex = -1
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg.role !== 'assistant') continue
+    if (!activeTaskId) {
+      if (extractRussianTranslationTaskFromAssistantContent(msg.content)) {
+        taskBoundaryIndex = i
+        break
+      }
+      continue
+    }
+    const taskId = buildTranslationTaskIdFromAssistantMessage({
+      content: msg.content,
+      tense,
+      level,
+      sentenceType,
+      audience,
+    })
+    if (!taskId) continue
+    if (taskId === activeTaskId) {
+      taskBoundaryIndex = i
+      break
+    }
+  }
+  if (taskBoundaryIndex === -1) {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i]
+      if (msg.role !== 'assistant') continue
+      if (
+        /(?:^|\n)\s*(?:Переведи|Переведите)(?:\s+далее)?\s*:/im.test(msg.content) ||
+        /(?:^|\n)\s*(?:Переведи|Переведите)\s+на\s+английск/i.test(msg.content)
+      ) {
+        taskBoundaryIndex = i
+        break
+      }
+    }
+  }
+  if (taskBoundaryIndex === -1) return 0
+
+  let attempts = 0
+  for (let i = taskBoundaryIndex + 1; i < messages.length; i++) {
+    const msg = messages[i]
+    if (msg.role !== 'assistant') continue
+    if (!activeTaskId) {
+      if (extractRussianTranslationTaskFromAssistantContent(msg.content)) break
+      if (getTranslationRepeatSentence(msg.content)?.trim()) attempts++
+      continue
+    }
+    const taskId = buildTranslationTaskIdFromAssistantMessage({
+      content: msg.content,
+      tense,
+      level,
+      sentenceType,
+      audience,
+    })
+    if (taskId && taskId !== activeTaskId) break
+    if (getTranslationRepeatSentence(msg.content)?.trim()) attempts++
+  }
+  return attempts
+}
+
 function getLastDialogueRepeatAnchor(messages: ChatMessage[]): string | null {
   const repeats = extractRepeatSentencesFromCurrentDialogueCycle(messages)
   const last = repeats.at(-1)?.trim()
@@ -6209,11 +6306,24 @@ function buildDialogueLowSignalFallback(params: {
   lastUserText?: string
 }): string {
   const soft = isSoftCommentTone(params.audience, params.level)
-  const invalidInputComment = soft
-    ? params.audience === 'child'
-      ? 'Комментарий: Я не понял ответ. Давай вернемся к вопросу и ответим полным предложением на английском.'
-      : 'Комментарий: Я не понял ответ. Давайте вернемся к вопросу и ответим полным предложением на английском.'
-    : 'Комментарий: Ответ не удалось распознать. Давайте вернемся к текущему вопросу и ответим полным предложением на английском.'
+  const lowSignalCommentPool =
+    params.audience === 'child'
+      ? [
+          'Комментарий: Я не понял ответ. Давай вернемся к вопросу и ответим полным предложением на английском.',
+          'Комментарий: Пока не разобрал ответ. Давай еще раз по тому же вопросу — одним полным предложением на английском.',
+        ]
+      : soft
+        ? [
+            'Комментарий: Я не понял ответ. Давайте вернемся к вопросу и ответим полным предложением на английском.',
+            'Комментарий: Пока не удалось разобрать ответ. Давайте ответим на тот же вопрос одним полным предложением на английском.',
+          ]
+        : [
+            'Комментарий: Пока не получилось распознать ответ. Давайте вернемся к текущему вопросу и ответим полным предложением на английском.',
+            'Комментарий: Сообщение вышло неясным. Давайте еще раз на тот же вопрос — полным предложением на английском.',
+          ]
+  const lowSignalSeed = `${params.lastUserText ?? ''}|${params.messages.length}|${params.topic}|${params.tense}|${params.audience}|${params.level}`
+  const invalidInputComment =
+    lowSignalCommentPool[pickDeterministicIndex(lowSignalSeed, lowSignalCommentPool.length)] ?? lowSignalCommentPool[0]!
   const repeatAnchor = extractRepeatSentencesFromCurrentDialogueCycle(params.messages).at(-1)?.trim()
   if (repeatAnchor) {
     return `${invalidInputComment}\nПовтори: ${repeatAnchor}`
@@ -6234,6 +6344,24 @@ function buildDialogueLowSignalFallback(params: {
     lastUserText: params.lastUserText,
   })
   return `${invalidInputComment}\n${fallbackQuestion}`
+}
+
+function buildDialogueRepeatExitComment(seed: string): string {
+  const pool = [
+    'Комментарий: Ничего страшного, идем дальше.',
+    'Комментарий: Хорошая попытка. Давайте не зацикливаться и пойдем дальше.',
+    'Комментарий: Здесь бывает непросто. Перейдем к следующему вопросу.',
+  ]
+  return pool[pickDeterministicIndex(seed, pool.length)] ?? pool[0]!
+}
+
+function buildTranslationRepeatExitComment(seed: string): string {
+  const pool = [
+    'Комментарий: Хорошая попытка. Давай двигаться дальше.',
+    'Комментарий: Ты хорошо стараешься. Перейдем к следующему предложению.',
+    'Комментарий: Это непростой шаг. Давай продолжим на следующем примере.',
+  ]
+  return pool[pickDeterministicIndex(seed, pool.length)] ?? pool[0]!
 }
 
 export async function POST(req: NextRequest) {
@@ -6719,8 +6847,11 @@ export async function POST(req: NextRequest) {
       if (shouldExitRepeatOnCyrillicFallback) {
         const nextQuestionTense =
           topic === 'free_talk' ? (freeTalkExpectedNextQuestionTense ?? tutorGradingTense) : tutorGradingTense
+        const repeatExitComment = buildDialogueRepeatExitComment(
+          `${recentMessages.length}|repeat-exit-cyrillic|${lastUserContentForResponse}`
+        )
         return NextResponse.json({
-          content: `Комментарий: Ничего страшного, идем дальше.\n${fallbackNextQuestion({
+          content: `${repeatExitComment}\n${fallbackNextQuestion({
             topic,
             tense: nextQuestionTense,
             level,
@@ -7521,6 +7652,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     let translationCanonicalGoldForTask: string | null = null
     let translationCanonicalGoldSource: 'locked_prior' | 'local_pick' | 'api' | null = null
     let translationActiveTaskId: string | null = null
+    let translationRepeatAttemptsInCurrentCycle = 0
     let translationGoldVerdictFailed = false
     let translationGoldVerdictReasons: string[] = []
     /** Тело «Комментарий_перевод:» из ответа модели до агрессивной пересборки (для force…). */
@@ -7533,6 +7665,14 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       translationTpForGold = tpForGold
       translationActiveTaskId = buildTranslationTaskId({
         ruPrompt: tpForGold || null,
+        tense: tutorGradingTense,
+        level: String(translationDrillLevel),
+        sentenceType: translationDrillSentenceType,
+        audience,
+      })
+      translationRepeatAttemptsInCurrentCycle = countTranslationRepeatAttemptsInCurrentCycle({
+        messages: recentMessages,
+        activeTaskId: translationActiveTaskId,
         tense: tutorGradingTense,
         level: String(translationDrillLevel),
         sentenceType: translationDrillSentenceType,
@@ -8333,6 +8473,45 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       sanitized = injectSentenceTypePopravImperative(sanitized, audience)
       sanitized = normalizeTranslationBulbEmojisInContent(sanitized)
     }
+    if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
+      const shouldExitRepeatLoopAfterTwoAttempts = translationRepeatAttemptsInCurrentCycle >= 2
+      if (shouldExitRepeatLoopAfterTwoAttempts) {
+        const nextPrompt = fallbackTranslationSentenceForContext({
+          tense: tutorGradingTense,
+          topic,
+          level: translationDrillLevel,
+          audience,
+          seedText: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
+          sentenceType: translationDrillSentenceType,
+        })
+        const nextPromptResolved =
+          nextPrompt?.trim() ||
+          fallbackTranslationSentenceForContext({
+            tense: tutorGradingTense,
+            topic,
+            level: translationDrillLevel,
+            audience,
+            seedText: `${ruForTranslationRepeatClamp ?? lastTranslationPrompt}|repeat-exit`,
+            sentenceType: 'mixed',
+          }).trim() ||
+          'Я читаю каждый день.'
+        const translationRepeatExitComment = buildTranslationRepeatExitComment(
+          `${translationRepeatAttemptsInCurrentCycle}|${lastUserContentForResponse}|${nextPromptResolved}`
+        )
+        sanitized = [
+          translationRepeatExitComment,
+          `Переведи далее: ${nextPromptResolved}`,
+        ].join('\n')
+        canTreatTranslationAsSuccess = true
+        translationGoldVerdictFailed = false
+        translationGoldVerdictReasons = []
+        if (!translationGoldForVerdict?.trim()) {
+          translationGoldForVerdict = translationCanonicalGoldForTask?.trim() || null
+        }
+        translationSuccessFlow = true
+        translationJunkFlow = false
+      }
+    }
     if (mode === 'translation' && !isFirstTurn && translationJunkFlow) {
       sanitized = normalizeTranslationJunkPayload(sanitized)
     }
@@ -8531,7 +8710,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     if (shouldExitRepeatLoopAfterTwoAttempts) {
       const nextQuestionTense =
         topic === 'free_talk' ? (freeTalkExpectedNextQuestionTense ?? tutorGradingTense) : tutorGradingTense
-      const gentleEncouragementComment = 'Комментарий: Ничего страшного, идем дальше.'
+      const gentleEncouragementComment = buildDialogueRepeatExitComment(
+        `${recentMessages.length}|repeat-exit|${lastUserContentForResponse}`
+      )
       return NextResponse.json({
         content: finalizeDialogueFallbackWithCefr({
           content: `${gentleEncouragementComment}\n${fallbackNextQuestion({
@@ -8968,7 +9149,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             })
           }
           return NextResponse.json({
-            content: `Комментарий: Давайте уточним формулировку и грамматику.\nПовтори: ${dialogueFallbackRepeatBody}`,
+            content: `Комментарий: Давайте спокойно уточним формулировку и грамматику.\nПовтори: ${dialogueFallbackRepeatBody}`,
           })
         }
         if (!isMixedDialogueInput && userClosedForcedRepeat && isUserLikelyCorrectForTense(lastUserContentForResponse, tutorGradingTense)) {

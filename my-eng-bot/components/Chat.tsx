@@ -394,7 +394,7 @@ function buildAssistantSections(params: {
       junkSections.push({
         key: 'translation-junk-protocol',
         tone: 'amber',
-        label: 'Комментарий_мусор',
+        label: '⚠️',
         text: junkEarly,
         singleLine: !junkEarly.includes('\n'),
       })
@@ -3205,6 +3205,7 @@ function SectionCard({
   const labelIsIconOnly =
     labelTrimmed === '✅' ||
     labelTrimmed === '💡' ||
+    labelTrimmed === '⚠️' ||
     labelTrimmed === '⏱️' ||
     labelTrimmed === '🔤' ||
     labelTrimmed === '📖' ||

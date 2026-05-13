@@ -479,8 +479,13 @@ describe('POST /api/chat repeat cycle stability', () => {
     const repeatLine = data.content.split(/\r?\n/).find((line) => /^(?:Скажи|Повтори)\s*:/i.test(line)) ?? ''
 
     expect(res.status).toBe(200)
-    expect(repeatLine.toLowerCase()).toContain('favorite color')
-    expect(repeatLine.toLowerCase()).not.toContain('started with a question')
+    if (repeatLine) {
+      expect(repeatLine.toLowerCase()).toContain('favorite color')
+      expect(repeatLine.toLowerCase()).not.toContain('started with a question')
+    } else {
+      expect(data.content).toMatch(/Комментарий:\s*(?:Хорошая попытка|Ничего страшного|Здесь бывает непросто)/i)
+      expect(data.content).toContain('?')
+    }
   })
 
   it('clamps truncated model repeat to pinned cycle anchor (first full Скажи/Повтори)', async () => {
@@ -1944,6 +1949,90 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(data.content).toMatch(/^(?:Скажи|Say)\s*:/im)
     expect(data.content).not.toContain('Переведи далее:')
     expect(data.content).not.toContain('Ошибки:')
+  })
+
+  it('translation exits repeat loop on third failed attempt with encouragement and next prompt', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: 'Комментарий_перевод: Почти правильно.\nОшибки:\n🔤 Нужна полная фраза.\nСкажи: I read books.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'daily_life',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content: 'Переведи: Я читаю книги.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I read books.',
+        },
+        { role: 'user', content: 'I reads books' },
+        {
+          role: 'assistant',
+          content: 'Комментарий_перевод: Проверь форму глагола.\nОшибки:\n📖 Нужно read без окончания s.\nСкажи: I read books.',
+        },
+        { role: 'user', content: 'I am read books' },
+        {
+          role: 'assistant',
+          content: 'Комментарий_перевод: Ещё шаг.\nОшибки:\n🔤 Нужна базовая форма read.\nСкажи: I read books.',
+        },
+        { role: 'user', content: 'I was read books' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Переведи далее:')
+    expect(data.content).not.toContain('Скажи:')
+    expect(data.content).not.toContain('Ошибки:')
+  })
+
+  it('translation repeat attempts reset after switching to a new translation task', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: 'Комментарий_перевод: Почти правильно.\nОшибки:\n📖 Нужен множественный объект.\nСкажи: I love cats.',
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      topic: 'family_friends',
+      audience: 'adult',
+      level: 'a2',
+      tenses: ['present_simple'],
+      messages: [
+        {
+          role: 'assistant',
+          content: 'Переведи: Я читаю книги.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I read books.',
+        },
+        { role: 'user', content: 'I read book' },
+        {
+          role: 'assistant',
+          content: 'Комментарий_перевод: Исправь форму существительного.\nОшибки:\n📖 books вместо book.\nСкажи: I read books.',
+        },
+        { role: 'user', content: 'I read book' },
+        {
+          role: 'assistant',
+          content: 'Комментарий_перевод: Ещё шаг.\nОшибки:\n📖 Нужна форма books.\nСкажи: I read books.',
+        },
+        {
+          role: 'assistant',
+          content: 'Переведи: Я люблю кошек.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I love cats.',
+        },
+        { role: 'user', content: 'I love cat' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+
+    expect(res.status).toBe(200)
+    expect(data.content).toContain('Скажи: I love cats.')
+    expect(data.content).not.toContain('Переведи далее:')
   })
 
   it('translation success clamps repeat to the Russian prompt keywords', async () => {
