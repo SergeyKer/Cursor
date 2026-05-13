@@ -37,6 +37,7 @@ import {
   type EngvoRealtimeVoice,
   type EngvoSpeechSpeedPresetId,
 } from '@/lib/engvo/constants'
+import type { RewardsState } from '@/lib/rewardsState'
 
 const AdaptiveDailyHub = dynamic(() => import('@/components/adaptiveRetention/AdaptiveDailyHub'), { ssr: false })
 
@@ -241,6 +242,7 @@ export interface MenuSectionPanelsProps {
   onSettingsChange: (s: Settings) => void
   usage: UsageInfo
   dialogueCorrectAnswers: number
+  rewardsState?: RewardsState
   idPrefix?: string
   className?: string
   homeLayout?: boolean
@@ -295,6 +297,7 @@ export default function MenuSectionPanels({
   onSettingsChange,
   usage,
   dialogueCorrectAnswers,
+  rewardsState,
   idPrefix = 'menu-',
   className,
   homeLayout = false,
@@ -1839,11 +1842,28 @@ export default function MenuSectionPanels({
         )}
 
         {menuView === 'profile' && (
-          <div className="flex w-full items-start gap-3">
-            <span className={MENU_FIELD_LABEL}>Раздел</span>
-            <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
-              Профиль появится позже.
-            </p>
+          <div className="space-y-2">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
+              <p className="text-[13px] font-medium text-[var(--text-muted)]">Профиль</p>
+              <p className="mt-1 text-[15px] font-semibold text-[var(--text)]">
+                {rewardsState?.profile.name?.trim() ? rewardsState.profile.name : 'Профиль не заполнен'}
+              </p>
+              <p className="mt-1 text-[13px] text-[var(--text-muted)]">
+                Уровень английского: {rewardsState?.profile.englishLevel ?? 'not_set'}
+              </p>
+              <p className="text-[13px] text-[var(--text-muted)]">
+                Регистрация: {rewardsState?.profile.registrationDate ?? '—'}
+              </p>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
+              <p className="text-[13px] font-medium text-[var(--text-muted)]">Игровая сводка</p>
+              <p className="mt-1 text-[13px] text-[var(--text)]">
+                Уровень {rewardsState?.progress.level ?? 1} • ⭐ {rewardsState?.progress.totalXP ?? 0} • 🔥 {rewardsState?.progress.dailyStreak ?? 0}
+              </p>
+              <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+                🎫 {rewardsState?.currencies.tickets ?? 0} • 🪙 {rewardsState?.currencies.coins ?? 0} • 💎 {rewardsState?.currencies.gems ?? 0}
+              </p>
+            </div>
           </div>
         )}
 
@@ -2015,52 +2035,35 @@ export default function MenuSectionPanels({
         )}
 
         {menuView === 'progress' && (
-          <>
-            {settings.mode === 'dialogue' ? (
-              <>
-                <div className="flex w-full items-center gap-3">
-                  <span
-                    id={pid('progress-correct-label')}
-                    className="shrink-0 whitespace-nowrap text-[13px] font-medium leading-normal text-[var(--text-muted)]"
-                  >
-                    Правильных ответов
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div
-                      className={MENU_VALUE_BOX}
-                      role="status"
-                      aria-labelledby={pid('progress-correct-label')}
-                    >
-                      <span className="tabular-nums">{dialogueCorrectAnswers}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex w-full items-center gap-3">
-                  <span id={pid('progress-usage-label')} className={MENU_FIELD_LABEL}>
-                    Запросов
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div
-                      className={MENU_VALUE_BOX}
-                      role="status"
-                      aria-labelledby={pid('progress-usage-label')}
-                    >
-                      <span className="tabular-nums">
-                        {usage.limit > 0 ? `${usage.used} / ${usage.limit}` : `${usage.used}`}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="flex w-full items-start gap-3">
-                <span className={MENU_FIELD_LABEL}>Справка</span>
-                <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
-                  Счётчик правильных ответов доступен в режиме «Диалог».
-                </p>
-              </div>
-            )}
-          </>
+          <div className="space-y-2">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
+              <p className="text-[13px] font-medium text-[var(--text-muted)]">Общий прогресс</p>
+              <p className="mt-1 text-[15px] font-semibold text-[var(--text)]">
+                Уровень {rewardsState?.progress.level ?? 1} • ⭐ {rewardsState?.progress.totalXP ?? 0}
+              </p>
+              <p className="mt-1 text-[13px] text-[var(--text-muted)]">
+                🔥 Серия: {rewardsState?.progress.dailyStreak ?? 0} • До следующего уровня: {rewardsState?.progress.currentLevelXP ?? 0}/{rewardsState?.progress.xpToNextLevel ?? 100}
+              </p>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
+              <p className="text-[13px] font-medium text-[var(--text-muted)]">Цели режимов</p>
+              <p className="mt-1 text-[13px] text-[var(--text)]">
+                Общение: {rewardsState?.modeGoals.communication.goalProgress ?? 0}/{rewardsState?.modeGoals.communication.goalTarget ?? 7}
+              </p>
+              <p className="mt-0.5 text-[13px] text-[var(--text)]">
+                Звонок: {rewardsState?.modeGoals.engvo.goalProgress ?? 0}/{rewardsState?.modeGoals.engvo.goalTarget ?? 7}
+              </p>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
+              <p className="text-[13px] font-medium text-[var(--text-muted)]">Статистика</p>
+              <p className="mt-1 text-[13px] text-[var(--text)]">
+                Правильных ответов (диалог): {dialogueCorrectAnswers}
+              </p>
+              <p className="mt-0.5 text-[13px] text-[var(--text)]">
+                Запросов: {usage.limit > 0 ? `${usage.used} / ${usage.limit}` : `${usage.used}`}
+              </p>
+            </div>
+          </div>
         )}
       </div>
     </div>

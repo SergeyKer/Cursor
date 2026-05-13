@@ -7,6 +7,7 @@ import { SLIDE_OUT_NEW_CHAT_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
 import type { EngvoCefrLevel, EngvoRealtimeVoice, EngvoSpeechSpeedPresetId } from '@/lib/engvo/constants'
+import type { RewardsState } from '@/lib/rewardsState'
 
 export type LessonMenuContext = {
   menuView: 'lessons'
@@ -20,6 +21,7 @@ interface SlideOutMenuProps {
   onSettingsChange: (s: Settings) => void
   usage: UsageInfo
   dialogueCorrectAnswers: number
+  rewardsState?: RewardsState
   onNewDialog?: () => void
   /** Не рендерить встроенную кнопку (кнопка вынесена в шапку страницы) */
   hideButton?: boolean
@@ -82,6 +84,7 @@ export default function SlideOutMenu({
   onSettingsChange,
   usage,
   dialogueCorrectAnswers,
+  rewardsState,
   onNewDialog,
   hideButton = false,
   onStartChat,
@@ -183,6 +186,7 @@ export default function SlideOutMenu({
             onSettingsChange={onSettingsChange}
             usage={usage}
             dialogueCorrectAnswers={dialogueCorrectAnswers}
+            rewardsState={rewardsState}
             idPrefix="slide-"
             className="flex min-h-0 flex-1 flex-col"
             onStartHomeChat={onStartChat}

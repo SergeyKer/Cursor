@@ -23,6 +23,17 @@ import {
   normalizeOpenAiChatPreset,
   saveFreeTalkTopicRotationState,
 } from '@/lib/storage'
+import {
+  awardGlobalXp,
+  createDefaultRewardsState,
+  formatGlobalFooterStats,
+  formatModeGoalFooter,
+  incrementModeGoal,
+  loadRewardsState,
+  saveRewardsState,
+  withDailyActivity,
+  type RewardsState,
+} from '@/lib/rewardsState'
 import { countDialogueFinalCorrectAnswers } from '@/lib/dialogueStats'
 import { TOPICS, LEVELS, TENSES } from '@/lib/constants'
 import { allowedTensesForAudience } from '@/lib/levelAllowedTenses'
@@ -519,6 +530,7 @@ type EngvoRealtimeEvent = {
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
+  const [rewardsState, setRewardsState] = useState<RewardsState>(createDefaultRewardsState())
   const [menuOpen, setMenuOpen] = useState(false)
   const [communicationVoiceDropdownOpen, setCommunicationVoiceDropdownOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -617,6 +629,8 @@ export default function Home() {
       : (activeStructuredLesson.runKey ??
           `static-${activeStructuredLesson.id}-${activeStructuredLesson.variantId ?? ''}-${structuredLessonShuffleNonce}`)
   const dialogueCorrectAnswers = React.useMemo(() => countDialogueFinalCorrectAnswers(messages), [messages])
+  const rewardedStructuredLessonRef = React.useRef<string | null>(null)
+  const rewardedPracticeSessionRef = React.useRef<string | null>(null)
   /** Настройки на момент последней отправки сообщения; для баннера «настройки изменены». */
   const [settingsAtLastSend, setSettingsAtLastSend] = useState<Settings | null>(null)
   const initialLoadDoneRef = React.useRef(false)
@@ -683,6 +697,20 @@ export default function Home() {
   const practicePrefetchAbortRef = React.useRef<AbortController | null>(null)
   /** Предыдущий экран меню на главной: для сброса модели при возврате на корень (root). */
   const prevHomeMenuViewForModelResetRef = React.useRef<MenuView | null>(null)
+  const bumpCommunicationGoal = useCallback(() => {
+    setRewardsState((prev) =>
+      incrementModeGoal(prev, 'communication', {
+        completionXp: 35,
+      })
+    )
+  }, [])
+  const bumpEngvoGoal = useCallback(() => {
+    setRewardsState((prev) =>
+      incrementModeGoal(prev, 'engvo', {
+        completionXp: 35,
+      })
+    )
+  }, [])
   /** iPhone / iPad / iPod и iPadOS с десктопным UA (Macintosh + Mobile). */
   const isIosClient = React.useMemo(() => {
     if (typeof navigator === 'undefined') return false
@@ -1326,6 +1354,7 @@ export default function Home() {
           }
           if (transcript) {
             setMessages((prev) => [...prev, { role: 'user', content: transcript }])
+            bumpEngvoGoal()
           }
           setEngvoCallPhase('assistantPending')
         }
@@ -1437,6 +1466,7 @@ export default function Home() {
       setEngvoSessionError,
       isEngvoDeferredSessionUpdateConflict,
       markEngvoSessionUpdateAck,
+      bumpEngvoGoal,
       settings.audience,
       settings.topic,
       scheduleEngvoSessionUpdateRetry,
@@ -3448,6 +3478,7 @@ export default function Home() {
 
   useEffect(() => {
     const state = loadState()
+    const rewards = loadRewardsState()
     if (!initialLoadDoneRef.current) {
       initialLoadDoneRef.current = true
       setMessages([])
@@ -3461,6 +3492,7 @@ export default function Home() {
       setEngvoCefrLevel(loadEngvoCefrLevel())
       const storedSpeechSpeed = loadEngvoSpeechSpeedPreset()
       setEngvoSpeechSpeedPreset(storedSpeechSpeed ?? getEngvoDefaultSpeechSpeedPreset(mergedSettings.audience))
+      setRewardsState(rewards)
     }
     setInitialized(true)
     setStorageLoaded(true)
@@ -3545,6 +3577,35 @@ export default function Home() {
     saveState(messages, settings)
   }, [storageLoaded, messages, settings, dialogStarted])
 
+  useEffect(() => {
+    if (!storageLoaded) return
+    saveRewardsState(rewardsState)
+  }, [storageLoaded, rewardsState])
+
+  useEffect(() => {
+    if (!storageLoaded || !activeStructuredLesson || activeStructuredLessonStatus !== 'completed') return
+    const lessonRewardKey = `${activeStructuredLesson.id}:${activeStructuredLesson.runKey ?? 'static'}`
+    if (rewardedStructuredLessonRef.current === lessonRewardKey) return
+    rewardedStructuredLessonRef.current = lessonRewardKey
+    setRewardsState((prev) =>
+      awardGlobalXp(withDailyActivity(prev), 45, 'lesson_completed', {
+        ticker: 'Урок завершён. +45 XP за полное прохождение.',
+      })
+    )
+  }, [storageLoaded, activeStructuredLesson, activeStructuredLessonStatus])
+
+  useEffect(() => {
+    if (!storageLoaded || !practiceSession.session || practiceSession.session.status !== 'completed') return
+    const practiceRewardKey = practiceSession.session.id
+    if (rewardedPracticeSessionRef.current === practiceRewardKey) return
+    rewardedPracticeSessionRef.current = practiceRewardKey
+    setRewardsState((prev) =>
+      awardGlobalXp(withDailyActivity(prev), 30, 'practice_completed', {
+        ticker: 'Практика завершена. +30 XP за закрытую сессию.',
+      })
+    )
+  }, [storageLoaded, practiceSession.session])
+
   const handleSend = useCallback(
     async (text: string) => {
       if (engvoVoiceMode) return
@@ -3592,6 +3653,9 @@ export default function Home() {
         messagesWithCurrentUser: nextMessages,
       })
       setMessages(nextMessages)
+      if (settings.mode === 'communication') {
+        bumpCommunicationGoal()
+      }
       if (settings.mode === 'communication') {
         const indicatorLang = getExpectedCommunicationReplyLang(nextMessages, {
           inputPreference: nextCommunicationExpectedLang ?? settings.communicationInputExpectedLang,
@@ -3680,7 +3744,7 @@ export default function Home() {
         setSearchingInternet(false)
       }
     },
-    [messages, atLimit, sendToApi, fetchUsage, settings, ensureFirstMessage, engvoVoiceMode, communicationVoiceInputMode]
+    [messages, atLimit, sendToApi, fetchUsage, settings, ensureFirstMessage, engvoVoiceMode, communicationVoiceInputMode, bumpCommunicationGoal]
   )
 
   function isRetryableTranslationError(message: string): boolean {
@@ -4115,8 +4179,12 @@ export default function Home() {
       : isLessonActive
       ? learningLessonFooterDynamicText
       : dialogStarted
-        ? chatFooterVoice?.text ?? null
-        : adaptiveFooterView?.dynamicText ?? homeFooterVoice?.text ?? null
+        ? settings.mode === 'communication'
+          ? rewardsState.ui.footerTicker ?? chatFooterVoice?.text ?? null
+          : engvoVoiceMode
+            ? rewardsState.ui.footerTicker ?? chatFooterVoice?.text ?? null
+            : chatFooterVoice?.text ?? null
+        : adaptiveFooterView?.dynamicText ?? rewardsState.ui.footerTicker ?? homeFooterVoice?.text ?? null
   const footerStaticText = isAccentActive
     ? accentFooterView?.staticText ?? 'Произношение'
     : isVocabularyHubActive
@@ -4132,8 +4200,12 @@ export default function Home() {
       : isLessonActive
       ? learningLessonFooterStaticText
       : dialogStarted
-        ? getMenuSummary(false)
-        : adaptiveFooterView?.staticText ?? 'Главная'
+        ? settings.mode === 'communication'
+          ? formatModeGoalFooter('communication', rewardsState)
+          : engvoVoiceMode
+            ? formatModeGoalFooter('engvo', rewardsState)
+            : getMenuSummary(false)
+        : adaptiveFooterView?.staticText ?? formatGlobalFooterStats(rewardsState)
   const footerTypingKey = isAccentActive
     ? accentFooterView?.typingKey ?? 'accent-footer'
     : isVocabularyHubActive
@@ -4606,6 +4678,7 @@ export default function Home() {
                     onSettingsChange={(s) => setSettings(normalizeSettingsForAudience(s))}
                     usage={usage}
                     dialogueCorrectAnswers={dialogueCorrectAnswers}
+                    rewardsState={rewardsState}
                     idPrefix="home-"
                     className="flex min-h-0 flex-col"
                     homeLayout
@@ -4874,6 +4947,7 @@ export default function Home() {
         onSettingsChange={(s) => setSettings(normalizeSettingsForAudience(s))}
         usage={usage}
         dialogueCorrectAnswers={dialogueCorrectAnswers}
+        rewardsState={rewardsState}
         onStartChat={handleStartChatFromMenu}
         onOpenEngvoVoiceChat={handleOpenEngvoVoiceChat}
         engvoRealtimeVoice={engvoRealtimeVoice}
