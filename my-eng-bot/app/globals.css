@@ -172,6 +172,8 @@
   --vv-right-inset: 0px;
   /* Высота панели ввода чата (обновляется из JS, fallback). */
   --chat-input-height: 5.5rem;
+  /* Полная высота полосы композера (обёртка в Chat), для RewardPopup; 0 пока чат не смонтирован. */
+  --chat-composer-stack-height: 0px;
 }
 
 html[data-theme='futuristic'] {
