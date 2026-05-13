@@ -6039,6 +6039,16 @@ function extractRepeatSentencesFromCurrentDialogueCycle(messages: ChatMessage[])
   return extractRepeatSentencesFromAssistantHistory(messages, boundaryIdx + 1)
 }
 
+function countDialogueRepeatAttemptsInCurrentCycle(messages: ChatMessage[]): number {
+  return extractRepeatSentencesFromCurrentDialogueCycle(messages).length
+}
+
+function getLastDialogueRepeatAnchor(messages: ChatMessage[]): string | null {
+  const repeats = extractRepeatSentencesFromCurrentDialogueCycle(messages)
+  const last = repeats.at(-1)?.trim()
+  return last || null
+}
+
 function scoreUserRepeatOverlap(userText: string, candidate: string): number {
   const u = normalizeEnglishForLearnerAnswerMatch(userText, 'dialogue')
   const c = normalizeEnglishForLearnerAnswerMatch(candidate, 'dialogue')
@@ -6699,6 +6709,28 @@ export async function POST(req: NextRequest) {
       isCyrillicOnlyText(lastUserContentForResponse) &&
       (Boolean(forcedRepeatSentence?.trim()) || hasRussianDialogueFallbackSignal(lastUserContentForResponse))
     ) {
+      const cyrillicRepeatAnchor =
+        forcedRepeatSentence?.trim() || getLastDialogueRepeatAnchor(recentMessages)
+      const cyrillicRepeatAttempts = countDialogueRepeatAttemptsInCurrentCycle(recentMessages)
+      const shouldExitRepeatOnCyrillicFallback =
+        Boolean(cyrillicRepeatAnchor) &&
+        cyrillicRepeatAttempts >= 2 &&
+        !isDialogueAnswerEffectivelyCorrect(lastUserContentForResponse, cyrillicRepeatAnchor ?? '', tutorGradingTense)
+      if (shouldExitRepeatOnCyrillicFallback) {
+        const nextQuestionTense =
+          topic === 'free_talk' ? (freeTalkExpectedNextQuestionTense ?? tutorGradingTense) : tutorGradingTense
+        return NextResponse.json({
+          content: `Комментарий: Ничего страшного, идем дальше.\n${fallbackNextQuestion({
+            topic,
+            tense: nextQuestionTense,
+            level,
+            audience,
+            diversityKey: `${recentMessages.length}|repeat-exit-cyrillic|${lastUserContentForResponse}`,
+            recentMessages,
+          })}`,
+          dialogueCorrect: true,
+        })
+      }
       const repeatBody = finalizeDialogueRepeatEnglishBody({
         candidateRepeat: buildMixedInputRepeatFallback({
           userText: lastUserContentForResponse,
@@ -8478,9 +8510,44 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           })
         : { ok: true }
     const isMixedDialogueInput = mode === 'dialogue' && isMixedLatinCyrillicText(lastUserContentForResponse)
+    const historyRepeatAnchor = mode === 'dialogue' ? getLastDialogueRepeatAnchor(recentMessages) : null
+    const effectiveRepeatAnchor =
+      mode === 'dialogue' ? (forcedRepeatSentence?.trim() || historyRepeatAnchor) : null
     const userClosedForcedRepeat =
-      !forcedRepeatSentence ||
-      isDialogueAnswerEffectivelyCorrect(lastUserContentForResponse, forcedRepeatSentence, tutorGradingTense)
+      !effectiveRepeatAnchor ||
+      isDialogueAnswerEffectivelyCorrect(lastUserContentForResponse, effectiveRepeatAnchor, tutorGradingTense)
+    const repeatAttemptsInCurrentCycle =
+      mode === 'dialogue'
+        ? countDialogueRepeatAttemptsInCurrentCycle(recentMessages)
+        : 0
+    const shouldExitRepeatLoopAfterTwoAttempts =
+      mode === 'dialogue' &&
+      !isFirstTurn &&
+      !isTopicChoiceTurn &&
+      !isMixedDialogueInput &&
+      Boolean(effectiveRepeatAnchor) &&
+      !userClosedForcedRepeat &&
+      repeatAttemptsInCurrentCycle >= 2
+    if (shouldExitRepeatLoopAfterTwoAttempts) {
+      const nextQuestionTense =
+        topic === 'free_talk' ? (freeTalkExpectedNextQuestionTense ?? tutorGradingTense) : tutorGradingTense
+      const gentleEncouragementComment = 'Комментарий: Ничего страшного, идем дальше.'
+      return NextResponse.json({
+        content: finalizeDialogueFallbackWithCefr({
+          content: `${gentleEncouragementComment}\n${fallbackNextQuestion({
+            topic,
+            tense: nextQuestionTense,
+            level,
+            audience,
+            diversityKey: `${recentMessages.length}|repeat-exit|${lastUserContentForResponse}`,
+            recentMessages,
+          })}`,
+          level: level as LevelId,
+          audience,
+        }),
+        dialogueCorrect: true,
+      })
+    }
     const canUseSoftNextQuestionFallback =
       mode === 'dialogue' &&
       topic === 'free_talk' &&
