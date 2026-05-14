@@ -34,6 +34,11 @@ import {
   type RewardsState,
 } from '@/lib/rewardsState'
 import { applyRewardsEvent } from '@/lib/rewardsEvents'
+import {
+  buildRewardPopupText,
+  rewardReasonAllowsDynamicTickerOverride,
+  rewardReasonShowsToast,
+} from '@/lib/rewardsUiPolicy'
 import { countDialogueFinalCorrectAnswers } from '@/lib/dialogueStats'
 import { TOPICS, LEVELS, TENSES } from '@/lib/constants'
 import { allowedTensesForAudience } from '@/lib/levelAllowedTenses'
@@ -3632,8 +3637,9 @@ export default function Home() {
 
   useEffect(() => {
     if (!storageLoaded) return
-    const rewardAt = rewardsState.ui.lastReward?.at
-    if (!rewardAt) return
+    const lastReward = rewardsState.ui.lastReward
+    const rewardAt = lastReward?.at
+    if (!rewardAt || !lastReward) return
     const marker = `${rewardAt}:${rewardsState.ui.lastLevelUp?.at ?? ''}`
     if (rewardPopupSeenRef.current === null) {
       rewardPopupSeenRef.current = marker
@@ -3641,11 +3647,16 @@ export default function Home() {
     }
     if (rewardPopupSeenRef.current === marker) return
     rewardPopupSeenRef.current = marker
-    const rewardAmount = rewardsState.ui.lastReward?.amount ?? 0
     const levelUpNow = rewardsState.ui.lastLevelUp?.at === rewardAt ? rewardsState.ui.lastLevelUp : null
-    const popupText = levelUpNow
-      ? `+${rewardAmount} XP • Новый уровень: ${levelUpNow.to}`
-      : `+${rewardAmount} XP`
+    const shouldToast = rewardReasonShowsToast(lastReward.reason, Boolean(levelUpNow))
+    if (!shouldToast) {
+      return
+    }
+    const popupText = buildRewardPopupText({
+      reason: lastReward.reason,
+      amount: lastReward.amount,
+      levelUp: levelUpNow ? { from: levelUpNow.from, to: levelUpNow.to } : null,
+    })
     setRewardPopupText(null)
     const showTimerId = window.setTimeout(() => {
       setRewardPopupText(popupText)
@@ -4218,12 +4229,28 @@ export default function Home() {
         : 'Дополнительные фишки | 0/7 шагов'
   const recentRewardTicker = React.useMemo(() => {
     const ticker = rewardsState.ui.footerTicker?.trim()
-    const lastRewardAt = rewardsState.ui.lastReward?.at
-    if (!ticker || !lastRewardAt) return null
-    const timestamp = new Date(lastRewardAt).getTime()
+    const lastReward = rewardsState.ui.lastReward
+    if (!ticker || !lastReward?.at) return null
+    if (!rewardReasonAllowsDynamicTickerOverride(lastReward.reason)) return null
+    const timestamp = new Date(lastReward.at).getTime()
     if (Number.isNaN(timestamp)) return null
-    return Date.now() - timestamp <= 35_000 ? ticker : null
-  }, [rewardsState.ui.footerTicker, rewardsState.ui.lastReward?.at])
+    if (Date.now() - timestamp > 35_000) return null
+    if (
+      engvoVoiceMode &&
+      dialogStarted &&
+      (engvoCallPhase === 'error' || engvoCallPhase === 'userFinalizing')
+    ) {
+      return null
+    }
+    return ticker
+  }, [
+    dialogStarted,
+    engvoCallPhase,
+    engvoVoiceMode,
+    rewardsState.ui.footerTicker,
+    rewardsState.ui.lastReward?.at,
+    rewardsState.ui.lastReward?.reason,
+  ])
   // Тикер награды (например «Ответы 3/7») привязан к активной сессии: на простом доме/меню без чата и урока
   // не подмешиваем его, иначе после «домика» верхняя строка футера остаётся от прошлого контекста до TTL.
   const footerContextRewardTicker =
@@ -4779,6 +4806,7 @@ export default function Home() {
                     onOpenVocabularyByLevel={openVocabularyByLevel}
                     onOpenAdaptivePracticeTopic={openAdaptivePracticeTopic}
                     onOpenTutorLesson={openTutorLesson}
+                    onAdaptiveFooterViewChange={setAdaptiveFooterView}
                     initialLessonsPanel={homeMenuView === 'lessons' ? lessonMenuContext?.lessonsPanel : undefined}
                   />
                 </div>
@@ -5048,6 +5076,7 @@ export default function Home() {
         onOpenVocabularyByLevel={openVocabularyByLevel}
         onOpenAdaptivePracticeTopic={openAdaptivePracticeTopic}
         onOpenTutorLesson={openTutorLesson}
+        onAdaptiveFooterViewChange={setAdaptiveFooterView}
         lessonMenuContext={lessonMenuContext}
         topOffset="var(--app-top-offset)"
         bottomOffset="var(--app-bottom-offset)"

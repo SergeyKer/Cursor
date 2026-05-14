@@ -8,6 +8,7 @@ import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
 import type { EngvoCefrLevel, EngvoRealtimeVoice, EngvoSpeechSpeedPresetId } from '@/lib/engvo/constants'
 import type { RewardsState } from '@/lib/rewardsState'
+import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 
 export type LessonMenuContext = {
   menuView: 'lessons'
@@ -63,6 +64,8 @@ interface SlideOutMenuProps {
   onOpenVocabularyWorlds?: () => Promise<void> | void
   onOpenVocabularyByLevel?: () => Promise<void> | void
   onOpenAdaptivePracticeTopic?: (topic: string) => void
+  /** Футер приложения при «Мой путь» в меню уроков. */
+  onAdaptiveFooterViewChange?: (view: AdaptiveFooterView | null) => void
   /** Открыть урок из ветки «Репетитор». */
   onOpenTutorLesson?: (request: {
     requestedTopic: string
@@ -108,6 +111,7 @@ export default function SlideOutMenu({
   onOpenVocabularyWorlds,
   onOpenVocabularyByLevel,
   onOpenAdaptivePracticeTopic,
+  onAdaptiveFooterViewChange,
   onOpenTutorLesson,
   lessonMenuContext,
   topOffset = 'calc(2.75rem + env(safe-area-inset-top, 0px))',
@@ -209,6 +213,7 @@ export default function SlideOutMenu({
             onOpenVocabularyWorlds={onOpenVocabularyWorlds}
             onOpenVocabularyByLevel={onOpenVocabularyByLevel}
             onOpenAdaptivePracticeTopic={onOpenAdaptivePracticeTopic}
+            onAdaptiveFooterViewChange={onAdaptiveFooterViewChange}
             onOpenTutorLesson={onOpenTutorLesson}
             initialLessonsPanel={menuView === 'lessons' ? lessonMenuContext?.lessonsPanel : undefined}
           />

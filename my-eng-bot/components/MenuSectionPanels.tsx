@@ -29,6 +29,7 @@ import ThemeSelector from '@/components/settings/ThemeSelector'
 import { useTheme } from '@/contexts/ThemeContext'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
+import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import {
   ENGVO_LEVEL_OPTIONS,
   ENGVO_REALTIME_VOICES,
@@ -297,6 +298,8 @@ export interface MenuSectionPanelsProps {
     selectedIntent?: TutorLearningIntent
     analysisSummary?: string
   }) => Promise<void> | void
+  /** Футер приложения при открытии «Мой путь» (AdaptiveDailyHub). */
+  onAdaptiveFooterViewChange?: (view: AdaptiveFooterView | null) => void
   /** Стартовый уровень lessons-панели при открытии меню. */
   initialLessonsPanel?: LessonsPanel
 }
@@ -332,6 +335,7 @@ export default function MenuSectionPanels({
   onOpenVocabularyByLevel,
   onOpenAdaptivePracticeTopic,
   onOpenTutorLesson,
+  onAdaptiveFooterViewChange,
   initialLessonsPanel,
 }: MenuSectionPanelsProps) {
   const { theme } = useTheme()
@@ -1250,6 +1254,7 @@ export default function MenuSectionPanels({
                 onOpenVocabularyWorlds={() => void onOpenVocabularyWorlds?.()}
                 onOpenPracticeTopic={onOpenAdaptivePracticeTopic}
                 onStartChat={onStartHomeChat}
+                onFooterViewChange={onAdaptiveFooterViewChange}
               />
             )}
 

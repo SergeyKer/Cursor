@@ -18,4 +18,14 @@ describe('applyRewardsEvent', () => {
     expect(next.ui.footerTicker).toContain('Урок завершён')
     expect(next.ui.lastReward?.reason).toBe('lesson_completed')
   })
+
+  it('marks communication goal completed on seventh turn', () => {
+    let state = createDefaultRewardsState()
+    for (let i = 0; i < 7; i += 1) {
+      state = applyRewardsEvent(state, { type: 'communication_turn_completed' })
+    }
+    expect(state.modeGoals.communication.goalProgress).toBe(7)
+    expect(state.modeGoals.communication.completed).toBe(true)
+    expect(state.ui.lastReward?.reason).toBe('communication_goal_completed')
+  })
 })
