@@ -1,4 +1,9 @@
-import { PRACTICE_TOPICS_BY_AUDIENCE, getPracticeLessonTopics, getPracticeTopicSearchTexts } from '@/lib/lessonCatalog'
+import {
+  PRACTICE_TOPICS_BY_AUDIENCE,
+  getPracticeLessonTopics,
+  getPracticeTopicSearchTexts,
+  getTheoryLessonTopics,
+} from '@/lib/lessonCatalog'
 import type { Audience } from '@/lib/types'
 
 export interface PracticeTopicCandidate {
@@ -25,7 +30,7 @@ const PRACTICE_TOPIC_ALIASES: Record<string, string[]> = {
   '3': ['вложенные вопросы', 'встроенные вопросы', 'косвенные вопросы', 'embedded questions', 'indirect questions'],
 }
 
-function normalize(value: string): string {
+export function normalizeLessonCatalogQuery(value: string): string {
   return value
     .toLowerCase()
     .replace(/ё/g, 'е')
@@ -35,13 +40,13 @@ function normalize(value: string): string {
 }
 
 function splitTokens(value: string): string[] {
-  return normalize(value)
+  return normalizeLessonCatalogQuery(value)
     .split(' ')
     .map((token) => token.trim())
     .filter((token) => token.length > 1)
 }
 
-function scoreByKey(query: string, key: string): number {
+export function scoreLessonCatalogQueryKey(query: string, key: string): number {
   if (!query || !key) return 0
   if (query === key) return 120
   if (key.includes(query) || query.includes(key)) return 80
@@ -63,7 +68,7 @@ export function findPracticeTopicCandidatesByMenuKeys(
   audience: Audience,
   limit = 3
 ): PracticeTopicCandidate[] {
-  const normalizedQuery = normalize(query)
+  const normalizedQuery = normalizeLessonCatalogQuery(query)
   if (!normalizedQuery) return []
   const topics = getPracticeLessonTopics().filter((topic) => topic.enabled)
   const candidates = topics
@@ -77,12 +82,57 @@ export function findPracticeTopicCandidatesByMenuKeys(
           .flatMap((copy) => [copy.short, copy.long]),
         ...(PRACTICE_TOPIC_ALIASES[topic.id] ?? []),
       ]
-        .map(normalize)
+        .map(normalizeLessonCatalogQuery)
         .filter(Boolean)
       let bestScore = 0
       let bestReason = ''
       for (const key of keys) {
-        const score = scoreByKey(normalizedQuery, key)
+        const score = scoreLessonCatalogQueryKey(normalizedQuery, key)
+        if (score > bestScore) {
+          bestScore = score
+          bestReason = key
+        }
+      }
+      return {
+        lessonId: topic.id,
+        title: topic.title,
+        score: bestScore,
+        reason: bestReason || topic.title,
+      }
+    })
+    .filter((candidate) => candidate.score >= 30)
+    .sort((left, right) => right.score - left.score)
+
+  return candidates.slice(0, Math.max(1, limit))
+}
+
+/** Те же ключи, что для практики, но только уроки с теорией (меню «Теория» / уровни). */
+export function findTheoryTopicCatalogCandidatesByMenuKeys(
+  query: string,
+  audience: Audience,
+  limit = 5
+): PracticeTopicCandidate[] {
+  const normalizedQuery = normalizeLessonCatalogQuery(query)
+  if (!normalizedQuery) return []
+  const topics = getTheoryLessonTopics().filter((topic) => topic.enabled && topic.hasTheory)
+  const candidates = topics
+    .map((topic) => {
+      const keys = [
+        ...getPracticeTopicSearchTexts(topic, audience),
+        ...getPracticeTopicSearchTexts(topic, audience === 'adult' ? 'child' : 'adult'),
+        ...Object.values(PRACTICE_TOPICS_BY_AUDIENCE)
+          .map((copy) => copy[topic.id])
+          .filter(Boolean)
+          .flatMap((copy) => [copy.short, copy.long]),
+        ...(PRACTICE_TOPIC_ALIASES[topic.id] ?? []),
+        topic.slug,
+      ]
+        .map(normalizeLessonCatalogQuery)
+        .filter(Boolean)
+      let bestScore = 0
+      let bestReason = ''
+      for (const key of keys) {
+        const score = scoreLessonCatalogQueryKey(normalizedQuery, key)
         if (score > bestScore) {
           bestScore = score
           bestReason = key

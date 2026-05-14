@@ -44,6 +44,7 @@ import {
   rewardReasonAllowsDynamicTickerOverride,
   rewardReasonShowsToast,
 } from '@/lib/rewardsUiPolicy'
+import { formatRewardTopLine, getSessionTransitionTopLine } from '@/lib/footerTopLinePhrases'
 import { countDialogueFinalCorrectAnswers } from '@/lib/dialogueStats'
 import { TOPICS, LEVELS, TENSES } from '@/lib/constants'
 import { allowedTensesForAudience } from '@/lib/levelAllowedTenses'
@@ -84,7 +85,7 @@ import {
   type LearningLessonActionId,
 } from '@/lib/learningLessons'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
-import { getPracticeLessonById, pickQuickStartPracticeTopic } from '@/lib/lessonCatalog'
+import { getLessonTopicById, getPracticeLessonById, pickQuickStartPracticeTopic } from '@/lib/lessonCatalog'
 import { buildFallbackLessonIntro } from '@/lib/lessonIntro'
 import { buildTutorStructuredLesson } from '@/lib/tutorStructuredLesson'
 import type { LessonBlueprint } from '@/lib/lessonBlueprint'
@@ -195,6 +196,7 @@ type PracticeTopicResolutionResponse = {
   resolved?: boolean
   primaryTopic?: string
   suggestions?: string[]
+  catalogLessonIds?: string[]
   intentOptions?: TutorLearningIntent[]
   error?: string
 }
@@ -546,6 +548,8 @@ export default function Home() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [rewardsState, setRewardsState] = useState<RewardsState>(createDefaultRewardsState())
   const [rewardPopupText, setRewardPopupText] = useState<string | null>(null)
+  const [footerSessionContextNonce, setFooterSessionContextNonce] = useState(0)
+  const [footerTransitionText, setFooterTransitionText] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [communicationVoiceDropdownOpen, setCommunicationVoiceDropdownOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -648,6 +652,8 @@ export default function Home() {
   const rewardedPracticeSessionRef = React.useRef<string | null>(null)
   const rewardedLessonStepSnapshotRef = React.useRef<{ key: string; count: number } | null>(null)
   const rewardPopupSeenRef = React.useRef<string | null>(null)
+  const footerContextSignatureRef = React.useRef<string | null>(null)
+  const footerTransitionTimeoutRef = React.useRef<number | null>(null)
   /** Настройки на момент последней отправки сообщения; для баннера «настройки изменены». */
   const [settingsAtLastSend, setSettingsAtLastSend] = useState<Settings | null>(null)
   const initialLoadDoneRef = React.useRef(false)
@@ -714,6 +720,15 @@ export default function Home() {
   const practicePrefetchAbortRef = React.useRef<AbortController | null>(null)
   /** Предыдущий экран меню на главной: для сброса модели при возврате на корень (root). */
   const prevHomeMenuViewForModelResetRef = React.useRef<MenuView | null>(null)
+  const prevFooterModeActivityRef = React.useRef({
+    lesson: false,
+    practice: false,
+    accent: false,
+  })
+  const prevFooterAudienceRef = React.useRef<Audience>(settings.audience)
+  const bumpFooterSessionContext = useCallback(() => {
+    setFooterSessionContextNonce((prev) => prev + 1)
+  }, [])
   const bumpCommunicationGoal = useCallback(() => {
     setRewardsState((prev) => applyRewardsEvent(prev, { type: 'communication_turn_completed' }))
   }, [])
@@ -798,6 +813,22 @@ export default function Home() {
   }, [settings.audience])
 
   React.useEffect(() => {
+    if (prevFooterAudienceRef.current === settings.audience) return
+    prevFooterAudienceRef.current = settings.audience
+    setFooterTransitionText(null)
+    bumpFooterSessionContext()
+  }, [bumpFooterSessionContext, settings.audience])
+
+  React.useEffect(() => {
+    return () => {
+      if (footerTransitionTimeoutRef.current !== null) {
+        window.clearTimeout(footerTransitionTimeoutRef.current)
+        footerTransitionTimeoutRef.current = null
+      }
+    }
+  }, [])
+
+  React.useEffect(() => {
     if (dialogStarted) return
     if (welcomeFactInitRef.current === greetingNonce) return
     welcomeFactInitRef.current = greetingNonce
@@ -821,9 +852,13 @@ export default function Home() {
         setWelcomeCompact(false)
         setGreetingNonce((n) => n + 1)
       }
+      if (v !== homeMenuView) {
+        setFooterTransitionText(null)
+        bumpFooterSessionContext()
+      }
       setHomeMenuView(v)
     },
-    [homeMenuView, dialogStarted]
+    [homeMenuView, dialogStarted, bumpFooterSessionContext]
   )
 
   React.useEffect(() => {
@@ -2604,7 +2639,24 @@ export default function Home() {
       originalQuery?: string
       selectedIntent?: TutorLearningIntent
       analysisSummary?: string
+      /** Готовый structured-урок из каталога теории (ответ tutor-resolve-topic). */
+      catalogLessonId?: string
     }) => {
+      const catalogId = request.catalogLessonId?.trim()
+      if (catalogId && getStructuredLessonById(catalogId)) {
+        const catalogTopic = getLessonTopicById(catalogId)
+        const tagIds = catalogTopic?.tagIds?.filter(Boolean) ?? []
+        await openLearningLesson(catalogId, 'tutor', {
+          activeGrammarCategoryId: null,
+          activeTheoryTagId: tagIds[0] ?? null,
+          theorySearchQuery: request.originalQuery?.trim() || null,
+          activeTheoryTagIds: tagIds.length > 0 ? [...tagIds] : null,
+          theoryLessonSource: 'tag_browse',
+          theoryTagBrowseLevel: catalogTopic?.level ?? null,
+        })
+        return
+      }
+
       const topic = request.requestedTopic.trim()
       if (!topic) return
 
@@ -2703,7 +2755,14 @@ export default function Home() {
       setPendingTutorLessonTitle(null)
       setLoading(false)
     },
-    [abandonPracticeSession, openLearningLesson, settings.provider, settings.openAiChatPreset, settings.level, settings.audience]
+    [
+      abandonPracticeSession,
+      openLearningLesson,
+      settings.provider,
+      settings.openAiChatPreset,
+      settings.level,
+      settings.audience,
+    ]
   )
 
   const handleSelectLearningAction = useCallback(
@@ -2774,6 +2833,10 @@ export default function Home() {
             }),
           })
           const resolution = (await resolutionResponse.json()) as PracticeTopicResolutionResponse
+          const catalogFromResolution = resolution.catalogLessonIds?.[0]?.trim()
+          if (!resolvedLessonId && catalogFromResolution && getStructuredLessonById(catalogFromResolution)) {
+            resolvedLessonId = catalogFromResolution
+          }
           const selectedIntent = resolution.intentOptions?.[0]
           const resolvedTopic = resolution.primaryTopic ?? selectedIntent?.title ?? resolution.suggestions?.[0] ?? customTopic
           const resolvedStaticMatch = findStaticLessonByTopic(resolvedTopic)
@@ -3443,8 +3506,10 @@ export default function Home() {
     newDialogRef.current = false
     setWelcomeCompact(false)
     setGreetingNonce((n) => n + 1)
+    setFooterTransitionText(null)
+    bumpFooterSessionContext()
     saveState([], nextSettings)
-  }, [cleanupEngvoRuntime, resetStructuredLessonSession, settings])
+  }, [bumpFooterSessionContext, cleanupEngvoRuntime, resetStructuredLessonSession, settings])
 
   const backToLessonList = useCallback(() => {
     firstMessageRequestIdRef.current += 1
@@ -3464,7 +3529,9 @@ export default function Home() {
     setEngvoErrorText(null)
     // Сохраняем контекст ветки уроков, чтобы "Назад" возвращал в тот же раздел.
     resetStructuredLessonSession({ keepLessonMenuContext: true })
-  }, [cleanupEngvoRuntime, resetStructuredLessonSession])
+    setFooterTransitionText(null)
+    bumpFooterSessionContext()
+  }, [bumpFooterSessionContext, cleanupEngvoRuntime, resetStructuredLessonSession])
 
   const backToVocabularyMenu = useCallback(() => {
     firstMessageRequestIdRef.current += 1
@@ -3482,6 +3549,8 @@ export default function Home() {
     setEngvoVoiceMode(false)
     setEngvoCallPhase('idle')
     setEngvoErrorText(null)
+    setFooterTransitionText(null)
+    bumpFooterSessionContext()
     resetStructuredLessonSession()
     setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'words' })
   }, [cleanupEngvoRuntime, resetStructuredLessonSession])
@@ -3693,10 +3762,18 @@ export default function Home() {
     if (!shouldToast) {
       return
     }
+    const topLineText = formatRewardTopLine({
+      reason: lastReward.reason,
+      amount: lastReward.amount,
+      audience: settings.audience,
+      fallback: rewardsState.ui.footerTicker,
+    })
     const popupText = buildRewardPopupText({
       reason: lastReward.reason,
       amount: lastReward.amount,
       levelUp: levelUpNow ? { from: levelUpNow.from, to: levelUpNow.to } : null,
+      audience: settings.audience,
+      avoidText: topLineText,
     })
     setRewardPopupText(null)
     const showTimerId = window.setTimeout(() => {
@@ -3709,7 +3786,7 @@ export default function Home() {
       window.clearTimeout(showTimerId)
       window.clearTimeout(hideTimerId)
     }
-  }, [storageLoaded, rewardsState.ui.lastLevelUp, rewardsState.ui.lastReward])
+  }, [settings.audience, rewardsState.ui.footerTicker, storageLoaded, rewardsState.ui.lastLevelUp, rewardsState.ui.lastReward])
 
   const handleSend = useCallback(
     async (text: string) => {
@@ -4080,6 +4157,111 @@ export default function Home() {
   const practiceFooterView = practiceSession.session
     ? getPracticeFooterView(practiceSession.session, practiceSession.state === 'active' ? 'idle' : practiceSession.state)
     : null
+
+  React.useEffect(() => {
+    const signature = [
+      dialogStarted ? 'dialog' : 'home',
+      homeMenuView,
+      settings.mode,
+      settings.audience,
+      isLessonActive ? 'lesson' : 'no-lesson',
+      isPracticeActive ? 'practice' : 'no-practice',
+      isAccentActive ? 'accent' : 'no-accent',
+      isVocabularyHubActive ? 'vocabulary' : 'no-vocabulary',
+      engvoVoiceMode ? 'engvo' : 'no-engvo',
+    ].join('|')
+    if (footerContextSignatureRef.current === null) {
+      footerContextSignatureRef.current = signature
+      return
+    }
+    if (footerContextSignatureRef.current === signature) return
+    footerContextSignatureRef.current = signature
+    bumpFooterSessionContext()
+  }, [
+    bumpFooterSessionContext,
+    dialogStarted,
+    engvoVoiceMode,
+    homeMenuView,
+    isAccentActive,
+    isLessonActive,
+    isPracticeActive,
+    isVocabularyHubActive,
+    settings.audience,
+    settings.mode,
+  ])
+
+  React.useEffect(() => {
+    const prev = prevFooterModeActivityRef.current
+    const lessonNowActive = isLessonActive || isLessonIntroActive || isLessonTipsActive || isStructuredLessonActive
+    const practiceNowActive = isPracticeActive
+    const accentNowActive = isAccentActive
+    let transitionSource: 'lesson' | 'practice' | 'accent' | null = null
+
+    if (prev.lesson && !lessonNowActive) {
+      transitionSource = 'lesson'
+    } else if (prev.practice && !practiceNowActive) {
+      transitionSource = 'practice'
+    } else if (prev.accent && !accentNowActive) {
+      transitionSource = 'accent'
+    }
+
+    prevFooterModeActivityRef.current = {
+      lesson: lessonNowActive,
+      practice: practiceNowActive,
+      accent: accentNowActive,
+    }
+
+    if (!transitionSource) return
+    const transitionText = getSessionTransitionTopLine({
+      source: transitionSource,
+      audience: settings.audience,
+      seed: `${transitionSource}:${footerSessionContextNonce}`,
+    })
+    setFooterTransitionText(transitionText)
+    if (footerTransitionTimeoutRef.current !== null) {
+      window.clearTimeout(footerTransitionTimeoutRef.current)
+    }
+    footerTransitionTimeoutRef.current = window.setTimeout(() => {
+      setFooterTransitionText(null)
+      footerTransitionTimeoutRef.current = null
+    }, 10_000)
+  }, [
+    footerSessionContextNonce,
+    isAccentActive,
+    isLessonActive,
+    isLessonIntroActive,
+    isLessonTipsActive,
+    isPracticeActive,
+    isStructuredLessonActive,
+    settings.audience,
+  ])
+
+  React.useEffect(() => {
+    if (
+      isLessonActive ||
+      isLessonIntroActive ||
+      isLessonTipsActive ||
+      isStructuredLessonActive ||
+      isPracticeActive ||
+      isAccentActive ||
+      dialogStarted
+    ) {
+      setFooterTransitionText(null)
+      if (footerTransitionTimeoutRef.current !== null) {
+        window.clearTimeout(footerTransitionTimeoutRef.current)
+        footerTransitionTimeoutRef.current = null
+      }
+    }
+  }, [
+    dialogStarted,
+    isAccentActive,
+    isLessonActive,
+    isLessonIntroActive,
+    isLessonTipsActive,
+    isPracticeActive,
+    isStructuredLessonActive,
+  ])
+
   const chatFooterVoice = React.useMemo(() => {
     if (!dialogStarted || isLessonActive) return null
     if (engvoVoiceMode) {
@@ -4269,9 +4451,15 @@ export default function Home() {
         ? 'Фишки темы | ещё 1 блок'
         : 'Дополнительные фишки | 0/7 шагов'
   const recentRewardTicker = React.useMemo(() => {
-    const ticker = rewardsState.ui.footerTicker?.trim()
     const lastReward = rewardsState.ui.lastReward
-    if (!ticker || !lastReward?.at) return null
+    if (!lastReward?.at) return null
+    const ticker = formatRewardTopLine({
+      reason: lastReward.reason,
+      amount: lastReward.amount,
+      audience: settings.audience,
+      fallback: rewardsState.ui.footerTicker,
+    }).trim()
+    if (!ticker) return null
     if (!rewardReasonAllowsDynamicTickerOverride(lastReward.reason)) return null
     const timestamp = new Date(lastReward.at).getTime()
     if (Number.isNaN(timestamp)) return null
@@ -4288,7 +4476,9 @@ export default function Home() {
     dialogStarted,
     engvoCallPhase,
     engvoVoiceMode,
+    settings.audience,
     rewardsState.ui.footerTicker,
+    rewardsState.ui.lastReward?.amount,
     rewardsState.ui.lastReward?.at,
     rewardsState.ui.lastReward?.reason,
   ])
@@ -4323,7 +4513,7 @@ export default function Home() {
       ? footerContextRewardTicker ?? learningLessonFooterDynamicText
       : dialogStarted
         ? footerContextRewardTicker ?? chatFooterVoice?.text ?? null
-        : footerContextRewardTicker ?? adaptiveFooterView?.dynamicText ?? homeFooterVoice?.text ?? null
+        : footerContextRewardTicker ?? footerTransitionText ?? adaptiveFooterView?.dynamicText ?? homeFooterVoice?.text ?? null
   const baseFooterStaticText = isAccentActive
     ? accentFooterView?.staticText ?? 'Произношение'
     : isVocabularyHubActive
@@ -4362,8 +4552,8 @@ export default function Home() {
       ? chatFooterVoice?.typingKey ?? 'chat-footer'
       : adaptiveFooterView?.typingKey ?? homeFooterVoice?.typingKey ?? 'home-footer'
   const footerTypingKey = footerContextRewardTicker
-    ? `reward-${rewardsState.ui.lastReward?.at ?? rewardsState.timestamp}`
-    : baseFooterTypingKey
+    ? `reward-${rewardsState.ui.lastReward?.at ?? rewardsState.timestamp}:ctx-${footerSessionContextNonce}`
+    : `${baseFooterTypingKey}:ctx-${footerSessionContextNonce}`
   const baseFooterVoiceTone = isAccentActive
     ? accentFooterView?.tone ?? 'neutral'
     : isVocabularyHubActive

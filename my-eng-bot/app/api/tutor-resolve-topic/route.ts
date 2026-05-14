@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callProviderChat } from '@/lib/callProviderChat'
 import { findStaticLessonByTopic } from '@/lib/learningLessons'
+import { findTutorCatalogLessonCandidates, tutorCatalogWhyRu } from '@/lib/tutorCatalogMatch'
 import {
   buildFallbackTutorLearningIntent,
   buildPresetTutorLearningIntents,
@@ -24,6 +25,8 @@ type TopicResolutionResponse = {
   status?: 'resolved' | 'needs_clarification' | 'rejected'
   confidence?: 'low' | 'medium' | 'high'
   suggestions: string[]
+  /** Параллельно `suggestions`: id structured-урока из каталога теории. */
+  catalogLessonIds?: string[]
   suggestionMeta?: Array<{ topic: string; whyRu: string }>
   intentOptions?: TutorLearningIntent[]
   primaryTopic?: string
@@ -280,6 +283,26 @@ export async function POST(req: NextRequest) {
         suggestions: [],
         clarifyPrompt:
           'ИИ: не удалось точно определить грамматическую тему. Уточните запрос (например: Present Simple, Have/Has, Articles a/an/the).',
+      } satisfies TopicResolutionResponse,
+      { status: 200 }
+    )
+  }
+
+  const catalogHits = findTutorCatalogLessonCandidates(query, audience, body.level)
+  if (catalogHits.length > 0) {
+    return NextResponse.json(
+      {
+        resolved: true,
+        status: 'resolved',
+        confidence: 'high',
+        suggestions: catalogHits.map((hit) => hit.suggestionLabel),
+        catalogLessonIds: catalogHits.map((hit) => hit.lessonId),
+        suggestionMeta: catalogHits.map((hit) => ({
+          topic: hit.suggestionLabel,
+          whyRu: tutorCatalogWhyRu(hit.lessonId, audience),
+        })),
+        intentOptions: catalogHits.map((hit) => buildFallbackTutorLearningIntent(hit.suggestionLabel)),
+        primaryTopic: catalogHits[0]!.suggestionLabel,
       } satisfies TopicResolutionResponse,
       { status: 200 }
     )

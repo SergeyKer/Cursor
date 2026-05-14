@@ -366,6 +366,7 @@ export interface MenuSectionPanelsProps {
     originalQuery?: string
     selectedIntent?: TutorLearningIntent
     analysisSummary?: string
+    catalogLessonId?: string
   }) => Promise<void> | void
   /** Сохранить фильтр практики по тегу теории в контексте приложения (страница). */
   onPracticeTheoryTagFilterPersist?: (tagId: string | null) => void
@@ -459,6 +460,8 @@ export default function MenuSectionPanels({
   const [tutorLoading, setTutorLoading] = React.useState(false)
   const [tutorResult, setTutorResult] = React.useState<ImageAnalysisResult | null>(null)
   const [tutorSuggestedTopics, setTutorSuggestedTopics] = React.useState<string[]>([])
+  /** Параллельно tutorSuggestedTopics: id урока из каталога теории (если ответ API с catalogLessonIds). */
+  const [tutorCatalogLessonIds, setTutorCatalogLessonIds] = React.useState<string[]>([])
   const [tutorTopicHintsByTopic, setTutorTopicHintsByTopic] = React.useState<Record<string, string>>({})
   const [tutorIntentOptions, setTutorIntentOptions] = React.useState<TutorLearningIntent[]>([])
   const [selectedTutorTopic, setSelectedTutorTopic] = React.useState<string | null>(null)
@@ -1146,6 +1149,7 @@ export default function MenuSectionPanels({
     setTutorImageDataUrl(null)
     setTutorCustomFocus('')
     setTutorSuggestedTopics([])
+    setTutorCatalogLessonIds([])
     setTutorTopicHintsByTopic({})
     setTutorIntentOptions([])
     setSelectedTutorTopic(null)
@@ -1176,6 +1180,7 @@ export default function MenuSectionPanels({
       setTutorImageError(null)
       setTutorResult(null)
       setTutorSuggestedTopics([])
+      setTutorCatalogLessonIds([])
       setTutorTopicHintsByTopic({})
       setTutorIntentOptions([])
       setSelectedTutorTopic(null)
@@ -1206,6 +1211,7 @@ export default function MenuSectionPanels({
       const data = (await response.json()) as {
         resolved?: boolean
         suggestions?: string[]
+        catalogLessonIds?: string[]
         suggestionMeta?: Array<{ topic?: string; whyRu?: string }>
         intentOptions?: TutorLearningIntent[]
         primaryTopic?: string
@@ -1218,6 +1224,7 @@ export default function MenuSectionPanels({
       return {
         resolved: Boolean(data.resolved),
         suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
+        catalogLessonIds: Array.isArray(data.catalogLessonIds) ? data.catalogLessonIds : [],
         suggestionMeta: Array.isArray(data.suggestionMeta) ? data.suggestionMeta : [],
         intentOptions: Array.isArray(data.intentOptions) ? data.intentOptions : [],
         primaryTopic: typeof data.primaryTopic === 'string' ? data.primaryTopic : undefined,
@@ -1238,6 +1245,7 @@ export default function MenuSectionPanels({
         const resolution = await resolveWithModel(directInput)
         if (!resolution.resolved || !resolution.primaryTopic) {
           setTutorSuggestedTopics([])
+          setTutorCatalogLessonIds([])
           setTutorTopicHintsByTopic({})
           setTutorIntentOptions([])
           setSelectedTutorTopic(null)
@@ -1253,6 +1261,7 @@ export default function MenuSectionPanels({
         setTutorResult(null)
         setTutorClarifyPrompt(null)
         setTutorSuggestedTopics(resolution.suggestions)
+        setTutorCatalogLessonIds(resolution.catalogLessonIds)
         setTutorIntentOptions(resolution.intentOptions)
         const hints: Record<string, string> = {}
         for (const item of resolution.suggestionMeta) {
@@ -1264,8 +1273,13 @@ export default function MenuSectionPanels({
         }
         setTutorTopicHintsByTopic(hints)
         setSelectedTutorTopic(resolution.primaryTopic)
+        const primaryIdx = resolution.suggestions.findIndex((s) => s === resolution.primaryTopic)
         setSelectedTutorIntent(
-          resolution.intentOptions.find((intent) => intent.title === resolution.primaryTopic) ?? resolution.intentOptions[0] ?? null
+          primaryIdx >= 0
+            ? (resolution.intentOptions[primaryIdx] ?? resolution.intentOptions[0] ?? null)
+            : (resolution.intentOptions.find((intent) => intent.title === resolution.primaryTopic) ??
+                resolution.intentOptions[0] ??
+                null)
         )
         setTutorStep('select')
       } catch (error) {
@@ -1273,6 +1287,7 @@ export default function MenuSectionPanels({
           error instanceof Error ? error.message : 'Нет связи с сервером. Проверьте интернет и попробуйте снова.'
         setTutorImageError(message)
         setTutorSuggestedTopics([])
+        setTutorCatalogLessonIds([])
         setTutorTopicHintsByTopic({})
         setTutorIntentOptions([])
         setSelectedTutorTopic(null)
@@ -1309,6 +1324,7 @@ export default function MenuSectionPanels({
       const resolution = await resolveWithModel(topicInput, data.analysis.whatISee.summaryRu)
       if (!resolution.resolved || !resolution.primaryTopic) {
         setTutorSuggestedTopics([])
+        setTutorCatalogLessonIds([])
         setTutorTopicHintsByTopic({})
         setTutorIntentOptions([])
         setSelectedTutorTopic(null)
@@ -1322,6 +1338,7 @@ export default function MenuSectionPanels({
       }
       setTutorClarifyPrompt(null)
       setTutorSuggestedTopics(resolution.suggestions)
+      setTutorCatalogLessonIds(resolution.catalogLessonIds)
       setTutorIntentOptions(resolution.intentOptions)
       const hints: Record<string, string> = {}
       for (const item of resolution.suggestionMeta) {
@@ -1333,14 +1350,21 @@ export default function MenuSectionPanels({
       }
       setTutorTopicHintsByTopic(hints)
       setSelectedTutorTopic(resolution.primaryTopic)
+      const primaryIdx = resolution.suggestions.findIndex((s) => s === resolution.primaryTopic)
       setSelectedTutorIntent(
-        resolution.intentOptions.find((intent) => intent.title === resolution.primaryTopic) ?? resolution.intentOptions[0] ?? null
+        primaryIdx >= 0
+          ? (resolution.intentOptions[primaryIdx] ?? resolution.intentOptions[0] ?? null)
+          : (resolution.intentOptions.find((intent) => intent.title === resolution.primaryTopic) ??
+              resolution.intentOptions[0] ??
+              null)
       )
       setTutorStep('select')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Нет связи с сервером. Проверьте интернет и попробуйте снова.'
       setTutorImageError(message)
       setTutorResult(null)
+      setTutorSuggestedTopics([])
+      setTutorCatalogLessonIds([])
       setTutorIntentOptions([])
       setSelectedTutorIntent(null)
     } finally {
@@ -1727,7 +1751,7 @@ export default function MenuSectionPanels({
             {lessonsPanel === 'theory' && (
               <div className={MENU_GROUP_OUTER}>
                 <div className={MENU_GROUP_CLASS}>
-                  <MenuNavRow label="По уровню (CEFR)" onClick={() => setLessonsPanel('theoryCefrLevels')} />
+                  <MenuNavRow label="По уровню" onClick={() => setLessonsPanel('theoryCefrLevels')} />
                   <MenuNavRow
                     label="По теме"
                     onClick={() => {
@@ -2469,6 +2493,7 @@ export default function MenuSectionPanels({
                         onChange={(event) => {
                           setTutorCustomFocus(event.target.value)
                           setTutorSuggestedTopics([])
+                          setTutorCatalogLessonIds([])
                           setTutorIntentOptions([])
                           setSelectedTutorTopic(null)
                           setSelectedTutorIntent(null)
@@ -2541,8 +2566,9 @@ export default function MenuSectionPanels({
                         Выберите тему и нажмите «Начать».
                       </p>
                       <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] p-2">
-                        {tutorSuggestedTopics.map((topic) => {
-                          const intent = tutorIntentOptions.find((item) => item.title === topic)
+                        {tutorSuggestedTopics.map((topic, topicIndex) => {
+                          const intent =
+                            tutorIntentOptions[topicIndex] ?? tutorIntentOptions.find((item) => item.title === topic)
                           return (
                           <button
                             key={topic}
@@ -2575,11 +2601,17 @@ export default function MenuSectionPanels({
                           if (!selectedTutorTopic || !onOpenTutorLesson) return
                           setTutorStartingLesson(true)
                           try {
+                            const topicIndex = tutorSuggestedTopics.indexOf(selectedTutorTopic)
+                            const catalogLessonId =
+                              tutorCatalogLessonIds.length === tutorSuggestedTopics.length && topicIndex >= 0
+                                ? tutorCatalogLessonIds[topicIndex]
+                                : undefined
                             await onOpenTutorLesson({
                               requestedTopic: selectedTutorTopic,
                               originalQuery: tutorCustomFocus.trim() || undefined,
                               selectedIntent: selectedTutorIntent ?? undefined,
                               analysisSummary: tutorResult?.whatISee.summaryRu,
+                              catalogLessonId,
                             })
                           } finally {
                             setTutorStartingLesson(false)

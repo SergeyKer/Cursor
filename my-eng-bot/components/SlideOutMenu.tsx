@@ -74,6 +74,7 @@ interface SlideOutMenuProps {
     originalQuery?: string
     selectedIntent?: TutorLearningIntent
     analysisSummary?: string
+    catalogLessonId?: string
   }) => Promise<void> | void
   onPracticeTheoryTagFilterPersist?: (tagId: string | null) => void
   /** Контекст меню, из которого открыт урок. */

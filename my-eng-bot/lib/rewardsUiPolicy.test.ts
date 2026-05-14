@@ -38,13 +38,35 @@ describe('rewardsUiPolicy', () => {
         amount: 40,
         levelUp: null,
       })
-    ).toBe('Цель чата 7/7! +40 XP')
+    ).toBe('Цель общения 7/7 закрыта. +40 XP')
     expect(
       buildRewardPopupText({
         reason: 'lesson_step_completed',
         amount: 10,
         levelUp: { from: 1, to: 2 },
       })
-    ).toBe('Новый уровень 2! +10 XP')
+    ).toBe('Новый уровень 2. +10 XP')
+  })
+
+  it('avoids exact duplication with top line text', () => {
+    expect(
+      buildRewardPopupText({
+        reason: 'lesson_completed',
+        amount: 45,
+        levelUp: null,
+        avoidText: 'Урок закрыт. +45 XP',
+      })
+    ).toBe('Урок завершён. +45 XP')
+  })
+
+  it('supports child popup copy variants', () => {
+    expect(
+      buildRewardPopupText({
+        reason: 'practice_completed',
+        amount: 30,
+        levelUp: null,
+        audience: 'child',
+      })
+    ).toBe('Практика завершена! +30 XP!')
   })
 })
