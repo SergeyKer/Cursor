@@ -9,6 +9,17 @@ export interface PracticeTopicCandidate {
 }
 
 const PRACTICE_TOPIC_ALIASES: Record<string, string[]> = {
+  '4': [
+    'представление',
+    'рассказ о себе',
+    'знакомство',
+    'i am from',
+    'i am from russia',
+    "i'm from",
+    'introducing yourself',
+    'self introduction',
+    'vasya',
+  ],
   '1': ['its time to', "it's time to", 'it is time to', 'состояние и действие'],
   '2': ['who questions', 'questions with who', 'вопросы с who', 'кто любит'],
   '3': ['вложенные вопросы', 'встроенные вопросы', 'косвенные вопросы', 'embedded questions', 'indirect questions'],
@@ -54,7 +65,7 @@ export function findPracticeTopicCandidatesByMenuKeys(
 ): PracticeTopicCandidate[] {
   const normalizedQuery = normalize(query)
   if (!normalizedQuery) return []
-  const topics = getPracticeLessonTopics('A2').filter((topic) => topic.enabled)
+  const topics = getPracticeLessonTopics().filter((topic) => topic.enabled)
   const candidates = topics
     .map((topic) => {
       const keys = [

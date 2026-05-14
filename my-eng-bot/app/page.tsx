@@ -9,7 +9,12 @@ import { featureFlags } from '@/lib/featureFlags'
 import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
 import { HomeMenuInstructionBubble } from '@/components/HomeMenuInstructionBubble'
 import HomeEmptyBubble from '@/components/HomeEmptyBubble'
-import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/components/MenuSectionPanels'
+import MenuSectionPanels, {
+  type LessonMenuContext,
+  type LessonsPanel,
+  type LearningLessonMenuMeta,
+  type MenuView,
+} from '@/components/MenuSectionPanels'
 import { buildCompactGreeting } from '@/lib/homeGreeting'
 import { consumeNextGreetingFactLine } from '@/lib/greetingFactRotation'
 import { consumeNextHomeVoiceLine } from '@/lib/homeVoiceRotation'
@@ -84,7 +89,6 @@ import { buildFallbackLessonIntro } from '@/lib/lessonIntro'
 import { buildTutorStructuredLesson } from '@/lib/tutorStructuredLesson'
 import type { LessonBlueprint } from '@/lib/lessonBlueprint'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
-import type { LessonMenuContext } from '@/components/SlideOutMenu'
 import type { LessonData, PostLessonAction } from '@/types/lesson'
 import type {
   PracticeBuildConfig,
@@ -2376,7 +2380,7 @@ export default function Home() {
   )
 
   const openLearningLesson = useCallback(
-    async (lessonId: string, lessonsPanel: LessonsPanel = 'a2') => {
+    async (lessonId: string, lessonsPanel: LessonsPanel = 'a2', meta?: LearningLessonMenuMeta) => {
       const lesson = getLearningLessonById(lessonId)
       if (!lesson) return
       menuLessonGenerateCleanupRef.current?.()
@@ -2411,7 +2415,14 @@ export default function Home() {
       setLessonIntroDepth('quick')
       setLessonExtraTipsStatus('idle')
       setLessonExtraTipsState(null)
-      setLessonMenuContext({ menuView: 'lessons', lessonsPanel })
+      setLessonMenuContext((prev) => ({
+        menuView: 'lessons',
+        lessonsPanel,
+        activeGrammarCategoryId: meta?.activeGrammarCategoryId ?? null,
+        activeTheoryTagId: meta?.activeTheoryTagId ?? null,
+        theoryLessonSource: meta?.theoryLessonSource ?? null,
+        practiceTheoryTagFilterId: prev?.practiceTheoryTagFilterId ?? null,
+      }))
       setActiveLearningLessonId(lessonId)
       setMessages(structuredLesson ? [] : [{ role: 'assistant', content: lesson.theoryIntro }])
 
@@ -2427,7 +2438,7 @@ export default function Home() {
 
   /** Меню «Начать урок»: не сбрасывать runtime (в т.ч. сгенерированный), если урок уже открыт на intro/tips. */
   const openOrContinueLearningLesson = useCallback(
-    (lessonId: string) => {
+    (lessonId: string, lessonsPanel: LessonsPanel = 'a2', meta?: LearningLessonMenuMeta) => {
       const structured = getStructuredLessonById(lessonId)
       if (
         dialogStarted &&
@@ -2439,13 +2450,13 @@ export default function Home() {
         setLessonViewStage('lesson')
         return
       }
-      void openLearningLesson(lessonId, 'a2')
+      void openLearningLesson(lessonId, lessonsPanel, meta)
     },
     [activeLearningLessonId, dialogStarted, lessonViewStage, openLearningLesson]
   )
 
   const openGeneratedLearningLesson = useCallback(
-    async (lessonId: string, lessonsPanel: LessonsPanel = 'a2') => {
+    async (lessonId: string, lessonsPanel: LessonsPanel = 'a2', meta?: LearningLessonMenuMeta) => {
       const baseLesson = getLearningLessonById(lessonId)
       const structuredLesson = getStructuredLessonById(lessonId)
       if (!baseLesson || !structuredLesson) {
@@ -2483,9 +2494,15 @@ export default function Home() {
       setLessonIntroDepth('quick')
       setLessonExtraTipsStatus('idle')
       setLessonExtraTipsState(null)
-      setLessonMenuContext({ menuView: 'lessons', lessonsPanel })
+      setLessonMenuContext((prev) => ({
+        menuView: 'lessons',
+        lessonsPanel,
+        activeGrammarCategoryId: meta?.activeGrammarCategoryId ?? null,
+        activeTheoryTagId: meta?.activeTheoryTagId ?? null,
+        theoryLessonSource: meta?.theoryLessonSource ?? null,
+        practiceTheoryTagFilterId: prev?.practiceTheoryTagFilterId ?? null,
+      }))
       setActiveLearningLessonId(lessonId)
-      setStructuredLessonShuffleNonce((n) => n + 1)
       setMessages([])
       setActiveStructuredLessonRuntime(cloneStructuredLessonWithRunKey(structuredLesson))
 
@@ -2866,6 +2883,21 @@ export default function Home() {
     },
     [settings.audience, settings.level, settings.openAiChatPreset, settings.provider]
   )
+
+  const persistPracticeTheoryTagFilter = useCallback((tagId: string | null) => {
+    setLessonMenuContext((prev) =>
+      prev
+        ? { ...prev, practiceTheoryTagFilterId: tagId }
+        : {
+            menuView: 'lessons',
+            lessonsPanel: 'practice',
+            activeGrammarCategoryId: null,
+            activeTheoryTagId: null,
+            theoryLessonSource: null,
+            practiceTheoryTagFilterId: tagId,
+          }
+    )
+  }, [])
 
   const openPracticeSession = useCallback(
     async (request: PracticeOpenRequest) => {
@@ -4807,7 +4839,18 @@ export default function Home() {
                     onOpenAdaptivePracticeTopic={openAdaptivePracticeTopic}
                     onOpenTutorLesson={openTutorLesson}
                     onAdaptiveFooterViewChange={setAdaptiveFooterView}
+                    onPracticeTheoryTagFilterPersist={persistPracticeTheoryTagFilter}
                     initialLessonsPanel={homeMenuView === 'lessons' ? lessonMenuContext?.lessonsPanel : undefined}
+                    initialLessonMenuContext={
+                      homeMenuView === 'lessons' && lessonMenuContext
+                        ? {
+                            activeGrammarCategoryId: lessonMenuContext.activeGrammarCategoryId,
+                            activeTheoryTagId: lessonMenuContext.activeTheoryTagId,
+                            theoryLessonSource: lessonMenuContext.theoryLessonSource,
+                            practiceTheoryTagFilterId: lessonMenuContext.practiceTheoryTagFilterId,
+                          }
+                        : null
+                    }
                   />
                 </div>
               </>
@@ -4895,7 +4938,14 @@ export default function Home() {
                     practiceSession.abandonSession()
                     setDialogStarted(false)
                     setHomeMenuView('lessons')
-                    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'practice' })
+                    setLessonMenuContext((prev) => ({
+                      menuView: 'lessons',
+                      lessonsPanel: 'practice',
+                      activeGrammarCategoryId: prev?.activeGrammarCategoryId ?? null,
+                      activeTheoryTagId: prev?.activeTheoryTagId ?? null,
+                      theoryLessonSource: prev?.theoryLessonSource ?? null,
+                      practiceTheoryTagFilterId: prev?.practiceTheoryTagFilterId ?? null,
+                    }))
                   }}
                   generationBusy={loading}
                 />
@@ -5077,6 +5127,7 @@ export default function Home() {
         onOpenAdaptivePracticeTopic={openAdaptivePracticeTopic}
         onOpenTutorLesson={openTutorLesson}
         onAdaptiveFooterViewChange={setAdaptiveFooterView}
+        onPracticeTheoryTagFilterPersist={persistPracticeTheoryTagFilter}
         lessonMenuContext={lessonMenuContext}
         topOffset="var(--app-top-offset)"
         bottomOffset="var(--app-bottom-offset)"

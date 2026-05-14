@@ -175,6 +175,58 @@ const LESSONS: Record<string, LearningLesson> = {
       staticText: 'Теория A2',
     },
   },
+  '4': {
+    id: '4',
+    title: 'I am / I am from',
+    theoryIntro:
+      '**Урок:** I am / I am from\n' +
+      '**Правило:**\n' +
+      '1) I am / I’m + прилагательное = настроение.\n' +
+      '2) I am from + страна = откуда вы.\n' +
+      '3) I am a/an + роль = кем вы учитесь или работаете.\n' +
+      '**Примеры:**\n' +
+      '1) I am happy.\n' +
+      '2) I am from Russia.\n' +
+      '3) I am a student.\n' +
+      '**Коротко:** выберите шаблон по смыслу, не смешивайте три линии в одной фразе без нужды.\n' +
+      '**Шаблоны:**\n' +
+      '1) I am / I’m + happy, fine, tired.\n' +
+      '2) I am from + Russia, Spain, France.\n' +
+      '3) I am a/an + student, teacher, doctor.',
+    actions: [
+      { id: 'examples', label: 'Посмотри примеры' },
+      { id: 'fill_phrase', label: 'Подставь слово' },
+      { id: 'repeat_translate', label: 'Переведи на английский' },
+      { id: 'write_own_sentence', label: 'Напиши своё предложение' },
+    ],
+    followups: {
+      examples:
+        '**Примеры:**\n' +
+        '1) I am happy. I am from Spain.\n' +
+        '2) I am a teacher. I am from Britain.\n' +
+        '3) I am fine. I am a doctor.',
+      repeat_translate:
+        '**Переведи на английский:**\n' +
+        '1) Я счастлив.\n' +
+        '2) Я из России.\n' +
+        '3) Я студент.',
+      fill_phrase:
+        '**Подставь слово:**\n' +
+        '1) I am ___ student. (a / an / the)\n' +
+        '2) I am from ___. (Russia / from Russia)\n' +
+        'Выберите правильный вариант.',
+      write_own_sentence:
+        '**Напиши своё предложение:**\n' +
+        '1) I am / I’m + прилагательное\n' +
+        '2) I am from + страна\n' +
+        '3) I am a/an + роль\n' +
+        'Напиши по одному примеру для каждой линии.',
+    },
+    footer: {
+      dynamicText: 'Теория: I am / I am from',
+      staticText: 'Теория A1',
+    },
+  },
 }
 
 const RUNTIME_LESSONS: Record<string, LearningLesson> = {}
@@ -205,6 +257,18 @@ function normalizeTopic(input: string): string {
 export function findStaticLessonByTopic(topic: string): LearningLesson | null {
   const normalized = normalizeTopic(topic)
   if (!normalized) return null
+  if (
+    normalized.includes('i am from') ||
+    normalized.includes("i'm from") ||
+    normalized.includes('introducing yourself') ||
+    normalized.includes('self introduction') ||
+    normalized.includes('представ') ||
+    normalized.includes('знакомств') ||
+    normalized.includes('рассказ о себе') ||
+    normalized.includes('vasya')
+  ) {
+    return LESSONS['4'] ?? null
+  }
   if (
     normalized.includes('i know what') ||
     normalized.includes("i don't know where") ||

@@ -13,9 +13,22 @@ export interface LessonTopicCatalogItem {
   enabled: boolean
   hasTheory: boolean
   hasPractice: boolean
+  /** Теги таксономии теории (см. `lib/lessonTheoryTags.ts`). */
+  tagIds?: string[]
 }
 
 const LESSON_TOPIC_CATALOG: LessonTopicCatalogItem[] = [
+  {
+    id: '4',
+    slug: 'introducing-yourself',
+    title: 'I am / I am from',
+    level: 'A1',
+    order: 5,
+    enabled: true,
+    hasTheory: true,
+    hasPractice: true,
+    tagIds: ['present-simple'],
+  },
   {
     id: '1',
     slug: 'its-time-to',
@@ -25,6 +38,7 @@ const LESSON_TOPIC_CATALOG: LessonTopicCatalogItem[] = [
     enabled: true,
     hasTheory: true,
     hasPractice: true,
+    tagIds: ['formal-it'],
   },
   {
     id: '2',
@@ -35,6 +49,7 @@ const LESSON_TOPIC_CATALOG: LessonTopicCatalogItem[] = [
     enabled: true,
     hasTheory: true,
     hasPractice: true,
+    tagIds: ['special-questions', 'subject-questions'],
   },
   {
     id: '3',
@@ -45,11 +60,16 @@ const LESSON_TOPIC_CATALOG: LessonTopicCatalogItem[] = [
     enabled: true,
     hasTheory: true,
     hasPractice: true,
+    tagIds: ['reported-speech', 'word-order'],
   },
 ]
 
 export const PRACTICE_TOPICS_BY_AUDIENCE: Record<Audience, Record<string, { short: string; long: string }>> = {
   child: {
+    '4': {
+      short: 'Знакомство',
+      long: 'Говорим, как себя чувствуем, откуда мы и кем учимся или работаем.',
+    },
     '1': {
       short: 'Состояние и действие',
       long: 'Говорим, как вокруг, и что пора делать.',
@@ -64,6 +84,10 @@ export const PRACTICE_TOPICS_BY_AUDIENCE: Record<Audience, Record<string, { shor
     },
   },
   adult: {
+    '4': {
+      short: 'Представление о себе',
+      long: 'Коротко: настроение, страна и роль — I am / I am from.',
+    },
     '1': {
       short: 'Состояние и действие',
       long: 'Описываем состояние и говорим, что пора действовать.',

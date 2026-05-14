@@ -2,7 +2,12 @@
 
 import React from 'react'
 import type { Settings, UsageInfo } from '@/lib/types'
-import MenuSectionPanels, { type LessonsPanel, type MenuView } from '@/components/MenuSectionPanels'
+import MenuSectionPanels, {
+  type LessonsPanel,
+  type LessonMenuContext,
+  type LearningLessonMenuMeta,
+  type MenuView,
+} from '@/components/MenuSectionPanels'
 import { SLIDE_OUT_NEW_CHAT_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
@@ -10,10 +15,7 @@ import type { EngvoCefrLevel, EngvoRealtimeVoice, EngvoSpeechSpeedPresetId } fro
 import type { RewardsState } from '@/lib/rewardsState'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 
-export type LessonMenuContext = {
-  menuView: 'lessons'
-  lessonsPanel: LessonsPanel
-}
+export type { LessonMenuContext, LearningLessonMenuMeta }
 
 interface SlideOutMenuProps {
   open: boolean
@@ -43,9 +45,9 @@ interface SlideOutMenuProps {
   /** Режим звонка Engvo: при открытии меню показать «Позвонить» (как при переходе к звонку). */
   engvoVoiceMode?: boolean
   /** Открыть урок из ветки «Обучение». */
-  onOpenLearningLesson?: (lessonId: string) => void
+  onOpenLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void
   /** Сгенерировать новый вариант урока через LLM. */
-  onGenerateLearningLesson?: (lessonId: string) => Promise<void> | void
+  onGenerateLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => Promise<void> | void
   onOpenPracticeSession?: (request: {
     lessonId?: string
     mode: PracticeMode
@@ -73,6 +75,7 @@ interface SlideOutMenuProps {
     selectedIntent?: TutorLearningIntent
     analysisSummary?: string
   }) => Promise<void> | void
+  onPracticeTheoryTagFilterPersist?: (tagId: string | null) => void
   /** Контекст меню, из которого открыт урок. */
   lessonMenuContext?: LessonMenuContext | null
   /** Верхний offset (шапка + safe-area), общий с основным layout. */
@@ -113,6 +116,7 @@ export default function SlideOutMenu({
   onOpenAdaptivePracticeTopic,
   onAdaptiveFooterViewChange,
   onOpenTutorLesson,
+  onPracticeTheoryTagFilterPersist,
   lessonMenuContext,
   topOffset = 'calc(2.75rem + env(safe-area-inset-top, 0px))',
   bottomOffset = '0px',
@@ -215,7 +219,18 @@ export default function SlideOutMenu({
             onOpenAdaptivePracticeTopic={onOpenAdaptivePracticeTopic}
             onAdaptiveFooterViewChange={onAdaptiveFooterViewChange}
             onOpenTutorLesson={onOpenTutorLesson}
+            onPracticeTheoryTagFilterPersist={onPracticeTheoryTagFilterPersist}
             initialLessonsPanel={menuView === 'lessons' ? lessonMenuContext?.lessonsPanel : undefined}
+            initialLessonMenuContext={
+              menuView === 'lessons' && lessonMenuContext
+                ? {
+                    activeGrammarCategoryId: lessonMenuContext.activeGrammarCategoryId,
+                    activeTheoryTagId: lessonMenuContext.activeTheoryTagId,
+                    theoryLessonSource: lessonMenuContext.theoryLessonSource,
+                    practiceTheoryTagFilterId: lessonMenuContext.practiceTheoryTagFilterId,
+                  }
+                : null
+            }
           />
         </div>
       </aside>
