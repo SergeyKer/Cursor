@@ -38,6 +38,9 @@ import {
   type EngvoSpeechSpeedPresetId,
 } from '@/lib/engvo/constants'
 import type { RewardsState } from '@/lib/rewardsState'
+import { buildMyPlanLiveInput } from '@/lib/myPlan/buildInput'
+import { getMyPlanRecommendations } from '@/lib/myPlan/recommendations'
+import MyPlanPanel from '@/components/MyPlanPanel'
 
 const AdaptiveDailyHub = dynamic(() => import('@/components/adaptiveRetention/AdaptiveDailyHub'), { ssr: false })
 
@@ -54,7 +57,7 @@ const CHILD_SAFE_TOPICS = new Set<TopicId>([
   'travel',
 ])
 
-export type MenuView = 'root' | 'lessons' | 'aiChat' | 'settings' | 'progress' | 'profile' | 'engvo'
+export type MenuView = 'root' | 'lessons' | 'aiChat' | 'settings' | 'progress' | 'myPlan' | 'profile' | 'engvo'
 
 export type { AiChatPanel }
 
@@ -547,6 +550,11 @@ export default function MenuSectionPanels({
     }
   }, [rewardsState])
 
+  const myPlanRecommendations = React.useMemo(() => {
+    if (menuView !== 'myPlan') return []
+    return getMyPlanRecommendations(buildMyPlanLiveInput(settings, rewardsState ?? null))
+  }, [menuView, settings, rewardsState])
+
   const isChild = settings.audience === 'child'
   const childAllowedLevels = new Set(['all', 'a1', 'a2'])
   const levelOptions = isChild ? LEVELS.filter((l) => childAllowedLevels.has(l.id)) : LEVELS
@@ -763,6 +771,7 @@ export default function MenuSectionPanels({
     if (menuView === 'settings') return SETTINGS_PANEL_TITLE[settingsPanel]
     if (menuView === 'engvo') return ENGVO_PANEL_TITLE[engvoPanel]
     if (menuView === 'progress') return 'Прогресс'
+    if (menuView === 'myPlan') return 'Мой план'
     if (menuView === 'profile') return 'Профиль'
     return !homeLayout ? 'Главная' : ''
   })()
@@ -1065,6 +1074,7 @@ export default function MenuSectionPanels({
               )}
               <MenuNavRow label="Уроки" onClick={() => onMenuViewChange('lessons')} />
               <MenuNavRow label="Прогресс" onClick={() => onMenuViewChange('progress')} />
+              <MenuNavRow label="Мой план" onClick={() => onMenuViewChange('myPlan')} />
               <MenuNavRow label="Настройки" onClick={() => onMenuViewChange('settings')} />
               <MenuNavRow label="Профиль" onClick={() => onMenuViewChange('profile')} />
             </div>
@@ -2288,6 +2298,17 @@ export default function MenuSectionPanels({
               </p>
             </div>
           </div>
+        )}
+
+        {menuView === 'myPlan' && (
+          <MyPlanPanel
+            recommendations={myPlanRecommendations}
+            settings={settings}
+            onOpenLearningLesson={onOpenLearningLesson}
+            onOpenPracticeSession={onOpenPracticeSession}
+            onOpenVocabularyWorlds={onOpenVocabularyWorlds}
+            onMenuViewChange={() => onMenuViewChange('lessons')}
+          />
         )}
       </div>
     </div>

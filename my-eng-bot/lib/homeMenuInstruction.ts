@@ -7,6 +7,7 @@ const SECTION_INSTRUCTIONS: Record<Exclude<MenuView, 'root' | 'aiChat'>, string>
   lessons: 'Уроки: теория, произношение\nи новые слова.',
   settings: 'Провайдер ИИ и голос озвучки.',
   progress: 'Счётчики: диалог и запросы к ИИ.',
+  myPlan: 'Три шага с учётом уроков и практики.\nОбновляется при каждом открытии.',
   profile: 'Профиль и аккаунт — позже.',
 }
 
