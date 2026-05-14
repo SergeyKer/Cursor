@@ -2420,7 +2420,10 @@ export default function Home() {
         lessonsPanel,
         activeGrammarCategoryId: meta?.activeGrammarCategoryId ?? null,
         activeTheoryTagId: meta?.activeTheoryTagId ?? null,
+        theorySearchQuery: meta?.theorySearchQuery ?? null,
+        activeTheoryTagIds: meta?.activeTheoryTagIds ?? null,
         theoryLessonSource: meta?.theoryLessonSource ?? null,
+        theoryTagBrowseLevel: meta?.theoryTagBrowseLevel ?? prev?.theoryTagBrowseLevel ?? null,
         practiceTheoryTagFilterId: prev?.practiceTheoryTagFilterId ?? null,
       }))
       setActiveLearningLessonId(lessonId)
@@ -2499,7 +2502,10 @@ export default function Home() {
         lessonsPanel,
         activeGrammarCategoryId: meta?.activeGrammarCategoryId ?? null,
         activeTheoryTagId: meta?.activeTheoryTagId ?? null,
+        theorySearchQuery: meta?.theorySearchQuery ?? null,
+        activeTheoryTagIds: meta?.activeTheoryTagIds ?? null,
         theoryLessonSource: meta?.theoryLessonSource ?? null,
+        theoryTagBrowseLevel: meta?.theoryTagBrowseLevel ?? prev?.theoryTagBrowseLevel ?? null,
         practiceTheoryTagFilterId: prev?.practiceTheoryTagFilterId ?? null,
       }))
       setActiveLearningLessonId(lessonId)
@@ -2893,7 +2899,10 @@ export default function Home() {
             lessonsPanel: 'practice',
             activeGrammarCategoryId: null,
             activeTheoryTagId: null,
+            theorySearchQuery: null,
+            activeTheoryTagIds: null,
             theoryLessonSource: null,
+            theoryTagBrowseLevel: null,
             practiceTheoryTagFilterId: tagId,
           }
     )
@@ -4846,7 +4855,10 @@ export default function Home() {
                         ? {
                             activeGrammarCategoryId: lessonMenuContext.activeGrammarCategoryId,
                             activeTheoryTagId: lessonMenuContext.activeTheoryTagId,
+                            theorySearchQuery: lessonMenuContext.theorySearchQuery,
+                            activeTheoryTagIds: lessonMenuContext.activeTheoryTagIds,
                             theoryLessonSource: lessonMenuContext.theoryLessonSource,
+                            theoryTagBrowseLevel: lessonMenuContext.theoryTagBrowseLevel,
                             practiceTheoryTagFilterId: lessonMenuContext.practiceTheoryTagFilterId,
                           }
                         : null
@@ -4943,7 +4955,10 @@ export default function Home() {
                       lessonsPanel: 'practice',
                       activeGrammarCategoryId: prev?.activeGrammarCategoryId ?? null,
                       activeTheoryTagId: prev?.activeTheoryTagId ?? null,
+                      theorySearchQuery: prev?.theorySearchQuery ?? null,
+                      activeTheoryTagIds: prev?.activeTheoryTagIds ?? null,
                       theoryLessonSource: prev?.theoryLessonSource ?? null,
+                      theoryTagBrowseLevel: prev?.theoryTagBrowseLevel ?? null,
                       practiceTheoryTagFilterId: prev?.practiceTheoryTagFilterId ?? null,
                     }))
                   }}

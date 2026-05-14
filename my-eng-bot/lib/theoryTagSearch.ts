@@ -12,9 +12,12 @@ export interface TheoryTagCandidate {
 
 const TAG_ALIASES: Record<string, string[]> = {
   'present-simple': [
+    'present',
+    'настоящее',
     'present simple',
     'настоящее простое',
     'простое настоящее',
+    'i am',
     'i am from',
     'знакомство',
     'present tense',

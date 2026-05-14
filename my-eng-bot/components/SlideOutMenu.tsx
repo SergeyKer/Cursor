@@ -226,7 +226,10 @@ export default function SlideOutMenu({
                 ? {
                     activeGrammarCategoryId: lessonMenuContext.activeGrammarCategoryId,
                     activeTheoryTagId: lessonMenuContext.activeTheoryTagId,
+                    theorySearchQuery: lessonMenuContext.theorySearchQuery,
+                    activeTheoryTagIds: lessonMenuContext.activeTheoryTagIds,
                     theoryLessonSource: lessonMenuContext.theoryLessonSource,
+                    theoryTagBrowseLevel: lessonMenuContext.theoryTagBrowseLevel,
                     practiceTheoryTagFilterId: lessonMenuContext.practiceTheoryTagFilterId,
                   }
                 : null

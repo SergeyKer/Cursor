@@ -29,14 +29,9 @@ import {
   type LessonCatalogLevel,
 } from '@/lib/lessonCatalog'
 import { getGrammarCategoryById } from '@/lib/grammarTaxonomy'
-import {
-  getAllTagIdsOnLesson,
-  getGrammarCategoriesForMenu,
-  getTheoryLessonsByTagGroupedByLevel,
-  getTheoryTagById,
-  getTheoryTagsForCategory,
-} from '@/lib/lessonTheoryTags'
+import { getAllTheoryTagsForMenu, getTheoryTagById } from '@/lib/lessonTheoryTags'
 import { findPracticeTopicCandidatesByMenuKeys, type PracticeTopicCandidate } from '@/lib/lessonTopicSearch'
+import { getTheoryLessonsForTagIdsUnion, groupTheoryLessonsByLevel } from '@/lib/theoryLessonsByTagIds'
 import { findTheoryTagCandidatesGlobally } from '@/lib/theoryTagSearch'
 import { ACCENT_SECTIONS, RUSSIAN_SPEAKER_GROUPS, getAccentLessonById, getFirstAccentLessonId } from '@/lib/accent/soundCatalog'
 import AccentProgressBadge from '@/components/accent/AccentProgressBadge'
@@ -85,8 +80,10 @@ export type LessonsPanel =
   | 'theory'
   | 'theoryCefrLevels'
   | 'theoryGrammarCategories'
-  | 'theoryTagsInCategory'
-  | 'theoryTagBrowse'
+  /** Теория по теме: шаг 1 — только уровни, на которых есть уроки по выбранным тегам. */
+  | 'theoryTagLevels'
+  /** Теория по теме: шаг 2 — список уроков выбранного уровня (как экран A1/A2 по CEFR). */
+  | 'theoryTagLessons'
   | 'a1'
   | 'a2'
   | 'practice'
@@ -112,13 +109,24 @@ export type LessonMenuContext = {
   lessonsPanel: LessonsPanel
   activeGrammarCategoryId?: string | null
   activeTheoryTagId?: string | null
+  /** Текст поиска в хабе «По теме», если урок открыт из union по запросу. */
+  theorySearchQuery?: string | null
+  /** Все теги, по которым собран список уроков (union). */
+  activeTheoryTagIds?: string[] | null
   theoryLessonSource?: TheoryLessonNavigationSource | null
   practiceTheoryTagFilterId?: string | null
+  /** Уровень CEFR на шаге «теория по теме → урок» (восстановление меню после урока). */
+  theoryTagBrowseLevel?: LessonCatalogLevel | null
 }
 
 export type LearningLessonMenuMeta = Pick<
   LessonMenuContext,
-  'activeGrammarCategoryId' | 'activeTheoryTagId' | 'theoryLessonSource'
+  | 'activeGrammarCategoryId'
+  | 'activeTheoryTagId'
+  | 'theorySearchQuery'
+  | 'activeTheoryTagIds'
+  | 'theoryLessonSource'
+  | 'theoryTagBrowseLevel'
 >
 
 const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
@@ -153,10 +161,10 @@ const ENGVO_PANEL_TITLE: Record<EngvoPanel, string> = {
 const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
   summary: 'Уроки',
   theory: 'Теория',
-  theoryCefrLevels: 'Теория · уровни',
-  theoryGrammarCategories: 'Теория · темы',
-  theoryTagsInCategory: 'Теория · теги',
-  theoryTagBrowse: 'Теория · уроки по тегу',
+  theoryCefrLevels: 'Уровни',
+  theoryGrammarCategories: 'Темы',
+  theoryTagLevels: 'Теория · уровень по теме',
+  theoryTagLessons: 'Теория · урок по теме',
   a1: 'A1',
   a2: 'A2',
   practice: 'Практика',
@@ -177,12 +185,16 @@ const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
   wordsByLevel: 'Слова по уровням (A1-C2)',
 }
 
+type TheoryTopicLaunchState = { tagIds: string[]; searchQuery: string | null }
+
 const THEORY_LEVELS: { id: string; label: string }[] = [
   { id: 'A1', label: 'A1 - начальный' },
   { id: 'A2', label: 'A2 - элементарный' },
   { id: 'B1', label: 'B1 - средний' },
   { id: 'B2', label: 'B2 - выше среднего' },
 ]
+
+const CEFR_LEVEL_PANEL_ORDER: LessonCatalogLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
 
 const A2_THEORY_ITEMS = getTheoryLessonTopics('A2').map((item) => ({
   id: item.id,
@@ -364,7 +376,13 @@ export interface MenuSectionPanelsProps {
   /** Поля контекста вместе со `initialLessonsPanel` (восстановление навигации). */
   initialLessonMenuContext?: Pick<
     LessonMenuContext,
-    'activeGrammarCategoryId' | 'activeTheoryTagId' | 'theoryLessonSource' | 'practiceTheoryTagFilterId'
+    | 'activeGrammarCategoryId'
+    | 'activeTheoryTagId'
+    | 'theorySearchQuery'
+    | 'activeTheoryTagIds'
+    | 'theoryLessonSource'
+    | 'theoryTagBrowseLevel'
+    | 'practiceTheoryTagFilterId'
   > | null
 }
 
@@ -530,30 +548,75 @@ export default function MenuSectionPanels({
     return findTheoryTagCandidatesGlobally(theoryTagsSearchQuery, 12)
   }, [theoryTagsSearchQuery])
 
-  const buildLearningLessonMeta = React.useCallback((): LearningLessonMenuMeta => {
-    const source = theoryLessonSourceNav ?? 'cef_levels'
-    return {
-      theoryLessonSource: source,
-      activeGrammarCategoryId: source === 'tag_browse' ? activeGrammarCategoryId : null,
-      activeTheoryTagId: source === 'tag_browse' ? activeTheoryTagId : null,
-    }
-  }, [theoryLessonSourceNav, activeGrammarCategoryId, activeTheoryTagId])
+  const [theoryTopicLaunch, setTheoryTopicLaunch] = React.useState<TheoryTopicLaunchState | null>(null)
+  const [selectedTheoryTopicLessonId, setSelectedTheoryTopicLessonId] = React.useState<string | null>(null)
 
-  const openTheoryLessonPickerFromCatalog = React.useCallback(
-    (lessonId: string) => {
-      const meta = getLessonTopicById(lessonId)
-      const level = meta?.level ?? 'A2'
-      setTheoryLessonSourceNav('tag_browse')
-      if (level === 'A1') {
-        setSelectedA1LessonId(lessonId)
-        setLessonsPanel('a1')
-        return
-      }
-      setSelectedA2LessonId(lessonId)
-      setLessonsPanel('a2')
-    },
+  const theoryTagsAlphabetical = React.useMemo(
+    () => [...getAllTheoryTagsForMenu()].sort((a, b) => a.menuLabelRu.localeCompare(b.menuLabelRu, 'ru')),
     []
   )
+
+  const theoryTopicLessonsFlat = React.useMemo(
+    () => getTheoryLessonsForTagIdsUnion(theoryTopicLaunch?.tagIds ?? []),
+    [theoryTopicLaunch]
+  )
+  const theoryTopicLessonsByLevel = React.useMemo(
+    () => groupTheoryLessonsByLevel(theoryTopicLessonsFlat),
+    [theoryTopicLessonsFlat]
+  )
+
+  const theoryLevelsWithLessons = React.useMemo(
+    () => CEFR_LEVEL_PANEL_ORDER.filter((lvl) => (theoryTopicLessonsByLevel[lvl] ?? []).length > 0),
+    [theoryTopicLessonsByLevel]
+  )
+
+  const [theoryTagBrowseLevel, setTheoryTagBrowseLevel] = React.useState<LessonCatalogLevel | null>(null)
+
+  React.useEffect(() => {
+    if (lessonsPanel !== 'theoryTagLevels') return
+    setTheoryTagBrowseLevel(null)
+  }, [lessonsPanel])
+
+  React.useEffect(() => {
+    if (lessonsPanel !== 'theoryTagLessons' || !theoryTopicLaunch?.tagIds.length || !theoryTagBrowseLevel) return
+    const list = theoryTopicLessonsByLevel[theoryTagBrowseLevel] ?? []
+    if (list.length === 0) {
+      setSelectedTheoryTopicLessonId(null)
+      return
+    }
+    setSelectedTheoryTopicLessonId((prev) => (prev && list.some((l) => l.id === prev) ? prev : list[0]!.id))
+  }, [lessonsPanel, theoryTopicLaunch, theoryTopicLessonsByLevel, theoryTagBrowseLevel])
+
+  const buildLearningLessonMeta = React.useCallback((): LearningLessonMenuMeta => {
+    const source = theoryLessonSourceNav ?? 'cef_levels'
+    if (source !== 'tag_browse') {
+      return {
+        theoryLessonSource: source,
+        activeGrammarCategoryId: null,
+        activeTheoryTagId: null,
+        theorySearchQuery: null,
+        activeTheoryTagIds: null,
+        theoryTagBrowseLevel: null,
+      }
+    }
+    const tagIdsFromLaunch = theoryTopicLaunch?.tagIds?.filter(Boolean) ?? []
+    const tagIds =
+      tagIdsFromLaunch.length > 0 ? [...tagIdsFromLaunch] : activeTheoryTagId ? [activeTheoryTagId] : null
+    return {
+      theoryLessonSource: 'tag_browse',
+      activeGrammarCategoryId,
+      activeTheoryTagId: activeTheoryTagId ?? tagIds?.[0] ?? null,
+      theorySearchQuery: theoryTopicLaunch?.searchQuery ?? null,
+      activeTheoryTagIds: tagIds,
+      theoryTagBrowseLevel: theoryTagBrowseLevel ?? null,
+    }
+  }, [theoryLessonSourceNav, activeGrammarCategoryId, activeTheoryTagId, theoryTopicLaunch, theoryTagBrowseLevel])
+
+  React.useEffect(() => {
+    if (lessonsPanel !== 'theoryTagLessons') return
+    if (theoryTagBrowseLevel) return
+    setLessonsPanel('theoryTagLevels')
+  }, [lessonsPanel, theoryTagBrowseLevel])
 
   React.useEffect(() => {
     if (menuView !== 'aiChat') setAiChatPanel('summary')
@@ -607,17 +670,76 @@ export default function MenuSectionPanels({
     }
   }, [lessonsPanel, selectedPracticeLessonId, defaultPracticeLessonId])
 
+  const initialLessonMenuContextKey = React.useMemo(() => {
+    if (!initialLessonMenuContext) return ''
+    return JSON.stringify({
+      ag: initialLessonMenuContext.activeGrammarCategoryId ?? null,
+      at: initialLessonMenuContext.activeTheoryTagId ?? null,
+      tsq: initialLessonMenuContext.theorySearchQuery ?? null,
+      atids: initialLessonMenuContext.activeTheoryTagIds ?? null,
+      tls: initialLessonMenuContext.theoryLessonSource ?? null,
+      pt: initialLessonMenuContext.practiceTheoryTagFilterId ?? null,
+      ttbl: initialLessonMenuContext.theoryTagBrowseLevel ?? null,
+    })
+  }, [
+    initialLessonMenuContext?.activeGrammarCategoryId,
+    initialLessonMenuContext?.activeTheoryTagId,
+    initialLessonMenuContext?.theorySearchQuery,
+    initialLessonMenuContext?.activeTheoryTagIds,
+    initialLessonMenuContext?.theoryLessonSource,
+    initialLessonMenuContext?.practiceTheoryTagFilterId,
+    initialLessonMenuContext?.theoryTagBrowseLevel,
+  ])
+
   React.useEffect(() => {
     if (menuView !== 'lessons') return
     if (!initialLessonsPanel) return
     setLessonsPanel(initialLessonsPanel)
-    if (initialLessonMenuContext) {
-      setActiveGrammarCategoryId(initialLessonMenuContext.activeGrammarCategoryId ?? null)
-      setActiveTheoryTagId(initialLessonMenuContext.activeTheoryTagId ?? null)
-      setTheoryLessonSourceNav(initialLessonMenuContext.theoryLessonSource ?? null)
-      setPracticeTheoryTagFilterId(initialLessonMenuContext.practiceTheoryTagFilterId ?? null)
+    if (!initialLessonMenuContext) return
+    setActiveGrammarCategoryId(initialLessonMenuContext.activeGrammarCategoryId ?? null)
+    setActiveTheoryTagId(initialLessonMenuContext.activeTheoryTagId ?? null)
+    setTheoryLessonSourceNav(initialLessonMenuContext.theoryLessonSource ?? null)
+    setPracticeTheoryTagFilterId(initialLessonMenuContext.practiceTheoryTagFilterId ?? null)
+
+    const q = initialLessonMenuContext.theorySearchQuery ?? null
+    const rawIds = initialLessonMenuContext.activeTheoryTagIds?.filter(Boolean) ?? null
+    const tagIds =
+      rawIds && rawIds.length > 0
+        ? [...new Set(rawIds)]
+        : initialLessonMenuContext.activeTheoryTagId
+          ? [initialLessonMenuContext.activeTheoryTagId]
+          : []
+
+    if (initialLessonsPanel === 'theoryGrammarCategories') {
+      setTheoryTagsSearchQuery(q ?? '')
+      setTheoryTopicLaunch(null)
+      setSelectedTheoryTopicLessonId(null)
     }
-  }, [menuView, initialLessonsPanel])
+
+    if (
+      initialLessonsPanel === 'theoryTagLevels' ||
+      initialLessonsPanel === 'theoryTagLessons' ||
+      ((initialLessonsPanel === 'a1' || initialLessonsPanel === 'a2') &&
+        initialLessonMenuContext.theoryLessonSource === 'tag_browse')
+    ) {
+      if (tagIds.length > 0) {
+        setTheoryTopicLaunch({ tagIds, searchQuery: q })
+        setActiveTheoryTagId(initialLessonMenuContext.activeTheoryTagId ?? tagIds[0] ?? null)
+      }
+      const savedTagLevel = initialLessonMenuContext.theoryTagBrowseLevel ?? null
+      if (tagIds.length > 0 && initialLessonsPanel === 'theoryTagLessons' && savedTagLevel) {
+        setTheoryTagBrowseLevel(savedTagLevel)
+      }
+      if (
+        tagIds.length > 0 &&
+        initialLessonMenuContext.theoryLessonSource === 'tag_browse' &&
+        (initialLessonsPanel === 'a1' || initialLessonsPanel === 'a2')
+      ) {
+        setTheoryTagBrowseLevel(initialLessonsPanel === 'a1' ? 'A1' : 'A2')
+        setLessonsPanel('theoryTagLessons')
+      }
+    }
+  }, [menuView, initialLessonsPanel, initialLessonMenuContextKey, initialLessonMenuContext])
 
   React.useEffect(() => {
     if (!rewardsState) return
@@ -826,7 +948,8 @@ export default function MenuSectionPanels({
     if (menuView === 'lessons' && lessonsPanel !== 'summary') {
       if (lessonsPanel === 'a1' || lessonsPanel === 'a2') {
         if (theoryLessonSourceNav === 'tag_browse') {
-          setLessonsPanel('theoryTagBrowse')
+          setTheoryTagBrowseLevel(lessonsPanel === 'a1' ? 'A1' : 'A2')
+          setLessonsPanel('theoryTagLessons')
           return
         }
         if (theoryLessonSourceNav === 'cef_levels') {
@@ -836,18 +959,22 @@ export default function MenuSectionPanels({
         setLessonsPanel('theoryCefrLevels')
         return
       }
-      if (lessonsPanel === 'theoryTagBrowse') {
-        setLessonsPanel('theoryTagsInCategory')
+      if (lessonsPanel === 'theoryTagLessons') {
+        setLessonsPanel('theoryTagLevels')
         return
       }
-      if (lessonsPanel === 'theoryTagsInCategory') {
-        setTheoryTagsSearchQuery('')
+      if (lessonsPanel === 'theoryTagLevels') {
+        setTheoryTopicLaunch(null)
+        setSelectedTheoryTopicLessonId(null)
+        setActiveTheoryTagId(null)
         setLessonsPanel('theoryGrammarCategories')
         return
       }
       if (lessonsPanel === 'theoryGrammarCategories') {
         setTheoryTagsSearchQuery('')
         setActiveGrammarCategoryId(null)
+        setTheoryTopicLaunch(null)
+        setSelectedTheoryTopicLessonId(null)
         setLessonsPanel('theory')
         return
       }
@@ -966,13 +1093,18 @@ export default function MenuSectionPanels({
     if (menuView === 'lessons' && lessonsPanel === 'pronunciationSection' && selectedAccentSection) {
       return selectedAccentSection.title
     }
-    if (menuView === 'lessons' && lessonsPanel === 'theoryTagsInCategory' && activeGrammarCategoryId) {
-      const cat = getGrammarCategoryById(activeGrammarCategoryId)
-      return cat?.menuTitleRu ?? cat?.menuTitle ?? LESSONS_PANEL_TITLE.theoryTagsInCategory
-    }
-    if (menuView === 'lessons' && lessonsPanel === 'theoryTagBrowse' && activeTheoryTagId) {
-      const tag = getTheoryTagById(activeTheoryTagId)
-      return tag?.menuLabelRu ?? LESSONS_PANEL_TITLE.theoryTagBrowse
+    if (
+      menuView === 'lessons' &&
+      (lessonsPanel === 'theoryTagLevels' || lessonsPanel === 'theoryTagLessons') &&
+      theoryTopicLaunch?.tagIds.length
+    ) {
+      const enLabels = theoryTopicLaunch.tagIds
+        .map((id) => getTheoryTagById(id)?.menuLabelEn)
+        .filter((x): x is string => Boolean(x))
+      if (enLabels.length > 0) return enLabels.join(' · ')
+      const q = theoryTopicLaunch.searchQuery?.trim()
+      if (q) return q.length > 32 ? `${q.slice(0, 32)}…` : q
+      return LESSONS_PANEL_TITLE[lessonsPanel]
     }
     if (menuView === 'lessons') return LESSONS_PANEL_TITLE[lessonsPanel]
     if (menuView === 'aiChat') return AI_CHAT_PANEL_TITLE[aiChatPanel]
@@ -983,6 +1115,24 @@ export default function MenuSectionPanels({
     if (menuView === 'profile') return 'Профиль'
     return !homeLayout ? 'Главная' : ''
   })()
+
+  const lessonsUsesInnerScrollLayout =
+    menuView === 'lessons' &&
+    (lessonsPanel === 'a1' ||
+      lessonsPanel === 'a2' ||
+      lessonsPanel === 'theoryGrammarCategories' ||
+      lessonsPanel === 'theoryTagLevels' ||
+      lessonsPanel === 'theoryTagLessons')
+
+  const panelScrollAreaEnter =
+    'menu-panel-view-enter pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
+  const panelScrollAreaClass = lessonsUsesInnerScrollLayout
+    ? homeLayout
+      ? `${panelScrollAreaEnter} flex max-h-[calc(100dvh-12rem)] min-h-0 flex-1 flex-col gap-2.5 overflow-hidden`
+      : `${panelScrollAreaEnter} flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden pb-1`
+    : homeLayout
+      ? `${panelScrollAreaEnter} max-h-[calc(100dvh-12rem)] space-y-2.5 overflow-y-auto`
+      : `${panelScrollAreaEnter} min-h-0 flex-1 space-y-2.5 overflow-y-auto pb-1`
 
   const handleGoHome = () => {
     if (onGoHome) onGoHome()
@@ -1267,11 +1417,7 @@ export default function MenuSectionPanels({
                   ? `engvo-${engvoPanel}`
                 : menuView
         }
-        className={
-          homeLayout
-            ? 'menu-panel-view-enter max-h-[calc(100dvh-12rem)] space-y-2.5 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-0.5'
-            : 'menu-panel-view-enter min-h-0 flex-1 space-y-2.5 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-1'
-        }
+        className={panelScrollAreaClass}
       >
         {menuView === 'root' && !homeLayout && (
           <div className={MENU_GROUP_OUTER}>
@@ -1586,6 +1732,8 @@ export default function MenuSectionPanels({
                     label="По теме"
                     onClick={() => {
                       setTheoryTagsSearchQuery('')
+                      setTheoryTopicLaunch(null)
+                      setSelectedTheoryTopicLessonId(null)
                       setLessonsPanel('theoryGrammarCategories')
                     }}
                   />
@@ -1620,24 +1768,25 @@ export default function MenuSectionPanels({
             )}
 
             {lessonsPanel === 'theoryGrammarCategories' && (
-              <>
-                <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-                  <label className="block text-[13px] font-medium text-[var(--text-muted)]" htmlFor={pid('theory-tag-search')}>
-                    Поиск тега
-                  </label>
-                  <input
-                    id={pid('theory-tag-search')}
-                    type="text"
-                    value={theoryTagsSearchQuery}
-                    onChange={(e) => setTheoryTagsSearchQuery(e.target.value)}
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[15px] text-[var(--text)] outline-none"
-                    placeholder="Например: who или вложенные"
-                  />
-                </div>
-                <div className={MENU_GROUP_OUTER}>
-                  <div className={MENU_GROUP_CLASS}>
-                    {theoryTagsSearchQuery.trim()
-                      ? theoryTagGlobalSearchHits.map((hit) => {
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                    <label className="block text-[13px] font-medium text-[var(--text-muted)]" htmlFor={pid('theory-tag-search')}>
+                      Поиск тега
+                    </label>
+                    <input
+                      id={pid('theory-tag-search')}
+                      type="text"
+                      value={theoryTagsSearchQuery}
+                      onChange={(e) => setTheoryTagsSearchQuery(e.target.value)}
+                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[15px] text-[var(--text)] outline-none"
+                      placeholder="Например: who или вложенные"
+                    />
+                  </div>
+                  {theoryTagsSearchQuery.trim() ? (
+                    <div className={MENU_GROUP_OUTER}>
+                      <div className={MENU_GROUP_CLASS}>
+                        {theoryTagGlobalSearchHits.map((hit) => {
                           const t = getTheoryTagById(hit.tagId)
                           if (!t) return null
                           const cat = getGrammarCategoryById(hit.categoryId)
@@ -1649,164 +1798,215 @@ export default function MenuSectionPanels({
                               secondary={t.menuLabelEn}
                               meta={catLabel || undefined}
                               onClick={() => {
+                                setTheoryLessonSourceNav('tag_browse')
                                 setActiveGrammarCategoryId(hit.categoryId)
                                 setActiveTheoryTagId(t.id)
-                                setLessonsPanel('theoryTagBrowse')
+                                setTheoryTopicLaunch({
+                                  tagIds: [t.id],
+                                  searchQuery: theoryTagsSearchQuery.trim() || null,
+                                })
+                                setLessonsPanel('theoryTagLevels')
                               }}
                             />
                           )
-                        })
-                      : getGrammarCategoriesForMenu().map((cat) => (
-                          <MenuNavRow
-                            key={cat.id}
-                            label={cat.menuTitleRu ?? cat.menuTitle}
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={MENU_GROUP_OUTER}>
+                      <div className={MENU_GROUP_CLASS}>
+                        {theoryTagsAlphabetical.map((t) => (
+                          <TheoryTagMenuRow
+                            key={t.id}
+                            primary={t.menuLabelRu}
+                            secondary={t.menuLabelEn}
                             onClick={() => {
-                              setActiveGrammarCategoryId(cat.id)
-                              setTheoryTagsSearchQuery('')
-                              setLessonsPanel('theoryTagsInCategory')
+                              setTheoryLessonSourceNav('tag_browse')
+                              setActiveGrammarCategoryId(t.categoryId)
+                              setActiveTheoryTagId(t.id)
+                              setTheoryTopicLaunch({ tagIds: [t.id], searchQuery: null })
+                              setLessonsPanel('theoryTagLevels')
                             }}
                           />
                         ))}
-                  </div>
+                      </div>
+                    </div>
+                  )}
+                  {theoryTagsSearchQuery.trim() && theoryTagGlobalSearchHits.length === 0 ? (
+                    <p className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
+                      Совпадений не нашли — уточните запрос или очистите поле, чтобы увидеть список тем.
+                    </p>
+                  ) : null}
                 </div>
-                {theoryTagsSearchQuery.trim() && theoryTagGlobalSearchHits.length === 0 ? (
-                  <p className="mt-2 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
-                    Совпадений не нашли — уточните запрос или очистите поле, чтобы увидеть список тем.
-                  </p>
-                ) : null}
-              </>
-            )}
-
-            {lessonsPanel === 'theoryTagsInCategory' && activeGrammarCategoryId && (
-              <div className={MENU_GROUP_OUTER}>
-                <div className={MENU_GROUP_CLASS}>
-                  {getTheoryTagsForCategory(activeGrammarCategoryId).map((t) => (
-                    <TheoryTagMenuRow
-                      key={t.id}
-                      primary={t.menuLabelRu}
-                      secondary={t.menuLabelEn}
+                {theoryTagsSearchQuery.trim() && theoryTagGlobalSearchHits.length > 0 ? (
+                  <div className="shrink-0 border-t border-[var(--border)]/70 pt-2">
+                    <button
+                      type="button"
+                      className={MENU_PRIMARY_CTA_CLASS}
                       onClick={() => {
-                        setActiveTheoryTagId(t.id)
-                        setLessonsPanel('theoryTagBrowse')
+                        const unionIds = Array.from(new Set(theoryTagGlobalSearchHits.map((h) => h.tagId)))
+                        setTheoryLessonSourceNav('tag_browse')
+                        setTheoryTopicLaunch({
+                          tagIds: unionIds,
+                          searchQuery: theoryTagsSearchQuery.trim(),
+                        })
+                        setActiveGrammarCategoryId(null)
+                        setActiveTheoryTagId(unionIds[0] ?? null)
+                        setLessonsPanel('theoryTagLevels')
                       }}
-                    />
-                  ))}
-                </div>
+                    >
+                      Уроки по запросу
+                    </button>
+                  </div>
+                ) : null}
               </div>
             )}
 
-            {lessonsPanel === 'theoryTagBrowse' && activeTheoryTagId ? (
-              <>
-                {(() => {
-                  const tag = getTheoryTagById(activeTheoryTagId)
-                  const byLevel = getTheoryLessonsByTagGroupedByLevel(activeTheoryTagId)
-                  const copy = a2PracticeTopicCopy
-                  return (
-                    <>
-                      {tag ? (
-                        <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-                          <p className="text-[14px] font-medium text-[var(--text)]">{tag.menuLabelRu}</p>
-                          <p className="mt-0.5 text-[12px] font-medium text-[var(--text-muted)]">{tag.menuLabelEn}</p>
-                          <p className="mt-2 text-[13px] leading-relaxed text-[var(--text-muted)]">{tag.focusLine}</p>
-                        </div>
-                      ) : null}
-                      <div className="space-y-2 pt-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPracticeTheoryTagFilterId(activeTheoryTagId)
-                            onPracticeTheoryTagFilterPersist?.(activeTheoryTagId)
-                            setLessonsPanel('practice')
-                          }}
-                          className="btn-3d-menu w-full rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-4 py-3 text-center text-[15px] font-semibold text-[var(--status-info-text)] hover:opacity-90"
-                        >
-                          Практика с этим тегом
-                        </button>
+            {lessonsPanel === 'theoryTagLevels' && theoryTopicLaunch && theoryTopicLaunch.tagIds.length > 0 ? (
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
+                <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  {theoryTopicLessonsFlat.length === 0 ? (
+                    <p className="shrink-0 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
+                      По выбранным темам пока нет уроков с теорией.
+                    </p>
+                  ) : (
+                    <div className={MENU_GROUP_OUTER}>
+                      <div className={MENU_GROUP_CLASS}>
+                        {theoryLevelsWithLessons.map((lvl) => (
+                          <LessonLevelRow
+                            key={lvl}
+                            label={THEORY_LEVELS.find((r) => r.id === lvl)?.label ?? `${lvl}`}
+                            onClick={() => {
+                              setTheoryTagBrowseLevel(lvl)
+                              setLessonsPanel('theoryTagLessons')
+                            }}
+                          />
+                        ))}
                       </div>
-                      <div className="space-y-2 pt-3">
-                        {THEORY_LEVELS.map((lvlRow) => {
-                          const lvl = lvlRow.id as LessonCatalogLevel
-                          const lessons = byLevel[lvl] ?? []
-                          if (lessons.length === 0) return null
-                          return (
-                            <details
-                              key={lvlRow.id}
-                              className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] shadow-[0_1px_4px_rgba(0,0,0,0.07)]"
-                              open
-                            >
-                              <summary className="cursor-pointer select-none px-3 py-2 text-[14px] font-semibold text-[var(--text)]">
-                                {lvlRow.label}
-                              </summary>
-                              <div className="space-y-2 border-t border-[var(--border)] px-3 py-2">
-                                {lessons.map((lesson) => {
-                                  const topicCopy = copy[lesson.id]
-                                  const chipIds = getAllTagIdsOnLesson(lesson.id)
-                                  return (
-                                    <button
-                                      key={lesson.id}
-                                      type="button"
-                                      onClick={() => openTheoryLessonPickerFromCatalog(lesson.id)}
-                                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-left hover:bg-[var(--border)]/15"
-                                    >
-                                      <span className="block text-[15px] font-medium text-[var(--text)]">{lesson.title}</span>
-                                      {topicCopy?.short ? (
-                                        <span className="mt-0.5 block text-[12px] text-[var(--text-muted)]">{topicCopy.short}</span>
-                                      ) : null}
-                                      {chipIds.length > 0 ? (
-                                        <span className="mt-2 flex flex-wrap gap-1.5">
-                                          {chipIds.map((tid) => {
-                                            const tt = getTheoryTagById(tid)
-                                            if (!tt) return null
-                                            return (
-                                              <span
-                                                key={tid}
-                                                className="inline-flex rounded-full border border-[var(--border)] bg-[var(--menu-card-bg)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]"
-                                              >
-                                                {tt.menuLabelEn}
-                                              </span>
-                                            )
-                                          })}
-                                        </span>
-                                      ) : null}
-                                    </button>
-                                  )
-                                })}
-                              </div>
-                            </details>
-                          )
-                        })}
-                      </div>
-                    </>
-                  )
-                })()}
-              </>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            {lessonsPanel === 'theoryTagLessons' &&
+            theoryTopicLaunch &&
+            theoryTopicLaunch.tagIds.length > 0 &&
+            theoryTagBrowseLevel ? (
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
+                <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  <div className={MENU_GROUP_OUTER}>
+                    <div className={MENU_GROUP_CLASS}>
+                      {(theoryTopicLessonsByLevel[theoryTagBrowseLevel] ?? []).map((lesson) => {
+                        const topicCopy = a2PracticeTopicCopy[lesson.id]
+                        return (
+                          <A2LessonChoiceRow
+                            key={lesson.id}
+                            label={lesson.title}
+                            subtitle={topicCopy?.short}
+                            description={topicCopy?.long}
+                            selected={Boolean(lesson.enabled && selectedTheoryTopicLessonId === lesson.id)}
+                            enabled={lesson.enabled}
+                            onClick={
+                              lesson.enabled
+                                ? () => {
+                                    setSelectedTheoryTopicLessonId(lesson.id)
+                                    setGenerateLessonError(null)
+                                  }
+                                : undefined
+                            }
+                          />
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+                {theoryTopicLessonsFlat.length > 0 ? (
+                  <div className="shrink-0 space-y-2 border-t border-[var(--border)]/70 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!onOpenLearningLesson || !selectedTheoryTopicLessonId) return
+                        const topicMeta = getLessonTopicById(selectedTheoryTopicLessonId)
+                        const panel: LessonsPanel = topicMeta?.level === 'A1' ? 'a1' : 'a2'
+                        void onOpenLearningLesson(selectedTheoryTopicLessonId, panel, buildLearningLessonMeta())
+                      }}
+                      disabled={!onOpenLearningLesson || !selectedTheoryTopicLessonId}
+                      className={MENU_PRIMARY_CTA_CLASS}
+                    >
+                      Начать урок
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!onGenerateLearningLesson || !selectedTheoryTopicLessonId || generatingLessonId) return
+                        const topicMeta = getLessonTopicById(selectedTheoryTopicLessonId)
+                        if (topicMeta?.level !== 'A1' && topicMeta?.level !== 'A2') return
+                        const panel: LessonsPanel = topicMeta.level === 'A1' ? 'a1' : 'a2'
+                        setGenerateLessonError(null)
+                        setGeneratingLessonId(selectedTheoryTopicLessonId)
+                        try {
+                          await onGenerateLearningLesson(selectedTheoryTopicLessonId, panel, buildLearningLessonMeta())
+                        } catch (error) {
+                          const message =
+                            error instanceof Error ? error.message : 'Не удалось сгенерировать урок через LLM.'
+                          setGenerateLessonError(message)
+                        } finally {
+                          setGeneratingLessonId(null)
+                        }
+                      }}
+                      disabled={
+                        !onGenerateLearningLesson ||
+                        !selectedTheoryTopicLessonId ||
+                        Boolean(generatingLessonId) ||
+                        (() => {
+                          const m = selectedTheoryTopicLessonId
+                            ? getLessonTopicById(selectedTheoryTopicLessonId)
+                            : null
+                          return m?.level !== 'A1' && m?.level !== 'A2'
+                        })()
+                      }
+                      className="btn-3d-menu w-full rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--status-info-text)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {generatingLessonId === selectedTheoryTopicLessonId ? 'Генерируем урок...' : 'Сгенерировать урок'}
+                    </button>
+                    {generateLessonError && (
+                      <p className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
+                        {generateLessonError}
+                      </p>
+                    )}
+                  </div>
+                ) : null}
+              </div>
             ) : null}
 
             {lessonsPanel === 'a1' && (
-              <>
-                <div className={MENU_GROUP_OUTER}>
-                  <div className={MENU_GROUP_CLASS}>
-                    {a1TheoryItems.map((item) => (
-                      <A2LessonChoiceRow
-                        key={item.id}
-                        label={item.label}
-                        subtitle={item.short}
-                        description={item.long}
-                        selected={item.enabled && selectedA1LessonId === item.id}
-                        enabled={item.enabled}
-                        onClick={
-                          item.enabled
-                            ? () => {
-                                setSelectedA1LessonId(item.id)
-                                setGenerateLessonError(null)
-                              }
-                            : undefined
-                        }
-                      />
-                    ))}
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
+                <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  <div className={MENU_GROUP_OUTER}>
+                    <div className={MENU_GROUP_CLASS}>
+                      {a1TheoryItems.map((item) => (
+                        <A2LessonChoiceRow
+                          key={item.id}
+                          label={item.label}
+                          subtitle={item.short}
+                          description={item.long}
+                          selected={item.enabled && selectedA1LessonId === item.id}
+                          enabled={item.enabled}
+                          onClick={
+                            item.enabled
+                              ? () => {
+                                  setSelectedA1LessonId(item.id)
+                                  setGenerateLessonError(null)
+                                }
+                              : undefined
+                          }
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-2 pt-2">
+                <div className="shrink-0 space-y-2 border-t border-[var(--border)]/70 pt-2">
                   <button
                     type="button"
                     onClick={() => {
@@ -1845,34 +2045,36 @@ export default function MenuSectionPanels({
                     </p>
                   )}
                 </div>
-              </>
+              </div>
             )}
 
             {lessonsPanel === 'a2' && (
-              <>
-                <div className={MENU_GROUP_OUTER}>
-                  <div className={MENU_GROUP_CLASS}>
-                    {a2TheoryItems.map((item) => (
-                      <A2LessonChoiceRow
-                        key={item.id}
-                        label={item.label}
-                        subtitle={item.short}
-                        description={item.long}
-                        selected={item.enabled && selectedA2LessonId === item.id}
-                        enabled={item.enabled}
-                        onClick={
-                          item.enabled
-                            ? () => {
-                                setSelectedA2LessonId(item.id)
-                                setGenerateLessonError(null)
-                              }
-                            : undefined
-                        }
-                      />
-                    ))}
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
+                <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  <div className={MENU_GROUP_OUTER}>
+                    <div className={MENU_GROUP_CLASS}>
+                      {a2TheoryItems.map((item) => (
+                        <A2LessonChoiceRow
+                          key={item.id}
+                          label={item.label}
+                          subtitle={item.short}
+                          description={item.long}
+                          selected={item.enabled && selectedA2LessonId === item.id}
+                          enabled={item.enabled}
+                          onClick={
+                            item.enabled
+                              ? () => {
+                                  setSelectedA2LessonId(item.id)
+                                  setGenerateLessonError(null)
+                                }
+                              : undefined
+                          }
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-2 pt-2">
+                <div className="shrink-0 space-y-2 border-t border-[var(--border)]/70 pt-2">
                   <button
                     type="button"
                     onClick={() => {
@@ -1911,7 +2113,7 @@ export default function MenuSectionPanels({
                     </p>
                   )}
                 </div>
-              </>
+              </div>
             )}
             {lessonsPanel === 'practice' && (
               <>
