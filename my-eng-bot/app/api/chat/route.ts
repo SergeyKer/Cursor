@@ -567,7 +567,11 @@ function buildSystemPrompt(params: {
       : ''
   const lowSignalGuardRule =
     mode === 'dialogue' && topic !== 'free_talk'
-      ? `If the user's reply is obvious nonsense, trolling, or low-signal input (for example random letters like "sdfsdf", "asdf", repeated characters, or a reply that clearly is not a real answer), do NOT treat it as progress. Stay in tutor mode, gently explain that the answer is invalid, and keep the user on the same question path. Do not praise the input and do not follow the user's fake topic or joke.`
+      ? `If the user's reply is obvious nonsense, trolling, or low-signal input (for example random letters like "sdfsdf", "asdf", repeated characters, suspicious/offensive-looking tokens, or a reply that clearly is not a real answer), do NOT treat it as progress. Stay in tutor mode, gently explain that the answer is invalid, and keep the user on the same question path. Do not praise the input and do not follow the user's fake topic or joke.`
+      : ''
+  const dialogueLexicalGroundingRule =
+    mode === 'dialogue'
+      ? `Lexical grounding rule for next questions (critical): keep context by meaning (intent + topic), not by copying misspelled user tokens. Never reuse suspicious/non-word/offensive-looking tokens from the user answer in the next question. If lexical quality is uncertain, ask a safe generic question for the same topic and required tense without reusing raw user wording.`
       : ''
 
   if (mode === 'communication') {
@@ -760,7 +764,7 @@ This applies to every tense: stick to the topic and time frame of YOUR question.
     mode === 'dialogue' && tense === 'all'
       ? '\n\nALL-TENSES DIALOGUE (strict): When you output "Комментарий:" and "Повтори:", the English sentence after "Повтори:" MUST use the SAME grammar tense as YOUR IMMEDIATELY PREVIOUS assistant message in this chat (the last English question you asked, OR the last "Повтори:" sentence if the user is still correcting a repeat). Do NOT switch to another tense for convenience or "better style" (for example: do not output Present Perfect Continuous if your previous question was Future Perfect, or Present Simple when the question used Past Simple). Fix vocabulary and grammar only while keeping that tense alignment. This rule applies even in free topic conversations.'
       : ''
-  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${cefrPromptBlock} ${audienceStyleRule} ${childTopicSafetyRule} ${styleRule} ${grammarFocusRule} ${antiRobotRule} ${topicRetentionRule} ${strictTopicRule} ${lowSignalGuardRule} ${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueRussianNaturalnessRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule}${repeatFreezeQuestionGuard} ${capitalizationRule} ${contractionRule} ${freeTalkFirstTurnLexiconRule} ${freeTalkRule}
+  return `English tutor. Topic: ${topicName}. ${levelPrompt}. ${cefrPromptBlock} ${audienceStyleRule} ${childTopicSafetyRule} ${styleRule} ${grammarFocusRule} ${antiRobotRule} ${topicRetentionRule} ${strictTopicRule} ${lowSignalGuardRule} ${dialogueLexicalGroundingRule} ${tense === 'all' ? 'Multiple tenses mode (each question uses a specific tense; the user must match it).' : 'Required tense: ' + tenseName + '. All your replies must be only in ' + tenseName + '.'} ${tenseRule}${dialogueRussianNaturalnessRule}${dialogueAllTenseAnchorRule}${repeatFreezeRule}${repeatFreezeQuestionGuard} ${capitalizationRule} ${contractionRule} ${freeTalkFirstTurnLexiconRule} ${freeTalkRule}
 
 ${ADVERB_PLACEMENT_TUTOR_BLOCK}
 
@@ -788,7 +792,7 @@ FORMAT (strict):
 
 Repeat line rule (strict): text after "Повтори:" must be a corrected declarative sentence for repetition, not a tutor question. Do NOT end "Повтори:" with "?".
 
-CRITICAL DIALOGUE PLAN RULE: In dialogue training mode, NEVER expand the conversation with your own personal answer (for example to "And you?"). Do NOT talk about your preferences or experience. Always follow the tutor plan: evaluate the user's last message, then either output correction format (Комментарий + Повтори) or ask exactly one next question that continues the established topic and context from the user's last answer.
+CRITICAL DIALOGUE PLAN RULE: In dialogue training mode, NEVER expand the conversation with your own personal answer (for example to "And you?"). Do NOT talk about your preferences or experience. Always follow the tutor plan: evaluate the user's last message, then either output correction format (Комментарий + Повтори) or ask exactly one next question that continues the established topic and context from the user's last answer. Here "context" means intent and topic only, not literal copying of user typos or suspicious tokens.
 
 Never use "Tell me" or other English instruction phrases. After a correction, use "Повтори: " + the correct English sentence and keep it separate from the \"Комментарий\" line.
 
@@ -1735,6 +1739,84 @@ function ensureNextQuestionWhenMissing(content: string, params: {
   })}`
 }
 
+const DIALOGUE_BLOCKED_LEXEMES = new Set([
+  'kike',
+  'nigger',
+  'faggot',
+  'spic',
+  'chink',
+])
+
+const COMMON_INTENT_VERBS = [
+  'like',
+  'love',
+  'enjoy',
+  'prefer',
+  'want',
+  'go',
+  'visit',
+  'travel',
+  'play',
+  'watch',
+  'listen',
+  'eat',
+  'use',
+  'work',
+  'talk',
+  'meet',
+  'study',
+]
+
+function tokenizeLatinWords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z'\s-]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+}
+
+function hasUnsafeDialogueLexeme(text: string): boolean {
+  const tokens = tokenizeLatinWords(text).map((token) => token.replace(/^'+|'+$/g, ''))
+  return tokens.some((token) => DIALOGUE_BLOCKED_LEXEMES.has(token))
+}
+
+function isEditDistanceAtMostOne(a: string, b: string): boolean {
+  if (a === b) return true
+  if (Math.abs(a.length - b.length) > 1) return false
+
+  let i = 0
+  let j = 0
+  let edits = 0
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      i++
+      j++
+      continue
+    }
+    edits++
+    if (edits > 1) return false
+    if (a.length > b.length) {
+      i++
+    } else if (a.length < b.length) {
+      j++
+    } else {
+      i++
+      j++
+    }
+  }
+  if (i < a.length || j < b.length) edits++
+  return edits <= 1
+}
+
+function hasLikelyMisspelledIntentVerb(text: string): boolean {
+  const tokens = tokenizeLatinWords(text)
+  return tokens.some((token) => {
+    if (token.length < 3) return false
+    if (COMMON_INTENT_VERBS.includes(token)) return false
+    return COMMON_INTENT_VERBS.some((verb) => isEditDistanceAtMostOne(token, verb))
+  })
+}
+
 function extractLikelyEntityFromUserAnswer(text: string): string | null {
   const raw = text.trim()
   if (!raw) return null
@@ -1752,6 +1834,7 @@ function extractLikelyEntityFromUserAnswer(text: string): string | null {
   const allowedShortAnswers = new Set(['yes', 'no', 'ok', 'okay', 'sure', 'yeah', 'yep', 'nope', 'nah', 'hi', 'hello'])
   const short = cleaned.toLowerCase()
   if (allowedShortAnswers.has(short)) return null
+  if (hasUnsafeDialogueLexeme(cleaned)) return null
 
   // Если пользователь ответил как фразой ("I like Turkey"), пытаемся выделить сущность справа.
   let stripped = cleaned
@@ -1785,6 +1868,8 @@ function extractLikelyEntityFromUserAnswer(text: string): string | null {
 
   const normalizedTail = tail.replace(/\b(?:most|more|best|better|least)\b\s*$/i, '').trim()
   if (!normalizedTail) return null
+  if (hasUnsafeDialogueLexeme(normalizedTail)) return null
+  if (hasLikelyMisspelledIntentVerb(normalizedTail)) return null
 
   // Не принимаем, если внутри сохранились типичные глаголы/слова из шаблона ответа.
   if (
@@ -1810,6 +1895,7 @@ function contextualizeTopicNextQuestionForLastAnswer(content: string, params: {
   audience: 'child' | 'adult'
   lastUserContent: string
   contextMessages?: ChatMessage[]
+  canonicalRepeat?: string | null
 }): string {
   if (params.topic === 'free_talk') return content
   if (params.tense === 'all') return content
@@ -1825,6 +1911,11 @@ function contextualizeTopicNextQuestionForLastAnswer(content: string, params: {
     }
     weightedEntities.set(normalized, { original: entityText.trim(), score })
   }
+
+  const canonicalEntity = params.canonicalRepeat
+    ? extractLikelyEntityFromUserAnswer(params.canonicalRepeat)
+    : null
+  if (canonicalEntity) addEntity(canonicalEntity, 30)
 
   const lastEntity = extractLikelyEntityFromUserAnswer(params.lastUserContent)
   if (lastEntity) addEntity(lastEntity, 12)
@@ -1847,6 +1938,7 @@ function contextualizeTopicNextQuestionForLastAnswer(content: string, params: {
   if (!normalizedEntity) return content
   const guardedEntity = stripLeadingAnswerVerbPhrases(normalizedEntity)
   if (!guardedEntity) return content
+  if (hasUnsafeDialogueLexeme(guardedEntity)) return content
 
   const entityLower = guardedEntity.toLowerCase()
   const obj =
@@ -2716,6 +2808,32 @@ function sanitizeDialogueQuestionArtifacts(content: string): string {
   }
   const out = cleaned.join('\n').replace(/\n\s*\n\s*\n/g, '\n\n').trim()
   return out || content
+}
+
+function enforceSafeDialogueQuestionLexicon(content: string, params: {
+  mode: string
+  topic: string
+  tense: string
+  level: string
+  audience: 'child' | 'adult'
+  recentMessages: ChatMessage[]
+  diversityKey?: string
+}): string {
+  if (params.mode !== 'dialogue') return content
+  if (/(^|\n)\s*(Скажи|Say|Повтори|Repeat)\s*:/im.test(content)) return content
+  const lastQuestion = extractLastDialogueQuestionLine(content)
+  if (!lastQuestion) return content
+  if (!hasUnsafeDialogueLexeme(lastQuestion)) return content
+  const replacement = fallbackNextQuestion({
+    topic: params.topic,
+    tense: params.tense,
+    level: params.level,
+    audience: params.audience,
+    diversityKey: params.diversityKey,
+    recentMessages: params.recentMessages,
+  })
+  if (!replacement || replacement === lastQuestion) return content
+  return content.replace(lastQuestion, replacement)
 }
 
 function cleanedLineForCompare(line: string): string {
@@ -7580,8 +7698,18 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         audience,
         lastUserContent: lastUserContentForResponse,
         contextMessages: recentMessages,
+        canonicalRepeat: lockedDialogueRepeatAnchor,
       })
       sanitized = sanitizeDialogueQuestionArtifacts(sanitized)
+      sanitized = enforceSafeDialogueQuestionLexicon(sanitized, {
+        mode,
+        topic,
+        tense: tutorGradingTense,
+        level,
+        audience,
+        recentMessages,
+        diversityKey: `${recentMessages.length}|${lastUserContentForResponse}|safe-lex`,
+      })
       sanitized = enforceOpenDialogueQuestion(sanitized, {
         mode,
         topic,
@@ -8878,6 +9006,16 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               audience,
               lastUserContent: lastUserContentForResponse,
               contextMessages: recentMessages,
+              canonicalRepeat: lockedDialogueRepeatAnchor,
+            })
+            repaired = enforceSafeDialogueQuestionLexicon(repaired, {
+              mode,
+              topic,
+              tense: tutorGradingTense,
+              level,
+              audience,
+              recentMessages,
+              diversityKey: `${recentMessages.length}|${lastUserContentForResponse}|safe-lex-repair`,
             })
             if (topic === 'free_talk' && isTopicChoiceTurn) {
               repaired = ensureFreeTalkTopicChoiceQuestionAnchorsUser({

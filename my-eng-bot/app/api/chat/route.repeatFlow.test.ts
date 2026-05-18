@@ -130,6 +130,34 @@ describe('POST /api/chat repeat cycle stability', () => {
       expect(data.content).not.toMatch(/^(?:Скажи|Повтори)\s*:/im)
     })
 
+    it('sanitizes unsafe user-derived token in follow-up question', async () => {
+      callProviderChatMock.mockResolvedValueOnce({
+        ok: true,
+        content: 'What do you think about sea kike?',
+      })
+
+      const req = makeRequest({
+        mode: 'dialogue',
+        topic: 'travel',
+        audience: 'adult',
+        level: 'a2',
+        tenses: ['present_simple'],
+        messages: [
+          { role: 'assistant', content: 'What type of trips do you enjoy most?' },
+          { role: 'user', content: 'I like sea trips.' },
+        ],
+      })
+
+      const res = await POST(req as never)
+      const data = (await res.json()) as { content: string }
+
+      expect(res.status).toBe(200)
+      expect(callProviderChatMock).toHaveBeenCalled()
+      expect(data.content.toLowerCase()).not.toContain('kike')
+      expect(data.content.trim().endsWith('?')).toBe(true)
+      expect(data.content).not.toMatch(/^(?:Скажи|Повтори)\s*:/im)
+    })
+
     it('noise flow hold: gibberish preserves unresolved repeat instead of moving to a question', async () => {
       const req = makeRequest({
         mode: 'dialogue',
