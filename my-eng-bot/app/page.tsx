@@ -168,6 +168,12 @@ import { shouldAutoRequestFirstChatMessage } from '@/lib/engvo/guards'
 import { shouldShowEngvoVoiceUserTranscript } from '@/lib/engvo/transcriptGuard'
 import { consumeNextEngvoWelcomeMessage } from '@/lib/engvo/welcomeMessageRotation'
 import {
+  extractRealtimeTextFromResponseDone,
+  isEngvoOutputAudioTranscriptDeltaEvent,
+  isEngvoOutputAudioTranscriptDoneEvent,
+  resolveEngvoRealtimeResponseId,
+} from '@/lib/engvo/realtimeAssistantText'
+import {
   createRealtimeTranscriptState,
   getRealtimeTranscriptView,
   reduceRealtimeTranscriptEvent,
@@ -487,26 +493,6 @@ function parseContentWithTranslation(raw: string): { content: string; translatio
     (line) => !/^\s*(RU|Russian|Перевод)\s*:?/i.test(line.trim())
   )
   return { content: cleanNewlines(filtered.join('\n')) }
-}
-
-function extractRealtimeTextFromResponseDone(payload: unknown): string {
-  const response = (payload as { response?: { output?: Array<{ content?: Array<{ type?: string; text?: string; transcript?: string }> }> } })
-    ?.response
-  const output = Array.isArray(response?.output) ? response.output : []
-  const parts: string[] = []
-
-  for (const item of output) {
-    const content = Array.isArray(item?.content) ? item.content : []
-    for (const part of content) {
-      if (part?.type === 'output_text' && typeof part.text === 'string' && part.text.trim()) {
-        parts.push(part.text.trim())
-      } else if (part?.type === 'audio' && typeof part.transcript === 'string' && part.transcript.trim()) {
-        parts.push(part.transcript.trim())
-      }
-    }
-  }
-
-  return parts.join(' ').replace(/\s+/g, ' ').trim()
 }
 
 type EngvoRealtimeEvent = {
@@ -915,7 +901,10 @@ export default function Home() {
     (text: string, responseId?: string | null) => {
       const cleanText = cleanNewlines(text)
       if (!cleanText) return
-      if (responseId && engvoCommittedResponseIdsRef.current.has(responseId)) return
+      if (responseId) {
+        if (engvoCommittedResponseIdsRef.current.has(responseId)) return
+        engvoCommittedResponseIdsRef.current.add(responseId)
+      }
 
       setMessages((prev) => {
         const withoutDial = prev.filter((m) => !m.engvoServiceLine)
@@ -929,7 +918,6 @@ export default function Home() {
               content: cleanText,
               engvoServiceLine: undefined,
             }
-            if (responseId) engvoCommittedResponseIdsRef.current.add(responseId)
             return updated
           }
         }
@@ -943,7 +931,6 @@ export default function Home() {
         ) {
           return withoutDial
         }
-        if (responseId) engvoCommittedResponseIdsRef.current.add(responseId)
         return [...withoutDial, { role: 'assistant', content: cleanText }]
       })
       resetEngvoAssistantTurn()
@@ -1244,7 +1231,7 @@ export default function Home() {
       }
       if (!parsed?.type) return
 
-      const responseId = typeof parsed.response_id === 'string' ? parsed.response_id : null
+      const responseId = resolveEngvoRealtimeResponseId(parsed)
       if (responseId && engvoIgnoredResponseIdsRef.current.has(responseId)) return
       const activeResponseId = engvoAssistantResponseIdRef.current
       const hasActiveAssistantTurn = !!activeResponseId && !engvoAssistantResponseDoneRef.current
@@ -1436,7 +1423,7 @@ export default function Home() {
         return
       }
 
-      if (parsed.type === 'response.audio_transcript.delta') {
+      if (isEngvoOutputAudioTranscriptDeltaEvent(parsed.type)) {
         if (hasActiveAssistantTurn && responseId && responseId !== activeResponseId) return
         if (typeof parsed.delta === 'string' && parsed.delta.length > 0) {
           setEngvoCallPhase('assistantSpeaking')
@@ -1446,7 +1433,7 @@ export default function Home() {
         return
       }
 
-      if (parsed.type === 'response.audio_transcript.done') {
+      if (isEngvoOutputAudioTranscriptDoneEvent(parsed.type)) {
         if (hasActiveAssistantTurn && responseId && responseId !== activeResponseId) return
         const finalTranscript =
           typeof parsed.transcript === 'string' && parsed.transcript.trim() ? parsed.transcript : ''
@@ -1467,7 +1454,9 @@ export default function Home() {
 
       if (parsed.type === 'response.done') {
         clearEngvoTimeout(engvoResponseDoneFallbackTimeoutRef)
-        if (hasActiveAssistantTurn && responseId && responseId !== activeResponseId) return
+        if (hasActiveAssistantTurn && responseId && responseId !== activeResponseId) {
+          return
+        }
         if (responseId && !engvoAssistantResponseIdRef.current) {
           engvoAssistantResponseIdRef.current = responseId
         }
