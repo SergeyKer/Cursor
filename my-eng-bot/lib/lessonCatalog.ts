@@ -1,5 +1,5 @@
 import { getStructuredLessonById } from '@/lib/structuredLessons'
-import type { Audience } from '@/lib/types'
+import type { Audience, LevelId } from '@/lib/types'
 import type { LessonData } from '@/types/lesson'
 
 export type LessonCatalogLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
@@ -121,6 +121,19 @@ export function getPracticeLessonTopics(level?: LessonCatalogLevel): LessonTopic
 
 export function getLessonTopicById(lessonId: string): LessonTopicCatalogItem | null {
   return getLessonTopicCatalog().find((topic) => topic.id === lessonId) ?? null
+}
+
+/** CEFR уровня урока в каталоге → LevelId для фишек, кэша и CEFR-guard. */
+export function catalogLevelToLevelId(level: LessonCatalogLevel): LevelId {
+  const map: Record<LessonCatalogLevel, LevelId> = {
+    A1: 'a1',
+    A2: 'a2',
+    B1: 'b1',
+    B2: 'b2',
+    C1: 'c1',
+    C2: 'c2',
+  }
+  return map[level]
 }
 
 export function getPracticeLessonById(lessonId: string): LessonData | null {

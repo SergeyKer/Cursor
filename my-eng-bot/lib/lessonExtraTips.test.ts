@@ -3,12 +3,23 @@ import {
   areTipsTooSimilar,
   buildFallbackLessonExtraTips,
   buildTipsStorageKey,
+  detectNativeSpeechSwapAxis,
+  getNativeSpeechSwapLabels,
+  isLikelyEmbeddedQuestionTopic,
   isValidCachedLessonExtraTips,
   mergeGeneratedTipAddons,
+  nativeSpeechSwapLooksInvalid,
+  nativeSpeechSwapSameMeaning,
+  nativeSpeechWrongLooksLikeLearnerError,
   normalizeLessonExtraTips,
+  pickNativeSpeechSwapFirst,
   toCachedLessonExtraTips,
 } from '@/lib/lessonExtraTips'
 import { buildFallbackLessonIntro } from '@/lib/lessonIntro'
+import { embeddedQuestionsLesson } from '@/lib/lessons/embedded-questions'
+import { introducingYourselfLesson } from '@/lib/lessons/introducing-yourself'
+import { itsTimeToLesson } from '@/lib/lessons/its-time-to'
+import { whoLikesLesson } from '@/lib/lessons/who-likes'
 import { buildFallbackTutorLearningIntent } from '@/lib/tutorLearningIntent'
 
 const intro = buildFallbackLessonIntro('to be')
@@ -119,9 +130,197 @@ describe('lessonExtraTips', () => {
     const tips = buildFallbackLessonExtraTips(intro)
     const nativeSpeech = tips.cards.find((card) => card.category === 'native_speech')
 
-    expect(nativeSpeech?.rule).toContain('готовую фразу')
-    expect(nativeSpeech?.examples.some((example) => example.right.includes(intro.topic))).toBe(true)
-    expect(nativeSpeech?.examples.some((example) => example.note.includes('How does ... work?'))).toBe(true)
+    expect(nativeSpeech?.rule).toMatch(/сокращ|неформальн|книжно/i)
+    expect(nativeSpeech?.examples[1]?.note).toMatch(/can't|Сократи|Can I|шаблон/i)
+    expect(nativeSpeech?.examples[0]?.right).toContain("I'm")
+  })
+
+  it('uses long-vs-short native speech swap for generic concept topics', () => {
+    const tips = buildFallbackLessonExtraTips(buildFallbackLessonIntro('shopping'))
+    const nativeSpeech = tips.cards.find((card) => card.category === 'native_speech')
+    const ex0 = nativeSpeech?.examples[0]
+
+    expect(ex0?.wrong).toMatch(/I would like to help you/i)
+    expect(ex0?.right).toMatch(/I can help you/i)
+    expect(ex0?.wrong).not.toContain('Do you know how')
+    expect(ex0?.wrong).not.toMatch(/drill|practice this pattern/i)
+  })
+
+  it('uses A1-safe generic swap when lesson level is A1', () => {
+    const tips = buildFallbackLessonExtraTips(buildFallbackLessonIntro('shopping'), null, 'A1')
+    const ex0 = tips.cards.find((card) => card.category === 'native_speech')?.examples[0]
+    expect(ex0?.wrong).toMatch(/I am happy/i)
+    expect(ex0?.right).toMatch(/I'm happy/i)
+    expect(ex0?.wrong).not.toMatch(/drill|practice this pattern/i)
+  })
+
+  it('builds embedded-questions native speech from lesson mistakes', () => {
+    expect(isLikelyEmbeddedQuestionTopic(embeddedQuestionsLesson.intro)).toBe(true)
+    const tips = buildFallbackLessonExtraTips(embeddedQuestionsLesson.intro, null, 'A2')
+    const nativeSpeech = tips.cards.find((card) => card.category === 'native_speech')
+    const ex0 = nativeSpeech?.examples[0]
+
+    expect(ex0?.wrong).toMatch(/what does she like/i)
+    expect(ex0?.right).toMatch(/what she likes/i)
+    expect(ex0?.wrong).not.toMatch(/drill|practice this pattern/i)
+    expect(detectNativeSpeechSwapAxis(ex0!, embeddedQuestionsLesson.intro, tips.topic)).toBe('learnerGrammar')
+    expect(getNativeSpeechSwapLabels('learnerGrammar').wrongLabel).toBe('Типичная ошибка:')
+  })
+
+  it('avoids Who fallback in russian_traps for embedded questions', () => {
+    const tips = buildFallbackLessonExtraTips(embeddedQuestionsLesson.intro, null, 'A2')
+    const quickCheck = tips.cards.find((card) => card.category === 'russian_traps')?.examples[1]
+    expect(quickCheck?.right).toMatch(/what she likes/i)
+    expect(quickCheck?.right).not.toMatch(/Who likes this topic/i)
+  })
+
+  it('uses embedded checkpoint in questions_negatives fallback', () => {
+    const tips = buildFallbackLessonExtraTips(embeddedQuestionsLesson.intro, null, 'A2')
+    const fix = tips.cards.find((card) => card.category === 'questions_negatives')?.examples[1]
+    expect(fix?.right).toMatch(/Do you know what she likes/i)
+  })
+
+  it('keeps its-time-to quick check on topic', () => {
+    const tips = buildFallbackLessonExtraTips(itsTimeToLesson.intro, null, 'A2')
+    const quickCheck = tips.cards.find((card) => card.category === 'russian_traps')?.examples[1]
+    expect(quickCheck?.right).toMatch(/time to read/i)
+  })
+
+  it('uses same-meaning be pair for I am / I am from lesson', () => {
+    const tips = buildFallbackLessonExtraTips(introducingYourselfLesson.intro, null, 'A1')
+    const ex0 = tips.cards.find((card) => card.category === 'native_speech')?.examples[0]
+
+    expect(ex0?.wrong).toMatch(/I am happy/i)
+    expect(ex0?.right).toMatch(/I'm happy/i)
+    expect(ex0?.wrong).not.toContain('from in')
+    expect(ex0?.wrong).not.toContain('Russia')
+    expect(nativeSpeechSwapSameMeaning(ex0?.wrong ?? '', ex0?.right ?? '')).toBe(true)
+  })
+
+  it('rejects mismatched native speech swap as invalid', () => {
+    const bad = { wrong: 'I am from in Russia', right: "I'm happy.", note: 'bad' }
+    expect(nativeSpeechSwapLooksInvalid(bad, 'I am / I am from')).toBe(true)
+    expect(nativeSpeechWrongLooksLikeLearnerError('I am from in Russia')).toBe(true)
+    expect(nativeSpeechSwapSameMeaning('I am from in Russia', "I'm happy.")).toBe(false)
+    expect(nativeSpeechSwapSameMeaning('I am happy.', "I'm happy.")).toBe(true)
+  })
+
+  it('uses who-question grammar swap for Who questions lesson', () => {
+    const tips = buildFallbackLessonExtraTips(whoLikesLesson.intro)
+    const ex0 = tips.cards.find((card) => card.category === 'native_speech')?.examples[0]
+
+    expect(ex0?.wrong).toMatch(/Who like/i)
+    expect(ex0?.right).toContain('Who likes music?')
+    expect(ex0?.wrong).not.toContain('Do you know how')
+    expect(ex0?.wrong).not.toContain(' · ')
+    expect(ex0?.right).not.toContain(' · ')
+  })
+
+  it('detects learnerGrammar axis and labels for Who questions', () => {
+    const ex0 = pickNativeSpeechSwapFirst(whoLikesLesson.intro, whoLikesLesson.intro.topic, 'Who questions')
+    const axis = detectNativeSpeechSwapAxis(ex0, whoLikesLesson.intro, whoLikesLesson.intro.topic)
+    const labels = getNativeSpeechSwapLabels(axis)
+
+    expect(axis).toBe('learnerGrammar')
+    expect(labels.wrongLabel).toBe('Типичная ошибка:')
+    expect(labels.rightLabel).toBe('Так говорят:')
+  })
+
+  it('detects contraction axis for to be topics', () => {
+    const tips = buildFallbackLessonExtraTips(intro)
+    const ex0 = tips.cards.find((card) => card.category === 'native_speech')?.examples[0]!
+    const axis = detectNativeSpeechSwapAxis(ex0, intro, intro.topic)
+    const labels = getNativeSpeechSwapLabels(axis)
+
+    expect(axis).toBe('contraction')
+    expect(labels.wrongLabel).toBe('Полная форма:')
+    expect(labels.rightLabel).toBe('В разговоре:')
+  })
+
+  it('detects length axis for generic concept topics', () => {
+    const shoppingIntro = buildFallbackLessonIntro('shopping')
+    const ex0 = pickNativeSpeechSwapFirst(shoppingIntro, shoppingIntro.topic, 'shopping')
+    const axis = detectNativeSpeechSwapAxis(ex0, shoppingIntro, shoppingIntro.topic)
+    const labels = getNativeSpeechSwapLabels(axis)
+
+    expect(axis).toBe('length')
+    expect(labels.wrongLabel).toContain('учебнике')
+    expect(labels.rightLabel).toContain('вслух')
+  })
+
+  it('sanitizes overloaded native speech in normalized AI payload', () => {
+    const whoIntro = whoLikesLesson.intro
+    const tips = normalizeLessonExtraTips(
+      {
+        cards: [
+          {
+            category: 'native_speech',
+            title: 'Как говорят носители',
+            rule: 'Коротко.',
+            examples: [
+              {
+                wrong: 'Do you know how Who questions works?',
+                right: 'How does Who questions work when you speak?',
+                note: 'meta',
+              },
+              { right: 'Who likes tea?', note: 'лайфхак' },
+            ],
+          },
+          ...makeValidPayload().cards.slice(1),
+        ],
+        quiz: makeValidPayload().quiz,
+      },
+      whoIntro
+    )
+    const ex0 = tips.cards.find((card) => card.category === 'native_speech')?.examples[0]
+    expect(ex0?.wrong).toMatch(/Who like/i)
+    expect(ex0?.wrong).not.toContain('Do you know how')
+  })
+
+  it('rejects overloaded native speech swap from AI payload', () => {
+    const overloaded = {
+      wrong: 'Do you know how Who questions works in real conversation?',
+      right: 'How does Who questions work when you speak?',
+      note: 'meta',
+    }
+    expect(nativeSpeechSwapLooksInvalid(overloaded, 'Who questions')).toBe(true)
+    const fixed = pickNativeSpeechSwapFirst(whoLikesLesson.intro, whoLikesLesson.intro.topic, 'Who questions')
+    expect(fixed.wrong).toMatch(/Who like/i)
+    expect(fixed.wrong).not.toContain('Do you know how')
+  })
+
+  it('prefers learningPlan contrastPair for native speech swap when present', () => {
+    const base = buildFallbackLessonIntro('politeness')
+    const intro: typeof base = {
+      ...base,
+      learningPlan: {
+        grammarFocus: base.learningPlan!.grammarFocus,
+        firstPracticeGoal: base.learningPlan!.firstPracticeGoal,
+        contrastPair: ['I am writing formally.', "I'm writing formally."],
+      },
+    }
+    const tips = buildFallbackLessonExtraTips(intro)
+    const ex0 = tips.cards.find((card) => card.category === 'native_speech')?.examples[0]
+
+    expect(ex0?.wrong).toContain('I am writing formally')
+    expect(ex0?.right).toContain("I'm writing formally")
+  })
+
+  it('ignores incoherent contrastPair (different meanings) and uses generic native swap', () => {
+    const base = buildFallbackLessonIntro('I am / I am from')
+    const intro: typeof base = {
+      ...base,
+      learningPlan: {
+        grammarFocus: base.learningPlan!.grammarFocus,
+        firstPracticeGoal: base.learningPlan!.firstPracticeGoal,
+        contrastPair: ["I'm happy.", "I'm from Spain."],
+      },
+    }
+    const tips = buildFallbackLessonExtraTips(intro)
+    const ex0 = tips.cards.find((card) => card.category === 'native_speech')?.examples[0]
+
+    expect(ex0?.wrong).not.toBe("I'm happy.")
+    expect(ex0?.wrong).toMatch(/I am happy|I am fine|I would like to practice this pattern/i)
   })
 
   it('builds russian traps fallback as calque and self-check tips', () => {
@@ -131,7 +330,8 @@ describe('lessonExtraTips', () => {
     expect(russianTraps?.rule).toContain('английский шаблон')
     expect(russianTraps?.examples).toHaveLength(3)
     expect(russianTraps?.examples[0].note).toContain('русскому шаблону')
-    expect(russianTraps?.examples[1].note).toContain('английский шаблон')
+    expect(russianTraps?.examples[1].right).toMatch(/Who likes|It's time to/i)
+    expect(russianTraps?.examples[1].note).toMatch(/Потому что/i)
   })
 
   it('builds questions mistakes fallback as wrong-right and quick fix blocks', () => {
@@ -142,7 +342,8 @@ describe('lessonExtraTips', () => {
     expect(questions?.rule).toContain('русский порядок')
     expect(questions?.examples[0].wrong).toContain('✗')
     expect(questions?.examples[0].right).toContain('✓')
-    expect(questions?.examples[1].note).toContain('общий вопрос')
+    expect(questions?.examples[1].right).toMatch(/\?/)
+    expect(questions?.examples[1].right).not.toContain('Use "')
   })
 
   it('builds emphasis fallback as boosters and live examples', () => {
@@ -162,7 +363,7 @@ describe('lessonExtraTips', () => {
     expect(context?.title).toBe('Контекст и стиль')
     expect(context?.rule).toContain('разного тона')
     expect(context?.examples[0].right).toContain('formal')
-    expect(context?.examples[1].note).toContain('кто слушает')
+    expect(context?.examples[1].note).toMatch(/Если|если/)
   })
 
   it('keeps tutor intent examples in fallback tips', () => {
@@ -189,10 +390,10 @@ describe('lessonExtraTips', () => {
 
   it('builds a stable versioned storage key by audience, level and topic', () => {
     expect(buildTipsStorageKey({ lessonKey: 'lesson-1:variant-a', audience: 'adult', level: 'a2' })).toBe(
-      'tips_v8_adult_a2_lesson_1_variant_a'
+      'tips_v15_adult_a2_lesson_1_variant_a'
     )
     expect(buildTipsStorageKey({ lessonKey: 'lesson-1:variant-a', audience: 'child', level: 'a2' })).toBe(
-      'tips_v8_child_a2_lesson_1_variant_a'
+      'tips_v15_child_a2_lesson_1_variant_a'
     )
   })
 

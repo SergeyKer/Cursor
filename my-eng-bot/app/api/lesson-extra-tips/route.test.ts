@@ -106,6 +106,8 @@ describe('POST /api/lesson-extra-tips', () => {
     const apiMessages = callProviderChatMock.mock.calls[0][0].apiMessages as Array<{ role: string; content: string }>
     expect(apiMessages[0].content).toContain('UX-копирайтер')
     expect(apiMessages[0].content).toContain('native_speech всегда привязывай к topic')
+    expect(apiMessages[0].content).toContain('Алгоритм для native_speech')
+    expect(apiMessages[0].content).toContain('Ветка 1')
 
     const userPrompt = JSON.parse(apiMessages[1].content) as {
       topic: string
@@ -121,14 +123,20 @@ describe('POST /api/lesson-extra-tips', () => {
     expect(userPrompt.topic).toBe(intro.topic)
     expect(nativeSpeechShape.category).toBe('native_speech')
     expect(nativeSpeechShape.rule).toContain('Логика носителя')
-    expect(nativeSpeechShape.examples[0].note).toContain('live substitution')
-    expect(nativeSpeechShape.examples[1].note).toContain('practical move')
+    expect(nativeSpeechShape.examples[0].wrong).toContain('ONE short English sentence')
+    expect(nativeSpeechShape.examples[0].note).toContain('not meta')
+    expect(apiMessages[0].content).toContain('ЗАПРЕЩЕНО в examples[0]')
+    expect(nativeSpeechShape.examples[1].note).toContain('lifehack')
+    expect(apiMessages[0].content).toContain('10-30 сек')
+    expect(apiMessages[0].content).toContain('Быстрый приём')
     expect(apiMessages[0].content).toContain('russian_traps пиши как методист')
     expect(russianTrapsShape.category).toBe('russian_traps')
     expect(russianTrapsShape.rule).toContain('Как переключить мышление')
     expect(russianTrapsShape.examples[0].note).toContain('Russian template')
-    expect(russianTrapsShape.examples[1].wrong).toContain('mixed Russian-English phrase')
-    expect(russianTrapsShape.examples[1].note).toContain('correct option')
+    expect(russianTrapsShape.examples[1].wrong).toContain('leave empty')
+    expect(russianTrapsShape.examples[1].right).toContain('auto-distractor')
+    expect(russianTrapsShape.examples[1].note).toContain('Потому что')
+    expect(apiMessages[0].content).toContain('автодистрактор')
     expect(apiMessages[0].content).toContain('Для questions_negatives пиши карточку "Где ошибаются"')
     expect(questionsShape.category).toBe('questions_negatives')
     expect(questionsShape.rule).toContain('Почему так выходит')
@@ -190,6 +198,33 @@ describe('POST /api/lesson-extra-tips', () => {
     const userPrompt = JSON.parse(apiMessages[1].content) as { refreshGoal: string; currentTips: { cards: unknown[] } }
     expect(userPrompt.refreshGoal).toContain('different pedagogical angle')
     expect(userPrompt.currentTips.cards).toHaveLength(5)
+  })
+
+  it('includes CEFR block when lessonCefrLevel is provided', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: JSON.stringify(buildFallbackLessonExtraTips(intro, null, 'A1')),
+    })
+
+    const res = await POST(
+      makeRequest({
+        intro,
+        provider: 'openai',
+        audience: 'adult',
+        level: 'b2',
+        lessonCefrLevel: 'A1',
+        mode: 'initial',
+      }) as never
+    )
+    expect(res.status).toBe(200)
+
+    const apiMessages = callProviderChatMock.mock.calls[0][0].apiMessages as Array<{ role: string; content: string }>
+    expect(apiMessages[0].content).toContain('CEFR lexical ceiling')
+    expect(apiMessages[0].content).toContain('Уровень урока в меню: A1')
+
+    const userPrompt = JSON.parse(apiMessages[1].content) as { lessonCefrLevel: string; level: string }
+    expect(userPrompt.lessonCefrLevel).toBe('A1')
+    expect(userPrompt.level).toBe('a1')
   })
 
   it('rejects invalid lesson intro', async () => {

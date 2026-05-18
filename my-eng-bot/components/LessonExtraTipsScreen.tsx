@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { LessonCatalogLevel } from '@/lib/lessonCatalog'
 import {
   buildFallbackLessonExtraTips,
   buildTipsStorageKey,
+  detectNativeSpeechSwapAxis,
+  getNativeSpeechSwapLabels,
   isValidCachedLessonExtraTips,
   toCachedLessonExtraTips,
   type CachedLessonExtraTips,
@@ -17,7 +20,6 @@ import type { LessonIntro } from '@/types/lesson'
 export type LessonExtraTipsFooterStatus =
   | 'idle'
   | 'cached'
-  | 'loading'
   | 'fallback'
   | 'ready'
   | 'error'
@@ -46,6 +48,7 @@ type LessonExtraTipsScreenProps = {
   openAiChatPreset?: OpenAiChatPreset
   audience: Audience
   level: LevelId
+  lessonCefrLevel?: LessonCatalogLevel
   savedState: LessonExtraTipsSavedState | null
   onSavedStateChange: (state: LessonExtraTipsSavedState) => void
   onFooterStatusChange: (status: LessonExtraTipsFooterStatus) => void
@@ -58,6 +61,17 @@ type TipsApiResponse = {
   generated?: boolean
   fallback?: boolean
   tooSimilar?: boolean
+}
+
+function emphasisBoostersLabel(
+  examples: LessonExtraTips['cards'][number]['examples'],
+  lessonCefrLevel?: LessonCatalogLevel
+): string {
+  const blob = examples.flatMap((ex) => [ex.wrong ?? '', ex.right, ex.note]).join(' ')
+  const found = [...blob.matchAll(/\b(really|very|so|definitely|please)\b/gi)].map((m) => m[1].toLowerCase())
+  const unique = [...new Set(found)]
+  if (unique.length > 0) return unique.slice(0, 3).join(', ')
+  return lessonCefrLevel === 'A1' ? 'really, very' : 'really, so'
 }
 
 function buildTrapDistractorAnswer(answer: string): string {
@@ -129,13 +143,17 @@ export default function LessonExtraTipsScreen({
   openAiChatPreset,
   audience,
   level,
+  lessonCefrLevel,
   savedState,
   onSavedStateChange,
   onFooterStatusChange,
   onBack,
   onStartLesson,
 }: LessonExtraTipsScreenProps) {
-  const fallbackTips = useMemo(() => buildFallbackLessonExtraTips(intro, intent), [intent, intro])
+  const fallbackTips = useMemo(
+    () => buildFallbackLessonExtraTips(intro, intent, lessonCefrLevel),
+    [intent, intro, lessonCefrLevel]
+  )
   const storageKey = useMemo(
     () => buildTipsStorageKey({ lessonKey, audience, level }),
     [audience, lessonKey, level]
@@ -153,9 +171,9 @@ export default function LessonExtraTipsScreen({
   )
   const [revealedTipAnswers, setRevealedTipAnswers] = useState<Set<LessonTipCategory>>(() => new Set())
   const [selectedTipAnswers, setSelectedTipAnswers] = useState<Record<string, string>>({})
-  const [loadingInitial, setLoadingInitial] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [refreshMarker, setRefreshMarker] = useState<string | null>(null)
+  const [moreTipsNotice, setMoreTipsNotice] = useState<string | null>(null)
   const requestIdRef = useRef(0)
   const scrollAreaRef = useRef<HTMLDivElement | null>(null)
   const quizRowRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -228,71 +246,6 @@ export default function LessonExtraTipsScreen({
     return () => window.cancelAnimationFrame(frameId)
   }, [quizAnswers])
 
-  useEffect(() => {
-    const cached = readCachedTips(storageKey)
-    const sessionTips = savedState?.lessonKey === lessonKey && savedState.tips ? savedState.tips : null
-    const sessionGenerated = savedState?.lessonKey === lessonKey && savedState.generated
-    if (sessionGenerated || cached?.generated) return
-
-    const initialTipsSource = sessionTips ?? fallbackTips
-    const requestId = ++requestIdRef.current
-    const controller = new AbortController()
-
-    async function loadInitialTips() {
-      setLoadingInitial(true)
-      onFooterStatusChange('loading')
-      try {
-        const response = await fetch('/api/lesson-extra-tips', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: controller.signal,
-          body: JSON.stringify({
-            provider,
-            openAiChatPreset,
-            audience,
-            level,
-            intro,
-            intent,
-            mode: 'initial',
-            previousItems: flattenTipItems(initialTipsSource),
-          }),
-        })
-        const data = (await response.json()) as TipsApiResponse
-        if (controller.signal.aborted || requestId !== requestIdRef.current) return
-        if (response.ok && data.tips && data.generated && !data.fallback) {
-          setTips(data.tips)
-          setTipsGenerated(true)
-          writeCachedTips(storageKey, data.tips, true)
-          onFooterStatusChange('ready')
-          return
-        }
-        if (response.ok && data.tips) {
-          setTips(data.tips)
-          setTipsGenerated(false)
-          onFooterStatusChange('fallback')
-          return
-        }
-        onFooterStatusChange('error')
-      } catch {
-        if (!controller.signal.aborted) {
-          onFooterStatusChange('error')
-        }
-      } finally {
-        if (!controller.signal.aborted && requestId === requestIdRef.current) {
-          setLoadingInitial(false)
-        }
-      }
-    }
-
-    const timer = window.setTimeout(loadInitialTips, 120)
-    return () => {
-      window.clearTimeout(timer)
-      controller.abort()
-    }
-    // savedState намеренно не в зависимостях: initial-запрос должен оцениваться один раз на lesson/storage key.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [audience, fallbackTips, intent, intro, lessonKey, level, onFooterStatusChange, openAiChatPreset, provider, storageKey])
-
   const handleToggleCategory = (category: LessonTipCategory) => {
     setExpandedCategories((current) => {
       const next = new Set(current)
@@ -332,6 +285,7 @@ export default function LessonExtraTipsScreen({
     if (loadingMore) return
     const requestId = ++requestIdRef.current
     setLoadingMore(true)
+    setMoreTipsNotice(null)
     onFooterStatusChange('more-loading')
     try {
       const response = await fetch('/api/lesson-extra-tips', {
@@ -342,6 +296,7 @@ export default function LessonExtraTipsScreen({
           openAiChatPreset,
           audience,
           level,
+          lessonCefrLevel,
           intro,
           intent,
           mode: 'refresh',
@@ -357,6 +312,7 @@ export default function LessonExtraTipsScreen({
         setQuizAnswers({})
         writeCachedTips(storageKey, data.tips, true)
         setRefreshMarker('Новый ракурс по теме')
+        setMoreTipsNotice(null)
         if (refreshMarkerTimeoutRef.current !== null) {
           window.clearTimeout(refreshMarkerTimeoutRef.current)
         }
@@ -373,9 +329,11 @@ export default function LessonExtraTipsScreen({
         return
       }
       if (response.ok && data.tooSimilar) {
-        onFooterStatusChange('error')
+        setMoreTipsNotice('Новый набор слишком похож на текущий. Попробуйте ещё раз через минуту.')
+        onFooterStatusChange('more-ready')
         return
       }
+      setMoreTipsNotice('Не удалось обновить фишки. Попробуйте ещё раз.')
       onFooterStatusChange('error')
     } catch {
       if (requestId === requestIdRef.current) {
@@ -414,6 +372,11 @@ export default function LessonExtraTipsScreen({
                   {refreshMarker}
                 </div>
               )}
+              {moreTipsNotice && (
+                <div className="lesson-enter mb-2 rounded-2xl border border-amber-200 bg-amber-50/95 px-3 py-2 text-sm font-medium text-amber-900 shadow-sm">
+                  {moreTipsNotice}
+                </div>
+              )}
 
               <div className="space-y-2.5">
                 {tips.cards.map((card, index) => {
@@ -434,6 +397,10 @@ export default function LessonExtraTipsScreen({
                   const isQuestionMistakes = card.category === 'questions_negatives'
                   const isEmphasisEmotion = card.category === 'emphasis_emotion'
                   const isContextCulture = card.category === 'context_culture'
+                  const nativeSpeechSwapLabels =
+                    isNativeSpeech && nativeSpeechSwap
+                      ? getNativeSpeechSwapLabels(detectNativeSpeechSwapAxis(nativeSpeechSwap, intro, tips.topic))
+                      : null
                   const isStructuredTip = isNativeSpeech || isRussianTraps || isQuestionMistakes || isEmphasisEmotion || isContextCulture
                   const tipAnswerRevealed = revealedTipAnswers.has(card.category)
                   const selectedTipAnswer = selectedTipAnswers[card.category]
@@ -491,15 +458,25 @@ export default function LessonExtraTipsScreen({
                           <div className="space-y-2 py-2.5 text-[15px] leading-[1.45] text-[var(--text)]">
                             <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
                               <p className="font-bold text-slate-800">🔁 Живая подмена</p>
-                              <p className="mt-1 break-words">
+                              <div className="mt-1 space-y-1.5 break-words">
                                 {nativeSpeechSwap.wrong ? (
-                                  <>
-                                    <span className="font-semibold text-slate-700">Как учат в школе:</span> {nativeSpeechSwap.wrong}{' '}
-                                    <span className="text-slate-400">→</span>{' '}
-                                  </>
+                                  <p>
+                                    <span className="font-semibold text-slate-700">
+                                      {nativeSpeechSwapLabels?.wrongLabel ?? 'Так чаще в учебнике / длиннее:'}
+                                    </span>{' '}
+                                    {nativeSpeechSwap.wrong}
+                                  </p>
                                 ) : null}
-                                <span className="font-semibold text-slate-700">Как реально говорят:</span> {nativeSpeechSwap.right}
-                              </p>
+                                <p>
+                                  <span className="font-semibold text-slate-700">
+                                    {nativeSpeechSwapLabels?.rightLabel ?? 'Так чаще вслух / короче:'}
+                                  </span>{' '}
+                                  {nativeSpeechSwap.right}
+                                </p>
+                                {nativeSpeechSwap.note ? (
+                                  <p className="mt-1 break-words text-slate-600">{nativeSpeechSwap.note}</p>
+                                ) : null}
+                              </div>
                             </div>
                             <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
                               <p className="font-bold text-slate-800">💡 Логика носителя</p>
@@ -616,7 +593,8 @@ export default function LessonExtraTipsScreen({
                             <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
                               <p className="font-bold text-slate-800">🔥 Усилители для этой темы</p>
                               <p className="mt-1 break-words">
-                                <span className="font-semibold text-slate-700">Слова:</span> really, so, definitely
+                                <span className="font-semibold text-slate-700">Слова:</span>{' '}
+                                {emphasisBoostersLabel(card.examples, lessonCefrLevel)}
                               </p>
                               <p className="mt-1 break-words text-slate-600">{emphasisBoost.note}</p>
                             </div>
@@ -803,7 +781,7 @@ export default function LessonExtraTipsScreen({
                   <button
                     type="button"
                     onClick={handleGenerateMore}
-                    disabled={loadingMore || loadingInitial}
+                    disabled={loadingMore}
                     className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-[var(--chat-control-hover)] bg-[var(--chat-control-bg)] px-3 py-2 text-sm font-semibold text-[var(--chat-control-text)] shadow-sm transition hover:bg-[var(--chat-control-hover)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {loadingMore ? 'Генерирую...' : 'Ещё фишки'}
@@ -812,7 +790,7 @@ export default function LessonExtraTipsScreen({
                 <button
                   type="button"
                   onClick={onStartLesson}
-                  disabled={loadingMore || loadingInitial || footerVariantRegenerating}
+                  disabled={loadingMore || footerVariantRegenerating}
                   className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#3B82F6] to-[#2563EB] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {footerVariantRegenerating

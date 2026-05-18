@@ -803,7 +803,7 @@ export const introducingYourselfLesson: LessonData = {
     },
     learningPlan: {
       grammarFocus: ['I am / I’m + adjective', 'I am from + place', 'I am a/an + role'],
-      contrastPair: ["I'm happy.", "I'm from Spain."],
+      contrastPair: ['I am happy.', "I'm happy."],
       firstPracticeGoal: 'Сказать коротко: как я себя чувствую, откуда я, кем я учусь или работаю.',
     },
   },

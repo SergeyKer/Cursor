@@ -85,7 +85,12 @@ import {
   type LearningLessonActionId,
 } from '@/lib/learningLessons'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
-import { getLessonTopicById, getPracticeLessonById, pickQuickStartPracticeTopic } from '@/lib/lessonCatalog'
+import {
+  catalogLevelToLevelId,
+  getLessonTopicById,
+  getPracticeLessonById,
+  pickQuickStartPracticeTopic,
+} from '@/lib/lessonCatalog'
 import { buildFallbackLessonIntro } from '@/lib/lessonIntro'
 import { buildTutorStructuredLesson } from '@/lib/tutorStructuredLesson'
 import type { LessonBlueprint } from '@/lib/lessonBlueprint'
@@ -4132,6 +4137,15 @@ export default function Home() {
   const activeLessonTipsKey = activeLearningLessonId
     ? `${activeLearningLessonId}:${activeStructuredLesson?.runKey ?? activeStructuredLesson?.variantId ?? activeLessonVariantNumber}`
     : 'lesson'
+  const activeLessonCefrLevel =
+    activeStructuredLesson?.level ??
+    (activeLearningLessonId ? (getLessonTopicById(activeLearningLessonId)?.level ?? null) : null)
+  const activeLessonTipsLevelId =
+    activeLessonCefrLevel != null
+      ? catalogLevelToLevelId(activeLessonCefrLevel)
+      : settings.level === 'all'
+        ? 'a2'
+        : settings.level
   const isTutorLessonHeader = activeLessonTitle && lessonMenuContext?.lessonsPanel === 'tutor'
   const learningLessonFooterDynamicText =
     activeStructuredLessonFooterDynamicText ??
@@ -4418,21 +4432,19 @@ export default function Home() {
   const tipsFooterDynamicText =
     lessonExtraTipsStatus === 'cached'
       ? 'Фишки уже готовы. Можно сразу смотреть примеры.'
-      : lessonExtraTipsStatus === 'loading'
-        ? 'Добавляю свежие примеры без повторов.'
-        : lessonExtraTipsStatus === 'fallback'
-          ? 'Показываю базовые фишки, AI догружается.'
-          : lessonExtraTipsStatus === 'error'
-            ? 'Фишки остались на месте. Попробуем позже.'
-            : lessonExtraTipsStatus === 'more-loading'
-              ? 'Ищу ещё один полезный нюанс по теме.'
-              : lessonExtraTipsStatus === 'more-ready'
-                ? 'Добавил новые примеры в карточки.'
-                : lessonExtraTipsStatus === 'quiz-correct'
-                  ? 'Отлично: это уже похоже на живую речь.'
-                  : lessonExtraTipsStatus === 'quiz-error'
-                    ? 'Нормально: эта ловушка как раз частая.'
-                    : 'Собрал живые нюансы темы. Пройдём быстро.'
+      : lessonExtraTipsStatus === 'fallback'
+        ? 'Локальные фишки по теме — открой примеры в карточках. ИИ по кнопке «Ещё фишки».'
+        : lessonExtraTipsStatus === 'error'
+          ? 'Фишки остались на месте. Попробуем позже.'
+          : lessonExtraTipsStatus === 'more-loading'
+            ? 'Ищу ещё один полезный нюанс по теме.'
+            : lessonExtraTipsStatus === 'more-ready'
+              ? 'Добавил новые примеры в карточки.'
+              : lessonExtraTipsStatus === 'quiz-correct'
+                ? 'Отлично: это уже похоже на живую речь.'
+                : lessonExtraTipsStatus === 'quiz-error'
+                  ? 'Нормально: эта ловушка как раз частая.'
+                  : 'Собрал живые нюансы темы. Пройдём быстро.'
   const tipsFooterStaticText =
     lessonExtraTipsStatus === 'quiz-correct' || lessonExtraTipsStatus === 'quiz-error'
       ? `Проверь себя | ${Math.min(tipsQuizAnsweredCount, 2)}/2`
@@ -4556,7 +4568,7 @@ export default function Home() {
     : isLessonIntroActive
       ? 'neutral'
       : isLessonTipsActive
-      ? lessonExtraTipsStatus === 'loading' || lessonExtraTipsStatus === 'more-loading'
+      ? lessonExtraTipsStatus === 'more-loading'
         ? 'thinking'
         : lessonExtraTipsStatus === 'quiz-correct' || lessonExtraTipsStatus === 'more-ready'
           ? 'celebrate'
@@ -4582,8 +4594,7 @@ export default function Home() {
     : isLessonIntroActive
       ? 'none'
       : isLessonTipsActive
-      ? lessonExtraTipsStatus === 'loading' ||
-        lessonExtraTipsStatus === 'more-loading' ||
+      ? lessonExtraTipsStatus === 'more-loading' ||
         lessonExtraTipsStatus === 'quiz-correct' ||
         lessonExtraTipsStatus === 'more-ready'
         ? 'pulse'
@@ -5181,7 +5192,8 @@ export default function Home() {
                   provider={settings.provider}
                   openAiChatPreset={settings.openAiChatPreset}
                   audience={settings.audience}
-                  level={settings.level}
+                  level={activeLessonTipsLevelId}
+                  lessonCefrLevel={activeLessonCefrLevel ?? undefined}
                   savedState={lessonExtraTipsState}
                   onSavedStateChange={setLessonExtraTipsState}
                   onFooterStatusChange={setLessonExtraTipsStatus}
