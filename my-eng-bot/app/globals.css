@@ -81,6 +81,28 @@
   animation: rewardPopupOut 0.32s ease-out both;
 }
 
+@keyframes rewardPopupSwipeOutLeft {
+  to {
+    opacity: 0;
+    transform: translateX(-120%);
+  }
+}
+
+@keyframes rewardPopupSwipeOutRight {
+  to {
+    opacity: 0;
+    transform: translateX(120%);
+  }
+}
+
+.reward-popup-pill[data-reward-state='swipe-out-left'] {
+  animation: rewardPopupSwipeOutLeft 0.22s ease-out both;
+}
+
+.reward-popup-pill[data-reward-state='swipe-out-right'] {
+  animation: rewardPopupSwipeOutRight 0.22s ease-out both;
+}
+
 :root {
   --bg-primary: #f0fdf4;
   --bg-chat: #f8fafc;
@@ -1172,6 +1194,13 @@ select.select-chevron {
   .lesson-choice-chip-enter {
     animation: none;
     opacity: 1;
+    transform: none;
+  }
+
+  .reward-popup-pill[data-reward-state='swipe-out-left'],
+  .reward-popup-pill[data-reward-state='swipe-out-right'] {
+    animation: none;
+    opacity: 0;
     transform: none;
   }
 }

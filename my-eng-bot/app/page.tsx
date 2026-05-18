@@ -3742,7 +3742,7 @@ export default function Home() {
     rewardPopupSeenRef.current = marker
     const levelUpNow = rewardsState.ui.lastLevelUp?.at === rewardAt ? rewardsState.ui.lastLevelUp : null
     const shouldToast = rewardReasonShowsToast(lastReward.reason, Boolean(levelUpNow))
-    if (!shouldToast) {
+    if (!shouldToast || engvoVoiceMode) {
       return
     }
     const topLineText = formatRewardTopLine({
@@ -3769,7 +3769,19 @@ export default function Home() {
       window.clearTimeout(showTimerId)
       window.clearTimeout(hideTimerId)
     }
-  }, [settings.audience, rewardsState.ui.footerTicker, storageLoaded, rewardsState.ui.lastLevelUp, rewardsState.ui.lastReward])
+  }, [
+    settings.audience,
+    rewardsState.ui.footerTicker,
+    storageLoaded,
+    rewardsState.ui.lastLevelUp,
+    rewardsState.ui.lastReward,
+    engvoVoiceMode,
+  ])
+
+  useEffect(() => {
+    if (!engvoVoiceMode) return
+    setRewardPopupText(null)
+  }, [engvoVoiceMode])
 
   const handleSend = useCallback(
     async (text: string) => {
@@ -5258,7 +5270,11 @@ export default function Home() {
         )}
       </main>
 
-      <RewardPopup text={rewardPopupText ?? ''} visible={Boolean(rewardPopupText)} />
+      <RewardPopup
+        text={rewardPopupText ?? ''}
+        visible={Boolean(rewardPopupText)}
+        onDismiss={() => setRewardPopupText(null)}
+      />
 
       {/* Как и шапка: футер — fixed поверх бокового меню (z-50); спейсер оставляет тот же запас, что и блок в потоке. */}
       <div
