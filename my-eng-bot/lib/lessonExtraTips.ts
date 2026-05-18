@@ -792,7 +792,7 @@ function buildQuestionsQuickFixFallback(intro: LessonIntro, firstExample: Lesson
   if (isLikelyEmbeddedQuestionTopic(intro)) {
     const question =
       intro.quick.examples.find((item) => /\?/.test(item.en))?.en ??
-      intro.details?.examples.find((item) => /\?/.test(item.en))?.en ??
+      intro.details?.examples?.find((item) => /\?/.test(item.en))?.en ??
       'Do you know what she likes?'
     return {
       right: takeFirstEnglishSentence(question, 80) || 'Do you know what she likes?',
@@ -802,7 +802,7 @@ function buildQuestionsQuickFixFallback(intro: LessonIntro, firstExample: Lesson
   if (isLikelyBeContractionTopic(topic)) {
     const question =
       intro.quick.examples.find((item) => /\?/.test(item.en))?.en ??
-      intro.details?.examples.find((item) => /\?/.test(item.en))?.en ??
+      intro.details?.examples?.find((item) => /\?/.test(item.en))?.en ??
       'Are you ready?'
     return {
       right: takeFirstEnglishSentence(question, 80) || 'Are you ready?',
