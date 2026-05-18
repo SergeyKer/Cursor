@@ -1,23 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { buildEngvoRealtimeInstructions } from '@/lib/engvo/instructions'
 import {
-  buildEngvoInputAudioTranscriptionConfig,
   ENGVO_DEFAULT_LEVEL,
   ENGVO_DEFAULT_VOICE,
   ENGVO_REALTIME_MODEL,
-  ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION,
   clampEngvoRealtimeSpeed,
   isEngvoCefrLevel,
   isEngvoRealtimeVoice,
 } from '@/lib/engvo/constants'
+import { resolveEngvoRealtimeUserMessage } from '@/lib/engvo/errors'
+import { buildEngvoCallsApiSession } from '@/lib/engvo/realtimeSession'
 import { TOPICS } from '@/lib/constants'
 import { fetchWithProxyFallback } from '@/lib/proxyFetch'
 import type { Audience, TopicId } from '@/lib/types'
 
 export const runtime = 'nodejs'
 
+/** GA unified WebRTC — raw `POST /v1/realtime?model=` (beta SDP-only) отключён на стороне OpenAI. */
 const OPENAI_REALTIME_CALLS_URL = 'https://api.openai.com/v1/realtime/calls'
-const OPENAI_REALTIME_URL = `https://api.openai.com/v1/realtime?model=${ENGVO_REALTIME_MODEL}`
 const EGRESS_IP_URL = 'https://api.ipify.org?format=json'
 const EGRESS_GEO_URL = 'http://ip-api.com/json'
 
@@ -103,41 +103,21 @@ export async function POST(req: NextRequest) {
     const level = isEngvoCefrLevel(requestedLevel) ? requestedLevel : ENGVO_DEFAULT_LEVEL
     const topicIds = new Set<TopicId>(TOPICS.map((item) => item.id))
     const topic = topicIds.has(requestedTopic as TopicId) ? (requestedTopic as TopicId) : 'free_talk'
-    const instructions = buildEngvoRealtimeInstructions({ audience, level, topic })
-    const speed =
+    const speechSpeed =
       typeof body.speed === 'number' && Number.isFinite(body.speed) ? clampEngvoRealtimeSpeed(body.speed) : 1
-
-    // OpenAI Realtime server path differs across model families/releases.
-    // We try raw SDP first, then FormData fallback.
-    const rawResponse = await fetchWithProxyFallback(OPENAI_REALTIME_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/sdp',
-      },
-      body: sdp,
-    })
-    const rawAnswer = await rawResponse.text()
-    if (rawResponse.ok && rawAnswer.trim()) {
-      return NextResponse.json({ sdp: rawAnswer })
-    }
+    const instructions = buildEngvoRealtimeInstructions({ audience, level, topic, speechSpeed })
 
     const form = new FormData()
     form.append('sdp', sdp)
     form.append(
       'session',
-      JSON.stringify({
-        model: ENGVO_REALTIME_MODEL,
-        voice,
-        instructions,
-        speed,
-        audio: {
-          input: {
-            transcription: buildEngvoInputAudioTranscriptionConfig(),
-            turn_detection: { ...ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION },
-          },
-        },
-      })
+      JSON.stringify(
+        buildEngvoCallsApiSession({
+          model: ENGVO_REALTIME_MODEL,
+          voice,
+          instructions,
+        })
+      )
     )
 
     const callsResponse = await fetchWithProxyFallback(OPENAI_REALTIME_CALLS_URL, {
@@ -148,23 +128,31 @@ export async function POST(req: NextRequest) {
       body: form,
     })
     const callsAnswer = await callsResponse.text()
+
     if (callsResponse.ok && callsAnswer.trim()) {
       return NextResponse.json({ sdp: callsAnswer })
     }
 
+    const openAiStatus = callsResponse.status || 502
+    const rawError = callsAnswer || 'Failed to initialize realtime session'
+    const { userMessage, apiMessage } = resolveEngvoRealtimeUserMessage({
+      raw: rawError,
+      httpStatus: openAiStatus,
+    })
     const egress = await resolveServerEgressInfo()
     return NextResponse.json(
       {
-        error: callsAnswer || rawAnswer || 'Failed to initialize realtime session',
+        error: apiMessage || rawError,
+        userMessage,
         diagnostics: {
-          openAiStatus: callsResponse.status || rawResponse.status || 502,
-          primaryStatus: rawResponse.status || null,
+          openAiStatus,
+          primaryStatus: null,
           fallbackStatus: callsResponse.status || null,
           sdpLength: sdp.length,
           egress,
         },
       },
-      { status: callsResponse.status || rawResponse.status || 502 }
+      { status: openAiStatus }
     )
   } catch (error) {
     return NextResponse.json(

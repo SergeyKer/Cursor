@@ -6,6 +6,7 @@ export function buildEngvoRealtimeInstructionsClient(params: {
   audience: Audience
   level: EngvoCefrLevel
   topic: TopicId
+  speechSpeed?: number
 }): string {
   return buildEngvoRealtimeInstructions(params)
 }

@@ -124,6 +124,7 @@ import {
   ENGVO_DEFAULT_LEVEL,
   ENGVO_DEFAULT_VOICE,
   ENGVO_INACTIVITY_HANGUP_MS,
+  ENGVO_REALTIME_MODEL,
   ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION,
   clampEngvoRealtimeSpeed,
   engvoSpeechSpeedFromPreset,
@@ -133,7 +134,6 @@ import {
   type EngvoSpeechSpeedPresetId,
   ENGVO_CALL_FINISHED_ASSISTANT_TEXT,
   ENGVO_DIALING_ASSISTANT_TEXT,
-  ENGVO_TRANSCRIPTION_MODEL,
 } from '@/lib/engvo/constants'
 import type { EngvoRealtimeReplayItem } from '@/lib/engvo/realtimeReplay'
 import {
@@ -141,6 +141,8 @@ import {
   buildEngvoFirstTurnResponseInstructions,
 } from '@/lib/engvo/instructions'
 import { buildEngvoRealtimeInstructionsClient } from '@/lib/engvo/instructionsClient'
+import { normalizeEngvoRealtimeUserMessage } from '@/lib/engvo/errors'
+import { buildEngvoClientSessionUpdate } from '@/lib/engvo/realtimeSession'
 import {
   loadEngvoCefrLevel,
   loadEngvoRealtimeVoice,
@@ -439,32 +441,6 @@ const RETRY_DELAY_RATE_LIMIT_BASE_MS = 5_000
 const RETRY_MESSAGES = ['Пробую ещё раз…', 'Вот-вот, почти!']
 const ERROR_FIRST_MESSAGE = 'Не удалось загрузить ответ. Проверьте сеть и настройки сервера.'
 const EMPTY_RESPONSE_FALLBACK = 'ИИ не отвечает. Проверьте сеть и попробуйте снова.'
-function normalizeEngvoErrorMessage(raw: string): string {
-  const message = raw.trim()
-  if (!message) return ''
-  try {
-    const parsed = JSON.parse(message) as {
-      error?: { message?: string; code?: string } | string
-      diagnostics?: { openAiStatus?: number }
-    }
-    if (typeof parsed?.error === 'string' && parsed.error.trim()) {
-      return parsed.error.trim()
-    }
-    if (parsed?.error && typeof parsed.error === 'object') {
-      const detailed = parsed.error.message?.trim() ?? ''
-      if (detailed) return detailed
-      const fallbackCode = parsed.error.code?.trim()
-      if (fallbackCode) return `Ошибка Realtime: ${fallbackCode}`
-    }
-    if (parsed?.diagnostics?.openAiStatus) {
-      return `Ошибка Realtime (HTTP ${parsed.diagnostics.openAiStatus}).`
-    }
-  } catch {
-    // not json
-  }
-  return message
-}
-
 function normalizeForEchoCompare(text: string): string {
   return text.trim().toLowerCase().replace(/[^\p{L}\p{N}\s']/gu, '').replace(/\s+/g, ' ')
 }
@@ -1118,7 +1094,7 @@ export default function Home() {
       cleanupEngvoRuntime({ markIgnoredCurrent: true })
       setMessages((prev) => {
         const base = prev.filter((m) => !m.engvoServiceLine)
-        const trimmed = normalizeEngvoErrorMessage(message)
+        const trimmed = normalizeEngvoRealtimeUserMessage(message)
         if (!trimmed) return base
         const last = base[base.length - 1]
         if (last?.role === 'assistant' && last.content.trim() === trimmed) {
@@ -1146,34 +1122,34 @@ export default function Home() {
 
   const updateEngvoRealtimeSession = useCallback(
     (payload: { voice?: EngvoRealtimeVoice; level?: EngvoCefrLevel; speed?: number }): boolean => {
-      const session: Record<string, unknown> = {
-        instructions: buildEngvoRealtimeInstructionsClient({
-          audience: settings.audience,
-          level: payload.level ?? engvoCefrLevel,
-          topic: settings.topic,
-        }),
-        speed: clampEngvoRealtimeSpeed(
-          payload.speed ?? engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset)
-        ),
-      }
-
-      if (payload.voice) {
-        session.voice = payload.voice
-      }
-
       return sendEngvoRealtimeEvent({
         type: 'session.update',
-        session: {
-          ...session,
-          input_audio_transcription: {
-            model: ENGVO_TRANSCRIPTION_MODEL,
+        session: buildEngvoClientSessionUpdate({
+          model: ENGVO_REALTIME_MODEL,
+          voice: payload.voice ?? engvoRealtimeVoice,
+          instructions: buildEngvoRealtimeInstructionsClient({
+            audience: settings.audience,
+            level: payload.level ?? engvoCefrLevel,
+            topic: settings.topic,
+            speechSpeed: clampEngvoRealtimeSpeed(
+              payload.speed ?? engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset)
+            ),
+          }),
+          inputAudioTranscription: {
+            ...buildEngvoInputAudioTranscriptionConfig(),
             language: 'ru',
           },
-          turn_detection: { ...ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION },
-        },
+        }),
       })
     },
-    [engvoCefrLevel, engvoSpeechSpeedPreset, sendEngvoRealtimeEvent, settings.audience, settings.topic]
+    [
+      engvoCefrLevel,
+      engvoRealtimeVoice,
+      engvoSpeechSpeedPreset,
+      sendEngvoRealtimeEvent,
+      settings.audience,
+      settings.topic,
+    ]
   )
 
   const isEngvoSafeForSessionUpdate = useCallback((): boolean => {
@@ -1288,7 +1264,7 @@ export default function Home() {
           scheduleEngvoSessionUpdateRetry()
           return
         }
-        setEngvoSessionError(errorMessage)
+        setEngvoSessionError(normalizeEngvoRealtimeUserMessage(errorMessage))
         return
       }
 
@@ -1315,7 +1291,6 @@ export default function Home() {
             const continuationSent = sendEngvoRealtimeEvent({
               type: 'response.create',
               response: {
-                modalities: ['audio', 'text'],
                 instructions: buildEngvoContinuationResponseInstructions({
                   audience: settings.audience,
                   level: engvoCefrLevel,
@@ -1331,7 +1306,6 @@ export default function Home() {
             const greetingSent = sendEngvoRealtimeEvent({
               type: 'response.create',
               response: {
-                modalities: ['audio', 'text'],
                 instructions: buildEngvoFirstTurnResponseInstructions({
                   audience: settings.audience,
                   level: engvoCefrLevel,
@@ -1648,17 +1622,20 @@ export default function Home() {
         console.info('[engvo] dc-open')
         const sent = sendEngvoRealtimeEvent({
           type: 'session.update',
-          session: {
+          session: buildEngvoClientSessionUpdate({
+            model: ENGVO_REALTIME_MODEL,
             voice: engvoRealtimeVoice,
             instructions: buildEngvoRealtimeInstructionsClient({
               audience: settings.audience,
               level: engvoCefrLevel,
               topic: settings.topic,
+              speechSpeed: clampEngvoRealtimeSpeed(engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset)),
             }),
-            speed: clampEngvoRealtimeSpeed(engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset)),
-            input_audio_transcription: buildEngvoInputAudioTranscriptionConfig(),
-            turn_detection: { ...ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION },
-          },
+            inputAudioTranscription: {
+              ...buildEngvoInputAudioTranscriptionConfig(),
+              language: 'ru',
+            },
+          }),
         })
         if (!sent) {
           setEngvoSessionError('Не удалось отправить параметры Realtime-сессии.')
@@ -1710,9 +1687,17 @@ export default function Home() {
       const sessionData = (await sessionResponse.json().catch(() => ({}))) as {
         sdp?: string
         error?: string
+        userMessage?: string
+        diagnostics?: { openAiStatus?: number }
       }
       if (!sessionResponse.ok || !sessionData.sdp) {
-        throw new Error(sessionData.error ?? 'Не удалось получить SDP answer от сервера.')
+        const fallback =
+          sessionData.userMessage ??
+          normalizeEngvoRealtimeUserMessage(
+            sessionData.error ?? '',
+            sessionData.diagnostics?.openAiStatus ?? sessionResponse.status
+          )
+        throw new Error(fallback || 'Не удалось получить SDP answer от сервера.')
       }
       console.info('[engvo] sdp-answer-received')
       await peerConnection.setRemoteDescription({
@@ -1733,7 +1718,11 @@ export default function Home() {
         setEngvoSessionError('Не удалось получить ответ от сервера. Проверьте сеть/VPN.')
         return
       }
-      setEngvoSessionError(error instanceof Error ? error.message : 'Не удалось начать звонок Engvo')
+      setEngvoSessionError(
+        normalizeEngvoRealtimeUserMessage(
+          error instanceof Error ? error.message : 'Не удалось начать звонок Engvo'
+        )
+      )
     } finally {
       suppressSettingsChangeBannerRef.current = false
     }

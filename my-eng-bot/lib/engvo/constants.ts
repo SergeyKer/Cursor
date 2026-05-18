@@ -16,7 +16,7 @@ export const ENGVO_CALL_FINISHED_ASSISTANT_TEXT = 'Call is finished'
 /** Служебная строка при повторном соединении (как индикатор «Набираем Engvo…» в футере). */
 export const ENGVO_DIALING_ASSISTANT_TEXT = 'Набираем Engvo…'
 
-/** Диапазон `speed` в OpenAI Realtime session. */
+/** Диапазон скорости речи Engvo (передаётся в instructions, не в session.speed API). */
 export const ENGVO_REALTIME_SPEED_MIN = 0.25
 export const ENGVO_REALTIME_SPEED_MAX = 1.5
 

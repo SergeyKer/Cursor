@@ -3,6 +3,7 @@ import {
   buildEngvoContinuationResponseInstructions,
   buildEngvoFirstTurnResponseInstructions,
   buildEngvoRealtimeInstructions,
+  buildEngvoSpeechSpeedRule,
 } from './instructions'
 import { buildEngvoRealtimeInstructionsClient } from './instructionsClient'
 
@@ -38,6 +39,25 @@ describe('buildEngvoRealtimeInstructions', () => {
     expect(result).toContain('Low-level reinforcement (A1)')
     expect(result).toContain('Do not jump to A2/B1 vocabulary')
     expect(result).toContain('Avoid bureaucratic, overly formal, or adult business language.')
+  })
+
+  it('includes speech pace in instructions instead of session.speed', () => {
+    const fast = buildEngvoRealtimeInstructions({
+      audience: 'adult',
+      level: 'a2',
+      topic: 'free_talk',
+      speechSpeed: 1,
+    })
+    const slow = buildEngvoRealtimeInstructions({
+      audience: 'adult',
+      level: 'a2',
+      topic: 'free_talk',
+      speechSpeed: 0.7,
+    })
+
+    expect(fast).toContain(buildEngvoSpeechSpeedRule(1))
+    expect(slow).toContain(buildEngvoSpeechSpeedRule(0.7))
+    expect(fast).not.toEqual(slow)
   })
 
   it('keeps client and server realtime instructions aligned', () => {

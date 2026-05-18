@@ -1,6 +1,6 @@
 import { buildCefrPromptBlock } from '@/lib/cefr/cefrSpec'
 import type { Audience, TopicId } from '@/lib/types'
-import type { EngvoCefrLevel } from '@/lib/engvo/constants'
+import { clampEngvoRealtimeSpeed, type EngvoCefrLevel } from '@/lib/engvo/constants'
 
 const ENGVO_TOPIC_NAMES: Record<TopicId, string> = {
   free_talk: 'Free talk (any topic)',
@@ -138,10 +138,23 @@ export function buildEngvoContinuationResponseInstructions(params: {
   ].join(' ')
 }
 
+/** Скорость речи задаётся через instructions — поле `session.speed` в Realtime API не поддерживается. */
+export function buildEngvoSpeechSpeedRule(speechSpeed: number): string {
+  const speed = clampEngvoRealtimeSpeed(speechSpeed)
+  if (speed >= 0.95) {
+    return 'Speech pace: natural conversational speed.'
+  }
+  if (speed >= 0.75) {
+    return 'Speech pace: speak slightly slower than normal, with clear pauses between short phrases.'
+  }
+  return 'Speech pace: speak slowly and calmly, with extra pauses; prioritize clarity over speed.'
+}
+
 export function buildEngvoRealtimeInstructions(params: {
   audience: Audience
   level: EngvoCefrLevel
   topic: TopicId
+  speechSpeed?: number
 }): string {
   const cefrBlock = buildCefrPromptBlock({
     level: params.level,
@@ -162,6 +175,7 @@ export function buildEngvoRealtimeInstructions(params: {
     buildEngvoAudienceToneRule(params.audience),
     buildEngvoTopicRule(params.topic, params.audience),
     buildEngvoLevelReinforcementRule(params.level),
+    buildEngvoSpeechSpeedRule(params.speechSpeed ?? 1),
     cefrBlock,
   ].join(' ')
 }
