@@ -38,6 +38,7 @@ import {
 } from '@/lib/engvo/constants'
 import { isErrorLikeAssistantMessage } from '@/lib/errorLikeAssistantMessage'
 import { hasEngvoAssistantChatBubble, type EngvoCallPhase } from '@/lib/engvo/state'
+import EngvoCallTimer from '@/components/EngvoCallTimer'
 import EngvoVoiceMeter from '@/components/EngvoVoiceMeter'
 import { stripWrappingQuotesFromDrillRussianLine } from '@/lib/extractSingleTranslationNextSentence'
 import {
@@ -135,6 +136,7 @@ interface ChatProps {
     remoteAudioStream?: MediaStream | null
     /** Удалённый ответ Engvo сейчас воспроизводится в `<audio>` (см. page). */
     remoteAssistantPlaybackActive?: boolean
+    callStartedAt?: number | null
     showAssistantPending: boolean
     assistantIndicatorText: string
     onStartCall: () => void
@@ -2130,17 +2132,19 @@ export default function Chat({
   const isEngvoUserTurn = engvoPhase === 'listening' || engvoPhase === 'userFinalizing'
   const remoteStream = engvo?.remoteAudioStream ?? null
   const remotePlaybackActive = Boolean(engvo?.remoteAssistantPlaybackActive && remoteStream)
-  const useRemoteForMeter =
+  const aiMeterUseRemote =
     (isEngvoAssistantTurn && Boolean(remoteStream)) || (isEngvoUserTurn && remotePlaybackActive)
-  const engvoMeterStream = useRemoteForMeter
-    ? remoteStream
-    : isEngvoUserTurn
-      ? (engvo?.localAudioStream ?? null)
-      : null
-  const engvoMeterActive = isEngvoAssistantTurn || isEngvoUserTurn
-  const engvoMeterAriaLabel =
-    useRemoteForMeter || isEngvoAssistantTurn ? 'Уровень голоса Engvo' : 'Уровень вашего голоса'
-  const engvoMeterFrozen = engvoPhase === 'ended'
+  const aiMeterStream = aiMeterUseRemote ? remoteStream : null
+  const aiMeterActive = isEngvoAssistantTurn || isEngvoUserTurn
+  const aiMeterFrozen = engvoPhase === 'ended'
+  const userMeterStream = engvo?.localAudioStream ?? null
+  const userMeterActive = engvoPhase === 'listening' || engvoPhase === 'userFinalizing'
+  const userMeterFrozen = engvoPhase === 'ended'
+  const engvoTimerRunning =
+    engvoPhase === 'listening' ||
+    engvoPhase === 'userFinalizing' ||
+    engvoPhase === 'assistantPending' ||
+    engvoPhase === 'assistantSpeaking'
   const composerPlaceholder = isEngvoActive
     ? ''
     : isLessonLoadingState
@@ -2355,13 +2359,30 @@ export default function Chat({
                         />
                       </svg>
                     </button>
-                    <div className="chat-input-field flex min-w-0 flex-1 items-center justify-center rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-2.5 py-2 text-[13px] text-[var(--text)] sm:px-3 sm:text-sm">
-                      <EngvoVoiceMeter
-                        stream={engvoMeterStream}
-                        active={engvoMeterActive}
-                        frozen={engvoMeterFrozen}
-                        ariaLabel={engvoMeterAriaLabel}
+                    <div
+                      className="engvo-call-status-strip min-h-[44px] min-w-0 flex-1 rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-2 py-1.5 sm:px-2.5"
+                      aria-label="Статус звонка Engvo"
+                    >
+                      <div className="flex h-[22px] min-w-0 flex-1 basis-0 items-center justify-center overflow-hidden">
+                        <EngvoVoiceMeter
+                          stream={aiMeterStream}
+                          active={aiMeterActive}
+                          frozen={aiMeterFrozen}
+                          ariaLabel="Уровень голоса Engvo"
+                        />
+                      </div>
+                      <EngvoCallTimer
+                        startedAt={engvo?.callStartedAt ?? null}
+                        running={engvoTimerRunning}
                       />
+                      <div className="flex h-[22px] min-w-0 flex-1 basis-0 items-center justify-center overflow-hidden">
+                        <EngvoVoiceMeter
+                          stream={userMeterStream}
+                          active={userMeterActive}
+                          frozen={userMeterFrozen}
+                          ariaLabel="Уровень вашего голоса"
+                        />
+                      </div>
                     </div>
                     <button
                       type="button"

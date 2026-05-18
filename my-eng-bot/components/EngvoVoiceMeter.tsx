@@ -120,7 +120,15 @@ export default function EngvoVoiceMeter({
       void context.resume().catch(() => {})
     }
 
-    const sourceNode = context.createMediaStreamSource(stream)
+    let sourceNode: MediaStreamAudioSourceNode
+    try {
+      sourceNode = context.createMediaStreamSource(stream)
+    } catch {
+      currentLevelsRef.current = Array(BAR_COUNT).fill(BASELINE_SCALE)
+      animateBars(barsRef, currentLevelsRef.current)
+      return stop
+    }
+
     const analyserNode = context.createAnalyser()
     analyserNode.fftSize = 128
     analyserNode.smoothingTimeConstant = 0.42

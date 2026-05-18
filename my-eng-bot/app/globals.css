@@ -961,6 +961,20 @@ select.select-chevron {
   pointer-events: none;
 }
 
+/* Панель звонка Engvo: три колонки в ряд (ИИ | таймер | пользователь). */
+.engvo-call-status-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.375rem;
+}
+
+@media (min-width: 640px) {
+  .engvo-call-status-strip {
+    column-gap: 0.5rem;
+  }
+}
+
 .chat-input-field {
   display: block;
   min-height: 44px;

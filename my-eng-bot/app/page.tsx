@@ -609,6 +609,7 @@ export default function Home() {
   const [engvoRemoteAudioStream, setEngvoRemoteAudioStream] = useState<MediaStream | null>(null)
   /** Пока `<audio>` реально играет удалённый WebRTC-поток — метер в чате должен смотреть на remote, даже если фаза уже `listening` (эхо/VAD). */
   const [engvoRemotePlaybackActive, setEngvoRemotePlaybackActive] = useState(false)
+  const [engvoCallStartedAt, setEngvoCallStartedAt] = useState<number | null>(null)
   const structuredLessonChoiceShuffleSeed =
     activeStructuredLesson == null
       ? undefined
@@ -1018,6 +1019,7 @@ export default function Home() {
       setEngvoLocalAudioStream(null)
       setEngvoRemoteAudioStream(null)
       setEngvoRemotePlaybackActive(false)
+      setEngvoCallStartedAt(null)
 
       if (mediaStream) {
         for (const track of mediaStream.getTracks()) track.stop()
@@ -1739,6 +1741,12 @@ export default function Home() {
   const hangUpEngvoCall = useCallback(() => {
     finishEngvoCall()
   }, [finishEngvoCall])
+
+  useEffect(() => {
+    if (engvoCallPhase === 'listening' && engvoCallStartedAt === null) {
+      setEngvoCallStartedAt(Date.now())
+    }
+  }, [engvoCallPhase, engvoCallStartedAt])
 
   useEffect(() => {
     if (!engvoVoiceMode) {
@@ -5253,6 +5261,7 @@ export default function Home() {
                     localAudioStream: engvoLocalAudioStream,
                     remoteAudioStream: engvoRemoteAudioStream,
                     remoteAssistantPlaybackActive: engvoRemotePlaybackActive,
+                    callStartedAt: engvoCallStartedAt,
                     showAssistantPending: showEngvoBootstrapServiceIndicator,
                     assistantIndicatorText: engvoBootstrapServiceIndicatorText ?? 'Engvo отвечает...',
                     onStartCall: () => {
