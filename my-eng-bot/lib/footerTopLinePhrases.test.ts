@@ -2,6 +2,23 @@ import { describe, expect, it } from 'vitest'
 import { formatRewardTopLine, getSessionTransitionTopLine } from './footerTopLinePhrases'
 
 describe('footerTopLinePhrases', () => {
+  it('formats lesson_xp_awarded top line by audience', () => {
+    expect(
+      formatRewardTopLine({
+        reason: 'lesson_xp_awarded',
+        amount: 8,
+        audience: 'adult',
+      })
+    ).toBe('Хороший шаг. +8 XP к прогрессу.')
+    expect(
+      formatRewardTopLine({
+        reason: 'lesson_xp_awarded',
+        amount: 13,
+        audience: 'child',
+      })
+    ).toBe('Отлично! +13 XP!')
+  })
+
   it('formats reward top line by audience and reason', () => {
     expect(
       formatRewardTopLine({

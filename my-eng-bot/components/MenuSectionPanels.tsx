@@ -20,6 +20,9 @@ import type {
 import type { AiChatPanel } from '@/lib/aiChatPanel'
 import { MENU_PRIMARY_CTA_CLASS } from '@/lib/homeCtaStyles'
 import { featureFlags } from '@/lib/featureFlags'
+import { getLessonBadgeDefinition } from '@/lib/lessonBadges'
+import { loadLessonProgressMap } from '@/lib/lessonProgressStorage'
+import { aggregateMedals } from '@/lib/lessonScore'
 import {
   PRACTICE_TOPICS_BY_AUDIENCE,
   getLessonTopicById,
@@ -2993,6 +2996,42 @@ export default function MenuSectionPanels({
                 🔥 Серия: {rewardsState?.progress.dailyStreak ?? 0} • До следующего уровня: {rewardsState?.progress.currentLevelXP ?? 0}/{rewardsState?.progress.xpToNextLevel ?? 100}
               </p>
             </div>
+            {(() => {
+              const lessonProgressMap = loadLessonProgressMap()
+              const medalList = Object.values(lessonProgressMap).map((row) => row.medal)
+              const medals = aggregateMedals(medalList, 4)
+              const badgesEarned = Object.values(lessonProgressMap).filter((row) => row.lessonBadgeEarned).length
+              return (
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
+                  <p className="text-[13px] font-medium text-[var(--text-muted)]">Награды уроков</p>
+                  <p className="mt-1 text-[14px] text-[var(--text)]">
+                    🥇 {medals.gold} · 🥈 {medals.silver} · 🥉 {medals.bronze} · Золото {medals.gold}/4
+                  </p>
+                  <p className="mt-1 text-[13px] text-[var(--text-muted)]">Бейджи: {badgesEarned}/4</p>
+                  <ul className="mt-2 space-y-1 text-[12px] text-[var(--text-muted)]">
+                    {['1', '2', '3', '4'].map((lessonId) => {
+                      const progress = lessonProgressMap[lessonId]
+                      const topic = getLessonTopicById(lessonId)?.title ?? `Урок ${lessonId}`
+                      const badge = getLessonBadgeDefinition(lessonId)
+                      if (!progress) {
+                        return (
+                          <li key={lessonId}>
+                            {topic}: не начат
+                          </li>
+                        )
+                      }
+                      return (
+                        <li key={lessonId}>
+                          {topic}: {progress.medal ?? '—'} · {progress.corePercent ?? 0}% core
+                          {badge && !progress.lessonBadgeEarned ? ` · бейдж ${progress.lessonBadgeCriteriaMet?.length ?? 0}/3` : ''}
+                          {progress.lessonBadgeEarned ? ' · бейдж ✓' : ''}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              )
+            })()}
             <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
               <p className="text-[13px] font-medium text-[var(--text-muted)]">Цели режимов</p>
               {(['communication', 'engvo'] as const).map((mode) => {

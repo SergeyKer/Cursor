@@ -11,6 +11,22 @@ describe('applyRewardsEvent', () => {
     expect(next.ui.lastReward?.reason).toBe('communication_goal_progress')
   })
 
+  it('awards structured lesson xp with variable amount', () => {
+    const state = createDefaultRewardsState()
+    const next = applyRewardsEvent(state, { type: 'lesson_xp_awarded', amount: 8 })
+    expect(next.progress.totalXP).toBe(8)
+    expect(next.ui.lastReward?.amount).toBe(8)
+    expect(next.ui.lastReward?.reason).toBe('lesson_xp_awarded')
+    expect(next.ui.footerTicker).toContain('+8 XP')
+  })
+
+  it('ignores zero lesson_xp_awarded', () => {
+    const state = createDefaultRewardsState()
+    const next = applyRewardsEvent(state, { type: 'lesson_xp_awarded', amount: 0 })
+    expect(next.progress.totalXP).toBe(0)
+    expect(next.ui.lastReward).toBeNull()
+  })
+
   it('awards lesson completion bonus', () => {
     const state = createDefaultRewardsState()
     const next = applyRewardsEvent(state, { type: 'lesson_completed' })

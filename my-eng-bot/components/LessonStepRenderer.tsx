@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import LessonSentencePuzzle from '@/components/LessonSentencePuzzle'
+import LessonMedalReveal from '@/components/LessonMedalReveal'
 import PostLessonMenu from '@/components/PostLessonMenu'
+import type { LessonMedalTierOrNull } from '@/lib/lessonScore'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
@@ -24,10 +26,18 @@ type LessonStepRendererProps = {
     submittedAnswer?: string
     baseMessage?: string
     message?: string
-    xpAward?: number
     taskCurrent?: number
     taskTotal?: number
   }) => void
+  onPuzzleSubStep?: (params: { subIndex: number; attempts: number }) => void
+  puzzleSubMaxXp?: number
+  lessonMedalReveal?: {
+    medal: LessonMedalTierOrNull
+    coreXp: number
+    comboXp: number
+    maxCoreXp: number
+    corePercent: number
+  } | null
   onPostLessonAction?: (action: PostLessonAction) => void
   postLessonBusy?: boolean
   audience: 'child' | 'adult'
@@ -131,6 +141,9 @@ export default function LessonStepRenderer({
   exerciseErrors = 0,
   onAnswer,
   onCompleteStep,
+  onPuzzleSubStep,
+  puzzleSubMaxXp,
+  lessonMedalReveal = null,
   onPostLessonAction,
   postLessonBusy = false,
   audience,
@@ -560,24 +573,38 @@ export default function LessonStepRenderer({
                 style={{ paddingBottom: 'calc(var(--app-bottom-inset) + 0.375rem)' }}
               >
                 {hasPostLessonOptions ? (
-                  <PostLessonMenu
+                  <>
+                    {lessonMedalReveal ? (
+                      <LessonMedalReveal
+                        medal={lessonMedalReveal.medal}
+                        coreXp={lessonMedalReveal.coreXp}
+                        comboXp={lessonMedalReveal.comboXp}
+                        maxCoreXp={lessonMedalReveal.maxCoreXp}
+                        corePercent={lessonMedalReveal.corePercent}
+                      />
+                    ) : null}
+                    <PostLessonMenu
                     options={postLesson?.options ?? []}
                     onSelect={(action) => onPostLessonAction?.(action)}
                     disabled={postLessonBusy || !onPostLessonAction}
                   />
+                  </>
                 ) : isSentencePuzzle && exercise ? (
                   <LessonSentencePuzzle
                     key={`sentence-puzzle-${choiceShuffleSeed ?? 'static'}-${currentStep?.stepNumber ?? 'step'}`}
                     exercise={exercise}
                     disabled={isChecking || !onCompleteStep}
                     progressKey={`${choiceShuffleSeed ?? 'static'}:${currentStep?.stepNumber ?? 'step'}:${currentVariantIndex}`}
+                    subPuzzleMaxXp={puzzleSubMaxXp}
+                    onSubPuzzleComplete={(summary) =>
+                      onPuzzleSubStep?.({ subIndex: summary.subIndex, attempts: summary.attempts })
+                    }
                     onComplete={(summary) =>
                       onCompleteStep?.({
                         submittedAnswer: summary.submittedAnswer,
                         baseMessage: summary.baseMessage,
                         taskCurrent: summary.taskCurrent,
                         taskTotal: summary.taskTotal,
-                        xpAward: exercise.bonusXp ?? 30,
                       })
                     }
                   />

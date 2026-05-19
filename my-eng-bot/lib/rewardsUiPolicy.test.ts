@@ -10,6 +10,7 @@ describe('rewardsUiPolicy', () => {
     expect(rewardReasonAllowsDynamicTickerOverride('communication_goal_progress')).toBe(false)
     expect(rewardReasonAllowsDynamicTickerOverride('engvo_goal_progress')).toBe(false)
     expect(rewardReasonAllowsDynamicTickerOverride('lesson_completed')).toBe(true)
+    expect(rewardReasonAllowsDynamicTickerOverride('lesson_xp_awarded')).toBe(true)
   })
 
   it('shows toast for milestones and level-up only', () => {

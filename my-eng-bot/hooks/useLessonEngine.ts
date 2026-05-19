@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { AdaptiveConfig, Exercise, LessonData, LessonMistake, PostLessonContent } from '@/types/lesson'
+import type { AdaptiveConfig, LessonData, LessonMistake, PostLessonContent } from '@/types/lesson'
 import { validateAnswer } from '@/utils/validateAnswer'
 import {
   pickFooterVoice,
@@ -8,6 +8,15 @@ import {
   type FooterVoiceTone,
 } from '@/lib/footerVoice'
 import { buildFinaleTimelineStep, getLessonLearningSteps, resolveLessonFinale } from '@/lib/lessonFinale'
+import {
+  applyComboXpAward,
+  awardCoreXpForUnit,
+  getComboMilestoneXp,
+  getUnitMaxXp,
+  findScoringUnit,
+  MAX_CORE_XP_DEFAULT,
+  sumMaxCoreXpForLesson,
+} from '@/lib/lessonScore'
 import {
   buildLessonAdvanceMessage,
   buildLessonNextVariantMessage,
@@ -98,11 +107,27 @@ export function resolveExerciseForVariant(exercise?: Exercise | null, variantInd
   }
 }
 
+export interface LessonXpAward {
+  core: number
+  combo: number
+  total: number
+  nonce: number
+}
+
+const INITIAL_LESSON_XP_AWARD: LessonXpAward = { core: 0, combo: 0, total: 0, nonce: 0 }
+
 export function useLessonEngine(lesson: LessonData | null) {
   const [currentStep, setCurrentStep] = useState(0)
   const [phase, setPhase] = useState<'lesson' | 'finale'>('lesson')
-  const [xp, setXp] = useState(0)
+  const [coreXp, setCoreXp] = useState(0)
+  const [comboXp, setComboXp] = useState(0)
   const [combo, setCombo] = useState(0)
+  const [maxCombo, setMaxCombo] = useState(0)
+  const [lastCoreDelta, setLastCoreDelta] = useState(0)
+  const [lastComboDelta, setLastComboDelta] = useState(0)
+  const [lastXpAward, setLastXpAward] = useState<LessonXpAward>(INITIAL_LESSON_XP_AWARD)
+  const comboRef = useRef(0)
+  const claimedComboMilestonesRef = useRef<Set<number>>(new Set())
   const [exerciseErrors, setExerciseErrors] = useState(0)
   const [currentVariantIndex, setCurrentVariantIndex] = useState(0)
   const [status, setStatus] = useState<LessonStatus>('idle')
@@ -122,8 +147,15 @@ export function useLessonEngine(lesson: LessonData | null) {
     clearTimers()
     setCurrentStep(0)
     setPhase('lesson')
-    setXp(0)
+    setCoreXp(0)
+    setComboXp(0)
     setCombo(0)
+    setMaxCombo(0)
+    setLastCoreDelta(0)
+    setLastComboDelta(0)
+    setLastXpAward(INITIAL_LESSON_XP_AWARD)
+    comboRef.current = 0
+    claimedComboMilestonesRef.current = new Set()
     setExerciseErrors(0)
     setCurrentVariantIndex(0)
     setStatus('idle')
@@ -140,8 +172,66 @@ export function useLessonEngine(lesson: LessonData | null) {
     }
   }, [clearTimers])
 
+  useEffect(() => {
+    comboRef.current = combo
+  }, [combo])
+
   const learningSteps = useMemo(() => getLessonLearningSteps(lesson), [lesson])
   const finale = useMemo(() => resolveLessonFinale(lesson), [lesson])
+  const maxCoreXp = useMemo(
+    () => (lesson ? sumMaxCoreXpForLesson(lesson) : MAX_CORE_XP_DEFAULT),
+    [lesson]
+  )
+  const totalXp = coreXp + comboXp
+
+  const applySuccessAward = useCallback(
+    (params: { stepNumber: number; variantIndex?: number; puzzleSubIndex?: number; attemptIndex: number }) => {
+      if (!lesson) return
+      const awardedCore = awardCoreXpForUnit(lesson, {
+        stepNumber: params.stepNumber,
+        variantIndex: params.variantIndex,
+        puzzleSubIndex: params.puzzleSubIndex,
+        attemptIndex: params.attemptIndex,
+      })
+
+      const nextCombo = comboRef.current + 1
+      comboRef.current = nextCombo
+
+      let comboAward = 0
+      const milestone = getComboMilestoneXp(nextCombo, claimedComboMilestonesRef.current)
+      if (milestone) {
+        claimedComboMilestonesRef.current.add(milestone.combo)
+        comboAward = milestone.xp
+      }
+
+      const totalAward = awardedCore + comboAward
+      if (totalAward > 0) {
+        setLastXpAward((prev) => ({
+          core: awardedCore,
+          combo: comboAward,
+          total: totalAward,
+          nonce: prev.nonce + 1,
+        }))
+      }
+
+      if (awardedCore > 0) {
+        setCoreXp((prev) => prev + awardedCore)
+        setLastCoreDelta(awardedCore)
+      } else {
+        setLastCoreDelta(0)
+      }
+
+      setCombo(nextCombo)
+      setMaxCombo((current) => Math.max(current, nextCombo))
+      if (comboAward > 0) {
+        setComboXp((comboPrev) => applyComboXpAward(comboPrev, comboAward))
+        setLastComboDelta(comboAward)
+      } else {
+        setLastComboDelta(0)
+      }
+    },
+    [lesson]
+  )
   const totalSteps = learningSteps.length
   const isFinale = phase === 'finale'
   const finaleStep = useMemo(
@@ -166,6 +256,12 @@ export function useLessonEngine(lesson: LessonData | null) {
       },
     }
   }, [rawStep, activeExercise])
+
+  const puzzleSubMaxXp = useMemo(() => {
+    if (!lesson || !rawStep?.exercise || rawStep.exercise.type !== 'sentence_puzzle') return undefined
+    const unit = findScoringUnit(lesson, { stepNumber: rawStep.stepNumber, puzzleSubIndex: 0 })
+    return unit ? getUnitMaxXp(unit) : undefined
+  }, [lesson, rawStep])
 
   useEffect(() => {
     if (isFinale) {
@@ -287,8 +383,11 @@ export function useLessonEngine(lesson: LessonData | null) {
                   variantTotal: variants.length,
                 }),
           } as const
-          setXp((prev) => prev + 10)
-          setCombo((prev) => prev + 1)
+          applySuccessAward({
+            stepNumber: rawStep.stepNumber,
+            variantIndex: variants.length > 0 ? currentVariantIndex : undefined,
+            attemptIndex: exerciseErrors,
+          })
           setExerciseErrors(0)
           setMistakes((current) => current.filter((item) => item.step !== rawStep.stepNumber))
           setFeedback(successFeedback)
@@ -391,7 +490,23 @@ export function useLessonEngine(lesson: LessonData | null) {
       currentVariantIndex,
       clearCurrentStepTransientState,
       learningSteps,
+      applySuccessAward,
+      exerciseErrors,
     ]
+  )
+
+  const awardPuzzleSubStep = useCallback(
+    (puzzleSubIndex: number, attemptsBeforeSuccess: number) => {
+      if (!rawStep) return
+      applySuccessAward({
+        stepNumber: rawStep.stepNumber,
+        puzzleSubIndex,
+        attemptIndex: attemptsBeforeSuccess,
+      })
+      setExerciseErrors(0)
+      setMistakes((current) => current.filter((item) => item.step !== rawStep.stepNumber))
+    },
+    [applySuccessAward, rawStep]
   )
 
   const completeCurrentStep = useCallback(
@@ -442,8 +557,6 @@ export function useLessonEngine(lesson: LessonData | null) {
           },
         ],
       }))
-      setXp((prev) => prev + (options?.xpAward ?? 10))
-      setCombo((prev) => prev + 1)
       setExerciseErrors(0)
       setMistakes((current) => current.filter((item) => item.step !== rawStep.stepNumber))
       setStatus('feedback')
@@ -486,9 +599,9 @@ export function useLessonEngine(lesson: LessonData | null) {
       return postLesson.staticFooterText
     }
     const progressText = `Шаг ${Math.min(currentStep + 1, totalSteps)}/${totalSteps}`
-    const xpLabel = xp === 0 ? '0 XP' : `+${xp} XP`
+    const xpLabel = coreXp === 0 && comboXp === 0 ? `0/${maxCoreXp}` : `${coreXp}/${maxCoreXp}`
     return `${progressText} | ${xpLabel} | COMBO x${combo}`
-  }, [combo, currentStep, isFinale, lesson, postLesson?.staticFooterText, totalSteps, xp])
+  }, [combo, coreXp, comboXp, currentStep, isFinale, lesson, maxCoreXp, postLesson?.staticFooterText, totalSteps])
 
   const contextualFooterHint = useMemo(() => {
     if (exerciseErrors > 0 && activeExercise?.hint?.trim()) {
@@ -695,7 +808,15 @@ export function useLessonEngine(lesson: LessonData | null) {
     currentStep,
     totalSteps,
     phase,
-    xp,
+    xp: totalXp,
+    coreXp,
+    comboXp,
+    totalXp,
+    maxCoreXp,
+    maxCombo,
+    lastCoreDelta,
+    lastComboDelta,
+    lastXpAward,
     combo,
     status,
     feedback,
@@ -717,8 +838,13 @@ export function useLessonEngine(lesson: LessonData | null) {
     postLesson,
     handleAnswer,
     completeCurrentStep,
+    awardPuzzleSubStep,
+    puzzleSubMaxXp,
     goToNext,
     goToStep,
-    resetCombo: () => setCombo(0),
+    resetCombo: () => {
+      comboRef.current = 0
+      setCombo(0)
+    },
   }
 }

@@ -4,6 +4,10 @@ export type SessionTransitionSource = 'lesson' | 'practice' | 'accent'
 type RewardTemplateMap = Record<string, { adult: string[]; child: string[] }>
 
 const REWARD_TOP_LINE_TEMPLATES: RewardTemplateMap = {
+  lesson_xp_awarded: {
+    adult: ['Хороший шаг. +{xp} XP к прогрессу.'],
+    child: ['Отлично! +{xp} XP!'],
+  },
   lesson_step_completed: {
     adult: ['Хороший шаг вперёд. +{xp} XP.'],
     child: ['Отлично! +{xp} XP!'],

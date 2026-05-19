@@ -14,6 +14,8 @@ type LessonSentencePuzzleProps = {
     taskCurrent?: number
     taskTotal?: number
   }) => void
+  onSubPuzzleComplete?: (summary: { subIndex: number; attempts: number }) => void
+  subPuzzleMaxXp?: number
 }
 
 type PuzzleFeedback = {
@@ -91,7 +93,14 @@ function clearStoredProgress(key: string | undefined): void {
   }
 }
 
-export default function LessonSentencePuzzle({ exercise, disabled = false, progressKey, onComplete }: LessonSentencePuzzleProps) {
+export default function LessonSentencePuzzle({
+  exercise,
+  disabled = false,
+  progressKey,
+  onComplete,
+  onSubPuzzleComplete,
+  subPuzzleMaxXp,
+}: LessonSentencePuzzleProps) {
   const variants = exercise.puzzleVariants ?? []
   const [variantIndex, setVariantIndex] = useState(0)
   const [selectedWords, setSelectedWords] = useState<string[]>([])
@@ -166,6 +175,7 @@ export default function LessonSentencePuzzle({ exercise, disabled = false, progr
     setFeedback({ type: 'success', text: activeVariant.successText })
 
     window.setTimeout(() => {
+      onSubPuzzleComplete?.({ subIndex: variantIndex, attempts })
       if (isLastVariant) {
         clearStoredProgress(progressKey)
         onComplete({
@@ -207,7 +217,7 @@ export default function LessonSentencePuzzle({ exercise, disabled = false, progr
       <div className="mb-1.5 flex items-start justify-between gap-2">
         <h3 className="min-w-0 text-sm font-semibold leading-tight text-slate-900">{activeVariant.title}</h3>
         <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
-          +{exercise.bonusXp ?? 30} XP
+          до +{subPuzzleMaxXp ?? exercise.bonusXp ?? 13}
         </span>
       </div>
 

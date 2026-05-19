@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import type { AiChatPanel } from '@/lib/aiChatPanel'
 import { getHomeMenuInstruction } from '@/lib/homeMenuInstruction'
 import { featureFlags } from '@/lib/featureFlags'
@@ -75,7 +75,11 @@ import {
 } from '@/lib/homeCtaStyles'
 import { parseCorrection } from '@/lib/parseCorrection'
 import { stripTranslationCanonicalRepeatRefLine } from '@/lib/translationPromptAndRef'
-import { saveLessonProgress } from '@/lib/lessonProgressStorage'
+import { buildLessonFooterLive } from '@/lib/lessonFooter'
+import { computeCorePercent, resolveMedalFromCoreXp } from '@/lib/lessonScore'
+import { getLessonBadgeDefinition, resolveLessonBadgeProgress } from '@/lib/lessonBadges'
+import { mergeLessonProgressOnComplete, migrateUserLessonProgress } from '@/lib/lessonProgressMigration'
+import { loadLessonProgress, saveLessonProgress } from '@/lib/lessonProgressStorage'
 import {
   findStaticLessonByTopic,
   getLearningLessonActions,
@@ -532,7 +536,9 @@ export default function Home() {
   const [greetingNonce, setGreetingNonce] = useState(0)
   const [welcomeFactLine, setWelcomeFactLine] = useState<string | null>(null)
   const [homeVoiceLine, setHomeVoiceLine] = useState<string | null>(null)
-  const welcomeFactInitRef = React.useRef<number | null>(null)
+  /** Кэш на greetingNonce: без повторного consume при remount (React Strict Mode). */
+  const welcomeFactByNonceRef = React.useRef<Map<number, string>>(new Map())
+  const homeVoiceByNonceRef = React.useRef<Map<number, string>>(new Map())
   const [storageLoaded, setStorageLoaded] = useState(false)
   const [retryMessage, setRetryMessage] = useState<string | null>(null)
   const [loadingTranslationIndex, setLoadingTranslationIndex] = useState<number | null>(null)
@@ -578,11 +584,22 @@ export default function Home() {
     footerVoiceEmphasis: activeStructuredLessonFooterVoiceEmphasis,
     handleAnswer: handleStructuredLessonAnswer,
     completeCurrentStep: completeStructuredLessonStep,
+    awardPuzzleSubStep: awardStructuredLessonPuzzleSub,
+    puzzleSubMaxXp: activeStructuredLessonPuzzleSubMaxXp,
     xp: activeStructuredLessonXp,
+    coreXp: activeStructuredLessonCoreXp,
+    comboXp: activeStructuredLessonComboXp,
+    maxCoreXp: activeStructuredLessonMaxCoreXp,
+    maxCombo: activeStructuredLessonMaxCombo,
     combo: activeStructuredLessonCombo,
     exerciseErrors: activeStructuredLessonExerciseErrors,
     mistakes: activeStructuredLessonMistakes,
     completedSteps: activeStructuredLessonCompletedSteps,
+    currentStep: activeStructuredLessonCurrentStep,
+    totalSteps: activeStructuredLessonTotalSteps,
+    lastCoreDelta: activeStructuredLessonLastCoreDelta,
+    lastComboDelta: activeStructuredLessonLastComboDelta,
+    lastXpAward: activeStructuredLessonLastXpAward,
   } = useLessonEngine(activeStructuredLesson)
   const practiceSession = usePracticeSession()
   const { abandonSession: abandonPracticeSession, startSession: startPracticeSession } = practiceSession
@@ -616,9 +633,9 @@ export default function Home() {
       : (activeStructuredLesson.runKey ??
           `static-${activeStructuredLesson.id}-${activeStructuredLesson.variantId ?? ''}-${structuredLessonShuffleNonce}`)
   const dialogueCorrectAnswers = React.useMemo(() => countDialogueFinalCorrectAnswers(messages), [messages])
-  const rewardedStructuredLessonRef = React.useRef<string | null>(null)
   const rewardedPracticeSessionRef = React.useRef<string | null>(null)
-  const rewardedLessonStepSnapshotRef = React.useRef<{ key: string; count: number } | null>(null)
+  const processedLessonXpAwardNonceRef = React.useRef(0)
+  const processedLessonXpAwardKeyRef = React.useRef<string | null>(null)
   const rewardPopupSeenRef = React.useRef<string | null>(null)
   const footerContextSignatureRef = React.useRef<string | null>(null)
   const footerTransitionTimeoutRef = React.useRef<number | null>(null)
@@ -798,19 +815,41 @@ export default function Home() {
 
   React.useEffect(() => {
     if (dialogStarted) return
-    if (welcomeFactInitRef.current === greetingNonce) return
-    welcomeFactInitRef.current = greetingNonce
 
-    try {
-      setWelcomeFactLine(consumeNextGreetingFactLine())
-    } catch {
-      setWelcomeFactLine('Интересный факт скоро появится.')
+    let cancelled = false
+
+    const cachedFact = welcomeFactByNonceRef.current.get(greetingNonce)
+    if (cachedFact) {
+      setWelcomeFactLine(cachedFact)
+    } else {
+      try {
+        const line = consumeNextGreetingFactLine()
+        welcomeFactByNonceRef.current.set(greetingNonce, line)
+        if (!cancelled) setWelcomeFactLine(line)
+      } catch {
+        const fallback = 'Интересный факт скоро появится.'
+        welcomeFactByNonceRef.current.set(greetingNonce, fallback)
+        if (!cancelled) setWelcomeFactLine(fallback)
+      }
     }
 
-    try {
-      setHomeVoiceLine(consumeNextHomeVoiceLine())
-    } catch {
-      setHomeVoiceLine('Я снова здесь. Продолжим?')
+    const cachedVoice = homeVoiceByNonceRef.current.get(greetingNonce)
+    if (cachedVoice) {
+      setHomeVoiceLine(cachedVoice)
+    } else {
+      try {
+        const line = consumeNextHomeVoiceLine()
+        homeVoiceByNonceRef.current.set(greetingNonce, line)
+        if (!cancelled) setHomeVoiceLine(line)
+      } catch {
+        const fallback = 'Я снова здесь. Продолжим?'
+        homeVoiceByNonceRef.current.set(greetingNonce, fallback)
+        if (!cancelled) setHomeVoiceLine(fallback)
+      }
+    }
+
+    return () => {
+      cancelled = true
     }
   }, [dialogStarted, greetingNonce])
 
@@ -2378,19 +2417,57 @@ export default function Home() {
     (overrides?: { postLessonChoice?: PostLessonAction; lastCompleted?: string }) => {
       if (!activeStructuredLesson) return
       if (lessonViewStage !== 'lesson') return
-      saveLessonProgress({
-        lessonId: activeStructuredLesson.id,
+
+      const lessonId = activeStructuredLesson.id
+      const previous = loadLessonProgress(lessonId)
+      const isCompleted = activeStructuredLessonStatus === 'completed'
+      const sessionBase = {
+        lessonId,
         topic: activeStructuredLesson.topic,
         level: activeStructuredLesson.level,
         completedSteps: activeStructuredLessonCompletedSteps,
         completedVariants: buildCompletedVariants(activeStructuredLessonStatus, activeLessonVariantNumber),
-        xp: activeStructuredLessonXp,
-        combo: activeStructuredLessonCombo,
+        coreXp: activeStructuredLessonCoreXp,
+        comboXp: activeStructuredLessonComboXp,
+        maxCoreXp: activeStructuredLessonMaxCoreXp,
+        maxCombo: activeStructuredLessonMaxCombo,
         mistakes: activeStructuredLessonMistakes,
-        lastCompleted:
-          overrides?.lastCompleted ?? (activeStructuredLessonStatus === 'completed' ? new Date().toISOString() : ''),
-        ...(overrides?.postLessonChoice ? { postLessonChoice: overrides.postLessonChoice } : {}),
-      })
+        postLessonChoice: overrides?.postLessonChoice,
+      }
+
+      if (isCompleted) {
+        let merged = mergeLessonProgressOnComplete(previous, sessionBase)
+        const badgeDefinition = getLessonBadgeDefinition(lessonId)
+        if (badgeDefinition) {
+          const badgeProgress = resolveLessonBadgeProgress(merged, badgeDefinition, merged.medal)
+          merged = {
+            ...merged,
+            lessonBadgeCriteriaMet: badgeProgress.criteriaMet,
+            ...(badgeProgress.earned && !merged.lessonBadgeEarned
+              ? {
+                  lessonBadgeEarned: true,
+                  lessonBadgeEarnedAt: new Date().toISOString(),
+                }
+              : {}),
+          }
+        }
+        saveLessonProgress(merged)
+        return
+      }
+
+      saveLessonProgress(
+        migrateUserLessonProgress(
+          {
+            ...previous,
+            ...sessionBase,
+            xp: activeStructuredLessonXp,
+            combo: activeStructuredLessonCombo,
+            totalXp: activeStructuredLessonXp,
+            lastCompleted: overrides?.lastCompleted ?? previous?.lastCompleted ?? '',
+          },
+          lessonId
+        )
+      )
     },
     [
       activeStructuredLesson,
@@ -2398,6 +2475,10 @@ export default function Home() {
       activeStructuredLessonStatus,
       activeLessonVariantNumber,
       activeStructuredLessonXp,
+      activeStructuredLessonCoreXp,
+      activeStructuredLessonComboXp,
+      activeStructuredLessonMaxCoreXp,
+      activeStructuredLessonMaxCombo,
       activeStructuredLessonCombo,
       activeStructuredLessonMistakes,
       buildCompletedVariants,
@@ -3698,35 +3779,22 @@ export default function Home() {
 
   useEffect(() => {
     if (!storageLoaded || !activeStructuredLesson) {
-      rewardedLessonStepSnapshotRef.current = null
+      processedLessonXpAwardNonceRef.current = 0
+      processedLessonXpAwardKeyRef.current = null
       return
     }
     const lessonKey = `${activeStructuredLesson.id}:${activeStructuredLesson.runKey ?? 'static'}`
-    const currentCount = activeStructuredLessonCompletedSteps.length
-    const snapshot = rewardedLessonStepSnapshotRef.current
-    if (!snapshot || snapshot.key !== lessonKey) {
-      rewardedLessonStepSnapshotRef.current = { key: lessonKey, count: currentCount }
+    if (processedLessonXpAwardKeyRef.current !== lessonKey) {
+      processedLessonXpAwardKeyRef.current = lessonKey
+      processedLessonXpAwardNonceRef.current = activeStructuredLessonLastXpAward.nonce
       return
     }
-    if (currentCount <= snapshot.count) return
-    const delta = currentCount - snapshot.count
-    rewardedLessonStepSnapshotRef.current = { key: lessonKey, count: currentCount }
-    setRewardsState((prev) => {
-      let next = prev
-      for (let index = 0; index < delta; index += 1) {
-        next = applyRewardsEvent(next, { type: 'lesson_step_completed' })
-      }
-      return next
-    })
-  }, [storageLoaded, activeStructuredLesson, activeStructuredLessonCompletedSteps.length])
-
-  useEffect(() => {
-    if (!storageLoaded || !activeStructuredLesson || activeStructuredLessonStatus !== 'completed') return
-    const lessonRewardKey = `${activeStructuredLesson.id}:${activeStructuredLesson.runKey ?? 'static'}`
-    if (rewardedStructuredLessonRef.current === lessonRewardKey) return
-    rewardedStructuredLessonRef.current = lessonRewardKey
-    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'lesson_completed' }))
-  }, [storageLoaded, activeStructuredLesson, activeStructuredLessonStatus])
+    if (activeStructuredLessonLastXpAward.nonce <= processedLessonXpAwardNonceRef.current) return
+    processedLessonXpAwardNonceRef.current = activeStructuredLessonLastXpAward.nonce
+    const amount = activeStructuredLessonLastXpAward.total
+    if (amount <= 0) return
+    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'lesson_xp_awarded', amount }))
+  }, [storageLoaded, activeStructuredLesson, activeStructuredLessonLastXpAward])
 
   useEffect(() => {
     if (!storageLoaded || !practiceSession.session || practiceSession.session.status !== 'completed') return
@@ -4545,7 +4613,35 @@ export default function Home() {
             ? formatModeGoalFooter('engvo', rewardsState)
             : getMenuSummary(false)
         : adaptiveFooterView?.staticText ?? formatGlobalFooterStats(rewardsState)
-  const footerStaticText = appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)
+  const structuredLessonFooterLive = useMemo(() => {
+    if (!isStructuredLessonActive) return null
+    return buildLessonFooterLive({
+      currentStep: activeStructuredLessonCurrentStep,
+      totalSteps: activeStructuredLessonTotalSteps,
+      coreXp: activeStructuredLessonCoreXp,
+      maxCoreXp: activeStructuredLessonMaxCoreXp,
+      coreDelta: activeStructuredLessonLastCoreDelta,
+      combo: activeStructuredLessonCombo,
+      comboDelta: activeStructuredLessonLastComboDelta,
+      accountTotalXp: rewardsState.progress.totalXP,
+      dailyStreak: rewardsState.progress.dailyStreak,
+    })
+  }, [
+    isStructuredLessonActive,
+    activeStructuredLessonCurrentStep,
+    activeStructuredLessonTotalSteps,
+    activeStructuredLessonCoreXp,
+    activeStructuredLessonMaxCoreXp,
+    activeStructuredLessonLastCoreDelta,
+    activeStructuredLessonCombo,
+    activeStructuredLessonLastComboDelta,
+    rewardsState.progress.totalXP,
+    rewardsState.progress.dailyStreak,
+  ])
+  const footerStaticText =
+    isStructuredLessonActive && structuredLessonFooterLive
+      ? null
+      : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)
   const baseFooterTypingKey = isAccentActive
     ? accentFooterView?.typingKey ?? 'accent-footer'
     : isVocabularyHubActive
@@ -5220,6 +5316,28 @@ export default function Home() {
                   exerciseErrors={activeStructuredLessonExerciseErrors}
                   onAnswer={handleStructuredLessonAnswer}
                   onCompleteStep={completeStructuredLessonStep}
+                  onPuzzleSubStep={({ subIndex, attempts }) =>
+                    awardStructuredLessonPuzzleSub(subIndex, attempts)
+                  }
+                  puzzleSubMaxXp={activeStructuredLessonPuzzleSubMaxXp}
+                  lessonMedalReveal={
+                    activeStructuredLessonStatus === 'completed'
+                      ? {
+                          medal: resolveMedalFromCoreXp(
+                            activeStructuredLessonCoreXp,
+                            true,
+                            activeStructuredLessonMaxCoreXp
+                          ),
+                          coreXp: activeStructuredLessonCoreXp,
+                          comboXp: activeStructuredLessonComboXp,
+                          maxCoreXp: activeStructuredLessonMaxCoreXp,
+                          corePercent: computeCorePercent(
+                            activeStructuredLessonCoreXp,
+                            activeStructuredLessonMaxCoreXp
+                          ),
+                        }
+                      : null
+                  }
                   onPostLessonAction={handlePostLessonAction}
                   postLessonBusy={postLessonBusy}
                   audience={settings.audience}
@@ -5313,6 +5431,21 @@ export default function Home() {
           isLessonActive={isLessonActive}
           isDialogStarted={dialogStarted}
           showWhenIdle={!dialogStarted}
+          lessonFooterAccount={
+            isStructuredLessonActive ? structuredLessonFooterLive?.accountLine ?? null : null
+          }
+          lessonFooterAccountTitle={
+            isStructuredLessonActive ? structuredLessonFooterLive?.accountTitle ?? null : null
+          }
+          lessonFooterLessonTitle={
+            isStructuredLessonActive ? structuredLessonFooterLive?.lessonTitle ?? null : null
+          }
+          lessonFooterSegments={
+            isStructuredLessonActive ? structuredLessonFooterLive?.lessonSegments ?? null : null
+          }
+          lessonFooterAccountSegments={
+            isStructuredLessonActive ? structuredLessonFooterLive?.accountSegments ?? null : null
+          }
         />
       </footer>
 

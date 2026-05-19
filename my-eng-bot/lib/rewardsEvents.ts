@@ -1,6 +1,7 @@
 import { awardGlobalXp, incrementModeGoal, type RewardsState } from './rewardsState'
 
 export type RewardsEvent =
+  | { type: 'lesson_xp_awarded'; amount: number }
   | { type: 'lesson_step_completed' }
   | { type: 'lesson_completed' }
   | { type: 'practice_completed' }
@@ -11,6 +12,13 @@ export type RewardsEvent =
 
 export function applyRewardsEvent(state: RewardsState, event: RewardsEvent): RewardsState {
   switch (event.type) {
+    case 'lesson_xp_awarded': {
+      const amount = Math.max(0, Math.floor(event.amount))
+      if (amount <= 0) return state
+      return awardGlobalXp(state, amount, event.type, {
+        ticker: `+${amount} XP к прогрессу.`,
+      })
+    }
     case 'lesson_step_completed':
       return awardGlobalXp(state, 10, event.type, {
         ticker: 'Шаг урока закрыт. +10 XP к прогрессу.',
