@@ -1,3 +1,4 @@
+import { toSentencePuzzleCards } from '@/lib/sentencePuzzleWords'
 import type { ExerciseDifficulty, LessonData, LessonFinale, LessonRepeatStepBlueprint, LessonRepeatVariantProfile, LessonStep, SentencePuzzleVariant } from '@/types/lesson'
 
 type ItsTimeVariant = {
@@ -10,6 +11,7 @@ type ItsTimeVariant = {
   step2VerbThird: string
   step2VerbIng: string
   step3StateRu: string
+  step3HardRu: string
   step3Adjective: string
   step3Verb: string
   step3Object: string
@@ -55,6 +57,7 @@ const itsTimeVariants: ItsTimeVariant[] = [
     step2VerbThird: 'sleeps',
     step2VerbIng: 'sleeping',
     step3StateRu: 'Холодно',
+    step3HardRu: 'По обстановке видно, что пора согреться',
     step3Adjective: 'cold',
     step3Verb: 'drink',
     step3Object: 'tea',
@@ -75,6 +78,7 @@ const itsTimeVariants: ItsTimeVariant[] = [
     step2VerbThird: 'studies',
     step2VerbIng: 'studying',
     step3StateRu: 'Голодно',
+    step3HardRu: 'По обстановке видно, что пора перекусить',
     step3Adjective: 'hungry',
     step3Verb: 'eat',
     step3Object: 'lunch',
@@ -95,6 +99,7 @@ const itsTimeVariants: ItsTimeVariant[] = [
     step2VerbThird: 'rests',
     step2VerbIng: 'resting',
     step3StateRu: 'Хочется пить',
+    step3HardRu: 'По состоянию понятно, что пора утолить жажду',
     step3Adjective: 'thirsty',
     step3Verb: 'drink',
     step3Object: 'water',
@@ -115,6 +120,7 @@ const itsTimeVariants: ItsTimeVariant[] = [
     step2VerbThird: 'cooks',
     step2VerbIng: 'cooking',
     step3StateRu: 'Идет дождь',
+    step3HardRu: 'По погоде ясно, что пора взять защиту от дождя',
     step3Adjective: 'rainy',
     step3Verb: 'take',
     step3Object: 'an umbrella',
@@ -195,7 +201,7 @@ function buildItsTimeBlueprints(variant: ItsTimeVariant): LessonRepeatStepBluepr
       semanticExpectations: {
         pedagogicalRole: 'controlled_pattern_drill',
         mustInclude: ['time to'],
-        shouldInclude: [variant.step3Verb],
+        shouldInclude: ['глагол'],
         mustAvoid: ['who likes', 'present continuous'],
         hintShouldMention: ['глагол', 'начальной форме'],
         requireCyrillicHint: true,
@@ -285,15 +291,8 @@ function buildItsTimeBlueprints(variant: ItsTimeVariant): LessonRepeatStepBluepr
   ]
 }
 
-function toSentenceCards(sentence: string): string[] {
-  return sentence
-    .replace(/([?.])/g, ' $1')
-    .split(/\s+/)
-    .filter(Boolean)
-}
-
 function buildItsTimePuzzleVariant(id: string, title: string, instruction: string, answer: string): SentencePuzzleVariant {
-  const correctOrder = toSentenceCards(answer)
+  const correctOrder = toSentencePuzzleCards(answer)
   return {
     id,
     title,
@@ -379,7 +378,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
     },
     {
       id: `${variant.id}_step3_hard`,
-      question: `Переведите на английский: "По погоде/состоянию понятно, что пора ${variant.step3Verb} ${variant.step3Object}." - "It's ${variant.step3Adjective}. It is time to ___ ${variant.step3Object}."`,
+      question: `Переведите на английский: "${variant.step3HardRu}." - "It's ${variant.step3Adjective}. It is time to ___ ${variant.step3Object}."`,
       correctAnswer: variant.step3Verb,
       hint: 'Опирайтесь на смысл действия: после "to" нужна начальная форма глагола.',
       difficulty: 'hard' as const,
@@ -438,7 +437,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Отлично. Теперь посмотрим на вторую конструкцию: It is time to + глагол.',
+          content: 'Теперь посмотрим на вторую конструкцию: It is time to + глагол.',
         },
         {
           type: 'info',
@@ -472,7 +471,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'Опорный пример с другой лексикой: "It is rainy. It is time to take a taxi."',
+          content: 'Пример: "It is rainy. It is time to take a taxi."',
         },
         {
           type: 'task',
@@ -505,7 +504,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'Опорный пример с другой лексикой: "It is rainy."',
+          content: 'Пример: "It is rainy."',
         },
         {
           type: 'task',
@@ -569,7 +568,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: `Ее удобно использовать с повседневными действиями: ${variant.step5ActionEn}, study, sleep, drink tea.`,
+          content: 'Ее удобно использовать с повседневными действиями: study, sleep, drink tea, go for a walk.',
         },
         {
           type: 'task',

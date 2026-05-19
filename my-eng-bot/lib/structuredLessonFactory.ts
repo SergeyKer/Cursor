@@ -11,6 +11,12 @@ import type {
 import type { Audience, LevelId } from '@/lib/types'
 import { getCefrDenyWords, getCefrSpec, buildCefrPromptBlock } from '@/lib/cefr/cefrSpec.server'
 import { detectBrokenEnglishPattern } from '@/lib/englishPatternGuard'
+import {
+  collectTranslateExpectedAnswers,
+  englishPhrasesCollideWithAnswers,
+  infoSupportCollidesWithTranslateAnswers,
+  mergeTranslateExerciseForAnswers,
+} from '@/lib/lessonExampleAnswerCollision'
 
 /** Текст карточек: тот же формат, что ожидает `UnifiedLessonBubble` (см. вступление `LessonIntroScreen`). */
 const BUBBLE_CONTENT_FORMAT_RULES = [
@@ -265,6 +271,59 @@ function tooLongEnglishTokens(text: string, maxTokenLength: number): string[] {
 function deniedEnglishWords(text: string, denyWords: Set<string>): string[] {
   const tokens = extractEnglishTokens(text)
   return Array.from(new Set(tokens.filter((token) => denyWords.has(token))))
+}
+
+const TRANSLATE_PROMPT_PREFIX = /Переведите на английский:\s*/i
+
+export function extractRussianTranslatePromptSegment(question: string): string | null {
+  const trimmed = question.trim()
+  if (!TRANSLATE_PROMPT_PREFIX.test(trimmed)) return null
+  const afterPrefix = trimmed.replace(TRANSLATE_PROMPT_PREFIX, '')
+  const match = afterPrefix.match(/^"([^"]*)"/)
+  return match?.[1] ?? null
+}
+
+function answerLeakedInRussianPrompt(russianSegment: string, correctAnswer: string): boolean {
+  const normalizedRu = normalizeForPolicyCheck(russianSegment)
+  const normalizedAnswer = normalizeForPolicyCheck(correctAnswer)
+  if (!normalizedAnswer) return false
+  if (normalizedRu.includes(normalizedAnswer)) return true
+  const answerTokens = extractEnglishTokens(correctAnswer).filter((token) => token.length >= 2)
+  if (answerTokens.length === 0) return false
+  return answerTokens.every((token) => normalizedRu.includes(token))
+}
+
+function validateRussianTranslatePrompt(params: {
+  question: string
+  correctAnswer: string
+  stepNumber: number
+  allowEnglishInRussianPrompt?: boolean
+}): LessonValidationIssue[] {
+  if (params.allowEnglishInRussianPrompt) return []
+  const russianSegment = extractRussianTranslatePromptSegment(params.question)
+  if (!russianSegment) return []
+  const issues: LessonValidationIssue[] = []
+  if (hasLatin(russianSegment)) {
+    issues.push(
+      issue(
+        'hard',
+        'russian_prompt_contains_latin',
+        'Русская часть «Переведите на английский» не должна содержать латиницу или английские слова.',
+        params.stepNumber
+      )
+    )
+  }
+  if (params.correctAnswer && answerLeakedInRussianPrompt(russianSegment, params.correctAnswer)) {
+    issues.push(
+      issue(
+        'hard',
+        'answer_leaked_in_russian_prompt',
+        'Русская часть задания не должна раскрывать correctAnswer.',
+        params.stepNumber
+      )
+    )
+  }
+  return issues
 }
 
 function extractEmbeddedEnglishSegments(text: string): string[] {
@@ -557,24 +616,80 @@ function validateGeneratedStepSemantics(
   if (candidateStep.exercise && typeof candidateStep.exercise.question === 'string' && !hasCyrillic(candidateStep.exercise.question)) {
     issues.push(issue('soft', 'exercise_question_not_russian', 'Question лучше держать на русском для structured lesson.', sourceStep.stepNumber))
   }
-  if (hint && correctAnswer && normalizeForPolicyCheck(hint).includes(normalizeForPolicyCheck(correctAnswer))) {
+  if (candidateStep.exercise && typeof candidateStep.exercise.question === 'string' && correctAnswer) {
+    issues.push(
+      ...validateRussianTranslatePrompt({
+        question: candidateStep.exercise.question,
+        correctAnswer,
+        stepNumber: sourceStep.stepNumber,
+        allowEnglishInRussianPrompt: expectations?.allowEnglishInRussianPrompt,
+      })
+    )
+  }
+  const mergedTranslateExercise =
+    sourceStep.exercise?.type === 'translate'
+      ? mergeTranslateExerciseForAnswers(
+          candidateStep.exercise as Exercise | undefined,
+          sourceStep.exercise
+        )
+      : null
+  const translateExpectedAnswers = mergedTranslateExercise
+    ? collectTranslateExpectedAnswers(mergedTranslateExercise)
+    : []
+
+  if (hint && translateExpectedAnswers.length > 0 && sourceStep.exercise?.type === 'translate') {
+    const hintRevealsTranslateAnswer =
+      englishPhrasesCollideWithAnswers([hint], translateExpectedAnswers) ||
+      translateExpectedAnswers.some((answer) =>
+        normalizeForPolicyCheck(hint).includes(normalizeForPolicyCheck(answer))
+      )
+    if (hintRevealsTranslateAnswer) {
+      issues.push(issue('hard', 'hint_reveals_answer', 'Hint не должен раскрывать правильный ответ напрямую.', sourceStep.stepNumber))
+    }
+  } else if (hint && correctAnswer && normalizeForPolicyCheck(hint).includes(normalizeForPolicyCheck(correctAnswer))) {
     issues.push(issue('hard', 'hint_reveals_answer', 'Hint не должен раскрывать правильный ответ напрямую.', sourceStep.stepNumber))
   }
+
+  if (sourceStep.exercise?.type === 'translate' && mergedTranslateExercise) {
+    if (infoSupportCollidesWithTranslateAnswers(infoBubble, mergedTranslateExercise)) {
+      issues.push(
+        issue(
+          'hard',
+          'example_matches_translate_answer',
+          'Пример или английская подсказка в info не должны совпадать с ожидаемым переводом (ни с одним вариантом ответа).',
+          sourceStep.stepNumber
+        )
+      )
+    }
+  }
+
   if (
     (sourceStep.stepType === 'practice_fill' || sourceStep.stepType === 'practice_match') &&
     sourceStep.exercise &&
-    explanatoryText &&
-    correctAnswer &&
-    normalizeForPolicyCheck(explanatoryText).includes(normalizeForPolicyCheck(correctAnswer))
+    sourceStep.exercise.type !== 'translate' &&
+    explanatoryText
   ) {
-    issues.push(
-      issue(
-        'hard',
-        'support_reveals_answer',
-        'Примеры, пояснения и hints не должны содержать правильный ответ.',
-        sourceStep.stepNumber
-      )
+    const supportAnswers = uniqueAcceptedAnswers(
+      sourceStep.exercise.correctAnswer,
+      [
+        ...(sourceStep.exercise.acceptedAnswers ?? []),
+        ...(Array.isArray(candidateStep.exercise?.acceptedAnswers) ? candidateStep.exercise.acceptedAnswers : []),
+        ...(sourceStep.exercise.variants?.flatMap((variant) => [variant.correctAnswer, ...(variant.acceptedAnswers ?? [])]) ?? []),
+      ]
     )
+    const revealsAnswer = supportAnswers.some(
+      (answer) => answer && normalizeForPolicyCheck(explanatoryText).includes(normalizeForPolicyCheck(answer))
+    )
+    if (revealsAnswer) {
+      issues.push(
+        issue(
+          'hard',
+          'support_reveals_answer',
+          'Примеры, пояснения и hints не должны содержать правильный ответ.',
+          sourceStep.stepNumber
+        )
+      )
+    }
   }
   if (expectations?.requireCyrillicHint && candidateStep.exercise && hint && !hasCyrillic(hint)) {
     issues.push(issue('hard', 'hint_not_russian', 'Hint должен быть на русском.', sourceStep.stepNumber))
@@ -997,6 +1112,11 @@ export function buildStructuredCreationSystemPrompt(): string {
     'Каждый шаг должен выполнять свою учебную функцию по смыслу.',
     BUBBLE_CONTENT_FORMAT_RULES,
     'Объяснения и hints на русском, правильные ответы на английском.',
+    'Для заданий «Переведите на английский» с форматом "русская фраза" - "английская рамка":',
+    '- Текст в первых кавычках (русская часть) пиши ТОЛЬКО на русском (кириллица). Латиница, английские слова и готовый ответ в русской части запрещены.',
+    '- Английский допустим только во второй части после дефиса (рамка с ___ или подсказка).',
+    '- Не подставляй correctAnswer, глагол из ответа и объекты ответа в русскую формулировку.',
+    '- На hard-вариантах переформулируй ситуацию по смыслу, но не раскрывай ответ ни на русском, ни английском до рамки с пропуском.',
     'Не добавляй новую грамматику вне указанного grammar focus.',
     'Если передан selectedVariantId, sourceSituations и sourceSteps, считай их обязательными смысловыми рельсами для нового варианта.',
     'Для fill_choice всегда давай ровно 3 варианта и включай correctAnswer в options.',
@@ -1006,6 +1126,7 @@ export function buildStructuredCreationSystemPrompt(): string {
     'Шаг 6 должен быть текстовым вводом полного предложения: translate или write_own, answerFormat full_sentence, без options и без puzzleVariants.',
     'Для шагов 1-4 с options показывай только выбор из вариантов.',
     'Для practice_fill, practice_match и translate шагов примеры и пояснения обязаны использовать другой контекст и другую лексику, чем само задание.',
+    'На translate-шагах пример в info и любая английская фраза в кавычках не должны быть эквивалентны ни одному ожидаемому ответу (correctAnswer, acceptedAnswers и все exercise.variants), включая пары I am / I’m.',
     'Категорически запрещено писать correctAnswer или его готовую английскую формулировку в bubbles типа positive/info, в hint и в пояснениях.',
     'Не делай hints слишком широкими и не раскрывай ответ напрямую.',
     'Если нужен один допустимый ответ, не добавляй лишние acceptedAnswers.',
@@ -1053,6 +1174,11 @@ export function buildStructuredRepeatSystemPrompt(): string {
     'Не добавляй новую грамматику.',
     'Если передан selectedVariantId, sourceSituations и sourceSteps, опирайся именно на них и не возвращайся к предыдущему варианту.',
     'Объяснения и подсказки на русском, правильные ответы на английском.',
+    'Для заданий «Переведите на английский» с форматом "русская фраза" - "английская рамка":',
+    '- Текст в первых кавычках (русская часть) пиши ТОЛЬКО на русском (кириллица). Латиница, английские слова и готовый ответ в русской части запрещены.',
+    '- Английский допустим только во второй части после дефиса (рамка с ___ или подсказка).',
+    '- Не подставляй correctAnswer, глагол из ответа и объекты ответа в русскую формулировку.',
+    '- На hard-вариантах переформулируй ситуацию по смыслу, но не раскрывай ответ ни на русском, ни английском до рамки с пропуском.',
     'Для fill_choice всегда давай ровно 3 варианта и включай correctAnswer в options.',
     'Все английские options, включая distractors, должны быть естественными и грамматически корректными фразами. Нельзя придумывать ломанный английский вроде "It\'s dark to go.".',
     'Для sentence_puzzle всегда давай ровно 3 puzzleVariants. В каждом puzzle-варианте нужны title, instruction, words, correctOrder, correctAnswer, successText, errorText, hintText, myEngComment.',
@@ -1060,6 +1186,7 @@ export function buildStructuredRepeatSystemPrompt(): string {
     'Шаг 6 должен быть текстовым вводом полного предложения: translate или write_own, answerFormat full_sentence, без options и без puzzleVariants.',
     'Для шагов 1-4 с options показывай только выбор из вариантов.',
     'Для practice_fill, practice_match и translate шагов примеры и пояснения обязаны использовать другой контекст и другую лексику, чем само задание.',
+    'На translate-шагах пример в info и любая английская фраза в кавычках не должны быть эквивалентны ни одному ожидаемому ответу (correctAnswer, acceptedAnswers и все exercise.variants), включая пары I am / I’m.',
     'Категорически запрещено писать correctAnswer или его готовую английскую формулировку в bubbles типа positive/info, в hint и в пояснениях.',
     'Не делай hints слишком широкими и не раскрывай ответ напрямую.',
     'Если нужен один допустимый ответ, не добавляй лишние acceptedAnswers.',

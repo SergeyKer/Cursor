@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { detectBrokenEnglishPattern } from '@/lib/englishPatternGuard'
+import { itsTimeToLesson } from '@/lib/lessons/its-time-to'
+import { stepTranslateInfoCollidesWithAnswers } from '@/lib/lessonExampleAnswerCollision'
+import { extractRussianTranslatePromptSegment } from '@/lib/structuredLessonFactory'
 import { getAllStructuredLessons, getStructuredLessonById } from '@/lib/structuredLessons'
 import type { Exercise, ExerciseVariant, LessonData, LessonRepeatStepVariant, LessonStep, SentencePuzzleVariant } from '@/types/lesson'
 
@@ -124,5 +127,29 @@ describe('structured lesson 7-step contract', () => {
 
   it.each(lessons)('rejects broken english patterns in local lesson payloads for lesson $id', (lesson) => {
     expectLessonHasNoBrokenEnglish(lesson)
+  })
+
+  it('keeps its-time-to step 3 translate variants russian-only in the prompt segment', () => {
+    for (const profile of itsTimeToLesson.repeatConfig?.variantProfiles ?? []) {
+      const step3 = (profile.steps ?? []).find((step) => step.stepNumber === 3)
+      for (const variant of step3?.exercise?.variants ?? []) {
+        const segment = extractRussianTranslatePromptSegment(variant.question ?? '')
+        expect(segment, `${profile.id} ${variant.id}`).not.toBeNull()
+        expect(segment, `${profile.id} ${variant.id}`).not.toMatch(/[A-Za-z]/)
+      }
+    }
+  })
+
+  it.each(lessons)('keeps translate info examples distinct from expected answers for lesson $id', (lesson) => {
+    const profiles = lesson.repeatConfig?.variantProfiles ?? [{ id: 'default', steps: lesson.steps }]
+    for (const profile of profiles) {
+      const steps = profile.steps ?? lesson.steps
+      for (const step of steps) {
+        expect(
+          stepTranslateInfoCollidesWithAnswers(step),
+          `lesson ${lesson.id} variant ${profile.id} step ${step.stepNumber}`
+        ).toBe(false)
+      }
+    }
   })
 })

@@ -2,12 +2,18 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { Exercise, SentencePuzzleVariant } from '@/types/lesson'
+import { LESSON_PUZZLE_COMPLETE_MESSAGE } from '@/utils/footerMessages'
 
 type LessonSentencePuzzleProps = {
   exercise: Exercise
   disabled?: boolean
   progressKey?: string
-  onComplete: (summary: { submittedAnswer: string; message: string }) => void
+  onComplete: (summary: {
+    submittedAnswer: string
+    baseMessage?: string
+    taskCurrent?: number
+    taskTotal?: number
+  }) => void
 }
 
 type PuzzleFeedback = {
@@ -139,7 +145,6 @@ export default function LessonSentencePuzzle({ exercise, disabled = false, progr
 
   const isBusy = disabled || locked
   const isFilled = selectedWords.length === activeVariant.correctOrder.length
-  const progressText = `Вариант ${variantIndex + 1}/${variants.length}`
 
   const resetAttempt = (nextAttempts: number) => {
     setSelectedWords([])
@@ -165,7 +170,9 @@ export default function LessonSentencePuzzle({ exercise, disabled = false, progr
         clearStoredProgress(progressKey)
         onComplete({
           submittedAnswer: activeVariant.correctAnswer,
-          message: 'Пазл собран. Переходим дальше.',
+          baseMessage: LESSON_PUZZLE_COMPLETE_MESSAGE,
+          taskCurrent: variantIndex + 1,
+          taskTotal: variants.length,
         })
         return
       }
@@ -191,19 +198,22 @@ export default function LessonSentencePuzzle({ exercise, disabled = false, progr
     setSelectedWords((current) => current.filter((_, itemIndex) => itemIndex !== index))
   }
 
+  const slotCount = activeVariant.correctOrder.length
+  const slotGridClass =
+    slotCount <= 3 ? 'grid-cols-3' : slotCount <= 4 ? 'grid-cols-4' : 'grid-cols-2 sm:grid-cols-4'
+
   return (
-    <section className="rounded-[1.1rem] border border-blue-100 bg-white/95 px-3 py-3 shadow-sm sm:px-4" aria-label={activeVariant.title}>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-blue-500">{progressText}</p>
-          <h3 className="text-base font-semibold text-slate-900">{activeVariant.title}</h3>
-        </div>
-        <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">+{exercise.bonusXp ?? 30} XP</span>
+    <section className="rounded-[1.1rem] border border-blue-100 bg-white/95 px-2.5 py-2 shadow-sm sm:px-3" aria-label={activeVariant.title}>
+      <div className="mb-1.5 flex items-start justify-between gap-2">
+        <h3 className="min-w-0 text-sm font-semibold leading-tight text-slate-900">{activeVariant.title}</h3>
+        <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+          +{exercise.bonusXp ?? 30} XP
+        </span>
       </div>
 
-      <p className="mb-3 text-sm leading-5 text-slate-600">{activeVariant.instruction}</p>
+      <p className="mb-2 text-[13px] leading-snug text-slate-600">{activeVariant.instruction}</p>
 
-      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Слоты предложения">
+      <div className={`mb-2 grid gap-1.5 ${slotGridClass}`} aria-label="Слоты предложения">
         {activeVariant.correctOrder.map((_, index) => {
           const word = selectedWords[index]
           return (
@@ -212,7 +222,7 @@ export default function LessonSentencePuzzle({ exercise, disabled = false, progr
               type="button"
               disabled={!word || isBusy}
               onClick={() => handleReturnWord(index)}
-              className={`min-h-[44px] rounded-xl border px-2 py-2 text-sm font-semibold transition ${
+              className={`inline-flex h-9 min-w-0 items-center justify-center rounded-lg border px-2 text-sm font-semibold transition ${
                 word
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                   : 'border-dashed border-slate-300 bg-slate-50 text-slate-400'
@@ -225,14 +235,14 @@ export default function LessonSentencePuzzle({ exercise, disabled = false, progr
         })}
       </div>
 
-      <div className="mb-3 flex flex-wrap gap-2" aria-label="Доступные слова">
+      <div className="mb-2 flex flex-wrap gap-1.5" aria-label="Доступные слова">
         {availableWords.map((word, index) => (
           <button
             key={`${activeVariant.id}-${word}-${index}`}
             type="button"
             disabled={isBusy}
             onClick={() => handleSelectWord(word)}
-            className="min-h-[44px] rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-100 disabled:opacity-60"
+            className="inline-flex h-9 items-center rounded-lg border border-blue-200 bg-blue-50 px-2.5 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-100 disabled:opacity-60"
             aria-label={`Добавить слово ${word}`}
           >
             {word}
@@ -241,14 +251,14 @@ export default function LessonSentencePuzzle({ exercise, disabled = false, progr
       </div>
 
       {hintVisible && (
-        <p className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">
+        <p className="mb-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[13px] leading-snug text-amber-800" role="status">
           {activeVariant.hintText}
         </p>
       )}
 
       {feedback && (
         <p
-          className={`mb-2 rounded-xl px-3 py-2 text-sm ${
+          className={`mb-1.5 rounded-lg px-2.5 py-1.5 text-[13px] leading-snug ${
             feedback.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
           }`}
           role="status"
@@ -262,7 +272,7 @@ export default function LessonSentencePuzzle({ exercise, disabled = false, progr
         type="button"
         disabled={isBusy || !isFilled}
         onClick={handleCheck}
-        className="min-h-[44px] w-full rounded-xl bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+        className="h-10 w-full rounded-xl bg-blue-500 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-slate-300"
       >
         Проверить
       </button>

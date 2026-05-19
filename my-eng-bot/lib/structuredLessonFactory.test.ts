@@ -81,6 +81,42 @@ describe('structuredLessonFactory', () => {
     expect(validation.issues.some((issue) => issue.code === 'hint_reveals_answer')).toBe(true)
   })
 
+  it('rejects translate steps when info example matches an expected answer', () => {
+    const brokenSteps = toGeneratedPayload()
+    const leakedAnswer = brokenSteps[3].exercise?.correctAnswer ?? ''
+    brokenSteps[3] = {
+      ...brokenSteps[3],
+      bubbles: [
+        brokenSteps[3].bubbles![0],
+        {
+          type: 'info',
+          content: `Пример: "${leakedAnswer}"`,
+        },
+        brokenSteps[3].bubbles![2],
+      ],
+    }
+
+    const validation = assessGeneratedSteps(itsTimeStrict, itsTimeStrict.steps, brokenSteps)
+    expect(validation.accepted).toBe(false)
+    expect(validation.issues.some((issue) => issue.code === 'example_matches_translate_answer')).toBe(true)
+  })
+
+  it('rejects latin in the russian segment of a translate prompt question', () => {
+    const brokenSteps = toGeneratedPayload()
+    brokenSteps[2] = {
+      ...brokenSteps[2],
+      exercise: {
+        ...brokenSteps[2].exercise!,
+        question:
+          'Переведите на английский: "По погоде понятно, что пора eat lunch." - "It\'s hungry. It is time to ___ lunch."',
+      },
+    }
+
+    const validation = assessGeneratedSteps(itsTimeStrict, itsTimeStrict.steps, brokenSteps)
+    expect(validation.accepted).toBe(false)
+    expect(validation.issues.some((issue) => issue.code === 'russian_prompt_contains_latin')).toBe(true)
+  })
+
   it('rejects practice-fill explanations that reveal the answer directly', () => {
     const brokenSteps = toGeneratedPayload()
     const leakedAnswer = brokenSteps[2].exercise?.correctAnswer ?? ''
@@ -90,7 +126,7 @@ describe('structuredLessonFactory', () => {
         brokenSteps[2].bubbles![0],
         {
           type: 'info',
-          content: `Опорный пример: ${leakedAnswer}`,
+          content: `Пример: ${leakedAnswer}`,
         },
         brokenSteps[2].bubbles![2],
       ],

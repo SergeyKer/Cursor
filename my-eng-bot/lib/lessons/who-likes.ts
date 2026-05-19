@@ -1,3 +1,4 @@
+import { toSentencePuzzleCards } from '@/lib/sentencePuzzleWords'
 import type { LessonData, LessonFinale, LessonRepeatStepBlueprint, LessonRepeatVariantProfile, LessonStep, SentencePuzzleVariant } from '@/types/lesson'
 
 type WhoLikesVariant = {
@@ -269,15 +270,8 @@ function buildWhoLikesBlueprints(variant: WhoLikesVariant): LessonRepeatStepBlue
   ]
 }
 
-function toSentenceCards(sentence: string): string[] {
-  return sentence
-    .replace(/([?.])/g, ' $1')
-    .split(/\s+/)
-    .filter(Boolean)
-}
-
 function buildWhoPuzzleVariant(id: string, title: string, instruction: string, answer: string): SentencePuzzleVariant {
-  const correctOrder = toSentenceCards(answer)
+  const correctOrder = toSentencePuzzleCards(answer)
   return {
     id,
     title,
@@ -476,7 +470,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'Опорный пример с другой лексикой: "Who cooks dinner? Sam cooks dinner."',
+          content: 'Пример: "Who cooks dinner? Sam cooks dinner."',
         },
         {
           type: 'task',
@@ -509,7 +503,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'Опорный пример с другой лексикой: "Who opens the window?"',
+          content: 'Пример: "Who opens the window?"',
         },
         {
           type: 'task',

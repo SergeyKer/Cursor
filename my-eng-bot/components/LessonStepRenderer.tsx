@@ -20,7 +20,14 @@ type LessonStepRendererProps = {
   blockProgress: BlockProgress
   exerciseErrors?: number
   onAnswer: (answer: string) => void
-  onCompleteStep?: (options?: { submittedAnswer?: string; message?: string; xpAward?: number }) => void
+  onCompleteStep?: (options?: {
+    submittedAnswer?: string
+    baseMessage?: string
+    message?: string
+    xpAward?: number
+    taskCurrent?: number
+    taskTotal?: number
+  }) => void
   onPostLessonAction?: (action: PostLessonAction) => void
   postLessonBusy?: boolean
   audience: 'child' | 'adult'
@@ -58,6 +65,8 @@ const lessonStatusCardClassByTone: Record<'service' | 'success' | 'error', strin
 }
 
 const CHOICE_REOPEN_DELAY_MS = 900
+const DEFAULT_INPUT_GAP_PX = 10
+const PUZZLE_INPUT_GAP_PX = 4
 const LESSON_HIDDEN_VOICE_STATUS_MESSAGES = new Set([
   'Голосовой ввод...',
   '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]',
@@ -129,6 +138,7 @@ export default function LessonStepRenderer({
   choiceShuffleSeed,
 }: LessonStepRendererProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const bottomStackRef = useRef<HTMLDivElement>(null)
   const reopenChoicesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const previousVoicePhaseRef = useRef<'idle' | 'recording' | 'finalizing' | 'error'>('idle')
   const previousScrollSnapshotRef = useRef<{
@@ -139,6 +149,7 @@ export default function LessonStepRenderer({
     tailMessageId: string
   } | null>(null)
   const [choiceResetVersion, setChoiceResetVersion] = useState(0)
+  const [bottomStackHeight, setBottomStackHeight] = useState(0)
   const currentEntry = timeline[timeline.length - 1] ?? null
   const currentStep = currentEntry?.step ?? null
   const currentFeedback = currentEntry?.feedback ?? null
@@ -208,16 +219,19 @@ export default function LessonStepRenderer({
   const voiceStatusMessage = LESSON_HIDDEN_VOICE_STATUS_MESSAGES.has(rawVoiceStatusMessage)
     ? ''
     : rawVoiceStatusMessage
+  const hasLessonMicrophone =
+    Boolean(exercise) && !hasPostLessonOptions && !shouldRenderChoiceChips && !isSentencePuzzle
   const inputPlaceholder = useMemo(() => {
-    if (!exercise) return 'Напиши ответ...'
+    const verb = hasLessonMicrophone ? 'Скажи' : 'Напиши'
+    if (!exercise) return `${verb} ответ...`
     if (exercise.answerFormat === 'full_sentence') {
-      return 'Напиши предложение...'
+      return `${verb} предложение...`
     }
     if (exercise.answerFormat === 'single_word') {
-      return 'Напиши пропущенное слово...'
+      return `${verb} пропущенное слово...`
     }
-    return 'Напиши ответ...'
-  }, [exercise])
+    return `${verb} ответ...`
+  }, [exercise, hasLessonMicrophone])
 
   useEffect(() => {
     setChoiceResetVersion((current) => current + 1)
@@ -402,6 +416,46 @@ export default function LessonStepRenderer({
     }
   }, [status, latestFeedback, lessonMessages.length, tailLessonMessageId])
 
+  useEffect(() => {
+    const bottomStack = bottomStackRef.current
+    if (!bottomStack || !currentStep) {
+      setBottomStackHeight(0)
+      return
+    }
+
+    const syncBottomStackHeight = () => {
+      setBottomStackHeight(bottomStack.getBoundingClientRect().height)
+    }
+
+    syncBottomStackHeight()
+
+    if (typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver(() => {
+      syncBottomStackHeight()
+    })
+    observer.observe(bottomStack)
+    return () => observer.disconnect()
+  }, [
+    currentStep?.stepNumber,
+    currentVariantIndex,
+    hasPostLessonOptions,
+    shouldRenderChoiceChips,
+    isSentencePuzzle,
+    isTextInputAvailable,
+    status,
+    choiceOptions.length,
+    choiceResetVersion,
+  ])
+
+  const bottomStackHeightCss =
+    bottomStackHeight > 0 ? `${bottomStackHeight}px` : 'var(--chat-input-height)'
+  const inputGapPx = isSentencePuzzle ? PUZZLE_INPUT_GAP_PX : DEFAULT_INPUT_GAP_PX
+  const scrollBottomPadding =
+    currentStep != null
+      ? `calc(0.625rem + ${bottomStackHeightCss} + ${inputGapPx}px)`
+      : undefined
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
       <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
@@ -413,6 +467,14 @@ export default function LessonStepRenderer({
             <div
               ref={scrollContainerRef}
               className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3"
+              style={
+                scrollBottomPadding
+                  ? {
+                      paddingBottom: scrollBottomPadding,
+                      scrollPaddingBottom: scrollBottomPadding,
+                    }
+                  : undefined
+              }
             >
               <div>
                 {lessonMessages.map((message, index) => {
@@ -420,9 +482,14 @@ export default function LessonStepRenderer({
                   const nextRole = lessonMessages[index + 1]?.role as BubbleRole | undefined
                   const position = getBubblePosition(previousRole, message.role, nextRole)
                   const isBubbleEnd = position === 'solo' || position === 'last'
+                  const isLastInFeed = index === lessonMessages.length - 1
+                  const isStep5ThreePartBlock =
+                    isSentencePuzzle && message.kind === 'lesson' && message.bubbles.length === 3
 
                   if (message.kind === 'lesson') {
                     const shouldAnimateLessonMessage = !message.isHistorical
+                    const lessonRowMargin =
+                      isStep5ThreePartBlock && isLastInFeed ? 'mb-0' : isBubbleEnd ? 'mb-2.5' : 'mb-0.5'
 
                     return (
                       <ChatBubbleFrame
@@ -430,7 +497,7 @@ export default function LessonStepRenderer({
                         role="assistant"
                         position={position}
                         className={shouldAnimateLessonMessage ? 'lesson-enter' : ''}
-                        rowClassName={isBubbleEnd ? 'mb-2.5' : 'mb-0.5'}
+                        rowClassName={lessonRowMargin}
                       >
                         <UnifiedLessonBubble bubbles={message.bubbles} animateSections={shouldAnimateLessonMessage} />
                       </ChatBubbleFrame>
@@ -474,7 +541,9 @@ export default function LessonStepRenderer({
                       <section
                         className={`lesson-enter chat-section-surface glass-surface rounded-xl border px-3 py-2 ${lessonStatusCardClassByTone[message.tone]}`}
                       >
-                        <p className="whitespace-pre-line break-words text-[14px] leading-[1.45]">{message.text}</p>
+                        <p className="whitespace-pre-line break-words text-[15px] leading-[1.45]">
+                          {message.text}
+                        </p>
                       </section>
                     </ChatBubbleFrame>
                   )
@@ -484,8 +553,9 @@ export default function LessonStepRenderer({
 
             {currentStep && (
               <div
+                ref={bottomStackRef}
                 className={`shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 sm:px-3 ${
-                  shouldRenderChoiceChips ? 'pt-1' : 'pt-2.5'
+                  shouldRenderChoiceChips || isSentencePuzzle ? 'pt-1' : 'pt-2.5'
                 }`}
                 style={{ paddingBottom: 'calc(var(--app-bottom-inset) + 0.375rem)' }}
               >
@@ -504,7 +574,9 @@ export default function LessonStepRenderer({
                     onComplete={(summary) =>
                       onCompleteStep?.({
                         submittedAnswer: summary.submittedAnswer,
-                        message: summary.message,
+                        baseMessage: summary.baseMessage,
+                        taskCurrent: summary.taskCurrent,
+                        taskTotal: summary.taskTotal,
                         xpAward: exercise.bonusXp ?? 30,
                       })
                     }

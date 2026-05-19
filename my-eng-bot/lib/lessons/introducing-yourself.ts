@@ -1,3 +1,4 @@
+import { toSentencePuzzleCards } from '@/lib/sentencePuzzleWords'
 import type {
   ExerciseDifficulty,
   LessonData,
@@ -281,6 +282,7 @@ function buildSelfIntroBlueprints(variant: SelfIntroVariant): LessonRepeatStepBl
         mustAvoid: ['time to', 'who likes'],
         hintShouldMention: ['страна', 'одно слово'],
         requireCyrillicHint: true,
+        allowEnglishInRussianPrompt: true,
         maxAcceptedAnswers: 1,
       },
     },
@@ -367,15 +369,8 @@ function buildSelfIntroBlueprints(variant: SelfIntroVariant): LessonRepeatStepBl
   ]
 }
 
-function toSentenceCards(sentence: string): string[] {
-  return sentence
-    .replace(/([?.])/g, ' $1')
-    .split(/\s+/)
-    .filter(Boolean)
-}
-
 function buildSelfIntroPuzzleVariant(id: string, title: string, instruction: string, answer: string): SentencePuzzleVariant {
-  const correctOrder = toSentenceCards(answer)
+  const correctOrder = toSentencePuzzleCards(answer)
   return {
     id,
     title,
@@ -523,7 +518,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Отлично. Теперь посмотрим на роль: I am a/an + существительное.',
+          content: 'Теперь посмотрим на роль: I am a/an + существительное.',
         },
         {
           type: 'info',
@@ -557,7 +552,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'Опорный пример: "I am from Japan. I am a nurse."',
+          content: 'Пример: "I am from Japan. I am a nurse."',
         },
         {
           type: 'task',
@@ -590,7 +585,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'Опорный пример: "I am fine."',
+          content: 'Пример: "I am calm."',
         },
         {
           type: 'task',
@@ -654,11 +649,11 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: `Так говорят о работе или статусе: ${variant.step5EnFull}, I am a teacher, I am a doctor.`,
+          content: 'Так говорят о работе или статусе: I am a nurse, I am a pilot.',
         },
         {
           type: 'task',
-          content: `Переведите на английский: "${variant.step5RoleRu}"`,
+          content: `Переведите на английский: ${normalizeRuPromptLabel(variant.step5RoleRu)}`,
         },
       ],
       exercise: {

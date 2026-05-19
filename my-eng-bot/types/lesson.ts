@@ -173,6 +173,8 @@ export interface LessonSemanticExpectations {
   maxAcceptedAnswers?: number
   requireQuestionMarkInAnswer?: boolean
   requireCyrillicHint?: boolean
+  /** Разрешить латиницу в русской части «Переведите на английский: "…"» (педагогические подсказки). */
+  allowEnglishInRussianPrompt?: boolean
 }
 
 export interface LessonRepeatStepBlueprint {

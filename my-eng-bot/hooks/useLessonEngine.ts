@@ -8,7 +8,22 @@ import {
   type FooterVoiceTone,
 } from '@/lib/footerVoice'
 import { buildFinaleTimelineStep, getLessonLearningSteps, resolveLessonFinale } from '@/lib/lessonFinale'
-import { getLessonRepeatFooterMessage, getVariantInfo } from '@/utils/footerMessages'
+import {
+  buildLessonAdvanceMessage,
+  buildLessonNextVariantMessage,
+  getLessonRepeatFooterMessage,
+  getVariantInfo,
+} from '@/utils/footerMessages'
+import type { Exercise } from '@/types/lesson'
+
+function getUpcomingLessonTaskTotal(exercise?: Exercise | null): number | undefined {
+  if (!exercise) return undefined
+  const variantCount = exercise.variants?.length ?? 0
+  if (variantCount > 1) return variantCount
+  const puzzleCount = exercise.puzzleVariants?.length ?? 0
+  if (puzzleCount > 1) return puzzleCount
+  return undefined
+}
 
 export type LessonStatus = 'idle' | 'checking' | 'feedback' | 'completed'
 
@@ -252,7 +267,25 @@ export function useLessonEngine(lesson: LessonData | null) {
           const isLastVariant = nextVariantIndex === -1
           const successFeedback = {
             type: 'success',
-            message: isLastVariant ? 'Верно. Переходим дальше.' : 'Верно. Следующий вариант.',
+            message: isLastVariant
+              ? (() => {
+                  const nextLearningStep =
+                    currentStep < totalSteps - 1 ? learningSteps[currentStep + 1] : null
+                  return buildLessonAdvanceMessage({
+                    currentStep,
+                    totalSteps,
+                    stepNumber: rawStep.stepNumber,
+                    taskCurrent: variants.length > 1 ? currentVariantIndex + 1 : undefined,
+                    taskTotal: variants.length > 1 ? variants.length : undefined,
+                    nextStepNumber: nextLearningStep?.stepNumber,
+                    nextTaskTotal: getUpcomingLessonTaskTotal(nextLearningStep?.exercise),
+                  })
+                })()
+              : buildLessonNextVariantMessage({
+                  stepNumber: rawStep.stepNumber,
+                  nextVariantIndex,
+                  variantTotal: variants.length,
+                }),
           } as const
           setXp((prev) => prev + 10)
           setCombo((prev) => prev + 1)
@@ -357,17 +390,42 @@ export function useLessonEngine(lesson: LessonData | null) {
       goToFinale,
       currentVariantIndex,
       clearCurrentStepTransientState,
+      learningSteps,
     ]
   )
 
   const completeCurrentStep = useCallback(
-    (options?: { submittedAnswer?: string; message?: string; xpAward?: number }) => {
+    (options?: {
+      submittedAnswer?: string
+      baseMessage?: string
+      message?: string
+      xpAward?: number
+      taskCurrent?: number
+      taskTotal?: number
+    }) => {
       if (!lesson || !rawStep?.exercise || isFinale) return
       clearTimers()
       const submitted = options?.submittedAnswer?.trim() || rawStep.exercise.correctAnswer
+      const variants = rawStep.exercise.variants ?? []
+      const puzzleVariants = rawStep.exercise.puzzleVariants ?? []
+      const nextLearningStep = currentStep < totalSteps - 1 ? learningSteps[currentStep + 1] : null
       const successFeedback = {
         type: 'success',
-        message: options?.message ?? 'Верно. Переходим дальше.',
+        message: buildLessonAdvanceMessage({
+          base: options?.baseMessage ?? options?.message,
+          currentStep,
+          totalSteps,
+          stepNumber: rawStep.stepNumber,
+          taskCurrent:
+            options?.taskCurrent ??
+            (variants.length > 1 ? currentVariantIndex + 1 : undefined),
+          taskTotal:
+            options?.taskTotal ??
+            (variants.length > 1 ? variants.length : undefined) ??
+            (puzzleVariants.length > 1 ? puzzleVariants.length : undefined),
+          nextStepNumber: nextLearningStep?.stepNumber,
+          nextTaskTotal: getUpcomingLessonTaskTotal(nextLearningStep?.exercise),
+        }),
       } as const
 
       setSubmittedAnswersByStep((current) => ({ ...current, [currentStep]: submitted }))
@@ -401,7 +459,7 @@ export function useLessonEngine(lesson: LessonData | null) {
       }, AUTO_ADVANCE_DELAY_MS)
       timeoutRefs.current.push(nextTimer)
     },
-    [clearTimers, currentStep, finale, goToFinale, goToStep, isFinale, lesson, rawStep, totalSteps]
+    [clearTimers, currentStep, currentVariantIndex, finale, goToFinale, goToStep, isFinale, learningSteps, lesson, rawStep, totalSteps]
   )
 
   const submittedAnswer = step ? submittedAnswersByStep[currentStep] ?? null : null

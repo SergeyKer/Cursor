@@ -1,3 +1,4 @@
+import { toSentencePuzzleCards } from '@/lib/sentencePuzzleWords'
 import type {
   ExerciseDifficulty,
   ExerciseVariant,
@@ -574,15 +575,8 @@ function buildEmbeddedQuestionBlueprints(variant: EmbeddedQuestionVariant): Less
   ]
 }
 
-function toSentenceCards(sentence: string): string[] {
-  return sentence
-    .replace(/([?.])/g, ' $1')
-    .split(/\s+/)
-    .filter(Boolean)
-}
-
 function buildEmbeddedPuzzleVariant(id: string, title: string, instruction: string, answer: string): SentencePuzzleVariant {
-  const correctOrder = toSentenceCards(answer)
+  const correctOrder = toSentencePuzzleCards(answer)
   return {
     id,
     title,
@@ -742,7 +736,7 @@ function buildEmbeddedQuestionSteps(variant: EmbeddedQuestionVariant): LessonSte
         },
         {
           type: 'info',
-          content: 'Опорный пример с другой лексикой: "I do not know where Tom works."',
+          content: 'Пример: "I do not know where Tom works."',
         },
         {
           type: 'task',
@@ -772,7 +766,7 @@ function buildEmbeddedQuestionSteps(variant: EmbeddedQuestionVariant): LessonSte
         },
         {
           type: 'info',
-          content: 'Опорный пример с другой лексикой: "Can you say where the bank is?"',
+          content: 'Пример: "Can you say where the bank is?"',
         },
         {
           type: 'task',
