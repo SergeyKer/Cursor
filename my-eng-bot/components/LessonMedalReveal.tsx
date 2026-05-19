@@ -8,6 +8,7 @@ type LessonMedalRevealProps = {
   comboXp: number
   maxCoreXp: number
   corePercent: number
+  className?: string
 }
 
 const MEDAL_LABEL: Record<NonNullable<LessonMedalTierOrNull>, string> = {
@@ -16,7 +17,14 @@ const MEDAL_LABEL: Record<NonNullable<LessonMedalTierOrNull>, string> = {
   bronze: 'Бронзовая медаль',
 }
 
-export default function LessonMedalReveal({ medal, coreXp, comboXp, maxCoreXp, corePercent }: LessonMedalRevealProps) {
+export default function LessonMedalReveal({
+  medal,
+  coreXp,
+  comboXp,
+  maxCoreXp,
+  corePercent,
+  className = 'mb-3',
+}: LessonMedalRevealProps) {
   const gapToGold = coreXpToGold(coreXp, maxCoreXp)
   const title = medal ? MEDAL_LABEL[medal] : 'Урок пройден'
   const subtitle =
@@ -27,7 +35,9 @@ export default function LessonMedalReveal({ medal, coreXp, comboXp, maxCoreXp, c
         : `До бронзы: ${Math.max(0, Math.ceil(maxCoreXp * 0.5) - coreXp)} core`
 
   return (
-    <section className="mb-3 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-center">
+    <section
+      className={`rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-center ${className}`.trim()}
+    >
       <p className="text-2xl" aria-hidden>
         {medal === 'gold' ? '🥇' : medal === 'silver' ? '🥈' : medal === 'bronze' ? '🥉' : '○'}
       </p>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import LessonSentencePuzzle from '@/components/LessonSentencePuzzle'
-import LessonMedalReveal from '@/components/LessonMedalReveal'
+import LessonMedalRevealOverlay from '@/components/LessonMedalRevealOverlay'
 import PostLessonMenu from '@/components/PostLessonMenu'
 import type { LessonMedalTierOrNull } from '@/lib/lessonScore'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
@@ -163,6 +163,7 @@ export default function LessonStepRenderer({
   } | null>(null)
   const [choiceResetVersion, setChoiceResetVersion] = useState(0)
   const [bottomStackHeight, setBottomStackHeight] = useState(0)
+  const [medalOverlayDismissed, setMedalOverlayDismissed] = useState(false)
   const currentEntry = timeline[timeline.length - 1] ?? null
   const currentStep = currentEntry?.step ?? null
   const currentFeedback = currentEntry?.feedback ?? null
@@ -177,6 +178,15 @@ export default function LessonStepRenderer({
   const exercise = currentStep?.exercise ?? null
   const currentVariantIndex = exercise?.currentVariantIndex ?? 0
   const postLesson = currentStep?.stepType === 'completion' ? currentStep.postLesson ?? null : null
+
+  useEffect(() => {
+    setMedalOverlayDismissed(false)
+  }, [
+    lessonMedalReveal?.medal,
+    lessonMedalReveal?.coreXp,
+    lessonMedalReveal?.comboXp,
+    lessonMedalReveal?.corePercent,
+  ])
   const rawChoiceOptions = exercise?.options
   const isSentencePuzzle = exercise?.type === 'sentence_puzzle'
   const isChoiceExercise = exercise?.type === 'fill_choice' || exercise?.type === 'micro_quiz'
@@ -463,7 +473,11 @@ export default function LessonStepRenderer({
 
   const bottomStackHeightCss =
     bottomStackHeight > 0 ? `${bottomStackHeight}px` : 'var(--chat-input-height)'
-  const inputGapPx = isSentencePuzzle ? PUZZLE_INPUT_GAP_PX : DEFAULT_INPUT_GAP_PX
+  const pinFeedToBottom = isSentencePuzzle || hasPostLessonOptions
+  const inputGapPx = pinFeedToBottom ? PUZZLE_INPUT_GAP_PX : DEFAULT_INPUT_GAP_PX
+  const showMedalOverlay = Boolean(
+    lessonMedalReveal && hasPostLessonOptions && !medalOverlayDismissed
+  )
   const scrollBottomPadding =
     currentStep != null
       ? `calc(0.625rem + ${bottomStackHeightCss} + ${inputGapPx}px)`
@@ -479,7 +493,7 @@ export default function LessonStepRenderer({
           >
             <div
               ref={scrollContainerRef}
-              className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3"
+              className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3"
               style={
                 scrollBottomPadding
                   ? {
@@ -489,7 +503,7 @@ export default function LessonStepRenderer({
                   : undefined
               }
             >
-              <div>
+              <div className={pinFeedToBottom ? 'flex min-h-full flex-col justify-end' : ''}>
                 {lessonMessages.map((message, index) => {
                   const previousRole = lessonMessages[index - 1]?.role as BubbleRole | undefined
                   const nextRole = lessonMessages[index + 1]?.role as BubbleRole | undefined
@@ -498,11 +512,16 @@ export default function LessonStepRenderer({
                   const isLastInFeed = index === lessonMessages.length - 1
                   const isStep5ThreePartBlock =
                     isSentencePuzzle && message.kind === 'lesson' && message.bubbles.length === 3
+                  const pinLastRowToBottom = hasPostLessonOptions && isLastInFeed
 
                   if (message.kind === 'lesson') {
                     const shouldAnimateLessonMessage = !message.isHistorical
                     const lessonRowMargin =
-                      isStep5ThreePartBlock && isLastInFeed ? 'mb-0' : isBubbleEnd ? 'mb-2.5' : 'mb-0.5'
+                      (isStep5ThreePartBlock && isLastInFeed) || pinLastRowToBottom
+                        ? 'mb-0'
+                        : isBubbleEnd
+                          ? 'mb-2.5'
+                          : 'mb-0.5'
 
                     return (
                       <ChatBubbleFrame
@@ -524,7 +543,9 @@ export default function LessonStepRenderer({
                         role="user"
                         position={position}
                         className="lesson-enter"
-                        rowClassName={isBubbleEnd ? 'mb-2.5' : 'mb-0.5'}
+                        rowClassName={
+                          pinLastRowToBottom ? 'mb-0' : isBubbleEnd ? 'mb-2.5' : 'mb-0.5'
+                        }
                       >
                         <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
                           {message.text}
@@ -535,7 +556,10 @@ export default function LessonStepRenderer({
 
                   if (message.tone === 'service') {
                     return (
-                      <div key={message.id} className="lesson-enter mb-2.5 flex justify-start px-1">
+                      <div
+                        key={message.id}
+                        className={`lesson-enter flex justify-start px-1 ${pinLastRowToBottom ? 'mb-0' : 'mb-2.5'}`}
+                      >
                         <p dir="ltr" className="w-fit italic typing-indicator-text-shimmer">
                           {message.text}
                         </p>
@@ -549,7 +573,9 @@ export default function LessonStepRenderer({
                       role="assistant"
                       position={position}
                       className="lesson-enter"
-                      rowClassName={isBubbleEnd ? 'mb-2.5' : 'mb-0.5'}
+                      rowClassName={
+                        pinLastRowToBottom ? 'mb-0' : isBubbleEnd ? 'mb-2.5' : 'mb-0.5'
+                      }
                     >
                       <section
                         className={`lesson-enter chat-section-surface glass-surface rounded-xl border px-3 py-2 ${lessonStatusCardClassByTone[message.tone]}`}
@@ -562,6 +588,17 @@ export default function LessonStepRenderer({
                   )
                 })}
               </div>
+              {showMedalOverlay && lessonMedalReveal ? (
+                <LessonMedalRevealOverlay
+                  open
+                  medal={lessonMedalReveal.medal}
+                  coreXp={lessonMedalReveal.coreXp}
+                  comboXp={lessonMedalReveal.comboXp}
+                  maxCoreXp={lessonMedalReveal.maxCoreXp}
+                  corePercent={lessonMedalReveal.corePercent}
+                  onDismiss={() => setMedalOverlayDismissed(true)}
+                />
+              ) : null}
             </div>
 
             {currentStep && (
@@ -573,22 +610,11 @@ export default function LessonStepRenderer({
                 style={{ paddingBottom: 'calc(var(--app-bottom-inset) + 0.375rem)' }}
               >
                 {hasPostLessonOptions ? (
-                  <>
-                    {lessonMedalReveal ? (
-                      <LessonMedalReveal
-                        medal={lessonMedalReveal.medal}
-                        coreXp={lessonMedalReveal.coreXp}
-                        comboXp={lessonMedalReveal.comboXp}
-                        maxCoreXp={lessonMedalReveal.maxCoreXp}
-                        corePercent={lessonMedalReveal.corePercent}
-                      />
-                    ) : null}
-                    <PostLessonMenu
+                  <PostLessonMenu
                     options={postLesson?.options ?? []}
                     onSelect={(action) => onPostLessonAction?.(action)}
                     disabled={postLessonBusy || !onPostLessonAction}
                   />
-                  </>
                 ) : isSentencePuzzle && exercise ? (
                   <LessonSentencePuzzle
                     key={`sentence-puzzle-${choiceShuffleSeed ?? 'static'}-${currentStep?.stepNumber ?? 'step'}`}

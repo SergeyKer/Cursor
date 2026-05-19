@@ -21,6 +21,7 @@ import type { AiChatPanel } from '@/lib/aiChatPanel'
 import { MENU_PRIMARY_CTA_CLASS } from '@/lib/homeCtaStyles'
 import { featureFlags } from '@/lib/featureFlags'
 import { getLessonBadgeDefinition } from '@/lib/lessonBadges'
+import { resolveLessonCardMedal } from '@/lib/lessonFooter'
 import { loadLessonProgressMap } from '@/lib/lessonProgressStorage'
 import { aggregateMedals } from '@/lib/lessonScore'
 import {
@@ -433,6 +434,10 @@ export default function MenuSectionPanels({
   const [settingsPanel, setSettingsPanel] = React.useState<SettingsMenuPanel>('summary')
   const [engvoPanel, setEngvoPanel] = React.useState<EngvoPanel>('summary')
   const [lessonsPanel, setLessonsPanel] = React.useState<LessonsPanel>('summary')
+  const [lessonProgressMap, setLessonProgressMap] = React.useState(loadLessonProgressMap)
+  React.useEffect(() => {
+    if (menuView === 'lessons') setLessonProgressMap(loadLessonProgressMap())
+  }, [menuView, lessonsPanel])
   const defaultA2LessonId = React.useMemo(
     () => A2_THEORY_ITEMS.find((item) => item.enabled)?.id ?? null,
     []
@@ -1932,6 +1937,7 @@ export default function MenuSectionPanels({
                             label={lesson.title}
                             subtitle={topicCopy?.short}
                             description={topicCopy?.long}
+                            medalDisplay={resolveLessonCardMedal(lessonProgressMap[lesson.id])}
                             selected={Boolean(lesson.enabled && selectedTheoryTopicLessonId === lesson.id)}
                             enabled={lesson.enabled}
                             onClick={
@@ -2018,6 +2024,7 @@ export default function MenuSectionPanels({
                           label={item.label}
                           subtitle={item.short}
                           description={item.long}
+                          medalDisplay={resolveLessonCardMedal(lessonProgressMap[item.id])}
                           selected={item.enabled && selectedA1LessonId === item.id}
                           enabled={item.enabled}
                           onClick={
@@ -2086,6 +2093,7 @@ export default function MenuSectionPanels({
                           label={item.label}
                           subtitle={item.short}
                           description={item.long}
+                          medalDisplay={resolveLessonCardMedal(lessonProgressMap[item.id])}
                           selected={item.enabled && selectedA2LessonId === item.id}
                           enabled={item.enabled}
                           onClick={
@@ -2397,6 +2405,7 @@ export default function MenuSectionPanels({
                       label={item.label}
                       subtitle={item.short}
                       description={item.long}
+                      medalDisplay={resolveLessonCardMedal(lessonProgressMap[item.id])}
                       selected={item.enabled && selectedPracticeLessonId === item.id}
                       enabled={item.enabled}
                       onClick={
@@ -3120,6 +3129,7 @@ function A2LessonChoiceRow({
   label,
   subtitle,
   description,
+  medalDisplay,
   selected,
   enabled,
   onClick,
@@ -3127,6 +3137,7 @@ function A2LessonChoiceRow({
   label: string
   subtitle?: string
   description?: string
+  medalDisplay?: { emoji: string; title: string } | null
   selected: boolean
   enabled: boolean
   onClick?: () => void
@@ -3148,16 +3159,27 @@ function A2LessonChoiceRow({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
+      className="flex w-full min-h-[44px] items-center gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
     >
       <span className="min-w-0 flex-1">
-        <span className="flex items-center justify-between gap-2">
+        <span className="flex items-start justify-between gap-3">
           <span className="min-w-0 block text-[15px] font-normal leading-normal text-[var(--text)]">{label}</span>
-          {selected ? (
-            <CheckIcon className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden />
-          ) : (
-            <span className="h-4 w-4 shrink-0" aria-hidden />
-          )}
+          <span className="flex shrink-0 items-center gap-2.5 pt-px">
+            {medalDisplay ? (
+              <span
+                className="flex h-4 items-center justify-center text-base leading-none"
+                title={medalDisplay.title}
+                aria-label={medalDisplay.title}
+              >
+                {medalDisplay.emoji}
+              </span>
+            ) : null}
+            {selected ? (
+              <CheckIcon className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden />
+            ) : medalDisplay ? null : (
+              <span className="h-4 w-4 shrink-0" aria-hidden />
+            )}
+          </span>
         </span>
         {subtitle ? <span className="mt-0.5 block text-[13px] font-medium leading-snug text-slate-700">{subtitle}</span> : null}
         {description ? <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">{description}</span> : null}

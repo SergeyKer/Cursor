@@ -75,7 +75,7 @@ import {
 } from '@/lib/homeCtaStyles'
 import { parseCorrection } from '@/lib/parseCorrection'
 import { stripTranslationCanonicalRepeatRefLine } from '@/lib/translationPromptAndRef'
-import { buildLessonFooterLive } from '@/lib/lessonFooter'
+import { buildLessonFooterLive, formatLessonCompletionFooter } from '@/lib/lessonFooter'
 import { computeCorePercent, resolveMedalFromCoreXp } from '@/lib/lessonScore'
 import { getLessonBadgeDefinition, resolveLessonBadgeProgress } from '@/lib/lessonBadges'
 import { mergeLessonProgressOnComplete, migrateUserLessonProgress } from '@/lib/lessonProgressMigration'
@@ -596,7 +596,9 @@ export default function Home() {
     mistakes: activeStructuredLessonMistakes,
     completedSteps: activeStructuredLessonCompletedSteps,
     currentStep: activeStructuredLessonCurrentStep,
+    currentVariantIndex: activeStructuredLessonCurrentVariantIndex,
     totalSteps: activeStructuredLessonTotalSteps,
+    isFinale: activeStructuredLessonIsFinale,
     lastCoreDelta: activeStructuredLessonLastCoreDelta,
     lastComboDelta: activeStructuredLessonLastComboDelta,
     lastXpAward: activeStructuredLessonLastXpAward,
@@ -4573,6 +4575,20 @@ export default function Home() {
     isVocabularyHubActive
       ? recentRewardTicker
       : null
+  const structuredLessonCompletionFooterText = useMemo(() => {
+    if (!isStructuredLessonActive || activeStructuredLessonStatus !== 'completed') return null
+    const medal = resolveMedalFromCoreXp(
+      activeStructuredLessonCoreXp,
+      true,
+      activeStructuredLessonMaxCoreXp
+    )
+    return formatLessonCompletionFooter(medal)
+  }, [
+    isStructuredLessonActive,
+    activeStructuredLessonStatus,
+    activeStructuredLessonCoreXp,
+    activeStructuredLessonMaxCoreXp,
+  ])
   const footerDynamicText = isAccentActive
     ? footerContextRewardTicker ?? accentFooterView?.dynamicText ?? null
     : isVocabularyHubActive
@@ -4586,7 +4602,9 @@ export default function Home() {
       : isLessonTipsActive
       ? footerContextRewardTicker ?? tipsFooterDynamicText
       : isStructuredLessonActive
-      ? footerContextRewardTicker ?? activeStructuredLessonFooterDynamicText
+      ? structuredLessonCompletionFooterText ??
+        footerContextRewardTicker ??
+        activeStructuredLessonFooterDynamicText
       : isLessonActive
       ? footerContextRewardTicker ?? learningLessonFooterDynamicText
       : dialogStarted
@@ -4616,27 +4634,33 @@ export default function Home() {
   const structuredLessonFooterLive = useMemo(() => {
     if (!isStructuredLessonActive) return null
     return buildLessonFooterLive({
+      lesson: activeStructuredLesson,
       currentStep: activeStructuredLessonCurrentStep,
-      totalSteps: activeStructuredLessonTotalSteps,
+      currentVariantIndex: activeStructuredLessonCurrentVariantIndex,
+      isFinale: activeStructuredLessonIsFinale,
       coreXp: activeStructuredLessonCoreXp,
       maxCoreXp: activeStructuredLessonMaxCoreXp,
-      coreDelta: activeStructuredLessonLastCoreDelta,
+      comboXp: activeStructuredLessonComboXp,
       combo: activeStructuredLessonCombo,
+      maxCombo: activeStructuredLessonMaxCombo,
+      coreDelta: activeStructuredLessonLastCoreDelta,
       comboDelta: activeStructuredLessonLastComboDelta,
-      accountTotalXp: rewardsState.progress.totalXP,
-      dailyStreak: rewardsState.progress.dailyStreak,
+      audience: settings.audience,
     })
   }, [
     isStructuredLessonActive,
+    activeStructuredLesson,
     activeStructuredLessonCurrentStep,
-    activeStructuredLessonTotalSteps,
+    activeStructuredLessonCurrentVariantIndex,
+    activeStructuredLessonIsFinale,
     activeStructuredLessonCoreXp,
     activeStructuredLessonMaxCoreXp,
-    activeStructuredLessonLastCoreDelta,
+    activeStructuredLessonComboXp,
     activeStructuredLessonCombo,
+    activeStructuredLessonMaxCombo,
+    activeStructuredLessonLastCoreDelta,
     activeStructuredLessonLastComboDelta,
-    rewardsState.progress.totalXP,
-    rewardsState.progress.dailyStreak,
+    settings.audience,
   ])
   const footerStaticText =
     isStructuredLessonActive && structuredLessonFooterLive
@@ -4657,9 +4681,11 @@ export default function Home() {
       : dialogStarted
       ? chatFooterVoice?.typingKey ?? 'chat-footer'
       : adaptiveFooterView?.typingKey ?? homeFooterVoice?.typingKey ?? 'home-footer'
-  const footerTypingKey = footerContextRewardTicker
-    ? `reward-${rewardsState.ui.lastReward?.at ?? rewardsState.timestamp}:ctx-${footerSessionContextNonce}`
-    : `${baseFooterTypingKey}:ctx-${footerSessionContextNonce}`
+  const footerTypingKey = structuredLessonCompletionFooterText
+    ? `lesson-complete-${activeLearningLessonId ?? 'lesson'}:ctx-${footerSessionContextNonce}`
+    : footerContextRewardTicker
+      ? `reward-${rewardsState.ui.lastReward?.at ?? rewardsState.timestamp}:ctx-${footerSessionContextNonce}`
+      : `${baseFooterTypingKey}:ctx-${footerSessionContextNonce}`
   const baseFooterVoiceTone = isAccentActive
     ? accentFooterView?.tone ?? 'neutral'
     : isVocabularyHubActive
@@ -4687,7 +4713,11 @@ export default function Home() {
       : dialogStarted
       ? (chatFooterVoice?.tone ?? 'neutral')
       : (adaptiveFooterView?.tone ?? homeFooterVoice?.tone ?? 'neutral')
-  const footerVoiceTone = footerContextRewardTicker ? 'celebrate' : baseFooterVoiceTone
+  const footerVoiceTone = structuredLessonCompletionFooterText
+    ? 'celebrate'
+    : footerContextRewardTicker
+      ? 'celebrate'
+      : baseFooterVoiceTone
   const baseFooterVoiceEmphasis = isAccentActive
     ? accentFooterView?.emphasis ?? 'none'
     : isVocabularyHubActive
@@ -4709,7 +4739,11 @@ export default function Home() {
       : dialogStarted
       ? (chatFooterVoice?.emphasis ?? 'none')
       : (adaptiveFooterView?.emphasis ?? homeFooterVoice?.emphasis ?? 'none')
-  const footerVoiceEmphasis = footerContextRewardTicker ? 'pulse' : baseFooterVoiceEmphasis
+  const footerVoiceEmphasis = structuredLessonCompletionFooterText
+    ? 'pulse'
+    : footerContextRewardTicker
+      ? 'pulse'
+      : baseFooterVoiceEmphasis
   const engvoBootstrapServiceIndicatorText = getEngvoBootstrapServiceIndicatorText(engvoCallPhase)
   const showEngvoBootstrapServiceIndicator =
     engvoVoiceMode &&
@@ -5431,20 +5465,11 @@ export default function Home() {
           isLessonActive={isLessonActive}
           isDialogStarted={dialogStarted}
           showWhenIdle={!dialogStarted}
-          lessonFooterAccount={
-            isStructuredLessonActive ? structuredLessonFooterLive?.accountLine ?? null : null
-          }
-          lessonFooterAccountTitle={
-            isStructuredLessonActive ? structuredLessonFooterLive?.accountTitle ?? null : null
-          }
           lessonFooterLessonTitle={
             isStructuredLessonActive ? structuredLessonFooterLive?.lessonTitle ?? null : null
           }
           lessonFooterSegments={
             isStructuredLessonActive ? structuredLessonFooterLive?.lessonSegments ?? null : null
-          }
-          lessonFooterAccountSegments={
-            isStructuredLessonActive ? structuredLessonFooterLive?.accountSegments ?? null : null
           }
         />
       </footer>
