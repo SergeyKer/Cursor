@@ -79,8 +79,13 @@ import { stripTranslationCanonicalRepeatRefLine } from '@/lib/translationPromptA
 import {
   buildLessonFooterLive,
   formatLessonCompletionFooter,
+  resolveLessonCardMedal,
   resolveLessonHeaderMedal,
 } from '@/lib/lessonFooter'
+import {
+  buildLessonPageTitle,
+  getLessonHeaderCenterPaddingClass,
+} from '@/lib/lessonPageTitle'
 import MedalBadge from '@/components/MedalBadge'
 import { resolveLessonFooterTopLine } from '@/lib/lessonFooterTopLine'
 import { resolveGlobalLessonXpDelta } from '@/lib/lessonGlobalXpAward'
@@ -692,20 +697,27 @@ export default function Home() {
   const communicationVoiceInputMode = getCommunicationVoiceInputMode(settings)
   const communicationVoiceDropdownRef = React.useRef<HTMLDivElement | null>(null)
   const appColumnRef = React.useRef<HTMLDivElement | null>(null)
+  const homeColumnRef = React.useRef<HTMLDivElement | null>(null)
   const chatGlassRef = React.useRef<HTMLDivElement>(null)
   const headerColumnBounds = useAppColumnBounds(appColumnRef, { remeasureWhen: menuOpen })
+  const homeColumnBounds = useAppColumnBounds(homeColumnRef, { remeasureWhen: menuOpen })
   const chatColumnBounds = useAppColumnBounds(chatGlassRef, { remeasureWhen: menuOpen })
   const appColumnBounds = React.useMemo(() => {
     const primary =
       dialogStarted && chatColumnBounds ? chatColumnBounds : headerColumnBounds
     if (!primary || !headerColumnBounds) return primary
+    const contentLeft = !dialogStarted && homeColumnBounds
+      ? Math.min(primary.left, headerColumnBounds.left, homeColumnBounds.left)
+      : Math.min(primary.left, headerColumnBounds.left)
     return {
       ...primary,
-      left: Math.min(primary.left, headerColumnBounds.left),
+      left: contentLeft,
       width: primary.width,
+      shellLeft: Math.min(primary.shellLeft, headerColumnBounds.shellLeft),
+      shellRight: Math.max(primary.shellRight, headerColumnBounds.shellRight),
       isFullBleed: primary.isFullBleed,
     }
-  }, [dialogStarted, chatColumnBounds, headerColumnBounds])
+  }, [dialogStarted, chatColumnBounds, headerColumnBounds, homeColumnBounds])
   /** Настройки при открытии меню: режим + поля для сравнения при закрытии (без уровня). */
   const menuOpenSnapshotRef = React.useRef<MenuOpenSnapshot | null>(null)
   const prevMenuOpenForSnapshotRef = React.useRef(false)
@@ -4404,7 +4416,41 @@ export default function Home() {
       : settings.level === 'all'
         ? 'a2'
         : settings.level
-  const isTutorLessonHeader = activeLessonTitle && lessonMenuContext?.lessonsPanel === 'tutor'
+  const isLessonHeaderContext =
+    isLessonIntroActive || isLessonTipsActive || isStructuredLessonActive || isTutorLessonPending
+  const headerLessonTopicTitle =
+    activeLessonTitle ?? (isTutorLessonPending ? pendingTutorLessonTitle : null)
+
+  const lessonPageTitleStage = React.useMemo(() => {
+    if (!headerLessonTopicTitle) return null
+    if (isStructuredLessonActive) return 'lesson' as const
+    if (isLessonTipsActive) return 'tips' as const
+    if (
+      isLessonIntroActive ||
+      isTutorLessonPending ||
+      (isLessonActive && !isStructuredLessonActive && !isLessonTipsActive)
+    ) {
+      return 'intro' as const
+    }
+    return null
+  }, [
+    headerLessonTopicTitle,
+    isStructuredLessonActive,
+    isLessonTipsActive,
+    isLessonIntroActive,
+    isTutorLessonPending,
+    isLessonActive,
+  ])
+
+  const lessonPageTitleView = React.useMemo(() => {
+    if (!lessonPageTitleStage || !headerLessonTopicTitle) return null
+    return buildLessonPageTitle({
+      stage: lessonPageTitleStage,
+      topicTitle: headerLessonTopicTitle,
+      progressAriaLabel: lessonHeaderProgressAriaLabel,
+    })
+  }, [lessonPageTitleStage, headerLessonTopicTitle, lessonHeaderProgressAriaLabel])
+
   const learningLessonFooterDynamicText =
     activeStructuredLessonFooterDynamicText ??
     activeLearningLesson?.footer?.dynamicText ??
@@ -4907,22 +4953,37 @@ export default function Home() {
     isStructuredLessonRepeatRun,
     settings.audience,
   ])
-  const lessonHeaderMedal = useMemo(
-    () =>
-      isStructuredLessonActive
-        ? resolveLessonHeaderMedal({
-            coreXp: activeStructuredLessonCoreXp,
-            maxCoreXp: activeStructuredLessonMaxCoreXp,
-            isFinale: activeStructuredLessonIsFinale,
-          })
-        : null,
-    [
-      isStructuredLessonActive,
-      activeStructuredLessonCoreXp,
-      activeStructuredLessonMaxCoreXp,
-      activeStructuredLessonIsFinale,
-    ]
-  )
+  const lessonHeaderMedal = useMemo(() => {
+    if (isStructuredLessonActive) {
+      return resolveLessonHeaderMedal({
+        coreXp: activeStructuredLessonCoreXp,
+        maxCoreXp: activeStructuredLessonMaxCoreXp,
+        isFinale: activeStructuredLessonIsFinale,
+      })
+    }
+    if ((isLessonIntroActive || isLessonTipsActive) && activeLearningLessonId) {
+      return resolveLessonCardMedal(loadLessonProgress(activeLearningLessonId))
+    }
+    return null
+  }, [
+    isStructuredLessonActive,
+    isLessonIntroActive,
+    isLessonTipsActive,
+    activeLearningLessonId,
+    activeStructuredLessonCoreXp,
+    activeStructuredLessonMaxCoreXp,
+    activeStructuredLessonIsFinale,
+  ])
+
+  const headerCenterPaddingClass = getLessonHeaderCenterPaddingClass({
+    isPreSteps: isLessonIntroActive || isLessonTipsActive || isTutorLessonPending,
+    hasHeaderMedal: Boolean(lessonHeaderMedal),
+    hasProgressSubStep: Boolean(
+      isStructuredLessonActive &&
+        lessonHeaderProgressLabel &&
+        lessonHeaderProgressLabel.includes(' · ')
+    ),
+  })
   const footerStaticText =
     isStructuredLessonActive && structuredLessonFooterLive
       ? null
@@ -5067,8 +5128,8 @@ export default function Home() {
                 ? 'Balanced'
                 : 'Challenge'
         }`
-    : isTutorLessonHeader
-      ? 'Репетитор с MyEng'
+    : lessonPageTitleView
+      ? lessonPageTitleView.displayTitle
     : engvoVoiceMode
       ? 'Call to Engvo'
       : activeLessonTitle
@@ -5241,41 +5302,52 @@ export default function Home() {
                   {lessonHeaderProgressLabel}
                 </span>
               ) : null}
-              {dialogStarted &&
-                (lessonHeaderMedal ? (
-                  <span className="app-header-avatar mr-1 sm:mr-2 flex h-10 w-10 shrink-0 items-center justify-center">
-                    <MedalBadge
-                      tier={lessonHeaderMedal.tier}
-                      size="md"
-                      muted={lessonHeaderMedal.muted}
-                      title={lessonHeaderMedal.title}
-                    />
-                  </span>
-                ) : (
-                  <span
-                    className="app-header-avatar mr-1 sm:mr-2 flex h-10 w-10 shrink-0 items-center justify-center p-1"
-                    aria-hidden
-                  >
-                    <Image
-                      src="/header-robot.png"
-                      alt=""
-                      width={1024}
-                      height={1024}
-                      className="h-full w-full object-contain"
-                      sizes="36px"
-                    />
-                  </span>
-                ))}
+              {dialogStarted && lessonHeaderMedal ? (
+                <span className="app-header-avatar mr-1 sm:mr-2 flex h-10 w-10 shrink-0 items-center justify-center">
+                  <MedalBadge
+                    tier={lessonHeaderMedal.tier}
+                    size="md"
+                    muted={lessonHeaderMedal.muted}
+                    title={lessonHeaderMedal.title}
+                  />
+                </span>
+              ) : dialogStarted && !isLessonHeaderContext ? (
+                <span
+                  className="app-header-avatar mr-1 sm:mr-2 flex h-10 w-10 shrink-0 items-center justify-center p-1"
+                  aria-hidden
+                >
+                  <Image
+                    src="/header-robot.png"
+                    alt=""
+                    width={1024}
+                    height={1024}
+                    className="h-full w-full object-contain"
+                    sizes="36px"
+                  />
+                </span>
+              ) : null}
             </div>
           </div>
         </div>
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-14 sm:px-[4.25rem]">
+        <div
+          className={`absolute inset-0 flex items-center justify-center pointer-events-none ${headerCenterPaddingClass}`}
+        >
           <h1
-            className="text-[16px] font-semibold tracking-normal leading-[1.32] text-[var(--app-header-text)] truncate max-w-full"
+            className="flex max-w-full min-w-0 items-center justify-center text-[16px] font-semibold tracking-normal leading-[1.32] text-[var(--app-header-text)]"
             style={{ fontFamily: 'var(--app-header-font-family)' }}
-            title={pageTitle}
+            title={lessonPageTitleView?.fullTitle ?? pageTitle}
+            aria-label={lessonPageTitleView?.ariaLabel ?? pageTitle}
           >
-            {!dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode || isPracticeActive ? (
+            {lessonPageTitleView ? (
+              lessonPageTitleView.prefix ? (
+                <>
+                  <span className="shrink-0">{lessonPageTitleView.prefix} </span>
+                  <span className="min-w-0 truncate">{lessonPageTitleView.topicSegment}</span>
+                </>
+              ) : (
+                <span className="min-w-0 truncate">{lessonPageTitleView.topicSegment}</span>
+              )
+            ) : !dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode || isPracticeActive ? (
               pageTitle
             ) : (
               <>
@@ -5304,18 +5376,19 @@ export default function Home() {
         }}
       >
         {!dialogStarted ? (
-          <div
-            className="start-screen chat-shell-x flex min-h-0 flex-1 flex-col items-center bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]"
-            style={{
-              // Для экрана меню держим одинаковый (и чуть более компактный) верхний и межблочный шаг.
-              gap: homeMenuView === 'root' ? 'clamp(1rem, 2.5vh, 1.75rem)' : 'clamp(0.5rem, 1.5vh, 0.9rem)',
-              paddingTop:
-                homeMenuView === 'root' ? 'clamp(1rem, 2.5vh, 1.75rem)' : 'clamp(0.5rem, 1.5vh, 0.9rem)',
-              paddingBottom: 'clamp(1rem, 2.5vh, 1.75rem)',
-            }}
-          >
+          <div className="start-screen chat-shell-x flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
+            <div
+              ref={homeColumnRef}
+              className="mx-auto flex w-full max-w-[23.2rem] flex-1 flex-col items-center min-h-0"
+              style={{
+                gap: homeMenuView === 'root' ? 'clamp(1rem, 2.5vh, 1.75rem)' : 'clamp(0.5rem, 1.5vh, 0.9rem)',
+                paddingTop:
+                  homeMenuView === 'root' ? 'clamp(1rem, 2.5vh, 1.75rem)' : 'clamp(0.5rem, 1.5vh, 0.9rem)',
+                paddingBottom: 'clamp(1rem, 2.5vh, 1.75rem)',
+              }}
+            >
             {homeMenuView === 'root' && (
-              <div className="flex w-full max-w-[23.2rem] shrink-0 justify-center">
+              <div className="flex w-full shrink-0 justify-center">
                 <div className="w-1/4">
                   <Image
                     src="/robot-no-background.png"
@@ -5330,7 +5403,7 @@ export default function Home() {
               </div>
             )}
             {homeMenuView === 'root' && (
-              <div className="flex w-full max-w-[23.2rem] flex-col items-center gap-[clamp(1rem,3.2vh,2rem)]">
+              <div className="flex w-full flex-col items-center gap-[clamp(1rem,3.2vh,2rem)]">
                 <HomeWelcomeBubble text={buildCompactGreeting()} />
                 <div className="flex w-full justify-end">
                   <div className="flex w-full flex-col items-end gap-2">
@@ -5407,7 +5480,7 @@ export default function Home() {
             )}
             {homeMenuView !== 'root' && (
               <>
-                <div className="flex w-full max-w-[23.2rem] shrink-0 flex-row items-center gap-2.5 sm:gap-3">
+                <div className="flex w-full shrink-0 flex-row items-center gap-2.5 sm:gap-3">
                   <div className="w-[22%] max-w-[5.5rem] shrink-0">
                     <Image
                       src="/robot-no-background.png"
@@ -5430,7 +5503,7 @@ export default function Home() {
                     />
                   </div>
                 </div>
-                <div className="flex w-full max-w-[23.2rem] shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[var(--home-menu-bg)] px-3 py-3 shadow-sm">
+                <div className="flex w-full shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[var(--home-menu-bg)] px-3 py-3 shadow-sm">
                   <MenuSectionPanels
                     menuView={homeMenuView}
                     onMenuViewChange={handleHomeMenuViewChange}
@@ -5482,6 +5555,7 @@ export default function Home() {
                 </div>
               </>
             )}
+            </div>
           </div>
         ) : (
           <>

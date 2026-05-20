@@ -226,7 +226,7 @@ function formatComboSegment(input: LessonFooterLiveInput): LessonFooterSegment {
     text = formatComboSegmentText(combo)
     title = `COMBO ×${combo}. COMBO растёт — бонус к уровню позже (нужно ≥50% core). ${title}`
   } else if (maxCombo > combo) {
-    text = `${formatComboSegmentText(combo)} рек.×${maxCombo}`
+    text = `${formatComboSegmentText(combo)} max ${maxCombo}`
     title = `COMBO сброшен (×${combo}). Рекорд COMBO ×${maxCombo}. Очки вех этого прохода уже в ⭐.`
   } else {
     text = formatComboSegmentText(combo)

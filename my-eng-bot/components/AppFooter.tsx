@@ -54,12 +54,12 @@ function LessonFooterMedalContent({
   fallbackText: string
 }) {
   if (!visual) {
-    return <span className={`${TRUNCATE_X_CLASS} text-center`}>{fallbackText}</span>
+    return <span className={`${TRUNCATE_X_CLASS} text-left`}>{fallbackText}</span>
   }
 
   if (visual.mode === 'tier') {
     return (
-      <span className="inline-flex max-w-full min-w-0 items-center justify-center gap-0.5 overflow-visible">
+      <span className="inline-flex max-w-full min-w-0 items-center justify-start gap-0.5 overflow-visible">
         <MedalBadge tier={visual.tier} size="sm" muted={visual.muted} title={title} />
       </span>
     )
@@ -68,7 +68,7 @@ function LessonFooterMedalContent({
   if (visual.mode === 'progress') {
     return (
       <span
-        className="inline-flex max-w-full min-w-0 items-center justify-center gap-0.5 overflow-visible"
+        className="inline-flex max-w-full min-w-0 items-center justify-start gap-0.5 overflow-visible"
         title={title}
         aria-label={title}
       >
@@ -89,7 +89,7 @@ function LessonFooterMedalContent({
   }
 
   return (
-    <span className={`${TRUNCATE_X_CLASS} text-center text-[13px] sm:text-sm ${EMOJI_LINE_CLASS}`}>
+    <span className={`${TRUNCATE_X_CLASS} text-left text-[13px] sm:text-sm ${EMOJI_LINE_CLASS}`}>
       {visual.hintText}
     </span>
   )
@@ -103,7 +103,7 @@ function FooterStatSegmentText({ text, highlight = '' }: { text: string; highlig
   const parts = splitLeadingEmoji(text)
   if (parts) {
     return (
-      <span className="inline-flex max-w-full min-w-0 items-center justify-center gap-0.5 overflow-visible">
+      <span className="inline-flex max-w-full min-w-0 items-center justify-start gap-0.5 overflow-visible">
         <span className={`${FOOTER_STAT_GLYPH_CLASS} ${highlight}`.trim()} aria-hidden>
           {parts.emoji}
         </span>
@@ -118,7 +118,7 @@ function FooterStatSegmentText({ text, highlight = '' }: { text: string; highlig
 
   return (
     <span
-      className={`${TRUNCATE_X_CLASS} text-center text-[13px] sm:text-sm ${EMOJI_LINE_CLASS} ${highlight}`.trim()}
+      className={`${TRUNCATE_X_CLASS} text-left text-[13px] sm:text-sm ${EMOJI_LINE_CLASS} ${highlight}`.trim()}
     >
       {text}
     </span>
@@ -222,7 +222,7 @@ export default function AppFooter({
                       return (
                         <span
                           key={segment.kind}
-                          className="flex min-w-0 items-center justify-center overflow-visible px-0.5"
+                          className="flex min-w-0 items-center justify-start overflow-visible px-0.5"
                           title={segment.title}
                         >
                           {segment.kind === 'medal' ? (
@@ -262,7 +262,7 @@ export default function AppFooter({
                   {bottomSegments.map((segment, index) => (
                     <span
                       key={`footer-seg-${index}`}
-                      className="flex min-w-0 items-center justify-center overflow-visible px-0.5"
+                      className="flex min-w-0 items-center justify-start overflow-visible px-0.5"
                     >
                       <FooterStatSegmentText text={segment} highlight={footerStatHighlight(segment)} />
                     </span>

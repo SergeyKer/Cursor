@@ -111,7 +111,7 @@ describe('buildLessonFooterLive', () => {
       combo: 0,
       maxCombo: 7,
     })
-    expect(reset.lessonSegments[2].text).toBe('🔥×0 рек.×7')
+    expect(reset.lessonSegments[2].text).toBe('🔥×0 max 7')
   })
 
   it('shows combo streak label when milestone blocked below 50% core', () => {

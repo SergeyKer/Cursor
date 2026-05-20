@@ -129,6 +129,24 @@ export default function SlideOutMenu({
   const [menuView, setMenuView] = React.useState<MenuView>('root')
   const panelPositioned = columnBounds != null
   const isFullBleed = columnBounds?.isFullBleed ?? false
+  const columnInsetFromShell = columnBounds
+    ? Math.max(0, columnBounds.left - columnBounds.shellLeft)
+    : 0
+  // Телефон: shell ≈ экран. ПК/планшет (колонка с полями): ширина колонки, как контент и ☰.
+  const useShellPanel = isFullBleed && columnInsetFromShell <= 8
+  const panelLeft = columnBounds
+    ? useShellPanel
+      ? columnBounds.shellLeft
+      : columnBounds.left
+    : 0
+  const panelWidth = columnBounds
+    ? Math.max(
+        0,
+        useShellPanel
+          ? columnBounds.shellRight - columnBounds.shellLeft
+          : columnBounds.width
+      )
+    : 0
   const panelBoxShadow =
     'var(--app-footer-shadow), 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)'
   const panelSurfaceClass =
@@ -151,11 +169,7 @@ export default function SlideOutMenu({
     setMenuView(chatActive ? 'aiChat' : 'root')
   }, [open, chatActive, engvoVoiceMode, lessonMenuContext])
 
-  const menuPanelPaddingClass = panelPositioned
-    ? isFullBleed
-      ? 'px-3 pb-3 pt-3'
-      : 'px-0 pb-3 pt-3'
-    : 'px-3 pb-3 pt-3'
+  const menuPanelPaddingClass = 'px-3 pb-3 pt-3'
 
   const menuPanelBody = (
     <div className={`flex h-full flex-col ${menuPanelPaddingClass}`}>
@@ -183,7 +197,7 @@ export default function SlideOutMenu({
         rewardsState={rewardsState}
         onRewardsStateChange={onRewardsStateChange}
         idPrefix="slide-"
-        edgeToEdge={panelPositioned && !isFullBleed}
+        edgeToEdge={false}
         className="flex min-h-0 flex-1 flex-col"
         onStartHomeChat={onStartChat}
         onOpenEngvoVoiceChat={onOpenEngvoVoiceChat}
@@ -249,26 +263,17 @@ export default function SlideOutMenu({
       {panelPositioned ? (
         <div
           className="pointer-events-none fixed z-50 overflow-hidden"
-          style={
-            isFullBleed
-              ? {
-                  left: 0,
-                  right: 0,
-                  top: topOffset,
-                  bottom: bottomOffset,
-                }
-              : {
-                  left: columnBounds.left,
-                  width: columnBounds.width,
-                  top: topOffset,
-                  bottom: bottomOffset,
-                }
-          }
+          style={{
+            left: panelLeft,
+            width: panelWidth,
+            top: topOffset,
+            bottom: bottomOffset,
+          }}
         >
           <aside
             className={`h-full w-full ${panelSurfaceClass} transition-transform duration-200 ease-out ${
               open
-                ? `translate-x-0 pointer-events-auto${isFullBleed ? '' : ` ${panelOpenEdgeClass}`}`
+                ? `translate-x-0 pointer-events-auto${useShellPanel ? '' : ` ${panelOpenEdgeClass}`}`
                 : '-translate-x-full pointer-events-none'
             }`}
             style={{ boxShadow: open ? panelBoxShadow : undefined }}
