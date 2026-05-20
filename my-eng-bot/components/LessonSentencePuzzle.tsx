@@ -15,6 +15,7 @@ type LessonSentencePuzzleProps = {
     taskTotal?: number
   }) => void
   onSubPuzzleComplete?: (summary: { subIndex: number; attempts: number }) => void
+  onPuzzleProgressChange?: (progress: { subIndex: number; subTotal: number }) => void
   subPuzzleMaxXp?: number
 }
 
@@ -99,6 +100,7 @@ export default function LessonSentencePuzzle({
   progressKey,
   onComplete,
   onSubPuzzleComplete,
+  onPuzzleProgressChange,
   subPuzzleMaxXp,
 }: LessonSentencePuzzleProps) {
   const variants = exercise.puzzleVariants ?? []
@@ -133,6 +135,11 @@ export default function LessonSentencePuzzle({
     setAttempts(stored.attempts)
     setHintVisible(stored.hintVisible)
   }, [progressKey, variants.length])
+
+  useEffect(() => {
+    if (variants.length === 0) return
+    onPuzzleProgressChange?.({ subIndex: variantIndex, subTotal: variants.length })
+  }, [onPuzzleProgressChange, variantIndex, variants.length])
 
   useEffect(() => {
     if (!activeVariant || locked) return

@@ -27,14 +27,6 @@ describe('applyRewardsEvent', () => {
     expect(next.ui.lastReward).toBeNull()
   })
 
-  it('awards lesson completion bonus', () => {
-    const state = createDefaultRewardsState()
-    const next = applyRewardsEvent(state, { type: 'lesson_completed' })
-    expect(next.progress.totalXP).toBe(45)
-    expect(next.ui.footerTicker).toContain('Урок завершён')
-    expect(next.ui.lastReward?.reason).toBe('lesson_completed')
-  })
-
   it('marks communication goal completed on seventh turn', () => {
     let state = createDefaultRewardsState()
     for (let i = 0; i < 7; i += 1) {

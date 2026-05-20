@@ -14,7 +14,6 @@ export function rewardReasonAllowsDynamicTickerOverride(reason: string): boolean
 export function rewardReasonShowsToast(reason: string, leveledUpOnSameReward: boolean): boolean {
   if (leveledUpOnSameReward) return true
   switch (reason) {
-    case 'lesson_completed':
     case 'practice_completed':
     case 'accent_session_completed':
     case 'communication_goal_completed':
@@ -53,11 +52,6 @@ export function buildRewardPopupText(params: {
       audience === 'child'
         ? alternatives(`Цель звонка 7/7! +${xp} XP!`, `Звонок 7/7! +${xp} XP!`)
         : alternatives(`Цель звонка 7/7 закрыта. +${xp} XP`, `Цель звонка 7/7! +${xp} XP`)
-  } else if (reason === 'lesson_completed') {
-    variants =
-      audience === 'child'
-        ? alternatives(`Урок готов! +${xp} XP!`, `Урок завершён! +${xp} XP!`)
-        : alternatives(`Урок закрыт. +${xp} XP`, `Урок завершён. +${xp} XP`)
   } else if (reason === 'practice_completed') {
     variants =
       audience === 'child'

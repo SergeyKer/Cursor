@@ -110,7 +110,6 @@ function toWhoLikesQuestionRu(verbBase: string, object: string): string {
 
 const whoLikesPostLesson = {
   dynamicFooterText: 'Выбор за вами! Любое действие закрепит материал',
-  staticFooterText: '🏆 +50 XP | 🔥 COMBO x7! | 📈 [████████] 7/7',
   interestingFact:
     'В вопросах с Who в английском часто сразу используется форма глагола с -s, потому что вопрос строится вокруг одного неизвестного человека.',
   options: [

@@ -19,23 +19,6 @@ describe('footerTopLinePhrases', () => {
     ).toBe('Отлично! +13 XP к уровню!')
   })
 
-  it('formats reward top line by audience and reason', () => {
-    expect(
-      formatRewardTopLine({
-        reason: 'lesson_completed',
-        amount: 45,
-        audience: 'adult',
-      })
-    ).toBe('Урок завершён. +45 XP за прогресс.')
-    expect(
-      formatRewardTopLine({
-        reason: 'lesson_completed',
-        amount: 45,
-        audience: 'child',
-      })
-    ).toBe('Урок готов! +45 XP!')
-  })
-
   it('falls back when reason is unknown', () => {
     expect(
       formatRewardTopLine({

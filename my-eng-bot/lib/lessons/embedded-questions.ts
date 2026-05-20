@@ -413,7 +413,6 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
 
 const embeddedQuestionsPostLesson = {
   dynamicFooterText: 'Выбор за вами! Любое действие закрепит тему',
-  staticFooterText: '🏆 +50 XP | 🔥 COMBO x7! | 📈 [████████] 7/7',
   interestingFact:
     'Во встроенных вопросах английский обычно возвращается к обычному порядку слов: what she likes, where he lives, where the station is.',
   options: [

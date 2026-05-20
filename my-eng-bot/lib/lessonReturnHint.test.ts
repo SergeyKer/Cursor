@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildLessonReturnHint } from '@/lib/lessonReturnHint'
+import { buildLessonReturnHint, buildLessonReturnHintBannerLine } from '@/lib/lessonReturnHint'
 
 describe('buildLessonReturnHint', () => {
   it('builds menu reopen hint without repeat cap line', () => {
@@ -23,5 +23,14 @@ describe('buildLessonReturnHint', () => {
     })
     expect(text).toContain('максимум серебро')
     expect(text.split('\n')).toHaveLength(3)
+  })
+
+  it('builds single-line banner without newlines', () => {
+    const line = buildLessonReturnHintBannerLine({
+      audience: 'adult',
+      bestTotalXp: 120,
+    })
+    expect(line).toContain('120 XP')
+    expect(line).not.toContain('\n')
   })
 })

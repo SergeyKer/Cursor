@@ -212,7 +212,6 @@ const selfIntroVariants: SelfIntroVariant[] = [
 
 const selfIntroPostLesson = {
   dynamicFooterText: 'Выбор за вами! Любое действие закрепит материал',
-  staticFooterText: '🏆 +50 XP | 🔥 COMBO x7! | 📈 [████████] 7/7',
     interestingFact:
     'В разговоре чаще говорят I’m happy, а I am from … звучит понятно, когда важно сказать, откуда вы.',
   options: [

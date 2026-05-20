@@ -8,14 +8,6 @@ const REWARD_TOP_LINE_TEMPLATES: RewardTemplateMap = {
     adult: ['Хороший шаг. +{xp} XP к уровню.'],
     child: ['Отлично! +{xp} XP к уровню!'],
   },
-  lesson_step_completed: {
-    adult: ['Хороший шаг вперёд. +{xp} XP.'],
-    child: ['Отлично! +{xp} XP!'],
-  },
-  lesson_completed: {
-    adult: ['Урок завершён. +{xp} XP за прогресс.'],
-    child: ['Урок готов! +{xp} XP!'],
-  },
   practice_completed: {
     adult: ['Практика завершена. +{xp} XP.'],
     child: ['Практика завершена! +{xp} XP!'],

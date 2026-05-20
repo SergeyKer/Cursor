@@ -56,3 +56,14 @@ export function buildLessonReturnHint(params: {
   }
   return lines.join('\n')
 }
+
+/** Одна строка для постоянного баннера повтора (без переносов). */
+export function buildLessonReturnHintBannerLine(params: {
+  audience: FooterCopyAudience
+  bestTotalXp: number
+}): string {
+  return XP_RECORD_LINE[params.audience].replace(
+    '{bestTotalXp}',
+    String(Math.max(0, Math.floor(params.bestTotalXp)))
+  )
+}

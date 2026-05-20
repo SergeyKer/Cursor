@@ -9,7 +9,9 @@ import type { LessonMedalTierOrNull } from '@/lib/lessonScore'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
+import LessonRunBanner from '@/components/LessonRunBanner'
 import type { BlockProgress, LessonStatus, LessonTimelineEntry } from '@/hooks/useLessonEngine'
+import { formatLessonErrorFeedback } from '@/lib/lessonFeedbackMessage'
 import { getLessonSingleWordRuCue } from '@/lib/lessonSingleWordCue'
 import { speak } from '@/lib/speech'
 import { seededShuffle } from '@/lib/shuffleSeeded'
@@ -30,6 +32,7 @@ type LessonStepRendererProps = {
     taskTotal?: number
   }) => void
   onPuzzleSubStep?: (params: { subIndex: number; attempts: number }) => void
+  onPuzzleProgressChange?: (progress: { subIndex: number; subTotal: number }) => void
   puzzleSubMaxXp?: number
   lessonMedalReveal?: {
     medal: LessonMedalTierOrNull
@@ -44,6 +47,7 @@ type LessonStepRendererProps = {
   voiceId: string
   /** Новый ключ (например `runKey` урока) — новый порядок вариантов в fill_choice на каждый проход. */
   choiceShuffleSeed?: string
+  runBannerText?: string | null
 }
 
 type LessonMessage =
@@ -142,6 +146,7 @@ export default function LessonStepRenderer({
   onAnswer,
   onCompleteStep,
   onPuzzleSubStep,
+  onPuzzleProgressChange,
   puzzleSubMaxXp,
   lessonMedalReveal = null,
   onPostLessonAction,
@@ -149,6 +154,7 @@ export default function LessonStepRenderer({
   audience,
   voiceId,
   choiceShuffleSeed,
+  runBannerText = null,
 }: LessonStepRendererProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const bottomStackRef = useRef<HTMLDivElement>(null)
@@ -367,7 +373,11 @@ export default function LessonStepRenderer({
       if (entry.feedback && (!entry.isCurrent || status === 'feedback')) {
         const feedbackText =
           entry.feedback.type === 'error' && entry.step.exercise
-            ? `${entry.feedback.message}\nСкажи: ${entry.step.exercise?.correctAnswer ?? ''}`.trim()
+            ? formatLessonErrorFeedback({
+                message: entry.feedback.message,
+                correctAnswer: entry.step.exercise.correctAnswer,
+                exerciseErrors,
+              })
             : entry.feedback.message
         messages.push({
           id: `feedback-${messageBaseId}-${entry.feedback.type}`,
@@ -380,7 +390,7 @@ export default function LessonStepRenderer({
     })
 
     return messages
-  }, [timeline, blockProgress.visibleCount, status, latestFeedback?.type])
+  }, [timeline, blockProgress.visibleCount, status, latestFeedback?.type, exerciseErrors])
 
   const tailLessonMessageId = lessonMessages.at(-1)?.id ?? ''
 
@@ -478,6 +488,7 @@ export default function LessonStepRenderer({
   const showMedalOverlay = Boolean(
     lessonMedalReveal && hasPostLessonOptions && !medalOverlayDismissed
   )
+  const showPostLessonMenu = hasPostLessonOptions && (!lessonMedalReveal || medalOverlayDismissed)
   const scrollBottomPadding =
     currentStep != null
       ? `calc(0.625rem + ${bottomStackHeightCss} + ${inputGapPx}px)`
@@ -491,6 +502,7 @@ export default function LessonStepRenderer({
             className="glass-surface flex min-h-0 flex-1 w-full flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
             style={{ boxShadow: 'var(--chat-shell-shadow)' }}
           >
+            {runBannerText ? <LessonRunBanner text={runBannerText} /> : null}
             <div
               ref={scrollContainerRef}
               className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3"
@@ -609,7 +621,7 @@ export default function LessonStepRenderer({
                 }`}
                 style={{ paddingBottom: 'calc(var(--app-bottom-inset) + 0.375rem)' }}
               >
-                {hasPostLessonOptions ? (
+                {showPostLessonMenu ? (
                   <PostLessonMenu
                     options={postLesson?.options ?? []}
                     onSelect={(action) => onPostLessonAction?.(action)}
@@ -625,6 +637,7 @@ export default function LessonStepRenderer({
                     onSubPuzzleComplete={(summary) =>
                       onPuzzleSubStep?.({ subIndex: summary.subIndex, attempts: summary.attempts })
                     }
+                    onPuzzleProgressChange={onPuzzleProgressChange}
                     onComplete={(summary) =>
                       onCompleteStep?.({
                         submittedAnswer: summary.submittedAnswer,

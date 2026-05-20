@@ -135,7 +135,6 @@ const itsTimeVariants: ItsTimeVariant[] = [
 
 const itsTimePostLesson = {
   dynamicFooterText: 'Выбор за вами! Любое действие закрепит материал',
-  staticFooterText: '🏆 +50 XP | 🔥 COMBO x7! | 📈 [████████] 7/7',
   interestingFact:
     'В живой речи английского It is часто сокращают до It’s, а сама конструкция It’s time to звучит мягче и естественнее, чем прямой приказ.',
   options: [

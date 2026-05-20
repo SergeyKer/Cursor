@@ -133,7 +133,6 @@ function buildTutorFinale(topic: string): LessonFinale {
     myEngComment: 'Хорошая база. Можно повторить или перейти в практику.',
     postLesson: {
       dynamicFooterText: 'Выбор за вами! Любое действие закрепит материал',
-      staticFooterText: '🏆 +50 XP | 🔥 COMBO x7! | 📈 [████████] 7/7',
       interestingFact: `Раздел с фишками по теме ${safeTopic} появится следующим этапом.`,
       options: [
         { action: 'repeat_variant', label: 'Повторить с новой ситуацией', icon: '🔁' },

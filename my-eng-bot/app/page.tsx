@@ -84,7 +84,15 @@ import {
 import MedalBadge from '@/components/MedalBadge'
 import { resolveLessonFooterTopLine } from '@/lib/lessonFooterTopLine'
 import { resolveGlobalLessonXpDelta } from '@/lib/lessonGlobalXpAward'
-import { buildLessonReturnHint, type LessonReturnHintContext } from '@/lib/lessonReturnHint'
+import {
+  buildLessonReturnHint,
+  buildLessonReturnHintBannerLine,
+  type LessonReturnHintContext,
+} from '@/lib/lessonReturnHint'
+import {
+  formatLessonHeaderProgressAriaLabel,
+  formatLessonHeaderProgressLabel,
+} from '@/lib/lessonHeaderProgress'
 import { capMedalForRepeatRun, computeCorePercent, resolveMedalFromCoreXp } from '@/lib/lessonScore'
 import { getLessonBadgeDefinition, resolveLessonBadgeProgress } from '@/lib/lessonBadges'
 import { mergeLessonProgressOnComplete, migrateUserLessonProgress } from '@/lib/lessonProgressMigration'
@@ -576,6 +584,10 @@ export default function Home() {
   const structuredLessonRunOriginRef = React.useRef<StructuredLessonRunOrigin>('menu_reopen')
   /** Если у урока нет runKey, порядок вариантов fill_choice зависит от nonce на каждый новый вход. */
   const [structuredLessonShuffleNonce, setStructuredLessonShuffleNonce] = useState(0)
+  const [structuredLessonPuzzleProgress, setStructuredLessonPuzzleProgress] = useState<{
+    subIndex: number
+    subTotal: number
+  } | null>(null)
   const [postLessonBusy, setPostLessonBusy] = useState(false)
   const [selectedPostLessonAction, setSelectedPostLessonAction] = useState<PostLessonAction | null>(null)
   const [lessonOverlay, setLessonOverlay] = useState<LessonOverlayState | null>(null)
@@ -623,6 +635,7 @@ export default function Home() {
     activeLessonVariantNumber > 1 ||
     structuredLessonRunOriginRef.current === 'post_lesson_repeat' ||
     structuredLessonRunOriginRef.current === 'repeat_api'
+
   const practiceSession = usePracticeSession()
   const { abandonSession: abandonPracticeSession, startSession: startPracticeSession } = practiceSession
   const [accentTrainerActive, setAccentTrainerActive] = useState(false)
@@ -4315,6 +4328,69 @@ export default function Home() {
   const isLessonIntroActive = Boolean(activeLessonIntro && activeLearningLesson && lessonViewStage === 'intro')
   const isLessonTipsActive = Boolean(activeLessonIntro && activeLearningLesson && lessonViewStage === 'tips')
   const isStructuredLessonActive = Boolean(activeStructuredLesson && activeStructuredLessonStep && lessonViewStage === 'lesson')
+
+  useEffect(() => {
+    setStructuredLessonPuzzleProgress(null)
+  }, [activeStructuredLessonCurrentStep, activeStructuredLessonStep?.stepNumber])
+
+  const lessonHeaderProgressLabel = useMemo(() => {
+    if (!isStructuredLessonActive) return null
+    return formatLessonHeaderProgressLabel({
+      isFinale: activeStructuredLessonIsFinale,
+      currentStepIndex: activeStructuredLessonCurrentStep,
+      totalSteps: activeStructuredLessonTotalSteps,
+      stepNumber: activeStructuredLessonStep?.stepNumber,
+      variantProgress: activeStructuredLessonFooterVariantProgress,
+      puzzleSubIndex: structuredLessonPuzzleProgress?.subIndex,
+      puzzleSubTotal: structuredLessonPuzzleProgress?.subTotal,
+    })
+  }, [
+    isStructuredLessonActive,
+    activeStructuredLessonIsFinale,
+    activeStructuredLessonCurrentStep,
+    activeStructuredLessonTotalSteps,
+    activeStructuredLessonStep?.stepNumber,
+    activeStructuredLessonFooterVariantProgress,
+    structuredLessonPuzzleProgress,
+  ])
+
+  const lessonHeaderProgressAriaLabel = useMemo(() => {
+    if (!isStructuredLessonActive) return null
+    return formatLessonHeaderProgressAriaLabel({
+      isFinale: activeStructuredLessonIsFinale,
+      currentStepIndex: activeStructuredLessonCurrentStep,
+      totalSteps: activeStructuredLessonTotalSteps,
+      stepNumber: activeStructuredLessonStep?.stepNumber,
+      variantProgress: activeStructuredLessonFooterVariantProgress,
+      puzzleSubIndex: structuredLessonPuzzleProgress?.subIndex,
+      puzzleSubTotal: structuredLessonPuzzleProgress?.subTotal,
+    })
+  }, [
+    isStructuredLessonActive,
+    activeStructuredLessonIsFinale,
+    activeStructuredLessonCurrentStep,
+    activeStructuredLessonTotalSteps,
+    activeStructuredLessonStep?.stepNumber,
+    activeStructuredLessonFooterVariantProgress,
+    structuredLessonPuzzleProgress,
+  ])
+
+  const structuredLessonRunBannerText = useMemo(() => {
+    if (!isStructuredLessonActive || !isStructuredLessonRepeatRun || !activeStructuredLesson) return null
+    const progress = loadLessonProgress(activeStructuredLesson.id)
+    if (!progress?.medal) return null
+    return buildLessonReturnHintBannerLine({
+      audience: settings.audience,
+      bestTotalXp: progress.bestTotalXp ?? 0,
+    })
+  }, [
+    isStructuredLessonActive,
+    isStructuredLessonRepeatRun,
+    activeStructuredLesson,
+    activeStructuredLesson?.id,
+    settings.audience,
+  ])
+
   const activeLessonTitle = activeLearningLesson?.title ?? null
   const activeLessonTipsKey = activeLearningLessonId
     ? `${activeLearningLessonId}:${activeStructuredLesson?.runKey ?? activeStructuredLesson?.variantId ?? activeLessonVariantNumber}`
@@ -5156,6 +5232,15 @@ export default function Home() {
                   )}
                 </div>
               )}
+              {dialogStarted && isStructuredLessonActive && lessonHeaderProgressLabel ? (
+                <span
+                  className="mr-1 max-w-[5.5rem] shrink-0 truncate rounded-md border border-[var(--app-header-control-border)] px-1.5 py-0.5 text-[10px] font-semibold tabular-nums leading-none text-[var(--app-header-text)] sm:max-w-none sm:text-[11px]"
+                  title={lessonHeaderProgressAriaLabel ?? lessonHeaderProgressLabel}
+                  aria-label={lessonHeaderProgressAriaLabel ?? lessonHeaderProgressLabel}
+                >
+                  {lessonHeaderProgressLabel}
+                </span>
+              ) : null}
               {dialogStarted &&
                 (lessonHeaderMedal ? (
                   <span className="app-header-avatar mr-1 sm:mr-2 flex h-10 w-10 shrink-0 items-center justify-center">
@@ -5581,6 +5666,8 @@ export default function Home() {
                   audience={settings.audience}
                   voiceId={settings.voiceId}
                   choiceShuffleSeed={structuredLessonChoiceShuffleSeed}
+                  runBannerText={structuredLessonRunBannerText}
+                  onPuzzleProgressChange={setStructuredLessonPuzzleProgress}
                 />
               ) : (
                 <Chat
