@@ -81,7 +81,6 @@ export type LessonFooterVoice = {
 
 const VALIDATION_DELAY_MS = 400
 const AUTO_ADVANCE_DELAY_MS = 1500
-const BUBBLE_REVEAL_INTERVAL_MS = 450
 
 function buildLessonHintMessage(hint: string | undefined): string {
   return hint?.trim() || 'Почти. Попробуйте еще раз.'
@@ -299,40 +298,12 @@ export function useLessonEngine(lesson: LessonData | null) {
     setExerciseErrors(0)
   }, [rawStep?.stepNumber, rawStep?.exercise?.variants])
 
-  const bubbleCount: number = step?.bubbles?.length ?? 0
-  const [revealedBubbleCount, setRevealedBubbleCount] = useState(0)
-
-  useEffect(() => {
-    if (bubbleCount <= 0) {
-      setRevealedBubbleCount(0)
-      return
-    }
-    if (bubbleCount === 1) {
-      setRevealedBubbleCount(1)
-      return
-    }
-
-    setRevealedBubbleCount(1)
-    let visible = 1
-    const revealTimer = window.setInterval(() => {
-      visible += 1
-      if (visible >= bubbleCount) {
-        setRevealedBubbleCount(bubbleCount)
-        window.clearInterval(revealTimer)
-        return
-      }
-      setRevealedBubbleCount(visible)
-    }, BUBBLE_REVEAL_INTERVAL_MS)
-
-    return () => window.clearInterval(revealTimer)
-  }, [bubbleCount, currentStep, currentVariantIndex, rawStep?.stepNumber])
-
   const blockProgress = useMemo<BlockProgress>(
     () => ({
-      visibleCount: bubbleCount <= 1 ? bubbleCount : Math.max(1, Math.min(revealedBubbleCount, bubbleCount)),
+      visibleCount: step?.bubbles.length ?? 0,
       awaitsInput: Boolean(step?.exercise),
     }),
-    [bubbleCount, revealedBubbleCount, step?.exercise]
+    [step]
   )
 
   const goToStep = useCallback(
