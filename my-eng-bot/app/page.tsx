@@ -692,7 +692,7 @@ export default function Home() {
   const communicationVoiceInputMode = getCommunicationVoiceInputMode(settings)
   const communicationVoiceDropdownRef = React.useRef<HTMLDivElement | null>(null)
   const appColumnRef = React.useRef<HTMLDivElement | null>(null)
-  const chatGlassRef = React.useRef<HTMLDivElement | null>(null)
+  const chatGlassRef = React.useRef<HTMLDivElement>(null)
   const headerColumnBounds = useAppColumnBounds(appColumnRef, { remeasureWhen: menuOpen })
   const chatColumnBounds = useAppColumnBounds(chatGlassRef, { remeasureWhen: menuOpen })
   const appColumnBounds = React.useMemo(() => {

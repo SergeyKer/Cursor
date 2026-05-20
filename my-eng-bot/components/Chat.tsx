@@ -127,7 +127,7 @@ interface ChatProps {
   /** Счётчик увеличения — сброс поля ввода/голоса (напр. «Начать общение» из меню). */
   composerSessionKey?: number
   /** Якорь левого края колонки приложения (glass-surface) для выдвижного меню. */
-  appColumnAnchorRef?: React.RefObject<HTMLDivElement | null>
+  appColumnAnchorRef?: React.RefObject<HTMLDivElement>
   engvo?: {
     active: boolean
     callPhase: EngvoCallPhase

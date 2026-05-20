@@ -299,7 +299,7 @@ export function useLessonEngine(lesson: LessonData | null) {
     setExerciseErrors(0)
   }, [rawStep?.stepNumber, rawStep?.exercise?.variants])
 
-  const bubbleCount = step?.bubbles.length ?? 0
+  const bubbleCount: number = step?.bubbles?.length ?? 0
   const [revealedBubbleCount, setRevealedBubbleCount] = useState(0)
 
   useEffect(() => {
