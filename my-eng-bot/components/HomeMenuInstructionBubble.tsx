@@ -9,7 +9,7 @@ type HomeMenuInstructionBubbleProps = {
 }
 
 /** Узкая колонка на iPhone: меньше кегль и плотнее интерлиньяж, до sm. */
-const instructionBubbleClass = `${HOME_ASSISTANT_BUBBLE_CLASS} max-w-full text-[13px] leading-tight text-gray-900 sm:text-[15px] sm:leading-snug`
+const instructionBubbleClass = `${HOME_ASSISTANT_BUBBLE_CLASS} emoji-line max-w-full text-[13px] text-gray-900 sm:text-[15px]`
 
 export function HomeMenuInstructionBubble({ text, ariaLabel = 'Инструкция по разделу' }: HomeMenuInstructionBubbleProps) {
   return (

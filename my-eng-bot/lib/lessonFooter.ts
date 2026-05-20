@@ -1,3 +1,4 @@
+import { formatComboSegmentText } from '@/lib/gamificationGlyphs'
 import { getLessonLearningSteps } from '@/lib/lessonFinale'
 import {
   coreXpToNextMedalTier,
@@ -10,19 +11,6 @@ import type { LessonMedalTier, LessonMedalTierOrNull, LiveFooterMedalState } fro
 import type { LessonData } from '@/types/lesson'
 import type { Audience } from '@/lib/types'
 import type { UserLessonProgress } from '@/types/userProgress'
-
-const MEDAL_EMOJI: Record<LiveFooterMedalState, string> = {
-  grey: '○',
-  bronze: '🥉',
-  silver: '🥈',
-  gold: '🥇',
-}
-
-const NEXT_TIER_EMOJI: Record<LessonMedalTier, string> = {
-  bronze: '🥉',
-  silver: '🥈',
-  gold: '🥇',
-}
 
 const MEDAL_LABEL: Record<LiveFooterMedalState, string> = {
   grey: 'Старт — медаль появится с первых очков',
@@ -49,6 +37,8 @@ export interface LessonFooterLiveInput {
   maxCombo: number
   coreDelta?: number
   comboDelta?: number
+  comboMilestoneBlocked?: boolean
+  isRepeatRun?: boolean
   audience?: Audience
 }
 
@@ -56,10 +46,21 @@ export type LessonFooterSegmentKind = 'goal' | 'xp' | 'combo' | 'medal'
 
 export type LessonFooterAccountSegmentKind = 'totalXp' | 'streak'
 
+export type LessonFooterMedalVisual =
+  | { mode: 'tier'; tier: LessonMedalTier; muted?: boolean }
+  | {
+      mode: 'progress'
+      nextTier: LessonMedalTier
+      progressPercent: number
+      hintText?: string
+    }
+  | { mode: 'textOnly'; hintText: string }
+
 export interface LessonFooterSegment {
   kind: LessonFooterSegmentKind
   text: string
   title?: string
+  medalVisual?: LessonFooterMedalVisual
 }
 
 export interface LessonFooterAccountSegment {
@@ -76,8 +77,9 @@ export interface LessonFooterLiveView {
 }
 
 export interface LessonCardMedalDisplay {
-  emoji: string
+  tier: LessonMedalTier
   title: string
+  muted?: boolean
 }
 
 export interface LessonStageProgress {
@@ -166,7 +168,7 @@ export function resolveLessonCardMedal(
   if (progress.medal) {
     const tier = progress.medal
     return {
-      emoji: MEDAL_EMOJI[tier],
+      tier,
       title: MEDAL_LABEL[tier],
     }
   }
@@ -182,7 +184,7 @@ export function resolveLessonCardMedal(
   if (live.current === 'grey') return null
 
   return {
-    emoji: MEDAL_EMOJI[live.current],
+    tier: live.current,
     title: MEDAL_LABEL[live.current],
   }
 }
@@ -208,23 +210,26 @@ function formatXpSegment(input: LessonFooterLiveInput): LessonFooterSegment {
   return {
     kind: 'xp',
     text,
-    title: `${lessonXp} XP за урок (шаги + бонусы COMBO). Медаль — по точности шагов.`,
+    title: `${lessonXp} XP — очки этого прохода (+ за шаг). К уровню — отдельно, только прирост к рекорду.`,
   }
 }
 
 function formatComboSegment(input: LessonFooterLiveInput): LessonFooterSegment {
   const { combo, comboDelta, maxCombo } = input
   let text: string
-  let title = `COMBO: ${combo} подряд верных ответов. Ошибка сбрасывает серию.`
+  let title = `COMBO: ${combo} подряд верных ответов. Ошибка сбрасывает COMBO.`
 
   if (comboDelta && comboDelta > 0) {
-    text = `🔥×${combo}(+${comboDelta} XP)`
-    title = `COMBO ×${combo}. Бонус +${comboDelta} XP за веху. ${title}`
+    text = formatComboSegmentText(combo, `(+${comboDelta})`)
+    title = `COMBO ×${combo}. +${comboDelta} XP в счёт этого прохода. ${title}`
+  } else if (input.comboMilestoneBlocked && combo >= 3) {
+    text = formatComboSegmentText(combo)
+    title = `COMBO ×${combo}. COMBO растёт — бонус к уровню позже (нужно ≥50% core). ${title}`
   } else if (maxCombo > combo) {
-    text = `🔥×${combo} рек.×${maxCombo}`
-    title = `Серия сброшена (сейчас ×${combo}). Рекорд урока: ×${maxCombo}. Бонусы COMBO в XP сохранены.`
+    text = `${formatComboSegmentText(combo)} рек.×${maxCombo}`
+    title = `COMBO сброшен (×${combo}). Рекорд COMBO ×${maxCombo}. Очки вех этого прохода уже в ⭐.`
   } else {
-    text = `🔥×${combo}`
+    text = formatComboSegmentText(combo)
   }
 
   return { kind: 'combo', text, title }
@@ -240,49 +245,64 @@ function formatMedalFooterSegment(input: LessonFooterLiveInput): LessonFooterSeg
   const { coreXp, maxCoreXp, isFinale, audience } = input
 
   if (isFinale) {
-    const tier = resolveMedalFromCoreXp(coreXp, true, maxCoreXp)
-    const emoji = tier ? MEDAL_EMOJI[tier] : '🥇'
+    const tier = resolveMedalFromCoreXp(coreXp, true, maxCoreXp) ?? 'gold'
     return {
       kind: 'medal',
-      text: emoji,
-      title: tier ? FINAL_MEDAL_LABEL[tier] : 'Урок завершён',
+      text: '',
+      title: FINAL_MEDAL_LABEL[tier],
+      medalVisual: { mode: 'tier', tier },
     }
   }
 
   if (coreXp <= 0) {
     return {
       kind: 'medal',
-      text: '🥉',
+      text: '',
       title: 'Первая медаль — бронза. Ответьте верно, чтобы начать.',
+      medalVisual: { mode: 'tier', tier: 'bronze', muted: true },
     }
   }
 
   const live = resolveLiveFooterMedal(coreXp, maxCoreXp)
+  const repeatNote = input.isRepeatRun ? ' (повтор: max серебро за проход)' : ''
   const toNext = coreXpToNextMedalTier(coreXp, maxCoreXp)
 
   if (!live.next || toNext == null) {
+    const tier = live.current === 'grey' ? 'bronze' : live.current
     return {
       kind: 'medal',
-      text: MEDAL_EMOJI[live.current],
-      title: `${MEDAL_LABEL[live.current]}. Максимальная ступень по точности.`,
+      text: '',
+      title: `${MEDAL_LABEL[live.current]}. Максимальная ступень по точности.${repeatNote}`,
+      medalVisual: { mode: 'tier', tier },
     }
   }
 
   const gap = medalGapPercent(coreXp, maxCoreXp)
-  const nextEmoji = NEXT_TIER_EMOJI[live.next]
+  const progressTitle = `${MEDAL_LABEL[live.current]}. До ${FINAL_MEDAL_LABEL[live.next].toLowerCase()}: ${gap}% точности (${toNext} XP за шаги).${repeatNote}`
 
   if (audience === 'child' && gap <= 8) {
     return {
       kind: 'medal',
-      text: `Почти ${nextEmoji}!`,
+      text: '',
       title: `${MEDAL_LABEL[live.current]}. До ${FINAL_MEDAL_LABEL[live.next].toLowerCase()}: ~${gap}% точности.`,
+      medalVisual: {
+        mode: 'progress',
+        nextTier: live.next,
+        progressPercent: gap,
+        hintText: 'Почти!',
+      },
     }
   }
 
   return {
     kind: 'medal',
-    text: `${nextEmoji}→${gap}%`,
-    title: `${MEDAL_LABEL[live.current]}. До ${FINAL_MEDAL_LABEL[live.next].toLowerCase()}: ${gap}% точности (${toNext} XP за шаги).`,
+    text: '',
+    title: progressTitle,
+    medalVisual: {
+      mode: 'progress',
+      nextTier: live.next,
+      progressPercent: gap,
+    },
   }
 }
 
@@ -305,7 +325,40 @@ export function buildLessonFooterLive(input: LessonFooterLiveInput): LessonFoote
     lessonSegments,
     accountSegments: [],
     accountLine: '',
-    lessonTitle: 'Этап урока · XP · серия · медаль',
+    lessonTitle: 'Этап урока · XP · COMBO · медаль',
     accountTitle: '',
+  }
+}
+
+/** Текущая медаль в шапке урока (не цель «До …» из футера). */
+export function resolveLessonHeaderMedal(input: {
+  coreXp: number
+  maxCoreXp: number
+  isFinale: boolean
+}): LessonCardMedalDisplay | null {
+  const { coreXp, maxCoreXp, isFinale } = input
+
+  if (isFinale) {
+    const tier = resolveMedalFromCoreXp(coreXp, true, maxCoreXp) ?? 'gold'
+    return {
+      tier,
+      title: FINAL_MEDAL_LABEL[tier],
+    }
+  }
+
+  if (coreXp <= 0) {
+    return {
+      tier: 'bronze',
+      muted: true,
+      title: MEDAL_LABEL.grey,
+    }
+  }
+
+  const live = resolveLiveFooterMedal(coreXp, maxCoreXp)
+  const tier = live.current === 'grey' ? 'bronze' : live.current
+
+  return {
+    tier,
+    title: MEDAL_LABEL[live.current],
   }
 }

@@ -15,6 +15,7 @@ import MenuSectionPanels, {
   type LearningLessonMenuMeta,
   type MenuView,
 } from '@/components/MenuSectionPanels'
+import { useAppColumnBounds } from '@/hooks/useAppColumnBounds'
 import { buildCompactGreeting } from '@/lib/homeGreeting'
 import { consumeNextGreetingFactLine } from '@/lib/greetingFactRotation'
 import { consumeNextHomeVoiceLine } from '@/lib/homeVoiceRotation'
@@ -75,8 +76,16 @@ import {
 } from '@/lib/homeCtaStyles'
 import { parseCorrection } from '@/lib/parseCorrection'
 import { stripTranslationCanonicalRepeatRefLine } from '@/lib/translationPromptAndRef'
-import { buildLessonFooterLive, formatLessonCompletionFooter } from '@/lib/lessonFooter'
-import { computeCorePercent, resolveMedalFromCoreXp } from '@/lib/lessonScore'
+import {
+  buildLessonFooterLive,
+  formatLessonCompletionFooter,
+  resolveLessonHeaderMedal,
+} from '@/lib/lessonFooter'
+import MedalBadge from '@/components/MedalBadge'
+import { resolveLessonFooterTopLine } from '@/lib/lessonFooterTopLine'
+import { resolveGlobalLessonXpDelta } from '@/lib/lessonGlobalXpAward'
+import { buildLessonReturnHint, type LessonReturnHintContext } from '@/lib/lessonReturnHint'
+import { capMedalForRepeatRun, computeCorePercent, resolveMedalFromCoreXp } from '@/lib/lessonScore'
 import { getLessonBadgeDefinition, resolveLessonBadgeProgress } from '@/lib/lessonBadges'
 import { mergeLessonProgressOnComplete, migrateUserLessonProgress } from '@/lib/lessonProgressMigration'
 import { loadLessonProgress, saveLessonProgress } from '@/lib/lessonProgressStorage'
@@ -513,12 +522,17 @@ type EngvoRealtimeEvent = {
 /** Попап XP чуть позже ответа ИИ, чтобы не сливались по времени с появлением сообщения. */
 const REWARD_POPUP_DELAY_AFTER_MESSAGE_MS = 550
 const REWARD_POPUP_VISIBLE_MS = 3200
+const LESSON_RETURN_HINT_VISIBLE_MS = 10_000
+
+type StructuredLessonRunOrigin = 'menu_reopen' | 'menu_generate' | 'post_lesson_repeat' | 'repeat_api'
 
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [rewardsState, setRewardsState] = useState<RewardsState>(createDefaultRewardsState())
   const [rewardPopupText, setRewardPopupText] = useState<string | null>(null)
+  const [lessonReturnHintText, setLessonReturnHintText] = useState<string | null>(null)
+  const [lastStructuredLessonGlobalDelta, setLastStructuredLessonGlobalDelta] = useState(0)
   const [footerSessionContextNonce, setFooterSessionContextNonce] = useState(0)
   const [footerTransitionText, setFooterTransitionText] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -559,6 +573,7 @@ export default function Home() {
   const [startLessonCtaFromMenuGenerate, setStartLessonCtaFromMenuGenerate] = useState(false)
   const [pendingTutorLessonTitle, setPendingTutorLessonTitle] = useState<string | null>(null)
   const [activeLessonVariantNumber, setActiveLessonVariantNumber] = useState(1)
+  const structuredLessonRunOriginRef = React.useRef<StructuredLessonRunOrigin>('menu_reopen')
   /** Если у урока нет runKey, порядок вариантов fill_choice зависит от nonce на каждый новый вход. */
   const [structuredLessonShuffleNonce, setStructuredLessonShuffleNonce] = useState(0)
   const [postLessonBusy, setPostLessonBusy] = useState(false)
@@ -575,6 +590,7 @@ export default function Home() {
     step: activeStructuredLessonStep,
     timeline: activeStructuredLessonTimeline,
     status: activeStructuredLessonStatus,
+    feedback: activeStructuredLessonFeedback,
     blockProgress: activeStructuredLessonBlockProgress,
     footerDynamicText: activeStructuredLessonFooterDynamicText,
     footerStaticText: activeStructuredLessonFooterStaticText,
@@ -603,6 +619,10 @@ export default function Home() {
     lastComboDelta: activeStructuredLessonLastComboDelta,
     lastXpAward: activeStructuredLessonLastXpAward,
   } = useLessonEngine(activeStructuredLesson)
+  const isStructuredLessonRepeatRun =
+    activeLessonVariantNumber > 1 ||
+    structuredLessonRunOriginRef.current === 'post_lesson_repeat' ||
+    structuredLessonRunOriginRef.current === 'repeat_api'
   const practiceSession = usePracticeSession()
   const { abandonSession: abandonPracticeSession, startSession: startPracticeSession } = practiceSession
   const [accentTrainerActive, setAccentTrainerActive] = useState(false)
@@ -638,6 +658,8 @@ export default function Home() {
   const rewardedPracticeSessionRef = React.useRef<string | null>(null)
   const processedLessonXpAwardNonceRef = React.useRef(0)
   const processedLessonXpAwardKeyRef = React.useRef<string | null>(null)
+  const globalLessonXpAwardedThisRunRef = React.useRef(0)
+  const lessonReturnHintShownForRunRef = React.useRef<string | null>(null)
   const rewardPopupSeenRef = React.useRef<string | null>(null)
   const footerContextSignatureRef = React.useRef<string | null>(null)
   const footerTransitionTimeoutRef = React.useRef<number | null>(null)
@@ -656,6 +678,21 @@ export default function Home() {
   communicationInputExpectedLangRef.current = settings.communicationInputExpectedLang
   const communicationVoiceInputMode = getCommunicationVoiceInputMode(settings)
   const communicationVoiceDropdownRef = React.useRef<HTMLDivElement | null>(null)
+  const appColumnRef = React.useRef<HTMLDivElement | null>(null)
+  const chatGlassRef = React.useRef<HTMLDivElement | null>(null)
+  const headerColumnBounds = useAppColumnBounds(appColumnRef, { remeasureWhen: menuOpen })
+  const chatColumnBounds = useAppColumnBounds(chatGlassRef, { remeasureWhen: menuOpen })
+  const appColumnBounds = React.useMemo(() => {
+    const primary =
+      dialogStarted && chatColumnBounds ? chatColumnBounds : headerColumnBounds
+    if (!primary || !headerColumnBounds) return primary
+    return {
+      ...primary,
+      left: Math.min(primary.left, headerColumnBounds.left),
+      width: primary.width,
+      isFullBleed: primary.isFullBleed,
+    }
+  }, [dialogStarted, chatColumnBounds, headerColumnBounds])
   /** Настройки при открытии меню: режим + поля для сравнения при закрытии (без уровня). */
   const menuOpenSnapshotRef = React.useRef<MenuOpenSnapshot | null>(null)
   const prevMenuOpenForSnapshotRef = React.useRef(false)
@@ -2438,7 +2475,14 @@ export default function Home() {
       }
 
       if (isCompleted) {
-        let merged = mergeLessonProgressOnComplete(previous, sessionBase)
+        const isRepeatRun =
+          activeLessonVariantNumber > 1 ||
+          structuredLessonRunOriginRef.current === 'post_lesson_repeat' ||
+          structuredLessonRunOriginRef.current === 'repeat_api'
+        let merged = mergeLessonProgressOnComplete(previous, {
+          ...sessionBase,
+          isRepeatRun,
+        })
         const badgeDefinition = getLessonBadgeDefinition(lessonId)
         if (badgeDefinition) {
           const badgeProgress = resolveLessonBadgeProgress(merged, badgeDefinition, merged.medal)
@@ -2517,6 +2561,7 @@ export default function Home() {
       setMenuLessonBgError(null)
       setPendingTutorLessonTitle(null)
       setActiveLessonVariantNumber(1)
+      structuredLessonRunOriginRef.current = 'menu_reopen'
       setSelectedPostLessonAction(null)
       setPostLessonBusy(false)
       setLessonOverlay(null)
@@ -2599,6 +2644,7 @@ export default function Home() {
       setActiveStructuredLessonRuntime(null)
       setPendingTutorLessonTitle(null)
       setActiveLessonVariantNumber(1)
+      structuredLessonRunOriginRef.current = 'menu_generate'
       setSelectedPostLessonAction(null)
       setPostLessonBusy(false)
       setLessonOverlay(null)
@@ -3426,6 +3472,7 @@ export default function Home() {
       }
 
       if (action === 'repeat_variant') {
+        structuredLessonRunOriginRef.current = 'post_lesson_repeat'
         if (!getStructuredLessonById(activeStructuredLesson.id)) {
           setLessonOverlay(null)
           setActiveStructuredLessonRuntime(cloneStructuredLessonWithRunKey(activeStructuredLesson))
@@ -3440,6 +3487,7 @@ export default function Home() {
           setActiveStructuredLessonRuntime(null)
           setMessages([])
           setLoading(true)
+          structuredLessonRunOriginRef.current = 'repeat_api'
           const runtimeLesson = await fetchStructuredLessonRuntime(activeStructuredLesson.id, 'repeat')
           if (runtimeLesson) {
             setActiveStructuredLessonRuntime(runtimeLesson)
@@ -3783,20 +3831,75 @@ export default function Home() {
     if (!storageLoaded || !activeStructuredLesson) {
       processedLessonXpAwardNonceRef.current = 0
       processedLessonXpAwardKeyRef.current = null
+      globalLessonXpAwardedThisRunRef.current = 0
       return
     }
     const lessonKey = `${activeStructuredLesson.id}:${activeStructuredLesson.runKey ?? 'static'}`
     if (processedLessonXpAwardKeyRef.current !== lessonKey) {
       processedLessonXpAwardKeyRef.current = lessonKey
       processedLessonXpAwardNonceRef.current = activeStructuredLessonLastXpAward.nonce
+      globalLessonXpAwardedThisRunRef.current = 0
+      lessonReturnHintShownForRunRef.current = null
       return
     }
     if (activeStructuredLessonLastXpAward.nonce <= processedLessonXpAwardNonceRef.current) return
     processedLessonXpAwardNonceRef.current = activeStructuredLessonLastXpAward.nonce
-    const amount = activeStructuredLessonLastXpAward.total
+
+    const sessionTotal = activeStructuredLessonCoreXp + activeStructuredLessonComboXp
+    const progress = loadLessonProgress(activeStructuredLesson.id)
+    const previousBest = progress?.bestTotalXp ?? 0
+    const { amount } = resolveGlobalLessonXpDelta({
+      sessionTotalXp: sessionTotal,
+      previousBestTotalXp: previousBest,
+      alreadyAwardedThisRun: globalLessonXpAwardedThisRunRef.current,
+    })
+    setLastStructuredLessonGlobalDelta(amount)
     if (amount <= 0) return
+    globalLessonXpAwardedThisRunRef.current += amount
     setRewardsState((prev) => applyRewardsEvent(prev, { type: 'lesson_xp_awarded', amount }))
-  }, [storageLoaded, activeStructuredLesson, activeStructuredLessonLastXpAward])
+  }, [
+    storageLoaded,
+    activeStructuredLesson,
+    activeStructuredLessonCoreXp,
+    activeStructuredLessonComboXp,
+    activeStructuredLessonLastXpAward,
+  ])
+
+  useEffect(() => {
+    if (!storageLoaded || lessonViewStage !== 'lesson' || !activeStructuredLesson) return
+    const progress = loadLessonProgress(activeStructuredLesson.id)
+    if (!progress?.medal) return
+    const runKey = `${activeStructuredLesson.id}:${activeStructuredLesson.runKey ?? 'static'}`
+    if (lessonReturnHintShownForRunRef.current === runKey) return
+    lessonReturnHintShownForRunRef.current = runKey
+    const hintContext: LessonReturnHintContext =
+      structuredLessonRunOriginRef.current === 'post_lesson_repeat' ||
+      structuredLessonRunOriginRef.current === 'repeat_api'
+        ? 'post_lesson_repeat'
+        : 'menu_reopen'
+    const hintText = buildLessonReturnHint({
+      medal: progress.medal!,
+      audience: settings.audience,
+      context: hintContext,
+      bestTotalXp: progress.bestTotalXp ?? 0,
+    })
+    const showTimerId = window.setTimeout(() => {
+      setLessonReturnHintText(hintText)
+    }, REWARD_POPUP_DELAY_AFTER_MESSAGE_MS)
+    const hideTimerId = window.setTimeout(() => {
+      setLessonReturnHintText(null)
+    }, REWARD_POPUP_DELAY_AFTER_MESSAGE_MS + LESSON_RETURN_HINT_VISIBLE_MS)
+    return () => {
+      window.clearTimeout(showTimerId)
+      window.clearTimeout(hideTimerId)
+    }
+  }, [
+    storageLoaded,
+    lessonViewStage,
+    activeStructuredLesson,
+    activeStructuredLesson?.runKey,
+    settings.audience,
+  ])
 
   useEffect(() => {
     if (!storageLoaded || !practiceSession.session || practiceSession.session.status !== 'completed') return
@@ -4577,17 +4680,79 @@ export default function Home() {
       : null
   const structuredLessonCompletionFooterText = useMemo(() => {
     if (!isStructuredLessonActive || activeStructuredLessonStatus !== 'completed') return null
-    const medal = resolveMedalFromCoreXp(
+    const earned = resolveMedalFromCoreXp(
       activeStructuredLessonCoreXp,
       true,
       activeStructuredLessonMaxCoreXp
     )
+    const medal = capMedalForRepeatRun(earned, isStructuredLessonRepeatRun)
     return formatLessonCompletionFooter(medal)
   }, [
     isStructuredLessonActive,
     activeStructuredLessonStatus,
     activeStructuredLessonCoreXp,
     activeStructuredLessonMaxCoreXp,
+    isStructuredLessonRepeatRun,
+  ])
+  useEffect(() => {
+    if (!isStructuredLessonActive) return
+    if (
+      activeStructuredLessonStatus === 'checking' ||
+      activeStructuredLessonFeedback?.type === 'error'
+    ) {
+      setLastStructuredLessonGlobalDelta(0)
+    }
+  }, [
+    isStructuredLessonActive,
+    activeStructuredLessonStatus,
+    activeStructuredLessonFeedback?.type,
+  ])
+  const structuredLessonFooterMoment = React.useMemo(() => {
+    if (activeStructuredLessonStatus === 'checking') return 'checking' as const
+    if (activeStructuredLessonFeedback?.type === 'error') return 'error' as const
+    if (
+      activeStructuredLessonFeedback?.type === 'success' &&
+      lastStructuredLessonGlobalDelta > 0
+    ) {
+      return 'success_reward' as const
+    }
+    return 'neutral' as const
+  }, [
+    activeStructuredLessonStatus,
+    activeStructuredLessonFeedback?.type,
+    lastStructuredLessonGlobalDelta,
+  ])
+  const structuredLessonFooterBlocksCelebrateTicker =
+    isStructuredLessonActive &&
+    (activeStructuredLessonStatus === 'checking' ||
+      activeStructuredLessonFeedback?.type === 'error')
+  const structuredLessonFooterTopLine = React.useMemo(() => {
+    if (!isStructuredLessonActive || !activeStructuredLesson || structuredLessonCompletionFooterText) {
+      return null
+    }
+    const progress = loadLessonProgress(activeStructuredLesson.id)
+    const bestTotalXp = progress?.bestTotalXp ?? 0
+    const hasSavedMedal = Boolean(progress?.medal)
+    return resolveLessonFooterTopLine({
+      audience: settings.audience,
+      globalDelta: lastStructuredLessonGlobalDelta,
+      bestTotalXp,
+      combo: activeStructuredLessonCombo,
+      comboMilestoneBlocked: activeStructuredLessonLastXpAward.comboMilestoneBlocked,
+      isRepeatWithSavedMedal: hasSavedMedal && lastStructuredLessonGlobalDelta === 0,
+      voiceFallback: activeStructuredLessonFooterDynamicText,
+      moment: structuredLessonFooterMoment,
+    })
+  }, [
+    isStructuredLessonActive,
+    activeStructuredLesson,
+    structuredLessonCompletionFooterText,
+    settings.audience,
+    lastStructuredLessonGlobalDelta,
+    activeStructuredLessonCombo,
+    activeStructuredLessonLastXpAward.comboMilestoneBlocked,
+    activeStructuredLessonFooterDynamicText,
+    structuredLessonFooterMoment,
   ])
   const footerDynamicText = isAccentActive
     ? footerContextRewardTicker ?? accentFooterView?.dynamicText ?? null
@@ -4603,7 +4768,7 @@ export default function Home() {
       ? footerContextRewardTicker ?? tipsFooterDynamicText
       : isStructuredLessonActive
       ? structuredLessonCompletionFooterText ??
-        footerContextRewardTicker ??
+        structuredLessonFooterTopLine ??
         activeStructuredLessonFooterDynamicText
       : isLessonActive
       ? footerContextRewardTicker ?? learningLessonFooterDynamicText
@@ -4645,6 +4810,8 @@ export default function Home() {
       maxCombo: activeStructuredLessonMaxCombo,
       coreDelta: activeStructuredLessonLastCoreDelta,
       comboDelta: activeStructuredLessonLastComboDelta,
+      comboMilestoneBlocked: activeStructuredLessonLastXpAward.comboMilestoneBlocked,
+      isRepeatRun: isStructuredLessonRepeatRun,
       audience: settings.audience,
     })
   }, [
@@ -4660,8 +4827,26 @@ export default function Home() {
     activeStructuredLessonMaxCombo,
     activeStructuredLessonLastCoreDelta,
     activeStructuredLessonLastComboDelta,
+    activeStructuredLessonLastXpAward.comboMilestoneBlocked,
+    isStructuredLessonRepeatRun,
     settings.audience,
   ])
+  const lessonHeaderMedal = useMemo(
+    () =>
+      isStructuredLessonActive
+        ? resolveLessonHeaderMedal({
+            coreXp: activeStructuredLessonCoreXp,
+            maxCoreXp: activeStructuredLessonMaxCoreXp,
+            isFinale: activeStructuredLessonIsFinale,
+          })
+        : null,
+    [
+      isStructuredLessonActive,
+      activeStructuredLessonCoreXp,
+      activeStructuredLessonMaxCoreXp,
+      activeStructuredLessonIsFinale,
+    ]
+  )
   const footerStaticText =
     isStructuredLessonActive && structuredLessonFooterLive
       ? null
@@ -4683,7 +4868,7 @@ export default function Home() {
       : adaptiveFooterView?.typingKey ?? homeFooterVoice?.typingKey ?? 'home-footer'
   const footerTypingKey = structuredLessonCompletionFooterText
     ? `lesson-complete-${activeLearningLessonId ?? 'lesson'}:ctx-${footerSessionContextNonce}`
-    : footerContextRewardTicker
+    : footerContextRewardTicker && !structuredLessonFooterBlocksCelebrateTicker
       ? `reward-${rewardsState.ui.lastReward?.at ?? rewardsState.timestamp}:ctx-${footerSessionContextNonce}`
       : `${baseFooterTypingKey}:ctx-${footerSessionContextNonce}`
   const baseFooterVoiceTone = isAccentActive
@@ -4715,7 +4900,7 @@ export default function Home() {
       : (adaptiveFooterView?.tone ?? homeFooterVoice?.tone ?? 'neutral')
   const footerVoiceTone = structuredLessonCompletionFooterText
     ? 'celebrate'
-    : footerContextRewardTicker
+    : footerContextRewardTicker && !structuredLessonFooterBlocksCelebrateTicker
       ? 'celebrate'
       : baseFooterVoiceTone
   const baseFooterVoiceEmphasis = isAccentActive
@@ -4741,7 +4926,7 @@ export default function Home() {
       : (adaptiveFooterView?.emphasis ?? homeFooterVoice?.emphasis ?? 'none')
   const footerVoiceEmphasis = structuredLessonCompletionFooterText
     ? 'pulse'
-    : footerContextRewardTicker
+    : footerContextRewardTicker && !structuredLessonFooterBlocksCelebrateTicker
       ? 'pulse'
       : baseFooterVoiceEmphasis
   const engvoBootstrapServiceIndicatorText = getEngvoBootstrapServiceIndicatorText(engvoCallPhase)
@@ -4854,9 +5039,11 @@ export default function Home() {
     '--app-safe-top-inset': 'env(safe-area-inset-top, 0px)',
     '--app-header-row-height': '2.75rem',
     '--app-header-border-width': '1px',
-    '--app-footer-row-height': '5.25rem',
+    '--app-footer-row-height': 'calc(2 * var(--app-header-row-height))',
+    '--app-footer-border-width': '1px',
     '--app-bottom-inset': appBottomInset,
-    '--app-bottom-offset': 'calc(var(--app-footer-row-height) + var(--app-bottom-inset))',
+    '--app-bottom-offset':
+      'calc(var(--app-footer-row-height) + var(--app-bottom-inset) + var(--app-footer-border-width))',
     '--app-top-offset': appTopOffset,
   } as React.CSSProperties
 
@@ -4884,6 +5071,7 @@ export default function Home() {
       >
         <div className="chat-shell-x flex w-full min-h-[var(--app-header-row-height)] items-center">
           <div
+            ref={appColumnRef}
             className={`mx-auto flex w-full items-center justify-between ${
               dialogStarted ? 'max-w-[29rem]' : 'max-w-[23.2rem]'
             }`}
@@ -4968,18 +5156,31 @@ export default function Home() {
                   )}
                 </div>
               )}
-              {dialogStarted && (
-                <span className="app-header-avatar mr-1 sm:mr-2 flex h-10 w-10 shrink-0 items-center justify-center p-1" aria-hidden>
-                  <Image
-                    src="/header-robot.png"
-                    alt=""
-                    width={1024}
-                    height={1024}
-                    className="h-full w-full object-contain"
-                    sizes="36px"
-                  />
-                </span>
-              )}
+              {dialogStarted &&
+                (lessonHeaderMedal ? (
+                  <span className="app-header-avatar mr-1 sm:mr-2 flex h-10 w-10 shrink-0 items-center justify-center">
+                    <MedalBadge
+                      tier={lessonHeaderMedal.tier}
+                      size="md"
+                      muted={lessonHeaderMedal.muted}
+                      title={lessonHeaderMedal.title}
+                    />
+                  </span>
+                ) : (
+                  <span
+                    className="app-header-avatar mr-1 sm:mr-2 flex h-10 w-10 shrink-0 items-center justify-center p-1"
+                    aria-hidden
+                  >
+                    <Image
+                      src="/header-robot.png"
+                      alt=""
+                      width={1024}
+                      height={1024}
+                      className="h-full w-full object-contain"
+                      sizes="36px"
+                    />
+                  </span>
+                ))}
             </div>
           </div>
         </div>
@@ -5357,10 +5558,13 @@ export default function Home() {
                   lessonMedalReveal={
                     activeStructuredLessonStatus === 'completed'
                       ? {
-                          medal: resolveMedalFromCoreXp(
-                            activeStructuredLessonCoreXp,
-                            true,
-                            activeStructuredLessonMaxCoreXp
+                          medal: capMedalForRepeatRun(
+                            resolveMedalFromCoreXp(
+                              activeStructuredLessonCoreXp,
+                              true,
+                              activeStructuredLessonMaxCoreXp
+                            ),
+                            isStructuredLessonRepeatRun
                           ),
                           coreXp: activeStructuredLessonCoreXp,
                           comboXp: activeStructuredLessonComboXp,
@@ -5380,6 +5584,7 @@ export default function Home() {
                 />
               ) : (
                 <Chat
+                  appColumnAnchorRef={chatGlassRef}
                   messages={messages}
                   settings={settings}
                   loading={loading}
@@ -5436,6 +5641,11 @@ export default function Home() {
         visible={Boolean(rewardPopupText)}
         onDismiss={() => setRewardPopupText(null)}
       />
+      <RewardPopup
+        text={lessonReturnHintText ?? ''}
+        visible={Boolean(lessonReturnHintText)}
+        onDismiss={() => setLessonReturnHintText(null)}
+      />
 
       {/* Как и шапка: футер — fixed поверх бокового меню (z-50); спейсер оставляет тот же запас, что и блок в потоке. */}
       <div
@@ -5448,10 +5658,9 @@ export default function Home() {
         aria-hidden
       />
       <footer
-        className="app-footer-surface pointer-events-none fixed bottom-0 left-0 right-0 z-[60] border-t border-[var(--app-footer-border)]"
+        className="app-footer-surface pointer-events-none fixed bottom-0 left-0 right-0 z-[60] flex flex-col overflow-visible border-t border-[var(--app-footer-border)]"
         style={{
-          minHeight: 'var(--app-footer-row-height)',
-          paddingBottom: 'var(--app-bottom-inset)',
+          minHeight: 'var(--app-bottom-offset)',
         }}
       >
         <AppFooter
@@ -5509,6 +5718,7 @@ export default function Home() {
         lessonMenuContext={lessonMenuContext}
         topOffset="var(--app-top-offset)"
         bottomOffset="var(--app-bottom-offset)"
+        columnBounds={appColumnBounds}
       />
 
       {lessonOverlay && (

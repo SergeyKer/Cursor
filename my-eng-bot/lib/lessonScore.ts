@@ -203,11 +203,26 @@ export function coreXpToGold(coreXp: number, maxCoreXp: number = MAX_CORE_XP_DEF
 
 export function getComboMilestoneXp(
   combo: number,
-  claimedMilestones: ReadonlySet<number>
+  claimedMilestones: ReadonlySet<number>,
+  options?: { coreXp: number; maxCoreXp: number }
 ): ComboMilestoneAward | null {
   const milestone = COMBO_MILESTONES.find((item) => item.combo === combo)
   if (!milestone || claimedMilestones.has(combo)) return null
+  if (options) {
+    const corePercent = computeCorePercent(options.coreXp, options.maxCoreXp)
+    if (corePercent < 50) return null
+  }
   return { combo: milestone.combo, xp: milestone.xp }
+}
+
+/** На локальном повторе (🔁) медаль за проход не выше silver. */
+export function capMedalForRepeatRun(
+  earned: LessonMedalTierOrNull,
+  isRepeatRun: boolean
+): LessonMedalTierOrNull {
+  if (!isRepeatRun || !earned) return earned
+  if (earned === 'gold') return 'silver'
+  return earned
 }
 
 export function applyComboXpAward(currentComboXp: number, awardXp: number): number {

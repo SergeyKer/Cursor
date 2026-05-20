@@ -591,7 +591,7 @@ export default function LessonExtraTipsScreen({
                         ) : isEmphasisEmotion && emphasisBoost ? (
                           <div className="space-y-2 py-2.5 text-[15px] leading-[1.45] text-[var(--text)]">
                             <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
-                              <p className="font-bold text-slate-800">🔥 Усилители для этой темы</p>
+                              <p className="emoji-line font-bold text-slate-800">🔥 Усилители для этой темы</p>
                               <p className="mt-1 break-words">
                                 <span className="font-semibold text-slate-700">Слова:</span>{' '}
                                 {emphasisBoostersLabel(card.examples, lessonCefrLevel)}

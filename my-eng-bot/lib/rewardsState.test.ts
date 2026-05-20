@@ -3,8 +3,12 @@ import {
   appendFooterRewardSnapshot,
   awardGlobalXp,
   createDefaultRewardsState,
+  formatGlobalFooterStats,
+  getTodayDateString,
   reconcileModeGoalSessions,
+  withDailyActivity,
 } from './rewardsState'
+import { DAILY_STREAK_GLYPH } from './gamificationGlyphs'
 
 describe('rewardsState', () => {
   it('marks level-up in ui when xp crosses threshold', () => {
@@ -34,6 +38,35 @@ describe('rewardsState', () => {
     const merged = appendFooterRewardSnapshot('Диалог - Present Simple', state)
     expect(merged).toContain('Диалог - Present Simple')
     expect(merged).toContain('⭐')
-    expect(merged).toContain('🔥')
+    expect(merged).toContain(DAILY_STREAK_GLYPH)
+  })
+
+  it('formats global footer with daily streak glyph', () => {
+    const state = createDefaultRewardsState()
+    state.progress.dailyStreak = 3
+    expect(formatGlobalFooterStats(state)).toContain(`${DAILY_STREAK_GLYPH}3`)
+    expect(formatGlobalFooterStats(state)).not.toContain('🔥3')
+  })
+
+  it('grows bestDailyStreak when daily streak increases', () => {
+    const today = getTodayDateString()
+    let state = createDefaultRewardsState()
+    state.progress.dailyStreak = 2
+    state.progress.bestDailyStreak = 2
+    state.progress.lastActiveDate = '2026-05-18'
+    const next = withDailyActivity(state, '2026-05-19')
+    expect(next.progress.dailyStreak).toBe(3)
+    expect(next.progress.bestDailyStreak).toBe(3)
+    expect(next.progress.lastActiveDate).toBe('2026-05-19')
+  })
+
+  it('keeps bestDailyStreak when daily streak resets after missed day', () => {
+    let state = createDefaultRewardsState()
+    state.progress.dailyStreak = 5
+    state.progress.bestDailyStreak = 5
+    state.progress.lastActiveDate = '2026-05-10'
+    const next = withDailyActivity(state, '2026-05-20')
+    expect(next.progress.dailyStreak).toBe(1)
+    expect(next.progress.bestDailyStreak).toBe(5)
   })
 })

@@ -81,8 +81,8 @@ export function getMyPlanRecommendations(input: MyPlanInput): MyPlanRecommendati
     out.push({
       id: 'streak-today',
       priority: 2,
-      title: 'Серия и цель дня',
-      subtitle: streak > 0 ? `Серия: ${streak} дн.` : '',
+      title: 'Серия дней и цель дня',
+      subtitle: streak > 0 ? `Серия дней: ${streak} дн.` : '',
       reasonLine: activeToday
         ? 'Закройте цели режимов сегодня или сделайте короткую практику.'
         : 'Зайдите сегодня, чтобы не потерять импульс.',

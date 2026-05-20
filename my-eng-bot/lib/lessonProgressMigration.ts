@@ -1,4 +1,5 @@
 import {
+  capMedalForRepeatRun,
   computeCorePercent,
   computeStrengthPercent,
   MAX_CORE_XP_DEFAULT,
@@ -24,6 +25,10 @@ export function migrateUserLessonProgress(
   const totalXp = typeof row.totalXp === 'number' ? row.totalXp : coreXp + comboXp
   const maxCombo = typeof row.maxCombo === 'number' ? Math.max(row.maxCombo, legacyCombo) : legacyCombo
   const bestCoreXp = typeof row.bestCoreXp === 'number' ? row.bestCoreXp : coreXp
+  const bestTotalXp =
+    typeof row.bestTotalXp === 'number'
+      ? row.bestTotalXp
+      : Math.max(totalXp, bestCoreXp + comboXp, legacyXp + legacyCombo)
   const lessonCompleted =
     row.lessonCompleted === true ||
     (completedSteps.length >= 7 && typeof row.lastCompleted === 'string' && row.lastCompleted.length > 0)
@@ -53,6 +58,7 @@ export function migrateUserLessonProgress(
     strengthPercent,
     maxCombo,
     bestCoreXp,
+    bestTotalXp,
     medal,
     lessonCompleted,
     lessonBadgeEarned: row.lessonBadgeEarned === true,
@@ -89,13 +95,16 @@ export function mergeLessonProgressOnComplete(
     maxCombo: number
     mistakes: UserLessonProgress['mistakes']
     postLessonChoice?: UserLessonProgress['postLessonChoice']
+    isRepeatRun?: boolean
   }
 ): UserLessonProgress {
   const totalXp = session.coreXp + session.comboXp
   const corePercent = computeCorePercent(session.coreXp, session.maxCoreXp)
   const strengthPercent = computeStrengthPercent(totalXp, session.maxCoreXp)
-  const medal = resolveMedalFromCoreXp(session.coreXp, true, session.maxCoreXp)
+  const earnedMedal = resolveMedalFromCoreXp(session.coreXp, true, session.maxCoreXp)
+  const medal = capMedalForRepeatRun(earnedMedal, session.isRepeatRun === true)
   const bestCoreXp = Math.max(previous?.bestCoreXp ?? 0, session.coreXp)
+  const bestTotalXp = Math.max(previous?.bestTotalXp ?? 0, totalXp)
   const mergedMedal = upgradeMedal(previous?.medal ?? null, medal)
   const mergedMaxCombo = Math.max(previous?.maxCombo ?? 0, session.maxCombo)
 
@@ -115,6 +124,7 @@ export function mergeLessonProgressOnComplete(
       strengthPercent,
       maxCombo: mergedMaxCombo,
       bestCoreXp,
+      bestTotalXp,
       medal: mergedMedal,
       lessonCompleted: true,
       lastCompleted: new Date().toISOString(),

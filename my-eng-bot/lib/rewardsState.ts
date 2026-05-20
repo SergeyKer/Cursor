@@ -1,3 +1,5 @@
+import { DAILY_STREAK_GLYPH, formatDailyStreakFooter } from '@/lib/gamificationGlyphs'
+
 export const REWARDS_STATE_KEY = 'myeng_state_v1'
 const REWARDS_STATE_VERSION = '1.0'
 const XP_PER_LEVEL = 100
@@ -33,6 +35,7 @@ export interface GlobalProgressState {
   currentLevelXP: number
   xpToNextLevel: number
   dailyStreak: number
+  bestDailyStreak: number
   lastActiveDate: string | null
 }
 
@@ -118,6 +121,7 @@ export function createDefaultRewardsState(): RewardsState {
       currentLevelXP: 0,
       xpToNextLevel: XP_PER_LEVEL,
       dailyStreak: 0,
+      bestDailyStreak: 0,
       lastActiveDate: null,
     },
     currencies: {
@@ -181,6 +185,11 @@ function normalizeRewardsState(raw: unknown): RewardsState {
   const src = raw as Partial<RewardsState>
   const totalXP = typeof src.progress?.totalXP === 'number' ? Math.max(0, Math.floor(src.progress.totalXP)) : 0
   const levelView = calculateLevel(totalXP)
+  const dailyStreak =
+    typeof src.progress?.dailyStreak === 'number' ? Math.max(0, Math.floor(src.progress.dailyStreak)) : fallback.progress.dailyStreak
+  const storedBest =
+    typeof src.progress?.bestDailyStreak === 'number' ? Math.max(0, Math.floor(src.progress.bestDailyStreak)) : 0
+  const bestDailyStreak = Math.max(storedBest, dailyStreak)
   const normalized: RewardsState = {
     version: REWARDS_STATE_VERSION,
     timestamp: typeof src.timestamp === 'string' ? src.timestamp : new Date().toISOString(),
@@ -210,8 +219,8 @@ function normalizeRewardsState(raw: unknown): RewardsState {
       level: levelView.level,
       currentLevelXP: levelView.currentLevelXP,
       xpToNextLevel: levelView.xpToNextLevel,
-      dailyStreak:
-        typeof src.progress?.dailyStreak === 'number' ? Math.max(0, Math.floor(src.progress.dailyStreak)) : fallback.progress.dailyStreak,
+      dailyStreak,
+      bestDailyStreak,
       lastActiveDate:
         typeof src.progress?.lastActiveDate === 'string' ? src.progress.lastActiveDate : fallback.progress.lastActiveDate,
     },
@@ -285,11 +294,14 @@ export function withDailyActivity(state: RewardsState, today: string = getTodayD
   if (last === today) return state
   const diffDays = last ? daysBetweenDates(last, today) : 0
   const nextStreak = !last ? 1 : diffDays === 1 ? state.progress.dailyStreak + 1 : 1
+  const dailyStreak = Math.max(1, nextStreak)
+  const bestDailyStreak = Math.max(state.progress.bestDailyStreak ?? dailyStreak, dailyStreak)
   return {
     ...state,
     progress: {
       ...state.progress,
-      dailyStreak: Math.max(1, nextStreak),
+      dailyStreak,
+      bestDailyStreak,
       lastActiveDate: today,
     },
   }
@@ -439,23 +451,23 @@ export function incrementModeGoal(
 }
 
 export function formatGlobalFooterStats(state: RewardsState): string {
-  return `⭐ ${state.progress.totalXP} | 🔥 ${state.progress.dailyStreak} | 🪙 ${state.currencies.coins} | 💎 ${state.currencies.gems} | 🎫 ${state.currencies.tickets}`
+  return `⭐${state.progress.totalXP} | ${formatDailyStreakFooter(state.progress.dailyStreak)} | 🪙${state.currencies.coins} | 💎${state.currencies.gems} | 🎫${state.currencies.tickets}`
 }
 
 export function formatCompactFooterStats(state: RewardsState): string {
-  return `⭐ ${state.progress.totalXP} | 🔥 ${state.progress.dailyStreak}`
+  return `⭐${state.progress.totalXP} | ${formatDailyStreakFooter(state.progress.dailyStreak)}`
 }
 
 export function formatModeGoalFooter(mode: ModeGoalId, state: RewardsState): string {
   const goal = state.modeGoals[mode]
   const label = mode === 'communication' ? 'Ответы' : 'Реплики'
-  return `${label} ${goal.goalProgress}/${goal.goalTarget} | ⭐ ${state.progress.totalXP} | 🔥 ${state.progress.dailyStreak}`
+  return `${label} ${goal.goalProgress}/${goal.goalTarget} | ⭐${state.progress.totalXP} | ${formatDailyStreakFooter(state.progress.dailyStreak)}`
 }
 
 export function appendFooterRewardSnapshot(baseText: string | null | undefined, state: RewardsState): string {
   const context = typeof baseText === 'string' ? baseText.trim() : ''
   const compact = formatCompactFooterStats(state)
   if (!context) return compact
-  if (context.includes('⭐') && context.includes('🔥')) return context
+  if (context.includes('⭐') && context.includes(DAILY_STREAK_GLYPH)) return context
   return `${context} | ${compact}`
 }

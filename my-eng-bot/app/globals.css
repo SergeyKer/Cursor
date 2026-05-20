@@ -8,6 +8,71 @@
     padding-left: max(0.5rem, env(safe-area-inset-left, 0px), var(--vv-left-inset));
     padding-right: max(0.5rem, env(safe-area-inset-right, 0px), var(--vv-right-inset));
   }
+
+  /*
+   * `overflow-x: hidden` + `overflow-y: visible` computes to overflow-y: auto and clips emoji.
+   * `clip` truncates horizontally without forcing vertical clipping.
+   */
+  .truncate-x {
+    overflow-x: clip;
+    overflow-y: visible;
+    text-overflow: ellipsis;
+  }
+
+  /* Mixed emoji + text — no overflow on the box (parents use splitLeadingEmoji when possible). */
+  .emoji-line {
+    line-height: 1.4;
+    padding-block: 0.125rem;
+  }
+
+  /* Standalone emoji (medals, markers). */
+  .emoji-glyph {
+    display: inline-block;
+    overflow: visible;
+    line-height: 1;
+    padding-block: 0.0625rem;
+    vertical-align: middle;
+  }
+
+  /* Lesson footer: equal icon box for 🎯⭐🔥 (22px). */
+  .footer-stat-glyph {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 1.375rem;
+    height: 1.375rem;
+    font-size: 1.375rem;
+    line-height: 1;
+    overflow: visible;
+  }
+
+  @media (min-width: 640px) {
+    .footer-stat-glyph {
+      width: 1.5rem;
+      height: 1.5rem;
+      font-size: 1.5rem;
+    }
+  }
+
+  /* Та же сетка 22×22, что у emoji в футере — медаль 🥇🥈🥉 по центру. */
+  .footer-stat-medal-slot {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 1.375rem;
+    height: 1.375rem;
+    line-height: 0;
+    overflow: visible;
+  }
+
+  @media (min-width: 640px) {
+    .footer-stat-medal-slot {
+      width: 1.5rem;
+      height: 1.5rem;
+    }
+  }
 }
 
 @keyframes slideIn {
@@ -1087,6 +1152,7 @@ select.select-chevron {
   box-shadow: var(--app-footer-shadow);
   backdrop-filter: var(--app-header-backdrop-filter);
   -webkit-backdrop-filter: var(--app-header-backdrop-filter);
+  overflow: visible;
 }
 
 .app-header-control {

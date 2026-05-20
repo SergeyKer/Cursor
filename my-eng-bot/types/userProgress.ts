@@ -19,6 +19,8 @@ export interface UserLessonProgress {
   strengthPercent: number
   maxCombo: number
   bestCoreXp: number
+  /** Лучший coreXp + comboXp за завершённые проходы */
+  bestTotalXp: number
   medal: LessonMedalTierOrNull
   lessonCompleted?: boolean
   lessonBadgeEarned?: boolean

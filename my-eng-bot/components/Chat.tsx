@@ -126,6 +126,8 @@ interface ChatProps {
   onSelectLearningAction?: (actionId: string) => void
   /** Счётчик увеличения — сброс поля ввода/голоса (напр. «Начать общение» из меню). */
   composerSessionKey?: number
+  /** Якорь левого края колонки приложения (glass-surface) для выдвижного меню. */
+  appColumnAnchorRef?: React.RefObject<HTMLDivElement | null>
   engvo?: {
     active: boolean
     callPhase: EngvoCallPhase
@@ -1096,6 +1098,7 @@ export default function Chat({
   learningActions = [],
   onSelectLearningAction,
   composerSessionKey = 0,
+  appColumnAnchorRef,
   engvo,
 }: ChatProps) {
   const [listening, setListening] = React.useState(false)
@@ -2174,6 +2177,7 @@ export default function Chat({
       <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
         <div className="mx-auto flex min-h-0 flex-1 w-full max-w-[29rem] flex-col">
           <div
+            ref={appColumnAnchorRef}
             className="glass-surface flex min-h-0 flex-1 w-full flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
             style={{ boxShadow: 'var(--chat-shell-shadow)' }}
           >

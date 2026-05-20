@@ -3,8 +3,20 @@
 import TypingText from './TypingText'
 import type { FooterVoiceEmphasis, FooterVoiceTone } from '@/lib/footerVoice'
 import { resolveFooterPresentation } from '@/lib/footerPresentation'
+import MedalBadge from '@/components/MedalBadge'
+import { medalTierEmoji } from '@/lib/medalBadge'
+import {
+  EMOJI_LINE_CLASS,
+  FOOTER_STAT_GLYPH_CLASS,
+  TRUNCATE_X_CLASS,
+  splitLeadingEmoji,
+} from '@/lib/emojiText'
 import { splitFooterStaticSegments } from '@/lib/footerStaticSegments'
-import type { LessonFooterAccountSegment, LessonFooterSegment } from '@/lib/lessonFooter'
+import type {
+  LessonFooterAccountSegment,
+  LessonFooterMedalVisual,
+  LessonFooterSegment,
+} from '@/lib/lessonFooter'
 import type { Audience } from '@/lib/types'
 
 type AppFooterProps = {
@@ -32,41 +44,85 @@ function normalizeFooterText(text?: string | null): string {
   return typeof text === 'string' ? text.trim() : ''
 }
 
-const MEDAL_EMOJI_ONLY = /^[🥇🥈🥉○]$/
-const MEDAL_PROGRESS = /^([🥇🥈🥉○])→(\d+)%$/
+function LessonFooterMedalContent({
+  visual,
+  title,
+  fallbackText,
+}: {
+  visual?: LessonFooterMedalVisual
+  title?: string
+  fallbackText: string
+}) {
+  if (!visual) {
+    return <span className={`${TRUNCATE_X_CLASS} text-center`}>{fallbackText}</span>
+  }
 
-function LessonFooterMedalContent({ text }: { text: string }) {
-  const trimmed = text.trim()
-
-  const progress = trimmed.match(MEDAL_PROGRESS)
-  if (progress) {
+  if (visual.mode === 'tier') {
     return (
-      <span className="inline-flex max-w-full min-w-0 items-center justify-center gap-1.5 sm:gap-2">
-        <span className="shrink-0 text-xl leading-none sm:text-2xl" aria-hidden>
-          {progress[1]}
+      <span className="inline-flex max-w-full min-w-0 items-center justify-center gap-0.5 overflow-visible">
+        <MedalBadge tier={visual.tier} size="sm" muted={visual.muted} title={title} />
+      </span>
+    )
+  }
+
+  if (visual.mode === 'progress') {
+    return (
+      <span
+        className="inline-flex max-w-full min-w-0 items-center justify-center gap-0.5 overflow-visible"
+        title={title}
+        aria-label={title}
+      >
+        <span className="shrink-0 text-[13px] leading-none text-slate-600 sm:text-sm">До </span>
+        <span className={`${FOOTER_STAT_GLYPH_CLASS} shrink-0`} aria-hidden>
+          {medalTierEmoji(visual.nextTier)}
+        </span>
+        <span className="shrink-0 tabular-nums text-[13px] leading-none text-slate-600 sm:text-sm">
+          : {visual.progressPercent}%
+        </span>
+        {visual.hintText ? (
+          <span className="shrink-0 text-[13px] font-medium leading-none text-slate-600 sm:text-sm">
+            {visual.hintText}
+          </span>
+        ) : null}
+      </span>
+    )
+  }
+
+  return (
+    <span className={`${TRUNCATE_X_CLASS} text-center text-[13px] sm:text-sm ${EMOJI_LINE_CLASS}`}>
+      {visual.hintText}
+    </span>
+  )
+}
+
+function footerStatHighlight(segment: string): string {
+  return segment.includes('(+') ? 'font-medium text-emerald-600' : ''
+}
+
+function FooterStatSegmentText({ text, highlight = '' }: { text: string; highlight?: string }) {
+  const parts = splitLeadingEmoji(text)
+  if (parts) {
+    return (
+      <span className="inline-flex max-w-full min-w-0 items-center justify-center gap-0.5 overflow-visible">
+        <span className={`${FOOTER_STAT_GLYPH_CLASS} ${highlight}`.trim()} aria-hidden>
+          {parts.emoji}
         </span>
         <span
-          className="shrink-0 px-0.5 text-base font-bold leading-none text-slate-500 sm:px-1 sm:text-lg"
-          aria-hidden
+          className={`shrink-0 tabular-nums text-[13px] leading-none sm:text-sm ${highlight}`.trim()}
         >
-          →
-        </span>
-        <span className="shrink-0 tabular-nums text-[13px] leading-tight text-slate-700 sm:text-sm">
-          {progress[2]}%
+          {parts.rest}
         </span>
       </span>
     )
   }
 
-  if (MEDAL_EMOJI_ONLY.test(trimmed)) {
-    return (
-      <span className="text-xl leading-none sm:text-2xl" aria-hidden>
-        {trimmed}
-      </span>
-    )
-  }
-
-  return <span className="min-w-0 truncate text-center">{text}</span>
+  return (
+    <span
+      className={`${TRUNCATE_X_CLASS} text-center text-[13px] sm:text-sm ${EMOJI_LINE_CLASS} ${highlight}`.trim()}
+    >
+      {text}
+    </span>
+  )
 }
 
 export default function AppFooter({
@@ -110,15 +166,22 @@ export default function AppFooter({
 
   return (
     <div
-      className="chat-shell-x flex min-h-[var(--app-footer-row-height)] w-full items-stretch"
+      className="chat-shell-x flex min-h-[var(--app-footer-row-height)] w-full flex-1 flex-col justify-center overflow-visible"
+      style={{ paddingBottom: 'var(--app-bottom-inset)' }}
       aria-hidden={!showFooterContent}
     >
       <div
         className={`mx-auto flex w-full min-w-0 flex-col justify-center ${
-          isDialogStarted ? 'max-w-[29rem]' : 'max-w-[23.2rem]'
-        } px-2 py-2 sm:px-3 sm:py-3`}
+          lessonFooterMode ? 'gap-0.5' : 'gap-1.5'
+        } ${isDialogStarted ? 'max-w-[29rem]' : 'max-w-[23.2rem]'} px-2 sm:px-3 ${
+          lessonFooterMode ? 'py-0' : 'py-1.5 sm:py-2'
+        }`}
       >
-        <div className={`mb-2 min-h-6 overflow-hidden ${showFooterContent ? '' : 'opacity-0'}`}>
+        <div
+          className={`flex items-center overflow-visible ${
+            lessonFooterMode ? 'min-h-[var(--app-header-row-height)]' : 'min-h-6'
+          } ${showFooterContent ? '' : 'opacity-0'}`}
+        >
           {showFooterContent && topLine ? (
             <div className={presentation.topLineRowClassName}>
               {presentation.markerKind === 'emoji' && presentation.markerText ? (
@@ -137,40 +200,39 @@ export default function AppFooter({
               />
             </div>
           ) : (
-            <div className="h-6" aria-hidden />
+            <div
+              className={lessonFooterMode ? 'min-h-[var(--app-header-row-height)]' : 'h-6'}
+              aria-hidden
+            />
           )}
         </div>
         <div
-          className={`flex w-full min-w-0 items-center overflow-hidden ${
-            lessonFooterMode ? 'min-h-9 h-9' : 'h-8'
-          } ${presentation.bottomLineRowClassName} ${presentation.bottomLineClassName} ${
-            showFooterContent ? '' : 'opacity-0'
-          }`}
+          className={`flex w-full min-w-0 items-center overflow-visible min-h-[var(--app-header-row-height)] pb-1 ${presentation.bottomLineRowClassName} ${presentation.bottomLineClassName} ${showFooterContent ? '' : 'opacity-0'}`}
         >
           {showFooterContent ? (
             <div className="flex w-full min-w-0 items-center gap-2">
               {lessonFooterMode ? (
                 <>
                   <div
-                    className="grid min-w-0 flex-1 grid-cols-4 items-center gap-1 tabular-nums sm:gap-2"
+                    className="grid min-w-0 flex-1 grid-cols-4 items-center gap-1 overflow-visible tabular-nums sm:gap-2"
                     title={lessonFooterLessonTitle ?? bottomLineTitle}
                   >
                     {(lessonFooterSegments ?? []).map((segment) => {
-                      const highlight =
-                        (segment.kind === 'xp' || segment.kind === 'combo') &&
-                        segment.text.includes('(+')
-                          ? 'font-medium text-emerald-600'
-                          : ''
+                      const highlight = footerStatHighlight(segment.text)
                       return (
                         <span
                           key={segment.kind}
-                          className={`flex min-w-0 items-center justify-center px-0.5 text-[13px] leading-tight sm:text-sm ${highlight}`}
+                          className="flex min-w-0 items-center justify-center overflow-visible px-0.5"
                           title={segment.title}
                         >
                           {segment.kind === 'medal' ? (
-                            <LessonFooterMedalContent text={segment.text} />
+                            <LessonFooterMedalContent
+                              visual={segment.medalVisual}
+                              title={segment.title}
+                              fallbackText={segment.text}
+                            />
                           ) : (
-                            <span className="min-w-0 truncate text-center">{segment.text}</span>
+                            <FooterStatSegmentText text={segment.text} highlight={highlight} />
                           )}
                         </span>
                       )
@@ -191,20 +253,23 @@ export default function AppFooter({
                 </>
               ) : bottomSegments.length > 0 ? (
                 <div
-                  className="grid min-w-0 flex-1 gap-0"
+                  className="grid min-w-0 flex-1 items-center gap-1 overflow-visible tabular-nums sm:gap-2"
                   style={{
                     gridTemplateColumns: `repeat(${bottomSegments.length}, minmax(0, 1fr))`,
                   }}
                   title={bottomLineTitle}
                 >
                   {bottomSegments.map((segment, index) => (
-                    <span key={`footer-seg-${index}`} className="min-w-0 truncate text-center">
-                      {segment}
+                    <span
+                      key={`footer-seg-${index}`}
+                      className="flex min-w-0 items-center justify-center overflow-visible px-0.5"
+                    >
+                      <FooterStatSegmentText text={segment} highlight={footerStatHighlight(segment)} />
                     </span>
                   ))}
                 </div>
               ) : (
-                <span className="min-w-0 flex-1 truncate" title={bottomLineTitle} aria-hidden>
+                <span className={`min-w-0 flex-1 ${TRUNCATE_X_CLASS}`} title={bottomLineTitle} aria-hidden>
                   &nbsp;
                 </span>
               )}

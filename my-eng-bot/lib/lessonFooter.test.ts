@@ -5,6 +5,7 @@ import {
   computeLessonStagePercent,
   formatLessonCompletionFooter,
   resolveLessonCardMedal,
+  resolveLessonHeaderMedal,
 } from '@/lib/lessonFooter'
 import { itsTimeToLesson } from '@/lib/lessons/its-time-to'
 import { listLessonScoringUnits } from '@/lib/lessonScore'
@@ -66,12 +67,14 @@ describe('buildLessonFooterLive', () => {
     })
 
     expect(view.lessonSegments.map((segment) => segment.kind)).toEqual(['goal', 'xp', 'combo', 'medal'])
-    expect(view.lessonSegments.map((segment) => segment.text)).toEqual([
-      '🎯54%',
-      '⭐50(+8) XP',
-      '🔥×3(+5 XP)',
-      '🥈→25%',
-    ])
+    expect(view.lessonSegments[0].text).toBe('🎯54%')
+    expect(view.lessonSegments[1].text).toBe('⭐50(+8) XP')
+    expect(view.lessonSegments[2].text).toBe('🔥×3(+5)')
+    expect(view.lessonSegments[3].medalVisual).toEqual({
+      mode: 'progress',
+      nextTier: 'silver',
+      progressPercent: 25,
+    })
     expect(view.accountSegments).toEqual([])
     expect(view.accountLine).toBe('')
   })
@@ -91,7 +94,11 @@ describe('buildLessonFooterLive', () => {
     expect(start.lessonSegments[0].text).toBe('🎯0%')
     expect(start.lessonSegments[1].text).toBe('⭐0 XP')
     expect(start.lessonSegments[2].text).toBe('🔥×0')
-    expect(start.lessonSegments[3].text).toBe('🥉')
+    expect(start.lessonSegments[3].medalVisual).toEqual({
+      mode: 'tier',
+      tier: 'bronze',
+      muted: true,
+    })
 
     const reset = buildLessonFooterLive({
       lesson: itsTimeToLesson,
@@ -107,7 +114,23 @@ describe('buildLessonFooterLive', () => {
     expect(reset.lessonSegments[2].text).toBe('🔥×0 рек.×7')
   })
 
-  it('shows finale medal emoji only', () => {
+  it('shows combo streak label when milestone blocked below 50% core', () => {
+    const view = buildLessonFooterLive({
+      lesson: itsTimeToLesson,
+      currentStep: 2,
+      currentVariantIndex: 0,
+      isFinale: false,
+      coreXp: 47,
+      maxCoreXp: 140,
+      comboXp: 0,
+      combo: 5,
+      maxCombo: 5,
+      comboMilestoneBlocked: true,
+    })
+    expect(view.lessonSegments[2].text).toBe('🔥×5')
+  })
+
+  it('shows finale medal tier visual', () => {
     const view = buildLessonFooterLive({
       lesson: itsTimeToLesson,
       currentStep: 0,
@@ -120,7 +143,77 @@ describe('buildLessonFooterLive', () => {
       maxCombo: 7,
     })
     expect(view.lessonSegments[0].text).toBe('🎯100%')
-    expect(view.lessonSegments[3].text).toBe('🥇')
+    expect(view.lessonSegments[3].medalVisual).toEqual({ mode: 'tier', tier: 'gold' })
+  })
+})
+
+describe('resolveLessonHeaderMedal', () => {
+  it('shows current bronze while footer progress targets silver', () => {
+    const view = buildLessonFooterLive({
+      lesson: itsTimeToLesson,
+      currentStep: 3,
+      currentVariantIndex: 2,
+      isFinale: false,
+      coreXp: 35,
+      maxCoreXp: 140,
+      comboXp: 15,
+      combo: 3,
+      maxCombo: 7,
+    })
+
+    expect(view.lessonSegments[3].medalVisual).toEqual({
+      mode: 'progress',
+      nextTier: 'silver',
+      progressPercent: 25,
+    })
+    expect(
+      resolveLessonHeaderMedal({ coreXp: 35, maxCoreXp: 140, isFinale: false })
+    ).toEqual({
+      tier: 'bronze',
+      title: 'Сейчас: бронза',
+    })
+  })
+
+  it('shows current silver while footer progress targets gold', () => {
+    const view = buildLessonFooterLive({
+      lesson: itsTimeToLesson,
+      currentStep: 3,
+      currentVariantIndex: 2,
+      isFinale: false,
+      coreXp: 80,
+      maxCoreXp: 140,
+      comboXp: 15,
+      combo: 3,
+      maxCombo: 7,
+    })
+
+    expect(view.lessonSegments[3].medalVisual).toMatchObject({
+      mode: 'progress',
+      nextTier: 'gold',
+    })
+    expect(
+      resolveLessonHeaderMedal({ coreXp: 80, maxCoreXp: 140, isFinale: false })
+    ).toEqual({
+      tier: 'silver',
+      title: 'Сейчас: серебро',
+    })
+  })
+
+  it('maps start and finale medal visuals', () => {
+    expect(
+      resolveLessonHeaderMedal({ coreXp: 0, maxCoreXp: 140, isFinale: false })
+    ).toEqual({
+      tier: 'bronze',
+      muted: true,
+      title: 'Старт — медаль появится с первых очков',
+    })
+
+    expect(
+      resolveLessonHeaderMedal({ coreXp: 126, maxCoreXp: 140, isFinale: true })
+    ).toEqual({
+      tier: 'gold',
+      title: 'Золотая медаль',
+    })
   })
 })
 
@@ -163,14 +256,14 @@ describe('resolveLessonCardMedal', () => {
     lastCompleted: '',
   } satisfies UserLessonProgress
 
-  it('returns gold emoji from saved medal', () => {
+  it('returns gold tier from saved medal', () => {
     expect(
       resolveLessonCardMedal({
         ...baseProgress,
         medal: 'gold',
         coreXp: 120,
       })
-    ).toEqual({ emoji: '🥇', title: 'Сейчас: золото' })
+    ).toEqual({ tier: 'gold', title: 'Сейчас: золото' })
   })
 
   it('returns live bronze when coreXp > 0 and no saved medal', () => {
@@ -179,7 +272,7 @@ describe('resolveLessonCardMedal', () => {
         ...baseProgress,
         coreXp: 35,
       })
-    ).toEqual({ emoji: '🥉', title: 'Сейчас: бронза' })
+    ).toEqual({ tier: 'bronze', title: 'Сейчас: бронза' })
   })
 
   it('returns null when no progress', () => {
@@ -194,6 +287,6 @@ describe('resolveLessonCardMedal', () => {
         medal: 'silver',
         coreXp: 10,
       })
-    ).toEqual({ emoji: '🥈', title: 'Сейчас: серебро' })
+    ).toEqual({ tier: 'silver', title: 'Сейчас: серебро' })
   })
 })

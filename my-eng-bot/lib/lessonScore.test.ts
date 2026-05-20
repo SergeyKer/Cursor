@@ -4,6 +4,7 @@ import {
   aggregateMedals,
   applyComboXpAward,
   awardCoreXpForUnit,
+  capMedalForRepeatRun,
   COMBO_XP_CAP,
   computeCorePercent,
   getComboMilestoneXp,
@@ -114,5 +115,17 @@ describe('lessonScore', () => {
   it('computes core percent against max 140', () => {
     expect(computeCorePercent(70, 140)).toBe(50)
     expect(computeCorePercent(126, 140)).toBe(90)
+  })
+
+  it('blocks combo milestones when core below 50%', () => {
+    const claimed = new Set<number>()
+    expect(getComboMilestoneXp(3, claimed, { coreXp: 31, maxCoreXp: 140 })).toBeNull()
+    expect(getComboMilestoneXp(3, claimed, { coreXp: 70, maxCoreXp: 140 })).toEqual({ combo: 3, xp: 5 })
+  })
+
+  it('caps gold to silver on repeat run', () => {
+    expect(capMedalForRepeatRun('gold', true)).toBe('silver')
+    expect(capMedalForRepeatRun('gold', false)).toBe('gold')
+    expect(capMedalForRepeatRun('bronze', true)).toBe('bronze')
   })
 })

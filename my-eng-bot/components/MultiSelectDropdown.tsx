@@ -112,7 +112,7 @@ export default function MultiSelectDropdown({
         aria-labelledby={ariaLabelledBy}
         className={`w-full rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 min-h-[36px] text-left ${textSize} text-[var(--text)] flex items-center justify-between gap-2 ${triggerClassName}`}
       >
-        <span className="truncate">{summary}</span>
+        <span className="emoji-line min-w-0 truncate-x whitespace-nowrap">{summary}</span>
         <span className="shrink-0 text-[var(--text-muted)] inline-flex items-center" aria-hidden>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={open ? 'rotate-180' : ''}>
             <path d="M6 9l6 6 6-6" />

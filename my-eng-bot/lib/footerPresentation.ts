@@ -30,6 +30,9 @@ interface ResolveFooterPresentationParams {
 
 const ADAPTIVE_FOOTER_PRESENTATION_ENABLED = process.env.NEXT_PUBLIC_ADAPTIVE_FOOTER_PRESENTATION !== '0'
 
+/** Нижняя строка статов — тот же размер, что в structured lesson footer. */
+const FOOTER_BOTTOM_LINE_CLASS = 'text-[13px] leading-normal text-gray-400'
+
 const CHILD_EMOJI_BY_TONE: Record<FooterVoiceTone, string[]> = {
   celebrate: ['🎉', '✨', '🌟', '🏆'],
   support: ['💪', '🤝', '🌈', '🙌'],
@@ -108,7 +111,7 @@ export function resolveFooterPresentation({
       topLineRowClassName: 'flex items-center gap-2',
       topLineClassName,
       bottomLineRowClassName: '',
-      bottomLineClassName: 'text-[10px] font-medium text-gray-400 sm:text-xs',
+      bottomLineClassName: FOOTER_BOTTOM_LINE_CLASS,
       markerKind: 'none',
       markerText: null,
       markerClassName: '',
@@ -125,10 +128,10 @@ export function resolveFooterPresentation({
       topLineRowClassName: 'flex items-center gap-2 rounded-full bg-white/35 px-2 backdrop-blur-[2px]',
       topLineClassName,
       bottomLineRowClassName: 'pl-2',
-      bottomLineClassName: 'text-[11px] font-semibold text-[var(--chat-label-main)] sm:text-xs',
+      bottomLineClassName: FOOTER_BOTTOM_LINE_CLASS,
       markerKind: 'emoji',
       markerText,
-      markerClassName: `shrink-0 text-base leading-none ${emphasis === 'pulse' ? 'motion-safe:animate-pulse' : ''}`.trim(),
+      markerClassName: `emoji-glyph shrink-0 text-base ${emphasis === 'pulse' ? 'motion-safe:animate-pulse' : ''}`.trim(),
     }
   }
 
@@ -139,7 +142,7 @@ export function resolveFooterPresentation({
     topLineRowClassName: 'flex items-center gap-2',
     topLineClassName,
     bottomLineRowClassName: 'pl-4',
-    bottomLineClassName: 'text-[10px] font-medium tracking-wide text-gray-400 sm:text-xs',
+    bottomLineClassName: FOOTER_BOTTOM_LINE_CLASS,
     markerKind: 'dot',
     markerText: null,
     markerClassName: getAdultDotClassName(tone, emphasis),

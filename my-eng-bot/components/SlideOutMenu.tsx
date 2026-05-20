@@ -14,6 +14,7 @@ import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/
 import type { EngvoCefrLevel, EngvoRealtimeVoice, EngvoSpeechSpeedPresetId } from '@/lib/engvo/constants'
 import type { RewardsState } from '@/lib/rewardsState'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
+import type { AppColumnBounds } from '@/hooks/useAppColumnBounds'
 
 export type { LessonMenuContext, LearningLessonMenuMeta }
 
@@ -83,6 +84,8 @@ interface SlideOutMenuProps {
   topOffset?: string
   /** Нижний offset (футер + safe-area), чтобы панель не перекрывала низ. */
   bottomOffset?: string
+  /** Границы колонки приложения (измеряются в шапке). */
+  columnBounds?: AppColumnBounds | null
 }
 
 export default function SlideOutMenu({
@@ -121,8 +124,15 @@ export default function SlideOutMenu({
   lessonMenuContext,
   topOffset = 'calc(2.75rem + env(safe-area-inset-top, 0px))',
   bottomOffset = '0px',
+  columnBounds = null,
 }: SlideOutMenuProps) {
   const [menuView, setMenuView] = React.useState<MenuView>('root')
+  const panelPositioned = columnBounds != null
+  const panelBoxShadow =
+    'var(--app-footer-shadow), 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)'
+  const panelSurfaceClass =
+    'border-b border-b-[var(--app-footer-border)] bg-[var(--menu-panel-bg)]'
+  const panelOpenEdgeClass = 'border-r border-r-[var(--border)]'
 
   React.useLayoutEffect(() => {
     if (!open) {
@@ -139,6 +149,74 @@ export default function SlideOutMenu({
     }
     setMenuView(chatActive ? 'aiChat' : 'root')
   }, [open, chatActive, engvoVoiceMode, lessonMenuContext])
+
+  const menuPanelPaddingClass = panelPositioned ? 'px-0 pb-3 pt-3' : 'px-3 pb-3 pt-3'
+
+  const menuPanelBody = (
+    <div className={`flex h-full flex-col ${menuPanelPaddingClass}`}>
+      {onNewDialog && (
+        <button
+          type="button"
+          onClick={() => {
+            onNewDialog()
+            onToggle()
+          }}
+          className={SLIDE_OUT_NEW_CHAT_BUTTON_CLASS}
+        >
+          <NewChatIcon />
+          <span>Новый чат</span>
+        </button>
+      )}
+
+      <MenuSectionPanels
+        menuView={menuView}
+        onMenuViewChange={setMenuView}
+        settings={settings}
+        onSettingsChange={onSettingsChange}
+        usage={usage}
+        dialogueCorrectAnswers={dialogueCorrectAnswers}
+        rewardsState={rewardsState}
+        onRewardsStateChange={onRewardsStateChange}
+        idPrefix="slide-"
+        edgeToEdge={panelPositioned}
+        className="flex min-h-0 flex-1 flex-col"
+        onStartHomeChat={onStartChat}
+        onOpenEngvoVoiceChat={onOpenEngvoVoiceChat}
+        engvoRealtimeVoice={engvoRealtimeVoice}
+        engvoCefrLevel={engvoCefrLevel}
+        engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}
+        onEngvoVoiceChange={onEngvoVoiceChange}
+        onEngvoLevelChange={onEngvoLevelChange}
+        onEngvoSpeechSpeedChange={onEngvoSpeechSpeedChange}
+        onGoHome={onGoHome}
+        onOpenLearningLesson={onOpenLearningLesson}
+        onGenerateLearningLesson={onGenerateLearningLesson}
+        onOpenPracticeSession={onOpenPracticeSession}
+        onGeneratePracticeSession={onGeneratePracticeSession}
+        onOpenAccentTrainer={onOpenAccentTrainer}
+        onOpenVocabularyWorlds={onOpenVocabularyWorlds}
+        onOpenVocabularyByLevel={onOpenVocabularyByLevel}
+        onOpenAdaptivePracticeTopic={onOpenAdaptivePracticeTopic}
+        onAdaptiveFooterViewChange={onAdaptiveFooterViewChange}
+        onOpenTutorLesson={onOpenTutorLesson}
+        onPracticeTheoryTagFilterPersist={onPracticeTheoryTagFilterPersist}
+        initialLessonsPanel={menuView === 'lessons' ? lessonMenuContext?.lessonsPanel : undefined}
+        initialLessonMenuContext={
+          menuView === 'lessons' && lessonMenuContext
+            ? {
+                activeGrammarCategoryId: lessonMenuContext.activeGrammarCategoryId,
+                activeTheoryTagId: lessonMenuContext.activeTheoryTagId,
+                theorySearchQuery: lessonMenuContext.theorySearchQuery,
+                activeTheoryTagIds: lessonMenuContext.activeTheoryTagIds,
+                theoryLessonSource: lessonMenuContext.theoryLessonSource,
+                theoryTagBrowseLevel: lessonMenuContext.theoryTagBrowseLevel,
+                practiceTheoryTagFilterId: lessonMenuContext.practiceTheoryTagFilterId,
+              }
+            : null
+        }
+      />
+    </div>
+  )
 
   return (
     <>
@@ -163,81 +241,44 @@ export default function SlideOutMenu({
         aria-hidden
         onClick={onToggle}
       />
-      <aside
-        className={`fixed left-0 z-50 w-80 max-w-[85vw] border-b border-r border-b-[var(--app-footer-border)] border-r-[var(--border)] bg-[var(--menu-panel-bg)] transition-transform duration-200 ease-out ${
-          open ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none'
-        }`}
-        style={{
-          top: topOffset,
-          bottom: bottomOffset,
-          boxShadow:
-            'var(--app-footer-shadow), 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
-        }}
-        aria-label="Меню"
-      >
-        <div className="flex h-full flex-col px-3 pb-3 pt-3">
-          {onNewDialog && (
-            <button
-              type="button"
-              onClick={() => {
-                onNewDialog()
-                onToggle()
-              }}
-              className={SLIDE_OUT_NEW_CHAT_BUTTON_CLASS}
-            >
-              <NewChatIcon />
-              <span>Новый чат</span>
-            </button>
-          )}
-
-          <MenuSectionPanels
-            menuView={menuView}
-            onMenuViewChange={setMenuView}
-            settings={settings}
-            onSettingsChange={onSettingsChange}
-            usage={usage}
-            dialogueCorrectAnswers={dialogueCorrectAnswers}
-            rewardsState={rewardsState}
-            onRewardsStateChange={onRewardsStateChange}
-            idPrefix="slide-"
-            className="flex min-h-0 flex-1 flex-col"
-            onStartHomeChat={onStartChat}
-            onOpenEngvoVoiceChat={onOpenEngvoVoiceChat}
-            engvoRealtimeVoice={engvoRealtimeVoice}
-            engvoCefrLevel={engvoCefrLevel}
-            engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}
-            onEngvoVoiceChange={onEngvoVoiceChange}
-            onEngvoLevelChange={onEngvoLevelChange}
-            onEngvoSpeechSpeedChange={onEngvoSpeechSpeedChange}
-            onGoHome={onGoHome}
-            onOpenLearningLesson={onOpenLearningLesson}
-            onGenerateLearningLesson={onGenerateLearningLesson}
-            onOpenPracticeSession={onOpenPracticeSession}
-            onGeneratePracticeSession={onGeneratePracticeSession}
-            onOpenAccentTrainer={onOpenAccentTrainer}
-            onOpenVocabularyWorlds={onOpenVocabularyWorlds}
-            onOpenVocabularyByLevel={onOpenVocabularyByLevel}
-            onOpenAdaptivePracticeTopic={onOpenAdaptivePracticeTopic}
-            onAdaptiveFooterViewChange={onAdaptiveFooterViewChange}
-            onOpenTutorLesson={onOpenTutorLesson}
-            onPracticeTheoryTagFilterPersist={onPracticeTheoryTagFilterPersist}
-            initialLessonsPanel={menuView === 'lessons' ? lessonMenuContext?.lessonsPanel : undefined}
-            initialLessonMenuContext={
-              menuView === 'lessons' && lessonMenuContext
-                ? {
-                    activeGrammarCategoryId: lessonMenuContext.activeGrammarCategoryId,
-                    activeTheoryTagId: lessonMenuContext.activeTheoryTagId,
-                    theorySearchQuery: lessonMenuContext.theorySearchQuery,
-                    activeTheoryTagIds: lessonMenuContext.activeTheoryTagIds,
-                    theoryLessonSource: lessonMenuContext.theoryLessonSource,
-                    theoryTagBrowseLevel: lessonMenuContext.theoryTagBrowseLevel,
-                    practiceTheoryTagFilterId: lessonMenuContext.practiceTheoryTagFilterId,
-                  }
-                : null
-            }
-          />
+      {panelPositioned ? (
+        <div
+          className="pointer-events-none fixed z-50 overflow-hidden"
+          style={{
+            left: columnBounds.left,
+            width: columnBounds.width,
+            top: topOffset,
+            bottom: bottomOffset,
+          }}
+        >
+          <aside
+            className={`h-full w-full ${panelSurfaceClass} transition-transform duration-200 ease-out ${
+              open
+                ? `translate-x-0 pointer-events-auto ${panelOpenEdgeClass}`
+                : '-translate-x-full pointer-events-none'
+            }`}
+            style={{ boxShadow: open ? panelBoxShadow : undefined }}
+            aria-label="Меню"
+            aria-hidden={!open}
+          >
+            {menuPanelBody}
+          </aside>
         </div>
-      </aside>
+      ) : (
+        <aside
+          className={`fixed left-0 z-50 w-80 max-w-[85vw] ${panelSurfaceClass} ${panelOpenEdgeClass} transition-transform duration-200 ease-out ${
+            open ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none'
+          } ${open ? '' : 'invisible'}`}
+          style={{
+            top: topOffset,
+            bottom: bottomOffset,
+            boxShadow: panelBoxShadow,
+          }}
+          aria-label="Меню"
+        >
+          {menuPanelBody}
+        </aside>
+      )}
     </>
   )
 }

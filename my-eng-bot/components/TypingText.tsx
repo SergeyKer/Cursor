@@ -70,10 +70,10 @@ export default function TypingText({
   }, [text, speed, onComplete, startDelayMs])
 
   return (
-    <div className={`flex min-h-6 w-full overflow-hidden ${singleLine ? 'items-center' : 'items-start'}`}>
+    <div className={`flex min-h-6 w-full overflow-visible ${singleLine ? 'items-center' : 'items-start'}`}>
       <span
-        className={`max-w-full text-sm leading-tight text-[var(--text-muted,#6b7280)] ${
-          singleLine ? 'truncate whitespace-nowrap' : 'whitespace-normal break-words'
+        className={`max-w-full text-sm text-[var(--text-muted,#6b7280)] ${
+          singleLine ? 'emoji-line truncate-x whitespace-nowrap' : 'whitespace-normal break-words leading-[1.35]'
         } ${
           className ?? ''
         }`}

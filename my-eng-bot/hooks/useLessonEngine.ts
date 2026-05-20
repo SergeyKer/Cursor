@@ -11,12 +11,19 @@ import { buildFinaleTimelineStep, getLessonLearningSteps, resolveLessonFinale } 
 import {
   applyComboXpAward,
   awardCoreXpForUnit,
+  computeCorePercent,
   getComboMilestoneXp,
   getUnitMaxXp,
   findScoringUnit,
   MAX_CORE_XP_DEFAULT,
   sumMaxCoreXpForLesson,
 } from '@/lib/lessonScore'
+
+const COMBO_MILESTONES = [
+  { combo: 3, xp: 5 },
+  { combo: 5, xp: 10 },
+  { combo: 7, xp: 15 },
+] as const
 import {
   buildLessonAdvanceMessage,
   buildLessonNextVariantMessage,
@@ -112,6 +119,7 @@ export interface LessonXpAward {
   combo: number
   total: number
   nonce: number
+  comboMilestoneBlocked?: boolean
 }
 
 const INITIAL_LESSON_XP_AWARD: LessonXpAward = { core: 0, combo: 0, total: 0, nonce: 0 }
@@ -126,6 +134,7 @@ export function useLessonEngine(lesson: LessonData | null) {
   const [lastCoreDelta, setLastCoreDelta] = useState(0)
   const [lastComboDelta, setLastComboDelta] = useState(0)
   const [lastXpAward, setLastXpAward] = useState<LessonXpAward>(INITIAL_LESSON_XP_AWARD)
+  const [lastComboMilestoneBlocked, setLastComboMilestoneBlocked] = useState(false)
   const comboRef = useRef(0)
   const claimedComboMilestonesRef = useRef<Set<number>>(new Set())
   const [exerciseErrors, setExerciseErrors] = useState(0)
@@ -154,6 +163,7 @@ export function useLessonEngine(lesson: LessonData | null) {
     setLastCoreDelta(0)
     setLastComboDelta(0)
     setLastXpAward(INITIAL_LESSON_XP_AWARD)
+    setLastComboMilestoneBlocked(false)
     comboRef.current = 0
     claimedComboMilestonesRef.current = new Set()
     setExerciseErrors(0)
@@ -197,20 +207,32 @@ export function useLessonEngine(lesson: LessonData | null) {
       const nextCombo = comboRef.current + 1
       comboRef.current = nextCombo
 
+      const coreAfterStep = coreXp + awardedCore
       let comboAward = 0
-      const milestone = getComboMilestoneXp(nextCombo, claimedComboMilestonesRef.current)
+      const milestone = getComboMilestoneXp(nextCombo, claimedComboMilestonesRef.current, {
+        coreXp: coreAfterStep,
+        maxCoreXp,
+      })
+      const wouldBeMilestone = COMBO_MILESTONES.some((item) => item.combo === nextCombo)
+      const comboMilestoneBlocked =
+        wouldBeMilestone &&
+        !claimedComboMilestonesRef.current.has(nextCombo) &&
+        !milestone &&
+        computeCorePercent(coreAfterStep, maxCoreXp) < 50
       if (milestone) {
         claimedComboMilestonesRef.current.add(milestone.combo)
         comboAward = milestone.xp
       }
+      setLastComboMilestoneBlocked(comboMilestoneBlocked)
 
       const totalAward = awardedCore + comboAward
-      if (totalAward > 0) {
+      if (totalAward > 0 || comboMilestoneBlocked) {
         setLastXpAward((prev) => ({
           core: awardedCore,
           combo: comboAward,
           total: totalAward,
           nonce: prev.nonce + 1,
+          comboMilestoneBlocked,
         }))
       }
 
@@ -230,7 +252,7 @@ export function useLessonEngine(lesson: LessonData | null) {
         setLastComboDelta(0)
       }
     },
-    [lesson]
+    [coreXp, lesson, maxCoreXp]
   )
   const totalSteps = learningSteps.length
   const isFinale = phase === 'finale'
@@ -640,22 +662,31 @@ export function useLessonEngine(lesson: LessonData | null) {
               tone: 'thinking',
             }
           : null,
-        feedback?.type === 'success' && combo >= 5
+        feedback?.type === 'success' && lastComboMilestoneBlocked && combo >= 3
+          ? {
+              key: `lesson-combo-streak-${combo}`,
+              priority: 86,
+              text: `COMBO ×${combo}! COMBO растёт.`,
+              compactText: `COMBO ×${combo}!`,
+              tone: 'celebrate',
+            }
+          : null,
+        feedback?.type === 'success' && combo >= 5 && !lastComboMilestoneBlocked
           ? {
               key: `lesson-combo-${combo}`,
               priority: 85,
-              text: `COMBO x${combo}! Вы летите!`,
-              compactText: `COMBO x${combo}!`,
+              text: `COMBO ×${combo}! Вы летите!`,
+              compactText: `COMBO ×${combo}!`,
               tone: 'celebrate',
               emphasis: 'pulse',
             }
           : null,
-        feedback?.type === 'success' && combo >= 3
+        feedback?.type === 'success' && combo >= 3 && !lastComboMilestoneBlocked
           ? {
               key: `lesson-combo-${combo}`,
               priority: 80,
-              text: `COMBO x${combo}! Так держать!`,
-              compactText: `COMBO x${combo}!`,
+              text: `COMBO ×${combo}! Так держать!`,
+              compactText: `COMBO ×${combo}!`,
               tone: 'celebrate',
             }
           : null,
@@ -717,6 +748,7 @@ export function useLessonEngine(lesson: LessonData | null) {
     }
   }, [
     combo,
+    lastComboMilestoneBlocked,
     contextualFooterHint,
     currentStep,
     currentVariantIndex,
@@ -817,6 +849,7 @@ export function useLessonEngine(lesson: LessonData | null) {
     lastCoreDelta,
     lastComboDelta,
     lastXpAward,
+    lastComboMilestoneBlocked,
     combo,
     status,
     feedback,

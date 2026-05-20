@@ -21,7 +21,8 @@ import type { AiChatPanel } from '@/lib/aiChatPanel'
 import { MENU_PRIMARY_CTA_CLASS } from '@/lib/homeCtaStyles'
 import { featureFlags } from '@/lib/featureFlags'
 import { getLessonBadgeDefinition } from '@/lib/lessonBadges'
-import { resolveLessonCardMedal } from '@/lib/lessonFooter'
+import MedalBadge from '@/components/MedalBadge'
+import { resolveLessonCardMedal, type LessonCardMedalDisplay } from '@/lib/lessonFooter'
 import { loadLessonProgressMap } from '@/lib/lessonProgressStorage'
 import { aggregateMedals } from '@/lib/lessonScore'
 import {
@@ -53,6 +54,8 @@ import {
   type EngvoRealtimeVoice,
   type EngvoSpeechSpeedPresetId,
 } from '@/lib/engvo/constants'
+import { DAILY_STREAK_GLYPH, DAILY_STREAK_LABEL } from '@/lib/gamificationGlyphs'
+import { pickFocusModeGoal } from '@/lib/progressFocusGoal'
 import type { RewardsState } from '@/lib/rewardsState'
 import { buildMyPlanLiveInput } from '@/lib/myPlan/buildInput'
 import { getMyPlanRecommendations } from '@/lib/myPlan/recommendations'
@@ -330,6 +333,8 @@ export interface MenuSectionPanelsProps {
   onRewardsStateChange?: (state: RewardsState) => void
   idPrefix?: string
   className?: string
+  /** Slide-out на всю колонку: горизонтальный отступ у карточек, фон панели без px. */
+  edgeToEdge?: boolean
   homeLayout?: boolean
   onStartHomeChat?: () => void
   onGoHome?: () => void
@@ -402,6 +407,7 @@ export default function MenuSectionPanels({
   onRewardsStateChange,
   idPrefix = 'menu-',
   className,
+  edgeToEdge = false,
   homeLayout = false,
   onStartHomeChat,
   onGoHome,
@@ -804,8 +810,8 @@ export default function MenuSectionPanels({
     const today = getTodayDateString()
     const activeToday = rewardsState?.progress.lastActiveDate === today
     const streakText = activeToday
-      ? 'Серия на сегодня зафиксирована.'
-      : 'Закройте хотя бы одну цель сегодня, чтобы сохранить серию.'
+      ? 'Серия дней на сегодня зафиксирована.'
+      : 'Закройте хотя бы одну цель сегодня, чтобы сохранить серию дней.'
     if (communication?.status === 'in_progress' && !communication.completed) {
       const left = Math.max(0, communication.goalTarget - communication.goalProgress)
       return {
@@ -1075,9 +1081,12 @@ export default function MenuSectionPanels({
     onMenuViewChange('root')
   }
 
-  const rootClass =
-    className ??
-    (homeLayout ? 'flex min-h-0 flex-col' : 'flex min-h-0 flex-1 flex-col')
+  const rootClass = [
+    className ?? (homeLayout ? 'flex min-h-0 flex-col' : 'flex min-h-0 flex-1 flex-col'),
+    edgeToEdge ? 'pl-0 pr-3' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   const selectedAccentGroup = RUSSIAN_SPEAKER_GROUPS.find((group) => group.id === selectedAccentGroupId) ?? null
   const selectedAccentSection = ACCENT_SECTIONS.find((section) => section.id === selectedAccentSectionId) ?? null
@@ -2817,10 +2826,11 @@ export default function MenuSectionPanels({
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
               <p className="text-[13px] font-medium text-[var(--text-muted)]">Игровая сводка</p>
-              <p className="mt-1 text-[13px] text-[var(--text)]">
-                Уровень {rewardsState?.progress.level ?? 1} • ⭐ {rewardsState?.progress.totalXP ?? 0} • 🔥 {rewardsState?.progress.dailyStreak ?? 0}
+              <p className="emoji-line mt-1 text-[13px] text-[var(--text)]">
+                Уровень {rewardsState?.progress.level ?? 1} • ⭐ {rewardsState?.progress.totalXP ?? 0} • {DAILY_STREAK_GLYPH}{' '}
+                {rewardsState?.progress.dailyStreak ?? 0}
               </p>
-              <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+              <p className="emoji-line mt-1 text-[12px] text-[var(--text-muted)]">
                 🎫 {rewardsState?.currencies.tickets ?? 0} • 🪙 {rewardsState?.currencies.coins ?? 0} • 💎 {rewardsState?.currencies.gems ?? 0}
               </p>
             </div>
@@ -2994,15 +3004,57 @@ export default function MenuSectionPanels({
           </div>
         )}
 
-        {menuView === 'progress' && (
+        {menuView === 'progress' && (() => {
+          const focusGoal = pickFocusModeGoal(rewardsState)
+          const goalPercent =
+            focusGoal && focusGoal.goalTarget > 0
+              ? Math.min(100, Math.round((focusGoal.goalProgress / focusGoal.goalTarget) * 100))
+              : 0
+          const dailyStreak = rewardsState?.progress.dailyStreak ?? 0
+          const bestDailyStreak = rewardsState?.progress.bestDailyStreak ?? dailyStreak
+          return (
           <div className="space-y-2">
+            <div className="grid grid-cols-3 gap-1.5">
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-2 py-2 text-center">
+                <p className="emoji-line text-[18px] leading-none">{DAILY_STREAK_GLYPH}</p>
+                <p className="mt-0.5 text-[15px] font-semibold tabular-nums text-[var(--text)]">{dailyStreak}</p>
+                <p className="text-[10px] text-[var(--text-muted)]">{DAILY_STREAK_LABEL}</p>
+              </div>
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-2 py-2 text-center">
+                <p className="emoji-line text-[18px] leading-none">⭐</p>
+                <p className="mt-0.5 text-[15px] font-semibold tabular-nums text-[var(--text)]">
+                  {rewardsState?.progress.level ?? 1}
+                </p>
+                <p className="text-[10px] text-[var(--text-muted)]">{rewardsState?.progress.totalXP ?? 0} XP</p>
+              </div>
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-2 py-2 text-center">
+                <p className="text-[10px] font-medium text-[var(--text-muted)]">Цель дня</p>
+                <p className="mt-0.5 text-[12px] font-semibold leading-tight text-[var(--text)]">
+                  {focusGoal ? `${focusGoal.goalProgress}/${focusGoal.goalTarget}` : '—'}
+                </p>
+                <p className="text-[10px] text-[var(--text-muted)]">{focusGoal?.label ?? 'Готово'}</p>
+              </div>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-3">
+              <p className="text-[13px] font-medium text-[var(--text-muted)]">{DAILY_STREAK_LABEL}</p>
+              <div className="mt-2 flex items-center gap-3">
+                <span className="emoji-line text-[32px] leading-none" aria-hidden>
+                  {DAILY_STREAK_GLYPH}
+                </span>
+                <div>
+                  <p className="text-[28px] font-bold tabular-nums leading-none text-[var(--text)]">{dailyStreak}</p>
+                  <p className="mt-1 text-[12px] text-[var(--text-muted)]">Рекорд: {bestDailyStreak} дн.</p>
+                </div>
+              </div>
+              <p className="mt-2 text-[12px] text-[var(--text-muted)]">{nextBestAction.streak}</p>
+            </div>
             <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
               <p className="text-[13px] font-medium text-[var(--text-muted)]">Общий прогресс</p>
-              <p className="mt-1 text-[15px] font-semibold text-[var(--text)]">
+              <p className="emoji-line mt-1 text-[15px] font-semibold text-[var(--text)]">
                 Уровень {rewardsState?.progress.level ?? 1} • ⭐ {rewardsState?.progress.totalXP ?? 0}
               </p>
               <p className="mt-1 text-[13px] text-[var(--text-muted)]">
-                🔥 Серия: {rewardsState?.progress.dailyStreak ?? 0} • До следующего уровня: {rewardsState?.progress.currentLevelXP ?? 0}/{rewardsState?.progress.xpToNextLevel ?? 100}
+                До следующего уровня: {rewardsState?.progress.currentLevelXP ?? 0}/{rewardsState?.progress.xpToNextLevel ?? 100}
               </p>
             </div>
             {(() => {
@@ -3013,7 +3065,7 @@ export default function MenuSectionPanels({
               return (
                 <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
                   <p className="text-[13px] font-medium text-[var(--text-muted)]">Награды уроков</p>
-                  <p className="mt-1 text-[14px] text-[var(--text)]">
+                  <p className="emoji-line mt-1 text-[14px] text-[var(--text)]">
                     🥇 {medals.gold} · 🥈 {medals.silver} · 🥉 {medals.bronze} · Золото {medals.gold}/4
                   </p>
                   <p className="mt-1 text-[13px] text-[var(--text-muted)]">Бейджи: {badgesEarned}/4</p>
@@ -3072,7 +3124,24 @@ export default function MenuSectionPanels({
               <p className="text-[13px] font-medium text-[var(--text-muted)]">Цель дня</p>
               <p className="mt-1 text-[14px] font-semibold text-[var(--text)]">{nextBestAction.title}</p>
               <p className="mt-1 text-[13px] text-[var(--text)]">{nextBestAction.detail}</p>
-              <p className="mt-1 text-[12px] text-[var(--text-muted)]">{nextBestAction.streak}</p>
+              {focusGoal && focusGoal.goalTarget > 0 ? (
+                <div className="mt-2">
+                  <div className="h-2 overflow-hidden rounded-full bg-[var(--menu-control-bg)]">
+                    <div
+                      className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-300"
+                      style={{ width: `${goalPercent}%` }}
+                      role="progressbar"
+                      aria-valuenow={focusGoal.goalProgress}
+                      aria-valuemin={0}
+                      aria-valuemax={focusGoal.goalTarget}
+                      aria-label={`${focusGoal.label}: ${focusGoal.goalProgress} из ${focusGoal.goalTarget}`}
+                    />
+                  </div>
+                  <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+                    {focusGoal.label}: {focusGoal.goalProgress}/{focusGoal.goalTarget}
+                  </p>
+                </div>
+              ) : null}
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
               <p className="text-[13px] font-medium text-[var(--text-muted)]">Статистика</p>
@@ -3084,7 +3153,8 @@ export default function MenuSectionPanels({
               </p>
             </div>
           </div>
-        )}
+          )
+        })()}
 
         {menuView === 'myPlan' && (
           <MyPlanPanel
@@ -3137,7 +3207,7 @@ function A2LessonChoiceRow({
   label: string
   subtitle?: string
   description?: string
-  medalDisplay?: { emoji: string; title: string } | null
+  medalDisplay?: LessonCardMedalDisplay | null
   selected: boolean
   enabled: boolean
   onClick?: () => void
@@ -3165,18 +3235,19 @@ function A2LessonChoiceRow({
         <span className="flex items-start justify-between gap-3">
           <span className="min-w-0 block text-[15px] font-normal leading-normal text-[var(--text)]">{label}</span>
           <span className="flex shrink-0 items-center gap-2.5 pt-px">
-            {medalDisplay ? (
-              <span
-                className="flex h-4 items-center justify-center text-base leading-none"
-                title={medalDisplay.title}
-                aria-label={medalDisplay.title}
-              >
-                {medalDisplay.emoji}
-              </span>
-            ) : null}
+            <span className="flex w-[1.375rem] shrink-0 items-center justify-center sm:w-6">
+              {medalDisplay ? (
+                <MedalBadge
+                  tier={medalDisplay.tier}
+                  size="md"
+                  muted={medalDisplay.muted}
+                  title={medalDisplay.title}
+                />
+              ) : null}
+            </span>
             {selected ? (
               <CheckIcon className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden />
-            ) : medalDisplay ? null : (
+            ) : (
               <span className="h-4 w-4 shrink-0" aria-hidden />
             )}
           </span>
@@ -3260,7 +3331,9 @@ function MenuSettingRow({
       className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
     >
       <span className="shrink-0 text-sm font-medium leading-normal text-[var(--text-muted)]">{label}</span>
-      <span className={`min-w-0 flex-1 truncate text-right leading-normal text-[var(--text)] ${MENU_CHOICE_TEXT_CLASS}`}>
+      <span
+        className={`emoji-line min-w-0 flex-1 truncate-x whitespace-nowrap text-right text-[var(--text)] ${MENU_CHOICE_TEXT_CLASS}`}
+      >
         {value}
       </span>
       <ChevronRightIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />

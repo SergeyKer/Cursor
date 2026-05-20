@@ -61,7 +61,7 @@ function renderBodyLine(line: string, index: number, bulletStyle: BulletStyle = 
       {useDotBullet ? (
         <span className="mt-[0.45rem] h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" aria-hidden />
       ) : marker ? (
-        <span className="mt-[0.15rem] inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white/80 text-[12px] shadow-sm">
+        <span className="emoji-glyph mt-[0.15rem] inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-white/80 text-[12px] shadow-sm">
           {marker}
         </span>
       ) : null}

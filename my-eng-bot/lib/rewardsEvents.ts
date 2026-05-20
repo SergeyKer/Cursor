@@ -16,7 +16,7 @@ export function applyRewardsEvent(state: RewardsState, event: RewardsEvent): Rew
       const amount = Math.max(0, Math.floor(event.amount))
       if (amount <= 0) return state
       return awardGlobalXp(state, amount, event.type, {
-        ticker: `+${amount} XP к прогрессу.`,
+        ticker: `+${amount} XP к уровню.`,
       })
     }
     case 'lesson_step_completed':

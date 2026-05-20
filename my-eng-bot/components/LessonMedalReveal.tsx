@@ -38,7 +38,7 @@ export default function LessonMedalReveal({
     <section
       className={`rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-center ${className}`.trim()}
     >
-      <p className="text-2xl" aria-hidden>
+      <p className="emoji-glyph text-2xl leading-none" aria-hidden>
         {medal === 'gold' ? '🥇' : medal === 'silver' ? '🥈' : medal === 'bronze' ? '🥉' : '○'}
       </p>
       <h3 className="mt-1 text-base font-semibold text-slate-900">{title}</h3>

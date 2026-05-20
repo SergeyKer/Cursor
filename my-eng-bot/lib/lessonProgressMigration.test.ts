@@ -61,5 +61,52 @@ describe('lessonProgressMigration', () => {
     })
     expect(merged.medal).toBe('gold')
     expect(merged.bestCoreXp).toBe(130)
+    expect(merged.bestTotalXp).toBe(140)
+  })
+
+  it('stores bestTotalXp on complete', () => {
+    const merged = mergeLessonProgressOnComplete(null, {
+      lessonId: '1',
+      topic: 't',
+      level: 'A2',
+      completedSteps: [1, 2, 3, 4, 5, 6, 7],
+      completedVariants: [1],
+      coreXp: 100,
+      comboXp: 15,
+      maxCoreXp: 140,
+      maxCombo: 5,
+      mistakes: [],
+    })
+    expect(merged.bestTotalXp).toBe(115)
+  })
+
+  it('caps gold medal on repeat run merge', () => {
+    const previous = mergeLessonProgressOnComplete(null, {
+      lessonId: '1',
+      topic: 't',
+      level: 'A2',
+      completedSteps: [1, 2, 3, 4, 5, 6, 7],
+      completedVariants: [1],
+      coreXp: 130,
+      comboXp: 10,
+      maxCoreXp: 140,
+      maxCombo: 7,
+      mistakes: [],
+    })
+    const merged = mergeLessonProgressOnComplete(previous, {
+      lessonId: '1',
+      topic: 't',
+      level: 'A2',
+      completedSteps: [1, 2, 3, 4, 5, 6, 7],
+      completedVariants: [2],
+      coreXp: 140,
+      comboXp: 30,
+      maxCoreXp: 140,
+      maxCombo: 7,
+      mistakes: [],
+      isRepeatRun: true,
+    })
+    expect(merged.medal).toBe('gold')
+    expect(merged.bestTotalXp).toBe(170)
   })
 })
