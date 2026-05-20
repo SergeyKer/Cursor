@@ -128,25 +128,30 @@ export default function SlideOutMenu({
 }: SlideOutMenuProps) {
   const [menuView, setMenuView] = React.useState<MenuView>('root')
   const panelPositioned = columnBounds != null
-  const isFullBleed = columnBounds?.isFullBleed ?? false
-  const columnInsetFromShell = columnBounds
-    ? Math.max(0, columnBounds.left - columnBounds.shellLeft)
+  const shellWidth = columnBounds
+    ? Math.max(0, columnBounds.shellRight - columnBounds.shellLeft)
     : 0
-  // Телефон: shell ≈ экран. ПК/планшет (колонка с полями): ширина колонки, как контент и ☰.
-  const useShellPanel = isFullBleed && columnInsetFromShell <= 8
-  const panelLeft = columnBounds
-    ? useShellPanel
-      ? columnBounds.shellLeft
-      : columnBounds.left
-    : 0
-  const panelWidth = columnBounds
-    ? Math.max(
-        0,
-        useShellPanel
-          ? columnBounds.shellRight - columnBounds.shellLeft
-          : columnBounds.width
-      )
-    : 0
+  const columnFillsShell =
+    columnBounds != null && shellWidth > 0 && columnBounds.width / shellWidth >= 0.85
+  // Телефон: left 0 / right 0. ПК и планшет: колонка приложения.
+  const useFullWidthPanel = columnBounds
+    ? columnBounds.isPhoneViewport || columnBounds.isFullBleed || columnFillsShell
+    : false
+  const panelContainerStyle = columnBounds
+    ? useFullWidthPanel
+      ? {
+          left: 0,
+          right: 0,
+          top: topOffset,
+          bottom: bottomOffset,
+        }
+      : {
+          left: columnBounds.left,
+          width: columnBounds.width,
+          top: topOffset,
+          bottom: bottomOffset,
+        }
+    : undefined
   const panelBoxShadow =
     'var(--app-footer-shadow), 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)'
   const panelSurfaceClass =
@@ -263,17 +268,12 @@ export default function SlideOutMenu({
       {panelPositioned ? (
         <div
           className="pointer-events-none fixed z-50 overflow-hidden"
-          style={{
-            left: panelLeft,
-            width: panelWidth,
-            top: topOffset,
-            bottom: bottomOffset,
-          }}
+          style={panelContainerStyle}
         >
           <aside
             className={`h-full w-full ${panelSurfaceClass} transition-transform duration-200 ease-out ${
               open
-                ? `translate-x-0 pointer-events-auto${useShellPanel ? '' : ` ${panelOpenEdgeClass}`}`
+                ? `translate-x-0 pointer-events-auto${useFullWidthPanel ? '' : ` ${panelOpenEdgeClass}`}`
                 : '-translate-x-full pointer-events-none'
             }`}
             style={{ boxShadow: open ? panelBoxShadow : undefined }}
