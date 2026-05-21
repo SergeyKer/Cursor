@@ -87,6 +87,27 @@ function buildLearnerContextSuffixRuToEn(tenses: TenseId[] | null, mode: AppMode
   return s
 }
 
+type TranslateContext = 'default' | 'engvo'
+
+function parseTranslateContext(raw: unknown): TranslateContext {
+  return raw === 'engvo' ? 'engvo' : 'default'
+}
+
+/** Короткий промпт для фонового перевода реплик Engvo (звонок, A0–A1). */
+function buildSystemPromptEnToRuEngvoCall(params: { audience: 'child' | 'adult' }): string {
+  const form =
+    params.audience === 'child'
+      ? 'Use informal ты only. '
+      : 'Use polite вы. '
+  return (
+    'Translate one short English line from a live voice English lesson (CEFR A0–A1). ' +
+    form +
+    'Natural conversational Russian in Cyrillic only. Keep it brief (one or two short sentences). ' +
+    'No explanations, quotes, or English fragments. ' +
+    RUSSIAN_EN_TO_RU_SHORT_HINTS
+  )
+}
+
 function buildSystemPromptEnToRu(params: {
   audience: 'child' | 'adult'
   learnerContext: string
@@ -156,7 +177,9 @@ export async function POST(req: NextRequest) {
     const direction = parseDirection(body.direction)
     const optionalTenses = parseOptionalTenses(body.tenses)
     const optionalMode = parseOptionalMode(body.mode)
-    const learnerContextEnToRu = buildLearnerContextSuffix(optionalTenses, optionalMode)
+    const translateContext = parseTranslateContext(body.context)
+    const learnerContextEnToRu =
+      translateContext === 'engvo' ? '' : buildLearnerContextSuffix(optionalTenses, optionalMode)
     const learnerContextRuToEn = buildLearnerContextSuffixRuToEn(optionalTenses, optionalMode)
     if (!text) {
       return NextResponse.json({ error: 'Текст для перевода не передан' }, { status: 400 })
@@ -165,7 +188,11 @@ export async function POST(req: NextRequest) {
     const system =
       direction === 'ru_to_en'
         ? buildSystemPromptRuToEn({ audience, learnerContext: learnerContextRuToEn })
-        : buildSystemPromptEnToRu({ audience, learnerContext: learnerContextEnToRu })
+        : translateContext === 'engvo'
+          ? buildSystemPromptEnToRuEngvoCall({ audience })
+          : buildSystemPromptEnToRu({ audience, learnerContext: learnerContextEnToRu })
+    const maxTokens =
+      translateContext === 'engvo' ? Math.min(120, Math.max(32, text.length * 4)) : 300
     const messages = [
       { role: 'system', content: system },
       { role: 'user', content: text },
@@ -198,7 +225,8 @@ export async function POST(req: NextRequest) {
                 ? { reasoning_effort: 'low' }
                 : {}),
             messages,
-            max_tokens: 300,
+            max_tokens: maxTokens,
+            ...(translateContext === 'engvo' ? { temperature: 0 } : {}),
           }),
           ...(proxyFetchExtra as RequestInit),
         } as RequestInit)
@@ -221,7 +249,8 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           model: FREE_MODEL,
           messages,
-          max_tokens: 300, // типичный перевод 5–30 токенов, резерв большой
+          max_tokens: maxTokens,
+          ...(translateContext === 'engvo' ? { temperature: 0 } : {}),
         }),
       })
     })()

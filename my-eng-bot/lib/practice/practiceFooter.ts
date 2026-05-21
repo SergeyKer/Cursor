@@ -34,6 +34,8 @@ export function getPracticeFooterView(session: PracticeSession, state: PracticeF
   const dynamicText =
     state === 'checking'
       ? 'Смотрю ваш ответ.'
+      : state === 'feedback'
+        ? 'Ответ принят. Можно идти дальше.'
       : state === 'generating_next'
         ? 'MyEng печатает следующий шаг.'
       : state === 'correction'

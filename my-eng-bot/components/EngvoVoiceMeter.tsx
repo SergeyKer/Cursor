@@ -2,19 +2,47 @@
 
 import React from 'react'
 
+type EngvoVoiceMeterRole = 'user' | 'assistant'
+
 type EngvoVoiceMeterProps = {
   stream: MediaStream | null
   active: boolean
   frozen?: boolean
   ariaLabel?: string
+  /** user — микрофон (AGC сжимает сигнал); assistant — удалённый поток Engvo. */
+  role?: EngvoVoiceMeterRole
 }
 
 const BAR_COUNT = 9
 const BAR_PIXEL_MAX = 22
-const BASELINE_SCALE = 0.16
 const MAX_SCALE = 1
 const IDLE_MAX_SCALE = 0.42
-const RMS_TO_LEVEL = 5.6
+
+const METER_TUNING: Record<
+  EngvoVoiceMeterRole,
+  {
+    baselineScale: number
+    rmsToLevel: number
+    analyserSmoothing: number
+    levelAttack: number
+    voiceEnvelope: number
+  }
+> = {
+  user: {
+    baselineScale: 0.08,
+    rmsToLevel: 14,
+    analyserSmoothing: 0.28,
+    levelAttack: 0.52,
+    voiceEnvelope: 1,
+  },
+  assistant: {
+    baselineScale: 0.16,
+    rmsToLevel: 5.6,
+    analyserSmoothing: 0.42,
+    levelAttack: 0.42,
+    voiceEnvelope: 0.95,
+  },
+}
 
 type SharedAudioState = {
   context: AudioContext
@@ -49,12 +77,17 @@ export default function EngvoVoiceMeter({
   active,
   frozen = false,
   ariaLabel = 'Индикатор голоса',
+  role = 'assistant',
 }: EngvoVoiceMeterProps) {
+  const tuning = METER_TUNING[role]
+  const baselineScale = tuning.baselineScale
+  const levelDecay = 1 - tuning.levelAttack
+
   const barsRef = React.useRef<Array<HTMLSpanElement | null>>([])
   const animationFrameRef = React.useRef<number | null>(null)
   const sourceNodeRef = React.useRef<MediaStreamAudioSourceNode | null>(null)
   const analyserNodeRef = React.useRef<AnalyserNode | null>(null)
-  const currentLevelsRef = React.useRef<number[]>(Array(BAR_COUNT).fill(BASELINE_SCALE))
+  const currentLevelsRef = React.useRef<number[]>(Array(BAR_COUNT).fill(baselineScale))
   const idlePhaseRef = React.useRef(0)
 
   React.useEffect(() => {
@@ -76,13 +109,13 @@ export default function EngvoVoiceMeter({
     stop()
 
     if (frozen) {
-      currentLevelsRef.current = Array(BAR_COUNT).fill(BASELINE_SCALE)
+      currentLevelsRef.current = Array(BAR_COUNT).fill(baselineScale)
       animateBars(barsRef, currentLevelsRef.current)
       return stop
     }
 
     if (!active) {
-      currentLevelsRef.current = Array(BAR_COUNT).fill(BASELINE_SCALE)
+      currentLevelsRef.current = Array(BAR_COUNT).fill(baselineScale)
       animateBars(barsRef, currentLevelsRef.current)
       return stop
     }
@@ -96,8 +129,8 @@ export default function EngvoVoiceMeter({
           const distance = Math.abs(i - center)
           const envelope = Math.max(0.3, 1 - distance * 0.2)
           const pulse = (Math.sin(idlePhaseRef.current + i * 0.45) + 1) * 0.5
-          const target = BASELINE_SCALE + pulse * (IDLE_MAX_SCALE - BASELINE_SCALE) * envelope
-          const prev = currentLevelsRef.current[i] ?? BASELINE_SCALE
+          const target = baselineScale + pulse * (IDLE_MAX_SCALE - baselineScale) * envelope
+          const prev = currentLevelsRef.current[i] ?? baselineScale
           nextLevels[i] = prev * 0.72 + target * 0.28
         }
         currentLevelsRef.current = nextLevels
@@ -110,7 +143,7 @@ export default function EngvoVoiceMeter({
 
     const shared = getSharedAudioState()
     if (!shared) {
-      currentLevelsRef.current = Array(BAR_COUNT).fill(BASELINE_SCALE)
+      currentLevelsRef.current = Array(BAR_COUNT).fill(baselineScale)
       animateBars(barsRef, currentLevelsRef.current)
       return stop
     }
@@ -124,14 +157,14 @@ export default function EngvoVoiceMeter({
     try {
       sourceNode = context.createMediaStreamSource(stream)
     } catch {
-      currentLevelsRef.current = Array(BAR_COUNT).fill(BASELINE_SCALE)
+      currentLevelsRef.current = Array(BAR_COUNT).fill(baselineScale)
       animateBars(barsRef, currentLevelsRef.current)
       return stop
     }
 
     const analyserNode = context.createAnalyser()
     analyserNode.fftSize = 128
-    analyserNode.smoothingTimeConstant = 0.42
+    analyserNode.smoothingTimeConstant = tuning.analyserSmoothing
 
     sourceNode.connect(analyserNode)
     sourceNodeRef.current = sourceNode
@@ -148,7 +181,7 @@ export default function EngvoVoiceMeter({
         energy += centered * centered
       }
       const rms = Math.sqrt(energy / timeDomainData.length)
-      const boosted = clamp(rms * RMS_TO_LEVEL, 0, 1)
+      const boosted = clamp(rms * tuning.rmsToLevel, 0, 1)
 
       const nextLevels = new Array<number>(BAR_COUNT)
       const center = (BAR_COUNT - 1) / 2
@@ -158,12 +191,12 @@ export default function EngvoVoiceMeter({
         const envelope = clamp(1 - distance * 0.18, 0.32, 1)
         const microMotion = (Math.sin((performance.now() * 0.012) + barIndex * 0.55) + 1) * 0.5
         const target = clamp(
-          BASELINE_SCALE + boosted * 0.95 * envelope + microMotion * 0.03 * envelope,
-          BASELINE_SCALE,
+          baselineScale + boosted * tuning.voiceEnvelope * envelope + microMotion * 0.03 * envelope,
+          baselineScale,
           MAX_SCALE
         )
-        const prev = currentLevelsRef.current[barIndex] ?? BASELINE_SCALE
-        nextLevels[barIndex] = prev * 0.58 + target * 0.42
+        const prev = currentLevelsRef.current[barIndex] ?? baselineScale
+        nextLevels[barIndex] = prev * levelDecay + target * tuning.levelAttack
       }
 
       currentLevelsRef.current = nextLevels
@@ -173,7 +206,7 @@ export default function EngvoVoiceMeter({
 
     animationFrameRef.current = window.requestAnimationFrame(tick)
     return stop
-  }, [active, frozen, stream])
+  }, [active, baselineScale, frozen, levelDecay, role, stream, tuning])
 
   return (
     <div
@@ -190,7 +223,7 @@ export default function EngvoVoiceMeter({
             }}
             className="w-[4px] shrink-0 rounded-none bg-[#6b8ef6]"
             style={{
-              height: `${Math.max(2, BASELINE_SCALE * BAR_PIXEL_MAX)}px`,
+              height: `${Math.max(2, baselineScale * BAR_PIXEL_MAX)}px`,
             }}
             aria-hidden
           />

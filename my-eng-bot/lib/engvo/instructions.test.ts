@@ -37,6 +37,8 @@ describe('buildEngvoRealtimeInstructions', () => {
     expect(result).toContain('CEFR lexical ceiling (A1)')
     expect(result).toContain('Active conversation topic: Movies and series.')
     expect(result).toContain('Low-level reinforcement (A1)')
+    expect(result).toContain('Grammar ceiling: Present Simple')
+    expect(result).toContain('Avoid abstract or formal words')
     expect(result).toContain('Do not jump to A2/B1 vocabulary')
     expect(result).toContain('Avoid bureaucratic, overly formal, or adult business language.')
   })
@@ -76,15 +78,28 @@ describe('buildEngvoRealtimeInstructions', () => {
     )
   })
 
-  it('builds a low-level first-turn instruction inside the selected topic', () => {
+  it('builds A1-specific first-turn instruction with strict simplicity', () => {
     const result = buildEngvoFirstTurnResponseInstructions({
       audience: 'child',
       level: 'a1',
       topic: 'hobbies',
     })
 
+    expect(result).toContain('very short greeting')
+    expect(result).toContain('Present Simple')
+    expect(result).toContain('Hobbies and interests')
+    expect(result).toContain('Do not add extra filler')
+  })
+
+  it('builds a low-level first-turn instruction for A2 inside the selected topic', () => {
+    const result = buildEngvoFirstTurnResponseInstructions({
+      audience: 'child',
+      level: 'a2',
+      topic: 'hobbies',
+    })
+
     expect(result).toContain('exactly one short greeting and one short question')
-    expect(result).toContain('For A1/A2, use very common everyday words')
+    expect(result).toContain('For A2, use very common everyday words')
     expect(result).toContain('The first question must be directly about Hobbies and interests.')
     expect(result).toContain('Do not add extra filler')
   })
@@ -100,5 +115,16 @@ describe('buildEngvoRealtimeInstructions', () => {
     expect(result).toContain('Keep the conversation on Travel')
     expect(result).toContain('Keep the same audience style, CEFR level, and vocabulary limits')
     expect(result).toContain('Do not widen the topic or increase vocabulary difficulty.')
+  })
+
+  it('adds A1 constraints to continuation instructions', () => {
+    const result = buildEngvoContinuationResponseInstructions({
+      audience: 'child',
+      level: 'a1',
+      topic: 'food',
+    })
+
+    expect(result).toContain('For A1, keep each reply to one short sentence')
+    expect(result).toContain('Present Simple')
   })
 })

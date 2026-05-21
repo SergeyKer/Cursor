@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION,
+  ENGVO_VAD_SILENCE_DURATION_MS,
+  ENGVO_VAD_THRESHOLD,
+} from './constants'
+import {
   ENGVO_REALTIME_SESSION_TYPE,
   assertEngvoRealtimeSessionHasType,
   buildEngvoCallsApiSession,
@@ -19,6 +24,9 @@ describe('buildEngvoCallsApiSession', () => {
     expect(session.audio.output.voice).toBe('alloy')
     expect(session.audio.input.transcription).toBeDefined()
     expect(session.audio.input.turn_detection.type).toBe('server_vad')
+    expect(session.audio.input.turn_detection).toEqual(ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION)
+    expect(ENGVO_VAD_THRESHOLD).toBe(0.72)
+    expect(ENGVO_VAD_SILENCE_DURATION_MS).toBe(900)
   })
 })
 

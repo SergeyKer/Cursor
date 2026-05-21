@@ -56,6 +56,11 @@ import {
 } from '@/lib/engvo/constants'
 import { DAILY_STREAK_GLYPH, DAILY_STREAK_LABEL } from '@/lib/gamificationGlyphs'
 import { pickFocusModeGoal } from '@/lib/progressFocusGoal'
+import {
+  formatPracticeProgressBadge,
+  pickBestPracticeRewardOpportunity,
+} from '@/lib/practice/pickBestPracticeRewardOpportunity'
+import { getPracticeTopicProgress } from '@/lib/practice/practiceTopicProgressStorage'
 import type { RewardsState } from '@/lib/rewardsState'
 import { buildMyPlanLiveInput } from '@/lib/myPlan/buildInput'
 import { getMyPlanRecommendations } from '@/lib/myPlan/recommendations'
@@ -3012,8 +3017,38 @@ export default function MenuSectionPanels({
               : 0
           const dailyStreak = rewardsState?.progress.dailyStreak ?? 0
           const bestDailyStreak = rewardsState?.progress.bestDailyStreak ?? dailyStreak
+          const lessonProgressRows = Object.values(loadLessonProgressMap())
+          const bestPracticeOpportunity = pickBestPracticeRewardOpportunity(lessonProgressRows)
           return (
           <div className="space-y-2">
+            {bestPracticeOpportunity ? (
+              <div className="rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-3">
+                <p className="text-[13px] font-medium text-[var(--status-info-text)]">Лучший заработок</p>
+                <p className="mt-1 text-[15px] font-semibold text-[var(--text)]">{bestPracticeOpportunity.label}</p>
+                <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+                  {bestPracticeOpportunity.reason === 'gems_pending'
+                    ? 'Золото уже есть — практика закрепит 💎.'
+                    : bestPracticeOpportunity.reason === 'gold_ring'
+                      ? 'Золотая медаль + кольцо 🔁 — лучший путь к камням.'
+                      : 'Практика по пройденному уроку даёт XP к уровню.'}
+                </p>
+                {onOpenPracticeSession ? (
+                  <button
+                    type="button"
+                    className={`${MENU_PRIMARY_CTA_CLASS} mt-2 w-full`}
+                    onClick={() =>
+                      void onOpenPracticeSession({
+                        lessonId: bestPracticeOpportunity.lessonId,
+                        mode: 'balanced',
+                        entrySource: 'menu',
+                      })
+                    }
+                  >
+                    Открыть практику
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             <div className="grid grid-cols-3 gap-1.5">
               <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-2 py-2 text-center">
                 <p className="emoji-line text-[18px] leading-none">{DAILY_STREAK_GLYPH}</p>
@@ -3062,7 +3097,30 @@ export default function MenuSectionPanels({
               const medalList = Object.values(lessonProgressMap).map((row) => row.medal)
               const medals = aggregateMedals(medalList, 4)
               const badgesEarned = Object.values(lessonProgressMap).filter((row) => row.lessonBadgeEarned).length
+              const practiceRows = Object.values(lessonProgressMap).filter((row) => row.medal)
               return (
+                <>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
+                  <p className="text-[13px] font-medium text-[var(--text-muted)]">Практика по темам</p>
+                  {practiceRows.length === 0 ? (
+                    <p className="mt-1 text-[13px] text-[var(--text-muted)]">Сначала получите медаль в уроке.</p>
+                  ) : (
+                    <ul className="mt-2 space-y-1 text-[12px] text-[var(--text-muted)]">
+                      {practiceRows.map((row) => {
+                        const topic = getLessonTopicById(row.lessonId)?.title ?? `Урок ${row.lessonId}`
+                        const practiceProgress = getPracticeTopicProgress(row.lessonId)
+                        return (
+                          <li key={`practice-${row.lessonId}`} className="flex items-center justify-between gap-2">
+                            <span>{topic}</span>
+                            <span className="emoji-line shrink-0 font-medium text-[var(--text)]">
+                              {formatPracticeProgressBadge(practiceProgress, row.medal)}
+                            </span>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </div>
                 <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
                   <p className="text-[13px] font-medium text-[var(--text-muted)]">Награды уроков</p>
                   <p className="emoji-line mt-1 text-[14px] text-[var(--text)]">
@@ -3091,6 +3149,7 @@ export default function MenuSectionPanels({
                     })}
                   </ul>
                 </div>
+                </>
               )
             })()}
             <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">

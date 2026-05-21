@@ -198,6 +198,11 @@
   --status-success-text: #15803d;
   --status-pending-bg: #fef3c7;
   --status-pending-text: #92400e;
+  /* Индикатор «Перевод_звонок» (Engvo): яркие точки, не текстовые status-* */
+  --engvo-translate-dot-ready: #22c55e;
+  --engvo-translate-dot-loading: #ea580c;
+  --engvo-translate-dot-error: #ef4444;
+  --engvo-translate-dot-idle: #94a3b8;
 
   --bg: var(--bg-primary);
   --bg-card: #fafafa;

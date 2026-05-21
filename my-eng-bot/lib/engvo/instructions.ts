@@ -78,9 +78,12 @@ function buildEngvoTopicRule(topic: TopicId, audience: Audience): string {
 function buildEngvoLevelReinforcementRule(level: EngvoCefrLevel): string {
   if (level === 'a1') {
     return [
-      'Low-level reinforcement (A1): use only very common everyday words.',
+      'Low-level reinforcement (A1): use only very common everyday words (home, food, family, like, go, play, see, want, good, happy).',
+      'Grammar ceiling: Present Simple, be, and have only; no complex tenses, conditionals, or passive unless the learner uses them first.',
+      'Keep each reply to one short sentence (about 8-10 words) plus one simple question (about 6-8 words).',
       'Keep most replies very short, concrete, and easy to picture.',
       'Ask one simple question at a time.',
+      'Avoid abstract or formal words (session, approach, discuss, experience, opportunity, actually, basically).',
       'Do not jump to A2/B1 vocabulary or abstract phrasing unless the learner clearly introduces it first.',
     ].join(' ')
   }
@@ -103,13 +106,26 @@ export function buildEngvoFirstTurnResponseInstructions(params: {
 }): string {
   const safeTopic = sanitizeEngvoTopicForAudience(params.topic, params.audience)
   const topicName = ENGVO_TOPIC_NAMES[safeTopic] ?? 'the selected topic'
-  const lowLevel = params.level === 'a1' || params.level === 'a2'
+
+  if (params.level === 'a1') {
+    return [
+      'Start the call in English with exactly one very short greeting (about 5-7 words) and one very simple question (about 5-8 words).',
+      'Use only Present Simple / be / have and everyday concrete words from the session CEFR limits.',
+      'Match the active audience style and vocabulary limits from the session instructions.',
+      safeTopic === 'free_talk'
+        ? 'Ask about something very familiar (name, food, pet, favorite game, weather).'
+        : `Ask one very simple question about ${topicName} using only basic words.`,
+      'Do not add extra filler, a second question, or harder vocabulary than A1 allows.',
+    ].join(' ')
+  }
+
+  const lowLevel = params.level === 'a2'
 
   return [
     'Start the call in English with exactly one short greeting and one short question.',
     'Match the active audience style, CEFR, and vocabulary limits from the session instructions.',
     lowLevel
-      ? 'For A1/A2, use very common everyday words, short sentences, and avoid broad or abstract openers.'
+      ? 'For A2, use very common everyday words, short sentences, and avoid broad or abstract openers.'
       : 'Keep the opening natural, concise, and easy to answer.',
     safeTopic === 'free_talk'
       ? 'If the topic mode is free talk, ask one simple conversation-starting question.'
@@ -126,16 +142,24 @@ export function buildEngvoContinuationResponseInstructions(params: {
   const safeTopic = sanitizeEngvoTopicForAudience(params.topic, params.audience)
   const topicName = ENGVO_TOPIC_NAMES[safeTopic] ?? 'the current topic'
 
+  const a1Extra =
+    params.level === 'a1'
+      ? 'For A1, keep each reply to one short sentence plus one simple question; stay on Present Simple / be / have.'
+      : ''
+
   return [
     'The learner reconnected after a short break.',
     'Continue the conversation naturally in English from where it left off.',
     'Keep the same audience style, CEFR level, and vocabulary limits from the session instructions.',
+    a1Extra,
     safeTopic === 'free_talk'
       ? 'Stay on the learner’s current thread and ask one short follow-up question.'
       : `Keep the conversation on ${topicName}; if needed, gently bring it back to ${topicName}.`,
     'Reply briefly, react to the learner’s last point if relevant, and ask one short follow-up question.',
     'Do not widen the topic or increase vocabulary difficulty.',
-  ].join(' ')
+  ]
+    .filter(Boolean)
+    .join(' ')
 }
 
 /** Скорость речи задаётся через instructions — поле `session.speed` в Realtime API не поддерживается. */

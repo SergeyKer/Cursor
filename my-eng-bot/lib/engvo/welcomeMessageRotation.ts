@@ -1,24 +1,36 @@
+import type { EngvoCefrLevel } from '@/lib/engvo/constants'
 import type { Audience } from '@/lib/types'
 
-/** Короткие A2-фразы: приглашение нажать зелёную трубку (child). */
+/** Очень короткие фразы для A1: нажать зелёную трубку (child и adult). */
+export const ENGVO_WELCOME_LINES_A1 = [
+  'Нажми зелёную кнопку. Поговорим по-английски.',
+  'Нажми зелёную трубку — начнём говорить по-английски.',
+  'Готов? Нажми зелёную кнопку. Будем говорить по-английски.',
+  'Нажми зелёную кнопку с трубкой. Поговорим на английском.',
+  'Когда готов — нажми зелёную кнопку. Поговорим по-английски.',
+] as const
+
+/** Простой русский: приглашение на звонок (child). */
 export const ENGVO_WELCOME_LINES_CHILD = [
-  "Hi! Tap the green button and let's talk in English. I'm here to help.",
-  "Hello! When you're ready, press the green phone and we can chat.",
-  "Hey there! Hit the green call button — I'd love to hear you speak English.",
-  "Hi, friend! Ready? Tap the green phone and we'll practice together.",
-  "Welcome! Press the green button when you want to start our voice chat.",
+  'Привет! Нажми зелёную кнопку с трубкой — начнём говорить по-английски.',
+  'Привет! Когда будешь готов, нажми зелёную трубку — поговорим по-английски.',
+  'Здравствуй! Нажми зелёную кнопку — я помогу тебе говорить по-английски.',
+  'Привет, друг! Готов? Нажми зелёную трубку — будем практиковаться вместе.',
+  'Добро пожаловать! Нажми зелёную кнопку, когда захочешь начать разговор.',
 ] as const
 
-/** Короткие A2-фразы: приглашение на звонок (adult). */
+/** Простой русский: приглашение на звонок (adult). */
 export const ENGVO_WELCOME_LINES_ADULT = [
-  'Hello. When you are ready, tap the green phone icon and we will speak in English.',
-  'Hi there. Press the green call button to connect — we will take it step by step.',
-  'Good to see you. Start the call with the green button and we can chat in English.',
-  'Hello. Tap the green phone when you are ready to begin our voice session.',
-  'Hi. Use the green call button to join — I am here for a calm English chat.',
+  'Здравствуйте. Нажмите зелёную иконку трубки, когда будете готовы — поговорим на английском.',
+  'Здравствуйте. Нажмите зелёную кнопку звонка — будем говорить по шагам.',
+  'Рад вас видеть. Начните звонок зелёной кнопкой — поговорим по-английски.',
+  'Здравствуйте. Нажмите зелёную трубку, когда будете готовы начать разговор.',
+  'Здравствуйте. Нажмите зелёную кнопку звонка — я здесь для спокойной практики английского.',
 ] as const
 
-const STORAGE_KEY = 'myeng-engvo-welcome-rotation-v1'
+const STORAGE_KEY = 'myeng-engvo-welcome-rotation-v2'
+
+type RotationKey = 'a1' | 'child' | 'adult'
 
 type RotationSlice = {
   n: number
@@ -27,16 +39,23 @@ type RotationSlice = {
 }
 
 type StoredState = {
+  a1: RotationSlice | null
   child: RotationSlice | null
   adult: RotationSlice | null
 }
 
-function linesForAudience(audience: Audience): readonly string[] {
-  return audience === 'child' ? ENGVO_WELCOME_LINES_CHILD : ENGVO_WELCOME_LINES_ADULT
+function rotationKey(audience: Audience, level?: EngvoCefrLevel): RotationKey {
+  if (level === 'a1') return 'a1'
+  return audience === 'child' ? 'child' : 'adult'
 }
 
-function poolSize(audience: Audience): number {
-  return linesForAudience(audience).length
+function linesForKey(key: RotationKey): readonly string[] {
+  if (key === 'a1') return ENGVO_WELCOME_LINES_A1
+  return key === 'child' ? ENGVO_WELCOME_LINES_CHILD : ENGVO_WELCOME_LINES_ADULT
+}
+
+function poolSize(key: RotationKey): number {
+  return linesForKey(key).length
 }
 
 function shuffleIndices(n: number): number[] {
@@ -74,9 +93,11 @@ function readState(): StoredState | null {
     const raw = globalThis.localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const data = JSON.parse(raw) as Partial<StoredState>
-    const child = data.child ?? null
-    const adult = data.adult ?? null
-    return { child, adult }
+    return {
+      a1: data.a1 ?? null,
+      child: data.child ?? null,
+      adult: data.adult ?? null,
+    }
   } catch {
     return null
   }
@@ -92,14 +113,15 @@ function writeState(state: StoredState): void {
 }
 
 /**
- * Следующая строка приветствия Engvo без повторов до прохода всего пула (отдельно child/adult).
+ * Следующая строка приветствия Engvo без повторов до прохода всего пула.
+ * При level A1 — отдельный короткий пул; иначе child/adult.
  */
-export function consumeNextEngvoWelcomeMessage(audience: Audience): string {
-  const n = poolSize(audience)
-  const lines = linesForAudience(audience)
+export function consumeNextEngvoWelcomeMessage(audience: Audience, level?: EngvoCefrLevel): string {
+  const key = rotationKey(audience, level)
+  const n = poolSize(key)
+  const lines = linesForKey(key)
 
-  const stored = readState() ?? { child: null, adult: null }
-  const key = audience === 'child' ? 'child' : 'adult'
+  const stored = readState() ?? { a1: null, child: null, adult: null }
   let slice = stored[key]
   if (!isValidSlice(slice, n)) {
     slice = freshSlice(n)
@@ -117,6 +139,7 @@ export function consumeNextEngvoWelcomeMessage(audience: Audience): string {
 
   const nextSlice: RotationSlice = { n, permutation: perm, cursor: nextCursor }
   writeState({
+    a1: key === 'a1' ? nextSlice : stored.a1,
     child: key === 'child' ? nextSlice : stored.child,
     adult: key === 'adult' ? nextSlice : stored.adult,
   })

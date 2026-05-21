@@ -4,6 +4,7 @@ import {
   ENGVO_LEVEL_STORAGE_KEY,
   ENGVO_SPEECH_SPEED_STORAGE_KEY,
   ENGVO_VOICE_STORAGE_KEY,
+  getEngvoDefaultCefrLevel,
   isEngvoCefrLevel,
   isEngvoRealtimeVoice,
   isEngvoSpeechSpeedPreset,
@@ -11,6 +12,7 @@ import {
   type EngvoRealtimeVoice,
   type EngvoSpeechSpeedPresetId,
 } from '@/lib/engvo/constants'
+import type { Audience } from '@/lib/types'
 
 export function loadEngvoRealtimeVoice(): EngvoRealtimeVoice {
   if (typeof window === 'undefined') return ENGVO_DEFAULT_VOICE
@@ -31,13 +33,14 @@ export function saveEngvoRealtimeVoice(value: EngvoRealtimeVoice): void {
   }
 }
 
-export function loadEngvoCefrLevel(): EngvoCefrLevel {
-  if (typeof window === 'undefined') return ENGVO_DEFAULT_LEVEL
+export function loadEngvoCefrLevel(audience?: Audience): EngvoCefrLevel {
+  const fallback = audience ? getEngvoDefaultCefrLevel(audience) : ENGVO_DEFAULT_LEVEL
+  if (typeof window === 'undefined') return fallback
   try {
     const raw = localStorage.getItem(ENGVO_LEVEL_STORAGE_KEY)?.trim() ?? ''
-    return isEngvoCefrLevel(raw) ? raw : ENGVO_DEFAULT_LEVEL
+    return isEngvoCefrLevel(raw) ? raw : fallback
   } catch {
-    return ENGVO_DEFAULT_LEVEL
+    return fallback
   }
 }
 

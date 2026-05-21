@@ -2,7 +2,7 @@ import { awardGlobalXp, incrementModeGoal, type RewardsState } from './rewardsSt
 
 export type RewardsEvent =
   | { type: 'lesson_xp_awarded'; amount: number }
-  | { type: 'practice_completed' }
+  | { type: 'practice_completed'; amount: number; ticker?: string }
   | { type: 'accent_block_completed' }
   | { type: 'accent_session_completed' }
   | { type: 'communication_turn_completed' }
@@ -17,10 +17,13 @@ export function applyRewardsEvent(state: RewardsState, event: RewardsEvent): Rew
         ticker: `+${amount} XP к уровню.`,
       })
     }
-    case 'practice_completed':
-      return awardGlobalXp(state, 30, event.type, {
-        ticker: 'Практика завершена. +30 XP за закрытую сессию.',
+    case 'practice_completed': {
+      const amount = Math.max(0, Math.floor(event.amount))
+      if (amount <= 0) return state
+      return awardGlobalXp(state, amount, event.type, {
+        ticker: event.ticker ?? `Практика завершена. +${amount} XP.`,
       })
+    }
     case 'accent_block_completed':
       return awardGlobalXp(state, 15, event.type, {
         ticker: 'Блок произношения закрыт. +15 XP.',

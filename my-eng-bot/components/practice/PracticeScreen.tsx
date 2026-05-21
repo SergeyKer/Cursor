@@ -39,14 +39,22 @@ type PracticeMessage =
 interface PracticeScreenProps {
   session: PracticeSession
   state: PracticeFlowState
+  feedback?: { type: 'success' | 'error'; message: string } | null
   currentQuestion: PracticeQuestion | null
   canSubmit: boolean
+  completionMeta?: {
+    tier: 0 | 1 | 2
+    globalAmount: number
+    ringCount: number
+    gemsPending: boolean
+  } | null
   onSubmitAnswer: (answer: string) => void
   onNextQuestion: () => void
   onRepeat: () => void
   onStartMode: (mode: PracticeMode) => void
   onOpenLesson: () => void
   onBackToPracticeMenu: () => void
+  onRetryAfterError?: () => void
   generationBusy?: boolean
 }
 
@@ -120,14 +128,17 @@ function nextMode(mode: PracticeMode): PracticeMode {
 export default function PracticeScreen({
   session,
   state,
+  feedback = null,
   currentQuestion,
   canSubmit,
+  completionMeta = null,
   onSubmitAnswer,
   onNextQuestion,
   onRepeat,
   onStartMode,
   onOpenLesson,
   onBackToPracticeMenu,
+  onRetryAfterError,
   generationBusy = false,
 }: PracticeScreenProps) {
   const INPUT_GAP_PX = 10
@@ -320,12 +331,37 @@ export default function PracticeScreen({
               {state === 'completed' ? (
                 <PracticeFinale
                   session={session}
+                  tier={completionMeta?.tier}
+                  globalAmount={completionMeta?.globalAmount}
+                  ringCount={completionMeta?.ringCount}
+                  gemsPending={completionMeta?.gemsPending}
                   onRepeat={onRepeat}
                   onChallenge={() => onStartMode(nextMode(session.mode))}
                   onOpenLesson={onOpenLesson}
                   onBackToPracticeMenu={onBackToPracticeMenu}
                   busy={generationBusy}
                 />
+              ) : state === 'error' ? (
+                <div className="space-y-2">
+                  <p className="px-1 text-center text-[13px] leading-snug text-amber-800">
+                    {feedback?.message ?? 'Не удалось подготовить следующий шаг. Можно повторить безопасный вариант.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={onRetryAfterError ?? onRepeat}
+                    disabled={generationBusy}
+                    className="btn-3d-menu w-full rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--status-info-text)] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {generationBusy ? 'Генерируем...' : 'Повторить безопасный вариант'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onBackToPracticeMenu}
+                    className="w-full rounded-xl px-4 py-2 text-center text-sm font-medium text-[var(--text-muted)]"
+                  >
+                    В меню практики
+                  </button>
+                </div>
               ) : state === 'feedback' ? (
                 <div className="space-y-1.5">
                   {session.mode === 'reference' ? (

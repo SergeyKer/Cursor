@@ -74,6 +74,10 @@ export function getEngvoDefaultSpeechSpeedPreset(audience: Audience): EngvoSpeec
   return audience === 'child' ? 'normal' : 'conversational'
 }
 
+export function getEngvoDefaultCefrLevel(audience: Audience): EngvoCefrLevel {
+  return audience === 'child' ? 'a1' : 'a2'
+}
+
 export function buildEngvoInputAudioTranscriptionConfig(): {
   model: typeof ENGVO_TRANSCRIPTION_MODEL
 } {
@@ -82,12 +86,21 @@ export function buildEngvoInputAudioTranscriptionConfig(): {
   }
 }
 
+/** Порог активации server VAD (0–1): выше — меньше ложных срабатываний на кашель/шум. */
+export const ENGVO_VAD_THRESHOLD = 0.72
+
+/** Тишина (мс) перед концом реплики пользователя. */
+export const ENGVO_VAD_SILENCE_DURATION_MS = 900
+
+/** Задержка перед response.cancel при перебивании озвучки Engvo (мс). */
+export const ENGVO_INTERRUPT_DEBOUNCE_MS = 400
+
 /** Server VAD для Engvo Realtime; прерывание ответа только на клиенте (избегаем гонки с авто-interrupt сервера). */
 export const ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION = {
   type: 'server_vad' as const,
-  threshold: 0.5,
+  threshold: ENGVO_VAD_THRESHOLD,
   prefix_padding_ms: 300,
-  silence_duration_ms: 700,
+  silence_duration_ms: ENGVO_VAD_SILENCE_DURATION_MS,
   create_response: true,
   interrupt_response: false,
 }

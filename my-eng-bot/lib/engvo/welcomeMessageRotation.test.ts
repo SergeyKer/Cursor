@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   consumeNextEngvoWelcomeMessage,
+  ENGVO_WELCOME_LINES_A1,
   ENGVO_WELCOME_LINES_ADULT,
   ENGVO_WELCOME_LINES_CHILD,
 } from './welcomeMessageRotation'
 
-const KEY = 'myeng-engvo-welcome-rotation-v1'
+const KEY = 'myeng-engvo-welcome-rotation-v2'
 
 function installMemoryLocalStorage() {
   const store: Record<string, string> = {}
@@ -34,22 +35,39 @@ describe('consumeNextEngvoWelcomeMessage', () => {
     globalThis.localStorage.clear()
   })
 
-  it('returns lines from the child pool in some order', () => {
+  it('returns Russian lines from the child pool', () => {
     const a = consumeNextEngvoWelcomeMessage('child')
     expect(ENGVO_WELCOME_LINES_CHILD).toContain(a)
-    const b = consumeNextEngvoWelcomeMessage('child')
-    expect(ENGVO_WELCOME_LINES_CHILD).toContain(b)
+    expect(a).toMatch(/[А-Яа-яЁё]/)
   })
 
-  it('keeps child and adult rotations independent', () => {
-    const c = consumeNextEngvoWelcomeMessage('child')
+  it('returns Russian lines from the adult pool', () => {
     const d = consumeNextEngvoWelcomeMessage('adult')
-    expect(ENGVO_WELCOME_LINES_CHILD).toContain(c)
     expect(ENGVO_WELCOME_LINES_ADULT).toContain(d)
+    expect(d).toMatch(/[А-Яа-яЁё]/)
+  })
+
+  it('uses A1 pool for both audiences when level is a1', () => {
+    const childA1 = consumeNextEngvoWelcomeMessage('child', 'a1')
+    const adultA1 = consumeNextEngvoWelcomeMessage('adult', 'a1')
+    expect(ENGVO_WELCOME_LINES_A1).toContain(childA1)
+    expect(ENGVO_WELCOME_LINES_A1).toContain(adultA1)
+    expect(childA1.length).toBeLessThanOrEqual(80)
+  })
+
+  it('keeps child, adult and a1 rotations independent', () => {
+    consumeNextEngvoWelcomeMessage('child')
+    consumeNextEngvoWelcomeMessage('adult')
+    consumeNextEngvoWelcomeMessage('child', 'a1')
     const raw = globalThis.localStorage.getItem(KEY)
     expect(raw).toBeTruthy()
-    const parsed = JSON.parse(raw!) as { child: { cursor: number }; adult: { cursor: number } }
+    const parsed = JSON.parse(raw!) as {
+      child: { cursor: number }
+      adult: { cursor: number }
+      a1: { cursor: number }
+    }
     expect(parsed.child).toBeTruthy()
     expect(parsed.adult).toBeTruthy()
+    expect(parsed.a1).toBeTruthy()
   })
 })

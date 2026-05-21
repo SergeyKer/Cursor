@@ -50,6 +50,7 @@ import { countDialogueFinalCorrectAnswers } from '@/lib/dialogueStats'
 import { TOPICS, LEVELS, TENSES } from '@/lib/constants'
 import { allowedTensesForAudience } from '@/lib/levelAllowedTenses'
 import { detectCommunicationUserMessageLang, getExpectedCommunicationReplyLang } from '@/lib/communicationReplyLanguage'
+import { detectTextLang } from '@/lib/detectTextLang'
 import { extractExplicitTranslateTarget } from '@/lib/communicationMode'
 import { pickFreeTalkTopicSuggestions } from '@/lib/freeTalkTopicSuggestions'
 import {
@@ -144,6 +145,11 @@ import { usePracticeSession } from '@/hooks/usePracticeSession'
 import PracticeScreen from '@/components/practice/PracticeScreen'
 import AccentTrainer, { type AccentFooterView } from '@/components/accent/AccentTrainer'
 import { getPracticeFooterView } from '@/lib/practice/practiceFooter'
+import { buildPracticeFooterLive, mapPracticeFlowToFooterState } from '@/lib/practice/practiceFooterLive'
+import { resolvePracticeCompletion } from '@/lib/practice/resolvePracticeCompletion'
+import { getPracticeTopicProgress } from '@/lib/practice/practiceTopicProgressStorage'
+import { resolvePracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
+import type { PracticeRewardUi } from '@/lib/practice/practiceRewardUi'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
 import { buildPracticeQuestionFingerprintFromQuestion } from '@/lib/practice/questionFingerprint'
 import { pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
@@ -156,6 +162,7 @@ import {
   ENGVO_DEFAULT_VOICE,
   ENGVO_INACTIVITY_HANGUP_MS,
   ENGVO_REALTIME_MODEL,
+  ENGVO_INTERRUPT_DEBOUNCE_MS,
   ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION,
   clampEngvoRealtimeSpeed,
   engvoSpeechSpeedFromPreset,
@@ -191,8 +198,19 @@ import {
   type EngvoCallPhase,
 } from '@/lib/engvo/state'
 import { shouldAutoRequestFirstChatMessage } from '@/lib/engvo/guards'
-import { shouldShowEngvoVoiceUserTranscript } from '@/lib/engvo/transcriptGuard'
+import {
+  cancelEngvoPendingInterrupt,
+  createEngvoInterruptDebounceState,
+  hasActiveEngvoAssistantResponse,
+  markEngvoInterruptCommitted,
+  markEngvoInterruptDebouncePending,
+  resetEngvoInterruptDebounceState,
+  shouldDebounceEngvoBargeIn,
+  shouldIgnoreNoiseTranscriptDuringAssistantSpeech,
+} from '@/lib/engvo/interruptDebounce'
+import { engvoVoiceTranscriptIsLikelyNoise, shouldShowEngvoVoiceUserTranscript } from '@/lib/engvo/transcriptGuard'
 import { consumeNextEngvoWelcomeMessage } from '@/lib/engvo/welcomeMessageRotation'
+import { applyCefrOutputGuardClient } from '@/lib/cefr/levelGuardClient'
 import {
   extractRealtimeTextFromResponseDone,
   isEngvoOutputAudioTranscriptDeltaEvent,
@@ -569,6 +587,8 @@ export default function Home() {
   const [storageLoaded, setStorageLoaded] = useState(false)
   const [retryMessage, setRetryMessage] = useState<string | null>(null)
   const [loadingTranslationIndex, setLoadingTranslationIndex] = useState<number | null>(null)
+  const [loadingEngvoCallTranslationIndex, setLoadingEngvoCallTranslationIndex] = useState<number | null>(null)
+  const [engvoCallTranslationPrefetchText, setEngvoCallTranslationPrefetchText] = useState<string | null>(null)
   const [forceNextMicLang, setForceNextMicLang] = useState<'ru' | 'en' | null>(null)
   const [searchingInternet, setSearchingInternet] = useState(false)
   const [searchingInternetLang, setSearchingInternetLang] = useState<'ru' | 'en'>('ru')
@@ -674,6 +694,14 @@ export default function Home() {
           `static-${activeStructuredLesson.id}-${activeStructuredLesson.variantId ?? ''}-${structuredLessonShuffleNonce}`)
   const dialogueCorrectAnswers = React.useMemo(() => countDialogueFinalCorrectAnswers(messages), [messages])
   const rewardedPracticeSessionRef = React.useRef<string | null>(null)
+  const practicePopupSeenRef = React.useRef<string | null>(null)
+  const [practiceRewardUi, setPracticeRewardUi] = React.useState<PracticeRewardUi | null>(null)
+  const [practiceCompletionMeta, setPracticeCompletionMeta] = React.useState<{
+    tier: 0 | 1 | 2
+    globalAmount: number
+    ringCount: number
+    gemsPending: boolean
+  } | null>(null)
   const processedLessonXpAwardNonceRef = React.useRef(0)
   const processedLessonXpAwardKeyRef = React.useRef<string | null>(null)
   const globalLessonXpAwardedThisRunRef = React.useRef(0)
@@ -743,6 +771,13 @@ export default function Home() {
   const engvoGreetingTriggeredRef = React.useRef(false)
   /** После таймера/трубки: следующий `startEngvoCall` сбрасывает чат и показывает только строку набора. */
   const engvoRedialWithoutWelcomeRef = React.useRef(false)
+  const engvoCallTranslationInflightRef = React.useRef<Map<string, Promise<void>>>(new Map())
+  const engvoPendingTranslationByResponseIdRef = React.useRef<
+    Map<string, { translation?: string; translationError?: string }>
+  >(new Map())
+  const prefetchEngvoCallTranslationRef = React.useRef<(text: string, responseId: string | null) => void>(
+    () => {}
+  )
   const engvoPendingRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | null>(null)
   const engvoPendingRealtimeSpeedRef = React.useRef<number | null>(null)
   const engvoLastAppliedRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | null>(null)
@@ -757,6 +792,8 @@ export default function Home() {
   const engvoSessionAckTimeoutRef = React.useRef<number | null>(null)
   const engvoDisconnectTimeoutRef = React.useRef<number | null>(null)
   const engvoResponseDoneFallbackTimeoutRef = React.useRef<number | null>(null)
+  const engvoInterruptDebounceTimeoutRef = React.useRef<number | null>(null)
+  const engvoInterruptDebounceStateRef = React.useRef(createEngvoInterruptDebounceState())
   const engvoInactivityTimeoutRef = React.useRef<number | null>(null)
   /** Снимок истории для передачи в новую Realtime-сессию после разрыва звонка; опустошается в `session.created`. */
   const engvoRealtimeReplayItemsRef = React.useRef<EngvoRealtimeReplayItem[] | null>(null)
@@ -979,9 +1016,26 @@ export default function Home() {
     setEngvoAssistantPendingText('')
   }, [])
 
+  const guardEngvoAssistantContent = useCallback(
+    (text: string): string => {
+      const guarded = applyCefrOutputGuardClient({
+        mode: 'communication',
+        content: text,
+        level: engvoCefrLevel,
+        audience: settings.audience,
+        communicationTargetLang: 'en',
+      })
+      if (guarded.leaked) {
+        console.warn('[engvo][cefr-guard] residual violations', guarded.violations)
+      }
+      return guarded.content
+    },
+    [engvoCefrLevel, settings.audience]
+  )
+
   const maybeCommitEngvoAssistantMessage = useCallback(() => {
     const responseId = engvoAssistantResponseIdRef.current
-    const finalText = cleanNewlines(engvoFinalAssistantTextRef.current)
+    const finalText = guardEngvoAssistantContent(cleanNewlines(engvoFinalAssistantTextRef.current))
     if (
       !canCommitEngvoAssistantMessage({
         responseDone: engvoAssistantResponseDoneRef.current,
@@ -995,15 +1049,27 @@ export default function Home() {
     }
 
     engvoCommittedResponseIdsRef.current.add(responseId as string)
-    setMessages((prev) => [...prev.filter((m) => !m.engvoServiceLine), { role: 'assistant', content: finalText }])
+    setMessages((prev) => {
+      const withoutDial = prev.filter((m) => !m.engvoServiceLine)
+      const pending = responseId ? engvoPendingTranslationByResponseIdRef.current.get(responseId) : undefined
+      if (responseId && pending) {
+        engvoPendingTranslationByResponseIdRef.current.delete(responseId)
+      }
+      const msg: ChatMessage = {
+        role: 'assistant',
+        content: finalText,
+        ...(pending ? { translation: pending.translation, translationError: pending.translationError } : {}),
+      }
+      return [...withoutDial, msg]
+    })
     resetEngvoAssistantTurn()
     setEngvoCallPhase('listening')
     setEngvoErrorText(null)
-  }, [resetEngvoAssistantTurn])
+  }, [guardEngvoAssistantContent, resetEngvoAssistantTurn])
 
   const commitEngvoAssistantText = useCallback(
     (text: string, responseId?: string | null) => {
-      const cleanText = cleanNewlines(text)
+      const cleanText = guardEngvoAssistantContent(cleanNewlines(text))
       if (!cleanText) return
       if (responseId) {
         if (engvoCommittedResponseIdsRef.current.has(responseId)) return
@@ -1017,11 +1083,23 @@ export default function Home() {
           const candidate = withoutDial[streamingIndex]
           if (candidate?.role === 'assistant') {
             const updated = [...withoutDial]
-            updated[streamingIndex] = {
+            let patched = {
               ...candidate,
               content: cleanText,
               engvoServiceLine: undefined,
             }
+            if (responseId) {
+              const pending = engvoPendingTranslationByResponseIdRef.current.get(responseId)
+              if (pending) {
+                engvoPendingTranslationByResponseIdRef.current.delete(responseId)
+                patched = {
+                  ...patched,
+                  translation: pending.translation,
+                  translationError: pending.translationError,
+                }
+              }
+            }
+            updated[streamingIndex] = patched
             return updated
           }
         }
@@ -1035,13 +1113,30 @@ export default function Home() {
         ) {
           return withoutDial
         }
-        return [...withoutDial, { role: 'assistant', content: cleanText }]
+        const nextMessages = [...withoutDial, { role: 'assistant', content: cleanText }]
+        if (responseId) {
+          const pending = engvoPendingTranslationByResponseIdRef.current.get(responseId)
+          if (pending) {
+            engvoPendingTranslationByResponseIdRef.current.delete(responseId)
+            const idx = findAssistantIndexByTranslationText(nextMessages, nextMessages.length - 1, cleanText)
+            if (nextMessages[idx]?.role === 'assistant') {
+              const patched = [...nextMessages]
+              patched[idx] = {
+                ...patched[idx],
+                translation: pending.translation,
+                translationError: pending.translationError,
+              }
+              return patched
+            }
+          }
+        }
+        return nextMessages
       })
       resetEngvoAssistantTurn()
       setEngvoCallPhase('listening')
       setEngvoErrorText(null)
     },
-    [resetEngvoAssistantTurn]
+    [guardEngvoAssistantContent, resetEngvoAssistantTurn]
   )
 
   const clearEngvoTimeout = useCallback((timeoutRef: React.MutableRefObject<number | null>) => {
@@ -1109,6 +1204,8 @@ export default function Home() {
       clearEngvoTimeout(engvoSessionAckTimeoutRef)
       clearEngvoTimeout(engvoDisconnectTimeoutRef)
       clearEngvoTimeout(engvoResponseDoneFallbackTimeoutRef)
+      clearEngvoTimeout(engvoInterruptDebounceTimeoutRef)
+      resetEngvoInterruptDebounceState(engvoInterruptDebounceStateRef.current)
 
       const peerConnection = engvoPeerConnectionRef.current
       const dataChannel = engvoDataChannelRef.current
@@ -1171,8 +1268,12 @@ export default function Home() {
       engvoCommittedResponseIdsRef.current.clear()
       engvoCommittedUserItemIdsRef.current.clear()
       engvoIgnoredResponseIdsRef.current.clear()
+      engvoCallTranslationInflightRef.current.clear()
+      engvoPendingTranslationByResponseIdRef.current.clear()
       setEngvoUserInterimText('')
       setEngvoAssistantPendingText('')
+      setEngvoCallTranslationPrefetchText(null)
+      setLoadingEngvoCallTranslationIndex(null)
     },
     [clearEngvoInactivityTimeout, clearEngvoSessionUpdateRetry, clearEngvoTimeout, stopEngvoPlayback]
   )
@@ -1419,12 +1520,36 @@ export default function Home() {
       }
 
       if (parsed.type === 'input_audio_buffer.speech_started') {
-        stopEngvoPlayback(true)
-        setEngvoCallPhase('listening')
+        const hasActiveAssistantResponse = hasActiveEngvoAssistantResponse({
+          responseId: engvoAssistantResponseIdRef.current,
+          responseDone: engvoAssistantResponseDoneRef.current,
+        })
+        const debounceInterrupt = shouldDebounceEngvoBargeIn({
+          callPhase: engvoCallPhase,
+          hasActiveAssistantResponse,
+        })
+        clearEngvoTimeout(engvoInterruptDebounceTimeoutRef)
+        if (debounceInterrupt) {
+          markEngvoInterruptDebouncePending(engvoInterruptDebounceStateRef.current)
+          engvoInterruptDebounceTimeoutRef.current = window.setTimeout(() => {
+            engvoInterruptDebounceTimeoutRef.current = null
+            markEngvoInterruptCommitted(engvoInterruptDebounceStateRef.current)
+            stopEngvoPlayback(true)
+            setEngvoCallPhase('listening')
+          }, ENGVO_INTERRUPT_DEBOUNCE_MS)
+        } else {
+          resetEngvoInterruptDebounceState(engvoInterruptDebounceStateRef.current)
+          stopEngvoPlayback(true)
+          setEngvoCallPhase('listening')
+        }
         return
       }
 
       if (parsed.type === 'input_audio_buffer.speech_stopped') {
+        clearEngvoTimeout(engvoInterruptDebounceTimeoutRef)
+        if (cancelEngvoPendingInterrupt(engvoInterruptDebounceStateRef.current)) {
+          return
+        }
         setEngvoCallPhase('userFinalizing')
         return
       }
@@ -1448,8 +1573,26 @@ export default function Home() {
         ) {
           engvoCommittedUserItemIdsRef.current.add(parsed.item_id)
           setEngvoUserInterimText('')
-          setEngvoCallPhase('userFinalizing')
           const transcript = (parsed.transcript ?? '').trim()
+          const hasActiveAssistantResponse = hasActiveEngvoAssistantResponse({
+            responseId: engvoAssistantResponseIdRef.current,
+            responseDone: engvoAssistantResponseDoneRef.current,
+          })
+          const interruptCommitted = engvoInterruptDebounceStateRef.current.committed
+          const isLikelyNoise = !transcript || engvoVoiceTranscriptIsLikelyNoise(transcript)
+          if (
+            shouldIgnoreNoiseTranscriptDuringAssistantSpeech({
+              isLikelyNoise,
+              hasActiveAssistantResponse,
+              interruptCommitted,
+            })
+          ) {
+            return
+          }
+          const restorePhaseAfterNoiseReject = (phase: EngvoCallPhase) => {
+            if (hasActiveAssistantResponse && !interruptCommitted) return
+            setEngvoCallPhase(phase)
+          }
           const normalizedTranscript = normalizeForEchoCompare(transcript)
           const normalizedAssistantPending = normalizeForEchoCompare(engvoAssistantPendingText)
           const lastMessage = messages[messages.length - 1]
@@ -1459,17 +1602,18 @@ export default function Home() {
             !!normalizedTranscript &&
             (normalizedTranscript === normalizedAssistantPending || normalizedTranscript === normalizedLastAssistant)
           if (looksLikeAssistantEcho) {
-            setEngvoCallPhase('listening')
+            restorePhaseAfterNoiseReject('listening')
             return
           }
           if (isLikelyEngvoCallHallucination(transcript)) {
-            setEngvoCallPhase('listening')
+            restorePhaseAfterNoiseReject('listening')
             return
           }
           if (transcript && !shouldShowEngvoVoiceUserTranscript(transcript)) {
-            setEngvoCallPhase('listening')
+            restorePhaseAfterNoiseReject('listening')
             return
           }
+          setEngvoCallPhase('userFinalizing')
           if (transcript) {
             setMessages((prev) => [...prev, { role: 'user', content: transcript }])
             bumpEngvoGoal()
@@ -1516,6 +1660,7 @@ export default function Home() {
           const cleanFinalText = finalText.trim()
           engvoFinalAssistantTextRef.current = cleanFinalText
           setEngvoAssistantPendingText(cleanFinalText)
+          prefetchEngvoCallTranslationRef.current(cleanFinalText, responseId)
           clearEngvoTimeout(engvoResponseDoneFallbackTimeoutRef)
           engvoResponseDoneFallbackTimeoutRef.current = window.setTimeout(() => {
             if (engvoAssistantResponseDoneRef.current) return
@@ -1545,6 +1690,7 @@ export default function Home() {
         if (finalTranscript) {
           engvoFinalAssistantTextRef.current = finalTranscript
           setEngvoAssistantPendingText(finalTranscript)
+          prefetchEngvoCallTranslationRef.current(finalTranscript, responseId)
           clearEngvoTimeout(engvoResponseDoneFallbackTimeoutRef)
           engvoResponseDoneFallbackTimeoutRef.current = window.setTimeout(() => {
             if (engvoAssistantResponseDoneRef.current) return
@@ -1569,6 +1715,7 @@ export default function Home() {
         if (extracted) {
           engvoFinalAssistantTextRef.current = extracted
           setEngvoAssistantPendingText(extracted)
+          prefetchEngvoCallTranslationRef.current(extracted, responseId)
         }
         engvoAssistantResponseDoneRef.current = true
         const fallbackText = extracted || engvoFinalAssistantTextRef.current || engvoAssistantPendingText
@@ -1591,6 +1738,7 @@ export default function Home() {
       settings.topic,
       scheduleEngvoSessionUpdateRetry,
       stopEngvoPlayback,
+      engvoCallPhase,
     ]
   )
 
@@ -2347,7 +2495,7 @@ export default function Home() {
     setMessages([
       {
         role: 'assistant',
-        content: consumeNextEngvoWelcomeMessage(settings.audience),
+        content: consumeNextEngvoWelcomeMessage(settings.audience, engvoCefrLevel),
         engvoLocalWelcome: true,
       },
     ])
@@ -2362,7 +2510,7 @@ export default function Home() {
     setEngvoCallPhase('idle')
     setEngvoErrorText(null)
     setMenuOpen(false)
-  }, [cleanupEngvoRuntime, resetStructuredLessonSession, settings.audience])
+  }, [cleanupEngvoRuntime, engvoCefrLevel, resetStructuredLessonSession, settings.audience])
 
   const buildStructuredLessonRuntimeRequestKey = useCallback(
     (lessonId: string, mode: StructuredLessonRuntimeMode = 'generate') => {
@@ -3754,7 +3902,7 @@ export default function Home() {
       setSettings(mergedSettings)
       setDialogStarted(false)
       setEngvoRealtimeVoice(loadEngvoRealtimeVoice())
-      setEngvoCefrLevel(loadEngvoCefrLevel())
+      setEngvoCefrLevel(loadEngvoCefrLevel(mergedSettings.audience))
       const storedSpeechSpeed = loadEngvoSpeechSpeedPreset()
       setEngvoSpeechSpeedPreset(storedSpeechSpeed ?? getEngvoDefaultSpeechSpeedPreset(mergedSettings.audience))
       setRewardsState(rewards)
@@ -3931,8 +4079,51 @@ export default function Home() {
     const practiceRewardKey = practiceSession.session.id
     if (rewardedPracticeSessionRef.current === practiceRewardKey) return
     rewardedPracticeSessionRef.current = practiceRewardKey
-    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'practice_completed' }))
-  }, [storageLoaded, practiceSession.session])
+
+    const lessonMedal = loadLessonProgress(practiceSession.session.lessonId)?.medal ?? null
+    const resolved = resolvePracticeCompletion({
+      session: practiceSession.session,
+      lessonMedal,
+      audience: settings.audience,
+    })
+
+    setPracticeRewardUi(resolved.rewardUi)
+    setPracticeCompletionMeta({
+      tier: resolved.reward.tier,
+      globalAmount: resolved.reward.globalAmount,
+      ringCount: resolved.reward.progress.ringCount,
+      gemsPending: resolved.reward.progress.gemsPending,
+    })
+
+    if (resolved.globalXpToAward > 0) {
+      setRewardsState((prev) =>
+        applyRewardsEvent(prev, {
+          type: 'practice_completed',
+          amount: resolved.globalXpToAward,
+          ticker: resolved.reward.ticker,
+        })
+      )
+    }
+  }, [storageLoaded, practiceSession.session, settings.audience])
+
+  useEffect(() => {
+    if (!storageLoaded || !practiceRewardUi?.showPopup) return
+    if (practicePopupSeenRef.current === practiceRewardUi.id) return
+    practicePopupSeenRef.current = practiceRewardUi.id
+    if (engvoVoiceMode) return
+
+    setRewardPopupText(null)
+    const showTimerId = window.setTimeout(() => {
+      setRewardPopupText(practiceRewardUi.popupText)
+    }, REWARD_POPUP_DELAY_AFTER_MESSAGE_MS)
+    const hideTimerId = window.setTimeout(() => {
+      setRewardPopupText(null)
+    }, REWARD_POPUP_DELAY_AFTER_MESSAGE_MS + REWARD_POPUP_VISIBLE_MS)
+    return () => {
+      window.clearTimeout(showTimerId)
+      window.clearTimeout(hideTimerId)
+    }
+  }, [storageLoaded, practiceRewardUi, engvoVoiceMode])
 
   useEffect(() => {
     if (!storageLoaded) return
@@ -4139,6 +4330,195 @@ export default function Home() {
       message.startsWith('Не удалось загрузить перевод')
     )
   }
+
+  const applyEngvoCallTranslationToMessages = useCallback(
+    (
+      prev: ChatMessage[],
+      index: number,
+      text: string,
+      translation?: string,
+      translationError?: string,
+      responseId?: string | null
+    ): ChatMessage[] => {
+      const resolvedIndex = findAssistantIndexByTranslationText(prev, index, text)
+      if (prev[resolvedIndex]?.role === 'assistant') {
+        const next = [...prev]
+        next[resolvedIndex] = { ...next[resolvedIndex], translation, translationError }
+        return next
+      }
+      if (responseId) {
+        engvoPendingTranslationByResponseIdRef.current.set(responseId, { translation, translationError })
+      }
+      return prev
+    },
+    []
+  )
+
+  const handleRequestEngvoCallTranslation = useCallback(
+    async (
+      index: number,
+      text: string,
+      options?: { silent?: boolean; responseId?: string | null }
+    ) => {
+      const silent = options?.silent === true
+      const responseId = options?.responseId ?? null
+      const trimmed = text.trim()
+      if (!trimmed) return
+
+      const resolvedIndex = findAssistantIndexByTranslationText(messages, index, trimmed)
+      if (silent && messages[resolvedIndex]?.translation?.trim()) return
+
+      const inflightKey = responseId ?? trimmed
+      if (silent && engvoCallTranslationInflightRef.current.has(inflightKey)) {
+        await engvoCallTranslationInflightRef.current.get(inflightKey)
+        return
+      }
+
+      if (!silent) {
+        setLoadingEngvoCallTranslationIndex(resolvedIndex)
+        setMessages((prev) => {
+          const ri = findAssistantIndexByTranslationText(prev, index, trimmed)
+          const next = [...prev]
+          if (next[ri]?.role === 'assistant') {
+            next[ri] = { ...next[ri], translation: undefined, translationError: undefined }
+          }
+          return next
+        })
+      }
+
+      const setResult = (translation?: string, translationError?: string) => {
+        setMessages((prev) => applyEngvoCallTranslationToMessages(prev, index, trimmed, translation, translationError, responseId))
+      }
+
+      type TranslateErrorCode = 'rate_limit' | 'unauthorized' | 'forbidden' | 'upstream_error' | undefined
+      type TranslateProvider = 'openrouter' | 'openai'
+      type TranslateResponse = {
+        content?: string
+        error?: string
+        errorCode?: TranslateErrorCode
+        provider?: TranslateProvider
+      }
+      type AttemptResult =
+        | { ok: true; content: string }
+        | { ok: false; error: string; errorCode?: TranslateErrorCode; provider: TranslateProvider }
+
+      const provider: TranslateProvider = settings.provider === 'openai' ? 'openai' : 'openrouter'
+      let lastError = 'Не удалось загрузить перевод.'
+
+      const requestTranslateOnce = async (): Promise<AttemptResult> => {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
+        try {
+          const res = await fetch('/api/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: trimmed,
+              provider,
+              context: 'engvo',
+              openAiChatPreset: settings.openAiChatPreset,
+              audience: settings.audience,
+              mode: 'communication',
+            }),
+            signal: controller.signal,
+          })
+          clearTimeout(timeoutId)
+          let data: TranslateResponse
+          try {
+            data = (await res.json()) as TranslateResponse
+          } catch {
+            data = {
+              error: res.status === 502 ? 'Модель вернула пустой перевод.' : 'Не удалось загрузить перевод.',
+              errorCode: res.status === 429 ? 'rate_limit' : 'upstream_error',
+              provider,
+            }
+          }
+          const content = data.content?.trim()
+          if (content && res.ok) return { ok: true, content }
+          return {
+            ok: false,
+            error: data.error ?? (res.status === 502 ? 'Модель вернула пустой перевод.' : 'Не удалось загрузить перевод.'),
+            errorCode: data.errorCode,
+            provider: data.provider ?? provider,
+          }
+        } catch (e) {
+          clearTimeout(timeoutId)
+          const err = e instanceof Error ? e : new Error('Unknown error')
+          const translatedError =
+            err.name === 'AbortError'
+              ? 'Ответ занял слишком много времени. Проверьте сеть и попробуйте снова.'
+              : err.message === 'Failed to fetch' || err.name === 'TypeError'
+                ? 'Нет связи с сервером. Проверьте интернет и ключ в меню.'
+                : 'Не удалось загрузить перевод.'
+          return { ok: false, error: translatedError, provider }
+        }
+      }
+
+      const run = async () => {
+        let translated = false
+        const maxAttemptsForProvider = provider === 'openrouter' ? MAX_ATTEMPTS : 1
+        for (let attempt = 0; attempt < maxAttemptsForProvider && !translated; attempt++) {
+          const result = await requestTranslateOnce()
+          if (result.ok) {
+            setResult(result.content)
+            translated = true
+            break
+          }
+          lastError = result.error
+          const isRateLimit = result.errorCode === 'rate_limit' || /лимит|Too Many Requests/i.test(lastError)
+          const isForbidden = result.errorCode === 'forbidden'
+          const isUnauthorized = result.errorCode === 'unauthorized'
+          const isNetworkLike = /Нет связи с сервером|занял слишком много времени/i.test(lastError)
+          if (provider === 'openai' && (isForbidden || isUnauthorized)) break
+          const canRetryThisProvider =
+            attempt < maxAttemptsForProvider - 1 &&
+            (isRateLimit || isNetworkLike || isRetryableTranslationError(lastError))
+          if (!canRetryThisProvider) break
+          await sleep(150)
+          const backoffMs = isRateLimit ? RETRY_DELAY_RATE_LIMIT_MS : RETRY_DELAY_MS
+          await sleep(backoffMs)
+        }
+        if (!translated) {
+          setResult(undefined, lastError)
+        }
+      }
+
+      if (silent) {
+        setEngvoCallTranslationPrefetchText(trimmed)
+        const promise = run().finally(() => {
+          engvoCallTranslationInflightRef.current.delete(inflightKey)
+          setEngvoCallTranslationPrefetchText((cur) => (cur === trimmed ? null : cur))
+        })
+        engvoCallTranslationInflightRef.current.set(inflightKey, promise)
+        await promise
+      } else {
+        try {
+          await run()
+        } finally {
+          setLoadingEngvoCallTranslationIndex(null)
+        }
+      }
+    },
+    [
+      messages,
+      settings.provider,
+      settings.openAiChatPreset,
+      settings.audience,
+      applyEngvoCallTranslationToMessages,
+    ]
+  )
+
+  const prefetchEngvoCallTranslation = useCallback(
+    (text: string, responseId: string | null) => {
+      const trimmed = text.trim()
+      if (!trimmed || !engvoVoiceMode) return
+      if (detectTextLang(trimmed) !== 'en') return
+      void handleRequestEngvoCallTranslation(-1, trimmed, { silent: true, responseId })
+    },
+    [engvoVoiceMode, handleRequestEngvoCallTranslation]
+  )
+
+  prefetchEngvoCallTranslationRef.current = prefetchEngvoCallTranslation
 
   const handleRequestTranslation = useCallback(async (index: number, text: string) => {
     if (!text.trim()) return
@@ -4462,8 +4842,24 @@ export default function Home() {
         (lessonMenuContext?.lessonsPanel === 'tutor' ? 'Репетитор' : 'Теория')
       : null)
   const practiceFooterView = practiceSession.session
-    ? getPracticeFooterView(practiceSession.session, practiceSession.state === 'active' ? 'idle' : practiceSession.state)
+    ? getPracticeFooterView(
+        practiceSession.session,
+        mapPracticeFlowToFooterState(practiceSession.state)
+      )
     : null
+  const practiceFooterLive = React.useMemo(() => {
+    if (!isPracticeActive || !practiceSession.session) return null
+    const lessonMedal = loadLessonProgress(practiceSession.session.lessonId)?.medal ?? null
+    const tier = resolvePracticeEconomyTier(lessonMedal)
+    const progress = getPracticeTopicProgress(practiceSession.session.lessonId)
+    return buildPracticeFooterLive({
+      session: practiceSession.session,
+      state: mapPracticeFlowToFooterState(practiceSession.state),
+      tier,
+      progress,
+      gemsPending: progress.gemsPending,
+    })
+  }, [isPracticeActive, practiceSession.session, practiceSession.state])
 
   React.useEffect(() => {
     const signature = [
@@ -4883,7 +5279,10 @@ export default function Home() {
       vocabularyFooterView?.dynamicText ??
       (vocabularyByLevelActive ? 'Выбери уровень CEFR или тему.' : 'Выбери мир и начни короткую сессию.')
     : isPracticeActive
-    ? footerContextRewardTicker ?? practiceFooterView?.dynamicText ?? null
+    ? practiceRewardUi?.topLine ??
+      footerContextRewardTicker ??
+      practiceFooterView?.dynamicText ??
+      null
     : isLessonIntroActive
       ? footerContextRewardTicker ?? introFooterDynamicText
       : isLessonTipsActive
@@ -4985,7 +5384,8 @@ export default function Home() {
     ),
   })
   const footerStaticText =
-    isStructuredLessonActive && structuredLessonFooterLive
+    (isStructuredLessonActive && structuredLessonFooterLive) ||
+    (isPracticeActive && practiceFooterLive)
       ? null
       : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)
   const baseFooterTypingKey = isAccentActive
@@ -5619,10 +6019,20 @@ export default function Home() {
                 <PracticeScreen
                   session={practiceSession.session}
                   state={practiceSession.state}
+                  feedback={practiceSession.feedback}
                   currentQuestion={practiceSession.currentQuestion}
                   canSubmit={practiceSession.canSubmit}
+                  completionMeta={practiceCompletionMeta}
                   onSubmitAnswer={practiceSession.submitAnswer}
                   onNextQuestion={practiceSession.nextQuestion}
+                  onRetryAfterError={() => {
+                    if (!practiceSession.session) return
+                    void restartPracticeFromExistingSession(
+                      practiceSession.session,
+                      practiceSession.session.mode,
+                      'local'
+                    )
+                  }}
                   onRepeat={() => {
                     if (!practiceSession.session) return
                     void restartPracticeFromExistingSession(practiceSession.session, practiceSession.session.mode, 'ai_generated')
@@ -5636,6 +6046,8 @@ export default function Home() {
                     openLessonFromPractice(practiceSession.session)
                   }}
                   onBackToPracticeMenu={() => {
+                    setPracticeRewardUi(null)
+                    setPracticeCompletionMeta(null)
                     practiceSession.abandonSession()
                     setDialogStarted(false)
                     setHomeMenuView('lessons')
@@ -5760,6 +6172,9 @@ export default function Home() {
                   retryMessage={retryMessage}
                   onRequestTranslation={handleRequestTranslation}
                   loadingTranslationIndex={loadingTranslationIndex}
+                  onRequestEngvoCallTranslation={handleRequestEngvoCallTranslation}
+                  loadingEngvoCallTranslationIndex={loadingEngvoCallTranslationIndex}
+                  engvoCallTranslationPrefetchText={engvoCallTranslationPrefetchText}
                   forceNextMicLang={forceNextMicLang}
                   onConsumeForceNextMicLang={() => setForceNextMicLang(null)}
                   communicationVoiceInputMode={communicationVoiceInputMode}
@@ -5836,10 +6251,18 @@ export default function Home() {
           isDialogStarted={dialogStarted}
           showWhenIdle={!dialogStarted}
           lessonFooterLessonTitle={
-            isStructuredLessonActive ? structuredLessonFooterLive?.lessonTitle ?? null : null
+            isStructuredLessonActive
+              ? structuredLessonFooterLive?.lessonTitle ?? null
+              : isPracticeActive
+                ? practiceFooterLive?.lessonTitle ?? null
+                : null
           }
           lessonFooterSegments={
-            isStructuredLessonActive ? structuredLessonFooterLive?.lessonSegments ?? null : null
+            isStructuredLessonActive
+              ? structuredLessonFooterLive?.lessonSegments ?? null
+              : isPracticeActive
+                ? practiceFooterLive?.lessonSegments ?? null
+                : null
           }
         />
       </footer>

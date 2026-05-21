@@ -39,6 +39,10 @@ import {
 import { isErrorLikeAssistantMessage } from '@/lib/errorLikeAssistantMessage'
 import { hasEngvoAssistantChatBubble, type EngvoCallPhase } from '@/lib/engvo/state'
 import EngvoCallTimer from '@/components/EngvoCallTimer'
+import {
+  EngvoCallTranslationButton,
+  type EngvoCallTranslationDotState,
+} from '@/components/EngvoCallTranslationButton'
 import EngvoVoiceMeter from '@/components/EngvoVoiceMeter'
 import { stripWrappingQuotesFromDrillRussianLine } from '@/lib/extractSingleTranslationNextSentence'
 import {
@@ -119,6 +123,10 @@ interface ChatProps {
   retryMessage?: string | null
   onRequestTranslation?: (index: number, text: string) => void
   loadingTranslationIndex?: number | null
+  /** Звонок Engvo: отдельный prefetch-перевод (не трогает «Перевод» в Диалоге). */
+  onRequestEngvoCallTranslation?: (index: number, text: string) => void
+  loadingEngvoCallTranslationIndex?: number | null
+  engvoCallTranslationPrefetchText?: string | null
   forceNextMicLang?: 'ru' | 'en' | null
   onConsumeForceNextMicLang?: () => void
   communicationVoiceInputMode?: 'ru' | 'en' | 'mix'
@@ -1092,6 +1100,9 @@ export default function Chat({
   retryMessage,
   onRequestTranslation,
   loadingTranslationIndex,
+  onRequestEngvoCallTranslation,
+  loadingEngvoCallTranslationIndex,
+  engvoCallTranslationPrefetchText = null,
   forceNextMicLang,
   onConsumeForceNextMicLang,
   communicationVoiceInputMode,
@@ -2141,7 +2152,8 @@ export default function Chat({
   const aiMeterActive = isEngvoAssistantTurn || isEngvoUserTurn
   const aiMeterFrozen = engvoPhase === 'ended'
   const userMeterStream = engvo?.localAudioStream ?? null
-  const userMeterActive = engvoPhase === 'listening' || engvoPhase === 'userFinalizing'
+  const userMeterActive =
+    engvoPhase === 'connecting' || engvoPhase === 'listening' || engvoPhase === 'userFinalizing'
   const userMeterFrozen = engvoPhase === 'ended'
   const engvoTimerRunning =
     engvoPhase === 'listening' ||
@@ -2213,8 +2225,23 @@ export default function Chat({
                       mode={isEngvoActive ? 'communication' : settings.mode}
                       bubblePosition={bubblePosition}
                       engvoSlideEnter={isEngvoActive}
+                      isEngvoCall={isEngvoActive}
                       onRequestTranslation={onRequestTranslation}
                       isLoadingTranslation={loadingTranslationIndex === i}
+                      onRequestEngvoCallTranslation={onRequestEngvoCallTranslation}
+                      isLoadingEngvoCallTranslation={loadingEngvoCallTranslationIndex === i}
+                      isPrefetchingEngvoCallTranslation={
+                        Boolean(
+                          engvoCallTranslationPrefetchText &&
+                            msg.role === 'assistant' &&
+                            (() => {
+                              const needle = engvoCallTranslationPrefetchText.trim()
+                              if (!needle) return false
+                              const body = (msg.content ?? '').trim()
+                              return body === needle || body.includes(needle)
+                            })()
+                        )
+                      }
                       translationHeadingWelcome={
                         settings.mode !== 'translation' ||
                         msg.role !== 'assistant' ||
@@ -2372,6 +2399,7 @@ export default function Chat({
                           stream={aiMeterStream}
                           active={aiMeterActive}
                           frozen={aiMeterFrozen}
+                          role="assistant"
                           ariaLabel="Уровень голоса Engvo"
                         />
                       </div>
@@ -2384,6 +2412,7 @@ export default function Chat({
                           stream={userMeterStream}
                           active={userMeterActive}
                           frozen={userMeterFrozen}
+                          role="user"
                           ariaLabel="Уровень вашего голоса"
                         />
                       </div>
@@ -2616,8 +2645,12 @@ function MessageBubble({
   mode,
   bubblePosition,
   engvoSlideEnter = false,
+  isEngvoCall = false,
   onRequestTranslation,
   isLoadingTranslation,
+  onRequestEngvoCallTranslation,
+  isLoadingEngvoCallTranslation,
+  isPrefetchingEngvoCallTranslation = false,
   translationHeadingWelcome = true,
   translationDrillRuFallback = null,
 }: {
@@ -2629,8 +2662,13 @@ function MessageBubble({
   bubblePosition: BubblePosition
   /** В звонке Engvo — такое же появление пузыря снизу, как в уроках (`.lesson-enter`). */
   engvoSlideEnter?: boolean
+  /** Активен звонок Engvo — показываем «Перевод_звонок», скрываем обычную «Перевод». */
+  isEngvoCall?: boolean
   onRequestTranslation?: (index: number, text: string) => void
   isLoadingTranslation?: boolean
+  onRequestEngvoCallTranslation?: (index: number, text: string) => void
+  isLoadingEngvoCallTranslation?: boolean
+  isPrefetchingEngvoCallTranslation?: boolean
   /** Первое задание перевода в чате — подпись «Переведи:»; иначе «Переведи далее:». */
   translationHeadingWelcome?: boolean
   /** Если в ответе только протокол ошибки — подставить русское задание из предыдущего хода ассистента. */
@@ -2645,7 +2683,9 @@ function MessageBubble({
       ? stripTranslationCanonicalRepeatRefLine(message.content.replace(/^\s*\(i\)\s*/i, '').trimStart())
       : message.content
   const [showTranslation, setShowTranslation] = React.useState(false)
+  const [showEngvoCallTranslation, setShowEngvoCallTranslation] = React.useState(false)
   const translationRequestedRef = useRef(false)
+  const engvoCallTranslationRequestedRef = useRef(false)
   const prevTranslationErrorRef = useRef<string | undefined>(undefined)
   const prevActiveAssistantIndexRef = useRef(activeAssistantIndex)
   const { comment, rest } =
@@ -2676,12 +2716,20 @@ function MessageBubble({
   const hasTranslationData = !isUser && Boolean(message.translation)
   const hasTranslationError = !isUser && Boolean(message.translationError)
   const hasTranslationButton =
+    !isEngvoCall &&
     !isUser &&
     !isEngvoCallFinishedLine &&
     !isEngvoServiceLineBubble &&
     mode !== 'translation' &&
     !errorLike &&
     (mode === 'dialogue' || isCommunicationEnglish)
+  const hasEngvoCallTranslationButton =
+    isEngvoCall &&
+    !isUser &&
+    !isEngvoCallFinishedLine &&
+    !isEngvoServiceLineBubble &&
+    !errorLike &&
+    isCommunicationEnglish
   const webSearchSources = message.webSearchSources ?? []
   const showAllWebSearchSources = Boolean(message.webSearchSourcesShowAll)
   const visibleWebSearchSources = showAllWebSearchSources ? webSearchSources : webSearchSources.slice(0, 5)
@@ -2990,12 +3038,37 @@ function MessageBubble({
     onRequestTranslation(messageIndex, textToTranslate)
   }, [showTranslation, hasTranslationData, onRequestTranslation, textToTranslate, messageIndex])
 
+  React.useLayoutEffect(() => {
+    if (!showEngvoCallTranslation) {
+      engvoCallTranslationRequestedRef.current = false
+      return
+    }
+    if (hasTranslationData || !onRequestEngvoCallTranslation || !textToTranslate.trim()) return
+    if (engvoCallTranslationRequestedRef.current) return
+    engvoCallTranslationRequestedRef.current = true
+    onRequestEngvoCallTranslation(messageIndex, textToTranslate)
+  }, [
+    showEngvoCallTranslation,
+    hasTranslationData,
+    onRequestEngvoCallTranslation,
+    textToTranslate,
+    messageIndex,
+  ])
+
+  const engvoCallTranslationDotState: EngvoCallTranslationDotState = hasTranslationError
+    ? 'error'
+    : hasTranslationData
+      ? 'ready'
+      : isLoadingEngvoCallTranslation || isPrefetchingEngvoCallTranslation
+        ? 'loading'
+        : 'idle'
+
   React.useEffect(() => {
     const currentError = message.translationError
     const prevError = prevTranslationErrorRef.current
     prevTranslationErrorRef.current = currentError
 
-    if (!showTranslation) return
+    if (!showTranslation && !showEngvoCallTranslation) return
 
     // Авто-сворачивание при любой ошибке перевода (пустой ответ, таймаут, сеть),
     // только в момент появления ошибки, чтобы при повторном клике "Перевод"
@@ -3003,21 +3076,27 @@ function MessageBubble({
     const isTranslationError = typeof currentError === 'string' && currentError.length > 0
     const justAppeared = prevError !== currentError
     if (isTranslationError && justAppeared) {
-      setShowTranslation(false)
+      if (showTranslation) setShowTranslation(false)
+      if (showEngvoCallTranslation) setShowEngvoCallTranslation(false)
     }
-  }, [showTranslation, message.translationError])
+  }, [showTranslation, showEngvoCallTranslation, message.translationError])
 
-  // При появлении нового assistant-сообщения закрываем переводы
-  // у всех предыдущих карточек.
+  // При появлении нового assistant-сообщения закрываем переводы у предыдущих карточек.
+  // В звонке Engvo открытый перевод на старых репликах оставляем видимым.
   React.useEffect(() => {
     const prevActiveAssistantIndex = prevActiveAssistantIndexRef.current
     prevActiveAssistantIndexRef.current = activeAssistantIndex
 
-    if (!showTranslation) return
+    if (!showTranslation && !showEngvoCallTranslation) return
     if (prevActiveAssistantIndex === activeAssistantIndex) return
     if (activeAssistantIndex < 0) return
-    if (messageIndex !== activeAssistantIndex) setShowTranslation(false)
-  }, [activeAssistantIndex, messageIndex, showTranslation])
+    if (messageIndex !== activeAssistantIndex) {
+      setShowTranslation(false)
+      if (!isEngvoCall) {
+        setShowEngvoCallTranslation(false)
+      }
+    }
+  }, [activeAssistantIndex, isEngvoCall, messageIndex, showTranslation, showEngvoCallTranslation])
 
   if (!isUser && isEngvoServiceLineBubble) {
     return (
@@ -3074,7 +3153,7 @@ function MessageBubble({
                 ))}
               </div>
             )}
-            {(showSpeakButton || hasTranslationButton) && (
+            {(showSpeakButton || hasTranslationButton || hasEngvoCallTranslationButton) && (
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
                 {showSpeakButton && (
                   <button
@@ -3086,6 +3165,13 @@ function MessageBubble({
                   >
                     <SpeakerIcon /> Озвучить
                   </button>
+                )}
+                {hasEngvoCallTranslationButton && (
+                  <EngvoCallTranslationButton
+                    expanded={showEngvoCallTranslation}
+                    dotState={engvoCallTranslationDotState}
+                    onToggle={() => setShowEngvoCallTranslation((v) => !v)}
+                  />
                 )}
                 {hasTranslationButton && (
                   <button
@@ -3151,41 +3237,64 @@ function MessageBubble({
                 )}
               </div>
             )}
-            {(showTranslation && hasTranslationData && message.translation) || hasTranslationError || (showTranslation && !hasTranslationData && !hasTranslationError) ? (
-              <div className="mt-2">
-                {showTranslation && hasTranslationData && message.translation && (
-                  <SectionCard tone="slate" label="Перевод" text={message.translation} small singleLine />
-                )}
-                {hasTranslationError && (
-                  <SectionCard
-                    tone="amber"
-                    label="Перевод"
-                    text={mode === 'dialogue' ? (message.translationError ?? 'Перевод не пришёл, нажми ещё раз.') : 'Перевод не пришёл, нажми ещё раз.'}
-                    small
-                    singleLine
-                  />
-                )}
-                {showTranslation && !hasTranslationData && !hasTranslationError && isLoadingTranslation && (
-                  <SectionCard
-                    tone="slate"
-                    label="Перевод"
-                    text="Загрузка перевода…"
-                    small
-                    singleLine
-                    textItalic
-                  />
-                )}
-                {showTranslation && !hasTranslationData && !hasTranslationError && !isLoadingTranslation && (
-                  <SectionCard
-                    tone="amber"
-                    label="Перевод"
-                    text="Не удалось загрузить перевод. Нажми «Перевод» ещё раз."
-                    small
-                    singleLine
-                  />
-                )}
-              </div>
-            ) : null}
+            {(() => {
+              const translationPanelOpen = isEngvoCall ? showEngvoCallTranslation : showTranslation
+              const translationPanelLoading = isEngvoCall
+                ? Boolean(isLoadingEngvoCallTranslation)
+                : Boolean(isLoadingTranslation)
+              const showTranslationPanel =
+                (translationPanelOpen && hasTranslationData && message.translation) ||
+                hasTranslationError ||
+                (translationPanelOpen && !hasTranslationData && !hasTranslationError)
+              if (!showTranslationPanel) return null
+              return (
+                <div className="mt-2">
+                  {translationPanelOpen && hasTranslationData && message.translation && (
+                    <SectionCard tone="slate" label="Перевод" text={message.translation} small singleLine />
+                  )}
+                  {hasTranslationError && (
+                    <SectionCard
+                      tone="amber"
+                      label="Перевод"
+                      text={
+                        isEngvoCall
+                          ? (message.translationError ?? 'Перевод не пришёл, нажми ещё раз.')
+                          : mode === 'dialogue'
+                            ? (message.translationError ?? 'Перевод не пришёл, нажми ещё раз.')
+                            : 'Перевод не пришёл, нажми ещё раз.'
+                      }
+                      small
+                      singleLine
+                    />
+                  )}
+                  {translationPanelOpen &&
+                    !hasTranslationData &&
+                    !hasTranslationError &&
+                    translationPanelLoading && (
+                      <SectionCard
+                        tone="slate"
+                        label="Перевод"
+                        text="Загрузка перевода…"
+                        small
+                        singleLine
+                        textItalic
+                      />
+                    )}
+                  {translationPanelOpen &&
+                    !hasTranslationData &&
+                    !hasTranslationError &&
+                    !translationPanelLoading && (
+                      <SectionCard
+                        tone="amber"
+                        label="Перевод"
+                        text="Не удалось загрузить перевод. Нажми «Перевод» ещё раз."
+                        small
+                        singleLine
+                      />
+                    )}
+                </div>
+              )
+            })()}
           </>
         )}
     </ChatBubbleFrame>
