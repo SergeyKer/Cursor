@@ -627,7 +627,7 @@ function buildEmbeddedQuestionsFinale(): LessonFinale {
       },
       {
         type: 'task',
-        content: 'Можно закрепить тему на новых бытовых ситуациях.',
+        content: 'Нажмите «Далее» ниже — и выберите, как закрепить тему.',
       },
     ],
     footerDynamic: 'Урок завершен',

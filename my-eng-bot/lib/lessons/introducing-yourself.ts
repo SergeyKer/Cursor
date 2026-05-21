@@ -421,7 +421,7 @@ function buildSelfIntroFinale(): LessonFinale {
       },
       {
         type: 'task',
-        content: 'Вы готовы к следующему уроку.',
+        content: 'Нажмите «Далее» ниже — и выберите, как закрепить тему.',
       },
     ],
     footerDynamic: 'Урок завершен',

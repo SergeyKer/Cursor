@@ -690,7 +690,7 @@ export function useLessonEngine(lesson: LessonData | null) {
               tone: 'celebrate',
             }
           : null,
-        feedback?.type === 'success'
+        feedback?.type === 'success' && currentStep < totalSteps - 1
           ? {
               key: 'lesson-success',
               priority: 75,
@@ -763,6 +763,7 @@ export function useLessonEngine(lesson: LessonData | null) {
     step?.footerDynamic,
     step?.myEngComment,
     step?.stepNumber,
+    totalSteps,
   ])
 
   const completedSteps = useMemo(() => {

@@ -177,4 +177,25 @@ describe('footerMessages', () => {
       })
     ).toBe('Верно. Шаг 3 из 7.')
   })
+
+  it('announces step 7 when completing step 6', () => {
+    expect(
+      buildLessonAdvanceMessage({
+        currentStep: 5,
+        totalSteps: 7,
+        stepNumber: 6,
+        nextStepNumber: 7,
+      })
+    ).toBe('Верно. Шаг 7 из 7.')
+  })
+
+  it('omits step counter when completing the final learning step', () => {
+    expect(
+      buildLessonAdvanceMessage({
+        currentStep: 6,
+        totalSteps: 7,
+        stepNumber: 7,
+      })
+    ).toBe('Верно.')
+  })
 })

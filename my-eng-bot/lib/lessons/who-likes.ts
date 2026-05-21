@@ -322,7 +322,7 @@ function buildWhoLikesFinale(): LessonFinale {
       },
       {
         type: 'task',
-        content: 'Можно закрепить тему на новых ситуациях.',
+        content: 'Нажмите «Далее» ниже — и выберите, как закрепить тему.',
       },
     ],
     footerDynamic: 'Урок завершён',

@@ -92,6 +92,11 @@ export function buildLessonAdvanceMessage(params: LessonAdvanceMessageParams): s
     return `${prefix} Шаг ${Math.min(completedStep, total)} из ${total}${completedTaskSuffix}.`
   }
 
+  const isFinalLearningStep = params.currentStep >= total - 1
+  if (isFinalLearningStep) {
+    return prefix
+  }
+
   return `${prefix} Шаг ${nextStep} из ${total}.`
 }
 
