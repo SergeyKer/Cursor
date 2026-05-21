@@ -39,10 +39,8 @@ import {
 import { isErrorLikeAssistantMessage } from '@/lib/errorLikeAssistantMessage'
 import { hasEngvoAssistantChatBubble, type EngvoCallPhase } from '@/lib/engvo/state'
 import EngvoCallTimer from '@/components/EngvoCallTimer'
-import {
-  EngvoCallTranslationButton,
-  type EngvoCallTranslationDotState,
-} from '@/components/EngvoCallTranslationButton'
+import { EngvoCallTranslationButton } from '@/components/EngvoCallTranslationButton'
+import { TranslationButtonDot, type TranslationDotState } from '@/components/TranslationButtonDot'
 import EngvoVoiceMeter from '@/components/EngvoVoiceMeter'
 import { stripWrappingQuotesFromDrillRussianLine } from '@/lib/extractSingleTranslationNextSentence'
 import {
@@ -3055,11 +3053,19 @@ function MessageBubble({
     messageIndex,
   ])
 
-  const engvoCallTranslationDotState: EngvoCallTranslationDotState = hasTranslationError
+  const engvoCallTranslationDotState: TranslationDotState = hasTranslationError
     ? 'error'
     : hasTranslationData
       ? 'ready'
       : isLoadingEngvoCallTranslation || isPrefetchingEngvoCallTranslation
+        ? 'loading'
+        : 'idle'
+
+  const translationDotState: TranslationDotState = hasTranslationError
+    ? 'error'
+    : hasTranslationData
+      ? 'ready'
+      : isLoadingTranslation
         ? 'loading'
         : 'idle'
 
@@ -3181,14 +3187,7 @@ function MessageBubble({
                     title={showTranslation ? 'Скрыть перевод' : 'Показать перевод'}
                     aria-label={showTranslation ? 'Скрыть перевод сообщения' : 'Показать перевод сообщения'}
                   >
-                    {!showTranslation && (
-                      <span
-                        className={`h-2 w-2 shrink-0 rounded-full ${
-                          hasTranslationData ? 'bg-[var(--status-success-text)]' : 'bg-[var(--status-warning-text)]'
-                        }`}
-                        aria-hidden
-                      />
-                    )}
+                    {!showTranslation && <TranslationButtonDot state={translationDotState} />}
                     {showTranslation ? 'Скрыть перевод' : 'Перевод'}
                   </button>
                 )}

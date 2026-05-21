@@ -1,23 +1,16 @@
 'use client'
 
-export type EngvoCallTranslationDotState = 'idle' | 'loading' | 'ready' | 'error'
+import {
+  TranslationButtonDot,
+  type EngvoCallTranslationDotState,
+  type TranslationDotState,
+} from '@/components/TranslationButtonDot'
 
-function dotClassName(state: EngvoCallTranslationDotState): string {
-  switch (state) {
-    case 'ready':
-      return 'bg-[var(--engvo-translate-dot-ready)]'
-    case 'loading':
-      return 'bg-[var(--engvo-translate-dot-loading)]'
-    case 'error':
-      return 'bg-[var(--engvo-translate-dot-error)]'
-    default:
-      return 'bg-[var(--engvo-translate-dot-idle)]'
-  }
-}
+export type { EngvoCallTranslationDotState, TranslationDotState }
 
 type EngvoCallTranslationButtonProps = {
   expanded: boolean
-  dotState: EngvoCallTranslationDotState
+  dotState: TranslationDotState
   onToggle: () => void
 }
 
@@ -33,7 +26,7 @@ export function EngvoCallTranslationButton({ expanded, dotState, onToggle }: Eng
       title={expanded ? 'Скрыть перевод звонка' : 'Показать перевод звонка'}
       aria-label={expanded ? 'Скрыть перевод звонка' : 'Перевод звонка'}
     >
-      {!expanded && <span className={`h-2 w-2 shrink-0 rounded-full ${dotClassName(dotState)}`} aria-hidden />}
+      {!expanded && <TranslationButtonDot state={dotState} />}
       {expanded ? 'Скрыть перевод' : 'Перевод'}
     </button>
   )
