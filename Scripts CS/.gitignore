@@ -1,8 +1,13 @@
-/.cursor/
+/.cursor/*
+!/.cursor/rules/
+!/.cursor/rules/**
 /.vercel/
 /node_modules/
 /dist/
 /build/
+.env
+.env.local
+.env*.local
 *.log
 *.tmp
 *.swp
@@ -12,3 +17,4 @@ Desktop.ini
 # Временные файлы Excel (lock)
 ~$*.xlsx
 ~$*.xlsm
+.vercel

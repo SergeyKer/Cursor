@@ -34,10 +34,12 @@ async function loadData() {
 
 function initNavigation(views, onProcessViewSwitch) {
   const buttons = document.querySelectorAll(".nav__item");
+  const content = document.querySelector(".content");
   const viewMap = views || {
     processes: document.getElementById("processView"),
     assistant: document.getElementById("assistantView"),
     tools: document.getElementById("toolsView"),
+    call: document.getElementById("callView"),
   };
 
   buttons.forEach((btn) => {
@@ -48,6 +50,7 @@ function initNavigation(views, onProcessViewSwitch) {
       Object.entries(viewMap).forEach(([key, el]) => {
         if (el) el.classList.toggle("view--active", key === view);
       });
+      if (content) content.classList.toggle("content--call", view === "call");
       if (view === "processes" && onProcessViewSwitch) onProcessViewSwitch();
     });
   });
@@ -970,18 +973,48 @@ function renderCommunicationTools(tools) {
 async function bootstrap() {
   const layout = document.getElementById("layout");
   const sidebarToggle = document.getElementById("sidebarToggle");
+  const sidebarBackdrop = document.getElementById("sidebarBackdrop");
+  const sidebar = document.getElementById("sidebar");
+
+  function setSidebarOpen(open) {
+    if (!layout) return;
+    layout.classList.toggle("sidebar--open", open);
+    if (sidebarToggle) {
+      sidebarToggle.setAttribute("aria-label", open ? "Закрыть меню" : "Открыть меню");
+      sidebarToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+    if (sidebarBackdrop) {
+      sidebarBackdrop.setAttribute("aria-hidden", open ? "false" : "true");
+    }
+  }
+
   if (sidebarToggle && layout) {
-    sidebarToggle.setAttribute("aria-label", layout.classList.contains("sidebar--open") ? "Закрыть меню" : "Открыть меню");
-    sidebarToggle.addEventListener("click", () => {
-      layout.classList.toggle("sidebar--open");
-      sidebarToggle.setAttribute("aria-label", layout.classList.contains("sidebar--open") ? "Закрыть меню" : "Открыть меню");
+    setSidebarOpen(false);
+    sidebarToggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setSidebarOpen(!layout.classList.contains("sidebar--open"));
     });
   }
+
+  if (sidebarBackdrop && layout) {
+    sidebarBackdrop.addEventListener("click", () => setSidebarOpen(false));
+  }
+
+  if (sidebar) {
+    sidebar.addEventListener("click", (event) => event.stopPropagation());
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && layout && layout.classList.contains("sidebar--open")) {
+      setSidebarOpen(false);
+    }
+  });
 
   const views = {
     processes: document.getElementById("processView"),
     assistant: document.getElementById("assistantView"),
     tools: document.getElementById("toolsView"),
+    call: document.getElementById("callView"),
   };
   try {
     const { meta, processes, tools } = await loadData();
@@ -1010,6 +1043,7 @@ async function bootstrap() {
     };
 
     initNavigation(views, showProcessListMain);
+    if (typeof initCallView === "function") initCallView();
 
     // Быстрый переход по навигации процесса: прокрутка к разделу (учитывается scroll-margin-top у карточек)
     const processNav = document.getElementById("processNav");

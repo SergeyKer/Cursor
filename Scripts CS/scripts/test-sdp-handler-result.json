@@ -1,0 +1,7 @@
+{
+  "status": 400,
+  "data": {
+    "error": "Failed to parse offer: failed to unmarshal SDP: EOF",
+    "userMessage": "Failed to parse offer: failed to unmarshal SDP: EOF"
+  }
+}

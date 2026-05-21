@@ -1,0 +1,30 @@
+[
+  {
+    "label": "short",
+    "sdpLen": 175,
+    "bodyLen": 28454,
+    "boundary": "----formdata-undici-095019698195",
+    "sdpPart": {
+      "found": true,
+      "partLen": 175,
+      "startsWithV": true,
+      "endsWithRn": true,
+      "head": "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 ",
+      "tail": "estpassword\r\na=rtpmap:111 opus/48000/2\r\n"
+    }
+  },
+  {
+    "label": "long",
+    "sdpLen": 2404,
+    "bodyLen": 30683,
+    "boundary": "----formdata-undici-016715610836",
+    "sdpPart": {
+      "found": true,
+      "partLen": 2404,
+      "startsWithV": true,
+      "endsWithRn": true,
+      "head": "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 ",
+      "tail": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n"
+    }
+  }
+]

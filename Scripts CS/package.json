@@ -1,0 +1,14 @@
+{
+  "name": "scripts-cs",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/copy-data.js",
+    "test": "node --test tests/**/*.test.js",
+    "dev": "node scripts/local-dev.js",
+    "dev:vercel": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1",
+    "verify:proxy": "node scripts/verify-realtime-proxy.js"
+  },
+  "dependencies": {
+    "undici": "^7.16.0"
+  }
+}

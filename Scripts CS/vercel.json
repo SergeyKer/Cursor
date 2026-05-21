@@ -1,4 +1,11 @@
 {
-  "buildCommand": "cp -r data frontend/",
-  "outputDirectory": "frontend"
+  "buildCommand": "node scripts/copy-data.js",
+  "installCommand": "npm install",
+  "outputDirectory": "frontend",
+  "functions": {
+    "api/**/*.js": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  }
 }
