@@ -1113,7 +1113,8 @@ export default function Home() {
         ) {
           return withoutDial
         }
-        const nextMessages = [...withoutDial, { role: 'assistant', content: cleanText }]
+        const assistantMsg: ChatMessage = { role: 'assistant', content: cleanText }
+        const nextMessages = [...withoutDial, assistantMsg]
         if (responseId) {
           const pending = engvoPendingTranslationByResponseIdRef.current.get(responseId)
           if (pending) {
