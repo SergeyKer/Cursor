@@ -9,7 +9,7 @@
 
 ### 1. Файл `.env.local` в папке проекта
 
-Путь: `C:\dev\Cursor\Scripts CS\.env.local`
+Путь: `C:\dev\Cursor\Scripts-CS\.env.local`
 
 Скопируйте из `C:\dev\Cursor\my-eng-bot\.env.local` строки **OPENAI_API_KEY** и **HTTPS_PROXY** / **HTTP_PROXY**, либо вставьте вручную:
 
@@ -28,7 +28,7 @@ HTTP_PROXY=http://127.0.0.1:10801
 В терминале:
 
 ```powershell
-cd "C:\dev\Cursor\Scripts CS"
+cd "C:\dev\Cursor\Scripts-CS"
 npm install
 npm run dev
 ```

@@ -28,13 +28,15 @@
 
 ## Деплой на Vercel
 
-1. Зайди на [vercel.com](https://vercel.com), нажми **Add New → Project** и импортируй репозиторий с GitHub.
-2. **Root Directory** оставь пустым (корень репозитория).
-3. **Build Command:** `cp -r data frontend/` (на Linux; на Windows вручную скопируй `data` в `frontend` перед пушем или используй WSL).
-4. **Output Directory:** `frontend`.
-5. Нажми **Deploy**. После деплоя сайт будет доступен по выданному URL.
+Монорепозиторий: [github.com/SergeyKer/Cursor](https://github.com/SergeyKer/Cursor).
 
-Если на Vercel не задавать Build Command, можно вручную положить содержимое `data/` в `frontend/data/` в репозитории и указать **Root Directory:** `frontend`, **Output Directory:** пусто.
+1. **Add New → Project** → импорт репозитория, либо ссылка с корнем:  
+   [Import scripts-cs](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FSergeyKer%2FCursor&root-directory=Scripts-CS)
+2. **Root Directory:** `Scripts-CS` (обязательно; старое имя `Scripts CS` больше не существует).
+3. Сборка и выход задаются в `vercel.json`: `node scripts/copy-data.js`, output `frontend`.
+4. **Deploy**. Production URL: `https://scripts-cs-sergeys-projects-8f5f4f29.vercel.app` (или ваш домен).
+
+Если деплой падает с «Root Directory Scripts CS does not exist» — в **Project Settings → General → Root Directory** укажите `Scripts-CS` и сделайте **Redeploy**.
 
 ## Git — как не терять изменения
 
