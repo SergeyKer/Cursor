@@ -132,7 +132,7 @@ function buildProcessPrompt(meta, processesData, knowledgeList, communicationToo
   const fullProcess = processKey ? processesData[processKey] : null;
   const knowledgeEntry = findKnowledgeEntry(knowledgeList, meta);
   const baseProcess = baseProcessKey ? processesData[baseProcessKey] : null;
-  const toolsBlock = serializeCommunicationToolsForCall(communicationTools);
+  const toolsBlock = serializeCommunicationToolsForCall(communicationTools, options);
   const injectBaseRec = shouldInjectBaseOperatorRecs(callRole, meta && meta.code);
   const baseRec = injectBaseRec
     ? serializeOperatorRecommendations(baseProcess && baseProcess.operator_recommendations)

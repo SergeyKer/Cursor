@@ -93,7 +93,8 @@ function serializePinnedTools(communicationTools) {
   );
 }
 
-function serializeCommunicationToolsForCall(communicationTools) {
+function serializeCommunicationToolsForCall(communicationTools, options = {}) {
+  const behaviorRole = options.audience === 'call' ? 'менеджера' : 'оператора';
   const intro = findIntroTool(communicationTools);
   const chunks = [];
   const pinned = serializePinnedTools(communicationTools);
@@ -128,7 +129,7 @@ function serializeCommunicationToolsForCall(communicationTools) {
   if (rows.length) {
     chunks.push(
       [
-        'Инструменты коммуникации (основа поведения оператора — применяй по ситуации):',
+        `Инструменты коммуникации (основа поведения ${behaviorRole} — применяй по ситуации):`,
         rows.join('\n'),
       ].join('\n')
     );

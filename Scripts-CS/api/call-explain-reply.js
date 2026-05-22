@@ -46,7 +46,9 @@ module.exports = async function handler(req, res) {
       resolveProcessMeta(meta, BASE_OPERATOR_CODE);
     const processPrompt =
       String(body.processPromptContext || '').trim() ||
-      buildProcessPrompt(processMeta, processes, knowledge, communicationTools, BASE_OPERATOR_CODE);
+      buildProcessPrompt(processMeta, processes, knowledge, communicationTools, BASE_OPERATOR_CODE, {
+        audience: 'call',
+      });
 
     const response = await fetchWithProxyFallback(OPENAI_CHAT_COMPLETIONS_URL, {
       method: 'POST',
@@ -61,7 +63,7 @@ module.exports = async function handler(req, res) {
           { role: 'system', content: buildExplainSystemPrompt(processPrompt) },
           {
             role: 'user',
-            content: `Реплика оператора: «${text}»\n\nКратко объясни, почему оператор сказал именно так.`,
+            content: `Реплика менеджера: «${text}»\n\nКратко объясни, почему менеджер сказал именно так.`,
           },
         ],
       }),

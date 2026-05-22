@@ -68,6 +68,7 @@
     lastResolvedNormalized: '',
     clarifyCount: 0,
     firstTurnInstructions: '',
+    pendingSessionInstructions: null,
     dialogOrder: {
       nextSeq: 0,
       flushedThrough: 0,
@@ -214,8 +215,8 @@
       connecting: 'Соединение…',
       listening: 'Слушаю',
       userFinalizing: 'Слушаю',
-      assistantPending: 'Оператор отвечает…',
-      assistantSpeaking: 'Оператор говорит',
+      assistantPending: 'Менеджер отвечает…',
+      assistantSpeaking: 'Менеджер говорит',
       ended: 'Звонок завершён',
     };
     refs.statusEl.textContent = labels[state.phase] || '';
@@ -764,6 +765,42 @@
     return true;
   }
 
+  function isBenignRealtimeError(message) {
+    const text = String(message || '').toLowerCase();
+    return (
+      text.includes('active response in progress') ||
+      text.includes('already has an active response')
+    );
+  }
+
+  function handleRealtimeError(message) {
+    const normalized = String(message || '').trim() || 'Ошибка Realtime';
+    if (isBenignRealtimeError(normalized)) return;
+    state.error = normalized;
+    renderError();
+  }
+
+  function clearBenignRealtimeError() {
+    if (state.error && isBenignRealtimeError(state.error)) {
+      state.error = null;
+      renderError();
+    }
+  }
+
+  function sendSessionUpdate(instructions) {
+    sendRealtimeEvent({
+      type: 'session.update',
+      session: buildClientSessionUpdate(instructions),
+    });
+  }
+
+  function flushPendingSessionUpdate() {
+    if (state.assistantResponseActive || !state.pendingSessionInstructions) return;
+    const instructions = state.pendingSessionInstructions;
+    state.pendingSessionInstructions = null;
+    sendSessionUpdate(instructions);
+  }
+
   function buildClientSessionUpdate(instructions) {
     return {
       type: 'realtime',
@@ -864,10 +901,12 @@
         .filter(Boolean)
         .join('\n\n');
     }
-    sendRealtimeEvent({
-      type: 'session.update',
-      session: buildClientSessionUpdate(instructions),
-    });
+    if (state.assistantResponseActive) {
+      state.pendingSessionInstructions = instructions;
+      return;
+    }
+    state.pendingSessionInstructions = null;
+    sendSessionUpdate(instructions);
   }
 
   function extractTextFromResponseDone(event) {
@@ -907,8 +946,7 @@
     }
 
     if (parsed.type === 'error') {
-      state.error = parsed.error && parsed.error.message ? parsed.error.message : 'Ошибка Realtime';
-      renderError();
+      handleRealtimeError(parsed.error && parsed.error.message ? parsed.error.message : 'Ошибка Realtime');
       return;
     }
 
@@ -930,6 +968,10 @@
     }
 
     if (parsed.type === 'input_audio_buffer.speech_started') {
+      if (state.assistantResponseActive) {
+        sendRealtimeEvent({ type: 'input_audio_buffer.clear' });
+        return;
+      }
       setPhase('listening');
       return;
     }
@@ -1036,6 +1078,8 @@
       } else {
         commitAssistantTranscript('', responseId);
       }
+      clearBenignRealtimeError();
+      flushPendingSessionUpdate();
       setPhase('listening');
       return;
     }
@@ -1092,6 +1136,7 @@
     };
     state.greetingTriggered = false;
     state.assistantResponseActive = false;
+    state.pendingSessionInstructions = null;
     state.pendingAssistantText = '';
     state.lastAssistantResponseId = null;
     resetDialogOrder();
@@ -1150,6 +1195,7 @@
     state.lastResolvedNormalized = '';
     state.clarifyCount = 0;
     state.firstTurnInstructions = '';
+    state.pendingSessionInstructions = null;
     state.activeProcessCode = BASE_OPERATOR_CODE;
     state.activeProcessPrompt = '';
     state.activeSessionInstructions = '';

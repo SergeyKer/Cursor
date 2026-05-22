@@ -323,3 +323,12 @@ test('call voice meters use shared tuning and live streams during call', () => {
   assert.match(callJs, /rtc\.userMeter\.setActive\(inCall\)/);
   assert.doesNotMatch(callJs, /assistantPending.*assistantSpeaking.*setActive/);
 });
+
+test('call.js suppresses benign Realtime active-response race', () => {
+  const callJs = fs.readFileSync(path.join(process.cwd(), 'frontend/call.js'), 'utf8');
+  assert.match(callJs, /isBenignRealtimeError/);
+  assert.match(callJs, /handleRealtimeError/);
+  assert.match(callJs, /pendingSessionInstructions/);
+  assert.match(callJs, /flushPendingSessionUpdate/);
+  assert.match(callJs, /input_audio_buffer\.clear/);
+});

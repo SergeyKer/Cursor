@@ -52,7 +52,7 @@ module.exports = async function handler(req, res) {
       knowledge,
       communicationTools,
       BASE_OPERATOR_CODE,
-      { callRole: DEFAULT_CALL_ROLE }
+      { callRole: DEFAULT_CALL_ROLE, audience: 'call' }
     );
     const baseInstructions = buildBaseInstructions(communicationTools, {
       callRole: DEFAULT_CALL_ROLE,

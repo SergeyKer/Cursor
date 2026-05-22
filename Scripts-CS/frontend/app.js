@@ -283,8 +283,9 @@ function attachCardScrollTopButtons(root, blockSelector, onScroll) {
   const ariaLabel = onScroll ? "К навигации инструментов" : "В начало страницы";
   const title = onScroll ? "К навигации" : "В начало";
   root.querySelectorAll(blockSelector).forEach((block) => {
-    const existing = block.querySelector(":scope > .card__scroll-top");
-    if (existing) existing.remove();
+    block.querySelectorAll(":scope > .card__scroll-top, :scope > .card__scroll-foot").forEach((el) => {
+      el.remove();
+    });
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "card__scroll-top card__scroll-top--outline tools-block__scroll-top";
@@ -292,7 +293,14 @@ function attachCardScrollTopButtons(root, blockSelector, onScroll) {
     btn.title = title;
     btn.innerHTML = "<span aria-hidden=\"true\">↑</span>";
     btn.addEventListener("click", scrollToTop);
-    block.appendChild(btn);
+    if (block.classList.contains("tools-block__scroll-footer")) {
+      block.appendChild(btn);
+      return;
+    }
+    const foot = document.createElement("div");
+    foot.className = "card__scroll-foot";
+    foot.appendChild(btn);
+    block.appendChild(foot);
   });
 }
 

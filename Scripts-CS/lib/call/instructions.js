@@ -39,7 +39,7 @@ function buildRoleBlock() {
 }
 
 function buildBaseInstructions(communicationTools, options = {}) {
-  const toolsBlock = serializeCommunicationToolsForCall(communicationTools);
+  const toolsBlock = serializeCommunicationToolsForCall(communicationTools, { audience: 'call' });
   const voiceLayer = buildVoiceLayerBlock();
 
   return applyBrandPlaceholders(
@@ -62,7 +62,7 @@ function buildCallFirstTurnInstructions() {
       'Начни звонок одной короткой репликой.',
       `Пример: «${buildCallGreetingPhrase()}»`,
       'Можно варьировать формулировку, сохраняя компанию и роль голосового помощника.',
-      'Не называй себя по имени и не представляйся как живой менеджер или оператор.',
+      'Не называй себя по имени и не представляйся как живой менеджер.',
       'Если клиент спросит имя или попросит назваться иначе — оставайся голосовым помощником компании, без личного имени.',
       'Не добавляй второй вопрос и не уходи в длинное объяснение.',
     ].join(' ')
