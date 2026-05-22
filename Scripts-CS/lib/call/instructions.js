@@ -6,7 +6,7 @@ const {
 const { serializeCommunicationToolsForCall } = require('./communicationToolsPrompt');
 const { applyBrandPlaceholders } = require('./brandText');
 const { DEFAULT_CALL_ROLE } = require('./processRole');
-const { buildVoiceLayerBlock, buildClosingReminder } = require('./voiceBehaviorPrompt');
+const { buildVoiceLayerBlock } = require('./voiceBehaviorPrompt');
 
 const BASE_OPERATOR_CODE = 'Ответ оператора';
 
@@ -14,7 +14,7 @@ function buildCallConversationRules() {
   return [
     'ПРАВИЛА КАЖДОЙ РЕПЛИКИ ПОСЛЕ ЖАЛОБЫ, ЗАДЕРЖКИ ИЛИ НЕДОВОЛЬСТВА КЛИЕНТА:',
     '1) Сначала эмпатия — фраза из «Эмпатия» / «Демонстрация эмпатии» или шага «Если клиент в эмоциях» активного процесса.',
-    '2) Затем 1–2 уточняющих вопроса из скрипта процесса (адрес, номер договора/заявки, дата замены).',
+    '2) Уточняющие вопросы из скрипта — по одному за реплику, дождись ответа (макс. 2 за тему).',
     '3) Запрещено отвечать только «я понимаю» без конкретных вопросов.',
     '4) Не называй тему «доставка», если клиент говорит о замене/машине — веди по процессу о замене.',
   ].join('\n');
@@ -63,7 +63,6 @@ function buildBaseInstructions(communicationTools, options = {}) {
       buildRoleBlock(callRole, operatorName),
       buildCallConversationRules(),
       'Тема звонка определяется по речи клиента (resolve); веди разговор по активному процессу после определения темы.',
-      buildClosingReminder(),
     ]
       .filter(Boolean)
       .join('\n\n')
@@ -87,7 +86,7 @@ function buildClarifyInstructions(clarifyPrompt, clarifyCount) {
   return [
     'УТОЧНЕНИЕ ТЕМЫ (max 2 за звонок на одну тему):',
     `Сначала задай один уточняющий вопрос: ${clarifyPrompt}`,
-    'После ответа — веди по лучшему процессу, не повторяй тот же вопрос.',
+    'Задай вопрос и дождись ответа; затем веди по лучшему процессу, не повторяй тот же вопрос.',
   ].join('\n');
 }
 

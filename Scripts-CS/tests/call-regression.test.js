@@ -17,6 +17,8 @@ const { resolveOperatorName } = require('../lib/call/constants');
 const {
   buildIdentityGuardBlock,
   buildVoiceLayerBlock,
+  buildCallCompletionBlock,
+  buildClosingReminder,
   IDENTITY_CANARY_WORDS,
 } = require('../lib/call/voiceBehaviorPrompt');
 const { DEFAULT_CALL_ROLE } = require('../lib/call/processRole');
@@ -200,6 +202,18 @@ test('buildVoiceLayerBlock includes inbound sales guard', () => {
   const block = buildVoiceLayerBlock({ operatorName: 'Александр' });
   assert.match(block, /tri-filter/i);
   assert.match(block, /партнёр/i);
+});
+
+test('call prompts require listening after questions', () => {
+  const completion = buildCallCompletionBlock();
+  const reminder = buildClosingReminder();
+  const layer = buildVoiceLayerBlock({ operatorName: 'Ольга' });
+  assert.match(completion, /дождись ответа/i);
+  assert.match(completion, /Не совмещай/i);
+  assert.match(reminder, /После вопроса клиенту/i);
+  assert.match(layer, /Один вопрос — одна реплика/i);
+  assert.match(layer, /сначала ответ клиента/i);
+  assert.doesNotMatch(layer, /решение в той же реплике/i);
 });
 
 test('buildCallFirstTurnInstructions uses voice assistant greeting', () => {
