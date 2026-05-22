@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import LessonSentencePuzzle from '@/components/LessonSentencePuzzle'
-import LessonMedalReveal from '@/components/LessonMedalReveal'
+import LessonMedalFlowInfoStep from '@/components/LessonMedalFlowInfoStep'
 import PostLessonMenu from '@/components/PostLessonMenu'
 import type { LessonMedalTierOrNull } from '@/lib/lessonScore'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
@@ -81,6 +81,8 @@ const lessonStatusCardClassByTone: Record<'service' | 'success' | 'error', strin
 const CHOICE_REOPEN_DELAY_MS = 900
 const DEFAULT_INPUT_GAP_PX = 10
 const PUZZLE_INPUT_GAP_PX = 4
+/** До замера ResizeObserver: меню «Что дальше?» выше обычного композера. */
+const POST_LESSON_BOTTOM_STACK_FALLBACK = '16rem'
 const LESSON_HIDDEN_VOICE_STATUS_MESSAGES = new Set([
   'Голосовой ввод...',
   '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]',
@@ -158,6 +160,7 @@ export default function LessonStepRenderer({
 }: LessonStepRendererProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const bottomStackRef = useRef<HTMLDivElement>(null)
+  const feedEndRef = useRef<HTMLDivElement>(null)
   const reopenChoicesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const previousVoicePhaseRef = useRef<'idle' | 'recording' | 'finalizing' | 'error'>('idle')
   const previousScrollSnapshotRef = useRef<{
@@ -394,6 +397,35 @@ export default function LessonStepRenderer({
 
   const tailLessonMessageId = lessonMessages.at(-1)?.id ?? ''
 
+  const scrollFeedTailIntoView = useCallback((behavior: ScrollBehavior = 'auto') => {
+    const scrollContainer = scrollContainerRef.current
+    if (!scrollContainer) return
+
+    const endEl = feedEndRef.current
+    if (endEl) {
+      endEl.scrollIntoView({ block: 'end', behavior })
+      return
+    }
+
+    scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior })
+  }, [])
+
+  const scheduleScrollFeedTailIntoView = useCallback(
+    (behavior: ScrollBehavior = 'auto') => {
+      let innerRaf = 0
+      const outerRaf = requestAnimationFrame(() => {
+        innerRaf = requestAnimationFrame(() => {
+          scrollFeedTailIntoView(behavior)
+        })
+      })
+      return () => {
+        cancelAnimationFrame(outerRaf)
+        if (innerRaf) cancelAnimationFrame(innerRaf)
+      }
+    },
+    [scrollFeedTailIntoView]
+  )
+
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current
     if (!scrollContainer) return
@@ -408,7 +440,7 @@ export default function LessonStepRenderer({
 
     if (previousSnapshot === null) {
       previousScrollSnapshotRef.current = nextSnapshot
-      scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'auto' })
+      scrollFeedTailIntoView('auto')
       return
     }
 
@@ -423,48 +455,28 @@ export default function LessonStepRenderer({
       return
     }
 
-    scrollContainer.scrollTo({
-      top: scrollContainer.scrollHeight,
-      behavior: stepOrVariantChanged ? 'auto' : 'smooth',
-    })
+    scrollFeedTailIntoView(stepOrVariantChanged ? 'auto' : 'smooth')
     previousScrollSnapshotRef.current = nextSnapshot
-  }, [lessonMessages.length, currentStep?.stepNumber, currentVariantIndex, tailLessonMessageId])
+  }, [
+    lessonMessages.length,
+    currentStep?.stepNumber,
+    currentVariantIndex,
+    tailLessonMessageId,
+    scrollFeedTailIntoView,
+  ])
 
   useEffect(() => {
     if (status !== 'feedback' || !latestFeedback) return
-    const scrollContainer = scrollContainerRef.current
-    if (!scrollContainer) return
 
     // После смены статуса высота ленты может догрузиться на следующем кадре (мультистрочный feedback,
     // скрытие блока урока и т.д.) — повторяем доскролл, чтобы карточка не обрезалась над композером.
-    let innerRaf = 0
-    const outerRaf = requestAnimationFrame(() => {
-      innerRaf = requestAnimationFrame(() => {
-        scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'auto' })
-      })
-    })
-    return () => {
-      cancelAnimationFrame(outerRaf)
-      if (innerRaf) cancelAnimationFrame(innerRaf)
-    }
-  }, [status, latestFeedback, lessonMessages.length, tailLessonMessageId])
+    return scheduleScrollFeedTailIntoView('auto')
+  }, [status, latestFeedback, lessonMessages.length, tailLessonMessageId, scheduleScrollFeedTailIntoView])
 
   useEffect(() => {
     if (status !== 'completed' && postLessonPhase !== 'menu') return
-    const scrollContainer = scrollContainerRef.current
-    if (!scrollContainer) return
-
-    let innerRaf = 0
-    const outerRaf = requestAnimationFrame(() => {
-      innerRaf = requestAnimationFrame(() => {
-        scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' })
-      })
-    })
-    return () => {
-      cancelAnimationFrame(outerRaf)
-      if (innerRaf) cancelAnimationFrame(innerRaf)
-    }
-  }, [status, postLessonPhase, bottomStackHeight])
+    return scheduleScrollFeedTailIntoView('auto')
+  }, [status, postLessonPhase, bottomStackHeight, scheduleScrollFeedTailIntoView])
 
   useEffect(() => {
     const bottomStack = bottomStackRef.current
@@ -499,9 +511,14 @@ export default function LessonStepRenderer({
   ])
 
   const bottomStackHeightCss =
-    bottomStackHeight > 0 ? `${bottomStackHeight}px` : 'var(--chat-input-height)'
-  const pinFeedToBottom = isSentencePuzzle || hasPostLessonOptions
-  const inputGapPx = pinFeedToBottom ? PUZZLE_INPUT_GAP_PX : DEFAULT_INPUT_GAP_PX
+    bottomStackHeight > 0
+      ? `${bottomStackHeight}px`
+      : hasPostLessonOptions
+        ? POST_LESSON_BOTTOM_STACK_FALLBACK
+        : 'var(--chat-input-height)'
+  const pinFeedToBottom = isSentencePuzzle
+  const inputGapPx =
+    pinFeedToBottom || hasPostLessonOptions ? PUZZLE_INPUT_GAP_PX : DEFAULT_INPUT_GAP_PX
   const showPostLessonMedalPhase = Boolean(
     lessonMedalReveal && hasPostLessonOptions && postLessonPhase === 'medal'
   )
@@ -616,6 +633,9 @@ export default function LessonStepRenderer({
                     </ChatBubbleFrame>
                   )
                 })}
+                {hasPostLessonOptions ? (
+                  <div ref={feedEndRef} className="h-0 w-full shrink-0" aria-hidden="true" />
+                ) : null}
               </div>
             </div>
 
@@ -628,27 +648,15 @@ export default function LessonStepRenderer({
                 style={{ paddingBottom: 'calc(var(--app-bottom-inset) + 0.375rem)' }}
               >
                 {showPostLessonMedalPhase && lessonMedalReveal ? (
-                  <div
-                    className="animate-fade-in-up mx-auto flex w-full max-w-sm flex-col gap-2.5"
-                    role="region"
-                    aria-label="Результат урока"
-                  >
-                    <LessonMedalReveal
-                      medal={lessonMedalReveal.medal}
-                      coreXp={lessonMedalReveal.coreXp}
-                      comboXp={lessonMedalReveal.comboXp}
-                      maxCoreXp={lessonMedalReveal.maxCoreXp}
-                      corePercent={lessonMedalReveal.corePercent}
-                      className="mb-0 shadow-md"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setPostLessonPhase('menu')}
-                      className="w-full rounded-xl border border-blue-500 bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                    >
-                      Далее
-                    </button>
-                  </div>
+                  <LessonMedalFlowInfoStep
+                    medal={lessonMedalReveal.medal}
+                    coreXp={lessonMedalReveal.coreXp}
+                    comboXp={lessonMedalReveal.comboXp}
+                    maxCoreXp={lessonMedalReveal.maxCoreXp}
+                    corePercent={lessonMedalReveal.corePercent}
+                    audience={audience}
+                    onNext={() => setPostLessonPhase('menu')}
+                  />
                 ) : showPostLessonMenu ? (
                   <div className="mx-auto flex w-full max-w-sm flex-col gap-2">
                     <div className="px-1 text-center">
