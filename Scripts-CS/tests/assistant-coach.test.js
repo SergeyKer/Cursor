@@ -122,5 +122,5 @@ test('index.html has assistant status and updated copy', () => {
   const html = fs.readFileSync(path.join(process.cwd(), 'frontend/index.html'), 'utf8');
   assert.match(html, /assistantStatus/);
   assert.match(html, /Получить рекомендации/);
-  assert.match(html, /что сделать на линии/);
+  assert.match(html, /что сделать в телефонном разговоре/);
 });

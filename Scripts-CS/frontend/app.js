@@ -599,7 +599,7 @@ function renderCoachResponse(data, metaList, handlers) {
     const banner = document.createElement("p");
     banner.className = "coach-banner--partial";
     banner.textContent =
-      "Полный скрипт в базе дополняется — на линии ориентируйтесь на блок «Сейчас на линии» выше.";
+      "Полный скрипт в базе дополняется — в телефонном разговоре ориентируйтесь на блок «Сейчас в разговоре» ниже.";
     card.appendChild(banner);
   }
 
@@ -610,7 +610,7 @@ function renderCoachResponse(data, metaList, handlers) {
     card.appendChild(summary);
   }
 
-  appendCoachListSection(card, "Сейчас на линии", data.doNow, "ol");
+  appendCoachListSection(card, "Сейчас в разговоре", data.doNow, "ol");
   appendCoachSaySection(card, data.sayNow);
   appendCoachListSection(card, "Спросить у клиента (можно не всё сразу)", data.askClient, "ul");
 
