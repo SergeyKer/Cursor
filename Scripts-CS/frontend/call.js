@@ -80,6 +80,9 @@
   let refs = {};
   /** Сколько сообщений уже отрисовано — enter-анимация только для новых. */
   let renderedMessageCount = 0;
+  /** Инкремент при старте/отмене звонка — отсекает устаревший async startCall после hangUp/перезвона. */
+  let callGeneration = 0;
+  let sessionAbortController = null;
   let rtc = {
     pc: null,
     dc: null,
@@ -1025,7 +1028,25 @@
     }
   }
 
+  function isCallSessionStale(gen) {
+    return gen !== callGeneration;
+  }
+
+  function isPeerConnectionUsable(pc) {
+    return !!(pc && pc.signalingState !== 'closed' && pc.connectionState !== 'closed');
+  }
+
+  function abortPendingSessionRequest() {
+    if (!sessionAbortController) return;
+    try {
+      sessionAbortController.abort();
+    } catch (_) {}
+    sessionAbortController = null;
+  }
+
   function cleanupRtc(options) {
+    callGeneration += 1;
+    abortPendingSessionRequest();
     const preserveTimer = options && options.preserveTimer;
     stopSilenceWatch();
     if (preserveTimer) {
@@ -1106,6 +1127,7 @@
 
   async function startCall() {
     if (isCallInProgress(state.phase)) return;
+    const gen = callGeneration;
     state.error = null;
     renderError();
     state.messages = [];
@@ -1124,16 +1146,21 @@
     setPhase('connecting');
     startTimer();
 
+    let pc = null;
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
-      rtc.localStream = mediaStream;
+      if (isCallSessionStale(gen)) {
+        mediaStream.getTracks().forEach(function (t) { t.stop(); });
+        return;
+      }
 
-      const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
       const dc = pc.createDataChannel('oai-events');
       rtc.pc = pc;
       rtc.dc = dc;
+      rtc.localStream = mediaStream;
 
       if (!rtc.remoteAudio) {
         rtc.remoteAudio = document.createElement('audio');
@@ -1173,25 +1200,40 @@
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+      if (isCallSessionStale(gen)) return;
+
       var iceWait = await waitForIceGathering(pc, 12000);
+      if (isCallSessionStale(gen)) return;
+
       const localSdp = pc.localDescription && pc.localDescription.sdp;
       if (!localSdp) throw new Error('Не удалось подготовить SDP offer');
       if (!/m=audio/i.test(localSdp)) {
         throw new Error('SDP без аудио-линии. Проверьте микрофон и разрешения браузера.');
       }
+
+      abortPendingSessionRequest();
+      const abortController = new AbortController();
+      sessionAbortController = abortController;
       const sessionResponse = await fetch(apiBase() + '/api/realtime-session/sdp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sdp: localSdp, voice: state.voice, model: state.realtimeModel }),
+        signal: abortController.signal,
       });
+      if (sessionAbortController === abortController) sessionAbortController = null;
+      if (isCallSessionStale(gen)) return;
+
       const sessionData = await sessionResponse.json();
       if (!sessionResponse.ok) {
         throw new Error(sessionData.userMessage || sessionData.error || 'Ошибка SDP');
       }
+      if (isCallSessionStale(gen) || !isPeerConnectionUsable(pc)) return;
 
       await pc.setRemoteDescription({ type: 'answer', sdp: sessionData.sdp });
+      if (isCallSessionStale(gen)) return;
       updateMeters();
     } catch (err) {
+      if (isCallSessionStale(gen) || err.name === 'AbortError') return;
       state.error = err.message || 'Не удалось начать звонок';
       renderError();
       cleanupRtc();

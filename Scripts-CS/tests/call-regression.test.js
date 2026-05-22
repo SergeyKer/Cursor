@@ -242,6 +242,15 @@ test('call.js parses without syntax errors', () => {
   execSync('node --check frontend/call.js', { cwd: process.cwd(), stdio: 'pipe' });
 });
 
+test('call.js guards stale WebRTC session on hangUp and redial', () => {
+  const js = fs.readFileSync(path.join(process.cwd(), 'frontend/call.js'), 'utf8');
+  assert.match(js, /callGeneration/);
+  assert.match(js, /isCallSessionStale/);
+  assert.match(js, /isPeerConnectionUsable/);
+  assert.match(js, /sessionAbortController/);
+  assert.match(js, /signal: abortController\.signal/);
+});
+
 test('frontend index includes call view and manager copy', () => {
   const html = fs.readFileSync(path.join(process.cwd(), 'frontend/index.html'), 'utf8');
   assert.match(html, /data-view="call"/);
