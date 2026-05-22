@@ -110,7 +110,7 @@ test('buildProcessPrompt uses full data for menu_done', () => {
 test('applyBrandPlaceholders replaces company and operator', () => {
   const text = applyBrandPlaceholders('Компания Наша Компания, оператор [Имя].');
   assert.match(text, /E-liss/);
-  assert.match(text, /Наталия/);
+  assert.match(text, /Ольга/);
 });
 
 test('buildBaseInstructions uses client manager role and voice layer', () => {
@@ -119,7 +119,7 @@ test('buildBaseInstructions uses client manager role and voice layer', () => {
   const instructions = buildBaseInstructions(communicationTools, {
     callRole: DEFAULT_CALL_ROLE,
     voice: 'coral',
-    operatorName: 'Наталия',
+    operatorName: 'Ольга',
   });
   assert.match(instructions, /клиентский менеджер/i);
   assert.match(instructions, /E-liss/);
@@ -148,12 +148,12 @@ test('buildBaseInstructions session size under 12250 chars', () => {
 });
 
 test('resolveOperatorName maps voice to gendered name', () => {
-  assert.equal(resolveOperatorName('coral'), 'Наталия');
+  assert.equal(resolveOperatorName('coral'), 'Ольга');
   assert.equal(resolveOperatorName('echo'), 'Александр');
 });
 
 test('buildIdentityGuardBlock contains canary list', () => {
-  const block = buildIdentityGuardBlock('Наталия');
+  const block = buildIdentityGuardBlock('Ольга');
   assert.match(block, /никогда/i);
   for (const word of IDENTITY_CANARY_WORDS.slice(0, 5)) {
     assert.match(block, new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
@@ -168,7 +168,7 @@ test('voice layer forbids casual greeting mirror', () => {
   } = require('../lib/call/voiceBehaviorPrompt');
   const tone = buildProfessionalToneBlock();
   const greeting = buildGreetingHandlingBlock();
-  const layer = buildVoiceLayerBlock({ operatorName: 'Наталия' });
+  const layer = buildVoiceLayerBlock({ operatorName: 'Ольга' });
   assert.match(tone, /улыбнуло/i);
   assert.match(greeting, /мордасти/i);
   assert.match(layer, /ДЕЛОВОЙ ТОН B2B/);

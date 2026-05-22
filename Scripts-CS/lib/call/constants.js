@@ -3,14 +3,14 @@ const CALL_TRANSCRIPTION_MODEL = 'gpt-4o-mini-transcribe';
 const CALL_DEFAULT_VOICE = 'coral';
 const CALL_VOICE_STORAGE_KEY = 'cs-call-realtime-voice';
 const CALL_COMPANY_NAME = 'E-liss';
-const CALL_OPERATOR_NAME = 'Наталия';
+const CALL_OPERATOR_NAME = 'Ольга';
 const CALL_FINISHED_TEXT = 'Звонок завершён';
 const CALL_CONNECTING_TEXT = 'Соединение…';
 const PARTNERSHIP_INBOX_EMAIL = 'partners@e-liss.ru';
 
 const CALL_OPERATOR_NAMES = {
   male: 'Александр',
-  female: 'Наталия',
+  female: 'Ольга',
 };
 
 const CALL_VOICE_GENDER = {
