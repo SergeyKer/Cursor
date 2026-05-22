@@ -4,7 +4,7 @@ const {
   buildCallFirstTurnInstructions,
   BASE_OPERATOR_CODE,
 } = require('../lib/call/instructions');
-const { resolveOperatorName, isCallRealtimeVoice, CALL_DEFAULT_VOICE } = require('../lib/call/constants');
+const { isCallRealtimeVoice, CALL_DEFAULT_VOICE } = require('../lib/call/constants');
 const { DEFAULT_CALL_ROLE } = require('../lib/call/processRole');
 
 function parseVoiceFromRequest(req) {
@@ -23,15 +23,13 @@ module.exports = async function handler(req, res) {
 
   try {
     const voice = parseVoiceFromRequest(req);
-    const operatorName = resolveOperatorName(voice);
     const { communicationTools } = loadCallData();
     const instructions = buildBaseInstructions(communicationTools, {
       callRole: DEFAULT_CALL_ROLE,
       voice,
-      operatorName,
     });
-    const firstTurnInstructions = buildCallFirstTurnInstructions({ voice, operatorName });
-    res.status(200).json({ instructions, firstTurnInstructions, operatorName, voice });
+    const firstTurnInstructions = buildCallFirstTurnInstructions();
+    res.status(200).json({ instructions, firstTurnInstructions, voice });
   } catch (error) {
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Unknown error',

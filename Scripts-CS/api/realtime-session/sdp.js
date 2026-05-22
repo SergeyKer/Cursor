@@ -2,7 +2,6 @@ const {
   CALL_DEFAULT_VOICE,
   isCallRealtimeVoice,
   resolveCallRealtimeModel,
-  resolveOperatorName,
 } = require('../../lib/call/constants');
 const { DEFAULT_CALL_ROLE } = require('../../lib/call/processRole');
 const { resolveCallRealtimeUserMessage } = require('../../lib/call/errors');
@@ -65,7 +64,6 @@ module.exports = async function handler(req, res) {
     const instructions = buildBaseInstructions(communicationTools, {
       callRole: DEFAULT_CALL_ROLE,
       voice,
-      operatorName: resolveOperatorName(voice),
     });
 
     const model = resolveCallRealtimeModel(body.model);

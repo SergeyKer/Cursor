@@ -14,16 +14,14 @@ const SDP =
 const { loadCallData } = require('../lib/call/dataLoader');
 const { buildBaseInstructions } = require('../lib/call/instructions');
 const { DEFAULT_CALL_ROLE } = require('../lib/call/processRole');
-const { CALL_DEFAULT_VOICE, resolveOperatorName } = require('../lib/call/constants');
-const { buildCallsApiSession, prepareRealtimeCallsMultipart, getRealtimeFetchHeaders } = require('../lib/call/realtimeSession');
 const { CALL_REALTIME_MODEL, CALL_DEFAULT_VOICE } = require('../lib/call/constants');
+const { buildCallsApiSession, prepareRealtimeCallsMultipart, getRealtimeFetchHeaders } = require('../lib/call/realtimeSession');
 const { fetchWithProxyFallback } = require('../lib/proxyFetch');
 
 const { communicationTools } = loadCallData();
 const instructions = buildBaseInstructions(communicationTools, {
   callRole: DEFAULT_CALL_ROLE,
   voice: CALL_DEFAULT_VOICE,
-  operatorName: resolveOperatorName(CALL_DEFAULT_VOICE),
 });
 
 const sessions = {

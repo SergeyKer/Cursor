@@ -1,5 +1,10 @@
 const { filterProcessCatalog } = require('./processCatalog');
 const { canonicalProcessCode } = require('./processAliases');
+const {
+  hasTerminationReason,
+  buildTerminationClarifyPrompt,
+  applyTerminationContext,
+} = require('./terminationRetention');
 
 const MIN_SCORE = 0.35;
 const FALLBACK_PROCESS_CODE = 'Ответ оператора';
@@ -230,7 +235,19 @@ function buildSafeClarifyPrompt() {
   return 'Уточните, пожалуйста, с чем связан ваш звонок?';
 }
 
-function resolveProcessByScoring(metaList, query) {
+function enrichIntentWithClarify(intent, query, conversationText) {
+  if (!intent) return intent;
+  if (intent.processCode === 'Расторжение договора' && !hasTerminationReason(query, conversationText)) {
+    return {
+      ...intent,
+      clarifyPrompt: buildTerminationClarifyPrompt(),
+    };
+  }
+  return intent;
+}
+
+function resolveProcessByScoring(metaList, query, options = {}) {
+  const conversationText = options.conversationText || query;
   if (isGreetingOnlyQuery(query)) {
     return {
       processCode: FALLBACK_PROCESS_CODE,
@@ -241,14 +258,18 @@ function resolveProcessByScoring(metaList, query) {
     };
   }
 
-  const intent = resolveProcessByIntent(query);
+  const intent = enrichIntentWithClarify(resolveProcessByIntent(query), query, conversationText);
   if (intent) {
-    return {
-      processCode: intent.processCode,
-      confidence: intent.confidence,
-      score: intent.score,
-      clarifyPrompt: intent.clarifyPrompt,
-    };
+    return applyTerminationContext(
+      {
+        processCode: intent.processCode,
+        confidence: intent.confidence,
+        score: intent.score,
+        clarifyPrompt: intent.clarifyPrompt,
+      },
+      query,
+      conversationText
+    );
   }
 
   const catalog = filterProcessCatalog(metaList);
@@ -296,15 +317,19 @@ function resolveProcessByScoring(metaList, query) {
     };
   }
 
-  return {
-    processCode: canonicalProcessCode(top.process.code),
-    confidence,
-    score: top.score,
-    clarifyPrompt:
-      confidence === 'medium' && gap < 0.15
-        ? buildSafeClarifyPrompt()
-        : undefined,
-  };
+  return applyTerminationContext(
+    {
+      processCode: canonicalProcessCode(top.process.code),
+      confidence,
+      score: top.score,
+      clarifyPrompt:
+        confidence === 'medium' && gap < 0.15
+          ? buildSafeClarifyPrompt()
+          : undefined,
+    },
+    query,
+    conversationText
+  );
 }
 
 function extractJsonObject(raw) {
@@ -372,4 +397,5 @@ module.exports = {
   parseLlmResolveResult,
   buildLlmResolvePrompt,
   buildSafeClarifyPrompt,
+  applyTerminationContext,
 };

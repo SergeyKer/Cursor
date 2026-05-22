@@ -8,7 +8,7 @@ const {
 const processCatalog = require('../lib/call/processCatalog');
 const { canonicalProcessCode } = require('../lib/call/processAliases');
 const { resolveProcessForQuery } = require('../lib/call/resolveProcessForQuery');
-const { resolveOperatorName, isCallRealtimeVoice, CALL_DEFAULT_VOICE } = require('../lib/call/constants');
+const { isCallRealtimeVoice, CALL_DEFAULT_VOICE } = require('../lib/call/constants');
 const { DEFAULT_CALL_ROLE } = require('../lib/call/processRole');
 
 function resolveProcessMeta(metaList, code) {
@@ -37,11 +37,11 @@ module.exports = async function handler(req, res) {
     }
 
     const voice = parseVoice(req.body);
-    const operatorName = resolveOperatorName(voice);
     const clarifyCount = Number(req.body && req.body.clarifyCount) || 0;
+    const conversationText = String((req.body && req.body.conversationText) || query).trim();
 
     const { meta, processes, knowledge, communicationTools } = loadCallData();
-    const resolved = await resolveProcessForQuery(query, meta);
+    const resolved = await resolveProcessForQuery(query, meta, { conversationText });
 
     const processMeta =
       resolveProcessMeta(meta, canonicalProcessCode(resolved.processCode)) ||
@@ -57,12 +57,12 @@ module.exports = async function handler(req, res) {
     const baseInstructions = buildBaseInstructions(communicationTools, {
       callRole: DEFAULT_CALL_ROLE,
       voice,
-      operatorName,
     });
     const sessionInstructions = buildSessionInstructions(baseInstructions, processPrompt, {
       clarifyPrompt: resolved.clarifyPrompt,
       clarifyCount,
       greetingOnly: Boolean(resolved.greetingOnly),
+      terminationScenarioBlock: resolved.terminationScenarioBlock,
     });
 
     res.status(200).json({
@@ -71,9 +71,9 @@ module.exports = async function handler(req, res) {
       menu_done: Boolean(processMeta.menu_done),
       confidence: resolved.confidence,
       clarifyPrompt: resolved.clarifyPrompt || null,
+      termination: resolved.termination || null,
       processPrompt,
       sessionInstructions,
-      operatorName,
     });
   } catch (error) {
     res.status(500).json({

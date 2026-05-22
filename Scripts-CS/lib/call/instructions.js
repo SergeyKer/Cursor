@@ -1,11 +1,9 @@
 const {
   CALL_COMPANY_NAME,
   buildCallGreetingPhrase,
-  resolveOperatorName,
 } = require('./constants');
 const { serializeCommunicationToolsForCall } = require('./communicationToolsPrompt');
 const { applyBrandPlaceholders } = require('./brandText');
-const { DEFAULT_CALL_ROLE } = require('./processRole');
 const { buildVoiceLayerBlock } = require('./voiceBehaviorPrompt');
 
 const BASE_OPERATOR_CODE = 'Ответ оператора';
@@ -26,41 +24,30 @@ function buildSourcePriorityPreamble() {
     '1) Активный процесс из базы (после определения темы) — смысл и шаги.',
     '2) Voice-слой ниже — форма, persona, завершение, anti-loop (не выдать ИИ).',
     '3) Инструменты коммуникации — техники и примеры фраз.',
-    '4) Роль клиентского менеджера — тон; не выдумывай факты вне материалов.',
+    '4) Роль голосового помощника — тон; не выдумывай факты вне материалов.',
     'Не зачитывай материалы дословно; перефразируй естественно.',
   ].join('\n');
 }
 
-function buildRoleBlock(callRole = DEFAULT_CALL_ROLE, operatorName) {
-  const name = operatorName || 'менеджер';
-  if (callRole === 'client_manager') {
-    return [
-      `Ты — клиентский менеджер компании ${CALL_COMPANY_NAME}.`,
-      `Твоё имя: ${name}. Пользователь — клиент, который позвонил.`,
-      'Говори по-русски, коротко, по телефону. Решай на линии, не перекладывай на «оператора» или «напишите на почту».',
-      'Смысл и шаги — из активного процесса и инструментов коммуникации.',
-    ].join(' ');
-  }
+function buildRoleBlock() {
   return [
-    'Ты — оператор клиентского сервиса компании.',
-    `Компания: ${CALL_COMPANY_NAME}. Твоё имя: ${name}.`,
+    `Ты — голосовой помощник компании ${CALL_COMPANY_NAME}.`,
     'Пользователь — клиент, который позвонил.',
-    'Говори только по-русски, коротко и по телефону.',
+    'Говори по-русски, коротко, по телефону; решай на линии, не перекладывай на почту.',
+    'Смысл и шаги — из активного процесса и инструментов коммуникации.',
   ].join(' ');
 }
 
 function buildBaseInstructions(communicationTools, options = {}) {
-  const callRole = options.callRole || DEFAULT_CALL_ROLE;
-  const operatorName = options.operatorName || resolveOperatorName(options.voice);
   const toolsBlock = serializeCommunicationToolsForCall(communicationTools);
-  const voiceLayer = buildVoiceLayerBlock({ operatorName });
+  const voiceLayer = buildVoiceLayerBlock();
 
   return applyBrandPlaceholders(
     [
       buildSourcePriorityPreamble(),
       voiceLayer,
       toolsBlock,
-      buildRoleBlock(callRole, operatorName),
+      buildRoleBlock(),
       buildCallConversationRules(),
       'Тема звонка определяется по речи клиента (resolve); веди разговор по активному процессу после определения темы.',
     ]
@@ -75,7 +62,8 @@ function buildCallFirstTurnInstructions() {
       'Начни звонок одной короткой репликой.',
       `Пример: «${buildCallGreetingPhrase()}»`,
       'Можно варьировать формулировку, сохраняя компанию и роль голосового помощника.',
-      'Не называй себя по имени и не представляйся как живой менеджер.',
+      'Не называй себя по имени и не представляйся как живой менеджер или оператор.',
+      'Если клиент спросит имя или попросит назваться иначе — оставайся голосовым помощником компании, без личного имени.',
       'Не добавляй второй вопрос и не уходи в длинное объяснение.',
     ].join(' ')
   );
@@ -110,6 +98,9 @@ function buildSessionInstructions(baseInstructions, processBlock, options = {}) 
     parts.push('Активный процесс для этого звонка (приоритет по содержанию):', processBlock);
   }
   if (clarifyBlock) parts.push(clarifyBlock);
+  if (options.terminationScenarioBlock) {
+    parts.push(options.terminationScenarioBlock);
+  }
   parts.push(buildCallConversationRules());
   parts.push('Перефразируй скрипт; не зачитывай материал дословно.');
   return applyBrandPlaceholders(parts.join('\n\n'));

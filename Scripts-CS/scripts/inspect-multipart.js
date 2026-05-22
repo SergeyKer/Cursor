@@ -6,7 +6,7 @@ const { loadCallData } = require('../lib/call/dataLoader');
 const { buildBaseInstructions } = require('../lib/call/instructions');
 const { DEFAULT_CALL_ROLE } = require('../lib/call/processRole');
 const { buildCallsApiSession, prepareRealtimeCallsMultipart } = require('../lib/call/realtimeSession');
-const { CALL_REALTIME_MODEL, CALL_DEFAULT_VOICE, resolveOperatorName } = require('../lib/call/constants');
+const { CALL_REALTIME_MODEL, CALL_DEFAULT_VOICE } = require('../lib/call/constants');
 
 const shortSdp =
   'v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\nc=IN IP4 0.0.0.0\r\na=ice-ufrag:test\r\na=ice-pwd:testpasswordtestpassword\r\na=rtpmap:111 opus/48000/2\r\n';
@@ -16,7 +16,6 @@ const { communicationTools } = loadCallData();
 const instructions = buildBaseInstructions(communicationTools, {
   callRole: DEFAULT_CALL_ROLE,
   voice: CALL_DEFAULT_VOICE,
-  operatorName: resolveOperatorName(CALL_DEFAULT_VOICE),
 });
 const session = buildCallsApiSession({
   model: CALL_REALTIME_MODEL,

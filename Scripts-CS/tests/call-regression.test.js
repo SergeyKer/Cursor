@@ -124,24 +124,25 @@ test('buildProcessPrompt uses full data for menu_done', () => {
   assert.match(prompt, /стоимост/i);
 });
 
-test('applyBrandPlaceholders replaces company and operator', () => {
+test('applyBrandPlaceholders replaces company and operator script placeholders', () => {
   const text = applyBrandPlaceholders('Компания Наша Компания, оператор [Имя].');
   assert.match(text, /E-liss/);
-  assert.match(text, /Ольга/);
+  assert.match(text, /голосовой помощник/i);
+  assert.doesNotMatch(text, /Ольга|Александр/i);
 });
 
-test('buildBaseInstructions uses client manager role and voice layer', () => {
+test('buildBaseInstructions uses voice assistant role and voice layer', () => {
   clearCallDataCache();
   const { communicationTools } = loadCallData();
   const instructions = buildBaseInstructions(communicationTools, {
     callRole: DEFAULT_CALL_ROLE,
     voice: 'coral',
-    operatorName: 'Ольга',
   });
-  assert.match(instructions, /клиентский менеджер/i);
+  assert.match(instructions, /голосовой помощник/i);
   assert.match(instructions, /E-liss/);
   assert.match(instructions, /ЗАЩИТА ЛИЧНОСТИ/);
   assert.match(instructions, /ANTI-LOOP/);
+  assert.doesNotMatch(instructions, /Твоё имя:/i);
   assert.doesNotMatch(instructions, /Каталог тем/);
   assert.doesNotMatch(instructions, /Базовый процесс «Ответ оператора»/);
 });
@@ -149,7 +150,7 @@ test('buildBaseInstructions uses client manager role and voice layer', () => {
 test('buildBaseInstructions prioritizes voice layer before role', () => {
   clearCallDataCache();
   const { communicationTools } = loadCallData();
-  const instructions = buildBaseInstructions(communicationTools, { voice: 'echo', operatorName: 'Александр' });
+  const instructions = buildBaseInstructions(communicationTools, { voice: 'echo' });
   assert.match(instructions, /ГЛАВНЫЙ ИСТОЧНИК/i);
   const voicePos = instructions.indexOf('ЗАЩИТА ЛИЧНОСТИ');
   const toolsPos = instructions.indexOf('ОБЯЗАТЕЛЬНЫЕ инструменты');
@@ -169,9 +170,11 @@ test('resolveOperatorName maps voice to gendered name', () => {
   assert.equal(resolveOperatorName('echo'), 'Александр');
 });
 
-test('buildIdentityGuardBlock contains canary list', () => {
-  const block = buildIdentityGuardBlock('Ольга');
+test('buildIdentityGuardBlock contains canary list and forbids personal names', () => {
+  const block = buildIdentityGuardBlock();
   assert.match(block, /никогда/i);
+  assert.match(block, /голосовой помощник/i);
+  assert.match(block, /имя по просьбе клиента не принимай/i);
   for (const word of IDENTITY_CANARY_WORDS.slice(0, 5)) {
     assert.match(block, new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
   }
@@ -185,7 +188,7 @@ test('voice layer forbids casual greeting mirror', () => {
   } = require('../lib/call/voiceBehaviorPrompt');
   const tone = buildProfessionalToneBlock();
   const greeting = buildGreetingHandlingBlock();
-  const layer = buildVoiceLayerBlock({ operatorName: 'Ольга' });
+  const layer = buildVoiceLayerBlock();
   assert.match(tone, /улыбнуло/i);
   assert.match(greeting, /мордасти/i);
   assert.match(layer, /ДЕЛОВОЙ ТОН B2B/);
@@ -199,7 +202,7 @@ test('session instructions include greeting phase when flagged', () => {
 });
 
 test('buildVoiceLayerBlock includes inbound sales guard', () => {
-  const block = buildVoiceLayerBlock({ operatorName: 'Александр' });
+  const block = buildVoiceLayerBlock();
   assert.match(block, /tri-filter/i);
   assert.match(block, /партнёр/i);
 });
@@ -207,7 +210,7 @@ test('buildVoiceLayerBlock includes inbound sales guard', () => {
 test('call prompts require listening after questions', () => {
   const completion = buildCallCompletionBlock();
   const reminder = buildClosingReminder();
-  const layer = buildVoiceLayerBlock({ operatorName: 'Ольга' });
+  const layer = buildVoiceLayerBlock();
   assert.match(completion, /дождись ответа/i);
   assert.match(completion, /Не совмещай/i);
   assert.match(reminder, /После вопроса клиенту/i);
@@ -220,6 +223,7 @@ test('buildCallFirstTurnInstructions uses voice assistant greeting', () => {
   const text = buildCallFirstTurnInstructions();
   assert.match(text, /голосовой помощник/i);
   assert.match(text, /E-liss/);
+  assert.match(text, /без личного имени/i);
   assert.doesNotMatch(text, /меня зовут/i);
 });
 
@@ -251,10 +255,10 @@ test('call.js guards stale WebRTC session on hangUp and redial', () => {
   assert.match(js, /signal: abortController\.signal/);
 });
 
-test('frontend index includes call view and manager copy', () => {
+test('frontend index includes call view and voice assistant copy', () => {
   const html = fs.readFileSync(path.join(process.cwd(), 'frontend/index.html'), 'utf8');
   assert.match(html, /data-view="call"/);
-  assert.match(html, /клиентский менеджер/i);
+  assert.match(html, /голосовой помощник/i);
   assert.match(html, /call\.js/);
   assert.match(html, /id="callStartBtn"/);
   assert.match(html, /id="callHangupBtn"/);

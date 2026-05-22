@@ -792,6 +792,18 @@
       .trim();
   }
 
+  function buildUserConversationText() {
+    return state.messages
+      .filter(function (msg) {
+        return msg && msg.role === 'user' && msg.content;
+      })
+      .map(function (msg) {
+        return String(msg.content).trim();
+      })
+      .filter(Boolean)
+      .join('\n');
+  }
+
   async function resolveProcess(query) {
     const normalized = normalizeForResolve(query);
     if (!query || normalized === state.lastResolvedNormalized) return;
@@ -803,6 +815,7 @@
           query: query,
           voice: state.voice,
           clarifyCount: state.clarifyCount,
+          conversationText: buildUserConversationText(),
         }),
       });
       const data = await res.json();
@@ -909,7 +922,7 @@
           response: {
             instructions:
               state.firstTurnInstructions ||
-              'Начни звонок одной короткой репликой клиентского менеджера E-liss. Представься по имени. Больше ничего не добавляй.',
+              'Начни звонок одной короткой репликой. Пример: «Добрый день. Вас приветствует голосовой помощник компании E-liss. Чем могу помочь?» Не называй себя по имени.',
           },
         });
       }

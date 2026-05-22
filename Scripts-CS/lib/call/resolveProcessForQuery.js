@@ -40,7 +40,8 @@ async function classifyWithLlm(query, metaList, apiKey) {
  */
 async function resolveProcessForQuery(query, metaList, options = {}) {
   const useLlm = options.useLlm !== false;
-  let resolved = resolveProcessByScoring(metaList, query);
+  const conversationText = options.conversationText || query;
+  let resolved = resolveProcessByScoring(metaList, query, { conversationText });
   const apiKey = normalizeKey(process.env.OPENAI_API_KEY);
 
   const needsLlm =

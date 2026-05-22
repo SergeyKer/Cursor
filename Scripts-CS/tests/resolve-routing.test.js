@@ -70,6 +70,25 @@ test('buyer beats generic partnership', () => {
   assert.equal(result.processCode, 'Новые клиенты');
 });
 
+test('bare termination request asks for reason before procedure', () => {
+  clearCallDataCache();
+  const { meta } = loadCallData();
+  const result = resolveProcessByScoring(meta, 'хотим расторгнуть договор');
+  assert.equal(result.processCode, 'Расторжение договора');
+  assert.equal(result.confidence, 'high');
+  assert.ok(result.clarifyPrompt);
+  assert.match(result.clarifyPrompt, /переезд|аренд|качеств/i);
+});
+
+test('termination with stated reason skips clarify', () => {
+  clearCallDataCache();
+  const { meta } = loadCallData();
+  const result = resolveProcessByScoring(meta, 'хотим расторгнуть договор из-за плохого качества');
+  assert.equal(result.processCode, 'Расторжение договора');
+  assert.equal(result.confidence, 'high');
+  assert.equal(result.clarifyPrompt, undefined);
+});
+
 test('partnership clarify on ambiguous cooperation', () => {
   clearCallDataCache();
   const { meta } = loadCallData();
