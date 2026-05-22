@@ -8,6 +8,215 @@ function getDataBasePath() {
   return "/data";
 }
 const DATA_BASE_PATH = getDataBasePath();
+const MOBILE_LAYOUT_MQ = "(max-width: 767px)";
+
+const STAGE_TABLE_LABELS = ["Этап", "Описание", "Действия оператора", "Срок", "Цель", "Рекомендации"];
+const SCRIPT_CONVERSATION_LABELS = ["Этап разговора", "Формулировка (пример)", "Цель"];
+const SCRIPT_COMPLAINT_LABELS = ["Жалоба клиента", "Ответ оператора", "Цель"];
+const DIFFICULT_PHRASES_LABELS = ["Тип клиента и сложной ситуации", "Цель оператора", "Готовые формулировки"];
+const RECOMMENDATIONS_LABELS = ["Шаг", "Как действовать", "Формулировки / приемы"];
+const TOOLS_TABLE_LABELS = ["Инструмент", "Описание", "Когда использовать", "Пример фразы/действия"];
+
+function isMobileLayout() {
+  return typeof window !== "undefined" && window.matchMedia(MOBILE_LAYOUT_MQ).matches;
+}
+
+function appendLabelledCells(tr, labels, values, options) {
+  values.forEach((value, i) => {
+    const td = document.createElement("td");
+    if (labels[i]) td.dataset.label = labels[i];
+    if (options && options.preWrap) td.style.whiteSpace = "pre-wrap";
+    td.textContent = value || "";
+    tr.appendChild(td);
+  });
+}
+
+function createStackTable(extraClass) {
+  const table = document.createElement("table");
+  table.className = "table table--stack" + (extraClass ? " " + extraClass : "");
+  return table;
+}
+
+function syncLayoutHeaderHeight() {
+  const header = document.getElementById("contentHeader");
+  if (!header) return 0;
+  const rect = header.getBoundingClientRect();
+  const h = Math.ceil(Math.max(rect.height, rect.bottom));
+  if (h > 0) {
+    document.documentElement.style.setProperty("--layout-header-height", `${h}px`);
+  }
+  return h;
+}
+
+function syncLayoutHeaderHeightAfterLayout() {
+  syncLayoutHeaderHeight();
+  requestAnimationFrame(syncLayoutHeaderHeight);
+}
+
+function getLayoutHeaderHeight() {
+  const header = document.getElementById("contentHeader");
+  if (header) return header.getBoundingClientRect().height;
+  const v = parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue("--layout-header-height")
+  );
+  return Number.isFinite(v) ? v : 56;
+}
+
+function applyProcessDetailContentOffset() {
+  const header = document.getElementById("contentHeader");
+  const content = document.querySelector(".content");
+  if (!header || !content) return;
+  const offset = Math.ceil(header.getBoundingClientRect().bottom);
+  if (offset > 0) {
+    document.documentElement.style.setProperty("--layout-header-height", `${offset}px`);
+    content.style.paddingTop = `${offset}px`;
+  }
+}
+
+function clearProcessDetailContentOffset() {
+  const content = document.querySelector(".content");
+  if (content) content.style.removeProperty("padding-top");
+}
+
+function setProcessDetailLayout(active) {
+  const content = document.querySelector(".content");
+  const sheet = document.querySelector(".process-sheet");
+  if (content) {
+    content.classList.toggle("content--process-detail", active);
+    if (active) applyProcessDetailContentOffset();
+    else clearProcessDetailContentOffset();
+  }
+  if (sheet) sheet.classList.toggle("process-sheet--detail", active);
+}
+
+/** Прокрутка так, чтобы верх el оказался сразу под фиксированной шапкой (как на скрине с навигацией). */
+function scrollElementBelowFixedHeader(el, extraGap = 0) {
+  if (!el) return;
+  const top = el.getBoundingClientRect().top + window.scrollY - getLayoutHeaderHeight() - extraGap;
+  window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+}
+
+function getProcessAnchorScrollOffset() {
+  const headerH = getLayoutHeaderHeight();
+  const processHeader = document.querySelector("#processDetails .process-header");
+  if (processHeader && isMobileLayout()) {
+    return headerH + processHeader.offsetHeight + 6;
+  }
+  return headerH + 8;
+}
+
+function scrollToProcessSection(sectionId) {
+  if (!sectionId) return;
+  const target = document.getElementById(sectionId);
+  if (!target) return;
+  try {
+    window.history.replaceState({ screen: "processDetail" }, "", "#" + sectionId);
+  } catch (_) {
+    window.location.hash = sectionId;
+  }
+  const top = target.getBoundingClientRect().top + window.scrollY - getProcessAnchorScrollOffset();
+  window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+}
+
+function truncateToolsNavLabel(text, maxLen = 28) {
+  const t = (text || "").trim();
+  if (t.length <= maxLen) return t;
+  return t.slice(0, maxLen - 1) + "…";
+}
+
+function slugifyToolsSectionId(title, index) {
+  const base = (title || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-+|-+$/g, "");
+  return base ? `tool-${base}-${index}` : `tool-${index}`;
+}
+
+function getToolsAnchorScrollOffset() {
+  const headerH = getLayoutHeaderHeight();
+  const navHead = document.getElementById("toolsNavHead");
+  if (navHead && !navHead.hidden) {
+    return headerH + navHead.offsetHeight + 6;
+  }
+  return headerH + 8;
+}
+
+function scrollToToolsSection(sectionId) {
+  if (!sectionId) return;
+  const sectionEl = document.getElementById(sectionId);
+  if (!sectionEl) return;
+  let target = sectionEl;
+  if (sectionId === "tools-section-recommendations") {
+    const title = sectionEl.querySelector(".tools-recommendations__title");
+    if (title) target = title;
+  }
+  try {
+    window.history.replaceState({ screen: "tools" }, "", "#" + sectionId);
+  } catch (_) {
+    window.location.hash = sectionId;
+  }
+  const top = target.getBoundingClientRect().top + window.scrollY - getToolsAnchorScrollOffset();
+  window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+}
+
+function scrollProcessToNav() {
+  const header = document.querySelector("#processDetails .process-header");
+  if (header) scrollElementBelowFixedHeader(header);
+  else window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function attachCardScrollTopButtons(root, blockSelector, onScroll) {
+  if (!root) return;
+  const scrollToTop = onScroll || scrollProcessToNav;
+  const ariaLabel = onScroll ? "К навигации инструментов" : "В начало страницы";
+  const title = onScroll ? "К навигации" : "В начало";
+  root.querySelectorAll(blockSelector).forEach((block) => {
+    const existing = block.querySelector(":scope > .card__scroll-top");
+    if (existing) existing.remove();
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "card__scroll-top card__scroll-top--outline tools-block__scroll-top";
+    btn.setAttribute("aria-label", ariaLabel);
+    btn.title = title;
+    btn.innerHTML = "<span aria-hidden=\"true\">↑</span>";
+    btn.addEventListener("click", scrollToTop);
+    block.appendChild(btn);
+  });
+}
+
+function scrollToolsToNav() {
+  const navHead = document.getElementById("toolsNavHead");
+  if (navHead && !navHead.hidden) {
+    scrollElementBelowFixedHeader(navHead);
+    return;
+  }
+  const sheet = document.querySelector("#toolsView .tools-sheet");
+  if (sheet) scrollElementBelowFixedHeader(sheet);
+  else window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function buildToolsSectionNav(sections) {
+  const navHead = document.getElementById("toolsNavHead");
+  const nav = document.getElementById("toolsNav");
+  const select = document.getElementById("toolsSectionSelect");
+  if (!nav || !select) return;
+  nav.innerHTML = "";
+  select.innerHTML = "";
+  (sections || []).forEach(({ id, label }) => {
+    const link = document.createElement("a");
+    link.href = "#" + id;
+    link.className = "sheet-nav__link";
+    link.textContent = label;
+    nav.appendChild(link);
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = label;
+    select.appendChild(opt);
+  });
+  if (navHead) navHead.hidden = !sections || sections.length === 0;
+  select.hidden = !sections || sections.length === 0;
+}
 
 function stripIncomingCallsBlock(text) {
   if (!text || typeof text !== "string") return text;
@@ -35,6 +244,7 @@ async function loadData() {
 function initNavigation(views, onProcessViewSwitch) {
   const buttons = document.querySelectorAll(".nav__item");
   const content = document.querySelector(".content");
+  const navSelect = document.getElementById("navViewSelect");
   const viewMap = views || {
     processes: document.getElementById("processView"),
     assistant: document.getElementById("assistantView"),
@@ -42,18 +252,24 @@ function initNavigation(views, onProcessViewSwitch) {
     call: document.getElementById("callView"),
   };
 
-  buttons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const view = btn.dataset.view;
-      buttons.forEach((b) => b.classList.remove("nav__item--active"));
-      btn.classList.add("nav__item--active");
-      Object.entries(viewMap).forEach(([key, el]) => {
-        if (el) el.classList.toggle("view--active", key === view);
-      });
-      if (content) content.classList.toggle("content--call", view === "call");
-      if (view === "processes" && onProcessViewSwitch) onProcessViewSwitch();
+  function switchView(view) {
+    buttons.forEach((b) => b.classList.toggle("nav__item--active", b.dataset.view === view));
+    if (navSelect) navSelect.value = view;
+    Object.entries(viewMap).forEach(([key, el]) => {
+      if (el) el.classList.toggle("view--active", key === view);
     });
+    if (content) content.classList.toggle("content--call", view === "call");
+    if (view === "processes" && onProcessViewSwitch) onProcessViewSwitch();
+  }
+
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", () => switchView(btn.dataset.view));
   });
+  if (navSelect) {
+    navSelect.addEventListener("change", () => switchView(navSelect.value));
+  }
+
+  return switchView;
 }
 
 function getProcessDataByMeta(processMeta, processesData) {
@@ -80,6 +296,35 @@ function renderProcessListMain(processesMeta, onSelect, processesData) {
   const container = document.getElementById("processListMain");
   if (!container) return;
   container.innerHTML = "";
+
+  if (isMobileLayout()) {
+    (processesMeta || []).forEach((process) => {
+      const desc = getBusinessGoalDescription(process, processesData);
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "process-list-main__card";
+      const title = document.createElement("span");
+      title.className = "process-list-main__card-title";
+      title.textContent = process.name || "";
+      card.appendChild(title);
+      if (process.menu_done === true) {
+        const doneSpan = document.createElement("span");
+        doneSpan.className = "process-list-main__done";
+        doneSpan.textContent = " ✓";
+        title.appendChild(doneSpan);
+      }
+      if (desc) {
+        const descEl = document.createElement("span");
+        descEl.className = "process-list-main__card-desc";
+        descEl.textContent = desc;
+        card.appendChild(descEl);
+      }
+      card.addEventListener("click", () => onSelect(process));
+      container.appendChild(card);
+    });
+    return;
+  }
+
   const table = document.createElement("table");
   table.className = "process-list-main__table";
   table.innerHTML = `
@@ -183,15 +428,33 @@ function escapeHtml(s) {
   return div.innerHTML;
 }
 
+function normalizeSearchText(text) {
+  return (text || "").toString().toLowerCase();
+}
+
+/** Тот же алгоритм, что и поиск по меню: подстрока в названии, описании, searchable_text и опционально extra. */
+function processMatchesSearchQuery(processMeta, query, extraSearchText = "") {
+  const q = normalizeSearchText(query).trim();
+  if (!q) return true;
+  return (
+    normalizeSearchText(processMeta.name).includes(q) ||
+    normalizeSearchText(processMeta.short_description).includes(q) ||
+    normalizeSearchText(processMeta.searchable_text).includes(q) ||
+    normalizeSearchText(extraSearchText).includes(q)
+  );
+}
+
+function filterProcessesBySearchQuery(metaList, query, getExtraText) {
+  return (metaList || []).filter((p) =>
+    processMatchesSearchQuery(p, query, getExtraText ? getExtraText(p) : "")
+  );
+}
+
 function renderProcessList(processesMeta, onSelect) {
   const listEl = document.getElementById("processList");
   const searchInput = document.getElementById("searchInput");
 
   let currentActiveCode = null;
-
-  function normalized(text) {
-    return (text || "").toString().toLowerCase();
-  }
 
   const SECTION_DEFS = [
     { id: "incoming_operator", title: "1. Входящие звонки (ОПЕРАТОР):" },
@@ -209,7 +472,7 @@ function renderProcessList(processesMeta, onSelect) {
   function inferMenuGroup(p) {
     const group = (p && p.menu_group ? String(p.menu_group) : "").trim();
     if (group) return group;
-    const name = normalized((p && (p.name || p.code)) || "");
+    const name = normalizeSearchText((p && (p.name || p.code)) || "");
     if (name.includes("бухгалтер")) return "accounting";
     if (name.includes("исходящ") && name.includes("менедж")) return "outgoing_manager";
     if (name.includes("входящ") && name.includes("оператор")) return "incoming_operator";
@@ -274,18 +537,11 @@ function renderProcessList(processesMeta, onSelect) {
   }
 
   function render(filter = "") {
-    const query = normalized(filter);
+    const query = normalizeSearchText(filter).trim();
     listEl.innerHTML = "";
     const filtered = (processesMeta || [])
       .filter((p) => !isLegacyHeadingItem(p))
-      .filter((p) => {
-        if (!query) return true;
-        return (
-          normalized(p.name).includes(query) ||
-          normalized(p.short_description).includes(query) ||
-          normalized(p.searchable_text || "").includes(query)
-        );
-      });
+      .filter((p) => processMatchesSearchQuery(p, query));
 
     const groups = new Map();
     filtered.forEach((p) => {
@@ -440,7 +696,9 @@ function renderProcessDetails(processMeta, processesData) {
       titleDoneEl.classList.add("hidden");
     }
   }
-  shortDescEl.textContent = processMeta.short_description || "";
+  const shortDesc = (processMeta.short_description || "").trim();
+  shortDescEl.textContent = shortDesc;
+  shortDescEl.classList.toggle("hidden", !shortDesc);
 
   function renderDescriptionText(container, text) {
     if (!text || !container) return;
@@ -471,6 +729,7 @@ function renderProcessDetails(processMeta, processesData) {
   const stagesNavLink = document.querySelector('.process-nav__link[href="#section-stages"]');
   const scriptNavLink = document.querySelector('.process-nav__link[href="#section-script"]');
   const emailNavLink = document.querySelector('.process-nav__link[href="#section-email"]');
+  const autoReplyNavLink = document.querySelector('.process-nav__link[href="#section-autoreply"]');
 
   if (descriptionBlock && descriptionSection) {
     const pd = processData && processData.process_description;
@@ -520,19 +779,14 @@ function renderProcessDetails(processMeta, processesData) {
   if (hasStages) {
     processData.stages.forEach((stage) => {
       const tr = document.createElement("tr");
-      const cells = [
+      appendLabelledCells(tr, STAGE_TABLE_LABELS, [
         stage.stage,
         stage.description,
         stage.operator_actions,
         stage.sla,
         stage.stage_goal,
         stage.recommendations,
-      ];
-      cells.forEach((value) => {
-        const td = document.createElement("td");
-        td.textContent = value || "";
-        tr.appendChild(td);
-      });
+      ]);
       stagesTableBody.appendChild(tr);
     });
   }
@@ -554,8 +808,7 @@ function renderProcessDetails(processMeta, processesData) {
     if (conversation.length > 0) {
       const wrapper = document.createElement("div");
       wrapper.className = "table-wrapper";
-      const table = document.createElement("table");
-      table.className = "table";
+      const table = createStackTable();
       table.innerHTML = `
         <thead>
           <tr>
@@ -569,12 +822,7 @@ function renderProcessDetails(processMeta, processesData) {
       const tbody = table.querySelector("tbody");
       conversation.forEach((step) => {
         const tr = document.createElement("tr");
-        const cells = [step.step_name, step.phrase, step.goal];
-        cells.forEach((value) => {
-          const td = document.createElement("td");
-          td.textContent = value || "";
-          tr.appendChild(td);
-        });
+        appendLabelledCells(tr, SCRIPT_CONVERSATION_LABELS, [step.step_name, step.phrase, step.goal]);
         tbody.appendChild(tr);
       });
       wrapper.appendChild(table);
@@ -588,8 +836,7 @@ function renderProcessDetails(processMeta, processesData) {
 
       const wrapper = document.createElement("div");
       wrapper.className = "table-wrapper";
-      const table = document.createElement("table");
-      table.className = "table";
+      const table = createStackTable();
       table.innerHTML = `
         <thead>
           <tr>
@@ -603,12 +850,7 @@ function renderProcessDetails(processMeta, processesData) {
       const tbody = table.querySelector("tbody");
       complaints.forEach((row) => {
         const tr = document.createElement("tr");
-        const cells = [row.complaint, row.reply, row.goal];
-        cells.forEach((value) => {
-          const td = document.createElement("td");
-          td.textContent = value || "";
-          tr.appendChild(td);
-        });
+        appendLabelledCells(tr, SCRIPT_COMPLAINT_LABELS, [row.complaint, row.reply, row.goal]);
         tbody.appendChild(tr);
       });
       wrapper.appendChild(table);
@@ -680,7 +922,7 @@ function renderProcessDetails(processMeta, processesData) {
     const table = document.createElement("div");
     table.className = "table-wrapper";
     table.innerHTML = `
-      <table class="table">
+      <table class="table table--stack">
         <thead>
           <tr>
             <th>Тип клиента и сложной ситуации</th>
@@ -695,13 +937,12 @@ function renderProcessDetails(processMeta, processesData) {
     processData.difficult_phrases.forEach((item) => {
       const tr = document.createElement("tr");
       const phrasesText = Array.isArray(item.phrases) ? item.phrases.join("\n\n") : (item.phrase_text || item.text || "");
-      const cells = [item.situation_type || "", item.operator_goal || "", phrasesText];
-      cells.forEach((value) => {
-        const td = document.createElement("td");
-        td.style.whiteSpace = "pre-wrap";
-        td.textContent = value || "";
-        tr.appendChild(td);
-      });
+      appendLabelledCells(
+        tr,
+        DIFFICULT_PHRASES_LABELS,
+        [item.situation_type || "", item.operator_goal || "", phrasesText],
+        { preWrap: true }
+      );
       tbody.appendChild(tr);
     });
     difficultPhrasesEl.appendChild(table);
@@ -755,16 +996,17 @@ function renderProcessDetails(processMeta, processesData) {
       const fullText = subj ? "Тема: " + subj + "\n\n" + body : body;
       copyAutoReplyBtn.onclick = () => copyToClipboard(fullText, copyAutoReplyBtn);
     }
+    if (autoReplyNavLink) autoReplyNavLink.classList.remove("hidden");
   } else {
     autoReplySection.classList.add("hidden");
+    if (autoReplyNavLink) autoReplyNavLink.classList.add("hidden");
   }
 
   if (processData && processData.operator_recommendations && Array.isArray(processData.operator_recommendations.steps) && processData.operator_recommendations.steps.length > 0) {
     recommendationsSection.classList.remove("hidden");
     if (recommendationsTitle) recommendationsTitle.textContent = processData.operator_recommendations.title || "Общие рекомендации";
     recommendationsBlock.innerHTML = "";
-    const table = document.createElement("table");
-    table.className = "table";
+    const table = createStackTable();
     table.innerHTML = `
       <thead>
         <tr>
@@ -778,13 +1020,12 @@ function renderProcessDetails(processMeta, processesData) {
     const tbody = table.querySelector("tbody");
     processData.operator_recommendations.steps.forEach((row) => {
       const tr = document.createElement("tr");
-      const cells = [row.step || "", row.action || "", row.phrases || ""];
-      cells.forEach((value) => {
-        const td = document.createElement("td");
-        td.style.whiteSpace = "pre-wrap";
-        td.textContent = value || "";
-        tr.appendChild(td);
-      });
+      appendLabelledCells(
+        tr,
+        RECOMMENDATIONS_LABELS,
+        [row.step || "", row.action || "", row.phrases || ""],
+        { preWrap: true }
+      );
       tbody.appendChild(tr);
     });
     recommendationsBlock.appendChild(table);
@@ -795,23 +1036,14 @@ function renderProcessDetails(processMeta, processesData) {
   }
 
   const detailsContainer = document.getElementById("processDetails");
-  if (detailsContainer) {
-    const scrollToTop = () => {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    };
-    detailsContainer.querySelectorAll(".card").forEach((card) => {
-      const existing = card.querySelector(".card__scroll-top");
-      if (existing) existing.remove();
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "card__scroll-top card__scroll-top--outline";
-      btn.setAttribute("aria-label", "В начало страницы");
-      btn.title = "В начало";
-      btn.innerHTML = "<span aria-hidden=\"true\">↑</span>";
-      btn.addEventListener("click", scrollToTop);
-      card.appendChild(btn);
-    });
+  attachCardScrollTopButtons(detailsContainer, ".card");
+
+  const hash = (window.location.hash || "").replace(/^#/, "");
+  if (hash && hash.startsWith("section-")) {
+    setTimeout(() => scrollToProcessSection(hash), 0);
   }
+
+  requestAnimationFrame(applyProcessDetailContentOffset);
 }
 
 function copyToClipboard(text, buttonEl) {
@@ -831,7 +1063,7 @@ function copyToClipboard(text, buttonEl) {
 }
 
 function renderCommunicationTools(tools) {
-  const firstEl = document.getElementById("toolsSheetFirst");
+  const firstEl = document.getElementById("tools-section-intro");
   const container = document.getElementById("toolsContainer");
   if (firstEl) firstEl.innerHTML = "";
   if (container) container.innerHTML = "";
@@ -844,6 +1076,7 @@ function renderCommunicationTools(tools) {
   const toShow = (tools || []).filter(hasBody).filter((t) => !skipBlockTitle(t));
   const first = toShow[0];
   const rest = toShow.slice(1);
+  const navSections = [];
 
   if (first && firstEl) {
     const titleText = (first.title || "Без названия").trim();
@@ -931,7 +1164,7 @@ function renderCommunicationTools(tools) {
     const wrapper = document.createElement("div");
     wrapper.className = "tools-table-wrap";
     const table = document.createElement("table");
-    table.className = "tools-table";
+    table.className = "tools-table table--stack";
     table.innerHTML = `
       <thead>
         <tr>
@@ -947,27 +1180,65 @@ function renderCommunicationTools(tools) {
     rest.forEach((tool, index) => {
       const parsed = parseBody(tool.body);
       const tr = document.createElement("tr");
-      const tdName = document.createElement("td");
-      tdName.className = "tools-table__name";
-      tdName.textContent = tool.title || "Без названия";
-      const tdDesc = document.createElement("td");
-      tdDesc.className = "tools-table__desc";
-      tdDesc.textContent = stripIncomingCallsBlock(parsed.description);
-      const tdWhen = document.createElement("td");
-      tdWhen.className = "tools-table__when";
-      tdWhen.textContent = stripIncomingCallsBlock(parsed.when);
-      const tdExample = document.createElement("td");
-      tdExample.className = "tools-table__example";
-      tdExample.textContent = stripIncomingCallsBlock(parsed.example);
-      tr.appendChild(tdName);
-      tr.appendChild(tdDesc);
-      tr.appendChild(tdWhen);
-      tr.appendChild(tdExample);
+      const rowId = slugifyToolsSectionId(tool.title, index + 1);
+      tr.id = rowId;
+      tr.classList.add("tools-table__row-anchor");
+      navSections.push({
+        id: rowId,
+        label: truncateToolsNavLabel(tool.title || "Без названия"),
+      });
+      const values = [
+        tool.title || "Без названия",
+        stripIncomingCallsBlock(parsed.description),
+        stripIncomingCallsBlock(parsed.when),
+        stripIncomingCallsBlock(parsed.example),
+      ];
+      values.forEach((value, i) => {
+        const td = document.createElement("td");
+        td.dataset.label = TOOLS_TABLE_LABELS[i];
+        if (i === 0) td.className = "tools-table__name";
+        else if (i === 1) td.className = "tools-table__desc";
+        else if (i === 2) td.className = "tools-table__when";
+        else td.className = "tools-table__example";
+        td.textContent = value || "";
+        tr.appendChild(td);
+      });
       tbody.appendChild(tr);
+      const footerTr = document.createElement("tr");
+      footerTr.className = "tools-table__row-footer";
+      const footerTd = document.createElement("td");
+      footerTd.colSpan = 4;
+      footerTd.className = "tools-block__scroll-footer";
+      footerTd.dataset.label = "";
+      footerTr.appendChild(footerTd);
+      tbody.appendChild(footerTr);
     });
     wrapper.appendChild(table);
     container.appendChild(wrapper);
   }
+
+  navSections.push({ id: "tools-section-recommendations", label: "Доп. рекомендации" });
+  buildToolsSectionNav(navSections);
+
+  document.querySelectorAll(".tools-recommendations tbody .tools-table__row-footer").forEach((row) => row.remove());
+  document.querySelectorAll(".tools-recommendations tbody > tr:not(.tools-table__row-footer)").forEach((tr) => {
+    if (tr.nextElementSibling?.classList.contains("tools-table__row-footer")) return;
+    const footerTr = document.createElement("tr");
+    footerTr.className = "tools-table__row-footer";
+    const footerTd = document.createElement("td");
+    footerTd.colSpan = 4;
+    footerTd.className = "tools-block__scroll-footer";
+    footerTd.dataset.label = "";
+    footerTr.appendChild(footerTd);
+    tr.insertAdjacentElement("afterend", footerTr);
+  });
+
+  const toolsSheet = document.querySelector("#toolsView .tools-sheet");
+  attachCardScrollTopButtons(
+    toolsSheet,
+    ".tools-block__scroll-footer, .tools-recommendations .tools-block__scroll-footer",
+    scrollToolsToNav
+  );
 }
 
 async function bootstrap() {
@@ -975,6 +1246,19 @@ async function bootstrap() {
   const sidebarToggle = document.getElementById("sidebarToggle");
   const sidebarBackdrop = document.getElementById("sidebarBackdrop");
   const sidebar = document.getElementById("sidebar");
+
+  syncLayoutHeaderHeightAfterLayout();
+  const onLayoutChange = () => {
+    syncLayoutHeaderHeightAfterLayout();
+    if (document.querySelector(".content")?.classList.contains("content--process-detail")) {
+      applyProcessDetailContentOffset();
+    }
+  };
+  window.addEventListener("resize", onLayoutChange);
+  window.addEventListener("orientationchange", onLayoutChange);
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(onLayoutChange);
+  }
 
   function setSidebarOpen(open) {
     if (!layout) return;
@@ -1024,25 +1308,71 @@ async function bootstrap() {
     const placeholder = document.getElementById("processPlaceholder");
     const details = document.getElementById("processDetails");
 
-    const selectProcess = (processMeta) => {
-      document.querySelectorAll(".nav__item").forEach((b) => {
-        b.classList.toggle("nav__item--active", b.dataset.view === "processes");
-      });
-      Object.entries(views).forEach(([key, el]) => {
-        if (el) el.classList.toggle("view--active", key === "processes");
-      });
-      if (placeholder) placeholder.classList.add("hidden");
-      if (details) details.classList.remove("hidden");
-      renderProcessDetails(processMeta, processes);
-      window.scrollTo(0, 0);
-    };
+    let processDetailHistoryActive = false;
 
     const showProcessListMain = () => {
       if (placeholder) placeholder.classList.remove("hidden");
       if (details) details.classList.add("hidden");
+      setProcessDetailLayout(false);
+      try {
+        const base = window.location.pathname + window.location.search;
+        if (window.location.hash) window.history.replaceState(null, "", base);
+      } catch (_) {}
     };
 
-    initNavigation(views, showProcessListMain);
+    const pushProcessDetailHistory = () => {
+      if (processDetailHistoryActive) return;
+      try {
+        const base = window.location.pathname + window.location.search;
+        history.pushState({ screen: "processDetail" }, "", base);
+        processDetailHistoryActive = true;
+      } catch (_) {}
+    };
+
+    const popProcessDetailHistory = () => {
+      if (!processDetailHistoryActive) return;
+      processDetailHistoryActive = false;
+      try {
+        history.back();
+      } catch (_) {}
+    };
+
+    const switchView = initNavigation(views, showProcessListMain);
+
+    const openProcessDetails = (processMeta) => {
+      switchView("processes");
+      if (placeholder) placeholder.classList.add("hidden");
+      if (details) details.classList.remove("hidden");
+      setProcessDetailLayout(true);
+      syncLayoutHeaderHeightAfterLayout();
+      renderProcessDetails(processMeta, processes);
+      requestAnimationFrame(() => {
+        applyProcessDetailContentOffset();
+        window.scrollTo(0, 0);
+      });
+      pushProcessDetailHistory();
+    };
+
+    const selectProcess = (processMeta) => {
+      if (isMobileLayout()) setSidebarOpen(false);
+      openProcessDetails(processMeta);
+    };
+
+    const processBackBtn = document.getElementById("processBackBtn");
+    if (processBackBtn) {
+      processBackBtn.addEventListener("click", () => {
+        showProcessListMain();
+        window.scrollTo(0, 0);
+        popProcessDetailHistory();
+      });
+    }
+
+    window.addEventListener("popstate", () => {
+      if (!details || details.classList.contains("hidden")) return;
+      showProcessListMain();
+      processDetailHistoryActive = false;
+      window.scrollTo(0, 0);
+    });
     if (typeof initCallView === "function") initCallView();
 
     // Быстрый переход по навигации процесса: прокрутка к разделу (учитывается scroll-margin-top у карточек)
@@ -1054,17 +1384,28 @@ async function bootstrap() {
         e.preventDefault();
         const href = link.getAttribute("href") || "";
         const id = href.startsWith("#") ? href.slice(1) : "";
-        if (id) {
-          try {
-            window.history.replaceState(null, "", href);
-          } catch (_) {
-            window.location.hash = id;
-          }
-          const target = document.getElementById(id);
-          if (target) {
-            target.scrollIntoView({ behavior: "smooth", block: "start" });
-          }
-        }
+        scrollToProcessSection(id);
+      });
+    }
+
+    const toolsNav = document.getElementById("toolsNav");
+    if (toolsNav) {
+      toolsNav.addEventListener("click", (e) => {
+        const link = e.target.closest('a[href^="#tool-"], a[href^="#tools-section-"]');
+        if (!link) return;
+        e.preventDefault();
+        const href = link.getAttribute("href") || "";
+        const id = href.startsWith("#") ? href.slice(1) : "";
+        scrollToToolsSection(id);
+        const toolsSectionSelect = document.getElementById("toolsSectionSelect");
+        if (toolsSectionSelect) toolsSectionSelect.value = id;
+      });
+    }
+
+    const toolsSectionSelect = document.getElementById("toolsSectionSelect");
+    if (toolsSectionSelect) {
+      toolsSectionSelect.addEventListener("change", () => {
+        scrollToToolsSection(toolsSectionSelect.value);
       });
     }
 
@@ -1084,56 +1425,21 @@ async function bootstrap() {
       const listSearchBtn = document.getElementById("processListSearchBtn");
       const placeholderText = "Поиск по процессам";
 
-      function normalized(text) {
-        return (text || "").toString().toLowerCase();
-      }
-
-      function filterMetaByQuery(meta, query) {
-        const q = normalized(query);
-        if (!q) return meta;
-        return meta.filter(
-          (p) =>
-            normalized(p.name).includes(q) ||
-            normalized(p.short_description || "").includes(q) ||
-            normalized(p.searchable_text || "").includes(q)
-        );
-      }
-
       function applyMainSearch() {
-        const query = listSearchInput ? listSearchInput.value.trim() : "";
-        const filtered = filterMetaByQuery(metaFiltered, query);
+        const query = listSearchInput ? listSearchInput.value : "";
+        const filtered = filterProcessesBySearchQuery(metaFiltered, query, (p) =>
+          getBusinessGoalDescription(p, processes)
+        );
         renderProcessListMain(filtered, selectProcess, processes);
-        if (listSearchClear) listSearchClear.style.display = query ? "" : "none";
+        if (listSearchClear) listSearchClear.style.display = query.trim() ? "" : "none";
       }
 
       if (listSearchInput) {
-        // #region agent log
-        const logProcessSearchSize = (eventName) => {
-          const container = listSearchInput.closest(".process-list-search");
-          if (!container) return;
-          const cs = window.getComputedStyle(container);
-          const isInput = window.getComputedStyle(listSearchInput);
-          const clearEl = document.getElementById("processListSearchClear");
-          const data = {
-            event: eventName,
-            containerWidth: container.offsetWidth,
-            inputWidth: listSearchInput.offsetWidth,
-            containerBoxShadow: cs.boxShadow,
-            containerBorderWidth: cs.borderWidth,
-            inputOutline: isInput.outlineWidth + " " + isInput.outlineStyle,
-            placeholderLen: (listSearchInput.placeholder || "").length,
-            clearDisplay: clearEl ? window.getComputedStyle(clearEl).display : ""
-          };
-          fetch("http://127.0.0.1:7604/ingest/1c893e2e-1189-4005-a895-a8c44a156288", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "df5d68" }, body: JSON.stringify({ sessionId: "df5d68", location: "app.js:processListSearch", message: "process search size", data, timestamp: Date.now(), hypothesisId: eventName === "focus" ? "H1" : "H1" }) }).catch(() => {});
-        };
-        // #endregion
         listSearchInput.addEventListener("focus", () => {
           listSearchInput.placeholder = "";
-          setTimeout(() => logProcessSearchSize("focus"), 0);
         });
         listSearchInput.addEventListener("blur", () => {
           if (!listSearchInput.value.trim()) listSearchInput.placeholder = placeholderText;
-          setTimeout(() => logProcessSearchSize("blur"), 0);
         });
         listSearchInput.addEventListener("input", applyMainSearch);
         listSearchInput.addEventListener("keydown", (e) => {
@@ -1215,7 +1521,11 @@ async function bootstrap() {
     }
     if (processView) processView.classList.add("view--active");
     document.querySelectorAll(".view").forEach((v) => { if (v !== processView) v.classList.remove("view--active"); });
-    document.querySelectorAll(".nav__item").forEach((b) => { b.classList.toggle("nav__item--active", b.dataset.view === "processes"); });
+    document.querySelectorAll(".nav__item").forEach((b) => {
+      b.classList.toggle("nav__item--active", b.dataset.view === "processes");
+    });
+    const navSelectErr = document.getElementById("navViewSelect");
+    if (navSelectErr) navSelectErr.value = "processes";
   }
 }
 

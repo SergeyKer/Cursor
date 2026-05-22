@@ -73,9 +73,8 @@ function buildInputAudioTranscriptionConfig() {
   };
 }
 
-function buildCallGreetingPhrase(operatorName) {
-  const name = operatorName || CALL_OPERATOR_NAME;
-  return `Добрый день, компания ${CALL_COMPANY_NAME}, меня зовут ${name}. Чем могу помочь?`;
+function buildCallGreetingPhrase() {
+  return `Добрый день. Вас приветствует голосовой помощник компании ${CALL_COMPANY_NAME}. Чем могу помочь?`;
 }
 
 module.exports = {

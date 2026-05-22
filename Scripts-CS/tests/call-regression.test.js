@@ -187,10 +187,11 @@ test('buildVoiceLayerBlock includes inbound sales guard', () => {
   assert.match(block, /партнёр/i);
 });
 
-test('buildCallFirstTurnInstructions includes operator name', () => {
-  const text = buildCallFirstTurnInstructions({ operatorName: 'Александр' });
-  assert.match(text, /Александр/);
+test('buildCallFirstTurnInstructions uses voice assistant greeting', () => {
+  const text = buildCallFirstTurnInstructions();
+  assert.match(text, /голосовой помощник/i);
   assert.match(text, /E-liss/);
+  assert.doesNotMatch(text, /меня зовут/i);
 });
 
 test('buildSessionInstructions adds clarify block', () => {

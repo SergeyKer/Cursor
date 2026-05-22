@@ -213,8 +213,11 @@
 
   function updateMeters() {
     const inCall = ['connecting', 'listening', 'userFinalizing', 'assistantPending', 'assistantSpeaking'].includes(state.phase);
-    const aiActive = inCall && (state.phase === 'assistantPending' || state.phase === 'assistantSpeaking' || state.phase === 'listening' || state.phase === 'userFinalizing');
-    const userActive = inCall && (state.phase === 'connecting' || state.phase === 'listening' || state.phase === 'userFinalizing');
+    const aiActive =
+      inCall && (state.phase === 'assistantPending' || state.phase === 'assistantSpeaking');
+    const userActive =
+      inCall &&
+      (state.phase === 'connecting' || state.phase === 'listening' || state.phase === 'userFinalizing');
     if (rtc.aiMeter) {
       rtc.aiMeter.setStream(rtc.remoteStream);
       rtc.aiMeter.setActive(aiActive);

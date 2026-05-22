@@ -9,16 +9,24 @@
   </head>
   <body>
     <div id="appLoading" class="app-loading" aria-live="polite">Загрузка…</div>
-    <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Открыть меню" title="Меню" aria-expanded="false">☰</button>
     <div class="layout" id="layout">
       <div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
       <header class="content__header" id="contentHeader">
+        <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Открыть меню" title="Меню" aria-expanded="false">☰</button>
         <nav class="nav nav--center" aria-label="Разделы">
           <button class="nav__item nav__item--active" data-view="tools">Инструменты</button>
           <button class="nav__item" data-view="processes">Процессы</button>
           <button class="nav__item" data-view="assistant">Помощник</button>
           <button class="nav__item" data-view="call">Звонок</button>
         </nav>
+        <div class="nav-select-wrap">
+          <select id="navViewSelect" class="nav-view-select" aria-label="Раздел приложения">
+            <option value="tools">Инструменты</option>
+            <option value="processes">Процессы</option>
+            <option value="assistant">Помощник</option>
+            <option value="call">Звонок</option>
+          </select>
+        </div>
       </header>
       <aside class="sidebar" id="sidebar">
         <div class="sidebar__inner">
@@ -43,20 +51,24 @@
             <div id="processPlaceholder" class="placeholder">
               <div class="process-list-main__head">
                 <h2 class="process-list-main__title">Выберите процесс</h2>
-                <div class="process-list-search" aria-label="Поиск по процессам">
-                <input id="processListSearchInput" class="process-list-search__input" type="text" placeholder="Поиск по процессам" autocomplete="off" />
-                <button type="button" class="process-list-search__clear" id="processListSearchClear" aria-label="Очистить" title="Очистить" style="display: none;">×</button>
-                <button type="button" class="process-list-search__btn" id="processListSearchBtn" aria-label="Найти">
-                  <span class="process-list-search__icon" aria-hidden="true">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                  </span>
-                </button>
+                <div class="sidebar-search process-list-main__search" aria-label="Поиск по процессам">
+                  <input id="processListSearchInput" class="sidebar-search__input" type="text" placeholder="Поиск по процессам" autocomplete="off" />
+                  <button type="button" class="sidebar-search__clear" id="processListSearchClear" aria-label="Очистить" title="Очистить" style="display: none;">×</button>
+                  <button type="button" class="sidebar-search__btn" id="processListSearchBtn" aria-label="Найти">
+                    <span class="sidebar-search__icon" aria-hidden="true">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    </span>
+                  </button>
                 </div>
               </div>
               <div id="processListMain" class="process-list-main"></div>
             </div>
             <article id="processDetails" class="process-details hidden">
             <header class="process-header">
+              <button type="button" id="processBackBtn" class="process-back-btn" aria-label="К списку процессов">
+                <span class="process-back-btn__icon" aria-hidden="true">←</span>
+                <span class="process-back-btn__label">К списку процессов</span>
+              </button>
               <div class="process-header__title-row">
                 <h2 id="processTitle"></h2>
                 <span id="processTitleDone" class="process-header__done hidden" aria-label="Обработано"></span>
@@ -70,6 +82,7 @@
                 <a href="#section-difficult" class="process-nav__link">Сложные ситуации</a>
                 <a href="#section-cheatsheet" class="process-nav__link">Шпаргалка</a>
                 <a href="#section-email" class="process-nav__link">Шаблоны писем</a>
+                <a href="#section-autoreply" class="process-nav__link hidden">Автоответ CRM</a>
                 <a href="#section-recommendations" class="process-nav__link hidden">Общие рекомендации</a>
               </nav>
             </header>
@@ -87,7 +100,7 @@
             <section class="card" id="section-stages">
               <h3 class="card__title">Этапы процесса</h3>
               <div class="table-wrapper">
-                <table class="table" id="stagesTable">
+                <table class="table table--stack" id="stagesTable">
                   <thead>
                     <tr>
                       <th>Этап</th>
@@ -231,12 +244,16 @@
         <section id="toolsView" class="view view--active">
           <div class="tools-sheet">
             <h2 class="tools-sheet__title">Инструменты общения <span class="tools-sheet__subtitle">Клиентского сервиса</span></h2>
-            <div id="toolsSheetFirst" class="tools-sheet__first"></div>
+            <div id="tools-section-intro" class="tools-sheet__first"></div>
+            <header class="tools-sheet__nav-head" id="toolsNavHead" hidden>
+              <nav class="sheet-nav tools-nav" id="toolsNav" aria-label="Разделы инструментов"></nav>
+              <select id="toolsSectionSelect" class="sheet-section-select tools-section-select" aria-label="Раздел инструментов"></select>
+            </header>
             <div id="toolsContainer" class="tools-grid"></div>
-            <section class="tools-recommendations">
+            <section id="tools-section-recommendations" class="tools-recommendations">
               <h3 class="tools-recommendations__title">Дополнительные рекомендации</h3>
               <div class="tools-table-wrap">
-                <table class="tools-table">
+                <table class="tools-table table--stack">
                   <thead>
                     <tr>
                       <th class="tools-table__th-name">Инструмент</th>
@@ -247,16 +264,16 @@
                   </thead>
                   <tbody>
                     <tr>
-                      <td class="tools-table__name">Самоанализ звонка</td>
-                      <td class="tools-table__desc">Разбор прошедших звонков для выявления ошибок</td>
-                      <td class="tools-table__when">После звонка, для профессионального роста</td>
-                      <td class="tools-table__example">Переслушивание записи и отметка моментов, где можно было сделать лучше</td>
+                      <td class="tools-table__name" data-label="Инструмент">Самоанализ звонка</td>
+                      <td class="tools-table__desc" data-label="Описание">Разбор прошедших звонков для выявления ошибок</td>
+                      <td class="tools-table__when" data-label="Когда использовать">После звонка, для профессионального роста</td>
+                      <td class="tools-table__example" data-label="Пример фразы/действия">Переслушивание записи и отметка моментов, где можно было сделать лучше</td>
                     </tr>
                     <tr>
-                      <td class="tools-table__name">Контрольные вопросы себе</td>
-                      <td class="tools-table__desc">Проверка, были ли применены все техники</td>
-                      <td class="tools-table__when">После звонка, для оценки качества</td>
-                      <td class="tools-table__example tools-table__example--pre">- Успокоил ли я клиента, если у него была претензия?
+                      <td class="tools-table__name" data-label="Инструмент">Контрольные вопросы себе</td>
+                      <td class="tools-table__desc" data-label="Описание">Проверка, были ли применены все техники</td>
+                      <td class="tools-table__when" data-label="Когда использовать">После звонка, для оценки качества</td>
+                      <td class="tools-table__example tools-table__example--pre" data-label="Пример фразы/действия">- Успокоил ли я клиента, если у него была претензия?
 - Сделал ли я все, чтобы решить вопрос клиента?
 - Насколько успешно я провел переговоры?
 - Достиг ли я необходимого результата?</td>

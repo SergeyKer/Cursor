@@ -70,13 +70,13 @@ function buildBaseInstructions(communicationTools, options = {}) {
   );
 }
 
-function buildCallFirstTurnInstructions(options = {}) {
-  const operatorName = options.operatorName || resolveOperatorName(options.voice);
+function buildCallFirstTurnInstructions() {
   return applyBrandPlaceholders(
     [
-      'Начни звонок одной короткой репликой клиентского менеджера.',
-      `Пример: «${buildCallGreetingPhrase(operatorName)}»`,
-      'Можно варьировать формулировку, сохраняя имя и компанию.',
+      'Начни звонок одной короткой репликой.',
+      `Пример: «${buildCallGreetingPhrase()}»`,
+      'Можно варьировать формулировку, сохраняя компанию и роль голосового помощника.',
+      'Не называй себя по имени и не представляйся как живой менеджер.',
       'Не добавляй второй вопрос и не уходи в длинное объяснение.',
     ].join(' ')
   );
