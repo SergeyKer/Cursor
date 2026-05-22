@@ -296,14 +296,3 @@ test('call voice meters use shared tuning and live streams during call', () => {
   assert.match(callJs, /rtc\.userMeter\.setActive\(inCall\)/);
   assert.doesNotMatch(callJs, /assistantPending.*assistantSpeaking.*setActive/);
 });
-
-test('call.js highlights active meter slot by dialog phase', () => {
-  const callJs = fs.readFileSync(path.join(process.cwd(), 'frontend/call.js'), 'utf8');
-  const css = fs.readFileSync(path.join(process.cwd(), 'frontend/styles.css'), 'utf8');
-  assert.match(callJs, /setMeterSlotHighlight/);
-  assert.match(callJs, /call-status-strip__meter--focus/);
-  assert.match(callJs, /userTurn/);
-  assert.match(callJs, /aiTurn/);
-  assert.match(css, /\.call-status-strip__meter--focus/);
-  assert.match(css, /\.call-status-strip__meter--idle/);
-});

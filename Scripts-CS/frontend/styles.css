@@ -2425,26 +2425,6 @@ html.sidebar--resizing * {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 8px;
-  transition: background 0.22s ease, opacity 0.22s ease;
-}
-
-.call-status-strip__meter--focus {
-  background: rgba(107, 142, 246, 0.16);
-  opacity: 1;
-}
-
-.call-status-strip__meter--idle {
-  background: transparent;
-  opacity: 0.42;
-}
-
-.call-status-strip__meter--focus .call-voice-meter__bar {
-  background: #4a7ae8;
-}
-
-.call-status-strip__meter--idle .call-voice-meter__bar {
-  background: rgba(107, 142, 246, 0.55);
 }
 
 .call-status-strip__center {

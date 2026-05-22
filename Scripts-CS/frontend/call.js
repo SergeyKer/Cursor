@@ -218,24 +218,9 @@
     refs.statusEl.textContent = labels[state.phase] || '';
   }
 
-  function setMeterSlotHighlight(meterEl, mode) {
-    if (!meterEl) return;
-    meterEl.classList.remove('call-status-strip__meter--focus', 'call-status-strip__meter--idle');
-    if (mode === 'focus') meterEl.classList.add('call-status-strip__meter--focus');
-    else if (mode === 'idle') meterEl.classList.add('call-status-strip__meter--idle');
-  }
-
   function updateMeters() {
     const inCall = isCallInProgress(state.phase);
     const ended = state.phase === 'ended';
-    const userTurn =
-      inCall &&
-      (state.phase === 'connecting' ||
-        state.phase === 'listening' ||
-        state.phase === 'userFinalizing');
-    const aiTurn =
-      inCall && (state.phase === 'assistantPending' || state.phase === 'assistantSpeaking');
-
     if (rtc.aiMeter) {
       rtc.aiMeter.setStream(rtc.remoteStream);
       rtc.aiMeter.setActive(inCall);
@@ -246,9 +231,6 @@
       rtc.userMeter.setActive(inCall);
       rtc.userMeter.setFrozen(ended);
     }
-
-    setMeterSlotHighlight(refs.aiMeterEl, aiTurn ? 'focus' : inCall ? 'idle' : null);
-    setMeterSlotHighlight(refs.userMeterEl, userTurn ? 'focus' : inCall ? 'idle' : null);
   }
 
   function explanationDotState(msg) {
