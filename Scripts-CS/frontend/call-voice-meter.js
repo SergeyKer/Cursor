@@ -1,39 +1,29 @@
 (function (global) {
   const BAR_COUNT = 9;
   const BAR_PIXEL_MAX = 22;
+  const MIN_BAR_PX = 2;
 
+  /** Единые параметры для микрофона и удалённого потока — одинаковая громкость и темп отклика. */
   const METER_TUNING = {
-    user: {
-      baselineScale: 0,
-      rmsToLevel: 24,
-      peakScale: 20,
-      analyserSmoothing: 0.12,
-      levelAttack: 0.72,
-      levelDecay: 0.82,
-    },
-    assistant: {
-      baselineScale: 0,
-      rmsToLevel: 14,
-      peakScale: 16,
-      analyserSmoothing: 0.18,
-      levelAttack: 0.68,
-      levelDecay: 0.82,
-    },
+    rmsToLevel: 18,
+    peakScale: 16,
+    analyserSmoothing: 0.15,
+    levelAttack: 0.62,
+    levelDecay: 0.76,
+    silenceLevel: 0.035,
   };
 
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
   }
 
-  function CallVoiceMeter(container, role) {
+  function CallVoiceMeter(container) {
     this.container = container;
-    this.role = role === 'user' ? 'user' : 'assistant';
-    this.tuning = METER_TUNING[this.role];
+    this.tuning = METER_TUNING;
     this.stream = null;
     this.active = false;
     this.frozen = false;
-    this.levels = new Array(BAR_COUNT).fill(0);
-    this.smoothedLevel = 0;
+    this.barLevels = new Array(BAR_COUNT).fill(0);
     this.audioContext = null;
     this.analyser = null;
     this.source = null;
@@ -50,10 +40,25 @@
     for (let i = 0; i < BAR_COUNT; i += 1) {
       const bar = document.createElement('span');
       bar.className = 'call-voice-meter__bar';
-      bar.style.height = '2px';
+      bar.style.height = `${MIN_BAR_PX}px`;
       this.container.appendChild(bar);
       this.bars.push(bar);
     }
+  };
+
+  CallVoiceMeter.prototype._applyBarHeights = function () {
+    for (let i = 0; i < BAR_COUNT; i += 1) {
+      const level = this.barLevels[i] <= this.tuning.silenceLevel ? 0 : this.barLevels[i];
+      const h = Math.max(MIN_BAR_PX, level * BAR_PIXEL_MAX);
+      if (this.bars[i]) this.bars[i].style.height = `${h}px`;
+    }
+  };
+
+  CallVoiceMeter.prototype.reset = function () {
+    for (let i = 0; i < BAR_COUNT; i += 1) {
+      this.barLevels[i] = 0;
+    }
+    this._applyBarHeights();
   };
 
   CallVoiceMeter.prototype._resumeContext = function () {
@@ -91,42 +96,50 @@
     void this._resumeContext();
   };
 
-  CallVoiceMeter.prototype._tick = function () {
-    const decay = this.tuning.levelDecay || 0.82;
-    if (!this.active || this.frozen || !this.analyser) {
-      this.smoothedLevel *= decay;
-    } else {
-      this.analyser.getByteTimeDomainData(this.timeData);
+  CallVoiceMeter.prototype._measureBarTargets = function () {
+    const sliceSize = Math.max(1, Math.floor(this.timeData.length / BAR_COUNT));
+    const targets = new Array(BAR_COUNT);
+    for (let i = 0; i < BAR_COUNT; i += 1) {
+      const start = i * sliceSize;
+      const end = i === BAR_COUNT - 1 ? this.timeData.length : start + sliceSize;
       let sum = 0;
       let peak = 0;
-      for (let i = 0; i < this.timeData.length; i += 1) {
-        const v = Math.abs((this.timeData[i] - 128) / 128);
+      for (let j = start; j < end; j += 1) {
+        const v = Math.abs((this.timeData[j] - 128) / 128);
         if (v > peak) peak = v;
         sum += v * v;
       }
-      const rms = Math.sqrt(sum / this.timeData.length);
+      const count = Math.max(1, end - start);
+      const rms = Math.sqrt(sum / count);
       const energy = Math.max(
         rms * this.tuning.rmsToLevel,
-        peak * (this.tuning.peakScale || 14)
+        peak * this.tuning.peakScale
       );
-      const target = clamp(energy, this.tuning.baselineScale, 1);
-      const rate = target > this.smoothedLevel ? this.tuning.levelAttack : decay;
-      this.smoothedLevel += (target - this.smoothedLevel) * rate;
+      targets[i] = clamp(energy, 0, 1);
     }
+    return targets;
+  };
 
-    const now = performance.now();
-    for (let i = 0; i < BAR_COUNT; i += 1) {
-      const center = (BAR_COUNT - 1) / 2;
-      const dist = Math.abs(i - center) / center;
-      let level = this.smoothedLevel * (1 - dist * 0.22);
-      if (level > 0.06) {
-        level *= 0.88 + 0.24 * Math.sin(now / 95 + i * 1.15);
+  CallVoiceMeter.prototype._tick = function () {
+    const decay = this.tuning.levelDecay;
+    const attack = this.tuning.levelAttack;
+
+    if (!this.active || this.frozen || !this.analyser) {
+      for (let i = 0; i < BAR_COUNT; i += 1) {
+        this.barLevels[i] *= decay;
+        if (this.barLevels[i] < this.tuning.silenceLevel) this.barLevels[i] = 0;
       }
-      this.levels[i] = clamp(level, 0, 1);
-      const h = Math.max(2, this.levels[i] * BAR_PIXEL_MAX);
-      if (this.bars[i]) this.bars[i].style.height = `${h}px`;
+    } else {
+      this.analyser.getByteTimeDomainData(this.timeData);
+      const targets = this._measureBarTargets();
+      for (let i = 0; i < BAR_COUNT; i += 1) {
+        const rate = targets[i] > this.barLevels[i] ? attack : decay;
+        this.barLevels[i] += (targets[i] - this.barLevels[i]) * rate;
+        if (this.barLevels[i] < this.tuning.silenceLevel) this.barLevels[i] = 0;
+      }
     }
 
+    this._applyBarHeights();
     this.rafId = window.requestAnimationFrame(this._tick.bind(this));
   };
 
@@ -151,7 +164,9 @@
   };
 
   CallVoiceMeter.prototype.setFrozen = function (frozen) {
+    const wasFrozen = this.frozen;
     this.frozen = Boolean(frozen);
+    if (this.frozen && !wasFrozen) this.reset();
   };
 
   CallVoiceMeter.prototype.start = function () {
@@ -177,7 +192,9 @@
     this.source = null;
     this.silentGain = null;
     this._outputConnected = false;
+    this.reset();
   };
 
   global.CallVoiceMeter = CallVoiceMeter;
+  global.CALL_VOICE_METER_TUNING = METER_TUNING;
 })(window);

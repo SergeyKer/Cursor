@@ -29,6 +29,17 @@
         </div>
       </header>
       <aside class="sidebar" id="sidebar">
+        <div
+          class="sidebar-resize-handle"
+          id="sidebarResizeHandle"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Изменить ширину меню"
+          aria-valuemin="260"
+          aria-valuemax="560"
+          tabindex="0"
+          title="Потяните, чтобы изменить ширину"
+        ></div>
         <div class="sidebar__inner">
           <div class="sidebar__header">
             <div class="sidebar-search" aria-label="Поиск по процессам">
@@ -161,12 +172,13 @@
           <div class="assistant">
             <h2 class="assistant__title">Помощник</h2>
             <div class="assistant__form-block">
-              <p class="assistant__desc">Опишите ситуацию или вопрос клиента — подберём подходящий процесс и подсказки.</p>
+              <p class="assistant__desc">Опишите ситуацию клиента — подберём процесс и подскажем, что сделать на линии.</p>
               <div class="assistant__input-wrap">
                 <textarea id="assistantInput" class="assistant__input" rows="3" placeholder="Например: клиент хочет изменить количество ковров, претензия на качество, запрос документов..."></textarea>
-                <button type="button" class="assistant__btn" id="assistantBtn">Найти процесс</button>
+                <button type="button" class="assistant__btn" id="assistantBtn">Получить рекомендации</button>
               </div>
             </div>
+            <p id="assistantStatus" class="assistant__status hidden" aria-live="polite"></p>
             <div id="assistantResults" class="assistant__results"></div>
           </div>
         </section>
@@ -181,6 +193,10 @@
                   <div class="call-start__block call-start__block--centered">
                     <h3 class="call-start__label">Голос менеджера (Realtime)</h3>
                     <select id="callVoicePicker" class="call-voice-select" aria-label="Голос менеджера"></select>
+                  </div>
+                  <div class="call-start__block call-start__block--centered">
+                    <h3 class="call-start__label">Модель Realtime</h3>
+                    <select id="callModelPicker" class="call-voice-select" aria-label="Модель Realtime"></select>
                   </div>
                   <div class="call-start__block call-start__block--centered call-start__block--access-code">
                     <h3 class="call-start__label">Код доступа</h3>

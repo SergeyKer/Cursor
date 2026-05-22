@@ -30,6 +30,7 @@ const API_ROUTES = {
   '/api/call-base-instructions': '../api/call-base-instructions.js',
   '/api/call-resolve-process': '../api/call-resolve-process.js',
   '/api/call-explain-reply': '../api/call-explain-reply.js',
+  '/api/assistant-coach': '../api/assistant-coach.js',
 };
 
 function contentType(filePath) {
@@ -164,11 +165,25 @@ async function main() {
     }
   });
 
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error('');
+      console.error(`Порт ${PORT} уже занят — вероятно, старый локальный сервер без /api/assistant-coach.`);
+      console.error('Остановите его (Ctrl+C в том терминале) или завершите процесс:');
+      console.error(`  netstat -ano | findstr :${PORT}`);
+      console.error('Затем снова: npm run dev');
+      console.error('');
+      process.exit(1);
+    }
+    throw err;
+  });
+
   server.listen(PORT, () => {
     console.log('');
     console.log('Scripts CS — локальный сервер');
     console.log(`  Сайт:    http://localhost:${PORT}/`);
     console.log(`  Звонок:  http://localhost:${PORT}/  → вкладка «Звонок»`);
+    console.log(`  Коуч:    POST http://localhost:${PORT}/api/assistant-coach`);
     console.log('');
     console.log(`  OPENAI_API_KEY: ${hasKey ? 'задан' : 'НЕ ЗАДАН — добавьте в .env.local'}`);
     console.log(`  HTTPS_PROXY:    ${hasProxy ? 'задан' : 'не задан (нужен как в my-eng-bot, если geo-block)'}`);

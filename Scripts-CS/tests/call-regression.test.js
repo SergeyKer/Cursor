@@ -35,6 +35,21 @@ test('CALL_REALTIME_SERVER_VAD tuned against cough and background', () => {
   assert.equal(CALL_SILENCE_HANGUP_MS, 30000);
 });
 
+test('resolveCallRealtimeModel accepts mini, 1.5 and 2 from picker', () => {
+  const {
+    resolveCallRealtimeModel,
+    CALL_DEFAULT_REALTIME_MODEL,
+    isCallRealtimeModel,
+  } = require('../lib/call/constants');
+  assert.equal(resolveCallRealtimeModel('gpt-realtime-mini'), 'gpt-realtime-mini');
+  assert.equal(resolveCallRealtimeModel('gpt-realtime-1.5'), 'gpt-realtime-1.5');
+  assert.equal(resolveCallRealtimeModel('gpt-realtime-2'), 'gpt-realtime-2');
+  assert.equal(resolveCallRealtimeModel(''), 'gpt-realtime-2');
+  assert.equal(CALL_DEFAULT_REALTIME_MODEL, 'gpt-realtime-2');
+  assert.ok(isCallRealtimeModel('gpt-realtime-mini'));
+  assert.ok(isCallRealtimeModel('gpt-realtime-2'));
+});
+
 test('formatCallDuration formats mm:ss', () => {
   assert.equal(formatCallDuration(0), '00:00');
   assert.equal(formatCallDuration(65), '01:05');
@@ -261,4 +276,34 @@ test('app.js wires call view without breaking assistant', () => {
   assert.match(appJs, /call: document.getElementById\("callView"\)/);
   assert.match(appJs, /initCallView/);
   assert.match(appJs, /runAssistantQuery/);
+  assert.match(appJs, /\/api\/assistant-coach/);
+});
+
+test('call-resolve-process uses shared resolveProcessForQuery', () => {
+  const src = fs.readFileSync(path.join(process.cwd(), 'api/call-resolve-process.js'), 'utf8');
+  assert.match(src, /resolveProcessForQuery/);
+  assert.doesNotMatch(src, /resolveProcessByScoring/);
+});
+
+test('call voice meters use shared tuning and live streams during call', () => {
+  const meterJs = fs.readFileSync(path.join(process.cwd(), 'frontend/call-voice-meter.js'), 'utf8');
+  const callJs = fs.readFileSync(path.join(process.cwd(), 'frontend/call.js'), 'utf8');
+  assert.doesNotMatch(meterJs, /METER_TUNING\s*=\s*\{[\s\S]*user:/);
+  assert.match(meterJs, /_measureBarTargets/);
+  assert.doesNotMatch(meterJs, /Math\.sin/);
+  assert.match(meterJs, /CallVoiceMeter\.prototype\.reset/);
+  assert.match(callJs, /rtc\.aiMeter\.setActive\(inCall\)/);
+  assert.match(callJs, /rtc\.userMeter\.setActive\(inCall\)/);
+  assert.doesNotMatch(callJs, /assistantPending.*assistantSpeaking.*setActive/);
+});
+
+test('call.js highlights active meter slot by dialog phase', () => {
+  const callJs = fs.readFileSync(path.join(process.cwd(), 'frontend/call.js'), 'utf8');
+  const css = fs.readFileSync(path.join(process.cwd(), 'frontend/styles.css'), 'utf8');
+  assert.match(callJs, /setMeterSlotHighlight/);
+  assert.match(callJs, /call-status-strip__meter--focus/);
+  assert.match(callJs, /userTurn/);
+  assert.match(callJs, /aiTurn/);
+  assert.match(css, /\.call-status-strip__meter--focus/);
+  assert.match(css, /\.call-status-strip__meter--idle/);
 });

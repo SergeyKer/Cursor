@@ -9,6 +9,10 @@ function getDataBasePath() {
 }
 const DATA_BASE_PATH = getDataBasePath();
 const MOBILE_LAYOUT_MQ = "(max-width: 767px)";
+const SIDEBAR_WIDTH_STORAGE_KEY = "sidebarWidthPx";
+const SIDEBAR_WIDTH_MIN = 260;
+const SIDEBAR_WIDTH_MAX = 560;
+const SIDEBAR_WIDTH_DEFAULT = 340;
 
 const STAGE_TABLE_LABELS = ["Этап", "Описание", "Действия оператора", "Срок", "Цель", "Рекомендации"];
 const SCRIPT_CONVERSATION_LABELS = ["Этап разговора", "Формулировка (пример)", "Цель"];
@@ -19,6 +23,113 @@ const TOOLS_TABLE_LABELS = ["Инструмент", "Описание", "Ког�
 
 function isMobileLayout() {
   return typeof window !== "undefined" && window.matchMedia(MOBILE_LAYOUT_MQ).matches;
+}
+
+function clampSidebarWidth(px) {
+  return Math.min(SIDEBAR_WIDTH_MAX, Math.max(SIDEBAR_WIDTH_MIN, Math.round(px)));
+}
+
+function getStoredSidebarWidth() {
+  try {
+    const raw = localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
+    const n = parseInt(raw, 10);
+    if (Number.isFinite(n)) return clampSidebarWidth(n);
+  } catch (_) {
+    /* ignore */
+  }
+  return SIDEBAR_WIDTH_DEFAULT;
+}
+
+function applySidebarWidth(px) {
+  const w = clampSidebarWidth(px);
+  document.documentElement.style.setProperty("--sidebar-width", `${w}px`);
+  return w;
+}
+
+function readSidebarWidthPx() {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue("--sidebar-width").trim();
+  const n = parseFloat(raw);
+  return Number.isFinite(n) ? clampSidebarWidth(n) : SIDEBAR_WIDTH_DEFAULT;
+}
+
+function persistSidebarWidth(px) {
+  try {
+    localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(clampSidebarWidth(px)));
+  } catch (_) {
+    /* ignore */
+  }
+}
+
+function initSidebarResize({ sidebar, layout }) {
+  const handle = document.getElementById("sidebarResizeHandle");
+  if (!handle || !sidebar) return;
+
+  let dragging = false;
+  let startX = 0;
+  let startW = 0;
+
+  const syncAriaWidth = (w) => {
+    handle.setAttribute("aria-valuenow", String(w));
+  };
+
+  syncAriaWidth(applySidebarWidth(getStoredSidebarWidth()));
+
+  const onPointerMove = (event) => {
+    if (!dragging) return;
+    const w = applySidebarWidth(startW + (event.clientX - startX));
+    syncAriaWidth(w);
+  };
+
+  const stopDrag = (event) => {
+    if (!dragging) return;
+    dragging = false;
+    document.documentElement.classList.remove("sidebar--resizing");
+    if (event && handle.hasPointerCapture(event.pointerId)) {
+      handle.releasePointerCapture(event.pointerId);
+    }
+    persistSidebarWidth(readSidebarWidthPx());
+    window.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("pointerup", stopDrag);
+    window.removeEventListener("pointercancel", stopDrag);
+  };
+
+  handle.addEventListener("pointerdown", (event) => {
+    if (isMobileLayout()) return;
+    if (!layout?.classList.contains("sidebar--open")) return;
+    event.preventDefault();
+    dragging = true;
+    startX = event.clientX;
+    startW = sidebar.getBoundingClientRect().width;
+    document.documentElement.classList.add("sidebar--resizing");
+    handle.setPointerCapture(event.pointerId);
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", stopDrag);
+    window.addEventListener("pointercancel", stopDrag);
+  });
+
+  handle.addEventListener("keydown", (event) => {
+    if (isMobileLayout()) return;
+    let delta = 0;
+    if (event.key === "ArrowRight") delta = 16;
+    else if (event.key === "ArrowLeft") delta = -16;
+    else if (event.key === "Home") {
+      event.preventDefault();
+      const w = applySidebarWidth(SIDEBAR_WIDTH_MIN);
+      syncAriaWidth(w);
+      persistSidebarWidth(w);
+      return;
+    } else if (event.key === "End") {
+      event.preventDefault();
+      const w = applySidebarWidth(SIDEBAR_WIDTH_MAX);
+      syncAriaWidth(w);
+      persistSidebarWidth(w);
+      return;
+    } else return;
+    event.preventDefault();
+    const w = applySidebarWidth(readSidebarWidthPx() + delta);
+    syncAriaWidth(w);
+    persistSidebarWidth(w);
+  });
 }
 
 function appendLabelledCells(tr, labels, values, options) {
@@ -400,13 +511,9 @@ function runAssistantQuery(processesMeta, query) {
     .map((x) => x.process);
 }
 
-function renderAssistantResults(results, onSelectProcess) {
+function renderAssistantFallbackCards(results, onSelectProcess) {
   const container = document.getElementById("assistantResults");
-  container.innerHTML = "";
-  if (results.length === 0) {
-    container.innerHTML = '<p class="assistant__empty">По вашему запросу процессы не найдены. Попробуйте другие слова.</p>';
-    return;
-  }
+  if (!container) return;
   results.forEach((processMeta) => {
     const card = document.createElement("button");
     card.type = "button";
@@ -415,11 +522,170 @@ function renderAssistantResults(results, onSelectProcess) {
       <span class="assistant-card__title">${escapeHtml(processMeta.name || "")}</span>
       ${processMeta.short_description ? `<span class="assistant-card__desc">${escapeHtml(processMeta.short_description)}</span>` : ""}
     `;
-    card.addEventListener("click", () => {
-      onSelectProcess(processMeta);
-    });
+    card.addEventListener("click", () => onSelectProcess(processMeta));
     container.appendChild(card);
   });
+}
+
+function coachConfidenceLabel(confidence) {
+  if (confidence === "high") return "Высокая";
+  if (confidence === "low") return "Низкая";
+  return "Средняя";
+}
+
+function coachConfidenceClass(confidence) {
+  if (confidence === "high") return "coach-badge--high";
+  if (confidence === "low") return "coach-badge--low";
+  return "coach-badge--medium";
+}
+
+function appendCoachListSection(parent, title, items, listClass) {
+  if (!items || items.length === 0) return;
+  const section = document.createElement("div");
+  section.className = "coach-section";
+  const h = document.createElement("h3");
+  h.className = "coach-section__title";
+  h.textContent = title;
+  section.appendChild(h);
+  const list = document.createElement(listClass === "ol" ? "ol" : "ul");
+  list.className = "coach-section__list";
+  items.forEach((text) => {
+    const li = document.createElement("li");
+    li.textContent = text;
+    list.appendChild(li);
+  });
+  section.appendChild(list);
+  parent.appendChild(section);
+}
+
+function appendCoachSaySection(parent, phrases) {
+  if (!phrases || phrases.length === 0) return;
+  const section = document.createElement("div");
+  section.className = "coach-section coach-section--say";
+  const h = document.createElement("h3");
+  h.className = "coach-section__title";
+  h.textContent = "Сказать клиенту";
+  section.appendChild(h);
+  phrases.forEach((text) => {
+    const q = document.createElement("p");
+    q.className = "coach-quote";
+    q.textContent = text;
+    section.appendChild(q);
+  });
+  parent.appendChild(section);
+}
+
+function renderCoachResponse(data, metaList, handlers) {
+  const container = document.getElementById("assistantResults");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const card = document.createElement("div");
+  card.className = "coach-card";
+
+  const head = document.createElement("div");
+  head.className = "coach-card__head";
+  const title = document.createElement("h3");
+  title.className = "coach-card__process";
+  title.textContent = data.processName || data.processCode || "";
+  const badge = document.createElement("span");
+  badge.className = `coach-badge ${coachConfidenceClass(data.confidence)}`;
+  badge.textContent = coachConfidenceLabel(data.confidence);
+  head.appendChild(title);
+  head.appendChild(badge);
+  card.appendChild(head);
+
+  if (data.menuDone === false) {
+    const banner = document.createElement("p");
+    banner.className = "coach-banner--partial";
+    banner.textContent =
+      "Полный скрипт в базе дополняется — на линии ориентируйтесь на блок «Сейчас на линии» выше.";
+    card.appendChild(banner);
+  }
+
+  if (data.summary) {
+    const summary = document.createElement("p");
+    summary.className = "coach-card__summary";
+    summary.textContent = data.summary;
+    card.appendChild(summary);
+  }
+
+  appendCoachListSection(card, "Сейчас на линии", data.doNow, "ol");
+  appendCoachSaySection(card, data.sayNow);
+  appendCoachListSection(card, "Спросить у клиента (можно не всё сразу)", data.askClient, "ul");
+
+  if (data.clarifyQuestion) {
+    const cq = document.createElement("p");
+    cq.className = "coach-clarify";
+    cq.textContent = `Уточните у себя: ${data.clarifyQuestion}`;
+    card.appendChild(cq);
+  }
+
+  const readNext = Array.isArray(data.readNext) ? data.readNext : [];
+  if (readNext.length > 0 && handlers.onNavigate) {
+    const navSection = document.createElement("div");
+    navSection.className = "coach-section coach-section--nav";
+    const navTitle = document.createElement("h3");
+    navTitle.className = "coach-section__title";
+    navTitle.textContent = "Куда смотреть в приложении";
+    navSection.appendChild(navTitle);
+    const chips = document.createElement("div");
+    chips.className = "coach-chips";
+    readNext.forEach((item) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "coach-chip";
+      chip.textContent = item.label || item.sectionId || "Раздел";
+      chip.addEventListener("click", () => handlers.onNavigate(item, data));
+      chips.appendChild(chip);
+    });
+    navSection.appendChild(chips);
+    card.appendChild(navSection);
+  }
+
+  if (data.relatedTopics && data.relatedTopics.length > 0) {
+    const details = document.createElement("details");
+    details.className = "coach-related";
+    const summaryEl = document.createElement("summary");
+    summaryEl.textContent = `Ещё темы: ${data.relatedTopics.join(", ")}`;
+    details.appendChild(summaryEl);
+    card.appendChild(details);
+  }
+
+  if (data.warnings && data.warnings.length > 0) {
+    const warn = document.createElement("div");
+    warn.className = "coach-warnings";
+    data.warnings.forEach((w) => {
+      const p = document.createElement("p");
+      p.textContent = w;
+      warn.appendChild(p);
+    });
+    card.appendChild(warn);
+  }
+
+  if (data.adviceMarkdown) {
+    const md = document.createElement("div");
+    md.className = "coach-markdown";
+    md.style.whiteSpace = "pre-wrap";
+    md.textContent = data.adviceMarkdown;
+    card.appendChild(md);
+  }
+
+  const processMeta =
+    handlers.findProcessMeta(data.processCode) ||
+    metaList.find((p) => p.code === data.processCode);
+  const primaryNav = readNext[0] || { view: "processes", sectionId: "section-script", label: "Скрипт" };
+
+  if (processMeta && handlers.onOpenProcess) {
+    const cta = document.createElement("button");
+    cta.type = "button";
+    cta.className = "coach-card__cta";
+    cta.textContent = `Открыть процесс — раздел «${primaryNav.label || "Скрипт"}»`;
+    cta.addEventListener("click", () => handlers.onOpenProcess(processMeta, primaryNav));
+    card.appendChild(cta);
+  }
+
+  container.appendChild(card);
 }
 
 function escapeHtml(s) {
@@ -1288,6 +1554,8 @@ async function bootstrap() {
     sidebar.addEventListener("click", (event) => event.stopPropagation());
   }
 
+  initSidebarResize({ sidebar, layout });
+
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && layout && layout.classList.contains("sidebar--open")) {
       setSidebarOpen(false);
@@ -1339,23 +1607,52 @@ async function bootstrap() {
 
     const switchView = initNavigation(views, showProcessListMain);
 
-    const openProcessDetails = (processMeta) => {
+    const openProcessDetails = (processMeta, options = {}) => {
       switchView("processes");
       if (placeholder) placeholder.classList.add("hidden");
       if (details) details.classList.remove("hidden");
       setProcessDetailLayout(true);
       syncLayoutHeaderHeightAfterLayout();
       renderProcessDetails(processMeta, processes);
+      const sectionId = options.initialSectionId || "";
       requestAnimationFrame(() => {
         applyProcessDetailContentOffset();
-        window.scrollTo(0, 0);
+        if (sectionId) {
+          scrollToProcessSection(sectionId);
+        } else {
+          window.scrollTo(0, 0);
+        }
       });
       pushProcessDetailHistory();
     };
 
-    const selectProcess = (processMeta) => {
+    const selectProcess = (processMeta, options = {}) => {
       if (isMobileLayout()) setSidebarOpen(false);
-      openProcessDetails(processMeta);
+      openProcessDetails(processMeta, options);
+    };
+
+    const findProcessMetaByCode = (code) => {
+      const key = (code || "").trim();
+      if (!key) return null;
+      return (
+        metaFiltered.find((p) => p.code === key) ||
+        metaFiltered.find((p) => (p.name || "").trim() === key) ||
+        null
+      );
+    };
+
+    const navigateFromCoach = (readItem, coachData) => {
+      const meta =
+        findProcessMetaByCode(coachData.processCode) || findProcessMetaByCode(coachData.processName);
+      if (!meta) return;
+      if (readItem.view === "tools") {
+        switchView("tools");
+        if (readItem.sectionId) {
+          requestAnimationFrame(() => scrollToToolsSection(readItem.sectionId));
+        }
+        return;
+      }
+      selectProcess(meta, { initialSectionId: readItem.sectionId || "section-script" });
     };
 
     const processBackBtn = document.getElementById("processBackBtn");
@@ -1476,6 +1773,10 @@ async function bootstrap() {
 
     const assistantInput = document.getElementById("assistantInput");
     const assistantBtn = document.getElementById("assistantBtn");
+    const assistantStatus = document.getElementById("assistantStatus");
+    const assistantResults = document.getElementById("assistantResults");
+    const assistantBtnDefaultText = assistantBtn ? assistantBtn.textContent : "";
+
     if (assistantBtn && assistantInput) {
       const assistantPlaceholderText = assistantInput.getAttribute("placeholder") || "";
       assistantInput.addEventListener("focus", () => {
@@ -1484,10 +1785,106 @@ async function bootstrap() {
       assistantInput.addEventListener("blur", () => {
         if (!assistantInput.value.trim()) assistantInput.placeholder = assistantPlaceholderText;
       });
-      assistantBtn.addEventListener("click", () => {
-        const results = runAssistantQuery(metaFiltered, assistantInput.value);
-        renderAssistantResults(results, selectProcess);
+
+      const setAssistantLoading = (loading) => {
+        assistantBtn.disabled = loading;
+        assistantBtn.classList.toggle("assistant__btn--loading", loading);
+        assistantBtn.textContent = loading ? "Подбираем…" : assistantBtnDefaultText;
+        if (assistantStatus) {
+          assistantStatus.classList.toggle("hidden", !loading);
+          assistantStatus.textContent = loading ? "Подбираем процесс и рекомендации…" : "";
+        }
+      };
+
+      const showAssistantMessage = (text, variant) => {
+        if (!assistantResults) return;
+        assistantResults.innerHTML = "";
+        const p = document.createElement("p");
+        p.className = "assistant__empty" + (variant ? ` assistant__empty--${variant}` : "");
+        p.textContent = text;
+        assistantResults.appendChild(p);
+      };
+
+      assistantBtn.addEventListener("click", async () => {
+        const query = assistantInput.value.trim();
+        if (!query) return;
+        setAssistantLoading(true);
+        if (assistantResults) assistantResults.innerHTML = "";
+
+        try {
+          const coachUrl = "/api/assistant-coach";
+          const res = await fetch(coachUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query }),
+          });
+          const data = await res.json();
+
+          if (!res.ok) {
+            let errText = data.userMessage || data.error || "Не удалось получить рекомендации.";
+            if (res.status === 404 || errText === "Not found") {
+              errText =
+                "Сервис /api/assistant-coach не найден. Запустите проект через npm run dev в папке Scripts-CS и откройте http://localhost:3000 (перезапустите сервер после обновления). На Vercel — нужен новый деплой.";
+            }
+            showAssistantMessage(errText, "error");
+            return;
+          }
+
+          const hasCoachBody =
+            data.summary ||
+            (data.doNow && data.doNow.length) ||
+            (data.sayNow && data.sayNow.length) ||
+            data.adviceMarkdown;
+
+          if (data.error === "no_api_key" || !hasCoachBody) {
+            if (data.userMessage) showAssistantMessage(data.userMessage, "warn");
+            const fallbackMeta = findProcessMetaByCode(data.processCode);
+            if (fallbackMeta) {
+              const mini = document.createElement("div");
+              mini.className = "coach-card coach-card--compact";
+              const h = document.createElement("h3");
+              h.className = "coach-card__process";
+              h.textContent = data.processName || data.processCode;
+              mini.appendChild(h);
+              const openBtn = document.createElement("button");
+              openBtn.type = "button";
+              openBtn.className = "coach-card__cta";
+              openBtn.textContent = "Открыть процесс";
+              openBtn.addEventListener("click", () =>
+                selectProcess(fallbackMeta, { initialSectionId: "section-script" })
+              );
+              mini.appendChild(openBtn);
+              assistantResults.appendChild(mini);
+            }
+            renderAssistantFallbackCards(
+              runAssistantQuery(metaFiltered, query).slice(0, 3),
+              (m) => selectProcess(m, { initialSectionId: "section-script" })
+            );
+            return;
+          }
+
+          renderCoachResponse(data, metaFiltered, {
+            findProcessMeta: findProcessMetaByCode,
+            onNavigate: navigateFromCoach,
+            onOpenProcess: (meta, readItem) =>
+              selectProcess(meta, {
+                initialSectionId: readItem.sectionId || "section-script",
+              }),
+          });
+        } catch (err) {
+          showAssistantMessage(
+            err instanceof Error ? err.message : "Ошибка сети. Проверьте сервер и попробуйте снова.",
+            "error"
+          );
+          renderAssistantFallbackCards(
+            runAssistantQuery(metaFiltered, query).slice(0, 3),
+            (m) => selectProcess(m, { initialSectionId: "section-script" })
+          );
+        } finally {
+          setAssistantLoading(false);
+        }
       });
+
       assistantInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault();

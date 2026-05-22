@@ -3,7 +3,13 @@
     'alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse', 'marin', 'cedar',
   ];
   const VOICE_STORAGE_KEY = 'cs-call-realtime-voice';
-  const REALTIME_MODEL = 'gpt-realtime-2';
+  const MODEL_STORAGE_KEY = 'cs-call-realtime-model';
+  const REALTIME_MODEL_OPTIONS = [
+    { id: 'gpt-realtime-mini', label: 'mini' },
+    { id: 'gpt-realtime-1.5', label: '1.5' },
+    { id: 'gpt-realtime-2', label: '2' },
+  ];
+  const DEFAULT_REALTIME_MODEL = 'gpt-realtime-2';
   const CALL_SILENCE_HANGUP_MS = 30000;
   const CALL_REALTIME_SERVER_VAD = {
     type: 'server_vad',
@@ -38,6 +44,7 @@
     phase: 'idle',
     screen: 'start',
     voice: localStorage.getItem(VOICE_STORAGE_KEY) || 'coral',
+    realtimeModel: localStorage.getItem(MODEL_STORAGE_KEY) || DEFAULT_REALTIME_MODEL,
     messages: [],
     activeProcessCode: BASE_OPERATOR_CODE,
     activeProcessPrompt: '',
@@ -211,23 +218,37 @@
     refs.statusEl.textContent = labels[state.phase] || '';
   }
 
+  function setMeterSlotHighlight(meterEl, mode) {
+    if (!meterEl) return;
+    meterEl.classList.remove('call-status-strip__meter--focus', 'call-status-strip__meter--idle');
+    if (mode === 'focus') meterEl.classList.add('call-status-strip__meter--focus');
+    else if (mode === 'idle') meterEl.classList.add('call-status-strip__meter--idle');
+  }
+
   function updateMeters() {
-    const inCall = ['connecting', 'listening', 'userFinalizing', 'assistantPending', 'assistantSpeaking'].includes(state.phase);
-    const aiActive =
-      inCall && (state.phase === 'assistantPending' || state.phase === 'assistantSpeaking');
-    const userActive =
+    const inCall = isCallInProgress(state.phase);
+    const ended = state.phase === 'ended';
+    const userTurn =
       inCall &&
-      (state.phase === 'connecting' || state.phase === 'listening' || state.phase === 'userFinalizing');
+      (state.phase === 'connecting' ||
+        state.phase === 'listening' ||
+        state.phase === 'userFinalizing');
+    const aiTurn =
+      inCall && (state.phase === 'assistantPending' || state.phase === 'assistantSpeaking');
+
     if (rtc.aiMeter) {
       rtc.aiMeter.setStream(rtc.remoteStream);
-      rtc.aiMeter.setActive(aiActive);
-      rtc.aiMeter.setFrozen(state.phase === 'ended');
+      rtc.aiMeter.setActive(inCall);
+      rtc.aiMeter.setFrozen(ended);
     }
     if (rtc.userMeter) {
       rtc.userMeter.setStream(rtc.localStream);
-      rtc.userMeter.setActive(userActive);
-      rtc.userMeter.setFrozen(state.phase === 'ended');
+      rtc.userMeter.setActive(inCall);
+      rtc.userMeter.setFrozen(ended);
     }
+
+    setMeterSlotHighlight(refs.aiMeterEl, aiTurn ? 'focus' : inCall ? 'idle' : null);
+    setMeterSlotHighlight(refs.userMeterEl, userTurn ? 'focus' : inCall ? 'idle' : null);
   }
 
   function explanationDotState(msg) {
@@ -761,7 +782,7 @@
   function buildClientSessionUpdate(instructions) {
     return {
       type: 'realtime',
-      model: REALTIME_MODEL,
+      model: state.realtimeModel,
       instructions: instructions,
       output_modalities: ['audio'],
       audio: {
@@ -1176,19 +1197,12 @@
       if (!/m=audio/i.test(localSdp)) {
         throw new Error('SDP без аудио-линии. Проверьте микрофон и разрешения браузера.');
       }
-      // #region agent log
-      fetch('http://127.0.0.1:7504/ingest/1c893e2e-1189-4005-a895-a8c44a156288',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6a780e'},body:JSON.stringify({sessionId:'6a780e',location:'call.js:startCall:before-sdp-fetch',message:'local sdp ready',data:{sdpLen:localSdp.length,hasAudioLine:true,iceState:pc.iceGatheringState,iceTimedOut:iceWait.timedOut},timestamp:Date.now(),hypothesisId:'H1-H2',runId:'sdp-debug'})}).catch(function(){});
-      // #endregion
-
       const sessionResponse = await fetch(apiBase() + '/api/realtime-session/sdp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sdp: localSdp, voice: state.voice }),
+        body: JSON.stringify({ sdp: localSdp, voice: state.voice, model: state.realtimeModel }),
       });
       const sessionData = await sessionResponse.json();
-      // #region agent log
-      fetch('http://127.0.0.1:7504/ingest/1c893e2e-1189-4005-a895-a8c44a156288',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6a780e'},body:JSON.stringify({sessionId:'6a780e',location:'call.js:startCall:sdp-response',message:'sdp response received',data:{status:sessionResponse.ok?sessionResponse.status:'ok',httpStatus:sessionResponse.status,hasSdp:Boolean(sessionData&&sessionData.sdp),errorSnippet:String((sessionData&& (sessionData.userMessage||sessionData.error))||'').slice(0,160),voice:state.voice},timestamp:Date.now(),hypothesisId:'H1-H5',runId:'post-fix'})}).catch(function(){});
-      // #endregion
       if (!sessionResponse.ok) {
         throw new Error(sessionData.userMessage || sessionData.error || 'Ошибка SDP');
       }
@@ -1197,9 +1211,6 @@
       updateMeters();
     } catch (err) {
       state.error = err.message || 'Не удалось начать звонок';
-      // #region agent log
-      fetch('http://127.0.0.1:7504/ingest/1c893e2e-1189-4005-a895-a8c44a156288',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6a780e'},body:JSON.stringify({sessionId:'6a780e',location:'call.js:startCall:catch',message:'startCall failed',data:{errorMessage:String(err&&err.message||err||'').slice(0,200),phase:state.phase},timestamp:Date.now(),hypothesisId:'H1-H5',runId:'post-fix'})}).catch(function(){});
-      // #endregion
       renderError();
       cleanupRtc();
       setPhase('idle');
@@ -1220,8 +1231,14 @@
     updateMeters();
   }
 
-  function syncCallVoiceSelectWidth() {
-    const select = refs.voicePicker;
+  function resolveRealtimeModelId(modelId) {
+    const found = REALTIME_MODEL_OPTIONS.find(function (entry) {
+      return entry.id === modelId;
+    });
+    return found ? found.id : DEFAULT_REALTIME_MODEL;
+  }
+
+  function syncCallSelectWidth(select) {
     if (!select || !select.options.length) return;
 
     const probe = document.createElement('span');
@@ -1257,10 +1274,29 @@
     });
     if (VOICES.indexOf(state.voice) < 0) state.voice = VOICES[0];
     refs.voicePicker.value = state.voice;
-    syncCallVoiceSelectWidth();
+    syncCallSelectWidth(refs.voicePicker);
     refs.voicePicker.addEventListener('change', function () {
       state.voice = refs.voicePicker.value;
       localStorage.setItem(VOICE_STORAGE_KEY, state.voice);
+    });
+  }
+
+  function initModelPicker() {
+    if (!refs.modelPicker) return;
+    refs.modelPicker.innerHTML = '';
+    REALTIME_MODEL_OPTIONS.forEach(function (entry) {
+      const option = document.createElement('option');
+      option.value = entry.id;
+      option.textContent = entry.label;
+      refs.modelPicker.appendChild(option);
+    });
+    state.realtimeModel = resolveRealtimeModelId(state.realtimeModel);
+    refs.modelPicker.value = state.realtimeModel;
+    syncCallSelectWidth(refs.modelPicker);
+    refs.modelPicker.addEventListener('change', function () {
+      state.realtimeModel = resolveRealtimeModelId(refs.modelPicker.value);
+      refs.modelPicker.value = state.realtimeModel;
+      localStorage.setItem(MODEL_STORAGE_KEY, state.realtimeModel);
     });
   }
 
@@ -1362,6 +1398,7 @@
       startScreen: document.getElementById('callStartScreen'),
       callScreen: document.getElementById('callActiveScreen'),
       voicePicker: document.getElementById('callVoicePicker'),
+      modelPicker: document.getElementById('callModelPicker'),
       accessCodeInput: document.getElementById('callAccessCodeInput'),
       accessCodeError: document.getElementById('callAccessCodeError'),
       goToCallBtn: document.getElementById('callGoToCallBtn'),
@@ -1378,15 +1415,16 @@
     };
 
     if (refs.aiMeterEl && global.CallVoiceMeter) {
-      rtc.aiMeter = new global.CallVoiceMeter(refs.aiMeterEl, 'assistant');
+      rtc.aiMeter = new global.CallVoiceMeter(refs.aiMeterEl);
       rtc.aiMeter.start();
     }
     if (refs.userMeterEl && global.CallVoiceMeter) {
-      rtc.userMeter = new global.CallVoiceMeter(refs.userMeterEl, 'user');
+      rtc.userMeter = new global.CallVoiceMeter(refs.userMeterEl);
       rtc.userMeter.start();
     }
 
     initVoicePicker();
+    initModelPicker();
     bindAccessCodeInput();
     bindEvents();
     renderStatus();

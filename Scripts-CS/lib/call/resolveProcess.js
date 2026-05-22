@@ -368,6 +368,7 @@ module.exports = {
   isMetaProvocationQuery,
   isGreetingOnlyQuery,
   buildGreetingClarifyPrompt,
+  extractJsonObject,
   parseLlmResolveResult,
   buildLlmResolvePrompt,
   buildSafeClarifyPrompt,

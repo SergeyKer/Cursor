@@ -1,4 +1,13 @@
 const CALL_REALTIME_MODEL = 'gpt-realtime-2';
+
+/** Модели speech-to-speech для экспериментов на экране «Звонок». */
+const CALL_REALTIME_MODEL_OPTIONS = [
+  { id: 'gpt-realtime-mini', label: 'mini' },
+  { id: 'gpt-realtime-1.5', label: '1.5' },
+  { id: 'gpt-realtime-2', label: '2' },
+];
+const CALL_DEFAULT_REALTIME_MODEL = 'gpt-realtime-2';
+const CALL_REALTIME_MODEL_STORAGE_KEY = 'cs-call-realtime-model';
 const CALL_TRANSCRIPTION_MODEL = 'gpt-4o-mini-transcribe';
 const CALL_DEFAULT_VOICE = 'coral';
 const CALL_VOICE_STORAGE_KEY = 'cs-call-realtime-voice';
@@ -59,6 +68,14 @@ function isCallRealtimeVoice(value) {
   return CALL_REALTIME_VOICES.includes(value);
 }
 
+function isCallRealtimeModel(value) {
+  return CALL_REALTIME_MODEL_OPTIONS.some((entry) => entry.id === value);
+}
+
+function resolveCallRealtimeModel(value) {
+  return isCallRealtimeModel(value) ? value : CALL_DEFAULT_REALTIME_MODEL;
+}
+
 function resolveOperatorName(voice) {
   const gender = CALL_VOICE_GENDER[voice] || 'female';
   return CALL_OPERATOR_NAMES[gender] || CALL_OPERATOR_NAME;
@@ -79,6 +96,9 @@ function buildCallGreetingPhrase() {
 
 module.exports = {
   CALL_REALTIME_MODEL,
+  CALL_REALTIME_MODEL_OPTIONS,
+  CALL_DEFAULT_REALTIME_MODEL,
+  CALL_REALTIME_MODEL_STORAGE_KEY,
   CALL_TRANSCRIPTION_MODEL,
   CALL_DEFAULT_VOICE,
   CALL_VOICE_STORAGE_KEY,
@@ -93,6 +113,8 @@ module.exports = {
   CALL_SILENCE_HANGUP_MS,
   CALL_REALTIME_SERVER_VAD,
   isCallRealtimeVoice,
+  isCallRealtimeModel,
+  resolveCallRealtimeModel,
   resolveOperatorName,
   buildInputAudioTranscriptionConfig,
   buildCallGreetingPhrase,

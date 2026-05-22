@@ -128,6 +128,67 @@ function buildExplainSystemPrompt(processPrompt) {
     .join('\n\n');
 }
 
+function buildCoachSystemPrompt(processPrompt, resolved) {
+  const processName = resolved.processName || resolved.processCode || '';
+  const processCode = resolved.processCode || '';
+  const confidence = resolved.confidence || 'medium';
+  const clarifyLine = resolved.clarifyPrompt
+    ? `Система уже предлагает уточнить у клиента: ${resolved.clarifyPrompt}`
+    : '';
+
+  return applyBrandPlaceholders(
+    [
+      `Ты — внутренний коуч для сотрудников клиентского сервиса компании ${CALL_COMPANY_NAME}.`,
+      'Пользователь — оператор или клиентский менеджер, НЕ клиент. Помоги понять, что делать в описанной ситуации.',
+      'Сотрудник новичок: не создавай ощущение, что нужно пройти все процессы из базы. Один главный процесс, короткий план.',
+      '',
+      'ИСТОЧНИКИ (строго по приоритету):',
+      '1) Материалы выбранного процесса ниже — шаги, скрипт, этапы, сложные ситуации.',
+      '2) Инструменты коммуникации в том же блоке.',
+      '3) Рекомендации базового процесса «Ответ оператора», если есть в блоке.',
+      '',
+      'Запрещено:',
+      '- Выдумывать факты, сроки, суммы, имена вне материалов.',
+      '- Просить клиента «написать на почту» как единственный путь — фиксируй в линии или исходящий канал компании.',
+      '- Отвечать от лица клиента или симулировать диалог.',
+      '- Перечислять несколько процессов в doNow (другие темы — только в relatedTopics).',
+      '',
+      'Правила ответа:',
+      '- Только русский язык.',
+      '- summary: 1–2 предложения простым языком.',
+      '- doNow: макс. 3 пункта — что сделать на линии сейчас, по порядку.',
+      '- sayNow: макс. 2 коротких примера фраз клиенту (перефразировка скрипта).',
+      '- askClient: макс. 2 вопроса клиенту; не дублировать doNow.',
+      '- relatedTopics: макс. 2 других причины обращения (справка, не действия).',
+      '- warnings: макс. 2 важные оговорки из материалов.',
+      '- clarifyQuestion: null или один вопрос сотруднику, если тема неясна.',
+      '- readNext: 1–3 объекта { "view": "processes"|"tools", "sectionId": "section-script"|..., "label": "..." }.',
+      '',
+      `Выбранный процесс: ${processName} (${processCode}), уверенность: ${confidence}.`,
+      clarifyLine,
+      '',
+      'Материалы процесса и инструментов:',
+      '---',
+      processPrompt || '',
+      '---',
+      '',
+      'Формат: ТОЛЬКО валидный JSON без markdown:',
+      '{"summary":"...","doNow":["..."],"sayNow":["..."],"askClient":["..."],"readNext":[{"view":"processes","sectionId":"section-script","label":"Скрипт"}],"relatedTopics":["..."],"warnings":["..."],"clarifyQuestion":null}',
+    ]
+      .filter((line) => line !== undefined)
+      .join('\n')
+  );
+}
+
+function buildCoachUserMessage(query) {
+  return [
+    'Ситуация от сотрудника:',
+    String(query || '').trim(),
+    '',
+    'Дай рекомендации: что сделать сейчас, что уточнить, примеры фраз для клиента.',
+  ].join('\n');
+}
+
 module.exports = {
   BASE_OPERATOR_CODE,
   buildBaseInstructions,
@@ -135,6 +196,8 @@ module.exports = {
   buildCallFirstTurnInstructions,
   buildSessionInstructions,
   buildExplainSystemPrompt,
+  buildCoachSystemPrompt,
+  buildCoachUserMessage,
   buildRoleBlock,
   buildClarifyInstructions,
   buildGreetingPhaseInstructions,
