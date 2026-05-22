@@ -21,20 +21,22 @@ describe('POST /api/tutor-resolve-topic', () => {
     callProviderChatMock.mockReset()
   })
 
-  it('accepts short grammar function words as topic requests', async () => {
+  it('resolves short grammar function words via lesson catalog first', async () => {
     const res = await POST(makeRequest({ query: 'is' }) as never)
     const data = (await res.json()) as {
       resolved: boolean
       status?: string
       suggestions: string[]
       primaryTopic?: string
+      catalogLessonIds?: string[]
     }
 
     expect(res.status).toBe(200)
     expect(data.resolved).toBe(true)
     expect(data.status).toBe('resolved')
-    expect(data.primaryTopic).toBe('To Be')
-    expect(data.suggestions).toEqual(['To Be'])
+    expect(data.primaryTopic).toBe('It’s / It’s time to (A2)')
+    expect(data.suggestions).toEqual(['It’s / It’s time to (A2)'])
+    expect(data.catalogLessonIds).toEqual(['1'])
     expect(callProviderChatMock).not.toHaveBeenCalled()
   })
 
@@ -118,18 +120,20 @@ describe('POST /api/tutor-resolve-topic', () => {
     expect(callProviderChatMock).not.toHaveBeenCalled()
   })
 
-  it('returns one supported intent for present simple without model calls', async () => {
+  it('returns catalog lesson for present simple without model calls', async () => {
     const res = await POST(makeRequest({ query: 'present simple' }) as never)
     const data = (await res.json()) as {
       resolved: boolean
       suggestions: string[]
+      catalogLessonIds?: string[]
       intentOptions?: Array<{ title: string; intentType?: string; targetPatterns: string[] }>
     }
 
     expect(res.status).toBe(200)
     expect(data.resolved).toBe(true)
-    expect(data.suggestions).toEqual(['Present Simple: Positive Sentences'])
-    expect(data.intentOptions?.[0]?.intentType).toBe('single_rule')
+    expect(data.suggestions).toEqual(['I am / I am from (A1)'])
+    expect(data.catalogLessonIds).toEqual(['4'])
+    expect(data.intentOptions?.[0]?.intentType).toBe('short_examples')
     expect(data.intentOptions?.map((option) => option.title)).toEqual(data.suggestions)
     expect(callProviderChatMock).not.toHaveBeenCalled()
   })
@@ -176,20 +180,51 @@ describe('POST /api/tutor-resolve-topic', () => {
     expect(callProviderChatMock).toHaveBeenCalledOnce()
   })
 
-  it.each(['past simple', 'Past Simple', 'паст симпл', 'прошедшее простое'])(
-    'returns one supported past simple intent for %s without model calls',
-    async (query) => {
+  it.each([
+    {
+      query: 'past simple',
+      suggestions: ['I am / I am from (A1)'],
+      catalogLessonIds: ['4'],
+      intentType: 'short_examples',
+    },
+    {
+      query: 'Past Simple',
+      suggestions: ['I am / I am from (A1)'],
+      catalogLessonIds: ['4'],
+      intentType: 'short_examples',
+    },
+    {
+      query: 'прошедшее простое',
+      suggestions: ['I am / I am from (A1)'],
+      catalogLessonIds: ['4'],
+      intentType: 'short_examples',
+    },
+    {
+      query: 'паст симпл',
+      suggestions: ['Past Simple: Positive Sentences'],
+      catalogLessonIds: undefined,
+      intentType: 'form_practice',
+    },
+  ])(
+    'returns resolved intent for $query without model calls',
+    async ({ query, suggestions, catalogLessonIds, intentType }) => {
       const res = await POST(makeRequest({ query }) as never)
       const data = (await res.json()) as {
         resolved: boolean
         suggestions: string[]
+        catalogLessonIds?: string[]
         intentOptions?: Array<{ title: string; intentType?: string; targetPatterns: string[] }>
       }
 
       expect(res.status).toBe(200)
       expect(data.resolved).toBe(true)
-      expect(data.suggestions).toEqual(['Past Simple: Positive Sentences'])
-      expect(data.intentOptions?.[0]?.intentType).toBe('form_practice')
+      expect(data.suggestions).toEqual(suggestions)
+      if (catalogLessonIds) {
+        expect(data.catalogLessonIds).toEqual(catalogLessonIds)
+      } else {
+        expect(data.catalogLessonIds).toBeUndefined()
+      }
+      expect(data.intentOptions?.[0]?.intentType).toBe(intentType)
       expect(data.intentOptions?.map((option) => option.title)).toEqual(data.suggestions)
       expect(callProviderChatMock).not.toHaveBeenCalled()
     }

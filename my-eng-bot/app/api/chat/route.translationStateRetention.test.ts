@@ -351,7 +351,7 @@ describe('POST /api/chat translation state retention', () => {
     expect(extraData.content).not.toContain('Переведи далее:')
   })
 
-  it('keeps canonical Say after long drift/junk history interleave', async () => {
+  it('exits to next sentence after repeated failures in long drift/junk history', async () => {
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,
       content:
@@ -395,8 +395,9 @@ describe('POST /api/chat translation state retention', () => {
     const res = await POST(req as never)
     const data = (await res.json()) as { content: string }
     expect(res.status).toBe(200)
-    expect(data.content).toContain('Скажи: I cook in the kitchen.')
-    expect(data.content).not.toContain('Переведи далее:')
+    expect(data.content).toContain('Давай двигаться дальше')
+    expect(data.content).toContain('Переведи далее:')
+    expect(data.content).not.toContain('Скажи: I cook in the kitchen.')
   })
 
   it('keeps canonical tense/time frame when model drifts answer to tomorrow', async () => {

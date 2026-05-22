@@ -43,7 +43,7 @@ describe('ensureTranslationProtocolBlocks', () => {
       repeatEnglishFallback: 'You like riding a bicycle.',
     })
 
-    expect(out).toContain('Комментарий_перевод: Вижу, что ты стараешься. Давай спокойно поправим это ниже.')
+    expect(out).toContain('Комментарий_перевод: Вижу, что ты стараешься. Сейчас спокойно поправим ключевой момент ниже.')
     expect(out).not.toContain('для вопроса')
     expect(out).not.toContain('"do you like"')
     expect(out).toContain('Скажи: You like riding a bicycle.')
