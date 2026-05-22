@@ -1,17 +1,21 @@
-const { CALL_COMPANY_NAME, CALL_OPERATOR_NAME, buildCallGreetingPhrase } = require('./constants');
-const { buildCompactCatalog } = require('./processCatalog');
-const { applyBrandPlaceholders } = require('./brandText');
-const { serializeFullProcess } = require('./buildProcessPrompt');
+const {
+  CALL_COMPANY_NAME,
+  buildCallGreetingPhrase,
+  resolveOperatorName,
+} = require('./constants');
 const { serializeCommunicationToolsForCall } = require('./communicationToolsPrompt');
+const { applyBrandPlaceholders } = require('./brandText');
+const { DEFAULT_CALL_ROLE } = require('./processRole');
+const { buildVoiceLayerBlock, buildClosingReminder } = require('./voiceBehaviorPrompt');
 
 const BASE_OPERATOR_CODE = 'Ответ оператора';
 
 function buildCallConversationRules() {
   return [
     'ПРАВИЛА КАЖДОЙ РЕПЛИКИ ПОСЛЕ ЖАЛОБЫ, ЗАДЕРЖКИ ИЛИ НЕДОВОЛЬСТВА КЛИЕНТА:',
-    '1) Сначала эмпатия — фраза из «Эмпатия» / «Демонстрация эмпатии» или шага «Если клиент в эмоциях» активного процесса (не обходи этот шаг).',
-    '2) Затем 1–2 уточняющих вопроса из «Уточняющие вопросы» и скрипта процесса (адрес, номер договора/заявки, дата замены).',
-    '3) Запрещено отвечать только «я понимаю» или «давайте уточним детали» без конкретных вопросов из скрипта.',
+    '1) Сначала эмпатия — фраза из «Эмпатия» / «Демонстрация эмпатии» или шага «Если клиент в эмоциях» активного процесса.',
+    '2) Затем 1–2 уточняющих вопроса из скрипта процесса (адрес, номер договора/заявки, дата замены).',
+    '3) Запрещено отвечать только «я понимаю» без конкретных вопросов.',
     '4) Не называй тему «доставка», если клиент говорит о замене/машине — веди по процессу о замене.',
   ].join('\n');
 }
@@ -19,74 +23,104 @@ function buildCallConversationRules() {
 function buildSourcePriorityPreamble() {
   return [
     'ГЛАВНЫЙ ИСТОЧНИК ДЛЯ ЗВОНКА (строго в этом порядке):',
-    '1) Скрипт и этапы активного процесса из базы процессов.',
-    '2) Инструменты коммуникации (техники, когда применять, примеры фраз).',
-    '3) Краткая роль оператора ниже — только тон и формат, без выдуманных фактов.',
-    'Не импровизируй вне материалов процессов и инструментов.',
+    '1) Активный процесс из базы (после определения темы) — смысл и шаги.',
+    '2) Voice-слой ниже — форма, persona, завершение, anti-loop (не выдать ИИ).',
+    '3) Инструменты коммуникации — техники и примеры фраз.',
+    '4) Роль клиентского менеджера — тон; не выдумывай факты вне материалов.',
+    'Не зачитывай материалы дословно; перефразируй естественно.',
   ].join('\n');
 }
 
-function buildRoleBlock() {
+function buildRoleBlock(callRole = DEFAULT_CALL_ROLE, operatorName) {
+  const name = operatorName || 'менеджер';
+  if (callRole === 'client_manager') {
+    return [
+      `Ты — клиентский менеджер компании ${CALL_COMPANY_NAME}.`,
+      `Твоё имя: ${name}. Пользователь — клиент, который позвонил.`,
+      'Говори по-русски, коротко, по телефону. Решай на линии, не перекладывай на «оператора» или «напишите на почту».',
+      'Смысл и шаги — из активного процесса и инструментов коммуникации.',
+    ].join(' ');
+  }
   return [
     'Ты — оператор клиентского сервиса компании.',
-    `Компания: ${CALL_COMPANY_NAME}. Твоё имя: ${CALL_OPERATOR_NAME}.`,
+    `Компания: ${CALL_COMPANY_NAME}. Твоё имя: ${name}.`,
     'Пользователь — клиент, который позвонил.',
     'Говори только по-русски, коротко и по телефону.',
-    'Фразы и логику бери из скрипта процесса и таблицы инструментов коммуникации.',
-    'Если запрос неясен — уточни категорию и веди по процессу «Ответ оператора».',
   ].join(' ');
 }
 
-function buildBaseInstructions(metaList, baseProcess, communicationTools) {
-  const catalog = buildCompactCatalog(metaList);
-  const baseScript = baseProcess ? serializeFullProcess(baseProcess) : '';
+function buildBaseInstructions(communicationTools, options = {}) {
+  const callRole = options.callRole || DEFAULT_CALL_ROLE;
+  const operatorName = options.operatorName || resolveOperatorName(options.voice);
   const toolsBlock = serializeCommunicationToolsForCall(communicationTools);
+  const voiceLayer = buildVoiceLayerBlock({ operatorName });
 
   return applyBrandPlaceholders(
     [
       buildSourcePriorityPreamble(),
-      buildCallConversationRules(),
+      voiceLayer,
       toolsBlock,
-      'Базовый процесс «Ответ оператора» (до определения темы клиента):',
-      baseScript,
-      buildRoleBlock(),
-      'Каталог тем (определи подходящую по речи клиента):',
-      catalog,
+      buildRoleBlock(callRole, operatorName),
+      buildCallConversationRules(),
+      'Тема звонка определяется по речи клиента (resolve); веди разговор по активному процессу после определения темы.',
+      buildClosingReminder(),
     ]
       .filter(Boolean)
       .join('\n\n')
   );
 }
 
-function buildCallFirstTurnInstructions() {
+function buildCallFirstTurnInstructions(options = {}) {
+  const operatorName = options.operatorName || resolveOperatorName(options.voice);
   return applyBrandPlaceholders(
     [
-      'Начни звонок одной короткой репликой оператора.',
-      `Пример: «${buildCallGreetingPhrase()}»`,
-      'Не называй своё имя в приветствии.',
+      'Начни звонок одной короткой репликой клиентского менеджера.',
+      `Пример: «${buildCallGreetingPhrase(operatorName)}»`,
+      'Можно варьировать формулировку, сохраняя имя и компанию.',
       'Не добавляй второй вопрос и не уходи в длинное объяснение.',
     ].join(' ')
   );
 }
 
-function buildSessionInstructions(baseInstructions, processBlock) {
-  if (!processBlock || !processBlock.trim()) return baseInstructions;
-  return applyBrandPlaceholders(
-    [
-      baseInstructions,
-      'Активный процесс для этого звонка (приоритет №1 — веди разговор строго по нему):',
-      processBlock,
-      buildCallConversationRules(),
-      'Повтор: не отходи от скрипта процесса и инструментов коммуникации выше.',
-    ].join('\n\n')
-  );
+function buildClarifyInstructions(clarifyPrompt, clarifyCount) {
+  if (!clarifyPrompt || clarifyCount >= 2) return '';
+  return [
+    'УТОЧНЕНИЕ ТЕМЫ (max 2 за звонок на одну тему):',
+    `Сначала задай один уточняющий вопрос: ${clarifyPrompt}`,
+    'После ответа — веди по лучшему процессу, не повторяй тот же вопрос.',
+  ].join('\n');
+}
+
+function buildGreetingPhaseInstructions() {
+  return [
+    'ФАЗА ПРИВЕТСТВИЯ (активна сейчас):',
+    'Клиент пока не назвал тему. Ответь деловым тоном на «вы», без шуток и сленга.',
+    'Не повторяй «мордасти» и не комментируй стиль приветствия.',
+    'Спроси: по какому вопросу обратились (замена, документы, претензия).',
+    'Не рассказывай о компании, пока не спросили. Не завершай звонок.',
+  ].join('\n');
+}
+
+function buildSessionInstructions(baseInstructions, processBlock, options = {}) {
+  const clarifyBlock = buildClarifyInstructions(options.clarifyPrompt, options.clarifyCount || 0);
+  const parts = [baseInstructions];
+  if (options.greetingOnly) {
+    parts.push(buildGreetingPhaseInstructions());
+  }
+  if (processBlock && processBlock.trim()) {
+    parts.push('Активный процесс для этого звонка (приоритет по содержанию):', processBlock);
+  }
+  if (clarifyBlock) parts.push(clarifyBlock);
+  parts.push(buildCallConversationRules());
+  parts.push('Перефразируй скрипт; не зачитывай материал дословно.');
+  return applyBrandPlaceholders(parts.join('\n\n'));
 }
 
 function buildExplainSystemPrompt(processPrompt) {
   return [
-    'Ты — коуч для операторов клиентского сервиса.',
-    'Объясни за 1–3 короткие фразы на русском, почему оператор сказал именно так.',
-    'Опирайся в первую очередь на script_steps, этапы процесса и инструменты коммуникации.',
+    'Ты — коуч для клиентских менеджеров.',
+    'Объясни за 1–3 короткие фразы на русском, почему менеджер сказал именно так.',
+    'Опирайся на script_steps, этапы процесса и инструменты коммуникации.',
     'Не переводи текст. Не пересказывай реплику. Только причина/смысл.',
     processPrompt ? `Контекст процесса и инструментов:\n${processPrompt}` : '',
   ]
@@ -102,4 +136,6 @@ module.exports = {
   buildSessionInstructions,
   buildExplainSystemPrompt,
   buildRoleBlock,
+  buildClarifyInstructions,
+  buildGreetingPhaseInstructions,
 };

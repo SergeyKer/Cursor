@@ -1,8 +1,8 @@
 [
   {
     "label": "minimal",
-    "sessionLen": 84,
-    "bodyLen": 469,
+    "sessionLen": 81,
+    "bodyLen": 466,
     "status": 400,
     "eof": false,
     "invalid": true,
@@ -10,8 +10,8 @@
   },
   {
     "label": "full",
-    "sessionLen": 15514,
-    "bodyLen": 28454,
+    "sessionLen": 6422,
+    "bodyLen": 11276,
     "status": 400,
     "eof": false,
     "invalid": true,

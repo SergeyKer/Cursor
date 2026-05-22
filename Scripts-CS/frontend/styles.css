@@ -2075,6 +2075,14 @@ body {
   transform: scale(0.95);
 }
 
+.call-action-btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+  box-shadow: none;
+  transform: none;
+}
+
 .call-action-btn--start {
   background: #22c55e;
   box-shadow: 0 10px 24px rgba(34, 197, 94, 0.34);

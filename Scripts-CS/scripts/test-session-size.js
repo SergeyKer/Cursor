@@ -12,15 +12,19 @@ const SDP =
   'v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\nc=IN IP4 0.0.0.0\r\na=ice-ufrag:test\r\na=ice-pwd:testpasswordtestpassword\r\na=rtpmap:111 opus/48000/2\r\n';
 
 const { loadCallData } = require('../lib/call/dataLoader');
-const { buildBaseInstructions, BASE_OPERATOR_CODE } = require('../lib/call/instructions');
-const { resolveProcessKey } = require('../lib/call/processCatalog');
+const { buildBaseInstructions } = require('../lib/call/instructions');
+const { DEFAULT_CALL_ROLE } = require('../lib/call/processRole');
+const { CALL_DEFAULT_VOICE, resolveOperatorName } = require('../lib/call/constants');
 const { buildCallsApiSession, prepareRealtimeCallsMultipart, getRealtimeFetchHeaders } = require('../lib/call/realtimeSession');
 const { CALL_REALTIME_MODEL, CALL_DEFAULT_VOICE } = require('../lib/call/constants');
 const { fetchWithProxyFallback } = require('../lib/proxyFetch');
 
-const { meta, processes, communicationTools } = loadCallData();
-const baseKey = resolveProcessKey({ code: BASE_OPERATOR_CODE, sheet_name: BASE_OPERATOR_CODE }, processes);
-const instructions = buildBaseInstructions(meta, processes[baseKey], communicationTools);
+const { communicationTools } = loadCallData();
+const instructions = buildBaseInstructions(communicationTools, {
+  callRole: DEFAULT_CALL_ROLE,
+  voice: CALL_DEFAULT_VOICE,
+  operatorName: resolveOperatorName(CALL_DEFAULT_VOICE),
+});
 
 const sessions = {
   minimal: { type: 'realtime', model: CALL_REALTIME_MODEL, audio: { output: { voice: CALL_DEFAULT_VOICE } } },

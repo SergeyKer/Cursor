@@ -4,9 +4,35 @@
   ];
   const VOICE_STORAGE_KEY = 'cs-call-realtime-voice';
   const REALTIME_MODEL = 'gpt-realtime-2';
+  const CALL_SILENCE_HANGUP_MS = 30000;
+  const CALL_REALTIME_SERVER_VAD = {
+    type: 'server_vad',
+    threshold: 0.84,
+    prefix_padding_ms: 300,
+    silence_duration_ms: 1200,
+    create_response: true,
+    interrupt_response: false,
+  };
   const BASE_OPERATOR_CODE = 'Ответ оператора';
   const CALL_WELCOME_HINT =
     'Чтобы позвонить в клиентский отдел компании E-liss, нажмите кнопку «Вызов».';
+  const TRANSCRIPTION_RU_PROMPT =
+    'Транскрибируй только русскую речь. Если слышишь не русский язык — не выводи латиницу, верни пустую строку.';
+
+  const CYRILLIC_RE = /[\u0401\u0451\u0410-\u044F\u0400-\u04FF]/g;
+  const LATIN_RE = /[A-Za-z\u00C0-\u00FF\u0100-\u017F\u0180-\u024F]/g;
+
+  function isLikelyRussianTranscript(text) {
+    const trimmed = String(text || '').trim();
+    if (!trimmed) return false;
+    const cyrillic = (trimmed.match(CYRILLIC_RE) || []).length;
+    const latin = (trimmed.match(LATIN_RE) || []).length;
+    const letters = cyrillic + latin;
+    if (cyrillic > 0) return true;
+    if (letters === 0) return /^[\d\s+().,\-–—]+$/.test(trimmed);
+    if (latin > 0 && cyrillic === 0) return false;
+    return false;
+  }
 
   const state = {
     phase: 'idle',
@@ -19,15 +45,33 @@
     activeProcessName: '',
     error: null,
     callStartedAt: null,
+    lastCallDurationSec: 0,
     timerInterval: null,
+    lastMeaningfulActivityAt: 0,
+    silenceWatchInterval: null,
     pendingAssistantText: '',
+    assistantPendingByResponseId: new Map(),
+    committedAssistantResponseIds: new Set(),
+    lastAssistantResponseId: null,
+    assistantCommitFallbackTimers: new Map(),
+    assistantMessageIndexByResponseId: new Map(),
     greetingTriggered: false,
     assistantResponseActive: false,
     lastResolvedQuery: '',
+    lastResolvedNormalized: '',
+    clarifyCount: 0,
+    firstTurnInstructions: '',
+    dialogOrder: {
+      nextSeq: 0,
+      flushedThrough: 0,
+      slots: new Map(),
+      pendingUserTurns: [],
+      assistantSeqByResponseId: new Map(),
+    },
   };
 
   let refs = {};
-  /** Сколько сообщений уже отрисовано — чтобы не переигрывать enter-анимацию при «Почему так?». */
+  /** Сколько сообщений уже отрисовано — enter-анимация только для новых. */
   let renderedMessageCount = 0;
   let rtc = {
     pc: null,
@@ -49,10 +93,35 @@
     return '';
   }
 
+  const CALL_ACTIVE_PHASES = [
+    'connecting',
+    'listening',
+    'userFinalizing',
+    'assistantPending',
+    'assistantSpeaking',
+  ];
+
+  function isCallInProgress(phase) {
+    return CALL_ACTIVE_PHASES.indexOf(phase || state.phase) >= 0;
+  }
+
+  function setCallButtonEnabled(button, enabled) {
+    if (!button) return;
+    button.disabled = !enabled;
+    button.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+  }
+
+  function updateCallControls() {
+    const inCall = isCallInProgress(state.phase);
+    setCallButtonEnabled(refs.startBtn, !inCall);
+    setCallButtonEnabled(refs.hangupBtn, inCall);
+  }
+
   function setPhase(phase) {
     state.phase = phase;
     renderStatus();
     updateMeters();
+    updateCallControls();
   }
 
   function formatDuration(seconds) {
@@ -62,24 +131,70 @@
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
 
-  function startTimer() {
-    stopTimer();
-    state.callStartedAt = Date.now();
-    state.timerInterval = window.setInterval(function () {
-      if (refs.timerEl && state.callStartedAt) {
-        const elapsed = Math.floor((Date.now() - state.callStartedAt) / 1000);
-        refs.timerEl.textContent = formatDuration(elapsed);
-      }
-    }, 1000);
+  function updateTimerDisplay(seconds) {
+    if (refs.timerEl) refs.timerEl.textContent = formatDuration(seconds);
   }
 
-  function stopTimer() {
+  function stopTimerInterval() {
     if (state.timerInterval) {
       window.clearInterval(state.timerInterval);
       state.timerInterval = null;
     }
+  }
+
+  function resetTimerForNewCall() {
+    stopTimerInterval();
     state.callStartedAt = null;
-    if (refs.timerEl) refs.timerEl.textContent = '00:00';
+    state.lastCallDurationSec = 0;
+    updateTimerDisplay(0);
+  }
+
+  function startTimer() {
+    stopTimerInterval();
+    state.callStartedAt = Date.now();
+    state.lastCallDurationSec = 0;
+    updateTimerDisplay(0);
+    state.timerInterval = window.setInterval(function () {
+      if (!state.callStartedAt) return;
+      const elapsed = Math.floor((Date.now() - state.callStartedAt) / 1000);
+      updateTimerDisplay(elapsed);
+    }, 1000);
+  }
+
+  /** После завершения звонка — показывать итог до следующего вызова. */
+  function freezeTimerOnHangup() {
+    stopTimerInterval();
+    if (state.callStartedAt) {
+      state.lastCallDurationSec = Math.floor((Date.now() - state.callStartedAt) / 1000);
+      state.callStartedAt = null;
+    }
+    updateTimerDisplay(state.lastCallDurationSec);
+  }
+
+  function touchMeaningfulActivity() {
+    state.lastMeaningfulActivityAt = Date.now();
+  }
+
+  function stopSilenceWatch() {
+    if (state.silenceWatchInterval) {
+      window.clearInterval(state.silenceWatchInterval);
+      state.silenceWatchInterval = null;
+    }
+    state.lastMeaningfulActivityAt = 0;
+  }
+
+  function startSilenceWatch() {
+    stopSilenceWatch();
+    touchMeaningfulActivity();
+    state.silenceWatchInterval = window.setInterval(function () {
+      const inCall = ['listening', 'userFinalizing', 'assistantPending', 'assistantSpeaking'].includes(
+        state.phase
+      );
+      if (!inCall || !state.lastMeaningfulActivityAt) return;
+      if (Date.now() - state.lastMeaningfulActivityAt >= CALL_SILENCE_HANGUP_MS) {
+        hangUp({ reason: 'silence' });
+      }
+    }, 1000);
   }
 
   function renderStatus() {
@@ -228,6 +343,7 @@
         const row = document.createElement('div');
         row.className =
           'call-log__service' + (index >= animateFromIndex ? ' call-bubble-enter' : '');
+        row.dataset.callMsgIndex = String(index);
         const line = document.createElement('p');
         line.className = 'call-log__service-text';
         line.textContent = msg.content;
@@ -249,7 +365,12 @@
       text.textContent = msg.content;
       row.appendChild(text);
 
-      if (msg.role === 'assistant' && msg.content && msg.content !== CALL_WELCOME_HINT) {
+      if (
+        msg.role === 'assistant' &&
+        !msg.streaming &&
+        msg.content &&
+        msg.content !== CALL_WELCOME_HINT
+      ) {
         appendExplainChip(row, msg, index);
       }
 
@@ -261,6 +382,13 @@
     if (keepScroll) {
       restoreLogScrollDistanceFromBottom(distFromBottom);
     } else {
+      refs.logEl.scrollTop = refs.logEl.scrollHeight;
+    }
+  }
+
+  function scrollLogIfAtBottom() {
+    if (!refs.logEl) return;
+    if (getLogScrollDistanceFromBottom() < 72) {
       refs.logEl.scrollTop = refs.logEl.scrollHeight;
     }
   }
@@ -303,22 +431,322 @@
     }
   }
 
+  function resetDialogOrder() {
+    state.dialogOrder.nextSeq = 0;
+    state.dialogOrder.flushedThrough = 0;
+    state.dialogOrder.slots.clear();
+    state.dialogOrder.pendingUserTurns = [];
+    state.dialogOrder.assistantSeqByResponseId.clear();
+    state.assistantPendingByResponseId.clear();
+    state.committedAssistantResponseIds.clear();
+    state.lastAssistantResponseId = null;
+    state.assistantCommitFallbackTimers.forEach(function (timer) {
+      clearTimeout(timer);
+    });
+    state.assistantCommitFallbackTimers.clear();
+    state.assistantMessageIndexByResponseId.clear();
+  }
+
+  function allocDialogSeq() {
+    state.dialogOrder.nextSeq += 1;
+    return state.dialogOrder.nextSeq;
+  }
+
+  function flushDialogMessages() {
+    let next = state.dialogOrder.flushedThrough + 1;
+    while (state.dialogOrder.slots.has(next)) {
+      const msg = state.dialogOrder.slots.get(next);
+      state.dialogOrder.slots.delete(next);
+      state.dialogOrder.flushedThrough = next;
+      if (!msg._skip) pushMessage(msg);
+      next += 1;
+    }
+  }
+
+  function skipPendingUserDialogSlot(itemId) {
+    let turn = null;
+    if (itemId) {
+      const pending = state.dialogOrder.pendingUserTurns;
+      const idx = pending.findIndex(function (t) {
+        return t.itemId === itemId;
+      });
+      if (idx >= 0) turn = pending.splice(idx, 1)[0];
+    }
+    if (!turn && state.dialogOrder.pendingUserTurns.length) {
+      turn = state.dialogOrder.pendingUserTurns.pop();
+    }
+    if (!turn) return;
+    scheduleDialogMessage(turn.seq, { _skip: true });
+  }
+
+  function scheduleDialogMessage(seq, message) {
+    if (!seq) {
+      pushMessage(message);
+      return;
+    }
+    state.dialogOrder.slots.set(seq, message);
+    flushDialogMessages();
+  }
+
+  function registerUserTurn(itemId) {
+    const seq = allocDialogSeq();
+    state.dialogOrder.pendingUserTurns.push({
+      seq: seq,
+      itemId: itemId || null,
+    });
+    return seq;
+  }
+
+  function bindItemIdToPendingUserTurn(itemId) {
+    if (!itemId) return;
+    const pending = state.dialogOrder.pendingUserTurns;
+    for (let i = pending.length - 1; i >= 0; i -= 1) {
+      if (!pending[i].itemId) {
+        pending[i].itemId = itemId;
+        return;
+      }
+    }
+  }
+
+  function resolvePendingUserTurn(itemId) {
+    const pending = state.dialogOrder.pendingUserTurns;
+    if (itemId) {
+      const idx = pending.findIndex(function (t) {
+        return t.itemId === itemId;
+      });
+      if (idx >= 0) return pending.splice(idx, 1)[0];
+    }
+    return pending.shift() || null;
+  }
+
+  function enqueueUserTranscript(transcript, itemId) {
+    const text = String(transcript || '').trim();
+    if (!text) return false;
+    let turn = resolvePendingUserTurn(itemId);
+    if (!turn) {
+      turn = { seq: allocDialogSeq(), itemId: itemId || null };
+    }
+    scheduleDialogMessage(turn.seq, { role: 'user', content: text });
+    return true;
+  }
+
+  function registerAssistantResponse(responseId) {
+    const id = responseId || 'response-' + String(allocDialogSeq());
+    const seq = allocDialogSeq();
+    state.dialogOrder.assistantSeqByResponseId.set(id, seq);
+    return { responseId: id, seq: seq };
+  }
+
+  function resolveAssistantSeq(responseId) {
+    if (responseId && state.dialogOrder.assistantSeqByResponseId.has(responseId)) {
+      return state.dialogOrder.assistantSeqByResponseId.get(responseId);
+    }
+    if (state.dialogOrder.assistantSeqByResponseId.size === 1) {
+      let onlySeq = null;
+      state.dialogOrder.assistantSeqByResponseId.forEach(function (seq) {
+        onlySeq = seq;
+      });
+      return onlySeq;
+    }
+    return null;
+  }
+
+  function resolveEventResponseId(parsed) {
+    return (
+      (parsed && parsed.response_id) ||
+      (parsed && parsed.response && parsed.response.id) ||
+      state.lastAssistantResponseId ||
+      null
+    );
+  }
+
+  function getAssistantPendingText(responseId) {
+    if (responseId && state.assistantPendingByResponseId.has(responseId)) {
+      return state.assistantPendingByResponseId.get(responseId);
+    }
+    return state.pendingAssistantText;
+  }
+
+  function setAssistantPendingText(responseId, text) {
+    if (responseId) state.assistantPendingByResponseId.set(responseId, text);
+    else state.pendingAssistantText = text;
+  }
+
+  function clearAssistantPendingText(responseId) {
+    if (responseId) state.assistantPendingByResponseId.delete(responseId);
+    state.pendingAssistantText = '';
+  }
+
+  function clearAssistantCommitFallback(responseId) {
+    if (!responseId) return;
+    const timer = state.assistantCommitFallbackTimers.get(responseId);
+    if (timer) clearTimeout(timer);
+    state.assistantCommitFallbackTimers.delete(responseId);
+  }
+
+  function releaseAssistantDialogSlot(responseId, seq) {
+    const slotSeq = seq != null ? seq : resolveAssistantSeq(responseId);
+    if (responseId) state.dialogOrder.assistantSeqByResponseId.delete(responseId);
+    if (slotSeq) scheduleDialogMessage(slotSeq, { _skip: true });
+  }
+
+  function patchAssistantBubbleText(index, text) {
+    if (!refs.logEl) return;
+    const wrap = refs.logEl.querySelector('[data-call-msg-index="' + index + '"]');
+    if (!wrap) return;
+    const textEl = wrap.querySelector('.call-bubble__text');
+    if (textEl) textEl.textContent = text;
+  }
+
+  function finalizeAssistantExplainChip(index) {
+    const msg = state.messages[index];
+    if (!msg || msg.role !== 'assistant' || msg.streaming || msg.content === CALL_WELCOME_HINT) return;
+    if (!refs.logEl) return;
+    const wrap = refs.logEl.querySelector('[data-call-msg-index="' + index + '"]');
+    if (!wrap) return;
+    const row = wrap.querySelector('.call-bubble');
+    if (!row || row.querySelector('.call-chip-btn')) return;
+    appendExplainChip(row, msg, index);
+  }
+
+  function trackAssistantMessageIndex(responseId, index) {
+    if (responseId) state.assistantMessageIndexByResponseId.set(responseId, index);
+  }
+
+  function findAssistantMessageIndex(responseId) {
+    if (!responseId) return null;
+    if (state.assistantMessageIndexByResponseId.has(responseId)) {
+      return state.assistantMessageIndexByResponseId.get(responseId);
+    }
+    for (let i = state.messages.length - 1; i >= 0; i -= 1) {
+      const msg = state.messages[i];
+      if (msg && msg.role === 'assistant' && msg._responseId === responseId) {
+        trackAssistantMessageIndex(responseId, i);
+        return i;
+      }
+    }
+    return null;
+  }
+
+  function upsertAssistantStreamingTranscript(responseId, text) {
+    const rid = responseId || null;
+    const clean = String(text || '').trim();
+    if (!rid || !clean) return;
+    if (state.committedAssistantResponseIds.has(rid)) {
+      updateAssistantMessageIfLonger(clean);
+      return;
+    }
+
+    const existingIdx = findAssistantMessageIndex(rid);
+    if (existingIdx != null && state.messages[existingIdx]) {
+      state.messages[existingIdx].content = clean;
+      state.messages[existingIdx].streaming = true;
+      patchAssistantBubbleText(existingIdx, clean);
+      scrollLogIfAtBottom();
+      return;
+    }
+
+    const seq = resolveAssistantSeq(rid);
+    if (seq && state.dialogOrder.slots.has(seq)) {
+      const slotMsg = state.dialogOrder.slots.get(seq);
+      slotMsg.content = clean;
+      slotMsg.streaming = true;
+      slotMsg._responseId = rid;
+      flushDialogMessages();
+      return;
+    }
+
+    if (seq) {
+      scheduleDialogMessage(seq, {
+        role: 'assistant',
+        content: clean,
+        streaming: true,
+        _responseId: rid,
+      });
+    }
+  }
+
+  function updateAssistantMessageIfLonger(clean) {
+    for (let i = state.messages.length - 1; i >= 0; i -= 1) {
+      const msg = state.messages[i];
+      if (!msg || msg.role !== 'assistant' || msg.serviceLine) continue;
+      if (clean.length <= String(msg.content || '').length) return false;
+      msg.content = clean;
+      patchAssistantBubbleText(i, clean);
+      return true;
+    }
+    return false;
+  }
+
+  function commitAssistantTranscript(text, responseId) {
+    const rid = responseId || null;
+    const clean = String(text || '').trim();
+    clearAssistantCommitFallback(rid);
+
+    const streamingIdx = rid != null ? findAssistantMessageIndex(rid) : null;
+    if (streamingIdx != null && state.messages[streamingIdx]) {
+      if (clean) {
+        state.messages[streamingIdx].content = clean;
+        state.messages[streamingIdx].streaming = false;
+        patchAssistantBubbleText(streamingIdx, clean);
+        finalizeAssistantExplainChip(streamingIdx);
+      }
+      if (rid) state.committedAssistantResponseIds.add(rid);
+      if (rid) state.dialogOrder.assistantSeqByResponseId.delete(rid);
+      if (rid) state.assistantMessageIndexByResponseId.delete(rid);
+      clearAssistantPendingText(rid);
+      scrollLogIfAtBottom();
+      return;
+    }
+
+    if (rid && state.committedAssistantResponseIds.has(rid)) {
+      if (clean) updateAssistantMessageIfLonger(clean);
+      return;
+    }
+
+    const seq = resolveAssistantSeq(rid);
+
+    if (!clean) {
+      if (rid) state.committedAssistantResponseIds.add(rid);
+      releaseAssistantDialogSlot(rid, seq);
+      clearAssistantPendingText(rid);
+      return;
+    }
+
+    if (rid) state.committedAssistantResponseIds.add(rid);
+    if (rid) state.dialogOrder.assistantSeqByResponseId.delete(rid);
+    if (seq) {
+      scheduleDialogMessage(seq, { role: 'assistant', content: clean, _responseId: rid });
+    } else {
+      pushMessage({ role: 'assistant', content: clean, _responseId: rid });
+    }
+    clearAssistantPendingText(rid);
+  }
+
+  function scheduleAssistantCommitFallback(responseId) {
+    if (!responseId) return;
+    clearAssistantCommitFallback(responseId);
+    const timer = setTimeout(function () {
+      state.assistantCommitFallbackTimers.delete(responseId);
+      if (state.committedAssistantResponseIds.has(responseId)) return;
+      commitAssistantTranscript(getAssistantPendingText(responseId), responseId);
+    }, 450);
+    state.assistantCommitFallbackTimers.set(responseId, timer);
+  }
+
   function pushMessage(message) {
     const atBottom = getLogScrollDistanceFromBottom() < 72;
     state.messages.push(message);
+    const index = state.messages.length - 1;
+    if (message._responseId) trackAssistantMessageIndex(message._responseId, index);
     renderMessages({ keepScroll: true });
     if (atBottom && refs.logEl) {
       refs.logEl.scrollTop = refs.logEl.scrollHeight;
     }
   }
 
-  function commitAssistantText(text) {
-    const clean = (text || '').trim();
-    if (!clean) return;
-    const last = state.messages[state.messages.length - 1];
-    if (last && last.role === 'assistant' && last.content === clean) return;
-    pushMessage({ role: 'assistant', content: clean });
-    state.pendingAssistantText = '';
+  function commitAssistantText(text, responseId) {
+    commitAssistantTranscript(text, responseId);
   }
 
   function sendRealtimeEvent(payload) {
@@ -335,32 +763,46 @@
       output_modalities: ['audio'],
       audio: {
         input: {
-          transcription: { model: 'gpt-4o-mini-transcribe', language: 'ru' },
-          turn_detection: {
-            type: 'server_vad',
-            threshold: 0.72,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 900,
-            create_response: true,
-            interrupt_response: false,
+          transcription: {
+            model: 'gpt-4o-mini-transcribe',
+            language: 'ru',
+            prompt: TRANSCRIPTION_RU_PROMPT,
           },
+          turn_detection: Object.assign({}, CALL_REALTIME_SERVER_VAD),
         },
         output: { voice: state.voice },
       },
     };
   }
 
+  function normalizeForResolve(query) {
+    return String(query || '')
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   async function resolveProcess(query) {
-    if (!query || query === state.lastResolvedQuery) return;
+    const normalized = normalizeForResolve(query);
+    if (!query || normalized === state.lastResolvedNormalized) return;
     try {
       const res = await fetch(apiBase() + '/api/call-resolve-process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: query }),
+        body: JSON.stringify({
+          query: query,
+          voice: state.voice,
+          clarifyCount: state.clarifyCount,
+        }),
       });
       const data = await res.json();
       if (!res.ok) return;
       state.lastResolvedQuery = query;
+      state.lastResolvedNormalized = normalized;
+      if (data.clarifyPrompt && state.clarifyCount < 2) {
+        state.clarifyCount += 1;
+      }
       state.activeProcessCode = data.processCode || BASE_OPERATOR_CODE;
       state.activeProcessName = data.name || state.activeProcessCode;
       state.activeProcessPrompt = data.processPrompt || '';
@@ -376,9 +818,12 @@
   }
 
   async function fetchBaseInstructions() {
-    const res = await fetch(apiBase() + '/api/call-base-instructions');
+    const res = await fetch(
+      apiBase() + '/api/call-base-instructions?voice=' + encodeURIComponent(state.voice)
+    );
     if (!res.ok) throw new Error('Не удалось загрузить базовые инструкции');
     const data = await res.json();
+    state.firstTurnInstructions = data.firstTurnInstructions || '';
     return data.instructions || '';
   }
 
@@ -406,17 +851,20 @@
   function extractTextFromResponseDone(event) {
     const output = event.response && event.response.output;
     if (!Array.isArray(output)) return '';
+    const chunks = [];
     for (let i = 0; i < output.length; i += 1) {
       const item = output[i];
-      if (item && Array.isArray(item.content)) {
-        for (let j = 0; j < item.content.length; j += 1) {
-          const part = item.content[j];
-          if (part && typeof part.transcript === 'string' && part.transcript.trim()) return part.transcript.trim();
-          if (part && typeof part.text === 'string' && part.text.trim()) return part.text.trim();
+      if (!item || !Array.isArray(item.content)) continue;
+      for (let j = 0; j < item.content.length; j += 1) {
+        const part = item.content[j];
+        if (part && typeof part.transcript === 'string' && part.transcript.trim()) {
+          chunks.push(part.transcript.trim());
+        } else if (part && typeof part.text === 'string' && part.text.trim()) {
+          chunks.push(part.text.trim());
         }
       }
     }
-    return '';
+    return chunks.join('\n').trim();
   }
 
   function isAudioTranscriptDone(type) {
@@ -444,13 +892,15 @@
 
     if (parsed.type === 'session.created' || parsed.type === 'session.updated') {
       setPhase('listening');
+      startSilenceWatch();
       if (parsed.type === 'session.created' && !state.greetingTriggered) {
         state.greetingTriggered = true;
         sendRealtimeEvent({
           type: 'response.create',
           response: {
             instructions:
-              'Начни звонок одной короткой репликой: «Добрый день, компания E-liss. Слушаю Вас.» Больше ничего не добавляй. Не называй своё имя.',
+              state.firstTurnInstructions ||
+              'Начни звонок одной короткой репликой клиентского менеджера E-liss. Представься по имени. Больше ничего не добавляй.',
           },
         });
       }
@@ -463,17 +913,39 @@
     }
 
     if (parsed.type === 'input_audio_buffer.speech_stopped') {
+      registerUserTurn(null);
       setPhase('userFinalizing');
+      return;
+    }
+
+    if (parsed.type === 'conversation.item.created') {
+      const item = parsed.item;
+      if (item && item.id && item.role === 'user') {
+        bindItemIdToPendingUserTurn(item.id);
+      }
       return;
     }
 
     if (parsed.type === 'conversation.item.input_audio_transcription.completed') {
       const transcript = (parsed.transcript || '').trim();
+      const itemId =
+        parsed.item_id ||
+        (parsed.item && parsed.item.id) ||
+        (parsed.event && parsed.event.item_id) ||
+        null;
+      if (transcript && !isLikelyRussianTranscript(transcript)) {
+        skipPendingUserDialogSlot(itemId);
+        setPhase('listening');
+        return;
+      }
       if (transcript) {
-        pushMessage({ role: 'user', content: transcript });
-        void resolveProcess(transcript);
+        touchMeaningfulActivity();
+        if (enqueueUserTranscript(transcript, itemId)) {
+          void resolveProcess(transcript);
+        }
         setPhase('assistantPending');
       } else {
+        skipPendingUserDialogSlot(itemId);
         setPhase('listening');
       }
       return;
@@ -481,39 +953,80 @@
 
     if (parsed.type === 'response.created') {
       state.assistantResponseActive = true;
+      const responseId = parsed.response && parsed.response.id;
+      state.lastAssistantResponseId = responseId || null;
       state.pendingAssistantText = '';
+      if (responseId) state.assistantPendingByResponseId.set(responseId, '');
+      registerAssistantResponse(responseId);
+      touchMeaningfulActivity();
       setPhase('assistantPending');
+      return;
+    }
+
+    if (parsed.type === 'response.output_audio.delta') {
+      const responseId = resolveEventResponseId(parsed);
+      if (findAssistantMessageIndex(responseId) == null) {
+        upsertAssistantStreamingTranscript(responseId, '…');
+      }
+      touchMeaningfulActivity();
+      setPhase('assistantSpeaking');
       return;
     }
 
     if (parsed.type === 'response.output_text.delta' || isAudioTranscriptDelta(parsed.type)) {
       if (typeof parsed.delta === 'string' && parsed.delta) {
-        state.pendingAssistantText += parsed.delta;
+        const responseId = resolveEventResponseId(parsed);
+        const merged = getAssistantPendingText(responseId) + parsed.delta;
+        setAssistantPendingText(responseId, merged);
+        upsertAssistantStreamingTranscript(responseId, merged);
+        touchMeaningfulActivity();
         setPhase('assistantSpeaking');
       }
       return;
     }
 
     if (parsed.type === 'response.output_text.done' || isAudioTranscriptDone(parsed.type)) {
+      const responseId = resolveEventResponseId(parsed);
       const finalText =
         (typeof parsed.text === 'string' && parsed.text.trim()) ||
         (typeof parsed.transcript === 'string' && parsed.transcript.trim()) ||
-        state.pendingAssistantText.trim();
-      if (finalText) state.pendingAssistantText = finalText;
+        getAssistantPendingText(responseId).trim();
+      if (finalText) setAssistantPendingText(responseId, finalText);
+      if (isAudioTranscriptDone(parsed.type)) {
+        if (finalText) touchMeaningfulActivity();
+        commitAssistantTranscript(finalText, responseId);
+      }
       return;
     }
 
     if (parsed.type === 'response.done') {
       state.assistantResponseActive = false;
-      const extracted = extractTextFromResponseDone(parsed) || state.pendingAssistantText;
-      commitAssistantText(extracted);
+      const responseId = parsed.response && parsed.response.id;
+      const extracted =
+        extractTextFromResponseDone(parsed) ||
+        getAssistantPendingText(responseId) ||
+        state.pendingAssistantText;
+      if (extracted) {
+        touchMeaningfulActivity();
+        commitAssistantTranscript(extracted, responseId);
+      } else if (responseId) {
+        scheduleAssistantCommitFallback(responseId);
+      } else {
+        commitAssistantTranscript('', responseId);
+      }
       setPhase('listening');
       return;
     }
   }
 
-  function cleanupRtc() {
-    stopTimer();
+  function cleanupRtc(options) {
+    const preserveTimer = options && options.preserveTimer;
+    stopSilenceWatch();
+    if (preserveTimer) {
+      stopTimerInterval();
+    } else {
+      resetTimerForNewCall();
+    }
     if (rtc.aiMeter) rtc.aiMeter.stop();
     if (rtc.userMeter) rtc.userMeter.stop();
     if (rtc.dc) {
@@ -540,6 +1053,8 @@
     state.greetingTriggered = false;
     state.assistantResponseActive = false;
     state.pendingAssistantText = '';
+    state.lastAssistantResponseId = null;
+    resetDialogOrder();
   }
 
   function renderError() {
@@ -584,17 +1099,22 @@
   }
 
   async function startCall() {
-    if (['connecting', 'listening', 'assistantPending', 'assistantSpeaking', 'userFinalizing'].includes(state.phase)) return;
+    if (isCallInProgress(state.phase)) return;
     state.error = null;
     renderError();
     state.messages = [];
+    resetDialogOrder();
     renderedMessageCount = 0;
     state.lastResolvedQuery = '';
+    state.lastResolvedNormalized = '';
+    state.clarifyCount = 0;
+    state.firstTurnInstructions = '';
     state.activeProcessCode = BASE_OPERATOR_CODE;
     state.activeProcessPrompt = '';
     state.activeSessionInstructions = '';
     if (refs.processBadge) refs.processBadge.classList.add('hidden');
     renderMessages();
+    resetTimerForNewCall();
     setPhase('connecting');
     startTimer();
 
@@ -683,9 +1203,16 @@
     }
   }
 
-  function hangUp() {
-    cleanupRtc();
-    pushMessage({ role: 'assistant', content: 'Звонок завершён', serviceLine: true });
+  function hangUp(options) {
+    if (state.phase === 'ended') return;
+    const reason = options && options.reason;
+    freezeTimerOnHangup();
+    cleanupRtc({ preserveTimer: true });
+    const line =
+      reason === 'silence'
+        ? 'Звонок завершён: нет речи 30 сек.'
+        : 'Звонок завершён';
+    pushMessage({ role: 'assistant', content: line, serviceLine: true });
     setPhase('ended');
     updateMeters();
   }
@@ -815,11 +1342,13 @@
     }
     if (refs.startBtn) {
       refs.startBtn.addEventListener('click', function () {
+        if (refs.startBtn.disabled) return;
         void startCall();
       });
     }
     if (refs.hangupBtn) {
       refs.hangupBtn.addEventListener('click', function () {
+        if (refs.hangupBtn.disabled) return;
         hangUp();
       });
     }
@@ -858,6 +1387,7 @@
     bindAccessCodeInput();
     bindEvents();
     renderStatus();
+    updateCallControls();
     renderMessages();
     showScreen('start');
   }

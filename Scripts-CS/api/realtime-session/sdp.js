@@ -2,15 +2,16 @@ const {
   CALL_REALTIME_MODEL,
   CALL_DEFAULT_VOICE,
   isCallRealtimeVoice,
+  resolveOperatorName,
 } = require('../../lib/call/constants');
+const { DEFAULT_CALL_ROLE } = require('../../lib/call/processRole');
 const { resolveCallRealtimeUserMessage } = require('../../lib/call/errors');
 const {
   buildCallsApiSession,
   buildRealtimeCallsFormBody,
 } = require('../../lib/call/realtimeSession');
 const { loadCallData } = require('../../lib/call/dataLoader');
-const { BASE_OPERATOR_CODE, buildBaseInstructions } = require('../../lib/call/instructions');
-const { resolveProcessKey } = require('../../lib/call/processCatalog');
+const { buildBaseInstructions } = require('../../lib/call/instructions');
 const { debugLog } = require('../../lib/debugLog');
 const { fetchWithProxyFallback, describeProxyConfig } = require('../../lib/proxyFetch');
 
@@ -101,10 +102,12 @@ module.exports = async function handler(req, res) {
     }
 
     const voice = isCallRealtimeVoice(body.voice) ? body.voice : CALL_DEFAULT_VOICE;
-    const { meta, processes, communicationTools } = loadCallData();
-    const baseKey = resolveProcessKey({ code: BASE_OPERATOR_CODE, sheet_name: BASE_OPERATOR_CODE }, processes);
-    const baseProcess = baseKey ? processes[baseKey] : null;
-    const instructions = buildBaseInstructions(meta, baseProcess, communicationTools);
+    const { communicationTools } = loadCallData();
+    const instructions = buildBaseInstructions(communicationTools, {
+      callRole: DEFAULT_CALL_ROLE,
+      voice,
+      operatorName: resolveOperatorName(voice),
+    });
 
     const sessionPayload = buildCallsApiSession({
       model: CALL_REALTIME_MODEL,

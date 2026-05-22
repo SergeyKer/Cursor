@@ -7,6 +7,18 @@ const {
 } = require('../lib/call/instructions');
 const { resolveProcessKey } = require('../lib/call/processCatalog');
 const processCatalog = require('../lib/call/processCatalog');
+const { canonicalProcessCode } = require('../lib/call/processAliases');
+const {
+  resolveProcessByScoring,
+  parseLlmResolveResult,
+  buildLlmResolvePrompt,
+  isGreetingOnlyQuery,
+} = require('../lib/call/resolveProcess');
+const { fetchWithProxyFallback } = require('../lib/proxyFetch');
+const { resolveOperatorName, isCallRealtimeVoice, CALL_DEFAULT_VOICE } = require('../lib/call/constants');
+const { DEFAULT_CALL_ROLE } = require('../lib/call/processRole');
+
+const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
 
 function resolveProcessMeta(metaList, code) {
   if (typeof processCatalog.resolveRichProcessMeta === 'function') {
@@ -14,18 +26,14 @@ function resolveProcessMeta(metaList, code) {
   }
   return processCatalog.findMetaByCode(metaList, code);
 }
-const { canonicalProcessCode } = require('../lib/call/processAliases');
-const {
-  resolveProcessByScoring,
-  parseLlmResolveResult,
-  buildLlmResolvePrompt,
-} = require('../lib/call/resolveProcess');
-const { fetchWithProxyFallback } = require('../lib/proxyFetch');
-
-const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
 
 function normalizeKey(raw) {
   return String(raw || '').replace(/^["'\s]+|["'\s]+$/g, '');
+}
+
+function parseVoice(body) {
+  const voice = body && body.voice;
+  return isCallRealtimeVoice(voice) ? voice : CALL_DEFAULT_VOICE;
 }
 
 async function classifyWithLlm(query, metaList, apiKey) {
@@ -62,10 +70,16 @@ module.exports = async function handler(req, res) {
       return;
     }
 
+    const voice = parseVoice(req.body);
+    const operatorName = resolveOperatorName(voice);
+    const clarifyCount = Number(req.body && req.body.clarifyCount) || 0;
+
     const { meta, processes, knowledge, communicationTools } = loadCallData();
     let resolved = resolveProcessByScoring(meta, query);
 
     const needsLlm =
+      !isGreetingOnlyQuery(query) &&
+      !resolved.greetingOnly &&
       resolved.confidence !== 'high' &&
       normalizeKey(process.env.OPENAI_API_KEY);
 
@@ -82,15 +96,19 @@ module.exports = async function handler(req, res) {
       processes,
       knowledge,
       communicationTools,
-      BASE_OPERATOR_CODE
+      BASE_OPERATOR_CODE,
+      { callRole: DEFAULT_CALL_ROLE }
     );
-    const baseKey = resolveProcessKey(
-      { code: BASE_OPERATOR_CODE, sheet_name: BASE_OPERATOR_CODE },
-      processes
-    );
-    const baseProcess = baseKey ? processes[baseKey] : null;
-    const baseInstructions = buildBaseInstructions(meta, baseProcess, communicationTools);
-    const sessionInstructions = buildSessionInstructions(baseInstructions, processPrompt);
+    const baseInstructions = buildBaseInstructions(communicationTools, {
+      callRole: DEFAULT_CALL_ROLE,
+      voice,
+      operatorName,
+    });
+    const sessionInstructions = buildSessionInstructions(baseInstructions, processPrompt, {
+      clarifyPrompt: resolved.clarifyPrompt,
+      clarifyCount,
+      greetingOnly: Boolean(resolved.greetingOnly),
+    });
 
     res.status(200).json({
       processCode: processMeta.code,
@@ -100,6 +118,7 @@ module.exports = async function handler(req, res) {
       clarifyPrompt: resolved.clarifyPrompt || null,
       processPrompt,
       sessionInstructions,
+      operatorName,
     });
   } catch (error) {
     res.status(500).json({

@@ -1,6 +1,14 @@
 const { findKnowledgeEntry, resolveProcessKey } = require('./processCatalog');
 const { serializeCommunicationToolsForCall } = require('./communicationToolsPrompt');
 const { applyBrandPlaceholders } = require('./brandText');
+const { shouldInjectBaseOperatorRecs, DEFAULT_CALL_ROLE } = require('./processRole');
+
+const EMAIL_REFRAME_NOTE =
+  '[В звонке: не проси написать на почту — фиксируй в звонке или исходящий канал компании]';
+
+function hasEmailRedirect(text) {
+  return /почт|e-mail|email|sms|смс|напишите|направьте.*пис/i.test(String(text || ''));
+}
 
 function serializeStages(stages) {
   if (!Array.isArray(stages) || stages.length === 0) return '';
@@ -20,9 +28,12 @@ function serializeScriptSteps(scriptSteps) {
     .filter((step) => step && (step.phrase || step.reply))
     .map((step) => {
       const label = step.step_name || step.complaint || step.type || 'Шаг';
-      const phrase = applyBrandPlaceholders(step.phrase || step.reply || '');
+      const rawPhrase = applyBrandPlaceholders(step.phrase || step.reply || '');
+      const phrase = hasEmailRedirect(rawPhrase)
+        ? `${EMAIL_REFRAME_NOTE} Смысл шага: ${rawPhrase}`
+        : rawPhrase;
       const goal = step.goal ? ` Цель: ${step.goal}` : '';
-      return `${label}: ${phrase}${goal}`;
+      return `${label} (перефразируй, не зачитывай): ${phrase}${goal}`;
     })
     .join('\n');
 }
@@ -34,7 +45,10 @@ function serializeDifficultPhrases(items) {
       if (typeof item === 'string') return applyBrandPlaceholders(item);
       const header = item.situation_type || 'Ситуация';
       const phrases = Array.isArray(item.phrases) ? item.phrases.join('\n') : '';
-      return `${header}:\n${applyBrandPlaceholders(phrases)}`;
+      const body = applyBrandPlaceholders(phrases);
+      return hasEmailRedirect(body)
+        ? `${header}:\n${EMAIL_REFRAME_NOTE}\n${body}`
+        : `${header}:\n${body}`;
     })
     .join('\n\n');
 }
@@ -63,7 +77,7 @@ function serializeMetaScriptHints(meta) {
   if (!meta) return '';
   const text = String(meta.searchable_text || '').replace(/\s+/g, ' ').trim();
   if (!text || text.length < 80) return '';
-  return applyBrandPlaceholders(`Доп. материал по теме:\n${text}`);
+  return applyBrandPlaceholders(`Доп. материал по теме (перефразируй):\n${text.slice(0, 600)}`);
 }
 
 function serializeFullProcess(process) {
@@ -74,7 +88,7 @@ function serializeFullProcess(process) {
   const stages = serializeStages(process.stages);
   if (stages) chunks.push(`Этапы:\n${stages}`);
   const scripts = serializeScriptSteps(process.script_steps);
-  if (scripts) chunks.push(`Скрипт разговора:\n${scripts}`);
+  if (scripts) chunks.push(`Скрипт (смысл, не дословно):\n${scripts}`);
   const difficult = serializeDifficultPhrases(process.difficult_phrases);
   if (difficult) chunks.push(`Сложные ситуации:\n${difficult}`);
   const cheatsheet = (process.cheatsheet || [])
@@ -112,15 +126,17 @@ function mergePartialFromProcess(process) {
   return chunks.join('\n\n');
 }
 
-function buildProcessPrompt(meta, processesData, knowledgeList, communicationTools, baseProcessKey) {
+function buildProcessPrompt(meta, processesData, knowledgeList, communicationTools, baseProcessKey, options = {}) {
+  const callRole = options.callRole || DEFAULT_CALL_ROLE;
   const processKey = resolveProcessKey(meta, processesData);
   const fullProcess = processKey ? processesData[processKey] : null;
   const knowledgeEntry = findKnowledgeEntry(knowledgeList, meta);
   const baseProcess = baseProcessKey ? processesData[baseProcessKey] : null;
   const toolsBlock = serializeCommunicationToolsForCall(communicationTools);
-  const baseRec = serializeOperatorRecommendations(
-    baseProcess && baseProcess.operator_recommendations
-  );
+  const injectBaseRec = shouldInjectBaseOperatorRecs(callRole, meta && meta.code);
+  const baseRec = injectBaseRec
+    ? serializeOperatorRecommendations(baseProcess && baseProcess.operator_recommendations)
+    : '';
 
   let processBlock = '';
   if (meta.menu_done) {
@@ -132,9 +148,15 @@ function buildProcessPrompt(meta, processesData, knowledgeList, communicationToo
     processBlock = [partial, extra, hints].filter(Boolean).join('\n\n');
   }
 
+  const transferNote =
+    meta && meta.code === 'Вопрос по сотрудничеству'
+      ? 'Partner inbox — только для подтверждённого партнёра/продавца после tri-filter.'
+      : '';
+
   return applyBrandPlaceholders(
     [
       processBlock,
+      transferNote,
       toolsBlock,
       baseRec ? `Рекомендации базового процесса «Ответ оператора»:\n${baseRec}` : '',
     ]
@@ -149,4 +171,6 @@ module.exports = {
   serializeFullProcess,
   serializeGeneralRules,
   serializePartialKnowledge,
+  EMAIL_REFRAME_NOTE,
+  hasEmailRedirect,
 };
