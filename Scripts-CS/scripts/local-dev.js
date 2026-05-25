@@ -31,6 +31,7 @@ const API_ROUTES = {
   '/api/call-resolve-process': '../api/call-resolve-process.js',
   '/api/call-explain-reply': '../api/call-explain-reply.js',
   '/api/assistant-coach': '../api/assistant-coach.js',
+  '/api/cabinet-assistant': '../api/cabinet-assistant.js',
 };
 
 function contentType(filePath) {
@@ -184,6 +185,7 @@ async function main() {
     console.log(`  Сайт:    http://localhost:${PORT}/`);
     console.log(`  Звонок:  http://localhost:${PORT}/  → вкладка «Звонок»`);
     console.log(`  Коуч:    POST http://localhost:${PORT}/api/assistant-coach`);
+    console.log(`  ЛК ИИ:   POST http://localhost:${PORT}/api/cabinet-assistant`);
     console.log('');
     console.log(`  OPENAI_API_KEY: ${hasKey ? 'задан' : 'НЕ ЗАДАН — добавьте в .env.local'}`);
     console.log(`  HTTPS_PROXY:    ${hasProxy ? 'задан' : 'не задан (нужен как в my-eng-bot, если geo-block)'}`);

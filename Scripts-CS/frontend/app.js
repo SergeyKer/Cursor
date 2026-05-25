@@ -531,7 +531,7 @@ async function loadData() {
   return { meta, processes, tools };
 }
 
-function initNavigation(views, onProcessViewSwitch) {
+function initNavigation(views, onProcessViewSwitch, onViewChange) {
   const buttons = document.querySelectorAll(".nav__item");
   const content = document.querySelector(".content");
   const navSelect = document.getElementById("navViewSelect");
@@ -548,8 +548,12 @@ function initNavigation(views, onProcessViewSwitch) {
     Object.entries(viewMap).forEach(([key, el]) => {
       if (el) el.classList.toggle("view--active", key === view);
     });
-    if (content) content.classList.toggle("content--call", view === "call");
+    if (content) {
+      content.classList.toggle("content--call", view === "call");
+      content.classList.toggle("content--cabinet", view === "cabinet");
+    }
     if (view === "processes" && onProcessViewSwitch) onProcessViewSwitch();
+    if (onViewChange) onViewChange(view);
   }
 
   buttons.forEach((btn) => {
@@ -1844,6 +1848,7 @@ async function bootstrap() {
     assistant: document.getElementById("assistantView"),
     tools: document.getElementById("toolsView"),
     call: document.getElementById("callView"),
+    cabinet: document.getElementById("cabinetView"),
   };
   try {
     const { meta, processes, tools } = await loadData();
@@ -1882,7 +1887,24 @@ async function bootstrap() {
       } catch (_) {}
     };
 
-    const switchView = initNavigation(views, showProcessListMain);
+    const handleCabinetViewChange = (view) => {
+      if (view === "cabinet") {
+        setSidebarOpen(false);
+        layout?.classList.add("layout--cabinet");
+        if (typeof window.initCabinetDemo === "function") {
+          window.initCabinetDemo({ root: document.getElementById("cabinetRoot") });
+        }
+      } else {
+        layout?.classList.remove("layout--cabinet");
+      }
+    };
+
+    const switchView = initNavigation(views, showProcessListMain, handleCabinetViewChange);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("view") === "cabinet") {
+      switchView("cabinet");
+    }
 
     const openProcessDetails = (processMeta, options = {}) => {
       switchView("processes");

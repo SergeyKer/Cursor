@@ -1,0 +1,166 @@
+{
+  "serviceName": "E-liss",
+  "company": {
+    "name": "ООО «Ритейл Плюс»",
+    "contractNumber": "RP-2024-1187",
+    "contractUntil": "2026-12-31",
+    "tariff": "Абонентское обслуживание — замена ковров",
+    "status": "active"
+  },
+  "manager": {
+    "name": "Анна Волкова",
+    "phone": "+74951234567",
+    "email": "a.volkova@demo.e-liss.ru",
+    "role": "Клиентский менеджер"
+  },
+  "sites": [
+    {
+      "id": "site-1",
+      "siteType": "ТЦ",
+      "label": "Тверская, 12",
+      "workHours": "10:00–22:00",
+      "replacementFrequency": "3_per_week",
+      "replacementFrequencyLabel": "3 раза в неделю",
+      "carpets": [
+        { "zone": "Входная группа", "size": "150×300", "color": "серый", "type": "премиум", "sku": "EL-PR-150-GR", "qty": 1 },
+        { "zone": "Зона касс", "size": "115×200", "color": "коричневый", "type": "стандарт", "sku": "EL-ST-115-BR", "qty": 2 },
+        { "zone": "Коридор", "size": "85×150", "color": "серый", "type": "стандарт", "sku": "EL-ST-085-GR", "qty": 1 }
+      ],
+      "visits": [
+        { "date": "2026-05-22", "status": "done", "type": "замена" },
+        { "date": "2026-05-24", "status": "done", "type": "замена" },
+        { "date": "2026-05-26", "status": "scheduled", "type": "замена" },
+        { "date": "2026-05-28", "status": "scheduled", "type": "замена" }
+      ]
+    },
+    {
+      "id": "site-2",
+      "siteType": "Склад",
+      "label": "МКАД, 45 км",
+      "workHours": "08:00–18:00",
+      "replacementFrequency": "2_per_week",
+      "replacementFrequencyLabel": "2 раза в неделю",
+      "carpets": [
+        { "zone": "Погрузка", "size": "150×300", "color": "коричневый", "type": "премиум", "sku": "EL-PR-150-BR", "qty": 1 },
+        { "zone": "Проход", "size": "115×200", "color": "серый", "type": "стандарт", "sku": "EL-ST-115-GR", "qty": 1 }
+      ],
+      "visits": [
+        { "date": "2026-05-20", "status": "done", "type": "замена" },
+        { "date": "2026-05-23", "status": "done", "type": "замена" },
+        { "date": "2026-05-27", "status": "scheduled", "type": "замена" }
+      ]
+    },
+    {
+      "id": "site-3",
+      "siteType": "Офис",
+      "label": "Ленинградский пр., 39",
+      "workHours": "09:00–19:00",
+      "replacementFrequency": "1_per_week",
+      "replacementFrequencyLabel": "1 раз в неделю",
+      "carpets": [
+        { "zone": "Ресепшен", "size": "115×200", "color": "серый", "type": "премиум", "sku": "EL-PR-115-GR", "qty": 1 },
+        { "zone": "Open space", "size": "85×150", "color": "коричневый", "type": "стандарт", "sku": "EL-ST-085-BR", "qty": 2 },
+        { "zone": "Кухня", "size": "85×150", "color": "серый", "type": "стандарт", "sku": "EL-ST-085-GR", "qty": 1 }
+      ],
+      "visits": [
+        { "date": "2026-05-19", "status": "done", "type": "замена" },
+        { "date": "2026-05-26", "status": "scheduled", "type": "замена" }
+      ]
+    },
+    {
+      "id": "site-4",
+      "siteType": "Магазин",
+      "label": "Кутузовский пр., 88",
+      "workHours": "10:00–21:00",
+      "replacementFrequency": "1_per_2_weeks",
+      "replacementFrequencyLabel": "1 раз в 2 недели",
+      "carpets": [
+        { "zone": "Витрина", "size": "115×200", "color": "коричневый", "type": "премиум", "sku": "EL-PR-115-BR", "qty": 1 },
+        { "zone": "Торговый зал", "size": "85×150", "color": "серый", "type": "стандарт", "sku": "EL-ST-085-GR", "qty": 1 }
+      ],
+      "visits": [
+        { "date": "2026-05-12", "status": "done", "type": "замена" },
+        { "date": "2026-05-26", "status": "scheduled", "type": "замена" }
+      ]
+    },
+    {
+      "id": "site-5",
+      "siteType": "ПВЗ",
+      "label": "ул. Профсоюзная, 5",
+      "workHours": "09:00–20:00",
+      "replacementFrequency": "1_per_4_weeks",
+      "replacementFrequencyLabel": "1 раз в 4 недели",
+      "carpets": [
+        { "zone": "Зона выдачи", "size": "85×150", "color": "серый", "type": "стандарт", "sku": "EL-ST-085-GR", "qty": 1 }
+      ],
+      "visits": [
+        { "date": "2026-04-28", "status": "done", "type": "замена" },
+        { "date": "2026-05-26", "status": "scheduled", "type": "замена" }
+      ]
+    }
+  ],
+  "invoices": [
+    {
+      "id": "inv-1",
+      "period": "Апрель 2026",
+      "amount": 184200,
+      "status": "paid",
+      "siteIds": ["site-1", "site-2", "site-3", "site-4", "site-5"]
+    },
+    {
+      "id": "inv-2",
+      "period": "Май 2026",
+      "amount": 184200,
+      "status": "issued",
+      "siteIds": ["site-1", "site-2", "site-3", "site-4", "site-5"]
+    }
+  ],
+  "requests": [
+    {
+      "id": "req-1",
+      "siteId": "site-2",
+      "type": "Пропуск для водителя",
+      "status": "in_progress",
+      "created": "2026-05-22",
+      "note": "На 27 мая, водитель Иванов"
+    },
+    {
+      "id": "req-2",
+      "siteId": "site-1",
+      "type": "Перенос замены",
+      "status": "done",
+      "created": "2026-05-10",
+      "note": "Перенесено на 24 мая"
+    },
+    {
+      "id": "req-3",
+      "siteId": "site-3",
+      "type": "Запрос акта и счёта",
+      "status": "new",
+      "created": "2026-05-23",
+      "note": "На email бухгалтерии"
+    }
+  ],
+  "faq": [
+    {
+      "q": "Когда будет следующая замена?",
+      "a": "Даты по каждому объекту — в разделе «Замены ковров» и на главной в карте объектов."
+    },
+    {
+      "q": "Как изменить количество ковров?",
+      "a": "Напишите клиентскому менеджеру или отправьте письмо на почту компании с номером договора и адресом объекта."
+    },
+    {
+      "q": "Где скачать счёт?",
+      "a": "В разделе «Счета и оплата» — кнопка «Скачать» у нужного периода."
+    },
+    {
+      "q": "Чем отличается премиум от стандарта?",
+      "a": "Премиум — усиленная резина и срок службы; состав и размеры указаны в карточке объекта."
+    },
+    {
+      "q": "Как заказать пропуск на склад?",
+      "a": "Создайте заявку «Пропуск для водителя» или позвоните менеджеру за 1–2 дня до визита."
+    }
+  ]
+}

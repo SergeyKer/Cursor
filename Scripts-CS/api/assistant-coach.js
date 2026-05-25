@@ -2,14 +2,11 @@ const { loadCallData } = require('../lib/call/dataLoader');
 const { buildProcessPrompt } = require('../lib/call/buildProcessPrompt');
 const { BASE_OPERATOR_CODE, buildCoachSystemPrompt, buildCoachUserMessage } = require('../lib/call/instructions');
 const { parseCoachLlmJson } = require('../lib/call/coachResponse');
-const { resolveProcessForQuery, normalizeKey } = require('../lib/call/resolveProcessForQuery');
+const { resolveProcessForQuery } = require('../lib/call/resolveProcessForQuery');
 const processCatalog = require('../lib/call/processCatalog');
 const { canonicalProcessCode } = require('../lib/call/processAliases');
-const { resolveCallOpenAiUserMessage } = require('../lib/call/errors');
-const { fetchWithProxyFallback } = require('../lib/proxyFetch');
+const { chatMini } = require('../lib/openai/chatMini');
 const { DEFAULT_CALL_ROLE } = require('../lib/call/processRole');
-
-const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
 
 function resolveProcessMeta(metaList, code) {
   if (typeof processCatalog.resolveRichProcessMeta === 'function') {
@@ -38,57 +35,17 @@ function buildBasePayload(processMeta, resolved) {
 }
 
 async function fetchCoachAdvice(query, processPrompt, resolved) {
-  const apiKey = normalizeKey(process.env.OPENAI_API_KEY);
-  if (!apiKey) return { error: 'no_api_key' };
-
-  const response = await fetchWithProxyFallback(OPENAI_CHAT_COMPLETIONS_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      temperature: 0.2,
-      max_tokens: 900,
-      messages: [
-        {
-          role: 'system',
-          content: buildCoachSystemPrompt(processPrompt, {
-            processCode: resolved.processCode,
-            processName: resolved.processName,
-            confidence: resolved.confidence,
-            clarifyPrompt: resolved.clarifyPrompt,
-          }),
-        },
-        { role: 'user', content: buildCoachUserMessage(query) },
-      ],
+  return chatMini({
+    system: buildCoachSystemPrompt(processPrompt, {
+      processCode: resolved.processCode,
+      processName: resolved.processName,
+      confidence: resolved.confidence,
+      clarifyPrompt: resolved.clarifyPrompt,
     }),
+    user: buildCoachUserMessage(query),
+    maxTokens: 900,
+    temperature: 0.2,
   });
-
-  const raw = await response.text();
-  let data = null;
-  try {
-    data = raw ? JSON.parse(raw) : null;
-  } catch {
-    data = null;
-  }
-
-  if (!response.ok) {
-    const { userMessage, apiMessage } = resolveCallOpenAiUserMessage({
-      raw: data?.error?.message || raw || 'Не удалось получить рекомендации',
-      httpStatus: response.status,
-      fallback: 'Не удалось получить рекомендации',
-    });
-    return { httpError: true, status: response.status || 502, userMessage, apiMessage };
-  }
-
-  const content = String(data?.choices?.[0]?.message?.content || '').trim();
-  if (!content) {
-    return { httpError: true, status: 502, userMessage: 'Пустой ответ модели', apiMessage: 'empty_response' };
-  }
-
-  return { content };
 }
 
 module.exports = async function handler(req, res) {

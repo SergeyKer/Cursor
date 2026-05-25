@@ -18,6 +18,7 @@
           <button class="nav__item" data-view="processes">Процессы</button>
           <button class="nav__item" data-view="assistant">Помощник</button>
           <button class="nav__item" data-view="call">Звонок</button>
+          <button class="nav__item" data-view="cabinet">Кабинет</button>
         </nav>
         <div class="nav-select-wrap">
           <select id="navViewSelect" class="nav-view-select" aria-label="Раздел приложения">
@@ -25,6 +26,7 @@
             <option value="processes">Процессы</option>
             <option value="assistant">Помощник</option>
             <option value="call">Звонок</option>
+            <option value="cabinet">Кабинет</option>
           </select>
         </div>
       </header>
@@ -303,9 +305,14 @@
             </section>
           </div>
         </section>
+
+        <section id="cabinetView" class="view">
+          <div id="cabinetRoot" class="cabinet-root"></div>
+        </section>
       </main>
     </div>
 
+    <script src="./cabinet.js"></script>
     <script src="./call-voice-meter.js"></script>
     <script src="./call.js"></script>
     <script src="./app.js"></script>
