@@ -108,6 +108,10 @@ test('app.js wires assistant coach API and renderCoachResponse', () => {
   const appJs = fs.readFileSync(path.join(process.cwd(), 'frontend/app.js'), 'utf8');
   assert.match(appJs, /\/api\/assistant-coach/);
   assert.match(appJs, /renderCoachResponse/);
+  assert.match(appJs, /scrollToCoachSection/);
+  assert.match(appJs, /coach-section-card/);
+  assert.match(appJs, /coach-results__nav-head/);
+  assert.match(appJs, /sheet-nav__link/);
   assert.match(appJs, /Подбираем/);
   assert.match(appJs, /initialSectionId/);
   assert.match(appJs, /runAssistantQuery/);

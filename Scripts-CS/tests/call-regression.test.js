@@ -46,8 +46,8 @@ test('resolveCallRealtimeModel accepts mini, 1.5 and 2 from picker', () => {
   assert.equal(resolveCallRealtimeModel('gpt-realtime-mini'), 'gpt-realtime-mini');
   assert.equal(resolveCallRealtimeModel('gpt-realtime-1.5'), 'gpt-realtime-1.5');
   assert.equal(resolveCallRealtimeModel('gpt-realtime-2'), 'gpt-realtime-2');
-  assert.equal(resolveCallRealtimeModel(''), 'gpt-realtime-2');
-  assert.equal(CALL_DEFAULT_REALTIME_MODEL, 'gpt-realtime-2');
+  assert.equal(resolveCallRealtimeModel(''), 'gpt-realtime-1.5');
+  assert.equal(CALL_DEFAULT_REALTIME_MODEL, 'gpt-realtime-1.5');
   assert.ok(isCallRealtimeModel('gpt-realtime-mini'));
   assert.ok(isCallRealtimeModel('gpt-realtime-2'));
 });
@@ -136,7 +136,7 @@ test('buildBaseInstructions uses voice assistant role and voice layer', () => {
   const { communicationTools } = loadCallData();
   const instructions = buildBaseInstructions(communicationTools, {
     callRole: DEFAULT_CALL_ROLE,
-    voice: 'coral',
+    voice: 'marin',
   });
   assert.match(instructions, /голосовой помощник/i);
   assert.match(instructions, /E-liss/);
@@ -161,13 +161,12 @@ test('buildBaseInstructions prioritizes voice layer before role', () => {
 test('buildBaseInstructions session size under 12250 chars', () => {
   clearCallDataCache();
   const { communicationTools } = loadCallData();
-  const instructions = buildBaseInstructions(communicationTools, { voice: 'coral' });
+  const instructions = buildBaseInstructions(communicationTools, { voice: 'marin' });
   assert.ok(instructions.length <= 12250, `base instructions too large: ${instructions.length}`);
 });
 
-test('resolveOperatorName maps voice to gendered name', () => {
-  assert.equal(resolveOperatorName('coral'), 'Ольга');
-  assert.equal(resolveOperatorName('echo'), 'Александр');
+test('resolveOperatorName maps marin voice to female name', () => {
+  assert.equal(resolveOperatorName('marin'), 'Ольга');
 });
 
 test('buildIdentityGuardBlock contains canary list and forbids personal names', () => {
@@ -253,6 +252,111 @@ test('call.js guards stale WebRTC session on hangUp and redial', () => {
   assert.match(js, /isPeerConnectionUsable/);
   assert.match(js, /sessionAbortController/);
   assert.match(js, /signal: abortController\.signal/);
+});
+
+test('parseCallAccessCode maps day and suffix codes to models', () => {
+  const {
+    parseCallAccessCode,
+    getCallAccessDayCode,
+    CALL_ACCESS_DEFAULT_MODEL,
+  } = require('../lib/call/accessCode');
+  const day25 = new Date(2026, 4, 25);
+  const day05 = new Date(2026, 4, 5);
+
+  assert.equal(getCallAccessDayCode(day25), '25');
+  assert.equal(getCallAccessDayCode(day05), '05');
+
+  assert.deepEqual(parseCallAccessCode('25', day25), {
+    ok: true,
+    model: CALL_ACCESS_DEFAULT_MODEL,
+    voice: 'marin',
+  });
+  assert.deepEqual(parseCallAccessCode('251', day25), {
+    ok: true,
+    model: 'gpt-realtime-mini',
+    voice: 'marin',
+  });
+  assert.deepEqual(parseCallAccessCode('252', day25), {
+    ok: true,
+    model: 'gpt-realtime-1.5',
+    voice: 'marin',
+  });
+  assert.deepEqual(parseCallAccessCode('253', day25), {
+    ok: true,
+    model: 'gpt-realtime-2',
+    voice: 'marin',
+  });
+
+  assert.deepEqual(parseCallAccessCode('05', day05), {
+    ok: true,
+    model: CALL_ACCESS_DEFAULT_MODEL,
+    voice: 'marin',
+  });
+  assert.deepEqual(parseCallAccessCode('051', day05), {
+    ok: true,
+    model: 'gpt-realtime-mini',
+    voice: 'marin',
+  });
+  assert.deepEqual(parseCallAccessCode('052', day05), {
+    ok: true,
+    model: 'gpt-realtime-1.5',
+    voice: 'marin',
+  });
+  assert.deepEqual(parseCallAccessCode('053', day05), {
+    ok: true,
+    model: 'gpt-realtime-2',
+    voice: 'marin',
+  });
+
+  assert.equal(parseCallAccessCode('24', day25).ok, false);
+  assert.equal(parseCallAccessCode('254', day25).ok, false);
+  assert.equal(parseCallAccessCode('259', day25).ok, false);
+  assert.equal(parseCallAccessCode('5', day05).ok, false);
+  assert.equal(parseCallAccessCode('51', day05).ok, false);
+
+  const { normalizeCallAccessCodeInput } = require('../lib/call/accessCode');
+  assert.equal(normalizeCallAccessCodeInput('2511'), '251');
+  assert.deepEqual(parseCallAccessCode('2511', day25), {
+    ok: true,
+    model: 'gpt-realtime-mini',
+    voice: 'marin',
+  });
+});
+
+test('call access code input accepts up to 3 digits in UI', () => {
+  const callJs = fs.readFileSync(path.join(process.cwd(), 'frontend/call.js'), 'utf8');
+  const html = fs.readFileSync(path.join(process.cwd(), 'frontend/index.html'), 'utf8');
+  assert.match(callJs, /slice\(0, 3\)/);
+  assert.match(callJs, /parseCallAccessCode/);
+  assert.match(html, /maxlength="3"/);
+});
+
+test('call defaults to marin voice only', () => {
+  const {
+    CALL_DEFAULT_VOICE,
+    CALL_REALTIME_VOICES,
+    isCallRealtimeVoice,
+  } = require('../lib/call/constants');
+  assert.equal(CALL_DEFAULT_VOICE, 'marin');
+  assert.deepEqual(CALL_REALTIME_VOICES, ['marin']);
+  assert.ok(isCallRealtimeVoice('marin'));
+  assert.ok(!isCallRealtimeVoice('coral'));
+});
+
+test('voice layer includes female voice persona for call dialog', () => {
+  const { buildProfessionalToneBlock, buildVoiceLayerBlock } = require('../lib/call/voiceBehaviorPrompt');
+  const block = buildProfessionalToneBlock();
+  assert.match(block, /женск/i);
+  assert.match(block, /поняла/i);
+  assert.match(buildVoiceLayerBlock(), /женский род/i);
+});
+
+test('call start screen hides voice and realtime model pickers', () => {
+  const html = fs.readFileSync(path.join(process.cwd(), 'frontend/index.html'), 'utf8');
+  assert.match(html, /id="callVoicePicker"/);
+  assert.match(html, /id="callModelPicker"/);
+  assert.match(html, /call-start__block[\s\S]*hidden[\s\S]*callVoicePicker/);
+  assert.match(html, /call-start__block[\s\S]*hidden[\s\S]*callModelPicker/);
 });
 
 test('frontend index includes call view and voice assistant copy', () => {

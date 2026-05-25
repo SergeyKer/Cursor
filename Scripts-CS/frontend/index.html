@@ -190,11 +190,11 @@
                 <h2 class="call-sheet__title">Звонок</h2>
                 <p class="call-sheet__desc">Тренировка входящего звонка: вы — клиент, ИИ — голосовой помощник E-liss.</p>
                 <div class="call-start__form">
-                  <div class="call-start__block call-start__block--centered">
+                  <div class="call-start__block call-start__block--centered hidden">
                     <h3 class="call-start__label">Голос менеджера (Realtime)</h3>
                     <select id="callVoicePicker" class="call-voice-select" aria-label="Голос менеджера"></select>
                   </div>
-                  <div class="call-start__block call-start__block--centered">
+                  <div class="call-start__block call-start__block--centered hidden">
                     <h3 class="call-start__label">Модель Realtime</h3>
                     <select id="callModelPicker" class="call-voice-select" aria-label="Модель Realtime"></select>
                   </div>
@@ -205,7 +205,7 @@
                       id="callAccessCodeInput"
                       class="call-access-code-input"
                       size="4"
-                      maxlength="2"
+                      maxlength="3"
                       inputmode="numeric"
                       pattern="[0-9]*"
                       autocomplete="off"

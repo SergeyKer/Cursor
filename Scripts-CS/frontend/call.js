@@ -1,7 +1,5 @@
 (function (global) {
-  const VOICES = [
-    'alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse', 'marin', 'cedar',
-  ];
+  const VOICES = ['marin'];
   const VOICE_STORAGE_KEY = 'cs-call-realtime-voice';
   const MODEL_STORAGE_KEY = 'cs-call-realtime-model';
   const REALTIME_MODEL_OPTIONS = [
@@ -9,7 +7,13 @@
     { id: 'gpt-realtime-1.5', label: '1.5' },
     { id: 'gpt-realtime-2', label: '2' },
   ];
-  const DEFAULT_REALTIME_MODEL = 'gpt-realtime-2';
+  const DEFAULT_REALTIME_MODEL = 'gpt-realtime-1.5';
+  const CALL_ACCESS_DEFAULT_MODEL = 'gpt-realtime-1.5';
+  const CALL_ACCESS_MODEL_BY_SUFFIX = {
+    1: 'gpt-realtime-mini',
+    2: 'gpt-realtime-1.5',
+    3: 'gpt-realtime-2',
+  };
   const CALL_SILENCE_HANGUP_MS = 30000;
   const CALL_REALTIME_SERVER_VAD = {
     type: 'server_vad',
@@ -43,7 +47,7 @@
   const state = {
     phase: 'idle',
     screen: 'start',
-    voice: localStorage.getItem(VOICE_STORAGE_KEY) || 'coral',
+    voice: localStorage.getItem(VOICE_STORAGE_KEY) || 'marin',
     realtimeModel: localStorage.getItem(MODEL_STORAGE_KEY) || DEFAULT_REALTIME_MODEL,
     messages: [],
     activeProcessCode: BASE_OPERATOR_CODE,
@@ -69,6 +73,7 @@
     clarifyCount: 0,
     firstTurnInstructions: '',
     pendingSessionInstructions: null,
+    baseInstructionsApplied: false,
     dialogOrder: {
       nextSeq: 0,
       flushedThrough: 0,
@@ -876,6 +881,17 @@
     }
   }
 
+  async function applyFullBaseInstructionsAfterGreeting() {
+    if (state.baseInstructionsApplied || state.assistantResponseActive) return;
+    try {
+      const base = await fetchBaseInstructions();
+      state.baseInstructionsApplied = true;
+      sendSessionUpdate(base);
+    } catch (_) {
+      // retry on next response.done
+    }
+  }
+
   async function fetchBaseInstructions() {
     const res = await fetch(
       apiBase() + '/api/call-base-instructions?voice=' + encodeURIComponent(state.voice)
@@ -1080,6 +1096,9 @@
       }
       clearBenignRealtimeError();
       flushPendingSessionUpdate();
+      if (!state.baseInstructionsApplied && state.greetingTriggered) {
+        void applyFullBaseInstructionsAfterGreeting();
+      }
       setPhase('listening');
       return;
     }
@@ -1196,6 +1215,7 @@
     state.clarifyCount = 0;
     state.firstTurnInstructions = '';
     state.pendingSessionInstructions = null;
+    state.baseInstructionsApplied = false;
     state.activeProcessCode = BASE_OPERATOR_CODE;
     state.activeProcessPrompt = '';
     state.activeSessionInstructions = '';
@@ -1207,9 +1227,13 @@
 
     let pc = null;
     try {
+      const prefetchPromise = fetchBaseInstructions().catch(function () {
+        return '';
+      });
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
+      await prefetchPromise;
       if (isCallSessionStale(gen)) {
         mediaStream.getTracks().forEach(function (t) { t.stop(); });
         return;
@@ -1237,19 +1261,6 @@
           rtc.remoteAudio.srcObject = stream;
           rtc.remoteAudio.play().catch(function () {});
           updateMeters();
-        }
-      };
-
-      dc.onopen = async function () {
-        try {
-          const base = await fetchBaseInstructions();
-          sendRealtimeEvent({
-            type: 'session.update',
-            session: buildClientSessionUpdate(base),
-          });
-        } catch (err) {
-          state.error = err.message || 'Не удалось настроить сессию';
-          renderError();
         }
       };
 
@@ -1383,14 +1394,33 @@
     });
   }
 
-  function getExpectedCallAccessCode() {
-    return String(new Date().getDate()).padStart(2, '0');
+  function getCallAccessDayCode(date) {
+    return String((date || new Date()).getDate()).padStart(2, '0');
   }
 
   function normalizeCallAccessCodeInput(value) {
     return String(value || '')
       .replace(/\D/g, '')
-      .slice(0, 2);
+      .slice(0, 3);
+  }
+
+  function parseCallAccessCode(raw, date) {
+    const digits = normalizeCallAccessCodeInput(raw);
+    const dayCode = getCallAccessDayCode(date);
+
+    if (digits === dayCode) {
+      return { ok: true, model: CALL_ACCESS_DEFAULT_MODEL, voice: VOICES[0] };
+    }
+
+    if (digits.length === dayCode.length + 1 && digits.startsWith(dayCode)) {
+      const suffix = digits.charAt(dayCode.length);
+      const model = CALL_ACCESS_MODEL_BY_SUFFIX[suffix];
+      if (model) {
+        return { ok: true, model: model, voice: VOICES[0] };
+      }
+    }
+
+    return { ok: false };
   }
 
   function clearCallAccessCodeError() {
@@ -1412,7 +1442,10 @@
     const entered = refs.accessCodeInput
       ? normalizeCallAccessCodeInput(refs.accessCodeInput.value)
       : '';
-    if (entered === getExpectedCallAccessCode()) {
+    const parsed = parseCallAccessCode(entered);
+    if (parsed.ok) {
+      state.realtimeModel = resolveRealtimeModelId(parsed.model);
+      state.voice = parsed.voice;
       clearCallAccessCodeError();
       return true;
     }

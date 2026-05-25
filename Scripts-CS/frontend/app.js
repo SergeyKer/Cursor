@@ -229,6 +229,87 @@ function scrollToProcessSection(sectionId) {
   window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
 }
 
+function getCoachAnchorScrollOffset() {
+  const headerH = getLayoutHeaderHeight();
+  const navHead = document.querySelector(".coach-results .coach-results__nav-head");
+  if (navHead && isMobileLayout()) {
+    return headerH + navHead.offsetHeight + 6;
+  }
+  return headerH + 8;
+}
+
+function scrollToCoachSection(sectionId) {
+  if (!sectionId) return;
+  const target = document.getElementById(sectionId);
+  if (!target) return;
+  try {
+    window.history.replaceState({ screen: "assistant" }, "", "#" + sectionId);
+  } catch (_) {
+    window.location.hash = sectionId;
+  }
+  const top = target.getBoundingClientRect().top + window.scrollY - getCoachAnchorScrollOffset();
+  window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+}
+
+function scrollCoachToNav() {
+  const navHead = document.querySelector(".coach-results .coach-results__nav-head");
+  if (navHead) scrollElementBelowFixedHeader(navHead);
+  else window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function buildCoachResultsNav(nav, select, sections) {
+  if (!nav) return;
+  nav.innerHTML = "";
+  if (select) select.innerHTML = "";
+  (sections || []).forEach(({ id, label }) => {
+    const link = document.createElement("a");
+    link.href = "#" + id;
+    link.className = "sheet-nav__link";
+    link.textContent = label;
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      scrollToCoachSection(id);
+      if (select) select.value = id;
+    });
+    nav.appendChild(link);
+    if (select) {
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = label;
+      select.appendChild(opt);
+    }
+  });
+}
+
+function createCoachResultsNavHead(sections) {
+  const navHead = document.createElement("header");
+  navHead.className = "tools-sheet__nav-head coach-results__nav-head";
+  const nav = document.createElement("nav");
+  nav.className = "sheet-nav coach-nav";
+  nav.setAttribute("aria-label", "Разделы рекомендаций");
+  const select = document.createElement("select");
+  select.className = "sheet-section-select coach-section-select";
+  select.setAttribute("aria-label", "Раздел рекомендаций");
+  buildCoachResultsNav(nav, select, sections);
+  navHead.appendChild(nav);
+  navHead.appendChild(select);
+  select.addEventListener("change", () => {
+    scrollToCoachSection(select.value);
+  });
+  return navHead;
+}
+
+function createCoachSectionCard(id, title) {
+  const section = document.createElement("section");
+  section.id = id;
+  section.className = "card coach-section-card";
+  const h = document.createElement("h3");
+  h.className = "card__title";
+  h.textContent = title;
+  section.appendChild(h);
+  return section;
+}
+
 function truncateToolsNavLabel(text, maxLen = 28) {
   const t = (text || "").trim();
   if (t.length <= maxLen) return t;
@@ -280,7 +361,7 @@ function scrollProcessToNav() {
 function attachCardScrollTopButtons(root, blockSelector, onScroll) {
   if (!root) return;
   const scrollToTop = onScroll || scrollProcessToNav;
-  const ariaLabel = onScroll ? "К навигации инструментов" : "В начало страницы";
+  const ariaLabel = onScroll ? "К навигации раздела" : "В начало страницы";
   const title = onScroll ? "К навигации" : "В начало";
   root.querySelectorAll(blockSelector).forEach((block) => {
     block.querySelectorAll(":scope > .card__scroll-top, :scope > .card__scroll-foot").forEach((el) => {
@@ -547,14 +628,8 @@ function coachConfidenceClass(confidence) {
   return "coach-badge--medium";
 }
 
-function appendCoachListSection(parent, title, items, listClass) {
+function appendCoachListToCard(card, items, listClass) {
   if (!items || items.length === 0) return;
-  const section = document.createElement("div");
-  section.className = "coach-section";
-  const h = document.createElement("h3");
-  h.className = "coach-section__title";
-  h.textContent = title;
-  section.appendChild(h);
   const list = document.createElement(listClass === "ol" ? "ol" : "ul");
   list.className = "coach-section__list";
   items.forEach((text) => {
@@ -562,25 +637,77 @@ function appendCoachListSection(parent, title, items, listClass) {
     li.textContent = text;
     list.appendChild(li);
   });
-  section.appendChild(list);
-  parent.appendChild(section);
+  card.appendChild(list);
 }
 
-function appendCoachSaySection(parent, phrases) {
+function appendCoachSayToCard(card, phrases) {
   if (!phrases || phrases.length === 0) return;
-  const section = document.createElement("div");
-  section.className = "coach-section coach-section--say";
-  const h = document.createElement("h3");
-  h.className = "coach-section__title";
-  h.textContent = "Сказать клиенту";
-  section.appendChild(h);
   phrases.forEach((text) => {
     const q = document.createElement("p");
     q.className = "coach-quote";
     q.textContent = text;
-    section.appendChild(q);
+    card.appendChild(q);
   });
-  parent.appendChild(section);
+}
+
+function coachHasStructuredContent(data) {
+  return Boolean(
+    data.summary ||
+    (data.doNow && data.doNow.length) ||
+    (data.sayNow && data.sayNow.length) ||
+    (data.askClient && data.askClient.length) ||
+    data.clarifyQuestion ||
+    (data.readNext && data.readNext.length) ||
+    (data.relatedTopics && data.relatedTopics.length) ||
+    (data.warnings && data.warnings.length)
+  );
+}
+
+function buildCoachHeader(data) {
+  const header = document.createElement("header");
+  header.className = "coach-header";
+
+  const titleRow = document.createElement("div");
+  titleRow.className = "coach-header__title-row";
+  const title = document.createElement("h3");
+  title.className = "coach-header__title";
+  title.textContent = data.processName || data.processCode || "";
+  const badge = document.createElement("span");
+  badge.className = `coach-badge ${coachConfidenceClass(data.confidence)}`;
+  badge.textContent = coachConfidenceLabel(data.confidence);
+  titleRow.appendChild(title);
+  titleRow.appendChild(badge);
+  header.appendChild(titleRow);
+
+  if (data.menuDone === false) {
+    const banner = document.createElement("p");
+    banner.className = "coach-banner--partial";
+    banner.textContent =
+      "Полный скрипт в базе дополняется — в телефонном разговоре ориентируйтесь на блок «Сейчас в разговоре» ниже.";
+    header.appendChild(banner);
+  }
+
+  return header;
+}
+
+function appendCoachFooter(wrapper, data, metaList, handlers) {
+  const readNext = Array.isArray(data.readNext) ? data.readNext : [];
+  const processMeta =
+    (handlers.findProcessMeta && handlers.findProcessMeta(data.processCode)) ||
+    metaList.find((p) => p.code === data.processCode);
+  const primaryNav = readNext[0] || { view: "processes", sectionId: "section-script", label: "Скрипт" };
+
+  if (processMeta && handlers.onOpenProcess) {
+    const footer = document.createElement("div");
+    footer.className = "coach-footer";
+    const cta = document.createElement("button");
+    cta.type = "button";
+    cta.className = "coach-card__cta";
+    cta.textContent = `Открыть процесс — раздел «${primaryNav.label || "Скрипт"}»`;
+    cta.addEventListener("click", () => handlers.onOpenProcess(processMeta, primaryNav));
+    footer.appendChild(cta);
+    wrapper.appendChild(footer);
+  }
 }
 
 function renderCoachResponse(data, metaList, handlers) {
@@ -588,112 +715,157 @@ function renderCoachResponse(data, metaList, handlers) {
   if (!container) return;
   container.innerHTML = "";
 
-  const card = document.createElement("div");
-  card.className = "coach-card";
-
-  const head = document.createElement("div");
-  head.className = "coach-card__head";
-  const title = document.createElement("h3");
-  title.className = "coach-card__process";
-  title.textContent = data.processName || data.processCode || "";
-  const badge = document.createElement("span");
-  badge.className = `coach-badge ${coachConfidenceClass(data.confidence)}`;
-  badge.textContent = coachConfidenceLabel(data.confidence);
-  head.appendChild(title);
-  head.appendChild(badge);
-  card.appendChild(head);
-
-  if (data.menuDone === false) {
-    const banner = document.createElement("p");
-    banner.className = "coach-banner--partial";
-    banner.textContent =
-      "Полный скрипт в базе дополняется — в телефонном разговоре ориентируйтесь на блок «Сейчас в разговоре» ниже.";
-    card.appendChild(banner);
-  }
-
-  if (data.summary) {
-    const summary = document.createElement("p");
-    summary.className = "coach-card__summary";
-    summary.textContent = data.summary;
-    card.appendChild(summary);
-  }
-
-  appendCoachListSection(card, "Сейчас в разговоре", data.doNow, "ol");
-  appendCoachSaySection(card, data.sayNow);
-  appendCoachListSection(card, "Спросить у клиента (можно не всё сразу)", data.askClient, "ul");
-
-  if (data.clarifyQuestion) {
-    const cq = document.createElement("p");
-    cq.className = "coach-clarify";
-    cq.textContent = `Уточните у себя: ${data.clarifyQuestion}`;
-    card.appendChild(cq);
-  }
-
+  const wrapper = document.createElement("article");
+  wrapper.className = "coach-results";
+  const structured = coachHasStructuredContent(data);
   const readNext = Array.isArray(data.readNext) ? data.readNext : [];
-  if (readNext.length > 0 && handlers.onNavigate) {
-    const navSection = document.createElement("div");
-    navSection.className = "coach-section coach-section--nav";
-    const navTitle = document.createElement("h3");
-    navTitle.className = "coach-section__title";
-    navTitle.textContent = "Куда смотреть в приложении";
-    navSection.appendChild(navTitle);
-    const chips = document.createElement("div");
-    chips.className = "coach-chips";
-    readNext.forEach((item) => {
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = "coach-chip";
-      chip.textContent = item.label || item.sectionId || "Раздел";
-      chip.addEventListener("click", () => handlers.onNavigate(item, data));
-      chips.appendChild(chip);
-    });
-    navSection.appendChild(chips);
-    card.appendChild(navSection);
-  }
 
-  if (data.relatedTopics && data.relatedTopics.length > 0) {
-    const details = document.createElement("details");
-    details.className = "coach-related";
-    const summaryEl = document.createElement("summary");
-    summaryEl.textContent = `Ещё темы: ${data.relatedTopics.join(", ")}`;
-    details.appendChild(summaryEl);
-    card.appendChild(details);
-  }
-
-  if (data.warnings && data.warnings.length > 0) {
-    const warn = document.createElement("div");
-    warn.className = "coach-warnings";
-    data.warnings.forEach((w) => {
-      const p = document.createElement("p");
-      p.textContent = w;
-      warn.appendChild(p);
-    });
-    card.appendChild(warn);
-  }
-
-  if (data.adviceMarkdown) {
+  if (data.adviceMarkdown && !structured) {
+    const header = buildCoachHeader(data);
+    wrapper.appendChild(header);
+    const card = createCoachSectionCard("coach-section-markdown", "Рекомендация");
     const md = document.createElement("div");
     md.className = "coach-markdown";
     md.style.whiteSpace = "pre-wrap";
     md.textContent = data.adviceMarkdown;
     card.appendChild(md);
+    wrapper.appendChild(card);
+    attachCardScrollTopButtons(wrapper, ".coach-section-card", scrollCoachToNav);
+    appendCoachFooter(wrapper, data, metaList, handlers);
+    container.appendChild(wrapper);
+    return;
   }
 
-  const processMeta =
-    handlers.findProcessMeta(data.processCode) ||
-    metaList.find((p) => p.code === data.processCode);
-  const primaryNav = readNext[0] || { view: "processes", sectionId: "section-script", label: "Скрипт" };
+  const header = buildCoachHeader(data);
+  const sectionDefs = [
+    {
+      id: "coach-section-summary",
+      label: "Кратко",
+      cardTitle: "Кратко",
+      hasContent: () => Boolean(data.summary),
+      fill: (card) => {
+        const p = document.createElement("p");
+        p.className = "coach-card__summary";
+        p.textContent = data.summary;
+        card.appendChild(p);
+      },
+    },
+    {
+      id: "coach-section-do-now",
+      label: "Сейчас в разговоре",
+      cardTitle: "Сейчас в разговоре",
+      hasContent: () => data.doNow && data.doNow.length > 0,
+      fill: (card) => appendCoachListToCard(card, data.doNow, "ol"),
+    },
+    {
+      id: "coach-section-say",
+      label: "Сказать клиенту",
+      cardTitle: "Сказать клиенту",
+      hasContent: () => data.sayNow && data.sayNow.length > 0,
+      fill: (card) => appendCoachSayToCard(card, data.sayNow),
+    },
+    {
+      id: "coach-section-ask",
+      label: "Спросить у клиента",
+      cardTitle: "Спросить у клиента (можно не всё сразу)",
+      hasContent: () => data.askClient && data.askClient.length > 0,
+      fill: (card) => appendCoachListToCard(card, data.askClient, "ul"),
+    },
+    {
+      id: "coach-section-clarify",
+      label: "Уточнить",
+      cardTitle: "Уточнить",
+      hasContent: () => Boolean(data.clarifyQuestion),
+      fill: (card) => {
+        const cq = document.createElement("p");
+        cq.className = "coach-clarify";
+        cq.textContent = `Уточните у себя: ${data.clarifyQuestion}`;
+        card.appendChild(cq);
+      },
+    },
+    {
+      id: "coach-section-read-next",
+      label: "Куда смотреть",
+      cardTitle: "Куда смотреть в приложении",
+      hasContent: () => readNext.length > 0 && handlers.onNavigate,
+      fill: (card) => {
+        const chips = document.createElement("div");
+        chips.className = "coach-chips";
+        readNext.forEach((item) => {
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "coach-chip";
+          chip.textContent = item.label || item.sectionId || "Раздел";
+          chip.addEventListener("click", () => handlers.onNavigate(item, data));
+          chips.appendChild(chip);
+        });
+        card.appendChild(chips);
+      },
+    },
+    {
+      id: "coach-section-warnings",
+      label: "Важно",
+      cardTitle: "Важно",
+      hasContent: () => data.warnings && data.warnings.length > 0,
+      fill: (card) => {
+        const warn = document.createElement("div");
+        warn.className = "coach-warnings";
+        data.warnings.forEach((w) => {
+          const p = document.createElement("p");
+          p.textContent = w;
+          warn.appendChild(p);
+        });
+        card.appendChild(warn);
+      },
+    },
+    {
+      id: "coach-section-related",
+      label: "Ещё темы",
+      cardTitle: "Ещё темы",
+      hasContent: () => data.relatedTopics && data.relatedTopics.length > 0,
+      fill: (card) => {
+        const details = document.createElement("details");
+        details.className = "coach-related";
+        details.open = true;
+        const summaryEl = document.createElement("summary");
+        summaryEl.textContent = data.relatedTopics.join(", ");
+        details.appendChild(summaryEl);
+        card.appendChild(details);
+      },
+    },
+  ];
 
-  if (processMeta && handlers.onOpenProcess) {
-    const cta = document.createElement("button");
-    cta.type = "button";
-    cta.className = "coach-card__cta";
-    cta.textContent = `Открыть процесс — раздел «${primaryNav.label || "Скрипт"}»`;
-    cta.addEventListener("click", () => handlers.onOpenProcess(processMeta, primaryNav));
-    card.appendChild(cta);
+  const visibleSections = sectionDefs.filter((s) => s.hasContent());
+
+  wrapper.appendChild(header);
+
+  if (visibleSections.length > 0) {
+    wrapper.appendChild(
+      createCoachResultsNavHead(
+        visibleSections.map((s) => ({ id: s.id, label: s.label }))
+      )
+    );
   }
 
-  container.appendChild(card);
+  visibleSections.forEach((def) => {
+    const card = createCoachSectionCard(def.id, def.cardTitle);
+    def.fill(card);
+    wrapper.appendChild(card);
+  });
+
+  if (data.adviceMarkdown) {
+    const card = createCoachSectionCard("coach-section-markdown", "Дополнительно");
+    const md = document.createElement("div");
+    md.className = "coach-markdown";
+    md.style.whiteSpace = "pre-wrap";
+    md.textContent = data.adviceMarkdown;
+    card.appendChild(md);
+    wrapper.appendChild(card);
+  }
+
+  attachCardScrollTopButtons(wrapper, ".coach-section-card", scrollCoachToNav);
+  appendCoachFooter(wrapper, data, metaList, handlers);
+  container.appendChild(wrapper);
 }
 
 function escapeHtml(s) {

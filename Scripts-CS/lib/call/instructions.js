@@ -69,6 +69,17 @@ function buildCallFirstTurnInstructions() {
   );
 }
 
+/** Минимальный промпт при WebRTC-подключении — полные инструкции после приветствия. */
+function buildCallConnectInstructions() {
+  return applyBrandPlaceholders(
+    [
+      `Ты — голосовой помощник компании ${CALL_COMPANY_NAME}.`,
+      'Пользователь — клиент по телефону. Говори по-русски, коротко.',
+      'Полные правила и процессы будут добавлены после приветствия.',
+    ].join(' ')
+  );
+}
+
 function buildClarifyInstructions(clarifyPrompt, clarifyCount) {
   if (!clarifyPrompt || clarifyCount >= 2) return '';
   return [
@@ -182,6 +193,7 @@ function buildCoachUserMessage(query) {
 module.exports = {
   BASE_OPERATOR_CODE,
   buildBaseInstructions,
+  buildCallConnectInstructions,
   buildCallConversationRules,
   buildCallFirstTurnInstructions,
   buildSessionInstructions,

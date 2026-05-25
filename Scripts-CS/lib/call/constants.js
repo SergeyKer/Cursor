@@ -6,10 +6,10 @@ const CALL_REALTIME_MODEL_OPTIONS = [
   { id: 'gpt-realtime-1.5', label: '1.5' },
   { id: 'gpt-realtime-2', label: '2' },
 ];
-const CALL_DEFAULT_REALTIME_MODEL = 'gpt-realtime-2';
+const CALL_DEFAULT_REALTIME_MODEL = 'gpt-realtime-1.5';
 const CALL_REALTIME_MODEL_STORAGE_KEY = 'cs-call-realtime-model';
 const CALL_TRANSCRIPTION_MODEL = 'gpt-4o-mini-transcribe';
-const CALL_DEFAULT_VOICE = 'coral';
+const CALL_DEFAULT_VOICE = 'marin';
 const CALL_VOICE_STORAGE_KEY = 'cs-call-realtime-voice';
 const CALL_COMPANY_NAME = 'E-liss';
 const CALL_OPERATOR_NAME = 'Ольга';
@@ -23,30 +23,10 @@ const CALL_OPERATOR_NAMES = {
 };
 
 const CALL_VOICE_GENDER = {
-  alloy: 'female',
-  ash: 'male',
-  ballad: 'male',
-  coral: 'female',
-  echo: 'male',
-  sage: 'female',
-  shimmer: 'female',
-  verse: 'male',
   marin: 'female',
-  cedar: 'male',
 };
 
-const CALL_REALTIME_VOICES = [
-  'alloy',
-  'ash',
-  'ballad',
-  'coral',
-  'echo',
-  'sage',
-  'shimmer',
-  'verse',
-  'marin',
-  'cedar',
-];
+const CALL_REALTIME_VOICES = ['marin'];
 
 /** Тишина на линии (мс) без осмысленной речи → авто-завершение (клиентский таймер). */
 const CALL_SILENCE_HANGUP_MS = 30000;

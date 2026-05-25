@@ -3,14 +3,12 @@ const {
   isCallRealtimeVoice,
   resolveCallRealtimeModel,
 } = require('../../lib/call/constants');
-const { DEFAULT_CALL_ROLE } = require('../../lib/call/processRole');
 const { resolveCallRealtimeUserMessage } = require('../../lib/call/errors');
 const {
   buildCallsApiSession,
   buildRealtimeCallsFormBody,
 } = require('../../lib/call/realtimeSession');
-const { loadCallData } = require('../../lib/call/dataLoader');
-const { buildBaseInstructions } = require('../../lib/call/instructions');
+const { buildCallConnectInstructions } = require('../../lib/call/instructions');
 const { fetchWithProxyFallback, describeProxyConfig } = require('../../lib/proxyFetch');
 
 const OPENAI_REALTIME_CALLS_URL = 'https://api.openai.com/v1/realtime/calls';
@@ -60,17 +58,13 @@ module.exports = async function handler(req, res) {
     }
 
     const voice = isCallRealtimeVoice(body.voice) ? body.voice : CALL_DEFAULT_VOICE;
-    const { communicationTools } = loadCallData();
-    const instructions = buildBaseInstructions(communicationTools, {
-      callRole: DEFAULT_CALL_ROLE,
-      voice,
-    });
 
     const model = resolveCallRealtimeModel(body.model);
+    const connectInstructions = buildCallConnectInstructions();
     const sessionPayload = buildCallsApiSession({
       model,
       voice,
-      instructions,
+      instructions: connectInstructions,
     });
     const multipart = await prepareRealtimeCallsMultipart(sdpRaw, sessionPayload);
     const openAiHeaders = {
