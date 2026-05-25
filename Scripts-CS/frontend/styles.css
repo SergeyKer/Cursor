@@ -1950,6 +1950,8 @@ html.sidebar--resizing * {
   background: linear-gradient(180deg, var(--call-wallpaper) 0%, var(--call-wallpaper-soft) 100%);
   min-height: 100vh;
   box-sizing: border-box;
+  padding-left: max(12px, env(safe-area-inset-left, 0px));
+  padding-right: max(12px, env(safe-area-inset-right, 0px));
 }
 
 .content.content--call #callView.view--active {
@@ -1972,6 +1974,60 @@ html.sidebar--resizing * {
   width: 100%;
 }
 
+.content.content--call.call-content--combined {
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+.call-page--combined {
+  flex: 0 0 auto;
+  min-height: auto;
+}
+
+.call-page--combined .call-active {
+  flex: 0 0 auto;
+  min-height: 320px;
+  max-height: 50vh;
+}
+
+.call-page--combined .call-shell-x {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+.call-page--combined .call-phone {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+.call-page--combined .call-chat-shell {
+  flex: 0 0 auto;
+  min-height: 280px;
+  max-height: 50vh;
+}
+
+.call-active--frozen .call-action-btn {
+  pointer-events: none;
+  opacity: 0.42;
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+  box-shadow: none;
+  transform: none;
+}
+
+.call-active--frozen .call-back-btn {
+  display: none;
+}
+
+.call-action-btn[aria-disabled="true"] {
+  opacity: 0.42;
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+  box-shadow: none;
+  transform: none;
+}
+
 .glass-surface {
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
@@ -1984,33 +2040,38 @@ html.sidebar--resizing * {
   align-items: center;
   justify-content: flex-start;
   width: 100%;
-  padding: 4px 12px 24px;
+  padding: 0 clamp(0px, 2vw, 12px) 12px;
 }
 
 .call-start-card {
   width: 100%;
   max-width: 29rem;
   margin: 0;
-  padding: 16px;
+  padding: 12px 14px;
   border-radius: 18px;
   border: 1px solid var(--call-shell-border);
   background: var(--call-shell-bg);
   box-shadow: var(--call-shell-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .call-sheet__title {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
-  margin: 0 0 8px;
+  margin: 0;
   color: var(--call-assistant-text);
   text-align: center;
+  line-height: 1.2;
 }
 
 .call-sheet__desc {
   color: rgba(0, 0, 0, 0.65);
-  margin: 0 0 20px;
-  line-height: 1.45;
-  font-size: 15px;
+  margin: 0;
+  line-height: 1.35;
+  font-size: 14px;
+  text-align: center;
 }
 
 .call-start__form {
@@ -2018,10 +2079,11 @@ html.sidebar--resizing * {
   flex-direction: column;
   align-items: center;
   width: 100%;
+  gap: 10px;
 }
 
 .call-start__block {
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 
 .call-start__block--centered {
@@ -2034,25 +2096,30 @@ html.sidebar--resizing * {
 .call-start__label {
   font-size: 13px;
   font-weight: 600;
-  margin: 0 0 8px;
+  margin: 0;
   color: rgba(0, 0, 0, 0.65);
   text-align: center;
+  white-space: nowrap;
 }
 
 .call-start__block--access-code {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
+  column-gap: 10px;
+  row-gap: 4px;
+  width: 100%;
 }
 
 .call-access-code-input {
   display: block;
   box-sizing: border-box;
-  width: calc(4ch + 1.5rem);
-  min-width: calc(4ch + 1.5rem);
+  width: calc(4ch + 1.25rem);
+  min-width: calc(4ch + 1.25rem);
   max-width: 100%;
-  min-height: 44px;
-  padding: 10px 0.75rem;
+  min-height: 40px;
+  padding: 8px 0.65rem;
   border: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.72);
@@ -2075,9 +2142,10 @@ html.sidebar--resizing * {
 }
 
 .call-start__code-error {
-  margin: 8px 0 0;
+  flex-basis: 100%;
+  margin: 0;
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.35;
   color: #dc2626;
   text-align: center;
 }
@@ -2126,9 +2194,9 @@ html.sidebar--resizing * {
   width: auto;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
+  min-height: 40px;
   margin-top: 0;
-  padding: 0 24px;
+  padding: 0 20px;
   border: none;
   border-radius: 12px;
   background: linear-gradient(180deg, var(--accent) 0%, var(--call-accent-hover) 100%);
@@ -2169,7 +2237,7 @@ html.sidebar--resizing * {
   max-width: 29rem;
   margin: 0 auto;
   min-height: 0;
-  padding: 0 12px;
+  padding: 0 clamp(0px, 2vw, 12px);
 }
 
 .call-chat-shell {
@@ -2534,19 +2602,35 @@ html.sidebar--resizing * {
   transition: height 55ms linear;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 767px) {
+  .content.content--call {
+    padding-left: max(10px, env(safe-area-inset-left, 0px));
+    padding-right: max(10px, env(safe-area-inset-right, 0px));
+  }
+
+  .call-start {
+    padding-bottom: 10px;
+  }
+
+  .call-start-card {
+    padding: 10px 12px;
+    gap: 8px;
+    border-radius: 14px;
+  }
+
+  .call-start__form {
+    gap: 8px;
+  }
+
   .call-shell-x {
     padding: 10px 0 12px;
     padding-left: max(0px, env(safe-area-inset-left, 0px));
     padding-right: max(0px, env(safe-area-inset-right, 0px));
   }
 
-  .call-phone {
-    padding: 0 12px;
-  }
-
   .call-chat-shell {
     max-height: calc(100dvh - 88px);
+    border-radius: 14px;
   }
 
   .call-active__head {
@@ -2575,6 +2659,30 @@ html.sidebar--resizing * {
   .call-error {
     margin-left: 14px;
     margin-right: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .content.content--call {
+    padding-left: max(8px, env(safe-area-inset-left, 0px));
+    padding-right: max(8px, env(safe-area-inset-right, 0px));
+  }
+
+  .call-start {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .call-phone {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .content.content--call {
+    padding-left: max(20px, env(safe-area-inset-left, 0px));
+    padding-right: max(20px, env(safe-area-inset-right, 0px));
   }
 }
 

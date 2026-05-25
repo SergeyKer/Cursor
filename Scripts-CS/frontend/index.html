@@ -198,8 +198,8 @@
                     <h3 class="call-start__label">Модель Realtime</h3>
                     <select id="callModelPicker" class="call-voice-select" aria-label="Модель Realtime"></select>
                   </div>
-                  <div class="call-start__block call-start__block--centered call-start__block--access-code">
-                    <h3 class="call-start__label">Код доступа</h3>
+                  <div class="call-start__block call-start__block--access-code">
+                    <label class="call-start__label" for="callAccessCodeInput">Код доступа</label>
                     <input
                       type="text"
                       id="callAccessCodeInput"
@@ -219,12 +219,12 @@
               </div>
             </div>
 
-            <div id="callActiveScreen" class="call-active hidden">
+            <div id="callActiveScreen" class="call-active call-active--frozen">
               <div class="call-shell-x">
                 <div class="call-phone">
                   <div class="call-chat-shell glass-surface">
                     <div class="call-active__head">
-                      <button type="button" id="callBackBtn" class="call-back-btn" aria-label="Назад">
+                      <button type="button" id="callBackBtn" class="call-back-btn hidden" aria-label="Назад">
                         <span class="call-back-btn__icon" aria-hidden="true">←</span>
                         <span class="call-back-btn__label">Назад</span>
                       </button>

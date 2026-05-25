@@ -371,8 +371,33 @@ test('frontend index includes call view and voice assistant copy', () => {
 test('call.js manages start/hangup button enablement', () => {
   const js = fs.readFileSync(path.join(process.cwd(), 'frontend/call.js'), 'utf8');
   assert.match(js, /updateCallControls/);
+  assert.match(js, /state\.screen === 'start'/);
   assert.match(js, /setCallButtonEnabled\(refs\.startBtn, !inCall\)/);
   assert.match(js, /setCallButtonEnabled\(refs\.hangupBtn, inCall\)/);
+});
+
+test('call view shows combined start and frozen call preview on one page', () => {
+  const html = fs.readFileSync(path.join(process.cwd(), 'frontend/index.html'), 'utf8');
+  const js = fs.readFileSync(path.join(process.cwd(), 'frontend/call.js'), 'utf8');
+
+  assert.match(html, /id="callActiveScreen" class="call-active call-active--frozen"/);
+  assert.match(html, /id="callBackBtn" class="call-back-btn hidden"/);
+  assert.doesNotMatch(html, /id="callActiveScreen" class="call-active hidden"/);
+  assert.match(js, /call-active--frozen/);
+  assert.match(js, /call-content--combined/);
+  assert.match(js, /callPage\.classList\.toggle\('call-page--combined'/);
+  assert.match(js, /resetCombinedCallPreview/);
+  assert.doesNotMatch(js, /callScreen\.classList\.toggle\('hidden', screen !== 'call'\)/);
+});
+
+test('call.js keeps call status text stable during active conversation', () => {
+  const js = fs.readFileSync(path.join(process.cwd(), 'frontend/call.js'), 'utf8');
+  assert.match(js, /function renderStatus\(\)/);
+  assert.match(js, /isCallInProgress\(state\.phase\)/);
+  assert.match(js, /Разговор/);
+  assert.doesNotMatch(js, /Слушаю/);
+  assert.doesNotMatch(js, /Менеджер говорит/);
+  assert.doesNotMatch(js, /Менеджер отвечает/);
 });
 
 test('call.js uses classic bubble enter animation on full render', () => {

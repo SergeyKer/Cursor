@@ -128,6 +128,11 @@
   }
 
   function updateCallControls() {
+    if (state.screen === 'start') {
+      setCallButtonEnabled(refs.startBtn, false);
+      setCallButtonEnabled(refs.hangupBtn, false);
+      return;
+    }
     const inCall = isCallInProgress(state.phase);
     setCallButtonEnabled(refs.startBtn, !inCall);
     setCallButtonEnabled(refs.hangupBtn, inCall);
@@ -215,16 +220,17 @@
 
   function renderStatus() {
     if (!refs.statusEl) return;
-    const labels = {
-      idle: 'Готов к звонку',
-      connecting: 'Соединение…',
-      listening: 'Слушаю',
-      userFinalizing: 'Слушаю',
-      assistantPending: 'Менеджер отвечает…',
-      assistantSpeaking: 'Менеджер говорит',
-      ended: 'Звонок завершён',
-    };
-    refs.statusEl.textContent = labels[state.phase] || '';
+    let text = '';
+    if (state.phase === 'idle') {
+      text = 'Готов к звонку';
+    } else if (state.phase === 'connecting') {
+      text = 'Соединение…';
+    } else if (isCallInProgress(state.phase)) {
+      text = 'Разговор';
+    } else if (state.phase === 'ended') {
+      text = 'Звонок завершён';
+    }
+    refs.statusEl.textContent = text;
   }
 
   function updateMeters() {
@@ -1473,13 +1479,48 @@
     renderMessages();
   }
 
+  function resetCombinedCallPreview() {
+    state.messages = [];
+    renderedMessageCount = 0;
+    state.error = null;
+    renderError();
+    if (refs.processBadge) refs.processBadge.classList.add('hidden');
+    resetTimerForNewCall();
+    if (state.phase !== 'idle') {
+      setPhase('idle');
+    } else {
+      renderStatus();
+      updateMeters();
+    }
+    renderMessages();
+  }
+
   function showScreen(screen) {
     state.screen = screen;
-    if (refs.startScreen) refs.startScreen.classList.toggle('hidden', screen !== 'start');
-    if (refs.callScreen) refs.callScreen.classList.toggle('hidden', screen !== 'call');
-    if (screen === 'call' && (state.phase === 'idle' || state.phase === 'ended')) {
+    const isCombined = screen === 'start';
+
+    if (refs.callPage) {
+      refs.callPage.classList.toggle('call-page--combined', isCombined);
+    }
+    if (refs.contentEl) {
+      refs.contentEl.classList.toggle('call-content--combined', isCombined);
+    }
+    if (refs.startScreen) {
+      refs.startScreen.classList.toggle('hidden', !isCombined);
+    }
+    if (refs.callScreen) {
+      refs.callScreen.classList.remove('hidden');
+      refs.callScreen.classList.toggle('call-active--frozen', isCombined);
+    }
+    if (refs.backBtn) {
+      refs.backBtn.classList.toggle('hidden', isCombined);
+    }
+    if (isCombined) {
+      resetCombinedCallPreview();
+    } else if (screen === 'call' && (state.phase === 'idle' || state.phase === 'ended')) {
       seedWelcomeHint();
     }
+    updateCallControls();
   }
 
   function bindEvents() {
@@ -1511,6 +1552,8 @@
 
   function initCallView() {
     refs = {
+      callPage: document.querySelector('.call-page'),
+      contentEl: document.querySelector('.content'),
       startScreen: document.getElementById('callStartScreen'),
       callScreen: document.getElementById('callActiveScreen'),
       voicePicker: document.getElementById('callVoicePicker'),
@@ -1543,9 +1586,6 @@
     initModelPicker();
     bindAccessCodeInput();
     bindEvents();
-    renderStatus();
-    updateCallControls();
-    renderMessages();
     showScreen('start');
   }
 
