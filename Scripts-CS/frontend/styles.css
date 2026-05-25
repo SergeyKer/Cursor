@@ -663,6 +663,76 @@ html.sidebar--resizing * {
   line-height: 1.35;
 }
 
+.process-group-label--meta {
+  display: block;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.process-group-label--incoming-operator,
+.process-group-label--incoming-manager {
+  color: #1d4ed8;
+}
+
+.process-group-label--outgoing-manager {
+  color: #b45309;
+}
+
+.process-group-label--accounting {
+  color: #475569;
+}
+
+.process-list-main__name-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.process-list-main__name-cell .process-group-label--meta {
+  margin-top: 1px;
+}
+
+.process-list-main__card-head {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.process-list-main__card-head .process-group-label--meta {
+  margin-top: 3px;
+}
+
+.process-header__title-block {
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.process-header__group-label {
+  margin: 2px 0 0;
+}
+
+.process-header__group-label.hidden {
+  display: none !important;
+}
+
+.process-list-main__card--incoming-operator,
+.process-list-main__card--incoming-manager {
+  border-left: 3px solid #2563eb;
+}
+
+.process-list-main__card--outgoing-manager {
+  border-left: 3px solid #d97706;
+}
+
+.process-list-main__card--accounting {
+  border-left: 3px solid #64748b;
+}
+
 .process-list-main__done {
   flex-shrink: 0;
   color: #059669;
@@ -2752,7 +2822,7 @@ html.sidebar--resizing * {
 .process-list-main__card-title {
   display: block;
   font-weight: 600;
-  margin-bottom: 4px;
+  margin-bottom: 0;
 }
 
 .process-list-main__card-desc {
