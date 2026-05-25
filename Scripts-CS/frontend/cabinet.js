@@ -66,6 +66,22 @@
     return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
   }
 
+  function formatVisitDate(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso + "T12:00:00");
+    const date = d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+    const weekday = d.toLocaleDateString("ru-RU", { weekday: "long" });
+    return `${date}, ${weekday}`;
+  }
+
+  function formatVisitDateShort(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso + "T12:00:00");
+    const date = d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+    const weekday = d.toLocaleDateString("ru-RU", { weekday: "long" });
+    return `${date}, ${weekday}`;
+  }
+
   function carpetCount(site) {
     return (site.carpets || []).reduce((sum, c) => sum + (c.qty || 1), 0);
   }
@@ -90,9 +106,9 @@
 
   function visitSummary(site) {
     const next = nextVisit(site);
-    if (next) return { text: formatDateShort(next.date), sub: "следующая замена", kind: "scheduled" };
+    if (next) return { text: formatVisitDateShort(next.date), sub: "следующая замена", kind: "scheduled" };
     const last = lastDoneVisit(site);
-    if (last) return { text: formatDateShort(last.date), sub: "последняя замена", kind: "done" };
+    if (last) return { text: formatVisitDateShort(last.date), sub: "последняя замена", kind: "done" };
     return { text: "—", sub: "нет данных", kind: "muted" };
   }
 
@@ -342,7 +358,7 @@
     return (
       '<div class="cabinet-stats">' +
       `<article class="cabinet-stat card"><span class="cabinet-stat__label">Ближайшая замена</span>` +
-      `<strong class="cabinet-stat__value">${nearest ? escapeHtml(formatDateShort(nearest.date)) : "—"}</strong>` +
+      `<strong class="cabinet-stat__value">${nearest ? escapeHtml(formatVisitDateShort(nearest.date)) : "—"}</strong>` +
       `<span class="cabinet-stat__hint">${nearest ? escapeHtml(nearest.site.siteType + " · " + nearest.site.label) : "нет запланированных"}</span></article>` +
       `<article class="cabinet-stat card${issued ? " cabinet-stat--warn" : ""}"><span class="cabinet-stat__label">Счета</span>` +
       `<strong class="cabinet-stat__value">${issued ? escapeHtml(formatMoney(issued.amount)) : "Оплачено"}</strong>` +
@@ -405,7 +421,7 @@
           (v) =>
             `<li class="cabinet-timeline__item cabinet-timeline__item--${escapeHtml(v.status)}">` +
             `<span class="cabinet-timeline__dot" aria-hidden="true"></span>` +
-            `<div class="cabinet-timeline__body"><time datetime="${escapeHtml(v.date)}">${escapeHtml(formatDate(v.date))}</time>` +
+            `<div class="cabinet-timeline__body"><time datetime="${escapeHtml(v.date)}">${escapeHtml(formatVisitDate(v.date))}</time>` +
             `<span class="cabinet-timeline__site">${escapeHtml(v.site.siteType)} · ${escapeHtml(v.site.label)}</span>` +
             statusBadge(v.status, { scheduled: "Запланировано", done: "Выполнено" }) +
             `</div></li>`

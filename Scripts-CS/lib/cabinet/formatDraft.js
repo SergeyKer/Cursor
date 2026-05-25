@@ -10,6 +10,14 @@ function formatDateRu(iso) {
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+function formatVisitDateRu(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso + 'T12:00:00');
+  const date = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  const weekday = d.toLocaleDateString('ru-RU', { weekday: 'long' });
+  return `${date}, ${weekday}`;
+}
+
 function formatMoneyRu(amount) {
   return new Intl.NumberFormat('ru-RU', {
     style: 'currency',
@@ -29,7 +37,7 @@ function formatDraft(intent, facts) {
         return 'Запланированных замен не найдено по выбранным объектам.';
       }
       const lines = facts.visits.map(
-        (v) => `• **${v.siteTitle}** — ${formatDateRu(v.date)} (${STATUS_LABELS.scheduled})`
+        (v) => `• **${v.siteTitle}** — ${formatVisitDateRu(v.date)} (${STATUS_LABELS.scheduled})`
       );
       return `Ближайшие запланированные замены:\n\n${lines.join('\n')}`;
     }
@@ -68,4 +76,4 @@ function formatDraft(intent, facts) {
   }
 }
 
-module.exports = { formatDraft, formatDateRu, formatMoneyRu, siteTitle, STATUS_LABELS };
+module.exports = { formatDraft, formatDateRu, formatVisitDateRu, formatMoneyRu, siteTitle, STATUS_LABELS };

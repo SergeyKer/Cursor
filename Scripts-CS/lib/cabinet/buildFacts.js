@@ -1,5 +1,5 @@
 const { detectIntent } = require('./intent');
-const { formatDraft, formatDateRu, formatMoneyRu, siteTitle, STATUS_LABELS } = require('./formatDraft');
+const { formatDraft, formatVisitDateRu, formatMoneyRu, siteTitle, STATUS_LABELS } = require('./formatDraft');
 const { loadCabinetData } = require('./loadCabinetData');
 
 const TAB_LABELS = {
@@ -37,7 +37,7 @@ function buildNextVisitFacts(sites) {
       label: `${TAB_LABELS.visits} → ${site.siteType}, ${site.label}`,
       tab: 'visits',
       siteId: site.id,
-      evidence: `${STATUS_LABELS.scheduled}: ${formatDateRu(visit.date)}`,
+      evidence: `${STATUS_LABELS.scheduled}: ${formatVisitDateRu(visit.date)}`,
     });
   });
 
