@@ -1902,8 +1902,11 @@ async function bootstrap() {
     const switchView = initNavigation(views, showProcessListMain, handleCabinetViewChange);
 
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get("view") === "cabinet") {
+    const viewParam = urlParams.get("view");
+    if (viewParam === "cabinet") {
       switchView("cabinet");
+    } else if (viewParam === "call") {
+      switchView("call");
     }
 
     const openProcessDetails = (processMeta, options = {}) => {
