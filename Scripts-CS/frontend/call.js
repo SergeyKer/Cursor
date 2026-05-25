@@ -28,6 +28,14 @@
     'Чтобы позвонить в клиентский отдел компании E-liss, нажмите кнопку «Вызов».';
   const TRANSCRIPTION_RU_PROMPT =
     'Транскрибируй только русскую речь. Если слышишь не русский язык — не выводи латиницу, верни пустую строку.';
+  /** Локальная копия buildCallFirstTurnInstructions — не ждём API перед WebRTC. */
+  const CALL_FIRST_TURN_INSTRUCTIONS =
+    'Начни звонок одной короткой репликой. Пример: «Добрый день. Вас приветствует голосовой помощник компании E-liss. Чем могу помочь?» ' +
+    'Можно варьировать формулировку, сохраняя компанию и роль голосового помощника. ' +
+    'Не называй себя по имени и не представляйся как живой менеджер. ' +
+    'Если клиент спросит имя или попросит назваться иначе — оставайся голосовым помощником компании, без личного имени. ' +
+    'Не добавляй второй вопрос и не уходи в длинное объяснение.';
+  const CALL_ICE_GATHERING_TIMEOUT_MS = { mobile: 2000, default: 5000 };
 
   const CYRILLIC_RE = /[\u0401\u0451\u0410-\u044F\u0400-\u04FF]/g;
   const LATIN_RE = /[A-Za-z\u00C0-\u00FF\u0100-\u017F\u0180-\u024F]/g;
@@ -72,6 +80,8 @@
     lastResolvedNormalized: '',
     clarifyCount: 0,
     firstTurnInstructions: '',
+    cachedBaseInstructions: '',
+    baseInstructionsPrefetchPromise: null,
     pendingSessionInstructions: null,
     baseInstructionsApplied: false,
     dialogOrder: {
@@ -887,10 +897,58 @@
     }
   }
 
+  function isLikelyMobileDevice() {
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches) {
+      return true;
+    }
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+  }
+
+  function getIceGatheringTimeoutMs() {
+    return isLikelyMobileDevice()
+      ? CALL_ICE_GATHERING_TIMEOUT_MS.mobile
+      : CALL_ICE_GATHERING_TIMEOUT_MS.default;
+  }
+
+  function getFirstTurnInstructions() {
+    const fromApi = (state.firstTurnInstructions || '').trim();
+    return fromApi || CALL_FIRST_TURN_INSTRUCTIONS;
+  }
+
+  function invalidateBaseInstructionsCache() {
+    state.cachedBaseInstructions = '';
+    state.baseInstructionsPrefetchPromise = null;
+    state.firstTurnInstructions = '';
+  }
+
+  function prefetchBaseInstructions() {
+    if (state.cachedBaseInstructions) {
+      return Promise.resolve(state.cachedBaseInstructions);
+    }
+    if (state.baseInstructionsPrefetchPromise) {
+      return state.baseInstructionsPrefetchPromise;
+    }
+    state.baseInstructionsPrefetchPromise = fetchBaseInstructions()
+      .catch(function () {
+        return '';
+      })
+      .finally(function () {
+        state.baseInstructionsPrefetchPromise = null;
+      });
+    return state.baseInstructionsPrefetchPromise;
+  }
+
   async function applyFullBaseInstructionsAfterGreeting() {
     if (state.baseInstructionsApplied || state.assistantResponseActive) return;
     try {
-      const base = await fetchBaseInstructions();
+      let base = state.cachedBaseInstructions;
+      if (!base) {
+        base = await prefetchBaseInstructions();
+      }
+      if (!base) {
+        base = await fetchBaseInstructions();
+      }
+      if (!base) return;
       state.baseInstructionsApplied = true;
       sendSessionUpdate(base);
     } catch (_) {
@@ -905,7 +963,9 @@
     if (!res.ok) throw new Error('Не удалось загрузить базовые инструкции');
     const data = await res.json();
     state.firstTurnInstructions = data.firstTurnInstructions || '';
-    return data.instructions || '';
+    const instructions = data.instructions || '';
+    state.cachedBaseInstructions = instructions;
+    return instructions;
   }
 
   async function updateSessionWithProcess() {
@@ -913,11 +973,13 @@
     if (state.assistantResponseActive) return;
     let instructions = (state.activeSessionInstructions || '').trim();
     if (!instructions) {
-      let base = '';
-      try {
-        base = await fetchBaseInstructions();
-      } catch (_) {
-        return;
+      let base = state.cachedBaseInstructions;
+      if (!base) {
+        try {
+          base = await fetchBaseInstructions();
+        } catch (_) {
+          return;
+        }
       }
       instructions = [base, 'Активный процесс для этого звонка (приоритет №1):', state.activeProcessPrompt]
         .filter(Boolean)
@@ -980,9 +1042,7 @@
         sendRealtimeEvent({
           type: 'response.create',
           response: {
-            instructions:
-              state.firstTurnInstructions ||
-              'Начни звонок одной короткой репликой. Пример: «Добрый день. Вас приветствует голосовой помощник компании E-liss. Чем могу помочь?» Не называй себя по имени.',
+            instructions: getFirstTurnInstructions(),
           },
         });
       }
@@ -1233,13 +1293,10 @@
 
     let pc = null;
     try {
-      const prefetchPromise = fetchBaseInstructions().catch(function () {
-        return '';
-      });
+      prefetchBaseInstructions();
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
-      await prefetchPromise;
       if (isCallSessionStale(gen)) {
         mediaStream.getTracks().forEach(function (t) { t.stop(); });
         return;
@@ -1278,7 +1335,7 @@
       await pc.setLocalDescription(offer);
       if (isCallSessionStale(gen)) return;
 
-      var iceWait = await waitForIceGathering(pc, 12000);
+      await waitForIceGathering(pc, getIceGatheringTimeoutMs());
       if (isCallSessionStale(gen)) return;
 
       const localSdp = pc.localDescription && pc.localDescription.sdp;
@@ -1452,6 +1509,8 @@
     if (parsed.ok) {
       state.realtimeModel = resolveRealtimeModelId(parsed.model);
       state.voice = parsed.voice;
+      invalidateBaseInstructionsCache();
+      prefetchBaseInstructions();
       clearCallAccessCodeError();
       return true;
     }
@@ -1519,6 +1578,7 @@
       resetCombinedCallPreview();
     } else if (screen === 'call' && (state.phase === 'idle' || state.phase === 'ended')) {
       seedWelcomeHint();
+      prefetchBaseInstructions();
     }
     updateCallControls();
   }
@@ -1586,6 +1646,7 @@
     initModelPicker();
     bindAccessCodeInput();
     bindEvents();
+    prefetchBaseInstructions();
     showScreen('start');
   }
 

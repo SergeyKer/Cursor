@@ -453,6 +453,20 @@ test('call voice meters use shared tuning and live streams during call', () => {
   assert.doesNotMatch(callJs, /assistantPending.*assistantSpeaking.*setActive/);
 });
 
+test('call.js speeds up mobile first response (no blocking prefetch, shorter ICE wait)', () => {
+  const callJs = fs.readFileSync(path.join(process.cwd(), 'frontend/call.js'), 'utf8');
+  const { buildCallFirstTurnInstructions } = require('../lib/call/instructions');
+
+  assert.match(callJs, /CALL_FIRST_TURN_INSTRUCTIONS/);
+  assert.match(callJs, /getFirstTurnInstructions/);
+  assert.match(callJs, /prefetchBaseInstructions/);
+  assert.match(callJs, /getIceGatheringTimeoutMs/);
+  assert.match(callJs, /CALL_ICE_GATHERING_TIMEOUT_MS\.mobile/);
+  assert.doesNotMatch(callJs, /await prefetchPromise/);
+  assert.doesNotMatch(callJs, /waitForIceGathering\(pc, 12000\)/);
+  assert.ok(callJs.includes(buildCallFirstTurnInstructions().slice(0, 40)));
+});
+
 test('call.js suppresses benign Realtime active-response race', () => {
   const callJs = fs.readFileSync(path.join(process.cwd(), 'frontend/call.js'), 'utf8');
   assert.match(callJs, /isBenignRealtimeError/);
