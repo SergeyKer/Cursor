@@ -46,6 +46,13 @@ import {
   rewardReasonShowsToast,
 } from '@/lib/rewardsUiPolicy'
 import { formatRewardTopLine, getSessionTransitionTopLine } from '@/lib/footerTopLinePhrases'
+import {
+  formatStreakFooterApplied,
+  formatStreakFooterPreview,
+  resolveStreakFooterPriorityLine,
+} from '@/lib/streakFooterHint'
+import { formatStreakHomeBannerText, shouldShowStreakHomeBanner } from '@/lib/streakHomeBanner'
+import { formatStreakSessionHint } from '@/lib/streakSessionHint'
 import { countDialogueFinalCorrectAnswers } from '@/lib/dialogueStats'
 import { TOPICS, LEVELS, TENSES } from '@/lib/constants'
 import { allowedTensesForAudience } from '@/lib/levelAllowedTenses'
@@ -152,7 +159,7 @@ import { resolvePracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
 import type { PracticeRewardUi } from '@/lib/practice/practiceRewardUi'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
 import { buildPracticeQuestionFingerprintFromQuestion } from '@/lib/practice/questionFingerprint'
-import { pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
+import { FOOTER_DYNAMIC_MAX_LENGTH, pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 import type { VocabularyFooterView } from '@/types/vocabulary'
@@ -180,6 +187,10 @@ import {
 } from '@/lib/engvo/instructions'
 import { buildEngvoRealtimeInstructionsClient } from '@/lib/engvo/instructionsClient'
 import { normalizeEngvoRealtimeUserMessage } from '@/lib/engvo/errors'
+import {
+  insertEngvoUserMessage,
+  shouldInsertEngvoUserBeforeAssistant,
+} from '@/lib/engvo/callMessageOrder'
 import { buildEngvoClientSessionUpdate } from '@/lib/engvo/realtimeSession'
 import {
   loadEngvoCefrLevel,
@@ -565,6 +576,7 @@ export default function Home() {
   const [lessonReturnHintText, setLessonReturnHintText] = useState<string | null>(null)
   const [lastStructuredLessonGlobalDelta, setLastStructuredLessonGlobalDelta] = useState(0)
   const [footerSessionContextNonce, setFooterSessionContextNonce] = useState(0)
+  const [streakHintConsumedForMode, setStreakHintConsumedForMode] = useState<string | null>(null)
   const [footerTransitionText, setFooterTransitionText] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [communicationVoiceDropdownOpen, setCommunicationVoiceDropdownOpen] = useState(false)
@@ -764,6 +776,8 @@ export default function Home() {
   const engvoAssistantResponseDoneRef = React.useRef(false)
   const engvoCommittedResponseIdsRef = React.useRef<Set<string>>(new Set())
   const engvoCommittedUserItemIdsRef = React.useRef<Set<string>>(new Set())
+  const engvoPendingUserItemIdRef = React.useRef<string | null>(null)
+  const engvoAssistantCommittedBeforeUserItemIdsRef = React.useRef<Set<string>>(new Set())
   const engvoIgnoredResponseIdsRef = React.useRef<Set<string>>(new Set())
   const engvoFinalAssistantTextRef = React.useRef('')
   const engvoStreamingAssistantIndexRef = React.useRef<number | null>(null)
@@ -1033,6 +1047,13 @@ export default function Home() {
     [engvoCefrLevel, settings.audience]
   )
 
+  const markEngvoAssistantAheadOfPendingUserTranscript = useCallback(() => {
+    const pendingUserItemId = engvoPendingUserItemIdRef.current
+    if (!pendingUserItemId) return
+    if (engvoCommittedUserItemIdsRef.current.has(pendingUserItemId)) return
+    engvoAssistantCommittedBeforeUserItemIdsRef.current.add(pendingUserItemId)
+  }, [])
+
   const maybeCommitEngvoAssistantMessage = useCallback(() => {
     const responseId = engvoAssistantResponseIdRef.current
     const finalText = guardEngvoAssistantContent(cleanNewlines(engvoFinalAssistantTextRef.current))
@@ -1049,6 +1070,7 @@ export default function Home() {
     }
 
     engvoCommittedResponseIdsRef.current.add(responseId as string)
+    markEngvoAssistantAheadOfPendingUserTranscript()
     setMessages((prev) => {
       const withoutDial = prev.filter((m) => !m.engvoServiceLine)
       const pending = responseId ? engvoPendingTranslationByResponseIdRef.current.get(responseId) : undefined
@@ -1065,7 +1087,7 @@ export default function Home() {
     resetEngvoAssistantTurn()
     setEngvoCallPhase('listening')
     setEngvoErrorText(null)
-  }, [guardEngvoAssistantContent, resetEngvoAssistantTurn])
+  }, [guardEngvoAssistantContent, markEngvoAssistantAheadOfPendingUserTranscript, resetEngvoAssistantTurn])
 
   const commitEngvoAssistantText = useCallback(
     (text: string, responseId?: string | null) => {
@@ -1076,6 +1098,7 @@ export default function Home() {
         engvoCommittedResponseIdsRef.current.add(responseId)
       }
 
+      markEngvoAssistantAheadOfPendingUserTranscript()
       setMessages((prev) => {
         const withoutDial = prev.filter((m) => !m.engvoServiceLine)
         const streamingIndex = engvoStreamingAssistantIndexRef.current
@@ -1109,7 +1132,8 @@ export default function Home() {
           last?.role === 'assistant' &&
           last.engvoLocalWelcome !== true &&
           !last.engvoServiceLine &&
-          lastTrimmed !== ENGVO_CALL_FINISHED_ASSISTANT_TEXT
+          lastTrimmed !== ENGVO_CALL_FINISHED_ASSISTANT_TEXT &&
+          lastTrimmed === cleanText.trim()
         ) {
           return withoutDial
         }
@@ -1137,7 +1161,7 @@ export default function Home() {
       setEngvoCallPhase('listening')
       setEngvoErrorText(null)
     },
-    [guardEngvoAssistantContent, resetEngvoAssistantTurn]
+    [guardEngvoAssistantContent, markEngvoAssistantAheadOfPendingUserTranscript, resetEngvoAssistantTurn]
   )
 
   const clearEngvoTimeout = useCallback((timeoutRef: React.MutableRefObject<number | null>) => {
@@ -1268,6 +1292,8 @@ export default function Home() {
       clearEngvoSessionUpdateRetry()
       engvoCommittedResponseIdsRef.current.clear()
       engvoCommittedUserItemIdsRef.current.clear()
+      engvoPendingUserItemIdRef.current = null
+      engvoAssistantCommittedBeforeUserItemIdsRef.current.clear()
       engvoIgnoredResponseIdsRef.current.clear()
       engvoCallTranslationInflightRef.current.clear()
       engvoPendingTranslationByResponseIdRef.current.clear()
@@ -1564,6 +1590,9 @@ export default function Home() {
           engvoTranscriptStateRef.current,
           parsed as never
         )
+        if (parsed.type === 'input_audio_buffer.committed' && typeof parsed.item_id === 'string') {
+          engvoPendingUserItemIdRef.current = parsed.item_id
+        }
         const transcriptView = getRealtimeTranscriptView(engvoTranscriptStateRef.current)
         setEngvoUserInterimText(transcriptView.interimText)
 
@@ -1572,9 +1601,11 @@ export default function Home() {
           typeof parsed.item_id === 'string' &&
           !engvoCommittedUserItemIdsRef.current.has(parsed.item_id)
         ) {
-          engvoCommittedUserItemIdsRef.current.add(parsed.item_id)
+          const itemId = parsed.item_id
+          const itemFromState = engvoTranscriptStateRef.current.items[itemId]
+          const transcript =
+            (parsed.transcript ?? '').trim() || itemFromState?.completedText?.trim() || ''
           setEngvoUserInterimText('')
-          const transcript = (parsed.transcript ?? '').trim()
           const hasActiveAssistantResponse = hasActiveEngvoAssistantResponse({
             responseId: engvoAssistantResponseIdRef.current,
             responseDone: engvoAssistantResponseDoneRef.current,
@@ -1588,6 +1619,7 @@ export default function Home() {
               interruptCommitted,
             })
           ) {
+            engvoCommittedUserItemIdsRef.current.add(itemId)
             return
           }
           const restorePhaseAfterNoiseReject = (phase: EngvoCallPhase) => {
@@ -1603,20 +1635,37 @@ export default function Home() {
             !!normalizedTranscript &&
             (normalizedTranscript === normalizedAssistantPending || normalizedTranscript === normalizedLastAssistant)
           if (looksLikeAssistantEcho) {
+            engvoCommittedUserItemIdsRef.current.add(itemId)
             restorePhaseAfterNoiseReject('listening')
             return
           }
           if (isLikelyEngvoCallHallucination(transcript)) {
+            engvoCommittedUserItemIdsRef.current.add(itemId)
             restorePhaseAfterNoiseReject('listening')
             return
           }
           if (transcript && !shouldShowEngvoVoiceUserTranscript(transcript)) {
+            engvoCommittedUserItemIdsRef.current.add(itemId)
             restorePhaseAfterNoiseReject('listening')
             return
           }
+          engvoCommittedUserItemIdsRef.current.add(itemId)
           setEngvoCallPhase('userFinalizing')
           if (transcript) {
-            setMessages((prev) => [...prev, { role: 'user', content: transcript }])
+            setMessages((prev) => {
+              const insertBeforeAssistant = shouldInsertEngvoUserBeforeAssistant({
+                messages: prev,
+                itemId,
+                assistantCommittedBeforeUser:
+                  engvoAssistantCommittedBeforeUserItemIdsRef.current.has(itemId),
+                pendingUserItemId: engvoPendingUserItemIdRef.current,
+              })
+              engvoAssistantCommittedBeforeUserItemIdsRef.current.delete(itemId)
+              if (engvoPendingUserItemIdRef.current === itemId) {
+                engvoPendingUserItemIdRef.current = null
+              }
+              return insertEngvoUserMessage(prev, transcript, insertBeforeAssistant)
+            })
             bumpEngvoGoal()
           }
           setEngvoCallPhase('assistantPending')
@@ -4139,7 +4188,11 @@ export default function Home() {
     if (rewardPopupSeenRef.current === marker) return
     rewardPopupSeenRef.current = marker
     const levelUpNow = rewardsState.ui.lastLevelUp?.at === rewardAt ? rewardsState.ui.lastLevelUp : null
-    const shouldToast = rewardReasonShowsToast(lastReward.reason, Boolean(levelUpNow))
+    const shouldToast = rewardReasonShowsToast(
+      lastReward.reason,
+      Boolean(levelUpNow),
+      lastReward.streakBonus
+    )
     if (!shouldToast || engvoVoiceMode) {
       return
     }
@@ -4155,6 +4208,8 @@ export default function Home() {
       levelUp: levelUpNow ? { from: levelUpNow.from, to: levelUpNow.to } : null,
       audience: settings.audience,
       avoidText: topLineText,
+      streakBonus: lastReward.streakBonus,
+      dailyStreakAtAward: lastReward.dailyStreakAtAward,
     })
     setRewardPopupText(null)
     const showTimerId = window.setTimeout(() => {
@@ -5069,9 +5124,9 @@ export default function Home() {
                   : 'Ru: можно говорить свободно.',
             compactText:
               communicationVoiceInputMode === 'mix'
-                ? 'говори на En/Ru - я пойму и помогу'
+                ? 'En/Ru — говори, я помогу.'
                 : settings.communicationInputExpectedLang === 'en'
-                  ? 'En: говори по-английски - я пойму и помогу'
+                  ? 'En: говори — я помогу.'
                   : 'Ru: жду реплику.',
             tone: 'neutral',
           }
@@ -5079,7 +5134,7 @@ export default function Home() {
     ]
     return pickFooterVoice(
       candidates.filter((candidate): candidate is FooterVoiceCandidate => candidate !== null),
-      { maxLength: 46 }
+      { maxLength: FOOTER_DYNAMIC_MAX_LENGTH }
     )
   }, [
     dialogStarted,
@@ -5112,11 +5167,11 @@ export default function Home() {
     ]
     return pickFooterVoice(
       candidates.filter((candidate): candidate is FooterVoiceCandidate => candidate !== null),
-      { maxLength: 46 }
+      { maxLength: FOOTER_DYNAMIC_MAX_LENGTH }
     )
   }, [dialogStarted, greetingNonce, homeVoiceLine])
   const introFooterDynamicText = lessonMenuContext?.lessonsPanel === 'tutor'
-    ? 'MyEng собрал тему. Сначала быстро поймём смысл.'
+    ? 'MyEng собрал тему. Разберём смысл.'
     : lessonIntroDepth === 'deep'
       ? 'Теперь видно нюансы и частые ошибки.'
       : lessonIntroDepth === 'details'
@@ -5134,7 +5189,7 @@ export default function Home() {
     lessonExtraTipsStatus === 'cached'
       ? 'Фишки уже готовы. Можно сразу смотреть примеры.'
       : lessonExtraTipsStatus === 'fallback'
-        ? 'Локальные фишки по теме — открой примеры в карточках. ИИ по кнопке «Ещё фишки».'
+        ? 'Локальные фишки — смотри карточки.'
         : lessonExtraTipsStatus === 'error'
           ? 'Фишки остались на месте. Попробуем позже.'
           : lessonExtraTipsStatus === 'more-loading'
@@ -5273,30 +5328,115 @@ export default function Home() {
     activeStructuredLessonFooterDynamicText,
     structuredLessonFooterMoment,
   ])
+  const streakFooterPreview = React.useMemo(
+    () => formatStreakFooterPreview(rewardsState, settings.audience),
+    [
+      rewardsState.progress.dailyStreak,
+      rewardsState.progress.lastStreakDailyBonusDate,
+      settings.audience,
+    ]
+  )
+  const streakFooterApplied = React.useMemo(
+    () => formatStreakFooterApplied(rewardsState, settings.audience),
+    [
+      rewardsState.ui.lastReward?.at,
+      rewardsState.ui.lastReward?.streakBonus,
+      rewardsState.ui.lastReward?.dailyStreakAtAward,
+      settings.audience,
+    ]
+  )
+  const activeStreakSessionMode = React.useMemo(() => {
+    if (isPracticeActive) return 'practice'
+    if (isAccentActive) return 'accent'
+    if (isStructuredLessonActive) return 'lesson'
+    if (isLessonIntroActive || isLessonTipsActive) return 'lesson-intro'
+    if (dialogStarted && settings.mode === 'communication') return 'communication'
+    if (dialogStarted && engvoVoiceMode) return 'engvo'
+    if (isLessonActive) return 'lesson-learning'
+    return null
+  }, [
+    isPracticeActive,
+    isAccentActive,
+    isStructuredLessonActive,
+    isLessonIntroActive,
+    isLessonTipsActive,
+    dialogStarted,
+    settings.mode,
+    engvoVoiceMode,
+    isLessonActive,
+  ])
+  React.useEffect(() => {
+    if (!activeStreakSessionMode) {
+      setStreakHintConsumedForMode(null)
+    }
+  }, [activeStreakSessionMode])
+  const streakSessionHintLine = React.useMemo(() => {
+    if (!activeStreakSessionMode) return null
+    if (streakHintConsumedForMode === activeStreakSessionMode) return null
+    return formatStreakSessionHint(rewardsState, settings.audience)
+  }, [
+    activeStreakSessionMode,
+    streakHintConsumedForMode,
+    rewardsState.progress.dailyStreak,
+    rewardsState.progress.lastStreakDailyBonusDate,
+    settings.audience,
+  ])
+  React.useEffect(() => {
+    if (!streakSessionHintLine || !activeStreakSessionMode) return
+    setStreakHintConsumedForMode(activeStreakSessionMode)
+  }, [streakSessionHintLine, activeStreakSessionMode])
+  const homeStreakBannerText = React.useMemo(() => {
+    if (dialogStarted || homeMenuView !== 'root') return null
+    if (!shouldShowStreakHomeBanner(rewardsState, Boolean(streakFooterPreview))) return null
+    return formatStreakHomeBannerText(rewardsState, settings.audience)
+  }, [dialogStarted, homeMenuView, rewardsState, streakFooterPreview, settings.audience])
+  const resolveFooterWithStreakLayer = React.useCallback(
+    (modeFallback: string | null, rewardTicker: string | null = footerContextRewardTicker): string | null => {
+      const resolved = resolveStreakFooterPriorityLine({
+        rewardTicker,
+        appliedTicker: streakFooterApplied,
+        sessionHint: activeStreakSessionMode ? streakSessionHintLine : null,
+        preview: streakFooterPreview,
+      })
+      return resolved.line ?? modeFallback
+    },
+    [
+      footerContextRewardTicker,
+      streakFooterApplied,
+      activeStreakSessionMode,
+      streakSessionHintLine,
+      streakFooterPreview,
+    ]
+  )
   const footerDynamicText = isAccentActive
-    ? footerContextRewardTicker ?? accentFooterView?.dynamicText ?? null
+    ? resolveFooterWithStreakLayer(accentFooterView?.dynamicText ?? null)
     : isVocabularyHubActive
-    ? footerContextRewardTicker ??
-      vocabularyFooterView?.dynamicText ??
-      (vocabularyByLevelActive ? 'Выбери уровень CEFR или тему.' : 'Выбери мир и начни короткую сессию.')
+    ? resolveFooterWithStreakLayer(
+        vocabularyFooterView?.dynamicText ??
+          (vocabularyByLevelActive ? 'Выбери уровень CEFR или тему.' : 'Выбери мир и начни короткую сессию.')
+      )
     : isPracticeActive
-    ? practiceRewardUi?.topLine ??
-      footerContextRewardTicker ??
-      practiceFooterView?.dynamicText ??
-      null
+    ? resolveFooterWithStreakLayer(
+        practiceFooterView?.dynamicText ?? null,
+        practiceRewardUi?.topLine ?? footerContextRewardTicker
+      )
     : isLessonIntroActive
-      ? footerContextRewardTicker ?? introFooterDynamicText
+      ? resolveFooterWithStreakLayer(introFooterDynamicText)
       : isLessonTipsActive
-      ? footerContextRewardTicker ?? tipsFooterDynamicText
+      ? resolveFooterWithStreakLayer(tipsFooterDynamicText)
       : isStructuredLessonActive
-      ? structuredLessonCompletionFooterText ??
-        structuredLessonFooterTopLine ??
-        activeStructuredLessonFooterDynamicText
+      ? resolveFooterWithStreakLayer(
+          structuredLessonCompletionFooterText ??
+            structuredLessonFooterTopLine ??
+            activeStructuredLessonFooterDynamicText
+        )
       : isLessonActive
-      ? footerContextRewardTicker ?? learningLessonFooterDynamicText
+      ? resolveFooterWithStreakLayer(learningLessonFooterDynamicText)
       : dialogStarted
-        ? footerContextRewardTicker ?? chatFooterVoice?.text ?? null
-        : footerContextRewardTicker ?? footerTransitionText ?? adaptiveFooterView?.dynamicText ?? homeFooterVoice?.text ?? null
+        ? resolveFooterWithStreakLayer(chatFooterVoice?.text ?? null)
+        : resolveFooterWithStreakLayer(
+            footerTransitionText ?? adaptiveFooterView?.dynamicText ?? homeFooterVoice?.text ?? null
+          )
   const baseFooterStaticText = isAccentActive
     ? accentFooterView?.staticText ?? 'Произношение'
     : isVocabularyHubActive
@@ -5806,6 +5946,13 @@ export default function Home() {
             {homeMenuView === 'root' && (
               <div className="flex w-full flex-col items-center gap-[clamp(1rem,3.2vh,2rem)]">
                 <HomeWelcomeBubble text={buildCompactGreeting()} />
+                {homeStreakBannerText ? (
+                  <div className="w-full rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-2.5 text-center">
+                    <p className="text-[13px] font-medium leading-snug text-[var(--status-info-text)]">
+                      {homeStreakBannerText}
+                    </p>
+                  </div>
+                ) : null}
                 <div className="flex w-full justify-end">
                   <div className="flex w-full flex-col items-end gap-2">
                     {!homeAudienceChosen ? (

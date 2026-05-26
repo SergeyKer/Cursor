@@ -39,6 +39,33 @@ describe('rewardsUiPolicy', () => {
     ).toBe('Новый уровень 2. +10 XP')
   })
 
+  it('shows toast when streak bonus applied on quiet progress', () => {
+    expect(rewardReasonShowsToast('communication_goal_progress', false, 10)).toBe(true)
+    expect(rewardReasonShowsToast('communication_goal_progress', false, 0)).toBe(false)
+  })
+
+  it('builds combined streak popup text', () => {
+    expect(
+      buildRewardPopupText({
+        reason: 'communication_goal_progress',
+        amount: 15,
+        levelUp: null,
+        streakBonus: 10,
+        dailyStreakAtAward: 3,
+      })
+    ).toContain('3')
+    expect(
+      buildRewardPopupText({
+        reason: 'communication_goal_progress',
+        amount: 15,
+        levelUp: null,
+        streakBonus: 10,
+        dailyStreakAtAward: 3,
+        audience: 'child',
+      })
+    ).toContain('⚡3')
+  })
+
   it('supports child popup copy variants', () => {
     expect(
       buildRewardPopupText({

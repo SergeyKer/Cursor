@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { applyRewardsEvent } from './rewardsEvents'
-import { createDefaultRewardsState } from './rewardsState'
+import { createDefaultRewardsState, getTodayDateString } from './rewardsState'
+
+function offsetDateString(base: string, dayOffset: number): string {
+  const dt = new Date(`${base}T12:00:00`)
+  dt.setDate(dt.getDate() + dayOffset)
+  const y = dt.getFullYear()
+  const m = String(dt.getMonth() + 1).padStart(2, '0')
+  const d = String(dt.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
 
 describe('applyRewardsEvent', () => {
   it('increments communication goal and xp on completed turn', () => {
@@ -35,5 +44,21 @@ describe('applyRewardsEvent', () => {
     expect(state.modeGoals.communication.goalProgress).toBe(7)
     expect(state.modeGoals.communication.completed).toBe(true)
     expect(state.ui.lastReward?.reason).toBe('communication_goal_completed')
+  })
+
+  it('awards streak bonus on first communication turn when streak reaches 3', () => {
+    const today = getTodayDateString()
+    const yesterday = offsetDateString(today, -1)
+    let state = createDefaultRewardsState()
+    state.progress.dailyStreak = 2
+    state.progress.lastActiveDate = yesterday
+    const next = applyRewardsEvent(state, { type: 'communication_turn_completed' })
+    expect(next.progress.dailyStreak).toBe(3)
+    expect(next.ui.lastReward?.amount).toBe(15)
+    expect(next.ui.lastReward?.streakBonus).toBe(10)
+
+    const again = applyRewardsEvent(next, { type: 'communication_turn_completed' })
+    expect(again.ui.lastReward?.amount).toBe(5)
+    expect(again.ui.lastReward?.streakBonus).toBeUndefined()
   })
 })

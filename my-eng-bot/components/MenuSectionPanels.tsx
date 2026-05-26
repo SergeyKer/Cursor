@@ -55,6 +55,7 @@ import {
   type EngvoSpeechSpeedPresetId,
 } from '@/lib/engvo/constants'
 import { DAILY_STREAK_GLYPH, DAILY_STREAK_LABEL } from '@/lib/gamificationGlyphs'
+import { formatStreakProgressCopy } from '@/lib/streakProgressCopy'
 import { pickFocusModeGoal } from '@/lib/progressFocusGoal'
 import {
   formatPracticeProgressBadge,
@@ -62,6 +63,7 @@ import {
 } from '@/lib/practice/pickBestPracticeRewardOpportunity'
 import { getPracticeTopicProgress } from '@/lib/practice/practiceTopicProgressStorage'
 import type { RewardsState } from '@/lib/rewardsState'
+import { createDefaultRewardsState } from '@/lib/rewardsState'
 import { buildMyPlanLiveInput } from '@/lib/myPlan/buildInput'
 import { getMyPlanRecommendations } from '@/lib/myPlan/recommendations'
 import MyPlanPanel from '@/components/MyPlanPanel'
@@ -3017,6 +3019,7 @@ export default function MenuSectionPanels({
               : 0
           const dailyStreak = rewardsState?.progress.dailyStreak ?? 0
           const bestDailyStreak = rewardsState?.progress.bestDailyStreak ?? dailyStreak
+          const streakProgressCopy = formatStreakProgressCopy(rewardsState ?? createDefaultRewardsState())
           const lessonProgressRows = Object.values(loadLessonProgressMap())
           const bestPracticeOpportunity = pickBestPracticeRewardOpportunity(lessonProgressRows)
           return (
@@ -3082,6 +3085,18 @@ export default function MenuSectionPanels({
                 </div>
               </div>
               <p className="mt-2 text-[12px] text-[var(--text-muted)]">{nextBestAction.streak}</p>
+              {streakProgressCopy.bonusTodayLabel ? (
+                <p className="mt-2 text-[13px] font-medium text-[var(--text)]">
+                  Бонус за первый шаг сегодня: {streakProgressCopy.bonusTodayLabel}
+                </p>
+              ) : null}
+              {streakProgressCopy.introLine ? (
+                <p className="mt-2 text-[12px] text-[var(--text-muted)]">{streakProgressCopy.introLine}</p>
+              ) : null}
+              <p className="mt-1 text-[12px] text-[var(--text-muted)]">{streakProgressCopy.statusLine}</p>
+              {streakProgressCopy.nextThresholdLine ? (
+                <p className="mt-1 text-[12px] text-[var(--text-muted)]">{streakProgressCopy.nextThresholdLine}</p>
+              ) : null}
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
               <p className="text-[13px] font-medium text-[var(--text-muted)]">Общий прогресс</p>

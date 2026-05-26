@@ -1,4 +1,5 @@
 import { DAILY_STREAK_GLYPH, formatDailyStreakFooter } from '@/lib/gamificationGlyphs'
+import { resolveStreakDailyBonus } from '@/lib/streakDailyBonus'
 
 export const REWARDS_STATE_KEY = 'myeng_state_v1'
 const REWARDS_STATE_VERSION = '1.0'
@@ -37,6 +38,7 @@ export interface GlobalProgressState {
   dailyStreak: number
   bestDailyStreak: number
   lastActiveDate: string | null
+  lastStreakDailyBonusDate: string | null
 }
 
 export interface RewardsCurrenciesState {
@@ -45,13 +47,17 @@ export interface RewardsCurrenciesState {
   tickets: number
 }
 
+export interface LastRewardState {
+  amount: number
+  reason: string
+  at: string
+  streakBonus?: number
+  dailyStreakAtAward?: number
+}
+
 export interface RewardUiState {
   footerTicker: string
-  lastReward: {
-    amount: number
-    reason: string
-    at: string
-  } | null
+  lastReward: LastRewardState | null
   lastLevelUp: {
     from: number
     to: number
@@ -123,6 +129,7 @@ export function createDefaultRewardsState(): RewardsState {
       dailyStreak: 0,
       bestDailyStreak: 0,
       lastActiveDate: null,
+      lastStreakDailyBonusDate: null,
     },
     currencies: {
       coins: 0,
@@ -223,6 +230,10 @@ function normalizeRewardsState(raw: unknown): RewardsState {
       bestDailyStreak,
       lastActiveDate:
         typeof src.progress?.lastActiveDate === 'string' ? src.progress.lastActiveDate : fallback.progress.lastActiveDate,
+      lastStreakDailyBonusDate:
+        typeof src.progress?.lastStreakDailyBonusDate === 'string'
+          ? src.progress.lastStreakDailyBonusDate
+          : fallback.progress.lastStreakDailyBonusDate,
     },
     currencies: {
       coins: typeof src.currencies?.coins === 'number' ? Math.max(0, Math.floor(src.currencies.coins)) : 0,
@@ -311,16 +322,24 @@ export function awardGlobalXp(
   state: RewardsState,
   amount: number,
   reason: string,
-  options?: { ticker?: string; countsAsDailyActivity?: boolean }
+  options?: { ticker?: string; countsAsDailyActivity?: boolean; today?: string }
 ): RewardsState {
   const safeAmount = Math.max(0, Math.floor(amount))
+  if (safeAmount <= 0) return state
+  const today = options?.today ?? getTodayDateString()
   let nextState = state
   if (options?.countsAsDailyActivity !== false) {
-    nextState = withDailyActivity(nextState)
+    nextState = withDailyActivity(nextState, today)
   }
-  const totalXP = nextState.progress.totalXP + safeAmount
+  const { bonus: streakBonus, nextLastStreakDailyBonusDate } = resolveStreakDailyBonus(nextState, today)
+  const totalAward = safeAmount + streakBonus
+  const totalXP = nextState.progress.totalXP + totalAward
   const levelView = calculateLevel(totalXP)
-  const ticker = options?.ticker ?? `+${safeAmount} XP. Отличный шаг вперёд.`
+  const defaultTicker =
+    streakBonus > 0
+      ? `+${totalAward} XP (в т.ч. +${streakBonus} за серию).`
+      : `+${safeAmount} XP. Отличный шаг вперёд.`
+  const ticker = options?.ticker ?? defaultTicker
   const leveledUp = levelView.level > nextState.progress.level
   const rewardAt = new Date().toISOString()
   return {
@@ -331,14 +350,22 @@ export function awardGlobalXp(
       level: levelView.level,
       currentLevelXP: levelView.currentLevelXP,
       xpToNextLevel: levelView.xpToNextLevel,
+      lastStreakDailyBonusDate:
+        streakBonus > 0 ? nextLastStreakDailyBonusDate : nextState.progress.lastStreakDailyBonusDate,
     },
     ui: {
       ...nextState.ui,
       footerTicker: ticker,
       lastReward: {
-        amount: safeAmount,
+        amount: totalAward,
         reason,
         at: rewardAt,
+        ...(streakBonus > 0
+          ? {
+              streakBonus,
+              dailyStreakAtAward: nextState.progress.dailyStreak,
+            }
+          : {}),
       },
       lastLevelUp: leveledUp
         ? {

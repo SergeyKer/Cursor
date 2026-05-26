@@ -38,7 +38,7 @@ const FALLBACK_REWARD_TOP_LINE: Record<FooterCopyAudience, string> = {
 const TRANSITION_BY_SOURCE: Record<SessionTransitionSource, Record<FooterCopyAudience, string[]>> = {
   lesson: {
     adult: [
-      'Урок завершён. Можно закрепить это в разговоре.',
+      'Урок завершён. Закрепим в разговоре.',
       'Хороший момент перейти в практику.',
     ],
     child: [
@@ -48,7 +48,7 @@ const TRANSITION_BY_SOURCE: Record<SessionTransitionSource, Record<FooterCopyAud
   },
   practice: {
     adult: [
-      'Практика закрыта. Можно сделать ещё один короткий шаг.',
+      'Практика закрыта. Ещё один шаг?',
       'Хорошо закрепили. Готовы продолжать.',
     ],
     child: [
@@ -58,7 +58,7 @@ const TRANSITION_BY_SOURCE: Record<SessionTransitionSource, Record<FooterCopyAud
   },
   accent: {
     adult: [
-      'Произношение закрыто. Можно закрепить в диалоге.',
+      'Произношение закрыто. В диалог?',
       'Хороший блок. Двигаемся к следующему.',
     ],
     child: [
