@@ -143,7 +143,27 @@
     this.rafId = window.requestAnimationFrame(this._tick.bind(this));
   };
 
+  CallVoiceMeter.prototype.ensureRunning = function () {
+    if (this.rafId) return;
+    this.rafId = window.requestAnimationFrame(this._tick.bind(this));
+  };
+
+  CallVoiceMeter.prototype.releaseStream = function () {
+    this.setActive(false);
+    this.setFrozen(false);
+    if (this.source) {
+      try {
+        this.source.disconnect();
+      } catch (_) {}
+    }
+    this.source = null;
+    this.analyser = null;
+    this.stream = null;
+    this.reset();
+  };
+
   CallVoiceMeter.prototype.setStream = function (stream) {
+    this.ensureRunning();
     if (this.stream === stream && this.analyser) {
       void this._resumeContext();
       return;
@@ -170,8 +190,7 @@
   };
 
   CallVoiceMeter.prototype.start = function () {
-    if (this.rafId) return;
-    this.rafId = window.requestAnimationFrame(this._tick.bind(this));
+    this.ensureRunning();
   };
 
   CallVoiceMeter.prototype.stop = function () {

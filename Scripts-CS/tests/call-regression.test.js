@@ -468,8 +468,12 @@ test('call voice meters use shared tuning and live streams during call', () => {
   assert.match(meterJs, /_measureBarTargets/);
   assert.doesNotMatch(meterJs, /Math\.sin/);
   assert.match(meterJs, /CallVoiceMeter\.prototype\.reset/);
+  assert.match(meterJs, /CallVoiceMeter\.prototype\.releaseStream/);
+  assert.match(meterJs, /CallVoiceMeter\.prototype\.ensureRunning/);
   assert.match(callJs, /rtc\.aiMeter\.setActive\(inCall\)/);
   assert.match(callJs, /rtc\.userMeter\.setActive\(inCall\)/);
+  assert.match(callJs, /rtc\.aiMeter\.releaseStream\(\)/);
+  assert.match(callJs, /ensureRunning\(\)/);
   assert.doesNotMatch(callJs, /assistantPending.*assistantSpeaking.*setActive/);
 });
 

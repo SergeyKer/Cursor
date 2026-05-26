@@ -249,11 +249,13 @@
     const inCall = isCallInProgress(state.phase);
     const ended = state.phase === 'ended';
     if (rtc.aiMeter) {
+      rtc.aiMeter.ensureRunning();
       rtc.aiMeter.setStream(rtc.remoteStream);
       rtc.aiMeter.setActive(inCall);
       rtc.aiMeter.setFrozen(ended);
     }
     if (rtc.userMeter) {
+      rtc.userMeter.ensureRunning();
       rtc.userMeter.setStream(rtc.localStream);
       rtc.userMeter.setActive(inCall);
       rtc.userMeter.setFrozen(ended);
@@ -1236,8 +1238,8 @@
     } else {
       resetTimerForNewCall();
     }
-    if (rtc.aiMeter) rtc.aiMeter.stop();
-    if (rtc.userMeter) rtc.userMeter.stop();
+    if (rtc.aiMeter) rtc.aiMeter.releaseStream();
+    if (rtc.userMeter) rtc.userMeter.releaseStream();
     if (rtc.dc) {
       try { rtc.dc.close(); } catch (_) {}
     }
@@ -1347,6 +1349,7 @@
       rtc.pc = pc;
       rtc.dc = dc;
       rtc.localStream = mediaStream;
+      updateMeters();
 
       if (!rtc.remoteAudio) {
         rtc.remoteAudio = document.createElement('audio');
