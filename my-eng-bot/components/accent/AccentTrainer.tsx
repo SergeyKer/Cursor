@@ -95,7 +95,7 @@ function createFooterView(params: {
 }): AccentFooterView {
   if (!params.lesson) {
     return {
-      dynamicText: 'Выбери быстрый старт или сложный звук для русскоговорящих.',
+      dynamicText: 'Выбери звук или быстрый старт.',
       staticText: `Произношение | ${ALL_ACCENT_LESSONS.length} уроков`,
       typingKey: 'accent-hub',
       tone: 'neutral',
@@ -105,7 +105,7 @@ function createFooterView(params: {
 
   if (!params.session) {
     return {
-      dynamicText: 'Выбери формат: полный урок, слова, пары или предложение.',
+      dynamicText: 'Выбери формат: урок, слова, пары.',
       staticText: `${params.lesson.shortTitle} | Выбор формата`,
       typingKey: `accent-${params.lesson.id}-mode-picker`,
       tone: 'neutral',

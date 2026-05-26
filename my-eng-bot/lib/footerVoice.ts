@@ -28,10 +28,31 @@ export interface FooterVoiceSelection {
   emphasis: FooterVoiceEmphasis
 }
 
-const DEFAULT_SINGLE_LINE_LIMIT = 46
+/** Ориентир: Xiaomi 12 (~360px) с padding и маркером child-режима. */
+export const FOOTER_DYNAMIC_MAX_LENGTH = 38
+
+const DEFAULT_SINGLE_LINE_LIMIT = FOOTER_DYNAMIC_MAX_LENGTH
 
 function normalizeVoiceText(text?: string | null): string {
   return typeof text === 'string' ? text.replace(/\s+/g, ' ').trim() : ''
+}
+
+export function shortenFooterDynamicLine(text: string, maxLength: number = FOOTER_DYNAMIC_MAX_LENGTH): string {
+  return shortenToSingleLine(normalizeVoiceText(text), maxLength)
+}
+
+export function formatFooterDynamicLine(
+  text?: string | null,
+  compactText?: string | null,
+  maxLength: number = FOOTER_DYNAMIC_MAX_LENGTH
+): string {
+  const normalized = normalizeVoiceText(text)
+  if (!normalized) return ''
+  const normalizedCompact = normalizeVoiceText(compactText)
+  if (normalized.length <= maxLength) return normalized
+  if (normalizedCompact && normalizedCompact.length <= maxLength) return normalizedCompact
+  if (normalizedCompact) return shortenToSingleLine(normalizedCompact, maxLength)
+  return shortenToSingleLine(normalized, maxLength)
 }
 
 function shortenToSingleLine(text: string, maxLength: number): string {

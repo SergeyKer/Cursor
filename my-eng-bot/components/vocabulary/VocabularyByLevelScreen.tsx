@@ -219,7 +219,7 @@ export default function VocabularyByLevelScreen({
       const routeTitle = `${getLevelPrefix(session.levelId, catalog)} · ${getTopicTitle(session.topicId, catalog)}`
       const footerByPhase: Record<SessionPhase, VocabularyFooterView> = {
         cards: {
-          dynamicText: 'Слушай слово, смотри на карточку и двигайся дальше.',
+          dynamicText: 'Слушай слово и двигайся дальше.',
           staticText: `${routeTitle} | Карточки ${Math.min(session.cardIndex + 1, session.words.length)}/${session.words.length}`,
           typingKey: `vocab-lvl-cards-${session.id}-${session.cardIndex}`,
         },
@@ -245,7 +245,7 @@ export default function VocabularyByLevelScreen({
 
     if (hubTab === 'learned') {
       onFooterViewChange?.({
-        dynamicText: 'Здесь слова со стабильным закреплением по SRS.',
+        dynamicText: 'Слова с закреплением по SRS.',
         staticText: 'Слова по уровням | Выученные',
         typingKey: 'vocab-level-learned-footer',
       })
@@ -262,7 +262,7 @@ export default function VocabularyByLevelScreen({
     }
 
     onFooterViewChange?.({
-      dynamicText: 'Выбери уровень CEFR или открой список выученных слов.',
+      dynamicText: 'Выбери уровень CEFR или тему.',
       staticText: 'Слова по уровням | Уровни',
       typingKey: 'vocab-level-hub-footer',
     })

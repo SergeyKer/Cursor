@@ -3053,13 +3053,12 @@ function MessageBubble({
     messageIndex,
   ])
 
+  // В звонке во время prefetch/загрузки — нейтральная серая точка (как idle в Диалоге), без оранжевого loading.
   const engvoCallTranslationDotState: TranslationDotState = hasTranslationError
     ? 'error'
     : hasTranslationData
       ? 'ready'
-      : isLoadingEngvoCallTranslation || isPrefetchingEngvoCallTranslation
-        ? 'loading'
-        : 'idle'
+      : 'idle'
 
   const translationDotState: TranslationDotState = hasTranslationError
     ? 'error'

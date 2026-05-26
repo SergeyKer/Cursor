@@ -110,6 +110,9 @@ export function reduceRealtimeTranscriptEvent(
     }
   }
 
+  const completedFromEvent = (event.transcript ?? '').trim()
+  const completedText = completedFromEvent || current.deltaText.trim()
+
   return {
     ...withItem,
     items: {
@@ -117,7 +120,7 @@ export function reduceRealtimeTranscriptEvent(
       [itemId]: {
         ...current,
         deltaText: '',
-        completedText: (event.transcript ?? '').trim(),
+        completedText,
       },
     },
   }

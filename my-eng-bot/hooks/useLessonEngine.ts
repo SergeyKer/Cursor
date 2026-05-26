@@ -3,6 +3,7 @@ import type { AdaptiveConfig, LessonData, LessonMistake, PostLessonContent } fro
 import { validateAnswer } from '@/utils/validateAnswer'
 import {
   pickFooterVoice,
+  FOOTER_DYNAMIC_MAX_LENGTH,
   type FooterVoiceCandidate,
   type FooterVoiceEmphasis,
   type FooterVoiceTone,
@@ -737,7 +738,7 @@ export function useLessonEngine(lesson: LessonData | null) {
       ]
     const voice = pickFooterVoice(
       candidates.filter((candidate): candidate is FooterVoiceCandidate => candidate !== null),
-      { maxLength: 46 }
+      { maxLength: FOOTER_DYNAMIC_MAX_LENGTH }
     )
 
     return {

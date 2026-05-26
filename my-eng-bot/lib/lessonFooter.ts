@@ -154,9 +154,9 @@ export function computeLessonStagePercent(input: {
 }
 
 export function formatLessonCompletionFooter(medal: LessonMedalTierOrNull): string {
-  if (medal === 'gold') return 'Поздравляем! Золотая медаль — отличный результат!'
-  if (medal === 'silver') return 'Поздравляем! Серебряная медаль — хороший результат!'
-  if (medal === 'bronze') return 'Урок пройден! Бронзовая медаль — можно улучшить до золота.'
+  if (medal === 'gold') return 'Золотая медаль — отлично!'
+  if (medal === 'silver') return 'Серебряная медаль — хорошо!'
+  if (medal === 'bronze') return 'Бронза. Можно улучшить!'
   return 'Урок пройден! Отличная работа!'
 }
 

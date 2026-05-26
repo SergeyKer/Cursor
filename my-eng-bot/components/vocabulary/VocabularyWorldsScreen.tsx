@@ -197,7 +197,7 @@ export default function VocabularyWorldsScreen({
     const currentWorldTitle = getWorldTitle(session.worldId)
     const footerByPhase: Record<SessionPhase, VocabularyFooterView> = {
       cards: {
-        dynamicText: 'Слушай слово, смотри на карточку и двигайся дальше.',
+        dynamicText: 'Слушай слово и двигайся дальше.',
         staticText: `${currentWorldTitle} | Карточки ${Math.min(session.cardIndex + 1, session.words.length)}/${session.words.length}`,
         typingKey: `vocab-cards-${session.id}-${session.cardIndex}`,
       },

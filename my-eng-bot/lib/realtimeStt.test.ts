@@ -76,6 +76,31 @@ describe('realtimeStt transcript state', () => {
     })
   })
 
+  it('falls back to delta text when completed transcript is empty', () => {
+    let state = createRealtimeTranscriptState()
+    state = reduceRealtimeTranscriptEvent(state, {
+      type: 'input_audio_buffer.committed',
+      item_id: 'item-1',
+      previous_item_id: null,
+    })
+    state = reduceRealtimeTranscriptEvent(state, {
+      type: 'conversation.item.input_audio_transcription.delta',
+      item_id: 'item-1',
+      delta: 'me too',
+    })
+    state = reduceRealtimeTranscriptEvent(state, {
+      type: 'conversation.item.input_audio_transcription.completed',
+      item_id: 'item-1',
+      transcript: '',
+    })
+
+    expect(state.items['item-1']?.completedText).toBe('me too')
+    expect(getRealtimeTranscriptView(state)).toEqual({
+      finalText: 'me too',
+      interimText: '',
+    })
+  })
+
   it('resolves a final transcript from final and interim turns', () => {
     let state = createRealtimeTranscriptState()
     state = reduceRealtimeTranscriptEvent(state, {

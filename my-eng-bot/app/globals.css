@@ -73,6 +73,31 @@
       height: 1.5rem;
     }
   }
+
+  /* Урок / practice: компактнее emoji на узких экранах, flex-ряд stat-блоков. */
+  .live-footer-stats-row .footer-stat-glyph {
+    width: 1.25rem;
+    height: 1.25rem;
+    font-size: 1.25rem;
+  }
+
+  .live-footer-stats-row .footer-stat-medal-slot {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  @media (min-width: 640px) {
+    .live-footer-stats-row .footer-stat-glyph {
+      width: 1.5rem;
+      height: 1.5rem;
+      font-size: 1.5rem;
+    }
+
+    .live-footer-stats-row .footer-stat-medal-slot {
+      width: 1.5rem;
+      height: 1.5rem;
+    }
+  }
 }
 
 @keyframes slideIn {

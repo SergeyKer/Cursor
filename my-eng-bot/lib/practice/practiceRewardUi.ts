@@ -55,7 +55,7 @@ export function buildPracticeRewardTopLine(params: {
     parts.push(audience === 'child' ? `+${gemsAwarded} 💎!` : `+${gemsAwarded} камней.`)
   }
 
-  return parts.join(' ')
+  return parts[0] ?? ''
 }
 
 export function buildPracticeRewardPopupText(params: {

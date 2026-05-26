@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { pickFooterVoice } from '@/lib/footerVoice'
+import {
+  FOOTER_DYNAMIC_MAX_LENGTH,
+  formatFooterDynamicLine,
+  pickFooterVoice,
+} from '@/lib/footerVoice'
 
 describe('pickFooterVoice', () => {
   it('prefers the highest-priority candidate', () => {
@@ -42,5 +46,21 @@ describe('pickFooterVoice', () => {
 
     expect(voice?.text.endsWith('…')).toBe(true)
     expect(voice?.text.length).toBeLessThanOrEqual(18)
+  })
+})
+
+describe('formatFooterDynamicLine', () => {
+  it('uses compact text when main line exceeds default limit', () => {
+    expect(
+      formatFooterDynamicLine(
+        'Поздравляем! Золотая медаль — отличный результат!',
+        'Золотая медаль — отлично!'
+      )
+    ).toBe('Золотая медаль — отлично!')
+  })
+
+  it('defaults to FOOTER_DYNAMIC_MAX_LENGTH of 38', () => {
+    expect(FOOTER_DYNAMIC_MAX_LENGTH).toBe(38)
+    expect('Золотая медаль — отлично!'.length).toBeLessThanOrEqual(FOOTER_DYNAMIC_MAX_LENGTH)
   })
 })

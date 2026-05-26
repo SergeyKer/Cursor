@@ -61,24 +61,6 @@ function getToneTextClassName(tone: FooterVoiceTone, emphasis: FooterVoiceEmphas
   return `${toneClassName} ${emphasisClassName} ${playfulClassName}`.trim()
 }
 
-function getAdultDotClassName(tone: FooterVoiceTone, emphasis: FooterVoiceEmphasis): string {
-  const toneClassName =
-    tone === 'celebrate'
-      ? 'bg-emerald-500'
-      : tone === 'support'
-        ? 'bg-emerald-400'
-        : tone === 'hint'
-          ? 'bg-amber-400'
-          : tone === 'thinking'
-            ? 'bg-sky-400'
-            : tone === 'error'
-              ? 'bg-rose-400'
-              : 'bg-gray-400'
-
-  const emphasisClassName = emphasis === 'pulse' ? 'motion-safe:animate-pulse' : ''
-  return `mt-0.5 h-2 w-2 shrink-0 rounded-full ${toneClassName} ${emphasisClassName}`.trim()
-}
-
 function stableHash(value: string): number {
   let hash = 0
   for (let index = 0; index < value.length; index += 1) {
@@ -139,12 +121,12 @@ export function resolveFooterPresentation({
     enabled: true,
     mode: 'professional',
     typingSpeed: 28,
-    topLineRowClassName: 'flex items-center gap-2',
+    topLineRowClassName: 'flex min-w-0 items-center gap-2',
     topLineClassName,
-    bottomLineRowClassName: 'pl-4',
+    bottomLineRowClassName: '',
     bottomLineClassName: FOOTER_BOTTOM_LINE_CLASS,
-    markerKind: 'dot',
+    markerKind: 'none',
     markerText: null,
-    markerClassName: getAdultDotClassName(tone, emphasis),
+    markerClassName: '',
   }
 }

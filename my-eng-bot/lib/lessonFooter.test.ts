@@ -219,14 +219,12 @@ describe('resolveLessonHeaderMedal', () => {
 
 describe('formatLessonCompletionFooter', () => {
   it('returns gold congratulations', () => {
-    expect(formatLessonCompletionFooter('gold')).toBe(
-      'Поздравляем! Золотая медаль — отличный результат!'
-    )
+    expect(formatLessonCompletionFooter('gold')).toBe('Золотая медаль — отлично!')
   })
 
   it('returns silver and bronze variants', () => {
     expect(formatLessonCompletionFooter('silver')).toContain('Серебряная медаль')
-    expect(formatLessonCompletionFooter('bronze')).toContain('Бронзовая медаль')
+    expect(formatLessonCompletionFooter('bronze')).toContain('Бронза')
   })
 
   it('returns generic completion without medal', () => {

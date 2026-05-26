@@ -55,9 +55,9 @@ describe('resolveFooterPresentation', () => {
     })
 
     expect(presentation.mode).toBe('professional')
-    expect(presentation.markerKind).toBe('dot')
+    expect(presentation.markerKind).toBe('none')
     expect(presentation.markerText).toBe(null)
     expect(presentation.typingSpeed).toBe(28)
-    expect(presentation.bottomLineRowClassName).toBe('pl-4')
+    expect(presentation.bottomLineRowClassName).toBe('')
   })
 })
