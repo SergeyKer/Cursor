@@ -212,6 +212,7 @@ test('call prompts require listening after questions', () => {
   const layer = buildVoiceLayerBlock();
   assert.match(completion, /дождись ответа/i);
   assert.match(completion, /Не совмещай/i);
+  assert.match(completion, /закроется сам/i);
   assert.match(reminder, /После вопроса клиенту/i);
   assert.match(layer, /Один вопрос — одна реплика/i);
   assert.match(layer, /сначала ответ клиента/i);
@@ -263,6 +264,16 @@ test('call.js guards stale WebRTC session on hangUp and redial', () => {
   assert.match(js, /isPeerConnectionUsable/);
   assert.match(js, /sessionAbortController/);
   assert.match(js, /signal: abortController\.signal/);
+});
+
+test('call.js auto-hangup after closing farewell sequence', () => {
+  const js = fs.readFileSync(path.join(process.cwd(), 'frontend/call.js'), 'utf8');
+  assert.match(js, /scheduleClosingHangUp/);
+  assert.match(js, /reason: 'closing'/);
+  assert.match(js, /CALL_CLOSING_FAREWELL_TIMEOUT_MS/);
+  assert.match(js, /resetClosingState/);
+  assert.match(js, /maybeScheduleClosingFarewellTimeout/);
+  assert.match(js, /isInClosingGrace/);
 });
 
 test('call.js waits for termination resolve before assistant reply', () => {

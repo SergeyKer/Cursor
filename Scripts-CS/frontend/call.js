@@ -15,6 +15,9 @@
     3: 'gpt-realtime-2',
   };
   const CALL_SILENCE_HANGUP_MS = 30000;
+  const CALL_CLOSING_HANGUP_DELAY_MS = 1500;
+  const CALL_CLOSING_FAREWELL_TIMEOUT_MS = 9000;
+  const CALL_FINISHED_TEXT = 'Звонок завершён';
   const CALL_REALTIME_SERVER_VAD = {
     type: 'server_vad',
     threshold: 0.84,
@@ -38,6 +41,148 @@
   const CALL_ICE_GATHERING_TIMEOUT_MS = { mobile: 2000, default: 5000 };
   const TERMINATION_HINT_RE =
     /расторг|расторжен|прекрат\w*\s+договор|отказ\w*\s+от\s+услуг|разорв\w*\s+договор/i;
+
+  /** sync with lib/call/callClosing.js */
+  const CLOSING_PHASE = {
+    NONE: 'none',
+    ASKED: 'asked',
+    ANSWERED: 'answered',
+    AI_FAREWELL: 'aiFarewell',
+  };
+  const CLOSING_QUESTIONS_RE =
+    /остал[\p{L}]*\s+(?:ли\s+)?(?:у\s+вас\s+)?(?:ещ[её]\s+)?вопрос[\p{L}]*|есть\s+(?:ли\s+)?(?:у\s+вас\s+)?(?:ещ[её]\s+)?вопрос[\p{L}]*|что[\s-]нибудь\s+ещ[её]|что[\s-]то\s+ещ[её]|могу\s+ещ[её]\s+чем/iu;
+  const HAS_MORE_QUESTIONS_RE =
+    /(?:^|[,.!?]\s*)да\s+есть\s+ещ[её]?\s*вопрос|(?:^|[,.!?]\s*)(?:да|ага|конечно|ну\s+да)[\s,!.?-]*(?:у\s+меня\s+|мне\s+)?(?:ещ[её]\s+)?(?:есть\s+)?вопрос|(?:^|[,.!?]\s*)(?:а\s+)?(?:ещ[её]\s+)(?:один\s+)?вопрос|(?:^|[,.!?]\s*)есть\s+(?:ещ[её]\s+)?вопрос/iu;
+  const NO_QUESTIONS_RE =
+    /^(?:неа|нету|ничего|все(?:\s+понятно|\s+ясно)?(?:\s+спасибо)?|понятно(?:\s+спасибо)?|ясно(?:\s+спасибо)?|спасибо(?:\s+(?:все|это\s+все))?|больше\s+(?:нет|ничего)|вопросов\s+нет|нет\s+вопрос|нет\s+все\s+(?:понятно|ясно)|нет\s*,?\s*(?:вопросов\s+нет|все|спасибо|это\s+все)?|нет)$/iu;
+  const NO_QUESTIONS_CONTINUATION_RE = /^(?:нет\s*,?\s*но|нет\s*,?\s*а\s+|нет\s*,?\s*у\s+меня)/i;
+  const FAREWELL_RE =
+    /до\s+свидан|всего\s+добр|хорошего\s+дн|хорошего\s+вечер|спасибо\s+за\s+(?:обращен|звонок)|удачи|всего\s+хорошего|был\s+рад\s+помоч|будем\s+ждать/i;
+
+  function normalizeCallClosingText(text) {
+    return String(text || '')
+      .toLowerCase()
+      .replace(/ё/g, 'е')
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function detectClosingQuestionsPrompt(text) {
+    const normalized = normalizeCallClosingText(text);
+    return normalized ? CLOSING_QUESTIONS_RE.test(normalized) : false;
+  }
+
+  function detectHasMoreQuestions(text) {
+    const normalized = normalizeCallClosingText(text);
+    return normalized ? HAS_MORE_QUESTIONS_RE.test(normalized) : false;
+  }
+
+  function detectNoQuestionsAnswer(text) {
+    const normalized = normalizeCallClosingText(text);
+    if (!normalized) return false;
+    if (detectHasMoreQuestions(normalized)) return false;
+    if (NO_QUESTIONS_CONTINUATION_RE.test(normalized)) return false;
+    if (/^нет\s+[\p{L}]+/iu.test(normalized) && !/^нет(?:\s*,?\s*(?:вопросов\s+нет|все|спасибо|вопрос))/iu.test(normalized)) {
+      return false;
+    }
+    return NO_QUESTIONS_RE.test(normalized);
+  }
+
+  function detectFarewell(text) {
+    const normalized = normalizeCallClosingText(text);
+    return normalized ? FAREWELL_RE.test(normalized) : false;
+  }
+
+  function createCallClosingTracker() {
+    let phase = CLOSING_PHASE.NONE;
+    let pendingFarewellTimeout = false;
+    let pendingUserFarewellHangup = false;
+
+    function reset() {
+      phase = CLOSING_PHASE.NONE;
+      pendingFarewellTimeout = false;
+      pendingUserFarewellHangup = false;
+    }
+
+    function onAssistant(text) {
+      const normalized = normalizeCallClosingText(text);
+      if (!normalized) return { changed: false, phase: phase, event: null };
+
+      if (detectClosingQuestionsPrompt(normalized)) {
+        phase = CLOSING_PHASE.ASKED;
+        pendingFarewellTimeout = false;
+        pendingUserFarewellHangup = false;
+        return { changed: true, phase: phase, event: 'closing_asked' };
+      }
+
+      if (phase === CLOSING_PHASE.ANSWERED && detectFarewell(normalized)) {
+        phase = CLOSING_PHASE.AI_FAREWELL;
+        pendingFarewellTimeout = true;
+        return { changed: true, phase: phase, event: 'ai_farewell' };
+      }
+
+      return { changed: false, phase: phase, event: null };
+    }
+
+    function onUser(text) {
+      const normalized = normalizeCallClosingText(text);
+      if (!normalized) return { changed: false, phase: phase, event: null };
+
+      if (phase === CLOSING_PHASE.ASKED) {
+        if (detectHasMoreQuestions(normalized)) {
+          phase = CLOSING_PHASE.NONE;
+          pendingFarewellTimeout = false;
+          pendingUserFarewellHangup = false;
+          return { changed: true, phase: phase, event: 'more_questions' };
+        }
+        if (detectNoQuestionsAnswer(normalized)) {
+          phase = CLOSING_PHASE.ANSWERED;
+          return { changed: true, phase: phase, event: 'no_questions' };
+        }
+      }
+
+      if (phase === CLOSING_PHASE.AI_FAREWELL && detectFarewell(normalized)) {
+        pendingUserFarewellHangup = true;
+        pendingFarewellTimeout = false;
+        return { changed: true, phase: phase, event: 'user_farewell' };
+      }
+
+      return { changed: false, phase: phase, event: null };
+    }
+
+    function onAssistantResponseDone() {
+      if (phase !== CLOSING_PHASE.AI_FAREWELL || !pendingFarewellTimeout) {
+        return { changed: false, phase: phase, event: null };
+      }
+      return { changed: true, phase: phase, event: 'farewell_timeout_ready' };
+    }
+
+    return {
+      reset: reset,
+      onAssistant: onAssistant,
+      onUser: onUser,
+      onAssistantResponseDone: onAssistantResponseDone,
+      shouldScheduleUserFarewellHangup: function () {
+        return pendingUserFarewellHangup;
+      },
+      shouldScheduleFarewellTimeout: function () {
+        return pendingFarewellTimeout && phase === CLOSING_PHASE.AI_FAREWELL;
+      },
+      clearFarewellTimeoutFlag: function () {
+        pendingFarewellTimeout = false;
+      },
+      clearUserFarewellHangupFlag: function () {
+        pendingUserFarewellHangup = false;
+      },
+      isInClosingGrace: function () {
+        return phase === CLOSING_PHASE.AI_FAREWELL;
+      },
+    };
+  }
+
+  let closingTracker = createCallClosingTracker();
+  let closingHangupTimer = null;
 
   const CYRILLIC_RE = /[\u0401\u0451\u0410-\u044F\u0400-\u04FF]/g;
   const LATIN_RE = /[A-Za-z\u00C0-\u00FF\u0100-\u017F\u0180-\u024F]/g;
@@ -224,10 +369,63 @@
         state.phase
       );
       if (!inCall || !state.lastMeaningfulActivityAt) return;
+      if (closingTracker.isInClosingGrace()) return;
       if (Date.now() - state.lastMeaningfulActivityAt >= CALL_SILENCE_HANGUP_MS) {
         hangUp({ reason: 'silence' });
       }
     }, 1000);
+  }
+
+  function clearClosingHangupTimer() {
+    if (closingHangupTimer) {
+      window.clearTimeout(closingHangupTimer);
+      closingHangupTimer = null;
+    }
+  }
+
+  function resetClosingState() {
+    clearClosingHangupTimer();
+    closingTracker.reset();
+  }
+
+  function scheduleClosingHangUp(source, delayMs) {
+    clearClosingHangupTimer();
+    const gen = callGeneration;
+    const delay = delayMs != null ? delayMs : CALL_CLOSING_HANGUP_DELAY_MS;
+    touchMeaningfulActivity();
+    closingHangupTimer = window.setTimeout(function () {
+      closingHangupTimer = null;
+      if (isCallSessionStale(gen) || state.phase === 'ended' || state.phase === 'idle') return;
+      if (source === 'farewell_timeout') closingTracker.clearFarewellTimeoutFlag();
+      if (source === 'user_farewell') closingTracker.clearUserFarewellHangupFlag();
+      hangUp({ reason: 'closing' });
+    }, delay);
+  }
+
+  function handleClosingAssistantText(text) {
+    const result = closingTracker.onAssistant(text);
+    if (result.event === 'ai_farewell') {
+      touchMeaningfulActivity();
+      if (!state.assistantResponseActive) {
+        maybeScheduleClosingFarewellTimeout();
+      }
+    }
+  }
+
+  function maybeScheduleClosingFarewellTimeout() {
+    const result = closingTracker.onAssistantResponseDone();
+    if (result.event === 'farewell_timeout_ready' && closingTracker.shouldScheduleFarewellTimeout()) {
+      closingTracker.clearFarewellTimeoutFlag();
+      scheduleClosingHangUp('farewell_timeout', CALL_CLOSING_FAREWELL_TIMEOUT_MS);
+    }
+  }
+
+  function handleClosingUserText(text) {
+    const result = closingTracker.onUser(text);
+    if (result.event === 'user_farewell' && closingTracker.shouldScheduleUserFarewellHangup()) {
+      closingTracker.clearUserFarewellHangupFlag();
+      scheduleClosingHangUp('user_farewell', CALL_CLOSING_HANGUP_DELAY_MS);
+    }
   }
 
   function renderStatus() {
@@ -725,6 +923,7 @@
         state.messages[streamingIdx].streaming = false;
         patchAssistantBubbleText(streamingIdx, clean);
         finalizeAssistantExplainChip(streamingIdx);
+        handleClosingAssistantText(clean);
       }
       if (rid) state.committedAssistantResponseIds.add(rid);
       if (rid) state.dialogOrder.assistantSeqByResponseId.delete(rid);
@@ -735,7 +934,9 @@
     }
 
     if (rid && state.committedAssistantResponseIds.has(rid)) {
-      if (clean) updateAssistantMessageIfLonger(clean);
+      if (clean) {
+        if (updateAssistantMessageIfLonger(clean)) handleClosingAssistantText(clean);
+      }
       return;
     }
 
@@ -755,6 +956,7 @@
     } else {
       pushMessage({ role: 'assistant', content: clean, _responseId: rid });
     }
+    handleClosingAssistantText(clean);
     clearAssistantPendingText(rid);
   }
 
@@ -1127,6 +1329,7 @@
       if (transcript) {
         touchMeaningfulActivity();
         if (enqueueUserTranscript(transcript, itemId)) {
+          handleClosingUserText(transcript);
           const terminationHint =
             isTerminationHint(transcript) || hasTerminationHintInConversation();
           void resolveProcessForTranscript(transcript, { awaitTermination: terminationHint });
@@ -1207,6 +1410,7 @@
       if (!state.baseInstructionsApplied && state.greetingTriggered) {
         void applyFullBaseInstructionsAfterGreeting();
       }
+      maybeScheduleClosingFarewellTimeout();
       setPhase('listening');
       return;
     }
@@ -1267,6 +1471,7 @@
     state.pendingAssistantText = '';
     state.lastAssistantResponseId = null;
     resetDialogOrder();
+    resetClosingState();
   }
 
   function renderError() {
@@ -1324,6 +1529,7 @@
     state.firstTurnInstructions = '';
     state.pendingSessionInstructions = null;
     state.baseInstructionsApplied = false;
+    resetClosingState();
     state.activeProcessCode = BASE_OPERATOR_CODE;
     state.activeProcessPrompt = '';
     state.activeSessionInstructions = '';
@@ -1425,7 +1631,7 @@
     const line =
       reason === 'silence'
         ? 'Звонок завершён: нет речи 30 сек.'
-        : 'Звонок завершён';
+        : CALL_FINISHED_TEXT;
     pushMessage({ role: 'assistant', content: line, serviceLine: true });
     setPhase('ended');
     updateMeters();

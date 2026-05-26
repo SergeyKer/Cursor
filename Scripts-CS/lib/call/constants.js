@@ -31,6 +31,12 @@ const CALL_REALTIME_VOICES = ['marin'];
 /** Тишина на линии (мс) без осмысленной речи → авто-завершение (клиентский таймер). */
 const CALL_SILENCE_HANGUP_MS = 30000;
 
+/** Пауза после прощания клиента перед авто-hangup (closing). */
+const CALL_CLOSING_HANGUP_DELAY_MS = 1500;
+
+/** Fallback: hangup после прощания AI, если клиент молчит. */
+const CALL_CLOSING_FAREWELL_TIMEOUT_MS = 9000;
+
 /**
  * server_vad: выше threshold — меньше ложных срабатываний на кхе-кхе и фон.
  * silence_duration_ms — пауза перед концом реплики (не путать с CALL_SILENCE_HANGUP_MS).
@@ -91,6 +97,8 @@ module.exports = {
   CALL_CONNECTING_TEXT,
   CALL_REALTIME_VOICES,
   CALL_SILENCE_HANGUP_MS,
+  CALL_CLOSING_HANGUP_DELAY_MS,
+  CALL_CLOSING_FAREWELL_TIMEOUT_MS,
   CALL_REALTIME_SERVER_VAD,
   isCallRealtimeVoice,
   isCallRealtimeModel,
