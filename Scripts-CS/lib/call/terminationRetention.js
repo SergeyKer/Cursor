@@ -1,4 +1,5 @@
-const TERMINATION_TOPIC_PATTERN = /расторг|прекрат.*договор|отказ.*от\s+услуг|разорв.*договор|увольн.*компан/i;
+const TERMINATION_TOPIC_PATTERN =
+  /расторг|расторжен|прекрат.*договор|отказ.*от\s+услуг|разорв.*договор|увольн.*компан/i;
 
 const NATURAL_REASONS = [
   { id: 'business_closure', pattern: /закрыт|ликвид|сверя|банкрот|прекрат.*деятель|обанкрот/i, label: 'закрытие бизнеса' },
@@ -103,7 +104,9 @@ function buildTerminationClarifyPrompt() {
 
 function countTerminationMentions(text) {
   const normalized = normalizeText(text);
-  const matches = normalized.match(/расторг\w*|прекрат\w*\s+договор|отказ\w*\s+от\s+услуг|разорв\w*\s+договор/g);
+  const matches = normalized.match(
+    /расторг\w*|расторжен\w*|прекрат\w*\s+договор|отказ\w*\s+от\s+услуг|разорв\w*\s+договор/g
+  );
   return matches ? matches.length : 0;
 }
 
@@ -143,13 +146,17 @@ function assessChurnPressure(conversationText) {
   return { level, score, signals, terminationMentions: mentions };
 }
 
-function shouldTerminateDespiteRetention(pressure) {
+function shouldSkipTerminationReasonClarify(pressure) {
   return (
     pressure.level === 'high' ||
     pressure.signals.includes('отказ от диалога') ||
     pressure.signals.includes('явное требование оформить расторжение') ||
     pressure.signals.includes('агрессия / жёсткий тон')
   );
+}
+
+function shouldTerminateDespiteRetention(pressure) {
+  return shouldSkipTerminationReasonClarify(pressure);
 }
 
 function resolveTerminationScenario(query, conversationText) {
@@ -160,9 +167,13 @@ function resolveTerminationScenario(query, conversationText) {
   let summary = '';
 
   if (reason.reasonCategory === 'unknown') {
-    if (pressure.level === 'high') {
+    if (shouldSkipTerminationReasonClarify(pressure)) {
       path = 'terminate';
-      summary = 'Причина не названа, но давление на расторжение высокое — оформление без удержания.';
+      summary =
+        pressure.signals.includes('агрессия / жёсткий тон') ||
+        pressure.signals.includes('отказ от диалога')
+          ? 'Причина не названа, но клиент агрессивен или отказывается от диалога — оформление без удержания.'
+          : 'Причина не названа, но давление на расторжение высокое — оформление без удержания.';
     } else {
       path = 'clarify';
       summary = 'Причина не ясна — сначала уточни причину одним вопросом.';
@@ -221,7 +232,9 @@ function buildTerminationScenarioBlock({ path, summary, reason, pressure }) {
 
   if (path === 'clarify') {
     lines.push(
-      'Сейчас: эмпатия + один вопрос о причине. Не переходи к оформлению и не начинай удержание без причины.'
+      'ОБЯЗАТЕЛЬНО СЕЙЧАС: эмпатия + один вопрос о причине (переезд, закрытие, аренда, качество, цена, график, сервис).',
+      'Запрещено: подтверждать расторжение, оформление, письменную заявку, «зафиксировала», «приняла к сведению» без названной причины.',
+      'Исключение — только при явной агрессии, отказе от диалога или повторном жёстком требовании расторжения (см. сигналы давления выше).'
     );
     return lines.join('\n');
   }
@@ -253,18 +266,28 @@ function buildTerminationScenarioBlock({ path, summary, reason, pressure }) {
   return lines.join('\n');
 }
 
-function analyzeTerminationContext(query, conversationText) {
-  if (!isTerminationTopic(conversationText || query) && !isTerminationTopic(query)) {
+function analyzeTerminationContext(query, conversationText, options = {}) {
+  const context = conversationText || query;
+  const terminationRelevant =
+    Boolean(options.forceTermination) ||
+    isTerminationTopic(context) ||
+    isTerminationTopic(query);
+  if (!terminationRelevant) {
     return null;
   }
-  return resolveTerminationScenario(query, conversationText || query);
+  return resolveTerminationScenario(query, context);
 }
 
 function applyTerminationContext(resolved, query, conversationText) {
-  if (!resolved || resolved.processCode !== 'Расторжение договора') {
-    return resolved;
-  }
-  const analysis = analyzeTerminationContext(query, conversationText);
+  if (!resolved) return resolved;
+
+  const context = [conversationText, query].filter(Boolean).join('\n');
+  const forceTermination = resolved.processCode === 'Расторжение договора';
+  const terminationRelevant =
+    forceTermination || isTerminationTopic(context) || isTerminationTopic(query);
+  if (!terminationRelevant) return resolved;
+
+  const analysis = analyzeTerminationContext(query, conversationText, { forceTermination });
   if (!analysis) return resolved;
 
   const next = {
@@ -278,10 +301,9 @@ function applyTerminationContext(resolved, query, conversationText) {
     terminationScenarioBlock: analysis.scenarioBlock,
   };
 
-  if (analysis.path === 'clarify' && !resolved.clarifyPrompt) {
-    next.clarifyPrompt = analysis.clarifyPrompt;
-  }
-  if (analysis.path !== 'clarify') {
+  if (analysis.path === 'clarify') {
+    next.clarifyPrompt = analysis.clarifyPrompt || buildTerminationClarifyPrompt();
+  } else {
     next.clarifyPrompt = undefined;
   }
 
@@ -298,6 +320,7 @@ module.exports = {
   hasTerminationReason,
   buildTerminationClarifyPrompt,
   assessChurnPressure,
+  shouldSkipTerminationReasonClarify,
   shouldTerminateDespiteRetention,
   resolveTerminationScenario,
   buildTerminationScenarioBlock,

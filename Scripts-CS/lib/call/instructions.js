@@ -105,12 +105,12 @@ function buildSessionInstructions(baseInstructions, processBlock, options = {}) 
   if (options.greetingOnly) {
     parts.push(buildGreetingPhaseInstructions());
   }
-  if (processBlock && processBlock.trim()) {
-    parts.push('Активный процесс для этого звонка (приоритет по содержанию):', processBlock);
-  }
-  if (clarifyBlock) parts.push(clarifyBlock);
   if (options.terminationScenarioBlock) {
     parts.push(options.terminationScenarioBlock);
+  }
+  if (clarifyBlock) parts.push(clarifyBlock);
+  if (processBlock && processBlock.trim()) {
+    parts.push('Активный процесс для этого звонка (приоритет по содержанию):', processBlock);
   }
   parts.push(buildCallConversationRules());
   parts.push('Перефразируй скрипт; не зачитывай материал дословно.');

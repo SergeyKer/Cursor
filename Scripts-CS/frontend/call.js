@@ -36,6 +36,8 @@
     'Если клиент спросит имя или попросит назваться иначе — оставайся голосовым помощником компании, без личного имени. ' +
     'Не добавляй второй вопрос и не уходи в длинное объяснение.';
   const CALL_ICE_GATHERING_TIMEOUT_MS = { mobile: 2000, default: 5000 };
+  const TERMINATION_HINT_RE =
+    /расторг|расторжен|прекрат\w*\s+договор|отказ\w*\s+от\s+услуг|разорв\w*\s+договор/i;
 
   const CYRILLIC_RE = /[\u0401\u0451\u0410-\u044F\u0400-\u04FF]/g;
   const LATIN_RE = /[A-Za-z\u00C0-\u00FF\u0100-\u017F\u0180-\u024F]/g;
@@ -862,6 +864,42 @@
       .join('\n');
   }
 
+  function isTerminationHint(text) {
+    return TERMINATION_HINT_RE.test(String(text || '').toLowerCase());
+  }
+
+  function hasTerminationHintInConversation() {
+    const conversationText = buildUserConversationText();
+    return isTerminationHint(conversationText);
+  }
+
+  async function refreshSessionAfterTerminationResolve() {
+    if (state.assistantResponseActive) {
+      sendRealtimeEvent({ type: 'response.cancel' });
+      state.assistantResponseActive = false;
+      state.pendingAssistantText = '';
+      state.assistantPendingByResponseId.clear();
+    }
+    if (state.pendingSessionInstructions) {
+      flushPendingSessionUpdate();
+    } else if ((state.activeSessionInstructions || '').trim()) {
+      sendSessionUpdate(state.activeSessionInstructions);
+    }
+    if (isCallInProgress(state.phase) && !state.assistantResponseActive) {
+      sendRealtimeEvent({ type: 'response.create' });
+    }
+  }
+
+  async function resolveProcessForTranscript(query, options) {
+    const awaitTermination = options && options.awaitTermination;
+    if (awaitTermination) {
+      await resolveProcess(query);
+      await refreshSessionAfterTerminationResolve();
+      return;
+    }
+    void resolveProcess(query);
+  }
+
   async function resolveProcess(query) {
     const normalized = normalizeForResolve(query);
     if (!query || normalized === state.lastResolvedNormalized) return;
@@ -1087,7 +1125,9 @@
       if (transcript) {
         touchMeaningfulActivity();
         if (enqueueUserTranscript(transcript, itemId)) {
-          void resolveProcess(transcript);
+          const terminationHint =
+            isTerminationHint(transcript) || hasTerminationHintInConversation();
+          void resolveProcessForTranscript(transcript, { awaitTermination: terminationHint });
         }
         setPhase('assistantPending');
       } else {

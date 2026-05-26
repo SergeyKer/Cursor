@@ -235,6 +235,17 @@ test('buildSessionInstructions adds clarify block', () => {
   assert.match(session, /Уточните тему/);
 });
 
+test('buildSessionInstructions puts termination block before process', () => {
+  const session = buildSessionInstructions('BASE', 'PROCESS_BLOCK', {
+    terminationScenarioBlock: 'TERMINATION_BLOCK',
+    clarifyPrompt: 'CLARIFY_PROMPT',
+    clarifyCount: 0,
+  });
+  const terminationPos = session.indexOf('TERMINATION_BLOCK');
+  const processPos = session.indexOf('PROCESS_BLOCK');
+  assert.ok(terminationPos >= 0 && processPos > terminationPos);
+});
+
 test('hasEmailRedirect detects mail phrases', () => {
   assert.ok(hasEmailRedirect('отправьте на почту'));
   assert.ok(!hasEmailRedirect('зафиксировал заявку'));
@@ -252,6 +263,15 @@ test('call.js guards stale WebRTC session on hangUp and redial', () => {
   assert.match(js, /isPeerConnectionUsable/);
   assert.match(js, /sessionAbortController/);
   assert.match(js, /signal: abortController\.signal/);
+});
+
+test('call.js waits for termination resolve before assistant reply', () => {
+  const js = fs.readFileSync(path.join(process.cwd(), 'frontend/call.js'), 'utf8');
+  assert.match(js, /TERMINATION_HINT_RE/);
+  assert.match(js, /resolveProcessForTranscript/);
+  assert.match(js, /refreshSessionAfterTerminationResolve/);
+  assert.match(js, /awaitTermination/);
+  assert.match(js, /response\.cancel/);
 });
 
 test('parseCallAccessCode maps day and suffix codes to models', () => {

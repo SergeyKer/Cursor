@@ -108,7 +108,7 @@ const INTENT_RULES = [
     confidence: 'high',
   },
   {
-    pattern: /расторг|прекрат.*договор|отказ.*от\s+услуг/i,
+    pattern: /расторг|расторжен|прекрат.*договор|отказ.*от\s+услуг/i,
     processCode: 'Расторжение договора',
     confidence: 'high',
   },

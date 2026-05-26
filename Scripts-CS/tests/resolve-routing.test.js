@@ -80,6 +80,17 @@ test('bare termination request asks for reason before procedure', () => {
   assert.match(result.clarifyPrompt, /переезд|аренд|качеств/i);
 });
 
+test('termination noun phrase asks for reason before procedure', () => {
+  clearCallDataCache();
+  const { meta } = loadCallData();
+  const result = resolveProcessByScoring(meta, 'расторжение договора', {
+    conversationText: 'расторжение договора',
+  });
+  assert.equal(result.processCode, 'Расторжение договора');
+  assert.equal(result.termination.path, 'clarify');
+  assert.ok(result.clarifyPrompt);
+});
+
 test('termination with stated reason skips clarify', () => {
   clearCallDataCache();
   const { meta } = loadCallData();

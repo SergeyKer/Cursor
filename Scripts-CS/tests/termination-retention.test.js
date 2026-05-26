@@ -79,6 +79,14 @@ test('resolveProcessByScoring attaches termination scenario block', () => {
   assert.ok(bare.clarifyPrompt);
   assert.match(bare.terminationScenarioBlock, /уточни причину/i);
 
+  const nounPhrase = resolveProcessByScoring(meta, 'расторжение договора', {
+    conversationText: 'расторжение договора',
+  });
+  assert.equal(nounPhrase.processCode, 'Расторжение договора');
+  assert.equal(nounPhrase.termination.path, 'clarify');
+  assert.ok(nounPhrase.clarifyPrompt);
+  assert.match(nounPhrase.terminationScenarioBlock, /Запрещено/i);
+
   const priced = resolveProcessByScoring(meta, 'хотим расторгнуть договор, слишком дорого');
   assert.equal(priced.termination.path, 'retain');
   assert.match(priced.terminationScenarioBlock, /Удержание/i);
