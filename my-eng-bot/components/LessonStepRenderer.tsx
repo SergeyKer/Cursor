@@ -12,6 +12,7 @@ import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import LessonRunBanner from '@/components/LessonRunBanner'
 import type { BlockProgress, LessonStatus, LessonTimelineEntry } from '@/hooks/useLessonEngine'
 import { formatLessonErrorFeedback } from '@/lib/lessonFeedbackMessage'
+import { PUZZLE_BOTTOM_STACK_FALLBACK } from '@/lib/puzzlePanelLayout'
 import { getLessonSingleWordRuCue } from '@/lib/lessonSingleWordCue'
 import { speak } from '@/lib/speech'
 import { seededShuffle } from '@/lib/shuffleSeeded'
@@ -32,7 +33,24 @@ type LessonStepRendererProps = {
     taskTotal?: number
   }) => void
   onPuzzleSubStep?: (params: { subIndex: number; attempts: number }) => void
+  onPuzzleAttemptFailed?: (params: {
+    subIndex: number
+    attempts: number
+    submittedAnswer: string
+    errorText: string
+    hintText: string
+  }) => void
+  onPuzzleSubSuccess?: (params: {
+    subIndex: number
+    attempts: number
+    submittedAnswer: string
+    successText: string
+    isLastVariant: boolean
+  }) => void
+  onPuzzleInteraction?: () => void
   onPuzzleProgressChange?: (progress: { subIndex: number; subTotal: number }) => void
+  /** Индекс sub-puzzle на ходе 5 (0 = 1/3) — для сброса scroll при смене пазла. */
+  puzzleSubIndex?: number
   puzzleSubMaxXp?: number
   lessonMedalReveal?: {
     medal: LessonMedalTierOrNull
@@ -80,7 +98,6 @@ const lessonStatusCardClassByTone: Record<'service' | 'success' | 'error', strin
 
 const CHOICE_REOPEN_DELAY_MS = 900
 const DEFAULT_INPUT_GAP_PX = 10
-const PUZZLE_INPUT_GAP_PX = 4
 /** До замера ResizeObserver: меню «Что дальше?» выше обычного композера. */
 const POST_LESSON_BOTTOM_STACK_FALLBACK = '16rem'
 const LESSON_HIDDEN_VOICE_STATUS_MESSAGES = new Set([
@@ -148,7 +165,11 @@ export default function LessonStepRenderer({
   onAnswer,
   onCompleteStep,
   onPuzzleSubStep,
+  onPuzzleAttemptFailed,
+  onPuzzleSubSuccess,
+  onPuzzleInteraction,
   onPuzzleProgressChange,
+  puzzleSubIndex,
   puzzleSubMaxXp,
   lessonMedalReveal = null,
   onPostLessonAction,
@@ -161,6 +182,7 @@ export default function LessonStepRenderer({
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const bottomStackRef = useRef<HTMLDivElement>(null)
   const feedEndRef = useRef<HTMLDivElement>(null)
+  const lastStatusMessageRef = useRef<HTMLElement | null>(null)
   const reopenChoicesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const previousVoicePhaseRef = useRef<'idle' | 'recording' | 'finalizing' | 'error'>('idle')
   const previousScrollSnapshotRef = useRef<{
@@ -326,7 +348,10 @@ export default function LessonStepRenderer({
 
     timeline.forEach((entry, entryIndex) => {
       const messageBaseId = `${entry.step.stepNumber}-${entry.stepIndex}-${entryIndex}-${entry.isCurrent ? 'current' : 'history'}`
+      const isPuzzleStep = entry.step.exercise?.type === 'sentence_puzzle'
+      const skipPuzzleHistoryLessonBubble = isPuzzleStep && !entry.isCurrent
       const shouldHideCurrentLessonBubbles =
+        !isPuzzleStep &&
         entry.isCurrent &&
         status === 'feedback' &&
         latestFeedback?.type === 'success'
@@ -339,12 +364,12 @@ export default function LessonStepRenderer({
       const attemptOrdinal = attemptOrdinalByEntryIndex.get(entryIndex) ?? 0
       const isRepeatAttempt = attemptOrdinal > 1
       const isThreePartLessonBlock = bubblesWithVariantQuestion.length === 3
-      const shouldCompactToTaskOnly = isRepeatAttempt && isThreePartLessonBlock
+      const shouldCompactToTaskOnly = !isPuzzleStep && isRepeatAttempt && isThreePartLessonBlock
       const bubbles = shouldCompactToTaskOnly
         ? compactToTaskOnly(bubblesWithVariantQuestion)
         : bubblesWithVariantQuestion
 
-      if (bubbles.length > 0) {
+      if (bubbles.length > 0 && !skipPuzzleHistoryLessonBubble) {
         messages.push({
           id: `lesson-${messageBaseId}`,
           role: 'assistant',
@@ -379,7 +404,7 @@ export default function LessonStepRenderer({
             ? formatLessonErrorFeedback({
                 message: entry.feedback.message,
                 correctAnswer: entry.step.exercise.correctAnswer,
-                exerciseErrors,
+                attemptNumber: attemptOrdinal,
               })
             : entry.feedback.message
         messages.push({
@@ -393,9 +418,34 @@ export default function LessonStepRenderer({
     })
 
     return messages
-  }, [timeline, blockProgress.visibleCount, status, latestFeedback?.type, exerciseErrors])
+  }, [timeline, blockProgress.visibleCount, status, latestFeedback?.type])
 
   const tailLessonMessageId = lessonMessages.at(-1)?.id ?? ''
+
+  const lastStatusMessageId = useMemo(() => {
+    for (let index = lessonMessages.length - 1; index >= 0; index -= 1) {
+      if (lessonMessages[index]?.kind === 'status') return lessonMessages[index].id
+    }
+    return null
+  }, [lessonMessages])
+
+  const scrollFeedTopIntoView = useCallback((behavior: ScrollBehavior = 'auto') => {
+    const scrollContainer = scrollContainerRef.current
+    if (!scrollContainer) return
+    scrollContainer.scrollTo({ top: 0, behavior })
+  }, [])
+
+  const scrollFeedStatusIntoView = useCallback(
+    (behavior: ScrollBehavior = 'auto') => {
+      const statusEl = lastStatusMessageRef.current
+      if (statusEl) {
+        statusEl.scrollIntoView({ block: 'nearest', behavior })
+        return
+      }
+      scrollFeedTopIntoView(behavior)
+    },
+    [scrollFeedTopIntoView]
+  )
 
   const scrollFeedTailIntoView = useCallback((behavior: ScrollBehavior = 'auto') => {
     const scrollContainer = scrollContainerRef.current
@@ -410,12 +460,12 @@ export default function LessonStepRenderer({
     scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior })
   }, [])
 
-  const scheduleScrollFeedTailIntoView = useCallback(
-    (behavior: ScrollBehavior = 'auto') => {
+  const scheduleScroll = useCallback(
+    (scrollFn: (behavior: ScrollBehavior) => void, behavior: ScrollBehavior = 'auto') => {
       let innerRaf = 0
       const outerRaf = requestAnimationFrame(() => {
         innerRaf = requestAnimationFrame(() => {
-          scrollFeedTailIntoView(behavior)
+          scrollFn(behavior)
         })
       })
       return () => {
@@ -423,7 +473,22 @@ export default function LessonStepRenderer({
         if (innerRaf) cancelAnimationFrame(innerRaf)
       }
     },
-    [scrollFeedTailIntoView]
+    []
+  )
+
+  const scheduleScrollFeedTailIntoView = useCallback(
+    (behavior: ScrollBehavior = 'auto') => scheduleScroll(scrollFeedTailIntoView, behavior),
+    [scheduleScroll, scrollFeedTailIntoView]
+  )
+
+  const scheduleScrollFeedTopIntoView = useCallback(
+    (behavior: ScrollBehavior = 'auto') => scheduleScroll(scrollFeedTopIntoView, behavior),
+    [scheduleScroll, scrollFeedTopIntoView]
+  )
+
+  const scheduleScrollFeedStatusIntoView = useCallback(
+    (behavior: ScrollBehavior = 'auto') => scheduleScroll(scrollFeedStatusIntoView, behavior),
+    [scheduleScroll, scrollFeedStatusIntoView]
   )
 
   useEffect(() => {
@@ -440,7 +505,11 @@ export default function LessonStepRenderer({
 
     if (previousSnapshot === null) {
       previousScrollSnapshotRef.current = nextSnapshot
-      scrollFeedTailIntoView('auto')
+      if (isSentencePuzzle) {
+        scheduleScrollFeedTopIntoView('auto')
+      } else {
+        scrollFeedTailIntoView('auto')
+      }
       return
     }
 
@@ -455,14 +524,29 @@ export default function LessonStepRenderer({
       return
     }
 
-    scrollFeedTailIntoView(stepOrVariantChanged ? 'auto' : 'smooth')
+    if (isSentencePuzzle) {
+      if (stepOrVariantChanged) {
+        scheduleScrollFeedTopIntoView('auto')
+      } else if (messageCountIncreased || tailChanged) {
+        const tailMessage = lessonMessages.at(-1)
+        if (tailMessage?.kind === 'status') {
+          scheduleScrollFeedStatusIntoView('smooth')
+        }
+      }
+    } else {
+      scrollFeedTailIntoView(stepOrVariantChanged ? 'auto' : 'smooth')
+    }
+
     previousScrollSnapshotRef.current = nextSnapshot
   }, [
-    lessonMessages.length,
+    lessonMessages,
     currentStep?.stepNumber,
     currentVariantIndex,
     tailLessonMessageId,
+    isSentencePuzzle,
     scrollFeedTailIntoView,
+    scheduleScrollFeedTopIntoView,
+    scheduleScrollFeedStatusIntoView,
   ])
 
   useEffect(() => {
@@ -470,13 +554,29 @@ export default function LessonStepRenderer({
 
     // После смены статуса высота ленты может догрузиться на следующем кадре (мультистрочный feedback,
     // скрытие блока урока и т.д.) — повторяем доскролл, чтобы карточка не обрезалась над композером.
+    if (isSentencePuzzle) {
+      return scheduleScrollFeedStatusIntoView('auto')
+    }
     return scheduleScrollFeedTailIntoView('auto')
-  }, [status, latestFeedback, lessonMessages.length, tailLessonMessageId, scheduleScrollFeedTailIntoView])
+  }, [
+    status,
+    latestFeedback,
+    isSentencePuzzle,
+    lessonMessages.length,
+    tailLessonMessageId,
+    scheduleScrollFeedTailIntoView,
+    scheduleScrollFeedStatusIntoView,
+  ])
 
   useEffect(() => {
     if (status !== 'completed' && postLessonPhase !== 'menu') return
     return scheduleScrollFeedTailIntoView('auto')
   }, [status, postLessonPhase, bottomStackHeight, scheduleScrollFeedTailIntoView])
+
+  useEffect(() => {
+    if (!isSentencePuzzle || puzzleSubIndex == null) return
+    return scheduleScrollFeedTopIntoView('auto')
+  }, [isSentencePuzzle, puzzleSubIndex, scheduleScrollFeedTopIntoView])
 
   useEffect(() => {
     const bottomStack = bottomStackRef.current
@@ -515,10 +615,11 @@ export default function LessonStepRenderer({
       ? `${bottomStackHeight}px`
       : hasPostLessonOptions
         ? POST_LESSON_BOTTOM_STACK_FALLBACK
-        : 'var(--chat-input-height)'
-  const pinFeedToBottom = isSentencePuzzle
-  const inputGapPx =
-    pinFeedToBottom || hasPostLessonOptions ? PUZZLE_INPUT_GAP_PX : DEFAULT_INPUT_GAP_PX
+        : isSentencePuzzle
+          ? PUZZLE_BOTTOM_STACK_FALLBACK
+          : 'var(--chat-input-height)'
+  const inputGapPx = DEFAULT_INPUT_GAP_PX
+  const showFeedEndAnchor = hasPostLessonOptions
   const showPostLessonMedalPhase = Boolean(
     lessonMedalReveal && hasPostLessonOptions && postLessonPhase === 'medal'
   )
@@ -549,25 +650,22 @@ export default function LessonStepRenderer({
                   : undefined
               }
             >
-              <div className={pinFeedToBottom ? 'flex min-h-full flex-col justify-end' : ''}>
+              <div>
                 {lessonMessages.map((message, index) => {
                   const previousRole = lessonMessages[index - 1]?.role as BubbleRole | undefined
                   const nextRole = lessonMessages[index + 1]?.role as BubbleRole | undefined
                   const position = getBubblePosition(previousRole, message.role, nextRole)
                   const isBubbleEnd = position === 'solo' || position === 'last'
                   const isLastInFeed = index === lessonMessages.length - 1
-                  const isStep5ThreePartBlock =
-                    isSentencePuzzle && message.kind === 'lesson' && message.bubbles.length === 3
                   const pinLastRowToBottom = hasPostLessonOptions && isLastInFeed
 
                   if (message.kind === 'lesson') {
                     const shouldAnimateLessonMessage = !message.isHistorical
-                    const lessonRowMargin =
-                      (isStep5ThreePartBlock && isLastInFeed) || pinLastRowToBottom
-                        ? 'mb-0'
-                        : isBubbleEnd
-                          ? 'mb-2.5'
-                          : 'mb-0.5'
+                    const lessonRowMargin = pinLastRowToBottom
+                      ? 'mb-0'
+                      : isBubbleEnd
+                        ? 'mb-2.5'
+                        : 'mb-0.5'
 
                     return (
                       <ChatBubbleFrame
@@ -613,6 +711,8 @@ export default function LessonStepRenderer({
                     )
                   }
 
+                  const attachStatusRef = message.id === lastStatusMessageId
+
                   return (
                     <ChatBubbleFrame
                       key={message.id}
@@ -624,6 +724,7 @@ export default function LessonStepRenderer({
                       }
                     >
                       <section
+                        ref={attachStatusRef ? lastStatusMessageRef : undefined}
                         className={`lesson-enter chat-section-surface glass-surface rounded-xl border px-3 py-2 ${lessonStatusCardClassByTone[message.tone]}`}
                       >
                         <p className="whitespace-pre-line break-words text-[15px] leading-[1.45]">
@@ -633,7 +734,7 @@ export default function LessonStepRenderer({
                     </ChatBubbleFrame>
                   )
                 })}
-                {hasPostLessonOptions ? (
+                {showFeedEndAnchor ? (
                   <div ref={feedEndRef} className="h-0 w-full shrink-0" aria-hidden="true" />
                 ) : null}
               </div>
@@ -643,7 +744,7 @@ export default function LessonStepRenderer({
               <div
                 ref={bottomStackRef}
                 className={`shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 sm:px-3 ${
-                  shouldRenderChoiceChips || isSentencePuzzle ? 'pt-1' : 'pt-2.5'
+                  shouldRenderChoiceChips ? 'pt-1' : 'pt-2.5'
                 }`}
                 style={{ paddingBottom: 'calc(var(--app-bottom-inset) + 0.375rem)' }}
               >
@@ -683,6 +784,9 @@ export default function LessonStepRenderer({
                     onSubPuzzleComplete={(summary) =>
                       onPuzzleSubStep?.({ subIndex: summary.subIndex, attempts: summary.attempts })
                     }
+                    onAttemptFailed={onPuzzleAttemptFailed}
+                    onSubSuccess={onPuzzleSubSuccess}
+                    onInteraction={onPuzzleInteraction}
                     onPuzzleProgressChange={onPuzzleProgressChange}
                     onComplete={(summary) =>
                       onCompleteStep?.({

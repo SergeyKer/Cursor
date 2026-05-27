@@ -49,7 +49,7 @@ import { formatRewardTopLine, getSessionTransitionTopLine } from '@/lib/footerTo
 import {
   formatStreakFooterApplied,
   formatStreakFooterPreview,
-  resolveStreakFooterPriorityLine,
+  resolveStreakFooterOverlayLine,
 } from '@/lib/streakFooterHint'
 import { formatStreakHomeBannerText, shouldShowStreakHomeBanner } from '@/lib/streakHomeBanner'
 import { formatStreakSessionHint } from '@/lib/streakSessionHint'
@@ -650,6 +650,8 @@ export default function Home() {
     handleAnswer: handleStructuredLessonAnswer,
     completeCurrentStep: completeStructuredLessonStep,
     awardPuzzleSubStep: awardStructuredLessonPuzzleSub,
+    recordPuzzleAttempt: recordStructuredLessonPuzzleAttempt,
+    clearPuzzleAttemptFeedback: clearStructuredLessonPuzzleAttemptFeedback,
     puzzleSubMaxXp: activeStructuredLessonPuzzleSubMaxXp,
     xp: activeStructuredLessonXp,
     coreXp: activeStructuredLessonCoreXp,
@@ -5391,15 +5393,15 @@ export default function Home() {
     return formatStreakHomeBannerText(rewardsState, settings.audience)
   }, [dialogStarted, homeMenuView, rewardsState, streakFooterPreview, settings.audience])
   const resolveFooterWithStreakLayer = React.useCallback(
-    (modeFallback: string | null, rewardTicker: string | null = footerContextRewardTicker): string | null => {
-      const resolved = resolveStreakFooterPriorityLine({
+    (modeFallback: string | null, rewardTicker: string | null = footerContextRewardTicker): string | null =>
+      resolveStreakFooterOverlayLine({
+        modeFallback,
         rewardTicker,
         appliedTicker: streakFooterApplied,
         sessionHint: activeStreakSessionMode ? streakSessionHintLine : null,
         preview: streakFooterPreview,
-      })
-      return resolved.line ?? modeFallback
-    },
+        sessionMode: activeStreakSessionMode,
+      }),
     [
       footerContextRewardTicker,
       streakFooterApplied,
@@ -5874,7 +5876,7 @@ export default function Home() {
           className={`absolute inset-0 flex items-center justify-center pointer-events-none ${headerCenterPaddingClass}`}
         >
           <h1
-            className="flex max-w-full min-w-0 items-center justify-center text-[16px] font-semibold tracking-normal leading-[1.32] text-[var(--app-header-text)]"
+            className="flex max-w-full min-w-0 items-center justify-center gap-1 text-[16px] font-semibold tracking-normal leading-[1.32] text-[var(--app-header-text)]"
             style={{ fontFamily: 'var(--app-header-font-family)' }}
             title={lessonPageTitleView?.fullTitle ?? pageTitle}
             aria-label={lessonPageTitleView?.ariaLabel ?? pageTitle}
@@ -5882,7 +5884,7 @@ export default function Home() {
             {lessonPageTitleView ? (
               lessonPageTitleView.prefix ? (
                 <>
-                  <span className="shrink-0">{lessonPageTitleView.prefix} </span>
+                  <span className="shrink-0">{lessonPageTitleView.prefix}</span>
                   <span className="min-w-0 truncate">{lessonPageTitleView.topicSegment}</span>
                 </>
               ) : (
@@ -6273,6 +6275,19 @@ export default function Home() {
                   onPuzzleSubStep={({ subIndex, attempts }) =>
                     awardStructuredLessonPuzzleSub(subIndex, attempts)
                   }
+                  onPuzzleAttemptFailed={(params) =>
+                    recordStructuredLessonPuzzleAttempt({ ...params, type: 'error' })
+                  }
+                  onPuzzleSubSuccess={({ subIndex, attempts, submittedAnswer, successText }) =>
+                    recordStructuredLessonPuzzleAttempt({
+                      subIndex,
+                      attempts,
+                      submittedAnswer,
+                      successText,
+                      type: 'success',
+                    })
+                  }
+                  onPuzzleInteraction={clearStructuredLessonPuzzleAttemptFeedback}
                   puzzleSubMaxXp={activeStructuredLessonPuzzleSubMaxXp}
                   lessonMedalReveal={
                     activeStructuredLessonStatus === 'completed'
@@ -6302,6 +6317,7 @@ export default function Home() {
                   choiceShuffleSeed={structuredLessonChoiceShuffleSeed}
                   runBannerText={structuredLessonRunBannerText}
                   onPuzzleProgressChange={setStructuredLessonPuzzleProgress}
+                  puzzleSubIndex={structuredLessonPuzzleProgress?.subIndex}
                 />
               ) : (
                 <Chat

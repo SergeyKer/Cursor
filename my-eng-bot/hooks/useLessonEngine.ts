@@ -32,6 +32,8 @@ import {
   getVariantInfo,
 } from '@/utils/footerMessages'
 import type { Exercise } from '@/types/lesson'
+import { resolvePuzzleAttemptChatMessage } from '@/lib/puzzlePanelLayout'
+import { formatComboFooterVoiceLabel, formatComboMilestoneBlockedCelebration, formatComboSegmentText } from '@/lib/gamificationGlyphs'
 
 function getUpcomingLessonTaskTotal(exercise?: Exercise | null): number | undefined {
   if (!exercise) return undefined
@@ -532,6 +534,80 @@ export function useLessonEngine(lesson: LessonData | null) {
     [applySuccessAward, rawStep]
   )
 
+  const clearPuzzleAttemptFeedback = useCallback(() => {
+    setFeedback(null)
+    setStatus('idle')
+  }, [])
+
+  const recordPuzzleAttempt = useCallback(
+    (
+      params:
+        | {
+            subIndex: number
+            submittedAnswer: string
+            type: 'error'
+            attempts: number
+            errorText: string
+            hintText: string
+          }
+        | {
+            subIndex: number
+            submittedAnswer: string
+            type: 'success'
+            attempts: number
+            successText?: string
+          }
+    ) => {
+      if (!lesson || !rawStep?.exercise || rawStep.exercise.type !== 'sentence_puzzle') return
+
+      const message =
+        params.type === 'error'
+          ? resolvePuzzleAttemptChatMessage({
+              attempts: params.attempts,
+              errorText: params.errorText,
+              hintText: params.hintText,
+            })
+          : params.successText?.trim() || 'Верно.'
+
+      const attemptFeedback = {
+        type: params.type,
+        message,
+      } as const
+
+      setAttemptHistoryByStep((current) => ({
+        ...current,
+        [currentStep]: [
+          ...(current[currentStep] ?? []),
+          {
+            submittedAnswer: params.submittedAnswer.trim() || null,
+            feedback: attemptFeedback,
+            stepSnapshot: rawStep,
+          },
+        ],
+      }))
+
+      if (params.type === 'error') {
+        setCombo(0)
+        setExerciseErrors(params.attempts)
+        setMistakes((current) => {
+          const next = current.filter((item) => item.step !== rawStep.stepNumber)
+          next.push({
+            step: rawStep.stepNumber,
+            userAnswer: params.submittedAnswer,
+            correctAnswer: rawStep.exercise!.correctAnswer,
+          })
+          return next
+        })
+      } else {
+        awardPuzzleSubStep(params.subIndex, params.attempts)
+      }
+
+      setFeedback(attemptFeedback)
+      setStatus('feedback')
+    },
+    [awardPuzzleSubStep, currentStep, lesson, rawStep]
+  )
+
   const completeCurrentStep = useCallback(
     (options?: {
       submittedAnswer?: string
@@ -667,8 +743,8 @@ export function useLessonEngine(lesson: LessonData | null) {
           ? {
               key: `lesson-combo-streak-${combo}`,
               priority: 86,
-              text: `COMBO ×${combo}! COMBO растёт.`,
-              compactText: `COMBO ×${combo}!`,
+              text: formatComboMilestoneBlockedCelebration(combo),
+              compactText: `${formatComboSegmentText(combo)}!`,
               tone: 'celebrate',
             }
           : null,
@@ -676,8 +752,8 @@ export function useLessonEngine(lesson: LessonData | null) {
           ? {
               key: `lesson-combo-${combo}`,
               priority: 85,
-              text: `COMBO ×${combo}! Вы летите!`,
-              compactText: `COMBO ×${combo}!`,
+              text: formatComboFooterVoiceLabel(combo, '! Вы летите!'),
+              compactText: `${formatComboSegmentText(combo)}!`,
               tone: 'celebrate',
               emphasis: 'pulse',
             }
@@ -686,8 +762,8 @@ export function useLessonEngine(lesson: LessonData | null) {
           ? {
               key: `lesson-combo-${combo}`,
               priority: 80,
-              text: `COMBO ×${combo}! Так держать!`,
-              compactText: `COMBO ×${combo}!`,
+              text: formatComboFooterVoiceLabel(combo, '! Так держать!'),
+              compactText: `${formatComboSegmentText(combo)}!`,
               tone: 'celebrate',
             }
           : null,
@@ -874,6 +950,8 @@ export function useLessonEngine(lesson: LessonData | null) {
     handleAnswer,
     completeCurrentStep,
     awardPuzzleSubStep,
+    recordPuzzleAttempt,
+    clearPuzzleAttemptFeedback,
     puzzleSubMaxXp,
     goToNext,
     goToStep,

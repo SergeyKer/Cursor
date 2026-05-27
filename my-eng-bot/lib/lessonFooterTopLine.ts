@@ -1,5 +1,6 @@
 import type { FooterCopyAudience } from '@/lib/footerTopLinePhrases'
 
+import { formatComboMilestoneBlockedVoice } from '@/lib/gamificationGlyphs'
 import { formatRewardTopLine } from '@/lib/footerTopLinePhrases'
 
 export type LessonFooterMoment = 'checking' | 'error' | 'success_reward' | 'neutral'
@@ -36,17 +37,17 @@ export function resolveLessonFooterTopLine(input: LessonFooterTopLineInput): str
   }
 
   if (input.comboMilestoneBlocked && combo >= 3) {
-    return `COMBO ×${combo} — бонус к уровню позже.`
-  }
-
-  if (input.isRepeatWithSavedMedal) {
-    return input.audience === 'child'
-      ? 'Счёт идёт! К уровню — при новом рекорде.'
-      : 'Счёт идёт. К уровню — при новом рекорде.'
+    return formatComboMilestoneBlockedVoice(combo, input.audience)
   }
 
   const voice = input.voiceFallback?.trim()
   if (voice) return voice
+
+  if (input.isRepeatWithSavedMedal) {
+    return input.audience === 'child'
+      ? 'Повтор! XP к уровню — новый рекорд!'
+      : 'Повтор: к уровню — только рекорд.'
+  }
 
   return input.audience === 'child'
     ? 'Верно! К уровню без изменений.'

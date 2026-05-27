@@ -68,7 +68,7 @@ type RawQuizQuestion = {
   explanation?: unknown
 }
 
-const CACHE_VERSION = 15
+const CACHE_VERSION = 16
 
 export type NativeSpeechSwapAxis = 'learnerGrammar' | 'contraction' | 'length'
 const MAX_RULE_LENGTH = 220
@@ -423,6 +423,42 @@ function extractLearnerMistakePhrase(mistake: string): string {
   return normalizeText(cleaned || beforeInstead.replace(/^✗\s*/, '').trim(), 120)
 }
 
+function extractCorrectPhraseFromMistake(mistake: string): string {
+  const parts = mistake.split(/\s+вместо\s+|\s+instead\s+of\s+/i)
+  if (parts.length < 2) return ''
+  const after = parts[1]?.replace(/[а-яёА-ЯЁ].*$/u, '').trim().replace(/^✓\s*/u, '').trim() ?? ''
+  return normalizeText(after.replace(/[.!?]+$/u, ''), 120)
+}
+
+export function parseCommonMistakePair(mistake: string): { wrong: string; right: string } | null {
+  const wrong = extractLearnerMistakePhrase(mistake)
+  if (!wrong) return null
+  const right = extractCorrectPhraseFromMistake(mistake)
+  return right ? { wrong, right } : { wrong, right: '' }
+}
+
+function russianTrapPairCoherent(wrong: string, right: string): boolean {
+  if (/\bfrom\s+in\b/i.test(wrong)) {
+    return /\bfrom\b/i.test(right) && !/\bfrom\s+in\b/i.test(right)
+  }
+  if (/\bi am student\b/i.test(wrong) && !/\bi am a student\b/i.test(wrong)) {
+    return /\bi am a student\b/i.test(right)
+  }
+  if (/\bi am engineer\b/i.test(wrong) && !/\bi am an engineer\b/i.test(wrong)) {
+    return /\bi am an engineer\b/i.test(right)
+  }
+  return nativeSpeechContrastPairCoherent(wrong, right)
+}
+
+export function russianTrapCalqueLooksInvalid(example: LessonTipExample): boolean {
+  const wrong = example.wrong ?? ''
+  const right = example.right.trim()
+  if (!wrong.trim() || !right) return true
+  if (/\s+вместо\s+|\s+instead\s+of\s+/i.test(wrong)) return true
+  if (exampleHasCyrillic(wrong) || exampleHasCyrillic(right)) return true
+  return !russianTrapPairCoherent(wrong, right)
+}
+
 function tokenSetForCoherence(sentence: string): Set<string> {
   const raw = sentence
     .toLowerCase()
@@ -740,6 +776,55 @@ function buildNativeSpeechQuickTrickFallback(intro: LessonIntro, topic: string):
   }
 }
 
+function buildRussianTrapsCalqueFromIntro(
+  intro: LessonIntro,
+  firstExample: LessonTipExample,
+  intent?: TutorLearningIntent | null
+): LessonTipExample {
+  const defaultNote = 'мозг тянется к русскому шаблону и пытается собрать английскую фразу тем же порядком'
+  const intentNote = 'сначала выбираем английский шаблон из intent, потом подставляем смысл'
+  const mistakeCandidates = [
+    ...(intent?.commonMistakes ?? []),
+    ...(intro.deepDive?.commonMistakes ?? []),
+  ]
+
+  for (const mistake of mistakeCandidates) {
+    const pair = parseCommonMistakePair(mistake)
+    if (pair?.wrong && pair.right) {
+      return {
+        wrong: pair.wrong,
+        right: pair.right,
+        note: intent ? intentNote : defaultNote,
+      }
+    }
+  }
+
+  if (firstExample.wrong && firstExample.right && !russianTrapCalqueLooksInvalid(firstExample)) {
+    return {
+      wrong: firstExample.wrong,
+      right: firstExample.right,
+      note: intent ? intentNote : defaultNote,
+    }
+  }
+
+  return {
+    wrong: 'I am from in Russia',
+    right: 'I am from Russia',
+    note: defaultNote,
+  }
+}
+
+function sanitizeRussianTrapsExamples(
+  examples: LessonTipExample[],
+  intro: LessonIntro,
+  intent?: TutorLearningIntent | null
+): LessonTipExample[] {
+  if (!examples[0]) return examples
+  const first = examples[0]
+  if (!russianTrapCalqueLooksInvalid(first)) return examples
+  return [buildRussianTrapsCalqueFromIntro(intro, first, intent), ...examples.slice(1)]
+}
+
 function buildRussianTrapsQuickCheckFallback(intro: LessonIntro, firstExample: LessonTipExample): LessonTipExample {
   const topic = normalizeTopic(intro.topic).toLowerCase()
   if (isLikelyEmbeddedQuestionTopic(intro)) {
@@ -860,15 +945,11 @@ function buildFallbackExamples(
   }
 
   if (category === 'russian_traps') {
-    const commonMistake = intro.deepDive?.commonMistakes[0]
+    const calque = buildRussianTrapsCalqueFromIntro(intro, firstExample, intent)
     const quickCheck = buildRussianTrapsQuickCheckFallback(intro, firstExample)
     if (intent) {
       return uniqueExamples([
-        {
-          wrong: intent.commonMistakes[0] ?? commonMistake ?? firstExample.wrong,
-          right: firstExample.right,
-          note: 'сначала выбираем английский шаблон из intent, потом подставляем смысл',
-        },
+        calque,
         {
           right: introExamples[1]?.right ?? quickCheck.right,
           note: intent.commonMistakes[1] ? `Потому что ${intent.commonMistakes[1]}` : quickCheck.note,
@@ -876,15 +957,7 @@ function buildFallbackExamples(
         ...introExamples,
       ])
     }
-    return uniqueExamples([
-      {
-        wrong: commonMistake ?? firstExample.wrong,
-        right: firstExample.right,
-        note: 'мозг тянется к русскому шаблону и пытается собрать английскую фразу тем же порядком',
-      },
-      quickCheck,
-      ...introExamples,
-    ])
+    return uniqueExamples([calque, quickCheck, ...introExamples])
   }
 
   if (category === 'questions_negatives') {
@@ -1099,7 +1172,8 @@ function normalizeCard(
   raw: RawCard,
   intro: LessonIntro,
   usedCategories: Set<LessonTipCategory>,
-  lessonCefrLevel?: LessonCatalogLevel
+  lessonCefrLevel?: LessonCatalogLevel,
+  intent?: TutorLearningIntent | null
 ): LessonTipCard | null {
   const detected = detectCategory(raw.category) ?? detectCategory(raw.title)
   if (!detected || usedCategories.has(detected)) return null
@@ -1111,8 +1185,12 @@ function normalizeCard(
   const rule = normalizeText(raw.rule, MAX_RULE_LENGTH)
   if (!rule) return null
   usedCategories.add(detected)
-  const finalExamples =
-    detected === 'native_speech' ? sanitizeNativeSpeechExamples(examples, intro, lessonCefrLevel) : examples
+  let finalExamples = examples
+  if (detected === 'native_speech') {
+    finalExamples = sanitizeNativeSpeechExamples(examples, intro, lessonCefrLevel)
+  } else if (detected === 'russian_traps') {
+    finalExamples = sanitizeRussianTrapsExamples(examples, intro, intent)
+  }
   return {
     ...base,
     title: normalizeText(raw.title, 48) || base.title,
@@ -1167,7 +1245,7 @@ export function normalizeLessonExtraTips(
   const fallback = buildFallbackLessonExtraTips(intro, intent, lessonCefrLevel)
   const usedCategories = new Set<LessonTipCategory>()
   const normalizedCards = extractRawCards(input)
-    .map((card) => normalizeCard(card, intro, usedCategories, lessonCefrLevel))
+    .map((card) => normalizeCard(card, intro, usedCategories, lessonCefrLevel, intent))
     .filter((card): card is LessonTipCard => card !== null)
 
   const byCategory = new Map(normalizedCards.map((card) => [card.category, card]))

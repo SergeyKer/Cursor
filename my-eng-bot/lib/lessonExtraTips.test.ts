@@ -12,7 +12,9 @@ import {
   nativeSpeechSwapSameMeaning,
   nativeSpeechWrongLooksLikeLearnerError,
   normalizeLessonExtraTips,
+  parseCommonMistakePair,
   pickNativeSpeechSwapFirst,
+  russianTrapCalqueLooksInvalid,
   toCachedLessonExtraTips,
 } from '@/lib/lessonExtraTips'
 import { buildFallbackLessonIntro } from '@/lib/lessonIntro'
@@ -195,6 +197,50 @@ describe('lessonExtraTips', () => {
     expect(ex0?.wrong).not.toContain('from in')
     expect(ex0?.wrong).not.toContain('Russia')
     expect(nativeSpeechSwapSameMeaning(ex0?.wrong ?? '', ex0?.right ?? '')).toBe(true)
+  })
+
+  it('splits commonMistake pair for russian traps calque on I am / I am from lesson', () => {
+    const tips = buildFallbackLessonExtraTips(introducingYourselfLesson.intro, null, 'A1')
+    const calque = tips.cards.find((card) => card.category === 'russian_traps')?.examples[0]
+
+    expect(parseCommonMistakePair('I am from in Russia вместо I am from Russia.')).toEqual({
+      wrong: 'I am from in Russia',
+      right: 'I am from Russia',
+    })
+    expect(calque?.wrong).toBe('I am from in Russia')
+    expect(calque?.right).toBe('I am from Russia')
+    expect(calque?.wrong).not.toContain('вместо')
+    expect(calque?.right).not.toBe("I'm happy.")
+    expect(russianTrapCalqueLooksInvalid(calque!)).toBe(false)
+  })
+
+  it('sanitizes invalid russian traps calque from AI payload', () => {
+    const tips = normalizeLessonExtraTips(
+      {
+        cards: [
+          {
+            category: 'russian_traps',
+            title: 'Ловушки для русскоговорящих',
+            rule: 'Сначала шаблон.',
+            examples: [
+              {
+                wrong: 'I am from in Russia вместо I am from Russia.',
+                right: "I'm happy.",
+                note: 'bad',
+              },
+              { right: 'Who likes music?', note: 'check' },
+            ],
+          },
+          ...makeValidPayload().cards.slice(1),
+        ],
+        quiz: makeValidPayload().quiz,
+      },
+      introducingYourselfLesson.intro
+    )
+    const calque = tips.cards.find((card) => card.category === 'russian_traps')?.examples[0]
+
+    expect(calque?.wrong).toBe('I am from in Russia')
+    expect(calque?.right).toBe('I am from Russia')
   })
 
   it('rejects mismatched native speech swap as invalid', () => {
@@ -390,10 +436,10 @@ describe('lessonExtraTips', () => {
 
   it('builds a stable versioned storage key by audience, level and topic', () => {
     expect(buildTipsStorageKey({ lessonKey: 'lesson-1:variant-a', audience: 'adult', level: 'a2' })).toBe(
-      'tips_v15_adult_a2_lesson_1_variant_a'
+      'tips_v16_adult_a2_lesson_1_variant_a'
     )
     expect(buildTipsStorageKey({ lessonKey: 'lesson-1:variant-a', audience: 'child', level: 'a2' })).toBe(
-      'tips_v15_child_a2_lesson_1_variant_a'
+      'tips_v16_child_a2_lesson_1_variant_a'
     )
   })
 

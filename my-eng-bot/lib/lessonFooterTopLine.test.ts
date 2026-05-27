@@ -74,9 +74,9 @@ describe('resolveLessonFooterTopLine', () => {
         bestTotalXp: 170,
         combo: 2,
         isRepeatWithSavedMedal: true,
-        voiceFallback: 'Верно.',
+        voiceFallback: null,
       })
-    ).toContain('новом рекорде')
+    ).toContain('рекорд')
     expect(
       resolveLessonFooterTopLine({
         audience: 'adult',
@@ -84,9 +84,36 @@ describe('resolveLessonFooterTopLine', () => {
         bestTotalXp: 170,
         combo: 2,
         isRepeatWithSavedMedal: true,
-        voiceFallback: 'Верно.',
+        voiceFallback: null,
       })
-    ).not.toContain('Верно')
+    ).not.toContain('Счёт идёт')
+  })
+
+  it('prefers step voice on repeat run instead of repeat hint', () => {
+    expect(
+      resolveLessonFooterTopLine({
+        audience: 'adult',
+        globalDelta: 0,
+        bestTotalXp: 170,
+        combo: 0,
+        isRepeatWithSavedMedal: true,
+        voiceFallback: 'Вижу, вы готовы к новой конструкции.',
+        moment: 'neutral',
+      })
+    ).toBe('Вижу, вы готовы к новой конструкции.')
+  })
+
+  it('shows combo milestone line with fire glyph', () => {
+    expect(
+      resolveLessonFooterTopLine({
+        audience: 'adult',
+        globalDelta: 0,
+        bestTotalXp: 100,
+        combo: 3,
+        comboMilestoneBlocked: true,
+        voiceFallback: null,
+      })
+    ).toBe('🔥 COMBO ×3 — в счёте урока.')
   })
 })
 

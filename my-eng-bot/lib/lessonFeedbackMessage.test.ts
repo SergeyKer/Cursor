@@ -7,7 +7,7 @@ describe('formatLessonErrorFeedback', () => {
       formatLessonErrorFeedback({
         message: 'После from — одно слово.',
         correctAnswer: 'Russia',
-        exerciseErrors: 1,
+        attemptNumber: 1,
       })
     ).toBe('После from — одно слово.')
   })
@@ -17,7 +17,7 @@ describe('formatLessonErrorFeedback', () => {
       formatLessonErrorFeedback({
         message: 'После from — одно слово.',
         correctAnswer: 'Russia',
-        exerciseErrors: 2,
+        attemptNumber: 2,
       })
     ).toBe('После from — одно слово.\nСкажи: Russia')
   })
@@ -27,8 +27,26 @@ describe('formatLessonErrorFeedback', () => {
       formatLessonErrorFeedback({
         message: 'Почти.',
         correctAnswer: '  ',
-        exerciseErrors: 3,
+        attemptNumber: 3,
       })
     ).toBe('Почти.')
+  })
+
+  it('uses per-attempt number, not global step counter — first attempt stays hint-only even when step has 2+ errors', () => {
+    const hint = 'После from — одно слово.'
+    expect(
+      formatLessonErrorFeedback({
+        message: hint,
+        correctAnswer: 'Russia',
+        attemptNumber: 1,
+      })
+    ).toBe(hint)
+    expect(
+      formatLessonErrorFeedback({
+        message: hint,
+        correctAnswer: 'Russia',
+        attemptNumber: 2,
+      })
+    ).toBe(`${hint}\nСкажи: Russia`)
   })
 })

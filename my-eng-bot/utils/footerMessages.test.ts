@@ -49,8 +49,9 @@ describe('footerMessages', () => {
   })
 
   it('builds repeat footer text for intermediate and final variants', () => {
-    expect(getLessonRepeatFooterMessage(3, { current: 2, total: 3 })).toBe('Ещё одно! (2 из 3) 🔥')
-    expect(getLessonRepeatFooterMessage(4, { current: 3, total: 3 })).toBe('Последнее! (3 из 3)')
+    expect(getLessonRepeatFooterMessage(3, { current: 1, total: 3 })).toBeNull()
+    expect(getLessonRepeatFooterMessage(3, { current: 2, total: 3 })).toBe('Задание 2 из 3.')
+    expect(getLessonRepeatFooterMessage(4, { current: 3, total: 3 })).toBe('Последнее задание (3 из 3).')
   })
 
   it('does not build repeat footer text outside repeated practice steps', () => {

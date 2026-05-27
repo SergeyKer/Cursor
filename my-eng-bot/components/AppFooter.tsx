@@ -1,15 +1,15 @@
 'use client'
 
 import TypingText from './TypingText'
+import EmojiLeadingStatText from './EmojiLeadingStatText'
 import { formatFooterDynamicLine, type FooterVoiceEmphasis, type FooterVoiceTone } from '@/lib/footerVoice'
 import { resolveFooterPresentation } from '@/lib/footerPresentation'
 import MedalBadge from '@/components/MedalBadge'
 import { medalTierEmoji } from '@/lib/medalBadge'
 import {
-  EMOJI_LINE_CLASS,
   FOOTER_STAT_GLYPH_CLASS,
+  FOOTER_STAT_VALUE_CLASS,
   TRUNCATE_X_CLASS,
-  splitLeadingEmoji,
 } from '@/lib/emojiText'
 import { splitFooterStaticSegments } from '@/lib/footerStaticSegments'
 import type {
@@ -74,7 +74,7 @@ function LessonFooterMedalContent({
 
   if (visual.mode === 'tier') {
     return (
-      <span className="inline-flex max-w-full min-w-0 items-center justify-start gap-0.5 overflow-visible">
+      <span className="inline-flex max-w-full min-w-0 items-center justify-start gap-1.5 overflow-visible">
         <MedalBadge tier={visual.tier} size="sm" muted={visual.muted} title={title} />
       </span>
     )
@@ -84,7 +84,7 @@ function LessonFooterMedalContent({
     const textShrinkClass = allowTextShrink ? `${TRUNCATE_X_CLASS} min-w-0` : 'shrink-0'
     return (
       <span
-        className="inline-flex max-w-full min-w-0 items-center justify-start gap-0.5 overflow-visible"
+        className="inline-flex max-w-full min-w-0 items-center justify-start gap-1.5 overflow-visible"
         title={title}
         aria-label={title}
       >
@@ -93,13 +93,13 @@ function LessonFooterMedalContent({
           {medalTierEmoji(visual.nextTier)}
         </span>
         <span
-          className={`${textShrinkClass} tabular-nums text-[13px] leading-none text-slate-600 sm:text-sm`}
+          className={`${textShrinkClass} tabular-nums text-slate-600 ${FOOTER_STAT_VALUE_CLASS}`}
         >
           : {visual.progressPercent}%
         </span>
         {visual.hintText ? (
           <span
-            className={`${textShrinkClass} text-[13px] font-medium leading-none text-slate-600 sm:text-sm`}
+            className={`${textShrinkClass} font-medium text-slate-600 ${FOOTER_STAT_VALUE_CLASS}`}
           >
             {visual.hintText}
           </span>
@@ -109,47 +109,15 @@ function LessonFooterMedalContent({
   }
 
   return (
-    <span className={`${TRUNCATE_X_CLASS} text-left text-[13px] sm:text-sm ${EMOJI_LINE_CLASS}`}>
-      {visual.hintText}
-    </span>
+    <EmojiLeadingStatText
+      text={visual.hintText ?? fallbackText}
+      allowTextShrink={allowTextShrink}
+    />
   )
 }
 
 function footerStatHighlight(segment: string): string {
   return segment.includes('(+') ? 'font-medium text-emerald-600' : ''
-}
-
-function FooterStatSegmentText({
-  text,
-  highlight = '',
-  allowTextShrink = false,
-}: {
-  text: string
-  highlight?: string
-  allowTextShrink?: boolean
-}) {
-  const parts = splitLeadingEmoji(text)
-  if (parts) {
-    const textClassName = allowTextShrink
-      ? `${TRUNCATE_X_CLASS} min-w-0 tabular-nums text-[13px] leading-none sm:text-sm ${highlight}`.trim()
-      : `shrink-0 tabular-nums text-[13px] leading-none sm:text-sm ${highlight}`.trim()
-    return (
-      <span className="inline-flex max-w-full min-w-0 items-center justify-start gap-0.5 overflow-visible">
-        <span className={`${FOOTER_STAT_GLYPH_CLASS} ${highlight}`.trim()} aria-hidden>
-          {parts.emoji}
-        </span>
-        <span className={textClassName}>{parts.rest}</span>
-      </span>
-    )
-  }
-
-  return (
-    <span
-      className={`${TRUNCATE_X_CLASS} text-left text-[13px] sm:text-sm ${EMOJI_LINE_CLASS} ${highlight}`.trim()}
-    >
-      {text}
-    </span>
-  )
 }
 
 export default function AppFooter({
@@ -264,7 +232,7 @@ export default function AppFooter({
                               allowTextShrink
                             />
                           ) : (
-                            <FooterStatSegmentText
+                            <EmojiLeadingStatText
                               text={segment.text}
                               highlight={highlight}
                               allowTextShrink
@@ -280,9 +248,11 @@ export default function AppFooter({
                       title={lessonFooterAccountTitle ?? lessonFooterAccount ?? undefined}
                     >
                       {(lessonFooterAccountSegments ?? []).map((segment) => (
-                        <span key={segment.kind} className="shrink-0 whitespace-nowrap tabular-nums">
-                          {segment.text}
-                        </span>
+                        <EmojiLeadingStatText
+                          key={segment.kind}
+                          text={segment.text}
+                          className="shrink-0 whitespace-nowrap"
+                        />
                       ))}
                     </div>
                   ) : null}
@@ -300,7 +270,7 @@ export default function AppFooter({
                       key={`footer-seg-${index}`}
                       className="flex min-w-0 items-center justify-start overflow-visible px-0.5"
                     >
-                      <FooterStatSegmentText text={segment} highlight={footerStatHighlight(segment)} />
+                      <EmojiLeadingStatText text={segment} highlight={footerStatHighlight(segment)} />
                     </span>
                   ))}
                 </div>

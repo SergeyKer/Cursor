@@ -1,13 +1,14 @@
 export type FormatLessonErrorFeedbackParams = {
   message: string
   correctAnswer?: string | null
-  exerciseErrors: number
+  /** Номер попытки конкретной записи (1, 2, …), не глобальный счётчик шага. */
+  attemptNumber: number
 }
 
 export function formatLessonErrorFeedback(params: FormatLessonErrorFeedbackParams): string {
   const message = params.message.trim()
   const answer = params.correctAnswer?.trim()
-  if (params.exerciseErrors < 2 || !answer) {
+  if (params.attemptNumber < 2 || !answer) {
     return message
   }
   return `${message}\nСкажи: ${answer}`.trim()

@@ -58,7 +58,42 @@ export function resolveStreakFooterPriorityLine(params: {
   return { line: null, source: 'none' }
 }
 
+export function resolveStreakFooterOverlayLine(params: {
+  modeFallback: string | null
+  rewardTicker?: string | null
+  appliedTicker?: string | null
+  sessionHint?: string | null
+  preview?: string | null
+  sessionMode?: StreakFooterSessionMode
+}): string | null {
+  const { line } = resolveStreakFooterPriorityLine({
+    rewardTicker: params.rewardTicker ?? null,
+    appliedTicker: params.appliedTicker ?? null,
+    sessionHint: params.sessionHint ?? null,
+    preview: shouldIncludeStreakFooterPreview(params.sessionMode ?? null)
+      ? (params.preview ?? null)
+      : null,
+  })
+  return line ?? params.modeFallback
+}
+
 export function shouldShowStreakFooterPreview(state: RewardsState, today: string = getTodayDateString()): boolean {
   if (isStreakDailyBonusClaimed(state, today)) return false
   return streakDailyBonusXp(state.progress.dailyStreak) > 0
+}
+
+export type StreakFooterSessionMode =
+  | 'lesson'
+  | 'lesson-intro'
+  | 'lesson-learning'
+  | 'practice'
+  | 'communication'
+  | 'engvo'
+  | 'accent'
+  | null
+
+/** XP preview belongs in idle/intro — not while a lesson or task is in progress. */
+export function shouldIncludeStreakFooterPreview(sessionMode: StreakFooterSessionMode): boolean {
+  if (sessionMode === null) return true
+  return sessionMode === 'lesson-intro'
 }

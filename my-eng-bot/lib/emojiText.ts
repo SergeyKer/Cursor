@@ -28,5 +28,8 @@ export const EMOJI_GLYPH_CLASS = 'emoji-glyph'
 /** Lesson footer stat icons (goal, xp, combo) — fixed 22px box. */
 export const FOOTER_STAT_GLYPH_CLASS = 'footer-stat-glyph emoji-glyph'
 
+/** Numeric/text value paired with footer-stat-glyph — matched line-height for vertical centering. */
+export const FOOTER_STAT_VALUE_CLASS = 'footer-stat-value'
+
 /** SVG medal — same cell size as footer-stat-glyph. */
 export const FOOTER_STAT_MEDAL_SLOT_CLASS = 'footer-stat-medal-slot'

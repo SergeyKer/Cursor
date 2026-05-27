@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { formatStreakSessionHint, shouldShowStreakSessionHint } from './streakSessionHint'
+import { streakDailyBonusXp } from './streakDailyBonus'
 import { createDefaultRewardsState, getTodayDateString } from './rewardsState'
 
 describe('streakSessionHint', () => {
@@ -18,5 +19,18 @@ describe('streakSessionHint', () => {
     state.progress.lastStreakDailyBonusDate = today
     expect(formatStreakSessionHint(state, 'adult', today)).toBeNull()
     expect(shouldShowStreakSessionHint(state, today)).toBe(false)
+  })
+
+  it('formats +10/+15/+20 XP by streak tier', () => {
+    for (const [streak, bonus] of [
+      [3, 10],
+      [5, 15],
+      [7, 20],
+    ] as const) {
+      const state = createDefaultRewardsState()
+      state.progress.dailyStreak = streak
+      expect(streakDailyBonusXp(streak)).toBe(bonus)
+      expect(formatStreakSessionHint(state, 'adult', today)).toContain(`+${bonus} XP`)
+    }
   })
 })

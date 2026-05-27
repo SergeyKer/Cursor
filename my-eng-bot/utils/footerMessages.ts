@@ -21,9 +21,14 @@ export function getLessonRepeatFooterMessage(
 ): string | null {
   if (!variantInfo || (stepNumber !== 3 && stepNumber !== 4)) return null
 
-  return variantInfo.current >= variantInfo.total
-    ? `Последнее! (${variantInfo.current} из ${variantInfo.total})`
-    : `Ещё одно! (${variantInfo.current} из ${variantInfo.total}) 🔥`
+  const { current, total } = variantInfo
+  if (current <= 1) return null
+
+  if (current >= total) {
+    return `Последнее задание (${current} из ${total}).`
+  }
+
+  return `Задание ${current} из ${total}.`
 }
 
 const LESSON_MULTI_TASK_STEPS = new Set([3, 4, 5])

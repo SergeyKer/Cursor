@@ -224,7 +224,7 @@ function formatComboSegment(input: LessonFooterLiveInput): LessonFooterSegment {
     title = `COMBO ×${combo}. +${comboDelta} XP в счёт этого прохода. ${title}`
   } else if (input.comboMilestoneBlocked && combo >= 3) {
     text = formatComboSegmentText(combo)
-    title = `COMBO ×${combo}. COMBO растёт — бонус к уровню позже (нужно ≥50% core). ${title}`
+    title = `COMBO ×${combo}. Серия в счёте урока; +XP к уровню откроется от 50% core. ${title}`
   } else if (maxCombo > combo) {
     text = `${formatComboSegmentText(combo)} max ${maxCombo}`
     title = `COMBO сброшен (×${combo}). Рекорд COMBO ×${maxCombo}. Очки вех этого прохода уже в ⭐.`

@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Exercise, SentencePuzzleVariant } from '@/types/lesson'
+import { shouldCaptureBankBaseline, resolvePuzzleWordBankHeight } from '@/lib/puzzlePanelLayout'
 import { LESSON_PUZZLE_COMPLETE_MESSAGE } from '@/utils/footerMessages'
 
 type LessonSentencePuzzleProps = {
@@ -16,13 +17,23 @@ type LessonSentencePuzzleProps = {
   }) => void
   onSubPuzzleComplete?: (summary: { subIndex: number; attempts: number }) => void
   onPuzzleProgressChange?: (progress: { subIndex: number; subTotal: number }) => void
+  onAttemptFailed?: (params: {
+    subIndex: number
+    attempts: number
+    submittedAnswer: string
+    errorText: string
+    hintText: string
+  }) => void
+  onSubSuccess?: (params: {
+    subIndex: number
+    attempts: number
+    submittedAnswer: string
+    successText: string
+    isLastVariant: boolean
+  }) => void
+  onInteraction?: () => void
   subPuzzleMaxXp?: number
 }
-
-type PuzzleFeedback = {
-  type: 'success' | 'error'
-  text: string
-} | null
 
 const PUZZLE_VARIANT_ADVANCE_MS = 700
 const PUZZLE_PROGRESS_PREFIX = 'my-eng-bot-sentence-puzzle'
@@ -54,7 +65,6 @@ type StoredPuzzleProgress = {
   variantIndex: number
   selectedWords: string[]
   attempts: number
-  hintVisible: boolean
 }
 
 function readStoredProgress(key: string | undefined, variantCount: number): StoredPuzzleProgress | null {
@@ -62,14 +72,13 @@ function readStoredProgress(key: string | undefined, variantCount: number): Stor
   try {
     const raw = window.localStorage.getItem(`${PUZZLE_PROGRESS_PREFIX}:${key}`)
     if (!raw) return null
-    const parsed = JSON.parse(raw) as Partial<StoredPuzzleProgress>
+    const parsed = JSON.parse(raw) as Partial<StoredPuzzleProgress & { hintVisible?: boolean }>
     const variantIndex = typeof parsed.variantIndex === 'number' ? parsed.variantIndex : 0
     if (variantIndex < 0 || variantIndex >= variantCount) return null
     return {
       variantIndex,
       selectedWords: Array.isArray(parsed.selectedWords) ? parsed.selectedWords.filter((word): word is string => typeof word === 'string') : [],
       attempts: typeof parsed.attempts === 'number' ? parsed.attempts : 0,
-      hintVisible: Boolean(parsed.hintVisible),
     }
   } catch {
     return null
@@ -101,17 +110,21 @@ export default function LessonSentencePuzzle({
   onComplete,
   onSubPuzzleComplete,
   onPuzzleProgressChange,
+  onAttemptFailed,
+  onSubSuccess,
+  onInteraction,
   subPuzzleMaxXp,
 }: LessonSentencePuzzleProps) {
   const variants = exercise.puzzleVariants ?? []
   const [variantIndex, setVariantIndex] = useState(0)
   const [selectedWords, setSelectedWords] = useState<string[]>([])
   const [attempts, setAttempts] = useState(0)
-  const [hintVisible, setHintVisible] = useState(false)
-  const [feedback, setFeedback] = useState<PuzzleFeedback>(null)
   const [locked, setLocked] = useState(false)
+  const [measuredBankHeight, setMeasuredBankHeight] = useState<number | undefined>()
+  const wordBankRef = useRef<HTMLDivElement>(null)
 
   const activeVariant = variants[variantIndex]
+  const fullWordCount = activeVariant ? getVariantWords(activeVariant).length : 0
   const availableWords = useMemo(() => {
     if (!activeVariant) return []
     const selectedCounts = new Map<string, number>()
@@ -127,13 +140,49 @@ export default function LessonSentencePuzzle({
     })
   }, [activeVariant, selectedWords])
 
+  const lockedBankHeight = useMemo(
+    () => resolvePuzzleWordBankHeight({ fullCount: fullWordCount, measuredHeight: measuredBankHeight }),
+    [fullWordCount, measuredBankHeight]
+  )
+
+  useEffect(() => {
+    setMeasuredBankHeight(undefined)
+  }, [activeVariant?.id, progressKey])
+
+  useLayoutEffect(() => {
+    if (!activeVariant || fullWordCount <= 0) return
+    const node = wordBankRef.current
+    if (!node) return
+
+    const measure = () => {
+      const nextHeight = node.getBoundingClientRect().height
+      if (nextHeight > 0) {
+        setMeasuredBankHeight((current) => (current == null ? nextHeight : Math.max(current, nextHeight)))
+      }
+    }
+
+    if (
+      shouldCaptureBankBaseline({
+        selectedCount: selectedWords.length,
+        availableCount: availableWords.length,
+        fullCount: fullWordCount,
+      })
+    ) {
+      measure()
+      return
+    }
+
+    if (availableWords.length === fullWordCount) {
+      measure()
+    }
+  }, [activeVariant, availableWords.length, fullWordCount, selectedWords.length])
+
   useEffect(() => {
     const stored = readStoredProgress(progressKey, variants.length)
     if (!stored) return
     setVariantIndex(stored.variantIndex)
     setSelectedWords(stored.selectedWords)
     setAttempts(stored.attempts)
-    setHintVisible(stored.hintVisible)
   }, [progressKey, variants.length])
 
   useEffect(() => {
@@ -147,9 +196,8 @@ export default function LessonSentencePuzzle({
       variantIndex,
       selectedWords,
       attempts,
-      hintVisible,
     })
-  }, [activeVariant, attempts, hintVisible, locked, progressKey, selectedWords, variantIndex])
+  }, [activeVariant, attempts, locked, progressKey, selectedWords, variantIndex])
 
   if (!activeVariant || variants.length === 0) {
     return (
@@ -162,56 +210,68 @@ export default function LessonSentencePuzzle({
   const isBusy = disabled || locked
   const isFilled = selectedWords.length === activeVariant.correctOrder.length
 
-  const resetAttempt = (nextAttempts: number) => {
+  const resetAttempt = (nextAttempts: number, submittedAnswer: string) => {
+    onAttemptFailed?.({
+      subIndex: variantIndex,
+      attempts: nextAttempts,
+      submittedAnswer,
+      errorText: activeVariant.errorText,
+      hintText: activeVariant.hintText,
+    })
     setSelectedWords([])
     setAttempts(nextAttempts)
-    setHintVisible(nextAttempts >= 2)
-    setFeedback({ type: 'error', text: activeVariant.errorText })
   }
 
   const handleCheck = () => {
     if (isBusy || !isFilled) return
+    const submittedAnswer = selectedWords.join(' ')
     const isCorrect = sameOrder(selectedWords, activeVariant.correctOrder)
     if (!isCorrect) {
-      resetAttempt(attempts + 1)
+      resetAttempt(attempts + 1, submittedAnswer)
       return
     }
 
     const isLastVariant = variantIndex >= variants.length - 1
     setLocked(true)
-    setFeedback({ type: 'success', text: activeVariant.successText })
+
+    if (isLastVariant) {
+      onSubPuzzleComplete?.({ subIndex: variantIndex, attempts })
+      clearStoredProgress(progressKey)
+      onComplete({
+        submittedAnswer: activeVariant.correctAnswer,
+        baseMessage: LESSON_PUZZLE_COMPLETE_MESSAGE,
+        taskCurrent: variantIndex + 1,
+        taskTotal: variants.length,
+      })
+      return
+    }
+
+    onSubSuccess?.({
+      subIndex: variantIndex,
+      attempts,
+      submittedAnswer,
+      successText: activeVariant.successText,
+      isLastVariant: false,
+    })
 
     window.setTimeout(() => {
-      onSubPuzzleComplete?.({ subIndex: variantIndex, attempts })
-      if (isLastVariant) {
-        clearStoredProgress(progressKey)
-        onComplete({
-          submittedAnswer: activeVariant.correctAnswer,
-          baseMessage: LESSON_PUZZLE_COMPLETE_MESSAGE,
-          taskCurrent: variantIndex + 1,
-          taskTotal: variants.length,
-        })
-        return
-      }
-
+      onInteraction?.()
       setVariantIndex((current) => current + 1)
       setSelectedWords([])
       setAttempts(0)
-      setHintVisible(false)
-      setFeedback({ type: 'success', text: activeVariant.myEngComment })
       setLocked(false)
     }, PUZZLE_VARIANT_ADVANCE_MS)
   }
 
   const handleSelectWord = (word: string) => {
     if (isBusy || selectedWords.length >= activeVariant.correctOrder.length) return
-    setFeedback(null)
+    onInteraction?.()
     setSelectedWords((current) => [...current, word])
   }
 
   const handleReturnWord = (index: number) => {
     if (isBusy) return
-    setFeedback(null)
+    onInteraction?.()
     setSelectedWords((current) => current.filter((_, itemIndex) => itemIndex !== index))
   }
 
@@ -252,7 +312,12 @@ export default function LessonSentencePuzzle({
         })}
       </div>
 
-      <div className="mb-2 flex flex-wrap gap-1.5" aria-label="Доступные слова">
+      <div
+        ref={wordBankRef}
+        className="mb-2 flex flex-wrap content-start gap-1.5"
+        style={lockedBankHeight > 0 ? { minHeight: lockedBankHeight } : undefined}
+        aria-label="Доступные слова"
+      >
         {availableWords.map((word, index) => (
           <button
             key={`${activeVariant.id}-${word}-${index}`}
@@ -266,24 +331,6 @@ export default function LessonSentencePuzzle({
           </button>
         ))}
       </div>
-
-      {hintVisible && (
-        <p className="mb-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[13px] leading-snug text-amber-800" role="status">
-          {activeVariant.hintText}
-        </p>
-      )}
-
-      {feedback && (
-        <p
-          className={`mb-1.5 rounded-lg px-2.5 py-1.5 text-[13px] leading-snug ${
-            feedback.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
-          }`}
-          role="status"
-          aria-live="polite"
-        >
-          {feedback.text}
-        </p>
-      )}
 
       <button
         type="button"
