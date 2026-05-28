@@ -120,8 +120,9 @@ export default function LessonChoiceChips({
         const choiceText = getChoiceText(choice);
         const isSelected = selected === choiceText;
         const isOtherSelected = selected && !isSelected;
+        const wrongChoice = wrongChoiceText?.trim() ?? '';
         const isWrongHighlighted =
-          Boolean(wrongChoiceText?.trim()) && choiceChipTextsMatch(choiceText, wrongChoiceText);
+          wrongChoice !== '' && choiceChipTextsMatch(choiceText, wrongChoice);
 
         return (
           <button
