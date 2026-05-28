@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import LessonSentencePuzzle from '@/components/LessonSentencePuzzle'
 import LessonMedalFlowInfoStep from '@/components/LessonMedalFlowInfoStep'
@@ -11,13 +11,20 @@ import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/component
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import LessonRunBanner from '@/components/LessonRunBanner'
 import type { BlockProgress, LessonStatus, LessonTimelineEntry } from '@/hooks/useLessonEngine'
+import {
+  isLessonAnswerPanelLocked,
+  isLessonChoiceInteractionDisabled,
+  isLessonChoicePanelFrozen,
+  LESSON_CHOICE_ADVANCE_HOLD_MS,
+} from '@/lib/lessonAnswerPanelLock'
 import { formatLessonErrorFeedback } from '@/lib/lessonFeedbackMessage'
 import { resolveScrollBottomPadding, scrollLessonFeedToMax } from '@/lib/lessonFeedScroll'
 import { getLessonSingleWordRuCue } from '@/lib/lessonSingleWordCue'
 import { speak } from '@/lib/speech'
 import { seededShuffle } from '@/lib/shuffleSeeded'
 import { useLessonVoiceInput } from '@/lib/voice/useLessonVoiceInput'
-import type { Bubble, PostLessonAction } from '@/types/lesson'
+import type { Bubble, Exercise, PostLessonAction } from '@/types/lesson'
+import { validateAnswer } from '@/utils/validateAnswer'
 
 type LessonStepRendererProps = {
   timeline: LessonTimelineEntry[]
@@ -97,6 +104,7 @@ const lessonStatusCardClassByTone: Record<'service' | 'success' | 'error', strin
 }
 
 const CHOICE_REOPEN_DELAY_MS = 900
+
 const LESSON_HIDDEN_VOICE_STATUS_MESSAGES = new Set([
   'Голосовой ввод...',
   '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]',
@@ -180,6 +188,13 @@ export default function LessonStepRenderer({
   const bottomStackRef = useRef<HTMLDivElement>(null)
   const feedEndRef = useRef<HTMLDivElement>(null)
   const reopenChoicesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const advanceHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const suppressChoiceResetRef = useRef(false)
+  const wasAnswerPanelLockedRef = useRef(false)
+  const lastStepVariantRef = useRef<{ stepNumber?: number; variantIndex: number }>({
+    variantIndex: 0,
+  })
+  const previousStatusRef = useRef<LessonStatus>(status)
   const previousVoicePhaseRef = useRef<'idle' | 'recording' | 'finalizing' | 'error'>('idle')
   const previousScrollSnapshotRef = useRef<{
     messageCount: number
@@ -188,7 +203,13 @@ export default function LessonStepRenderer({
     /** Последнее сообщение в ленте (id), чтобы ловить смену «Проверяем…» → feedback при том же числе сообщений */
     tailMessageId: string
   } | null>(null)
+  /** После первой ошибки currentEntry.submittedAnswer = null (ответ в истории попыток). */
+  const lastChosenChoiceRef = useRef<string | null>(null)
   const [choiceResetVersion, setChoiceResetVersion] = useState(0)
+  const [choiceClearNonce, setChoiceClearNonce] = useState(0)
+  const [wrongChoiceHighlight, setWrongChoiceHighlight] = useState<string | null>(null)
+  const [frozenChoiceOptions, setFrozenChoiceOptions] = useState<string[] | null>(null)
+  const [holdChoicesAfterAdvance, setHoldChoicesAfterAdvance] = useState(false)
   const [bottomStackHeight, setBottomStackHeight] = useState(0)
   const [postLessonPhase, setPostLessonPhase] = useState<'medal' | 'menu'>('medal')
   const currentEntry = timeline[timeline.length - 1] ?? null
@@ -235,6 +256,44 @@ export default function LessonStepRenderer({
   const isChoiceDrivenStep = shouldRenderChoiceChips || hasPostLessonOptions || isSentencePuzzle
   const isTextInputAvailable = Boolean(exercise) && !hasPostLessonOptions && !shouldRenderChoiceChips && !isSentencePuzzle
   const isChecking = status === 'checking'
+  const isAnswerPanelLocked = isLessonAnswerPanelLocked(status, latestFeedback?.type)
+  const prevStepVariantForHold = lastStepVariantRef.current
+  const stepNumberForHold = currentStep?.stepNumber
+  const variantIndexForHold = currentVariantIndex
+  const hadPreviousStepForHold = prevStepVariantForHold.stepNumber !== undefined
+  const stepChangedForHold =
+    hadPreviousStepForHold && prevStepVariantForHold.stepNumber !== stepNumberForHold
+  const variantChangedForHold =
+    hadPreviousStepForHold && prevStepVariantForHold.variantIndex !== variantIndexForHold
+  const shouldAdvanceHoldNow =
+    shouldRenderChoiceChips &&
+    (stepChangedForHold || variantChangedForHold) &&
+    wasAnswerPanelLockedRef.current &&
+    (frozenChoiceOptions?.length ?? 0) > 0
+  const isAdvanceHoldActive = holdChoicesAfterAdvance || shouldAdvanceHoldNow
+  const isChoicePanelFrozen =
+    shouldRenderChoiceChips &&
+    isLessonChoicePanelFrozen(status, latestFeedback?.type, isAdvanceHoldActive)
+  const isChoiceInteractionDisabled =
+    shouldRenderChoiceChips &&
+    isLessonChoiceInteractionDisabled(status, latestFeedback?.type, isAdvanceHoldActive)
+  const displayChoiceOptions = useMemo(() => {
+    if (!isChoicePanelFrozen) return choiceOptions
+    if (frozenChoiceOptions?.length) return frozenChoiceOptions
+    return choiceOptions
+  }, [isChoicePanelFrozen, frozenChoiceOptions, choiceOptions])
+
+  const handleChoiceAnswer = useCallback(
+    (answer: string) => {
+      const trimmed = answer.trim()
+      if (trimmed) {
+        lastChosenChoiceRef.current = trimmed
+      }
+      onAnswer(answer)
+    },
+    [onAnswer]
+  )
+
   const lessonInviteBubble = useMemo(() => {
     if (!currentEntry?.isCurrent) return null
     const visibleBubbles = currentEntry.step.bubbles.slice(0, blockProgress.visibleCount)
@@ -244,7 +303,12 @@ export default function LessonStepRenderer({
     }
     return null
   }, [blockProgress.visibleCount, currentEntry])
-  const canUseLessonVoiceInput = Boolean(exercise) && !hasPostLessonOptions && !isChecking && !shouldRenderChoiceChips && !isSentencePuzzle
+  const canUseLessonVoiceInput =
+    Boolean(exercise) &&
+    !hasPostLessonOptions &&
+    !isAnswerPanelLocked &&
+    !shouldRenderChoiceChips &&
+    !isSentencePuzzle
   const lessonVoiceInput = useLessonVoiceInput({
     inviteKey:
       canUseLessonVoiceInput && lessonInviteBubble
@@ -262,7 +326,7 @@ export default function LessonStepRenderer({
   const showVoicePlaybackButton =
     isTextInputAvailable &&
     !lessonVoiceInput.isVoiceActive &&
-    !isChecking &&
+    !isAnswerPanelLocked &&
     Boolean(lessonVoiceInput.lastCommittedVoiceText) &&
     lessonVoiceInput.draftText.trim() === lessonVoiceInput.lastCommittedVoiceText
   const rawVoiceStatusMessage = lessonVoiceInput.voiceStatusMessage ?? ''
@@ -283,14 +347,126 @@ export default function LessonStepRenderer({
     return `${verb} ответ...`
   }, [exercise, hasLessonMicrophone])
 
-  useEffect(() => {
-    setChoiceResetVersion((current) => current + 1)
-    resetVoiceInput()
-    if (reopenChoicesTimerRef.current) {
-      clearTimeout(reopenChoicesTimerRef.current)
-      reopenChoicesTimerRef.current = null
+  const previousFeedbackTypeRef = useRef<'success' | 'error' | undefined>(undefined)
+
+  useLayoutEffect(() => {
+    if (status === 'feedback' && latestFeedback?.type === 'success' && choiceOptions.length > 0) {
+      const nextSnapshot = [...choiceOptions]
+      setFrozenChoiceOptions((current) => {
+        if (current?.join('|') === nextSnapshot.join('|')) return current
+        return nextSnapshot
+      })
     }
-  }, [currentStep?.stepNumber, currentVariantIndex, resetVoiceInput])
+    previousStatusRef.current = status
+    previousFeedbackTypeRef.current = latestFeedback?.type
+  }, [status, latestFeedback?.type, choiceOptions, currentStep?.stepNumber])
+
+  useEffect(() => {
+    if (isAnswerPanelLocked) {
+      wasAnswerPanelLockedRef.current = true
+    }
+  }, [isAnswerPanelLocked])
+
+  useEffect(() => {
+    if (status === 'feedback' && latestFeedback?.type === 'error') {
+      setFrozenChoiceOptions(null)
+      setHoldChoicesAfterAdvance(false)
+      suppressChoiceResetRef.current = false
+    }
+  }, [status, latestFeedback?.type])
+
+  useEffect(() => {
+    if (!shouldRenderChoiceChips || !exercise) {
+      setWrongChoiceHighlight(null)
+      return
+    }
+    const submitted =
+      currentEntry?.submittedAnswer?.trim() || lastChosenChoiceRef.current?.trim() || ''
+    if (!submitted) return
+
+    const isWrongAttempt =
+      status === 'checking' || (status === 'feedback' && latestFeedback?.type === 'error')
+    if (!isWrongAttempt) return
+    if (validateAnswer(submitted, exercise as Exercise)) return
+
+    setWrongChoiceHighlight(submitted)
+  }, [
+    shouldRenderChoiceChips,
+    exercise,
+    currentEntry?.submittedAnswer,
+    status,
+    latestFeedback?.type,
+    exerciseErrors,
+  ])
+
+  useEffect(() => {
+    if (!choiceClearNonce) return
+    lastChosenChoiceRef.current = null
+  }, [choiceClearNonce])
+
+  useEffect(() => {
+    if (status === 'feedback' && latestFeedback?.type === 'success') {
+      setWrongChoiceHighlight(null)
+    }
+  }, [status, latestFeedback?.type])
+
+  useLayoutEffect(() => {
+    const stepNumber = currentStep?.stepNumber
+    const variantIndex = currentVariantIndex
+    const prev = lastStepVariantRef.current
+    const hadPreviousStep = prev.stepNumber !== undefined
+    const stepChanged = hadPreviousStep && prev.stepNumber !== stepNumber
+    const variantChanged = hadPreviousStep && prev.variantIndex !== variantIndex
+
+    if (stepChanged || variantChanged) {
+      setWrongChoiceHighlight(null)
+      lastChosenChoiceRef.current = null
+    }
+
+    if ((stepChanged || variantChanged) && wasAnswerPanelLockedRef.current && frozenChoiceOptions?.length) {
+      wasAnswerPanelLockedRef.current = false
+      setHoldChoicesAfterAdvance(true)
+      suppressChoiceResetRef.current = true
+      if (advanceHoldTimerRef.current) {
+        clearTimeout(advanceHoldTimerRef.current)
+      }
+      if (reopenChoicesTimerRef.current) {
+        clearTimeout(reopenChoicesTimerRef.current)
+        reopenChoicesTimerRef.current = null
+      }
+      advanceHoldTimerRef.current = setTimeout(() => {
+        setHoldChoicesAfterAdvance(false)
+        suppressChoiceResetRef.current = false
+        setFrozenChoiceOptions(null)
+        advanceHoldTimerRef.current = null
+      }, LESSON_CHOICE_ADVANCE_HOLD_MS)
+    } else if (stepChanged || variantChanged) {
+      if (!suppressChoiceResetRef.current) {
+        setChoiceResetVersion((current) => current + 1)
+        resetVoiceInput()
+        if (reopenChoicesTimerRef.current) {
+          clearTimeout(reopenChoicesTimerRef.current)
+          reopenChoicesTimerRef.current = null
+        }
+      }
+    }
+
+    lastStepVariantRef.current = { stepNumber, variantIndex }
+  }, [
+    currentStep?.stepNumber,
+    currentVariantIndex,
+    frozenChoiceOptions,
+    resetVoiceInput,
+  ])
+
+  useEffect(() => {
+    return () => {
+      if (advanceHoldTimerRef.current) {
+        clearTimeout(advanceHoldTimerRef.current)
+        advanceHoldTimerRef.current = null
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (reopenChoicesTimerRef.current) {
@@ -301,7 +477,8 @@ export default function LessonStepRenderer({
     if (!shouldRenderChoiceChips || latestFeedback?.type !== 'error') return
 
     reopenChoicesTimerRef.current = setTimeout(() => {
-      setChoiceResetVersion((current) => current + 1)
+      setChoiceClearNonce((current) => current + 1)
+      setWrongChoiceHighlight(null)
       reopenChoicesTimerRef.current = null
     }, CHOICE_REOPEN_DELAY_MS)
 
@@ -314,13 +491,21 @@ export default function LessonStepRenderer({
   }, [latestFeedback?.type, exerciseErrors, shouldRenderChoiceChips, currentStep?.stepNumber])
 
   const submitTextAnswer = useCallback(() => {
-    if (!exercise || !isTextInputAvailable || isChecking || lessonVoiceInput.isInputLocked || !lessonVoiceInput.draftText.trim()) return
+    if (
+      !exercise ||
+      !isTextInputAvailable ||
+      isAnswerPanelLocked ||
+      lessonVoiceInput.isInputLocked ||
+      !lessonVoiceInput.draftText.trim()
+    ) {
+      return
+    }
     onAnswer(inputValue.trim())
   }, [
     exercise,
     inputValue,
     isTextInputAvailable,
-    isChecking,
+    isAnswerPanelLocked,
     lessonVoiceInput.draftText,
     lessonVoiceInput.isInputLocked,
     onAnswer,
@@ -753,11 +938,14 @@ export default function LessonStepRenderer({
                   />
                 ) : shouldRenderChoiceChips ? (
                   <LessonChoiceChips
-                    key={`choices-${currentStep?.stepNumber ?? 'none'}-${currentVariantIndex}`}
-                    choices={choiceOptions}
-                    onChoose={onAnswer}
-                    disabled={isChecking}
-                    resetKey={`${currentStep?.stepNumber ?? 'none'}-${currentVariantIndex}-${choiceResetVersion}`}
+                    key="lesson-choice-panel"
+                    choices={displayChoiceOptions}
+                    onChoose={handleChoiceAnswer}
+                    disabled={isChoiceInteractionDisabled}
+                    frozen={isChoicePanelFrozen}
+                    clearSelectionSignal={choiceClearNonce}
+                    wrongChoiceText={wrongChoiceHighlight}
+                    resetKey={`panel-${choiceResetVersion}`}
                   />
                 ) : null}
 
@@ -767,12 +955,18 @@ export default function LessonStepRenderer({
                       event.preventDefault()
                       submitTextAnswer()
                     }}
-                    className="glass-surface flex w-full items-center gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1.5 sm:px-3"
+                    className={`glass-surface flex w-full items-center gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1.5 sm:px-3 ${
+                      isAnswerPanelLocked ? 'pointer-events-none opacity-60' : ''
+                    }`}
                     style={{ boxShadow: 'var(--chat-composer-shadow)' }}
                   >
                     <button
                       type="button"
-                      disabled={!isTextInputAvailable || lessonVoiceInput.voicePhase === 'finalizing'}
+                      disabled={
+                        !isTextInputAvailable ||
+                        isAnswerPanelLocked ||
+                        lessonVoiceInput.voicePhase === 'finalizing'
+                      }
                       onClick={() => {
                         if (!isTextInputAvailable) return
                         lessonVoiceInput.resetMicAnimation()
@@ -859,7 +1053,7 @@ export default function LessonStepRenderer({
                           }
                         }}
                         readOnly={lessonVoiceInput.isInputLocked}
-                        disabled={!isTextInputAvailable || isChecking}
+                        disabled={!isTextInputAvailable || isAnswerPanelLocked}
                         className={`chat-input-field lesson-chat-input-field min-w-0 w-full rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${
                           showVoicePlaybackButton ? 'pr-12' : ''
                         } ${
@@ -889,7 +1083,7 @@ export default function LessonStepRenderer({
                       type="submit"
                       disabled={
                         !isTextInputAvailable ||
-                        isChecking ||
+                        isAnswerPanelLocked ||
                         lessonVoiceInput.isInputLocked ||
                         !lessonVoiceInput.draftText.trim()
                       }

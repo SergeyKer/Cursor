@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { choiceChipTextsMatch } from '@/utils/validateAnswer';
 
 interface Choice {
   text: string;
@@ -13,6 +14,12 @@ interface Props {
   choices: ChoiceInput[];
   onChoose: (text: string, isCorrect?: boolean) => void;
   disabled?: boolean;
+  /** Застывшая панель после верного ответа: без hover, приглушённые невыбранные чипсы. */
+  frozen?: boolean;
+  /** Увеличивается при новой ошибочной попытке — сброс выделения без remount. */
+  clearSelectionSignal?: number;
+  /** Текст неверно выбранного варианта — красная кнопка до повторного выбора. */
+  wrongChoiceText?: string | null;
   resetKey?: string;
   autoSelectText?: string | null;
   autoSelectNonce?: number;
@@ -26,13 +33,28 @@ export default function LessonChoiceChips({
   choices,
   onChoose,
   disabled = false,
+  frozen = false,
+  clearSelectionSignal = 0,
+  wrongChoiceText = null,
   resetKey = '',
   autoSelectText = null,
   autoSelectNonce = 0,
 }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [allowEnterAnimation, setAllowEnterAnimation] = useState(true);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prevDisabledRef = useRef(disabled);
+  const prevFrozenRef = useRef(frozen);
+  const lastClearSelectionSignalRef = useRef(0);
+
+  useEffect(() => {
+    setAllowEnterAnimation(true);
+  }, [resetKey]);
+
+  useEffect(() => {
+    if (frozen) {
+      setAllowEnterAnimation(false);
+    }
+  }, [frozen]);
 
   useEffect(() => {
     setSelected(null);
@@ -49,13 +71,17 @@ export default function LessonChoiceChips({
   }, []);
 
   useEffect(() => {
-    // Когда проверка ответа завершилась, очищаем прошлый выбор,
-    // чтобы на следующую попытку чипсы были "с нуля".
-    if (prevDisabledRef.current && !disabled) {
+    if (!clearSelectionSignal || clearSelectionSignal === lastClearSelectionSignalRef.current) return;
+    lastClearSelectionSignalRef.current = clearSelectionSignal;
+    setSelected(null);
+  }, [clearSelectionSignal]);
+
+  useEffect(() => {
+    if (prevFrozenRef.current && !frozen) {
       setSelected(null);
     }
-    prevDisabledRef.current = disabled;
-  }, [disabled]);
+    prevFrozenRef.current = frozen;
+  }, [frozen]);
 
   useEffect(() => {
     if (disabled || !autoSelectText) return;
@@ -81,28 +107,44 @@ export default function LessonChoiceChips({
     onChoose(text, getChoiceCorrectness(choice));
   };
 
+  const isFrozenPanel = frozen && disabled;
+  const useEnterAnimation = allowEnterAnimation && !isFrozenPanel;
+
   return (
-    <div className="flex w-full min-w-0 flex-wrap justify-end gap-1.5 px-1.5 py-1.5 animate-fade-in">
+    <div
+      className={`flex w-full min-w-0 flex-wrap justify-end gap-1.5 px-1.5 py-1.5 ${
+        isFrozenPanel ? 'pointer-events-none saturate-[0.92]' : useEnterAnimation ? 'animate-fade-in' : ''
+      }`}
+    >
       {choices.map((choice, index) => {
         const choiceText = getChoiceText(choice);
         const isSelected = selected === choiceText;
         const isOtherSelected = selected && !isSelected;
+        const isWrongHighlighted =
+          Boolean(wrongChoiceText?.trim()) && choiceChipTextsMatch(choiceText, wrongChoiceText);
 
         return (
           <button
-            key={`${resetKey}-${choiceText}-${index}`}
+            key={`${resetKey}-slot-${index}`}
             disabled={disabled}
             onClick={() => handleSelect(choice)}
             style={{ animationDelay: `${index * 85}ms` }}
             className={`
-              lesson-choice-chip-enter
+              ${useEnterAnimation ? 'lesson-choice-chip-enter' : ''}
               max-w-full shrink-0 break-words px-3 py-1.5 text-left
               rounded-xl text-[15px] leading-[1.5] font-normal transition-all duration-200
-              ${isSelected
+              ${disabled && !frozen && !isWrongHighlighted ? 'opacity-90' : ''}
+              ${isWrongHighlighted
+                ? 'bg-amber-50 text-amber-800 border border-amber-300 shadow-sm scale-[1.02]'
+                : isSelected
                 ? 'bg-blue-500 text-white shadow-md scale-[1.02]'
                 : isOtherSelected
-                  ? 'bg-blue-50/90 text-blue-700 border border-blue-200 opacity-75'
-                  : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+                  ? isFrozenPanel
+                    ? 'bg-blue-50/90 text-blue-700 border border-blue-200 opacity-50 cursor-not-allowed'
+                    : 'bg-blue-50/90 text-blue-700 border border-blue-200 opacity-75'
+                  : isFrozenPanel
+                    ? 'bg-blue-50/90 text-blue-700 border border-blue-200 opacity-50 cursor-not-allowed'
+                    : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
               }
             `}
           >

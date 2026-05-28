@@ -1,8 +1,16 @@
 import { normalizeEnglishForLearnerAnswerMatch } from '@/lib/normalizeEnglishForLearnerAnswerMatch'
 import type { Exercise } from '@/types/lesson'
 
-function normalizeStrict(value: string): string {
+export function normalizeChoiceChipText(value: string): string {
   return value.trim().toLowerCase().replace(/[.,!?;:]/g, '')
+}
+
+export function choiceChipTextsMatch(a: string, b: string): boolean {
+  return normalizeChoiceChipText(a) === normalizeChoiceChipText(b)
+}
+
+function normalizeStrict(value: string): string {
+  return normalizeChoiceChipText(value)
 }
 
 function buildCandidateAnswers(exercise: Exercise): string[] {

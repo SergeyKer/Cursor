@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateAnswer } from '@/utils/validateAnswer'
+import { choiceChipTextsMatch, validateAnswer } from '@/utils/validateAnswer'
 import type { Exercise } from '@/types/lesson'
 
 describe('validateAnswer', () => {
@@ -67,5 +67,12 @@ describe('validateAnswer', () => {
     }
 
     expect(validateAnswer('Who likes tea? My brother really likes tea.', exercise)).toBe(true)
+  })
+})
+
+describe('choiceChipTextsMatch', () => {
+  it('matches chip labels case-insensitively and ignores trailing punctuation', () => {
+    expect(choiceChipTextsMatch('I am a student.', 'i am a student')).toBe(true)
+    expect(choiceChipTextsMatch('an', 'the')).toBe(false)
   })
 })
