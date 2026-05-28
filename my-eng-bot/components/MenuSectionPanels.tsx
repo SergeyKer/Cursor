@@ -705,15 +705,7 @@ export default function MenuSectionPanels({
       pt: initialLessonMenuContext.practiceTheoryTagFilterId ?? null,
       ttbl: initialLessonMenuContext.theoryTagBrowseLevel ?? null,
     })
-  }, [
-    initialLessonMenuContext?.activeGrammarCategoryId,
-    initialLessonMenuContext?.activeTheoryTagId,
-    initialLessonMenuContext?.theorySearchQuery,
-    initialLessonMenuContext?.activeTheoryTagIds,
-    initialLessonMenuContext?.theoryLessonSource,
-    initialLessonMenuContext?.practiceTheoryTagFilterId,
-    initialLessonMenuContext?.theoryTagBrowseLevel,
-  ])
+  }, [initialLessonMenuContext])
 
   React.useEffect(() => {
     if (menuView !== 'lessons') return

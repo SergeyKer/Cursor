@@ -3897,7 +3897,7 @@ export default function Home() {
     bumpFooterSessionContext()
     resetStructuredLessonSession()
     setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'words' })
-  }, [cleanupEngvoRuntime, resetStructuredLessonSession])
+  }, [bumpFooterSessionContext, cleanupEngvoRuntime, resetStructuredLessonSession])
 
   const retryFirstMessage = useCallback(async () => {
     const requestId = ++firstMessageRequestIdRef.current
@@ -4838,7 +4838,6 @@ export default function Home() {
     isStructuredLessonActive,
     isStructuredLessonRepeatRun,
     activeStructuredLesson,
-    activeStructuredLesson?.id,
     settings.audience,
   ])
 
@@ -5238,9 +5237,7 @@ export default function Home() {
     engvoVoiceMode,
     settings.audience,
     rewardsState.ui.footerTicker,
-    rewardsState.ui.lastReward?.amount,
-    rewardsState.ui.lastReward?.at,
-    rewardsState.ui.lastReward?.reason,
+    rewardsState.ui.lastReward,
   ])
   // Тикер награды (например «Ответы 3/7») привязан к активной сессии: на простом доме/меню без чата и урока
   // не подмешиваем его, иначе после «домика» верхняя строка футера остаётся от прошлого контекста до TTL.
@@ -5333,20 +5330,11 @@ export default function Home() {
   ])
   const streakFooterPreview = React.useMemo(
     () => formatStreakFooterPreview(rewardsState, settings.audience),
-    [
-      rewardsState.progress.dailyStreak,
-      rewardsState.progress.lastStreakDailyBonusDate,
-      settings.audience,
-    ]
+    [rewardsState, settings.audience]
   )
   const streakFooterApplied = React.useMemo(
     () => formatStreakFooterApplied(rewardsState, settings.audience),
-    [
-      rewardsState.ui.lastReward?.at,
-      rewardsState.ui.lastReward?.streakBonus,
-      rewardsState.ui.lastReward?.dailyStreakAtAward,
-      settings.audience,
-    ]
+    [rewardsState, settings.audience]
   )
   const activeStreakSessionMode = React.useMemo(() => {
     if (isPracticeActive) return 'practice'
@@ -5377,13 +5365,7 @@ export default function Home() {
     if (!activeStreakSessionMode) return null
     if (streakHintConsumedForMode === activeStreakSessionMode) return null
     return formatStreakSessionHint(rewardsState, settings.audience)
-  }, [
-    activeStreakSessionMode,
-    streakHintConsumedForMode,
-    rewardsState.progress.dailyStreak,
-    rewardsState.progress.lastStreakDailyBonusDate,
-    settings.audience,
-  ])
+  }, [activeStreakSessionMode, streakHintConsumedForMode, rewardsState, settings.audience])
   React.useEffect(() => {
     if (!streakSessionHintLine || !activeStreakSessionMode) return
     setStreakHintConsumedForMode(activeStreakSessionMode)

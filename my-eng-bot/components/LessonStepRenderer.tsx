@@ -771,7 +771,7 @@ export default function LessonStepRenderer({
     observer.observe(bottomStack)
     return () => observer.disconnect()
   }, [
-    currentStep?.stepNumber,
+    currentStep,
     currentVariantIndex,
     hasPostLessonOptions,
     shouldRenderChoiceChips,

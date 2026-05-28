@@ -33,6 +33,7 @@ export type GeneratedExercisePayload = {
   acceptedAnswers?: unknown
   hint?: unknown
   puzzleVariants?: unknown
+  variants?: unknown
   bonusXp?: unknown
 }
 
