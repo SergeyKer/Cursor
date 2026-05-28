@@ -18,16 +18,28 @@ import {
 } from '@/lib/lessonScore'
 
 describe('lessonScore', () => {
-  it('lists scoring units for its-time-to (13 units, max core 140)', () => {
+  it('lists scoring units for its-time-to (17 units, max core 183)', () => {
     const units = listLessonScoringUnits(itsTimeToLesson)
-    expect(units).toHaveLength(13)
-    expect(units.filter((unit) => unit.kind === 'variant')).toHaveLength(6)
+    expect(units).toHaveLength(17)
+    expect(units.filter((unit) => unit.kind === 'variant')).toHaveLength(12)
     expect(units.filter((unit) => unit.kind === 'puzzleSub')).toHaveLength(3)
-    expect(units.filter((unit) => unit.kind === 'step')).toHaveLength(4)
+    expect(units.filter((unit) => unit.kind === 'step')).toHaveLength(2)
   })
 
-  it('sums max core xp to 140 for its-time-to', () => {
-    expect(sumMaxCoreXpForLesson(itsTimeToLesson)).toBe(140)
+  it('sums max core xp to 183 for its-time-to', () => {
+    expect(sumMaxCoreXpForLesson(itsTimeToLesson)).toBe(183)
+  })
+
+  it('uses three single-word gap variants for step 7', () => {
+    const units = listLessonScoringUnits(itsTimeToLesson).filter((unit) => unit.stepNumber === 7)
+    expect(units).toHaveLength(3)
+    expect(units.every((unit) => unit.kind === 'variant')).toBe(true)
+  })
+
+  it('uses three translate variants for step 6', () => {
+    const units = listLessonScoringUnits(itsTimeToLesson).filter((unit) => unit.stepNumber === 6)
+    expect(units).toHaveLength(3)
+    expect(units.every((unit) => unit.kind === 'variant')).toBe(true)
   })
 
   it('scores easy variant lower than hard on same step with same attempt', () => {

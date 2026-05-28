@@ -1,3 +1,6 @@
+import { buildStep6ExamVariants } from '@/lib/lessons/step6Exam'
+import { buildStep7ContrastVariants } from '@/lib/lessons/step7Contrast'
+import { buildPuzzleVariantHintText } from '@/lib/puzzlePanelLayout'
 import { toSentencePuzzleCards } from '@/lib/sentencePuzzleWords'
 import type {
   ExerciseDifficulty,
@@ -32,6 +35,15 @@ type EmbeddedQuestionVariant = {
   step6TaskRu: string
   step6Options: [string, string, string]
   step6CorrectAnswer: string
+  step6LightQuestion: string
+  step6LightAnswer: string
+  step6LightAcceptedAnswers?: string[]
+  step6MediumQuestion: string
+  step6MediumAnswer: string
+  step6MediumAcceptedAnswers?: string[]
+  step6CreativeQuestion: string
+  step6CreativeAnswer: string
+  step6CreativeAcceptedAnswers?: string[]
   sourceSituations: string[]
 }
 
@@ -125,6 +137,14 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
       'Tell me where Anna work.',
     ],
     step6CorrectAnswer: 'Tell me where Anna works.',
+    step6LightQuestion: 'Переведите на английский: "Скажи мне, где работает Анна."',
+    step6LightAnswer: 'Tell me where Anna works.',
+    step6MediumQuestion: 'Переведите на английский: "Ты знаешь, где живет Алекс? Он живет рядом с парком."',
+    step6MediumAnswer: 'Do you know where Alex lives? He lives near the park.',
+    step6MediumAcceptedAnswers: ['Do you know where Alex lives? Alex lives near the park.'],
+    step6CreativeQuestion: 'Переведите на английский: "Я не знаю, когда приходит автобус."',
+    step6CreativeAnswer: "I don't know when the bus arrives.",
+    step6CreativeAcceptedAnswers: ['I do not know when the bus arrives.'],
     sourceSituations: [
       'Я знаю, что ей нравится.',
       'Ты знаешь, что ей нравится?',
@@ -217,6 +237,15 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
       'Can you say when the lesson start?',
     ],
     step6CorrectAnswer: 'Can you say when the lesson starts?',
+    step6LightQuestion: 'Переведите на английский: "Я не знаю, где он работает."',
+    step6LightAnswer: "I don't know where he works.",
+    step6LightAcceptedAnswers: ['I do not know where he works.'],
+    step6MediumQuestion: 'Переведите на английский: "Ты знаешь, что любит Оля? Она любит джаз."',
+    step6MediumAnswer: 'Do you know what Olya likes? She likes jazz.',
+    step6MediumAcceptedAnswers: ['Do you know what Olya likes? Olya likes jazz.'],
+    step6CreativeQuestion: 'Переведите на английский: "Скажи, когда приходит автобус."',
+    step6CreativeAnswer: 'Can you say when the bus arrives?',
+    step6CreativeAcceptedAnswers: ['Can you tell me when the bus arrives?'],
     sourceSituations: [
       'Ты знаешь, что ей нравится?',
       'Скажи, когда начинается фильм.',
@@ -309,6 +338,15 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
       "I don't know where the bank are.",
     ],
     step6CorrectAnswer: "I don't know where the bank is.",
+    step6LightQuestion: 'Переведите на английский: "Я не знаю, чего она хочет."',
+    step6LightAnswer: "I don't know what she wants.",
+    step6LightAcceptedAnswers: ['I do not know what she wants.'],
+    step6MediumQuestion: 'Переведите на английский: "Ты знаешь, когда начинается фильм? Он начинается в семь."',
+    step6MediumAnswer: 'Do you know when the film starts? It starts at seven.',
+    step6MediumAcceptedAnswers: ['Do you know when the film starts? The film starts at seven.'],
+    step6CreativeQuestion: 'Переведите на английский: "Ты знаешь, чего хочет учитель?"',
+    step6CreativeAnswer: 'Do you know what the teacher wants?',
+    step6CreativeAcceptedAnswers: ['Do you know what the teacher needs?'],
     sourceSituations: [
       'Скажи, когда начинается урок.',
       'Скажи мне, где находится кафе.',
@@ -401,6 +439,14 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
       "I don't know when they starts.",
     ],
     step6CorrectAnswer: "I don't know when they start.",
+    step6LightQuestion: 'Переведите на английский: "Скажи мне, где находится парк."',
+    step6LightAnswer: 'Tell me where the park is.',
+    step6MediumQuestion: 'Переведите на английский: "Скажи мне, где находится музей. Он рядом со школой."',
+    step6MediumAnswer: 'Tell me where the museum is. It is near the school.',
+    step6MediumAcceptedAnswers: ['Tell me where the museum is. The museum is near the school.'],
+    step6CreativeQuestion: 'Переведите на английский: "Ты знаешь, что нужно медсестре?"',
+    step6CreativeAnswer: 'Do you know what the nurse needs?',
+    step6CreativeAcceptedAnswers: ['Do you know what the nurse wants?'],
     sourceSituations: [
       'Скажи мне, где находится станция.',
       'Я не знаю, когда они начинают.',
@@ -533,7 +579,7 @@ function buildEmbeddedQuestionBlueprints(variant: EmbeddedQuestionVariant): Less
     {
       stepNumber: 6,
       stepType: 'practice_apply',
-      learningGoal: 'Собрать маленький бытовой диалог со встроенным вопросом.',
+      learningGoal: 'Финальная проверка: одна фраза, мини-диалог и перенос на новую лексику.',
       exerciseType: 'translate',
       answerFormat: 'full_sentence',
       answerPolicy: 'equivalent_variants',
@@ -554,19 +600,17 @@ function buildEmbeddedQuestionBlueprints(variant: EmbeddedQuestionVariant): Less
     {
       stepNumber: 7,
       stepType: 'feedback',
-      learningGoal: 'Отличить правильный встроенный вопрос от ошибки с инверсией.',
+      learningGoal: 'Три contrast-gap: глагол во встроенной части без инверсии.',
       exerciseType: 'fill_choice',
       answerFormat: 'choice',
       answerPolicy: 'strict',
-      sourceCorrectAnswer: variant.step6CorrectAnswer,
-      sourcePattern: 'correct embedded question without inversion',
-      semanticAnchors: [variant.step6CorrectAnswer.toLowerCase()],
+      sourceCorrectAnswer: variant.step3Variants[0]!.correctAnswer,
+      sourcePattern: 'embedded clause: wh-word + subject + verb',
+      semanticAnchors: [variant.step3Variants[0]!.correctAnswer],
       semanticExpectations: {
         pedagogicalRole: 'contrast_check',
-        mustInclude: [variant.step6CorrectAnswer.toLowerCase()],
-        shouldInclude: ['does', 'is', 'порядок слов'],
         mustAvoid: ['if', 'whether', 'present continuous'],
-        hintShouldMention: ['does', 'is', 'обычный порядок слов'],
+        hintShouldMention: ['порядок слов', 'глагол'],
         requireCyrillicHint: true,
         maxAcceptedAnswers: 1,
       },
@@ -574,21 +618,142 @@ function buildEmbeddedQuestionBlueprints(variant: EmbeddedQuestionVariant): Less
   ]
 }
 
-function buildEmbeddedPuzzleVariant(id: string, title: string, instruction: string, answer: string): SentencePuzzleVariant {
+function buildEmbeddedPuzzleVariant(id: string, title: string, answer: string): SentencePuzzleVariant {
   const correctOrder = toSentencePuzzleCards(answer)
   return {
     id,
     title,
-    instruction,
+    instruction: '',
     words: [...correctOrder],
     correctOrder,
     correctAnswer: answer,
     successText: `Верно! ${answer}`,
     errorText: 'Порядок неверный. Попробуйте ещё раз.',
-    hintText: `Подсказка: первое слово — ${correctOrder[0]}.`,
+    hintText: buildPuzzleVariantHintText(correctOrder),
     hintFirstWord: correctOrder[0],
     myEngComment: 'Отлично. Собираем следующий вариант.',
   }
+}
+
+function extractFrameFromStep3Question(question: string): string {
+  const match = question.match(/"([^"]+)"/)
+  return match?.[1] ?? question
+}
+
+function buildEmbeddedVerbDistractors(correct: string): [string, string] {
+  if (correct === 'is') return ['are', 'am']
+  if (correct === 'are') return ['is', 'am']
+  if (correct === 'am') return ['is', 'are']
+  if (correct.endsWith('s')) {
+    const stem = correct.slice(0, -1)
+    return [stem, `${stem}ing`]
+  }
+  return [`${correct}s`, `${correct}ing`]
+}
+
+const EMBEDDED_STEP7_HARD: Record<
+  string,
+  { situationRu: string; frameEn: string; correctWord: string; distractors: [string, string]; hint: string }
+> = {
+  'home-lives': {
+    situationRu: 'Новая ситуация: когда приходит автобус',
+    frameEn: "I don't know when the bus ___.",
+    correctWord: 'arrives',
+    distractors: ['arrive', 'arriving'],
+    hint: 'После when the bus — обычный глагол для the bus.',
+  },
+  'music-likes': {
+    situationRu: 'Новая ситуация: где он работает',
+    frameEn: "I don't know where he ___.",
+    correctWord: 'works',
+    distractors: ['work', 'working'],
+    hint: 'После where he не нужен does.',
+  },
+  'lesson-starts': {
+    situationRu: 'Новая ситуация: чего она хочет',
+    frameEn: "I don't know what she ___.",
+    correctWord: 'wants',
+    distractors: ['want', 'wanting'],
+    hint: 'После what she — обычный порядок слов.',
+  },
+  'station-is': {
+    situationRu: 'Новая ситуация: чего нужно учителю',
+    frameEn: 'Do you know what he ___?',
+    correctWord: 'needs',
+    distractors: ['need', 'needing'],
+    hint: 'Во второй части — subject + глагол без do.',
+  },
+}
+
+function buildEmbeddedStep7Variants(variant: EmbeddedQuestionVariant) {
+  const easySrc = variant.step3Variants[0]!
+  const mediumSrc = variant.step3Variants[1]!
+  const hardGap = EMBEDDED_STEP7_HARD[variant.id]
+  if (!hardGap) {
+    throw new Error(`Missing step7 hard gap for embedded variant ${variant.id}`)
+  }
+
+  return buildStep7ContrastVariants([
+    {
+      id: `${variant.id}_step7_easy`,
+      difficulty: 'easy',
+      situationRu: variant.introSituationRu,
+      frameEn: extractFrameFromStep3Question(easySrc.question),
+      correctWord: easySrc.correctAnswer,
+      distractors: buildEmbeddedVerbDistractors(easySrc.correctAnswer),
+      hint: easySrc.hint,
+    },
+    {
+      id: `${variant.id}_step7_medium`,
+      difficulty: 'medium',
+      situationRu: variant.sourceSituations[1] ?? variant.introSituationRu,
+      frameEn: extractFrameFromStep3Question(mediumSrc.question),
+      correctWord: mediumSrc.correctAnswer,
+      distractors: buildEmbeddedVerbDistractors(mediumSrc.correctAnswer),
+      hint: mediumSrc.hint,
+    },
+    {
+      id: `${variant.id}_step7_hard`,
+      difficulty: 'hard',
+      situationRu: hardGap.situationRu,
+      frameEn: hardGap.frameEn,
+      correctWord: hardGap.correctWord,
+      distractors: hardGap.distractors,
+      hint: hardGap.hint,
+    },
+  ])
+}
+
+function buildEmbeddedStep6Variants(variant: EmbeddedQuestionVariant) {
+  return buildStep6ExamVariants([
+    {
+      id: `${variant.id}_step6_easy`,
+      difficulty: 'easy',
+      question: variant.step6LightQuestion,
+      correctAnswer: variant.step6LightAnswer,
+      acceptedAnswers: variant.step6LightAcceptedAnswers ?? [variant.step6LightAnswer],
+      hint: 'Одна фраза со встроенным вопросом: обычный порядок слов после where, what, when.',
+      answerPolicy: 'normalized',
+    },
+    {
+      id: `${variant.id}_step6_medium`,
+      difficulty: 'medium',
+      question: variant.step6MediumQuestion,
+      correctAnswer: variant.step6MediumAnswer,
+      acceptedAnswers: variant.step6MediumAcceptedAnswers ?? [variant.step6MediumAnswer],
+      hint: 'Сначала фраза со встроенным вопросом, потом короткий ответ.',
+      answerPolicy: 'equivalent_variants',
+    },
+    {
+      id: `${variant.id}_step6_hard`,
+      difficulty: 'hard',
+      question: variant.step6CreativeQuestion,
+      correctAnswer: variant.step6CreativeAnswer,
+      acceptedAnswers: variant.step6CreativeAcceptedAnswers ?? [variant.step6CreativeAnswer],
+      hint: 'Новая ситуация: тот же шаблон, другие слова во второй части.',
+      answerPolicy: 'normalized',
+    },
+  ])
 }
 
 function buildEmbeddedSentencePuzzleVariants(variant: EmbeddedQuestionVariant): [SentencePuzzleVariant, SentencePuzzleVariant, SentencePuzzleVariant] {
@@ -596,19 +761,16 @@ function buildEmbeddedSentencePuzzleVariants(variant: EmbeddedQuestionVariant): 
     buildEmbeddedPuzzleVariant(
       `${variant.id}_puzzle_intro`,
       'Пазл 1/3: встроенный вопрос',
-      'Соберите фразу с обычным порядком слов после where/what/when.',
       variant.introCorrectSentence
     ),
     buildEmbeddedPuzzleVariant(
       `${variant.id}_puzzle_practice`,
       'Пазл 2/3: новая фраза',
-      'Теперь соберите похожую фразу без лишней инверсии.',
       variant.step4Variants[0]?.correctAnswer ?? variant.introCorrectSentence
     ),
     buildEmbeddedPuzzleVariant(
       `${variant.id}_puzzle_check`,
       'Пазл 3/3: финальная сборка',
-      'Соберите проверочную фразу целиком.',
       variant.step6CorrectAnswer
     ),
   ]
@@ -822,28 +984,33 @@ function buildEmbeddedQuestionSteps(variant: EmbeddedQuestionVariant): LessonSte
       bubbles: [
         {
           type: 'positive',
-          content: 'Переходим к короткому живому мини-диалогу.',
+          content: 'Финальная проверка: три коротких задания подряд.',
         },
         {
           type: 'info',
-          content: 'Сначала дайте фразу со встроенным вопросом, потом добавьте короткий ответ по смыслу.',
+          content: 'Одна фраза, затем мини-диалог, в конце — новая лексика в том же шаблоне.',
         },
         {
           type: 'task',
-          content: variant.step5TaskRu,
+          content: variant.step6LightQuestion.replace(/^Переведите на английский:\s*/u, ''),
         },
       ],
-      exercise: {
-        type: 'translate',
-        question: 'Напишите две короткие фразы на английском.',
-        correctAnswer: variant.step5CorrectAnswer,
-        acceptedAnswers: [variant.step5CorrectAnswer, ...variant.step5AcceptedAnswers],
-        answerFormat: 'full_sentence',
-        answerPolicy: 'equivalent_variants',
-        hint: 'Сначала вопрос или просьба со встроенным вопросом, потом короткий ясный ответ.',
-      },
-      footerDynamic: 'Практика: вопрос и ответ',
-      myEngComment: 'Теперь это уже звучит как реальная речь.',
+      exercise: (() => {
+        const step6Variants = buildEmbeddedStep6Variants(variant)
+        const first = step6Variants[0]!
+        return {
+          type: 'translate',
+          question: first.question,
+          correctAnswer: first.correctAnswer,
+          acceptedAnswers: first.acceptedAnswers,
+          answerFormat: 'full_sentence',
+          answerPolicy: 'normalized',
+          hint: first.hint,
+          variants: step6Variants,
+        }
+      })(),
+      footerDynamic: 'Финальная проверка: 3 коротких предложения',
+      myEngComment: 'Три фразы подряд — вы почти у финиша.',
     },
     {
       stepNumber: 7,
@@ -851,29 +1018,33 @@ function buildEmbeddedQuestionSteps(variant: EmbeddedQuestionVariant): LessonSte
       bubbles: [
         {
           type: 'positive',
-          content: 'Остался быстрый контрастный тест.',
+          content: 'Быстрый финиш: три глагола во встроенных частях.',
         },
         {
           type: 'info',
-          content: 'Смотрите именно на порядок слов после where, what, when: обычный или вопросительный.',
+          content: 'В каждой рамке одно слово — обычный порядок слов во встроенной части.',
         },
         {
           type: 'task',
-          content: variant.step6TaskRu,
+          content: 'Выберите одно слово для пропуска в английской рамке.',
         },
       ],
-      exercise: {
-        type: 'fill_choice',
-        question: 'Какой вариант правильный?',
-        options: [...variant.step6Options],
-        correctAnswer: variant.step6CorrectAnswer,
-        acceptedAnswers: [variant.step6CorrectAnswer],
-        answerFormat: 'choice',
-        answerPolicy: 'strict',
-        hint: 'Правильный встроенный вопрос не использует инверсию внутри второй части.',
-      },
-      footerDynamic: 'Проверка: прямой вопрос и встроенный вопрос',
-      myEngComment: 'Финиш рядом, осталось увидеть ошибку сразу.',
+      exercise: (() => {
+        const step7Variants = buildEmbeddedStep7Variants(variant)
+        const first = step7Variants[0]!
+        return {
+          type: 'fill_choice',
+          question: first.question,
+          options: first.options,
+          correctAnswer: first.correctAnswer,
+          answerFormat: 'choice',
+          answerPolicy: 'strict',
+          hint: first.hint,
+          variants: step7Variants,
+        }
+      })(),
+      footerDynamic: 'Финиш: 3 слова',
+      myEngComment: 'Финиш рядом, осталось три коротких слова.',
     },
   ]
 }

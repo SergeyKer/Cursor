@@ -1,4 +1,5 @@
 import { buildFallbackLessonIntro } from '@/lib/lessonIntro'
+import { buildPuzzleVariantHintText, shouldUseFirstWordPuzzleHint } from '@/lib/puzzlePanelLayout'
 import type { LessonBlueprint } from '@/lib/lessonBlueprint'
 import { buildFallbackTutorLearningIntent, type TutorLearningIntent, type TutorLearningIntentExample } from '@/lib/tutorLearningIntent'
 import type { LevelId } from '@/lib/types'
@@ -57,13 +58,13 @@ function buildPuzzleVariants(topic: string, intent?: TutorLearningIntent): [Sent
       return {
         id: `tutor-puzzle-intent-${index + 1}`,
         title: index === 0 ? 'Соберите главный шаблон' : 'Соберите пример',
-        instruction: 'Поставьте слова в правильном порядке.',
+        instruction: '',
         words,
         correctOrder: words,
         correctAnswer: example.en,
         successText: 'Верно, смысл темы сохранился.',
         errorText: 'Проверьте порядок слов в английском шаблоне.',
-        hintText: example.noteRu,
+        hintText: shouldUseFirstWordPuzzleHint(words.length) ? example.noteRu : '',
         hintFirstWord: words[0],
         myEngComment: example.noteRu,
       }
@@ -73,39 +74,39 @@ function buildPuzzleVariants(topic: string, intent?: TutorLearningIntent): [Sent
     {
       id: 'tutor-puzzle-pattern',
       title: 'Соберите мысль',
-      instruction: 'Поставьте слова в правильном порядке.',
+      instruction: '',
       words: ['I', 'understand', 'the', 'pattern'],
       correctOrder: ['I', 'understand', 'the', 'pattern'],
       correctAnswer: 'I understand the pattern.',
       successText: 'Отлично, шаблон собран.',
       errorText: 'Проверьте порядок: сначала I, потом действие.',
-      hintText: 'Первое слово: I.',
+      hintText: buildPuzzleVariantHintText(['I', 'understand', 'the', 'pattern']),
       hintFirstWord: 'I',
       myEngComment: `Шаблон помогает не потеряться в теме ${safeTopic}.`,
     },
     {
       id: 'tutor-puzzle-practice',
       title: 'Соберите практику',
-      instruction: 'Соберите короткую фразу для тренировки.',
+      instruction: '',
       words: ['We', 'practice', 'short', 'examples'],
       correctOrder: ['We', 'practice', 'short', 'examples'],
       correctAnswer: 'We practice short examples.',
       successText: 'Да, короткие примеры держат фокус.',
       errorText: 'Начните с We practice.',
-      hintText: 'Первое слово: We.',
+      hintText: buildPuzzleVariantHintText(['We', 'practice', 'short', 'examples']),
       hintFirstWord: 'We',
       myEngComment: 'Практика идет от короткого к более свободному.',
     },
     {
       id: 'tutor-puzzle-rule',
       title: 'Соберите проверку',
-      instruction: 'Соберите фразу для самопроверки.',
+      instruction: '',
       words: ['This', 'rule', 'has', 'a', 'clear', 'use'],
       correctOrder: ['This', 'rule', 'has', 'a', 'clear', 'use'],
       correctAnswer: 'This rule has a clear use.',
       successText: 'Верно: у правила должна быть понятная задача.',
       errorText: 'Начните с This rule.',
-      hintText: 'Первое слово: This.',
+      hintText: buildPuzzleVariantHintText(['This', 'rule', 'has', 'a', 'clear', 'use']),
       hintFirstWord: 'This',
       myEngComment: 'Если понятна задача правила, дальше легче.',
     },

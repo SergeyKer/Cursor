@@ -64,6 +64,16 @@ export default function LessonChoiceChips({
     }
   }, [resetKey]);
 
+  const choicesSignature = choices.map((choice) => getChoiceText(choice)).join('\u0001');
+  useEffect(() => {
+    setSelected(null);
+  }, [choicesSignature]);
+
+  useEffect(() => {
+    if (wrongChoiceText) return;
+    setSelected(null);
+  }, [wrongChoiceText]);
+
   useEffect(() => {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);

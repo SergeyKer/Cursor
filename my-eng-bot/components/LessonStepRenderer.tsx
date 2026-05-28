@@ -18,6 +18,10 @@ import {
   LESSON_CHOICE_ADVANCE_HOLD_MS,
 } from '@/lib/lessonAnswerPanelLock'
 import { formatLessonErrorFeedback } from '@/lib/lessonFeedbackMessage'
+import {
+  hasHistoricalAttemptsForCurrentStep,
+  shouldHideCurrentLessonBubbles,
+} from '@/lib/lessonCurrentBubbleVisibility'
 import { resolveScrollBottomPadding, scrollLessonFeedToMax } from '@/lib/lessonFeedScroll'
 import { getLessonSingleWordRuCue } from '@/lib/lessonSingleWordCue'
 import { speak } from '@/lib/speech'
@@ -46,6 +50,8 @@ type LessonStepRendererProps = {
     submittedAnswer: string
     errorText: string
     hintText: string
+    wordCount: number
+    correctAnswer: string
   }) => void
   onPuzzleSubSuccess?: (params: {
     subIndex: number
@@ -58,7 +64,6 @@ type LessonStepRendererProps = {
   onPuzzleProgressChange?: (progress: { subIndex: number; subTotal: number }) => void
   /** Индекс sub-puzzle на ходе 5 (0 = 1/3) — для доскролла к хвосту ленты при смене пазла. */
   puzzleSubIndex?: number
-  puzzleSubMaxXp?: number
   lessonMedalReveal?: {
     medal: LessonMedalTierOrNull
     coreXp: number
@@ -175,7 +180,6 @@ export default function LessonStepRenderer({
   onPuzzleInteraction,
   onPuzzleProgressChange,
   puzzleSubIndex,
-  puzzleSubMaxXp,
   lessonMedalReveal = null,
   onPostLessonAction,
   postLessonBusy = false,
@@ -205,6 +209,8 @@ export default function LessonStepRenderer({
   } | null>(null)
   /** После первой ошибки currentEntry.submittedAnswer = null (ответ в истории попыток). */
   const lastChosenChoiceRef = useRef<string | null>(null)
+  /** После choiceClearNonce не поднимать wrongChoiceHighlight снова, пока нет нового клика. */
+  const wrongHighlightSuppressedRef = useRef(false)
   const [choiceResetVersion, setChoiceResetVersion] = useState(0)
   const [choiceClearNonce, setChoiceClearNonce] = useState(0)
   const [wrongChoiceHighlight, setWrongChoiceHighlight] = useState<string | null>(null)
@@ -212,7 +218,7 @@ export default function LessonStepRenderer({
   const [holdChoicesAfterAdvance, setHoldChoicesAfterAdvance] = useState(false)
   const [bottomStackHeight, setBottomStackHeight] = useState(0)
   const [postLessonPhase, setPostLessonPhase] = useState<'medal' | 'menu'>('medal')
-  const currentEntry = timeline[timeline.length - 1] ?? null
+  const currentEntry = timeline.find((entry) => entry.isCurrent) ?? null
   const currentStep = currentEntry?.step ?? null
   const currentFeedback = currentEntry?.feedback ?? null
   const latestFeedback = useMemo(
@@ -253,6 +259,8 @@ export default function LessonStepRenderer({
   const hasChoiceOptions = isChoiceExercise && choiceOptions.length > 0
   const shouldRenderChoiceChips = hasChoiceOptions
   const hasPostLessonOptions = Boolean(postLesson?.options.length)
+  /** Пазл и финал: короткая лента + высокая нижняя панель — scrollIntoView липнет к верху. */
+  const useFeedScrollToMax = isSentencePuzzle || hasPostLessonOptions
   const isChoiceDrivenStep = shouldRenderChoiceChips || hasPostLessonOptions || isSentencePuzzle
   const isTextInputAvailable = Boolean(exercise) && !hasPostLessonOptions && !shouldRenderChoiceChips && !isSentencePuzzle
   const isChecking = status === 'checking'
@@ -288,6 +296,7 @@ export default function LessonStepRenderer({
       const trimmed = answer.trim()
       if (trimmed) {
         lastChosenChoiceRef.current = trimmed
+        wrongHighlightSuppressedRef.current = false
       }
       onAnswer(answer)
     },
@@ -387,6 +396,7 @@ export default function LessonStepRenderer({
     const isWrongAttempt =
       status === 'checking' || (status === 'feedback' && latestFeedback?.type === 'error')
     if (!isWrongAttempt) return
+    if (wrongHighlightSuppressedRef.current) return
     if (validateAnswer(submitted, exercise as Exercise)) return
 
     setWrongChoiceHighlight(submitted)
@@ -402,6 +412,7 @@ export default function LessonStepRenderer({
   useEffect(() => {
     if (!choiceClearNonce) return
     lastChosenChoiceRef.current = null
+    wrongHighlightSuppressedRef.current = true
   }, [choiceClearNonce])
 
   useEffect(() => {
@@ -421,6 +432,7 @@ export default function LessonStepRenderer({
     if (stepChanged || variantChanged) {
       setWrongChoiceHighlight(null)
       lastChosenChoiceRef.current = null
+      wrongHighlightSuppressedRef.current = false
     }
 
     if ((stepChanged || variantChanged) && wasAnswerPanelLockedRef.current && frozenChoiceOptions?.length) {
@@ -438,6 +450,7 @@ export default function LessonStepRenderer({
         setHoldChoicesAfterAdvance(false)
         suppressChoiceResetRef.current = false
         setFrozenChoiceOptions(null)
+        setChoiceResetVersion((current) => current + 1)
         advanceHoldTimerRef.current = null
       }, LESSON_CHOICE_ADVANCE_HOLD_MS)
     } else if (stepChanged || variantChanged) {
@@ -521,7 +534,7 @@ export default function LessonStepRenderer({
     const attemptOrdinalByEntryIndex = new Map<number, number>()
 
     timeline.forEach((entry, entryIndex) => {
-      if (!entry.step.exercise) return
+      if (!entry.step.exercise || entry.isCurrent) return
       const nextAttemptOrdinal = (seenAttemptCountByStep.get(entry.stepIndex) ?? 0) + 1
       seenAttemptCountByStep.set(entry.stepIndex, nextAttemptOrdinal)
       attemptOrdinalByEntryIndex.set(entryIndex, nextAttemptOrdinal)
@@ -531,12 +544,14 @@ export default function LessonStepRenderer({
       const messageBaseId = `${entry.step.stepNumber}-${entry.stepIndex}-${entryIndex}-${entry.isCurrent ? 'current' : 'history'}`
       const isPuzzleStep = entry.step.exercise?.type === 'sentence_puzzle'
       const skipPuzzleHistoryLessonBubble = isPuzzleStep && !entry.isCurrent
-      const shouldHideCurrentLessonBubbles =
-        !isPuzzleStep &&
-        entry.isCurrent &&
-        status === 'feedback' &&
-        latestFeedback?.type === 'success'
-      const baseBubbles = shouldHideCurrentLessonBubbles
+      const shouldHideCurrentLessonBubblesValue = shouldHideCurrentLessonBubbles({
+        isPuzzleStep,
+        isCurrent: entry.isCurrent,
+        status,
+        latestFeedbackType: latestFeedback?.type,
+        hasHistoricalAttemptsForCurrentStep: hasHistoricalAttemptsForCurrentStep(timeline, entry),
+      })
+      const baseBubbles = shouldHideCurrentLessonBubblesValue
         ? []
         : entry.isCurrent
           ? entry.step.bubbles.slice(0, blockProgress.visibleCount)
@@ -581,7 +596,9 @@ export default function LessonStepRenderer({
 
       if (entry.feedback && (!entry.isCurrent || status === 'feedback')) {
         const feedbackText =
-          entry.feedback.type === 'error' && entry.step.exercise
+          entry.feedback.type === 'error' &&
+          entry.step.exercise &&
+          entry.step.exercise.type !== 'sentence_puzzle'
             ? formatLessonErrorFeedback({
                 message: entry.feedback.message,
                 correctAnswer: entry.step.exercise.correctAnswer,
@@ -660,7 +677,7 @@ export default function LessonStepRenderer({
 
     if (previousSnapshot === null) {
       previousScrollSnapshotRef.current = nextSnapshot
-      if (isSentencePuzzle) {
+      if (useFeedScrollToMax) {
         scheduleScrollPuzzleTailIntoView('auto')
       } else {
         scrollFeedTailIntoView('auto')
@@ -680,7 +697,7 @@ export default function LessonStepRenderer({
     }
 
     const scrollBehavior: ScrollBehavior = stepOrVariantChanged ? 'auto' : 'smooth'
-    if (isSentencePuzzle) {
+    if (useFeedScrollToMax) {
       scheduleScrollPuzzleTailIntoView(scrollBehavior)
     } else {
       scrollFeedTailIntoView(scrollBehavior)
@@ -692,7 +709,7 @@ export default function LessonStepRenderer({
     currentStep?.stepNumber,
     currentVariantIndex,
     tailLessonMessageId,
-    isSentencePuzzle,
+    useFeedScrollToMax,
     scrollFeedTailIntoView,
     scheduleScrollPuzzleTailIntoView,
   ])
@@ -702,14 +719,14 @@ export default function LessonStepRenderer({
 
     // После смены статуса высота ленты может догрузиться на следующем кадре (мультистрочный feedback,
     // скрытие блока урока и т.д.) — повторяем доскролл, чтобы карточка не обрезалась над композером.
-    if (isSentencePuzzle) {
+    if (useFeedScrollToMax) {
       return scheduleScrollPuzzleTailIntoView('auto')
     }
     return scheduleScrollFeedTailIntoView('auto')
   }, [
     status,
     latestFeedback,
-    isSentencePuzzle,
+    useFeedScrollToMax,
     lessonMessages.length,
     tailLessonMessageId,
     scheduleScrollFeedTailIntoView,
@@ -717,9 +734,16 @@ export default function LessonStepRenderer({
   ])
 
   useEffect(() => {
+    if (!hasPostLessonOptions) return
     if (status !== 'completed' && postLessonPhase !== 'menu') return
-    return scheduleScrollFeedTailIntoView('auto')
-  }, [status, postLessonPhase, bottomStackHeight, scheduleScrollFeedTailIntoView])
+    return scheduleScrollPuzzleTailIntoView('auto')
+  }, [
+    hasPostLessonOptions,
+    status,
+    postLessonPhase,
+    bottomStackHeight,
+    scheduleScrollPuzzleTailIntoView,
+  ])
 
   useEffect(() => {
     if (!isSentencePuzzle || puzzleSubIndex == null) return
@@ -758,17 +782,18 @@ export default function LessonStepRenderer({
     choiceResetVersion,
   ])
 
-  const showFeedEndAnchor = hasPostLessonOptions
   const showPostLessonMedalPhase = Boolean(
     lessonMedalReveal && hasPostLessonOptions && postLessonPhase === 'medal'
   )
   const showPostLessonMenu = hasPostLessonOptions && (!lessonMedalReveal || postLessonPhase === 'menu')
+  const showFeedEndAnchor = false
   const scrollBottomPadding = resolveScrollBottomPadding({
     hasCurrentStep: currentStep != null,
     hasPostLessonOptions,
     isSentencePuzzle,
     bottomStackHeightPx: bottomStackHeight,
     useMinimalPuzzlePadding: isSentencePuzzle,
+    useMinimalPostLessonPadding: hasPostLessonOptions && bottomStackHeight === 0,
   })
 
   return (
@@ -919,7 +944,6 @@ export default function LessonStepRenderer({
                     exercise={exercise}
                     disabled={isChecking || !onCompleteStep}
                     progressKey={`${choiceShuffleSeed ?? 'static'}:${currentStep?.stepNumber ?? 'step'}:${currentVariantIndex}`}
-                    subPuzzleMaxXp={puzzleSubMaxXp}
                     onSubPuzzleComplete={(summary) =>
                       onPuzzleSubStep?.({ subIndex: summary.subIndex, attempts: summary.attempts })
                     }

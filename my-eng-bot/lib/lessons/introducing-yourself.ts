@@ -1,3 +1,6 @@
+import { buildStep6ExamVariants } from '@/lib/lessons/step6Exam'
+import { buildStep7ContrastVariants } from '@/lib/lessons/step7Contrast'
+import { buildPuzzleVariantHintText } from '@/lib/puzzlePanelLayout'
 import { toSentencePuzzleCards } from '@/lib/sentencePuzzleWords'
 import type {
   ExerciseDifficulty,
@@ -40,6 +43,8 @@ type SelfIntroVariant = {
   finalCorrectSentence: string
   finalWrong1: string
   finalWrong2: string
+  step6CreativeCountry: string
+  step6CreativeRu: string
   sourceSituations: string[]
 }
 
@@ -87,6 +92,8 @@ const selfIntroVariants: SelfIntroVariant[] = [
     finalCorrectSentence: "I'm from Russia.",
     finalWrong1: "I'm happy.",
     finalWrong2: 'I am a student.',
+    step6CreativeCountry: 'Canada',
+    step6CreativeRu: 'В анкете ты из Канады. Напиши коротко, откуда ты.',
     sourceSituations: [
       'Привет! Я из России.',
       'Я студент.',
@@ -125,6 +132,8 @@ const selfIntroVariants: SelfIntroVariant[] = [
     finalCorrectSentence: 'I am an engineer.',
     finalWrong1: "I'm from Spain.",
     finalWrong2: "I'm tired.",
+    step6CreativeCountry: 'Italy',
+    step6CreativeRu: 'В этой задаче ты из Италии. Напиши коротко, откуда ты.',
     sourceSituations: [
       'Я из Испании.',
       'Я инженер.',
@@ -163,6 +172,8 @@ const selfIntroVariants: SelfIntroVariant[] = [
     finalCorrectSentence: "I'm from Britain.",
     finalWrong1: "I'm fine.",
     finalWrong2: 'I am a teacher.',
+    step6CreativeCountry: 'Japan',
+    step6CreativeRu: 'Представь, что ты из Японии. Напиши коротко, откуда ты.',
     sourceSituations: [
       'Я из Великобритании.',
       'Я учитель.',
@@ -201,6 +212,8 @@ const selfIntroVariants: SelfIntroVariant[] = [
     finalCorrectSentence: 'I am a doctor.',
     finalWrong1: "I'm from France.",
     finalWrong2: "I'm happy.",
+    step6CreativeCountry: 'Germany',
+    step6CreativeRu: 'Тебя спрашивают про Германию. Напиши коротко, откуда ты.',
     sourceSituations: [
       'Я из Франции.',
       'Я врач.',
@@ -328,7 +341,7 @@ function buildSelfIntroBlueprints(variant: SelfIntroVariant): LessonRepeatStepBl
     {
       stepNumber: 6,
       stepType: 'practice_apply',
-      learningGoal: 'Закрепить фразу про роль полным предложением.',
+      learningGoal: 'Финальная проверка: три коротких предложения про страну, роль и перенос на новую страну.',
       exerciseType: 'translate',
       answerFormat: 'full_sentence',
       answerPolicy: 'normalized',
@@ -348,17 +361,15 @@ function buildSelfIntroBlueprints(variant: SelfIntroVariant): LessonRepeatStepBl
     {
       stepNumber: 7,
       stepType: 'feedback',
-      learningGoal: 'Проверить, что пользователь различает настроение, страну и роль.',
+      learningGoal: 'Три contrast-gap: одно ключевое слово в новой рамке (настроение, страна, артикль).',
       exerciseType: 'fill_choice',
       answerFormat: 'choice',
       answerPolicy: 'strict',
-      sourceCorrectAnswer: variant.finalCorrectSentence,
-      sourcePattern: 'contrast I am from / I am a / I feel',
-      semanticAnchors: ['from', variant.roleNoun],
+      sourceCorrectAnswer: variant.feelingAdj,
+      sourcePattern: 'contrast gap: I am + adj / from + country / a|an + role',
+      semanticAnchors: [variant.feelingAdj, variant.step6CreativeCountry.toLowerCase(), variant.roleArticle],
       semanticExpectations: {
         pedagogicalRole: 'contrast_check',
-        mustInclude: ['from'],
-        shouldInclude: ['роль', 'настроение'],
         mustAvoid: ['time to'],
         hintShouldMention: ['смысл', 'ситуация'],
         requireCyrillicHint: true,
@@ -368,21 +379,100 @@ function buildSelfIntroBlueprints(variant: SelfIntroVariant): LessonRepeatStepBl
   ]
 }
 
-function buildSelfIntroPuzzleVariant(id: string, title: string, instruction: string, answer: string): SentencePuzzleVariant {
+function buildSelfIntroPuzzleVariant(id: string, title: string, answer: string): SentencePuzzleVariant {
   const correctOrder = toSentencePuzzleCards(answer)
   return {
     id,
     title,
-    instruction,
+    instruction: '',
     words: [...correctOrder],
     correctOrder,
     correctAnswer: answer,
     successText: `Верно! ${answer}`,
     errorText: 'Порядок неверный. Попробуйте ещё раз.',
-    hintText: `Подсказка: первое слово — ${correctOrder[0]}.`,
+    hintText: buildPuzzleVariantHintText(correctOrder),
     hintFirstWord: correctOrder[0],
     myEngComment: 'Отлично. Берём следующий вариант.',
   }
+}
+
+const SELF_INTRO_STEP7_COUNTRY_POOL = ['Canada', 'Italy', 'Japan', 'Germany', 'Brazil', 'Mexico'] as const
+
+function pickStep7CountryDistractors(correctCountry: string): [string, string] {
+  const pool = SELF_INTRO_STEP7_COUNTRY_POOL.filter((country) => country !== correctCountry)
+  return [pool[0] ?? 'Italy', pool[1] ?? 'Japan']
+}
+
+function buildSelfIntroStep7Variants(variant: SelfIntroVariant) {
+  const moodDistractors = [variant.step4AltAdj1, variant.step4AltAdj2].filter(
+    (adj) => adj !== variant.feelingAdj
+  ) as [string, string]
+
+  return buildStep7ContrastVariants([
+    {
+      id: `${variant.id}_step7_easy`,
+      difficulty: 'easy',
+      situationRu: variant.introSituationRu,
+      frameEn: "I'm ___.",
+      correctWord: variant.feelingAdj,
+      distractors: moodDistractors,
+      hint: 'Ситуация про чувство — нужно прилагательное настроения.',
+    },
+    {
+      id: `${variant.id}_step7_medium`,
+      difficulty: 'medium',
+      situationRu: variant.step6CreativeRu,
+      frameEn: "I'm from ___.",
+      correctWord: variant.step6CreativeCountry,
+      distractors: pickStep7CountryDistractors(variant.step6CreativeCountry),
+      hint: 'Новая страна в анкете — одно слово после from.',
+    },
+    {
+      id: `${variant.id}_step7_hard`,
+      difficulty: 'hard',
+      situationRu: `В коротком представлении вы — ${variant.roleNoun}.`,
+      frameEn: `I am ___ ${variant.roleNoun}.`,
+      correctWord: variant.roleArticle,
+      distractors: [variant.wrongArticle1, variant.wrongArticle2],
+      hint: 'Перед профессией нужен артикль a или an.',
+    },
+  ])
+}
+
+function buildSelfIntroStep6Variants(variant: SelfIntroVariant) {
+  const fromSentence = `I'm from ${variant.country}.`
+  const fromAccepted = [fromSentence, fromSentence.replace("I'm", 'I am')]
+  const roleSentence = variant.step5EnFull
+  const roleAccepted = [roleSentence]
+  const creativeSentence = `I'm from ${variant.step6CreativeCountry}.`
+  const creativeAccepted = [creativeSentence, creativeSentence.replace("I'm", 'I am')]
+
+  return buildStep6ExamVariants([
+    {
+      id: `${variant.id}_step6_easy`,
+      difficulty: 'easy',
+      question: `Переведите на английский: ${normalizeRuPromptLabel(variant.sourceSituations[0] ?? `Я из ${variant.country}`)}`,
+      correctAnswer: fromSentence,
+      acceptedAnswers: fromAccepted,
+      hint: 'Короткая фраза: I am from + страна одним словом.',
+    },
+    {
+      id: `${variant.id}_step6_medium`,
+      difficulty: 'medium',
+      question: `Переведите на английский: ${normalizeRuPromptLabel(variant.step5RoleRu)}`,
+      correctAnswer: roleSentence,
+      acceptedAnswers: roleAccepted,
+      hint: 'Используйте I am + артикль + существительное.',
+    },
+    {
+      id: `${variant.id}_step6_hard`,
+      difficulty: 'hard',
+      question: `Переведите на английский: ${normalizeRuPromptLabel(variant.step6CreativeRu)}`,
+      correctAnswer: creativeSentence,
+      acceptedAnswers: creativeAccepted,
+      hint: 'Тот же шаблон про страну, но другое название после from.',
+    },
+  ])
 }
 
 function buildSelfIntroSentencePuzzleVariants(variant: SelfIntroVariant): [SentencePuzzleVariant, SentencePuzzleVariant, SentencePuzzleVariant] {
@@ -390,19 +480,16 @@ function buildSelfIntroSentencePuzzleVariants(variant: SelfIntroVariant): [Sente
     buildSelfIntroPuzzleVariant(
       `${variant.id}_puzzle_mood`,
       'Пазл 1/3: настроение',
-      'Соберите короткое предложение про настроение.',
       toImFeelingSentence(variant.feelingAdj)
     ),
     buildSelfIntroPuzzleVariant(
       `${variant.id}_puzzle_from`,
       'Пазл 2/3: откуда ты',
-      'Теперь соберите фразу I am from + страна.',
       `I'm from ${variant.country}.`
     ),
     buildSelfIntroPuzzleVariant(
       `${variant.id}_puzzle_role`,
       'Пазл 3/3: роль',
-      'Соберите фразу про профессию или статус.',
       `I am ${variant.rolePhrase}.`
     ),
   ]
@@ -635,8 +722,8 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
         bonusXp: 30,
         puzzleVariants: buildSelfIntroSentencePuzzleVariants(variant),
       },
-      footerDynamic: 'Пазл: соберите 3 предложения',
-      myEngComment: 'Соберите порядок слов — правило уже почти ваше.',
+      footerDynamic: 'Пазл: 3 коротких предложения',
+      myEngComment: 'Расставьте слова в каждом пазле.',
     },
     {
       stepNumber: 6,
@@ -644,28 +731,33 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Отлично. Теперь используем роль в полном предложении.',
+          content: 'Финальная проверка: три коротких предложения подряд.',
         },
         {
           type: 'info',
-          content: 'Так говорят о работе или статусе: I am a nurse, I am a pilot.',
+          content: 'Сначала страна, потом роль, в конце — та же грамматика, но новая страна.',
         },
         {
           type: 'task',
-          content: `Переведите на английский: ${normalizeRuPromptLabel(variant.step5RoleRu)}`,
+          content: `Переведите на английский: ${normalizeRuPromptLabel(variant.sourceSituations[0] ?? `Я из ${variant.country}`)}`,
         },
       ],
-      exercise: {
-        type: 'translate',
-        question: 'Напишите полное предложение на английском.',
-        correctAnswer: variant.step5EnFull,
-        acceptedAnswers: [variant.step5EnFull],
-        answerFormat: 'full_sentence',
-        answerPolicy: 'normalized',
-        hint: 'Используйте I am + артикль + существительное.',
-      },
-      footerDynamic: 'Практика: соберите полное предложение',
-      myEngComment: 'Теперь соберите фразу целиком.',
+      exercise: (() => {
+        const step6Variants = buildSelfIntroStep6Variants(variant)
+        const first = step6Variants[0]!
+        return {
+          type: 'translate',
+          question: first.question,
+          correctAnswer: first.correctAnswer,
+          acceptedAnswers: first.acceptedAnswers,
+          answerFormat: 'full_sentence',
+          answerPolicy: 'normalized',
+          hint: first.hint,
+          variants: step6Variants,
+        }
+      })(),
+      footerDynamic: 'Финальная проверка: 3 коротких предложения',
+      myEngComment: 'Три фразы подряд — вы почти у финиша.',
     },
     {
       stepNumber: 7,
@@ -673,29 +765,33 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Отлично. Вы почти у финиша, осталось быстро закрепить правило.',
+          content: 'Быстрый финиш: три коротких слова в новых ситуациях.',
         },
         {
           type: 'info',
-          content: 'Карточка: "I am happy." = настроение. "I am from Spain." = страна. "I am an engineer." = роль.',
+          content: 'В каждой рамке одно слово закрывает пропуск — без подсказки из карточки.',
         },
         {
           type: 'task',
-          content: `Быстрая проверка: выберите правильную фразу для "${variant.finalCheckRu}"`,
+          content: 'Выберите одно слово для пропуска в английской рамке.',
         },
       ],
-      exercise: {
-        type: 'fill_choice',
-        question: `Выберите правильную фразу: "${variant.finalCheckRu}"`,
-        options: [variant.finalWrong1, variant.finalCorrectSentence, variant.finalWrong2],
-        correctAnswer: variant.finalCorrectSentence,
-        acceptedAnswers: [variant.finalCorrectSentence],
-        answerFormat: 'choice',
-        answerPolicy: 'strict',
-        hint: 'Подумайте, о чём именно ситуация: чувство, место или работа.',
-      },
-      footerDynamic: 'Карточка: настроение, страна и роль в коротком самопредставлении.',
-      myEngComment: 'Финиш рядом, осталось одно усилие.',
+      exercise: (() => {
+        const step7Variants = buildSelfIntroStep7Variants(variant)
+        const first = step7Variants[0]!
+        return {
+          type: 'fill_choice',
+          question: first.question,
+          options: first.options,
+          correctAnswer: first.correctAnswer,
+          answerFormat: 'choice',
+          answerPolicy: 'strict',
+          hint: first.hint,
+          variants: step7Variants,
+        }
+      })(),
+      footerDynamic: 'Финиш: 3 слова',
+      myEngComment: 'Финиш рядом, осталось три коротких слова.',
     },
   ]
 }

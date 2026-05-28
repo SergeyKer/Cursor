@@ -52,6 +52,10 @@ describe('footerMessages', () => {
     expect(getLessonRepeatFooterMessage(3, { current: 1, total: 3 })).toBeNull()
     expect(getLessonRepeatFooterMessage(3, { current: 2, total: 3 })).toBe('Задание 2 из 3.')
     expect(getLessonRepeatFooterMessage(4, { current: 3, total: 3 })).toBe('Последнее задание (3 из 3).')
+    expect(getLessonRepeatFooterMessage(6, { current: 2, total: 3 })).toBe('Задание 2 из 3.')
+    expect(getLessonRepeatFooterMessage(6, { current: 3, total: 3 })).toBe('Последнее задание (3 из 3).')
+    expect(getLessonRepeatFooterMessage(7, { current: 2, total: 3 })).toBe('Задание 2 из 3.')
+    expect(getLessonRepeatFooterMessage(7, { current: 3, total: 3 })).toBe('Последнее задание (3 из 3).')
   })
 
   it('does not build repeat footer text outside repeated practice steps', () => {
@@ -168,6 +172,8 @@ describe('footerMessages', () => {
 
   it('ignores task counter on simple steps without upcoming multi-task step', () => {
     expect(shouldShowLessonTaskProgress(2)).toBe(false)
+    expect(shouldShowLessonTaskProgress(6)).toBe(true)
+    expect(shouldShowLessonTaskProgress(7)).toBe(true)
     expect(
       buildLessonAdvanceMessage({
         currentStep: 1,

@@ -2,7 +2,10 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Exercise, SentencePuzzleVariant } from '@/types/lesson'
-import { shouldCaptureBankBaseline, resolvePuzzleWordBankHeight } from '@/lib/puzzlePanelLayout'
+import {
+  shouldCaptureBankBaseline,
+  resolveActivePuzzleWordBankMinHeight,
+} from '@/lib/puzzlePanelLayout'
 import { LESSON_PUZZLE_COMPLETE_MESSAGE } from '@/utils/footerMessages'
 
 type LessonSentencePuzzleProps = {
@@ -23,6 +26,8 @@ type LessonSentencePuzzleProps = {
     submittedAnswer: string
     errorText: string
     hintText: string
+    wordCount: number
+    correctAnswer: string
   }) => void
   onSubSuccess?: (params: {
     subIndex: number
@@ -32,7 +37,6 @@ type LessonSentencePuzzleProps = {
     isLastVariant: boolean
   }) => void
   onInteraction?: () => void
-  subPuzzleMaxXp?: number
 }
 
 const PUZZLE_VARIANT_ADVANCE_MS = 700
@@ -113,7 +117,6 @@ export default function LessonSentencePuzzle({
   onAttemptFailed,
   onSubSuccess,
   onInteraction,
-  subPuzzleMaxXp,
 }: LessonSentencePuzzleProps) {
   const variants = exercise.puzzleVariants ?? []
   const [variantIndex, setVariantIndex] = useState(0)
@@ -141,7 +144,11 @@ export default function LessonSentencePuzzle({
   }, [activeVariant, selectedWords])
 
   const lockedBankHeight = useMemo(
-    () => resolvePuzzleWordBankHeight({ fullCount: fullWordCount, measuredHeight: measuredBankHeight }),
+    () =>
+      resolveActivePuzzleWordBankMinHeight({
+        fullWordCount,
+        measuredHeight: measuredBankHeight,
+      }),
     [fullWordCount, measuredBankHeight]
   )
 
@@ -217,6 +224,8 @@ export default function LessonSentencePuzzle({
       submittedAnswer,
       errorText: activeVariant.errorText,
       hintText: activeVariant.hintText,
+      wordCount: activeVariant.correctOrder.length,
+      correctAnswer: activeVariant.correctAnswer,
     })
     setSelectedWords([])
     setAttempts(nextAttempts)
@@ -278,17 +287,15 @@ export default function LessonSentencePuzzle({
   const slotCount = activeVariant.correctOrder.length
   const slotGridClass =
     slotCount <= 3 ? 'grid-cols-3' : slotCount <= 4 ? 'grid-cols-4' : 'grid-cols-2 sm:grid-cols-4'
+  const instructionText = activeVariant.instruction.trim()
 
   return (
     <section className="rounded-[1.1rem] border border-blue-100 bg-white/95 px-2.5 py-2 shadow-sm sm:px-3" aria-label={activeVariant.title}>
-      <div className="mb-1.5 flex items-start justify-between gap-2">
-        <h3 className="min-w-0 text-sm font-semibold leading-tight text-slate-900">{activeVariant.title}</h3>
-        <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
-          до +{subPuzzleMaxXp ?? exercise.bonusXp ?? 13}
-        </span>
-      </div>
+      <h3 className="mb-1.5 text-sm font-semibold leading-tight text-slate-900">{activeVariant.title}</h3>
 
-      <p className="mb-2 text-[13px] leading-snug text-slate-600">{activeVariant.instruction}</p>
+      {instructionText ? (
+        <p className="mb-2 text-[13px] leading-snug text-slate-600">{instructionText}</p>
+      ) : null}
 
       <div className={`mb-2 grid gap-1.5 ${slotGridClass}`} aria-label="Слоты предложения">
         {activeVariant.correctOrder.map((_, index) => {

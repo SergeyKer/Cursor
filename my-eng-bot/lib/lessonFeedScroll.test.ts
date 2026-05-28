@@ -114,6 +114,76 @@ describe('simulateScrollTopAfterIntoViewEnd — причина «липнет к
   })
 })
 
+describe('post-lesson medal — padding и scrollTo(max)', () => {
+  const postLessonFallbackPaddingPx = remToPx(0.625 + 16, ROOT_PX) + LESSON_INPUT_GAP_PX
+  const minimalPaddingPx = remToPx(0.625, ROOT_PX) + LESSON_INPUT_GAP_PX
+  const measuredBottomStackPx = 200
+
+  it('до замера: fallback 16rem в resolveScrollBottomPadding', () => {
+    const padding = resolveScrollBottomPadding({
+      hasCurrentStep: true,
+      hasPostLessonOptions: true,
+      isSentencePuzzle: false,
+      bottomStackHeightPx: 0,
+    })
+    expect(padding).toContain('16rem')
+  })
+
+  it('fix: минимальный padding до замера нижней панели', () => {
+    const padding = resolveScrollBottomPadding({
+      hasCurrentStep: true,
+      hasPostLessonOptions: true,
+      isSentencePuzzle: false,
+      bottomStackHeightPx: 0,
+      useMinimalPostLessonPadding: true,
+    })
+    expect(parseLessonScrollPaddingPx(padding, ROOT_PX)).toBe(minimalPaddingPx)
+  })
+
+  it('после замера: padding по высоте панели медали', () => {
+    const padding = resolveScrollBottomPadding({
+      hasCurrentStep: true,
+      hasPostLessonOptions: true,
+      isSentencePuzzle: false,
+      bottomStackHeightPx: measuredBottomStackPx,
+    })
+    expect(padding).toContain(`${measuredBottomStackPx}px`)
+    expect(padding).not.toContain('16rem')
+  })
+
+  it('длинная лента + 16rem: огромный зазор над низом scroll-области', () => {
+    const scrollTop = simulateScrollTopAfterScrollToMax({
+      contentHeightPx: LONG_CONTENT_PX,
+      scrollPaddingBottomPx: postLessonFallbackPaddingPx,
+      clientHeightPx: CLIENT_HEIGHT_PX,
+    })
+    const visibleGap = computeVisibleGapAboveScrollBottom({
+      contentHeightPx: LONG_CONTENT_PX,
+      scrollPaddingBottomPx: postLessonFallbackPaddingPx,
+      clientHeightPx: CLIENT_HEIGHT_PX,
+      scrollTop,
+    })
+    expect(visibleGap).toBeGreaterThan(250)
+  })
+
+  it('fix: длинная лента + замеренная панель — зазор ≈ высоте панели', () => {
+    const measuredPaddingPx = minimalPaddingPx + measuredBottomStackPx
+    const scrollTop = simulateScrollTopAfterScrollToMax({
+      contentHeightPx: LONG_CONTENT_PX,
+      scrollPaddingBottomPx: measuredPaddingPx,
+      clientHeightPx: CLIENT_HEIGHT_PX,
+    })
+    const visibleGap = computeVisibleGapAboveScrollBottom({
+      contentHeightPx: LONG_CONTENT_PX,
+      scrollPaddingBottomPx: measuredPaddingPx,
+      clientHeightPx: CLIENT_HEIGHT_PX,
+      scrollTop,
+    })
+    expect(visibleGap).toBeGreaterThanOrEqual(measuredBottomStackPx - 5)
+    expect(visibleGap).toBeLessThan(measuredBottomStackPx + 35)
+  })
+})
+
 describe('simulateScrollTopAfterScrollToMax — длинная лента (типичный шаг 5)', () => {
   const puzzlePaddingPx = remToPx(0.625 + 18, ROOT_PX) + LESSON_INPUT_GAP_PX
   const minimalPaddingPx = remToPx(0.625, ROOT_PX) + LESSON_INPUT_GAP_PX

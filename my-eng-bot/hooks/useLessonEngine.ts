@@ -14,8 +14,6 @@ import {
   awardCoreXpForUnit,
   computeCorePercent,
   getComboMilestoneXp,
-  getUnitMaxXp,
-  findScoringUnit,
   MAX_CORE_XP_DEFAULT,
   sumMaxCoreXpForLesson,
 } from '@/lib/lessonScore'
@@ -32,7 +30,10 @@ import {
   getVariantInfo,
 } from '@/utils/footerMessages'
 import type { Exercise } from '@/types/lesson'
-import { resolvePuzzleAttemptChatMessage } from '@/lib/puzzlePanelLayout'
+import {
+  buildPuzzleFooterVoiceCandidate,
+  resolvePuzzleAttemptChatMessage,
+} from '@/lib/puzzlePanelLayout'
 import { formatComboFooterVoiceLabel, formatComboMilestoneBlockedCelebration, formatComboSegmentText } from '@/lib/gamificationGlyphs'
 
 function getUpcomingLessonTaskTotal(exercise?: Exercise | null): number | undefined {
@@ -62,6 +63,23 @@ export type LessonTimelineEntry = {
   feedback: LessonFeedback | null
   isCurrent: boolean
   step: LessonData['steps'][number]
+}
+
+/**
+ * Хвост timeline для текущего шага.
+ * - Пазл: карточка задания → попытки (feedback под инструкцией).
+ * - Остальные шаги: попытки → карточка (новый вариант внизу ленты, виден при скролле).
+ */
+export function buildActiveStepTimeline(
+  completedEntries: LessonTimelineEntry[],
+  currentEntry: LessonTimelineEntry,
+  currentAttemptEntries: LessonTimelineEntry[],
+  exerciseType?: Exercise['type'],
+): LessonTimelineEntry[] {
+  const isPuzzle = exerciseType === 'sentence_puzzle'
+  return isPuzzle
+    ? [...completedEntries, currentEntry, ...currentAttemptEntries]
+    : [...completedEntries, ...currentAttemptEntries, currentEntry]
 }
 
 type LessonAttemptHistoryEntry = {
@@ -147,6 +165,7 @@ export function useLessonEngine(lesson: LessonData | null) {
   const [feedbackByStep, setFeedbackByStep] = useState<Record<number, LessonFeedback>>({})
   const [submittedAnswersByStep, setSubmittedAnswersByStep] = useState<Record<number, string>>({})
   const [attemptHistoryByStep, setAttemptHistoryByStep] = useState<Record<number, LessonAttemptHistoryEntry[]>>({})
+  const [puzzleProgress, setPuzzleProgress] = useState<{ subIndex: number; subTotal: number } | null>(null)
   const [mistakes, setMistakes] = useState<LessonMistake[]>([])
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([])
 
@@ -282,12 +301,6 @@ export function useLessonEngine(lesson: LessonData | null) {
     }
   }, [rawStep, activeExercise])
 
-  const puzzleSubMaxXp = useMemo(() => {
-    if (!lesson || !rawStep?.exercise || rawStep.exercise.type !== 'sentence_puzzle') return undefined
-    const unit = findScoringUnit(lesson, { stepNumber: rawStep.stepNumber, puzzleSubIndex: 0 })
-    return unit ? getUnitMaxXp(unit) : undefined
-  }, [lesson, rawStep])
-
   useEffect(() => {
     if (isFinale) {
       setStatus('completed')
@@ -300,6 +313,10 @@ export function useLessonEngine(lesson: LessonData | null) {
     setCurrentVariantIndex(0)
     setExerciseErrors(0)
   }, [rawStep?.stepNumber, rawStep?.exercise?.variants])
+
+  useEffect(() => {
+    setPuzzleProgress(null)
+  }, [rawStep?.stepNumber, rawStep?.exercise?.type])
 
   const blockProgress = useMemo<BlockProgress>(
     () => ({
@@ -549,6 +566,8 @@ export function useLessonEngine(lesson: LessonData | null) {
             attempts: number
             errorText: string
             hintText: string
+            wordCount: number
+            correctAnswer: string
           }
         | {
             subIndex: number
@@ -566,6 +585,8 @@ export function useLessonEngine(lesson: LessonData | null) {
               attempts: params.attempts,
               errorText: params.errorText,
               hintText: params.hintText,
+              wordCount: params.wordCount,
+              correctAnswer: params.correctAnswer,
             })
           : params.successText?.trim() || 'Верно.'
 
@@ -594,7 +615,7 @@ export function useLessonEngine(lesson: LessonData | null) {
           next.push({
             step: rawStep.stepNumber,
             userAnswer: params.submittedAnswer,
-            correctAnswer: rawStep.exercise!.correctAnswer,
+            correctAnswer: params.correctAnswer,
           })
           return next
         })
@@ -785,7 +806,16 @@ export function useLessonEngine(lesson: LessonData | null) {
               tone: 'neutral',
             }
           : null,
-        step?.myEngComment
+        rawStep?.exercise?.type === 'sentence_puzzle' &&
+        puzzleProgress &&
+        (rawStep.exercise.puzzleVariants?.length ?? 0) > 0
+          ? buildPuzzleFooterVoiceCandidate({
+              subIndex: puzzleProgress.subIndex,
+              subTotal: puzzleProgress.subTotal,
+              variantTitle: rawStep.exercise.puzzleVariants?.[puzzleProgress.subIndex]?.title,
+            })
+          : null,
+        step?.myEngComment && rawStep?.exercise?.type !== 'sentence_puzzle'
           ? {
               key: `lesson-step-${step.stepNumber}`,
               priority: 50,
@@ -841,6 +871,9 @@ export function useLessonEngine(lesson: LessonData | null) {
     step?.myEngComment,
     step?.stepNumber,
     totalSteps,
+    puzzleProgress,
+    rawStep?.exercise?.type,
+    rawStep?.exercise?.puzzleVariants,
   ])
 
   const completedSteps = useMemo(() => {
@@ -896,7 +929,12 @@ export function useLessonEngine(lesson: LessonData | null) {
       step: step ?? currentLessonStep,
     }
 
-    return [...completedEntries, ...currentAttemptEntries, currentEntry]
+    return buildActiveStepTimeline(
+      completedEntries,
+      currentEntry,
+      currentAttemptEntries,
+      currentEntry.step.exercise?.type
+    )
   }, [
     lesson,
     isFinale,
@@ -952,7 +990,8 @@ export function useLessonEngine(lesson: LessonData | null) {
     awardPuzzleSubStep,
     recordPuzzleAttempt,
     clearPuzzleAttemptFeedback,
-    puzzleSubMaxXp,
+    puzzleProgress,
+    onPuzzleProgressChange: setPuzzleProgress,
     goToNext,
     goToStep,
     resetCombo: () => {

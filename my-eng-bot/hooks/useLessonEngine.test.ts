@@ -1,6 +1,68 @@
 import { describe, expect, it } from 'vitest'
-import { resolveExerciseForVariant } from '@/hooks/useLessonEngine'
+import {
+  buildActiveStepTimeline,
+  resolveExerciseForVariant,
+  type LessonTimelineEntry,
+} from '@/hooks/useLessonEngine'
 import type { Exercise } from '@/types/lesson'
+import type { LessonData } from '@/types/lesson'
+
+function makeTimelineEntry(
+  overrides: Partial<LessonTimelineEntry> & Pick<LessonTimelineEntry, 'isCurrent'>
+): LessonTimelineEntry {
+  const step = {
+    stepNumber: 5,
+    bubbles: [{ type: 'task' as const, content: 'Финальная сборка' }],
+    exercise: { type: 'sentence_puzzle' as const, correctAnswer: "I'm happy." },
+  } as LessonData['steps'][number]
+
+  return {
+    stepIndex: 4,
+    submittedAnswer: null,
+    feedback: null,
+    step,
+    ...overrides,
+  }
+}
+
+describe('buildActiveStepTimeline', () => {
+  it('places lesson card before attempts for sentence_puzzle feed', () => {
+    const currentEntry = makeTimelineEntry({ isCurrent: true })
+    const attemptEntry = makeTimelineEntry({
+      isCurrent: false,
+      submittedAnswer: "happy I'm",
+      feedback: { type: 'error', message: 'Порядок неверный. Попробуйте ещё раз.' },
+    })
+
+    const timeline = buildActiveStepTimeline([], currentEntry, [attemptEntry], 'sentence_puzzle')
+    const currentIndex = timeline.findIndex((entry) => entry.isCurrent)
+    const attemptIndex = timeline.findIndex((entry) => entry.feedback?.type === 'error')
+
+    expect(currentIndex).toBeGreaterThanOrEqual(0)
+    expect(attemptIndex).toBeGreaterThan(currentIndex)
+  })
+
+  it('places current step after attempts for multi-variant practice steps', () => {
+    const currentEntry = makeTimelineEntry({
+      isCurrent: true,
+      step: {
+        stepNumber: 3,
+        bubbles: [{ type: 'task', content: 'Задание 2' }],
+        exercise: { type: 'fill_text', correctAnswer: 'Russia' },
+      } as LessonData['steps'][number],
+    })
+    const attemptEntry = makeTimelineEntry({
+      isCurrent: false,
+      feedback: { type: 'success', message: 'Верно. Следующий вариант (2 из 3).' },
+    })
+
+    const timeline = buildActiveStepTimeline([], currentEntry, [attemptEntry], 'fill_text')
+    const currentIndex = timeline.findIndex((entry) => entry.isCurrent)
+    const attemptIndex = timeline.findIndex((entry) => entry.feedback?.type === 'success')
+
+    expect(attemptIndex).toBeLessThan(currentIndex)
+  })
+})
 
 describe('resolveExerciseForVariant', () => {
   it('keeps a plain exercise unchanged when there are no variants', () => {

@@ -19,7 +19,7 @@ export function getLessonRepeatFooterMessage(
   stepNumber?: number | null,
   variantInfo?: VariantInfo | null
 ): string | null {
-  if (!variantInfo || (stepNumber !== 3 && stepNumber !== 4)) return null
+  if (!variantInfo || (stepNumber !== 3 && stepNumber !== 4 && stepNumber !== 6 && stepNumber !== 7)) return null
 
   const { current, total } = variantInfo
   if (current <= 1) return null
@@ -31,7 +31,7 @@ export function getLessonRepeatFooterMessage(
   return `Задание ${current} из ${total}.`
 }
 
-const LESSON_MULTI_TASK_STEPS = new Set([3, 4, 5])
+const LESSON_MULTI_TASK_STEPS = new Set([3, 4, 5, 6, 7])
 const LESSON_PUZZLE_STEP = 5
 
 export const LESSON_PUZZLE_COMPLETE_MESSAGE = 'Отлично! Пазл собран.'

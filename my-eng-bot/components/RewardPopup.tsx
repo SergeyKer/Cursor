@@ -197,7 +197,7 @@ export default function RewardPopup({ text, visible, onDismiss }: RewardPopupPro
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
         style={pillStyle}
-        className="reward-popup-pill pointer-events-auto relative touch-manipulation rounded-2xl border border-[var(--chat-section-neutral-border)] bg-white/95 py-2 pl-4 pr-11 text-center text-[13px] font-semibold text-[var(--text)] shadow-lg backdrop-blur [touch-action:pan-y]"
+        className="reward-popup-pill pointer-events-auto relative touch-manipulation rounded-2xl border border-[var(--chat-section-neutral-border)] bg-white/95 py-2 pl-4 pr-9 text-center text-[13px] font-semibold text-[var(--text)] shadow-lg backdrop-blur [touch-action:pan-y]"
       >
         <span className="emoji-line block line-clamp-2 leading-[1.35]">{layer.text}</span>
         <button
@@ -206,11 +206,11 @@ export default function RewardPopup({ text, visible, onDismiss }: RewardPopupPro
           aria-label="Закрыть уведомление"
           onClick={handleCloseClick}
           onPointerDown={(event) => event.stopPropagation()}
-          className={`absolute right-0 top-1/2 inline-flex h-11 w-11 min-h-[44px] min-w-[44px] -translate-y-1/2 touch-manipulation items-center justify-center rounded-full text-[var(--text-muted)] transition-opacity duration-200 hover:bg-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+          className={`absolute right-1.5 top-1/2 inline-flex h-8 w-8 min-h-8 min-w-8 -translate-y-1/2 touch-manipulation items-center justify-center rounded-full text-[var(--text-muted)] transition-opacity duration-200 hover:bg-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
             closeVisible ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
           }`}
         >
-          <span className="text-lg leading-none" aria-hidden>
+          <span className="text-base leading-none" aria-hidden>
             ×
           </span>
         </button>

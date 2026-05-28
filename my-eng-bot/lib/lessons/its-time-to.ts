@@ -1,3 +1,6 @@
+import { buildStep6ExamVariants } from '@/lib/lessons/step6Exam'
+import { buildStep7ContrastVariants } from '@/lib/lessons/step7Contrast'
+import { buildPuzzleVariantHintText } from '@/lib/puzzlePanelLayout'
 import { toSentencePuzzleCards } from '@/lib/sentencePuzzleWords'
 import type { ExerciseDifficulty, LessonData, LessonFinale, LessonRepeatStepBlueprint, LessonRepeatVariantProfile, LessonStep, SentencePuzzleVariant } from '@/types/lesson'
 
@@ -20,6 +23,8 @@ type ItsTimeVariant = {
   finalActionRu: string
   finalVerbBase: string
   finalVerbIng: string
+  step6CreativeActionEn: string
+  step6CreativeRu: string
   sourceSituations: string[]
 }
 
@@ -66,6 +71,8 @@ const itsTimeVariants: ItsTimeVariant[] = [
     finalActionRu: 'Пора спать',
     finalVerbBase: 'sleep',
     finalVerbIng: 'sleeping',
+    step6CreativeActionEn: 'read a book',
+    step6CreativeRu: 'Пора почитать книгу',
     sourceSituations: ['На улице темно', 'Пора спать', 'Холодно, пора пить чай', 'Пора идти домой'],
   },
   {
@@ -87,6 +94,8 @@ const itsTimeVariants: ItsTimeVariant[] = [
     finalActionRu: 'Пора заниматься',
     finalVerbBase: 'study',
     finalVerbIng: 'studying',
+    step6CreativeActionEn: 'wash hands',
+    step6CreativeRu: 'Пора вымыть руки',
     sourceSituations: ['Сегодня холодно', 'Пора заниматься', 'Голодно, пора есть обед', 'Пора делать домашнее задание'],
   },
   {
@@ -108,6 +117,8 @@ const itsTimeVariants: ItsTimeVariant[] = [
     finalActionRu: 'Пора отдыхать',
     finalVerbBase: 'rest',
     finalVerbIng: 'resting',
+    step6CreativeActionEn: 'take a shower',
+    step6CreativeRu: 'Пора принять душ',
     sourceSituations: ['В комнате жарко', 'Пора отдыхать', 'Хочется пить, пора пить воду', 'Пора открыть окно'],
   },
   {
@@ -129,6 +140,8 @@ const itsTimeVariants: ItsTimeVariant[] = [
     finalActionRu: 'Пора готовить',
     finalVerbBase: 'cook',
     finalVerbIng: 'cooking',
+    step6CreativeActionEn: 'brush teeth',
+    step6CreativeRu: 'Пора почистить зубы',
     sourceSituations: ['Уже поздно', 'Пора готовить', 'Идет дождь, пора брать зонт', 'Пора позвонить маме'],
   },
 ]
@@ -250,16 +263,16 @@ function buildItsTimeBlueprints(variant: ItsTimeVariant): LessonRepeatStepBluepr
     {
       stepNumber: 6,
       stepType: 'practice_apply',
-      learningGoal: 'Закрепить конструкцию It is time to + verb полным предложением.',
+      learningGoal: 'Финальная проверка: состояние, действие по шаблону time to и перенос на новое действие.',
       exerciseType: 'translate',
       answerFormat: 'full_sentence',
       answerPolicy: 'normalized',
-      sourceCorrectAnswer: `It's time to ${variant.step5ActionEn}.`,
+      sourceCorrectAnswer: `It's time to ${variant.finalVerbBase}.`,
       sourcePattern: "It's time to + verb phrase",
-      semanticAnchors: ['time to', variant.step5ActionEn],
+      semanticAnchors: ['time to', variant.finalVerbBase],
       semanticExpectations: {
         pedagogicalRole: 'apply_in_new_situation',
-        mustInclude: ['time to', variant.step5ActionEn],
+        mustInclude: ['time to', variant.finalVerbBase],
         shouldInclude: ["it's"],
         mustAvoid: ['who likes', 'past simple'],
         hintShouldMention: ['it is time to'],
@@ -270,19 +283,17 @@ function buildItsTimeBlueprints(variant: ItsTimeVariant): LessonRepeatStepBluepr
     {
       stepNumber: 7,
       stepType: 'feedback',
-      learningGoal: 'Проверить, что пользователь различает состояние и действие в новой ситуации.',
+      learningGoal: 'Три contrast-gap: состояние, частица to и новый глагол после time to.',
       exerciseType: 'fill_choice',
       answerFormat: 'choice',
       answerPolicy: 'strict',
-      sourceCorrectAnswer: `It's time to ${variant.finalVerbBase}.`,
-      sourcePattern: "It's time to + verb",
-      semanticAnchors: ['time to', variant.finalVerbBase],
+      sourceCorrectAnswer: variant.adjective,
+      sourcePattern: "It's + adj / It's time + to + verb",
+      semanticAnchors: [variant.adjective, 'to', variant.step6CreativeActionEn.split(' ')[0] ?? 'read'],
       semanticExpectations: {
         pedagogicalRole: 'contrast_check',
-        mustInclude: ['time to', variant.finalVerbBase],
-        shouldInclude: ['состояние', 'действие'],
         mustAvoid: ['who likes', 'present continuous'],
-        hintShouldMention: ['момент', 'действия'],
+        hintShouldMention: ['состояние', 'действие'],
         requireCyrillicHint: true,
         maxAcceptedAnswers: 1,
       },
@@ -290,21 +301,106 @@ function buildItsTimeBlueprints(variant: ItsTimeVariant): LessonRepeatStepBluepr
   ]
 }
 
-function buildItsTimePuzzleVariant(id: string, title: string, instruction: string, answer: string): SentencePuzzleVariant {
+function buildItsTimePuzzleVariant(id: string, title: string, answer: string): SentencePuzzleVariant {
   const correctOrder = toSentencePuzzleCards(answer)
   return {
     id,
     title,
-    instruction,
+    instruction: '',
     words: [...correctOrder],
     correctOrder,
     correctAnswer: answer,
     successText: `Верно! ${answer}`,
     errorText: 'Порядок неверный. Попробуйте ещё раз.',
-    hintText: `Подсказка: первое слово — ${correctOrder[0]}.`,
+    hintText: buildPuzzleVariantHintText(correctOrder),
     hintFirstWord: correctOrder[0],
     myEngComment: 'Отлично. Берём следующий вариант.',
   }
+}
+
+function buildItsTimeStep7Variants(variant: ItsTimeVariant) {
+  const creativeVerb = variant.step6CreativeActionEn.split(' ')[0]!
+  const stateDistractors: [string, string] =
+    variant.step3Adjective === variant.adjective
+      ? ['cold', 'hot']
+      : [variant.step3Adjective, variant.adjective === 'dark' ? 'late' : 'dark']
+  const hardVerbPool = Array.from(
+    new Set(
+      [variant.finalVerbBase, variant.step2VerbBase, variant.step3Verb].filter(
+        (verb) => verb && verb !== creativeVerb
+      )
+    )
+  )
+  const hardFallbackVerbs = ['go', 'study', 'sleep', 'eat', 'rest', 'cook', 'wash', 'brush', 'take']
+  while (hardVerbPool.length < 2) {
+    const next = hardFallbackVerbs.find((verb) => verb !== creativeVerb && !hardVerbPool.includes(verb))
+    if (!next) break
+    hardVerbPool.push(next)
+  }
+  const hardDistractors: [string, string] = [hardVerbPool[0] ?? 'go', hardVerbPool[1] ?? 'study']
+
+  return buildStep7ContrastVariants([
+    {
+      id: `${variant.id}_step7_easy`,
+      difficulty: 'easy',
+      situationRu: variant.introStateRu,
+      frameEn: "It's ___.",
+      correctWord: variant.adjective,
+      distractors: stateDistractors,
+      hint: 'Ситуация описывает состояние — одно прилагательное.',
+    },
+    {
+      id: `${variant.id}_step7_medium`,
+      difficulty: 'medium',
+      situationRu: variant.finalActionRu,
+      frameEn: `It's time ___ ${variant.finalVerbBase}.`,
+      correctWord: 'to',
+      distractors: ['for', 'at'],
+      hint: 'Перед глаголом в шаблоне «пора + действие» нужна короткая частица.',
+    },
+    {
+      id: `${variant.id}_step7_hard`,
+      difficulty: 'hard',
+      situationRu: variant.step6CreativeRu,
+      frameEn: "It's time to ___.",
+      correctWord: creativeVerb,
+      distractors: hardDistractors,
+      hint: 'После to — глагол в начальной форме, одно слово.',
+    },
+  ])
+}
+
+function buildItsTimeStep6Variants(variant: ItsTimeVariant) {
+  const stateSentence = toItsTimeStateSentence(variant.adjective)
+  const actionSentence = `It's time to ${variant.finalVerbBase}.`
+  const creativeSentence = `It's time to ${variant.step6CreativeActionEn}.`
+
+  return buildStep6ExamVariants([
+    {
+      id: `${variant.id}_step6_easy`,
+      difficulty: 'easy',
+      question: `Переведите на английский: ${normalizeRuPromptLabel(variant.stateTranslationRu)}`,
+      correctAnswer: stateSentence,
+      acceptedAnswers: toItsTimeStateAcceptedAnswers(variant.adjective),
+      hint: 'Коротко: It is + прилагательное про состояние.',
+    },
+    {
+      id: `${variant.id}_step6_medium`,
+      difficulty: 'medium',
+      question: `Переведите на английский: ${normalizeRuPromptLabel(variant.finalActionRu)}`,
+      correctAnswer: actionSentence,
+      acceptedAnswers: [actionSentence, actionSentence.replace("It's", 'It is')],
+      hint: 'Используйте It is time to + глагол в начальной форме.',
+    },
+    {
+      id: `${variant.id}_step6_hard`,
+      difficulty: 'hard',
+      question: `Переведите на английский: ${normalizeRuPromptLabel(variant.step6CreativeRu)}`,
+      correctAnswer: creativeSentence,
+      acceptedAnswers: [creativeSentence, creativeSentence.replace("It's", 'It is')],
+      hint: 'Тот же шаблон time to, но другое действие после to.',
+    },
+  ])
 }
 
 function buildItsTimeSentencePuzzleVariants(variant: ItsTimeVariant): [SentencePuzzleVariant, SentencePuzzleVariant, SentencePuzzleVariant] {
@@ -312,19 +408,16 @@ function buildItsTimeSentencePuzzleVariants(variant: ItsTimeVariant): [SentenceP
     buildItsTimePuzzleVariant(
       `${variant.id}_puzzle_state`,
       'Пазл 1/3: состояние',
-      'Соберите короткое предложение про состояние.',
       `It's ${variant.adjective}.`
     ),
     buildItsTimePuzzleVariant(
       `${variant.id}_puzzle_action`,
       'Пазл 2/3: пора действовать',
-      'Теперь соберите фразу с It is time to.',
       `It's time to ${variant.finalVerbBase}.`
     ),
     buildItsTimePuzzleVariant(
       `${variant.id}_puzzle_new_action`,
       'Пазл 3/3: новая фраза',
-      'Соберите ещё одну фразу с действием после time to.',
       `It's time to ${variant.step5ActionEn}.`
     ),
   ]
@@ -554,8 +647,8 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         bonusXp: 30,
         puzzleVariants: buildItsTimeSentencePuzzleVariants(variant),
       },
-      footerDynamic: 'Пазл: соберите 3 предложения',
-      myEngComment: 'Соберите порядок слов — правило уже почти ваше.',
+      footerDynamic: 'Пазл: 3 коротких предложения',
+      myEngComment: 'Расставьте слова в каждом пазле.',
     },
     {
       stepNumber: 6,
@@ -563,28 +656,33 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Отлично. Теперь используем конструкцию действия в полном предложении.',
+          content: 'Финальная проверка: три коротких предложения подряд.',
         },
         {
           type: 'info',
-          content: 'Ее удобно использовать с повседневными действиями: study, sleep, drink tea, go for a walk.',
+          content: 'Состояние, действие по шаблону, затем новое действие — без подсказки из урока.',
         },
         {
           type: 'task',
-          content: `Переведите на английский: "${variant.step5ActionRu}"`,
+          content: `Переведите на английский: ${normalizeRuPromptLabel(variant.stateTranslationRu)}`,
         },
       ],
-      exercise: {
-        type: 'translate',
-        question: 'Напишите полное предложение на английском.',
-        correctAnswer: `It's time to ${variant.step5ActionEn}.`,
-        acceptedAnswers: [`It's time to ${variant.step5ActionEn}.`, `It is time to ${variant.step5ActionEn}.`],
-        answerFormat: 'full_sentence',
-        answerPolicy: 'normalized',
-        hint: 'Используйте "It is time to" + глагол.',
-      },
-      footerDynamic: 'Практика: соберите полное предложение',
-      myEngComment: 'Теперь соберите фразу целиком.',
+      exercise: (() => {
+        const step6Variants = buildItsTimeStep6Variants(variant)
+        const first = step6Variants[0]!
+        return {
+          type: 'translate',
+          question: first.question,
+          correctAnswer: first.correctAnswer,
+          acceptedAnswers: first.acceptedAnswers,
+          answerFormat: 'full_sentence',
+          answerPolicy: 'normalized',
+          hint: first.hint,
+          variants: step6Variants,
+        }
+      })(),
+      footerDynamic: 'Финальная проверка: 3 коротких предложения',
+      myEngComment: 'Три фразы подряд — вы почти у финиша.',
     },
     {
       stepNumber: 7,
@@ -592,29 +690,33 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Отлично. Вы почти у финиша, осталось быстро закрепить правило.',
+          content: 'Быстрый финиш: три слова в новых ситуациях.',
         },
         {
           type: 'info',
-          content: 'Карточка: "It is sunny." = состояние. "It is time to read." = действие.',
+          content: 'В каждой рамке одно слово — прилагательное, нужная частица или глагол.',
         },
         {
           type: 'task',
-          content: `Быстрая проверка: выберите правильную фразу для "${variant.finalActionRu}"`,
+          content: 'Выберите одно слово для пропуска в английской рамке.',
         },
       ],
-      exercise: {
-        type: 'fill_choice',
-        question: `Выберите правильную фразу: "${variant.finalActionRu}"`,
-        options: ["It's late.", `It's time to ${variant.finalVerbBase}.`, `It's ${variant.adjective}.`],
-        correctAnswer: `It's time to ${variant.finalVerbBase}.`,
-        acceptedAnswers: [`It's time to ${variant.finalVerbBase}.`],
-        answerFormat: 'choice',
-        answerPolicy: 'strict',
-        hint: 'Здесь речь о правильном моменте для действия.',
-      },
-      footerDynamic: 'Карточка показывает состояние и действие: It is + adjective. It is time to + verb.',
-      myEngComment: 'Финиш рядом, осталось одно усилие.',
+      exercise: (() => {
+        const step7Variants = buildItsTimeStep7Variants(variant)
+        const first = step7Variants[0]!
+        return {
+          type: 'fill_choice',
+          question: first.question,
+          options: first.options,
+          correctAnswer: first.correctAnswer,
+          answerFormat: 'choice',
+          answerPolicy: 'strict',
+          hint: first.hint,
+          variants: step7Variants,
+        }
+      })(),
+      footerDynamic: 'Финиш: 3 слова',
+      myEngComment: 'Финиш рядом, осталось три коротких слова.',
     },
   ]
 }

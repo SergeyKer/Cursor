@@ -11,6 +11,8 @@ export type LessonScrollLayoutInput = {
   isSentencePuzzle: boolean
   bottomStackHeightPx: number
   useMinimalPuzzlePadding?: boolean
+  /** Без замера нижней панели — не раздувать padding (16rem), иначе scrollTo(max) оставляет пустоту. */
+  useMinimalPostLessonPadding?: boolean
 }
 
 export function resolveBottomStackHeightCss(input: {
@@ -35,6 +37,10 @@ export function resolveScrollBottomPadding(input: LessonScrollLayoutInput): stri
   if (!input.hasCurrentStep) return undefined
 
   if (input.isSentencePuzzle && input.useMinimalPuzzlePadding) {
+    return `calc(${LESSON_SCROLL_GAP_REM}rem + ${LESSON_INPUT_GAP_PX}px)`
+  }
+
+  if (input.hasPostLessonOptions && input.useMinimalPostLessonPadding) {
     return `calc(${LESSON_SCROLL_GAP_REM}rem + ${LESSON_INPUT_GAP_PX}px)`
   }
 

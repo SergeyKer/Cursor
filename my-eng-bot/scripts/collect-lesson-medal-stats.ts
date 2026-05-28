@@ -80,8 +80,21 @@ function simulateRun(
   }
 }
 
+const HISTOGRAM_MAX_UNITS = 15
+
 function enumerateMedalHistogram(units: LessonScoringUnit[], maxCoreXp: number) {
   const n = units.length
+  if (n > HISTOGRAM_MAX_UNITS) {
+    return {
+      totalCombinations: 3 ** n,
+      skipped: true,
+      note: `Histogram enumeration skipped for ${n} units (cap ${HISTOGRAM_MAX_UNITS}).`,
+      counts: { gold: null, silver: null, bronze: null },
+      percent: { gold: null, silver: null, bronze: null },
+      minCore: null,
+      maxCoreEarned: null,
+    }
+  }
   const counts = { gold: 0, silver: 0, bronze: 0 }
   let minCore = Infinity
   let maxCoreEarned = 0
@@ -151,7 +164,7 @@ function analyzeLesson(lesson: LessonData) {
       units,
       maxCoreXp,
       units.map(() => 2),
-      [1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]
+      [1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]
     ),
     errorBeforeEveryUnitStillFirstAttempt: scenario(units, maxCoreXp, units.map(() => 0), units.map(() => 1)),
     oneErrorAtStartThenPerfect: scenario(

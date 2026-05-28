@@ -30,6 +30,7 @@ function toGeneratedPayload(): GeneratedStepPayload[] {
             acceptedAnswers: step.exercise.acceptedAnswers,
             hint: step.exercise.hint,
             puzzleVariants: step.exercise.puzzleVariants,
+            variants: step.exercise.variants,
             bonusXp: step.exercise.bonusXp,
           },
         }
@@ -160,6 +161,7 @@ describe('structuredLessonFactory', () => {
         ...acceptableSteps[5].exercise!,
         correctAnswer: 'It is time to go home.',
         acceptedAnswers: ['It is time to go home.'],
+        variants: itsTimeToLesson.steps[5]?.exercise?.variants,
       },
     }
 

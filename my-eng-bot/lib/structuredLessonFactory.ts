@@ -179,6 +179,23 @@ function toSemanticText(step: GeneratedStepPayload): string {
               )
               .join(' ')
           : '',
+        Array.isArray(step.exercise.variants)
+          ? step.exercise.variants
+              .map((variant) =>
+                variant && typeof variant === 'object'
+                  ? [
+                      String((variant as { question?: unknown }).question ?? ''),
+                      String((variant as { correctAnswer?: unknown }).correctAnswer ?? ''),
+                      Array.isArray((variant as { options?: unknown }).options)
+                        ? ((variant as { options?: unknown }).options as unknown[])
+                            .filter((item): item is string => typeof item === 'string')
+                            .join(' ')
+                        : '',
+                    ].join(' ')
+                  : ''
+              )
+              .join(' ')
+          : '',
       ].join(' ')
     : ''
   return normalizeForSemanticCheck(`${bubbles} ${exercise} ${typeof step.footerDynamic === 'string' ? step.footerDynamic : ''}`)
@@ -509,6 +526,66 @@ function validateGeneratedStepShape(
           issues.push(issue('hard', 'duplicate_choice_options', 'options не должны дублироваться.', sourceStep.stepNumber))
         }
       }
+      if (sourceStep.stepNumber === 7 && (sourceStep.exercise.variants?.length ?? 0) >= 3) {
+        const variants = row.exercise.variants
+        if (!Array.isArray(variants) || variants.length !== 3) {
+          issues.push(
+            issue('hard', 'invalid_step7_contrast_variants', 'Шаг 7 требует ровно 3 exercise.variants (easy, medium, hard).', sourceStep.stepNumber)
+          )
+        } else {
+          for (const [variantIndex, variant] of variants.entries()) {
+            const item = variant as { question?: unknown; correctAnswer?: unknown; options?: unknown }
+            if (typeof item.question !== 'string' || typeof item.correctAnswer !== 'string') {
+              issues.push(
+                issue(
+                  'hard',
+                  'invalid_step7_variant_shape',
+                  `step7 variant ${variantIndex + 1}: нужны question и correctAnswer.`,
+                  sourceStep.stepNumber
+                )
+              )
+            } else if (/\s/.test(item.correctAnswer.trim())) {
+              issues.push(
+                issue(
+                  'hard',
+                  'step7_answer_must_be_single_word',
+                  `step7 variant ${variantIndex + 1}: correctAnswer — одно слово без пробелов.`,
+                  sourceStep.stepNumber
+                )
+              )
+            }
+            if (!Array.isArray(item.options) || item.options.length !== 3) {
+              issues.push(
+                issue(
+                  'hard',
+                  'invalid_step7_variant_options',
+                  `step7 variant ${variantIndex + 1}: нужны ровно 3 однословных options.`,
+                  sourceStep.stepNumber
+                )
+              )
+            } else {
+              const variantOptions = item.options.filter((option): option is string => typeof option === 'string')
+              if (
+                variantOptions.length !== 3 ||
+                variantOptions.some((option) => /\s/.test(option.trim())) ||
+                !variantOptions.includes(item.correctAnswer as string)
+              ) {
+                issues.push(
+                  issue(
+                    'hard',
+                    'invalid_step7_variant_options',
+                    `step7 variant ${variantIndex + 1}: options — 3 однословных строки, correctAnswer ∈ options.`,
+                    sourceStep.stepNumber
+                  )
+                )
+              }
+            }
+          }
+        }
+        if (row.exercise.puzzleVariants !== undefined) {
+          issues.push(issue('hard', 'step7_has_puzzle_variants', 'Шаг 7 не должен содержать puzzleVariants.', sourceStep.stepNumber))
+        }
+      }
     } else if (sourceStep.exercise.type === 'sentence_puzzle') {
       const puzzleVariants = row.exercise.puzzleVariants
       if (!Array.isArray(puzzleVariants) || puzzleVariants.length !== 3) {
@@ -549,6 +626,33 @@ function validateGeneratedStepShape(
       }
       if (row.exercise.bonusXp !== undefined && typeof row.exercise.bonusXp !== 'number') {
         issues.push(issue('hard', 'invalid_sentence_puzzle_bonus', 'bonusXp должен быть числом.', sourceStep.stepNumber))
+      }
+    } else if (sourceStep.stepNumber === 6 && (sourceStep.exercise.variants?.length ?? 0) >= 3) {
+      const variants = row.exercise.variants
+      if (!Array.isArray(variants) || variants.length !== 3) {
+        issues.push(
+          issue('hard', 'invalid_step6_exam_variants', 'Шаг 6 требует ровно 3 exercise.variants (easy, medium, hard).', sourceStep.stepNumber)
+        )
+      } else {
+        for (const [variantIndex, variant] of variants.entries()) {
+          const item = variant as { question?: unknown; correctAnswer?: unknown; difficulty?: unknown }
+          if (typeof item.question !== 'string' || typeof item.correctAnswer !== 'string') {
+            issues.push(
+              issue(
+                'hard',
+                'invalid_step6_variant_shape',
+                `step6 variant ${variantIndex + 1}: нужны question и correctAnswer.`,
+                sourceStep.stepNumber
+              )
+            )
+          }
+        }
+      }
+      if (row.exercise.puzzleVariants !== undefined) {
+        issues.push(issue('hard', 'step6_has_puzzle_variants', 'Шаг 6 не должен содержать puzzleVariants.', sourceStep.stepNumber))
+      }
+      if (row.exercise.options !== undefined) {
+        issues.push(issue('hard', 'step6_has_options', 'Шаг 6 не должен содержать options.', sourceStep.stepNumber))
       }
     } else if (row.exercise.options !== undefined && !Array.isArray(row.exercise.options)) {
       issues.push(issue('hard', 'unexpected_options_shape', 'options должны быть массивом, если они переданы.', sourceStep.stepNumber))
@@ -663,6 +767,37 @@ function validateGeneratedStepSemantics(
     }
   }
 
+  if (sourceStep.stepNumber === 7 && sourceStep.exercise?.type === 'fill_choice' && explanatoryText) {
+    const gapAnswers = [
+      ...(sourceStep.exercise.variants?.flatMap((variant) => [
+        variant.correctAnswer,
+        ...(variant.options ?? []),
+      ]) ?? []),
+      ...(Array.isArray(candidateStep.exercise?.variants)
+        ? candidateStep.exercise.variants.flatMap((variant) => {
+            const item = variant as { correctAnswer?: unknown; options?: unknown }
+            const options = Array.isArray(item.options) ? item.options.filter((option): option is string => typeof option === 'string') : []
+            return [
+              typeof item.correctAnswer === 'string' ? item.correctAnswer : '',
+              ...options,
+            ]
+          })
+        : []),
+    ].filter(Boolean)
+    const revealsGapAnswer = gapAnswers.some(
+      (answer) => answer && normalizeForPolicyCheck(explanatoryText).includes(normalizeForPolicyCheck(answer))
+    )
+    if (revealsGapAnswer) {
+      issues.push(
+        issue(
+          'hard',
+          'step7_info_reveals_gap_answer',
+          'Info и hint на шаге 7 не должны содержать слова из options или correctAnswer.',
+          sourceStep.stepNumber
+        )
+      )
+    }
+  }
   if (
     (sourceStep.stepType === 'practice_fill' || sourceStep.stepType === 'practice_match') &&
     sourceStep.exercise &&
@@ -1060,6 +1195,25 @@ export function buildLessonFromGeneratedSteps(sourceLesson: LessonData, generate
               ...(Array.isArray(generated.exercise.puzzleVariants)
                 ? { puzzleVariants: generated.exercise.puzzleVariants as Exercise['puzzleVariants'] }
                 : {}),
+              ...(Array.isArray(generated.exercise.variants)
+                ? {
+                    variants: (generated.exercise.variants as Exercise['variants'])?.map((variant) => ({
+                      ...variant,
+                      ...(Array.isArray(variant.acceptedAnswers)
+                        ? { acceptedAnswers: [...variant.acceptedAnswers] }
+                        : {}),
+                    })),
+                  }
+                : sourceStep.exercise.variants
+                  ? {
+                      variants: sourceStep.exercise.variants.map((variant) => ({
+                        ...variant,
+                        ...(Array.isArray(variant.acceptedAnswers)
+                          ? { acceptedAnswers: [...variant.acceptedAnswers] }
+                          : {}),
+                      })),
+                    }
+                  : {}),
               ...(typeof generated.exercise.bonusXp === 'number' ? { bonusXp: generated.exercise.bonusXp } : {}),
               ...(typeof generated.exercise.hint === 'string' ? { hint: generated.exercise.hint } : {}),
               ...(blueprint?.answerFormat ? { answerFormat: blueprint.answerFormat } : {}),
@@ -1119,11 +1273,23 @@ export function buildStructuredCreationSystemPrompt(): string {
     '- На hard-вариантах переформулируй ситуацию по смыслу, но не раскрывай ответ ни на русском, ни английском до рамки с пропуском.',
     'Не добавляй новую грамматику вне указанного grammar focus.',
     'Если передан selectedVariantId, sourceSituations и sourceSteps, считай их обязательными смысловыми рельсами для нового варианта.',
-    'Для fill_choice всегда давай ровно 3 варианта и включай correctAnswer в options.',
-    'Все английские options, включая distractors, должны быть естественными и грамматически корректными фразами. Нельзя придумывать ломанный английский вроде "It\'s dark to go.".',
+    'Для fill_choice на шагах 1–2: ровно 3 options — полные грамматически корректные предложения; correctAnswer ∈ options.',
+    'Для fill_choice на шагах 1–2: distractors — естественные фразы. Нельзя ломанный английский вроде "It\'s dark to go.".',
     'Для sentence_puzzle всегда давай ровно 3 puzzleVariants. В каждом puzzle-варианте нужны title, instruction, words, correctOrder, correctAnswer, successText, errorText, hintText, myEngComment.',
+    'Для sentence_puzzle: смысл под-задачи в title (например «Пазл 2/3: …»). instruction — пустая строка или нейтральная «Расставьте слова по порядку»; без грамматических шаблонов (I am from + …, It is time to …).',
+    'Для sentence_puzzle: hintText — пустая строка, если в words не больше 4 токенов; при 5+ — короткая подсказка без полного ответа (допустимо «Подсказка: первое слово — …»).',
+    'Для sentence_puzzle: у каждого puzzleVariants[i] свой correctAnswer, совпадающий с correctOrder и набором words; exercise.correctAnswer шага 5 — ответ первого пазла или нейтральная подпись.',
+    'Для sentence_puzzle: words и correctOrder в каждом варианте — один и тот же список токенов из correctAnswer этого варианта.',
     'Шаг 5 всегда должен быть sentence_puzzle с ровно 3 puzzleVariants.',
-    'Шаг 6 должен быть текстовым вводом полного предложения: translate или write_own, answerFormat full_sentence, без options и без puzzleVariants.',
+    'Шаг 6 — финальная проверка: translate или write_own, answerFormat full_sentence, ровно 3 exercise.variants (easy, medium, hard), без options и без puzzleVariants.',
+    'Шаг 6: цикл easy — первая ось урока; medium — вторая ось, correctAnswer не должен совпадать с ответами шагов 3–4; hard — тот же шаблон, новая лексика, не из ключевых слов шагов 1–5.',
+    'Шаг 6: у каждого variant свои question, correctAnswer, hint; difficulty: easy / medium / hard.',
+    'Шаг 7 — быстрый contrast-gap: fill_choice, ровно 3 exercise.variants (easy, medium, hard).',
+    'Шаг 7: у каждого variant — question (RU-ситуация + EN-рамка с ___), correctAnswer — одно слово без пробелов, options — 3 однословных чипа, correctAnswer ∈ options, свой hint.',
+    'Шаг 7: distractors грамматические (like/likes/liking, a/an/the, to/for/at), не три целых предложения.',
+    'Шаг 7: без шпаргалки «настроение / страна / роль» в info; новая лексика; не копируй correctAnswer шагов 3–4 и 6.',
+    'Шаг 7: верхний exercise.question / correctAnswer / options = копия variant[0] (для валидатора).',
+    'Шаги 3, 4, 6 и 7 используют exercise.variants — смотри контракт sourceSteps.',
     'Для шагов 1-4 с options показывай только выбор из вариантов.',
     'Для practice_fill, practice_match и translate шагов примеры и пояснения обязаны использовать другой контекст и другую лексику, чем само задание.',
     'На translate-шагах пример в info и любая английская фраза в кавычках не должны быть эквивалентны ни одному ожидаемому ответу (correctAnswer, acceptedAnswers и все exercise.variants), включая пары I am / I’m.',
@@ -1144,6 +1310,7 @@ export function buildStructuredCreationSystemPrompt(): string {
     '    "correctAnswer": "...",',
     '    "acceptedAnswers": ["..."],',
     '    "puzzleVariants": [{"id":"...","title":"...","instruction":"...","words":["..."],"correctOrder":["..."],"correctAnswer":"...","successText":"...","errorText":"...","hintText":"...","myEngComment":"..."}],',
+    '    "variants": [{"question":"...","options":["a","an","the"],"correctAnswer":"a","hint":"..."}],',
     '    "bonusXp": 30,',
     '    "hint": "..."',
     '  },',
@@ -1160,6 +1327,7 @@ export function buildStructuredVariantDiversifyInstruction(): string {
     'Меняй формулировки, примеры, микро-ситуации и лексику, сохраняя тот же grammar focus и шаги.',
     'Недостаточно заменить she на he, имя персонажа, одно слово или порядок двух фраз.',
     'Новый вариант должен ощущаться как другой сценарий той же учебной цели.',
+    'На шаге 7 — три новых gap-слова в новых ситуациях, не копируй старый MCQ из целых предложений.',
   ].join(' ')
 }
 
@@ -1179,11 +1347,23 @@ export function buildStructuredRepeatSystemPrompt(): string {
     '- Английский допустим только во второй части после дефиса (рамка с ___ или подсказка).',
     '- Не подставляй correctAnswer, глагол из ответа и объекты ответа в русскую формулировку.',
     '- На hard-вариантах переформулируй ситуацию по смыслу, но не раскрывай ответ ни на русском, ни английском до рамки с пропуском.',
-    'Для fill_choice всегда давай ровно 3 варианта и включай correctAnswer в options.',
-    'Все английские options, включая distractors, должны быть естественными и грамматически корректными фразами. Нельзя придумывать ломанный английский вроде "It\'s dark to go.".',
+    'Для fill_choice на шагах 1–2: ровно 3 options — полные грамматически корректные предложения; correctAnswer ∈ options.',
+    'Для fill_choice на шагах 1–2: distractors — естественные фразы. Нельзя ломанный английский вроде "It\'s dark to go.".',
     'Для sentence_puzzle всегда давай ровно 3 puzzleVariants. В каждом puzzle-варианте нужны title, instruction, words, correctOrder, correctAnswer, successText, errorText, hintText, myEngComment.',
+    'Для sentence_puzzle: смысл под-задачи в title (например «Пазл 2/3: …»). instruction — пустая строка или нейтральная «Расставьте слова по порядку»; без грамматических шаблонов (I am from + …, It is time to …).',
+    'Для sentence_puzzle: hintText — пустая строка, если в words не больше 4 токенов; при 5+ — короткая подсказка без полного ответа (допустимо «Подсказка: первое слово — …»).',
+    'Для sentence_puzzle: у каждого puzzleVariants[i] свой correctAnswer, совпадающий с correctOrder и набором words; exercise.correctAnswer шага 5 — ответ первого пазла или нейтральная подпись.',
+    'Для sentence_puzzle: words и correctOrder в каждом варианте — один и тот же список токенов из correctAnswer этого варианта.',
     'Шаг 5 всегда должен быть sentence_puzzle с ровно 3 puzzleVariants.',
-    'Шаг 6 должен быть текстовым вводом полного предложения: translate или write_own, answerFormat full_sentence, без options и без puzzleVariants.',
+    'Шаг 6 — финальная проверка: translate или write_own, answerFormat full_sentence, ровно 3 exercise.variants (easy, medium, hard), без options и без puzzleVariants.',
+    'Шаг 6: цикл easy — первая ось урока; medium — вторая ось, correctAnswer не должен совпадать с ответами шагов 3–4; hard — тот же шаблон, новая лексика, не из ключевых слов шагов 1–5.',
+    'Шаг 6: у каждого variant свои question, correctAnswer, hint; difficulty: easy / medium / hard.',
+    'Шаг 7 — быстрый contrast-gap: fill_choice, ровно 3 exercise.variants (easy, medium, hard).',
+    'Шаг 7: у каждого variant — question (RU-ситуация + EN-рамка с ___), correctAnswer — одно слово без пробелов, options — 3 однословных чипа, correctAnswer ∈ options, свой hint.',
+    'Шаг 7: distractors грамматические (like/likes/liking, a/an/the, to/for/at), не три целых предложения.',
+    'Шаг 7: без шпаргалки «настроение / страна / роль» в info; новая лексика; не копируй correctAnswer шагов 3–4 и 6.',
+    'Шаг 7: верхний exercise.question / correctAnswer / options = копия variant[0] (для валидатора).',
+    'Шаги 3, 4, 6 и 7 используют exercise.variants — смотри контракт sourceSteps.',
     'Для шагов 1-4 с options показывай только выбор из вариантов.',
     'Для practice_fill, practice_match и translate шагов примеры и пояснения обязаны использовать другой контекст и другую лексику, чем само задание.',
     'На translate-шагах пример в info и любая английская фраза в кавычках не должны быть эквивалентны ни одному ожидаемому ответу (correctAnswer, acceptedAnswers и все exercise.variants), включая пары I am / I’m.',

@@ -29,14 +29,14 @@ describe('computeLessonStagePercent', () => {
         currentVariantIndex: 0,
         isFinale: true,
       })
-    ).toEqual({ percent: 100, completedUnits: 13, totalUnits: 13 })
+    ).toEqual({ percent: 100, completedUnits: 17, totalUnits: 17 })
   })
 
-  it('uses scoring units for its-time-to (13 units)', () => {
-    expect(listLessonScoringUnits(itsTimeToLesson)).toHaveLength(13)
+  it('uses scoring units for its-time-to (17 units)', () => {
+    expect(listLessonScoringUnits(itsTimeToLesson)).toHaveLength(17)
   })
 
-  it('reports 54% when 7 of 13 scoring units are completed (its-time-to step 3)', () => {
+  it('reports 41% when 7 of 17 scoring units are completed (its-time-to step 3)', () => {
     expect(getLessonLearningSteps(itsTimeToLesson)).toHaveLength(7)
 
     const stage = computeLessonStagePercent({
@@ -46,7 +46,7 @@ describe('computeLessonStagePercent', () => {
       isFinale: false,
     })
 
-    expect(stage).toEqual({ percent: 54, completedUnits: 7, totalUnits: 13 })
+    expect(stage).toEqual({ percent: 41, completedUnits: 7, totalUnits: 17 })
   })
 })
 
@@ -67,7 +67,7 @@ describe('buildLessonFooterLive', () => {
     })
 
     expect(view.lessonSegments.map((segment) => segment.kind)).toEqual(['goal', 'xp', 'combo', 'medal'])
-    expect(view.lessonSegments[0].text).toBe('🎯54%')
+    expect(view.lessonSegments[0].text).toBe('🎯41%')
     expect(view.lessonSegments[1].text).toBe('⭐50(+8) XP')
     expect(view.lessonSegments[2].text).toBe('🔥×3(+5)')
     expect(view.lessonSegments[3].medalVisual).toEqual({

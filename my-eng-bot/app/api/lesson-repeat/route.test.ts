@@ -65,6 +65,7 @@ function toRepeatModelSteps(): GeneratedStepPayload[] {
               acceptedAnswers: step.exercise.acceptedAnswers,
               hint: step.exercise.hint,
               puzzleVariants: step.exercise.puzzleVariants,
+              variants: step.exercise.variants,
               bonusXp: step.exercise.bonusXp,
             },
           }
@@ -88,6 +89,7 @@ function toWhoLikesRepeatSteps(): GeneratedStepPayload[] {
               acceptedAnswers: step.exercise.acceptedAnswers,
               hint: step.exercise.hint,
               puzzleVariants: step.exercise.puzzleVariants,
+              variants: step.exercise.variants,
               bonusXp: step.exercise.bonusXp,
             },
           }

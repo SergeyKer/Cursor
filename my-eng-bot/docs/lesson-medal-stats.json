@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generatedAt": "2026-05-20T07:12:02.923Z",
+    "generatedAt": "2026-05-28T21:47:58.682Z",
     "rulesVersion": "current production (lib/lessonScore.ts + useLessonEngine combo behavior)",
     "medalThresholdsPercent": {
       "gold": 90,
@@ -32,10 +32,10 @@
     {
       "lessonId": "1",
       "lessonTitle": "Это / Пора",
-      "scoringUnitsCount": 13,
-      "maxCoreXp": 140,
-      "goldThresholdCore": 126,
-      "silverThresholdCore": 70,
+      "scoringUnitsCount": 17,
+      "maxCoreXp": 183,
+      "goldThresholdCore": 165,
+      "silverThresholdCore": 92,
       "unitMaxes": [
         {
           "id": "s1",
@@ -93,139 +93,183 @@
           "maxXp": 13
         },
         {
-          "id": "s6",
-          "kind": "step",
+          "id": "s6-v0",
+          "kind": "variant",
+          "maxXp": 11
+        },
+        {
+          "id": "s6-v1",
+          "kind": "variant",
           "maxXp": 12
         },
         {
-          "id": "s7",
-          "kind": "step",
+          "id": "s6-v2",
+          "kind": "variant",
+          "maxXp": 13
+        },
+        {
+          "id": "s7-v0",
+          "kind": "variant",
           "maxXp": 9
+        },
+        {
+          "id": "s7-v1",
+          "kind": "variant",
+          "maxXp": 9
+        },
+        {
+          "id": "s7-v2",
+          "kind": "variant",
+          "maxXp": 10
         }
       ],
       "uniform": {
         "allFirstAttempt": {
-          "coreXp": 140,
+          "coreXp": 183,
           "comboXp": 30,
-          "totalGlobalXp": 170,
-          "maxCombo": 13,
+          "totalGlobalXp": 213,
+          "maxCombo": 17,
           "medal": "gold",
           "corePercent": 100
         },
         "allSecondAttempt": {
-          "coreXp": 100,
+          "coreXp": 130,
           "comboXp": 30,
-          "totalGlobalXp": 130,
-          "maxCombo": 13,
+          "totalGlobalXp": 160,
+          "maxCombo": 17,
           "medal": "silver",
           "corePercent": 71
         },
         "allThirdAttempt": {
-          "coreXp": 31,
+          "coreXp": 40,
           "comboXp": 30,
-          "totalGlobalXp": 61,
-          "maxCombo": 13,
+          "totalGlobalXp": 70,
+          "maxCombo": 17,
           "medal": "bronze",
           "corePercent": 22
         }
       },
       "medalHistogram": {
-        "totalCombinations": 1594323,
+        "totalCombinations": 129140163,
         "counts": {
-          "gold": 1990,
-          "silver": 1508477,
-          "bronze": 83856
+          "gold": 37366,
+          "silver": 124928680,
+          "bronze": 4174117
         },
         "percent": {
-          "gold": 0.12,
-          "silver": 94.62,
-          "bronze": 5.26
+          "gold": 0.03,
+          "silver": 96.74,
+          "bronze": 3.23
         },
-        "minCore": 31,
-        "maxCoreEarned": 140
+        "minCore": 40,
+        "maxCoreEarned": 183
       },
       "progressiveKSecondAttempt": [
         {
           "k": 0,
-          "coreXp": 140,
+          "coreXp": 183,
           "corePercent": 100,
           "medal": "gold"
         },
         {
           "k": 1,
-          "coreXp": 138,
+          "coreXp": 181,
           "corePercent": 99,
           "medal": "gold"
         },
         {
           "k": 2,
-          "coreXp": 136,
-          "corePercent": 97,
+          "coreXp": 179,
+          "corePercent": 98,
           "medal": "gold"
         },
         {
           "k": 3,
-          "coreXp": 133,
-          "corePercent": 95,
+          "coreXp": 176,
+          "corePercent": 96,
           "medal": "gold"
         },
         {
           "k": 4,
-          "coreXp": 130,
-          "corePercent": 93,
+          "coreXp": 173,
+          "corePercent": 95,
           "medal": "gold"
         },
         {
           "k": 5,
-          "coreXp": 127,
-          "corePercent": 91,
+          "coreXp": 170,
+          "corePercent": 93,
           "medal": "gold"
         },
         {
           "k": 6,
-          "coreXp": 124,
-          "corePercent": 89,
-          "medal": "silver"
+          "coreXp": 167,
+          "corePercent": 91,
+          "medal": "gold"
         },
         {
           "k": 7,
-          "coreXp": 121,
-          "corePercent": 86,
-          "medal": "silver"
+          "coreXp": 164,
+          "corePercent": 90,
+          "medal": "gold"
         },
         {
           "k": 8,
-          "coreXp": 118,
-          "corePercent": 84,
+          "coreXp": 161,
+          "corePercent": 88,
           "medal": "silver"
         },
         {
           "k": 9,
-          "coreXp": 114,
-          "corePercent": 81,
+          "coreXp": 157,
+          "corePercent": 86,
           "medal": "silver"
         },
         {
           "k": 10,
-          "coreXp": 110,
-          "corePercent": 79,
+          "coreXp": 153,
+          "corePercent": 84,
           "medal": "silver"
         },
         {
           "k": 11,
-          "coreXp": 106,
-          "corePercent": 76,
+          "coreXp": 149,
+          "corePercent": 81,
           "medal": "silver"
         },
         {
           "k": 12,
-          "coreXp": 103,
-          "corePercent": 74,
+          "coreXp": 146,
+          "corePercent": 80,
           "medal": "silver"
         },
         {
           "k": 13,
-          "coreXp": 100,
+          "coreXp": 143,
+          "corePercent": 78,
+          "medal": "silver"
+        },
+        {
+          "k": 14,
+          "coreXp": 139,
+          "corePercent": 76,
+          "medal": "silver"
+        },
+        {
+          "k": 15,
+          "coreXp": 136,
+          "corePercent": 74,
+          "medal": "silver"
+        },
+        {
+          "k": 16,
+          "coreXp": 133,
+          "corePercent": 73,
+          "medal": "silver"
+        },
+        {
+          "k": 17,
+          "coreXp": 130,
           "corePercent": 71,
           "medal": "silver"
         }
@@ -233,127 +277,151 @@
       "progressiveKThirdAttempt": [
         {
           "k": 0,
-          "coreXp": 140,
+          "coreXp": 183,
           "corePercent": 100,
           "medal": "gold"
         },
         {
           "k": 1,
-          "coreXp": 134,
-          "corePercent": 96,
+          "coreXp": 177,
+          "corePercent": 97,
           "medal": "gold"
         },
         {
           "k": 2,
-          "coreXp": 128,
-          "corePercent": 91,
+          "coreXp": 171,
+          "corePercent": 93,
           "medal": "gold"
         },
         {
           "k": 3,
-          "coreXp": 120,
-          "corePercent": 86,
+          "coreXp": 163,
+          "corePercent": 89,
           "medal": "silver"
         },
         {
           "k": 4,
-          "coreXp": 112,
-          "corePercent": 80,
+          "coreXp": 155,
+          "corePercent": 85,
           "medal": "silver"
         },
         {
           "k": 5,
-          "coreXp": 103,
-          "corePercent": 74,
+          "coreXp": 146,
+          "corePercent": 80,
           "medal": "silver"
         },
         {
           "k": 6,
-          "coreXp": 95,
-          "corePercent": 68,
+          "coreXp": 138,
+          "corePercent": 75,
           "medal": "silver"
         },
         {
           "k": 7,
-          "coreXp": 86,
-          "corePercent": 61,
+          "coreXp": 129,
+          "corePercent": 70,
           "medal": "silver"
         },
         {
           "k": 8,
-          "coreXp": 77,
-          "corePercent": 55,
+          "coreXp": 120,
+          "corePercent": 66,
           "medal": "silver"
         },
         {
           "k": 9,
-          "coreXp": 67,
-          "corePercent": 48,
-          "medal": "bronze"
+          "coreXp": 110,
+          "corePercent": 60,
+          "medal": "silver"
         },
         {
           "k": 10,
-          "coreXp": 57,
-          "corePercent": 41,
-          "medal": "bronze"
+          "coreXp": 100,
+          "corePercent": 55,
+          "medal": "silver"
         },
         {
           "k": 11,
-          "coreXp": 47,
-          "corePercent": 34,
+          "coreXp": 90,
+          "corePercent": 49,
           "medal": "bronze"
         },
         {
           "k": 12,
-          "coreXp": 38,
-          "corePercent": 27,
+          "coreXp": 81,
+          "corePercent": 44,
           "medal": "bronze"
         },
         {
           "k": 13,
-          "coreXp": 31,
+          "coreXp": 72,
+          "corePercent": 39,
+          "medal": "bronze"
+        },
+        {
+          "k": 14,
+          "coreXp": 62,
+          "corePercent": 34,
+          "medal": "bronze"
+        },
+        {
+          "k": 15,
+          "coreXp": 55,
+          "corePercent": 30,
+          "medal": "bronze"
+        },
+        {
+          "k": 16,
+          "coreXp": 48,
+          "corePercent": 26,
+          "medal": "bronze"
+        },
+        {
+          "k": 17,
+          "coreXp": 40,
           "corePercent": 22,
           "medal": "bronze"
         }
       ],
       "comboScenarios": {
         "perfectStreak": {
-          "coreXp": 140,
+          "coreXp": 183,
           "comboXp": 30,
-          "totalGlobalXp": 170,
-          "maxCombo": 13,
+          "totalGlobalXp": 213,
+          "maxCombo": 17,
           "medal": "gold",
           "corePercent": 100
         },
         "allThirdWithPerfectCombo": {
-          "coreXp": 31,
+          "coreXp": 40,
           "comboXp": 30,
-          "totalGlobalXp": 61,
-          "maxCombo": 13,
+          "totalGlobalXp": 70,
+          "maxCombo": 17,
           "medal": "bronze",
           "corePercent": 22
         },
         "allThirdComboSabotaged": {
-          "coreXp": 31,
-          "comboXp": 5,
-          "totalGlobalXp": 36,
-          "maxCombo": 4,
+          "coreXp": 40,
+          "comboXp": 30,
+          "totalGlobalXp": 70,
+          "maxCombo": 8,
           "medal": "bronze",
           "corePercent": 22
         },
         "errorBeforeEveryUnitStillFirstAttempt": {
-          "coreXp": 140,
+          "coreXp": 183,
           "comboXp": 0,
-          "totalGlobalXp": 140,
+          "totalGlobalXp": 183,
           "maxCombo": 1,
           "medal": "gold",
           "corePercent": 100
         },
         "oneErrorAtStartThenPerfect": {
-          "coreXp": 140,
+          "coreXp": 183,
           "comboXp": 30,
-          "totalGlobalXp": 170,
-          "maxCombo": 13,
+          "totalGlobalXp": 213,
+          "maxCombo": 17,
           "medal": "gold",
           "corePercent": 100
         },
@@ -367,10 +435,10 @@
     {
       "lessonId": "2",
       "lessonTitle": "Who ...?",
-      "scoringUnitsCount": 13,
-      "maxCoreXp": 140,
-      "goldThresholdCore": 126,
-      "silverThresholdCore": 70,
+      "scoringUnitsCount": 17,
+      "maxCoreXp": 183,
+      "goldThresholdCore": 165,
+      "silverThresholdCore": 92,
       "unitMaxes": [
         {
           "id": "s1",
@@ -428,139 +496,183 @@
           "maxXp": 13
         },
         {
-          "id": "s6",
-          "kind": "step",
+          "id": "s6-v0",
+          "kind": "variant",
+          "maxXp": 11
+        },
+        {
+          "id": "s6-v1",
+          "kind": "variant",
           "maxXp": 12
         },
         {
-          "id": "s7",
-          "kind": "step",
+          "id": "s6-v2",
+          "kind": "variant",
+          "maxXp": 13
+        },
+        {
+          "id": "s7-v0",
+          "kind": "variant",
           "maxXp": 9
+        },
+        {
+          "id": "s7-v1",
+          "kind": "variant",
+          "maxXp": 9
+        },
+        {
+          "id": "s7-v2",
+          "kind": "variant",
+          "maxXp": 10
         }
       ],
       "uniform": {
         "allFirstAttempt": {
-          "coreXp": 140,
+          "coreXp": 183,
           "comboXp": 30,
-          "totalGlobalXp": 170,
-          "maxCombo": 13,
+          "totalGlobalXp": 213,
+          "maxCombo": 17,
           "medal": "gold",
           "corePercent": 100
         },
         "allSecondAttempt": {
-          "coreXp": 100,
+          "coreXp": 130,
           "comboXp": 30,
-          "totalGlobalXp": 130,
-          "maxCombo": 13,
+          "totalGlobalXp": 160,
+          "maxCombo": 17,
           "medal": "silver",
           "corePercent": 71
         },
         "allThirdAttempt": {
-          "coreXp": 31,
+          "coreXp": 40,
           "comboXp": 30,
-          "totalGlobalXp": 61,
-          "maxCombo": 13,
+          "totalGlobalXp": 70,
+          "maxCombo": 17,
           "medal": "bronze",
           "corePercent": 22
         }
       },
       "medalHistogram": {
-        "totalCombinations": 1594323,
+        "totalCombinations": 129140163,
         "counts": {
-          "gold": 1990,
-          "silver": 1508477,
-          "bronze": 83856
+          "gold": 37366,
+          "silver": 124928680,
+          "bronze": 4174117
         },
         "percent": {
-          "gold": 0.12,
-          "silver": 94.62,
-          "bronze": 5.26
+          "gold": 0.03,
+          "silver": 96.74,
+          "bronze": 3.23
         },
-        "minCore": 31,
-        "maxCoreEarned": 140
+        "minCore": 40,
+        "maxCoreEarned": 183
       },
       "progressiveKSecondAttempt": [
         {
           "k": 0,
-          "coreXp": 140,
+          "coreXp": 183,
           "corePercent": 100,
           "medal": "gold"
         },
         {
           "k": 1,
-          "coreXp": 138,
+          "coreXp": 181,
           "corePercent": 99,
           "medal": "gold"
         },
         {
           "k": 2,
-          "coreXp": 136,
-          "corePercent": 97,
+          "coreXp": 179,
+          "corePercent": 98,
           "medal": "gold"
         },
         {
           "k": 3,
-          "coreXp": 133,
-          "corePercent": 95,
+          "coreXp": 176,
+          "corePercent": 96,
           "medal": "gold"
         },
         {
           "k": 4,
-          "coreXp": 130,
-          "corePercent": 93,
+          "coreXp": 173,
+          "corePercent": 95,
           "medal": "gold"
         },
         {
           "k": 5,
-          "coreXp": 127,
-          "corePercent": 91,
+          "coreXp": 170,
+          "corePercent": 93,
           "medal": "gold"
         },
         {
           "k": 6,
-          "coreXp": 124,
-          "corePercent": 89,
-          "medal": "silver"
+          "coreXp": 167,
+          "corePercent": 91,
+          "medal": "gold"
         },
         {
           "k": 7,
-          "coreXp": 121,
-          "corePercent": 86,
-          "medal": "silver"
+          "coreXp": 164,
+          "corePercent": 90,
+          "medal": "gold"
         },
         {
           "k": 8,
-          "coreXp": 118,
-          "corePercent": 84,
+          "coreXp": 161,
+          "corePercent": 88,
           "medal": "silver"
         },
         {
           "k": 9,
-          "coreXp": 114,
-          "corePercent": 81,
+          "coreXp": 157,
+          "corePercent": 86,
           "medal": "silver"
         },
         {
           "k": 10,
-          "coreXp": 110,
-          "corePercent": 79,
+          "coreXp": 153,
+          "corePercent": 84,
           "medal": "silver"
         },
         {
           "k": 11,
-          "coreXp": 106,
-          "corePercent": 76,
+          "coreXp": 149,
+          "corePercent": 81,
           "medal": "silver"
         },
         {
           "k": 12,
-          "coreXp": 103,
-          "corePercent": 74,
+          "coreXp": 146,
+          "corePercent": 80,
           "medal": "silver"
         },
         {
           "k": 13,
-          "coreXp": 100,
+          "coreXp": 143,
+          "corePercent": 78,
+          "medal": "silver"
+        },
+        {
+          "k": 14,
+          "coreXp": 139,
+          "corePercent": 76,
+          "medal": "silver"
+        },
+        {
+          "k": 15,
+          "coreXp": 136,
+          "corePercent": 74,
+          "medal": "silver"
+        },
+        {
+          "k": 16,
+          "coreXp": 133,
+          "corePercent": 73,
+          "medal": "silver"
+        },
+        {
+          "k": 17,
+          "coreXp": 130,
           "corePercent": 71,
           "medal": "silver"
         }
@@ -568,127 +680,151 @@
       "progressiveKThirdAttempt": [
         {
           "k": 0,
-          "coreXp": 140,
+          "coreXp": 183,
           "corePercent": 100,
           "medal": "gold"
         },
         {
           "k": 1,
-          "coreXp": 134,
-          "corePercent": 96,
+          "coreXp": 177,
+          "corePercent": 97,
           "medal": "gold"
         },
         {
           "k": 2,
-          "coreXp": 128,
-          "corePercent": 91,
+          "coreXp": 171,
+          "corePercent": 93,
           "medal": "gold"
         },
         {
           "k": 3,
-          "coreXp": 120,
-          "corePercent": 86,
+          "coreXp": 163,
+          "corePercent": 89,
           "medal": "silver"
         },
         {
           "k": 4,
-          "coreXp": 112,
-          "corePercent": 80,
+          "coreXp": 155,
+          "corePercent": 85,
           "medal": "silver"
         },
         {
           "k": 5,
-          "coreXp": 103,
-          "corePercent": 74,
+          "coreXp": 146,
+          "corePercent": 80,
           "medal": "silver"
         },
         {
           "k": 6,
-          "coreXp": 95,
-          "corePercent": 68,
+          "coreXp": 138,
+          "corePercent": 75,
           "medal": "silver"
         },
         {
           "k": 7,
-          "coreXp": 86,
-          "corePercent": 61,
+          "coreXp": 129,
+          "corePercent": 70,
           "medal": "silver"
         },
         {
           "k": 8,
-          "coreXp": 77,
-          "corePercent": 55,
+          "coreXp": 120,
+          "corePercent": 66,
           "medal": "silver"
         },
         {
           "k": 9,
-          "coreXp": 67,
-          "corePercent": 48,
-          "medal": "bronze"
+          "coreXp": 110,
+          "corePercent": 60,
+          "medal": "silver"
         },
         {
           "k": 10,
-          "coreXp": 57,
-          "corePercent": 41,
-          "medal": "bronze"
+          "coreXp": 100,
+          "corePercent": 55,
+          "medal": "silver"
         },
         {
           "k": 11,
-          "coreXp": 47,
-          "corePercent": 34,
+          "coreXp": 90,
+          "corePercent": 49,
           "medal": "bronze"
         },
         {
           "k": 12,
-          "coreXp": 38,
-          "corePercent": 27,
+          "coreXp": 81,
+          "corePercent": 44,
           "medal": "bronze"
         },
         {
           "k": 13,
-          "coreXp": 31,
+          "coreXp": 72,
+          "corePercent": 39,
+          "medal": "bronze"
+        },
+        {
+          "k": 14,
+          "coreXp": 62,
+          "corePercent": 34,
+          "medal": "bronze"
+        },
+        {
+          "k": 15,
+          "coreXp": 55,
+          "corePercent": 30,
+          "medal": "bronze"
+        },
+        {
+          "k": 16,
+          "coreXp": 48,
+          "corePercent": 26,
+          "medal": "bronze"
+        },
+        {
+          "k": 17,
+          "coreXp": 40,
           "corePercent": 22,
           "medal": "bronze"
         }
       ],
       "comboScenarios": {
         "perfectStreak": {
-          "coreXp": 140,
+          "coreXp": 183,
           "comboXp": 30,
-          "totalGlobalXp": 170,
-          "maxCombo": 13,
+          "totalGlobalXp": 213,
+          "maxCombo": 17,
           "medal": "gold",
           "corePercent": 100
         },
         "allThirdWithPerfectCombo": {
-          "coreXp": 31,
+          "coreXp": 40,
           "comboXp": 30,
-          "totalGlobalXp": 61,
-          "maxCombo": 13,
+          "totalGlobalXp": 70,
+          "maxCombo": 17,
           "medal": "bronze",
           "corePercent": 22
         },
         "allThirdComboSabotaged": {
-          "coreXp": 31,
-          "comboXp": 5,
-          "totalGlobalXp": 36,
-          "maxCombo": 4,
+          "coreXp": 40,
+          "comboXp": 30,
+          "totalGlobalXp": 70,
+          "maxCombo": 8,
           "medal": "bronze",
           "corePercent": 22
         },
         "errorBeforeEveryUnitStillFirstAttempt": {
-          "coreXp": 140,
+          "coreXp": 183,
           "comboXp": 0,
-          "totalGlobalXp": 140,
+          "totalGlobalXp": 183,
           "maxCombo": 1,
           "medal": "gold",
           "corePercent": 100
         },
         "oneErrorAtStartThenPerfect": {
-          "coreXp": 140,
+          "coreXp": 183,
           "comboXp": 30,
-          "totalGlobalXp": 170,
-          "maxCombo": 13,
+          "totalGlobalXp": 213,
+          "maxCombo": 17,
           "medal": "gold",
           "corePercent": 100
         },
@@ -702,10 +838,10 @@
     {
       "lessonId": "3",
       "lessonTitle": "I know what she likes",
-      "scoringUnitsCount": 13,
-      "maxCoreXp": 140,
-      "goldThresholdCore": 126,
-      "silverThresholdCore": 70,
+      "scoringUnitsCount": 17,
+      "maxCoreXp": 183,
+      "goldThresholdCore": 165,
+      "silverThresholdCore": 92,
       "unitMaxes": [
         {
           "id": "s1",
@@ -763,139 +899,183 @@
           "maxXp": 13
         },
         {
-          "id": "s6",
-          "kind": "step",
+          "id": "s6-v0",
+          "kind": "variant",
+          "maxXp": 11
+        },
+        {
+          "id": "s6-v1",
+          "kind": "variant",
           "maxXp": 12
         },
         {
-          "id": "s7",
-          "kind": "step",
+          "id": "s6-v2",
+          "kind": "variant",
+          "maxXp": 13
+        },
+        {
+          "id": "s7-v0",
+          "kind": "variant",
           "maxXp": 9
+        },
+        {
+          "id": "s7-v1",
+          "kind": "variant",
+          "maxXp": 9
+        },
+        {
+          "id": "s7-v2",
+          "kind": "variant",
+          "maxXp": 10
         }
       ],
       "uniform": {
         "allFirstAttempt": {
-          "coreXp": 140,
+          "coreXp": 183,
           "comboXp": 30,
-          "totalGlobalXp": 170,
-          "maxCombo": 13,
+          "totalGlobalXp": 213,
+          "maxCombo": 17,
           "medal": "gold",
           "corePercent": 100
         },
         "allSecondAttempt": {
-          "coreXp": 100,
+          "coreXp": 130,
           "comboXp": 30,
-          "totalGlobalXp": 130,
-          "maxCombo": 13,
+          "totalGlobalXp": 160,
+          "maxCombo": 17,
           "medal": "silver",
           "corePercent": 71
         },
         "allThirdAttempt": {
-          "coreXp": 31,
+          "coreXp": 40,
           "comboXp": 30,
-          "totalGlobalXp": 61,
-          "maxCombo": 13,
+          "totalGlobalXp": 70,
+          "maxCombo": 17,
           "medal": "bronze",
           "corePercent": 22
         }
       },
       "medalHistogram": {
-        "totalCombinations": 1594323,
+        "totalCombinations": 129140163,
         "counts": {
-          "gold": 1990,
-          "silver": 1508477,
-          "bronze": 83856
+          "gold": 37366,
+          "silver": 124928680,
+          "bronze": 4174117
         },
         "percent": {
-          "gold": 0.12,
-          "silver": 94.62,
-          "bronze": 5.26
+          "gold": 0.03,
+          "silver": 96.74,
+          "bronze": 3.23
         },
-        "minCore": 31,
-        "maxCoreEarned": 140
+        "minCore": 40,
+        "maxCoreEarned": 183
       },
       "progressiveKSecondAttempt": [
         {
           "k": 0,
-          "coreXp": 140,
+          "coreXp": 183,
           "corePercent": 100,
           "medal": "gold"
         },
         {
           "k": 1,
-          "coreXp": 138,
+          "coreXp": 181,
           "corePercent": 99,
           "medal": "gold"
         },
         {
           "k": 2,
-          "coreXp": 136,
-          "corePercent": 97,
+          "coreXp": 179,
+          "corePercent": 98,
           "medal": "gold"
         },
         {
           "k": 3,
-          "coreXp": 133,
-          "corePercent": 95,
+          "coreXp": 176,
+          "corePercent": 96,
           "medal": "gold"
         },
         {
           "k": 4,
-          "coreXp": 130,
-          "corePercent": 93,
+          "coreXp": 173,
+          "corePercent": 95,
           "medal": "gold"
         },
         {
           "k": 5,
-          "coreXp": 127,
-          "corePercent": 91,
+          "coreXp": 170,
+          "corePercent": 93,
           "medal": "gold"
         },
         {
           "k": 6,
-          "coreXp": 124,
-          "corePercent": 89,
-          "medal": "silver"
+          "coreXp": 167,
+          "corePercent": 91,
+          "medal": "gold"
         },
         {
           "k": 7,
-          "coreXp": 121,
-          "corePercent": 86,
-          "medal": "silver"
+          "coreXp": 164,
+          "corePercent": 90,
+          "medal": "gold"
         },
         {
           "k": 8,
-          "coreXp": 118,
-          "corePercent": 84,
+          "coreXp": 161,
+          "corePercent": 88,
           "medal": "silver"
         },
         {
           "k": 9,
-          "coreXp": 114,
-          "corePercent": 81,
+          "coreXp": 157,
+          "corePercent": 86,
           "medal": "silver"
         },
         {
           "k": 10,
-          "coreXp": 110,
-          "corePercent": 79,
+          "coreXp": 153,
+          "corePercent": 84,
           "medal": "silver"
         },
         {
           "k": 11,
-          "coreXp": 106,
-          "corePercent": 76,
+          "coreXp": 149,
+          "corePercent": 81,
           "medal": "silver"
         },
         {
           "k": 12,
-          "coreXp": 103,
-          "corePercent": 74,
+          "coreXp": 146,
+          "corePercent": 80,
           "medal": "silver"
         },
         {
           "k": 13,
-          "coreXp": 100,
+          "coreXp": 143,
+          "corePercent": 78,
+          "medal": "silver"
+        },
+        {
+          "k": 14,
+          "coreXp": 139,
+          "corePercent": 76,
+          "medal": "silver"
+        },
+        {
+          "k": 15,
+          "coreXp": 136,
+          "corePercent": 74,
+          "medal": "silver"
+        },
+        {
+          "k": 16,
+          "coreXp": 133,
+          "corePercent": 73,
+          "medal": "silver"
+        },
+        {
+          "k": 17,
+          "coreXp": 130,
           "corePercent": 71,
           "medal": "silver"
         }
@@ -903,127 +1083,151 @@
       "progressiveKThirdAttempt": [
         {
           "k": 0,
-          "coreXp": 140,
+          "coreXp": 183,
           "corePercent": 100,
           "medal": "gold"
         },
         {
           "k": 1,
-          "coreXp": 134,
-          "corePercent": 96,
+          "coreXp": 177,
+          "corePercent": 97,
           "medal": "gold"
         },
         {
           "k": 2,
-          "coreXp": 128,
-          "corePercent": 91,
+          "coreXp": 171,
+          "corePercent": 93,
           "medal": "gold"
         },
         {
           "k": 3,
-          "coreXp": 120,
-          "corePercent": 86,
+          "coreXp": 163,
+          "corePercent": 89,
           "medal": "silver"
         },
         {
           "k": 4,
-          "coreXp": 112,
-          "corePercent": 80,
+          "coreXp": 155,
+          "corePercent": 85,
           "medal": "silver"
         },
         {
           "k": 5,
-          "coreXp": 103,
-          "corePercent": 74,
+          "coreXp": 146,
+          "corePercent": 80,
           "medal": "silver"
         },
         {
           "k": 6,
-          "coreXp": 95,
-          "corePercent": 68,
+          "coreXp": 138,
+          "corePercent": 75,
           "medal": "silver"
         },
         {
           "k": 7,
-          "coreXp": 86,
-          "corePercent": 61,
+          "coreXp": 129,
+          "corePercent": 70,
           "medal": "silver"
         },
         {
           "k": 8,
-          "coreXp": 77,
-          "corePercent": 55,
+          "coreXp": 120,
+          "corePercent": 66,
           "medal": "silver"
         },
         {
           "k": 9,
-          "coreXp": 67,
-          "corePercent": 48,
-          "medal": "bronze"
+          "coreXp": 110,
+          "corePercent": 60,
+          "medal": "silver"
         },
         {
           "k": 10,
-          "coreXp": 57,
-          "corePercent": 41,
-          "medal": "bronze"
+          "coreXp": 100,
+          "corePercent": 55,
+          "medal": "silver"
         },
         {
           "k": 11,
-          "coreXp": 47,
-          "corePercent": 34,
+          "coreXp": 90,
+          "corePercent": 49,
           "medal": "bronze"
         },
         {
           "k": 12,
-          "coreXp": 38,
-          "corePercent": 27,
+          "coreXp": 81,
+          "corePercent": 44,
           "medal": "bronze"
         },
         {
           "k": 13,
-          "coreXp": 31,
+          "coreXp": 72,
+          "corePercent": 39,
+          "medal": "bronze"
+        },
+        {
+          "k": 14,
+          "coreXp": 62,
+          "corePercent": 34,
+          "medal": "bronze"
+        },
+        {
+          "k": 15,
+          "coreXp": 55,
+          "corePercent": 30,
+          "medal": "bronze"
+        },
+        {
+          "k": 16,
+          "coreXp": 48,
+          "corePercent": 26,
+          "medal": "bronze"
+        },
+        {
+          "k": 17,
+          "coreXp": 40,
           "corePercent": 22,
           "medal": "bronze"
         }
       ],
       "comboScenarios": {
         "perfectStreak": {
-          "coreXp": 140,
+          "coreXp": 183,
           "comboXp": 30,
-          "totalGlobalXp": 170,
-          "maxCombo": 13,
+          "totalGlobalXp": 213,
+          "maxCombo": 17,
           "medal": "gold",
           "corePercent": 100
         },
         "allThirdWithPerfectCombo": {
-          "coreXp": 31,
+          "coreXp": 40,
           "comboXp": 30,
-          "totalGlobalXp": 61,
-          "maxCombo": 13,
+          "totalGlobalXp": 70,
+          "maxCombo": 17,
           "medal": "bronze",
           "corePercent": 22
         },
         "allThirdComboSabotaged": {
-          "coreXp": 31,
-          "comboXp": 5,
-          "totalGlobalXp": 36,
-          "maxCombo": 4,
+          "coreXp": 40,
+          "comboXp": 30,
+          "totalGlobalXp": 70,
+          "maxCombo": 8,
           "medal": "bronze",
           "corePercent": 22
         },
         "errorBeforeEveryUnitStillFirstAttempt": {
-          "coreXp": 140,
+          "coreXp": 183,
           "comboXp": 0,
-          "totalGlobalXp": 140,
+          "totalGlobalXp": 183,
           "maxCombo": 1,
           "medal": "gold",
           "corePercent": 100
         },
         "oneErrorAtStartThenPerfect": {
-          "coreXp": 140,
+          "coreXp": 183,
           "comboXp": 30,
-          "totalGlobalXp": 170,
-          "maxCombo": 13,
+          "totalGlobalXp": 213,
+          "maxCombo": 17,
           "medal": "gold",
           "corePercent": 100
         },
@@ -1037,10 +1241,10 @@
     {
       "lessonId": "4",
       "lessonTitle": "Знакомство",
-      "scoringUnitsCount": 13,
-      "maxCoreXp": 140,
-      "goldThresholdCore": 126,
-      "silverThresholdCore": 70,
+      "scoringUnitsCount": 17,
+      "maxCoreXp": 183,
+      "goldThresholdCore": 165,
+      "silverThresholdCore": 92,
       "unitMaxes": [
         {
           "id": "s1",
@@ -1098,139 +1302,183 @@
           "maxXp": 13
         },
         {
-          "id": "s6",
-          "kind": "step",
+          "id": "s6-v0",
+          "kind": "variant",
+          "maxXp": 11
+        },
+        {
+          "id": "s6-v1",
+          "kind": "variant",
           "maxXp": 12
         },
         {
-          "id": "s7",
-          "kind": "step",
+          "id": "s6-v2",
+          "kind": "variant",
+          "maxXp": 13
+        },
+        {
+          "id": "s7-v0",
+          "kind": "variant",
           "maxXp": 9
+        },
+        {
+          "id": "s7-v1",
+          "kind": "variant",
+          "maxXp": 9
+        },
+        {
+          "id": "s7-v2",
+          "kind": "variant",
+          "maxXp": 10
         }
       ],
       "uniform": {
         "allFirstAttempt": {
-          "coreXp": 140,
+          "coreXp": 183,
           "comboXp": 30,
-          "totalGlobalXp": 170,
-          "maxCombo": 13,
+          "totalGlobalXp": 213,
+          "maxCombo": 17,
           "medal": "gold",
           "corePercent": 100
         },
         "allSecondAttempt": {
-          "coreXp": 100,
+          "coreXp": 130,
           "comboXp": 30,
-          "totalGlobalXp": 130,
-          "maxCombo": 13,
+          "totalGlobalXp": 160,
+          "maxCombo": 17,
           "medal": "silver",
           "corePercent": 71
         },
         "allThirdAttempt": {
-          "coreXp": 31,
+          "coreXp": 40,
           "comboXp": 30,
-          "totalGlobalXp": 61,
-          "maxCombo": 13,
+          "totalGlobalXp": 70,
+          "maxCombo": 17,
           "medal": "bronze",
           "corePercent": 22
         }
       },
       "medalHistogram": {
-        "totalCombinations": 1594323,
+        "totalCombinations": 129140163,
         "counts": {
-          "gold": 1990,
-          "silver": 1508477,
-          "bronze": 83856
+          "gold": 37366,
+          "silver": 124928680,
+          "bronze": 4174117
         },
         "percent": {
-          "gold": 0.12,
-          "silver": 94.62,
-          "bronze": 5.26
+          "gold": 0.03,
+          "silver": 96.74,
+          "bronze": 3.23
         },
-        "minCore": 31,
-        "maxCoreEarned": 140
+        "minCore": 40,
+        "maxCoreEarned": 183
       },
       "progressiveKSecondAttempt": [
         {
           "k": 0,
-          "coreXp": 140,
+          "coreXp": 183,
           "corePercent": 100,
           "medal": "gold"
         },
         {
           "k": 1,
-          "coreXp": 138,
+          "coreXp": 181,
           "corePercent": 99,
           "medal": "gold"
         },
         {
           "k": 2,
-          "coreXp": 136,
-          "corePercent": 97,
+          "coreXp": 179,
+          "corePercent": 98,
           "medal": "gold"
         },
         {
           "k": 3,
-          "coreXp": 133,
-          "corePercent": 95,
+          "coreXp": 176,
+          "corePercent": 96,
           "medal": "gold"
         },
         {
           "k": 4,
-          "coreXp": 130,
-          "corePercent": 93,
+          "coreXp": 173,
+          "corePercent": 95,
           "medal": "gold"
         },
         {
           "k": 5,
-          "coreXp": 127,
-          "corePercent": 91,
+          "coreXp": 170,
+          "corePercent": 93,
           "medal": "gold"
         },
         {
           "k": 6,
-          "coreXp": 124,
-          "corePercent": 89,
-          "medal": "silver"
+          "coreXp": 167,
+          "corePercent": 91,
+          "medal": "gold"
         },
         {
           "k": 7,
-          "coreXp": 121,
-          "corePercent": 86,
-          "medal": "silver"
+          "coreXp": 164,
+          "corePercent": 90,
+          "medal": "gold"
         },
         {
           "k": 8,
-          "coreXp": 118,
-          "corePercent": 84,
+          "coreXp": 161,
+          "corePercent": 88,
           "medal": "silver"
         },
         {
           "k": 9,
-          "coreXp": 114,
-          "corePercent": 81,
+          "coreXp": 157,
+          "corePercent": 86,
           "medal": "silver"
         },
         {
           "k": 10,
-          "coreXp": 110,
-          "corePercent": 79,
+          "coreXp": 153,
+          "corePercent": 84,
           "medal": "silver"
         },
         {
           "k": 11,
-          "coreXp": 106,
-          "corePercent": 76,
+          "coreXp": 149,
+          "corePercent": 81,
           "medal": "silver"
         },
         {
           "k": 12,
-          "coreXp": 103,
-          "corePercent": 74,
+          "coreXp": 146,
+          "corePercent": 80,
           "medal": "silver"
         },
         {
           "k": 13,
-          "coreXp": 100,
+          "coreXp": 143,
+          "corePercent": 78,
+          "medal": "silver"
+        },
+        {
+          "k": 14,
+          "coreXp": 139,
+          "corePercent": 76,
+          "medal": "silver"
+        },
+        {
+          "k": 15,
+          "coreXp": 136,
+          "corePercent": 74,
+          "medal": "silver"
+        },
+        {
+          "k": 16,
+          "coreXp": 133,
+          "corePercent": 73,
+          "medal": "silver"
+        },
+        {
+          "k": 17,
+          "coreXp": 130,
           "corePercent": 71,
           "medal": "silver"
         }
@@ -1238,127 +1486,151 @@
       "progressiveKThirdAttempt": [
         {
           "k": 0,
-          "coreXp": 140,
+          "coreXp": 183,
           "corePercent": 100,
           "medal": "gold"
         },
         {
           "k": 1,
-          "coreXp": 134,
-          "corePercent": 96,
+          "coreXp": 177,
+          "corePercent": 97,
           "medal": "gold"
         },
         {
           "k": 2,
-          "coreXp": 128,
-          "corePercent": 91,
+          "coreXp": 171,
+          "corePercent": 93,
           "medal": "gold"
         },
         {
           "k": 3,
-          "coreXp": 120,
-          "corePercent": 86,
+          "coreXp": 163,
+          "corePercent": 89,
           "medal": "silver"
         },
         {
           "k": 4,
-          "coreXp": 112,
-          "corePercent": 80,
+          "coreXp": 155,
+          "corePercent": 85,
           "medal": "silver"
         },
         {
           "k": 5,
-          "coreXp": 103,
-          "corePercent": 74,
+          "coreXp": 146,
+          "corePercent": 80,
           "medal": "silver"
         },
         {
           "k": 6,
-          "coreXp": 95,
-          "corePercent": 68,
+          "coreXp": 138,
+          "corePercent": 75,
           "medal": "silver"
         },
         {
           "k": 7,
-          "coreXp": 86,
-          "corePercent": 61,
+          "coreXp": 129,
+          "corePercent": 70,
           "medal": "silver"
         },
         {
           "k": 8,
-          "coreXp": 77,
-          "corePercent": 55,
+          "coreXp": 120,
+          "corePercent": 66,
           "medal": "silver"
         },
         {
           "k": 9,
-          "coreXp": 67,
-          "corePercent": 48,
-          "medal": "bronze"
+          "coreXp": 110,
+          "corePercent": 60,
+          "medal": "silver"
         },
         {
           "k": 10,
-          "coreXp": 57,
-          "corePercent": 41,
-          "medal": "bronze"
+          "coreXp": 100,
+          "corePercent": 55,
+          "medal": "silver"
         },
         {
           "k": 11,
-          "coreXp": 47,
-          "corePercent": 34,
+          "coreXp": 90,
+          "corePercent": 49,
           "medal": "bronze"
         },
         {
           "k": 12,
-          "coreXp": 38,
-          "corePercent": 27,
+          "coreXp": 81,
+          "corePercent": 44,
           "medal": "bronze"
         },
         {
           "k": 13,
-          "coreXp": 31,
+          "coreXp": 72,
+          "corePercent": 39,
+          "medal": "bronze"
+        },
+        {
+          "k": 14,
+          "coreXp": 62,
+          "corePercent": 34,
+          "medal": "bronze"
+        },
+        {
+          "k": 15,
+          "coreXp": 55,
+          "corePercent": 30,
+          "medal": "bronze"
+        },
+        {
+          "k": 16,
+          "coreXp": 48,
+          "corePercent": 26,
+          "medal": "bronze"
+        },
+        {
+          "k": 17,
+          "coreXp": 40,
           "corePercent": 22,
           "medal": "bronze"
         }
       ],
       "comboScenarios": {
         "perfectStreak": {
-          "coreXp": 140,
+          "coreXp": 183,
           "comboXp": 30,
-          "totalGlobalXp": 170,
-          "maxCombo": 13,
+          "totalGlobalXp": 213,
+          "maxCombo": 17,
           "medal": "gold",
           "corePercent": 100
         },
         "allThirdWithPerfectCombo": {
-          "coreXp": 31,
+          "coreXp": 40,
           "comboXp": 30,
-          "totalGlobalXp": 61,
-          "maxCombo": 13,
+          "totalGlobalXp": 70,
+          "maxCombo": 17,
           "medal": "bronze",
           "corePercent": 22
         },
         "allThirdComboSabotaged": {
-          "coreXp": 31,
-          "comboXp": 5,
-          "totalGlobalXp": 36,
-          "maxCombo": 4,
+          "coreXp": 40,
+          "comboXp": 30,
+          "totalGlobalXp": 70,
+          "maxCombo": 8,
           "medal": "bronze",
           "corePercent": 22
         },
         "errorBeforeEveryUnitStillFirstAttempt": {
-          "coreXp": 140,
+          "coreXp": 183,
           "comboXp": 0,
-          "totalGlobalXp": 140,
+          "totalGlobalXp": 183,
           "maxCombo": 1,
           "medal": "gold",
           "corePercent": 100
         },
         "oneErrorAtStartThenPerfect": {
-          "coreXp": 140,
+          "coreXp": 183,
           "comboXp": 30,
-          "totalGlobalXp": 170,
-          "maxCombo": 13,
+          "totalGlobalXp": 213,
+          "maxCombo": 17,
           "medal": "gold",
           "corePercent": 100
         },

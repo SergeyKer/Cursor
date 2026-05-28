@@ -621,10 +621,6 @@ export default function Home() {
   const structuredLessonRunOriginRef = React.useRef<StructuredLessonRunOrigin>('menu_reopen')
   /** Если у урока нет runKey, порядок вариантов fill_choice зависит от nonce на каждый новый вход. */
   const [structuredLessonShuffleNonce, setStructuredLessonShuffleNonce] = useState(0)
-  const [structuredLessonPuzzleProgress, setStructuredLessonPuzzleProgress] = useState<{
-    subIndex: number
-    subTotal: number
-  } | null>(null)
   const [postLessonBusy, setPostLessonBusy] = useState(false)
   const [selectedPostLessonAction, setSelectedPostLessonAction] = useState<PostLessonAction | null>(null)
   const [lessonOverlay, setLessonOverlay] = useState<LessonOverlayState | null>(null)
@@ -652,7 +648,8 @@ export default function Home() {
     awardPuzzleSubStep: awardStructuredLessonPuzzleSub,
     recordPuzzleAttempt: recordStructuredLessonPuzzleAttempt,
     clearPuzzleAttemptFeedback: clearStructuredLessonPuzzleAttemptFeedback,
-    puzzleSubMaxXp: activeStructuredLessonPuzzleSubMaxXp,
+    puzzleProgress: activeStructuredLessonPuzzleProgress,
+    onPuzzleProgressChange: handleStructuredLessonPuzzleProgressChange,
     xp: activeStructuredLessonXp,
     coreXp: activeStructuredLessonCoreXp,
     comboXp: activeStructuredLessonComboXp,
@@ -4780,8 +4777,12 @@ export default function Home() {
   const isStructuredLessonActive = Boolean(activeStructuredLesson && activeStructuredLessonStep && lessonViewStage === 'lesson')
 
   useEffect(() => {
-    setStructuredLessonPuzzleProgress(null)
-  }, [activeStructuredLessonCurrentStep, activeStructuredLessonStep?.stepNumber])
+    handleStructuredLessonPuzzleProgressChange(null)
+  }, [
+    activeStructuredLessonCurrentStep,
+    activeStructuredLessonStep?.stepNumber,
+    handleStructuredLessonPuzzleProgressChange,
+  ])
 
   const lessonHeaderProgressLabel = useMemo(() => {
     if (!isStructuredLessonActive) return null
@@ -4791,8 +4792,8 @@ export default function Home() {
       totalSteps: activeStructuredLessonTotalSteps,
       stepNumber: activeStructuredLessonStep?.stepNumber,
       variantProgress: activeStructuredLessonFooterVariantProgress,
-      puzzleSubIndex: structuredLessonPuzzleProgress?.subIndex,
-      puzzleSubTotal: structuredLessonPuzzleProgress?.subTotal,
+      puzzleSubIndex: activeStructuredLessonPuzzleProgress?.subIndex,
+      puzzleSubTotal: activeStructuredLessonPuzzleProgress?.subTotal,
     })
   }, [
     isStructuredLessonActive,
@@ -4801,7 +4802,7 @@ export default function Home() {
     activeStructuredLessonTotalSteps,
     activeStructuredLessonStep?.stepNumber,
     activeStructuredLessonFooterVariantProgress,
-    structuredLessonPuzzleProgress,
+    activeStructuredLessonPuzzleProgress,
   ])
 
   const lessonHeaderProgressAriaLabel = useMemo(() => {
@@ -4812,8 +4813,8 @@ export default function Home() {
       totalSteps: activeStructuredLessonTotalSteps,
       stepNumber: activeStructuredLessonStep?.stepNumber,
       variantProgress: activeStructuredLessonFooterVariantProgress,
-      puzzleSubIndex: structuredLessonPuzzleProgress?.subIndex,
-      puzzleSubTotal: structuredLessonPuzzleProgress?.subTotal,
+      puzzleSubIndex: activeStructuredLessonPuzzleProgress?.subIndex,
+      puzzleSubTotal: activeStructuredLessonPuzzleProgress?.subTotal,
     })
   }, [
     isStructuredLessonActive,
@@ -4822,7 +4823,7 @@ export default function Home() {
     activeStructuredLessonTotalSteps,
     activeStructuredLessonStep?.stepNumber,
     activeStructuredLessonFooterVariantProgress,
-    structuredLessonPuzzleProgress,
+    activeStructuredLessonPuzzleProgress,
   ])
 
   const structuredLessonRunBannerText = useMemo(() => {
@@ -6288,7 +6289,6 @@ export default function Home() {
                     })
                   }
                   onPuzzleInteraction={clearStructuredLessonPuzzleAttemptFeedback}
-                  puzzleSubMaxXp={activeStructuredLessonPuzzleSubMaxXp}
                   lessonMedalReveal={
                     activeStructuredLessonStatus === 'completed'
                       ? {
@@ -6316,8 +6316,8 @@ export default function Home() {
                   voiceId={settings.voiceId}
                   choiceShuffleSeed={structuredLessonChoiceShuffleSeed}
                   runBannerText={structuredLessonRunBannerText}
-                  onPuzzleProgressChange={setStructuredLessonPuzzleProgress}
-                  puzzleSubIndex={structuredLessonPuzzleProgress?.subIndex}
+                  onPuzzleProgressChange={handleStructuredLessonPuzzleProgressChange}
+                  puzzleSubIndex={activeStructuredLessonPuzzleProgress?.subIndex}
                 />
               ) : (
                 <Chat

@@ -1,3 +1,6 @@
+import { buildStep6ExamVariants } from '@/lib/lessons/step6Exam'
+import { buildStep7ContrastVariants } from '@/lib/lessons/step7Contrast'
+import { buildPuzzleVariantHintText } from '@/lib/puzzlePanelLayout'
 import { toSentencePuzzleCards } from '@/lib/sentencePuzzleWords'
 import type { LessonData, LessonFinale, LessonRepeatStepBlueprint, LessonRepeatVariantProfile, LessonStep, SentencePuzzleVariant } from '@/types/lesson'
 
@@ -14,6 +17,9 @@ type WhoLikesVariant = {
   step5QuestionRu: string
   step5Object: string
   step5Subject: string
+  step6CreativeObject: string
+  step6CreativeSubject: string
+  step6CreativeRu: string
   sourceSituations: string[]
 }
 
@@ -27,10 +33,13 @@ const whoLikesVariants: WhoLikesVariant[] = [
     verbBase: 'like',
     verbThird: 'likes',
     verbIng: 'liking',
-    step3Object: 'tea',
+    step3Object: 'books',
     step5QuestionRu: 'Кто любит чай? Мой брат любит чай.',
     step5Object: 'tea',
     step5Subject: 'My brother',
+    step6CreativeObject: 'pizza',
+    step6CreativeSubject: 'My dad',
+    step6CreativeRu: 'Кто любит пиццу? Мой папа любит пиццу.',
     sourceSituations: ['Кто любит музыку?', 'Кто любит чай?', 'Кто любит читать?', 'Кто любит спорт?'],
   },
   {
@@ -46,6 +55,9 @@ const whoLikesVariants: WhoLikesVariant[] = [
     step5QuestionRu: 'Кто пьет кофе? Моя сестра пьет кофе.',
     step5Object: 'coffee',
     step5Subject: 'My sister',
+    step6CreativeObject: 'milk',
+    step6CreativeSubject: 'My cat',
+    step6CreativeRu: 'Кто пьет молоко? Мой кот пьет молоко.',
     sourceSituations: ['Кто пьет чай?', 'Кто пьет кофе?', 'Кто пьет сок?', 'Кто пьет воду утром?'],
   },
   {
@@ -61,6 +73,9 @@ const whoLikesVariants: WhoLikesVariant[] = [
     step5QuestionRu: 'Кто читает комиксы? Мой друг читает комиксы.',
     step5Object: 'comics',
     step5Subject: 'My friend',
+    step6CreativeObject: 'poems',
+    step6CreativeSubject: 'My grandma',
+    step6CreativeRu: 'Кто читает стихи? Моя бабушка читает стихи.',
     sourceSituations: ['Кто читает книги?', 'Кто читает комиксы?', 'Кто читает истории?', 'Кто читает вечером?'],
   },
   {
@@ -76,6 +91,9 @@ const whoLikesVariants: WhoLikesVariant[] = [
     step5QuestionRu: 'Кто играет в шахматы? Мой кузен играет в шахматы.',
     step5Object: 'chess',
     step5Subject: 'My cousin',
+    step6CreativeObject: 'basketball',
+    step6CreativeSubject: 'My team',
+    step6CreativeRu: 'Кто играет в баскетбол? Моя команда играет в баскетбол.',
     sourceSituations: ['Кто играет в футбол?', 'Кто играет в теннис?', 'Кто играет в шахматы?', 'Кто играет после школы?'],
   },
 ]
@@ -227,7 +245,7 @@ function buildWhoLikesBlueprints(variant: WhoLikesVariant): LessonRepeatStepBlue
     {
       stepNumber: 6,
       stepType: 'practice_apply',
-      learningGoal: 'Дать вопрос и ответ в коротком бытовом мини-диалоге.',
+      learningGoal: 'Финальная проверка: вопрос Who, ответ с подлежащим и перенос на новую лексику.',
       exerciseType: 'translate',
       answerFormat: 'full_sentence',
       answerPolicy: 'equivalent_variants',
@@ -248,42 +266,115 @@ function buildWhoLikesBlueprints(variant: WhoLikesVariant): LessonRepeatStepBlue
     {
       stepNumber: 7,
       stepType: 'feedback',
-      learningGoal: 'Проверить различие между правильной формой и ошибочными вариантами без окончания -s.',
+      learningGoal: 'Три contrast-gap: форма глагола в вопросе, ответе и новом объекте.',
       exerciseType: 'fill_choice',
       answerFormat: 'choice',
       answerPolicy: 'strict',
-      sourceCorrectAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,
-      sourcePattern: `Who ${variant.verbThird} + noun?`,
-      semanticAnchors: ['who', variant.verbThird, variant.introObject],
+      sourceCorrectAnswer: variant.verbThird,
+      sourcePattern: `Who ${variant.verbThird} + noun / Subject ${variant.verbThird} + noun`,
+      semanticAnchors: ['who', variant.verbThird, variant.step6CreativeObject],
       semanticExpectations: {
         pedagogicalRole: 'contrast_check',
-        mustInclude: ['who', variant.verbThird, variant.introObject],
-        shouldInclude: [variant.verbBase],
         mustAvoid: ['it is time to', 'past simple'],
         hintShouldMention: [variant.verbThird],
         requireCyrillicHint: true,
-        requireQuestionMarkInAnswer: true,
         maxAcceptedAnswers: 1,
       },
     },
   ]
 }
 
-function buildWhoPuzzleVariant(id: string, title: string, instruction: string, answer: string): SentencePuzzleVariant {
+function buildWhoPuzzleVariant(id: string, title: string, answer: string): SentencePuzzleVariant {
   const correctOrder = toSentencePuzzleCards(answer)
   return {
     id,
     title,
-    instruction,
+    instruction: '',
     words: [...correctOrder],
     correctOrder,
     correctAnswer: answer,
     successText: `Верно! ${answer}`,
     errorText: 'Порядок неверный. Попробуйте ещё раз.',
-    hintText: `Подсказка: первое слово — ${correctOrder[0]}.`,
+    hintText: buildPuzzleVariantHintText(correctOrder),
     hintFirstWord: correctOrder[0],
     myEngComment: 'Отлично. Собираем следующий вариант.',
   }
+}
+
+function pickWhoLikesObjectDistractors(correctObject: string, fallback: string): [string, string] {
+  const pool = ['music', 'tea', 'books', 'football', 'pizza', 'milk', 'poems', 'basketball', 'coffee', 'comics']
+  const distractors = pool.filter((item) => item !== correctObject).slice(0, 2)
+  return [distractors[0] ?? fallback, distractors[1] ?? 'sports']
+}
+
+function buildWhoLikesStep7Variants(variant: WhoLikesVariant) {
+  return buildStep7ContrastVariants([
+    {
+      id: `${variant.id}_step7_easy`,
+      difficulty: 'easy',
+      situationRu: variant.introQuestionRu,
+      frameEn: `Who ___ ${variant.introObject}?`,
+      correctWord: variant.verbThird,
+      distractors: [variant.verbBase, variant.verbIng],
+      hint: 'После Who в вопросе нужна форма глагола с -s.',
+    },
+    {
+      id: `${variant.id}_step7_medium`,
+      difficulty: 'medium',
+      situationRu: variant.step5QuestionRu,
+      frameEn: 'Who likes ___?',
+      correctWord: variant.step5Object,
+      distractors: pickWhoLikesObjectDistractors(variant.step5Object, variant.introObject),
+      hint: 'Вопрос про другой объект — одно слово после глагола в вопросе.',
+    },
+    {
+      id: `${variant.id}_step7_hard`,
+      difficulty: 'hard',
+      situationRu: variant.step6CreativeRu,
+      frameEn: 'Who likes ___?',
+      correctWord: variant.step6CreativeObject,
+      distractors: pickWhoLikesObjectDistractors(variant.step6CreativeObject, variant.introObject),
+      hint: 'Новый объект в вопросе — одно слово после глагола.',
+    },
+  ])
+}
+
+function buildWhoLikesStep6Variants(variant: WhoLikesVariant) {
+  const answerSentence = `${variant.introSubject} ${variant.verbThird} ${variant.introObject}.`
+  const dialogueSentence = `Who ${variant.verbThird} ${variant.step5Object}? ${variant.step5Subject} ${variant.verbThird} ${variant.step5Object}.`
+  const creativeQuestion = `Who ${variant.verbThird} ${variant.step6CreativeObject}?`
+  const creativeAnswer = `${variant.step6CreativeSubject} ${variant.verbThird} ${variant.step6CreativeObject}.`
+  const creativeFull = `${creativeQuestion} ${creativeAnswer}`
+
+  return buildStep6ExamVariants([
+    {
+      id: `${variant.id}_step6_easy`,
+      difficulty: 'easy',
+      question: `Переведите на английский: "${variant.introSubject} ${WHO_OBJECT_TRANSLATIONS[variant.introObject] ?? variant.introObject}."`,
+      correctAnswer: answerSentence,
+      acceptedAnswers: [answerSentence],
+      hint: `Короткий ответ: ${variant.introSubject} + ${variant.verbThird} + объект.`,
+      answerPolicy: 'normalized',
+    },
+    {
+      id: `${variant.id}_step6_medium`,
+      difficulty: 'medium',
+      question: `Переведите на английский: "${variant.step5QuestionRu}"`,
+      correctAnswer: dialogueSentence,
+      acceptedAnswers: [dialogueSentence],
+      hint: `Сначала вопрос с Who, потом ответ с ${variant.verbThird}.`,
+      answerPolicy: 'equivalent_variants',
+    },
+    {
+      id: `${variant.id}_step6_hard`,
+      difficulty: 'hard',
+      question: `Переведите на английский: "${variant.step6CreativeRu}"`,
+      correctAnswer: creativeFull,
+      acceptedAnswers: [creativeFull],
+      hint: 'Сначала вопрос с Who, потом короткий ответ с тем же глаголом.',
+      answerPolicy: 'equivalent_variants',
+    },
+  ])
 }
 
 function buildWhoSentencePuzzleVariants(variant: WhoLikesVariant): [SentencePuzzleVariant, SentencePuzzleVariant, SentencePuzzleVariant] {
@@ -291,19 +382,16 @@ function buildWhoSentencePuzzleVariants(variant: WhoLikesVariant): [SentencePuzz
     buildWhoPuzzleVariant(
       `${variant.id}_puzzle_question`,
       'Пазл 1/3: соберите вопрос',
-      'Нажимайте слова в правильном порядке.',
       `Who ${variant.verbThird} ${variant.introObject}?`
     ),
     buildWhoPuzzleVariant(
       `${variant.id}_puzzle_answer`,
       'Пазл 2/3: соберите ответ',
-      'Теперь соберите короткий ответ полным предложением.',
       `${variant.introSubject} ${variant.verbThird} ${variant.introObject}.`
     ),
     buildWhoPuzzleVariant(
       `${variant.id}_puzzle_new_question`,
       'Пазл 3/3: новая ситуация',
-      'Соберите вопрос с новым словом и тем же правилом.',
       `Who ${variant.verbThird} ${variant.step5Object}?`
     ),
   ]
@@ -553,8 +641,8 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         bonusXp: 30,
         puzzleVariants: buildWhoSentencePuzzleVariants(variant),
       },
-      footerDynamic: 'Пазл: соберите 3 предложения',
-      myEngComment: 'Соберите порядок слов — это финальная сборка правила.',
+      footerDynamic: 'Пазл: 3 коротких предложения',
+      myEngComment: 'Расставьте слова в каждом пазле.',
     },
     {
       stepNumber: 6,
@@ -562,28 +650,33 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Теперь используем вопрос и ответ вместе.',
+          content: 'Финальная проверка: три коротких задания подряд.',
         },
         {
           type: 'info',
-          content: 'После вопроса можно дать короткий ясный ответ с подлежащим.',
+          content: 'Вопрос Who, затем ответ, в конце — новая пара вопрос–ответ с другими словами.',
         },
         {
           type: 'task',
-          content: `Переведите на английский: "${variant.step5QuestionRu}"`,
+          content: `Переведите на английский: "${variant.introQuestionRu}"`,
         },
       ],
-      exercise: {
-        type: 'translate',
-        question: 'Напишите две короткие фразы.',
-        correctAnswer: `Who ${variant.verbThird} ${variant.step5Object}? ${variant.step5Subject} ${variant.verbThird} ${variant.step5Object}.`,
-        acceptedAnswers: [`Who ${variant.verbThird} ${variant.step5Object}? ${variant.step5Subject} ${variant.verbThird} ${variant.step5Object}.`],
-        answerFormat: 'full_sentence',
-        answerPolicy: 'equivalent_variants',
-        hint: `Сначала вопрос с Who, потом ответ с ${variant.verbThird}.`,
-      },
-      footerDynamic: 'Practice: question and answer',
-      myEngComment: 'Теперь звучите уже как в диалоге.',
+      exercise: (() => {
+        const step6Variants = buildWhoLikesStep6Variants(variant)
+        const first = step6Variants[0]!
+        return {
+          type: 'translate',
+          question: first.question,
+          correctAnswer: first.correctAnswer,
+          acceptedAnswers: first.acceptedAnswers,
+          answerFormat: 'full_sentence',
+          answerPolicy: 'normalized',
+          hint: first.hint,
+          variants: step6Variants,
+        }
+      })(),
+      footerDynamic: 'Финальная проверка: 3 коротких предложения',
+      myEngComment: 'Три фразы подряд — вы почти у финиша.',
     },
     {
       stepNumber: 7,
@@ -591,33 +684,33 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Отлично. Осталась быстрая финальная проверка.',
+          content: 'Быстрый финиш: три слова в вопросе и ответе.',
         },
         {
           type: 'info',
-          content: 'Карточка: "Who cooks dinner?" = вопрос. "Sam cooks dinner." = ответ.',
+          content: 'В каждой рамке одно слово — форма глагола с -s или без.',
         },
         {
           type: 'task',
-          content: 'Быстрый микро-тест: выберите правильный вопрос.',
+          content: 'Выберите одно слово для пропуска в английской рамке.',
         },
       ],
-      exercise: {
-        type: 'fill_choice',
-        question: 'Какой вопрос правильный?',
-        options: [
-          `Who ${variant.verbThird} ${variant.introObject}?`,
-          'Who likes sports?',
-          `${variant.introSubject} ${variant.verbThird} ${variant.introObject}.`,
-        ],
-        correctAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,
-        acceptedAnswers: [`Who ${variant.verbThird} ${variant.introObject}?`],
-        answerFormat: 'choice',
-        answerPolicy: 'strict',
-        hint: `Нужна форма ${variant.verbThird}.`,
-      },
-      footerDynamic: 'Карточка: Who + verb-s + noun?',
-      myEngComment: 'Почти финиш, осталось закрепить.',
+      exercise: (() => {
+        const step7Variants = buildWhoLikesStep7Variants(variant)
+        const first = step7Variants[0]!
+        return {
+          type: 'fill_choice',
+          question: first.question,
+          options: first.options,
+          correctAnswer: first.correctAnswer,
+          answerFormat: 'choice',
+          answerPolicy: 'strict',
+          hint: first.hint,
+          variants: step7Variants,
+        }
+      })(),
+      footerDynamic: 'Финиш: 3 слова',
+      myEngComment: 'Почти финиш, осталось три коротких слова.',
     },
   ]
 }
