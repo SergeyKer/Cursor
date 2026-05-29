@@ -1,6 +1,7 @@
 import type { PracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
 import type { PracticeMode } from '@/types/practice'
 import { featureFlags } from '@/lib/featureFlags'
+import { formatPracticeProgressText, PRACTICE_RING_MAX } from '@/lib/practice/practiceGlyphs'
 
 export type PracticeFinalePrimaryAction = 'repeat' | 'challenge' | 'openLesson' | 'menu'
 
@@ -16,7 +17,7 @@ export function getPracticeFinalePrimaryAction(params: {
   if (tier === 2 && !gemsPending && ringCount < 5) {
     return {
       action: 'repeat',
-      label: featureFlags.practiceTopicCupsV1 ? 'Повторить (к 🏆 5/5)' : 'Повторить (к 🔁 5/5)',
+      label: `Повторить (${formatPracticeProgressText(PRACTICE_RING_MAX)})`,
       hint: featureFlags.practiceTopicCupsV1
         ? 'Золотая медаль есть — до кубка темы 🏆 осталось 5 практик.'
         : 'Золотая медаль есть — закрепите тему для 💎.',
@@ -26,7 +27,7 @@ export function getPracticeFinalePrimaryAction(params: {
   if (tier === 1 && ringCount < 5) {
     return {
       action: 'repeat',
-      label: `Повторить (🔁 ${ringCount}/5)`,
+      label: `Повторить (${formatPracticeProgressText(ringCount)})`,
       hint: 'Ещё один проход укрепит тему и даст XP к уровню.',
     }
   }

@@ -1,4 +1,6 @@
 import type { MyPlanCatalogTopic, MyPlanInput, MyPlanLessonProgressSlice, MyPlanRecommendation } from '@/lib/myPlan/types'
+import { featureFlags } from '@/lib/featureFlags'
+import { getPracticeTopicProgress } from '@/lib/practice/practiceTopicProgressStorage'
 
 function isLessonIncomplete(p: { lastCompleted: string; completedSteps: number[] }): boolean {
   return (!p.lastCompleted || !p.lastCompleted.trim()) && p.completedSteps.length > 0
@@ -96,7 +98,10 @@ export function getMyPlanRecommendations(input: MyPlanInput): MyPlanRecommendati
   const latestCatalog = latestTheory ? input.catalog.find((t) => t.id === latestTheory.lessonId) : null
   if (latestTheory && latestCatalog?.hasPractice) {
     const topic = latestTheory.topic?.trim() || `Урок ${latestTheory.lessonId}`
-    if (!hasPracticeAfterTheory(input, latestTheory.lessonId, latestTheory.lastCompleted)) {
+    const topicCupDone =
+      featureFlags.practiceTopicCupsV1 &&
+      getPracticeTopicProgress(latestTheory.lessonId).cupClaimed
+    if (!topicCupDone && !hasPracticeAfterTheory(input, latestTheory.lessonId, latestTheory.lastCompleted)) {
       out.push({
         id: 'practice-after-theory',
         priority: 3,

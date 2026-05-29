@@ -4,6 +4,7 @@ import type { PracticeMode, PracticeSession } from '@/types/practice'
 import type { PracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
 import { featureFlags } from '@/lib/featureFlags'
 import { getPracticeFinalePrimaryAction } from '@/lib/practice/practiceFinaleCta'
+import { formatPracticeProgressText } from '@/lib/practice/practiceGlyphs'
 
 interface PracticeFinaleProps {
   session: PracticeSession
@@ -11,6 +12,7 @@ interface PracticeFinaleProps {
   globalAmount?: number
   ringCount?: number
   gemsPending?: boolean
+  cupClaimed?: boolean
   onRepeat: () => void
   onChallenge: () => void
   onOpenLesson: () => void
@@ -31,6 +33,7 @@ export default function PracticeFinale({
   globalAmount = 0,
   ringCount = 0,
   gemsPending = false,
+  cupClaimed = false,
   onRepeat,
   onChallenge,
   onOpenLesson,
@@ -76,8 +79,10 @@ export default function PracticeFinale({
         {ringCount > 0 ? (
           <p className="mt-1 text-xs text-green-700/90">
             {featureFlags.practiceTopicCupsV1 && tier === 2
-              ? `🏆 ${ringCount}/5 за тему`
-              : `🔁 ${ringCount}/5 за тему${gemsPending ? ' · 💎 ждёт золото' : ''}`}
+              ? cupClaimed
+                ? '🏆 Тема сдана'
+                : `${formatPracticeProgressText(ringCount)} за тему`
+              : `${formatPracticeProgressText(ringCount)} за тему${gemsPending ? ' · 💎 ждёт золото' : ''}`}
           </p>
         ) : null}
       </section>

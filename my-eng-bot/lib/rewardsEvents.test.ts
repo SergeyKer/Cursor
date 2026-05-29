@@ -26,7 +26,7 @@ describe('applyRewardsEvent', () => {
     expect(next.progress.totalXP).toBe(8)
     expect(next.ui.lastReward?.amount).toBe(8)
     expect(next.ui.lastReward?.reason).toBe('lesson_xp_awarded')
-    expect(next.ui.footerTicker).toContain('+8 XP к уровню')
+    expect(next.ui.footerTicker).toContain('+8 к уровню')
   })
 
   it('ignores zero lesson_xp_awarded', () => {

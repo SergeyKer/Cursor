@@ -9,14 +9,14 @@ describe('footerTopLinePhrases', () => {
         amount: 8,
         audience: 'adult',
       })
-    ).toBe('Хороший шаг. +8 XP к уровню.')
+    ).toBe('Хороший шаг. +8 к уровню.')
     expect(
       formatRewardTopLine({
         reason: 'lesson_xp_awarded',
         amount: 13,
         audience: 'child',
       })
-    ).toBe('Отлично! +13 XP к уровню!')
+    ).toBe('Отлично! +13 к уровню!')
   })
 
   it('falls back when reason is unknown', () => {
@@ -26,7 +26,7 @@ describe('footerTopLinePhrases', () => {
         amount: 10,
         audience: 'adult',
       })
-    ).toBe('+10 XP. Отличный шаг вперёд.')
+    ).toBe('+10. Отличный шаг вперёд.')
   })
 
   it('returns deterministic session transition phrases', () => {

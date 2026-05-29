@@ -68,7 +68,7 @@ describe('buildLessonFooterLive', () => {
 
     expect(view.lessonSegments.map((segment) => segment.kind)).toEqual(['goal', 'xp', 'combo', 'medal'])
     expect(view.lessonSegments[0].text).toBe('🎯41%')
-    expect(view.lessonSegments[1].text).toBe('⭐50(+8) XP')
+    expect(view.lessonSegments[1].text).toBe('⭐50(+8)')
     expect(view.lessonSegments[2].text).toBe('🔥×3(+5)')
     expect(view.lessonSegments[3].medalVisual).toEqual({
       mode: 'progress',
@@ -92,12 +92,12 @@ describe('buildLessonFooterLive', () => {
       maxCombo: 0,
     })
     expect(start.lessonSegments[0].text).toBe('🎯0%')
-    expect(start.lessonSegments[1].text).toBe('⭐0 XP')
+    expect(start.lessonSegments[1].text).toBe('⭐0')
     expect(start.lessonSegments[2].text).toBe('🔥×0')
     expect(start.lessonSegments[3].medalVisual).toEqual({
-      mode: 'tier',
-      tier: 'bronze',
-      muted: true,
+      mode: 'frozen',
+      glyph: 'military',
+      title: 'Старт — медаль появится с первых очков',
     })
 
     const reset = buildLessonFooterLive({
@@ -203,8 +203,7 @@ describe('resolveLessonHeaderMedal', () => {
     expect(
       resolveLessonHeaderMedal({ coreXp: 0, maxCoreXp: 140, isFinale: false })
     ).toEqual({
-      tier: 'bronze',
-      muted: true,
+      frozen: 'military',
       title: 'Старт — медаль появится с первых очков',
     })
 
@@ -264,13 +263,29 @@ describe('resolveLessonCardMedal', () => {
     ).toEqual({ tier: 'gold', title: 'Сейчас: золото' })
   })
 
-  it('returns live bronze when coreXp > 0 and no saved medal', () => {
+  it('returns frozen medal when coreXp > 0 and no saved medal', () => {
     expect(
       resolveLessonCardMedal({
         ...baseProgress,
         coreXp: 35,
+        cycle1Started: true,
       })
-    ).toEqual({ tier: 'bronze', title: 'Сейчас: бронза' })
+    ).toEqual({
+      frozen: 'military',
+      title: 'Старт — медаль появится с первых очков',
+    })
+  })
+
+  it('returns frozen start when lesson started via completedSteps only', () => {
+    expect(
+      resolveLessonCardMedal({
+        ...baseProgress,
+        completedSteps: [1],
+      })
+    ).toEqual({
+      frozen: 'military',
+      title: 'Старт — медаль появится с первых очков',
+    })
   })
 
   it('returns null when no progress', () => {
@@ -278,7 +293,7 @@ describe('resolveLessonCardMedal', () => {
     expect(resolveLessonCardMedal(baseProgress)).toBeNull()
   })
 
-  it('returns muted bronze when cycle1 closed without medal', () => {
+  it('returns frozen military medal when cycle1 closed without medal', () => {
     expect(
       resolveLessonCardMedal({
         ...baseProgress,
@@ -286,8 +301,7 @@ describe('resolveLessonCardMedal', () => {
         cycle1Closed: true,
       })
     ).toEqual({
-      tier: 'bronze',
-      muted: true,
+      frozen: 'military',
       title: expect.stringContaining('Урок начат'),
     })
   })

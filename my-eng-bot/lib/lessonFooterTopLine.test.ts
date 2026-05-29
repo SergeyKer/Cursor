@@ -12,7 +12,7 @@ describe('resolveLessonFooterTopLine', () => {
         voiceFallback: 'Верно.',
         moment: 'success_reward',
       })
-    ).toContain('+8 XP к уровню')
+    ).toContain('+8 к уровню')
   })
 
   it('returns voiceFallback on error instead of stale global delta', () => {

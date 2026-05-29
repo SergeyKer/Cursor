@@ -5,34 +5,34 @@ type RewardTemplateMap = Record<string, { adult: string[]; child: string[] }>
 
 const REWARD_TOP_LINE_TEMPLATES: RewardTemplateMap = {
   lesson_xp_awarded: {
-    adult: ['Хороший шаг. +{xp} XP к уровню.'],
-    child: ['Отлично! +{xp} XP к уровню!'],
+    adult: ['Хороший шаг. +{xp} к уровню.'],
+    child: ['Отлично! +{xp} к уровню!'],
   },
   practice_completed: {
-    adult: ['Практика завершена. +{xp} XP.'],
-    child: ['Практика завершена! +{xp} XP!'],
+    adult: ['Практика завершена. +{xp}.'],
+    child: ['Практика завершена! +{xp}!'],
   },
   accent_block_completed: {
-    adult: ['Блок произношения закрыт. +{xp} XP.'],
-    child: ['Блок произношения закрыт! +{xp} XP!'],
+    adult: ['Блок произношения закрыт. +{xp}.'],
+    child: ['Блок произношения закрыт! +{xp}!'],
   },
   accent_session_completed: {
-    adult: ['Сессия произношения завершена. +{xp} XP.'],
-    child: ['Произношение готово! +{xp} XP!'],
+    adult: ['Сессия произношения завершена. +{xp}.'],
+    child: ['Произношение готово! +{xp}!'],
   },
   communication_goal_completed: {
-    adult: ['Цель общения 7/7 закрыта. +{xp} XP.'],
-    child: ['Цель чата 7/7! +{xp} XP!'],
+    adult: ['Цель общения 7/7 закрыта. +{xp}.'],
+    child: ['Цель чата 7/7! +{xp}!'],
   },
   engvo_goal_completed: {
-    adult: ['Цель звонка 7/7 закрыта. +{xp} XP.'],
-    child: ['Цель звонка 7/7! +{xp} XP!'],
+    adult: ['Цель звонка 7/7 закрыта. +{xp}.'],
+    child: ['Цель звонка 7/7! +{xp}!'],
   },
 }
 
 const FALLBACK_REWARD_TOP_LINE: Record<FooterCopyAudience, string> = {
-  adult: '+{xp} XP. Отличный шаг вперёд.',
-  child: 'Супер! +{xp} XP!',
+  adult: '+{xp}. Отличный шаг вперёд.',
+  child: 'Супер! +{xp}!',
 }
 
 const TRANSITION_BY_SOURCE: Record<SessionTransitionSource, Record<FooterCopyAudience, string[]>> = {

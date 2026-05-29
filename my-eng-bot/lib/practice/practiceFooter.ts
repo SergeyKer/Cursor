@@ -29,7 +29,7 @@ export function getPracticeFooterView(session: PracticeSession, state: PracticeF
   const staticText =
     state === 'completed'
       ? `Практика завершена | ${session.score}/${total} верно`
-      : `Практика ${modeLabel(session.mode)} | ${current}/${total} | ${session.xp === 0 ? '0 XP' : `+${session.xp} XP`} | COMBO x${session.streak}`
+      : `Практика ${modeLabel(session.mode)} | ${current}/${total} | ${session.xp === 0 ? '0' : `+${session.xp}`} | COMBO x${session.streak}`
 
   const dynamicText =
     state === 'checking'

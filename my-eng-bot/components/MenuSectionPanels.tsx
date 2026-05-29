@@ -21,7 +21,6 @@ import type { AiChatPanel } from '@/lib/aiChatPanel'
 import { MENU_PRIMARY_CTA_CLASS } from '@/lib/homeCtaStyles'
 import { featureFlags } from '@/lib/featureFlags'
 import { getLessonBadgeDefinition } from '@/lib/lessonBadges'
-import MedalBadge from '@/components/MedalBadge'
 import { resolveLessonCardMedal, type LessonCardMedalDisplay } from '@/lib/lessonFooter'
 import { loadLessonProgressMap } from '@/lib/lessonProgressStorage'
 import { aggregateMedals } from '@/lib/lessonScore'
@@ -60,8 +59,11 @@ import { pickFocusModeGoal } from '@/lib/progressFocusGoal'
 import {
   formatPracticeProgressBadge,
   pickBestPracticeRewardOpportunity,
-  resolveLessonMenuPracticeBadge,
+  pickDefaultLessonIdForMenu,
+  resolveLessonMenuRewardIconsFromProgress,
 } from '@/lib/practice/pickBestPracticeRewardOpportunity'
+import LessonMenuRewardIcons from '@/components/LessonMenuRewardIcons'
+import type { LessonMenuRewardIconsState } from '@/lib/practice/pickBestPracticeRewardOpportunity'
 import { countTopicCupStats } from '@/lib/practice/topicCupStats'
 import { getPracticeTopicProgress } from '@/lib/practice/practiceTopicProgressStorage'
 import type { RewardsState } from '@/lib/rewardsState'
@@ -459,13 +461,25 @@ export default function MenuSectionPanels({
     }
   }, [menuView, lessonsPanel, practiceProgressRevision])
   const defaultA2LessonId = React.useMemo(
-    () => A2_THEORY_ITEMS.find((item) => item.enabled)?.id ?? null,
-    []
+    () =>
+      pickDefaultLessonIdForMenu(A2_THEORY_ITEMS, lessonProgressMap) ??
+      A2_THEORY_ITEMS.find((item) => item.enabled)?.id ??
+      null,
+    [lessonProgressMap]
   )
-  const defaultA1LessonId = React.useMemo(() => A1_THEORY_ITEMS.find((item) => item.enabled)?.id ?? null, [])
+  const defaultA1LessonId = React.useMemo(
+    () =>
+      pickDefaultLessonIdForMenu(A1_THEORY_ITEMS, lessonProgressMap) ??
+      A1_THEORY_ITEMS.find((item) => item.enabled)?.id ??
+      null,
+    [lessonProgressMap]
+  )
   const defaultPracticeLessonId = React.useMemo(
-    () => A2_PRACTICE_ITEMS.find((item) => item.enabled)?.id ?? null,
-    []
+    () =>
+      pickDefaultLessonIdForMenu(A2_PRACTICE_ITEMS, lessonProgressMap) ??
+      A2_PRACTICE_ITEMS.find((item) => item.enabled)?.id ??
+      null,
+    [lessonProgressMap]
   )
   const [selectedA2LessonId, setSelectedA2LessonId] = React.useState<string | null>(defaultA2LessonId)
   const [selectedA1LessonId, setSelectedA1LessonId] = React.useState<string | null>(defaultA1LessonId)
@@ -1953,9 +1967,9 @@ export default function MenuSectionPanels({
                             subtitle={topicCopy?.short}
                             description={topicCopy?.long}
                             medalDisplay={resolveLessonCardMedal(lessonProgressMap[lesson.id])}
-                            practiceBadge={resolveLessonMenuPracticeBadge(
+                            rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                               lesson.id,
-                              lessonProgressMap[lesson.id]?.medal ?? null
+                              lessonProgressMap[lesson.id]
                             )}
                             selected={Boolean(lesson.enabled && selectedTheoryTopicLessonId === lesson.id)}
                             enabled={lesson.enabled}
@@ -2044,9 +2058,9 @@ export default function MenuSectionPanels({
                           subtitle={item.short}
                           description={item.long}
                           medalDisplay={resolveLessonCardMedal(lessonProgressMap[item.id])}
-                          practiceBadge={resolveLessonMenuPracticeBadge(
+                          rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                             item.id,
-                            lessonProgressMap[item.id]?.medal ?? null
+                            lessonProgressMap[item.id]
                           )}
                           selected={item.enabled && selectedA1LessonId === item.id}
                           enabled={item.enabled}
@@ -2117,9 +2131,9 @@ export default function MenuSectionPanels({
                           subtitle={item.short}
                           description={item.long}
                           medalDisplay={resolveLessonCardMedal(lessonProgressMap[item.id])}
-                          practiceBadge={resolveLessonMenuPracticeBadge(
+                          rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                             item.id,
-                            lessonProgressMap[item.id]?.medal ?? null
+                            lessonProgressMap[item.id]
                           )}
                           selected={item.enabled && selectedA2LessonId === item.id}
                           enabled={item.enabled}
@@ -2221,7 +2235,23 @@ export default function MenuSectionPanels({
                     </div>
                   ) : null}
                   <div className={MENU_GROUP_CLASS}>
-                    <MenuSettingRow label="Урок" value={selectedPracticeLessonLabel} onClick={() => setLessonsPanel('practiceLevelsHub')} />
+                    <MenuSettingRow
+                      label="Урок"
+                      value={selectedPracticeLessonLabel}
+                      trailing={
+                        selectedPracticeLessonId ? (
+                          <LessonMenuRewardIcons
+                            rewardIcons={resolveLessonMenuRewardIconsFromProgress(
+                              selectedPracticeLessonId,
+                              lessonProgressMap[selectedPracticeLessonId]
+                            )}
+                            medalDisplay={resolveLessonCardMedal(lessonProgressMap[selectedPracticeLessonId])}
+                            size="md"
+                          />
+                        ) : null
+                      }
+                      onClick={() => setLessonsPanel('practiceLevelsHub')}
+                    />
                     <MenuSettingRow label="Темп" value={selectedPracticeModeLabel} onClick={() => setLessonsPanel('practiceFormat')} />
                     {isReferenceMode && selectedReferenceExerciseOption ? (
                       <MenuSettingRow
@@ -2328,7 +2358,7 @@ export default function MenuSectionPanels({
                           onClick={() => setSelectedCustomPracticeLessonId(candidate.lessonId)}
                           className="flex w-full items-center justify-between rounded-lg border border-[var(--border)] px-3 py-2 text-left text-[14px] text-[var(--text)] hover:bg-[var(--border)]/20"
                         >
-                          <span className="pr-2">
+                          <span className="min-w-0 pr-2">
                             <span className="block">{candidate.title}</span>
                             <span className="block text-[12px] leading-snug text-[var(--text-muted)]">
                               {candidate.reason === candidate.title
@@ -2336,11 +2366,21 @@ export default function MenuSectionPanels({
                                 : `Совпадение по запросу: "${candidate.reason}"`}
                             </span>
                           </span>
-                          {selectedCustomPracticeLessonId === candidate.lessonId ? (
-                            <CheckIcon className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden />
-                          ) : (
-                            <span className="h-4 w-4 shrink-0" aria-hidden />
-                          )}
+                          <span className="flex shrink-0 items-center gap-2">
+                            <LessonMenuRewardIcons
+rewardIcons={resolveLessonMenuRewardIconsFromProgress(
+                              candidate.lessonId,
+                              lessonProgressMap[candidate.lessonId]
+                            )}
+                              medalDisplay={resolveLessonCardMedal(lessonProgressMap[candidate.lessonId])}
+                              size="md"
+                            />
+                            {selectedCustomPracticeLessonId === candidate.lessonId ? (
+                              <CheckIcon className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden />
+                            ) : (
+                              <span className="h-4 w-4 shrink-0" aria-hidden />
+                            )}
+                          </span>
                         </button>
                       ))}
                       <button
@@ -2433,9 +2473,9 @@ export default function MenuSectionPanels({
                       subtitle={item.short}
                       description={item.long}
                       medalDisplay={resolveLessonCardMedal(lessonProgressMap[item.id])}
-                      practiceBadge={resolveLessonMenuPracticeBadge(
+                      rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                         item.id,
-                        lessonProgressMap[item.id]?.medal ?? null
+                        lessonProgressMap[item.id]
                       )}
                       selected={item.enabled && selectedPracticeLessonId === item.id}
                       enabled={item.enabled}
@@ -3049,7 +3089,7 @@ export default function MenuSectionPanels({
                     : bestPracticeOpportunity.reason === 'gold_ring'
                       ? featureFlags.practiceTopicCupsV1
                         ? 'Золотая медаль + 5 практик — кубок темы 🏆.'
-                        : 'Золотая медаль + кольцо 🔁 — лучший путь к камням.'
+                        : 'Золотая медаль + практики 📝 — лучший путь к камням.'
                       : 'Практика по пройденному уроку даёт XP к уровню.'}
                 </p>
                 {onOpenPracticeSession ? (
@@ -3314,7 +3354,7 @@ function A2LessonChoiceRow({
   subtitle,
   description,
   medalDisplay,
-  practiceBadge,
+  rewardIcons,
   selected,
   enabled,
   onClick,
@@ -3323,7 +3363,7 @@ function A2LessonChoiceRow({
   subtitle?: string
   description?: string
   medalDisplay?: LessonCardMedalDisplay | null
-  practiceBadge?: { text: string; title: string } | null
+  rewardIcons?: LessonMenuRewardIconsState | null
   selected: boolean
   enabled: boolean
   onClick?: () => void
@@ -3351,21 +3391,7 @@ function A2LessonChoiceRow({
         <span className="flex items-start justify-between gap-3">
           <span className="min-w-0 block text-[15px] font-normal leading-normal text-[var(--text)]">{label}</span>
           <span className="flex shrink-0 items-center gap-2.5 pt-px">
-            <span className="flex w-[1.375rem] shrink-0 items-center justify-center sm:w-6">
-              {medalDisplay ? (
-                <MedalBadge
-                  tier={medalDisplay.tier}
-                  size="md"
-                  muted={medalDisplay.muted}
-                  title={medalDisplay.title}
-                />
-              ) : null}
-            </span>
-            {practiceBadge ? (
-              <span className="emoji-line text-[13px] font-medium leading-none text-[var(--text)]" title={practiceBadge.title}>
-                {practiceBadge.text}
-              </span>
-            ) : null}
+            <LessonMenuRewardIcons rewardIcons={rewardIcons ?? null} medalDisplay={medalDisplay ?? null} size="md" />
             {selected ? (
               <CheckIcon className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden />
             ) : (
@@ -3439,10 +3465,12 @@ function AccentLessonRow({ label, lessonId, onClick }: { label: string; lessonId
 function MenuSettingRow({
   label,
   value,
+  trailing,
   onClick,
 }: {
   label: string
   value: string
+  trailing?: React.ReactNode
   onClick: () => void
 }) {
   return (
@@ -3452,6 +3480,7 @@ function MenuSettingRow({
       className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
     >
       <span className="shrink-0 text-sm font-medium leading-normal text-[var(--text-muted)]">{label}</span>
+      {trailing ? <span className="shrink-0">{trailing}</span> : null}
       <span
         className={`emoji-line min-w-0 flex-1 truncate-x whitespace-nowrap text-right text-[var(--text)] ${MENU_CHOICE_TEXT_CLASS}`}
       >

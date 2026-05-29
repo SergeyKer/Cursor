@@ -1,6 +1,6 @@
 export type PracticeTopicProgress = {
   lessonId: string
-  /** Счётчик 🔁 1–5 за тему (lifetime) */
+  /** Счётчик практик (📝) 1–5 за тему (lifetime) */
   ringCount: number
   globalRewardedCompletions: number
   consolidationSlotsFilled: number

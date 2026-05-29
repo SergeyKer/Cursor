@@ -5,6 +5,7 @@ import type { PracticeFooterState } from '@/lib/practice/practiceFooter'
 import type { LessonFooterSegment } from '@/lib/lessonFooter'
 import { formatComboSegmentText } from '@/lib/gamificationGlyphs'
 import { featureFlags } from '@/lib/featureFlags'
+import { formatPracticeProgressText, formatTopicCupBadgeText } from '@/lib/practice/practiceGlyphs'
 
 export function mapPracticeFlowToFooterState(
   state: 'idle' | 'active' | 'checking' | 'feedback' | 'correction' | 'generating_next' | 'completed' | 'error'
@@ -29,19 +30,23 @@ export function buildPracticeFooterLive(params: {
       ? `🎯 ${session.score}/${total}`
       : `🎯 ${current}/${total}`
 
-  const xpText = session.xp === 0 ? '⭐ 0 XP' : `⭐ +${session.xp}`
+  const xpText = session.xp === 0 ? '⭐ 0' : `⭐ +${session.xp}`
 
   const ringOrGemSegment: LessonFooterSegment =
     tier === 2 && featureFlags.practiceTopicCupsV1
       ? {
           kind: 'medal',
-          text: progress.cupClaimed ? '🏆 ✓' : `🏆 ${progress.ringCount}/5`,
+          text: progress.cupClaimed
+            ? formatTopicCupBadgeText()
+            : formatPracticeProgressText(progress.ringCount),
           title: progress.cupClaimed
             ? 'Тема сдана: золото + 5 практик'
-            : 'Кубок при 🥇 и 5 практиках',
+            : 'До кубка: практики при золотой медали',
           medalVisual: {
             mode: 'textOnly',
-            hintText: progress.cupClaimed ? '🏆 ✓' : `🏆 ${progress.ringCount}/5`,
+            hintText: progress.cupClaimed
+              ? formatTopicCupBadgeText()
+              : formatPracticeProgressText(progress.ringCount),
           },
         }
       : tier === 2 && featureFlags.practiceGemsV1
@@ -59,25 +64,28 @@ export function buildPracticeFooterLive(params: {
         : tier === 2
           ? {
               kind: 'medal',
-              text: `🔁 ${Math.min(progress.ringCount, 5)}/5`,
+              text: formatPracticeProgressText(progress.ringCount),
               title: 'Закрепление темы',
               medalVisual: {
                 mode: 'textOnly',
-                hintText: `🔁 ${Math.min(progress.ringCount, 5)}/5`,
+                hintText: formatPracticeProgressText(progress.ringCount),
               },
             }
           : {
           kind: 'medal',
-          text: `🔁 ${Math.min(progress.ringCount, 5)}/5`,
+          text: formatPracticeProgressText(progress.ringCount),
           title: 'Закрепление темы',
-          medalVisual: { mode: 'textOnly', hintText: `🔁 ${Math.min(progress.ringCount, 5)}/5` },
+          medalVisual: {
+            mode: 'textOnly',
+            hintText: formatPracticeProgressText(progress.ringCount),
+          },
         }
 
   const comboText = formatComboSegmentText(Math.max(1, session.streak))
 
   const lessonSegments: LessonFooterSegment[] = [
     { kind: 'goal', text: goalText, title: 'Текущее задание' },
-    { kind: 'xp', text: xpText, title: 'XP за сессию (не к уровню)' },
+    { kind: 'xp', text: xpText, title: 'Очки за сессию (не к уровню)' },
     ringOrGemSegment,
     {
       kind: 'combo',

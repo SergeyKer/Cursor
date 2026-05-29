@@ -14,23 +14,23 @@ export function applyRewardsEvent(state: RewardsState, event: RewardsEvent): Rew
       const amount = Math.max(0, Math.floor(event.amount))
       if (amount <= 0) return state
       return awardGlobalXp(state, amount, event.type, {
-        ticker: `+${amount} XP к уровню.`,
+        ticker: `+${amount} к уровню.`,
       })
     }
     case 'practice_completed': {
       const amount = Math.max(0, Math.floor(event.amount))
       if (amount <= 0) return state
       return awardGlobalXp(state, amount, event.type, {
-        ticker: event.ticker ?? `Практика завершена. +${amount} XP.`,
+        ticker: event.ticker ?? `Практика завершена. +${amount}.`,
       })
     }
     case 'accent_block_completed':
       return awardGlobalXp(state, 15, event.type, {
-        ticker: 'Блок произношения закрыт. +15 XP.',
+        ticker: 'Блок произношения закрыт. +15.',
       })
     case 'accent_session_completed':
       return awardGlobalXp(state, 30, event.type, {
-        ticker: 'Сессия произношения завершена. +30 XP.',
+        ticker: 'Сессия произношения завершена. +30.',
       })
     case 'communication_turn_completed':
       return incrementModeGoal(state, 'communication', {

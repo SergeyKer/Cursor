@@ -45,13 +45,17 @@ export function buildLessonReturnHint(params: {
   audience: FooterCopyAudience
   context: LessonReturnHintContext
   bestTotalXp: number
+  cycle1Closed?: boolean
+  silverCapThisRun?: boolean
 }): string {
   const { medal, audience, context, bestTotalXp } = params
   const lines = [
     MEDAL_PRESERVED_LINE[medal][audience],
     XP_RECORD_LINE[audience].replace('{bestTotalXp}', String(Math.max(0, Math.floor(bestTotalXp)))),
   ]
-  if (context === 'post_lesson_repeat') {
+  if (params.silverCapThisRun && params.cycle1Closed && context === 'menu_reopen') {
+    lines.push(REPEAT_CAP_LINE[medal][audience])
+  } else if (context === 'post_lesson_repeat') {
     lines.push(REPEAT_CAP_LINE[medal][audience])
   }
   return lines.join('\n')

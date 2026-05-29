@@ -337,8 +337,8 @@ export function awardGlobalXp(
   const levelView = calculateLevel(totalXP)
   const defaultTicker =
     streakBonus > 0
-      ? `+${totalAward} XP (в т.ч. +${streakBonus} за серию).`
-      : `+${safeAmount} XP. Отличный шаг вперёд.`
+      ? `+${totalAward} (в т.ч. +${streakBonus} за серию).`
+      : `+${safeAmount}. Отличный шаг вперёд.`
   const ticker = options?.ticker ?? defaultTicker
   const leveledUp = levelView.level > nextState.progress.level
   const rewardAt = new Date().toISOString()

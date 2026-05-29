@@ -7,6 +7,7 @@ import type { AiChatPanel } from '@/lib/aiChatPanel'
 import { getHomeMenuInstruction } from '@/lib/homeMenuInstruction'
 import { featureFlags } from '@/lib/featureFlags'
 import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
+import { MenuToggleIcon } from '@/components/MenuToggleIcon'
 import { HomeMenuInstructionBubble } from '@/components/HomeMenuInstructionBubble'
 import HomeEmptyBubble from '@/components/HomeEmptyBubble'
 import MenuSectionPanels, {
@@ -113,6 +114,7 @@ import {
   isLocalStructuredLessonRun,
   resolveLessonSilverCapForRun,
 } from '@/lib/lessonAntiFarm'
+import { buildLessonCycle1Hint } from '@/lib/lessonCycle1Hint'
 import { computeCorePercent, resolveMedalFromCoreXp } from '@/lib/lessonScore'
 import { getLessonBadgeDefinition, resolveLessonBadgeProgress } from '@/lib/lessonBadges'
 import { mergeLessonProgressOnComplete, migrateUserLessonProgress } from '@/lib/lessonProgressMigration'
@@ -382,14 +384,6 @@ function buildTutorFallbackBlueprint(topic: string): LessonBlueprint {
         'Напиши 3 коротких примера по шаблону.',
     },
   }
-}
-
-function MenuIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-    </svg>
-  )
 }
 
 /** Снимок настроек при открытии меню (для перезапуска чата без смены режима). */
@@ -722,6 +716,7 @@ export default function Home() {
     globalAmount: number
     ringCount: number
     gemsPending: boolean
+    cupClaimed: boolean
   } | null>(null)
   const [practiceProgressRevision, setPracticeProgressRevision] = React.useState(0)
   const finalizeLessonCycle1OnLeave = useCallback(() => {
@@ -4169,21 +4164,40 @@ export default function Home() {
   useEffect(() => {
     if (!storageLoaded || lessonViewStage !== 'lesson' || !activeStructuredLesson) return
     const progress = loadLessonProgress(activeStructuredLesson.id)
-    if (!progress?.medal) return
     const runKey = `${activeStructuredLesson.id}:${activeStructuredLesson.runKey ?? 'static'}`
     if (lessonReturnHintShownForRunRef.current === runKey) return
+
+    const origin = structuredLessonRunOriginRef.current
+    let hintText: string | null = null
+
+    if (progress?.cycle1Closed && !progress.medal) {
+      hintText = buildLessonCycle1Hint({
+        audience: settings.audience,
+        origin,
+      })
+    } else if (progress?.medal) {
+      const hintContext: LessonReturnHintContext =
+        origin === 'post_lesson_repeat' || origin === 'repeat_api'
+          ? 'post_lesson_repeat'
+          : 'menu_reopen'
+      hintText = buildLessonReturnHint({
+        medal: progress.medal,
+        audience: settings.audience,
+        context: hintContext,
+        bestTotalXp: progress.bestTotalXp ?? 0,
+        cycle1Closed: progress.cycle1Closed === true,
+        silverCapThisRun: resolveLessonSilverCapForRun({
+          origin,
+          variantNumber: activeLessonVariantNumber,
+          cycle1Closed: progress.cycle1Closed === true,
+          isRepeatRun: isStructuredLessonRepeatRun,
+        }),
+      })
+    }
+
+    if (!hintText) return
+
     lessonReturnHintShownForRunRef.current = runKey
-    const hintContext: LessonReturnHintContext =
-      structuredLessonRunOriginRef.current === 'post_lesson_repeat' ||
-      structuredLessonRunOriginRef.current === 'repeat_api'
-        ? 'post_lesson_repeat'
-        : 'menu_reopen'
-    const hintText = buildLessonReturnHint({
-      medal: progress.medal!,
-      audience: settings.audience,
-      context: hintContext,
-      bestTotalXp: progress.bestTotalXp ?? 0,
-    })
     const showTimerId = window.setTimeout(() => {
       setLessonReturnHintText(hintText)
     }, REWARD_POPUP_DELAY_AFTER_MESSAGE_MS)
@@ -4199,6 +4213,8 @@ export default function Home() {
     lessonViewStage,
     activeStructuredLesson,
     activeStructuredLesson?.runKey,
+    activeLessonVariantNumber,
+    isStructuredLessonRepeatRun,
     settings.audience,
   ])
 
@@ -4221,6 +4237,7 @@ export default function Home() {
       globalAmount: resolved.reward.globalAmount,
       ringCount: resolved.reward.progress.ringCount,
       gemsPending: resolved.reward.progress.gemsPending,
+      cupClaimed: resolved.reward.progress.cupClaimed,
     })
     setPracticeProgressRevision((n) => n + 1)
 
@@ -5548,7 +5565,8 @@ export default function Home() {
       coreDelta: activeStructuredLessonLastCoreDelta,
       comboDelta: activeStructuredLessonLastComboDelta,
       comboMilestoneBlocked: activeStructuredLessonLastXpAward.comboMilestoneBlocked,
-      isRepeatRun: structuredLessonSilverCap,
+      isRepeatRun: isStructuredLessonRepeatRun,
+      isLocalCycle1SilverCap: structuredLessonSilverCap && !isStructuredLessonRepeatRun,
       audience: settings.audience,
     })
   }, [
@@ -5565,15 +5583,20 @@ export default function Home() {
     activeStructuredLessonLastCoreDelta,
     activeStructuredLessonLastComboDelta,
     activeStructuredLessonLastXpAward.comboMilestoneBlocked,
+    isStructuredLessonRepeatRun,
     structuredLessonSilverCap,
     settings.audience,
   ])
   const lessonHeaderMedal = useMemo(() => {
     if (isStructuredLessonActive) {
+      const progress = activeStructuredLesson
+        ? loadLessonProgress(activeStructuredLesson.id)
+        : null
       return resolveLessonHeaderMedal({
         coreXp: activeStructuredLessonCoreXp,
         maxCoreXp: activeStructuredLessonMaxCoreXp,
         isFinale: activeStructuredLessonIsFinale,
+        cycle1Closed: progress?.cycle1Closed === true,
       })
     }
     if ((isLessonIntroActive || isLessonTipsActive) && activeLearningLessonId) {
@@ -5835,9 +5858,10 @@ export default function Home() {
               className="app-header-control chat-action-button flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center border text-[var(--app-header-text)] touch-manipulation"
               style={{ borderRadius: 'var(--app-header-control-radius)' }}
               aria-label={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
+              aria-expanded={menuOpen}
               title={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
             >
-              <MenuIcon />
+              <MenuToggleIcon open={menuOpen} />
             </button>
             <div className="pointer-events-auto flex h-10 min-h-[36px] shrink-0 items-center justify-end gap-1">
               {dialogStarted && settings.mode === 'communication' && !isLessonActive && !engvoVoiceMode && (
@@ -5922,6 +5946,7 @@ export default function Home() {
                 <span className="app-header-avatar mr-1 sm:mr-2 flex h-10 w-10 shrink-0 items-center justify-center">
                   <MedalBadge
                     tier={lessonHeaderMedal.tier}
+                    frozen={lessonHeaderMedal.frozen}
                     size="md"
                     muted={lessonHeaderMedal.muted}
                     title={lessonHeaderMedal.title}

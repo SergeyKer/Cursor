@@ -47,6 +47,7 @@ interface PracticeScreenProps {
     globalAmount: number
     ringCount: number
     gemsPending: boolean
+    cupClaimed: boolean
   } | null
   onSubmitAnswer: (answer: string) => void
   onNextQuestion: () => void
@@ -335,6 +336,7 @@ export default function PracticeScreen({
                   globalAmount={completionMeta?.globalAmount}
                   ringCount={completionMeta?.ringCount}
                   gemsPending={completionMeta?.gemsPending}
+                  cupClaimed={completionMeta?.cupClaimed}
                   onRepeat={onRepeat}
                   onChallenge={() => onStartMode(nextMode(session.mode))}
                   onOpenLesson={onOpenLesson}

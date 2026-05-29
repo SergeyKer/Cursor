@@ -13,9 +13,9 @@ export function formatStreakFooterPreview(
   const bonus = streakDailyBonusXp(streak)
   if (bonus <= 0) return null
   if (audience === 'child') {
-    return `${DAILY_STREAK_GLYPH}${streak}! Первый шаг сегодня +${bonus} XP!`
+    return `${DAILY_STREAK_GLYPH}${streak}! Первый шаг сегодня +${bonus}!`
   }
-  return `${DAILY_STREAK_GLYPH}${streak}: +${bonus} XP к первому шагу сегодня`
+  return `${DAILY_STREAK_GLYPH}${streak}: +${bonus} к первому шагу сегодня`
 }
 
 export function formatStreakFooterApplied(
@@ -30,9 +30,9 @@ export function formatStreakFooterApplied(
   const timestamp = new Date(lastReward.at).getTime()
   if (Number.isNaN(timestamp) || nowMs - timestamp > 35_000) return null
   if (audience === 'child') {
-    return `${DAILY_STREAK_GLYPH}${streak}! +${bonus} XP за первый шаг!`
+    return `${DAILY_STREAK_GLYPH}${streak}! +${bonus} за первый шаг!`
   }
-  return `Серия ${streak}: +${bonus} XP за первый шаг сегодня`
+  return `Серия ${streak}: +${bonus} за первый шаг сегодня`
 }
 
 export type StreakFooterPriority = 'reward' | 'applied' | 'sessionHint' | 'preview' | 'none'

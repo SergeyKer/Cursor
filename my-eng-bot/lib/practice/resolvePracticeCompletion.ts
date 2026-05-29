@@ -92,6 +92,7 @@ export function resolvePracticeCompletion(params: {
     fingerprint,
     scorePercent,
     sessionId: session.id,
+    economyTier: tier,
   })
 
   if (

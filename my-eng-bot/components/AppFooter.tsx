@@ -72,6 +72,14 @@ function LessonFooterMedalContent({
     return <span className={`${TRUNCATE_X_CLASS} text-left`}>{fallbackText}</span>
   }
 
+  if (visual.mode === 'frozen') {
+    return (
+      <span className="inline-flex max-w-full min-w-0 items-center justify-start gap-1.5 overflow-visible">
+        <MedalBadge frozen={visual.glyph} size="sm" title={visual.title ?? title} />
+      </span>
+    )
+  }
+
   if (visual.mode === 'tier') {
     return (
       <span className="inline-flex max-w-full min-w-0 items-center justify-start gap-1.5 overflow-visible">

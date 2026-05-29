@@ -1,6 +1,7 @@
 import type { PracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
 import type { PracticeGlobalXpResult } from '@/lib/practice/practiceGlobalXpAward'
 import type { PracticeTopicProgress } from '@/types/practiceTopicProgress'
+import { formatPracticeProgressText } from '@/lib/practice/practiceGlyphs'
 
 export type PracticeRewardUi = {
   id: string
@@ -34,14 +35,14 @@ export function buildPracticeRewardTopLine(params: {
   if (globalAmount > 0) {
     parts.push(
       audience === 'child'
-        ? `Практика готова! +${globalAmount} XP к уровню!`
-        : `Практика завершена. +${globalAmount} XP к уровню.`
+        ? `Практика готова! +${globalAmount} к уровню!`
+        : `Практика завершена. +${globalAmount} к уровню.`
     )
   } else if (tier === 0) {
     parts.push(
       audience === 'child'
-        ? `Супер! +${sessionXp} XP за сессию!`
-        : `Сессия закрыта. +${sessionXp} XP за практику.`
+        ? `Супер! +${sessionXp} за сессию!`
+        : `Сессия закрыта. +${sessionXp} за практику.`
     )
   } else {
     parts.push(
@@ -50,7 +51,8 @@ export function buildPracticeRewardTopLine(params: {
   }
 
   if (ringIncremented && ringCount > 0) {
-    parts.push(audience === 'child' ? `🔁 ${ringCount}/5 — ещё ближе!` : `🔁 ${ringCount}/5 за тему.`)
+    const progress = formatPracticeProgressText(ringCount)
+    parts.push(audience === 'child' ? `${progress} — ещё ближе!` : `${progress} за тему.`)
   }
 
   if (cupAwarded > 0) {

@@ -45,7 +45,7 @@ export function resolveLessonFooterTopLine(input: LessonFooterTopLineInput): str
 
   if (input.isRepeatWithSavedMedal) {
     return input.audience === 'child'
-      ? 'Повтор! XP к уровню — новый рекорд!'
+      ? 'Повтор! К уровню — новый рекорд!'
       : 'Повтор: к уровню — только рекорд.'
   }
 

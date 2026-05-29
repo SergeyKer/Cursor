@@ -1,4 +1,5 @@
 import { formatComboSegmentText } from '@/lib/gamificationGlyphs'
+import type { LessonFrozenMedalGlyph } from '@/lib/medalBadge'
 import { getLessonLearningSteps } from '@/lib/lessonFinale'
 import {
   coreXpToNextMedalTier,
@@ -39,6 +40,8 @@ export interface LessonFooterLiveInput {
   comboDelta?: number
   comboMilestoneBlocked?: boolean
   isRepeatRun?: boolean
+  /** Локальный проход после закрытия цикла 1 (не variant repeat). */
+  isLocalCycle1SilverCap?: boolean
   audience?: Audience
 }
 
@@ -46,8 +49,11 @@ export type LessonFooterSegmentKind = 'goal' | 'xp' | 'combo' | 'medal'
 
 export type LessonFooterAccountSegmentKind = 'totalXp' | 'streak'
 
+export type { LessonFrozenMedalGlyph } from '@/lib/medalBadge'
+
 export type LessonFooterMedalVisual =
   | { mode: 'tier'; tier: LessonMedalTier; muted?: boolean }
+  | { mode: 'frozen'; glyph: LessonFrozenMedalGlyph; title?: string }
   | {
       mode: 'progress'
       nextTier: LessonMedalTier
@@ -77,9 +83,16 @@ export interface LessonFooterLiveView {
 }
 
 export interface LessonCardMedalDisplay {
-  tier: LessonMedalTier
+  tier?: LessonMedalTier
   title: string
   muted?: boolean
+  frozen?: LessonFrozenMedalGlyph
+}
+
+const FROZEN_START_TITLE = 'Старт — медаль появится с первых очков'
+
+function frozenMedalDisplay(title: string): LessonCardMedalDisplay {
+  return { frozen: 'military', title }
 }
 
 export interface LessonStageProgress {
@@ -163,6 +176,18 @@ export function formatLessonCompletionFooter(medal: LessonMedalTierOrNull): stri
 const CYCLE1_CLOSED_MENU_TITLE =
   'Урок начат — золото только с первого прохода без выхода. Локально — до серебра; в сгенерированном варианте — снова до золота.'
 
+export function isLessonStartedForMenu(
+  progress: UserLessonProgress | null | undefined
+): boolean {
+  if (!progress) return false
+  return (
+    progress.cycle1Started === true ||
+    (progress.coreXp ?? 0) > 0 ||
+    progress.completedSteps.length > 0
+  )
+}
+
+/** Медаль в списке уроков: цветная только после финала (`progress.medal`); иначе 🎖. */
 export function resolveLessonCardMedal(
   progress: UserLessonProgress | null | undefined
 ): LessonCardMedalDisplay | null {
@@ -177,27 +202,14 @@ export function resolveLessonCardMedal(
   }
 
   if (progress.cycle1Closed) {
-    return {
-      tier: 'bronze',
-      muted: true,
-      title: CYCLE1_CLOSED_MENU_TITLE,
-    }
+    return frozenMedalDisplay(CYCLE1_CLOSED_MENU_TITLE)
   }
 
-  const coreXp = progress.coreXp ?? 0
-  if (coreXp <= 0) return null
-
-  const maxCoreXp =
-    typeof progress.maxCoreXp === 'number' && progress.maxCoreXp > 0
-      ? progress.maxCoreXp
-      : MAX_CORE_XP_DEFAULT
-  const live = resolveLiveFooterMedal(coreXp, maxCoreXp)
-  if (live.current === 'grey') return null
-
-  return {
-    tier: live.current,
-    title: MEDAL_LABEL[live.current],
+  if (isLessonStartedForMenu(progress)) {
+    return frozenMedalDisplay(FROZEN_START_TITLE)
   }
+
+  return null
 }
 
 function formatGoalSegment(stage: LessonStageProgress): LessonFooterSegment {
@@ -215,13 +227,13 @@ function formatXpSegment(input: LessonFooterLiveInput): LessonFooterSegment {
   const lessonXp = input.coreXp + input.comboXp
   const text =
     input.coreDelta && input.coreDelta > 0
-      ? `⭐${lessonXp}(+${input.coreDelta}) XP`
-      : `⭐${lessonXp} XP`
+      ? `⭐${lessonXp}(+${input.coreDelta})`
+      : `⭐${lessonXp}`
 
   return {
     kind: 'xp',
     text,
-    title: `${lessonXp} XP — очки этого прохода (+ за шаг). К уровню — отдельно, только прирост к рекорду.`,
+    title: `${lessonXp} — очки этого прохода (+ за шаг). К уровню — отдельно, только прирост к рекорду.`,
   }
 }
 
@@ -232,10 +244,10 @@ function formatComboSegment(input: LessonFooterLiveInput): LessonFooterSegment {
 
   if (comboDelta && comboDelta > 0) {
     text = formatComboSegmentText(combo, `(+${comboDelta})`)
-    title = `COMBO ×${combo}. +${comboDelta} XP в счёт этого прохода. ${title}`
+    title = `COMBO ×${combo}. +${comboDelta} очков в счёт этого прохода. ${title}`
   } else if (input.comboMilestoneBlocked && combo >= 3) {
     text = formatComboSegmentText(combo)
-    title = `COMBO ×${combo}. Серия в счёте урока; +XP к уровню откроется от 50% core. ${title}`
+    title = `COMBO ×${combo}. Серия в счёте урока; очки к уровню откроются от 50% core. ${title}`
   } else if (maxCombo > combo) {
     text = `${formatComboSegmentText(combo)} max ${maxCombo}`
     title = `COMBO сброшен (×${combo}). Рекорд COMBO ×${maxCombo}. Очки вех этого прохода уже в ⭐.`
@@ -269,13 +281,17 @@ function formatMedalFooterSegment(input: LessonFooterLiveInput): LessonFooterSeg
     return {
       kind: 'medal',
       text: '',
-      title: 'Первая медаль — бронза. Ответьте верно, чтобы начать.',
-      medalVisual: { mode: 'tier', tier: 'bronze', muted: true },
+      title: 'Первая медаль появится после верного ответа.',
+      medalVisual: { mode: 'frozen', glyph: 'military', title: FROZEN_START_TITLE },
     }
   }
 
   const live = resolveLiveFooterMedal(coreXp, maxCoreXp)
-  const repeatNote = input.isRepeatRun ? ' (повтор: max серебро за проход)' : ''
+  const repeatNote = input.isLocalCycle1SilverCap
+    ? ' (локальный проход после выхода: max серебро)'
+    : input.isRepeatRun
+      ? ' (повтор: max серебро за проход)'
+      : ''
   const toNext = coreXpToNextMedalTier(coreXp, maxCoreXp)
 
   if (!live.next || toNext == null) {
@@ -289,7 +305,7 @@ function formatMedalFooterSegment(input: LessonFooterLiveInput): LessonFooterSeg
   }
 
   const gap = medalGapPercent(coreXp, maxCoreXp)
-  const progressTitle = `${MEDAL_LABEL[live.current]}. До ${FINAL_MEDAL_LABEL[live.next].toLowerCase()}: ${gap}% точности (${toNext} XP за шаги).${repeatNote}`
+  const progressTitle = `${MEDAL_LABEL[live.current]}. До ${FINAL_MEDAL_LABEL[live.next].toLowerCase()}: ${gap}% точности (${toNext} очков за шаги).${repeatNote}`
 
   if (audience === 'child' && gap <= 8) {
     return {
@@ -336,7 +352,7 @@ export function buildLessonFooterLive(input: LessonFooterLiveInput): LessonFoote
     lessonSegments,
     accountSegments: [],
     accountLine: '',
-    lessonTitle: 'Этап урока · XP · COMBO · медаль',
+    lessonTitle: 'Этап урока · очки · COMBO · медаль',
     accountTitle: '',
   }
 }
@@ -346,8 +362,9 @@ export function resolveLessonHeaderMedal(input: {
   coreXp: number
   maxCoreXp: number
   isFinale: boolean
+  cycle1Closed?: boolean
 }): LessonCardMedalDisplay | null {
-  const { coreXp, maxCoreXp, isFinale } = input
+  const { coreXp, maxCoreXp, isFinale, cycle1Closed } = input
 
   if (isFinale) {
     const tier = resolveMedalFromCoreXp(coreXp, true, maxCoreXp) ?? 'gold'
@@ -358,11 +375,10 @@ export function resolveLessonHeaderMedal(input: {
   }
 
   if (coreXp <= 0) {
-    return {
-      tier: 'bronze',
-      muted: true,
-      title: MEDAL_LABEL.grey,
+    if (cycle1Closed) {
+      return frozenMedalDisplay(CYCLE1_CLOSED_MENU_TITLE)
     }
+    return frozenMedalDisplay(FROZEN_START_TITLE)
   }
 
   const live = resolveLiveFooterMedal(coreXp, maxCoreXp)

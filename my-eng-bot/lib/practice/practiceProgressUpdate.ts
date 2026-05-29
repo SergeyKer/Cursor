@@ -1,6 +1,8 @@
 import type { PracticeTopicProgress } from '@/types/practiceTopicProgress'
 import type { PracticeGlobalXpResult } from '@/lib/practice/practiceGlobalXpAward'
 import { computeRingBonusXp } from '@/lib/practice/practiceGlobalXpAward'
+import type { PracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
+import { featureFlags } from '@/lib/featureFlags'
 
 function pruneLocalFingerprints(
   entries: PracticeTopicProgress['localFingerprintsIn7d'],
@@ -16,6 +18,7 @@ export function applyPracticeProgressAfterCompletion(params: {
   fingerprint: string
   scorePercent: number
   sessionId: string
+  economyTier?: PracticeEconomyTier
   ringBonusXp?: number
   now?: number
 }): PracticeTopicProgress {
@@ -30,11 +33,15 @@ export function applyPracticeProgressAfterCompletion(params: {
     lastRewardedSessionId: sessionId,
   }
 
-  if (globalResult.ringIncrement && next.ringCount < 5) {
-    next = {
-      ...next,
-      ringCount: next.ringCount + 1,
-      ringCompleted: next.ringCount + 1 >= 5,
+  if (globalResult.ringIncrement && !next.cupClaimed) {
+    const allowAboveFive =
+      params.economyTier === 2 && featureFlags.practiceTopicCupsV1
+    if (allowAboveFive || next.ringCount < 5) {
+      next = {
+        ...next,
+        ringCount: next.ringCount + 1,
+        ringCompleted: next.ringCount + 1 >= 5,
+      }
     }
   }
 

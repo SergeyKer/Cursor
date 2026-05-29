@@ -17,7 +17,7 @@ function normalizeProgress(raw: unknown, lessonId: string): PracticeTopicProgres
     ...base,
     ...record,
     lessonId,
-    ringCount: Math.max(0, Math.min(5, Math.floor(record.ringCount ?? base.ringCount))),
+    ringCount: Math.max(0, Math.floor(record.ringCount ?? base.ringCount)),
     globalRewardedCompletions: Math.max(0, Math.floor(record.globalRewardedCompletions ?? 0)),
     consolidationSlotsFilled: Math.max(0, Math.min(5, Math.floor(record.consolidationSlotsFilled ?? 0))),
     rewardedFingerprints: Array.isArray(record.rewardedFingerprints)
