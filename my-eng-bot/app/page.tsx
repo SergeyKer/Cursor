@@ -744,12 +744,7 @@ export default function Home() {
       cycle1Closed: progress?.cycle1Closed === true,
       isRepeatRun: isStructuredLessonRepeatRun,
     })
-  }, [
-    activeStructuredLesson,
-    activeLessonVariantNumber,
-    isStructuredLessonRepeatRun,
-    practiceProgressRevision,
-  ])
+  }, [activeStructuredLesson, activeLessonVariantNumber, isStructuredLessonRepeatRun])
   const processedLessonXpAwardNonceRef = React.useRef(0)
   const processedLessonXpAwardKeyRef = React.useRef<string | null>(null)
   const globalLessonXpAwardedThisRunRef = React.useRef(0)
@@ -5350,7 +5345,13 @@ export default function Home() {
       ? recentRewardTicker
       : null
   const structuredLessonCompletionFooterText = useMemo(() => {
-    if (!isStructuredLessonActive || activeStructuredLessonStatus !== 'completed') return null
+    if (
+      !isStructuredLessonActive ||
+      activeStructuredLessonStatus !== 'completed' ||
+      !activeStructuredLesson
+    ) {
+      return null
+    }
     const earned = resolveMedalFromCoreXp(
       activeStructuredLessonCoreXp,
       true,
@@ -5361,7 +5362,7 @@ export default function Home() {
         structuredLessonRunOriginRef.current,
         activeLessonVariantNumber
       ),
-      cycle1Closed: loadLessonProgress(activeStructuredLesson!.id)?.cycle1Closed === true,
+      cycle1Closed: loadLessonProgress(activeStructuredLesson.id)?.cycle1Closed === true,
       isRepeatRun: isStructuredLessonRepeatRun,
     })
     return formatLessonCompletionFooter(medal)
@@ -5373,7 +5374,6 @@ export default function Home() {
     activeStructuredLesson,
     activeLessonVariantNumber,
     isStructuredLessonRepeatRun,
-    practiceProgressRevision,
   ])
   useEffect(() => {
     if (!isStructuredLessonActive) return
@@ -5608,6 +5608,7 @@ export default function Home() {
     isLessonIntroActive,
     isLessonTipsActive,
     activeLearningLessonId,
+    activeStructuredLesson,
     activeStructuredLessonCoreXp,
     activeStructuredLessonMaxCoreXp,
     activeStructuredLessonIsFinale,
@@ -6363,7 +6364,7 @@ export default function Home() {
                     setLessonViewStage('lesson')
                   }}
                 />
-              ) : isStructuredLessonActive && activeStructuredLessonStep ? (
+              ) : isStructuredLessonActive && activeStructuredLesson && activeStructuredLessonStep ? (
                 <LessonStepRenderer
                   timeline={activeStructuredLessonTimeline}
                   status={activeStructuredLessonStatus}
