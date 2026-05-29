@@ -8,6 +8,8 @@ export type PracticeTopicProgress = {
   ringBonusClaimed: boolean
   gemsClaimed: boolean
   gemsPending: boolean
+  /** Тема сдана: 🥇 в профиле + 5 практик */
+  cupClaimed: boolean
   rewardedFingerprints: string[]
   localFingerprintsIn7d: { fingerprint: string; at: number }[]
   slotScores: number[]
@@ -28,6 +30,7 @@ export function createEmptyPracticeTopicProgress(lessonId: string): PracticeTopi
     ringBonusClaimed: false,
     gemsClaimed: false,
     gemsPending: false,
+    cupClaimed: false,
     rewardedFingerprints: [],
     localFingerprintsIn7d: [],
     slotScores: [],

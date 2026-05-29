@@ -40,6 +40,7 @@ export default function LessonMedalFlowInfoStep({
       title={copy.title}
       statsLine={copy.statsLine}
       message={copy.message}
+      secondaryMessage={copy.cupLine ?? undefined}
       ariaLabel="Результат урока"
       onAction={onNext}
     />

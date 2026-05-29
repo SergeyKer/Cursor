@@ -2,6 +2,7 @@
 
 import type { PracticeMode, PracticeSession } from '@/types/practice'
 import type { PracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
+import { featureFlags } from '@/lib/featureFlags'
 import { getPracticeFinalePrimaryAction } from '@/lib/practice/practiceFinaleCta'
 
 interface PracticeFinaleProps {
@@ -73,7 +74,11 @@ export default function PracticeFinale({
           {session.score}/{total} верно, {session.xp} XP за сессию. {supportiveText}
         </p>
         {ringCount > 0 ? (
-          <p className="mt-1 text-xs text-green-700/90">🔁 {ringCount}/5 за тему{gemsPending ? ' · 💎 ждёт золото' : ''}</p>
+          <p className="mt-1 text-xs text-green-700/90">
+            {featureFlags.practiceTopicCupsV1 && tier === 2
+              ? `🏆 ${ringCount}/5 за тему`
+              : `🔁 ${ringCount}/5 за тему${gemsPending ? ' · 💎 ждёт золото' : ''}`}
+          </p>
         ) : null}
       </section>
       <button

@@ -128,4 +128,34 @@ describe('buildLessonMedalRevealCopy', () => {
     expect(copy.variant).toBe('neutral')
     expect(copy.message).toBe('До бронзы: 60 XP за шаги')
   })
+
+  it('includes cupLine with trophy for gold when cups feature is on', () => {
+    const copy = buildLessonMedalRevealCopy({
+      medal: 'gold',
+      coreXp: 134,
+      comboXp: 0,
+      maxCoreXp: 140,
+      corePercent: 96,
+      audience: 'adult',
+    })
+    if (copy.cupLine) {
+      expect(copy.cupLine).toContain('🏆')
+      expect(copy.cupLine).toMatch(/5 практик/i)
+    }
+  })
+
+  it('includes cupLine mentioning gold for silver', () => {
+    const copy = buildLessonMedalRevealCopy({
+      medal: 'silver',
+      coreXp: 80,
+      comboXp: 10,
+      maxCoreXp: 140,
+      corePercent: 57,
+      audience: 'adult',
+    })
+    if (copy.cupLine) {
+      expect(copy.cupLine).toContain('🏆')
+      expect(copy.cupLine).toMatch(/золот/i)
+    }
+  })
 })

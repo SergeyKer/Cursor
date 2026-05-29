@@ -109,4 +109,61 @@ describe('lessonProgressMigration', () => {
     expect(merged.medal).toBe('gold')
     expect(merged.bestTotalXp).toBe(170)
   })
+
+  it('caps gold to silver on local run after cycle1 closed', () => {
+    const previous = migrateUserLessonProgress(
+      {
+        lessonId: '1',
+        topic: 't',
+        level: 'A2',
+        cycle1Started: true,
+        cycle1Closed: true,
+        lessonCycle: 2,
+      },
+      '1'
+    )
+    const merged = mergeLessonProgressOnComplete(previous, {
+      lessonId: '1',
+      topic: 't',
+      level: 'A2',
+      completedSteps: [1, 2, 3, 4, 5, 6, 7],
+      completedVariants: [1],
+      coreXp: 130,
+      comboXp: 10,
+      maxCoreXp: 140,
+      maxCombo: 7,
+      mistakes: [],
+      isLocalLesson: true,
+      cycle1Closed: true,
+    })
+    expect(merged.medal).toBe('silver')
+  })
+
+  it('allows gold on menu_generate after cycle1 closed', () => {
+    const previous = migrateUserLessonProgress(
+      {
+        lessonId: '1',
+        topic: 't',
+        level: 'A2',
+        cycle1Started: true,
+        cycle1Closed: true,
+      },
+      '1'
+    )
+    const merged = mergeLessonProgressOnComplete(previous, {
+      lessonId: '1',
+      topic: 't',
+      level: 'A2',
+      completedSteps: [1, 2, 3, 4, 5, 6, 7],
+      completedVariants: [1],
+      coreXp: 130,
+      comboXp: 10,
+      maxCoreXp: 140,
+      maxCombo: 7,
+      mistakes: [],
+      isLocalLesson: false,
+      cycle1Closed: true,
+    })
+    expect(merged.medal).toBe('gold')
+  })
 })

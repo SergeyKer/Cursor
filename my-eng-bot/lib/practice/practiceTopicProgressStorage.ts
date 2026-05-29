@@ -32,6 +32,7 @@ function normalizeProgress(raw: unknown, lessonId: string): PracticeTopicProgres
     slotScores: Array.isArray(record.slotScores)
       ? record.slotScores.filter((v): v is number => typeof v === 'number')
       : [],
+    cupClaimed: Boolean(record.cupClaimed) || Boolean(record.gemsClaimed),
   }
 }
 

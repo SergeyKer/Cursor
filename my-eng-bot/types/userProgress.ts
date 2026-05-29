@@ -29,4 +29,10 @@ export interface UserLessonProgress {
   mistakes: Array<{ step: number; userAnswer: string; correctAnswer: string }>
   lastCompleted: string
   postLessonChoice?: PostLessonAction
+  /** Был хотя бы один отправленный ответ в рамках цикла 1 */
+  cycle1Started?: boolean
+  /** Цикл 1 закрыт без золотого финиша — локальный повтор только до серебра */
+  cycle1Closed?: boolean
+  /** 1 = первый проход к золоту, 2 = после броска цикла 1 */
+  lessonCycle?: number
 }

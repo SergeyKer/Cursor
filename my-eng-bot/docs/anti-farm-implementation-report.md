@@ -1,7 +1,7 @@
 # Отчёт: анти-фарм уроков + футер
 
-**Дата:** 2026-05-20  
-**Статус:** этапы 1–3 выполнены; P3 (пороги медалей) пропущен.
+**Дата:** 2026-05-20 (P4: 2026-05-29)  
+**Статус:** этапы 1–3 и **P4 (цикл 1 / локальное серебро)** выполнены; P3 (пороги медалей) пропущен.
 
 ---
 
@@ -13,11 +13,50 @@
 | 2. P1 медали + hint | сделано | `capMedalForRepeatRun`, `lessonReturnHint`, RewardPopup 10 с |
 | 3. P2-B combo | сделано | `getComboMilestoneXp` при core ≥ 50% |
 | 4. P3 пороги | пропущен | по решению продукта |
+| **5. P4 цикл 1** | **сделано** | `cycle1Started` / `cycle1Closed`, `lessonAntiFarm.ts`, серый слот в меню, cap gold→silver на локальном v1 после броска |
 | Футер | сделано | `lessonFooterTopLine`, сегменты ⭐/🔥, тексты |
 
 ---
 
-## Изменённые файлы
+## P4: цикл 1 / брошенный урок (2026-05-29)
+
+### Правила
+
+- Цикл 1 **начинается после первого отправленного ответа** (не по клику «Начать урок»).
+- Уход без золотого финиша → `cycle1Closed: true`, в меню **приглушённая бронза** (серый слот).
+- Повтор **локального** урока (`menu_reopen`, variant 1) после закрытия цикла 1 → **максимум серебро**.
+- **«Сгенерировать урок»** (`menu_generate`) → золото снова возможно при высоком счёте.
+- Пороги 90%/50%, XP к уровню, движок шагов — **не менялись**.
+
+### Файлы P4
+
+- `types/userProgress.ts` — `cycle1Started`, `cycle1Closed`, `lessonCycle`
+- `lib/lessonAntiFarm.ts` (новый), `lib/featureFlags.ts` — `lessonLocalSilverCapV1`
+- `lib/lessonProgressMigration.ts` — cap через `capLessonMedalForRun`
+- `lib/lessonFooter.ts` — `resolveLessonCardMedal` при `cycle1Closed`
+- `app/page.tsx` — begin/close цикла, `structuredLessonSilverCap`, reveal/footer
+- `components/MenuSectionPanels.tsx` — подпись в профиле
+- Тесты: `lessonAntiFarm.test.ts`, обновлены `lessonProgressMigration.test.ts`, `lessonFooter.test.ts`
+
+### Тесты P4
+
+```bash
+npx vitest run lib/lessonAntiFarm.test.ts lib/lessonProgressMigration.test.ts lib/lessonFooter.test.ts lib/lessonScore.test.ts
+```
+
+**Результат:** 46/46 passed.
+
+### QA P4 (вручную)
+
+1. Intro → выход, 0 ответов → **нет** серого слота.
+2. 1 ответ → выход → серый слот, `cycle1Closed`.
+3. После (2) локальный идеал → **серебро**, не золото.
+4. После (2) «Сгенерировать» → золото возможно.
+5. «Сгенерировать» → intro без ответа → без метки.
+
+---
+
+## Изменённые файлы (этапы 1–3)
 
 - `types/userProgress.ts` — `bestTotalXp`
 - `lib/lessonGlobalXpAward.ts`, `lib/lessonReturnHint.ts`, `lib/lessonFooterTopLine.ts`

@@ -9,6 +9,7 @@ export type FlowInfoCardProps = {
   title: string
   statsLine?: string
   message?: string
+  secondaryMessage?: string
   className?: string
 }
 
@@ -36,6 +37,7 @@ export default function FlowInfoCard({
   title,
   statsLine,
   message,
+  secondaryMessage,
   className = '',
 }: FlowInfoCardProps) {
   return (
@@ -51,6 +53,9 @@ export default function FlowInfoCard({
       {statsLine ? <p className="mt-1 text-sm text-slate-600">{statsLine}</p> : null}
       {message ? (
         <p className={`mt-1 text-sm font-medium ${MESSAGE_CLASS[variant]}`}>{message}</p>
+      ) : null}
+      {secondaryMessage ? (
+        <p className="mt-2 text-sm font-medium text-slate-700">{secondaryMessage}</p>
       ) : null}
     </section>
   )

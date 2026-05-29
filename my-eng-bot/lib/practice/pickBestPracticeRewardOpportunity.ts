@@ -1,5 +1,7 @@
+import type { LessonMedalTierOrNull } from '@/lib/lessonScore'
 import type { UserLessonProgress } from '@/types/userProgress'
 import type { PracticeTopicProgress } from '@/types/practiceTopicProgress'
+import { featureFlags } from '@/lib/featureFlags'
 import { resolvePracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
 import { getPracticeTopicProgress } from '@/lib/practice/practiceTopicProgressStorage'
 
@@ -22,17 +24,31 @@ function opportunityScore(opp: PracticeRewardOpportunity): number {
   return 100
 }
 
+function isGoldTopicComplete(progress: PracticeTopicProgress): boolean {
+  if (featureFlags.practiceTopicCupsV1) {
+    return progress.cupClaimed
+  }
+  return progress.gemsClaimed
+}
+
 export function pickBestPracticeRewardOpportunity(
   lessons: UserLessonProgress[],
   getProgress: (lessonId: string) => PracticeTopicProgress = getPracticeTopicProgress
 ): PracticeRewardOpportunity | null {
   const opportunities: PracticeRewardOpportunity[] = []
+  const useCups = featureFlags.practiceTopicCupsV1
 
   for (const lesson of lessons) {
     const tier = resolvePracticeEconomyTier(lesson.medal)
     const progress = getProgress(lesson.lessonId)
 
-    if (tier === 2 && progress.gemsPending && !progress.gemsClaimed) {
+    if (
+      !useCups &&
+      featureFlags.practiceGemsV1 &&
+      tier === 2 &&
+      progress.gemsPending &&
+      !progress.gemsClaimed
+    ) {
       opportunities.push({
         lessonId: lesson.lessonId,
         topic: lesson.topic,
@@ -57,7 +73,7 @@ export function pickBestPracticeRewardOpportunity(
       continue
     }
 
-    if (tier === 2 && !progress.gemsClaimed && progress.ringCount < 5) {
+    if (tier === 2 && !isGoldTopicComplete(progress) && progress.ringCount < 5) {
       opportunities.push({
         lessonId: lesson.lessonId,
         topic: lesson.topic,
@@ -76,7 +92,9 @@ export function pickBestPracticeRewardOpportunity(
           label: '',
           reason: 'gold_ring',
         }),
-        label: `${lesson.topic}: 🥇 🔁 ${progress.ringCount}/5`,
+        label: useCups
+          ? `${lesson.topic}: 🏆 ${progress.ringCount}/5`
+          : `${lesson.topic}: 🥇 🔁 ${progress.ringCount}/5`,
         reason: 'gold_ring',
       })
       continue
@@ -111,13 +129,45 @@ export function pickBestPracticeRewardOpportunity(
   return opportunities.sort((a, b) => b.score - a.score)[0] ?? null
 }
 
-export function formatPracticeProgressBadge(progress: PracticeTopicProgress, medal: UserLessonProgress['medal']): string {
+export function formatPracticeProgressBadge(
+  progress: PracticeTopicProgress,
+  medal: UserLessonProgress['medal']
+): string {
   const tier = resolvePracticeEconomyTier(medal)
   if (tier === 2) {
+    if (featureFlags.practiceTopicCupsV1) {
+      return progress.cupClaimed ? '🏆 ✓' : `🏆 ${progress.ringCount}/5`
+    }
     return progress.gemsClaimed ? '🥇 ✓' : `🥇 🔁 ${progress.ringCount}/5`
   }
   if (tier === 1) {
     return `🔁 ${progress.ringCount}/5`
   }
   return '⭐'
+}
+
+export function resolveLessonMenuPracticeBadge(
+  lessonId: string,
+  medal: LessonMedalTierOrNull | null | undefined
+): { text: string; title: string } | null {
+  if (!featureFlags.practiceTopicCupsV1 || !medal) return null
+  const progress = getPracticeTopicProgress(lessonId)
+  const text = formatPracticeProgressBadge(progress, medal)
+  const title = practiceProgressBadgeTitle(progress, medal)
+  if (!text || text === '⭐') return null
+  return { text, title: title || text }
+}
+
+export function practiceProgressBadgeTitle(
+  progress: PracticeTopicProgress,
+  medal: UserLessonProgress['medal']
+): string {
+  const tier = resolvePracticeEconomyTier(medal)
+  if (tier === 2 && featureFlags.practiceTopicCupsV1) {
+    if (progress.cupClaimed) return 'Тема сдана: золото + 5 практик'
+    const left = Math.max(0, 5 - progress.ringCount)
+    return `До сдачи темы: ${left} практик при золотой медали`
+  }
+  if (tier === 1) return 'Кубок только при золотой медали'
+  return ''
 }

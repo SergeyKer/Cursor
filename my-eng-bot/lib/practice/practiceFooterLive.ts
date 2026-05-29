@@ -4,6 +4,7 @@ import type { PracticeTopicProgress } from '@/types/practiceTopicProgress'
 import type { PracticeFooterState } from '@/lib/practice/practiceFooter'
 import type { LessonFooterSegment } from '@/lib/lessonFooter'
 import { formatComboSegmentText } from '@/lib/gamificationGlyphs'
+import { featureFlags } from '@/lib/featureFlags'
 
 export function mapPracticeFlowToFooterState(
   state: 'idle' | 'active' | 'checking' | 'feedback' | 'correction' | 'generating_next' | 'completed' | 'error'
@@ -31,19 +32,41 @@ export function buildPracticeFooterLive(params: {
   const xpText = session.xp === 0 ? '⭐ 0 XP' : `⭐ +${session.xp}`
 
   const ringOrGemSegment: LessonFooterSegment =
-    tier === 2
+    tier === 2 && featureFlags.practiceTopicCupsV1
       ? {
           kind: 'medal',
-          text: progress.gemsClaimed ? '💎 ✓' : gemsPending ? '💎 ⏳' : `💎 ${progress.ringCount}/5`,
-          title: progress.gemsClaimed
-            ? 'Камень за тему получен'
-            : 'Камень при 🥇 и закреплении темы',
+          text: progress.cupClaimed ? '🏆 ✓' : `🏆 ${progress.ringCount}/5`,
+          title: progress.cupClaimed
+            ? 'Тема сдана: золото + 5 практик'
+            : 'Кубок при 🥇 и 5 практиках',
           medalVisual: {
             mode: 'textOnly',
-            hintText: progress.gemsClaimed ? '💎 ✓' : gemsPending ? '💎 ⏳' : `💎 ${progress.ringCount}/5`,
+            hintText: progress.cupClaimed ? '🏆 ✓' : `🏆 ${progress.ringCount}/5`,
           },
         }
-      : {
+      : tier === 2 && featureFlags.practiceGemsV1
+        ? {
+            kind: 'medal',
+            text: progress.gemsClaimed ? '💎 ✓' : gemsPending ? '💎 ⏳' : `💎 ${progress.ringCount}/5`,
+            title: progress.gemsClaimed
+              ? 'Камень за тему получен'
+              : 'Камень при 🥇 и закреплении темы',
+            medalVisual: {
+              mode: 'textOnly',
+              hintText: progress.gemsClaimed ? '💎 ✓' : gemsPending ? '💎 ⏳' : `💎 ${progress.ringCount}/5`,
+            },
+          }
+        : tier === 2
+          ? {
+              kind: 'medal',
+              text: `🔁 ${Math.min(progress.ringCount, 5)}/5`,
+              title: 'Закрепление темы',
+              medalVisual: {
+                mode: 'textOnly',
+                hintText: `🔁 ${Math.min(progress.ringCount, 5)}/5`,
+              },
+            }
+          : {
           kind: 'medal',
           text: `🔁 ${Math.min(progress.ringCount, 5)}/5`,
           title: 'Закрепление темы',

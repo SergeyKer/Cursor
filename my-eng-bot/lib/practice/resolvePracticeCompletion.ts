@@ -9,7 +9,9 @@ import {
 import { applyPracticeProgressAfterCompletion } from '@/lib/practice/practiceProgressUpdate'
 import { buildPracticeCompletionTicker, isLegacyPracticeEconomy } from '@/lib/practice/practiceCompletionRewards'
 import { createPracticeRewardUi, type PracticeRewardUi } from '@/lib/practice/practiceRewardUi'
+import { featureFlags } from '@/lib/featureFlags'
 import { applyPracticeGemsProgress, resolvePracticeGems } from '@/lib/practice/resolvePracticeGems'
+import { applyTopicCupProgress, resolveTopicCup } from '@/lib/practice/resolveTopicCup'
 import {
   addPracticeGlobalXpToday,
   getPracticeGlobalXpToday,
@@ -51,6 +53,7 @@ export function resolvePracticeCompletion(params: {
       ringCount: progress.ringCount,
       ringIncremented: false,
       gemsAwarded: 0,
+      cupAwarded: 0,
       tier,
       ticker,
       progress,
@@ -64,6 +67,7 @@ export function resolvePracticeCompletion(params: {
       progress,
       ringIncremented: false,
       gemsAwarded: 0,
+      cupAwarded: 0,
       audience,
     })
     return { reward, rewardUi, globalXpToAward: globalAmount, ringBonusXp: 0 }
@@ -103,8 +107,17 @@ export function resolvePracticeCompletion(params: {
     progress = { ...progress, ringBonusClaimed: true }
   }
 
-  const gemsResult = resolvePracticeGems({ tier, progress, ringIncremented })
-  progress = applyPracticeGemsProgress(progress, gemsResult)
+  let gemsAwarded = 0
+  let cupAwarded = 0
+  if (featureFlags.practiceTopicCupsV1) {
+    const cupResult = resolveTopicCup({ tier, progress, ringIncremented })
+    progress = applyTopicCupProgress(progress, cupResult)
+    cupAwarded = cupResult.awarded
+  } else if (featureFlags.practiceGemsV1) {
+    const gemsResult = resolvePracticeGems({ tier, progress, ringIncremented })
+    progress = applyPracticeGemsProgress(progress, gemsResult)
+    gemsAwarded = gemsResult.awarded
+  }
 
   savePracticeTopicProgress(progress)
   if (globalResult.amount > 0) {
@@ -121,7 +134,8 @@ export function resolvePracticeCompletion(params: {
     ringCount: progress.ringCount,
     ringIncremented,
     tier,
-    gemsAwarded: gemsResult.awarded,
+    gemsAwarded,
+    cupAwarded,
   })
 
   const reward: PracticeCompletionReward = {
@@ -130,7 +144,8 @@ export function resolvePracticeCompletion(params: {
     globalReason: globalResult.reason,
     ringCount: progress.ringCount,
     ringIncremented,
-    gemsAwarded: gemsResult.awarded,
+    gemsAwarded,
+    cupAwarded,
     tier,
     ticker,
     progress,
@@ -144,7 +159,8 @@ export function resolvePracticeCompletion(params: {
     tier,
     progress,
     ringIncremented,
-    gemsAwarded: gemsResult.awarded,
+    gemsAwarded,
+    cupAwarded,
     audience,
   })
 

@@ -278,6 +278,20 @@ describe('resolveLessonCardMedal', () => {
     expect(resolveLessonCardMedal(baseProgress)).toBeNull()
   })
 
+  it('returns muted bronze when cycle1 closed without medal', () => {
+    expect(
+      resolveLessonCardMedal({
+        ...baseProgress,
+        cycle1Started: true,
+        cycle1Closed: true,
+      })
+    ).toEqual({
+      tier: 'bronze',
+      muted: true,
+      title: expect.stringContaining('Урок начат'),
+    })
+  })
+
   it('prefers saved medal over live state', () => {
     expect(
       resolveLessonCardMedal({

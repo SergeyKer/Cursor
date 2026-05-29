@@ -160,6 +160,9 @@ export function formatLessonCompletionFooter(medal: LessonMedalTierOrNull): stri
   return 'Урок пройден! Отличная работа!'
 }
 
+const CYCLE1_CLOSED_MENU_TITLE =
+  'Урок начат — золото только с первого прохода без выхода. Локально — до серебра; в сгенерированном варианте — снова до золота.'
+
 export function resolveLessonCardMedal(
   progress: UserLessonProgress | null | undefined
 ): LessonCardMedalDisplay | null {
@@ -170,6 +173,14 @@ export function resolveLessonCardMedal(
     return {
       tier,
       title: MEDAL_LABEL[tier],
+    }
+  }
+
+  if (progress.cycle1Closed) {
+    return {
+      tier: 'bronze',
+      muted: true,
+      title: CYCLE1_CLOSED_MENU_TITLE,
     }
   }
 

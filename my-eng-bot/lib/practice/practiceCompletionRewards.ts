@@ -10,6 +10,7 @@ export type PracticeCompletionReward = {
   ringCount: number
   ringIncremented: boolean
   gemsAwarded: number
+  cupAwarded: number
   tier: PracticeEconomyTier
   ticker: string
   progress: PracticeTopicProgress
@@ -22,6 +23,7 @@ export function buildPracticeCompletionTicker(params: {
   ringIncremented: boolean
   tier: PracticeEconomyTier
   gemsAwarded: number
+  cupAwarded: number
 }): string {
   const parts: string[] = []
   if (params.globalAmount > 0) {
@@ -34,7 +36,9 @@ export function buildPracticeCompletionTicker(params: {
   if (params.ringIncremented && params.ringCount > 0) {
     parts.push(`🔁 ${params.ringCount}/5`)
   }
-  if (params.gemsAwarded > 0) {
+  if (params.cupAwarded > 0) {
+    parts.push('Тема сдана 🏆')
+  } else if (params.gemsAwarded > 0) {
     parts.push(`+${params.gemsAwarded} 💎`)
   }
   return parts.join('. ') + '.'

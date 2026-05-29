@@ -1,5 +1,6 @@
 import type { PracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
 import type { PracticeMode } from '@/types/practice'
+import { featureFlags } from '@/lib/featureFlags'
 
 export type PracticeFinalePrimaryAction = 'repeat' | 'challenge' | 'openLesson' | 'menu'
 
@@ -15,8 +16,10 @@ export function getPracticeFinalePrimaryAction(params: {
   if (tier === 2 && !gemsPending && ringCount < 5) {
     return {
       action: 'repeat',
-      label: 'Повторить (к 🔁 5/5)',
-      hint: 'Золотая медаль есть — закрепите тему для 💎.',
+      label: featureFlags.practiceTopicCupsV1 ? 'Повторить (к 🏆 5/5)' : 'Повторить (к 🔁 5/5)',
+      hint: featureFlags.practiceTopicCupsV1
+        ? 'Золотая медаль есть — до кубка темы 🏆 осталось 5 практик.'
+        : 'Золотая медаль есть — закрепите тему для 💎.',
     }
   }
 

@@ -1,4 +1,5 @@
 import type { FooterCopyAudience } from '@/lib/footerTopLinePhrases'
+import { featureFlags } from '@/lib/featureFlags'
 import { coreXpToNextMedalTier, type LessonMedalTierOrNull } from '@/lib/lessonScore'
 import { MEDAL_TIER_EMOJI } from '@/lib/medalBadge'
 
@@ -19,6 +20,7 @@ export type LessonMedalRevealCopy = {
   title: string
   statsLine: string
   message: string
+  cupLine: string | null
 }
 
 const MEDAL_TITLE: Record<NonNullable<LessonMedalTierOrNull>, string> = {
@@ -86,6 +88,32 @@ function formatMessage(input: LessonMedalRevealCopyInput): string {
     : `До бронзы: ${gapToBronze} XP за шаги`
 }
 
+export function formatTopicCupGoalLine(
+  medal: LessonMedalTierOrNull,
+  audience: FooterCopyAudience
+): string | null {
+  if (!featureFlags.practiceTopicCupsV1) return null
+
+  if (medal === 'gold') {
+    return audience === 'child'
+      ? 'Кубок 🏆 — ещё 5 практик после золота. Пойдём в практику?'
+      : 'Кубок темы 🏆: пройдите 5 практик по этой теме (от 50% в сессии). Медаль урока уже есть.'
+  }
+  if (medal === 'silver') {
+    return audience === 'child'
+      ? 'Кубок 🏆 — сначала золото 🥇, потом 5 практик.'
+      : 'Кубок 🏆: сначала золотая медаль в уроке, затем 5 практик. Сейчас — путь к золоту.'
+  }
+  if (medal === 'bronze') {
+    return audience === 'child'
+      ? 'Кубок 🏆 — нужны золото и 5 практик. Сначала — больше правильных ответов.'
+      : 'Кубок 🏆: золото в уроке + 5 практик. Сейчас — поднимайте медаль.'
+  }
+  return audience === 'child'
+    ? 'Кубок 🏆 — когда будет золото и 5 практик. Сначала — медаль за урок.'
+    : 'Кубок темы 🏆: золотая медаль + 5 практик. Сначала — медаль за урок.'
+}
+
 export function buildLessonMedalRevealCopy(input: LessonMedalRevealCopyInput): LessonMedalRevealCopy {
   const { medal } = input
   const title = medal ? MEDAL_TITLE[medal] : 'Урок пройден!'
@@ -97,5 +125,6 @@ export function buildLessonMedalRevealCopy(input: LessonMedalRevealCopyInput): L
     title,
     statsLine: formatStatsLine(input),
     message: formatMessage(input),
+    cupLine: formatTopicCupGoalLine(medal, input.audience),
   }
 }

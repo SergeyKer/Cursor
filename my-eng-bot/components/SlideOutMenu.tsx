@@ -86,6 +86,7 @@ interface SlideOutMenuProps {
   bottomOffset?: string
   /** Границы колонки приложения (измеряются в шапке). */
   columnBounds?: AppColumnBounds | null
+  practiceProgressRevision?: number
 }
 
 export default function SlideOutMenu({
@@ -125,6 +126,7 @@ export default function SlideOutMenu({
   topOffset = 'calc(2.75rem + env(safe-area-inset-top, 0px))',
   bottomOffset = '0px',
   columnBounds = null,
+  practiceProgressRevision = 0,
 }: SlideOutMenuProps) {
   const [menuView, setMenuView] = React.useState<MenuView>('root')
   const panelPositioned = columnBounds != null
@@ -224,6 +226,7 @@ export default function SlideOutMenu({
         onAdaptiveFooterViewChange={onAdaptiveFooterViewChange}
         onOpenTutorLesson={onOpenTutorLesson}
         onPracticeTheoryTagFilterPersist={onPracticeTheoryTagFilterPersist}
+        practiceProgressRevision={practiceProgressRevision}
         initialLessonsPanel={menuView === 'lessons' ? lessonMenuContext?.lessonsPanel : undefined}
         initialLessonMenuContext={
           menuView === 'lessons' && lessonMenuContext

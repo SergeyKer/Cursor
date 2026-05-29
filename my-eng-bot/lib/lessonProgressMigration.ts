@@ -1,5 +1,5 @@
+import { capLessonMedalForRun } from '@/lib/lessonAntiFarm'
 import {
-  capMedalForRepeatRun,
   computeCorePercent,
   computeStrengthPercent,
   MAX_CORE_XP_DEFAULT,
@@ -78,6 +78,9 @@ export function migrateUserLessonProgress(
       : [],
     lastCompleted: typeof row.lastCompleted === 'string' ? row.lastCompleted : '',
     ...(typeof row.postLessonChoice === 'string' ? { postLessonChoice: row.postLessonChoice } : {}),
+    cycle1Started: row.cycle1Started === true,
+    cycle1Closed: row.cycle1Closed === true,
+    ...(typeof row.lessonCycle === 'number' ? { lessonCycle: row.lessonCycle } : {}),
   }
 }
 
@@ -96,13 +99,19 @@ export function mergeLessonProgressOnComplete(
     mistakes: UserLessonProgress['mistakes']
     postLessonChoice?: UserLessonProgress['postLessonChoice']
     isRepeatRun?: boolean
+    isLocalLesson?: boolean
+    cycle1Closed?: boolean
   }
 ): UserLessonProgress {
   const totalXp = session.coreXp + session.comboXp
   const corePercent = computeCorePercent(session.coreXp, session.maxCoreXp)
   const strengthPercent = computeStrengthPercent(totalXp, session.maxCoreXp)
   const earnedMedal = resolveMedalFromCoreXp(session.coreXp, true, session.maxCoreXp)
-  const medal = capMedalForRepeatRun(earnedMedal, session.isRepeatRun === true)
+  const medal = capLessonMedalForRun(earnedMedal, {
+    isLocalLesson: session.isLocalLesson === true,
+    cycle1Closed: session.cycle1Closed === true || previous?.cycle1Closed === true,
+    isRepeatRun: session.isRepeatRun === true,
+  })
   const bestCoreXp = Math.max(previous?.bestCoreXp ?? 0, session.coreXp)
   const bestTotalXp = Math.max(previous?.bestTotalXp ?? 0, totalXp)
   const mergedMedal = upgradeMedal(previous?.medal ?? null, medal)
@@ -133,6 +142,9 @@ export function mergeLessonProgressOnComplete(
       lessonBadgeEarned: previous?.lessonBadgeEarned,
       lessonBadgeEarnedAt: previous?.lessonBadgeEarnedAt,
       lessonBadgeCriteriaMet: previous?.lessonBadgeCriteriaMet,
+      cycle1Started: previous?.cycle1Started === true || session.coreXp > 0 || session.mistakes.length > 0,
+      cycle1Closed: previous?.cycle1Closed === true,
+      lessonCycle: previous?.lessonCycle,
     },
     session.lessonId
   )

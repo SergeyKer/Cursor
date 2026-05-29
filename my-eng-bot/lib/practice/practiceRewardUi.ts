@@ -10,6 +10,7 @@ export type PracticeRewardUi = {
   ringCount: number
   ringIncremented: boolean
   gemsAwarded: number
+  cupAwarded: number
   tier: PracticeEconomyTier
   topLine: string
   popupText: string
@@ -24,9 +25,10 @@ export function buildPracticeRewardTopLine(params: {
   ringCount: number
   ringIncremented: boolean
   gemsAwarded: number
+  cupAwarded: number
   audience: 'adult' | 'child'
 }): string {
-  const { sessionXp, globalAmount, tier, ringCount, ringIncremented, gemsAwarded, audience } = params
+  const { sessionXp, globalAmount, tier, ringCount, ringIncremented, gemsAwarded, cupAwarded, audience } = params
   const parts: string[] = []
 
   if (globalAmount > 0) {
@@ -51,7 +53,9 @@ export function buildPracticeRewardTopLine(params: {
     parts.push(audience === 'child' ? `🔁 ${ringCount}/5 — ещё ближе!` : `🔁 ${ringCount}/5 за тему.`)
   }
 
-  if (gemsAwarded > 0) {
+  if (cupAwarded > 0) {
+    parts.push(audience === 'child' ? 'Тема сдана! 🏆' : 'Тема сдана. Кубок 🏆')
+  } else if (gemsAwarded > 0) {
     parts.push(audience === 'child' ? `+${gemsAwarded} 💎!` : `+${gemsAwarded} камней.`)
   }
 
@@ -63,9 +67,13 @@ export function buildPracticeRewardPopupText(params: {
   globalAmount: number
   tier: PracticeEconomyTier
   audience: 'adult' | 'child'
+  cupAwarded?: number
   levelUp?: { from: number; to: number } | null
 }): string {
-  const { sessionXp, globalAmount, tier, audience, levelUp } = params
+  const { sessionXp, globalAmount, tier, audience, cupAwarded = 0, levelUp } = params
+  if (cupAwarded > 0) {
+    return audience === 'child' ? 'Тема сдана! 🏆' : 'Тема сдана. Кубок темы 🏆'
+  }
   if (levelUp) {
     return audience === 'child'
       ? `Новый уровень ${levelUp.to}! +${globalAmount || sessionXp} XP!`
@@ -91,6 +99,7 @@ export function createPracticeRewardUi(params: {
   progress: PracticeTopicProgress
   ringIncremented: boolean
   gemsAwarded: number
+  cupAwarded: number
   audience: 'adult' | 'child'
 }): PracticeRewardUi {
   const topLine = buildPracticeRewardTopLine({
@@ -100,6 +109,7 @@ export function createPracticeRewardUi(params: {
     ringCount: params.progress.ringCount,
     ringIncremented: params.ringIncremented,
     gemsAwarded: params.gemsAwarded,
+    cupAwarded: params.cupAwarded,
     audience: params.audience,
   })
   const popupText = buildPracticeRewardPopupText({
@@ -107,6 +117,7 @@ export function createPracticeRewardUi(params: {
     globalAmount: params.globalAmount,
     tier: params.tier,
     audience: params.audience,
+    cupAwarded: params.cupAwarded,
   })
   return {
     id: params.sessionId,
@@ -116,10 +127,15 @@ export function createPracticeRewardUi(params: {
     ringCount: params.progress.ringCount,
     ringIncremented: params.ringIncremented,
     gemsAwarded: params.gemsAwarded,
+    cupAwarded: params.cupAwarded,
     tier: params.tier,
     topLine,
     popupText,
-    showPopup: params.globalAmount > 0 || params.tier === 0 || params.gemsAwarded > 0,
+    showPopup:
+      params.globalAmount > 0 ||
+      params.tier === 0 ||
+      params.gemsAwarded > 0 ||
+      params.cupAwarded > 0,
     at: Date.now(),
   }
 }

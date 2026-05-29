@@ -106,7 +106,14 @@ import {
   formatLessonHeaderProgressAriaLabel,
   formatLessonHeaderProgressLabel,
 } from '@/lib/lessonHeaderProgress'
-import { capMedalForRepeatRun, computeCorePercent, resolveMedalFromCoreXp } from '@/lib/lessonScore'
+import {
+  beginLessonCycle1,
+  capLessonMedalForRun,
+  closeLessonCycle1,
+  isLocalStructuredLessonRun,
+  resolveLessonSilverCapForRun,
+} from '@/lib/lessonAntiFarm'
+import { computeCorePercent, resolveMedalFromCoreXp } from '@/lib/lessonScore'
 import { getLessonBadgeDefinition, resolveLessonBadgeProgress } from '@/lib/lessonBadges'
 import { mergeLessonProgressOnComplete, migrateUserLessonProgress } from '@/lib/lessonProgressMigration'
 import { loadLessonProgress, saveLessonProgress } from '@/lib/lessonProgressStorage'
@@ -671,6 +678,9 @@ export default function Home() {
     activeLessonVariantNumber > 1 ||
     structuredLessonRunOriginRef.current === 'post_lesson_repeat' ||
     structuredLessonRunOriginRef.current === 'repeat_api'
+  const lessonFirstAnswerTrackedRef = React.useRef(false)
+  const lessonCycle1ActiveSessionRef = React.useRef(false)
+  const finalizeLessonCycle1OnLeaveRef = React.useRef<() => void>(() => {})
 
   const practiceSession = usePracticeSession()
   const { abandonSession: abandonPracticeSession, startSession: startPracticeSession } = practiceSession
@@ -713,6 +723,38 @@ export default function Home() {
     ringCount: number
     gemsPending: boolean
   } | null>(null)
+  const [practiceProgressRevision, setPracticeProgressRevision] = React.useState(0)
+  const finalizeLessonCycle1OnLeave = useCallback(() => {
+    const lessonId = activeStructuredLesson?.id ?? activeLearningLessonId
+    if (!lessonId || !lessonCycle1ActiveSessionRef.current) return
+    if (activeStructuredLessonStatus === 'completed') {
+      lessonCycle1ActiveSessionRef.current = false
+      return
+    }
+    closeLessonCycle1(lessonId)
+    lessonCycle1ActiveSessionRef.current = false
+    setPracticeProgressRevision((n) => n + 1)
+  }, [
+    activeStructuredLesson?.id,
+    activeLearningLessonId,
+    activeStructuredLessonStatus,
+  ])
+  finalizeLessonCycle1OnLeaveRef.current = finalizeLessonCycle1OnLeave
+  const structuredLessonSilverCap = React.useMemo(() => {
+    if (!activeStructuredLesson) return isStructuredLessonRepeatRun
+    const progress = loadLessonProgress(activeStructuredLesson.id)
+    return resolveLessonSilverCapForRun({
+      origin: structuredLessonRunOriginRef.current,
+      variantNumber: activeLessonVariantNumber,
+      cycle1Closed: progress?.cycle1Closed === true,
+      isRepeatRun: isStructuredLessonRepeatRun,
+    })
+  }, [
+    activeStructuredLesson,
+    activeLessonVariantNumber,
+    isStructuredLessonRepeatRun,
+    practiceProgressRevision,
+  ])
   const processedLessonXpAwardNonceRef = React.useRef(0)
   const processedLessonXpAwardKeyRef = React.useRef<string | null>(null)
   const globalLessonXpAwardedThisRunRef = React.useRef(0)
@@ -2458,6 +2500,7 @@ export default function Home() {
   ensureFirstMessageRef.current = ensureFirstMessage
 
   const resetStructuredLessonSession = useCallback((options?: { keepLessonMenuContext?: boolean }) => {
+    finalizeLessonCycle1OnLeaveRef.current()
     menuLessonGenerateCleanupRef.current?.()
     menuLessonBgFetchEpochRef.current += 1
     setStructuredLessonVariantRegenerating(false)
@@ -2488,6 +2531,8 @@ export default function Home() {
     setLessonExtraTipsStatus('idle')
     setLessonExtraTipsState(null)
     setStartLessonCtaFromMenuGenerate(false)
+    lessonFirstAnswerTrackedRef.current = false
+    lessonCycle1ActiveSessionRef.current = false
   }, [abandonPracticeSession])
   resetStructuredLessonSessionRef.current = resetStructuredLessonSession
 
@@ -2701,10 +2746,19 @@ export default function Home() {
           activeLessonVariantNumber > 1 ||
           structuredLessonRunOriginRef.current === 'post_lesson_repeat' ||
           structuredLessonRunOriginRef.current === 'repeat_api'
+        const isLocalLesson = isLocalStructuredLessonRun(
+          structuredLessonRunOriginRef.current,
+          activeLessonVariantNumber
+        )
         let merged = mergeLessonProgressOnComplete(previous, {
           ...sessionBase,
           isRepeatRun,
+          isLocalLesson,
+          cycle1Closed: previous?.cycle1Closed === true,
         })
+        if (merged.medal === 'gold') {
+          lessonCycle1ActiveSessionRef.current = false
+        }
         const badgeDefinition = getLessonBadgeDefinition(lessonId)
         if (badgeDefinition) {
           const badgeProgress = resolveLessonBadgeProgress(merged, badgeDefinition, merged.medal)
@@ -2784,6 +2838,8 @@ export default function Home() {
       setPendingTutorLessonTitle(null)
       setActiveLessonVariantNumber(1)
       structuredLessonRunOriginRef.current = 'menu_reopen'
+      lessonFirstAnswerTrackedRef.current = false
+      lessonCycle1ActiveSessionRef.current = false
       setSelectedPostLessonAction(null)
       setPostLessonBusy(false)
       setLessonOverlay(null)
@@ -2867,6 +2923,8 @@ export default function Home() {
       setPendingTutorLessonTitle(null)
       setActiveLessonVariantNumber(1)
       structuredLessonRunOriginRef.current = 'menu_generate'
+      lessonFirstAnswerTrackedRef.current = false
+      lessonCycle1ActiveSessionRef.current = false
       setSelectedPostLessonAction(null)
       setPostLessonBusy(false)
       setLessonOverlay(null)
@@ -3800,6 +3858,27 @@ export default function Home() {
   }, [selectedPostLessonAction, persistActiveStructuredLessonProgress])
 
   useEffect(() => {
+    if (lessonViewStage !== 'lesson' || !activeStructuredLesson) return
+    const hasFirstAnswer =
+      activeStructuredLessonCoreXp > 0 ||
+      activeStructuredLessonMistakes.length > 0 ||
+      activeStructuredLessonStatus === 'checking'
+    if (!hasFirstAnswer || lessonFirstAnswerTrackedRef.current) return
+    lessonFirstAnswerTrackedRef.current = true
+    beginLessonCycle1(activeStructuredLesson.id, {
+      topic: activeStructuredLesson.topic,
+      level: activeStructuredLesson.level,
+    })
+    lessonCycle1ActiveSessionRef.current = true
+  }, [
+    lessonViewStage,
+    activeStructuredLesson,
+    activeStructuredLessonCoreXp,
+    activeStructuredLessonMistakes.length,
+    activeStructuredLessonStatus,
+  ])
+
+  useEffect(() => {
     const wasOpen = prevMenuOpenForSnapshotRef.current
     prevMenuOpenForSnapshotRef.current = menuOpen
     if (menuOpen && !wasOpen && dialogStarted) {
@@ -4143,6 +4222,7 @@ export default function Home() {
       ringCount: resolved.reward.progress.ringCount,
       gemsPending: resolved.reward.progress.gemsPending,
     })
+    setPracticeProgressRevision((n) => n + 1)
 
     if (resolved.globalXpToAward > 0) {
       setRewardsState((prev) =>
@@ -5259,14 +5339,24 @@ export default function Home() {
       true,
       activeStructuredLessonMaxCoreXp
     )
-    const medal = capMedalForRepeatRun(earned, isStructuredLessonRepeatRun)
+    const medal = capLessonMedalForRun(earned, {
+      isLocalLesson: isLocalStructuredLessonRun(
+        structuredLessonRunOriginRef.current,
+        activeLessonVariantNumber
+      ),
+      cycle1Closed: loadLessonProgress(activeStructuredLesson!.id)?.cycle1Closed === true,
+      isRepeatRun: isStructuredLessonRepeatRun,
+    })
     return formatLessonCompletionFooter(medal)
   }, [
     isStructuredLessonActive,
     activeStructuredLessonStatus,
     activeStructuredLessonCoreXp,
     activeStructuredLessonMaxCoreXp,
+    activeStructuredLesson,
+    activeLessonVariantNumber,
     isStructuredLessonRepeatRun,
+    practiceProgressRevision,
   ])
   useEffect(() => {
     if (!isStructuredLessonActive) return
@@ -5458,7 +5548,7 @@ export default function Home() {
       coreDelta: activeStructuredLessonLastCoreDelta,
       comboDelta: activeStructuredLessonLastComboDelta,
       comboMilestoneBlocked: activeStructuredLessonLastXpAward.comboMilestoneBlocked,
-      isRepeatRun: isStructuredLessonRepeatRun,
+      isRepeatRun: structuredLessonSilverCap,
       audience: settings.audience,
     })
   }, [
@@ -5475,7 +5565,7 @@ export default function Home() {
     activeStructuredLessonLastCoreDelta,
     activeStructuredLessonLastComboDelta,
     activeStructuredLessonLastXpAward.comboMilestoneBlocked,
-    isStructuredLessonRepeatRun,
+    structuredLessonSilverCap,
     settings.audience,
   ])
   const lessonHeaderMedal = useMemo(() => {
@@ -6071,6 +6161,7 @@ export default function Home() {
                     onAdaptiveFooterViewChange={setAdaptiveFooterView}
                     onPracticeTheoryTagFilterPersist={persistPracticeTheoryTagFilter}
                     initialLessonsPanel={homeMenuView === 'lessons' ? lessonMenuContext?.lessonsPanel : undefined}
+                    practiceProgressRevision={practiceProgressRevision}
                     initialLessonMenuContext={
                       homeMenuView === 'lessons' && lessonMenuContext
                         ? {
@@ -6274,13 +6365,21 @@ export default function Home() {
                   lessonMedalReveal={
                     activeStructuredLessonStatus === 'completed'
                       ? {
-                          medal: capMedalForRepeatRun(
+                          medal: capLessonMedalForRun(
                             resolveMedalFromCoreXp(
                               activeStructuredLessonCoreXp,
                               true,
                               activeStructuredLessonMaxCoreXp
                             ),
-                            isStructuredLessonRepeatRun
+                            {
+                              isLocalLesson: isLocalStructuredLessonRun(
+                                structuredLessonRunOriginRef.current,
+                                activeLessonVariantNumber
+                              ),
+                              cycle1Closed:
+                                loadLessonProgress(activeStructuredLesson.id)?.cycle1Closed === true,
+                              isRepeatRun: isStructuredLessonRepeatRun,
+                            }
                           ),
                           coreXp: activeStructuredLessonCoreXp,
                           comboXp: activeStructuredLessonComboXp,
@@ -6446,6 +6545,7 @@ export default function Home() {
         onAdaptiveFooterViewChange={setAdaptiveFooterView}
         onPracticeTheoryTagFilterPersist={persistPracticeTheoryTagFilter}
         lessonMenuContext={lessonMenuContext}
+        practiceProgressRevision={practiceProgressRevision}
         topOffset="var(--app-top-offset)"
         bottomOffset="var(--app-bottom-offset)"
         columnBounds={appColumnBounds}

@@ -60,7 +60,9 @@ import { pickFocusModeGoal } from '@/lib/progressFocusGoal'
 import {
   formatPracticeProgressBadge,
   pickBestPracticeRewardOpportunity,
+  resolveLessonMenuPracticeBadge,
 } from '@/lib/practice/pickBestPracticeRewardOpportunity'
+import { countTopicCupStats } from '@/lib/practice/topicCupStats'
 import { getPracticeTopicProgress } from '@/lib/practice/practiceTopicProgressStorage'
 import type { RewardsState } from '@/lib/rewardsState'
 import { createDefaultRewardsState } from '@/lib/rewardsState'
@@ -391,6 +393,8 @@ export interface MenuSectionPanelsProps {
   /** Стартовый уровень lessons-панели при открытии меню. */
   initialLessonsPanel?: LessonsPanel
   /** Поля контекста вместе со `initialLessonsPanel` (восстановление навигации). */
+  /** Инкремент после практики — обновить бейджи 🏆 в списке уроков. */
+  practiceProgressRevision?: number
   initialLessonMenuContext?: Pick<
     LessonMenuContext,
     | 'activeGrammarCategoryId'
@@ -439,6 +443,7 @@ export default function MenuSectionPanels({
   onPracticeTheoryTagFilterPersist,
   initialLessonsPanel,
   initialLessonMenuContext,
+  practiceProgressRevision = 0,
 }: MenuSectionPanelsProps) {
   const { theme } = useTheme()
   const pid = (suffix: string) => `${idPrefix}${suffix}`
@@ -449,8 +454,10 @@ export default function MenuSectionPanels({
   const [lessonsPanel, setLessonsPanel] = React.useState<LessonsPanel>('summary')
   const [lessonProgressMap, setLessonProgressMap] = React.useState(loadLessonProgressMap)
   React.useEffect(() => {
-    if (menuView === 'lessons') setLessonProgressMap(loadLessonProgressMap())
-  }, [menuView, lessonsPanel])
+    if (menuView === 'lessons' || menuView === 'progress') {
+      setLessonProgressMap(loadLessonProgressMap())
+    }
+  }, [menuView, lessonsPanel, practiceProgressRevision])
   const defaultA2LessonId = React.useMemo(
     () => A2_THEORY_ITEMS.find((item) => item.enabled)?.id ?? null,
     []
@@ -1946,6 +1953,10 @@ export default function MenuSectionPanels({
                             subtitle={topicCopy?.short}
                             description={topicCopy?.long}
                             medalDisplay={resolveLessonCardMedal(lessonProgressMap[lesson.id])}
+                            practiceBadge={resolveLessonMenuPracticeBadge(
+                              lesson.id,
+                              lessonProgressMap[lesson.id]?.medal ?? null
+                            )}
                             selected={Boolean(lesson.enabled && selectedTheoryTopicLessonId === lesson.id)}
                             enabled={lesson.enabled}
                             onClick={
@@ -2033,6 +2044,10 @@ export default function MenuSectionPanels({
                           subtitle={item.short}
                           description={item.long}
                           medalDisplay={resolveLessonCardMedal(lessonProgressMap[item.id])}
+                          practiceBadge={resolveLessonMenuPracticeBadge(
+                            item.id,
+                            lessonProgressMap[item.id]?.medal ?? null
+                          )}
                           selected={item.enabled && selectedA1LessonId === item.id}
                           enabled={item.enabled}
                           onClick={
@@ -2102,6 +2117,10 @@ export default function MenuSectionPanels({
                           subtitle={item.short}
                           description={item.long}
                           medalDisplay={resolveLessonCardMedal(lessonProgressMap[item.id])}
+                          practiceBadge={resolveLessonMenuPracticeBadge(
+                            item.id,
+                            lessonProgressMap[item.id]?.medal ?? null
+                          )}
                           selected={item.enabled && selectedA2LessonId === item.id}
                           enabled={item.enabled}
                           onClick={
@@ -2414,6 +2433,10 @@ export default function MenuSectionPanels({
                       subtitle={item.short}
                       description={item.long}
                       medalDisplay={resolveLessonCardMedal(lessonProgressMap[item.id])}
+                      practiceBadge={resolveLessonMenuPracticeBadge(
+                        item.id,
+                        lessonProgressMap[item.id]?.medal ?? null
+                      )}
                       selected={item.enabled && selectedPracticeLessonId === item.id}
                       enabled={item.enabled}
                       onClick={
@@ -3024,7 +3047,9 @@ export default function MenuSectionPanels({
                   {bestPracticeOpportunity.reason === 'gems_pending'
                     ? 'Золото уже есть — практика закрепит 💎.'
                     : bestPracticeOpportunity.reason === 'gold_ring'
-                      ? 'Золотая медаль + кольцо 🔁 — лучший путь к камням.'
+                      ? featureFlags.practiceTopicCupsV1
+                        ? 'Золотая медаль + 5 практик — кубок темы 🏆.'
+                        : 'Золотая медаль + кольцо 🔁 — лучший путь к камням.'
                       : 'Практика по пройденному уроку даёт XP к уровню.'}
                 </p>
                 {onOpenPracticeSession ? (
@@ -3105,10 +3130,21 @@ export default function MenuSectionPanels({
               const medals = aggregateMedals(medalList, 4)
               const badgesEarned = Object.values(lessonProgressMap).filter((row) => row.lessonBadgeEarned).length
               const practiceRows = Object.values(lessonProgressMap).filter((row) => row.medal)
+              const cupStats = featureFlags.practiceTopicCupsV1 ? countTopicCupStats() : null
               return (
                 <>
                 <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
                   <p className="text-[13px] font-medium text-[var(--text-muted)]">Практика по темам</p>
+                  {cupStats ? (
+                    <>
+                      <p className="emoji-line mt-1 text-[14px] font-semibold text-[var(--text)]">
+                        🏆 тем: {cupStats.cups}/{cupStats.withMedal || 0}
+                      </p>
+                      <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+                        Тема сдана 🏆 — золотая медаль в уроке и 5 практик (от 50% в сессии).
+                      </p>
+                    </>
+                  ) : null}
                   {practiceRows.length === 0 ? (
                     <p className="mt-1 text-[13px] text-[var(--text-muted)]">Сначала получите медаль в уроке.</p>
                   ) : (
@@ -3133,6 +3169,11 @@ export default function MenuSectionPanels({
                   <p className="emoji-line mt-1 text-[14px] text-[var(--text)]">
                     🥇 {medals.gold} · 🥈 {medals.silver} · 🥉 {medals.bronze} · Золото {medals.gold}/4
                   </p>
+                  {cupStats ? (
+                    <p className="emoji-line mt-1 text-[14px] text-[var(--text)]">
+                      Кубки тем: {cupStats.cups}/{cupStats.withMedal || 0}
+                    </p>
+                  ) : null}
                   <p className="mt-1 text-[13px] text-[var(--text-muted)]">Бейджи: {badgesEarned}/4</p>
                   <ul className="mt-2 space-y-1 text-[12px] text-[var(--text-muted)]">
                     {['1', '2', '3', '4'].map((lessonId) => {
@@ -3146,9 +3187,16 @@ export default function MenuSectionPanels({
                           </li>
                         )
                       }
+                      const cycleLabel =
+                        progress.cycle1Closed && !progress.medal
+                          ? ' · цикл 1 закрыт'
+                          : progress.cycle1Started && !progress.medal
+                            ? ' · в процессе'
+                            : ''
                       return (
                         <li key={lessonId}>
-                          {topic}: {progress.medal ?? '—'} · {progress.corePercent ?? 0}% core
+                          {topic}: {progress.medal ?? (progress.cycle1Closed ? 'начат' : '—')} · {progress.corePercent ?? 0}% core
+                          {cycleLabel}
                           {badge && !progress.lessonBadgeEarned ? ` · бейдж ${progress.lessonBadgeCriteriaMet?.length ?? 0}/3` : ''}
                           {progress.lessonBadgeEarned ? ' · бейдж ✓' : ''}
                         </li>
@@ -3266,6 +3314,7 @@ function A2LessonChoiceRow({
   subtitle,
   description,
   medalDisplay,
+  practiceBadge,
   selected,
   enabled,
   onClick,
@@ -3274,6 +3323,7 @@ function A2LessonChoiceRow({
   subtitle?: string
   description?: string
   medalDisplay?: LessonCardMedalDisplay | null
+  practiceBadge?: { text: string; title: string } | null
   selected: boolean
   enabled: boolean
   onClick?: () => void
@@ -3311,6 +3361,11 @@ function A2LessonChoiceRow({
                 />
               ) : null}
             </span>
+            {practiceBadge ? (
+              <span className="emoji-line text-[13px] font-medium leading-none text-[var(--text)]" title={practiceBadge.title}>
+                {practiceBadge.text}
+              </span>
+            ) : null}
             {selected ? (
               <CheckIcon className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden />
             ) : (
