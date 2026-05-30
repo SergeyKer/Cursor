@@ -2136,6 +2136,7 @@ export default function Home() {
   const handleEngvoVoiceChange = useCallback(
     (voice: EngvoRealtimeVoice) => {
       setEngvoRealtimeVoice(voice)
+      saveEngvoRealtimeVoice(voice)
       if (engvoVoiceMode) {
         engvoPendingRealtimeVoiceRef.current = voice
         setEngvoSessionUpdateTick((prev) => prev + 1)
@@ -4074,11 +4075,6 @@ export default function Home() {
     setInitialized(true)
     setStorageLoaded(true)
   }, [])
-
-  useEffect(() => {
-    if (!storageLoaded) return
-    saveEngvoRealtimeVoice(engvoRealtimeVoice)
-  }, [engvoRealtimeVoice, storageLoaded])
 
   useEffect(() => {
     if (!storageLoaded) return

@@ -793,7 +793,7 @@ export default function LessonStepRenderer({
     isSentencePuzzle,
     bottomStackHeightPx: bottomStackHeight,
     useMinimalPuzzlePadding: isSentencePuzzle,
-    useMinimalPostLessonPadding: hasPostLessonOptions && bottomStackHeight === 0,
+    useMinimalPostLessonPadding: hasPostLessonOptions,
   })
 
   return (
@@ -842,7 +842,10 @@ export default function LessonStepRenderer({
                         className={shouldAnimateLessonMessage ? 'lesson-enter' : ''}
                         rowClassName={lessonRowMargin}
                       >
-                        <UnifiedLessonBubble bubbles={message.bubbles} animateSections={shouldAnimateLessonMessage} />
+                        <UnifiedLessonBubble
+                          bubbles={message.bubbles}
+                          animateSections={shouldAnimateLessonMessage}
+                        />
                       </ChatBubbleFrame>
                     )
                   }

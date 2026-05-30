@@ -274,7 +274,10 @@ export default function PracticeScreen({
                         className={message.isHistorical ? '' : 'lesson-enter'}
                         rowClassName={isBubbleEnd ? 'mb-2.5' : 'mb-0.5'}
                       >
-                        <UnifiedLessonBubble bubbles={message.bubbles} animateSections={!message.isHistorical} />
+                        <UnifiedLessonBubble
+                          bubbles={message.bubbles}
+                          animateSections={!message.isHistorical}
+                        />
                       </ChatBubbleFrame>
                     )
                   }

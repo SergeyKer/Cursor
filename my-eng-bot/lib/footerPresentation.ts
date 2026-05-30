@@ -37,20 +37,20 @@ const FOOTER_BOTTOM_LINE_CLASS = 'text-[13px] leading-normal text-gray-400'
 
 export const CHILD_EMOJI_BY_TONE: Record<FooterVoiceTone, readonly string[]> = {
   celebrate: ['🎉', '✨', '🌟', '🏆', '😄', '🤩', '😊'],
-  support: ['💪', '🤝', '🌈', '🙌', '🤗', '😌', '💛', '🫶', '😇', '😁'],
+  support: ['💪', '🤝', '🌈', '🙌', '🤗', '😌', '💛', '😇', '😁'],
   hint: ['💡', '🧩', '🔍', '📝', '🧐', '😉'],
   thinking: ['🤔', '🧠', '🔎', '📘', '😕', '😮', '💭'],
   error: ['💛', '🛟', '🌱', '🤝', '😔', '🥲'],
-  neutral: ['🙂', '👋', '✨', '🌤️', '😐', '🫶'],
+  neutral: ['🙂', '👋', '✨', '🌤️', '😐'],
 }
 
 export const ADULT_EMOJI_BY_TONE: Record<FooterVoiceTone, readonly string[]> = {
   celebrate: ['😊', '😄', '🤩', '✨', '🌟', '💚'],
-  support: ['🙂', '🤗', '😌', '🤝', '💛', '🙏', '🫶', '😇', '😁'],
+  support: ['🙂', '🤗', '😌', '🤝', '💛', '🙏', '😇', '😁'],
   hint: ['🧐', '😉', '💡', '📝', '🔎'],
   thinking: ['🤔', '😕', '😮', '💭', '☁️'],
   error: ['😔', '🥲', '😕', '💛', '🛟', '🌱'],
-  neutral: ['🙂', '😐', '👋', '🌤️', '✨', '🫶'],
+  neutral: ['🙂', '😐', '👋', '🌤️', '✨'],
 }
 
 function getToneTextClassName(tone: FooterVoiceTone, emphasis: FooterVoiceEmphasis, isPlayful: boolean): string {

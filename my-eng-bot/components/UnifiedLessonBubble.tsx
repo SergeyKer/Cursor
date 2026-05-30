@@ -1,5 +1,6 @@
 'use client'
 
+import { LESSON_CARD_RADIUS_CLASS } from '@/components/chat/ChatBubble'
 import type { Bubble } from '@/types/lesson'
 import { LESSON_HIGHLIGHT_EXACT_REGEX, LESSON_HIGHLIGHT_SPLIT_REGEX } from '@/lib/lessonHighlightPhrases'
 
@@ -22,6 +23,9 @@ const unifiedSectionClassByType: Record<Bubble['type'], string> = {
   info: 'bg-[#FFFFFF]',
   task: 'bg-[#F0FDF4]',
 }
+
+const lessonCardSurfaceClass =
+  'chat-section-surface glass-surface border border-[var(--chat-section-neutral-border)] bg-white/95'
 
 function splitLabel(line: string): { label: string; rest: string } | null {
   const match = /^([^:]{2,28}):\s*(.+)$/.exec(line)
@@ -98,13 +102,15 @@ export default function UnifiedLessonBubble({
   animateSections = true,
   layout = 'unified',
 }: UnifiedLessonBubbleProps) {
+  const cornerClass = LESSON_CARD_RADIUS_CLASS
+
   if (layout === 'detached') {
     return (
       <div className="w-full min-w-0 space-y-2.5">
         {bubbles.map((bubble, bubbleIndex) => (
           <section
             key={`${bubble.type}-${bubbleIndex}`}
-            className={`${animateSections ? 'lesson-enter' : ''} chat-section-surface glass-surface overflow-hidden rounded-[1.5rem] border border-[var(--chat-section-neutral-border)] bg-white/95`}
+            className={`${animateSections ? 'lesson-enter' : ''} ${lessonCardSurfaceClass} overflow-hidden ${cornerClass}`}
             style={
               animateSections
                 ? {
@@ -122,7 +128,7 @@ export default function UnifiedLessonBubble({
   }
 
   return (
-    <div className="chat-section-surface glass-surface relative w-full min-w-0 overflow-hidden rounded-[1.5rem] border border-[var(--chat-section-neutral-border)] bg-white/95">
+    <div className={`relative w-full min-w-0 overflow-hidden ${lessonCardSurfaceClass} ${cornerClass}`}>
       {bubbles.map((bubble, bubbleIndex) => {
         const isLast = bubbleIndex === bubbles.length - 1
 

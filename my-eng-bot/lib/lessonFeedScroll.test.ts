@@ -140,7 +140,7 @@ describe('post-lesson medal — padding и scrollTo(max)', () => {
     expect(parseLessonScrollPaddingPx(padding, ROOT_PX)).toBe(minimalPaddingPx)
   })
 
-  it('после замера: padding по высоте панели медали', () => {
+  it('регрессия: без useMinimalPostLessonPadding замер панели раздувает padding', () => {
     const padding = resolveScrollBottomPadding({
       hasCurrentStep: true,
       hasPostLessonOptions: true,
@@ -149,6 +149,18 @@ describe('post-lesson medal — padding и scrollTo(max)', () => {
     })
     expect(padding).toContain(`${measuredBottomStackPx}px`)
     expect(padding).not.toContain('16rem')
+  })
+
+  it('fix: после замера панели — минимальный padding (как у пазла)', () => {
+    const padding = resolveScrollBottomPadding({
+      hasCurrentStep: true,
+      hasPostLessonOptions: true,
+      isSentencePuzzle: false,
+      bottomStackHeightPx: measuredBottomStackPx,
+      useMinimalPostLessonPadding: true,
+    })
+    expect(parseLessonScrollPaddingPx(padding, ROOT_PX)).toBe(minimalPaddingPx)
+    expect(padding).not.toContain(`${measuredBottomStackPx}px`)
   })
 
   it('длинная лента + 16rem: огромный зазор над низом scroll-области', () => {
@@ -166,21 +178,20 @@ describe('post-lesson medal — padding и scrollTo(max)', () => {
     expect(visibleGap).toBeGreaterThan(250)
   })
 
-  it('fix: длинная лента + замеренная панель — зазор ≈ высоте панели', () => {
-    const measuredPaddingPx = minimalPaddingPx + measuredBottomStackPx
+  it('fix: длинная лента + минимальный padding (панель снаружи scroll) — зазор как у пазла', () => {
     const scrollTop = simulateScrollTopAfterScrollToMax({
       contentHeightPx: LONG_CONTENT_PX,
-      scrollPaddingBottomPx: measuredPaddingPx,
+      scrollPaddingBottomPx: minimalPaddingPx,
       clientHeightPx: CLIENT_HEIGHT_PX,
     })
     const visibleGap = computeVisibleGapAboveScrollBottom({
       contentHeightPx: LONG_CONTENT_PX,
-      scrollPaddingBottomPx: measuredPaddingPx,
+      scrollPaddingBottomPx: minimalPaddingPx,
       clientHeightPx: CLIENT_HEIGHT_PX,
       scrollTop,
     })
-    expect(visibleGap).toBeGreaterThanOrEqual(measuredBottomStackPx - 5)
-    expect(visibleGap).toBeLessThan(measuredBottomStackPx + 35)
+    expect(visibleGap).toBeGreaterThanOrEqual(20)
+    expect(visibleGap).toBeLessThan(35)
   })
 })
 

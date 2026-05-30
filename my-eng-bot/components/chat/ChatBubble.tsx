@@ -5,6 +5,12 @@ import type { CSSProperties, ReactNode } from 'react'
 export type BubbleRole = 'assistant' | 'user'
 export type BubblePosition = 'solo' | 'first' | 'middle' | 'last'
 
+const ASSISTANT_BUBBLE_RADIUS = 'rounded-[var(--bubble-radius-assistant,var(--bubble-radius))]'
+const USER_BUBBLE_RADIUS = 'rounded-[var(--bubble-radius-user,var(--bubble-radius))]'
+
+/** Симметричные углы карточки урока (1–3 полосы); не мессенджерный «хвост». */
+export const LESSON_CARD_RADIUS_CLASS = ASSISTANT_BUBBLE_RADIUS
+
 type ChatBubbleFrameProps = {
   role: BubbleRole
   position?: BubblePosition
@@ -29,18 +35,22 @@ export function getBubblePosition(
   return 'last'
 }
 
-function bubbleRadiusClass(role: BubbleRole, position: BubblePosition): string {
+/**
+ * Углы пузыря: три угла — радиус темы (20px в Basic); четвёртый «хвост» — md.
+ * На стыке группы левый/правый стык тоже md, как хвост, а не 20px.
+ */
+export function getChatBubbleRadiusClass(role: BubbleRole, position: BubblePosition): string {
   if (role === 'user') {
-    if (position === 'solo') return 'rounded-[var(--bubble-radius)] rounded-br-md'
-    if (position === 'first') return 'rounded-[var(--bubble-radius)] rounded-br-md'
-    if (position === 'middle') return 'rounded-[var(--bubble-radius)] rounded-tr-lg rounded-br-md'
-    return 'rounded-[var(--bubble-radius)] rounded-tr-lg rounded-br-md'
+    if (position === 'solo') return `${USER_BUBBLE_RADIUS} rounded-br-md`
+    if (position === 'first') return `${USER_BUBBLE_RADIUS} rounded-br-md`
+    if (position === 'middle') return `${USER_BUBBLE_RADIUS} rounded-tr-md rounded-br-md`
+    return `${USER_BUBBLE_RADIUS} rounded-tr-md rounded-br-md`
   }
 
-  if (position === 'solo') return 'rounded-[var(--bubble-radius)] rounded-bl-md'
-  if (position === 'first') return 'rounded-[var(--bubble-radius)] rounded-bl-md'
-  if (position === 'middle') return 'rounded-[var(--bubble-radius)] rounded-tl-lg rounded-bl-md'
-  return 'rounded-[var(--bubble-radius)] rounded-tl-lg rounded-bl-md'
+  if (position === 'solo') return `${ASSISTANT_BUBBLE_RADIUS} rounded-bl-md`
+  if (position === 'first') return `${ASSISTANT_BUBBLE_RADIUS} rounded-bl-md`
+  if (position === 'middle') return `${ASSISTANT_BUBBLE_RADIUS} rounded-tl-md rounded-bl-md`
+  return `${ASSISTANT_BUBBLE_RADIUS} rounded-tl-md rounded-bl-md`
 }
 
 export function ChatBubbleFrame({
@@ -53,7 +63,7 @@ export function ChatBubbleFrame({
   'data-role': dataRole,
   'data-message-index': dataMessageIndex,
 }: ChatBubbleFrameProps) {
-  const radiusClass = bubbleRadiusClass(role, position)
+  const radiusClass = getChatBubbleRadiusClass(role, position)
   const isUser = role === 'user'
   const rowAlignClass = isUser ? 'justify-end' : 'justify-start'
   const surfaceClass = isUser

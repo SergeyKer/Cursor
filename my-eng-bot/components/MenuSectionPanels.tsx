@@ -46,6 +46,7 @@ import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import {
+  ENGVO_DEFAULT_VOICE,
   ENGVO_LEVEL_OPTIONS,
   ENGVO_REALTIME_VOICES,
   ENGVO_SPEECH_SPEED_PRESETS,
@@ -974,7 +975,7 @@ export default function MenuSectionPanels({
         : theme === 'bubble2'
           ? 'Bubble2'
           : 'Basic'
-  const engvoVoiceLabel = engvoRealtimeVoice ?? 'alloy'
+  const engvoVoiceLabel = engvoRealtimeVoice ?? ENGVO_DEFAULT_VOICE
   const engvoLevelLabel =
     ENGVO_LEVEL_OPTIONS.find((l) => l.id === (engvoCefrLevel ?? 'a2'))?.label ?? 'A2'
   const engvoSpeechSpeedLabel =
@@ -1545,7 +1546,7 @@ export default function MenuSectionPanels({
             {engvoPanel === 'voice' && (
               <PickerList
                 options={ENGVO_REALTIME_VOICES.map((voice) => ({ id: voice, label: voice }))}
-                value={engvoRealtimeVoice ?? 'alloy'}
+                value={engvoRealtimeVoice ?? ENGVO_DEFAULT_VOICE}
                 onSelect={(id) => {
                   onEngvoVoiceChange?.(id as EngvoRealtimeVoice)
                   setEngvoPanel('summary')

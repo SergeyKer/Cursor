@@ -425,7 +425,11 @@ export default function LessonIntroScreen({
                         className="lesson-enter"
                         rowClassName="mb-2.5"
                       >
-                        <UnifiedLessonBubble bubbles={message.bubbles} animateSections layout="detached" />
+                        <UnifiedLessonBubble
+                          bubbles={message.bubbles}
+                          animateSections
+                          layout="detached"
+                        />
                       </ChatBubbleFrame>
                     </div>
                   )

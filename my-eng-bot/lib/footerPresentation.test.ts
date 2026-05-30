@@ -99,7 +99,7 @@ describe('resolveFooterPresentation', () => {
 
   it('uses expanded child emoji pools', () => {
     expect(CHILD_EMOJI_BY_TONE.celebrate.length).toBeGreaterThanOrEqual(7)
-    expect(CHILD_EMOJI_BY_TONE.support.length).toBeGreaterThanOrEqual(10)
+    expect(CHILD_EMOJI_BY_TONE.support.length).toBeGreaterThanOrEqual(9)
   })
 
   it('hides dynamic marker when hideDynamicMarker is set', () => {
