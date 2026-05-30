@@ -198,6 +198,7 @@ import { buildEngvoRealtimeInstructionsClient } from '@/lib/engvo/instructionsCl
 import { normalizeEngvoRealtimeUserMessage } from '@/lib/engvo/errors'
 import {
   insertEngvoUserMessage,
+  shouldCancelEngvoAssistantOnUserAudioCommitted,
   shouldInsertEngvoUserBeforeAssistant,
 } from '@/lib/engvo/callMessageOrder'
 import { buildEngvoClientSessionUpdate } from '@/lib/engvo/realtimeSession'
@@ -205,6 +206,7 @@ import {
   loadEngvoCefrLevel,
   loadEngvoRealtimeVoice,
   loadEngvoSpeechSpeedPreset,
+  resolveEngvoSpeechSpeedPreset,
   saveEngvoCefrLevel,
   saveEngvoRealtimeVoice,
   saveEngvoSpeechSpeedPreset,
@@ -1378,18 +1380,20 @@ export default function Home() {
 
   const updateEngvoRealtimeSession = useCallback(
     (payload: { voice?: EngvoRealtimeVoice; level?: EngvoCefrLevel; speed?: number }): boolean => {
+      const speechSpeed = clampEngvoRealtimeSpeed(
+        payload.speed ?? engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset)
+      )
       return sendEngvoRealtimeEvent({
         type: 'session.update',
         session: buildEngvoClientSessionUpdate({
           model: ENGVO_REALTIME_MODEL,
           voice: payload.voice ?? engvoRealtimeVoice,
+          speed: speechSpeed,
           instructions: buildEngvoRealtimeInstructionsClient({
             audience: settings.audience,
             level: payload.level ?? engvoCefrLevel,
             topic: settings.topic,
-            speechSpeed: clampEngvoRealtimeSpeed(
-              payload.speed ?? engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset)
-            ),
+            speechSpeed,
           }),
           inputAudioTranscription: {
             ...buildEngvoInputAudioTranscriptionConfig(),
@@ -1408,22 +1412,27 @@ export default function Home() {
     ]
   )
 
-  const isEngvoSafeForSessionUpdate = useCallback((): boolean => {
-    if (!engvoVoiceMode) return false
-    if (!engvoSessionStartedRef.current) return false
-    if (engvoCallPhase !== 'listening') return false
-    if (engvoRemotePlaybackActive) return false
-    const dataChannel = engvoDataChannelRef.current
-    if (!dataChannel || dataChannel.readyState !== 'open') return false
-    const hasActiveAssistantTurn =
-      !!engvoAssistantResponseIdRef.current && !engvoAssistantResponseDoneRef.current
-    return !hasActiveAssistantTurn
-  }, [engvoCallPhase, engvoRemotePlaybackActive, engvoVoiceMode])
+  const isEngvoSafeForSessionUpdate = useCallback(
+    (options?: { speedOnly?: boolean }): boolean => {
+      if (!engvoVoiceMode) return false
+      if (!engvoSessionStartedRef.current) return false
+      const speedOnly = options?.speedOnly === true
+      if (speedOnly) {
+        if (engvoCallPhase !== 'listening' && engvoCallPhase !== 'userFinalizing') return false
+      } else if (engvoCallPhase !== 'listening') {
+        return false
+      }
+      if (engvoRemotePlaybackActive) return false
+      const dataChannel = engvoDataChannelRef.current
+      if (!dataChannel || dataChannel.readyState !== 'open') return false
+      const hasActiveAssistantTurn =
+        !!engvoAssistantResponseIdRef.current && !engvoAssistantResponseDoneRef.current
+      return !hasActiveAssistantTurn
+    },
+    [engvoCallPhase, engvoRemotePlaybackActive, engvoVoiceMode]
+  )
 
   const flushEngvoPendingRealtimeSessionUpdates = useCallback(() => {
-    if (!isEngvoSafeForSessionUpdate()) return
-    if (engvoSessionUpdateInFlightRef.current) return
-
     const pendingVoice = engvoPendingRealtimeVoiceRef.current
     const pendingSpeed = engvoPendingRealtimeSpeedRef.current
 
@@ -1435,6 +1444,16 @@ export default function Home() {
         : undefined
 
     if (!voiceToSend && typeof speedToSend !== 'number') return
+
+    const speedOnly = !voiceToSend && typeof speedToSend === 'number'
+    if (!isEngvoSafeForSessionUpdate({ speedOnly })) {
+      scheduleEngvoSessionUpdateRetry()
+      return
+    }
+    if (engvoSessionUpdateInFlightRef.current) {
+      scheduleEngvoSessionUpdateRetry()
+      return
+    }
 
     const sent = updateEngvoRealtimeSession({
       ...(voiceToSend ? { voice: voiceToSend } : {}),
@@ -1623,6 +1642,13 @@ export default function Home() {
         )
         if (parsed.type === 'input_audio_buffer.committed' && typeof parsed.item_id === 'string') {
           engvoPendingUserItemIdRef.current = parsed.item_id
+          const hasActiveAssistantResponseOnCommit = hasActiveEngvoAssistantResponse({
+            responseId: engvoAssistantResponseIdRef.current,
+            responseDone: engvoAssistantResponseDoneRef.current,
+          })
+          if (shouldCancelEngvoAssistantOnUserAudioCommitted(hasActiveAssistantResponseOnCommit)) {
+            resetEngvoAssistantTurn({ markIgnored: true })
+          }
         }
         const transcriptView = getRealtimeTranscriptView(engvoTranscriptStateRef.current)
         setEngvoUserInterimText(transcriptView.interimText)
@@ -1685,11 +1711,8 @@ export default function Home() {
           if (transcript) {
             setMessages((prev) => {
               const insertBeforeAssistant = shouldInsertEngvoUserBeforeAssistant({
-                messages: prev,
-                itemId,
                 assistantCommittedBeforeUser:
                   engvoAssistantCommittedBeforeUserItemIdsRef.current.has(itemId),
-                pendingUserItemId: engvoPendingUserItemIdRef.current,
               })
               engvoAssistantCommittedBeforeUserItemIdsRef.current.delete(itemId)
               if (engvoPendingUserItemIdRef.current === itemId) {
@@ -1846,6 +1869,14 @@ export default function Home() {
     }
     engvoRealtimeReplayItemsRef.current = null
 
+    const presetForCall = resolveEngvoSpeechSpeedPreset({
+      audience: settings.audience,
+      level: engvoCefrLevel,
+    })
+    if (presetForCall !== engvoSpeechSpeedPreset) {
+      setEngvoSpeechSpeedPreset(presetForCall)
+    }
+
     cleanupEngvoRuntime({ markIgnoredCurrent: true })
     resetStructuredLessonSessionRef.current?.()
     setDialogStarted(true)
@@ -1864,9 +1895,8 @@ export default function Home() {
     engvoPendingRealtimeVoiceRef.current = null
     engvoPendingRealtimeSpeedRef.current = null
     engvoLastAppliedRealtimeVoiceRef.current = engvoRealtimeVoice
-    engvoLastAppliedRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(
-      engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset)
-    )
+    const speechSpeedForCall = engvoSpeechSpeedFromPreset(presetForCall)
+    engvoLastAppliedRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(speechSpeedForCall)
 
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -1948,16 +1978,18 @@ export default function Home() {
       dataChannel.onopen = () => {
         clearEngvoTimeout(engvoDcOpenTimeoutRef)
         console.info('[engvo] dc-open')
+        const speechSpeed = clampEngvoRealtimeSpeed(speechSpeedForCall)
         const sent = sendEngvoRealtimeEvent({
           type: 'session.update',
           session: buildEngvoClientSessionUpdate({
             model: ENGVO_REALTIME_MODEL,
             voice: engvoRealtimeVoice,
+            speed: speechSpeed,
             instructions: buildEngvoRealtimeInstructionsClient({
               audience: settings.audience,
               level: engvoCefrLevel,
               topic: settings.topic,
-              speechSpeed: clampEngvoRealtimeSpeed(engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset)),
+              speechSpeed,
             }),
             inputAudioTranscription: {
               ...buildEngvoInputAudioTranscriptionConfig(),
@@ -2005,7 +2037,7 @@ export default function Home() {
           topic: settings.topic,
           voice: engvoRealtimeVoice,
           level: engvoCefrLevel,
-          speed: clampEngvoRealtimeSpeed(engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset)),
+          speed: clampEngvoRealtimeSpeed(speechSpeedForCall),
         }),
         signal: sdpController.signal,
       }).finally(() => {
@@ -2115,16 +2147,25 @@ export default function Home() {
   const handleEngvoLevelChange = useCallback(
     (level: EngvoCefrLevel) => {
       setEngvoCefrLevel(level)
+      if (!loadEngvoSpeechSpeedPreset()) {
+        const nextPreset = getEngvoDefaultSpeechSpeedPreset(settings.audience, level)
+        setEngvoSpeechSpeedPreset(nextPreset)
+        if (engvoVoiceMode) {
+          engvoPendingRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(engvoSpeechSpeedFromPreset(nextPreset))
+          setEngvoSessionUpdateTick((prev) => prev + 1)
+        }
+      }
       if (engvoVoiceMode) {
         updateEngvoRealtimeSession({ level })
       }
     },
-    [engvoVoiceMode, updateEngvoRealtimeSession]
+    [engvoVoiceMode, settings.audience, updateEngvoRealtimeSession]
   )
 
   const handleEngvoSpeechSpeedChange = useCallback(
     (preset: EngvoSpeechSpeedPresetId) => {
       setEngvoSpeechSpeedPreset(preset)
+      saveEngvoSpeechSpeedPreset(preset)
       if (engvoVoiceMode) {
         engvoPendingRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(engvoSpeechSpeedFromPreset(preset))
         setEngvoSessionUpdateTick((prev) => prev + 1)
@@ -4020,9 +4061,14 @@ export default function Home() {
       setSettings(mergedSettings)
       setDialogStarted(false)
       setEngvoRealtimeVoice(loadEngvoRealtimeVoice())
-      setEngvoCefrLevel(loadEngvoCefrLevel(mergedSettings.audience))
-      const storedSpeechSpeed = loadEngvoSpeechSpeedPreset()
-      setEngvoSpeechSpeedPreset(storedSpeechSpeed ?? getEngvoDefaultSpeechSpeedPreset(mergedSettings.audience))
+      const loadedEngvoLevel = loadEngvoCefrLevel(mergedSettings.audience)
+      setEngvoCefrLevel(loadedEngvoLevel)
+      setEngvoSpeechSpeedPreset(
+        resolveEngvoSpeechSpeedPreset({
+          audience: mergedSettings.audience,
+          level: loadedEngvoLevel,
+        })
+      )
       setRewardsState(rewards)
     }
     setInitialized(true)
@@ -4038,11 +4084,6 @@ export default function Home() {
     if (!storageLoaded) return
     saveEngvoCefrLevel(engvoCefrLevel)
   }, [engvoCefrLevel, storageLoaded])
-
-  useEffect(() => {
-    if (!storageLoaded) return
-    saveEngvoSpeechSpeedPreset(engvoSpeechSpeedPreset)
-  }, [engvoSpeechSpeedPreset, storageLoaded])
 
   useEffect(() => {
     if (!storageLoaded) return
@@ -5129,7 +5170,7 @@ export default function Home() {
         text: engvoFooter.text,
         compactText: engvoFooter.text,
         tone: engvoFooter.tone,
-        emphasis: engvoFooter.tone === 'thinking' ? ('pulse' as const) : ('none' as const),
+        emphasis: 'none' as const,
       }
     }
     const candidates: Array<FooterVoiceCandidate | null> = [
@@ -6518,6 +6559,7 @@ export default function Home() {
           audience={settings.audience}
           dynamicTone={footerVoiceTone}
           dynamicEmphasis={footerVoiceEmphasis}
+          hideDynamicMarker={engvoVoiceMode}
           isLessonActive={isLessonActive}
           isDialogStarted={dialogStarted}
           showWhenIdle={!dialogStarted}

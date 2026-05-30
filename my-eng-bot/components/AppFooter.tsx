@@ -38,6 +38,8 @@ type AppFooterProps = {
   lessonFooterAccountTitle?: string | null
   lessonFooterLessonTitle?: string | null
   lessonFooterSegments?: LessonFooterSegment[] | null
+  /** Без эмодзи-маркера у динамической строки (звонок Engvo и т.п.). */
+  hideDynamicMarker?: boolean
 }
 
 function normalizeFooterText(text?: string | null): string {
@@ -144,6 +146,7 @@ export default function AppFooter({
   lessonFooterAccountTitle = null,
   lessonFooterLessonTitle = null,
   lessonFooterSegments = null,
+  hideDynamicMarker = false,
 }: AppFooterProps) {
   const topLine = formatFooterDynamicLine(normalizeFooterText(dynamicText))
   const bottomLine = normalizeFooterText(staticText)
@@ -165,6 +168,7 @@ export default function AppFooter({
     emphasis: dynamicEmphasis,
     typingKey,
     text: topLine,
+    hideDynamicMarker,
   })
 
   return (

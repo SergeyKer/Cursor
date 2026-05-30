@@ -16,7 +16,7 @@ export const ENGVO_CALL_FINISHED_ASSISTANT_TEXT = 'Call is finished'
 /** Служебная строка при повторном соединении (как индикатор «Набираем Engvo…» в футере). */
 export const ENGVO_DIALING_ASSISTANT_TEXT = 'Набираем Engvo…'
 
-/** Диапазон скорости речи Engvo (передаётся в instructions, не в session.speed API). */
+/** Диапазон скорости речи Engvo (`audio.output.speed` + подсказка в instructions). */
 export const ENGVO_REALTIME_SPEED_MIN = 0.25
 export const ENGVO_REALTIME_SPEED_MAX = 1.5
 
@@ -70,7 +70,11 @@ export function engvoSpeechSpeedFromPreset(id: EngvoSpeechSpeedPresetId): number
   return row?.speed ?? 1.0
 }
 
-export function getEngvoDefaultSpeechSpeedPreset(audience: Audience): EngvoSpeechSpeedPresetId {
+export function getEngvoDefaultSpeechSpeedPreset(
+  audience: Audience,
+  level: EngvoCefrLevel
+): EngvoSpeechSpeedPresetId {
+  if (level === 'a1') return 'calm'
   return audience === 'child' ? 'normal' : 'conversational'
 }
 

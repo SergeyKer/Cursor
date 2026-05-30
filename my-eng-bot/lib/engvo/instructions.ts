@@ -75,9 +75,9 @@ function buildEngvoTopicRule(topic: TopicId, audience: Audience): string {
   ].join(' ')
 }
 
-function buildEngvoLevelReinforcementRule(level: EngvoCefrLevel): string {
+function buildEngvoLevelReinforcementRule(level: EngvoCefrLevel, audience: Audience): string {
   if (level === 'a1') {
-    return [
+    const rules = [
       'Low-level reinforcement (A1): use only very common everyday words (home, food, family, like, go, play, see, want, good, happy).',
       'Grammar ceiling: Present Simple, be, and have only; no complex tenses, conditionals, or passive unless the learner uses them first.',
       'Keep each reply to one short sentence (about 8-10 words) plus one simple question (about 6-8 words).',
@@ -85,7 +85,13 @@ function buildEngvoLevelReinforcementRule(level: EngvoCefrLevel): string {
       'Ask one simple question at a time.',
       'Avoid abstract or formal words (session, approach, discuss, experience, opportunity, actually, basically).',
       'Do not jump to A2/B1 vocabulary or abstract phrasing unless the learner clearly introduces it first.',
-    ].join(' ')
+    ]
+    if (audience === 'child') {
+      rules.push(
+        'The learner is a child with a very small English vocabulary: use only the simplest familiar words, never assume they know rare or academic words, and keep questions about concrete things they can answer (name, pets, food, games, weather).'
+      )
+    }
+    return rules.join(' ')
   }
 
   if (level === 'a2') {
@@ -162,7 +168,7 @@ export function buildEngvoContinuationResponseInstructions(params: {
     .join(' ')
 }
 
-/** Скорость речи задаётся через instructions — поле `session.speed` в Realtime API не поддерживается. */
+/** Подсказка о темпе в instructions; основной рычаг — `session.audio.output.speed` в Realtime API. */
 export function buildEngvoSpeechSpeedRule(speechSpeed: number): string {
   const speed = clampEngvoRealtimeSpeed(speechSpeed)
   if (speed >= 0.95) {
@@ -198,7 +204,7 @@ export function buildEngvoRealtimeInstructions(params: {
     'Do not translate everything literally; pick the most natural phrasing a real speaker would use.',
     buildEngvoAudienceToneRule(params.audience),
     buildEngvoTopicRule(params.topic, params.audience),
-    buildEngvoLevelReinforcementRule(params.level),
+    buildEngvoLevelReinforcementRule(params.level, params.audience),
     buildEngvoSpeechSpeedRule(params.speechSpeed ?? 1),
     cefrBlock,
   ].join(' ')

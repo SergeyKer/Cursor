@@ -37,7 +37,7 @@ export function resolvePuzzleAttemptChatMessage(params: {
     const hint = resolvePuzzleSubHintText(params.wordCount, params.hintText)
     if (hint) return hint
     const answer = params.correctAnswer?.trim()
-    if (answer) return `${errorText}\nСкажи: ${answer}`.trim()
+    if (answer) return `${errorText}\nВыбери: ${answer}`.trim()
   }
   return errorText
 }

@@ -3,6 +3,7 @@ import { ENGVO_CALL_FINISHED_ASSISTANT_TEXT } from '@/lib/engvo/constants'
 import type { ChatMessage } from '@/lib/types'
 import {
   insertEngvoUserMessage,
+  shouldCancelEngvoAssistantOnUserAudioCommitted,
   shouldInsertEngvoUserBeforeAssistant,
 } from './callMessageOrder'
 
@@ -29,36 +30,23 @@ describe('callMessageOrder', () => {
     ])
   })
 
-  it('detects reorder when assistant was committed before user transcript', () => {
-    const messages: ChatMessage[] = [
-      { role: 'assistant', content: 'Hello!' },
-      { role: 'assistant', content: 'Nice to hear that.' },
-    ]
+  it('reorders only when assistant bubble was committed before user transcript', () => {
+    expect(
+      shouldInsertEngvoUserBeforeAssistant({
+        assistantCommittedBeforeUser: true,
+      })
+    ).toBe(true)
 
     expect(
       shouldInsertEngvoUserBeforeAssistant({
-        messages,
-        itemId: 'item-1',
-        assistantCommittedBeforeUser: true,
-        pendingUserItemId: 'item-1',
+        assistantCommittedBeforeUser: false,
       })
-    ).toBe(true)
+    ).toBe(false)
   })
 
-  it('detects reorder when pending user item matches and last bubble is assistant', () => {
-    const messages: ChatMessage[] = [
-      { role: 'assistant', content: 'Hello!' },
-      { role: 'assistant', content: 'Nice to hear that.' },
-    ]
-
-    expect(
-      shouldInsertEngvoUserBeforeAssistant({
-        messages,
-        itemId: 'item-2',
-        assistantCommittedBeforeUser: false,
-        pendingUserItemId: 'item-2',
-      })
-    ).toBe(true)
+  it('cancels in-flight assistant when user audio is committed', () => {
+    expect(shouldCancelEngvoAssistantOnUserAudioCommitted(true)).toBe(true)
+    expect(shouldCancelEngvoAssistantOnUserAudioCommitted(false)).toBe(false)
   })
 
   it('does not reorder before service or finished assistant lines', () => {

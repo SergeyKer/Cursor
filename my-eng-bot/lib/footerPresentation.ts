@@ -4,7 +4,7 @@ import type { FooterVoiceEmphasis, FooterVoiceTone } from '@/lib/footerVoice'
 import type { Audience } from '@/lib/types'
 
 export type FooterPresentationMode = 'playful' | 'professional'
-export type FooterMarkerKind = 'emoji' | 'dot' | 'none'
+export type FooterMarkerKind = 'emoji' | 'none'
 
 export interface FooterPresentation {
   enabled: boolean
@@ -26,6 +26,8 @@ interface ResolveFooterPresentationParams {
   emphasis: FooterVoiceEmphasis
   typingKey?: string | number | null
   text?: string | null
+  /** Без эмодзи слева от верхней строки (например, статусы звонка Engvo). */
+  hideDynamicMarker?: boolean
 }
 
 const ADAPTIVE_FOOTER_PRESENTATION_ENABLED = process.env.NEXT_PUBLIC_ADAPTIVE_FOOTER_PRESENTATION !== '0'
@@ -33,13 +35,22 @@ const ADAPTIVE_FOOTER_PRESENTATION_ENABLED = process.env.NEXT_PUBLIC_ADAPTIVE_FO
 /** Нижняя строка статов — тот же размер, что в structured lesson footer. */
 const FOOTER_BOTTOM_LINE_CLASS = 'text-[13px] leading-normal text-gray-400'
 
-const CHILD_EMOJI_BY_TONE: Record<FooterVoiceTone, string[]> = {
-  celebrate: ['🎉', '✨', '🌟', '🏆'],
-  support: ['💪', '🤝', '🌈', '🙌'],
-  hint: ['💡', '🧩', '🔍', '📝'],
-  thinking: ['🤔', '🧠', '🔎', '📘'],
-  error: ['💛', '🛟', '🌱', '🤝'],
-  neutral: ['🙂', '👋', '✨', '🌤️'],
+export const CHILD_EMOJI_BY_TONE: Record<FooterVoiceTone, readonly string[]> = {
+  celebrate: ['🎉', '✨', '🌟', '🏆', '😄', '🤩', '😊'],
+  support: ['💪', '🤝', '🌈', '🙌', '🤗', '😌', '💛', '🫶', '😇', '😁'],
+  hint: ['💡', '🧩', '🔍', '📝', '🧐', '😉'],
+  thinking: ['🤔', '🧠', '🔎', '📘', '😕', '😮', '💭'],
+  error: ['💛', '🛟', '🌱', '🤝', '😔', '🥲'],
+  neutral: ['🙂', '👋', '✨', '🌤️', '😐', '🫶'],
+}
+
+export const ADULT_EMOJI_BY_TONE: Record<FooterVoiceTone, readonly string[]> = {
+  celebrate: ['😊', '😄', '🤩', '✨', '🌟', '💚'],
+  support: ['🙂', '🤗', '😌', '🤝', '💛', '🙏', '🫶', '😇', '😁'],
+  hint: ['🧐', '😉', '💡', '📝', '🔎'],
+  thinking: ['🤔', '😕', '😮', '💭', '☁️'],
+  error: ['😔', '🥲', '😕', '💛', '🛟', '🌱'],
+  neutral: ['🙂', '😐', '👋', '🌤️', '✨', '🫶'],
 }
 
 function getToneTextClassName(tone: FooterVoiceTone, emphasis: FooterVoiceEmphasis, isPlayful: boolean): string {
@@ -69,10 +80,28 @@ function stableHash(value: string): number {
   return hash
 }
 
-function pickStableItem(items: string[], seed: string): string {
+function pickStableItem(items: readonly string[], seed: string): string {
   if (items.length === 0) return ''
   const index = stableHash(seed) % items.length
   return items[index] ?? items[0] ?? ''
+}
+
+function resolveMarkerSeed(
+  typingKey: string | number | null | undefined,
+  text: string | null | undefined,
+  tone: FooterVoiceTone,
+  audience: Audience
+): string {
+  return String(typingKey ?? `${text ?? ''}|${tone}|${audience}`)
+}
+
+function resolveEmojiMarker(audience: Audience, tone: FooterVoiceTone, seed: string): string {
+  const pool = audience === 'child' ? CHILD_EMOJI_BY_TONE : ADULT_EMOJI_BY_TONE
+  return pickStableItem(pool[tone], seed)
+}
+
+function buildMarkerClassName(emphasis: FooterVoiceEmphasis): string {
+  return `emoji-glyph shrink-0 text-base ${emphasis === 'pulse' ? 'motion-safe:animate-pulse' : ''}`.trim()
 }
 
 export function resolveFooterPresentation({
@@ -81,6 +110,7 @@ export function resolveFooterPresentation({
   emphasis,
   typingKey,
   text,
+  hideDynamicMarker = false,
 }: ResolveFooterPresentationParams): FooterPresentation {
   const isPlayful = audience === 'child'
   const topLineClassName = getToneTextClassName(tone, emphasis, isPlayful)
@@ -100,20 +130,23 @@ export function resolveFooterPresentation({
     }
   }
 
+  const seed = resolveMarkerSeed(typingKey, text, tone, audience)
+  const markerText = hideDynamicMarker ? null : resolveEmojiMarker(audience, tone, seed)
+  const markerClassName = buildMarkerClassName(emphasis)
+  const markerKind: FooterMarkerKind = hideDynamicMarker || !markerText ? 'none' : 'emoji'
+
   if (isPlayful) {
-    const seed = String(typingKey ?? `${text ?? ''}|${tone}|${audience}`)
-    const markerText = pickStableItem(CHILD_EMOJI_BY_TONE[tone], seed)
     return {
       enabled: true,
       mode: 'playful',
       typingSpeed: 44,
       topLineRowClassName: 'flex items-center gap-2 rounded-full bg-white/35 px-2 backdrop-blur-[2px]',
       topLineClassName,
-      bottomLineRowClassName: 'pl-2',
+      bottomLineRowClassName: hideDynamicMarker ? '' : 'pl-2',
       bottomLineClassName: FOOTER_BOTTOM_LINE_CLASS,
-      markerKind: 'emoji',
+      markerKind,
       markerText,
-      markerClassName: `emoji-glyph shrink-0 text-base ${emphasis === 'pulse' ? 'motion-safe:animate-pulse' : ''}`.trim(),
+      markerClassName: markerKind === 'emoji' ? markerClassName : '',
     }
   }
 
@@ -123,10 +156,10 @@ export function resolveFooterPresentation({
     typingSpeed: 28,
     topLineRowClassName: 'flex min-w-0 items-center gap-2',
     topLineClassName,
-    bottomLineRowClassName: '',
+    bottomLineRowClassName: hideDynamicMarker ? '' : 'pl-2',
     bottomLineClassName: FOOTER_BOTTOM_LINE_CLASS,
-    markerKind: 'none',
-    markerText: null,
-    markerClassName: '',
+    markerKind,
+    markerText,
+    markerClassName: markerKind === 'emoji' ? markerClassName : '',
   }
 }

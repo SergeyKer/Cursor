@@ -4,6 +4,7 @@ import {
   engvoSpeechSpeedFromPreset,
   getEngvoDefaultSpeechSpeedPreset,
 } from './constants'
+import { resolveEngvoSpeechSpeedPreset } from './preferences'
 
 describe('Engvo speech speed helpers', () => {
   it('clamps speed to Realtime API bounds', () => {
@@ -19,8 +20,30 @@ describe('Engvo speech speed helpers', () => {
     expect(engvoSpeechSpeedFromPreset('calm')).toBe(0.7)
   })
 
-  it('defaults preset by audience', () => {
-    expect(getEngvoDefaultSpeechSpeedPreset('child')).toBe('normal')
-    expect(getEngvoDefaultSpeechSpeedPreset('adult')).toBe('conversational')
+  it('defaults preset by audience when level is not A1', () => {
+    expect(getEngvoDefaultSpeechSpeedPreset('child', 'a2')).toBe('normal')
+    expect(getEngvoDefaultSpeechSpeedPreset('adult', 'b1')).toBe('conversational')
+  })
+
+  it('defaults to calm speech speed for A1 at any audience', () => {
+    expect(getEngvoDefaultSpeechSpeedPreset('child', 'a1')).toBe('calm')
+    expect(getEngvoDefaultSpeechSpeedPreset('adult', 'a1')).toBe('calm')
+  })
+
+  it('resolveEngvoSpeechSpeedPreset prefers stored user choice', () => {
+    expect(
+      resolveEngvoSpeechSpeedPreset({
+        audience: 'child',
+        level: 'a1',
+        stored: 'conversational',
+      })
+    ).toBe('conversational')
+    expect(
+      resolveEngvoSpeechSpeedPreset({
+        audience: 'adult',
+        level: 'a1',
+        stored: null,
+      })
+    ).toBe('calm')
   })
 })

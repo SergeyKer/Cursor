@@ -116,6 +116,7 @@ export async function POST(req: NextRequest) {
           model: ENGVO_REALTIME_MODEL,
           voice,
           instructions,
+          speed: speechSpeed,
         })
       )
     )

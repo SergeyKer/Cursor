@@ -1,8 +1,19 @@
 import {
   buildEngvoInputAudioTranscriptionConfig,
+  clampEngvoRealtimeSpeed,
   ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION,
   type EngvoRealtimeVoice,
 } from '@/lib/engvo/constants'
+
+function buildEngvoAudioOutput(params: {
+  voice: EngvoRealtimeVoice
+  speed?: number
+}): { voice: EngvoRealtimeVoice; speed: number } {
+  return {
+    voice: params.voice,
+    speed: clampEngvoRealtimeSpeed(params.speed ?? 1),
+  }
+}
 
 export const ENGVO_REALTIME_SESSION_TYPE = 'realtime' as const
 
@@ -20,11 +31,12 @@ export function assertEngvoRealtimeSessionHasType(
   }
 }
 
-/** Session JSON for `POST /v1/realtime/calls` (GA unified WebRTC). Voice lives under `audio.output`. */
+/** Session JSON for `POST /v1/realtime/calls` (GA unified WebRTC). Voice and speed live under `audio.output`. */
 export function buildEngvoCallsApiSession(params: {
   model: string
   voice: EngvoRealtimeVoice
   instructions: string
+  speed?: number
 }): EngvoRealtimeSessionBase & {
   model: string
   instructions: string
@@ -33,7 +45,7 @@ export function buildEngvoCallsApiSession(params: {
       transcription: ReturnType<typeof buildEngvoInputAudioTranscriptionConfig>
       turn_detection: typeof ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION
     }
-    output: { voice: EngvoRealtimeVoice }
+    output: { voice: EngvoRealtimeVoice; speed: number }
   }
 } {
   const session = {
@@ -45,9 +57,7 @@ export function buildEngvoCallsApiSession(params: {
         transcription: buildEngvoInputAudioTranscriptionConfig(),
         turn_detection: { ...ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION },
       },
-      output: {
-        voice: params.voice,
-      },
+      output: buildEngvoAudioOutput({ voice: params.voice, speed: params.speed }),
     },
   }
   assertEngvoRealtimeSessionHasType(session)
@@ -59,6 +69,7 @@ export function buildEngvoClientSessionUpdate(params: {
   model: string
   instructions: string
   voice?: EngvoRealtimeVoice
+  speed?: number
   inputAudioTranscription?: ReturnType<typeof buildEngvoInputAudioTranscriptionConfig> & {
     language?: string
   }
@@ -71,7 +82,7 @@ export function buildEngvoClientSessionUpdate(params: {
     },
   }
   if (params.voice) {
-    audio.output = { voice: params.voice }
+    audio.output = buildEngvoAudioOutput({ voice: params.voice, speed: params.speed })
   }
   const session: Record<string, unknown> = {
     type: ENGVO_REALTIME_SESSION_TYPE,

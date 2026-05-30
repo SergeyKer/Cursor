@@ -22,11 +22,22 @@ describe('buildEngvoCallsApiSession', () => {
     expect(session.model).toBe('gpt-realtime-mini')
     expect(session).not.toHaveProperty('voice')
     expect(session.audio.output.voice).toBe('alloy')
+    expect(session.audio.output.speed).toBe(1)
     expect(session.audio.input.transcription).toBeDefined()
     expect(session.audio.input.turn_detection.type).toBe('server_vad')
     expect(session.audio.input.turn_detection).toEqual(ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION)
     expect(ENGVO_VAD_THRESHOLD).toBe(0.72)
     expect(ENGVO_VAD_SILENCE_DURATION_MS).toBe(900)
+  })
+
+  it('sets audio.output.speed from preset value', () => {
+    const session = buildEngvoCallsApiSession({
+      model: 'gpt-realtime-mini',
+      voice: 'alloy',
+      instructions: 'Speak slowly.',
+      speed: 0.7,
+    })
+    expect(session.audio.output.speed).toBe(0.7)
   })
 })
 
@@ -42,7 +53,7 @@ describe('buildEngvoClientSessionUpdate', () => {
     expect(session.model).toBe('gpt-realtime-mini')
     expect(session.output_modalities).toEqual(['audio'])
     expect(session).not.toHaveProperty('voice')
-    expect(session.audio.output).toEqual({ voice: 'marin' })
+    expect(session.audio.output).toEqual({ voice: 'marin', speed: 1 })
     expect(session.audio.input.transcription).toEqual({
       model: 'gpt-4o-mini-transcribe',
       language: 'ru',
@@ -57,6 +68,16 @@ describe('buildEngvoClientSessionUpdate', () => {
     expect(session.type).toBe(ENGVO_REALTIME_SESSION_TYPE)
     expect(session.audio.input).toBeDefined()
     expect(session.audio.output).toBeUndefined()
+  })
+
+  it('passes speed in audio.output when voice and speed are provided', () => {
+    const session = buildEngvoClientSessionUpdate({
+      model: 'gpt-realtime-mini',
+      voice: 'alloy',
+      speed: 0.85,
+      instructions: 'Hello.',
+    })
+    expect(session.audio.output).toEqual({ voice: 'alloy', speed: 0.85 })
   })
 })
 

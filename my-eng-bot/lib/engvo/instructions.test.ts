@@ -41,9 +41,10 @@ describe('buildEngvoRealtimeInstructions', () => {
     expect(result).toContain('Avoid abstract or formal words')
     expect(result).toContain('Do not jump to A2/B1 vocabulary')
     expect(result).toContain('Avoid bureaucratic, overly formal, or adult business language.')
+    expect(result).toContain('very small English vocabulary')
   })
 
-  it('includes speech pace in instructions instead of session.speed', () => {
+  it('includes speech pace in instructions alongside audio.output.speed', () => {
     const fast = buildEngvoRealtimeInstructions({
       audience: 'adult',
       level: 'a2',

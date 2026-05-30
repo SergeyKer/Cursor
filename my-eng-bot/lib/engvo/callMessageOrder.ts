@@ -13,19 +13,17 @@ export function isEngvoReorderableAssistantMessage(message: ChatMessage | undefi
   return true
 }
 
-export function shouldInsertEngvoUserBeforeAssistant(params: {
-  messages: ChatMessage[]
-  itemId: string
-  assistantCommittedBeforeUser: boolean
-  pendingUserItemId: string | null
-}): boolean {
-  if (params.assistantCommittedBeforeUser) return true
+/** Отменить текущий ответ ассистента, когда пользователь уже зафиксировал новую реплику. */
+export function shouldCancelEngvoAssistantOnUserAudioCommitted(
+  hasActiveAssistantResponse: boolean
+): boolean {
+  return hasActiveAssistantResponse
+}
 
-  const withoutDial = withoutEngvoServiceLines(params.messages)
-  const last = withoutDial[withoutDial.length - 1]
-  return (
-    params.pendingUserItemId === params.itemId && isEngvoReorderableAssistantMessage(last)
-  )
+export function shouldInsertEngvoUserBeforeAssistant(params: {
+  assistantCommittedBeforeUser: boolean
+}): boolean {
+  return params.assistantCommittedBeforeUser
 }
 
 export function insertEngvoUserMessage(

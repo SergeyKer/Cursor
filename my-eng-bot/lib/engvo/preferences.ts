@@ -5,6 +5,7 @@ import {
   ENGVO_SPEECH_SPEED_STORAGE_KEY,
   ENGVO_VOICE_STORAGE_KEY,
   getEngvoDefaultCefrLevel,
+  getEngvoDefaultSpeechSpeedPreset,
   isEngvoCefrLevel,
   isEngvoRealtimeVoice,
   isEngvoSpeechSpeedPreset,
@@ -71,4 +72,15 @@ export function saveEngvoSpeechSpeedPreset(value: EngvoSpeechSpeedPresetId): voi
   } catch {
     // ignore
   }
+}
+
+/** Сохранённый пресет пользователя или дефолт по аудитории и CEFR (A1 → спокойная). */
+export function resolveEngvoSpeechSpeedPreset(params: {
+  audience: Audience
+  level: EngvoCefrLevel
+  stored?: EngvoSpeechSpeedPresetId | null
+}): EngvoSpeechSpeedPresetId {
+  const stored = params.stored ?? loadEngvoSpeechSpeedPreset()
+  if (stored) return stored
+  return getEngvoDefaultSpeechSpeedPreset(params.audience, params.level)
 }

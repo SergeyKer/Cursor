@@ -36,7 +36,7 @@ describe('resolvePuzzleAttemptChatMessage', () => {
     ).toBe('Подсказка: первое слово — I.')
   })
 
-  it('appends Скажи with variant answer on second attempt when word bank is short', () => {
+  it('appends Выбери with variant answer on second attempt when word bank is short', () => {
     expect(
       resolvePuzzleAttemptChatMessage({
         attempts: 2,
@@ -45,7 +45,7 @@ describe('resolvePuzzleAttemptChatMessage', () => {
         wordCount: 3,
         correctAnswer: 'I am a student.',
       })
-    ).toBe(`${DEFAULT_PUZZLE_ERROR_TEXT}\nСкажи: I am a student.`)
+    ).toBe(`${DEFAULT_PUZZLE_ERROR_TEXT}\nВыбери: I am a student.`)
   })
 
   it('keeps errorText on second attempt when word bank is short and answer is missing', () => {
