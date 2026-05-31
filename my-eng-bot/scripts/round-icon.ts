@@ -3,20 +3,10 @@ import path from 'node:path'
 
 import sharp from 'sharp'
 
-function roundToInt(n: number) {
-  return Math.round(n)
-}
+import { squircleMaskSvg } from '../lib/squircleMask'
 
-function radiusForSize(size: number) {
-  return Math.min(roundToInt(size * 0.1), Math.max(0, Math.floor(size / 2) - 1))
-}
-
-async function applyRoundedCorners(squarePngBuffer: Buffer, size: number): Promise<Buffer> {
-  const radius = radiusForSize(size)
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
-  <rect x="0" y="0" width="${size}" height="${size}" rx="${radius}" ry="${radius}" fill="white"/>
-</svg>`
-
+async function applySquircleMask(squarePngBuffer: Buffer, size: number): Promise<Buffer> {
+  const svg = squircleMaskSvg(size)
   const maskPngBuffer = await sharp(Buffer.from(svg)).png().toBuffer()
 
   return sharp(squarePngBuffer)
@@ -59,7 +49,7 @@ async function main() {
 
   for (const { file, size } of outputs) {
     const resized = await sharp(squarePngBuffer).resize(size, size).png().toBuffer()
-    const out = await applyRoundedCorners(resized, size)
+    const out = await applySquircleMask(resized, size)
     await fs.writeFile(path.join(publicDir, file), out)
   }
 

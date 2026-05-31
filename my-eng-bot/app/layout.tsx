@@ -5,9 +5,9 @@ import VisualViewportInsets from '@/components/VisualViewportInsets'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 
 export const metadata: Metadata = {
-  title: 'MyEng - мой английский друг',
+  title: 'Engvo.AI - мой английский друг',
   description: 'Диалог и тренировка перевода на английском с ИИ',
-  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'MyEng' },
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Engvo.AI' },
 }
 
 export default function RootLayout({

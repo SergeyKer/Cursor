@@ -89,9 +89,8 @@ export function useAppColumnBounds(
       window.removeEventListener('scroll', updateBounds, true)
       viewport?.removeEventListener('resize', updateBounds)
       viewport?.removeEventListener('scroll', updateBounds)
-      setBounds(null)
     }
-  }, [columnRef, updateBounds])
+  }, [columnRef, updateBounds, remeasureWhen])
 
   return bounds
 }

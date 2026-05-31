@@ -10,6 +10,8 @@ interface TypingTextProps {
   singleLine?: boolean
   startDelayMs?: number
   fadeWhileTyping?: boolean
+  /** Без посимвольной анимации — текст сразу (футер при подгрузке storage). */
+  instant?: boolean
 }
 
 export default function TypingText({
@@ -20,9 +22,10 @@ export default function TypingText({
   singleLine = false,
   startDelayMs = 100,
   fadeWhileTyping = true,
+  instant = false,
 }: TypingTextProps) {
-  const [displayedText, setDisplayedText] = useState('')
-  const [isTypingComplete, setIsTypingComplete] = useState(false)
+  const [displayedText, setDisplayedText] = useState(instant ? text : '')
+  const [isTypingComplete, setIsTypingComplete] = useState(instant)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -34,6 +37,13 @@ export default function TypingText({
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current)
       timeoutRef.current = null
+    }
+
+    if (instant) {
+      setDisplayedText(text)
+      setIsTypingComplete(true)
+      onComplete?.()
+      return
     }
 
     setDisplayedText('')
@@ -67,13 +77,17 @@ export default function TypingText({
         intervalRef.current = null
       }
     }
-  }, [text, speed, onComplete, startDelayMs])
+  }, [text, speed, onComplete, startDelayMs, instant])
 
   return (
-    <div className={`flex min-h-6 w-full overflow-visible ${singleLine ? 'items-center' : 'items-start'}`}>
+    <div
+      className={`flex w-full overflow-visible ${singleLine ? 'h-auto min-h-0 items-center' : 'min-h-6 items-start'}`}
+    >
       <span
         className={`max-w-full text-sm text-[var(--text-muted,#6b7280)] ${
-          singleLine ? 'emoji-line truncate-x whitespace-nowrap' : 'whitespace-normal break-words leading-[1.35]'
+          singleLine
+            ? 'footer-dynamic-line truncate-x whitespace-nowrap'
+            : 'emoji-line whitespace-normal break-words leading-[1.35]'
         } ${
           className ?? ''
         }`}

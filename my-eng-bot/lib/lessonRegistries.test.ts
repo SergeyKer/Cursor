@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { introducingYourselfLesson } from '@/lib/lessons/introducing-yourself'
 import { getLearningLessonById, findStaticLessonByTopic } from '@/lib/learningLessons'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
+import { validateAnswer } from '@/utils/validateAnswer'
+import type { Exercise } from '@/types/lesson'
 
 describe('lesson registries', () => {
   it('registers A1 introducing-yourself lesson with simple intro', () => {
@@ -16,6 +19,17 @@ describe('lesson registries', () => {
   it('resolves introducing-yourself from plain learner wording', () => {
     expect(findStaticLessonByTopic('расскажи про себя i am from')?.id).toBe('4')
     expect(findStaticLessonByTopic('знакомство на английском')?.id).toBe('4')
+  })
+
+  it('step 6 first translate omits greeting and accepts I am from Russia only', () => {
+    const step6 = introducingYourselfLesson.steps.find((step) => step.stepNumber === 6)
+    const exercise = step6?.exercise as Exercise | undefined
+    expect(exercise?.question).toBe('Переведите на английский: Я из России')
+    expect(exercise?.question).not.toMatch(/Привет/i)
+
+    expect(validateAnswer("I'm from Russia.", exercise!)).toBe(true)
+    expect(validateAnswer('I am from Russia.', exercise!)).toBe(true)
+    expect(validateAnswer('I am form Russia', exercise!)).toBe(false)
   })
 
   it('registers embedded questions lesson in structured and learning registries', () => {

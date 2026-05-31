@@ -130,6 +130,10 @@ function footerStatHighlight(segment: string): string {
   return segment.includes('(+') ? 'font-medium text-emerald-600' : ''
 }
 
+const FOOTER_TOP_ROW_CLASS = 'app-footer-body__row app-footer-body__row--top'
+const FOOTER_BOTTOM_ROW_CLASS = 'app-footer-body__row app-footer-body__row--bottom'
+const FOOTER_STAT_PAIR_CLASS = 'footer-stat-pair'
+
 export default function AppFooter({
   dynamicText,
   staticText,
@@ -173,30 +177,24 @@ export default function AppFooter({
 
   return (
     <div
-      className="chat-shell-x flex min-h-[var(--app-footer-row-height)] w-full flex-1 flex-col justify-center overflow-visible"
-      style={{ paddingBottom: 'var(--app-bottom-inset)' }}
+      className="chat-shell-x app-footer-root pointer-events-none w-full shrink-0"
       aria-hidden={!showFooterContent}
     >
       <div
-        className={`mx-auto flex w-full min-w-0 flex-col justify-center ${
-          lessonFooterMode ? 'gap-0.5' : 'gap-1.5'
-        } ${
+        className={`app-footer-body mx-auto w-full min-w-0 ${
           isDialogStarted
             ? 'max-w-[29rem]'
             : lessonFooterMode
               ? 'max-w-[23.2rem] max-[420px]:max-w-none'
               : 'max-w-[23.2rem]'
-        } ${lessonFooterMode ? 'px-1.5 sm:px-3' : 'px-2 sm:px-3'} ${
-          lessonFooterMode ? 'py-0' : 'py-1.5 sm:py-2'
-        }`}
+        } ${lessonFooterMode ? 'px-1.5 sm:px-3' : 'px-2 sm:px-3'}`}
       >
         <div
-          className={`flex items-center overflow-visible ${
-            lessonFooterMode ? 'min-h-[var(--app-header-row-height)]' : 'min-h-6'
-          } ${showFooterContent ? '' : 'opacity-0'}`}
+          className={`${FOOTER_TOP_ROW_CLASS} ${showFooterContent ? '' : 'opacity-0'}`}
+          suppressHydrationWarning
         >
           {showFooterContent && topLine ? (
-            <div className={`${presentation.topLineRowClassName} min-w-0 flex-1`}>
+            <div className={`app-footer-body__row-inner ${presentation.topLineRowClassName} min-w-0 flex-1`}>
               {presentation.markerKind === 'emoji' && presentation.markerText ? (
                 <span className={presentation.markerClassName} aria-hidden>
                   {presentation.markerText}
@@ -207,21 +205,30 @@ export default function AppFooter({
                 text={topLine}
                 speed={presentation.typingSpeed}
                 singleLine
+                instant
+                startDelayMs={0}
+                fadeWhileTyping={false}
                 className={presentation.topLineClassName}
               />
             </div>
           ) : (
-            <div
-              className={lessonFooterMode ? 'min-h-[var(--app-header-row-height)]' : 'h-6'}
-              aria-hidden
-            />
+            <div className={`app-footer-body__row-inner ${presentation.topLineRowClassName} min-w-0 flex-1`} aria-hidden>
+              <span className={`${presentation.markerClassName} invisible shrink-0`} aria-hidden>
+                &nbsp;
+              </span>
+              <span className="footer-dynamic-line invisible">&nbsp;</span>
+            </div>
           )}
         </div>
         <div
-          className={`flex w-full min-w-0 items-center overflow-visible min-h-[var(--app-header-row-height)] pb-1 ${presentation.bottomLineRowClassName} ${presentation.bottomLineClassName} ${showFooterContent ? '' : 'opacity-0'}`}
+          className={`${FOOTER_BOTTOM_ROW_CLASS} ${showFooterContent ? '' : 'opacity-0'}`}
+          suppressHydrationWarning
         >
           {showFooterContent ? (
-            <div className="flex w-full min-w-0 items-center gap-2">
+            <div
+              className={`app-footer-body__row-inner gap-2 ${presentation.bottomLineRowClassName} ${presentation.bottomLineClassName}`}
+              suppressHydrationWarning
+            >
               {lessonFooterMode ? (
                 <>
                   <div
@@ -248,6 +255,7 @@ export default function AppFooter({
                               text={segment.text}
                               highlight={highlight}
                               allowTextShrink
+                              className={FOOTER_STAT_PAIR_CLASS}
                             />
                           )}
                         </span>
@@ -271,7 +279,7 @@ export default function AppFooter({
                 </>
               ) : bottomSegments.length > 0 ? (
                 <div
-                  className="grid min-w-0 flex-1 items-center gap-1 overflow-visible tabular-nums sm:gap-2"
+                  className="grid min-w-0 flex-1 items-center gap-1 overflow-visible whitespace-nowrap tabular-nums sm:gap-2"
                   style={{
                     gridTemplateColumns: `repeat(${bottomSegments.length}, minmax(0, 1fr))`,
                   }}
@@ -282,7 +290,11 @@ export default function AppFooter({
                       key={`footer-seg-${index}`}
                       className="flex min-w-0 items-center justify-start overflow-visible px-0.5"
                     >
-                      <EmojiLeadingStatText text={segment} highlight={footerStatHighlight(segment)} />
+                      <EmojiLeadingStatText
+                        text={segment}
+                        highlight={footerStatHighlight(segment)}
+                        className={FOOTER_STAT_PAIR_CLASS}
+                      />
                     </span>
                   ))}
                 </div>
@@ -309,7 +321,9 @@ export default function AppFooter({
               )}
             </div>
           ) : (
-            <span aria-hidden>&nbsp;</span>
+            <div className="app-footer-body__row-inner" aria-hidden>
+              <span>&nbsp;</span>
+            </div>
           )}
         </div>
       </div>

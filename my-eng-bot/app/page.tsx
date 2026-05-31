@@ -10,6 +10,7 @@ import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
 import { MenuToggleIcon } from '@/components/MenuToggleIcon'
 import { HomeMenuInstructionBubble } from '@/components/HomeMenuInstructionBubble'
 import HomeEmptyBubble from '@/components/HomeEmptyBubble'
+import { AppIconFrame } from '@/components/AppIconFrame'
 import MenuSectionPanels, {
   type LessonMenuContext,
   type LessonsPanel,
@@ -17,7 +18,7 @@ import MenuSectionPanels, {
   type MenuView,
 } from '@/components/MenuSectionPanels'
 import { useAppColumnBounds } from '@/hooks/useAppColumnBounds'
-import { buildCompactGreeting } from '@/lib/homeGreeting'
+import { buildCompactGreeting, buildFullGreeting } from '@/lib/homeGreeting'
 import { consumeNextGreetingFactLine } from '@/lib/greetingFactRotation'
 import { consumeNextHomeVoiceLine } from '@/lib/homeVoiceRotation'
 import {
@@ -91,10 +92,7 @@ import {
   resolveLessonCardMedal,
   resolveLessonHeaderMedal,
 } from '@/lib/lessonFooter'
-import {
-  buildLessonPageTitle,
-  getLessonHeaderCenterPaddingClass,
-} from '@/lib/lessonPageTitle'
+import { buildLessonPageTitle } from '@/lib/lessonPageTitle'
 import MedalBadge from '@/components/MedalBadge'
 import { resolveLessonFooterTopLine } from '@/lib/lessonFooterTopLine'
 import { resolveGlobalLessonXpDelta } from '@/lib/lessonGlobalXpAward'
@@ -252,7 +250,7 @@ import {
 } from '@/lib/lessonProviderTimeouts'
 
 const Chat = dynamic(() => import('@/components/Chat'))
-const SlideOutMenu = dynamic(() => import('@/components/SlideOutMenu'))
+import SlideOutMenu from '@/components/SlideOutMenu'
 const VocabularyWorldsScreen = dynamic(() => import('@/components/vocabulary/VocabularyWorldsScreen'))
 const VocabularyByLevelScreen = dynamic(() => import('@/components/vocabulary/VocabularyByLevelScreen'))
 type StructuredLessonRuntimeMode = 'generate' | 'repeat'
@@ -574,7 +572,9 @@ type StructuredLessonRunOrigin = 'menu_reopen' | 'menu_generate' | 'post_lesson_
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
-  const [rewardsState, setRewardsState] = useState<RewardsState>(createDefaultRewardsState())
+  const [rewardsState, setRewardsState] = useState<RewardsState>(createDefaultRewardsState)
+  /** После useLayoutEffect storage — иначе hydration mismatch (localStorage только на клиенте). */
+  const [footerHydrated, setFooterHydrated] = useState(false)
   const [rewardPopupText, setRewardPopupText] = useState<string | null>(null)
   const [lessonReturnHintText, setLessonReturnHintText] = useState<string | null>(null)
   const [lastStructuredLessonGlobalDelta, setLastStructuredLessonGlobalDelta] = useState(0)
@@ -961,10 +961,8 @@ export default function Home() {
     }
   }, [])
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     if (dialogStarted) return
-
-    let cancelled = false
 
     const cachedFact = welcomeFactByNonceRef.current.get(greetingNonce)
     if (cachedFact) {
@@ -973,11 +971,11 @@ export default function Home() {
       try {
         const line = consumeNextGreetingFactLine()
         welcomeFactByNonceRef.current.set(greetingNonce, line)
-        if (!cancelled) setWelcomeFactLine(line)
+        setWelcomeFactLine(line)
       } catch {
         const fallback = 'Интересный факт скоро появится.'
         welcomeFactByNonceRef.current.set(greetingNonce, fallback)
-        if (!cancelled) setWelcomeFactLine(fallback)
+        setWelcomeFactLine(fallback)
       }
     }
 
@@ -988,17 +986,14 @@ export default function Home() {
       try {
         const line = consumeNextHomeVoiceLine()
         homeVoiceByNonceRef.current.set(greetingNonce, line)
-        if (!cancelled) setHomeVoiceLine(line)
+        setHomeVoiceLine(line)
       } catch {
         const fallback = 'Я снова здесь. Продолжим?'
         homeVoiceByNonceRef.current.set(greetingNonce, fallback)
-        if (!cancelled) setHomeVoiceLine(fallback)
+        setHomeVoiceLine(fallback)
       }
     }
 
-    return () => {
-      cancelled = true
-    }
   }, [dialogStarted, greetingNonce])
 
   const handleHomeMenuViewChange = useCallback(
@@ -2899,8 +2894,10 @@ export default function Home() {
         setMessages([])
         setActiveStructuredLessonRuntime(cloneStructuredLessonWithRunKey(structuredLesson))
       }
+      setLastStructuredLessonGlobalDelta(0)
+      bumpFooterSessionContext()
     },
-    [abandonPracticeSession]
+    [abandonPracticeSession, bumpFooterSessionContext]
   )
 
   /** Меню «Начать урок»: не сбрасывать runtime (в т.ч. сгенерированный), если урок уже открыт на intro/tips. */
@@ -4049,31 +4046,38 @@ export default function Home() {
     }
   }, [sendToApi, fetchUsage, settings])
 
-  useEffect(() => {
-    const state = loadState()
-    const rewards = reconcileModeGoalSessions(loadRewardsState())
-    if (!initialLoadDoneRef.current) {
-      initialLoadDoneRef.current = true
-      setMessages([])
-      const mergedSettings = normalizeSettingsForAudience({
-        ...state.settings,
-        openAiChatPreset: 'gpt-4o-mini',
-      })
-      setSettings(mergedSettings)
-      setDialogStarted(false)
-      setEngvoRealtimeVoice(loadEngvoRealtimeVoice())
-      const loadedEngvoLevel = loadEngvoCefrLevel(mergedSettings.audience)
-      setEngvoCefrLevel(loadedEngvoLevel)
-      setEngvoSpeechSpeedPreset(
-        resolveEngvoSpeechSpeedPreset({
-          audience: mergedSettings.audience,
-          level: loadedEngvoLevel,
+  React.useLayoutEffect(() => {
+    try {
+      const state = loadState()
+      const rewards = reconcileModeGoalSessions(loadRewardsState())
+      if (!initialLoadDoneRef.current) {
+        initialLoadDoneRef.current = true
+        setMessages([])
+        const mergedSettings = normalizeSettingsForAudience({
+          ...state.settings,
+          openAiChatPreset: 'gpt-4o-mini',
         })
-      )
+        setSettings(mergedSettings)
+        setDialogStarted(false)
+        setMenuOpen(false)
+        setEngvoRealtimeVoice(loadEngvoRealtimeVoice())
+        const loadedEngvoLevel = loadEngvoCefrLevel(mergedSettings.audience)
+        setEngvoCefrLevel(loadedEngvoLevel)
+        setEngvoSpeechSpeedPreset(
+          resolveEngvoSpeechSpeedPreset({
+            audience: mergedSettings.audience,
+            level: loadedEngvoLevel,
+          })
+        )
+      }
       setRewardsState(rewards)
+      setInitialized(true)
+    } catch (error) {
+      console.error('Failed to load persisted app state', error)
+    } finally {
+      setStorageLoaded(true)
+      setFooterHydrated(true)
     }
-    setInitialized(true)
-    setStorageLoaded(true)
   }, [])
 
   useEffect(() => {
@@ -5049,11 +5053,20 @@ export default function Home() {
   }, [isPracticeActive, practiceSession.session, practiceSession.state])
 
   React.useEffect(() => {
+    if (lessonViewStage === 'intro') {
+      setLastStructuredLessonGlobalDelta(0)
+    }
+  }, [lessonViewStage, activeLearningLessonId])
+
+  React.useEffect(() => {
+    if (!storageLoaded) return
     const signature = [
       dialogStarted ? 'dialog' : 'home',
       homeMenuView,
       settings.mode,
       settings.audience,
+      lessonViewStage,
+      activeLearningLessonId ?? 'no-learning-lesson',
       isLessonActive ? 'lesson' : 'no-lesson',
       isPracticeActive ? 'practice' : 'no-practice',
       isAccentActive ? 'accent' : 'no-accent',
@@ -5076,8 +5089,11 @@ export default function Home() {
     isLessonActive,
     isPracticeActive,
     isVocabularyHubActive,
+    storageLoaded,
     settings.audience,
     settings.mode,
+    lessonViewStage,
+    activeLearningLessonId,
   ])
 
   React.useEffect(() => {
@@ -5285,19 +5301,18 @@ export default function Home() {
   ])
   const homeFooterVoice = React.useMemo(() => {
     if (dialogStarted) return null
-    const candidates: Array<FooterVoiceCandidate | null> = [
-      homeVoiceLine
-        ? {
-            key: `home-${greetingNonce}`,
-            priority: 100,
-            text: homeVoiceLine,
-            compactText: homeVoiceLine,
-            tone: 'neutral',
-          }
-        : null,
+    const resolvedHomeVoiceLine = homeVoiceLine?.trim() || 'Я снова здесь. Продолжим?'
+    const candidates: FooterVoiceCandidate[] = [
+      {
+        key: `home-${greetingNonce}`,
+        priority: 100,
+        text: resolvedHomeVoiceLine,
+        compactText: resolvedHomeVoiceLine,
+        tone: 'neutral',
+      },
     ]
     return pickFooterVoice(
-      candidates.filter((candidate): candidate is FooterVoiceCandidate => candidate !== null),
+      candidates,
       { maxLength: FOOTER_DYNAMIC_MAX_LENGTH }
     )
   }, [dialogStarted, greetingNonce, homeVoiceLine])
@@ -5368,17 +5383,17 @@ export default function Home() {
     rewardsState.ui.footerTicker,
     rewardsState.ui.lastReward,
   ])
-  // Тикер награды (например «Ответы 3/7») привязан к активной сессии: на простом доме/меню без чата и урока
-  // не подмешиваем его, иначе после «домика» верхняя строка футера остаётся от прошлого контекста до TTL.
+  // Тикер награды (например «Хороший шаг. +8 к уровню») — только в активной сессии (чат, шаги урока, практика).
+  // На доме, введении и фишках не подмешиваем: иначе после возврата на intro остаётся текст прошлого урока до TTL.
   const footerContextRewardTicker =
-    dialogStarted ||
-    isLessonActive ||
-    isLessonIntroActive ||
-    isLessonTipsActive ||
-    isStructuredLessonActive ||
-    isPracticeActive ||
-    isAccentActive ||
-    isVocabularyHubActive
+    (dialogStarted ||
+      isLessonActive ||
+      isStructuredLessonActive ||
+      isPracticeActive ||
+      isAccentActive ||
+      isVocabularyHubActive) &&
+    !isLessonIntroActive &&
+    !isLessonTipsActive
       ? recentRewardTicker
       : null
   const structuredLessonCompletionFooterText = useMemo(() => {
@@ -5520,11 +5535,15 @@ export default function Home() {
     return formatStreakHomeBannerText(rewardsState, settings.audience)
   }, [dialogStarted, homeMenuView, rewardsState, streakFooterPreview, settings.audience])
   const resolveFooterWithStreakLayer = React.useCallback(
-    (modeFallback: string | null, rewardTicker: string | null = footerContextRewardTicker): string | null =>
+    (
+      modeFallback: string | null,
+      rewardTicker: string | null = footerContextRewardTicker,
+      appliedTicker: string | null = streakFooterApplied
+    ): string | null =>
       resolveStreakFooterOverlayLine({
         modeFallback,
         rewardTicker,
-        appliedTicker: streakFooterApplied,
+        appliedTicker,
         sessionHint: activeStreakSessionMode ? streakSessionHintLine : null,
         preview: streakFooterPreview,
         sessionMode: activeStreakSessionMode,
@@ -5550,9 +5569,9 @@ export default function Home() {
         practiceRewardUi?.topLine ?? footerContextRewardTicker
       )
     : isLessonIntroActive
-      ? resolveFooterWithStreakLayer(introFooterDynamicText)
+      ? resolveFooterWithStreakLayer(introFooterDynamicText, null, null)
       : isLessonTipsActive
-      ? resolveFooterWithStreakLayer(tipsFooterDynamicText)
+      ? resolveFooterWithStreakLayer(tipsFooterDynamicText, null, null)
       : isStructuredLessonActive
       ? resolveFooterWithStreakLayer(
           structuredLessonCompletionFooterText ??
@@ -5651,15 +5670,6 @@ export default function Home() {
     activeStructuredLessonIsFinale,
   ])
 
-  const headerCenterPaddingClass = getLessonHeaderCenterPaddingClass({
-    isPreSteps: isLessonIntroActive || isLessonTipsActive || isTutorLessonPending,
-    hasHeaderMedal: Boolean(lessonHeaderMedal),
-    hasProgressSubStep: Boolean(
-      isStructuredLessonActive &&
-        lessonHeaderProgressLabel &&
-        lessonHeaderProgressLabel.includes(' · ')
-    ),
-  })
   const footerStaticText =
     (isStructuredLessonActive && structuredLessonFooterLive) ||
     (isPracticeActive && practiceFooterLive)
@@ -5743,6 +5753,25 @@ export default function Home() {
     : footerContextRewardTicker && !structuredLessonFooterBlocksCelebrateTicker
       ? 'pulse'
       : baseFooterVoiceEmphasis
+  const footerSsrPlaceholderStatic = formatGlobalFooterStats(createDefaultRewardsState())
+  const footerDisplayDynamicText = footerHydrated ? footerDynamicText : null
+  const footerDisplayStaticText = footerHydrated ? footerStaticText : footerSsrPlaceholderStatic
+  const footerDisplayLessonSegments = footerHydrated
+    ? isStructuredLessonActive
+      ? structuredLessonFooterLive?.lessonSegments ?? null
+      : isPracticeActive
+        ? practiceFooterLive?.lessonSegments ?? null
+        : null
+    : null
+  const footerDisplayLessonTitle = footerHydrated
+    ? isStructuredLessonActive
+      ? structuredLessonFooterLive?.lessonTitle ?? null
+      : isPracticeActive
+        ? practiceFooterLive?.lessonTitle ?? null
+        : null
+    : null
+  const footerDisplayVariantProgress = footerHydrated ? activeStructuredLessonFooterVariantProgress : null
+  const footerDisplayTypingKey = footerHydrated ? footerTypingKey : 'footer-ssr-placeholder'
   const engvoBootstrapServiceIndicatorText = getEngvoBootstrapServiceIndicatorText(engvoCallPhase)
   const showEngvoBootstrapServiceIndicator =
     engvoVoiceMode &&
@@ -5790,7 +5819,7 @@ export default function Home() {
     })
   }, [])
   const pageTitle = !dialogStarted
-    ? 'MyEng - мой английский друг'
+    ? 'Engvo.AI - мой английский друг'
     : isVocabularyHubActive
       ? vocabularyByLevelActive
         ? 'Слова по уровням MyEng'
@@ -5843,30 +5872,11 @@ export default function Home() {
     if (dialogStarted && settings.mode === 'communication' && !isLessonActive && !engvoVoiceMode) return
     setCommunicationVoiceDropdownOpen(false)
   }, [dialogStarted, settings.mode, isLessonActive, engvoVoiceMode])
-  /** Совпадает с фактической высотой шапки: safe-area + строка меню + нижний border (см. `header` без minHeight на внешнем блоке). */
-  const appTopOffset =
-    'calc(var(--app-safe-top-inset) + var(--app-header-row-height) + var(--app-header-border-width))'
-  const appBottomInset = isIosClient
-    ? 'max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-inset))'
-    : 'env(safe-area-inset-bottom, 0px)'
-  const appLayoutVars = {
-    '--app-safe-top-inset': 'env(safe-area-inset-top, 0px)',
-    '--app-header-row-height': '2.75rem',
-    '--app-header-border-width': '1px',
-    '--app-footer-row-height': 'calc(2 * var(--app-header-row-height))',
-    '--app-footer-border-width': '1px',
-    '--app-bottom-inset': appBottomInset,
-    '--app-bottom-offset':
-      'calc(var(--app-footer-row-height) + var(--app-bottom-inset) + var(--app-footer-border-width))',
-    '--app-top-offset': appTopOffset,
-  } as React.CSSProperties
-
   const rootShellClass =
     'flex min-h-[100dvh] flex-col ' +
     (isIosSafariClient ? '' : isIosClient ? 'h-full' : 'h-[100dvh]')
 
   const rootShellStyle = {
-    ...appLayoutVars,
     ...(isIosSafariClient
       ? ({
           minHeight: 'var(--ios-safari-vv-height, 100dvh)',
@@ -5878,7 +5888,7 @@ export default function Home() {
   return (
     <div data-audience={settings.audience} className={rootShellClass} style={rootShellStyle}>
       <header
-        className="app-header-surface fixed left-0 right-0 top-0 z-[60] border-b border-[var(--app-header-border)]"
+        className="app-header-surface fixed left-0 right-0 top-0 z-[65] border-b border-[var(--app-header-border)]"
         style={{
           paddingTop: 'var(--app-safe-top-inset)',
         }}
@@ -5886,14 +5896,14 @@ export default function Home() {
         <div className="chat-shell-x flex w-full min-h-[var(--app-header-row-height)] items-center">
           <div
             ref={appColumnRef}
-            className={`mx-auto flex w-full items-center justify-between ${
+            className={`relative mx-auto grid w-full grid-cols-[2.5rem_1fr_2.5rem] items-center gap-2 sm:grid-cols-[2.5rem_1fr_auto] ${
               dialogStarted ? 'max-w-[29rem]' : 'max-w-[23.2rem]'
             }`}
           >
             <button
               type="button"
               onClick={handleMenuButtonClick}
-              className="app-header-control chat-action-button flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center border text-[var(--app-header-text)] touch-manipulation"
+              className="app-header-control chat-action-button pointer-events-auto relative z-20 col-start-1 row-start-1 flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center border text-[var(--app-header-text)] touch-manipulation"
               style={{ borderRadius: 'var(--app-header-control-radius)' }}
               aria-label={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
               aria-expanded={menuOpen}
@@ -5901,7 +5911,33 @@ export default function Home() {
             >
               <MenuToggleIcon open={menuOpen} />
             </button>
-            <div className="pointer-events-auto flex h-10 min-h-[36px] shrink-0 items-center justify-end gap-1">
+            <h1
+              className={`pointer-events-none relative z-10 col-span-3 col-start-1 row-start-1 flex items-center justify-center gap-1 self-center px-2 text-center text-[16px] font-semibold leading-[1.32] tracking-normal text-[var(--app-header-text)] sm:text-[17px] ${
+                !dialogStarted ? 'whitespace-nowrap' : 'min-w-0 max-w-[calc(100%-5.5rem)]'
+              }`}
+              style={{ fontFamily: 'var(--app-header-font-family)' }}
+              title={lessonPageTitleView?.fullTitle ?? pageTitle}
+              aria-label={lessonPageTitleView?.ariaLabel ?? pageTitle}
+            >
+              {lessonPageTitleView ? (
+                lessonPageTitleView.prefix ? (
+                  <>
+                    <span className="shrink-0">{lessonPageTitleView.prefix}</span>
+                    <span className="min-w-0 truncate">{lessonPageTitleView.topicSegment}</span>
+                  </>
+                ) : (
+                  <span className="min-w-0 truncate">{lessonPageTitleView.topicSegment}</span>
+                )
+              ) : !dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode || isPracticeActive ? (
+                pageTitle
+              ) : (
+                <>
+                  <span className="hidden sm:inline">{getMenuSummary(true)}</span>
+                  <span className="sm:hidden">{getMenuSummary(false)}</span>
+                </>
+              )}
+            </h1>
+            <div className="relative z-20 col-start-3 row-start-1 flex h-10 min-h-[36px] shrink-0 items-center justify-end gap-1 justify-self-end">
               {dialogStarted && settings.mode === 'communication' && !isLessonActive && !engvoVoiceMode && (
                 <div
                   ref={communicationVoiceDropdownRef}
@@ -5991,50 +6027,16 @@ export default function Home() {
                   />
                 </span>
               ) : dialogStarted && !isLessonHeaderContext ? (
-                <span
-                  className="app-header-avatar mr-1 sm:mr-2 flex h-10 w-10 shrink-0 items-center justify-center p-1"
-                  aria-hidden
-                >
-                  <Image
-                    src="/header-robot.png"
-                    alt=""
-                    width={1024}
-                    height={1024}
-                    className="h-full w-full object-contain"
-                    sizes="36px"
-                  />
-                </span>
+                <AppIconFrame
+                  variant="header"
+                  src="/engvo-mascot.png"
+                  alt="Engvo.AI"
+                  className="mr-1 sm:mr-2"
+                  sizes="40px"
+                />
               ) : null}
             </div>
           </div>
-        </div>
-        <div
-          className={`absolute inset-0 flex items-center justify-center pointer-events-none ${headerCenterPaddingClass}`}
-        >
-          <h1
-            className="flex max-w-full min-w-0 items-center justify-center gap-1 text-[16px] font-semibold tracking-normal leading-[1.32] text-[var(--app-header-text)]"
-            style={{ fontFamily: 'var(--app-header-font-family)' }}
-            title={lessonPageTitleView?.fullTitle ?? pageTitle}
-            aria-label={lessonPageTitleView?.ariaLabel ?? pageTitle}
-          >
-            {lessonPageTitleView ? (
-              lessonPageTitleView.prefix ? (
-                <>
-                  <span className="shrink-0">{lessonPageTitleView.prefix}</span>
-                  <span className="min-w-0 truncate">{lessonPageTitleView.topicSegment}</span>
-                </>
-              ) : (
-                <span className="min-w-0 truncate">{lessonPageTitleView.topicSegment}</span>
-              )
-            ) : !dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode || isPracticeActive ? (
-              pageTitle
-            ) : (
-              <>
-                <span className="hidden sm:inline">{getMenuSummary(true)}</span>
-                <span className="sm:hidden">{getMenuSummary(false)}</span>
-              </>
-            )}
-          </h1>
         </div>
       </header>
 
@@ -6055,10 +6057,10 @@ export default function Home() {
         }}
       >
         {!dialogStarted ? (
-          <div className="start-screen chat-shell-x flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
+          <div className="start-screen chat-shell-x relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
             <div
               ref={homeColumnRef}
-              className="mx-auto flex w-full max-w-[23.2rem] flex-1 flex-col items-center min-h-0"
+              className="pointer-events-auto relative z-10 mx-auto flex w-full max-w-[23.2rem] flex-col items-center pb-2"
               style={{
                 gap: homeMenuView === 'root' ? 'clamp(1rem, 2.5vh, 1.75rem)' : 'clamp(0.5rem, 1.5vh, 0.9rem)',
                 paddingTop:
@@ -6068,14 +6070,12 @@ export default function Home() {
             >
             {homeMenuView === 'root' && (
               <div className="flex w-full shrink-0 justify-center">
-                <div className="w-1/4">
-                  <Image
-                    src="/robot-no-background.png"
-                    alt="MyEng logo"
-                    width={512}
-                    height={512}
-                    className="block h-auto w-full object-contain"
-                    sizes="(max-width: 640px) 25vw, 6rem"
+                <div className="w-1/4 max-w-[5.8125rem] shrink-0">
+                  <AppIconFrame
+                    variant="home"
+                    src="/engvo-mascot.png"
+                    alt="Engvo.AI"
+                    className="w-full"
                     priority
                   />
                 </div>
@@ -6083,7 +6083,13 @@ export default function Home() {
             )}
             {homeMenuView === 'root' && (
               <div className="flex w-full flex-col items-center gap-[clamp(1rem,3.2vh,2rem)]">
-                <HomeWelcomeBubble text={buildCompactGreeting()} />
+                <HomeWelcomeBubble
+                  text={
+                    welcomeFactLine?.trim()
+                      ? buildFullGreeting(welcomeFactLine)
+                      : buildCompactGreeting()
+                  }
+                />
                 {homeStreakBannerText ? (
                   <div className="w-full rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-2.5 text-center">
                     <p className="text-[13px] font-medium leading-snug text-[var(--status-info-text)]">
@@ -6145,7 +6151,7 @@ export default function Home() {
                             onClick={() => setHomeMenuView('aiChat')}
                             className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}
                           >
-                            Начать Чат с MyEng
+                            Начать чат с Engvo.AI
                           </button>
                         </div>
                         <button
@@ -6159,22 +6165,20 @@ export default function Home() {
                     )}
                   </div>
                 </div>
-                {!welcomeCompact && welcomeFactLine && (
-                  <HomeEmptyBubble text={welcomeFactLine} />
-                )}
+                {welcomeFactLine ? (
+                  <HomeEmptyBubble text={welcomeFactLine} className="mt-1" />
+                ) : null}
               </div>
             )}
             {homeMenuView !== 'root' && (
               <>
                 <div className="flex w-full shrink-0 flex-row items-center gap-2.5 sm:gap-3">
                   <div className="w-[22%] max-w-[5.5rem] shrink-0">
-                    <Image
-                      src="/robot-no-background.png"
-                      alt="MyEng logo"
-                      width={512}
-                      height={512}
-                      className="block h-auto w-full object-contain"
-                      sizes="(max-width: 640px) 25vw, 6rem"
+                    <AppIconFrame
+                      variant="home"
+                      src="/engvo-mascot.png"
+                      alt="Engvo.AI"
+                      className="w-full"
                       priority
                     />
                   </div>
@@ -6373,6 +6377,8 @@ export default function Home() {
                   onShowDeepDive={() => setLessonIntroDepth('deep')}
                   onStartLesson={() => {
                     if (!activeStructuredLesson) return
+                    setLastStructuredLessonGlobalDelta(0)
+                    bumpFooterSessionContext()
                     setLessonViewStage('lesson')
                   }}
                   onShowExtras={() => setLessonViewStage('tips')}
@@ -6395,9 +6401,15 @@ export default function Home() {
                   savedState={lessonExtraTipsState}
                   onSavedStateChange={setLessonExtraTipsState}
                   onFooterStatusChange={setLessonExtraTipsStatus}
-                  onBack={() => setLessonViewStage('intro')}
+                  onBack={() => {
+                    setLastStructuredLessonGlobalDelta(0)
+                    bumpFooterSessionContext()
+                    setLessonViewStage('intro')
+                  }}
                   onStartLesson={() => {
                     if (!activeStructuredLesson) return
+                    setLastStructuredLessonGlobalDelta(0)
+                    bumpFooterSessionContext()
                     setLessonViewStage('lesson')
                   }}
                 />
@@ -6542,38 +6554,29 @@ export default function Home() {
         aria-hidden
       />
       <footer
-        className="app-footer-surface pointer-events-none fixed bottom-0 left-0 right-0 z-[60] flex flex-col overflow-visible border-t border-[var(--app-footer-border)]"
+        className="pointer-events-none fixed bottom-0 left-0 right-0 z-[55] flex flex-col overflow-hidden"
         style={{
-          minHeight: 'var(--app-bottom-offset)',
+          transform: 'translateY(calc(-1 * var(--vv-bottom-inset, 0px)))',
         }}
       >
-        <AppFooter
-          dynamicText={footerDynamicText}
-          staticText={footerStaticText}
-          variantProgress={activeStructuredLessonFooterVariantProgress}
-          typingKey={footerTypingKey}
-          audience={settings.audience}
-          dynamicTone={footerVoiceTone}
-          dynamicEmphasis={footerVoiceEmphasis}
-          hideDynamicMarker={engvoVoiceMode}
-          isLessonActive={isLessonActive}
-          isDialogStarted={dialogStarted}
-          showWhenIdle={!dialogStarted}
-          lessonFooterLessonTitle={
-            isStructuredLessonActive
-              ? structuredLessonFooterLive?.lessonTitle ?? null
-              : isPracticeActive
-                ? practiceFooterLive?.lessonTitle ?? null
-                : null
-          }
-          lessonFooterSegments={
-            isStructuredLessonActive
-              ? structuredLessonFooterLive?.lessonSegments ?? null
-              : isPracticeActive
-                ? practiceFooterLive?.lessonSegments ?? null
-                : null
-          }
-        />
+        <div className="app-footer-surface h-[var(--app-footer-row-height)] min-h-[var(--app-footer-row-height)] shrink-0 border-t border-[var(--app-footer-border)]">
+          <AppFooter
+            dynamicText={footerDisplayDynamicText}
+            staticText={footerDisplayStaticText}
+            variantProgress={footerDisplayVariantProgress}
+            typingKey={footerDisplayTypingKey}
+            audience={settings.audience}
+            dynamicTone={footerHydrated ? footerVoiceTone : 'neutral'}
+            dynamicEmphasis={footerHydrated ? footerVoiceEmphasis : 'none'}
+            hideDynamicMarker={engvoVoiceMode}
+            isLessonActive={isLessonActive}
+            isDialogStarted={dialogStarted}
+            showWhenIdle={!dialogStarted}
+            lessonFooterLessonTitle={footerDisplayLessonTitle}
+            lessonFooterSegments={footerDisplayLessonSegments}
+          />
+        </div>
+        <div className="shrink-0" style={{ height: 'var(--app-footer-safe-inset)' }} aria-hidden />
       </footer>
 
       <SlideOutMenu

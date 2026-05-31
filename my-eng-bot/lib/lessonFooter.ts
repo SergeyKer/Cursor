@@ -187,7 +187,7 @@ export function isLessonStartedForMenu(
   )
 }
 
-/** Медаль в списке уроков: цветная только после финала (`progress.medal`); иначе 🎖. */
+/** Медаль в списке уроков: цветная только после финала (`progress.medal`); иначе 🏅. */
 export function resolveLessonCardMedal(
   progress: UserLessonProgress | null | undefined
 ): LessonCardMedalDisplay | null {

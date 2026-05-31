@@ -51,9 +51,21 @@ const SEED_CORNER = 10
 
 async function main() {
   const HEADER_BG = await resolveHeaderBg()
-  const pngPath = path.join(__dirname, '..', 'public', 'header-robot.png')
-  const buf = await fs.readFile(pngPath)
-  const { data, info } = await sharp(buf).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+  const publicDir = path.join(__dirname, '..', 'public')
+  const sourcePath = path.join(publicDir, 'engvo-mascot.png')
+  const outPath = path.join(publicDir, 'header-robot.png')
+
+  const HEADER_ICON_PX = 80
+
+  const buf = await sharp(await fs.readFile(sourcePath))
+    .resize(HEADER_ICON_PX, HEADER_ICON_PX, {
+      fit: 'contain',
+      background: { r: HEADER_BG.r, g: HEADER_BG.g, b: HEADER_BG.b, alpha: 0 },
+    })
+    .ensureAlpha()
+    .png()
+    .toBuffer()
+  const { data, info } = await sharp(buf).raw().toBuffer({ resolveWithObject: true })
   const { width, height } = info
   const channels = 4
 
@@ -188,7 +200,7 @@ async function main() {
   })
     .png()
     .toBuffer()
-  await fs.writeFile(pngPath, out)
+  await fs.writeFile(outPath, out)
 }
 
 main().catch((e) => {

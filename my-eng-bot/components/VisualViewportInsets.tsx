@@ -43,7 +43,6 @@ function computeBottomInsetPx(): number {
   const isIos = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && /Mobile/i.test(ua))
   const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || isIos
   const isIosChrome = isIos && /CriOS\/\d+/i.test(ua)
-  const isIosSafariBrowser = isIosSafari(ua)
   // На десктопных браузерах visualViewport часто меняется из‑за UI,
   // но реальной системной панели снизу нет — инсет нам не нужен.
   if (!isMobile) return 0
@@ -54,17 +53,12 @@ function computeBottomInsetPx(): number {
   const baseViewportHeight = isIosChrome ? document.documentElement.clientHeight || window.innerHeight : window.innerHeight
   const inset = baseViewportHeight - vv.height - vv.offsetTop
   const vvInset = Number.isFinite(inset) ? Math.max(0, Math.round(inset)) : 0
+  const editableFocused = isEditableElement(document.activeElement)
 
-  if (isIosSafariBrowser) {
-    const editableFocused = isEditableElement(document.activeElement)
-    // На iOS Safari без активного текстового фокуса visualViewport часто отражает
-    // chrome браузера, а не клавиатуру. Игнорируем такие значения, чтобы fixed-футер
-    // и нижний spacer не раздували первый экран и не перестраивали чат после mount.
-    if (!editableFocused) return 0
-    return vvInset >= 120 ? vvInset : 0
-  }
+  // Без фокуса в поле ввода vv отражает chrome браузера, а не клавиатуру — не трогаем layout.
+  if (!editableFocused) return 0
 
-  return vvInset
+  return vvInset >= 120 ? vvInset : 0
 }
 
 /** Высота видимой области для корня layout — только iOS Safari (см. page.tsx). */

@@ -95,7 +95,7 @@ const selfIntroVariants: SelfIntroVariant[] = [
     step6CreativeCountry: 'Canada',
     step6CreativeRu: 'В анкете ты из Канады. Напиши коротко, откуда ты.',
     sourceSituations: [
-      'Привет! Я из России.',
+      'Я из России.',
       'Я студент.',
       'Я счастлив учиться.',
       'Расскажи: откуда ты?',

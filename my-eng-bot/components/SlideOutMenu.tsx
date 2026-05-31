@@ -262,37 +262,33 @@ export default function SlideOutMenu({
         </button>
       )}
 
-      <div
-        className={`fixed left-0 right-0 bottom-0 z-40 bg-black/20 transition-opacity duration-200 ${
-          open ? 'opacity-100' : 'pointer-events-none opacity-0'
-        }`}
-        style={{ top: topOffset, bottom: bottomOffset }}
-        aria-hidden
-        onClick={onToggle}
-      />
-      {panelPositioned ? (
+      {open ? (
+        <div
+          className="fixed left-0 right-0 bottom-0 z-40 bg-black/20 transition-opacity duration-200"
+          style={{ top: topOffset, bottom: bottomOffset }}
+          aria-hidden
+          onClick={onToggle}
+        />
+      ) : null}
+      {open && panelPositioned ? (
         <div
           className="pointer-events-none fixed z-50 overflow-hidden"
           style={panelContainerStyle}
         >
           <aside
-            className={`h-full w-full ${panelSurfaceClass} transition-transform duration-200 ease-out ${
-              open
-                ? `translate-x-0 pointer-events-auto${useFullWidthPanel ? '' : ` ${panelOpenEdgeClass}`}`
-                : '-translate-x-full pointer-events-none'
+            className={`pointer-events-auto h-full w-full ${panelSurfaceClass} transition-transform duration-200 ease-out translate-x-0${
+              useFullWidthPanel ? '' : ` ${panelOpenEdgeClass}`
             }`}
-            style={{ boxShadow: open ? panelBoxShadow : undefined }}
+            style={{ boxShadow: panelBoxShadow }}
             aria-label="Меню"
-            aria-hidden={!open}
           >
             {menuPanelBody}
           </aside>
         </div>
-      ) : (
+      ) : null}
+      {open && !panelPositioned ? (
         <aside
-          className={`fixed left-0 z-50 w-80 max-w-[85vw] ${panelSurfaceClass} ${panelOpenEdgeClass} transition-transform duration-200 ease-out ${
-            open ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none'
-          } ${open ? '' : 'invisible'}`}
+          className={`fixed left-0 z-50 w-80 max-w-[85vw] ${panelSurfaceClass} ${panelOpenEdgeClass} pointer-events-auto transition-transform duration-200 ease-out translate-x-0`}
           style={{
             top: topOffset,
             bottom: bottomOffset,
@@ -302,7 +298,7 @@ export default function SlideOutMenu({
         >
           {menuPanelBody}
         </aside>
-      )}
+      ) : null}
     </>
   )
 }

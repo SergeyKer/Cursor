@@ -33,7 +33,7 @@ interface ResolveFooterPresentationParams {
 const ADAPTIVE_FOOTER_PRESENTATION_ENABLED = process.env.NEXT_PUBLIC_ADAPTIVE_FOOTER_PRESENTATION !== '0'
 
 /** Нижняя строка статов — тот же размер, что в structured lesson footer. */
-const FOOTER_BOTTOM_LINE_CLASS = 'text-[13px] leading-normal text-gray-400'
+const FOOTER_BOTTOM_LINE_CLASS = 'text-[13px] leading-none text-gray-400'
 
 export const CHILD_EMOJI_BY_TONE: Record<FooterVoiceTone, readonly string[]> = {
   celebrate: ['🎉', '✨', '🌟', '🏆', '😄', '🤩', '😊'],
@@ -101,7 +101,7 @@ function resolveEmojiMarker(audience: Audience, tone: FooterVoiceTone, seed: str
 }
 
 function buildMarkerClassName(emphasis: FooterVoiceEmphasis): string {
-  return `emoji-glyph shrink-0 text-base ${emphasis === 'pulse' ? 'motion-safe:animate-pulse' : ''}`.trim()
+  return `footer-dynamic-marker ${emphasis === 'pulse' ? 'motion-safe:animate-pulse' : ''}`.trim()
 }
 
 export function resolveFooterPresentation({
@@ -120,7 +120,7 @@ export function resolveFooterPresentation({
       enabled: false,
       mode: isPlayful ? 'playful' : 'professional',
       typingSpeed: 40,
-      topLineRowClassName: 'flex items-center gap-2',
+      topLineRowClassName: 'flex h-full min-w-0 items-center gap-2',
       topLineClassName,
       bottomLineRowClassName: '',
       bottomLineClassName: FOOTER_BOTTOM_LINE_CLASS,
@@ -140,7 +140,8 @@ export function resolveFooterPresentation({
       enabled: true,
       mode: 'playful',
       typingSpeed: 44,
-      topLineRowClassName: 'flex items-center gap-2 rounded-full bg-white/35 px-2 backdrop-blur-[2px]',
+      topLineRowClassName:
+        'flex h-full min-w-0 items-center gap-2 overflow-visible rounded-full bg-white/35 px-2 py-0 backdrop-blur-[2px]',
       topLineClassName,
       bottomLineRowClassName: hideDynamicMarker ? '' : 'pl-2',
       bottomLineClassName: FOOTER_BOTTOM_LINE_CLASS,
@@ -154,7 +155,7 @@ export function resolveFooterPresentation({
     enabled: true,
     mode: 'professional',
     typingSpeed: 28,
-    topLineRowClassName: 'flex min-w-0 items-center gap-2',
+    topLineRowClassName: 'flex h-full min-w-0 items-center gap-2 overflow-hidden',
     topLineClassName,
     bottomLineRowClassName: hideDynamicMarker ? '' : 'pl-2',
     bottomLineClassName: FOOTER_BOTTOM_LINE_CLASS,
