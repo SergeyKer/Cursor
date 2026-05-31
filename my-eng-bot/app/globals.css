@@ -345,9 +345,13 @@
   /* Хедер: значения не зависят от темы чата — во всех темах как в Basic. */
   --app-header-bg: rgba(255, 255, 255, 0.92);
   --app-header-border: #e5e7eb;
-  --app-header-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --app-footer-border: #d1d5db;
-  --app-footer-shadow: 0 -1px 4px rgba(0, 0, 0, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  --app-chrome-elev-y: 1px;
+  --app-chrome-elev-blur: 3px;
+  --app-chrome-elev-color: rgba(0, 0, 0, 0.1);
+  --app-header-shadow: 0 var(--app-chrome-elev-y) var(--app-chrome-elev-blur) var(--app-chrome-elev-color);
+  --app-footer-border: var(--app-header-border);
+  /* Зеркало хедера: та же толщина (3px blur, 0.1), без inset — он давал лишнюю полосу сверху. */
+  --app-footer-shadow: 0 calc(-1 * var(--app-chrome-elev-y)) var(--app-chrome-elev-blur) var(--app-chrome-elev-color);
   --app-header-control-bg: rgba(255, 255, 255, 0.9);
   --app-header-control-border: #e5e7eb;
   --app-header-control-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
@@ -386,10 +390,10 @@
   --app-top-offset: calc(
     var(--app-safe-top-inset) + var(--app-header-row-height) + var(--app-header-border-width)
   );
-  /* Высота белой полосы футера (без клавиатурного vv). */
-  --app-footer-chrome-height: calc(
-    var(--app-footer-row-height) + var(--app-footer-safe-inset) + var(--app-footer-border-width)
-  );
+  /* Высота fixed-футера: border-t внутри row-height (border-box) + safe-area. */
+  --app-footer-chrome-height: calc(var(--app-footer-row-height) + var(--app-footer-safe-inset));
+  /* Нижний край панели меню — верх футера (с учётом vv, как у спейсера). */
+  --app-menu-panel-bottom: var(--app-bottom-offset);
   /* Запас в потоке страницы: футер + safe-area + клавиатура (vv). */
   --app-bottom-offset: calc(var(--app-footer-chrome-height) + var(--vv-bottom-inset, 0px));
   /* Safe-area снизу (без vv). Для экранов урока и пр. */
@@ -1249,6 +1253,7 @@ select.select-chevron {
 }
 
 .app-footer-surface {
+  position: relative;
   background: var(--app-header-bg);
   box-shadow: var(--app-footer-shadow);
   backdrop-filter: var(--app-header-backdrop-filter);

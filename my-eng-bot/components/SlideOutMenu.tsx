@@ -156,9 +156,8 @@ export default function SlideOutMenu({
         }
     : undefined
   const panelBoxShadow =
-    'var(--app-footer-shadow), 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)'
-  const panelSurfaceClass =
-    'border-b border-b-[var(--app-footer-border)] bg-[var(--menu-panel-bg)]'
+    '4px 0 15px -3px rgba(0, 0, 0, 0.1), 2px 0 6px -4px rgba(0, 0, 0, 0.08)'
+  const panelSurfaceClass = 'bg-[var(--menu-panel-bg)]'
   const panelOpenEdgeClass = 'border-r border-r-[var(--border)]'
 
   React.useLayoutEffect(() => {
@@ -272,7 +271,7 @@ export default function SlideOutMenu({
       ) : null}
       {open && panelPositioned ? (
         <div
-          className="pointer-events-none fixed z-50 overflow-hidden"
+          className="pointer-events-none fixed z-50 overflow-x-hidden"
           style={panelContainerStyle}
         >
           <aside

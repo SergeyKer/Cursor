@@ -5,13 +5,13 @@ import { splitGreetingIntoBlocks } from '@/lib/homeGreeting'
 import { HomeWallpaperBubbleFrame, HOME_ASSISTANT_BUBBLE_CLASS } from '@/components/HomeWallpaperBubbleFrame'
 
 type HomeWelcomeBubbleProps = {
-  /** Текст: блоки через \\n\\n — приветствие, факт, приглашение (или 2 блока в компактном режиме) */
+  /** Текст: блоки через \\n\\n — приветствие и приглашение */
   text: string
   className?: string
 }
 
 /**
- * Отдельные пузыри для каждого блока текста (полный режим: приветствие → факт → приглашение).
+ * Отдельные пузыри для каждого блока текста (приветствие → приглашение).
  */
 export default function HomeWelcomeBubble({ text, className = '' }: HomeWelcomeBubbleProps) {
   const blocks = React.useMemo(() => splitGreetingIntoBlocks(text), [text])

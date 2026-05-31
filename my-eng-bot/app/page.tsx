@@ -7,9 +7,9 @@ import type { AiChatPanel } from '@/lib/aiChatPanel'
 import { getHomeMenuInstruction } from '@/lib/homeMenuInstruction'
 import { featureFlags } from '@/lib/featureFlags'
 import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
+import HomeEmptyBubble from '@/components/HomeEmptyBubble'
 import { MenuToggleIcon } from '@/components/MenuToggleIcon'
 import { HomeMenuInstructionBubble } from '@/components/HomeMenuInstructionBubble'
-import HomeEmptyBubble from '@/components/HomeEmptyBubble'
 import { AppIconFrame } from '@/components/AppIconFrame'
 import MenuSectionPanels, {
   type LessonMenuContext,
@@ -18,7 +18,7 @@ import MenuSectionPanels, {
   type MenuView,
 } from '@/components/MenuSectionPanels'
 import { useAppColumnBounds } from '@/hooks/useAppColumnBounds'
-import { buildCompactGreeting, buildFullGreeting } from '@/lib/homeGreeting'
+import { buildCompactGreeting } from '@/lib/homeGreeting'
 import { consumeNextGreetingFactLine } from '@/lib/greetingFactRotation'
 import { consumeNextHomeVoiceLine } from '@/lib/homeVoiceRotation'
 import {
@@ -592,7 +592,7 @@ export default function Home() {
   const [homeAudienceChosen, setHomeAudienceChosen] = useState(false)
   /** На стартовом экране при выходе из чата домой сбрасывается в false. */
   const [welcomeCompact, setWelcomeCompact] = useState(false)
-  /** Смена «сессии» старта: новый факт из очереди (в т.ч. после выхода из чата домой). */
+  /** Смена «сессии» старта: новый факт и фраза футера (в т.ч. после выхода из чата домой). */
   const [greetingNonce, setGreetingNonce] = useState(0)
   const [welcomeFactLine, setWelcomeFactLine] = useState<string | null>(null)
   const [homeVoiceLine, setHomeVoiceLine] = useState<string | null>(null)
@@ -5872,6 +5872,9 @@ export default function Home() {
     if (dialogStarted && settings.mode === 'communication' && !isLessonActive && !engvoVoiceMode) return
     setCommunicationVoiceDropdownOpen(false)
   }, [dialogStarted, settings.mode, isLessonActive, engvoVoiceMode])
+  const homeShellGradientClass =
+    'bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]'
+
   const rootShellClass =
     'flex min-h-[100dvh] flex-col ' +
     (isIosSafariClient ? '' : isIosClient ? 'h-full' : 'h-[100dvh]')
@@ -5886,7 +5889,11 @@ export default function Home() {
   } as React.CSSProperties
 
   return (
-    <div data-audience={settings.audience} className={rootShellClass} style={rootShellStyle}>
+    <div
+      data-audience={settings.audience}
+      className={`${rootShellClass} ${!dialogStarted ? homeShellGradientClass : ''}`}
+      style={rootShellStyle}
+    >
       <header
         className="app-header-surface fixed left-0 right-0 top-0 z-[65] border-b border-[var(--app-header-border)]"
         style={{
@@ -6041,23 +6048,24 @@ export default function Home() {
       </header>
 
       <main
-        className={`flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)] ${
-          dialogStarted && !isVocabularyHubActive ? 'overflow-hidden' : 'overflow-y-auto'
-        }`}
+        className={`flex min-h-0 flex-col ${
+          dialogStarted ? `${homeShellGradientClass} min-h-0 flex-1` : 'min-h-0 flex-1 bg-transparent'
+        } ${dialogStarted && !isVocabularyHubActive ? 'overflow-hidden' : 'overflow-y-auto'}`}
         style={{
           paddingTop: 'var(--app-top-offset)',
           ...(isIosSafariClient && !dialogStarted
             ? { scrollPaddingTop: 'var(--app-top-offset)' }
             : {}),
           paddingBottom: dialogStarted
-            // iOS: иногда появляется серый зазор снизу, если safe-area не учтён на уровне контейнера.
-            // Контент чата тоже учитывает safe-area, но внешний контейнер при dialogStarted=true держим с paddingBottom.
             ? '0px'
             : 'env(safe-area-inset-bottom, 0px)',
         }}
       >
         {!dialogStarted ? (
-          <div className="start-screen chat-shell-x relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
+          <div
+            className="start-screen chat-shell-x relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
+            style={{ scrollPaddingBottom: 'var(--app-footer-chrome-height)' }}
+          >
             <div
               ref={homeColumnRef}
               className="pointer-events-auto relative z-10 mx-auto flex w-full max-w-[23.2rem] flex-col items-center pb-2"
@@ -6083,13 +6091,7 @@ export default function Home() {
             )}
             {homeMenuView === 'root' && (
               <div className="flex w-full flex-col items-center gap-[clamp(1rem,3.2vh,2rem)]">
-                <HomeWelcomeBubble
-                  text={
-                    welcomeFactLine?.trim()
-                      ? buildFullGreeting(welcomeFactLine)
-                      : buildCompactGreeting()
-                  }
-                />
+                <HomeWelcomeBubble text={buildCompactGreeting()} />
                 {homeStreakBannerText ? (
                   <div className="w-full rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-2.5 text-center">
                     <p className="text-[13px] font-medium leading-snug text-[var(--status-info-text)]">
@@ -6165,8 +6167,8 @@ export default function Home() {
                     )}
                   </div>
                 </div>
-                {welcomeFactLine ? (
-                  <HomeEmptyBubble text={welcomeFactLine} className="mt-1" />
+                {welcomeFactLine?.trim() ? (
+                  <HomeEmptyBubble text={welcomeFactLine} className="w-full" />
                 ) : null}
               </div>
             )}
@@ -6543,18 +6545,20 @@ export default function Home() {
         onDismiss={() => setLessonReturnHintText(null)}
       />
 
-      {/* Как и шапка: футер — fixed поверх бокового меню (z-50); спейсер оставляет тот же запас, что и блок в потоке. */}
-      <div
-        className={`shrink-0 ${
-          isIosSafariClient && dialogStarted
-            ? 'bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]'
-            : ''
-        }`}
-        style={{ height: 'var(--app-bottom-offset)' }}
-        aria-hidden
-      />
+      {/* В чате — спейсер под fixed-футер; на главной отступ только у колонки контента. */}
+      {dialogStarted ? (
+        <div
+          className={`shrink-0 ${
+            isIosSafariClient
+              ? 'bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]'
+              : ''
+          }`}
+          style={{ height: 'var(--app-bottom-offset)' }}
+          aria-hidden
+        />
+      ) : null}
       <footer
-        className="pointer-events-none fixed bottom-0 left-0 right-0 z-[55] flex flex-col overflow-hidden"
+        className="pointer-events-none fixed bottom-0 left-0 right-0 z-[55] flex flex-col overflow-visible"
         style={{
           transform: 'translateY(calc(-1 * var(--vv-bottom-inset, 0px)))',
         }}
@@ -6576,7 +6580,11 @@ export default function Home() {
             lessonFooterSegments={footerDisplayLessonSegments}
           />
         </div>
-        <div className="shrink-0" style={{ height: 'var(--app-footer-safe-inset)' }} aria-hidden />
+        <div
+          className="shrink-0 bg-[var(--app-header-bg)]"
+          style={{ height: 'var(--app-footer-safe-inset)' }}
+          aria-hidden
+        />
       </footer>
 
       <SlideOutMenu
@@ -6614,7 +6622,7 @@ export default function Home() {
         lessonMenuContext={lessonMenuContext}
         practiceProgressRevision={practiceProgressRevision}
         topOffset="var(--app-top-offset)"
-        bottomOffset="var(--app-bottom-offset)"
+        bottomOffset="var(--app-menu-panel-bottom)"
         columnBounds={appColumnBounds}
       />
 
