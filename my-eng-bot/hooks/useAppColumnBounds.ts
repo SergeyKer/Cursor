@@ -49,6 +49,19 @@ function measureBounds(element: HTMLElement): AppColumnBounds {
   }
 }
 
+function boundsEqual(a: AppColumnBounds | null, b: AppColumnBounds | null): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  return (
+    a.left === b.left &&
+    a.width === b.width &&
+    a.shellLeft === b.shellLeft &&
+    a.shellRight === b.shellRight &&
+    a.isFullBleed === b.isFullBleed &&
+    a.isPhoneViewport === b.isPhoneViewport
+  )
+}
+
 export function useAppColumnBounds(
   columnRef: React.RefObject<HTMLElement | null>,
   options?: { remeasureWhen?: boolean }
@@ -59,10 +72,11 @@ export function useAppColumnBounds(
   const updateBounds = React.useCallback(() => {
     const el = columnRef.current
     if (!el) {
-      setBounds(null)
+      setBounds((prev) => (prev === null ? prev : null))
       return
     }
-    setBounds(measureBounds(el))
+    const next = measureBounds(el)
+    setBounds((prev) => (boundsEqual(prev, next) ? prev : next))
   }, [columnRef])
 
   React.useLayoutEffect(() => {
@@ -77,18 +91,14 @@ export function useAppColumnBounds(
     observer.observe(el)
 
     window.addEventListener('resize', updateBounds)
-    window.addEventListener('scroll', updateBounds, true)
 
     const viewport = window.visualViewport
     viewport?.addEventListener('resize', updateBounds)
-    viewport?.addEventListener('scroll', updateBounds)
 
     return () => {
       observer.disconnect()
       window.removeEventListener('resize', updateBounds)
-      window.removeEventListener('scroll', updateBounds, true)
       viewport?.removeEventListener('resize', updateBounds)
-      viewport?.removeEventListener('scroll', updateBounds)
     }
   }, [columnRef, updateBounds, remeasureWhen])
 

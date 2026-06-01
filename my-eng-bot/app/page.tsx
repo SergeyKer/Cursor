@@ -6050,7 +6050,13 @@ export default function Home() {
       <main
         className={`flex min-h-0 flex-col ${
           dialogStarted ? `${homeShellGradientClass} min-h-0 flex-1` : 'min-h-0 flex-1 bg-transparent'
-        } ${dialogStarted && !isVocabularyHubActive ? 'overflow-hidden' : 'overflow-y-auto'}`}
+        } ${
+          !dialogStarted
+            ? 'overflow-hidden'
+            : isVocabularyHubActive
+              ? 'overflow-y-auto'
+              : 'overflow-hidden'
+        }`}
         style={{
           paddingTop: 'var(--app-top-offset)',
           ...(isIosSafariClient && !dialogStarted
@@ -6063,7 +6069,7 @@ export default function Home() {
       >
         {!dialogStarted ? (
           <div
-            className="start-screen chat-shell-x relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
+            className="start-screen chat-shell-x relative z-10 flex h-0 min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-auto touch-pan-y [-webkit-overflow-scrolling:touch]"
             style={{ scrollPaddingBottom: 'var(--app-footer-chrome-height)' }}
           >
             <div
@@ -6073,7 +6079,8 @@ export default function Home() {
                 gap: homeMenuView === 'root' ? 'clamp(1rem, 2.5vh, 1.75rem)' : 'clamp(0.5rem, 1.5vh, 0.9rem)',
                 paddingTop:
                   homeMenuView === 'root' ? 'clamp(1rem, 2.5vh, 1.75rem)' : 'clamp(0.5rem, 1.5vh, 0.9rem)',
-                paddingBottom: 'clamp(1rem, 2.5vh, 1.75rem)',
+                paddingBottom:
+                  'calc(var(--app-footer-chrome-height) + clamp(1rem, 2.5vh, 1.75rem))',
               }}
             >
             {homeMenuView === 'root' && (
