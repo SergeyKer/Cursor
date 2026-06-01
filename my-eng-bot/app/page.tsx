@@ -6236,21 +6236,7 @@ export default function Home() {
                     onOpenTutorLesson={openTutorLesson}
                     onAdaptiveFooterViewChange={setAdaptiveFooterView}
                     onPracticeTheoryTagFilterPersist={persistPracticeTheoryTagFilter}
-                    initialLessonsPanel={homeMenuView === 'lessons' ? lessonMenuContext?.lessonsPanel : undefined}
                     practiceProgressRevision={practiceProgressRevision}
-                    initialLessonMenuContext={
-                      homeMenuView === 'lessons' && lessonMenuContext
-                        ? {
-                            activeGrammarCategoryId: lessonMenuContext.activeGrammarCategoryId,
-                            activeTheoryTagId: lessonMenuContext.activeTheoryTagId,
-                            theorySearchQuery: lessonMenuContext.theorySearchQuery,
-                            activeTheoryTagIds: lessonMenuContext.activeTheoryTagIds,
-                            theoryLessonSource: lessonMenuContext.theoryLessonSource,
-                            theoryTagBrowseLevel: lessonMenuContext.theoryTagBrowseLevel,
-                            practiceTheoryTagFilterId: lessonMenuContext.practiceTheoryTagFilterId,
-                          }
-                        : null
-                    }
                   />
                 </div>
               </>

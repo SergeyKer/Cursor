@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callProviderChat } from '@/lib/callProviderChat'
+import { buildEtalonChoicePromptForLesson, findFirstLessonChoiceStep } from '@/lib/practice/buildChoicePrompt'
 import { buildLocalPracticeSession } from '@/lib/practice/builders/localPracticeBuilder'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
 import { buildPracticeQuestionFingerprintFromQuestion, normalizePracticeFingerprintPart } from '@/lib/practice/questionFingerprint'
@@ -147,10 +148,13 @@ function buildSystemPrompt(): string {
     'Return ONLY valid JSON object: {"questions":[...]}',
     'Each question must have: type, prompt, targetAnswer, acceptedAnswers, shuffledWords, audioText, keywords, minWords, hint, explanation.',
     'If type is choice, dropdown-fill, listening-select, speed-round, or context-clue, you must provide at least 2 English options and include targetAnswer in the options.',
+    'For type choice: prompt MUST include a Russian situational context (Ситуация / Тема + clear task). Never use vague prompts like "Choose the best option" without context.',
+    'For type choice: provide exactly 3 natural English options when possible; distractors should be near-miss (same pattern, wrong fit), not broken English.',
     'Do not omit options for choice-like question types.',
     'All English answers and options must be natural, grammatical English. Wrong options may be incorrect for the task, but never nonsense or broken phrases like "It\'s dark to go.".',
     'Prompts can be in Russian with English targets. Keep the tone warm and concise.',
     'If referenceExerciseType is provided, every generated question.type must exactly match it.',
+    'If etalonChoicePrompt is provided, follow the same pedagogical logic but use a new scenario and wording.',
     'Do not include markdown.',
   ].join('\n')
 }
@@ -167,6 +171,7 @@ function buildUserPayload(
   referenceTotal?: number,
   recentPrompts: string[] = []
 ): string {
+  const etalonChoice = findFirstLessonChoiceStep(lesson)
   const plan = getPracticeModePlan(mode)
   return JSON.stringify(
     {
@@ -187,10 +192,21 @@ function buildUserPayload(
           ? 'Generate a new wording and scenario different from recentPrompts while keeping the same exercise type.'
           : 'Avoid repeating seenKeys and generate fresh prompts and answers.',
       mustEndWithBossChallenge: plan.boss,
+      etalonChoicePrompt: buildEtalonChoicePromptForLesson(lesson) ?? undefined,
+      etalonChoiceSource: etalonChoice
+        ? {
+            stepNumber: etalonChoice.step.stepNumber,
+            taskBubble: etalonChoice.step.bubbles.find((bubble) => bubble.type === 'task')?.content,
+            question: etalonChoice.exercise.question,
+            options: etalonChoice.exercise.options,
+            correctAnswer: etalonChoice.exercise.correctAnswer,
+          }
+        : undefined,
       sourceExercises: lesson.steps
         .filter((step) => step.exercise)
         .map((step) => ({
-          bubbles: step.bubbles.slice(-1),
+          stepNumber: step.stepNumber,
+          taskBubble: step.bubbles.find((bubble) => bubble.type === 'task')?.content,
           exercise: step.exercise,
         })),
     },

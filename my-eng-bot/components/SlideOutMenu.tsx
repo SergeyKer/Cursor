@@ -130,6 +130,8 @@ export default function SlideOutMenu({
   practiceProgressRevision = 0,
 }: SlideOutMenuProps) {
   const [menuView, setMenuView] = React.useState<MenuView>('root')
+  /** Восстановить подпанель уроков только при открытии меню из активного урока/практики, не при ручном «Уроки». */
+  const [lessonsRestorePanel, setLessonsRestorePanel] = React.useState<LessonsPanel | undefined>(undefined)
   const panelPositioned = columnBounds != null
   const shellWidth = columnBounds
     ? Math.max(0, columnBounds.shellRight - columnBounds.shellLeft)
@@ -160,15 +162,30 @@ export default function SlideOutMenu({
   const panelSurfaceClass = 'bg-[var(--menu-panel-bg)]'
   const panelOpenEdgeClass = 'border-r border-r-[var(--border)]'
 
+  const handleMenuViewChange = React.useCallback(
+    (v: MenuView) => {
+      if (v === 'root') {
+        setLessonsRestorePanel(undefined)
+      } else if (v === 'lessons' && menuView === 'root') {
+        setLessonsRestorePanel(undefined)
+      }
+      setMenuView(v)
+    },
+    [menuView]
+  )
+
   React.useLayoutEffect(() => {
     if (!open) {
       setMenuView('root')
+      setLessonsRestorePanel(undefined)
       return
     }
     if (chatActive && lessonMenuContext?.menuView === 'lessons') {
+      setLessonsRestorePanel(lessonMenuContext.lessonsPanel)
       setMenuView('lessons')
       return
     }
+    setLessonsRestorePanel(undefined)
     if (chatActive && engvoVoiceMode) {
       setMenuView('engvo')
       return
@@ -196,7 +213,7 @@ export default function SlideOutMenu({
 
       <MenuSectionPanels
         menuView={menuView}
-        onMenuViewChange={setMenuView}
+        onMenuViewChange={handleMenuViewChange}
         settings={settings}
         onSettingsChange={onSettingsChange}
         usage={usage}
@@ -227,9 +244,9 @@ export default function SlideOutMenu({
         onOpenTutorLesson={onOpenTutorLesson}
         onPracticeTheoryTagFilterPersist={onPracticeTheoryTagFilterPersist}
         practiceProgressRevision={practiceProgressRevision}
-        initialLessonsPanel={menuView === 'lessons' ? lessonMenuContext?.lessonsPanel : undefined}
+        initialLessonsPanel={menuView === 'lessons' ? lessonsRestorePanel : undefined}
         initialLessonMenuContext={
-          menuView === 'lessons' && lessonMenuContext
+          menuView === 'lessons' && lessonsRestorePanel && lessonMenuContext
             ? {
                 activeGrammarCategoryId: lessonMenuContext.activeGrammarCategoryId,
                 activeTheoryTagId: lessonMenuContext.activeTheoryTagId,

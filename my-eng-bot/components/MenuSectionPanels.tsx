@@ -1488,7 +1488,13 @@ export default function MenuSectionPanels({
               {featureFlags.engvoVoiceV1 && onOpenEngvoVoiceChat && (
                 <MenuNavRow label="Позвонить" onClick={() => onMenuViewChange('engvo')} />
               )}
-              <MenuNavRow label="Уроки" onClick={() => onMenuViewChange('lessons')} />
+              <MenuNavRow
+                label="Уроки"
+                onClick={() => {
+                  setLessonsPanel('summary')
+                  onMenuViewChange('lessons')
+                }}
+              />
               <MenuNavRow label="Прогресс" onClick={() => onMenuViewChange('progress')} />
               <MenuNavRow label="Мой план" onClick={() => onMenuViewChange('myPlan')} />
               <MenuNavRow label="Настройки" onClick={() => onMenuViewChange('settings')} />
@@ -3369,13 +3375,22 @@ function A2LessonChoiceRow({
   enabled: boolean
   onClick?: () => void
 }) {
+  const showSubtitle =
+    Boolean(subtitle?.trim()) &&
+    normalizeMenuLabelKey(subtitle!) !== normalizeMenuLabelKey(label)
+  const showDescription = Boolean(description?.trim())
+
   if (!enabled) {
     return (
       <div className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 last:border-b-0">
         <span className="min-w-0">
           <span className="block text-[15px] font-normal leading-normal text-[var(--text)]">{label}</span>
-          {subtitle ? <span className="mt-0.5 block text-[13px] font-medium leading-snug text-slate-700">{subtitle}</span> : null}
-          {description ? <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">{description}</span> : null}
+          {showSubtitle ? (
+            <span className="mt-0.5 block text-[13px] font-medium leading-snug text-slate-700">{subtitle}</span>
+          ) : null}
+          {showDescription ? (
+            <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">{description}</span>
+          ) : null}
         </span>
         <span className="text-[13px] leading-normal text-[var(--text-muted)]">Скоро</span>
       </div>
@@ -3400,8 +3415,12 @@ function A2LessonChoiceRow({
             )}
           </span>
         </span>
-        {subtitle ? <span className="mt-0.5 block text-[13px] font-medium leading-snug text-slate-700">{subtitle}</span> : null}
-        {description ? <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">{description}</span> : null}
+        {showSubtitle ? (
+          <span className="mt-0.5 block text-[13px] font-medium leading-snug text-slate-700">{subtitle}</span>
+        ) : null}
+        {showDescription ? (
+          <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">{description}</span>
+        ) : null}
       </span>
     </button>
   )

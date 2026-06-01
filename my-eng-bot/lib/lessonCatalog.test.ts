@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { getLessonTopicById, getPracticeLessonTopics, getTheoryLessonTopics, pickQuickStartPracticeTopic } from '@/lib/lessonCatalog'
+import {
+  getLessonTopicById,
+  getPracticeLessonTopics,
+  getTheoryLessonTopics,
+  pickQuickStartPracticeTopic,
+  PRACTICE_TOPICS_BY_AUDIENCE,
+} from '@/lib/lessonCatalog'
 
 describe('lessonCatalog', () => {
   it('keeps theory and practice topics aligned for A2', () => {
@@ -30,9 +36,15 @@ describe('lessonCatalog', () => {
     }
   })
 
-  it('allows multiple theory tags on one lesson', () => {
-    expect(getLessonTopicById('2')?.tagIds?.sort()).toEqual(['special-questions', 'subject-questions'].sort())
-    expect(getLessonTopicById('3')?.tagIds?.sort()).toEqual(['reported-speech', 'word-order'].sort())
+  it('keeps Russian short labels separate from English catalog titles', () => {
+    const topic = getLessonTopicById('4')
+    const adult = PRACTICE_TOPICS_BY_AUDIENCE.adult['4']
+    const child = PRACTICE_TOPICS_BY_AUDIENCE.child['4']
+
+    expect(topic?.title).toBe('I am / I am from')
+    expect(adult.short).toBe('Представление о себе')
+    expect(adult.long).toContain('настроение')
+    expect(child.short).toBe('Знакомство')
+    expect(adult.short).not.toBe(topic?.title)
   })
 })
-

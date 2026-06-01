@@ -22,6 +22,8 @@ describe('normalizeAiPracticeQuestion', () => {
     expect(q).not.toBeNull()
     expect(q!.options?.length).toBeGreaterThanOrEqual(2)
     expect(q!.options).toEqual(sourceStep!.exercise!.options)
+    expect(q!.prompt).toMatch(/Ситуация:|Тема:/i)
+    expect(q!.prompt).not.toMatch(/^Pick one\./i)
   })
 
   it('keeps short options undefined for non-choice types', () => {

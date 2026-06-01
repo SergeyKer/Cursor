@@ -1,4 +1,9 @@
 import { getPracticeExerciseMetadata } from '@/lib/practice/registry'
+import {
+  buildChoicePrompt,
+  choicePromptHasContext,
+  findFirstLessonChoiceStep,
+} from '@/lib/practice/buildChoicePrompt'
 import { ensurePracticeChoiceOptions, isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
 import type { LessonData } from '@/types/lesson'
 import type { PracticeExerciseType, PracticeQuestion } from '@/types/practice'
@@ -38,9 +43,19 @@ export function normalizeAiPracticeQuestion(row: unknown, lesson: LessonData, in
   if (!row || typeof row !== 'object') return null
   const source = row as Record<string, unknown>
   const type = isPracticeExerciseType(source.type) ? source.type : null
-  const prompt = typeof source.prompt === 'string' ? source.prompt.trim() : ''
+  let prompt = typeof source.prompt === 'string' ? source.prompt.trim() : ''
   const targetAnswer = typeof source.targetAnswer === 'string' ? source.targetAnswer.trim() : ''
-  if (!type || !prompt || !targetAnswer) return null
+  if (!type || !targetAnswer) return null
+
+  if (type === 'choice' && !choicePromptHasContext(prompt)) {
+    const etalonStep = findFirstLessonChoiceStep(lesson)
+    if (etalonStep) {
+      prompt = buildChoicePrompt(etalonStep.step, etalonStep.exercise, lesson)
+    }
+  }
+
+  if (!prompt) return null
+  if (type === 'choice' && !choicePromptHasContext(prompt)) return null
 
   const meta = getPracticeExerciseMetadata(type)
   const acceptedAnswers = Array.isArray(source.acceptedAnswers)

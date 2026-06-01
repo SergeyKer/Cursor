@@ -1,3 +1,4 @@
+import { buildChoicePrompt } from '@/lib/practice/buildChoicePrompt'
 import { ensurePracticeChoiceOptions } from '@/lib/practice/ensurePracticeChoiceOptions'
 import { getPracticeExerciseMetadata } from '@/lib/practice/registry'
 import { resolveLessonExerciseVariant } from '@/lib/practice/resolveLessonExerciseVariant'
@@ -85,7 +86,10 @@ function createQuestion(params: {
   const meta = getPracticeExerciseMetadata(params.type)
   const acceptedAnswers = acceptedAnswersFor(params.exercise)
   const targetAnswer = acceptedAnswers[0] ?? params.exercise.correctAnswer
-  const prompt = params.exercise.question?.trim() || params.step.bubbles.at(-1)?.content || 'Ответьте по теме урока.'
+  const prompt =
+    params.type === 'choice' || params.exercise.answerFormat === 'choice'
+      ? buildChoicePrompt(params.step, params.exercise, params.lesson)
+      : params.exercise.question?.trim() || params.step.bubbles.at(-1)?.content || 'Ответьте по теме урока.'
   const variantSuffix = params.variantIndex != null ? `-v${params.variantIndex}` : ''
   return {
     id: `${params.lesson.id}-${params.step.stepNumber}-${params.type}-${params.index}${variantSuffix}`,

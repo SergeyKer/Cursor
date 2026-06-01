@@ -93,6 +93,8 @@ describe('buildLocalPracticeSession', () => {
     expect(session.questions).toHaveLength(7)
     expect(new Set(session.questions.map((question) => question.type)).size).toBe(1)
     expect(new Set(session.questions.map((question) => question.prompt)).size).toBe(1)
+    expect(session.questions[0]?.prompt).toMatch(/Ситуация:/i)
+    expect(session.questions[0]?.prompt).not.toMatch(/^Какое предложение подходит/i)
   })
 })
 
