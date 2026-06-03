@@ -1,0 +1,152 @@
+import { describe, expect, it } from 'vitest'
+import {
+  buildChoiceCorrectionInviteLine,
+  CHOICE_CORRECTION_TAP_HINT_WITH_TEXT_EDIT,
+  choiceCorrectionPlaceholder,
+  getChoiceCorrectionInputMode,
+  getChoiceCorrectionOverlayLine,
+  getChoiceCorrectionTapHint,
+  getInitialPracticeVoiceCapability,
+  isChoiceCorrectionVoiceFrozenDisplay,
+  isVoiceCapabilityBlocked,
+  mapRecognitionErrorToVoiceCapability,
+  shouldShowChoiceCorrectionInviteOverlay,
+  shouldShowMicOffInlineButton,
+} from '@/lib/practice/choiceCorrectionComposer'
+
+describe('choiceCorrectionComposer', () => {
+  it('uses muted frozen display after voice until text edit unlock', () => {
+    expect(
+      isChoiceCorrectionVoiceFrozenDisplay({
+        isTextEditUnlocked: false,
+        inputMode: 'voiceLocked',
+      })
+    ).toBe(true)
+    expect(
+      isChoiceCorrectionVoiceFrozenDisplay({
+        isTextEditUnlocked: true,
+        inputMode: 'editable',
+      })
+    ).toBe(false)
+  })
+
+  it('locks textarea until text edit is unlocked', () => {
+    expect(getChoiceCorrectionInputMode({ isTextEditUnlocked: false, voiceListening: false })).toBe('voiceLocked')
+    expect(getChoiceCorrectionInputMode({ isTextEditUnlocked: false, voiceListening: true })).toBe('voiceLive')
+    expect(getChoiceCorrectionInputMode({ isTextEditUnlocked: true, voiceListening: false })).toBe('editable')
+  })
+
+  it('shows text edit icon after third external mic press', () => {
+    const base = {
+      isChoiceCorrection: true,
+      textFallbackUnlocked: false,
+      isTextEditUnlocked: false,
+      voiceCapability: 'available' as const,
+    }
+    expect(shouldShowMicOffInlineButton({ ...base, externalMicPressCount: 0 })).toBe(false)
+    expect(shouldShowMicOffInlineButton({ ...base, externalMicPressCount: 1 })).toBe(false)
+    expect(shouldShowMicOffInlineButton({ ...base, externalMicPressCount: 2 })).toBe(false)
+    expect(shouldShowMicOffInlineButton({ ...base, externalMicPressCount: 3 })).toBe(true)
+  })
+
+  it('shows mic-off immediately when voice is blocked', () => {
+    expect(
+      shouldShowMicOffInlineButton({
+        isChoiceCorrection: true,
+        textFallbackUnlocked: false,
+        isTextEditUnlocked: false,
+        externalMicPressCount: 0,
+        voiceCapability: 'unavailable',
+      })
+    ).toBe(true)
+  })
+
+  it('hides mic-off after text fallback', () => {
+    expect(
+      shouldShowMicOffInlineButton({
+        isChoiceCorrection: true,
+        textFallbackUnlocked: true,
+        isTextEditUnlocked: true,
+        externalMicPressCount: 3,
+        voiceCapability: 'available',
+      })
+    ).toBe(false)
+  })
+
+  it('maps permission errors', () => {
+    expect(mapRecognitionErrorToVoiceCapability('not-allowed')).toBe('permission_denied')
+    expect(mapRecognitionErrorToVoiceCapability('network')).toBeNull()
+  })
+
+  it('uses empty native placeholder until text edit (invite via overlay)', () => {
+    expect(
+      choiceCorrectionPlaceholder({ targetAnswer: "It's dark", isTextEditUnlocked: false, audience: 'adult' })
+    ).toBe('')
+    expect(
+      choiceCorrectionPlaceholder({ targetAnswer: "It's dark", isTextEditUnlocked: true, audience: 'adult' })
+    ).toBe('Поправьте и отправьте')
+    expect(
+      choiceCorrectionPlaceholder({ targetAnswer: "It's dark", isTextEditUnlocked: true, audience: 'child' })
+    ).toBe('Поправь и отправь')
+  })
+
+  it('builds invite and tap-hint lines for child and adult', () => {
+    expect(buildChoiceCorrectionInviteLine("It's cold.", 'adult')).toBe("Скажите: It's cold.")
+    expect(buildChoiceCorrectionInviteLine("It's cold.", 'child')).toBe("Скажи: It's cold.")
+    expect(getChoiceCorrectionTapHint('adult')).toBe('Скажите ответ...')
+    expect(getChoiceCorrectionTapHint('child')).toBe('Скажи ответ...')
+    expect(
+      getChoiceCorrectionOverlayLine({
+        showTapHint: true,
+        showTextEditButton: false,
+        targetAnswer: "It's cold.",
+        audience: 'child',
+      })
+    ).toBe('Скажи ответ...')
+    expect(
+      getChoiceCorrectionOverlayLine({
+        showTapHint: true,
+        showTextEditButton: true,
+        targetAnswer: "It's cold.",
+        audience: 'adult',
+      })
+    ).toBe(CHOICE_CORRECTION_TAP_HINT_WITH_TEXT_EDIT)
+  })
+
+  it('shows invite overlay when frozen and empty or tap hint', () => {
+    expect(
+      shouldShowChoiceCorrectionInviteOverlay({
+        isFrozenDisplay: true,
+        showVoiceOverlay: false,
+        composerText: '',
+        showTapHint: false,
+      })
+    ).toBe(true)
+    expect(
+      shouldShowChoiceCorrectionInviteOverlay({
+        isFrozenDisplay: true,
+        showVoiceOverlay: false,
+        composerText: 'drink',
+        showTapHint: true,
+      })
+    ).toBe(true)
+    expect(
+      shouldShowChoiceCorrectionInviteOverlay({
+        isFrozenDisplay: true,
+        showVoiceOverlay: true,
+        composerText: '',
+        showTapHint: false,
+      })
+    ).toBe(false)
+  })
+
+  it('detects blocked capability', () => {
+    expect(isVoiceCapabilityBlocked('available')).toBe(false)
+    expect(isVoiceCapabilityBlocked('unavailable')).toBe(true)
+    expect(isVoiceCapabilityBlocked('permission_denied')).toBe(true)
+  })
+
+  it('returns unavailable when secure context or SpeechRecognition is missing', () => {
+    expect(['available', 'unavailable']).toContain(getInitialPracticeVoiceCapability())
+  })
+})

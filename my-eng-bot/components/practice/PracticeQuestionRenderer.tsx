@@ -3,24 +3,55 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
+import VoiceMicButton, { TextEditIcon } from '@/components/voice/VoiceMicButton'
+import {
+  choiceCorrectionPlaceholder,
+  choiceCorrectionVoiceStatusMessage,
+  getChoiceCorrectionInputMode,
+  getChoiceCorrectionOverlayLine,
+  getInitialPracticeVoiceCapability,
+  isChoiceCorrectionTextareaReadOnly,
+  isChoiceCorrectionVoiceFrozenDisplay,
+  isVoiceCapabilityBlocked,
+  mapRecognitionErrorToVoiceCapability,
+  shouldShowChoiceCorrectionInviteOverlay,
+  shouldShowMicOffInlineButton,
+  type PracticeVoiceCapability,
+} from '@/lib/practice/choiceCorrectionComposer'
 import { ensurePracticeChoiceOptions, isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
+import { needsVoiceComposerWebMetrics } from '@/lib/sttClient'
+import { useAutoGrowTextarea } from '@/lib/voice/useAutoGrowTextarea'
+import { useMicInviteAnimation } from '@/lib/voice/useMicInviteAnimation'
 import {
   chooseFinalSpeechText,
   extractSpeechRecognitionTranscript,
-  mergeSpeechDisplayText,
   stabilizeInterimAcrossTicks,
+  useVoiceComposer,
 } from '@/lib/voice/useVoiceComposer'
+import type { Audience } from '@/lib/types'
 import type { PracticeQuestion } from '@/types/practice'
 
 interface PracticeQuestionRendererProps {
   question: PracticeQuestion
   disabled?: boolean
   correctionMode?: boolean
+  audience?: Audience
   onSubmit: (answer: string) => void
 }
 
-function inputPlaceholder(question: PracticeQuestion, correctionMode: boolean): string {
-  if (correctionMode && question.type === 'choice') return 'Правильный вариант...'
+function inputPlaceholder(
+  question: PracticeQuestion,
+  correctionMode: boolean,
+  audience: Audience,
+  choiceTextEditUnlocked?: boolean
+): string {
+  if (correctionMode && question.type === 'choice') {
+    return choiceCorrectionPlaceholder({
+      targetAnswer: question.targetAnswer,
+      isTextEditUnlocked: Boolean(choiceTextEditUnlocked),
+      audience,
+    })
+  }
   if (correctionMode) return 'Напиши правильный вариант...'
   if (question.type === 'dictation') return 'Напиши то, что услышал...'
   if (question.type === 'roleplay-mini') return 'Ответь как в мини-диалоге...'
@@ -58,22 +89,48 @@ function helperText(question: PracticeQuestion): string {
   return ''
 }
 
+/** Метрики как communication в Chat; при STT на textarea — chat-input-voice-web-metrics. */
+function choiceCorrectionComposerMetricsClass(options: {
+  voiceWebMetrics: boolean
+  micOffPr12: boolean
+}): string {
+  const { voiceWebMetrics, micOffPr12 } = options
+  const horizontal = micOffPr12 ? 'pr-12 pl-4' : 'px-4'
+  if (voiceWebMetrics) {
+    return `communication-chat-input-field ${horizontal} chat-input-voice-web-metrics`
+  }
+  return `communication-chat-input-field ${horizontal} py-2 min-h-[44px] text-base leading-[1.45rem]`
+}
+
 export default function PracticeQuestionRenderer({
   question,
   disabled = false,
   correctionMode = false,
+  audience = 'adult',
   onSubmit,
 }: PracticeQuestionRendererProps) {
   const [draft, setDraft] = useState('')
   const [voiceTextDraft, setVoiceTextDraft] = useState('')
-  const [voiceFinalText, setVoiceFinalText] = useState('')
-  const [voiceInterimText, setVoiceInterimText] = useState('')
+  const choiceVoice = useVoiceComposer()
+  const {
+    startRecording: startChoiceVoiceRecording,
+    updateTranscript: updateChoiceVoiceTranscript,
+    commitVoiceText: commitChoiceVoiceText,
+    finishVoiceSession: finishChoiceVoiceSession,
+    resetComposer: resetChoiceVoiceComposer,
+    isVoiceActive: isChoiceVoiceActive,
+    isTextareaReadOnly: isChoiceVoiceTextareaReadOnly,
+    displayText: choiceVoiceDisplayText,
+    livePreviewText: choiceVoiceLivePreviewText,
+    draftBeforeVoiceText: choiceVoiceDraftBefore,
+  } = choiceVoice
+  const [voiceWebMetricsClient, setVoiceWebMetricsClient] = useState(false)
   const [selectedOption, setSelectedOption] = useState('')
   const [selectedWords, setSelectedWords] = useState<string[]>([])
   const [remainingWords, setRemainingWords] = useState<string[]>(() => wordBank(question))
   const choices = useMemo(() => {
     const raw = question.options ?? []
-    if (isChoiceLikePracticeType(question.type) && raw.length < 2) {
+    if (isChoiceLikePracticeType(question.type)) {
       return ensurePracticeChoiceOptions(raw, question.targetAnswer)
     }
     return raw
@@ -101,7 +158,73 @@ export default function PracticeQuestionRenderer({
   const latestInterimTextRef = useRef('')
   const defaultAnswerTextareaRef = useRef<HTMLTextAreaElement | null>(null)
   const voiceShadowTextareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const choiceCorrectionTextareaRef = useRef<HTMLTextAreaElement | null>(null)
   const [voiceListening, setVoiceListening] = useState(false)
+  const choiceVoiceActive = voiceListening || isChoiceVoiceActive
+  const choiceComposerText = isChoiceVoiceActive ? choiceVoiceDisplayText : draft
+  const showChoiceVoiceOverlay = isChoiceCorrectionComposer && isChoiceVoiceActive && choiceComposerText.length > 0
+  const choiceVoiceWebMetricsActive = showChoiceVoiceOverlay && voiceWebMetricsClient
+  const [externalMicPressCount, setExternalMicPressCount] = useState(0)
+  const [textFallbackUnlocked, setTextFallbackUnlocked] = useState(false)
+  const [choiceTapHintVisible, setChoiceTapHintVisible] = useState(false)
+  const [voiceCapability, setVoiceCapability] = useState<PracticeVoiceCapability>(() =>
+    getInitialPracticeVoiceCapability()
+  )
+  const isTextEditUnlocked = textFallbackUnlocked
+  const choiceInputMode = getChoiceCorrectionInputMode({
+    isTextEditUnlocked,
+    voiceListening: choiceVoiceActive,
+  })
+  const choiceTextareaReadOnly = isChoiceCorrectionTextareaReadOnly(choiceInputMode)
+  const choiceVoiceFrozenDisplay = isChoiceCorrectionVoiceFrozenDisplay({
+    isTextEditUnlocked,
+    inputMode: choiceInputMode,
+  })
+  const showMicOffInline = shouldShowMicOffInlineButton({
+    isChoiceCorrection: isChoiceCorrectionComposer,
+    textFallbackUnlocked,
+    isTextEditUnlocked,
+    externalMicPressCount,
+    voiceCapability,
+  })
+  const showChoiceInviteOverlay =
+    isChoiceCorrectionComposer &&
+    shouldShowChoiceCorrectionInviteOverlay({
+      isFrozenDisplay: choiceVoiceFrozenDisplay,
+      showVoiceOverlay: showChoiceVoiceOverlay,
+      composerText: choiceComposerText,
+      showTapHint: choiceTapHintVisible,
+    })
+  const choiceInviteOverlayLine = isChoiceCorrectionComposer
+    ? getChoiceCorrectionOverlayLine({
+        showTapHint: choiceTapHintVisible,
+        showTextEditButton: showMicOffInline,
+        targetAnswer: question.targetAnswer,
+        audience,
+      })
+    : ''
+  const hideChoiceComposerTextForTapHint =
+    showChoiceInviteOverlay && choiceTapHintVisible && Boolean(choiceComposerText.trim())
+  const { micVisualState, resetMicAnimation } = useMicInviteAnimation({
+    inviteKey: isChoiceCorrectionComposer && !disabled ? `${question.id}-correction` : null,
+    pauseInvite: choiceVoiceActive,
+  })
+
+  useAutoGrowTextarea({
+    textareaRef: choiceCorrectionTextareaRef,
+    value: choiceComposerText,
+    enabled: isChoiceCorrectionComposer,
+    maxHeightPx: CHOICE_CORRECTION_INPUT_MAX_HEIGHT_PX,
+    minHeightPx: 44,
+    isVoiceActive: isChoiceVoiceActive,
+    showVoiceOverlay: showChoiceVoiceOverlay,
+    voiceWebMetricsActive: choiceVoiceWebMetricsActive,
+  })
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setVoiceWebMetricsClient(needsVoiceComposerWebMetrics(window.navigator.userAgent))
+  }, [])
 
   const clearRecognitionSilenceTimeout = useCallback(() => {
     if (recognitionSilenceTimeoutRef.current != null) {
@@ -113,8 +236,6 @@ export default function PracticeQuestionRenderer({
   const resetRecognitionDraftBuffers = useCallback(() => {
     latestFinalTextRef.current = ''
     latestInterimTextRef.current = ''
-    setVoiceFinalText('')
-    setVoiceInterimText('')
   }, [])
 
   const hardResetSpeechRecognition = useCallback(() => {
@@ -137,7 +258,8 @@ export default function PracticeQuestionRenderer({
       // ignore
     }
     setVoiceListening(false)
-  }, [clearRecognitionSilenceTimeout, resetRecognitionDraftBuffers])
+    finishChoiceVoiceSession()
+  }, [clearRecognitionSilenceTimeout, finishChoiceVoiceSession, resetRecognitionDraftBuffers])
 
   const stopSpeechRecognition = useCallback(() => {
     clearRecognitionSilenceTimeout()
@@ -165,6 +287,7 @@ export default function PracticeQuestionRenderer({
     hardResetSpeechRecognition()
     recognitionIsStoppingRef.current = false
     resetRecognitionDraftBuffers()
+    startChoiceVoiceRecording()
 
     const recognition = new SpeechRecognitionAPI()
     recognition.lang = 'en-US'
@@ -180,22 +303,26 @@ export default function PracticeQuestionRenderer({
       const stableInterimText = stabilizeInterimAcrossTicks(interimBase, interimText)
       latestFinalTextRef.current = finalText
       latestInterimTextRef.current = stableInterimText
-      setVoiceFinalText(finalText)
-      setVoiceInterimText(stableInterimText)
-      const transcript = mergeSpeechDisplayText(finalText, stableInterimText)
-      if (!transcript) return
-      setDraft(transcript)
+      updateChoiceVoiceTranscript(finalText, stableInterimText)
       clearRecognitionSilenceTimeout()
       recognitionSilenceTimeoutRef.current = window.setTimeout(() => {
         stopSpeechRecognition()
       }, BROWSER_SILENCE_MS)
     }
-    recognition.onerror = () => {
+    recognition.onerror = (event: Event) => {
       clearRecognitionSilenceTimeout()
       recognitionIsStoppingRef.current = false
+      const errorCode = (event as unknown as { error?: string }).error ?? ''
+      const mappedCapability = mapRecognitionErrorToVoiceCapability(errorCode)
+      if (mappedCapability) {
+        setVoiceCapability(mappedCapability)
+      }
       const resolvedFinalText = chooseFinalSpeechText(latestFinalTextRef.current, latestInterimTextRef.current)
       if (resolvedFinalText) {
+        commitChoiceVoiceText(resolvedFinalText)
         setDraft(resolvedFinalText)
+      } else {
+        finishChoiceVoiceSession()
       }
       resetRecognitionDraftBuffers()
       if (recognitionRef.current === recognition) {
@@ -208,7 +335,10 @@ export default function PracticeQuestionRenderer({
       recognitionIsStoppingRef.current = false
       const resolvedFinalText = chooseFinalSpeechText(latestFinalTextRef.current, latestInterimTextRef.current)
       if (resolvedFinalText) {
+        commitChoiceVoiceText(resolvedFinalText)
         setDraft(resolvedFinalText)
+      } else {
+        finishChoiceVoiceSession()
       }
       resetRecognitionDraftBuffers()
       if (recognitionRef.current === recognition) {
@@ -230,9 +360,13 @@ export default function PracticeQuestionRenderer({
     BROWSER_SILENCE_MS,
     clearRecognitionSilenceTimeout,
     disabled,
+    commitChoiceVoiceText,
+    finishChoiceVoiceSession,
     hardResetSpeechRecognition,
     resetRecognitionDraftBuffers,
+    startChoiceVoiceRecording,
     stopSpeechRecognition,
+    updateChoiceVoiceTranscript,
   ])
 
   useEffect(() => {
@@ -242,7 +376,13 @@ export default function PracticeQuestionRenderer({
     setSelectedOption('')
     setSelectedWords([])
     setRemainingWords(wordBank(question))
-  }, [hardResetSpeechRecognition, question])
+    setExternalMicPressCount(0)
+    setTextFallbackUnlocked(false)
+    setChoiceTapHintVisible(false)
+    setVoiceCapability(getInitialPracticeVoiceCapability())
+    resetChoiceVoiceComposer()
+    resetMicAnimation()
+  }, [hardResetSpeechRecognition, question, resetChoiceVoiceComposer, resetMicAnimation])
 
   useEffect(
     () => () => {
@@ -257,10 +397,12 @@ export default function PracticeQuestionRenderer({
   }, [disabled, hardResetSpeechRecognition, isChoiceCorrectionComposer])
 
   const submitText = () => {
-    const answer = draft.trim()
+    const answer = (isChoiceCorrectionComposer ? choiceComposerText : draft).trim()
     if (!answer || disabled) return
     hardResetSpeechRecognition()
     setDraft('')
+    setChoiceTapHintVisible(false)
+    resetChoiceVoiceComposer()
     onSubmit(answer)
   }
 
@@ -285,14 +427,9 @@ export default function PracticeQuestionRenderer({
     textarea.style.overflowY = textarea.scrollHeight > maxHeightPx ? 'auto' : 'hidden'
   }, [])
 
-  const recognitionSupported =
-    typeof window !== 'undefined' &&
-    Boolean(
-      (window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
-        (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
-    )
+  const recognitionSupported = !isVoiceCapabilityBlocked(voiceCapability)
   const micButtonDisabled = disabled || !recognitionSupported
-  const showVoiceInterimOverlay = isChoiceCorrectionComposer && voiceListening && Boolean(voiceInterimText.trim())
+  const choiceVoiceStatus = choiceCorrectionVoiceStatusMessage({ voiceListening: choiceVoiceActive })
 
   useEffect(() => {
     if (isChoiceCorrectionComposer) return
@@ -303,6 +440,32 @@ export default function PracticeQuestionRenderer({
   useEffect(() => {
     adjustTextareaHeight(voiceShadowTextareaRef.current, DEFAULT_INPUT_MAX_HEIGHT_PX)
   }, [DEFAULT_INPUT_MAX_HEIGHT_PX, adjustTextareaHeight, voiceTextDraft])
+
+  const handleChoiceCorrectionMicClick = useCallback(() => {
+    resetMicAnimation()
+    setChoiceTapHintVisible(false)
+    if (voiceListening) {
+      stopSpeechRecognition()
+      return
+    }
+    setExternalMicPressCount((count) => count + 1)
+    startSpeechRecognition()
+  }, [resetMicAnimation, startSpeechRecognition, stopSpeechRecognition, voiceListening])
+
+  const showChoiceCorrectionTapHint = useCallback(() => {
+    if (!choiceVoiceFrozenDisplay || isTextEditUnlocked) return
+    setChoiceTapHintVisible(true)
+  }, [choiceVoiceFrozenDisplay, isTextEditUnlocked])
+
+  const unlockChoiceTextEdit = useCallback(() => {
+    setTextFallbackUnlocked(true)
+    setChoiceTapHintVisible(false)
+    hardResetSpeechRecognition()
+    finishChoiceVoiceSession()
+    requestAnimationFrame(() => {
+      choiceCorrectionTextareaRef.current?.focus()
+    })
+  }, [finishChoiceVoiceSession, hardResetSpeechRecognition])
 
   if (canUseChoices) {
     return (
@@ -487,70 +650,26 @@ export default function PracticeQuestionRenderer({
       )}
       <div className={`flex gap-2 ${isChoiceCorrectionComposer ? 'items-center' : 'items-end'}`}>
         {isChoiceCorrectionComposer ? (
-          <button
-            type="button"
+          <VoiceMicButton
+            listening={choiceVoiceActive}
             disabled={micButtonDisabled}
-            onClick={() => {
-              if (voiceListening) {
-                stopSpeechRecognition()
-                return
-              }
-              startSpeechRecognition()
-            }}
-            aria-label={
-              !recognitionSupported
-                ? 'Голосовой ввод недоступен'
-                : voiceListening
-                  ? 'Остановить запись'
-                  : 'Голосовой ввод'
-            }
+            micVisualState={micVisualState}
+            onClick={handleChoiceCorrectionMicClick}
             title={
               !recognitionSupported
-                ? 'Голосовой ввод недоступен в этом браузере'
-                : voiceListening
+                ? 'Голосовой ввод недоступен'
+                : choiceVoiceActive
                   ? 'Остановить'
                   : 'Голосовой ввод'
             }
-            className={`chat-action-button chat-control-surface relative isolate hidden h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-full p-2.5 touch-manipulation sm:flex ${
-              voiceListening ? 'text-[var(--chat-control-active-text)]' : 'text-[var(--chat-control-text)]'
-            }`}
-            style={{
-              background: voiceListening ? 'var(--chat-control-active-bg)' : 'var(--chat-control-bg)',
-              boxShadow: voiceListening ? 'var(--chat-control-shadow)' : undefined,
-            }}
-            onMouseEnter={(event) => {
-              if (!voiceListening) {
-                event.currentTarget.style.background = 'var(--chat-control-hover)'
-              }
-            }}
-            onMouseLeave={(event) => {
-              if (!voiceListening) {
-                event.currentTarget.style.background = 'var(--chat-control-bg)'
-              }
-            }}
-          >
-            {voiceListening ? (
-              <span className="relative z-10 h-5 w-5 rounded-full bg-[var(--chat-control-dot)]" />
-            ) : (
-              <span className="relative z-10">
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z" />
-                  <path d="M19 11a7 7 0 0 1-14 0" />
-                  <path d="M12 18v3" />
-                  <path d="M8 21h8" />
-                </svg>
-              </span>
-            )}
-          </button>
+            ariaLabel={
+              !recognitionSupported
+                ? 'Голосовой ввод недоступен'
+                : choiceVoiceActive
+                  ? 'Остановить запись'
+                  : 'Голосовой ввод'
+            }
+          />
         ) : null}
         {question.type === 'roleplay-mini' || question.type === 'boss-challenge' || question.type === 'free-response' ? (
           <textarea
@@ -559,23 +678,49 @@ export default function PracticeQuestionRenderer({
             disabled={disabled}
             rows={question.type === 'boss-challenge' ? 3 : 2}
             className="chat-input-field lesson-chat-input-field min-w-0 w-full resize-none rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] text-[var(--text)] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70"
-            placeholder={inputPlaceholder(question, correctionMode)}
+            placeholder={inputPlaceholder(question, correctionMode, audience)}
           />
         ) : isChoiceCorrectionComposer ? (
           <div className="relative isolate min-w-0 flex-1">
-            {showVoiceInterimOverlay ? (
+            {choiceVoiceStatus ? (
+              <p className="sr-only" aria-live="polite">
+                {choiceVoiceStatus}
+              </p>
+            ) : null}
+            {showChoiceVoiceOverlay ? (
               <VoiceComposerOverlay
-                draftBeforeVoiceText={voiceFinalText}
-                livePreviewText={voiceInterimText}
-                webTextMetricsFix
+                draftBeforeVoiceText={choiceVoiceDraftBefore}
+                livePreviewText={choiceVoiceLivePreviewText}
+                webTextMetricsFix={voiceWebMetricsClient}
               />
             ) : null}
+            {showChoiceInviteOverlay ? (
+              <>
+                {choiceTapHintVisible ? (
+                  <p className="sr-only" role="status" aria-live="polite">
+                    {choiceInviteOverlayLine}
+                  </p>
+                ) : null}
+                <div
+                  aria-hidden={!choiceTapHintVisible}
+                  className={`pointer-events-none absolute inset-0 z-10 overflow-hidden whitespace-nowrap rounded-2xl font-sans text-base text-[var(--text-muted)] ${choiceCorrectionComposerMetricsClass(
+                    { voiceWebMetrics: false, micOffPr12: showMicOffInline }
+                  )}`}
+                >
+                  <span className="min-w-0 truncate-x block">{choiceInviteOverlayLine}</span>
+                </div>
+              </>
+            ) : null}
             <textarea
-              value={draft}
+              ref={choiceCorrectionTextareaRef}
+              value={choiceComposerText}
+              readOnly={choiceTextareaReadOnly || isChoiceVoiceTextareaReadOnly}
+              onPointerDown={showChoiceCorrectionTapHint}
+              onFocus={showChoiceCorrectionTapHint}
+              onBlur={() => setChoiceTapHintVisible(false)}
               onChange={(event) => {
+                if (choiceTextareaReadOnly || isChoiceVoiceActive) return
                 setDraft(event.target.value)
-                setVoiceFinalText('')
-                setVoiceInterimText('')
               }}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && !event.shiftKey) {
@@ -585,14 +730,31 @@ export default function PracticeQuestionRenderer({
               }}
               disabled={disabled}
               rows={1}
-              className={`chat-input-field lesson-chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${
-                showVoiceInterimOverlay
-                  ? 'chat-input-voice-web-metrics text-transparent caret-transparent placeholder:text-transparent'
-                  : 'text-[var(--text)]'
-              }`}
-              placeholder={inputPlaceholder(question, correctionMode)}
-              style={{ height: '44px' }}
+              className={`chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${choiceCorrectionComposerMetricsClass(
+                { voiceWebMetrics: choiceVoiceWebMetricsActive, micOffPr12: showMicOffInline }
+              )} ${
+                showChoiceVoiceOverlay || hideChoiceComposerTextForTapHint
+                  ? 'text-transparent caret-transparent placeholder:text-transparent'
+                  : choiceVoiceFrozenDisplay
+                    ? 'text-[var(--text-muted)]'
+                    : 'text-[var(--text)]'
+              } ${choiceTextareaReadOnly ? 'cursor-default' : ''}`}
+              placeholder={inputPlaceholder(question, correctionMode, audience, isTextEditUnlocked)}
+              autoComplete="off"
+              style={{ maxHeight: `${CHOICE_CORRECTION_INPUT_MAX_HEIGHT_PX}px` }}
             />
+            {showMicOffInline ? (
+              <button
+                type="button"
+                onClick={unlockChoiceTextEdit}
+                disabled={disabled}
+                className="absolute right-2 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[var(--text-muted)] touch-manipulation hover:bg-[var(--chat-control-hover)] hover:text-[var(--text)] disabled:opacity-50"
+                aria-label="Ввести ответ текстом"
+                title="Ввести ответ текстом"
+              >
+                <TextEditIcon />
+              </button>
+            ) : null}
           </div>
         ) : (
           <textarea
@@ -611,14 +773,14 @@ export default function PracticeQuestionRenderer({
             disabled={disabled}
             rows={1}
             className="chat-input-field lesson-chat-input-field min-w-0 flex-1 resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] text-[var(--text)] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70"
-            placeholder={inputPlaceholder(question, correctionMode)}
+            placeholder={inputPlaceholder(question, correctionMode, audience)}
             style={{ maxHeight: `${DEFAULT_INPUT_MAX_HEIGHT_PX}px` }}
           />
         )}
         {isChoiceCorrectionComposer ? (
           <button
             type="submit"
-            disabled={disabled || !draft.trim()}
+            disabled={disabled || !choiceComposerText.trim()}
             aria-label="Отправить ответ"
             title="Отправить"
             className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)]"

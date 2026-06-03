@@ -6,6 +6,7 @@ import PracticeQuestionRenderer from '@/components/practice/PracticeQuestionRend
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import type { PracticeFlowState } from '@/hooks/usePracticeSession'
+import type { Audience } from '@/lib/types'
 import { showDebugQuestionIndex } from '@/lib/practice/debug'
 import {
   getPracticeExerciseTypeCatalogNumber,
@@ -38,6 +39,7 @@ type PracticeMessage =
 
 interface PracticeScreenProps {
   session: PracticeSession
+  audience?: Audience
   state: PracticeFlowState
   feedback?: { type: 'success' | 'error'; message: string } | null
   currentQuestion: PracticeQuestion | null
@@ -128,6 +130,7 @@ function nextMode(mode: PracticeMode): PracticeMode {
 
 export default function PracticeScreen({
   session,
+  audience = 'adult',
   state,
   feedback = null,
   currentQuestion,
@@ -393,6 +396,7 @@ export default function PracticeScreen({
                   question={currentQuestion}
                   disabled={!canSubmit || state === 'checking'}
                   correctionMode={state === 'correction'}
+                  audience={audience}
                   onSubmit={onSubmitAnswer}
                 />
               ) : null}

@@ -75,7 +75,7 @@ describe('buildLocalPracticeSession', () => {
     const choiceLikeTypes = session.questions.filter((q) => isChoiceLikePracticeType(q.type))
     expect(choiceLikeTypes.length).toBeGreaterThan(0)
     for (const question of choiceLikeTypes) {
-      expect(question.options?.length ?? 0).toBeGreaterThanOrEqual(2)
+      expect(question.options?.length ?? 0).toBeGreaterThanOrEqual(3)
     }
   })
 

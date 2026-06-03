@@ -6315,6 +6315,7 @@ export default function Home() {
               ) : isPracticeActive && practiceSession.session ? (
                 <PracticeScreen
                   session={practiceSession.session}
+                  audience={settings.audience}
                   state={practiceSession.state}
                   feedback={practiceSession.feedback}
                   currentQuestion={practiceSession.currentQuestion}

@@ -1,3 +1,4 @@
+import { normalizeEnglishLearnerContractions } from '@/lib/englishLearnerContractions'
 import { getPracticeExerciseMetadata } from '@/lib/practice/registry'
 import {
   buildChoicePrompt,
@@ -26,17 +27,27 @@ function isPracticeExerciseType(value: unknown): value is PracticeExerciseType {
 }
 
 function normalizeChoiceText(value: string): string {
+  return normalizeChoiceTextKey(normalizeEnglishLearnerContractions(value))
+}
+
+function normalizeChoiceTextKey(value: string): string {
   return value.trim().toLowerCase().replace(/[.,!?;:]/g, '').replace(/\s+/g, ' ')
 }
 
+function answerMatchesTarget(candidate: string, targetAnswer: string): boolean {
+  const key = normalizeChoiceTextKey(normalizeEnglishLearnerContractions(candidate))
+  const targetKey = normalizeChoiceText(targetAnswer)
+  return key === targetKey
+}
+
 function findLessonChoiceOptions(lesson: LessonData, targetAnswer: string): string[] | undefined {
-  const normalizedTargetAnswer = normalizeChoiceText(targetAnswer)
   const matchedExercise = lesson.steps.find((step) => {
     const exercise = step.exercise
     if (!exercise || !Array.isArray(exercise.options) || exercise.options.length < 2) return false
-    return normalizeChoiceText(exercise.correctAnswer) === normalizedTargetAnswer
+    if (answerMatchesTarget(exercise.correctAnswer, targetAnswer)) return true
+    return (exercise.acceptedAnswers ?? []).some((answer) => answerMatchesTarget(answer, targetAnswer))
   })?.exercise
-  return matchedExercise?.options && matchedExercise.options.length >= 2 ? matchedExercise.options : undefined
+  return matchedExercise?.options && matchedExercise.options.length >= 2 ? [...matchedExercise.options] : undefined
 }
 
 export function normalizeAiPracticeQuestion(row: unknown, lesson: LessonData, index: number): PracticeQuestion | null {
@@ -76,7 +87,7 @@ export function normalizeAiPracticeQuestion(row: unknown, lesson: LessonData, in
   const lessonChoiceOptions = isChoiceLikePracticeType(type) ? findLessonChoiceOptions(lesson, targetAnswer) : undefined
 
   const options = isChoiceLikePracticeType(type)
-    ? lessonChoiceOptions ?? (rawOptions && rawOptions.length >= 2 ? ensurePracticeChoiceOptions(rawOptions, targetAnswer) : undefined)
+    ? ensurePracticeChoiceOptions(lessonChoiceOptions ?? rawOptions ?? [], targetAnswer)
     : rawOptions && rawOptions.length >= 2
       ? rawOptions
       : undefined

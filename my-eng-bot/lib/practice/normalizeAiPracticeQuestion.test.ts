@@ -20,10 +20,26 @@ describe('normalizeAiPracticeQuestion', () => {
     }
     const q = normalizeAiPracticeQuestion(row, lesson!, 0)
     expect(q).not.toBeNull()
-    expect(q!.options?.length).toBeGreaterThanOrEqual(2)
+    expect(q!.options?.length).toBeGreaterThanOrEqual(3)
     expect(q!.options).toEqual(sourceStep!.exercise!.options)
     expect(q!.prompt).toMatch(/Ситуация:|Тема:/i)
     expect(q!.prompt).not.toMatch(/^Pick one\./i)
+  })
+
+  it('falls back to generated options when lesson and model omit enough choices', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+    const row = {
+      type: 'choice',
+      prompt: 'Pick one.',
+      targetAnswer: 'It is dark.',
+      acceptedAnswers: [],
+      options: ['It is dark.'],
+    }
+    const q = normalizeAiPracticeQuestion(row, lesson!, 99)
+    expect(q).not.toBeNull()
+    expect(q!.options?.length).toBeGreaterThanOrEqual(3)
+    expect(q!.options).toContain('It is dark.')
   })
 
   it('keeps short options undefined for non-choice types', () => {
