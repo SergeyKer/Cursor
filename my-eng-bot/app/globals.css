@@ -9,6 +9,22 @@
     padding-right: max(0.5rem, env(safe-area-inset-right, 0px), var(--vv-right-inset));
   }
 
+  /* Заголовок хедера: центр по всей ширине колонки, не между grid-колонками. */
+  .app-header-title-layer {
+    pointer-events: none;
+    position: absolute;
+    left: 50%;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    height: 100%;
+    width: max-content;
+    transform: translateX(-50%);
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
   /*
    * `overflow-x: hidden` + `overflow-y: visible` computes to overflow-y: auto and clips emoji.
    * `clip` truncates horizontally without forcing vertical clipping.

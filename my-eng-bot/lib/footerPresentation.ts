@@ -41,8 +41,11 @@ export const CHILD_EMOJI_BY_TONE: Record<FooterVoiceTone, readonly string[]> = {
   hint: ['💡', '🧩', '🔍', '📝', '🧐', '😉'],
   thinking: ['🤔', '🧠', '🔎', '📘', '😕', '😮', '💭'],
   error: ['💛', '🛟', '🌱', '🤝', '😔', '🥲'],
-  neutral: ['🙂', '👋', '✨', '🌤️', '😐'],
+  neutral: ['😊', '😄', '👋', '✨', '🌤️', '💚'],
 }
+
+/** Маркер футера в режиме «Общение» (говори на En/Ru…). */
+export const COMMUNICATION_FOOTER_MARKER = '😊'
 
 export const ADULT_EMOJI_BY_TONE: Record<FooterVoiceTone, readonly string[]> = {
   celebrate: ['😊', '😄', '🤩', '✨', '🌟', '💚'],
@@ -50,7 +53,7 @@ export const ADULT_EMOJI_BY_TONE: Record<FooterVoiceTone, readonly string[]> = {
   hint: ['🧐', '😉', '💡', '📝', '🔎'],
   thinking: ['🤔', '😕', '😮', '💭', '☁️'],
   error: ['😔', '🥲', '😕', '💛', '🛟', '🌱'],
-  neutral: ['🙂', '😐', '👋', '🌤️', '✨'],
+  neutral: ['😊', '😄', '👋', '✨', '🌤️', '💚'],
 }
 
 function getToneTextClassName(tone: FooterVoiceTone, emphasis: FooterVoiceEmphasis, isPlayful: boolean): string {
@@ -96,6 +99,9 @@ function resolveMarkerSeed(
 }
 
 function resolveEmojiMarker(audience: Audience, tone: FooterVoiceTone, seed: string): string {
+  if (seed.startsWith('chat-communication')) {
+    return COMMUNICATION_FOOTER_MARKER
+  }
   const pool = audience === 'child' ? CHILD_EMOJI_BY_TONE : ADULT_EMOJI_BY_TONE
   return pickStableItem(pool[tone], seed)
 }

@@ -92,7 +92,7 @@ import {
   resolveLessonCardMedal,
   resolveLessonHeaderMedal,
 } from '@/lib/lessonFooter'
-import { buildLessonPageTitle } from '@/lib/lessonPageTitle'
+import { buildLessonPageTitle, getAppHeaderTitleMaxWidthClass } from '@/lib/lessonPageTitle'
 import MedalBadge from '@/components/MedalBadge'
 import { resolveLessonFooterTopLine } from '@/lib/lessonFooterTopLine'
 import { resolveGlobalLessonXpDelta } from '@/lib/lessonGlobalXpAward'
@@ -5818,6 +5818,17 @@ export default function Home() {
       }
     })
   }, [])
+  const hasCommunicationHeaderControls =
+    dialogStarted && settings.mode === 'communication' && !isLessonActive && !engvoVoiceMode
+  const headerTitleMaxWidthClass = getAppHeaderTitleMaxWidthClass({
+    dialogStarted,
+    hasCommunicationControls: hasCommunicationHeaderControls,
+    lessonPageTitleView: lessonPageTitleView != null,
+    hasLessonHeaderProgress: Boolean(lessonHeaderProgressLabel),
+    isLessonPreSteps: isLessonIntroActive || isLessonTipsActive || isTutorLessonPending,
+    hasHeaderMedal: lessonHeaderMedal != null,
+  })
+
   const pageTitle = !dialogStarted
     ? 'Engvo.AI - мой английский друг'
     : isVocabularyHubActive
@@ -5919,8 +5930,8 @@ export default function Home() {
               <MenuToggleIcon open={menuOpen} />
             </button>
             <h1
-              className={`pointer-events-none relative z-10 col-span-3 col-start-1 row-start-1 flex items-center justify-center gap-1 self-center px-2 text-center text-[16px] font-semibold leading-[1.32] tracking-normal text-[var(--app-header-text)] sm:text-[17px] ${
-                !dialogStarted ? 'whitespace-nowrap' : 'min-w-0 max-w-[calc(100%-5.5rem)]'
+              className={`app-header-title-layer gap-1 px-2 text-[16px] font-semibold leading-[1.32] tracking-normal text-[var(--app-header-text)] sm:text-[17px] ${headerTitleMaxWidthClass} ${
+                !dialogStarted ? 'whitespace-nowrap' : 'min-w-0'
               }`}
               style={{ fontFamily: 'var(--app-header-font-family)' }}
               title={lessonPageTitleView?.fullTitle ?? pageTitle}
@@ -5928,19 +5939,19 @@ export default function Home() {
             >
               {lessonPageTitleView ? (
                 lessonPageTitleView.prefix ? (
-                  <>
+                  <span className="flex min-w-0 max-w-full items-center justify-center gap-1">
                     <span className="shrink-0">{lessonPageTitleView.prefix}</span>
                     <span className="min-w-0 truncate">{lessonPageTitleView.topicSegment}</span>
-                  </>
+                  </span>
                 ) : (
                   <span className="min-w-0 truncate">{lessonPageTitleView.topicSegment}</span>
                 )
               ) : !dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode || isPracticeActive ? (
-                pageTitle
+                <span className="truncate">{pageTitle}</span>
               ) : (
                 <>
-                  <span className="hidden sm:inline">{getMenuSummary(true)}</span>
-                  <span className="sm:hidden">{getMenuSummary(false)}</span>
+                  <span className="hidden truncate sm:inline">{getMenuSummary(true)}</span>
+                  <span className="truncate sm:hidden">{getMenuSummary(false)}</span>
                 </>
               )}
             </h1>

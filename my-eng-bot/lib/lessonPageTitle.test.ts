@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildLessonPageTitle, getLessonHeaderCenterPaddingClass } from '@/lib/lessonPageTitle'
+import {
+  buildLessonPageTitle,
+  getAppHeaderTitleMaxWidthClass,
+  getLessonHeaderCenterPaddingClass,
+} from '@/lib/lessonPageTitle'
 
 describe('buildLessonPageTitle', () => {
   it('uses Урок prefix before steps', () => {
@@ -81,5 +85,33 @@ describe('getLessonHeaderCenterPaddingClass', () => {
         hasProgressSubStep: false,
       })
     ).toBe('px-14 sm:px-[4.25rem]')
+  })
+})
+
+describe('getAppHeaderTitleMaxWidthClass', () => {
+  it('reserves space for communication controls on the right', () => {
+    expect(
+      getAppHeaderTitleMaxWidthClass({
+        dialogStarted: true,
+        hasCommunicationControls: true,
+        lessonPageTitleView: false,
+        hasLessonHeaderProgress: false,
+        isLessonPreSteps: false,
+        hasHeaderMedal: false,
+      })
+    ).toBe('max-w-[calc(100%-3rem-9.5rem)] sm:max-w-[calc(100%-3rem-10.5rem)]')
+  })
+
+  it('uses lesson progress width when progress label is shown', () => {
+    expect(
+      getAppHeaderTitleMaxWidthClass({
+        dialogStarted: true,
+        hasCommunicationControls: false,
+        lessonPageTitleView: true,
+        hasLessonHeaderProgress: true,
+        isLessonPreSteps: false,
+        hasHeaderMedal: true,
+      })
+    ).toBe('max-w-[calc(100%-3rem-10rem)] sm:max-w-[calc(100%-3rem-12rem)]')
   })
 })

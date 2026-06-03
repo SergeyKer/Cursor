@@ -45,3 +45,30 @@ export function getLessonHeaderCenterPaddingClass(input: {
   }
   return 'px-14 sm:px-[4.25rem]'
 }
+
+/** max-width для заголовка, центрированного по всей ширине хедера (left: 50%). */
+export function getAppHeaderTitleMaxWidthClass(input: {
+  dialogStarted: boolean
+  hasCommunicationControls: boolean
+  lessonPageTitleView: boolean
+  hasLessonHeaderProgress: boolean
+  isLessonPreSteps: boolean
+  hasHeaderMedal: boolean
+}): string {
+  if (input.lessonPageTitleView) {
+    if (input.hasLessonHeaderProgress) {
+      return 'max-w-[calc(100%-3rem-10rem)] sm:max-w-[calc(100%-3rem-12rem)]'
+    }
+    if (input.isLessonPreSteps && !input.hasHeaderMedal) {
+      return 'max-w-[calc(100%-3rem-7rem)] sm:max-w-[calc(100%-3rem-9rem)]'
+    }
+    return 'max-w-[calc(100%-3rem-8rem)] sm:max-w-[calc(100%-3rem-9.5rem)]'
+  }
+  if (input.hasCommunicationControls) {
+    return 'max-w-[calc(100%-3rem-9.5rem)] sm:max-w-[calc(100%-3rem-10.5rem)]'
+  }
+  if (input.dialogStarted) {
+    return 'max-w-[calc(100%-3rem-3.5rem)]'
+  }
+  return 'max-w-[calc(100%-3.5rem)]'
+}

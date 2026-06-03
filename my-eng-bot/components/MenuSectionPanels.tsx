@@ -1420,8 +1420,8 @@ export default function MenuSectionPanels({
   return (
     <div className={`${rootClass} ${manropeHome.className}`.trim()}>
       {(menuView !== 'root' || !homeLayout) && (
-        <div className="mb-1.5 flex shrink-0 items-center justify-between gap-2 border-b border-[var(--border)]/70 pb-1.5">
-          <div className="flex shrink-0 items-center gap-2">
+        <div className="relative mb-1.5 flex min-h-[44px] shrink-0 items-center border-b border-[var(--border)]/70 pb-1.5">
+          <div className="relative z-20 flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={menuView === 'root' ? handleGoHome : handleMenuBack}
@@ -1461,7 +1461,7 @@ export default function MenuSectionPanels({
               <HomeIcon className="h-5 w-5 text-[var(--text-muted)]" />
             </button>
           </div>
-          <h2 className="min-w-0 flex-1 pr-2 text-right [font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif] text-[18px] font-semibold tracking-normal leading-[1.25] text-[var(--text)] sm:pr-3">
+          <h2 className="pointer-events-none absolute left-1/2 top-1/2 z-10 w-max max-w-[calc(100%-7.75rem)] -translate-x-1/2 -translate-y-1/2 truncate px-2 text-center [font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif] text-[18px] font-semibold leading-[1.25] tracking-normal text-[var(--text)]">
             {headerTitle}
           </h2>
         </div>

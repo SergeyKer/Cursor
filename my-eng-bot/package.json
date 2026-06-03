@@ -9,6 +9,7 @@
     "build:necessary-words": "tsx scripts/build-necessary-words.ts",
     "export:necessary-words-txt": "tsx scripts/export-necessary-words-txt.ts",
     "build:header-robot": "node scripts/header-robot-match-bg.mjs",
+    "build:footer-robot": "node scripts/footer-robot-process.mjs",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",

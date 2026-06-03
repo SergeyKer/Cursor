@@ -3,6 +3,7 @@ import { textHasEmoji } from '@/lib/emojiText'
 import {
   ADULT_EMOJI_BY_TONE,
   CHILD_EMOJI_BY_TONE,
+  COMMUNICATION_FOOTER_MARKER,
   resolveFooterPresentation,
 } from '@/lib/footerPresentation'
 
@@ -95,6 +96,25 @@ describe('resolveFooterPresentation', () => {
     expect(child.markerText).toBe('🏆')
     expect(adult.markerText).toBe('🤩')
     expect(child.markerText).not.toBe(adult.markerText)
+  })
+
+  it('uses fixed smile marker for communication footer hints', () => {
+    const adult = resolveFooterPresentation({
+      audience: 'adult',
+      tone: 'neutral',
+      emphasis: 'none',
+      typingKey: 'chat-communication-mix-en',
+      text: 'говори на En/Ru - я пойму и помогу',
+    })
+    const child = resolveFooterPresentation({
+      audience: 'child',
+      tone: 'neutral',
+      emphasis: 'none',
+      typingKey: 'chat-communication-en-en',
+    })
+
+    expect(adult.markerText).toBe(COMMUNICATION_FOOTER_MARKER)
+    expect(child.markerText).toBe(COMMUNICATION_FOOTER_MARKER)
   })
 
   it('uses expanded child emoji pools', () => {
