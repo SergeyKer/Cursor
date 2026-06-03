@@ -334,12 +334,14 @@
   --chat-composer-border: rgba(255, 255, 255, 0.7);
   --chat-input-bg: #ffffff;
   --chat-input-border: #d1fae5;
-  --chat-control-bg: #ecfdf5;
-  --chat-control-text: #047857;
-  --chat-control-hover: #d1fae5;
-  --chat-control-active-bg: #ffedd5;
-  --chat-control-active-text: #9a3412;
-  --chat-control-dot: #f59e0b;
+  --chat-send-bg: #3b82f6;
+  --chat-send-text: #ffffff;
+  --chat-control-bg: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  --chat-control-text: #064e3b;
+  --chat-control-hover: linear-gradient(135deg, #6ee7b7 0%, #34d399 100%);
+  --chat-control-active-bg: rgba(255, 255, 255, 0.48);
+  --chat-control-active-text: rgba(72, 128, 214, 0.95);
+  --chat-control-dot: #ef4444;
   --chat-source-label: #475569;
   --chat-source-link: #334155;
   --chat-source-link-hover: #0f172a;
@@ -483,12 +485,6 @@ html[data-theme='futuristic'] {
   --chat-composer-border: rgba(255, 255, 255, 0.45);
   --chat-input-bg: rgba(255, 255, 255, 0.85);
   --chat-input-border: rgba(255, 255, 255, 0.58);
-  --chat-control-bg: rgba(236, 253, 245, 0.78);
-  --chat-control-text: #065f46;
-  --chat-control-hover: rgba(209, 250, 229, 0.9);
-  --chat-control-active-bg: rgba(255, 243, 220, 0.9);
-  --chat-control-active-text: #9a3412;
-  --chat-control-dot: #f59e0b;
   --chat-source-label: #334155;
   --chat-source-link: #1e293b;
   --chat-source-link-hover: #0f172a;
@@ -568,12 +564,6 @@ html[data-theme='bubble1'] {
   --chat-composer-border: rgba(255, 255, 255, 0.58);
   --chat-input-bg: rgba(255, 255, 255, 0.82);
   --chat-input-border: rgba(190, 205, 230, 0.72);
-  --chat-control-bg: rgba(191, 246, 226, 0.85);
-  --chat-control-text: #1f7a5a;
-  --chat-control-hover: rgba(191, 246, 226, 0.98);
-  --chat-control-active-bg: rgba(255, 243, 214, 0.95);
-  --chat-control-active-text: #8a4f14;
-  --chat-control-dot: #ffb86b;
   --chat-source-label: #3f4f68;
   --chat-source-link: #2b4f7f;
   --chat-source-link-hover: #183a64;
@@ -605,8 +595,6 @@ html[data-theme='bubble1'] [data-audience='adult'] {
   --chat-assistant-shell: rgba(255, 255, 255, 0.62);
   --chat-section-amber: rgba(231, 243, 255, 0.9);
   --chat-section-emerald: rgba(207, 248, 232, 0.92);
-  --chat-control-bg: rgba(191, 246, 226, 0.85);
-  --chat-control-hover: rgba(191, 246, 226, 0.98);
   --chat-user-bubble-border: rgba(255, 255, 255, 0.34);
   --shadow-soft: 0 8px 24px rgba(160, 180, 220, 0.28);
   --shadow-glow: 0 0 26px rgba(130, 190, 255, 0.4);
@@ -623,8 +611,6 @@ html[data-theme='bubble1'] [data-audience='child'] {
   --chat-assistant-shell: rgba(255, 255, 255, 0.78);
   --chat-section-amber: rgba(229, 244, 255, 0.96);
   --chat-section-emerald: rgba(216, 252, 237, 0.96);
-  --chat-control-bg: rgba(187, 247, 208, 0.95);
-  --chat-control-hover: rgba(187, 247, 208, 1);
   --chat-user-bubble-border: rgba(255, 255, 255, 0.36);
   --shadow-soft: 0 6px 16px rgba(250, 146, 120, 0.2);
   --shadow-glow: 0 0 14px rgba(255, 140, 110, 0.28);
@@ -652,8 +638,8 @@ html[data-theme='bubble2'] {
   --bubble2-color-text-danger: #ef4444;
   --bubble2-color-button-send-bg: linear-gradient(135deg, #6aa8ff 0%, #5fd0ff 100%);
   --bubble2-color-button-send-text: #ffffff;
-  --bubble2-color-button-mic-bg: linear-gradient(135deg, #6ee7b7 0%, #34d399 100%);
-  --bubble2-color-button-mic-bg-hover: linear-gradient(135deg, #a7f3d0 0%, #6ee7b7 100%);
+  --bubble2-color-button-mic-bg: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  --bubble2-color-button-mic-bg-hover: linear-gradient(135deg, #6ee7b7 0%, #34d399 100%);
   --bubble2-radius-xs: 8px;
   --bubble2-radius-sm: 12px;
   --bubble2-radius-md: 16px;
@@ -729,11 +715,11 @@ html[data-theme='bubble2'] {
   --chat-composer-border: var(--bubble2-color-border-subtle);
   --chat-input-bg: rgba(255, 255, 255, 0.5);
   --chat-input-border: rgba(95, 160, 255, 0.6);
-  --chat-control-bg: var(--bubble2-color-button-mic-bg);
+  --chat-control-bg: linear-gradient(135deg, #34d399 0%, #10b981 100%);
   --chat-control-text: #064e3b;
-  --chat-control-hover: var(--bubble2-color-button-mic-bg-hover);
+  --chat-control-hover: linear-gradient(135deg, #6ee7b7 0%, #34d399 100%);
   --chat-control-active-bg: rgba(255, 255, 255, 0.48);
-  --chat-control-active-text: var(--bubble2-color-text-accent);
+  --chat-control-active-text: rgba(72, 128, 214, 0.95);
   --chat-control-dot: #ef4444;
   --chat-source-label: rgba(0, 0, 0, 0.55);
   --chat-source-link: #3f74cb;
@@ -798,8 +784,8 @@ html[data-theme='bubble2'] [data-audience='child'] {
   --chat-wallpaper: #f4ebff;
   --chat-message-wallpaper: rgba(255, 255, 255, 0.68);
   --bubble2-color-button-send-bg: linear-gradient(135deg, #ff4fd2 0%, #8b5cf6 100%);
-  --bubble2-color-button-mic-bg: linear-gradient(135deg, #00e5ff 0%, #00b8ff 100%);
-  --bubble2-color-button-mic-bg-hover: linear-gradient(135deg, #67f0ff 0%, #38cfff 100%);
+  --bubble2-color-button-mic-bg: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  --bubble2-color-button-mic-bg-hover: linear-gradient(135deg, #6ee7b7 0%, #34d399 100%);
   --bubble2-shadow-soft-1: 0 4px 12px rgba(139, 92, 246, 0.16);
   --bubble2-shadow-soft-2: 0 6px 16px rgba(0, 184, 255, 0.18);
   --bubble2-shadow-glow: 0 0 10px rgba(255, 79, 210, 0.24);
@@ -1536,4 +1522,22 @@ select.select-chevron {
     font-size: 0.95rem;
     line-height: 1.2rem;
   }
+}
+
+/*
+ * Композер чата (mic + send): единая палитра Bubble2 adult во всех 4 темах и 2 аудиториях.
+ * Логика disabled/hover/записи не меняется — только значения переменных.
+ */
+html[data-theme='basic'][data-audience],
+html[data-theme='futuristic'][data-audience],
+html[data-theme='bubble1'][data-audience],
+html[data-theme='bubble2'][data-audience] {
+  --chat-send-bg: #3b82f6;
+  --chat-send-text: #ffffff;
+  --chat-control-bg: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  --chat-control-text: #064e3b;
+  --chat-control-hover: linear-gradient(135deg, #6ee7b7 0%, #34d399 100%);
+  --chat-control-active-bg: rgba(255, 255, 255, 0.48);
+  --chat-control-active-text: rgba(72, 128, 214, 0.95);
+  --chat-control-dot: #ef4444;
 }

@@ -2563,7 +2563,7 @@ export default function Chat({
                       type="submit"
                       disabled={!input.trim() || loading || atLimit || isVoiceActive || isLessonLoadingState}
                       className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)]"
-                      style={{ background: '#3B82F6' }}
+                      style={{ background: 'var(--chat-send-bg)' }}
                       aria-label={sendButtonAriaLabel}
                     >
                       <svg

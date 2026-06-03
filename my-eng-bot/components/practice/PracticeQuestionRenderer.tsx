@@ -622,7 +622,7 @@ export default function PracticeQuestionRenderer({
             aria-label="Отправить ответ"
             title="Отправить"
             className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)]"
-            style={{ background: '#3B82F6' }}
+            style={{ background: 'var(--chat-send-bg)' }}
           >
             <svg aria-hidden="true" viewBox="0 0 24 24" className="h-7 w-7" fill="none">
               <path
