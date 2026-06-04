@@ -46,7 +46,6 @@ export default function VoiceMicButton({
       } ${micVisualState === 'invite' ? 'animate-invite' : ''} ${className}`}
       style={{
         background: micActionActive ? 'var(--chat-control-active-bg)' : 'var(--chat-control-bg)',
-        boxShadow: micActionActive ? 'var(--chat-control-shadow)' : undefined,
       }}
       title={title}
       aria-label={ariaLabel}

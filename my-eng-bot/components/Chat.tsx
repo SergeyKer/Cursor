@@ -21,6 +21,11 @@ import {
 } from '@/lib/normalizeCommentBulbEmoji'
 import { speak } from '@/lib/speech'
 import {
+  CHAT_COMPOSER_TYPO_CLASS,
+  getChatComposerOverlayVerticalClass,
+  getChatComposerTextareaVerticalClass,
+} from '@/lib/chatComposerMetrics'
+import {
   isIosChromeBrowser,
   isIosLikeDevice,
   needsVoiceComposerWebMetrics,
@@ -2453,7 +2458,6 @@ export default function Chat({
                       } ${micVisualState === 'invite' ? 'animate-invite' : ''}`}
                       style={{
                         background: micActionActive ? 'var(--chat-control-active-bg)' : 'var(--chat-control-bg)',
-                        boxShadow: micActionActive ? 'var(--chat-control-shadow)' : undefined,
                       }}
                       title={listening ? 'Остановить' : voicePhase === 'finalizing' ? 'Распознаю речь' : 'Голосовой ввод'}
                       aria-label={listening ? 'Остановить запись' : voicePhase === 'finalizing' ? 'Распознаю речь' : 'Голосовой ввод'}
@@ -2499,8 +2503,10 @@ export default function Chat({
                           </span>
                           <div
                             aria-hidden="true"
-                            className={`ios-chrome-voice-status-overlay pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-2xl font-sans text-[14px] italic leading-snug ${
-                              voiceWebMetricsActive ? 'voice-composer-web-metrics' : 'px-4 py-2'
+                            className={`ios-chrome-voice-status-overlay pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-2xl px-4 font-sans text-[14px] italic leading-snug ${
+                              voiceWebMetricsActive
+                                ? getChatComposerOverlayVerticalClass(true)
+                                : getChatComposerOverlayVerticalClass(false)
                             }`}
                             style={{
                               color:
@@ -2534,10 +2540,8 @@ export default function Chat({
                               ? 'Поле ввода ответа'
                               : 'Поле ввода сообщения'
                         }
-                        className={`chat-input-field communication-chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] ${
+                        className={`chat-input-field communication-chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(voiceWebMetricsActive)} ${
                           showVoicePlaybackButton ? 'pr-12' : ''
-                        } ${
-                          voiceWebMetricsActive ? 'chat-input-voice-web-metrics' : ''
                         } ${
                           showVoiceOverlay
                             ? 'text-transparent caret-transparent placeholder:text-transparent'

@@ -19,6 +19,11 @@ import {
   type PracticeVoiceCapability,
 } from '@/lib/practice/choiceCorrectionComposer'
 import { ensurePracticeChoiceOptions, isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
+import {
+  CHAT_COMPOSER_TYPO_CLASS,
+  getChatComposerOverlayVerticalClass,
+  getChatComposerTextareaVerticalClass,
+} from '@/lib/chatComposerMetrics'
 import { needsVoiceComposerWebMetrics } from '@/lib/sttClient'
 import { useAutoGrowTextarea } from '@/lib/voice/useAutoGrowTextarea'
 import { useMicInviteAnimation } from '@/lib/voice/useMicInviteAnimation'
@@ -89,17 +94,14 @@ function helperText(question: PracticeQuestion): string {
   return ''
 }
 
-/** Метрики как communication в Chat; при STT на textarea — chat-input-voice-web-metrics. */
+/** Метрики как communication в Chat; при STT — web-metrics через chatComposerMetrics. */
 function choiceCorrectionComposerMetricsClass(options: {
   voiceWebMetrics: boolean
   micOffPr12: boolean
 }): string {
   const { voiceWebMetrics, micOffPr12 } = options
   const horizontal = micOffPr12 ? 'pr-12 pl-4' : 'px-4'
-  if (voiceWebMetrics) {
-    return `communication-chat-input-field ${horizontal} chat-input-voice-web-metrics`
-  }
-  return `communication-chat-input-field ${horizontal} py-2 min-h-[44px] text-base leading-[1.45rem]`
+  return `communication-chat-input-field ${horizontal} ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(voiceWebMetrics)}`
 }
 
 export default function PracticeQuestionRenderer({
@@ -616,7 +618,7 @@ export default function PracticeQuestionRenderer({
               }}
               disabled={disabled}
               rows={1}
-              className="chat-input-field lesson-chat-input-field min-w-0 flex-1 resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] text-[var(--text)] outline-none disabled:opacity-70"
+              className={`chat-input-field lesson-chat-input-field min-w-0 flex-1 resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(false)} text-[var(--text)] outline-none disabled:opacity-70`}
               placeholder="Напечатайте фразу на английском..."
               autoComplete="off"
               style={{ maxHeight: `${DEFAULT_INPUT_MAX_HEIGHT_PX}px` }}
@@ -677,7 +679,7 @@ export default function PracticeQuestionRenderer({
             onChange={(event) => setDraft(event.target.value)}
             disabled={disabled}
             rows={question.type === 'boss-challenge' ? 3 : 2}
-            className="chat-input-field lesson-chat-input-field min-w-0 w-full resize-none rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] text-[var(--text)] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70"
+            className={`chat-input-field lesson-chat-input-field min-w-0 w-full resize-none rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(false)} text-[var(--text)] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70`}
             placeholder={inputPlaceholder(question, correctionMode, audience)}
           />
         ) : isChoiceCorrectionComposer ? (
@@ -703,9 +705,13 @@ export default function PracticeQuestionRenderer({
                 ) : null}
                 <div
                   aria-hidden={!choiceTapHintVisible}
-                  className={`pointer-events-none absolute inset-0 z-10 overflow-hidden whitespace-nowrap rounded-2xl font-sans text-base text-[var(--text-muted)] ${choiceCorrectionComposerMetricsClass(
-                    { voiceWebMetrics: false, micOffPr12: showMicOffInline }
-                  )}`}
+                  className={`pointer-events-none absolute inset-0 z-10 overflow-hidden whitespace-nowrap rounded-2xl font-sans text-base text-[var(--text-muted)] ${
+                    showMicOffInline ? 'pr-12 pl-4' : 'px-4'
+                  } ${
+                    choiceVoiceWebMetricsActive
+                      ? getChatComposerOverlayVerticalClass(true)
+                      : `${getChatComposerOverlayVerticalClass(false)} leading-[1.45rem]`
+                  }`}
                 >
                   <span className="min-w-0 truncate-x block">{choiceInviteOverlayLine}</span>
                 </div>
@@ -772,7 +778,7 @@ export default function PracticeQuestionRenderer({
             }}
             disabled={disabled}
             rows={1}
-            className="chat-input-field lesson-chat-input-field min-w-0 flex-1 resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] text-[var(--text)] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70"
+            className={`chat-input-field lesson-chat-input-field min-w-0 flex-1 resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(false)} text-[var(--text)] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70`}
             placeholder={inputPlaceholder(question, correctionMode, audience)}
             style={{ maxHeight: `${DEFAULT_INPUT_MAX_HEIGHT_PX}px` }}
           />

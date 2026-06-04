@@ -9,6 +9,10 @@ import type { LessonMedalTierOrNull } from '@/lib/lessonScore'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
+import {
+  CHAT_COMPOSER_TYPO_CLASS,
+  getChatComposerTextareaVerticalClass,
+} from '@/lib/chatComposerMetrics'
 import LessonRunBanner from '@/components/LessonRunBanner'
 import type { BlockProgress, LessonStatus, LessonTimelineEntry } from '@/hooks/useLessonEngine'
 import {
@@ -1026,7 +1030,6 @@ export default function LessonStepRenderer({
                         background: lessonVoiceInput.micActionActive
                           ? 'var(--chat-control-active-bg)'
                           : 'var(--chat-control-bg)',
-                        boxShadow: lessonVoiceInput.micActionActive ? 'var(--chat-control-shadow)' : undefined,
                       }}
                       onMouseEnter={(event) => {
                         if (!lessonVoiceInput.micActionActive) {
@@ -1081,10 +1084,8 @@ export default function LessonStepRenderer({
                         }}
                         readOnly={lessonVoiceInput.isInputLocked}
                         disabled={!isTextInputAvailable || isAnswerPanelLocked}
-                        className={`chat-input-field lesson-chat-input-field min-w-0 w-full rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2 min-h-[44px] text-base leading-[1.45rem] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${
+                        className={`chat-input-field lesson-chat-input-field min-w-0 w-full rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(showVoiceOverlay)} outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${
                           showVoicePlaybackButton ? 'pr-12' : ''
-                        } ${
-                          showVoiceOverlay ? 'chat-input-voice-web-metrics' : ''
                         } ${
                           showVoiceOverlay
                             ? 'text-transparent caret-transparent placeholder:text-transparent'

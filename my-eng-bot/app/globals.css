@@ -388,7 +388,6 @@
   --chat-section-shadow: var(--shadow-soft);
   --chat-button-shadow: var(--shadow-soft);
   --chat-button-shadow-hover: var(--shadow-hover);
-  --chat-control-shadow: var(--shadow-soft);
   --chat-send-shadow: var(--shadow-soft);
   --chat-input-focus-border: var(--chat-input-border);
   --chat-input-focus-ring: 0 0 0 0 rgba(0, 0, 0, 0);
@@ -748,7 +747,6 @@ html[data-theme='bubble2'] {
   --chat-section-shadow: var(--bubble2-shadow-soft-2);
   --chat-button-shadow: var(--bubble2-shadow-soft-1);
   --chat-button-shadow-hover: var(--bubble2-shadow-glow), var(--bubble2-shadow-soft-2);
-  --chat-control-shadow: var(--bubble2-shadow-glow), var(--bubble2-shadow-soft-1);
   --chat-send-shadow: var(--bubble2-shadow-soft-2), var(--bubble2-shadow-inner);
   --chat-input-focus-border: rgba(95, 160, 255, 0.6);
   --chat-input-focus-ring: 0 0 0 4px rgba(95, 160, 255, 0.15);
@@ -1069,11 +1067,9 @@ select.select-chevron {
   0%,
   100% {
     transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
   }
   50% {
     transform: scale(1.15);
-    box-shadow: 0 0 15px 2px color-mix(in srgb, var(--accent-color) 60%, transparent);
   }
 }
 
@@ -1156,21 +1152,26 @@ select.select-chevron {
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
 }
 
-/* Desktop: добавляем запас под нижние выносные элементы букв (g, y, p). */
 @media (pointer: fine) {
   .chat-input-field {
     padding-top: 0.6875rem;
     padding-bottom: 0.8125rem;
     line-height: 1.35rem;
   }
+}
 
-  /* Только уроки: дополнительный запас снизу, чтобы не резало descender у g/y/p. */
-  .lesson-chat-input-field,
-  .communication-chat-input-field {
-    padding-top: 0.625rem;
-    padding-bottom: 0.875rem;
-    line-height: 1.45rem;
-  }
+/*
+ * Композер чата: симметричный padding по Y (каретка и строка по центру min-height 44px).
+ * font-size / line-height задаются в JSX (text-base, leading-[1.45rem]); здесь только отступы.
+ */
+.chat-composer-vertical-align {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+
+.chat-input-field.chat-composer-vertical-align:not(.chat-input-voice-web-metrics) {
+  padding-top: 11px;
+  padding-bottom: 11px;
 }
 
 /* Единая сетка с VoiceComposerOverlay на WebKit/Blink (см. needsVoiceComposerWebMetrics): 11 + 22 + 11 = 44px. */
@@ -1182,7 +1183,8 @@ select.select-chevron {
 
 .voice-composer-web-metrics {
   box-sizing: border-box;
-  padding: 11px 16px;
+  padding-top: 11px;
+  padding-bottom: 11px;
   line-height: 22px;
 }
 
@@ -1239,8 +1241,12 @@ select.select-chevron {
   box-shadow: var(--chat-section-shadow);
 }
 
-.chat-control-surface {
-  box-shadow: var(--chat-control-shadow);
+/* Микрофон в композере: без внешней тени — glow не обрезается overflow поля/карточки. */
+.chat-action-button.chat-control-surface,
+.chat-action-button.chat-control-surface:hover:not(:disabled),
+.chat-action-button.chat-control-surface:focus-visible:not(:disabled),
+.chat-action-button.chat-control-surface:active:not(:disabled) {
+  box-shadow: none;
 }
 
 .chat-send-surface {

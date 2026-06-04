@@ -1,4 +1,5 @@
 import React from 'react'
+import { getChatComposerOverlayVerticalClass } from '@/lib/chatComposerMetrics'
 
 type VoiceComposerOverlayProps = {
   draftBeforeVoiceText: string
@@ -20,8 +21,10 @@ export default function VoiceComposerOverlay({
   return (
     <div
       aria-hidden="true"
-      className={`pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-2xl font-sans text-base text-[var(--text)] ${
-        webTextMetricsFix ? 'voice-composer-web-metrics' : 'px-4 py-2 leading-[1.45rem]'
+      className={`pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-2xl px-4 font-sans text-base text-[var(--text)] ${
+        webTextMetricsFix
+          ? getChatComposerOverlayVerticalClass(true)
+          : `${getChatComposerOverlayVerticalClass(false)} leading-[1.45rem]`
       }`}
     >
       {renderSegment(draftBeforeVoiceText)}
