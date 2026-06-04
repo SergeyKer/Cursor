@@ -43,6 +43,11 @@ function baseSession(overrides: Partial<PracticeSession> = {}): PracticeSession 
 }
 
 describe('buildPracticeInstructionCopy', () => {
+  it('shows Engvo AI brand line with microphone between name and tagline', () => {
+    const copy = buildPracticeInstructionCopy({ session: baseSession(), audience: 'adult' })
+    expect(copy.iconBetweenCaption).toEqual({ before: 'Engvo AI', after: 'English Voice' })
+  })
+
   it('uses neutral variant for all modes', () => {
     for (const mode of ['relaxed', 'balanced', 'challenge', 'reference'] as const) {
       const copy = buildPracticeInstructionCopy({
@@ -73,6 +78,19 @@ describe('buildPracticeInstructionCopy', () => {
   it('uses child phrasing', () => {
     const copy = buildPracticeInstructionCopy({ session: baseSession(), audience: 'child' })
     expect(copy.message).toMatch(/скажи/i)
+  })
+
+  it('puts mode tempo in statsLine and keeps mindset short in secondary', () => {
+    const copy = buildPracticeInstructionCopy({
+      session: baseSession({ mode: 'relaxed' }),
+      audience: 'adult',
+    })
+    expect(copy.statsLine).toMatch(/Практика Relaxed · 1 шаг · без спешки/)
+    expect(copy.secondaryMessage).toBe(
+      'Ошибки ведут к победам.\nНавык говорения — со временем и тренировками.'
+    )
+    expect(copy.secondaryMessage).not.toMatch(/Relaxed/i)
+    expect(copy.secondaryMessage!.split('\n')).toHaveLength(2)
   })
 })
 

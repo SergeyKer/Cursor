@@ -5836,7 +5836,7 @@ export default function Home() {
   })
 
   const pageTitle = !dialogStarted
-    ? 'Engvo.AI - мой английский друг'
+    ? 'Engvo AI - мой английский друг'
     : isVocabularyHubActive
       ? vocabularyByLevelActive
         ? 'Слова по уровням MyEng'
@@ -6054,7 +6054,7 @@ export default function Home() {
                 <AppIconFrame
                   variant="header"
                   src="/engvo-mascot.png"
-                  alt="Engvo.AI"
+                  alt="Engvo AI"
                   className="mr-1 sm:mr-2"
                   sizes="40px"
                 />
@@ -6106,7 +6106,7 @@ export default function Home() {
                   <AppIconFrame
                     variant="home"
                     src="/engvo-mascot.png"
-                    alt="Engvo.AI"
+                    alt="Engvo AI"
                     className="w-full"
                     priority
                   />
@@ -6177,7 +6177,7 @@ export default function Home() {
                             onClick={() => setHomeMenuView('aiChat')}
                             className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}
                           >
-                            Начать чат с Engvo.AI
+                            Начать чат с Engvo AI
                           </button>
                         </div>
                         <button
@@ -6203,7 +6203,7 @@ export default function Home() {
                     <AppIconFrame
                       variant="home"
                       src="/engvo-mascot.png"
-                      alt="Engvo.AI"
+                      alt="Engvo AI"
                       className="w-full"
                       priority
                     />

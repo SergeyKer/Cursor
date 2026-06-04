@@ -363,9 +363,7 @@ export default function PracticeScreen({
 
             <div
               ref={composerRef}
-              className={`shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 pt-2.5 sm:px-3 ${
-                state === 'briefing' ? 'max-h-[48dvh] overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]' : ''
-              }`}
+              className="shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 pt-2.5 sm:px-3"
               style={{
                 paddingBottom: INPUT_COMPOSER_PADDING_BOTTOM,
               }}

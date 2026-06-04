@@ -3,7 +3,7 @@ const HOME_GREETING_INVITE_LINE =
 
 /** Приветствие на главной: имя Engvo и призыв выбрать аудиторию (без фактов из ротации). */
 export function buildCompactGreeting(): string {
-  return ['Hello! My name is Engvo.AI.', HOME_GREETING_INVITE_LINE].join('\n\n')
+  return ['Hello! My name is Engvo AI.', HOME_GREETING_INVITE_LINE].join('\n\n')
 }
 
 /** Блоки приветствия разделяются двойным переводом строки (имя, приглашение). */

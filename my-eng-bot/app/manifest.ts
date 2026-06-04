@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Engvo.AI - мой английский друг',
-    short_name: 'Engvo.AI',
+    name: 'Engvo AI - мой английский друг',
+    short_name: 'Engvo AI',
     description: 'Диалог и тренировка перевода на английском с ИИ',
     start_url: '/',
     // Чтобы браузер реже предлагал установку как приложение, используем обычный режим.

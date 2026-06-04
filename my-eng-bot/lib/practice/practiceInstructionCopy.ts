@@ -6,6 +6,7 @@ import type { PracticeMode, PracticeSession } from '@/types/practice'
 export type PracticeInstructionCopy = {
   variant: FlowInfoCardVariant
   icon: string
+  iconBetweenCaption: { before: string; after: string }
   title: string
   statsLine: string
   message: string
@@ -27,19 +28,26 @@ export function sessionHasChoiceQuestion(session: PracticeSession): boolean {
   return session.questions.some((question) => question.type === 'choice')
 }
 
-function modeHint(mode: PracticeMode, audience: Audience): string {
+/** Короткий темп режима в statsLine (режим уже назван выше). */
+function modeStatsSuffix(mode: PracticeMode, audience: Audience): string {
   if (mode === 'reference') {
-    return audience === 'child'
-      ? 'Эталон: несколько шагов, один паттерн.'
-      : 'Эталон: закрепляем один паттерн на серии шагов.'
+    return audience === 'child' ? 'один шаблон' : 'один паттерн'
   }
   if (mode === 'challenge') {
-    return audience === 'child' ? 'Режим Challenge: больше шагов.' : 'Challenge: расширенная серия заданий.'
+    return audience === 'child' ? 'побольше' : 'плотнее'
   }
   if (mode === 'balanced') {
-    return audience === 'child' ? 'Balanced: средний темп.' : 'Balanced: сбалансированный объём.'
+    return audience === 'child' ? 'средне' : 'ровный темп'
   }
-  return audience === 'child' ? 'Relaxed: мягкий старт.' : 'Relaxed: посильный объём.'
+  return audience === 'child' ? 'мягко' : 'без спешки'
+}
+
+/** Подпись под правилом: две короткие строки (ошибки + речь со временем). */
+function instructionMindsetLine(audience: Audience): string {
+  if (audience === 'child') {
+    return 'Ошибки ведут к победам.\nГоворить учится с практикой и временем.'
+  }
+  return 'Ошибки ведут к победам.\nНавык говорения — со временем и тренировками.'
 }
 
 function voiceRuleMessage(audience: Audience, hasChoice: boolean): string {
@@ -72,16 +80,15 @@ export function buildPracticeInstructionCopy(params: {
   const total = stepCount(session)
   const hasChoice = sessionHasChoiceQuestion(session)
   const title = audience === 'child' ? 'Как устроена практика' : 'Как устроена практика'
-  const statsLine = `Практика ${modeLabel(session.mode)} · ${total} ${total === 1 ? 'шаг' : total < 5 ? 'шага' : 'шагов'}`
+  const stepWord = total === 1 ? 'шаг' : total < 5 ? 'шага' : 'шагов'
+  const statsLine = `Практика ${modeLabel(session.mode)} · ${total} ${stepWord} · ${modeStatsSuffix(session.mode, audience)}`
   const message = voiceRuleMessage(audience, hasChoice)
-  const secondaryMessage =
-    audience === 'child'
-      ? `${modeHint(session.mode, audience)} Ошибка — это нормально, так учимся.`
-      : `${modeHint(session.mode, audience)} Ошибка — часть обучения, не штраф. Медали и кубок — за реальный прогресс.`
+  const secondaryMessage = instructionMindsetLine(audience)
 
   return {
     variant: 'neutral',
     icon: '🎙️',
+    iconBetweenCaption: { before: 'Engvo AI', after: 'English Voice' },
     title,
     statsLine,
     message,

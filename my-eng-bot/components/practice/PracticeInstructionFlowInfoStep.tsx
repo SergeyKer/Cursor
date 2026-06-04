@@ -22,6 +22,7 @@ export default function PracticeInstructionFlowInfoStep({
     <FlowInfoStep
       variant={copy.variant}
       icon={copy.icon}
+      iconBetweenCaption={copy.iconBetweenCaption}
       title={copy.title}
       statsLine={copy.statsLine}
       message={copy.message}

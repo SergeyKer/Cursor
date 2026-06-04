@@ -36,7 +36,7 @@ export function getPracticeFooterView(session: PracticeSession, state: PracticeF
 
   const dynamicText =
     state === 'briefing'
-      ? 'Прочитайте правила — затем первое задание.'
+      ? 'Прочитайте правила — затем к заданию.'
       : state === 'checking'
       ? 'Смотрю ваш ответ.'
       : state === 'feedback'

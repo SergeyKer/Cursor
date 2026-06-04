@@ -19,7 +19,7 @@ export default function HomeEmptyBubble({ text, className = '' }: HomeEmptyBubbl
     <section
       className={`w-full max-w-[23.2rem] ${className}`}
       aria-hidden={hasText ? undefined : 'true'}
-      aria-label={hasText ? 'Факт Engvo.AI' : undefined}
+      aria-label={hasText ? 'Факт Engvo AI' : undefined}
     >
       <div className="relative min-h-[7rem] overflow-hidden rounded-[1.2825rem] border border-[#e6d38a] bg-[linear-gradient(180deg,rgba(255,250,214,0.98)_0%,rgba(255,241,173,0.95)_100%)] px-4 py-4 shadow-[0_14px_32px_rgba(176,148,36,0.16)] backdrop-blur-[2px] sm:px-5 sm:py-5">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,rgba(228,191,53,0)_0%,rgba(228,191,53,0.95)_50%,rgba(228,191,53,0)_100%)]" />
