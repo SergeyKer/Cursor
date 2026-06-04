@@ -106,6 +106,8 @@ export interface PracticeSession {
   version: number
   targetQuestionCount?: number
   wrongAttemptsOnCurrentQuestion?: number
+  /** Пользователь прочитал блок инструкций перед первым заданием. */
+  instructionAcknowledged?: boolean
 }
 
 export interface PracticeBuildConfig {

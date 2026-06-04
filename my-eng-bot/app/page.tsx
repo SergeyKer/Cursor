@@ -3551,7 +3551,13 @@ export default function Home() {
   useEffect(() => {
     const session = activePracticeSession
     if (!session || session.generationSource !== 'ai_generated') return
-    if (practiceFlowState === 'completed' || practiceFlowState === 'error' || practiceFlowState === 'generating_next') return
+    if (
+      practiceFlowState === 'completed' ||
+      practiceFlowState === 'error' ||
+      practiceFlowState === 'generating_next' ||
+      practiceFlowState === 'briefing'
+    )
+      return
     if (practicePrefetchInFlightRef.current) return
 
     const target = session.targetQuestionCount ?? getPracticeModePlan(session.mode).length
@@ -4896,7 +4902,7 @@ export default function Home() {
 
   const activeLearningLesson = activeLearningLessonId ? getLearningLessonById(activeLearningLessonId) : null
   const isLessonActive = Boolean(activeLearningLesson)
-  const isPracticeActive = Boolean(practiceSession.session)
+  const isPracticeActive = dialogStarted && Boolean(practiceSession.session)
   const isAccentActive = accentTrainerActive
   const isVocabularyHubActive = vocabularyWorldsActive || vocabularyByLevelActive
   const activeLessonIntro =
@@ -5700,7 +5706,7 @@ export default function Home() {
     : isVocabularyHubActive
     ? 'support'
     : isPracticeActive
-    ? practiceSession.state === 'correction'
+    ? practiceSession.state === 'correction' || practiceSession.state === 'briefing'
       ? 'hint'
       : practiceSession.state === 'completed'
         ? 'support'
@@ -5835,7 +5841,7 @@ export default function Home() {
       ? vocabularyByLevelActive
         ? 'Слова по уровням MyEng'
         : 'Самые необходимые слова MyEng'
-    : practiceSession.session
+    : isPracticeActive
       ? `Практика ${
           practiceSession.session.mode === 'reference'
             ? 'Reference'
@@ -6323,6 +6329,7 @@ export default function Home() {
                   completionMeta={practiceCompletionMeta}
                   onSubmitAnswer={practiceSession.submitAnswer}
                   onNextQuestion={practiceSession.nextQuestion}
+                  onAcknowledgeInstruction={practiceSession.acknowledgeInstruction}
                   onRetryAfterError={() => {
                     if (!practiceSession.session) return
                     void restartPracticeFromExistingSession(

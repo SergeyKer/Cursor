@@ -1,6 +1,7 @@
 import type { PracticeSession } from '@/types/practice'
 
 export type PracticeFooterState =
+  | 'briefing'
   | 'idle'
   | 'checking'
   | 'feedback'
@@ -27,12 +28,16 @@ export function getPracticeFooterView(session: PracticeSession, state: PracticeF
   const total = session.questions.length
   const current = Math.min(session.currentIndex + 1, Math.max(1, total))
   const staticText =
-    state === 'completed'
-      ? `Практика завершена | ${session.score}/${total} верно`
-      : `Практика ${modeLabel(session.mode)} | ${current}/${total} | ${session.xp === 0 ? '0' : `+${session.xp}`} | COMBO x${session.streak}`
+    state === 'briefing'
+      ? `Практика ${modeLabel(session.mode)} | ${session.topic}`
+      : state === 'completed'
+        ? `Практика завершена | ${session.score}/${total} верно`
+        : `Практика ${modeLabel(session.mode)} | ${current}/${total} | ${session.xp === 0 ? '0' : `+${session.xp}`} | COMBO x${session.streak}`
 
   const dynamicText =
-    state === 'checking'
+    state === 'briefing'
+      ? 'Прочитайте правила — затем первое задание.'
+      : state === 'checking'
       ? 'Смотрю ваш ответ.'
       : state === 'feedback'
         ? 'Ответ принят. Можно идти дальше.'

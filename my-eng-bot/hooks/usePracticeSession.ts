@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { buildLocalPracticeSession, buildPracticeSessionFromQuestions } from '@/lib/practice/builders/localPracticeBuilder'
 import { resolvePracticeRetryPolicy } from '@/lib/practice/practiceRetryPolicy'
 import { practiceStorage, type PracticeStorage } from '@/lib/practice/storage/practiceStorage'
+import { resolvePracticeFlowStateForSession } from '@/lib/practice/practiceSessionFlow'
 import { validatePracticeAnswer } from '@/lib/practice/practiceValidation'
 import type {
   PracticeAnswer,
@@ -13,7 +14,16 @@ import type {
   PracticeSessionStatus,
 } from '@/types/practice'
 
-export type PracticeFlowState = 'idle' | 'active' | 'checking' | 'feedback' | 'correction' | 'generating_next' | 'completed' | 'error'
+export type PracticeFlowState =
+  | 'idle'
+  | 'briefing'
+  | 'active'
+  | 'checking'
+  | 'feedback'
+  | 'correction'
+  | 'generating_next'
+  | 'completed'
+  | 'error'
 
 export interface PracticeFeedback {
   type: 'success' | 'error'
@@ -34,6 +44,7 @@ export interface PracticeSessionControls {
   failGeneratingNext: (message: string) => void
   completeSession: () => void
   abandonSession: () => void
+  acknowledgeInstruction: () => void
 }
 
 const CHECKING_DELAY_MS = 260
@@ -111,9 +122,10 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
     const normalized = {
       ...restored,
       wrongAttemptsOnCurrentQuestion: restored.wrongAttemptsOnCurrentQuestion ?? 0,
+      instructionAcknowledged: restored.instructionAcknowledged ?? false,
     }
     setSession(normalized)
-    setState('active')
+    setState(resolvePracticeFlowStateForSession(normalized))
     questionStartedAtRef.current = Date.now()
   }, [storage])
 
@@ -176,7 +188,7 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
       pendingCorrectionRef.current = null
       questionStartedAtRef.current = Date.now()
       setFeedback(null)
-      setState('active')
+      setState(resolvePracticeFlowStateForSession(nextSession))
       persistSession(nextSession)
       return nextSession
     },
@@ -190,14 +202,25 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
     const normalized = {
       ...restored,
       wrongAttemptsOnCurrentQuestion: restored.wrongAttemptsOnCurrentQuestion ?? 0,
+      instructionAcknowledged: restored.instructionAcknowledged ?? false,
     }
     pendingCorrectionRef.current = null
     questionStartedAtRef.current = Date.now()
     setFeedback(null)
-    setState('active')
+    setState(resolvePracticeFlowStateForSession(normalized))
     setSession(normalized)
     return normalized
   }, [clearFeedbackAutoAdvance, storage])
+
+  const acknowledgeInstruction = useCallback(() => {
+    setSession((current) => {
+      if (!current || current.status !== 'active') return current
+      const next = { ...current, instructionAcknowledged: true }
+      storage.saveActiveSession(next)
+      return next
+    })
+    setState('active')
+  }, [storage])
 
   const completeSession = useCallback(() => {
     clearFeedbackAutoAdvance()
@@ -359,5 +382,6 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
     failGeneratingNext,
     completeSession,
     abandonSession,
+    acknowledgeInstruction,
   }
 }

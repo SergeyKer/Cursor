@@ -8,7 +8,16 @@ import { featureFlags } from '@/lib/featureFlags'
 import { formatPracticeProgressText, formatTopicCupBadgeText } from '@/lib/practice/practiceGlyphs'
 
 export function mapPracticeFlowToFooterState(
-  state: 'idle' | 'active' | 'checking' | 'feedback' | 'correction' | 'generating_next' | 'completed' | 'error'
+  state:
+    | 'idle'
+    | 'briefing'
+    | 'active'
+    | 'checking'
+    | 'feedback'
+    | 'correction'
+    | 'generating_next'
+    | 'completed'
+    | 'error'
 ): PracticeFooterState {
   if (state === 'active') return 'idle'
   return state
@@ -24,6 +33,13 @@ export function buildPracticeFooterLive(params: {
   const { session, state, tier, progress, gemsPending } = params
   const total = session.questions.length
   const current = Math.min(session.currentIndex + 1, Math.max(1, total))
+
+  if (state === 'briefing') {
+    return {
+      lessonSegments: [{ kind: 'goal', text: `🎯 0/${total}`, title: 'Перед стартом' }],
+      lessonTitle: session.topic || 'Практика',
+    }
+  }
 
   const goalText =
     state === 'completed'

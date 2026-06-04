@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import PracticeFinale from '@/components/practice/PracticeFinale'
+import PracticeInstructionFlowInfoStep from '@/components/practice/PracticeInstructionFlowInfoStep'
 import PracticeQuestionRenderer from '@/components/practice/PracticeQuestionRenderer'
+import { buildPracticeBriefingBubbles } from '@/lib/practice/practiceInstructionCopy'
+import { LESSON_INPUT_GAP_PX, LESSON_SCROLL_GAP_REM } from '@/lib/lessonFeedScroll'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import type { PracticeFlowState } from '@/hooks/usePracticeSession'
@@ -58,6 +61,7 @@ interface PracticeScreenProps {
   onOpenLesson: () => void
   onBackToPracticeMenu: () => void
   onRetryAfterError?: () => void
+  onAcknowledgeInstruction: () => void
   generationBusy?: boolean
 }
 
@@ -143,15 +147,27 @@ export default function PracticeScreen({
   onOpenLesson,
   onBackToPracticeMenu,
   onRetryAfterError,
+  onAcknowledgeInstruction,
   generationBusy = false,
 }: PracticeScreenProps) {
-  const INPUT_GAP_PX = 10
-  const INPUT_COMPOSER_PADDING_BOTTOM = 'calc(0.625rem + env(safe-area-inset-bottom, 0px))'
+  const INPUT_COMPOSER_PADDING_BOTTOM = `calc(var(--app-bottom-inset) + ${LESSON_SCROLL_GAP_REM}rem)`
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const composerRef = useRef<HTMLDivElement | null>(null)
   const [composerHeight, setComposerHeight] = useState(0)
 
   const messages = useMemo<PracticeMessage[]>(() => {
+    if (state === 'briefing') {
+      return [
+        {
+          id: `practice-briefing-${session.id}`,
+          role: 'assistant',
+          kind: 'lesson',
+          bubbles: buildPracticeBriefingBubbles(session, audience),
+          isHistorical: false,
+        },
+      ]
+    }
+
     const result: PracticeMessage[] = []
     const answersByQuestion = new Map<string, typeof session.answers>()
     session.answers.forEach((answer) => {
@@ -214,22 +230,35 @@ export default function PracticeScreen({
     }
 
     return result
-  }, [session, state])
+  }, [session, state, audience])
 
   const tailMessageId = messages.at(-1)?.id ?? ''
 
   useEffect(() => {
     const container = scrollContainerRef.current
     if (!container) return
+    if (state === 'briefing') {
+      container.scrollTo({ top: 0, behavior: 'auto' })
+      return
+    }
     container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' })
-  }, [tailMessageId, messages.length, session.currentIndex])
+  }, [tailMessageId, messages.length, session.currentIndex, state])
 
   useEffect(() => {
+    if (state === 'briefing') {
+      setComposerHeight(0)
+      return
+    }
+
     const composer = composerRef.current
-    if (!composer) return
+    if (!composer) {
+      setComposerHeight(0)
+      return
+    }
 
     const syncComposerHeight = () => {
-      setComposerHeight(composer.getBoundingClientRect().height)
+      const nextHeight = Math.round(composer.getBoundingClientRect().height)
+      setComposerHeight((prev) => (prev === nextHeight ? prev : nextHeight))
     }
 
     syncComposerHeight()
@@ -244,9 +273,13 @@ export default function PracticeScreen({
   }, [state, currentQuestion?.id])
 
   const composerHeightCss = composerHeight > 0 ? `${composerHeight}px` : 'var(--chat-input-height)'
+  const scrollBottomPadding =
+    state === 'briefing'
+      ? `calc(${LESSON_SCROLL_GAP_REM}rem + ${LESSON_INPUT_GAP_PX}px)`
+      : `calc(${LESSON_SCROLL_GAP_REM}rem + ${composerHeightCss} + ${LESSON_INPUT_GAP_PX}px)`
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
+    <div className="flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
       <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
         <div className="mx-auto flex min-h-0 flex-1 w-full max-w-[29rem] flex-col">
           <div
@@ -257,8 +290,8 @@ export default function PracticeScreen({
               ref={scrollContainerRef}
               className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3"
               style={{
-                paddingBottom: `calc(0.625rem + ${composerHeightCss} + ${INPUT_GAP_PX}px)`,
-                scrollPaddingBottom: `calc(0.625rem + ${composerHeightCss} + ${INPUT_GAP_PX}px)`,
+                paddingBottom: scrollBottomPadding,
+                scrollPaddingBottom: scrollBottomPadding,
               }}
             >
               <div>
@@ -330,7 +363,9 @@ export default function PracticeScreen({
 
             <div
               ref={composerRef}
-              className="shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 pt-2.5 sm:px-3"
+              className={`shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 pt-2.5 sm:px-3 ${
+                state === 'briefing' ? 'max-h-[48dvh] overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]' : ''
+              }`}
               style={{
                 paddingBottom: INPUT_COMPOSER_PADDING_BOTTOM,
               }}
@@ -370,6 +405,12 @@ export default function PracticeScreen({
                     В меню практики
                   </button>
                 </div>
+              ) : state === 'briefing' ? (
+                <PracticeInstructionFlowInfoStep
+                  session={session}
+                  audience={audience}
+                  onContinue={onAcknowledgeInstruction}
+                />
               ) : state === 'feedback' ? (
                 <div className="space-y-1.5">
                   {session.mode === 'reference' ? (
