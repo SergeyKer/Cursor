@@ -87,7 +87,7 @@ describe('buildPracticeInstructionCopy', () => {
     })
     expect(copy.statsLine).toMatch(/Практика Relaxed · 1 шаг · без спешки/)
     expect(copy.secondaryMessage).toBe(
-      'Ошибки ведут к победам.\nНавык говорения — со временем и тренировками.'
+      'Ошибки ведут к победам.\nНавык говорения - со временем и тренировками.'
     )
     expect(copy.secondaryMessage).not.toMatch(/Relaxed/i)
     expect(copy.secondaryMessage!.split('\n')).toHaveLength(2)

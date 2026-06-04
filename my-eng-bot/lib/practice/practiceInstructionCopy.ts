@@ -47,7 +47,7 @@ function instructionMindsetLine(audience: Audience): string {
   if (audience === 'child') {
     return 'Ошибки ведут к победам.\nГоворить учится с практикой и временем.'
   }
-  return 'Ошибки ведут к победам.\nНавык говорения — со временем и тренировками.'
+  return 'Ошибки ведут к победам.\nНавык говорения - со временем и тренировками.'
 }
 
 function voiceRuleMessage(audience: Audience, hasChoice: boolean): string {
@@ -66,8 +66,8 @@ export function buildPracticeBriefingBubbles(session: PracticeSession, audience:
   const topic = session.topic.trim() || 'Практика'
   const intro =
     audience === 'child'
-      ? `Практика по теме «${topic}». Сначала — короткие правила.`
-      : `Практика по теме «${topic}». Сначала — как устроен процесс.`
+      ? `Практика по теме «${topic}». Сначала - короткие правила.`
+      : `Практика по теме «${topic}». Сначала - как устроен процесс.`
   return [{ type: 'positive', content: intro }]
 }
 
