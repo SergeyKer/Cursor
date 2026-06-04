@@ -5841,13 +5841,13 @@ export default function Home() {
       ? vocabularyByLevelActive
         ? 'Слова по уровням MyEng'
         : 'Самые необходимые слова MyEng'
-    : isPracticeActive
+    : isPracticeActive && activePracticeSession
       ? `Практика ${
-          practiceSession.session.mode === 'reference'
+          activePracticeSession.mode === 'reference'
             ? 'Reference'
-            : practiceSession.session.mode === 'relaxed'
+            : activePracticeSession.mode === 'relaxed'
               ? 'Relaxed'
-              : practiceSession.session.mode === 'balanced'
+              : activePracticeSession.mode === 'balanced'
                 ? 'Balanced'
                 : 'Challenge'
         }`
