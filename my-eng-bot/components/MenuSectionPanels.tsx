@@ -348,6 +348,8 @@ export interface MenuSectionPanelsProps {
   /** Slide-out на всю колонку: горизонтальный отступ у карточек, фон панели без px. */
   edgeToEdge?: boolean
   homeLayout?: boolean
+  /** Slide-out: закрыть overlay-меню без сброса сессии. */
+  onCloseMenu?: () => void
   onStartHomeChat?: () => void
   onGoHome?: () => void
   onOpenEngvoVoiceChat?: () => void
@@ -423,6 +425,7 @@ export default function MenuSectionPanels({
   className,
   edgeToEdge = false,
   homeLayout = false,
+  onCloseMenu,
   onStartHomeChat,
   onGoHome,
   onOpenEngvoVoiceChat,
@@ -1069,6 +1072,10 @@ export default function MenuSectionPanels({
         return
       }
       if (lessonsPanel === 'tutor') {
+        if (tutorStep === 'select') {
+          setTutorStep('input')
+          return
+        }
         setLessonsPanel('summary')
         return
       }
@@ -1101,6 +1108,27 @@ export default function MenuSectionPanels({
     }
     onMenuViewChange('root')
   }
+
+  const canMenuNavigateUp = menuView !== 'root'
+
+  const menuBackAriaLabel =
+    menuView === 'aiChat' && aiChatPanel !== 'summary'
+      ? 'К настройкам чата'
+      : menuView === 'settings' && settingsPanel !== 'summary'
+        ? 'К настройкам'
+        : menuView === 'engvo' &&
+            (engvoPanel === 'audience' ||
+              engvoPanel === 'topic' ||
+              engvoPanel === 'voice' ||
+              engvoPanel === 'level' ||
+              engvoPanel === 'speed')
+          ? 'К разделу «Позвонить»'
+          : menuView === 'lessons' && lessonsPanel === 'tutor' && tutorStep === 'select'
+            ? 'К форме репетитора'
+            : 'К разделам'
+
+  const menuNavIconButtonClass =
+    'btn-3d-menu flex h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-[var(--text)]/[0.18] bg-[var(--menu-card-bg)] text-[var(--text)] touch-manipulation focus-visible:outline-none'
 
   const rootClass = [
     className ?? (homeLayout ? 'flex min-h-0 flex-col' : 'flex min-h-0 flex-1 flex-col'),
@@ -1422,39 +1450,32 @@ export default function MenuSectionPanels({
       {(menuView !== 'root' || !homeLayout) && (
         <div className="mb-1.5 flex shrink-0 items-center justify-between gap-2 border-b border-[var(--border)]/70 pb-1.5">
           <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={menuView === 'root' ? handleGoHome : handleMenuBack}
-              className="btn-3d-menu grid min-h-[44px] min-w-[6rem] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-0 rounded-lg border border-[var(--text)]/[0.18] bg-[var(--menu-card-bg)] px-2 py-1.5 text-[13px] font-medium leading-normal text-[var(--text)] touch-manipulation focus-visible:outline-none"
-              aria-label={
-                menuView === 'root'
-                  ? 'На стартовый экран'
-                  : menuView === 'aiChat' && aiChatPanel !== 'summary'
-                    ? 'Назад к настройкам чата'
-                    : menuView === 'settings' && settingsPanel !== 'summary'
-                      ? 'Назад к настройкам'
-                      : menuView === 'engvo' &&
-                          (
-                            engvoPanel === 'audience' ||
-                            engvoPanel === 'topic' ||
-                            engvoPanel === 'voice' ||
-                            engvoPanel === 'level' ||
-                            engvoPanel === 'speed'
-                          )
-                        ? 'Назад к позвонить'
-                        : 'Назад к разделам'
-              }
-            >
-              <span className="flex justify-end pr-0.5" aria-hidden>
-                <ChevronLeftIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
-              </span>
-              <span className="text-center">Назад</span>
-              <span className="min-w-0" aria-hidden />
-            </button>
+            {canMenuNavigateUp ? (
+              <button
+                type="button"
+                onClick={handleMenuBack}
+                className={menuNavIconButtonClass}
+                aria-label={menuBackAriaLabel}
+                title={menuBackAriaLabel}
+              >
+                <ChevronLeftIcon className="h-5 w-5 text-[var(--text-muted)]" />
+              </button>
+            ) : null}
+            {onCloseMenu ? (
+              <button
+                type="button"
+                onClick={onCloseMenu}
+                className={menuNavIconButtonClass}
+                aria-label="Закрыть меню"
+                title="Закрыть меню"
+              >
+                <CloseMenuIcon className="h-5 w-5 text-[var(--text-muted)]" />
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={handleGoHome}
-              className="btn-3d-menu flex h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-[var(--text)]/[0.18] bg-[var(--menu-card-bg)] text-[var(--text)] touch-manipulation focus-visible:outline-none"
+              className={menuNavIconButtonClass}
               aria-label="На стартовый экран"
               title="Стартовая страница"
             >
@@ -3759,6 +3780,14 @@ function ChevronLeftIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+    </svg>
+  )
+}
+
+function CloseMenuIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
     </svg>
   )
 }

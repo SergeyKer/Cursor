@@ -5929,11 +5929,11 @@ export default function Home() {
               onClick={handleMenuButtonClick}
               className="app-header-control chat-action-button pointer-events-auto relative z-20 col-start-1 row-start-1 flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center border text-[var(--app-header-text)] touch-manipulation"
               style={{ borderRadius: 'var(--app-header-control-radius)' }}
-              aria-label={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
+              aria-label={menuOpen ? 'Меню, открыто' : 'Меню, закрыто'}
               aria-expanded={menuOpen}
-              title={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
+              title={menuOpen ? 'Меню, открыто' : 'Меню, закрыто'}
             >
-              <MenuToggleIcon open={menuOpen} />
+              <MenuToggleIcon />
             </button>
             <h1
               className={`app-header-title-layer gap-1 px-2 text-[16px] font-semibold leading-[1.32] tracking-normal text-[var(--app-header-text)] sm:text-[17px] ${headerTitleMaxWidthClass} ${

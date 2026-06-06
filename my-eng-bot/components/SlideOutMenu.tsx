@@ -232,6 +232,7 @@ export default function SlideOutMenu({
         onEngvoLevelChange={onEngvoLevelChange}
         onEngvoSpeechSpeedChange={onEngvoSpeechSpeedChange}
         onGoHome={onGoHome}
+        onCloseMenu={open ? () => onToggle() : undefined}
         onOpenLearningLesson={onOpenLearningLesson}
         onGenerateLearningLesson={onGenerateLearningLesson}
         onOpenPracticeSession={onOpenPracticeSession}
@@ -270,11 +271,11 @@ export default function SlideOutMenu({
           onClick={onToggle}
           className="btn-3d-menu fixed z-[60] flex h-14 w-14 min-w-[44px] min-h-[44px] items-center justify-center rounded-r-lg border border-l-0 border-[var(--border)] bg-[var(--menu-panel-bg)] text-[var(--text)] touch-manipulation left-0 top-0"
           style={{ marginLeft: 'env(safe-area-inset-left)', marginTop: 'env(safe-area-inset-top)' }}
-          aria-label={open ? 'Закрыть меню' : 'Открыть меню'}
+          aria-label={open ? 'Меню, открыто' : 'Меню, закрыто'}
           aria-expanded={open}
-          title={open ? 'Закрыть меню' : 'Открыть меню'}
+          title={open ? 'Меню, открыто' : 'Меню, закрыто'}
         >
-          <MenuToggleIcon open={open} />
+          <MenuToggleIcon />
         </button>
       )}
 
