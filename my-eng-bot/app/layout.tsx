@@ -5,7 +5,7 @@ import VisualViewportInsets from '@/components/VisualViewportInsets'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 
 export const metadata: Metadata = {
-  title: 'Engvo AI - мой английский друг',
+  title: 'Engvo AI - English Voice',
   description: 'Диалог и тренировка перевода на английском с ИИ',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Engvo AI' },
 }

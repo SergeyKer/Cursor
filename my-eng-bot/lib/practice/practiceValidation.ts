@@ -1,6 +1,8 @@
 import { normalizeEnglishForLearnerAnswerMatch } from '@/lib/normalizeEnglishForLearnerAnswerMatch'
 import type { PracticeQuestion } from '@/types/practice'
 
+export type PracticeAnswerValidationContext = 'chip' | 'typed'
+
 function normalizeStrict(value: string): string {
   return value.trim().toLowerCase().replace(/[.,!?;:]/g, '')
 }
@@ -12,11 +14,18 @@ function wordCount(value: string): number {
     .filter(Boolean).length
 }
 
-export function validatePracticeAnswer(userInput: string, question: PracticeQuestion): boolean {
+export function validatePracticeAnswer(
+  userInput: string,
+  question: PracticeQuestion,
+  context: PracticeAnswerValidationContext = 'typed'
+): boolean {
   const candidates = [question.targetAnswer, ...question.acceptedAnswers].map((item) => item.trim()).filter(Boolean)
   if (candidates.length === 0) return false
 
-  if (question.tolerance === 'strict' || question.options?.length) {
+  const useStrictMatch =
+    context === 'chip' && (question.tolerance === 'strict' || Boolean(question.options?.length))
+
+  if (useStrictMatch) {
     const normalizedInput = normalizeStrict(userInput)
     return candidates.some((candidate) => normalizeStrict(candidate) === normalizedInput)
   }

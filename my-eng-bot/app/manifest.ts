@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Engvo AI - мой английский друг',
+    name: 'Engvo AI - English Voice',
     short_name: 'Engvo AI',
     description: 'Диалог и тренировка перевода на английском с ИИ',
     start_url: '/',

@@ -12,6 +12,7 @@ export function mapPracticeFlowToFooterState(
     | 'idle'
     | 'briefing'
     | 'active'
+    | 'submitting'
     | 'checking'
     | 'feedback'
     | 'correction'

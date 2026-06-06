@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import VoiceMicButton, { TextEditIcon } from '@/components/voice/VoiceMicButton'
@@ -40,6 +40,7 @@ interface PracticeQuestionRendererProps {
   question: PracticeQuestion
   disabled?: boolean
   correctionMode?: boolean
+  wrongAttemptsOnCurrentQuestion?: number
   audience?: Audience
   onSubmit: (answer: string) => void
 }
@@ -84,6 +85,8 @@ function wordBank(question: PracticeQuestion): string[] {
   return [...words, ...(question.extraWords ?? [])]
 }
 
+const PRACTICE_COMPOSER_ENTER_CLASS = 'lesson-enter'
+
 function helperText(question: PracticeQuestion): string {
   if (question.type === 'dropdown-fill') return 'Выберите вариант и отправьте ответ.'
   if (question.type === 'listening-select') return 'Сначала прослушайте фразу, затем выберите ответ.'
@@ -108,6 +111,7 @@ export default function PracticeQuestionRenderer({
   question,
   disabled = false,
   correctionMode = false,
+  wrongAttemptsOnCurrentQuestion = 0,
   audience = 'adult',
   onSubmit,
 }: PracticeQuestionRendererProps) {
@@ -166,9 +170,9 @@ export default function PracticeQuestionRenderer({
   const choiceComposerText = isChoiceVoiceActive ? choiceVoiceDisplayText : draft
   const showChoiceVoiceOverlay = isChoiceCorrectionComposer && isChoiceVoiceActive && choiceComposerText.length > 0
   const choiceVoiceWebMetricsActive = showChoiceVoiceOverlay && voiceWebMetricsClient
-  const [externalMicPressCount, setExternalMicPressCount] = useState(0)
   const [textFallbackUnlocked, setTextFallbackUnlocked] = useState(false)
   const [choiceTapHintVisible, setChoiceTapHintVisible] = useState(false)
+  const [fieldTapEngaged, setFieldTapEngaged] = useState(false)
   const [voiceCapability, setVoiceCapability] = useState<PracticeVoiceCapability>(() =>
     getInitialPracticeVoiceCapability()
   )
@@ -186,7 +190,7 @@ export default function PracticeQuestionRenderer({
     isChoiceCorrection: isChoiceCorrectionComposer,
     textFallbackUnlocked,
     isTextEditUnlocked,
-    externalMicPressCount,
+    fieldTapHintVisible: fieldTapEngaged,
     voiceCapability,
   })
   const showChoiceInviteOverlay =
@@ -208,7 +212,10 @@ export default function PracticeQuestionRenderer({
   const hideChoiceComposerTextForTapHint =
     showChoiceInviteOverlay && choiceTapHintVisible && Boolean(choiceComposerText.trim())
   const { micVisualState, resetMicAnimation } = useMicInviteAnimation({
-    inviteKey: isChoiceCorrectionComposer && !disabled ? `${question.id}-correction` : null,
+    inviteKey:
+      isChoiceCorrectionComposer && !disabled
+        ? `${question.id}-correction-${wrongAttemptsOnCurrentQuestion}`
+        : null,
     pauseInvite: choiceVoiceActive,
   })
 
@@ -378,9 +385,9 @@ export default function PracticeQuestionRenderer({
     setSelectedOption('')
     setSelectedWords([])
     setRemainingWords(wordBank(question))
-    setExternalMicPressCount(0)
     setTextFallbackUnlocked(false)
     setChoiceTapHintVisible(false)
+    setFieldTapEngaged(false)
     setVoiceCapability(getInitialPracticeVoiceCapability())
     resetChoiceVoiceComposer()
     resetMicAnimation()
@@ -398,12 +405,30 @@ export default function PracticeQuestionRenderer({
     hardResetSpeechRecognition()
   }, [disabled, hardResetSpeechRecognition, isChoiceCorrectionComposer])
 
+  useLayoutEffect(() => {
+    if (!isChoiceCorrectionComposer) return
+    setTextFallbackUnlocked(false)
+    setFieldTapEngaged(false)
+    setChoiceTapHintVisible(false)
+    resetChoiceVoiceComposer()
+    hardResetSpeechRecognition()
+    resetMicAnimation()
+  }, [
+    hardResetSpeechRecognition,
+    isChoiceCorrectionComposer,
+    question.id,
+    resetChoiceVoiceComposer,
+    resetMicAnimation,
+    wrongAttemptsOnCurrentQuestion,
+  ])
+
   const submitText = () => {
     const answer = (isChoiceCorrectionComposer ? choiceComposerText : draft).trim()
     if (!answer || disabled) return
     hardResetSpeechRecognition()
     setDraft('')
     setChoiceTapHintVisible(false)
+    setFieldTapEngaged(false)
     resetChoiceVoiceComposer()
     onSubmit(answer)
   }
@@ -446,22 +471,24 @@ export default function PracticeQuestionRenderer({
   const handleChoiceCorrectionMicClick = useCallback(() => {
     resetMicAnimation()
     setChoiceTapHintVisible(false)
+    setFieldTapEngaged(false)
     if (voiceListening) {
       stopSpeechRecognition()
       return
     }
-    setExternalMicPressCount((count) => count + 1)
     startSpeechRecognition()
   }, [resetMicAnimation, startSpeechRecognition, stopSpeechRecognition, voiceListening])
 
   const showChoiceCorrectionTapHint = useCallback(() => {
-    if (!choiceVoiceFrozenDisplay || isTextEditUnlocked) return
+    if (!isChoiceCorrectionComposer || !choiceVoiceFrozenDisplay || isTextEditUnlocked) return
+    setFieldTapEngaged(true)
     setChoiceTapHintVisible(true)
-  }, [choiceVoiceFrozenDisplay, isTextEditUnlocked])
+  }, [choiceVoiceFrozenDisplay, isChoiceCorrectionComposer, isTextEditUnlocked])
 
   const unlockChoiceTextEdit = useCallback(() => {
     setTextFallbackUnlocked(true)
     setChoiceTapHintVisible(false)
+    setFieldTapEngaged(false)
     hardResetSpeechRecognition()
     finishChoiceVoiceSession()
     requestAnimationFrame(() => {
@@ -471,7 +498,7 @@ export default function PracticeQuestionRenderer({
 
   if (canUseChoices) {
     return (
-      <div className="space-y-2 pt-0">
+      <div className={`${PRACTICE_COMPOSER_ENTER_CLASS} space-y-2 pt-0`}>
         {canUseAudio && (
           <AudioPracticeButton text={question.audioText ?? question.targetAnswer} disabled={disabled} />
         )}
@@ -497,7 +524,7 @@ export default function PracticeQuestionRenderer({
           if (!selectedOption || disabled) return
           onSubmit(selectedOption)
         }}
-        className="glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-3 py-3"
+        className={`${PRACTICE_COMPOSER_ENTER_CLASS} glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-3 py-3`}
         style={{ boxShadow: 'var(--chat-composer-shadow)' }}
       >
         <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{helperText(question)}</p>
@@ -524,7 +551,7 @@ export default function PracticeQuestionRenderer({
   if (canUseWordBank) {
     return (
       <div
-        className="glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-3 py-3"
+        className={`${PRACTICE_COMPOSER_ENTER_CLASS} glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-3 py-3`}
         style={{ boxShadow: 'var(--chat-composer-shadow)' }}
       >
         <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{helperText(question)}</p>
@@ -575,7 +602,7 @@ export default function PracticeQuestionRenderer({
   if (!correctionMode && question.type === 'voice-shadow') {
     return (
       <div
-        className="glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-3 py-3"
+        className={`${PRACTICE_COMPOSER_ENTER_CLASS} glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-3 py-3`}
         style={{ boxShadow: 'var(--chat-composer-shadow)' }}
       >
         <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{helperText(question)}</p>
@@ -636,7 +663,7 @@ export default function PracticeQuestionRenderer({
         event.preventDefault()
         submitText()
       }}
-      className="glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-2 sm:px-3"
+      className={`${PRACTICE_COMPOSER_ENTER_CLASS} glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-2 sm:px-3`}
       style={{ boxShadow: 'var(--chat-composer-shadow)' }}
     >
       {(helperText(question) || question.keywords?.length || canUseAudio) && !correctionMode && (
@@ -752,7 +779,10 @@ export default function PracticeQuestionRenderer({
             {showMicOffInline ? (
               <button
                 type="button"
-                onClick={unlockChoiceTextEdit}
+                onPointerDown={(event) => {
+                  event.preventDefault()
+                  unlockChoiceTextEdit()
+                }}
                 disabled={disabled}
                 className="absolute right-2 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[var(--text-muted)] touch-manipulation hover:bg-[var(--chat-control-hover)] hover:text-[var(--text)] disabled:opacity-50"
                 aria-label="Ввести ответ текстом"

@@ -19,7 +19,7 @@ describe('validatePracticeAnswer', () => {
     expect(validatePracticeAnswer("it's time to go", baseQuestion)).toBe(true)
   })
 
-  it('uses strict equality for choice questions', () => {
+  it('uses strict equality for choice chip selection', () => {
     const choiceQuestion: PracticeQuestion = {
       ...baseQuestion,
       type: 'choice',
@@ -27,8 +27,23 @@ describe('validatePracticeAnswer', () => {
       tolerance: 'strict',
     }
 
-    expect(validatePracticeAnswer('it is time to go', choiceQuestion)).toBe(true)
-    expect(validatePracticeAnswer('it is time go', choiceQuestion)).toBe(false)
+    expect(validatePracticeAnswer('it is time to go', choiceQuestion, 'chip')).toBe(true)
+    expect(validatePracticeAnswer('it is time go', choiceQuestion, 'chip')).toBe(false)
+  })
+
+  it('accepts contraction variants when typing a choice correction', () => {
+    const choiceQuestion: PracticeQuestion = {
+      ...baseQuestion,
+      type: 'choice',
+      targetAnswer: "It's dark.",
+      acceptedAnswers: ["It's dark."],
+      options: ["It's dark.", "It's time to go.", "It's time to drink."],
+      tolerance: 'strict',
+    }
+
+    expect(validatePracticeAnswer('It is dark', choiceQuestion, 'typed')).toBe(true)
+    expect(validatePracticeAnswer("it's dark", choiceQuestion, 'typed')).toBe(true)
+    expect(validatePracticeAnswer("It's time to drink.", choiceQuestion, 'typed')).toBe(false)
   })
 
   it('accepts soft free responses by length and keyword', () => {

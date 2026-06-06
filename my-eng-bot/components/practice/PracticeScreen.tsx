@@ -1,14 +1,21 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import PracticeFinale from '@/components/practice/PracticeFinale'
 import PracticeInstructionFlowInfoStep from '@/components/practice/PracticeInstructionFlowInfoStep'
 import PracticeQuestionRenderer from '@/components/practice/PracticeQuestionRenderer'
+import { buildPracticeWrongAnswerFeedback } from '@/lib/practice/practiceFeedbackCopy'
 import { buildPracticeBriefingBubbles } from '@/lib/practice/practiceInstructionCopy'
-import { LESSON_INPUT_GAP_PX, LESSON_SCROLL_GAP_REM } from '@/lib/lessonFeedScroll'
+import { LESSON_INPUT_GAP_PX, LESSON_SCROLL_GAP_REM, scrollLessonFeedToMax } from '@/lib/lessonFeedScroll'
+import TypingIndicator from '@/components/TypingIndicator'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import type { PracticeFlowState } from '@/hooks/usePracticeSession'
+import {
+  isPracticeComposerLocked,
+  PRACTICE_CHECKING_MESSAGE,
+  shouldHideCurrentPracticeQuestionBubbles,
+} from '@/lib/practice/practiceAnswerPanelLock'
 import type { Audience } from '@/lib/types'
 import { showDebugQuestionIndex } from '@/lib/practice/debug'
 import {
@@ -45,6 +52,7 @@ interface PracticeScreenProps {
   audience?: Audience
   state: PracticeFlowState
   feedback?: { type: 'success' | 'error'; message: string } | null
+  pendingAnswer?: string | null
   currentQuestion: PracticeQuestion | null
   canSubmit: boolean
   completionMeta?: {
@@ -55,7 +63,6 @@ interface PracticeScreenProps {
     cupClaimed: boolean
   } | null
   onSubmitAnswer: (answer: string) => void
-  onNextQuestion: () => void
   onRepeat: () => void
   onStartMode: (mode: PracticeMode) => void
   onOpenLesson: () => void
@@ -137,11 +144,11 @@ export default function PracticeScreen({
   audience = 'adult',
   state,
   feedback = null,
+  pendingAnswer = null,
   currentQuestion,
   canSubmit,
   completionMeta = null,
   onSubmitAnswer,
-  onNextQuestion,
   onRepeat,
   onStartMode,
   onOpenLesson,
@@ -153,7 +160,13 @@ export default function PracticeScreen({
   const INPUT_COMPOSER_PADDING_BOTTOM = `calc(var(--app-bottom-inset) + ${LESSON_SCROLL_GAP_REM}rem)`
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const composerRef = useRef<HTMLDivElement | null>(null)
-  const [composerHeight, setComposerHeight] = useState(0)
+  const previousScrollSnapshotRef = useRef<{
+    messageCount: number
+    currentIndex: number
+    tailMessageId: string
+  } | null>(null)
+  const composerLocked = isPracticeComposerLocked(state)
+  const scrollBottomPadding = `calc(${LESSON_SCROLL_GAP_REM}rem + ${LESSON_INPUT_GAP_PX}px)`
 
   const messages = useMemo<PracticeMessage[]>(() => {
     if (state === 'briefing') {
@@ -183,18 +196,25 @@ export default function PracticeScreen({
     visibleQuestions.forEach((question, index) => {
       const answers = answersByQuestion.get(question.id) ?? []
       const previousAnswer = index > 0 ? answersByQuestion.get(session.questions[index - 1]?.id ?? '')?.at(-1) : null
-      result.push({
-        id: `practice-question-${question.id}`,
-        role: 'assistant',
-        kind: 'lesson',
-        bubbles: buildQuestionBubbles({
-          session,
-          question,
-          questionIndex: index,
-          previousWasCorrect: previousAnswer ? previousAnswer.isCorrect : null,
-        }),
-        isHistorical: index < session.currentIndex || session.status === 'completed',
+      const hideQuestionBubbles = shouldHideCurrentPracticeQuestionBubbles({
+        state,
+        questionIndex: index,
+        currentIndex: session.currentIndex,
       })
+      if (!hideQuestionBubbles) {
+        result.push({
+          id: `practice-question-${question.id}`,
+          role: 'assistant',
+          kind: 'lesson',
+          bubbles: buildQuestionBubbles({
+            session,
+            question,
+            questionIndex: index,
+            previousWasCorrect: previousAnswer ? previousAnswer.isCorrect : null,
+          }),
+          isHistorical: index < session.currentIndex || session.status === 'completed',
+        })
+      }
 
       answers.forEach((answer, answerIndex) => {
         result.push({
@@ -213,10 +233,26 @@ export default function PracticeScreen({
               ? answer.corrected
                 ? 'Отлично, теперь правильно закреплено.'
                 : 'Верно. Хороший ответ.'
-              : `Почти. Правильный вариант: ${answer.correctAnswer}`),
+              : buildPracticeWrongAnswerFeedback({
+                  correctAnswer: answer.correctAnswer,
+                  attemptNumber: 1,
+                })),
           tone: answer.feedbackTone ?? (answer.isCorrect ? 'success' : 'error'),
         })
       })
+
+      if (
+        index === session.currentIndex &&
+        pendingAnswer?.trim() &&
+        (state === 'submitting' || state === 'checking')
+      ) {
+        result.push({
+          id: `practice-pending-answer-${question.id}`,
+          role: 'user',
+          kind: 'answer',
+          text: pendingAnswer.trim(),
+        })
+      }
     })
 
     if (state === 'checking' || state === 'generating_next') {
@@ -224,59 +260,92 @@ export default function PracticeScreen({
         id: state === 'checking' ? 'practice-checking' : 'practice-generating-next',
         role: 'assistant',
         kind: 'status',
-        text: state === 'checking' ? 'Проверяем ответ...' : 'MyEng печатает...',
+        text: state === 'checking' ? PRACTICE_CHECKING_MESSAGE : 'MyEng печатает...',
         tone: 'service',
       })
     }
 
     return result
-  }, [session, state, audience])
+  }, [session, state, audience, pendingAnswer])
 
   const tailMessageId = messages.at(-1)?.id ?? ''
 
-  useEffect(() => {
-    const container = scrollContainerRef.current
-    if (!container) return
-    if (state === 'briefing') {
-      container.scrollTo({ top: 0, behavior: 'auto' })
-      return
-    }
-    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' })
-  }, [tailMessageId, messages.length, session.currentIndex, state])
+  const scheduleScroll = useCallback(
+    (scrollFn: (behavior: ScrollBehavior) => void, behavior: ScrollBehavior = 'auto') => {
+      let innerRaf = 0
+      const outerRaf = requestAnimationFrame(() => {
+        innerRaf = requestAnimationFrame(() => {
+          scrollFn(behavior)
+        })
+      })
+      return () => {
+        cancelAnimationFrame(outerRaf)
+        if (innerRaf) cancelAnimationFrame(innerRaf)
+      }
+    },
+    []
+  )
+
+  const scrollFeedTailIntoView = useCallback((behavior: ScrollBehavior = 'auto') => {
+    scrollLessonFeedToMax(scrollContainerRef.current, behavior)
+  }, [])
+
+  const scheduleScrollFeedTailIntoView = useCallback(
+    (behavior: ScrollBehavior = 'auto') => scheduleScroll(scrollFeedTailIntoView, behavior),
+    [scheduleScroll, scrollFeedTailIntoView]
+  )
 
   useEffect(() => {
+    const scrollContainer = scrollContainerRef.current
+    if (!scrollContainer) return
+
     if (state === 'briefing') {
-      setComposerHeight(0)
+      scrollContainer.scrollTo({ top: 0, behavior: 'auto' })
+      previousScrollSnapshotRef.current = {
+        messageCount: messages.length,
+        currentIndex: session.currentIndex,
+        tailMessageId,
+      }
       return
     }
 
-    const composer = composerRef.current
-    if (!composer) {
-      setComposerHeight(0)
+    const nextSnapshot = {
+      messageCount: messages.length,
+      currentIndex: session.currentIndex,
+      tailMessageId,
+    }
+    const previousSnapshot = previousScrollSnapshotRef.current
+
+    if (previousSnapshot === null) {
+      previousScrollSnapshotRef.current = nextSnapshot
+      scheduleScrollFeedTailIntoView('auto')
       return
     }
 
-    const syncComposerHeight = () => {
-      const nextHeight = Math.round(composer.getBoundingClientRect().height)
-      setComposerHeight((prev) => (prev === nextHeight ? prev : nextHeight))
+    const indexChanged = previousSnapshot.currentIndex !== nextSnapshot.currentIndex
+    const messageCountIncreased = nextSnapshot.messageCount > previousSnapshot.messageCount
+    const tailChanged = previousSnapshot.tailMessageId !== nextSnapshot.tailMessageId
+
+    if (!indexChanged && !messageCountIncreased && !tailChanged) {
+      previousScrollSnapshotRef.current = nextSnapshot
+      return
     }
 
-    syncComposerHeight()
+    const scrollBehavior: ScrollBehavior = indexChanged ? 'auto' : 'smooth'
+    scheduleScrollFeedTailIntoView(scrollBehavior)
+    previousScrollSnapshotRef.current = nextSnapshot
+  }, [
+    messages.length,
+    session.currentIndex,
+    state,
+    tailMessageId,
+    scheduleScrollFeedTailIntoView,
+  ])
 
-    if (typeof ResizeObserver === 'undefined') return
-
-    const observer = new ResizeObserver(() => {
-      syncComposerHeight()
-    })
-    observer.observe(composer)
-    return () => observer.disconnect()
-  }, [state, currentQuestion?.id])
-
-  const composerHeightCss = composerHeight > 0 ? `${composerHeight}px` : 'var(--chat-input-height)'
-  const scrollBottomPadding =
-    state === 'briefing'
-      ? `calc(${LESSON_SCROLL_GAP_REM}rem + ${LESSON_INPUT_GAP_PX}px)`
-      : `calc(${LESSON_SCROLL_GAP_REM}rem + ${composerHeightCss} + ${LESSON_INPUT_GAP_PX}px)`
+  useLayoutEffect(() => {
+    if (state !== 'feedback') return
+    return scheduleScrollFeedTailIntoView('auto')
+  }, [state, tailMessageId, scheduleScrollFeedTailIntoView])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
@@ -300,6 +369,9 @@ export default function PracticeScreen({
                   const nextRole = messages[index + 1]?.role as BubbleRole | undefined
                   const position = getBubblePosition(previousRole, message.role, nextRole)
                   const isBubbleEnd = position === 'solo' || position === 'last'
+                  const isLastInFeed = index === messages.length - 1
+                  const pinLastRow = composerLocked && isLastInFeed
+                  const rowMargin = pinLastRow ? 'mb-0' : isBubbleEnd ? 'mb-2.5' : 'mb-0.5'
 
                   if (message.kind === 'lesson') {
                     return (
@@ -308,7 +380,7 @@ export default function PracticeScreen({
                         role="assistant"
                         position={position}
                         className={message.isHistorical ? '' : 'lesson-enter'}
-                        rowClassName={isBubbleEnd ? 'mb-2.5' : 'mb-0.5'}
+                        rowClassName={rowMargin}
                       >
                         <UnifiedLessonBubble
                           bubbles={message.bubbles}
@@ -325,7 +397,7 @@ export default function PracticeScreen({
                         role="user"
                         position={position}
                         className="lesson-enter"
-                        rowClassName={isBubbleEnd ? 'mb-2.5' : 'mb-0.5'}
+                        rowClassName={rowMargin}
                       >
                         <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">{message.text}</p>
                       </ChatBubbleFrame>
@@ -334,10 +406,17 @@ export default function PracticeScreen({
 
                   if (message.tone === 'service') {
                     return (
-                      <div key={message.id} className="lesson-enter mb-2.5 flex justify-start px-1">
-                        <p dir="ltr" className="w-fit italic typing-indicator-text-shimmer">
-                          {message.text}
-                        </p>
+                      <div key={message.id} className={`lesson-enter px-1 ${pinLastRow ? 'mb-0' : 'mb-2.5'}`}>
+                        <TypingIndicator
+                          isVisible
+                          label={message.text}
+                          title={
+                            message.text === PRACTICE_CHECKING_MESSAGE
+                              ? 'Engvo проверяет ответ'
+                              : 'Подготовка следующего шага'
+                          }
+                          exitTransitionMs={0}
+                        />
                       </div>
                     )
                   }
@@ -348,7 +427,7 @@ export default function PracticeScreen({
                       role="assistant"
                       position={position}
                       className="lesson-enter"
-                      rowClassName={isBubbleEnd ? 'mb-2.5' : 'mb-0.5'}
+                      rowClassName={rowMargin}
                     >
                       <section
                         className={`lesson-enter chat-section-surface glass-surface rounded-xl border px-3 py-2 ${statusCardClassByTone[message.tone]}`}
@@ -361,6 +440,7 @@ export default function PracticeScreen({
               </div>
             </div>
 
+            {!composerLocked ? (
             <div
               ref={composerRef}
               className="shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 pt-2.5 sm:px-3"
@@ -409,37 +489,19 @@ export default function PracticeScreen({
                   audience={audience}
                   onContinue={onAcknowledgeInstruction}
                 />
-              ) : state === 'feedback' ? (
-                <div className="space-y-1.5">
-                  {session.mode === 'reference' ? (
-                    <p className="px-1 text-center text-[12px] leading-snug text-[var(--text-muted)]">
-                      MyEng готовит следующий шаг автоматически.
-                    </p>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={onNextQuestion}
-                        className="btn-3d-menu w-full rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--status-info-text)]"
-                      >
-                        {session.currentIndex >= session.questions.length - 1 ? 'Завершить практику' : 'Следующее задание'}
-                      </button>
-                      <p className="px-1 text-center text-[12px] leading-snug text-[var(--text-muted)]">
-                        Переход выполнится автоматически через пару секунд — кнопка ускоряет шаг.
-                      </p>
-                    </>
-                  )}
-                </div>
               ) : currentQuestion ? (
                 <PracticeQuestionRenderer
+                  key={currentQuestion.id}
                   question={currentQuestion}
-                  disabled={!canSubmit || state === 'checking'}
+                  disabled={!canSubmit}
                   correctionMode={state === 'correction'}
+                  wrongAttemptsOnCurrentQuestion={session.wrongAttemptsOnCurrentQuestion ?? 0}
                   audience={audience}
                   onSubmit={onSubmitAnswer}
                 />
               ) : null}
             </div>
+            ) : null}
           </div>
         </div>
       </div>

@@ -159,6 +159,7 @@ import { usePracticeSession } from '@/hooks/usePracticeSession'
 import PracticeScreen from '@/components/practice/PracticeScreen'
 import AccentTrainer, { type AccentFooterView } from '@/components/accent/AccentTrainer'
 import { getPracticeFooterView } from '@/lib/practice/practiceFooter'
+import { isPracticeWrongLimitAdvance } from '@/lib/practice/practiceFooterCopy'
 import { buildPracticeFooterLive, mapPracticeFlowToFooterState } from '@/lib/practice/practiceFooterLive'
 import { resolvePracticeCompletion } from '@/lib/practice/resolvePracticeCompletion'
 import { getPracticeTopicProgress } from '@/lib/practice/practiceTopicProgressStorage'
@@ -678,7 +679,7 @@ export default function Home() {
   const lessonCycle1ActiveSessionRef = React.useRef(false)
   const finalizeLessonCycle1OnLeaveRef = React.useRef<() => void>(() => {})
 
-  const practiceSession = usePracticeSession()
+  const practiceSession = usePracticeSession({ audience: settings.audience })
   const { abandonSession: abandonPracticeSession, startSession: startPracticeSession } = practiceSession
   const [accentTrainerActive, setAccentTrainerActive] = useState(false)
   const [activeAccentLessonId, setActiveAccentLessonId] = useState<string | null>(null)
@@ -3538,7 +3539,7 @@ export default function Home() {
   const practiceFlowState = practiceSession.state
   const appendGeneratedPracticeQuestion = practiceSession.appendGeneratedQuestion
   const failGeneratingPracticeQuestion = practiceSession.failGeneratingNext
-  const nextPracticeQuestion = practiceSession.nextQuestion
+  const beginPracticeQuestion = practiceSession.beginNextQuestion
 
   useEffect(() => {
     return () => {
@@ -3640,7 +3641,7 @@ export default function Home() {
     if (practiceFlowState !== 'generating_next') return
 
     if (session.currentIndex < session.questions.length - 1) {
-      nextPracticeQuestion()
+      beginPracticeQuestion()
       return
     }
     if (practicePrefetchInFlightRef.current) {
@@ -3652,7 +3653,7 @@ export default function Home() {
 
     const target = session.targetQuestionCount ?? getPracticeModePlan(session.mode).length
     if (session.questions.length >= target) {
-      nextPracticeQuestion()
+      beginPracticeQuestion()
       return
     }
 
@@ -3698,7 +3699,7 @@ export default function Home() {
           throw new Error('Не удалось получить уникальное следующее задание.')
         }
         appendGeneratedPracticeQuestion(freshQuestions[0]!)
-        nextPracticeQuestion()
+        beginPracticeQuestion()
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
           if (timedOutRef.current) {
@@ -3721,7 +3722,7 @@ export default function Home() {
     activePracticeSession,
     appendGeneratedPracticeQuestion,
     failGeneratingPracticeQuestion,
-    nextPracticeQuestion,
+    beginPracticeQuestion,
     practiceFlowState,
     settings.audience,
     settings.openAiChatPreset,
@@ -5041,7 +5042,15 @@ export default function Home() {
   const practiceFooterView = practiceSession.session
     ? getPracticeFooterView(
         practiceSession.session,
-        mapPracticeFlowToFooterState(practiceSession.state)
+        mapPracticeFlowToFooterState(practiceSession.state),
+        {
+          audience: settings.audience,
+          wrongAttemptsOnCurrentQuestion: practiceSession.session.wrongAttemptsOnCurrentQuestion ?? 0,
+          questionType: practiceSession.currentQuestion?.type,
+          isWrongLimitAdvance:
+            practiceSession.state === 'feedback' &&
+            isPracticeWrongLimitAdvance(practiceSession.session),
+        }
       )
     : null
   const practiceFooterLive = React.useMemo(() => {
@@ -5825,7 +5834,11 @@ export default function Home() {
     })
   }, [])
   const hasCommunicationHeaderControls =
-    dialogStarted && settings.mode === 'communication' && !isLessonActive && !engvoVoiceMode
+    dialogStarted &&
+    settings.mode === 'communication' &&
+    !isLessonActive &&
+    !isPracticeActive &&
+    !engvoVoiceMode
   const headerTitleMaxWidthClass = getAppHeaderTitleMaxWidthClass({
     dialogStarted,
     hasCommunicationControls: hasCommunicationHeaderControls,
@@ -5836,7 +5849,7 @@ export default function Home() {
   })
 
   const pageTitle = !dialogStarted
-    ? 'Engvo AI - мой английский друг'
+    ? 'Engvo AI - English Voice'
     : isVocabularyHubActive
       ? vocabularyByLevelActive
         ? 'Слова по уровням MyEng'
@@ -5886,9 +5899,9 @@ export default function Home() {
   }, [communicationVoiceDropdownOpen])
 
   useEffect(() => {
-    if (dialogStarted && settings.mode === 'communication' && !isLessonActive && !engvoVoiceMode) return
+    if (hasCommunicationHeaderControls) return
     setCommunicationVoiceDropdownOpen(false)
-  }, [dialogStarted, settings.mode, isLessonActive, engvoVoiceMode])
+  }, [hasCommunicationHeaderControls])
   const homeShellGradientClass =
     'bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]'
 
@@ -5962,7 +5975,7 @@ export default function Home() {
               )}
             </h1>
             <div className="relative z-20 col-start-3 row-start-1 flex h-10 min-h-[36px] shrink-0 items-center justify-end gap-1 justify-self-end">
-              {dialogStarted && settings.mode === 'communication' && !isLessonActive && !engvoVoiceMode && (
+              {hasCommunicationHeaderControls && (
                 <div
                   ref={communicationVoiceDropdownRef}
                   className="app-header-dropdown relative shrink-0"
@@ -6324,11 +6337,11 @@ export default function Home() {
                   audience={settings.audience}
                   state={practiceSession.state}
                   feedback={practiceSession.feedback}
+                  pendingAnswer={practiceSession.pendingAnswer}
                   currentQuestion={practiceSession.currentQuestion}
                   canSubmit={practiceSession.canSubmit}
                   completionMeta={practiceCompletionMeta}
                   onSubmitAnswer={practiceSession.submitAnswer}
-                  onNextQuestion={practiceSession.nextQuestion}
                   onAcknowledgeInstruction={practiceSession.acknowledgeInstruction}
                   onRetryAfterError={() => {
                     if (!practiceSession.session) return

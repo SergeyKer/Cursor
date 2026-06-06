@@ -42,12 +42,12 @@ export function shouldShowMicOffInlineButton(params: {
   isChoiceCorrection: boolean
   textFallbackUnlocked: boolean
   isTextEditUnlocked: boolean
-  externalMicPressCount: number
+  fieldTapHintVisible: boolean
   voiceCapability: PracticeVoiceCapability
 }): boolean {
   if (!params.isChoiceCorrection) return false
   if (params.textFallbackUnlocked || params.isTextEditUnlocked) return false
-  return params.externalMicPressCount >= 3 || isVoiceCapabilityBlocked(params.voiceCapability)
+  return params.fieldTapHintVisible || isVoiceCapabilityBlocked(params.voiceCapability)
 }
 
 export function isChoiceCorrectionTextareaReadOnly(mode: ChoiceCorrectionInputMode): boolean {

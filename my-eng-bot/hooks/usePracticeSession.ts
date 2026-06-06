@@ -2,10 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { buildLocalPracticeSession, buildPracticeSessionFromQuestions } from '@/lib/practice/builders/localPracticeBuilder'
+import { buildPracticeWrongAnswerFeedback } from '@/lib/practice/practiceFeedbackCopy'
+import {
+  PRACTICE_ANSWER_REVEAL_MS,
+  PRACTICE_CHECKING_MS,
+  PRACTICE_FEEDBACK_MS,
+} from '@/lib/practice/practiceAnswerPanelLock'
 import { resolvePracticeRetryPolicy } from '@/lib/practice/practiceRetryPolicy'
+import type { Audience } from '@/lib/types'
 import { practiceStorage, type PracticeStorage } from '@/lib/practice/storage/practiceStorage'
 import { resolvePracticeFlowStateForSession } from '@/lib/practice/practiceSessionFlow'
-import { validatePracticeAnswer } from '@/lib/practice/practiceValidation'
+import { validatePracticeAnswer, type PracticeAnswerValidationContext } from '@/lib/practice/practiceValidation'
 import type {
   PracticeAnswer,
   PracticeBuildConfig,
@@ -18,6 +25,7 @@ export type PracticeFlowState =
   | 'idle'
   | 'briefing'
   | 'active'
+  | 'submitting'
   | 'checking'
   | 'feedback'
   | 'correction'
@@ -35,10 +43,13 @@ export interface PracticeSessionControls {
   currentQuestion: PracticeQuestion | null
   state: PracticeFlowState
   feedback: PracticeFeedback | null
+  /** Текст ответа, отправленного на проверку, пока он ещё не записан в session.answers */
+  pendingAnswer: string | null
   canSubmit: boolean
   startSession: (config: PracticeBuildConfig) => PracticeSession
   resumeSession: () => PracticeSession | null
   submitAnswer: (answer: string) => void
+  beginNextQuestion: () => void
   nextQuestion: () => void
   appendGeneratedQuestion: (question: PracticeQuestion) => void
   failGeneratingNext: (message: string) => void
@@ -46,9 +57,6 @@ export interface PracticeSessionControls {
   abandonSession: () => void
   acknowledgeInstruction: () => void
 }
-
-const CHECKING_DELAY_MS = 260
-const FEEDBACK_AUTO_ADVANCE_MS = 1400
 
 const PRACTICE_WRONG_LIMIT_ENCOURAGEMENTS = [
   'Ты хорошо стараешься. Идём дальше — на следующем шаге точно получится.',
@@ -98,16 +106,25 @@ function createAnswer(params: {
   }
 }
 
-export function usePracticeSession(storage: PracticeStorage = practiceStorage): PracticeSessionControls {
+export interface UsePracticeSessionOptions {
+  storage?: PracticeStorage
+  audience?: Audience
+}
+
+export function usePracticeSession(options: UsePracticeSessionOptions = {}): PracticeSessionControls {
+  const storage = options.storage ?? practiceStorage
+  const audience = options.audience ?? 'adult'
   const [session, setSession] = useState<PracticeSession | null>(null)
   const [state, setState] = useState<PracticeFlowState>('idle')
   const [feedback, setFeedback] = useState<PracticeFeedback | null>(null)
+  const [pendingAnswer, setPendingAnswer] = useState<string | null>(null)
   const questionStartedAtRef = useRef(Date.now())
   const submittingRef = useRef(false)
   const pendingCorrectionRef = useRef<PracticeQuestion | null>(null)
+  const answerRevealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const checkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const feedbackAutoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const nextQuestionRef = useRef<() => void>(() => {})
+  const beginNextQuestionRef = useRef<() => void>(() => {})
 
   const clearFeedbackAutoAdvance = useCallback(() => {
     if (feedbackAutoAdvanceRef.current) {
@@ -115,6 +132,26 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
       feedbackAutoAdvanceRef.current = null
     }
   }, [])
+
+  const clearAnswerRevealTimer = useCallback(() => {
+    if (answerRevealTimerRef.current) {
+      clearTimeout(answerRevealTimerRef.current)
+      answerRevealTimerRef.current = null
+    }
+  }, [])
+
+  const clearCheckingTimer = useCallback(() => {
+    if (checkingTimerRef.current) {
+      clearTimeout(checkingTimerRef.current)
+      checkingTimerRef.current = null
+    }
+  }, [])
+
+  const clearTransitionTimers = useCallback(() => {
+    clearFeedbackAutoAdvance()
+    clearAnswerRevealTimer()
+    clearCheckingTimer()
+  }, [clearFeedbackAutoAdvance, clearAnswerRevealTimer, clearCheckingTimer])
 
   useEffect(() => {
     const restored = storage.loadActiveSession()
@@ -131,10 +168,9 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
 
   useEffect(() => {
     return () => {
-      if (checkingTimerRef.current) clearTimeout(checkingTimerRef.current)
-      clearFeedbackAutoAdvance()
+      clearTransitionTimers()
     }
-  }, [clearFeedbackAutoAdvance])
+  }, [clearTransitionTimers])
 
   const currentQuestion = useMemo(() => {
     if (!session || session.status !== 'active') return null
@@ -151,8 +187,8 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
     [storage]
   )
 
-  const nextQuestion = useCallback(() => {
-    clearFeedbackAutoAdvance()
+  const beginNextQuestion = useCallback(() => {
+    clearTransitionTimers()
     setSession((current) => {
       if (!current) return current
       if (current.currentIndex >= current.questions.length - 1) {
@@ -162,26 +198,27 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
         setState('completed')
         return completed
       }
-      const next = { ...current, currentIndex: current.currentIndex + 1 }
+      const next = { ...current, currentIndex: current.currentIndex + 1, wrongAttemptsOnCurrentQuestion: 0 }
       questionStartedAtRef.current = Date.now()
       pendingCorrectionRef.current = null
       setFeedback(null)
+      setPendingAnswer(null)
       setState('active')
-      const normalizedNext = { ...next, wrongAttemptsOnCurrentQuestion: 0 }
-      storage.saveActiveSession(normalizedNext)
-      return normalizedNext
+      storage.saveActiveSession(next)
+      return next
     })
-  }, [clearFeedbackAutoAdvance, storage])
+  }, [clearTransitionTimers, storage])
 
   useEffect(() => {
-    nextQuestionRef.current = () => {
-      nextQuestion()
+    beginNextQuestionRef.current = () => {
+      beginNextQuestion()
     }
-  }, [nextQuestion])
+  }, [beginNextQuestion])
 
   const startSession = useCallback(
     (config: PracticeBuildConfig) => {
-      clearFeedbackAutoAdvance()
+      clearTransitionTimers()
+      setPendingAnswer(null)
       const nextSession = config.questions?.length
         ? buildPracticeSessionFromQuestions(config, config.questions)
         : buildLocalPracticeSession(config)
@@ -192,11 +229,12 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
       persistSession(nextSession)
       return nextSession
     },
-    [clearFeedbackAutoAdvance, persistSession]
+    [clearTransitionTimers, persistSession]
   )
 
   const resumeSession = useCallback(() => {
-    clearFeedbackAutoAdvance()
+    clearTransitionTimers()
+    setPendingAnswer(null)
     const restored = storage.loadActiveSession()
     if (!restored || restored.status !== 'active') return null
     const normalized = {
@@ -210,7 +248,7 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
     setState(resolvePracticeFlowStateForSession(normalized))
     setSession(normalized)
     return normalized
-  }, [clearFeedbackAutoAdvance, storage])
+  }, [clearTransitionTimers, storage])
 
   const acknowledgeInstruction = useCallback(() => {
     setSession((current) => {
@@ -223,7 +261,8 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
   }, [storage])
 
   const completeSession = useCallback(() => {
-    clearFeedbackAutoAdvance()
+    clearTransitionTimers()
+    setPendingAnswer(null)
     setSession((current) => {
       if (!current) return current
       const completed = applyStatus(current, 'completed')
@@ -232,124 +271,150 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
       setState('completed')
       return completed
     })
-  }, [clearFeedbackAutoAdvance, storage])
+  }, [clearTransitionTimers, storage])
+
+  const scheduleFeedbackAdvance = useCallback(
+    (onAdvance: () => void) => {
+      clearFeedbackAutoAdvance()
+      feedbackAutoAdvanceRef.current = setTimeout(() => {
+        feedbackAutoAdvanceRef.current = null
+        onAdvance()
+      }, PRACTICE_FEEDBACK_MS)
+    },
+    [clearFeedbackAutoAdvance]
+  )
 
   const submitAnswer = useCallback(
     (answer: string) => {
       const cleanAnswer = answer.trim()
       if (!session || !currentQuestion || !cleanAnswer || submittingRef.current) return
 
-      clearFeedbackAutoAdvance()
+      clearTransitionTimers()
       submittingRef.current = true
-      setState('checking')
+      setPendingAnswer(cleanAnswer)
+      setState('submitting')
 
-      if (checkingTimerRef.current) clearTimeout(checkingTimerRef.current)
-      checkingTimerRef.current = setTimeout(() => {
-        const correctionQuestion = pendingCorrectionRef.current
-        const questionToValidate = correctionQuestion ?? currentQuestion
-        const isCorrect = validatePracticeAnswer(cleanAnswer, questionToValidate)
-        const retryResolution = resolvePracticeRetryPolicy({
-          currentWrongAttemptsOnQuestion: session.wrongAttemptsOnCurrentQuestion ?? 0,
-          isCorrect,
-        })
-        const shouldAutoAdvanceAfterWrongLimit = !isCorrect && retryResolution.shouldAutoAdvanceToNextQuestion
-        const answerFeedbackTone: 'success' | 'error' = isCorrect || shouldAutoAdvanceAfterWrongLimit ? 'success' : 'error'
-        const answerFeedbackMessage = isCorrect
-          ? correctionQuestion
-            ? 'Отлично, закрепили. Идём дальше.'
-            : 'Верно. Хороший ответ.'
-          : shouldAutoAdvanceAfterWrongLimit
-            ? pickPracticeWrongLimitEncouragement(
-                `${questionToValidate.id}|${session.answers.length}|${cleanAnswer.toLowerCase()}`
-              )
-            : correctionQuestion
-              ? `Ещё раз мягко: ${questionToValidate.targetAnswer}`
-              : `Почти. Правильный вариант: ${questionToValidate.targetAnswer}`
+      answerRevealTimerRef.current = setTimeout(() => {
+        answerRevealTimerRef.current = null
+        setState('checking')
 
-        const answerRecord = createAnswer({
-          question: questionToValidate,
-          userAnswer: cleanAnswer,
-          isCorrect,
-          corrected: Boolean(correctionQuestion) && isCorrect,
-          feedbackMessage: answerFeedbackMessage,
-          feedbackTone: answerFeedbackTone,
-          startedAt: questionStartedAtRef.current,
-        })
-
-        setSession((current) => {
-          if (!current) return current
-          const next = {
-            ...current,
-            answers: [...current.answers, answerRecord],
-            score: current.score + (answerRecord.isCorrect ? 1 : 0),
-            xp: current.xp + answerRecord.xpEarned,
-            streak: answerRecord.isCorrect ? current.streak + 1 : 0,
-            wrongAttemptsOnCurrentQuestion: retryResolution.nextWrongAttemptsOnCurrentQuestion,
-          }
-          storage.saveActiveSession(next)
-          return next
-        })
-
-        if (isCorrect) {
-          pendingCorrectionRef.current = null
-          const targetQuestionCount = session.targetQuestionCount ?? session.questions.length
-          const isAiAwaitingGeneration =
-            session.generationSource === 'ai_generated' &&
-            session.currentIndex >= session.questions.length - 1 &&
-            session.questions.length < targetQuestionCount
-          if (isAiAwaitingGeneration) {
-            setFeedback(null)
-            setState('generating_next')
-            submittingRef.current = false
-            return
-          }
-          setFeedback({
-            type: answerFeedbackTone,
-            message: answerFeedbackMessage,
+        checkingTimerRef.current = setTimeout(() => {
+          checkingTimerRef.current = null
+          const correctionQuestion = pendingCorrectionRef.current
+          const questionToValidate = correctionQuestion ?? currentQuestion
+          const validationContext: PracticeAnswerValidationContext = correctionQuestion
+            ? 'typed'
+            : questionToValidate.options?.length && questionToValidate.type === 'choice'
+              ? 'chip'
+              : 'typed'
+          const isCorrect = validatePracticeAnswer(cleanAnswer, questionToValidate, validationContext)
+          const retryResolution = resolvePracticeRetryPolicy({
+            currentWrongAttemptsOnQuestion: session.wrongAttemptsOnCurrentQuestion ?? 0,
+            isCorrect,
           })
-          setState('feedback')
-          clearFeedbackAutoAdvance()
-          feedbackAutoAdvanceRef.current = setTimeout(() => {
-            feedbackAutoAdvanceRef.current = null
-            nextQuestionRef.current()
-          }, FEEDBACK_AUTO_ADVANCE_MS)
-        } else {
-          if (shouldAutoAdvanceAfterWrongLimit) {
+          const shouldAutoAdvanceAfterWrongLimit = !isCorrect && retryResolution.shouldAutoAdvanceToNextQuestion
+          const answerFeedbackTone: 'success' | 'error' = isCorrect || shouldAutoAdvanceAfterWrongLimit ? 'success' : 'error'
+          const answerFeedbackMessage = isCorrect
+            ? correctionQuestion
+              ? 'Отлично, закрепили. Идём дальше.'
+              : 'Верно. Хороший ответ.'
+            : shouldAutoAdvanceAfterWrongLimit
+              ? pickPracticeWrongLimitEncouragement(
+                  `${questionToValidate.id}|${session.answers.length}|${cleanAnswer.toLowerCase()}`
+                )
+              : buildPracticeWrongAnswerFeedback({
+                  correctAnswer: questionToValidate.targetAnswer,
+                  attemptNumber: Math.min(
+                    2,
+                    (session.wrongAttemptsOnCurrentQuestion ?? 0) + 1
+                  ) as 1 | 2,
+                  audience,
+                })
+
+          const answerRecord = createAnswer({
+            question: questionToValidate,
+            userAnswer: cleanAnswer,
+            isCorrect,
+            corrected: Boolean(correctionQuestion) && isCorrect,
+            feedbackMessage: answerFeedbackMessage,
+            feedbackTone: answerFeedbackTone,
+            startedAt: questionStartedAtRef.current,
+          })
+
+          setSession((current) => {
+            if (!current) return current
+            const next = {
+              ...current,
+              answers: [...current.answers, answerRecord],
+              score: current.score + (answerRecord.isCorrect ? 1 : 0),
+              xp: current.xp + answerRecord.xpEarned,
+              streak: answerRecord.isCorrect ? current.streak + 1 : 0,
+              wrongAttemptsOnCurrentQuestion: retryResolution.nextWrongAttemptsOnCurrentQuestion,
+            }
+            storage.saveActiveSession(next)
+            return next
+          })
+          setPendingAnswer(null)
+
+          if (isCorrect) {
             pendingCorrectionRef.current = null
+            const targetQuestionCount = session.targetQuestionCount ?? session.questions.length
+            const isAiAwaitingGeneration =
+              session.generationSource === 'ai_generated' &&
+              session.currentIndex >= session.questions.length - 1 &&
+              session.questions.length < targetQuestionCount
             setFeedback({
               type: answerFeedbackTone,
               message: answerFeedbackMessage,
             })
             setState('feedback')
-            clearFeedbackAutoAdvance()
-            feedbackAutoAdvanceRef.current = setTimeout(() => {
-              feedbackAutoAdvanceRef.current = null
-              nextQuestionRef.current()
-            }, FEEDBACK_AUTO_ADVANCE_MS)
+            if (isAiAwaitingGeneration) {
+              scheduleFeedbackAdvance(() => {
+                setFeedback(null)
+                setState('generating_next')
+              })
+            } else {
+              scheduleFeedbackAdvance(() => {
+                beginNextQuestionRef.current()
+              })
+            }
           } else {
-            pendingCorrectionRef.current = questionToValidate
-            setFeedback({
-              type: answerFeedbackTone,
-              message: answerFeedbackMessage,
-            })
-            setState('correction')
+            if (shouldAutoAdvanceAfterWrongLimit) {
+              pendingCorrectionRef.current = null
+              setFeedback({
+                type: answerFeedbackTone,
+                message: answerFeedbackMessage,
+              })
+              setState('feedback')
+              scheduleFeedbackAdvance(() => {
+                beginNextQuestionRef.current()
+              })
+            } else {
+              pendingCorrectionRef.current = questionToValidate
+              setFeedback({
+                type: answerFeedbackTone,
+                message: answerFeedbackMessage,
+              })
+              setState('correction')
+            }
           }
-        }
 
-        submittingRef.current = false
-      }, CHECKING_DELAY_MS)
+          submittingRef.current = false
+        }, PRACTICE_CHECKING_MS)
+      }, PRACTICE_ANSWER_REVEAL_MS)
     },
-    [clearFeedbackAutoAdvance, currentQuestion, session, storage]
+    [audience, clearTransitionTimers, currentQuestion, scheduleFeedbackAdvance, session, storage]
   )
 
   const abandonSession = useCallback(() => {
-    clearFeedbackAutoAdvance()
+    clearTransitionTimers()
     pendingCorrectionRef.current = null
+    setPendingAnswer(null)
     setFeedback(null)
     setState('idle')
     setSession(null)
     storage.clearActiveSession()
-  }, [clearFeedbackAutoAdvance, storage])
+  }, [clearTransitionTimers, storage])
 
   const appendGeneratedQuestion = useCallback(
     (question: PracticeQuestion) => {
@@ -373,11 +438,13 @@ export function usePracticeSession(storage: PracticeStorage = practiceStorage): 
     currentQuestion,
     state,
     feedback,
+    pendingAnswer,
     canSubmit: state === 'active' || state === 'correction',
     startSession,
     resumeSession,
     submitAnswer,
-    nextQuestion,
+    beginNextQuestion,
+    nextQuestion: beginNextQuestion,
     appendGeneratedQuestion,
     failGeneratingNext,
     completeSession,

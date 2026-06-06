@@ -1,8 +1,13 @@
+import {
+  buildPracticeFooterDynamicText,
+  type PracticeFooterContext,
+} from '@/lib/practice/practiceFooterCopy'
 import type { PracticeSession } from '@/types/practice'
 
 export type PracticeFooterState =
   | 'briefing'
   | 'idle'
+  | 'submitting'
   | 'checking'
   | 'feedback'
   | 'correction'
@@ -24,7 +29,23 @@ function modeLabel(mode: PracticeSession['mode']): string {
   return 'Challenge'
 }
 
-export function getPracticeFooterView(session: PracticeSession, state: PracticeFooterState): PracticeFooterView {
+export function getPracticeFooterView(
+  session: PracticeSession,
+  state: PracticeFooterState,
+  context?: Partial<PracticeFooterContext>
+): PracticeFooterView {
+  const footerContext: PracticeFooterContext = {
+    audience: context?.audience ?? 'adult',
+    wrongAttemptsOnCurrentQuestion:
+      context?.wrongAttemptsOnCurrentQuestion ?? session.wrongAttemptsOnCurrentQuestion ?? 0,
+    questionType: context?.questionType,
+    isWrongLimitAdvance: context?.isWrongLimitAdvance ?? false,
+  }
+  const dynamicOverride = buildPracticeFooterDynamicText({
+    state,
+    ...footerContext,
+  })
+
   const total = session.questions.length
   const current = Math.min(session.currentIndex + 1, Math.max(1, total))
   const staticText =
@@ -35,16 +56,17 @@ export function getPracticeFooterView(session: PracticeSession, state: PracticeF
         : `Практика ${modeLabel(session.mode)} | ${current}/${total} | ${session.xp === 0 ? '0' : `+${session.xp}`} | COMBO x${session.streak}`
 
   const dynamicText =
-    state === 'briefing'
+    dynamicOverride ??
+    (state === 'briefing'
       ? 'Прочитайте правила - затем к заданию.'
+      : state === 'submitting'
+        ? 'Ответ записан.'
       : state === 'checking'
-      ? 'Смотрю ваш ответ.'
+      ? 'Engvo проверяет ответ.'
       : state === 'feedback'
         ? 'Ответ принят. Можно идти дальше.'
       : state === 'generating_next'
         ? 'MyEng печатает следующий шаг.'
-      : state === 'correction'
-        ? 'Почти. Закрепим вариант.'
         : state === 'completed'
           ? 'Практика завершена. Закрепим ещё?'
           : state === 'generating'
@@ -53,11 +75,15 @@ export function getPracticeFooterView(session: PracticeSession, state: PracticeF
               ? 'Что-то пошло не так. Дадим безопасный вариант.'
               : session.streak >= 3
                 ? `COMBO x${session.streak}. Отличный ритм.`
-                : 'Следующее задание по этой же теме.'
+                : 'Следующее задание по этой же теме.')
+
+  const wrongAttemptsKey =
+    state === 'correction' ? footerContext.wrongAttemptsOnCurrentQuestion : 0
+  const wrongLimitKey = footerContext.isWrongLimitAdvance ? 'wrong-limit' : 'normal'
 
   return {
     dynamicText,
     staticText,
-    typingKey: `practice-${session.id}-${state}-${session.currentIndex}-${session.streak}`,
+    typingKey: `practice-${session.id}-${state}-${session.currentIndex}-${session.streak}-${wrongAttemptsKey}-${wrongLimitKey}`,
   }
 }

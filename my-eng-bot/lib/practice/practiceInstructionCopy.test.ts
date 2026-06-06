@@ -58,10 +58,12 @@ describe('buildPracticeInstructionCopy', () => {
     }
   })
 
-  it('mentions voice after wrong choice for adult', () => {
+  it('mentions voice and pencil after wrong choice for adult', () => {
     const copy = buildPracticeInstructionCopy({ session: baseSession(), audience: 'adult' })
     expect(copy.message).toMatch(/вслух/i)
     expect(copy.message).toMatch(/неверного выбора/i)
+    expect(copy.message).toMatch(/карандаш/i)
+    expect(copy.message).not.toMatch(/не пройти/i)
   })
 
   it('softens voice rule when no choice in session', () => {
@@ -75,9 +77,11 @@ describe('buildPracticeInstructionCopy', () => {
     expect(copy.message).not.toMatch(/неверного выбора/i)
   })
 
-  it('uses child phrasing', () => {
+  it('uses child phrasing with pencil fallback', () => {
     const copy = buildPracticeInstructionCopy({ session: baseSession(), audience: 'child' })
     expect(copy.message).toMatch(/скажи/i)
+    expect(copy.message).toMatch(/карандаш/i)
+    expect(copy.message).not.toMatch(/не пройти/i)
   })
 
   it('puts mode tempo in statsLine and keeps mindset short in secondary', () => {

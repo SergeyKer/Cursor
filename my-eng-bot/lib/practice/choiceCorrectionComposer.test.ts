@@ -36,17 +36,15 @@ describe('choiceCorrectionComposer', () => {
     expect(getChoiceCorrectionInputMode({ isTextEditUnlocked: true, voiceListening: false })).toBe('editable')
   })
 
-  it('shows text edit icon after third external mic press', () => {
+  it('shows text edit icon after field tap hint', () => {
     const base = {
       isChoiceCorrection: true,
       textFallbackUnlocked: false,
       isTextEditUnlocked: false,
       voiceCapability: 'available' as const,
     }
-    expect(shouldShowMicOffInlineButton({ ...base, externalMicPressCount: 0 })).toBe(false)
-    expect(shouldShowMicOffInlineButton({ ...base, externalMicPressCount: 1 })).toBe(false)
-    expect(shouldShowMicOffInlineButton({ ...base, externalMicPressCount: 2 })).toBe(false)
-    expect(shouldShowMicOffInlineButton({ ...base, externalMicPressCount: 3 })).toBe(true)
+    expect(shouldShowMicOffInlineButton({ ...base, fieldTapHintVisible: false })).toBe(false)
+    expect(shouldShowMicOffInlineButton({ ...base, fieldTapHintVisible: true })).toBe(true)
   })
 
   it('shows mic-off immediately when voice is blocked', () => {
@@ -55,7 +53,7 @@ describe('choiceCorrectionComposer', () => {
         isChoiceCorrection: true,
         textFallbackUnlocked: false,
         isTextEditUnlocked: false,
-        externalMicPressCount: 0,
+        fieldTapHintVisible: false,
         voiceCapability: 'unavailable',
       })
     ).toBe(true)
@@ -67,7 +65,7 @@ describe('choiceCorrectionComposer', () => {
         isChoiceCorrection: true,
         textFallbackUnlocked: true,
         isTextEditUnlocked: true,
-        externalMicPressCount: 3,
+        fieldTapHintVisible: true,
         voiceCapability: 'available',
       })
     ).toBe(false)
