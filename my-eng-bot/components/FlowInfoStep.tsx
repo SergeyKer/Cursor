@@ -7,6 +7,8 @@ export type FlowInfoStepProps = FlowInfoCardProps & {
   onAction: () => void
   ariaLabel?: string
   cardClassName?: string
+  /** Класс анимации обёртки (карточка + кнопка). По умолчанию — лёгкий выезд снизу. */
+  enterClassName?: string
 }
 
 export default function FlowInfoStep({
@@ -14,12 +16,13 @@ export default function FlowInfoStep({
   onAction,
   ariaLabel = 'Информационный шаг',
   cardClassName = 'mb-0 shadow-md',
+  enterClassName = 'animate-fade-in-up',
   className: _unusedClassName,
   ...cardProps
 }: FlowInfoStepProps) {
   return (
     <div
-      className="animate-fade-in-up mx-auto flex w-full max-w-sm flex-col gap-2.5"
+      className={`${enterClassName} mx-auto flex w-full max-w-sm flex-col gap-2.5`}
       role="region"
       aria-label={ariaLabel}
     >

@@ -11,11 +11,9 @@ import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/component
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import {
   CHAT_COMPOSER_FORM_CLASS,
-  CHAT_COMPOSER_PADDING_BOTTOM,
   CHAT_COMPOSER_STACK_CLASS,
-  CHAT_COMPOSER_STACK_TOP_CLASS,
-  CHAT_COMPOSER_STACK_TOP_COMPACT_CLASS,
   CHAT_COMPOSER_TYPO_CLASS,
+  getChatComposerStackLayout,
   getChatComposerTextareaVerticalClass,
 } from '@/lib/chatComposerMetrics'
 import LessonRunBanner from '@/components/LessonRunBanner'
@@ -804,6 +802,7 @@ export default function LessonStepRenderer({
     useMinimalPuzzlePadding: isSentencePuzzle,
     useMinimalPostLessonPadding: hasPostLessonOptions,
   })
+  const composerStackLayout = getChatComposerStackLayout(shouldRenderChoiceChips)
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
@@ -919,10 +918,8 @@ export default function LessonStepRenderer({
             {currentStep && (
               <div
                 ref={bottomStackRef}
-                className={`${CHAT_COMPOSER_STACK_CLASS} ${
-                  shouldRenderChoiceChips ? CHAT_COMPOSER_STACK_TOP_COMPACT_CLASS : CHAT_COMPOSER_STACK_TOP_CLASS
-                }`}
-                style={{ paddingBottom: CHAT_COMPOSER_PADDING_BOTTOM }}
+                className={`${CHAT_COMPOSER_STACK_CLASS} ${composerStackLayout.verticalClass}`}
+                style={composerStackLayout.style}
               >
                 {showPostLessonMedalPhase && lessonMedalReveal ? (
                   <LessonMedalFlowInfoStep

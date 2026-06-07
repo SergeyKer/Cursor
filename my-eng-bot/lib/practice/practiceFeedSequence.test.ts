@@ -106,6 +106,38 @@ describe('buildPracticeFeedMessages sequence', () => {
       "answer:I'm happy.",
       `service:${PRACTICE_CHECKING_MESSAGE}`,
     ])
+    expect(messages[1]?.id).toBe('practice-answer-q1-current')
+  })
+
+  it('feedback reuses the same answer id as checking pending slot', () => {
+    const checking = buildPracticeFeedMessages({
+      session: makeSession(),
+      state: 'checking',
+      audience: 'adult',
+      pendingAnswer: "I'm happy.",
+    })
+    const feedback = buildPracticeFeedMessages({
+      session: makeSession({
+        answers: [
+          {
+            questionId: 'q1',
+            userAnswer: "I'm happy.",
+            isCorrect: true,
+            corrected: false,
+            correctAnswer: "I'm happy.",
+            feedbackMessage: 'Верно.',
+            feedbackTone: 'success',
+            xpEarned: 5,
+            timestamp: 1,
+          },
+        ],
+      }),
+      state: 'feedback',
+      audience: 'adult',
+      feedbackType: 'success',
+    })
+    expect(checking[1]?.id).toBe(feedback[1]?.id)
+    expect(feedback[2]?.id).toBe('practice-feedback-q1-1-0')
   })
 
   it('success feedback: question stays + answer + success feedback in status slot', () => {
@@ -178,7 +210,7 @@ describe('buildPracticeFeedMessages sequence', () => {
     expect(messages.map((m) => m.id)).toEqual([
       'practice-question-q1',
       'practice-answer-q1-current',
-      'practice-status-q1',
+      'practice-feedback-q1-1-0',
       'practice-answer-q1-pending',
     ])
   })
@@ -200,6 +232,9 @@ describe('buildPracticeFeedMessages sequence', () => {
     expect(hasConsecutiveUserBubblesWithoutSystemBetween(messages)).toBe(false)
     expect(messages.at(-1)?.id).toBe('practice-checking-q1')
     expect(messages.at(-2)?.id).toBe('practice-answer-q1-pending')
+    expect(messages.find((m) => m.id === 'practice-feedback-q1-1-0')?.text).toBe(
+      "🔴 Неверно. Правильно: It's dark."
+    )
   })
 
   it('correction re-submit committed: one user bubble per attempt with feedback between', () => {
@@ -217,5 +252,27 @@ describe('buildPracticeFeedMessages sequence', () => {
       "feedback:🔴 Неверно. Попробуйте ещё раз: It's dark.",
     ])
     expect(hasConsecutiveUserBubblesWithoutSystemBetween(messages)).toBe(false)
+  })
+
+  it('keeps first-attempt feedback id stable when second wrong attempt commits', () => {
+    const afterFirstWrong = buildPracticeFeedMessages({
+      session: makeSession({ answers: [wrongAttempt1] }),
+      state: 'correction',
+      audience: 'adult',
+      feedbackType: 'error',
+    })
+    const afterSecondWrong = buildPracticeFeedMessages({
+      session: makeSession({ answers: [wrongAttempt1, wrongAttempt2] }),
+      state: 'correction',
+      audience: 'adult',
+      feedbackType: 'error',
+    })
+
+    const firstFeedbackId = afterFirstWrong.find((m) => m.tone === 'error')?.id
+    const firstFeedbackAfterSecond = afterSecondWrong.find((m) => m.id === firstFeedbackId)
+
+    expect(firstFeedbackId).toBe('practice-feedback-q1-1-0')
+    expect(firstFeedbackAfterSecond?.text).toBe("🔴 Неверно. Правильно: It's dark.")
+    expect(afterSecondWrong.filter((m) => m.tone === 'error')).toHaveLength(2)
   })
 })

@@ -199,6 +199,36 @@
   }
 }
 
+/* Практика: мягче и медленнее, чем lesson-enter в уроках. */
+.practice-enter {
+  animation: practiceSlideIn 0.58s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes practiceSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Практика: лёгкое появление полосы без сдвига (не мешает набору текста). */
+.practice-section-appear {
+  animation: practiceSectionAppear 0.12s ease-out;
+}
+
+@keyframes practiceSectionAppear {
+  from {
+    opacity: 0.96;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* Награда над композером: пружинное появление и уход вверх с затуханием. */
 @keyframes rewardPopupIn {
   0% {
@@ -1476,6 +1506,17 @@ select.select-chevron {
     animation: none;
     opacity: 1;
     transform: none;
+  }
+
+  .practice-enter {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .practice-section-appear {
+    animation: none;
+    opacity: 1;
   }
 
   .reward-popup-pill[data-reward-state='swipe-out-left'],

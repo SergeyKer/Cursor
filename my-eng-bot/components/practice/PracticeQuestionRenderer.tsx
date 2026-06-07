@@ -90,8 +90,12 @@ function wordBank(question: PracticeQuestion): string[] {
   return [...words, ...(question.extraWords ?? [])]
 }
 
-const PRACTICE_COMPOSER_ENTER_CLASS = 'lesson-enter'
 const ANSWER_PANEL_LOCK_CLASS = 'pointer-events-none opacity-60'
+
+/** В correction (1–2 ошибка) — только лёгкое появление, без slide снизу. */
+function getPracticeComposerEnterClass(correctionMode: boolean): string {
+  return correctionMode ? 'practice-section-appear' : 'lesson-enter'
+}
 const PRACTICE_MULTI_ROW_INPUT_ROW_CLASS = 'flex w-full items-stretch gap-2'
 
 function withAnswerPanelLockClass(className: string, answerPanelLocked: boolean): string {
@@ -534,7 +538,7 @@ export default function PracticeQuestionRenderer({
 
     if (canUseAudio) {
       return (
-        <div className={`${PRACTICE_COMPOSER_ENTER_CLASS} space-y-1`}>
+        <div className={`${getPracticeComposerEnterClass(correctionMode)} space-y-1`}>
           <AudioPracticeButton text={question.audioText ?? question.targetAnswer} disabled={disabled} />
           {chips}
         </div>
@@ -553,7 +557,7 @@ export default function PracticeQuestionRenderer({
           onSubmit(selectedOption)
         }}
         className={withAnswerPanelLockClass(
-          `${PRACTICE_COMPOSER_ENTER_CLASS} ${CHAT_COMPOSER_COLUMN_SHELL_CLASS}`,
+          `${getPracticeComposerEnterClass(correctionMode)} ${CHAT_COMPOSER_COLUMN_SHELL_CLASS}`,
           answerPanelLocked
         )}
         style={{ boxShadow: 'var(--chat-composer-shadow)' }}
@@ -583,7 +587,7 @@ export default function PracticeQuestionRenderer({
     return (
       <div
         className={withAnswerPanelLockClass(
-          `${PRACTICE_COMPOSER_ENTER_CLASS} ${CHAT_COMPOSER_COLUMN_SHELL_CLASS}`,
+          `${getPracticeComposerEnterClass(correctionMode)} ${CHAT_COMPOSER_COLUMN_SHELL_CLASS}`,
           answerPanelLocked
         )}
         style={{ boxShadow: 'var(--chat-composer-shadow)' }}
@@ -637,7 +641,7 @@ export default function PracticeQuestionRenderer({
     return (
       <div
         className={withAnswerPanelLockClass(
-          `${PRACTICE_COMPOSER_ENTER_CLASS} ${CHAT_COMPOSER_COLUMN_SHELL_CLASS}`,
+          `${getPracticeComposerEnterClass(correctionMode)} ${CHAT_COMPOSER_COLUMN_SHELL_CLASS}`,
           answerPanelLocked
         )}
         style={{ boxShadow: 'var(--chat-composer-shadow)' }}
@@ -857,7 +861,10 @@ export default function PracticeQuestionRenderer({
         event.preventDefault()
         submitText()
       }}
-      className={withAnswerPanelLockClass(`${PRACTICE_COMPOSER_ENTER_CLASS} ${composerShellClass}`, answerPanelLocked)}
+      className={withAnswerPanelLockClass(
+        `${getPracticeComposerEnterClass(correctionMode)} ${composerShellClass}`,
+        answerPanelLocked
+      )}
       style={{ boxShadow: 'var(--chat-composer-shadow)' }}
     >
       {hasComposerHeader ? (

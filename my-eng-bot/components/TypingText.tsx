@@ -2,9 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 
+type TypingTextMode = 'char' | 'word'
+
 interface TypingTextProps {
   text: string
   speed?: number
+  mode?: TypingTextMode
   onComplete?: () => void
   className?: string
   singleLine?: boolean
@@ -12,17 +15,27 @@ interface TypingTextProps {
   fadeWhileTyping?: boolean
   /** Без посимвольной анимации — текст сразу (футер при подгрузке storage). */
   instant?: boolean
+  /** Стили контейнера: footer (default) или chat bubble body. */
+  variant?: 'footer' | 'chat'
+}
+
+function splitTypingUnits(text: string, mode: TypingTextMode): string[] {
+  if (mode === 'char') return [...text]
+  const words = text.match(/\S+\s*/g)
+  return words ?? (text ? [text] : [])
 }
 
 export default function TypingText({
   text,
   speed = 30,
+  mode = 'char',
   onComplete,
   className,
   singleLine = false,
   startDelayMs = 100,
   fadeWhileTyping = true,
   instant = false,
+  variant = 'footer',
 }: TypingTextProps) {
   const [displayedText, setDisplayedText] = useState(instant ? text : '')
   const [isTypingComplete, setIsTypingComplete] = useState(instant)
@@ -49,12 +62,13 @@ export default function TypingText({
     setDisplayedText('')
     setIsTypingComplete(false)
 
-    let charIndex = 0
+    const units = splitTypingUnits(text, mode)
+    let unitIndex = 0
     timeoutRef.current = setTimeout(() => {
       intervalRef.current = setInterval(() => {
-        if (charIndex < text.length) {
-          setDisplayedText(text.slice(0, charIndex + 1))
-          charIndex += 1
+        if (unitIndex < units.length) {
+          setDisplayedText(units.slice(0, unitIndex + 1).join(''))
+          unitIndex += 1
           return
         }
 
@@ -77,20 +91,30 @@ export default function TypingText({
         intervalRef.current = null
       }
     }
-  }, [text, speed, onComplete, startDelayMs, instant])
+  }, [text, speed, mode, onComplete, startDelayMs, instant])
+
+  const isChatVariant = variant === 'chat'
 
   return (
     <div
-      className={`flex w-full overflow-visible ${singleLine ? 'h-auto min-h-0 items-center' : 'min-h-6 items-start'}`}
+      className={`flex w-full overflow-visible ${
+        isChatVariant
+          ? 'min-h-0 items-start'
+          : singleLine
+            ? 'h-auto min-h-0 items-center'
+            : 'min-h-6 items-start'
+      }`}
     >
       <span
-        className={`max-w-full text-sm text-[var(--text-muted,#6b7280)] ${
-          singleLine
-            ? 'footer-dynamic-line truncate-x whitespace-nowrap'
-            : 'emoji-line whitespace-normal break-words leading-[1.35]'
-        } ${
-          className ?? ''
-        }`}
+        className={`max-w-full ${
+          isChatVariant
+            ? 'whitespace-pre-line break-words text-[15px] leading-[1.45] text-[var(--text)]'
+            : `text-sm text-[var(--text-muted,#6b7280)] ${
+                singleLine
+                  ? 'footer-dynamic-line truncate-x whitespace-nowrap'
+                  : 'emoji-line whitespace-normal break-words leading-[1.35]'
+              }`
+        } ${className ?? ''}`}
         style={{
           opacity: !fadeWhileTyping || isTypingComplete ? 1 : 0.94,
           transition: fadeWhileTyping ? 'opacity 180ms ease-out' : 'none',

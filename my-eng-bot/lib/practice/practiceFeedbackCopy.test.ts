@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { buildPracticeWrongAnswerFeedback } from '@/lib/practice/practiceFeedbackCopy'
+import {
+  buildPracticeWrongAnswerFeedback,
+  buildPracticeWrongLimitEncouragement,
+} from '@/lib/practice/practiceFeedbackCopy'
 
 describe('buildPracticeWrongAnswerFeedback', () => {
   it('uses the same first-attempt copy for child and adult', () => {
@@ -56,5 +59,51 @@ describe('buildPracticeWrongAnswerFeedback', () => {
         attemptNumber: 1,
       })
     ).toBe("🔴 Неверно. Правильно: It's dark.")
+  })
+})
+
+describe('buildPracticeWrongLimitEncouragement', () => {
+  it('mentions the correct answer and third-attempt context for adults', () => {
+    const message = buildPracticeWrongLimitEncouragement({
+      correctAnswer: 'sleep',
+      audience: 'adult',
+      seed: 'q1|2|sleep',
+    })
+    expect(message).toContain('sleep')
+    expect(message).toMatch(/трет|три|снова|паттерн|следующ/i)
+  })
+
+  it('uses child phrasing when audience is child', () => {
+    const message = buildPracticeWrongLimitEncouragement({
+      correctAnswer: 'sleep',
+      audience: 'child',
+      seed: 'q1|2|sleep',
+    })
+    expect(message).toContain('sleep')
+    expect(message).not.toMatch(/Попробуйте/)
+  })
+
+  it('picks deterministically from the pool by seed', () => {
+    const first = buildPracticeWrongLimitEncouragement({
+      correctAnswer: 'go',
+      audience: 'adult',
+      seed: 'stable-seed',
+    })
+    const second = buildPracticeWrongLimitEncouragement({
+      correctAnswer: 'go',
+      audience: 'adult',
+      seed: 'stable-seed',
+    })
+    expect(first).toBe(second)
+  })
+
+  it('trims the correct answer', () => {
+    const message = buildPracticeWrongLimitEncouragement({
+      correctAnswer: '  sleep  ',
+      audience: 'adult',
+      seed: 'trim-seed',
+    })
+    expect(message).toContain('sleep')
+    expect(message).not.toContain('  sleep  ')
   })
 })

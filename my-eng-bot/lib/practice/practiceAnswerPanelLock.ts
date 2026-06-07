@@ -10,47 +10,53 @@ export type PracticeAnswerFeedbackType = 'success' | 'error'
 /** Блокировка ввода: submitting, проверка + пауза после верного ответа (как в уроке). */
 export function isPracticeAnswerPanelLocked(
   state: PracticeFlowState,
-  feedbackType: PracticeAnswerFeedbackType | undefined
+  feedbackType: PracticeAnswerFeedbackType | undefined,
+  isQuestionRevealInProgress = false
 ): boolean {
   return (
     state === 'submitting' ||
     state === 'checking' ||
     (state === 'feedback' && feedbackType === 'success') ||
-    state === 'generating_next'
+    state === 'generating_next' ||
+    isQuestionRevealInProgress
   )
 }
 
 /** Визуальный freeze чипсов: с момента отправки / проверки до смены шага. */
 export function isPracticeChoicePanelFrozen(
   state: PracticeFlowState,
-  feedbackType: PracticeAnswerFeedbackType | undefined
+  feedbackType: PracticeAnswerFeedbackType | undefined,
+  isQuestionRevealInProgress = false
 ): boolean {
   return (
     state === 'submitting' ||
     state === 'checking' ||
     (state === 'feedback' && feedbackType === 'success') ||
-    state === 'generating_next'
+    state === 'generating_next' ||
+    isQuestionRevealInProgress
   )
 }
 
 /** Нельзя нажать чип: submitting, проверка или freeze. */
 export function isPracticeChoiceInteractionDisabled(
   state: PracticeFlowState,
-  feedbackType: PracticeAnswerFeedbackType | undefined
+  feedbackType: PracticeAnswerFeedbackType | undefined,
+  isQuestionRevealInProgress = false
 ): boolean {
   return (
     state === 'submitting' ||
     state === 'checking' ||
-    isPracticeChoicePanelFrozen(state, feedbackType)
+    isPracticeChoicePanelFrozen(state, feedbackType, isQuestionRevealInProgress)
   )
 }
 
 /** @deprecated Используй isPracticeAnswerPanelLocked — композер больше не скрывается из DOM. */
 export function isPracticeComposerLocked(
   state: PracticeFlowState,
-  feedbackType?: PracticeAnswerFeedbackType
+  feedbackType?: PracticeAnswerFeedbackType,
+  isQuestionRevealInProgress = false
 ): boolean {
-  return isPracticeAnswerPanelLocked(state, feedbackType)
+  return isPracticeAnswerPanelLocked(state, feedbackType, isQuestionRevealInProgress)
 }
 
 /** Карточка текущего задания остаётся до смены currentIndex (история), чтобы не дёргать скролл. */

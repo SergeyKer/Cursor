@@ -193,13 +193,13 @@ export function buildPracticeFeedMessages(params: {
       return
     }
 
-    const feedbackSlotId = `practice-status-${question.id}`
     const checkingSlotId = `practice-checking-${question.id}`
     const currentAnswerId = `practice-answer-${question.id}-current`
     const pendingAnswerId = `practice-answer-${question.id}-pending`
 
     answers.forEach((answer, answerIndex) => {
       const isLatestAnswer = answerIndex === answers.length - 1
+      const feedbackId = `practice-feedback-${answer.questionId}-${answer.timestamp}-${answerIndex}`
       result.push({
         id: isLatestAnswer
           ? currentAnswerId
@@ -208,17 +208,9 @@ export function buildPracticeFeedMessages(params: {
         kind: 'answer',
         text: answer.userAnswer,
       })
-      if (!isLatestAnswer) {
+      if (!isLatestAnswer || shouldShowLatestCommittedAnswerFeedback(state)) {
         result.push({
-          id: `practice-feedback-${answer.questionId}-${answer.timestamp}-${answerIndex}`,
-          role: 'assistant',
-          kind: 'status',
-          text: feedbackTextForAnswer(answer, audience),
-          tone: feedbackToneForAnswer(answer),
-        })
-      } else if (shouldShowLatestCommittedAnswerFeedback(state)) {
-        result.push({
-          id: feedbackSlotId,
+          id: feedbackId,
           role: 'assistant',
           kind: 'status',
           text: feedbackTextForAnswer(answer, audience),
@@ -228,8 +220,10 @@ export function buildPracticeFeedMessages(params: {
     })
 
     if (pendingAnswer?.trim() && (state === 'submitting' || state === 'checking')) {
+      // Тот же id, что у committed-ответа: без remount и повторной анимации после checking.
+      const pendingId = answers.length === 0 ? currentAnswerId : pendingAnswerId
       result.push({
-        id: pendingAnswerId,
+        id: pendingId,
         role: 'user',
         kind: 'answer',
         text: pendingAnswer.trim(),

@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { buildLocalPracticeSession, buildPracticeSessionFromQuestions } from '@/lib/practice/builders/localPracticeBuilder'
-import { buildPracticeWrongAnswerFeedback } from '@/lib/practice/practiceFeedbackCopy'
+import {
+  buildPracticeWrongAnswerFeedback,
+  buildPracticeWrongLimitEncouragement,
+} from '@/lib/practice/practiceFeedbackCopy'
 import {
   PRACTICE_ANSWER_REVEAL_MS,
   PRACTICE_CHECKING_MS,
@@ -56,26 +59,6 @@ export interface PracticeSessionControls {
   completeSession: () => void
   abandonSession: () => void
   acknowledgeInstruction: () => void
-}
-
-const PRACTICE_WRONG_LIMIT_ENCOURAGEMENTS = [
-  'Ты хорошо стараешься. Идём дальше — на следующем шаге точно получится.',
-  'Хороший темп. Перейдём к следующему шагу и закрепим там.',
-  'Это непростой момент, и ты справляешься. Двигаемся дальше.',
-]
-
-function pickPracticeWrongLimitEncouragement(seed: string): string {
-  if (PRACTICE_WRONG_LIMIT_ENCOURAGEMENTS.length === 0) {
-    return 'Ты хорошо стараешься. Идём дальше — на следующем шаге точно получится.'
-  }
-  let hash = 0
-  for (let i = 0; i < seed.length; i += 1) {
-    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0
-  }
-  return (
-    PRACTICE_WRONG_LIMIT_ENCOURAGEMENTS[hash % PRACTICE_WRONG_LIMIT_ENCOURAGEMENTS.length] ??
-    PRACTICE_WRONG_LIMIT_ENCOURAGEMENTS[0]!
-  )
 }
 
 function applyStatus(session: PracticeSession, status: PracticeSessionStatus): PracticeSession {
@@ -319,9 +302,11 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
               ? 'Отлично, закрепили. Идём дальше.'
               : 'Верно. Хороший ответ.'
             : shouldAutoAdvanceAfterWrongLimit
-              ? pickPracticeWrongLimitEncouragement(
-                  `${questionToValidate.id}|${session.answers.length}|${cleanAnswer.toLowerCase()}`
-                )
+              ? buildPracticeWrongLimitEncouragement({
+                  correctAnswer: questionToValidate.targetAnswer,
+                  audience,
+                  seed: `${questionToValidate.id}|${session.answers.length}|${cleanAnswer.toLowerCase()}`,
+                })
               : buildPracticeWrongAnswerFeedback({
                   correctAnswer: questionToValidate.targetAnswer,
                   attemptNumber: Math.min(

@@ -77,4 +77,11 @@ describe('practiceAnswerPanelLock', () => {
     expect(isPracticeComposerCollapsed('checking')).toBe(false)
     expect(isPracticeComposerCollapsed('active')).toBe(false)
   })
+
+  it('locks answer panel and choice interaction while question reveal is in progress', () => {
+    expect(isPracticeAnswerPanelLocked('active', undefined, true)).toBe(true)
+    expect(isPracticeChoicePanelFrozen('active', undefined, true)).toBe(true)
+    expect(isPracticeChoiceInteractionDisabled('active', undefined, true)).toBe(true)
+    expect(isPracticeChoiceInteractionDisabled('correction', 'error', true)).toBe(true)
+  })
 })

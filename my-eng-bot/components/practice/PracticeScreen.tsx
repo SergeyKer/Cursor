@@ -10,12 +10,7 @@ import {
   isPracticeChoiceInteractionDisabled,
   isPracticeChoicePanelFrozen,
 } from '@/lib/practice/practiceAnswerPanelLock'
-import {
-  CHAT_COMPOSER_PADDING_BOTTOM,
-  CHAT_COMPOSER_STACK_CLASS,
-  CHAT_COMPOSER_STACK_TOP_CLASS,
-  CHAT_COMPOSER_STACK_TOP_COMPACT_CLASS,
-} from '@/lib/chatComposerMetrics'
+import { CHAT_COMPOSER_STACK_CLASS, getChatComposerStackLayout } from '@/lib/chatComposerMetrics'
 import { isPracticeChoiceChipsPanel } from '@/lib/practice/practiceComposerLayout'
 import { isPracticeCorrectionComposerActive } from '@/lib/practice/practiceCorrectionMode'
 import { resolveScrollBottomPadding } from '@/lib/lessonFeedScroll'
@@ -26,9 +21,13 @@ import {
   resolvePracticePinBottomInsetPx,
 } from '@/lib/practice/practiceFeedScroll'
 import { scrollLessonFeedToMax } from '@/lib/lessonFeedScroll'
-import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
+import PracticeQuestionBubble from '@/components/practice/PracticeQuestionBubble'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { usePracticeQuestionReveal } from '@/hooks/usePracticeQuestionReveal'
 import type { PracticeFlowState } from '@/hooks/usePracticeSession'
+import TypingText from '@/components/TypingText'
+import { PRACTICE_FEEDBACK_TYPEWRITER_WORD_MS } from '@/lib/practice/practiceRevealTiming'
 import type { Audience } from '@/lib/types'
 import type { PracticeMode, PracticeQuestion, PracticeSession } from '@/types/practice'
 
@@ -69,6 +68,16 @@ function nextMode(mode: PracticeMode): PracticeMode {
   return 'challenge'
 }
 
+/** Анимация входа только при первом появлении id в ленте (без повторов при смене state). */
+function usePracticeEnterClass() {
+  const enteredIdsRef = useRef<Set<string>>(new Set())
+  return useCallback((messageId: string) => {
+    if (enteredIdsRef.current.has(messageId)) return ''
+    enteredIdsRef.current.add(messageId)
+    return 'practice-enter'
+  }, [])
+}
+
 export default function PracticeScreen({
   session,
   audience = 'adult',
@@ -100,7 +109,7 @@ export default function PracticeScreen({
     tailMessageId: string
   } | null>(null)
   const previousStateRef = useRef<PracticeFlowState>(state)
-
+  const practiceEnterClass = usePracticeEnterClass()
   const resolvedFeedbackType = useMemo(() => {
     if (feedback?.type) return feedback.type
     if (state === 'generating_next' || state === 'feedback') {
@@ -112,10 +121,6 @@ export default function PracticeScreen({
     }
     return undefined
   }, [feedback?.type, session, state])
-
-  const isAnswerPanelLocked = isPracticeAnswerPanelLocked(state, resolvedFeedbackType)
-  const isChoicePanelFrozen = isPracticeChoicePanelFrozen(state, resolvedFeedbackType)
-  const isChoiceInteractionDisabled = isPracticeChoiceInteractionDisabled(state, resolvedFeedbackType)
 
   const messages = useMemo(
     () =>
@@ -130,6 +135,52 @@ export default function PracticeScreen({
   )
 
   const tailMessageId = messages.at(-1)?.id ?? ''
+
+  const currentLessonMessage = useMemo(
+    () => messages.find((message) => message.kind === 'lesson' && !message.isHistorical) ?? null,
+    [messages]
+  )
+
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const revealBubbles = currentLessonMessage?.bubbles ?? []
+  const revealSectionCount = revealBubbles.length
+  const isBriefingReveal = state === 'briefing'
+  const revealKey = isBriefingReveal
+    ? `briefing-${session.id}`
+    : (session.questions[session.currentIndex]?.id ?? null)
+  const revealEnabled =
+    Boolean(revealKey) &&
+    revealSectionCount > 0 &&
+    (isBriefingReveal || (state === 'active' && currentLessonMessage != null))
+
+  const {
+    visibleSectionCount,
+    typingSectionIndex,
+    isRevealInProgress,
+    onSectionTypewriterComplete,
+  } = usePracticeQuestionReveal({
+    sessionId: session.id,
+    revealKey,
+    enabled: revealEnabled,
+    sectionCount: revealSectionCount,
+    prefersReducedMotion,
+  })
+
+  const isAnswerPanelLocked = isPracticeAnswerPanelLocked(
+    state,
+    resolvedFeedbackType,
+    isRevealInProgress
+  )
+  const isChoicePanelFrozen = isPracticeChoicePanelFrozen(
+    state,
+    resolvedFeedbackType,
+    isRevealInProgress
+  )
+  const isChoiceInteractionDisabled = isPracticeChoiceInteractionDisabled(
+    state,
+    resolvedFeedbackType,
+    isRevealInProgress
+  )
 
   const scrollBottomPadding = resolveScrollBottomPadding({
     hasCurrentStep: state !== 'briefing' && state !== 'completed',
@@ -360,6 +411,21 @@ export default function PracticeScreen({
     return scheduleScrollFeedTailIntoView('auto')
   }, [state, tailMessageId, scheduleScrollFeedTailIntoView])
 
+  useEffect(() => {
+    if (!isRevealInProgress) return
+    if (state === 'active') {
+      return scheduleAlignCurrentQuestionToComposer('smooth')
+    }
+    return scheduleScrollFeedTailIntoView('smooth')
+  }, [
+    visibleSectionCount,
+    typingSectionIndex,
+    isRevealInProgress,
+    state,
+    scheduleAlignCurrentQuestionToComposer,
+    scheduleScrollFeedTailIntoView,
+  ])
+
   const showQuestionComposer =
     currentQuestion != null &&
     state !== 'briefing' &&
@@ -373,6 +439,7 @@ export default function PracticeScreen({
 
   const isChoiceChipsPanel =
     showQuestionComposer && isPracticeChoiceChipsPanel(currentQuestion, isCorrectionComposerActive)
+  const composerStackLayout = getChatComposerStackLayout(isChoiceChipsPanel)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
@@ -410,22 +477,39 @@ export default function PracticeScreen({
 
                   if (message.kind === 'lesson') {
                     const isCurrentQuestion = !message.isHistorical
+                    const isActiveRevealTarget =
+                      isCurrentQuestion && message.id === currentLessonMessage?.id
+                    const lessonVisibleSectionCount = isCurrentQuestion
+                      ? isActiveRevealTarget
+                        ? visibleSectionCount
+                        : message.bubbles?.length ?? 0
+                      : message.bubbles?.length ?? 0
+                    const lessonAnimateSections = isCurrentQuestion && isRevealInProgress
+                    const lessonTypingSectionIndex =
+                      isActiveRevealTarget && isRevealInProgress ? typingSectionIndex : null
+
                     return (
                       <div
                         key={message.id}
                         {...(isCurrentQuestion ? { 'data-practice-current-question': '' } : {})}
                       >
-                        <ChatBubbleFrame
-                          role="assistant"
-                          position={position}
-                          className={message.isHistorical ? '' : 'lesson-enter'}
-                          rowClassName={rowMargin}
-                        >
-                          <UnifiedLessonBubble
-                            bubbles={message.bubbles ?? []}
-                            animateSections={!message.isHistorical}
-                          />
-                        </ChatBubbleFrame>
+                        {lessonVisibleSectionCount > 0 ? (
+                          <ChatBubbleFrame
+                            role="assistant"
+                            position={position}
+                            rowClassName={rowMargin}
+                          >
+                            <PracticeQuestionBubble
+                              bubbles={message.bubbles ?? []}
+                              visibleSectionCount={lessonVisibleSectionCount}
+                              typingSectionIndex={lessonTypingSectionIndex}
+                              animateSections={isCurrentQuestion ? lessonAnimateSections : false}
+                              onSectionTypewriterComplete={
+                                isActiveRevealTarget ? onSectionTypewriterComplete : undefined
+                              }
+                            />
+                          </ChatBubbleFrame>
+                        ) : null}
                       </div>
                     )
                   }
@@ -436,7 +520,7 @@ export default function PracticeScreen({
                         key={message.id}
                         role="user"
                         position={position}
-                        className="lesson-enter"
+                        className={practiceEnterClass(message.id)}
                         rowClassName={rowMargin}
                       >
                         <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
@@ -448,14 +532,17 @@ export default function PracticeScreen({
 
                   if (message.tone === 'service') {
                     return (
-                      <div
-                        key={message.id}
-                        dir="ltr"
-                        className="flex justify-start mb-2.5 px-1"
-                      >
-                        <p className="w-fit text-[14px] italic typing-indicator-text-shimmer">
-                          {message.text}
-                        </p>
+                      <div key={message.id} dir="ltr" className="mb-2.5 flex justify-start px-1">
+                        <TypingText
+                          key={message.id}
+                          text={message.text ?? ''}
+                          mode="word"
+                          speed={PRACTICE_FEEDBACK_TYPEWRITER_WORD_MS}
+                          startDelayMs={0}
+                          fadeWhileTyping={false}
+                          singleLine
+                          className="w-fit text-[14px] italic typing-indicator-text-shimmer"
+                        />
                       </div>
                     )
                   }
@@ -465,12 +552,13 @@ export default function PracticeScreen({
                       key={message.id}
                       role="assistant"
                       position={position}
+                      className={practiceEnterClass(message.id)}
                       rowClassName={rowMargin}
                     >
                       <section
                         className={`chat-section-surface glass-surface rounded-xl border px-3 py-2 ${statusCardClassByTone[message.tone ?? 'success']}`}
                       >
-                        <p className="whitespace-pre-line break-words text-[14px] leading-[1.45]">
+                        <p className="whitespace-pre-line break-words text-[15px] leading-[1.45]">
                           {message.text}
                         </p>
                       </section>
@@ -484,12 +572,8 @@ export default function PracticeScreen({
 
             <div
               ref={bottomStackRef}
-              className={`${CHAT_COMPOSER_STACK_CLASS} ${
-                isChoiceChipsPanel ? CHAT_COMPOSER_STACK_TOP_COMPACT_CLASS : CHAT_COMPOSER_STACK_TOP_CLASS
-              }`}
-              style={{
-                paddingBottom: CHAT_COMPOSER_PADDING_BOTTOM,
-              }}
+              className={`${CHAT_COMPOSER_STACK_CLASS} ${composerStackLayout.verticalClass}`}
+              style={composerStackLayout.style}
             >
               {state === 'completed' ? (
                 <PracticeFinale

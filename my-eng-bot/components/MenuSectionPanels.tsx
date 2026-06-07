@@ -491,7 +491,7 @@ export default function MenuSectionPanels({
   const [selectedPracticeLessonId, setSelectedPracticeLessonId] = React.useState<string | null>(defaultPracticeLessonId)
   const [selectedAccentGroupId, setSelectedAccentGroupId] = React.useState<string | null>(null)
   const [selectedAccentSectionId, setSelectedAccentSectionId] = React.useState<string | null>(null)
-  const [selectedPracticeMode, setSelectedPracticeMode] = React.useState<PracticeMode>('relaxed')
+  const [selectedPracticeMode, setSelectedPracticeMode] = React.useState<PracticeMode>('reference')
   const [selectedReferenceExerciseType, setSelectedReferenceExerciseType] = React.useState<PracticeExerciseType>('choice')
   const [customPracticeTopic, setCustomPracticeTopic] = React.useState('')
   const [customPracticeCandidates, setCustomPracticeCandidates] = React.useState<PracticeTopicCandidate[]>([])

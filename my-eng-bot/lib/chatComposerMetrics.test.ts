@@ -4,10 +4,13 @@ import {
   CHAT_COMPOSER_FORM_CLASS,
   CHAT_COMPOSER_INPUT_ROW_CLASS,
   CHAT_COMPOSER_PADDING_BOTTOM,
+  CHAT_COMPOSER_PADDING_BOTTOM_COMPACT,
+  CHAT_COMPOSER_STACK_COMPACT_CLASS,
   CHAT_COMPOSER_STACK_CLASS,
   CHAT_COMPOSER_STACK_TOP_CLASS,
   CHAT_COMPOSER_TYPO_CLASS,
   getChatComposerOverlayVerticalClass,
+  getChatComposerStackLayout,
   getChatComposerTextareaVerticalClass,
 } from '@/lib/chatComposerMetrics'
 
@@ -37,5 +40,18 @@ describe('chatComposerMetrics', () => {
     expect(CHAT_COMPOSER_PADDING_BOTTOM).toContain('0.625rem')
     expect(CHAT_COMPOSER_INPUT_ROW_CLASS).toContain('items-center')
     expect(CHAT_COMPOSER_COLUMN_SHELL_CLASS).toContain('flex-col')
+  })
+
+  it('uses symmetric compact padding for chip panels', () => {
+    expect(CHAT_COMPOSER_STACK_COMPACT_CLASS).toBe('py-1')
+    expect(CHAT_COMPOSER_PADDING_BOTTOM_COMPACT).toBe('0.25rem')
+
+    const compact = getChatComposerStackLayout(true)
+    expect(compact.verticalClass).toBe(CHAT_COMPOSER_STACK_COMPACT_CLASS)
+    expect(compact.style).toBeUndefined()
+
+    const standard = getChatComposerStackLayout(false)
+    expect(standard.verticalClass).toBe(CHAT_COMPOSER_STACK_TOP_CLASS)
+    expect(standard.style).toEqual({ paddingBottom: CHAT_COMPOSER_PADDING_BOTTOM })
   })
 })
