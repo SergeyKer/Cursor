@@ -39,6 +39,8 @@ import type { PracticeQuestion } from '@/types/practice'
 interface PracticeQuestionRendererProps {
   question: PracticeQuestion
   disabled?: boolean
+  choicePanelFrozen?: boolean
+  answerPanelLocked?: boolean
   correctionMode?: boolean
   wrongAttemptsOnCurrentQuestion?: number
   audience?: Audience
@@ -86,6 +88,11 @@ function wordBank(question: PracticeQuestion): string[] {
 }
 
 const PRACTICE_COMPOSER_ENTER_CLASS = 'lesson-enter'
+const ANSWER_PANEL_LOCK_CLASS = 'pointer-events-none opacity-60'
+
+function withAnswerPanelLockClass(className: string, answerPanelLocked: boolean): string {
+  return answerPanelLocked ? `${className} ${ANSWER_PANEL_LOCK_CLASS}` : className
+}
 
 function helperText(question: PracticeQuestion): string {
   if (question.type === 'dropdown-fill') return 'Выберите вариант и отправьте ответ.'
@@ -110,6 +117,8 @@ function choiceCorrectionComposerMetricsClass(options: {
 export default function PracticeQuestionRenderer({
   question,
   disabled = false,
+  choicePanelFrozen = false,
+  answerPanelLocked = false,
   correctionMode = false,
   wrongAttemptsOnCurrentQuestion = 0,
   audience = 'adult',
@@ -510,6 +519,7 @@ export default function PracticeQuestionRenderer({
           choices={choices}
           onChoose={onSubmit}
           disabled={disabled}
+          frozen={choicePanelFrozen}
           resetKey={`${question.id}-${correctionMode ? 'correction' : 'answer'}`}
         />
       </div>
@@ -524,7 +534,10 @@ export default function PracticeQuestionRenderer({
           if (!selectedOption || disabled) return
           onSubmit(selectedOption)
         }}
-        className={`${PRACTICE_COMPOSER_ENTER_CLASS} glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-3 py-3`}
+        className={withAnswerPanelLockClass(
+          `${PRACTICE_COMPOSER_ENTER_CLASS} glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-3 py-3`,
+          answerPanelLocked
+        )}
         style={{ boxShadow: 'var(--chat-composer-shadow)' }}
       >
         <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{helperText(question)}</p>
@@ -551,7 +564,10 @@ export default function PracticeQuestionRenderer({
   if (canUseWordBank) {
     return (
       <div
-        className={`${PRACTICE_COMPOSER_ENTER_CLASS} glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-3 py-3`}
+        className={withAnswerPanelLockClass(
+          `${PRACTICE_COMPOSER_ENTER_CLASS} glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-3 py-3`,
+          answerPanelLocked
+        )}
         style={{ boxShadow: 'var(--chat-composer-shadow)' }}
       >
         <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{helperText(question)}</p>
@@ -602,7 +618,10 @@ export default function PracticeQuestionRenderer({
   if (!correctionMode && question.type === 'voice-shadow') {
     return (
       <div
-        className={`${PRACTICE_COMPOSER_ENTER_CLASS} glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-3 py-3`}
+        className={withAnswerPanelLockClass(
+          `${PRACTICE_COMPOSER_ENTER_CLASS} glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-3 py-3`,
+          answerPanelLocked
+        )}
         style={{ boxShadow: 'var(--chat-composer-shadow)' }}
       >
         <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{helperText(question)}</p>
@@ -663,7 +682,10 @@ export default function PracticeQuestionRenderer({
         event.preventDefault()
         submitText()
       }}
-      className={`${PRACTICE_COMPOSER_ENTER_CLASS} glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-2 sm:px-3`}
+      className={withAnswerPanelLockClass(
+        `${PRACTICE_COMPOSER_ENTER_CLASS} glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-2 sm:px-3`,
+        answerPanelLocked
+      )}
       style={{ boxShadow: 'var(--chat-composer-shadow)' }}
     >
       {(helperText(question) || question.keywords?.length || canUseAudio) && !correctionMode && (

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isPracticeAnswerPanelLocked,
+  isPracticeChoiceInteractionDisabled,
+  isPracticeChoicePanelFrozen,
   isPracticeComposerCollapsed,
   isPracticeComposerLocked,
   PRACTICE_ANSWER_REVEAL_MS,
@@ -17,33 +20,61 @@ describe('practiceAnswerPanelLock', () => {
     expect(PRACTICE_CHECKING_MESSAGE).toBe('Engvo проверяет ответ...')
   })
 
-  it('locks composer on transition states', () => {
-    expect(isPracticeComposerLocked('submitting')).toBe(true)
+  it('locks answer panel on submitting, checking and success feedback', () => {
+    expect(isPracticeAnswerPanelLocked('submitting', undefined)).toBe(true)
+    expect(isPracticeAnswerPanelLocked('checking', undefined)).toBe(true)
+    expect(isPracticeAnswerPanelLocked('feedback', 'success')).toBe(true)
+    expect(isPracticeAnswerPanelLocked('generating_next', undefined)).toBe(true)
+    expect(isPracticeAnswerPanelLocked('feedback', 'error')).toBe(false)
+    expect(isPracticeAnswerPanelLocked('correction', 'error')).toBe(false)
+    expect(isPracticeAnswerPanelLocked('active', undefined)).toBe(false)
+  })
+
+  it('freezes choice panel from submit through check, success feedback and generating_next', () => {
+    expect(isPracticeChoicePanelFrozen('submitting', undefined)).toBe(true)
+    expect(isPracticeChoicePanelFrozen('checking', undefined)).toBe(true)
+    expect(isPracticeChoicePanelFrozen('feedback', 'error')).toBe(false)
+    expect(isPracticeChoicePanelFrozen('feedback', 'success')).toBe(true)
+    expect(isPracticeChoicePanelFrozen('generating_next', undefined)).toBe(true)
+    expect(isPracticeChoicePanelFrozen('active', undefined)).toBe(false)
+  })
+
+  it('disables choice interaction on submitting, checking and freeze', () => {
+    expect(isPracticeChoiceInteractionDisabled('submitting', undefined)).toBe(true)
+    expect(isPracticeChoiceInteractionDisabled('checking', undefined)).toBe(true)
+    expect(isPracticeChoiceInteractionDisabled('feedback', 'error')).toBe(false)
+    expect(isPracticeChoiceInteractionDisabled('feedback', 'success')).toBe(true)
+    expect(isPracticeChoiceInteractionDisabled('active', undefined)).toBe(false)
+  })
+
+  it('isPracticeComposerLocked delegates to answer panel lock', () => {
     expect(isPracticeComposerLocked('checking')).toBe(true)
-    expect(isPracticeComposerLocked('feedback')).toBe(true)
-    expect(isPracticeComposerLocked('generating_next')).toBe(true)
-    expect(isPracticeComposerLocked('active')).toBe(false)
-    expect(isPracticeComposerLocked('correction')).toBe(false)
+    expect(isPracticeComposerLocked('feedback', 'success')).toBe(true)
+    expect(isPracticeComposerLocked('feedback', 'error')).toBe(false)
   })
 
-  it('hides current question bubble only on feedback and generating_next', () => {
+  it('keeps current question card visible through feedback and generating_next', () => {
     expect(
-      shouldHideCurrentPracticeQuestionBubbles({ state: 'feedback', questionIndex: 2, currentIndex: 2 })
-    ).toBe(true)
-    expect(
-      shouldHideCurrentPracticeQuestionBubbles({ state: 'generating_next', questionIndex: 2, currentIndex: 2 })
-    ).toBe(true)
-    expect(
-      shouldHideCurrentPracticeQuestionBubbles({ state: 'checking', questionIndex: 2, currentIndex: 2 })
+      shouldHideCurrentPracticeQuestionBubbles({
+        state: 'feedback',
+        questionIndex: 2,
+        currentIndex: 2,
+        feedbackType: 'success',
+      })
     ).toBe(false)
     expect(
-      shouldHideCurrentPracticeQuestionBubbles({ state: 'feedback', questionIndex: 1, currentIndex: 2 })
+      shouldHideCurrentPracticeQuestionBubbles({
+        state: 'generating_next',
+        questionIndex: 2,
+        currentIndex: 2,
+      })
     ).toBe(false)
   })
 
-  it('collapses composer shell for briefing and locked states', () => {
+  it('collapses composer shell only on briefing', () => {
     expect(isPracticeComposerCollapsed('briefing')).toBe(true)
-    expect(isPracticeComposerCollapsed('feedback')).toBe(true)
+    expect(isPracticeComposerCollapsed('feedback')).toBe(false)
+    expect(isPracticeComposerCollapsed('checking')).toBe(false)
     expect(isPracticeComposerCollapsed('active')).toBe(false)
   })
 })
