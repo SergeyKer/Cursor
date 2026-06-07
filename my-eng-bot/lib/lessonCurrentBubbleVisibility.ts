@@ -13,6 +13,15 @@ export function hasHistoricalAttemptsForCurrentStep(
   )
 }
 
+/** На 2+ попытке не дублируем блок задания в истории ленты. */
+export function shouldSkipRepeatHistoryLessonBubble(params: {
+  isPuzzleStep: boolean
+  isCurrent: boolean
+  historyAttemptOrdinal: number
+}): boolean {
+  return !params.isPuzzleStep && !params.isCurrent && params.historyAttemptOrdinal > 1
+}
+
 export function shouldHideCurrentLessonBubbles(params: {
   isPuzzleStep: boolean
   isCurrent: boolean
@@ -20,7 +29,13 @@ export function shouldHideCurrentLessonBubbles(params: {
   latestFeedbackType: LessonFeedback['type'] | undefined
   hasHistoricalAttemptsForCurrentStep: boolean
 }): boolean {
-  if (params.isPuzzleStep || !params.isCurrent || params.status !== 'feedback') {
+  if (params.isPuzzleStep || !params.isCurrent) {
+    return false
+  }
+  if (params.status === 'checking' && params.hasHistoricalAttemptsForCurrentStep) {
+    return true
+  }
+  if (params.status !== 'feedback') {
     return false
   }
   if (params.latestFeedbackType === 'success') return true

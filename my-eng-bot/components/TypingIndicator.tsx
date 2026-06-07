@@ -19,7 +19,7 @@ type TypingIndicatorProps = {
 
 export default function TypingIndicator({
   isVisible,
-  label = 'MyEng печатает...',
+  label = 'Engvo печатает...',
   title = 'Ожидание ответа от ИИ',
   plainStatus = false,
   exitTransitionMs = DEFAULT_EXIT_TRANSITION_MS,

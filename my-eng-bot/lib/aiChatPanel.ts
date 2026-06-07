@@ -1,4 +1,4 @@
-/** Экраны внутри «Чат с MyEng» (сводка и drill-down). */
+/** Экраны внутри «Чат с Engvo» (сводка и drill-down). */
 export type AiChatPanel =
   | 'summary'
   | 'mode'

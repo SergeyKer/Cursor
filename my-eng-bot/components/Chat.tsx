@@ -1809,7 +1809,7 @@ export default function Chat({
   const engvoBootstrapTypingActive =
     isEngvoAssistantPending && !hasEngvoAssistantChatBubble(messages)
 
-  // Чтобы индикатор «MyEng печатает…» не мигал при очень быстром ответе от сервера,
+  // Чтобы индикатор «Engvo печатает…» не мигал при очень быстром ответе от сервера,
   // показываем его только после небольшой задержки, если loading всё ещё true.
   useEffect(() => {
     if (loading) {
@@ -2129,7 +2129,7 @@ export default function Chat({
     if (messages.length === 0) setSelectedLessonActionByMessage({})
   }, [messages.length])
 
-  /** Текст индикатора ожидания ответа: «MyEng печатает…»; при веб-поиске — отдельные строки. */
+  /** Текст индикатора ожидания ответа: «Engvo печатает…»; при веб-поиске — отдельные строки. */
   const isSearchingIndicatorEnglish = settings.mode === 'communication' && searchingInternetLang === 'en'
   const sendButtonAriaLabel =
     isEngvoActive
@@ -2178,12 +2178,12 @@ export default function Chat({
     engvoBootstrapTypingActive
       ? engvo?.assistantIndicatorText ?? 'Engvo отвечает...'
       : settings.mode === 'translation'
-      ? `MyEng печатает${retryMessage ? `… ${retryMessage}` : '…'}`
+      ? `Engvo печатает${retryMessage ? `… ${retryMessage}` : '…'}`
       : searchingInternet
         ? isSearchingIndicatorEnglish
-          ? 'MyEng is searching the web...'
-          : 'MyEng ищет в интернете...'
-        : `MyEng печатает${retryMessage ? `… ${retryMessage}` : '...'}`
+          ? 'Engvo is searching the web...'
+          : 'Engvo ищет в интернете...'
+        : `Engvo печатает${retryMessage ? `… ${retryMessage}` : '...'}`
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
@@ -2205,7 +2205,7 @@ export default function Chat({
               {messages.length === 0 && !isEngvoActive && (
                 <div className="flex justify-center">
                   <p dir="ltr" className={CHAT_CENTERED_TYPING_STATUS_P_CLASS}>
-                    {isLessonBranch ? 'Урок загружается...' : 'MyEng печатает...'}
+                    {isLessonBranch ? 'Урок загружается...' : 'Engvo печатает...'}
                   </p>
                 </div>
               )}

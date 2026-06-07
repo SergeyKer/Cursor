@@ -1,3 +1,4 @@
+import { ENGVO_TYPING_NEXT_STEP } from '@/lib/engvoPersonaCopy'
 import {
   buildPracticeFooterDynamicText,
   type PracticeFooterContext,
@@ -66,7 +67,7 @@ export function getPracticeFooterView(
       : state === 'feedback'
         ? 'Ответ принят. Можно идти дальше.'
       : state === 'generating_next'
-        ? 'MyEng печатает следующий шаг.'
+        ? ENGVO_TYPING_NEXT_STEP
         : state === 'completed'
           ? 'Практика завершена. Закрепим ещё?'
           : state === 'generating'

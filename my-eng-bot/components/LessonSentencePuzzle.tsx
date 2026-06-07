@@ -37,6 +37,8 @@ type LessonSentencePuzzleProps = {
     isLastVariant: boolean
   }) => void
   onInteraction?: () => void
+  /** Инкремент движка после checking+feedback успеха подпазла — запускает advance. */
+  subPuzzleAdvanceToken?: number
 }
 
 const PUZZLE_VARIANT_ADVANCE_MS = 700
@@ -117,9 +119,11 @@ export default function LessonSentencePuzzle({
   onAttemptFailed,
   onSubSuccess,
   onInteraction,
+  subPuzzleAdvanceToken = 0,
 }: LessonSentencePuzzleProps) {
   const variants = exercise.puzzleVariants ?? []
   const [variantIndex, setVariantIndex] = useState(0)
+  const consumedAdvanceTokenRef = useRef(subPuzzleAdvanceToken)
   const [selectedWords, setSelectedWords] = useState<string[]>([])
   const [attempts, setAttempts] = useState(0)
   const [locked, setLocked] = useState(false)
@@ -206,6 +210,23 @@ export default function LessonSentencePuzzle({
     })
   }, [activeVariant, attempts, locked, progressKey, selectedWords, variantIndex])
 
+  useEffect(() => {
+    if (subPuzzleAdvanceToken <= 0 || subPuzzleAdvanceToken === consumedAdvanceTokenRef.current) {
+      return
+    }
+    consumedAdvanceTokenRef.current = subPuzzleAdvanceToken
+
+    const timer = window.setTimeout(() => {
+      onInteraction?.()
+      setVariantIndex((current) => current + 1)
+      setSelectedWords([])
+      setAttempts(0)
+      setLocked(false)
+    }, PUZZLE_VARIANT_ADVANCE_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [subPuzzleAdvanceToken, onInteraction])
+
   if (!activeVariant || variants.length === 0) {
     return (
       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -262,14 +283,6 @@ export default function LessonSentencePuzzle({
       successText: activeVariant.successText,
       isLastVariant: false,
     })
-
-    window.setTimeout(() => {
-      onInteraction?.()
-      setVariantIndex((current) => current + 1)
-      setSelectedWords([])
-      setAttempts(0)
-      setLocked(false)
-    }, PUZZLE_VARIANT_ADVANCE_MS)
   }
 
   const handleSelectWord = (word: string) => {

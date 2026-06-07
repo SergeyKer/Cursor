@@ -1,4 +1,5 @@
 import type { PracticeFlowState } from '@/hooks/usePracticeSession'
+import { ENGVO_TYPING_MESSAGE } from '@/lib/engvoPersonaCopy'
 import { buildPracticeWrongAnswerFeedback } from '@/lib/practice/practiceFeedbackCopy'
 import {
   PRACTICE_CHECKING_MESSAGE,
@@ -245,7 +246,7 @@ export function buildPracticeFeedMessages(params: {
         id: `practice-generating-next-${question.id}`,
         role: 'assistant',
         kind: 'status',
-        text: 'MyEng печатает...',
+        text: ENGVO_TYPING_MESSAGE,
         tone: 'service',
       })
     }

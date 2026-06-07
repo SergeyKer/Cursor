@@ -35,10 +35,10 @@ describe('resolveLessonFooterTopLine', () => {
         globalDelta: 10,
         bestTotalXp: 100,
         combo: 2,
-        voiceFallback: 'Смотрю ваш ответ.',
+        voiceFallback: 'Engvo проверяет ответ.',
         moment: 'checking',
       })
-    ).toBe('Смотрю ваш ответ.')
+    ).toBe('Engvo проверяет ответ.')
   })
 
   it('returns voiceFallback on neutral instead of stale global delta', () => {

@@ -1,9 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   buildActiveStepTimeline,
   resolveExerciseForVariant,
+  resolveLessonCurrentEntrySubmittedAnswer,
+  scheduleLessonCheckingOutcome,
   type LessonTimelineEntry,
 } from '@/hooks/useLessonEngine'
+import { LESSON_VALIDATION_DELAY_MS } from '@/lib/lessonAnswerPanelLock'
 import type { Exercise } from '@/types/lesson'
 import type { LessonData } from '@/types/lesson'
 
@@ -61,6 +64,61 @@ describe('buildActiveStepTimeline', () => {
     const attemptIndex = timeline.findIndex((entry) => entry.feedback?.type === 'success')
 
     expect(attemptIndex).toBeLessThan(currentIndex)
+  })
+})
+
+describe('scheduleLessonCheckingOutcome', () => {
+  it('defers callback until lesson validation delay elapses', () => {
+    vi.useFakeTimers()
+    const onAfterDelay = vi.fn()
+
+    scheduleLessonCheckingOutcome(onAfterDelay, (handler, delayMs) => setTimeout(handler, delayMs))
+
+    vi.advanceTimersByTime(LESSON_VALIDATION_DELAY_MS - 1)
+    expect(onAfterDelay).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(1)
+    expect(onAfterDelay).toHaveBeenCalledTimes(1)
+
+    vi.useRealTimers()
+  })
+})
+
+describe('resolveLessonCurrentEntrySubmittedAnswer', () => {
+  it('keeps pending answer in feed during checking after a wrong attempt', () => {
+    expect(
+      resolveLessonCurrentEntrySubmittedAnswer({
+        isFinale: false,
+        status: 'checking',
+        currentStep: 2,
+        hasRenderedAttempts: true,
+        submittedAnswersByStep: { 2: 'Russai' },
+      })
+    ).toBe('Russai')
+  })
+
+  it('hides answer on feedback after wrong attempt', () => {
+    expect(
+      resolveLessonCurrentEntrySubmittedAnswer({
+        isFinale: false,
+        status: 'feedback',
+        currentStep: 2,
+        hasRenderedAttempts: true,
+        submittedAnswersByStep: { 2: 'Russai' },
+      })
+    ).toBeNull()
+  })
+
+  it('shows first-attempt answer while idle before checking', () => {
+    expect(
+      resolveLessonCurrentEntrySubmittedAnswer({
+        isFinale: false,
+        status: 'idle',
+        currentStep: 0,
+        hasRenderedAttempts: false,
+        submittedAnswersByStep: { 0: 'Russia' },
+      })
+    ).toBe('Russia')
   })
 })
 

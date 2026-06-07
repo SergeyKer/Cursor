@@ -4,8 +4,28 @@ import {
   isLessonAnswerPanelLocked,
   isLessonChoiceInteractionDisabled,
   isLessonChoicePanelFrozen,
+  LESSON_CHECKING_MESSAGE,
+  LESSON_CHECKING_REVEAL_MS,
+  LESSON_SUCCESS_HOLD_MS,
+  LESSON_VALIDATION_DELAY_MS,
 } from '@/lib/lessonAnswerPanelLock'
+import { PRACTICE_FEEDBACK_MS } from '@/lib/practice/practiceAnswerPanelLock'
+import { PRACTICE_ANSWER_REVEAL_MS, PRACTICE_CHECKING_MS } from '@/lib/practice/practiceAnswerPanelLock'
 import type { Exercise } from '@/types/lesson'
+
+describe('LESSON_CHECKING_MESSAGE', () => {
+  it('matches practice checking copy', () => {
+    expect(LESSON_CHECKING_MESSAGE).toBe('Engvo проверяет ответ...')
+  })
+})
+
+describe('lesson checking timing', () => {
+  it('uses the same reveal and validation delays as practice', () => {
+    expect(LESSON_CHECKING_REVEAL_MS).toBe(PRACTICE_ANSWER_REVEAL_MS)
+    expect(LESSON_VALIDATION_DELAY_MS).toBe(PRACTICE_ANSWER_REVEAL_MS + PRACTICE_CHECKING_MS)
+    expect(LESSON_SUCCESS_HOLD_MS).toBe(PRACTICE_FEEDBACK_MS)
+  })
+})
 
 describe('isLessonAnswerPanelLocked', () => {
   it('locks while checking', () => {
@@ -23,6 +43,10 @@ describe('isLessonAnswerPanelLocked', () => {
     expect(isLessonAnswerPanelLocked('idle', 'success')).toBe(false)
     expect(isLessonAnswerPanelLocked('completed', 'success')).toBe(false)
   })
+
+  it('locks while question reveal is in progress', () => {
+    expect(isLessonAnswerPanelLocked('idle', undefined, true)).toBe(true)
+  })
 })
 
 describe('isLessonChoicePanelFrozen', () => {
@@ -32,6 +56,7 @@ describe('isLessonChoicePanelFrozen', () => {
     expect(isLessonChoicePanelFrozen('feedback', 'error', false)).toBe(false)
     expect(isLessonChoicePanelFrozen('feedback', 'success', false)).toBe(true)
     expect(isLessonChoicePanelFrozen('idle', undefined, true)).toBe(true)
+    expect(isLessonChoicePanelFrozen('idle', undefined, false, true)).toBe(true)
   })
 })
 

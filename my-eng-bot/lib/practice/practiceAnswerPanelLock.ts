@@ -1,9 +1,10 @@
 import type { PracticeFlowState } from '@/hooks/usePracticeSession'
+import { ENGVO_CHECKING_MESSAGE } from '@/lib/engvoPersonaCopy'
 
 export const PRACTICE_ANSWER_REVEAL_MS = 500
 export const PRACTICE_CHECKING_MS = 2000
 export const PRACTICE_FEEDBACK_MS = 2000
-export const PRACTICE_CHECKING_MESSAGE = 'Engvo проверяет ответ...'
+export const PRACTICE_CHECKING_MESSAGE = ENGVO_CHECKING_MESSAGE
 
 export type PracticeAnswerFeedbackType = 'success' | 'error'
 

@@ -149,7 +149,7 @@ export type LearningLessonMenuMeta = Pick<
 >
 
 const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
-  summary: 'Чат с MyEng',
+  summary: 'Чат с Engvo',
   mode: 'Режим',
   audience: 'Стиль общения',
   tense: 'Время',
@@ -1505,7 +1505,7 @@ export default function MenuSectionPanels({
         {menuView === 'root' && !homeLayout && (
           <div className={MENU_GROUP_OUTER}>
             <div className={MENU_GROUP_CLASS}>
-              <MenuNavRow label="Чат с MyEng" onClick={() => onMenuViewChange('aiChat')} />
+              <MenuNavRow label="Чат с Engvo" onClick={() => onMenuViewChange('aiChat')} />
               {featureFlags.engvoVoiceV1 && onOpenEngvoVoiceChat && (
                 <MenuNavRow label="Позвонить" onClick={() => onMenuViewChange('engvo')} />
               )}
@@ -2735,7 +2735,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                         }
                       >
                         {tutorStartingLesson ? (
-                          <span className="text-sm italic">MyEng составляет урок...</span>
+                          <span className="text-sm italic">Engvo составляет урок...</span>
                         ) : (
                           'Начать'
                         )}

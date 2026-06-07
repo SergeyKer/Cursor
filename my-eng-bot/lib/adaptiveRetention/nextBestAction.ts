@@ -126,7 +126,7 @@ export function buildNextBestActions(snapshot: LearnerSnapshot): NextBestAction[
   actions.push(makeAction({
     id: 'free-chat',
     kind: 'chat',
-    title: 'Поговорить с MyEng',
+    title: 'Поговорить с Engvo',
     description: 'Открыть обычный чат и потренировать английский свободно.',
     reason: 'Свободный режим остаётся доступен в любой момент.',
     primaryCta: 'Открыть чат',
@@ -134,7 +134,7 @@ export function buildNextBestActions(snapshot: LearnerSnapshot): NextBestAction[
     priority: 20,
     footer: footer({
       key: 'adaptive-chat',
-      dynamicText: 'Можно просто поговорить с MyEng.',
+      dynamicText: 'Можно просто поговорить с Engvo.',
       staticText: 'Свободный режим',
       tone: 'neutral',
     }),

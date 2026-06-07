@@ -35,6 +35,25 @@ import {
   resolvePuzzleAttemptChatMessage,
 } from '@/lib/puzzlePanelLayout'
 import { formatComboFooterVoiceLabel, formatComboMilestoneBlockedCelebration, formatComboSegmentText } from '@/lib/gamificationGlyphs'
+import {
+  ENGVO_CHECKING_FOOTER,
+  ENGVO_LESSON_ADVANCING_FOOTER,
+  ENGVO_LESSON_ADVANCING_VARIANT_FOOTER,
+} from '@/lib/engvoPersonaCopy'
+import {
+  LESSON_SUCCESS_HOLD_MS,
+  LESSON_VALIDATION_DELAY_MS,
+} from '@/lib/lessonAnswerPanelLock'
+
+/** Откладывает итог проверки (validate внутри onAfterDelay), как в практике. */
+export function scheduleLessonCheckingOutcome(
+  onAfterDelay: () => void,
+  schedule: (handler: () => void, delayMs: number) => ReturnType<typeof setTimeout>,
+  delayMs: number = LESSON_VALIDATION_DELAY_MS,
+): ReturnType<typeof setTimeout> {
+  return schedule(onAfterDelay, delayMs)
+}
+
 
 function getUpcomingLessonTaskTotal(exercise?: Exercise | null): number | undefined {
   if (!exercise) return undefined
@@ -82,6 +101,22 @@ export function buildActiveStepTimeline(
     : [...completedEntries, ...currentAttemptEntries, currentEntry]
 }
 
+/** Ответ в currentEntry: при checking показываем в ленте даже после первой ошибки. */
+export function resolveLessonCurrentEntrySubmittedAnswer(params: {
+  isFinale: boolean
+  status: LessonStatus
+  currentStep: number
+  hasRenderedAttempts: boolean
+  submittedAnswersByStep: Record<number, string>
+}): string | null {
+  if (params.isFinale) return null
+  if (params.status === 'checking') {
+    return params.submittedAnswersByStep[params.currentStep] ?? null
+  }
+  if (params.hasRenderedAttempts) return null
+  return params.submittedAnswersByStep[params.currentStep] ?? null
+}
+
 type LessonAttemptHistoryEntry = {
   submittedAnswer: string | null
   feedback: LessonFeedback
@@ -99,9 +134,6 @@ export type LessonFooterVoice = {
   tone: FooterVoiceTone
   emphasis: FooterVoiceEmphasis
 }
-
-const VALIDATION_DELAY_MS = 400
-const AUTO_ADVANCE_DELAY_MS = 1500
 
 function buildLessonHintMessage(hint: string | undefined): string {
   return hint?.trim() || 'Почти. Попробуйте еще раз.'
@@ -166,13 +198,22 @@ export function useLessonEngine(lesson: LessonData | null) {
   const [submittedAnswersByStep, setSubmittedAnswersByStep] = useState<Record<number, string>>({})
   const [attemptHistoryByStep, setAttemptHistoryByStep] = useState<Record<number, LessonAttemptHistoryEntry[]>>({})
   const [puzzleProgress, setPuzzleProgress] = useState<{ subIndex: number; subTotal: number } | null>(null)
+  const [puzzleSubAdvanceToken, setPuzzleSubAdvanceToken] = useState(0)
+  const [isAdvancingToNextStep, setIsAdvancingToNextStep] = useState(false)
+  const [isAdvancingToNextVariant, setIsAdvancingToNextVariant] = useState(false)
   const [mistakes, setMistakes] = useState<LessonMistake[]>([])
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([])
+
+  const clearAdvanceFlags = useCallback(() => {
+    setIsAdvancingToNextStep(false)
+    setIsAdvancingToNextVariant(false)
+  }, [])
 
   const clearTimers = useCallback(() => {
     timeoutRefs.current.forEach((timeoutId) => clearTimeout(timeoutId))
     timeoutRefs.current = []
-  }, [])
+    clearAdvanceFlags()
+  }, [clearAdvanceFlags])
 
   useEffect(() => {
     clearTimers()
@@ -195,8 +236,10 @@ export function useLessonEngine(lesson: LessonData | null) {
     setFeedbackByStep({})
     setSubmittedAnswersByStep({})
     setAttemptHistoryByStep({})
+    setPuzzleSubAdvanceToken(0)
+    clearAdvanceFlags()
     setMistakes([])
-  }, [lesson?.id, lesson?.runKey, clearTimers])
+  }, [lesson?.id, lesson?.runKey, clearTimers, clearAdvanceFlags])
 
   useEffect(() => {
     return () => {
@@ -342,6 +385,7 @@ export function useLessonEngine(lesson: LessonData | null) {
         delete next[boundedIndex]
         return next
       })
+      setPuzzleSubAdvanceToken(0)
       setStatus('idle')
     },
     [lesson, totalSteps, clearTimers]
@@ -353,6 +397,7 @@ export function useLessonEngine(lesson: LessonData | null) {
     setPhase('finale')
     setExerciseErrors(0)
     setCurrentVariantIndex(0)
+    setPuzzleSubAdvanceToken(0)
     setFeedback(null)
     setStatus('completed')
   }, [clearTimers, finale, lesson])
@@ -361,7 +406,26 @@ export function useLessonEngine(lesson: LessonData | null) {
     goToStep(currentStep + 1)
   }, [currentStep, goToStep])
 
+  const scheduleSuccessAdvance = useCallback(
+    (kind: 'variant' | 'step', onAdvance: () => void) => {
+      if (kind === 'variant') {
+        setIsAdvancingToNextVariant(true)
+        setIsAdvancingToNextStep(false)
+      } else {
+        setIsAdvancingToNextStep(true)
+        setIsAdvancingToNextVariant(false)
+      }
+      const timer = setTimeout(() => {
+        clearAdvanceFlags()
+        onAdvance()
+      }, LESSON_SUCCESS_HOLD_MS)
+      timeoutRefs.current.push(timer)
+    },
+    [clearAdvanceFlags]
+  )
+
   const clearCurrentStepTransientState = useCallback(() => {
+    clearAdvanceFlags()
     setSubmittedAnswersByStep((current) => {
       if (!(currentStep in current)) return current
       const next = { ...current }
@@ -376,7 +440,28 @@ export function useLessonEngine(lesson: LessonData | null) {
     })
     setFeedback(null)
     setStatus(isFinale ? 'completed' : 'idle')
-  }, [currentStep, isFinale])
+  }, [clearAdvanceFlags, currentStep, isFinale])
+
+  const beginLessonCheckingPhase = useCallback(
+    (submittedAnswer: string, onAfterDelay: () => void) => {
+      clearTimers()
+      setSubmittedAnswersByStep((current) => ({ ...current, [currentStep]: submittedAnswer }))
+      setFeedbackByStep((current) => {
+        if (!(currentStep in current)) return current
+        const next = { ...current }
+        delete next[currentStep]
+        return next
+      })
+      setFeedback(null)
+      setStatus('checking')
+      const validationTimer = scheduleLessonCheckingOutcome(
+        onAfterDelay,
+        (handler, delayMs) => setTimeout(handler, delayMs)
+      )
+      timeoutRefs.current.push(validationTimer)
+    },
+    [clearTimers, currentStep]
+  )
 
   const handleAnswer = useCallback(
     (answer: string) => {
@@ -387,19 +472,8 @@ export function useLessonEngine(lesson: LessonData | null) {
       const trimmedAnswer = answer.trim()
       if (!trimmedAnswer || /^\/(?:[\w-]+)(?:\s.*)?$/.test(trimmedAnswer)) return
 
-      clearTimers()
-      setSubmittedAnswersByStep((current) => ({ ...current, [currentStep]: trimmedAnswer }))
-      setFeedbackByStep((current) => {
-        if (!(currentStep in current)) return current
-        const next = { ...current }
-        delete next[currentStep]
-        return next
-      })
-      setFeedback(null)
-      setStatus('checking')
-
-      const isCorrect = validateAnswer(trimmedAnswer, exercise)
-      const validationTimer = setTimeout(() => {
+      beginLessonCheckingPhase(trimmedAnswer, () => {
+        const isCorrect = validateAnswer(trimmedAnswer, exercise)
         if (isCorrect) {
           const nextVariantIndex = variants.length > 0 && currentVariantIndex < variants.length - 1 ? currentVariantIndex + 1 : -1
           const isLastVariant = nextVariantIndex === -1
@@ -456,23 +530,21 @@ export function useLessonEngine(lesson: LessonData | null) {
           setStatus('feedback')
 
           if (!isLastVariant) {
-            const nextVariantTimer = setTimeout(() => {
+            scheduleSuccessAdvance('variant', () => {
               setCurrentVariantIndex(nextVariantIndex)
               clearCurrentStepTransientState()
-            }, AUTO_ADVANCE_DELAY_MS)
-            timeoutRefs.current.push(nextVariantTimer)
+            })
             return
           }
 
           if (currentStep < totalSteps - 1) {
-            const autoAdvanceTimer = setTimeout(() => {
+            scheduleSuccessAdvance('step', () => {
               goToStep(currentStep + 1)
-            }, AUTO_ADVANCE_DELAY_MS)
-            timeoutRefs.current.push(autoAdvanceTimer)
+            })
           } else if (finale) {
             const finaleTimer = setTimeout(() => {
               goToFinale()
-            }, AUTO_ADVANCE_DELAY_MS)
+            }, LESSON_SUCCESS_HOLD_MS)
             timeoutRefs.current.push(finaleTimer)
           }
           return
@@ -515,9 +587,7 @@ export function useLessonEngine(lesson: LessonData | null) {
           ],
         }))
         setStatus('feedback')
-      }, VALIDATION_DELAY_MS)
-
-      timeoutRefs.current.push(validationTimer)
+      })
     },
     [
       lesson,
@@ -526,7 +596,7 @@ export function useLessonEngine(lesson: LessonData | null) {
       currentStep,
       totalSteps,
       finale,
-      clearTimers,
+      beginLessonCheckingPhase,
       goToStep,
       goToFinale,
       currentVariantIndex,
@@ -534,6 +604,7 @@ export function useLessonEngine(lesson: LessonData | null) {
       learningSteps,
       applySuccessAward,
       exerciseErrors,
+      scheduleSuccessAdvance,
     ]
   )
 
@@ -579,54 +650,58 @@ export function useLessonEngine(lesson: LessonData | null) {
     ) => {
       if (!lesson || !rawStep?.exercise || rawStep.exercise.type !== 'sentence_puzzle') return
 
-      const message =
-        params.type === 'error'
-          ? resolvePuzzleAttemptChatMessage({
-              attempts: params.attempts,
-              errorText: params.errorText,
-              hintText: params.hintText,
-              wordCount: params.wordCount,
+      const submittedAnswer = params.submittedAnswer.trim()
+      beginLessonCheckingPhase(submittedAnswer, () => {
+        const message =
+          params.type === 'error'
+            ? resolvePuzzleAttemptChatMessage({
+                attempts: params.attempts,
+                errorText: params.errorText,
+                hintText: params.hintText,
+                wordCount: params.wordCount,
+                correctAnswer: params.correctAnswer,
+              })
+            : params.successText?.trim() || 'Верно.'
+
+        const attemptFeedback = {
+          type: params.type,
+          message,
+        } as const
+
+        setAttemptHistoryByStep((current) => ({
+          ...current,
+          [currentStep]: [
+            ...(current[currentStep] ?? []),
+            {
+              submittedAnswer: submittedAnswer || null,
+              feedback: attemptFeedback,
+              stepSnapshot: rawStep,
+            },
+          ],
+        }))
+
+        if (params.type === 'error') {
+          setCombo(0)
+          setExerciseErrors(params.attempts)
+          setMistakes((current) => {
+            const next = current.filter((item) => item.step !== rawStep.stepNumber)
+            next.push({
+              step: rawStep.stepNumber,
+              userAnswer: params.submittedAnswer,
               correctAnswer: params.correctAnswer,
             })
-          : params.successText?.trim() || 'Верно.'
-
-      const attemptFeedback = {
-        type: params.type,
-        message,
-      } as const
-
-      setAttemptHistoryByStep((current) => ({
-        ...current,
-        [currentStep]: [
-          ...(current[currentStep] ?? []),
-          {
-            submittedAnswer: params.submittedAnswer.trim() || null,
-            feedback: attemptFeedback,
-            stepSnapshot: rawStep,
-          },
-        ],
-      }))
-
-      if (params.type === 'error') {
-        setCombo(0)
-        setExerciseErrors(params.attempts)
-        setMistakes((current) => {
-          const next = current.filter((item) => item.step !== rawStep.stepNumber)
-          next.push({
-            step: rawStep.stepNumber,
-            userAnswer: params.submittedAnswer,
-            correctAnswer: params.correctAnswer,
+            return next
           })
-          return next
-        })
-      } else {
-        awardPuzzleSubStep(params.subIndex, params.attempts)
-      }
+        } else {
+          awardPuzzleSubStep(params.subIndex, params.attempts)
+          setPuzzleSubAdvanceToken((current) => current + 1)
+        }
 
-      setFeedback(attemptFeedback)
-      setStatus('feedback')
+        setFeedback(attemptFeedback)
+        setStatus('feedback')
+      })
     },
-    [awardPuzzleSubStep, currentStep, lesson, rawStep]
+    [awardPuzzleSubStep, beginLessonCheckingPhase, currentStep, lesson, rawStep]
   )
 
   const completeCurrentStep = useCallback(
@@ -639,60 +714,76 @@ export function useLessonEngine(lesson: LessonData | null) {
       taskTotal?: number
     }) => {
       if (!lesson || !rawStep?.exercise || isFinale) return
-      clearTimers()
       const submitted = options?.submittedAnswer?.trim() || rawStep.exercise.correctAnswer
-      const variants = rawStep.exercise.variants ?? []
-      const puzzleVariants = rawStep.exercise.puzzleVariants ?? []
-      const nextLearningStep = currentStep < totalSteps - 1 ? learningSteps[currentStep + 1] : null
-      const successFeedback = {
-        type: 'success',
-        message: buildLessonAdvanceMessage({
-          base: options?.baseMessage ?? options?.message,
-          currentStep,
-          totalSteps,
-          stepNumber: rawStep.stepNumber,
-          taskCurrent:
-            options?.taskCurrent ??
-            (variants.length > 1 ? currentVariantIndex + 1 : undefined),
-          taskTotal:
-            options?.taskTotal ??
-            (variants.length > 1 ? variants.length : undefined) ??
-            (puzzleVariants.length > 1 ? puzzleVariants.length : undefined),
-          nextStepNumber: nextLearningStep?.stepNumber,
-          nextTaskTotal: getUpcomingLessonTaskTotal(nextLearningStep?.exercise),
-        }),
-      } as const
 
-      setSubmittedAnswersByStep((current) => ({ ...current, [currentStep]: submitted }))
-      setFeedback(successFeedback)
-      setFeedbackByStep((current) => ({ ...current, [currentStep]: successFeedback }))
-      setAttemptHistoryByStep((current) => ({
-        ...current,
-        [currentStep]: [
-          ...(current[currentStep] ?? []),
-          {
-            submittedAnswer: submitted,
-            feedback: successFeedback,
-            stepSnapshot: rawStep,
-          },
-        ],
-      }))
-      setExerciseErrors(0)
-      setMistakes((current) => current.filter((item) => item.step !== rawStep.stepNumber))
-      setStatus('feedback')
+      beginLessonCheckingPhase(submitted, () => {
+        const variants = rawStep.exercise?.variants ?? []
+        const puzzleVariants = rawStep.exercise?.puzzleVariants ?? []
+        const nextLearningStep = currentStep < totalSteps - 1 ? learningSteps[currentStep + 1] : null
+        const successFeedback = {
+          type: 'success',
+          message: buildLessonAdvanceMessage({
+            base: options?.baseMessage ?? options?.message,
+            currentStep,
+            totalSteps,
+            stepNumber: rawStep.stepNumber,
+            taskCurrent:
+              options?.taskCurrent ??
+              (variants.length > 1 ? currentVariantIndex + 1 : undefined),
+            taskTotal:
+              options?.taskTotal ??
+              (variants.length > 1 ? variants.length : undefined) ??
+              (puzzleVariants.length > 1 ? puzzleVariants.length : undefined),
+            nextStepNumber: nextLearningStep?.stepNumber,
+            nextTaskTotal: getUpcomingLessonTaskTotal(nextLearningStep?.exercise),
+          }),
+        } as const
 
-      const nextTimer = setTimeout(() => {
+        setFeedback(successFeedback)
+        setFeedbackByStep((current) => ({ ...current, [currentStep]: successFeedback }))
+        setAttemptHistoryByStep((current) => ({
+          ...current,
+          [currentStep]: [
+            ...(current[currentStep] ?? []),
+            {
+              submittedAnswer: submitted,
+              feedback: successFeedback,
+              stepSnapshot: rawStep,
+            },
+          ],
+        }))
+        setExerciseErrors(0)
+        setMistakes((current) => current.filter((item) => item.step !== rawStep.stepNumber))
+        setStatus('feedback')
+
         if (currentStep < totalSteps - 1) {
-          goToStep(currentStep + 1)
+          scheduleSuccessAdvance('step', () => {
+            goToStep(currentStep + 1)
+          })
           return
         }
         if (finale) {
-          goToFinale()
+          const finaleTimer = setTimeout(() => {
+            goToFinale()
+          }, LESSON_SUCCESS_HOLD_MS)
+          timeoutRefs.current.push(finaleTimer)
         }
-      }, AUTO_ADVANCE_DELAY_MS)
-      timeoutRefs.current.push(nextTimer)
+      })
     },
-    [clearTimers, currentStep, currentVariantIndex, finale, goToFinale, goToStep, isFinale, learningSteps, lesson, rawStep, totalSteps]
+    [
+      beginLessonCheckingPhase,
+      currentStep,
+      currentVariantIndex,
+      finale,
+      goToFinale,
+      goToStep,
+      isFinale,
+      learningSteps,
+      lesson,
+      rawStep,
+      scheduleSuccessAdvance,
+      totalSteps,
+    ]
   )
 
   const submittedAnswer = step ? submittedAnswersByStep[currentStep] ?? null : null
@@ -755,8 +846,26 @@ export function useLessonEngine(lesson: LessonData | null) {
           ? {
               key: 'lesson-checking',
               priority: 90,
-              text: 'Смотрю ваш ответ.',
-              compactText: 'Смотрю ответ.',
+              text: ENGVO_CHECKING_FOOTER,
+              compactText: 'Engvo проверяет.',
+              tone: 'thinking',
+            }
+          : null,
+        isAdvancingToNextStep
+          ? {
+              key: 'lesson-advancing',
+              priority: 78,
+              text: ENGVO_LESSON_ADVANCING_FOOTER,
+              compactText: 'Engvo готовит шаг.',
+              tone: 'thinking',
+            }
+          : null,
+        isAdvancingToNextVariant
+          ? {
+              key: 'lesson-advancing-variant',
+              priority: 78,
+              text: ENGVO_LESSON_ADVANCING_VARIANT_FOOTER,
+              compactText: 'Engvo готовит задание.',
               tone: 'thinking',
             }
           : null,
@@ -855,6 +964,8 @@ export function useLessonEngine(lesson: LessonData | null) {
     }
   }, [
     combo,
+    isAdvancingToNextStep,
+    isAdvancingToNextVariant,
     lastComboMilestoneBlocked,
     contextualFooterHint,
     currentStep,
@@ -923,7 +1034,13 @@ export function useLessonEngine(lesson: LessonData | null) {
     const hasRenderedAttempts = currentStepAttempts.length > 0
     const currentEntry: LessonTimelineEntry = {
       stepIndex: isFinale ? totalSteps : currentStep,
-      submittedAnswer: isFinale ? null : hasRenderedAttempts ? null : submittedAnswersByStep[currentStep] ?? null,
+      submittedAnswer: resolveLessonCurrentEntrySubmittedAnswer({
+        isFinale,
+        status,
+        currentStep,
+        hasRenderedAttempts,
+        submittedAnswersByStep,
+      }),
       feedback: hasRenderedAttempts ? null : feedback,
       isCurrent: true,
       step: step ?? currentLessonStep,
@@ -947,6 +1064,7 @@ export function useLessonEngine(lesson: LessonData | null) {
     feedbackByStep,
     step,
     attemptHistoryByStep,
+    status,
   ])
 
   return {
@@ -991,6 +1109,9 @@ export function useLessonEngine(lesson: LessonData | null) {
     recordPuzzleAttempt,
     clearPuzzleAttemptFeedback,
     puzzleProgress,
+    puzzleSubAdvanceToken,
+    isAdvancingToNextStep,
+    isAdvancingToNextVariant,
     onPuzzleProgressChange: setPuzzleProgress,
     goToNext,
     goToStep,
