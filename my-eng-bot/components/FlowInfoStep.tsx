@@ -7,7 +7,7 @@ export type FlowInfoStepProps = FlowInfoCardProps & {
   onAction: () => void
   ariaLabel?: string
   cardClassName?: string
-  /** Класс анимации обёртки (карточка + кнопка). По умолчанию — лёгкий выезд снизу. */
+  /** Класс анимации только карточки. Кнопка остаётся на месте. */
   enterClassName?: string
 }
 
@@ -22,11 +22,13 @@ export default function FlowInfoStep({
 }: FlowInfoStepProps) {
   return (
     <div
-      className={`${enterClassName} mx-auto flex w-full max-w-sm flex-col gap-2.5`}
+      className="mx-auto flex w-full max-w-sm flex-col gap-2.5"
       role="region"
       aria-label={ariaLabel}
     >
-      <FlowInfoCard {...cardProps} className={cardClassName} />
+      <div className={enterClassName}>
+        <FlowInfoCard {...cardProps} className={cardClassName} />
+      </div>
       <button
         type="button"
         onClick={onAction}

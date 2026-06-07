@@ -41,6 +41,11 @@ export default function TypingText({
   const [isTypingComplete, setIsTypingComplete] = useState(instant)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const onCompleteRef = useRef(onComplete)
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete
+  }, [onComplete])
 
   useEffect(() => {
     if (intervalRef.current) {
@@ -55,7 +60,7 @@ export default function TypingText({
     if (instant) {
       setDisplayedText(text)
       setIsTypingComplete(true)
-      onComplete?.()
+      onCompleteRef.current?.()
       return
     }
 
@@ -77,7 +82,7 @@ export default function TypingText({
           intervalRef.current = null
         }
         setIsTypingComplete(true)
-        onComplete?.()
+        onCompleteRef.current?.()
       }, speed)
     }, startDelayMs)
 
@@ -91,7 +96,7 @@ export default function TypingText({
         intervalRef.current = null
       }
     }
-  }, [text, speed, mode, onComplete, startDelayMs, instant])
+  }, [text, speed, mode, startDelayMs, instant])
 
   const isChatVariant = variant === 'chat'
 

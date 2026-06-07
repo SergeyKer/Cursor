@@ -29,7 +29,6 @@ export default function PracticeInstructionFlowInfoStep({
       secondaryMessage={copy.secondaryMessage}
       actionLabel={audience === 'child' ? 'Продолжить' : 'Продолжить'}
       ariaLabel="Инструкция к практике"
-      enterClassName="practice-section-appear"
       onAction={onContinue}
     />
   )

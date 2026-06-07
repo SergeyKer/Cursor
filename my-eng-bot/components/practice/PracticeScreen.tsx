@@ -233,7 +233,7 @@ export default function PracticeScreen({
         clientHeightPx: clientHeight,
       })
 
-      setPinFeedToComposer(shouldPin)
+      setPinFeedToComposer((current) => (current === shouldPin ? current : shouldPin))
 
       if (shouldPin) {
         scrollContainer.scrollTo({ top: 0, behavior })
@@ -401,7 +401,6 @@ export default function PracticeScreen({
     messages.length,
     tailMessageId,
     bottomStackHeight,
-    pinFeedToComposer,
     scheduleAlignCurrentQuestionToComposer,
   ])
 

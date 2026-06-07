@@ -66,7 +66,13 @@ export function usePracticeQuestionReveal({
     clearPauseTimer()
 
     if (!enabled || !revealKey || sectionCount <= 0) {
-      setRevealState(createDoneRevealState(sectionCount))
+      setRevealState((current) =>
+        current.phase === 'done' &&
+        current.visibleSectionCount === sectionCount &&
+        current.sectionCount === sectionCount
+          ? current
+          : createDoneRevealState(sectionCount)
+      )
       return
     }
 
@@ -75,7 +81,16 @@ export function usePracticeQuestionReveal({
       return
     }
 
-    setRevealState(createInitialRevealState(sectionCount))
+    setRevealState((current) => {
+      if (
+        current.phase !== 'done' &&
+        current.sectionCount === sectionCount &&
+        isPracticeRevealInProgress(current)
+      ) {
+        return current
+      }
+      return createInitialRevealState(sectionCount)
+    })
 
     return clearPauseTimer
   }, [

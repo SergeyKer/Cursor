@@ -18,10 +18,16 @@ describe('practiceFeedScroll', () => {
   it('detects short feed that should pin to composer by content height', () => {
     expect(
       isPracticeFeedShorterThanViewport({
-        contentHeightPx: 480,
+        contentHeightPx: 460,
         clientHeightPx: CLIENT_HEIGHT,
       })
     ).toBe(true)
+    expect(
+      isPracticeFeedShorterThanViewport({
+        contentHeightPx: 480,
+        clientHeightPx: CLIENT_HEIGHT,
+      })
+    ).toBe(false)
     expect(
       isPracticeFeedShorterThanViewport({
         contentHeightPx: 560,
