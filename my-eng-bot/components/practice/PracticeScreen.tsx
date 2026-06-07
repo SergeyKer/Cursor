@@ -9,9 +9,16 @@ import {
   isPracticeAnswerPanelLocked,
   isPracticeChoiceInteractionDisabled,
   isPracticeChoicePanelFrozen,
-  PRACTICE_CHECKING_MESSAGE,
 } from '@/lib/practice/practiceAnswerPanelLock'
-import { LESSON_SCROLL_GAP_REM, resolveScrollBottomPadding } from '@/lib/lessonFeedScroll'
+import {
+  CHAT_COMPOSER_PADDING_BOTTOM,
+  CHAT_COMPOSER_STACK_CLASS,
+  CHAT_COMPOSER_STACK_TOP_CLASS,
+  CHAT_COMPOSER_STACK_TOP_COMPACT_CLASS,
+} from '@/lib/chatComposerMetrics'
+import { isPracticeChoiceChipsPanel } from '@/lib/practice/practiceComposerLayout'
+import { isPracticeCorrectionComposerActive } from '@/lib/practice/practiceCorrectionMode'
+import { resolveScrollBottomPadding } from '@/lib/lessonFeedScroll'
 import {
   computeScrollTopToPinBlockBottom,
   getBlockOffsetTopWithinScrollRoot,
@@ -19,7 +26,6 @@ import {
   resolvePracticePinBottomInsetPx,
 } from '@/lib/practice/practiceFeedScroll'
 import { scrollLessonFeedToMax } from '@/lib/lessonFeedScroll'
-import TypingIndicator from '@/components/TypingIndicator'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import type { PracticeFlowState } from '@/hooks/usePracticeSession'
@@ -81,7 +87,6 @@ export default function PracticeScreen({
   onAcknowledgeInstruction,
   generationBusy = false,
 }: PracticeScreenProps) {
-  const INPUT_COMPOSER_PADDING_BOTTOM = `calc(var(--app-bottom-inset) + ${LESSON_SCROLL_GAP_REM}rem)`
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const messagesStackRef = useRef<HTMLDivElement | null>(null)
   const feedEndRef = useRef<HTMLDivElement | null>(null)
@@ -150,16 +155,7 @@ export default function PracticeScreen({
   )
 
   const scrollFeedTailIntoView = useCallback((behavior: ScrollBehavior = 'auto') => {
-    const scrollContainer = scrollContainerRef.current
-    if (!scrollContainer) return
-
-    const endEl = feedEndRef.current
-    if (endEl) {
-      endEl.scrollIntoView({ block: 'end', behavior })
-      return
-    }
-
-    scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior })
+    scrollLessonFeedToMax(scrollContainerRef.current, behavior)
   }, [])
 
   const scheduleScrollFeedTailIntoView = useCallback(
@@ -172,7 +168,7 @@ export default function PracticeScreen({
       const scrollContainer = scrollContainerRef.current
       const messagesStack = messagesStackRef.current
       if (!scrollContainer || !messagesStack) return
-      if (state !== 'active' || session.currentIndex <= 0) {
+      if (state !== 'active') {
         setPinFeedToComposer(false)
         return
       }
@@ -182,7 +178,7 @@ export default function PracticeScreen({
       const scrollHeight = scrollContainer.scrollHeight
       const stackOffsetHeight = messagesStack.offsetHeight
       const shouldPin = isPracticeFeedShorterThanViewport({
-        scrollHeightPx: scrollHeight,
+        contentHeightPx: stackOffsetHeight,
         clientHeightPx: clientHeight,
       })
 
@@ -212,7 +208,7 @@ export default function PracticeScreen({
       }
       pendingAdvanceAlignRef.current = false
     },
-    [session.currentIndex, state]
+    [state]
   )
 
   const scheduleAlignCurrentQuestionToComposer = useCallback(
@@ -235,21 +231,40 @@ export default function PracticeScreen({
 
     if (typeof ResizeObserver === 'undefined') return
 
-    const observer = new ResizeObserver(() => {
+    const observers: ResizeObserver[] = []
+
+    const bottomObserver = new ResizeObserver(() => {
       syncBottomStackHeight()
-      if (state === 'active' && session.currentIndex > 0) {
-        scheduleAlignCurrentQuestionToComposer('auto')
-      }
     })
-    observer.observe(bottomStack)
+    bottomObserver.observe(bottomStack)
+    observers.push(bottomObserver)
 
     const messagesStack = messagesStackRef.current
     if (messagesStack) {
-      observer.observe(messagesStack)
+      const messagesObserver = new ResizeObserver(() => {
+        if (state === 'active') {
+          scheduleAlignCurrentQuestionToComposer('auto')
+        }
+      })
+      messagesObserver.observe(messagesStack)
+      observers.push(messagesObserver)
     }
 
-    return () => observer.disconnect()
+    return () => observers.forEach((observer) => observer.disconnect())
   }, [state, currentQuestion?.id, session.currentIndex, scheduleAlignCurrentQuestionToComposer])
+
+  useEffect(() => {
+    if (state !== 'active') {
+      setPinFeedToComposer(false)
+    }
+  }, [state])
+
+  const effectivePinFeedToComposer = pinFeedToComposer && state === 'active'
+
+  useLayoutEffect(() => {
+    if (state === 'active' || state === 'briefing' || state === 'completed') return
+    return scheduleScrollFeedTailIntoView('auto')
+  }, [state, tailMessageId, messages.length, scheduleScrollFeedTailIntoView])
 
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current
@@ -279,7 +294,11 @@ export default function PracticeScreen({
     if (previousSnapshot === null) {
       previousScrollSnapshotRef.current = nextSnapshot
       if (!skipScrollForFeedbackHandoff) {
-        scheduleScrollFeedTailIntoView('auto')
+        if (state === 'active') {
+          scheduleAlignCurrentQuestionToComposer('auto')
+        } else {
+          scheduleScrollFeedTailIntoView('auto')
+        }
       }
       return
     }
@@ -296,8 +315,7 @@ export default function PracticeScreen({
     previousScrollSnapshotRef.current = nextSnapshot
     if (skipScrollForFeedbackHandoff) return
 
-    const isAdvanceToNewQuestion = indexChanged && state === 'active' && nextSnapshot.currentIndex > 0
-    if (isAdvanceToNewQuestion) {
+    if (indexChanged && state === 'active') {
       pendingAdvanceAlignRef.current = true
       scheduleAlignCurrentQuestionToComposer('auto')
       return
@@ -309,7 +327,11 @@ export default function PracticeScreen({
     }
 
     const scrollBehavior: ScrollBehavior = indexChanged ? 'auto' : 'smooth'
-    scheduleScrollFeedTailIntoView(scrollBehavior)
+    if (state === 'active') {
+      scheduleAlignCurrentQuestionToComposer(scrollBehavior)
+    } else {
+      scheduleScrollFeedTailIntoView(scrollBehavior)
+    }
   }, [
     messages.length,
     session.currentIndex,
@@ -320,7 +342,7 @@ export default function PracticeScreen({
   ])
 
   useLayoutEffect(() => {
-    if (!pendingAdvanceAlignRef.current || state !== 'active' || session.currentIndex <= 0) return
+    if (!pendingAdvanceAlignRef.current || state !== 'active') return
     return scheduleAlignCurrentQuestionToComposer('auto')
   }, [
     state,
@@ -338,11 +360,19 @@ export default function PracticeScreen({
     return scheduleScrollFeedTailIntoView('auto')
   }, [state, tailMessageId, scheduleScrollFeedTailIntoView])
 
-  const showChoiceComposer =
+  const showQuestionComposer =
     currentQuestion != null &&
     state !== 'briefing' &&
     state !== 'completed' &&
     state !== 'error'
+
+  const isCorrectionComposerActive = isPracticeCorrectionComposerActive(
+    state,
+    session.wrongAttemptsOnCurrentQuestion ?? 0
+  )
+
+  const isChoiceChipsPanel =
+    showQuestionComposer && isPracticeChoiceChipsPanel(currentQuestion, isCorrectionComposerActive)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
@@ -364,10 +394,12 @@ export default function PracticeScreen({
                   : undefined
               }
             >
-              <div className={pinFeedToComposer ? 'min-h-full' : undefined}>
+              <div className={effectivePinFeedToComposer ? 'min-h-full' : undefined}>
                 <div
                   ref={messagesStackRef}
-                  className={pinFeedToComposer ? 'flex min-h-full flex-col justify-end' : undefined}
+                  className={
+                    effectivePinFeedToComposer ? 'flex min-h-full flex-col justify-end' : undefined
+                  }
                 >
                 {messages.map((message, index) => {
                   const previousRole = messages[index - 1]?.role as BubbleRole | undefined
@@ -416,17 +448,14 @@ export default function PracticeScreen({
 
                   if (message.tone === 'service') {
                     return (
-                      <div key={message.id} className="lesson-enter mb-2.5 px-1">
-                        <TypingIndicator
-                          isVisible
-                          label={message.text ?? ''}
-                          title={
-                            message.text === PRACTICE_CHECKING_MESSAGE
-                              ? 'Engvo проверяет ответ'
-                              : 'Подготовка следующего шага'
-                          }
-                          exitTransitionMs={0}
-                        />
+                      <div
+                        key={message.id}
+                        dir="ltr"
+                        className="flex justify-start mb-2.5 px-1"
+                      >
+                        <p className="w-fit text-[14px] italic typing-indicator-text-shimmer">
+                          {message.text}
+                        </p>
                       </div>
                     )
                   }
@@ -436,11 +465,10 @@ export default function PracticeScreen({
                       key={message.id}
                       role="assistant"
                       position={position}
-                      className="lesson-enter"
                       rowClassName={rowMargin}
                     >
                       <section
-                        className={`lesson-enter chat-section-surface glass-surface rounded-xl border px-3 py-2 ${statusCardClassByTone[message.tone ?? 'success']}`}
+                        className={`chat-section-surface glass-surface rounded-xl border px-3 py-2 ${statusCardClassByTone[message.tone ?? 'success']}`}
                       >
                         <p className="whitespace-pre-line break-words text-[14px] leading-[1.45]">
                           {message.text}
@@ -456,9 +484,11 @@ export default function PracticeScreen({
 
             <div
               ref={bottomStackRef}
-              className="shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 pt-2.5 sm:px-3"
+              className={`${CHAT_COMPOSER_STACK_CLASS} ${
+                isChoiceChipsPanel ? CHAT_COMPOSER_STACK_TOP_COMPACT_CLASS : CHAT_COMPOSER_STACK_TOP_CLASS
+              }`}
               style={{
-                paddingBottom: INPUT_COMPOSER_PADDING_BOTTOM,
+                paddingBottom: CHAT_COMPOSER_PADDING_BOTTOM,
               }}
             >
               {state === 'completed' ? (
@@ -502,14 +532,14 @@ export default function PracticeScreen({
                   audience={audience}
                   onContinue={onAcknowledgeInstruction}
                 />
-              ) : showChoiceComposer ? (
+              ) : showQuestionComposer ? (
                 <PracticeQuestionRenderer
                   key={currentQuestion.id}
                   question={currentQuestion}
                   disabled={!canSubmit || isChoiceInteractionDisabled}
                   choicePanelFrozen={isChoicePanelFrozen}
                   answerPanelLocked={isAnswerPanelLocked}
-                  correctionMode={state === 'correction'}
+                  correctionMode={isCorrectionComposerActive}
                   wrongAttemptsOnCurrentQuestion={session.wrongAttemptsOnCurrentQuestion ?? 0}
                   audience={audience}
                   onSubmit={onSubmitAnswer}

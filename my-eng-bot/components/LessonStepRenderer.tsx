@@ -10,6 +10,11 @@ import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import {
+  CHAT_COMPOSER_FORM_CLASS,
+  CHAT_COMPOSER_PADDING_BOTTOM,
+  CHAT_COMPOSER_STACK_CLASS,
+  CHAT_COMPOSER_STACK_TOP_CLASS,
+  CHAT_COMPOSER_STACK_TOP_COMPACT_CLASS,
   CHAT_COMPOSER_TYPO_CLASS,
   getChatComposerTextareaVerticalClass,
 } from '@/lib/chatComposerMetrics'
@@ -914,10 +919,10 @@ export default function LessonStepRenderer({
             {currentStep && (
               <div
                 ref={bottomStackRef}
-                className={`shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 sm:px-3 ${
-                  shouldRenderChoiceChips ? 'pt-1' : 'pt-2.5'
+                className={`${CHAT_COMPOSER_STACK_CLASS} ${
+                  shouldRenderChoiceChips ? CHAT_COMPOSER_STACK_TOP_COMPACT_CLASS : CHAT_COMPOSER_STACK_TOP_CLASS
                 }`}
-                style={{ paddingBottom: 'calc(var(--app-bottom-inset) + 0.375rem)' }}
+                style={{ paddingBottom: CHAT_COMPOSER_PADDING_BOTTOM }}
               >
                 {showPostLessonMedalPhase && lessonMedalReveal ? (
                   <LessonMedalFlowInfoStep
@@ -986,7 +991,7 @@ export default function LessonStepRenderer({
                       event.preventDefault()
                       submitTextAnswer()
                     }}
-                    className={`glass-surface flex w-full items-center gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1.5 sm:px-3 ${
+                    className={`${CHAT_COMPOSER_FORM_CLASS} ${
                       isAnswerPanelLocked ? 'pointer-events-none opacity-60' : ''
                     }`}
                     style={{ boxShadow: 'var(--chat-composer-shadow)' }}

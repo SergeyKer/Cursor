@@ -1,6 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  CHAT_COMPOSER_PADDING_BOTTOM,
+  CHAT_COMPOSER_STACK_CLASS,
+  CHAT_COMPOSER_STACK_TOP_CLASS,
+} from '@/lib/chatComposerMetrics'
 import type { LessonCatalogLevel } from '@/lib/lessonCatalog'
 import {
   buildFallbackLessonExtraTips,
@@ -766,8 +771,8 @@ export default function LessonExtraTipsScreen({
             </div>
 
             <div
-              className="shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 pt-2.5 sm:px-3"
-              style={{ paddingBottom: 'calc(var(--app-bottom-inset) + 0.625rem)' }}
+              className={`${CHAT_COMPOSER_STACK_CLASS} ${CHAT_COMPOSER_STACK_TOP_CLASS}`}
+              style={{ paddingBottom: CHAT_COMPOSER_PADDING_BOTTOM }}
             >
               <div className="mx-auto flex w-full max-w-[22rem] flex-col gap-2">
                 <div className="flex w-full items-center justify-between gap-1.5 sm:gap-2">

@@ -205,9 +205,6 @@ export default function AppFooter({
                 text={topLine}
                 speed={presentation.typingSpeed}
                 singleLine
-                instant
-                startDelayMs={0}
-                fadeWhileTyping={false}
                 className={presentation.topLineClassName}
               />
             </div>

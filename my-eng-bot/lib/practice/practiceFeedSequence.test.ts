@@ -37,6 +37,43 @@ function messageKinds(messages: ReturnType<typeof buildPracticeFeedMessages>): s
   })
 }
 
+function hasConsecutiveUserBubblesWithoutSystemBetween(
+  messages: ReturnType<typeof buildPracticeFeedMessages>
+): boolean {
+  for (let i = 1; i < messages.length; i += 1) {
+    const prev = messages[i - 1]
+    const current = messages[i]
+    if (prev?.kind === 'answer' && current.kind === 'answer') {
+      return true
+    }
+  }
+  return false
+}
+
+const wrongAttempt1 = {
+  questionId: 'q1',
+  userAnswer: "It's time to sleep.",
+  isCorrect: false,
+  corrected: false,
+  correctAnswer: "It's dark.",
+  feedbackMessage: "🔴 Неверно. Правильно: It's dark.",
+  feedbackTone: 'error' as const,
+  xpEarned: 0,
+  timestamp: 1,
+}
+
+const wrongAttempt2 = {
+  questionId: 'q1',
+  userAnswer: "It's time to sleep.",
+  isCorrect: false,
+  corrected: false,
+  correctAnswer: "It's dark.",
+  feedbackMessage: "🔴 Неверно. Попробуйте ещё раз: It's dark.",
+  feedbackTone: 'error' as const,
+  xpEarned: 0,
+  timestamp: 2,
+}
+
 describe('buildPracticeFeedMessages sequence', () => {
   it('active: only question card', () => {
     const messages = buildPracticeFeedMessages({
@@ -122,5 +159,63 @@ describe('buildPracticeFeedMessages sequence', () => {
     })
     expect(messageKinds(messages)[0]).toBe('lesson')
     expect(messageKinds(messages)).toContain("answer:I'm exhausted.")
+  })
+
+  it('correction re-submit submitting: committed answer, feedback, then pending (no user-user pair)', () => {
+    const messages = buildPracticeFeedMessages({
+      session: makeSession({ answers: [wrongAttempt1] }),
+      state: 'submitting',
+      audience: 'adult',
+      pendingAnswer: "It's time to sleep.",
+    })
+    expect(messageKinds(messages)).toEqual([
+      'lesson',
+      "answer:It's time to sleep.",
+      "feedback:🔴 Неверно. Правильно: It's dark.",
+      "answer:It's time to sleep.",
+    ])
+    expect(hasConsecutiveUserBubblesWithoutSystemBetween(messages)).toBe(false)
+    expect(messages.map((m) => m.id)).toEqual([
+      'practice-question-q1',
+      'practice-answer-q1-current',
+      'practice-status-q1',
+      'practice-answer-q1-pending',
+    ])
+  })
+
+  it('correction re-submit checking: keeps feedback between attempts and adds checking slot', () => {
+    const messages = buildPracticeFeedMessages({
+      session: makeSession({ answers: [wrongAttempt1] }),
+      state: 'checking',
+      audience: 'adult',
+      pendingAnswer: 'sdsd',
+    })
+    expect(messageKinds(messages)).toEqual([
+      'lesson',
+      "answer:It's time to sleep.",
+      "feedback:🔴 Неверно. Правильно: It's dark.",
+      'answer:sdsd',
+      `service:${PRACTICE_CHECKING_MESSAGE}`,
+    ])
+    expect(hasConsecutiveUserBubblesWithoutSystemBetween(messages)).toBe(false)
+    expect(messages.at(-1)?.id).toBe('practice-checking-q1')
+    expect(messages.at(-2)?.id).toBe('practice-answer-q1-pending')
+  })
+
+  it('correction re-submit committed: one user bubble per attempt with feedback between', () => {
+    const messages = buildPracticeFeedMessages({
+      session: makeSession({ answers: [wrongAttempt1, wrongAttempt2] }),
+      state: 'correction',
+      audience: 'adult',
+      feedbackType: 'error',
+    })
+    expect(messageKinds(messages)).toEqual([
+      'lesson',
+      "answer:It's time to sleep.",
+      "feedback:🔴 Неверно. Правильно: It's dark.",
+      "answer:It's time to sleep.",
+      "feedback:🔴 Неверно. Попробуйте ещё раз: It's dark.",
+    ])
+    expect(hasConsecutiveUserBubblesWithoutSystemBetween(messages)).toBe(false)
   })
 })

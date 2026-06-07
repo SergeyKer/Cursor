@@ -21,6 +21,10 @@ import {
 } from '@/lib/normalizeCommentBulbEmoji'
 import { speak } from '@/lib/speech'
 import {
+  CHAT_COMPOSER_FORM_CLASS,
+  CHAT_COMPOSER_PADDING_BOTTOM,
+  CHAT_COMPOSER_STACK_CLASS,
+  CHAT_COMPOSER_STACK_TOP_CLASS,
   CHAT_COMPOSER_TYPO_CLASS,
   getChatComposerOverlayVerticalClass,
   getChatComposerTextareaVerticalClass,
@@ -1944,12 +1948,6 @@ export default function Chat({
   const INPUT_MIN_HEIGHT_PX = 44
   const INPUT_MAX_HEIGHT_PX = 260
   const INPUT_GAP_PX = 10
-  /** База 0.625rem (как `pt-2.5`) + только safe-area.
-   * Клавиатурный inset (`--vv-bottom-inset`) учитывается на уровне fixed-футера в page.tsx,
-   * чтобы не было двойного подъёма поля ввода при открытой клавиатуре.
-   */
-  const INPUT_COMPOSER_PADDING_BOTTOM = 'calc(0.625rem + env(safe-area-inset-bottom, 0px))'
-
   const adjustInputHeight = useCallback(() => {
     const el = textareaRef.current
     if (!el) return
@@ -2363,15 +2361,15 @@ export default function Chat({
               // Важно для iOS: paddingBottom может оставаться (safe-area / visual viewport),
               // и если фон полупрозрачный — пользователь видит "серую панель".
               // Делаем обёртку прозрачной, чтобы в резерве просвечивал фон чата.
-              className="shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 pt-2.5 sm:px-3"
+              className={`${CHAT_COMPOSER_STACK_CLASS} ${CHAT_COMPOSER_STACK_TOP_CLASS}`}
               style={{
-                paddingBottom: INPUT_COMPOSER_PADDING_BOTTOM,
+                paddingBottom: CHAT_COMPOSER_PADDING_BOTTOM,
               }}
             >
               <form
                 ref={formRef}
                 onSubmit={handleSubmit}
-                className="glass-surface flex w-full items-center gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1.5 sm:px-3"
+                className={CHAT_COMPOSER_FORM_CLASS}
                 style={{ boxShadow: 'var(--chat-composer-shadow)' }}
               >
                 {isEngvoActive ? (

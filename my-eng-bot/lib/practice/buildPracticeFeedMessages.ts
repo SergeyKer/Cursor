@@ -101,6 +101,17 @@ function feedbackToneForAnswer(answer: PracticeAnswer): 'success' | 'error' {
   return answer.feedbackTone ?? (answer.isCorrect ? 'success' : 'error')
 }
 
+/** Фидбек последней committed-попытки: и в correction, и пока идёт следующая отправка. */
+function shouldShowLatestCommittedAnswerFeedback(state: PracticeFlowState): boolean {
+  return (
+    state === 'feedback' ||
+    state === 'correction' ||
+    state === 'generating_next' ||
+    state === 'submitting' ||
+    state === 'checking'
+  )
+}
+
 export function buildPracticeFeedMessages(params: {
   session: PracticeSession
   state: PracticeFlowState
@@ -182,8 +193,10 @@ export function buildPracticeFeedMessages(params: {
       return
     }
 
-    const statusSlotId = `practice-status-${question.id}`
+    const feedbackSlotId = `practice-status-${question.id}`
+    const checkingSlotId = `practice-checking-${question.id}`
     const currentAnswerId = `practice-answer-${question.id}-current`
+    const pendingAnswerId = `practice-answer-${question.id}-pending`
 
     answers.forEach((answer, answerIndex) => {
       const isLatestAnswer = answerIndex === answers.length - 1
@@ -203,9 +216,9 @@ export function buildPracticeFeedMessages(params: {
           text: feedbackTextForAnswer(answer, audience),
           tone: feedbackToneForAnswer(answer),
         })
-      } else if (state === 'feedback' || state === 'correction' || state === 'generating_next') {
+      } else if (shouldShowLatestCommittedAnswerFeedback(state)) {
         result.push({
-          id: statusSlotId,
+          id: feedbackSlotId,
           role: 'assistant',
           kind: 'status',
           text: feedbackTextForAnswer(answer, audience),
@@ -216,7 +229,7 @@ export function buildPracticeFeedMessages(params: {
 
     if (pendingAnswer?.trim() && (state === 'submitting' || state === 'checking')) {
       result.push({
-        id: currentAnswerId,
+        id: pendingAnswerId,
         role: 'user',
         kind: 'answer',
         text: pendingAnswer.trim(),
@@ -225,7 +238,7 @@ export function buildPracticeFeedMessages(params: {
 
     if (state === 'checking') {
       result.push({
-        id: statusSlotId,
+        id: checkingSlotId,
         role: 'assistant',
         kind: 'status',
         text: PRACTICE_CHECKING_MESSAGE,

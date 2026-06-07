@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CHAT_COMPOSER_COLUMN_SHELL_CLASS,
+  CHAT_COMPOSER_FORM_CLASS,
+  CHAT_COMPOSER_INPUT_ROW_CLASS,
+  CHAT_COMPOSER_PADDING_BOTTOM,
+  CHAT_COMPOSER_STACK_CLASS,
+  CHAT_COMPOSER_STACK_TOP_CLASS,
   CHAT_COMPOSER_TYPO_CLASS,
   getChatComposerOverlayVerticalClass,
   getChatComposerTextareaVerticalClass,
@@ -22,5 +28,14 @@ describe('chatComposerMetrics', () => {
   it('maps overlay vertical classes for idle and STT', () => {
     expect(getChatComposerOverlayVerticalClass(false)).toBe('chat-composer-vertical-align')
     expect(getChatComposerOverlayVerticalClass(true)).toBe('voice-composer-web-metrics')
+  })
+
+  it('exposes shared layout constants aligned with Chat composer', () => {
+    expect(CHAT_COMPOSER_FORM_CLASS).toContain('items-center')
+    expect(CHAT_COMPOSER_FORM_CLASS).toContain('py-1.5')
+    expect(CHAT_COMPOSER_STACK_TOP_CLASS).toBe('pt-2.5')
+    expect(CHAT_COMPOSER_PADDING_BOTTOM).toContain('0.625rem')
+    expect(CHAT_COMPOSER_INPUT_ROW_CLASS).toContain('items-center')
+    expect(CHAT_COMPOSER_COLUMN_SHELL_CLASS).toContain('flex-col')
   })
 })

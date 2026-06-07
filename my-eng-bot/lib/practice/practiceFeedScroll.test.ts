@@ -15,19 +15,36 @@ describe('practiceFeedScroll', () => {
     expect(resolvePracticeScrollPaddingPx(88, 16)).toBe(10 + 88 + 10)
   })
 
-  it('detects short feed that should pin to composer', () => {
+  it('detects short feed that should pin to composer by content height', () => {
     expect(
       isPracticeFeedShorterThanViewport({
-        scrollHeightPx: 480,
+        contentHeightPx: 480,
         clientHeightPx: CLIENT_HEIGHT,
       })
     ).toBe(true)
     expect(
       isPracticeFeedShorterThanViewport({
-        scrollHeightPx: 560,
+        contentHeightPx: 560,
         clientHeightPx: CLIENT_HEIGHT,
       })
     ).toBe(false)
+  })
+
+  it('does not pin when only scrollHeight fits but content is taller (padding trap)', () => {
+    expect(
+      isPracticeFeedShorterThanViewport({
+        contentHeightPx: 560,
+        clientHeightPx: CLIENT_HEIGHT,
+      })
+    ).toBe(false)
+  })
+
+  it('short feed on step 1 (index 0) uses the same pin threshold as later steps', () => {
+    const shortFeedOnFirstStep = isPracticeFeedShorterThanViewport({
+      contentHeightPx: 320,
+      clientHeightPx: CLIENT_HEIGHT,
+    })
+    expect(shortFeedOnFirstStep).toBe(true)
   })
 
   it('pins block bottom above composer padding on long feed', () => {

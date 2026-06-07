@@ -1,6 +1,33 @@
 /** Общая типографика композера (font-size / line-height не меняем). */
 export const CHAT_COMPOSER_TYPO_CLASS = 'min-h-[44px] text-base leading-[1.45rem]'
 
+/** Стеклянная форма композера: одна строка mic | textarea | send (как в Chat). */
+export const CHAT_COMPOSER_FORM_CLASS =
+  'glass-surface flex w-full items-center gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1.5 sm:px-3'
+
+/** Обёртка нижней панели над fixed-футером (верхний padding — отдельно: `pt-2.5` или `pt-1`). */
+export const CHAT_COMPOSER_STACK_CLASS =
+  'shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 sm:px-3'
+
+/** Стандартный верхний отступ обёртки композера (симметричен `CHAT_COMPOSER_PADDING_BOTTOM`). */
+export const CHAT_COMPOSER_STACK_TOP_CLASS = 'pt-2.5'
+
+/** Уменьшенный верхний отступ для панелей с чипами выбора. */
+export const CHAT_COMPOSER_STACK_TOP_COMPACT_CLASS = 'pt-1'
+
+/**
+ * База 0.625rem (как `pt-2.5`) + только safe-area.
+ * Клавиатурный inset (`--vv-bottom-inset`) учитывается на уровне fixed-футера в page.tsx.
+ */
+export const CHAT_COMPOSER_PADDING_BOTTOM = 'calc(0.625rem + env(safe-area-inset-bottom, 0px))'
+
+/** Строка ввода внутри flex-col формы (когда над полем есть helper-текст). */
+export const CHAT_COMPOSER_INPUT_ROW_CLASS = 'flex w-full items-center gap-2'
+
+/** Оболочка с вертикальным стеком helper + строка ввода. */
+export const CHAT_COMPOSER_COLUMN_SHELL_CLASS =
+  'glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1.5 sm:px-3'
+
 /** Вертикальные метрики textarea: симметричный padding; при STT — web-metrics. */
 export function getChatComposerTextareaVerticalClass(webTextMetrics: boolean): string {
   if (webTextMetrics) {

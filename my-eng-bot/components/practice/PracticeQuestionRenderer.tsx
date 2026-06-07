@@ -20,6 +20,9 @@ import {
 } from '@/lib/practice/choiceCorrectionComposer'
 import { ensurePracticeChoiceOptions, isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
 import {
+  CHAT_COMPOSER_COLUMN_SHELL_CLASS,
+  CHAT_COMPOSER_FORM_CLASS,
+  CHAT_COMPOSER_INPUT_ROW_CLASS,
   CHAT_COMPOSER_TYPO_CLASS,
   getChatComposerOverlayVerticalClass,
   getChatComposerTextareaVerticalClass,
@@ -89,6 +92,7 @@ function wordBank(question: PracticeQuestion): string[] {
 
 const PRACTICE_COMPOSER_ENTER_CLASS = 'lesson-enter'
 const ANSWER_PANEL_LOCK_CLASS = 'pointer-events-none opacity-60'
+const PRACTICE_MULTI_ROW_INPUT_ROW_CLASS = 'flex w-full items-stretch gap-2'
 
 function withAnswerPanelLockClass(className: string, answerPanelLocked: boolean): string {
   return answerPanelLocked ? `${className} ${ANSWER_PANEL_LOCK_CLASS}` : className
@@ -163,6 +167,11 @@ export default function PracticeQuestionRenderer({
   const canUseAudio =
     question.type === 'dictation' || question.type === 'listening-select' || question.type === 'voice-shadow'
   const isChoiceCorrectionComposer = correctionMode && question.type === 'choice'
+  const isDictationLikeComposer = !correctionMode && question.type === 'dictation'
+  const isMultiRowTextComposer =
+    question.type === 'roleplay-mini' ||
+    question.type === 'boss-challenge' ||
+    question.type === 'free-response'
   const BROWSER_SILENCE_MS = 1200
   const CHOICE_CORRECTION_INPUT_MAX_HEIGHT_PX = 132
   const DEFAULT_INPUT_MAX_HEIGHT_PX = 132
@@ -190,11 +199,15 @@ export default function PracticeQuestionRenderer({
     isTextEditUnlocked,
     voiceListening: choiceVoiceActive,
   })
-  const choiceTextareaReadOnly = isChoiceCorrectionTextareaReadOnly(choiceInputMode)
-  const choiceVoiceFrozenDisplay = isChoiceCorrectionVoiceFrozenDisplay({
-    isTextEditUnlocked,
-    inputMode: choiceInputMode,
-  })
+  const isComposerFrozen = answerPanelLocked
+  const choiceTextareaReadOnly =
+    isComposerFrozen || isChoiceCorrectionTextareaReadOnly(choiceInputMode)
+  const choiceVoiceFrozenDisplay =
+    isComposerFrozen ||
+    isChoiceCorrectionVoiceFrozenDisplay({
+      isTextEditUnlocked,
+      inputMode: choiceInputMode,
+    })
   const showMicOffInline = shouldShowMicOffInlineButton({
     isChoiceCorrection: isChoiceCorrectionComposer,
     textFallbackUnlocked,
@@ -435,10 +448,12 @@ export default function PracticeQuestionRenderer({
     const answer = (isChoiceCorrectionComposer ? choiceComposerText : draft).trim()
     if (!answer || disabled) return
     hardResetSpeechRecognition()
-    setDraft('')
     setChoiceTapHintVisible(false)
     setFieldTapEngaged(false)
-    resetChoiceVoiceComposer()
+    if (!correctionMode) {
+      setDraft('')
+      resetChoiceVoiceComposer()
+    }
     onSubmit(answer)
   }
 
@@ -506,24 +521,27 @@ export default function PracticeQuestionRenderer({
   }, [finishChoiceVoiceSession, hardResetSpeechRecognition])
 
   if (canUseChoices) {
-    return (
-      <div className={`${PRACTICE_COMPOSER_ENTER_CLASS} space-y-2 pt-0`}>
-        {canUseAudio && (
-          <AudioPracticeButton text={question.audioText ?? question.targetAnswer} disabled={disabled} />
-        )}
-        {helperText(question) && (
-          <p className="px-1 text-[13px] leading-relaxed text-[var(--text-muted)]">{helperText(question)}</p>
-        )}
-        <LessonChoiceChips
-          key={question.id}
-          choices={choices}
-          onChoose={onSubmit}
-          disabled={disabled}
-          frozen={choicePanelFrozen}
-          resetKey={`${question.id}-${correctionMode ? 'correction' : 'answer'}`}
-        />
-      </div>
+    const chips = (
+      <LessonChoiceChips
+        key={question.id}
+        choices={choices}
+        onChoose={onSubmit}
+        disabled={disabled}
+        frozen={choicePanelFrozen}
+        resetKey={`${question.id}-${correctionMode ? 'correction' : 'answer'}`}
+      />
     )
+
+    if (canUseAudio) {
+      return (
+        <div className={`${PRACTICE_COMPOSER_ENTER_CLASS} space-y-1`}>
+          <AudioPracticeButton text={question.audioText ?? question.targetAnswer} disabled={disabled} />
+          {chips}
+        </div>
+      )
+    }
+
+    return chips
   }
 
   if (canUseDropdown) {
@@ -535,13 +553,13 @@ export default function PracticeQuestionRenderer({
           onSubmit(selectedOption)
         }}
         className={withAnswerPanelLockClass(
-          `${PRACTICE_COMPOSER_ENTER_CLASS} glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-3 py-3`,
+          `${PRACTICE_COMPOSER_ENTER_CLASS} ${CHAT_COMPOSER_COLUMN_SHELL_CLASS}`,
           answerPanelLocked
         )}
         style={{ boxShadow: 'var(--chat-composer-shadow)' }}
       >
         <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{helperText(question)}</p>
-        <div className="flex gap-2">
+        <div className={CHAT_COMPOSER_INPUT_ROW_CLASS}>
           <select
             value={selectedOption}
             onChange={(event) => setSelectedOption(event.target.value)}
@@ -555,7 +573,7 @@ export default function PracticeQuestionRenderer({
               </option>
             ))}
           </select>
-          <SubmitRoundButton disabled={disabled || !selectedOption} />
+          <ComposerSendButton disabled={disabled || !selectedOption} />
         </div>
       </form>
     )
@@ -565,7 +583,7 @@ export default function PracticeQuestionRenderer({
     return (
       <div
         className={withAnswerPanelLockClass(
-          `${PRACTICE_COMPOSER_ENTER_CLASS} glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-3 py-3`,
+          `${PRACTICE_COMPOSER_ENTER_CLASS} ${CHAT_COMPOSER_COLUMN_SHELL_CLASS}`,
           answerPanelLocked
         )}
         style={{ boxShadow: 'var(--chat-composer-shadow)' }}
@@ -619,7 +637,7 @@ export default function PracticeQuestionRenderer({
     return (
       <div
         className={withAnswerPanelLockClass(
-          `${PRACTICE_COMPOSER_ENTER_CLASS} glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-3 py-3`,
+          `${PRACTICE_COMPOSER_ENTER_CLASS} ${CHAT_COMPOSER_COLUMN_SHELL_CLASS}`,
           answerPanelLocked
         )}
         style={{ boxShadow: 'var(--chat-composer-shadow)' }}
@@ -645,176 +663,164 @@ export default function PracticeQuestionRenderer({
           className="flex flex-col gap-2 border-t border-[var(--chat-shell-border)] pt-2"
         >
           <p className="text-[12px] leading-relaxed text-[var(--text-muted)]">Или введите ту же фразу текстом:</p>
-          <div className="flex items-end gap-2">
-            <textarea
-              ref={voiceShadowTextareaRef}
-              value={voiceTextDraft}
-              onChange={(event) => {
-                setVoiceTextDraft(event.target.value)
-                adjustTextareaHeight(voiceShadowTextareaRef.current, DEFAULT_INPUT_MAX_HEIGHT_PX)
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault()
-                  const text = voiceTextDraft.trim()
-                  if (!text || disabled) return
-                  setVoiceTextDraft('')
-                  onSubmit(text)
-                }
-              }}
-              disabled={disabled}
-              rows={1}
-              className={`chat-input-field lesson-chat-input-field min-w-0 flex-1 resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(false)} text-[var(--text)] outline-none disabled:opacity-70`}
-              placeholder="Напечатайте фразу на английском..."
-              autoComplete="off"
-              style={{ maxHeight: `${DEFAULT_INPUT_MAX_HEIGHT_PX}px` }}
-            />
-            <SubmitRoundButton disabled={disabled || !voiceTextDraft.trim()} />
+          <div className={CHAT_COMPOSER_INPUT_ROW_CLASS}>
+            <div className="relative min-w-0 flex-1">
+              <textarea
+                ref={voiceShadowTextareaRef}
+                value={voiceTextDraft}
+                onChange={(event) => {
+                  setVoiceTextDraft(event.target.value)
+                  adjustTextareaHeight(voiceShadowTextareaRef.current, DEFAULT_INPUT_MAX_HEIGHT_PX)
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault()
+                    const text = voiceTextDraft.trim()
+                    if (!text || disabled) return
+                    setVoiceTextDraft('')
+                    onSubmit(text)
+                  }
+                }}
+                disabled={disabled}
+                rows={1}
+                className={`chat-input-field lesson-chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(false)} text-[var(--text)] outline-none disabled:opacity-70`}
+                placeholder="Напечатайте фразу на английском..."
+                autoComplete="off"
+                style={{ maxHeight: `${DEFAULT_INPUT_MAX_HEIGHT_PX}px` }}
+              />
+            </div>
+            <ComposerSendButton disabled={disabled || !voiceTextDraft.trim()} />
           </div>
         </form>
       </div>
     )
   }
 
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault()
-        submitText()
-      }}
-      className={withAnswerPanelLockClass(
-        `${PRACTICE_COMPOSER_ENTER_CLASS} glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-2 sm:px-3`,
-        answerPanelLocked
-      )}
-      style={{ boxShadow: 'var(--chat-composer-shadow)' }}
-    >
-      {(helperText(question) || question.keywords?.length || canUseAudio) && !correctionMode && (
-        <div className="space-y-1 px-1">
-          {canUseAudio && <AudioPracticeButton text={question.audioText ?? question.targetAnswer} disabled={disabled} />}
-          {helperText(question) && (
-            <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{helperText(question)}</p>
-          )}
-          {question.keywords?.length ? (
-            <p className="text-[12px] leading-relaxed text-[var(--text-muted)]">Ключевые слова: {question.keywords.join(', ')}</p>
+  const hasComposerHeader =
+    !correctionMode && Boolean(helperText(question) || question.keywords?.length || canUseAudio)
+  const composerShellClass = hasComposerHeader
+    ? `${CHAT_COMPOSER_COLUMN_SHELL_CLASS}${isDictationLikeComposer ? ' gap-1' : ''}`
+    : CHAT_COMPOSER_FORM_CLASS
+  const inputRowClass = isMultiRowTextComposer ? PRACTICE_MULTI_ROW_INPUT_ROW_CLASS : CHAT_COMPOSER_INPUT_ROW_CLASS
+
+  const composerInputRow = (
+    <>
+      {isChoiceCorrectionComposer ? (
+        <VoiceMicButton
+          listening={choiceVoiceActive}
+          disabled={micButtonDisabled}
+          micVisualState={micVisualState}
+          onClick={handleChoiceCorrectionMicClick}
+          title={
+            !recognitionSupported
+              ? 'Голосовой ввод недоступен'
+              : choiceVoiceActive
+                ? 'Остановить'
+                : 'Голосовой ввод'
+          }
+          ariaLabel={
+            !recognitionSupported
+              ? 'Голосовой ввод недоступен'
+              : choiceVoiceActive
+                ? 'Остановить запись'
+                : 'Голосовой ввод'
+          }
+        />
+      ) : null}
+      {question.type === 'roleplay-mini' || question.type === 'boss-challenge' || question.type === 'free-response' ? (
+        <textarea
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          disabled={disabled}
+          rows={question.type === 'boss-challenge' ? 3 : 2}
+          className={`chat-input-field lesson-chat-input-field min-w-0 w-full flex-1 resize-none rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(false)} text-[var(--text)] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70`}
+          placeholder={inputPlaceholder(question, correctionMode, audience)}
+        />
+      ) : isChoiceCorrectionComposer ? (
+        <div className="relative isolate min-w-0 flex-1">
+          {choiceVoiceStatus ? (
+            <p className="sr-only" aria-live="polite">
+              {choiceVoiceStatus}
+            </p>
           ) : null}
-        </div>
-      )}
-      <div className={`flex gap-2 ${isChoiceCorrectionComposer ? 'items-center' : 'items-end'}`}>
-        {isChoiceCorrectionComposer ? (
-          <VoiceMicButton
-            listening={choiceVoiceActive}
-            disabled={micButtonDisabled}
-            micVisualState={micVisualState}
-            onClick={handleChoiceCorrectionMicClick}
-            title={
-              !recognitionSupported
-                ? 'Голосовой ввод недоступен'
-                : choiceVoiceActive
-                  ? 'Остановить'
-                  : 'Голосовой ввод'
-            }
-            ariaLabel={
-              !recognitionSupported
-                ? 'Голосовой ввод недоступен'
-                : choiceVoiceActive
-                  ? 'Остановить запись'
-                  : 'Голосовой ввод'
-            }
-          />
-        ) : null}
-        {question.type === 'roleplay-mini' || question.type === 'boss-challenge' || question.type === 'free-response' ? (
+          {showChoiceVoiceOverlay ? (
+            <VoiceComposerOverlay
+              draftBeforeVoiceText={choiceVoiceDraftBefore}
+              livePreviewText={choiceVoiceLivePreviewText}
+              webTextMetricsFix={voiceWebMetricsClient}
+            />
+          ) : null}
+          {showChoiceInviteOverlay ? (
+            <>
+              {choiceTapHintVisible ? (
+                <p className="sr-only" role="status" aria-live="polite">
+                  {choiceInviteOverlayLine}
+                </p>
+              ) : null}
+              <div
+                aria-hidden={!choiceTapHintVisible}
+                className={`pointer-events-none absolute inset-0 z-10 overflow-hidden whitespace-nowrap rounded-2xl font-sans text-base text-[var(--text-muted)] ${
+                  showMicOffInline ? 'pr-12 pl-4' : 'px-4'
+                } ${
+                  choiceVoiceWebMetricsActive
+                    ? getChatComposerOverlayVerticalClass(true)
+                    : `${getChatComposerOverlayVerticalClass(false)} leading-[1.45rem]`
+                }`}
+              >
+                <span className="min-w-0 truncate-x block">{choiceInviteOverlayLine}</span>
+              </div>
+            </>
+          ) : null}
           <textarea
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            ref={choiceCorrectionTextareaRef}
+            value={choiceComposerText}
+            readOnly={choiceTextareaReadOnly || isChoiceVoiceTextareaReadOnly}
+            onPointerDown={showChoiceCorrectionTapHint}
+            onFocus={showChoiceCorrectionTapHint}
+            onBlur={() => setChoiceTapHintVisible(false)}
+            onChange={(event) => {
+              if (choiceTextareaReadOnly || isChoiceVoiceActive) return
+              setDraft(event.target.value)
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault()
+                submitText()
+              }
+            }}
             disabled={disabled}
-            rows={question.type === 'boss-challenge' ? 3 : 2}
-            className={`chat-input-field lesson-chat-input-field min-w-0 w-full resize-none rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(false)} text-[var(--text)] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70`}
-            placeholder={inputPlaceholder(question, correctionMode, audience)}
+            rows={1}
+            className={`chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${choiceCorrectionComposerMetricsClass(
+              { voiceWebMetrics: choiceVoiceWebMetricsActive, micOffPr12: showMicOffInline }
+            )} ${
+              showChoiceVoiceOverlay || hideChoiceComposerTextForTapHint
+                ? 'text-transparent caret-transparent placeholder:text-transparent'
+                : choiceVoiceFrozenDisplay
+                  ? 'text-[var(--text-muted)]'
+                  : 'text-[var(--text)]'
+            } ${choiceTextareaReadOnly ? 'cursor-default' : ''}`}
+            placeholder={inputPlaceholder(question, correctionMode, audience, isTextEditUnlocked)}
+            autoComplete="off"
+            style={{ maxHeight: `${CHOICE_CORRECTION_INPUT_MAX_HEIGHT_PX}px` }}
           />
-        ) : isChoiceCorrectionComposer ? (
-          <div className="relative isolate min-w-0 flex-1">
-            {choiceVoiceStatus ? (
-              <p className="sr-only" aria-live="polite">
-                {choiceVoiceStatus}
-              </p>
-            ) : null}
-            {showChoiceVoiceOverlay ? (
-              <VoiceComposerOverlay
-                draftBeforeVoiceText={choiceVoiceDraftBefore}
-                livePreviewText={choiceVoiceLivePreviewText}
-                webTextMetricsFix={voiceWebMetricsClient}
-              />
-            ) : null}
-            {showChoiceInviteOverlay ? (
-              <>
-                {choiceTapHintVisible ? (
-                  <p className="sr-only" role="status" aria-live="polite">
-                    {choiceInviteOverlayLine}
-                  </p>
-                ) : null}
-                <div
-                  aria-hidden={!choiceTapHintVisible}
-                  className={`pointer-events-none absolute inset-0 z-10 overflow-hidden whitespace-nowrap rounded-2xl font-sans text-base text-[var(--text-muted)] ${
-                    showMicOffInline ? 'pr-12 pl-4' : 'px-4'
-                  } ${
-                    choiceVoiceWebMetricsActive
-                      ? getChatComposerOverlayVerticalClass(true)
-                      : `${getChatComposerOverlayVerticalClass(false)} leading-[1.45rem]`
-                  }`}
-                >
-                  <span className="min-w-0 truncate-x block">{choiceInviteOverlayLine}</span>
-                </div>
-              </>
-            ) : null}
-            <textarea
-              ref={choiceCorrectionTextareaRef}
-              value={choiceComposerText}
-              readOnly={choiceTextareaReadOnly || isChoiceVoiceTextareaReadOnly}
-              onPointerDown={showChoiceCorrectionTapHint}
-              onFocus={showChoiceCorrectionTapHint}
-              onBlur={() => setChoiceTapHintVisible(false)}
-              onChange={(event) => {
-                if (choiceTextareaReadOnly || isChoiceVoiceActive) return
-                setDraft(event.target.value)
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault()
-                  submitText()
-                }
+          {showMicOffInline ? (
+            <button
+              type="button"
+              onPointerDown={(event) => {
+                event.preventDefault()
+                unlockChoiceTextEdit()
               }}
               disabled={disabled}
-              rows={1}
-              className={`chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${choiceCorrectionComposerMetricsClass(
-                { voiceWebMetrics: choiceVoiceWebMetricsActive, micOffPr12: showMicOffInline }
-              )} ${
-                showChoiceVoiceOverlay || hideChoiceComposerTextForTapHint
-                  ? 'text-transparent caret-transparent placeholder:text-transparent'
-                  : choiceVoiceFrozenDisplay
-                    ? 'text-[var(--text-muted)]'
-                    : 'text-[var(--text)]'
-              } ${choiceTextareaReadOnly ? 'cursor-default' : ''}`}
-              placeholder={inputPlaceholder(question, correctionMode, audience, isTextEditUnlocked)}
-              autoComplete="off"
-              style={{ maxHeight: `${CHOICE_CORRECTION_INPUT_MAX_HEIGHT_PX}px` }}
-            />
-            {showMicOffInline ? (
-              <button
-                type="button"
-                onPointerDown={(event) => {
-                  event.preventDefault()
-                  unlockChoiceTextEdit()
-                }}
-                disabled={disabled}
-                className="absolute right-2 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[var(--text-muted)] touch-manipulation hover:bg-[var(--chat-control-hover)] hover:text-[var(--text)] disabled:opacity-50"
-                aria-label="Ввести ответ текстом"
-                title="Ввести ответ текстом"
-              >
-                <TextEditIcon />
-              </button>
-            ) : null}
-          </div>
-        ) : (
+              className="absolute right-2 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[var(--text-muted)] touch-manipulation hover:bg-[var(--chat-control-hover)] hover:text-[var(--text)] disabled:opacity-50"
+              aria-label="Ввести ответ текстом"
+              title="Ввести ответ текстом"
+            >
+              <TextEditIcon />
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <div className="relative min-w-0 flex-1">
           <textarea
             ref={defaultAnswerTextareaRef}
             value={draft}
@@ -829,35 +835,43 @@ export default function PracticeQuestionRenderer({
               }
             }}
             disabled={disabled}
+            readOnly={isComposerFrozen}
             rows={1}
-            className={`chat-input-field lesson-chat-input-field min-w-0 flex-1 resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(false)} text-[var(--text)] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70`}
+            className={`chat-input-field lesson-chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(false)} outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${
+              isComposerFrozen ? 'text-[var(--text-muted)]' : 'text-[var(--text)]'
+            }`}
             placeholder={inputPlaceholder(question, correctionMode, audience)}
             style={{ maxHeight: `${DEFAULT_INPUT_MAX_HEIGHT_PX}px` }}
           />
-        )}
-        {isChoiceCorrectionComposer ? (
-          <button
-            type="submit"
-            disabled={disabled || !choiceComposerText.trim()}
-            aria-label="Отправить ответ"
-            title="Отправить"
-            className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)]"
-            style={{ background: 'var(--chat-send-bg)' }}
-          >
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-7 w-7" fill="none">
-              <path
-                d="M21.4 11.6C21.7 11.8 21.7 12.2 21.4 12.4L5.9 19.4C5.2 19.7 4.4 19.2 4.5 18.4L5.3 14.2C5.4 13.9 5.6 13.6 5.9 13.5L12.8 12L5.9 10.5C5.6 10.4 5.4 10.1 5.3 9.8L4.5 5.6C4.4 4.8 5.2 4.3 5.9 4.6L21.4 11.6Z"
-                stroke="#FFFFFF"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-        ) : (
-          <SubmitRoundButton disabled={disabled || !draft.trim()} />
-        )}
-      </div>
+        </div>
+      )}
+      <ComposerSendButton
+        disabled={disabled || !(isChoiceCorrectionComposer ? choiceComposerText : draft).trim()}
+      />
+    </>
+  )
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        submitText()
+      }}
+      className={withAnswerPanelLockClass(`${PRACTICE_COMPOSER_ENTER_CLASS} ${composerShellClass}`, answerPanelLocked)}
+      style={{ boxShadow: 'var(--chat-composer-shadow)' }}
+    >
+      {hasComposerHeader ? (
+        <div className="space-y-1 px-1">
+          {canUseAudio && <AudioPracticeButton text={question.audioText ?? question.targetAnswer} disabled={disabled} />}
+          {helperText(question) && (
+            <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{helperText(question)}</p>
+          )}
+          {question.keywords?.length ? (
+            <p className="text-[12px] leading-relaxed text-[var(--text-muted)]">Ключевые слова: {question.keywords.join(', ')}</p>
+          ) : null}
+        </div>
+      ) : null}
+      {hasComposerHeader ? <div className={inputRowClass}>{composerInputRow}</div> : composerInputRow}
     </form>
   )
 }
@@ -875,27 +889,24 @@ function AudioPracticeButton({ text, disabled }: { text: string; disabled?: bool
   )
 }
 
-function SubmitRoundButton({ disabled }: { disabled?: boolean }) {
+function ComposerSendButton({ disabled }: { disabled?: boolean }) {
   return (
     <button
       type="submit"
       disabled={disabled}
-      className="chat-send-button flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-[var(--chat-send-bg)] text-[var(--chat-send-text)] disabled:cursor-not-allowed disabled:opacity-50"
       aria-label="Отправить ответ"
       title="Отправить"
+      className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)] disabled:cursor-not-allowed disabled:opacity-50"
+      style={{ background: 'var(--chat-send-bg)' }}
     >
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 24 24"
-        className="h-5 w-5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.9"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M5 12h14" />
-        <path d="m13 6 6 6-6 6" />
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-7 w-7" fill="none">
+        <path
+          d="M21.4 11.6C21.7 11.8 21.7 12.2 21.4 12.4L5.9 19.4C5.2 19.7 4.4 19.2 4.5 18.4L5.3 14.2C5.4 13.9 5.6 13.6 5.9 13.5L12.8 12L5.9 10.5C5.6 10.4 5.4 10.1 5.3 9.8L4.5 5.6C4.4 4.8 5.2 4.3 5.9 4.6L21.4 11.6Z"
+          stroke="#FFFFFF"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     </button>
   )

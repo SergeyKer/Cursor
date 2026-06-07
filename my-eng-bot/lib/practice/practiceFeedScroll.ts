@@ -16,11 +16,12 @@ export function resolvePracticePinBottomInsetPx(): number {
   return LESSON_INPUT_GAP_PX + PRACTICE_PIN_BLOCK_GAP_PX
 }
 
+/** Сравниваем высоту контента ленты (без scroll-padding), иначе padding раздувает scrollHeight и ломает pin. */
 export function isPracticeFeedShorterThanViewport(params: {
-  scrollHeightPx: number
+  contentHeightPx: number
   clientHeightPx: number
 }): boolean {
-  return params.scrollHeightPx <= params.clientHeightPx
+  return params.contentHeightPx <= params.clientHeightPx
 }
 
 /** offsetTop блока относительно scroll-контейнера (с учётом текущего scrollTop). */
