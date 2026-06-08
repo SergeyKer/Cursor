@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import FeedbackStatusText from '@/components/FeedbackStatusText'
 import PracticeFinale from '@/components/practice/PracticeFinale'
 import PracticeInstructionFlowInfoStep from '@/components/practice/PracticeInstructionFlowInfoStep'
 import PracticeQuestionRenderer from '@/components/practice/PracticeQuestionRenderer'
@@ -19,7 +20,12 @@ import {
   scrollLessonFeedTailIfNeeded,
 } from '@/lib/lessonFeedScroll'
 import PracticeQuestionBubble from '@/components/practice/PracticeQuestionBubble'
-import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
+import {
+  CHAT_FEED_SERVICE_STATUS_ROW_CLASS,
+  ChatBubbleFrame,
+  getBubblePosition,
+  type BubbleRole,
+} from '@/components/chat/ChatBubble'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { usePracticeQuestionReveal } from '@/hooks/usePracticeQuestionReveal'
 import type { PracticeFlowState } from '@/hooks/usePracticeSession'
@@ -421,7 +427,7 @@ export default function PracticeScreen({
 
                   if (message.tone === 'service') {
                     return (
-                      <div key={message.id} dir="ltr" className="mb-2.5 flex justify-start px-1">
+                      <div key={message.id} dir="ltr" className={CHAT_FEED_SERVICE_STATUS_ROW_CLASS}>
                         <TypingText
                           key={message.id}
                           text={message.text ?? ''}
@@ -445,11 +451,17 @@ export default function PracticeScreen({
                       rowClassName={rowMargin}
                     >
                       <section
-                        className={`chat-section-surface glass-surface rounded-xl border px-3 py-2 ${statusCardClassByTone[message.tone ?? 'success']}`}
+                        className={`chat-section-surface glass-surface rounded-xl border ${
+                          message.tone === 'service' || !message.text ? 'px-3 py-2' : 'px-2.5 py-1.5'
+                        } ${statusCardClassByTone[message.tone ?? 'success']}`}
                       >
-                        <p className="whitespace-pre-line break-words text-[15px] leading-[1.45]">
-                          {message.text}
-                        </p>
+                        {message.tone === 'service' || !message.text ? (
+                          <p className="whitespace-pre-line break-words text-[15px] leading-[1.45]">
+                            {message.text}
+                          </p>
+                        ) : (
+                          <FeedbackStatusText text={message.text} />
+                        )}
                       </section>
                     </ChatBubbleFrame>
                   )

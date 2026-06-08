@@ -114,7 +114,7 @@ describe('buildLessonFeedMessages — sentence_puzzle order', () => {
     expect(messageTexts(messages)).toEqual([
       'lesson',
       "answer:I'm happy",
-      'success:Верно.',
+      'success:🟢 Верно.',
       'answer:I am from Russia',
       `service:${LESSON_CHECKING_MESSAGE}`,
     ])
@@ -182,7 +182,7 @@ describe('buildLessonFeedMessages — sentence_puzzle order', () => {
     expect(messages.at(-1)).toMatchObject({
       kind: 'status',
       tone: 'success',
-      text: 'Все три предложения собраны.',
+      text: '🟢 Все три предложения собраны.',
     })
   })
 })
@@ -218,7 +218,7 @@ describe('buildLessonFeedMessages — non-puzzle regression', () => {
     expect(messageTexts(messages)).toEqual([
       'lesson',
       'answer:Moscow',
-      'error:Почти. Попробуйте ещё раз.',
+      'error:🟡 Почти. Попробуйте ещё раз.',
       'answer:Russia',
       `service:${LESSON_CHECKING_MESSAGE}`,
     ])

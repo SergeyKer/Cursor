@@ -56,7 +56,7 @@ const wrongAttempt1 = {
   isCorrect: false,
   corrected: false,
   correctAnswer: "It's dark.",
-  feedbackMessage: "🔴 Неверно. Правильно: It's dark.",
+  feedbackMessage: "Неверно. Правильно: It's dark.",
   feedbackTone: 'error' as const,
   xpEarned: 0,
   timestamp: 1,
@@ -68,7 +68,7 @@ const wrongAttempt2 = {
   isCorrect: false,
   corrected: false,
   correctAnswer: "It's dark.",
-  feedbackMessage: "🔴 Неверно. Попробуйте ещё раз: It's dark.",
+  feedbackMessage: "Неверно. Попробуйте ещё раз: It's dark.",
   feedbackTone: 'error' as const,
   xpEarned: 0,
   timestamp: 2,
@@ -164,7 +164,7 @@ describe('buildPracticeFeedMessages sequence', () => {
     expect(messageKinds(messages)).toEqual([
       'lesson',
       "answer:I'm happy.",
-      'feedback:Верно. Хороший ответ.',
+      'feedback:🟢 Верно. Хороший ответ.',
     ])
   })
 
@@ -203,7 +203,7 @@ describe('buildPracticeFeedMessages sequence', () => {
     expect(messageKinds(messages)).toEqual([
       'lesson',
       "answer:It's time to sleep.",
-      "feedback:🔴 Неверно. Правильно: It's dark.",
+      "feedback:🟡 Неверно. Правильно: It's dark.",
       "answer:It's time to sleep.",
     ])
     expect(hasConsecutiveUserBubblesWithoutSystemBetween(messages)).toBe(false)
@@ -225,7 +225,7 @@ describe('buildPracticeFeedMessages sequence', () => {
     expect(messageKinds(messages)).toEqual([
       'lesson',
       "answer:It's time to sleep.",
-      "feedback:🔴 Неверно. Правильно: It's dark.",
+      "feedback:🟡 Неверно. Правильно: It's dark.",
       'answer:sdsd',
       `service:${PRACTICE_CHECKING_MESSAGE}`,
     ])
@@ -233,7 +233,7 @@ describe('buildPracticeFeedMessages sequence', () => {
     expect(messages.at(-1)?.id).toBe('practice-checking-q1')
     expect(messages.at(-2)?.id).toBe('practice-answer-q1-pending')
     expect(messages.find((m) => m.id === 'practice-feedback-q1-1-0')?.text).toBe(
-      "🔴 Неверно. Правильно: It's dark."
+      "🟡 Неверно. Правильно: It's dark."
     )
   })
 
@@ -247,9 +247,9 @@ describe('buildPracticeFeedMessages sequence', () => {
     expect(messageKinds(messages)).toEqual([
       'lesson',
       "answer:It's time to sleep.",
-      "feedback:🔴 Неверно. Правильно: It's dark.",
+      "feedback:🟡 Неверно. Правильно: It's dark.",
       "answer:It's time to sleep.",
-      "feedback:🔴 Неверно. Попробуйте ещё раз: It's dark.",
+      "feedback:🟡 Неверно. Попробуйте ещё раз: It's dark.",
     ])
     expect(hasConsecutiveUserBubblesWithoutSystemBetween(messages)).toBe(false)
   })
@@ -272,7 +272,7 @@ describe('buildPracticeFeedMessages sequence', () => {
     const firstFeedbackAfterSecond = afterSecondWrong.find((m) => m.id === firstFeedbackId)
 
     expect(firstFeedbackId).toBe('practice-feedback-q1-1-0')
-    expect(firstFeedbackAfterSecond?.text).toBe("🔴 Неверно. Правильно: It's dark.")
+    expect(firstFeedbackAfterSecond?.text).toBe("🟡 Неверно. Правильно: It's dark.")
     expect(afterSecondWrong.filter((m) => m.tone === 'error')).toHaveLength(2)
   })
 })

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import FeedbackStatusText from '@/components/FeedbackStatusText'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import LessonSentencePuzzle from '@/components/LessonSentencePuzzle'
 import LessonMedalFlowInfoStep from '@/components/LessonMedalFlowInfoStep'
@@ -8,7 +9,12 @@ import PostLessonMenu from '@/components/PostLessonMenu'
 import type { LessonMedalTierOrNull } from '@/lib/lessonScore'
 import PracticeQuestionBubble from '@/components/practice/PracticeQuestionBubble'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
-import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
+import {
+  CHAT_FEED_SERVICE_STATUS_ROW_CLASS,
+  ChatBubbleFrame,
+  getBubblePosition,
+  type BubbleRole,
+} from '@/components/chat/ChatBubble'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import {
   CHAT_COMPOSER_FORM_CLASS,
@@ -873,7 +879,7 @@ export default function LessonStepRenderer({
 
                   if (message.tone === 'service') {
                     return (
-                      <div key={message.id} dir="ltr" className="mb-2.5 flex justify-start px-1">
+                      <div key={message.id} dir="ltr" className={CHAT_FEED_SERVICE_STATUS_ROW_CLASS}>
                         <TypingText
                           key={message.id}
                           text={message.text ?? ''}
@@ -899,11 +905,17 @@ export default function LessonStepRenderer({
                       }
                     >
                       <section
-                        className={`lesson-enter chat-section-surface glass-surface rounded-xl border px-3 py-2 ${lessonStatusCardClassByTone[message.tone]}`}
+                        className={`lesson-enter chat-section-surface glass-surface rounded-xl border ${
+                          message.tone === 'service' ? 'px-3 py-2' : 'px-2.5 py-1.5'
+                        } ${lessonStatusCardClassByTone[message.tone]}`}
                       >
-                        <p className="whitespace-pre-line break-words text-[15px] leading-[1.45]">
-                          {message.text}
-                        </p>
+                        {message.tone === 'service' ? (
+                          <p className="whitespace-pre-line break-words text-[15px] leading-[1.45]">
+                            {message.text}
+                          </p>
+                        ) : (
+                          <FeedbackStatusText text={message.text} />
+                        )}
                       </section>
                     </ChatBubbleFrame>
                   )

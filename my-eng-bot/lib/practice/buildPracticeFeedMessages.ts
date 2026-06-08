@@ -1,5 +1,6 @@
 import type { PracticeFlowState } from '@/hooks/usePracticeSession'
 import { ENGVO_TYPING_MESSAGE } from '@/lib/engvoPersonaCopy'
+import { prefixFeedbackMarker, resolveFeedbackMarker } from '@/lib/feedbackMarkers'
 import { buildPracticeWrongAnswerFeedback } from '@/lib/practice/practiceFeedbackCopy'
 import {
   PRACTICE_CHECKING_MESSAGE,
@@ -83,8 +84,13 @@ function buildQuestionBubbles(params: {
   ]
 }
 
-function feedbackTextForAnswer(answer: PracticeAnswer, audience: Audience): string {
-  return (
+function feedbackTextForAnswer(
+  answer: PracticeAnswer,
+  audience: Audience,
+  attemptNumber: number
+): string {
+  const tone = feedbackToneForAnswer(answer)
+  const raw =
     answer.feedbackMessage ??
     (answer.isCorrect
       ? answer.corrected
@@ -92,10 +98,11 @@ function feedbackTextForAnswer(answer: PracticeAnswer, audience: Audience): stri
         : 'Верно. Хороший ответ.'
       : buildPracticeWrongAnswerFeedback({
           correctAnswer: answer.correctAnswer,
-          attemptNumber: 1,
+          attemptNumber: Math.min(2, attemptNumber) as 1 | 2,
           audience,
         }))
-  )
+  const marker = resolveFeedbackMarker({ tone, attemptNumber })
+  return prefixFeedbackMarker(marker, raw)
 }
 
 function feedbackToneForAnswer(answer: PracticeAnswer): 'success' | 'error' {
@@ -187,7 +194,7 @@ export function buildPracticeFeedMessages(params: {
           id: `practice-feedback-${answer.questionId}-${answer.timestamp}-${answerIndex}`,
           role: 'assistant',
           kind: 'status',
-          text: feedbackTextForAnswer(answer, audience),
+          text: feedbackTextForAnswer(answer, audience, answerIndex + 1),
           tone: feedbackToneForAnswer(answer),
         })
       })
@@ -214,7 +221,7 @@ export function buildPracticeFeedMessages(params: {
           id: feedbackId,
           role: 'assistant',
           kind: 'status',
-          text: feedbackTextForAnswer(answer, audience),
+          text: feedbackTextForAnswer(answer, audience, answerIndex + 1),
           tone: feedbackToneForAnswer(answer),
         })
       }

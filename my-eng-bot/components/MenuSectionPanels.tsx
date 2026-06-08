@@ -32,6 +32,7 @@ import {
   pickQuickStartPracticeTopic,
   type LessonCatalogLevel,
 } from '@/lib/lessonCatalog'
+import { getStructuredLessonById } from '@/lib/structuredLessons'
 import { getGrammarCategoryById } from '@/lib/grammarTaxonomy'
 import { getAllTheoryTagsForMenu, getTheoryTagById } from '@/lib/lessonTheoryTags'
 import { findPracticeTopicCandidatesByMenuKeys, type PracticeTopicCandidate } from '@/lib/lessonTopicSearch'
@@ -1214,18 +1215,18 @@ export default function MenuSectionPanels({
   // DEBUG: удалить после редактирования урока
   const debugSelectedLearningLesson = React.useMemo((): { lessonId: string; panel: LessonsPanel } | null => {
     if (menuView !== 'lessons') return null
+    let candidate: { lessonId: string; panel: LessonsPanel } | null = null
     if (lessonsPanel === 'a2' && selectedA2LessonId) {
-      return { lessonId: selectedA2LessonId, panel: 'a2' }
-    }
-    if (lessonsPanel === 'a1' && selectedA1LessonId) {
-      return { lessonId: selectedA1LessonId, panel: 'a1' }
-    }
-    if (lessonsPanel === 'theoryTagLessons' && selectedTheoryTopicLessonId) {
+      candidate = { lessonId: selectedA2LessonId, panel: 'a2' }
+    } else if (lessonsPanel === 'a1' && selectedA1LessonId) {
+      candidate = { lessonId: selectedA1LessonId, panel: 'a1' }
+    } else if (lessonsPanel === 'theoryTagLessons' && selectedTheoryTopicLessonId) {
       const topicMeta = getLessonTopicById(selectedTheoryTopicLessonId)
       const panel: LessonsPanel = topicMeta?.level === 'A1' ? 'a1' : 'a2'
-      return { lessonId: selectedTheoryTopicLessonId, panel }
+      candidate = { lessonId: selectedTheoryTopicLessonId, panel }
     }
-    return null
+    if (!candidate || !getStructuredLessonById(candidate.lessonId)) return null
+    return candidate
   }, [
     menuView,
     lessonsPanel,
@@ -1507,17 +1508,15 @@ export default function MenuSectionPanels({
             >
               <HomeIcon className="h-5 w-5 text-[var(--text-muted)]" />
             </button>
-            {onDebugSkipToLessonFinale ? (
+            {onDebugSkipToLessonFinale && debugSelectedLearningLesson ? (
               <button
                 type="button"
-                onClick={() => {
-                  if (!debugSelectedLearningLesson) return
+                onClick={() =>
                   onDebugSkipToLessonFinale(
                     debugSelectedLearningLesson.lessonId,
                     debugSelectedLearningLesson.panel
                   )
-                }}
-                disabled={!debugSelectedLearningLesson}
+                }
                 className={menuNavIconButtonClass}
                 aria-label="DEBUG: финал урока"
                 title="DEBUG: финал урока"

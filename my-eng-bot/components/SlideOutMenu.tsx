@@ -50,6 +50,8 @@ interface SlideOutMenuProps {
   onOpenLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void
   /** Сгенерировать новый вариант урока через LLM. */
   onGenerateLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => Promise<void> | void
+  /** DEBUG: сразу к финалу выбранного structured-урока. Удалить после редактирования. */
+  onDebugSkipToLessonFinale?: (lessonId: string, panel: LessonsPanel) => void
   onOpenPracticeSession?: (request: {
     lessonId?: string
     mode: PracticeMode
@@ -114,6 +116,7 @@ export default function SlideOutMenu({
   engvoVoiceMode = false,
   onOpenLearningLesson,
   onGenerateLearningLesson,
+  onDebugSkipToLessonFinale,
   onOpenPracticeSession,
   onGeneratePracticeSession,
   onOpenAccentTrainer,
@@ -235,6 +238,7 @@ export default function SlideOutMenu({
         onCloseMenu={open ? () => onToggle() : undefined}
         onOpenLearningLesson={onOpenLearningLesson}
         onGenerateLearningLesson={onGenerateLearningLesson}
+        onDebugSkipToLessonFinale={onDebugSkipToLessonFinale}
         onOpenPracticeSession={onOpenPracticeSession}
         onGeneratePracticeSession={onGeneratePracticeSession}
         onOpenAccentTrainer={onOpenAccentTrainer}

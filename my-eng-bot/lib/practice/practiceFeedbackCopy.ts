@@ -1,7 +1,5 @@
 import type { Audience } from '@/lib/types'
 
-const WRONG_MARKER = '🔴'
-
 const PRACTICE_WRONG_LIMIT_ENCOURAGEMENTS_ADULT = [
   (answer: string) =>
     `Третья попытка — не вышло, но ты уже видел правильный вариант: ${answer}. На следующем шаге этот паттерн поймается легче.`,
@@ -64,8 +62,8 @@ export function buildPracticeWrongAnswerFeedback(params: {
 }): string {
   const answer = params.correctAnswer.trim()
   if (params.attemptNumber === 1) {
-    return `${WRONG_MARKER} Неверно. Правильно: ${answer}`
+    return `Неверно. Правильно: ${answer}`
   }
   const retryLead = params.audience === 'child' ? 'Давай ещё раз' : 'Попробуйте ещё раз'
-  return `${WRONG_MARKER} Неверно. ${retryLead}: ${answer}`
+  return `Неверно. ${retryLead}: ${answer}`
 }

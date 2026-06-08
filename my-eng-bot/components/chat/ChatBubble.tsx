@@ -11,6 +11,10 @@ const USER_BUBBLE_RADIUS = 'rounded-[var(--bubble-radius-user,var(--bubble-radiu
 /** Симметричные углы карточки урока (1–3 полосы); не мессенджерный «хвост». */
 export const LESSON_CARD_RADIUS_CLASS = ASSISTANT_BUBBLE_RADIUS
 
+/** Сервисная строка в ленте (проверка ответа и т.п.) — без карточки, с отступом как у пузырей ассистента. */
+export const CHAT_FEED_SERVICE_STATUS_ROW_CLASS =
+  'mb-2.5 flex justify-start pl-3.5 pr-1 sm:pl-4'
+
 type ChatBubbleFrameProps = {
   role: BubbleRole
   position?: BubblePosition

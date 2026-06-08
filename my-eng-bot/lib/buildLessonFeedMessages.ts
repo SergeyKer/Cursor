@@ -3,6 +3,7 @@ import {
   ENGVO_LESSON_ADVANCING_MESSAGE,
   ENGVO_LESSON_ADVANCING_VARIANT_MESSAGE,
 } from '@/lib/engvoPersonaCopy'
+import { prefixFeedbackMarker, resolveFeedbackMarker } from '@/lib/feedbackMarkers'
 import { formatLessonErrorFeedback } from '@/lib/lessonFeedbackMessage'
 import {
   hasHistoricalAttemptsForCurrentStep,
@@ -138,6 +139,12 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
     }
 
     if (entry.feedback && (!entry.isCurrent || status === 'feedback')) {
+      const feedbackAttemptNumber = resolveLessonAnswerAttemptNumber({
+        entry,
+        historyAttemptOrdinal: attemptOrdinal,
+        timeline,
+      })
+      const feedbackTone = entry.feedback.type === 'success' ? 'success' : 'error'
       const feedbackText =
         entry.feedback.type === 'error' &&
         entry.step.exercise &&
@@ -145,15 +152,19 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
           ? formatLessonErrorFeedback({
               message: entry.feedback.message,
               correctAnswer: entry.step.exercise.correctAnswer,
-              attemptNumber: attemptOrdinal,
+              attemptNumber: feedbackAttemptNumber,
             })
           : entry.feedback.message
+      const marker = resolveFeedbackMarker({
+        tone: feedbackTone,
+        attemptNumber: feedbackAttemptNumber,
+      })
       target.push({
         id: `feedback-${messageBaseId}-${entry.feedback.type}`,
         role: 'assistant',
         kind: 'status',
-        text: feedbackText,
-        tone: entry.feedback.type === 'success' ? 'success' : 'error',
+        text: prefixFeedbackMarker(marker, feedbackText),
+        tone: feedbackTone,
       })
     }
 
