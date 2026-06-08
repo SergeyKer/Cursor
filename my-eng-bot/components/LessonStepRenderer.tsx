@@ -905,17 +905,9 @@ export default function LessonStepRenderer({
                       }
                     >
                       <section
-                        className={`lesson-enter chat-section-surface glass-surface rounded-xl border ${
-                          message.tone === 'service' ? 'px-3 py-2' : 'px-2.5 py-1.5'
-                        } ${lessonStatusCardClassByTone[message.tone]}`}
+                        className={`lesson-enter chat-section-surface glass-surface rounded-xl border px-2.5 py-1.5 ${lessonStatusCardClassByTone[message.tone]}`}
                       >
-                        {message.tone === 'service' ? (
-                          <p className="whitespace-pre-line break-words text-[15px] leading-[1.45]">
-                            {message.text}
-                          </p>
-                        ) : (
-                          <FeedbackStatusText text={message.text} />
-                        )}
+                        <FeedbackStatusText text={message.text} />
                       </section>
                     </ChatBubbleFrame>
                   )

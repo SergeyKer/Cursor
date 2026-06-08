@@ -452,10 +452,10 @@ export default function PracticeScreen({
                     >
                       <section
                         className={`chat-section-surface glass-surface rounded-xl border ${
-                          message.tone === 'service' || !message.text ? 'px-3 py-2' : 'px-2.5 py-1.5'
+                          !message.text ? 'px-3 py-2' : 'px-2.5 py-1.5'
                         } ${statusCardClassByTone[message.tone ?? 'success']}`}
                       >
-                        {message.tone === 'service' || !message.text ? (
+                        {!message.text ? (
                           <p className="whitespace-pre-line break-words text-[15px] leading-[1.45]">
                             {message.text}
                           </p>
