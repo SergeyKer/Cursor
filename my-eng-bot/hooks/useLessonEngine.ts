@@ -1115,6 +1115,7 @@ export function useLessonEngine(lesson: LessonData | null) {
     onPuzzleProgressChange: setPuzzleProgress,
     goToNext,
     goToStep,
+    goToFinale,
     resetCombo: () => {
       comboRef.current = 0
       setCombo(0)

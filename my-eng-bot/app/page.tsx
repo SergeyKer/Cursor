@@ -673,6 +673,7 @@ export default function Home() {
     lastXpAward: activeStructuredLessonLastXpAward,
     isAdvancingToNextStep: activeStructuredLessonIsAdvancingToNextStep,
     isAdvancingToNextVariant: activeStructuredLessonIsAdvancingToNextVariant,
+    goToFinale: goToStructuredLessonFinale,
   } = useLessonEngine(activeStructuredLesson)
   const isStructuredLessonRepeatRun =
     activeLessonVariantNumber > 1 ||
@@ -681,6 +682,8 @@ export default function Home() {
   const lessonFirstAnswerTrackedRef = React.useRef(false)
   const lessonCycle1ActiveSessionRef = React.useRef(false)
   const finalizeLessonCycle1OnLeaveRef = React.useRef<() => void>(() => {})
+  // DEBUG: удалить после редактирования урока
+  const debugFinalePendingRef = React.useRef<string | null>(null)
 
   const practiceSession = usePracticeSession({ audience: settings.audience })
   const { abandonSession: abandonPracticeSession, startSession: startPracticeSession } = practiceSession
@@ -2923,6 +2926,33 @@ export default function Home() {
     [activeLearningLessonId, dialogStarted, lessonViewStage, openLearningLesson]
   )
 
+  // DEBUG: удалить после редактирования урока
+  const handleDebugSkipToLessonFinale = useCallback(
+    (lessonId: string, lessonsPanel: LessonsPanel) => {
+      if (!getStructuredLessonById(lessonId)) return
+      setMenuOpen(false)
+      if (
+        dialogStarted &&
+        activeStructuredLessonRuntime != null &&
+        activeStructuredLesson?.id === lessonId
+      ) {
+        setLessonViewStage('lesson')
+        goToStructuredLessonFinale()
+        return
+      }
+      debugFinalePendingRef.current = lessonId
+      void openLearningLesson(lessonId, lessonsPanel)
+      setLessonViewStage('lesson')
+    },
+    [
+      activeStructuredLesson?.id,
+      activeStructuredLessonRuntime,
+      dialogStarted,
+      goToStructuredLessonFinale,
+      openLearningLesson,
+    ]
+  )
+
   const openGeneratedLearningLesson = useCallback(
     async (lessonId: string, lessonsPanel: LessonsPanel = 'a2', meta?: LearningLessonMenuMeta) => {
       const baseLesson = getLearningLessonById(lessonId)
@@ -3890,6 +3920,16 @@ export default function Home() {
     if (activeStructuredLessonStatus !== 'completed') return
     persistActiveStructuredLessonProgress({ lastCompleted: new Date().toISOString() })
   }, [activeStructuredLessonStatus, persistActiveStructuredLessonProgress])
+
+  // DEBUG: удалить после редактирования урока
+  useEffect(() => {
+    const pendingLessonId = debugFinalePendingRef.current
+    if (!pendingLessonId) return
+    if (lessonViewStage !== 'lesson') return
+    if (!activeStructuredLesson || activeStructuredLesson.id !== pendingLessonId) return
+    debugFinalePendingRef.current = null
+    goToStructuredLessonFinale()
+  }, [activeStructuredLesson, lessonViewStage, goToStructuredLessonFinale])
 
   useEffect(() => {
     if (!selectedPostLessonAction) return
@@ -6259,6 +6299,7 @@ export default function Home() {
                     onEngvoLevelChange={handleEngvoLevelChange}
                     onEngvoSpeechSpeedChange={handleEngvoSpeechSpeedChange}
                     onOpenLearningLesson={openOrContinueLearningLesson}
+                    onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}
                     onGenerateLearningLesson={openGeneratedLearningLesson}
                     onOpenPracticeSession={openPracticeSession}
                     onGeneratePracticeSession={generatePracticeSession}

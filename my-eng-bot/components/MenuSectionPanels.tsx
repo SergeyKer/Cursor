@@ -363,6 +363,8 @@ export interface MenuSectionPanelsProps {
   onAiChatPanelChange?: (panel: AiChatPanel) => void
   /** Открыть урок из ветки «Обучение». */
   onOpenLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void | Promise<void>
+  /** DEBUG: сразу к финалу выбранного structured-урока. Удалить после редактирования. */
+  onDebugSkipToLessonFinale?: (lessonId: string, panel: LessonsPanel) => void
   /** Сгенерировать новый вариант урока через LLM, не открывая локальную версию. */
   onGenerateLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void | Promise<void>
   onOpenPracticeSession?: (request: {
@@ -437,6 +439,7 @@ export default function MenuSectionPanels({
   onEngvoSpeechSpeedChange,
   onAiChatPanelChange,
   onOpenLearningLesson,
+  onDebugSkipToLessonFinale,
   onGenerateLearningLesson,
   onOpenPracticeSession,
   onGeneratePracticeSession,
@@ -1208,6 +1211,29 @@ export default function MenuSectionPanels({
     else onMenuViewChange('root')
   }
 
+  // DEBUG: удалить после редактирования урока
+  const debugSelectedLearningLesson = React.useMemo((): { lessonId: string; panel: LessonsPanel } | null => {
+    if (menuView !== 'lessons') return null
+    if (lessonsPanel === 'a2' && selectedA2LessonId) {
+      return { lessonId: selectedA2LessonId, panel: 'a2' }
+    }
+    if (lessonsPanel === 'a1' && selectedA1LessonId) {
+      return { lessonId: selectedA1LessonId, panel: 'a1' }
+    }
+    if (lessonsPanel === 'theoryTagLessons' && selectedTheoryTopicLessonId) {
+      const topicMeta = getLessonTopicById(selectedTheoryTopicLessonId)
+      const panel: LessonsPanel = topicMeta?.level === 'A1' ? 'a1' : 'a2'
+      return { lessonId: selectedTheoryTopicLessonId, panel }
+    }
+    return null
+  }, [
+    menuView,
+    lessonsPanel,
+    selectedA2LessonId,
+    selectedA1LessonId,
+    selectedTheoryTopicLessonId,
+  ])
+
   const resetTutorState = React.useCallback(() => {
     setTutorImageError(null)
     setTutorLoading(false)
@@ -1481,6 +1507,24 @@ export default function MenuSectionPanels({
             >
               <HomeIcon className="h-5 w-5 text-[var(--text-muted)]" />
             </button>
+            {onDebugSkipToLessonFinale ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!debugSelectedLearningLesson) return
+                  onDebugSkipToLessonFinale(
+                    debugSelectedLearningLesson.lessonId,
+                    debugSelectedLearningLesson.panel
+                  )
+                }}
+                disabled={!debugSelectedLearningLesson}
+                className={menuNavIconButtonClass}
+                aria-label="DEBUG: финал урока"
+                title="DEBUG: финал урока"
+              >
+                <span className="text-[13px] font-bold leading-none text-[var(--text-muted)]">⏭</span>
+              </button>
+            ) : null}
           </div>
           <h2 className="min-w-0 flex-1 truncate pr-2 text-right [font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif] text-[18px] font-semibold leading-[1.25] tracking-normal text-[var(--text)] sm:pr-3">
             {headerTitle}
