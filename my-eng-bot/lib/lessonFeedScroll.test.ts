@@ -5,21 +5,35 @@ import {
   LESSON_INPUT_GAP_PX,
   parseLessonScrollPaddingPx,
   remToPx,
+  resolveLessonScrollBehavior,
+  resolveLessonScrollContainerPaddingPx,
   resolveScrollBottomPadding,
   resolveShowFeedEndAnchor,
   simulateScrollTopAfterIntoViewEnd,
   simulateScrollTopAfterScrollToMax,
+  simulateScrollTopAfterTailIfNeeded,
 } from '@/lib/lessonFeedScroll'
 
 const ROOT_PX = 16
 const CLIENT_HEIGHT_PX = 400
-/** Короткая лента: один bubble на шаге 5 (~60–120px). */
 const SHORT_CONTENT_PX = 100
-/** Длинная лента: шаги 1–4 + шаг 5. */
 const LONG_CONTENT_PX = 2200
+const SYMMETRIC_PADDING_PX = resolveLessonScrollContainerPaddingPx(ROOT_PX)
 
-describe('resolveScrollBottomPadding — текущая vs исправленная логика', () => {
-  it('шаг 4: padding включает --chat-input-height (~5.5rem), не 18rem', () => {
+describe('resolveScrollBottomPadding', () => {
+  it('composerOutsideScroll: true → undefined (симметрия через tailwind p-2.5)', () => {
+    expect(
+      resolveScrollBottomPadding({
+        hasCurrentStep: true,
+        hasPostLessonOptions: false,
+        isSentencePuzzle: false,
+        bottomStackHeightPx: 66,
+        composerOutsideScroll: true,
+      })
+    ).toBeUndefined()
+  })
+
+  it('legacy: без composerOutsideScroll padding включает высоту панели', () => {
     const padding = resolveScrollBottomPadding({
       hasCurrentStep: true,
       hasPostLessonOptions: false,
@@ -27,50 +41,75 @@ describe('resolveScrollBottomPadding — текущая vs исправленн�
       bottomStackHeightPx: 0,
     })
     expect(padding).toContain(`${CHAT_INPUT_HEIGHT_REM}rem`)
-    expect(padding).not.toContain('18rem')
     expect(parseLessonScrollPaddingPx(padding, ROOT_PX)).toBe(
       remToPx(0.625 + CHAT_INPUT_HEIGHT_REM, ROOT_PX) + LESSON_INPUT_GAP_PX
     )
   })
 
-  it('шаг 5 (текущий баг): padding включает PUZZLE fallback 18rem — в ~3.3× больше шага 4', () => {
-    const step4PaddingPx = parseLessonScrollPaddingPx(
-      resolveScrollBottomPadding({
-        hasCurrentStep: true,
-        hasPostLessonOptions: false,
-        isSentencePuzzle: false,
-        bottomStackHeightPx: 0,
-      }),
-      ROOT_PX
-    )
-    const step5PaddingPx = parseLessonScrollPaddingPx(
-      resolveScrollBottomPadding({
-        hasCurrentStep: true,
-        hasPostLessonOptions: false,
-        isSentencePuzzle: true,
-        bottomStackHeightPx: 0,
-      }),
-      ROOT_PX
-    )
-
-    expect(step5PaddingPx).toBeGreaterThan(step4PaddingPx * 2.5)
-    expect(step5PaddingPx).toBe(remToPx(0.625 + 18, ROOT_PX) + LESSON_INPUT_GAP_PX)
-  })
-
-  it('шаг 5 (fix): минимальный padding без высоты панели пазла', () => {
+  it('puzzle без composerOutsideScroll: fallback 18rem', () => {
     const padding = resolveScrollBottomPadding({
       hasCurrentStep: true,
       hasPostLessonOptions: false,
       isSentencePuzzle: true,
       bottomStackHeightPx: 0,
-      useMinimalPuzzlePadding: true,
     })
-    expect(parseLessonScrollPaddingPx(padding, ROOT_PX)).toBe(remToPx(0.625, ROOT_PX) + LESSON_INPUT_GAP_PX)
+    expect(padding).toContain('18rem')
+  })
+})
+
+describe('resolveLessonScrollBehavior', () => {
+  it('prefersReducedMotion → auto', () => {
+    expect(
+      resolveLessonScrollBehavior({ prefersReducedMotion: true, reason: 'reveal' })
+    ).toBe('auto')
+  })
+
+  it('step_change и overflow_follow → auto', () => {
+    expect(
+      resolveLessonScrollBehavior({ prefersReducedMotion: false, reason: 'step_change' })
+    ).toBe('auto')
+    expect(
+      resolveLessonScrollBehavior({ prefersReducedMotion: false, reason: 'overflow_follow' })
+    ).toBe('auto')
+  })
+
+  it('reveal / new_message / feedback → smooth', () => {
+    expect(resolveLessonScrollBehavior({ prefersReducedMotion: false, reason: 'reveal' })).toBe(
+      'smooth'
+    )
+    expect(
+      resolveLessonScrollBehavior({ prefersReducedMotion: false, reason: 'new_message' })
+    ).toBe('smooth')
+    expect(resolveLessonScrollBehavior({ prefersReducedMotion: false, reason: 'feedback' })).toBe(
+      'smooth'
+    )
+  })
+})
+
+describe('simulateScrollTopAfterTailIfNeeded', () => {
+  it('короткая лента: scrollTop = 0', () => {
+    expect(
+      simulateScrollTopAfterTailIfNeeded({
+        contentHeightPx: 300,
+        scrollPaddingBottomPx: SYMMETRIC_PADDING_PX,
+        clientHeightPx: CLIENT_HEIGHT_PX,
+      })
+    ).toBe(0)
+  })
+
+  it('длинная лента: scrollTop > 0', () => {
+    expect(
+      simulateScrollTopAfterTailIfNeeded({
+        contentHeightPx: LONG_CONTENT_PX,
+        scrollPaddingBottomPx: SYMMETRIC_PADDING_PX,
+        clientHeightPx: CLIENT_HEIGHT_PX,
+      })
+    ).toBeGreaterThan(0)
   })
 })
 
 describe('showFeedEndAnchor — puzzle + scrollIntoView path', () => {
-  it('текущий баг: puzzle включает feedEndAnchor → scrollIntoView вместо scrollTo', () => {
+  it('puzzle с includePuzzleAnchor', () => {
     expect(
       resolveShowFeedEndAnchor({
         hasPostLessonOptions: false,
@@ -80,7 +119,7 @@ describe('showFeedEndAnchor — puzzle + scrollIntoView path', () => {
     ).toBe(true)
   })
 
-  it('fix: puzzle без feedEndAnchor', () => {
+  it('puzzle без feedEndAnchor', () => {
     expect(
       resolveShowFeedEndAnchor({
         hasPostLessonOptions: false,
@@ -91,10 +130,10 @@ describe('showFeedEndAnchor — puzzle + scrollIntoView path', () => {
   })
 })
 
-describe('simulateScrollTopAfterIntoViewEnd — причина «липнет к верху»', () => {
+describe('simulateScrollTopAfterIntoViewEnd — раздутый padding (legacy)', () => {
   const puzzlePaddingPx = remToPx(0.625 + 18, ROOT_PX) + LESSON_INPUT_GAP_PX
 
-  it('короткая лента + 18rem scrollPadding: scrollTop почти 0 (липнет к верху)', () => {
+  it('короткая лента + 18rem scrollPadding: scrollTop почти 0', () => {
     const scrollTop = simulateScrollTopAfterIntoViewEnd({
       contentHeightPx: SHORT_CONTENT_PX,
       clientHeightPx: CLIENT_HEIGHT_PX,
@@ -103,7 +142,7 @@ describe('simulateScrollTopAfterIntoViewEnd — причина «липнет к
     expect(scrollTop).toBeLessThan(20)
   })
 
-  it('при scrollTop=0 виден огромный зазор до низа viewport (как на скрине)', () => {
+  it('при scrollTop=0 виден огромный зазор (legacy баг)', () => {
     const visibleGap = computeVisibleGapAboveScrollBottom({
       contentHeightPx: SHORT_CONTENT_PX,
       scrollPaddingBottomPx: puzzlePaddingPx,
@@ -114,120 +153,36 @@ describe('simulateScrollTopAfterIntoViewEnd — причина «липнет к
   })
 })
 
-describe('post-lesson medal — padding и scrollTo(max)', () => {
-  const postLessonFallbackPaddingPx = remToPx(0.625 + 16, ROOT_PX) + LESSON_INPUT_GAP_PX
-  const minimalPaddingPx = remToPx(0.625, ROOT_PX) + LESSON_INPUT_GAP_PX
-  const measuredBottomStackPx = 200
-
-  it('до замера: fallback 16rem в resolveScrollBottomPadding', () => {
-    const padding = resolveScrollBottomPadding({
-      hasCurrentStep: true,
-      hasPostLessonOptions: true,
-      isSentencePuzzle: false,
-      bottomStackHeightPx: 0,
-    })
-    expect(padding).toContain('16rem')
-  })
-
-  it('fix: минимальный padding до замера нижней панели', () => {
-    const padding = resolveScrollBottomPadding({
-      hasCurrentStep: true,
-      hasPostLessonOptions: true,
-      isSentencePuzzle: false,
-      bottomStackHeightPx: 0,
-      useMinimalPostLessonPadding: true,
-    })
-    expect(parseLessonScrollPaddingPx(padding, ROOT_PX)).toBe(minimalPaddingPx)
-  })
-
-  it('регрессия: без useMinimalPostLessonPadding замер панели раздувает padding', () => {
-    const padding = resolveScrollBottomPadding({
-      hasCurrentStep: true,
-      hasPostLessonOptions: true,
-      isSentencePuzzle: false,
-      bottomStackHeightPx: measuredBottomStackPx,
-    })
-    expect(padding).toContain(`${measuredBottomStackPx}px`)
-    expect(padding).not.toContain('16rem')
-  })
-
-  it('fix: после замера панели — минимальный padding (как у пазла)', () => {
-    const padding = resolveScrollBottomPadding({
-      hasCurrentStep: true,
-      hasPostLessonOptions: true,
-      isSentencePuzzle: false,
-      bottomStackHeightPx: measuredBottomStackPx,
-      useMinimalPostLessonPadding: true,
-    })
-    expect(parseLessonScrollPaddingPx(padding, ROOT_PX)).toBe(minimalPaddingPx)
-    expect(padding).not.toContain(`${measuredBottomStackPx}px`)
-  })
-
-  it('длинная лента + 16rem: огромный зазор над низом scroll-области', () => {
+describe('scrollTo(max) с симметричным padding (урок после fix)', () => {
+  it('длинная лента + p-2.5 padding — зазор ~10px', () => {
     const scrollTop = simulateScrollTopAfterScrollToMax({
       contentHeightPx: LONG_CONTENT_PX,
-      scrollPaddingBottomPx: postLessonFallbackPaddingPx,
+      scrollPaddingBottomPx: SYMMETRIC_PADDING_PX,
       clientHeightPx: CLIENT_HEIGHT_PX,
     })
     const visibleGap = computeVisibleGapAboveScrollBottom({
       contentHeightPx: LONG_CONTENT_PX,
-      scrollPaddingBottomPx: postLessonFallbackPaddingPx,
+      scrollPaddingBottomPx: SYMMETRIC_PADDING_PX,
       clientHeightPx: CLIENT_HEIGHT_PX,
       scrollTop,
     })
-    expect(visibleGap).toBeGreaterThan(250)
+    expect(visibleGap).toBeGreaterThanOrEqual(8)
+    expect(visibleGap).toBeLessThan(14)
   })
 
-  it('fix: длинная лента + минимальный padding (панель снаружи scroll) — зазор как у пазла', () => {
+  it('legacy: раздутый padding даёт зазор ~300px', () => {
+    const inflatedPaddingPx = remToPx(0.625 + 18, ROOT_PX) + LESSON_INPUT_GAP_PX
     const scrollTop = simulateScrollTopAfterScrollToMax({
       contentHeightPx: LONG_CONTENT_PX,
-      scrollPaddingBottomPx: minimalPaddingPx,
+      scrollPaddingBottomPx: inflatedPaddingPx,
       clientHeightPx: CLIENT_HEIGHT_PX,
     })
     const visibleGap = computeVisibleGapAboveScrollBottom({
       contentHeightPx: LONG_CONTENT_PX,
-      scrollPaddingBottomPx: minimalPaddingPx,
-      clientHeightPx: CLIENT_HEIGHT_PX,
-      scrollTop,
-    })
-    expect(visibleGap).toBeGreaterThanOrEqual(20)
-    expect(visibleGap).toBeLessThan(35)
-  })
-})
-
-describe('simulateScrollTopAfterScrollToMax — длинная лента (типичный шаг 5)', () => {
-  const puzzlePaddingPx = remToPx(0.625 + 18, ROOT_PX) + LESSON_INPUT_GAP_PX
-  const minimalPaddingPx = remToPx(0.625, ROOT_PX) + LESSON_INPUT_GAP_PX
-
-  it('текущий баг: scrollTo max + 18rem padding → зазор ~298px над низом scroll-области', () => {
-    const scrollTop = simulateScrollTopAfterScrollToMax({
-      contentHeightPx: LONG_CONTENT_PX,
-      scrollPaddingBottomPx: puzzlePaddingPx,
-      clientHeightPx: CLIENT_HEIGHT_PX,
-    })
-    const visibleGap = computeVisibleGapAboveScrollBottom({
-      contentHeightPx: LONG_CONTENT_PX,
-      scrollPaddingBottomPx: puzzlePaddingPx,
+      scrollPaddingBottomPx: inflatedPaddingPx,
       clientHeightPx: CLIENT_HEIGHT_PX,
       scrollTop,
     })
     expect(visibleGap).toBeGreaterThan(290)
-    expect(visibleGap).toBeLessThan(310)
-  })
-
-  it('fix: scrollTo max + минимальный padding → зазор ~26px (как на шагах 1–4 по порядку величины)', () => {
-    const scrollTop = simulateScrollTopAfterScrollToMax({
-      contentHeightPx: LONG_CONTENT_PX,
-      scrollPaddingBottomPx: minimalPaddingPx,
-      clientHeightPx: CLIENT_HEIGHT_PX,
-    })
-    const visibleGap = computeVisibleGapAboveScrollBottom({
-      contentHeightPx: LONG_CONTENT_PX,
-      scrollPaddingBottomPx: minimalPaddingPx,
-      clientHeightPx: CLIENT_HEIGHT_PX,
-      scrollTop,
-    })
-    expect(visibleGap).toBeGreaterThanOrEqual(20)
-    expect(visibleGap).toBeLessThan(35)
   })
 })

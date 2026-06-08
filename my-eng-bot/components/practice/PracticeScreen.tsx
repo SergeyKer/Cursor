@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import PracticeFinale from '@/components/practice/PracticeFinale'
 import PracticeInstructionFlowInfoStep from '@/components/practice/PracticeInstructionFlowInfoStep'
 import PracticeQuestionRenderer from '@/components/practice/PracticeQuestionRenderer'
@@ -13,14 +13,11 @@ import {
 import { CHAT_COMPOSER_STACK_CLASS, getChatComposerStackLayout } from '@/lib/chatComposerMetrics'
 import { isPracticeChoiceChipsPanel } from '@/lib/practice/practiceComposerLayout'
 import { isPracticeCorrectionComposerActive } from '@/lib/practice/practiceCorrectionMode'
-import { resolveScrollBottomPadding } from '@/lib/lessonFeedScroll'
 import {
-  computeScrollTopToPinBlockBottom,
-  getBlockOffsetTopWithinScrollRoot,
-  isPracticeFeedShorterThanViewport,
-  resolvePracticePinBottomInsetPx,
-} from '@/lib/practice/practiceFeedScroll'
-import { scrollLessonFeedToMax } from '@/lib/lessonFeedScroll'
+  resolveLessonScrollBehavior,
+  resolveScrollBottomPadding,
+  scrollLessonFeedTailIfNeeded,
+} from '@/lib/lessonFeedScroll'
 import PracticeQuestionBubble from '@/components/practice/PracticeQuestionBubble'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
@@ -98,11 +95,7 @@ export default function PracticeScreen({
 }: PracticeScreenProps) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const messagesStackRef = useRef<HTMLDivElement | null>(null)
-  const feedEndRef = useRef<HTMLDivElement | null>(null)
   const bottomStackRef = useRef<HTMLDivElement | null>(null)
-  const [bottomStackHeight, setBottomStackHeight] = useState(0)
-  const [pinFeedToComposer, setPinFeedToComposer] = useState(false)
-  const pendingAdvanceAlignRef = useRef(false)
   const previousScrollSnapshotRef = useRef<{
     messageCount: number
     currentIndex: number
@@ -186,7 +179,8 @@ export default function PracticeScreen({
     hasCurrentStep: state !== 'briefing' && state !== 'completed',
     hasPostLessonOptions: false,
     isSentencePuzzle: false,
-    bottomStackHeightPx: bottomStackHeight,
+    bottomStackHeightPx: 0,
+    composerOutsideScroll: true,
   })
 
   const scheduleScroll = useCallback(
@@ -205,117 +199,19 @@ export default function PracticeScreen({
     []
   )
 
-  const scrollFeedTailIntoView = useCallback((behavior: ScrollBehavior = 'auto') => {
-    scrollLessonFeedToMax(scrollContainerRef.current, behavior)
+  const scrollPracticeFeedTail = useCallback((behavior: ScrollBehavior = 'auto') => {
+    scrollLessonFeedTailIfNeeded(scrollContainerRef.current, behavior)
   }, [])
 
-  const scheduleScrollFeedTailIntoView = useCallback(
-    (behavior: ScrollBehavior = 'auto') => scheduleScroll(scrollFeedTailIntoView, behavior),
-    [scheduleScroll, scrollFeedTailIntoView]
+  const scheduleScrollPracticeFeedTail = useCallback(
+    (behavior: ScrollBehavior = 'auto') => scheduleScroll(scrollPracticeFeedTail, behavior),
+    [scheduleScroll, scrollPracticeFeedTail]
   )
-
-  const alignCurrentQuestionToComposer = useCallback(
-    (behavior: ScrollBehavior = 'auto') => {
-      const scrollContainer = scrollContainerRef.current
-      const messagesStack = messagesStackRef.current
-      if (!scrollContainer || !messagesStack) return
-      if (state !== 'active') {
-        setPinFeedToComposer(false)
-        return
-      }
-
-      const pinBottomInsetPx = resolvePracticePinBottomInsetPx()
-      const clientHeight = scrollContainer.clientHeight
-      const scrollHeight = scrollContainer.scrollHeight
-      const stackOffsetHeight = messagesStack.offsetHeight
-      const shouldPin = isPracticeFeedShorterThanViewport({
-        contentHeightPx: stackOffsetHeight,
-        clientHeightPx: clientHeight,
-      })
-
-      setPinFeedToComposer((current) => (current === shouldPin ? current : shouldPin))
-
-      if (shouldPin) {
-        scrollContainer.scrollTo({ top: 0, behavior })
-        pendingAdvanceAlignRef.current = false
-        return
-      }
-
-      const feedEnd = feedEndRef.current
-      const pinTop = feedEnd
-        ? getBlockOffsetTopWithinScrollRoot(scrollContainer, feedEnd)
-        : getBlockOffsetTopWithinScrollRoot(scrollContainer, messagesStack) + stackOffsetHeight
-      const scrollTop = computeScrollTopToPinBlockBottom({
-        blockTopPx: pinTop,
-        blockHeightPx: 0,
-        clientHeightPx: clientHeight,
-        scrollPaddingBottomPx: pinBottomInsetPx,
-        scrollHeightPx: scrollHeight,
-      })
-      if (scrollTop <= 0) {
-        scrollLessonFeedToMax(scrollContainer, behavior)
-      } else {
-        scrollContainer.scrollTo({ top: scrollTop, behavior })
-      }
-      pendingAdvanceAlignRef.current = false
-    },
-    [state]
-  )
-
-  const scheduleAlignCurrentQuestionToComposer = useCallback(
-    (behavior: ScrollBehavior = 'auto') => scheduleScroll(alignCurrentQuestionToComposer, behavior),
-    [alignCurrentQuestionToComposer, scheduleScroll]
-  )
-
-  useEffect(() => {
-    const bottomStack = bottomStackRef.current
-    if (!bottomStack) {
-      setBottomStackHeight(0)
-      return
-    }
-
-    const syncBottomStackHeight = () => {
-      setBottomStackHeight(bottomStack.getBoundingClientRect().height)
-    }
-
-    syncBottomStackHeight()
-
-    if (typeof ResizeObserver === 'undefined') return
-
-    const observers: ResizeObserver[] = []
-
-    const bottomObserver = new ResizeObserver(() => {
-      syncBottomStackHeight()
-    })
-    bottomObserver.observe(bottomStack)
-    observers.push(bottomObserver)
-
-    const messagesStack = messagesStackRef.current
-    if (messagesStack) {
-      const messagesObserver = new ResizeObserver(() => {
-        if (state === 'active') {
-          scheduleAlignCurrentQuestionToComposer('auto')
-        }
-      })
-      messagesObserver.observe(messagesStack)
-      observers.push(messagesObserver)
-    }
-
-    return () => observers.forEach((observer) => observer.disconnect())
-  }, [state, currentQuestion?.id, session.currentIndex, scheduleAlignCurrentQuestionToComposer])
-
-  useEffect(() => {
-    if (state !== 'active') {
-      setPinFeedToComposer(false)
-    }
-  }, [state])
-
-  const effectivePinFeedToComposer = pinFeedToComposer && state === 'active'
 
   useLayoutEffect(() => {
     if (state === 'active' || state === 'briefing' || state === 'completed') return
-    return scheduleScrollFeedTailIntoView('auto')
-  }, [state, tailMessageId, messages.length, scheduleScrollFeedTailIntoView])
+    return scheduleScrollPracticeFeedTail('auto')
+  }, [state, tailMessageId, messages.length, scheduleScrollPracticeFeedTail])
 
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current
@@ -345,11 +241,9 @@ export default function PracticeScreen({
     if (previousSnapshot === null) {
       previousScrollSnapshotRef.current = nextSnapshot
       if (!skipScrollForFeedbackHandoff) {
-        if (state === 'active') {
-          scheduleAlignCurrentQuestionToComposer('auto')
-        } else {
-          scheduleScrollFeedTailIntoView('auto')
-        }
+        scheduleScrollPracticeFeedTail(
+          resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'initial' })
+        )
       }
       return
     }
@@ -366,63 +260,67 @@ export default function PracticeScreen({
     previousScrollSnapshotRef.current = nextSnapshot
     if (skipScrollForFeedbackHandoff) return
 
-    if (indexChanged && state === 'active') {
-      pendingAdvanceAlignRef.current = true
-      scheduleAlignCurrentQuestionToComposer('auto')
-      return
-    }
-
-    if (state === 'submitting') {
-      pendingAdvanceAlignRef.current = false
-      setPinFeedToComposer(false)
-    }
-
-    const scrollBehavior: ScrollBehavior = indexChanged ? 'auto' : 'smooth'
-    if (state === 'active') {
-      scheduleAlignCurrentQuestionToComposer(scrollBehavior)
-    } else {
-      scheduleScrollFeedTailIntoView(scrollBehavior)
-    }
+    const scrollBehavior = resolveLessonScrollBehavior({
+      prefersReducedMotion,
+      reason: indexChanged
+        ? 'step_change'
+        : messageCountIncreased || tailChanged
+          ? 'new_message'
+          : 'initial',
+    })
+    scheduleScrollPracticeFeedTail(scrollBehavior)
   }, [
     messages.length,
     session.currentIndex,
     state,
     tailMessageId,
-    scheduleAlignCurrentQuestionToComposer,
-    scheduleScrollFeedTailIntoView,
-  ])
-
-  useLayoutEffect(() => {
-    if (!pendingAdvanceAlignRef.current || state !== 'active') return
-    return scheduleAlignCurrentQuestionToComposer('auto')
-  }, [
-    state,
-    session.currentIndex,
-    messages.length,
-    tailMessageId,
-    bottomStackHeight,
-    scheduleAlignCurrentQuestionToComposer,
+    prefersReducedMotion,
+    scheduleScrollPracticeFeedTail,
   ])
 
   useLayoutEffect(() => {
     const previousState = previousStateRef.current
     if (state !== 'feedback' || previousState === 'checking') return
-    return scheduleScrollFeedTailIntoView('auto')
-  }, [state, tailMessageId, scheduleScrollFeedTailIntoView])
+    return scheduleScrollPracticeFeedTail(
+      resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'feedback' })
+    )
+  }, [state, tailMessageId, prefersReducedMotion, scheduleScrollPracticeFeedTail])
 
   useEffect(() => {
     if (!isRevealInProgress) return
-    if (state === 'active') {
-      return scheduleAlignCurrentQuestionToComposer('smooth')
-    }
-    return scheduleScrollFeedTailIntoView('smooth')
+    const behavior = resolveLessonScrollBehavior({
+      prefersReducedMotion,
+      reason: 'reveal',
+    })
+    return scheduleScrollPracticeFeedTail(behavior)
   }, [
     visibleSectionCount,
     typingSectionIndex,
     isRevealInProgress,
+    prefersReducedMotion,
+    scheduleScrollPracticeFeedTail,
+  ])
+
+  useEffect(() => {
+    const messagesStack = messagesStackRef.current
+    if (!messagesStack || state === 'briefing' || state === 'completed') return
+    if (typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver(() => {
+      scheduleScrollPracticeFeedTail(
+        resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'overflow_follow' })
+      )
+    })
+    observer.observe(messagesStack)
+    return () => observer.disconnect()
+  }, [
     state,
-    scheduleAlignCurrentQuestionToComposer,
-    scheduleScrollFeedTailIntoView,
+    prefersReducedMotion,
+    scheduleScrollPracticeFeedTail,
+    messages.length,
+    visibleSectionCount,
+    isRevealInProgress,
+    session.currentIndex,
   ])
 
   const showQuestionComposer =
@@ -460,13 +358,7 @@ export default function PracticeScreen({
                   : undefined
               }
             >
-              <div className={effectivePinFeedToComposer ? 'min-h-full' : undefined}>
-                <div
-                  ref={messagesStackRef}
-                  className={
-                    effectivePinFeedToComposer ? 'flex min-h-full flex-col justify-end' : undefined
-                  }
-                >
+              <div ref={messagesStackRef}>
                 {messages.map((message, index) => {
                   const previousRole = messages[index - 1]?.role as BubbleRole | undefined
                   const nextRole = messages[index + 1]?.role as BubbleRole | undefined
@@ -488,14 +380,12 @@ export default function PracticeScreen({
                       isActiveRevealTarget && isRevealInProgress ? typingSectionIndex : null
 
                     return (
-                      <div
-                        key={message.id}
-                        {...(isCurrentQuestion ? { 'data-practice-current-question': '' } : {})}
-                      >
+                      <div key={message.id}>
                         {lessonVisibleSectionCount > 0 ? (
                           <ChatBubbleFrame
                             role="assistant"
                             position={position}
+                            className="w-full"
                             rowClassName={rowMargin}
                           >
                             <PracticeQuestionBubble
@@ -564,8 +454,6 @@ export default function PracticeScreen({
                     </ChatBubbleFrame>
                   )
                 })}
-                <div ref={feedEndRef} className="h-0 w-full shrink-0" aria-hidden="true" />
-                </div>
               </div>
             </div>
 

@@ -2,6 +2,8 @@ import { PUZZLE_BOTTOM_STACK_FALLBACK } from '@/lib/puzzlePanelLayout'
 
 export const LESSON_INPUT_GAP_PX = 10
 export const LESSON_SCROLL_GAP_REM = 0.625
+/** Симметричный padding scroll-контейнера (tailwind p-2.5). */
+export const LESSON_SCROLL_CONTAINER_PADDING_REM = LESSON_SCROLL_GAP_REM
 /** Fallback из globals.css — высота input на шагах 1–4. */
 export const CHAT_INPUT_HEIGHT_REM = 5.5
 
@@ -10,9 +12,31 @@ export type LessonScrollLayoutInput = {
   hasPostLessonOptions: boolean
   isSentencePuzzle: boolean
   bottomStackHeightPx: number
-  useMinimalPuzzlePadding?: boolean
-  /** Без замера нижней панели — не раздувать padding (16rem), иначе scrollTo(max) оставляет пустоту. */
-  useMinimalPostLessonPadding?: boolean
+  /** Нижняя панель — sibling вне scroll (LessonStepRenderer). */
+  composerOutsideScroll?: boolean
+}
+
+export type LessonScrollBehaviorReason =
+  | 'initial'
+  | 'step_change'
+  | 'overflow_follow'
+  | 'reveal'
+  | 'new_message'
+  | 'feedback'
+
+export function resolveLessonScrollBehavior(input: {
+  prefersReducedMotion: boolean
+  reason: LessonScrollBehaviorReason
+}): ScrollBehavior {
+  if (input.prefersReducedMotion) return 'auto'
+  if (
+    input.reason === 'initial' ||
+    input.reason === 'step_change' ||
+    input.reason === 'overflow_follow'
+  ) {
+    return 'auto'
+  }
+  return 'smooth'
 }
 
 export function resolveBottomStackHeightCss(input: {
@@ -36,12 +60,8 @@ export function resolveBottomStackHeightCss(input: {
 export function resolveScrollBottomPadding(input: LessonScrollLayoutInput): string | undefined {
   if (!input.hasCurrentStep) return undefined
 
-  if (input.isSentencePuzzle && input.useMinimalPuzzlePadding) {
-    return `calc(${LESSON_SCROLL_GAP_REM}rem + ${LESSON_INPUT_GAP_PX}px)`
-  }
-
-  if (input.hasPostLessonOptions && input.useMinimalPostLessonPadding) {
-    return `calc(${LESSON_SCROLL_GAP_REM}rem + ${LESSON_INPUT_GAP_PX}px)`
+  if (input.composerOutsideScroll) {
+    return undefined
   }
 
   const bottomStackHeightCss = resolveBottomStackHeightCss({
@@ -66,11 +86,17 @@ export function remToPx(rem: number, rootPx = 16): number {
   return rem * rootPx
 }
 
+export function resolveLessonScrollContainerPaddingPx(rootPx = 16): number {
+  return remToPx(LESSON_SCROLL_CONTAINER_PADDING_REM, rootPx)
+}
+
 export function parseLessonScrollPaddingPx(
   padding: string | undefined,
   rootPx = 16
 ): number {
-  if (!padding) return 0
+  if (!padding) {
+    return resolveLessonScrollContainerPaddingPx(rootPx)
+  }
   const gapPx = remToPx(LESSON_SCROLL_GAP_REM, rootPx) + LESSON_INPUT_GAP_PX
   if (padding.includes(PUZZLE_BOTTOM_STACK_FALLBACK)) {
     return gapPx + remToPx(18, rootPx)
@@ -88,7 +114,7 @@ export function computeMaxScrollTop(scrollHeight: number, clientHeight: number):
   return Math.max(0, scrollHeight - clientHeight)
 }
 
-/** scrollTo(max) — для puzzle, где feedEndAnchor и scrollIntoView не используются. */
+/** scrollTo(max) — для puzzle / post-lesson. */
 export function scrollLessonFeedToMax(
   scrollContainer: HTMLElement | null,
   behavior: ScrollBehavior = 'auto'
@@ -96,6 +122,24 @@ export function scrollLessonFeedToMax(
   if (!scrollContainer) return
   const maxTop = computeMaxScrollTop(scrollContainer.scrollHeight, scrollContainer.clientHeight)
   scrollContainer.scrollTo({ top: maxTop, behavior })
+}
+
+/** Скролл к хвосту только при переполнении; иначе контент остаётся у верха. */
+export function scrollLessonFeedTailIfNeeded(
+  scrollContainer: HTMLElement | null,
+  behavior: ScrollBehavior = 'auto'
+): void {
+  if (!scrollContainer) return
+  if (scrollContainer.scrollHeight <= scrollContainer.clientHeight) {
+    scrollContainer.scrollTo({ top: 0, behavior })
+    return
+  }
+  scrollLessonFeedToMax(scrollContainer, behavior)
+}
+
+export function isLessonFeedOverflowing(scrollContainer: HTMLElement | null): boolean {
+  if (!scrollContainer) return false
+  return scrollContainer.scrollHeight > scrollContainer.clientHeight
 }
 
 /**
@@ -134,5 +178,16 @@ export function simulateScrollTopAfterScrollToMax(params: {
   clientHeightPx: number
 }): number {
   const scrollHeight = params.contentHeightPx + params.scrollPaddingBottomPx
+  return computeMaxScrollTop(scrollHeight, params.clientHeightPx)
+}
+
+/** Модель scrollLessonFeedTailIfNeeded при заданных размерах. */
+export function simulateScrollTopAfterTailIfNeeded(params: {
+  contentHeightPx: number
+  scrollPaddingBottomPx: number
+  clientHeightPx: number
+}): number {
+  const scrollHeight = params.contentHeightPx + params.scrollPaddingBottomPx
+  if (scrollHeight <= params.clientHeightPx) return 0
   return computeMaxScrollTop(scrollHeight, params.clientHeightPx)
 }
