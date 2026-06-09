@@ -6666,12 +6666,7 @@ export default function Home() {
           aria-hidden
         />
       ) : null}
-      <footer
-        className="pointer-events-none fixed bottom-0 left-0 right-0 z-[55] flex flex-col overflow-visible"
-        style={{
-          transform: 'translateY(calc(-1 * var(--vv-bottom-inset, 0px)))',
-        }}
-      >
+      <footer className="app-dialog-chrome-footer pointer-events-none fixed bottom-0 left-0 right-0 z-[55] flex flex-col overflow-visible">
         <div className="app-footer-surface h-[var(--app-footer-row-height)] min-h-[var(--app-footer-row-height)] shrink-0 border-t border-[var(--app-footer-border)]">
           <AppFooter
             dynamicText={footerDisplayDynamicText}

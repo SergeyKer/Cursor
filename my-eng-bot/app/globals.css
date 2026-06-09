@@ -484,6 +484,8 @@
   --vv-bottom-inset: 0px;
   --vv-left-inset: 0px;
   --vv-right-inset: 0px;
+  /* iOS Safari: перекрытие нижнего chrome (панель браузера). */
+  --ios-safari-vv-bottom-overlap: 0px;
   /* Высота панели ввода чата (обновляется из JS, fallback). */
   --chat-input-height: 5.5rem;
   /* Полная высота полосы композера (обёртка в Chat), для RewardPopup; 0 пока чат не смонтирован. */
@@ -1232,6 +1234,23 @@ select.select-chevron {
   touch-action: pan-y;
 }
 
+/* iOS Safari dialog: спейсер и fixed chrome синхронны с visual viewport. */
+html[data-ios-safari-dialog] {
+  --app-bottom-offset: calc(
+    var(--app-footer-chrome-height) + var(--ios-safari-vv-bottom-overlap, 0px) + var(--vv-bottom-inset, 0px)
+  );
+}
+
+.app-dialog-chrome-footer {
+  transform: translateY(calc(-1 * var(--vv-bottom-inset, 0px)));
+}
+
+html[data-ios-safari-dialog] .app-dialog-chrome-footer {
+  transform: translateY(
+    calc(-1 * (var(--ios-safari-vv-bottom-overlap, 0px) + var(--vv-bottom-inset, 0px)))
+  );
+}
+
 /* iOS Safari: flex-скролл внутри карточки + отступ под fixed-композер. */
 html[data-ios-safari-dialog] .lesson-scroll-viewport {
   height: 0;
@@ -1251,7 +1270,7 @@ html[data-ios-safari-dialog] .dialog-composer-dock {
   left: 0;
   right: 0;
   z-index: 56;
-  bottom: var(--app-footer-chrome-height);
+  bottom: calc(var(--app-footer-chrome-height) + var(--ios-safari-vv-bottom-overlap, 0px));
   transform: translateY(calc(-1 * var(--vv-bottom-inset, 0px)));
   background: linear-gradient(180deg, var(--chat-wallpaper) 0%, var(--chat-wallpaper-soft) 100%);
 }

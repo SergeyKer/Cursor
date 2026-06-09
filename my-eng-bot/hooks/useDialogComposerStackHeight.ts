@@ -63,7 +63,6 @@ export function useDialogComposerStackHeight(stackRef: RefObject<HTMLElement | n
     window.addEventListener('orientationchange', scheduleSync, { passive: true })
     const vv = window.visualViewport
     vv?.addEventListener('resize', scheduleSync)
-    vv?.addEventListener('scroll', scheduleSync)
 
     return () => {
       if (raf) window.cancelAnimationFrame(raf)
@@ -71,7 +70,6 @@ export function useDialogComposerStackHeight(stackRef: RefObject<HTMLElement | n
       window.removeEventListener('resize', scheduleSync)
       window.removeEventListener('orientationchange', scheduleSync)
       vv?.removeEventListener('resize', scheduleSync)
-      vv?.removeEventListener('scroll', scheduleSync)
       document.documentElement.style.removeProperty('--chat-composer-stack-height')
       document.documentElement.style.removeProperty('--chat-composer-top-from-bottom')
       lastHeightRef.current = 0

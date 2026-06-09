@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { isIosSafariUserAgent, readIosSafariVisualBottomOverlapPx } from '@/lib/iosSafariViewport'
 
 function isEditableElement(element: Element | null): boolean {
   if (!(element instanceof HTMLElement)) return false
@@ -22,16 +23,6 @@ function isEditableElement(element: Element | null): boolean {
     'submit',
   ])
   return !nonTextInputTypes.has(element.type)
-}
-
-function isIosSafari(ua: string): boolean {
-  const isIosDevice = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && /Mobile/i.test(ua))
-  if (!isIosDevice) return false
-  if (/CriOS\/\d+/i.test(ua)) return false
-  if (/FxiOS\/\d+/i.test(ua)) return false
-  if (/EdgiOS\/\d+/i.test(ua)) return false
-  if (/OPiOS\/\d+/i.test(ua)) return false
-  return /Safari\/\d+/i.test(ua)
 }
 
 function computeBottomInsetPx(): number {
@@ -65,7 +56,7 @@ function computeBottomInsetPx(): number {
 function computeIosSafariViewportHeightPx(): number | null {
   if (typeof window === 'undefined') return null
   const ua = navigator.userAgent
-  if (!isIosSafari(ua)) return null
+  if (!isIosSafariUserAgent(ua)) return null
   const vv = window.visualViewport
   if (!vv) return null
   const h = vv.height
@@ -99,11 +90,20 @@ export default function VisualViewportInsets() {
     const root = document.documentElement
     let raf = 0
 
+    const applyIosSafariBottomOverlap = () => {
+      if (!isIosSafariUserAgent(navigator.userAgent)) {
+        root.style.removeProperty('--ios-safari-vv-bottom-overlap')
+        return
+      }
+      root.style.setProperty('--ios-safari-vv-bottom-overlap', `${readIosSafariVisualBottomOverlapPx()}px`)
+    }
+
     const applyInsets = () => {
       root.style.setProperty('--vv-bottom-inset', `${computeBottomInsetPx()}px`)
       const sideInsets = computeSideInsetsPx()
       root.style.setProperty('--vv-left-inset', `${sideInsets.left}px`)
       root.style.setProperty('--vv-right-inset', `${sideInsets.right}px`)
+      applyIosSafariBottomOverlap()
     }
 
     const applyIosSafariViewportHeight = () => {
@@ -154,6 +154,7 @@ export default function VisualViewportInsets() {
       vv?.removeEventListener?.('resize', scheduleApplyAll)
       vv?.removeEventListener?.('scroll', scheduleApplyInsets)
       root.style.removeProperty('--ios-safari-vv-height')
+      root.style.removeProperty('--ios-safari-vv-bottom-overlap')
     }
   }, [])
 
