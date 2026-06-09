@@ -8,8 +8,11 @@ export const PRACTICE_TYPEWRITER_WORD_MS_BY_SECTION: Record<Bubble['type'], numb
   task: 30,
 }
 
-/** Фидбек и service-строки в ленте практики. */
+/** Фидбек и прочие service-строки в ленте практики. */
 export const PRACTICE_FEEDBACK_TYPEWRITER_WORD_MS = 26
+
+/** «Engvo проверяет ответ...» — спокойнее обычной service-строки. */
+export const ENGVO_CHECKING_TYPEWRITER_WORD_MS = 50
 
 export function practiceTypewriterSpeedForSection(type: Bubble['type']): number {
   return PRACTICE_TYPEWRITER_WORD_MS_BY_SECTION[type]

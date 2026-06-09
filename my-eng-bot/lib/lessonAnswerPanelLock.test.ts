@@ -50,9 +50,9 @@ describe('isLessonAnswerPanelLocked', () => {
 })
 
 describe('isLessonChoicePanelFrozen', () => {
-  it('freezes only on success feedback or hold', () => {
-    expect(isLessonChoicePanelFrozen('checking', undefined, false)).toBe(false)
-    expect(isLessonChoicePanelFrozen('checking', 'error', false)).toBe(false)
+  it('freezes on checking, success feedback or hold', () => {
+    expect(isLessonChoicePanelFrozen('checking', undefined, false)).toBe(true)
+    expect(isLessonChoicePanelFrozen('checking', 'error', false)).toBe(true)
     expect(isLessonChoicePanelFrozen('feedback', 'error', false)).toBe(false)
     expect(isLessonChoicePanelFrozen('feedback', 'success', false)).toBe(true)
     expect(isLessonChoicePanelFrozen('idle', undefined, true)).toBe(true)

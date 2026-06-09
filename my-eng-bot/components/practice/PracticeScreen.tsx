@@ -30,7 +30,7 @@ import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { usePracticeQuestionReveal } from '@/hooks/usePracticeQuestionReveal'
 import type { PracticeFlowState } from '@/hooks/usePracticeSession'
 import TypingText from '@/components/TypingText'
-import { PRACTICE_FEEDBACK_TYPEWRITER_WORD_MS } from '@/lib/practice/practiceRevealTiming'
+import { ENGVO_CHECKING_TYPEWRITER_WORD_MS } from '@/lib/practice/practiceRevealTiming'
 import type { Audience } from '@/lib/types'
 import type { PracticeMode, PracticeQuestion, PracticeSession } from '@/types/practice'
 
@@ -432,7 +432,7 @@ export default function PracticeScreen({
                           key={message.id}
                           text={message.text ?? ''}
                           mode="word"
-                          speed={PRACTICE_FEEDBACK_TYPEWRITER_WORD_MS}
+                          speed={ENGVO_CHECKING_TYPEWRITER_WORD_MS}
                           startDelayMs={0}
                           fadeWhileTyping={false}
                           singleLine

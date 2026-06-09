@@ -32,7 +32,7 @@ import {
   LESSON_CHECKING_REVEAL_MS,
   LESSON_CHOICE_ADVANCE_HOLD_MS,
 } from '@/lib/lessonAnswerPanelLock'
-import { PRACTICE_FEEDBACK_TYPEWRITER_WORD_MS } from '@/lib/practice/practiceRevealTiming'
+import { ENGVO_CHECKING_TYPEWRITER_WORD_MS } from '@/lib/practice/practiceRevealTiming'
 import TypingText from '@/components/TypingText'
 import { buildLessonFeedMessages, type LessonFeedMessage } from '@/lib/buildLessonFeedMessages'
 import { shouldHighlightWrongLessonChoice } from '@/lib/lessonChoiceHighlight'
@@ -48,7 +48,7 @@ import { seededShuffle } from '@/lib/shuffleSeeded'
 import { useLessonVoiceInput } from '@/lib/voice/useLessonVoiceInput'
 import type { Bubble, Exercise, PostLessonAction } from '@/types/lesson'
 import { validateAnswer } from '@/utils/validateAnswer'
-import { usePracticeQuestionReveal } from '@/hooks/usePracticeQuestionReveal'
+import { useLessonSectionReveal } from '@/hooks/useLessonSectionReveal'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 
 type LessonStepRendererProps = {
@@ -264,11 +264,14 @@ export default function LessonStepRenderer({
   const revealEnabled =
     Boolean(currentEntry?.isCurrent && exercise) && status === 'idle' && revealSectionCount > 0
   const {
-    visibleSectionCount,
-    typingSectionIndex,
+    isShellEnterActive,
+    isTextRevealActive,
+    textRevealedThroughIndex,
+    textAnimatingIndex,
     isRevealInProgress,
-    onSectionTypewriterComplete,
-  } = usePracticeQuestionReveal({
+    onShellEnterComplete,
+    onTextSectionRevealComplete,
+  } = useLessonSectionReveal({
     sessionId: `lesson:${lessonRevealSessionId}`,
     revealKey: currentStep
       ? `step-${currentStep.stepNumber}-v${currentVariantIndex}`
@@ -277,7 +280,7 @@ export default function LessonStepRenderer({
     sectionCount: revealSectionCount,
     prefersReducedMotion,
   })
-  const isTaskSectionVisible = taskBubbleIndex < 0 || visibleSectionCount > taskBubbleIndex
+  const isTaskSectionVisible = taskBubbleIndex < 0 || textRevealedThroughIndex >= taskBubbleIndex
   const isChecking = status === 'checking'
   const isAnswerPanelLocked = isLessonAnswerPanelLocked(
     status,
@@ -329,13 +332,13 @@ export default function LessonStepRenderer({
 
   const lessonInviteBubble = useMemo(() => {
     if (!currentEntry?.isCurrent || !isTaskSectionVisible) return null
-    const visibleBubbles = revealSourceBubbles.slice(0, visibleSectionCount)
+    const visibleBubbles = revealSourceBubbles.slice(0, textRevealedThroughIndex + 1)
     for (let index = visibleBubbles.length - 1; index >= 0; index -= 1) {
       const bubble = visibleBubbles[index]
       if (bubble?.type === 'task') return bubble
     }
     return null
-  }, [currentEntry, isTaskSectionVisible, revealSourceBubbles, visibleSectionCount])
+  }, [currentEntry, isTaskSectionVisible, revealSourceBubbles, textRevealedThroughIndex])
   const canUseLessonVoiceInput =
     Boolean(exercise) &&
     !hasPostLessonOptions &&
@@ -647,8 +650,8 @@ export default function LessonStepRenderer({
     return scheduleScrollLessonFeedTail(behavior)
   }, [
     isRevealInProgress,
-    visibleSectionCount,
-    typingSectionIndex,
+    textRevealedThroughIndex,
+    textAnimatingIndex,
     prefersReducedMotion,
     scheduleScrollLessonFeedTail,
   ])
@@ -779,8 +782,8 @@ export default function LessonStepRenderer({
     prefersReducedMotion,
     scheduleScrollLessonFeedTail,
     lessonMessages.length,
-    visibleSectionCount,
-    typingSectionIndex,
+    textRevealedThroughIndex,
+    textAnimatingIndex,
     isRevealInProgress,
   ])
 
@@ -831,35 +834,54 @@ export default function LessonStepRenderer({
                     const isCurrentLessonMessage = !message.isHistorical
                     const isActiveRevealTarget =
                       isCurrentLessonMessage && message.id === currentLessonMessage?.id
-                    const lessonVisibleSectionCount = isCurrentLessonMessage
-                      ? isActiveRevealTarget
-                        ? visibleSectionCount
-                        : message.bubbles.length
-                      : message.bubbles.length
                     const lessonRowMargin = resolveLessonFeedRowMargin({
                       pinLastRowToBottom,
                       isBubbleEnd,
                       nextMessage: lessonMessages[index + 1],
                     })
 
+                    const lessonShellEnterActive =
+                      isCurrentLessonMessage && isActiveRevealTarget && isShellEnterActive
+
                     return (
                       <ChatBubbleFrame
                         key={message.id}
                         role="assistant"
                         position={position}
-                        className="w-full"
+                        className={`w-full${lessonShellEnterActive ? ' lesson-feed-enter' : ''}`}
                         rowClassName={lessonRowMargin}
+                        onAnimationEnd={
+                          lessonShellEnterActive
+                            ? (event) => {
+                                if (event.target !== event.currentTarget) return
+                                if (event.animationName !== 'lessonFeedSlideIn') return
+                                onShellEnterComplete()
+                              }
+                            : undefined
+                        }
                       >
                         {isCurrentLessonMessage ? (
                           <PracticeQuestionBubble
-                            bubbles={message.bubbles}
-                            visibleSectionCount={lessonVisibleSectionCount}
-                            typingSectionIndex={
-                              isActiveRevealTarget && isRevealInProgress ? typingSectionIndex : null
+                            key={
+                              currentStep
+                                ? `lesson-soft-${currentStep.stepNumber}-v${currentVariantIndex}`
+                                : message.id
                             }
-                            animateSections={isActiveRevealTarget && isRevealInProgress}
-                            onSectionTypewriterComplete={
-                              isActiveRevealTarget ? onSectionTypewriterComplete : undefined
+                            bubbles={message.bubbles}
+                            visibleSectionCount={message.bubbles.length}
+                            revealStyle="softText"
+                            shellEnterActive={lessonShellEnterActive}
+                            animateSections={isActiveRevealTarget && isTextRevealActive}
+                            textRevealedThroughIndex={
+                              isActiveRevealTarget && (isShellEnterActive || isTextRevealActive)
+                                ? textRevealedThroughIndex
+                                : message.bubbles.length - 1
+                            }
+                            textAnimatingIndex={
+                              isActiveRevealTarget && isTextRevealActive ? textAnimatingIndex : null
+                            }
+                            onTextSectionRevealComplete={
+                              isActiveRevealTarget ? onTextSectionRevealComplete : undefined
                             }
                           />
                         ) : (
@@ -875,6 +897,7 @@ export default function LessonStepRenderer({
                         key={message.id}
                         role="user"
                         position={position}
+                        className="lesson-feed-enter"
                         rowClassName={resolveLessonFeedRowMargin({
                           pinLastRowToBottom,
                           isBubbleEnd,
@@ -895,7 +918,7 @@ export default function LessonStepRenderer({
                           key={message.id}
                           text={message.text ?? ''}
                           mode="word"
-                          speed={PRACTICE_FEEDBACK_TYPEWRITER_WORD_MS}
+                          speed={ENGVO_CHECKING_TYPEWRITER_WORD_MS}
                           startDelayMs={0}
                           fadeWhileTyping={false}
                           singleLine
@@ -910,13 +933,13 @@ export default function LessonStepRenderer({
                       key={message.id}
                       role="assistant"
                       position={position}
-                      className="lesson-enter"
+                      className="lesson-feed-enter"
                       rowClassName={
                         pinLastRowToBottom ? 'mb-0' : isBubbleEnd ? 'mb-2.5' : 'mb-0.5'
                       }
                     >
                       <section
-                        className={`lesson-enter chat-section-surface glass-surface rounded-xl border px-2.5 py-1.5 ${lessonStatusCardClassByTone[message.tone]}`}
+                        className={`chat-section-surface glass-surface rounded-xl border px-2.5 py-1.5 ${lessonStatusCardClassByTone[message.tone]}`}
                       >
                         <FeedbackStatusText text={message.text} />
                       </section>
@@ -985,16 +1008,20 @@ export default function LessonStepRenderer({
                     }
                   />
                 ) : shouldRenderChoiceChips ? (
-                  <LessonChoiceChips
-                    key="lesson-choice-panel"
-                    choices={displayChoiceOptions}
-                    onChoose={handleChoiceAnswer}
-                    disabled={isChoiceInteractionDisabled}
-                    frozen={isChoicePanelFrozen}
-                    clearSelectionSignal={choiceClearNonce}
-                    wrongChoiceText={wrongChoiceHighlight}
-                    resetKey={`panel-${choiceResetVersion}`}
-                  />
+                  <div
+                    className={isAnswerPanelLocked ? 'pointer-events-none opacity-60' : ''}
+                  >
+                    <LessonChoiceChips
+                      key="lesson-choice-panel"
+                      choices={displayChoiceOptions}
+                      onChoose={handleChoiceAnswer}
+                      disabled={isChoiceInteractionDisabled}
+                      frozen={isChoicePanelFrozen}
+                      clearSelectionSignal={choiceClearNonce}
+                      wrongChoiceText={wrongChoiceHighlight}
+                      resetKey={`panel-${choiceResetVersion}`}
+                    />
+                  </div>
                 ) : null}
 
                 {exercise && !hasPostLessonOptions && !shouldRenderChoiceChips && !isSentencePuzzle ? (

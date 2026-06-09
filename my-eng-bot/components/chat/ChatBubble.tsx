@@ -1,6 +1,6 @@
 'use client'
 
-import type { CSSProperties, ReactNode } from 'react'
+import type { AnimationEventHandler, CSSProperties, ReactNode } from 'react'
 
 export type BubbleRole = 'assistant' | 'user'
 export type BubblePosition = 'solo' | 'first' | 'middle' | 'last'
@@ -22,6 +22,7 @@ type ChatBubbleFrameProps = {
   className?: string
   rowClassName?: string
   style?: CSSProperties
+  onAnimationEnd?: AnimationEventHandler<HTMLDivElement>
   'data-role'?: string
   'data-message-index'?: number
 }
@@ -64,6 +65,7 @@ export function ChatBubbleFrame({
   className = '',
   rowClassName = '',
   style,
+  onAnimationEnd,
   'data-role': dataRole,
   'data-message-index': dataMessageIndex,
 }: ChatBubbleFrameProps) {
@@ -85,6 +87,7 @@ export function ChatBubbleFrame({
           className ? ` ${className}` : ''
         }`}
         style={isUser ? { background: 'var(--chat-user-bubble)', ...style } : style}
+        onAnimationEnd={onAnimationEnd}
       >
         {children}
       </div>

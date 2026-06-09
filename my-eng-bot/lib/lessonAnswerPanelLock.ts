@@ -45,7 +45,7 @@ export function isLessonAnswerPanelLocked(
   )
 }
 
-/** Визуальный freeze чипсов только после верного ответа (не на checking при ошибке). */
+/** Визуальный freeze чипсов: проверка ответа, успех, hold после смены шага. */
 export function isLessonChoicePanelFrozen(
   status: LessonStatus,
   feedbackType: LessonAnswerFeedbackType | undefined,
@@ -54,6 +54,7 @@ export function isLessonChoicePanelFrozen(
 ): boolean {
   return (
     isRevealInProgress ||
+    status === 'checking' ||
     (status === 'feedback' && feedbackType === 'success') ||
     holdAfterAdvance
   )

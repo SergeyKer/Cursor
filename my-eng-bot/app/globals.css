@@ -229,6 +229,41 @@
   }
 }
 
+/* Лента урока: спокойное появление статуса «Верно» и пустой карточки шага. */
+.lesson-feed-enter {
+  animation: lessonFeedSlideIn 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+@keyframes lessonFeedSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* @deprecated alias — используйте lesson-feed-enter */
+.lesson-shell-enter {
+  animation: lessonFeedSlideIn 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+/* Урок: мягкое появление текста внутри уже видимой полосы. */
+.lesson-text-soft-enter {
+  animation: lessonTextSoftIn 0.52s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+@keyframes lessonTextSoftIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* Награда над композером: пружинное появление и уход вверх с затуханием. */
 @keyframes rewardPopupIn {
   0% {
@@ -1517,6 +1552,18 @@ select.select-chevron {
   .practice-section-appear {
     animation: none;
     opacity: 1;
+  }
+
+  .lesson-text-soft-enter {
+    animation: none;
+    opacity: 1;
+  }
+
+  .lesson-shell-enter,
+  .lesson-feed-enter {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 
   .reward-popup-pill[data-reward-state='swipe-out-left'],
