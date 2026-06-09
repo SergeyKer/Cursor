@@ -4,11 +4,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { useStaggeredSectionRevealMap } from '@/hooks/useStaggeredSectionReveal'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
-import {
-  CHAT_COMPOSER_STACK_CLASS,
-  CHAT_COMPOSER_STACK_TOP_CLASS,
-  DIALOG_COMPOSER_PADDING_BOTTOM,
-} from '@/lib/chatComposerMetrics'
+import DialogComposerStack from '@/components/DialogComposerStack'
+import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
 import { LESSON_SCROLL_VIEWPORT_CLASS, scheduleScrollAfterLayout } from '@/lib/lessonFeedScroll'
 import { getMenuTopicCopyByIntroTopic } from '@/lib/lessonCatalog'
 import type { AiProvider, Audience, OpenAiChatPreset } from '@/lib/types'
@@ -479,11 +476,12 @@ export default function LessonIntroScreen({
               </div>
             </div>
 
-            <div
-              className={`${CHAT_COMPOSER_STACK_CLASS} ${CHAT_COMPOSER_STACK_TOP_CLASS}`}
+            <DialogComposerStack
+              className={CHAT_COMPOSER_STACK_TOP_CLASS}
               style={{ paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }}
+              contentMaxWidthClass="max-w-[22rem]"
             >
-              <div className="mx-auto flex w-full max-w-[22rem] flex-col gap-2">
+              <div className="flex w-full flex-col gap-2">
                 <div className="flex w-full items-center justify-between gap-1.5 sm:gap-2">
                   <IntroChip variant="link" onClick={onBack}>
                     ← Назад
@@ -530,7 +528,7 @@ export default function LessonIntroScreen({
                   </IntroChip>
                 </div>
               </div>
-            </div>
+            </DialogComposerStack>
           </div>
         </div>
       </div>

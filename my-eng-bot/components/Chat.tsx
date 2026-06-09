@@ -20,10 +20,10 @@ import {
   stripLeadingBulbEmojisForPrefixedCard,
 } from '@/lib/normalizeCommentBulbEmoji'
 import { speak } from '@/lib/speech'
+import DialogComposerStack from '@/components/DialogComposerStack'
 import {
   CHAT_COMPOSER_FORM_CLASS,
   CHAT_COMPOSER_PADDING_BOTTOM,
-  CHAT_COMPOSER_STACK_CLASS,
   CHAT_COMPOSER_STACK_TOP_CLASS,
   CHAT_COMPOSER_TYPO_CLASS,
   getChatComposerOverlayVerticalClass,
@@ -1164,8 +1164,6 @@ export default function Chat({
   /** Защита от "вечного finalizing": возвращаем клавиатурный ввод даже при сбое STT-цепочки. */
   const finalizingWatchdogTimerRef = useRef<number | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
-  /** Вся полоса ввода (padding, форма, статус голоса) — для `RewardPopup` и отступа скролла. */
-  const composerStackRef = useRef<HTMLDivElement>(null)
   const micInviteTimerRef = useRef<number | null>(null)
   const [isIosDeviceClient, setIsIosDeviceClient] = useState(false)
   const [isIosChromeClient, setIsIosChromeClient] = useState(false)
@@ -1939,9 +1937,6 @@ export default function Chat({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const lastComposerShellHeightRef = useRef<number>(0)
-  const lastComposerStackHeightRef = useRef<number>(0)
-  /** Расстояние от низа layout viewport до верха полосы композера (для RewardPopup). */
-  const lastComposerTopFromBottomRef = useRef<number>(-1)
   const singleLineInputHeightRef = useRef<number>(44)
   /** Однострочная высота без оверлея STT (см. `.communication-chat-input-field` vs `chat-input-voice-web-metrics`). */
   const idleSingleLineInputHeightRef = useRef<number>(44)
@@ -1994,53 +1989,21 @@ export default function Chat({
     root.style.setProperty('--chat-input-height', `${height}px`)
   }, [])
 
-  const syncComposerStackHeight = useCallback(() => {
-    const stack = composerStackRef.current
-    const root = document.documentElement
-    if (typeof window === 'undefined') return
-    if (!stack) {
-      if (lastComposerStackHeightRef.current !== 0) {
-        lastComposerStackHeightRef.current = 0
-        root.style.setProperty('--chat-composer-stack-height', '0px')
-      }
-      if (lastComposerTopFromBottomRef.current !== -1) {
-        lastComposerTopFromBottomRef.current = -1
-        root.style.removeProperty('--chat-composer-top-from-bottom')
-      }
-      return
-    }
-    const rect = stack.getBoundingClientRect()
-    const height = Math.max(0, Math.round(rect.height))
-    const vp = window.visualViewport
-    const vpHeight = vp != null ? vp.height : window.innerHeight
-    const topFromBottom = Math.max(0, Math.round(vpHeight - rect.top))
-
-    if (height !== lastComposerStackHeightRef.current) {
-      lastComposerStackHeightRef.current = height
-      root.style.setProperty('--chat-composer-stack-height', `${height}px`)
-    }
-    if (topFromBottom !== lastComposerTopFromBottomRef.current) {
-      lastComposerTopFromBottomRef.current = topFromBottom
-      root.style.setProperty('--chat-composer-top-from-bottom', `${topFromBottom}px`)
-    }
-  }, [])
-
   React.useLayoutEffect(() => {
     adjustInputHeight()
-    syncComposerStackHeight()
+    syncComposerHeight()
   }, [
     adjustInputHeight,
     composerText,
     messages.length,
     showVoicePlaybackButton,
     showVoiceStatusMessageBelowInput,
-    syncComposerStackHeight,
+    syncComposerHeight,
     voiceWebMetricsActive,
   ])
 
   React.useEffect(() => {
     syncComposerHeight()
-    syncComposerStackHeight()
     const form = formRef.current
     if (!form || typeof window === 'undefined') return
 
@@ -2050,14 +2013,11 @@ export default function Chat({
       raf = window.requestAnimationFrame(() => {
         raf = 0
         syncComposerHeight()
-        syncComposerStackHeight()
       })
     }
 
     const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(scheduleSync) : null
     observer?.observe(form)
-    const stack = composerStackRef.current
-    if (stack) observer?.observe(stack)
 
     window.addEventListener('resize', scheduleSync, { passive: true })
     window.addEventListener('orientationchange', scheduleSync, { passive: true })
@@ -2072,12 +2032,8 @@ export default function Chat({
       window.removeEventListener('orientationchange', scheduleSync)
       vv?.removeEventListener('resize', scheduleSync)
       vv?.removeEventListener('scroll', scheduleSync)
-      document.documentElement.style.removeProperty('--chat-composer-stack-height')
-      document.documentElement.style.removeProperty('--chat-composer-top-from-bottom')
-      lastComposerStackHeightRef.current = 0
-      lastComposerTopFromBottomRef.current = -1
     }
-  }, [syncComposerHeight, syncComposerStackHeight])
+  }, [syncComposerHeight])
 
   React.useEffect(() => {
     const el = scrollContainerRef.current
@@ -2197,7 +2153,7 @@ export default function Chat({
           >
             <div
               ref={scrollContainerRef}
-              className={`${LESSON_SCROLL_VIEWPORT_CLASS} bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
+              className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
               style={{
                 paddingBottom: `calc(0.625rem + var(--chat-input-height) + ${INPUT_GAP_PX}px)`,
                 scrollPaddingBottom: `calc(0.625rem + var(--chat-input-height) + ${INPUT_GAP_PX}px)`,
@@ -2357,12 +2313,8 @@ export default function Chat({
                 />
               )}
             </div>
-            <div
-              ref={composerStackRef}
-              // Важно для iOS: paddingBottom может оставаться (safe-area / visual viewport),
-              // и если фон полупрозрачный — пользователь видит "серую панель".
-              // Делаем обёртку прозрачной, чтобы в резерве просвечивал фон чата.
-              className={`${CHAT_COMPOSER_STACK_CLASS} ${CHAT_COMPOSER_STACK_TOP_CLASS}`}
+            <DialogComposerStack
+              className={CHAT_COMPOSER_STACK_TOP_CLASS}
               style={{
                 paddingBottom: CHAT_COMPOSER_PADDING_BOTTOM,
               }}
@@ -2597,7 +2549,7 @@ export default function Chat({
                   {voiceStatusMessage}
                 </p>
               )}
-            </div>
+            </DialogComposerStack>
           </div>
         </div>
       </div>

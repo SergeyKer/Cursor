@@ -11,11 +11,8 @@ import {
   isPracticeChoiceInteractionDisabled,
   isPracticeChoicePanelFrozen,
 } from '@/lib/practice/practiceAnswerPanelLock'
-import {
-  CHAT_COMPOSER_STACK_CLASS,
-  DIALOG_COMPOSER_PADDING_BOTTOM,
-  getChatComposerStackLayout,
-} from '@/lib/chatComposerMetrics'
+import DialogComposerStack from '@/components/DialogComposerStack'
+import { DIALOG_COMPOSER_PADDING_BOTTOM, getChatComposerStackLayout } from '@/lib/chatComposerMetrics'
 import { isPracticeChoiceChipsPanel } from '@/lib/practice/practiceComposerLayout'
 import { isPracticeCorrectionComposerActive } from '@/lib/practice/practiceCorrectionMode'
 import {
@@ -106,7 +103,6 @@ export default function PracticeScreen({
 }: PracticeScreenProps) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const messagesStackRef = useRef<HTMLDivElement | null>(null)
-  const bottomStackRef = useRef<HTMLDivElement | null>(null)
   const previousScrollSnapshotRef = useRef<{
     messageCount: number
     currentIndex: number
@@ -477,11 +473,7 @@ export default function PracticeScreen({
               </div>
             </div>
 
-            <div
-              ref={bottomStackRef}
-              className={`${CHAT_COMPOSER_STACK_CLASS} ${composerStackLayout.verticalClass}`}
-              style={composerStackStyle}
-            >
+            <DialogComposerStack className={composerStackLayout.verticalClass} style={composerStackStyle}>
               {state === 'completed' ? (
                 <PracticeFinale
                   session={session}
@@ -536,7 +528,7 @@ export default function PracticeScreen({
                   onSubmit={onSubmitAnswer}
                 />
               ) : null}
-            </div>
+            </DialogComposerStack>
           </div>
         </div>
       </div>

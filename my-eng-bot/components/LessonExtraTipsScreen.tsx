@@ -1,11 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  CHAT_COMPOSER_STACK_CLASS,
-  CHAT_COMPOSER_STACK_TOP_CLASS,
-  DIALOG_COMPOSER_PADDING_BOTTOM,
-} from '@/lib/chatComposerMetrics'
+import DialogComposerStack from '@/components/DialogComposerStack'
+import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
 import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
 import type { LessonCatalogLevel } from '@/lib/lessonCatalog'
 import {
@@ -771,11 +768,12 @@ export default function LessonExtraTipsScreen({
               </section>
             </div>
 
-            <div
-              className={`${CHAT_COMPOSER_STACK_CLASS} ${CHAT_COMPOSER_STACK_TOP_CLASS}`}
+            <DialogComposerStack
+              className={CHAT_COMPOSER_STACK_TOP_CLASS}
               style={{ paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }}
+              contentMaxWidthClass="max-w-[22rem]"
             >
-              <div className="mx-auto flex w-full max-w-[22rem] flex-col gap-2">
+              <div className="flex w-full flex-col gap-2">
                 <div className="flex w-full items-center justify-between gap-1.5 sm:gap-2">
                   <button
                     type="button"
@@ -806,7 +804,7 @@ export default function LessonExtraTipsScreen({
                       : 'Начать урок'}
                 </button>
               </div>
-            </div>
+            </DialogComposerStack>
           </div>
         </div>
       </div>

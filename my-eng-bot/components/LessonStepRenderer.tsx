@@ -16,9 +16,9 @@ import {
   type BubbleRole,
 } from '@/components/chat/ChatBubble'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
+import DialogComposerStack from '@/components/DialogComposerStack'
 import {
   CHAT_COMPOSER_FORM_CLASS,
-  CHAT_COMPOSER_STACK_CLASS,
   CHAT_COMPOSER_TYPO_CLASS,
   DIALOG_COMPOSER_PADDING_BOTTOM,
   getChatComposerStackLayout,
@@ -172,7 +172,6 @@ export default function LessonStepRenderer({
 }: LessonStepRendererProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const messagesStackRef = useRef<HTMLDivElement>(null)
-  const bottomStackRef = useRef<HTMLDivElement>(null)
   const reopenChoicesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const advanceHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const suppressChoiceResetRef = useRef(false)
@@ -955,11 +954,7 @@ export default function LessonStepRenderer({
             </div>
 
             {currentStep && (
-              <div
-                ref={bottomStackRef}
-                className={`${CHAT_COMPOSER_STACK_CLASS} ${composerStackLayout.verticalClass}`}
-                style={composerStackStyle}
-              >
+              <DialogComposerStack className={composerStackLayout.verticalClass} style={composerStackStyle}>
                 {showPostLessonMedalPhase && lessonMedalReveal ? (
                   <LessonMedalFlowInfoStep
                     medal={lessonMedalReveal.medal}
@@ -1198,7 +1193,7 @@ export default function LessonStepRenderer({
                     {voiceStatusMessage}
                   </p>
                 )}
-              </div>
+              </DialogComposerStack>
             )}
           </div>
         </div>

@@ -1232,6 +1232,35 @@ select.select-chevron {
   touch-action: pan-y;
 }
 
+/* iOS Safari: flex-скролл внутри карточки + отступ под fixed-композер. */
+html[data-ios-safari-dialog] .lesson-scroll-viewport {
+  height: 0;
+  flex: 1 1 0%;
+  padding-bottom: calc(var(--chat-composer-stack-height, 7.5rem) + 0.625rem) !important;
+  scroll-padding-bottom: calc(var(--chat-composer-stack-height, 7.5rem) + 0.625rem) !important;
+}
+
+html[data-ios-safari-dialog] .lesson-scroll-viewport.chat-feed-scroll {
+  padding-bottom: calc(var(--chat-composer-stack-height, 5.5rem) + 0.625rem) !important;
+  scroll-padding-bottom: calc(var(--chat-composer-stack-height, 5.5rem) + 0.625rem) !important;
+}
+
+/* iOS Safari: композер закреплён над fixed-футером. */
+html[data-ios-safari-dialog] .dialog-composer-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 56;
+  bottom: var(--app-footer-chrome-height);
+  transform: translateY(calc(-1 * var(--vv-bottom-inset, 0px)));
+  background: linear-gradient(180deg, var(--chat-wallpaper) 0%, var(--chat-wallpaper-soft) 100%);
+}
+
+html[data-ios-safari-dialog] .dialog-composer-dock-inner {
+  padding-left: max(0.5rem, env(safe-area-inset-left, 0px), var(--vv-left-inset));
+  padding-right: max(0.5rem, env(safe-area-inset-right, 0px), var(--vv-right-inset));
+}
+
 /*
  * Композер чата: симметричный padding по Y (каретка и строка по центру min-height 44px).
  * font-size / line-height задаются в JSX (text-base, leading-[1.45rem]); здесь только отступы.

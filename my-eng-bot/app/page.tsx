@@ -5961,6 +5961,17 @@ export default function Home() {
     if (hasCommunicationHeaderControls) return
     setCommunicationVoiceDropdownOpen(false)
   }, [hasCommunicationHeaderControls])
+
+  useEffect(() => {
+    const root = document.documentElement
+    if (isIosSafariClient && dialogStarted) {
+      root.setAttribute('data-ios-safari-dialog', '')
+    } else {
+      root.removeAttribute('data-ios-safari-dialog')
+    }
+    return () => root.removeAttribute('data-ios-safari-dialog')
+  }, [dialogStarted, isIosSafariClient])
+
   const homeShellGradientClass =
     'bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]'
 
@@ -6151,11 +6162,7 @@ export default function Home() {
           ...(isIosSafariClient && !dialogStarted
             ? { scrollPaddingTop: 'var(--app-top-offset)' }
             : {}),
-          paddingBottom: dialogStarted
-            ? isIosSafariClient
-              ? 'var(--app-footer-chrome-height)'
-              : '0px'
-            : 'env(safe-area-inset-bottom, 0px)',
+          paddingBottom: dialogStarted ? '0px' : 'env(safe-area-inset-bottom, 0px)',
         }}
       >
         {!dialogStarted ? (
@@ -6655,9 +6662,7 @@ export default function Home() {
               ? 'bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]'
               : ''
           }`}
-          style={{
-            height: isIosSafariClient ? 'var(--vv-bottom-inset, 0px)' : 'var(--app-bottom-offset)',
-          }}
+          style={{ height: 'var(--app-bottom-offset)' }}
           aria-hidden
         />
       ) : null}
