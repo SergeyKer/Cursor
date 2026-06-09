@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import FeedbackStatusText from '@/components/FeedbackStatusText'
 import PracticeFinale from '@/components/practice/PracticeFinale'
 import PracticeInstructionFlowInfoStep from '@/components/practice/PracticeInstructionFlowInfoStep'
@@ -16,14 +16,16 @@ import { DIALOG_COMPOSER_PADDING_BOTTOM, getChatComposerStackLayout } from '@/li
 import { isPracticeChoiceChipsPanel } from '@/lib/practice/practiceComposerLayout'
 import { isPracticeCorrectionComposerActive } from '@/lib/practice/practiceCorrectionMode'
 import {
+  isLessonFeedScrolledToTail,
   LESSON_SCROLL_VIEWPORT_CLASS,
-  resolveLessonScrollBehavior,
+  resolvePracticeFeedScrollRequest,
   resolveScrollBottomPadding,
-  scrollLessonFeedTailIfNeeded,
+  scrollLessonFeedToModeIfNeeded,
 } from '@/lib/lessonFeedScroll'
 import PracticeQuestionBubble from '@/components/practice/PracticeQuestionBubble'
 import {
   CHAT_FEED_SERVICE_STATUS_ROW_CLASS,
+  CHAT_FEED_SERVICE_STATUS_ROW_PUZZLE_CHECKING_CLASS,
   ChatBubbleFrame,
   getBubblePosition,
   type BubbleRole,
@@ -32,7 +34,7 @@ import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { usePracticeQuestionReveal } from '@/hooks/usePracticeQuestionReveal'
 import type { PracticeFlowState } from '@/hooks/usePracticeSession'
 import TypingText from '@/components/TypingText'
-import { ENGVO_CHECKING_TYPEWRITER_WORD_MS } from '@/lib/practice/practiceRevealTiming'
+import { ENGVO_SERVICE_TYPEWRITER_CHAR_MS } from '@/lib/practice/practiceRevealTiming'
 import type { Audience } from '@/lib/types'
 import type { PracticeMode, PracticeQuestion, PracticeSession } from '@/types/practice'
 
@@ -108,7 +110,6 @@ export default function PracticeScreen({
     currentIndex: number
     tailMessageId: string
   } | null>(null)
-  const previousStateRef = useRef<PracticeFlowState>(state)
   const practiceEnterClass = usePracticeEnterClass()
   const resolvedFeedbackType = useMemo(() => {
     if (feedback?.type) return feedback.type
@@ -206,27 +207,21 @@ export default function PracticeScreen({
     []
   )
 
-  const scrollPracticeFeedTail = useCallback((behavior: ScrollBehavior = 'auto') => {
-    scrollLessonFeedTailIfNeeded(scrollContainerRef.current, behavior)
-  }, [])
-
   const scheduleScrollPracticeFeedTail = useCallback(
-    (behavior: ScrollBehavior = 'auto') => scheduleScroll(scrollPracticeFeedTail, behavior),
-    [scheduleScroll, scrollPracticeFeedTail]
+    (behavior: ScrollBehavior = 'auto') =>
+      scheduleScroll((scrollBehavior) => {
+        scrollLessonFeedToModeIfNeeded(
+          scrollContainerRef.current,
+          'tail_if_needed',
+          scrollBehavior
+        )
+      }, behavior),
+    [scheduleScroll]
   )
-
-  useLayoutEffect(() => {
-    if (state === 'active' || state === 'briefing' || state === 'completed') return
-    return scheduleScrollPracticeFeedTail('auto')
-  }, [state, tailMessageId, messages.length, scheduleScrollPracticeFeedTail])
 
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current
     if (!scrollContainer) return
-
-    const previousState = previousStateRef.current
-    previousStateRef.current = state
-    const skipScrollForFeedbackHandoff = previousState === 'checking' && state === 'feedback'
 
     if (state === 'briefing') {
       scrollContainer.scrollTo({ top: 0, behavior: 'auto' })
@@ -247,11 +242,9 @@ export default function PracticeScreen({
 
     if (previousSnapshot === null) {
       previousScrollSnapshotRef.current = nextSnapshot
-      if (!skipScrollForFeedbackHandoff) {
-        scheduleScrollPracticeFeedTail(
-          resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'initial' })
-        )
-      }
+      scheduleScrollPracticeFeedTail(
+        resolvePracticeFeedScrollRequest({ prefersReducedMotion, reason: 'initial', state })
+      )
       return
     }
 
@@ -265,15 +258,15 @@ export default function PracticeScreen({
     }
 
     previousScrollSnapshotRef.current = nextSnapshot
-    if (skipScrollForFeedbackHandoff) return
 
-    const scrollBehavior = resolveLessonScrollBehavior({
+    const scrollBehavior = resolvePracticeFeedScrollRequest({
       prefersReducedMotion,
       reason: indexChanged
         ? 'step_change'
         : messageCountIncreased || tailChanged
           ? 'new_message'
           : 'initial',
+      state,
     })
     scheduleScrollPracticeFeedTail(scrollBehavior)
   }, [
@@ -285,19 +278,23 @@ export default function PracticeScreen({
     scheduleScrollPracticeFeedTail,
   ])
 
-  useLayoutEffect(() => {
-    const previousState = previousStateRef.current
-    if (state !== 'feedback' || previousState === 'checking') return
+  useEffect(() => {
+    if (state !== 'feedback' || !feedback) return
+    if (isLessonFeedScrolledToTail(scrollContainerRef.current, 'tail_if_needed')) return
+
     return scheduleScrollPracticeFeedTail(
-      resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'feedback' })
+      resolvePracticeFeedScrollRequest({ prefersReducedMotion, reason: 'feedback', state })
     )
-  }, [state, tailMessageId, prefersReducedMotion, scheduleScrollPracticeFeedTail])
+  }, [state, feedback, tailMessageId, prefersReducedMotion, scheduleScrollPracticeFeedTail])
 
   useEffect(() => {
     if (!isRevealInProgress) return
-    const behavior = resolveLessonScrollBehavior({
+    if (isLessonFeedScrolledToTail(scrollContainerRef.current, 'tail_if_needed')) return
+
+    const behavior = resolvePracticeFeedScrollRequest({
       prefersReducedMotion,
       reason: 'reveal',
+      state,
     })
     return scheduleScrollPracticeFeedTail(behavior)
   }, [
@@ -314,8 +311,14 @@ export default function PracticeScreen({
     if (typeof ResizeObserver === 'undefined') return
 
     const observer = new ResizeObserver(() => {
+      if (isLessonFeedScrolledToTail(scrollContainerRef.current, 'tail_if_needed')) return
+
       scheduleScrollPracticeFeedTail(
-        resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'overflow_follow' })
+        resolvePracticeFeedScrollRequest({
+          prefersReducedMotion,
+          reason: 'overflow_follow',
+          state,
+        })
       )
     })
     observer.observe(messagesStack)
@@ -430,13 +433,16 @@ export default function PracticeScreen({
                   }
 
                   if (message.tone === 'service') {
+                    const serviceRowClass = message.id.startsWith('practice-checking-')
+                      ? CHAT_FEED_SERVICE_STATUS_ROW_PUZZLE_CHECKING_CLASS
+                      : CHAT_FEED_SERVICE_STATUS_ROW_CLASS
                     return (
-                      <div key={message.id} dir="ltr" className={CHAT_FEED_SERVICE_STATUS_ROW_CLASS}>
+                      <div key={message.id} dir="ltr" className={serviceRowClass}>
                         <TypingText
                           key={message.id}
                           text={message.text ?? ''}
-                          mode="word"
-                          speed={ENGVO_CHECKING_TYPEWRITER_WORD_MS}
+                          mode="char"
+                          speed={ENGVO_SERVICE_TYPEWRITER_CHAR_MS}
                           startDelayMs={0}
                           fadeWhileTyping={false}
                           singleLine

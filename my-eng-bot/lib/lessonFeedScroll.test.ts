@@ -2,19 +2,31 @@ import { describe, expect, it } from 'vitest'
 import {
   CHAT_INPUT_HEIGHT_REM,
   computeVisibleGapAboveScrollBottom,
+  isFollowTailScrollSettled,
+  isLessonFeedAnswerTailMessageId,
+  isLessonFeedCheckingTailMessageId,
+  isLessonFeedFeedbackTailMessageId,
   LESSON_INPUT_GAP_PX,
   parseLessonScrollPaddingPx,
   remToPx,
+  computeMaxScrollTop,
+  isLessonFeedScrolledToTail,
+  resolveFollowTailTargetTop,
+  resolveLessonShellScrollBehavior,
+  resolvePracticeFeedScrollRequest,
   resolveLessonFeedScrollMode,
   resolveLessonScrollBehavior,
   resolveLessonScrollContainerPaddingPx,
+  resolvePuzzleFeedMessagesStackClass,
   resolveRelaxFeedTailPin,
   resolveScrollBottomPadding,
   resolveShowFeedEndAnchor,
+  shouldMtAutoPinPuzzleCheckingRow,
   shouldPinLessonFeedTailNearComposer,
   simulateScrollTopAfterIntoViewEnd,
   simulateScrollTopAfterScrollToMax,
   simulateScrollTopAfterTailIfNeeded,
+  stepFollowTailScrollTop,
 } from '@/lib/lessonFeedScroll'
 
 const ROOT_PX = 16
@@ -84,6 +96,18 @@ describe('resolveRelaxFeedTailPin', () => {
     ).toBe(true)
   })
 
+  it('puzzle checking keeps pin for stable «Engvo проверяет…» offset', () => {
+    expect(
+      resolveRelaxFeedTailPin({
+        status: 'checking',
+        showAdvancingStatusLine: false,
+        isAdvancingToNextStep: false,
+        isAdvancingToNextVariant: false,
+        isSentencePuzzle: true,
+      })
+    ).toBe(false)
+  })
+
   it('advancing service line relaxes pin', () => {
     expect(
       resolveRelaxFeedTailPin({
@@ -107,6 +131,61 @@ describe('resolveRelaxFeedTailPin', () => {
   })
 })
 
+describe('resolvePuzzleFeedMessagesStackClass', () => {
+  it('short puzzle feed pins whole stack with justify-end', () => {
+    expect(
+      resolvePuzzleFeedMessagesStackClass({
+        pinFeedTailNearComposer: true,
+        isFeedOverflowing: false,
+      })
+    ).toBe('flex min-h-full flex-col justify-end')
+  })
+
+  it('overflowing puzzle feed drops justify-end', () => {
+    expect(
+      resolvePuzzleFeedMessagesStackClass({
+        pinFeedTailNearComposer: true,
+        isFeedOverflowing: true,
+      })
+    ).toBe('flex min-h-full flex-col')
+  })
+
+  it('returns undefined when pin is off', () => {
+    expect(
+      resolvePuzzleFeedMessagesStackClass({
+        pinFeedTailNearComposer: false,
+        isFeedOverflowing: true,
+      })
+    ).toBeUndefined()
+  })
+})
+
+describe('shouldMtAutoPinPuzzleCheckingRow', () => {
+  it('pins checking row on overflowing puzzle retry', () => {
+    expect(
+      shouldMtAutoPinPuzzleCheckingRow({
+        isSentencePuzzle: true,
+        status: 'checking',
+        isFeedOverflowing: true,
+        isCheckingMessage: true,
+        isLastInFeed: true,
+      })
+    ).toBe(true)
+  })
+
+  it('does not pin on first short attempt', () => {
+    expect(
+      shouldMtAutoPinPuzzleCheckingRow({
+        isSentencePuzzle: true,
+        status: 'checking',
+        isFeedOverflowing: false,
+        isCheckingMessage: true,
+        isLastInFeed: true,
+      })
+    ).toBe(false)
+  })
+})
+
 describe('shouldPinLessonFeedTailNearComposer', () => {
   it('puzzle idle pins tail near composer', () => {
     expect(
@@ -117,13 +196,22 @@ describe('shouldPinLessonFeedTailNearComposer', () => {
     ).toBe(true)
   })
 
-  it('checking unpins tail', () => {
+  it('checking unpins tail on non-puzzle steps', () => {
     expect(
       shouldPinLessonFeedTailNearComposer({
         useFeedScrollToMax: true,
         relaxFeedTailPin: true,
       })
     ).toBe(false)
+  })
+
+  it('puzzle checking keeps tail pinned near composer', () => {
+    expect(
+      shouldPinLessonFeedTailNearComposer({
+        useFeedScrollToMax: true,
+        relaxFeedTailPin: false,
+      })
+    ).toBe(true)
   })
 
   it('non-puzzle never pins', () => {
@@ -143,10 +231,16 @@ describe('resolveLessonFeedScrollMode', () => {
     ).toBe('scroll_to_max')
   })
 
-  it('puzzle checking uses tail if needed', () => {
+  it('puzzle checking with relaxed pin uses tail if needed', () => {
     expect(
       resolveLessonFeedScrollMode({ useFeedScrollToMax: true, relaxFeedTailPin: true })
     ).toBe('tail_if_needed')
+  })
+
+  it('puzzle checking keeps scroll_to_max when pin is held', () => {
+    expect(
+      resolveLessonFeedScrollMode({ useFeedScrollToMax: true, relaxFeedTailPin: false })
+    ).toBe('scroll_to_max')
   })
 
   it('chip/text steps always tail if needed', () => {
@@ -188,6 +282,127 @@ describe('resolveLessonScrollBehavior', () => {
     expect(resolveLessonScrollBehavior({ prefersReducedMotion: false, reason: 'feedback' })).toBe(
       'smooth'
     )
+  })
+})
+
+describe('isLessonFeedScrolledToTail', () => {
+  it('у дна ленты — true', () => {
+    const container = {
+      scrollHeight: 1200,
+      clientHeight: 400,
+      scrollTop: 800,
+    } as HTMLElement
+    expect(isLessonFeedScrolledToTail(container, 'tail_if_needed')).toBe(true)
+  })
+
+  it('хвост отстаёт — false', () => {
+    const container = {
+      scrollHeight: 1200,
+      clientHeight: 400,
+      scrollTop: 700,
+    } as HTMLElement
+    expect(isLessonFeedScrolledToTail(container, 'tail_if_needed')).toBe(false)
+  })
+
+  it('короткая лента на scrollTop 0 — true', () => {
+    const container = {
+      scrollHeight: 300,
+      clientHeight: 400,
+      scrollTop: 0,
+    } as HTMLElement
+    expect(isLessonFeedScrolledToTail(container, 'tail_if_needed')).toBe(true)
+    expect(computeMaxScrollTop(container.scrollHeight, container.clientHeight)).toBe(0)
+  })
+})
+
+describe('lesson feed tail message ids', () => {
+  it('распознаёт answer, checking, feedback', () => {
+    expect(isLessonFeedAnswerTailMessageId('answer-step-1-try-1')).toBe(true)
+    expect(isLessonFeedCheckingTailMessageId('checking-answer-step-1-try-1')).toBe(true)
+    expect(isLessonFeedFeedbackTailMessageId('feedback-answer-step-1-try-1-error')).toBe(true)
+    expect(isLessonFeedAnswerTailMessageId('feedback-x')).toBe(false)
+  })
+})
+
+describe('resolvePracticeFeedScrollRequest', () => {
+  it('checking / feedback / submitting — smooth как в уроке', () => {
+    for (const state of ['submitting', 'checking', 'feedback', 'correction'] as const) {
+      expect(
+        resolvePracticeFeedScrollRequest({
+          prefersReducedMotion: false,
+          reason: 'new_message',
+          state,
+        })
+      ).toBe('smooth')
+    }
+  })
+
+  it('active new_message — smooth без reduced motion', () => {
+    expect(
+      resolvePracticeFeedScrollRequest({
+        prefersReducedMotion: false,
+        reason: 'new_message',
+        state: 'active',
+      })
+    ).toBe('smooth')
+  })
+})
+
+describe('resolveLessonShellScrollBehavior', () => {
+  it('first step and reduced motion → auto', () => {
+    expect(
+      resolveLessonShellScrollBehavior({ prefersReducedMotion: false, isFirstLessonStep: true })
+    ).toBe('auto')
+    expect(
+      resolveLessonShellScrollBehavior({ prefersReducedMotion: true, isFirstLessonStep: false })
+    ).toBe('auto')
+  })
+
+  it('step 2+ reveal → smooth', () => {
+    expect(
+      resolveLessonShellScrollBehavior({ prefersReducedMotion: false, isFirstLessonStep: false })
+    ).toBe('smooth')
+  })
+})
+
+describe('follow-tail scroll helpers', () => {
+  it('stepFollowTailScrollTop lerps toward target', () => {
+    expect(stepFollowTailScrollTop({ currentScrollTop: 0, targetScrollTop: 100 })).toBe(20)
+    expect(stepFollowTailScrollTop({ currentScrollTop: 99.5, targetScrollTop: 100 })).toBe(100)
+  })
+
+  it('isFollowTailScrollSettled requires stable frames near target', () => {
+    expect(
+      isFollowTailScrollSettled({
+        currentScrollTop: 100,
+        targetScrollTop: 100.5,
+        stableFrames: 1,
+      })
+    ).toBe(false)
+    expect(
+      isFollowTailScrollSettled({
+        currentScrollTop: 100,
+        targetScrollTop: 100.5,
+        stableFrames: 2,
+      })
+    ).toBe(true)
+  })
+
+  it('resolveFollowTailTargetTop returns 0 for short feed in tail mode', () => {
+    const container = {
+      scrollHeight: 300,
+      clientHeight: 400,
+    } as HTMLElement
+    expect(resolveFollowTailTargetTop(container, 'tail_if_needed')).toBe(0)
+  })
+
+  it('resolveFollowTailTargetTop returns maxTop for overflowing feed', () => {
+    const container = {
+      scrollHeight: 1200,
+      clientHeight: 400,
+    } as HTMLElement
+    expect(resolveFollowTailTargetTop(container, 'tail_if_needed')).toBe(800)
+    expect(resolveFollowTailTargetTop(container, 'scroll_to_max')).toBe(800)
   })
 })
 

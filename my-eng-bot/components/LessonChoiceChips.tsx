@@ -23,6 +23,8 @@ interface Props {
   resetKey?: string;
   autoSelectText?: string | null;
   autoSelectNonce?: number;
+  /** Без bounce/fade при отложенном показе — иначе лента дёргается при снятии invisible. */
+  suppressEnterAnimation?: boolean;
 }
 
 const getChoiceText = (choice: ChoiceInput): string => (typeof choice === 'string' ? choice : choice.text ?? '');
@@ -39,6 +41,7 @@ export default function LessonChoiceChips({
   resetKey = '',
   autoSelectText = null,
   autoSelectNonce = 0,
+  suppressEnterAnimation = false,
 }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const [allowEnterAnimation, setAllowEnterAnimation] = useState(true);
@@ -118,7 +121,7 @@ export default function LessonChoiceChips({
   };
 
   const isFrozenPanel = frozen && disabled;
-  const useEnterAnimation = allowEnterAnimation && !isFrozenPanel;
+  const useEnterAnimation = allowEnterAnimation && !isFrozenPanel && !suppressEnterAnimation;
 
   return (
     <div

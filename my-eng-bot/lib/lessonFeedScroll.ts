@@ -35,8 +35,206 @@ export function resolveLessonScrollBehavior(input: {
   return 'smooth'
 }
 
+/** Плавный scroll только при reveal новой карточки шага; первый шаг — без сдвига. */
+export function resolveLessonShellScrollBehavior(input: {
+  prefersReducedMotion: boolean
+  isFirstLessonStep: boolean
+}): ScrollBehavior {
+  if (input.prefersReducedMotion || input.isFirstLessonStep) return 'auto'
+  return 'smooth'
+}
+
+/** id хвоста ленты: ответ пользователя. */
+export function isLessonFeedAnswerTailMessageId(tailMessageId?: string): boolean {
+  return tailMessageId?.startsWith('answer-step-') ?? false
+}
+
+/** id хвоста: «Engvo проверяет…». */
+export function isLessonFeedCheckingTailMessageId(tailMessageId?: string): boolean {
+  return tailMessageId?.startsWith('checking-') ?? false
+}
+
+/** id хвоста: «Верно» / «Неверно». */
+export function isLessonFeedFeedbackTailMessageId(tailMessageId?: string): boolean {
+  return tailMessageId?.startsWith('feedback-') ?? false
+}
+
+/** Практика: та же политика smooth, что и в уроке. */
+export function resolvePracticeFeedScrollRequest(input: {
+  prefersReducedMotion: boolean
+  reason: LessonScrollBehaviorReason
+  state:
+    | 'submitting'
+    | 'checking'
+    | 'feedback'
+    | 'correction'
+    | 'active'
+    | 'briefing'
+    | 'completed'
+    | 'error'
+    | 'generating_next'
+    | 'idle'
+}): ScrollBehavior {
+  return resolveLessonScrollBehavior({
+    prefersReducedMotion: input.prefersReducedMotion,
+    reason: input.reason,
+  })
+}
+
 /** Fallback, если scrollend не сработал (уже у дна ленты или старый браузер). */
 export const LESSON_FEED_SCROLL_COMPLETE_FALLBACK_MS = 650
+
+/** Lerp-шаг follow-tail scroll в уроках (не замедление — стабильный догон хвоста). */
+export const LESSON_FEED_SCROLL_LERP = 0.2
+export const LESSON_FEED_SCROLL_STABLE_FRAMES = 2
+export const LESSON_FEED_SCROLL_MAX_MS = 650
+export const LESSON_FEED_SCROLL_SNAP_PX = 1
+
+const activeFollowByContainer = new WeakMap<HTMLElement, () => void>()
+
+export function resolveFollowTailTargetTop(
+  scrollContainer: HTMLElement,
+  mode: LessonFeedScrollMode
+): number {
+  const maxTop = computeMaxScrollTop(scrollContainer.scrollHeight, scrollContainer.clientHeight)
+  if (mode === 'scroll_to_max') return maxTop
+  if (scrollContainer.scrollHeight <= scrollContainer.clientHeight) return 0
+  return maxTop
+}
+
+export function stepFollowTailScrollTop(params: {
+  currentScrollTop: number
+  targetScrollTop: number
+  lerp?: number
+}): number {
+  const lerp = params.lerp ?? LESSON_FEED_SCROLL_LERP
+  const delta = params.targetScrollTop - params.currentScrollTop
+  if (Math.abs(delta) < LESSON_FEED_SCROLL_SNAP_PX) {
+    return params.targetScrollTop
+  }
+  return params.currentScrollTop + delta * lerp
+}
+
+export function isFollowTailScrollSettled(params: {
+  currentScrollTop: number
+  targetScrollTop: number
+  stableFrames: number
+  requiredStableFrames?: number
+}): boolean {
+  const requiredStableFrames = params.requiredStableFrames ?? LESSON_FEED_SCROLL_STABLE_FRAMES
+  return (
+    Math.abs(params.targetScrollTop - params.currentScrollTop) < LESSON_FEED_SCROLL_SNAP_PX &&
+    params.stableFrames >= requiredStableFrames
+  )
+}
+
+export type FollowLessonFeedTailOptions = {
+  mode: LessonFeedScrollMode
+  behavior: ScrollBehavior
+  onComplete?: () => void
+}
+
+export function followLessonFeedTail(
+  scrollContainer: HTMLElement | null,
+  options: FollowLessonFeedTailOptions
+): () => void {
+  if (!scrollContainer) {
+    options.onComplete?.()
+    return () => {}
+  }
+
+  activeFollowByContainer.get(scrollContainer)?.()
+
+  const { mode, behavior, onComplete } = options
+
+  if (behavior === 'auto') {
+    const targetTop = resolveFollowTailTargetTop(scrollContainer, mode)
+    if (Math.abs(scrollContainer.scrollTop - targetTop) < LESSON_FEED_SCROLL_SNAP_PX) {
+      onComplete?.()
+      return () => {}
+    }
+    scrollContainer.scrollTop = targetTop
+    onComplete?.()
+    return () => {}
+  }
+
+  let rafId = 0
+  let cancelled = false
+  let stableFrames = 0
+  let lastTargetTop = -1
+  let completeCalled = false
+  const startedAt = performance.now()
+
+  const complete = () => {
+    if (completeCalled || cancelled) return
+    completeCalled = true
+    activeFollowByContainer.delete(scrollContainer)
+    onComplete?.()
+  }
+
+  const cancel = () => {
+    if (cancelled) return
+    cancelled = true
+    if (rafId) cancelAnimationFrame(rafId)
+    activeFollowByContainer.delete(scrollContainer)
+  }
+
+  const tick = () => {
+    if (cancelled) return
+
+    const targetTop = resolveFollowTailTargetTop(scrollContainer, mode)
+    let currentTop = scrollContainer.scrollTop
+
+    if (currentTop > targetTop + LESSON_FEED_SCROLL_SNAP_PX) {
+      scrollContainer.scrollTop = targetTop
+      currentTop = targetTop
+      stableFrames = 0
+      lastTargetTop = targetTop
+    }
+
+    if (Math.abs(targetTop - lastTargetTop) < LESSON_FEED_SCROLL_SNAP_PX) {
+      stableFrames += 1
+    } else {
+      stableFrames = 0
+      lastTargetTop = targetTop
+    }
+
+    if (
+      isFollowTailScrollSettled({
+        currentScrollTop: currentTop,
+        targetScrollTop: targetTop,
+        stableFrames,
+      })
+    ) {
+      scrollContainer.scrollTop = targetTop
+      complete()
+      return
+    }
+
+    if (performance.now() - startedAt >= LESSON_FEED_SCROLL_MAX_MS) {
+      scrollContainer.scrollTop = targetTop
+      complete()
+      return
+    }
+
+    scrollContainer.scrollTop = stepFollowTailScrollTop({
+      currentScrollTop: currentTop,
+      targetScrollTop: targetTop,
+    })
+    rafId = requestAnimationFrame(tick)
+  }
+
+  activeFollowByContainer.set(scrollContainer, cancel)
+  rafId = requestAnimationFrame(tick)
+  return cancel
+}
+
+export function followLessonFeedTailWithComplete(
+  scrollContainer: HTMLElement | null,
+  options: FollowLessonFeedTailOptions
+): () => void {
+  return followLessonFeedTail(scrollContainer, options)
+}
 
 function invokeAfterScrollComplete(
   scrollContainer: HTMLElement,
@@ -131,13 +329,18 @@ export function resolveShowFeedEndAnchor(input: {
 
 export type LessonFeedScrollMode = 'scroll_to_max' | 'tail_if_needed'
 
-/** Отключить pin/scrollToMax на пазле: checking (включая 500ms до service-строки) и advancing. */
+/** Отключить pin/scrollToMax: checking (не на пазле) и advancing. */
 export function resolveRelaxFeedTailPin(input: {
   status: 'idle' | 'checking' | 'feedback' | 'completed'
   showAdvancingStatusLine: boolean
   isAdvancingToNextStep: boolean
   isAdvancingToNextVariant: boolean
+  /** На sentence_puzzle pin и scroll_to_max держим и во время checking — отступ «Engvo проверяет…» как на 1/3. */
+  isSentencePuzzle?: boolean
 }): boolean {
+  if (input.isSentencePuzzle && input.status === 'checking') {
+    return false
+  }
   return (
     input.status === 'checking' ||
     (input.showAdvancingStatusLine &&
@@ -150,6 +353,39 @@ export function shouldPinLessonFeedTailNearComposer(input: {
   relaxFeedTailPin: boolean
 }): boolean {
   return input.useFeedScrollToMax && !input.relaxFeedTailPin
+}
+
+const PUZZLE_FEED_PINNED_STACK_CLASS = 'flex min-h-full flex-col justify-end'
+const PUZZLE_FEED_OVERFLOW_STACK_CLASS = 'flex min-h-full flex-col'
+
+/**
+ * justify-end работает только пока лента короче viewport.
+ * При переполнении (2+ попытка пазла) — mt-auto на checking + scroll_to_max.
+ */
+export function resolvePuzzleFeedMessagesStackClass(input: {
+  pinFeedTailNearComposer: boolean
+  isFeedOverflowing: boolean
+}): string | undefined {
+  if (!input.pinFeedTailNearComposer) return undefined
+  return input.isFeedOverflowing
+    ? PUZZLE_FEED_OVERFLOW_STACK_CLASS
+    : PUZZLE_FEED_PINNED_STACK_CLASS
+}
+
+export function shouldMtAutoPinPuzzleCheckingRow(input: {
+  isSentencePuzzle: boolean
+  status: 'idle' | 'checking' | 'feedback' | 'completed'
+  isFeedOverflowing: boolean
+  isCheckingMessage: boolean
+  isLastInFeed: boolean
+}): boolean {
+  return (
+    input.isSentencePuzzle &&
+    input.status === 'checking' &&
+    input.isFeedOverflowing &&
+    input.isLastInFeed &&
+    input.isCheckingMessage
+  )
 }
 
 export function resolveLessonFeedScrollMode(input: {
@@ -192,6 +428,52 @@ export function parseLessonScrollPaddingPx(
 
 export function computeMaxScrollTop(scrollHeight: number, clientHeight: number): number {
   return Math.max(0, scrollHeight - clientHeight)
+}
+
+/** Хвост ленты уже у целевой позиции — не скроллить (без тика вверх). */
+export function isLessonFeedScrolledToTail(
+  scrollContainer: HTMLElement | null,
+  mode: LessonFeedScrollMode = 'tail_if_needed'
+): boolean {
+  if (!scrollContainer) return true
+  const targetTop = resolveFollowTailTargetTop(scrollContainer, mode)
+  return Math.abs(scrollContainer.scrollTop - targetTop) < LESSON_FEED_SCROLL_SNAP_PX
+}
+
+export function scrollLessonFeedToModeIfNeeded(
+  scrollContainer: HTMLElement | null,
+  mode: LessonFeedScrollMode,
+  behavior: ScrollBehavior = 'auto'
+): boolean {
+  if (!scrollContainer || isLessonFeedScrolledToTail(scrollContainer, mode)) {
+    return false
+  }
+  if (mode === 'scroll_to_max') {
+    scrollLessonFeedToMax(scrollContainer, behavior)
+  } else {
+    scrollLessonFeedTailIfNeeded(scrollContainer, behavior)
+  }
+  return true
+}
+
+export function scrollLessonFeedToModeWithCompleteIfNeeded(
+  scrollContainer: HTMLElement | null,
+  mode: LessonFeedScrollMode,
+  behavior: ScrollBehavior = 'auto',
+  onComplete?: () => void
+): () => void {
+  if (!scrollContainer) {
+    onComplete?.()
+    return () => {}
+  }
+  if (isLessonFeedScrolledToTail(scrollContainer, mode)) {
+    onComplete?.()
+    return () => {}
+  }
+  if (mode === 'scroll_to_max') {
+    return scrollLessonFeedToMaxWithComplete(scrollContainer, behavior, onComplete)
+  }
+  return scrollLessonFeedTailIfNeededWithComplete(scrollContainer, behavior, onComplete)
 }
 
 /** Двойной rAF: дождаться layout перед scrollTo (нужно на iOS Safari). */
