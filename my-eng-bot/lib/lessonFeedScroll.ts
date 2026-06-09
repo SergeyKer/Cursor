@@ -29,14 +29,62 @@ export function resolveLessonScrollBehavior(input: {
   reason: LessonScrollBehaviorReason
 }): ScrollBehavior {
   if (input.prefersReducedMotion) return 'auto'
-  if (
-    input.reason === 'initial' ||
-    input.reason === 'step_change' ||
-    input.reason === 'overflow_follow'
-  ) {
+  if (input.reason === 'initial') {
     return 'auto'
   }
   return 'smooth'
+}
+
+/** Fallback, если scrollend не сработал (уже у дна ленты или старый браузер). */
+export const LESSON_FEED_SCROLL_COMPLETE_FALLBACK_MS = 650
+
+function invokeAfterScrollComplete(
+  scrollContainer: HTMLElement,
+  behavior: ScrollBehavior,
+  onComplete: () => void
+): () => void {
+  if (behavior === 'auto') {
+    onComplete()
+    return () => {}
+  }
+
+  let done = false
+  const complete = () => {
+    if (done) return
+    done = true
+    onComplete()
+  }
+
+  const onScrollEnd = () => complete()
+  scrollContainer.addEventListener('scrollend', onScrollEnd, { once: true })
+  const fallback = window.setTimeout(complete, LESSON_FEED_SCROLL_COMPLETE_FALLBACK_MS)
+
+  return () => {
+    scrollContainer.removeEventListener('scrollend', onScrollEnd)
+    window.clearTimeout(fallback)
+  }
+}
+
+export function scrollLessonFeedTailIfNeededWithComplete(
+  scrollContainer: HTMLElement | null,
+  behavior: ScrollBehavior = 'auto',
+  onComplete?: () => void
+): () => void {
+  if (!scrollContainer) return () => {}
+  scrollLessonFeedTailIfNeeded(scrollContainer, behavior)
+  if (!onComplete) return () => {}
+  return invokeAfterScrollComplete(scrollContainer, behavior, onComplete)
+}
+
+export function scrollLessonFeedToMaxWithComplete(
+  scrollContainer: HTMLElement | null,
+  behavior: ScrollBehavior = 'auto',
+  onComplete?: () => void
+): () => void {
+  if (!scrollContainer) return () => {}
+  scrollLessonFeedToMax(scrollContainer, behavior)
+  if (!onComplete) return () => {}
+  return invokeAfterScrollComplete(scrollContainer, behavior, onComplete)
 }
 
 export function resolveBottomStackHeightCss(input: {
@@ -79,6 +127,38 @@ export function resolveShowFeedEndAnchor(input: {
   includePuzzleAnchor?: boolean
 }): boolean {
   return input.hasPostLessonOptions || (input.includePuzzleAnchor === true && input.isSentencePuzzle)
+}
+
+export type LessonFeedScrollMode = 'scroll_to_max' | 'tail_if_needed'
+
+/** Отключить pin/scrollToMax на пазле: checking (включая 500ms до service-строки) и advancing. */
+export function resolveRelaxFeedTailPin(input: {
+  status: 'idle' | 'checking' | 'feedback' | 'completed'
+  showAdvancingStatusLine: boolean
+  isAdvancingToNextStep: boolean
+  isAdvancingToNextVariant: boolean
+}): boolean {
+  return (
+    input.status === 'checking' ||
+    (input.showAdvancingStatusLine &&
+      (input.isAdvancingToNextStep || input.isAdvancingToNextVariant))
+  )
+}
+
+export function shouldPinLessonFeedTailNearComposer(input: {
+  useFeedScrollToMax: boolean
+  relaxFeedTailPin: boolean
+}): boolean {
+  return input.useFeedScrollToMax && !input.relaxFeedTailPin
+}
+
+export function resolveLessonFeedScrollMode(input: {
+  useFeedScrollToMax: boolean
+  relaxFeedTailPin: boolean
+}): LessonFeedScrollMode {
+  if (!input.useFeedScrollToMax) return 'tail_if_needed'
+  if (input.relaxFeedTailPin) return 'tail_if_needed'
+  return 'scroll_to_max'
 }
 
 /** rem → px при типичном 16px root (для расчётов в тестах). */
@@ -140,17 +220,16 @@ export function scrollLessonFeedToMax(
   scrollContainer.scrollTo({ top: maxTop, behavior })
 }
 
-/** Скролл к хвосту только при переполнении; иначе контент остаётся у верха. */
+/**
+ * Скролл к хвосту ленты — как в Chat.tsx: scrollTo(scrollHeight, behavior).
+ * При короткой ленте браузер остаётся на scrollTop = 0.
+ */
 export function scrollLessonFeedTailIfNeeded(
   scrollContainer: HTMLElement | null,
   behavior: ScrollBehavior = 'auto'
 ): void {
   if (!scrollContainer) return
-  if (scrollContainer.scrollHeight <= scrollContainer.clientHeight) {
-    scrollContainer.scrollTo({ top: 0, behavior })
-    return
-  }
-  scrollLessonFeedToMax(scrollContainer, behavior)
+  scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior })
 }
 
 export function isLessonFeedOverflowing(scrollContainer: HTMLElement | null): boolean {

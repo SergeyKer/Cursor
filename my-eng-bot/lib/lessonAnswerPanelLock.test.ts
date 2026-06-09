@@ -50,21 +50,20 @@ describe('isLessonAnswerPanelLocked', () => {
 })
 
 describe('isLessonChoicePanelFrozen', () => {
-  it('freezes on checking, success feedback or hold', () => {
-    expect(isLessonChoicePanelFrozen('checking', undefined, false)).toBe(true)
-    expect(isLessonChoicePanelFrozen('checking', 'error', false)).toBe(true)
-    expect(isLessonChoicePanelFrozen('feedback', 'error', false)).toBe(false)
-    expect(isLessonChoicePanelFrozen('feedback', 'success', false)).toBe(true)
+  it('freezes on checking, success feedback or reveal', () => {
+    expect(isLessonChoicePanelFrozen('checking', undefined)).toBe(true)
+    expect(isLessonChoicePanelFrozen('checking', 'error')).toBe(true)
+    expect(isLessonChoicePanelFrozen('feedback', 'error')).toBe(false)
+    expect(isLessonChoicePanelFrozen('feedback', 'success')).toBe(true)
     expect(isLessonChoicePanelFrozen('idle', undefined, true)).toBe(true)
-    expect(isLessonChoicePanelFrozen('idle', undefined, false, true)).toBe(true)
   })
 })
 
 describe('isLessonChoiceInteractionDisabled', () => {
   it('disables on checking and success freeze', () => {
-    expect(isLessonChoiceInteractionDisabled('checking', undefined, false)).toBe(true)
-    expect(isLessonChoiceInteractionDisabled('feedback', 'error', false)).toBe(false)
-    expect(isLessonChoiceInteractionDisabled('feedback', 'success', false)).toBe(true)
+    expect(isLessonChoiceInteractionDisabled('checking', undefined)).toBe(true)
+    expect(isLessonChoiceInteractionDisabled('feedback', 'error')).toBe(false)
+    expect(isLessonChoiceInteractionDisabled('feedback', 'success')).toBe(true)
   })
 })
 

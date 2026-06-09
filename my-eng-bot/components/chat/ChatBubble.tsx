@@ -15,6 +15,10 @@ export const LESSON_CARD_RADIUS_CLASS = ASSISTANT_BUBBLE_RADIUS
 export const CHAT_FEED_SERVICE_STATUS_ROW_CLASS =
   'mb-2.5 flex justify-start pl-3.5 pr-1 sm:pl-4'
 
+/** Пазл: больше воздуха под «Engvo проверяет…» над dock-композером (только checking). */
+export const CHAT_FEED_SERVICE_STATUS_ROW_PUZZLE_CHECKING_CLASS =
+  'mb-7 flex justify-start pl-3.5 pr-1 sm:pl-4'
+
 type ChatBubbleFrameProps = {
   role: BubbleRole
   position?: BubblePosition

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
-  LESSON_SHELL_ENTER_MS,
   LESSON_TEXT_FADE_MS,
   LESSON_TEXT_SECTION_PAUSE_MS,
 } from '@/lib/lessonRevealTiming'
@@ -27,7 +26,7 @@ type UseLessonSectionRevealResult = {
   textRevealedThroughIndex: number
   textAnimatingIndex: number | null
   isRevealInProgress: boolean
-  onShellEnterComplete: () => void
+  onShellScrollComplete: () => void
   onTextSectionRevealComplete: (sectionIndex: number) => void
 }
 
@@ -59,7 +58,6 @@ export function useLessonSectionReveal({
   const [textAnimatingIndex, setTextAnimatingIndex] = useState<number | null>(null)
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const shellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sessionRef = useRef(0)
   const completingIndexRef = useRef<number | null>(null)
   const revealPhaseRef = useRef(revealPhase)
@@ -80,13 +78,6 @@ export function useLessonSectionReveal({
     }
   }, [])
 
-  const clearShellTimer = useCallback(() => {
-    if (shellTimerRef.current) {
-      clearTimeout(shellTimerRef.current)
-      shellTimerRef.current = null
-    }
-  }, [])
-
   const finishReveal = useCallback(() => {
     if (revealKey) {
       markPracticeQuestionRevealed(sessionId, revealKey)
@@ -100,17 +91,15 @@ export function useLessonSectionReveal({
 
   const beginTextReveal = useCallback(() => {
     if (revealPhaseRef.current !== 'shell') return
-    clearShellTimer()
     setRevealPhase('text')
     setTextAnimatingIndex(0)
-  }, [clearShellTimer])
+  }, [])
 
   useLayoutEffect(() => {
     const session = sessionRef.current + 1
     sessionRef.current = session
     clearPauseTimer()
     clearFallbackTimer()
-    clearShellTimer()
     completingIndexRef.current = null
 
     if (!enabled || !revealKey || sectionCount <= 0) {
@@ -133,7 +122,6 @@ export function useLessonSectionReveal({
   }, [
     clearFallbackTimer,
     clearPauseTimer,
-    clearShellTimer,
     enabled,
     finishReveal,
     prefersReducedMotion,
@@ -143,27 +131,12 @@ export function useLessonSectionReveal({
   ])
 
   useEffect(() => {
-    if (revealPhase !== 'shell' || !enabled || sectionCount <= 0) {
-      clearShellTimer()
-      return
-    }
-
-    clearShellTimer()
-    shellTimerRef.current = setTimeout(() => {
-      beginTextReveal()
-    }, LESSON_SHELL_ENTER_MS + 40)
-
-    return clearShellTimer
-  }, [beginTextReveal, clearShellTimer, enabled, revealPhase, sectionCount])
-
-  useEffect(() => {
     return () => {
       sessionRef.current += 1
       clearPauseTimer()
       clearFallbackTimer()
-      clearShellTimer()
     }
-  }, [clearFallbackTimer, clearPauseTimer, clearShellTimer])
+  }, [clearFallbackTimer, clearPauseTimer])
 
   useEffect(() => {
     if (textAnimatingIndex === null || revealPhase !== 'text' || !enabled || sectionCount <= 0) {
@@ -197,7 +170,7 @@ export function useLessonSectionReveal({
     textAnimatingIndex,
   ])
 
-  const onShellEnterComplete = useCallback(() => {
+  const onShellScrollComplete = useCallback(() => {
     beginTextReveal()
   }, [beginTextReveal])
 
@@ -245,7 +218,7 @@ export function useLessonSectionReveal({
     textRevealedThroughIndex,
     textAnimatingIndex,
     isRevealInProgress,
-    onShellEnterComplete,
+    onShellScrollComplete,
     onTextSectionRevealComplete,
   }
 }

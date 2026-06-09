@@ -224,3 +224,38 @@ describe('buildLessonFeedMessages — non-puzzle regression', () => {
     ])
   })
 })
+
+describe('buildLessonFeedMessages — success advance', () => {
+  it('hides current lesson card during success feedback without placeholder gap', () => {
+    const currentEntry = makeTimelineEntry({
+      isCurrent: true,
+      submittedAnswer: "I'm happy.",
+      feedback: { type: 'success', message: 'Верно.' },
+      step: {
+        stepNumber: 1,
+        bubbles: [{ type: 'task', content: 'Step 1' }],
+        exercise: {
+          type: 'fill_choice',
+          options: ["I'm happy.", 'I am a student.', "I'm from Russia."],
+          correctAnswer: "I'm happy.",
+        },
+      } as LessonData['steps'][number],
+    })
+    const timeline = buildActiveStepTimeline([], currentEntry, [], 'fill_choice')
+
+    const messages = buildLessonFeedMessages({
+      timeline,
+      status: 'feedback',
+      latestFeedbackType: 'success',
+      showCheckingStatusLine: false,
+      showAdvancingStatusLine: true,
+      isAdvancingToNextStep: true,
+      isAdvancingToNextVariant: false,
+    })
+
+    expect(messages.some((message) => message.kind === 'lesson')).toBe(false)
+    expect(messages.some((message) => message.kind === 'status' && message.tone === 'success')).toBe(
+      true
+    )
+  })
+})

@@ -5,10 +5,13 @@ import {
   LESSON_INPUT_GAP_PX,
   parseLessonScrollPaddingPx,
   remToPx,
+  resolveLessonFeedScrollMode,
   resolveLessonScrollBehavior,
   resolveLessonScrollContainerPaddingPx,
+  resolveRelaxFeedTailPin,
   resolveScrollBottomPadding,
   resolveShowFeedEndAnchor,
+  shouldPinLessonFeedTailNearComposer,
   simulateScrollTopAfterIntoViewEnd,
   simulateScrollTopAfterScrollToMax,
   simulateScrollTopAfterTailIfNeeded,
@@ -28,6 +31,18 @@ describe('resolveScrollBottomPadding', () => {
         hasPostLessonOptions: false,
         isSentencePuzzle: false,
         bottomStackHeightPx: 66,
+        composerOutsideScroll: true,
+      })
+    ).toBeUndefined()
+  })
+
+  it('composerOutsideScroll + puzzle: без доп. padding (dock снаружи scroll)', () => {
+    expect(
+      resolveScrollBottomPadding({
+        hasCurrentStep: true,
+        hasPostLessonOptions: false,
+        isSentencePuzzle: true,
+        bottomStackHeightPx: 0,
         composerOutsideScroll: true,
       })
     ).toBeUndefined()
@@ -57,6 +72,90 @@ describe('resolveScrollBottomPadding', () => {
   })
 })
 
+describe('resolveRelaxFeedTailPin', () => {
+  it('checking on entire phase including before service line', () => {
+    expect(
+      resolveRelaxFeedTailPin({
+        status: 'checking',
+        showAdvancingStatusLine: false,
+        isAdvancingToNextStep: false,
+        isAdvancingToNextVariant: false,
+      })
+    ).toBe(true)
+  })
+
+  it('advancing service line relaxes pin', () => {
+    expect(
+      resolveRelaxFeedTailPin({
+        status: 'feedback',
+        showAdvancingStatusLine: true,
+        isAdvancingToNextStep: true,
+        isAdvancingToNextVariant: false,
+      })
+    ).toBe(true)
+  })
+
+  it('puzzle idle does not relax', () => {
+    expect(
+      resolveRelaxFeedTailPin({
+        status: 'idle',
+        showAdvancingStatusLine: false,
+        isAdvancingToNextStep: false,
+        isAdvancingToNextVariant: false,
+      })
+    ).toBe(false)
+  })
+})
+
+describe('shouldPinLessonFeedTailNearComposer', () => {
+  it('puzzle idle pins tail near composer', () => {
+    expect(
+      shouldPinLessonFeedTailNearComposer({
+        useFeedScrollToMax: true,
+        relaxFeedTailPin: false,
+      })
+    ).toBe(true)
+  })
+
+  it('checking unpins tail', () => {
+    expect(
+      shouldPinLessonFeedTailNearComposer({
+        useFeedScrollToMax: true,
+        relaxFeedTailPin: true,
+      })
+    ).toBe(false)
+  })
+
+  it('non-puzzle never pins', () => {
+    expect(
+      shouldPinLessonFeedTailNearComposer({
+        useFeedScrollToMax: false,
+        relaxFeedTailPin: false,
+      })
+    ).toBe(false)
+  })
+})
+
+describe('resolveLessonFeedScrollMode', () => {
+  it('puzzle idle scrolls to max', () => {
+    expect(
+      resolveLessonFeedScrollMode({ useFeedScrollToMax: true, relaxFeedTailPin: false })
+    ).toBe('scroll_to_max')
+  })
+
+  it('puzzle checking uses tail if needed', () => {
+    expect(
+      resolveLessonFeedScrollMode({ useFeedScrollToMax: true, relaxFeedTailPin: true })
+    ).toBe('tail_if_needed')
+  })
+
+  it('chip/text steps always tail if needed', () => {
+    expect(
+      resolveLessonFeedScrollMode({ useFeedScrollToMax: false, relaxFeedTailPin: false })
+    ).toBe('tail_if_needed')
+  })
+})
+
 describe('resolveLessonScrollBehavior', () => {
   it('prefersReducedMotion → auto', () => {
     expect(
@@ -64,16 +163,22 @@ describe('resolveLessonScrollBehavior', () => {
     ).toBe('auto')
   })
 
-  it('step_change и overflow_follow → auto', () => {
-    expect(
-      resolveLessonScrollBehavior({ prefersReducedMotion: false, reason: 'step_change' })
-    ).toBe('auto')
+  it('overflow_follow → smooth', () => {
     expect(
       resolveLessonScrollBehavior({ prefersReducedMotion: false, reason: 'overflow_follow' })
+    ).toBe('smooth')
+  })
+
+  it('initial → auto', () => {
+    expect(
+      resolveLessonScrollBehavior({ prefersReducedMotion: false, reason: 'initial' })
     ).toBe('auto')
   })
 
-  it('reveal / new_message / feedback → smooth', () => {
+  it('step_change / reveal / new_message / feedback → smooth', () => {
+    expect(
+      resolveLessonScrollBehavior({ prefersReducedMotion: false, reason: 'step_change' })
+    ).toBe('smooth')
     expect(resolveLessonScrollBehavior({ prefersReducedMotion: false, reason: 'reveal' })).toBe(
       'smooth'
     )

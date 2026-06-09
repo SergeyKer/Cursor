@@ -11,6 +11,7 @@ import PracticeQuestionBubble from '@/components/practice/PracticeQuestionBubble
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import {
   CHAT_FEED_SERVICE_STATUS_ROW_CLASS,
+  CHAT_FEED_SERVICE_STATUS_ROW_PUZZLE_CHECKING_CLASS,
   ChatBubbleFrame,
   getBubblePosition,
   type BubbleRole,
@@ -31,8 +32,11 @@ import {
   isLessonChoiceInteractionDisabled,
   isLessonChoicePanelFrozen,
   LESSON_CHECKING_REVEAL_MS,
-  LESSON_CHOICE_ADVANCE_HOLD_MS,
 } from '@/lib/lessonAnswerPanelLock'
+import { useLessonComposerHeightLock } from '@/hooks/useLessonComposerHeightLock'
+import {
+  resolveLessonComposerPanelKind,
+} from '@/lib/lessonComposerLayout'
 import { ENGVO_CHECKING_TYPEWRITER_WORD_MS } from '@/lib/practice/practiceRevealTiming'
 import TypingText from '@/components/TypingText'
 import { buildLessonFeedMessages, type LessonFeedMessage } from '@/lib/buildLessonFeedMessages'
@@ -40,10 +44,15 @@ import { shouldHighlightWrongLessonChoice } from '@/lib/lessonChoiceHighlight'
 import { injectVariantQuestionIntoTaskBubble } from '@/lib/lessonFeedBubbles'
 import {
   LESSON_SCROLL_VIEWPORT_CLASS,
+  resolveLessonFeedScrollMode,
   resolveLessonScrollBehavior,
+  resolveRelaxFeedTailPin,
   resolveScrollBottomPadding,
+  shouldPinLessonFeedTailNearComposer,
   scrollLessonFeedTailIfNeeded,
+  scrollLessonFeedTailIfNeededWithComplete,
   scrollLessonFeedToMax,
+  scrollLessonFeedToMaxWithComplete,
 } from '@/lib/lessonFeedScroll'
 import { speak } from '@/lib/speech'
 import { seededShuffle } from '@/lib/shuffleSeeded'
@@ -172,9 +181,8 @@ export default function LessonStepRenderer({
 }: LessonStepRendererProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const messagesStackRef = useRef<HTMLDivElement>(null)
+  const composerStackRef = useRef<HTMLDivElement>(null)
   const reopenChoicesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const advanceHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const suppressChoiceResetRef = useRef(false)
   const wasAnswerPanelLockedRef = useRef(false)
   const lastStepVariantRef = useRef<{ stepNumber?: number; variantIndex: number }>({
     variantIndex: 0,
@@ -196,7 +204,6 @@ export default function LessonStepRenderer({
   const [choiceClearNonce, setChoiceClearNonce] = useState(0)
   const [wrongChoiceHighlight, setWrongChoiceHighlight] = useState<string | null>(null)
   const [frozenChoiceOptions, setFrozenChoiceOptions] = useState<string[] | null>(null)
-  const [holdChoicesAfterAdvance, setHoldChoicesAfterAdvance] = useState(false)
   const [postLessonPhase, setPostLessonPhase] = useState<'medal' | 'menu'>(() =>
     postLessonMedalSeen ? 'menu' : 'medal'
   )
@@ -251,6 +258,16 @@ export default function LessonStepRenderer({
   const hasPostLessonOptions = Boolean(postLesson?.options.length)
   /** Пазл и финал: короткая лента + высокая нижняя панель — scrollIntoView липнет к верху. */
   const useFeedScrollToMax = isSentencePuzzle || hasPostLessonOptions
+  const relaxFeedTailPin = resolveRelaxFeedTailPin({
+    status,
+    showAdvancingStatusLine,
+    isAdvancingToNextStep,
+    isAdvancingToNextVariant,
+  })
+  const pinFeedTailNearComposer = shouldPinLessonFeedTailNearComposer({
+    useFeedScrollToMax,
+    relaxFeedTailPin,
+  })
   const isChoiceDrivenStep = shouldRenderChoiceChips || hasPostLessonOptions || isSentencePuzzle
   const isTextInputAvailable = Boolean(exercise) && !hasPostLessonOptions && !shouldRenderChoiceChips && !isSentencePuzzle
   const revealSourceBubbles = useMemo(() => {
@@ -264,13 +281,14 @@ export default function LessonStepRenderer({
   )
   const revealEnabled =
     Boolean(currentEntry?.isCurrent && exercise) && status === 'idle' && revealSectionCount > 0
+  const isFirstLessonStep = (currentStep?.stepNumber ?? 0) === 1
   const {
     isShellEnterActive,
     isTextRevealActive,
     textRevealedThroughIndex,
     textAnimatingIndex,
     isRevealInProgress,
-    onShellEnterComplete,
+    onShellScrollComplete,
     onTextSectionRevealComplete,
   } = useLessonSectionReveal({
     sessionId: `lesson:${lessonRevealSessionId}`,
@@ -288,36 +306,25 @@ export default function LessonStepRenderer({
     latestFeedback?.type,
     isRevealInProgress
   )
-  const prevStepVariantForHold = lastStepVariantRef.current
-  const stepNumberForHold = currentStep?.stepNumber
-  const variantIndexForHold = currentVariantIndex
-  const hadPreviousStepForHold = prevStepVariantForHold.stepNumber !== undefined
-  const stepChangedForHold =
-    hadPreviousStepForHold && prevStepVariantForHold.stepNumber !== stepNumberForHold
-  const variantChangedForHold =
-    hadPreviousStepForHold && prevStepVariantForHold.variantIndex !== variantIndexForHold
-  const shouldAdvanceHoldNow =
-    shouldRenderChoiceChips &&
-    (stepChangedForHold || variantChangedForHold) &&
-    wasAnswerPanelLockedRef.current &&
-    (frozenChoiceOptions?.length ?? 0) > 0
-  const isAdvanceHoldActive = holdChoicesAfterAdvance || shouldAdvanceHoldNow
   const isChoicePanelFrozen =
     shouldRenderChoiceChips &&
-    isLessonChoicePanelFrozen(status, latestFeedback?.type, isAdvanceHoldActive, isRevealInProgress)
+    isLessonChoicePanelFrozen(status, latestFeedback?.type, isRevealInProgress)
   const isChoiceInteractionDisabled =
     shouldRenderChoiceChips &&
-    isLessonChoiceInteractionDisabled(
-      status,
-      latestFeedback?.type,
-      isAdvanceHoldActive,
-      isRevealInProgress
-    )
+    isLessonChoiceInteractionDisabled(status, latestFeedback?.type, isRevealInProgress)
   const displayChoiceOptions = useMemo(() => {
-    if (!isChoicePanelFrozen) return choiceOptions
-    if (frozenChoiceOptions?.length) return frozenChoiceOptions
+    if (
+      status === 'feedback' &&
+      latestFeedback?.type === 'success' &&
+      frozenChoiceOptions?.length
+    ) {
+      return frozenChoiceOptions
+    }
     return choiceOptions
-  }, [isChoicePanelFrozen, frozenChoiceOptions, choiceOptions])
+  }, [status, latestFeedback?.type, frozenChoiceOptions, choiceOptions])
+  const stepTransitionKey = currentStep
+    ? `step-${currentStep.stepNumber}-v${currentVariantIndex}`
+    : null
 
   const handleChoiceAnswer = useCallback(
     (answer: string) => {
@@ -409,8 +416,6 @@ export default function LessonStepRenderer({
   useEffect(() => {
     if (status === 'feedback' && latestFeedback?.type === 'error') {
       setFrozenChoiceOptions(null)
-      setHoldChoicesAfterAdvance(false)
-      suppressChoiceResetRef.current = false
     }
   }, [status, latestFeedback?.type])
 
@@ -467,53 +472,18 @@ export default function LessonStepRenderer({
       setWrongChoiceHighlight(null)
       lastChosenChoiceRef.current = null
       wrongHighlightSuppressedRef.current = false
-    }
-
-    if ((stepChanged || variantChanged) && wasAnswerPanelLockedRef.current && frozenChoiceOptions?.length) {
       wasAnswerPanelLockedRef.current = false
-      setHoldChoicesAfterAdvance(true)
-      suppressChoiceResetRef.current = true
-      if (advanceHoldTimerRef.current) {
-        clearTimeout(advanceHoldTimerRef.current)
-      }
+      setFrozenChoiceOptions(null)
+      setChoiceResetVersion((current) => current + 1)
+      resetVoiceInput()
       if (reopenChoicesTimerRef.current) {
         clearTimeout(reopenChoicesTimerRef.current)
         reopenChoicesTimerRef.current = null
       }
-      advanceHoldTimerRef.current = setTimeout(() => {
-        setHoldChoicesAfterAdvance(false)
-        suppressChoiceResetRef.current = false
-        setFrozenChoiceOptions(null)
-        setChoiceResetVersion((current) => current + 1)
-        advanceHoldTimerRef.current = null
-      }, LESSON_CHOICE_ADVANCE_HOLD_MS)
-    } else if (stepChanged || variantChanged) {
-      if (!suppressChoiceResetRef.current) {
-        setChoiceResetVersion((current) => current + 1)
-        resetVoiceInput()
-        if (reopenChoicesTimerRef.current) {
-          clearTimeout(reopenChoicesTimerRef.current)
-          reopenChoicesTimerRef.current = null
-        }
-      }
     }
 
     lastStepVariantRef.current = { stepNumber, variantIndex }
-  }, [
-    currentStep?.stepNumber,
-    currentVariantIndex,
-    frozenChoiceOptions,
-    resetVoiceInput,
-  ])
-
-  useEffect(() => {
-    return () => {
-      if (advanceHoldTimerRef.current) {
-        clearTimeout(advanceHoldTimerRef.current)
-        advanceHoldTimerRef.current = null
-      }
-    }
-  }, [])
+  }, [currentStep?.stepNumber, currentVariantIndex, resetVoiceInput])
 
   useEffect(() => {
     if (reopenChoicesTimerRef.current) {
@@ -643,18 +613,50 @@ export default function LessonStepRenderer({
   )
 
   useEffect(() => {
-    if (!isRevealInProgress) return
+    if (!isShellEnterActive) return
+
+    if (isFirstLessonStep) {
+      return scheduleScroll(() => {
+        onShellScrollComplete()
+      }, 'auto')
+    }
+
     const behavior = resolveLessonScrollBehavior({
       prefersReducedMotion,
-      reason: 'reveal',
+      reason: 'step_change',
     })
-    return scheduleScrollLessonFeedTail(behavior)
+
+    let cleanupScrollComplete: (() => void) | undefined
+
+    const cleanupSchedule = scheduleScroll((scrollBehavior) => {
+      const scrollContainer = scrollContainerRef.current
+      const mode = resolveLessonFeedScrollMode({ useFeedScrollToMax, relaxFeedTailPin })
+      cleanupScrollComplete =
+        mode === 'scroll_to_max'
+          ? scrollLessonFeedToMaxWithComplete(
+              scrollContainer,
+              scrollBehavior,
+              onShellScrollComplete
+            )
+          : scrollLessonFeedTailIfNeededWithComplete(
+              scrollContainer,
+              scrollBehavior,
+              onShellScrollComplete
+            )
+    }, behavior)
+
+    return () => {
+      cleanupSchedule()
+      cleanupScrollComplete?.()
+    }
   }, [
-    isRevealInProgress,
-    textRevealedThroughIndex,
-    textAnimatingIndex,
+    isShellEnterActive,
+    isFirstLessonStep,
     prefersReducedMotion,
-    scheduleScrollLessonFeedTail,
+    useFeedScrollToMax,
+    relaxFeedTailPin,
+    onShellScrollComplete,
+    scheduleScroll,
   ])
 
   const scrollPuzzleTailIntoView = useCallback((behavior: ScrollBehavior = 'auto') => {
@@ -664,6 +666,23 @@ export default function LessonStepRenderer({
   const scheduleScrollPuzzleTailIntoView = useCallback(
     (behavior: ScrollBehavior = 'auto') => scheduleScroll(scrollPuzzleTailIntoView, behavior),
     [scheduleScroll, scrollPuzzleTailIntoView]
+  )
+
+  const scheduleLessonFeedScroll = useCallback(
+    (behavior: ScrollBehavior = 'auto') => {
+      const mode = resolveLessonFeedScrollMode({ useFeedScrollToMax, relaxFeedTailPin })
+      if (mode === 'scroll_to_max') {
+        scheduleScrollPuzzleTailIntoView(behavior)
+        return
+      }
+      scheduleScrollLessonFeedTail(behavior)
+    },
+    [
+      useFeedScrollToMax,
+      relaxFeedTailPin,
+      scheduleScrollPuzzleTailIntoView,
+      scheduleScrollLessonFeedTail,
+    ]
   )
 
   useEffect(() => {
@@ -680,13 +699,9 @@ export default function LessonStepRenderer({
 
     if (previousSnapshot === null) {
       previousScrollSnapshotRef.current = nextSnapshot
-      if (useFeedScrollToMax) {
-        scheduleScrollPuzzleTailIntoView('auto')
-      } else {
-        scheduleScrollLessonFeedTail(
-          resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'initial' })
-        )
-      }
+      scheduleLessonFeedScroll(
+        resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'initial' })
+      )
       return
     }
 
@@ -701,6 +716,17 @@ export default function LessonStepRenderer({
       return
     }
 
+    const shellScrollHandlesStepChange =
+      stepOrVariantChanged &&
+      !prefersReducedMotion &&
+      revealEnabled &&
+      !isFirstLessonStep
+
+    if (shellScrollHandlesStepChange) {
+      previousScrollSnapshotRef.current = nextSnapshot
+      return
+    }
+
     const scrollBehavior = resolveLessonScrollBehavior({
       prefersReducedMotion,
       reason: stepOrVariantChanged
@@ -709,11 +735,7 @@ export default function LessonStepRenderer({
           ? 'new_message'
           : 'initial',
     })
-    if (useFeedScrollToMax) {
-      scheduleScrollPuzzleTailIntoView(scrollBehavior)
-    } else {
-      scheduleScrollLessonFeedTail(scrollBehavior)
-    }
+    scheduleLessonFeedScroll(scrollBehavior)
 
     previousScrollSnapshotRef.current = nextSnapshot
   }, [
@@ -721,10 +743,10 @@ export default function LessonStepRenderer({
     currentStep?.stepNumber,
     currentVariantIndex,
     tailLessonMessageId,
-    useFeedScrollToMax,
     prefersReducedMotion,
-    scheduleScrollLessonFeedTail,
-    scheduleScrollPuzzleTailIntoView,
+    scheduleLessonFeedScroll,
+    revealEnabled,
+    isFirstLessonStep,
   ])
 
   useEffect(() => {
@@ -732,21 +754,16 @@ export default function LessonStepRenderer({
 
     // После смены статуса высота ленты может догрузиться на следующем кадре (мультистрочный feedback,
     // скрытие блока урока и т.д.) — повторяем доскролл, чтобы карточка не обрезалась над композером.
-    if (useFeedScrollToMax) {
-      return scheduleScrollPuzzleTailIntoView('auto')
-    }
-    return scheduleScrollLessonFeedTail(
+    return scheduleLessonFeedScroll(
       resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'feedback' })
     )
   }, [
     status,
     latestFeedback,
-    useFeedScrollToMax,
     lessonMessages.length,
     tailLessonMessageId,
     prefersReducedMotion,
-    scheduleScrollLessonFeedTail,
-    scheduleScrollPuzzleTailIntoView,
+    scheduleLessonFeedScroll,
   ])
 
   useEffect(() => {
@@ -771,6 +788,7 @@ export default function LessonStepRenderer({
     if (typeof ResizeObserver === 'undefined') return
 
     const observer = new ResizeObserver(() => {
+      if (isRevealInProgress) return
       scheduleScrollLessonFeedTail(
         resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'overflow_follow' })
       )
@@ -788,10 +806,36 @@ export default function LessonStepRenderer({
     isRevealInProgress,
   ])
 
+  const deferChoiceChipsUntilCardReveal =
+    shouldRenderChoiceChips &&
+    Boolean(currentStep && exercise) &&
+    !hasPostLessonOptions &&
+    status === 'idle' &&
+    revealSectionCount > 0 &&
+    !prefersReducedMotion
+  const isChoiceChipsVisible =
+    !deferChoiceChipsUntilCardReveal || !isRevealInProgress
+
   const showPostLessonMedalPhase = Boolean(
     lessonMedalReveal && hasPostLessonOptions && postLessonPhase === 'medal'
   )
   const showPostLessonMenu = hasPostLessonOptions && (!lessonMedalReveal || postLessonPhase === 'menu')
+  const composerPanelKind = resolveLessonComposerPanelKind({
+    exercise,
+    hasPostLessonOptions,
+    showPostLessonMedalPhase,
+  })
+  const shouldLockChoiceComposerHeight = shouldRenderChoiceChips
+  const composerHeightLockReleased = prefersReducedMotion || !isRevealInProgress
+  const lockedComposerMinHeight = useLessonComposerHeightLock({
+    stackRef: composerStackRef,
+    transitionKey: stepTransitionKey,
+    panelKind: composerPanelKind,
+    optionCount: displayChoiceOptions.length,
+    compact: shouldRenderChoiceChips,
+    enabled: shouldLockChoiceComposerHeight,
+    lockReleased: composerHeightLockReleased,
+  })
   const scrollBottomPadding = resolveScrollBottomPadding({
     hasCurrentStep: currentStep != null,
     hasPostLessonOptions,
@@ -800,9 +844,12 @@ export default function LessonStepRenderer({
     composerOutsideScroll: true,
   })
   const composerStackLayout = getChatComposerStackLayout(shouldRenderChoiceChips)
-  const composerStackStyle = composerStackLayout.style
-    ? { ...composerStackLayout.style, paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }
-    : composerStackLayout.style
+  const composerStackStyle = {
+    ...(composerStackLayout.style
+      ? { ...composerStackLayout.style, paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }
+      : composerStackLayout.style),
+    ...(lockedComposerMinHeight != null ? { minHeight: lockedComposerMinHeight } : {}),
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
@@ -815,7 +862,7 @@ export default function LessonStepRenderer({
             {runBannerText ? <LessonRunBanner text={runBannerText} /> : null}
             <div
               ref={scrollContainerRef}
-              className={`relative ${LESSON_SCROLL_VIEWPORT_CLASS} bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
+              className={`relative ${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
               style={
                 scrollBottomPadding
                   ? {
@@ -825,7 +872,12 @@ export default function LessonStepRenderer({
                   : undefined
               }
             >
-              <div ref={messagesStackRef}>
+              <div
+                ref={messagesStackRef}
+                className={
+                  pinFeedTailNearComposer ? 'flex min-h-full flex-col justify-end' : undefined
+                }
+              >
                 {lessonMessages.map((message, index) => {
                   const previousRole = lessonMessages[index - 1]?.role as BubbleRole | undefined
                   const nextRole = lessonMessages[index + 1]?.role as BubbleRole | undefined
@@ -852,17 +904,8 @@ export default function LessonStepRenderer({
                         key={message.id}
                         role="assistant"
                         position={position}
-                        className={`w-full${lessonShellEnterActive ? ' lesson-feed-enter' : ''}`}
+                        className="w-full"
                         rowClassName={lessonRowMargin}
-                        onAnimationEnd={
-                          lessonShellEnterActive
-                            ? (event) => {
-                                if (event.target !== event.currentTarget) return
-                                if (event.animationName !== 'lessonFeedSlideIn') return
-                                onShellEnterComplete()
-                              }
-                            : undefined
-                        }
                       >
                         {isCurrentLessonMessage ? (
                           <PracticeQuestionBubble
@@ -901,7 +944,6 @@ export default function LessonStepRenderer({
                         key={message.id}
                         role="user"
                         position={position}
-                        className="lesson-feed-enter"
                         rowClassName={resolveLessonFeedRowMargin({
                           pinLastRowToBottom,
                           isBubbleEnd,
@@ -916,8 +958,12 @@ export default function LessonStepRenderer({
                   }
 
                   if (message.tone === 'service') {
+                    const serviceRowClass =
+                      isSentencePuzzle && isServiceCheckingMessage(message)
+                        ? CHAT_FEED_SERVICE_STATUS_ROW_PUZZLE_CHECKING_CLASS
+                        : CHAT_FEED_SERVICE_STATUS_ROW_CLASS
                     return (
-                      <div key={message.id} dir="ltr" className={CHAT_FEED_SERVICE_STATUS_ROW_CLASS}>
+                      <div key={message.id} dir="ltr" className={serviceRowClass}>
                         <TypingText
                           key={message.id}
                           text={message.text ?? ''}
@@ -937,7 +983,6 @@ export default function LessonStepRenderer({
                       key={message.id}
                       role="assistant"
                       position={position}
-                      className="lesson-feed-enter"
                       rowClassName={
                         pinLastRowToBottom ? 'mb-0' : isBubbleEnd ? 'mb-2.5' : 'mb-0.5'
                       }
@@ -954,7 +999,11 @@ export default function LessonStepRenderer({
             </div>
 
             {currentStep && (
-              <DialogComposerStack className={composerStackLayout.verticalClass} style={composerStackStyle}>
+              <DialogComposerStack
+                ref={composerStackRef}
+                className={composerStackLayout.verticalClass}
+                style={composerStackStyle}
+              >
                 {showPostLessonMedalPhase && lessonMedalReveal ? (
                   <LessonMedalFlowInfoStep
                     medal={lessonMedalReveal.medal}
@@ -1007,24 +1056,23 @@ export default function LessonStepRenderer({
                       })
                     }
                   />
-                ) : shouldRenderChoiceChips ? (
-                  <div
-                    className={isAnswerPanelLocked ? 'pointer-events-none opacity-60' : ''}
-                  >
-                    <LessonChoiceChips
-                      key="lesson-choice-panel"
-                      choices={displayChoiceOptions}
-                      onChoose={handleChoiceAnswer}
-                      disabled={isChoiceInteractionDisabled}
-                      frozen={isChoicePanelFrozen}
-                      clearSelectionSignal={choiceClearNonce}
-                      wrongChoiceText={wrongChoiceHighlight}
-                      resetKey={`panel-${choiceResetVersion}`}
-                    />
-                  </div>
+                ) : shouldRenderChoiceChips && isChoiceChipsVisible ? (
+                  <LessonChoiceChips
+                    key={`lesson-choice-panel-${choiceResetVersion}`}
+                    choices={displayChoiceOptions}
+                    onChoose={handleChoiceAnswer}
+                    disabled={isChoiceInteractionDisabled}
+                    frozen={isChoicePanelFrozen}
+                    clearSelectionSignal={choiceClearNonce}
+                    wrongChoiceText={wrongChoiceHighlight}
+                    resetKey={`panel-${choiceResetVersion}`}
+                  />
                 ) : null}
 
-                {exercise && !hasPostLessonOptions && !shouldRenderChoiceChips && !isSentencePuzzle ? (
+                {exercise &&
+                !hasPostLessonOptions &&
+                !shouldRenderChoiceChips &&
+                !isSentencePuzzle ? (
                   <form
                     onSubmit={(event) => {
                       event.preventDefault()

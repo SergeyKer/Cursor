@@ -8,9 +8,6 @@ import {
 
 export type LessonAnswerFeedbackType = 'success' | 'error'
 
-/** Держим снимок чипсов после смены шага/варианта, пока лента показывает новый task. */
-export const LESSON_CHOICE_ADVANCE_HOLD_MS = 450
-
 /**
  * Service-строка в ленте урока при проверке ответа (как в практике).
  * Клиентская UX-имитация Engvo; не анти-чит (награды — lessonAntiFarm и сервер).
@@ -45,30 +42,27 @@ export function isLessonAnswerPanelLocked(
   )
 }
 
-/** Визуальный freeze чипсов: проверка ответа, успех, hold после смены шага. */
+/** Визуальный freeze чипсов: проверка ответа, успех, reveal задания. */
 export function isLessonChoicePanelFrozen(
   status: LessonStatus,
   feedbackType: LessonAnswerFeedbackType | undefined,
-  holdAfterAdvance: boolean,
   isRevealInProgress = false
 ): boolean {
   return (
     isRevealInProgress ||
     status === 'checking' ||
-    (status === 'feedback' && feedbackType === 'success') ||
-    holdAfterAdvance
+    (status === 'feedback' && feedbackType === 'success')
   )
 }
 
-/** Нельзя нажать чип: проверка или freeze/hold. */
+/** Нельзя нажать чип: проверка или freeze. */
 export function isLessonChoiceInteractionDisabled(
   status: LessonStatus,
   feedbackType: LessonAnswerFeedbackType | undefined,
-  holdAfterAdvance: boolean,
   isRevealInProgress = false
 ): boolean {
   return (
     status === 'checking' ||
-    isLessonChoicePanelFrozen(status, feedbackType, holdAfterAdvance, isRevealInProgress)
+    isLessonChoicePanelFrozen(status, feedbackType, isRevealInProgress)
   )
 }
