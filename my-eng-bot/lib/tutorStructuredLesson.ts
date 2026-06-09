@@ -1,4 +1,5 @@
 import { buildFallbackLessonIntro } from '@/lib/lessonIntro'
+import { DEFAULT_POST_LESSON_OPTIONS } from '@/lib/postLessonDefaults'
 import { buildPuzzleVariantHintText, shouldUseFirstWordPuzzleHint } from '@/lib/puzzlePanelLayout'
 import type { LessonBlueprint } from '@/lib/lessonBlueprint'
 import { buildFallbackTutorLearningIntent, type TutorLearningIntent, type TutorLearningIntentExample } from '@/lib/tutorLearningIntent'
@@ -135,12 +136,7 @@ function buildTutorFinale(topic: string): LessonFinale {
     postLesson: {
       dynamicFooterText: 'Выбор за вами! Любое действие закрепит материал',
       interestingFact: `Раздел с фишками по теме ${safeTopic} появится следующим этапом.`,
-      options: [
-        { action: 'repeat_variant', label: 'Повторить с новой ситуацией', icon: '🔁' },
-        { action: 'learn_interesting', label: 'Узнать интересное', icon: '💡' },
-        { action: 'independent_practice', label: 'Самостоятельный Практикум', icon: '🎮' },
-        { action: 'myeng_training', label: 'Тренировка с MyEng', icon: '🤖' },
-      ],
+      options: DEFAULT_POST_LESSON_OPTIONS,
     },
   }
 }

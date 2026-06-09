@@ -1,3 +1,4 @@
+import { DEFAULT_POST_LESSON_OPTIONS } from '@/lib/postLessonDefaults'
 import { buildStep6ExamVariants } from '@/lib/lessons/step6Exam'
 import { buildStep7ContrastVariants } from '@/lib/lessons/step7Contrast'
 import { buildPuzzleVariantHintText } from '@/lib/puzzlePanelLayout'
@@ -130,12 +131,7 @@ const whoLikesPostLesson = {
   dynamicFooterText: 'Выбор за вами! Любое действие закрепит материал',
   interestingFact:
     'В вопросах с Who в английском часто сразу используется форма глагола с -s, потому что вопрос строится вокруг одного неизвестного человека.',
-  options: [
-    { action: 'repeat_variant', label: 'Повторить с новой ситуацией', icon: '🔁' },
-    { action: 'learn_interesting', label: 'Узнать интересное', icon: '💡' },
-    { action: 'independent_practice', label: 'Самостоятельный Практикум', icon: '🎮' },
-    { action: 'myeng_training', label: 'Тренировка с MyEng', icon: '🤖' },
-  ],
+  options: DEFAULT_POST_LESSON_OPTIONS,
 } as const
 
 function buildWhoLikesBlueprints(variant: WhoLikesVariant): LessonRepeatStepBlueprint[] {

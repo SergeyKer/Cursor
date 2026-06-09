@@ -11,6 +11,8 @@ type UnifiedLessonBubbleProps = {
   animateSections?: boolean
   /** `detached` — отдельные карточки (интро), как в LessonExtraTipsScreen; `unified` — слитная карточка урока. */
   layout?: UnifiedLessonBubbleLayout
+  /** Только для `detached`: сколько секций уже показано; скрытые остаются в layout (`opacity-0`). */
+  visibleSectionCount?: number
 }
 
 function normalizeTranslatePromptPunctuation(text: string): string {
@@ -101,28 +103,40 @@ export default function UnifiedLessonBubble({
   bubbles,
   animateSections = true,
   layout = 'unified',
+  visibleSectionCount,
 }: UnifiedLessonBubbleProps) {
   const cornerClass = LESSON_CARD_RADIUS_CLASS
 
   if (layout === 'detached') {
+    const useStaggeredReveal = visibleSectionCount !== undefined
+
     return (
       <div className="w-full min-w-0 space-y-2.5">
-        {bubbles.map((bubble, bubbleIndex) => (
-          <section
-            key={`${bubble.type}-${bubbleIndex}`}
-            className={`${animateSections ? 'lesson-enter' : ''} ${lessonCardSurfaceClass} overflow-hidden ${cornerClass}`}
-            style={
-              animateSections
-                ? {
-                    animationDelay: `${bubbleIndex * 80}ms`,
-                    animationFillMode: 'both',
-                  }
-                : undefined
-            }
-          >
-            <div className="px-3 py-2.5">{renderBubbleContent(bubble.content, 'dot')}</div>
-          </section>
-        ))}
+        {bubbles.map((bubble, bubbleIndex) => {
+          const isVisible = !useStaggeredReveal || bubbleIndex < visibleSectionCount
+          const isRevealing = useStaggeredReveal && bubbleIndex === visibleSectionCount - 1
+          const shouldAnimate = animateSections && (!useStaggeredReveal || isRevealing)
+
+          return (
+            <section
+              key={`${bubble.type}-${bubbleIndex}`}
+              aria-hidden={useStaggeredReveal ? !isVisible : undefined}
+              className={`${shouldAnimate ? 'lesson-enter' : ''} ${lessonCardSurfaceClass} overflow-hidden ${cornerClass} ${
+                useStaggeredReveal && !isVisible ? 'pointer-events-none opacity-0' : ''
+              }`}
+              style={
+                shouldAnimate
+                  ? {
+                      animationDelay: useStaggeredReveal ? '0ms' : `${bubbleIndex * 80}ms`,
+                      animationFillMode: 'both',
+                    }
+                  : undefined
+              }
+            >
+              <div className="px-3 py-2.5">{renderBubbleContent(bubble.content, 'dot')}</div>
+            </section>
+          )
+        })}
       </div>
     )
   }

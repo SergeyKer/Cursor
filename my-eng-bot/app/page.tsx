@@ -611,6 +611,12 @@ export default function Home() {
   /** Увеличение сбрасывает поле ввода/голос (меню «Начать …»). */
   const [composerSessionKey, setComposerSessionKey] = useState(0)
   const [lessonMenuContext, setLessonMenuContext] = useState<LessonMenuContext | null>(null)
+  /** Откуда запущен урок: боковое меню или встроенный блок на главной. */
+  const lessonMenuLaunchSurfaceRef = React.useRef<'slide' | 'home'>('home')
+  /** Одноразовое восстановление панели уроков в боковом меню после «Назад». */
+  const restoreLessonMenuOnNextOpenRef = React.useRef(false)
+  /** Одноразовое восстановление встроенного меню уроков на главной после «Назад». */
+  const [pendingHomeLessonMenuRestore, setPendingHomeLessonMenuRestore] = useState(false)
   const [activeLearningLessonId, setActiveLearningLessonId] = useState<string | null>(null)
   const [activeStructuredLessonRuntime, setActiveStructuredLessonRuntime] = useState<LessonData | null>(null)
   const [structuredLessonLoadingId, setStructuredLessonLoadingId] = useState<string | null>(null)
@@ -629,6 +635,8 @@ export default function Home() {
   const [selectedPostLessonAction, setSelectedPostLessonAction] = useState<PostLessonAction | null>(null)
   const [lessonOverlay, setLessonOverlay] = useState<LessonOverlayState | null>(null)
   const [lessonViewStage, setLessonViewStage] = useState<'intro' | 'tips' | 'lesson'>('intro')
+  const [lessonTipsReturnStage, setLessonTipsReturnStage] = useState<'intro' | 'lesson'>('intro')
+  const [postLessonMedalSeen, setPostLessonMedalSeen] = useState(false)
   const [lessonIntroDepth, setLessonIntroDepth] = useState<LessonIntroDepth>('quick')
   const [lessonExtraTipsStatus, setLessonExtraTipsStatus] = useState<LessonExtraTipsFooterStatus>('idle')
   const [lessonExtraTipsState, setLessonExtraTipsState] = useState<LessonExtraTipsSavedState | null>(null)
@@ -2561,6 +2569,8 @@ export default function Home() {
     setPostLessonBusy(false)
     setLessonOverlay(null)
     setLessonViewStage('intro')
+    setLessonTipsReturnStage('intro')
+    setPostLessonMedalSeen(false)
     setLessonIntroDepth('quick')
     setLessonExtraTipsStatus('idle')
     setLessonExtraTipsState(null)
@@ -2846,6 +2856,7 @@ export default function Home() {
     async (lessonId: string, lessonsPanel: LessonsPanel = 'a2', meta?: LearningLessonMenuMeta) => {
       const lesson = getLearningLessonById(lessonId)
       if (!lesson) return
+      lessonMenuLaunchSurfaceRef.current = menuOpen ? 'slide' : 'home'
       menuLessonGenerateCleanupRef.current?.()
       menuLessonBgFetchEpochRef.current += 1
       setStructuredLessonVariantRegenerating(false)
@@ -2878,12 +2889,15 @@ export default function Home() {
       setPostLessonBusy(false)
       setLessonOverlay(null)
       setLessonViewStage('intro')
+      setLessonTipsReturnStage('intro')
+      setPostLessonMedalSeen(false)
       setLessonIntroDepth('quick')
       setLessonExtraTipsStatus('idle')
       setLessonExtraTipsState(null)
       setLessonMenuContext((prev) => ({
         menuView: 'lessons',
         lessonsPanel,
+        selectedLessonId: lessonId,
         activeGrammarCategoryId: meta?.activeGrammarCategoryId ?? null,
         activeTheoryTagId: meta?.activeTheoryTagId ?? null,
         theorySearchQuery: meta?.theorySearchQuery ?? null,
@@ -2904,7 +2918,7 @@ export default function Home() {
       setLastStructuredLessonGlobalDelta(0)
       bumpFooterSessionContext()
     },
-    [abandonPracticeSession, bumpFooterSessionContext]
+    [abandonPracticeSession, bumpFooterSessionContext, menuOpen]
   )
 
   /** Меню «Начать урок»: не сбрасывать runtime (в т.ч. сгенерированный), если урок уже открыт на intro/tips. */
@@ -2961,6 +2975,7 @@ export default function Home() {
         throw new Error('Для выбранного урока пока нет алгоритма генерации.')
       }
 
+      lessonMenuLaunchSurfaceRef.current = menuOpen ? 'slide' : 'home'
       setStartLessonCtaFromMenuGenerate(true)
       menuLessonGenerateCleanupRef.current?.()
 
@@ -2992,12 +3007,15 @@ export default function Home() {
       setPostLessonBusy(false)
       setLessonOverlay(null)
       setLessonViewStage('intro')
+      setLessonTipsReturnStage('intro')
+      setPostLessonMedalSeen(false)
       setLessonIntroDepth('quick')
       setLessonExtraTipsStatus('idle')
       setLessonExtraTipsState(null)
       setLessonMenuContext((prev) => ({
         menuView: 'lessons',
         lessonsPanel,
+        selectedLessonId: lessonId,
         activeGrammarCategoryId: meta?.activeGrammarCategoryId ?? null,
         activeTheoryTagId: meta?.activeTheoryTagId ?? null,
         theorySearchQuery: meta?.theorySearchQuery ?? null,
@@ -3093,7 +3111,7 @@ export default function Home() {
         }
       })()
     },
-    [abandonPracticeSession, settings.provider, settings.openAiChatPreset, settings.audience]
+    [abandonPracticeSession, menuOpen, settings.provider, settings.openAiChatPreset, settings.audience]
   )
 
   const openTutorLesson = useCallback(
@@ -3158,6 +3176,8 @@ export default function Home() {
       setPostLessonBusy(false)
       setLessonOverlay(null)
       setLessonViewStage('intro')
+      setLessonTipsReturnStage('intro')
+      setPostLessonMedalSeen(false)
       setLessonIntroDepth('quick')
       setLessonExtraTipsStatus('idle')
       setLessonExtraTipsState(null)
@@ -3792,6 +3812,8 @@ export default function Home() {
       setPostLessonBusy(false)
       setLessonOverlay(null)
       setLessonViewStage('intro')
+      setLessonTipsReturnStage('intro')
+      setPostLessonMedalSeen(false)
       setLessonIntroDepth('quick')
       setLessonExtraTipsStatus('idle')
       setLessonExtraTipsState(null)
@@ -3808,20 +3830,19 @@ export default function Home() {
       setSelectedPostLessonAction(action)
       setPostLessonBusy(true)
 
+      setPostLessonMedalSeen(true)
+
       if (action === 'learn_interesting') {
-        setLessonOverlay({
-          title: 'Интересный факт',
-          lines: [
-            activeStructuredLessonStep.postLesson.interestingFact ??
-              'Для этой темы интересный факт появится следующим этапом.',
-          ],
-        })
+        setLessonOverlay(null)
+        setLessonTipsReturnStage('lesson')
+        setLessonViewStage('tips')
         setPostLessonBusy(false)
         return
       }
 
       if (action === 'repeat_variant') {
         structuredLessonRunOriginRef.current = 'post_lesson_repeat'
+        setPostLessonMedalSeen(false)
         if (!getStructuredLessonById(activeStructuredLesson.id)) {
           setLessonOverlay(null)
           setActiveStructuredLessonRuntime(cloneStructuredLessonWithRunKey(activeStructuredLesson))
@@ -3853,56 +3874,19 @@ export default function Home() {
         return
       }
 
-      if (action === 'independent_practice') {
-        if (!featureFlags.practiceEngineV1) {
-          const nextMode: Settings['mode'] = 'translation'
-          setLessonOverlay(null)
-          setSettings((prev) => ({
-            ...prev,
-            mode: nextMode,
-          }))
-          setTimeout(() => {
-            restartChatForNewModeFromMenu()
-          }, 0)
-          return
-        }
-        const source: PracticeSource =
-          lessonMenuContext?.lessonsPanel === 'tutor' || !getStructuredLessonById(activeStructuredLesson.id)
-            ? {
-                kind: 'runtime_lesson',
-                lesson: activeStructuredLesson,
-                origin: 'tutor',
-                tutorIntent: activeStructuredLesson.tutorIntent,
-              }
-            : { kind: 'static_lesson', lessonId: activeStructuredLesson.id }
-        startPracticeFromLesson({
-          source,
-          lesson: activeStructuredLesson,
-          mode: 'relaxed',
-          entrySource: lessonMenuContext?.lessonsPanel === 'tutor' ? 'tutor_after_lesson' : 'after_lesson',
-          generationSource: 'local',
+      if (action === 'independent_practice' || action === 'myeng_training') {
+        setLessonOverlay({
+          title: action === 'independent_practice' ? 'Практика' : 'Тренировка в Engvo',
+          lines: ['Раздел скоро появится.'],
         })
         setPostLessonBusy(false)
         return
       }
-
-      const nextMode: Settings['mode'] = 'communication'
-      setLessonOverlay(null)
-      setSettings((prev) => ({
-        ...prev,
-        mode: nextMode,
-      }))
-      setTimeout(() => {
-        restartChatForNewModeFromMenu()
-      }, 0)
     },
     [
       activeStructuredLesson,
       activeStructuredLessonStep,
       fetchStructuredLessonRuntime,
-      lessonMenuContext?.lessonsPanel,
-      restartChatForNewModeFromMenu,
-      startPracticeFromLesson,
     ]
   )
 
@@ -4013,14 +3997,37 @@ export default function Home() {
     saveState([], nextSettings)
   }, [bumpFooterSessionContext, cleanupEngvoRuntime, resetStructuredLessonSession, settings])
 
+  const homeLessonMenuRestore = React.useMemo(() => {
+    if (!pendingHomeLessonMenuRestore || dialogStarted || homeMenuView !== 'lessons' || !lessonMenuContext) {
+      return null
+    }
+    return {
+      panel: lessonMenuContext.lessonsPanel,
+      context: {
+        activeGrammarCategoryId: lessonMenuContext.activeGrammarCategoryId,
+        activeTheoryTagId: lessonMenuContext.activeTheoryTagId,
+        theorySearchQuery: lessonMenuContext.theorySearchQuery,
+        activeTheoryTagIds: lessonMenuContext.activeTheoryTagIds,
+        theoryLessonSource: lessonMenuContext.theoryLessonSource,
+        theoryTagBrowseLevel: lessonMenuContext.theoryTagBrowseLevel,
+        practiceTheoryTagFilterId: lessonMenuContext.practiceTheoryTagFilterId,
+        selectedLessonId: lessonMenuContext.selectedLessonId,
+      },
+    }
+  }, [pendingHomeLessonMenuRestore, dialogStarted, homeMenuView, lessonMenuContext])
+
+  React.useEffect(() => {
+    if (!pendingHomeLessonMenuRestore || dialogStarted || homeMenuView !== 'lessons') return
+    setPendingHomeLessonMenuRestore(false)
+  }, [pendingHomeLessonMenuRestore, dialogStarted, homeMenuView, homeLessonMenuRestore])
+
   const backToLessonList = useCallback(() => {
+    const launchSurface = lessonMenuLaunchSurfaceRef.current
     firstMessageRequestIdRef.current += 1
     firstMessageInFlightRef.current = false
     setDialogStarted(false)
     setMessages([])
     setSettingsAtLastSend(null)
-    setHomeMenuView('lessons')
-    setMenuOpen(false)
     setLoading(false)
     setRetryMessage(null)
     setForceNextMicLang(null)
@@ -4033,6 +4040,15 @@ export default function Home() {
     resetStructuredLessonSession({ keepLessonMenuContext: true })
     setFooterTransitionText(null)
     bumpFooterSessionContext()
+    if (launchSurface === 'slide') {
+      restoreLessonMenuOnNextOpenRef.current = true
+      setHomeMenuView('lessons')
+      setMenuOpen(true)
+      return
+    }
+    setHomeMenuView('lessons')
+    setPendingHomeLessonMenuRestore(true)
+    setMenuOpen(false)
   }, [bumpFooterSessionContext, cleanupEngvoRuntime, resetStructuredLessonSession])
 
   const backToVocabularyMenu = useCallback(() => {
@@ -6142,7 +6158,7 @@ export default function Home() {
       >
         {!dialogStarted ? (
           <div
-            className="start-screen chat-shell-x relative z-10 flex h-0 min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-auto touch-pan-y [-webkit-overflow-scrolling:touch]"
+            className="start-screen chat-shell-x relative z-10 flex h-0 min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
             style={{ scrollPaddingBottom: 'var(--app-footer-chrome-height)' }}
           >
             <div
@@ -6288,6 +6304,8 @@ export default function Home() {
                     idPrefix="home-"
                     className="flex min-h-0 flex-col"
                     homeLayout
+                    initialLessonsPanel={homeLessonMenuRestore?.panel}
+                    initialLessonMenuContext={homeLessonMenuRestore?.context ?? null}
                     onStartHomeChat={handleStartChatFromHome}
                     onGoHome={goToStartScreen}
                     onAiChatPanelChange={setHomeAiChatPanel}
@@ -6452,7 +6470,10 @@ export default function Home() {
                     bumpFooterSessionContext()
                     setLessonViewStage('lesson')
                   }}
-                  onShowExtras={() => setLessonViewStage('tips')}
+                  onShowExtras={() => {
+                    setLessonTipsReturnStage('intro')
+                    setLessonViewStage('tips')
+                  }}
                   onBack={backToLessonList}
                   footerVariantRegenerating={structuredLessonVariantRegenerating}
                   startLessonCtaFromMenuGenerate={startLessonCtaFromMenuGenerate}
@@ -6475,7 +6496,7 @@ export default function Home() {
                   onBack={() => {
                     setLastStructuredLessonGlobalDelta(0)
                     bumpFooterSessionContext()
-                    setLessonViewStage('intro')
+                    setLessonViewStage(lessonTipsReturnStage)
                   }}
                   onStartLesson={() => {
                     if (!activeStructuredLesson) return
@@ -6538,6 +6559,8 @@ export default function Home() {
                       : null
                   }
                   onPostLessonAction={handlePostLessonAction}
+                  onPostLessonMedalNext={() => setPostLessonMedalSeen(true)}
+                  postLessonMedalSeen={postLessonMedalSeen}
                   postLessonBusy={postLessonBusy}
                   audience={settings.audience}
                   voiceId={settings.voiceId}
@@ -6698,6 +6721,7 @@ export default function Home() {
         onAdaptiveFooterViewChange={setAdaptiveFooterView}
         onPracticeTheoryTagFilterPersist={persistPracticeTheoryTagFilter}
         lessonMenuContext={lessonMenuContext}
+        restoreLessonMenuOnNextOpenRef={restoreLessonMenuOnNextOpenRef}
         practiceProgressRevision={practiceProgressRevision}
         topOffset="var(--app-top-offset)"
         bottomOffset="var(--app-menu-panel-bottom)"

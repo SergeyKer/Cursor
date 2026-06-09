@@ -31,7 +31,7 @@ export default function PostLessonMenu({ options, onSelect, disabled = false }: 
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-sm flex-col gap-2">
+    <div className="mx-auto grid w-full grid-cols-2 gap-2">
       {options.map((option, index) => {
         const isSelected = selectedAction === option.action
         const hasPendingSelection = selectedAction !== null
@@ -45,23 +45,26 @@ export default function PostLessonMenu({ options, onSelect, disabled = false }: 
               type="button"
               onClick={() => handleSelect(option.action)}
               disabled={disabled || hasPendingSelection}
-              className={`group flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all duration-200 ${
+              className={`group flex min-h-[4.5rem] w-full flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2.5 text-center transition-all duration-200 ${
                 isSelected
                   ? 'scale-[1.02] border-blue-500 bg-blue-100 text-blue-800 shadow-sm'
                   : 'border-gray-200 bg-white hover:scale-[1.02] hover:border-blue-300 hover:bg-blue-50'
               } ${hasPendingSelection && !isSelected ? 'pointer-events-none opacity-60' : ''}`}
             >
               <span
-                className={`text-xl transition-transform duration-200 ${
+                className={`text-xl leading-none transition-transform duration-200 ${
                   isSelected ? '-translate-y-0.5' : 'group-hover:-translate-y-0.5'
                 }`}
               >
                 {option.icon}
               </span>
-              <span className={`text-sm font-medium ${isSelected ? 'text-blue-800' : 'text-gray-700 group-hover:text-blue-700'}`}>
+              <span
+                className={`text-xs font-medium leading-tight sm:text-[13px] ${
+                  isSelected ? 'text-blue-800' : 'text-gray-700 group-hover:text-blue-700'
+                }`}
+              >
                 {option.label}
               </span>
-              <span className={`ml-auto ${isSelected ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-500'}`}>→</span>
             </button>
           </div>
         )

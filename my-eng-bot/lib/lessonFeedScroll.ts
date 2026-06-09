@@ -49,7 +49,7 @@ export function resolveBottomStackHeightCss(input: {
     return `${input.bottomStackHeightPx}px`
   }
   if (input.hasPostLessonOptions) {
-    return `${input.postLessonFallbackRem ?? 16}rem`
+    return `${input.postLessonFallbackRem ?? 12}rem`
   }
   if (input.isSentencePuzzle) {
     return PUZZLE_BOTTOM_STACK_FALLBACK

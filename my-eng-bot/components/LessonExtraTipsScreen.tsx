@@ -781,7 +781,7 @@ export default function LessonExtraTipsScreen({
                     onClick={onBack}
                     className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-sky-50 px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:from-white hover:to-sky-100"
                   >
-                    ← Назад
+                    К уроку
                   </button>
                   <button
                     type="button"

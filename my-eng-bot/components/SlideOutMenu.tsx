@@ -83,6 +83,8 @@ interface SlideOutMenuProps {
   onPracticeTheoryTagFilterPersist?: (tagId: string | null) => void
   /** Контекст меню, из которого открыт урок. */
   lessonMenuContext?: LessonMenuContext | null
+  /** Одноразовый флаг: при следующем открытии восстановить панель уроков (кнопка «Назад» в уроке). */
+  restoreLessonMenuOnNextOpenRef?: React.MutableRefObject<boolean>
   /** Верхний offset (шапка + safe-area), общий с основным layout. */
   topOffset?: string
   /** Нижний offset (футер + safe-area), чтобы панель не перекрывала низ. */
@@ -127,6 +129,7 @@ export default function SlideOutMenu({
   onOpenTutorLesson,
   onPracticeTheoryTagFilterPersist,
   lessonMenuContext,
+  restoreLessonMenuOnNextOpenRef,
   topOffset = 'calc(2.75rem + env(safe-area-inset-top, 0px))',
   bottomOffset = '0px',
   columnBounds = null,
@@ -183,6 +186,15 @@ export default function SlideOutMenu({
       setLessonsRestorePanel(undefined)
       return
     }
+    if (
+      restoreLessonMenuOnNextOpenRef?.current &&
+      lessonMenuContext?.menuView === 'lessons'
+    ) {
+      restoreLessonMenuOnNextOpenRef.current = false
+      setLessonsRestorePanel(lessonMenuContext.lessonsPanel)
+      setMenuView('lessons')
+      return
+    }
     if (chatActive && lessonMenuContext?.menuView === 'lessons') {
       setLessonsRestorePanel(lessonMenuContext.lessonsPanel)
       setMenuView('lessons')
@@ -194,7 +206,7 @@ export default function SlideOutMenu({
       return
     }
     setMenuView(chatActive ? 'aiChat' : 'root')
-  }, [open, chatActive, engvoVoiceMode, lessonMenuContext])
+  }, [open, chatActive, engvoVoiceMode, lessonMenuContext, restoreLessonMenuOnNextOpenRef])
 
   const menuPanelPaddingClass = 'px-3 pb-3 pt-3'
 
@@ -260,6 +272,7 @@ export default function SlideOutMenu({
                 theoryLessonSource: lessonMenuContext.theoryLessonSource,
                 theoryTagBrowseLevel: lessonMenuContext.theoryTagBrowseLevel,
                 practiceTheoryTagFilterId: lessonMenuContext.practiceTheoryTagFilterId,
+                selectedLessonId: lessonMenuContext.selectedLessonId,
               }
             : null
         }

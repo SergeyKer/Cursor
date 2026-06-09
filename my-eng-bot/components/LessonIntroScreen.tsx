@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
+import { useStaggeredSectionRevealMap } from '@/hooks/useStaggeredSectionReveal'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import {
   CHAT_COMPOSER_PADDING_BOTTOM,
@@ -47,8 +48,18 @@ type IntroUserMessage = {
 type IntroChatMessage = IntroMessage | IntroUserMessage
 
 const INTRO_FOLLOWUP_DELAY_MS = 520
-const INTRO_MAIN_BLOCK_DELAY_MS = 500
+const MAIN_INTRO_SECTION_COUNT = 4
+const FOLLOWUP_SECTION_COUNT = 3
 const INTRO_CHAT_ANCHOR_OFFSET_PX = -4
+
+function isStaggeredAssistantBlock(messageId: string): boolean {
+  return (
+    messageId === 'intro-main' ||
+    messageId === 'details' ||
+    messageId === 'deep' ||
+    messageId.startsWith('extra-')
+  )
+}
 
 function formatExtraDeepDiveError(raw?: string): string {
   const fallback = 'Не удалось сгенерировать блок. Проверьте провайдера в Настройках -> ИИ.'
@@ -125,6 +136,10 @@ function buildMenuEntryBubble(intro: LessonIntro, audience: Audience): Bubble {
     type: 'info',
     content: `📘 ТЕМА УРОКА - ${copy.title}\n${detailsLine}`,
   }
+}
+
+function buildMainIntroBubbles(intro: LessonIntro, audience: Audience): Bubble[] {
+  return [buildMenuEntryBubble(intro, audience), ...buildQuickBubbles(intro)]
 }
 
 function buildDetailsBubbles(intro: LessonIntro): [Bubble, Bubble, Bubble] | null {
@@ -242,13 +257,29 @@ export default function LessonIntroScreen({
   const [extraDeepDives, setExtraDeepDives] = useState<Bubble[][]>([])
   const [extraDeepDiveLoading, setExtraDeepDiveLoading] = useState(false)
   const [extraDeepDiveError, setExtraDeepDiveError] = useState<string | null>(null)
-  const [showMainIntroBlock, setShowMainIntroBlock] = useState(false)
+  const staggeredRevealTargets = useMemo(() => {
+    const targets = [{ id: 'intro-main', sectionCount: MAIN_INTRO_SECTION_COUNT }]
+    if (depth === 'details' || depth === 'deep') {
+      targets.push({ id: 'details', sectionCount: FOLLOWUP_SECTION_COUNT })
+    }
+    if (depth === 'deep') {
+      targets.push({ id: 'deep', sectionCount: FOLLOWUP_SECTION_COUNT })
+      for (let index = 0; index < extraDeepDives.length; index += 1) {
+        targets.push({ id: `extra-${index}`, sectionCount: FOLLOWUP_SECTION_COUNT })
+      }
+    }
+    return targets
+  }, [depth, extraDeepDives.length])
+
+  const visibleSectionCounts = useStaggeredSectionRevealMap(staggeredRevealTargets, intro.topic)
+
   const messages = useMemo<IntroChatMessage[]>(() => {
     const next: IntroChatMessage[] = []
-    next.push({ id: 'menu-entry', role: 'assistant', bubbles: [buildMenuEntryBubble(intro, audience)] })
-    if (showMainIntroBlock) {
-      next.push({ id: 'quick', role: 'assistant', bubbles: buildQuickBubbles(intro) })
-    }
+    next.push({
+      id: 'intro-main',
+      role: 'assistant',
+      bubbles: buildMainIntroBubbles(intro, audience),
+    })
     const details = buildDetailsBubbles(intro)
     const shouldShowDetailsRequest = pendingDepth === 'details' || pendingDepth === 'deep' || depth === 'details' || depth === 'deep'
     const shouldShowDetailsAnswer = depth === 'details' || depth === 'deep'
@@ -273,19 +304,13 @@ export default function LessonIntroScreen({
       })
     }
     return next
-  }, [audience, depth, extraDeepDives, intro, pendingDepth, showMainIntroBlock])
+  }, [audience, depth, extraDeepDives, intro, pendingDepth])
 
   useEffect(() => {
     return () => {
       if (followupTimerRef.current) clearTimeout(followupTimerRef.current)
     }
   }, [])
-
-  useEffect(() => {
-    setShowMainIntroBlock(false)
-    const timer = setTimeout(() => setShowMainIntroBlock(true), INTRO_MAIN_BLOCK_DELAY_MS)
-    return () => clearTimeout(timer)
-  }, [intro])
 
   useEffect(() => {
     if (depth !== 'deep') {
@@ -417,6 +442,8 @@ export default function LessonIntroScreen({
                     )
                   }
 
+                  const isStaggered = isStaggeredAssistantBlock(message.id)
+
                   return (
                     <div
                       key={message.id}
@@ -427,13 +454,16 @@ export default function LessonIntroScreen({
                       <ChatBubbleFrame
                         role="assistant"
                         position={position}
-                        className="lesson-enter"
+                        className={isStaggered ? '' : 'lesson-enter'}
                         rowClassName="mb-2.5"
                       >
                         <UnifiedLessonBubble
                           bubbles={message.bubbles}
                           animateSections
                           layout="detached"
+                          visibleSectionCount={
+                            isStaggered ? (visibleSectionCounts[message.id] ?? 0) : undefined
+                          }
                         />
                       </ChatBubbleFrame>
                     </div>

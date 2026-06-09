@@ -95,6 +95,8 @@ type LessonStepRendererProps = {
     corePercent: number
   } | null
   onPostLessonAction?: (action: PostLessonAction) => void
+  onPostLessonMedalNext?: () => void
+  postLessonMedalSeen?: boolean
   postLessonBusy?: boolean
   audience: 'child' | 'adult'
   voiceId: string
@@ -155,6 +157,8 @@ export default function LessonStepRenderer({
   puzzleSubAdvanceToken = 0,
   lessonMedalReveal = null,
   onPostLessonAction,
+  onPostLessonMedalNext,
+  postLessonMedalSeen = false,
   postLessonBusy = false,
   audience,
   voiceId,
@@ -192,7 +196,9 @@ export default function LessonStepRenderer({
   const [wrongChoiceHighlight, setWrongChoiceHighlight] = useState<string | null>(null)
   const [frozenChoiceOptions, setFrozenChoiceOptions] = useState<string[] | null>(null)
   const [holdChoicesAfterAdvance, setHoldChoicesAfterAdvance] = useState(false)
-  const [postLessonPhase, setPostLessonPhase] = useState<'medal' | 'menu'>('medal')
+  const [postLessonPhase, setPostLessonPhase] = useState<'medal' | 'menu'>(() =>
+    postLessonMedalSeen ? 'menu' : 'medal'
+  )
   const [showCheckingStatusLine, setShowCheckingStatusLine] = useState(false)
   const [showAdvancingStatusLine, setShowAdvancingStatusLine] = useState(false)
   const prefersReducedMotion = usePrefersReducedMotion()
@@ -212,12 +218,17 @@ export default function LessonStepRenderer({
   const postLesson = currentStep?.stepType === 'completion' ? currentStep.postLesson ?? null : null
 
   useEffect(() => {
+    if (postLessonMedalSeen) {
+      setPostLessonPhase('menu')
+      return
+    }
     setPostLessonPhase('medal')
   }, [
     lessonMedalReveal?.medal,
     lessonMedalReveal?.coreXp,
     lessonMedalReveal?.comboXp,
     lessonMedalReveal?.corePercent,
+    postLessonMedalSeen,
   ])
   const rawChoiceOptions = exercise?.options
   const isSentencePuzzle = exercise?.type === 'sentence_puzzle'
@@ -929,10 +940,13 @@ export default function LessonStepRenderer({
                     maxCoreXp={lessonMedalReveal.maxCoreXp}
                     corePercent={lessonMedalReveal.corePercent}
                     audience={audience}
-                    onNext={() => setPostLessonPhase('menu')}
+                    onNext={() => {
+                      onPostLessonMedalNext?.()
+                      setPostLessonPhase('menu')
+                    }}
                   />
                 ) : showPostLessonMenu ? (
-                  <div className="mx-auto flex w-full max-w-sm flex-col gap-2">
+                  <div className="mx-auto flex w-full max-w-[22rem] flex-col gap-2">
                     <div className="px-1 text-center">
                       <h3 className="text-base font-semibold text-slate-900">Что дальше?</h3>
                       {postLesson?.dynamicFooterText ? (

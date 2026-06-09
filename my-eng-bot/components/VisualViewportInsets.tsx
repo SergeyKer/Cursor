@@ -99,13 +99,14 @@ export default function VisualViewportInsets() {
     const root = document.documentElement
     let raf = 0
 
-    const apply = () => {
-      raf = 0
+    const applyInsets = () => {
       root.style.setProperty('--vv-bottom-inset', `${computeBottomInsetPx()}px`)
       const sideInsets = computeSideInsetsPx()
       root.style.setProperty('--vv-left-inset', `${sideInsets.left}px`)
       root.style.setProperty('--vv-right-inset', `${sideInsets.right}px`)
+    }
 
+    const applyIosSafariViewportHeight = () => {
       const iosSafariH = computeIosSafariViewportHeightPx()
       if (iosSafariH !== null) {
         root.style.setProperty('--ios-safari-vv-height', `${iosSafariH}px`)
@@ -114,26 +115,44 @@ export default function VisualViewportInsets() {
       }
     }
 
-    const scheduleApply = () => {
-      if (raf) return
-      raf = window.requestAnimationFrame(apply)
+    const applyAll = () => {
+      raf = 0
+      applyInsets()
+      applyIosSafariViewportHeight()
     }
 
-    apply()
+    const scheduleApplyAll = () => {
+      if (raf) return
+      raf = window.requestAnimationFrame(applyAll)
+    }
 
-    window.addEventListener('resize', scheduleApply, { passive: true })
-    window.addEventListener('orientationchange', scheduleApply, { passive: true })
+    let insetRaf = 0
+    const scheduleApplyInsets = () => {
+      if (insetRaf) return
+      insetRaf = window.requestAnimationFrame(() => {
+        insetRaf = 0
+        applyInsets()
+      })
+    }
+
+    applyAll()
+
+    window.addEventListener('resize', scheduleApplyAll, { passive: true })
+    window.addEventListener('orientationchange', scheduleApplyAll, { passive: true })
 
     const vv = window.visualViewport
-    vv?.addEventListener?.('resize', scheduleApply, { passive: true })
-    vv?.addEventListener?.('scroll', scheduleApply, { passive: true })
+    vv?.addEventListener?.('resize', scheduleApplyAll, { passive: true })
+    // scroll visualViewport на iOS Safari совпадает со скрытием адресной строки;
+    // не трогаем --ios-safari-vv-height здесь — иначе корень layout «дёргается» и лента замирает.
+    vv?.addEventListener?.('scroll', scheduleApplyInsets, { passive: true })
 
     return () => {
       if (raf) window.cancelAnimationFrame(raf)
-      window.removeEventListener('resize', scheduleApply)
-      window.removeEventListener('orientationchange', scheduleApply)
-      vv?.removeEventListener?.('resize', scheduleApply)
-      vv?.removeEventListener?.('scroll', scheduleApply)
+      if (insetRaf) window.cancelAnimationFrame(insetRaf)
+      window.removeEventListener('resize', scheduleApplyAll)
+      window.removeEventListener('orientationchange', scheduleApplyAll)
+      vv?.removeEventListener?.('resize', scheduleApplyAll)
+      vv?.removeEventListener?.('scroll', scheduleApplyInsets)
       root.style.removeProperty('--ios-safari-vv-height')
     }
   }, [])

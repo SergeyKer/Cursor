@@ -1,3 +1,4 @@
+import { DEFAULT_POST_LESSON_OPTIONS } from '@/lib/postLessonDefaults'
 import { buildStep6ExamVariants } from '@/lib/lessons/step6Exam'
 import { buildStep7ContrastVariants } from '@/lib/lessons/step7Contrast'
 import { buildPuzzleVariantHintText } from '@/lib/puzzlePanelLayout'
@@ -227,12 +228,7 @@ const selfIntroPostLesson = {
   dynamicFooterText: 'Выбор за вами! Любое действие закрепит материал',
     interestingFact:
     'В разговоре чаще говорят I’m happy, а I am from … звучит понятно, когда важно сказать, откуда вы.',
-  options: [
-    { action: 'repeat_variant', label: 'Повторить с новой ситуацией', icon: '🔁' },
-    { action: 'learn_interesting', label: 'Узнать интересное', icon: '💡' },
-    { action: 'independent_practice', label: 'Самостоятельный Практикум', icon: '🎮' },
-    { action: 'myeng_training', label: 'Тренировка с MyEng', icon: '🤖' },
-  ],
+  options: DEFAULT_POST_LESSON_OPTIONS,
 } as const
 
 function buildSelfIntroBlueprints(variant: SelfIntroVariant): LessonRepeatStepBlueprint[] {

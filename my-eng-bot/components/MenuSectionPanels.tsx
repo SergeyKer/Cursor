@@ -137,6 +137,8 @@ export type LessonMenuContext = {
   practiceTheoryTagFilterId?: string | null
   /** Уровень CEFR на шаге «теория по теме → урок» (восстановление меню после урока). */
   theoryTagBrowseLevel?: LessonCatalogLevel | null
+  /** Выбранный урок при запуске (восстановление подсветки в списке). */
+  selectedLessonId?: string | null
 }
 
 export type LearningLessonMenuMeta = Pick<
@@ -412,6 +414,7 @@ export interface MenuSectionPanelsProps {
     | 'theoryLessonSource'
     | 'theoryTagBrowseLevel'
     | 'practiceTheoryTagFilterId'
+    | 'selectedLessonId'
   > | null
 }
 
@@ -733,6 +736,7 @@ export default function MenuSectionPanels({
       tls: initialLessonMenuContext.theoryLessonSource ?? null,
       pt: initialLessonMenuContext.practiceTheoryTagFilterId ?? null,
       ttbl: initialLessonMenuContext.theoryTagBrowseLevel ?? null,
+      sl: initialLessonMenuContext.selectedLessonId ?? null,
     })
   }, [initialLessonMenuContext])
 
@@ -782,6 +786,19 @@ export default function MenuSectionPanels({
       ) {
         setTheoryTagBrowseLevel(initialLessonsPanel === 'a1' ? 'A1' : 'A2')
         setLessonsPanel('theoryTagLessons')
+      }
+    }
+
+    const selectedLessonId = initialLessonMenuContext.selectedLessonId ?? null
+    if (selectedLessonId) {
+      if (initialLessonsPanel === 'a1') {
+        setSelectedA1LessonId(selectedLessonId)
+      } else if (initialLessonsPanel === 'a2') {
+        setSelectedA2LessonId(selectedLessonId)
+      } else if (initialLessonsPanel === 'theoryTagLessons') {
+        setSelectedTheoryTopicLessonId(selectedLessonId)
+      } else if (initialLessonsPanel === 'practice') {
+        setSelectedPracticeLessonId(selectedLessonId)
       }
     }
   }, [menuView, initialLessonsPanel, initialLessonMenuContextKey, initialLessonMenuContext])
@@ -1190,6 +1207,7 @@ export default function MenuSectionPanels({
   })()
 
   const lessonsUsesInnerScrollLayout =
+    !homeLayout &&
     menuView === 'lessons' &&
     (lessonsPanel === 'a1' ||
       lessonsPanel === 'a2' ||
@@ -1199,12 +1217,19 @@ export default function MenuSectionPanels({
 
   const panelScrollAreaEnter =
     'menu-panel-view-enter pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
-  const panelScrollAreaClass = lessonsUsesInnerScrollLayout
-    ? homeLayout
-      ? `${panelScrollAreaEnter} flex max-h-[calc(100dvh-12rem)] min-h-0 flex-1 flex-col gap-2.5 overflow-hidden`
-      : `${panelScrollAreaEnter} flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden pb-1`
-    : homeLayout
-      ? `${panelScrollAreaEnter} max-h-[calc(100dvh-12rem)] space-y-2.5 overflow-y-auto`
+  const lessonMenuInnerScrollClass =
+    'min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
+  const lessonMenuPanelShellClass = homeLayout
+    ? 'flex flex-col gap-2'
+    : 'flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden'
+  const lessonMenuListRegionClass = homeLayout ? 'space-y-2' : lessonMenuInnerScrollClass
+  const lessonMenuFooterRegionClass = homeLayout
+    ? 'space-y-2 border-t border-[var(--border)]/70 pt-2'
+    : 'shrink-0 space-y-2 border-t border-[var(--border)]/70 pt-2'
+  const panelScrollAreaClass = homeLayout
+    ? `${panelScrollAreaEnter} space-y-2.5`
+    : lessonsUsesInnerScrollLayout
+      ? `${panelScrollAreaEnter} flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden pb-1`
       : `${panelScrollAreaEnter} min-h-0 flex-1 space-y-2.5 overflow-y-auto pb-1`
 
   const handleGoHome = () => {
@@ -1900,8 +1925,8 @@ export default function MenuSectionPanels({
             )}
 
             {lessonsPanel === 'theoryGrammarCategories' && (
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
-                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <div className={lessonMenuPanelShellClass}>
+                <div className={lessonMenuListRegionClass}>
                   <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
                     <label className="block text-[13px] font-medium text-[var(--text-muted)]" htmlFor={pid('theory-tag-search')}>
                       Поиск тега
@@ -1971,7 +1996,7 @@ export default function MenuSectionPanels({
                   ) : null}
                 </div>
                 {theoryTagsSearchQuery.trim() && theoryTagGlobalSearchHits.length > 0 ? (
-                  <div className="shrink-0 border-t border-[var(--border)]/70 pt-2">
+                  <div className={lessonMenuFooterRegionClass}>
                     <button
                       type="button"
                       className={MENU_PRIMARY_CTA_CLASS}
@@ -1995,8 +2020,8 @@ export default function MenuSectionPanels({
             )}
 
             {lessonsPanel === 'theoryTagLevels' && theoryTopicLaunch && theoryTopicLaunch.tagIds.length > 0 ? (
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
-                <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <div className={lessonMenuPanelShellClass}>
+                <div className={`${lessonMenuListRegionClass}${homeLayout ? ' flex flex-col gap-2' : ''}`}>
                   {theoryTopicLessonsFlat.length === 0 ? (
                     <p className="shrink-0 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
                       По выбранным темам пока нет уроков с теорией.
@@ -2025,8 +2050,8 @@ export default function MenuSectionPanels({
             theoryTopicLaunch &&
             theoryTopicLaunch.tagIds.length > 0 &&
             theoryTagBrowseLevel ? (
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
-                <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <div className={lessonMenuPanelShellClass}>
+                <div className={lessonMenuListRegionClass}>
                   <div className={MENU_GROUP_OUTER}>
                     <div className={MENU_GROUP_CLASS}>
                       {(theoryTopicLessonsByLevel[theoryTagBrowseLevel] ?? []).map((lesson) => {
@@ -2059,7 +2084,7 @@ export default function MenuSectionPanels({
                   </div>
                 </div>
                 {theoryTopicLessonsFlat.length > 0 ? (
-                  <div className="shrink-0 space-y-2 border-t border-[var(--border)]/70 pt-2">
+                  <div className={lessonMenuFooterRegionClass}>
                     <button
                       type="button"
                       onClick={() => {
@@ -2118,8 +2143,8 @@ export default function MenuSectionPanels({
             ) : null}
 
             {lessonsPanel === 'a1' && (
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
-                <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <div className={lessonMenuPanelShellClass}>
+                <div className={lessonMenuListRegionClass}>
                   <div className={MENU_GROUP_OUTER}>
                     <div className={MENU_GROUP_CLASS}>
                       {a1TheoryItems.map((item) => (
@@ -2148,7 +2173,7 @@ export default function MenuSectionPanels({
                     </div>
                   </div>
                 </div>
-                <div className="shrink-0 space-y-2 border-t border-[var(--border)]/70 pt-2">
+                <div className={lessonMenuFooterRegionClass}>
                   <button
                     type="button"
                     onClick={() => {
@@ -2191,8 +2216,8 @@ export default function MenuSectionPanels({
             )}
 
             {lessonsPanel === 'a2' && (
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
-                <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <div className={lessonMenuPanelShellClass}>
+                <div className={lessonMenuListRegionClass}>
                   <div className={MENU_GROUP_OUTER}>
                     <div className={MENU_GROUP_CLASS}>
                       {a2TheoryItems.map((item) => (
@@ -2221,7 +2246,7 @@ export default function MenuSectionPanels({
                     </div>
                   </div>
                 </div>
-                <div className="shrink-0 space-y-2 border-t border-[var(--border)]/70 pt-2">
+                <div className={lessonMenuFooterRegionClass}>
                   <button
                     type="button"
                     onClick={() => {
