@@ -11,10 +11,15 @@ import {
   isPracticeChoiceInteractionDisabled,
   isPracticeChoicePanelFrozen,
 } from '@/lib/practice/practiceAnswerPanelLock'
-import { CHAT_COMPOSER_STACK_CLASS, getChatComposerStackLayout } from '@/lib/chatComposerMetrics'
+import {
+  CHAT_COMPOSER_STACK_CLASS,
+  DIALOG_COMPOSER_PADDING_BOTTOM,
+  getChatComposerStackLayout,
+} from '@/lib/chatComposerMetrics'
 import { isPracticeChoiceChipsPanel } from '@/lib/practice/practiceComposerLayout'
 import { isPracticeCorrectionComposerActive } from '@/lib/practice/practiceCorrectionMode'
 import {
+  LESSON_SCROLL_VIEWPORT_CLASS,
   resolveLessonScrollBehavior,
   resolveScrollBottomPadding,
   scrollLessonFeedTailIfNeeded,
@@ -343,6 +348,9 @@ export default function PracticeScreen({
   const isChoiceChipsPanel =
     showQuestionComposer && isPracticeChoiceChipsPanel(currentQuestion, isCorrectionComposerActive)
   const composerStackLayout = getChatComposerStackLayout(isChoiceChipsPanel)
+  const composerStackStyle = composerStackLayout.style
+    ? { ...composerStackLayout.style, paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }
+    : composerStackLayout.style
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
@@ -354,7 +362,7 @@ export default function PracticeScreen({
           >
             <div
               ref={scrollContainerRef}
-              className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3"
+              className={`${LESSON_SCROLL_VIEWPORT_CLASS} bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
               style={
                 scrollBottomPadding
                   ? {
@@ -472,7 +480,7 @@ export default function PracticeScreen({
             <div
               ref={bottomStackRef}
               className={`${CHAT_COMPOSER_STACK_CLASS} ${composerStackLayout.verticalClass}`}
-              style={composerStackLayout.style}
+              style={composerStackStyle}
             >
               {state === 'completed' ? (
                 <PracticeFinale

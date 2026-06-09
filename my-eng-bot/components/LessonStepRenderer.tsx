@@ -20,6 +20,7 @@ import {
   CHAT_COMPOSER_FORM_CLASS,
   CHAT_COMPOSER_STACK_CLASS,
   CHAT_COMPOSER_TYPO_CLASS,
+  DIALOG_COMPOSER_PADDING_BOTTOM,
   getChatComposerStackLayout,
   getChatComposerTextareaVerticalClass,
 } from '@/lib/chatComposerMetrics'
@@ -38,6 +39,7 @@ import { buildLessonFeedMessages, type LessonFeedMessage } from '@/lib/buildLess
 import { shouldHighlightWrongLessonChoice } from '@/lib/lessonChoiceHighlight'
 import { injectVariantQuestionIntoTaskBubble } from '@/lib/lessonFeedBubbles'
 import {
+  LESSON_SCROLL_VIEWPORT_CLASS,
   resolveLessonScrollBehavior,
   resolveScrollBottomPadding,
   scrollLessonFeedTailIfNeeded,
@@ -799,9 +801,12 @@ export default function LessonStepRenderer({
     composerOutsideScroll: true,
   })
   const composerStackLayout = getChatComposerStackLayout(shouldRenderChoiceChips)
+  const composerStackStyle = composerStackLayout.style
+    ? { ...composerStackLayout.style, paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }
+    : composerStackLayout.style
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
+    <div className="flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
       <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
         <div className="mx-auto flex min-h-0 flex-1 w-full max-w-[29rem] flex-col">
           <div
@@ -811,7 +816,7 @@ export default function LessonStepRenderer({
             {runBannerText ? <LessonRunBanner text={runBannerText} /> : null}
             <div
               ref={scrollContainerRef}
-              className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3"
+              className={`relative ${LESSON_SCROLL_VIEWPORT_CLASS} bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
               style={
                 scrollBottomPadding
                   ? {
@@ -953,7 +958,7 @@ export default function LessonStepRenderer({
               <div
                 ref={bottomStackRef}
                 className={`${CHAT_COMPOSER_STACK_CLASS} ${composerStackLayout.verticalClass}`}
-                style={composerStackLayout.style}
+                style={composerStackStyle}
               >
                 {showPostLessonMedalPhase && lessonMedalReveal ? (
                   <LessonMedalFlowInfoStep

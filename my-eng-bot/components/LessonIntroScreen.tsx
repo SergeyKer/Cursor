@@ -1,14 +1,15 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { useStaggeredSectionRevealMap } from '@/hooks/useStaggeredSectionReveal'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import {
-  CHAT_COMPOSER_PADDING_BOTTOM,
   CHAT_COMPOSER_STACK_CLASS,
   CHAT_COMPOSER_STACK_TOP_CLASS,
+  DIALOG_COMPOSER_PADDING_BOTTOM,
 } from '@/lib/chatComposerMetrics'
+import { LESSON_SCROLL_VIEWPORT_CLASS, scheduleScrollAfterLayout } from '@/lib/lessonFeedScroll'
 import { getMenuTopicCopyByIntroTopic } from '@/lib/lessonCatalog'
 import type { AiProvider, Audience, OpenAiChatPreset } from '@/lib/types'
 import type { Bubble, LessonIntro } from '@/types/lesson'
@@ -327,25 +328,31 @@ export default function LessonIntroScreen({
     }
   }, [depth, pendingDepth])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = scrollContainerRef.current
     if (!el) return
-    // Старт чтения сверху: при коротком инро не уводим прокрутку вниз.
-    if (depth === 'quick' && !pendingDepth) {
-      el.scrollTo({ top: 0, behavior: 'auto' })
-      return
-    }
-    const anchorMessageId =
-      extraDeepDives.length > 0 ? `extra-request-${extraDeepDives.length - 1}` : pendingDepth === 'deep' || depth === 'deep' ? 'deep-request' : 'details-request'
-    const anchor = messageRefs.current[anchorMessageId]
-    if (anchor) {
+    return scheduleScrollAfterLayout(() => {
+      // Старт чтения сверху: при коротком инро не уводим прокрутку вниз.
+      if (depth === 'quick' && !pendingDepth) {
+        el.scrollTo({ top: 0, behavior: 'auto' })
+        return
+      }
+      const anchorMessageId =
+        extraDeepDives.length > 0
+          ? `extra-request-${extraDeepDives.length - 1}`
+          : pendingDepth === 'deep' || depth === 'deep'
+            ? 'deep-request'
+            : 'details-request'
+      const anchor = messageRefs.current[anchorMessageId]
+      if (anchor) {
+        const maxTop = Math.max(0, el.scrollHeight - el.clientHeight)
+        const anchorTop = anchor.offsetTop + INTRO_CHAT_ANCHOR_OFFSET_PX
+        el.scrollTo({ top: Math.min(maxTop, Math.max(0, anchorTop)), behavior: 'smooth' })
+        return
+      }
       const maxTop = Math.max(0, el.scrollHeight - el.clientHeight)
-      const anchorTop = anchor.offsetTop + INTRO_CHAT_ANCHOR_OFFSET_PX
-      el.scrollTo({ top: Math.min(maxTop, Math.max(0, anchorTop)), behavior: 'smooth' })
-      return
-    }
-    const maxTop = Math.max(0, el.scrollHeight - el.clientHeight)
-    el.scrollTo({ top: maxTop, behavior: 'smooth' })
+      el.scrollTo({ top: maxTop, behavior: 'smooth' })
+    })
   }, [depth, extraDeepDives.length, messages.length, pendingDepth])
 
   const queueFollowup = (targetDepth: Exclude<LessonIntroDepth, 'quick'>) => {
@@ -403,7 +410,7 @@ export default function LessonIntroScreen({
   const canShowDeepDive = (depth === 'details' || depth === 'deep') && Boolean(intro.deepDive) && !pendingDepth
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
+    <div className="flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
       <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
         <div className="mx-auto flex min-h-0 flex-1 w-full max-w-[29rem] flex-col">
           <div
@@ -412,7 +419,7 @@ export default function LessonIntroScreen({
           >
             <div
               ref={scrollContainerRef}
-              className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3"
+              className={`${LESSON_SCROLL_VIEWPORT_CLASS} bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
             >
               <div>
                 {messages.map((message, index) => {
@@ -474,7 +481,7 @@ export default function LessonIntroScreen({
 
             <div
               className={`${CHAT_COMPOSER_STACK_CLASS} ${CHAT_COMPOSER_STACK_TOP_CLASS}`}
-              style={{ paddingBottom: CHAT_COMPOSER_PADDING_BOTTOM }}
+              style={{ paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }}
             >
               <div className="mx-auto flex w-full max-w-[22rem] flex-col gap-2">
                 <div className="flex w-full items-center justify-between gap-1.5 sm:gap-2">

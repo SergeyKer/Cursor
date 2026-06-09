@@ -5966,7 +5966,7 @@ export default function Home() {
 
   const rootShellClass =
     'flex min-h-[100dvh] flex-col ' +
-    (isIosSafariClient ? '' : isIosClient ? 'h-full' : 'h-[100dvh]')
+    (isIosSafariClient ? 'min-h-0 overflow-hidden ' : isIosClient ? 'h-full' : 'h-[100dvh]')
 
   const rootShellStyle = {
     ...(isIosSafariClient
@@ -6152,7 +6152,9 @@ export default function Home() {
             ? { scrollPaddingTop: 'var(--app-top-offset)' }
             : {}),
           paddingBottom: dialogStarted
-            ? '0px'
+            ? isIosSafariClient
+              ? 'var(--app-footer-chrome-height)'
+              : '0px'
             : 'env(safe-area-inset-bottom, 0px)',
         }}
       >
@@ -6653,7 +6655,9 @@ export default function Home() {
               ? 'bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]'
               : ''
           }`}
-          style={{ height: 'var(--app-bottom-offset)' }}
+          style={{
+            height: isIosSafariClient ? 'var(--vv-bottom-inset, 0px)' : 'var(--app-bottom-offset)',
+          }}
           aria-hidden
         />
       ) : null}

@@ -24,6 +24,9 @@ export const CHAT_COMPOSER_PADDING_BOTTOM_COMPACT = '0.25rem'
  */
 export const CHAT_COMPOSER_PADDING_BOTTOM = 'calc(0.625rem + env(safe-area-inset-bottom, 0px))'
 
+/** Композер в диалоге с fixed-футером: safe-area уже у футера, не дублируем. */
+export const DIALOG_COMPOSER_PADDING_BOTTOM = '0.625rem'
+
 export type ChatComposerStackLayout = {
   verticalClass: string
   style?: { paddingBottom: string }

@@ -1225,6 +1225,13 @@ select.select-chevron {
   }
 }
 
+/* Лента урока/чата: touch-скролл на iOS Safari (без этого лента «замирает»). */
+.lesson-scroll-viewport {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
+
 /*
  * Композер чата: симметричный padding по Y (каретка и строка по центру min-height 44px).
  * font-size / line-height задаются в JSX (text-base, leading-[1.45rem]); здесь только отступы.

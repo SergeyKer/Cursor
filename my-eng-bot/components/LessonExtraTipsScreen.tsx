@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  CHAT_COMPOSER_PADDING_BOTTOM,
   CHAT_COMPOSER_STACK_CLASS,
   CHAT_COMPOSER_STACK_TOP_CLASS,
+  DIALOG_COMPOSER_PADDING_BOTTOM,
 } from '@/lib/chatComposerMetrics'
+import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
 import type { LessonCatalogLevel } from '@/lib/lessonCatalog'
 import {
   buildFallbackLessonExtraTips,
@@ -352,7 +353,7 @@ export default function LessonExtraTipsScreen({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
+    <div className="flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
       <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
         <div className="mx-auto flex min-h-0 w-full max-w-[30rem] flex-1 flex-col">
           <div
@@ -361,7 +362,7 @@ export default function LessonExtraTipsScreen({
           >
             <div
               ref={scrollAreaRef}
-              className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 scroll-smooth sm:p-3"
+              className={`${LESSON_SCROLL_VIEWPORT_CLASS} scroll-smooth bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
               style={{
                 paddingBottom: 'calc(var(--app-bottom-inset) + 7rem)',
                 scrollPaddingBottom: 'calc(var(--app-bottom-inset) + 7rem)',
@@ -772,7 +773,7 @@ export default function LessonExtraTipsScreen({
 
             <div
               className={`${CHAT_COMPOSER_STACK_CLASS} ${CHAT_COMPOSER_STACK_TOP_CLASS}`}
-              style={{ paddingBottom: CHAT_COMPOSER_PADDING_BOTTOM }}
+              style={{ paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }}
             >
               <div className="mx-auto flex w-full max-w-[22rem] flex-col gap-2">
                 <div className="flex w-full items-center justify-between gap-1.5 sm:gap-2">

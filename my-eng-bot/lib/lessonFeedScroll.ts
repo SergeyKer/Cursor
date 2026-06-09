@@ -114,6 +114,22 @@ export function computeMaxScrollTop(scrollHeight: number, clientHeight: number):
   return Math.max(0, scrollHeight - clientHeight)
 }
 
+/** Двойной rAF: дождаться layout перед scrollTo (нужно на iOS Safari). */
+export function scheduleScrollAfterLayout(run: () => void): () => void {
+  let innerRaf = 0
+  const outerRaf = requestAnimationFrame(() => {
+    innerRaf = requestAnimationFrame(run)
+  })
+  return () => {
+    cancelAnimationFrame(outerRaf)
+    if (innerRaf) cancelAnimationFrame(innerRaf)
+  }
+}
+
+/** Класс scroll-контейнера ленты урока/чата: touch-скролл на iOS Safari. */
+export const LESSON_SCROLL_VIEWPORT_CLASS =
+  'lesson-scroll-viewport min-h-0 flex-1 overflow-y-auto overflow-x-hidden'
+
 /** scrollTo(max) — для puzzle / post-lesson. */
 export function scrollLessonFeedToMax(
   scrollContainer: HTMLElement | null,
