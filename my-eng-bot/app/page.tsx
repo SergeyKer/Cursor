@@ -170,7 +170,7 @@ import { buildPracticeQuestionFingerprintFromQuestion } from '@/lib/practice/que
 import { FOOTER_DYNAMIC_MAX_LENGTH, pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
-import { isIosWebKitBrowser } from '@/lib/iosSafariViewport'
+import { isIosSafariUserAgent, isIosWebKitBrowser } from '@/lib/iosSafariViewport'
 import type { VocabularyFooterView } from '@/types/vocabulary'
 import {
   buildEngvoInputAudioTranscriptionConfig,
@@ -893,6 +893,11 @@ export default function Home() {
     const ua = navigator.userAgent
     if (/iPhone|iPad|iPod/i.test(ua)) return true
     return /Macintosh/i.test(ua) && /Mobile/i.test(ua)
+  }, [])
+  /** Только iOS Safari (без CriOS/Firefox/Edge на iOS). */
+  const isIosSafariClient = React.useMemo(() => {
+    if (typeof navigator === 'undefined') return false
+    return isIosSafariUserAgent(navigator.userAgent)
   }, [])
   /** iOS Safari + Chrome (CriOS) — общая WebKit-ветка dialog layout. */
   const isIosWebKitClient = React.useMemo(() => {
@@ -5971,10 +5976,20 @@ export default function Home() {
 
   const rootShellClass =
     'flex min-h-[100dvh] flex-col ' +
-    (isIosWebKitClient && dialogStarted ? 'min-h-0 overflow-hidden ' : isIosClient ? 'h-full' : 'h-[100dvh]')
+    (isIosSafariClient && dialogStarted
+      ? 'min-h-0 overflow-hidden '
+      : isIosSafariClient
+        ? ''
+        : isIosWebKitClient && dialogStarted
+          ? 'min-h-0 overflow-hidden '
+          : isIosClient
+            ? 'h-full'
+            : 'h-[100dvh]')
+
+  const usesIosWebKitViewportHeight = isIosSafariClient || (isIosWebKitClient && dialogStarted)
 
   const rootShellStyle = {
-    ...(isIosWebKitClient && dialogStarted
+    ...(usesIosWebKitViewportHeight
       ? ({
           minHeight: 'var(--ios-safari-vv-height, 100dvh)',
           height: 'var(--ios-safari-vv-height, 100dvh)',
@@ -6153,16 +6168,16 @@ export default function Home() {
         }`}
         style={{
           paddingTop: 'var(--app-top-offset)',
-          ...(isIosWebKitClient && !dialogStarted
-            ? { scrollPaddingTop: 'var(--app-top-offset)' }
-            : {}),
           paddingBottom: dialogStarted ? '0px' : 'env(safe-area-inset-bottom, 0px)',
         }}
       >
         {!dialogStarted ? (
           <div
             className="start-screen chat-shell-x relative z-10 flex h-0 min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
-            style={{ scrollPaddingBottom: 'var(--app-footer-chrome-height)' }}
+            style={{
+              scrollPaddingBottom: 'var(--app-footer-chrome-height)',
+              ...(isIosSafariClient ? { scrollPaddingTop: 'var(--app-top-offset)' } : {}),
+            }}
           >
             <div
               ref={homeColumnRef}
