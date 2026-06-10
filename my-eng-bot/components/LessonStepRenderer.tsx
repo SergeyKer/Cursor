@@ -18,6 +18,7 @@ import {
 } from '@/components/chat/ChatBubble'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import DialogComposerStack from '@/components/DialogComposerStack'
+import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
 import {
   CHAT_COMPOSER_FORM_CLASS,
   CHAT_COMPOSER_TYPO_CLASS,
@@ -945,9 +946,10 @@ export default function LessonStepRenderer({
             style={{ boxShadow: 'var(--chat-shell-shadow)' }}
           >
             {runBannerText ? <LessonRunBanner text={runBannerText} /> : null}
-            <div
-              ref={scrollContainerRef}
-              className={`relative ${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
+            <DialogGlassScrollHost>
+              <div
+                ref={scrollContainerRef}
+                className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
               style={
                 scrollBottomPadding
                   ? {
@@ -1090,6 +1092,7 @@ export default function LessonStepRenderer({
                 })}
               </div>
             </div>
+            </DialogGlassScrollHost>
 
             {currentStep && (
               <DialogComposerStack

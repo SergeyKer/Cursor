@@ -12,6 +12,7 @@ import {
   isPracticeChoicePanelFrozen,
 } from '@/lib/practice/practiceAnswerPanelLock'
 import DialogComposerStack from '@/components/DialogComposerStack'
+import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
 import { DIALOG_COMPOSER_PADDING_BOTTOM, getChatComposerStackLayout } from '@/lib/chatComposerMetrics'
 import { isPracticeChoiceChipsPanel } from '@/lib/practice/practiceComposerLayout'
 import { isPracticeCorrectionComposerActive } from '@/lib/practice/practiceCorrectionMode'
@@ -359,18 +360,19 @@ export default function PracticeScreen({
             className="glass-surface flex min-h-0 flex-1 w-full flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
             style={{ boxShadow: 'var(--chat-shell-shadow)' }}
           >
-            <div
-              ref={scrollContainerRef}
-              className={`${LESSON_SCROLL_VIEWPORT_CLASS} bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
-              style={
-                scrollBottomPadding
-                  ? {
-                      paddingBottom: scrollBottomPadding,
-                      scrollPaddingBottom: scrollBottomPadding,
-                    }
-                  : undefined
-              }
-            >
+            <DialogGlassScrollHost>
+              <div
+                ref={scrollContainerRef}
+                className={`${LESSON_SCROLL_VIEWPORT_CLASS} bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
+                style={
+                  scrollBottomPadding
+                    ? {
+                        paddingBottom: scrollBottomPadding,
+                        scrollPaddingBottom: scrollBottomPadding,
+                      }
+                    : undefined
+                }
+              >
               <div ref={messagesStackRef}>
                 {messages.map((message, index) => {
                   const previousRole = messages[index - 1]?.role as BubbleRole | undefined
@@ -478,6 +480,7 @@ export default function PracticeScreen({
                 })}
               </div>
             </div>
+            </DialogGlassScrollHost>
 
             <DialogComposerStack className={composerStackLayout.verticalClass} style={composerStackStyle}>
               {state === 'completed' ? (

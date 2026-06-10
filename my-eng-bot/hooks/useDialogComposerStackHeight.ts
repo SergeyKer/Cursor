@@ -9,15 +9,19 @@ function writeComposerStackHeightPx(height: number): void {
   document.documentElement.style.setProperty('--chat-composer-stack-height', `${height}px`)
 }
 
+function resolveDialogScrollHost(stack: HTMLElement): HTMLElement | null {
+  return stack.closest('.dialog-glass-scroll-host') ?? stack.closest('.glass-surface')
+}
+
 function syncDialogScrollBottomInset(stack: HTMLElement, height: number, root: HTMLElement): void {
-  const glass = stack.closest('.glass-surface')
-  if (!glass) {
+  const scrollHost = resolveDialogScrollHost(stack)
+  if (!scrollHost) {
     root.style.removeProperty('--dialog-scroll-bottom-inset')
     return
   }
-  const glassBottom = glass.getBoundingClientRect().bottom
+  const hostBottom = scrollHost.getBoundingClientRect().bottom
   const composerTop = stack.getBoundingClientRect().top
-  const inset = Math.min(height, Math.max(0, Math.round(glassBottom - composerTop)))
+  const inset = Math.min(height, Math.max(0, Math.round(hostBottom - composerTop)))
   root.style.setProperty('--dialog-scroll-bottom-inset', `${inset}px`)
 }
 
@@ -106,9 +110,9 @@ export function useDialogComposerStackHeight(stackRef: RefObject<HTMLElement | n
 
     const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(scheduleSync) : null
     observer?.observe(stack)
-    const glass = stack.closest('.glass-surface')
-    if (glass && observer) {
-      observer.observe(glass)
+    const scrollHost = resolveDialogScrollHost(stack)
+    if (scrollHost && observer) {
+      observer.observe(scrollHost)
     }
 
     window.addEventListener('resize', scheduleSync, { passive: true })

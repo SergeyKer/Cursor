@@ -5,6 +5,7 @@ import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { useStaggeredSectionRevealMap } from '@/hooks/useStaggeredSectionReveal'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import DialogComposerStack from '@/components/DialogComposerStack'
+import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
 import { resyncIosWebKitDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
 import { isIosWebKitBrowser } from '@/lib/iosSafariViewport'
@@ -444,12 +445,13 @@ export default function LessonIntroScreen({
             className="glass-surface flex min-h-0 flex-1 w-full flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
             style={{ boxShadow: 'var(--chat-shell-shadow)' }}
           >
-            <div
-              ref={scrollContainerRef}
-              className={`${LESSON_SCROLL_VIEWPORT_CLASS} ${LESSON_INTRO_SCROLL_CLASS} bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
-            >
-              <div>
-                {messages.map((message, index) => {
+            <DialogGlassScrollHost>
+              <div
+                ref={scrollContainerRef}
+                className={`${LESSON_SCROLL_VIEWPORT_CLASS} ${LESSON_INTRO_SCROLL_CLASS} bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
+              >
+                <div>
+                  {messages.map((message, index) => {
                   const previousRole = messages[index - 1]?.role as BubbleRole | undefined
                   const nextRole = messages[index + 1]?.role as BubbleRole | undefined
                   const position = getBubblePosition(previousRole, message.role, nextRole)
@@ -502,9 +504,10 @@ export default function LessonIntroScreen({
                       </ChatBubbleFrame>
                     </div>
                   )
-                })}
+                  })}
+                </div>
               </div>
-            </div>
+            </DialogGlassScrollHost>
 
             <DialogComposerStack
               ref={composerStackRef}

@@ -1278,7 +1278,8 @@ html[data-ios-webkit-dialog] .dialog-flex-shell {
 }
 
 html[data-ios-webkit-dialog] .glass-surface:has(.dialog-composer-dock) {
-  position: relative;
+  display: flex;
+  flex-direction: column;
   height: 0;
   flex: 1 1 0%;
   min-height: 0;
@@ -1286,8 +1287,14 @@ html[data-ios-webkit-dialog] .glass-surface:has(.dialog-composer-dock) {
   -webkit-backdrop-filter: none;
 }
 
-/* iOS WebKit dialog: absolute inset ленты (без calc(100%) — WebKit flex). */
-html[data-ios-webkit-dialog] .lesson-scroll-viewport {
+html[data-ios-webkit-dialog] .dialog-glass-scroll-host {
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 0;
+}
+
+/* iOS WebKit dialog: absolute inset ленты внутри in-flow host (Safari flex). */
+html[data-ios-webkit-dialog] .dialog-glass-scroll-host > .lesson-scroll-viewport {
   position: absolute;
   left: 0;
   right: 0;
@@ -1299,10 +1306,6 @@ html[data-ios-webkit-dialog] .lesson-scroll-viewport {
   overflow-y: auto;
   padding-bottom: 0.625rem !important;
   scroll-padding-bottom: 0.625rem !important;
-}
-
-html[data-ios-webkit-dialog] .glass-surface:has(.lesson-run-banner) .lesson-scroll-viewport {
-  top: var(--lesson-run-banner-height, 2.75rem);
 }
 
 html[data-ios-webkit-dialog] .lesson-scroll-viewport.lesson-intro-scroll,

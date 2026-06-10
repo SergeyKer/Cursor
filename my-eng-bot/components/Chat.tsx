@@ -21,6 +21,7 @@ import {
 } from '@/lib/normalizeCommentBulbEmoji'
 import { speak } from '@/lib/speech'
 import DialogComposerStack from '@/components/DialogComposerStack'
+import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
 import {
   CHAT_COMPOSER_FORM_CLASS,
   CHAT_COMPOSER_PADDING_BOTTOM,
@@ -2151,14 +2152,15 @@ export default function Chat({
             className="glass-surface flex min-h-0 flex-1 w-full flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
             style={{ boxShadow: 'var(--chat-shell-shadow)' }}
           >
-            <div
-              ref={scrollContainerRef}
-              className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
-              style={{
-                paddingBottom: `calc(0.625rem + var(--chat-input-height) + ${INPUT_GAP_PX}px)`,
-                scrollPaddingBottom: `calc(0.625rem + var(--chat-input-height) + ${INPUT_GAP_PX}px)`,
-              }}
-            >
+            <DialogGlassScrollHost>
+              <div
+                ref={scrollContainerRef}
+                className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
+                style={{
+                  paddingBottom: `calc(0.625rem + var(--chat-input-height) + ${INPUT_GAP_PX}px)`,
+                  scrollPaddingBottom: `calc(0.625rem + var(--chat-input-height) + ${INPUT_GAP_PX}px)`,
+                }}
+              >
               {messages.length === 0 && !isEngvoActive && (
                 <div className="flex justify-center">
                   <p dir="ltr" className={CHAT_CENTERED_TYPING_STATUS_P_CLASS}>
@@ -2312,7 +2314,8 @@ export default function Chat({
                   }
                 />
               )}
-            </div>
+              </div>
+            </DialogGlassScrollHost>
             <DialogComposerStack
               className={CHAT_COMPOSER_STACK_TOP_CLASS}
               style={{
