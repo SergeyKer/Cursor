@@ -30,7 +30,7 @@ import {
   getChatComposerOverlayVerticalClass,
   getChatComposerTextareaVerticalClass,
 } from '@/lib/chatComposerMetrics'
-import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
+import { LESSON_SCROLL_VIEWPORT_CLASS, scheduleScrollAfterLayout } from '@/lib/lessonFeedScroll'
 import {
   isIosChromeBrowser,
   isIosLikeDevice,
@@ -2039,24 +2039,30 @@ export default function Chat({
   React.useEffect(() => {
     const el = scrollContainerRef.current
     if (!el) return
-    // Для первого экрана урока показываем начало сообщения (верх),
-    // а не прокручиваем к кнопкам внизу.
-    if (isLearningFlow && messages.length === 1) {
-      el.scrollTop = 0
-      return
-    }
-    if (isLearningFlow && messages.length > 1) {
-      // В уроке после выбора кнопки выравниваем по новому пузырю ИИ:
-      // предыдущая неактивная кнопка должна уходить выше видимой области.
-      const lastAssistantIndex = messages.length - 1
-      const target = el.querySelector<HTMLElement>(`[data-message-index="${lastAssistantIndex}"][data-role="assistant"]`)
-      if (target) {
-        const top = Math.max(0, target.offsetTop - 8)
-        el.scrollTo({ top, behavior: 'smooth' })
+    return scheduleScrollAfterLayout(() => {
+      // Для первого экрана урока показываем начало сообщения (верх),
+      // а не прокручиваем к кнопкам внизу.
+      if (isLearningFlow && messages.length === 1) {
+        el.scrollTop = 0
         return
       }
-    }
-    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+      if (isLearningFlow && messages.length > 1) {
+        // В уроке после выбора кнопки выравниваем по новому пузырю ИИ:
+        // предыдущая неактивная кнопка должна уходить выше видимой области.
+        const lastAssistantIndex = messages.length - 1
+        const target = el.querySelector<HTMLElement>(
+          `[data-message-index="${lastAssistantIndex}"][data-role="assistant"]`
+        )
+        if (target) {
+          const maxTop = Math.max(0, el.scrollHeight - el.clientHeight)
+          const top = Math.min(maxTop, Math.max(0, target.offsetTop - 8))
+          el.scrollTo({ top, behavior: 'smooth' })
+          return
+        }
+      }
+      const maxTop = Math.max(0, el.scrollHeight - el.clientHeight)
+      el.scrollTo({ top: maxTop, behavior: 'smooth' })
+    })
   }, [messages, isLearningFlow, engvo?.showAssistantPending])
 
   // Индекс последнего assistant-сообщения нужен, чтобы автоскрывать

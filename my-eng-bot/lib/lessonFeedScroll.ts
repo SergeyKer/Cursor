@@ -511,7 +511,36 @@ export function scrollLessonFeedTailIfNeeded(
   behavior: ScrollBehavior = 'auto'
 ): void {
   if (!scrollContainer) return
-  scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior })
+  scrollLessonFeedToMax(scrollContainer, behavior)
+}
+
+export function wasLessonFeedNearTail(
+  scrollContainer: HTMLElement | null,
+  thresholdPx = 48
+): boolean {
+  if (!scrollContainer) return false
+  const maxTop = computeMaxScrollTop(scrollContainer.scrollHeight, scrollContainer.clientHeight)
+  return scrollContainer.scrollTop >= maxTop - thresholdPx
+}
+
+/** iOS Safari dialog: повторный доскролл после смены padding под fixed-композер. */
+export function resyncLessonFeedScrollNearTail(
+  scrollContainer: HTMLElement | null,
+  behavior: ScrollBehavior = 'auto'
+): () => void {
+  if (!scrollContainer) return () => {}
+  return scheduleScrollAfterLayout(() => {
+    if (!wasLessonFeedNearTail(scrollContainer)) return
+    followLessonFeedTail(scrollContainer, { mode: 'scroll_to_max', behavior })
+  })
+}
+
+export function findLessonFeedScrollViewportFromComposerStack(
+  composerStack: HTMLElement
+): HTMLElement | null {
+  const host =
+    composerStack.closest('.dialog-glass-scroll-host') ?? composerStack.closest('.glass-surface')
+  return host?.querySelector<HTMLElement>('.lesson-scroll-viewport') ?? null
 }
 
 export function isLessonFeedOverflowing(scrollContainer: HTMLElement | null): boolean {

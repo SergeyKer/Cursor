@@ -54,9 +54,9 @@ import {
   resolvePuzzleFeedMessagesStackClass,
   resolveRelaxFeedTailPin,
   resolveScrollBottomPadding,
+  followLessonFeedTail,
+  followLessonFeedTailWithComplete,
   scrollLessonFeedToMax,
-  scrollLessonFeedToModeIfNeeded,
-  scrollLessonFeedToModeWithCompleteIfNeeded,
   shouldMtAutoPinPuzzleCheckingRow,
   shouldPinLessonFeedTailNearComposer,
 } from '@/lib/lessonFeedScroll'
@@ -637,14 +637,24 @@ export default function LessonStepRenderer({
   const scheduleScroll = useCallback(
     (scrollFn: (behavior: ScrollBehavior) => void, behavior: ScrollBehavior = 'auto') => {
       let innerRaf = 0
+      let extraRaf = 0
+      const needsSafariDialogLayoutPass =
+        typeof document !== 'undefined' &&
+        document.documentElement.hasAttribute('data-ios-safari-dialog')
       const outerRaf = requestAnimationFrame(() => {
         innerRaf = requestAnimationFrame(() => {
-          scrollFn(behavior)
+          const run = () => scrollFn(behavior)
+          if (needsSafariDialogLayoutPass) {
+            extraRaf = requestAnimationFrame(run)
+          } else {
+            run()
+          }
         })
       })
       return () => {
         cancelAnimationFrame(outerRaf)
         if (innerRaf) cancelAnimationFrame(innerRaf)
+        if (extraRaf) cancelAnimationFrame(extraRaf)
       }
     },
     []
@@ -654,7 +664,9 @@ export default function LessonStepRenderer({
     (behavior: ScrollBehavior = 'auto') => {
       const mode = resolveLessonFeedScrollMode({ useFeedScrollToMax, relaxFeedTailPin })
       return scheduleScroll((scrollBehavior) => {
-        scrollLessonFeedToModeIfNeeded(scrollContainerRef.current, mode, scrollBehavior)
+        const scrollContainer = scrollContainerRef.current
+        if (!scrollContainer) return
+        followLessonFeedTail(scrollContainer, { mode, behavior: scrollBehavior })
       }, behavior)
     },
     [relaxFeedTailPin, scheduleScroll, useFeedScrollToMax]
@@ -687,12 +699,16 @@ export default function LessonStepRenderer({
     let cleanupScrollComplete: (() => void) | undefined
 
     const cleanupSchedule = scheduleScroll((scrollBehavior) => {
-      cleanupScrollComplete = scrollLessonFeedToModeWithCompleteIfNeeded(
-        scrollContainerRef.current,
+      const scrollContainer = scrollContainerRef.current
+      if (!scrollContainer) {
+        onShellScrollComplete()
+        return
+      }
+      cleanupScrollComplete = followLessonFeedTailWithComplete(scrollContainer, {
         mode,
-        scrollBehavior,
-        onShellScrollComplete
-      )
+        behavior: scrollBehavior,
+        onComplete: onShellScrollComplete,
+      })
     }, behavior)
 
     return () => {

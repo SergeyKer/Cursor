@@ -17,11 +17,11 @@ import { DIALOG_COMPOSER_PADDING_BOTTOM, getChatComposerStackLayout } from '@/li
 import { isPracticeChoiceChipsPanel } from '@/lib/practice/practiceComposerLayout'
 import { isPracticeCorrectionComposerActive } from '@/lib/practice/practiceCorrectionMode'
 import {
+  followLessonFeedTail,
   isLessonFeedScrolledToTail,
   LESSON_SCROLL_VIEWPORT_CLASS,
   resolvePracticeFeedScrollRequest,
   resolveScrollBottomPadding,
-  scrollLessonFeedToModeIfNeeded,
 } from '@/lib/lessonFeedScroll'
 import PracticeQuestionBubble from '@/components/practice/PracticeQuestionBubble'
 import {
@@ -195,14 +195,24 @@ export default function PracticeScreen({
   const scheduleScroll = useCallback(
     (scrollFn: (behavior: ScrollBehavior) => void, behavior: ScrollBehavior = 'auto') => {
       let innerRaf = 0
+      let extraRaf = 0
+      const needsSafariDialogLayoutPass =
+        typeof document !== 'undefined' &&
+        document.documentElement.hasAttribute('data-ios-safari-dialog')
       const outerRaf = requestAnimationFrame(() => {
         innerRaf = requestAnimationFrame(() => {
-          scrollFn(behavior)
+          const run = () => scrollFn(behavior)
+          if (needsSafariDialogLayoutPass) {
+            extraRaf = requestAnimationFrame(run)
+          } else {
+            run()
+          }
         })
       })
       return () => {
         cancelAnimationFrame(outerRaf)
         if (innerRaf) cancelAnimationFrame(innerRaf)
+        if (extraRaf) cancelAnimationFrame(extraRaf)
       }
     },
     []
@@ -211,11 +221,9 @@ export default function PracticeScreen({
   const scheduleScrollPracticeFeedTail = useCallback(
     (behavior: ScrollBehavior = 'auto') =>
       scheduleScroll((scrollBehavior) => {
-        scrollLessonFeedToModeIfNeeded(
-          scrollContainerRef.current,
-          'tail_if_needed',
-          scrollBehavior
-        )
+        const scrollContainer = scrollContainerRef.current
+        if (!scrollContainer) return
+        followLessonFeedTail(scrollContainer, { mode: 'tail_if_needed', behavior: scrollBehavior })
       }, behavior),
     [scheduleScroll]
   )
@@ -312,8 +320,6 @@ export default function PracticeScreen({
     if (typeof ResizeObserver === 'undefined') return
 
     const observer = new ResizeObserver(() => {
-      if (isLessonFeedScrolledToTail(scrollContainerRef.current, 'tail_if_needed')) return
-
       scheduleScrollPracticeFeedTail(
         resolvePracticeFeedScrollRequest({
           prefersReducedMotion,

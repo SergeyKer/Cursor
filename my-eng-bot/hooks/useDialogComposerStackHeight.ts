@@ -1,7 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
-import { scheduleScrollAfterLayout } from '@/lib/lessonFeedScroll'
+import {
+  findLessonFeedScrollViewportFromComposerStack,
+  resyncLessonFeedScrollNearTail,
+  scheduleScrollAfterLayout,
+} from '@/lib/lessonFeedScroll'
 import { isIosWebKitBrowser } from '@/lib/iosSafariViewport'
 
 function writeComposerStackHeightPx(height: number): void {
@@ -88,10 +92,15 @@ export function useDialogComposerStackHeight(stackRef: RefObject<HTMLElement | n
       return
     }
 
+    const previousHeight = lastHeightRef.current
     const { height, topFromBottom } = measureAndSyncComposerStack(stack, root)
 
-    if (height !== lastHeightRef.current) {
+    if (height !== previousHeight) {
       lastHeightRef.current = height
+      if (root.hasAttribute('data-ios-safari-dialog') && previousHeight > 0) {
+        const viewport = findLessonFeedScrollViewportFromComposerStack(stack)
+        resyncLessonFeedScrollNearTail(viewport, 'auto')
+      }
     }
     if (topFromBottom !== lastTopFromBottomRef.current) {
       lastTopFromBottomRef.current = topFromBottom
