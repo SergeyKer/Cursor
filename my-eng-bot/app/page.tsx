@@ -5977,6 +5977,7 @@ export default function Home() {
     ...(isIosWebKitClient && dialogStarted
       ? ({
           minHeight: 'var(--ios-safari-vv-height, 100dvh)',
+          height: 'var(--ios-safari-vv-height, 100dvh)',
         } as React.CSSProperties)
       : {}),
   } as React.CSSProperties

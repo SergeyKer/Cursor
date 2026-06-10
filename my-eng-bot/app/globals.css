@@ -1260,8 +1260,9 @@ html[data-ios-webkit-dialog] .glass-surface:has(.dialog-composer-dock) {
   -webkit-backdrop-filter: none;
 }
 
-/* iOS WebKit dialog: flex-scroll + composer padding (no height:0). */
+/* iOS WebKit dialog: flex-scroll + composer padding (height:0 — iOS nested flex scroll). */
 html[data-ios-webkit-dialog] .lesson-scroll-viewport {
+  height: 0;
   flex: 1 1 0%;
   min-height: 0;
   padding-bottom: calc(var(--chat-composer-stack-height, 7.5rem) + 0.625rem) !important;
