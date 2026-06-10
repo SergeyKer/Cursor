@@ -1241,6 +1241,18 @@ html[data-ios-webkit-dialog] {
   );
 }
 
+/* Root shell = vv-height: overlap уже внутри --ios-safari-vv-height, не дублируем. */
+html[data-ios-vv-root][data-ios-webkit-dialog] {
+  --app-bottom-offset: calc(var(--app-footer-chrome-height) + var(--vv-bottom-inset, 0px));
+}
+
+/* iOS Safari home: nested flex scroll (зеркало dialog lesson-scroll-viewport). */
+html[data-ios-safari-home] .start-screen {
+  height: 0;
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
 .app-dialog-chrome-footer {
   transform: translateY(calc(-1 * var(--vv-bottom-inset, 0px)));
 }
@@ -1249,6 +1261,10 @@ html[data-ios-webkit-dialog] .app-dialog-chrome-footer {
   transform: translateY(
     calc(-1 * (var(--ios-safari-vv-bottom-overlap, 0px) + var(--vv-bottom-inset, 0px)))
   );
+}
+
+html[data-ios-vv-root][data-ios-webkit-dialog] .app-dialog-chrome-footer {
+  transform: translateY(calc(-1 * var(--vv-bottom-inset, 0px)));
 }
 
 /*
@@ -1288,6 +1304,10 @@ html[data-ios-webkit-dialog] .dialog-composer-dock {
   bottom: calc(var(--app-footer-chrome-height) + var(--ios-safari-vv-bottom-overlap, 0px));
   transform: translateY(calc(-1 * var(--vv-bottom-inset, 0px)));
   background: linear-gradient(180deg, var(--chat-wallpaper) 0%, var(--chat-wallpaper-soft) 100%);
+}
+
+html[data-ios-vv-root][data-ios-webkit-dialog] .dialog-composer-dock {
+  bottom: var(--app-footer-chrome-height);
 }
 
 html[data-ios-webkit-dialog] .dialog-composer-dock-inner {

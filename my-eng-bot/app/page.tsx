@@ -5961,16 +5961,6 @@ export default function Home() {
     setCommunicationVoiceDropdownOpen(false)
   }, [hasCommunicationHeaderControls])
 
-  useEffect(() => {
-    const root = document.documentElement
-    if (isIosWebKitClient && dialogStarted) {
-      root.setAttribute('data-ios-webkit-dialog', '')
-    } else {
-      root.removeAttribute('data-ios-webkit-dialog')
-    }
-    return () => root.removeAttribute('data-ios-webkit-dialog')
-  }, [dialogStarted, isIosWebKitClient])
-
   const homeShellGradientClass =
     'bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]'
 
@@ -5990,6 +5980,30 @@ export default function Home() {
         }
       : {}),
   } as React.CSSProperties
+
+  useEffect(() => {
+    const root = document.documentElement
+    if (isIosWebKitClient && dialogStarted) {
+      root.setAttribute('data-ios-webkit-dialog', '')
+    } else {
+      root.removeAttribute('data-ios-webkit-dialog')
+    }
+    if (usesIosWebKitViewportHeight) {
+      root.setAttribute('data-ios-vv-root', '')
+    } else {
+      root.removeAttribute('data-ios-vv-root')
+    }
+    if (isIosSafariClient && !dialogStarted) {
+      root.setAttribute('data-ios-safari-home', '')
+    } else {
+      root.removeAttribute('data-ios-safari-home')
+    }
+    return () => {
+      root.removeAttribute('data-ios-webkit-dialog')
+      root.removeAttribute('data-ios-vv-root')
+      root.removeAttribute('data-ios-safari-home')
+    }
+  }, [dialogStarted, isIosSafariClient, isIosWebKitClient, usesIosWebKitViewportHeight])
 
   return (
     <div
