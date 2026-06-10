@@ -1234,15 +1234,17 @@ select.select-chevron {
   touch-action: pan-y;
 }
 
-/* iOS Safari dialog: СЃРїРµР№СЃРµСЂ Рё fixed chrome СЃРёРЅС…СЂРѕРЅРЅС‹ СЃ visual viewport. */
-html[data-ios-webkit-dialog] {
+/* iOS dialog: спейсер и fixed chrome синхронны с visual viewport. */
+html[data-ios-webkit-dialog],
+html[data-ios-safari-dialog] {
   --app-bottom-offset: calc(
     var(--app-footer-chrome-height) + var(--ios-safari-vv-bottom-overlap, 0px) + var(--vv-bottom-inset, 0px)
   );
 }
 
 /* Root shell = vv-height: overlap уже внутри --ios-safari-vv-height, не дублируем. */
-html[data-ios-vv-root][data-ios-webkit-dialog] {
+html[data-ios-vv-root][data-ios-webkit-dialog],
+html[data-ios-vv-root][data-ios-safari-dialog] {
   --app-bottom-offset: calc(var(--app-footer-chrome-height) + var(--vv-bottom-inset, 0px));
 }
 
@@ -1257,13 +1259,15 @@ html[data-ios-safari-home] .start-screen {
   transform: translateY(calc(-1 * var(--vv-bottom-inset, 0px)));
 }
 
-html[data-ios-webkit-dialog] .app-dialog-chrome-footer {
+html[data-ios-webkit-dialog] .app-dialog-chrome-footer,
+html[data-ios-safari-dialog] .app-dialog-chrome-footer {
   transform: translateY(
     calc(-1 * (var(--ios-safari-vv-bottom-overlap, 0px) + var(--vv-bottom-inset, 0px)))
   );
 }
 
-html[data-ios-vv-root][data-ios-webkit-dialog] .app-dialog-chrome-footer {
+html[data-ios-vv-root][data-ios-webkit-dialog] .app-dialog-chrome-footer,
+html[data-ios-vv-root][data-ios-safari-dialog] .app-dialog-chrome-footer {
   transform: translateY(calc(-1 * var(--vv-bottom-inset, 0px)));
 }
 
@@ -1271,13 +1275,14 @@ html[data-ios-vv-root][data-ios-webkit-dialog] .app-dialog-chrome-footer {
  * iOS Safari: backdrop-filter РЅР° РєР°СЂС‚РѕС‡РєРµ СЃРѕР·РґР°С‘С‚ containing block РґР»СЏ position:fixed.
  * РљРѕРјРїРѕР·РµСЂ СЏРєРѕСЂРёС‚СЃСЏ Рє РєР°СЂС‚РѕС‡РєРµ, Р° РЅРµ Рє viewport вЂ” Р»РµРЅС‚Р° Рё РїР°РЅРµР»СЊ РґРµР№СЃС‚РІРёР№ СЂР°СЃС…РѕРґСЏС‚СЃСЏ.
  */
-html[data-ios-webkit-dialog] .dialog-flex-shell {
+/* iOS Chrome (CriOS): height:0 flex-цепочка + absolute scroll. */
+html[data-ios-webkit-dialog]:not([data-ios-safari-dialog]) .dialog-flex-shell {
   height: 0;
   flex: 1 1 0%;
   min-height: 0;
 }
 
-html[data-ios-webkit-dialog] .glass-surface:has(.dialog-composer-dock) {
+html[data-ios-webkit-dialog]:not([data-ios-safari-dialog]) .glass-surface:has(.dialog-composer-dock) {
   display: flex;
   flex-direction: column;
   height: 0;
@@ -1287,19 +1292,29 @@ html[data-ios-webkit-dialog] .glass-surface:has(.dialog-composer-dock) {
   -webkit-backdrop-filter: none;
 }
 
-html[data-ios-webkit-dialog] .dialog-glass-scroll-host {
+html[data-ios-webkit-dialog]:not([data-ios-safari-dialog]) .dialog-glass-scroll-host {
   flex: 1 1 0%;
   min-height: 0;
   height: 0;
 }
 
-/* iOS Safari: in-flow композер (как Android), nested flex-scroll в host. */
+/* iOS Safari: как Android/PC — без height:0, in-flow композер, flex-scroll в host. */
+html[data-ios-safari-dialog] .dialog-flex-shell {
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+html[data-ios-safari-dialog] .glass-surface:has(.dialog-composer-dock) {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 html[data-ios-safari-dialog] .dialog-glass-scroll-host > .lesson-scroll-viewport {
   position: relative;
   flex: 1 1 0%;
-  height: 0;
   min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding-bottom: 0.625rem !important;
   scroll-padding-bottom: 0.625rem !important;
 }
@@ -1320,7 +1335,9 @@ html[data-ios-webkit-dialog]:not([data-ios-safari-dialog]) .dialog-glass-scroll-
 }
 
 html[data-ios-webkit-dialog] .lesson-scroll-viewport.lesson-intro-scroll,
-html[data-ios-webkit-dialog] .lesson-scroll-viewport.chat-feed-scroll {
+html[data-ios-webkit-dialog] .lesson-scroll-viewport.chat-feed-scroll,
+html[data-ios-safari-dialog] .lesson-scroll-viewport.lesson-intro-scroll,
+html[data-ios-safari-dialog] .lesson-scroll-viewport.chat-feed-scroll {
   padding-bottom: 0.625rem !important;
   scroll-padding-bottom: 0.625rem !important;
 }
@@ -1348,7 +1365,8 @@ html[data-ios-webkit-dialog]:not([data-ios-safari-dialog]) .dialog-composer-dock
   background: linear-gradient(180deg, var(--chat-wallpaper) 0%, var(--chat-wallpaper-soft) 100%);
 }
 
-html[data-menu-open][data-ios-webkit-dialog] .dialog-composer-dock {
+html[data-menu-open][data-ios-webkit-dialog] .dialog-composer-dock,
+html[data-menu-open][data-ios-safari-dialog] .dialog-composer-dock {
   visibility: hidden;
   pointer-events: none;
 }
@@ -1357,7 +1375,8 @@ html[data-ios-vv-root][data-ios-webkit-dialog]:not([data-ios-safari-dialog]) .di
   bottom: var(--app-footer-chrome-height);
 }
 
-html[data-ios-webkit-dialog] .dialog-composer-dock-inner {
+html[data-ios-webkit-dialog] .dialog-composer-dock-inner,
+html[data-ios-safari-dialog] .dialog-composer-dock-inner {
   padding-left: max(0.5rem, env(safe-area-inset-left, 0px), var(--vv-left-inset));
   padding-right: max(0.5rem, env(safe-area-inset-right, 0px), var(--vv-right-inset));
 }

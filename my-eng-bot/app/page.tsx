@@ -5983,7 +5983,7 @@ export default function Home() {
 
   useEffect(() => {
     const root = document.documentElement
-    if (isIosWebKitClient && dialogStarted) {
+    if (isIosWebKitClient && dialogStarted && !isIosSafariClient) {
       root.setAttribute('data-ios-webkit-dialog', '')
     } else {
       root.removeAttribute('data-ios-webkit-dialog')
