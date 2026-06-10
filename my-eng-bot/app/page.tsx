@@ -5988,6 +5988,11 @@ export default function Home() {
     } else {
       root.removeAttribute('data-ios-webkit-dialog')
     }
+    if (isIosSafariClient && dialogStarted) {
+      root.setAttribute('data-ios-safari-dialog', '')
+    } else {
+      root.removeAttribute('data-ios-safari-dialog')
+    }
     if (usesIosWebKitViewportHeight) {
       root.setAttribute('data-ios-vv-root', '')
     } else {
@@ -6000,6 +6005,7 @@ export default function Home() {
     }
     return () => {
       root.removeAttribute('data-ios-webkit-dialog')
+      root.removeAttribute('data-ios-safari-dialog')
       root.removeAttribute('data-ios-vv-root')
       root.removeAttribute('data-ios-safari-home')
     }

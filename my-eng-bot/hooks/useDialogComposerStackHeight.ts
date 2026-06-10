@@ -13,7 +13,15 @@ function resolveDialogScrollHost(stack: HTMLElement): HTMLElement | null {
   return stack.closest('.dialog-glass-scroll-host') ?? stack.closest('.glass-surface')
 }
 
+function usesIosChromeDialogScrollInset(root: HTMLElement): boolean {
+  return root.hasAttribute('data-ios-webkit-dialog') && !root.hasAttribute('data-ios-safari-dialog')
+}
+
 function syncDialogScrollBottomInset(stack: HTMLElement, height: number, root: HTMLElement): void {
+  if (!usesIosChromeDialogScrollInset(root)) {
+    root.style.removeProperty('--dialog-scroll-bottom-inset')
+    return
+  }
   const scrollHost = resolveDialogScrollHost(stack)
   if (!scrollHost) {
     root.style.removeProperty('--dialog-scroll-bottom-inset')

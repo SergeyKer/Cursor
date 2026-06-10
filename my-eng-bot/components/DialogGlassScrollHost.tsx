@@ -9,7 +9,7 @@ type DialogGlassScrollHostProps = {
 
 export function DialogGlassScrollHost({ children, className = '' }: DialogGlassScrollHostProps) {
   return (
-    <div className={`dialog-glass-scroll-host relative min-h-0 flex-1 ${className}`.trim()}>
+    <div className={`dialog-glass-scroll-host relative flex min-h-0 flex-1 flex-col ${className}`.trim()}>
       {children}
     </div>
   )

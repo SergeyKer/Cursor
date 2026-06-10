@@ -1293,8 +1293,19 @@ html[data-ios-webkit-dialog] .dialog-glass-scroll-host {
   height: 0;
 }
 
-/* iOS WebKit dialog: absolute inset ленты внутри in-flow host (Safari flex). */
-html[data-ios-webkit-dialog] .dialog-glass-scroll-host > .lesson-scroll-viewport {
+/* iOS Safari: in-flow композер (как Android), nested flex-scroll в host. */
+html[data-ios-safari-dialog] .dialog-glass-scroll-host > .lesson-scroll-viewport {
+  position: relative;
+  flex: 1 1 0%;
+  height: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 0.625rem !important;
+  scroll-padding-bottom: 0.625rem !important;
+}
+
+/* iOS Chrome (CriOS): absolute inset ленты внутри in-flow host. */
+html[data-ios-webkit-dialog]:not([data-ios-safari-dialog]) .dialog-glass-scroll-host > .lesson-scroll-viewport {
   position: absolute;
   left: 0;
   right: 0;
@@ -1314,8 +1325,19 @@ html[data-ios-webkit-dialog] .lesson-scroll-viewport.chat-feed-scroll {
   scroll-padding-bottom: 0.625rem !important;
 }
 
-/* iOS Safari: композер закреплён над fixed-футером. */
-html[data-ios-webkit-dialog] .dialog-composer-dock {
+/* iOS Safari: композер в потоке карточки (fixed ломает flex на Safari). */
+html[data-ios-safari-dialog] .dialog-composer-dock {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  z-index: auto;
+  transform: translateY(calc(-1 * var(--vv-bottom-inset, 0px)));
+  background: linear-gradient(180deg, var(--chat-wallpaper) 0%, var(--chat-wallpaper-soft) 100%);
+}
+
+/* iOS Chrome: композер закреплён над fixed-футером. */
+html[data-ios-webkit-dialog]:not([data-ios-safari-dialog]) .dialog-composer-dock {
   position: fixed;
   left: 0;
   right: 0;
@@ -1331,7 +1353,7 @@ html[data-menu-open][data-ios-webkit-dialog] .dialog-composer-dock {
   pointer-events: none;
 }
 
-html[data-ios-vv-root][data-ios-webkit-dialog] .dialog-composer-dock {
+html[data-ios-vv-root][data-ios-webkit-dialog]:not([data-ios-safari-dialog]) .dialog-composer-dock {
   bottom: var(--app-footer-chrome-height);
 }
 
