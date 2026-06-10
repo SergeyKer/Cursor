@@ -1272,15 +1272,19 @@ html[data-ios-vv-root][data-ios-webkit-dialog] .app-dialog-chrome-footer {
  * РљРѕРјРїРѕР·РµСЂ СЏРєРѕСЂРёС‚СЃСЏ Рє РєР°СЂС‚РѕС‡РєРµ, Р° РЅРµ Рє viewport вЂ” Р»РµРЅС‚Р° Рё РїР°РЅРµР»СЊ РґРµР№СЃС‚РІРёР№ СЂР°СЃС…РѕРґСЏС‚СЃСЏ.
  */
 html[data-ios-webkit-dialog] .glass-surface:has(.dialog-composer-dock) {
+  height: 0;
+  flex: 1 1 0%;
+  min-height: 0;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
-/* iOS WebKit dialog: flex-scroll (height:0 — iOS nested flex scroll). Spacer резервирует место композера. */
+/* iOS WebKit dialog: лента = высота карточки минус fixed-композер (без in-flow spacer). */
 html[data-ios-webkit-dialog] .lesson-scroll-viewport {
-  height: 0;
-  flex: 1 1 0%;
+  flex: none;
+  height: calc(100% - var(--chat-composer-stack-height, 9rem));
   min-height: 0;
+  overflow-y: auto;
   padding-bottom: 0.625rem !important;
   scroll-padding-bottom: 0.625rem !important;
 }
@@ -1291,17 +1295,13 @@ html[data-ios-webkit-dialog] .lesson-scroll-viewport.chat-feed-scroll {
   scroll-padding-bottom: 0.625rem !important;
 }
 
-html[data-ios-webkit-dialog] .dialog-composer-flow-spacer {
-  flex-shrink: 0;
-  pointer-events: none;
-}
-
-/* iOS Safari: РєРѕРјРїРѕР·РµСЂ Р·Р°РєСЂРµРїР»С‘РЅ РЅР°Рґ fixed-С„СѓС‚РµСЂРѕРј. */
+/* iOS Safari: композер закреплён над fixed-футером. */
 html[data-ios-webkit-dialog] .dialog-composer-dock {
   position: fixed;
   left: 0;
   right: 0;
   z-index: 56;
+  border-top: none;
   bottom: calc(var(--app-footer-chrome-height) + var(--ios-safari-vv-bottom-overlap, 0px));
   transform: translateY(calc(-1 * var(--vv-bottom-inset, 0px)));
   background: linear-gradient(180deg, var(--chat-wallpaper) 0%, var(--chat-wallpaper-soft) 100%);
