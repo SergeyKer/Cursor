@@ -1251,12 +1251,26 @@ html[data-ios-safari-dialog] .app-dialog-chrome-footer {
   );
 }
 
+/*
+ * iOS Safari: backdrop-filter на карточке создаёт containing block для position:fixed.
+ * Композер якорится к карточке, а не к viewport — лента и панель действий расходятся.
+ */
+html[data-ios-safari-dialog] .glass-surface:has(.dialog-composer-dock) {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 /* iOS Safari: flex-скролл внутри карточки + отступ под fixed-композер. */
 html[data-ios-safari-dialog] .lesson-scroll-viewport {
   height: 0;
   flex: 1 1 0%;
   padding-bottom: calc(var(--chat-composer-stack-height, 7.5rem) + 0.625rem) !important;
   scroll-padding-bottom: calc(var(--chat-composer-stack-height, 7.5rem) + 0.625rem) !important;
+}
+
+html[data-ios-safari-dialog] .lesson-scroll-viewport.lesson-intro-scroll {
+  padding-bottom: calc(var(--chat-composer-stack-height, 9rem) + 0.625rem) !important;
+  scroll-padding-bottom: calc(var(--chat-composer-stack-height, 9rem) + 0.625rem) !important;
 }
 
 html[data-ios-safari-dialog] .lesson-scroll-viewport.chat-feed-scroll {

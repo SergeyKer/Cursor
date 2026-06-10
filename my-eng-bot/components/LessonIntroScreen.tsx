@@ -5,7 +5,13 @@ import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { useStaggeredSectionRevealMap } from '@/hooks/useStaggeredSectionReveal'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import DialogComposerStack from '@/components/DialogComposerStack'
+import { resyncIosDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
+import { isIosSafariUserAgent } from '@/lib/iosSafariViewport'
+import {
+  estimateIntroComposerMinHeight,
+  LESSON_INTRO_SCROLL_CLASS,
+} from '@/lib/lessonComposerLayout'
 import { LESSON_SCROLL_VIEWPORT_CLASS, scheduleScrollAfterLayout } from '@/lib/lessonFeedScroll'
 import { getMenuTopicCopyByIntroTopic } from '@/lib/lessonCatalog'
 import type { AiProvider, Audience, OpenAiChatPreset } from '@/lib/types'
@@ -249,7 +255,12 @@ export default function LessonIntroScreen({
   onBack,
 }: LessonIntroScreenProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const composerStackRef = useRef<HTMLDivElement>(null)
   const followupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isIosSafariClient = useMemo(
+    () => typeof navigator !== 'undefined' && isIosSafariUserAgent(navigator.userAgent),
+    []
+  )
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [pendingDepth, setPendingDepth] = useState<Exclude<LessonIntroDepth, 'quick'> | null>(null)
   const [extraDeepDives, setExtraDeepDives] = useState<Bubble[][]>([])
@@ -405,6 +416,25 @@ export default function LessonIntroScreen({
 
   const canShowDetails = depth === 'quick' && Boolean(intro.details) && !pendingDepth
   const canShowDeepDive = (depth === 'details' || depth === 'deep') && Boolean(intro.deepDive) && !pendingDepth
+  const introComposerMinHeight = useMemo(() => {
+    if (!isIosSafariClient) return undefined
+    return estimateIntroComposerMinHeight({
+      hasSecondaryChips: true,
+      hasErrorBanner: Boolean(extraDeepDiveError),
+    })
+  }, [extraDeepDiveError, isIosSafariClient])
+
+  useLayoutEffect(() => {
+    if (!isIosSafariClient) return
+    return resyncIosDialogComposerStackHeight(composerStackRef.current)
+  }, [
+    canShowDeepDive,
+    canShowDetails,
+    depth,
+    extraDeepDiveError,
+    isIosSafariClient,
+    loadingLesson,
+  ])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
@@ -416,7 +446,7 @@ export default function LessonIntroScreen({
           >
             <div
               ref={scrollContainerRef}
-              className={`${LESSON_SCROLL_VIEWPORT_CLASS} bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
+              className={`${LESSON_SCROLL_VIEWPORT_CLASS} ${LESSON_INTRO_SCROLL_CLASS} bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
             >
               <div>
                 {messages.map((message, index) => {
@@ -477,8 +507,12 @@ export default function LessonIntroScreen({
             </div>
 
             <DialogComposerStack
+              ref={composerStackRef}
               className={CHAT_COMPOSER_STACK_TOP_CLASS}
-              style={{ paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }}
+              style={{
+                paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM,
+                ...(introComposerMinHeight != null ? { minHeight: introComposerMinHeight } : {}),
+              }}
               contentMaxWidthClass="max-w-[22rem]"
             >
               <div className="flex w-full flex-col gap-2">

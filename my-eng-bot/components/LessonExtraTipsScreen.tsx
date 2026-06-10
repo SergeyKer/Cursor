@@ -1,8 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import DialogComposerStack from '@/components/DialogComposerStack'
+import { resyncIosDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
+import { isIosSafariUserAgent } from '@/lib/iosSafariViewport'
+import { estimateIntroComposerMinHeight, LESSON_INTRO_SCROLL_CLASS } from '@/lib/lessonComposerLayout'
 import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
 import type { LessonCatalogLevel } from '@/lib/lessonCatalog'
 import {
@@ -179,6 +182,20 @@ export default function LessonExtraTipsScreen({
   const [moreTipsNotice, setMoreTipsNotice] = useState<string | null>(null)
   const requestIdRef = useRef(0)
   const scrollAreaRef = useRef<HTMLDivElement | null>(null)
+  const composerStackRef = useRef<HTMLDivElement>(null)
+  const isIosSafariClient = useMemo(
+    () => typeof navigator !== 'undefined' && isIosSafariUserAgent(navigator.userAgent),
+    []
+  )
+  const tipsComposerMinHeight = useMemo(() => {
+    if (!isIosSafariClient) return undefined
+    return estimateIntroComposerMinHeight({ hasSecondaryChips: true })
+  }, [isIosSafariClient])
+
+  useLayoutEffect(() => {
+    if (!isIosSafariClient) return
+    return resyncIosDialogComposerStackHeight(composerStackRef.current)
+  }, [footerVariantRegenerating, isIosSafariClient, loadingMore, tips.cards.length])
   const quizRowRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const pendingQuizScrollRef = useRef<string | null>(null)
   const refreshMarkerTimeoutRef = useRef<number | null>(null)
@@ -359,7 +376,7 @@ export default function LessonExtraTipsScreen({
           >
             <div
               ref={scrollAreaRef}
-              className={`${LESSON_SCROLL_VIEWPORT_CLASS} scroll-smooth bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
+              className={`${LESSON_SCROLL_VIEWPORT_CLASS} ${LESSON_INTRO_SCROLL_CLASS} scroll-smooth bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
               style={{
                 paddingBottom: 'calc(var(--app-bottom-inset) + 7rem)',
                 scrollPaddingBottom: 'calc(var(--app-bottom-inset) + 7rem)',
@@ -769,8 +786,12 @@ export default function LessonExtraTipsScreen({
             </div>
 
             <DialogComposerStack
+              ref={composerStackRef}
               className={CHAT_COMPOSER_STACK_TOP_CLASS}
-              style={{ paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }}
+              style={{
+                paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM,
+                ...(tipsComposerMinHeight != null ? { minHeight: tipsComposerMinHeight } : {}),
+              }}
               contentMaxWidthClass="max-w-[22rem]"
             >
               <div className="flex w-full flex-col gap-2">

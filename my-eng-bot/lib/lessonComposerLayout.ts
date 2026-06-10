@@ -10,6 +10,14 @@ const CHOICE_PANEL_VERTICAL_PADDING_PX = 12
 const TEXT_INPUT_COMPOSER_HEIGHT_PX = 88
 const POST_LESSON_COMPOSER_HEIGHT_PX = 240
 const MEDAL_FLOW_COMPOSER_HEIGHT_PX = 180
+const INTRO_CHIP_ROW_HEIGHT_PX = 44
+const INTRO_PRIMARY_BUTTON_HEIGHT_PX = 44
+const INTRO_COMPOSER_ROW_GAP_PX = 8
+const INTRO_COMPOSER_STACK_PADDING_PX = 20
+const INTRO_ERROR_BANNER_HEIGHT_PX = 52
+
+/** Класс scroll-контейнера intro/tips — iOS padding fallback в globals.css. */
+export const LESSON_INTRO_SCROLL_CLASS = 'lesson-intro-scroll'
 
 export function isLessonChoiceChipsPanel(exercise: Exercise | null | undefined): boolean {
   if (!exercise) return false
@@ -48,6 +56,19 @@ function parseRemToPx(rem: string): number {
       ? parseFloat(getComputedStyle(document.documentElement).fontSize)
       : 16
   return Math.round(parseFloat(match[1]) * root)
+}
+
+/** Высота панели действий на LessonIntroScreen (один ряд чипов + CTA). */
+export function estimateIntroComposerMinHeight(params: {
+  hasSecondaryChips: boolean
+  hasErrorBanner?: boolean
+}): number {
+  let height = INTRO_COMPOSER_STACK_PADDING_PX + INTRO_CHIP_ROW_HEIGHT_PX + INTRO_COMPOSER_ROW_GAP_PX
+  if (params.hasErrorBanner) {
+    height += INTRO_ERROR_BANNER_HEIGHT_PX + INTRO_COMPOSER_ROW_GAP_PX
+  }
+  height += INTRO_PRIMARY_BUTTON_HEIGHT_PX
+  return height
 }
 
 export function estimateLessonComposerMinHeight(params: {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  estimateIntroComposerMinHeight,
   estimateLessonChoiceChipsMinHeight,
   estimateLessonComposerMinHeight,
   isLessonChoiceChipsPanel,
@@ -89,6 +90,25 @@ describe('estimateLessonChoiceChipsMinHeight', () => {
 
   it('uses two rows for four options', () => {
     expect(estimateLessonChoiceChipsMinHeight(4)).toBe(90)
+  })
+})
+
+describe('estimateIntroComposerMinHeight', () => {
+  it('covers intro quick layout: chip row + primary CTA', () => {
+    expect(
+      estimateIntroComposerMinHeight({
+        hasSecondaryChips: true,
+      })
+    ).toBeGreaterThanOrEqual(116)
+  })
+
+  it('adds height for error banner', () => {
+    const base = estimateIntroComposerMinHeight({ hasSecondaryChips: true })
+    const withError = estimateIntroComposerMinHeight({
+      hasSecondaryChips: true,
+      hasErrorBanner: true,
+    })
+    expect(withError).toBeGreaterThan(base)
   })
 })
 

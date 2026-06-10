@@ -1,7 +1,24 @@
 'use client'
 
 import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
+import { scheduleScrollAfterLayout } from '@/lib/lessonFeedScroll'
 import { isIosSafariUserAgent } from '@/lib/iosSafariViewport'
+
+function writeComposerStackHeightPx(height: number): void {
+  if (typeof document === 'undefined') return
+  document.documentElement.style.setProperty('--chat-composer-stack-height', `${height}px`)
+}
+
+/** iOS Safari: повторный замер высоты композера после layout (intro/tips, смена чипов). */
+export function resyncIosDialogComposerStackHeight(stack: HTMLElement | null): () => void {
+  if (typeof window === 'undefined' || !stack || !isIosSafariUserAgent(navigator.userAgent)) {
+    return () => {}
+  }
+  return scheduleScrollAfterLayout(() => {
+    const height = Math.max(0, Math.round(stack.getBoundingClientRect().height))
+    writeComposerStackHeightPx(height)
+  })
+}
 
 /** Синхронизирует высоту композера для scroll-padding и RewardPopup. */
 export function useDialogComposerStackHeight(stackRef: RefObject<HTMLElement | null>): void {
@@ -31,7 +48,7 @@ export function useDialogComposerStackHeight(stackRef: RefObject<HTMLElement | n
 
     if (height !== lastHeightRef.current) {
       lastHeightRef.current = height
-      root.style.setProperty('--chat-composer-stack-height', `${height}px`)
+      writeComposerStackHeightPx(height)
     }
     if (topFromBottom !== lastTopFromBottomRef.current) {
       lastTopFromBottomRef.current = topFromBottom
