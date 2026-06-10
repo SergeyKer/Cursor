@@ -6690,7 +6690,7 @@ export default function Home() {
       />
 
       {/* В чате — спейсер под fixed-футер; на главной отступ только у колонки контента. */}
-      {dialogStarted && !isIosSafariClient ? (
+      {dialogStarted ? (
         <div
           className={`shrink-0 ${
             isIosWebKitClient
