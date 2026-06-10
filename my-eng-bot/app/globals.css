@@ -1298,29 +1298,43 @@ html[data-ios-webkit-dialog]:not([data-ios-safari-dialog]) .dialog-glass-scroll-
   height: 0;
 }
 
-/* iOS Safari dialog: main не должен заезжать под fixed-футер (in-flow композер). */
-html[data-ios-safari-dialog] main {
+/* iOS Safari dialog: граница скролла как start-screen на home. */
+html[data-ios-safari-dialog] .dialog-scroll-shell {
   height: 0;
   flex: 1 1 0%;
   min-height: 0;
+  overflow: hidden;
   box-sizing: border-box;
+  padding-bottom: var(--app-bottom-offset);
 }
 
-/* iOS Safari: как Android/PC — без height:0, in-flow композер, flex-scroll в host. */
 html[data-ios-safari-dialog] .dialog-flex-shell {
   flex: 1 1 0%;
   min-height: 0;
+  height: 0;
 }
 
 html[data-ios-safari-dialog] .glass-surface:has(.dialog-composer-dock) {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+  flex: 1 1 0%;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
+html[data-ios-safari-dialog] .dialog-glass-scroll-host {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 html[data-ios-safari-dialog] .dialog-glass-scroll-host > .lesson-scroll-viewport {
   position: relative;
-  flex: 1 1 0%;
+  flex: 1 1 auto;
   min-height: 0;
+  height: 100%;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 0.625rem !important;

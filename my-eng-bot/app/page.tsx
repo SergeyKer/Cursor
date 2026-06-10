@@ -6194,11 +6194,7 @@ export default function Home() {
         }`}
         style={{
           paddingTop: 'var(--app-top-offset)',
-          paddingBottom: dialogStarted
-            ? isIosSafariClient
-              ? 'var(--app-bottom-offset)'
-              : '0px'
-            : 'env(safe-area-inset-bottom, 0px)',
+          paddingBottom: dialogStarted ? '0px' : 'env(safe-area-inset-bottom, 0px)',
         }}
       >
         {!dialogStarted ? (
@@ -6401,7 +6397,7 @@ export default function Home() {
             )}
             {/* На iOS после закрытия клавиатуры иногда остаётся небольшой технический зазор.
                Чтобы не просвечивал серый фон страницы, держим фон тем же, что и у чата. */}
-            <div className="flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
+            <div className="dialog-scroll-shell flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
               {menuLessonBgError && (
                 <div
                   role="status"
