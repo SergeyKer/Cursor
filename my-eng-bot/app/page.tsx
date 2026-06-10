@@ -6194,7 +6194,11 @@ export default function Home() {
         }`}
         style={{
           paddingTop: 'var(--app-top-offset)',
-          paddingBottom: dialogStarted ? '0px' : 'env(safe-area-inset-bottom, 0px)',
+          paddingBottom: dialogStarted
+            ? isIosSafariClient
+              ? 'var(--app-bottom-offset)'
+              : '0px'
+            : 'env(safe-area-inset-bottom, 0px)',
         }}
       >
         {!dialogStarted ? (
@@ -6690,7 +6694,7 @@ export default function Home() {
       />
 
       {/* В чате — спейсер под fixed-футер; на главной отступ только у колонки контента. */}
-      {dialogStarted ? (
+      {dialogStarted && !isIosSafariClient ? (
         <div
           className={`shrink-0 ${
             isIosWebKitClient
