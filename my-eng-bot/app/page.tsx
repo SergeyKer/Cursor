@@ -5974,26 +5974,20 @@ export default function Home() {
   const homeShellGradientClass =
     'bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]'
 
-  const rootShellClass =
-    'flex min-h-[100dvh] flex-col ' +
-    (isIosSafariClient && dialogStarted
-      ? 'min-h-0 overflow-hidden '
-      : isIosSafariClient
-        ? ''
-        : isIosWebKitClient && dialogStarted
-          ? 'min-h-0 overflow-hidden '
-          : isIosClient
-            ? 'h-full'
-            : 'h-[100dvh]')
-
   const usesIosWebKitViewportHeight = isIosSafariClient || (isIosWebKitClient && dialogStarted)
+
+  const rootShellClass =
+    'flex flex-col ' +
+    (usesIosWebKitViewportHeight
+      ? 'min-h-0 overflow-hidden '
+      : `min-h-[100dvh] ${isIosClient ? 'h-full ' : 'h-[100dvh] '}`)
 
   const rootShellStyle = {
     ...(usesIosWebKitViewportHeight
-      ? ({
+      ? {
           minHeight: 'var(--ios-safari-vv-height, 100dvh)',
           height: 'var(--ios-safari-vv-height, 100dvh)',
-        } as React.CSSProperties)
+        }
       : {}),
   } as React.CSSProperties
 
