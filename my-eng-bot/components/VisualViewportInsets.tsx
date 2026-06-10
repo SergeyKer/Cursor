@@ -2,9 +2,9 @@
 
 import * as React from 'react'
 import {
-  isIosSafariUserAgent,
+  isIosWebKitBrowser,
   normalizeIosSafariBottomOverlapPx,
-  readIosSafariVisualBottomOverlapPx,
+  readIosWebKitVisualBottomOverlapPx,
 } from '@/lib/iosSafariViewport'
 
 function isEditableElement(element: Element | null): boolean {
@@ -38,29 +38,22 @@ function computeBottomInsetPx(): number {
   const isIos = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && /Mobile/i.test(ua))
   const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || isIos
   const isIosChrome = isIos && /CriOS\/\d+/i.test(ua)
-  // На десктопных браузерах visualViewport часто меняется из‑за UI,
-  // но реальной системной панели снизу нет — инсет нам не нужен.
   if (!isMobile) return 0
 
-  // Практичная оценка перекрытия снизу:
-  // - когда адресная строка/интерфейс браузера или системные overlay'и меняют полезную высоту,
-  //   это отражается в visualViewport.height/offsetTop.
   const baseViewportHeight = isIosChrome ? document.documentElement.clientHeight || window.innerHeight : window.innerHeight
   const inset = baseViewportHeight - vv.height - vv.offsetTop
   const vvInset = Number.isFinite(inset) ? Math.max(0, Math.round(inset)) : 0
   const editableFocused = isEditableElement(document.activeElement)
 
-  // Без фокуса в поле ввода vv отражает chrome браузера, а не клавиатуру — не трогаем layout.
   if (!editableFocused) return 0
 
   return vvInset >= 120 ? vvInset : 0
 }
 
-/** Высота видимой области для корня layout — только iOS Safari (см. page.tsx). */
-function computeIosSafariViewportHeightPx(): number | null {
+function computeIosWebKitViewportHeightPx(): number | null {
   if (typeof window === 'undefined') return null
   const ua = navigator.userAgent
-  if (!isIosSafariUserAgent(ua)) return null
+  if (!isIosWebKitBrowser(ua)) return null
   const vv = window.visualViewport
   if (!vv) return null
   const h = vv.height
@@ -94,12 +87,12 @@ export default function VisualViewportInsets() {
     const root = document.documentElement
     let raf = 0
 
-    const applyIosSafariBottomOverlap = (keyboardInsetPx: number) => {
-      if (!isIosSafariUserAgent(navigator.userAgent)) {
+    const applyIosWebKitBottomOverlap = (keyboardInsetPx: number) => {
+      if (!isIosWebKitBrowser(navigator.userAgent)) {
         root.style.removeProperty('--ios-safari-vv-bottom-overlap')
         return
       }
-      const rawOverlapPx = readIosSafariVisualBottomOverlapPx()
+      const rawOverlapPx = readIosWebKitVisualBottomOverlapPx()
       const normalizedOverlapPx = normalizeIosSafariBottomOverlapPx(rawOverlapPx, keyboardInsetPx)
       root.style.setProperty('--ios-safari-vv-bottom-overlap', `${normalizedOverlapPx}px`)
     }
@@ -110,13 +103,13 @@ export default function VisualViewportInsets() {
       const sideInsets = computeSideInsetsPx()
       root.style.setProperty('--vv-left-inset', `${sideInsets.left}px`)
       root.style.setProperty('--vv-right-inset', `${sideInsets.right}px`)
-      applyIosSafariBottomOverlap(bottomInsetPx)
+      applyIosWebKitBottomOverlap(bottomInsetPx)
     }
 
-    const applyIosSafariViewportHeight = () => {
-      const iosSafariH = computeIosSafariViewportHeightPx()
-      if (iosSafariH !== null) {
-        root.style.setProperty('--ios-safari-vv-height', `${iosSafariH}px`)
+    const applyIosWebKitViewportHeight = () => {
+      const iosWebKitH = computeIosWebKitViewportHeightPx()
+      if (iosWebKitH !== null) {
+        root.style.setProperty('--ios-safari-vv-height', `${iosWebKitH}px`)
       } else {
         root.style.removeProperty('--ios-safari-vv-height')
       }
@@ -125,7 +118,7 @@ export default function VisualViewportInsets() {
     const applyAll = () => {
       raf = 0
       applyInsets()
-      applyIosSafariViewportHeight()
+      applyIosWebKitViewportHeight()
     }
 
     const scheduleApplyAll = () => {
@@ -149,8 +142,6 @@ export default function VisualViewportInsets() {
 
     const vv = window.visualViewport
     vv?.addEventListener?.('resize', scheduleApplyAll, { passive: true })
-    // scroll visualViewport на iOS Safari совпадает со скрытием адресной строки;
-    // не трогаем --ios-safari-vv-height здесь — иначе корень layout «дёргается» и лента замирает.
     vv?.addEventListener?.('scroll', scheduleApplyInsets, { passive: true })
     document.addEventListener('focusin', scheduleApplyInsets, true)
     document.addEventListener('focusout', scheduleApplyInsets, true)
@@ -171,4 +162,3 @@ export default function VisualViewportInsets() {
 
   return null
 }
-

@@ -170,6 +170,7 @@ import { buildPracticeQuestionFingerprintFromQuestion } from '@/lib/practice/que
 import { FOOTER_DYNAMIC_MAX_LENGTH, pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
+import { isIosWebKitBrowser } from '@/lib/iosSafariViewport'
 import type { VocabularyFooterView } from '@/types/vocabulary'
 import {
   buildEngvoInputAudioTranscriptionConfig,
@@ -893,17 +894,10 @@ export default function Home() {
     if (/iPhone|iPad|iPod/i.test(ua)) return true
     return /Macintosh/i.test(ua) && /Mobile/i.test(ua)
   }, [])
-  /** Только iOS Safari: исключаем iOS Chrome/Edge/Firefox/Opera, чтобы правка не влияла на другие браузеры. */
-  const isIosSafariClient = React.useMemo(() => {
+  /** iOS Safari + Chrome (CriOS) — общая WebKit-ветка dialog layout. */
+  const isIosWebKitClient = React.useMemo(() => {
     if (typeof navigator === 'undefined') return false
-    const ua = navigator.userAgent
-    const isIosDevice = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && /Mobile/i.test(ua))
-    if (!isIosDevice) return false
-    if (isIosChromeBrowser(ua)) return false
-    if (/FxiOS\/\d+/i.test(ua)) return false
-    if (/EdgiOS\/\d+/i.test(ua)) return false
-    if (/OPiOS\/\d+/i.test(ua)) return false
-    return /Safari\/\d+/i.test(ua)
+    return isIosWebKitBrowser(navigator.userAgent)
   }, [])
 
   function normalizeSettingsForAudience(s: Settings): Settings {
@@ -5964,26 +5958,25 @@ export default function Home() {
 
   useEffect(() => {
     const root = document.documentElement
-    if (isIosSafariClient && dialogStarted) {
-      root.setAttribute('data-ios-safari-dialog', '')
+    if (isIosWebKitClient && dialogStarted) {
+      root.setAttribute('data-ios-webkit-dialog', '')
     } else {
-      root.removeAttribute('data-ios-safari-dialog')
+      root.removeAttribute('data-ios-webkit-dialog')
     }
-    return () => root.removeAttribute('data-ios-safari-dialog')
-  }, [dialogStarted, isIosSafariClient])
+    return () => root.removeAttribute('data-ios-webkit-dialog')
+  }, [dialogStarted, isIosWebKitClient])
 
   const homeShellGradientClass =
     'bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]'
 
   const rootShellClass =
     'flex min-h-[100dvh] flex-col ' +
-    (isIosSafariClient ? 'min-h-0 overflow-hidden ' : isIosClient ? 'h-full' : 'h-[100dvh]')
+    (isIosWebKitClient && dialogStarted ? 'min-h-0 overflow-hidden ' : isIosClient ? 'h-full' : 'h-[100dvh]')
 
   const rootShellStyle = {
-    ...(isIosSafariClient
+    ...(isIosWebKitClient && dialogStarted
       ? ({
           minHeight: 'var(--ios-safari-vv-height, 100dvh)',
-          height: 'var(--ios-safari-vv-height, 100dvh)',
         } as React.CSSProperties)
       : {}),
   } as React.CSSProperties
@@ -6159,7 +6152,7 @@ export default function Home() {
         }`}
         style={{
           paddingTop: 'var(--app-top-offset)',
-          ...(isIosSafariClient && !dialogStarted
+          ...(isIosWebKitClient && !dialogStarted
             ? { scrollPaddingTop: 'var(--app-top-offset)' }
             : {}),
           paddingBottom: dialogStarted ? '0px' : 'env(safe-area-inset-bottom, 0px)',
@@ -6658,7 +6651,7 @@ export default function Home() {
       {dialogStarted ? (
         <div
           className={`shrink-0 ${
-            isIosSafariClient
+            isIosWebKitClient
               ? 'bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]'
               : ''
           }`}

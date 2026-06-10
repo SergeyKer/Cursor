@@ -2,14 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Горизонтальные отступы колонки чата / главного блока (как в Chat.tsx) */
+/* Р“РѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅС‹Рµ РѕС‚СЃС‚СѓРїС‹ РєРѕР»РѕРЅРєРё С‡Р°С‚Р° / РіР»Р°РІРЅРѕРіРѕ Р±Р»РѕРєР° (РєР°Рє РІ Chat.tsx) */
 @layer utilities {
   .chat-shell-x {
     padding-left: max(0.5rem, env(safe-area-inset-left, 0px), var(--vv-left-inset));
     padding-right: max(0.5rem, env(safe-area-inset-right, 0px), var(--vv-right-inset));
   }
 
-  /* Заголовок хедера: центр по всей ширине колонки, не между grid-колонками. */
+  /* Р—Р°РіРѕР»РѕРІРѕРє С…РµРґРµСЂР°: С†РµРЅС‚СЂ РїРѕ РІСЃРµР№ С€РёСЂРёРЅРµ РєРѕР»РѕРЅРєРё, РЅРµ РјРµР¶РґСѓ grid-РєРѕР»РѕРЅРєР°РјРё. */
   .app-header-title-layer {
     pointer-events: none;
     position: absolute;
@@ -35,7 +35,7 @@
     text-overflow: ellipsis;
   }
 
-  /* Mixed emoji + text — no overflow on the box (parents use splitLeadingEmoji when possible). */
+  /* Mixed emoji + text вЂ” no overflow on the box (parents use splitLeadingEmoji when possible). */
   .emoji-line {
     line-height: 1.4;
     padding-block: 0.125rem;
@@ -50,7 +50,7 @@
     vertical-align: middle;
   }
 
-  /* Lesson footer: equal icon box for 🎯⭐🔥 (22px). */
+  /* Lesson footer: equal icon box for рџЋЇв­ђрџ”Ґ (22px). */
   .footer-stat-glyph {
     display: inline-flex;
     flex-shrink: 0;
@@ -71,7 +71,7 @@
     }
   }
 
-  /* Числа рядом с footer-stat-glyph: чуть крупнее и по центру ячейки emoji. */
+  /* Р§РёСЃР»Р° СЂСЏРґРѕРј СЃ footer-stat-glyph: С‡СѓС‚СЊ РєСЂСѓРїРЅРµРµ Рё РїРѕ С†РµРЅС‚СЂСѓ СЏС‡РµР№РєРё emoji. */
   .footer-stat-value {
     display: inline-flex;
     align-items: center;
@@ -87,7 +87,7 @@
     }
   }
 
-  /* Та же сетка 22×22, что у emoji в футере — медаль 🥇🥈🥉 по центру. */
+  /* РўР° Р¶Рµ СЃРµС‚РєР° 22Г—22, С‡С‚Рѕ Сѓ emoji РІ С„СѓС‚РµСЂРµ вЂ” РјРµРґР°Р»СЊ рџҐ‡рџҐ€рџҐ‰ РїРѕ С†РµРЅС‚СЂСѓ. */
   .footer-stat-medal-slot {
     display: inline-flex;
     flex-shrink: 0;
@@ -106,7 +106,7 @@
     }
   }
 
-  /* Эмодзи слева от динамической фразы в футере (не обрезать снизу). */
+  /* Р­РјРѕРґР·Рё СЃР»РµРІР° РѕС‚ РґРёРЅР°РјРёС‡РµСЃРєРѕР№ С„СЂР°Р·С‹ РІ С„СѓС‚РµСЂРµ (РЅРµ РѕР±СЂРµР·Р°С‚СЊ СЃРЅРёР·Сѓ). */
   .footer-dynamic-marker {
     display: inline-flex;
     flex-shrink: 0;
@@ -127,7 +127,7 @@
     }
   }
 
-  /* Урок / practice: та же ячейка 22×22, emoji чуть меньше — не обрезается снизу. */
+  /* РЈСЂРѕРє / practice: С‚Р° Р¶Рµ СЏС‡РµР№РєР° 22Г—22, emoji С‡СѓС‚СЊ РјРµРЅСЊС€Рµ вЂ” РЅРµ РѕР±СЂРµР·Р°РµС‚СЃСЏ СЃРЅРёР·Сѓ. */
   .live-footer-stats-row {
     overflow: visible;
   }
@@ -183,7 +183,7 @@
   animation: slideIn 0.3s ease-out;
 }
 
-/* Для поэтапной выдачи блоков в уроках: мягче и заметнее, чем общий variant-enter. */
+/* Р”Р»СЏ РїРѕСЌС‚Р°РїРЅРѕР№ РІС‹РґР°С‡Рё Р±Р»РѕРєРѕРІ РІ СѓСЂРѕРєР°С…: РјСЏРіС‡Рµ Рё Р·Р°РјРµС‚РЅРµРµ, С‡РµРј РѕР±С‰РёР№ variant-enter. */
 .lesson-enter {
   animation: lessonSlideIn 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -199,7 +199,7 @@
   }
 }
 
-/* Практика: мягче и медленнее, чем lesson-enter в уроках. */
+/* РџСЂР°РєС‚РёРєР°: РјСЏРіС‡Рµ Рё РјРµРґР»РµРЅРЅРµРµ, С‡РµРј lesson-enter РІ СѓСЂРѕРєР°С…. */
 .practice-enter {
   animation: practiceSlideIn 0.58s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -215,7 +215,7 @@
   }
 }
 
-/* Практика: лёгкое появление полосы без сдвига (не мешает набору текста). */
+/* РџСЂР°РєС‚РёРєР°: Р»С‘РіРєРѕРµ РїРѕСЏРІР»РµРЅРёРµ РїРѕР»РѕСЃС‹ Р±РµР· СЃРґРІРёРіР° (РЅРµ РјРµС€Р°РµС‚ РЅР°Р±РѕСЂСѓ С‚РµРєСЃС‚Р°). */
 .practice-section-appear {
   animation: practiceSectionAppear 0.12s ease-out;
 }
@@ -229,7 +229,7 @@
   }
 }
 
-/* Лента урока: спокойное появление статуса «Верно» и пустой карточки шага. */
+/* Р›РµРЅС‚Р° СѓСЂРѕРєР°: СЃРїРѕРєРѕР№РЅРѕРµ РїРѕСЏРІР»РµРЅРёРµ СЃС‚Р°С‚СѓСЃР° В«Р’РµСЂРЅРѕВ» Рё РїСѓСЃС‚РѕР№ РєР°СЂС‚РѕС‡РєРё С€Р°РіР°. */
 .lesson-feed-enter {
   animation: lessonFeedSlideIn 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
@@ -245,12 +245,12 @@
   }
 }
 
-/* @deprecated alias — используйте lesson-feed-enter */
+/* @deprecated alias вЂ” РёСЃРїРѕР»СЊР·СѓР№С‚Рµ lesson-feed-enter */
 .lesson-shell-enter {
   animation: lessonFeedSlideIn 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
 
-/* Урок: мягкое появление текста внутри уже видимой полосы. */
+/* РЈСЂРѕРє: РјСЏРіРєРѕРµ РїРѕСЏРІР»РµРЅРёРµ С‚РµРєСЃС‚Р° РІРЅСѓС‚СЂРё СѓР¶Рµ РІРёРґРёРјРѕР№ РїРѕР»РѕСЃС‹. */
 .lesson-text-soft-enter {
   animation: lessonTextSoftIn 0.52s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
@@ -264,7 +264,7 @@
   }
 }
 
-/* Награда над композером: пружинное появление и уход вверх с затуханием. */
+/* РќР°РіСЂР°РґР° РЅР°Рґ РєРѕРјРїРѕР·РµСЂРѕРј: РїСЂСѓР¶РёРЅРЅРѕРµ РїРѕСЏРІР»РµРЅРёРµ Рё СѓС…РѕРґ РІРІРµСЂС… СЃ Р·Р°С‚СѓС…Р°РЅРёРµРј. */
 @keyframes rewardPopupIn {
   0% {
     opacity: 0;
@@ -369,7 +369,7 @@
   --shadow: var(--shadow-soft);
   --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.12);
   --shadow-active: 0 0 0 1px rgba(0, 0, 0, 0.05);
-  /* Мессенджерная палитра для чата в стиле WhatsApp */
+  /* РњРµСЃСЃРµРЅРґР¶РµСЂРЅР°СЏ РїР°Р»РёС‚СЂР° РґР»СЏ С‡Р°С‚Р° РІ СЃС‚РёР»Рµ WhatsApp */
   --chat-wallpaper: #d7e7cf;
   --chat-wallpaper-soft: #cfe2c6;
   --chat-message-wallpaper: #edf5e8;
@@ -382,13 +382,13 @@
   --chat-section-neutral: #f8faf8;
   --chat-section-amber: #eef6ff;
   --chat-section-emerald: #effaf3;
-  /* Положительный комментарий: лёгкий мятный фон, насыщенность как у slate-карточек */
+  /* РџРѕР»РѕР¶РёС‚РµР»СЊРЅС‹Р№ РєРѕРјРјРµРЅС‚Р°СЂРёР№: Р»С‘РіРєРёР№ РјСЏС‚РЅС‹Р№ С„РѕРЅ, РЅР°СЃС‹С‰РµРЅРЅРѕСЃС‚СЊ РєР°Рє Сѓ slate-РєР°СЂС‚РѕС‡РµРє */
   --chat-section-praise: #f0f7f4;
-  /* Подпись «Комментарий:» — та же «сила», что у text-slate-600 у карточки образцов, но зелёный оттенок */
+  /* РџРѕРґРїРёСЃСЊ В«РљРѕРјРјРµРЅС‚Р°СЂРёР№:В» вЂ” С‚Р° Р¶Рµ В«СЃРёР»Р°В», С‡С‚Рѕ Сѓ text-slate-600 Сѓ РєР°СЂС‚РѕС‡РєРё РѕР±СЂР°Р·С†РѕРІ, РЅРѕ Р·РµР»С‘РЅС‹Р№ РѕС‚С‚РµРЅРѕРє */
   --chat-label-praise: #3d5348;
   --chat-section-slate: #f4f7fb;
   --chat-section-correction: #f8fafc;
-  /* Фон карточки меню на главной (изолирован от выдвижного меню). */
+  /* Р¤РѕРЅ РєР°СЂС‚РѕС‡РєРё РјРµРЅСЋ РЅР° РіР»Р°РІРЅРѕР№ (РёР·РѕР»РёСЂРѕРІР°РЅ РѕС‚ РІС‹РґРІРёР¶РЅРѕРіРѕ РјРµРЅСЋ). */
   --home-menu-bg: #e4f2fe;
   --menu-panel-bg: #f3f4f6;
   --menu-card-bg: #f9fafb;
@@ -425,7 +425,7 @@
   --chat-speaker-bg: rgba(255, 255, 255, 0.8);
   --chat-speaker-text: #047857;
   --chat-speaker-text-hover: #065f46;
-  /* Хедер: значения не зависят от темы чата — во всех темах как в Basic. */
+  /* РҐРµРґРµСЂ: Р·РЅР°С‡РµРЅРёСЏ РЅРµ Р·Р°РІРёСЃСЏС‚ РѕС‚ С‚РµРјС‹ С‡Р°С‚Р° вЂ” РІРѕ РІСЃРµС… С‚РµРјР°С… РєР°Рє РІ Basic. */
   --app-header-bg: rgba(255, 255, 255, 0.92);
   --app-header-border: #e5e7eb;
   --app-chrome-elev-y: 1px;
@@ -433,7 +433,7 @@
   --app-chrome-elev-color: rgba(0, 0, 0, 0.1);
   --app-header-shadow: 0 var(--app-chrome-elev-y) var(--app-chrome-elev-blur) var(--app-chrome-elev-color);
   --app-footer-border: var(--app-header-border);
-  /* Зеркало хедера: та же толщина (3px blur, 0.1), без inset — он давал лишнюю полосу сверху. */
+  /* Р—РµСЂРєР°Р»Рѕ С…РµРґРµСЂР°: С‚Р° Р¶Рµ С‚РѕР»С‰РёРЅР° (3px blur, 0.1), Р±РµР· inset вЂ” РѕРЅ РґР°РІР°Р» Р»РёС€РЅСЋСЋ РїРѕР»РѕСЃСѓ СЃРІРµСЂС…Сѓ. */
   --app-footer-shadow: 0 calc(-1 * var(--app-chrome-elev-y)) var(--app-chrome-elev-blur) var(--app-chrome-elev-color);
   --app-header-control-bg: rgba(255, 255, 255, 0.9);
   --app-header-control-border: #e5e7eb;
@@ -458,12 +458,12 @@
   --chat-input-focus-ring: 0 0 0 0 rgba(0, 0, 0, 0);
   --chat-error-border: rgba(239, 68, 68, 0.55);
   --chat-error-ring: 0 0 0 4px rgba(239, 68, 68, 0.14);
-  /* Высота шапки / футера — в :root, чтобы не было скачка до гидрации React. */
+  /* Р’С‹СЃРѕС‚Р° С€Р°РїРєРё / С„СѓС‚РµСЂР° вЂ” РІ :root, С‡С‚РѕР±С‹ РЅРµ Р±С‹Р»Рѕ СЃРєР°С‡РєР° РґРѕ РіРёРґСЂР°С†РёРё React. */
   --app-header-row-height: 2.75rem;
   --app-header-border-width: 1px;
   --app-footer-row-height: calc(2 * var(--app-header-row-height));
   --app-footer-border-width: 1px;
-  /* Высота полосы без border-t (surface с border-box). */
+  /* Р’С‹СЃРѕС‚Р° РїРѕР»РѕСЃС‹ Р±РµР· border-t (surface СЃ border-box). */
   --app-footer-content-height: calc(var(--app-footer-row-height) - var(--app-footer-border-width));
   --app-footer-half-height: calc(var(--app-footer-content-height) / 2);
   --app-footer-line-height: 1.375rem;
@@ -472,23 +472,23 @@
   --app-top-offset: calc(
     var(--app-safe-top-inset) + var(--app-header-row-height) + var(--app-header-border-width)
   );
-  /* Высота fixed-футера: border-t внутри row-height (border-box) + safe-area. */
+  /* Р’С‹СЃРѕС‚Р° fixed-С„СѓС‚РµСЂР°: border-t РІРЅСѓС‚СЂРё row-height (border-box) + safe-area. */
   --app-footer-chrome-height: calc(var(--app-footer-row-height) + var(--app-footer-safe-inset));
-  /* Нижний край панели меню — верх футера (с учётом vv, как у спейсера). */
+  /* РќРёР¶РЅРёР№ РєСЂР°Р№ РїР°РЅРµР»Рё РјРµРЅСЋ вЂ” РІРµСЂС… С„СѓС‚РµСЂР° (СЃ СѓС‡С‘С‚РѕРј vv, РєР°Рє Сѓ СЃРїРµР№СЃРµСЂР°). */
   --app-menu-panel-bottom: var(--app-bottom-offset);
-  /* Запас в потоке страницы: футер + safe-area + клавиатура (vv). */
+  /* Р—Р°РїР°СЃ РІ РїРѕС‚РѕРєРµ СЃС‚СЂР°РЅРёС†С‹: С„СѓС‚РµСЂ + safe-area + РєР»Р°РІРёР°С‚СѓСЂР° (vv). */
   --app-bottom-offset: calc(var(--app-footer-chrome-height) + var(--vv-bottom-inset, 0px));
-  /* Safe-area снизу (без vv). Для экранов урока и пр. */
+  /* Safe-area СЃРЅРёР·Сѓ (Р±РµР· vv). Р”Р»СЏ СЌРєСЂР°РЅРѕРІ СѓСЂРѕРєР° Рё РїСЂ. */
   --app-bottom-inset: var(--app-footer-safe-inset);
-  /* Bottom inset, рассчитанный через VisualViewport (клавиатура и пр.). */
+  /* Bottom inset, СЂР°СЃСЃС‡РёС‚Р°РЅРЅС‹Р№ С‡РµСЂРµР· VisualViewport (РєР»Р°РІРёР°С‚СѓСЂР° Рё РїСЂ.). */
   --vv-bottom-inset: 0px;
   --vv-left-inset: 0px;
   --vv-right-inset: 0px;
-  /* iOS Safari: перекрытие нижнего chrome (панель браузера). */
+  /* iOS Safari: РїРµСЂРµРєСЂС‹С‚РёРµ РЅРёР¶РЅРµРіРѕ chrome (РїР°РЅРµР»СЊ Р±СЂР°СѓР·РµСЂР°). */
   --ios-safari-vv-bottom-overlap: 0px;
-  /* Высота панели ввода чата (обновляется из JS, fallback). */
+  /* Р’С‹СЃРѕС‚Р° РїР°РЅРµР»Рё РІРІРѕРґР° С‡Р°С‚Р° (РѕР±РЅРѕРІР»СЏРµС‚СЃСЏ РёР· JS, fallback). */
   --chat-input-height: 5.5rem;
-  /* Полная высота полосы композера (обёртка в Chat), для RewardPopup; 0 пока чат не смонтирован. */
+  /* РџРѕР»РЅР°СЏ РІС‹СЃРѕС‚Р° РїРѕР»РѕСЃС‹ РєРѕРјРїРѕР·РµСЂР° (РѕР±С‘СЂС‚РєР° РІ Chat), РґР»СЏ RewardPopup; 0 РїРѕРєР° С‡Р°С‚ РЅРµ СЃРјРѕРЅС‚РёСЂРѕРІР°РЅ. */
   --chat-composer-stack-height: 0px;
 }
 
@@ -856,7 +856,7 @@ html[data-theme='bubble2'] [data-audience='child'] {
   --bubble2-shadow-glow: 0 0 10px rgba(255, 79, 210, 0.24);
 }
 
-/* Только для режима "Ребёнок": взрослый вид остаётся базовым (:root). */
+/* РўРѕР»СЊРєРѕ РґР»СЏ СЂРµР¶РёРјР° "Р РµР±С‘РЅРѕРє": РІР·СЂРѕСЃР»С‹Р№ РІРёРґ РѕСЃС‚Р°С‘С‚СЃСЏ Р±Р°Р·РѕРІС‹Рј (:root). */
 html[data-audience='child']:not([data-theme='bubble1']):not([data-theme='bubble2']),
 html:not([data-theme='bubble1']):not([data-theme='bubble2']) [data-audience='child'] {
   --chat-wallpaper: #bdcfe4;
@@ -872,13 +872,13 @@ html:not([data-theme='bubble1']):not([data-theme='bubble2']) [data-audience='chi
 
 html {
   color-scheme: light;
-  /* Верхнюю safe-area учитываем на уровне шапки/layout, чтобы не дублировать offset. */
+  /* Р’РµСЂС…РЅСЋСЋ safe-area СѓС‡РёС‚С‹РІР°РµРј РЅР° СѓСЂРѕРІРЅРµ С€Р°РїРєРё/layout, С‡С‚РѕР±С‹ РЅРµ РґСѓР±Р»РёСЂРѕРІР°С‚СЊ offset. */
   padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
-  /* iOS Safari: высота с учётом скрытия панели браузера */
+  /* iOS Safari: РІС‹СЃРѕС‚Р° СЃ СѓС‡С‘С‚РѕРј СЃРєСЂС‹С‚РёСЏ РїР°РЅРµР»Рё Р±СЂР°СѓР·РµСЂР° */
   min-height: 100vh;
   min-height: 100dvh;
   height: 100%;
-  overflow: hidden; /* Скроллим только внутренний контейнер диалога */
+  overflow: hidden; /* РЎРєСЂРѕР»Р»РёРј С‚РѕР»СЊРєРѕ РІРЅСѓС‚СЂРµРЅРЅРёР№ РєРѕРЅС‚РµР№РЅРµСЂ РґРёР°Р»РѕРіР° */
 }
 
 body {
@@ -886,15 +886,15 @@ body {
   color: var(--text);
   font-size: var(--font-size-base);
   transition: background var(--transition-smooth), color var(--transition-smooth);
-  /* Убираем серую подсветку при тапе (Android / iOS) */
+  /* РЈР±РёСЂР°РµРј СЃРµСЂСѓСЋ РїРѕРґСЃРІРµС‚РєСѓ РїСЂРё С‚Р°РїРµ (Android / iOS) */
   -webkit-tap-highlight-color: transparent;
   min-height: 100vh;
   min-height: 100dvh;
   height: 100%;
-  overflow: hidden; /* Отключаем скролл окна, скролл только внутри Chat */
+  overflow: hidden; /* РћС‚РєР»СЋС‡Р°РµРј СЃРєСЂРѕР»Р» РѕРєРЅР°, СЃРєСЂРѕР»Р» С‚РѕР»СЊРєРѕ РІРЅСѓС‚СЂРё Chat */
 }
 
-/* Кнопки: лёгкий объём — тень и небольшой подъём/нажатие */
+/* РљРЅРѕРїРєРё: Р»С‘РіРєРёР№ РѕР±СЉС‘Рј вЂ” С‚РµРЅСЊ Рё РЅРµР±РѕР»СЊС€РѕР№ РїРѕРґСЉС‘Рј/РЅР°Р¶Р°С‚РёРµ */
 .btn-3d {
   box-shadow: var(--shadow);
   transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
@@ -908,7 +908,7 @@ body {
   box-shadow: var(--shadow-active);
 }
 
-/* Кнопки с более мягким 3D (озвучить, перевод) */
+/* РљРЅРѕРїРєРё СЃ Р±РѕР»РµРµ РјСЏРіРєРёРј 3D (РѕР·РІСѓС‡РёС‚СЊ, РїРµСЂРµРІРѕРґ) */
 .btn-3d-subtle {
   box-shadow: 0 1px 2px rgba(0,0,0,0.06);
   transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
@@ -922,7 +922,7 @@ body {
   box-shadow: 0 0 0 1px rgba(0,0,0,0.04);
 }
 
-/* Отдельный мягкий 3D для иконки меню без смены цвета фона */
+/* РћС‚РґРµР»СЊРЅС‹Р№ РјСЏРіРєРёР№ 3D РґР»СЏ РёРєРѕРЅРєРё РјРµРЅСЋ Р±РµР· СЃРјРµРЅС‹ С†РІРµС‚Р° С„РѕРЅР° */
 .btn-3d-menu {
   box-shadow: 0 1px 2px rgba(0,0,0,0.08);
   transform: translateY(0);
@@ -938,7 +938,7 @@ body {
   transform: translateY(0.5px) scale(0.995);
 }
 
-/* Скроллбар: светлый бегунок */
+/* РЎРєСЂРѕР»Р»Р±Р°СЂ: СЃРІРµС‚Р»С‹Р№ Р±РµРіСѓРЅРѕРє */
 * {
   scrollbar-width: thin;
   scrollbar-color: #c8d0c8 transparent;
@@ -958,13 +958,13 @@ body {
   background: #b0b8b0;
 }
 
-/* Убираем цветную рамку при фокусе у полей выбора */
+/* РЈР±РёСЂР°РµРј С†РІРµС‚РЅСѓСЋ СЂР°РјРєСѓ РїСЂРё С„РѕРєСѓСЃРµ Сѓ РїРѕР»РµР№ РІС‹Р±РѕСЂР° */
 select:focus {
   outline: none;
   box-shadow: none;
 }
 
-/* Селект с кастомной стрелкой-шевроном (отступ справа как у «Время») */
+/* РЎРµР»РµРєС‚ СЃ РєР°СЃС‚РѕРјРЅРѕР№ СЃС‚СЂРµР»РєРѕР№-С€РµРІСЂРѕРЅРѕРј (РѕС‚СЃС‚СѓРї СЃРїСЂР°РІР° РєР°Рє Сѓ В«Р’СЂРµРјСЏВ») */
 select.select-chevron {
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
@@ -974,7 +974,7 @@ select.select-chevron {
   padding-right: 2.5rem;
 }
 
-/* Плавная смена экранов внутри бокового меню (drill-down) */
+/* РџР»Р°РІРЅР°СЏ СЃРјРµРЅР° СЌРєСЂР°РЅРѕРІ РІРЅСѓС‚СЂРё Р±РѕРєРѕРІРѕРіРѕ РјРµРЅСЋ (drill-down) */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -1034,7 +1034,7 @@ select.select-chevron {
 
 .typing-indicator {
   --typing-shimmer-duration: 2.8s;
-  /* Фикс направления волны: при RTL/unicode-bidi градиент и фон визуально «лезут» справа */
+  /* Р¤РёРєСЃ РЅР°РїСЂР°РІР»РµРЅРёСЏ РІРѕР»РЅС‹: РїСЂРё RTL/unicode-bidi РіСЂР°РґРёРµРЅС‚ Рё С„РѕРЅ РІРёР·СѓР°Р»СЊРЅРѕ В«Р»РµР·СѓС‚В» СЃРїСЂР°РІР° */
   direction: ltr;
   unicode-bidi: isolate;
   background: rgba(255, 255, 255, 0.95);
@@ -1079,7 +1079,7 @@ select.select-chevron {
 .typing-indicator-text-shimmer {
   display: inline-block;
   color: transparent;
-  /* Один сегмент на 200% ширины; 0% и 100% линии — одна и та же base, чтобы петля 0%→200% `background-position` шла без разрыва на 2-м цикле. */
+  /* РћРґРёРЅ СЃРµРіРјРµРЅС‚ РЅР° 200% С€РёСЂРёРЅС‹; 0% Рё 100% Р»РёРЅРёРё вЂ” РѕРґРЅР° Рё С‚Р° Р¶Рµ base, С‡С‚РѕР±С‹ РїРµС‚Р»СЏ 0%в†’200% `background-position` С€Р»Р° Р±РµР· СЂР°Р·СЂС‹РІР° РЅР° 2-Рј С†РёРєР»Рµ. */
   background-image: linear-gradient(
     110deg,
     var(--text-muted) 34%,
@@ -1196,7 +1196,7 @@ select.select-chevron {
   pointer-events: none;
 }
 
-/* Панель звонка Engvo: три колонки в ряд (ИИ | таймер | пользователь). */
+/* РџР°РЅРµР»СЊ Р·РІРѕРЅРєР° Engvo: С‚СЂРё РєРѕР»РѕРЅРєРё РІ СЂСЏРґ (РР | С‚Р°Р№РјРµСЂ | РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ). */
 .engvo-call-status-strip {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -1227,15 +1227,15 @@ select.select-chevron {
   }
 }
 
-/* Лента урока/чата: touch-скролл на iOS Safari (без этого лента «замирает»). */
+/* Р›РµРЅС‚Р° СѓСЂРѕРєР°/С‡Р°С‚Р°: touch-СЃРєСЂРѕР»Р» РЅР° iOS Safari (Р±РµР· СЌС‚РѕРіРѕ Р»РµРЅС‚Р° В«Р·Р°РјРёСЂР°РµС‚В»). */
 .lesson-scroll-viewport {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   touch-action: pan-y;
 }
 
-/* iOS Safari dialog: спейсер и fixed chrome синхронны с visual viewport. */
-html[data-ios-safari-dialog] {
+/* iOS Safari dialog: СЃРїРµР№СЃРµСЂ Рё fixed chrome СЃРёРЅС…СЂРѕРЅРЅС‹ СЃ visual viewport. */
+html[data-ios-webkit-dialog] {
   --app-bottom-offset: calc(
     var(--app-footer-chrome-height) + var(--ios-safari-vv-bottom-overlap, 0px) + var(--vv-bottom-inset, 0px)
   );
@@ -1245,41 +1245,41 @@ html[data-ios-safari-dialog] {
   transform: translateY(calc(-1 * var(--vv-bottom-inset, 0px)));
 }
 
-html[data-ios-safari-dialog] .app-dialog-chrome-footer {
+html[data-ios-webkit-dialog] .app-dialog-chrome-footer {
   transform: translateY(
     calc(-1 * (var(--ios-safari-vv-bottom-overlap, 0px) + var(--vv-bottom-inset, 0px)))
   );
 }
 
 /*
- * iOS Safari: backdrop-filter на карточке создаёт containing block для position:fixed.
- * Композер якорится к карточке, а не к viewport — лента и панель действий расходятся.
+ * iOS Safari: backdrop-filter РЅР° РєР°СЂС‚РѕС‡РєРµ СЃРѕР·РґР°С‘С‚ containing block РґР»СЏ position:fixed.
+ * РљРѕРјРїРѕР·РµСЂ СЏРєРѕСЂРёС‚СЃСЏ Рє РєР°СЂС‚РѕС‡РєРµ, Р° РЅРµ Рє viewport вЂ” Р»РµРЅС‚Р° Рё РїР°РЅРµР»СЊ РґРµР№СЃС‚РІРёР№ СЂР°СЃС…РѕРґСЏС‚СЃСЏ.
  */
-html[data-ios-safari-dialog] .glass-surface:has(.dialog-composer-dock) {
+html[data-ios-webkit-dialog] .glass-surface:has(.dialog-composer-dock) {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
-/* iOS Safari: flex-скролл внутри карточки + отступ под fixed-композер. */
-html[data-ios-safari-dialog] .lesson-scroll-viewport {
-  height: 0;
+/* iOS WebKit dialog: flex-scroll + composer padding (no height:0). */
+html[data-ios-webkit-dialog] .lesson-scroll-viewport {
   flex: 1 1 0%;
+  min-height: 0;
   padding-bottom: calc(var(--chat-composer-stack-height, 7.5rem) + 0.625rem) !important;
   scroll-padding-bottom: calc(var(--chat-composer-stack-height, 7.5rem) + 0.625rem) !important;
 }
 
-html[data-ios-safari-dialog] .lesson-scroll-viewport.lesson-intro-scroll {
+html[data-ios-webkit-dialog] .lesson-scroll-viewport.lesson-intro-scroll {
   padding-bottom: calc(var(--chat-composer-stack-height, 9rem) + 0.625rem) !important;
   scroll-padding-bottom: calc(var(--chat-composer-stack-height, 9rem) + 0.625rem) !important;
 }
 
-html[data-ios-safari-dialog] .lesson-scroll-viewport.chat-feed-scroll {
+html[data-ios-webkit-dialog] .lesson-scroll-viewport.chat-feed-scroll {
   padding-bottom: calc(var(--chat-composer-stack-height, 5.5rem) + 0.625rem) !important;
   scroll-padding-bottom: calc(var(--chat-composer-stack-height, 5.5rem) + 0.625rem) !important;
 }
 
-/* iOS Safari: композер закреплён над fixed-футером. */
-html[data-ios-safari-dialog] .dialog-composer-dock {
+/* iOS Safari: РєРѕРјРїРѕР·РµСЂ Р·Р°РєСЂРµРїР»С‘РЅ РЅР°Рґ fixed-С„СѓС‚РµСЂРѕРј. */
+html[data-ios-webkit-dialog] .dialog-composer-dock {
   position: fixed;
   left: 0;
   right: 0;
@@ -1289,14 +1289,14 @@ html[data-ios-safari-dialog] .dialog-composer-dock {
   background: linear-gradient(180deg, var(--chat-wallpaper) 0%, var(--chat-wallpaper-soft) 100%);
 }
 
-html[data-ios-safari-dialog] .dialog-composer-dock-inner {
+html[data-ios-webkit-dialog] .dialog-composer-dock-inner {
   padding-left: max(0.5rem, env(safe-area-inset-left, 0px), var(--vv-left-inset));
   padding-right: max(0.5rem, env(safe-area-inset-right, 0px), var(--vv-right-inset));
 }
 
 /*
- * Композер чата: симметричный padding по Y (каретка и строка по центру min-height 44px).
- * font-size / line-height задаются в JSX (text-base, leading-[1.45rem]); здесь только отступы.
+ * РљРѕРјРїРѕР·РµСЂ С‡Р°С‚Р°: СЃРёРјРјРµС‚СЂРёС‡РЅС‹Р№ padding РїРѕ Y (РєР°СЂРµС‚РєР° Рё СЃС‚СЂРѕРєР° РїРѕ С†РµРЅС‚СЂСѓ min-height 44px).
+ * font-size / line-height Р·Р°РґР°СЋС‚СЃСЏ РІ JSX (text-base, leading-[1.45rem]); Р·РґРµСЃСЊ С‚РѕР»СЊРєРѕ РѕС‚СЃС‚СѓРїС‹.
  */
 .chat-composer-vertical-align {
   padding-top: 11px;
@@ -1308,7 +1308,7 @@ html[data-ios-safari-dialog] .dialog-composer-dock-inner {
   padding-bottom: 11px;
 }
 
-/* Единая сетка с VoiceComposerOverlay на WebKit/Blink (см. needsVoiceComposerWebMetrics): 11 + 22 + 11 = 44px. */
+/* Р•РґРёРЅР°СЏ СЃРµС‚РєР° СЃ VoiceComposerOverlay РЅР° WebKit/Blink (СЃРј. needsVoiceComposerWebMetrics): 11 + 22 + 11 = 44px. */
 .chat-input-field.chat-input-voice-web-metrics {
   padding-top: 11px;
   padding-bottom: 11px;
@@ -1343,8 +1343,8 @@ html[data-ios-safari-dialog] .dialog-composer-dock-inner {
 }
 
 /*
- * Только оверлей статуса голоса для iOS Chrome (см. iosChromeVoiceStatusMessage в Chat.tsx).
- * Blink на iOS даёт смещение baseline/line-box относительно padding — flex центрирует строку в поле.
+ * РўРѕР»СЊРєРѕ РѕРІРµСЂР»РµР№ СЃС‚Р°С‚СѓСЃР° РіРѕР»РѕСЃР° РґР»СЏ iOS Chrome (СЃРј. iosChromeVoiceStatusMessage РІ Chat.tsx).
+ * Blink РЅР° iOS РґР°С‘С‚ СЃРјРµС‰РµРЅРёРµ baseline/line-box РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ padding вЂ” flex С†РµРЅС‚СЂРёСЂСѓРµС‚ СЃС‚СЂРѕРєСѓ РІ РїРѕР»Рµ.
  */
 .ios-chrome-voice-status-overlay {
   display: flex;
@@ -1375,7 +1375,7 @@ html[data-ios-safari-dialog] .dialog-composer-dock-inner {
   box-shadow: var(--chat-section-shadow);
 }
 
-/* Микрофон в композере: без внешней тени — glow не обрезается overflow поля/карточки. */
+/* РњРёРєСЂРѕС„РѕРЅ РІ РєРѕРјРїРѕР·РµСЂРµ: Р±РµР· РІРЅРµС€РЅРµР№ С‚РµРЅРё вЂ” glow РЅРµ РѕР±СЂРµР·Р°РµС‚СЃСЏ overflow РїРѕР»СЏ/РєР°СЂС‚РѕС‡РєРё. */
 .chat-action-button.chat-control-surface,
 .chat-action-button.chat-control-surface:hover:not(:disabled),
 .chat-action-button.chat-control-surface:focus-visible:not(:disabled),
@@ -1442,7 +1442,7 @@ html[data-ios-safari-dialog] .dialog-composer-dock-inner {
   align-items: center;
 }
 
-/* Нижнюю статичную строку слегка приподнимаем от нижнего края полосы футера. */
+/* РќРёР¶РЅСЋСЋ СЃС‚Р°С‚РёС‡РЅСѓСЋ СЃС‚СЂРѕРєСѓ СЃР»РµРіРєР° РїСЂРёРїРѕРґРЅРёРјР°РµРј РѕС‚ РЅРёР¶РЅРµРіРѕ РєСЂР°СЏ РїРѕР»РѕСЃС‹ С„СѓС‚РµСЂР°. */
 .app-footer-body__row--bottom .app-footer-body__row-inner {
   transform: translateY(-5px);
 }
@@ -1458,7 +1458,7 @@ html[data-ios-safari-dialog] .dialog-composer-dock-inner {
   }
 }
 
-/* Одна линия с emoji-ячейкой 22×22 (как .footer-stat-glyph). */
+/* РћРґРЅР° Р»РёРЅРёСЏ СЃ emoji-СЏС‡РµР№РєРѕР№ 22Г—22 (РєР°Рє .footer-stat-glyph). */
 .app-footer-body .footer-dynamic-line {
   display: block;
   font-size: 0.875rem;
@@ -1476,7 +1476,7 @@ html[data-ios-safari-dialog] .dialog-composer-dock-inner {
   align-items: center;
 }
 
-/* Числа в нижней половине: без завышенного line-height — центр по вертикали ячейки. */
+/* Р§РёСЃР»Р° РІ РЅРёР¶РЅРµР№ РїРѕР»РѕРІРёРЅРµ: Р±РµР· Р·Р°РІС‹С€РµРЅРЅРѕРіРѕ line-height вЂ” С†РµРЅС‚СЂ РїРѕ РІРµСЂС‚РёРєР°Р»Рё СЏС‡РµР№РєРё. */
 .app-footer-body .footer-stat-value {
   line-height: 1;
   padding-block: 0;
@@ -1552,7 +1552,7 @@ html[data-ios-safari-dialog] .dialog-composer-dock-inner {
   box-shadow: var(--app-header-avatar-shadow);
 }
 
-/* Маскот в шапке: squircle как на главной (радиус задаётся в AppIconFrame). */
+/* РњР°СЃРєРѕС‚ РІ С€Р°РїРєРµ: squircle РєР°Рє РЅР° РіР»Р°РІРЅРѕР№ (СЂР°РґРёСѓСЃ Р·Р°РґР°С‘С‚СЃСЏ РІ AppIconFrame). */
 .app-header-mascot-icon {
   background: var(--app-header-control-bg);
   border: 1px solid var(--app-header-control-border);
@@ -1643,7 +1643,7 @@ html[data-ios-safari-dialog] .dialog-composer-dock-inner {
   }
 }
 
-/* Минимальный размер области нажатия для пальца (Android / iOS, Apple HIG 44pt) */
+/* РњРёРЅРёРјР°Р»СЊРЅС‹Р№ СЂР°Р·РјРµСЂ РѕР±Р»Р°СЃС‚Рё РЅР°Р¶Р°С‚РёСЏ РґР»СЏ РїР°Р»СЊС†Р° (Android / iOS, Apple HIG 44pt) */
 @media (pointer: coarse) {
   .btn-3d,
   button,
@@ -1653,12 +1653,12 @@ html[data-ios-safari-dialog] .dialog-composer-dock-inner {
   input[type="password"] {
     min-height: 44px;
   }
-  /* Второстепенные чипы «Озвучить» / «Перевод»: чуть ниже 44px, без «раздутой» капсулы. */
+  /* Р’С‚РѕСЂРѕСЃС‚РµРїРµРЅРЅС‹Рµ С‡РёРїС‹ В«РћР·РІСѓС‡РёС‚СЊВ» / В«РџРµСЂРµРІРѕРґВ»: С‡СѓС‚СЊ РЅРёР¶Рµ 44px, Р±РµР· В«СЂР°Р·РґСѓС‚РѕР№В» РєР°РїСЃСѓР»С‹. */
   button.chat-assistant-chip-button {
     min-height: 36px;
   }
 
-  /* Круг «Прослушать» в поле ввода: не растягивать по высоте многострочного textarea. */
+  /* РљСЂСѓРі В«РџСЂРѕСЃР»СѓС€Р°С‚СЊВ» РІ РїРѕР»Рµ РІРІРѕРґР°: РЅРµ СЂР°СЃС‚СЏРіРёРІР°С‚СЊ РїРѕ РІС‹СЃРѕС‚Рµ РјРЅРѕРіРѕСЃС‚СЂРѕС‡РЅРѕРіРѕ textarea. */
   button.chat-input-inline-speaker-button {
     min-height: 2rem;
     min-width: 2rem;
@@ -1667,11 +1667,11 @@ html[data-ios-safari-dialog] .dialog-composer-dock-inner {
   }
   input[type="text"],
   input[type="password"] {
-    font-size: 16px; /* Предотвращает авто-зум при фокусе в Safari (iOS) и Chrome (Android) */
+    font-size: 16px; /* РџСЂРµРґРѕС‚РІСЂР°С‰Р°РµС‚ Р°РІС‚Рѕ-Р·СѓРј РїСЂРё С„РѕРєСѓСЃРµ РІ Safari (iOS) Рё Chrome (Android) */
   }
 }
 
-/* Компактный режим для невысоких экранов (планшет landscape и небольшие ноутбуки). */
+/* РљРѕРјРїР°РєС‚РЅС‹Р№ СЂРµР¶РёРј РґР»СЏ РЅРµРІС‹СЃРѕРєРёС… СЌРєСЂР°РЅРѕРІ (РїР»Р°РЅС€РµС‚ landscape Рё РЅРµР±РѕР»СЊС€РёРµ РЅРѕСѓС‚Р±СѓРєРё). */
 @media (max-height: 760px) {
   .start-screen {
     gap: 0.6rem !important;
@@ -1688,8 +1688,8 @@ html[data-ios-safari-dialog] .dialog-composer-dock-inner {
 }
 
 /*
- * Композер чата (mic + send): единая палитра Bubble2 adult во всех 4 темах и 2 аудиториях.
- * Логика disabled/hover/записи не меняется — только значения переменных.
+ * РљРѕРјРїРѕР·РµСЂ С‡Р°С‚Р° (mic + send): РµРґРёРЅР°СЏ РїР°Р»РёС‚СЂР° Bubble2 adult РІРѕ РІСЃРµС… 4 С‚РµРјР°С… Рё 2 Р°СѓРґРёС‚РѕСЂРёСЏС….
+ * Р›РѕРіРёРєР° disabled/hover/Р·Р°РїРёСЃРё РЅРµ РјРµРЅСЏРµС‚СЃСЏ вЂ” С‚РѕР»СЊРєРѕ Р·РЅР°С‡РµРЅРёСЏ РїРµСЂРµРјРµРЅРЅС‹С….
  */
 html[data-theme='basic'][data-audience],
 html[data-theme='futuristic'][data-audience],

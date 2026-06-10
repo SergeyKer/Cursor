@@ -5,9 +5,9 @@ import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { useStaggeredSectionRevealMap } from '@/hooks/useStaggeredSectionReveal'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import DialogComposerStack from '@/components/DialogComposerStack'
-import { resyncIosDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
+import { resyncIosWebKitDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
-import { isIosSafariUserAgent } from '@/lib/iosSafariViewport'
+import { isIosWebKitBrowser } from '@/lib/iosSafariViewport'
 import {
   estimateIntroComposerMinHeight,
   LESSON_INTRO_SCROLL_CLASS,
@@ -257,8 +257,8 @@ export default function LessonIntroScreen({
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const composerStackRef = useRef<HTMLDivElement>(null)
   const followupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const isIosSafariClient = useMemo(
-    () => typeof navigator !== 'undefined' && isIosSafariUserAgent(navigator.userAgent),
+  const isIosWebKitClient = useMemo(
+    () => typeof navigator !== 'undefined' && isIosWebKitBrowser(navigator.userAgent),
     []
   )
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -417,22 +417,22 @@ export default function LessonIntroScreen({
   const canShowDetails = depth === 'quick' && Boolean(intro.details) && !pendingDepth
   const canShowDeepDive = (depth === 'details' || depth === 'deep') && Boolean(intro.deepDive) && !pendingDepth
   const introComposerMinHeight = useMemo(() => {
-    if (!isIosSafariClient) return undefined
+    if (!isIosWebKitClient) return undefined
     return estimateIntroComposerMinHeight({
       hasSecondaryChips: true,
       hasErrorBanner: Boolean(extraDeepDiveError),
     })
-  }, [extraDeepDiveError, isIosSafariClient])
+  }, [extraDeepDiveError, isIosWebKitClient])
 
   useLayoutEffect(() => {
-    if (!isIosSafariClient) return
-    return resyncIosDialogComposerStackHeight(composerStackRef.current)
+    if (!isIosWebKitClient) return
+    return resyncIosWebKitDialogComposerStackHeight(composerStackRef.current)
   }, [
     canShowDeepDive,
     canShowDetails,
     depth,
     extraDeepDiveError,
-    isIosSafariClient,
+    isIosWebKitClient,
     loadingLesson,
   ])
 

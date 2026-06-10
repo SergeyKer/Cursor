@@ -30,7 +30,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen antialiased">
         <Script id="ios-safari-vv-bootstrap" strategy="beforeInteractive">
-          {`(function(){try{var ua=navigator.userAgent;var ios=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&/Mobile/.test(ua));if(!ios)return;if(/CriOS\\/\\d+/i.test(ua)||/FxiOS\\/\\d+/i.test(ua)||/EdgiOS\\/\\d+/i.test(ua)||/OPiOS\\/\\d+/i.test(ua))return;if(!/Safari\\/\\d+/i.test(ua))return;var vv=window.visualViewport;if(!vv)return;var h=vv.height;if(!(typeof h==='number'&&isFinite(h)&&h>0))return;document.documentElement.style.setProperty('--ios-safari-vv-height',Math.round(h)+'px')}catch(e){}})();`}
+          {`(function(){try{var ua=navigator.userAgent;var ios=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&/Mobile/.test(ua));if(!ios)return;if(/FxiOS\\/\\d+/i.test(ua)||/EdgiOS\\/\\d+/i.test(ua)||/OPiOS\\/\\d+/i.test(ua))return;var isCriOS=/CriOS\\/\\d+/i.test(ua);if(!isCriOS&&!/Safari\\/\\d+/i.test(ua))return;var vv=window.visualViewport;if(!vv)return;var h=vv.height;if(!(typeof h==='number'&&isFinite(h)&&h>0))return;document.documentElement.style.setProperty('--ios-safari-vv-height',Math.round(h)+'px')}catch(e){}})();`}
         </Script>
         <ThemeProvider>
           <VisualViewportInsets />

@@ -2,9 +2,9 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import DialogComposerStack from '@/components/DialogComposerStack'
-import { resyncIosDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
+import { resyncIosWebKitDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
-import { isIosSafariUserAgent } from '@/lib/iosSafariViewport'
+import { isIosWebKitBrowser } from '@/lib/iosSafariViewport'
 import { estimateIntroComposerMinHeight, LESSON_INTRO_SCROLL_CLASS } from '@/lib/lessonComposerLayout'
 import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
 import type { LessonCatalogLevel } from '@/lib/lessonCatalog'
@@ -183,19 +183,19 @@ export default function LessonExtraTipsScreen({
   const requestIdRef = useRef(0)
   const scrollAreaRef = useRef<HTMLDivElement | null>(null)
   const composerStackRef = useRef<HTMLDivElement>(null)
-  const isIosSafariClient = useMemo(
-    () => typeof navigator !== 'undefined' && isIosSafariUserAgent(navigator.userAgent),
+  const isIosWebKitClient = useMemo(
+    () => typeof navigator !== 'undefined' && isIosWebKitBrowser(navigator.userAgent),
     []
   )
   const tipsComposerMinHeight = useMemo(() => {
-    if (!isIosSafariClient) return undefined
+    if (!isIosWebKitClient) return undefined
     return estimateIntroComposerMinHeight({ hasSecondaryChips: true })
-  }, [isIosSafariClient])
+  }, [isIosWebKitClient])
 
   useLayoutEffect(() => {
-    if (!isIosSafariClient) return
-    return resyncIosDialogComposerStackHeight(composerStackRef.current)
-  }, [footerVariantRegenerating, isIosSafariClient, loadingMore, tips.cards.length])
+    if (!isIosWebKitClient) return
+    return resyncIosWebKitDialogComposerStackHeight(composerStackRef.current)
+  }, [footerVariantRegenerating, isIosWebKitClient, loadingMore, tips.cards.length])
   const quizRowRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const pendingQuizScrollRef = useRef<string | null>(null)
   const refreshMarkerTimeoutRef = useRef<number | null>(null)

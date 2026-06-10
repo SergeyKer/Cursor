@@ -1,12 +1,25 @@
+function isIosDeviceUserAgent(ua: string): boolean {
+  return /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && /Mobile/i.test(ua))
+}
+
+/** iOS Chrome (CriOS). */
+export function isIosChromeUserAgent(ua: string): boolean {
+  return isIosDeviceUserAgent(ua) && /CriOS\/\d+/i.test(ua)
+}
+
 /** iOS Safari (не Chrome/Firefox/Edge на iOS). */
 export function isIosSafariUserAgent(ua: string): boolean {
-  const isIosDevice = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && /Mobile/i.test(ua))
-  if (!isIosDevice) return false
+  if (!isIosDeviceUserAgent(ua)) return false
   if (/CriOS\/\d+/i.test(ua)) return false
   if (/FxiOS\/\d+/i.test(ua)) return false
   if (/EdgiOS\/\d+/i.test(ua)) return false
   if (/OPiOS\/\d+/i.test(ua)) return false
   return /Safari\/\d+/i.test(ua)
+}
+
+/** iOS Safari + Chrome (CriOS) — общая WebKit-ветка dialog layout. */
+export function isIosWebKitBrowser(ua: string): boolean {
+  return isIosSafariUserAgent(ua) || isIosChromeUserAgent(ua)
 }
 
 /**
@@ -37,4 +50,16 @@ export function readIosSafariVisualBottomOverlapPx(): number {
   const vv = window.visualViewport
   if (!vv) return 0
   return computeIosSafariVisualBottomOverlapPx(window.innerHeight, vv.height, vv.offsetTop)
+}
+
+/** Overlap нижнего chrome для Safari и CriOS (у CriOS — через clientHeight). */
+export function readIosWebKitVisualBottomOverlapPx(): number {
+  if (typeof window === 'undefined') return 0
+  const vv = window.visualViewport
+  if (!vv) return 0
+  const ua = navigator.userAgent
+  const baseHeight = isIosChromeUserAgent(ua)
+    ? document.documentElement.clientHeight || window.innerHeight
+    : window.innerHeight
+  return computeIosSafariVisualBottomOverlapPx(baseHeight, vv.height, vv.offsetTop)
 }

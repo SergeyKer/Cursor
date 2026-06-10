@@ -2,16 +2,16 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
 import { scheduleScrollAfterLayout } from '@/lib/lessonFeedScroll'
-import { isIosSafariUserAgent } from '@/lib/iosSafariViewport'
+import { isIosWebKitBrowser } from '@/lib/iosSafariViewport'
 
 function writeComposerStackHeightPx(height: number): void {
   if (typeof document === 'undefined') return
   document.documentElement.style.setProperty('--chat-composer-stack-height', `${height}px`)
 }
 
-/** iOS Safari: повторный замер высоты композера после layout (intro/tips, смена чипов). */
-export function resyncIosDialogComposerStackHeight(stack: HTMLElement | null): () => void {
-  if (typeof window === 'undefined' || !stack || !isIosSafariUserAgent(navigator.userAgent)) {
+/** iOS WebKit dialog: повторный замер высоты композера после layout (intro/tips, смена чипов). */
+export function resyncIosWebKitDialogComposerStackHeight(stack: HTMLElement | null): () => void {
+  if (typeof window === 'undefined' || !stack || !isIosWebKitBrowser(navigator.userAgent)) {
     return () => {}
   }
   return scheduleScrollAfterLayout(() => {
@@ -81,8 +81,6 @@ export function useDialogComposerStackHeight(stackRef: RefObject<HTMLElement | n
     window.addEventListener('orientationchange', scheduleSync, { passive: true })
     const vv = window.visualViewport
     vv?.addEventListener('resize', scheduleSync)
-    const shouldTrackVvScroll = typeof navigator !== 'undefined' && isIosSafariUserAgent(navigator.userAgent)
-    if (shouldTrackVvScroll) vv?.addEventListener('scroll', scheduleSync, { passive: true })
 
     return () => {
       if (raf) window.cancelAnimationFrame(raf)
@@ -90,7 +88,6 @@ export function useDialogComposerStackHeight(stackRef: RefObject<HTMLElement | n
       window.removeEventListener('resize', scheduleSync)
       window.removeEventListener('orientationchange', scheduleSync)
       vv?.removeEventListener('resize', scheduleSync)
-      if (shouldTrackVvScroll) vv?.removeEventListener('scroll', scheduleSync)
       document.documentElement.style.removeProperty('--chat-composer-stack-height')
       document.documentElement.style.removeProperty('--chat-composer-top-from-bottom')
       lastHeightRef.current = 0
