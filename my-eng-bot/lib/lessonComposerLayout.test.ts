@@ -115,4 +115,26 @@ describe('estimateLessonComposerMinHeight', () => {
       })
     ).toBeGreaterThan(80)
   })
+
+  it('post-lesson panel reserves tall dock for action cards', () => {
+    expect(
+      estimateLessonComposerMinHeight({
+        panelKind: 'post-lesson',
+        compact: false,
+      })
+    ).toBeGreaterThanOrEqual(250)
+  })
+
+  it('medal phase stays shorter than post-lesson menu', () => {
+    const postLessonHeight = estimateLessonComposerMinHeight({
+      panelKind: 'post-lesson',
+      compact: false,
+    })
+    const medalHeight = estimateLessonComposerMinHeight({
+      panelKind: 'medal',
+      compact: false,
+    })
+
+    expect(postLessonHeight).toBeGreaterThan(medalHeight)
+  })
 })

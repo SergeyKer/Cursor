@@ -8,7 +8,7 @@ const CHOICE_CHIP_ROW_GAP_PX = 6
 const CHOICE_CHIPS_PER_ROW = 3
 const CHOICE_PANEL_VERTICAL_PADDING_PX = 12
 const TEXT_INPUT_COMPOSER_HEIGHT_PX = 88
-const POST_LESSON_COMPOSER_HEIGHT_PX = 200
+const POST_LESSON_COMPOSER_HEIGHT_PX = 240
 const MEDAL_FLOW_COMPOSER_HEIGHT_PX = 180
 
 export function isLessonChoiceChipsPanel(exercise: Exercise | null | undefined): boolean {

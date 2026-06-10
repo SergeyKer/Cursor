@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   computeIosSafariVisualBottomOverlapPx,
   isIosSafariUserAgent,
+  normalizeIosSafariBottomOverlapPx,
 } from '@/lib/iosSafariViewport'
 
 describe('isIosSafariUserAgent', () => {
@@ -41,5 +42,19 @@ describe('computeIosSafariVisualBottomOverlapPx', () => {
 
   it('округляет до целых px', () => {
     expect(computeIosSafariVisualBottomOverlapPx(800, 719.4, 0)).toBe(81)
+  })
+})
+
+describe('normalizeIosSafariBottomOverlapPx', () => {
+  it('не меняет overlap без keyboard inset', () => {
+    expect(normalizeIosSafariBottomOverlapPx(84, 0)).toBe(84)
+  })
+
+  it('вычитает keyboard inset чтобы не было двойного сдвига', () => {
+    expect(normalizeIosSafariBottomOverlapPx(320, 300)).toBe(20)
+  })
+
+  it('не уходит в минус после вычитания', () => {
+    expect(normalizeIosSafariBottomOverlapPx(120, 260)).toBe(0)
   })
 })

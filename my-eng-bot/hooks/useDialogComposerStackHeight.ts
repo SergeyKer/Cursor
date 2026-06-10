@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
+import { isIosSafariUserAgent } from '@/lib/iosSafariViewport'
 
 /** Синхронизирует высоту композера для scroll-padding и RewardPopup. */
 export function useDialogComposerStackHeight(stackRef: RefObject<HTMLElement | null>): void {
@@ -63,6 +64,8 @@ export function useDialogComposerStackHeight(stackRef: RefObject<HTMLElement | n
     window.addEventListener('orientationchange', scheduleSync, { passive: true })
     const vv = window.visualViewport
     vv?.addEventListener('resize', scheduleSync)
+    const shouldTrackVvScroll = typeof navigator !== 'undefined' && isIosSafariUserAgent(navigator.userAgent)
+    if (shouldTrackVvScroll) vv?.addEventListener('scroll', scheduleSync, { passive: true })
 
     return () => {
       if (raf) window.cancelAnimationFrame(raf)
@@ -70,6 +73,7 @@ export function useDialogComposerStackHeight(stackRef: RefObject<HTMLElement | n
       window.removeEventListener('resize', scheduleSync)
       window.removeEventListener('orientationchange', scheduleSync)
       vv?.removeEventListener('resize', scheduleSync)
+      if (shouldTrackVvScroll) vv?.removeEventListener('scroll', scheduleSync)
       document.documentElement.style.removeProperty('--chat-composer-stack-height')
       document.documentElement.style.removeProperty('--chat-composer-top-from-bottom')
       lastHeightRef.current = 0

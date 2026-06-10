@@ -896,7 +896,8 @@ export default function LessonStepRenderer({
     hasPostLessonOptions,
     showPostLessonMedalPhase,
   })
-  const shouldLockChoiceComposerHeight = shouldRenderChoiceChips
+  const shouldLockChoiceComposerHeight =
+    shouldRenderChoiceChips || hasPostLessonOptions || showPostLessonMedalPhase
   const choiceComposerMinHeightEstimate = shouldRenderChoiceChips
     ? estimateLessonComposerMinHeight({
         panelKind: 'choice',

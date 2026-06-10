@@ -22,6 +22,16 @@ export function computeIosSafariVisualBottomOverlapPx(
   return Number.isFinite(inset) ? Math.max(0, Math.round(inset)) : 0
 }
 
+/**
+ * Для iOS Safari при открытой клавиатуре overlap уже включает keyboard inset.
+ * Чтобы не считать клавиатуру дважды (overlap + vv-bottom-inset), вычитаем её из overlap.
+ */
+export function normalizeIosSafariBottomOverlapPx(rawOverlapPx: number, keyboardInsetPx: number): number {
+  if (!Number.isFinite(rawOverlapPx)) return 0
+  if (!Number.isFinite(keyboardInsetPx) || keyboardInsetPx <= 0) return Math.max(0, Math.round(rawOverlapPx))
+  return Math.max(0, Math.round(rawOverlapPx - keyboardInsetPx))
+}
+
 export function readIosSafariVisualBottomOverlapPx(): number {
   if (typeof window === 'undefined') return 0
   const vv = window.visualViewport

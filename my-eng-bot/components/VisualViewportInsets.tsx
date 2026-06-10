@@ -1,7 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import { isIosSafariUserAgent, readIosSafariVisualBottomOverlapPx } from '@/lib/iosSafariViewport'
+import {
+  isIosSafariUserAgent,
+  normalizeIosSafariBottomOverlapPx,
+  readIosSafariVisualBottomOverlapPx,
+} from '@/lib/iosSafariViewport'
 
 function isEditableElement(element: Element | null): boolean {
   if (!(element instanceof HTMLElement)) return false
@@ -90,20 +94,23 @@ export default function VisualViewportInsets() {
     const root = document.documentElement
     let raf = 0
 
-    const applyIosSafariBottomOverlap = () => {
+    const applyIosSafariBottomOverlap = (keyboardInsetPx: number) => {
       if (!isIosSafariUserAgent(navigator.userAgent)) {
         root.style.removeProperty('--ios-safari-vv-bottom-overlap')
         return
       }
-      root.style.setProperty('--ios-safari-vv-bottom-overlap', `${readIosSafariVisualBottomOverlapPx()}px`)
+      const rawOverlapPx = readIosSafariVisualBottomOverlapPx()
+      const normalizedOverlapPx = normalizeIosSafariBottomOverlapPx(rawOverlapPx, keyboardInsetPx)
+      root.style.setProperty('--ios-safari-vv-bottom-overlap', `${normalizedOverlapPx}px`)
     }
 
     const applyInsets = () => {
-      root.style.setProperty('--vv-bottom-inset', `${computeBottomInsetPx()}px`)
+      const bottomInsetPx = computeBottomInsetPx()
+      root.style.setProperty('--vv-bottom-inset', `${bottomInsetPx}px`)
       const sideInsets = computeSideInsetsPx()
       root.style.setProperty('--vv-left-inset', `${sideInsets.left}px`)
       root.style.setProperty('--vv-right-inset', `${sideInsets.right}px`)
-      applyIosSafariBottomOverlap()
+      applyIosSafariBottomOverlap(bottomInsetPx)
     }
 
     const applyIosSafariViewportHeight = () => {
@@ -145,6 +152,8 @@ export default function VisualViewportInsets() {
     // scroll visualViewport на iOS Safari совпадает со скрытием адресной строки;
     // не трогаем --ios-safari-vv-height здесь — иначе корень layout «дёргается» и лента замирает.
     vv?.addEventListener?.('scroll', scheduleApplyInsets, { passive: true })
+    document.addEventListener('focusin', scheduleApplyInsets, true)
+    document.addEventListener('focusout', scheduleApplyInsets, true)
 
     return () => {
       if (raf) window.cancelAnimationFrame(raf)
@@ -153,6 +162,8 @@ export default function VisualViewportInsets() {
       window.removeEventListener('orientationchange', scheduleApplyAll)
       vv?.removeEventListener?.('resize', scheduleApplyAll)
       vv?.removeEventListener?.('scroll', scheduleApplyInsets)
+      document.removeEventListener('focusin', scheduleApplyInsets, true)
+      document.removeEventListener('focusout', scheduleApplyInsets, true)
       root.style.removeProperty('--ios-safari-vv-height')
       root.style.removeProperty('--ios-safari-vv-bottom-overlap')
     }
