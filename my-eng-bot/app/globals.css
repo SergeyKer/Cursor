@@ -1298,25 +1298,49 @@ html[data-ios-webkit-dialog]:not([data-ios-safari-dialog]) .dialog-glass-scroll-
   height: 0;
 }
 
-/* iOS Safari: flex-карточка без height:0 (иначе схлопывается); композер fixed как CriOS. */
+/* iOS Safari: та же цепочка height:0 + absolute scroll, что и CriOS (fixed композер). */
+html[data-ios-safari-dialog] .dialog-scroll-shell {
+  height: 0;
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow: hidden;
+}
+
 html[data-ios-safari-dialog] .dialog-flex-shell {
+  height: 0;
   flex: 1 1 0%;
   min-height: 0;
 }
 
 html[data-ios-safari-dialog] .glass-surface:has(.dialog-composer-dock) {
+  display: flex;
+  flex-direction: column;
+  height: 0;
+  flex: 1 1 0%;
+  min-height: 0;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
-html[data-ios-safari-dialog] .dialog-glass-scroll-host > .lesson-scroll-viewport {
-  position: relative;
+html[data-ios-safari-dialog] .dialog-glass-scroll-host {
   flex: 1 1 0%;
+  min-height: 0;
+  height: 0;
+}
+
+html[data-ios-safari-dialog] .dialog-glass-scroll-host > .lesson-scroll-viewport {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: var(--dialog-scroll-bottom-inset, var(--chat-composer-stack-height, 9rem));
+  flex: none;
+  height: auto !important;
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: calc(0.625rem + var(--chat-composer-stack-height, 9rem)) !important;
-  scroll-padding-bottom: calc(0.625rem + var(--chat-composer-stack-height, 9rem)) !important;
+  padding-bottom: 0.625rem !important;
+  scroll-padding-bottom: 0.625rem !important;
 }
 
 /* iOS Chrome (CriOS): absolute inset ленты внутри in-flow host. */
@@ -1345,7 +1369,7 @@ html[data-ios-safari-dialog] .dialog-composer-dock {
   position: fixed;
   left: 0;
   right: 0;
-  z-index: 56;
+  z-index: 58;
   border-top: none;
   bottom: calc(var(--app-footer-chrome-height) + var(--ios-safari-vv-bottom-overlap, 0px));
   transform: translateY(calc(-1 * var(--vv-bottom-inset, 0px)));

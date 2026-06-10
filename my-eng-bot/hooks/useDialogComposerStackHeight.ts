@@ -17,12 +17,14 @@ function resolveDialogScrollHost(stack: HTMLElement): HTMLElement | null {
   return stack.closest('.dialog-glass-scroll-host') ?? stack.closest('.glass-surface')
 }
 
-function usesIosChromeDialogScrollInset(root: HTMLElement): boolean {
-  return root.hasAttribute('data-ios-webkit-dialog') && !root.hasAttribute('data-ios-safari-dialog')
+function usesFixedDialogComposerScrollInset(root: HTMLElement): boolean {
+  return (
+    root.hasAttribute('data-ios-safari-dialog') || root.hasAttribute('data-ios-webkit-dialog')
+  )
 }
 
 function syncDialogScrollBottomInset(stack: HTMLElement, height: number, root: HTMLElement): void {
-  if (!usesIosChromeDialogScrollInset(root)) {
+  if (!usesFixedDialogComposerScrollInset(root)) {
     root.style.removeProperty('--dialog-scroll-bottom-inset')
     return
   }
@@ -97,7 +99,11 @@ export function useDialogComposerStackHeight(stackRef: RefObject<HTMLElement | n
 
     if (height !== previousHeight) {
       lastHeightRef.current = height
-      if (root.hasAttribute('data-ios-safari-dialog') && previousHeight > 0) {
+      if (
+        root.hasAttribute('data-ios-safari-dialog') &&
+        previousHeight > 0 &&
+        Math.abs(height - previousHeight) >= 12
+      ) {
         const viewport = findLessonFeedScrollViewportFromComposerStack(stack)
         resyncLessonFeedScrollNearTail(viewport, 'auto')
       }
