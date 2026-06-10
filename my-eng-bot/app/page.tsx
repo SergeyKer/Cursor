@@ -6005,6 +6005,18 @@ export default function Home() {
     }
   }, [dialogStarted, isIosSafariClient, isIosWebKitClient, usesIosWebKitViewportHeight])
 
+  useEffect(() => {
+    const root = document.documentElement
+    if (menuOpen && dialogStarted) {
+      root.setAttribute('data-menu-open', '')
+    } else {
+      root.removeAttribute('data-menu-open')
+    }
+    return () => {
+      root.removeAttribute('data-menu-open')
+    }
+  }, [dialogStarted, menuOpen])
+
   return (
     <div
       data-audience={settings.audience}

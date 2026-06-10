@@ -1271,7 +1271,14 @@ html[data-ios-vv-root][data-ios-webkit-dialog] .app-dialog-chrome-footer {
  * iOS Safari: backdrop-filter РЅР° РєР°СЂС‚РѕС‡РєРµ СЃРѕР·РґР°С‘С‚ containing block РґР»СЏ position:fixed.
  * РљРѕРјРїРѕР·РµСЂ СЏРєРѕСЂРёС‚СЃСЏ Рє РєР°СЂС‚РѕС‡РєРµ, Р° РЅРµ Рє viewport вЂ” Р»РµРЅС‚Р° Рё РїР°РЅРµР»СЊ РґРµР№СЃС‚РІРёР№ СЂР°СЃС…РѕРґСЏС‚СЃСЏ.
  */
+html[data-ios-webkit-dialog] .dialog-flex-shell {
+  height: 0;
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
 html[data-ios-webkit-dialog] .glass-surface:has(.dialog-composer-dock) {
+  position: relative;
   height: 0;
   flex: 1 1 0%;
   min-height: 0;
@@ -1279,14 +1286,23 @@ html[data-ios-webkit-dialog] .glass-surface:has(.dialog-composer-dock) {
   -webkit-backdrop-filter: none;
 }
 
-/* iOS WebKit dialog: лента = высота карточки минус fixed-композер (без in-flow spacer). */
+/* iOS WebKit dialog: absolute inset ленты (без calc(100%) — WebKit flex). */
 html[data-ios-webkit-dialog] .lesson-scroll-viewport {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: var(--dialog-scroll-bottom-inset, var(--chat-composer-stack-height, 9rem));
   flex: none;
-  height: calc(100% - var(--chat-composer-stack-height, 9rem));
+  height: auto !important;
   min-height: 0;
   overflow-y: auto;
   padding-bottom: 0.625rem !important;
   scroll-padding-bottom: 0.625rem !important;
+}
+
+html[data-ios-webkit-dialog] .glass-surface:has(.lesson-run-banner) .lesson-scroll-viewport {
+  top: var(--lesson-run-banner-height, 2.75rem);
 }
 
 html[data-ios-webkit-dialog] .lesson-scroll-viewport.lesson-intro-scroll,
@@ -1305,6 +1321,11 @@ html[data-ios-webkit-dialog] .dialog-composer-dock {
   bottom: calc(var(--app-footer-chrome-height) + var(--ios-safari-vv-bottom-overlap, 0px));
   transform: translateY(calc(-1 * var(--vv-bottom-inset, 0px)));
   background: linear-gradient(180deg, var(--chat-wallpaper) 0%, var(--chat-wallpaper-soft) 100%);
+}
+
+html[data-menu-open][data-ios-webkit-dialog] .dialog-composer-dock {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 html[data-ios-vv-root][data-ios-webkit-dialog] .dialog-composer-dock {

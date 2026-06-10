@@ -10,7 +10,7 @@ export default function LessonRunBanner({ text }: LessonRunBannerProps) {
 
   return (
     <div
-      className="shrink-0 border-b border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-2.5 py-2 sm:px-3"
+      className="lesson-run-banner shrink-0 border-b border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-2.5 py-2 sm:px-3"
       role="status"
       aria-live="polite"
     >

@@ -937,7 +937,7 @@ export default function LessonStepRenderer({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
+    <div className="dialog-flex-shell flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
       <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
         <div className="mx-auto flex min-h-0 flex-1 w-full max-w-[29rem] flex-col">
           <div

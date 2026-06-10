@@ -9,14 +9,48 @@ function writeComposerStackHeightPx(height: number): void {
   document.documentElement.style.setProperty('--chat-composer-stack-height', `${height}px`)
 }
 
+function syncDialogScrollBottomInset(stack: HTMLElement, height: number, root: HTMLElement): void {
+  const glass = stack.closest('.glass-surface')
+  if (!glass) {
+    root.style.removeProperty('--dialog-scroll-bottom-inset')
+    return
+  }
+  const glassBottom = glass.getBoundingClientRect().bottom
+  const composerTop = stack.getBoundingClientRect().top
+  const inset = Math.min(height, Math.max(0, Math.round(glassBottom - composerTop)))
+  root.style.setProperty('--dialog-scroll-bottom-inset', `${inset}px`)
+}
+
+function clearDialogComposerMetrics(root: HTMLElement): void {
+  root.style.removeProperty('--chat-composer-stack-height')
+  root.style.removeProperty('--chat-composer-top-from-bottom')
+  root.style.removeProperty('--dialog-scroll-bottom-inset')
+}
+
+function measureAndSyncComposerStack(stack: HTMLElement, root: HTMLElement): {
+  height: number
+  topFromBottom: number
+} {
+  const rect = stack.getBoundingClientRect()
+  const height = Math.max(0, Math.round(rect.height))
+  const vp = window.visualViewport
+  const vpHeight = vp != null ? vp.height : window.innerHeight
+  const topFromBottom = Math.max(0, Math.round(vpHeight - rect.top))
+
+  writeComposerStackHeightPx(height)
+  root.style.setProperty('--chat-composer-top-from-bottom', `${topFromBottom}px`)
+  syncDialogScrollBottomInset(stack, height, root)
+
+  return { height, topFromBottom }
+}
+
 /** iOS WebKit dialog: повторный замер высоты композера после layout (intro/tips, смена чипов). */
 export function resyncIosWebKitDialogComposerStackHeight(stack: HTMLElement | null): () => void {
   if (typeof window === 'undefined' || !stack || !isIosWebKitBrowser(navigator.userAgent)) {
     return () => {}
   }
   return scheduleScrollAfterLayout(() => {
-    const height = Math.max(0, Math.round(stack.getBoundingClientRect().height))
-    writeComposerStackHeightPx(height)
+    measureAndSyncComposerStack(stack, document.documentElement)
   })
 }
 
@@ -38,21 +72,17 @@ export function useDialogComposerStackHeight(stackRef: RefObject<HTMLElement | n
         lastTopFromBottomRef.current = -1
         root.style.removeProperty('--chat-composer-top-from-bottom')
       }
+      root.style.removeProperty('--dialog-scroll-bottom-inset')
       return
     }
-    const rect = stack.getBoundingClientRect()
-    const height = Math.max(0, Math.round(rect.height))
-    const vp = window.visualViewport
-    const vpHeight = vp != null ? vp.height : window.innerHeight
-    const topFromBottom = Math.max(0, Math.round(vpHeight - rect.top))
+
+    const { height, topFromBottom } = measureAndSyncComposerStack(stack, root)
 
     if (height !== lastHeightRef.current) {
       lastHeightRef.current = height
-      writeComposerStackHeightPx(height)
     }
     if (topFromBottom !== lastTopFromBottomRef.current) {
       lastTopFromBottomRef.current = topFromBottom
-      root.style.setProperty('--chat-composer-top-from-bottom', `${topFromBottom}px`)
     }
   }, [stackRef])
 
@@ -76,6 +106,10 @@ export function useDialogComposerStackHeight(stackRef: RefObject<HTMLElement | n
 
     const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(scheduleSync) : null
     observer?.observe(stack)
+    const glass = stack.closest('.glass-surface')
+    if (glass && observer) {
+      observer.observe(glass)
+    }
 
     window.addEventListener('resize', scheduleSync, { passive: true })
     window.addEventListener('orientationchange', scheduleSync, { passive: true })
@@ -88,8 +122,7 @@ export function useDialogComposerStackHeight(stackRef: RefObject<HTMLElement | n
       window.removeEventListener('resize', scheduleSync)
       window.removeEventListener('orientationchange', scheduleSync)
       vv?.removeEventListener('resize', scheduleSync)
-      document.documentElement.style.removeProperty('--chat-composer-stack-height')
-      document.documentElement.style.removeProperty('--chat-composer-top-from-bottom')
+      clearDialogComposerMetrics(document.documentElement)
       lastHeightRef.current = 0
       lastTopFromBottomRef.current = -1
     }
