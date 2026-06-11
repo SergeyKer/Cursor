@@ -54,9 +54,9 @@ import {
   resolvePuzzleFeedMessagesStackClass,
   resolveRelaxFeedTailPin,
   resolveScrollBottomPadding,
-  followLessonFeedTail,
-  followLessonFeedTailWithComplete,
   scrollLessonFeedToMax,
+  scrollLessonFeedToModeIfNeeded,
+  scrollLessonFeedToModeWithCompleteIfNeeded,
   shouldMtAutoPinPuzzleCheckingRow,
   shouldPinLessonFeedTailNearComposer,
 } from '@/lib/lessonFeedScroll'
@@ -276,14 +276,12 @@ export default function LessonStepRenderer({
     useFeedScrollToMax,
     relaxFeedTailPin,
   })
-  const puzzleFeedStackClass = isSentencePuzzle
+  const feedMessagesStackClass = isSentencePuzzle
     ? resolvePuzzleFeedMessagesStackClass({
         pinFeedTailNearComposer,
         isFeedOverflowing: isPuzzleFeedOverflowing,
       })
-    : pinFeedTailNearComposer
-      ? 'flex min-h-full flex-col justify-end'
-      : undefined
+    : undefined
   const isChoiceDrivenStep = shouldRenderChoiceChips || hasPostLessonOptions || isSentencePuzzle
   const isTextInputAvailable = Boolean(exercise) && !hasPostLessonOptions && !shouldRenderChoiceChips && !isSentencePuzzle
   const revealSourceBubbles = useMemo(() => {
@@ -666,7 +664,7 @@ export default function LessonStepRenderer({
       return scheduleScroll((scrollBehavior) => {
         const scrollContainer = scrollContainerRef.current
         if (!scrollContainer) return
-        followLessonFeedTail(scrollContainer, { mode, behavior: scrollBehavior })
+        scrollLessonFeedToModeIfNeeded(scrollContainer, mode, scrollBehavior)
       }, behavior)
     },
     [relaxFeedTailPin, scheduleScroll, useFeedScrollToMax]
@@ -704,11 +702,12 @@ export default function LessonStepRenderer({
         onShellScrollComplete()
         return
       }
-      cleanupScrollComplete = followLessonFeedTailWithComplete(scrollContainer, {
+      cleanupScrollComplete = scrollLessonFeedToModeWithCompleteIfNeeded(
+        scrollContainer,
         mode,
-        behavior: scrollBehavior,
-        onComplete: onShellScrollComplete,
-      })
+        scrollBehavior,
+        onShellScrollComplete
+      )
     }, behavior)
 
     return () => {
@@ -975,7 +974,7 @@ export default function LessonStepRenderer({
                   : undefined
               }
             >
-              <div ref={messagesStackRef} className={puzzleFeedStackClass}>
+              <div ref={messagesStackRef} className={feedMessagesStackClass}>
                 {lessonMessages.map((message, index) => {
                   const previousRole = lessonMessages[index - 1]?.role as BubbleRole | undefined
                   const nextRole = lessonMessages[index + 1]?.role as BubbleRole | undefined
