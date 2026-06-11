@@ -25,6 +25,7 @@ const COMBO_MILESTONES = [
 ] as const
 import {
   buildLessonAdvanceMessage,
+  buildLessonNextPuzzleSubMessage,
   buildLessonNextVariantMessage,
   getLessonRepeatFooterMessage,
   getVariantInfo,
@@ -645,13 +646,13 @@ export function useLessonEngine(lesson: LessonData | null) {
             submittedAnswer: string
             type: 'success'
             attempts: number
-            successText?: string
           }
     ) => {
       if (!lesson || !rawStep?.exercise || rawStep.exercise.type !== 'sentence_puzzle') return
 
       const submittedAnswer = params.submittedAnswer.trim()
       beginLessonCheckingPhase(submittedAnswer, () => {
+        const puzzleSubTotal = rawStep.exercise?.puzzleVariants?.length ?? 0
         const message =
           params.type === 'error'
             ? resolvePuzzleAttemptChatMessage({
@@ -661,7 +662,10 @@ export function useLessonEngine(lesson: LessonData | null) {
                 wordCount: params.wordCount,
                 correctAnswer: params.correctAnswer,
               })
-            : params.successText?.trim() || 'Верно.'
+            : buildLessonNextPuzzleSubMessage({
+                nextSubIndex: params.subIndex + 1,
+                subTotal: puzzleSubTotal,
+              })
 
         const attemptFeedback = {
           type: params.type,
@@ -833,7 +837,7 @@ export function useLessonEngine(lesson: LessonData | null) {
               emphasis: 'pulse',
             }
           : null,
-        feedback?.type === 'error'
+        feedback?.type === 'error' && !activeExercise?.hint?.trim()
           ? {
               key: exerciseErrors >= 2 ? 'lesson-error-support-strong' : 'lesson-error-support',
               priority: 95,
@@ -963,6 +967,7 @@ export function useLessonEngine(lesson: LessonData | null) {
       emphasis: voice?.emphasis ?? 'none',
     }
   }, [
+    activeExercise?.hint,
     combo,
     isAdvancingToNextStep,
     isAdvancingToNextVariant,

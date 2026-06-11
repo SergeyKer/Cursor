@@ -6559,12 +6559,11 @@ export default function Home() {
                   onPuzzleAttemptFailed={(params) =>
                     recordStructuredLessonPuzzleAttempt({ ...params, type: 'error' })
                   }
-                  onPuzzleSubSuccess={({ subIndex, attempts, submittedAnswer, successText }) =>
+                  onPuzzleSubSuccess={({ subIndex, attempts, submittedAnswer }) =>
                     recordStructuredLessonPuzzleAttempt({
                       subIndex,
                       attempts,
                       submittedAnswer,
-                      successText,
                       type: 'success',
                     })
                   }

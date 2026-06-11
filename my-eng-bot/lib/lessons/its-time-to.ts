@@ -307,7 +307,7 @@ function buildItsTimePuzzleVariant(id: string, title: string, answer: string): S
     correctOrder,
     correctAnswer: answer,
     successText: `Верно! ${answer}`,
-    errorText: 'Порядок неверный. Попробуйте ещё раз.',
+    errorText: 'Начни с It\'s, потом прилагательное или time to + глагол.',
     hintText: buildPuzzleVariantHintText(correctOrder),
     hintFirstWord: correctOrder[0],
     myEngComment: 'Отлично. Берём следующий вариант.',
@@ -343,7 +343,7 @@ function buildItsTimeStep7Variants(variant: ItsTimeVariant) {
       frameEn: "It's ___.",
       correctWord: variant.adjective,
       distractors: stateDistractors,
-      hint: 'Ситуация описывает состояние — одно прилагательное.',
+      hint: 'Состояние в задании — одно прилагательное после It\'s.',
     },
     {
       id: `${variant.id}_step7_medium`,
@@ -352,7 +352,7 @@ function buildItsTimeStep7Variants(variant: ItsTimeVariant) {
       frameEn: `It's time ___ ${variant.finalVerbBase}.`,
       correctWord: 'to',
       distractors: ['for', 'at'],
-      hint: 'Перед глаголом в шаблоне «пора + действие» нужна короткая частица.',
+      hint: 'Между time и глаголом нужно to, не for и не at.',
     },
     {
       id: `${variant.id}_step7_hard`,
@@ -394,7 +394,7 @@ function buildItsTimeStep6Variants(variant: ItsTimeVariant) {
       question: `Переведите на английский: ${normalizeRuPromptLabel(variant.step6CreativeRu)}`,
       correctAnswer: creativeSentence,
       acceptedAnswers: [creativeSentence, creativeSentence.replace("It's", 'It is')],
-      hint: 'Тот же шаблон time to, но другое действие после to.',
+      hint: 'It is time to + глагол из новой ситуации в начальной форме.',
     },
   ])
 }
@@ -459,7 +459,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
       id: `${variant.id}_step3_medium`,
       question: `Переведите на английский: "Сейчас ${variant.step3StateRu.toLowerCase()}, поэтому пора что-то сделать." - "It's ${variant.step3Adjective}. It is time to ___ ${variant.step3Object}."`,
       correctAnswer: variant.step3Verb,
-      hint: 'Смысл тот же, но ситуация переформулирована: нужен базовый глагол после "to".',
+      hint: '«Пора» — time to. После to — глагол в начальной форме, одно слово.',
       difficulty: 'medium' as const,
       answerFormat: 'single_word' as const,
       answerPolicy: 'strict' as const,
@@ -468,7 +468,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
       id: `${variant.id}_step3_hard`,
       question: `Переведите на английский: "${variant.step3HardRu}." - "It's ${variant.step3Adjective}. It is time to ___ ${variant.step3Object}."`,
       correctAnswer: variant.step3Verb,
-      hint: 'Опирайтесь на смысл действия: после "to" нужна начальная форма глагола.',
+      hint: 'Прочитай действие в задании. После to — глагол без -s и без -ing.',
       difficulty: 'hard' as const,
       answerFormat: 'single_word' as const,
       answerPolicy: 'strict' as const,

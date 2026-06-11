@@ -1,4 +1,10 @@
 import type { FooterVoiceCandidate } from '@/lib/footerVoice'
+import {
+  CHIP_PANEL_DEFAULT_WIDTH_PX,
+  estimateFlexChipBlockMinHeightFromItems,
+  PUZZLE_WORD_BANK_ROW_GAP_PX,
+  resolveFlexChipHeightPx,
+} from '@/lib/chipFlexLayout'
 
 export const DEFAULT_PUZZLE_ERROR_TEXT = 'Порядок неверный. Попробуйте ещё раз.'
 
@@ -42,65 +48,79 @@ export function resolvePuzzleAttemptChatMessage(params: {
   return errorText
 }
 
-export function shouldCaptureBankBaseline(params: {
-  selectedCount: number
-  availableCount: number
-  fullCount: number
-}): boolean {
-  return params.selectedCount === 0 && params.availableCount === params.fullCount && params.fullCount > 0
-}
+export const PUZZLE_WORD_CHIP_HEIGHT_PX = resolveFlexChipHeightPx('puzzle')
+export { PUZZLE_WORD_BANK_ROW_GAP_PX }
 
-export const PUZZLE_WORD_CHIP_HEIGHT_PX = 36
-export const PUZZLE_WORD_BANK_ROW_GAP_PX = 6
-
-/** До замера ResizeObserver в LessonStepRenderer — панель пазла выше обычного композера. */
+/** До замера ResizeObserver — верхняя граница панели пазла. */
 export const PUZZLE_BOTTOM_STACK_FALLBACK = '18rem'
 
-/** Вертикальные части LessonSentencePuzzle (px), без word bank. */
 const PUZZLE_PANEL_SECTION_PADDING_Y_PX = 16
 const PUZZLE_PANEL_HEADER_BLOCK_PX = 34
 const PUZZLE_PANEL_INSTRUCTION_BLOCK_PX = 28
-const PUZZLE_PANEL_SLOTS_BLOCK_PX = 44
+const PUZZLE_PANEL_SLOT_ROW_GAP_PX = 6
 const PUZZLE_PANEL_CHECK_BUTTON_PX = 40
 const PUZZLE_PANEL_WORD_BANK_MARGIN_PX = 8
+const PUZZLE_SM_BREAKPOINT_PX = 640
 
-/** Сколько чипов помещается в один ряд на узкой панели (3 коротких слова — одна строка). */
-export function resolvePuzzleWordsPerRow(wordCount: number): number {
-  if (wordCount <= 1) return 1
-  if (wordCount <= 4) return wordCount
-  return 2
+export function resolvePuzzleSlotColumns(
+  slotCount: number,
+  containerWidthPx = CHIP_PANEL_DEFAULT_WIDTH_PX
+): number {
+  if (slotCount <= 3) return 3
+  if (slotCount <= 4) return 4
+  return containerWidthPx >= PUZZLE_SM_BREAKPOINT_PX ? 4 : 2
 }
 
-export function estimatePuzzleWordBankMinHeight(fullCount: number, wordsPerRow?: number): number {
-  if (fullCount <= 0) return 0
-  const columns = Math.max(1, wordsPerRow ?? resolvePuzzleWordsPerRow(fullCount))
-  const rows = Math.ceil(fullCount / columns)
-  return rows * PUZZLE_WORD_CHIP_HEIGHT_PX + Math.max(0, rows - 1) * PUZZLE_WORD_BANK_ROW_GAP_PX
+export function estimatePuzzleSlotBlockMinHeight(
+  slotCount: number,
+  containerWidthPx = CHIP_PANEL_DEFAULT_WIDTH_PX
+): number {
+  if (slotCount <= 0) return 0
+  const columns = resolvePuzzleSlotColumns(slotCount, containerWidthPx)
+  const rows = Math.ceil(slotCount / columns)
+  return rows * PUZZLE_WORD_CHIP_HEIGHT_PX + Math.max(0, rows - 1) * PUZZLE_PANEL_SLOT_ROW_GAP_PX
 }
 
-export function resolvePuzzleWordBankHeight(params: {
-  fullCount: number
-  measuredHeight?: number
-  wordsPerRow?: number
+export function estimatePuzzleWordBankMinHeight(
+  words: string[],
+  containerWidthPx = CHIP_PANEL_DEFAULT_WIDTH_PX
+): number {
+  return estimateFlexChipBlockMinHeightFromItems({
+    items: words,
+    style: 'puzzle',
+    containerWidthPx,
+    gapPx: PUZZLE_WORD_BANK_ROW_GAP_PX,
+  })
+}
+
+export function estimatePuzzlePanelMinHeight(params: {
+  words: string[]
+  hasInstruction?: boolean
+  containerWidthPx?: number
 }): number {
-  const estimated = estimatePuzzleWordBankMinHeight(params.fullCount, params.wordsPerRow)
-  const measured = params.measuredHeight ?? 0
-  return Math.max(estimated, measured)
+  const containerWidthPx = params.containerWidthPx ?? CHIP_PANEL_DEFAULT_WIDTH_PX
+  const wordCount = params.words.length
+  const wordBankHeight = estimatePuzzleWordBankMinHeight(params.words, containerWidthPx)
+
+  return (
+    PUZZLE_PANEL_SECTION_PADDING_Y_PX +
+    PUZZLE_PANEL_HEADER_BLOCK_PX +
+    (params.hasInstruction ? PUZZLE_PANEL_INSTRUCTION_BLOCK_PX : 0) +
+    estimatePuzzleSlotBlockMinHeight(wordCount, containerWidthPx) +
+    PUZZLE_PANEL_WORD_BANK_MARGIN_PX +
+    wordBankHeight +
+    PUZZLE_PANEL_CHECK_BUTTON_PX
+  )
 }
 
-/** Стабильный minHeight банка на весь подшаг (полный банк, без схлопывания при пустом банке). */
-export function resolveActivePuzzleWordBankMinHeight(params: {
-  fullWordCount: number
-  measuredHeight?: number
-}): number {
-  if (params.fullWordCount <= 0) return 0
-  const measured = params.measuredHeight ?? 0
-  if (measured > 0) return measured
-  return estimatePuzzleWordBankMinHeight(params.fullWordCount)
-}
-
-export function shouldResetBankBaseline(prevVariantId: string, nextVariantId: string): boolean {
-  return prevVariantId !== nextVariantId
+/** @deprecated Используйте estimatePuzzlePanelMinHeight с массивом слов. */
+export function estimatePuzzleBottomStackMinHeight(wordCount = 4, containerWidthPx?: number): number {
+  const words = Array.from({ length: wordCount }, (_, index) => `word${index + 1}`)
+  return estimatePuzzlePanelMinHeight({
+    words,
+    hasInstruction: true,
+    containerWidthPx,
+  })
 }
 
 /** Подсказка в футере: заголовок текущего подпазла (укладывается в лимит строки). */
@@ -119,17 +139,4 @@ export function buildPuzzleFooterVoiceCandidate(params: {
     compactText: title,
     tone: 'hint',
   }
-}
-
-export function estimatePuzzleBottomStackMinHeight(wordCount = 4, wordsPerRow?: number): number {
-  const wordBankHeight = estimatePuzzleWordBankMinHeight(wordCount, wordsPerRow)
-  return (
-    PUZZLE_PANEL_SECTION_PADDING_Y_PX +
-    PUZZLE_PANEL_HEADER_BLOCK_PX +
-    PUZZLE_PANEL_INSTRUCTION_BLOCK_PX +
-    PUZZLE_PANEL_SLOTS_BLOCK_PX +
-    PUZZLE_PANEL_WORD_BANK_MARGIN_PX +
-    wordBankHeight +
-    PUZZLE_PANEL_CHECK_BUTTON_PX
-  )
 }

@@ -67,6 +67,116 @@ export function createLessonRunKey(): string {
   return `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+const GENERIC_HINT_MARKERS = [
+  'попробуйте еще раз',
+  'попробуйте ещё раз',
+  'порядок неверный',
+  'обычный порядок слов',
+  'внутри второй части',
+  'во второй части',
+  'второй части',
+] as const
+
+const HINT_ANCHOR_MARKERS = [
+  'когда',
+  'где',
+  'что',
+  'чего',
+  'кто',
+  'when',
+  'where',
+  'what',
+  'who',
+  'from',
+  'likes',
+  'like',
+  'starts',
+  'start',
+  'is',
+  'are',
+  'to',
+  '-s',
+  '«',
+] as const
+
+export function collectExerciseHintTexts(exercise: GeneratedExercisePayload | Exercise | undefined): string[] {
+  if (!exercise) return []
+  const hints: string[] = []
+  if (typeof exercise.hint === 'string' && exercise.hint.trim()) {
+    hints.push(exercise.hint.trim())
+  }
+  if (Array.isArray(exercise.variants)) {
+    for (const variant of exercise.variants) {
+      const item = variant as { hint?: unknown }
+      if (typeof item.hint === 'string' && item.hint.trim()) {
+        hints.push(item.hint.trim())
+      }
+    }
+  }
+  if (Array.isArray(exercise.puzzleVariants)) {
+    for (const variant of exercise.puzzleVariants) {
+      const item = variant as { errorText?: unknown; hintText?: unknown }
+      if (typeof item.errorText === 'string' && item.errorText.trim()) {
+        hints.push(item.errorText.trim())
+      }
+      if (typeof item.hintText === 'string' && item.hintText.trim()) {
+        hints.push(item.hintText.trim())
+      }
+    }
+  }
+  return hints
+}
+
+export function isGenericLessonHint(hint: string): boolean {
+  const trimmed = hint.trim()
+  if (!trimmed) return true
+  if (/^порядок\s+неверный/i.test(trimmed)) return true
+  if (/^почти\.?\s*попробуйте/i.test(trimmed)) return true
+
+  const normalized = normalizeForSemanticCheck(trimmed)
+  const hasAnchor = HINT_ANCHOR_MARKERS.some((marker) =>
+    normalized.includes(normalizeForSemanticCheck(marker))
+  )
+  const hasGenericMarker = GENERIC_HINT_MARKERS.some((marker) =>
+    normalized.includes(normalizeForSemanticCheck(marker))
+  )
+
+  if (hasGenericMarker && !hasAnchor) return true
+  if (
+    (normalized.includes('второй части') || normalized.includes('внутри второй')) &&
+    !hasAnchor
+  ) {
+    return true
+  }
+
+  return false
+}
+
+export function buildStructuredHintAuthoringRules(audience: Audience = 'adult'): string {
+  const childLines =
+    audience === 'child'
+      ? [
+          'Для детской аудитории: не используй «подлежащее», «инверсия», «вторая часть» — пиши «сначала …, потом …».',
+        ]
+      : []
+
+  return [
+    'Правила для hint, errorText и hintText при ошибке:',
+    '1–2 коротких предложения, простой русский.',
+    'Привязывай hint к заданию: если в question есть «когда», «где», «что» — назови английский эквивалент (when, where, what).',
+    'Объясняй одну главную ось ошибки именно этого задания, а не всё правило урока целиком.',
+    'Не упоминай грамматику, которой нет в задании (например, «не нужен do», если ученик мог перепутать when/where).',
+    'Не пиши только «обычный порядок слов» или «во второй части» без конкретики, что менять.',
+    'Для translate: прочитай русскую фразу в question и назови ключевые слова в hint.',
+    'Для fill_choice: объясни, чем правильный вариант отличается от distractors по смыслу шага.',
+    'Для fill_text и gap: какая форма слова нужна и почему (likes vs like, is vs are).',
+    'Для sentence_puzzle: errorText не должен быть только «Порядок неверный» — добавь учебную ось в одну фразу.',
+    'Можно назвать 1–2 английских слова-якоря, но не полный correctAnswer.',
+    'У каждого exercise.variants[i] должен быть свой hint, согласованный с question этого variant.',
+    ...childLines,
+  ].join('\n')
+}
+
 export function cloneLessonWithNewRunKey(lesson: LessonData): LessonData {
   return {
     ...lesson,
@@ -742,17 +852,23 @@ function validateGeneratedStepSemantics(
     ? collectTranslateExpectedAnswers(mergedTranslateExercise)
     : []
 
-  if (hint && translateExpectedAnswers.length > 0 && sourceStep.exercise?.type === 'translate') {
-    const hintRevealsTranslateAnswer =
-      englishPhrasesCollideWithAnswers([hint], translateExpectedAnswers) ||
-      translateExpectedAnswers.some((answer) =>
-        normalizeForPolicyCheck(hint).includes(normalizeForPolicyCheck(answer))
-      )
-    if (hintRevealsTranslateAnswer) {
+  const exerciseHints = collectExerciseHintTexts(candidateStep.exercise)
+  for (const exerciseHint of exerciseHints) {
+    if (translateExpectedAnswers.length > 0 && sourceStep.exercise?.type === 'translate') {
+      const hintRevealsTranslateAnswer =
+        englishPhrasesCollideWithAnswers([exerciseHint], translateExpectedAnswers) ||
+        translateExpectedAnswers.some((answer) =>
+          normalizeForPolicyCheck(exerciseHint).includes(normalizeForPolicyCheck(answer))
+        )
+      if (hintRevealsTranslateAnswer) {
+        issues.push(issue('hard', 'hint_reveals_answer', 'Hint не должен раскрывать правильный ответ напрямую.', sourceStep.stepNumber))
+      }
+    } else if (correctAnswer && normalizeForPolicyCheck(exerciseHint).includes(normalizeForPolicyCheck(correctAnswer))) {
       issues.push(issue('hard', 'hint_reveals_answer', 'Hint не должен раскрывать правильный ответ напрямую.', sourceStep.stepNumber))
     }
-  } else if (hint && correctAnswer && normalizeForPolicyCheck(hint).includes(normalizeForPolicyCheck(correctAnswer))) {
-    issues.push(issue('hard', 'hint_reveals_answer', 'Hint не должен раскрывать правильный ответ напрямую.', sourceStep.stepNumber))
+    if (isGenericLessonHint(exerciseHint)) {
+      issues.push(issue('soft', 'hint_too_generic', 'Hint слишком общий и не объясняет конкретную ошибку задания.', sourceStep.stepNumber))
+    }
   }
 
   if (sourceStep.exercise?.type === 'translate' && mergedTranslateExercise) {
@@ -974,13 +1090,19 @@ function validateGeneratedStepSemantics(
       }
     }
   }
-  if (expectations?.hintShouldMention?.length && hint) {
-    maxScore += 1
-    const hintText = normalizeForSemanticCheck(hint)
-    if (expectations.hintShouldMention.some((part) => hintText.includes(normalizeForSemanticCheck(part)))) {
-      score += 1
-    } else {
-      issues.push(issue('soft', 'hint_not_instructional_enough', 'Hint слабо поддерживает учебную цель шага.', sourceStep.stepNumber))
+  if (expectations?.hintShouldMention?.length) {
+    const hintsToCheck = exerciseHints.length > 0 ? exerciseHints : hint ? [hint] : []
+    if (hintsToCheck.length > 0) {
+      maxScore += 1
+      const anyHintMatches = hintsToCheck.some((exerciseHint) => {
+        const hintText = normalizeForSemanticCheck(exerciseHint)
+        return expectations.hintShouldMention!.some((part) => hintText.includes(normalizeForSemanticCheck(part)))
+      })
+      if (anyHintMatches) {
+        score += 1
+      } else {
+        issues.push(issue('soft', 'hint_not_instructional_enough', 'Hint слабо поддерживает учебную цель шага.', sourceStep.stepNumber))
+      }
     }
   }
   if (expectations?.pedagogicalRole === 'explain_rule') {
@@ -1258,7 +1380,7 @@ export function buildLessonFromGeneratedSteps(sourceLesson: LessonData, generate
   }
 }
 
-export function buildStructuredCreationSystemPrompt(): string {
+export function buildStructuredCreationSystemPrompt(audience: Audience = 'adult'): string {
   return [
     'Ты методист MyEng и создаёшь structured lesson для изучения английского.',
     'Верни ТОЛЬКО JSON без пояснений и markdown.',
@@ -1297,6 +1419,7 @@ export function buildStructuredCreationSystemPrompt(): string {
     'Категорически запрещено писать correctAnswer или его готовую английскую формулировку в bubbles типа positive/info, в hint и в пояснениях.',
     'Не делай hints слишком широкими и не раскрывай ответ напрямую.',
     'Если нужен один допустимый ответ, не добавляй лишние acceptedAnswers.',
+    buildStructuredHintAuthoringRules(audience),
     'Для каждого шага верни:',
     '{',
     '  "stepNumber": 1,',
@@ -1332,7 +1455,7 @@ export function buildStructuredVariantDiversifyInstruction(): string {
   ].join(' ')
 }
 
-export function buildStructuredRepeatSystemPrompt(): string {
+export function buildStructuredRepeatSystemPrompt(audience: Audience = 'adult'): string {
   return [
     'Ты методист MyEng и генерируешь новый повтор уже существующего structured-урока.',
     'Верни ТОЛЬКО JSON без пояснений и markdown.',
@@ -1371,6 +1494,7 @@ export function buildStructuredRepeatSystemPrompt(): string {
     'Категорически запрещено писать correctAnswer или его готовую английскую формулировку в bubbles типа positive/info, в hint и в пояснениях.',
     'Не делай hints слишком широкими и не раскрывай ответ напрямую.',
     'Если нужен один допустимый ответ, не добавляй лишние acceptedAnswers.',
+    buildStructuredHintAuthoringRules(audience),
     'Формат ответа верхнего уровня: {"steps":[...]}',
   ].join('\n')
 }
@@ -1406,9 +1530,14 @@ export function buildLessonRepairUserMessage(params: {
   }
   if (issues.length > 0) {
     lines.push('Исправь следующие проблемы:')
-    for (const issue of issues) {
-      const stepLabel = issue.stepNumber === null ? 'lesson' : `step ${issue.stepNumber}`
-      lines.push(`- [${issue.severity}] ${stepLabel} ${issue.code}: ${issue.message}`)
+    for (const issueItem of issues) {
+      const stepLabel = issueItem.stepNumber === null ? 'lesson' : `step ${issueItem.stepNumber}`
+      lines.push(`- [${issueItem.severity}] ${stepLabel} ${issueItem.code}: ${issueItem.message}`)
+    }
+    if (issues.some((issueItem) => issueItem.code === 'hint_not_instructional_enough' || issueItem.code === 'hint_too_generic')) {
+      lines.push(
+        'Для hint: привяжи текст к русским словам задания (когда→when, где→where) и объясни одну конкретную ошибку. Пример: «В задании «когда» — это when, не where. После they — start, без -s.»'
+      )
     }
   }
   return lines.join('\n')

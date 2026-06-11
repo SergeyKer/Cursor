@@ -1,11 +1,7 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Exercise, SentencePuzzleVariant } from '@/types/lesson'
-import {
-  shouldCaptureBankBaseline,
-  resolveActivePuzzleWordBankMinHeight,
-} from '@/lib/puzzlePanelLayout'
 import { LESSON_PUZZLE_COMPLETE_MESSAGE } from '@/utils/footerMessages'
 
 type LessonSentencePuzzleProps = {
@@ -33,7 +29,6 @@ type LessonSentencePuzzleProps = {
     subIndex: number
     attempts: number
     submittedAnswer: string
-    successText: string
     isLastVariant: boolean
   }) => void
   onInteraction?: () => void
@@ -127,11 +122,8 @@ export default function LessonSentencePuzzle({
   const [selectedWords, setSelectedWords] = useState<string[]>([])
   const [attempts, setAttempts] = useState(0)
   const [locked, setLocked] = useState(false)
-  const [measuredBankHeight, setMeasuredBankHeight] = useState<number | undefined>()
-  const wordBankRef = useRef<HTMLDivElement>(null)
 
   const activeVariant = variants[variantIndex]
-  const fullWordCount = activeVariant ? getVariantWords(activeVariant).length : 0
   const availableWords = useMemo(() => {
     if (!activeVariant) return []
     const selectedCounts = new Map<string, number>()
@@ -146,47 +138,6 @@ export default function LessonSentencePuzzle({
       return false
     })
   }, [activeVariant, selectedWords])
-
-  const lockedBankHeight = useMemo(
-    () =>
-      resolveActivePuzzleWordBankMinHeight({
-        fullWordCount,
-        measuredHeight: measuredBankHeight,
-      }),
-    [fullWordCount, measuredBankHeight]
-  )
-
-  useEffect(() => {
-    setMeasuredBankHeight(undefined)
-  }, [activeVariant?.id, progressKey])
-
-  useLayoutEffect(() => {
-    if (!activeVariant || fullWordCount <= 0) return
-    const node = wordBankRef.current
-    if (!node) return
-
-    const measure = () => {
-      const nextHeight = node.getBoundingClientRect().height
-      if (nextHeight > 0) {
-        setMeasuredBankHeight((current) => (current == null ? nextHeight : Math.max(current, nextHeight)))
-      }
-    }
-
-    if (
-      shouldCaptureBankBaseline({
-        selectedCount: selectedWords.length,
-        availableCount: availableWords.length,
-        fullCount: fullWordCount,
-      })
-    ) {
-      measure()
-      return
-    }
-
-    if (availableWords.length === fullWordCount) {
-      measure()
-    }
-  }, [activeVariant, availableWords.length, fullWordCount, selectedWords.length])
 
   useEffect(() => {
     const stored = readStoredProgress(progressKey, variants.length)
@@ -280,7 +231,6 @@ export default function LessonSentencePuzzle({
       subIndex: variantIndex,
       attempts,
       submittedAnswer,
-      successText: activeVariant.successText,
       isLastVariant: false,
     })
   }
@@ -332,12 +282,7 @@ export default function LessonSentencePuzzle({
         })}
       </div>
 
-      <div
-        ref={wordBankRef}
-        className="mb-2 flex flex-wrap content-start gap-1.5"
-        style={lockedBankHeight > 0 ? { minHeight: lockedBankHeight } : undefined}
-        aria-label="Доступные слова"
-      >
+      <div className="mb-2 flex flex-wrap content-start gap-1.5" aria-label="Доступные слова">
         {availableWords.map((word, index) => (
           <button
             key={`${activeVariant.id}-${word}-${index}`}

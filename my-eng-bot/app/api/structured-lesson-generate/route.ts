@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
   }
 
   const system = [
-    buildStructuredCreationSystemPrompt(),
+    buildStructuredCreationSystemPrompt(audience),
     buildStructuredVariantDiversifyInstruction(),
     buildStructuredLessonCefrPrompt({ lesson, audience }),
   ]

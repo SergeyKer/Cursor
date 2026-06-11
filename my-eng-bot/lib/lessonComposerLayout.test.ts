@@ -157,4 +157,15 @@ describe('estimateLessonComposerMinHeight', () => {
 
     expect(postLessonHeight).toBeGreaterThan(medalHeight)
   })
+
+  it('puzzle panel uses width-aware estimate for short sentences', () => {
+    const puzzleHeight = estimateLessonComposerMinHeight({
+      panelKind: 'puzzle',
+      puzzleWords: ['I', 'know', 'what', 'she', 'likes'],
+      puzzleHasInstruction: true,
+      compact: true,
+    })
+    expect(puzzleHeight).toBeGreaterThan(100)
+    expect(puzzleHeight).toBeLessThan(320)
+  })
 })

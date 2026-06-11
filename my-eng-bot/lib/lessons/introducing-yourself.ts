@@ -385,7 +385,7 @@ function buildSelfIntroPuzzleVariant(id: string, title: string, answer: string):
     correctOrder,
     correctAnswer: answer,
     successText: `Верно! ${answer}`,
-    errorText: 'Порядок неверный. Попробуйте ещё раз.',
+    errorText: 'Начни с I\'m или I am, потом слово про настроение, страну или роль.',
     hintText: buildPuzzleVariantHintText(correctOrder),
     hintFirstWord: correctOrder[0],
     myEngComment: 'Отлично. Берём следующий вариант.',
@@ -412,7 +412,7 @@ function buildSelfIntroStep7Variants(variant: SelfIntroVariant) {
       frameEn: "I'm ___.",
       correctWord: variant.feelingAdj,
       distractors: moodDistractors,
-      hint: 'Ситуация про чувство — нужно прилагательное настроения.',
+      hint: 'Чувство в задании — прилагательное после I\'m.',
     },
     {
       id: `${variant.id}_step7_medium`,
@@ -421,7 +421,7 @@ function buildSelfIntroStep7Variants(variant: SelfIntroVariant) {
       frameEn: "I'm from ___.",
       correctWord: variant.step6CreativeCountry,
       distractors: pickStep7CountryDistractors(variant.step6CreativeCountry),
-      hint: 'Новая страна в анкете — одно слово после from.',
+      hint: 'Страна из задания — одно слово после from.',
     },
     {
       id: `${variant.id}_step7_hard`,
@@ -466,7 +466,7 @@ function buildSelfIntroStep6Variants(variant: SelfIntroVariant) {
       question: `Переведите на английский: ${normalizeRuPromptLabel(variant.step6CreativeRu)}`,
       correctAnswer: creativeSentence,
       acceptedAnswers: creativeAccepted,
-      hint: 'Тот же шаблон про страну, но другое название после from.',
+      hint: 'I\'m from + страна из новой ситуации, одним словом.',
     },
   ])
 }
@@ -531,7 +531,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       id: `${variant.id}_step3_medium`,
       question: `Переведите на английский: "${variant.step3MediumRu}." - "${variant.step3HintEn}"`,
       correctAnswer: variant.step3FillWord,
-      hint: 'Снова одно слово — страна по-английски.',
+      hint: '«Из …» — from. Одно слово: страна по-английски.',
       difficulty: 'medium' as const,
       answerFormat: 'single_word' as const,
       answerPolicy: 'strict' as const,

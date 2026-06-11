@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
   }
 
   const system = [
-    buildStructuredRepeatSystemPrompt(),
+    buildStructuredRepeatSystemPrompt(audience),
     buildStructuredVariantDiversifyInstruction(),
     buildStructuredLessonCefrPrompt({ lesson, audience }),
   ].join('\n\n')

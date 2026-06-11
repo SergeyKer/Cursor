@@ -11,6 +11,8 @@ type UseLessonComposerHeightLockParams = {
   transitionKey: string | null
   panelKind: LessonComposerPanelKind
   optionCount: number
+  puzzleWords?: string[]
+  puzzleHasInstruction?: boolean
   compact: boolean
   /** Только шаги с чипами: не трогаем text/puzzle/translate композер. */
   enabled: boolean
@@ -22,6 +24,8 @@ export function useLessonComposerHeightLock({
   transitionKey,
   panelKind,
   optionCount,
+  puzzleWords,
+  puzzleHasInstruction,
   compact,
   enabled,
   lockReleased,
@@ -55,11 +59,22 @@ export function useLessonComposerHeightLock({
     const incoming = estimateLessonComposerMinHeight({
       panelKind,
       optionCount,
+      puzzleWords,
+      puzzleHasInstruction,
       compact,
     })
     const nextLock = Math.max(lastOutgoingHeightRef.current, incoming)
     setLockedMinHeight(nextLock > 0 ? nextLock : undefined)
-  }, [compact, enabled, measureStack, optionCount, panelKind, transitionKey])
+  }, [
+    compact,
+    enabled,
+    measureStack,
+    optionCount,
+    panelKind,
+    puzzleHasInstruction,
+    puzzleWords,
+    transitionKey,
+  ])
 
   useLayoutEffect(() => {
     if (!enabled || lockReleased) {
@@ -86,7 +101,17 @@ export function useLessonComposerHeightLock({
     const observer = new ResizeObserver(sync)
     observer.observe(stack)
     return () => observer.disconnect()
-  }, [enabled, lockReleased, measureStack, optionCount, panelKind, stackRef, transitionKey])
+  }, [
+    enabled,
+    lockReleased,
+    measureStack,
+    optionCount,
+    panelKind,
+    puzzleHasInstruction,
+    puzzleWords,
+    stackRef,
+    transitionKey,
+  ])
 
   return !enabled || lockReleased ? undefined : lockedMinHeight
 }

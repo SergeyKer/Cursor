@@ -110,7 +110,6 @@ type LessonStepRendererProps = {
     subIndex: number
     attempts: number
     submittedAnswer: string
-    successText: string
     isLastVariant: boolean
   }) => void
   onPuzzleInteraction?: () => void
@@ -388,6 +387,18 @@ export default function LessonStepRenderer({
   const stepTransitionKey = currentStep
     ? `step-${currentStep.stepNumber}-v${currentVariantIndex}`
     : null
+  const activePuzzleVariant =
+    isSentencePuzzle && exercise?.puzzleVariants?.length
+      ? exercise.puzzleVariants[Math.min(puzzleSubIndex ?? 0, exercise.puzzleVariants.length - 1)]
+      : undefined
+  const activePuzzleWords =
+    activePuzzleVariant && activePuzzleVariant.words.length > 0
+      ? activePuzzleVariant.words
+      : activePuzzleVariant?.correctOrder ?? []
+  const composerTransitionKey =
+    isSentencePuzzle && stepTransitionKey
+      ? `${stepTransitionKey}-p${puzzleSubIndex ?? 0}`
+      : stepTransitionKey
 
   const handleChoiceAnswer = useCallback(
     (answer: string) => {
@@ -1012,8 +1023,8 @@ export default function LessonStepRenderer({
     hasPostLessonOptions,
     showPostLessonMedalPhase,
   })
-  const shouldLockChoiceComposerHeight =
-    shouldRenderChoiceChips || hasPostLessonOptions || showPostLessonMedalPhase
+  const shouldLockComposerHeight =
+    shouldRenderChoiceChips || hasPostLessonOptions || showPostLessonMedalPhase || isSentencePuzzle
   const choiceComposerMinHeightEstimate = shouldRenderChoiceChips
     ? estimateLessonComposerMinHeight({
         panelKind: 'choice',
@@ -1021,21 +1032,36 @@ export default function LessonStepRenderer({
         compact: true,
       })
     : undefined
+  const puzzleComposerMinHeightEstimate = isSentencePuzzle
+    ? estimateLessonComposerMinHeight({
+        panelKind: 'puzzle',
+        puzzleWords: activePuzzleWords,
+        puzzleHasInstruction: Boolean(activePuzzleVariant?.instruction.trim()),
+        compact: true,
+      })
+    : undefined
   /** Пока карточка раскрывается — держим lock, иначе снятие minHeight вместе с показом чипов дёргает ленту. */
   const composerHeightLockReleased =
-    prefersReducedMotion || (deferChoiceChipsUntilCardReveal ? false : !isRevealInProgress)
+    prefersReducedMotion ||
+    (deferChoiceChipsUntilCardReveal || isSentencePuzzle ? false : !isRevealInProgress)
   const lockedComposerMinHeight = useLessonComposerHeightLock({
     stackRef: composerStackRef,
-    transitionKey: stepTransitionKey,
+    transitionKey: composerTransitionKey,
     panelKind: composerPanelKind,
     optionCount: displayChoiceOptions.length,
-    compact: shouldRenderChoiceChips,
-    enabled: shouldLockChoiceComposerHeight,
+    puzzleWords: activePuzzleWords,
+    puzzleHasInstruction: Boolean(activePuzzleVariant?.instruction.trim()),
+    compact: shouldRenderChoiceChips || isSentencePuzzle,
+    enabled: shouldLockComposerHeight,
     lockReleased: composerHeightLockReleased,
   })
   const composerMinHeight =
     lockedComposerMinHeight ??
-    (deferChoiceChipsUntilCardReveal ? choiceComposerMinHeightEstimate : undefined)
+    (deferChoiceChipsUntilCardReveal
+      ? choiceComposerMinHeightEstimate
+      : isSentencePuzzle
+        ? puzzleComposerMinHeightEstimate
+        : undefined)
 
   const scrollBottomPadding = resolveScrollBottomPadding({
     hasCurrentStep: currentStep != null,

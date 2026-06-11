@@ -118,3 +118,14 @@ export function buildLessonNextVariantMessage(params: {
   const nextNumber = params.nextVariantIndex + 1
   return `${base} (${nextNumber} из ${params.variantTotal}).`
 }
+
+export function buildLessonNextPuzzleSubMessage(params: {
+  nextSubIndex: number
+  subTotal: number
+}): string {
+  const base = 'Верно.'
+  if (params.subTotal <= 1) return base
+
+  const nextNumber = params.nextSubIndex + 1
+  return `${base} Следующий пазл (${nextNumber} из ${params.subTotal}).`
+}

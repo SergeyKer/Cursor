@@ -1,5 +1,5 @@
 import type { Exercise } from '@/types/lesson'
-import { PUZZLE_BOTTOM_STACK_FALLBACK } from '@/lib/puzzlePanelLayout'
+import { PUZZLE_BOTTOM_STACK_FALLBACK, estimatePuzzlePanelMinHeight } from '@/lib/puzzlePanelLayout'
 
 export type LessonComposerPanelKind = 'choice' | 'text-input' | 'puzzle' | 'post-lesson' | 'medal' | 'none'
 
@@ -74,6 +74,9 @@ export function estimateIntroComposerMinHeight(params: {
 export function estimateLessonComposerMinHeight(params: {
   panelKind: LessonComposerPanelKind
   optionCount?: number
+  puzzleWords?: string[]
+  puzzleHasInstruction?: boolean
+  containerWidthPx?: number
   compact?: boolean
 }): number {
   const stackPadding = params.compact ? 8 : 20
@@ -83,8 +86,19 @@ export function estimateLessonComposerMinHeight(params: {
       return stackPadding + estimateLessonChoiceChipsMinHeight(params.optionCount ?? 0)
     case 'text-input':
       return stackPadding + TEXT_INPUT_COMPOSER_HEIGHT_PX
-    case 'puzzle':
-      return stackPadding + parseRemToPx(PUZZLE_BOTTOM_STACK_FALLBACK)
+    case 'puzzle': {
+      const words = params.puzzleWords ?? []
+      const fallback = parseRemToPx(PUZZLE_BOTTOM_STACK_FALLBACK)
+      const panelHeight =
+        words.length > 0
+          ? estimatePuzzlePanelMinHeight({
+              words,
+              hasInstruction: params.puzzleHasInstruction ?? true,
+              containerWidthPx: params.containerWidthPx,
+            })
+          : fallback
+      return stackPadding + panelHeight
+    }
     case 'post-lesson':
       return stackPadding + POST_LESSON_COMPOSER_HEIGHT_PX
     case 'medal':

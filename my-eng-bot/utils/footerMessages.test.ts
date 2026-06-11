@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   LESSON_PUZZLE_COMPLETE_MESSAGE,
   buildLessonAdvanceMessage,
+  buildLessonNextPuzzleSubMessage,
   buildLessonNextVariantMessage,
   getLessonRepeatFooterMessage,
   getVariantInfo,
@@ -202,6 +203,33 @@ describe('footerMessages', () => {
         currentStep: 6,
         totalSteps: 7,
         stepNumber: 7,
+      })
+    ).toBe('Верно.')
+  })
+
+  it('builds next puzzle sub message after first sub-puzzle', () => {
+    expect(
+      buildLessonNextPuzzleSubMessage({
+        nextSubIndex: 1,
+        subTotal: 3,
+      })
+    ).toBe('Верно. Следующий пазл (2 из 3).')
+  })
+
+  it('builds next puzzle sub message before final sub-puzzle', () => {
+    expect(
+      buildLessonNextPuzzleSubMessage({
+        nextSubIndex: 2,
+        subTotal: 3,
+      })
+    ).toBe('Верно. Следующий пазл (3 из 3).')
+  })
+
+  it('returns plain success when puzzle has a single sub-step', () => {
+    expect(
+      buildLessonNextPuzzleSubMessage({
+        nextSubIndex: 0,
+        subTotal: 1,
       })
     ).toBe('Верно.')
   })

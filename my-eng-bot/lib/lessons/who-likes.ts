@@ -290,7 +290,7 @@ function buildWhoPuzzleVariant(id: string, title: string, answer: string): Sente
     correctOrder,
     correctAnswer: answer,
     successText: `Верно! ${answer}`,
-    errorText: 'Порядок неверный. Попробуйте ещё раз.',
+    errorText: 'Начни с Who, потом глагол с -s, потом объект.',
     hintText: buildPuzzleVariantHintText(correctOrder),
     hintFirstWord: correctOrder[0],
     myEngComment: 'Отлично. Собираем следующий вариант.',
@@ -321,7 +321,7 @@ function buildWhoLikesStep7Variants(variant: WhoLikesVariant) {
       frameEn: 'Who likes ___?',
       correctWord: variant.step5Object,
       distractors: pickWhoLikesObjectDistractors(variant.step5Object, variant.introObject),
-      hint: 'Вопрос про другой объект — одно слово после глагола в вопросе.',
+      hint: 'После likes — одно слово: название объекта на английском.',
     },
     {
       id: `${variant.id}_step7_hard`,
@@ -330,7 +330,7 @@ function buildWhoLikesStep7Variants(variant: WhoLikesVariant) {
       frameEn: 'Who likes ___?',
       correctWord: variant.step6CreativeObject,
       distractors: pickWhoLikesObjectDistractors(variant.step6CreativeObject, variant.introObject),
-      hint: 'Новый объект в вопросе — одно слово после глагола.',
+      hint: 'В новой ситуации после likes — одно слово-объект.',
     },
   ])
 }
@@ -367,7 +367,7 @@ function buildWhoLikesStep6Variants(variant: WhoLikesVariant) {
       question: `Переведите на английский: "${variant.step6CreativeRu}"`,
       correctAnswer: creativeFull,
       acceptedAnswers: [creativeFull],
-      hint: 'Сначала вопрос с Who, потом короткий ответ с тем же глаголом.',
+      hint: 'Две фразы: Who + глагол с -s + объект?, потом короткий ответ.',
       answerPolicy: 'equivalent_variants',
     },
   ])
@@ -453,7 +453,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
       id: `${variant.id}_step4_easy`,
       question: `Переведите на английский: "${variant.introQuestionRu}"`,
       correctAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,
-      hint: 'Напишите вопрос по шаблону Who + verb-s + noun?',
+      hint: '«Кто» — Who. Глагол с -s, потом объект и знак вопроса.',
       difficulty: 'easy' as const,
       answerFormat: 'full_sentence' as const,
       answerPolicy: 'normalized' as const,
@@ -471,7 +471,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
       id: `${variant.id}_step4_hard`,
       question: `Переведите на английский: "${toWhoLikesQuestionRu(variant.verbBase, variant.step5Object)}"`,
       correctAnswer: `Who ${variant.verbThird} ${variant.step5Object}?`,
-      hint: 'Соберите полный вопрос: Who + verb-s + noun?',
+      hint: '«Кто» — Who. Глагол с -s и объект из задания.',
       difficulty: 'hard' as const,
       answerFormat: 'full_sentence' as const,
       answerPolicy: 'normalized' as const,
