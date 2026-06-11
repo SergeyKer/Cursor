@@ -1,6 +1,14 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react'
 import FeedbackStatusText from '@/components/FeedbackStatusText'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import LessonSentencePuzzle from '@/components/LessonSentencePuzzle'
@@ -23,6 +31,7 @@ import {
   CHAT_COMPOSER_FORM_CLASS,
   CHAT_COMPOSER_TYPO_CLASS,
   DIALOG_COMPOSER_PADDING_BOTTOM,
+  getChatComposerOverlayVerticalClass,
   getChatComposerStackLayout,
   getChatComposerTextareaVerticalClass,
 } from '@/lib/chatComposerMetrics'
@@ -62,6 +71,12 @@ import {
 } from '@/lib/lessonFeedScroll'
 import { speak } from '@/lib/speech'
 import { seededShuffle } from '@/lib/shuffleSeeded'
+import {
+  isIosChromeBrowser,
+  isIosLikeDevice,
+  needsVoiceComposerWebMetrics,
+} from '@/lib/sttClient'
+import { useAutoGrowTextarea } from '@/lib/voice/useAutoGrowTextarea'
 import { useLessonVoiceInput } from '@/lib/voice/useLessonVoiceInput'
 import type { Bubble, Exercise, PostLessonAction } from '@/types/lesson'
 import { validateAnswer } from '@/utils/validateAnswer'
@@ -153,6 +168,34 @@ const LESSON_HIDDEN_VOICE_STATUS_MESSAGES = new Set([
   '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]',
 ])
 
+const LESSON_INPUT_MAX_HEIGHT_PX = 260
+
+const SR_ONLY_STYLE: CSSProperties = {
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  margin: '-1px',
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+}
+
+const HARD_VOICE_ERROR_MARKERS = [
+  'микрофон',
+  'не поддерживается',
+  'защищённом контексте',
+  'защищенном контексте',
+  'https',
+]
+
+function isHardVoiceErrorMessage(message: string | null): boolean {
+  if (!message) return false
+  const normalized = message.toLowerCase()
+  return HARD_VOICE_ERROR_MARKERS.some((marker) => normalized.includes(marker))
+}
+
 function normalizeLessonChoiceText(text: string): string {
   return text.trim().replace(/\s+/g, ' ').toLowerCase()
 }
@@ -187,6 +230,10 @@ export default function LessonStepRenderer({
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const messagesStackRef = useRef<HTMLDivElement>(null)
   const composerStackRef = useRef<HTMLDivElement>(null)
+  const lessonAnswerTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const [isIosDeviceClient, setIsIosDeviceClient] = useState(false)
+  const [isIosChromeClient, setIsIosChromeClient] = useState(false)
+  const [voiceWebMetricsClient, setVoiceWebMetricsClient] = useState(false)
   const reopenChoicesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wasAnswerPanelLockedRef = useRef(false)
   const lastStepVariantRef = useRef<{ stepNumber?: number; variantIndex: number }>({
@@ -377,13 +424,25 @@ export default function LessonStepRenderer({
         : null,
   })
   const { resetVoiceInput } = lessonVoiceInput
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const ua = window.navigator.userAgent
+    setIsIosDeviceClient(isIosLikeDevice(ua))
+    setIsIosChromeClient(isIosChromeBrowser(ua))
+    setVoiceWebMetricsClient(needsVoiceComposerWebMetrics(ua))
+  }, [])
+
+  const composerText = lessonVoiceInput.isVoiceActive
+    ? lessonVoiceInput.displayText
+    : lessonVoiceInput.draftText
   const inputValue =
-    lessonVoiceInput.isInputLocked && LESSON_HIDDEN_VOICE_STATUS_MESSAGES.has(lessonVoiceInput.displayText)
+    lessonVoiceInput.isVoiceActive &&
+    LESSON_HIDDEN_VOICE_STATUS_MESSAGES.has(lessonVoiceInput.displayText)
       ? ''
-      : lessonVoiceInput.isInputLocked
-        ? lessonVoiceInput.displayText
-        : lessonVoiceInput.draftText
-  const showVoiceOverlay = lessonVoiceInput.isVoiceActive && lessonVoiceInput.livePreviewText.length > 0
+      : composerText
+  const showVoiceOverlay = lessonVoiceInput.isVoiceActive && composerText.length > 0
+  const voiceWebMetricsActive = showVoiceOverlay && voiceWebMetricsClient
   const showVoicePlaybackButton =
     isTextInputAvailable &&
     !lessonVoiceInput.isVoiceActive &&
@@ -394,6 +453,36 @@ export default function LessonStepRenderer({
   const voiceStatusMessage = LESSON_HIDDEN_VOICE_STATUS_MESSAGES.has(rawVoiceStatusMessage)
     ? ''
     : rawVoiceStatusMessage
+  const iosChromeVoiceStatusMessage =
+    !isIosChromeClient
+      ? null
+      : lessonVoiceInput.voicePhase === 'recording'
+        ? 'Голосовой ввод...'
+        : lessonVoiceInput.voicePhase === 'finalizing'
+          ? 'Распознаю речь...'
+          : lessonVoiceInput.voicePhase === 'error'
+            ? rawVoiceStatusMessage
+            : null
+  const showVoiceStatusMessageBelowInput =
+    Boolean(voiceStatusMessage) &&
+    (!isIosDeviceClient || isHardVoiceErrorMessage(voiceStatusMessage))
+
+  useAutoGrowTextarea({
+    textareaRef: lessonAnswerTextareaRef,
+    value: inputValue,
+    maxHeightPx: LESSON_INPUT_MAX_HEIGHT_PX,
+    minHeightPx: 44,
+    isVoiceActive: lessonVoiceInput.isVoiceActive,
+    showVoiceOverlay,
+    voiceWebMetricsActive,
+  })
+
+  useLayoutEffect(() => {
+    const textarea = lessonAnswerTextareaRef.current
+    if (!textarea || inputValue.trim()) return
+    textarea.style.height = ''
+    textarea.style.overflowY = 'hidden'
+  }, [inputValue, stepTransitionKey])
   const hasLessonMicrophone =
     Boolean(exercise) && !hasPostLessonOptions && !shouldRenderChoiceChips && !isSentencePuzzle
   const inputPlaceholder = useMemo(() => {
@@ -403,7 +492,7 @@ export default function LessonStepRenderer({
       return `${verb} предложение...`
     }
     if (exercise.answerFormat === 'single_word') {
-      return `${verb} пропущенное слово...`
+      return `${verb} слово...`
     }
     return `${verb} ответ...`
   }, [exercise, hasLessonMicrophone])
@@ -1280,24 +1369,48 @@ export default function LessonStepRenderer({
                     <div className="relative isolate min-w-0 flex-1">
                       {showVoiceOverlay && (
                         <VoiceComposerOverlay
-                          draftBeforeVoiceText=""
+                          draftBeforeVoiceText={lessonVoiceInput.draftBeforeVoiceText}
                           livePreviewText={lessonVoiceInput.livePreviewText}
-                          webTextMetricsFix
+                          webTextMetricsFix={voiceWebMetricsClient}
                         />
                       )}
-                      <input
-                        type="text"
+                      {iosChromeVoiceStatusMessage && (
+                        <>
+                          <span role="status" aria-live="polite" style={SR_ONLY_STYLE}>
+                            {iosChromeVoiceStatusMessage}
+                          </span>
+                          <div
+                            aria-hidden="true"
+                            className={`ios-chrome-voice-status-overlay pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-2xl px-4 font-sans text-[14px] italic leading-snug ${
+                              voiceWebMetricsActive
+                                ? getChatComposerOverlayVerticalClass(true)
+                                : getChatComposerOverlayVerticalClass(false)
+                            }`}
+                            style={{
+                              color:
+                                lessonVoiceInput.voicePhase === 'error'
+                                  ? 'var(--status-danger-text, #dc2626)'
+                                  : 'var(--text-muted)',
+                            }}
+                          >
+                            {iosChromeVoiceStatusMessage}
+                          </div>
+                        </>
+                      )}
+                      <textarea
+                        ref={lessonAnswerTextareaRef}
+                        rows={1}
                         value={inputValue}
                         onChange={(event) => lessonVoiceInput.setDraftText(event.target.value)}
                         onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
+                          if (event.key === 'Enter' && !event.shiftKey) {
                             event.preventDefault()
                             submitTextAnswer()
                           }
                         }}
-                        readOnly={lessonVoiceInput.isInputLocked}
+                        readOnly={lessonVoiceInput.isVoiceActive}
                         disabled={!isTextInputAvailable || isAnswerPanelLocked}
-                        className={`chat-input-field lesson-chat-input-field min-w-0 w-full rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(showVoiceOverlay)} outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${
+                        className={`chat-input-field lesson-chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(voiceWebMetricsActive)} outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${
                           showVoicePlaybackButton ? 'pr-12' : ''
                         } ${
                           showVoiceOverlay
@@ -1305,6 +1418,8 @@ export default function LessonStepRenderer({
                             : 'text-[var(--text)]'
                         }`}
                         placeholder={inputPlaceholder}
+                        autoComplete="off"
+                        style={{ maxHeight: LESSON_INPUT_MAX_HEIGHT_PX }}
                       />
                       {showVoicePlaybackButton && (
                         <div className="pointer-events-none absolute inset-y-0 right-2 z-10 flex items-center">
@@ -1349,7 +1464,10 @@ export default function LessonStepRenderer({
                     </button>
                   </form>
                 ) : null}
-                {voiceStatusMessage && exercise && !hasPostLessonOptions && !shouldRenderChoiceChips && (
+                {showVoiceStatusMessageBelowInput &&
+                exercise &&
+                !hasPostLessonOptions &&
+                !shouldRenderChoiceChips && (
                   <p
                     role="status"
                     aria-live="polite"

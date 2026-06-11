@@ -63,6 +63,7 @@ export function useLessonVoiceInput({ inviteKey }: UseLessonVoiceInputParams) {
 
   const {
     draftText,
+    draftBeforeVoiceText,
     displayText,
     livePreviewText,
     voicePhase,
@@ -687,6 +688,7 @@ export function useLessonVoiceInput({ inviteKey }: UseLessonVoiceInputParams) {
 
   return {
     draftText,
+    draftBeforeVoiceText,
     displayText,
     livePreviewText,
     lastCommittedVoiceText,
