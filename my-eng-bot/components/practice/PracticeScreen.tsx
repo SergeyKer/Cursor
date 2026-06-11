@@ -21,8 +21,8 @@ import {
   followLessonFeedTail,
   isLessonFeedScrolledToTail,
   LESSON_SCROLL_VIEWPORT_CLASS,
-  resolveDialogFeedScrollPaddingStyle,
   resolvePracticeFeedScrollRequest,
+  resolveScrollBottomPadding,
 } from '@/lib/lessonFeedScroll'
 import PracticeQuestionBubble from '@/components/practice/PracticeQuestionBubble'
 import {
@@ -185,10 +185,13 @@ export default function PracticeScreen({
     isRevealInProgress
   )
 
-  const dialogFeedScrollPaddingStyle =
-    state !== 'briefing' && state !== 'completed'
-      ? resolveDialogFeedScrollPaddingStyle()
-      : undefined
+  const scrollBottomPadding = resolveScrollBottomPadding({
+    hasCurrentStep: state !== 'briefing' && state !== 'completed',
+    hasPostLessonOptions: false,
+    isSentencePuzzle: false,
+    bottomStackHeightPx: 0,
+    composerOutsideScroll: true,
+  })
 
   const scheduleScroll = useCallback(
     (scrollFn: (behavior: ScrollBehavior) => void, behavior: ScrollBehavior = 'auto') => {
@@ -370,7 +373,14 @@ export default function PracticeScreen({
               <div
                 ref={scrollContainerRef}
                 className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
-                style={dialogFeedScrollPaddingStyle}
+                style={
+                  scrollBottomPadding
+                    ? {
+                        paddingBottom: scrollBottomPadding,
+                        scrollPaddingBottom: scrollBottomPadding,
+                      }
+                    : undefined
+                }
               >
               <div ref={messagesStackRef}>
                 {messages.map((message, index) => {

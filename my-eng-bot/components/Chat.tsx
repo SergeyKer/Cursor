@@ -30,6 +30,7 @@ import {
   getChatComposerOverlayVerticalClass,
   getChatComposerTextareaVerticalClass,
 } from '@/lib/chatComposerMetrics'
+import { useDialogFeedKeyboardScroll } from '@/hooks/useDialogFeedKeyboardScroll'
 import { LESSON_SCROLL_VIEWPORT_CLASS, scheduleScrollAfterLayout } from '@/lib/lessonFeedScroll'
 import {
   isIosChromeBrowser,
@@ -1944,7 +1945,6 @@ export default function Chat({
 
   const INPUT_MIN_HEIGHT_PX = 44
   const INPUT_MAX_HEIGHT_PX = 260
-  const INPUT_GAP_PX = 10
   const adjustInputHeight = useCallback(() => {
     const el = textareaRef.current
     if (!el) return
@@ -2065,6 +2065,8 @@ export default function Chat({
     })
   }, [messages, isLearningFlow, engvo?.showAssistantPending])
 
+  useDialogFeedKeyboardScroll(scrollContainerRef, !isEngvoActive)
+
   // Индекс последнего assistant-сообщения нужен, чтобы автоскрывать
   // карточку перевода у предыдущих сообщений.
   const lastAssistantIndex = React.useMemo(() => {
@@ -2162,10 +2164,6 @@ export default function Chat({
               <div
                 ref={scrollContainerRef}
                 className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
-                style={{
-                  paddingBottom: `calc(0.625rem + var(--chat-input-height) + ${INPUT_GAP_PX}px)`,
-                  scrollPaddingBottom: `calc(0.625rem + var(--chat-input-height) + ${INPUT_GAP_PX}px)`,
-                }}
               >
               {messages.length === 0 && !isEngvoActive && (
                 <div className="flex justify-center">

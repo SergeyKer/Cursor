@@ -29,6 +29,20 @@ function isEditableElement(element: Element | null): boolean {
   return !nonTextInputTypes.has(element.type)
 }
 
+function isComposerDockEditableFocused(): boolean {
+  const active = document.activeElement
+  if (!isEditableElement(active) || !(active instanceof HTMLElement)) return false
+  return Boolean(active.closest('.dialog-composer-dock'))
+}
+
+function isComposerDockEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  if (!isEditableElement(target)) return false
+  return Boolean(target.closest('.dialog-composer-dock'))
+}
+
+const KEYBOARD_SHRINK_THRESHOLD_PX = 48
+
 function computeBottomInsetPx(): number {
   if (typeof window === 'undefined') return 0
   const vv = window.visualViewport
@@ -86,6 +100,29 @@ export default function VisualViewportInsets() {
 
     const root = document.documentElement
     let raf = 0
+    let preKeyboardViewportHeightPx = 0
+    let preKeyboardInnerHeightPx = 0
+
+    const capturePreKeyboardBaseline = () => {
+      const vv = window.visualViewport
+      preKeyboardViewportHeightPx = vv?.height ?? window.innerHeight
+      preKeyboardInnerHeightPx = window.innerHeight
+    }
+
+    const isComposerKeyboardOpen = (bottomInsetPx: number): boolean => {
+      if (!isComposerDockEditableFocused()) return false
+      const vv = window.visualViewport
+      if (!vv) return false
+      if (bottomInsetPx > 0) return true
+      const baselineVv =
+        preKeyboardViewportHeightPx > 0 ? preKeyboardViewportHeightPx : window.innerHeight
+      const baselineInner =
+        preKeyboardInnerHeightPx > 0 ? preKeyboardInnerHeightPx : window.innerHeight
+      return (
+        vv.height < baselineVv - KEYBOARD_SHRINK_THRESHOLD_PX ||
+        window.innerHeight < baselineInner - KEYBOARD_SHRINK_THRESHOLD_PX
+      )
+    }
 
     const applyIosWebKitBottomOverlap = (keyboardInsetPx: number) => {
       if (!isIosWebKitBrowser(navigator.userAgent)) {
@@ -97,6 +134,14 @@ export default function VisualViewportInsets() {
       root.style.setProperty('--ios-safari-vv-bottom-overlap', `${normalizedOverlapPx}px`)
     }
 
+    const applyKeyboardInputActive = (bottomInsetPx: number) => {
+      if (isComposerKeyboardOpen(bottomInsetPx)) {
+        root.setAttribute('data-keyboard-input-active', '')
+      } else {
+        root.removeAttribute('data-keyboard-input-active')
+      }
+    }
+
     const applyInsets = () => {
       const bottomInsetPx = computeBottomInsetPx()
       root.style.setProperty('--vv-bottom-inset', `${bottomInsetPx}px`)
@@ -104,6 +149,7 @@ export default function VisualViewportInsets() {
       root.style.setProperty('--vv-left-inset', `${sideInsets.left}px`)
       root.style.setProperty('--vv-right-inset', `${sideInsets.right}px`)
       applyIosWebKitBottomOverlap(bottomInsetPx)
+      applyKeyboardInputActive(bottomInsetPx)
     }
 
     const applyIosWebKitViewportHeight = () => {
@@ -143,7 +189,23 @@ export default function VisualViewportInsets() {
     const vv = window.visualViewport
     vv?.addEventListener?.('resize', scheduleApplyAll, { passive: true })
     vv?.addEventListener?.('scroll', scheduleApplyInsets, { passive: true })
+    const onComposerFocusIn = (event: FocusEvent) => {
+      if (!isComposerDockEditableTarget(event.target)) return
+      capturePreKeyboardBaseline()
+      scheduleApplyInsets()
+    }
+
+    const onComposerFocusOut = (event: FocusEvent) => {
+      const related = event.relatedTarget
+      if (related instanceof HTMLElement && related.closest('.dialog-composer-dock')) return
+      preKeyboardViewportHeightPx = 0
+      preKeyboardInnerHeightPx = 0
+      scheduleApplyInsets()
+    }
+
+    document.addEventListener('focusin', onComposerFocusIn, true)
     document.addEventListener('focusin', scheduleApplyInsets, true)
+    document.addEventListener('focusout', onComposerFocusOut, true)
     document.addEventListener('focusout', scheduleApplyInsets, true)
 
     return () => {
@@ -153,10 +215,13 @@ export default function VisualViewportInsets() {
       window.removeEventListener('orientationchange', scheduleApplyAll)
       vv?.removeEventListener?.('resize', scheduleApplyAll)
       vv?.removeEventListener?.('scroll', scheduleApplyInsets)
+      document.removeEventListener('focusin', onComposerFocusIn, true)
       document.removeEventListener('focusin', scheduleApplyInsets, true)
+      document.removeEventListener('focusout', onComposerFocusOut, true)
       document.removeEventListener('focusout', scheduleApplyInsets, true)
       root.style.removeProperty('--ios-safari-vv-height')
       root.style.removeProperty('--ios-safari-vv-bottom-overlap')
+      root.removeAttribute('data-keyboard-input-active')
     }
   }, [])
 

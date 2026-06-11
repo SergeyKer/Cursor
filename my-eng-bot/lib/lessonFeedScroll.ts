@@ -1,6 +1,8 @@
 import { PUZZLE_BOTTOM_STACK_FALLBACK } from '@/lib/puzzlePanelLayout'
 
 export const LESSON_INPUT_GAP_PX = 10
+/** Отступ последнего пузыря от верха scroll-viewport при доскролле под клавиатуру. */
+export const LESSON_FEED_KEYBOARD_SCROLL_GAP_PX = 8
 export const LESSON_SCROLL_GAP_REM = 0.625
 /** Симметричный padding scroll-контейнера (tailwind p-2.5). */
 export const LESSON_SCROLL_CONTAINER_PADDING_REM = LESSON_SCROLL_GAP_REM
@@ -525,6 +527,55 @@ export function scrollLessonFeedTailIfNeeded(
 ): void {
   if (!scrollContainer) return
   scrollLessonFeedToMax(scrollContainer, behavior)
+}
+
+function getOffsetTopWithinAncestor(ancestor: HTMLElement, element: HTMLElement): number {
+  const ancestorRect = ancestor.getBoundingClientRect()
+  const elementRect = element.getBoundingClientRect()
+  return elementRect.top - ancestorRect.top + ancestor.scrollTop
+}
+
+/** Последний пузырь user/assistant в ленте (для доскролла при клавиатуре). */
+export function findLessonFeedLastMessageRow(scrollContainer: HTMLElement): HTMLElement | null {
+  const rows = scrollContainer.querySelectorAll<HTMLElement>(
+    '[data-role="assistant"], [data-role="user"]'
+  )
+  if (rows.length > 0) return rows[rows.length - 1] ?? null
+
+  const stack = scrollContainer.firstElementChild
+  if (stack?.lastElementChild instanceof HTMLElement) return stack.lastElementChild
+  return null
+}
+
+export function computeLessonFeedScrollTopForTailMessage(
+  scrollContainer: HTMLElement,
+  target: HTMLElement,
+  gapPx = LESSON_FEED_KEYBOARD_SCROLL_GAP_PX
+): number {
+  const maxTop = computeMaxScrollTop(scrollContainer.scrollHeight, scrollContainer.clientHeight)
+  const targetTop = getOffsetTopWithinAncestor(scrollContainer, target)
+  const targetBottom = targetTop + target.offsetHeight
+  const minScrollTop = targetBottom - scrollContainer.clientHeight + gapPx
+  return Math.min(maxTop, Math.max(0, minScrollTop))
+}
+
+/**
+ * Минимальный доскролл: последний пузырь виден над композером (не scrollToMax в padding).
+ * Как Chat.tsx для learning — без прокрутки в пустую зону.
+ */
+export function scrollLessonFeedTailMessageIntoView(
+  scrollContainer: HTMLElement | null,
+  behavior: ScrollBehavior = 'auto',
+  gapPx = LESSON_FEED_KEYBOARD_SCROLL_GAP_PX
+): boolean {
+  if (!scrollContainer) return false
+  const target = findLessonFeedLastMessageRow(scrollContainer)
+  if (!target) return false
+
+  const top = computeLessonFeedScrollTopForTailMessage(scrollContainer, target, gapPx)
+  if (Math.abs(scrollContainer.scrollTop - top) < LESSON_FEED_SCROLL_SNAP_PX) return false
+  scrollContainer.scrollTo({ top, behavior })
+  return true
 }
 
 export function wasLessonFeedNearTail(

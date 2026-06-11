@@ -63,7 +63,7 @@ import {
   resolveLessonShellScrollBehavior,
   resolvePuzzleFeedMessagesStackClass,
   resolveRelaxFeedTailPin,
-  resolveDialogFeedScrollPaddingStyle,
+  resolveScrollBottomPadding,
   scrollLessonFeedToMax,
   scrollLessonFeedToModeIfNeeded,
   scrollLessonFeedToModeWithCompleteIfNeeded,
@@ -829,6 +829,11 @@ export default function LessonStepRenderer({
 
     if (previousSnapshot === null) {
       previousScrollSnapshotRef.current = nextSnapshot
+      if (isFirstLessonStep) {
+        return scheduleScroll(() => {
+          scrollContainer.scrollTop = 0
+        }, 'auto')
+      }
       scheduleLessonFeedScroll(
         resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'initial' })
       )
@@ -877,6 +882,7 @@ export default function LessonStepRenderer({
     scheduleLessonFeedScroll,
     revealEnabled,
     isFirstLessonStep,
+    scheduleScroll,
   ])
 
   useEffect(() => {
@@ -900,7 +906,7 @@ export default function LessonStepRenderer({
   ])
 
   useEffect(() => {
-    if (!isTextRevealActive) return
+    if (!isTextRevealActive || isFirstLessonStep) return
 
     return scheduleLessonFeedScroll(
       resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'reveal' })
@@ -911,6 +917,7 @@ export default function LessonStepRenderer({
     textAnimatingIndex,
     prefersReducedMotion,
     scheduleLessonFeedScroll,
+    isFirstLessonStep,
   ])
 
   useEffect(() => {
@@ -965,7 +972,7 @@ export default function LessonStepRenderer({
     if (typeof ResizeObserver === 'undefined') return
 
     const observer = new ResizeObserver(() => {
-      if (isShellEnterActive) return
+      if (isShellEnterActive || isFirstLessonStep) return
 
       scheduleLessonFeedScroll(
         resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'overflow_follow' })
@@ -982,6 +989,7 @@ export default function LessonStepRenderer({
     textRevealedThroughIndex,
     textAnimatingIndex,
     isShellEnterActive,
+    isFirstLessonStep,
   ])
 
   const deferChoiceChipsUntilCardReveal =
@@ -1029,8 +1037,13 @@ export default function LessonStepRenderer({
     lockedComposerMinHeight ??
     (deferChoiceChipsUntilCardReveal ? choiceComposerMinHeightEstimate : undefined)
 
-  const dialogFeedScrollPaddingStyle =
-    currentStep != null ? resolveDialogFeedScrollPaddingStyle() : undefined
+  const scrollBottomPadding = resolveScrollBottomPadding({
+    hasCurrentStep: currentStep != null,
+    hasPostLessonOptions,
+    isSentencePuzzle,
+    bottomStackHeightPx: 0,
+    composerOutsideScroll: true,
+  })
   useDialogFeedKeyboardScroll(scrollContainerRef, isTextInputAvailable)
   const composerStackLayout = getChatComposerStackLayout(shouldRenderChoiceChips)
   const composerStackStyle = {
@@ -1053,7 +1066,14 @@ export default function LessonStepRenderer({
               <div
                 ref={scrollContainerRef}
                 className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
-              style={dialogFeedScrollPaddingStyle}
+              style={
+                scrollBottomPadding
+                  ? {
+                      paddingBottom: scrollBottomPadding,
+                      scrollPaddingBottom: scrollBottomPadding,
+                    }
+                  : undefined
+              }
             >
               <div ref={messagesStackRef} className={feedMessagesStackClass}>
                 {lessonMessages.map((message, index) => {

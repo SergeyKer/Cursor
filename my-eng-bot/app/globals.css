@@ -1232,6 +1232,7 @@ select.select-chevron {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   touch-action: pan-y;
+  overflow-anchor: none;
 }
 
 /* iOS dialog: спейсер и fixed chrome синхронны с visual viewport. */
@@ -1271,23 +1272,44 @@ html[data-ios-vv-root][data-ios-safari-dialog] .app-dialog-chrome-footer {
   transform: translateY(calc(-1 * var(--vv-bottom-inset, 0px)));
 }
 
-/* Android / desktop dialog: композер поднимается вместе с футером при клавиатуре. */
-html:not([data-ios-safari-dialog]):not([data-ios-webkit-dialog]) .dialog-composer-dock {
-  transform: translateY(calc(-1 * var(--vv-bottom-inset, 0px)));
-}
-
 @media (pointer: coarse) {
-  html:not([data-ios-safari-dialog]):not([data-ios-webkit-dialog]) .app-dialog-chrome-footer,
-  html:not([data-ios-safari-dialog]):not([data-ios-webkit-dialog]) .dialog-composer-dock {
+  html:not([data-ios-safari-dialog]):not([data-ios-webkit-dialog]) .app-dialog-chrome-footer {
     transition: transform 180ms ease-out;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html:not([data-ios-safari-dialog]):not([data-ios-webkit-dialog]) .app-dialog-chrome-footer,
-  html:not([data-ios-safari-dialog]):not([data-ios-webkit-dialog]) .dialog-composer-dock {
+  html:not([data-ios-safari-dialog]):not([data-ios-webkit-dialog]) .app-dialog-chrome-footer {
     transition: none;
   }
+}
+
+/* Ввод в композере: композер у клавиатуры, футер под клавиатурой (не поднимаем). */
+html[data-keyboard-input-active] {
+  --app-bottom-offset: 0px;
+}
+
+html[data-keyboard-input-active][data-ios-webkit-dialog],
+html[data-keyboard-input-active][data-ios-safari-dialog] {
+  --app-bottom-offset: 0px;
+}
+
+html[data-keyboard-input-active] .app-dialog-chrome-footer {
+  visibility: hidden;
+  pointer-events: none;
+  transform: none !important;
+}
+
+html[data-keyboard-input-active]:not([data-ios-safari-dialog]):not([data-ios-webkit-dialog])
+  .dialog-composer-dock {
+  position: relative;
+  z-index: 60;
+}
+
+html[data-keyboard-input-active][data-ios-safari-dialog] .dialog-composer-dock,
+html[data-keyboard-input-active][data-ios-webkit-dialog]:not([data-ios-safari-dialog]) .dialog-composer-dock {
+  bottom: 0;
+  transform: none;
 }
 
 /*

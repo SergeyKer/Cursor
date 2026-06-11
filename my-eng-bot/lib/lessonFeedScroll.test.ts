@@ -11,6 +11,7 @@ import {
   remToPx,
   computeMaxScrollTop,
   isLessonFeedScrolledToTail,
+  LESSON_FEED_KEYBOARD_SCROLL_GAP_PX,
   resolveFollowTailTargetTop,
   resolveLessonShellScrollBehavior,
   resolvePracticeFeedScrollRequest,
@@ -520,5 +521,52 @@ describe('scrollTo(max) с симметричным padding (урок после
       scrollTop,
     })
     expect(visibleGap).toBeGreaterThan(290)
+  })
+})
+
+describe('computeLessonFeedScrollTopForTailMessage (клавиатура)', () => {
+  function tailScrollTopModel(input: {
+    contentHeightPx: number
+    rowTopPx: number
+    rowHeightPx: number
+    scrollPaddingBottomPx: number
+    clientHeightPx: number
+    gapPx?: number
+  }): number {
+    const scrollHeight = input.contentHeightPx + input.scrollPaddingBottomPx
+    const maxTop = computeMaxScrollTop(scrollHeight, input.clientHeightPx)
+    const targetBottom = input.rowTopPx + input.rowHeightPx
+    const minScrollTop = targetBottom - input.clientHeightPx + (input.gapPx ?? LESSON_FEED_KEYBOARD_SCROLL_GAP_PX)
+    return Math.min(maxTop, Math.max(0, minScrollTop))
+  }
+
+  it('короткая лента: scrollTop остаётся 0', () => {
+    const top = tailScrollTopModel({
+      contentHeightPx: SHORT_CONTENT_PX,
+      rowTopPx: 0,
+      rowHeightPx: SHORT_CONTENT_PX,
+      scrollPaddingBottomPx: SYMMETRIC_PADDING_PX,
+      clientHeightPx: CLIENT_HEIGHT_PX,
+    })
+    expect(top).toBe(0)
+  })
+
+  it('длинная лента: tail scroll меньше scrollToMax с раздутым padding', () => {
+    const inflatedPaddingPx = remToPx(0.625 + 5.5, ROOT_PX) + LESSON_INPUT_GAP_PX
+    const rowHeight = 120
+    const scrollToMax = simulateScrollTopAfterScrollToMax({
+      contentHeightPx: LONG_CONTENT_PX,
+      scrollPaddingBottomPx: inflatedPaddingPx,
+      clientHeightPx: CLIENT_HEIGHT_PX,
+    })
+    const tailTop = tailScrollTopModel({
+      contentHeightPx: LONG_CONTENT_PX,
+      rowTopPx: LONG_CONTENT_PX - rowHeight,
+      rowHeightPx: rowHeight,
+      scrollPaddingBottomPx: inflatedPaddingPx,
+      clientHeightPx: CLIENT_HEIGHT_PX,
+    })
+    expect(tailTop).toBeLessThan(scrollToMax)
+    expect(tailTop).toBeGreaterThan(0)
   })
 })
