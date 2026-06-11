@@ -26,6 +26,8 @@ type UseLessonSectionRevealResult = {
   textRevealedThroughIndex: number
   textAnimatingIndex: number | null
   isRevealInProgress: boolean
+  /** false на кадр после смены revealKey — пока layout-effect не инициализировал сессию. */
+  isRevealInitializedForKey: boolean
   onShellScrollComplete: () => void
   onTextSectionRevealComplete: (sectionIndex: number) => void
 }
@@ -60,6 +62,7 @@ export function useLessonSectionReveal({
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sessionRef = useRef(0)
   const completingIndexRef = useRef<number | null>(null)
+  const initializedRevealKeyRef = useRef<string | null>(null)
   const revealPhaseRef = useRef(revealPhase)
 
   revealPhaseRef.current = revealPhase
@@ -107,11 +110,13 @@ export function useLessonSectionReveal({
       setRevealPhase(done.revealPhase)
       setTextRevealedThroughIndex(done.textRevealedThroughIndex)
       setTextAnimatingIndex(done.textAnimatingIndex)
+      initializedRevealKeyRef.current = revealKey
       return
     }
 
     if (prefersReducedMotion || isPracticeQuestionRevealed(sessionId, revealKey)) {
       finishReveal()
+      initializedRevealKeyRef.current = revealKey
       return
     }
 
@@ -119,6 +124,7 @@ export function useLessonSectionReveal({
     setRevealPhase(start.revealPhase)
     setTextRevealedThroughIndex(start.textRevealedThroughIndex)
     setTextAnimatingIndex(start.textAnimatingIndex)
+    initializedRevealKeyRef.current = revealKey
   }, [
     clearFallbackTimer,
     clearPauseTimer,
@@ -211,6 +217,8 @@ export function useLessonSectionReveal({
   const isTextRevealActive = enabled && sectionCount > 0 && revealPhase === 'text'
   const isRevealInProgress =
     enabled && sectionCount > 0 && revealPhase !== 'done'
+  const isRevealInitializedForKey =
+    revealKey != null && initializedRevealKeyRef.current === revealKey
 
   return {
     isShellEnterActive,
@@ -218,6 +226,7 @@ export function useLessonSectionReveal({
     textRevealedThroughIndex,
     textAnimatingIndex,
     isRevealInProgress,
+    isRevealInitializedForKey,
     onShellScrollComplete,
     onTextSectionRevealComplete,
   }

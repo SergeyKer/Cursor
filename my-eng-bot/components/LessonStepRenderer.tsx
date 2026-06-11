@@ -36,6 +36,7 @@ import {
 } from '@/lib/lessonAnswerPanelLock'
 import { useLessonComposerHeightLock } from '@/hooks/useLessonComposerHeightLock'
 import {
+  estimateLessonChoiceChipsMinHeight,
   estimateLessonComposerMinHeight,
   resolveLessonComposerPanelKind,
 } from '@/lib/lessonComposerLayout'
@@ -302,6 +303,7 @@ export default function LessonStepRenderer({
     textRevealedThroughIndex,
     textAnimatingIndex,
     isRevealInProgress,
+    isRevealInitializedForKey,
     onShellScrollComplete,
     onTextSectionRevealComplete,
   } = useLessonSectionReveal({
@@ -901,7 +903,8 @@ export default function LessonStepRenderer({
     revealSectionCount > 0 &&
     !prefersReducedMotion
   const isChoiceChipsVisible =
-    !deferChoiceChipsUntilCardReveal || !isRevealInProgress
+    !deferChoiceChipsUntilCardReveal ||
+    (isRevealInitializedForKey && !isRevealInProgress)
 
   const showPostLessonMedalPhase = Boolean(
     lessonMedalReveal && hasPostLessonOptions && postLessonPhase === 'medal'
@@ -921,9 +924,10 @@ export default function LessonStepRenderer({
         compact: true,
       })
     : undefined
-  /** Пока карточка раскрывается — держим lock, иначе снятие minHeight вместе с показом чипов дёргает ленту. */
+  /** Пока карточка раскрывается — держим lock; после показа чипов снимаем, чтобы не держать завышенный minHeight. */
   const composerHeightLockReleased =
-    prefersReducedMotion || (deferChoiceChipsUntilCardReveal ? false : !isRevealInProgress)
+    prefersReducedMotion ||
+    (!isRevealInProgress && (isChoiceChipsVisible || !deferChoiceChipsUntilCardReveal))
   const lockedComposerMinHeight = useLessonComposerHeightLock({
     stackRef: composerStackRef,
     transitionKey: stepTransitionKey,
@@ -935,7 +939,9 @@ export default function LessonStepRenderer({
   })
   const composerMinHeight =
     lockedComposerMinHeight ??
-    (deferChoiceChipsUntilCardReveal ? choiceComposerMinHeightEstimate : undefined)
+    (deferChoiceChipsUntilCardReveal && !isChoiceChipsVisible
+      ? choiceComposerMinHeightEstimate
+      : undefined)
 
   const scrollBottomPadding = resolveScrollBottomPadding({
     hasCurrentStep: currentStep != null,
@@ -1168,24 +1174,28 @@ export default function LessonStepRenderer({
                     }
                   />
                 ) : shouldRenderChoiceChips ? (
-                  <div
-                    className={
-                      !isChoiceChipsVisible ? 'pointer-events-none invisible' : undefined
-                    }
-                    aria-hidden={!isChoiceChipsVisible}
-                  >
+                  isChoiceChipsVisible ? (
                     <LessonChoiceChips
-                      key={`lesson-choice-panel-${choiceResetVersion}`}
+                      key={`lesson-choice-panel-${stepTransitionKey ?? 'step'}-${choiceResetVersion}`}
                       choices={displayChoiceOptions}
                       onChoose={handleChoiceAnswer}
-                      disabled={isChoiceInteractionDisabled || !isChoiceChipsVisible}
+                      disabled={isChoiceInteractionDisabled}
                       frozen={isChoicePanelFrozen}
                       clearSelectionSignal={choiceClearNonce}
                       wrongChoiceText={wrongChoiceHighlight}
                       resetKey={`panel-${choiceResetVersion}`}
-                      suppressEnterAnimation={deferChoiceChipsUntilCardReveal}
                     />
-                  </div>
+                  ) : (
+                    <div
+                      className="pointer-events-none invisible"
+                      aria-hidden
+                      style={{
+                        minHeight: estimateLessonChoiceChipsMinHeight(
+                          displayChoiceOptions.length
+                        ),
+                      }}
+                    />
+                  )
                 ) : null}
 
                 {exercise &&
