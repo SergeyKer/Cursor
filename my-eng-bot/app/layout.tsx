@@ -29,8 +29,8 @@ export default function RootLayout({
         <meta name="msapplication-TileImage" content="/icon-192.png" />
       </head>
       <body className="min-h-screen antialiased">
-        <Script id="ios-safari-vv-bootstrap" strategy="beforeInteractive">
-          {`(function(){try{var ua=navigator.userAgent;var ios=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&/Mobile/.test(ua));if(!ios)return;if(/FxiOS\\/\\d+/i.test(ua)||/EdgiOS\\/\\d+/i.test(ua)||/OPiOS\\/\\d+/i.test(ua))return;var isCriOS=/CriOS\\/\\d+/i.test(ua);if(!isCriOS&&!/Safari\\/\\d+/i.test(ua))return;var vv=window.visualViewport;if(!vv)return;var h=vv.height;if(!(typeof h==='number'&&isFinite(h)&&h>0))return;document.documentElement.style.setProperty('--ios-safari-vv-height',Math.round(h)+'px')}catch(e){}})();`}
+        <Script id="mobile-vv-bootstrap" strategy="beforeInteractive">
+          {`(function(){try{var ua=navigator.userAgent;var ios=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&/Mobile/.test(ua));var android=/Android/i.test(ua);if(ios){if(/FxiOS\\/\\d+/i.test(ua)||/EdgiOS\\/\\d+/i.test(ua)||/OPiOS\\/\\d+/i.test(ua))return;var isCriOS=/CriOS\\/\\d+/i.test(ua);if(!isCriOS&&!/Safari\\/\\d+/i.test(ua))return;}else if(!android)return;var vv=window.visualViewport;if(!vv)return;var h=vv.height;if(!(typeof h==='number'&&isFinite(h)&&h>0))return;var px=Math.round(h)+'px';document.documentElement.style.setProperty('--app-vv-height',px);document.documentElement.style.setProperty('--ios-safari-vv-height',px)}catch(e){}})();`}
         </Script>
         <ThemeProvider>
           <VisualViewportInsets />

@@ -569,4 +569,40 @@ describe('computeLessonFeedScrollTopForTailMessage (клавиатура)', () =
     expect(tailTop).toBeLessThan(scrollToMax)
     expect(tailTop).toBeGreaterThan(0)
   })
+
+  it('на scrollToMax хвост уже виден — не откатывать scrollTop при фокусе', () => {
+    const rowHeight = 120
+    const contentHeightPx = LONG_CONTENT_PX
+    const scrollToMax = simulateScrollTopAfterScrollToMax({
+      contentHeightPx,
+      scrollPaddingBottomPx: SYMMETRIC_PADDING_PX,
+      clientHeightPx: CLIENT_HEIGHT_PX,
+    })
+    const targetBottom = contentHeightPx
+    const visibleBottom = scrollToMax + CLIENT_HEIGHT_PX
+    expect(targetBottom + LESSON_FEED_KEYBOARD_SCROLL_GAP_PX).toBeLessThanOrEqual(
+      visibleBottom + 1
+    )
+  })
+
+  it('при уменьшении viewport доскролл только вниз', () => {
+    const rowHeight = 120
+    const rowTopPx = LONG_CONTENT_PX - rowHeight
+    const targetBottom = rowTopPx + rowHeight
+    const scrollTopAtMax = simulateScrollTopAfterScrollToMax({
+      contentHeightPx: LONG_CONTENT_PX,
+      scrollPaddingBottomPx: SYMMETRIC_PADDING_PX,
+      clientHeightPx: CLIENT_HEIGHT_PX,
+    })
+    const shrunkClientHeight = 220
+    const needTop = tailScrollTopModel({
+      contentHeightPx: LONG_CONTENT_PX,
+      rowTopPx,
+      rowHeightPx: rowHeight,
+      scrollPaddingBottomPx: SYMMETRIC_PADDING_PX,
+      clientHeightPx: shrunkClientHeight,
+    })
+    expect(needTop).toBeGreaterThan(scrollTopAtMax)
+    expect(Math.max(scrollTopAtMax, needTop)).toBe(needTop)
+  })
 })

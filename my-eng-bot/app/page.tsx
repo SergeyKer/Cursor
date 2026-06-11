@@ -904,6 +904,10 @@ export default function Home() {
     if (typeof navigator === 'undefined') return false
     return isIosWebKitBrowser(navigator.userAgent)
   }, [])
+  const isAndroidMobileClient = React.useMemo(() => {
+    if (typeof navigator === 'undefined') return false
+    return /Android/i.test(navigator.userAgent)
+  }, [])
 
   function normalizeSettingsForAudience(s: Settings): Settings {
     const openAiChatPreset = normalizeOpenAiChatPreset(s.openAiChatPreset)
@@ -5954,18 +5958,20 @@ export default function Home() {
     'bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]'
 
   const usesIosWebKitViewportHeight = isIosSafariClient || (isIosWebKitClient && dialogStarted)
+  const usesVisualViewportRootHeight =
+    dialogStarted && (usesIosWebKitViewportHeight || isAndroidMobileClient)
 
   const rootShellClass =
     'flex flex-col ' +
-    (usesIosWebKitViewportHeight
+    (usesVisualViewportRootHeight
       ? 'min-h-0 overflow-hidden '
       : `min-h-[100dvh] ${isIosClient ? 'h-full ' : 'h-[100dvh] '}`)
 
   const rootShellStyle = {
-    ...(usesIosWebKitViewportHeight
+    ...(usesVisualViewportRootHeight
       ? {
-          minHeight: 'var(--ios-safari-vv-height, 100dvh)',
-          height: 'var(--ios-safari-vv-height, 100dvh)',
+          minHeight: 'var(--app-vv-height, var(--ios-safari-vv-height, 100dvh))',
+          height: 'var(--app-vv-height, var(--ios-safari-vv-height, 100dvh))',
         }
       : {}),
   } as React.CSSProperties
@@ -5982,7 +5988,7 @@ export default function Home() {
     } else {
       root.removeAttribute('data-ios-safari-dialog')
     }
-    if (usesIosWebKitViewportHeight) {
+    if (usesVisualViewportRootHeight) {
       root.setAttribute('data-ios-vv-root', '')
     } else {
       root.removeAttribute('data-ios-vv-root')
@@ -5998,7 +6004,7 @@ export default function Home() {
       root.removeAttribute('data-ios-vv-root')
       root.removeAttribute('data-ios-safari-home')
     }
-  }, [dialogStarted, isIosSafariClient, isIosWebKitClient, usesIosWebKitViewportHeight])
+  }, [dialogStarted, isIosSafariClient, isIosWebKitClient, usesVisualViewportRootHeight])
 
   useEffect(() => {
     const root = document.documentElement

@@ -1300,12 +1300,6 @@ html[data-keyboard-input-active] .app-dialog-chrome-footer {
   transform: none !important;
 }
 
-html[data-keyboard-input-active]:not([data-ios-safari-dialog]):not([data-ios-webkit-dialog])
-  .dialog-composer-dock {
-  position: relative;
-  z-index: 60;
-}
-
 html[data-keyboard-input-active][data-ios-safari-dialog] .dialog-composer-dock,
 html[data-keyboard-input-active][data-ios-webkit-dialog]:not([data-ios-safari-dialog]) .dialog-composer-dock {
   bottom: 0;

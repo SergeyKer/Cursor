@@ -6,6 +6,11 @@ import {
   normalizeIosSafariBottomOverlapPx,
   readIosWebKitVisualBottomOverlapPx,
 } from '@/lib/iosSafariViewport'
+import {
+  isAndroidMobileUserAgent,
+  pinAndroidLayoutViewportScroll,
+  readVisualViewportHeightPx,
+} from '@/lib/mobileViewport'
 
 function isEditableElement(element: Element | null): boolean {
   if (!(element instanceof HTMLElement)) return false
@@ -64,14 +69,11 @@ function computeBottomInsetPx(): number {
   return vvInset >= 120 ? vvInset : 0
 }
 
-function computeIosWebKitViewportHeightPx(): number | null {
+function computeDialogViewportHeightPx(): number | null {
   if (typeof window === 'undefined') return null
   const ua = navigator.userAgent
-  if (!isIosWebKitBrowser(ua)) return null
-  const vv = window.visualViewport
-  if (!vv) return null
-  const h = vv.height
-  return Number.isFinite(h) ? Math.max(1, Math.round(h)) : null
+  if (!isIosWebKitBrowser(ua) && !isAndroidMobileUserAgent(ua)) return null
+  return readVisualViewportHeightPx()
 }
 
 function computeSideInsetsPx(): { left: number; right: number } {
@@ -152,19 +154,22 @@ export default function VisualViewportInsets() {
       applyKeyboardInputActive(bottomInsetPx)
     }
 
-    const applyIosWebKitViewportHeight = () => {
-      const iosWebKitH = computeIosWebKitViewportHeightPx()
-      if (iosWebKitH !== null) {
-        root.style.setProperty('--ios-safari-vv-height', `${iosWebKitH}px`)
+    const applyDialogViewportHeight = () => {
+      const vvHeightPx = computeDialogViewportHeightPx()
+      if (vvHeightPx !== null) {
+        root.style.setProperty('--app-vv-height', `${vvHeightPx}px`)
+        root.style.setProperty('--ios-safari-vv-height', `${vvHeightPx}px`)
       } else {
+        root.style.removeProperty('--app-vv-height')
         root.style.removeProperty('--ios-safari-vv-height')
       }
     }
 
     const applyAll = () => {
       raf = 0
+      pinAndroidLayoutViewportScroll()
       applyInsets()
-      applyIosWebKitViewportHeight()
+      applyDialogViewportHeight()
     }
 
     const scheduleApplyAll = () => {
@@ -188,10 +193,15 @@ export default function VisualViewportInsets() {
 
     const vv = window.visualViewport
     vv?.addEventListener?.('resize', scheduleApplyAll, { passive: true })
-    vv?.addEventListener?.('scroll', scheduleApplyInsets, { passive: true })
+    const onVisualViewportScroll = () => {
+      pinAndroidLayoutViewportScroll()
+      scheduleApplyInsets()
+    }
+    vv?.addEventListener?.('scroll', onVisualViewportScroll, { passive: true })
     const onComposerFocusIn = (event: FocusEvent) => {
       if (!isComposerDockEditableTarget(event.target)) return
       capturePreKeyboardBaseline()
+      pinAndroidLayoutViewportScroll()
       scheduleApplyInsets()
     }
 
@@ -214,11 +224,12 @@ export default function VisualViewportInsets() {
       window.removeEventListener('resize', scheduleApplyAll)
       window.removeEventListener('orientationchange', scheduleApplyAll)
       vv?.removeEventListener?.('resize', scheduleApplyAll)
-      vv?.removeEventListener?.('scroll', scheduleApplyInsets)
+      vv?.removeEventListener?.('scroll', onVisualViewportScroll)
       document.removeEventListener('focusin', onComposerFocusIn, true)
       document.removeEventListener('focusin', scheduleApplyInsets, true)
       document.removeEventListener('focusout', onComposerFocusOut, true)
       document.removeEventListener('focusout', scheduleApplyInsets, true)
+      root.style.removeProperty('--app-vv-height')
       root.style.removeProperty('--ios-safari-vv-height')
       root.style.removeProperty('--ios-safari-vv-bottom-overlap')
       root.removeAttribute('data-keyboard-input-active')

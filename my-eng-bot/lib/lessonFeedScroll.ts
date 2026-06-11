@@ -561,7 +561,7 @@ export function computeLessonFeedScrollTopForTailMessage(
 
 /**
  * Минимальный доскролл: последний пузырь виден над композером (не scrollToMax в padding).
- * Как Chat.tsx для learning — без прокрутки в пустую зону.
+ * Только вниз — не откатываем scrollTop, если хвост уже виден (фокус без клавиатуры).
  */
 export function scrollLessonFeedTailMessageIntoView(
   scrollContainer: HTMLElement | null,
@@ -572,9 +572,15 @@ export function scrollLessonFeedTailMessageIntoView(
   const target = findLessonFeedLastMessageRow(scrollContainer)
   if (!target) return false
 
+  const targetTop = getOffsetTopWithinAncestor(scrollContainer, target)
+  const targetBottom = targetTop + target.offsetHeight
+  const visibleBottom = scrollContainer.scrollTop + scrollContainer.clientHeight
+  if (targetBottom + gapPx <= visibleBottom + LESSON_FEED_SCROLL_SNAP_PX) return false
+
   const top = computeLessonFeedScrollTopForTailMessage(scrollContainer, target, gapPx)
-  if (Math.abs(scrollContainer.scrollTop - top) < LESSON_FEED_SCROLL_SNAP_PX) return false
-  scrollContainer.scrollTo({ top, behavior })
+  const nextTop = Math.max(scrollContainer.scrollTop, top)
+  if (Math.abs(scrollContainer.scrollTop - nextTop) < LESSON_FEED_SCROLL_SNAP_PX) return false
+  scrollContainer.scrollTo({ top: nextTop, behavior })
   return true
 }
 

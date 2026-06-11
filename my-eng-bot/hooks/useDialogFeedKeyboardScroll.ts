@@ -24,11 +24,6 @@ export function useDialogFeedKeyboardScroll(
       })
     }
 
-    const onFocusIn = (event: FocusEvent) => {
-      if (!isComposerTextarea(event.target)) return
-      scrollTailMessage()
-    }
-
     const onVisualViewportResize = () => {
       if (!isComposerTextarea(document.activeElement)) return
       if (resizeDebounceRef.current) clearTimeout(resizeDebounceRef.current)
@@ -38,13 +33,11 @@ export function useDialogFeedKeyboardScroll(
       }, 80)
     }
 
-    document.addEventListener('focusin', onFocusIn, true)
     const visualViewport = window.visualViewport
     visualViewport?.addEventListener('resize', onVisualViewportResize, { passive: true })
 
     return () => {
       if (resizeDebounceRef.current) clearTimeout(resizeDebounceRef.current)
-      document.removeEventListener('focusin', onFocusIn, true)
       visualViewport?.removeEventListener('resize', onVisualViewportResize)
     }
   }, [enabled, scrollContainerRef])
