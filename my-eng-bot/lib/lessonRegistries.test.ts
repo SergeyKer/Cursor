@@ -24,7 +24,7 @@ describe('lesson registries', () => {
   it('step 6 first translate omits greeting and accepts I am from Russia only', () => {
     const step6 = introducingYourselfLesson.steps.find((step) => step.stepNumber === 6)
     const exercise = step6?.exercise as Exercise | undefined
-    expect(exercise?.question).toBe('Переведите на английский: Я из России')
+    expect(exercise?.question).toBe('Переведите на английский: "Я из России"')
     expect(exercise?.question).not.toMatch(/Привет/i)
 
     expect(validateAnswer("I'm from Russia.", exercise!)).toBe(true)

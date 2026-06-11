@@ -37,6 +37,7 @@ export default function LessonMedalFlowInfoStep({
     <FlowInfoStep
       variant={copy.variant}
       icon={copy.icon}
+      iconAfterTitle
       title={copy.title}
       statsLine={copy.statsLine}
       message={copy.message}

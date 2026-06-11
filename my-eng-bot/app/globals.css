@@ -417,6 +417,27 @@
   --chat-section-slate-border: #cbd5e1;
   --chat-section-correction-border: #d1d5db;
   --chat-section-invite-border: #cbd5e1;
+  --medal-bronze-bg: linear-gradient(168deg, #fff8f0 0%, #f3d5b5 42%, #dfa066 100%);
+  --medal-bronze-border: #b87333;
+  --medal-bronze-glow: rgba(160, 95, 45, 0.32);
+  --medal-bronze-ribbon: #c68642;
+  --medal-bronze-text: #5c3718;
+  --medal-bronze-text-muted: #7a4a22;
+  --medal-bronze-message: #9a5c28;
+  --medal-silver-bg: linear-gradient(168deg, #fafbfc 0%, #e4e9ef 42%, #c5ced8 100%);
+  --medal-silver-border: #8b9aab;
+  --medal-silver-glow: rgba(100, 116, 139, 0.28);
+  --medal-silver-ribbon: #a8b4c0;
+  --medal-silver-text: #1f2937;
+  --medal-silver-text-muted: #475569;
+  --medal-silver-message: #334155;
+  --medal-gold-bg: linear-gradient(168deg, #fffbeb 0%, #fde68a 42%, #f5c842 100%);
+  --medal-gold-border: #d4a017;
+  --medal-gold-glow: rgba(202, 138, 4, 0.3);
+  --medal-gold-ribbon: #e8b923;
+  --medal-gold-text: #6b4518;
+  --medal-gold-text-muted: #854d0e;
+  --medal-gold-message: #a16207;
   --chat-label-slate: #475569;
   --chat-label-neutral: #4b5563;
   --chat-label-main: #374151;
@@ -640,6 +661,18 @@ html[data-theme='bubble1'] {
   --chat-section-slate-border: rgba(190, 205, 230, 0.74);
   --chat-section-correction-border: rgba(190, 205, 230, 0.88);
   --chat-section-invite-border: rgba(190, 205, 230, 0.74);
+  --medal-bronze-bg: linear-gradient(168deg, #fff8f0 0%, #f3d5b5 42%, #dfa066 100%);
+  --medal-bronze-border: #b87333;
+  --medal-bronze-glow: rgba(160, 95, 45, 0.28);
+  --medal-bronze-ribbon: #c68642;
+  --medal-silver-bg: linear-gradient(168deg, #fafbfc 0%, #e4e9ef 42%, #c5ced8 100%);
+  --medal-silver-border: #8b9aab;
+  --medal-silver-glow: rgba(100, 116, 139, 0.24);
+  --medal-silver-ribbon: #a8b4c0;
+  --medal-gold-bg: linear-gradient(168deg, #fffbeb 0%, #fde68a 42%, #f5c842 100%);
+  --medal-gold-border: #d4a017;
+  --medal-gold-glow: rgba(202, 138, 4, 0.26);
+  --medal-gold-ribbon: #e8b923;
   --chat-label-slate: #4a5d78;
   --chat-label-neutral: #4d5f76;
   --chat-label-main: #2e486f;
@@ -797,6 +830,18 @@ html[data-theme='bubble2'] {
   --chat-section-slate-border: var(--bubble2-color-border-ai-bubble);
   --chat-section-correction-border: var(--bubble2-color-border-ai-bubble);
   --chat-section-invite-border: var(--bubble2-color-border-ai-bubble);
+  --medal-bronze-bg: linear-gradient(168deg, #fff8f0 0%, #f3d5b5 42%, #dfa066 100%);
+  --medal-bronze-border: #b87333;
+  --medal-bronze-glow: rgba(160, 95, 45, 0.26);
+  --medal-bronze-ribbon: #c68642;
+  --medal-silver-bg: linear-gradient(168deg, #fafbfc 0%, #e4e9ef 42%, #c5ced8 100%);
+  --medal-silver-border: #8b9aab;
+  --medal-silver-glow: rgba(100, 116, 139, 0.22);
+  --medal-silver-ribbon: #a8b4c0;
+  --medal-gold-bg: linear-gradient(168deg, #fffbeb 0%, #fde68a 42%, #f5c842 100%);
+  --medal-gold-border: #d4a017;
+  --medal-gold-glow: rgba(202, 138, 4, 0.24);
+  --medal-gold-ribbon: #e8b923;
   --chat-label-slate: rgba(0, 0, 0, 0.65);
   --chat-label-neutral: rgba(0, 0, 0, 0.68);
   --chat-label-main: #2f4f86;
@@ -1019,6 +1064,60 @@ select.select-chevron {
 .glass-surface {
   backdrop-filter: var(--chat-backdrop-filter);
   -webkit-backdrop-filter: var(--chat-backdrop-filter);
+}
+
+/* Медальная награда: background через класс (Tailwind bg-[var] не применяет gradient). */
+.medal-reward-card {
+  position: relative;
+  overflow: hidden;
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 0.875rem;
+  padding-top: 1.125rem;
+  padding-bottom: 1rem;
+  box-shadow:
+    0 8px 22px var(--medal-card-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.medal-reward-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0.3rem;
+  background: var(--medal-card-ribbon);
+}
+
+.medal-reward-card--bronze {
+  background: var(--medal-bronze-bg);
+  border-color: var(--medal-bronze-border);
+  --medal-card-glow: var(--medal-bronze-glow);
+  --medal-card-ribbon: var(--medal-bronze-ribbon);
+}
+
+.medal-reward-card--silver {
+  background: var(--medal-silver-bg);
+  border-color: var(--medal-silver-border);
+  --medal-card-glow: var(--medal-silver-glow);
+  --medal-card-ribbon: var(--medal-silver-ribbon);
+}
+
+.medal-reward-card--gold {
+  background: var(--medal-gold-bg);
+  border-color: var(--medal-gold-border);
+  --medal-card-glow: var(--medal-gold-glow);
+  --medal-card-ribbon: var(--medal-gold-ribbon);
+}
+
+.medal-reward-card__icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.375rem;
+  font-size: 2.75rem;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.14));
 }
 
 .typing-indicator-shell {

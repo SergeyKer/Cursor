@@ -64,6 +64,27 @@ function buildAttemptOrdinalMaps(timeline: LessonTimelineEntry[]) {
   return attemptOrdinalByEntryIndex
 }
 
+function shouldSkipFinaleTailSuccessFeedback(
+  entry: LessonTimelineEntry,
+  timeline: LessonTimelineEntry[],
+): boolean {
+  const finaleActive = timeline.some(
+    (timelineEntry) =>
+      timelineEntry.isCurrent && timelineEntry.step.stepType === 'completion'
+  )
+  if (!finaleActive || entry.isCurrent || entry.feedback?.type !== 'success') {
+    return false
+  }
+  if (entry.step.stepType === 'completion') return false
+
+  const maxLearningStepIndex = timeline.reduce((max, timelineEntry) => {
+    if (timelineEntry.step.stepType === 'completion') return max
+    return Math.max(max, timelineEntry.stepIndex)
+  }, -1)
+
+  return entry.stepIndex === maxLearningStepIndex
+}
+
 export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): LessonFeedMessage[] {
   const {
     timeline,
@@ -138,7 +159,11 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
       })
     }
 
-    if (entry.feedback && (!entry.isCurrent || status === 'feedback')) {
+    if (
+      entry.feedback &&
+      (!entry.isCurrent || status === 'feedback') &&
+      !shouldSkipFinaleTailSuccessFeedback(entry, timeline)
+    ) {
       const feedbackAttemptNumber = resolveLessonAnswerAttemptNumber({
         entry,
         historyAttemptOrdinal: attemptOrdinal,

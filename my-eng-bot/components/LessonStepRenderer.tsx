@@ -12,8 +12,7 @@ import {
 import FeedbackStatusText from '@/components/FeedbackStatusText'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import LessonSentencePuzzle from '@/components/LessonSentencePuzzle'
-import LessonMedalFlowInfoStep from '@/components/LessonMedalFlowInfoStep'
-import PostLessonMenu from '@/components/PostLessonMenu'
+import LessonFinalePanel from '@/components/LessonFinalePanel'
 import type { LessonMedalTierOrNull } from '@/lib/lessonScore'
 import PracticeQuestionBubble from '@/components/practice/PracticeQuestionBubble'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
@@ -126,8 +125,6 @@ type LessonStepRendererProps = {
     corePercent: number
   } | null
   onPostLessonAction?: (action: PostLessonAction) => void
-  onPostLessonMedalNext?: () => void
-  postLessonMedalSeen?: boolean
   postLessonBusy?: boolean
   audience: 'child' | 'adult'
   voiceId: string
@@ -216,8 +213,6 @@ export default function LessonStepRenderer({
   puzzleSubAdvanceToken = 0,
   lessonMedalReveal = null,
   onPostLessonAction,
-  onPostLessonMedalNext,
-  postLessonMedalSeen = false,
   postLessonBusy = false,
   audience,
   voiceId,
@@ -257,9 +252,6 @@ export default function LessonStepRenderer({
   const [choiceClearNonce, setChoiceClearNonce] = useState(0)
   const [wrongChoiceHighlight, setWrongChoiceHighlight] = useState<string | null>(null)
   const [frozenChoiceOptions, setFrozenChoiceOptions] = useState<string[] | null>(null)
-  const [postLessonPhase, setPostLessonPhase] = useState<'medal' | 'menu'>(() =>
-    postLessonMedalSeen ? 'menu' : 'medal'
-  )
   const [showCheckingStatusLine, setShowCheckingStatusLine] = useState(false)
   const [showAdvancingStatusLine, setShowAdvancingStatusLine] = useState(false)
   const [isPuzzleFeedOverflowing, setIsPuzzleFeedOverflowing] = useState(false)
@@ -279,19 +271,6 @@ export default function LessonStepRenderer({
   const currentVariantIndex = exercise?.currentVariantIndex ?? 0
   const postLesson = currentStep?.stepType === 'completion' ? currentStep.postLesson ?? null : null
 
-  useEffect(() => {
-    if (postLessonMedalSeen) {
-      setPostLessonPhase('menu')
-      return
-    }
-    setPostLessonPhase('medal')
-  }, [
-    lessonMedalReveal?.medal,
-    lessonMedalReveal?.coreXp,
-    lessonMedalReveal?.comboXp,
-    lessonMedalReveal?.corePercent,
-    postLessonMedalSeen,
-  ])
   const rawChoiceOptions = exercise?.options
   const isSentencePuzzle = exercise?.type === 'sentence_puzzle'
   const isChoiceExercise = exercise?.type === 'fill_choice' || exercise?.type === 'micro_quiz'
@@ -953,9 +932,9 @@ export default function LessonStepRenderer({
 
   useEffect(() => {
     if (!hasPostLessonOptions) return
-    if (status !== 'completed' && postLessonPhase !== 'menu') return
+    if (status !== 'completed') return
     return schedulePuzzleFeedScroll('auto')
-  }, [hasPostLessonOptions, status, postLessonPhase, schedulePuzzleFeedScroll])
+  }, [hasPostLessonOptions, status, schedulePuzzleFeedScroll])
 
   useEffect(() => {
     if (!isSentencePuzzle || puzzleSubIndex == null) return
@@ -1014,17 +993,14 @@ export default function LessonStepRenderer({
     !deferChoiceChipsUntilCardReveal ||
     (isRevealInitializedForKey && !isRevealInProgress)
 
-  const showPostLessonMedalPhase = Boolean(
-    lessonMedalReveal && hasPostLessonOptions && postLessonPhase === 'medal'
-  )
-  const showPostLessonMenu = hasPostLessonOptions && (!lessonMedalReveal || postLessonPhase === 'menu')
+  const showLessonFinale = Boolean(lessonMedalReveal && hasPostLessonOptions)
   const composerPanelKind = resolveLessonComposerPanelKind({
     exercise,
     hasPostLessonOptions,
-    showPostLessonMedalPhase,
+    showLessonFinale,
   })
   const shouldLockComposerHeight =
-    shouldRenderChoiceChips || hasPostLessonOptions || showPostLessonMedalPhase || isSentencePuzzle
+    shouldRenderChoiceChips || hasPostLessonOptions || showLessonFinale || isSentencePuzzle
   const choiceComposerMinHeightEstimate = shouldRenderChoiceChips
     ? estimateLessonComposerMinHeight({
         panelKind: 'choice',
@@ -1242,35 +1218,18 @@ export default function LessonStepRenderer({
                 className={composerStackLayout.verticalClass}
                 style={composerStackStyle}
               >
-                {showPostLessonMedalPhase && lessonMedalReveal ? (
-                  <LessonMedalFlowInfoStep
+                {showLessonFinale && lessonMedalReveal ? (
+                  <LessonFinalePanel
                     medal={lessonMedalReveal.medal}
                     coreXp={lessonMedalReveal.coreXp}
                     comboXp={lessonMedalReveal.comboXp}
                     maxCoreXp={lessonMedalReveal.maxCoreXp}
                     corePercent={lessonMedalReveal.corePercent}
                     audience={audience}
-                    onNext={() => {
-                      onPostLessonMedalNext?.()
-                      setPostLessonPhase('menu')
-                    }}
+                    options={postLesson?.options ?? []}
+                    onSelect={(action) => onPostLessonAction?.(action)}
+                    disabled={postLessonBusy || !onPostLessonAction}
                   />
-                ) : showPostLessonMenu ? (
-                  <div className="mx-auto flex w-full max-w-[22rem] flex-col gap-2">
-                    <div className="px-1 text-center">
-                      <h3 className="text-base font-semibold text-slate-900">Что дальше?</h3>
-                      {postLesson?.dynamicFooterText ? (
-                        <p className="mt-1 text-sm text-[var(--text-muted,#6b7280)]">
-                          {postLesson.dynamicFooterText}
-                        </p>
-                      ) : null}
-                    </div>
-                    <PostLessonMenu
-                      options={postLesson?.options ?? []}
-                      onSelect={(action) => onPostLessonAction?.(action)}
-                      disabled={postLessonBusy || !onPostLessonAction}
-                    />
-                  </div>
                 ) : isSentencePuzzle && exercise ? (
                   <LessonSentencePuzzle
                     key={`sentence-puzzle-${choiceShuffleSeed ?? 'static'}-${currentStep?.stepNumber ?? 'step'}`}

@@ -43,7 +43,7 @@ describe('resolveLessonComposerPanelKind — post-chip lesson steps', () => {
       resolveLessonComposerPanelKind({
         exercise: { type: 'fill_text', correctAnswer: 'Russia' },
         hasPostLessonOptions: false,
-        showPostLessonMedalPhase: false,
+        showLessonFinale: false,
       })
     ).toBe('text-input')
   })
@@ -53,7 +53,7 @@ describe('resolveLessonComposerPanelKind — post-chip lesson steps', () => {
       resolveLessonComposerPanelKind({
         exercise: { type: 'translate', correctAnswer: "I'm tired." },
         hasPostLessonOptions: false,
-        showPostLessonMedalPhase: false,
+        showLessonFinale: false,
       })
     ).toBe('text-input')
   })
@@ -63,7 +63,7 @@ describe('resolveLessonComposerPanelKind — post-chip lesson steps', () => {
       resolveLessonComposerPanelKind({
         exercise: { type: 'sentence_puzzle', correctAnswer: "I'm happy." },
         hasPostLessonOptions: false,
-        showPostLessonMedalPhase: false,
+        showLessonFinale: false,
       })
     ).toBe('puzzle')
   })
@@ -77,7 +77,7 @@ describe('resolveLessonComposerPanelKind — post-chip lesson steps', () => {
           correctAnswer: 'happy',
         },
         hasPostLessonOptions: false,
-        showPostLessonMedalPhase: false,
+        showLessonFinale: false,
       })
     ).toBe('choice')
   })
@@ -145,9 +145,9 @@ describe('estimateLessonComposerMinHeight', () => {
     ).toBeGreaterThanOrEqual(250)
   })
 
-  it('medal phase stays shorter than post-lesson menu', () => {
-    const postLessonHeight = estimateLessonComposerMinHeight({
-      panelKind: 'post-lesson',
+  it('finale panel fits medal card and action grid', () => {
+    const finaleHeight = estimateLessonComposerMinHeight({
+      panelKind: 'finale',
       compact: false,
     })
     const medalHeight = estimateLessonComposerMinHeight({
@@ -155,7 +155,8 @@ describe('estimateLessonComposerMinHeight', () => {
       compact: false,
     })
 
-    expect(postLessonHeight).toBeGreaterThan(medalHeight)
+    expect(finaleHeight).toBeGreaterThan(medalHeight)
+    expect(finaleHeight).toBeGreaterThanOrEqual(300)
   })
 
   it('puzzle panel uses width-aware estimate for short sentences', () => {

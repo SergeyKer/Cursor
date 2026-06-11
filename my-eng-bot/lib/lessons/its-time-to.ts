@@ -1,3 +1,4 @@
+import { formatTranslateQuestion } from '@/lib/lessonTranslatePrompt'
 import { DEFAULT_POST_LESSON_OPTIONS } from '@/lib/postLessonDefaults'
 import { buildStep6ExamVariants } from '@/lib/lessons/step6Exam'
 import { buildStep7ContrastVariants } from '@/lib/lessons/step7Contrast'
@@ -46,10 +47,6 @@ function toItsTimeStateAcceptedAnswers(adjective: string): string[] {
 
 function toItsTimeStateTranslation(adjective: string): string {
   return ITS_TIME_STATE_TRANSLATIONS[adjective] ?? 'Выберите описание состояния.'
-}
-
-function normalizeRuPromptLabel(text: string): string {
-  return text.trim().replace(/[.!?…]+$/u, '')
 }
 
 const itsTimeVariants: ItsTimeVariant[] = [
@@ -148,7 +145,6 @@ const itsTimeVariants: ItsTimeVariant[] = [
 ]
 
 const itsTimePostLesson = {
-  dynamicFooterText: 'Выбор за вами! Любое действие закрепит материал',
   interestingFact:
     'В живой речи английского It is часто сокращают до It’s, а сама конструкция It’s time to звучит мягче и естественнее, чем прямой приказ.',
   options: DEFAULT_POST_LESSON_OPTIONS,
@@ -375,7 +371,7 @@ function buildItsTimeStep6Variants(variant: ItsTimeVariant) {
     {
       id: `${variant.id}_step6_easy`,
       difficulty: 'easy',
-      question: `Переведите на английский: ${normalizeRuPromptLabel(variant.stateTranslationRu)}`,
+      question: formatTranslateQuestion(variant.stateTranslationRu),
       correctAnswer: stateSentence,
       acceptedAnswers: toItsTimeStateAcceptedAnswers(variant.adjective),
       hint: 'Коротко: It is + прилагательное про состояние.',
@@ -383,7 +379,7 @@ function buildItsTimeStep6Variants(variant: ItsTimeVariant) {
     {
       id: `${variant.id}_step6_medium`,
       difficulty: 'medium',
-      question: `Переведите на английский: ${normalizeRuPromptLabel(variant.finalActionRu)}`,
+      question: formatTranslateQuestion(variant.finalActionRu),
       correctAnswer: actionSentence,
       acceptedAnswers: [actionSentence, actionSentence.replace("It's", 'It is')],
       hint: 'Используйте It is time to + глагол в начальной форме.',
@@ -391,7 +387,7 @@ function buildItsTimeStep6Variants(variant: ItsTimeVariant) {
     {
       id: `${variant.id}_step6_hard`,
       difficulty: 'hard',
-      question: `Переведите на английский: ${normalizeRuPromptLabel(variant.step6CreativeRu)}`,
+      question: formatTranslateQuestion(variant.step6CreativeRu),
       correctAnswer: creativeSentence,
       acceptedAnswers: [creativeSentence, creativeSentence.replace("It's", 'It is')],
       hint: 'It is time to + глагол из новой ситуации в начальной форме.',
@@ -424,15 +420,8 @@ function buildItsTimeFinale(): LessonFinale {
     bubbles: [
       {
         type: 'positive',
-        content: 'Урок завершен. Теперь вы различаете It is + прилагательное и It is time to + глагол.',
-      },
-      {
-        type: 'info',
-        content: 'Используйте первую конструкцию для состояния, а вторую — когда пора что-то сделать.',
-      },
-      {
-        type: 'task',
-        content: 'Нажмите «Далее» ниже — и выберите, как закрепить тему.',
+        content:
+          'Готово! It is и It is time to — ваши. Дальше — практика и кубок 🏆.',
       },
     ],
     footerDynamic: 'Урок завершен',
@@ -479,7 +468,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
     const difficulty: ExerciseDifficulty = index === 0 ? 'easy' : index === 1 ? 'medium' : 'hard'
     return {
       id: `${variant.id}_step4_${index + 1}`,
-      question: `Переведите на английский: ${normalizeRuPromptLabel(toItsTimeStateTranslation(adjective))}`,
+      question: formatTranslateQuestion(toItsTimeStateTranslation(adjective)),
       correctAnswer: toItsTimeStateSentence(adjective),
       acceptedAnswers: toItsTimeStateAcceptedAnswers(adjective),
       hint: 'Напишите короткое предложение по шаблону It is + прилагательное.',
@@ -601,7 +590,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
       ],
       exercise: {
         type: 'translate',
-        question: step4Variants[0]?.question ?? `Переведите на английский: ${normalizeRuPromptLabel(variant.stateTranslationRu)}`,
+        question: step4Variants[0]?.question ?? formatTranslateQuestion(variant.stateTranslationRu),
         correctAnswer: step4Variants[0]?.correctAnswer ?? `It's ${variant.adjective}.`,
         acceptedAnswers: step4Variants[0]?.acceptedAnswers ?? toItsTimeStateAcceptedAnswers(variant.adjective),
         answerFormat: 'full_sentence',
@@ -660,7 +649,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         },
         {
           type: 'task',
-          content: `Переведите на английский: ${normalizeRuPromptLabel(variant.stateTranslationRu)}`,
+          content: formatTranslateQuestion(variant.stateTranslationRu),
         },
       ],
       exercise: (() => {

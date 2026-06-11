@@ -90,16 +90,16 @@ export function buildLessonAdvanceMessage(params: LessonAdvanceMessageParams): s
     return `${prefix} Шаг ${nextStep} из ${total}.`
   }
 
+  const isFinalLearningStep = params.currentStep >= total - 1
+  if (isFinalLearningStep) {
+    return prefix
+  }
+
   const showCompletedStep =
     params.taskCurrent != null && getLessonStepTaskTotal(params.stepNumber, params.taskTotal) != null
 
   if (showCompletedStep) {
     return `${prefix} Шаг ${Math.min(completedStep, total)} из ${total}${completedTaskSuffix}.`
-  }
-
-  const isFinalLearningStep = params.currentStep >= total - 1
-  if (isFinalLearningStep) {
-    return prefix
   }
 
   return `${prefix} Шаг ${nextStep} из ${total}.`

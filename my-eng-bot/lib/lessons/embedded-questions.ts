@@ -459,7 +459,6 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
 ]
 
 const embeddedQuestionsPostLesson = {
-  dynamicFooterText: 'Выбор за вами! Любое действие закрепит тему',
   interestingFact:
     'Во встроенных вопросах английский обычно возвращается к обычному порядку слов: what she likes, where he lives, where the station is.',
   options: DEFAULT_POST_LESSON_OPTIONS,
@@ -795,15 +794,8 @@ function buildEmbeddedQuestionsFinale(): LessonFinale {
     bubbles: [
       {
         type: 'positive',
-        content: 'Урок завершен. Теперь вы лучше чувствуете порядок слов во встроенных вопросах.',
-      },
-      {
-        type: 'info',
-        content: 'После do you know, tell me, can you say используйте вопросительное слово + подлежащее + глагол.',
-      },
-      {
-        type: 'task',
-        content: 'Нажмите «Далее» ниже — и выберите, как закрепить тему.',
+        content:
+          'Готово! Встроенные вопросы — ваши. Дальше — практика и кубок 🏆.',
       },
     ],
     footerDynamic: 'Урок завершен',

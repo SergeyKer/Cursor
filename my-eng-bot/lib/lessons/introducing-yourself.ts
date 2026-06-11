@@ -1,3 +1,4 @@
+import { formatTranslateQuestion } from '@/lib/lessonTranslatePrompt'
 import { DEFAULT_POST_LESSON_OPTIONS } from '@/lib/postLessonDefaults'
 import { buildStep6ExamVariants } from '@/lib/lessons/step6Exam'
 import { buildStep7ContrastVariants } from '@/lib/lessons/step7Contrast'
@@ -55,10 +56,6 @@ function toImFeelingSentence(adj: string): string {
 
 function toImFeelingAccepted(adj: string): string[] {
   return [`I'm ${adj}.`, `I am ${adj}.`]
-}
-
-function normalizeRuPromptLabel(text: string): string {
-  return text.trim().replace(/[.!?…]+$/u, '')
 }
 
 const selfIntroVariants: SelfIntroVariant[] = [
@@ -225,7 +222,6 @@ const selfIntroVariants: SelfIntroVariant[] = [
 ]
 
 const selfIntroPostLesson = {
-  dynamicFooterText: 'Выбор за вами! Любое действие закрепит материал',
     interestingFact:
     'В разговоре чаще говорят I’m happy, а I am from … звучит понятно, когда важно сказать, откуда вы.',
   options: DEFAULT_POST_LESSON_OPTIONS,
@@ -447,7 +443,7 @@ function buildSelfIntroStep6Variants(variant: SelfIntroVariant) {
     {
       id: `${variant.id}_step6_easy`,
       difficulty: 'easy',
-      question: `Переведите на английский: ${normalizeRuPromptLabel(variant.sourceSituations[0] ?? `Я из ${variant.country}`)}`,
+      question: formatTranslateQuestion(variant.sourceSituations[0] ?? `Я из ${variant.country}`),
       correctAnswer: fromSentence,
       acceptedAnswers: fromAccepted,
       hint: 'Короткая фраза: I am from + страна одним словом.',
@@ -455,7 +451,7 @@ function buildSelfIntroStep6Variants(variant: SelfIntroVariant) {
     {
       id: `${variant.id}_step6_medium`,
       difficulty: 'medium',
-      question: `Переведите на английский: ${normalizeRuPromptLabel(variant.step5RoleRu)}`,
+      question: formatTranslateQuestion(variant.step5RoleRu),
       correctAnswer: roleSentence,
       acceptedAnswers: roleAccepted,
       hint: 'Используйте I am + артикль + существительное.',
@@ -463,7 +459,7 @@ function buildSelfIntroStep6Variants(variant: SelfIntroVariant) {
     {
       id: `${variant.id}_step6_hard`,
       difficulty: 'hard',
-      question: `Переведите на английский: ${normalizeRuPromptLabel(variant.step6CreativeRu)}`,
+      question: formatTranslateQuestion(variant.step6CreativeRu),
       correctAnswer: creativeSentence,
       acceptedAnswers: creativeAccepted,
       hint: 'I\'m from + страна из новой ситуации, одним словом.',
@@ -496,15 +492,8 @@ function buildSelfIntroFinale(): LessonFinale {
     bubbles: [
       {
         type: 'positive',
-        content: 'Урок завершен. Теперь вы по-разному говорите о настроении, стране и роли — короткими фразами.',
-      },
-      {
-        type: 'info',
-        content: 'Запомните три коротких шаблона: I am / I’m + слово про настроение; I am from + страна; I am a или an + кем вы.',
-      },
-      {
-        type: 'task',
-        content: 'Нажмите «Далее» ниже — и выберите, как закрепить тему.',
+        content:
+          'Готово! Короткие фразы о себе — ваши. Дальше — практика и кубок 🏆.',
       },
     ],
     footerDynamic: 'Урок завершен',
@@ -554,7 +543,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
     const ru = step4RuPrompts[index] ?? variant.moodRuShort
     return {
       id: `${variant.id}_step4_${index + 1}`,
-      question: `Переведите на английский: ${normalizeRuPromptLabel(ru)}`,
+      question: formatTranslateQuestion(ru),
       correctAnswer: toImFeelingSentence(adj),
       acceptedAnswers: toImFeelingAccepted(adj),
       hint: 'Напишите короткое предложение по шаблону I am / I’m + прилагательное.',
@@ -676,7 +665,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       ],
       exercise: {
         type: 'translate',
-        question: step4Variants[0]?.question ?? `Переведите на английский: ${normalizeRuPromptLabel(variant.moodRuShort)}`,
+        question: step4Variants[0]?.question ?? formatTranslateQuestion(variant.moodRuShort),
         correctAnswer: step4Variants[0]?.correctAnswer ?? toImFeelingSentence(variant.feelingAdj),
         acceptedAnswers: step4Variants[0]?.acceptedAnswers ?? toImFeelingAccepted(variant.feelingAdj),
         answerFormat: 'full_sentence',
@@ -735,7 +724,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
         },
         {
           type: 'task',
-          content: `Переведите на английский: ${normalizeRuPromptLabel(variant.sourceSituations[0] ?? `Я из ${variant.country}`)}`,
+          content: formatTranslateQuestion(variant.sourceSituations[0] ?? `Я из ${variant.country}`),
         },
       ],
       exercise: (() => {

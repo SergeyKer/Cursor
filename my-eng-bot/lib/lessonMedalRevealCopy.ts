@@ -2,6 +2,7 @@ import type { FooterCopyAudience } from '@/lib/footerTopLinePhrases'
 import { featureFlags } from '@/lib/featureFlags'
 import { coreXpToNextMedalTier, type LessonMedalTierOrNull } from '@/lib/lessonScore'
 import { MEDAL_TIER_EMOJI } from '@/lib/medalBadge'
+import type { PostLessonAction } from '@/types/lesson'
 
 export type FlowInfoCardVariant = 'gold' | 'silver' | 'bronze' | 'neutral' | 'info' | 'praise'
 
@@ -20,6 +21,8 @@ export type LessonMedalRevealCopy = {
   title: string
   statsLine: string
   message: string
+  goalLine: string | null
+  /** @deprecated use goalLine */
   cupLine: string | null
 }
 
@@ -28,6 +31,8 @@ const MEDAL_TITLE: Record<NonNullable<LessonMedalTierOrNull>, string> = {
   silver: 'Серебряная медаль!',
   bronze: 'Бронзовая медаль!',
 }
+
+const SCORING_UNITS_APPROX = 13
 
 export function medalGapPercent(coreXp: number, maxCoreXp: number): number {
   const toNext = coreXpToNextMedalTier(coreXp, maxCoreXp)
@@ -57,10 +62,17 @@ function bronzeGapXp(coreXp: number, maxCoreXp: number): number {
   return Math.max(0, Math.ceil(maxCoreXp * 0.5) - coreXp)
 }
 
-function formatMessage(input: LessonMedalRevealCopyInput): string {
+function isSmallMedalGap(gapXp: number, gapPercent: number, maxCoreXp: number): boolean {
+  if (gapPercent <= 8) return true
+  const unitApprox = maxCoreXp > 0 ? maxCoreXp / SCORING_UNITS_APPROX : 10
+  return gapXp <= Math.ceil(unitApprox * 2)
+}
+
+export function formatRetryHook(input: LessonMedalRevealCopyInput): string {
   const { medal, coreXp, maxCoreXp, audience } = input
   const gapXp = coreXpToNextMedalTier(coreXp, maxCoreXp) ?? 0
   const gapPercent = medalGapPercent(coreXp, maxCoreXp)
+  const smallGap = isSmallMedalGap(gapXp, gapPercent, maxCoreXp)
 
   if (medal === 'gold') {
     return audience === 'child'
@@ -70,25 +82,38 @@ function formatMessage(input: LessonMedalRevealCopyInput): string {
 
   if (medal === 'silver') {
     if (audience === 'child') {
-      return gapPercent <= 8 ? 'Почти золото!' : `До золота: ещё ${gapXp} очков`
+      return smallGap
+        ? 'Почти золото! Ещё раз — и твоя!'
+        : `Ещё ${gapXp} очков до золота. Попробуй ещё вариант!`
     }
-    return `До золота: ${gapXp} XP за шаги`
+    return smallGap
+      ? 'До золотой медали — пара верных ответов. Пройдите ещё вариант.'
+      : `До золотой медали: ${gapXp} XP. Ещё один проход.`
   }
 
   if (medal === 'bronze') {
     if (audience === 'child') {
-      return gapPercent <= 8 ? 'Почти серебро!' : `До серебра: ещё ${gapXp} очков`
+      return smallGap
+        ? 'Почти серебро! Ещё раз — и твоя!'
+        : `Ещё ${gapXp} очков до серебра. Попробуй ещё вариант!`
     }
-    return `До серебряной медали: ${gapXp} XP за шаги`
+    return smallGap
+      ? 'До серебряной медали — пара верных ответов. Пройдите ещё вариант.'
+      : `До серебряной медали: ${gapXp} XP. Ещё один проход.`
   }
 
   const gapToBronze = bronzeGapXp(coreXp, maxCoreXp)
-  return audience === 'child'
-    ? `До бронзы: ещё ${gapToBronze} очков`
-    : `До бронзы: ${gapToBronze} XP за шаги`
+  if (audience === 'child') {
+    return smallGap
+      ? 'Почти бронза! Ещё раз — попробуй!'
+      : `Ещё ${gapToBronze} очков до бронзы. Попробуй ещё вариант!`
+  }
+  return smallGap
+    ? 'До бронзы — пара верных ответов. Пройдите ещё вариант.'
+    : `До бронзы: ${gapToBronze} XP. Ещё один проход.`
 }
 
-export function formatTopicCupGoalLine(
+export function formatGoalLine(
   medal: LessonMedalTierOrNull,
   audience: FooterCopyAudience
 ): string | null {
@@ -96,35 +121,63 @@ export function formatTopicCupGoalLine(
 
   if (medal === 'gold') {
     return audience === 'child'
-      ? 'Кубок 🏆 — ещё 5 практик после золота. Пойдём в практику?'
-      : 'Кубок темы 🏆: пройдите 5 практик по этой теме (от 50% в сессии). Медаль урока уже есть.'
+      ? 'Кубок 🏆 — 5 практик по теме'
+      : 'Кубок 🏆 — 5 практик по теме'
   }
   if (medal === 'silver') {
-    return audience === 'child'
-      ? 'Кубок 🏆 — сначала золото 🥇, потом 5 практик.'
-      : 'Кубок 🏆: сначала золотая медаль в уроке, затем 5 практик. Сейчас — путь к золоту.'
+    return 'Сначала золото 🥇, потом кубок 🏆'
   }
   if (medal === 'bronze') {
-    return audience === 'child'
-      ? 'Кубок 🏆 — нужны золото и 5 практик. Сначала — больше правильных ответов.'
-      : 'Кубок 🏆: золото в уроке + 5 практик. Сейчас — поднимайте медаль.'
+    return 'Выше медаль → практика → кубок 🏆'
   }
   return audience === 'child'
-    ? 'Кубок 🏆 — когда будет золото и 5 практик. Сначала — медаль за урок.'
-    : 'Кубок темы 🏆: золотая медаль + 5 практик. Сначала — медаль за урок.'
+    ? 'Медаль и кубок 🏆 — через практику'
+    : 'Медаль и кубок 🏆 — через практику'
+}
+
+export function resolveFinalePrimaryAction(medal: LessonMedalTierOrNull): PostLessonAction {
+  return medal === 'gold' ? 'independent_practice' : 'repeat_variant'
+}
+
+export function buildFinaleOptionHints(params: {
+  medal: LessonMedalTierOrNull
+  coreXp: number
+  maxCoreXp: number
+  audience: FooterCopyAudience
+}): Partial<Record<PostLessonAction, string>> {
+  const { medal } = params
+  const hints: Partial<Record<PostLessonAction, string>> = {}
+
+  if (medal === 'gold') {
+    hints.independent_practice = 'С подпиской'
+    return hints
+  }
+
+  hints.independent_practice = medal === 'silver' ? 'После золота' : 'После медали'
+  return hints
+}
+
+/** @deprecated use formatGoalLine */
+export function formatTopicCupGoalLine(
+  medal: LessonMedalTierOrNull,
+  audience: FooterCopyAudience
+): string | null {
+  return formatGoalLine(medal, audience)
 }
 
 export function buildLessonMedalRevealCopy(input: LessonMedalRevealCopyInput): LessonMedalRevealCopy {
   const { medal } = input
   const title = medal ? MEDAL_TITLE[medal] : 'Урок пройден!'
   const icon = medal ? MEDAL_TIER_EMOJI[medal] : '○'
+  const goalLine = formatGoalLine(medal, input.audience)
 
   return {
     variant: resolveMedalRevealVariant(medal),
     icon,
     title,
     statsLine: formatStatsLine(input),
-    message: formatMessage(input),
-    cupLine: formatTopicCupGoalLine(medal, input.audience),
+    message: formatRetryHook(input),
+    goalLine,
+    cupLine: goalLine,
   }
 }

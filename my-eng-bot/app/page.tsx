@@ -113,6 +113,7 @@ import {
   resolveLessonSilverCapForRun,
 } from '@/lib/lessonAntiFarm'
 import { buildLessonCycle1Hint } from '@/lib/lessonCycle1Hint'
+import { buildLessonMedalRevealCopy } from '@/lib/lessonMedalRevealCopy'
 import { computeCorePercent, resolveMedalFromCoreXp } from '@/lib/lessonScore'
 import { getLessonBadgeDefinition, resolveLessonBadgeProgress } from '@/lib/lessonBadges'
 import { mergeLessonProgressOnComplete, migrateUserLessonProgress } from '@/lib/lessonProgressMigration'
@@ -637,7 +638,6 @@ export default function Home() {
   const [lessonOverlay, setLessonOverlay] = useState<LessonOverlayState | null>(null)
   const [lessonViewStage, setLessonViewStage] = useState<'intro' | 'tips' | 'lesson'>('intro')
   const [lessonTipsReturnStage, setLessonTipsReturnStage] = useState<'intro' | 'lesson'>('intro')
-  const [postLessonMedalSeen, setPostLessonMedalSeen] = useState(false)
   const [lessonIntroDepth, setLessonIntroDepth] = useState<LessonIntroDepth>('quick')
   const [lessonExtraTipsStatus, setLessonExtraTipsStatus] = useState<LessonExtraTipsFooterStatus>('idle')
   const [lessonExtraTipsState, setLessonExtraTipsState] = useState<LessonExtraTipsSavedState | null>(null)
@@ -2573,7 +2573,6 @@ export default function Home() {
     setLessonOverlay(null)
     setLessonViewStage('intro')
     setLessonTipsReturnStage('intro')
-    setPostLessonMedalSeen(false)
     setLessonIntroDepth('quick')
     setLessonExtraTipsStatus('idle')
     setLessonExtraTipsState(null)
@@ -2893,7 +2892,6 @@ export default function Home() {
       setLessonOverlay(null)
       setLessonViewStage('intro')
       setLessonTipsReturnStage('intro')
-      setPostLessonMedalSeen(false)
       setLessonIntroDepth('quick')
       setLessonExtraTipsStatus('idle')
       setLessonExtraTipsState(null)
@@ -3000,7 +2998,6 @@ export default function Home() {
       setLessonOverlay(null)
       setLessonViewStage('intro')
       setLessonTipsReturnStage('intro')
-      setPostLessonMedalSeen(false)
       setLessonIntroDepth('quick')
       setLessonExtraTipsStatus('idle')
       setLessonExtraTipsState(null)
@@ -3169,7 +3166,6 @@ export default function Home() {
       setLessonOverlay(null)
       setLessonViewStage('intro')
       setLessonTipsReturnStage('intro')
-      setPostLessonMedalSeen(false)
       setLessonIntroDepth('quick')
       setLessonExtraTipsStatus('idle')
       setLessonExtraTipsState(null)
@@ -3805,7 +3801,6 @@ export default function Home() {
       setLessonOverlay(null)
       setLessonViewStage('intro')
       setLessonTipsReturnStage('intro')
-      setPostLessonMedalSeen(false)
       setLessonIntroDepth('quick')
       setLessonExtraTipsStatus('idle')
       setLessonExtraTipsState(null)
@@ -3822,8 +3817,6 @@ export default function Home() {
       setSelectedPostLessonAction(action)
       setPostLessonBusy(true)
 
-      setPostLessonMedalSeen(true)
-
       if (action === 'learn_interesting') {
         setLessonOverlay(null)
         setLessonTipsReturnStage('lesson')
@@ -3834,7 +3827,6 @@ export default function Home() {
 
       if (action === 'repeat_variant') {
         structuredLessonRunOriginRef.current = 'post_lesson_repeat'
-        setPostLessonMedalSeen(false)
         if (!getStructuredLessonById(activeStructuredLesson.id)) {
           setLessonOverlay(null)
           setActiveStructuredLessonRuntime(cloneStructuredLessonWithRunKey(activeStructuredLesson))
@@ -3867,9 +3859,36 @@ export default function Home() {
       }
 
       if (action === 'independent_practice' || action === 'myeng_training') {
+        const earned = resolveMedalFromCoreXp(
+          activeStructuredLessonCoreXp,
+          true,
+          activeStructuredLessonMaxCoreXp
+        )
+        const medal = capLessonMedalForRun(earned, {
+          isLocalLesson: isLocalStructuredLessonRun(
+            structuredLessonRunOriginRef.current,
+            activeLessonVariantNumber
+          ),
+          cycle1Closed: loadLessonProgress(activeStructuredLesson.id)?.cycle1Closed === true,
+          isRepeatRun: isStructuredLessonRepeatRun,
+        })
+        const finaleCopy = buildLessonMedalRevealCopy({
+          medal,
+          coreXp: activeStructuredLessonCoreXp,
+          comboXp: activeStructuredLessonComboXp,
+          maxCoreXp: activeStructuredLessonMaxCoreXp,
+          corePercent: computeCorePercent(
+            activeStructuredLessonCoreXp,
+            activeStructuredLessonMaxCoreXp
+          ),
+          audience: settings.audience,
+        })
         setLessonOverlay({
           title: action === 'independent_practice' ? 'Практика' : 'Тренировка в Engvo',
-          lines: ['Раздел скоро появится.'],
+          lines: [
+            finaleCopy.goalLine ?? 'Практика с генерацией вариантов — по подписке.',
+            'Раздел скоро появится.',
+          ],
         })
         setPostLessonBusy(false)
         return
@@ -3878,6 +3897,12 @@ export default function Home() {
     [
       activeStructuredLesson,
       activeStructuredLessonStep,
+      activeStructuredLessonCoreXp,
+      activeStructuredLessonComboXp,
+      activeStructuredLessonMaxCoreXp,
+      activeLessonVariantNumber,
+      isStructuredLessonRepeatRun,
+      settings.audience,
       fetchStructuredLessonRuntime,
     ]
   )
@@ -6598,8 +6623,6 @@ export default function Home() {
                       : null
                   }
                   onPostLessonAction={handlePostLessonAction}
-                  onPostLessonMedalNext={() => setPostLessonMedalSeen(true)}
-                  postLessonMedalSeen={postLessonMedalSeen}
                   postLessonBusy={postLessonBusy}
                   audience={settings.audience}
                   voiceId={settings.voiceId}

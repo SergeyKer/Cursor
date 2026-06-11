@@ -120,21 +120,12 @@ function buildTutorFinale(topic: string): LessonFinale {
     bubbles: [
       {
         type: 'positive',
-        content: 'Готово. Вы прошли короткий урок от Репетитора.',
-      },
-      {
-        type: 'info',
-        content: `Тема: ${safeTopic}. Главное — понимать, зачем правило нужно, и узнавать его в коротких фразах.`,
-      },
-      {
-        type: 'task',
-        content: 'Выберите, что сделать дальше.',
+        content: `Готово! Урок «${safeTopic}» пройден. Дальше — практика и кубок 🏆.`,
       },
     ],
     footerDynamic: 'Урок Репетитора завершен',
     myEngComment: 'Хорошая база. Можно повторить или перейти в практику.',
     postLesson: {
-      dynamicFooterText: 'Выбор за вами! Любое действие закрепит материал',
       interestingFact: `Раздел с фишками по теме ${safeTopic} появится следующим этапом.`,
       options: DEFAULT_POST_LESSON_OPTIONS,
     },

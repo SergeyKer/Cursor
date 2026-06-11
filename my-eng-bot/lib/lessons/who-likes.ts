@@ -128,7 +128,6 @@ function toWhoLikesQuestionRu(verbBase: string, object: string): string {
 }
 
 const whoLikesPostLesson = {
-  dynamicFooterText: 'Выбор за вами! Любое действие закрепит материал',
   interestingFact:
     'В вопросах с Who в английском часто сразу используется форма глагола с -s, потому что вопрос строится вокруг одного неизвестного человека.',
   options: DEFAULT_POST_LESSON_OPTIONS,
@@ -398,15 +397,8 @@ function buildWhoLikesFinale(): LessonFinale {
     bubbles: [
       {
         type: 'positive',
-        content: 'Урок завершён. Теперь вы умеете строить простые вопросы с Who и отвечать на них.',
-      },
-      {
-        type: 'info',
-        content: 'Используйте шаблон Who + verb-s + noun? и давайте короткий ясный ответ.',
-      },
-      {
-        type: 'task',
-        content: 'Нажмите «Далее» ниже — и выберите, как закрепить тему.',
+        content:
+          'Готово! Who-вопросы — ваши. Дальше — практика и кубок 🏆.',
       },
     ],
     footerDynamic: 'Урок завершён',

@@ -26,3 +26,19 @@ export const PAGE_HOME_AUDIENCE_CHILD_BUTTON_CLASS =
 /** Выезжающее меню: «Новый чат». */
 export const SLIDE_OUT_NEW_CHAT_BUTTON_CLASS =
   'group mb-2 flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] py-2.5 px-4 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95'
+
+/** Меню: синие CTA («Сгенерировать вариант», вторичные действия). */
+export const MENU_BLUE_CTA_CLASS =
+  'btn-3d-menu flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[var(--status-info-border)] bg-gradient-to-b from-[var(--status-info-bg)] to-[#dbeafe] px-4 py-2.5 text-[15px] font-semibold leading-normal text-[var(--status-info-text)] shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-95 active:brightness-90 touch-manipulation'
+
+/** Меню: главная синяя CTA (насыщенный вариант «Начать»). */
+export const MENU_BLUE_PRIMARY_CTA_CLASS =
+  'btn-3d-menu flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[#2563eb] bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] px-4 py-2.5 text-[15px] font-semibold leading-normal text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation'
+
+/** Финал урока: компактная синяя кнопка в сетке 2×2. */
+export const POST_LESSON_BLUE_BUTTON_CLASS =
+  'btn-3d-menu flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-[#3b82f6] bg-gradient-to-b from-[#60a5fa] to-[#2563eb] px-2 py-2 text-center text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation'
+
+/** Финал урока: primary в сетке 2×2 (как «Начать урок», но в синей палитре). */
+export const POST_LESSON_BLUE_PRIMARY_BUTTON_CLASS =
+  'btn-3d-menu flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-[#2563eb] bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] px-2 py-2 text-center text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation'

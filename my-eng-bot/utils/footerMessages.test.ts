@@ -207,6 +207,18 @@ describe('footerMessages', () => {
     ).toBe('Верно.')
   })
 
+  it('omits step counter on final learning step with task variants', () => {
+    expect(
+      buildLessonAdvanceMessage({
+        currentStep: 6,
+        totalSteps: 7,
+        stepNumber: 7,
+        taskCurrent: 3,
+        taskTotal: 3,
+      })
+    ).toBe('Верно.')
+  })
+
   it('builds next puzzle sub message after first sub-puzzle', () => {
     expect(
       buildLessonNextPuzzleSubMessage({
