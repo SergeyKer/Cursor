@@ -1271,6 +1271,25 @@ html[data-ios-vv-root][data-ios-safari-dialog] .app-dialog-chrome-footer {
   transform: translateY(calc(-1 * var(--vv-bottom-inset, 0px)));
 }
 
+/* Android / desktop dialog: композер поднимается вместе с футером при клавиатуре. */
+html:not([data-ios-safari-dialog]):not([data-ios-webkit-dialog]) .dialog-composer-dock {
+  transform: translateY(calc(-1 * var(--vv-bottom-inset, 0px)));
+}
+
+@media (pointer: coarse) {
+  html:not([data-ios-safari-dialog]):not([data-ios-webkit-dialog]) .app-dialog-chrome-footer,
+  html:not([data-ios-safari-dialog]):not([data-ios-webkit-dialog]) .dialog-composer-dock {
+    transition: transform 180ms ease-out;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-ios-safari-dialog]):not([data-ios-webkit-dialog]) .app-dialog-chrome-footer,
+  html:not([data-ios-safari-dialog]):not([data-ios-webkit-dialog]) .dialog-composer-dock {
+    transition: none;
+  }
+}
+
 /*
  * iOS Safari: backdrop-filter РЅР° РєР°СЂС‚РѕС‡РєРµ СЃРѕР·РґР°С‘С‚ containing block РґР»СЏ position:fixed.
  * РљРѕРјРїРѕР·РµСЂ СЏРєРѕСЂРёС‚СЃСЏ Рє РєР°СЂС‚РѕС‡РєРµ, Р° РЅРµ Рє viewport вЂ” Р»РµРЅС‚Р° Рё РїР°РЅРµР»СЊ РґРµР№СЃС‚РІРёР№ СЂР°СЃС…РѕРґСЏС‚СЃСЏ.

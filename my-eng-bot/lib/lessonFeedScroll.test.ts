@@ -19,6 +19,8 @@ import {
   resolveLessonScrollContainerPaddingPx,
   resolvePuzzleFeedMessagesStackClass,
   resolveRelaxFeedTailPin,
+  resolveDialogFeedScrollPadding,
+  resolveDialogFeedScrollPaddingStyle,
   resolveScrollBottomPadding,
   resolveShowFeedEndAnchor,
   shouldMtAutoPinPuzzleCheckingRow,
@@ -34,6 +36,20 @@ const CLIENT_HEIGHT_PX = 400
 const SHORT_CONTENT_PX = 100
 const LONG_CONTENT_PX = 2200
 const SYMMETRIC_PADDING_PX = resolveLessonScrollContainerPaddingPx(ROOT_PX)
+
+describe('resolveDialogFeedScrollPadding', () => {
+  it('использует --chat-composer-stack-height с fallback rem', () => {
+    expect(resolveDialogFeedScrollPadding()).toBe(
+      `calc(0.625rem + var(--chat-composer-stack-height, ${CHAT_INPUT_HEIGHT_REM}rem) + ${LESSON_INPUT_GAP_PX}px)`
+    )
+  })
+
+  it('resolveDialogFeedScrollPaddingStyle задаёт padding и scrollPadding', () => {
+    const style = resolveDialogFeedScrollPaddingStyle()
+    expect(style.paddingBottom).toBe(style.scrollPaddingBottom)
+    expect(style.paddingBottom).toContain('--chat-composer-stack-height')
+  })
+})
 
 describe('resolveScrollBottomPadding', () => {
   it('composerOutsideScroll: true → undefined (симметрия через tailwind p-2.5)', () => {

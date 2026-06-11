@@ -16,12 +16,13 @@ import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
 import { DIALOG_COMPOSER_PADDING_BOTTOM, getChatComposerStackLayout } from '@/lib/chatComposerMetrics'
 import { isPracticeChoiceChipsPanel } from '@/lib/practice/practiceComposerLayout'
 import { isPracticeCorrectionComposerActive } from '@/lib/practice/practiceCorrectionMode'
+import { useDialogFeedKeyboardScroll } from '@/hooks/useDialogFeedKeyboardScroll'
 import {
   followLessonFeedTail,
   isLessonFeedScrolledToTail,
   LESSON_SCROLL_VIEWPORT_CLASS,
+  resolveDialogFeedScrollPaddingStyle,
   resolvePracticeFeedScrollRequest,
-  resolveScrollBottomPadding,
 } from '@/lib/lessonFeedScroll'
 import PracticeQuestionBubble from '@/components/practice/PracticeQuestionBubble'
 import {
@@ -184,13 +185,10 @@ export default function PracticeScreen({
     isRevealInProgress
   )
 
-  const scrollBottomPadding = resolveScrollBottomPadding({
-    hasCurrentStep: state !== 'briefing' && state !== 'completed',
-    hasPostLessonOptions: false,
-    isSentencePuzzle: false,
-    bottomStackHeightPx: 0,
-    composerOutsideScroll: true,
-  })
+  const dialogFeedScrollPaddingStyle =
+    state !== 'briefing' && state !== 'completed'
+      ? resolveDialogFeedScrollPaddingStyle()
+      : undefined
 
   const scheduleScroll = useCallback(
     (scrollFn: (behavior: ScrollBehavior) => void, behavior: ScrollBehavior = 'auto') => {
@@ -358,6 +356,8 @@ export default function PracticeScreen({
     ? { ...composerStackLayout.style, paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }
     : composerStackLayout.style
 
+  useDialogFeedKeyboardScroll(scrollContainerRef, showQuestionComposer)
+
   return (
     <div className="dialog-flex-shell flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
       <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
@@ -369,15 +369,8 @@ export default function PracticeScreen({
             <DialogGlassScrollHost>
               <div
                 ref={scrollContainerRef}
-                className={`${LESSON_SCROLL_VIEWPORT_CLASS} bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
-                style={
-                  scrollBottomPadding
-                    ? {
-                        paddingBottom: scrollBottomPadding,
-                        scrollPaddingBottom: scrollBottomPadding,
-                      }
-                    : undefined
-                }
+                className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
+                style={dialogFeedScrollPaddingStyle}
               >
               <div ref={messagesStackRef}>
                 {messages.map((message, index) => {

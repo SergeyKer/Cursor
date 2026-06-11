@@ -303,6 +303,19 @@ export function resolveBottomStackHeightCss(input: {
   return `${CHAT_INPUT_HEIGHT_REM}rem`
 }
 
+/** Scroll-padding ленты при композере-соседе (Android / desktop); на iOS dialog сбрасывается CSS. */
+export function resolveDialogFeedScrollPadding(gapPx = LESSON_INPUT_GAP_PX): string {
+  return `calc(${LESSON_SCROLL_GAP_REM}rem + var(--chat-composer-stack-height, ${CHAT_INPUT_HEIGHT_REM}rem) + ${gapPx}px)`
+}
+
+export function resolveDialogFeedScrollPaddingStyle(gapPx = LESSON_INPUT_GAP_PX): {
+  paddingBottom: string
+  scrollPaddingBottom: string
+} {
+  const padding = resolveDialogFeedScrollPadding(gapPx)
+  return { paddingBottom: padding, scrollPaddingBottom: padding }
+}
+
 export function resolveScrollBottomPadding(input: LessonScrollLayoutInput): string | undefined {
   if (!input.hasCurrentStep) return undefined
 

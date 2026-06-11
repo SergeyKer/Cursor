@@ -43,6 +43,7 @@ import {
   isLessonChoicePanelFrozen,
   LESSON_CHECKING_REVEAL_MS,
 } from '@/lib/lessonAnswerPanelLock'
+import { useDialogFeedKeyboardScroll } from '@/hooks/useDialogFeedKeyboardScroll'
 import { useLessonComposerHeightLock } from '@/hooks/useLessonComposerHeightLock'
 import {
   estimateLessonComposerMinHeight,
@@ -62,7 +63,7 @@ import {
   resolveLessonShellScrollBehavior,
   resolvePuzzleFeedMessagesStackClass,
   resolveRelaxFeedTailPin,
-  resolveScrollBottomPadding,
+  resolveDialogFeedScrollPaddingStyle,
   scrollLessonFeedToMax,
   scrollLessonFeedToModeIfNeeded,
   scrollLessonFeedToModeWithCompleteIfNeeded,
@@ -1028,13 +1029,9 @@ export default function LessonStepRenderer({
     lockedComposerMinHeight ??
     (deferChoiceChipsUntilCardReveal ? choiceComposerMinHeightEstimate : undefined)
 
-  const scrollBottomPadding = resolveScrollBottomPadding({
-    hasCurrentStep: currentStep != null,
-    hasPostLessonOptions,
-    isSentencePuzzle,
-    bottomStackHeightPx: 0,
-    composerOutsideScroll: true,
-  })
+  const dialogFeedScrollPaddingStyle =
+    currentStep != null ? resolveDialogFeedScrollPaddingStyle() : undefined
+  useDialogFeedKeyboardScroll(scrollContainerRef, isTextInputAvailable)
   const composerStackLayout = getChatComposerStackLayout(shouldRenderChoiceChips)
   const composerStackStyle = {
     ...(composerStackLayout.style
@@ -1056,14 +1053,7 @@ export default function LessonStepRenderer({
               <div
                 ref={scrollContainerRef}
                 className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
-              style={
-                scrollBottomPadding
-                  ? {
-                      paddingBottom: scrollBottomPadding,
-                      scrollPaddingBottom: scrollBottomPadding,
-                    }
-                  : undefined
-              }
+              style={dialogFeedScrollPaddingStyle}
             >
               <div ref={messagesStackRef} className={feedMessagesStackClass}>
                 {lessonMessages.map((message, index) => {
