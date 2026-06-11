@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { LESSON_SECTION_REVEAL_INTERVAL_MS } from '@/lib/lessonRevealTiming'
 
 export type StaggeredRevealTarget = {
   id: string
   sectionCount: number
 }
 
-export const DEFAULT_STAGGERED_REVEAL_INTERVAL_MS = 450
+export const DEFAULT_STAGGERED_REVEAL_INTERVAL_MS = LESSON_SECTION_REVEAL_INTERVAL_MS
 
 function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined') return false

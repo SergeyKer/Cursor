@@ -1,6 +1,7 @@
 'use client'
 
 import { LESSON_CARD_RADIUS_CLASS } from '@/components/chat/ChatBubble'
+import { LESSON_CARD_ENTER_MS } from '@/lib/lessonRevealTiming'
 import type { Bubble } from '@/types/lesson'
 import { LESSON_HIGHLIGHT_EXACT_REGEX, LESSON_HIGHLIGHT_SPLIT_REGEX } from '@/lib/lessonHighlightPhrases'
 
@@ -128,6 +129,9 @@ export default function UnifiedLessonBubble({
                 shouldAnimate
                   ? {
                       animationDelay: useStaggeredReveal ? '0ms' : `${bubbleIndex * 80}ms`,
+                      animationDuration: useStaggeredReveal
+                        ? `${LESSON_CARD_ENTER_MS}ms`
+                        : undefined,
                       animationFillMode: 'both',
                     }
                   : undefined

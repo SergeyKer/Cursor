@@ -2920,23 +2920,12 @@ export default function Home() {
     [abandonPracticeSession, bumpFooterSessionContext, menuOpen]
   )
 
-  /** Меню «Начать урок»: не сбрасывать runtime (в т.ч. сгенерированный), если урок уже открыт на intro/tips. */
+  /** Меню «Начать урок»: всегда открывать intro с начала. */
   const openOrContinueLearningLesson = useCallback(
     (lessonId: string, lessonsPanel: LessonsPanel = 'a2', meta?: LearningLessonMenuMeta) => {
-      const structured = getStructuredLessonById(lessonId)
-      if (
-        dialogStarted &&
-        activeLearningLessonId === lessonId &&
-        structured &&
-        (lessonViewStage === 'intro' || lessonViewStage === 'tips')
-      ) {
-        setMenuOpen(false)
-        setLessonViewStage('lesson')
-        return
-      }
       void openLearningLesson(lessonId, lessonsPanel, meta)
     },
-    [activeLearningLessonId, dialogStarted, lessonViewStage, openLearningLesson]
+    [openLearningLesson]
   )
 
   // DEBUG: удалить после редактирования урока
@@ -6500,6 +6489,7 @@ export default function Home() {
                 </div>
               ) : isLessonIntroActive && activeLessonIntro ? (
                 <LessonIntroScreen
+                  key={activeLessonTipsKey}
                   intro={activeLessonIntro}
                   depth={lessonIntroDepth}
                   loadingLesson={Boolean(structuredLessonLoadingId) || loading || !activeStructuredLesson}

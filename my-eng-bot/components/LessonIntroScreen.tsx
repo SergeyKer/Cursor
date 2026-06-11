@@ -14,6 +14,7 @@ import {
   LESSON_INTRO_SCROLL_CLASS,
 } from '@/lib/lessonComposerLayout'
 import { LESSON_SCROLL_VIEWPORT_CLASS, scheduleScrollAfterLayout } from '@/lib/lessonFeedScroll'
+import { LESSON_SECTION_REVEAL_INTERVAL_MS } from '@/lib/lessonRevealTiming'
 import { getMenuTopicCopyByIntroTopic } from '@/lib/lessonCatalog'
 import type { AiProvider, Audience, OpenAiChatPreset } from '@/lib/types'
 import type { Bubble, LessonIntro } from '@/types/lesson'
@@ -281,7 +282,11 @@ export default function LessonIntroScreen({
     return targets
   }, [depth, extraDeepDives.length])
 
-  const visibleSectionCounts = useStaggeredSectionRevealMap(staggeredRevealTargets, intro.topic)
+  const visibleSectionCounts = useStaggeredSectionRevealMap(
+    staggeredRevealTargets,
+    intro.topic,
+    LESSON_SECTION_REVEAL_INTERVAL_MS
+  )
 
   const messages = useMemo<IntroChatMessage[]>(() => {
     const next: IntroChatMessage[] = []
