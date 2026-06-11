@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { choiceChipTextsMatch } from '@/utils/validateAnswer';
 
 interface Choice {
@@ -45,9 +45,19 @@ export default function LessonChoiceChips({
 }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const [allowEnterAnimation, setAllowEnterAnimation] = useState(true);
+  const [chipEnterGeneration, setChipEnterGeneration] = useState(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevFrozenRef = useRef(frozen);
+  const prevSuppressRef = useRef(suppressEnterAnimation);
   const lastClearSelectionSignalRef = useRef(0);
+
+  useLayoutEffect(() => {
+    if (prevSuppressRef.current && !suppressEnterAnimation) {
+      setChipEnterGeneration((generation) => generation + 1);
+      setAllowEnterAnimation(true);
+    }
+    prevSuppressRef.current = suppressEnterAnimation;
+  }, [suppressEnterAnimation]);
 
   useEffect(() => {
     setAllowEnterAnimation(true);
@@ -125,6 +135,7 @@ export default function LessonChoiceChips({
 
   return (
     <div
+      key={chipEnterGeneration}
       className={`flex w-full min-w-0 flex-wrap justify-end gap-1.5 px-1.5 py-1.5 ${
         isFrozenPanel ? 'pointer-events-none saturate-[0.92]' : useEnterAnimation ? 'animate-fade-in' : ''
       }`}
@@ -139,7 +150,7 @@ export default function LessonChoiceChips({
 
         return (
           <button
-            key={`${resetKey}-slot-${index}`}
+            key={`${resetKey}-enter-${chipEnterGeneration}-slot-${index}`}
             disabled={disabled}
             onClick={() => handleSelect(choice)}
             style={{ animationDelay: `${index * 85}ms` }}

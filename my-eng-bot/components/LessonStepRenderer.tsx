@@ -36,7 +36,6 @@ import {
 } from '@/lib/lessonAnswerPanelLock'
 import { useLessonComposerHeightLock } from '@/hooks/useLessonComposerHeightLock'
 import {
-  estimateLessonChoiceChipsMinHeight,
   estimateLessonComposerMinHeight,
   resolveLessonComposerPanelKind,
 } from '@/lib/lessonComposerLayout'
@@ -924,10 +923,9 @@ export default function LessonStepRenderer({
         compact: true,
       })
     : undefined
-  /** Пока карточка раскрывается — держим lock; после показа чипов снимаем, чтобы не держать завышенный minHeight. */
+  /** Пока карточка раскрывается — держим lock, иначе снятие minHeight вместе с показом чипов дёргает ленту. */
   const composerHeightLockReleased =
-    prefersReducedMotion ||
-    (!isRevealInProgress && (isChoiceChipsVisible || !deferChoiceChipsUntilCardReveal))
+    prefersReducedMotion || (deferChoiceChipsUntilCardReveal ? false : !isRevealInProgress)
   const lockedComposerMinHeight = useLessonComposerHeightLock({
     stackRef: composerStackRef,
     transitionKey: stepTransitionKey,
@@ -939,9 +937,7 @@ export default function LessonStepRenderer({
   })
   const composerMinHeight =
     lockedComposerMinHeight ??
-    (deferChoiceChipsUntilCardReveal && !isChoiceChipsVisible
-      ? choiceComposerMinHeightEstimate
-      : undefined)
+    (deferChoiceChipsUntilCardReveal ? choiceComposerMinHeightEstimate : undefined)
 
   const scrollBottomPadding = resolveScrollBottomPadding({
     hasCurrentStep: currentStep != null,
@@ -1174,28 +1170,24 @@ export default function LessonStepRenderer({
                     }
                   />
                 ) : shouldRenderChoiceChips ? (
-                  isChoiceChipsVisible ? (
+                  <div
+                    className={
+                      !isChoiceChipsVisible ? 'pointer-events-none invisible' : undefined
+                    }
+                    aria-hidden={!isChoiceChipsVisible}
+                  >
                     <LessonChoiceChips
                       key={`lesson-choice-panel-${stepTransitionKey ?? 'step'}-${choiceResetVersion}`}
                       choices={displayChoiceOptions}
                       onChoose={handleChoiceAnswer}
-                      disabled={isChoiceInteractionDisabled}
+                      disabled={isChoiceInteractionDisabled || !isChoiceChipsVisible}
                       frozen={isChoicePanelFrozen}
                       clearSelectionSignal={choiceClearNonce}
                       wrongChoiceText={wrongChoiceHighlight}
                       resetKey={`panel-${choiceResetVersion}`}
+                      suppressEnterAnimation={!isChoiceChipsVisible}
                     />
-                  ) : (
-                    <div
-                      className="pointer-events-none invisible"
-                      aria-hidden
-                      style={{
-                        minHeight: estimateLessonChoiceChipsMinHeight(
-                          displayChoiceOptions.length
-                        ),
-                      }}
-                    />
-                  )
+                  </div>
                 ) : null}
 
                 {exercise &&
