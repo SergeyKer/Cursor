@@ -46,6 +46,8 @@ import {
   LESSON_SUCCESS_HOLD_MS,
   LESSON_VALIDATION_DELAY_MS,
 } from '@/lib/lessonAnswerPanelLock'
+import { getLessonCoinForgivenessCopy, type LessonCoinForgivenessAudience } from '@/lib/lessonCoinForgivenessCopy'
+import { isCoinForgivenessExercise, isCoinForgivenessStep } from '@/lib/lessonCoinForgiveness'
 
 /** Откладывает итог проверки (validate внутри onAfterDelay), как в практике. */
 export function scheduleLessonCheckingOutcome(
@@ -179,7 +181,16 @@ export interface LessonXpAward {
 
 const INITIAL_LESSON_XP_AWARD: LessonXpAward = { core: 0, combo: 0, total: 0, nonce: 0 }
 
-export function useLessonEngine(lesson: LessonData | null) {
+export type LessonAnswerOptions = {
+  attemptIndexOverride?: number
+}
+
+export type UseLessonEngineOptions = {
+  audience?: LessonCoinForgivenessAudience
+}
+
+export function useLessonEngine(lesson: LessonData | null, options: UseLessonEngineOptions = {}) {
+  const audience = options.audience ?? 'adult'
   const [currentStep, setCurrentStep] = useState(0)
   const [phase, setPhase] = useState<'lesson' | 'finale'>('lesson')
   const [coreXp, setCoreXp] = useState(0)
@@ -201,6 +212,14 @@ export function useLessonEngine(lesson: LessonData | null) {
   const [attemptHistoryByStep, setAttemptHistoryByStep] = useState<Record<number, LessonAttemptHistoryEntry[]>>({})
   const [puzzleProgress, setPuzzleProgress] = useState<{ subIndex: number; subTotal: number } | null>(null)
   const [puzzleSubAdvanceToken, setPuzzleSubAdvanceToken] = useState(0)
+  const [forgivenessUsedThisRun, setForgivenessUsedThisRun] = useState(false)
+  const [forgivenessOfferDeclinedThisRun, setForgivenessOfferDeclinedThisRun] = useState(false)
+  const [forgivenessConfirmPending, setForgivenessConfirmPending] = useState(false)
+  const [puzzleAttemptForgivenessToken, setPuzzleAttemptForgivenessToken] = useState(0)
+  const [forgivenessAutofillAnswer, setForgivenessAutofillAnswer] = useState<string | null>(null)
+  const [forgivenessAutofillChoice, setForgivenessAutofillChoice] = useState<string | null>(null)
+  const [forgivenessAutofillNonce, setForgivenessAutofillNonce] = useState(0)
+  const [coinForgivenessFooterPulse, setCoinForgivenessFooterPulse] = useState(false)
   const [isAdvancingToNextStep, setIsAdvancingToNextStep] = useState(false)
   const [isAdvancingToNextVariant, setIsAdvancingToNextVariant] = useState(false)
   const [mistakes, setMistakes] = useState<LessonMistake[]>([])
@@ -240,6 +259,14 @@ export function useLessonEngine(lesson: LessonData | null) {
     setSubmittedAnswersByStep({})
     setAttemptHistoryByStep({})
     setPuzzleSubAdvanceToken(0)
+    setForgivenessUsedThisRun(false)
+    setForgivenessOfferDeclinedThisRun(false)
+    setForgivenessConfirmPending(false)
+    setPuzzleAttemptForgivenessToken(0)
+    setForgivenessAutofillAnswer(null)
+    setForgivenessAutofillChoice(null)
+    setForgivenessAutofillNonce(0)
+    setCoinForgivenessFooterPulse(false)
     clearAdvanceFlags()
     setMistakes([])
     setFirstTryCount(0)
@@ -475,7 +502,7 @@ export function useLessonEngine(lesson: LessonData | null) {
   )
 
   const handleAnswer = useCallback(
-    (answer: string) => {
+    (answer: string, answerOptions?: LessonAnswerOptions) => {
       if (!lesson || !rawStep?.exercise || !activeExercise) return
       const baseExercise = rawStep.exercise
       const exercise = activeExercise
@@ -513,7 +540,7 @@ export function useLessonEngine(lesson: LessonData | null) {
           applySuccessAward({
             stepNumber: rawStep.stepNumber,
             variantIndex: variants.length > 0 ? currentVariantIndex : undefined,
-            attemptIndex: exerciseErrors,
+            attemptIndex: answerOptions?.attemptIndexOverride ?? exerciseErrors,
           })
           setExerciseErrors(0)
           setMistakes((current) => current.filter((item) => item.step !== rawStep.stepNumber))
@@ -717,6 +744,57 @@ export function useLessonEngine(lesson: LessonData | null) {
     },
     [awardPuzzleSubStep, beginLessonCheckingPhase, currentStep, lesson, rawStep]
   )
+
+  const requestCoinForgiveness = useCallback(() => {
+    setForgivenessConfirmPending(true)
+  }, [])
+
+  const declineForgivenessOfferThisRun = useCallback(() => {
+    setForgivenessOfferDeclinedThisRun(true)
+    setForgivenessConfirmPending(false)
+  }, [])
+
+  const cancelCoinForgivenessConfirm = useCallback(() => {
+    setForgivenessConfirmPending(false)
+  }, [])
+
+  const applyCoinErrorForgiveness = useCallback((): boolean => {
+    if (!lesson || !rawStep?.exercise || !activeExercise) return false
+    if (status !== 'feedback' || feedback?.type !== 'error') return false
+    if (exerciseErrors !== 1) return false
+    if (!isCoinForgivenessStep(rawStep.stepNumber)) return false
+    if (!isCoinForgivenessExercise(activeExercise)) return false
+
+    const correctAnswer = activeExercise.correctAnswer?.trim()
+    if (!correctAnswer && activeExercise.type !== 'sentence_puzzle') return false
+
+    setForgivenessUsedThisRun(true)
+    setForgivenessConfirmPending(false)
+    setCoinForgivenessFooterPulse(true)
+    setExerciseErrors(0)
+    setMistakes((current) => current.filter((item) => item.step !== rawStep.stepNumber))
+
+    if (activeExercise.type === 'sentence_puzzle') {
+      setPuzzleAttemptForgivenessToken((current) => current + 1)
+      return true
+    }
+
+    if (activeExercise.type === 'fill_choice') {
+      setForgivenessAutofillChoice(correctAnswer)
+      setForgivenessAutofillNonce((current) => current + 1)
+      return true
+    }
+
+    setForgivenessAutofillAnswer(correctAnswer)
+    setForgivenessAutofillNonce((current) => current + 1)
+    return true
+  }, [activeExercise, exerciseErrors, feedback?.type, lesson, rawStep, status])
+
+  useEffect(() => {
+    if (status === 'idle') {
+      setCoinForgivenessFooterPulse(false)
+    }
+  }, [status])
 
   const completeCurrentStep = useCallback(
     (options?: {
@@ -929,6 +1007,15 @@ export function useLessonEngine(lesson: LessonData | null) {
               tone: 'neutral',
             }
           : null,
+        coinForgivenessFooterPulse
+          ? {
+              key: 'lesson-coin-forgiveness-applied',
+              priority: 55,
+              text: getLessonCoinForgivenessCopy(audience).appliedFooter,
+              compactText: getLessonCoinForgivenessCopy(audience).appliedFooter,
+              tone: 'support',
+            }
+          : null,
         rawStep?.exercise?.type === 'sentence_puzzle' &&
         puzzleProgress &&
         (rawStep.exercise.puzzleVariants?.length ?? 0) > 0
@@ -978,6 +1065,8 @@ export function useLessonEngine(lesson: LessonData | null) {
     }
   }, [
     activeExercise?.hint,
+    audience,
+    coinForgivenessFooterPulse,
     combo,
     isAdvancingToNextStep,
     isAdvancingToNextVariant,
@@ -1137,5 +1226,16 @@ export function useLessonEngine(lesson: LessonData | null) {
       comboRef.current = 0
       setCombo(0)
     },
+    forgivenessUsedThisRun,
+    forgivenessOfferDeclinedThisRun,
+    forgivenessConfirmPending,
+    puzzleAttemptForgivenessToken,
+    forgivenessAutofillAnswer,
+    forgivenessAutofillChoice,
+    forgivenessAutofillNonce,
+    requestCoinForgiveness,
+    declineForgivenessOfferThisRun,
+    cancelCoinForgivenessConfirm,
+    applyCoinErrorForgiveness,
   }
 }

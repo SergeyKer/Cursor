@@ -9,8 +9,13 @@ const XP_PER_LEVEL = 100
 /** Стартовый бонус монет (новые пользователи + одноразовая миграция существующих). */
 export const STARTER_COINS_BONUS = 10
 
+/** Одноразовая раздача монет всем с сохранённым прогрессом. */
+export const GLOBAL_COINS_GRANT_AMOUNT = 10
+
 type RewardsMigrations = {
   starterCoinsBonusV1?: boolean
+  globalCoinsGrantV1?: boolean
+  zeroCoinsTopUpV1?: boolean
 }
 
 function canUseRewardsStorage(): boolean {
@@ -38,7 +43,7 @@ function writeRewardsMigrations(migrations: RewardsMigrations): void {
   }
 }
 
-/** Одноразовый +10 🪙 для пользователей с уже сохранённым прогрессом. */
+/** Одноразовый стартовый бонус 🪙 для пользователей с уже сохранённым прогрессом. */
 export function applyStarterCoinsBonusMigration(state: RewardsState): RewardsState {
   const migrations = readRewardsMigrations()
   if (migrations.starterCoinsBonusV1) return state
@@ -50,6 +55,56 @@ export function applyStarterCoinsBonusMigration(state: RewardsState): RewardsSta
       coins: state.currencies.coins + STARTER_COINS_BONUS,
     },
   }
+}
+
+/** Одноразовая раздача 🪙 всем пользователям с сохранённым прогрессом. */
+export function applyGlobalCoinsGrantMigration(state: RewardsState): RewardsState {
+  const migrations = readRewardsMigrations()
+  if (migrations.globalCoinsGrantV1) return state
+  writeRewardsMigrations({ ...migrations, globalCoinsGrantV1: true })
+  return {
+    ...state,
+    currencies: {
+      ...state.currencies,
+      coins: state.currencies.coins + GLOBAL_COINS_GRANT_AMOUNT,
+    },
+  }
+}
+
+/**
+ * Если после миграций баланс всё ещё 0 (флаги уже стояли, монеты потратили) —
+ * один раз выставить 10 🪙.
+ */
+export function applyZeroCoinsTopUpMigration(state: RewardsState): RewardsState {
+  const migrations = readRewardsMigrations()
+  if (migrations.zeroCoinsTopUpV1) return state
+  writeRewardsMigrations({ ...migrations, zeroCoinsTopUpV1: true })
+  if (state.currencies.coins > 0) return state
+  return {
+    ...state,
+    currencies: {
+      ...state.currencies,
+      coins: GLOBAL_COINS_GRANT_AMOUNT,
+    },
+  }
+}
+
+/** При каждой загрузке: пустой кошелёк → 10 🪙 (для теста forgiveness; не трогает ненулевой баланс). */
+export function replenishEmptyWalletOnLoad(state: RewardsState): RewardsState {
+  if (state.currencies.coins > 0) return state
+  return {
+    ...state,
+    currencies: {
+      ...state.currencies,
+      coins: STARTER_COINS_BONUS,
+    },
+  }
+}
+
+export function applyRewardsCoinMigrations(state: RewardsState): RewardsState {
+  return replenishEmptyWalletOnLoad(
+    applyZeroCoinsTopUpMigration(applyGlobalCoinsGrantMigration(applyStarterCoinsBonusMigration(state)))
+  )
 }
 
 export type ModeGoalId = 'communication' | 'engvo'
@@ -195,6 +250,25 @@ export function createDefaultRewardsState(): RewardsState {
   }
 }
 
+/** Placeholder для SSR-футера: без «фальшивых» 10 🪙 до загрузки localStorage. */
+export function createFooterSsrPlaceholderRewardsState(): RewardsState {
+  const base = createDefaultRewardsState()
+  return {
+    ...base,
+    currencies: {
+      coins: 0,
+      gems: 0,
+      tickets: 0,
+    },
+    progress: {
+      ...base.progress,
+      totalXP: 0,
+      dailyStreak: 0,
+      bestDailyStreak: 0,
+    },
+  }
+}
+
 function parseDateOrNull(value: string | null): Date | null {
   if (!value) return null
   const dt = new Date(value)
@@ -326,7 +400,7 @@ export function loadRewardsState(): RewardsState {
     const raw = localStorage.getItem(REWARDS_STATE_KEY)
     if (!raw) return createDefaultRewardsState()
     const normalized = normalizeRewardsState(JSON.parse(raw))
-    return applyStarterCoinsBonusMigration(normalized)
+    return applyRewardsCoinMigrations(normalized)
   } catch {
     return createDefaultRewardsState()
   }
@@ -545,4 +619,33 @@ export function appendFooterRewardSnapshot(baseText: string | null | undefined, 
   if (!context) return compact
   if (context.includes('⭐') && context.includes(DAILY_STREAK_GLYPH)) return context
   return `${context} | ${compact}`
+}
+
+export type SpendCoinsResult = {
+  ok: boolean
+  state: RewardsState
+}
+
+export function canSpendCoins(state: RewardsState, amount: number): boolean {
+  const normalized = Math.max(0, Math.floor(amount))
+  if (normalized <= 0) return false
+  const current = Math.max(0, Math.floor(Number(state.currencies.coins) || 0))
+  return current >= normalized
+}
+
+export function spendCoins(state: RewardsState, amount: number): SpendCoinsResult {
+  const normalized = Math.max(0, Math.floor(amount))
+  if (normalized <= 0) return { ok: false, state }
+  const current = Math.max(0, Math.floor(Number(state.currencies.coins) || 0))
+  if (current < normalized) return { ok: false, state }
+  return {
+    ok: true,
+    state: {
+      ...state,
+      currencies: {
+        ...state.currencies,
+        coins: current - normalized,
+      },
+    },
+  }
 }

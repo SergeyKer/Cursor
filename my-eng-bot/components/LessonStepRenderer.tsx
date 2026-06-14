@@ -87,12 +87,17 @@ import { validateAnswer } from '@/utils/validateAnswer'
 import { useLessonSectionReveal } from '@/hooks/useLessonSectionReveal'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import type { LessonReturnBriefingPayload } from '@/lib/lessonReturnBriefingCopy'
+import LessonCoinForgivenessBubbleButton from '@/components/LessonCoinForgivenessBubbleButton'
+import LessonCoinForgivenessComposerConfirm from '@/components/LessonCoinForgivenessComposerConfirm'
+import { resolveCoinForgivenessBubbleMode } from '@/lib/lessonCoinForgiveness'
+import { getLessonCoinForgivenessCopy } from '@/lib/lessonCoinForgivenessCopy'
+import type { LessonAnswerOptions } from '@/hooks/useLessonEngine'
 type LessonStepRendererProps = {
   timeline: LessonTimelineEntry[]
   status: LessonStatus
   blockProgress: BlockProgress
   exerciseErrors?: number
-  onAnswer: (answer: string) => void
+  onAnswer: (answer: string, options?: LessonAnswerOptions) => void
   onCompleteStep?: (options?: {
     submittedAnswer?: string
     baseMessage?: string
@@ -148,6 +153,18 @@ type LessonStepRendererProps = {
   lessonRevealSessionId?: string
   isAdvancingToNextStep?: boolean
   isAdvancingToNextVariant?: boolean
+  coinBalance?: number
+  forgivenessUsedThisRun?: boolean
+  forgivenessConfirmPending?: boolean
+  forgivenessOfferDeclinedThisRun?: boolean
+  onRequestCoinForgiveness?: () => void
+  onConfirmCoinForgiveness?: () => boolean
+  onDeclineCoinForgiveness?: () => void
+  onCancelCoinForgivenessConfirm?: () => void
+  puzzleAttemptForgivenessToken?: number
+  forgivenessAutofillAnswer?: string | null
+  forgivenessAutofillChoice?: string | null
+  forgivenessAutofillNonce?: number
 }
 
 type LessonMessage = LessonFeedMessage
@@ -240,6 +257,18 @@ export default function LessonStepRenderer({
   lessonRevealSessionId = 'static',
   isAdvancingToNextStep = false,
   isAdvancingToNextVariant = false,
+  coinBalance = 0,
+  forgivenessUsedThisRun = false,
+  forgivenessConfirmPending = false,
+  forgivenessOfferDeclinedThisRun = false,
+  onRequestCoinForgiveness,
+  onConfirmCoinForgiveness,
+  onDeclineCoinForgiveness,
+  onCancelCoinForgivenessConfirm,
+  puzzleAttemptForgivenessToken = 0,
+  forgivenessAutofillAnswer = null,
+  forgivenessAutofillChoice = null,
+  forgivenessAutofillNonce = 0,
 }: LessonStepRendererProps) {
   const returnBriefingActive = Boolean(returnBriefing)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -279,7 +308,6 @@ export default function LessonStepRenderer({
   const prefersReducedMotion = usePrefersReducedMotion()
   const currentEntry = timeline.find((entry) => entry.isCurrent) ?? null
   const currentStep = currentEntry?.step ?? null
-  const currentFeedback = currentEntry?.feedback ?? null
   const latestFeedback = useMemo(
     () =>
       [...timeline]
@@ -289,6 +317,35 @@ export default function LessonStepRenderer({
     [timeline]
   )
   const exercise = currentStep?.exercise ?? null
+  const coinForgivenessCopy = useMemo(() => getLessonCoinForgivenessCopy(audience), [audience])
+  const forgivenessBubbleMode = useMemo(
+    () =>
+      resolveCoinForgivenessBubbleMode({
+        stepNumber: currentStep?.stepNumber ?? 0,
+        exercise,
+        hasErrorOnStep: status === 'feedback' && latestFeedback?.type === 'error',
+        forgivenessUsedThisRun,
+        forgivenessOfferDeclinedThisRun,
+        forgivenessConfirmPending,
+        exerciseErrors,
+        status,
+        coinBalance,
+      }),
+    [
+      coinBalance,
+      exercise,
+      exerciseErrors,
+      forgivenessConfirmPending,
+      forgivenessOfferDeclinedThisRun,
+      forgivenessUsedThisRun,
+      latestFeedback?.type,
+      currentStep?.stepNumber,
+      status,
+    ]
+  )
+  const showCoinForgivenessComposer =
+    forgivenessConfirmPending && Boolean(onConfirmCoinForgiveness) && Boolean(onDeclineCoinForgiveness)
+  const forgivenessSubmitPendingRef = useRef(false)
   const currentVariantIndex = exercise?.currentVariantIndex ?? 0
   const postLesson = currentStep?.stepType === 'completion' ? currentStep.postLesson ?? null : null
 
@@ -444,10 +501,20 @@ export default function LessonStepRenderer({
         lastChosenChoiceRef.current = trimmed
         wrongHighlightSuppressedRef.current = false
       }
+      if (forgivenessSubmitPendingRef.current) {
+        forgivenessSubmitPendingRef.current = false
+        onAnswer(answer, { attemptIndexOverride: 0 })
+        return
+      }
       onAnswer(answer)
     },
     [onAnswer]
   )
+
+  useEffect(() => {
+    if (!forgivenessAutofillNonce || !forgivenessAutofillChoice) return
+    forgivenessSubmitPendingRef.current = true
+  }, [forgivenessAutofillChoice, forgivenessAutofillNonce])
 
   const lessonInviteBubble = useMemo(() => {
     if (!currentEntry?.isCurrent || !isTaskSectionVisible) return null
@@ -472,7 +539,16 @@ export default function LessonStepRenderer({
         ? `${currentStep?.stepNumber ?? 'step'}:${lessonInviteBubble.content}`
         : null,
   })
-  const { resetVoiceInput } = lessonVoiceInput
+  const { resetVoiceInput, setDraftText } = lessonVoiceInput
+
+  useEffect(() => {
+    if (!forgivenessAutofillNonce || !forgivenessAutofillAnswer) return
+    setDraftText(forgivenessAutofillAnswer)
+    const timer = window.setTimeout(() => {
+      onAnswer(forgivenessAutofillAnswer, { attemptIndexOverride: 0 })
+    }, 80)
+    return () => window.clearTimeout(timer)
+  }, [forgivenessAutofillAnswer, forgivenessAutofillNonce, onAnswer, setDraftText])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -748,6 +824,15 @@ export default function LessonStepRenderer({
     latestFeedback?.type,
     returnBriefing,
   ])
+
+  const forgivenessErrorMessageId = useMemo(() => {
+    if (status !== 'feedback') return null
+    for (let index = lessonMessages.length - 1; index >= 0; index -= 1) {
+      const message = lessonMessages[index]
+      if (message.kind === 'status' && message.tone === 'error') return message.id
+    }
+    return null
+  }, [lessonMessages, status])
 
   const currentLessonMessage = useMemo(
     () => lessonMessages.find((message) => message.kind === 'lesson' && !message.isHistorical) ?? null,
@@ -1349,9 +1434,23 @@ export default function LessonStepRenderer({
                     >
                       <section
                         className={`chat-section-surface glass-surface rounded-xl border px-2.5 py-1.5 ${lessonStatusCardClassByTone[message.tone]}`}
+                        role={message.tone === 'error' ? 'alert' : undefined}
                       >
                         <FeedbackStatusText text={message.text} />
                       </section>
+                      {message.tone === 'error' &&
+                      message.id === forgivenessErrorMessageId &&
+                      status === 'feedback' &&
+                      forgivenessBubbleMode &&
+                      onRequestCoinForgiveness ? (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                          <LessonCoinForgivenessBubbleButton
+                            mode={forgivenessBubbleMode}
+                            copy={coinForgivenessCopy}
+                            onPress={onRequestCoinForgiveness}
+                          />
+                        </div>
+                      ) : null}
                     </ChatBubbleFrame>
                   )
                 })}
@@ -1365,6 +1464,16 @@ export default function LessonStepRenderer({
                 className={composerStackLayout.verticalClass}
                 style={composerStackStyle}
               >
+                {showCoinForgivenessComposer ? (
+                  <LessonCoinForgivenessComposerConfirm
+                    copy={coinForgivenessCopy}
+                    balanceAfter={Math.max(0, coinBalance - 1)}
+                    onConfirm={onConfirmCoinForgiveness ?? (() => false)}
+                    onDecline={onDeclineCoinForgiveness ?? (() => undefined)}
+                    onSpendFailed={onCancelCoinForgivenessConfirm}
+                  />
+                ) : (
+                  <>
                 {returnBriefingActive && returnBriefing ? (
                   <LessonReturnBriefingFlowInfoStep
                     copy={returnBriefing.copy}
@@ -1398,6 +1507,7 @@ export default function LessonStepRenderer({
                     exercise={exercise}
                     disabled={isChecking || isAnswerPanelLocked || !onCompleteStep}
                     progressKey={`${choiceShuffleSeed ?? 'static'}:${currentStep?.stepNumber ?? 'step'}:${currentVariantIndex}`}
+                    attemptForgivenessToken={puzzleAttemptForgivenessToken}
                     onSubPuzzleComplete={(summary) =>
                       onPuzzleSubStep?.({ subIndex: summary.subIndex, attempts: summary.attempts })
                     }
@@ -1432,6 +1542,8 @@ export default function LessonStepRenderer({
                       wrongChoiceText={wrongChoiceHighlight}
                       resetKey={`panel-${choiceResetVersion}`}
                       suppressEnterAnimation={!isChoiceChipsVisible}
+                      autoSelectText={forgivenessAutofillChoice ?? undefined}
+                      autoSelectNonce={forgivenessAutofillNonce || undefined}
                     />
                   </div>
                 ) : null}
@@ -1637,6 +1749,8 @@ export default function LessonStepRenderer({
                   >
                     {voiceStatusMessage}
                   </p>
+                )}
+                  </>
                 )}
               </DialogComposerStack>
             )}

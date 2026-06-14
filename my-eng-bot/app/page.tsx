@@ -34,14 +34,17 @@ import {
 import {
   appendFooterRewardSnapshot,
   createDefaultRewardsState,
+  createFooterSsrPlaceholderRewardsState,
   loadRewardsState,
   reconcileModeGoalSessions,
   saveRewardsState,
   formatGlobalFooterStats,
   formatModeGoalFooter,
   type RewardsState,
+  spendCoins,
 } from '@/lib/rewardsState'
 import { applyRewardsEvent } from '@/lib/rewardsEvents'
+import { COIN_ERROR_FORGIVENESS_COST, canSpendCoinsForForgiveness } from '@/lib/lessonCoinForgiveness'
 import {
   buildRewardPopupText,
   rewardReasonAllowsDynamicTickerOverride,
@@ -684,7 +687,55 @@ export default function Home() {
     goToFinale: goToStructuredLessonFinale,
     firstTryCount: activeStructuredLessonFirstTryCount,
     totalScoredUnits: activeStructuredLessonTotalScoredUnits,
-  } = useLessonEngine(activeStructuredLesson)
+    forgivenessUsedThisRun: activeStructuredLessonForgivenessUsedThisRun,
+    forgivenessOfferDeclinedThisRun: activeStructuredLessonForgivenessOfferDeclinedThisRun,
+    forgivenessConfirmPending: activeStructuredLessonForgivenessConfirmPending,
+    puzzleAttemptForgivenessToken: activeStructuredLessonPuzzleAttemptForgivenessToken,
+    forgivenessAutofillAnswer: activeStructuredLessonForgivenessAutofillAnswer,
+    forgivenessAutofillChoice: activeStructuredLessonForgivenessAutofillChoice,
+    forgivenessAutofillNonce: activeStructuredLessonForgivenessAutofillNonce,
+    requestCoinForgiveness: requestStructuredLessonCoinForgiveness,
+    declineForgivenessOfferThisRun: declineStructuredLessonForgivenessOffer,
+    cancelCoinForgivenessConfirm: cancelStructuredLessonCoinForgivenessConfirm,
+    applyCoinErrorForgiveness: applyStructuredLessonCoinForgiveness,
+  } = useLessonEngine(activeStructuredLesson, { audience: settings.audience })
+  const handleStructuredLessonConfirmCoinForgiveness = React.useCallback((): boolean => {
+    if (!canSpendCoinsForForgiveness(rewardsState.currencies.coins)) {
+      // TODO: monetization flow when balance < COIN_ERROR_FORGIVENESS_COST
+      return false
+    }
+
+    const spentRef = { ok: false as boolean }
+
+    setRewardsState((prev) => {
+      const spent = spendCoins(prev, COIN_ERROR_FORGIVENESS_COST)
+      spentRef.ok = spent.ok
+      return spent.ok ? spent.state : prev
+    })
+
+    if (!spentRef.ok) return false
+
+    const applied = applyStructuredLessonCoinForgiveness()
+    if (!applied) {
+      setRewardsState((prev) => ({
+        ...prev,
+        currencies: {
+          ...prev.currencies,
+          coins: prev.currencies.coins + COIN_ERROR_FORGIVENESS_COST,
+        },
+      }))
+      return false
+    }
+
+    setRewardsState((prev) =>
+      applyRewardsEvent(prev, {
+        type: 'coins_spent',
+        amount: COIN_ERROR_FORGIVENESS_COST,
+        reason: 'lesson_error_forgiveness',
+      })
+    )
+    return true
+  }, [applyStructuredLessonCoinForgiveness, rewardsState.currencies.coins])
   const isStructuredLessonRepeatRun =
     activeLessonVariantNumber > 1 ||
     structuredLessonRunOriginRef.current === 'post_lesson_repeat' ||
@@ -795,6 +846,7 @@ export default function Home() {
   /** Настройки на момент последней отправки сообщения; для баннера «настройки изменены». */
   const [settingsAtLastSend, setSettingsAtLastSend] = useState<Settings | null>(null)
   const initialLoadDoneRef = React.useRef(false)
+  const rewardsPersistReadyRef = React.useRef(false)
   const usageRequestStartedRef = React.useRef(false)
   const newDialogRef = React.useRef(false)
   const firstMessageRequestIdRef = React.useRef(0)
@@ -4180,6 +4232,7 @@ export default function Home() {
         )
       }
       setRewardsState(rewards)
+      rewardsPersistReadyRef.current = true
       setInitialized(true)
     } catch (error) {
       console.error('Failed to load persisted app state', error)
@@ -4264,7 +4317,7 @@ export default function Home() {
   }, [storageLoaded, dialogStarted, settings.mode, engvoVoiceMode])
 
   useEffect(() => {
-    if (!storageLoaded) return
+    if (!storageLoaded || !rewardsPersistReadyRef.current) return
     saveRewardsState(rewardsState)
   }, [storageLoaded, rewardsState])
 
@@ -5862,7 +5915,7 @@ export default function Home() {
     : footerContextRewardTicker && !structuredLessonFooterBlocksCelebrateTicker
       ? 'pulse'
       : baseFooterVoiceEmphasis
-  const footerSsrPlaceholderStatic = formatGlobalFooterStats(createDefaultRewardsState())
+  const footerSsrPlaceholderStatic = formatGlobalFooterStats(createFooterSsrPlaceholderRewardsState())
   const footerDisplayDynamicText = footerHydrated ? footerDynamicText : null
   const footerDisplayStaticText = footerHydrated ? footerStaticText : footerSsrPlaceholderStatic
   const footerDisplayLessonSegments = footerHydrated
@@ -6665,6 +6718,18 @@ export default function Home() {
                   }
                   isAdvancingToNextStep={activeStructuredLessonIsAdvancingToNextStep}
                   isAdvancingToNextVariant={activeStructuredLessonIsAdvancingToNextVariant}
+                  coinBalance={rewardsState.currencies.coins}
+                  forgivenessUsedThisRun={activeStructuredLessonForgivenessUsedThisRun}
+                  forgivenessConfirmPending={activeStructuredLessonForgivenessConfirmPending}
+                  forgivenessOfferDeclinedThisRun={activeStructuredLessonForgivenessOfferDeclinedThisRun}
+                  onRequestCoinForgiveness={requestStructuredLessonCoinForgiveness}
+                  onConfirmCoinForgiveness={handleStructuredLessonConfirmCoinForgiveness}
+                  onDeclineCoinForgiveness={declineStructuredLessonForgivenessOffer}
+                  onCancelCoinForgivenessConfirm={cancelStructuredLessonCoinForgivenessConfirm}
+                  puzzleAttemptForgivenessToken={activeStructuredLessonPuzzleAttemptForgivenessToken}
+                  forgivenessAutofillAnswer={activeStructuredLessonForgivenessAutofillAnswer}
+                  forgivenessAutofillChoice={activeStructuredLessonForgivenessAutofillChoice}
+                  forgivenessAutofillNonce={activeStructuredLessonForgivenessAutofillNonce}
                 />
               ) : (
                 <Chat

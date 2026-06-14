@@ -7,6 +7,7 @@ export type RewardsEvent =
   | { type: 'accent_session_completed' }
   | { type: 'communication_turn_completed' }
   | { type: 'engvo_turn_completed' }
+  | { type: 'coins_spent'; amount: number; reason: string; ticker?: string }
 
 export function applyRewardsEvent(state: RewardsState, event: RewardsEvent): RewardsState {
   switch (event.type) {
@@ -40,6 +41,23 @@ export function applyRewardsEvent(state: RewardsState, event: RewardsEvent): Rew
       return incrementModeGoal(state, 'engvo', {
         completionXp: 35,
       })
+    case 'coins_spent': {
+      const amount = Math.max(0, Math.floor(event.amount))
+      if (amount <= 0) return state
+      const rewardAt = new Date().toISOString()
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          ...(event.ticker ? { footerTicker: event.ticker } : {}),
+          lastReward: {
+            amount: 0,
+            reason: event.reason,
+            at: rewardAt,
+          },
+        },
+      }
+    }
     default:
       return state
   }

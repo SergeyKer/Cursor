@@ -46,6 +46,20 @@ describe('applyRewardsEvent', () => {
     expect(state.ui.lastReward?.reason).toBe('communication_goal_completed')
   })
 
+  it('records coins_spent without awarding xp', () => {
+    const state = createDefaultRewardsState()
+    state.currencies.coins = 4
+    const next = applyRewardsEvent(state, {
+      type: 'coins_spent',
+      amount: 1,
+      reason: 'lesson_error_forgiveness',
+    })
+    expect(next.currencies.coins).toBe(4)
+    expect(next.progress.totalXP).toBe(0)
+    expect(next.ui.lastReward?.reason).toBe('lesson_error_forgiveness')
+    expect(next.ui.lastReward?.amount).toBe(0)
+  })
+
   it('awards streak bonus on first communication turn when streak reaches 3', () => {
     const today = getTodayDateString()
     const yesterday = offsetDateString(today, -1)

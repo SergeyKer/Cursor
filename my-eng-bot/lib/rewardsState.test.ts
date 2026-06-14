@@ -1,13 +1,21 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   appendFooterRewardSnapshot,
+  applyGlobalCoinsGrantMigration,
+  applyRewardsCoinMigrations,
   applyStarterCoinsBonusMigration,
+  applyZeroCoinsTopUpMigration,
   awardGlobalXp,
+  canSpendCoins,
   createDefaultRewardsState,
+  createFooterSsrPlaceholderRewardsState,
+  GLOBAL_COINS_GRANT_AMOUNT,
+  replenishEmptyWalletOnLoad,
   formatGlobalFooterStats,
   getTodayDateString,
   REWARDS_MIGRATIONS_KEY,
   reconcileModeGoalSessions,
+  spendCoins,
   STARTER_COINS_BONUS,
   withDailyActivity,
 } from './rewardsState'
@@ -166,5 +174,108 @@ describe('rewardsState', () => {
     expect(JSON.parse(storage.get(REWARDS_MIGRATIONS_KEY) ?? '{}').starterCoinsBonusV1).toBe(true)
 
     vi.unstubAllGlobals()
+  })
+
+  it('applies global coins grant only once', () => {
+    const storage = new Map<string, string>()
+    const localStorageMock = {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value)
+      },
+    }
+    vi.stubGlobal('localStorage', localStorageMock)
+
+    const state = createDefaultRewardsState()
+    state.currencies.coins = 5
+
+    const first = applyGlobalCoinsGrantMigration(state)
+    expect(first.currencies.coins).toBe(5 + GLOBAL_COINS_GRANT_AMOUNT)
+
+    first.currencies.coins = 12
+    const second = applyGlobalCoinsGrantMigration(first)
+    expect(second.currencies.coins).toBe(12)
+
+    expect(JSON.parse(storage.get(REWARDS_MIGRATIONS_KEY) ?? '{}').globalCoinsGrantV1).toBe(true)
+
+    vi.unstubAllGlobals()
+  })
+
+  it('tops up zero coin balance once after prior migrations', () => {
+    const storage = new Map<string, string>()
+    storage.set(
+      REWARDS_MIGRATIONS_KEY,
+      JSON.stringify({ starterCoinsBonusV1: true, globalCoinsGrantV1: true })
+    )
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value)
+      },
+    })
+
+    const state = createDefaultRewardsState()
+    state.currencies.coins = 0
+
+    const topped = applyZeroCoinsTopUpMigration(state)
+    expect(topped.currencies.coins).toBe(GLOBAL_COINS_GRANT_AMOUNT)
+
+    topped.currencies.coins = 0
+    const again = applyZeroCoinsTopUpMigration(topped)
+    expect(again.currencies.coins).toBe(0)
+
+    vi.unstubAllGlobals()
+  })
+
+  it('footer ssr placeholder does not show starter coins before hydration', () => {
+    expect(createFooterSsrPlaceholderRewardsState().currencies.coins).toBe(0)
+    expect(createFooterSsrPlaceholderRewardsState().progress.totalXP).toBe(0)
+  })
+
+  it('replenishes empty wallet on every load even when migrations are exhausted', () => {
+    const storage = new Map<string, string>()
+    storage.set(
+      REWARDS_MIGRATIONS_KEY,
+      JSON.stringify({
+        starterCoinsBonusV1: true,
+        globalCoinsGrantV1: true,
+        zeroCoinsTopUpV1: true,
+      })
+    )
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value)
+      },
+    })
+
+    const state = createDefaultRewardsState()
+    state.currencies.coins = 0
+    state.progress.totalXP = 243
+
+    expect(replenishEmptyWalletOnLoad(state).currencies.coins).toBe(STARTER_COINS_BONUS)
+    expect(applyRewardsCoinMigrations(state).currencies.coins).toBe(STARTER_COINS_BONUS)
+
+    state.currencies.coins = 3
+    expect(replenishEmptyWalletOnLoad(state).currencies.coins).toBe(3)
+
+    vi.unstubAllGlobals()
+  })
+
+  it('spends coins when balance is sufficient', () => {
+    const state = createDefaultRewardsState()
+    state.currencies.coins = 5
+    const spent = spendCoins(state, 1)
+    expect(spent.ok).toBe(true)
+    expect(spent.state.currencies.coins).toBe(4)
+    expect(state.currencies.coins).toBe(5)
+  })
+
+  it('refuses to spend coins when balance is insufficient', () => {
+    const state = createDefaultRewardsState()
+    state.currencies.coins = 0
+    const spent = spendCoins(state, 1)
+    expect(spent.ok).toBe(false)
+    expect(canSpendCoins(state, 1)).toBe(false)
   })
 })

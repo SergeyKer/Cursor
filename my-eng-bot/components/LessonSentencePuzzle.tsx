@@ -34,6 +34,8 @@ type LessonSentencePuzzleProps = {
   onInteraction?: () => void
   /** Инкремент движка после checking+feedback успеха подпазла — запускает advance. */
   subPuzzleAdvanceToken?: number
+  /** Сигнал движка: прощение ошибки — автозаполнение и success. */
+  attemptForgivenessToken?: number
 }
 
 const PUZZLE_VARIANT_ADVANCE_MS = 700
@@ -115,10 +117,12 @@ export default function LessonSentencePuzzle({
   onSubSuccess,
   onInteraction,
   subPuzzleAdvanceToken = 0,
+  attemptForgivenessToken = 0,
 }: LessonSentencePuzzleProps) {
   const variants = exercise.puzzleVariants ?? []
   const [variantIndex, setVariantIndex] = useState(0)
   const consumedAdvanceTokenRef = useRef(subPuzzleAdvanceToken)
+  const consumedForgivenessTokenRef = useRef(attemptForgivenessToken)
   const [selectedWords, setSelectedWords] = useState<string[]>([])
   const [attempts, setAttempts] = useState(0)
   const [locked, setLocked] = useState(false)
@@ -177,6 +181,53 @@ export default function LessonSentencePuzzle({
 
     return () => window.clearTimeout(timer)
   }, [subPuzzleAdvanceToken, onInteraction])
+
+  useEffect(() => {
+    if (
+      attemptForgivenessToken <= 0 ||
+      attemptForgivenessToken === consumedForgivenessTokenRef.current ||
+      !activeVariant
+    ) {
+      return
+    }
+    consumedForgivenessTokenRef.current = attemptForgivenessToken
+
+    const attemptsAfterForgiveness = 0
+    setAttempts(attemptsAfterForgiveness)
+    setSelectedWords([...activeVariant.correctOrder])
+    setLocked(true)
+
+    const submittedAnswer = activeVariant.correctOrder.join(' ')
+    const isLastVariant = variantIndex >= variants.length - 1
+
+    if (isLastVariant) {
+      onSubPuzzleComplete?.({ subIndex: variantIndex, attempts: attemptsAfterForgiveness })
+      clearStoredProgress(progressKey)
+      onComplete({
+        submittedAnswer: activeVariant.correctAnswer,
+        baseMessage: LESSON_PUZZLE_COMPLETE_MESSAGE,
+        taskCurrent: variantIndex + 1,
+        taskTotal: variants.length,
+      })
+      return
+    }
+
+    onSubSuccess?.({
+      subIndex: variantIndex,
+      attempts: attemptsAfterForgiveness,
+      submittedAnswer,
+      isLastVariant: false,
+    })
+  }, [
+    attemptForgivenessToken,
+    activeVariant,
+    onComplete,
+    onSubPuzzleComplete,
+    onSubSuccess,
+    progressKey,
+    variantIndex,
+    variants.length,
+  ])
 
   if (!activeVariant || variants.length === 0) {
     return (
