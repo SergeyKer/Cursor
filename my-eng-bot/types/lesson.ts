@@ -242,7 +242,7 @@ export interface LessonStep {
 }
 
 export interface LessonFinale {
-  bubbles: [Bubble, Bubble, Bubble]
+  bubbles: Bubble[]
   footerDynamic: string
   myEngComment?: string
   postLesson: PostLessonContent

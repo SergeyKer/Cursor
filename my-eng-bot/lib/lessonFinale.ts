@@ -5,11 +5,17 @@ export function normalizeFinaleBubbleContent(content: string): string {
   return content.replace(/^Готово!\s*/, 'Урок завершён. ')
 }
 
+type FinaleBubbles = [Bubble, Bubble, Bubble]
+
 function normalizeFinaleBubbles(bubbles: Bubble[]): Bubble[] {
   return bubbles.map((bubble) => ({
     ...bubble,
     content: normalizeFinaleBubbleContent(bubble.content),
   }))
+}
+
+function toLessonStepBubbles(bubbles: Bubble[]): FinaleBubbles {
+  return normalizeFinaleBubbles(bubbles) as FinaleBubbles
 }
 
 export function getLessonLearningSteps(lesson: LessonData | null | undefined): LessonStep[] {
@@ -40,7 +46,7 @@ export function buildFinaleTimelineStep(lesson: LessonData, finale: LessonFinale
   return {
     stepNumber,
     stepType: 'completion',
-    bubbles: normalizeFinaleBubbles(finale.bubbles),
+    bubbles: toLessonStepBubbles(finale.bubbles),
     footerDynamic: finale.footerDynamic,
     myEngComment: finale.myEngComment,
     postLesson: finale.postLesson,
