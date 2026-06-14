@@ -12,6 +12,7 @@ export type LessonComposerPanelKind =
   | 'post-lesson'
   | 'medal'
   | 'finale'
+  | 'briefing'
   | 'none'
 
 const CHOICE_CHIP_HEIGHT_PX = 36
@@ -21,6 +22,7 @@ const CHOICE_PANEL_VERTICAL_PADDING_PX = 12
 const TEXT_INPUT_COMPOSER_HEIGHT_PX = 88
 const POST_LESSON_COMPOSER_HEIGHT_PX = 240
 const MEDAL_FLOW_COMPOSER_HEIGHT_PX = 180
+const LESSON_BRIEFING_COMPOSER_HEIGHT_PX = 280
 const LESSON_FINALE_COMPOSER_HEIGHT_PX = 300
 const INTRO_CHIP_ROW_HEIGHT_PX = 44
 const INTRO_PRIMARY_BUTTON_HEIGHT_PX = 44
@@ -41,10 +43,12 @@ export function resolveLessonComposerPanelKind(params: {
   exercise: Exercise | null | undefined
   hasPostLessonOptions: boolean
   showLessonFinale?: boolean
+  showReturnBriefing?: boolean
   /** @deprecated use showLessonFinale */
   showPostLessonMedalPhase?: boolean
 }): LessonComposerPanelKind {
   if (params.showLessonFinale || params.showPostLessonMedalPhase) return 'finale'
+  if (params.showReturnBriefing) return 'briefing'
   if (params.hasPostLessonOptions) return 'post-lesson'
   if (!params.exercise) return 'none'
   if (params.exercise.type === 'sentence_puzzle') return 'puzzle'
@@ -145,6 +149,8 @@ export function estimateLessonComposerMinHeight(params: {
       return stackPadding + POST_LESSON_COMPOSER_HEIGHT_PX
     case 'medal':
       return stackPadding + MEDAL_FLOW_COMPOSER_HEIGHT_PX
+    case 'briefing':
+      return stackPadding + LESSON_BRIEFING_COMPOSER_HEIGHT_PX
     case 'finale':
       return stackPadding + LESSON_FINALE_COMPOSER_HEIGHT_PX
     default:

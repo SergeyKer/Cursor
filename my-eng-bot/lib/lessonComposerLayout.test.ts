@@ -81,6 +81,21 @@ describe('resolveLessonComposerPanelKind — post-chip lesson steps', () => {
       })
     ).toBe('choice')
   })
+
+  it('return briefing uses briefing panel', () => {
+    expect(
+      resolveLessonComposerPanelKind({
+        exercise: {
+          type: 'fill_choice',
+          options: ['a', 'b'],
+          correctAnswer: 'a',
+        },
+        hasPostLessonOptions: false,
+        showLessonFinale: false,
+        showReturnBriefing: true,
+      })
+    ).toBe('briefing')
+  })
 })
 
 describe('estimateLessonChoiceChipsMinHeight', () => {

@@ -5,7 +5,7 @@ export const LESSON_TEXT_FADE_MS = 520
 export const LESSON_TEXT_SECTION_PAUSE_MS = 180
 
 /** Пауза после theory перед fade текста в task-shell (не путать с LESSON_SUCCESS_HOLD_MS между шагами). */
-export const LESSON_TASK_PROMPT_PAUSE_MS = 500
+export const LESSON_TASK_PROMPT_PAUSE_MS = LESSON_TEXT_SECTION_PAUSE_MS
 
 /** Пауза перед следующей секцией softText-reveal. */
 export function resolveLessonSectionRevealPauseMs(params: {

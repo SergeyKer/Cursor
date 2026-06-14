@@ -20,7 +20,7 @@ const MEDAL_PRESERVED_LINE: Record<LessonMedalTier, Record<FooterCopyAudience, s
 
 const XP_RECORD_LINE: Record<FooterCopyAudience, string> = {
   adult:
-    'Урок проходите как обычно. XP к уровню засчитается только если итоговый счёт урока (шаги + COMBO) побьёт ваш рекорд — сейчас {bestTotalXp} XP.',
+    'Делайте урок как обычно. XP к уровню засчитается только если итоговый счёт урока (шаги + COMBO) побьёт ваш рекорд — сейчас {bestTotalXp} XP.',
   child: 'Урок как обычно! XP к уровню — только если счёт побьёт рекорд: {bestTotalXp} XP.',
 }
 
@@ -59,15 +59,4 @@ export function buildLessonReturnHint(params: {
     lines.push(REPEAT_CAP_LINE[medal][audience])
   }
   return lines.join('\n')
-}
-
-/** Одна строка для постоянного баннера повтора (без переносов). */
-export function buildLessonReturnHintBannerLine(params: {
-  audience: FooterCopyAudience
-  bestTotalXp: number
-}): string {
-  return XP_RECORD_LINE[params.audience].replace(
-    '{bestTotalXp}',
-    String(Math.max(0, Math.floor(params.bestTotalXp)))
-  )
 }

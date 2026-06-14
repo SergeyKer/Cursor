@@ -97,10 +97,10 @@ import MedalBadge from '@/components/MedalBadge'
 import { resolveLessonFooterTopLine } from '@/lib/lessonFooterTopLine'
 import { resolveGlobalLessonXpDelta } from '@/lib/lessonGlobalXpAward'
 import {
-  buildLessonReturnHint,
-  buildLessonReturnHintBannerLine,
-  type LessonReturnHintContext,
-} from '@/lib/lessonReturnHint'
+  buildLessonReturnBriefingPayload,
+  type LessonReturnBriefingPayload,
+} from '@/lib/lessonReturnBriefingCopy'
+import { type LessonReturnHintContext } from '@/lib/lessonReturnHint'
 import {
   formatLessonHeaderProgressAriaLabel,
   formatLessonHeaderProgressLabel,
@@ -112,7 +112,6 @@ import {
   isLocalStructuredLessonRun,
   resolveLessonSilverCapForRun,
 } from '@/lib/lessonAntiFarm'
-import { buildLessonCycle1Hint } from '@/lib/lessonCycle1Hint'
 import { buildLessonMedalRevealCopy } from '@/lib/lessonMedalRevealCopy'
 import { computeCorePercent, resolveMedalFromCoreXp, type LessonMedalTierOrNull } from '@/lib/lessonScore'
 import { getLessonBadgeDefinition, resolveLessonBadgeProgress } from '@/lib/lessonBadges'
@@ -568,7 +567,6 @@ type EngvoRealtimeEvent = {
 /** Попап XP чуть позже ответа ИИ, чтобы не сливались по времени с появлением сообщения. */
 const REWARD_POPUP_DELAY_AFTER_MESSAGE_MS = 550
 const REWARD_POPUP_VISIBLE_MS = 3200
-const LESSON_RETURN_HINT_VISIBLE_MS = 10_000
 
 type StructuredLessonRunOrigin = 'menu_reopen' | 'menu_generate' | 'post_lesson_repeat' | 'repeat_api'
 
@@ -579,7 +577,7 @@ export default function Home() {
   /** После useLayoutEffect storage — иначе hydration mismatch (localStorage только на клиенте). */
   const [footerHydrated, setFooterHydrated] = useState(false)
   const [rewardPopupText, setRewardPopupText] = useState<string | null>(null)
-  const [lessonReturnHintText, setLessonReturnHintText] = useState<string | null>(null)
+  const [lessonReturnBriefingAckRunKey, setLessonReturnBriefingAckRunKey] = useState<string | null>(null)
   const [lastStructuredLessonGlobalDelta, setLastStructuredLessonGlobalDelta] = useState(0)
   const [footerSessionContextNonce, setFooterSessionContextNonce] = useState(0)
   const [streakHintConsumedForMode, setStreakHintConsumedForMode] = useState<string | null>(null)
@@ -791,7 +789,6 @@ export default function Home() {
   const processedLessonXpAwardNonceRef = React.useRef(0)
   const processedLessonXpAwardKeyRef = React.useRef<string | null>(null)
   const globalLessonXpAwardedThisRunRef = React.useRef(0)
-  const lessonReturnHintShownForRunRef = React.useRef<string | null>(null)
   const rewardPopupSeenRef = React.useRef<string | null>(null)
   const footerContextSignatureRef = React.useRef<string | null>(null)
   const footerTransitionTimeoutRef = React.useRef<number | null>(null)
@@ -4283,7 +4280,6 @@ export default function Home() {
       processedLessonXpAwardKeyRef.current = lessonKey
       processedLessonXpAwardNonceRef.current = activeStructuredLessonLastXpAward.nonce
       globalLessonXpAwardedThisRunRef.current = 0
-      lessonReturnHintShownForRunRef.current = null
       return
     }
     if (activeStructuredLessonLastXpAward.nonce <= processedLessonXpAwardNonceRef.current) return
@@ -4307,63 +4303,6 @@ export default function Home() {
     activeStructuredLessonCoreXp,
     activeStructuredLessonComboXp,
     activeStructuredLessonLastXpAward,
-  ])
-
-  useEffect(() => {
-    if (!storageLoaded || lessonViewStage !== 'lesson' || !activeStructuredLesson) return
-    const progress = loadLessonProgress(activeStructuredLesson.id)
-    const runKey = `${activeStructuredLesson.id}:${activeStructuredLesson.runKey ?? 'static'}`
-    if (lessonReturnHintShownForRunRef.current === runKey) return
-
-    const origin = structuredLessonRunOriginRef.current
-    let hintText: string | null = null
-
-    if (progress?.cycle1Closed && !progress.medal) {
-      hintText = buildLessonCycle1Hint({
-        audience: settings.audience,
-        origin,
-      })
-    } else if (progress?.medal) {
-      const hintContext: LessonReturnHintContext =
-        origin === 'post_lesson_repeat' || origin === 'repeat_api'
-          ? 'post_lesson_repeat'
-          : 'menu_reopen'
-      hintText = buildLessonReturnHint({
-        medal: progress.medal,
-        audience: settings.audience,
-        context: hintContext,
-        bestTotalXp: progress.bestTotalXp ?? 0,
-        cycle1Closed: progress.cycle1Closed === true,
-        silverCapThisRun: resolveLessonSilverCapForRun({
-          origin,
-          variantNumber: activeLessonVariantNumber,
-          cycle1Closed: progress.cycle1Closed === true,
-          isRepeatRun: isStructuredLessonRepeatRun,
-        }),
-      })
-    }
-
-    if (!hintText) return
-
-    lessonReturnHintShownForRunRef.current = runKey
-    const showTimerId = window.setTimeout(() => {
-      setLessonReturnHintText(hintText)
-    }, REWARD_POPUP_DELAY_AFTER_MESSAGE_MS)
-    const hideTimerId = window.setTimeout(() => {
-      setLessonReturnHintText(null)
-    }, REWARD_POPUP_DELAY_AFTER_MESSAGE_MS + LESSON_RETURN_HINT_VISIBLE_MS)
-    return () => {
-      window.clearTimeout(showTimerId)
-      window.clearTimeout(hideTimerId)
-    }
-  }, [
-    storageLoaded,
-    lessonViewStage,
-    activeStructuredLesson,
-    activeStructuredLesson?.runKey,
-    activeLessonVariantNumber,
-    isStructuredLessonRepeatRun,
-    settings.audience,
   ])
 
   useEffect(() => {
@@ -5071,22 +5010,70 @@ export default function Home() {
     activeStructuredLessonPuzzleProgress,
   ])
 
-  const structuredLessonRunBannerText = useMemo(() => {
-    if (!isStructuredLessonActive || !isStructuredLessonRepeatRun || !activeStructuredLesson) return null
+  const activeLessonTitle = activeLearningLesson?.title ?? null
+
+  const lessonReturnBriefing = React.useMemo((): LessonReturnBriefingPayload | null => {
+    if (!storageLoaded || lessonViewStage !== 'lesson' || !activeStructuredLesson) return null
+    const runKey = `${activeStructuredLesson.id}:${activeStructuredLesson.runKey ?? 'static'}`
+    if (lessonReturnBriefingAckRunKey === runKey) return null
+
     const progress = loadLessonProgress(activeStructuredLesson.id)
-    if (!progress?.medal) return null
-    return buildLessonReturnHintBannerLine({
-      audience: settings.audience,
-      bestTotalXp: progress.bestTotalXp ?? 0,
-    })
+    const origin = structuredLessonRunOriginRef.current
+    const lessonTitle = activeLessonTitle ?? 'Урок'
+
+    if (progress?.cycle1Closed && !progress.medal) {
+      return buildLessonReturnBriefingPayload({
+        runKey,
+        lessonTitle,
+        audience: settings.audience,
+        kind: 'cycle1',
+        origin,
+      })
+    }
+
+    if (progress?.medal) {
+      const hintContext: LessonReturnHintContext =
+        origin === 'post_lesson_repeat' || origin === 'repeat_api'
+          ? 'post_lesson_repeat'
+          : 'menu_reopen'
+      return buildLessonReturnBriefingPayload({
+        runKey,
+        lessonTitle,
+        audience: settings.audience,
+        kind: 'medal_repeat',
+        medal: progress.medal,
+        context: hintContext,
+        bestTotalXp: progress.bestTotalXp ?? 0,
+        cycle1Closed: progress.cycle1Closed === true,
+        silverCapThisRun: resolveLessonSilverCapForRun({
+          origin,
+          variantNumber: activeLessonVariantNumber,
+          cycle1Closed: progress.cycle1Closed === true,
+          isRepeatRun: isStructuredLessonRepeatRun,
+        }),
+        origin,
+      })
+    }
+
+    return null
   }, [
-    isStructuredLessonActive,
-    isStructuredLessonRepeatRun,
+    storageLoaded,
+    lessonViewStage,
     activeStructuredLesson,
+    activeStructuredLesson?.runKey,
+    activeLessonVariantNumber,
+    isStructuredLessonRepeatRun,
     settings.audience,
+    lessonReturnBriefingAckRunKey,
+    activeLessonTitle,
   ])
 
-  const activeLessonTitle = activeLearningLesson?.title ?? null
+  const acknowledgeLessonReturnBriefing = React.useCallback(() => {
+    if (!activeStructuredLesson) return
+    const runKey = `${activeStructuredLesson.id}:${activeStructuredLesson.runKey ?? 'static'}`
+    setLessonReturnBriefingAckRunKey(runKey)
+  }, [activeStructuredLesson])
+
   const activeLessonTipsKey = activeLearningLessonId
     ? `${activeLearningLessonId}:${activeStructuredLesson?.runKey ?? activeStructuredLesson?.variantId ?? activeLessonVariantNumber}`
     : 'lesson'
@@ -5694,9 +5681,11 @@ export default function Home() {
       ? resolveFooterWithStreakLayer(tipsFooterDynamicText, null, null)
       : isStructuredLessonActive
       ? resolveFooterWithStreakLayer(
-          structuredLessonCompletionFooterText ??
-            structuredLessonFooterTopLine ??
-            activeStructuredLessonFooterDynamicText
+          lessonReturnBriefing
+            ? 'Прочитайте правила - затем к заданию.'
+            : structuredLessonCompletionFooterText ??
+                structuredLessonFooterTopLine ??
+                activeStructuredLessonFooterDynamicText
         )
       : isLessonActive
       ? resolveFooterWithStreakLayer(learningLessonFooterDynamicText)
@@ -6664,7 +6653,8 @@ export default function Home() {
                   audience={settings.audience}
                   voiceId={settings.voiceId}
                   choiceShuffleSeed={structuredLessonChoiceShuffleSeed}
-                  runBannerText={structuredLessonRunBannerText}
+                  returnBriefing={lessonReturnBriefing}
+                  onAcknowledgeReturnBriefing={acknowledgeLessonReturnBriefing}
                   onPuzzleProgressChange={handleStructuredLessonPuzzleProgressChange}
                   puzzleSubIndex={activeStructuredLessonPuzzleProgress?.subIndex}
                   puzzleSubAdvanceToken={activeStructuredLessonPuzzleSubAdvanceToken}
@@ -6737,11 +6727,6 @@ export default function Home() {
         text={rewardPopupText ?? ''}
         visible={Boolean(rewardPopupText)}
         onDismiss={() => setRewardPopupText(null)}
-      />
-      <RewardPopup
-        text={lessonReturnHintText ?? ''}
-        visible={Boolean(lessonReturnHintText)}
-        onDismiss={() => setLessonReturnHintText(null)}
       />
 
       {/* В чате — спейсер под fixed-футер; на главной отступ только у колонки контента. */}

@@ -13,6 +13,7 @@ import FeedbackStatusText from '@/components/FeedbackStatusText'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import LessonSentencePuzzle from '@/components/LessonSentencePuzzle'
 import LessonFinalePanel from '@/components/LessonFinalePanel'
+import LessonReturnBriefingFlowInfoStep from '@/components/LessonReturnBriefingFlowInfoStep'
 import type { LessonMedalTierOrNull } from '@/lib/lessonScore'
 import LessonStepBubble from '@/components/lesson/LessonStepBubble'
 import { resolveTaskBubbleIndex } from '@/lib/lessonBubbleLayout'
@@ -35,7 +36,6 @@ import {
   getChatComposerStackLayout,
   getChatComposerTextareaVerticalClass,
 } from '@/lib/chatComposerMetrics'
-import LessonRunBanner from '@/components/LessonRunBanner'
 import type { BlockProgress, LessonStatus, LessonTimelineEntry } from '@/hooks/useLessonEngine'
 import {
   isLessonAnswerPanelLocked,
@@ -44,6 +44,7 @@ import {
   LESSON_CHECKING_REVEAL_MS,
 } from '@/lib/lessonAnswerPanelLock'
 import { useDialogFeedKeyboardScroll } from '@/hooks/useDialogFeedKeyboardScroll'
+import { resyncIosWebKitDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
 import { useLessonComposerHeightLock } from '@/hooks/useLessonComposerHeightLock'
 import {
   estimateLessonComposerMinHeight,
@@ -85,6 +86,7 @@ import type { Bubble, Exercise, PostLessonAction } from '@/types/lesson'
 import { validateAnswer } from '@/utils/validateAnswer'
 import { useLessonSectionReveal } from '@/hooks/useLessonSectionReveal'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import type { LessonReturnBriefingPayload } from '@/lib/lessonReturnBriefingCopy'
 type LessonStepRendererProps = {
   timeline: LessonTimelineEntry[]
   status: LessonStatus
@@ -141,7 +143,8 @@ type LessonStepRendererProps = {
   voiceId: string
   /** Новый ключ (например `runKey` урока) — новый порядок вариантов в fill_choice на каждый проход. */
   choiceShuffleSeed?: string
-  runBannerText?: string | null
+  returnBriefing?: LessonReturnBriefingPayload | null
+  onAcknowledgeReturnBriefing?: () => void
   lessonRevealSessionId?: string
   isAdvancingToNextStep?: boolean
   isAdvancingToNextVariant?: boolean
@@ -232,11 +235,13 @@ export default function LessonStepRenderer({
   audience,
   voiceId,
   choiceShuffleSeed,
-  runBannerText = null,
+  returnBriefing = null,
+  onAcknowledgeReturnBriefing,
   lessonRevealSessionId = 'static',
   isAdvancingToNextStep = false,
   isAdvancingToNextVariant = false,
 }: LessonStepRendererProps) {
+  const returnBriefingActive = Boolean(returnBriefing)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const messagesStackRef = useRef<HTMLDivElement>(null)
   const composerStackRef = useRef<HTMLDivElement>(null)
@@ -336,7 +341,10 @@ export default function LessonStepRenderer({
     [revealSourceBubbles]
   )
   const revealEnabled =
-    Boolean(currentEntry?.isCurrent && exercise) && status === 'idle' && revealSectionCount > 0
+    !returnBriefingActive &&
+    Boolean(currentEntry?.isCurrent && exercise) &&
+    status === 'idle' &&
+    revealSectionCount > 0
   const isFirstLessonStep = (currentStep?.stepNumber ?? 0) === 1
   const {
     isShellEnterActive,
@@ -355,7 +363,6 @@ export default function LessonStepRenderer({
     enabled: revealEnabled,
     sectionCount: revealSectionCount,
     prefersReducedMotion,
-    extraPauseBeforeIndex: taskBubbleIndex > 0 ? taskBubbleIndex : undefined,
   })
   const deferChoiceChipsUntilCardReveal =
     shouldRenderChoiceChips &&
@@ -403,8 +410,9 @@ export default function LessonStepRenderer({
     activePuzzleVariant && activePuzzleVariant.words.length > 0
       ? activePuzzleVariant.words
       : activePuzzleVariant?.correctOrder ?? []
-  const composerTransitionKey =
-    isSentencePuzzle && stepTransitionKey
+  const composerTransitionKey = returnBriefingActive
+    ? `briefing-${returnBriefing?.runKey ?? 'briefing'}`
+    : isSentencePuzzle && stepTransitionKey
       ? `${stepTransitionKey}-p${puzzleSubIndex ?? 0}`
       : stepTransitionKey
   const [composerInnerWidthPx, setComposerInnerWidthPx] = useState<number | undefined>()
@@ -708,27 +716,38 @@ export default function LessonStepRenderer({
     return () => clearTimeout(timer)
   }, [isAdvancingToNextStep, isAdvancingToNextVariant, currentStep?.stepNumber])
 
-  const lessonMessages = useMemo<LessonMessage[]>(
-    () =>
-      buildLessonFeedMessages({
-        timeline,
-        status,
-        latestFeedbackType: latestFeedback?.type,
-        showCheckingStatusLine,
-        showAdvancingStatusLine,
-        isAdvancingToNextStep,
-        isAdvancingToNextVariant,
-      }),
-    [
+  const lessonMessages = useMemo<LessonMessage[]>(() => {
+    const baseMessages = buildLessonFeedMessages({
       timeline,
       status,
+      latestFeedbackType: latestFeedback?.type,
       showCheckingStatusLine,
       showAdvancingStatusLine,
       isAdvancingToNextStep,
       isAdvancingToNextVariant,
-      latestFeedback?.type,
+    })
+
+    if (!returnBriefing) return baseMessages
+
+    return [
+      {
+        id: `lesson-briefing-${returnBriefing.runKey}`,
+        role: 'assistant',
+        kind: 'lesson',
+        bubbles: returnBriefing.bubbles,
+        isHistorical: false,
+      },
     ]
-  )
+  }, [
+    timeline,
+    status,
+    showCheckingStatusLine,
+    showAdvancingStatusLine,
+    isAdvancingToNextStep,
+    isAdvancingToNextVariant,
+    latestFeedback?.type,
+    returnBriefing,
+  ])
 
   const currentLessonMessage = useMemo(
     () => lessonMessages.find((message) => message.kind === 'lesson' && !message.isHistorical) ?? null,
@@ -767,6 +786,13 @@ export default function LessonStepRenderer({
     status,
     tailLessonMessageId,
   ])
+
+  useEffect(() => {
+    if (!returnBriefingActive) return
+    const scrollContainer = scrollContainerRef.current
+    if (!scrollContainer) return
+    scrollContainer.scrollTo({ top: 0, behavior: 'auto' })
+  }, [returnBriefingActive, returnBriefing?.runKey])
 
   const scheduleScroll = useCallback(
     (scrollFn: (behavior: ScrollBehavior) => void, behavior: ScrollBehavior = 'auto') => {
@@ -1075,9 +1101,17 @@ export default function LessonStepRenderer({
     exercise,
     hasPostLessonOptions,
     showLessonFinale,
+    showReturnBriefing: returnBriefingActive,
   })
   const shouldLockComposerHeight =
     shouldRenderChoiceChips || hasPostLessonOptions || showLessonFinale || isSentencePuzzle
+  const shouldUseComposerHeightLock = shouldLockComposerHeight && !returnBriefingActive
+  const briefingComposerMinHeightEstimate = returnBriefingActive
+    ? estimateLessonComposerMinHeight({
+        panelKind: 'briefing',
+        compact: true,
+      })
+    : undefined
   const choiceComposerMinHeightEstimate =
     shouldRenderChoiceChips && choiceComposerLayout?.reserveMinHeight
       ? estimateLessonComposerMinHeight({
@@ -1114,32 +1148,38 @@ export default function LessonStepRenderer({
     puzzleWords: activePuzzleWords,
     puzzleHasInstruction: Boolean(activePuzzleVariant?.instruction.trim()),
     compact: shouldRenderChoiceChips || isSentencePuzzle,
-    enabled: shouldLockComposerHeight,
+    enabled: shouldUseComposerHeightLock,
     lockReleased: composerHeightLockReleased,
   })
-  const composerMinHeight =
-    lockedComposerMinHeight ??
-    (choiceComposerLayout?.reserveMinHeight
-      ? choiceComposerMinHeightEstimate
-      : isSentencePuzzle
-        ? puzzleComposerMinHeightEstimate
-        : undefined)
+  const composerMinHeight = returnBriefingActive
+    ? briefingComposerMinHeightEstimate
+    : lockedComposerMinHeight ??
+      (choiceComposerLayout?.reserveMinHeight
+        ? choiceComposerMinHeightEstimate
+        : isSentencePuzzle
+          ? puzzleComposerMinHeightEstimate
+          : undefined)
 
   const scrollBottomPadding = resolveScrollBottomPadding({
-    hasCurrentStep: currentStep != null,
+    hasCurrentStep: currentStep != null && !returnBriefingActive,
     hasPostLessonOptions,
     isSentencePuzzle,
     bottomStackHeightPx: 0,
     composerOutsideScroll: true,
   })
-  useDialogFeedKeyboardScroll(scrollContainerRef, isTextInputAvailable)
-  const composerStackLayout = getChatComposerStackLayout(shouldRenderChoiceChips)
+  useDialogFeedKeyboardScroll(scrollContainerRef, isTextInputAvailable && !returnBriefingActive)
+  const composerStackLayout = getChatComposerStackLayout(shouldRenderChoiceChips && !returnBriefingActive)
   const composerStackStyle = {
     ...(composerStackLayout.style
       ? { ...composerStackLayout.style, paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }
       : composerStackLayout.style),
     ...(composerMinHeight != null ? { minHeight: composerMinHeight } : {}),
   }
+
+  useLayoutEffect(() => {
+    if (returnBriefingActive) return
+    return resyncIosWebKitDialogComposerStackHeight(composerStackRef.current)
+  }, [returnBriefingActive, composerTransitionKey, composerMinHeight])
 
   return (
     <div className="dialog-flex-shell flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
@@ -1149,7 +1189,6 @@ export default function LessonStepRenderer({
             className="glass-surface flex min-h-0 flex-1 w-full flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
             style={{ boxShadow: 'var(--chat-shell-shadow)' }}
           >
-            {runBannerText ? <LessonRunBanner text={runBannerText} /> : null}
             <DialogGlassScrollHost>
               <div
                 ref={scrollContainerRef}
@@ -1194,15 +1233,15 @@ export default function LessonStepRenderer({
                       (isShellEnterActive || hideLessonBubbleUntilRevealReady)
 
                     const currentLessonTextRevealedThroughIndex =
-                      isCurrentLessonMessage && isActiveRevealTarget
-                        ? revealEnabled
+                      returnBriefingActive || !isCurrentLessonMessage || !isActiveRevealTarget
+                        ? message.bubbles.length - 1
+                        : revealEnabled
                           ? !isRevealInitializedForKey
                             ? -1
                             : isRevealInProgress || isShellEnterActive
                               ? textRevealedThroughIndex
                               : message.bubbles.length - 1
                           : message.bubbles.length - 1
-                        : message.bubbles.length - 1
 
                     return (
                       <ChatBubbleFrame
@@ -1214,16 +1253,21 @@ export default function LessonStepRenderer({
                       >
                         <LessonStepBubble
                           key={
-                            isCurrentLessonMessage && currentStep
-                              ? `lesson-soft-${currentStep.stepNumber}-v${currentVariantIndex}`
-                              : message.id
+                            returnBriefingActive
+                              ? `lesson-briefing-${returnBriefing?.runKey ?? 'briefing'}`
+                              : isCurrentLessonMessage && currentStep
+                                ? `lesson-soft-${currentStep.stepNumber}-v${currentVariantIndex}`
+                                : message.id
                           }
                           bubbles={message.bubbles}
-                          shellEnterActive={isCurrentLessonMessage ? lessonShellEnterActive : false}
+                          shellEnterActive={
+                            isCurrentLessonMessage && !returnBriefingActive ? lessonShellEnterActive : false
+                          }
                           animateSections={
                             isCurrentLessonMessage &&
                             isActiveRevealTarget &&
-                            isTextRevealActive
+                            isTextRevealActive &&
+                            !returnBriefingActive
                           }
                           textRevealedThroughIndex={currentLessonTextRevealedThroughIndex}
                           textAnimatingIndex={
@@ -1315,13 +1359,19 @@ export default function LessonStepRenderer({
             </div>
             </DialogGlassScrollHost>
 
-            {currentStep && (
+            {(currentStep || returnBriefingActive) && (
               <DialogComposerStack
                 ref={composerStackRef}
                 className={composerStackLayout.verticalClass}
                 style={composerStackStyle}
               >
-                {showLessonFinale && lessonMedalReveal ? (
+                {returnBriefingActive && returnBriefing ? (
+                  <LessonReturnBriefingFlowInfoStep
+                    copy={returnBriefing.copy}
+                    audience={audience}
+                    onContinue={() => onAcknowledgeReturnBriefing?.()}
+                  />
+                ) : showLessonFinale && lessonMedalReveal ? (
                   <LessonFinalePanel
                     medal={lessonMedalReveal.medal}
                     coreXp={lessonMedalReveal.coreXp}
@@ -1387,6 +1437,7 @@ export default function LessonStepRenderer({
                 ) : null}
 
                 {exercise &&
+                !returnBriefingActive &&
                 !hasPostLessonOptions &&
                 !shouldRenderChoiceChips &&
                 !isSentencePuzzle ? (

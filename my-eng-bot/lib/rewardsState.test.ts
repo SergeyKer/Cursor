@@ -1,11 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   appendFooterRewardSnapshot,
+  applyStarterCoinsBonusMigration,
   awardGlobalXp,
   createDefaultRewardsState,
   formatGlobalFooterStats,
   getTodayDateString,
+  REWARDS_MIGRATIONS_KEY,
   reconcileModeGoalSessions,
+  STARTER_COINS_BONUS,
   withDailyActivity,
 } from './rewardsState'
 import { DAILY_STREAK_GLYPH } from './gamificationGlyphs'
@@ -134,5 +137,34 @@ describe('rewardsState', () => {
     const state = createDefaultRewardsState()
     const next = awardGlobalXp(state, 0, 'lesson_xp_awarded')
     expect(next).toBe(state)
+  })
+
+  it('starts new users with starter coin bonus', () => {
+    expect(createDefaultRewardsState().currencies.coins).toBe(STARTER_COINS_BONUS)
+  })
+
+  it('applies starter coin migration only once', () => {
+    const storage = new Map<string, string>()
+    const localStorageMock = {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value)
+      },
+    }
+    vi.stubGlobal('localStorage', localStorageMock)
+
+    const state = createDefaultRewardsState()
+    state.currencies.coins = 0
+
+    const first = applyStarterCoinsBonusMigration(state)
+    expect(first.currencies.coins).toBe(STARTER_COINS_BONUS)
+
+    first.currencies.coins = 3
+    const second = applyStarterCoinsBonusMigration(first)
+    expect(second.currencies.coins).toBe(3)
+
+    expect(JSON.parse(storage.get(REWARDS_MIGRATIONS_KEY) ?? '{}').starterCoinsBonusV1).toBe(true)
+
+    vi.unstubAllGlobals()
   })
 })

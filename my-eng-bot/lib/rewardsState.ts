@@ -2,8 +2,55 @@ import { DAILY_STREAK_GLYPH, formatDailyStreakFooter } from '@/lib/gamificationG
 import { resolveStreakDailyBonus } from '@/lib/streakDailyBonus'
 
 export const REWARDS_STATE_KEY = 'myeng_state_v1'
+export const REWARDS_MIGRATIONS_KEY = 'myeng_rewards_migrations_v1'
 const REWARDS_STATE_VERSION = '1.0'
 const XP_PER_LEVEL = 100
+
+/** Стартовый бонус монет (новые пользователи + одноразовая миграция существующих). */
+export const STARTER_COINS_BONUS = 10
+
+type RewardsMigrations = {
+  starterCoinsBonusV1?: boolean
+}
+
+function canUseRewardsStorage(): boolean {
+  return typeof globalThis.localStorage !== 'undefined'
+}
+
+function readRewardsMigrations(): RewardsMigrations {
+  if (!canUseRewardsStorage()) return {}
+  try {
+    const raw = globalThis.localStorage.getItem(REWARDS_MIGRATIONS_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as RewardsMigrations
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeRewardsMigrations(migrations: RewardsMigrations): void {
+  if (!canUseRewardsStorage()) return
+  try {
+    globalThis.localStorage.setItem(REWARDS_MIGRATIONS_KEY, JSON.stringify(migrations))
+  } catch {
+    // ignore storage failures
+  }
+}
+
+/** Одноразовый +10 🪙 для пользователей с уже сохранённым прогрессом. */
+export function applyStarterCoinsBonusMigration(state: RewardsState): RewardsState {
+  const migrations = readRewardsMigrations()
+  if (migrations.starterCoinsBonusV1) return state
+  writeRewardsMigrations({ ...migrations, starterCoinsBonusV1: true })
+  return {
+    ...state,
+    currencies: {
+      ...state.currencies,
+      coins: state.currencies.coins + STARTER_COINS_BONUS,
+    },
+  }
+}
 
 export type ModeGoalId = 'communication' | 'engvo'
 export type ModeGoalStatus = 'not_started' | 'in_progress' | 'completed' | 'abandoned'
@@ -132,7 +179,7 @@ export function createDefaultRewardsState(): RewardsState {
       lastStreakDailyBonusDate: null,
     },
     currencies: {
-      coins: 0,
+      coins: STARTER_COINS_BONUS,
       gems: 0,
       tickets: 0,
     },
@@ -278,7 +325,8 @@ export function loadRewardsState(): RewardsState {
   try {
     const raw = localStorage.getItem(REWARDS_STATE_KEY)
     if (!raw) return createDefaultRewardsState()
-    return normalizeRewardsState(JSON.parse(raw))
+    const normalized = normalizeRewardsState(JSON.parse(raw))
+    return applyStarterCoinsBonusMigration(normalized)
   } catch {
     return createDefaultRewardsState()
   }
