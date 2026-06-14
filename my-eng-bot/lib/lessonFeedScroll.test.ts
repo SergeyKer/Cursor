@@ -11,7 +11,9 @@ import {
   remToPx,
   computeMaxScrollTop,
   isLessonFeedScrolledToTail,
+  isWithinRevealEndOverflowSettleWindow,
   LESSON_FEED_KEYBOARD_SCROLL_GAP_PX,
+  LESSON_REVEAL_END_OVERFLOW_SETTLE_MS,
   resolveFollowTailTargetTop,
   resolveLessonShellScrollBehavior,
   resolvePracticeFeedScrollRequest,
@@ -26,6 +28,7 @@ import {
   resolveShowFeedEndAnchor,
   shouldMtAutoPinPuzzleCheckingRow,
   shouldPinLessonFeedTailNearComposer,
+  shouldSkipRevealEndOverflowScroll,
   simulateScrollTopAfterIntoViewEnd,
   simulateScrollTopAfterScrollToMax,
   simulateScrollTopAfterTailIfNeeded,
@@ -379,6 +382,70 @@ describe('resolveLessonShellScrollBehavior', () => {
     expect(
       resolveLessonShellScrollBehavior({ prefersReducedMotion: false, isFirstLessonStep: false })
     ).toBe('smooth')
+  })
+})
+
+describe('shouldSkipRevealEndOverflowScroll', () => {
+  it('skips when deferred choice reveal just finished', () => {
+    expect(
+      shouldSkipRevealEndOverflowScroll({
+        deferChoiceChipsUntilCardReveal: true,
+        shouldRenderChoiceChips: true,
+        wasRevealInProgress: true,
+        isRevealInProgress: false,
+      })
+    ).toBe(true)
+  })
+
+  it('does not skip while reveal still in progress', () => {
+    expect(
+      shouldSkipRevealEndOverflowScroll({
+        deferChoiceChipsUntilCardReveal: true,
+        shouldRenderChoiceChips: true,
+        wasRevealInProgress: true,
+        isRevealInProgress: true,
+      })
+    ).toBe(false)
+  })
+
+  it('does not skip for non-choice steps', () => {
+    expect(
+      shouldSkipRevealEndOverflowScroll({
+        deferChoiceChipsUntilCardReveal: true,
+        shouldRenderChoiceChips: false,
+        wasRevealInProgress: true,
+        isRevealInProgress: false,
+      })
+    ).toBe(false)
+  })
+
+  it('does not skip without defer', () => {
+    expect(
+      shouldSkipRevealEndOverflowScroll({
+        deferChoiceChipsUntilCardReveal: false,
+        shouldRenderChoiceChips: true,
+        wasRevealInProgress: true,
+        isRevealInProgress: false,
+      })
+    ).toBe(false)
+  })
+})
+
+describe('isWithinRevealEndOverflowSettleWindow', () => {
+  it('true inside settle window', () => {
+    const now = 10_000
+    expect(isWithinRevealEndOverflowSettleWindow(now - 100, now)).toBe(true)
+    expect(isWithinRevealEndOverflowSettleWindow(now - LESSON_REVEAL_END_OVERFLOW_SETTLE_MS + 1, now)).toBe(
+      true
+    )
+  })
+
+  it('false outside settle window or without timestamp', () => {
+    const now = 10_000
+    expect(isWithinRevealEndOverflowSettleWindow(now - LESSON_REVEAL_END_OVERFLOW_SETTLE_MS, now)).toBe(
+      false
+    )
+    expect(isWithinRevealEndOverflowSettleWindow(null, now)).toBe(false)
   })
 })
 

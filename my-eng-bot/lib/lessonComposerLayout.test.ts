@@ -88,6 +88,14 @@ describe('estimateLessonChoiceChipsMinHeight', () => {
     expect(estimateLessonChoiceChipsMinHeight(3)).toBe(48)
   })
 
+  it('uses two rows for step 1 options on a narrow panel', () => {
+    const step1Options = ["I'm happy.", "I'm from Russia.", "I am a student."]
+    expect(
+      estimateLessonChoiceChipsMinHeight(3, step1Options, 360)
+    ).toBe(90)
+    expect(estimateLessonChoiceChipsMinHeight(3)).toBe(48)
+  })
+
   it('uses two rows for four options', () => {
     expect(estimateLessonChoiceChipsMinHeight(4)).toBe(90)
   })
@@ -113,6 +121,24 @@ describe('estimateIntroComposerMinHeight', () => {
 })
 
 describe('estimateLessonComposerMinHeight', () => {
+  it('choice panel uses option text layout on narrow width', () => {
+    const step1Options = ["I'm happy.", "I'm from Russia.", "I am a student."]
+    const legacy = estimateLessonComposerMinHeight({
+      panelKind: 'choice',
+      optionCount: 3,
+      compact: true,
+    })
+    const withOptions = estimateLessonComposerMinHeight({
+      panelKind: 'choice',
+      optionCount: 3,
+      choiceOptions: step1Options,
+      containerWidthPx: 360,
+      compact: true,
+    })
+    expect(withOptions).toBeGreaterThan(legacy)
+    expect(withOptions).toBe(98)
+  })
+
   it('choice panel is taller with more rows', () => {
     const oneRow = estimateLessonComposerMinHeight({
       panelKind: 'choice',

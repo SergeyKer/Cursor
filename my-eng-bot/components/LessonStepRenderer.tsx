@@ -14,8 +14,9 @@ import LessonChoiceChips from '@/components/LessonChoiceChips'
 import LessonSentencePuzzle from '@/components/LessonSentencePuzzle'
 import LessonFinalePanel from '@/components/LessonFinalePanel'
 import type { LessonMedalTierOrNull } from '@/lib/lessonScore'
-import PracticeQuestionBubble from '@/components/practice/PracticeQuestionBubble'
-import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
+import LessonStepBubble from '@/components/lesson/LessonStepBubble'
+import { resolveTaskBubbleIndex } from '@/lib/lessonBubbleLayout'
+import { resolveLessonChoiceComposerLayout } from '@/lib/lessonChoiceComposerLayout'
 import {
   CHAT_FEED_SERVICE_STATUS_ROW_CLASS,
   CHAT_FEED_SERVICE_STATUS_ROW_PUZZLE_CHECKING_CLASS,
@@ -68,6 +69,8 @@ import {
   scrollLessonFeedToModeWithCompleteIfNeeded,
   shouldMtAutoPinPuzzleCheckingRow,
   shouldPinLessonFeedTailNearComposer,
+  shouldSkipRevealEndOverflowScroll,
+  isWithinRevealEndOverflowSettleWindow,
 } from '@/lib/lessonFeedScroll'
 import { speak } from '@/lib/speech'
 import { seededShuffle } from '@/lib/shuffleSeeded'
@@ -248,6 +251,7 @@ export default function LessonStepRenderer({
   })
   const previousStatusRef = useRef<LessonStatus>(status)
   const previousRevealInProgressRef = useRef(false)
+  const revealEndedAtRef = useRef<number | null>(null)
   const previousVoicePhaseRef = useRef<'idle' | 'recording' | 'finalizing' | 'error'>('idle')
   const previousScrollSnapshotRef = useRef<{
     messageCount: number
@@ -328,7 +332,7 @@ export default function LessonStepRenderer({
   }, [currentEntry])
   const revealSectionCount = revealSourceBubbles.length
   const taskBubbleIndex = useMemo(
-    () => revealSourceBubbles.findIndex((bubble) => bubble.type === 'task'),
+    () => resolveTaskBubbleIndex(revealSourceBubbles),
     [revealSourceBubbles]
   )
   const revealEnabled =
@@ -351,8 +355,21 @@ export default function LessonStepRenderer({
     enabled: revealEnabled,
     sectionCount: revealSectionCount,
     prefersReducedMotion,
+    extraPauseBeforeIndex: taskBubbleIndex > 0 ? taskBubbleIndex : undefined,
   })
-  const isTaskSectionVisible = taskBubbleIndex < 0 || textRevealedThroughIndex >= taskBubbleIndex
+  const deferChoiceChipsUntilCardReveal =
+    shouldRenderChoiceChips &&
+    Boolean(currentStep && exercise) &&
+    !hasPostLessonOptions &&
+    status === 'idle' &&
+    revealSectionCount > 0 &&
+    !prefersReducedMotion
+  const isChoiceChipsVisible =
+    !deferChoiceChipsUntilCardReveal ||
+    (isRevealInitializedForKey && !isRevealInProgress)
+  const isTaskSectionVisible =
+    taskBubbleIndex < 0 ||
+    (isRevealInitializedForKey && textRevealedThroughIndex >= taskBubbleIndex)
   const isChecking = status === 'checking'
   const isAnswerPanelLocked = isLessonAnswerPanelLocked(
     status,
@@ -390,6 +407,27 @@ export default function LessonStepRenderer({
     isSentencePuzzle && stepTransitionKey
       ? `${stepTransitionKey}-p${puzzleSubIndex ?? 0}`
       : stepTransitionKey
+  const [composerInnerWidthPx, setComposerInnerWidthPx] = useState<number | undefined>()
+
+  useLayoutEffect(() => {
+    if (!shouldRenderChoiceChips) return
+    const el = composerStackRef.current
+    if (!el) return
+
+    const measure = () => {
+      const width = Math.round(el.clientWidth)
+      if (width > 0) {
+        setComposerInnerWidthPx((current) => (current === width ? current : width))
+      }
+    }
+
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [shouldRenderChoiceChips, composerTransitionKey])
 
   const handleChoiceAnswer = useCallback(
     (answer: string) => {
@@ -486,6 +524,11 @@ export default function LessonStepRenderer({
     textarea.style.height = ''
     textarea.style.overflowY = 'hidden'
   }, [inputValue, stepTransitionKey])
+
+  useEffect(() => {
+    revealEndedAtRef.current = null
+  }, [stepTransitionKey])
+
   const hasLessonMicrophone =
     Boolean(exercise) && !hasPostLessonOptions && !shouldRenderChoiceChips && !isSentencePuzzle
   const inputPlaceholder = useMemo(() => {
@@ -928,6 +971,18 @@ export default function LessonStepRenderer({
 
     if (!wasRevealInProgress || isRevealInProgress) return
 
+    if (
+      shouldSkipRevealEndOverflowScroll({
+        deferChoiceChipsUntilCardReveal,
+        shouldRenderChoiceChips,
+        wasRevealInProgress,
+        isRevealInProgress,
+      })
+    ) {
+      revealEndedAtRef.current = Date.now()
+      return
+    }
+
     const mode = resolveLessonFeedScrollMode({ useFeedScrollToMax, relaxFeedTailPin })
     if (isLessonFeedScrolledToTail(scrollContainerRef.current, mode)) return
 
@@ -936,6 +991,8 @@ export default function LessonStepRenderer({
     )
   }, [
     isRevealInProgress,
+    deferChoiceChipsUntilCardReveal,
+    shouldRenderChoiceChips,
     prefersReducedMotion,
     scheduleLessonFeedScroll,
     useFeedScrollToMax,
@@ -975,6 +1032,12 @@ export default function LessonStepRenderer({
 
     const observer = new ResizeObserver(() => {
       if (isShellEnterActive || isFirstLessonStep) return
+      if (
+        deferChoiceChipsUntilCardReveal &&
+        isWithinRevealEndOverflowSettleWindow(revealEndedAtRef.current)
+      ) {
+        return
+      }
 
       scheduleLessonFeedScroll(
         resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'overflow_follow' })
@@ -992,18 +1055,20 @@ export default function LessonStepRenderer({
     textAnimatingIndex,
     isShellEnterActive,
     isFirstLessonStep,
+    deferChoiceChipsUntilCardReveal,
   ])
 
-  const deferChoiceChipsUntilCardReveal =
-    shouldRenderChoiceChips &&
-    Boolean(currentStep && exercise) &&
-    !hasPostLessonOptions &&
-    status === 'idle' &&
-    revealSectionCount > 0 &&
-    !prefersReducedMotion
-  const isChoiceChipsVisible =
-    !deferChoiceChipsUntilCardReveal ||
-    (isRevealInitializedForKey && !isRevealInProgress)
+  const choiceComposerLayout = shouldRenderChoiceChips
+    ? resolveLessonChoiceComposerLayout({
+        exercise,
+        deferUntilReveal: deferChoiceChipsUntilCardReveal,
+        isRevealInProgress,
+        isRevealInitializedForKey,
+        isChoiceChipsVisible,
+        prefersReducedMotion,
+      })
+    : null
+  const mountChoiceChips = !shouldRenderChoiceChips || (choiceComposerLayout?.mountChips ?? true)
 
   const showLessonFinale = Boolean(lessonMedalReveal && hasPostLessonOptions)
   const composerPanelKind = resolveLessonComposerPanelKind({
@@ -1013,13 +1078,16 @@ export default function LessonStepRenderer({
   })
   const shouldLockComposerHeight =
     shouldRenderChoiceChips || hasPostLessonOptions || showLessonFinale || isSentencePuzzle
-  const choiceComposerMinHeightEstimate = shouldRenderChoiceChips
-    ? estimateLessonComposerMinHeight({
-        panelKind: 'choice',
-        optionCount: displayChoiceOptions.length,
-        compact: true,
-      })
-    : undefined
+  const choiceComposerMinHeightEstimate =
+    shouldRenderChoiceChips && choiceComposerLayout?.reserveMinHeight
+      ? estimateLessonComposerMinHeight({
+          panelKind: 'choice',
+          optionCount: displayChoiceOptions.length,
+          choiceOptions: displayChoiceOptions,
+          containerWidthPx: composerInnerWidthPx,
+          compact: true,
+        })
+      : undefined
   const puzzleComposerMinHeightEstimate = isSentencePuzzle
     ? estimateLessonComposerMinHeight({
         panelKind: 'puzzle',
@@ -1031,12 +1099,18 @@ export default function LessonStepRenderer({
   /** Пока карточка раскрывается — держим lock, иначе снятие minHeight вместе с показом чипов дёргает ленту. */
   const composerHeightLockReleased =
     prefersReducedMotion ||
-    (deferChoiceChipsUntilCardReveal || isSentencePuzzle ? false : !isRevealInProgress)
+    (isSentencePuzzle
+      ? false
+      : choiceComposerLayout
+        ? choiceComposerLayout.lockReleased
+        : !isRevealInProgress)
   const lockedComposerMinHeight = useLessonComposerHeightLock({
     stackRef: composerStackRef,
     transitionKey: composerTransitionKey,
     panelKind: composerPanelKind,
     optionCount: displayChoiceOptions.length,
+    choiceOptions: displayChoiceOptions,
+    containerWidthPx: composerInnerWidthPx,
     puzzleWords: activePuzzleWords,
     puzzleHasInstruction: Boolean(activePuzzleVariant?.instruction.trim()),
     compact: shouldRenderChoiceChips || isSentencePuzzle,
@@ -1045,7 +1119,7 @@ export default function LessonStepRenderer({
   })
   const composerMinHeight =
     lockedComposerMinHeight ??
-    (deferChoiceChipsUntilCardReveal
+    (choiceComposerLayout?.reserveMinHeight
       ? choiceComposerMinHeightEstimate
       : isSentencePuzzle
         ? puzzleComposerMinHeightEstimate
@@ -1108,8 +1182,27 @@ export default function LessonStepRenderer({
                       nextMessage: lessonMessages[index + 1],
                     })
 
+                    const hideLessonBubbleUntilRevealReady =
+                      isCurrentLessonMessage &&
+                      isActiveRevealTarget &&
+                      revealEnabled &&
+                      !isRevealInitializedForKey
+
                     const lessonShellEnterActive =
-                      isCurrentLessonMessage && isActiveRevealTarget && isShellEnterActive
+                      isCurrentLessonMessage &&
+                      isActiveRevealTarget &&
+                      (isShellEnterActive || hideLessonBubbleUntilRevealReady)
+
+                    const currentLessonTextRevealedThroughIndex =
+                      isCurrentLessonMessage && isActiveRevealTarget
+                        ? revealEnabled
+                          ? !isRevealInitializedForKey
+                            ? -1
+                            : isRevealInProgress || isShellEnterActive
+                              ? textRevealedThroughIndex
+                              : message.bubbles.length - 1
+                          : message.bubbles.length - 1
+                        : message.bubbles.length - 1
 
                     return (
                       <ChatBubbleFrame
@@ -1119,33 +1212,31 @@ export default function LessonStepRenderer({
                         className="w-full"
                         rowClassName={lessonRowMargin}
                       >
-                        {isCurrentLessonMessage ? (
-                          <PracticeQuestionBubble
-                            key={
-                              currentStep
-                                ? `lesson-soft-${currentStep.stepNumber}-v${currentVariantIndex}`
-                                : message.id
-                            }
-                            bubbles={message.bubbles}
-                            visibleSectionCount={message.bubbles.length}
-                            revealStyle="softText"
-                            shellEnterActive={lessonShellEnterActive}
-                            animateSections={isActiveRevealTarget && isTextRevealActive}
-                            textRevealedThroughIndex={
-                              isActiveRevealTarget && (isShellEnterActive || isTextRevealActive)
-                                ? textRevealedThroughIndex
-                                : message.bubbles.length - 1
-                            }
-                            textAnimatingIndex={
-                              isActiveRevealTarget && isTextRevealActive ? textAnimatingIndex : null
-                            }
-                            onTextSectionRevealComplete={
-                              isActiveRevealTarget ? onTextSectionRevealComplete : undefined
-                            }
-                          />
-                        ) : (
-                          <UnifiedLessonBubble bubbles={message.bubbles} animateSections={false} />
-                        )}
+                        <LessonStepBubble
+                          key={
+                            isCurrentLessonMessage && currentStep
+                              ? `lesson-soft-${currentStep.stepNumber}-v${currentVariantIndex}`
+                              : message.id
+                          }
+                          bubbles={message.bubbles}
+                          shellEnterActive={isCurrentLessonMessage ? lessonShellEnterActive : false}
+                          animateSections={
+                            isCurrentLessonMessage &&
+                            isActiveRevealTarget &&
+                            isTextRevealActive
+                          }
+                          textRevealedThroughIndex={currentLessonTextRevealedThroughIndex}
+                          textAnimatingIndex={
+                            isCurrentLessonMessage && isActiveRevealTarget && isTextRevealActive
+                              ? textAnimatingIndex
+                              : null
+                          }
+                          onTextSectionRevealComplete={
+                            isCurrentLessonMessage && isActiveRevealTarget
+                              ? onTextSectionRevealComplete
+                              : undefined
+                          }
+                        />
                       </ChatBubbleFrame>
                     )
                   }
@@ -1274,10 +1365,10 @@ export default function LessonStepRenderer({
                       })
                     }
                   />
-                ) : shouldRenderChoiceChips ? (
+                ) : shouldRenderChoiceChips && mountChoiceChips ? (
                   <div
                     className={
-                      !isChoiceChipsVisible ? 'pointer-events-none invisible' : undefined
+                      !isChoiceChipsVisible ? 'pointer-events-none' : undefined
                     }
                     aria-hidden={!isChoiceChipsVisible}
                   >

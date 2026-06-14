@@ -1,4 +1,8 @@
 import type { Exercise } from '@/types/lesson'
+import {
+  CHIP_PANEL_DEFAULT_WIDTH_PX,
+  estimateFlexChipBlockMinHeightFromItems,
+} from '@/lib/chipFlexLayout'
 import { PUZZLE_BOTTOM_STACK_FALLBACK, estimatePuzzlePanelMinHeight } from '@/lib/puzzlePanelLayout'
 
 export type LessonComposerPanelKind =
@@ -48,8 +52,28 @@ export function resolveLessonComposerPanelKind(params: {
   return 'text-input'
 }
 
-export function estimateLessonChoiceChipsMinHeight(optionCount: number): number {
-  if (optionCount <= 0) return 0
+/** Узкая ширина для резерва до первого измерения композера (типичный mobile). */
+export const CHOICE_COMPOSER_FALLBACK_WIDTH_PX = 360
+
+export function estimateLessonChoiceChipsMinHeight(
+  optionCount: number,
+  options?: string[],
+  containerWidthPx?: number
+): number {
+  if (optionCount <= 0 && (!options || options.length === 0)) return 0
+
+  if (options && options.length > 0) {
+    return (
+      CHOICE_PANEL_VERTICAL_PADDING_PX +
+      estimateFlexChipBlockMinHeightFromItems({
+        items: options,
+        style: 'choice',
+        containerWidthPx: containerWidthPx ?? CHOICE_COMPOSER_FALLBACK_WIDTH_PX,
+        gapPx: CHOICE_CHIP_ROW_GAP_PX,
+      })
+    )
+  }
+
   const rows = Math.ceil(optionCount / CHOICE_CHIPS_PER_ROW)
   return (
     CHOICE_PANEL_VERTICAL_PADDING_PX +
@@ -84,6 +108,7 @@ export function estimateIntroComposerMinHeight(params: {
 export function estimateLessonComposerMinHeight(params: {
   panelKind: LessonComposerPanelKind
   optionCount?: number
+  choiceOptions?: string[]
   puzzleWords?: string[]
   puzzleHasInstruction?: boolean
   containerWidthPx?: number
@@ -93,7 +118,14 @@ export function estimateLessonComposerMinHeight(params: {
 
   switch (params.panelKind) {
     case 'choice':
-      return stackPadding + estimateLessonChoiceChipsMinHeight(params.optionCount ?? 0)
+      return (
+        stackPadding +
+        estimateLessonChoiceChipsMinHeight(
+          params.optionCount ?? params.choiceOptions?.length ?? 0,
+          params.choiceOptions,
+          params.containerWidthPx
+        )
+      )
     case 'text-input':
       return stackPadding + TEXT_INPUT_COMPOSER_HEIGHT_PX
     case 'puzzle': {

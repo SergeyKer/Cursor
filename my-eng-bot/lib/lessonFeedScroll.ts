@@ -46,6 +46,32 @@ export function resolveLessonShellScrollBehavior(input: {
   return 'smooth'
 }
 
+/** После reveal choice-шага лента уже следовала за карточкой; лишний overflow_follow дёргает пузырь. */
+export function shouldSkipRevealEndOverflowScroll(input: {
+  deferChoiceChipsUntilCardReveal: boolean
+  shouldRenderChoiceChips: boolean
+  wasRevealInProgress: boolean
+  isRevealInProgress: boolean
+}): boolean {
+  return (
+    input.deferChoiceChipsUntilCardReveal &&
+    input.shouldRenderChoiceChips &&
+    input.wasRevealInProgress &&
+    !input.isRevealInProgress
+  )
+}
+
+export const LESSON_REVEAL_END_OVERFLOW_SETTLE_MS = 300
+
+/** Короткое окно после конца reveal — не догонять ленту из ResizeObserver messagesStack. */
+export function isWithinRevealEndOverflowSettleWindow(
+  revealEndedAtMs: number | null,
+  nowMs: number = Date.now()
+): boolean {
+  if (revealEndedAtMs == null) return false
+  return nowMs - revealEndedAtMs < LESSON_REVEAL_END_OVERFLOW_SETTLE_MS
+}
+
 /** id хвоста ленты: ответ пользователя. */
 export function isLessonFeedAnswerTailMessageId(tailMessageId?: string): boolean {
   return tailMessageId?.startsWith('answer-step-') ?? false

@@ -80,7 +80,6 @@ export default function PostLessonMenu({
   const extraActions: Array<{
     key: string
     label: string
-    icon?: string
     onClick: () => void
     animationIndex: number
   }> = []
@@ -98,7 +97,6 @@ export default function PostLessonMenu({
     extraActions.push({
       key: 'open-tips',
       label: tipsLabel,
-      icon: '✨',
       onClick: onOpenTips,
       animationIndex: options.length + (onBackToLessonList ? 1 : 0),
     })
@@ -126,7 +124,6 @@ export default function PostLessonMenu({
               aria-disabled={blueDisabled}
               className={`group ${blueSurfaceClass}`}
             >
-              <span className="shrink-0 text-base leading-none">{option.icon}</span>
               <span className="min-w-0 flex flex-col items-center leading-tight">
                 <span>{option.label}</span>
                 {hint ? (
@@ -149,7 +146,6 @@ export default function PostLessonMenu({
             disabled={navigationActionsDisabled}
             className={POST_LESSON_NEUTRAL_BUTTON_CLASS}
           >
-            {action.icon ? <span className="shrink-0 text-base leading-none">{action.icon}</span> : null}
             <span className="min-w-0 text-center leading-tight">{action.label}</span>
           </button>
         </div>

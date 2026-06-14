@@ -2,8 +2,8 @@
 
 import { LESSON_CARD_RADIUS_CLASS } from '@/components/chat/ChatBubble'
 import { LESSON_CARD_ENTER_MS } from '@/lib/lessonRevealTiming'
+import { renderBubbleContent } from '@/lib/lessonBubbleTextRender'
 import type { Bubble } from '@/types/lesson'
-import { LESSON_HIGHLIGHT_EXACT_REGEX, LESSON_HIGHLIGHT_SPLIT_REGEX } from '@/lib/lessonHighlightPhrases'
 
 export type UnifiedLessonBubbleLayout = 'unified' | 'detached'
 
@@ -16,10 +16,6 @@ type UnifiedLessonBubbleProps = {
   visibleSectionCount?: number
 }
 
-function normalizeTranslatePromptPunctuation(text: string): string {
-  return text.replace(/(Переведите на английский:\s*"[^"\n]*")([.!?…]+)/g, '$1')
-}
-
 /** Фоны горизонтальных полос внутри одной карточки урока (positive / info / task). */
 const unifiedSectionClassByType: Record<Bubble['type'], string> = {
   positive: 'bg-[#FFFBEB]',
@@ -29,76 +25,6 @@ const unifiedSectionClassByType: Record<Bubble['type'], string> = {
 
 const lessonCardSurfaceClass =
   'chat-section-surface glass-surface border border-[var(--chat-section-neutral-border)] bg-white/95'
-
-function splitLabel(line: string): { label: string; rest: string } | null {
-  const match = /^([^:]{2,28}):\s*(.+)$/.exec(line)
-  if (!match) return null
-  return { label: match[1], rest: match[2] }
-}
-
-type BulletStyle = 'badge' | 'dot'
-
-function renderHighlightedCorePhrases(text: string) {
-  const parts = text.split(LESSON_HIGHLIGHT_SPLIT_REGEX)
-  if (parts.length === 1) return text
-  return parts.map((part, index) =>
-    LESSON_HIGHLIGHT_EXACT_REGEX.test(part) ? (
-      <strong key={`${part}-${index}`} className="font-semibold text-slate-700">
-        {part}
-      </strong>
-    ) : (
-      <span key={`${part}-${index}`}>{part}</span>
-    )
-  )
-}
-
-function renderBodyLine(line: string, index: number, bulletStyle: BulletStyle = 'badge') {
-  if (!line.trim()) {
-    return <div key={index} className="h-1" aria-hidden />
-  }
-
-  const markerMatch = /^(•|✓|🎯|🧭|⚠️)\s*(.+)$/.exec(line)
-  const marker = markerMatch?.[1]
-  const text = markerMatch?.[2] ?? line
-  const label = splitLabel(text)
-  const useDotBullet = bulletStyle === 'dot' && marker === '•'
-
-  return (
-    <div key={index} className="flex gap-2 text-[15px] leading-[1.45] text-[var(--text)]">
-      {useDotBullet ? (
-        <span className="mt-[0.45rem] h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" aria-hidden />
-      ) : marker ? (
-        <span className="emoji-glyph mt-[0.15rem] inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-white/80 text-[12px] shadow-sm">
-          {marker}
-        </span>
-      ) : null}
-      <span className="min-w-0 flex-1">
-        {label ? (
-          <>
-            <span className="font-semibold text-slate-700">{label.label}:</span> {label.rest}
-          </>
-        ) : (
-          renderHighlightedCorePhrases(text)
-        )}
-      </span>
-    </div>
-  )
-}
-
-function renderBubbleContent(content: string, bulletStyle: BulletStyle = 'badge') {
-  const [title, ...body] = normalizeTranslatePromptPunctuation(content).split('\n')
-
-  if (body.length === 0) {
-    return <div className="break-words text-[15px] leading-[1.45] text-[var(--text)]">{title}</div>
-  }
-
-  return (
-    <div className="space-y-1.5">
-      <div className="text-[13px] font-semibold uppercase tracking-[0.02em] text-slate-700">{title}</div>
-      <div className="space-y-1.5">{body.map((line, i) => renderBodyLine(line, i, bulletStyle))}</div>
-    </div>
-  )
-}
 
 export default function UnifiedLessonBubble({
   bubbles,
@@ -137,7 +63,12 @@ export default function UnifiedLessonBubble({
                   : undefined
               }
             >
-              <div className="px-3 py-2.5">{renderBubbleContent(bubble.content, 'dot')}</div>
+              <div className="px-3 py-2.5">
+                {renderBubbleContent(bubble.content, {
+                  emphasizeTaskInstructions: bubble.type === 'task',
+                  bulletStyle: 'dot',
+                })}
+              </div>
             </section>
           )
         })}
@@ -165,7 +96,9 @@ export default function UnifiedLessonBubble({
                 : undefined
             }
           >
-            {renderBubbleContent(bubble.content)}
+            {renderBubbleContent(bubble.content, {
+              emphasizeTaskInstructions: bubble.type === 'task',
+            })}
           </section>
         )
       })}

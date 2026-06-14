@@ -11,6 +11,8 @@ type UseLessonComposerHeightLockParams = {
   transitionKey: string | null
   panelKind: LessonComposerPanelKind
   optionCount: number
+  choiceOptions?: string[]
+  containerWidthPx?: number
   puzzleWords?: string[]
   puzzleHasInstruction?: boolean
   compact: boolean
@@ -24,6 +26,8 @@ export function useLessonComposerHeightLock({
   transitionKey,
   panelKind,
   optionCount,
+  choiceOptions,
+  containerWidthPx,
   puzzleWords,
   puzzleHasInstruction,
   compact,
@@ -59,6 +63,8 @@ export function useLessonComposerHeightLock({
     const incoming = estimateLessonComposerMinHeight({
       panelKind,
       optionCount,
+      choiceOptions,
+      containerWidthPx,
       puzzleWords,
       puzzleHasInstruction,
       compact,
@@ -67,6 +73,8 @@ export function useLessonComposerHeightLock({
     setLockedMinHeight(nextLock > 0 ? nextLock : undefined)
   }, [
     compact,
+    containerWidthPx,
+    choiceOptions,
     enabled,
     measureStack,
     optionCount,
@@ -106,6 +114,8 @@ export function useLessonComposerHeightLock({
     lockReleased,
     measureStack,
     optionCount,
+    choiceOptions,
+    containerWidthPx,
     panelKind,
     puzzleHasInstruction,
     puzzleWords,

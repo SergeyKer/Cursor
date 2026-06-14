@@ -146,7 +146,7 @@ export interface Exercise {
 export interface PostLessonOption {
   action: PostLessonAction
   label: string
-  icon: string
+  icon?: string
 }
 
 export interface PostLessonContent {

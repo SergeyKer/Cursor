@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   LESSON_TEXT_FADE_MS,
-  LESSON_TEXT_SECTION_PAUSE_MS,
+  resolveLessonSectionRevealPauseMs,
 } from '@/lib/lessonRevealTiming'
 import {
   isPracticeQuestionRevealed,
@@ -18,6 +18,9 @@ type UseLessonSectionRevealParams = {
   enabled: boolean
   sectionCount: number
   prefersReducedMotion?: boolean
+  /** Индекс секции, перед которой нужна удлинённая пауза (например task). */
+  extraPauseBeforeIndex?: number
+  extraPauseMs?: number
 }
 
 type UseLessonSectionRevealResult = {
@@ -48,12 +51,25 @@ function createShellStartState() {
   }
 }
 
+export function getRevealPauseAfterSectionComplete(
+  completedSectionIndex: number,
+  options?: Pick<UseLessonSectionRevealParams, 'extraPauseBeforeIndex' | 'extraPauseMs'>
+): number {
+  return resolveLessonSectionRevealPauseMs({
+    completedSectionIndex,
+    extraPauseBeforeIndex: options?.extraPauseBeforeIndex,
+    extraPauseMs: options?.extraPauseMs,
+  })
+}
+
 export function useLessonSectionReveal({
   sessionId,
   revealKey,
   enabled,
   sectionCount,
   prefersReducedMotion = false,
+  extraPauseBeforeIndex,
+  extraPauseMs,
 }: UseLessonSectionRevealParams): UseLessonSectionRevealResult {
   const [revealPhase, setRevealPhase] = useState<LessonRevealPhase>('done')
   const [textRevealedThroughIndex, setTextRevealedThroughIndex] = useState(-1)
@@ -163,13 +179,18 @@ export function useLessonSectionReveal({
       pauseTimerRef.current = setTimeout(() => {
         setTextAnimatingIndex(textAnimatingIndex + 1)
         completingIndexRef.current = null
-      }, LESSON_TEXT_SECTION_PAUSE_MS)
+      }, getRevealPauseAfterSectionComplete(textAnimatingIndex, {
+        extraPauseBeforeIndex,
+        extraPauseMs,
+      }))
     }, LESSON_TEXT_FADE_MS + 40)
 
     return clearFallbackTimer
   }, [
     clearFallbackTimer,
     enabled,
+    extraPauseBeforeIndex,
+    extraPauseMs,
     finishReveal,
     revealPhase,
     sectionCount,
@@ -200,12 +221,17 @@ export function useLessonSectionReveal({
       pauseTimerRef.current = setTimeout(() => {
         completingIndexRef.current = null
         setTextAnimatingIndex(sectionIndex + 1)
-      }, LESSON_TEXT_SECTION_PAUSE_MS)
+      }, getRevealPauseAfterSectionComplete(sectionIndex, {
+        extraPauseBeforeIndex,
+        extraPauseMs,
+      }))
     },
     [
       clearFallbackTimer,
       clearPauseTimer,
       enabled,
+      extraPauseBeforeIndex,
+      extraPauseMs,
       finishReveal,
       revealPhase,
       sectionCount,
