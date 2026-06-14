@@ -80,8 +80,8 @@ export default function PostLessonMenu({
               }`}
             >
               <span className="shrink-0 text-base leading-none">{option.icon}</span>
-              <span className="min-w-0 flex flex-col items-center leading-tight">
-                <span className="text-[11px] font-semibold text-white sm:text-xs">{option.label}</span>
+                <span className="min-w-0 flex flex-col items-center leading-tight">
+                <span>{option.label}</span>
                 {hint ? (
                   <span className="text-[9px] leading-tight text-white/90 sm:text-[10px]">{hint}</span>
                 ) : null}

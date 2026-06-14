@@ -7,6 +7,7 @@ import { resyncIosWebKitDialogComposerStackHeight } from '@/hooks/useDialogCompo
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
 import { isIosWebKitBrowser } from '@/lib/iosSafariViewport'
 import { estimateIntroComposerMinHeight, LESSON_INTRO_SCROLL_CLASS } from '@/lib/lessonComposerLayout'
+import { APP_BTN_PRIMARY_LESSON_START } from '@/lib/homeCtaStyles'
 import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
 import type { LessonCatalogLevel } from '@/lib/lessonCatalog'
 import {
@@ -819,7 +820,7 @@ export default function LessonExtraTipsScreen({
                   type="button"
                   onClick={onStartLesson}
                   disabled={loadingMore || footerVariantRegenerating}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#3B82F6] to-[#2563EB] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
+                  className={APP_BTN_PRIMARY_LESSON_START}
                 >
                   {footerVariantRegenerating
                     ? 'Генерируется новый вариант...'

@@ -5,6 +5,11 @@ import type { PracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
 import { featureFlags } from '@/lib/featureFlags'
 import { getPracticeFinalePrimaryAction } from '@/lib/practice/practiceFinaleCta'
 import { formatPracticeProgressText } from '@/lib/practice/practiceGlyphs'
+import {
+  APP_BTN_NEUTRAL_WHITE_LARGE,
+  APP_BTN_PRIMARY_LARGE,
+  APP_BTN_SECONDARY_LARGE,
+} from '@/lib/homeCtaStyles'
 
 interface PracticeFinaleProps {
   session: PracticeSession
@@ -90,7 +95,7 @@ export default function PracticeFinale({
         type="button"
         onClick={handlePrimary}
         disabled={busy}
-        className="btn-3d-menu w-full rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--status-info-text)] disabled:cursor-not-allowed disabled:opacity-60"
+        className={APP_BTN_PRIMARY_LARGE}
       >
         {busy ? 'Генерируем новый вариант...' : primary.label}
       </button>
@@ -100,7 +105,7 @@ export default function PracticeFinale({
           type="button"
           onClick={onRepeat}
           disabled={busy}
-          className="btn-3d-menu w-full rounded-xl border border-[var(--border)] bg-[var(--menu-card-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
+          className={APP_BTN_SECONDARY_LARGE}
         >
           Повторить
         </button>
@@ -109,7 +114,7 @@ export default function PracticeFinale({
           type="button"
           onClick={onChallenge}
           disabled={busy}
-          className="btn-3d-menu w-full rounded-xl border border-[var(--border)] bg-[var(--menu-card-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
+          className={APP_BTN_SECONDARY_LARGE}
         >
           {nextModeLabel(session.mode)}
         </button>
@@ -118,7 +123,7 @@ export default function PracticeFinale({
         type="button"
         onClick={onOpenLesson}
         disabled={busy}
-        className="btn-3d-menu w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-center text-sm font-semibold text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
+        className={APP_BTN_NEUTRAL_WHITE_LARGE}
       >
         Пройти урок по теме
       </button>

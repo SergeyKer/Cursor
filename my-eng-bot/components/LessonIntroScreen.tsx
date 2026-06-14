@@ -13,6 +13,7 @@ import {
   estimateIntroComposerMinHeight,
   LESSON_INTRO_SCROLL_CLASS,
 } from '@/lib/lessonComposerLayout'
+import { APP_BTN_PRIMARY_LESSON_START, BTN_INTERACTION_BASE } from '@/lib/homeCtaStyles'
 import { LESSON_SCROLL_VIEWPORT_CLASS, scheduleScrollAfterLayout } from '@/lib/lessonFeedScroll'
 import { LESSON_SECTION_REVEAL_INTERVAL_MS } from '@/lib/lessonRevealTiming'
 import { getMenuTopicCopyByIntroTopic } from '@/lib/lessonCatalog'
@@ -225,14 +226,14 @@ function IntroChip({
 }) {
   const className =
     variant === 'primary'
-      ? 'inline-flex min-h-11 w-full max-w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#3B82F6] to-[#2563EB] px-5 py-2.5 text-center text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60'
+      ? APP_BTN_PRIMARY_LESSON_START
       : variant === 'link'
-        ? 'inline-flex min-h-10 max-w-full shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-sky-50 px-2.5 py-2 text-center text-[13px] font-semibold text-slate-600 shadow-sm transition hover:from-white hover:to-sky-100 sm:px-3 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60'
+        ? `${BTN_INTERACTION_BASE} inline-flex min-h-10 max-w-full shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-sky-50 px-2.5 py-2 text-center text-[13px] font-semibold text-slate-600 hover:from-white hover:to-sky-100 active:brightness-95 sm:px-3 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60`
         : variant === 'tips'
-          ? 'inline-flex min-h-10 max-w-full shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-100 px-2.5 py-2 text-center text-[13px] font-semibold text-amber-800 shadow-sm transition hover:from-amber-100 hover:to-yellow-200 sm:px-3 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60'
+          ? `${BTN_INTERACTION_BASE} inline-flex min-h-10 max-w-full shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-100 px-2.5 py-2 text-center text-[13px] font-semibold text-amber-800 hover:from-amber-100 hover:to-yellow-200 active:brightness-95 sm:px-3 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60`
           : variant === 'deep'
-            ? 'inline-flex min-h-10 max-w-full shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-violet-200 bg-gradient-to-r from-violet-100 to-indigo-100 px-2.5 py-2 text-center text-[13px] font-semibold text-violet-800 shadow-sm transition hover:from-violet-200 hover:to-indigo-200 sm:px-3 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60'
-          : 'inline-flex min-h-10 max-w-full shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-sky-200 bg-gradient-to-r from-cyan-50 to-blue-100 px-2.5 py-2 text-center text-[13px] font-semibold text-slate-700 shadow-sm transition hover:from-cyan-100 hover:to-blue-200 sm:px-3 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60'
+            ? `${BTN_INTERACTION_BASE} inline-flex min-h-10 max-w-full shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-violet-200 bg-gradient-to-r from-violet-100 to-indigo-100 px-2.5 py-2 text-center text-[13px] font-semibold text-violet-800 hover:from-violet-200 hover:to-indigo-200 active:brightness-95 sm:px-3 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60`
+          : `${BTN_INTERACTION_BASE} inline-flex min-h-10 max-w-full shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-sky-200 bg-gradient-to-r from-cyan-50 to-blue-100 px-2.5 py-2 text-center text-[13px] font-semibold text-slate-700 hover:from-cyan-100 hover:to-blue-200 active:brightness-95 sm:px-3 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60`
 
   return (
     <button type="button" onClick={onClick} disabled={disabled} className={className}>

@@ -67,7 +67,10 @@ import {
 } from '@/lib/translationProtocolStatus'
 import type { TranslationProtocolStatus } from '@/lib/translationProtocolStatus'
 import { translationDrillCommentBodyLooksLikePraise } from '@/lib/translationPraiseBody'
-import { PAGE_HOME_START_PRIMARY_BUTTON_CLASS } from '@/lib/homeCtaStyles'
+import {
+  APP_BTN_PRIMARY_INLINE,
+  APP_BTN_SECONDARY_INLINE_MUTED,
+} from '@/lib/homeCtaStyles'
 import type { LearningLessonAction } from '@/lib/learningLessons'
 import { ChatBubbleFrame, getBubblePosition, type BubblePosition } from '@/components/chat/ChatBubble'
 import TypingIndicator from '@/components/TypingIndicator'
@@ -2287,9 +2290,7 @@ export default function Chat({
                                     }}
                                     disabled={isDisabled}
                                     className={
-                                      isDisabled
-                                        ? 'btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--status-info-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--status-info-text)] shadow-md transition-transform touch-manipulation min-h-[44px] cursor-default'
-                                        : PAGE_HOME_START_PRIMARY_BUTTON_CLASS
+                                      isDisabled ? APP_BTN_SECONDARY_INLINE_MUTED : APP_BTN_PRIMARY_INLINE
                                     }
                                   >
                                     {action.label}

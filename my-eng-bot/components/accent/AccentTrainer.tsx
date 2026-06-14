@@ -13,6 +13,7 @@ import { analyzeAccentAttempt } from '@/lib/accent/phoneticFeedback'
 import { recordAccentBlockFeedback, subscribeAccentProgress, summarizeAccentProgress } from '@/lib/accent/progressStorage'
 import { RUSSIAN_SPEAKER_GROUPS, ACCENT_SECTIONS, getAccentLessonById } from '@/lib/accent/soundCatalog'
 import { ACCENT_SESSION_PLANS, buildAccentLessonBlocks, getDefaultAccentMode } from '@/lib/accent/sessionPlan'
+import { APP_BTN_SECONDARY_LARGE_BLOCK } from '@/lib/homeCtaStyles'
 import { ALL_ACCENT_LESSONS } from '@/lib/accent/staticContent'
 import type {
   AccentAudience,
@@ -562,7 +563,7 @@ function AccentLessonModePicker({
           С {segment.words}/20 · П {segment.pairs}/20 · Ц {segment.progressive}/20
         </p>
         <div className="mt-3 space-y-2">
-          <button type="button" onClick={onSelectFull} className="btn-3d-menu w-full rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-left font-semibold text-blue-800">
+          <button type="button" onClick={onSelectFull} className={`${APP_BTN_SECONDARY_LARGE_BLOCK} justify-start text-left`}>
             Полный урок (1→2→3)
           </button>
           <button type="button" onClick={() => onSelectSingle('words')} className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-2.5 text-left font-semibold text-[var(--text)]">
@@ -646,12 +647,12 @@ function AccentActionBar({
               К звукам
             </button>
             {(state === 'idle' || state === 'complete') && !isLastBlock && (
-              <button type="button" onClick={onStart} className="btn-3d-menu flex-1 rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-center font-semibold text-blue-800">
+              <button type="button" onClick={onStart} className={`${APP_BTN_SECONDARY_LARGE_BLOCK} flex-1 justify-center text-center`}>
                 Записать
               </button>
             )}
             {state === 'idle' && isLastBlock && (
-              <button type="button" onClick={onStart} className="btn-3d-menu flex-1 rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-center font-semibold text-blue-800">
+              <button type="button" onClick={onStart} className={`${APP_BTN_SECONDARY_LARGE_BLOCK} flex-1 justify-center text-center`}>
                 Записать
               </button>
             )}
@@ -676,7 +677,7 @@ function AccentActionBar({
                   </button>
                 )}
                 {allowNext && (
-                  <button type="button" onClick={onNext} className="btn-3d-menu flex-1 rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-center font-semibold text-blue-800">
+                  <button type="button" onClick={onNext} className={`${APP_BTN_SECONDARY_LARGE_BLOCK} flex-1 justify-center text-center`}>
                     {isLastBlock ? 'Завершить' : 'Далее'}
                   </button>
                 )}
@@ -684,7 +685,7 @@ function AccentActionBar({
             )}
             {state === 'complete' && isLastBlock && (
               <>
-                <button type="button" onClick={onRepeat} className="btn-3d-menu flex-1 rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-center font-semibold text-blue-800">
+                <button type="button" onClick={onRepeat} className={`${APP_BTN_SECONDARY_LARGE_BLOCK} flex-1 justify-center text-center`}>
                   Ещё подход
                 </button>
                 {showRegenerate && (

@@ -1,44 +1,191 @@
 /**
- * Общие классы для основных CTA «Начать …».
- * Градиент через `--accent` / `--accent-hover` из globals.css: взрослый — :root, ребёнок — [data-audience='child'].
+ * Единая система CTA: синий primary / secondary + общее поведение нажатия.
  */
 
-/** Меню: сводка «Чат с MyEng», primary MenuNavRow. */
-export const MENU_PRIMARY_CTA_CLASS =
-  'flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-[15px] font-semibold leading-normal text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]'
+export const BTN_INTERACTION_BASE =
+  'btn-3d-menu shadow-md transition-all duration-200 hover:shadow-lg touch-manipulation'
 
-/** Главная: «Начать Чат с MyEng», «Начать делать Уроки». */
-export const PAGE_HOME_START_PRIMARY_BUTTON_CLASS =
-  'btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]'
+export const BTN_DISABLED_CLASS = 'disabled:cursor-not-allowed disabled:opacity-60'
 
-/** Главная: кнопка возврата к выбору аудитории (рядом с CTA чата/уроков). */
-export const PAGE_HOME_BACK_TO_AUDIENCE_BUTTON_CLASS =
-  'btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl border border-[var(--text)]/[0.18] bg-[var(--bg-card)] px-4 py-2.5 text-sm font-semibold text-[var(--accent)] shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-95 active:brightness-90 touch-manipulation min-h-[44px]'
+const BTN_FONT_FAMILY =
+  '[font-family:system-ui,-apple-system,"Segoe_UI",Roboto,"Noto_Sans",Arial,sans-serif]'
 
-/** Стартовый выбор аудитории: «Я - взрослый» (бирюзовая палитра из цветовой схемы). */
-export const PAGE_HOME_AUDIENCE_ADULT_BUTTON_CLASS =
-  'btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl bg-gradient-to-b from-[var(--invitation)] to-[#0f766e] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]'
+/** Типографика кнопок: medium вместо semibold — на синем градиенте читается легче. */
+export const BTN_FONT_MENU = `text-[15px] font-medium leading-snug antialiased ${BTN_FONT_FAMILY}`
+export const BTN_FONT_LARGE = `text-base font-medium leading-snug antialiased ${BTN_FONT_FAMILY}`
+export const BTN_FONT_INLINE = `text-sm font-medium leading-snug antialiased ${BTN_FONT_FAMILY}`
+export const BTN_FONT_COMPACT = `text-[11px] font-medium leading-snug antialiased sm:text-xs ${BTN_FONT_FAMILY}`
+export const BTN_FONT_SMALL = `text-[13px] font-medium leading-snug antialiased ${BTN_FONT_FAMILY}`
 
-/** Стартовый выбор аудитории: «Я - ребёнок» — тот же градиент, что у CTA «Чат» при [data-audience='child'] в globals.css. */
-export const PAGE_HOME_AUDIENCE_CHILD_BUTTON_CLASS =
-  'btn-3d-menu inline-flex w-fit max-w-full items-center justify-center rounded-xl bg-gradient-to-b from-[#39649c] to-[#305789] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation min-h-[44px]'
+export const BLUE_PRIMARY_SKIN =
+  'border border-[#2563eb] bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] text-white hover:brightness-105 active:brightness-95'
 
-/** Выезжающее меню: «Новый чат». */
-export const SLIDE_OUT_NEW_CHAT_BUTTON_CLASS =
-  'group mb-2 flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--accent)] to-[var(--accent-hover)] py-2.5 px-4 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95'
+export const BLUE_SECONDARY_SKIN =
+  'border border-[#3b82f6] bg-gradient-to-b from-[#60a5fa] to-[#2563eb] text-white hover:brightness-105 active:brightness-95'
 
-/** Меню: синие CTA («Сгенерировать вариант», вторичные действия). */
-export const MENU_BLUE_CTA_CLASS =
-  'btn-3d-menu flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[var(--status-info-border)] bg-gradient-to-b from-[var(--status-info-bg)] to-[#dbeafe] px-4 py-2.5 text-[15px] font-semibold leading-normal text-[var(--status-info-text)] shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-95 active:brightness-90 touch-manipulation'
+/** Меню и широкие primary CTA: «Начать урок», «Новый чат». */
+export const APP_BTN_PRIMARY_MENU = [
+  BTN_INTERACTION_BASE,
+  BLUE_PRIMARY_SKIN,
+  'flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 py-2.5',
+  BTN_FONT_MENU,
+  BTN_DISABLED_CLASS,
+].join(' ')
 
-/** Меню: главная синяя CTA (насыщенный вариант «Начать»). */
-export const MENU_BLUE_PRIMARY_CTA_CLASS =
-  'btn-3d-menu flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[#2563eb] bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] px-4 py-2.5 text-[15px] font-semibold leading-normal text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation'
+/** Практика, FlowInfoStep, крупные primary. */
+export const APP_BTN_PRIMARY_LARGE = [
+  BTN_INTERACTION_BASE,
+  BLUE_PRIMARY_SKIN,
+  'flex w-full min-h-[44px] items-center justify-center rounded-xl px-4 py-3 text-center',
+  BTN_FONT_LARGE,
+  BTN_DISABLED_CLASS,
+].join(' ')
 
-/** Финал урока: компактная синяя кнопка в сетке 2×2. */
-export const POST_LESSON_BLUE_BUTTON_CLASS =
-  'btn-3d-menu flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-[#3b82f6] bg-gradient-to-b from-[#60a5fa] to-[#2563eb] px-2 py-2 text-center text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation'
+/** Финал урока: сетка 2×2 primary. */
+export const APP_BTN_PRIMARY_COMPACT = [
+  BTN_INTERACTION_BASE,
+  BLUE_PRIMARY_SKIN,
+  'flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-center',
+  BTN_FONT_COMPACT,
+  BTN_DISABLED_CLASS,
+].join(' ')
 
-/** Финал урока: primary в сетке 2×2 (как «Начать урок», но в синей палитре). */
-export const POST_LESSON_BLUE_PRIMARY_BUTTON_CLASS =
-  'btn-3d-menu flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-[#2563eb] bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] px-2 py-2 text-center text-white shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-105 active:brightness-95 touch-manipulation'
+/** Intro/tips: «Начать урок» (сохраняем min-h-11 и px-5). */
+export const APP_BTN_PRIMARY_LESSON_START = [
+  BTN_INTERACTION_BASE,
+  BLUE_PRIMARY_SKIN,
+  'inline-flex min-h-11 w-full max-w-full items-center justify-center rounded-xl px-5 py-2.5 text-center',
+  BTN_FONT_INLINE,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
+/** Меню: secondary «Сгенерировать вариант». */
+export const APP_BTN_SECONDARY_MENU = [
+  BTN_INTERACTION_BASE,
+  BLUE_SECONDARY_SKIN,
+  'flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 py-2.5',
+  BTN_FONT_MENU,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
+/** Практика: secondary «Повторить», «Перегенерировать». */
+export const APP_BTN_SECONDARY_LARGE = [
+  BTN_INTERACTION_BASE,
+  BLUE_SECONDARY_SKIN,
+  'flex w-full min-h-[44px] items-center justify-center rounded-xl px-4 py-3 text-center',
+  BTN_FONT_LARGE,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
+/** Финал урока: сетка 2×2 secondary. */
+export const APP_BTN_SECONDARY_COMPACT = [
+  BTN_INTERACTION_BASE,
+  BLUE_SECONDARY_SKIN,
+  'flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-center',
+  BTN_FONT_COMPACT,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
+/** Меню: мелкие secondary («Изменить запрос»). */
+export const APP_BTN_SECONDARY_SMALL = [
+  BTN_INTERACTION_BASE,
+  BLUE_SECONDARY_SKIN,
+  'flex w-full min-h-[44px] items-center justify-center rounded-lg px-3 py-2',
+  BTN_FONT_SMALL,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
+/** Inline secondary для disabled-состояния в чате. */
+export const APP_BTN_SECONDARY_INLINE_MUTED = [
+  BTN_INTERACTION_BASE,
+  BLUE_SECONDARY_SKIN,
+  'inline-flex w-fit max-w-full min-h-[44px] cursor-default items-center justify-center rounded-xl border border-[var(--border-subtle)] px-4 py-2.5 opacity-95',
+  BTN_FONT_INLINE,
+].join(' ')
+
+/** Inline primary на главной и в чате. */
+export const APP_BTN_PRIMARY_INLINE = [
+  BTN_INTERACTION_BASE,
+  BLUE_PRIMARY_SKIN,
+  'inline-flex w-fit max-w-full min-h-[44px] items-center justify-center rounded-xl px-4 py-2.5',
+  BTN_FONT_INLINE,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
+/** Submit в вопросах практики. */
+export const APP_BTN_SECONDARY_SUBMIT = [
+  BTN_INTERACTION_BASE,
+  BLUE_SECONDARY_SKIN,
+  'min-h-[44px] rounded-xl px-3 py-2',
+  BTN_FONT_INLINE,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
+/** Серые action-кнопки (цвет сохраняем, поведение унифицируем). */
+export const APP_BTN_NEUTRAL_LARGE = [
+  BTN_INTERACTION_BASE,
+  'w-full rounded-xl border border-[var(--border)] bg-[var(--menu-card-bg)] px-4 py-3 text-center text-[var(--text)] hover:brightness-95 active:brightness-90',
+  BTN_FONT_LARGE,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
+export const APP_BTN_NEUTRAL_WHITE_LARGE = [
+  BTN_INTERACTION_BASE,
+  'w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-center text-[var(--text)] hover:brightness-95 active:brightness-90',
+  BTN_FONT_INLINE,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
+/** AccentTrainer: secondary large, выравнивание через className на кнопке. */
+export const APP_BTN_SECONDARY_LARGE_BLOCK = [
+  BTN_INTERACTION_BASE,
+  BLUE_SECONDARY_SKIN,
+  'flex min-h-[44px] w-full items-center rounded-xl px-4 py-3',
+  BTN_FONT_LARGE,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
+/** --- Алиасы (обратная совместимость) --- */
+
+export const MENU_PRIMARY_CTA_CLASS = APP_BTN_PRIMARY_MENU
+
+export const PAGE_HOME_START_PRIMARY_BUTTON_CLASS = APP_BTN_PRIMARY_INLINE
+
+export const PAGE_HOME_BACK_TO_AUDIENCE_BUTTON_CLASS = [
+  BTN_INTERACTION_BASE,
+  'inline-flex w-fit max-w-full min-h-[44px] items-center justify-center rounded-xl border border-[var(--text)]/[0.18] bg-[var(--bg-card)] px-4 py-2.5 text-[var(--accent)] hover:brightness-95 active:brightness-90',
+  BTN_FONT_INLINE,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
+export const PAGE_HOME_AUDIENCE_ADULT_BUTTON_CLASS = [
+  BTN_INTERACTION_BASE,
+  'inline-flex w-fit max-w-full min-h-[44px] items-center justify-center rounded-xl bg-gradient-to-b from-[var(--invitation)] to-[#0f766e] px-4 py-2.5 text-white hover:brightness-105 active:brightness-95',
+  BTN_FONT_INLINE,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
+export const PAGE_HOME_AUDIENCE_CHILD_BUTTON_CLASS = [
+  BTN_INTERACTION_BASE,
+  'inline-flex w-fit max-w-full min-h-[44px] items-center justify-center rounded-xl bg-gradient-to-b from-[#39649c] to-[#305789] px-4 py-2.5 text-white hover:brightness-105 active:brightness-95',
+  BTN_FONT_INLINE,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
+export const SLIDE_OUT_NEW_CHAT_BUTTON_CLASS = [
+  BTN_INTERACTION_BASE,
+  BLUE_PRIMARY_SKIN,
+  'group mb-2 flex w-full shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2.5',
+  BTN_FONT_INLINE,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
+export const POST_LESSON_BLUE_BUTTON_CLASS = APP_BTN_SECONDARY_COMPACT
+
+export const POST_LESSON_BLUE_PRIMARY_BUTTON_CLASS = APP_BTN_PRIMARY_COMPACT
+
+/** @deprecated use APP_BTN_SECONDARY_MENU */
+export const MENU_BLUE_CTA_CLASS = APP_BTN_SECONDARY_MENU
+
+/** @deprecated use APP_BTN_PRIMARY_MENU */
+export const MENU_BLUE_PRIMARY_CTA_CLASS = APP_BTN_PRIMARY_MENU

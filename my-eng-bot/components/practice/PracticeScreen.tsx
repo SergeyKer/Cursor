@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import FeedbackStatusText from '@/components/FeedbackStatusText'
 import PracticeFinale from '@/components/practice/PracticeFinale'
+import { APP_BTN_SECONDARY_LARGE } from '@/lib/homeCtaStyles'
 import PracticeInstructionFlowInfoStep from '@/components/practice/PracticeInstructionFlowInfoStep'
 import PracticeQuestionRenderer from '@/components/practice/PracticeQuestionRenderer'
 import { buildPracticeFeedMessages } from '@/lib/practice/buildPracticeFeedMessages'
@@ -515,7 +516,7 @@ export default function PracticeScreen({
                     type="button"
                     onClick={onRetryAfterError ?? onRepeat}
                     disabled={generationBusy}
-                    className="btn-3d-menu w-full rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--status-info-text)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className={APP_BTN_SECONDARY_LARGE}
                   >
                     {generationBusy ? 'Генерируем...' : 'Повторить безопасный вариант'}
                   </button>

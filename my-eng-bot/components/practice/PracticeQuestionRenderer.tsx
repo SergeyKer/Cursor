@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
+import { APP_BTN_SECONDARY_SUBMIT } from '@/lib/homeCtaStyles'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import VoiceMicButton, { TextEditIcon } from '@/components/voice/VoiceMicButton'
 import {
@@ -889,7 +890,7 @@ function AudioPracticeButton({ text, disabled }: { text: string; disabled?: bool
       type="button"
       onClick={() => speak(text)}
       disabled={disabled || !text.trim()}
-      className="min-h-[44px] rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-2 text-sm font-semibold text-[var(--status-info-text)] disabled:opacity-50"
+      className={APP_BTN_SECONDARY_SUBMIT}
     >
       Прослушать
     </button>

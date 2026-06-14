@@ -1,6 +1,7 @@
 'use client'
 
 import FlowInfoCard, { type FlowInfoCardProps } from '@/components/FlowInfoCard'
+import { APP_BTN_PRIMARY_LARGE } from '@/lib/homeCtaStyles'
 
 export type FlowInfoStepProps = FlowInfoCardProps & {
   actionLabel?: string
@@ -32,7 +33,7 @@ export default function FlowInfoStep({
       <button
         type="button"
         onClick={onAction}
-        className="w-full rounded-xl border border-blue-500 bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        className={`${APP_BTN_PRIMARY_LARGE} focus:outline-none focus-visible:ring-2 focus-visible:ring-[#93c5fd]`}
       >
         {actionLabel}
       </button>

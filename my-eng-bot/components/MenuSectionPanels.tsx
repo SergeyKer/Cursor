@@ -18,7 +18,11 @@ import type {
   LevelId,
 } from '@/lib/types'
 import type { AiChatPanel } from '@/lib/aiChatPanel'
-import { MENU_PRIMARY_CTA_CLASS } from '@/lib/homeCtaStyles'
+import {
+  APP_BTN_SECONDARY_MENU,
+  APP_BTN_SECONDARY_SMALL,
+  MENU_PRIMARY_CTA_CLASS,
+} from '@/lib/homeCtaStyles'
 import { featureFlags } from '@/lib/featureFlags'
 import { getLessonBadgeDefinition } from '@/lib/lessonBadges'
 import { resolveLessonCardMedal, type LessonCardMedalDisplay } from '@/lib/lessonFooter'
@@ -2128,8 +2132,8 @@ export default function MenuSectionPanels({
                           return m?.level !== 'A1' && m?.level !== 'A2'
                         })()
                       }
-                      className="btn-3d-menu w-full rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--status-info-text)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
+                      className={APP_BTN_SECONDARY_MENU}
+                      >
                       {generatingLessonId === selectedTheoryTopicLessonId ? 'Генерируем урок...' : 'Сгенерировать урок'}
                     </button>
                     {generateLessonError && (
@@ -2202,7 +2206,7 @@ export default function MenuSectionPanels({
                       }
                     }}
                     disabled={!onGenerateLearningLesson || !selectedA1LessonId || Boolean(generatingLessonId)}
-                    className="btn-3d-menu w-full rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--status-info-text)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                    className={APP_BTN_SECONDARY_MENU}
                   >
                     {generatingLessonId === selectedA1LessonId ? 'Генерируем урок...' : 'Сгенерировать урок'}
                   </button>
@@ -2275,7 +2279,7 @@ export default function MenuSectionPanels({
                       }
                     }}
                     disabled={!onGenerateLearningLesson || !selectedA2LessonId || Boolean(generatingLessonId)}
-                    className="btn-3d-menu w-full rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--status-info-text)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                    className={APP_BTN_SECONDARY_MENU}
                   >
                     {generatingLessonId === selectedA2LessonId ? 'Генерируем урок...' : 'Сгенерировать урок'}
                   </button>
@@ -2390,7 +2394,7 @@ export default function MenuSectionPanels({
                         })
                       }
                       disabled={!onGeneratePracticeSession || !selectedPracticeLessonId || practiceBusy}
-                      className="btn-3d-menu flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[#93c5fd] bg-gradient-to-b from-[#eff6ff] to-[#dbeafe] px-4 py-2.5 text-[15px] font-semibold leading-normal text-[#1d4ed8] shadow-md transition-all duration-200 hover:shadow-lg hover:brightness-95 active:brightness-90 touch-manipulation disabled:cursor-not-allowed disabled:opacity-60"
+                      className={APP_BTN_SECONDARY_MENU}
                     >
                       {practiceBusy ? 'Генерируем практику...' : isReferenceMode ? 'Перегенерировать эталон' : 'Сгенерировать вариант'}
                     </button>
@@ -2505,7 +2509,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                           setCustomPracticeStep('input')
                           setSelectedCustomPracticeLessonId(null)
                         }}
-                        className="btn-3d-menu w-full rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-2 text-[13px] font-medium text-[var(--status-info-text)] hover:opacity-90"
+                        className={APP_BTN_SECONDARY_SMALL}
                       >
                         Изменить запрос
                       </button>
@@ -2814,7 +2818,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                           setTutorCustomFocus('')
                           setTutorStep('input')
                         }}
-                        className="btn-3d-menu w-full rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-2 text-[13px] font-medium text-[var(--status-info-text)] hover:opacity-90"
+                        className={APP_BTN_SECONDARY_SMALL}
                       >
                         Изменить запрос
                       </button>
