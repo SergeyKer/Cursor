@@ -184,6 +184,14 @@ export const POST_LESSON_BLUE_BUTTON_CLASS = APP_BTN_SECONDARY_COMPACT
 
 export const POST_LESSON_BLUE_PRIMARY_BUTTON_CLASS = APP_BTN_PRIMARY_COMPACT
 
+/** Финал урока: нейтральные CTA в сетке 2×2 (меню, фишки). */
+export const POST_LESSON_NEUTRAL_BUTTON_CLASS = [
+  BTN_INTERACTION_BASE,
+  'flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-center text-[var(--text-muted)] hover:brightness-95 active:brightness-90',
+  BTN_FONT_COMPACT,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
 /** @deprecated use APP_BTN_SECONDARY_MENU */
 export const MENU_BLUE_CTA_CLASS = APP_BTN_SECONDARY_MENU
 

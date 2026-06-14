@@ -12,7 +12,9 @@ export type FlowInfoCardProps = {
   iconBetweenCaption?: { before: string; after: string }
   title: string
   statsLine?: string
+  firstTryLine?: string
   message?: string
+  profileLine?: string
   secondaryMessage?: string
   /** Иконка сразу после title в одной строке (экономит высоту). */
   iconAfterTitle?: boolean
@@ -84,7 +86,9 @@ export default function FlowInfoCard({
   iconBetweenCaption,
   title,
   statsLine,
+  firstTryLine,
   message,
+  profileLine,
   secondaryMessage,
   iconAfterTitle = false,
   className = '',
@@ -138,8 +142,14 @@ export default function FlowInfoCard({
         ) : null}
       </h3>
       {statsLine ? <p className={`mt-1 text-sm ${STATS_CLASS[variant]}`}>{statsLine}</p> : null}
+      {firstTryLine ? (
+        <p className={`mt-1 text-sm font-medium ${MESSAGE_CLASS[variant]}`}>{firstTryLine}</p>
+      ) : null}
       {message ? (
         <p className={`mt-1 text-sm font-medium ${MESSAGE_CLASS[variant]}`}>{message}</p>
+      ) : null}
+      {profileLine ? (
+        <p className={`mt-1 text-sm ${SECONDARY_MESSAGE_CLASS[variant]}`}>{profileLine}</p>
       ) : null}
       {secondaryMessage ? (
         <p

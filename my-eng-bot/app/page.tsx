@@ -114,7 +114,7 @@ import {
 } from '@/lib/lessonAntiFarm'
 import { buildLessonCycle1Hint } from '@/lib/lessonCycle1Hint'
 import { buildLessonMedalRevealCopy } from '@/lib/lessonMedalRevealCopy'
-import { computeCorePercent, resolveMedalFromCoreXp } from '@/lib/lessonScore'
+import { computeCorePercent, resolveMedalFromCoreXp, type LessonMedalTierOrNull } from '@/lib/lessonScore'
 import { getLessonBadgeDefinition, resolveLessonBadgeProgress } from '@/lib/lessonBadges'
 import { mergeLessonProgressOnComplete, migrateUserLessonProgress } from '@/lib/lessonProgressMigration'
 import { loadLessonProgress, saveLessonProgress } from '@/lib/lessonProgressStorage'
@@ -635,6 +635,7 @@ export default function Home() {
   const [structuredLessonShuffleNonce, setStructuredLessonShuffleNonce] = useState(0)
   const [postLessonBusy, setPostLessonBusy] = useState(false)
   const [selectedPostLessonAction, setSelectedPostLessonAction] = useState<PostLessonAction | null>(null)
+  const [postLessonMenuResetKey, setPostLessonMenuResetKey] = useState(0)
   const [lessonOverlay, setLessonOverlay] = useState<LessonOverlayState | null>(null)
   const [lessonViewStage, setLessonViewStage] = useState<'intro' | 'tips' | 'lesson'>('intro')
   const [lessonTipsReturnStage, setLessonTipsReturnStage] = useState<'intro' | 'lesson'>('intro')
@@ -683,11 +684,35 @@ export default function Home() {
     isAdvancingToNextStep: activeStructuredLessonIsAdvancingToNextStep,
     isAdvancingToNextVariant: activeStructuredLessonIsAdvancingToNextVariant,
     goToFinale: goToStructuredLessonFinale,
+    firstTryCount: activeStructuredLessonFirstTryCount,
+    totalScoredUnits: activeStructuredLessonTotalScoredUnits,
   } = useLessonEngine(activeStructuredLesson)
   const isStructuredLessonRepeatRun =
     activeLessonVariantNumber > 1 ||
     structuredLessonRunOriginRef.current === 'post_lesson_repeat' ||
     structuredLessonRunOriginRef.current === 'repeat_api'
+  const [structuredLessonFinaleContext, setStructuredLessonFinaleContext] = React.useState<{
+    runKey: string
+    previousCorePercent: number | null
+    profileMedal: LessonMedalTierOrNull
+  } | null>(null)
+
+  React.useEffect(() => {
+    if (activeStructuredLessonStatus !== 'completed' || !activeStructuredLesson) {
+      setStructuredLessonFinaleContext(null)
+      return
+    }
+    const runKey = activeStructuredLesson.runKey ?? 'static'
+    setStructuredLessonFinaleContext((prev) => {
+      if (prev?.runKey === runKey) return prev
+      const previous = loadLessonProgress(activeStructuredLesson.id)
+      return {
+        runKey,
+        previousCorePercent: previous?.lessonCompleted === true ? previous.corePercent : null,
+        profileMedal: previous?.medal ?? null,
+      }
+    })
+  }, [activeStructuredLessonStatus, activeStructuredLesson?.id, activeStructuredLesson?.runKey])
   const lessonFirstAnswerTrackedRef = React.useRef(false)
   const lessonCycle1ActiveSessionRef = React.useRef(false)
   const finalizeLessonCycle1OnLeaveRef = React.useRef<() => void>(() => {})
@@ -3815,15 +3840,52 @@ export default function Home() {
       if (!activeStructuredLesson || !activeStructuredLessonStep?.postLesson) return
 
       setSelectedPostLessonAction(action)
-      setPostLessonBusy(true)
 
       if (action === 'learn_interesting') {
         setLessonOverlay(null)
         setLessonTipsReturnStage('lesson')
         setLessonViewStage('tips')
-        setPostLessonBusy(false)
         return
       }
+
+      if (action === 'independent_practice' || action === 'myeng_training') {
+        const earned = resolveMedalFromCoreXp(
+          activeStructuredLessonCoreXp,
+          true,
+          activeStructuredLessonMaxCoreXp
+        )
+        const medal = capLessonMedalForRun(earned, {
+          isLocalLesson: isLocalStructuredLessonRun(
+            structuredLessonRunOriginRef.current,
+            activeLessonVariantNumber
+          ),
+          cycle1Closed: loadLessonProgress(activeStructuredLesson.id)?.cycle1Closed === true,
+          isRepeatRun: isStructuredLessonRepeatRun,
+        })
+        const finaleCopy = buildLessonMedalRevealCopy({
+          medal,
+          coreXp: activeStructuredLessonCoreXp,
+          comboXp: activeStructuredLessonComboXp,
+          maxCoreXp: activeStructuredLessonMaxCoreXp,
+          corePercent: computeCorePercent(
+            activeStructuredLessonCoreXp,
+            activeStructuredLessonMaxCoreXp
+          ),
+          audience: settings.audience,
+          profileMedal: loadLessonProgress(activeStructuredLesson.id)?.medal ?? null,
+        })
+        setLessonOverlay({
+          title: action === 'independent_practice' ? 'Практика' : 'Тренировка в Engvo',
+          lines: [
+            finaleCopy.goalLine ?? 'Практика с генерацией вариантов — по подписке.',
+            'Раздел скоро появится.',
+          ],
+        })
+        setSelectedPostLessonAction(null)
+        return
+      }
+
+      setPostLessonBusy(true)
 
       if (action === 'repeat_variant') {
         structuredLessonRunOriginRef.current = 'post_lesson_repeat'
@@ -3855,43 +3917,6 @@ export default function Home() {
           setSelectedPostLessonAction(null)
           setPostLessonBusy(false)
         }
-        return
-      }
-
-      if (action === 'independent_practice' || action === 'myeng_training') {
-        const earned = resolveMedalFromCoreXp(
-          activeStructuredLessonCoreXp,
-          true,
-          activeStructuredLessonMaxCoreXp
-        )
-        const medal = capLessonMedalForRun(earned, {
-          isLocalLesson: isLocalStructuredLessonRun(
-            structuredLessonRunOriginRef.current,
-            activeLessonVariantNumber
-          ),
-          cycle1Closed: loadLessonProgress(activeStructuredLesson.id)?.cycle1Closed === true,
-          isRepeatRun: isStructuredLessonRepeatRun,
-        })
-        const finaleCopy = buildLessonMedalRevealCopy({
-          medal,
-          coreXp: activeStructuredLessonCoreXp,
-          comboXp: activeStructuredLessonComboXp,
-          maxCoreXp: activeStructuredLessonMaxCoreXp,
-          corePercent: computeCorePercent(
-            activeStructuredLessonCoreXp,
-            activeStructuredLessonMaxCoreXp
-          ),
-          audience: settings.audience,
-        })
-        setLessonOverlay({
-          title: action === 'independent_practice' ? 'Практика' : 'Тренировка в Engvo',
-          lines: [
-            finaleCopy.goalLine ?? 'Практика с генерацией вариантов — по подписке.',
-            'Раздел скоро появится.',
-          ],
-        })
-        setPostLessonBusy(false)
-        return
       }
     },
     [
@@ -3906,6 +3931,10 @@ export default function Home() {
       fetchStructuredLessonRuntime,
     ]
   )
+
+  const handleFinaleOpenTips = useCallback(() => {
+    void handlePostLessonAction('learn_interesting')
+  }, [handlePostLessonAction])
 
   useEffect(() => {
     if (!activeStructuredLesson?.runKey) return
@@ -6619,11 +6648,19 @@ export default function Home() {
                             activeStructuredLessonCoreXp,
                             activeStructuredLessonMaxCoreXp
                           ),
+                          previousCorePercent: structuredLessonFinaleContext?.previousCorePercent ?? null,
+                          profileMedal: structuredLessonFinaleContext?.profileMedal ?? null,
+                          firstTryCount: activeStructuredLessonFirstTryCount,
+                          totalScoredUnits: activeStructuredLessonTotalScoredUnits,
                         }
                       : null
                   }
+                  postLessonMenuResetKey={postLessonMenuResetKey}
                   onPostLessonAction={handlePostLessonAction}
+                  onBackToLessonList={backToLessonList}
+                  onOpenFinaleTips={handleFinaleOpenTips}
                   postLessonBusy={postLessonBusy}
+                  postLessonOverlayOpen={lessonOverlay != null}
                   audience={settings.audience}
                   voiceId={settings.voiceId}
                   choiceShuffleSeed={structuredLessonChoiceShuffleSeed}
@@ -6786,8 +6823,8 @@ export default function Home() {
       />
 
       {lessonOverlay && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-xl">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-transparent p-4">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-white/95 p-5 shadow-xl backdrop-blur-sm">
             <div className="mb-4 flex items-start justify-between gap-4">
               <h2 className="text-base font-semibold text-[var(--text)]">{lessonOverlay.title}</h2>
               <button
@@ -6795,6 +6832,8 @@ export default function Home() {
                 onClick={() => {
                   setLessonOverlay(null)
                   setPostLessonBusy(false)
+                  setSelectedPostLessonAction(null)
+                  setPostLessonMenuResetKey((current) => current + 1)
                 }}
                 className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--text)] transition hover:bg-white/70"
               >

@@ -2,7 +2,14 @@ import { formatComboSegmentText } from '@/lib/gamificationGlyphs'
 import type { LessonFrozenMedalGlyph } from '@/lib/medalBadge'
 import { getLessonLearningSteps } from '@/lib/lessonFinale'
 import {
-  coreXpToNextMedalTier,
+  formatMedalFooterGapTitle,
+  formatMedalFooterMaxTitle,
+  gapToGoldPercent,
+  isRunAtGoldLevel,
+} from '@/lib/lessonScoreCopy'
+import {
+  computeCorePercent,
+  coreXpToGold,
   listLessonScoringUnits,
   MAX_CORE_XP_DEFAULT,
   resolveLiveFooterMedal,
@@ -258,12 +265,6 @@ function formatComboSegment(input: LessonFooterLiveInput): LessonFooterSegment {
   return { kind: 'combo', text, title }
 }
 
-function medalGapPercent(coreXp: number, maxCoreXp: number): number {
-  const toNext = coreXpToNextMedalTier(coreXp, maxCoreXp)
-  if (toNext == null || maxCoreXp <= 0) return 0
-  return Math.max(1, Math.ceil((toNext / maxCoreXp) * 100))
-}
-
 function formatMedalFooterSegment(input: LessonFooterLiveInput): LessonFooterSegment {
   const { coreXp, maxCoreXp, isFinale, audience } = input
 
@@ -292,30 +293,43 @@ function formatMedalFooterSegment(input: LessonFooterLiveInput): LessonFooterSeg
     : input.isRepeatRun
       ? ' (повтор: max серебро за проход)'
       : ''
-  const toNext = coreXpToNextMedalTier(coreXp, maxCoreXp)
+  const corePercent = computeCorePercent(coreXp, maxCoreXp)
+  const toGoldXp = coreXpToGold(coreXp, maxCoreXp)
+  const gapToGold = gapToGoldPercent(corePercent)
 
-  if (!live.next || toNext == null) {
+  if (!live.next || isRunAtGoldLevel(corePercent)) {
     const tier = live.current === 'grey' ? 'bronze' : live.current
     return {
       kind: 'medal',
       text: '',
-      title: `${MEDAL_LABEL[live.current]}. Максимальная ступень по точности.${repeatNote}`,
+      title: formatMedalFooterMaxTitle(MEDAL_LABEL[live.current], repeatNote),
       medalVisual: { mode: 'tier', tier },
     }
   }
 
-  const gap = medalGapPercent(coreXp, maxCoreXp)
-  const progressTitle = `${MEDAL_LABEL[live.current]}. До ${FINAL_MEDAL_LABEL[live.next].toLowerCase()}: ${gap}% точности (${toNext} очков за шаги).${repeatNote}`
+  const progressTitle = formatMedalFooterGapTitle({
+    currentLabel: MEDAL_LABEL[live.current],
+    gapToGoldPercent: gapToGold,
+    toGoldXp,
+    almost: false,
+    repeatNote,
+  })
 
-  if (audience === 'child' && gap <= 8) {
+  if (audience === 'child' && gapToGold <= 8) {
     return {
       kind: 'medal',
       text: '',
-      title: `${MEDAL_LABEL[live.current]}. До ${FINAL_MEDAL_LABEL[live.next].toLowerCase()}: ~${gap}% точности.`,
+      title: formatMedalFooterGapTitle({
+        currentLabel: MEDAL_LABEL[live.current],
+        gapToGoldPercent: gapToGold,
+        toGoldXp,
+        almost: true,
+        repeatNote,
+      }),
       medalVisual: {
         mode: 'progress',
-        nextTier: live.next,
-        progressPercent: gap,
+        nextTier: 'gold',
+        progressPercent: gapToGold,
         hintText: 'Почти!',
       },
     }
@@ -327,8 +341,8 @@ function formatMedalFooterSegment(input: LessonFooterLiveInput): LessonFooterSeg
     title: progressTitle,
     medalVisual: {
       mode: 'progress',
-      nextTier: live.next,
-      progressPercent: gap,
+      nextTier: 'gold',
+      progressPercent: gapToGold,
     },
   }
 }

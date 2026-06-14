@@ -331,6 +331,9 @@ export const MENU_FIELD_LABEL =
 const MENU_CHOICE_TEXT_CLASS =
   "text-[15px] font-normal [font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif]"
 
+/** Подпись строки меню (кликабельной и неактивной): системный стек, как MenuNavRow. */
+const MENU_ROW_LABEL_CLASS = `${MENU_CHOICE_TEXT_CLASS} leading-snug text-[var(--text)]`
+
 const VOICE_DROPDOWN_LANG_PREFIXES: string[] = ['en']
 
 function getTodayDateString(): string {
@@ -3431,7 +3434,7 @@ function LessonLevelRow({ label, onClick }: { label: string; onClick?: () => voi
   }
   return (
     <div className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 last:border-b-0">
-      <span className="text-[15px] font-normal leading-normal text-[var(--text)]">{label}</span>
+      <span className={MENU_ROW_LABEL_CLASS}>{label}</span>
       <span className="text-[13px] leading-normal text-[var(--text-muted)]">Скоро</span>
     </div>
   )
@@ -3443,7 +3446,7 @@ function LessonTopicRow({ label, onClick }: { label: string; onClick?: () => voi
   }
   return (
     <div className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 last:border-b-0">
-      <span className="text-[15px] font-normal leading-normal text-[var(--text)]">{label}</span>
+      <span className={MENU_ROW_LABEL_CLASS}>{label}</span>
       <span className="text-[13px] leading-normal text-[var(--text-muted)]">Скоро</span>
     </div>
   )
@@ -3813,7 +3816,7 @@ function MenuNavRow({
       onClick={onClick}
       className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left text-[15px] font-normal leading-normal text-[var(--text)] transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation [font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif]"
     >
-      <span className="min-w-0 flex-1 text-left leading-snug">{label}</span>
+      <span className={`min-w-0 flex-1 text-left ${MENU_ROW_LABEL_CLASS}`}>{label}</span>
       <ChevronRightIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />
     </button>
   )

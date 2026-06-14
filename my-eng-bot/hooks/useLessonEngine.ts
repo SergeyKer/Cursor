@@ -14,6 +14,7 @@ import {
   awardCoreXpForUnit,
   computeCorePercent,
   getComboMilestoneXp,
+  listLessonScoringUnits,
   MAX_CORE_XP_DEFAULT,
   sumMaxCoreXpForLesson,
 } from '@/lib/lessonScore'
@@ -203,6 +204,7 @@ export function useLessonEngine(lesson: LessonData | null) {
   const [isAdvancingToNextStep, setIsAdvancingToNextStep] = useState(false)
   const [isAdvancingToNextVariant, setIsAdvancingToNextVariant] = useState(false)
   const [mistakes, setMistakes] = useState<LessonMistake[]>([])
+  const [firstTryCount, setFirstTryCount] = useState(0)
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([])
 
   const clearAdvanceFlags = useCallback(() => {
@@ -240,6 +242,7 @@ export function useLessonEngine(lesson: LessonData | null) {
     setPuzzleSubAdvanceToken(0)
     clearAdvanceFlags()
     setMistakes([])
+    setFirstTryCount(0)
   }, [lesson?.id, lesson?.runKey, clearTimers, clearAdvanceFlags])
 
   useEffect(() => {
@@ -258,11 +261,18 @@ export function useLessonEngine(lesson: LessonData | null) {
     () => (lesson ? sumMaxCoreXpForLesson(lesson) : MAX_CORE_XP_DEFAULT),
     [lesson]
   )
+  const totalScoredUnits = useMemo(
+    () => (lesson ? listLessonScoringUnits(lesson).length : 0),
+    [lesson]
+  )
   const totalXp = coreXp + comboXp
 
   const applySuccessAward = useCallback(
     (params: { stepNumber: number; variantIndex?: number; puzzleSubIndex?: number; attemptIndex: number }) => {
       if (!lesson) return
+      if (params.attemptIndex === 0) {
+        setFirstTryCount((current) => current + 1)
+      }
       const awardedCore = awardCoreXpForUnit(lesson, {
         stepNumber: params.stepNumber,
         variantIndex: params.variantIndex,
@@ -1085,6 +1095,8 @@ export function useLessonEngine(lesson: LessonData | null) {
     totalXp,
     maxCoreXp,
     maxCombo,
+    firstTryCount,
+    totalScoredUnits,
     lastCoreDelta,
     lastComboDelta,
     lastXpAward,

@@ -123,9 +123,17 @@ type LessonStepRendererProps = {
     comboXp: number
     maxCoreXp: number
     corePercent: number
+    previousCorePercent?: number | null
+    profileMedal?: LessonMedalTierOrNull
+    firstTryCount?: number
+    totalScoredUnits?: number
   } | null
+  postLessonMenuResetKey?: number
   onPostLessonAction?: (action: PostLessonAction) => void
+  onBackToLessonList?: () => void
+  onOpenFinaleTips?: () => void
   postLessonBusy?: boolean
+  postLessonOverlayOpen?: boolean
   audience: 'child' | 'adult'
   voiceId: string
   /** Новый ключ (например `runKey` урока) — новый порядок вариантов в fill_choice на каждый проход. */
@@ -212,8 +220,12 @@ export default function LessonStepRenderer({
   puzzleSubIndex,
   puzzleSubAdvanceToken = 0,
   lessonMedalReveal = null,
+  postLessonMenuResetKey = 0,
   onPostLessonAction,
+  onBackToLessonList,
+  onOpenFinaleTips,
   postLessonBusy = false,
+  postLessonOverlayOpen = false,
   audience,
   voiceId,
   choiceShuffleSeed,
@@ -1225,10 +1237,19 @@ export default function LessonStepRenderer({
                     comboXp={lessonMedalReveal.comboXp}
                     maxCoreXp={lessonMedalReveal.maxCoreXp}
                     corePercent={lessonMedalReveal.corePercent}
+                    previousCorePercent={lessonMedalReveal.previousCorePercent}
+                    profileMedal={lessonMedalReveal.profileMedal}
+                    firstTryCount={lessonMedalReveal.firstTryCount}
+                    totalScoredUnits={lessonMedalReveal.totalScoredUnits}
                     audience={audience}
                     options={postLesson?.options ?? []}
                     onSelect={(action) => onPostLessonAction?.(action)}
+                    onBackToLessonList={onBackToLessonList}
+                    onOpenTips={onOpenFinaleTips}
                     disabled={postLessonBusy || !onPostLessonAction}
+                    postLessonBusy={postLessonBusy}
+                    postLessonOverlayOpen={postLessonOverlayOpen}
+                    menuResetKey={postLessonMenuResetKey}
                   />
                 ) : isSentencePuzzle && exercise ? (
                   <LessonSentencePuzzle

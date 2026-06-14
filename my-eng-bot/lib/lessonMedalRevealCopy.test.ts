@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   buildFinaleOptionHints,
   buildLessonMedalRevealCopy,
-  formatGoalLine,
   medalGapPercent,
   resolveFinalePrimaryAction,
   resolveMedalRevealVariant,
@@ -18,10 +17,12 @@ describe('resolveMedalRevealVariant', () => {
 })
 
 describe('resolveFinalePrimaryAction', () => {
-  it('routes gold to practice and other tiers to repeat', () => {
+  it('routes gold run to practice and bronze to repeat', () => {
     expect(resolveFinalePrimaryAction('gold')).toBe('independent_practice')
     expect(resolveFinalePrimaryAction('silver')).toBe('repeat_variant')
-    expect(resolveFinalePrimaryAction('bronze')).toBe('repeat_variant')
+    expect(resolveFinalePrimaryAction({ runMedal: 'silver', profileMedal: 'gold' })).toBe(
+      'independent_practice'
+    )
   })
 })
 
@@ -33,7 +34,7 @@ describe('medalGapPercent', () => {
 })
 
 describe('buildLessonMedalRevealCopy', () => {
-  it('uses child-friendly stats without combo when combo is zero', () => {
+  it('uses stats gap to gold and practice goal for gold run', () => {
     const copy = buildLessonMedalRevealCopy({
       medal: 'gold',
       coreXp: 134,
@@ -43,76 +44,14 @@ describe('buildLessonMedalRevealCopy', () => {
       audience: 'child',
     })
 
-    expect(copy.statsLine).toBe('134 очков за ответы · 96% точности')
-    expect(copy.statsLine).not.toContain('core')
-    expect(copy.message).toBe('Супер! Почти все ответы верные!')
+    expect(copy.statsLine).toBe('Супер! 134 XP · максимум')
+    expect(copy.message).toBe('Золото за этот проход.')
+    expect(copy.goalLine).toContain('Практика')
+    expect(copy.firstTryLine).toBeNull()
+    expect(copy.profileLine).toBeNull()
   })
 
-  it('uses child stats with combo bonus when combo is positive', () => {
-    const copy = buildLessonMedalRevealCopy({
-      medal: 'gold',
-      coreXp: 134,
-      comboXp: 5,
-      maxCoreXp: 140,
-      corePercent: 96,
-      audience: 'child',
-    })
-
-    expect(copy.statsLine).toBe('134 очков за ответы + 5 за серию · 96% точности')
-  })
-
-  it('keeps adult terminology', () => {
-    const copy = buildLessonMedalRevealCopy({
-      medal: 'gold',
-      coreXp: 134,
-      comboXp: 5,
-      maxCoreXp: 140,
-      corePercent: 96,
-      audience: 'adult',
-    })
-
-    expect(copy.statsLine).toBe('134 core + 5 combo · 96%')
-    expect(copy.message).toBe('Отличный результат по точности ответов.')
-  })
-
-  it('shows retry hook for silver near gold', () => {
-    const child = buildLessonMedalRevealCopy({
-      medal: 'silver',
-      coreXp: 119,
-      comboXp: 10,
-      maxCoreXp: 140,
-      corePercent: 85,
-      audience: 'child',
-    })
-    const adult = buildLessonMedalRevealCopy({
-      medal: 'silver',
-      coreXp: 80,
-      comboXp: 10,
-      maxCoreXp: 140,
-      corePercent: 57,
-      audience: 'adult',
-    })
-
-    expect(child.message).toBe('Почти золото! Ещё раз — и твоя!')
-    expect(adult.message).toBe('До золотой медали: 46 XP. Ещё один проход.')
-  })
-
-  it('shows bronze retry hook toward silver', () => {
-    const copy = buildLessonMedalRevealCopy({
-      medal: 'bronze',
-      coreXp: 35,
-      comboXp: 0,
-      maxCoreXp: 140,
-      corePercent: 25,
-      audience: 'child',
-    })
-
-    expect(copy.message).toContain('серебра')
-    expect(copy.message).not.toContain('золота')
-    expect(copy.title).toBe('Бронзовая медаль!')
-  })
-
-  it('shows almost silver retry hook for child bronze near threshold', () => {
+  it('uses repeat goal when gold is not unlocked', () => {
     const copy = buildLessonMedalRevealCopy({
       medal: 'bronze',
       coreXp: 66,
@@ -122,85 +61,78 @@ describe('buildLessonMedalRevealCopy', () => {
       audience: 'child',
     })
 
-    expect(copy.message).toBe('Почти серебро! Ещё раз — и твоя!')
+    expect(copy.statsLine).toBe('Неплохо! 66 XP · до золота ещё 60 XP')
+    expect(copy.goalLine).toBe('Хочешь медаль выше — жми «Новый вариант». Практика скоро.')
   })
 
-  it('shows gap to bronze when medal is null', () => {
+  it('compares with previous pass on message line', () => {
     const copy = buildLessonMedalRevealCopy({
-      medal: null,
-      coreXp: 10,
+      medal: 'bronze',
+      coreXp: 66,
       comboXp: 0,
       maxCoreXp: 140,
-      corePercent: 7,
-      audience: 'adult',
+      corePercent: 47,
+      audience: 'child',
+      previousCorePercent: 40,
     })
 
-    expect(copy.title).toBe('Урок пройден!')
-    expect(copy.variant).toBe('neutral')
-    expect(copy.message).toBe('До бронзы: 60 XP. Ещё один проход.')
+    expect(copy.message).toBe('Лучше, чем в прошлый раз!')
   })
 
-  it('includes short goalLine with trophy for gold when cups feature is on', () => {
-    const copy = buildLessonMedalRevealCopy({
-      medal: 'gold',
-      coreXp: 134,
-      comboXp: 0,
-      maxCoreXp: 140,
-      corePercent: 96,
-      audience: 'adult',
-    })
-    if (copy.goalLine) {
-      expect(copy.goalLine).toContain('🏆')
-      expect(copy.goalLine).toMatch(/5 практик/i)
-      expect(copy.goalLine).toBe(copy.cupLine)
-    }
-  })
-
-  it('includes goalLine mentioning gold for silver', () => {
+  it('routes profile gold to practice goal and profile line on silver run', () => {
     const copy = buildLessonMedalRevealCopy({
       medal: 'silver',
-      coreXp: 80,
-      comboXp: 10,
+      coreXp: 119,
+      comboXp: 0,
       maxCoreXp: 140,
-      corePercent: 57,
-      audience: 'adult',
+      corePercent: 85,
+      audience: 'child',
+      profileMedal: 'gold',
+      previousCorePercent: 96,
     })
-    if (copy.goalLine) {
-      expect(copy.goalLine).toContain('🏆')
-      expect(copy.goalLine).toMatch(/золот/i)
-    }
-  })
-})
 
-describe('formatGoalLine', () => {
-  it('returns cup path for bronze', () => {
-    const line = formatGoalLine('bronze', 'adult')
-    if (line) {
-      expect(line).toContain('кубок')
-    }
+    expect(copy.goalLine).toContain('Практика')
+    expect(copy.message).toBe('Немного ниже прошлого.')
+    expect(copy.profileLine).toBe('В профиле: золотая медаль сохраняется.')
+  })
+
+  it('includes first-try praise when provided', () => {
+    const copy = buildLessonMedalRevealCopy({
+      medal: 'bronze',
+      coreXp: 66,
+      comboXp: 0,
+      maxCoreXp: 140,
+      corePercent: 47,
+      audience: 'child',
+      firstTryCount: 6,
+      totalScoredUnits: 8,
+    })
+
+    expect(copy.firstTryLine).toBe('6 из 8 с первого раза — отлично!')
   })
 })
 
 describe('buildFinaleOptionHints', () => {
-  it('hints practice subscription for gold', () => {
-    expect(
-      buildFinaleOptionHints({
-        medal: 'gold',
-        coreXp: 130,
-        maxCoreXp: 140,
-        audience: 'child',
-      }).independent_practice
-    ).toBe('С подпиской')
+  it('omits button hints for gold profile', () => {
+    const hints = buildFinaleOptionHints({
+      runMedal: 'silver',
+      profileMedal: 'gold',
+      coreXp: 119,
+      maxCoreXp: 140,
+      audience: 'child',
+    })
+    expect(hints.repeat_variant).toBeUndefined()
+    expect(hints.independent_practice).toBeUndefined()
   })
 
-  it('does not add hint under repeat variant', () => {
-    expect(
-      buildFinaleOptionHints({
-        medal: 'silver',
-        coreXp: 119,
-        maxCoreXp: 140,
-        audience: 'child',
-      }).repeat_variant
-    ).toBeUndefined()
+  it('omits repeat hint when chasing gold', () => {
+    const hints = buildFinaleOptionHints({
+      medal: 'silver',
+      coreXp: 119,
+      maxCoreXp: 140,
+      audience: 'child',
+    })
+    expect(hints.repeat_variant).toBeUndefined()
+    expect(hints.independent_practice).toBe('Скоро')
   })
 })

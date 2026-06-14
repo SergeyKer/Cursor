@@ -72,8 +72,8 @@ describe('buildLessonFooterLive', () => {
     expect(view.lessonSegments[2].text).toBe('🔥×3(+5)')
     expect(view.lessonSegments[3].medalVisual).toEqual({
       mode: 'progress',
-      nextTier: 'silver',
-      progressPercent: 25,
+      nextTier: 'gold',
+      progressPercent: 65,
     })
     expect(view.accountSegments).toEqual([])
     expect(view.accountLine).toBe('')
@@ -148,7 +148,7 @@ describe('buildLessonFooterLive', () => {
 })
 
 describe('resolveLessonHeaderMedal', () => {
-  it('shows current bronze while footer progress targets silver', () => {
+  it('shows current bronze while footer progress targets gold', () => {
     const view = buildLessonFooterLive({
       lesson: itsTimeToLesson,
       currentStep: 3,
@@ -163,8 +163,8 @@ describe('resolveLessonHeaderMedal', () => {
 
     expect(view.lessonSegments[3].medalVisual).toEqual({
       mode: 'progress',
-      nextTier: 'silver',
-      progressPercent: 25,
+      nextTier: 'gold',
+      progressPercent: 65,
     })
     expect(
       resolveLessonHeaderMedal({ coreXp: 35, maxCoreXp: 140, isFinale: false })

@@ -3,10 +3,10 @@
 import FlowInfoCard from '@/components/FlowInfoCard'
 import PostLessonMenu from '@/components/PostLessonMenu'
 import type { FooterCopyAudience } from '@/lib/footerTopLinePhrases'
+import { FINALE_POST_LESSON_ACTIONS, LESSON_REPEAT_VARIANT_BUSY_LABEL, LESSON_REPEAT_VARIANT_LABEL } from '@/lib/lessonFinaleCta'
 import {
   buildFinaleOptionHints,
   buildLessonMedalRevealCopy,
-  resolveFinalePrimaryAction,
 } from '@/lib/lessonMedalRevealCopy'
 import type { LessonMedalTierOrNull } from '@/lib/lessonScore'
 import type { PostLessonAction, PostLessonOption } from '@/types/lesson'
@@ -18,9 +18,18 @@ type LessonFinalePanelProps = {
   maxCoreXp: number
   corePercent: number
   audience: FooterCopyAudience
+  previousCorePercent?: number | null
+  profileMedal?: LessonMedalTierOrNull
+  firstTryCount?: number
+  totalScoredUnits?: number
   options: PostLessonOption[]
   onSelect: (action: PostLessonAction) => void
+  onBackToLessonList?: () => void
+  onOpenTips?: () => void
   disabled?: boolean
+  postLessonBusy?: boolean
+  postLessonOverlayOpen?: boolean
+  menuResetKey?: number
 }
 
 export default function LessonFinalePanel({
@@ -30,9 +39,18 @@ export default function LessonFinalePanel({
   maxCoreXp,
   corePercent,
   audience,
+  previousCorePercent = null,
+  profileMedal = null,
+  firstTryCount = 0,
+  totalScoredUnits = 0,
   options,
   onSelect,
+  onBackToLessonList,
+  onOpenTips,
   disabled = false,
+  postLessonBusy = false,
+  postLessonOverlayOpen = false,
+  menuResetKey = 0,
 }: LessonFinalePanelProps) {
   const copy = buildLessonMedalRevealCopy({
     medal,
@@ -41,13 +59,29 @@ export default function LessonFinalePanel({
     maxCoreXp,
     corePercent,
     audience,
+    previousCorePercent,
+    profileMedal,
+    firstTryCount,
+    totalScoredUnits,
   })
-  const primaryAction = resolveFinalePrimaryAction(medal)
   const optionHints = buildFinaleOptionHints({
-    medal,
+    runMedal: medal,
+    profileMedal,
     coreXp,
     maxCoreXp,
     audience,
+  })
+
+  const finaleOptions = options.filter((option) =>
+    FINALE_POST_LESSON_ACTIONS.includes(option.action)
+  )
+
+  const resolvedOptions = finaleOptions.map((option) => {
+    if (option.action !== 'repeat_variant') return option
+    return {
+      ...option,
+      label: postLessonBusy ? LESSON_REPEAT_VARIANT_BUSY_LABEL : LESSON_REPEAT_VARIANT_LABEL,
+    }
   })
 
   return (
@@ -63,16 +97,22 @@ export default function LessonFinalePanel({
           iconAfterTitle
           title={copy.title}
           statsLine={copy.statsLine}
+          firstTryLine={copy.firstTryLine ?? undefined}
           message={copy.message}
+          profileLine={copy.profileLine ?? undefined}
           secondaryMessage={copy.goalLine ?? undefined}
         />
       </div>
       <PostLessonMenu
-        options={options}
+        options={resolvedOptions}
         onSelect={onSelect}
         disabled={disabled}
-        primaryAction={primaryAction}
+        navigationDisabled={postLessonBusy}
+        blueActionsFrozen={postLessonOverlayOpen}
         optionHints={optionHints}
+        selectionResetKey={menuResetKey}
+        onBackToLessonList={onBackToLessonList}
+        onOpenTips={onOpenTips}
         className="w-[82%] max-w-[15.5rem]"
       />
     </div>
