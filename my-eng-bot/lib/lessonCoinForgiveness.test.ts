@@ -5,14 +5,16 @@ import {
   canSpendCoinsForForgiveness,
   COIN_ERROR_FORGIVENESS_COST,
   isCoinForgivenessStep,
+  resolveCoinForgivenessAppliedPreviewAnswer,
   resolveCoinForgivenessBubbleMode,
 } from './lessonCoinForgiveness'
+import type { Exercise } from '@/types/lesson'
 
 const baseGuardParams = {
   hasErrorOnStep: true,
   forgivenessUsedThisRun: false,
-  forgivenessOfferDeclinedThisRun: false,
   forgivenessConfirmPending: false,
+  forgivenessAppliedAckActive: false,
   exerciseErrors: 1,
   status: 'feedback' as const,
   coinBalance: 5,
@@ -105,7 +107,7 @@ describe('lessonCoinForgiveness', () => {
     ).toBe(true)
   })
 
-  it('hides buttons after decline for the run', () => {
+  it('stays active after closing confirm without spending', () => {
     expect(
       resolveCoinForgivenessBubbleMode({
         ...baseGuardParams,
@@ -116,9 +118,34 @@ describe('lessonCoinForgiveness', () => {
           correctAnswer: 'Hi.',
           answerFormat: 'full_sentence',
         },
-        forgivenessOfferDeclinedThisRun: true,
       })
-    ).toBeNull()
+    ).toBe('active')
+    expect(
+      resolveCoinForgivenessBubbleMode({
+        ...baseGuardParams,
+        stepNumber: 6,
+        exercise: {
+          type: 'translate',
+          question: 'Q',
+          correctAnswer: 'Hi.',
+          answerFormat: 'full_sentence',
+        },
+        forgivenessConfirmPending: true,
+      })
+    ).toBe('frozen')
+    expect(
+      resolveCoinForgivenessBubbleMode({
+        ...baseGuardParams,
+        stepNumber: 6,
+        exercise: {
+          type: 'translate',
+          question: 'Q',
+          correctAnswer: 'Hi.',
+          answerFormat: 'full_sentence',
+        },
+        forgivenessConfirmPending: false,
+      })
+    ).toBe('active')
   })
 
   it('shows active button with zero coin balance', () => {
@@ -152,5 +179,51 @@ describe('lessonCoinForgiveness', () => {
     expect(COIN_ERROR_FORGIVENESS_COST).toBe(1)
     expect(canSpendCoinsForForgiveness(0)).toBe(false)
     expect(canSpendCoinsForForgiveness(1)).toBe(true)
+  })
+
+  it('freezes bubble during applied ack', () => {
+    expect(
+      resolveCoinForgivenessBubbleMode({
+        ...baseGuardParams,
+        stepNumber: 4,
+        exercise: {
+          type: 'translate',
+          question: 'Q',
+          correctAnswer: 'Hi.',
+          answerFormat: 'full_sentence',
+        },
+        forgivenessAppliedAckActive: true,
+      })
+    ).toBe('frozen')
+  })
+})
+
+describe('resolveCoinForgivenessAppliedPreviewAnswer', () => {
+  it('returns active exercise answer for translate', () => {
+    expect(
+      resolveCoinForgivenessAppliedPreviewAnswer(
+        { type: 'translate', question: 'Q', correctAnswer: "I'm happy." } as Exercise,
+        0,
+        "I'm happy."
+      )
+    ).toBe("I'm happy.")
+  })
+
+  it('returns current puzzle sub answer', () => {
+    expect(
+      resolveCoinForgivenessAppliedPreviewAnswer(
+        {
+          type: 'sentence_puzzle',
+          question: 'Q',
+          puzzleVariants: [
+            { correctAnswer: 'Sub one.', correctOrder: ['Sub', 'one'], title: '1', instruction: '', errorText: '', hintText: '', words: [] },
+            { correctAnswer: 'Sub two.', correctOrder: ['Sub', 'two'], title: '2', instruction: '', errorText: '', hintText: '', words: [] },
+            { correctAnswer: 'Sub three.', correctOrder: ['Sub', 'three'], title: '3', instruction: '', errorText: '', hintText: '', words: [] },
+          ],
+        } as Exercise,
+        1,
+        'Sub one.'
+      )
+    ).toBe('Sub two.')
   })
 })

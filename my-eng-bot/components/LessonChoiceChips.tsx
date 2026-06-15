@@ -106,6 +106,9 @@ export default function LessonChoiceChips({
     prevFrozenRef.current = frozen;
   }, [frozen]);
 
+  const onChooseRef = useRef(onChoose);
+  onChooseRef.current = onChoose;
+
   useEffect(() => {
     if (disabled || !autoSelectText) return;
     const matchedChoice = choices.find((choice) => getChoiceText(choice) === autoSelectText);
@@ -115,8 +118,8 @@ export default function LessonChoiceChips({
       timeoutRef.current = null;
     }
     setSelected(autoSelectText);
-    onChoose(autoSelectText, getChoiceCorrectness(matchedChoice));
-  }, [autoSelectNonce, autoSelectText, choices, disabled, onChoose]);
+    onChooseRef.current(autoSelectText, getChoiceCorrectness(matchedChoice));
+  }, [autoSelectNonce, autoSelectText, choices, disabled]);
 
   const handleSelect = (choice: ChoiceInput) => {
     if (disabled) return;

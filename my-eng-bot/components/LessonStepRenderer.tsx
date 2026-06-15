@@ -89,7 +89,7 @@ import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import type { LessonReturnBriefingPayload } from '@/lib/lessonReturnBriefingCopy'
 import LessonCoinForgivenessBubbleButton from '@/components/LessonCoinForgivenessBubbleButton'
 import LessonCoinForgivenessComposerConfirm from '@/components/LessonCoinForgivenessComposerConfirm'
-import { resolveCoinForgivenessBubbleMode } from '@/lib/lessonCoinForgiveness'
+import { COIN_ERROR_FORGIVENESS_COST, resolveCoinForgivenessBubbleMode } from '@/lib/lessonCoinForgiveness'
 import { getLessonCoinForgivenessCopy } from '@/lib/lessonCoinForgivenessCopy'
 import type { LessonAnswerOptions } from '@/hooks/useLessonEngine'
 type LessonStepRendererProps = {
@@ -156,11 +156,15 @@ type LessonStepRendererProps = {
   coinBalance?: number
   forgivenessUsedThisRun?: boolean
   forgivenessConfirmPending?: boolean
-  forgivenessOfferDeclinedThisRun?: boolean
+  forgivenessAppliedAckActive?: boolean
+  forgivenessPendingCorrectAnswer?: string | null
+  forgivenessAppliedBalanceAfter?: number | null
   onRequestCoinForgiveness?: () => void
   onConfirmCoinForgiveness?: () => boolean
+  onContinueCoinForgiveness?: () => void
   onDeclineCoinForgiveness?: () => void
   onCancelCoinForgivenessConfirm?: () => void
+  onZeroBalanceCoinForgivenessHelp?: () => void
   puzzleAttemptForgivenessToken?: number
   forgivenessAutofillAnswer?: string | null
   forgivenessAutofillChoice?: string | null
@@ -228,6 +232,20 @@ function normalizeLessonChoiceText(text: string): string {
   return text.trim().replace(/\s+/g, ' ').toLowerCase()
 }
 
+/** Анимация входа только при первом появлении id в ленте (без повторов при смене state). */
+function useLessonFeedStatusEnterClass(prefersReducedMotion: boolean) {
+  const enteredIdsRef = useRef<Set<string>>(new Set())
+  return useCallback(
+    (messageId: string) => {
+      if (prefersReducedMotion) return ''
+      if (enteredIdsRef.current.has(messageId)) return ''
+      enteredIdsRef.current.add(messageId)
+      return 'lesson-feed-status-enter'
+    },
+    [prefersReducedMotion]
+  )
+}
+
 export default function LessonStepRenderer({
   timeline,
   status,
@@ -260,11 +278,15 @@ export default function LessonStepRenderer({
   coinBalance = 0,
   forgivenessUsedThisRun = false,
   forgivenessConfirmPending = false,
-  forgivenessOfferDeclinedThisRun = false,
+  forgivenessAppliedAckActive = false,
+  forgivenessPendingCorrectAnswer = null,
+  forgivenessAppliedBalanceAfter = null,
   onRequestCoinForgiveness,
   onConfirmCoinForgiveness,
+  onContinueCoinForgiveness,
   onDeclineCoinForgiveness,
   onCancelCoinForgivenessConfirm,
+  onZeroBalanceCoinForgivenessHelp,
   puzzleAttemptForgivenessToken = 0,
   forgivenessAutofillAnswer = null,
   forgivenessAutofillChoice = null,
@@ -306,6 +328,7 @@ export default function LessonStepRenderer({
   const [showAdvancingStatusLine, setShowAdvancingStatusLine] = useState(false)
   const [isPuzzleFeedOverflowing, setIsPuzzleFeedOverflowing] = useState(false)
   const prefersReducedMotion = usePrefersReducedMotion()
+  const lessonFeedStatusEnterClass = useLessonFeedStatusEnterClass(prefersReducedMotion)
   const currentEntry = timeline.find((entry) => entry.isCurrent) ?? null
   const currentStep = currentEntry?.step ?? null
   const latestFeedback = useMemo(
@@ -325,8 +348,8 @@ export default function LessonStepRenderer({
         exercise,
         hasErrorOnStep: status === 'feedback' && latestFeedback?.type === 'error',
         forgivenessUsedThisRun,
-        forgivenessOfferDeclinedThisRun,
         forgivenessConfirmPending,
+        forgivenessAppliedAckActive,
         exerciseErrors,
         status,
         coinBalance,
@@ -336,7 +359,7 @@ export default function LessonStepRenderer({
       exercise,
       exerciseErrors,
       forgivenessConfirmPending,
-      forgivenessOfferDeclinedThisRun,
+      forgivenessAppliedAckActive,
       forgivenessUsedThisRun,
       latestFeedback?.type,
       currentStep?.stepNumber,
@@ -344,7 +367,13 @@ export default function LessonStepRenderer({
     ]
   )
   const showCoinForgivenessComposer =
-    forgivenessConfirmPending && Boolean(onConfirmCoinForgiveness) && Boolean(onDeclineCoinForgiveness)
+    (forgivenessConfirmPending || forgivenessAppliedAckActive) &&
+    Boolean(onConfirmCoinForgiveness) &&
+    Boolean(onDeclineCoinForgiveness) &&
+    (!forgivenessAppliedAckActive || Boolean(onContinueCoinForgiveness))
+  const coinForgivenessComposerMode = forgivenessAppliedAckActive ? 'applied' : 'confirm'
+  const coinForgivenessAppliedBalance =
+    forgivenessAppliedBalanceAfter ?? Math.max(0, coinBalance - COIN_ERROR_FORGIVENESS_COST)
   const forgivenessSubmitPendingRef = useRef(false)
   const currentVariantIndex = exercise?.currentVariantIndex ?? 0
   const postLesson = currentStep?.stepType === 'completion' ? currentStep.postLesson ?? null : null
@@ -467,11 +496,15 @@ export default function LessonStepRenderer({
     activePuzzleVariant && activePuzzleVariant.words.length > 0
       ? activePuzzleVariant.words
       : activePuzzleVariant?.correctOrder ?? []
-  const composerTransitionKey = returnBriefingActive
+  const baseComposerTransitionKey = returnBriefingActive
     ? `briefing-${returnBriefing?.runKey ?? 'briefing'}`
     : isSentencePuzzle && stepTransitionKey
       ? `${stepTransitionKey}-p${puzzleSubIndex ?? 0}`
       : stepTransitionKey
+  const composerTransitionKey =
+    showCoinForgivenessComposer && baseComposerTransitionKey
+      ? `${baseComposerTransitionKey}-forgiveness`
+      : baseComposerTransitionKey
   const [composerInnerWidthPx, setComposerInnerWidthPx] = useState<number | undefined>()
 
   useLayoutEffect(() => {
@@ -494,6 +527,9 @@ export default function LessonStepRenderer({
     return () => observer.disconnect()
   }, [shouldRenderChoiceChips, composerTransitionKey])
 
+  const onAnswerRef = useRef(onAnswer)
+  onAnswerRef.current = onAnswer
+
   const handleChoiceAnswer = useCallback(
     (answer: string) => {
       const trimmed = answer.trim()
@@ -503,7 +539,7 @@ export default function LessonStepRenderer({
       }
       if (forgivenessSubmitPendingRef.current) {
         forgivenessSubmitPendingRef.current = false
-        onAnswer(answer, { attemptIndexOverride: 0 })
+        onAnswerRef.current(answer, { attemptIndexOverride: 0 })
         return
       }
       onAnswer(answer)
@@ -511,7 +547,7 @@ export default function LessonStepRenderer({
     [onAnswer]
   )
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!forgivenessAutofillNonce || !forgivenessAutofillChoice) return
     forgivenessSubmitPendingRef.current = true
   }, [forgivenessAutofillChoice, forgivenessAutofillNonce])
@@ -543,12 +579,13 @@ export default function LessonStepRenderer({
 
   useEffect(() => {
     if (!forgivenessAutofillNonce || !forgivenessAutofillAnswer) return
-    setDraftText(forgivenessAutofillAnswer)
+    const answer = forgivenessAutofillAnswer
+    setDraftText(answer)
     const timer = window.setTimeout(() => {
-      onAnswer(forgivenessAutofillAnswer, { attemptIndexOverride: 0 })
+      onAnswerRef.current(answer, { attemptIndexOverride: 0 })
     }, 80)
     return () => window.clearTimeout(timer)
-  }, [forgivenessAutofillAnswer, forgivenessAutofillNonce, onAnswer, setDraftText])
+  }, [forgivenessAutofillAnswer, forgivenessAutofillNonce, setDraftText])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -1187,6 +1224,7 @@ export default function LessonStepRenderer({
     hasPostLessonOptions,
     showLessonFinale,
     showReturnBriefing: returnBriefingActive,
+    showCoinForgivenessConfirm: showCoinForgivenessComposer,
   })
   const shouldLockComposerHeight =
     shouldRenderChoiceChips || hasPostLessonOptions || showLessonFinale || isSentencePuzzle
@@ -1215,6 +1253,13 @@ export default function LessonStepRenderer({
         compact: true,
       })
     : undefined
+  const forgivenessStackCompact = shouldRenderChoiceChips && !returnBriefingActive
+  const forgivenessComposerMinHeightEstimate = showCoinForgivenessComposer
+    ? estimateLessonComposerMinHeight({
+        panelKind: 'forgiveness',
+        compact: forgivenessStackCompact,
+      })
+    : undefined
   /** Пока карточка раскрывается — держим lock, иначе снятие minHeight вместе с показом чипов дёргает ленту. */
   const composerHeightLockReleased =
     prefersReducedMotion ||
@@ -1238,12 +1283,14 @@ export default function LessonStepRenderer({
   })
   const composerMinHeight = returnBriefingActive
     ? briefingComposerMinHeightEstimate
-    : lockedComposerMinHeight ??
-      (choiceComposerLayout?.reserveMinHeight
-        ? choiceComposerMinHeightEstimate
-        : isSentencePuzzle
-          ? puzzleComposerMinHeightEstimate
-          : undefined)
+    : showCoinForgivenessComposer
+      ? forgivenessComposerMinHeightEstimate
+      : lockedComposerMinHeight ??
+        (choiceComposerLayout?.reserveMinHeight
+          ? choiceComposerMinHeightEstimate
+          : isSentencePuzzle
+            ? puzzleComposerMinHeightEstimate
+            : undefined)
 
   const scrollBottomPadding = resolveScrollBottomPadding({
     hasCurrentStep: currentStep != null && !returnBriefingActive,
@@ -1264,7 +1311,15 @@ export default function LessonStepRenderer({
   useLayoutEffect(() => {
     if (returnBriefingActive) return
     return resyncIosWebKitDialogComposerStackHeight(composerStackRef.current)
-  }, [returnBriefingActive, composerTransitionKey, composerMinHeight])
+  }, [returnBriefingActive, composerTransitionKey, composerMinHeight, showCoinForgivenessComposer])
+
+  useEffect(() => {
+    if (!showCoinForgivenessComposer) return
+
+    return scheduleLessonFeedScroll(
+      resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'feedback' })
+    )
+  }, [showCoinForgivenessComposer, prefersReducedMotion, scheduleLessonFeedScroll])
 
   return (
     <div className="dialog-flex-shell flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
@@ -1423,11 +1478,19 @@ export default function LessonStepRenderer({
                     )
                   }
 
+                  const showCoinForgivenessButton =
+                    message.tone === 'error' &&
+                    message.id === forgivenessErrorMessageId &&
+                    status === 'feedback' &&
+                    Boolean(forgivenessBubbleMode) &&
+                    Boolean(onRequestCoinForgiveness)
+
                   return (
                     <ChatBubbleFrame
                       key={message.id}
                       role="assistant"
                       position={position}
+                      className={lessonFeedStatusEnterClass(message.id)}
                       rowClassName={
                         pinLastRowToBottom ? 'mb-0' : isBubbleEnd ? 'mb-2.5' : 'mb-0.5'
                       }
@@ -1438,11 +1501,7 @@ export default function LessonStepRenderer({
                       >
                         <FeedbackStatusText text={message.text} />
                       </section>
-                      {message.tone === 'error' &&
-                      message.id === forgivenessErrorMessageId &&
-                      status === 'feedback' &&
-                      forgivenessBubbleMode &&
-                      onRequestCoinForgiveness ? (
+                      {showCoinForgivenessButton && forgivenessBubbleMode ? (
                         <div className="mt-1.5 flex flex-wrap items-center gap-2">
                           <LessonCoinForgivenessBubbleButton
                             mode={forgivenessBubbleMode}
@@ -1466,10 +1525,21 @@ export default function LessonStepRenderer({
               >
                 {showCoinForgivenessComposer ? (
                   <LessonCoinForgivenessComposerConfirm
+                    mode={coinForgivenessComposerMode}
                     copy={coinForgivenessCopy}
-                    balanceAfter={Math.max(0, coinBalance - 1)}
+                    coinBalance={coinBalance}
+                    balanceAfter={
+                      coinForgivenessComposerMode === 'applied'
+                        ? coinForgivenessAppliedBalance
+                        : Math.max(0, coinBalance - COIN_ERROR_FORGIVENESS_COST)
+                    }
+                    correctAnswerPreview={
+                      coinForgivenessComposerMode === 'applied' ? forgivenessPendingCorrectAnswer : null
+                    }
                     onConfirm={onConfirmCoinForgiveness ?? (() => false)}
+                    onContinue={onContinueCoinForgiveness}
                     onDecline={onDeclineCoinForgiveness ?? (() => undefined)}
+                    onZeroBalanceHelp={onZeroBalanceCoinForgivenessHelp}
                     onSpendFailed={onCancelCoinForgivenessConfirm}
                   />
                 ) : (

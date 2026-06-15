@@ -188,6 +188,11 @@
   animation: lessonSlideIn 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* Статус feedback в уроке: текст и кнопки (🪙) в одном пузыре — без both кнопка «догоняет» после скролла. */
+.lesson-feed-status-enter {
+  animation: lessonSlideIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @keyframes lessonSlideIn {
   from {
     opacity: 0;
@@ -1038,6 +1043,19 @@ select.select-chevron {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes infoOverlayOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.animate-info-overlay-out {
+  animation: infoOverlayOut 0.2s ease-in forwards;
 }
 
 .animate-fade-in {

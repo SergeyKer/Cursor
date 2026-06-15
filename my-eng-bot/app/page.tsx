@@ -45,6 +45,7 @@ import {
 } from '@/lib/rewardsState'
 import { applyRewardsEvent } from '@/lib/rewardsEvents'
 import { COIN_ERROR_FORGIVENESS_COST, canSpendCoinsForForgiveness } from '@/lib/lessonCoinForgiveness'
+import { getLessonCoinForgivenessCopy } from '@/lib/lessonCoinForgivenessCopy'
 import {
   buildRewardPopupText,
   rewardReasonAllowsDynamicTickerOverride,
@@ -157,6 +158,7 @@ import LessonExtraTipsScreen, {
   type LessonExtraTipsSavedState,
 } from '@/components/LessonExtraTipsScreen'
 import LessonStepRenderer from '@/components/LessonStepRenderer'
+import CenterMessageOverlay from '@/components/CenterMessageOverlay'
 import { useLessonEngine } from '@/hooks/useLessonEngine'
 import { usePracticeSession } from '@/hooks/usePracticeSession'
 import PracticeScreen from '@/components/practice/PracticeScreen'
@@ -638,11 +640,17 @@ export default function Home() {
   const [selectedPostLessonAction, setSelectedPostLessonAction] = useState<PostLessonAction | null>(null)
   const [postLessonMenuResetKey, setPostLessonMenuResetKey] = useState(0)
   const [lessonOverlay, setLessonOverlay] = useState<LessonOverlayState | null>(null)
+  const [coinForgivenessHelpOverlay, setCoinForgivenessHelpOverlay] = useState<LessonOverlayState | null>(
+    null
+  )
   const [lessonViewStage, setLessonViewStage] = useState<'intro' | 'tips' | 'lesson'>('intro')
   const [lessonTipsReturnStage, setLessonTipsReturnStage] = useState<'intro' | 'lesson'>('intro')
   const [lessonIntroDepth, setLessonIntroDepth] = useState<LessonIntroDepth>('quick')
   const [lessonExtraTipsStatus, setLessonExtraTipsStatus] = useState<LessonExtraTipsFooterStatus>('idle')
   const [lessonExtraTipsState, setLessonExtraTipsState] = useState<LessonExtraTipsSavedState | null>(null)
+  // DEBUG: удалить после редактирования урока
+  const debugFinalePendingRef = React.useRef<string | null>(null)
+  const debugSkipToFinaleAfterResetRef = React.useRef(false)
   const activeStructuredLesson =
     activeStructuredLessonRuntime ??
     (structuredLessonLoadingId ? null : activeLearningLessonId ? getStructuredLessonById(activeLearningLessonId) : null)
@@ -688,8 +696,10 @@ export default function Home() {
     firstTryCount: activeStructuredLessonFirstTryCount,
     totalScoredUnits: activeStructuredLessonTotalScoredUnits,
     forgivenessUsedThisRun: activeStructuredLessonForgivenessUsedThisRun,
-    forgivenessOfferDeclinedThisRun: activeStructuredLessonForgivenessOfferDeclinedThisRun,
     forgivenessConfirmPending: activeStructuredLessonForgivenessConfirmPending,
+    forgivenessAppliedAckActive: activeStructuredLessonForgivenessAppliedAckActive,
+    forgivenessPendingCorrectAnswer: activeStructuredLessonForgivenessPendingCorrectAnswer,
+    forgivenessAppliedBalanceAfter: activeStructuredLessonForgivenessAppliedBalanceAfter,
     puzzleAttemptForgivenessToken: activeStructuredLessonPuzzleAttemptForgivenessToken,
     forgivenessAutofillAnswer: activeStructuredLessonForgivenessAutofillAnswer,
     forgivenessAutofillChoice: activeStructuredLessonForgivenessAutofillChoice,
@@ -698,44 +708,46 @@ export default function Home() {
     declineForgivenessOfferThisRun: declineStructuredLessonForgivenessOffer,
     cancelCoinForgivenessConfirm: cancelStructuredLessonCoinForgivenessConfirm,
     applyCoinErrorForgiveness: applyStructuredLessonCoinForgiveness,
-  } = useLessonEngine(activeStructuredLesson, { audience: settings.audience })
+    continueCoinForgivenessAfterSpend: continueStructuredLessonCoinForgiveness,
+  } = useLessonEngine(activeStructuredLesson, {
+    audience: settings.audience,
+    debugSkipToFinaleAfterResetRef,
+  })
   const handleStructuredLessonConfirmCoinForgiveness = React.useCallback((): boolean => {
     if (!canSpendCoinsForForgiveness(rewardsState.currencies.coins)) {
       // TODO: monetization flow when balance < COIN_ERROR_FORGIVENESS_COST
       return false
     }
 
-    const spentRef = { ok: false as boolean }
+    const spent = spendCoins(rewardsState, COIN_ERROR_FORGIVENESS_COST)
+    if (!spent.ok) return false
 
-    setRewardsState((prev) => {
-      const spent = spendCoins(prev, COIN_ERROR_FORGIVENESS_COST)
-      spentRef.ok = spent.ok
-      return spent.ok ? spent.state : prev
-    })
+    const applied = applyStructuredLessonCoinForgiveness(spent.state.currencies.coins)
+    if (!applied) return false
 
-    if (!spentRef.ok) return false
-
-    const applied = applyStructuredLessonCoinForgiveness()
-    if (!applied) {
-      setRewardsState((prev) => ({
-        ...prev,
-        currencies: {
-          ...prev.currencies,
-          coins: prev.currencies.coins + COIN_ERROR_FORGIVENESS_COST,
-        },
-      }))
-      return false
-    }
-
-    setRewardsState((prev) =>
-      applyRewardsEvent(prev, {
+    setRewardsState(
+      applyRewardsEvent(spent.state, {
         type: 'coins_spent',
         amount: COIN_ERROR_FORGIVENESS_COST,
         reason: 'lesson_error_forgiveness',
       })
     )
     return true
-  }, [applyStructuredLessonCoinForgiveness, rewardsState.currencies.coins])
+  }, [applyStructuredLessonCoinForgiveness, rewardsState])
+  const handleStructuredLessonContinueCoinForgiveness = React.useCallback(() => {
+    continueStructuredLessonCoinForgiveness()
+  }, [continueStructuredLessonCoinForgiveness])
+  const handleStructuredLessonZeroBalanceForgivenessHelp = React.useCallback(() => {
+    const copy = getLessonCoinForgivenessCopy(settings.audience)
+    setCoinForgivenessHelpOverlay((current) =>
+      current
+        ? current
+        : {
+            title: copy.zeroBalanceHelpTitle,
+            lines: [copy.zeroBalanceHelpMessage],
+          }
+    )
+  }, [settings.audience])
   const isStructuredLessonRepeatRun =
     activeLessonVariantNumber > 1 ||
     structuredLessonRunOriginRef.current === 'post_lesson_repeat' ||
@@ -765,8 +777,6 @@ export default function Home() {
   const lessonFirstAnswerTrackedRef = React.useRef(false)
   const lessonCycle1ActiveSessionRef = React.useRef(false)
   const finalizeLessonCycle1OnLeaveRef = React.useRef<() => void>(() => {})
-  // DEBUG: удалить после редактирования урока
-  const debugFinalePendingRef = React.useRef<string | null>(null)
 
   const practiceSession = usePracticeSession({ audience: settings.audience })
   const { abandonSession: abandonPracticeSession, startSession: startPracticeSession } = practiceSession
@@ -2929,7 +2939,12 @@ export default function Home() {
   )
 
   const openLearningLesson = useCallback(
-    async (lessonId: string, lessonsPanel: LessonsPanel = 'a2', meta?: LearningLessonMenuMeta) => {
+    async (
+      lessonId: string,
+      lessonsPanel: LessonsPanel = 'a2',
+      meta?: LearningLessonMenuMeta,
+      options?: { openAtLessonStage?: boolean }
+    ) => {
       const lesson = getLearningLessonById(lessonId)
       if (!lesson) return
       lessonMenuLaunchSurfaceRef.current = menuOpen ? 'slide' : 'home'
@@ -2964,7 +2979,7 @@ export default function Home() {
       setSelectedPostLessonAction(null)
       setPostLessonBusy(false)
       setLessonOverlay(null)
-      setLessonViewStage('intro')
+      setLessonViewStage(options?.openAtLessonStage ? 'lesson' : 'intro')
       setLessonTipsReturnStage('intro')
       setLessonIntroDepth('quick')
       setLessonExtraTipsStatus('idle')
@@ -3007,26 +3022,51 @@ export default function Home() {
   // DEBUG: удалить после редактирования урока
   const handleDebugSkipToLessonFinale = useCallback(
     (lessonId: string, lessonsPanel: LessonsPanel) => {
-      if (!getStructuredLessonById(lessonId)) return
-      setMenuOpen(false)
-      if (
+      const resolvedLessonId =
+        dialogStarted && activeLearningLessonId && getStructuredLessonById(activeLearningLessonId)
+          ? activeLearningLessonId
+          : lessonId
+      if (!getStructuredLessonById(resolvedLessonId)) return
+
+      const resolvedPanel =
         dialogStarted &&
-        activeStructuredLessonRuntime != null &&
-        activeStructuredLesson?.id === lessonId
-      ) {
+        activeLearningLessonId === resolvedLessonId &&
+        lessonMenuContext?.lessonsPanel
+          ? lessonMenuContext.lessonsPanel
+          : lessonsPanel
+
+      menuOpenSnapshotRef.current = null
+      debugFinalePendingRef.current = resolvedLessonId
+      setMenuOpen(false)
+
+      const lessonAlreadyOpen = dialogStarted && activeLearningLessonId === resolvedLessonId
+      const structuredLesson =
+        activeStructuredLessonRuntime ?? getStructuredLessonById(resolvedLessonId)
+
+      const acknowledgeReturnBriefing = () => {
+        if (!structuredLesson) return
+        setLessonReturnBriefingAckRunKey(
+          `${structuredLesson.id}:${structuredLesson.runKey ?? 'static'}`
+        )
+      }
+
+      if (lessonAlreadyOpen) {
+        acknowledgeReturnBriefing()
         setLessonViewStage('lesson')
+        debugFinalePendingRef.current = null
         goToStructuredLessonFinale()
         return
       }
-      debugFinalePendingRef.current = lessonId
-      void openLearningLesson(lessonId, lessonsPanel)
-      setLessonViewStage('lesson')
+
+      debugSkipToFinaleAfterResetRef.current = true
+      void openLearningLesson(resolvedLessonId, resolvedPanel, undefined, { openAtLessonStage: true })
     },
     [
-      activeStructuredLesson?.id,
+      activeLearningLessonId,
       activeStructuredLessonRuntime,
       dialogStarted,
       goToStructuredLessonFinale,
+      lessonMenuContext?.lessonsPanel,
       openLearningLesson,
     ]
   )
@@ -4000,15 +4040,27 @@ export default function Home() {
     persistActiveStructuredLessonProgress({ lastCompleted: new Date().toISOString() })
   }, [activeStructuredLessonStatus, persistActiveStructuredLessonProgress])
 
-  // DEBUG: удалить после редактирования урока
+  // DEBUG: удалить после редактирования урока — запасной путь, если финал не выставился в reset движка.
   useEffect(() => {
     const pendingLessonId = debugFinalePendingRef.current
     if (!pendingLessonId) return
-    if (lessonViewStage !== 'lesson') return
     if (!activeStructuredLesson || activeStructuredLesson.id !== pendingLessonId) return
+    if (lessonViewStage !== 'lesson') {
+      setLessonViewStage('lesson')
+      return
+    }
+
     debugFinalePendingRef.current = null
+    setLessonReturnBriefingAckRunKey(
+      `${activeStructuredLesson.id}:${activeStructuredLesson.runKey ?? 'static'}`
+    )
     goToStructuredLessonFinale()
-  }, [activeStructuredLesson, lessonViewStage, goToStructuredLessonFinale])
+  }, [
+    activeStructuredLesson?.id,
+    activeStructuredLesson?.runKey,
+    lessonViewStage,
+    goToStructuredLessonFinale,
+  ])
 
   useEffect(() => {
     if (!selectedPostLessonAction) return
@@ -6721,11 +6773,15 @@ export default function Home() {
                   coinBalance={rewardsState.currencies.coins}
                   forgivenessUsedThisRun={activeStructuredLessonForgivenessUsedThisRun}
                   forgivenessConfirmPending={activeStructuredLessonForgivenessConfirmPending}
-                  forgivenessOfferDeclinedThisRun={activeStructuredLessonForgivenessOfferDeclinedThisRun}
+                  forgivenessAppliedAckActive={activeStructuredLessonForgivenessAppliedAckActive}
+                  forgivenessPendingCorrectAnswer={activeStructuredLessonForgivenessPendingCorrectAnswer}
+                  forgivenessAppliedBalanceAfter={activeStructuredLessonForgivenessAppliedBalanceAfter}
                   onRequestCoinForgiveness={requestStructuredLessonCoinForgiveness}
                   onConfirmCoinForgiveness={handleStructuredLessonConfirmCoinForgiveness}
+                  onContinueCoinForgiveness={handleStructuredLessonContinueCoinForgiveness}
                   onDeclineCoinForgiveness={declineStructuredLessonForgivenessOffer}
                   onCancelCoinForgivenessConfirm={cancelStructuredLessonCoinForgivenessConfirm}
+                  onZeroBalanceCoinForgivenessHelp={handleStructuredLessonZeroBalanceForgivenessHelp}
                   puzzleAttemptForgivenessToken={activeStructuredLessonPuzzleAttemptForgivenessToken}
                   forgivenessAutofillAnswer={activeStructuredLessonForgivenessAutofillAnswer}
                   forgivenessAutofillChoice={activeStructuredLessonForgivenessAutofillChoice}
@@ -6872,32 +6928,26 @@ export default function Home() {
         columnBounds={appColumnBounds}
       />
 
-      {lessonOverlay && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-transparent p-4">
-          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-white/95 p-5 shadow-xl backdrop-blur-sm">
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <h2 className="text-base font-semibold text-[var(--text)]">{lessonOverlay.title}</h2>
-              <button
-                type="button"
-                onClick={() => {
-                  setLessonOverlay(null)
-                  setPostLessonBusy(false)
-                  setSelectedPostLessonAction(null)
-                  setPostLessonMenuResetKey((current) => current + 1)
-                }}
-                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--text)] transition hover:bg-white/70"
-              >
-                Закрыть
-              </button>
-            </div>
-            <div className="space-y-2 text-sm leading-6 text-[var(--text)]">
-              {lessonOverlay.lines.map((line, index) => (
-                <p key={`${lessonOverlay.title}-${index}`}>{line}</p>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {lessonOverlay ? (
+        <CenterMessageOverlay
+          title={lessonOverlay.title}
+          lines={lessonOverlay.lines}
+          onClose={() => {
+            setLessonOverlay(null)
+            setPostLessonBusy(false)
+            setSelectedPostLessonAction(null)
+            setPostLessonMenuResetKey((current) => current + 1)
+          }}
+        />
+      ) : null}
+
+      {coinForgivenessHelpOverlay ? (
+        <CenterMessageOverlay
+          title={coinForgivenessHelpOverlay.title}
+          lines={coinForgivenessHelpOverlay.lines}
+          onClose={() => setCoinForgivenessHelpOverlay(null)}
+        />
+      ) : null}
     </div>
   )
 }

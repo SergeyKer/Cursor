@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   buildActiveStepTimeline,
+  resolveCoinForgivenessAutofillPatch,
   resolveExerciseForVariant,
   resolveLessonCurrentEntrySubmittedAnswer,
   scheduleLessonCheckingOutcome,
@@ -212,5 +213,48 @@ describe('resolveExerciseForVariant', () => {
     expect(resolved?.acceptedAnswers).toEqual(['Base answer'])
     expect(resolved?.hint).toBe('Variant hint')
     expect(resolved?.currentVariantIndex).toBe(0)
+  })
+})
+
+describe('resolveCoinForgivenessAutofillPatch', () => {
+  it('returns translate answer for translate exercises', () => {
+    expect(
+      resolveCoinForgivenessAutofillPatch(
+        { type: 'translate', correctAnswer: "I'm happy.", question: 'Q' } as Exercise,
+        "I'm happy.",
+      ),
+    ).toEqual({ kind: 'translate', answer: "I'm happy." })
+  })
+
+  it('returns fill_choice patch for choice exercises', () => {
+    expect(
+      resolveCoinForgivenessAutofillPatch(
+        {
+          type: 'fill_choice',
+          correctAnswer: 'Easy answer',
+          question: 'Q',
+          options: ['Easy answer', 'Wrong'],
+        } as Exercise,
+        'Easy answer',
+      ),
+    ).toEqual({ kind: 'fill_choice', choice: 'Easy answer' })
+  })
+
+  it('returns puzzle patch without answer text', () => {
+    expect(
+      resolveCoinForgivenessAutofillPatch(
+        { type: 'sentence_puzzle', correctAnswer: "I'm happy.", question: 'Q' } as Exercise,
+        undefined,
+      ),
+    ).toEqual({ kind: 'sentence_puzzle' })
+  })
+
+  it('returns null when translate answer is empty', () => {
+    expect(
+      resolveCoinForgivenessAutofillPatch(
+        { type: 'translate', correctAnswer: '', question: 'Q' } as Exercise,
+        '',
+      ),
+    ).toBeNull()
   })
 })

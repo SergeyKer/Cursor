@@ -6,7 +6,7 @@ import {
 import { prefixFeedbackMarker, resolveFeedbackMarker } from '@/lib/feedbackMarkers'
 import { formatLessonErrorFeedback } from '@/lib/lessonFeedbackMessage'
 import {
-  hasHistoricalAttemptsForCurrentStep,
+  hasSameTaskPromptHistoryForCurrentStep,
   shouldHideCurrentLessonBubbles,
   shouldSkipRepeatHistoryLessonBubble,
 } from '@/lib/lessonCurrentBubbleVisibility'
@@ -14,7 +14,7 @@ import {
   buildLessonAnswerMessageId,
   resolveLessonAnswerAttemptNumber,
 } from '@/lib/lessonFeedAnswerId'
-import { injectVariantQuestionIntoTaskBubble } from '@/lib/lessonFeedBubbles'
+import { injectVariantQuestionIntoTaskBubble, resolveLessonTaskPromptForEntry } from '@/lib/lessonFeedBubbles'
 import { LESSON_CHECKING_MESSAGE } from '@/lib/lessonAnswerPanelLock'
 import type { Bubble } from '@/types/lesson'
 
@@ -62,6 +62,23 @@ function buildAttemptOrdinalMaps(timeline: LessonTimelineEntry[]) {
   })
 
   return attemptOrdinalByEntryIndex
+}
+
+function resolvePreviousHistoryTaskPrompt(
+  timeline: LessonTimelineEntry[],
+  entryIndex: number
+): string | null {
+  const entry = timeline[entryIndex]
+  if (!entry || entry.isCurrent) return null
+
+  for (let index = entryIndex - 1; index >= 0; index -= 1) {
+    const previous = timeline[index]
+    if (previous.isCurrent || previous.stepIndex !== entry.stepIndex) continue
+    if (!previous.step.exercise) continue
+    return resolveLessonTaskPromptForEntry(previous)
+  }
+
+  return null
 }
 
 function shouldSkipFinaleTailSuccessFeedback(
@@ -112,7 +129,7 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
       isCurrent: entry.isCurrent,
       status,
       latestFeedbackType,
-      hasHistoricalAttemptsForCurrentStep: hasHistoricalAttemptsForCurrentStep(timeline, entry),
+      hasSameTaskPromptHistory: hasSameTaskPromptHistoryForCurrentStep(timeline, entry),
     })
     const baseBubbles = shouldHideCurrentLessonBubblesValue ? [] : entry.step.bubbles
     const bubblesWithVariantQuestion = injectVariantQuestionIntoTaskBubble(baseBubbles, entry.step.exercise)
@@ -121,6 +138,8 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
       isPuzzleStep,
       isCurrent: entry.isCurrent,
       historyAttemptOrdinal: attemptOrdinal,
+      taskPrompt: resolveLessonTaskPromptForEntry(entry),
+      previousHistoryTaskPrompt: resolvePreviousHistoryTaskPrompt(timeline, entryIndex),
     })
       ? []
       : bubblesWithVariantQuestion

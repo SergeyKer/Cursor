@@ -96,6 +96,17 @@ describe('resolveLessonComposerPanelKind — post-chip lesson steps', () => {
       })
     ).toBe('briefing')
   })
+
+  it('coin forgiveness confirm uses forgiveness panel', () => {
+    expect(
+      resolveLessonComposerPanelKind({
+        exercise: { type: 'translate', correctAnswer: "I'm tired." },
+        hasPostLessonOptions: false,
+        showLessonFinale: false,
+        showCoinForgivenessConfirm: true,
+      })
+    ).toBe('forgiveness')
+  })
 })
 
 describe('estimateLessonChoiceChipsMinHeight', () => {
@@ -184,6 +195,20 @@ describe('estimateLessonComposerMinHeight', () => {
         compact: false,
       })
     ).toBeGreaterThanOrEqual(250)
+  })
+
+  it('forgiveness panel reserves confirm card and action buttons', () => {
+    const standard = estimateLessonComposerMinHeight({
+      panelKind: 'forgiveness',
+      compact: false,
+    })
+    const compact = estimateLessonComposerMinHeight({
+      panelKind: 'forgiveness',
+      compact: true,
+    })
+    expect(standard).toBeGreaterThanOrEqual(270)
+    expect(compact).toBeGreaterThanOrEqual(255)
+    expect(standard).toBeGreaterThan(compact)
   })
 
   it('finale panel fits medal card and action grid', () => {

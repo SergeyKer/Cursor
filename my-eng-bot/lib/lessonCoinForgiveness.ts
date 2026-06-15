@@ -15,11 +15,30 @@ export type CoinForgivenessGuardParams = {
   exercise: Exercise | null | undefined
   hasErrorOnStep: boolean
   forgivenessUsedThisRun: boolean
-  forgivenessOfferDeclinedThisRun: boolean
   forgivenessConfirmPending: boolean
+  forgivenessAppliedAckActive?: boolean
   exerciseErrors: number
   status: CoinForgivenessLessonStatus
   coinBalance: number
+}
+
+/** Текст правильного ответа для applied-ack (puzzle — текущий sub). */
+export function resolveCoinForgivenessAppliedPreviewAnswer(
+  exercise: Exercise | null | undefined,
+  puzzleSubIndex: number,
+  correctAnswer: string | undefined
+): string | null {
+  if (!exercise) return null
+  if (exercise.type === 'sentence_puzzle') {
+    const variant = exercise.puzzleVariants?.[puzzleSubIndex]
+    if (!variant) return null
+    const fromAnswer = variant.correctAnswer?.trim()
+    if (fromAnswer) return fromAnswer
+    if (variant.correctOrder?.length) return variant.correctOrder.join(' ')
+    return null
+  }
+  const trimmed = correctAnswer?.trim()
+  return trimmed || null
 }
 
 export function isCoinForgivenessStep(stepNumber: number): stepNumber is CoinForgivenessStepNumber {
@@ -37,7 +56,6 @@ export function isCoinForgivenessExercise(exercise: Exercise | null | undefined)
 }
 
 function matchesCoinForgivenessBaseGuard(params: CoinForgivenessGuardParams): boolean {
-  if (params.forgivenessOfferDeclinedThisRun) return false
   if (!params.hasErrorOnStep) return false
   if (params.status !== 'feedback') return false
   if (!isCoinForgivenessStep(params.stepNumber)) return false
@@ -63,7 +81,7 @@ export function canShowExhaustedCoinForgivenessButton(params: CoinForgivenessGua
 
 export function canShowFrozenCoinForgivenessButton(params: CoinForgivenessGuardParams): boolean {
   if (params.forgivenessUsedThisRun) return false
-  if (!params.forgivenessConfirmPending) return false
+  if (!params.forgivenessConfirmPending && !params.forgivenessAppliedAckActive) return false
   return matchesCoinForgivenessBaseGuard(params)
 }
 
@@ -86,7 +104,6 @@ export function canOfferCoinErrorForgiveness(params: {
 }): boolean {
   return canShowActiveCoinForgivenessButton({
     ...params,
-    forgivenessOfferDeclinedThisRun: false,
     forgivenessConfirmPending: false,
     exerciseErrors: 1,
     coinBalance: COIN_ERROR_FORGIVENESS_COST,

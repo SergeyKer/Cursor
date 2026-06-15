@@ -223,6 +223,165 @@ describe('buildLessonFeedMessages — non-puzzle regression', () => {
       `service:${LESSON_CHECKING_MESSAGE}`,
     ])
   })
+
+  it('shows lesson card for each multi-variant success in history', () => {
+    const variantOneStep = {
+      stepNumber: 3,
+      stepType: 'exercise' as const,
+      bubbles: [{ type: 'task' as const, content: 'Задание 1' }],
+      exercise: {
+        type: 'fill_text' as const,
+        question: 'Переведите: "Я из России."',
+        correctAnswer: 'Russia',
+        variants: [
+          { id: 'v1', question: 'Переведите: "Я из России."', correctAnswer: 'Russia' },
+          { id: 'v2', question: 'Переведите: "Я из Москвы."', correctAnswer: 'Moscow' },
+          { id: 'v3', question: 'Переведите: "Я из Питера."', correctAnswer: 'Petersburg' },
+        ],
+      },
+    } as LessonData['steps'][number]
+
+    const currentEntry: LessonTimelineEntry = {
+      stepIndex: 2,
+      submittedAnswer: null,
+      feedback: null,
+      isCurrent: true,
+      step: {
+        ...variantOneStep,
+        exercise: {
+          ...variantOneStep.exercise!,
+          question: 'Переведите: "Я из Питера."',
+          correctAnswer: 'Petersburg',
+          currentVariantIndex: 2,
+        },
+      },
+    }
+
+    const attemptEntries: LessonTimelineEntry[] = [
+      {
+        stepIndex: 2,
+        submittedAnswer: 'Russia',
+        feedback: { type: 'success', message: 'Верно. Следующий вариант (2 из 3).' },
+        isCurrent: false,
+        step: {
+          ...variantOneStep,
+          exercise: {
+            ...variantOneStep.exercise!,
+            question: 'Переведите: "Я из России."',
+            correctAnswer: 'Russia',
+            currentVariantIndex: 0,
+          },
+        },
+      },
+      {
+        stepIndex: 2,
+        submittedAnswer: 'Moscow',
+        feedback: { type: 'success', message: 'Верно. Следующий вариант (3 из 3).' },
+        isCurrent: false,
+        step: {
+          ...variantOneStep,
+          exercise: {
+            ...variantOneStep.exercise!,
+            question: 'Переведите: "Я из Москвы."',
+            correctAnswer: 'Moscow',
+            currentVariantIndex: 1,
+          },
+        },
+      },
+    ]
+
+    const timeline = buildActiveStepTimeline([], currentEntry, attemptEntries, 'fill_text')
+    const messages = buildLessonFeedMessages({
+      timeline,
+      status: 'idle',
+      showCheckingStatusLine: false,
+      showAdvancingStatusLine: false,
+      isAdvancingToNextStep: false,
+      isAdvancingToNextVariant: false,
+    })
+
+    expect(messages.filter((message) => message.kind === 'lesson')).toHaveLength(3)
+    expect(messageTexts(messages)).toEqual([
+      'lesson',
+      'answer:Russia',
+      'success:🟢 Верно. Следующий вариант (2 из 3).',
+      'lesson',
+      'answer:Moscow',
+      'success:🟢 Верно. Следующий вариант (3 из 3).',
+      'lesson',
+    ])
+  })
+
+  it('keeps current lesson card visible while checking a new variant', () => {
+    const variantOneStep = {
+      stepNumber: 3,
+      stepType: 'exercise' as const,
+      bubbles: [{ type: 'task' as const, content: 'Задание 1' }],
+      exercise: {
+        type: 'fill_text' as const,
+        question: 'Переведите: "Я из Москвы."',
+        correctAnswer: 'Moscow',
+        variants: [
+          { id: 'v1', question: 'Переведите: "Я из России."', correctAnswer: 'Russia' },
+          { id: 'v2', question: 'Переведите: "Я из Москвы."', correctAnswer: 'Moscow' },
+        ],
+      },
+    } as LessonData['steps'][number]
+
+    const currentEntry: LessonTimelineEntry = {
+      stepIndex: 2,
+      submittedAnswer: 'Moscow',
+      feedback: null,
+      isCurrent: true,
+      step: {
+        ...variantOneStep,
+        exercise: {
+          ...variantOneStep.exercise!,
+          question: 'Переведите: "Я из Москвы."',
+          correctAnswer: 'Moscow',
+          currentVariantIndex: 1,
+        },
+      },
+    }
+
+    const attemptEntries: LessonTimelineEntry[] = [
+      {
+        stepIndex: 2,
+        submittedAnswer: 'Russia',
+        feedback: { type: 'success', message: 'Верно. Следующий вариант (2 из 3).' },
+        isCurrent: false,
+        step: {
+          ...variantOneStep,
+          exercise: {
+            ...variantOneStep.exercise!,
+            question: 'Переведите: "Я из России."',
+            correctAnswer: 'Russia',
+            currentVariantIndex: 0,
+          },
+        },
+      },
+    ]
+
+    const timeline = buildActiveStepTimeline([], currentEntry, attemptEntries, 'fill_text')
+    const messages = buildLessonFeedMessages({
+      timeline,
+      status: 'checking',
+      showCheckingStatusLine: true,
+      showAdvancingStatusLine: false,
+      isAdvancingToNextStep: false,
+      isAdvancingToNextVariant: false,
+    })
+
+    expect(messages.filter((message) => message.kind === 'lesson')).toHaveLength(2)
+    expect(messageTexts(messages)).toEqual([
+      'lesson',
+      'answer:Russia',
+      'success:🟢 Верно. Следующий вариант (2 из 3).',
+      'lesson',
+      'answer:Moscow',
+      `service:${LESSON_CHECKING_MESSAGE}`,
+    ])
+  })
 })
 
 describe('buildLessonFeedMessages — success advance', () => {

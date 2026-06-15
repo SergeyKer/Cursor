@@ -1,28 +1,56 @@
 'use client'
 
 import { useState } from 'react'
-import { APP_BTN_PRIMARY_INLINE, APP_BTN_SECONDARY_INLINE_MUTED } from '@/lib/homeCtaStyles'
+import FlowInfoCard from '@/components/FlowInfoCard'
+import {
+  APP_BTN_PRIMARY_INLINE,
+  APP_BTN_PRIMARY_LARGE,
+  APP_BTN_SECONDARY_INLINE_MUTED,
+} from '@/lib/homeCtaStyles'
+import { COIN_ERROR_FORGIVENESS_COST } from '@/lib/lessonCoinForgiveness'
+import { LESSON_FORGIVENESS_COMPOSER_CONTENT_MIN_HEIGHT_PX } from '@/lib/lessonComposerLayout'
 import type { LessonCoinForgivenessCopy } from '@/lib/lessonCoinForgivenessCopy'
 
+export type LessonCoinForgivenessComposerMode = 'confirm' | 'applied'
+
 type LessonCoinForgivenessComposerConfirmProps = {
+  mode?: LessonCoinForgivenessComposerMode
   copy: LessonCoinForgivenessCopy
+  coinBalance: number
   balanceAfter: number
+  correctAnswerPreview?: string | null
   onConfirm: () => boolean
+  onContinue?: () => void
   onDecline: () => void
+  onZeroBalanceHelp?: () => void
   onSpendFailed?: () => void
 }
 
 export default function LessonCoinForgivenessComposerConfirm({
+  mode = 'confirm',
   copy,
+  coinBalance,
   balanceAfter,
+  correctAnswerPreview = null,
   onConfirm,
+  onContinue,
   onDecline,
+  onZeroBalanceHelp,
   onSpendFailed,
 }: LessonCoinForgivenessComposerConfirmProps) {
   const [processing, setProcessing] = useState(false)
+  const hasEnoughCoins = coinBalance >= COIN_ERROR_FORGIVENESS_COST
+
+  const confirmTitle = hasEnoughCoins ? copy.confirmTitle : copy.confirmTitleZeroBalance
+  const confirmMessage = hasEnoughCoins ? copy.confirmBody(balanceAfter) : copy.confirmBodyZeroBalance
+  const confirmHint = hasEnoughCoins ? copy.confirmHintMuted : copy.confirmHintZeroBalance
 
   const handleConfirm = () => {
     if (processing) return
+    if (!hasEnoughCoins) {
+      onZeroBalanceHelp?.()
+      return
+    }
     setProcessing(true)
     const ok = onConfirm()
     if (!ok) {
@@ -31,15 +59,42 @@ export default function LessonCoinForgivenessComposerConfirm({
     }
   }
 
+  const appliedAnswerLine = correctAnswerPreview?.trim()
+    ? copy.appliedCorrectAnswerPreview(correctAnswerPreview.trim())
+    : undefined
+
+  const cardTitle = mode === 'applied' ? copy.appliedTitle : confirmTitle
+  const cardMessage = mode === 'applied' ? copy.appliedBody(balanceAfter) : confirmMessage
+  const cardSecondary =
+    mode === 'applied'
+      ? [appliedAnswerLine, copy.appliedGoldMedalHint].filter(Boolean).join('\n')
+      : confirmHint
+
   return (
-    <section
-      className="rounded-[1.1rem] border border-blue-100 bg-white/95 px-3 py-2.5 shadow-sm"
-      aria-label={copy.confirmTitle}
+    <div
+      className="mx-auto flex w-full max-w-sm flex-col justify-center gap-2.5"
+      style={{ minHeight: LESSON_FORGIVENESS_COMPOSER_CONTENT_MIN_HEIGHT_PX }}
+      role="region"
+      aria-label={cardTitle}
     >
-      <p className="mb-1 text-sm font-semibold text-slate-900">{copy.confirmTitle}</p>
-      <p className="mb-2 text-[13px] leading-snug text-slate-700">{copy.confirmBody(balanceAfter)}</p>
-      <p className="mb-2.5 text-[12px] leading-snug text-slate-500">{copy.confirmHintMuted}</p>
-      {processing ? (
+      <div className="animate-fade-in-up w-full">
+        <FlowInfoCard
+          variant="info"
+          title={cardTitle}
+          message={cardMessage}
+          secondaryMessage={cardSecondary}
+          className="mb-0 shadow-md"
+        />
+      </div>
+      {mode === 'applied' ? (
+        <button
+          type="button"
+          onClick={onContinue}
+          className={`${APP_BTN_PRIMARY_LARGE} focus:outline-none focus-visible:ring-2 focus-visible:ring-[#93c5fd]`}
+        >
+          {copy.appliedContinue}
+        </button>
+      ) : processing ? (
         <p className="text-[13px] italic text-slate-600">{copy.processing}</p>
       ) : (
         <div className="flex flex-wrap gap-2">
@@ -51,6 +106,6 @@ export default function LessonCoinForgivenessComposerConfirm({
           </button>
         </div>
       )}
-    </section>
+    </div>
   )
 }

@@ -13,6 +13,7 @@ export type LessonComposerPanelKind =
   | 'medal'
   | 'finale'
   | 'briefing'
+  | 'forgiveness'
   | 'none'
 
 const CHOICE_CHIP_HEIGHT_PX = 36
@@ -23,6 +24,9 @@ const TEXT_INPUT_COMPOSER_HEIGHT_PX = 88
 const POST_LESSON_COMPOSER_HEIGHT_PX = 240
 const MEDAL_FLOW_COMPOSER_HEIGHT_PX = 180
 const LESSON_BRIEFING_COMPOSER_HEIGHT_PX = 280
+const LESSON_FORGIVENESS_COMPOSER_HEIGHT_PX = 255
+/** Внутренняя min-height shell confirm/applied — карточка + gap + кнопки или hint. */
+export const LESSON_FORGIVENESS_COMPOSER_CONTENT_MIN_HEIGHT_PX = 215
 const LESSON_FINALE_COMPOSER_HEIGHT_PX = 300
 const INTRO_CHIP_ROW_HEIGHT_PX = 44
 const INTRO_PRIMARY_BUTTON_HEIGHT_PX = 44
@@ -44,11 +48,13 @@ export function resolveLessonComposerPanelKind(params: {
   hasPostLessonOptions: boolean
   showLessonFinale?: boolean
   showReturnBriefing?: boolean
+  showCoinForgivenessConfirm?: boolean
   /** @deprecated use showLessonFinale */
   showPostLessonMedalPhase?: boolean
 }): LessonComposerPanelKind {
   if (params.showLessonFinale || params.showPostLessonMedalPhase) return 'finale'
   if (params.showReturnBriefing) return 'briefing'
+  if (params.showCoinForgivenessConfirm) return 'forgiveness'
   if (params.hasPostLessonOptions) return 'post-lesson'
   if (!params.exercise) return 'none'
   if (params.exercise.type === 'sentence_puzzle') return 'puzzle'
@@ -151,6 +157,8 @@ export function estimateLessonComposerMinHeight(params: {
       return stackPadding + MEDAL_FLOW_COMPOSER_HEIGHT_PX
     case 'briefing':
       return stackPadding + LESSON_BRIEFING_COMPOSER_HEIGHT_PX
+    case 'forgiveness':
+      return stackPadding + LESSON_FORGIVENESS_COMPOSER_HEIGHT_PX
     case 'finale':
       return stackPadding + LESSON_FINALE_COMPOSER_HEIGHT_PX
     default:

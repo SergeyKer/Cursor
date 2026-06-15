@@ -49,3 +49,20 @@ export function injectVariantQuestionIntoTaskBubble(
   }
   return nextBubbles
 }
+
+export function resolveLessonTaskPromptForEntry(
+  entry: Pick<LessonTimelineEntry, 'step'>
+): string | null {
+  const exerciseQuestion = entry.step.exercise?.question?.trim()
+  if (exerciseQuestion) return exerciseQuestion
+
+  const bubbles = injectVariantQuestionIntoTaskBubble(entry.step.bubbles ?? [], entry.step.exercise)
+  for (let index = bubbles.length - 1; index >= 0; index -= 1) {
+    const bubble = bubbles[index]
+    if (bubble?.type === 'task') {
+      const content = bubble.content?.trim()
+      if (content) return content
+    }
+  }
+  return null
+}
