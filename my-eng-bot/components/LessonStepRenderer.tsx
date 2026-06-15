@@ -1501,7 +1501,7 @@ export default function LessonStepRenderer({
                       >
                         <FeedbackStatusText text={message.text} />
                       </section>
-                      {showCoinForgivenessButton && forgivenessBubbleMode ? (
+                      {showCoinForgivenessButton && forgivenessBubbleMode && onRequestCoinForgiveness ? (
                         <div className="mt-1.5 flex flex-wrap items-center gap-2">
                           <LessonCoinForgivenessBubbleButton
                             mode={forgivenessBubbleMode}
