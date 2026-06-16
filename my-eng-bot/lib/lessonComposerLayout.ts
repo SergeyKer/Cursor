@@ -23,7 +23,8 @@ const CHOICE_PANEL_VERTICAL_PADDING_PX = 12
 const TEXT_INPUT_COMPOSER_HEIGHT_PX = 88
 const POST_LESSON_COMPOSER_HEIGHT_PX = 240
 const MEDAL_FLOW_COMPOSER_HEIGHT_PX = 180
-const LESSON_BRIEFING_COMPOSER_HEIGHT_PX = 280
+const LESSON_BRIEFING_COMPOSER_HEIGHT_PX = 248
+const LESSON_BRIEFING_DUAL_CTA_EXTRA_HEIGHT_PX = 0
 const LESSON_FORGIVENESS_COMPOSER_HEIGHT_PX = 255
 /** Внутренняя min-height shell confirm/applied — карточка + gap + кнопки или hint. */
 export const LESSON_FORGIVENESS_COMPOSER_CONTENT_MIN_HEIGHT_PX = 215
@@ -123,6 +124,7 @@ export function estimateLessonComposerMinHeight(params: {
   puzzleHasInstruction?: boolean
   containerWidthPx?: number
   compact?: boolean
+  briefingDualCta?: boolean
 }): number {
   const stackPadding = params.compact ? 8 : 20
 
@@ -155,8 +157,12 @@ export function estimateLessonComposerMinHeight(params: {
       return stackPadding + POST_LESSON_COMPOSER_HEIGHT_PX
     case 'medal':
       return stackPadding + MEDAL_FLOW_COMPOSER_HEIGHT_PX
-    case 'briefing':
-      return stackPadding + LESSON_BRIEFING_COMPOSER_HEIGHT_PX
+    case 'briefing': {
+      const briefingHeight =
+        LESSON_BRIEFING_COMPOSER_HEIGHT_PX +
+        (params.briefingDualCta ? LESSON_BRIEFING_DUAL_CTA_EXTRA_HEIGHT_PX : 0)
+      return stackPadding + briefingHeight
+    }
     case 'forgiveness':
       return stackPadding + LESSON_FORGIVENESS_COMPOSER_HEIGHT_PX
     case 'finale':

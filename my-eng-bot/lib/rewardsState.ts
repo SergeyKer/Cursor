@@ -149,6 +149,14 @@ export interface RewardsCurrenciesState {
   tickets: number
 }
 
+export interface CoinLedgerState {
+  lessonGoldClaimed: Record<string, true>
+}
+
+export function createDefaultCoinLedger(): CoinLedgerState {
+  return { lessonGoldClaimed: {} }
+}
+
 export interface LastRewardState {
   amount: number
   reason: string
@@ -173,6 +181,7 @@ export interface RewardsState {
   profile: RewardsProfileState
   progress: GlobalProgressState
   currencies: RewardsCurrenciesState
+  coinLedger: CoinLedgerState
   modeGoals: Record<ModeGoalId, ModeGoalState>
   ui: RewardUiState
 }
@@ -238,6 +247,7 @@ export function createDefaultRewardsState(): RewardsState {
       gems: 0,
       tickets: 0,
     },
+    coinLedger: createDefaultCoinLedger(),
     modeGoals: {
       communication: createDefaultGoal(7, 4),
       engvo: createDefaultGoal(7, 5),
@@ -281,6 +291,27 @@ function daysBetweenDates(fromDate: string, toDate: string): number {
   if (!from || !to) return 0
   const msPerDay = 24 * 60 * 60 * 1000
   return Math.floor((Date.UTC(to.getFullYear(), to.getMonth(), to.getDate()) - Date.UTC(from.getFullYear(), from.getMonth(), from.getDate())) / msPerDay)
+}
+
+function normalizeCoinLedger(raw: unknown): CoinLedgerState {
+  const fallback = createDefaultCoinLedger()
+  if (!raw || typeof raw !== 'object') return fallback
+  const src = raw as Partial<CoinLedgerState>
+  const claimedRaw = src.lessonGoldClaimed
+  if (!claimedRaw || typeof claimedRaw !== 'object') return fallback
+  const lessonGoldClaimed: Record<string, true> = {}
+  for (const [lessonId, value] of Object.entries(claimedRaw)) {
+    if (typeof lessonId === 'string' && lessonId.trim() && value === true) {
+      lessonGoldClaimed[lessonId] = true
+    }
+  }
+  return { lessonGoldClaimed }
+}
+
+export function isLessonGoldCoinClaimed(state: RewardsState, lessonId: string): boolean {
+  const id = lessonId.trim()
+  if (!id) return false
+  return Boolean(state.coinLedger?.lessonGoldClaimed?.[id])
 }
 
 function normalizeModeGoal(raw: unknown, fallback: ModeGoalState): ModeGoalState {
@@ -361,6 +392,7 @@ function normalizeRewardsState(raw: unknown): RewardsState {
       gems: typeof src.currencies?.gems === 'number' ? Math.max(0, Math.floor(src.currencies.gems)) : 0,
       tickets: typeof src.currencies?.tickets === 'number' ? Math.max(0, Math.floor(src.currencies.tickets)) : 0,
     },
+    coinLedger: normalizeCoinLedger(src.coinLedger),
     modeGoals: {
       communication: normalizeModeGoal(src.modeGoals?.communication, fallback.modeGoals.communication),
       engvo: normalizeModeGoal(src.modeGoals?.engvo, fallback.modeGoals.engvo),
@@ -626,6 +658,15 @@ export type SpendCoinsResult = {
   state: RewardsState
 }
 
+export type AwardCoinsResult = {
+  ok: boolean
+  state: RewardsState
+}
+
+export type AwardCoinsOptions = {
+  lessonIdForLedger?: string
+}
+
 export function canSpendCoins(state: RewardsState, amount: number): boolean {
   const normalized = Math.max(0, Math.floor(amount))
   if (normalized <= 0) return false
@@ -646,6 +687,39 @@ export function spendCoins(state: RewardsState, amount: number): SpendCoinsResul
         ...state.currencies,
         coins: current - normalized,
       },
+    },
+  }
+}
+
+export function awardCoins(
+  state: RewardsState,
+  amount: number,
+  options?: AwardCoinsOptions
+): AwardCoinsResult {
+  const normalized = Math.max(0, Math.floor(amount))
+  if (normalized <= 0) return { ok: false, state }
+  const current = Math.max(0, Math.floor(Number(state.currencies.coins) || 0))
+  const ledger = state.coinLedger ?? createDefaultCoinLedger()
+  let nextLedger = ledger
+  const lessonId = options?.lessonIdForLedger?.trim()
+  if (lessonId) {
+    nextLedger = {
+      ...ledger,
+      lessonGoldClaimed: {
+        ...ledger.lessonGoldClaimed,
+        [lessonId]: true,
+      },
+    }
+  }
+  return {
+    ok: true,
+    state: {
+      ...state,
+      currencies: {
+        ...state.currencies,
+        coins: current + normalized,
+      },
+      coinLedger: nextLedger,
     },
   }
 }

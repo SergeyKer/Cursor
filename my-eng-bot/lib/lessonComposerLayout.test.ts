@@ -109,6 +109,18 @@ describe('resolveLessonComposerPanelKind — post-chip lesson steps', () => {
   })
 })
 
+describe('estimateLessonComposerMinHeight', () => {
+  it('adds no extra height for briefing dual cta in one row', () => {
+    const single = estimateLessonComposerMinHeight({ panelKind: 'briefing', compact: true })
+    const dual = estimateLessonComposerMinHeight({
+      panelKind: 'briefing',
+      compact: true,
+      briefingDualCta: true,
+    })
+    expect(dual - single).toBe(0)
+  })
+})
+
 describe('estimateLessonChoiceChipsMinHeight', () => {
   it('uses one row for three short options', () => {
     expect(estimateLessonChoiceChipsMinHeight(3)).toBe(48)

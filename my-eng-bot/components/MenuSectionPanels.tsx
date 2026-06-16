@@ -37,6 +37,10 @@ import {
   type LessonCatalogLevel,
 } from '@/lib/lessonCatalog'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
+import {
+  resolveLessonVariantDualCtaLayout,
+} from '@/lib/lessonVariantCtaCopy'
+import LessonMenuVariantDualCta from '@/components/LessonMenuVariantDualCta'
 import { getGrammarCategoryById } from '@/lib/grammarTaxonomy'
 import { getAllTheoryTagsForMenu, getTheoryTagById } from '@/lib/lessonTheoryTags'
 import { findPracticeTopicCandidatesByMenuKeys, type PracticeTopicCandidate } from '@/lib/lessonTopicSearch'
@@ -473,11 +477,19 @@ export default function MenuSectionPanels({
   const [engvoPanel, setEngvoPanel] = React.useState<EngvoPanel>('summary')
   const [lessonsPanel, setLessonsPanel] = React.useState<LessonsPanel>('summary')
   const [lessonProgressMap, setLessonProgressMap] = React.useState(loadLessonProgressMap)
+
+  const resolveMenuVariantCtaForLesson = React.useCallback(
+    (lessonId: string | null) =>
+      resolveLessonVariantDualCtaLayout(lessonId ? lessonProgressMap[lessonId] : null),
+    [lessonProgressMap]
+  )
+
   React.useEffect(() => {
     if (menuView === 'lessons' || menuView === 'progress') {
       setLessonProgressMap(loadLessonProgressMap())
     }
   }, [menuView, lessonsPanel, practiceProgressRevision])
+
   const defaultA2LessonId = React.useMemo(
     () =>
       pickDefaultLessonIdForMenu(A2_THEORY_ITEMS, lessonProgressMap) ??
@@ -613,6 +625,23 @@ export default function MenuSectionPanels({
 
   const [theoryTopicLaunch, setTheoryTopicLaunch] = React.useState<TheoryTopicLaunchState | null>(null)
   const [selectedTheoryTopicLessonId, setSelectedTheoryTopicLessonId] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    setLessonProgressMap(loadLessonProgressMap())
+  }, [selectedA1LessonId, selectedA2LessonId, selectedTheoryTopicLessonId])
+
+  const theoryTopicLessonCtaLayout = React.useMemo(
+    () => resolveMenuVariantCtaForLesson(selectedTheoryTopicLessonId),
+    [resolveMenuVariantCtaForLesson, selectedTheoryTopicLessonId]
+  )
+  const a1LessonCtaLayout = React.useMemo(
+    () => resolveMenuVariantCtaForLesson(selectedA1LessonId),
+    [resolveMenuVariantCtaForLesson, selectedA1LessonId]
+  )
+  const a2LessonCtaLayout = React.useMemo(
+    () => resolveMenuVariantCtaForLesson(selectedA2LessonId),
+    [resolveMenuVariantCtaForLesson, selectedA2LessonId]
+  )
 
   const theoryTagsAlphabetical = React.useMemo(
     () => [...getAllTheoryTagsForMenu()].sort((a, b) => a.menuLabelRu.localeCompare(b.menuLabelRu, 'ru')),
@@ -2092,22 +2121,29 @@ export default function MenuSectionPanels({
                 </div>
                 {theoryTopicLessonsFlat.length > 0 ? (
                   <div className={lessonMenuFooterRegionClass}>
-                    <button
-                      type="button"
-                      onClick={() => {
+                    <LessonMenuVariantDualCta
+                      layout={theoryTopicLessonCtaLayout}
+                      selectedLessonId={selectedTheoryTopicLessonId}
+                      generatingLessonId={generatingLessonId}
+                      canOpen={Boolean(onOpenLearningLesson && selectedTheoryTopicLessonId)}
+                      canGenerate={Boolean(
+                        onGenerateLearningLesson &&
+                          selectedTheoryTopicLessonId &&
+                          !generatingLessonId &&
+                          (() => {
+                            const m = selectedTheoryTopicLessonId
+                              ? getLessonTopicById(selectedTheoryTopicLessonId)
+                              : null
+                            return m?.level === 'A1' || m?.level === 'A2'
+                          })()
+                      )}
+                      onOpen={() => {
                         if (!onOpenLearningLesson || !selectedTheoryTopicLessonId) return
                         const topicMeta = getLessonTopicById(selectedTheoryTopicLessonId)
                         const panel: LessonsPanel = topicMeta?.level === 'A1' ? 'a1' : 'a2'
                         void onOpenLearningLesson(selectedTheoryTopicLessonId, panel, buildLearningLessonMeta())
                       }}
-                      disabled={!onOpenLearningLesson || !selectedTheoryTopicLessonId}
-                      className={MENU_PRIMARY_CTA_CLASS}
-                    >
-                      Начать урок
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
+                      onGenerate={async () => {
                         if (!onGenerateLearningLesson || !selectedTheoryTopicLessonId || generatingLessonId) return
                         const topicMeta = getLessonTopicById(selectedTheoryTopicLessonId)
                         if (topicMeta?.level !== 'A1' && topicMeta?.level !== 'A2') return
@@ -2124,26 +2160,8 @@ export default function MenuSectionPanels({
                           setGeneratingLessonId(null)
                         }
                       }}
-                      disabled={
-                        !onGenerateLearningLesson ||
-                        !selectedTheoryTopicLessonId ||
-                        Boolean(generatingLessonId) ||
-                        (() => {
-                          const m = selectedTheoryTopicLessonId
-                            ? getLessonTopicById(selectedTheoryTopicLessonId)
-                            : null
-                          return m?.level !== 'A1' && m?.level !== 'A2'
-                        })()
-                      }
-                      className={APP_BTN_SECONDARY_MENU}
-                      >
-                      {generatingLessonId === selectedTheoryTopicLessonId ? 'Генерируем урок...' : 'Сгенерировать урок'}
-                    </button>
-                    {generateLessonError && (
-                      <p className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
-                        {generateLessonError}
-                      </p>
-                    )}
+                      generateError={generateLessonError}
+                    />
                   </div>
                 ) : null}
               </div>
@@ -2181,20 +2199,17 @@ export default function MenuSectionPanels({
                   </div>
                 </div>
                 <div className={lessonMenuFooterRegionClass}>
-                  <button
-                    type="button"
-                    onClick={() => {
+                  <LessonMenuVariantDualCta
+                    layout={a1LessonCtaLayout}
+                    selectedLessonId={selectedA1LessonId}
+                    generatingLessonId={generatingLessonId}
+                    canOpen={Boolean(onOpenLearningLesson && selectedA1LessonId)}
+                    canGenerate={Boolean(onGenerateLearningLesson && selectedA1LessonId && !generatingLessonId)}
+                    onOpen={() => {
                       if (!onOpenLearningLesson || !selectedA1LessonId) return
                       void onOpenLearningLesson(selectedA1LessonId, 'a1', buildLearningLessonMeta())
                     }}
-                    disabled={!onOpenLearningLesson || !selectedA1LessonId}
-                    className={MENU_PRIMARY_CTA_CLASS}
-                  >
-                    Начать урок
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
+                    onGenerate={async () => {
                       if (!onGenerateLearningLesson || !selectedA1LessonId || generatingLessonId) return
                       setGenerateLessonError(null)
                       setGeneratingLessonId(selectedA1LessonId)
@@ -2208,16 +2223,8 @@ export default function MenuSectionPanels({
                         setGeneratingLessonId(null)
                       }
                     }}
-                    disabled={!onGenerateLearningLesson || !selectedA1LessonId || Boolean(generatingLessonId)}
-                    className={APP_BTN_SECONDARY_MENU}
-                  >
-                    {generatingLessonId === selectedA1LessonId ? 'Генерируем урок...' : 'Сгенерировать урок'}
-                  </button>
-                  {generateLessonError && (
-                    <p className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
-                      {generateLessonError}
-                    </p>
-                  )}
+                    generateError={generateLessonError}
+                  />
                 </div>
               </div>
             )}
@@ -2254,20 +2261,17 @@ export default function MenuSectionPanels({
                   </div>
                 </div>
                 <div className={lessonMenuFooterRegionClass}>
-                  <button
-                    type="button"
-                    onClick={() => {
+                  <LessonMenuVariantDualCta
+                    layout={a2LessonCtaLayout}
+                    selectedLessonId={selectedA2LessonId}
+                    generatingLessonId={generatingLessonId}
+                    canOpen={Boolean(onOpenLearningLesson && selectedA2LessonId)}
+                    canGenerate={Boolean(onGenerateLearningLesson && selectedA2LessonId && !generatingLessonId)}
+                    onOpen={() => {
                       if (!onOpenLearningLesson || !selectedA2LessonId) return
                       void onOpenLearningLesson(selectedA2LessonId, 'a2', buildLearningLessonMeta())
                     }}
-                    disabled={!onOpenLearningLesson || !selectedA2LessonId}
-                    className={MENU_PRIMARY_CTA_CLASS}
-                  >
-                    Начать урок
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
+                    onGenerate={async () => {
                       if (!onGenerateLearningLesson || !selectedA2LessonId || generatingLessonId) return
                       setGenerateLessonError(null)
                       setGeneratingLessonId(selectedA2LessonId)
@@ -2281,16 +2285,8 @@ export default function MenuSectionPanels({
                         setGeneratingLessonId(null)
                       }
                     }}
-                    disabled={!onGenerateLearningLesson || !selectedA2LessonId || Boolean(generatingLessonId)}
-                    className={APP_BTN_SECONDARY_MENU}
-                  >
-                    {generatingLessonId === selectedA2LessonId ? 'Генерируем урок...' : 'Сгенерировать урок'}
-                  </button>
-                  {generateLessonError && (
-                    <p className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
-                      {generateLessonError}
-                    </p>
-                  )}
+                    generateError={generateLessonError}
+                  />
                 </div>
               </div>
             )}

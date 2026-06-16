@@ -1,32 +1,41 @@
 'use client'
 
 import FlowInfoStep from '@/components/FlowInfoStep'
-import type { FooterCopyAudience } from '@/lib/footerTopLinePhrases'
-import type { LessonReturnBriefingCopy } from '@/lib/lessonReturnBriefingCopy'
+import type { LessonReturnBriefingActions, LessonReturnBriefingCopy } from '@/lib/lessonReturnBriefingCopy'
 
 type LessonReturnBriefingFlowInfoStepProps = {
   copy: LessonReturnBriefingCopy
-  audience: FooterCopyAudience
+  actions: LessonReturnBriefingActions
   onContinue: () => void
+  onGenerateVariant?: () => void
 }
 
 export default function LessonReturnBriefingFlowInfoStep({
   copy,
-  audience,
+  actions,
   onContinue,
+  onGenerateVariant,
 }: LessonReturnBriefingFlowInfoStepProps) {
   return (
     <FlowInfoStep
       variant={copy.variant}
-      icon={copy.icon}
-      iconBetweenCaption={copy.iconBetweenCaption}
       title={copy.title}
-      statsLine={copy.statsLine}
       message={copy.message}
       secondaryMessage={copy.secondaryMessage}
-      actionLabel={audience === 'child' ? 'Продолжить' : 'Продолжить'}
-      ariaLabel="Инструкция к уроку"
+      messageSpacing="section"
+      thesisMessage
+      compactActionsSpacing
+      dualActionsRow={actions.offerGenerateVariant}
+      actionLabel={actions.primaryLabel}
       onAction={onContinue}
+      secondaryActionLabel={
+        actions.offerGenerateVariant ? actions.secondaryLabel : undefined
+      }
+      onSecondaryAction={
+        actions.offerGenerateVariant && onGenerateVariant ? onGenerateVariant : undefined
+      }
+      prioritizeSecondaryAction={actions.offerGenerateVariant}
+      ariaLabel="Инструкция к уроку"
     />
   )
 }

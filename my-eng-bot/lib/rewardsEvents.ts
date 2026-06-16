@@ -8,6 +8,7 @@ export type RewardsEvent =
   | { type: 'communication_turn_completed' }
   | { type: 'engvo_turn_completed' }
   | { type: 'coins_spent'; amount: number; reason: string; ticker?: string }
+  | { type: 'coins_earned'; amount: number; reason: string; ticker?: string }
 
 export function applyRewardsEvent(state: RewardsState, event: RewardsEvent): RewardsState {
   switch (event.type) {
@@ -52,6 +53,23 @@ export function applyRewardsEvent(state: RewardsState, event: RewardsEvent): Rew
           ...(event.ticker ? { footerTicker: event.ticker } : {}),
           lastReward: {
             amount: 0,
+            reason: event.reason,
+            at: rewardAt,
+          },
+        },
+      }
+    }
+    case 'coins_earned': {
+      const amount = Math.max(0, Math.floor(event.amount))
+      if (amount <= 0) return state
+      const rewardAt = new Date().toISOString()
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          footerTicker: event.ticker ?? `+${amount} 🪙.`,
+          lastReward: {
+            amount,
             reason: event.reason,
             at: rewardAt,
           },

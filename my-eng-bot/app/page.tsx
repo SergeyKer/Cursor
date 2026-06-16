@@ -42,8 +42,12 @@ import {
   formatModeGoalFooter,
   type RewardsState,
   spendCoins,
+  awardCoins,
+  isLessonGoldCoinClaimed,
 } from '@/lib/rewardsState'
 import { applyRewardsEvent } from '@/lib/rewardsEvents'
+import { resolveLessonCoinAward, type LessonCoinAward } from '@/lib/coinAwards'
+import type { LessonCoinIntroContext } from '@/lib/lessonCoinIntroCopy'
 import { COIN_ERROR_FORGIVENESS_COST, canSpendCoinsForForgiveness } from '@/lib/lessonCoinForgiveness'
 import { getLessonCoinForgivenessCopy } from '@/lib/lessonCoinForgivenessCopy'
 import {
@@ -627,10 +631,8 @@ export default function Home() {
   const [structuredLessonLoadingId, setStructuredLessonLoadingId] = useState<string | null>(null)
   /** Ошибка фоновой генерации варианта урока (меню «Сгенерировать урок»); урок уже открыт со статическим клоном. */
   const [menuLessonBgError, setMenuLessonBgError] = useState<string | null>(null)
-  /** Фоновая генерация варианта structured-урока: кнопка «Начать урок» на intro/tips. */
+  /** Фоновая генерация варианта structured-урока на intro/tips. */
   const [structuredLessonVariantRegenerating, setStructuredLessonVariantRegenerating] = useState(false)
-  /** Урок открыт из меню «Сгенерировать урок» — подпись основной кнопки на intro/tips. */
-  const [startLessonCtaFromMenuGenerate, setStartLessonCtaFromMenuGenerate] = useState(false)
   const [pendingTutorLessonTitle, setPendingTutorLessonTitle] = useState<string | null>(null)
   const [activeLessonVariantNumber, setActiveLessonVariantNumber] = useState(1)
   const structuredLessonRunOriginRef = React.useRef<StructuredLessonRunOrigin>('menu_reopen')
@@ -849,7 +851,9 @@ export default function Home() {
   }, [activeStructuredLesson, activeLessonVariantNumber, isStructuredLessonRepeatRun])
   const processedLessonXpAwardNonceRef = React.useRef(0)
   const processedLessonXpAwardKeyRef = React.useRef<string | null>(null)
+  const processedLessonCoinAwardKeyRef = React.useRef<string | null>(null)
   const globalLessonXpAwardedThisRunRef = React.useRef(0)
+  const [lessonFinaleCoinAward, setLessonFinaleCoinAward] = React.useState<LessonCoinAward | null>(null)
   const rewardPopupSeenRef = React.useRef<string | null>(null)
   const footerContextSignatureRef = React.useRef<string | null>(null)
   const footerTransitionTimeoutRef = React.useRef<number | null>(null)
@@ -2660,7 +2664,6 @@ export default function Home() {
     setLessonIntroDepth('quick')
     setLessonExtraTipsStatus('idle')
     setLessonExtraTipsState(null)
-    setStartLessonCtaFromMenuGenerate(false)
     lessonFirstAnswerTrackedRef.current = false
     lessonCycle1ActiveSessionRef.current = false
   }, [abandonPracticeSession])
@@ -2951,7 +2954,6 @@ export default function Home() {
       menuLessonGenerateCleanupRef.current?.()
       menuLessonBgFetchEpochRef.current += 1
       setStructuredLessonVariantRegenerating(false)
-      setStartLessonCtaFromMenuGenerate(false)
       abandonPracticeSession()
       const requestId = ++lessonOpenRequestIdRef.current
       const structuredLesson = getStructuredLessonById(lessonId)
@@ -3080,7 +3082,6 @@ export default function Home() {
       }
 
       lessonMenuLaunchSurfaceRef.current = menuOpen ? 'slide' : 'home'
-      setStartLessonCtaFromMenuGenerate(true)
       menuLessonGenerateCleanupRef.current?.()
 
       abandonPracticeSession()
@@ -3195,7 +3196,7 @@ export default function Home() {
           if (error instanceof Error && error.name === 'AbortError') {
             if (!timedOutRef.current) return
             setMenuLessonBgError(
-              'Генерация нового варианта заняла слишком много времени. Урок уже открыт — позже можно снова нажать «Сгенерировать урок».'
+              'Подготовка нового варианта заняла слишком много времени. Урок уже открыт — позже можно снова нажать «Новый вариант».'
             )
             return
           }
@@ -3254,7 +3255,6 @@ export default function Home() {
       menuLessonGenerateCleanupRef.current?.()
       menuLessonBgFetchEpochRef.current += 1
       setStructuredLessonVariantRegenerating(false)
-      setStartLessonCtaFromMenuGenerate(false)
       abandonPracticeSession()
       let lesson: LessonBlueprint | null = null
       firstMessageRequestIdRef.current += 1
@@ -4411,6 +4411,57 @@ export default function Home() {
   ])
 
   useEffect(() => {
+    if (!storageLoaded || !activeStructuredLesson) {
+      processedLessonCoinAwardKeyRef.current = null
+      setLessonFinaleCoinAward(null)
+      return
+    }
+    if (activeStructuredLessonStatus !== 'completed') {
+      setLessonFinaleCoinAward(null)
+      return
+    }
+
+    const lessonId = activeStructuredLesson.id
+    const runKey = `${lessonId}:${activeStructuredLesson.runKey ?? 'static'}`
+    if (processedLessonCoinAwardKeyRef.current === runKey) return
+    processedLessonCoinAwardKeyRef.current = runKey
+
+    const coreMedal = resolveMedalFromCoreXp(
+      activeStructuredLessonCoreXp,
+      true,
+      activeStructuredLessonMaxCoreXp
+    )
+
+    let displayAward: LessonCoinAward = { amount: 0, reason: 'lesson_not_gold' }
+    setRewardsState((prev) => {
+      const resolved = resolveLessonCoinAward({
+        lessonId,
+        coreMedal,
+        lessonGoldClaimed: prev.coinLedger?.lessonGoldClaimed ?? {},
+      })
+      displayAward = resolved
+      if (resolved.amount <= 0) return prev
+
+      const awarded = awardCoins(prev, resolved.amount, { lessonIdForLedger: lessonId })
+      if (!awarded.ok) return prev
+
+      return applyRewardsEvent(awarded.state, {
+        type: 'coins_earned',
+        amount: resolved.amount,
+        reason: 'lesson_gold',
+        ticker: 'Золотая медаль. +1 🪙.',
+      })
+    })
+    setLessonFinaleCoinAward(displayAward)
+  }, [
+    storageLoaded,
+    activeStructuredLesson,
+    activeStructuredLessonStatus,
+    activeStructuredLessonCoreXp,
+    activeStructuredLessonMaxCoreXp,
+  ])
+
+  useEffect(() => {
     if (!storageLoaded || !practiceSession.session || practiceSession.session.status !== 'completed') return
     const practiceRewardKey = practiceSession.session.id
     if (rewardedPracticeSessionRef.current === practiceRewardKey) return
@@ -5117,6 +5168,29 @@ export default function Home() {
 
   const activeLessonTitle = activeLearningLesson?.title ?? null
 
+  const lessonCoinIntroContext = React.useMemo((): LessonCoinIntroContext | null => {
+    if (!activeStructuredLesson) return null
+    const progress = loadLessonProgress(activeStructuredLesson.id)
+    const origin = structuredLessonRunOriginRef.current
+    return {
+      audience: settings.audience,
+      lessonCoinClaimed: isLessonGoldCoinClaimed(rewardsState, activeStructuredLesson.id),
+      isGeneratedVariantRun:
+        activeLessonVariantNumber > 1 ||
+        origin === 'post_lesson_repeat' ||
+        origin === 'repeat_api' ||
+        origin === 'menu_generate',
+      profileMedal: progress?.medal ?? null,
+      runMedalCapSilver: structuredLessonSilverCap,
+    }
+  }, [
+    activeStructuredLesson,
+    activeLessonVariantNumber,
+    rewardsState.coinLedger,
+    settings.audience,
+    structuredLessonSilverCap,
+  ])
+
   const lessonReturnBriefing = React.useMemo((): LessonReturnBriefingPayload | null => {
     if (!storageLoaded || lessonViewStage !== 'lesson' || !activeStructuredLesson) return null
     const runKey = `${activeStructuredLesson.id}:${activeStructuredLesson.runKey ?? 'static'}`
@@ -5157,6 +5231,7 @@ export default function Home() {
           isRepeatRun: isStructuredLessonRepeatRun,
         }),
         origin,
+        coinIntroContext: lessonCoinIntroContext,
       })
     }
 
@@ -5171,6 +5246,7 @@ export default function Home() {
     settings.audience,
     lessonReturnBriefingAckRunKey,
     activeLessonTitle,
+    lessonCoinIntroContext,
   ])
 
   const acknowledgeLessonReturnBriefing = React.useCallback(() => {
@@ -5178,6 +5254,33 @@ export default function Home() {
     const runKey = `${activeStructuredLesson.id}:${activeStructuredLesson.runKey ?? 'static'}`
     setLessonReturnBriefingAckRunKey(runKey)
   }, [activeStructuredLesson])
+
+  const buildActiveLearningLessonMenuMeta = React.useCallback((): LearningLessonMenuMeta | undefined => {
+    if (!lessonMenuContext) return undefined
+    return {
+      activeGrammarCategoryId: lessonMenuContext.activeGrammarCategoryId,
+      activeTheoryTagId: lessonMenuContext.activeTheoryTagId,
+      theorySearchQuery: lessonMenuContext.theorySearchQuery,
+      activeTheoryTagIds: lessonMenuContext.activeTheoryTagIds,
+      theoryLessonSource: lessonMenuContext.theoryLessonSource,
+      theoryTagBrowseLevel: lessonMenuContext.theoryTagBrowseLevel,
+    }
+  }, [lessonMenuContext])
+
+  const handleGenerateFromReturnBriefing = React.useCallback(() => {
+    if (!activeLearningLessonId) return
+    const panel = lessonMenuContext?.lessonsPanel === 'a1' ? 'a1' : 'a2'
+    void openGeneratedLearningLesson(
+      activeLearningLessonId,
+      panel,
+      buildActiveLearningLessonMenuMeta()
+    )
+  }, [
+    activeLearningLessonId,
+    lessonMenuContext?.lessonsPanel,
+    openGeneratedLearningLesson,
+    buildActiveLearningLessonMenuMeta,
+  ])
 
   const activeLessonTipsKey = activeLearningLessonId
     ? `${activeLearningLessonId}:${activeStructuredLesson?.runKey ?? activeStructuredLesson?.variantId ?? activeLessonVariantNumber}`
@@ -6664,14 +6767,13 @@ export default function Home() {
                   }}
                   onBack={backToLessonList}
                   footerVariantRegenerating={structuredLessonVariantRegenerating}
-                  startLessonCtaFromMenuGenerate={startLessonCtaFromMenuGenerate}
+                  lessonCoinIntroContext={lessonCoinIntroContext}
                 />
               ) : isLessonTipsActive && activeLessonIntro ? (
                 <LessonExtraTipsScreen
                   lessonKey={activeLessonTipsKey}
                   intro={activeLessonIntro}
                   footerVariantRegenerating={structuredLessonVariantRegenerating}
-                  startLessonCtaFromMenuGenerate={startLessonCtaFromMenuGenerate}
                   intent={activeTutorIntent}
                   provider={settings.provider}
                   openAiChatPreset={settings.openAiChatPreset}
@@ -6746,6 +6848,7 @@ export default function Home() {
                           profileMedal: structuredLessonFinaleContext?.profileMedal ?? null,
                           firstTryCount: activeStructuredLessonFirstTryCount,
                           totalScoredUnits: activeStructuredLessonTotalScoredUnits,
+                          coinAward: lessonFinaleCoinAward,
                         }
                       : null
                   }
@@ -6760,6 +6863,7 @@ export default function Home() {
                   choiceShuffleSeed={structuredLessonChoiceShuffleSeed}
                   returnBriefing={lessonReturnBriefing}
                   onAcknowledgeReturnBriefing={acknowledgeLessonReturnBriefing}
+                  onGenerateVariantFromReturnBriefing={handleGenerateFromReturnBriefing}
                   onPuzzleProgressChange={handleStructuredLessonPuzzleProgressChange}
                   puzzleSubIndex={activeStructuredLessonPuzzleProgress?.subIndex}
                   puzzleSubAdvanceToken={activeStructuredLessonPuzzleSubAdvanceToken}

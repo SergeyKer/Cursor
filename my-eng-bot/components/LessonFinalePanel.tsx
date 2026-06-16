@@ -8,6 +8,7 @@ import {
   buildFinaleOptionHints,
   buildLessonMedalRevealCopy,
 } from '@/lib/lessonMedalRevealCopy'
+import type { LessonCoinAward } from '@/lib/coinAwards'
 import type { LessonMedalTierOrNull } from '@/lib/lessonScore'
 import type { PostLessonAction, PostLessonOption } from '@/types/lesson'
 
@@ -22,6 +23,7 @@ type LessonFinalePanelProps = {
   profileMedal?: LessonMedalTierOrNull
   firstTryCount?: number
   totalScoredUnits?: number
+  coinAward?: LessonCoinAward | null
   options: PostLessonOption[]
   onSelect: (action: PostLessonAction) => void
   onBackToLessonList?: () => void
@@ -43,6 +45,7 @@ export default function LessonFinalePanel({
   profileMedal = null,
   firstTryCount = 0,
   totalScoredUnits = 0,
+  coinAward = null,
   options,
   onSelect,
   onBackToLessonList,
@@ -63,6 +66,7 @@ export default function LessonFinalePanel({
     profileMedal,
     firstTryCount,
     totalScoredUnits,
+    coinAward,
   })
   const optionHints = buildFinaleOptionHints({
     runMedal: medal,
@@ -99,6 +103,7 @@ export default function LessonFinalePanel({
           statsLine={copy.statsLine}
           firstTryLine={copy.firstTryLine ?? undefined}
           message={copy.message}
+          coinLine={copy.coinLine ?? undefined}
           profileLine={copy.profileLine ?? undefined}
           secondaryMessage={copy.goalLine ?? undefined}
         />

@@ -7,6 +7,7 @@ import { resyncIosWebKitDialogComposerStackHeight } from '@/hooks/useDialogCompo
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
 import { isIosWebKitBrowser } from '@/lib/iosSafariViewport'
 import { estimateIntroComposerMinHeight, LESSON_INTRO_SCROLL_CLASS } from '@/lib/lessonComposerLayout'
+import { resolveLessonIntroPrimaryCtaLabel } from '@/lib/lessonIntroCtaCopy'
 import { APP_BTN_PRIMARY_LESSON_START } from '@/lib/homeCtaStyles'
 import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
 import type { LessonCatalogLevel } from '@/lib/lessonCatalog'
@@ -47,10 +48,8 @@ export type LessonExtraTipsSavedState = {
 type LessonExtraTipsScreenProps = {
   lessonKey: string
   intro: LessonIntro
-  /** Фоновая подмена варианта structured-урока: блокируем «Начать урок» до ответа ИИ. */
+  /** Фоновая подмена варианта structured-урока: блокируем CTA до готовности. */
   footerVariantRegenerating?: boolean
-  /** Вход через меню «Сгенерировать урок» — подпись синей кнопки. */
-  startLessonCtaFromMenuGenerate?: boolean
   intent?: TutorLearningIntent | null
   provider: AiProvider
   openAiChatPreset?: OpenAiChatPreset
@@ -145,7 +144,6 @@ export default function LessonExtraTipsScreen({
   lessonKey,
   intro,
   footerVariantRegenerating = false,
-  startLessonCtaFromMenuGenerate = false,
   intent,
   provider,
   openAiChatPreset,
@@ -158,6 +156,11 @@ export default function LessonExtraTipsScreen({
   onBack,
   onStartLesson,
 }: LessonExtraTipsScreenProps) {
+  const tipsPrimaryCtaLabel = resolveLessonIntroPrimaryCtaLabel({
+    loadingLesson: false,
+    footerVariantRegenerating,
+  })
+
   const fallbackTips = useMemo(
     () => buildFallbackLessonExtraTips(intro, intent, lessonCefrLevel),
     [intent, intro, lessonCefrLevel]
@@ -818,11 +821,7 @@ export default function LessonExtraTipsScreen({
                   disabled={loadingMore || footerVariantRegenerating}
                   className={APP_BTN_PRIMARY_LESSON_START}
                 >
-                  {footerVariantRegenerating
-                    ? 'Генерируется новый вариант...'
-                    : startLessonCtaFromMenuGenerate
-                      ? 'Сгенерированный урок'
-                      : 'Начать урок'}
+                  {tipsPrimaryCtaLabel}
                 </button>
               </div>
             </DialogComposerStack>

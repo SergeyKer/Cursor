@@ -17,6 +17,9 @@ import { APP_BTN_PRIMARY_LESSON_START, BTN_INTERACTION_BASE } from '@/lib/homeCt
 import { LESSON_SCROLL_VIEWPORT_CLASS, scheduleScrollAfterLayout } from '@/lib/lessonFeedScroll'
 import { LESSON_SECTION_REVEAL_INTERVAL_MS } from '@/lib/lessonRevealTiming'
 import { getMenuTopicCopyByIntroTopic } from '@/lib/lessonCatalog'
+import { buildLessonCoinIntroBubble, type LessonCoinIntroContext } from '@/lib/lessonCoinIntroCopy'
+import { resolveLessonIntroPrimaryCtaLabel } from '@/lib/lessonIntroCtaCopy'
+import { LESSON_VARIANT_PREPARE_LOADING_LABEL } from '@/lib/lessonVariantCtaCopy'
 import type { AiProvider, Audience, OpenAiChatPreset } from '@/lib/types'
 import type { Bubble, LessonIntro } from '@/types/lesson'
 
@@ -26,10 +29,8 @@ type LessonIntroScreenProps = {
   intro: LessonIntro
   depth: LessonIntroDepth
   loadingLesson?: boolean
-  /** Фоновая подмена варианта урока от ИИ (меню «Сгенерировать урок»): кнопка «Начать урок» показывает прогресс. */
+  /** Фоновая подмена варианта урока: кнопка показывает прогресс подготовки. */
   footerVariantRegenerating?: boolean
-  /** Вход в урок через меню «Сгенерировать урок» — на кнопке показываем «Сгенерированный урок». */
-  startLessonCtaFromMenuGenerate?: boolean
   provider: AiProvider
   openAiChatPreset?: OpenAiChatPreset
   audience: Audience
@@ -38,6 +39,7 @@ type LessonIntroScreenProps = {
   onStartLesson: () => void
   onShowExtras: () => void
   onBack: () => void
+  lessonCoinIntroContext?: LessonCoinIntroContext | null
 }
 
 type IntroMessage = {
@@ -55,7 +57,7 @@ type IntroUserMessage = {
 type IntroChatMessage = IntroMessage | IntroUserMessage
 
 const INTRO_FOLLOWUP_DELAY_MS = 520
-const MAIN_INTRO_SECTION_COUNT = 4
+const MAIN_INTRO_BASE_SECTION_COUNT = 4
 const FOLLOWUP_SECTION_COUNT = 3
 const INTRO_CHAT_ANCHOR_OFFSET_PX = -4
 
@@ -247,7 +249,6 @@ export default function LessonIntroScreen({
   depth,
   loadingLesson = false,
   footerVariantRegenerating = false,
-  startLessonCtaFromMenuGenerate = false,
   provider,
   openAiChatPreset,
   audience,
@@ -256,6 +257,7 @@ export default function LessonIntroScreen({
   onStartLesson,
   onShowExtras,
   onBack,
+  lessonCoinIntroContext = null,
 }: LessonIntroScreenProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const composerStackRef = useRef<HTMLDivElement>(null)
@@ -269,8 +271,22 @@ export default function LessonIntroScreen({
   const [extraDeepDives, setExtraDeepDives] = useState<Bubble[][]>([])
   const [extraDeepDiveLoading, setExtraDeepDiveLoading] = useState(false)
   const [extraDeepDiveError, setExtraDeepDiveError] = useState<string | null>(null)
+  const introPrimaryCtaLabel = resolveLessonIntroPrimaryCtaLabel({
+    loadingLesson,
+    footerVariantRegenerating,
+  })
+
+  const mainIntroBubbles = useMemo(
+    () => buildMainIntroBubbles(intro, audience),
+    [audience, intro]
+  )
+  const coinIntroBubble = useMemo(
+    () =>
+      lessonCoinIntroContext ? buildLessonCoinIntroBubble(lessonCoinIntroContext) : null,
+    [lessonCoinIntroContext]
+  )
   const staggeredRevealTargets = useMemo(() => {
-    const targets = [{ id: 'intro-main', sectionCount: MAIN_INTRO_SECTION_COUNT }]
+    const targets = [{ id: 'intro-main', sectionCount: MAIN_INTRO_BASE_SECTION_COUNT }]
     if (depth === 'details' || depth === 'deep') {
       targets.push({ id: 'details', sectionCount: FOLLOWUP_SECTION_COUNT })
     }
@@ -294,8 +310,15 @@ export default function LessonIntroScreen({
     next.push({
       id: 'intro-main',
       role: 'assistant',
-      bubbles: buildMainIntroBubbles(intro, audience),
+      bubbles: mainIntroBubbles,
     })
+    if (coinIntroBubble) {
+      next.push({
+        id: 'intro-coin',
+        role: 'assistant',
+        bubbles: [coinIntroBubble],
+      })
+    }
     const details = buildDetailsBubbles(intro)
     const shouldShowDetailsRequest = pendingDepth === 'details' || pendingDepth === 'deep' || depth === 'details' || depth === 'deep'
     const shouldShowDetailsAnswer = depth === 'details' || depth === 'deep'
@@ -320,7 +343,7 @@ export default function LessonIntroScreen({
       })
     }
     return next
-  }, [audience, depth, extraDeepDives, intro, pendingDepth])
+  }, [audience, coinIntroBubble, depth, extraDeepDives, intro, mainIntroBubbles, pendingDepth])
 
   useEffect(() => {
     return () => {
@@ -556,17 +579,9 @@ export default function LessonIntroScreen({
                   >
                     <span className="inline-grid justify-items-center whitespace-nowrap">
                       <span className="invisible col-start-1 row-start-1" aria-hidden>
-                        Генерируется новый вариант...
+                        {LESSON_VARIANT_PREPARE_LOADING_LABEL}
                       </span>
-                      <span className="col-start-1 row-start-1">
-                        {loadingLesson
-                          ? 'Готовлю урок...'
-                          : footerVariantRegenerating
-                            ? 'Генерируется новый вариант...'
-                            : startLessonCtaFromMenuGenerate
-                              ? 'Сгенерированный урок'
-                              : 'Начать урок'}
-                      </span>
+                      <span className="col-start-1 row-start-1">{introPrimaryCtaLabel}</span>
                     </span>
                   </IntroChip>
                 </div>

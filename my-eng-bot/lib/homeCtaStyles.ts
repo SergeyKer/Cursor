@@ -16,6 +16,8 @@ export const BTN_FONT_LARGE = `text-base font-medium leading-snug antialiased ${
 export const BTN_FONT_INLINE = `text-sm font-medium leading-snug antialiased ${BTN_FONT_FAMILY}`
 export const BTN_FONT_COMPACT = `text-[11px] font-medium leading-snug antialiased sm:text-xs ${BTN_FONT_FAMILY}`
 export const BTN_FONT_SMALL = `text-[13px] font-medium leading-snug antialiased ${BTN_FONT_FAMILY}`
+/** Briefing: две строки в узкой кнопке — как меню по кеглю и плотности строк. */
+export const BTN_FONT_DUAL_ROW = `text-[15px] font-medium leading-snug antialiased ${BTN_FONT_FAMILY}`
 
 export const BLUE_PRIMARY_SKIN =
   'border border-[#2563eb] bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] text-white hover:brightness-105 active:brightness-95'
@@ -65,6 +67,32 @@ export const APP_BTN_SECONDARY_MENU = [
   BLUE_SECONDARY_SKIN,
   'flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 py-2.5',
   BTN_FONT_MENU,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
+/** Меню: зафризенный «Новый вариант» — светло-синий, без сильного «серого» disabled. */
+export const APP_BTN_SECONDARY_MENU_FROZEN = [
+  BTN_INTERACTION_BASE,
+  BLUE_SECONDARY_SKIN,
+  'flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 py-2.5',
+  BTN_FONT_MENU,
+  'disabled:cursor-not-allowed disabled:opacity-90 disabled:hover:brightness-100 disabled:active:brightness-100',
+].join(' ')
+
+/** Briefing: две CTA в ряд, текст в две строки. */
+export const APP_BTN_PRIMARY_DUAL_ROW = [
+  BTN_INTERACTION_BASE,
+  BLUE_PRIMARY_SKIN,
+  'flex flex-1 min-w-0 min-h-[46px] items-center justify-center rounded-xl px-3 py-1.5 text-center whitespace-pre-line',
+  BTN_FONT_DUAL_ROW,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
+export const APP_BTN_SECONDARY_DUAL_ROW = [
+  BTN_INTERACTION_BASE,
+  BLUE_SECONDARY_SKIN,
+  'flex flex-1 min-w-0 min-h-[46px] items-center justify-center rounded-xl px-3 py-1.5 text-center whitespace-pre-line',
+  BTN_FONT_DUAL_ROW,
   BTN_DISABLED_CLASS,
 ].join(' ')
 

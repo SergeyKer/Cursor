@@ -1,4 +1,6 @@
 import type { FooterCopyAudience } from '@/lib/footerTopLinePhrases'
+import type { LessonCoinAward } from '@/lib/coinAwards'
+import { formatLessonCoinAwardLine } from '@/lib/lessonCoinAwardCopy'
 import {
   buildFinaleOptionHints as buildFinaleOptionHintsFromCta,
   resolveFinalePrimaryAction as resolveFinalePrimaryActionFromCta,
@@ -27,6 +29,7 @@ export type LessonMedalRevealCopyInput = {
   profileMedal?: LessonMedalTierOrNull
   firstTryCount?: number
   totalScoredUnits?: number
+  coinAward?: LessonCoinAward | null
 }
 
 export type LessonMedalRevealCopy = {
@@ -38,6 +41,7 @@ export type LessonMedalRevealCopy = {
   message: string
   profileLine: string | null
   goalLine: string | null
+  coinLine: string | null
   /** @deprecated use goalLine */
   cupLine: string | null
 }
@@ -116,6 +120,9 @@ export function buildLessonMedalRevealCopy(input: LessonMedalRevealCopyInput): L
   const title = medal ? MEDAL_TITLE[medal] : 'Урок пройден!'
   const icon = medal ? MEDAL_TIER_EMOJI[medal] : '○'
   const goalLine = formatLessonFinaleGoalLine({ profileMedal, runMedal: medal, audience })
+  const coinLine = input.coinAward
+    ? formatLessonCoinAwardLine({ coinAward: input.coinAward, audience })
+    : null
 
   return {
     variant: resolveMedalRevealVariant(medal),
@@ -138,6 +145,7 @@ export function buildLessonMedalRevealCopy(input: LessonMedalRevealCopyInput): L
     }),
     profileLine: formatLessonProfileLine({ profileMedal, runMedal: medal, audience }),
     goalLine,
+    coinLine,
     cupLine: goalLine,
   }
 }

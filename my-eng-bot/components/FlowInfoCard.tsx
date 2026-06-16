@@ -15,9 +15,14 @@ export type FlowInfoCardProps = {
   firstTryLine?: string
   message?: string
   profileLine?: string
+  coinLine?: string
   secondaryMessage?: string
   /** Иконка сразу после title в одной строке (экономит высоту). */
   iconAfterTitle?: boolean
+  /** Отступ между заголовком и message: section — как оглавление. */
+  messageSpacing?: 'tight' | 'default' | 'section'
+  /** Каждая строка message — отдельный тезис с небольшим интервалом. */
+  thesisMessage?: boolean
   className?: string
 }
 
@@ -79,6 +84,12 @@ const BRAND_LINE_TEXT_CLASS =
 const BRAND_LINE_ICON_CLASS =
   'emoji-glyph inline-flex h-[1.35em] w-[1.35em] shrink-0 items-center justify-center self-center text-[1.35em] leading-none'
 
+const MESSAGE_TOP_SPACING_CLASS = {
+  tight: 'mt-0',
+  default: 'mt-1',
+  section: 'mt-1.5',
+} as const
+
 export default function FlowInfoCard({
   variant = 'neutral',
   icon,
@@ -89,17 +100,22 @@ export default function FlowInfoCard({
   firstTryLine,
   message,
   profileLine,
+  coinLine,
   secondaryMessage,
   iconAfterTitle = false,
+  messageSpacing = 'default',
+  thesisMessage = false,
   className = '',
 }: FlowInfoCardProps) {
   const isMedal = MEDAL_VARIANTS.has(variant)
+  const isSectionLayout = messageSpacing === 'section'
+  const infoSurfacePadding = isSectionLayout ? 'px-4 pt-2.5 pb-3' : 'px-4 py-3'
   const showMedalIconAbove = isMedal && Boolean(icon)
   const showIconAbove = Boolean(icon) && !iconAfterTitle && !showMedalIconAbove
 
   return (
     <section
-      className={`text-center ${isMedal ? 'px-4' : 'rounded-2xl px-4 py-3'} ${SURFACE_CLASS[variant]} ${className}`.trim()}
+      className={`text-center ${isMedal ? 'px-4' : `rounded-2xl ${infoSurfacePadding}`} ${SURFACE_CLASS[variant]} ${className}`.trim()}
     >
       {showMedalIconAbove ? (
         <div className="medal-reward-card__icon emoji-glyph" aria-hidden>
@@ -146,7 +162,26 @@ export default function FlowInfoCard({
         <p className={`mt-1 text-sm font-medium ${MESSAGE_CLASS[variant]}`}>{firstTryLine}</p>
       ) : null}
       {message ? (
-        <p className={`mt-1 text-sm font-medium ${MESSAGE_CLASS[variant]}`}>{message}</p>
+        thesisMessage ? (
+          <div
+            className={`${MESSAGE_TOP_SPACING_CLASS[messageSpacing]} flex flex-col gap-1.5 text-sm font-medium ${MESSAGE_CLASS[variant]}`}
+          >
+            {message.split('\n').map((line, index) => (
+              <p key={`${index}-${line}`} className="m-0 leading-snug">
+                {line}
+              </p>
+            ))}
+          </div>
+        ) : (
+          <p
+            className={`${MESSAGE_TOP_SPACING_CLASS[messageSpacing]} whitespace-pre-line text-sm font-medium ${MESSAGE_CLASS[variant]}`}
+          >
+            {message}
+          </p>
+        )
+      ) : null}
+      {coinLine ? (
+        <p className={`mt-1 text-sm font-semibold ${MESSAGE_CLASS[variant]}`}>{coinLine}</p>
       ) : null}
       {profileLine ? (
         <p className={`mt-1 text-sm ${SECONDARY_MESSAGE_CLASS[variant]}`}>{profileLine}</p>

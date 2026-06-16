@@ -89,6 +89,7 @@ import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import type { LessonReturnBriefingPayload } from '@/lib/lessonReturnBriefingCopy'
 import LessonCoinForgivenessBubbleButton from '@/components/LessonCoinForgivenessBubbleButton'
 import LessonCoinForgivenessComposerConfirm from '@/components/LessonCoinForgivenessComposerConfirm'
+import type { LessonCoinAward } from '@/lib/coinAwards'
 import { COIN_ERROR_FORGIVENESS_COST, resolveCoinForgivenessBubbleMode } from '@/lib/lessonCoinForgiveness'
 import { getLessonCoinForgivenessCopy } from '@/lib/lessonCoinForgivenessCopy'
 import type { LessonAnswerOptions } from '@/hooks/useLessonEngine'
@@ -137,6 +138,7 @@ type LessonStepRendererProps = {
     profileMedal?: LessonMedalTierOrNull
     firstTryCount?: number
     totalScoredUnits?: number
+    coinAward?: LessonCoinAward | null
   } | null
   postLessonMenuResetKey?: number
   onPostLessonAction?: (action: PostLessonAction) => void
@@ -150,6 +152,7 @@ type LessonStepRendererProps = {
   choiceShuffleSeed?: string
   returnBriefing?: LessonReturnBriefingPayload | null
   onAcknowledgeReturnBriefing?: () => void
+  onGenerateVariantFromReturnBriefing?: () => void
   lessonRevealSessionId?: string
   isAdvancingToNextStep?: boolean
   isAdvancingToNextVariant?: boolean
@@ -272,6 +275,7 @@ export default function LessonStepRenderer({
   choiceShuffleSeed,
   returnBriefing = null,
   onAcknowledgeReturnBriefing,
+  onGenerateVariantFromReturnBriefing,
   lessonRevealSessionId = 'static',
   isAdvancingToNextStep = false,
   isAdvancingToNextVariant = false,
@@ -1232,7 +1236,8 @@ export default function LessonStepRenderer({
   const briefingComposerMinHeightEstimate = returnBriefingActive
     ? estimateLessonComposerMinHeight({
         panelKind: 'briefing',
-        compact: true,
+        compact: false,
+        briefingDualCta: returnBriefing?.actions.offerGenerateVariant === true,
       })
     : undefined
   const choiceComposerMinHeightEstimate =
@@ -1547,8 +1552,9 @@ export default function LessonStepRenderer({
                 {returnBriefingActive && returnBriefing ? (
                   <LessonReturnBriefingFlowInfoStep
                     copy={returnBriefing.copy}
-                    audience={audience}
+                    actions={returnBriefing.actions}
                     onContinue={() => onAcknowledgeReturnBriefing?.()}
+                    onGenerateVariant={onGenerateVariantFromReturnBriefing}
                   />
                 ) : showLessonFinale && lessonMedalReveal ? (
                   <LessonFinalePanel
@@ -1561,6 +1567,7 @@ export default function LessonStepRenderer({
                     profileMedal={lessonMedalReveal.profileMedal}
                     firstTryCount={lessonMedalReveal.firstTryCount}
                     totalScoredUnits={lessonMedalReveal.totalScoredUnits}
+                    coinAward={lessonMedalReveal.coinAward}
                     audience={audience}
                     options={postLesson?.options ?? []}
                     onSelect={(action) => onPostLessonAction?.(action)}

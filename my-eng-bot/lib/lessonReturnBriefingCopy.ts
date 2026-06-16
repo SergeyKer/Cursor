@@ -2,58 +2,38 @@ import type { FlowInfoCardVariant } from '@/lib/lessonMedalRevealCopy'
 import type { FooterCopyAudience } from '@/lib/footerTopLinePhrases'
 import type { LessonMedalTier } from '@/lib/lessonScore'
 import type { Bubble } from '@/types/lesson'
-import {
-  buildLessonReturnHint,
-  type LessonReturnHintContext,
-} from '@/lib/lessonReturnHint'
+import type { LessonReturnHintContext } from '@/lib/lessonReturnHint'
 import { buildLessonCycle1Hint } from '@/lib/lessonCycle1Hint'
+import type { LessonCoinIntroContext } from '@/lib/lessonCoinIntroCopy'
+import {
+  buildLessonRepeatBriefingThesisLines,
+  shouldOfferGenerateVariantOnReturnBriefing,
+} from '@/lib/lessonRepeatBriefingThesisCopy'
+import { resolveLessonVariantDualCtaLabels } from '@/lib/lessonVariantCtaCopy'
 import type { StructuredLessonRunOrigin } from '@/lib/lessonAntiFarm'
 
 export type LessonReturnBriefingKind = 'medal_repeat' | 'cycle1'
 
 export type LessonReturnBriefingCopy = {
   variant: FlowInfoCardVariant
-  icon: string
-  iconBetweenCaption?: { before: string; after: string }
   title: string
   statsLine: string
   message: string
   secondaryMessage?: string
 }
 
+export type LessonReturnBriefingActions = {
+  offerGenerateVariant: boolean
+  primaryLabel: string
+  secondaryLabel?: string
+}
+
 export type LessonReturnBriefingPayload = {
   runKey: string
   kind: LessonReturnBriefingKind
   copy: LessonReturnBriefingCopy
+  actions: LessonReturnBriefingActions
   bubbles: Bubble[]
-}
-
-const MEDAL_ICON: Record<LessonMedalTier, string> = {
-  gold: '🥇',
-  silver: '🥈',
-  bronze: '🥉',
-}
-
-function formatBestTotalXp(bestTotalXp: number): string {
-  return String(Math.max(0, Math.floor(bestTotalXp)))
-}
-
-function resolveRepeatStatsLine(params: {
-  lessonTitle: string
-  bestTotalXp: number
-  context: LessonReturnHintContext
-  audience: FooterCopyAudience
-}): string {
-  const title = params.lessonTitle.trim() || 'Урок'
-  const recordXp = formatBestTotalXp(params.bestTotalXp)
-  if (params.context === 'post_lesson_repeat') {
-    return params.audience === 'child'
-      ? `${title} · повтор · рекорд ${recordXp} XP`
-      : `${title} · повтор · рекорд ${recordXp} XP`
-  }
-  return params.audience === 'child'
-    ? `${title} · рекорд ${recordXp} XP`
-    : `${title} · рекорд ${recordXp} XP`
 }
 
 export function buildLessonReturnBriefingBubbles(params: {
@@ -74,26 +54,23 @@ export function buildLessonReturnBriefingCopy(params: {
   bestTotalXp: number
   cycle1Closed?: boolean
   silverCapThisRun?: boolean
+  coinIntroContext?: LessonCoinIntroContext | null
 }): LessonReturnBriefingCopy {
-  const fullText = buildLessonReturnHint(params)
-  const lines = fullText.split('\n')
-  const medalLine = lines[0] ?? ''
-  const xpLine = lines[1] ?? ''
-  const capLine = lines[2]
+  const coinContext = params.coinIntroContext
+  const isGeneratedVariantRun = coinContext?.isGeneratedVariantRun ?? false
 
   return {
     variant: 'info',
-    icon: MEDAL_ICON[params.medal],
-    iconBetweenCaption: { before: 'Engvo AI', after: 'English Voice' },
     title: params.audience === 'child' ? 'Коротко о правилах' : 'Как устроен урок',
-    statsLine: resolveRepeatStatsLine({
-      lessonTitle: params.lessonTitle,
-      bestTotalXp: params.bestTotalXp,
-      context: params.context,
+    statsLine: '',
+    message: buildLessonRepeatBriefingThesisLines({
       audience: params.audience,
-    }),
-    message: [medalLine, xpLine].filter(Boolean).join('\n'),
-    secondaryMessage: capLine || undefined,
+      lessonCoinClaimed: coinContext?.lessonCoinClaimed ?? false,
+      isGeneratedVariantRun,
+      silverCapThisRun: params.silverCapThisRun === true,
+      context: params.context,
+      bestTotalXp: params.bestTotalXp,
+    }).join('\n'),
   }
 }
 
@@ -104,14 +81,11 @@ export function buildLessonCycle1BriefingCopy(params: {
 }): LessonReturnBriefingCopy {
   const fullText = buildLessonCycle1Hint(params)
   const lines = fullText.split('\n').filter(Boolean)
-  const title = params.lessonTitle.trim() || 'Урок'
 
   return {
     variant: 'info',
-    icon: '📋',
-    iconBetweenCaption: { before: 'Engvo AI', after: 'English Voice' },
     title: params.audience === 'child' ? 'Про этот урок' : 'Про этот урок',
-    statsLine: title,
+    statsLine: '',
     message: lines[0] ?? fullText,
     secondaryMessage: lines.length > 1 ? lines.slice(1).join('\n') : undefined,
   }
@@ -128,12 +102,18 @@ export function buildLessonReturnBriefingPayload(params: {
   cycle1Closed?: boolean
   silverCapThisRun?: boolean
   origin?: StructuredLessonRunOrigin
+  coinIntroContext?: LessonCoinIntroContext | null
 }): LessonReturnBriefingPayload {
   const bubbles = buildLessonReturnBriefingBubbles({
     lessonTitle: params.lessonTitle,
     audience: params.audience,
     kind: params.kind,
   })
+
+  const context = params.context ?? 'menu_reopen'
+  const coinContext = params.coinIntroContext
+  const isGeneratedVariantRun = coinContext?.isGeneratedVariantRun ?? false
+  const silverCapThisRun = params.silverCapThisRun === true
 
   const copy =
     params.kind === 'cycle1'
@@ -146,16 +126,36 @@ export function buildLessonReturnBriefingPayload(params: {
           medal: params.medal!,
           lessonTitle: params.lessonTitle,
           audience: params.audience,
-          context: params.context ?? 'menu_reopen',
+          context,
           bestTotalXp: params.bestTotalXp ?? 0,
           cycle1Closed: params.cycle1Closed,
-          silverCapThisRun: params.silverCapThisRun,
+          silverCapThisRun,
+          coinIntroContext: params.coinIntroContext,
         })
+
+  const offerGenerateVariant =
+    params.kind === 'medal_repeat' &&
+    shouldOfferGenerateVariantOnReturnBriefing({
+      context,
+      silverCapThisRun,
+      isGeneratedVariantRun,
+    })
+
+  const actions: LessonReturnBriefingActions = offerGenerateVariant
+    ? {
+        offerGenerateVariant: true,
+        ...resolveLessonVariantDualCtaLabels({ hasRepeatContext: true }),
+      }
+    : {
+        offerGenerateVariant: false,
+        primaryLabel: 'Продолжить',
+      }
 
   return {
     runKey: params.runKey,
     kind: params.kind,
     copy,
+    actions,
     bubbles,
   }
 }

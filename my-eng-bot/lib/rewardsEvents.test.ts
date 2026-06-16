@@ -60,6 +60,22 @@ describe('applyRewardsEvent', () => {
     expect(next.ui.lastReward?.amount).toBe(0)
   })
 
+  it('records coins_earned ui without mutating balance', () => {
+    const state = createDefaultRewardsState()
+    state.currencies.coins = 6
+    const next = applyRewardsEvent(state, {
+      type: 'coins_earned',
+      amount: 1,
+      reason: 'lesson_gold',
+      ticker: 'Золотая медаль. +1 🪙.',
+    })
+    expect(next.currencies.coins).toBe(6)
+    expect(next.progress.totalXP).toBe(0)
+    expect(next.ui.footerTicker).toBe('Золотая медаль. +1 🪙.')
+    expect(next.ui.lastReward?.reason).toBe('lesson_gold')
+    expect(next.ui.lastReward?.amount).toBe(1)
+  })
+
   it('awards streak bonus on first communication turn when streak reaches 3', () => {
     const today = getTodayDateString()
     const yesterday = offsetDateString(today, -1)
