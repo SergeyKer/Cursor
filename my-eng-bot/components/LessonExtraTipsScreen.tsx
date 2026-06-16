@@ -8,7 +8,8 @@ import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@
 import { isIosWebKitBrowser } from '@/lib/iosSafariViewport'
 import { estimateIntroComposerMinHeight, LESSON_INTRO_SCROLL_CLASS } from '@/lib/lessonComposerLayout'
 import { resolveLessonIntroPrimaryCtaLabel } from '@/lib/lessonIntroCtaCopy'
-import { APP_BTN_PRIMARY_LESSON_START } from '@/lib/homeCtaStyles'
+import ProgressCtaButton from '@/components/ProgressCtaButton'
+import { LESSON_VARIANT_PREPARE_LOADING_LABEL } from '@/lib/lessonVariantCtaCopy'
 import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
 import type { LessonCatalogLevel } from '@/lib/lessonCatalog'
 import {
@@ -50,6 +51,8 @@ type LessonExtraTipsScreenProps = {
   intro: LessonIntro
   /** Фоновая подмена варианта structured-урока: блокируем CTA до готовности. */
   footerVariantRegenerating?: boolean
+  variantPrepareProgress?: number
+  variantPrepareLabel?: string
   intent?: TutorLearningIntent | null
   provider: AiProvider
   openAiChatPreset?: OpenAiChatPreset
@@ -144,6 +147,8 @@ export default function LessonExtraTipsScreen({
   lessonKey,
   intro,
   footerVariantRegenerating = false,
+  variantPrepareProgress = 0,
+  variantPrepareLabel = LESSON_VARIANT_PREPARE_LOADING_LABEL,
   intent,
   provider,
   openAiChatPreset,
@@ -156,10 +161,12 @@ export default function LessonExtraTipsScreen({
   onBack,
   onStartLesson,
 }: LessonExtraTipsScreenProps) {
-  const tipsPrimaryCtaLabel = resolveLessonIntroPrimaryCtaLabel({
-    loadingLesson: false,
-    footerVariantRegenerating,
-  })
+  const tipsPrimaryCtaLabel = footerVariantRegenerating
+    ? variantPrepareLabel
+    : resolveLessonIntroPrimaryCtaLabel({
+        loadingLesson: false,
+        footerVariantRegenerating,
+      })
 
   const fallbackTips = useMemo(
     () => buildFallbackLessonExtraTips(intro, intent, lessonCefrLevel),
@@ -200,7 +207,7 @@ export default function LessonExtraTipsScreen({
   useLayoutEffect(() => {
     if (!isIosWebKitClient) return
     return resyncIosWebKitDialogComposerStackHeight(composerStackRef.current)
-  }, [footerVariantRegenerating, isIosWebKitClient, loadingMore, tips.cards.length])
+  }, [footerVariantRegenerating, isIosWebKitClient, loadingMore, tips.cards.length, variantPrepareLabel])
   const quizRowRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const pendingQuizScrollRef = useRef<string | null>(null)
   const refreshMarkerTimeoutRef = useRef<number | null>(null)
@@ -815,14 +822,15 @@ export default function LessonExtraTipsScreen({
                     {loadingMore ? 'Генерирую...' : 'Ещё фишки'}
                   </button>
                 </div>
-                <button
-                  type="button"
+                <ProgressCtaButton
                   onClick={onStartLesson}
                   disabled={loadingMore || footerVariantRegenerating}
-                  className={APP_BTN_PRIMARY_LESSON_START}
+                  busy={footerVariantRegenerating}
+                  progress={footerVariantRegenerating ? variantPrepareProgress : null}
+                  ghostLabel={footerVariantRegenerating ? variantPrepareLabel : undefined}
                 >
                   {tipsPrimaryCtaLabel}
-                </button>
+                </ProgressCtaButton>
               </div>
             </DialogComposerStack>
           </div>

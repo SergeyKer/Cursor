@@ -9,6 +9,9 @@ type LessonReturnBriefingFlowInfoStepProps = {
   actions: LessonReturnBriefingActions
   onContinue: () => void
   onGenerateVariant?: () => void
+  generateVariantBusy?: boolean
+  generateVariantProgress?: number
+  generateVariantLabel?: string
 }
 
 export default function LessonReturnBriefingFlowInfoStep({
@@ -17,6 +20,9 @@ export default function LessonReturnBriefingFlowInfoStep({
   actions,
   onContinue,
   onGenerateVariant,
+  generateVariantBusy,
+  generateVariantProgress,
+  generateVariantLabel,
 }: LessonReturnBriefingFlowInfoStepProps) {
   return (
     <FlowInfoStep
@@ -37,6 +43,9 @@ export default function LessonReturnBriefingFlowInfoStep({
         actions.offerGenerateVariant && onGenerateVariant ? onGenerateVariant : undefined
       }
       prioritizeSecondaryAction={actions.offerGenerateVariant}
+      generateVariantBusy={generateVariantBusy}
+      generateVariantProgress={generateVariantProgress}
+      generateVariantLabel={generateVariantLabel}
       guardMountTapResetKey={runKey}
       ariaLabel="Инструкция к уроку"
     />

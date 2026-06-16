@@ -1,6 +1,7 @@
 'use client'
 
 import FlowInfoCard, { type FlowInfoCardProps } from '@/components/FlowInfoCard'
+import ProgressCtaButton from '@/components/ProgressCtaButton'
 import { useMountTapGuard } from '@/hooks/useMountTapGuard'
 import {
   APP_BTN_PRIMARY_DUAL_ROW,
@@ -8,6 +9,7 @@ import {
   APP_BTN_SECONDARY_DUAL_ROW,
   APP_BTN_SECONDARY_LARGE,
 } from '@/lib/homeCtaStyles'
+import { LESSON_BRIEFING_PREPARE_GHOST_LABEL } from '@/lib/lessonBriefingPrepareProgressCopy'
 import { formatLessonVariantDualCtaTwoLineLabel } from '@/lib/lessonVariantCtaCopy'
 
 export type FlowInfoStepProps = FlowInfoCardProps & {
@@ -26,6 +28,11 @@ export type FlowInfoStepProps = FlowInfoCardProps & {
   compactActionsSpacing?: boolean
   /** Две CTA в один ряд, симметрично, текст в две строки. */
   dualActionsRow?: boolean
+  /** Прогресс на dual CTA «Новый вариант» (брифинг). */
+  generateVariantBusy?: boolean
+  generateVariantProgress?: number
+  generateVariantLabel?: string
+  generateVariantGhostLabel?: string
   /** Ключ шага: блокирует CTA сразу после mount (защита от сквозного тапа на мобильных). */
   guardMountTapResetKey?: string
 }
@@ -42,6 +49,10 @@ export default function FlowInfoStep({
   enterClassName = 'animate-fade-in-up',
   compactActionsSpacing = false,
   dualActionsRow = false,
+  generateVariantBusy = false,
+  generateVariantProgress,
+  generateVariantLabel,
+  generateVariantGhostLabel = LESSON_BRIEFING_PREPARE_GHOST_LABEL,
   guardMountTapResetKey,
   className: _unusedClassName,
   ...cardProps
@@ -52,6 +63,9 @@ export default function FlowInfoStep({
   const secondaryButtonClass = `${APP_BTN_SECONDARY_LARGE} focus:outline-none focus-visible:ring-2 focus-visible:ring-[#93c5fd]`
   const primaryDualRowClass = `${APP_BTN_PRIMARY_DUAL_ROW} focus:outline-none focus-visible:ring-2 focus-visible:ring-[#93c5fd]`
   const secondaryDualRowClass = `${APP_BTN_SECONDARY_DUAL_ROW} focus:outline-none focus-visible:ring-2 focus-visible:ring-[#93c5fd]`
+  const generateVariantDualRowClass = primaryDualRowClass
+  const showGenerateVariantProgress =
+    dualActionsRow && prioritizeSecondaryAction && generateVariantProgress !== undefined
 
   const renderDualRowButton = (
     label: string,
@@ -67,6 +81,21 @@ export default function FlowInfoStep({
     >
       {formatLessonVariantDualCtaTwoLineLabel(label)}
     </button>
+  )
+
+  const renderGenerateVariantDualButton = () => (
+    <ProgressCtaButton
+      className={generateVariantDualRowClass}
+      onClick={() => guardAction(() => onSecondaryAction?.())}
+      disabled={secondaryActionDisabled || !isActionReady || generateVariantBusy}
+      busy={generateVariantBusy}
+      progress={generateVariantBusy ? generateVariantProgress : null}
+      ghostLabel={generateVariantBusy && generateVariantLabel ? generateVariantLabel : generateVariantGhostLabel}
+    >
+      {generateVariantBusy
+        ? generateVariantLabel
+        : formatLessonVariantDualCtaTwoLineLabel(secondaryActionLabel!)}
+    </ProgressCtaButton>
   )
 
   const emphasizedButton =
@@ -116,21 +145,23 @@ export default function FlowInfoStep({
       <>
         {prioritizeSecondaryAction ? (
           <>
-            {renderDualRowButton(
-              secondaryActionLabel!,
-              onSecondaryAction!,
-              secondaryActionDisabled,
-              'primary'
-            )}
-            {renderDualRowButton(actionLabel, onAction, false, 'secondary')}
+            {showGenerateVariantProgress
+              ? renderGenerateVariantDualButton()
+              : renderDualRowButton(
+                  secondaryActionLabel!,
+                  onSecondaryAction!,
+                  secondaryActionDisabled,
+                  'primary'
+                )}
+            {renderDualRowButton(actionLabel, onAction, generateVariantBusy, 'secondary')}
           </>
         ) : (
           <>
-            {renderDualRowButton(actionLabel, onAction, false, 'primary')}
+            {renderDualRowButton(actionLabel, onAction, generateVariantBusy, 'primary')}
             {renderDualRowButton(
               secondaryActionLabel!,
               onSecondaryAction!,
-              secondaryActionDisabled,
+              secondaryActionDisabled || generateVariantBusy,
               'secondary'
             )}
           </>

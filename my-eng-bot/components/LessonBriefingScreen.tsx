@@ -17,12 +17,18 @@ type LessonBriefingScreenProps = {
   briefing: LessonReturnBriefingPayload
   onContinue: () => void
   onGenerateVariant?: () => void
+  generateVariantBusy?: boolean
+  generateVariantProgress?: number
+  generateVariantLabel?: string
 }
 
 export default function LessonBriefingScreen({
   briefing,
   onContinue,
   onGenerateVariant,
+  generateVariantBusy,
+  generateVariantProgress,
+  generateVariantLabel,
 }: LessonBriefingScreenProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const composerMinHeight = estimateLessonComposerMinHeight({
@@ -75,6 +81,9 @@ export default function LessonBriefingScreen({
                 actions={briefing.actions}
                 onContinue={onContinue}
                 onGenerateVariant={onGenerateVariant}
+                generateVariantBusy={generateVariantBusy}
+                generateVariantProgress={generateVariantProgress}
+                generateVariantLabel={generateVariantLabel}
               />
             </DialogComposerStack>
           </div>

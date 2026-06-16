@@ -164,6 +164,7 @@ import LessonExtraTipsScreen, {
 import LessonStepRenderer from '@/components/LessonStepRenderer'
 import CenterMessageOverlay from '@/components/CenterMessageOverlay'
 import { useLessonEngine } from '@/hooks/useLessonEngine'
+import { useLessonPrepareProgress } from '@/hooks/useLessonPrepareProgress'
 import { usePracticeSession } from '@/hooks/usePracticeSession'
 import PracticeScreen from '@/components/practice/PracticeScreen'
 import AccentTrainer, { type AccentFooterView } from '@/components/accent/AccentTrainer'
@@ -631,8 +632,9 @@ export default function Home() {
   const [structuredLessonLoadingId, setStructuredLessonLoadingId] = useState<string | null>(null)
   /** Ошибка фоновой генерации варианта урока (меню «Сгенерировать урок»); урок уже открыт со статическим клоном. */
   const [menuLessonBgError, setMenuLessonBgError] = useState<string | null>(null)
-  /** Фоновая генерация варианта structured-урока на intro/tips. */
+  /** Фоновая генерация варианта structured-урока на intro/tips/briefing. */
   const [structuredLessonVariantRegenerating, setStructuredLessonVariantRegenerating] = useState(false)
+  const variantGenerateLaunchRef = React.useRef<'menu' | 'briefing'>('menu')
   const [pendingTutorLessonTitle, setPendingTutorLessonTitle] = useState<string | null>(null)
   const [activeLessonVariantNumber, setActiveLessonVariantNumber] = useState(1)
   const structuredLessonRunOriginRef = React.useRef<StructuredLessonRunOrigin>('menu_reopen')
@@ -648,8 +650,29 @@ export default function Home() {
   const [lessonViewStage, setLessonViewStage] = useState<'intro' | 'tips' | 'briefing' | 'lesson'>('intro')
   const [lessonTipsReturnStage, setLessonTipsReturnStage] = useState<'intro' | 'lesson'>('intro')
   const [lessonIntroDepth, setLessonIntroDepth] = useState<LessonIntroDepth>('quick')
+  /** Счётчик входа на intro: сбрасывает stagger без remount (key остаётся lessonId). */
+  const [lessonIntroRevealSession, setLessonIntroRevealSession] = useState(0)
+  const bumpLessonIntroRevealSession = useCallback(() => {
+    setLessonIntroRevealSession((session) => session + 1)
+  }, [])
   const [lessonExtraTipsStatus, setLessonExtraTipsStatus] = useState<LessonExtraTipsFooterStatus>('idle')
   const [lessonExtraTipsState, setLessonExtraTipsState] = useState<LessonExtraTipsSavedState | null>(null)
+  const variantPrepareLabelProfile =
+    lessonViewStage === 'briefing' || variantGenerateLaunchRef.current === 'briefing' ? 'briefing' : 'intro'
+  const variantPrepare = useLessonPrepareProgress({
+    active: structuredLessonVariantRegenerating,
+    expectedDurationMs: LESSON_MENU_GENERATE_TIMEOUT_MS,
+    labelProfile: variantPrepareLabelProfile,
+  })
+  const reportPrepareMilestoneRef = React.useRef(variantPrepare.reportMilestone)
+  const resetVariantPrepareRef = React.useRef(variantPrepare.reset)
+  const completePrepareProgressRef = React.useRef(variantPrepare.completePrepareProgress)
+  const acknowledgeLessonReturnBriefingRef = React.useRef<(lesson?: LessonData) => void>(() => {})
+  React.useEffect(() => {
+    reportPrepareMilestoneRef.current = variantPrepare.reportMilestone
+    resetVariantPrepareRef.current = variantPrepare.reset
+    completePrepareProgressRef.current = variantPrepare.completePrepareProgress
+  })
   // DEBUG: удалить после редактирования урока
   const debugFinalePendingRef = React.useRef<string | null>(null)
   const debugSkipToFinaleAfterResetRef = React.useRef(false)
@@ -2637,6 +2660,7 @@ export default function Home() {
     menuLessonGenerateCleanupRef.current?.()
     menuLessonBgFetchEpochRef.current += 1
     setStructuredLessonVariantRegenerating(false)
+    resetVariantPrepareRef.current()
     lessonOpenRequestIdRef.current += 1
     abandonPracticeSession()
     setAccentTrainerActive(false)
@@ -2663,6 +2687,7 @@ export default function Home() {
     setLessonViewStage('intro')
     setLessonTipsReturnStage('intro')
     setLessonIntroDepth('quick')
+    setLessonIntroRevealSession(0)
     setLessonExtraTipsStatus('idle')
     setLessonExtraTipsState(null)
     lessonFirstAnswerTrackedRef.current = false
@@ -2955,6 +2980,7 @@ export default function Home() {
       menuLessonGenerateCleanupRef.current?.()
       menuLessonBgFetchEpochRef.current += 1
       setStructuredLessonVariantRegenerating(false)
+      resetVariantPrepareRef.current()
       abandonPracticeSession()
       const requestId = ++lessonOpenRequestIdRef.current
       const structuredLesson = getStructuredLessonById(lessonId)
@@ -2984,6 +3010,9 @@ export default function Home() {
       setLessonOverlay(null)
       setLessonReturnBriefingAckRunKey(null)
       setLessonViewStage(options?.openAtLessonStage ? 'lesson' : 'intro')
+      if (!options?.openAtLessonStage) {
+        bumpLessonIntroRevealSession()
+      }
       setLessonTipsReturnStage('intro')
       setLessonIntroDepth('quick')
       setLessonExtraTipsStatus('idle')
@@ -3012,7 +3041,7 @@ export default function Home() {
       setLastStructuredLessonGlobalDelta(0)
       bumpFooterSessionContext()
     },
-    [abandonPracticeSession, bumpFooterSessionContext, menuOpen]
+    [abandonPracticeSession, bumpFooterSessionContext, bumpLessonIntroRevealSession, menuOpen]
   )
 
   /** Меню «Начать урок»: всегда открывать intro с начала. */
@@ -3076,7 +3105,15 @@ export default function Home() {
   )
 
   const openGeneratedLearningLesson = useCallback(
-    async (lessonId: string, lessonsPanel: LessonsPanel = 'a2', meta?: LearningLessonMenuMeta) => {
+    async (
+      lessonId: string,
+      lessonsPanel: LessonsPanel = 'a2',
+      meta?: LearningLessonMenuMeta,
+      options?: { launchFrom?: 'menu' | 'briefing' }
+    ) => {
+      const launchFrom = options?.launchFrom ?? 'menu'
+      variantGenerateLaunchRef.current = launchFrom
+
       const baseLesson = getLearningLessonById(lessonId)
       const structuredLesson = getStructuredLessonById(lessonId)
       if (!baseLesson || !structuredLesson) {
@@ -3092,52 +3129,70 @@ export default function Home() {
       setMenuLessonBgError(null)
       setRetryMessage(null)
 
-      firstMessageRequestIdRef.current += 1
-      firstMessageInFlightRef.current = false
-      suppressSettingsChangeBannerRef.current = true
-      setDialogStarted(true)
-      setMenuOpen(false)
-      setHomeMenuView('lessons')
-      setStructuredLessonLoadingId(null)
-      setLoading(false)
-      setSearchingInternet(false)
-      setLoadingTranslationIndex(null)
-      setForceNextMicLang(null)
-      setSettingsAtLastSend(null)
-      setActiveStructuredLessonRuntime(null)
-      setPendingTutorLessonTitle(null)
-      setActiveLessonVariantNumber(1)
-      structuredLessonRunOriginRef.current = 'menu_generate'
-      lessonFirstAnswerTrackedRef.current = false
-      lessonCycle1ActiveSessionRef.current = false
-      setSelectedPostLessonAction(null)
-      setPostLessonBusy(false)
-      setLessonOverlay(null)
-      setLessonReturnBriefingAckRunKey(null)
-      setLessonViewStage('intro')
-      setLessonTipsReturnStage('intro')
-      setLessonIntroDepth('quick')
-      setLessonExtraTipsStatus('idle')
-      setLessonExtraTipsState(null)
-      setLessonMenuContext((prev) => ({
-        menuView: 'lessons',
-        lessonsPanel,
-        selectedLessonId: lessonId,
-        activeGrammarCategoryId: meta?.activeGrammarCategoryId ?? null,
-        activeTheoryTagId: meta?.activeTheoryTagId ?? null,
-        theorySearchQuery: meta?.theorySearchQuery ?? null,
-        activeTheoryTagIds: meta?.activeTheoryTagIds ?? null,
-        theoryLessonSource: meta?.theoryLessonSource ?? null,
-        theoryTagBrowseLevel: meta?.theoryTagBrowseLevel ?? prev?.theoryTagBrowseLevel ?? null,
-        practiceTheoryTagFilterId: prev?.practiceTheoryTagFilterId ?? null,
-      }))
-      setActiveLearningLessonId(lessonId)
-      setMessages([])
-      setActiveStructuredLessonRuntime(cloneStructuredLessonWithRunKey(structuredLesson))
-
       menuLessonBgFetchEpochRef.current += 1
       const fetchEpoch = menuLessonBgFetchEpochRef.current
       setStructuredLessonVariantRegenerating(true)
+
+      if (launchFrom === 'menu') {
+        firstMessageRequestIdRef.current += 1
+        firstMessageInFlightRef.current = false
+        suppressSettingsChangeBannerRef.current = true
+        setDialogStarted(true)
+        setMenuOpen(false)
+        setHomeMenuView('lessons')
+        setStructuredLessonLoadingId(null)
+        setLoading(false)
+        setSearchingInternet(false)
+        setLoadingTranslationIndex(null)
+        setForceNextMicLang(null)
+        setSettingsAtLastSend(null)
+        setActiveStructuredLessonRuntime(null)
+        setPendingTutorLessonTitle(null)
+        setActiveLessonVariantNumber(1)
+        structuredLessonRunOriginRef.current = 'menu_generate'
+        lessonFirstAnswerTrackedRef.current = false
+        lessonCycle1ActiveSessionRef.current = false
+        setSelectedPostLessonAction(null)
+        setPostLessonBusy(false)
+        setLessonOverlay(null)
+        setLessonReturnBriefingAckRunKey(null)
+        setLessonViewStage('intro')
+        bumpLessonIntroRevealSession()
+        setLessonTipsReturnStage('intro')
+        setLessonIntroDepth('quick')
+        setLessonExtraTipsStatus('idle')
+        setLessonExtraTipsState(null)
+        setLessonMenuContext((prev) => ({
+          menuView: 'lessons',
+          lessonsPanel,
+          selectedLessonId: lessonId,
+          activeGrammarCategoryId: meta?.activeGrammarCategoryId ?? null,
+          activeTheoryTagId: meta?.activeTheoryTagId ?? null,
+          theorySearchQuery: meta?.theorySearchQuery ?? null,
+          activeTheoryTagIds: meta?.activeTheoryTagIds ?? null,
+          theoryLessonSource: meta?.theoryLessonSource ?? null,
+          theoryTagBrowseLevel: meta?.theoryTagBrowseLevel ?? prev?.theoryTagBrowseLevel ?? null,
+          practiceTheoryTagFilterId: prev?.practiceTheoryTagFilterId ?? null,
+        }))
+        setActiveLearningLessonId(lessonId)
+        setMessages([])
+        setActiveStructuredLessonRuntime(cloneStructuredLessonWithRunKey(structuredLesson))
+      } else {
+        structuredLessonRunOriginRef.current = 'menu_generate'
+        setLessonMenuContext((prev) => ({
+          menuView: prev?.menuView ?? 'lessons',
+          lessonsPanel,
+          selectedLessonId: lessonId,
+          activeGrammarCategoryId: meta?.activeGrammarCategoryId ?? prev?.activeGrammarCategoryId ?? null,
+          activeTheoryTagId: meta?.activeTheoryTagId ?? prev?.activeTheoryTagId ?? null,
+          theorySearchQuery: meta?.theorySearchQuery ?? prev?.theorySearchQuery ?? null,
+          activeTheoryTagIds: meta?.activeTheoryTagIds ?? prev?.activeTheoryTagIds ?? null,
+          theoryLessonSource: meta?.theoryLessonSource ?? prev?.theoryLessonSource ?? null,
+          theoryTagBrowseLevel: meta?.theoryTagBrowseLevel ?? prev?.theoryTagBrowseLevel ?? null,
+          practiceTheoryTagFilterId: prev?.practiceTheoryTagFilterId ?? null,
+        }))
+        setActiveLearningLessonId(lessonId)
+      }
 
       const timedOutRef = { current: false }
       const abortController = new AbortController()
@@ -3154,6 +3209,7 @@ export default function Home() {
       void (async () => {
         try {
           const recentVariantIds = structuredLessonVariantHistoryRef.current[lessonId] ?? []
+          reportPrepareMilestoneRef.current(15)
           const response = await fetch('/api/lesson-repeat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3167,6 +3223,7 @@ export default function Home() {
               bypassCache: true,
             }),
           })
+          reportPrepareMilestoneRef.current(70)
           const data = (await response.json()) as LessonRepeatResponse
           if (!response.ok) {
             throw new Error(data.error ?? 'Не удалось обновить вариант урока от ИИ.')
@@ -3190,11 +3247,27 @@ export default function Home() {
             structuredLessonVariantHistoryRef.current[lessonId] = appendLessonVariantHistory(history, data.lesson.variantId)
           }
 
-          setActiveStructuredLessonRuntime(data.lesson)
           setMenuLessonBgError(null)
-          console.info(
-            `[lesson-ui] mode=menu-generate-bg lesson=${lessonId} source=${menuGenerationFallback ? 'fallback' : 'llm'} fetch_ms=${Date.now() - fetchStartedAt}`
+          const launchAnimated = await completePrepareProgressRef.current(() =>
+            requestId !== lessonOpenRequestIdRef.current ||
+            fetchEpoch !== menuLessonBgFetchEpochRef.current
           )
+          if (!launchAnimated) return
+          if (requestId !== lessonOpenRequestIdRef.current) return
+          if (fetchEpoch !== menuLessonBgFetchEpochRef.current) return
+
+          setActiveStructuredLessonRuntime(data.lesson)
+          if (variantGenerateLaunchRef.current === 'briefing') {
+            setActiveLessonVariantNumber((current) => current + 1)
+            acknowledgeLessonReturnBriefingRef.current(data.lesson)
+            console.info(
+              `[lesson-ui] mode=briefing-generate-bg lesson=${lessonId} source=${menuGenerationFallback ? 'fallback' : 'llm'} fetch_ms=${Date.now() - fetchStartedAt}`
+            )
+          } else {
+            console.info(
+              `[lesson-ui] mode=menu-generate-bg lesson=${lessonId} source=${menuGenerationFallback ? 'fallback' : 'llm'} fetch_ms=${Date.now() - fetchStartedAt}`
+            )
+          }
         } catch (error) {
           if (error instanceof Error && error.name === 'AbortError') {
             if (!timedOutRef.current) return
@@ -3214,11 +3287,12 @@ export default function Home() {
           }
           if (fetchEpoch === menuLessonBgFetchEpochRef.current) {
             setStructuredLessonVariantRegenerating(false)
+            variantGenerateLaunchRef.current = 'menu'
           }
         }
       })()
     },
-    [abandonPracticeSession, menuOpen, settings.provider, settings.openAiChatPreset, settings.audience]
+    [abandonPracticeSession, bumpLessonIntroRevealSession, menuOpen, settings.provider, settings.openAiChatPreset, settings.audience]
   )
 
   const openTutorLesson = useCallback(
@@ -3258,6 +3332,7 @@ export default function Home() {
       menuLessonGenerateCleanupRef.current?.()
       menuLessonBgFetchEpochRef.current += 1
       setStructuredLessonVariantRegenerating(false)
+      resetVariantPrepareRef.current()
       abandonPracticeSession()
       let lesson: LessonBlueprint | null = null
       firstMessageRequestIdRef.current += 1
@@ -5227,15 +5302,17 @@ export default function Home() {
     setLessonViewStage('lesson')
   }, [lessonViewStage, activeStructuredLesson, lessonReturnBriefing])
 
-  const acknowledgeLessonReturnBriefing = React.useCallback(() => {
-    if (!activeStructuredLesson) return
-    const runKey = buildLessonReturnBriefingRunKey(
-      activeStructuredLesson.id,
-      activeStructuredLesson.runKey
-    )
+  const acknowledgeLessonReturnBriefing = React.useCallback((lesson?: LessonData) => {
+    const target = lesson ?? activeStructuredLesson
+    if (!target) return
+    const runKey = buildLessonReturnBriefingRunKey(target.id, target.runKey)
     setLessonReturnBriefingAckRunKey(runKey)
     setLessonViewStage('lesson')
   }, [activeStructuredLesson])
+
+  React.useEffect(() => {
+    acknowledgeLessonReturnBriefingRef.current = acknowledgeLessonReturnBriefing
+  })
 
   const enterLessonFromIntro = React.useCallback(() => {
     if (!activeStructuredLesson) return
@@ -5296,7 +5373,8 @@ export default function Home() {
     void openGeneratedLearningLesson(
       activeLearningLessonId,
       panel,
-      buildActiveLearningLessonMenuMeta()
+      buildActiveLearningLessonMenuMeta(),
+      { launchFrom: 'briefing' }
     )
   }, [
     activeLearningLessonId,
@@ -5305,6 +5383,9 @@ export default function Home() {
     buildActiveLearningLessonMenuMeta,
   ])
 
+  const activeLessonIntroKey = activeLearningLessonId ?? 'lesson'
+  const lessonIntroRevealSessionKey = `${activeLessonIntroKey}:${lessonIntroRevealSession}`
+  const activeLessonBriefingKey = activeLearningLessonId ?? 'lesson'
   const activeLessonTipsKey = activeLearningLessonId
     ? `${activeLearningLessonId}:${activeStructuredLesson?.runKey ?? activeStructuredLesson?.variantId ?? activeLessonVariantNumber}`
     : 'lesson'
@@ -6794,8 +6875,9 @@ export default function Home() {
                 </div>
               ) : isLessonIntroActive && activeLessonIntro ? (
                 <LessonIntroScreen
-                  key={activeLessonTipsKey}
+                  key={activeLessonIntroKey}
                   intro={activeLessonIntro}
+                  introSessionKey={lessonIntroRevealSessionKey}
                   depth={lessonIntroDepth}
                   loadingLesson={Boolean(structuredLessonLoadingId) || loading || !activeStructuredLesson}
                   provider={settings.provider}
@@ -6810,12 +6892,16 @@ export default function Home() {
                   }}
                   onBack={backToLessonList}
                   footerVariantRegenerating={structuredLessonVariantRegenerating}
+                  variantPrepareProgress={variantPrepare.progress}
+                  variantPrepareLabel={variantPrepare.label}
                 />
               ) : isLessonTipsActive && activeLessonIntro ? (
                 <LessonExtraTipsScreen
                   lessonKey={activeLessonTipsKey}
                   intro={activeLessonIntro}
                   footerVariantRegenerating={structuredLessonVariantRegenerating}
+                  variantPrepareProgress={variantPrepare.progress}
+                  variantPrepareLabel={variantPrepare.label}
                   intent={activeTutorIntent}
                   provider={settings.provider}
                   openAiChatPreset={settings.openAiChatPreset}
@@ -6834,10 +6920,13 @@ export default function Home() {
                 />
               ) : isLessonBriefingActive && lessonReturnBriefing ? (
                 <LessonBriefingScreen
-                  key={lessonReturnBriefing.runKey}
+                  key={activeLessonBriefingKey}
                   briefing={lessonReturnBriefing}
                   onContinue={acknowledgeLessonReturnBriefing}
                   onGenerateVariant={handleGenerateFromReturnBriefing}
+                  generateVariantBusy={structuredLessonVariantRegenerating}
+                  generateVariantProgress={variantPrepare.progress}
+                  generateVariantLabel={variantPrepare.label}
                 />
               ) : isStructuredLessonActive && activeStructuredLesson && activeStructuredLessonStep ? (
                 <LessonStepRenderer

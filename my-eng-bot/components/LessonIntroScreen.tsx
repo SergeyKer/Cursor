@@ -19,6 +19,7 @@ import { LESSON_SECTION_REVEAL_INTERVAL_MS } from '@/lib/lessonRevealTiming'
 import { getMenuTopicCopyByIntroTopic } from '@/lib/lessonCatalog'
 import { resolveLessonIntroPrimaryCtaLabel } from '@/lib/lessonIntroCtaCopy'
 import { LESSON_VARIANT_PREPARE_LOADING_LABEL } from '@/lib/lessonVariantCtaCopy'
+import ProgressCtaButton from '@/components/ProgressCtaButton'
 import type { AiProvider, Audience, OpenAiChatPreset } from '@/lib/types'
 import type { Bubble, LessonIntro } from '@/types/lesson'
 
@@ -27,9 +28,13 @@ export type LessonIntroDepth = 'quick' | 'details' | 'deep'
 type LessonIntroScreenProps = {
   intro: LessonIntro
   depth: LessonIntroDepth
+  /** Стабильный id сессии intro (lessonId) — для stagger и latch CTA. */
+  introSessionKey: string
   loadingLesson?: boolean
   /** Фоновая подмена варианта урока: кнопка показывает прогресс подготовки. */
   footerVariantRegenerating?: boolean
+  variantPrepareProgress?: number
+  variantPrepareLabel?: string
   provider: AiProvider
   openAiChatPreset?: OpenAiChatPreset
   audience: Audience
@@ -245,8 +250,11 @@ function IntroChip({
 export default function LessonIntroScreen({
   intro,
   depth,
+  introSessionKey,
   loadingLesson = false,
   footerVariantRegenerating = false,
+  variantPrepareProgress = 0,
+  variantPrepareLabel = LESSON_VARIANT_PREPARE_LOADING_LABEL,
   provider,
   openAiChatPreset,
   audience,
@@ -268,10 +276,18 @@ export default function LessonIntroScreen({
   const [extraDeepDives, setExtraDeepDives] = useState<Bubble[][]>([])
   const [extraDeepDiveLoading, setExtraDeepDiveLoading] = useState(false)
   const [extraDeepDiveError, setExtraDeepDiveError] = useState<string | null>(null)
-  const introPrimaryCtaLabel = resolveLessonIntroPrimaryCtaLabel({
-    loadingLesson,
-    footerVariantRegenerating,
-  })
+  const introRevealLatchedRef = useRef(false)
+
+  useEffect(() => {
+    introRevealLatchedRef.current = false
+  }, [introSessionKey])
+
+  const introPrimaryCtaLabel = footerVariantRegenerating
+    ? variantPrepareLabel
+    : resolveLessonIntroPrimaryCtaLabel({
+        loadingLesson,
+        footerVariantRegenerating,
+      })
 
   const mainIntroBubbles = useMemo(
     () => buildMainIntroBubbles(intro, audience),
@@ -293,12 +309,17 @@ export default function LessonIntroScreen({
 
   const visibleSectionCounts = useStaggeredSectionRevealMap(
     staggeredRevealTargets,
-    intro.topic,
+    introSessionKey,
     LESSON_SECTION_REVEAL_INTERVAL_MS
   )
   const isIntroRevealComplete = isStaggeredRevealComplete(visibleSectionCounts, staggeredRevealTargets)
+  if (isIntroRevealComplete) {
+    introRevealLatchedRef.current = true
+  }
   const isIntroPrimaryCtaDisabled =
-    loadingLesson || footerVariantRegenerating || !isIntroRevealComplete
+    loadingLesson ||
+    footerVariantRegenerating ||
+    (!introRevealLatchedRef.current && !isIntroRevealComplete)
 
   const messages = useMemo<IntroChatMessage[]>(() => {
     const next: IntroChatMessage[] = []
@@ -560,18 +581,15 @@ export default function LessonIntroScreen({
                   </p>
                 )}
                 <div className="flex w-full">
-                  <IntroChip
-                    variant="primary"
+                  <ProgressCtaButton
                     onClick={onStartLesson}
                     disabled={isIntroPrimaryCtaDisabled}
+                    busy={footerVariantRegenerating}
+                    progress={footerVariantRegenerating ? variantPrepareProgress : null}
+                    ghostLabel={footerVariantRegenerating ? variantPrepareLabel : undefined}
                   >
-                    <span className="inline-grid justify-items-center whitespace-nowrap">
-                      <span className="invisible col-start-1 row-start-1" aria-hidden>
-                        {LESSON_VARIANT_PREPARE_LOADING_LABEL}
-                      </span>
-                      <span className="col-start-1 row-start-1">{introPrimaryCtaLabel}</span>
-                    </span>
-                  </IntroChip>
+                    {introPrimaryCtaLabel}
+                  </ProgressCtaButton>
                 </div>
               </div>
             </DialogComposerStack>
