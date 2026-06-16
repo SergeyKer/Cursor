@@ -4,6 +4,7 @@ import FlowInfoStep from '@/components/FlowInfoStep'
 import type { LessonReturnBriefingActions, LessonReturnBriefingCopy } from '@/lib/lessonReturnBriefingCopy'
 
 type LessonReturnBriefingFlowInfoStepProps = {
+  runKey: string
   copy: LessonReturnBriefingCopy
   actions: LessonReturnBriefingActions
   onContinue: () => void
@@ -11,6 +12,7 @@ type LessonReturnBriefingFlowInfoStepProps = {
 }
 
 export default function LessonReturnBriefingFlowInfoStep({
+  runKey,
   copy,
   actions,
   onContinue,
@@ -35,6 +37,7 @@ export default function LessonReturnBriefingFlowInfoStep({
         actions.offerGenerateVariant && onGenerateVariant ? onGenerateVariant : undefined
       }
       prioritizeSecondaryAction={actions.offerGenerateVariant}
+      guardMountTapResetKey={runKey}
       ariaLabel="Инструкция к уроку"
     />
   )

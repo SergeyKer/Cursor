@@ -8,6 +8,13 @@ export type StaggeredRevealTarget = {
   sectionCount: number
 }
 
+export function isStaggeredRevealComplete(
+  visibleCounts: Record<string, number>,
+  targets: StaggeredRevealTarget[]
+): boolean {
+  return targets.every((target) => (visibleCounts[target.id] ?? 0) >= target.sectionCount)
+}
+
 export const DEFAULT_STAGGERED_REVEAL_INTERVAL_MS = LESSON_SECTION_REVEAL_INTERVAL_MS
 
 function prefersReducedMotion(): boolean {

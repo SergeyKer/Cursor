@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
-import { useStaggeredSectionRevealMap } from '@/hooks/useStaggeredSectionReveal'
+import { useStaggeredSectionRevealMap, isStaggeredRevealComplete } from '@/hooks/useStaggeredSectionReveal'
 import { ChatBubbleFrame, getBubblePosition, type BubbleRole } from '@/components/chat/ChatBubble'
 import DialogComposerStack from '@/components/DialogComposerStack'
 import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
@@ -304,6 +304,9 @@ export default function LessonIntroScreen({
     intro.topic,
     LESSON_SECTION_REVEAL_INTERVAL_MS
   )
+  const isIntroRevealComplete = isStaggeredRevealComplete(visibleSectionCounts, staggeredRevealTargets)
+  const isIntroPrimaryCtaDisabled =
+    loadingLesson || footerVariantRegenerating || !isIntroRevealComplete
 
   const messages = useMemo<IntroChatMessage[]>(() => {
     const next: IntroChatMessage[] = []
@@ -575,7 +578,7 @@ export default function LessonIntroScreen({
                   <IntroChip
                     variant="primary"
                     onClick={onStartLesson}
-                    disabled={loadingLesson || footerVariantRegenerating}
+                    disabled={isIntroPrimaryCtaDisabled}
                   >
                     <span className="inline-grid justify-items-center whitespace-nowrap">
                       <span className="invisible col-start-1 row-start-1" aria-hidden>

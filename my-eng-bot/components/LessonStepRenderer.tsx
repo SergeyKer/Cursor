@@ -1551,6 +1551,7 @@ export default function LessonStepRenderer({
                   <>
                 {returnBriefingActive && returnBriefing ? (
                   <LessonReturnBriefingFlowInfoStep
+                    runKey={returnBriefing.runKey}
                     copy={returnBriefing.copy}
                     actions={returnBriefing.actions}
                     onContinue={() => onAcknowledgeReturnBriefing?.()}

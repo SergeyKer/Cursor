@@ -105,10 +105,9 @@ import MedalBadge from '@/components/MedalBadge'
 import { resolveLessonFooterTopLine } from '@/lib/lessonFooterTopLine'
 import { resolveGlobalLessonXpDelta } from '@/lib/lessonGlobalXpAward'
 import {
-  buildLessonReturnBriefingPayload,
-  type LessonReturnBriefingPayload,
-} from '@/lib/lessonReturnBriefingCopy'
-import { type LessonReturnHintContext } from '@/lib/lessonReturnHint'
+  buildLessonReturnBriefingRunKey,
+  resolveLessonReturnBriefing,
+} from '@/lib/resolveLessonReturnBriefing'
 import {
   formatLessonHeaderProgressAriaLabel,
   formatLessonHeaderProgressLabel,
@@ -157,6 +156,7 @@ import type {
 import AppFooter from '@/components/AppFooter'
 import RewardPopup from '@/components/RewardPopup'
 import LessonIntroScreen, { type LessonIntroDepth } from '@/components/LessonIntroScreen'
+import LessonBriefingScreen from '@/components/LessonBriefingScreen'
 import LessonExtraTipsScreen, {
   type LessonExtraTipsFooterStatus,
   type LessonExtraTipsSavedState,
@@ -645,7 +645,7 @@ export default function Home() {
   const [coinForgivenessHelpOverlay, setCoinForgivenessHelpOverlay] = useState<LessonOverlayState | null>(
     null
   )
-  const [lessonViewStage, setLessonViewStage] = useState<'intro' | 'tips' | 'lesson'>('intro')
+  const [lessonViewStage, setLessonViewStage] = useState<'intro' | 'tips' | 'briefing' | 'lesson'>('intro')
   const [lessonTipsReturnStage, setLessonTipsReturnStage] = useState<'intro' | 'lesson'>('intro')
   const [lessonIntroDepth, setLessonIntroDepth] = useState<LessonIntroDepth>('quick')
   const [lessonExtraTipsStatus, setLessonExtraTipsStatus] = useState<LessonExtraTipsFooterStatus>('idle')
@@ -2659,6 +2659,7 @@ export default function Home() {
     setSelectedPostLessonAction(null)
     setPostLessonBusy(false)
     setLessonOverlay(null)
+    setLessonReturnBriefingAckRunKey(null)
     setLessonViewStage('intro')
     setLessonTipsReturnStage('intro')
     setLessonIntroDepth('quick')
@@ -2981,6 +2982,7 @@ export default function Home() {
       setSelectedPostLessonAction(null)
       setPostLessonBusy(false)
       setLessonOverlay(null)
+      setLessonReturnBriefingAckRunKey(null)
       setLessonViewStage(options?.openAtLessonStage ? 'lesson' : 'intro')
       setLessonTipsReturnStage('intro')
       setLessonIntroDepth('quick')
@@ -5114,6 +5116,7 @@ export default function Home() {
   const isTutorLessonPending = structuredLessonLoadingId === 'tutor' && Boolean(pendingTutorLessonTitle)
   const isLessonIntroActive = Boolean(activeLessonIntro && activeLearningLesson && lessonViewStage === 'intro')
   const isLessonTipsActive = Boolean(activeLessonIntro && activeLearningLesson && lessonViewStage === 'tips')
+  const isLessonBriefingActive = Boolean(activeStructuredLesson && activeLearningLesson && lessonViewStage === 'briefing')
   const isStructuredLessonActive = Boolean(activeStructuredLesson && activeStructuredLessonStep && lessonViewStage === 'lesson')
 
   useEffect(() => {
@@ -5191,53 +5194,21 @@ export default function Home() {
     structuredLessonSilverCap,
   ])
 
-  const lessonReturnBriefing = React.useMemo((): LessonReturnBriefingPayload | null => {
-    if (!storageLoaded || lessonViewStage !== 'lesson' || !activeStructuredLesson) return null
-    const runKey = `${activeStructuredLesson.id}:${activeStructuredLesson.runKey ?? 'static'}`
-    if (lessonReturnBriefingAckRunKey === runKey) return null
+  const lessonReturnBriefing = React.useMemo(() => {
+    if (lessonViewStage !== 'briefing' || !activeStructuredLesson) return null
 
-    const progress = loadLessonProgress(activeStructuredLesson.id)
-    const origin = structuredLessonRunOriginRef.current
-    const lessonTitle = activeLessonTitle ?? 'Урок'
-
-    if (progress?.cycle1Closed && !progress.medal) {
-      return buildLessonReturnBriefingPayload({
-        runKey,
-        lessonTitle,
-        audience: settings.audience,
-        kind: 'cycle1',
-        origin,
-      })
-    }
-
-    if (progress?.medal) {
-      const hintContext: LessonReturnHintContext =
-        origin === 'post_lesson_repeat' || origin === 'repeat_api'
-          ? 'post_lesson_repeat'
-          : 'menu_reopen'
-      return buildLessonReturnBriefingPayload({
-        runKey,
-        lessonTitle,
-        audience: settings.audience,
-        kind: 'medal_repeat',
-        medal: progress.medal,
-        context: hintContext,
-        bestTotalXp: progress.bestTotalXp ?? 0,
-        cycle1Closed: progress.cycle1Closed === true,
-        silverCapThisRun: resolveLessonSilverCapForRun({
-          origin,
-          variantNumber: activeLessonVariantNumber,
-          cycle1Closed: progress.cycle1Closed === true,
-          isRepeatRun: isStructuredLessonRepeatRun,
-        }),
-        origin,
-        coinIntroContext: lessonCoinIntroContext,
-      })
-    }
-
-    return null
+    return resolveLessonReturnBriefing({
+      lessonId: activeStructuredLesson.id,
+      runKey: activeStructuredLesson.runKey,
+      lessonTitle: activeLessonTitle ?? 'Урок',
+      audience: settings.audience,
+      origin: structuredLessonRunOriginRef.current,
+      variantNumber: activeLessonVariantNumber,
+      isRepeatRun: isStructuredLessonRepeatRun,
+      coinIntroContext: lessonCoinIntroContext,
+      acknowledgedRunKey: lessonReturnBriefingAckRunKey,
+    })
   }, [
-    storageLoaded,
     lessonViewStage,
     activeStructuredLesson,
     activeStructuredLesson?.runKey,
@@ -5249,11 +5220,50 @@ export default function Home() {
     lessonCoinIntroContext,
   ])
 
+  React.useEffect(() => {
+    if (lessonViewStage !== 'briefing' || !activeStructuredLesson) return
+    if (lessonReturnBriefing) return
+    setLessonViewStage('lesson')
+  }, [lessonViewStage, activeStructuredLesson, lessonReturnBriefing])
+
   const acknowledgeLessonReturnBriefing = React.useCallback(() => {
     if (!activeStructuredLesson) return
-    const runKey = `${activeStructuredLesson.id}:${activeStructuredLesson.runKey ?? 'static'}`
+    const runKey = buildLessonReturnBriefingRunKey(
+      activeStructuredLesson.id,
+      activeStructuredLesson.runKey
+    )
     setLessonReturnBriefingAckRunKey(runKey)
+    setLessonViewStage('lesson')
   }, [activeStructuredLesson])
+
+  const enterLessonFromIntro = React.useCallback(() => {
+    if (!activeStructuredLesson) return
+    setLastStructuredLessonGlobalDelta(0)
+    bumpFooterSessionContext()
+
+    const briefing = resolveLessonReturnBriefing({
+      lessonId: activeStructuredLesson.id,
+      runKey: activeStructuredLesson.runKey,
+      lessonTitle: activeLessonTitle ?? 'Урок',
+      audience: settings.audience,
+      origin: structuredLessonRunOriginRef.current,
+      variantNumber: activeLessonVariantNumber,
+      isRepeatRun: isStructuredLessonRepeatRun,
+      coinIntroContext: lessonCoinIntroContext,
+      acknowledgedRunKey: lessonReturnBriefingAckRunKey,
+    })
+
+    setLessonViewStage(briefing ? 'briefing' : 'lesson')
+  }, [
+    activeStructuredLesson,
+    activeLessonTitle,
+    settings.audience,
+    activeLessonVariantNumber,
+    isStructuredLessonRepeatRun,
+    lessonCoinIntroContext,
+    lessonReturnBriefingAckRunKey,
+    bumpFooterSessionContext,
+  ])
 
   const buildActiveLearningLessonMenuMeta = React.useCallback((): LearningLessonMenuMeta | undefined => {
     if (!lessonMenuContext) return undefined
@@ -5295,7 +5305,11 @@ export default function Home() {
         ? 'a2'
         : settings.level
   const isLessonHeaderContext =
-    isLessonIntroActive || isLessonTipsActive || isStructuredLessonActive || isTutorLessonPending
+    isLessonIntroActive ||
+    isLessonTipsActive ||
+    isLessonBriefingActive ||
+    isStructuredLessonActive ||
+    isTutorLessonPending
   const headerLessonTopicTitle =
     activeLessonTitle ?? (isTutorLessonPending ? pendingTutorLessonTitle : null)
 
@@ -5305,8 +5319,9 @@ export default function Home() {
     if (isLessonTipsActive) return 'tips' as const
     if (
       isLessonIntroActive ||
+      isLessonBriefingActive ||
       isTutorLessonPending ||
-      (isLessonActive && !isStructuredLessonActive && !isLessonTipsActive)
+      (isLessonActive && !isStructuredLessonActive && !isLessonTipsActive && !isLessonBriefingActive)
     ) {
       return 'intro' as const
     }
@@ -5316,6 +5331,7 @@ export default function Home() {
     isStructuredLessonActive,
     isLessonTipsActive,
     isLessonIntroActive,
+    isLessonBriefingActive,
     isTutorLessonPending,
     isLessonActive,
   ])
@@ -5413,7 +5429,12 @@ export default function Home() {
 
   React.useEffect(() => {
     const prev = prevFooterModeActivityRef.current
-    const lessonNowActive = isLessonActive || isLessonIntroActive || isLessonTipsActive || isStructuredLessonActive
+    const lessonNowActive =
+      isLessonActive ||
+      isLessonIntroActive ||
+      isLessonTipsActive ||
+      isLessonBriefingActive ||
+      isStructuredLessonActive
     const practiceNowActive = isPracticeActive
     const accentNowActive = isAccentActive
     let transitionSource: 'lesson' | 'practice' | 'accent' | null = null
@@ -5462,6 +5483,7 @@ export default function Home() {
       isLessonActive ||
       isLessonIntroActive ||
       isLessonTipsActive ||
+      isLessonBriefingActive ||
       isStructuredLessonActive ||
       isPracticeActive ||
       isAccentActive ||
@@ -5479,6 +5501,7 @@ export default function Home() {
     isLessonActive,
     isLessonIntroActive,
     isLessonTipsActive,
+    isLessonBriefingActive,
     isPracticeActive,
     isStructuredLessonActive,
   ])
@@ -5708,7 +5731,8 @@ export default function Home() {
       isAccentActive ||
       isVocabularyHubActive) &&
     !isLessonIntroActive &&
-    !isLessonTipsActive
+    !isLessonTipsActive &&
+    !isLessonBriefingActive
       ? recentRewardTicker
       : null
   const structuredLessonCompletionFooterText = useMemo(() => {
@@ -5814,7 +5838,7 @@ export default function Home() {
     if (isPracticeActive) return 'practice'
     if (isAccentActive) return 'accent'
     if (isStructuredLessonActive) return 'lesson'
-    if (isLessonIntroActive || isLessonTipsActive) return 'lesson-intro'
+    if (isLessonIntroActive || isLessonTipsActive || isLessonBriefingActive) return 'lesson-intro'
     if (dialogStarted && settings.mode === 'communication') return 'communication'
     if (dialogStarted && engvoVoiceMode) return 'engvo'
     if (isLessonActive) return 'lesson-learning'
@@ -5825,6 +5849,7 @@ export default function Home() {
     isStructuredLessonActive,
     isLessonIntroActive,
     isLessonTipsActive,
+    isLessonBriefingActive,
     dialogStarted,
     settings.mode,
     engvoVoiceMode,
@@ -5887,13 +5912,13 @@ export default function Home() {
       ? resolveFooterWithStreakLayer(introFooterDynamicText, null, null)
       : isLessonTipsActive
       ? resolveFooterWithStreakLayer(tipsFooterDynamicText, null, null)
+      : isLessonBriefingActive
+      ? resolveFooterWithStreakLayer('Прочитайте правила — затем к заданию.', null, null)
       : isStructuredLessonActive
       ? resolveFooterWithStreakLayer(
-          lessonReturnBriefing
-            ? 'Прочитайте правила - затем к заданию.'
-            : structuredLessonCompletionFooterText ??
-                structuredLessonFooterTopLine ??
-                activeStructuredLessonFooterDynamicText
+          structuredLessonCompletionFooterText ??
+            structuredLessonFooterTopLine ??
+            activeStructuredLessonFooterDynamicText
         )
       : isLessonActive
       ? resolveFooterWithStreakLayer(learningLessonFooterDynamicText)
@@ -5912,6 +5937,8 @@ export default function Home() {
       ? introFooterStaticText
       : isLessonTipsActive
       ? tipsFooterStaticText
+      : isLessonBriefingActive
+      ? 'Брифинг | 0/7 шагов'
       : isStructuredLessonActive
       ? activeStructuredLessonFooterStaticText
       : isLessonActive
@@ -5972,7 +5999,7 @@ export default function Home() {
         cycle1Closed: progress?.cycle1Closed === true,
       })
     }
-    if ((isLessonIntroActive || isLessonTipsActive) && activeLearningLessonId) {
+    if ((isLessonIntroActive || isLessonTipsActive || isLessonBriefingActive) && activeLearningLessonId) {
       return resolveLessonCardMedal(loadLessonProgress(activeLearningLessonId))
     }
     return null
@@ -5980,6 +6007,7 @@ export default function Home() {
     isStructuredLessonActive,
     isLessonIntroActive,
     isLessonTipsActive,
+    isLessonBriefingActive,
     activeLearningLessonId,
     activeStructuredLesson,
     activeStructuredLessonCoreXp,
@@ -6002,6 +6030,8 @@ export default function Home() {
       ? `${activeLearningLessonId ?? 'lesson'}:intro:${lessonIntroDepth}`
       : isLessonTipsActive
       ? `${activeLessonTipsKey}:tips:${lessonExtraTipsStatus}`
+      : isLessonBriefingActive
+      ? `${activeLearningLessonId ?? 'lesson'}:briefing:${lessonReturnBriefing?.runKey ?? 'briefing'}`
       : isStructuredLessonActive
       ? activeStructuredLessonFooterTypingKey
       : dialogStarted
@@ -6034,6 +6064,8 @@ export default function Home() {
             : lessonExtraTipsStatus === 'error'
               ? 'error'
               : 'hint'
+      : isLessonBriefingActive
+      ? 'hint'
       : isStructuredLessonActive
       ? activeStructuredLessonFooterVoiceTone
       : dialogStarted
@@ -6060,6 +6092,8 @@ export default function Home() {
         lessonExtraTipsStatus === 'more-ready'
         ? 'pulse'
         : 'none'
+      : isLessonBriefingActive
+      ? 'none'
       : isStructuredLessonActive
       ? activeStructuredLessonFooterVoiceEmphasis
       : dialogStarted
@@ -6146,7 +6180,8 @@ export default function Home() {
     hasCommunicationControls: hasCommunicationHeaderControls,
     lessonPageTitleView: lessonPageTitleView != null,
     hasLessonHeaderProgress: Boolean(lessonHeaderProgressLabel),
-    isLessonPreSteps: isLessonIntroActive || isLessonTipsActive || isTutorLessonPending,
+    isLessonPreSteps:
+      isLessonIntroActive || isLessonTipsActive || isLessonBriefingActive || isTutorLessonPending,
     hasHeaderMedal: lessonHeaderMedal != null,
   })
 
@@ -6755,12 +6790,7 @@ export default function Home() {
                   audience={settings.audience}
                   onShowDetails={() => setLessonIntroDepth('details')}
                   onShowDeepDive={() => setLessonIntroDepth('deep')}
-                  onStartLesson={() => {
-                    if (!activeStructuredLesson) return
-                    setLastStructuredLessonGlobalDelta(0)
-                    bumpFooterSessionContext()
-                    setLessonViewStage('lesson')
-                  }}
+                  onStartLesson={enterLessonFromIntro}
                   onShowExtras={() => {
                     setLessonTipsReturnStage('intro')
                     setLessonViewStage('tips')
@@ -6788,12 +6818,14 @@ export default function Home() {
                     bumpFooterSessionContext()
                     setLessonViewStage(lessonTipsReturnStage)
                   }}
-                  onStartLesson={() => {
-                    if (!activeStructuredLesson) return
-                    setLastStructuredLessonGlobalDelta(0)
-                    bumpFooterSessionContext()
-                    setLessonViewStage('lesson')
-                  }}
+                  onStartLesson={enterLessonFromIntro}
+                />
+              ) : isLessonBriefingActive && lessonReturnBriefing ? (
+                <LessonBriefingScreen
+                  key={lessonReturnBriefing.runKey}
+                  briefing={lessonReturnBriefing}
+                  onContinue={acknowledgeLessonReturnBriefing}
+                  onGenerateVariant={handleGenerateFromReturnBriefing}
                 />
               ) : isStructuredLessonActive && activeStructuredLesson && activeStructuredLessonStep ? (
                 <LessonStepRenderer
@@ -6861,9 +6893,6 @@ export default function Home() {
                   audience={settings.audience}
                   voiceId={settings.voiceId}
                   choiceShuffleSeed={structuredLessonChoiceShuffleSeed}
-                  returnBriefing={lessonReturnBriefing}
-                  onAcknowledgeReturnBriefing={acknowledgeLessonReturnBriefing}
-                  onGenerateVariantFromReturnBriefing={handleGenerateFromReturnBriefing}
                   onPuzzleProgressChange={handleStructuredLessonPuzzleProgressChange}
                   puzzleSubIndex={activeStructuredLessonPuzzleProgress?.subIndex}
                   puzzleSubAdvanceToken={activeStructuredLessonPuzzleSubAdvanceToken}

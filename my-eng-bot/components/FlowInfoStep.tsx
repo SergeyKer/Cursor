@@ -1,6 +1,7 @@
 'use client'
 
 import FlowInfoCard, { type FlowInfoCardProps } from '@/components/FlowInfoCard'
+import { useMountTapGuard } from '@/hooks/useMountTapGuard'
 import {
   APP_BTN_PRIMARY_DUAL_ROW,
   APP_BTN_PRIMARY_LARGE,
@@ -25,6 +26,8 @@ export type FlowInfoStepProps = FlowInfoCardProps & {
   compactActionsSpacing?: boolean
   /** Две CTA в один ряд, симметрично, текст в две строки. */
   dualActionsRow?: boolean
+  /** Ключ шага: блокирует CTA сразу после mount (защита от сквозного тапа на мобильных). */
+  guardMountTapResetKey?: string
 }
 
 export default function FlowInfoStep({
@@ -39,9 +42,11 @@ export default function FlowInfoStep({
   enterClassName = 'animate-fade-in-up',
   compactActionsSpacing = false,
   dualActionsRow = false,
+  guardMountTapResetKey,
   className: _unusedClassName,
   ...cardProps
 }: FlowInfoStepProps) {
+  const { isActionReady, guardAction } = useMountTapGuard(guardMountTapResetKey)
   const hasSecondary = Boolean(secondaryActionLabel && onSecondaryAction)
   const primaryButtonClass = `${APP_BTN_PRIMARY_LARGE} focus:outline-none focus-visible:ring-2 focus-visible:ring-[#93c5fd]`
   const secondaryButtonClass = `${APP_BTN_SECONDARY_LARGE} focus:outline-none focus-visible:ring-2 focus-visible:ring-[#93c5fd]`
@@ -56,8 +61,8 @@ export default function FlowInfoStep({
   ) => (
     <button
       type="button"
-      onClick={onClick}
-      disabled={disabled}
+      onClick={() => guardAction(onClick)}
+      disabled={disabled || !isActionReady}
       className={tone === 'primary' ? primaryDualRowClass : secondaryDualRowClass}
     >
       {formatLessonVariantDualCtaTwoLineLabel(label)}
@@ -68,28 +73,38 @@ export default function FlowInfoStep({
     hasSecondary && prioritizeSecondaryAction ? (
       <button
         type="button"
-        onClick={onSecondaryAction}
-        disabled={secondaryActionDisabled}
+        onClick={() => guardAction(() => onSecondaryAction?.())}
+        disabled={secondaryActionDisabled || !isActionReady}
         className={primaryButtonClass}
       >
         {secondaryActionLabel}
       </button>
     ) : (
-      <button type="button" onClick={onAction} className={primaryButtonClass}>
+      <button
+        type="button"
+        onClick={() => guardAction(onAction)}
+        disabled={!isActionReady}
+        className={primaryButtonClass}
+      >
         {actionLabel}
       </button>
     )
 
   const deemphasizedButton =
     hasSecondary && prioritizeSecondaryAction ? (
-      <button type="button" onClick={onAction} className={secondaryButtonClass}>
+      <button
+        type="button"
+        onClick={() => guardAction(onAction)}
+        disabled={!isActionReady}
+        className={secondaryButtonClass}
+      >
         {actionLabel}
       </button>
     ) : hasSecondary ? (
       <button
         type="button"
-        onClick={onSecondaryAction}
-        disabled={secondaryActionDisabled}
+        onClick={() => guardAction(() => onSecondaryAction?.())}
+        disabled={secondaryActionDisabled || !isActionReady}
         className={secondaryButtonClass}
       >
         {secondaryActionLabel}
