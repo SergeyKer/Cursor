@@ -51,6 +51,23 @@ describe('resolveLessonReturnBriefing', () => {
     expect(payload?.runKey).toBe('lesson-1:run-a')
   })
 
+  it('returns first-run briefing when lesson was never started', () => {
+    loadLessonProgressMock.mockReturnValue(null)
+
+    const payload = resolveLessonReturnBriefing({
+      lessonId: 'lesson-1',
+      runKey: 'run-a',
+      lessonTitle: 'I am',
+      audience: 'adult',
+      origin: 'menu_reopen',
+      variantNumber: 1,
+      isRepeatRun: false,
+    })
+
+    expect(payload?.kind).toBe('first_run')
+    expect(payload?.actions.primaryLabel).toBe('Продолжить')
+  })
+
   it('returns null when briefing already acknowledged for this run', () => {
     loadLessonProgressMock.mockReturnValue({
       lessonId: 'lesson-1',

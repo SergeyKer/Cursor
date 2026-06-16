@@ -11,8 +11,9 @@ import {
 } from '@/lib/lessonRepeatBriefingThesisCopy'
 import { resolveLessonVariantDualCtaLabels } from '@/lib/lessonVariantCtaCopy'
 import type { StructuredLessonRunOrigin } from '@/lib/lessonAntiFarm'
+import { buildLessonFirstRunBriefingCopy } from '@/lib/lessonFirstRunBriefingCopy'
 
-export type LessonReturnBriefingKind = 'medal_repeat' | 'cycle1'
+export type LessonReturnBriefingKind = 'medal_repeat' | 'cycle1' | 'first_run'
 
 export type LessonReturnBriefingCopy = {
   variant: FlowInfoCardVariant
@@ -42,7 +43,10 @@ export function buildLessonReturnBriefingBubbles(params: {
   kind: LessonReturnBriefingKind
 }): Bubble[] {
   const title = params.lessonTitle.trim() || 'Урок'
-  const intro = `Урок «${title}». Сначала - коротко о правилах.`
+  const intro =
+    params.kind === 'first_run'
+      ? `Урок «${title}». Сначала — коротко о прохождении.`
+      : `Урок «${title}». Сначала - коротко о правилах.`
   return [{ type: 'positive', content: intro }]
 }
 
@@ -122,7 +126,12 @@ export function buildLessonReturnBriefingPayload(params: {
           audience: params.audience,
           origin: params.origin ?? 'menu_reopen',
         })
-      : buildLessonReturnBriefingCopy({
+      : params.kind === 'first_run'
+        ? buildLessonFirstRunBriefingCopy({
+            audience: params.audience,
+            coinIntroContext: params.coinIntroContext,
+          })
+        : buildLessonReturnBriefingCopy({
           medal: params.medal!,
           lessonTitle: params.lessonTitle,
           audience: params.audience,

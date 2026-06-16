@@ -7,6 +7,7 @@ import {
   type LessonReturnBriefingPayload,
 } from '@/lib/lessonReturnBriefingCopy'
 import type { LessonReturnHintContext } from '@/lib/lessonReturnHint'
+import { isLessonStartedForMenu } from '@/lib/lessonFooter'
 import { loadLessonProgress } from '@/lib/lessonProgressStorage'
 
 export type ResolveLessonReturnBriefingInput = {
@@ -64,6 +65,17 @@ export function resolveLessonReturnBriefing(
         cycle1Closed: progress.cycle1Closed === true,
         isRepeatRun: input.isRepeatRun,
       }),
+      origin: input.origin,
+      coinIntroContext: input.coinIntroContext,
+    })
+  }
+
+  if (!isLessonStartedForMenu(progress)) {
+    return buildLessonReturnBriefingPayload({
+      runKey,
+      lessonTitle,
+      audience: input.audience,
+      kind: 'first_run',
       origin: input.origin,
       coinIntroContext: input.coinIntroContext,
     })
