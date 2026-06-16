@@ -7,7 +7,6 @@ import {
   type LessonReturnBriefingPayload,
 } from '@/lib/lessonReturnBriefingCopy'
 import type { LessonReturnHintContext } from '@/lib/lessonReturnHint'
-import { isLessonStartedForMenu } from '@/lib/lessonFooter'
 import { loadLessonProgress } from '@/lib/lessonProgressStorage'
 
 export type ResolveLessonReturnBriefingInput = {
@@ -70,7 +69,7 @@ export function resolveLessonReturnBriefing(
     })
   }
 
-  if (!isLessonStartedForMenu(progress)) {
+  if (!progress?.medal && progress?.cycle1Closed !== true) {
     return buildLessonReturnBriefingPayload({
       runKey,
       lessonTitle,

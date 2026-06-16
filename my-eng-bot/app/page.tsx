@@ -3113,6 +3113,7 @@ export default function Home() {
       setSelectedPostLessonAction(null)
       setPostLessonBusy(false)
       setLessonOverlay(null)
+      setLessonReturnBriefingAckRunKey(null)
       setLessonViewStage('intro')
       setLessonTipsReturnStage('intro')
       setLessonIntroDepth('quick')
@@ -5265,6 +5266,18 @@ export default function Home() {
     bumpFooterSessionContext,
   ])
 
+  React.useEffect(() => {
+    if (lessonViewStage !== 'intro' || !activeStructuredLesson || !activeLearningLesson) return
+    if (activeLessonIntro) return
+    enterLessonFromIntro()
+  }, [
+    lessonViewStage,
+    activeStructuredLesson,
+    activeLearningLesson,
+    activeLessonIntro,
+    enterLessonFromIntro,
+  ])
+
   const buildActiveLearningLessonMenuMeta = React.useCallback((): LearningLessonMenuMeta | undefined => {
     if (!lessonMenuContext) return undefined
     return {
@@ -6797,7 +6810,6 @@ export default function Home() {
                   }}
                   onBack={backToLessonList}
                   footerVariantRegenerating={structuredLessonVariantRegenerating}
-                  lessonCoinIntroContext={lessonCoinIntroContext}
                 />
               ) : isLessonTipsActive && activeLessonIntro ? (
                 <LessonExtraTipsScreen

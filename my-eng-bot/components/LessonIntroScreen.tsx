@@ -17,7 +17,6 @@ import { APP_BTN_PRIMARY_LESSON_START, BTN_INTERACTION_BASE } from '@/lib/homeCt
 import { LESSON_SCROLL_VIEWPORT_CLASS, scheduleScrollAfterLayout } from '@/lib/lessonFeedScroll'
 import { LESSON_SECTION_REVEAL_INTERVAL_MS } from '@/lib/lessonRevealTiming'
 import { getMenuTopicCopyByIntroTopic } from '@/lib/lessonCatalog'
-import { buildLessonCoinIntroBubble, type LessonCoinIntroContext } from '@/lib/lessonCoinIntroCopy'
 import { resolveLessonIntroPrimaryCtaLabel } from '@/lib/lessonIntroCtaCopy'
 import { LESSON_VARIANT_PREPARE_LOADING_LABEL } from '@/lib/lessonVariantCtaCopy'
 import type { AiProvider, Audience, OpenAiChatPreset } from '@/lib/types'
@@ -39,7 +38,6 @@ type LessonIntroScreenProps = {
   onStartLesson: () => void
   onShowExtras: () => void
   onBack: () => void
-  lessonCoinIntroContext?: LessonCoinIntroContext | null
 }
 
 type IntroMessage = {
@@ -257,7 +255,6 @@ export default function LessonIntroScreen({
   onStartLesson,
   onShowExtras,
   onBack,
-  lessonCoinIntroContext = null,
 }: LessonIntroScreenProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const composerStackRef = useRef<HTMLDivElement>(null)
@@ -279,11 +276,6 @@ export default function LessonIntroScreen({
   const mainIntroBubbles = useMemo(
     () => buildMainIntroBubbles(intro, audience),
     [audience, intro]
-  )
-  const coinIntroBubble = useMemo(
-    () =>
-      lessonCoinIntroContext ? buildLessonCoinIntroBubble(lessonCoinIntroContext) : null,
-    [lessonCoinIntroContext]
   )
   const staggeredRevealTargets = useMemo(() => {
     const targets = [{ id: 'intro-main', sectionCount: MAIN_INTRO_BASE_SECTION_COUNT }]
@@ -315,13 +307,6 @@ export default function LessonIntroScreen({
       role: 'assistant',
       bubbles: mainIntroBubbles,
     })
-    if (coinIntroBubble) {
-      next.push({
-        id: 'intro-coin',
-        role: 'assistant',
-        bubbles: [coinIntroBubble],
-      })
-    }
     const details = buildDetailsBubbles(intro)
     const shouldShowDetailsRequest = pendingDepth === 'details' || pendingDepth === 'deep' || depth === 'details' || depth === 'deep'
     const shouldShowDetailsAnswer = depth === 'details' || depth === 'deep'
@@ -346,7 +331,7 @@ export default function LessonIntroScreen({
       })
     }
     return next
-  }, [audience, coinIntroBubble, depth, extraDeepDives, intro, mainIntroBubbles, pendingDepth])
+  }, [depth, extraDeepDives, intro, mainIntroBubbles, pendingDepth])
 
   useEffect(() => {
     return () => {
