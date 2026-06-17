@@ -369,7 +369,7 @@ export function resolvePrepareLabel(progress: number, profile: PrepareLabelProfi
   const rounded = Math.round(progress)
   const thresholds =
     profile === 'briefing' ? LESSON_BRIEFING_PREPARE_LABEL_BY_THRESHOLD : LESSON_PREPARE_LABEL_BY_THRESHOLD
-  let label = thresholds[0].label
+  let label: string = thresholds[0].label
   for (const entry of thresholds) {
     if (rounded >= entry.minProgress) {
       label = entry.label
