@@ -52,14 +52,14 @@ describe('resolveLessonChoiceComposerLayout', () => {
     })
   })
 
-  it('chips ready — mount and release lock', () => {
+  it('chips ready — mount, keep lock until height stabilizes', () => {
     expect(
       resolveLessonChoiceComposerLayout({
         ...baseChoiceInput,
         isRevealInProgress: false,
         isChoiceChipsVisible: true,
       })
-    ).toEqual({ mountChips: true, reserveMinHeight: true, lockReleased: true })
+    ).toEqual({ mountChips: true, reserveMinHeight: true, lockReleased: false })
   })
 
   it('checking phase with visible chips — keep reserve height', () => {

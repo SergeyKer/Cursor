@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  buildLessonCycle1BriefingCopy,
   buildLessonReturnBriefingBubbles,
   buildLessonReturnBriefingCopy,
   buildLessonReturnBriefingPayload,
@@ -35,7 +34,7 @@ describe('buildLessonReturnHint', () => {
 describe('buildLessonReturnBriefingCopy', () => {
   it('maps medal repeat into thesis lines without preserved medal wall', () => {
     const copy = buildLessonReturnBriefingCopy({
-      medal: 'gold',
+      briefingKind: 'medal_repeat',
       lessonTitle: 'To be',
       audience: 'adult',
       context: 'post_lesson_repeat',
@@ -50,7 +49,7 @@ describe('buildLessonReturnBriefingCopy', () => {
     })
     expect(copy.title).toContain('урок')
     expect(copy.statsLine).toBe('')
-    expect(copy.message).toContain('можно золото')
+    expect(copy.message).toContain('В новом варианте золото снова в цели')
     expect(copy.message).toContain('правильных ответов прибавим')
     expect(copy.message).toContain('сейчас рекорд 155 XP')
     expect(copy.message).toContain('Комбо 3/5/7')
@@ -61,7 +60,7 @@ describe('buildLessonReturnBriefingCopy', () => {
 
   it('shows silver cap thesis on menu reopen', () => {
     const copy = buildLessonReturnBriefingCopy({
-      medal: 'bronze',
+      briefingKind: 'medal_repeat',
       lessonTitle: 'Who ...?',
       audience: 'adult',
       context: 'menu_reopen',
@@ -80,31 +79,43 @@ describe('buildLessonReturnBriefingCopy', () => {
     expect(copy.message).toContain('За золото награда +1 монета')
   })
 
-  it('builds cycle1 briefing copy from hint lines', () => {
-    const copy = buildLessonCycle1BriefingCopy({
+  it('builds cycle1 briefing with unified thesis lines', () => {
+    const copy = buildLessonReturnBriefingCopy({
+      briefingKind: 'cycle1',
       lessonTitle: 'Shopping',
       audience: 'adult',
-      origin: 'menu_reopen',
+      context: 'menu_reopen',
+      bestTotalXp: 0,
+      silverCapThisRun: true,
+      coinIntroContext: {
+        audience: 'adult',
+        lessonCoinClaimed: false,
+        isGeneratedVariantRun: false,
+        profileMedal: null,
+      },
     })
+    expect(copy.title).toBe('Как устроен урок')
     expect(copy.statsLine).toBe('')
-    expect(copy.message).toContain('без золота')
-    expect(copy.secondaryMessage).toContain('серебро')
+    expect(copy.message).toContain('максимум серебро')
+    expect(copy.message).toContain('Комбо 3/5/7')
+    expect(copy.message).toContain('пропустить за монету')
+    expect(copy.secondaryMessage).toBeUndefined()
   })
 })
 
 describe('buildLessonReturnBriefingBubbles', () => {
-  it('uses different intro for cycle1', () => {
-    const medalBubble = buildLessonReturnBriefingBubbles({
+  it('uses rules intro for all kinds', () => {
+    const firstRunBubble = buildLessonReturnBriefingBubbles({
       lessonTitle: 'Test',
       audience: 'adult',
-      kind: 'medal_repeat',
+      kind: 'first_run',
     })
     const cycle1Bubble = buildLessonReturnBriefingBubbles({
       lessonTitle: 'Test',
       audience: 'adult',
       kind: 'cycle1',
     })
-    expect(medalBubble[0].content).toContain('правилах')
+    expect(firstRunBubble[0].content).toContain('правилах')
     expect(cycle1Bubble[0].content).toContain('правилах')
   })
 })
@@ -116,7 +127,6 @@ describe('buildLessonReturnBriefingPayload', () => {
       lessonTitle: 'Test',
       audience: 'adult',
       kind: 'medal_repeat',
-      medal: 'silver',
       context: 'menu_reopen',
       bestTotalXp: 100,
       silverCapThisRun: true,
@@ -136,5 +146,25 @@ describe('buildLessonReturnBriefingPayload', () => {
       primaryLabel: 'Повтор варианта',
       secondaryLabel: 'Новый вариант',
     })
+  })
+
+  it('offers dual CTA for cycle1 local reopen', () => {
+    const payload = buildLessonReturnBriefingPayload({
+      runKey: 'lesson-1:run-a',
+      lessonTitle: 'Test',
+      audience: 'adult',
+      kind: 'cycle1',
+      context: 'menu_reopen',
+      bestTotalXp: 0,
+      silverCapThisRun: true,
+      coinIntroContext: {
+        audience: 'adult',
+        lessonCoinClaimed: false,
+        isGeneratedVariantRun: false,
+        profileMedal: null,
+      },
+    })
+    expect(payload.copy.message).toContain('максимум серебро')
+    expect(payload.actions.offerGenerateVariant).toBe(true)
   })
 })

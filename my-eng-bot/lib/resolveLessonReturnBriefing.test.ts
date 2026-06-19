@@ -118,10 +118,10 @@ describe('resolveLessonReturnBriefing', () => {
     })
 
     expect(payload?.kind).toBe('medal_repeat')
-    expect(payload?.copy.message).toContain('Этот проход - можно золото.')
+    expect(payload?.copy.message).toContain('В новом варианте золото снова в цели')
   })
 
-  it('returns first-run with generated-variant coin line for menu_generate', () => {
+  it('returns first-run with gold goal line for menu_generate', () => {
     loadLessonProgressMock.mockReturnValue(null)
 
     const payload = resolve({
@@ -135,7 +135,35 @@ describe('resolveLessonReturnBriefing', () => {
     })
 
     expect(payload?.kind).toBe('first_run')
-    expect(payload?.copy.message).toContain('сгенерированном варианте')
+    expect(payload?.copy.message).toContain('Золото — при отличном результате')
+    expect(payload?.copy.message).toContain('Комбо 3/5/7')
+    expect(payload?.copy.message).toContain('пропустить за монету')
+  })
+
+  it('returns cycle1 briefing with thesis lines and dual CTA on local reopen', () => {
+    loadLessonProgressMock.mockReturnValue(
+      baseProgress({
+        cycle1Closed: true,
+        cycle1Started: true,
+      })
+    )
+
+    const payload = resolve({
+      origin: 'menu_reopen',
+      variantNumber: 1,
+      coinIntroContext: {
+        audience: 'adult',
+        lessonCoinClaimed: false,
+        isGeneratedVariantRun: false,
+        profileMedal: null,
+      },
+    })
+
+    expect(payload?.kind).toBe('cycle1')
+    expect(payload?.copy.title).toBe('Как устроен урок')
+    expect(payload?.copy.message).toContain('максимум серебро')
+    expect(payload?.copy.message).toContain('Комбо 3/5/7')
+    expect(payload?.actions.offerGenerateVariant).toBe(true)
   })
 
   it('returns null when briefing already acknowledged for this run', () => {

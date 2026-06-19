@@ -1,8 +1,11 @@
 import type { FooterCopyAudience } from '@/lib/footerTopLinePhrases'
 import type { LessonReturnHintContext } from '@/lib/lessonReturnHint'
 
+export type LessonBriefingKind = 'medal_repeat' | 'cycle1' | 'first_run'
+
 export type LessonRepeatBriefingThesisParams = {
   audience: FooterCopyAudience
+  briefingKind: LessonBriefingKind
   lessonCoinClaimed: boolean
   isGeneratedVariantRun: boolean
   silverCapThisRun: boolean
@@ -37,7 +40,19 @@ function buildForgivenessLine(): string {
   return '💡 1 ошибку за урок можно пропустить за монету.'
 }
 
-function buildGoldInGeneratedLine(): string {
+function buildGoldGoalLine(audience: FooterCopyAudience): string {
+  return audience === 'child'
+    ? '🥇 Золото — если отличный результат!'
+    : '🥇 Золото — при отличном результате.'
+}
+
+function buildGoldInGeneratedVariantLine(audience: FooterCopyAudience): string {
+  return audience === 'child'
+    ? '🥇 В новом варианте золото снова в цели!'
+    : '🥇 В новом варианте золото снова в цели.'
+}
+
+function buildGoldInNewVariantCtaLine(): string {
   return '🥇 Нужно золото? Жми Новый вариант.'
 }
 
@@ -46,17 +61,15 @@ export function buildLessonRepeatBriefingThesisLines(
 ): string[] {
   const lines: string[] = []
 
-  if (params.isGeneratedVariantRun) {
-    lines.push(
-      params.audience === 'child'
-        ? '🥇 На этом проходе - можно золото.'
-        : '🥇 Этот проход - можно золото.'
-    )
+  if (params.briefingKind === 'first_run') {
+    lines.push(buildGoldGoalLine(params.audience))
+  } else if (params.isGeneratedVariantRun) {
+    lines.push(buildGoldInGeneratedVariantLine(params.audience))
   } else if (params.context === 'menu_reopen' && params.silverCapThisRun) {
     lines.push('🥈 Этот проход - максимум серебро.')
-    lines.push(buildGoldInGeneratedLine())
+    lines.push(buildGoldInNewVariantCtaLine())
   } else {
-    lines.push(buildGoldInGeneratedLine())
+    lines.push(buildGoldInNewVariantCtaLine())
   }
 
   lines.push(buildCoinLine(params))

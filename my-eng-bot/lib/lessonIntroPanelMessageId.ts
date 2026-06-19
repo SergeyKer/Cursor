@@ -84,3 +84,42 @@ export function resolveHistoricalLessonMessageIdForDepartingCurrent(
 
   return null
 }
+
+/** History-карточка текущего шага (после success попытка уже в timeline). */
+export function findLatestHistoricalLessonMessageIdForStep(
+  lessonMessages: LessonFeedMessage[],
+  stepNumber: number | undefined,
+  stepIndex: number | undefined
+): string | null {
+  if (stepNumber == null || stepIndex == null) return null
+
+  for (let index = lessonMessages.length - 1; index >= 0; index -= 1) {
+    const message = lessonMessages[index]
+    if (message.kind !== 'lesson' || !message.isHistorical) continue
+
+    const parsed = parseLessonFeedMessageId(message.id)
+    if (
+      parsed &&
+      parsed.stepNumber === stepNumber &&
+      parsed.stepIndex === stepIndex
+    ) {
+      return message.id
+    }
+  }
+
+  return null
+}
+
+/** Intro-чипы: на history всегда; на current — по reveal, кроме пустой success-оболочки. */
+export function shouldShowIntroControlsOnLessonMessage(params: {
+  isCurrentLessonMessage: boolean
+  introBlockStripVisible: boolean
+  isEmptyIntroControlsShell?: boolean
+}): boolean {
+  if (params.isCurrentLessonMessage) {
+    if (params.isEmptyIntroControlsShell) return false
+    return params.introBlockStripVisible
+  }
+
+  return true
+}

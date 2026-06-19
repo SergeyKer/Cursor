@@ -80,6 +80,7 @@ import {
   shouldMtAutoPinPuzzleCheckingRow,
   shouldPinLessonFeedTailNearComposer,
   shouldSkipRevealEndOverflowScroll,
+  shouldSkipLessonFeedOverflowFollow,
   isWithinRevealEndOverflowSettleWindow,
   resyncLessonFeedScrollNearTail,
 } from '@/lib/lessonFeedScroll'
@@ -108,7 +109,9 @@ import {
   resolveIntroBlockTaskCardReached,
 } from '@/lib/lessonIntroBlockReveal'
 import {
+  findLatestHistoricalLessonMessageIdForStep,
   resolveHistoricalLessonMessageIdForDepartingCurrent,
+  shouldShowIntroControlsOnLessonMessage,
 } from '@/lib/lessonIntroPanelMessageId'
 
 type LessonStepRendererProps = {
@@ -321,9 +324,10 @@ export default function LessonStepRenderer({
 }: LessonStepRendererProps) {
   const [openIntroPanel, setOpenIntroPanel] = useState<LessonIntroPanelKind | null>(null)
   const introPanelByMessageIdRef = useRef<Map<string, LessonIntroPanelKind>>(new Map())
-  const [, bumpIntroPanelMapVersion] = useState(0)
+  const [introPanelMapVersion, bumpIntroPanelMapVersion] = useState(0)
   const currentLessonMessageIdRef = useRef<string | null>(null)
   const departingLessonMessageIdRef = useRef<string | null>(null)
+  const lastIntroResetKeyRef = useRef<string | null>(null)
   const returnBriefingActive = Boolean(returnBriefing)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const messagesStackRef = useRef<HTMLDivElement>(null)
@@ -428,6 +432,7 @@ export default function LessonStepRenderer({
   const hasChoiceOptions = isChoiceExercise && choiceOptions.length > 0
   const shouldRenderChoiceChips = hasChoiceOptions
   const hasPostLessonOptions = Boolean(postLesson?.options.length)
+  const hasIntroBlocks = Boolean(introBlocks?.theory || introBlocks?.how)
   /** Пазл и финал: короткая лента + высокая нижняя панель — scrollIntoView липнет к верху. */
   const useFeedScrollToMax = isSentencePuzzle || hasPostLessonOptions
   const relaxFeedTailPin = resolveRelaxFeedTailPin({
@@ -492,6 +497,17 @@ export default function LessonStepRenderer({
   const isChoiceChipsVisible =
     !deferChoiceChipsUntilCardReveal ||
     (isRevealInitializedForKey && !isRevealInProgress)
+  const shellScrollDeferLayoutSettling = deferChoiceChipsUntilCardReveal
+  const LESSON_FEED_ENTER_ANIM_MS = 800
+  const awaitingFeedEnterBeforeTextRevealRef = useRef(false)
+  const shellScrollCompleteInvokedRef = useRef(false)
+  const [lessonFeedEnterClassActive, setLessonFeedEnterClassActive] = useState(false)
+  const invokeShellScrollCompleteOnce = useCallback(() => {
+    if (shellScrollCompleteInvokedRef.current) return
+    shellScrollCompleteInvokedRef.current = true
+    awaitingFeedEnterBeforeTextRevealRef.current = false
+    onShellScrollComplete()
+  }, [onShellScrollComplete])
   const isTaskSectionVisible =
     taskBubbleIndex < 0 ||
     (isRevealInitializedForKey && textRevealedThroughIndex >= taskBubbleIndex)
@@ -520,6 +536,33 @@ export default function LessonStepRenderer({
   const stepTransitionKey = currentStep
     ? `step-${currentStep.stepNumber}-v${currentVariantIndex}`
     : null
+
+  useLayoutEffect(() => {
+    if (!isShellEnterActive) {
+      setLessonFeedEnterClassActive(false)
+      awaitingFeedEnterBeforeTextRevealRef.current = false
+      return
+    }
+    if (isFirstLessonStep || prefersReducedMotion) {
+      awaitingFeedEnterBeforeTextRevealRef.current = false
+      setLessonFeedEnterClassActive(false)
+      return
+    }
+    shellScrollCompleteInvokedRef.current = false
+    awaitingFeedEnterBeforeTextRevealRef.current = true
+    setLessonFeedEnterClassActive(true)
+  }, [isFirstLessonStep, isShellEnterActive, prefersReducedMotion, stepTransitionKey])
+
+  useEffect(() => {
+    if (!lessonFeedEnterClassActive) return
+    const fallbackTimer = window.setTimeout(() => {
+      if (!awaitingFeedEnterBeforeTextRevealRef.current) return
+      setLessonFeedEnterClassActive(false)
+      invokeShellScrollCompleteOnce()
+    }, LESSON_FEED_ENTER_ANIM_MS + 80)
+    return () => window.clearTimeout(fallbackTimer)
+  }, [invokeShellScrollCompleteOnce, lessonFeedEnterClassActive, stepTransitionKey])
+
   const activePuzzleVariant =
     isSentencePuzzle && exercise?.puzzleVariants?.length
       ? exercise.puzzleVariants[Math.min(puzzleSubIndex ?? 0, exercise.puzzleVariants.length - 1)]
@@ -920,12 +963,29 @@ export default function LessonStepRenderer({
   useEffect(() => {
     const departingId = departingLessonMessageIdRef.current
     const nextCurrentId = currentLessonMessage?.id ?? null
-    const messageIdChanged = Boolean(departingId && departingId !== nextCurrentId)
     const prevStepKey = prevStepTransitionKeyRef.current
     const stepKeyChanged = prevStepKey !== null && prevStepKey !== stepTransitionKey
     prevStepTransitionKeyRef.current = stepTransitionKey
 
-    if (!messageIdChanged && !stepKeyChanged) return
+    const messageIdChanged = Boolean(
+      departingId && nextCurrentId && departingId !== nextCurrentId
+    )
+    const messageIdCleared = Boolean(departingId && !nextCurrentId)
+
+    if (!messageIdChanged && !messageIdCleared && !stepKeyChanged) return
+
+    const resetKey = `${departingId ?? 'null'}->${nextCurrentId ?? 'null'}`
+    if (lastIntroResetKeyRef.current === resetKey) return
+    lastIntroResetKeyRef.current = resetKey
+
+    if (
+      messageIdCleared &&
+      !stepKeyChanged &&
+      status === 'feedback' &&
+      latestFeedback?.type === 'success'
+    ) {
+      return
+    }
 
     setOpenIntroPanel((currentPanel) => {
       if (currentPanel !== null && departingId) {
@@ -940,7 +1000,45 @@ export default function LessonStepRenderer({
       }
       return null
     })
-  }, [currentLessonMessage?.id, lessonMessages, stepTransitionKey])
+  }, [currentLessonMessage?.id, stepTransitionKey, status, latestFeedback?.type])
+
+  useEffect(() => {
+    if (status !== 'feedback' || latestFeedback?.type !== 'success') return
+    if (openIntroPanel === null) return
+
+    const historyId =
+      (currentLessonMessage?.id
+        ? resolveHistoricalLessonMessageIdForDepartingCurrent(
+            currentLessonMessage.id,
+            lessonMessages
+          )
+        : null) ??
+      findLatestHistoricalLessonMessageIdForStep(
+        lessonMessages,
+        currentStep?.stepNumber,
+        currentEntry?.stepIndex
+      )
+
+    if (!historyId) return
+
+    const existing = introPanelByMessageIdRef.current.get(historyId)
+    if (existing === openIntroPanel) {
+      setOpenIntroPanel(null)
+      return
+    }
+
+    introPanelByMessageIdRef.current.set(historyId, openIntroPanel)
+    bumpIntroPanelMapVersion((version) => version + 1)
+    setOpenIntroPanel(null)
+  }, [
+    status,
+    latestFeedback?.type,
+    openIntroPanel,
+    currentLessonMessage?.id,
+    lessonMessages,
+    currentStep?.stepNumber,
+    currentEntry?.stepIndex,
+  ])
 
   useLayoutEffect(() => {
     if (!isSentencePuzzle || !pinFeedTailNearComposer) {
@@ -1030,15 +1128,23 @@ export default function LessonStepRenderer({
   useEffect(() => {
     if (!isShellEnterActive) return
 
+    const completeShellScroll = () => {
+      if (awaitingFeedEnterBeforeTextRevealRef.current) {
+        return
+      }
+      invokeShellScrollCompleteOnce()
+    }
+
     if (isFirstLessonStep) {
       return scheduleScroll(() => {
-        onShellScrollComplete()
+        completeShellScroll()
       }, 'auto')
     }
 
     const behavior = resolveLessonShellScrollBehavior({
       prefersReducedMotion,
       isFirstLessonStep,
+      deferLayoutSettling: false,
     })
     const mode = resolveLessonFeedScrollMode({ useFeedScrollToMax, relaxFeedTailPin })
 
@@ -1047,14 +1153,14 @@ export default function LessonStepRenderer({
     const cleanupSchedule = scheduleScroll((scrollBehavior) => {
       const scrollContainer = scrollContainerRef.current
       if (!scrollContainer) {
-        onShellScrollComplete()
+        completeShellScroll()
         return
       }
       cleanupScrollComplete = scrollLessonFeedToModeWithCompleteIfNeeded(
         scrollContainer,
         mode,
         scrollBehavior,
-        onShellScrollComplete
+        completeShellScroll
       )
     }, behavior)
 
@@ -1068,8 +1174,10 @@ export default function LessonStepRenderer({
     prefersReducedMotion,
     useFeedScrollToMax,
     relaxFeedTailPin,
-    onShellScrollComplete,
+    invokeShellScrollCompleteOnce,
     scheduleScroll,
+    currentStep?.stepNumber,
+    tailLessonMessageId,
   ])
 
   useEffect(() => {
@@ -1108,6 +1216,17 @@ export default function LessonStepRenderer({
       return
     }
 
+    const skipIntroOpenLayoutScroll =
+      hasIntroBlocks &&
+      openIntroPanel !== null &&
+      !stepOrVariantChanged &&
+      (tailChanged || messageCountIncreased)
+
+    if (skipIntroOpenLayoutScroll) {
+      previousScrollSnapshotRef.current = nextSnapshot
+      return
+    }
+
     const shellScrollHandlesStepChange =
       stepOrVariantChanged &&
       !prefersReducedMotion &&
@@ -1140,10 +1259,13 @@ export default function LessonStepRenderer({
     revealEnabled,
     isFirstLessonStep,
     scheduleScroll,
+    hasIntroBlocks,
+    openIntroPanel,
   ])
 
   useEffect(() => {
     if (status !== 'feedback' || !latestFeedback) return
+    if (hasIntroBlocks && openIntroPanel !== null) return
 
     return scheduleLessonFeedScroll(
       resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'feedback' })
@@ -1154,10 +1276,17 @@ export default function LessonStepRenderer({
     tailLessonMessageId,
     prefersReducedMotion,
     scheduleLessonFeedScroll,
+    hasIntroBlocks,
+    openIntroPanel,
   ])
 
   useEffect(() => {
     if (!isTextRevealActive || isFirstLessonStep) return
+    // На шагах с intro/отложенными choice-чипами доскролл — один раз при shell enter.
+    if (shellScrollDeferLayoutSettling) return
+
+    const mode = resolveLessonFeedScrollMode({ useFeedScrollToMax, relaxFeedTailPin })
+    if (isLessonFeedScrolledToTail(scrollContainerRef.current, mode)) return
 
     return scheduleLessonFeedScroll(
       resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'reveal' })
@@ -1169,6 +1298,9 @@ export default function LessonStepRenderer({
     prefersReducedMotion,
     scheduleLessonFeedScroll,
     isFirstLessonStep,
+    shellScrollDeferLayoutSettling,
+    useFeedScrollToMax,
+    relaxFeedTailPin,
   ])
 
   useEffect(() => {
@@ -1238,10 +1370,13 @@ export default function LessonStepRenderer({
 
     const observer = new ResizeObserver(() => {
       if (isShellEnterActive || isFirstLessonStep) return
-      if (
-        deferChoiceChipsUntilCardReveal &&
-        isWithinRevealEndOverflowSettleWindow(revealEndedAtRef.current)
-      ) {
+      const skipOverflowFollow = shouldSkipLessonFeedOverflowFollow({
+        isRevealInProgress,
+        deferChoiceChipsUntilCardReveal,
+        isChoiceChipsVisible,
+        revealEndedAtMs: revealEndedAtRef.current,
+      })
+      if (skipOverflowFollow) {
         return
       }
 
@@ -1262,6 +1397,8 @@ export default function LessonStepRenderer({
     isShellEnterActive,
     isFirstLessonStep,
     deferChoiceChipsUntilCardReveal,
+    isRevealInProgress,
+    isChoiceChipsVisible,
   ])
 
   const choiceComposerLayout = shouldRenderChoiceChips
@@ -1277,7 +1414,6 @@ export default function LessonStepRenderer({
   const mountChoiceChips = !shouldRenderChoiceChips || (choiceComposerLayout?.mountChips ?? true)
 
   const showLessonFinale = Boolean(lessonMedalReveal && hasPostLessonOptions)
-  const hasIntroBlocks = Boolean(introBlocks?.theory || introBlocks?.how)
   const canShowLessonIntroControls =
     hasIntroBlocks &&
     !returnBriefingActive &&
@@ -1311,6 +1447,7 @@ export default function LessonStepRenderer({
       (isRevealInitializedForKey &&
         !isShellEnterActive &&
         textRevealedThroughIndex >= taskBubbleIndex))
+
   const prevOpenIntroPanelRef = useRef<LessonIntroPanelKind | null>(null)
   const prevIntroBlockStripVisibleRef = useRef(false)
   const prevIntroBlockTaskRevealedRef = useRef(false)
@@ -1343,9 +1480,7 @@ export default function LessonStepRenderer({
       })
     : undefined
   const choiceComposerMinHeightEstimate =
-    shouldRenderChoiceChips &&
-    choiceComposerLayout?.reserveMinHeight &&
-    !isChoiceChipsVisible
+    shouldRenderChoiceChips && choiceComposerLayout?.reserveMinHeight
       ? estimateLessonComposerMinHeight({
           panelKind: 'choice',
           optionCount: displayChoiceOptions.length,
@@ -1419,11 +1554,47 @@ export default function LessonStepRenderer({
 
   useLayoutEffect(() => {
     if (returnBriefingActive) return
+    if (
+      deferChoiceChipsUntilCardReveal &&
+      isWithinRevealEndOverflowSettleWindow(revealEndedAtRef.current)
+    ) {
+      return
+    }
     return resyncIosWebKitDialogComposerStackHeight(composerStackRef.current)
-  }, [returnBriefingActive, composerTransitionKey, composerMinHeight, showCoinForgivenessComposer])
+  }, [
+    returnBriefingActive,
+    composerTransitionKey,
+    composerMinHeight,
+    showCoinForgivenessComposer,
+    deferChoiceChipsUntilCardReveal,
+    isChoiceChipsVisible,
+  ])
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+    const inSettle =
+      deferChoiceChipsUntilCardReveal &&
+      (isRevealInProgress ||
+        !isChoiceChipsVisible ||
+        isWithinRevealEndOverflowSettleWindow(revealEndedAtRef.current))
+    if (inSettle) {
+      root.setAttribute('data-lesson-feed-scroll-settle', '')
+    } else {
+      root.removeAttribute('data-lesson-feed-scroll-settle')
+    }
+    return () => {
+      root.removeAttribute('data-lesson-feed-scroll-settle')
+    }
+  }, [
+    deferChoiceChipsUntilCardReveal,
+    isRevealInProgress,
+    isChoiceChipsVisible,
+  ])
 
   useLayoutEffect(() => {
     if (returnBriefingActive) return
+    if (isShellEnterActive || isRevealInProgress) return
 
     const prevOpen = prevOpenIntroPanelRef.current
     const panelLayoutChanged = openIntroPanel !== prevOpen
@@ -1439,7 +1610,14 @@ export default function LessonStepRenderer({
     const cleanupScroll = resyncLessonFeedScrollNearTail(scrollContainerRef.current)
     resyncIosWebKitDialogComposerStackHeight(composerStackRef.current)
     return cleanupScroll
-  }, [openIntroPanel, introBlockStripVisible, introBlockTaskRevealed, returnBriefingActive])
+  }, [
+    openIntroPanel,
+    introBlockStripVisible,
+    introBlockTaskRevealed,
+    returnBriefingActive,
+    isShellEnterActive,
+    isRevealInProgress,
+  ])
 
   useEffect(() => {
     if (!showCoinForgivenessComposer) return
@@ -1500,6 +1678,13 @@ export default function LessonStepRenderer({
                       isActiveRevealTarget &&
                       (isShellEnterActive || hideLessonBubbleUntilRevealReady)
 
+                    const lessonFeedEnterActive =
+                      isCurrentLessonMessage &&
+                      isActiveRevealTarget &&
+                      !returnBriefingActive &&
+                      !prefersReducedMotion &&
+                      lessonFeedEnterClassActive
+
                     const currentLessonTextRevealedThroughIndex =
                       returnBriefingActive || !isCurrentLessonMessage || !isActiveRevealTarget
                         ? message.bubbles.length - 1
@@ -1511,18 +1696,47 @@ export default function LessonStepRenderer({
                               : message.bubbles.length - 1
                           : message.bubbles.length - 1
 
+                    const isEmptyIntroControlsShell =
+                      isCurrentLessonMessage &&
+                      message.bubbles.length === 0 &&
+                      status === 'feedback' &&
+                      latestFeedback?.type === 'success'
+
                     const showIntroControlsOnLesson =
                       canShowLessonIntroControls &&
                       introBlocks &&
-                      (isCurrentLessonMessage ? introBlockStripVisible : true)
+                      shouldShowIntroControlsOnLessonMessage({
+                        isCurrentLessonMessage,
+                        introBlockStripVisible,
+                        isEmptyIntroControlsShell,
+                      })
+
+                    const resolvedOpenIntroPanel = isCurrentLessonMessage
+                      ? openIntroPanel
+                      : introPanelMapVersion >= 0
+                        ? introPanelByMessageIdRef.current.get(message.id) ?? null
+                        : null
+
+                    if (message.bubbles.length === 0 && !showIntroControlsOnLesson) {
+                      return null
+                    }
 
                     return (
                       <ChatBubbleFrame
                         key={message.id}
                         role="assistant"
                         position={position}
-                        className="w-full"
+                        className={`w-full${lessonFeedEnterActive ? ' lesson-feed-enter' : ''}`}
                         rowClassName={lessonRowMargin}
+                        onAnimationEnd={
+                          lessonFeedEnterActive
+                            ? (event) => {
+                                if (event.animationName !== 'lessonFeedSlideIn') return
+                                setLessonFeedEnterClassActive(false)
+                                invokeShellScrollCompleteOnce()
+                              }
+                            : undefined
+                        }
                       >
                         {message.bubbles.length > 0 ? (
                           <LessonStepBubble
@@ -1561,11 +1775,7 @@ export default function LessonStepRenderer({
                             <LessonIntroBlockControlsSlot
                               theory={introBlocks.theory}
                               how={introBlocks.how}
-                              openPanel={
-                                isCurrentLessonMessage
-                                  ? openIntroPanel
-                                  : introPanelByMessageIdRef.current.get(message.id) ?? null
-                              }
+                              openPanel={resolvedOpenIntroPanel}
                               onOpenPanelChange={(panel) => {
                                 if (isCurrentLessonMessage) {
                                   setOpenIntroPanel(panel)

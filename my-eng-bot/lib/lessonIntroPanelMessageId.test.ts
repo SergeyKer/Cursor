@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import type { LessonFeedMessage } from '@/lib/buildLessonFeedMessages'
 import {
   buildLessonFeedMessageBaseId,
+  findLatestHistoricalLessonMessageIdForStep,
   parseLessonFeedMessageId,
   resolveHistoricalLessonMessageIdForDepartingCurrent,
+  shouldShowIntroControlsOnLessonMessage,
   toHistoricalLessonFeedMessageId,
 } from '@/lib/lessonIntroPanelMessageId'
 
@@ -82,5 +84,53 @@ describe('resolveHistoricalLessonMessageIdForDepartingCurrent', () => {
 
   it('converts stable current suffix when no feed match yet', () => {
     expect(toHistoricalLessonFeedMessageId('lesson-3-2-current')).toBe('lesson-3-2-0-history')
+  })
+})
+
+describe('shouldShowIntroControlsOnLessonMessage', () => {
+  it('shows strip visibility only on current lesson message', () => {
+    expect(
+      shouldShowIntroControlsOnLessonMessage({
+        isCurrentLessonMessage: true,
+        introBlockStripVisible: true,
+      })
+    ).toBe(true)
+
+    expect(
+      shouldShowIntroControlsOnLessonMessage({
+        isCurrentLessonMessage: true,
+        introBlockStripVisible: false,
+      })
+    ).toBe(false)
+  })
+
+  it('hides intro on empty success current shell', () => {
+    expect(
+      shouldShowIntroControlsOnLessonMessage({
+        isCurrentLessonMessage: true,
+        introBlockStripVisible: true,
+        isEmptyIntroControlsShell: true,
+      })
+    ).toBe(false)
+  })
+
+  it('shows intro on history lesson messages', () => {
+    expect(
+      shouldShowIntroControlsOnLessonMessage({
+        isCurrentLessonMessage: false,
+        introBlockStripVisible: false,
+      })
+    ).toBe(true)
+  })
+})
+
+describe('findLatestHistoricalLessonMessageIdForStep', () => {
+  it('finds the latest history lesson row for a step', () => {
+    const messages: LessonFeedMessage[] = [
+      lesson('lesson-1-0-0-history', true),
+      lesson('lesson-2-1-1-history', true),
+    ]
+
+    expect(findLatestHistoricalLessonMessageIdForStep(messages, 2, 1)).toBe('lesson-2-1-1-history')
   })
 })

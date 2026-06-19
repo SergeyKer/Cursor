@@ -16,6 +16,7 @@ import {
   LESSON_REVEAL_END_OVERFLOW_SETTLE_MS,
   resolveFollowTailTargetTop,
   resolveLessonShellScrollBehavior,
+  shouldSkipLessonFeedOverflowFollow,
   resolvePracticeFeedScrollRequest,
   resolveLessonFeedScrollMode,
   resolveLessonScrollBehavior,
@@ -383,6 +384,66 @@ describe('resolveLessonShellScrollBehavior', () => {
       resolveLessonShellScrollBehavior({ prefersReducedMotion: false, isFirstLessonStep: false })
     ).toBe('smooth')
   })
+
+  it('deferLayoutSettling → auto (intro strip / deferred choice chips)', () => {
+    expect(
+      resolveLessonShellScrollBehavior({
+        prefersReducedMotion: false,
+        isFirstLessonStep: false,
+        deferLayoutSettling: true,
+      })
+    ).toBe('auto')
+  })
+})
+
+describe('shouldSkipLessonFeedOverflowFollow', () => {
+  it('skips while reveal in progress', () => {
+    expect(
+      shouldSkipLessonFeedOverflowFollow({
+        isRevealInProgress: true,
+        deferChoiceChipsUntilCardReveal: false,
+        isChoiceChipsVisible: false,
+        revealEndedAtMs: null,
+      })
+    ).toBe(true)
+  })
+
+  it('skips until deferred choice chips become visible', () => {
+    expect(
+      shouldSkipLessonFeedOverflowFollow({
+        isRevealInProgress: false,
+        deferChoiceChipsUntilCardReveal: true,
+        isChoiceChipsVisible: false,
+        revealEndedAtMs: null,
+      })
+    ).toBe(true)
+  })
+
+  it('skips inside choice-chip settle window', () => {
+    const now = 10_000
+    expect(
+      shouldSkipLessonFeedOverflowFollow({
+        isRevealInProgress: false,
+        deferChoiceChipsUntilCardReveal: true,
+        isChoiceChipsVisible: true,
+        revealEndedAtMs: now - 100,
+        nowMs: now,
+      })
+    ).toBe(true)
+  })
+
+  it('does not skip after settle window when chips are visible', () => {
+    const now = 10_000
+    expect(
+      shouldSkipLessonFeedOverflowFollow({
+        isRevealInProgress: false,
+        deferChoiceChipsUntilCardReveal: true,
+        isChoiceChipsVisible: true,
+        revealEndedAtMs: now - LESSON_REVEAL_END_OVERFLOW_SETTLE_MS,
+        nowMs: now,
+      })
+    ).toBe(false)
+  })
 })
 
 describe('shouldSkipRevealEndOverflowScroll', () => {
@@ -588,6 +649,28 @@ describe('scrollTo(max) с симметричным padding (урок после
       scrollTop,
     })
     expect(visibleGap).toBeGreaterThan(290)
+  })
+})
+
+describe('computeLessonFeedScrollTopForBubbleTopAlign', () => {
+  it('aligns bubble top below viewport inset, capped at max scroll', () => {
+    const scrollHeight = 652
+    const clientHeight = 441
+    const rowTopPx = 400
+    const maxTop = computeMaxScrollTop(scrollHeight, clientHeight)
+    const top = Math.min(maxTop, Math.max(0, rowTopPx - 8))
+    expect(maxTop).toBe(211)
+    expect(top).toBe(211)
+  })
+
+  it('uses inset when bubble is lower in a taller feed', () => {
+    const scrollHeight = 900
+    const clientHeight = 441
+    const rowTopPx = 400
+    const maxTop = computeMaxScrollTop(scrollHeight, clientHeight)
+    const top = Math.min(maxTop, Math.max(0, rowTopPx - 8))
+    expect(top).toBe(392)
+    expect(top).toBeLessThan(maxTop)
   })
 })
 

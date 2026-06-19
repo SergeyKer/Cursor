@@ -25,6 +25,12 @@ export function buildLessonReturnBriefingRunKey(lessonId: string, runKey?: strin
   return `${lessonId}:${runKey ?? 'static'}`
 }
 
+function resolveBriefingContext(origin: StructuredLessonRunOrigin): LessonReturnHintContext {
+  return origin === 'post_lesson_repeat' || origin === 'repeat_api'
+    ? 'post_lesson_repeat'
+    : 'menu_reopen'
+}
+
 export function resolveLessonReturnBriefing(
   input: ResolveLessonReturnBriefingInput
 ): LessonReturnBriefingPayload | null {
@@ -33,50 +39,43 @@ export function resolveLessonReturnBriefing(
 
   const progress = loadLessonProgress(input.lessonId)
   const lessonTitle = input.lessonTitle.trim() || 'Урок'
+  const context = resolveBriefingContext(input.origin)
+  const cycle1Closed = progress?.cycle1Closed === true
+  const silverCapThisRun = resolveLessonSilverCapForRun({
+    origin: input.origin,
+    variantNumber: input.variantNumber,
+    cycle1Closed,
+    isRepeatRun: input.isRepeatRun,
+  })
+  const sharedParams = {
+    runKey,
+    lessonTitle,
+    audience: input.audience,
+    context,
+    bestTotalXp: progress?.bestTotalXp ?? 0,
+    silverCapThisRun,
+    origin: input.origin,
+    coinIntroContext: input.coinIntroContext,
+  }
 
-  if (progress?.cycle1Closed && !progress.medal) {
+  if (cycle1Closed && !progress?.medal) {
     return buildLessonReturnBriefingPayload({
-      runKey,
-      lessonTitle,
-      audience: input.audience,
+      ...sharedParams,
       kind: 'cycle1',
-      origin: input.origin,
     })
   }
 
   if (progress?.medal) {
-    const hintContext: LessonReturnHintContext =
-      input.origin === 'post_lesson_repeat' || input.origin === 'repeat_api'
-        ? 'post_lesson_repeat'
-        : 'menu_reopen'
     return buildLessonReturnBriefingPayload({
-      runKey,
-      lessonTitle,
-      audience: input.audience,
+      ...sharedParams,
       kind: 'medal_repeat',
-      medal: progress.medal,
-      context: hintContext,
-      bestTotalXp: progress.bestTotalXp ?? 0,
-      cycle1Closed: progress.cycle1Closed === true,
-      silverCapThisRun: resolveLessonSilverCapForRun({
-        origin: input.origin,
-        variantNumber: input.variantNumber,
-        cycle1Closed: progress.cycle1Closed === true,
-        isRepeatRun: input.isRepeatRun,
-      }),
-      origin: input.origin,
-      coinIntroContext: input.coinIntroContext,
     })
   }
 
-  if (!progress?.medal && progress?.cycle1Closed !== true) {
+  if (!progress?.medal && !cycle1Closed) {
     return buildLessonReturnBriefingPayload({
-      runKey,
-      lessonTitle,
-      audience: input.audience,
+      ...sharedParams,
       kind: 'first_run',
-      origin: input.origin,
-      coinIntroContext: input.coinIntroContext,
     })
   }
 

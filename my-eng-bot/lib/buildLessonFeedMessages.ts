@@ -156,19 +156,7 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
       ? []
       : bubblesWithVariantQuestion
 
-    const hasCurrentEntryContentInFeed =
-      Boolean(entry.submittedAnswer?.trim()) ||
-      (status === 'feedback' && entry.feedback != null)
-
-    const keepIntroControlsShell =
-      entry.isCurrent &&
-      !isPuzzleStep &&
-      status === 'feedback' &&
-      latestFeedbackType === 'success' &&
-      shouldHideCurrentLessonBubblesValue &&
-      hasCurrentEntryContentInFeed
-
-    if ((bubbles.length > 0 || keepIntroControlsShell) && !skipPuzzleHistoryLessonBubble) {
+    if (bubbles.length > 0 && !skipPuzzleHistoryLessonBubble) {
       pushMessage({
         id: `lesson-${messageBaseId}`,
         role: 'assistant',

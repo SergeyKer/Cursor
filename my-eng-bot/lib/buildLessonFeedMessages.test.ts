@@ -385,7 +385,7 @@ describe('buildLessonFeedMessages — non-puzzle regression', () => {
 })
 
 describe('buildLessonFeedMessages — success advance', () => {
-  it('keeps empty current lesson shell during success feedback for stable intro controls', () => {
+  it('omits empty current lesson shell during success feedback advance', () => {
     const currentEntry = makeTimelineEntry({
       isCurrent: true,
       stepIndex: 0,
@@ -416,14 +416,15 @@ describe('buildLessonFeedMessages — success advance', () => {
     const currentLesson = messages.find(
       (message) => message.kind === 'lesson' && !message.isHistorical
     )
-    expect(currentLesson).toMatchObject({ kind: 'lesson', bubbles: [], id: 'lesson-1-0-current' })
-    const feedbackIndex = messages.findIndex((message) => message.kind === 'status' && message.tone === 'success')
-    const shellIndex = messages.findIndex((message) => message.id === 'lesson-1-0-current')
-    expect(shellIndex).toBeGreaterThanOrEqual(0)
-    expect(shellIndex).toBeLessThan(feedbackIndex)
+    expect(currentLesson).toBeUndefined()
+    const feedbackIndex = messages.findIndex(
+      (message) => message.kind === 'status' && message.tone === 'success'
+    )
+    expect(feedbackIndex).toBeGreaterThanOrEqual(0)
+    expect(messages.findIndex((message) => message.id === 'lesson-1-0-current')).toBe(-1)
   })
 
-  it('keeps stable current lesson id when attempt moves to history on success feedback', () => {
+  it('omits current lesson row when success attempt is already in history', () => {
     const currentEntry = makeTimelineEntry({
       isCurrent: true,
       stepIndex: 0,
@@ -458,12 +459,17 @@ describe('buildLessonFeedMessages — success advance', () => {
       isAdvancingToNextVariant: false,
     })
 
-    expect(messages.find((message) => message.kind === 'lesson' && !message.isHistorical)?.id).toBe(
-      'lesson-1-0-current'
-    )
+    expect(
+      messages.some((message) => message.kind === 'lesson' && !message.isHistorical)
+    ).toBe(false)
     expect(messages.some((message) => message.kind === 'status' && message.tone === 'success')).toBe(
       true
     )
+    expect(
+      messages.some(
+        (message) => message.kind === 'lesson' && message.id === 'lesson-1-0-0-history'
+      )
+    ).toBe(true)
   })
 
   it('keeps historical lesson card visible after step completes', () => {
@@ -525,7 +531,7 @@ describe('buildLessonFeedMessages — success advance', () => {
     expect(historyLessonIndex).toBeLessThan(feedbackIndex)
   })
 
-  it('does not emit orphan intro shell after history success feedback', () => {
+  it('omits empty current lesson shell during success feedback when attempt is in history', () => {
     const step1 = {
       stepNumber: 1,
       bubbles: [{ type: 'task', content: 'Step 1' }],
@@ -563,15 +569,15 @@ describe('buildLessonFeedMessages — success advance', () => {
       isAdvancingToNextVariant: false,
     })
 
-    expect(messages.some((message) => message.kind === 'lesson' && !message.isHistorical && message.bubbles.length === 0)).toBe(
-      false
-    )
+    expect(
+      messages.some((message) => message.kind === 'lesson' && !message.isHistorical)
+    ).toBe(false)
     const successIndex = messages.findIndex(
       (message) => message.kind === 'status' && message.tone === 'success'
     )
-    const tailAfterSuccess = messages.slice(successIndex + 1)
-    expect(tailAfterSuccess.some((message) => message.kind === 'lesson' && message.bubbles.length === 0)).toBe(
-      false
-    )
+    expect(successIndex).toBeGreaterThanOrEqual(0)
+    expect(
+      messages.findIndex((message) => message.id === 'lesson-1-0-current')
+    ).toBe(-1)
   })
 })

@@ -41,9 +41,32 @@ export function resolveLessonScrollBehavior(input: {
 export function resolveLessonShellScrollBehavior(input: {
   prefersReducedMotion: boolean
   isFirstLessonStep: boolean
+  /** Intro-полоска / отложенные choice-чипы меняют высоту ленты во время enter — smooth lerp дёргает. */
+  deferLayoutSettling?: boolean
 }): ScrollBehavior {
-  if (input.prefersReducedMotion || input.isFirstLessonStep) return 'auto'
+  if (input.prefersReducedMotion || input.isFirstLessonStep || input.deferLayoutSettling) {
+    return 'auto'
+  }
   return 'smooth'
+}
+
+/** ResizeObserver overflow_follow: не догонять ленту, пока reveal или choice-чипы ещё не показаны. */
+export function shouldSkipLessonFeedOverflowFollow(input: {
+  isRevealInProgress: boolean
+  deferChoiceChipsUntilCardReveal: boolean
+  isChoiceChipsVisible: boolean
+  revealEndedAtMs: number | null
+  nowMs?: number
+}): boolean {
+  if (input.isRevealInProgress) return true
+  if (input.deferChoiceChipsUntilCardReveal && !input.isChoiceChipsVisible) return true
+  if (
+    input.deferChoiceChipsUntilCardReveal &&
+    isWithinRevealEndOverflowSettleWindow(input.revealEndedAtMs, input.nowMs)
+  ) {
+    return true
+  }
+  return false
 }
 
 /** После reveal choice-шага лента уже следовала за карточкой; лишний overflow_follow дёргает пузырь. */
@@ -85,6 +108,11 @@ export function isLessonFeedCheckingTailMessageId(tailMessageId?: string): boole
 /** id хвоста: «Верно» / «Неверно». */
 export function isLessonFeedFeedbackTailMessageId(tailMessageId?: string): boolean {
   return tailMessageId?.startsWith('feedback-') ?? false
+}
+
+/** id хвоста: пустая current-оболочка шага (intro-чипы после success). */
+export function isLessonFeedCurrentLessonTailMessageId(tailMessageId?: string): boolean {
+  return /^lesson-\d+-\d+-current$/.test(tailMessageId ?? '')
 }
 
 /** Практика: та же политика smooth, что и в уроке. */
@@ -583,6 +611,31 @@ export function computeLessonFeedScrollTopForTailMessage(
   const targetBottom = targetTop + target.offsetHeight
   const minScrollTop = targetBottom - scrollContainer.clientHeight + gapPx
   return Math.min(maxTop, Math.max(0, minScrollTop))
+}
+
+/** Как Chat learning flow: верх нового assistant-пузыря у верха viewport. */
+export function computeLessonFeedScrollTopForBubbleTopAlign(
+  scrollContainer: HTMLElement,
+  target: HTMLElement,
+  insetPx = 8
+): number {
+  const maxTop = computeMaxScrollTop(scrollContainer.scrollHeight, scrollContainer.clientHeight)
+  const targetTop = getOffsetTopWithinAncestor(scrollContainer, target)
+  return Math.min(maxTop, Math.max(0, targetTop - insetPx))
+}
+
+export function scrollLessonFeedToAlignLastAssistantBubbleTop(
+  scrollContainer: HTMLElement | null,
+  behavior: ScrollBehavior = 'auto',
+  insetPx = 8
+): boolean {
+  if (!scrollContainer) return false
+  const target = findLessonFeedLastMessageRow(scrollContainer)
+  if (!target) return false
+  const top = computeLessonFeedScrollTopForBubbleTopAlign(scrollContainer, target, insetPx)
+  if (Math.abs(scrollContainer.scrollTop - top) < LESSON_FEED_SCROLL_SNAP_PX) return false
+  scrollContainer.scrollTo({ top, behavior })
+  return true
 }
 
 /**
