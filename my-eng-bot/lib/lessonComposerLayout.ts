@@ -73,19 +73,21 @@ export function estimateLessonChoiceChipsMinHeight(
 ): number {
   if (optionCount <= 0 && (!options || options.length === 0)) return 0
 
-  if (options && options.length > 0) {
+  const count = optionCount > 0 ? optionCount : (options?.length ?? 0)
+
+  if (options && options.length > 0 && containerWidthPx != null) {
     return (
       CHOICE_PANEL_VERTICAL_PADDING_PX +
       estimateFlexChipBlockMinHeightFromItems({
         items: options,
         style: 'choice',
-        containerWidthPx: containerWidthPx ?? CHOICE_COMPOSER_FALLBACK_WIDTH_PX,
+        containerWidthPx,
         gapPx: CHOICE_CHIP_ROW_GAP_PX,
       })
     )
   }
 
-  const rows = Math.ceil(optionCount / CHOICE_CHIPS_PER_ROW)
+  const rows = Math.ceil(count / CHOICE_CHIPS_PER_ROW)
   return (
     CHOICE_PANEL_VERTICAL_PADDING_PX +
     rows * CHOICE_CHIP_HEIGHT_PX +

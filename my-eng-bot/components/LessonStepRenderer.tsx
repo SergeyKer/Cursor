@@ -16,6 +16,9 @@ import LessonFinalePanel from '@/components/LessonFinalePanel'
 import LessonReturnBriefingFlowInfoStep from '@/components/LessonReturnBriefingFlowInfoStep'
 import type { LessonMedalTierOrNull } from '@/lib/lessonScore'
 import LessonStepBubble from '@/components/lesson/LessonStepBubble'
+import LessonIntroBlockControls, {
+  LessonIntroBlockControlsSlot,
+} from '@/components/lesson/LessonIntroBlockControls'
 import { resolveTaskBubbleIndex } from '@/lib/lessonBubbleLayout'
 import { resolveLessonChoiceComposerLayout } from '@/lib/lessonChoiceComposerLayout'
 import {
@@ -47,6 +50,7 @@ import { useDialogFeedKeyboardScroll } from '@/hooks/useDialogFeedKeyboardScroll
 import { resyncIosWebKitDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
 import { useLessonComposerHeightLock } from '@/hooks/useLessonComposerHeightLock'
 import {
+  estimateLessonChoiceChipsMinHeight,
   estimateLessonComposerMinHeight,
   resolveLessonComposerPanelKind,
 } from '@/lib/lessonComposerLayout'
@@ -72,6 +76,7 @@ import {
   shouldPinLessonFeedTailNearComposer,
   shouldSkipRevealEndOverflowScroll,
   isWithinRevealEndOverflowSettleWindow,
+  resyncLessonFeedScrollNearTail,
 } from '@/lib/lessonFeedScroll'
 import { speak } from '@/lib/speech'
 import { seededShuffle } from '@/lib/shuffleSeeded'
@@ -82,7 +87,7 @@ import {
 } from '@/lib/sttClient'
 import { useAutoGrowTextarea } from '@/lib/voice/useAutoGrowTextarea'
 import { useLessonVoiceInput } from '@/lib/voice/useLessonVoiceInput'
-import type { Bubble, Exercise, PostLessonAction } from '@/types/lesson'
+import type { Bubble, Exercise, LessonIntroBlock, PostLessonAction } from '@/types/lesson'
 import { validateAnswer } from '@/utils/validateAnswer'
 import { useLessonSectionReveal } from '@/hooks/useLessonSectionReveal'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
@@ -92,7 +97,15 @@ import LessonCoinForgivenessComposerConfirm from '@/components/LessonCoinForgive
 import type { LessonCoinAward } from '@/lib/coinAwards'
 import { COIN_ERROR_FORGIVENESS_COST, resolveCoinForgivenessBubbleMode } from '@/lib/lessonCoinForgiveness'
 import { getLessonCoinForgivenessCopy } from '@/lib/lessonCoinForgivenessCopy'
-import type { LessonAnswerOptions } from '@/hooks/useLessonEngine'
+import type { LessonIntroPanelKind } from '@/lib/lessonIntroBlockPanelState'
+import {
+  resolveIntroBlockChipsVisible,
+  resolveIntroBlockTaskCardReached,
+} from '@/lib/lessonIntroBlockReveal'
+import {
+  resolveHistoricalLessonMessageIdForDepartingCurrent,
+} from '@/lib/lessonIntroPanelMessageId'
+
 type LessonStepRendererProps = {
   timeline: LessonTimelineEntry[]
   status: LessonStatus
@@ -172,6 +185,10 @@ type LessonStepRendererProps = {
   forgivenessAutofillAnswer?: string | null
   forgivenessAutofillChoice?: string | null
   forgivenessAutofillNonce?: number
+  introBlocks?: {
+    theory: LessonIntroBlock | null
+    how: LessonIntroBlock | null
+  }
 }
 
 type LessonMessage = LessonFeedMessage
@@ -295,7 +312,13 @@ export default function LessonStepRenderer({
   forgivenessAutofillAnswer = null,
   forgivenessAutofillChoice = null,
   forgivenessAutofillNonce = 0,
+  introBlocks,
 }: LessonStepRendererProps) {
+  const [openIntroPanel, setOpenIntroPanel] = useState<LessonIntroPanelKind | null>(null)
+  const introPanelByMessageIdRef = useRef<Map<string, LessonIntroPanelKind>>(new Map())
+  const [, bumpIntroPanelMapVersion] = useState(0)
+  const currentLessonMessageIdRef = useRef<string | null>(null)
+  const departingLessonMessageIdRef = useRef<string | null>(null)
   const returnBriefingActive = Boolean(returnBriefing)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const messagesStackRef = useRef<HTMLDivElement>(null)
@@ -882,6 +905,38 @@ export default function LessonStepRenderer({
 
   const tailLessonMessageId = lessonMessages.at(-1)?.id ?? ''
 
+  const prevStepTransitionKeyRef = useRef<string | null>(null)
+
+  useLayoutEffect(() => {
+    departingLessonMessageIdRef.current = currentLessonMessageIdRef.current
+    currentLessonMessageIdRef.current = currentLessonMessage?.id ?? null
+  }, [currentLessonMessage?.id])
+
+  useEffect(() => {
+    const departingId = departingLessonMessageIdRef.current
+    const nextCurrentId = currentLessonMessage?.id ?? null
+    const messageIdChanged = Boolean(departingId && departingId !== nextCurrentId)
+    const prevStepKey = prevStepTransitionKeyRef.current
+    const stepKeyChanged = prevStepKey !== null && prevStepKey !== stepTransitionKey
+    prevStepTransitionKeyRef.current = stepTransitionKey
+
+    if (!messageIdChanged && !stepKeyChanged) return
+
+    setOpenIntroPanel((currentPanel) => {
+      if (currentPanel !== null && departingId) {
+        const historyId = resolveHistoricalLessonMessageIdForDepartingCurrent(
+          departingId,
+          lessonMessages
+        )
+        if (historyId) {
+          introPanelByMessageIdRef.current.set(historyId, currentPanel)
+          bumpIntroPanelMapVersion((version) => version + 1)
+        }
+      }
+      return null
+    })
+  }, [currentLessonMessage?.id, lessonMessages, stepTransitionKey])
+
   useLayoutEffect(() => {
     if (!isSentencePuzzle || !pinFeedTailNearComposer) {
       setIsPuzzleFeedOverflowing(false)
@@ -1085,21 +1140,15 @@ export default function LessonStepRenderer({
   useEffect(() => {
     if (status !== 'feedback' || !latestFeedback) return
 
-    const mode = resolveLessonFeedScrollMode({ useFeedScrollToMax, relaxFeedTailPin })
-    if (isLessonFeedScrolledToTail(scrollContainerRef.current, mode)) return
-
     return scheduleLessonFeedScroll(
       resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'feedback' })
     )
   }, [
     status,
     latestFeedback,
-    lessonMessages.length,
     tailLessonMessageId,
     prefersReducedMotion,
     scheduleLessonFeedScroll,
-    useFeedScrollToMax,
-    relaxFeedTailPin,
   ])
 
   useEffect(() => {
@@ -1223,6 +1272,54 @@ export default function LessonStepRenderer({
   const mountChoiceChips = !shouldRenderChoiceChips || (choiceComposerLayout?.mountChips ?? true)
 
   const showLessonFinale = Boolean(lessonMedalReveal && hasPostLessonOptions)
+  const hasIntroBlocks = Boolean(introBlocks?.theory || introBlocks?.how)
+  const canShowLessonIntroControls =
+    hasIntroBlocks &&
+    !returnBriefingActive &&
+    !showCoinForgivenessComposer &&
+    !showLessonFinale &&
+    !hasPostLessonOptions
+  const showIntroBlockControls =
+    canShowLessonIntroControls && Boolean(exercise) && Boolean(currentStep)
+  const introBlockRevealParams = {
+    revealEnabled,
+    taskBubbleIndex,
+    isRevealInitializedForKey,
+    isShellEnterActive,
+    textRevealedThroughIndex,
+    textAnimatingIndex,
+  }
+  const introBlockTaskCardReached = resolveIntroBlockTaskCardReached(introBlockRevealParams)
+  const introBlockStripVisible = showIntroBlockControls && introBlockTaskCardReached
+  const introBlockChipsVisible = resolveIntroBlockChipsVisible({
+    ...introBlockRevealParams,
+    stripVisible: introBlockStripVisible,
+  })
+  const introBlockChipsUseEnter =
+    revealEnabled &&
+    !prefersReducedMotion &&
+    textAnimatingIndex === taskBubbleIndex
+  const introBlockTaskRevealed =
+    showIntroBlockControls &&
+    taskBubbleIndex >= 0 &&
+    (!revealEnabled ||
+      (isRevealInitializedForKey &&
+        !isShellEnterActive &&
+        textRevealedThroughIndex >= taskBubbleIndex))
+  const prevOpenIntroPanelRef = useRef<LessonIntroPanelKind | null>(null)
+  const prevIntroBlockStripVisibleRef = useRef(false)
+  const prevIntroBlockTaskRevealedRef = useRef(false)
+  const setHistoricalIntroPanel = useCallback(
+    (messageId: string, panel: LessonIntroPanelKind | null) => {
+      if (panel === null) {
+        introPanelByMessageIdRef.current.delete(messageId)
+      } else {
+        introPanelByMessageIdRef.current.set(messageId, panel)
+      }
+      bumpIntroPanelMapVersion((version) => version + 1)
+    },
+    []
+  )
   const composerPanelKind = resolveLessonComposerPanelKind({
     exercise,
     hasPostLessonOptions,
@@ -1241,7 +1338,9 @@ export default function LessonStepRenderer({
       })
     : undefined
   const choiceComposerMinHeightEstimate =
-    shouldRenderChoiceChips && choiceComposerLayout?.reserveMinHeight
+    shouldRenderChoiceChips &&
+    choiceComposerLayout?.reserveMinHeight &&
+    !isChoiceChipsVisible
       ? estimateLessonComposerMinHeight({
           panelKind: 'choice',
           optionCount: displayChoiceOptions.length,
@@ -1291,7 +1390,7 @@ export default function LessonStepRenderer({
     : showCoinForgivenessComposer
       ? forgivenessComposerMinHeightEstimate
       : lockedComposerMinHeight ??
-        (choiceComposerLayout?.reserveMinHeight
+        (choiceComposerLayout?.reserveMinHeight && !isChoiceChipsVisible
           ? choiceComposerMinHeightEstimate
           : isSentencePuzzle
             ? puzzleComposerMinHeightEstimate
@@ -1317,6 +1416,25 @@ export default function LessonStepRenderer({
     if (returnBriefingActive) return
     return resyncIosWebKitDialogComposerStackHeight(composerStackRef.current)
   }, [returnBriefingActive, composerTransitionKey, composerMinHeight, showCoinForgivenessComposer])
+
+  useLayoutEffect(() => {
+    if (returnBriefingActive) return
+
+    const prevOpen = prevOpenIntroPanelRef.current
+    const panelLayoutChanged = openIntroPanel !== prevOpen
+    const stripJustVisible = introBlockStripVisible && !prevIntroBlockStripVisibleRef.current
+    const taskRevealedJustNow = introBlockTaskRevealed && !prevIntroBlockTaskRevealedRef.current
+
+    prevOpenIntroPanelRef.current = openIntroPanel
+    prevIntroBlockStripVisibleRef.current = introBlockStripVisible
+    prevIntroBlockTaskRevealedRef.current = introBlockTaskRevealed
+
+    if (!panelLayoutChanged && !stripJustVisible && !taskRevealedJustNow) return
+
+    const cleanupScroll = resyncLessonFeedScrollNearTail(scrollContainerRef.current)
+    resyncIosWebKitDialogComposerStackHeight(composerStackRef.current)
+    return cleanupScroll
+  }, [openIntroPanel, introBlockStripVisible, introBlockTaskRevealed, returnBriefingActive])
 
   useEffect(() => {
     if (!showCoinForgivenessComposer) return
@@ -1388,6 +1506,11 @@ export default function LessonStepRenderer({
                               : message.bubbles.length - 1
                           : message.bubbles.length - 1
 
+                    const showIntroControlsOnLesson =
+                      canShowLessonIntroControls &&
+                      introBlocks &&
+                      (isCurrentLessonMessage ? introBlockStripVisible : true)
+
                     return (
                       <ChatBubbleFrame
                         key={message.id}
@@ -1396,36 +1519,66 @@ export default function LessonStepRenderer({
                         className="w-full"
                         rowClassName={lessonRowMargin}
                       >
-                        <LessonStepBubble
-                          key={
-                            returnBriefingActive
-                              ? `lesson-briefing-${returnBriefing?.runKey ?? 'briefing'}`
-                              : isCurrentLessonMessage && currentStep
-                                ? `lesson-soft-${currentStep.stepNumber}-v${currentVariantIndex}`
-                                : message.id
-                          }
-                          bubbles={message.bubbles}
-                          shellEnterActive={
-                            isCurrentLessonMessage && !returnBriefingActive ? lessonShellEnterActive : false
-                          }
-                          animateSections={
-                            isCurrentLessonMessage &&
-                            isActiveRevealTarget &&
-                            isTextRevealActive &&
-                            !returnBriefingActive
-                          }
-                          textRevealedThroughIndex={currentLessonTextRevealedThroughIndex}
-                          textAnimatingIndex={
-                            isCurrentLessonMessage && isActiveRevealTarget && isTextRevealActive
-                              ? textAnimatingIndex
-                              : null
-                          }
-                          onTextSectionRevealComplete={
-                            isCurrentLessonMessage && isActiveRevealTarget
-                              ? onTextSectionRevealComplete
-                              : undefined
-                          }
-                        />
+                        {message.bubbles.length > 0 ? (
+                          <LessonStepBubble
+                            key={
+                              returnBriefingActive
+                                ? `lesson-briefing-${returnBriefing?.runKey ?? 'briefing'}`
+                                : isCurrentLessonMessage && currentStep
+                                  ? `lesson-soft-${currentStep.stepNumber}-v${currentVariantIndex}`
+                                  : message.id
+                            }
+                            bubbles={message.bubbles}
+                            shellEnterActive={
+                              isCurrentLessonMessage && !returnBriefingActive ? lessonShellEnterActive : false
+                            }
+                            animateSections={
+                              isCurrentLessonMessage &&
+                              isActiveRevealTarget &&
+                              isTextRevealActive &&
+                              !returnBriefingActive
+                            }
+                            textRevealedThroughIndex={currentLessonTextRevealedThroughIndex}
+                            textAnimatingIndex={
+                              isCurrentLessonMessage && isActiveRevealTarget && isTextRevealActive
+                                ? textAnimatingIndex
+                                : null
+                            }
+                            onTextSectionRevealComplete={
+                              isCurrentLessonMessage && isActiveRevealTarget
+                                ? onTextSectionRevealComplete
+                                : undefined
+                            }
+                          />
+                        ) : null}
+                        {showIntroControlsOnLesson ? (
+                          <div className="mt-1.5 flex w-full flex-wrap items-center gap-2">
+                            <LessonIntroBlockControlsSlot
+                              theory={introBlocks.theory}
+                              how={introBlocks.how}
+                              openPanel={
+                                isCurrentLessonMessage
+                                  ? openIntroPanel
+                                  : introPanelByMessageIdRef.current.get(message.id) ?? null
+                              }
+                              onOpenPanelChange={(panel) => {
+                                if (isCurrentLessonMessage) {
+                                  setOpenIntroPanel(panel)
+                                  return
+                                }
+                                setHistoricalIntroPanel(message.id, panel)
+                              }}
+                              embedded
+                              chipsVisible={
+                                isCurrentLessonMessage ? introBlockChipsVisible : true
+                              }
+                              chipsUseEnterAnimation={
+                                isCurrentLessonMessage && introBlockChipsUseEnter
+                              }
+                              prefersReducedMotion={prefersReducedMotion}
+                            />
+                          </div>
+                        ) : null}
                       </ChatBubbleFrame>
                     )
                   }
@@ -1624,6 +1777,16 @@ export default function LessonStepRenderer({
                       autoSelectNonce={forgivenessAutofillNonce || undefined}
                     />
                   </div>
+                ) : shouldRenderChoiceChips ? (
+                  <div
+                    className="pointer-events-none invisible"
+                    aria-hidden
+                    style={{
+                      minHeight: estimateLessonChoiceChipsMinHeight(
+                        displayChoiceOptions.length
+                      ),
+                    }}
+                  />
                 ) : null}
 
                 {exercise &&

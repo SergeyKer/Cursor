@@ -162,6 +162,7 @@ import LessonExtraTipsScreen, {
   type LessonExtraTipsSavedState,
 } from '@/components/LessonExtraTipsScreen'
 import LessonStepRenderer from '@/components/LessonStepRenderer'
+import { resolveLessonIntroBlocks } from '@/lib/lessonIntroBlocks'
 import CenterMessageOverlay from '@/components/CenterMessageOverlay'
 import { useLessonEngine } from '@/hooks/useLessonEngine'
 import { useLessonPrepareProgress } from '@/hooks/useLessonPrepareProgress'
@@ -7020,6 +7021,7 @@ export default function Home() {
                   forgivenessAutofillAnswer={activeStructuredLessonForgivenessAutofillAnswer}
                   forgivenessAutofillChoice={activeStructuredLessonForgivenessAutofillChoice}
                   forgivenessAutofillNonce={activeStructuredLessonForgivenessAutofillNonce}
+                  introBlocks={resolveLessonIntroBlocks(activeStructuredLesson.intro)}
                 />
               ) : (
                 <Chat

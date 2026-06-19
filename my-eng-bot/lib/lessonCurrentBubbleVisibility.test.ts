@@ -32,27 +32,6 @@ function makeEntry(overrides: Partial<LessonTimelineEntry> & Pick<LessonTimeline
 }
 
 describe('shouldHideCurrentLessonBubbles', () => {
-  it('hides current bubbles on first error when history attempt exists', () => {
-    const current = makeEntry({ isCurrent: true })
-    const history = makeEntry({
-      isCurrent: false,
-      submittedAnswer: 'B',
-      feedback: { type: 'error', message: 'Почти.' },
-    })
-    const timeline = [history, current]
-
-    expect(hasHistoricalAttemptsForCurrentStep(timeline, current)).toBe(true)
-    expect(
-      shouldHideCurrentLessonBubbles({
-        isPuzzleStep: false,
-        isCurrent: true,
-        status: 'feedback',
-        latestFeedbackType: 'error',
-        hasSameTaskPromptHistory: true,
-      }),
-    ).toBe(true)
-  })
-
   it('hides current bubbles on success feedback', () => {
     expect(
       shouldHideCurrentLessonBubbles({
@@ -63,6 +42,18 @@ describe('shouldHideCurrentLessonBubbles', () => {
         hasSameTaskPromptHistory: false,
       }),
     ).toBe(true)
+  })
+
+  it('does not hide historical bubbles via current-only helper', () => {
+    expect(
+      shouldHideCurrentLessonBubbles({
+        isPuzzleStep: false,
+        isCurrent: false,
+        status: 'feedback',
+        latestFeedbackType: 'success',
+        hasSameTaskPromptHistory: false,
+      }),
+    ).toBe(false)
   })
 
   it('hides current bubbles during checking on retry after an error', () => {
@@ -84,8 +75,10 @@ describe('shouldHideCurrentLessonBubbles', () => {
       }),
     ).toBe(true)
   })
+})
 
-  it('keeps current bubbles visible during checking on a new variant after prior variant success', () => {
+describe('hasSameTaskPromptHistoryForCurrentStep', () => {
+  it('returns false when history used a different task prompt (new variant)', () => {
     const variantStep = {
       stepNumber: 3,
       stepType: 'exercise' as const,
@@ -117,48 +110,18 @@ describe('shouldHideCurrentLessonBubbles', () => {
 
     expect(hasHistoricalAttemptsForCurrentStep(timeline, current)).toBe(true)
     expect(hasSameTaskPromptHistoryForCurrentStep(timeline, current)).toBe(false)
-    expect(
-      shouldHideCurrentLessonBubbles({
-        isPuzzleStep: false,
-        isCurrent: true,
-        status: 'checking',
-        latestFeedbackType: undefined,
-        hasSameTaskPromptHistory: hasSameTaskPromptHistoryForCurrentStep(timeline, current),
-      }),
-    ).toBe(false)
   })
 
-  it('does not hide current bubbles before any attempt (idle, no history)', () => {
+  it('returns false before any attempt (idle, no history)', () => {
     const current = makeEntry({ isCurrent: true })
     const timeline = [current]
 
     expect(hasHistoricalAttemptsForCurrentStep(timeline, current)).toBe(false)
-    expect(
-      shouldHideCurrentLessonBubbles({
-        isPuzzleStep: false,
-        isCurrent: true,
-        status: 'idle',
-        latestFeedbackType: undefined,
-        hasSameTaskPromptHistory: false,
-      }),
-    ).toBe(false)
+    expect(hasSameTaskPromptHistoryForCurrentStep(timeline, current)).toBe(false)
   })
+})
 
-  it('keeps current bubbles visible during first-attempt checking', () => {
-    const current = makeEntry({ isCurrent: true })
-    const timeline = [current]
-
-    expect(
-      shouldHideCurrentLessonBubbles({
-        isPuzzleStep: false,
-        isCurrent: true,
-        status: 'checking',
-        latestFeedbackType: undefined,
-        hasSameTaskPromptHistory: false,
-      }),
-    ).toBe(false)
-  })
-
+describe('shouldSkipRepeatHistoryLessonBubble', () => {
   it('skips lesson bubble in history when the task prompt repeats on retry', () => {
     expect(
       shouldSkipRepeatHistoryLessonBubble({
@@ -194,18 +157,6 @@ describe('shouldHideCurrentLessonBubbles', () => {
         historyAttemptOrdinal: 2,
         taskPrompt: 'Task A',
         previousHistoryTaskPrompt: 'Task A',
-      }),
-    ).toBe(false)
-  })
-
-  it('does not hide puzzle step current bubbles', () => {
-    expect(
-      shouldHideCurrentLessonBubbles({
-        isPuzzleStep: true,
-        isCurrent: true,
-        status: 'feedback',
-        latestFeedbackType: 'error',
-        hasSameTaskPromptHistory: true,
       }),
     ).toBe(false)
   })

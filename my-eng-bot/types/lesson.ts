@@ -42,6 +42,11 @@ export interface LessonIntroExample {
   note: string
 }
 
+export interface LessonIntroBlock {
+  label: string
+  bullets: string[]
+}
+
 export interface LessonIntro {
   topic: string
   kind: LessonIntroKind
@@ -52,6 +57,10 @@ export interface LessonIntro {
     examples: LessonIntroExample[]
     takeaway: string
   }
+  /** Опциональный override блока ТЕОРИЯ; иначе quick.why */
+  grammarRule?: LessonIntroBlock
+  /** Опциональный override блока Шаблоны; иначе quick.how */
+  howGuide?: LessonIntroBlock
   details?: {
     points: string[]
     examples?: LessonIntroExample[]

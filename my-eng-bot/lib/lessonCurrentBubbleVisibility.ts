@@ -45,6 +45,7 @@ export function shouldSkipRepeatHistoryLessonBubble(params: {
   return params.taskPrompt === params.previousHistoryTaskPrompt
 }
 
+/** Скрыть карточку только у current entry (история не трогается). */
 export function shouldHideCurrentLessonBubbles(params: {
   isPuzzleStep: boolean
   isCurrent: boolean

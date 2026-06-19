@@ -269,6 +269,19 @@
   }
 }
 
+.lesson-text-soft-exit {
+  animation: lessonTextSoftOut 0.52s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+@keyframes lessonTextSoftOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 /* РќР°РіСЂР°РґР° РЅР°Рґ РєРѕРјРїРѕР·РµСЂРѕРј: РїСЂСѓР¶РёРЅРЅРѕРµ РїРѕСЏРІР»РµРЅРёРµ Рё СѓС…РѕРґ РІРІРµСЂС… СЃ Р·Р°С‚СѓС…Р°РЅРёРµРј. */
 @keyframes rewardPopupIn {
   0% {
@@ -1890,6 +1903,11 @@ html[data-ios-safari-dialog] .dialog-composer-dock-inner {
   }
 
   .lesson-text-soft-enter {
+    animation: none;
+    opacity: 1;
+  }
+
+  .lesson-text-soft-exit {
     animation: none;
     opacity: 1;
   }

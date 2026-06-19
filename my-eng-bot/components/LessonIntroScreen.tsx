@@ -17,6 +17,11 @@ import { APP_BTN_PRIMARY_LESSON_START, BTN_INTERACTION_BASE } from '@/lib/homeCt
 import { LESSON_SCROLL_VIEWPORT_CLASS, scheduleScrollAfterLayout } from '@/lib/lessonFeedScroll'
 import { LESSON_SECTION_REVEAL_INTERVAL_MS } from '@/lib/lessonRevealTiming'
 import { getMenuTopicCopyByIntroTopic } from '@/lib/lessonCatalog'
+import {
+  formatIntroBlockBullets,
+  resolveHowBlock,
+  resolveTheoryBlock,
+} from '@/lib/lessonIntroBlocks'
 import { resolveLessonIntroPrimaryCtaLabel } from '@/lib/lessonIntroCtaCopy'
 import { LESSON_VARIANT_PREPARE_LOADING_LABEL } from '@/lib/lessonVariantCtaCopy'
 import ProgressCtaButton from '@/components/ProgressCtaButton'
@@ -123,14 +128,16 @@ function formatPracticeMission(intro: LessonIntro): string {
 }
 
 function buildQuickBubbles(intro: LessonIntro): [Bubble, Bubble, Bubble] {
+  const theoryBlock = resolveTheoryBlock(intro)
+  const howBlock = resolveHowBlock(intro)
   return [
     {
       type: 'positive',
-      content: `🟡 ТЕОРИЯ\n${formatList(intro.quick.why)}`,
+      content: `🟡 ТЕОРИЯ\n${theoryBlock ? formatIntroBlockBullets(theoryBlock) : formatList(intro.quick.why)}`,
     },
     {
       type: 'info',
-      content: `⚪ КАК РАБОТАЕТ\n${formatList(intro.quick.how)}`,
+      content: `⚪ ШАБЛОНЫ\n${howBlock ? formatIntroBlockBullets(howBlock) : formatList(intro.quick.how)}`,
     },
     {
       type: 'task',

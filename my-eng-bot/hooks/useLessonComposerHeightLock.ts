@@ -21,6 +21,26 @@ type UseLessonComposerHeightLockParams = {
   lockReleased: boolean
 }
 
+function resolveIncomingComposerMinHeight(params: {
+  panelKind: LessonComposerPanelKind
+  optionCount: number
+  choiceOptions?: string[]
+  containerWidthPx?: number
+  puzzleWords?: string[]
+  puzzleHasInstruction?: boolean
+  compact: boolean
+}): number {
+  return estimateLessonComposerMinHeight({
+    panelKind: params.panelKind,
+    optionCount: params.optionCount,
+    choiceOptions: params.choiceOptions,
+    containerWidthPx: params.containerWidthPx,
+    puzzleWords: params.puzzleWords,
+    puzzleHasInstruction: params.puzzleHasInstruction,
+    compact: params.compact,
+  })
+}
+
 export function useLessonComposerHeightLock({
   stackRef,
   transitionKey,
@@ -44,6 +64,16 @@ export function useLessonComposerHeightLock({
     return Math.max(0, Math.round(stack.getBoundingClientRect().height))
   }, [stackRef])
 
+  const incomingParams = {
+    panelKind,
+    optionCount,
+    choiceOptions,
+    containerWidthPx,
+    puzzleWords,
+    puzzleHasInstruction,
+    compact,
+  }
+
   useLayoutEffect(() => {
     if (!enabled) {
       setLockedMinHeight(undefined)
@@ -52,25 +82,24 @@ export function useLessonComposerHeightLock({
       return
     }
 
-    if (transitionKey === prevTransitionKeyRef.current) return
+    const isStepTransition = transitionKey !== prevTransitionKeyRef.current
 
-    const outgoing = measureStack()
-    if (outgoing > 0) {
-      lastOutgoingHeightRef.current = outgoing
+    if (isStepTransition) {
+      const outgoing = measureStack()
+      if (outgoing > 0) {
+        lastOutgoingHeightRef.current = outgoing
+      }
+      prevTransitionKeyRef.current = transitionKey
     }
-    prevTransitionKeyRef.current = transitionKey
 
-    const incoming = estimateLessonComposerMinHeight({
-      panelKind,
-      optionCount,
-      choiceOptions,
-      containerWidthPx,
-      puzzleWords,
-      puzzleHasInstruction,
-      compact,
-    })
+    const incoming = resolveIncomingComposerMinHeight(incomingParams)
     const nextLock = Math.max(lastOutgoingHeightRef.current, incoming)
-    setLockedMinHeight(nextLock > 0 ? nextLock : undefined)
+    setLockedMinHeight((current) => {
+      const next = nextLock > 0 ? nextLock : undefined
+      if (next == null) return undefined
+      if (current == null) return next
+      return Math.max(current, next)
+    })
   }, [
     compact,
     containerWidthPx,

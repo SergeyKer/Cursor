@@ -385,9 +385,10 @@ describe('buildLessonFeedMessages — non-puzzle regression', () => {
 })
 
 describe('buildLessonFeedMessages — success advance', () => {
-  it('hides current lesson card during success feedback without placeholder gap', () => {
+  it('keeps empty current lesson shell during success feedback for stable intro controls', () => {
     const currentEntry = makeTimelineEntry({
       isCurrent: true,
+      stepIndex: 0,
       submittedAnswer: "I'm happy.",
       feedback: { type: 'success', message: 'Верно.' },
       step: {
@@ -412,9 +413,165 @@ describe('buildLessonFeedMessages — success advance', () => {
       isAdvancingToNextVariant: false,
     })
 
-    expect(messages.some((message) => message.kind === 'lesson')).toBe(false)
+    const currentLesson = messages.find(
+      (message) => message.kind === 'lesson' && !message.isHistorical
+    )
+    expect(currentLesson).toMatchObject({ kind: 'lesson', bubbles: [], id: 'lesson-1-0-current' })
+    const feedbackIndex = messages.findIndex((message) => message.kind === 'status' && message.tone === 'success')
+    const shellIndex = messages.findIndex((message) => message.id === 'lesson-1-0-current')
+    expect(shellIndex).toBeGreaterThanOrEqual(0)
+    expect(shellIndex).toBeLessThan(feedbackIndex)
+  })
+
+  it('keeps stable current lesson id when attempt moves to history on success feedback', () => {
+    const currentEntry = makeTimelineEntry({
+      isCurrent: true,
+      stepIndex: 0,
+      submittedAnswer: "I'm happy.",
+      feedback: { type: 'success', message: 'Верно.' },
+      step: {
+        stepNumber: 1,
+        bubbles: [{ type: 'task', content: 'Step 1' }],
+        exercise: {
+          type: 'fill_choice',
+          options: ["I'm happy.", 'I am a student.', "I'm from Russia."],
+          correctAnswer: "I'm happy.",
+        },
+      } as LessonData['steps'][number],
+    })
+    const historyAttempt = {
+      stepIndex: 0,
+      submittedAnswer: "I'm happy.",
+      feedback: { type: 'success', message: 'Верно.' },
+      isCurrent: false,
+      step: currentEntry.step,
+    }
+    const timeline = buildActiveStepTimeline([], currentEntry, [historyAttempt], 'fill_choice')
+
+    const messages = buildLessonFeedMessages({
+      timeline,
+      status: 'feedback',
+      latestFeedbackType: 'success',
+      showCheckingStatusLine: false,
+      showAdvancingStatusLine: false,
+      isAdvancingToNextStep: false,
+      isAdvancingToNextVariant: false,
+    })
+
+    expect(messages.find((message) => message.kind === 'lesson' && !message.isHistorical)?.id).toBe(
+      'lesson-1-0-current'
+    )
     expect(messages.some((message) => message.kind === 'status' && message.tone === 'success')).toBe(
       true
+    )
+  })
+
+  it('keeps historical lesson card visible after step completes', () => {
+    const step2 = {
+      stepNumber: 2,
+      bubbles: [{ type: 'task', content: 'Step 2' }],
+      exercise: {
+        type: 'fill_choice',
+        options: ['a', 'an', 'the'],
+        correctAnswer: 'a',
+      },
+    } as LessonData['steps'][number]
+    const step3 = {
+      stepNumber: 3,
+      bubbles: [{ type: 'task', content: 'Step 3' }],
+      exercise: {
+        type: 'fill_choice',
+        options: ['a', 'an', 'the'],
+        correctAnswer: 'an',
+      },
+    } as LessonData['steps'][number]
+
+    const timeline: LessonTimelineEntry[] = [
+      {
+        stepIndex: 1,
+        submittedAnswer: 'a',
+        feedback: { type: 'success', message: 'Верно. Шаг 2 из 7.' },
+        isCurrent: false,
+        step: step2,
+      },
+      {
+        stepIndex: 2,
+        submittedAnswer: null,
+        feedback: null,
+        isCurrent: true,
+        step: step3,
+      },
+    ]
+
+    const messages = buildLessonFeedMessages({
+      timeline,
+      status: 'idle',
+      showCheckingStatusLine: false,
+      showAdvancingStatusLine: false,
+      isAdvancingToNextStep: false,
+      isAdvancingToNextVariant: false,
+    })
+
+    const historyLesson = messages.find(
+      (message) => message.kind === 'lesson' && message.isHistorical && message.id.startsWith('lesson-2-')
+    )
+
+    expect(historyLesson?.bubbles.length).toBeGreaterThan(0)
+    const feedbackIndex = messages.findIndex(
+      (message) => message.kind === 'status' && message.text.includes('Шаг 2 из 7')
+    )
+    const historyLessonIndex = messages.findIndex((message) => message.id === historyLesson?.id)
+    expect(historyLessonIndex).toBeGreaterThanOrEqual(0)
+    expect(historyLessonIndex).toBeLessThan(feedbackIndex)
+  })
+
+  it('does not emit orphan intro shell after history success feedback', () => {
+    const step1 = {
+      stepNumber: 1,
+      bubbles: [{ type: 'task', content: 'Step 1' }],
+      exercise: {
+        type: 'fill_choice',
+        options: ["I'm happy.", 'I am a student.'],
+        correctAnswer: "I'm happy.",
+      },
+    } as LessonData['steps'][number]
+
+    const timeline: LessonTimelineEntry[] = [
+      {
+        stepIndex: 0,
+        submittedAnswer: "I'm happy.",
+        feedback: { type: 'success', message: 'Верно. Шаг 1 из 7.' },
+        isCurrent: false,
+        step: step1,
+      },
+      {
+        stepIndex: 0,
+        submittedAnswer: null,
+        feedback: null,
+        isCurrent: true,
+        step: step1,
+      },
+    ]
+
+    const messages = buildLessonFeedMessages({
+      timeline,
+      status: 'feedback',
+      latestFeedbackType: 'success',
+      showCheckingStatusLine: false,
+      showAdvancingStatusLine: false,
+      isAdvancingToNextStep: false,
+      isAdvancingToNextVariant: false,
+    })
+
+    expect(messages.some((message) => message.kind === 'lesson' && !message.isHistorical && message.bubbles.length === 0)).toBe(
+      false
+    )
+    const successIndex = messages.findIndex(
+      (message) => message.kind === 'status' && message.tone === 'success'
+    )
+    const tailAfterSuccess = messages.slice(successIndex + 1)
+    expect(tailAfterSuccess.some((message) => message.kind === 'lesson' && message.bubbles.length === 0)).toBe(
+      false
     )
   })
 })
