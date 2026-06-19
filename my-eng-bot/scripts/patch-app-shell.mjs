@@ -7,7 +7,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
 const target = path.join(root, 'components/app/AppShell.tsx')
 
-let src = execSync('git -C c:/dev/Cursor show HEAD:my-eng-bot/app/page.tsx', { encoding: 'utf8' })
+const gitRoot = execSync('git rev-parse --show-toplevel', { encoding: 'utf8', cwd: root }).trim()
+const legacySourceGitPath = path
+  .relative(gitRoot, path.join(root, 'app/page.tsx'))
+  .replace(/\\/g, '/')
+let src = execSync(`git show HEAD:${legacySourceGitPath}`, { encoding: 'utf8', cwd: root })
 
 const replacements = [
   [

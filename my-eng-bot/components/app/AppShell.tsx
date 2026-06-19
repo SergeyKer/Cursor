@@ -51,6 +51,11 @@ import type { LessonCoinIntroContext } from '@/lib/lessonCoinIntroCopy'
 import { COIN_ERROR_FORGIVENESS_COST, canSpendCoinsForForgiveness } from '@/lib/lessonCoinForgiveness'
 import { getLessonCoinForgivenessCopy } from '@/lib/lessonCoinForgivenessCopy'
 import {
+  APP_SHELL_ERROR_COPY,
+  APP_SHELL_HOME_COPY,
+  getMenuGenerationFallbackMessage,
+} from '@/lib/uiCopy/appShellCopy'
+import {
   buildRewardPopupText,
   rewardReasonAllowsDynamicTickerOverride,
   rewardReasonShowsToast,
@@ -342,14 +347,6 @@ function pickUniquePracticeQuestions(candidates: PracticeQuestion[], existing: P
   return fresh
 }
 
-function getMenuGenerationFallbackMessage(reason: LessonRepeatFallbackReason | undefined): string {
-  if (reason === 'provider') return 'Проблема с доступом к модели. Попробуйте сгенерировать урок ещё раз.'
-  if (reason === 'parse') return 'Модель вернула ответ не в том формате. Попробуйте сгенерировать урок ещё раз.'
-  if (reason === 'validation') return 'Модель сгенерировала урок низкого качества. Повторите генерацию.'
-  if (reason === 'no_steps') return 'Для этого урока пока нет шагов для генерации.'
-  return 'Не удалось сгенерировать новый урок. Попробуйте ещё раз.'
-}
-
 function cloneStructuredLessonWithRunKey(lesson: LessonData): LessonData {
   const cloned = typeof structuredClone === 'function' ? structuredClone(lesson) : JSON.parse(JSON.stringify(lesson))
   return {
@@ -534,9 +531,11 @@ const RETRY_DELAY_MS = 2500
 /** При 429 OpenRouter даёт 20 запросов в минуту — пауза должна увести попытку в следующую минуту. */
 const RETRY_DELAY_RATE_LIMIT_MS = 20_000
 const RETRY_DELAY_RATE_LIMIT_BASE_MS = 5_000
-const RETRY_MESSAGES = ['Пробую ещё раз…', 'Вот-вот, почти!']
-const ERROR_FIRST_MESSAGE = 'Не удалось загрузить ответ. Проверьте сеть и настройки сервера.'
-const EMPTY_RESPONSE_FALLBACK = 'ИИ не отвечает. Проверьте сеть и попробуйте снова.'
+const {
+  retryMessages: RETRY_MESSAGES,
+  errorFirstMessage: ERROR_FIRST_MESSAGE,
+  emptyResponseFallback: EMPTY_RESPONSE_FALLBACK,
+} = APP_SHELL_ERROR_COPY
 function normalizeForEchoCompare(text: string): string {
   return text.trim().toLowerCase().replace(/[^\p{L}\p{N}\s']/gu, '').replace(/\s+/g, ' ')
 }
@@ -6722,7 +6721,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                           }}
                           className={PAGE_HOME_AUDIENCE_CHILD_BUTTON_CLASS}
                         >
-                          Я - ребёнок
+                          {APP_SHELL_HOME_COPY.audienceChildLabel}
                         </button>
                         <button
                           type="button"
@@ -6737,7 +6736,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                           }}
                           className={PAGE_HOME_AUDIENCE_ADULT_BUTTON_CLASS}
                         >
-                          Я - взрослый
+                          {APP_SHELL_HOME_COPY.audienceAdultLabel}
                         </button>
                       </>
                     ) : (
@@ -6747,19 +6746,19 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                             type="button"
                             onClick={() => setHomeAudienceChosen(false)}
                             className={PAGE_HOME_BACK_TO_AUDIENCE_BUTTON_CLASS}
-                            aria-label="Главная: вернуться к выбору ребёнок или взрослый"
+                            aria-label={APP_SHELL_HOME_COPY.homeBackAriaLabel}
                           >
                             <span className="mr-1" aria-hidden>
                               &lt;
                             </span>
-                            Главная
+                            {APP_SHELL_HOME_COPY.homeBackLabel}
                           </button>
                           <button
                             type="button"
                             onClick={() => setHomeMenuView('aiChat')}
                             className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}
                           >
-                            Начать чат с Engvo AI
+                            {APP_SHELL_HOME_COPY.startChatLabel}
                           </button>
                         </div>
                         <button

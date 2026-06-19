@@ -49,4 +49,11 @@
 
 - AppShell (~7k строк) — следующий шаг: физический перенос JSX в BranchRuntimes
 - Урок 1: sync fallback в `structuredLessons.ts` для API; JSON — pilot в runtime
-- Редактировать `AppShell.tsx` через `scripts/patch-app-shell.mjs` (UTF-8) или Node, не ломать кириллицу
+
+## Кодировка и кириллица
+
+- **Не ломать UTF-8** в `AppShell.tsx` и других файлах с русским UI-текстом.
+- Перед коммитом: `npm run check:cyrillic` (также входит в `npm test`).
+- Vercel build: `npm test && npm run build` (см. `vercel.json`).
+- Правки `AppShell.tsx`: `node scripts/safe-utf8-patch.mjs --file components/app/AppShell.tsx ...` или ручная правка в IDE.
+- Новый пользовательский русский текст — в `lib/uiCopy/*`, не inline в AppShell.
