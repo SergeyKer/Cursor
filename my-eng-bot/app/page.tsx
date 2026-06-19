@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, type ComponentType } from 'react'
-import type { AppShellProps } from '@/components/app/AppShell'
+import type { AppShellProps } from '@/components/app/AppShell.types'
 import StartPageChrome from '@/components/start/StartPageChrome'
 import StartShell from '@/components/start/StartShell'
 import { createEmptyBridge, mergeBridgeState, type StartBridgeState } from '@/lib/start/startBridge'

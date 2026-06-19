@@ -314,6 +314,7 @@ export default function PracticeScreen({
     isRevealInProgress,
     prefersReducedMotion,
     scheduleScrollPracticeFeedTail,
+    state,
   ])
 
   useEffect(() => {
