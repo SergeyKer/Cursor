@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Exercise, SentencePuzzleVariant } from '@/types/lesson'
+import { estimatePuzzleWordBankMinHeight } from '@/lib/puzzlePanelLayout'
 import { LESSON_PUZZLE_COMPLETE_MESSAGE } from '@/utils/footerMessages'
 
 type LessonSentencePuzzleProps = {
@@ -142,6 +143,11 @@ export default function LessonSentencePuzzle({
       return false
     })
   }, [activeVariant, selectedWords])
+
+  const wordBankMinHeight = useMemo(
+    () => (activeVariant ? estimatePuzzleWordBankMinHeight(getVariantWords(activeVariant)) : 0),
+    [activeVariant]
+  )
 
   useEffect(() => {
     const stored = readStoredProgress(progressKey, variants.length)
@@ -333,7 +339,11 @@ export default function LessonSentencePuzzle({
         })}
       </div>
 
-      <div className="mb-2 flex flex-wrap content-start gap-1.5" aria-label="Доступные слова">
+      <div
+        className="mb-2 flex flex-wrap content-start gap-1.5"
+        style={wordBankMinHeight > 0 ? { minHeight: wordBankMinHeight } : undefined}
+        aria-label="Доступные слова"
+      >
         {availableWords.map((word, index) => (
           <button
             key={`${activeVariant.id}-${word}-${index}`}

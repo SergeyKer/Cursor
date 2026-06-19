@@ -46,7 +46,7 @@ import {
   LESSON_SUCCESS_HOLD_MS,
   LESSON_VALIDATION_DELAY_MS,
 } from '@/lib/lessonAnswerPanelLock'
-import { getLessonCoinForgivenessCopy, type LessonCoinForgivenessAudience } from '@/lib/lessonCoinForgivenessCopy'
+import { getLessonCoinForgivenessCopy } from '@/lib/lessonCoinForgivenessCopy'
 import {
   isCoinForgivenessExercise,
   isCoinForgivenessStep,
@@ -190,7 +190,6 @@ export type LessonAnswerOptions = {
 }
 
 export type UseLessonEngineOptions = {
-  audience?: LessonCoinForgivenessAudience
   /** DEBUG: после reset по runKey сразу открыть финал (skip-to-finale). */
   debugSkipToFinaleAfterResetRef?: React.MutableRefObject<boolean>
 }
@@ -213,7 +212,6 @@ export function resolveCoinForgivenessAutofillPatch(
 }
 
 export function useLessonEngine(lesson: LessonData | null, options: UseLessonEngineOptions = {}) {
-  const audience = options.audience ?? 'adult'
   const [currentStep, setCurrentStep] = useState(0)
   const [phase, setPhase] = useState<'lesson' | 'finale'>('lesson')
   const [coreXp, setCoreXp] = useState(0)
@@ -1084,8 +1082,8 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
           ? {
               key: 'lesson-coin-forgiveness-applied',
               priority: 55,
-              text: getLessonCoinForgivenessCopy(audience).appliedFooter,
-              compactText: getLessonCoinForgivenessCopy(audience).appliedFooter,
+              text: getLessonCoinForgivenessCopy().appliedFooter,
+              compactText: getLessonCoinForgivenessCopy().appliedFooter,
               tone: 'support',
             }
           : null,
@@ -1138,7 +1136,6 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
     }
   }, [
     activeExercise?.hint,
-    audience,
     coinForgivenessFooterPulse,
     combo,
     isAdvancingToNextStep,

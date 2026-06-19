@@ -376,7 +376,7 @@ export default function LessonStepRenderer({
     [timeline]
   )
   const exercise = currentStep?.exercise ?? null
-  const coinForgivenessCopy = useMemo(() => getLessonCoinForgivenessCopy(audience), [audience])
+  const coinForgivenessCopy = useMemo(() => getLessonCoinForgivenessCopy(), [])
   const forgivenessBubbleMode = useMemo(
     () =>
       resolveCoinForgivenessBubbleMode({

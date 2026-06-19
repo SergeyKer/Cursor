@@ -1,5 +1,3 @@
-export type LessonCoinForgivenessAudience = 'child' | 'adult'
-
 export type LessonCoinForgivenessCopy = {
   buttonLabel: string
   buttonAriaLabel: string
@@ -25,7 +23,7 @@ export type LessonCoinForgivenessCopy = {
   rollback: string
 }
 
-const ADULT_COPY: LessonCoinForgivenessCopy = {
+const LESSON_COIN_FORGIVENESS_COPY: LessonCoinForgivenessCopy = {
   buttonLabel: '🪙 Не считать ошибку',
   buttonAriaLabel: 'Не учитывать эту ошибку за 1 монету',
   confirmTitle: 'Помощь за 1 монету',
@@ -52,32 +50,6 @@ const ADULT_COPY: LessonCoinForgivenessCopy = {
   rollback: 'Монета возвращена. Попробуйте ещё раз.',
 }
 
-const CHILD_COPY: LessonCoinForgivenessCopy = {
-  buttonLabel: '🪙 Помоги — 1 🪙',
-  buttonAriaLabel: 'Помочь за 1 монету — подставим правильный ответ',
-  confirmTitle: 'Помочь за 1 🪙?',
-  confirmBody: (balanceAfter) =>
-    `Останется ${balanceAfter}. Подставим правильный ответ.`,
-  confirmHintMuted: 'Можно не сейчас — кнопка останется. Помочь можно один раз за урок.',
-  confirmTitleZeroBalance: 'Монеток нет',
-  confirmBodyZeroBalance: 'Нужна 1 монетка, чтобы помочь.',
-  confirmHintZeroBalance: 'Нажми «Да» — расскажем, откуда монетки.',
-  zeroBalanceHelpTitle: 'Откуда монетки',
-  zeroBalanceHelpMessage: 'Монетки — за золотую медаль в уроке.',
-  decline: 'Не сейчас',
-  confirmYes: 'Да',
-  processing: 'Списываем…',
-  appliedFooter: 'Помогли за 1 🪙',
-  appliedTitle: 'Монетка списана',
-  appliedBody: (balanceAfter) => `Списали 1 🪙. Осталось: ${balanceAfter}.`,
-  appliedCorrectAnswerPreview: (answer) => `Правильный ответ: ${answer}`,
-  appliedGoldMedalHint: 'Монетки — за золотую медаль в уроке.',
-  appliedContinue: 'Продолжить',
-  exhaustedLabel: 'Уже помогли',
-  spendFailed: 'Не удалось списать монету.',
-  rollback: 'Монета вернулась.',
-}
-
-export function getLessonCoinForgivenessCopy(audience: LessonCoinForgivenessAudience): LessonCoinForgivenessCopy {
-  return audience === 'child' ? CHILD_COPY : ADULT_COPY
+export function getLessonCoinForgivenessCopy(): LessonCoinForgivenessCopy {
+  return LESSON_COIN_FORGIVENESS_COPY
 }

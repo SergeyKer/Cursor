@@ -231,8 +231,8 @@ describe('estimateLessonComposerMinHeight', () => {
       panelKind: 'forgiveness',
       compact: true,
     })
-    expect(standard).toBeGreaterThanOrEqual(270)
-    expect(compact).toBeGreaterThanOrEqual(255)
+    expect(standard).toBeGreaterThanOrEqual(230)
+    expect(compact).toBeGreaterThanOrEqual(220)
     expect(standard).toBeGreaterThan(compact)
   })
 

@@ -8,7 +8,6 @@ import {
   APP_BTN_SECONDARY_INLINE_MUTED,
 } from '@/lib/homeCtaStyles'
 import { COIN_ERROR_FORGIVENESS_COST } from '@/lib/lessonCoinForgiveness'
-import { LESSON_FORGIVENESS_COMPOSER_CONTENT_MIN_HEIGHT_PX } from '@/lib/lessonComposerLayout'
 import type { LessonCoinForgivenessCopy } from '@/lib/lessonCoinForgivenessCopy'
 
 export type LessonCoinForgivenessComposerMode = 'confirm' | 'applied'
@@ -72,8 +71,7 @@ export default function LessonCoinForgivenessComposerConfirm({
 
   return (
     <div
-      className="mx-auto flex w-full max-w-sm flex-col justify-center gap-2.5"
-      style={{ minHeight: LESSON_FORGIVENESS_COMPOSER_CONTENT_MIN_HEIGHT_PX }}
+      className="mx-auto flex w-full max-w-sm flex-col gap-2.5"
       role="region"
       aria-label={cardTitle}
     >
