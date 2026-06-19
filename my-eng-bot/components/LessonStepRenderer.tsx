@@ -39,7 +39,12 @@ import {
   getChatComposerStackLayout,
   getChatComposerTextareaVerticalClass,
 } from '@/lib/chatComposerMetrics'
-import type { BlockProgress, LessonStatus, LessonTimelineEntry } from '@/hooks/useLessonEngine'
+import type {
+  BlockProgress,
+  LessonAnswerOptions,
+  LessonStatus,
+  LessonTimelineEntry,
+} from '@/hooks/useLessonEngine'
 import {
   isLessonAnswerPanelLocked,
   isLessonChoiceInteractionDisabled,
