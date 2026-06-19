@@ -1,4 +1,67 @@
 {
-  "extends": ["next/core-web-vitals"]
+  "extends": ["next/core-web-vitals"],
+  "overrides": [
+    {
+      "files": ["app/page.tsx", "components/start/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@/components/Chat",
+                "message": "Use StartShell entry; load branches dynamically."
+              },
+              {
+                "name": "@/components/MenuSectionPanels",
+                "message": "Use StartShell entry; load branches dynamically."
+              },
+              {
+                "name": "@/components/app/AppShell",
+                "message": "Use dynamic import in app/page.tsx only."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["@/lib/lessons/*", "@/lib/engvo/*"],
+                "message": "Entry/start must not import lesson or engvo modules."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["components/app/AppShell.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@/components/Chat",
+                "message": "Import via components/branches/ChatBranch."
+              },
+              {
+                "name": "@/components/MenuSectionPanels",
+                "message": "Import via components/branches/HubBranch."
+              },
+              {
+                "name": "@/components/LessonStepRenderer",
+                "message": "Import via components/branches/LessonBranch."
+              },
+              {
+                "name": "@/components/LessonIntroScreen",
+                "message": "Import via components/branches/LessonBranch."
+              },
+              {
+                "name": "@/components/practice/PracticeScreen",
+                "message": "Import via components/branches/PracticeBranch."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }
-

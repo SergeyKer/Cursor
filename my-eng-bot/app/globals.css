@@ -948,13 +948,18 @@ body {
   background: var(--bg);
   color: var(--text);
   font-size: var(--font-size-base);
-  transition: background var(--transition-smooth), color var(--transition-smooth);
+  /* Без анимации фона при первой установке data-theme (убирает «дёрганье»). */
+  transition: color var(--transition-smooth);
   /* РЈР±РёСЂР°РµРј СЃРµСЂСѓСЋ РїРѕРґСЃРІРµС‚РєСѓ РїСЂРё С‚Р°РїРµ (Android / iOS) */
   -webkit-tap-highlight-color: transparent;
   min-height: 100vh;
   min-height: 100dvh;
   height: 100%;
   overflow: hidden; /* РћС‚РєР»СЋС‡Р°РµРј СЃРєСЂРѕР»Р» РѕРєРЅР°, СЃРєСЂРѕР»Р» С‚РѕР»СЊРєРѕ РІРЅСѓС‚СЂРё Chat */
+}
+
+.start-screen-surface {
+  background: linear-gradient(180deg, var(--chat-wallpaper) 0%, var(--chat-wallpaper-soft) 100%);
 }
 
 /* РљРЅРѕРїРєРё: Р»С‘РіРєРёР№ РѕР±СЉС‘Рј вЂ” С‚РµРЅСЊ Рё РЅРµР±РѕР»СЊС€РѕР№ РїРѕРґСЉС‘Рј/РЅР°Р¶Р°С‚РёРµ */

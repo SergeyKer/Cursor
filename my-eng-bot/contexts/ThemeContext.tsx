@@ -1,11 +1,13 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
-
-export type Theme = 'basic' | 'futuristic' | 'bubble1' | 'bubble2'
-
-const THEME_STORAGE_KEY = 'myeng_theme'
-const DEFAULT_THEME: Theme = 'basic'
+import {
+  applyThemeToDocument,
+  DEFAULT_THEME,
+  readStoredTheme,
+  THEME_STORAGE_KEY,
+  type Theme,
+} from '@/lib/theme'
 
 type ThemeContextValue = {
   theme: Theme
@@ -17,25 +19,13 @@ const ThemeContext = createContext<ThemeContextValue>({
   setTheme: () => {},
 })
 
-function isTheme(value: unknown): value is Theme {
-  return value === 'basic' || value === 'futuristic' || value === 'bubble1' || value === 'bubble2'
-}
-
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(DEFAULT_THEME)
 
   useEffect(() => {
-    let resolvedTheme: Theme = DEFAULT_THEME
-    try {
-      const savedValue = localStorage.getItem(THEME_STORAGE_KEY)
-      resolvedTheme = isTheme(savedValue) ? savedValue : DEFAULT_THEME
-    } catch {
-      resolvedTheme = DEFAULT_THEME
-    }
+    const resolvedTheme = readStoredTheme()
     setThemeState(resolvedTheme)
-    if (typeof document !== 'undefined') {
-      document.documentElement.setAttribute('data-theme', resolvedTheme)
-    }
+    applyThemeToDocument(resolvedTheme)
   }, [])
 
   const setTheme = (nextTheme: Theme) => {
@@ -45,9 +35,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // storage может быть недоступен в ограниченных режимах браузера
     }
-    if (typeof document !== 'undefined') {
-      document.documentElement.setAttribute('data-theme', nextTheme)
-    }
+    applyThemeToDocument(nextTheme)
   }
 
   const contextValue = useMemo(
@@ -64,3 +52,5 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 export function useTheme(): ThemeContextValue {
   return useContext(ThemeContext)
 }
+
+export type { Theme }

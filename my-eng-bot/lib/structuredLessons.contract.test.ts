@@ -4,8 +4,12 @@ import { itsTimeToLesson } from '@/lib/lessons/its-time-to'
 import { stepTranslateInfoCollidesWithAnswers } from '@/lib/lessonExampleAnswerCollision'
 import { toSentencePuzzleCards } from '@/lib/sentencePuzzleWords'
 import { extractRussianTranslatePromptSegment } from '@/lib/structuredLessonFactory'
-import { getAllStructuredLessons, getStructuredLessonById } from '@/lib/structuredLessons'
+import { getAllStructuredLessons, getStructuredLessonById, loadLessonById } from '@/lib/structuredLessons'
+import { itsTimeToLesson } from '@/lib/lessons/its-time-to'
+import { primeLessonCache } from '@/lib/lessons/loadLessonById'
 import type { Exercise, ExerciseVariant, LessonData, LessonRepeatStepVariant, LessonStep, SentencePuzzleVariant } from '@/types/lesson'
+
+primeLessonCache('1', itsTimeToLesson)
 
 const lessons = getAllStructuredLessons()
 
@@ -88,6 +92,11 @@ function expectLessonPuzzleVariantsAligned(lesson: LessonData) {
 }
 
 describe('structured lesson 7-step contract', () => {
+  it('loads all enabled lessons through loadLessonById', async () => {
+    const loaded = await Promise.all(['1', '2', '3', '4'].map((id) => loadLessonById(id)))
+    expect(loaded.every((lesson) => lesson != null)).toBe(true)
+  })
+
   it.each(lessons)('keeps 7 learning steps plus finale for lesson $id', (lesson) => {
     expect(lesson.steps).toHaveLength(7)
     expect(lesson.finale?.postLesson.options.length).toBeGreaterThan(0)

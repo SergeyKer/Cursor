@@ -1,0 +1,3650 @@
+{
+  "id": "1",
+  "topic": "Это / Пора",
+  "level": "A2",
+  "intro": {
+    "topic": "It's / It's time to",
+    "kind": "structure",
+    "complexity": "simple",
+    "quick": {
+      "why": [
+        "It's помогает описать состояние: темно, холодно, поздно.",
+        "It's time to помогает сказать, что пора что-то делать.",
+        "Главный выбор: описываем ситуацию или зовем к действию."
+      ],
+      "how": [
+        "It's + adjective: It's cold.",
+        "It's time to + verb: It's time to go.",
+        "После time to нужен обычный глагол без -ing и без -s."
+      ],
+      "examples": [
+        {
+          "en": "It's dark.",
+          "ru": "Темно.",
+          "note": "описали состояние"
+        },
+        {
+          "en": "It's time to sleep.",
+          "ru": "Пора спать.",
+          "note": "переходим к действию"
+        },
+        {
+          "en": "It's late. It's time to go.",
+          "ru": "Поздно. Пора идти.",
+          "note": "состояние объясняет действие"
+        }
+      ],
+      "takeaway": "Думай так: It's описывает, а It's time to подталкивает к действию."
+    },
+    "details": {
+      "points": [
+        "В It's cold слово cold не действие, а описание ситуации.",
+        "В It's time to go слово go уже действие, поэтому перед ним стоит time to.",
+        "Не добавляй лишнюю форму: It's time to goes и It's time to going звучат неверно."
+      ],
+      "examples": [
+        {
+          "en": "It's hot.",
+          "ru": "Жарко.",
+          "note": "только состояние"
+        },
+        {
+          "en": "It's time to open the window.",
+          "ru": "Пора открыть окно.",
+          "note": "уже действие"
+        }
+      ]
+    },
+    "deepDive": {
+      "commonMistakes": [
+        "It's time to going вместо It's time to go.",
+        "It's time to sleeps вместо It's time to sleep.",
+        "Пытаться переводить каждое русское \"пора\" через одно слово без шаблона time to."
+      ],
+      "contrastNotes": [
+        "It's late = уже поздно.",
+        "It's time to leave = пора уходить."
+      ],
+      "selfCheckRule": "Если после фразы можно спросить \"что делать?\", используй It’s time to + verb."
+    },
+    "learningPlan": {
+      "grammarFocus": [
+        "It is + adjective",
+        "It is time to + verb"
+      ],
+      "firstPracticeGoal": "Отличить описание состояния от действия."
+    }
+  },
+  "variantId": "evening-dark",
+  "finale": {
+    "bubbles": [
+      {
+        "type": "positive",
+        "content": "Готово! It is и It is time to — ваши. Дальше — практика и кубок 🏆."
+      }
+    ],
+    "footerDynamic": "Урок завершен",
+    "myEngComment": "Урок пройден. Готовы дальше?",
+    "postLesson": {
+      "interestingFact": "В живой речи английского It is часто сокращают до It’s, а сама конструкция It’s time to звучит мягче и естественнее, чем прямой приказ.",
+      "options": [
+        {
+          "action": "repeat_variant",
+          "label": "Еще вариант"
+        },
+        {
+          "action": "learn_interesting",
+          "label": "Фишки"
+        },
+        {
+          "action": "independent_practice",
+          "label": "Практика"
+        },
+        {
+          "action": "myeng_training",
+          "label": "Тренировка в Engvo"
+        }
+      ]
+    }
+  },
+  "repeatConfig": {
+    "ruleSummary": "Различаем It is + прилагательное для состояния и It is time to + глагол для действия.",
+    "grammarFocus": [
+      "It is + adjective",
+      "It is time to + verb"
+    ],
+    "sourceSituations": [
+      "На улице темно",
+      "Пора спать",
+      "Холодно, пора пить чай",
+      "Пора идти домой",
+      "Сегодня холодно",
+      "Пора заниматься",
+      "Голодно, пора есть обед",
+      "Пора делать домашнее задание",
+      "В комнате жарко",
+      "Пора отдыхать",
+      "Хочется пить, пора пить воду",
+      "Пора открыть окно",
+      "Уже поздно",
+      "Пора готовить",
+      "Идет дождь, пора брать зонт",
+      "Пора позвонить маме"
+    ],
+    "stepBlueprints": [
+      {
+        "stepNumber": 1,
+        "stepType": "hook",
+        "learningGoal": "Показать ситуацию, где нужно описать состояние через It is + adjective.",
+        "exerciseType": "fill_choice",
+        "answerFormat": "choice",
+        "answerPolicy": "strict",
+        "sourceCorrectAnswer": "It's dark.",
+        "sourcePattern": "It's + adjective",
+        "semanticAnchors": [
+          "it's",
+          "dark"
+        ],
+        "semanticExpectations": {
+          "pedagogicalRole": "introduce_context",
+          "mustInclude": [
+            "dark"
+          ],
+          "shouldInclude": [
+            "it's"
+          ],
+          "mustAvoid": [
+            "who likes",
+            "past simple"
+          ],
+          "hintShouldMention": [
+            "прилагательное",
+            "состояние"
+          ],
+          "requireCyrillicHint": true,
+          "maxAcceptedAnswers": 1
+        }
+      },
+      {
+        "stepNumber": 2,
+        "stepType": "theory",
+        "learningGoal": "Показать ситуацию, где нужно выбрать базовый глагол после It is time to.",
+        "exerciseType": "fill_choice",
+        "answerFormat": "choice",
+        "answerPolicy": "strict",
+        "sourceCorrectAnswer": "sleep",
+        "sourcePattern": "It is time to + verb",
+        "semanticAnchors": [
+          "time to",
+          "sleep"
+        ],
+        "semanticExpectations": {
+          "pedagogicalRole": "explain_rule",
+          "mustInclude": [
+            "time to"
+          ],
+          "shouldInclude": [
+            "sleep",
+            "глагол"
+          ],
+          "mustAvoid": [
+            "who likes",
+            "past simple"
+          ],
+          "hintShouldMention": [
+            "глагол",
+            "начальной форме"
+          ],
+          "requireCyrillicHint": true,
+          "maxAcceptedAnswers": 1
+        }
+      },
+      {
+        "stepNumber": 3,
+        "stepType": "practice_fill",
+        "learningGoal": "Вписать пропущенный глагол после конструкции It is time to.",
+        "exerciseType": "fill_text",
+        "answerFormat": "single_word",
+        "answerPolicy": "strict",
+        "sourceCorrectAnswer": "drink",
+        "sourcePattern": "It is time to + verb",
+        "semanticAnchors": [
+          "time to",
+          "drink"
+        ],
+        "semanticExpectations": {
+          "pedagogicalRole": "controlled_pattern_drill",
+          "mustInclude": [
+            "time to"
+          ],
+          "shouldInclude": [
+            "глагол"
+          ],
+          "mustAvoid": [
+            "who likes",
+            "present continuous"
+          ],
+          "hintShouldMention": [
+            "глагол",
+            "начальной форме"
+          ],
+          "requireCyrillicHint": true,
+          "maxAcceptedAnswers": 1
+        }
+      },
+      {
+        "stepNumber": 4,
+        "stepType": "practice_fill",
+        "learningGoal": "Перевести короткое описание состояния на английский.",
+        "exerciseType": "translate",
+        "answerFormat": "full_sentence",
+        "answerPolicy": "normalized",
+        "sourceCorrectAnswer": "It's dark.",
+        "sourcePattern": "It's + adjective",
+        "semanticAnchors": [
+          "it's",
+          "dark"
+        ],
+        "semanticExpectations": {
+          "pedagogicalRole": "controlled_pattern_drill",
+          "mustInclude": [
+            "dark"
+          ],
+          "shouldInclude": [
+            "it's"
+          ],
+          "mustAvoid": [
+            "who likes",
+            "time to go"
+          ],
+          "hintShouldMention": [
+            "состояние",
+            "шаблон"
+          ],
+          "requireCyrillicHint": true,
+          "maxAcceptedAnswers": 2
+        }
+      },
+      {
+        "stepNumber": 5,
+        "stepType": "practice_apply",
+        "learningGoal": "Собрать три коротких предложения по It is и It is time to в puzzle-формате.",
+        "exerciseType": "sentence_puzzle",
+        "answerFormat": "full_sentence",
+        "answerPolicy": "strict",
+        "sourceCorrectAnswer": "It's time to sleep.",
+        "sourcePattern": "word order puzzle for It's time to + verb",
+        "semanticAnchors": [
+          "time to",
+          "sleep"
+        ],
+        "semanticExpectations": {
+          "pedagogicalRole": "apply_in_new_situation",
+          "mustInclude": [
+            "time to",
+            "sleep"
+          ],
+          "shouldInclude": [
+            "it's",
+            "пазл"
+          ],
+          "mustAvoid": [
+            "who likes",
+            "past simple"
+          ],
+          "hintShouldMention": [
+            "первое слово",
+            "порядок"
+          ],
+          "requireCyrillicHint": true,
+          "maxAcceptedAnswers": 1
+        }
+      },
+      {
+        "stepNumber": 6,
+        "stepType": "practice_apply",
+        "learningGoal": "Финальная проверка: состояние, действие по шаблону time to и перенос на новое действие.",
+        "exerciseType": "translate",
+        "answerFormat": "full_sentence",
+        "answerPolicy": "normalized",
+        "sourceCorrectAnswer": "It's time to sleep.",
+        "sourcePattern": "It's time to + verb phrase",
+        "semanticAnchors": [
+          "time to",
+          "sleep"
+        ],
+        "semanticExpectations": {
+          "pedagogicalRole": "apply_in_new_situation",
+          "mustInclude": [
+            "time to",
+            "sleep"
+          ],
+          "shouldInclude": [
+            "it's"
+          ],
+          "mustAvoid": [
+            "who likes",
+            "past simple"
+          ],
+          "hintShouldMention": [
+            "it is time to"
+          ],
+          "requireCyrillicHint": true,
+          "maxAcceptedAnswers": 2
+        }
+      },
+      {
+        "stepNumber": 7,
+        "stepType": "feedback",
+        "learningGoal": "Три contrast-gap: состояние, частица to и новый глагол после time to.",
+        "exerciseType": "fill_choice",
+        "answerFormat": "choice",
+        "answerPolicy": "strict",
+        "sourceCorrectAnswer": "dark",
+        "sourcePattern": "It's + adj / It's time + to + verb",
+        "semanticAnchors": [
+          "dark",
+          "to",
+          "read"
+        ],
+        "semanticExpectations": {
+          "pedagogicalRole": "contrast_check",
+          "mustAvoid": [
+            "who likes",
+            "present continuous"
+          ],
+          "hintShouldMention": [
+            "состояние",
+            "действие"
+          ],
+          "requireCyrillicHint": true,
+          "maxAcceptedAnswers": 1
+        }
+      }
+    ],
+    "variantProfiles": [
+      {
+        "id": "evening-dark",
+        "label": "Темно и пора спать",
+        "sourceSituations": [
+          "На улице темно",
+          "Пора спать",
+          "Холодно, пора пить чай",
+          "Пора идти домой"
+        ],
+        "stepBlueprints": [
+          {
+            "stepNumber": 1,
+            "stepType": "hook",
+            "learningGoal": "Показать ситуацию, где нужно описать состояние через It is + adjective.",
+            "exerciseType": "fill_choice",
+            "answerFormat": "choice",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "It's dark.",
+            "sourcePattern": "It's + adjective",
+            "semanticAnchors": [
+              "it's",
+              "dark"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "introduce_context",
+              "mustInclude": [
+                "dark"
+              ],
+              "shouldInclude": [
+                "it's"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "past simple"
+              ],
+              "hintShouldMention": [
+                "прилагательное",
+                "состояние"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          },
+          {
+            "stepNumber": 2,
+            "stepType": "theory",
+            "learningGoal": "Показать ситуацию, где нужно выбрать базовый глагол после It is time to.",
+            "exerciseType": "fill_choice",
+            "answerFormat": "choice",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "sleep",
+            "sourcePattern": "It is time to + verb",
+            "semanticAnchors": [
+              "time to",
+              "sleep"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "explain_rule",
+              "mustInclude": [
+                "time to"
+              ],
+              "shouldInclude": [
+                "sleep",
+                "глагол"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "past simple"
+              ],
+              "hintShouldMention": [
+                "глагол",
+                "начальной форме"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          },
+          {
+            "stepNumber": 3,
+            "stepType": "practice_fill",
+            "learningGoal": "Вписать пропущенный глагол после конструкции It is time to.",
+            "exerciseType": "fill_text",
+            "answerFormat": "single_word",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "drink",
+            "sourcePattern": "It is time to + verb",
+            "semanticAnchors": [
+              "time to",
+              "drink"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "controlled_pattern_drill",
+              "mustInclude": [
+                "time to"
+              ],
+              "shouldInclude": [
+                "глагол"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "present continuous"
+              ],
+              "hintShouldMention": [
+                "глагол",
+                "начальной форме"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          },
+          {
+            "stepNumber": 4,
+            "stepType": "practice_fill",
+            "learningGoal": "Перевести короткое описание состояния на английский.",
+            "exerciseType": "translate",
+            "answerFormat": "full_sentence",
+            "answerPolicy": "normalized",
+            "sourceCorrectAnswer": "It's dark.",
+            "sourcePattern": "It's + adjective",
+            "semanticAnchors": [
+              "it's",
+              "dark"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "controlled_pattern_drill",
+              "mustInclude": [
+                "dark"
+              ],
+              "shouldInclude": [
+                "it's"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "time to go"
+              ],
+              "hintShouldMention": [
+                "состояние",
+                "шаблон"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 2
+            }
+          },
+          {
+            "stepNumber": 5,
+            "stepType": "practice_apply",
+            "learningGoal": "Собрать три коротких предложения по It is и It is time to в puzzle-формате.",
+            "exerciseType": "sentence_puzzle",
+            "answerFormat": "full_sentence",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "It's time to sleep.",
+            "sourcePattern": "word order puzzle for It's time to + verb",
+            "semanticAnchors": [
+              "time to",
+              "sleep"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "apply_in_new_situation",
+              "mustInclude": [
+                "time to",
+                "sleep"
+              ],
+              "shouldInclude": [
+                "it's",
+                "пазл"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "past simple"
+              ],
+              "hintShouldMention": [
+                "первое слово",
+                "порядок"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          },
+          {
+            "stepNumber": 6,
+            "stepType": "practice_apply",
+            "learningGoal": "Финальная проверка: состояние, действие по шаблону time to и перенос на новое действие.",
+            "exerciseType": "translate",
+            "answerFormat": "full_sentence",
+            "answerPolicy": "normalized",
+            "sourceCorrectAnswer": "It's time to sleep.",
+            "sourcePattern": "It's time to + verb phrase",
+            "semanticAnchors": [
+              "time to",
+              "sleep"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "apply_in_new_situation",
+              "mustInclude": [
+                "time to",
+                "sleep"
+              ],
+              "shouldInclude": [
+                "it's"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "past simple"
+              ],
+              "hintShouldMention": [
+                "it is time to"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 2
+            }
+          },
+          {
+            "stepNumber": 7,
+            "stepType": "feedback",
+            "learningGoal": "Три contrast-gap: состояние, частица to и новый глагол после time to.",
+            "exerciseType": "fill_choice",
+            "answerFormat": "choice",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "dark",
+            "sourcePattern": "It's + adj / It's time + to + verb",
+            "semanticAnchors": [
+              "dark",
+              "to",
+              "read"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "contrast_check",
+              "mustAvoid": [
+                "who likes",
+                "present continuous"
+              ],
+              "hintShouldMention": [
+                "состояние",
+                "действие"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          }
+        ],
+        "steps": [
+          {
+            "stepNumber": 1,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Сегодня разберем две полезные конструкции: It is + прилагательное и It is time to + глагол."
+              },
+              {
+                "type": "info",
+                "content": "Первая конструкция описывает состояние, а вторая показывает, что пришло время сделать действие."
+              },
+              {
+                "type": "task",
+                "content": "Выберите правильное предложение для ситуации: \"На улице темно\""
+              }
+            ],
+            "exercise": {
+              "type": "fill_choice",
+              "question": "Какое предложение подходит по смыслу?",
+              "options": [
+                "It's dark.",
+                "It's time to sleep.",
+                "It's time to drink."
+              ],
+              "correctAnswer": "It's dark.",
+              "acceptedAnswers": [
+                "It's dark."
+              ],
+              "answerFormat": "choice",
+              "answerPolicy": "strict"
+            },
+            "footerDynamic": "Правило 1: It is + прилагательное",
+            "myEngComment": "Вижу, вы готовы к новой конструкции."
+          },
+          {
+            "stepNumber": 2,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Теперь посмотрим на вторую конструкцию: It is time to + глагол."
+              },
+              {
+                "type": "info",
+                "content": "После time to используем начальную форму глагола: sleep, study, go, drink."
+              },
+              {
+                "type": "task",
+                "content": "Выберите правильное завершение: \"It is time to ___.\""
+              }
+            ],
+            "exercise": {
+              "type": "fill_choice",
+              "question": "Дополните предложение.",
+              "options": [
+                "sleep",
+                "sleeps",
+                "sleeping"
+              ],
+              "correctAnswer": "sleep",
+              "acceptedAnswers": [
+                "sleep"
+              ],
+              "answerFormat": "choice",
+              "answerPolicy": "strict",
+              "hint": "После \"to\" нужен глагол в начальной форме."
+            },
+            "footerDynamic": "Правило 2: It is time to + глагол",
+            "myEngComment": "Отлично, теперь берем действие."
+          },
+          {
+            "stepNumber": 3,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Сравним состояние и действие в нескольких коротких ситуациях."
+              },
+              {
+                "type": "info",
+                "content": "Пример: \"It is rainy. It is time to take a taxi.\""
+              },
+              {
+                "type": "task",
+                "content": "Впишите пропущенный глагол в английскую фразу: \"Холодно, пора пить чай.\" - \"It's cold. It is time to ___ tea.\""
+              }
+            ],
+            "exercise": {
+              "type": "fill_text",
+              "question": "Переведите на английский: \"Холодно, пора пить чай.\" - \"It's cold. It is time to ___ tea.\"",
+              "correctAnswer": "drink",
+              "acceptedAnswers": [
+                "drink"
+              ],
+              "answerFormat": "single_word",
+              "answerPolicy": "strict",
+              "hint": "После \"time to\" нужен глагол в начальной форме.",
+              "variants": [
+                {
+                  "id": "evening-dark_step3_easy",
+                  "question": "Переведите на английский: \"Холодно, пора пить чай.\" - \"It's cold. It is time to ___ tea.\"",
+                  "correctAnswer": "drink",
+                  "hint": "После \"time to\" нужен глагол в начальной форме.",
+                  "difficulty": "easy",
+                  "answerFormat": "single_word",
+                  "answerPolicy": "strict",
+                  "acceptedAnswers": [
+                    "drink"
+                  ]
+                },
+                {
+                  "id": "evening-dark_step3_medium",
+                  "question": "Переведите на английский: \"Сейчас холодно, поэтому пора что-то сделать.\" - \"It's cold. It is time to ___ tea.\"",
+                  "correctAnswer": "drink",
+                  "hint": "«Пора» — time to. После to — глагол в начальной форме, одно слово.",
+                  "difficulty": "medium",
+                  "answerFormat": "single_word",
+                  "answerPolicy": "strict",
+                  "acceptedAnswers": [
+                    "drink"
+                  ]
+                },
+                {
+                  "id": "evening-dark_step3_hard",
+                  "question": "Переведите на английский: \"По обстановке видно, что пора согреться.\" - \"It's cold. It is time to ___ tea.\"",
+                  "correctAnswer": "drink",
+                  "hint": "Прочитай действие в задании. После to — глагол без -s и без -ing.",
+                  "difficulty": "hard",
+                  "answerFormat": "single_word",
+                  "answerPolicy": "strict",
+                  "acceptedAnswers": [
+                    "drink"
+                  ]
+                }
+              ]
+            },
+            "footerDynamic": "Практика: впишите глагол",
+            "myEngComment": "Пора почувствовать разницу вживую."
+          },
+          {
+            "stepNumber": 4,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Теперь потренируем описание состояния в нескольких новых вариантах."
+              },
+              {
+                "type": "info",
+                "content": "Пример: \"It is rainy.\""
+              },
+              {
+                "type": "task",
+                "content": "Напишите английское предложение для короткого описания состояния."
+              }
+            ],
+            "exercise": {
+              "type": "translate",
+              "question": "Переведите на английский: \"Темно\"",
+              "correctAnswer": "It's dark.",
+              "acceptedAnswers": [
+                "It's dark.",
+                "It is dark."
+              ],
+              "answerFormat": "full_sentence",
+              "answerPolicy": "normalized",
+              "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+              "variants": [
+                {
+                  "id": "evening-dark_step4_1",
+                  "question": "Переведите на английский: \"Темно\"",
+                  "correctAnswer": "It's dark.",
+                  "acceptedAnswers": [
+                    "It's dark.",
+                    "It is dark."
+                  ],
+                  "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+                  "difficulty": "easy",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                },
+                {
+                  "id": "evening-dark_step4_2",
+                  "question": "Переведите на английский: \"Холодно\"",
+                  "correctAnswer": "It's cold.",
+                  "acceptedAnswers": [
+                    "It's cold.",
+                    "It is cold."
+                  ],
+                  "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+                  "difficulty": "medium",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                },
+                {
+                  "id": "evening-dark_step4_3",
+                  "question": "Переведите на английский: \"Жарко\"",
+                  "correctAnswer": "It's hot.",
+                  "acceptedAnswers": [
+                    "It's hot.",
+                    "It is hot."
+                  ],
+                  "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+                  "difficulty": "hard",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                }
+              ]
+            },
+            "footerDynamic": "Практика: напишите предложение",
+            "myEngComment": "Хорошо идете, держим темп."
+          },
+          {
+            "stepNumber": 5,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Финальная сборка: теперь соберите предложения из слов."
+              },
+              {
+                "type": "info",
+                "content": "Будет три коротких пазла: состояние, действие и новая фраза."
+              },
+              {
+                "type": "task",
+                "content": "Расставьте слова в правильном порядке."
+              }
+            ],
+            "exercise": {
+              "type": "sentence_puzzle",
+              "question": "Соберите три предложения из слов.",
+              "correctAnswer": "It's time to go home.",
+              "acceptedAnswers": [
+                "It's time to go home."
+              ],
+              "answerFormat": "full_sentence",
+              "answerPolicy": "strict",
+              "hint": "Подсказка про первое слово: начните с It’s и следите за порядком time to + глагол.",
+              "bonusXp": 30,
+              "puzzleVariants": [
+                {
+                  "id": "evening-dark_puzzle_state",
+                  "title": "Пазл 1/3: состояние",
+                  "instruction": "",
+                  "words": [
+                    "It's",
+                    "dark"
+                  ],
+                  "correctOrder": [
+                    "It's",
+                    "dark"
+                  ],
+                  "correctAnswer": "It's dark.",
+                  "successText": "Верно! It's dark.",
+                  "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
+                  "hintText": "",
+                  "hintFirstWord": "It's",
+                  "myEngComment": "Отлично. Берём следующий вариант."
+                },
+                {
+                  "id": "evening-dark_puzzle_action",
+                  "title": "Пазл 2/3: пора действовать",
+                  "instruction": "",
+                  "words": [
+                    "It's",
+                    "time",
+                    "to",
+                    "sleep"
+                  ],
+                  "correctOrder": [
+                    "It's",
+                    "time",
+                    "to",
+                    "sleep"
+                  ],
+                  "correctAnswer": "It's time to sleep.",
+                  "successText": "Верно! It's time to sleep.",
+                  "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
+                  "hintText": "",
+                  "hintFirstWord": "It's",
+                  "myEngComment": "Отлично. Берём следующий вариант."
+                },
+                {
+                  "id": "evening-dark_puzzle_new_action",
+                  "title": "Пазл 3/3: новая фраза",
+                  "instruction": "",
+                  "words": [
+                    "It's",
+                    "time",
+                    "to",
+                    "go",
+                    "home"
+                  ],
+                  "correctOrder": [
+                    "It's",
+                    "time",
+                    "to",
+                    "go",
+                    "home"
+                  ],
+                  "correctAnswer": "It's time to go home.",
+                  "successText": "Верно! It's time to go home.",
+                  "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
+                  "hintText": "Подсказка: первое слово — It's.",
+                  "hintFirstWord": "It's",
+                  "myEngComment": "Отлично. Берём следующий вариант."
+                }
+              ]
+            },
+            "footerDynamic": "Пазл: 3 коротких предложения",
+            "myEngComment": "Расставьте слова в каждом пазле."
+          },
+          {
+            "stepNumber": 6,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Финальная проверка: три коротких предложения подряд."
+              },
+              {
+                "type": "info",
+                "content": "Состояние, действие по шаблону, затем новое действие — без подсказки из урока."
+              },
+              {
+                "type": "task",
+                "content": "Переведите на английский: \"Темно\""
+              }
+            ],
+            "exercise": {
+              "type": "translate",
+              "question": "Переведите на английский: \"Темно\"",
+              "correctAnswer": "It's dark.",
+              "acceptedAnswers": [
+                "It's dark.",
+                "It is dark."
+              ],
+              "answerFormat": "full_sentence",
+              "answerPolicy": "normalized",
+              "hint": "Коротко: It is + прилагательное про состояние.",
+              "variants": [
+                {
+                  "id": "evening-dark_step6_easy",
+                  "question": "Переведите на английский: \"Темно\"",
+                  "correctAnswer": "It's dark.",
+                  "acceptedAnswers": [
+                    "It's dark.",
+                    "It is dark."
+                  ],
+                  "hint": "Коротко: It is + прилагательное про состояние.",
+                  "difficulty": "easy",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                },
+                {
+                  "id": "evening-dark_step6_medium",
+                  "question": "Переведите на английский: \"Пора спать\"",
+                  "correctAnswer": "It's time to sleep.",
+                  "acceptedAnswers": [
+                    "It's time to sleep.",
+                    "It is time to sleep."
+                  ],
+                  "hint": "Используйте It is time to + глагол в начальной форме.",
+                  "difficulty": "medium",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                },
+                {
+                  "id": "evening-dark_step6_hard",
+                  "question": "Переведите на английский: \"Пора почитать книгу\"",
+                  "correctAnswer": "It's time to read a book.",
+                  "acceptedAnswers": [
+                    "It's time to read a book.",
+                    "It is time to read a book."
+                  ],
+                  "hint": "It is time to + глагол из новой ситуации в начальной форме.",
+                  "difficulty": "hard",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                }
+              ]
+            },
+            "footerDynamic": "Финальная проверка: 3 коротких предложения",
+            "myEngComment": "Три фразы подряд — вы почти у финиша."
+          },
+          {
+            "stepNumber": 7,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Быстрый финиш: три слова в новых ситуациях."
+              },
+              {
+                "type": "info",
+                "content": "В каждой рамке одно слово — прилагательное, нужная частица или глагол."
+              },
+              {
+                "type": "task",
+                "content": "Выберите одно слово для пропуска в английской рамке."
+              }
+            ],
+            "exercise": {
+              "type": "fill_choice",
+              "question": "Выберите слово для пропуска: На улице темно — «It's ___.»",
+              "options": [
+                "dark",
+                "cold",
+                "late"
+              ],
+              "correctAnswer": "dark",
+              "answerFormat": "choice",
+              "answerPolicy": "strict",
+              "hint": "Состояние в задании — одно прилагательное после It's.",
+              "variants": [
+                {
+                  "id": "evening-dark_step7_easy",
+                  "question": "Выберите слово для пропуска: На улице темно — «It's ___.»",
+                  "options": [
+                    "dark",
+                    "cold",
+                    "late"
+                  ],
+                  "correctAnswer": "dark",
+                  "hint": "Состояние в задании — одно прилагательное после It's.",
+                  "difficulty": "easy",
+                  "answerFormat": "choice",
+                  "answerPolicy": "strict"
+                },
+                {
+                  "id": "evening-dark_step7_medium",
+                  "question": "Выберите слово для пропуска: Пора спать — «It's time ___ sleep.»",
+                  "options": [
+                    "to",
+                    "for",
+                    "at"
+                  ],
+                  "correctAnswer": "to",
+                  "hint": "Между time и глаголом нужно to, не for и не at.",
+                  "difficulty": "medium",
+                  "answerFormat": "choice",
+                  "answerPolicy": "strict"
+                },
+                {
+                  "id": "evening-dark_step7_hard",
+                  "question": "Выберите слово для пропуска: Пора почитать книгу — «It's time to ___.»",
+                  "options": [
+                    "read",
+                    "sleep",
+                    "drink"
+                  ],
+                  "correctAnswer": "read",
+                  "hint": "После to — глагол в начальной форме, одно слово.",
+                  "difficulty": "hard",
+                  "answerFormat": "choice",
+                  "answerPolicy": "strict"
+                }
+              ]
+            },
+            "footerDynamic": "Финиш: 3 слова",
+            "myEngComment": "Финиш рядом, осталось три коротких слова."
+          }
+        ]
+      },
+      {
+        "id": "cold-study",
+        "label": "Холодно и пора заниматься",
+        "sourceSituations": [
+          "Сегодня холодно",
+          "Пора заниматься",
+          "Голодно, пора есть обед",
+          "Пора делать домашнее задание"
+        ],
+        "stepBlueprints": [
+          {
+            "stepNumber": 1,
+            "stepType": "hook",
+            "learningGoal": "Показать ситуацию, где нужно описать состояние через It is + adjective.",
+            "exerciseType": "fill_choice",
+            "answerFormat": "choice",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "It's cold.",
+            "sourcePattern": "It's + adjective",
+            "semanticAnchors": [
+              "it's",
+              "cold"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "introduce_context",
+              "mustInclude": [
+                "cold"
+              ],
+              "shouldInclude": [
+                "it's"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "past simple"
+              ],
+              "hintShouldMention": [
+                "прилагательное",
+                "состояние"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          },
+          {
+            "stepNumber": 2,
+            "stepType": "theory",
+            "learningGoal": "Показать ситуацию, где нужно выбрать базовый глагол после It is time to.",
+            "exerciseType": "fill_choice",
+            "answerFormat": "choice",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "study",
+            "sourcePattern": "It is time to + verb",
+            "semanticAnchors": [
+              "time to",
+              "study"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "explain_rule",
+              "mustInclude": [
+                "time to"
+              ],
+              "shouldInclude": [
+                "study",
+                "глагол"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "past simple"
+              ],
+              "hintShouldMention": [
+                "глагол",
+                "начальной форме"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          },
+          {
+            "stepNumber": 3,
+            "stepType": "practice_fill",
+            "learningGoal": "Вписать пропущенный глагол после конструкции It is time to.",
+            "exerciseType": "fill_text",
+            "answerFormat": "single_word",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "eat",
+            "sourcePattern": "It is time to + verb",
+            "semanticAnchors": [
+              "time to",
+              "eat"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "controlled_pattern_drill",
+              "mustInclude": [
+                "time to"
+              ],
+              "shouldInclude": [
+                "глагол"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "present continuous"
+              ],
+              "hintShouldMention": [
+                "глагол",
+                "начальной форме"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          },
+          {
+            "stepNumber": 4,
+            "stepType": "practice_fill",
+            "learningGoal": "Перевести короткое описание состояния на английский.",
+            "exerciseType": "translate",
+            "answerFormat": "full_sentence",
+            "answerPolicy": "normalized",
+            "sourceCorrectAnswer": "It's cold.",
+            "sourcePattern": "It's + adjective",
+            "semanticAnchors": [
+              "it's",
+              "cold"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "controlled_pattern_drill",
+              "mustInclude": [
+                "cold"
+              ],
+              "shouldInclude": [
+                "it's"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "time to go"
+              ],
+              "hintShouldMention": [
+                "состояние",
+                "шаблон"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 2
+            }
+          },
+          {
+            "stepNumber": 5,
+            "stepType": "practice_apply",
+            "learningGoal": "Собрать три коротких предложения по It is и It is time to в puzzle-формате.",
+            "exerciseType": "sentence_puzzle",
+            "answerFormat": "full_sentence",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "It's time to study.",
+            "sourcePattern": "word order puzzle for It's time to + verb",
+            "semanticAnchors": [
+              "time to",
+              "study"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "apply_in_new_situation",
+              "mustInclude": [
+                "time to",
+                "study"
+              ],
+              "shouldInclude": [
+                "it's",
+                "пазл"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "past simple"
+              ],
+              "hintShouldMention": [
+                "первое слово",
+                "порядок"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          },
+          {
+            "stepNumber": 6,
+            "stepType": "practice_apply",
+            "learningGoal": "Финальная проверка: состояние, действие по шаблону time to и перенос на новое действие.",
+            "exerciseType": "translate",
+            "answerFormat": "full_sentence",
+            "answerPolicy": "normalized",
+            "sourceCorrectAnswer": "It's time to study.",
+            "sourcePattern": "It's time to + verb phrase",
+            "semanticAnchors": [
+              "time to",
+              "study"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "apply_in_new_situation",
+              "mustInclude": [
+                "time to",
+                "study"
+              ],
+              "shouldInclude": [
+                "it's"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "past simple"
+              ],
+              "hintShouldMention": [
+                "it is time to"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 2
+            }
+          },
+          {
+            "stepNumber": 7,
+            "stepType": "feedback",
+            "learningGoal": "Три contrast-gap: состояние, частица to и новый глагол после time to.",
+            "exerciseType": "fill_choice",
+            "answerFormat": "choice",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "cold",
+            "sourcePattern": "It's + adj / It's time + to + verb",
+            "semanticAnchors": [
+              "cold",
+              "to",
+              "wash"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "contrast_check",
+              "mustAvoid": [
+                "who likes",
+                "present continuous"
+              ],
+              "hintShouldMention": [
+                "состояние",
+                "действие"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          }
+        ],
+        "steps": [
+          {
+            "stepNumber": 1,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Сегодня разберем две полезные конструкции: It is + прилагательное и It is time to + глагол."
+              },
+              {
+                "type": "info",
+                "content": "Первая конструкция описывает состояние, а вторая показывает, что пришло время сделать действие."
+              },
+              {
+                "type": "task",
+                "content": "Выберите правильное предложение для ситуации: \"Сегодня холодно\""
+              }
+            ],
+            "exercise": {
+              "type": "fill_choice",
+              "question": "Какое предложение подходит по смыслу?",
+              "options": [
+                "It's cold.",
+                "It's time to study.",
+                "It's time to eat."
+              ],
+              "correctAnswer": "It's cold.",
+              "acceptedAnswers": [
+                "It's cold."
+              ],
+              "answerFormat": "choice",
+              "answerPolicy": "strict"
+            },
+            "footerDynamic": "Правило 1: It is + прилагательное",
+            "myEngComment": "Вижу, вы готовы к новой конструкции."
+          },
+          {
+            "stepNumber": 2,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Теперь посмотрим на вторую конструкцию: It is time to + глагол."
+              },
+              {
+                "type": "info",
+                "content": "После time to используем начальную форму глагола: study, study, go, drink."
+              },
+              {
+                "type": "task",
+                "content": "Выберите правильное завершение: \"It is time to ___.\""
+              }
+            ],
+            "exercise": {
+              "type": "fill_choice",
+              "question": "Дополните предложение.",
+              "options": [
+                "study",
+                "studies",
+                "studying"
+              ],
+              "correctAnswer": "study",
+              "acceptedAnswers": [
+                "study"
+              ],
+              "answerFormat": "choice",
+              "answerPolicy": "strict",
+              "hint": "После \"to\" нужен глагол в начальной форме."
+            },
+            "footerDynamic": "Правило 2: It is time to + глагол",
+            "myEngComment": "Отлично, теперь берем действие."
+          },
+          {
+            "stepNumber": 3,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Сравним состояние и действие в нескольких коротких ситуациях."
+              },
+              {
+                "type": "info",
+                "content": "Пример: \"It is rainy. It is time to take a taxi.\""
+              },
+              {
+                "type": "task",
+                "content": "Впишите пропущенный глагол в английскую фразу: \"Голодно, пора есть обед.\" - \"It's hungry. It is time to ___ lunch.\""
+              }
+            ],
+            "exercise": {
+              "type": "fill_text",
+              "question": "Переведите на английский: \"Голодно, пора есть обед.\" - \"It's hungry. It is time to ___ lunch.\"",
+              "correctAnswer": "eat",
+              "acceptedAnswers": [
+                "eat"
+              ],
+              "answerFormat": "single_word",
+              "answerPolicy": "strict",
+              "hint": "После \"time to\" нужен глагол в начальной форме.",
+              "variants": [
+                {
+                  "id": "cold-study_step3_easy",
+                  "question": "Переведите на английский: \"Голодно, пора есть обед.\" - \"It's hungry. It is time to ___ lunch.\"",
+                  "correctAnswer": "eat",
+                  "hint": "После \"time to\" нужен глагол в начальной форме.",
+                  "difficulty": "easy",
+                  "answerFormat": "single_word",
+                  "answerPolicy": "strict",
+                  "acceptedAnswers": [
+                    "eat"
+                  ]
+                },
+                {
+                  "id": "cold-study_step3_medium",
+                  "question": "Переведите на английский: \"Сейчас голодно, поэтому пора что-то сделать.\" - \"It's hungry. It is time to ___ lunch.\"",
+                  "correctAnswer": "eat",
+                  "hint": "«Пора» — time to. После to — глагол в начальной форме, одно слово.",
+                  "difficulty": "medium",
+                  "answerFormat": "single_word",
+                  "answerPolicy": "strict",
+                  "acceptedAnswers": [
+                    "eat"
+                  ]
+                },
+                {
+                  "id": "cold-study_step3_hard",
+                  "question": "Переведите на английский: \"По обстановке видно, что пора перекусить.\" - \"It's hungry. It is time to ___ lunch.\"",
+                  "correctAnswer": "eat",
+                  "hint": "Прочитай действие в задании. После to — глагол без -s и без -ing.",
+                  "difficulty": "hard",
+                  "answerFormat": "single_word",
+                  "answerPolicy": "strict",
+                  "acceptedAnswers": [
+                    "eat"
+                  ]
+                }
+              ]
+            },
+            "footerDynamic": "Практика: впишите глагол",
+            "myEngComment": "Пора почувствовать разницу вживую."
+          },
+          {
+            "stepNumber": 4,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Теперь потренируем описание состояния в нескольких новых вариантах."
+              },
+              {
+                "type": "info",
+                "content": "Пример: \"It is rainy.\""
+              },
+              {
+                "type": "task",
+                "content": "Напишите английское предложение для короткого описания состояния."
+              }
+            ],
+            "exercise": {
+              "type": "translate",
+              "question": "Переведите на английский: \"Холодно\"",
+              "correctAnswer": "It's cold.",
+              "acceptedAnswers": [
+                "It's cold.",
+                "It is cold."
+              ],
+              "answerFormat": "full_sentence",
+              "answerPolicy": "normalized",
+              "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+              "variants": [
+                {
+                  "id": "cold-study_step4_1",
+                  "question": "Переведите на английский: \"Холодно\"",
+                  "correctAnswer": "It's cold.",
+                  "acceptedAnswers": [
+                    "It's cold.",
+                    "It is cold."
+                  ],
+                  "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+                  "difficulty": "easy",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                },
+                {
+                  "id": "cold-study_step4_2",
+                  "question": "Переведите на английский: \"Жарко\"",
+                  "correctAnswer": "It's hot.",
+                  "acceptedAnswers": [
+                    "It's hot.",
+                    "It is hot."
+                  ],
+                  "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+                  "difficulty": "medium",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                },
+                {
+                  "id": "cold-study_step4_3",
+                  "question": "Переведите на английский: \"Уже поздно\"",
+                  "correctAnswer": "It's late.",
+                  "acceptedAnswers": [
+                    "It's late.",
+                    "It is late."
+                  ],
+                  "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+                  "difficulty": "hard",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                }
+              ]
+            },
+            "footerDynamic": "Практика: напишите предложение",
+            "myEngComment": "Хорошо идете, держим темп."
+          },
+          {
+            "stepNumber": 5,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Финальная сборка: теперь соберите предложения из слов."
+              },
+              {
+                "type": "info",
+                "content": "Будет три коротких пазла: состояние, действие и новая фраза."
+              },
+              {
+                "type": "task",
+                "content": "Расставьте слова в правильном порядке."
+              }
+            ],
+            "exercise": {
+              "type": "sentence_puzzle",
+              "question": "Соберите три предложения из слов.",
+              "correctAnswer": "It's time to do homework.",
+              "acceptedAnswers": [
+                "It's time to do homework."
+              ],
+              "answerFormat": "full_sentence",
+              "answerPolicy": "strict",
+              "hint": "Подсказка про первое слово: начните с It’s и следите за порядком time to + глагол.",
+              "bonusXp": 30,
+              "puzzleVariants": [
+                {
+                  "id": "cold-study_puzzle_state",
+                  "title": "Пазл 1/3: состояние",
+                  "instruction": "",
+                  "words": [
+                    "It's",
+                    "cold"
+                  ],
+                  "correctOrder": [
+                    "It's",
+                    "cold"
+                  ],
+                  "correctAnswer": "It's cold.",
+                  "successText": "Верно! It's cold.",
+                  "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
+                  "hintText": "",
+                  "hintFirstWord": "It's",
+                  "myEngComment": "Отлично. Берём следующий вариант."
+                },
+                {
+                  "id": "cold-study_puzzle_action",
+                  "title": "Пазл 2/3: пора действовать",
+                  "instruction": "",
+                  "words": [
+                    "It's",
+                    "time",
+                    "to",
+                    "study"
+                  ],
+                  "correctOrder": [
+                    "It's",
+                    "time",
+                    "to",
+                    "study"
+                  ],
+                  "correctAnswer": "It's time to study.",
+                  "successText": "Верно! It's time to study.",
+                  "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
+                  "hintText": "",
+                  "hintFirstWord": "It's",
+                  "myEngComment": "Отлично. Берём следующий вариант."
+                },
+                {
+                  "id": "cold-study_puzzle_new_action",
+                  "title": "Пазл 3/3: новая фраза",
+                  "instruction": "",
+                  "words": [
+                    "It's",
+                    "time",
+                    "to",
+                    "do",
+                    "homework"
+                  ],
+                  "correctOrder": [
+                    "It's",
+                    "time",
+                    "to",
+                    "do",
+                    "homework"
+                  ],
+                  "correctAnswer": "It's time to do homework.",
+                  "successText": "Верно! It's time to do homework.",
+                  "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
+                  "hintText": "Подсказка: первое слово — It's.",
+                  "hintFirstWord": "It's",
+                  "myEngComment": "Отлично. Берём следующий вариант."
+                }
+              ]
+            },
+            "footerDynamic": "Пазл: 3 коротких предложения",
+            "myEngComment": "Расставьте слова в каждом пазле."
+          },
+          {
+            "stepNumber": 6,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Финальная проверка: три коротких предложения подряд."
+              },
+              {
+                "type": "info",
+                "content": "Состояние, действие по шаблону, затем новое действие — без подсказки из урока."
+              },
+              {
+                "type": "task",
+                "content": "Переведите на английский: \"Холодно\""
+              }
+            ],
+            "exercise": {
+              "type": "translate",
+              "question": "Переведите на английский: \"Холодно\"",
+              "correctAnswer": "It's cold.",
+              "acceptedAnswers": [
+                "It's cold.",
+                "It is cold."
+              ],
+              "answerFormat": "full_sentence",
+              "answerPolicy": "normalized",
+              "hint": "Коротко: It is + прилагательное про состояние.",
+              "variants": [
+                {
+                  "id": "cold-study_step6_easy",
+                  "question": "Переведите на английский: \"Холодно\"",
+                  "correctAnswer": "It's cold.",
+                  "acceptedAnswers": [
+                    "It's cold.",
+                    "It is cold."
+                  ],
+                  "hint": "Коротко: It is + прилагательное про состояние.",
+                  "difficulty": "easy",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                },
+                {
+                  "id": "cold-study_step6_medium",
+                  "question": "Переведите на английский: \"Пора заниматься\"",
+                  "correctAnswer": "It's time to study.",
+                  "acceptedAnswers": [
+                    "It's time to study.",
+                    "It is time to study."
+                  ],
+                  "hint": "Используйте It is time to + глагол в начальной форме.",
+                  "difficulty": "medium",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                },
+                {
+                  "id": "cold-study_step6_hard",
+                  "question": "Переведите на английский: \"Пора вымыть руки\"",
+                  "correctAnswer": "It's time to wash hands.",
+                  "acceptedAnswers": [
+                    "It's time to wash hands.",
+                    "It is time to wash hands."
+                  ],
+                  "hint": "It is time to + глагол из новой ситуации в начальной форме.",
+                  "difficulty": "hard",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                }
+              ]
+            },
+            "footerDynamic": "Финальная проверка: 3 коротких предложения",
+            "myEngComment": "Три фразы подряд — вы почти у финиша."
+          },
+          {
+            "stepNumber": 7,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Быстрый финиш: три слова в новых ситуациях."
+              },
+              {
+                "type": "info",
+                "content": "В каждой рамке одно слово — прилагательное, нужная частица или глагол."
+              },
+              {
+                "type": "task",
+                "content": "Выберите одно слово для пропуска в английской рамке."
+              }
+            ],
+            "exercise": {
+              "type": "fill_choice",
+              "question": "Выберите слово для пропуска: Сегодня холодно — «It's ___.»",
+              "options": [
+                "cold",
+                "hungry",
+                "dark"
+              ],
+              "correctAnswer": "cold",
+              "answerFormat": "choice",
+              "answerPolicy": "strict",
+              "hint": "Состояние в задании — одно прилагательное после It's.",
+              "variants": [
+                {
+                  "id": "cold-study_step7_easy",
+                  "question": "Выберите слово для пропуска: Сегодня холодно — «It's ___.»",
+                  "options": [
+                    "cold",
+                    "hungry",
+                    "dark"
+                  ],
+                  "correctAnswer": "cold",
+                  "hint": "Состояние в задании — одно прилагательное после It's.",
+                  "difficulty": "easy",
+                  "answerFormat": "choice",
+                  "answerPolicy": "strict"
+                },
+                {
+                  "id": "cold-study_step7_medium",
+                  "question": "Выберите слово для пропуска: Пора заниматься — «It's time ___ study.»",
+                  "options": [
+                    "to",
+                    "for",
+                    "at"
+                  ],
+                  "correctAnswer": "to",
+                  "hint": "Между time и глаголом нужно to, не for и не at.",
+                  "difficulty": "medium",
+                  "answerFormat": "choice",
+                  "answerPolicy": "strict"
+                },
+                {
+                  "id": "cold-study_step7_hard",
+                  "question": "Выберите слово для пропуска: Пора вымыть руки — «It's time to ___.»",
+                  "options": [
+                    "wash",
+                    "study",
+                    "eat"
+                  ],
+                  "correctAnswer": "wash",
+                  "hint": "После to — глагол в начальной форме, одно слово.",
+                  "difficulty": "hard",
+                  "answerFormat": "choice",
+                  "answerPolicy": "strict"
+                }
+              ]
+            },
+            "footerDynamic": "Финиш: 3 слова",
+            "myEngComment": "Финиш рядом, осталось три коротких слова."
+          }
+        ]
+      },
+      {
+        "id": "hot-rest",
+        "label": "Жарко и пора отдохнуть",
+        "sourceSituations": [
+          "В комнате жарко",
+          "Пора отдыхать",
+          "Хочется пить, пора пить воду",
+          "Пора открыть окно"
+        ],
+        "stepBlueprints": [
+          {
+            "stepNumber": 1,
+            "stepType": "hook",
+            "learningGoal": "Показать ситуацию, где нужно описать состояние через It is + adjective.",
+            "exerciseType": "fill_choice",
+            "answerFormat": "choice",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "It's hot.",
+            "sourcePattern": "It's + adjective",
+            "semanticAnchors": [
+              "it's",
+              "hot"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "introduce_context",
+              "mustInclude": [
+                "hot"
+              ],
+              "shouldInclude": [
+                "it's"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "past simple"
+              ],
+              "hintShouldMention": [
+                "прилагательное",
+                "состояние"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          },
+          {
+            "stepNumber": 2,
+            "stepType": "theory",
+            "learningGoal": "Показать ситуацию, где нужно выбрать базовый глагол после It is time to.",
+            "exerciseType": "fill_choice",
+            "answerFormat": "choice",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "rest",
+            "sourcePattern": "It is time to + verb",
+            "semanticAnchors": [
+              "time to",
+              "rest"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "explain_rule",
+              "mustInclude": [
+                "time to"
+              ],
+              "shouldInclude": [
+                "rest",
+                "глагол"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "past simple"
+              ],
+              "hintShouldMention": [
+                "глагол",
+                "начальной форме"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          },
+          {
+            "stepNumber": 3,
+            "stepType": "practice_fill",
+            "learningGoal": "Вписать пропущенный глагол после конструкции It is time to.",
+            "exerciseType": "fill_text",
+            "answerFormat": "single_word",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "drink",
+            "sourcePattern": "It is time to + verb",
+            "semanticAnchors": [
+              "time to",
+              "drink"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "controlled_pattern_drill",
+              "mustInclude": [
+                "time to"
+              ],
+              "shouldInclude": [
+                "глагол"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "present continuous"
+              ],
+              "hintShouldMention": [
+                "глагол",
+                "начальной форме"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          },
+          {
+            "stepNumber": 4,
+            "stepType": "practice_fill",
+            "learningGoal": "Перевести короткое описание состояния на английский.",
+            "exerciseType": "translate",
+            "answerFormat": "full_sentence",
+            "answerPolicy": "normalized",
+            "sourceCorrectAnswer": "It's hot.",
+            "sourcePattern": "It's + adjective",
+            "semanticAnchors": [
+              "it's",
+              "hot"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "controlled_pattern_drill",
+              "mustInclude": [
+                "hot"
+              ],
+              "shouldInclude": [
+                "it's"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "time to go"
+              ],
+              "hintShouldMention": [
+                "состояние",
+                "шаблон"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 2
+            }
+          },
+          {
+            "stepNumber": 5,
+            "stepType": "practice_apply",
+            "learningGoal": "Собрать три коротких предложения по It is и It is time to в puzzle-формате.",
+            "exerciseType": "sentence_puzzle",
+            "answerFormat": "full_sentence",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "It's time to rest.",
+            "sourcePattern": "word order puzzle for It's time to + verb",
+            "semanticAnchors": [
+              "time to",
+              "rest"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "apply_in_new_situation",
+              "mustInclude": [
+                "time to",
+                "rest"
+              ],
+              "shouldInclude": [
+                "it's",
+                "пазл"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "past simple"
+              ],
+              "hintShouldMention": [
+                "первое слово",
+                "порядок"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          },
+          {
+            "stepNumber": 6,
+            "stepType": "practice_apply",
+            "learningGoal": "Финальная проверка: состояние, действие по шаблону time to и перенос на новое действие.",
+            "exerciseType": "translate",
+            "answerFormat": "full_sentence",
+            "answerPolicy": "normalized",
+            "sourceCorrectAnswer": "It's time to rest.",
+            "sourcePattern": "It's time to + verb phrase",
+            "semanticAnchors": [
+              "time to",
+              "rest"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "apply_in_new_situation",
+              "mustInclude": [
+                "time to",
+                "rest"
+              ],
+              "shouldInclude": [
+                "it's"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "past simple"
+              ],
+              "hintShouldMention": [
+                "it is time to"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 2
+            }
+          },
+          {
+            "stepNumber": 7,
+            "stepType": "feedback",
+            "learningGoal": "Три contrast-gap: состояние, частица to и новый глагол после time to.",
+            "exerciseType": "fill_choice",
+            "answerFormat": "choice",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "hot",
+            "sourcePattern": "It's + adj / It's time + to + verb",
+            "semanticAnchors": [
+              "hot",
+              "to",
+              "take"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "contrast_check",
+              "mustAvoid": [
+                "who likes",
+                "present continuous"
+              ],
+              "hintShouldMention": [
+                "состояние",
+                "действие"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          }
+        ],
+        "steps": [
+          {
+            "stepNumber": 1,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Сегодня разберем две полезные конструкции: It is + прилагательное и It is time to + глагол."
+              },
+              {
+                "type": "info",
+                "content": "Первая конструкция описывает состояние, а вторая показывает, что пришло время сделать действие."
+              },
+              {
+                "type": "task",
+                "content": "Выберите правильное предложение для ситуации: \"В комнате жарко\""
+              }
+            ],
+            "exercise": {
+              "type": "fill_choice",
+              "question": "Какое предложение подходит по смыслу?",
+              "options": [
+                "It's hot.",
+                "It's time to rest.",
+                "It's time to drink."
+              ],
+              "correctAnswer": "It's hot.",
+              "acceptedAnswers": [
+                "It's hot."
+              ],
+              "answerFormat": "choice",
+              "answerPolicy": "strict"
+            },
+            "footerDynamic": "Правило 1: It is + прилагательное",
+            "myEngComment": "Вижу, вы готовы к новой конструкции."
+          },
+          {
+            "stepNumber": 2,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Теперь посмотрим на вторую конструкцию: It is time to + глагол."
+              },
+              {
+                "type": "info",
+                "content": "После time to используем начальную форму глагола: rest, study, go, drink."
+              },
+              {
+                "type": "task",
+                "content": "Выберите правильное завершение: \"It is time to ___.\""
+              }
+            ],
+            "exercise": {
+              "type": "fill_choice",
+              "question": "Дополните предложение.",
+              "options": [
+                "rest",
+                "rests",
+                "resting"
+              ],
+              "correctAnswer": "rest",
+              "acceptedAnswers": [
+                "rest"
+              ],
+              "answerFormat": "choice",
+              "answerPolicy": "strict",
+              "hint": "После \"to\" нужен глагол в начальной форме."
+            },
+            "footerDynamic": "Правило 2: It is time to + глагол",
+            "myEngComment": "Отлично, теперь берем действие."
+          },
+          {
+            "stepNumber": 3,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Сравним состояние и действие в нескольких коротких ситуациях."
+              },
+              {
+                "type": "info",
+                "content": "Пример: \"It is rainy. It is time to take a taxi.\""
+              },
+              {
+                "type": "task",
+                "content": "Впишите пропущенный глагол в английскую фразу: \"Хочется пить, пора пить воду.\" - \"It's thirsty. It is time to ___ water.\""
+              }
+            ],
+            "exercise": {
+              "type": "fill_text",
+              "question": "Переведите на английский: \"Хочется пить, пора пить воду.\" - \"It's thirsty. It is time to ___ water.\"",
+              "correctAnswer": "drink",
+              "acceptedAnswers": [
+                "drink"
+              ],
+              "answerFormat": "single_word",
+              "answerPolicy": "strict",
+              "hint": "После \"time to\" нужен глагол в начальной форме.",
+              "variants": [
+                {
+                  "id": "hot-rest_step3_easy",
+                  "question": "Переведите на английский: \"Хочется пить, пора пить воду.\" - \"It's thirsty. It is time to ___ water.\"",
+                  "correctAnswer": "drink",
+                  "hint": "После \"time to\" нужен глагол в начальной форме.",
+                  "difficulty": "easy",
+                  "answerFormat": "single_word",
+                  "answerPolicy": "strict",
+                  "acceptedAnswers": [
+                    "drink"
+                  ]
+                },
+                {
+                  "id": "hot-rest_step3_medium",
+                  "question": "Переведите на английский: \"Сейчас хочется пить, поэтому пора что-то сделать.\" - \"It's thirsty. It is time to ___ water.\"",
+                  "correctAnswer": "drink",
+                  "hint": "«Пора» — time to. После to — глагол в начальной форме, одно слово.",
+                  "difficulty": "medium",
+                  "answerFormat": "single_word",
+                  "answerPolicy": "strict",
+                  "acceptedAnswers": [
+                    "drink"
+                  ]
+                },
+                {
+                  "id": "hot-rest_step3_hard",
+                  "question": "Переведите на английский: \"По состоянию понятно, что пора утолить жажду.\" - \"It's thirsty. It is time to ___ water.\"",
+                  "correctAnswer": "drink",
+                  "hint": "Прочитай действие в задании. После to — глагол без -s и без -ing.",
+                  "difficulty": "hard",
+                  "answerFormat": "single_word",
+                  "answerPolicy": "strict",
+                  "acceptedAnswers": [
+                    "drink"
+                  ]
+                }
+              ]
+            },
+            "footerDynamic": "Практика: впишите глагол",
+            "myEngComment": "Пора почувствовать разницу вживую."
+          },
+          {
+            "stepNumber": 4,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Теперь потренируем описание состояния в нескольких новых вариантах."
+              },
+              {
+                "type": "info",
+                "content": "Пример: \"It is rainy.\""
+              },
+              {
+                "type": "task",
+                "content": "Напишите английское предложение для короткого описания состояния."
+              }
+            ],
+            "exercise": {
+              "type": "translate",
+              "question": "Переведите на английский: \"Жарко\"",
+              "correctAnswer": "It's hot.",
+              "acceptedAnswers": [
+                "It's hot.",
+                "It is hot."
+              ],
+              "answerFormat": "full_sentence",
+              "answerPolicy": "normalized",
+              "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+              "variants": [
+                {
+                  "id": "hot-rest_step4_1",
+                  "question": "Переведите на английский: \"Жарко\"",
+                  "correctAnswer": "It's hot.",
+                  "acceptedAnswers": [
+                    "It's hot.",
+                    "It is hot."
+                  ],
+                  "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+                  "difficulty": "easy",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                },
+                {
+                  "id": "hot-rest_step4_2",
+                  "question": "Переведите на английский: \"Холодно\"",
+                  "correctAnswer": "It's cold.",
+                  "acceptedAnswers": [
+                    "It's cold.",
+                    "It is cold."
+                  ],
+                  "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+                  "difficulty": "medium",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                },
+                {
+                  "id": "hot-rest_step4_3",
+                  "question": "Переведите на английский: \"Уже поздно\"",
+                  "correctAnswer": "It's late.",
+                  "acceptedAnswers": [
+                    "It's late.",
+                    "It is late."
+                  ],
+                  "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+                  "difficulty": "hard",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                }
+              ]
+            },
+            "footerDynamic": "Практика: напишите предложение",
+            "myEngComment": "Хорошо идете, держим темп."
+          },
+          {
+            "stepNumber": 5,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Финальная сборка: теперь соберите предложения из слов."
+              },
+              {
+                "type": "info",
+                "content": "Будет три коротких пазла: состояние, действие и новая фраза."
+              },
+              {
+                "type": "task",
+                "content": "Расставьте слова в правильном порядке."
+              }
+            ],
+            "exercise": {
+              "type": "sentence_puzzle",
+              "question": "Соберите три предложения из слов.",
+              "correctAnswer": "It's time to open the window.",
+              "acceptedAnswers": [
+                "It's time to open the window."
+              ],
+              "answerFormat": "full_sentence",
+              "answerPolicy": "strict",
+              "hint": "Подсказка про первое слово: начните с It’s и следите за порядком time to + глагол.",
+              "bonusXp": 30,
+              "puzzleVariants": [
+                {
+                  "id": "hot-rest_puzzle_state",
+                  "title": "Пазл 1/3: состояние",
+                  "instruction": "",
+                  "words": [
+                    "It's",
+                    "hot"
+                  ],
+                  "correctOrder": [
+                    "It's",
+                    "hot"
+                  ],
+                  "correctAnswer": "It's hot.",
+                  "successText": "Верно! It's hot.",
+                  "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
+                  "hintText": "",
+                  "hintFirstWord": "It's",
+                  "myEngComment": "Отлично. Берём следующий вариант."
+                },
+                {
+                  "id": "hot-rest_puzzle_action",
+                  "title": "Пазл 2/3: пора действовать",
+                  "instruction": "",
+                  "words": [
+                    "It's",
+                    "time",
+                    "to",
+                    "rest"
+                  ],
+                  "correctOrder": [
+                    "It's",
+                    "time",
+                    "to",
+                    "rest"
+                  ],
+                  "correctAnswer": "It's time to rest.",
+                  "successText": "Верно! It's time to rest.",
+                  "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
+                  "hintText": "",
+                  "hintFirstWord": "It's",
+                  "myEngComment": "Отлично. Берём следующий вариант."
+                },
+                {
+                  "id": "hot-rest_puzzle_new_action",
+                  "title": "Пазл 3/3: новая фраза",
+                  "instruction": "",
+                  "words": [
+                    "It's",
+                    "time",
+                    "to",
+                    "open",
+                    "the",
+                    "window"
+                  ],
+                  "correctOrder": [
+                    "It's",
+                    "time",
+                    "to",
+                    "open",
+                    "the",
+                    "window"
+                  ],
+                  "correctAnswer": "It's time to open the window.",
+                  "successText": "Верно! It's time to open the window.",
+                  "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
+                  "hintText": "Подсказка: первое слово — It's.",
+                  "hintFirstWord": "It's",
+                  "myEngComment": "Отлично. Берём следующий вариант."
+                }
+              ]
+            },
+            "footerDynamic": "Пазл: 3 коротких предложения",
+            "myEngComment": "Расставьте слова в каждом пазле."
+          },
+          {
+            "stepNumber": 6,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Финальная проверка: три коротких предложения подряд."
+              },
+              {
+                "type": "info",
+                "content": "Состояние, действие по шаблону, затем новое действие — без подсказки из урока."
+              },
+              {
+                "type": "task",
+                "content": "Переведите на английский: \"Жарко\""
+              }
+            ],
+            "exercise": {
+              "type": "translate",
+              "question": "Переведите на английский: \"Жарко\"",
+              "correctAnswer": "It's hot.",
+              "acceptedAnswers": [
+                "It's hot.",
+                "It is hot."
+              ],
+              "answerFormat": "full_sentence",
+              "answerPolicy": "normalized",
+              "hint": "Коротко: It is + прилагательное про состояние.",
+              "variants": [
+                {
+                  "id": "hot-rest_step6_easy",
+                  "question": "Переведите на английский: \"Жарко\"",
+                  "correctAnswer": "It's hot.",
+                  "acceptedAnswers": [
+                    "It's hot.",
+                    "It is hot."
+                  ],
+                  "hint": "Коротко: It is + прилагательное про состояние.",
+                  "difficulty": "easy",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                },
+                {
+                  "id": "hot-rest_step6_medium",
+                  "question": "Переведите на английский: \"Пора отдыхать\"",
+                  "correctAnswer": "It's time to rest.",
+                  "acceptedAnswers": [
+                    "It's time to rest.",
+                    "It is time to rest."
+                  ],
+                  "hint": "Используйте It is time to + глагол в начальной форме.",
+                  "difficulty": "medium",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                },
+                {
+                  "id": "hot-rest_step6_hard",
+                  "question": "Переведите на английский: \"Пора принять душ\"",
+                  "correctAnswer": "It's time to take a shower.",
+                  "acceptedAnswers": [
+                    "It's time to take a shower.",
+                    "It is time to take a shower."
+                  ],
+                  "hint": "It is time to + глагол из новой ситуации в начальной форме.",
+                  "difficulty": "hard",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                }
+              ]
+            },
+            "footerDynamic": "Финальная проверка: 3 коротких предложения",
+            "myEngComment": "Три фразы подряд — вы почти у финиша."
+          },
+          {
+            "stepNumber": 7,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Быстрый финиш: три слова в новых ситуациях."
+              },
+              {
+                "type": "info",
+                "content": "В каждой рамке одно слово — прилагательное, нужная частица или глагол."
+              },
+              {
+                "type": "task",
+                "content": "Выберите одно слово для пропуска в английской рамке."
+              }
+            ],
+            "exercise": {
+              "type": "fill_choice",
+              "question": "Выберите слово для пропуска: В комнате жарко — «It's ___.»",
+              "options": [
+                "hot",
+                "thirsty",
+                "dark"
+              ],
+              "correctAnswer": "hot",
+              "answerFormat": "choice",
+              "answerPolicy": "strict",
+              "hint": "Состояние в задании — одно прилагательное после It's.",
+              "variants": [
+                {
+                  "id": "hot-rest_step7_easy",
+                  "question": "Выберите слово для пропуска: В комнате жарко — «It's ___.»",
+                  "options": [
+                    "hot",
+                    "thirsty",
+                    "dark"
+                  ],
+                  "correctAnswer": "hot",
+                  "hint": "Состояние в задании — одно прилагательное после It's.",
+                  "difficulty": "easy",
+                  "answerFormat": "choice",
+                  "answerPolicy": "strict"
+                },
+                {
+                  "id": "hot-rest_step7_medium",
+                  "question": "Выберите слово для пропуска: Пора отдыхать — «It's time ___ rest.»",
+                  "options": [
+                    "to",
+                    "for",
+                    "at"
+                  ],
+                  "correctAnswer": "to",
+                  "hint": "Между time и глаголом нужно to, не for и не at.",
+                  "difficulty": "medium",
+                  "answerFormat": "choice",
+                  "answerPolicy": "strict"
+                },
+                {
+                  "id": "hot-rest_step7_hard",
+                  "question": "Выберите слово для пропуска: Пора принять душ — «It's time to ___.»",
+                  "options": [
+                    "take",
+                    "rest",
+                    "drink"
+                  ],
+                  "correctAnswer": "take",
+                  "hint": "После to — глагол в начальной форме, одно слово.",
+                  "difficulty": "hard",
+                  "answerFormat": "choice",
+                  "answerPolicy": "strict"
+                }
+              ]
+            },
+            "footerDynamic": "Финиш: 3 слова",
+            "myEngComment": "Финиш рядом, осталось три коротких слова."
+          }
+        ]
+      },
+      {
+        "id": "late-cook",
+        "label": "Поздно и пора готовить",
+        "sourceSituations": [
+          "Уже поздно",
+          "Пора готовить",
+          "Идет дождь, пора брать зонт",
+          "Пора позвонить маме"
+        ],
+        "stepBlueprints": [
+          {
+            "stepNumber": 1,
+            "stepType": "hook",
+            "learningGoal": "Показать ситуацию, где нужно описать состояние через It is + adjective.",
+            "exerciseType": "fill_choice",
+            "answerFormat": "choice",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "It's late.",
+            "sourcePattern": "It's + adjective",
+            "semanticAnchors": [
+              "it's",
+              "late"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "introduce_context",
+              "mustInclude": [
+                "late"
+              ],
+              "shouldInclude": [
+                "it's"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "past simple"
+              ],
+              "hintShouldMention": [
+                "прилагательное",
+                "состояние"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          },
+          {
+            "stepNumber": 2,
+            "stepType": "theory",
+            "learningGoal": "Показать ситуацию, где нужно выбрать базовый глагол после It is time to.",
+            "exerciseType": "fill_choice",
+            "answerFormat": "choice",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "cook",
+            "sourcePattern": "It is time to + verb",
+            "semanticAnchors": [
+              "time to",
+              "cook"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "explain_rule",
+              "mustInclude": [
+                "time to"
+              ],
+              "shouldInclude": [
+                "cook",
+                "глагол"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "past simple"
+              ],
+              "hintShouldMention": [
+                "глагол",
+                "начальной форме"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          },
+          {
+            "stepNumber": 3,
+            "stepType": "practice_fill",
+            "learningGoal": "Вписать пропущенный глагол после конструкции It is time to.",
+            "exerciseType": "fill_text",
+            "answerFormat": "single_word",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "take",
+            "sourcePattern": "It is time to + verb",
+            "semanticAnchors": [
+              "time to",
+              "take"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "controlled_pattern_drill",
+              "mustInclude": [
+                "time to"
+              ],
+              "shouldInclude": [
+                "глагол"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "present continuous"
+              ],
+              "hintShouldMention": [
+                "глагол",
+                "начальной форме"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          },
+          {
+            "stepNumber": 4,
+            "stepType": "practice_fill",
+            "learningGoal": "Перевести короткое описание состояния на английский.",
+            "exerciseType": "translate",
+            "answerFormat": "full_sentence",
+            "answerPolicy": "normalized",
+            "sourceCorrectAnswer": "It's late.",
+            "sourcePattern": "It's + adjective",
+            "semanticAnchors": [
+              "it's",
+              "late"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "controlled_pattern_drill",
+              "mustInclude": [
+                "late"
+              ],
+              "shouldInclude": [
+                "it's"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "time to go"
+              ],
+              "hintShouldMention": [
+                "состояние",
+                "шаблон"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 2
+            }
+          },
+          {
+            "stepNumber": 5,
+            "stepType": "practice_apply",
+            "learningGoal": "Собрать три коротких предложения по It is и It is time to в puzzle-формате.",
+            "exerciseType": "sentence_puzzle",
+            "answerFormat": "full_sentence",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "It's time to cook.",
+            "sourcePattern": "word order puzzle for It's time to + verb",
+            "semanticAnchors": [
+              "time to",
+              "cook"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "apply_in_new_situation",
+              "mustInclude": [
+                "time to",
+                "cook"
+              ],
+              "shouldInclude": [
+                "it's",
+                "пазл"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "past simple"
+              ],
+              "hintShouldMention": [
+                "первое слово",
+                "порядок"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          },
+          {
+            "stepNumber": 6,
+            "stepType": "practice_apply",
+            "learningGoal": "Финальная проверка: состояние, действие по шаблону time to и перенос на новое действие.",
+            "exerciseType": "translate",
+            "answerFormat": "full_sentence",
+            "answerPolicy": "normalized",
+            "sourceCorrectAnswer": "It's time to cook.",
+            "sourcePattern": "It's time to + verb phrase",
+            "semanticAnchors": [
+              "time to",
+              "cook"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "apply_in_new_situation",
+              "mustInclude": [
+                "time to",
+                "cook"
+              ],
+              "shouldInclude": [
+                "it's"
+              ],
+              "mustAvoid": [
+                "who likes",
+                "past simple"
+              ],
+              "hintShouldMention": [
+                "it is time to"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 2
+            }
+          },
+          {
+            "stepNumber": 7,
+            "stepType": "feedback",
+            "learningGoal": "Три contrast-gap: состояние, частица to и новый глагол после time to.",
+            "exerciseType": "fill_choice",
+            "answerFormat": "choice",
+            "answerPolicy": "strict",
+            "sourceCorrectAnswer": "late",
+            "sourcePattern": "It's + adj / It's time + to + verb",
+            "semanticAnchors": [
+              "late",
+              "to",
+              "brush"
+            ],
+            "semanticExpectations": {
+              "pedagogicalRole": "contrast_check",
+              "mustAvoid": [
+                "who likes",
+                "present continuous"
+              ],
+              "hintShouldMention": [
+                "состояние",
+                "действие"
+              ],
+              "requireCyrillicHint": true,
+              "maxAcceptedAnswers": 1
+            }
+          }
+        ],
+        "steps": [
+          {
+            "stepNumber": 1,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Сегодня разберем две полезные конструкции: It is + прилагательное и It is time to + глагол."
+              },
+              {
+                "type": "info",
+                "content": "Первая конструкция описывает состояние, а вторая показывает, что пришло время сделать действие."
+              },
+              {
+                "type": "task",
+                "content": "Выберите правильное предложение для ситуации: \"Уже поздно\""
+              }
+            ],
+            "exercise": {
+              "type": "fill_choice",
+              "question": "Какое предложение подходит по смыслу?",
+              "options": [
+                "It's late.",
+                "It's time to cook.",
+                "It's time to take."
+              ],
+              "correctAnswer": "It's late.",
+              "acceptedAnswers": [
+                "It's late."
+              ],
+              "answerFormat": "choice",
+              "answerPolicy": "strict"
+            },
+            "footerDynamic": "Правило 1: It is + прилагательное",
+            "myEngComment": "Вижу, вы готовы к новой конструкции."
+          },
+          {
+            "stepNumber": 2,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Теперь посмотрим на вторую конструкцию: It is time to + глагол."
+              },
+              {
+                "type": "info",
+                "content": "После time to используем начальную форму глагола: cook, study, go, drink."
+              },
+              {
+                "type": "task",
+                "content": "Выберите правильное завершение: \"It is time to ___.\""
+              }
+            ],
+            "exercise": {
+              "type": "fill_choice",
+              "question": "Дополните предложение.",
+              "options": [
+                "cook",
+                "cooks",
+                "cooking"
+              ],
+              "correctAnswer": "cook",
+              "acceptedAnswers": [
+                "cook"
+              ],
+              "answerFormat": "choice",
+              "answerPolicy": "strict",
+              "hint": "После \"to\" нужен глагол в начальной форме."
+            },
+            "footerDynamic": "Правило 2: It is time to + глагол",
+            "myEngComment": "Отлично, теперь берем действие."
+          },
+          {
+            "stepNumber": 3,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Сравним состояние и действие в нескольких коротких ситуациях."
+              },
+              {
+                "type": "info",
+                "content": "Пример: \"It is rainy. It is time to take a taxi.\""
+              },
+              {
+                "type": "task",
+                "content": "Впишите пропущенный глагол в английскую фразу: \"Идет дождь, пора брать зонт.\" - \"It's rainy. It is time to ___ an umbrella.\""
+              }
+            ],
+            "exercise": {
+              "type": "fill_text",
+              "question": "Переведите на английский: \"Идет дождь, пора брать зонт.\" - \"It's rainy. It is time to ___ an umbrella.\"",
+              "correctAnswer": "take",
+              "acceptedAnswers": [
+                "take"
+              ],
+              "answerFormat": "single_word",
+              "answerPolicy": "strict",
+              "hint": "После \"time to\" нужен глагол в начальной форме.",
+              "variants": [
+                {
+                  "id": "late-cook_step3_easy",
+                  "question": "Переведите на английский: \"Идет дождь, пора брать зонт.\" - \"It's rainy. It is time to ___ an umbrella.\"",
+                  "correctAnswer": "take",
+                  "hint": "После \"time to\" нужен глагол в начальной форме.",
+                  "difficulty": "easy",
+                  "answerFormat": "single_word",
+                  "answerPolicy": "strict",
+                  "acceptedAnswers": [
+                    "take"
+                  ]
+                },
+                {
+                  "id": "late-cook_step3_medium",
+                  "question": "Переведите на английский: \"Сейчас идет дождь, поэтому пора что-то сделать.\" - \"It's rainy. It is time to ___ an umbrella.\"",
+                  "correctAnswer": "take",
+                  "hint": "«Пора» — time to. После to — глагол в начальной форме, одно слово.",
+                  "difficulty": "medium",
+                  "answerFormat": "single_word",
+                  "answerPolicy": "strict",
+                  "acceptedAnswers": [
+                    "take"
+                  ]
+                },
+                {
+                  "id": "late-cook_step3_hard",
+                  "question": "Переведите на английский: \"По погоде ясно, что пора взять защиту от дождя.\" - \"It's rainy. It is time to ___ an umbrella.\"",
+                  "correctAnswer": "take",
+                  "hint": "Прочитай действие в задании. После to — глагол без -s и без -ing.",
+                  "difficulty": "hard",
+                  "answerFormat": "single_word",
+                  "answerPolicy": "strict",
+                  "acceptedAnswers": [
+                    "take"
+                  ]
+                }
+              ]
+            },
+            "footerDynamic": "Практика: впишите глагол",
+            "myEngComment": "Пора почувствовать разницу вживую."
+          },
+          {
+            "stepNumber": 4,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Теперь потренируем описание состояния в нескольких новых вариантах."
+              },
+              {
+                "type": "info",
+                "content": "Пример: \"It is rainy.\""
+              },
+              {
+                "type": "task",
+                "content": "Напишите английское предложение для короткого описания состояния."
+              }
+            ],
+            "exercise": {
+              "type": "translate",
+              "question": "Переведите на английский: \"Уже поздно\"",
+              "correctAnswer": "It's late.",
+              "acceptedAnswers": [
+                "It's late.",
+                "It is late."
+              ],
+              "answerFormat": "full_sentence",
+              "answerPolicy": "normalized",
+              "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+              "variants": [
+                {
+                  "id": "late-cook_step4_1",
+                  "question": "Переведите на английский: \"Уже поздно\"",
+                  "correctAnswer": "It's late.",
+                  "acceptedAnswers": [
+                    "It's late.",
+                    "It is late."
+                  ],
+                  "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+                  "difficulty": "easy",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                },
+                {
+                  "id": "late-cook_step4_2",
+                  "question": "Переведите на английский: \"Холодно\"",
+                  "correctAnswer": "It's cold.",
+                  "acceptedAnswers": [
+                    "It's cold.",
+                    "It is cold."
+                  ],
+                  "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+                  "difficulty": "medium",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                },
+                {
+                  "id": "late-cook_step4_3",
+                  "question": "Переведите на английский: \"Жарко\"",
+                  "correctAnswer": "It's hot.",
+                  "acceptedAnswers": [
+                    "It's hot.",
+                    "It is hot."
+                  ],
+                  "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+                  "difficulty": "hard",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                }
+              ]
+            },
+            "footerDynamic": "Практика: напишите предложение",
+            "myEngComment": "Хорошо идете, держим темп."
+          },
+          {
+            "stepNumber": 5,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Финальная сборка: теперь соберите предложения из слов."
+              },
+              {
+                "type": "info",
+                "content": "Будет три коротких пазла: состояние, действие и новая фраза."
+              },
+              {
+                "type": "task",
+                "content": "Расставьте слова в правильном порядке."
+              }
+            ],
+            "exercise": {
+              "type": "sentence_puzzle",
+              "question": "Соберите три предложения из слов.",
+              "correctAnswer": "It's time to call mom.",
+              "acceptedAnswers": [
+                "It's time to call mom."
+              ],
+              "answerFormat": "full_sentence",
+              "answerPolicy": "strict",
+              "hint": "Подсказка про первое слово: начните с It’s и следите за порядком time to + глагол.",
+              "bonusXp": 30,
+              "puzzleVariants": [
+                {
+                  "id": "late-cook_puzzle_state",
+                  "title": "Пазл 1/3: состояние",
+                  "instruction": "",
+                  "words": [
+                    "It's",
+                    "late"
+                  ],
+                  "correctOrder": [
+                    "It's",
+                    "late"
+                  ],
+                  "correctAnswer": "It's late.",
+                  "successText": "Верно! It's late.",
+                  "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
+                  "hintText": "",
+                  "hintFirstWord": "It's",
+                  "myEngComment": "Отлично. Берём следующий вариант."
+                },
+                {
+                  "id": "late-cook_puzzle_action",
+                  "title": "Пазл 2/3: пора действовать",
+                  "instruction": "",
+                  "words": [
+                    "It's",
+                    "time",
+                    "to",
+                    "cook"
+                  ],
+                  "correctOrder": [
+                    "It's",
+                    "time",
+                    "to",
+                    "cook"
+                  ],
+                  "correctAnswer": "It's time to cook.",
+                  "successText": "Верно! It's time to cook.",
+                  "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
+                  "hintText": "",
+                  "hintFirstWord": "It's",
+                  "myEngComment": "Отлично. Берём следующий вариант."
+                },
+                {
+                  "id": "late-cook_puzzle_new_action",
+                  "title": "Пазл 3/3: новая фраза",
+                  "instruction": "",
+                  "words": [
+                    "It's",
+                    "time",
+                    "to",
+                    "call",
+                    "mom"
+                  ],
+                  "correctOrder": [
+                    "It's",
+                    "time",
+                    "to",
+                    "call",
+                    "mom"
+                  ],
+                  "correctAnswer": "It's time to call mom.",
+                  "successText": "Верно! It's time to call mom.",
+                  "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
+                  "hintText": "Подсказка: первое слово — It's.",
+                  "hintFirstWord": "It's",
+                  "myEngComment": "Отлично. Берём следующий вариант."
+                }
+              ]
+            },
+            "footerDynamic": "Пазл: 3 коротких предложения",
+            "myEngComment": "Расставьте слова в каждом пазле."
+          },
+          {
+            "stepNumber": 6,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Финальная проверка: три коротких предложения подряд."
+              },
+              {
+                "type": "info",
+                "content": "Состояние, действие по шаблону, затем новое действие — без подсказки из урока."
+              },
+              {
+                "type": "task",
+                "content": "Переведите на английский: \"Поздно\""
+              }
+            ],
+            "exercise": {
+              "type": "translate",
+              "question": "Переведите на английский: \"Поздно\"",
+              "correctAnswer": "It's late.",
+              "acceptedAnswers": [
+                "It's late.",
+                "It is late."
+              ],
+              "answerFormat": "full_sentence",
+              "answerPolicy": "normalized",
+              "hint": "Коротко: It is + прилагательное про состояние.",
+              "variants": [
+                {
+                  "id": "late-cook_step6_easy",
+                  "question": "Переведите на английский: \"Поздно\"",
+                  "correctAnswer": "It's late.",
+                  "acceptedAnswers": [
+                    "It's late.",
+                    "It is late."
+                  ],
+                  "hint": "Коротко: It is + прилагательное про состояние.",
+                  "difficulty": "easy",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                },
+                {
+                  "id": "late-cook_step6_medium",
+                  "question": "Переведите на английский: \"Пора готовить\"",
+                  "correctAnswer": "It's time to cook.",
+                  "acceptedAnswers": [
+                    "It's time to cook.",
+                    "It is time to cook."
+                  ],
+                  "hint": "Используйте It is time to + глагол в начальной форме.",
+                  "difficulty": "medium",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                },
+                {
+                  "id": "late-cook_step6_hard",
+                  "question": "Переведите на английский: \"Пора почистить зубы\"",
+                  "correctAnswer": "It's time to brush teeth.",
+                  "acceptedAnswers": [
+                    "It's time to brush teeth.",
+                    "It is time to brush teeth."
+                  ],
+                  "hint": "It is time to + глагол из новой ситуации в начальной форме.",
+                  "difficulty": "hard",
+                  "answerFormat": "full_sentence",
+                  "answerPolicy": "normalized"
+                }
+              ]
+            },
+            "footerDynamic": "Финальная проверка: 3 коротких предложения",
+            "myEngComment": "Три фразы подряд — вы почти у финиша."
+          },
+          {
+            "stepNumber": 7,
+            "bubbles": [
+              {
+                "type": "positive",
+                "content": "Быстрый финиш: три слова в новых ситуациях."
+              },
+              {
+                "type": "info",
+                "content": "В каждой рамке одно слово — прилагательное, нужная частица или глагол."
+              },
+              {
+                "type": "task",
+                "content": "Выберите одно слово для пропуска в английской рамке."
+              }
+            ],
+            "exercise": {
+              "type": "fill_choice",
+              "question": "Выберите слово для пропуска: Уже поздно — «It's ___.»",
+              "options": [
+                "late",
+                "rainy",
+                "dark"
+              ],
+              "correctAnswer": "late",
+              "answerFormat": "choice",
+              "answerPolicy": "strict",
+              "hint": "Состояние в задании — одно прилагательное после It's.",
+              "variants": [
+                {
+                  "id": "late-cook_step7_easy",
+                  "question": "Выберите слово для пропуска: Уже поздно — «It's ___.»",
+                  "options": [
+                    "late",
+                    "rainy",
+                    "dark"
+                  ],
+                  "correctAnswer": "late",
+                  "hint": "Состояние в задании — одно прилагательное после It's.",
+                  "difficulty": "easy",
+                  "answerFormat": "choice",
+                  "answerPolicy": "strict"
+                },
+                {
+                  "id": "late-cook_step7_medium",
+                  "question": "Выберите слово для пропуска: Пора готовить — «It's time ___ cook.»",
+                  "options": [
+                    "to",
+                    "for",
+                    "at"
+                  ],
+                  "correctAnswer": "to",
+                  "hint": "Между time и глаголом нужно to, не for и не at.",
+                  "difficulty": "medium",
+                  "answerFormat": "choice",
+                  "answerPolicy": "strict"
+                },
+                {
+                  "id": "late-cook_step7_hard",
+                  "question": "Выберите слово для пропуска: Пора почистить зубы — «It's time to ___.»",
+                  "options": [
+                    "brush",
+                    "cook",
+                    "take"
+                  ],
+                  "correctAnswer": "brush",
+                  "hint": "После to — глагол в начальной форме, одно слово.",
+                  "difficulty": "hard",
+                  "answerFormat": "choice",
+                  "answerPolicy": "strict"
+                }
+              ]
+            },
+            "footerDynamic": "Финиш: 3 слова",
+            "myEngComment": "Финиш рядом, осталось три коротких слова."
+          }
+        ]
+      }
+    ],
+    "antiRepeatWindow": 3,
+    "bannedTerms": [
+      "past simple",
+      "present continuous",
+      "future",
+      "conditionals",
+      "passive"
+    ],
+    "qualityGate": {
+      "minScore": 0.6,
+      "maxSoftIssues": 4,
+      "rejectOnHardFailures": true,
+      "maxAllowedHardIssues": 2
+    }
+  },
+  "steps": [
+    {
+      "stepNumber": 1,
+      "stepType": "hook",
+      "bubbles": [
+        {
+          "type": "positive",
+          "content": "Сегодня разберем две полезные конструкции: It is + прилагательное и It is time to + глагол."
+        },
+        {
+          "type": "info",
+          "content": "Первая конструкция описывает состояние, а вторая показывает, что пришло время сделать действие."
+        },
+        {
+          "type": "task",
+          "content": "Выберите правильное предложение для ситуации: \"На улице темно\""
+        }
+      ],
+      "exercise": {
+        "type": "fill_choice",
+        "question": "Какое предложение подходит по смыслу?",
+        "options": [
+          "It's dark.",
+          "It's time to sleep.",
+          "It's time to drink."
+        ],
+        "correctAnswer": "It's dark.",
+        "acceptedAnswers": [
+          "It's dark."
+        ],
+        "answerFormat": "choice",
+        "answerPolicy": "strict"
+      },
+      "footerDynamic": "Правило 1: It is + прилагательное",
+      "myEngComment": "Вижу, вы готовы к новой конструкции."
+    },
+    {
+      "stepNumber": 2,
+      "stepType": "theory",
+      "bubbles": [
+        {
+          "type": "positive",
+          "content": "Теперь посмотрим на вторую конструкцию: It is time to + глагол."
+        },
+        {
+          "type": "info",
+          "content": "После time to используем начальную форму глагола: sleep, study, go, drink."
+        },
+        {
+          "type": "task",
+          "content": "Выберите правильное завершение: \"It is time to ___.\""
+        }
+      ],
+      "exercise": {
+        "type": "fill_choice",
+        "question": "Дополните предложение.",
+        "options": [
+          "sleep",
+          "sleeps",
+          "sleeping"
+        ],
+        "correctAnswer": "sleep",
+        "acceptedAnswers": [
+          "sleep"
+        ],
+        "answerFormat": "choice",
+        "answerPolicy": "strict",
+        "hint": "После \"to\" нужен глагол в начальной форме."
+      },
+      "footerDynamic": "Правило 2: It is time to + глагол",
+      "myEngComment": "Отлично, теперь берем действие."
+    },
+    {
+      "stepNumber": 3,
+      "stepType": "practice_fill",
+      "bubbles": [
+        {
+          "type": "positive",
+          "content": "Сравним состояние и действие в нескольких коротких ситуациях."
+        },
+        {
+          "type": "info",
+          "content": "Пример: \"It is rainy. It is time to take a taxi.\""
+        },
+        {
+          "type": "task",
+          "content": "Впишите пропущенный глагол в английскую фразу: \"Холодно, пора пить чай.\" - \"It's cold. It is time to ___ tea.\""
+        }
+      ],
+      "exercise": {
+        "type": "fill_text",
+        "question": "Переведите на английский: \"Холодно, пора пить чай.\" - \"It's cold. It is time to ___ tea.\"",
+        "correctAnswer": "drink",
+        "acceptedAnswers": [
+          "drink"
+        ],
+        "answerFormat": "single_word",
+        "answerPolicy": "strict",
+        "hint": "После \"time to\" нужен глагол в начальной форме.",
+        "variants": [
+          {
+            "id": "evening-dark_step3_easy",
+            "question": "Переведите на английский: \"Холодно, пора пить чай.\" - \"It's cold. It is time to ___ tea.\"",
+            "correctAnswer": "drink",
+            "hint": "После \"time to\" нужен глагол в начальной форме.",
+            "difficulty": "easy",
+            "answerFormat": "single_word",
+            "answerPolicy": "strict",
+            "acceptedAnswers": [
+              "drink"
+            ]
+          },
+          {
+            "id": "evening-dark_step3_medium",
+            "question": "Переведите на английский: \"Сейчас холодно, поэтому пора что-то сделать.\" - \"It's cold. It is time to ___ tea.\"",
+            "correctAnswer": "drink",
+            "hint": "«Пора» — time to. После to — глагол в начальной форме, одно слово.",
+            "difficulty": "medium",
+            "answerFormat": "single_word",
+            "answerPolicy": "strict",
+            "acceptedAnswers": [
+              "drink"
+            ]
+          },
+          {
+            "id": "evening-dark_step3_hard",
+            "question": "Переведите на английский: \"По обстановке видно, что пора согреться.\" - \"It's cold. It is time to ___ tea.\"",
+            "correctAnswer": "drink",
+            "hint": "Прочитай действие в задании. После to — глагол без -s и без -ing.",
+            "difficulty": "hard",
+            "answerFormat": "single_word",
+            "answerPolicy": "strict",
+            "acceptedAnswers": [
+              "drink"
+            ]
+          }
+        ]
+      },
+      "footerDynamic": "Практика: впишите глагол",
+      "myEngComment": "Пора почувствовать разницу вживую."
+    },
+    {
+      "stepNumber": 4,
+      "stepType": "practice_fill",
+      "bubbles": [
+        {
+          "type": "positive",
+          "content": "Теперь потренируем описание состояния в нескольких новых вариантах."
+        },
+        {
+          "type": "info",
+          "content": "Пример: \"It is rainy.\""
+        },
+        {
+          "type": "task",
+          "content": "Напишите английское предложение для короткого описания состояния."
+        }
+      ],
+      "exercise": {
+        "type": "translate",
+        "question": "Переведите на английский: \"Темно\"",
+        "correctAnswer": "It's dark.",
+        "acceptedAnswers": [
+          "It's dark.",
+          "It is dark."
+        ],
+        "answerFormat": "full_sentence",
+        "answerPolicy": "normalized",
+        "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+        "variants": [
+          {
+            "id": "evening-dark_step4_1",
+            "question": "Переведите на английский: \"Темно\"",
+            "correctAnswer": "It's dark.",
+            "acceptedAnswers": [
+              "It's dark.",
+              "It is dark."
+            ],
+            "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+            "difficulty": "easy",
+            "answerFormat": "full_sentence",
+            "answerPolicy": "normalized"
+          },
+          {
+            "id": "evening-dark_step4_2",
+            "question": "Переведите на английский: \"Холодно\"",
+            "correctAnswer": "It's cold.",
+            "acceptedAnswers": [
+              "It's cold.",
+              "It is cold."
+            ],
+            "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+            "difficulty": "medium",
+            "answerFormat": "full_sentence",
+            "answerPolicy": "normalized"
+          },
+          {
+            "id": "evening-dark_step4_3",
+            "question": "Переведите на английский: \"Жарко\"",
+            "correctAnswer": "It's hot.",
+            "acceptedAnswers": [
+              "It's hot.",
+              "It is hot."
+            ],
+            "hint": "Напишите короткое предложение по шаблону It is + прилагательное.",
+            "difficulty": "hard",
+            "answerFormat": "full_sentence",
+            "answerPolicy": "normalized"
+          }
+        ]
+      },
+      "footerDynamic": "Практика: напишите предложение",
+      "myEngComment": "Хорошо идете, держим темп."
+    },
+    {
+      "stepNumber": 5,
+      "stepType": "practice_apply",
+      "bubbles": [
+        {
+          "type": "positive",
+          "content": "Финальная сборка: теперь соберите предложения из слов."
+        },
+        {
+          "type": "info",
+          "content": "Будет три коротких пазла: состояние, действие и новая фраза."
+        },
+        {
+          "type": "task",
+          "content": "Расставьте слова в правильном порядке."
+        }
+      ],
+      "exercise": {
+        "type": "sentence_puzzle",
+        "question": "Соберите три предложения из слов.",
+        "correctAnswer": "It's time to go home.",
+        "acceptedAnswers": [
+          "It's time to go home."
+        ],
+        "answerFormat": "full_sentence",
+        "answerPolicy": "strict",
+        "hint": "Подсказка про первое слово: начните с It’s и следите за порядком time to + глагол.",
+        "bonusXp": 30,
+        "puzzleVariants": [
+          {
+            "id": "evening-dark_puzzle_state",
+            "title": "Пазл 1/3: состояние",
+            "instruction": "",
+            "words": [
+              "It's",
+              "dark"
+            ],
+            "correctOrder": [
+              "It's",
+              "dark"
+            ],
+            "correctAnswer": "It's dark.",
+            "successText": "Верно! It's dark.",
+            "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
+            "hintText": "",
+            "hintFirstWord": "It's",
+            "myEngComment": "Отлично. Берём следующий вариант."
+          },
+          {
+            "id": "evening-dark_puzzle_action",
+            "title": "Пазл 2/3: пора действовать",
+            "instruction": "",
+            "words": [
+              "It's",
+              "time",
+              "to",
+              "sleep"
+            ],
+            "correctOrder": [
+              "It's",
+              "time",
+              "to",
+              "sleep"
+            ],
+            "correctAnswer": "It's time to sleep.",
+            "successText": "Верно! It's time to sleep.",
+            "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
+            "hintText": "",
+            "hintFirstWord": "It's",
+            "myEngComment": "Отлично. Берём следующий вариант."
+          },
+          {
+            "id": "evening-dark_puzzle_new_action",
+            "title": "Пазл 3/3: новая фраза",
+            "instruction": "",
+            "words": [
+              "It's",
+              "time",
+              "to",
+              "go",
+              "home"
+            ],
+            "correctOrder": [
+              "It's",
+              "time",
+              "to",
+              "go",
+              "home"
+            ],
+            "correctAnswer": "It's time to go home.",
+            "successText": "Верно! It's time to go home.",
+            "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
+            "hintText": "Подсказка: первое слово — It's.",
+            "hintFirstWord": "It's",
+            "myEngComment": "Отлично. Берём следующий вариант."
+          }
+        ]
+      },
+      "footerDynamic": "Пазл: 3 коротких предложения",
+      "myEngComment": "Расставьте слова в каждом пазле."
+    },
+    {
+      "stepNumber": 6,
+      "stepType": "practice_apply",
+      "bubbles": [
+        {
+          "type": "positive",
+          "content": "Финальная проверка: три коротких предложения подряд."
+        },
+        {
+          "type": "info",
+          "content": "Состояние, действие по шаблону, затем новое действие — без подсказки из урока."
+        },
+        {
+          "type": "task",
+          "content": "Переведите на английский: \"Темно\""
+        }
+      ],
+      "exercise": {
+        "type": "translate",
+        "question": "Переведите на английский: \"Темно\"",
+        "correctAnswer": "It's dark.",
+        "acceptedAnswers": [
+          "It's dark.",
+          "It is dark."
+        ],
+        "answerFormat": "full_sentence",
+        "answerPolicy": "normalized",
+        "hint": "Коротко: It is + прилагательное про состояние.",
+        "variants": [
+          {
+            "id": "evening-dark_step6_easy",
+            "question": "Переведите на английский: \"Темно\"",
+            "correctAnswer": "It's dark.",
+            "acceptedAnswers": [
+              "It's dark.",
+              "It is dark."
+            ],
+            "hint": "Коротко: It is + прилагательное про состояние.",
+            "difficulty": "easy",
+            "answerFormat": "full_sentence",
+            "answerPolicy": "normalized"
+          },
+          {
+            "id": "evening-dark_step6_medium",
+            "question": "Переведите на английский: \"Пора спать\"",
+            "correctAnswer": "It's time to sleep.",
+            "acceptedAnswers": [
+              "It's time to sleep.",
+              "It is time to sleep."
+            ],
+            "hint": "Используйте It is time to + глагол в начальной форме.",
+            "difficulty": "medium",
+            "answerFormat": "full_sentence",
+            "answerPolicy": "normalized"
+          },
+          {
+            "id": "evening-dark_step6_hard",
+            "question": "Переведите на английский: \"Пора почитать книгу\"",
+            "correctAnswer": "It's time to read a book.",
+            "acceptedAnswers": [
+              "It's time to read a book.",
+              "It is time to read a book."
+            ],
+            "hint": "It is time to + глагол из новой ситуации в начальной форме.",
+            "difficulty": "hard",
+            "answerFormat": "full_sentence",
+            "answerPolicy": "normalized"
+          }
+        ]
+      },
+      "footerDynamic": "Финальная проверка: 3 коротких предложения",
+      "myEngComment": "Три фразы подряд — вы почти у финиша."
+    },
+    {
+      "stepNumber": 7,
+      "stepType": "feedback",
+      "bubbles": [
+        {
+          "type": "positive",
+          "content": "Быстрый финиш: три слова в новых ситуациях."
+        },
+        {
+          "type": "info",
+          "content": "В каждой рамке одно слово — прилагательное, нужная частица или глагол."
+        },
+        {
+          "type": "task",
+          "content": "Выберите одно слово для пропуска в английской рамке."
+        }
+      ],
+      "exercise": {
+        "type": "fill_choice",
+        "question": "Выберите слово для пропуска: На улице темно — «It's ___.»",
+        "options": [
+          "dark",
+          "cold",
+          "late"
+        ],
+        "correctAnswer": "dark",
+        "answerFormat": "choice",
+        "answerPolicy": "strict",
+        "hint": "Состояние в задании — одно прилагательное после It's.",
+        "variants": [
+          {
+            "id": "evening-dark_step7_easy",
+            "question": "Выберите слово для пропуска: На улице темно — «It's ___.»",
+            "options": [
+              "dark",
+              "cold",
+              "late"
+            ],
+            "correctAnswer": "dark",
+            "hint": "Состояние в задании — одно прилагательное после It's.",
+            "difficulty": "easy",
+            "answerFormat": "choice",
+            "answerPolicy": "strict"
+          },
+          {
+            "id": "evening-dark_step7_medium",
+            "question": "Выберите слово для пропуска: Пора спать — «It's time ___ sleep.»",
+            "options": [
+              "to",
+              "for",
+              "at"
+            ],
+            "correctAnswer": "to",
+            "hint": "Между time и глаголом нужно to, не for и не at.",
+            "difficulty": "medium",
+            "answerFormat": "choice",
+            "answerPolicy": "strict"
+          },
+          {
+            "id": "evening-dark_step7_hard",
+            "question": "Выберите слово для пропуска: Пора почитать книгу — «It's time to ___.»",
+            "options": [
+              "read",
+              "sleep",
+              "drink"
+            ],
+            "correctAnswer": "read",
+            "hint": "После to — глагол в начальной форме, одно слово.",
+            "difficulty": "hard",
+            "answerFormat": "choice",
+            "answerPolicy": "strict"
+          }
+        ]
+      },
+      "footerDynamic": "Финиш: 3 слова",
+      "myEngComment": "Финиш рядом, осталось три коротких слова."
+    }
+  ]
+}

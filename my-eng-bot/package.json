@@ -13,6 +13,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
+    "check:bundle:baseline": "node scripts/check-bundle-budget.mjs --baseline --save-baseline",
+    "check:bundle": "node scripts/check-bundle-budget.mjs --enforce",
     "test:translation:smoke": "vitest run lib/translationLastRepeat.test.ts app/api/chat/route.translationStateRetention.test.ts lib/translationSayReconcile.test.ts app/api/chat/route.translationContext.test.ts app/api/chat/route.repeatFlow.test.ts"
   },
   "dependencies": {
