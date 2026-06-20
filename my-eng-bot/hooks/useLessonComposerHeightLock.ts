@@ -41,6 +41,26 @@ function resolveIncomingComposerMinHeight(params: {
   })
 }
 
+/** Высота по контенту, без учёта minHeight оболочки композера. */
+function measureComposerContentHeight(stack: HTMLElement): number {
+  const inner = stack.querySelector('.dialog-composer-dock-inner')
+  if (!(inner instanceof HTMLElement)) {
+    return Math.max(0, Math.round(stack.getBoundingClientRect().height))
+  }
+
+  let contentHeight = 0
+  for (const child of inner.children) {
+    if (!(child instanceof HTMLElement)) continue
+    contentHeight = Math.max(contentHeight, child.getBoundingClientRect().height)
+  }
+
+  const stackStyle = getComputedStyle(stack)
+  const paddingY =
+    parseFloat(stackStyle.paddingTop || '0') + parseFloat(stackStyle.paddingBottom || '0')
+
+  return Math.max(0, Math.round(contentHeight + paddingY))
+}
+
 export function useLessonComposerHeightLock({
   stackRef,
   transitionKey,
@@ -55,13 +75,12 @@ export function useLessonComposerHeightLock({
   lockReleased,
 }: UseLessonComposerHeightLockParams): number | undefined {
   const [lockedMinHeight, setLockedMinHeight] = useState<number | undefined>(undefined)
-  const lastOutgoingHeightRef = useRef(0)
   const prevTransitionKeyRef = useRef<string | null>(null)
 
   const measureStack = useCallback(() => {
     const stack = stackRef.current
     if (!stack) return 0
-    return Math.max(0, Math.round(stack.getBoundingClientRect().height))
+    return measureComposerContentHeight(stack)
   }, [stackRef])
 
   const incomingParams = {
@@ -77,27 +96,31 @@ export function useLessonComposerHeightLock({
   useLayoutEffect(() => {
     if (!enabled) {
       setLockedMinHeight(undefined)
-      lastOutgoingHeightRef.current = 0
       prevTransitionKeyRef.current = null
       return
     }
 
     const isStepTransition = transitionKey !== prevTransitionKeyRef.current
+    const incoming = resolveIncomingComposerMinHeight(incomingParams)
 
     if (isStepTransition) {
-      const outgoing = measureStack()
-      if (outgoing > 0) {
-        lastOutgoingHeightRef.current = outgoing
-      }
       prevTransitionKeyRef.current = transitionKey
+      setLockedMinHeight(incoming > 0 ? incoming : undefined)
+      return
     }
 
-    const incoming = resolveIncomingComposerMinHeight(incomingParams)
-    const nextLock = Math.max(lastOutgoingHeightRef.current, incoming)
     setLockedMinHeight((current) => {
-      const next = nextLock > 0 ? nextLock : undefined
+      const next = incoming > 0 ? incoming : undefined
       if (next == null) return undefined
       if (current == null) return next
+      if (next < current) {
+        const stack = stackRef.current
+        const contentHeight = stack ? measureComposerContentHeight(stack) : 0
+        if (contentHeight > 0 && contentHeight <= next) {
+          return next
+        }
+        return current
+      }
       return Math.max(current, next)
     })
   }, [
@@ -105,7 +128,6 @@ export function useLessonComposerHeightLock({
     containerWidthPx,
     choiceOptions,
     enabled,
-    measureStack,
     optionCount,
     panelKind,
     puzzleHasInstruction,
@@ -126,15 +148,16 @@ export function useLessonComposerHeightLock({
     if (!stack || typeof ResizeObserver === 'undefined') return
 
     const sync = () => {
-      const measured = measureStack()
-      if (measured <= 0) return
+      const measuredContent = measureStack()
+      if (measuredContent <= 0) return
+      const incoming = resolveIncomingComposerMinHeight(incomingParams)
       setLockedMinHeight((current) => {
-        const next = Math.max(current ?? 0, measured, lastOutgoingHeightRef.current)
+        const baseline = current ?? incoming
+        const next = measuredContent > baseline ? measuredContent : baseline
         return next > 0 ? next : undefined
       })
     }
 
-    sync()
     const observer = new ResizeObserver(sync)
     observer.observe(stack)
     return () => observer.disconnect()

@@ -125,8 +125,16 @@ export function buildPracticeFeedMessages(params: {
   audience: Audience
   pendingAnswer?: string | null
   feedbackType?: PracticeAnswerFeedbackType
+  showCheckingStatusLine?: boolean
 }): PracticeFeedMessage[] {
-  const { session, state, audience, pendingAnswer = null, feedbackType } = params
+  const {
+    session,
+    state,
+    audience,
+    pendingAnswer = null,
+    feedbackType,
+    showCheckingStatusLine = false,
+  } = params
 
   if (state === 'briefing') {
     return []
@@ -229,7 +237,7 @@ export function buildPracticeFeedMessages(params: {
       })
     }
 
-    if (state === 'checking') {
+    if (state === 'checking' && showCheckingStatusLine) {
       result.push({
         id: checkingSlotId,
         role: 'assistant',

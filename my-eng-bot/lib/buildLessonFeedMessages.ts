@@ -39,6 +39,7 @@ export type LessonFeedMessage =
       kind: 'status'
       text: string
       tone: 'service' | 'success' | 'error'
+      repeatAnswer?: string
     }
 
 export type BuildLessonFeedMessagesParams = {
@@ -201,7 +202,7 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
         timeline,
       })
       const feedbackTone = entry.feedback.type === 'success' ? 'success' : 'error'
-      const feedbackText =
+      const errorFeedbackParts =
         entry.feedback.type === 'error' &&
         entry.step.exercise &&
         entry.step.exercise.type !== 'sentence_puzzle'
@@ -210,7 +211,8 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
               correctAnswer: entry.step.exercise.correctAnswer,
               attemptNumber: feedbackAttemptNumber,
             })
-          : entry.feedback.message
+          : null
+      const feedbackText = errorFeedbackParts?.hint ?? entry.feedback.message
       const marker = resolveFeedbackMarker({
         tone: feedbackTone,
         attemptNumber: feedbackAttemptNumber,
@@ -221,6 +223,9 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
         kind: 'status',
         text: prefixFeedbackMarker(marker, feedbackText),
         tone: feedbackTone,
+        ...(errorFeedbackParts?.repeatAnswer
+          ? { repeatAnswer: errorFeedbackParts.repeatAnswer }
+          : {}),
       })
     }
 

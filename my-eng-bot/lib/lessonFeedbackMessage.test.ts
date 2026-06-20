@@ -9,27 +9,27 @@ describe('formatLessonErrorFeedback', () => {
         correctAnswer: 'Russia',
         attemptNumber: 1,
       })
-    ).toBe('После from — одно слово.')
+    ).toEqual({ hint: 'После from — одно слово.' })
   })
 
-  it('appends Скажи line from second error', () => {
+  it('includes repeatAnswer from second error', () => {
     expect(
       formatLessonErrorFeedback({
         message: 'После from — одно слово.',
         correctAnswer: 'Russia',
         attemptNumber: 2,
       })
-    ).toBe('После from — одно слово.\nСкажи: Russia')
+    ).toEqual({ hint: 'После from — одно слово.', repeatAnswer: 'Russia' })
   })
 
-  it('skips Скажи when correct answer is empty', () => {
+  it('skips repeatAnswer when correct answer is empty', () => {
     expect(
       formatLessonErrorFeedback({
         message: 'Почти.',
         correctAnswer: '  ',
         attemptNumber: 3,
       })
-    ).toBe('Почти.')
+    ).toEqual({ hint: 'Почти.' })
   })
 
   it('uses per-attempt number, not global step counter — first attempt stays hint-only even when step has 2+ errors', () => {
@@ -40,13 +40,13 @@ describe('formatLessonErrorFeedback', () => {
         correctAnswer: 'Russia',
         attemptNumber: 1,
       })
-    ).toBe(hint)
+    ).toEqual({ hint })
     expect(
       formatLessonErrorFeedback({
         message: hint,
         correctAnswer: 'Russia',
         attemptNumber: 2,
       })
-    ).toBe(`${hint}\nСкажи: Russia`)
+    ).toEqual({ hint, repeatAnswer: 'Russia' })
   })
 })

@@ -10,6 +10,7 @@ import {
   type CSSProperties,
 } from 'react'
 import FeedbackStatusText from '@/components/FeedbackStatusText'
+import LessonFeedbackStatusBubble from '@/components/lesson/LessonFeedbackStatusBubble'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import LessonSentencePuzzle from '@/components/LessonSentencePuzzle'
 import LessonFinalePanel from '@/components/LessonFinalePanel'
@@ -1858,6 +1859,13 @@ export default function LessonStepRenderer({
                     Boolean(forgivenessBubbleMode) &&
                     Boolean(onRequestCoinForgiveness)
 
+                  const animateSayText =
+                    message.tone === 'error' &&
+                    Boolean(message.repeatAnswer) &&
+                    message.id === tailLessonMessageId &&
+                    status === 'feedback' &&
+                    !prefersReducedMotion
+
                   return (
                     <ChatBubbleFrame
                       key={message.id}
@@ -1868,12 +1876,30 @@ export default function LessonStepRenderer({
                         pinLastRowToBottom ? 'mb-0' : isBubbleEnd ? 'mb-2.5' : 'mb-0.5'
                       }
                     >
-                      <section
-                        className={`chat-section-surface glass-surface rounded-xl border px-2.5 py-1.5 ${lessonStatusCardClassByTone[message.tone]}`}
-                        role={message.tone === 'error' ? 'alert' : undefined}
-                      >
-                        <FeedbackStatusText text={message.text} />
-                      </section>
+                      {message.tone === 'error' ? (
+                        <LessonFeedbackStatusBubble
+                          hintText={message.text}
+                          repeatAnswer={message.repeatAnswer}
+                          animateSayText={animateSayText}
+                          onSayTextRevealComplete={
+                            animateSayText
+                              ? () =>
+                                  scheduleLessonFeedScroll(
+                                    resolveLessonScrollBehavior({
+                                      prefersReducedMotion,
+                                      reason: 'reveal',
+                                    })
+                                  )
+                              : undefined
+                          }
+                        />
+                      ) : (
+                        <section
+                          className={`chat-section-surface glass-surface rounded-xl border px-2.5 py-1.5 ${lessonStatusCardClassByTone[message.tone]}`}
+                        >
+                          <FeedbackStatusText text={message.text} />
+                        </section>
+                      )}
                       {showCoinForgivenessButton && forgivenessBubbleMode && onRequestCoinForgiveness ? (
                         <div className="mt-1.5 flex flex-wrap items-center gap-2">
                           <LessonCoinForgivenessBubbleButton

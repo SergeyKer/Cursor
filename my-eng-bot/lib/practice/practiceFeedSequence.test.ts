@@ -103,12 +103,23 @@ describe('buildPracticeFeedMessages sequence', () => {
     expect(messageKinds(messages)).toEqual(['lesson', "answer:I'm happy."])
   })
 
-  it('checking: question + pending answer + checking status', () => {
+  it('checking without showCheckingStatusLine: question + pending answer only', () => {
     const messages = buildPracticeFeedMessages({
       session: makeSession(),
       state: 'checking',
       audience: 'adult',
       pendingAnswer: "I'm happy.",
+    })
+    expect(messageKinds(messages)).toEqual(['lesson', "answer:I'm happy."])
+  })
+
+  it('checking with showCheckingStatusLine: question + pending answer + checking status', () => {
+    const messages = buildPracticeFeedMessages({
+      session: makeSession(),
+      state: 'checking',
+      audience: 'adult',
+      pendingAnswer: "I'm happy.",
+      showCheckingStatusLine: true,
     })
     expect(messageKinds(messages)).toEqual([
       'lesson',
@@ -124,6 +135,7 @@ describe('buildPracticeFeedMessages sequence', () => {
       state: 'checking',
       audience: 'adult',
       pendingAnswer: "I'm happy.",
+      showCheckingStatusLine: true,
     })
     const feedback = buildPracticeFeedMessages({
       session: makeSession({
@@ -230,6 +242,7 @@ describe('buildPracticeFeedMessages sequence', () => {
       state: 'checking',
       audience: 'adult',
       pendingAnswer: 'sdsd',
+      showCheckingStatusLine: true,
     })
     expect(messageKinds(messages)).toEqual([
       'lesson',

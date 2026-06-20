@@ -5,6 +5,7 @@ import {
   isFollowTailScrollSettled,
   isLessonFeedAnswerTailMessageId,
   isLessonFeedCheckingTailMessageId,
+  isPracticeFeedCheckingTailMessageId,
   isLessonFeedFeedbackTailMessageId,
   LESSON_INPUT_GAP_PX,
   parseLessonScrollPaddingPx,
@@ -340,6 +341,7 @@ describe('lesson feed tail message ids', () => {
   it('распознаёт answer, checking, feedback', () => {
     expect(isLessonFeedAnswerTailMessageId('answer-step-1-try-1')).toBe(true)
     expect(isLessonFeedCheckingTailMessageId('checking-answer-step-1-try-1')).toBe(true)
+    expect(isPracticeFeedCheckingTailMessageId('practice-checking-q1')).toBe(true)
     expect(isLessonFeedFeedbackTailMessageId('feedback-answer-step-1-try-1-error')).toBe(true)
     expect(isLessonFeedAnswerTailMessageId('feedback-x')).toBe(false)
   })

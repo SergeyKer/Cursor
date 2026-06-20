@@ -12,6 +12,7 @@ import {
   isPracticeAnswerPanelLocked,
   isPracticeChoiceInteractionDisabled,
   isPracticeChoicePanelFrozen,
+  PRACTICE_ANSWER_REVEAL_MS,
 } from '@/lib/practice/practiceAnswerPanelLock'
 import DialogComposerStack from '@/components/DialogComposerStack'
 import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
@@ -32,11 +33,15 @@ import { useLessonSectionReveal } from '@/hooks/useLessonSectionReveal'
 import { resolveTaskBubbleIndex } from '@/lib/lessonBubbleLayout'
 import { estimateLessonChoiceChipsMinHeight } from '@/lib/lessonComposerLayout'
 import {
-  followLessonFeedTail,
   isLessonFeedScrolledToTail,
+  isPracticeFeedCheckingTailMessageId,
+  isWithinRevealEndOverflowSettleWindow,
   LESSON_SCROLL_VIEWPORT_CLASS,
+  resolveLessonShellScrollBehavior,
   resolvePracticeFeedScrollRequest,
   resolveScrollBottomPadding,
+  scrollLessonFeedToModeIfNeeded,
+  scrollLessonFeedToModeWithCompleteIfNeeded,
   shouldSkipLessonFeedOverflowFollow,
   shouldSkipRevealEndOverflowScroll,
 } from '@/lib/lessonFeedScroll'
@@ -102,7 +107,7 @@ function useLessonUserEnterClass() {
   }, [])
 }
 
-/** Верно/неверно — тот же slide-in, что у карточки вопроса (`.lesson-feed-enter`). */
+/** Статус «Верно/Неверно» — как в уроках (`.lesson-feed-status-enter`). */
 function useLessonFeedStatusEnterClass(prefersReducedMotion: boolean) {
   const enteredIdsRef = useRef<Set<string>>(new Set())
   return useCallback(
@@ -110,7 +115,7 @@ function useLessonFeedStatusEnterClass(prefersReducedMotion: boolean) {
       if (prefersReducedMotion) return ''
       if (enteredIdsRef.current.has(messageId)) return ''
       enteredIdsRef.current.add(messageId)
-      return 'lesson-feed-enter'
+      return 'lesson-feed-status-enter'
     },
     [prefersReducedMotion]
   )
@@ -148,6 +153,7 @@ export default function PracticeScreen({
   const shellScrollCompleteInvokedRef = useRef(false)
   const [lessonFeedEnterClassActive, setLessonFeedEnterClassActive] = useState(false)
   const [composerInnerWidthPx, setComposerInnerWidthPx] = useState<number | undefined>()
+  const [showCheckingStatusLine, setShowCheckingStatusLine] = useState(false)
 
   const lessonUserEnterClass = useLessonUserEnterClass()
   const prefersReducedMotion = usePrefersReducedMotion()
@@ -173,8 +179,9 @@ export default function PracticeScreen({
         audience,
         pendingAnswer,
         feedbackType: resolvedFeedbackType,
+        showCheckingStatusLine,
       }),
-    [session, state, audience, pendingAnswer, resolvedFeedbackType]
+    [session, state, audience, pendingAnswer, resolvedFeedbackType, showCheckingStatusLine]
   )
 
   const tailMessageId = messages.at(-1)?.id ?? ''
@@ -244,6 +251,19 @@ export default function PracticeScreen({
     }, LESSON_FEED_ENTER_ANIM_MS + 80)
     return () => window.clearTimeout(fallbackTimer)
   }, [invokeShellScrollCompleteOnce, lessonFeedEnterClassActive, revealKey])
+
+  useEffect(() => {
+    if (state !== 'checking') {
+      setShowCheckingStatusLine(false)
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      setShowCheckingStatusLine(true)
+    }, PRACTICE_ANSWER_REVEAL_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [state, session.currentIndex, currentQuestion?.id])
 
   const isCorrectionComposerActive = isPracticeCorrectionComposerActive(
     state,
@@ -369,10 +389,71 @@ export default function PracticeScreen({
       scheduleScroll((scrollBehavior) => {
         const scrollContainer = scrollContainerRef.current
         if (!scrollContainer) return
-        followLessonFeedTail(scrollContainer, { mode: 'tail_if_needed', behavior: scrollBehavior })
+        scrollLessonFeedToModeIfNeeded(scrollContainer, 'tail_if_needed', scrollBehavior)
       }, behavior),
     [scheduleScroll]
   )
+
+  useEffect(() => {
+    if (!isShellEnterActive) return
+
+    const completeShellScroll = () => {
+      if (awaitingFeedEnterBeforeTextRevealRef.current) return
+      invokeShellScrollCompleteOnce()
+    }
+
+    const behavior = resolveLessonShellScrollBehavior({
+      prefersReducedMotion,
+      isFirstLessonStep: false,
+      deferLayoutSettling: false,
+    })
+
+    let cleanupScrollComplete: (() => void) | undefined
+
+    const cleanupSchedule = scheduleScroll((scrollBehavior) => {
+      const scrollContainer = scrollContainerRef.current
+      if (!scrollContainer) {
+        completeShellScroll()
+        return
+      }
+      cleanupScrollComplete = scrollLessonFeedToModeWithCompleteIfNeeded(
+        scrollContainer,
+        'tail_if_needed',
+        scrollBehavior,
+        completeShellScroll
+      )
+    }, behavior)
+
+    return () => {
+      cleanupSchedule()
+      cleanupScrollComplete?.()
+    }
+  }, [
+    isShellEnterActive,
+    prefersReducedMotion,
+    invokeShellScrollCompleteOnce,
+    scheduleScroll,
+    revealKey,
+  ])
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+    const inSettle =
+      (deferChoiceChipsUntilCardReveal &&
+        (isRevealInProgress ||
+          !isChoiceChipsVisible ||
+          isWithinRevealEndOverflowSettleWindow(revealEndedAtRef.current))) ||
+      (state === 'checking' && showCheckingStatusLine)
+    if (inSettle) {
+      root.setAttribute('data-lesson-feed-scroll-settle', '')
+    } else {
+      root.removeAttribute('data-lesson-feed-scroll-settle')
+    }
+    return () => {
+      root.removeAttribute('data-lesson-feed-scroll-settle')
+    }
+  }, [deferChoiceChipsUntilCardReveal, isRevealInProgress, isChoiceChipsVisible, state, showCheckingStatusLine])
 
   useLayoutEffect(() => {
     if (!isChoiceChipsPanel) return
@@ -422,6 +503,14 @@ export default function PracticeScreen({
       return
     }
 
+    const shellScrollHandlesStepChange =
+      indexChanged && !prefersReducedMotion && revealEnabled
+
+    if (shellScrollHandlesStepChange) {
+      previousScrollSnapshotRef.current = nextSnapshot
+      return
+    }
+
     previousScrollSnapshotRef.current = nextSnapshot
 
     const scrollBehavior = resolvePracticeFeedScrollRequest({
@@ -440,6 +529,7 @@ export default function PracticeScreen({
     state,
     tailMessageId,
     prefersReducedMotion,
+    revealEnabled,
     scheduleScrollPracticeFeedTail,
   ])
 
@@ -512,6 +602,7 @@ export default function PracticeScreen({
 
     const observer = new ResizeObserver(() => {
       if (isShellEnterActive) return
+      if (state === 'checking' || isPracticeFeedCheckingTailMessageId(tailMessageId)) return
       const skipOverflowFollow = shouldSkipLessonFeedOverflowFollow({
         isRevealInProgress,
         deferChoiceChipsUntilCardReveal,
@@ -532,6 +623,7 @@ export default function PracticeScreen({
     return () => observer.disconnect()
   }, [
     state,
+    tailMessageId,
     prefersReducedMotion,
     scheduleScrollPracticeFeedTail,
     messages.length,

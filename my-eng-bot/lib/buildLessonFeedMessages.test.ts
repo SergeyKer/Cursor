@@ -224,6 +224,57 @@ describe('buildLessonFeedMessages — non-puzzle regression', () => {
     ])
   })
 
+  it('sets repeatAnswer only from second error on the same step', () => {
+    const step = {
+      stepNumber: 3,
+      bubbles: [{ type: 'task', content: 'Задание' }],
+      exercise: {
+        type: 'fill_text',
+        correctAnswer: 'Russia',
+        hint: 'После from — одно слово.',
+      },
+    } as LessonData['steps'][number]
+
+    const firstError = makeTimelineEntry({
+      isCurrent: false,
+      submittedAnswer: 'Moscow',
+      feedback: { type: 'error', message: 'После from — одно слово.' },
+      step,
+    })
+    const secondError = makeTimelineEntry({
+      isCurrent: false,
+      submittedAnswer: 'Rus',
+      feedback: { type: 'error', message: 'После from — одно слово.' },
+      step,
+    })
+    const currentEntry = makeTimelineEntry({
+      isCurrent: true,
+      submittedAnswer: 'R',
+      step,
+    })
+    const timeline = buildActiveStepTimeline([], currentEntry, [firstError, secondError], 'fill_text')
+
+    const messages = buildLessonFeedMessages({
+      timeline,
+      status: 'checking',
+      showCheckingStatusLine: true,
+      showAdvancingStatusLine: false,
+      isAdvancingToNextStep: false,
+      isAdvancingToNextVariant: false,
+    })
+
+    const errorMessages = messages.filter(
+      (message): message is Extract<(typeof messages)[number], { kind: 'status'; tone: 'error' }> =>
+        message.kind === 'status' && message.tone === 'error'
+    )
+    expect(errorMessages).toHaveLength(2)
+    expect(errorMessages[0]?.repeatAnswer).toBeUndefined()
+    expect(errorMessages[1]).toMatchObject({
+      repeatAnswer: 'Russia',
+      text: '🟡 После from — одно слово.',
+    })
+  })
+
   it('shows lesson card for each multi-variant success in history', () => {
     const variantOneStep = {
       stepNumber: 3,

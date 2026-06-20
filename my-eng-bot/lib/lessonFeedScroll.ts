@@ -105,6 +105,11 @@ export function isLessonFeedCheckingTailMessageId(tailMessageId?: string): boole
   return tailMessageId?.startsWith('checking-') ?? false
 }
 
+/** id хвоста практики: «Engvo проверяет…». */
+export function isPracticeFeedCheckingTailMessageId(tailMessageId?: string): boolean {
+  return tailMessageId?.startsWith('practice-checking-') ?? false
+}
+
 /** id хвоста: «Верно» / «Неверно». */
 export function isLessonFeedFeedbackTailMessageId(tailMessageId?: string): boolean {
   return tailMessageId?.startsWith('feedback-') ?? false
