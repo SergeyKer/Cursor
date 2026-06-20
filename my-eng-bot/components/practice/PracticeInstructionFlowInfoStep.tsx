@@ -17,6 +17,9 @@ export default function PracticeInstructionFlowInfoStep({
   onContinue,
 }: PracticeInstructionFlowInfoStepProps) {
   const copy = buildPracticeInstructionCopy({ session, audience })
+  const bodyMessage = copy.secondaryMessage
+    ? `${copy.message}\n${copy.secondaryMessage}`
+    : copy.message
 
   return (
     <FlowInfoStep
@@ -25,10 +28,13 @@ export default function PracticeInstructionFlowInfoStep({
       iconBetweenCaption={copy.iconBetweenCaption}
       title={copy.title}
       statsLine={copy.statsLine}
-      message={copy.message}
-      secondaryMessage={copy.secondaryMessage}
-      actionLabel={audience === 'child' ? 'Продолжить' : 'Продолжить'}
+      message={bodyMessage}
+      messageSpacing="section"
+      thesisMessage
+      compactActionsSpacing
+      actionLabel="Продолжить"
       ariaLabel="Инструкция к практике"
+      guardMountTapResetKey={session.id}
       onAction={onContinue}
     />
   )

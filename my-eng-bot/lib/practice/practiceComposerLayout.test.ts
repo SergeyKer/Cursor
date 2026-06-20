@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { isPracticeChoiceChipsPanel } from '@/lib/practice/practiceComposerLayout'
+import {
+  isPracticeChoiceChipsPanel,
+  resolvePracticeChoiceComposerLayout,
+} from '@/lib/practice/practiceComposerLayout'
 import type { PracticeQuestion } from '@/types/practice'
 
 function question(overrides: Partial<PracticeQuestion>): PracticeQuestion {
@@ -36,5 +39,38 @@ describe('isPracticeChoiceChipsPanel', () => {
 
   it('returns false for null question', () => {
     expect(isPracticeChoiceChipsPanel(null, false)).toBe(false)
+  })
+})
+
+describe('resolvePracticeChoiceComposerLayout', () => {
+  const base = {
+    isChoicePanel: true,
+    deferUntilReveal: true,
+    isRevealInProgress: true,
+    isRevealInitializedForKey: true,
+    isChoiceChipsVisible: false,
+    prefersReducedMotion: false,
+  }
+
+  it('hides chips while reveal in progress', () => {
+    expect(resolvePracticeChoiceComposerLayout(base)).toEqual({
+      mountChips: false,
+      reserveMinHeight: true,
+      lockReleased: false,
+    })
+  })
+
+  it('shows chips after reveal', () => {
+    expect(
+      resolvePracticeChoiceComposerLayout({
+        ...base,
+        isRevealInProgress: false,
+        isChoiceChipsVisible: true,
+      })
+    ).toEqual({
+      mountChips: true,
+      reserveMinHeight: true,
+      lockReleased: false,
+    })
   })
 })

@@ -33,7 +33,6 @@ import {
   getLessonTopicById,
   getPracticeLessonTopics,
   getTheoryLessonTopics,
-  pickQuickStartPracticeTopic,
   type LessonCatalogLevel,
 } from '@/lib/lessonCatalog'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
@@ -2292,29 +2291,6 @@ export default function MenuSectionPanels({
             )}
             {lessonsPanel === 'practice' && (
               <>
-                <div className="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const topic = pickQuickStartPracticeTopic('A2')
-                      if (!topic) {
-                        setPracticeError('Пока нет доступных тем для быстрого старта.')
-                        return
-                      }
-                      setSelectedPracticeLessonId(topic.id)
-                      void runPracticeRequest(onOpenPracticeSession, {
-                        lessonId: topic.id,
-                        mode: 'relaxed',
-                        entrySource: 'quick_start',
-                      })
-                    }}
-                    disabled={!onOpenPracticeSession || practiceBusy}
-                    className={MENU_PRIMARY_CTA_CLASS}
-                  >
-                    Быстрый старт
-                  </button>
-                </div>
-
                 <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
                   <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">Выберите урок и темп</p>
                   {practiceTheoryTagFilterId ? (

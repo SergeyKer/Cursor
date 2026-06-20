@@ -75,6 +75,15 @@ const wrongAttempt2 = {
 }
 
 describe('buildPracticeFeedMessages sequence', () => {
+  it('briefing: empty feed (intro lives in PracticeBriefingScreen)', () => {
+    const messages = buildPracticeFeedMessages({
+      session: makeSession({ instructionAcknowledged: false }),
+      state: 'briefing',
+      audience: 'adult',
+    })
+    expect(messages).toEqual([])
+  })
+
   it('active: only question card', () => {
     const messages = buildPracticeFeedMessages({
       session: makeSession(),

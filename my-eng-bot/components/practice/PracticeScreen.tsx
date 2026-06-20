@@ -1,11 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import FeedbackStatusText from '@/components/FeedbackStatusText'
+import LessonStepBubble from '@/components/lesson/LessonStepBubble'
+import PracticeBriefingScreen from '@/components/practice/PracticeBriefingScreen'
 import PracticeFinale from '@/components/practice/PracticeFinale'
-import { APP_BTN_SECONDARY_LARGE } from '@/lib/homeCtaStyles'
-import PracticeInstructionFlowInfoStep from '@/components/practice/PracticeInstructionFlowInfoStep'
 import PracticeQuestionRenderer from '@/components/practice/PracticeQuestionRenderer'
+import { APP_BTN_SECONDARY_LARGE } from '@/lib/homeCtaStyles'
 import { buildPracticeFeedMessages } from '@/lib/practice/buildPracticeFeedMessages'
 import {
   isPracticeAnswerPanelLocked,
@@ -14,18 +15,31 @@ import {
 } from '@/lib/practice/practiceAnswerPanelLock'
 import DialogComposerStack from '@/components/DialogComposerStack'
 import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
-import { DIALOG_COMPOSER_PADDING_BOTTOM, getChatComposerStackLayout } from '@/lib/chatComposerMetrics'
-import { isPracticeChoiceChipsPanel } from '@/lib/practice/practiceComposerLayout'
+import {
+  CHAT_COMPOSER_STACK_TOP_CLASS,
+  DIALOG_COMPOSER_PADDING_BOTTOM,
+  getChatComposerStackLayout,
+} from '@/lib/chatComposerMetrics'
+import { ensurePracticeChoiceOptions } from '@/lib/practice/ensurePracticeChoiceOptions'
+import {
+  isPracticeChoiceChipsPanel,
+  resolvePracticeChoiceComposerLayout,
+} from '@/lib/practice/practiceComposerLayout'
 import { isPracticeCorrectionComposerActive } from '@/lib/practice/practiceCorrectionMode'
 import { useDialogFeedKeyboardScroll } from '@/hooks/useDialogFeedKeyboardScroll'
+import { useLessonComposerHeightLock } from '@/hooks/useLessonComposerHeightLock'
+import { useLessonSectionReveal } from '@/hooks/useLessonSectionReveal'
+import { resolveTaskBubbleIndex } from '@/lib/lessonBubbleLayout'
+import { estimateLessonChoiceChipsMinHeight } from '@/lib/lessonComposerLayout'
 import {
   followLessonFeedTail,
   isLessonFeedScrolledToTail,
   LESSON_SCROLL_VIEWPORT_CLASS,
   resolvePracticeFeedScrollRequest,
   resolveScrollBottomPadding,
+  shouldSkipLessonFeedOverflowFollow,
+  shouldSkipRevealEndOverflowScroll,
 } from '@/lib/lessonFeedScroll'
-import PracticeQuestionBubble from '@/components/practice/PracticeQuestionBubble'
 import {
   CHAT_FEED_SERVICE_STATUS_ROW_CLASS,
   CHAT_FEED_SERVICE_STATUS_ROW_PUZZLE_CHECKING_CLASS,
@@ -34,7 +48,6 @@ import {
   type BubbleRole,
 } from '@/components/chat/ChatBubble'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
-import { usePracticeQuestionReveal } from '@/hooks/usePracticeQuestionReveal'
 import type { PracticeFlowState } from '@/hooks/usePracticeSession'
 import TypingText from '@/components/TypingText'
 import { ENGVO_SERVICE_TYPEWRITER_CHAR_MS } from '@/lib/practice/practiceRevealTiming'
@@ -71,6 +84,8 @@ const statusCardClassByTone: Record<'success' | 'error', string> = {
   error: 'border-amber-200/90 bg-amber-50/95 text-amber-800',
 }
 
+const LESSON_FEED_ENTER_ANIM_MS = 800
+
 function nextMode(mode: PracticeMode): PracticeMode {
   if (mode === 'reference') return 'challenge'
   if (mode === 'relaxed') return 'balanced'
@@ -78,14 +93,27 @@ function nextMode(mode: PracticeMode): PracticeMode {
   return 'challenge'
 }
 
-/** Анимация входа только при первом появлении id в ленте (без повторов при смене state). */
-function usePracticeEnterClass() {
+function useLessonUserEnterClass() {
   const enteredIdsRef = useRef<Set<string>>(new Set())
   return useCallback((messageId: string) => {
     if (enteredIdsRef.current.has(messageId)) return ''
     enteredIdsRef.current.add(messageId)
-    return 'practice-enter'
+    return 'lesson-enter'
   }, [])
+}
+
+/** Верно/неверно — тот же slide-in, что у карточки вопроса (`.lesson-feed-enter`). */
+function useLessonFeedStatusEnterClass(prefersReducedMotion: boolean) {
+  const enteredIdsRef = useRef<Set<string>>(new Set())
+  return useCallback(
+    (messageId: string) => {
+      if (prefersReducedMotion) return ''
+      if (enteredIdsRef.current.has(messageId)) return ''
+      enteredIdsRef.current.add(messageId)
+      return 'lesson-feed-enter'
+    },
+    [prefersReducedMotion]
+  )
 }
 
 export default function PracticeScreen({
@@ -108,12 +136,23 @@ export default function PracticeScreen({
 }: PracticeScreenProps) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const messagesStackRef = useRef<HTMLDivElement | null>(null)
+  const composerStackRef = useRef<HTMLDivElement | null>(null)
   const previousScrollSnapshotRef = useRef<{
     messageCount: number
     currentIndex: number
     tailMessageId: string
   } | null>(null)
-  const practiceEnterClass = usePracticeEnterClass()
+  const previousRevealInProgressRef = useRef(false)
+  const revealEndedAtRef = useRef<number | null>(null)
+  const awaitingFeedEnterBeforeTextRevealRef = useRef(false)
+  const shellScrollCompleteInvokedRef = useRef(false)
+  const [lessonFeedEnterClassActive, setLessonFeedEnterClassActive] = useState(false)
+  const [composerInnerWidthPx, setComposerInnerWidthPx] = useState<number | undefined>()
+
+  const lessonUserEnterClass = useLessonUserEnterClass()
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const lessonFeedStatusEnterClass = useLessonFeedStatusEnterClass(prefersReducedMotion)
+
   const resolvedFeedbackType = useMemo(() => {
     if (feedback?.type) return feedback.type
     if (state === 'generating_next' || state === 'feedback') {
@@ -145,30 +184,135 @@ export default function PracticeScreen({
     [messages]
   )
 
-  const prefersReducedMotion = usePrefersReducedMotion()
-  const revealBubbles = currentLessonMessage?.bubbles ?? []
+  const revealBubbles = useMemo(
+    () => currentLessonMessage?.bubbles ?? [],
+    [currentLessonMessage]
+  )
   const revealSectionCount = revealBubbles.length
-  const isBriefingReveal = state === 'briefing'
-  const revealKey = isBriefingReveal
-    ? `briefing-${session.id}`
-    : (session.questions[session.currentIndex]?.id ?? null)
+  const revealKey = session.questions[session.currentIndex]?.id ?? null
+  const taskBubbleIndex = useMemo(() => resolveTaskBubbleIndex(revealBubbles), [revealBubbles])
   const revealEnabled =
-    Boolean(revealKey) &&
-    revealSectionCount > 0 &&
-    (isBriefingReveal || (state === 'active' && currentLessonMessage != null))
+    state === 'active' && Boolean(currentLessonMessage) && revealSectionCount > 0
 
   const {
-    visibleSectionCount,
-    typingSectionIndex,
+    isShellEnterActive,
+    isTextRevealActive,
+    textRevealedThroughIndex,
+    textAnimatingIndex,
     isRevealInProgress,
-    onSectionTypewriterComplete,
-  } = usePracticeQuestionReveal({
-    sessionId: session.id,
+    isRevealInitializedForKey,
+    onShellScrollComplete,
+    onTextSectionRevealComplete,
+  } = useLessonSectionReveal({
+    sessionId: `practice:${session.id}`,
     revealKey,
     enabled: revealEnabled,
     sectionCount: revealSectionCount,
     prefersReducedMotion,
+    extraPauseBeforeIndex: taskBubbleIndex >= 0 ? taskBubbleIndex : undefined,
   })
+
+  const invokeShellScrollCompleteOnce = useCallback(() => {
+    if (shellScrollCompleteInvokedRef.current) return
+    shellScrollCompleteInvokedRef.current = true
+    awaitingFeedEnterBeforeTextRevealRef.current = false
+    onShellScrollComplete()
+  }, [onShellScrollComplete])
+
+  useLayoutEffect(() => {
+    if (!isShellEnterActive) {
+      setLessonFeedEnterClassActive(false)
+      awaitingFeedEnterBeforeTextRevealRef.current = false
+      return
+    }
+    if (prefersReducedMotion) {
+      awaitingFeedEnterBeforeTextRevealRef.current = false
+      setLessonFeedEnterClassActive(false)
+      return
+    }
+    shellScrollCompleteInvokedRef.current = false
+    awaitingFeedEnterBeforeTextRevealRef.current = true
+    setLessonFeedEnterClassActive(true)
+  }, [isShellEnterActive, prefersReducedMotion, revealKey])
+
+  useEffect(() => {
+    if (!lessonFeedEnterClassActive) return
+    const fallbackTimer = window.setTimeout(() => {
+      if (!awaitingFeedEnterBeforeTextRevealRef.current) return
+      setLessonFeedEnterClassActive(false)
+      invokeShellScrollCompleteOnce()
+    }, LESSON_FEED_ENTER_ANIM_MS + 80)
+    return () => window.clearTimeout(fallbackTimer)
+  }, [invokeShellScrollCompleteOnce, lessonFeedEnterClassActive, revealKey])
+
+  const isCorrectionComposerActive = isPracticeCorrectionComposerActive(
+    state,
+    session.wrongAttemptsOnCurrentQuestion ?? 0
+  )
+
+  const showQuestionComposer =
+    currentQuestion != null &&
+    state !== 'completed' &&
+    state !== 'error'
+
+  const isChoiceChipsPanel =
+    showQuestionComposer && isPracticeChoiceChipsPanel(currentQuestion, isCorrectionComposerActive)
+
+  const deferChoiceChipsUntilCardReveal =
+    isChoiceChipsPanel &&
+    state === 'active' &&
+    revealSectionCount > 0 &&
+    !prefersReducedMotion
+
+  const isChoiceChipsVisible =
+    !deferChoiceChipsUntilCardReveal ||
+    (isRevealInitializedForKey && !isRevealInProgress)
+
+  const choiceOptions = useMemo(
+    () =>
+      currentQuestion && isChoiceChipsPanel
+        ? ensurePracticeChoiceOptions(currentQuestion.options, currentQuestion.targetAnswer)
+        : [],
+    [currentQuestion, isChoiceChipsPanel]
+  )
+
+  const choiceComposerLayout = isChoiceChipsPanel
+    ? resolvePracticeChoiceComposerLayout({
+        isChoicePanel: true,
+        deferUntilReveal: deferChoiceChipsUntilCardReveal,
+        isRevealInProgress,
+        isRevealInitializedForKey,
+        isChoiceChipsVisible,
+        prefersReducedMotion,
+      })
+    : null
+
+  const choiceComposerMinHeightEstimate =
+    isChoiceChipsPanel && choiceComposerLayout?.reserveMinHeight
+      ? estimateLessonChoiceChipsMinHeight(choiceOptions.length, choiceOptions, composerInnerWidthPx)
+      : undefined
+
+  const composerHeightLockReleased =
+    prefersReducedMotion ||
+    (choiceComposerLayout ? choiceComposerLayout.lockReleased : !isRevealInProgress)
+
+  const lockedComposerMinHeight = useLessonComposerHeightLock({
+    stackRef: composerStackRef,
+    transitionKey: currentQuestion?.id ?? null,
+    panelKind: 'choice',
+    optionCount: choiceOptions.length,
+    choiceOptions,
+    containerWidthPx: composerInnerWidthPx,
+    compact: true,
+    enabled: isChoiceChipsPanel,
+    lockReleased: composerHeightLockReleased,
+  })
+
+  const composerMinHeight =
+    lockedComposerMinHeight ??
+    (choiceComposerLayout?.reserveMinHeight && !isChoiceChipsVisible
+      ? choiceComposerMinHeightEstimate
+      : undefined)
 
   const isAnswerPanelLocked = isPracticeAnswerPanelLocked(
     state,
@@ -187,7 +331,7 @@ export default function PracticeScreen({
   )
 
   const scrollBottomPadding = resolveScrollBottomPadding({
-    hasCurrentStep: state !== 'briefing' && state !== 'completed',
+    hasCurrentStep: state !== 'completed',
     hasPostLessonOptions: false,
     isSentencePuzzle: false,
     bottomStackHeightPx: 0,
@@ -230,19 +374,29 @@ export default function PracticeScreen({
     [scheduleScroll]
   )
 
+  useLayoutEffect(() => {
+    if (!isChoiceChipsPanel) return
+    const el = composerStackRef.current
+    if (!el) return
+
+    const measure = () => {
+      const width = Math.round(el.clientWidth)
+      if (width > 0) {
+        setComposerInnerWidthPx((current) => (current === width ? current : width))
+      }
+    }
+
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [isChoiceChipsPanel, currentQuestion?.id])
+
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current
     if (!scrollContainer) return
-
-    if (state === 'briefing') {
-      scrollContainer.scrollTo({ top: 0, behavior: 'auto' })
-      previousScrollSnapshotRef.current = {
-        messageCount: messages.length,
-        currentIndex: session.currentIndex,
-        tailMessageId,
-      }
-      return
-    }
 
     const nextSnapshot = {
       messageCount: messages.length,
@@ -300,6 +454,7 @@ export default function PracticeScreen({
 
   useEffect(() => {
     if (!isRevealInProgress) return
+    if (deferChoiceChipsUntilCardReveal) return
     if (isLessonFeedScrolledToTail(scrollContainerRef.current, 'tail_if_needed')) return
 
     const behavior = resolvePracticeFeedScrollRequest({
@@ -309,9 +464,42 @@ export default function PracticeScreen({
     })
     return scheduleScrollPracticeFeedTail(behavior)
   }, [
-    visibleSectionCount,
-    typingSectionIndex,
+    textRevealedThroughIndex,
+    textAnimatingIndex,
     isRevealInProgress,
+    deferChoiceChipsUntilCardReveal,
+    prefersReducedMotion,
+    scheduleScrollPracticeFeedTail,
+    state,
+  ])
+
+  useEffect(() => {
+    const wasRevealInProgress = previousRevealInProgressRef.current
+    previousRevealInProgressRef.current = isRevealInProgress
+
+    if (!wasRevealInProgress || isRevealInProgress) return
+
+    if (
+      shouldSkipRevealEndOverflowScroll({
+        deferChoiceChipsUntilCardReveal,
+        shouldRenderChoiceChips: isChoiceChipsPanel,
+        wasRevealInProgress,
+        isRevealInProgress,
+      })
+    ) {
+      revealEndedAtRef.current = Date.now()
+      return
+    }
+
+    if (isLessonFeedScrolledToTail(scrollContainerRef.current, 'tail_if_needed')) return
+
+    return scheduleScrollPracticeFeedTail(
+      resolvePracticeFeedScrollRequest({ prefersReducedMotion, reason: 'overflow_follow', state })
+    )
+  }, [
+    isRevealInProgress,
+    deferChoiceChipsUntilCardReveal,
+    isChoiceChipsPanel,
     prefersReducedMotion,
     scheduleScrollPracticeFeedTail,
     state,
@@ -319,10 +507,19 @@ export default function PracticeScreen({
 
   useEffect(() => {
     const messagesStack = messagesStackRef.current
-    if (!messagesStack || state === 'briefing' || state === 'completed') return
+    if (!messagesStack || state === 'completed') return
     if (typeof ResizeObserver === 'undefined') return
 
     const observer = new ResizeObserver(() => {
+      if (isShellEnterActive) return
+      const skipOverflowFollow = shouldSkipLessonFeedOverflowFollow({
+        isRevealInProgress,
+        deferChoiceChipsUntilCardReveal,
+        isChoiceChipsVisible,
+        revealEndedAtMs: revealEndedAtRef.current,
+      })
+      if (skipOverflowFollow) return
+
       scheduleScrollPracticeFeedTail(
         resolvePracticeFeedScrollRequest({
           prefersReducedMotion,
@@ -338,30 +535,34 @@ export default function PracticeScreen({
     prefersReducedMotion,
     scheduleScrollPracticeFeedTail,
     messages.length,
-    visibleSectionCount,
+    textRevealedThroughIndex,
+    textAnimatingIndex,
     isRevealInProgress,
+    isShellEnterActive,
+    deferChoiceChipsUntilCardReveal,
+    isChoiceChipsVisible,
     session.currentIndex,
   ])
 
-  const showQuestionComposer =
-    currentQuestion != null &&
-    state !== 'briefing' &&
-    state !== 'completed' &&
-    state !== 'error'
-
-  const isCorrectionComposerActive = isPracticeCorrectionComposerActive(
-    state,
-    session.wrongAttemptsOnCurrentQuestion ?? 0
-  )
-
-  const isChoiceChipsPanel =
-    showQuestionComposer && isPracticeChoiceChipsPanel(currentQuestion, isCorrectionComposerActive)
   const composerStackLayout = getChatComposerStackLayout(isChoiceChipsPanel)
-  const composerStackStyle = composerStackLayout.style
-    ? { ...composerStackLayout.style, paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }
-    : composerStackLayout.style
+  const composerStackStyle = {
+    ...(composerStackLayout.style
+      ? { ...composerStackLayout.style, paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }
+      : composerStackLayout.style),
+    ...(composerMinHeight != null ? { minHeight: composerMinHeight } : {}),
+  }
 
   useDialogFeedKeyboardScroll(scrollContainerRef, showQuestionComposer)
+
+  if (state === 'briefing') {
+    return (
+      <PracticeBriefingScreen
+        session={session}
+        audience={audience}
+        onContinue={onAcknowledgeInstruction}
+      />
+    )
+  }
 
   return (
     <div className="dialog-flex-shell flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
@@ -384,116 +585,169 @@ export default function PracticeScreen({
                     : undefined
                 }
               >
-              <div ref={messagesStackRef}>
-                {messages.map((message, index) => {
-                  const previousRole = messages[index - 1]?.role as BubbleRole | undefined
-                  const nextRole = messages[index + 1]?.role as BubbleRole | undefined
-                  const position = getBubblePosition(previousRole, message.role, nextRole)
-                  const isBubbleEnd = position === 'solo' || position === 'last'
-                  const rowMargin = isBubbleEnd ? 'mb-2.5' : 'mb-0.5'
+                <div ref={messagesStackRef}>
+                  {messages.map((message, index) => {
+                    const previousRole = messages[index - 1]?.role as BubbleRole | undefined
+                    const nextRole = messages[index + 1]?.role as BubbleRole | undefined
+                    const position = getBubblePosition(previousRole, message.role, nextRole)
+                    const isBubbleEnd = position === 'solo' || position === 'last'
+                    const rowMargin = isBubbleEnd ? 'mb-2.5' : 'mb-0.5'
 
-                  if (message.kind === 'lesson') {
-                    const isCurrentQuestion = !message.isHistorical
-                    const isActiveRevealTarget =
-                      isCurrentQuestion && message.id === currentLessonMessage?.id
-                    const lessonVisibleSectionCount = isCurrentQuestion
-                      ? isActiveRevealTarget
-                        ? visibleSectionCount
-                        : message.bubbles?.length ?? 0
-                      : message.bubbles?.length ?? 0
-                    const lessonAnimateSections = isCurrentQuestion && isRevealInProgress
-                    const lessonTypingSectionIndex =
-                      isActiveRevealTarget && isRevealInProgress ? typingSectionIndex : null
+                    if (message.kind === 'lesson') {
+                      const isCurrentQuestion = !message.isHistorical
+                      const isActiveRevealTarget =
+                        isCurrentQuestion && message.id === currentLessonMessage?.id
 
-                    return (
-                      <div key={message.id}>
-                        {lessonVisibleSectionCount > 0 ? (
-                          <ChatBubbleFrame
-                            role="assistant"
-                            position={position}
-                            className="w-full"
-                            rowClassName={rowMargin}
-                          >
-                            <PracticeQuestionBubble
-                              bubbles={message.bubbles ?? []}
-                              visibleSectionCount={lessonVisibleSectionCount}
-                              typingSectionIndex={lessonTypingSectionIndex}
-                              animateSections={isCurrentQuestion ? lessonAnimateSections : false}
-                              onSectionTypewriterComplete={
-                                isActiveRevealTarget ? onSectionTypewriterComplete : undefined
-                              }
-                            />
-                          </ChatBubbleFrame>
-                        ) : null}
-                      </div>
-                    )
-                  }
+                      const hideLessonBubbleUntilRevealReady =
+                        isCurrentQuestion &&
+                        isActiveRevealTarget &&
+                        revealEnabled &&
+                        !isRevealInitializedForKey
 
-                  if (message.kind === 'answer') {
+                      const lessonShellEnterActive =
+                        isCurrentQuestion &&
+                        isActiveRevealTarget &&
+                        (isShellEnterActive || hideLessonBubbleUntilRevealReady)
+
+                      const lessonFeedEnterActive =
+                        isCurrentQuestion &&
+                        isActiveRevealTarget &&
+                        !prefersReducedMotion &&
+                        lessonFeedEnterClassActive
+
+                      const currentLessonTextRevealedThroughIndex =
+                        !isCurrentQuestion || !isActiveRevealTarget
+                          ? (message.bubbles?.length ?? 0) - 1
+                          : revealEnabled
+                            ? !isRevealInitializedForKey
+                              ? -1
+                              : isRevealInProgress || isShellEnterActive
+                                ? textRevealedThroughIndex
+                                : (message.bubbles?.length ?? 0) - 1
+                            : (message.bubbles?.length ?? 0) - 1
+
+                      if (hideLessonBubbleUntilRevealReady && !lessonFeedEnterActive) {
+                        return null
+                      }
+
+                      return (
+                        <ChatBubbleFrame
+                          key={message.id}
+                          role="assistant"
+                          position={position}
+                          className={`w-full${lessonFeedEnterActive ? ' lesson-feed-enter' : ''}`}
+                          rowClassName={rowMargin}
+                          onAnimationEnd={
+                            lessonFeedEnterActive
+                              ? (event) => {
+                                  if (event.animationName !== 'lessonFeedSlideIn') return
+                                  setLessonFeedEnterClassActive(false)
+                                  invokeShellScrollCompleteOnce()
+                                }
+                              : undefined
+                          }
+                        >
+                          <LessonStepBubble
+                            key={
+                              isCurrentQuestion && currentQuestion
+                                ? `practice-soft-${currentQuestion.id}`
+                                : message.id
+                            }
+                            bubbles={message.bubbles ?? []}
+                            shellEnterActive={
+                              isCurrentQuestion && isActiveRevealTarget ? lessonShellEnterActive : false
+                            }
+                            animateSections={
+                              isCurrentQuestion &&
+                              isActiveRevealTarget &&
+                              isTextRevealActive
+                            }
+                            textRevealedThroughIndex={currentLessonTextRevealedThroughIndex}
+                            textAnimatingIndex={
+                              isCurrentQuestion && isActiveRevealTarget && isTextRevealActive
+                                ? textAnimatingIndex
+                                : null
+                            }
+                            onTextSectionRevealComplete={
+                              isCurrentQuestion && isActiveRevealTarget
+                                ? onTextSectionRevealComplete
+                                : undefined
+                            }
+                          />
+                        </ChatBubbleFrame>
+                      )
+                    }
+
+                    if (message.kind === 'answer') {
+                      return (
+                        <ChatBubbleFrame
+                          key={message.id}
+                          role="user"
+                          position={position}
+                          className={lessonUserEnterClass(message.id)}
+                          rowClassName={rowMargin}
+                        >
+                          <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
+                            {message.text}
+                          </p>
+                        </ChatBubbleFrame>
+                      )
+                    }
+
+                    if (message.tone === 'service') {
+                      const serviceRowClass = message.id.startsWith('practice-checking-')
+                        ? CHAT_FEED_SERVICE_STATUS_ROW_PUZZLE_CHECKING_CLASS
+                        : CHAT_FEED_SERVICE_STATUS_ROW_CLASS
+                      return (
+                        <div key={message.id} dir="ltr" className={serviceRowClass}>
+                          <TypingText
+                            key={message.id}
+                            text={message.text ?? ''}
+                            mode="char"
+                            speed={ENGVO_SERVICE_TYPEWRITER_CHAR_MS}
+                            startDelayMs={0}
+                            fadeWhileTyping={false}
+                            singleLine
+                            className="w-fit text-[14px] italic typing-indicator-text-shimmer"
+                          />
+                        </div>
+                      )
+                    }
+
                     return (
                       <ChatBubbleFrame
                         key={message.id}
-                        role="user"
+                        role="assistant"
                         position={position}
-                        className={practiceEnterClass(message.id)}
+                        className={lessonFeedStatusEnterClass(message.id)}
                         rowClassName={rowMargin}
                       >
-                        <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
-                          {message.text}
-                        </p>
+                        <section
+                          className={`chat-section-surface glass-surface rounded-xl border ${
+                            !message.text ? 'px-3 py-2' : 'px-2.5 py-1.5'
+                          } ${statusCardClassByTone[message.tone ?? 'success']}`}
+                        >
+                          {!message.text ? (
+                            <p className="whitespace-pre-line break-words text-[15px] leading-[1.45]">
+                              {message.text}
+                            </p>
+                          ) : (
+                            <FeedbackStatusText text={message.text} />
+                          )}
+                        </section>
                       </ChatBubbleFrame>
                     )
-                  }
-
-                  if (message.tone === 'service') {
-                    const serviceRowClass = message.id.startsWith('practice-checking-')
-                      ? CHAT_FEED_SERVICE_STATUS_ROW_PUZZLE_CHECKING_CLASS
-                      : CHAT_FEED_SERVICE_STATUS_ROW_CLASS
-                    return (
-                      <div key={message.id} dir="ltr" className={serviceRowClass}>
-                        <TypingText
-                          key={message.id}
-                          text={message.text ?? ''}
-                          mode="char"
-                          speed={ENGVO_SERVICE_TYPEWRITER_CHAR_MS}
-                          startDelayMs={0}
-                          fadeWhileTyping={false}
-                          singleLine
-                          className="w-fit text-[14px] italic typing-indicator-text-shimmer"
-                        />
-                      </div>
-                    )
-                  }
-
-                  return (
-                    <ChatBubbleFrame
-                      key={message.id}
-                      role="assistant"
-                      position={position}
-                      className={practiceEnterClass(message.id)}
-                      rowClassName={rowMargin}
-                    >
-                      <section
-                        className={`chat-section-surface glass-surface rounded-xl border ${
-                          !message.text ? 'px-3 py-2' : 'px-2.5 py-1.5'
-                        } ${statusCardClassByTone[message.tone ?? 'success']}`}
-                      >
-                        {!message.text ? (
-                          <p className="whitespace-pre-line break-words text-[15px] leading-[1.45]">
-                            {message.text}
-                          </p>
-                        ) : (
-                          <FeedbackStatusText text={message.text} />
-                        )}
-                      </section>
-                    </ChatBubbleFrame>
-                  )
-                })}
+                  })}
+                </div>
               </div>
-            </div>
             </DialogGlassScrollHost>
 
-            <DialogComposerStack className={composerStackLayout.verticalClass} style={composerStackStyle}>
+            <DialogComposerStack
+              ref={composerStackRef}
+              className={`${CHAT_COMPOSER_STACK_TOP_CLASS} ${composerStackLayout.verticalClass}`}
+              style={composerStackStyle}
+              contentMaxWidthClass={isChoiceChipsPanel ? undefined : 'max-w-[22rem]'}
+            >
               {state === 'completed' ? (
                 <PracticeFinale
                   session={session}
@@ -511,7 +765,8 @@ export default function PracticeScreen({
               ) : state === 'error' ? (
                 <div className="space-y-2">
                   <p className="px-1 text-center text-[13px] leading-snug text-amber-800">
-                    {feedback?.message ?? 'Не удалось подготовить следующий шаг. Можно повторить безопасный вариант.'}
+                    {feedback?.message ??
+                      'Не удалось подготовить следующий шаг. Можно повторить безопасный вариант.'}
                   </p>
                   <button
                     type="button"
@@ -529,12 +784,6 @@ export default function PracticeScreen({
                     В меню практики
                   </button>
                 </div>
-              ) : state === 'briefing' ? (
-                <PracticeInstructionFlowInfoStep
-                  session={session}
-                  audience={audience}
-                  onContinue={onAcknowledgeInstruction}
-                />
               ) : showQuestionComposer ? (
                 <PracticeQuestionRenderer
                   key={currentQuestion.id}
@@ -546,6 +795,10 @@ export default function PracticeScreen({
                   wrongAttemptsOnCurrentQuestion={session.wrongAttemptsOnCurrentQuestion ?? 0}
                   audience={audience}
                   onSubmit={onSubmitAnswer}
+                  mountChoiceChips={choiceComposerLayout?.mountChips ?? true}
+                  suppressChoiceChipEnterAnimation={!isChoiceChipsVisible}
+                  choiceChipsVisible={isChoiceChipsVisible}
+                  choiceChipsMinHeight={choiceComposerMinHeightEstimate}
                 />
               ) : null}
             </DialogComposerStack>

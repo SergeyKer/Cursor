@@ -13,7 +13,6 @@ import {
   getPracticeExerciseTypeCatalogNumber,
   PRACTICE_EXERCISE_TYPE_CATALOG_SIZE,
 } from '@/lib/practice/practiceExerciseTypeCatalog'
-import { buildPracticeBriefingBubbles } from '@/lib/practice/practiceInstructionCopy'
 import type { Bubble } from '@/types/lesson'
 import type { PracticeAnswer, PracticeQuestion, PracticeSession } from '@/types/practice'
 
@@ -130,15 +129,7 @@ export function buildPracticeFeedMessages(params: {
   const { session, state, audience, pendingAnswer = null, feedbackType } = params
 
   if (state === 'briefing') {
-    return [
-      {
-        id: `practice-briefing-${session.id}`,
-        role: 'assistant',
-        kind: 'lesson',
-        bubbles: buildPracticeBriefingBubbles(session, audience),
-        isHistorical: false,
-      },
-    ]
+    return []
   }
 
   const result: PracticeFeedMessage[] = []

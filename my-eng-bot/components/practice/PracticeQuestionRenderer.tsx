@@ -49,6 +49,10 @@ interface PracticeQuestionRendererProps {
   wrongAttemptsOnCurrentQuestion?: number
   audience?: Audience
   onSubmit: (answer: string) => void
+  mountChoiceChips?: boolean
+  suppressChoiceChipEnterAnimation?: boolean
+  choiceChipsVisible?: boolean
+  choiceChipsMinHeight?: number
 }
 
 function inputPlaceholder(
@@ -132,6 +136,10 @@ export default function PracticeQuestionRenderer({
   wrongAttemptsOnCurrentQuestion = 0,
   audience = 'adult',
   onSubmit,
+  mountChoiceChips = true,
+  suppressChoiceChipEnterAnimation = false,
+  choiceChipsVisible = true,
+  choiceChipsMinHeight,
 }: PracticeQuestionRendererProps) {
   const [draft, setDraft] = useState('')
   const [voiceTextDraft, setVoiceTextDraft] = useState('')
@@ -526,14 +534,28 @@ export default function PracticeQuestionRenderer({
   }, [finishChoiceVoiceSession, hardResetSpeechRecognition])
 
   if (canUseChoices) {
+    if (!mountChoiceChips) {
+      if (choiceChipsMinHeight) {
+        return (
+          <div
+            className="pointer-events-none invisible"
+            aria-hidden
+            style={{ minHeight: choiceChipsMinHeight }}
+          />
+        )
+      }
+      return null
+    }
+
     const chips = (
       <LessonChoiceChips
         key={question.id}
         choices={choices}
         onChoose={onSubmit}
-        disabled={disabled}
+        disabled={disabled || !choiceChipsVisible}
         frozen={choicePanelFrozen}
         resetKey={`${question.id}-${correctionMode ? 'correction' : 'answer'}`}
+        suppressEnterAnimation={suppressChoiceChipEnterAnimation}
       />
     )
 
@@ -541,12 +563,24 @@ export default function PracticeQuestionRenderer({
       return (
         <div className={`${getPracticeComposerEnterClass(correctionMode)} space-y-1`}>
           <AudioPracticeButton text={question.audioText ?? question.targetAnswer} disabled={disabled} />
-          {chips}
+          <div
+            className={!choiceChipsVisible ? 'pointer-events-none' : undefined}
+            aria-hidden={!choiceChipsVisible}
+          >
+            {chips}
+          </div>
         </div>
       )
     }
 
-    return chips
+    return (
+      <div
+        className={!choiceChipsVisible ? 'pointer-events-none' : undefined}
+        aria-hidden={!choiceChipsVisible}
+      >
+        {chips}
+      </div>
+    )
   }
 
   if (canUseDropdown) {
