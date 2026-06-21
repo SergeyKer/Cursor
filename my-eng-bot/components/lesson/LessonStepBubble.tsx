@@ -166,18 +166,20 @@ export default function LessonStepBubble({
         </div>
       ) : null}
 
-      <div className={`relative overflow-hidden ${lessonCardSurfaceClass} ${cornerClass}`}>
-        <SoftTextSection
-          bubble={taskBubble}
-          sectionIndex={taskIndex}
-          shellEnterActive={shellEnterActive}
-          animateSections={animateSections}
-          textRevealedThroughIndex={textRevealedThroughIndex}
-          textAnimatingIndex={textAnimatingIndex}
-          onTextSectionRevealComplete={onTextSectionRevealComplete}
-          isLastInCard
-        />
-      </div>
+      {taskBubble ? (
+        <div className={`relative overflow-hidden ${lessonCardSurfaceClass} ${cornerClass}`}>
+          <SoftTextSection
+            bubble={taskBubble}
+            sectionIndex={taskIndex}
+            shellEnterActive={shellEnterActive}
+            animateSections={animateSections}
+            textRevealedThroughIndex={textRevealedThroughIndex}
+            textAnimatingIndex={textAnimatingIndex}
+            onTextSectionRevealComplete={onTextSectionRevealComplete}
+            isLastInCard
+          />
+        </div>
+      ) : null}
     </div>
   )
 }
