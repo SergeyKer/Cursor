@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import {
   estimateLessonComposerMinHeight,
   type LessonComposerPanelKind,
@@ -141,11 +141,11 @@ export function useLessonComposerHeightLock({
     }
   }, [enabled, lockReleased])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!enabled || lockReleased) return
 
     const stack = stackRef.current
-    if (!stack || typeof ResizeObserver === 'undefined') return
+    if (!stack) return
 
     const sync = () => {
       const measuredContent = measureStack()
@@ -158,10 +158,15 @@ export function useLessonComposerHeightLock({
       })
     }
 
+    sync()
+
+    if (typeof ResizeObserver === 'undefined') return
+
     const observer = new ResizeObserver(sync)
     observer.observe(stack)
     return () => observer.disconnect()
   }, [
+    compact,
     enabled,
     lockReleased,
     measureStack,

@@ -57,6 +57,7 @@ import { resyncIosWebKitDialogComposerStackHeight } from '@/hooks/useDialogCompo
 import { useLessonComposerHeightLock } from '@/hooks/useLessonComposerHeightLock'
 import {
   estimateLessonChoiceChipsMinHeight,
+  measureChoiceChipsLaneWidthPx,
   estimateLessonComposerMinHeight,
   resolveLessonComposerPanelKind,
 } from '@/lib/lessonComposerLayout'
@@ -560,8 +561,8 @@ export default function LessonStepRenderer({
     if (!el) return
 
     const measure = () => {
-      const width = Math.round(el.clientWidth)
-      if (width > 0) {
+      const width = measureChoiceChipsLaneWidthPx(el)
+      if (width != null) {
         setComposerInnerWidthPx((current) => (current === width ? current : width))
       }
     }
@@ -2049,7 +2050,9 @@ export default function LessonStepRenderer({
                     aria-hidden
                     style={{
                       minHeight: estimateLessonChoiceChipsMinHeight(
-                        displayChoiceOptions.length
+                        displayChoiceOptions.length,
+                        displayChoiceOptions,
+                        composerInnerWidthPx
                       ),
                     }}
                   />

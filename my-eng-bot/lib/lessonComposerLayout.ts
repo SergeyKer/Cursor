@@ -66,6 +66,25 @@ export function resolveLessonComposerPanelKind(params: {
 /** Узкая ширина для резерва до первого измерения композера (типичный mobile). */
 export const CHOICE_COMPOSER_FALLBACK_WIDTH_PX = 360
 
+/** Горизонтальный padding панели чипов (LessonChoiceChips px-1.5). */
+export const CHOICE_CHIPS_LANE_HORIZONTAL_PADDING_PX = 12
+
+/** Ширина chip-lane: замер или консервативный fallback до первого layout. */
+export function resolveChoiceChipsLayoutWidthPx(measuredWidthPx?: number): number {
+  if (measuredWidthPx != null && measuredWidthPx > 0) {
+    return measuredWidthPx
+  }
+  return CHOICE_COMPOSER_FALLBACK_WIDTH_PX
+}
+
+/** Ширина flex-ряда чипов: inner dock минус padding панели чипов. */
+export function measureChoiceChipsLaneWidthPx(stack: HTMLElement): number | undefined {
+  const inner = stack.querySelector('.dialog-composer-dock-inner')
+  const widthSource = inner instanceof HTMLElement ? inner : stack
+  const laneWidth = Math.round(widthSource.clientWidth - CHOICE_CHIPS_LANE_HORIZONTAL_PADDING_PX)
+  return laneWidth > 0 ? laneWidth : undefined
+}
+
 export function estimateLessonChoiceChipsMinHeight(
   optionCount: number,
   options?: string[],
@@ -75,13 +94,13 @@ export function estimateLessonChoiceChipsMinHeight(
 
   const count = optionCount > 0 ? optionCount : (options?.length ?? 0)
 
-  if (options && options.length > 0 && containerWidthPx != null) {
+  if (options && options.length > 0) {
     return (
       CHOICE_PANEL_VERTICAL_PADDING_PX +
       estimateFlexChipBlockMinHeightFromItems({
         items: options,
         style: 'choice',
-        containerWidthPx,
+        containerWidthPx: resolveChoiceChipsLayoutWidthPx(containerWidthPx),
         gapPx: CHOICE_CHIP_ROW_GAP_PX,
       })
     )

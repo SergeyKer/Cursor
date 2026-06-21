@@ -31,7 +31,10 @@ import { useDialogFeedKeyboardScroll } from '@/hooks/useDialogFeedKeyboardScroll
 import { useLessonComposerHeightLock } from '@/hooks/useLessonComposerHeightLock'
 import { useLessonSectionReveal } from '@/hooks/useLessonSectionReveal'
 import { resolveTaskBubbleIndex } from '@/lib/lessonBubbleLayout'
-import { estimateLessonChoiceChipsMinHeight } from '@/lib/lessonComposerLayout'
+import {
+  estimateLessonChoiceChipsMinHeight,
+  measureChoiceChipsLaneWidthPx,
+} from '@/lib/lessonComposerLayout'
 import {
   isLessonFeedScrolledToTail,
   isPracticeFeedCheckingTailMessageId,
@@ -461,8 +464,8 @@ export default function PracticeScreen({
     if (!el) return
 
     const measure = () => {
-      const width = Math.round(el.clientWidth)
-      if (width > 0) {
+      const width = measureChoiceChipsLaneWidthPx(el)
+      if (width != null) {
         setComposerInnerWidthPx((current) => (current === width ? current : width))
       }
     }

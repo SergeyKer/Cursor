@@ -22,19 +22,19 @@ describe('useLessonComposerHeightLock merge behavior', () => {
   const step1Options = ["I'm happy.", "I'm from Russia.", "I am a student."]
   const step2Options = ['a', 'an', 'the']
 
-  it('starts with count-based incoming before width is measured', () => {
+  it('starts with fallback width-aware incoming before width is measured', () => {
     const incoming = estimateLessonComposerMinHeight({
       panelKind: 'choice',
       optionCount: 3,
       choiceOptions: step1Options,
       compact: true,
     })
-    expect(incoming).toBe(56)
-    expect(mergeComposerHeightLockWithinStep(undefined, incoming)).toBe(56)
+    expect(incoming).toBe(98)
+    expect(mergeComposerHeightLockWithinStep(undefined, incoming)).toBe(98)
   })
 
-  it('grows lock when measured width requires two rows on the same step', () => {
-    const countBased = estimateLessonComposerMinHeight({
+  it('keeps lock when measured width matches fallback estimate on the same step', () => {
+    const fallbackIncoming = estimateLessonComposerMinHeight({
       panelKind: 'choice',
       optionCount: 3,
       choiceOptions: step1Options,
@@ -47,8 +47,8 @@ describe('useLessonComposerHeightLock merge behavior', () => {
       containerWidthPx: 360,
       compact: true,
     })
-    expect(mergeComposerHeightLockWithinStep(56, countBased)).toBe(56)
-    expect(mergeComposerHeightLockWithinStep(56, widthAware)).toBe(98)
+    expect(mergeComposerHeightLockWithinStep(98, fallbackIncoming)).toBe(98)
+    expect(mergeComposerHeightLockWithinStep(98, widthAware)).toBe(98)
   })
 
   it('never shrinks lock mid-step when incoming decreases', () => {

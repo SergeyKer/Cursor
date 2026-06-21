@@ -134,10 +134,14 @@ describe('estimateLessonChoiceChipsMinHeight', () => {
     expect(estimateLessonChoiceChipsMinHeight(3)).toBe(48)
   })
 
-  it('uses count-based one row when options provided but width is not measured yet', () => {
+  it('uses count-based one row when only count is provided without options', () => {
+    expect(estimateLessonChoiceChipsMinHeight(3)).toBe(48)
+  })
+
+  it('uses width-aware layout when options provided but width is not measured yet', () => {
     const step1Options = ["I'm happy.", "I'm from Russia.", "I am a student."]
-    expect(estimateLessonChoiceChipsMinHeight(3, step1Options)).toBe(48)
-    expect(estimateLessonChoiceChipsMinHeight(0, step1Options)).toBe(48)
+    expect(estimateLessonChoiceChipsMinHeight(3, step1Options)).toBe(90)
+    expect(estimateLessonChoiceChipsMinHeight(0, step1Options)).toBe(90)
   })
 
   it('uses two rows for four options', () => {
@@ -187,7 +191,7 @@ describe('estimateLessonComposerMinHeight', () => {
     })
     expect(withOptions).toBeGreaterThan(legacy)
     expect(withOptions).toBe(98)
-    expect(beforeWidthMeasured).toBe(legacy)
+    expect(beforeWidthMeasured).toBe(withOptions)
   })
 
   it('choice panel is taller with more rows', () => {
