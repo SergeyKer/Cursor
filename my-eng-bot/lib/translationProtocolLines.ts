@@ -12,7 +12,7 @@ export const TRANSLATION_PROTOCOL_BLOCK_LINE = new RegExp(
   'i'
 )
 
-/** Модель иногда вставляет «Повтори:» сразу после «Скажи:» — убираем лишние ведущие префиксы. */
+/** Модель иногда вставляет «Повтори:» сразу после «Скажи:» - убираем лишние ведущие префиксы. */
 export function stripLeadingRepeatRuPrompt(body: string): string {
   let s = body.trim()
   while (/^Повтори\s*:\s*/i.test(s)) {
@@ -23,7 +23,7 @@ export function stripLeadingRepeatRuPrompt(body: string): string {
 
 /**
  * Убирает внешние парные кавычки вокруг всей строки (модель часто оборачивает эталон для «Повтори»).
- * Повторяет, пока строка целиком в кавычках — без рекурсии в глубину содержимого.
+ * Повторяет, пока строка целиком в кавычках - без рекурсии в глубину содержимого.
  */
 export function stripWrappingQuotes(body: string): string {
   let s = body.trim()

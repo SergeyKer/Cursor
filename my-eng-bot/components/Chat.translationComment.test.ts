@@ -56,7 +56,7 @@ describe('condenseTranslationCommentToErrors', () => {
   it('keeps translation comment theses on separate lines', () => {
     const result = condenseTranslationCommentToErrors(
       [
-        'Ошибка формы глагола — "loves" нужна не для "we".',
+        'Ошибка формы глагола - "loves" нужна не для "we".',
         'Используется основное "love" без "s".',
         'Ошибка числа: используйте love в единственном числе.',
       ].join(' ')
@@ -64,7 +64,7 @@ describe('condenseTranslationCommentToErrors', () => {
 
     expect(result).toBe(
       [
-        'Ошибка формы глагола — "loves" нужна не для "we".',
+        'Ошибка формы глагола - "loves" нужна не для "we".',
         'Используется основное "love" без "s".',
         'Ошибка числа: используйте love в единственном числе.',
       ].join('\n')
@@ -133,11 +133,11 @@ describe('shouldIgnoreTranslationRepeatForStatusInTranslationUi', () => {
 })
 
 describe('computeAssistantTranslationMainCardMeta', () => {
-  it('при ошибке сохраняет русское задание в метаданных, но карточку «Переведи» не показывает — цикл только «Скажи»', () => {
+  it('при ошибке сохраняет русское задание в метаданных, но карточку «Переведи» не показывает - цикл только «Скажи»', () => {
     const content = [
       'Комментарий_перевод: Есть зацепка, но нужно поправить форму.',
       'Ошибки:',
-      '🔤 Нужен Present Continuous — действие сейчас.',
+      '🔤 Нужен Present Continuous - действие сейчас.',
       'Скажи: Are we watching a movie?',
       'Переведи далее: Мы сейчас смотрим фильм?',
       'Переведи на английский язык.',
@@ -184,7 +184,7 @@ describe('parseTranslationCoachBlocks', () => {
       'Ошибки:',
       '✏️ a → b',
       '📖 x → y',
-      'Время: Present Simple — пояснение.',
+      'Время: Present Simple - пояснение.',
       'Конструкция: S + V1',
       'Скажи: I run.',
     ].join('\n')
@@ -200,10 +200,10 @@ describe('parseTranslationCoachBlocks', () => {
   it('выделяет Комментарий_перевод и тело устаревшего Комментарий_ошибка в blocks.comment', () => {
     const text = [
       'Комментарий_перевод: Круто, что начал с "How"! 🙌',
-      'Комментарий_ошибка: Ошибка формы глагола — проверь окончание.',
+      'Комментарий_ошибка: Ошибка формы глагола - проверь окончание.',
       'Ошибки:',
       '🔤 …',
-      'Время: Present Simple — пояснение.',
+      'Время: Present Simple - пояснение.',
       'Конструкция: S + V1',
       'Скажи: How do you do?',
     ].join('\n')
@@ -274,9 +274,9 @@ describe('parseTranslationCoachBlocks', () => {
 
   it('разделяет склеенные inline-блоки из строки Комментарий на отдельные поля', () => {
     const text =
-      'Комментарий: Лексическая ошибка — Проверь написание и выбор слова. Скажи: I will start a new project. Скажи: I will start a new project.'
+      'Комментарий: Лексическая ошибка - Проверь написание и выбор слова. Скажи: I will start a new project. Скажи: I will start a new project.'
     const b = parseTranslationCoachBlocks(text)
-    expect(b.comment).toBe('Лексическая ошибка — Проверь написание и выбор слова.')
+    expect(b.comment).toBe('Лексическая ошибка - Проверь написание и выбор слова.')
     expect(b.repeatRu).toBe('I will start a new project.')
     expect(b.repeat).toBe('I will start a new project.')
   })
@@ -365,7 +365,7 @@ describe('commentIconForContent', () => {
   })
 
   it('uses the book for lexical mistakes written as Ошибка лексическая', () => {
-    expect(commentIconForContent('Ошибка лексическая — ты использовал "фаворит" вместо "favorite".')).toBe('📖')
+    expect(commentIconForContent('Ошибка лексическая - ты использовал "фаворит" вместо "favorite".')).toBe('📖')
   })
 
   it('uses the pencil for spelling mistakes', () => {
@@ -415,9 +415,9 @@ describe('translation drill invitation UI', () => {
 })
 
 describe('translationSuccessPraiseCard UI', () => {
-  it('первая секция SUCCESS drill — praise и метка ✅', () => {
+  it('первая секция SUCCESS drill - praise и метка ✅', () => {
     const praise =
-      'Круто, что ты правильно использовал отрицание don\'t! Это Present Simple — речь о неприязни к привычке.'
+      'Круто, что ты правильно использовал отрицание don\'t! Это Present Simple - речь о неприязни к привычке.'
     const sections = buildAssistantSectionsForTranslationSuccessTest(praise)
     const first = sections[0]
     expect(first).toBeDefined()

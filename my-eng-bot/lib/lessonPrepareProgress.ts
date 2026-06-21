@@ -18,7 +18,7 @@ export const LESSON_PREPARE_TICK_MS = 200
 export const LESSON_PREPARE_DEFAULT_DURATION_MS = 35_000
 
 export const LESSON_PREPARE_PROGRESS_CAP = 90
-/** Потолок полосы до финиша complete — остаёмся на подписи Engvo/Получаем. */
+/** Потолок полосы до финиша complete - остаёмся на подписи Engvo/Получаем. */
 export const LESSON_PREPARE_WAIT_PROGRESS_CAP: Record<PrepareLabelProfile, number> = {
   intro: 59,
   briefing: 65,
@@ -40,13 +40,13 @@ export const LESSON_PREPARE_PHASE2_START_PROGRESS: Record<PrepareLabelProfile, n
 }
 /** Фаза 2 (Engvo/Получаем): умеренный front-load к ~45%. */
 export const LESSON_PREPARE_WAIT_CURVE_EXPONENT = 0.36
-/** Визуальный потолок полосы на ожидании (подписи — по логическому waitCap). */
+/** Визуальный потолок полосы на ожидании (подписи - по логическому waitCap). */
 export const LESSON_PREPARE_BAR_WAIT_VISUAL_CAP = 80
 /** Фиксированный финиш полосы после ответа ИИ. */
 export const LESSON_PREPARE_COMPLETE_VISUAL_MS = 520
 /** Финиш: одна плавная дорисовка с текущего % до 100%. */
 export const LESSON_PREPARE_COMPLETE_ANIMATION_MS = LESSON_PREPARE_COMPLETE_VISUAL_MS
-/** @deprecated Больше не используется — финиш без отдельного lead до minProgress. */
+/** @deprecated Больше не используется - финиш без отдельного lead до minProgress. */
 export const LESSON_PREPARE_COMPLETE_LEAD_MS = 220
 export const LESSON_PREPARE_COMPLETE_TARGET = 100
 
@@ -142,7 +142,7 @@ export function easeInCubic(t: number): number {
 }
 
 /**
- * Полоса ожидания: фаза 1 (~1.8s) плавно, фаза 2 быстрее к середине, у cap — хвост.
+ * Полоса ожидания: фаза 1 (~1.8s) плавно, фаза 2 быстрее к середине, у cap - хвост.
  */
 export function computeWaitPrepareProgress(
   elapsedMs: number,
@@ -184,7 +184,7 @@ export function computeWaitPrepareProgress(
   return Math.min(waitCap, curveTarget + (waitCap - curveTarget) * tailT)
 }
 
-/** До конца фазы 1 не поднимаем пол milestone 15 — иначе «Подготавливаем» пролетает. */
+/** До конца фазы 1 не поднимаем пол milestone 15 - иначе «Подготавливаем» пролетает. */
 export function resolveEffectivePrepareMilestoneFloor(
   milestoneFloor: number,
   elapsedMs: number

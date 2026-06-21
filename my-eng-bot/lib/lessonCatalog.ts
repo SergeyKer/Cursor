@@ -86,7 +86,7 @@ export const PRACTICE_TOPICS_BY_AUDIENCE: Record<Audience, Record<string, { shor
   adult: {
     '4': {
       short: 'Представление о себе',
-      long: 'Коротко: настроение, страна и роль — I am / I am from.',
+      long: 'Коротко: настроение, страна и роль - I am / I am from.',
     },
     '1': {
       short: 'Состояние и действие',

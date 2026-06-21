@@ -308,7 +308,7 @@ describe('resolveLessonScrollBehavior', () => {
 })
 
 describe('isLessonFeedScrolledToTail', () => {
-  it('у дна ленты — true', () => {
+  it('у дна ленты - true', () => {
     const container = {
       scrollHeight: 1200,
       clientHeight: 400,
@@ -317,7 +317,7 @@ describe('isLessonFeedScrolledToTail', () => {
     expect(isLessonFeedScrolledToTail(container, 'tail_if_needed')).toBe(true)
   })
 
-  it('хвост отстаёт — false', () => {
+  it('хвост отстаёт - false', () => {
     const container = {
       scrollHeight: 1200,
       clientHeight: 400,
@@ -326,7 +326,7 @@ describe('isLessonFeedScrolledToTail', () => {
     expect(isLessonFeedScrolledToTail(container, 'tail_if_needed')).toBe(false)
   })
 
-  it('короткая лента на scrollTop 0 — true', () => {
+  it('короткая лента на scrollTop 0 - true', () => {
     const container = {
       scrollHeight: 300,
       clientHeight: 400,
@@ -348,7 +348,7 @@ describe('lesson feed tail message ids', () => {
 })
 
 describe('resolvePracticeFeedScrollRequest', () => {
-  it('checking / feedback / submitting — smooth как в уроке', () => {
+  it('checking / feedback / submitting - smooth как в уроке', () => {
     for (const state of ['submitting', 'checking', 'feedback', 'correction'] as const) {
       expect(
         resolvePracticeFeedScrollRequest({
@@ -360,7 +360,7 @@ describe('resolvePracticeFeedScrollRequest', () => {
     }
   })
 
-  it('active new_message — smooth без reduced motion', () => {
+  it('active new_message - smooth без reduced motion', () => {
     expect(
       resolvePracticeFeedScrollRequest({
         prefersReducedMotion: false,
@@ -575,7 +575,7 @@ describe('simulateScrollTopAfterTailIfNeeded', () => {
   })
 })
 
-describe('showFeedEndAnchor — puzzle + scrollIntoView path', () => {
+describe('showFeedEndAnchor - puzzle + scrollIntoView path', () => {
   it('puzzle с includePuzzleAnchor', () => {
     expect(
       resolveShowFeedEndAnchor({
@@ -597,7 +597,7 @@ describe('showFeedEndAnchor — puzzle + scrollIntoView path', () => {
   })
 })
 
-describe('simulateScrollTopAfterIntoViewEnd — раздутый padding (legacy)', () => {
+describe('simulateScrollTopAfterIntoViewEnd - раздутый padding (legacy)', () => {
   const puzzlePaddingPx = remToPx(0.625 + 18, ROOT_PX) + LESSON_INPUT_GAP_PX
 
   it('короткая лента + 18rem scrollPadding: scrollTop почти 0', () => {
@@ -621,7 +621,7 @@ describe('simulateScrollTopAfterIntoViewEnd — раздутый padding (legacy
 })
 
 describe('scrollTo(max) с симметричным padding (урок после fix)', () => {
-  it('длинная лента + p-2.5 padding — зазор ~10px', () => {
+  it('длинная лента + p-2.5 padding - зазор ~10px', () => {
     const scrollTop = simulateScrollTopAfterScrollToMax({
       contentHeightPx: LONG_CONTENT_PX,
       scrollPaddingBottomPx: SYMMETRIC_PADDING_PX,
@@ -722,7 +722,7 @@ describe('computeLessonFeedScrollTopForTailMessage (клавиатура)', () =
     expect(tailTop).toBeGreaterThan(0)
   })
 
-  it('на scrollToMax хвост уже виден — не откатывать scrollTop при фокусе', () => {
+  it('на scrollToMax хвост уже виден - не откатывать scrollTop при фокусе', () => {
     const rowHeight = 120
     const contentHeightPx = LONG_CONTENT_PX
     const scrollToMax = simulateScrollTopAfterScrollToMax({

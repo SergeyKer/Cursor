@@ -1,4 +1,4 @@
-/** Слова для пазла шага 5: утверждения без плитки «.»; «?» и «!» — отдельными плитками. */
+/** Слова для пазла шага 5: утверждения без плитки «.»; «?» и «!» - отдельными плитками. */
 export function toSentencePuzzleCards(sentence: string): string[] {
   const trimmed = sentence.trim()
   const endsWithQuestion = trimmed.endsWith('?')

@@ -12,7 +12,7 @@ describe('stripLeadingBulbEmojisForPrefixedCard', () => {
     expect(stripLeadingBulbEmojisForPrefixedCard('💡 💡 Здорово, что ты…')).toBe('Здорово, что ты…')
   })
 
-  it('убирает лампу на любой строке тела — в UI она уже в метке', () => {
+  it('убирает лампу на любой строке тела - в UI она уже в метке', () => {
     expect(stripLeadingBulbEmojisForPrefixedCard('Первая\n💡 вторая')).toBe('Первая\nвторая')
   })
 })
@@ -23,7 +23,7 @@ describe('stripCheckEmojisForPrefixedCard', () => {
     expect(stripCheckEmojisForPrefixedCard('Строка\n✅ ещё')).toBe('Строка\nещё')
   })
 
-  it('убирает протокольные маркеры (🔤 и т.п.) — в похвале остаётся только галка в метке UI', () => {
+  it('убирает протокольные маркеры (🔤 и т.п.) - в похвале остаётся только галка в метке UI', () => {
     expect(stripCheckEmojisForPrefixedCard('Отлично! 🔤 Ты правильно использовал Present Simple.')).toBe(
       'Отлично! Ты правильно использовал Present Simple.'
     )

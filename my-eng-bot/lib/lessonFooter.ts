@@ -21,7 +21,7 @@ import type { Audience } from '@/lib/types'
 import type { UserLessonProgress } from '@/types/userProgress'
 
 const MEDAL_LABEL: Record<LiveFooterMedalState, string> = {
-  grey: 'Старт — медаль появится с первых очков',
+  grey: 'Старт - медаль появится с первых очков',
   bronze: 'Сейчас: бронза',
   silver: 'Сейчас: серебро',
   gold: 'Сейчас: золото',
@@ -96,7 +96,7 @@ export interface LessonCardMedalDisplay {
   frozen?: LessonFrozenMedalGlyph
 }
 
-const FROZEN_START_TITLE = 'Старт — медаль появится с первых очков'
+const FROZEN_START_TITLE = 'Старт - медаль появится с первых очков'
 
 function frozenMedalDisplay(title: string): LessonCardMedalDisplay {
   return { frozen: 'military', title }
@@ -174,14 +174,14 @@ export function computeLessonStagePercent(input: {
 }
 
 export function formatLessonCompletionFooter(medal: LessonMedalTierOrNull): string {
-  if (medal === 'gold') return 'Золотая медаль — отлично!'
-  if (medal === 'silver') return 'Серебряная медаль — хорошо!'
+  if (medal === 'gold') return 'Золотая медаль - отлично!'
+  if (medal === 'silver') return 'Серебряная медаль - хорошо!'
   if (medal === 'bronze') return 'Бронза. Можно улучшить!'
   return 'Урок пройден! Отличная работа!'
 }
 
 const CYCLE1_CLOSED_MENU_TITLE =
-  'Урок начат — золото только с первого прохода без выхода. Локально — до серебра; в сгенерированном варианте — снова до золота.'
+  'Урок начат - золото только с первого прохода без выхода. Локально - до серебра; в сгенерированном варианте - снова до золота.'
 
 export function isLessonStartedForMenu(
   progress: UserLessonProgress | null | undefined
@@ -240,7 +240,7 @@ function formatXpSegment(input: LessonFooterLiveInput): LessonFooterSegment {
   return {
     kind: 'xp',
     text,
-    title: `${lessonXp} — очки этого прохода (+ за шаг). К уровню — отдельно, только прирост к рекорду.`,
+    title: `${lessonXp} - очки этого прохода (+ за шаг). К уровню - отдельно, только прирост к рекорду.`,
   }
 }
 

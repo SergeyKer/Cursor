@@ -27,20 +27,20 @@ describe('splitLessonBubblesForDisplay', () => {
     expect(split.taskBubble?.content).toBe('Do it')
   })
 
-  it('single positive bubble — no split', () => {
+  it('single positive bubble - no split', () => {
     const split = splitLessonBubblesForDisplay([{ type: 'positive', content: 'Finale' }])
     expect(split.useSplitLayout).toBe(false)
     expect(split.taskBubble).toBeNull()
   })
 
-  it('task only — split with empty theory', () => {
+  it('task only - split with empty theory', () => {
     const split = splitLessonBubblesForDisplay([{ type: 'task', content: 'Only task' }])
     expect(split.useSplitLayout).toBe(true)
     expect(split.theoryBubbles).toHaveLength(0)
     expect(split.taskIndex).toBe(0)
   })
 
-  it('no task type — unified', () => {
+  it('no task type - unified', () => {
     const split = splitLessonBubblesForDisplay([
       { type: 'positive', content: 'A' },
       { type: 'info', content: 'B' },

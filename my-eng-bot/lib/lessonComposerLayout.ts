@@ -35,7 +35,7 @@ const INTRO_COMPOSER_ROW_GAP_PX = 8
 const INTRO_COMPOSER_STACK_PADDING_PX = 20
 const INTRO_ERROR_BANNER_HEIGHT_PX = 52
 
-/** Класс scroll-контейнера intro/tips — iOS padding fallback в globals.css. */
+/** Класс scroll-контейнера intro/tips - iOS padding fallback в globals.css. */
 export const LESSON_INTRO_SCROLL_CLASS = 'lesson-intro-scroll'
 
 export function isLessonChoiceChipsPanel(exercise: Exercise | null | undefined): boolean {

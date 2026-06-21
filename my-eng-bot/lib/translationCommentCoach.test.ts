@@ -21,7 +21,7 @@ describe('extractTranslationCommentBlock', () => {
       'Комментарий: Ошибка времени: line one.',
       'Лексическая ошибка: dogs нужно заменить на cat.',
       'Ошибки:',
-      '🔤 Present Simple — факт.',
+      '🔤 Present Simple - факт.',
       'Скажи: I like my cat.',
     ]
     const ex = extractTranslationCommentBlock(lines)
@@ -63,17 +63,17 @@ describe('injectSentenceTypePopravImperative', () => {
   it('вставляет «Поправьте» перед «вопрос должен» для взрослой аудитории', () => {
     const raw = '🔤 Ошибка типа предложения. Вопрос должен быть в Present Continuous.'
     const out = injectSentenceTypePopravImperative(raw, 'adult')
-    expect(out).toBe('🔤 Ошибка типа предложения. Поправьте — Вопрос должен быть в Present Continuous.')
+    expect(out).toBe('🔤 Ошибка типа предложения. Поправьте - Вопрос должен быть в Present Continuous.')
   })
 
   it('вставляет «Поправь» для ребёнка', () => {
     const raw = 'Комментарий: Ошибка типа предложения: вопрос должен стоять первым.'
     const out = injectSentenceTypePopravImperative(raw, 'child')
-    expect(out).toBe('Комментарий: Ошибка типа предложения: Поправь — вопрос должен стоять первым.')
+    expect(out).toBe('Комментарий: Ошибка типа предложения: Поправь - вопрос должен стоять первым.')
   })
 
   it('не дублирует, если императив уже есть', () => {
-    const raw = '🔤 Ошибка типа предложения. Поправь — вопрос должен быть так.'
+    const raw = '🔤 Ошибка типа предложения. Поправь - вопрос должен быть так.'
     expect(injectSentenceTypePopravImperative(raw, 'child')).toBe(raw)
   })
 })
@@ -82,7 +82,7 @@ describe('applyTranslationCommentCoachVoice', () => {
   it('does not insert school metaphor for present_simple', () => {
     const content = `Комментарий: Ошибка времени: нужно настоящее.
 Ошибки:
-🔤 Present Simple — факт.
+🔤 Present Simple - факт.
 Скажи: I like my cat.`
     const out = applyTranslationCommentCoachVoice({
       content,
@@ -99,7 +99,7 @@ describe('applyTranslationCommentCoachVoice', () => {
     const content = `Комментарий: Ошибка времени: нужно настоящее.
 Лексическая ошибка: dogs нужно заменить на cat.
 Ошибки:
-🔤 Present Simple — факт.
+🔤 Present Simple - факт.
 Скажи: I like my cat.`
     const out = applyTranslationCommentCoachVoice({
       content,

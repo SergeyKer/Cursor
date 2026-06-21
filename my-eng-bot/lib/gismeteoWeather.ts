@@ -260,14 +260,14 @@ export function applyGismeteoLocationAliases(query: string): string {
   return t
 }
 
-/** Район/аэропорт внутри города: «Москва (Внуково)» — не основная карточка. */
+/** Район/аэропорт внутри города: «Москва (Внуково)» - не основная карточка. */
 function parentheticalQualifierPenalty(city: GismeteoCity): number {
   const name = city.translations?.ru?.city?.name ?? ''
   return /\([^)]+\)/.test(name) ? 1 : 0
 }
 
 /**
- * Одноимённые «Москва» в регионах — после точного совпадения имени предпочитаем федеральный город.
+ * Одноимённые «Москва» в регионах - после точного совпадения имени предпочитаем федеральный город.
  */
 function moscowHomonymPenalty(city: GismeteoCity): number {
   const name = normalizeLetters(city.translations?.ru?.city?.name?.trim() || '')
@@ -642,7 +642,7 @@ function formatForecastLabel(label: string, description: string, values: number[
   const pieces = [label]
   if (description) pieces.push(description.toLowerCase())
   if (tempRange) pieces.push(tempRange)
-  return pieces.join(' — ')
+  return pieces.join(' - ')
 }
 
 function extractForecastSummary(html: string, period: WeatherPeriod, cityLocation: string, language: SearchLanguage): string {

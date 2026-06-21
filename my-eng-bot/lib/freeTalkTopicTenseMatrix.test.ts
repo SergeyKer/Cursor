@@ -30,7 +30,7 @@ describe('freeTalk topic × tense anchor matrix (offline)', () => {
 
     for (const tense of tenses) {
       for (const topicLine of topics) {
-        it(`[${audience}] ${tense} — ${topicLine.slice(0, 40)}…`, () => {
+        it(`[${audience}] ${tense} - ${topicLine.slice(0, 40)}…`, () => {
           const q = anchorQuestionForCell({ topicLine, tense, audience })
           expect(q.length).toBeGreaterThan(10)
           expect(q).toMatch(/\?/)

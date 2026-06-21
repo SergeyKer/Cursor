@@ -29,7 +29,7 @@ export const RUSSIAN_SPEAKER_GROUPS: AccentMenuGroup[] = [
   {
     id: 'visible-first',
     title: 'Звуки, которые слышны сразу',
-    subtitle: 'W/V, H, R/L — то, что чаще всего выдаёт акцент в первых фразах.',
+    subtitle: 'W/V, H, R/L - то, что чаще всего выдаёт акцент в первых фразах.',
     lessonIds: ['w-v-contrast', 'w-west', 'v-very', 'h-happy', 'r-l-contrast', 'r-river'],
   },
   {

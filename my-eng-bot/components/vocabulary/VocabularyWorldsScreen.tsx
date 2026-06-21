@@ -419,7 +419,7 @@ export default function VocabularyWorldsScreen({
       {
         id: `${session.id}-reward`,
         role: 'assistant',
-        text: `Сессия завершена. Ты заработал ${coinsEarned} 🪙. Хочешь потом обсудить эти слова с MyEng — кнопка уже готова.`,
+        text: `Сессия завершена. Ты заработал ${coinsEarned} 🪙. Хочешь потом обсудить эти слова с MyEng - кнопка уже готова.`,
       },
     ])
   }, [session])

@@ -339,7 +339,7 @@ function buildItsTimeStep7Variants(variant: ItsTimeVariant) {
       frameEn: "It's ___.",
       correctWord: variant.adjective,
       distractors: stateDistractors,
-      hint: 'Состояние в задании — одно прилагательное после It\'s.',
+      hint: 'Состояние в задании - одно прилагательное после It\'s.',
     },
     {
       id: `${variant.id}_step7_medium`,
@@ -357,7 +357,7 @@ function buildItsTimeStep7Variants(variant: ItsTimeVariant) {
       frameEn: "It's time to ___.",
       correctWord: creativeVerb,
       distractors: hardDistractors,
-      hint: 'После to — глагол в начальной форме, одно слово.',
+      hint: 'После to - глагол в начальной форме, одно слово.',
     },
   ])
 }
@@ -421,7 +421,7 @@ function buildItsTimeFinale(): LessonFinale {
       {
         type: 'positive',
         content:
-          'Готово! It is и It is time to — ваши. Дальше — практика и кубок 🏆.',
+          'Готово! It is и It is time to - ваши. Дальше - практика и кубок 🏆.',
       },
     ],
     footerDynamic: 'Урок завершен',
@@ -448,7 +448,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
       id: `${variant.id}_step3_medium`,
       question: `Переведите на английский: "Сейчас ${variant.step3StateRu.toLowerCase()}, поэтому пора что-то сделать." - "It's ${variant.step3Adjective}. It is time to ___ ${variant.step3Object}."`,
       correctAnswer: variant.step3Verb,
-      hint: '«Пора» — time to. После to — глагол в начальной форме, одно слово.',
+      hint: '«Пора» - time to. После to - глагол в начальной форме, одно слово.',
       difficulty: 'medium' as const,
       answerFormat: 'single_word' as const,
       answerPolicy: 'strict' as const,
@@ -457,7 +457,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
       id: `${variant.id}_step3_hard`,
       question: `Переведите на английский: "${variant.step3HardRu}." - "It's ${variant.step3Adjective}. It is time to ___ ${variant.step3Object}."`,
       correctAnswer: variant.step3Verb,
-      hint: 'Прочитай действие в задании. После to — глагол без -s и без -ing.',
+      hint: 'Прочитай действие в задании. После to - глагол без -s и без -ing.',
       difficulty: 'hard' as const,
       answerFormat: 'single_word' as const,
       answerPolicy: 'strict' as const,
@@ -645,7 +645,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'Состояние, действие по шаблону, затем новое действие — без подсказки из урока.',
+          content: 'Состояние, действие по шаблону, затем новое действие - без подсказки из урока.',
         },
         {
           type: 'task',
@@ -667,7 +667,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         }
       })(),
       footerDynamic: 'Финальная проверка: 3 коротких предложения',
-      myEngComment: 'Три фразы подряд — вы почти у финиша.',
+      myEngComment: 'Три фразы подряд - вы почти у финиша.',
     },
     {
       stepNumber: 7,
@@ -679,7 +679,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'В каждой рамке одно слово — прилагательное, нужная частица или глагол.',
+          content: 'В каждой рамке одно слово - прилагательное, нужная частица или глагол.',
         },
         {
           type: 'task',

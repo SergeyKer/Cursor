@@ -97,7 +97,7 @@ export type TranslationFirstTurnContractResult = {
 }
 
 /**
- * Если контракт нарушен — подставляет детерминированный RU drill из `fallbackTranslationSentenceForContext`
+ * Если контракт нарушен - подставляет детерминированный RU drill из `fallbackTranslationSentenceForContext`
  * (без дополнительного вызова LLM).
  */
 export function applyTranslationFirstTurnContractGuard(

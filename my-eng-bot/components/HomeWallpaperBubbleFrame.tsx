@@ -8,7 +8,7 @@ export const HOME_ASSISTANT_BUBBLE_CLASS =
 
 type HomeWallpaperBubbleFrameProps = {
   ariaLabel: string
-  /** Длинный текст приветствия — внутренняя область со скроллом. */
+  /** Длинный текст приветствия - внутренняя область со скроллом. */
   scrollable?: boolean
   className?: string
   children: React.ReactNode

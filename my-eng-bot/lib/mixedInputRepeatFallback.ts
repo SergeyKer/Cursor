@@ -57,13 +57,13 @@ export function buildMixedDialogueFallbackComment(params: {
     const likeTip = mentionsLike
       ? ' После «like» обычно нужно «to» и глагол (например, like to eat).'
       : ''
-    return `Комментарий: Почти получилось. Напиши ответ полностью на английском — русские слова замени английскими.${glossHint}${likeTip} ${tryAgain}`
+    return `Комментарий: Почти получилось. Напиши ответ полностью на английском - русские слова замени английскими.${glossHint}${likeTip} ${tryAgain}`
   }
   if (soft) {
     const likeTip = mentionsLike
       ? ' После like обычно нужен to и инфинитив глагола (например, like to eat).'
       : ''
-    return `Комментарий: Отличная попытка. Напишите ответ полностью на английском — русские слова замените английскими.${glossHint}${likeTip} ${tryAgain}`
+    return `Комментарий: Отличная попытка. Напишите ответ полностью на английском - русские слова замените английскими.${glossHint}${likeTip} ${tryAgain}`
   }
   const likeTip = mentionsLike ? ' Проверьте конструкцию like + to + инфинитив.' : ''
   return `Комментарий: Для этого шага лучше ответить целиком на английском; замените русские слова английскими.${glossHint}${likeTip} Попробуйте ещё раз.`
@@ -112,7 +112,7 @@ function fixLikePlusBareInfinitive(s: string): string {
   )
 }
 
-/** Узкие частые опечатки ученика в латинице — не общий spellchecker. */
+/** Узкие частые опечатки ученика в латинице - не общий spellchecker. */
 function applyCommonLearnerLatinTypos(s: string): string {
   let t = s
   t = t.replace(/\btriing\b/gi, 'trying')
@@ -642,7 +642,7 @@ export function buildMixedInputRepeatFallback(params: {
     isAcceptableRepeat(stripped) &&
     isPlausibleLearnerSentence(stripped) &&
     // Если в исходном ответе была кириллица, но мы не смогли ничего безопасно перевести,
-    // не возвращаем короткий обрезок вроде "I eat." — лучше уйти в нейтральный fallback.
+    // не возвращаем короткий обрезок вроде "I eat." - лучше уйти в нейтральный fallback.
     !(hasCyrillicInUserText && !replacedAny && !changedLike && strippedWords.length <= 2) &&
     isAcceptableDialogueLatinRepeatCandidate(stripped, tense, dialogueRepeatAnchorTense)
   ) {

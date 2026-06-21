@@ -13,7 +13,7 @@ import type {
 
 function formatLine(word: NecessaryWordsCatalog['words'][number]): string {
   const tr = word.transcription?.trim() ? ` ${word.transcription.trim()}` : ''
-  return `${word.id}. ${word.en.trim()}${tr} — ${word.ru.trim()}`
+  return `${word.id}. ${word.en.trim()}${tr} - ${word.ru.trim()}`
 }
 
 async function main() {

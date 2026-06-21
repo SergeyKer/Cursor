@@ -11,7 +11,7 @@ export function extractTranslationDrillPlainCommentBody(raw: string): string {
 }
 
 /**
- * Текст после «Комментарий:» в drill перевода — похвала, а не коррекция.
+ * Текст после «Комментарий:» в drill перевода - похвала, а не коррекция.
  * Общий для API-нормализации и UI (`commentToneForContent`).
  */
 export function translationDrillCommentBodyLooksLikePraise(commentBody: string): boolean {

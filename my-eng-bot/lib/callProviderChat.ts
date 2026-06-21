@@ -170,7 +170,7 @@ export async function callProviderChat(params: {
         },
         {
           // OpenRouter не должен зависеть от системного прокси Windows.
-          // Если задан явный env-прокси — можно попробовать его после прямого канала.
+          // Если задан явный env-прокси - можно попробовать его после прямого канала.
           includeSystemProxy: false,
           directFirst: true,
         }

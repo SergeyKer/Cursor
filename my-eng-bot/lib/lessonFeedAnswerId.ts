@@ -23,3 +23,22 @@ export function resolveLessonAnswerAttemptNumber(params: {
 
   return completedAttemptsOnStep + 1
 }
+
+/** Номер ошибки на шаге (без учёта успешных попыток / других вариантов). */
+export function resolveLessonErrorFeedbackAttemptNumber(
+  timeline: LessonTimelineEntry[],
+  entryIndex: number
+): number {
+  const entry = timeline[entryIndex]
+  if (!entry) return 1
+
+  return timeline
+    .slice(0, entryIndex + 1)
+    .filter(
+      (timelineEntry) =>
+        !timelineEntry.isCurrent &&
+        timelineEntry.stepIndex === entry.stepIndex &&
+        Boolean(timelineEntry.step.exercise) &&
+        timelineEntry.feedback?.type === 'error'
+    ).length
+}

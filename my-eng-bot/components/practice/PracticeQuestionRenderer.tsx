@@ -97,7 +97,7 @@ function wordBank(question: PracticeQuestion): string[] {
 
 const ANSWER_PANEL_LOCK_CLASS = 'pointer-events-none opacity-60'
 
-/** В correction (1–2 ошибка) — только лёгкое появление, без slide снизу. */
+/** В correction (1–2 ошибка) - только лёгкое появление, без slide снизу. */
 function getPracticeComposerEnterClass(correctionMode: boolean): string {
   return correctionMode ? 'practice-section-appear' : 'lesson-enter'
 }
@@ -117,7 +117,7 @@ function helperText(question: PracticeQuestion): string {
   return ''
 }
 
-/** Метрики как communication в Chat; при STT — web-metrics через chatComposerMetrics. */
+/** Метрики как communication в Chat; при STT - web-metrics через chatComposerMetrics. */
 function choiceCorrectionComposerMetricsClass(options: {
   voiceWebMetrics: boolean
   micOffPr12: boolean
@@ -478,7 +478,7 @@ export default function PracticeQuestionRenderer({
 
   const adjustTextareaHeight = useCallback((textarea: HTMLTextAreaElement | null, maxHeightPx: number) => {
     if (!textarea) return
-    // Пустое поле: не трогаем scrollHeight — в ряде браузеров он учитывает перенос placeholder,
+    // Пустое поле: не трогаем scrollHeight - в ряде браузеров он учитывает перенос placeholder,
     // из‑за чего строка визуально «раздвигается» в режиме ожидания (например, коррекция choice).
     if (!textarea.value.trim()) {
       textarea.style.height = ''

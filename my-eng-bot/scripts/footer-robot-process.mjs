@@ -1,7 +1,7 @@
 /**
  * Убирает однотонный фон у assets/footer-robot-source.png:
- * - public/footer-robot.png — прозрачный фон (alpha=0)
- * - public/footer-robot-opaque.png — фон под --app-header-bg (белый)
+ * - public/footer-robot.png - прозрачный фон (alpha=0)
+ * - public/footer-robot-opaque.png - фон под --app-header-bg (белый)
  * Запуск: npm run build:footer-robot
  */
 import fs from 'node:fs/promises'

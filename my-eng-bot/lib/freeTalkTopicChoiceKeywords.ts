@@ -1,7 +1,7 @@
 import { detectFreeTalkTopicChange } from './freeTalkTopicChange'
 import { normalizeRuTopicKeyword, normalizeTopicToken, RU_TOPIC_KEYWORD_TO_EN } from './ruTopicKeywordMap'
 
-/** EN: служебные токены и «пустые» слова — не тема (объединение с freeTalkContextNextQuestion + вводные). */
+/** EN: служебные токены и «пустые» слова - не тема (объединение с freeTalkContextNextQuestion + вводные). */
 const TOPIC_CHOICE_SKIP_WORDS_EN = new Set([
   'the', 'and', 'but', 'for', 'with', 'about', 'from', 'into', 'that', 'this',
   'what', 'when', 'where', 'which', 'who', 'how', 'why', 'you', 'your', 'our',
@@ -129,7 +129,7 @@ export function translateRuTopicKeywordsToEn(keywords: string[]): string[] {
 /**
  * Ключевые слова для якорного вопроса free_talk (первый ответ пользователя и те же правила там,
  * где раньше вызывали extractTopicChoiceKeywordsByLang + RU→EN).
- * Явный хвост из detectFreeTalkTopicChange имеет приоритет; иначе — снятие вводных + токенизация.
+ * Явный хвост из detectFreeTalkTopicChange имеет приоритет; иначе - снятие вводных + токенизация.
  */
 export function buildFreeTalkTopicChoiceKeywordList(userText: string): string[] {
   const buckets = buildFreeTalkTopicChoiceKeywordBuckets(userText)

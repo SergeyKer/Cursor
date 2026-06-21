@@ -48,7 +48,7 @@ describe('detectFreeTalkTopicChange', () => {
     })
   })
 
-  it('давай сменим тему на небо — хвост темы', () => {
+  it('давай сменим тему на небо - хвост темы', () => {
     expect(detectFreeTalkTopicChange('давай сменим тему на небо')).toEqual({
       isTopicChange: true,
       topicHintText: 'небо',
@@ -56,7 +56,7 @@ describe('detectFreeTalkTopicChange', () => {
     })
   })
 
-  it('хочу про реку — детская формулировка', () => {
+  it('хочу про реку - детская формулировка', () => {
     expect(detectFreeTalkTopicChange('хочу про реку')).toEqual({
       isTopicChange: true,
       topicHintText: 'реку',
@@ -76,7 +76,7 @@ describe('detectFreeTalkTopicChange', () => {
     expect(detectFreeTalkTopicChange('давай change topic').isTopicChange).toBe(true)
   })
 
-  it('скучно — уточнение темы', () => {
+  it('скучно - уточнение темы', () => {
     expect(detectFreeTalkTopicChange('скучно')).toEqual({
       isTopicChange: true,
       topicHintText: null,
@@ -84,7 +84,7 @@ describe('detectFreeTalkTopicChange', () => {
     })
   })
 
-  it('дальше / давай дальше / другой вопрос — как скучно', () => {
+  it('дальше / давай дальше / другой вопрос - как скучно', () => {
     expect(detectFreeTalkTopicChange('дальше')).toEqual({
       isTopicChange: true,
       topicHintText: null,
@@ -102,7 +102,7 @@ describe('detectFreeTalkTopicChange', () => {
     })
   })
 
-  it('англ. короткие фразы — как bored', () => {
+  it('англ. короткие фразы - как bored', () => {
     expect(detectFreeTalkTopicChange('next')).toEqual({
       isTopicChange: true,
       topicHintText: null,
@@ -115,7 +115,7 @@ describe('detectFreeTalkTopicChange', () => {
     })
   })
 
-  it('i want to discuss movies — discuss без отдельного паттерна в EXPLICIT', () => {
+  it('i want to discuss movies - discuss без отдельного паттерна в EXPLICIT', () => {
     expect(detectFreeTalkTopicChange('i want to discuss movies')).toEqual({
       isTopicChange: true,
       topicHintText: 'movies',

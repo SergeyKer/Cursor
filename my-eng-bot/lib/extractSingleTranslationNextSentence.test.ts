@@ -16,13 +16,13 @@ describe('isTranslationNextRussianMetaInstruction', () => {
     expect(isTranslationNextRussianMetaInstruction('Давай поговорим о погоде.')).toBe(true)
   })
 
-  it('detects service imperative "Поправь — ..." as meta instruction', () => {
-    expect(isTranslationNextRussianMetaInstruction('Поправь — и я помог вам исправить.')).toBe(true)
+  it('detects service imperative "Поправь - ..." as meta instruction', () => {
+    expect(isTranslationNextRussianMetaInstruction('Поправь - и я помог вам исправить.')).toBe(true)
   })
 
   it('allows normal drill sentences', () => {
     expect(isTranslationNextRussianMetaInstruction('Я обычно ем яичницу на завтрак.')).toBe(false)
-    expect(isTranslationNextRussianMetaInstruction('Мое любимое время года — весна.')).toBe(false)
+    expect(isTranslationNextRussianMetaInstruction('Мое любимое время года - весна.')).toBe(false)
   })
 })
 
@@ -69,7 +69,7 @@ describe('extractSingleTranslationNextSentence', () => {
 
   it('returns null for service imperative line after Переведи далее', () => {
     expect(
-      extractSingleTranslationNextSentence(['Переведи далее: Поправь — и я помог вам исправить.'])
+      extractSingleTranslationNextSentence(['Переведи далее: Поправь - и я помог вам исправить.'])
     ).toBeNull()
   })
 })

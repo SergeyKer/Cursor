@@ -56,7 +56,7 @@ function buildPuzzleTimeline(params: {
   return buildActiveStepTimeline([], currentEntry, attemptEntries, 'sentence_puzzle')
 }
 
-describe('buildLessonFeedMessages — sentence_puzzle order', () => {
+describe('buildLessonFeedMessages - sentence_puzzle order', () => {
   it('sub-puzzle 1 checking: checking is the tail message', () => {
     const timeline = buildPuzzleTimeline({
       currentSubmittedAnswer: "I'm happy",
@@ -187,7 +187,7 @@ describe('buildLessonFeedMessages — sentence_puzzle order', () => {
   })
 })
 
-describe('buildLessonFeedMessages — non-puzzle regression', () => {
+describe('buildLessonFeedMessages - non-puzzle regression', () => {
   it('keeps attempts before current entry for fill_text steps', () => {
     const currentEntry = makeTimelineEntry({
       isCurrent: true,
@@ -231,20 +231,20 @@ describe('buildLessonFeedMessages — non-puzzle regression', () => {
       exercise: {
         type: 'fill_text',
         correctAnswer: 'Russia',
-        hint: 'После from — одно слово.',
+        hint: 'После from - одно слово.',
       },
     } as LessonData['steps'][number]
 
     const firstError = makeTimelineEntry({
       isCurrent: false,
       submittedAnswer: 'Moscow',
-      feedback: { type: 'error', message: 'После from — одно слово.' },
+      feedback: { type: 'error', message: 'После from - одно слово.' },
       step,
     })
     const secondError = makeTimelineEntry({
       isCurrent: false,
       submittedAnswer: 'Rus',
-      feedback: { type: 'error', message: 'После from — одно слово.' },
+      feedback: { type: 'error', message: 'После from - одно слово.' },
       step,
     })
     const currentEntry = makeTimelineEntry({
@@ -271,8 +271,62 @@ describe('buildLessonFeedMessages — non-puzzle regression', () => {
     expect(errorMessages[0]?.repeatAnswer).toBeUndefined()
     expect(errorMessages[1]).toMatchObject({
       repeatAnswer: 'Russia',
-      text: '🟡 После from — одно слово.',
+      text: '🟡 После from - одно слово.',
     })
+  })
+
+  it('omits repeatAnswer on first error after success on another variant of the same step', () => {
+    const step = {
+      stepNumber: 3,
+      bubbles: [{ type: 'task', content: 'Задание' }],
+      exercise: {
+        type: 'fill_text',
+        correctAnswer: 'Russia',
+        hint: 'Одно слово после from - как Russia или France.',
+      },
+    } as LessonData['steps'][number]
+
+    const variantSuccess = makeTimelineEntry({
+      isCurrent: false,
+      submittedAnswer: 'Russia',
+      feedback: { type: 'success', message: 'Верно. Следующий вариант (2 из 3).' },
+      step,
+    })
+    const firstErrorOnNextVariant = makeTimelineEntry({
+      isCurrent: false,
+      submittedAnswer: 'Rus',
+      feedback: { type: 'error', message: 'Одно слово после from - как Russia или France.' },
+      step,
+    })
+    const currentEntry = makeTimelineEntry({
+      isCurrent: true,
+      submittedAnswer: null,
+      feedback: null,
+      step,
+    })
+    const timeline = buildActiveStepTimeline(
+      [],
+      currentEntry,
+      [variantSuccess, firstErrorOnNextVariant],
+      'fill_text'
+    )
+
+    const messages = buildLessonFeedMessages({
+      timeline,
+      status: 'feedback',
+      latestFeedbackType: 'error',
+      showCheckingStatusLine: false,
+      showAdvancingStatusLine: false,
+      isAdvancingToNextStep: false,
+      isAdvancingToNextVariant: false,
+    })
+
+    const errorMessages = messages.filter(
+      (message): message is Extract<(typeof messages)[number], { kind: 'status'; tone: 'error' }> =>
+        message.kind === 'status' && message.tone === 'error'
+    )
+    expect(errorMessages).toHaveLength(1)
+    expect(errorMessages[0]?.repeatAnswer).toBeUndefined()
   })
 
   it('shows lesson card for each multi-variant success in history', () => {
@@ -435,7 +489,7 @@ describe('buildLessonFeedMessages — non-puzzle regression', () => {
   })
 })
 
-describe('buildLessonFeedMessages — success advance', () => {
+describe('buildLessonFeedMessages - success advance', () => {
   it('omits empty current lesson shell during success feedback advance', () => {
     const currentEntry = makeTimelineEntry({
       isCurrent: true,

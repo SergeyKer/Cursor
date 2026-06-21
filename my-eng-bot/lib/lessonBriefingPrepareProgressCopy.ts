@@ -2,7 +2,7 @@ export const LESSON_BRIEFING_PREPARE_LABEL_START = 'Готовим...'
 export const LESSON_BRIEFING_PREPARE_LABEL_FETCH = 'Получаем...'
 export const LESSON_BRIEFING_PREPARE_LABEL_LAUNCH = 'Запускаю...'
 
-/** Самая длинная фазовая подпись — для ghost-span на dual CTA. */
+/** Самая длинная фазовая подпись - для ghost-span на dual CTA. */
 export const LESSON_BRIEFING_PREPARE_GHOST_LABEL = LESSON_BRIEFING_PREPARE_LABEL_FETCH
 
 export const LESSON_BRIEFING_PREPARE_LABEL_BY_THRESHOLD = [

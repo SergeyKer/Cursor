@@ -553,7 +553,7 @@ export default function LessonExtraTipsScreen({
                               <p className="mt-1 break-words">{card.rule}</p>
                             </div>
                             <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
-                              <p className="font-bold text-slate-800">⚡ Проверка за 3 секунды — выбери</p>
+                              <p className="font-bold text-slate-800">⚡ Проверка за 3 секунды - выбери</p>
                               <div className="mt-2 flex flex-wrap gap-2">
                                 {[russianTrapCheck.right, buildTrapDistractorAnswer(russianTrapCheck.right)].map((option) => {
                                   const isSelected = selectedTipAnswer === option

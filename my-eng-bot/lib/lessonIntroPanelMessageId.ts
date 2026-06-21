@@ -110,7 +110,7 @@ export function findLatestHistoricalLessonMessageIdForStep(
   return null
 }
 
-/** Intro-чипы: на history всегда; на current — по reveal, кроме пустой success-оболочки. */
+/** Intro-чипы: на history всегда; на current - по reveal, кроме пустой success-оболочки. */
 export function shouldShowIntroControlsOnLessonMessage(params: {
   isCurrentLessonMessage: boolean
   introBlockStripVisible: boolean

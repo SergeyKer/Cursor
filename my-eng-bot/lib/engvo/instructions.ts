@@ -168,7 +168,7 @@ export function buildEngvoContinuationResponseInstructions(params: {
     .join(' ')
 }
 
-/** Подсказка о темпе в instructions; основной рычаг — `session.audio.output.speed` в Realtime API. */
+/** Подсказка о темпе в instructions; основной рычаг - `session.audio.output.speed` в Realtime API. */
 export function buildEngvoSpeechSpeedRule(speechSpeed: number): string {
   const speed = clampEngvoRealtimeSpeed(speechSpeed)
   if (speed >= 0.95) {

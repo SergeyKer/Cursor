@@ -35,7 +35,7 @@ export function isCommunicationDetailOnlyMessage(text: string): boolean {
 }
 
 /**
- * Режим общения: язык сообщения по «раскладке» текста — как на клиенте (speechLocaleForCommunication).
+ * Режим общения: язык сообщения по «раскладке» текста - как на клиенте (speechLocaleForCommunication).
  * Есть кириллица → ru; только латиница → en; только цифры/знаки → tieBreak.
  */
 export function detectCommunicationUserMessageLang(text: string, tieBreak: DetectedLang): DetectedLang {
@@ -49,7 +49,7 @@ export function detectCommunicationUserMessageLang(text: string, tieBreak: Detec
   return tieBreak
 }
 
-/** Язык ожидаемого ответа ИИ в режиме communication — как `detectedUserLang` в api/chat/route. */
+/** Язык ожидаемого ответа ИИ в режиме communication - как `detectedUserLang` в api/chat/route. */
 export function getExpectedCommunicationReplyLang(
   messages: ChatMessage[],
   options?: { inputPreference?: CommunicationInputExpectedLang; voiceInputMode?: CommunicationVoiceInputMode }

@@ -25,8 +25,8 @@ export function buildPracticeFooterDynamicText(params: {
     if (params.questionType === 'choice') {
       if (params.wrongAttemptsOnCurrentQuestion >= 2) {
         return params.audience === 'child'
-          ? 'Попробуй ещё раз. Карандаш — текст.'
-          : 'Попробуйте снова. Текст — карандаш.'
+          ? 'Попробуй ещё раз. Карандаш - текст.'
+          : 'Попробуйте снова. Текст - карандаш.'
       }
       return params.audience === 'child'
         ? 'Ничего страшного. Скажи в микрофон.'

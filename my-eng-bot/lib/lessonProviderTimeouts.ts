@@ -4,7 +4,7 @@ export const LESSON_PROVIDER_FETCH_TIMEOUT_MS_DEFAULT = 25_000
 /**
  * Максимум попыток в `/api/lesson-repeat` при `bypassCache` (меню «Сгенерировать урок»).
  * Держите в синхроне с `app/api/lesson-repeat/route.ts`. Значение 1 ускоряет худший случай (один вызов LLM).
- * Переопределение: `LESSON_REPEAT_MENU_BYPASS_MAX_ATTEMPTS` или `NEXT_PUBLIC_LESSON_REPEAT_MENU_BYPASS_MAX_ATTEMPTS` (целое 1–2, для клиента — только public).
+ * Переопределение: `LESSON_REPEAT_MENU_BYPASS_MAX_ATTEMPTS` или `NEXT_PUBLIC_LESSON_REPEAT_MENU_BYPASS_MAX_ATTEMPTS` (целое 1–2, для клиента - только public).
  */
 export const LESSON_REPEAT_MENU_BYPASS_MAX_ATTEMPTS = 1
 

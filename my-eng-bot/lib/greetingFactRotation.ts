@@ -3,7 +3,7 @@ import { HOME_GREETING_FACTS, HOME_GREETING_FACT_COUNT } from '@/lib/homeGreetin
 const STORAGE_KEY = 'myeng-greeting-fact-rotation-v1'
 
 type StoredState = {
-  /** Версия длины массива — при смене пула сбрасываем цикл */
+  /** Версия длины массива - при смене пула сбрасываем цикл */
   n: number
   permutation: number[]
   cursor: number

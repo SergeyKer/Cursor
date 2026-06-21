@@ -72,7 +72,7 @@ function defaultLesson(topic: string, intent?: TutorLearningIntent | null) {
       '**Примеры:**\n' +
       resolvedIntent.examples
         .slice(0, 2)
-        .map((example, index) => `${index + 1}) ${example.en} — ${example.ru}.`)
+        .map((example, index) => `${index + 1}) ${example.en} - ${example.ru}.`)
         .join('\n') +
       '\n' +
       `**Коротко:** ${resolvedIntent.firstPracticeGoalRu}\n` +
@@ -88,7 +88,7 @@ function defaultLesson(topic: string, intent?: TutorLearningIntent | null) {
       { id: 'write_own_sentence', label: 'Напиши своё предложение' },
     ],
     followups: {
-      examples: `**Примеры по теме "${safeTopic}":**\n${resolvedIntent.examples.map((example, index) => `${index + 1}) ${example.en} — ${example.ru}`).join('\n')}`,
+      examples: `**Примеры по теме "${safeTopic}":**\n${resolvedIntent.examples.map((example, index) => `${index + 1}) ${example.en} - ${example.ru}`).join('\n')}`,
       fill_phrase: `**Подставь слово:**\n1) ${resolvedIntent.examples[0]?.en ?? `Use ${safeTopic}.`}\n2) Шаблон: ${resolvedIntent.targetPatterns[0] ?? safeTopic}\nВыбери слово или форму по смыслу.`,
       repeat_translate: `**Переведи на английский:**\n${resolvedIntent.examples
         .slice(0, 3)

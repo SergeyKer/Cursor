@@ -159,13 +159,13 @@ describe('formatLessonFirstTryLine', () => {
   it('praises perfect first-try run', () => {
     expect(
       formatLessonFirstTryLine({ firstTryCount: 8, totalScoredUnits: 8, audience: 'child' })
-    ).toBe('Все ответы с первого раза — супер!')
+    ).toBe('Все ответы с первого раза - супер!')
   })
 
   it('shows ratio praise for partial first tries', () => {
     expect(
       formatLessonFirstTryLine({ firstTryCount: 6, totalScoredUnits: 8, audience: 'child' })
-    ).toBe('6 из 8 с первого раза — отлично!')
+    ).toBe('6 из 8 с первого раза - отлично!')
   })
 })
 
@@ -187,7 +187,7 @@ describe('formatLessonFinaleGoalLine', () => {
         runMedal: 'bronze',
         audience: 'child',
       })
-    ).toBe('Хочешь медаль выше — жми «Новый вариант». Практика скоро.')
+    ).toBe('Хочешь медаль выше - жми «Новый вариант». Практика скоро.')
   })
 })
 

@@ -87,7 +87,7 @@ export const RU_TOPIC_KEYWORD_TO_EN: Record<string, string> = {
   путешествуем: 'travel',
   путешествуете: 'travel',
   путешествуют: 'travel',
-  /** Отпуск → vacation (holiday — синоним в translationPromptUserCoverage). */
+  /** Отпуск → vacation (holiday - синоним в translationPromptUserCoverage). */
   отпуск: 'vacation',
   отпуска: 'vacation',
   отпуску: 'vacation',

@@ -1,6 +1,6 @@
 import { getDialogueRepeatSentence } from './dialogueTenseInference'
 
-/** Вспомогательные слова — не считаем «опечаткой» смену на другое слово из Повтори. */
+/** Вспомогательные слова - не считаем «опечаткой» смену на другое слово из Повтори. */
 const AUX_EN = new Set([
   'a', 'an', 'the', 'and', 'or', 'but', 'to', 'of', 'in', 'on', 'at', 'for', 'with', 'as', 'by',
   'i', 'you', 'he', 'she', 'it', 'we', 'they', 'my', 'your', 'his', 'her', 'its', 'our', 'their',

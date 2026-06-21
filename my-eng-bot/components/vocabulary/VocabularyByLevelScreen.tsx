@@ -477,7 +477,7 @@ export default function VocabularyByLevelScreen({
       {
         id: `${session.id}-reward`,
         role: 'assistant',
-        text: `Сессия завершена. Ты заработал ${coinsEarned} 🪙. Хочешь потом обсудить эти слова с MyEng — кнопка уже готова.`,
+        text: `Сессия завершена. Ты заработал ${coinsEarned} 🪙. Хочешь потом обсудить эти слова с MyEng - кнопка уже готова.`,
       },
     ])
   }, [session])
@@ -629,7 +629,7 @@ export default function VocabularyByLevelScreen({
           />
           {filteredLearned.length === 0 ? (
             <div className="rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-4 py-5 text-[14px] leading-relaxed text-[var(--text-muted)] shadow-sm">
-              Пока нет слов в архиве «выучено». Нужны несколько верных ответов подряд по SRS — после этого слово попадёт сюда и
+              Пока нет слов в архиве «выучено». Нужны несколько верных ответов подряд по SRS - после этого слово попадёт сюда и
               не будет мешать в новых сессиях.
             </div>
           ) : (

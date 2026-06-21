@@ -17,7 +17,7 @@ export function stripTranslationErrorSubsectionLabels(line: string): string {
 /** Эмодзи-маркер строки блока «Ошибки:» по типу из inferTranslationCommentErrorType. */
 function mapErrorTypeToSyntheticLinePrefix(inferredType: string): string {
   const t = inferredType.toLowerCase()
-  // Тип «Ошибка времени» — строка 🔤 в блоке «Ошибки:».
+  // Тип «Ошибка времени» - строка 🔤 в блоке «Ошибки:».
   if (t.includes('времени')) return '🔤'
   if (t.includes('лексическ')) return '📖'
   if (t.includes('перевод')) return '📖'
@@ -34,16 +34,16 @@ function stripLeadingErrorTypePhrase(body: string, inferredType: string): string
   const withoutDot = inferredType.replace(/\.\s*$/, '')
 
   for (const head of [withDot, withoutDot, inferredType]) {
-    const re = new RegExp(`^${escapeRegExp(head)}\\s*[—:\\-–]\\s*`, 'i')
+    const re = new RegExp(`^${escapeRegExp(head)}\\s*[-:\\-–]\\s*`, 'i')
     if (re.test(trimmed)) return trimmed.replace(re, '').trim()
   }
 
   const commonHeads = [
-    /^лексическая\s+ошибка\s*[—:\\-–]\s*/i,
-    /^грамматическая\s+ошибка\s*[—:\\-–]\s*/i,
-    /^ошибка\s+времени\s*[—:\\-–]\s*/i,
-    /^ошибка\s+лексики\s*[—:\\-–]\s*/i,
-    // «Ошибка артикля:» — явно; старый шаблон с \w* ломался на «артикля» (остаётся «: текст»).
+    /^лексическая\s+ошибка\s*[-:\\-–]\s*/i,
+    /^грамматическая\s+ошибка\s*[-:\\-–]\s*/i,
+    /^ошибка\s+времени\s*[-:\\-–]\s*/i,
+    /^ошибка\s+лексики\s*[-:\\-–]\s*/i,
+    // «Ошибка артикля:» - явно; старый шаблон с \w* ломался на «артикля» (остаётся «: текст»).
     /^ошибка\s+употребления\s+артикля\s*[.:]\s*/i,
     /^ошибка\s+артикля\s*[.:]\s*/i,
   ]
@@ -64,7 +64,7 @@ function stripLeadingErrorTypePhrase(body: string, inferredType: string): string
 }
 
 /**
- * Предложения вроде «Вижу, что вы правильно…» — похвала/мотивация, не строка блока «Ошибки:».
+ * Предложения вроде «Вижу, что вы правильно…» - похвала/мотивация, не строка блока «Ошибки:».
  * Возвращает хвост без таких предложений и объединённую похвалу для «Комментарий_перевод:».
  */
 function partitionEncouragementSentencesInDetail(detail: string): { core: string; praise: string | null } {
@@ -77,7 +77,7 @@ function partitionEncouragementSentencesInDetail(detail: string): { core: string
   const coreParts: string[] = []
   const praiseParts: string[] = []
   for (const s of sentences) {
-    // Без флага `u` в JS `\b` для кириллицы ненадёжен — достаточно префикса строки.
+    // Без флага `u` в JS `\b` для кириллицы ненадёжен - достаточно префикса строки.
     if (/^(?:Вижу|Замечаю|Я\s+вижу)/i.test(s)) praiseParts.push(s)
     else coreParts.push(s)
   }
@@ -98,7 +98,7 @@ export function looksLikeTranslationEncouragementErrorsLine(line: string): boole
 }
 
 /**
- * Убирает из тела «Ошибки:» строки-похвалы и отдаёт их отдельно — для карточки «Комментарий_перевод:».
+ * Убирает из тела «Ошибки:» строки-похвалы и отдаёт их отдельно - для карточки «Комментарий_перевод:».
  */
 export function partitionEncouragementLinesFromTranslationErrorsPayload(payload: string): {
   errorsRest: string
@@ -164,7 +164,7 @@ export function extractTranslationErrorSynthAndPraiseFromComment(commentBody: st
 
 /**
  * Одна-две строки для блока «Ошибки:», если модель не вывела секцию сама.
- * Не дублирует заголовок типа: деталь — хвост комментария.
+ * Не дублирует заголовок типа: деталь - хвост комментария.
  */
 export function buildSyntheticErrorsBlockFromComment(commentBody: string): string | null {
   return extractTranslationErrorSynthAndPraiseFromComment(commentBody).synthetic
@@ -319,7 +319,7 @@ function normalizeLooseErrorLine(line: string): string {
 
 /**
  * Глаголы в форме V-ing из эталона «Повтори» для continuous / perfect continuous:
- * после been / am,is,are,was,were / will be — эти -ing нельзя подменять на V3/ed в блоке «Ошибки».
+ * после been / am,is,are,was,were / will be - эти -ing нельзя подменять на V3/ed в блоке «Ошибки».
  */
 export function extractContinuousDrillProtectedIngForms(repeatEnglish: string): Set<string> {
   const repeatLower = repeatEnglish.toLowerCase()

@@ -9,7 +9,7 @@ type EngvoVoiceMeterProps = {
   active: boolean
   frozen?: boolean
   ariaLabel?: string
-  /** user — микрофон (AGC сжимает сигнал); assistant — удалённый поток Engvo. */
+  /** user - микрофон (AGC сжимает сигнал); assistant - удалённый поток Engvo. */
   role?: EngvoVoiceMeterRole
 }
 

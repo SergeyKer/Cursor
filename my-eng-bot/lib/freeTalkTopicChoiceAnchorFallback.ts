@@ -25,7 +25,7 @@ function extractLastEnglishQuestionLine(content: string): string | null {
 }
 
 /**
- * Если после выбора темы (1/2/3) модель выдала вопрос, не похожий на требуемое время — подставляем якорный вопрос.
+ * Если после выбора темы (1/2/3) модель выдала вопрос, не похожий на требуемое время - подставляем якорный вопрос.
  */
 export function applyFreeTalkTopicChoiceTenseAnchorFallback(params: {
   content: string

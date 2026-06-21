@@ -53,15 +53,15 @@ function instructionMindsetLine(audience: Audience): string {
 function voiceRuleMessage(audience: Audience, hasChoice: boolean): string {
   if (hasChoice) {
     return audience === 'child'
-      ? 'Если выбрал неверно — скажи правильную фразу вслух. Текст — через карандаш в поле.'
-      : 'После неверного выбора закрепите правильную фразу вслух. Текст — через карандаш в поле.'
+      ? 'Если выбрал неверно - скажи правильную фразу вслух. Текст - через карандаш в поле.'
+      : 'После неверного выбора закрепите правильную фразу вслух. Текст - через карандаш в поле.'
   }
   return audience === 'child'
-    ? 'Когда попросят повторить фразу — скажи вслух, это часть практики.'
-    : 'Когда практика просит повторить фразу — произнесите вслух, это часть закрепления.'
+    ? 'Когда попросят повторить фразу - скажи вслух, это часть практики.'
+    : 'Когда практика просит повторить фразу - произнесите вслух, это часть закрепления.'
 }
 
-/** Intro в scroll-feed: один bubble с контекстом темы. Полные правила — в composer через buildPracticeInstructionCopy. */
+/** Intro в scroll-feed: один bubble с контекстом темы. Полные правила - в composer через buildPracticeInstructionCopy. */
 export function buildPracticeBriefingBubbles(session: PracticeSession, audience: Audience): Bubble[] {
   const topic = session.topic.trim() || 'Практика'
   const intro =

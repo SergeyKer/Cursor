@@ -135,10 +135,10 @@ function buildSystemPromptEnToRu(params: {
     ' Avoid bureaucratic or robotic phrases like "связанное с", "в отношении", "касаемо", "по части". If the English is a question, translate it as a clear question a real person would ask. ' +
     'Prefer idiomatic Russian over literal structure. For example, translate "What do you usually do about culture?" as a natural question like "Что ты обычно делаешь, когда речь заходит о культуре?" rather than "Как ты обычно занимаешься культурой?". ' +
     favoriteFoodExample + ' ' +
-    'For English questions with "what ... in" (e.g. "What are you swimming in?") keep the preposition in Russian: use "В чём ...?" — never "Что ты плаваешь?" which loses the meaning. ' +
+    'For English questions with "what ... in" (e.g. "What are you swimming in?") keep the preposition in Russian: use "В чём ...?" - never "Что ты плаваешь?" which loses the meaning. ' +
     'Important: in conversational prompts like "Just start, and I will follow." translate "I will follow" idiomatically as "я подхвачу/я продолжу/я поддержу разговор" depending on context. ' +
-    'If the English source is ungrammatical, jumbled, or looks like a broken mix of words, infer the learner\'s intent and produce idiomatic Russian — do not mirror the broken English word order. ' +
-    'The output must be entirely in Russian (Cyrillic). Do not leave English verbs or fragments such as inspires, inspiring, try as bare English inside the Russian text — translate them or rephrase. ' +
+    'If the English source is ungrammatical, jumbled, or looks like a broken mix of words, infer the learner\'s intent and produce idiomatic Russian - do not mirror the broken English word order. ' +
+    'The output must be entirely in Russian (Cyrillic). Do not leave English verbs or fragments such as inspires, inspiring, try as bare English inside the Russian text - translate them or rephrase. ' +
     'Proper names and unavoidable loanwords are acceptable only when standard in Russian. ' +
     learnerContext +
     'Reply only with the translation, without explanations, quotes, or extra words.'

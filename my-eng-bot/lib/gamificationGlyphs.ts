@@ -23,7 +23,7 @@ export function formatComboMilestoneBlockedVoice(
   combo: number,
   audience: 'adult' | 'child' = 'adult'
 ): string {
-  const tail = audience === 'child' ? ' — уже в счёте!' : ' — в счёте урока.'
+  const tail = audience === 'child' ? ' - уже в счёте!' : ' - в счёте урока.'
   return formatComboFooterVoiceLabel(combo, tail)
 }
 

@@ -6,8 +6,8 @@ alwaysApply: false
 
 # UTF-8 и кириллица
 
-- **Не переписывать** [`components/app/AppShell.tsx`](components/app/AppShell.tsx) через массовый StrReplace/Write — на Windows это ломает UTF-8 (`?????` в кнопках).
+- **Не переписывать** [`components/app/AppShell.tsx`](components/app/AppShell.tsx) через массовый StrReplace/Write - на Windows это ломает UTF-8 (`?????` в кнопках).
 - Для правок AppShell: `node scripts/safe-utf8-patch.mjs --file components/app/AppShell.tsx ...` или ручная правка в IDE с `files.encoding: utf8`.
-- Новый пользовательский русский текст — в [`lib/uiCopy/`](lib/uiCopy/), не inline в AppShell.
+- Новый пользовательский русский текст - в [`lib/uiCopy/`](lib/uiCopy/), не inline в AppShell.
 - После правок с кириллицей: `npm run check:cyrillic` и `npm run build`.
 - Перед коммитом AppShell: `npm run check:cyrillic` должен проходить.

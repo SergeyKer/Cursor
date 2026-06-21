@@ -22,7 +22,7 @@ export type CoinForgivenessGuardParams = {
   coinBalance: number
 }
 
-/** Текст правильного ответа для applied-ack (puzzle — текущий sub). */
+/** Текст правильного ответа для applied-ack (puzzle - текущий sub). */
 export function resolveCoinForgivenessAppliedPreviewAnswer(
   exercise: Exercise | null | undefined,
   puzzleSubIndex: number,
@@ -69,7 +69,7 @@ export function canShowActiveCoinForgivenessButton(params: CoinForgivenessGuardP
   return matchesCoinForgivenessBaseGuard(params)
 }
 
-/** Достаточно ли монет для списания (при 0 — позже отдельный путь монетизации). */
+/** Достаточно ли монет для списания (при 0 - позже отдельный путь монетизации). */
 export function canSpendCoinsForForgiveness(coinBalance: number): boolean {
   return coinBalance >= COIN_ERROR_FORGIVENESS_COST
 }

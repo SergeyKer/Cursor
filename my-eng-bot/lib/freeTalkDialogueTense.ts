@@ -5,7 +5,7 @@
 
 import type { TenseId } from './types'
 
-/** FNV-1a — совпадает с app/api/chat/route.ts для воспроизводимости. */
+/** FNV-1a - совпадает с app/api/chat/route.ts для воспроизводимости. */
 export function stableHash32(input: string): number {
   let hash = 0x811c9dc5
   for (let i = 0; i < input.length; i++) {

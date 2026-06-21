@@ -80,7 +80,7 @@ export async function simplifyEnglishAnswerForLearner(params: {
           'Recent user English samples (may be empty):',
           params.learnerEnglishSamples?.length
             ? params.learnerEnglishSamples.map((s, i) => `${i + 1}. ${s}`).join('\n')
-            : '(none — keep plain simple English.)',
+            : '(none - keep plain simple English.)',
         ].join('\n')
       : ''
 

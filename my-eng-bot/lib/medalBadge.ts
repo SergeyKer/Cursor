@@ -11,7 +11,7 @@ export type MedalBadgeSize = 'sm' | 'md'
 
 export type LessonFrozenMedalGlyph = 'military'
 
-/** Медаль без цифры места — «урок начат / заморожено». */
+/** Медаль без цифры места - «урок начат / заморожено». */
 export const FROZEN_LESSON_MEDAL_EMOJI = '🏅'
 
 export function medalTierEmoji(tier: LessonMedalTier): string {

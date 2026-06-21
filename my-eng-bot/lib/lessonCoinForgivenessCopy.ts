@@ -30,10 +30,10 @@ const LESSON_COIN_FORGIVENESS_COPY: LessonCoinForgivenessCopy = {
   confirmBody: (balanceAfter) =>
     `Списать 1 монету? Останется ${balanceAfter}. Подставим правильный ответ и отправим. Серия COMBO не восстановится.`,
   confirmHintMuted:
-    '«Не сейчас» — окно закроется, кнопка останется. Помощь — один раз за урок на любом задании.',
+    '«Не сейчас» - окно закроется, кнопка останется. Помощь - один раз за урок на любом задании.',
   confirmTitleZeroBalance: 'Нет монет',
   confirmBodyZeroBalance: 'Сейчас 0 монет. Чтобы не считать ошибку, нужна 1 монета.',
-  confirmHintZeroBalance: 'Нажмите «Да, помочь» — подскажем, как заработать монеты.',
+  confirmHintZeroBalance: 'Нажмите «Да, помочь» - подскажем, как заработать монеты.',
   zeroBalanceHelpTitle: 'Как получить монеты',
   zeroBalanceHelpMessage: 'Монеты можно заработать за золотые медали.',
   decline: 'Не сейчас',

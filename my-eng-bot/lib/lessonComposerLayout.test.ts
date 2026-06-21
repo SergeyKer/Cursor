@@ -37,7 +37,7 @@ describe('isLessonChoiceChipsPanel', () => {
   })
 })
 
-describe('resolveLessonComposerPanelKind — post-chip lesson steps', () => {
+describe('resolveLessonComposerPanelKind - post-chip lesson steps', () => {
   it('step 3 fill_text uses text-input panel', () => {
     expect(
       resolveLessonComposerPanelKind({

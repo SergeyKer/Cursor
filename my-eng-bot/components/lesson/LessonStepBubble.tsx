@@ -12,6 +12,8 @@ type LessonStepBubbleProps = {
   textRevealedThroughIndex?: number
   textAnimatingIndex?: number | null
   shellEnterActive?: boolean
+  /** Текущий шаг: один слитный блок (выезд целиком, без скачка при чипах). */
+  preferUnifiedLayout?: boolean
   onTextSectionRevealComplete?: (sectionIndex: number) => void
 }
 
@@ -108,19 +110,22 @@ export default function LessonStepBubble({
   textRevealedThroughIndex = -1,
   textAnimatingIndex = null,
   shellEnterActive = false,
+  preferUnifiedLayout = false,
   onTextSectionRevealComplete,
 }: LessonStepBubbleProps) {
   const cornerClass = LESSON_CARD_RADIUS_CLASS
   const split = useMemo(() => splitLessonBubblesForDisplay(bubbles), [bubbles])
+  const useUnifiedLayout =
+    preferUnifiedLayout || !split.useSplitLayout || !split.taskBubble
 
   if (bubbles.length === 0) {
     return null
   }
 
-  if (!split.useSplitLayout || !split.taskBubble) {
+  if (useUnifiedLayout) {
     return (
       <div
-        className={`relative w-full min-w-0 overflow-hidden opacity-100 ${lessonCardSurfaceClass} ${cornerClass}`}
+        className={`relative w-full min-w-0 overflow-hidden ${lessonCardSurfaceClass} ${cornerClass}`}
       >
         {bubbles.map((bubble, bubbleIndex) => (
           <SoftTextSection

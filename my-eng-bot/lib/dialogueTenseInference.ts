@@ -8,7 +8,7 @@ interface ChatMessageLike {
   content: string
 }
 
-/** От более специфичных паттернов к общим — первое совпадение выигрывает. */
+/** От более специфичных паттернов к общим - первое совпадение выигрывает. */
 export const DIALOGUE_TENSE_INFERENCE_ORDER: readonly string[] = [
   'future_perfect_continuous',
   'present_perfect_continuous',
@@ -62,7 +62,7 @@ export function isLikelyQuestionInRequiredTense(question: string, requiredTense:
         /\bhow\s+does\s+\S/i.test(lower)
       )
     case 'present_continuous':
-      // «Are you going to swim?» — Future (going to), не Present Continuous («going» не как главный глагол)
+      // «Are you going to swim?» - Future (going to), не Present Continuous («going» не как главный глагол)
       if (
         /\b(am|is|are)\s+(?:i|you|we|they|he|she|it)\s+going\s+to\s+(?!the\b|this\b|that\b|these\b|those\b)/i.test(
           lower
@@ -194,7 +194,7 @@ export function isUserLikelyCorrectForTense(userText: string, requiredTense: str
     }
     case 'present_continuous':
       if (/\b(was|were|did|had)\b/i.test(expandedText)) return false
-      // «I am going to go» — Future (going to), не PC
+      // «I am going to go» - Future (going to), не PC
       if (
         /\b(am|is|are)\s+(?:[^\s]+\s+)*going\s+to\s+(?!the\b|this\b|that\b|these\b|those\b)/i.test(expandedText)
       ) {

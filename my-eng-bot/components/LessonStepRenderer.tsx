@@ -65,6 +65,7 @@ import TypingText from '@/components/TypingText'
 import { buildLessonFeedMessages, type LessonFeedMessage } from '@/lib/buildLessonFeedMessages'
 import { shouldHighlightWrongLessonChoice } from '@/lib/lessonChoiceHighlight'
 import { injectVariantQuestionIntoTaskBubble } from '@/lib/lessonFeedBubbles'
+import { resolveLessonRepeatInstructionVerb } from '@/lib/lessonFeedbackMessage'
 import {
   isLessonFeedCheckingTailMessageId,
   isLessonFeedScrolledToTail,
@@ -146,7 +147,7 @@ type LessonStepRendererProps = {
   }) => void
   onPuzzleInteraction?: () => void
   onPuzzleProgressChange?: (progress: { subIndex: number; subTotal: number }) => void
-  /** Индекс sub-puzzle на ходе 5 (0 = 1/3) — для доскролла к хвосту ленты при смене пазла. */
+  /** Индекс sub-puzzle на ходе 5 (0 = 1/3) - для доскролла к хвосту ленты при смене пазла. */
   puzzleSubIndex?: number
   /** Сигнал движка: подпазл прошёл checking → можно переключить вариант. */
   puzzleSubAdvanceToken?: number
@@ -170,7 +171,7 @@ type LessonStepRendererProps = {
   postLessonOverlayOpen?: boolean
   audience: 'child' | 'adult'
   voiceId: string
-  /** Новый ключ (например `runKey` урока) — новый порядок вариантов в fill_choice на каждый проход. */
+  /** Новый ключ (например `runKey` урока) - новый порядок вариантов в fill_choice на каждый проход. */
   choiceShuffleSeed?: string
   returnBriefing?: LessonReturnBriefingPayload | null
   onAcknowledgeReturnBriefing?: () => void
@@ -434,7 +435,7 @@ export default function LessonStepRenderer({
   const shouldRenderChoiceChips = hasChoiceOptions
   const hasPostLessonOptions = Boolean(postLesson?.options.length)
   const hasIntroBlocks = Boolean(introBlocks?.theory || introBlocks?.how)
-  /** Пазл и финал: короткая лента + высокая нижняя панель — scrollIntoView липнет к верху. */
+  /** Пазл и финал: короткая лента + высокая нижняя панель - scrollIntoView липнет к верху. */
   const useFeedScrollToMax = isSentencePuzzle || hasPostLessonOptions
   const relaxFeedTailPin = resolveRelaxFeedTailPin({
     status,
@@ -499,14 +500,13 @@ export default function LessonStepRenderer({
     !deferChoiceChipsUntilCardReveal ||
     (isRevealInitializedForKey && !isRevealInProgress)
   const shellScrollDeferLayoutSettling = deferChoiceChipsUntilCardReveal
-  const LESSON_FEED_ENTER_ANIM_MS = 800
-  const awaitingFeedEnterBeforeTextRevealRef = useRef(false)
+  const stepTransitionKey = currentStep
+    ? `step-${currentStep.stepNumber}-v${currentVariantIndex}`
+    : null
   const shellScrollCompleteInvokedRef = useRef(false)
-  const [lessonFeedEnterClassActive, setLessonFeedEnterClassActive] = useState(false)
   const invokeShellScrollCompleteOnce = useCallback(() => {
     if (shellScrollCompleteInvokedRef.current) return
     shellScrollCompleteInvokedRef.current = true
-    awaitingFeedEnterBeforeTextRevealRef.current = false
     onShellScrollComplete()
   }, [onShellScrollComplete])
   const isTaskSectionVisible =
@@ -534,35 +534,6 @@ export default function LessonStepRenderer({
     }
     return choiceOptions
   }, [status, latestFeedback?.type, frozenChoiceOptions, choiceOptions])
-  const stepTransitionKey = currentStep
-    ? `step-${currentStep.stepNumber}-v${currentVariantIndex}`
-    : null
-
-  useLayoutEffect(() => {
-    if (!isShellEnterActive) {
-      setLessonFeedEnterClassActive(false)
-      awaitingFeedEnterBeforeTextRevealRef.current = false
-      return
-    }
-    if (isFirstLessonStep || prefersReducedMotion) {
-      awaitingFeedEnterBeforeTextRevealRef.current = false
-      setLessonFeedEnterClassActive(false)
-      return
-    }
-    shellScrollCompleteInvokedRef.current = false
-    awaitingFeedEnterBeforeTextRevealRef.current = true
-    setLessonFeedEnterClassActive(true)
-  }, [isFirstLessonStep, isShellEnterActive, prefersReducedMotion, stepTransitionKey])
-
-  useEffect(() => {
-    if (!lessonFeedEnterClassActive) return
-    const fallbackTimer = window.setTimeout(() => {
-      if (!awaitingFeedEnterBeforeTextRevealRef.current) return
-      setLessonFeedEnterClassActive(false)
-      invokeShellScrollCompleteOnce()
-    }, LESSON_FEED_ENTER_ANIM_MS + 80)
-    return () => window.clearTimeout(fallbackTimer)
-  }, [invokeShellScrollCompleteOnce, lessonFeedEnterClassActive, stepTransitionKey])
 
   const activePuzzleVariant =
     isSentencePuzzle && exercise?.puzzleVariants?.length
@@ -728,6 +699,16 @@ export default function LessonStepRenderer({
 
   const hasLessonMicrophone =
     Boolean(exercise) && !hasPostLessonOptions && !shouldRenderChoiceChips && !isSentencePuzzle
+  const repeatInstructionVerb = useMemo(
+    () =>
+      resolveLessonRepeatInstructionVerb({
+        exerciseType: exercise?.type,
+        hasChoiceOptions: shouldRenderChoiceChips,
+        hasMicrophone: hasLessonMicrophone,
+        audience,
+      }),
+    [audience, exercise?.type, hasLessonMicrophone, shouldRenderChoiceChips]
+  )
   const inputPlaceholder = useMemo(() => {
     const verb = hasLessonMicrophone ? 'Скажи' : 'Напиши'
     if (!exercise) return `${verb} ответ...`
@@ -1080,15 +1061,18 @@ export default function LessonStepRenderer({
   }, [returnBriefingActive, returnBriefing?.runKey])
 
   const scheduleScroll = useCallback(
-    (scrollFn: (behavior: ScrollBehavior) => void, behavior: ScrollBehavior = 'auto') => {
+    (scrollFn: (behavior: ScrollBehavior) => void | (() => void), behavior: ScrollBehavior = 'auto') => {
       let innerRaf = 0
       let extraRaf = 0
+      let scrollCleanup: (() => void) | undefined
       const needsSafariDialogLayoutPass =
         typeof document !== 'undefined' &&
         document.documentElement.hasAttribute('data-ios-safari-dialog')
       const outerRaf = requestAnimationFrame(() => {
         innerRaf = requestAnimationFrame(() => {
-          const run = () => scrollFn(behavior)
+          const run = () => {
+            scrollCleanup = scrollFn(behavior) ?? undefined
+          }
           if (needsSafariDialogLayoutPass) {
             extraRaf = requestAnimationFrame(run)
           } else {
@@ -1100,17 +1084,54 @@ export default function LessonStepRenderer({
         cancelAnimationFrame(outerRaf)
         if (innerRaf) cancelAnimationFrame(innerRaf)
         if (extraRaf) cancelAnimationFrame(extraRaf)
+        scrollCleanup?.()
       }
     },
     []
   )
 
+  const [errorSayTextRevealReady, setErrorSayTextRevealReady] = useState(true)
+
+  const tailErrorNeedsDeferredSayReveal = useMemo(() => {
+    const tail = lessonMessages.at(-1)
+    return (
+      status === 'feedback' &&
+      tail?.kind === 'status' &&
+      tail.tone === 'error' &&
+      Boolean(tail.repeatAnswer) &&
+      !prefersReducedMotion
+    )
+  }, [lessonMessages, status, prefersReducedMotion])
+
+  useEffect(() => {
+    if (!tailErrorNeedsDeferredSayReveal) {
+      setErrorSayTextRevealReady(true)
+      return
+    }
+    setErrorSayTextRevealReady(false)
+  }, [tailLessonMessageId, tailErrorNeedsDeferredSayReveal])
+
+  const markErrorSayTextRevealReady = useCallback(() => {
+    setErrorSayTextRevealReady(true)
+  }, [])
+
   const scheduleLessonFeedScroll = useCallback(
-    (behavior: ScrollBehavior = 'auto') => {
+    (behavior: ScrollBehavior = 'auto', onComplete?: () => void) => {
       const mode = resolveLessonFeedScrollMode({ useFeedScrollToMax, relaxFeedTailPin })
       return scheduleScroll((scrollBehavior) => {
         const scrollContainer = scrollContainerRef.current
-        if (!scrollContainer) return
+        if (!scrollContainer) {
+          onComplete?.()
+          return
+        }
+        if (onComplete) {
+          return scrollLessonFeedToModeWithCompleteIfNeeded(
+            scrollContainer,
+            mode,
+            scrollBehavior,
+            onComplete
+          )
+        }
         scrollLessonFeedToModeIfNeeded(scrollContainer, mode, scrollBehavior)
       }, behavior)
     },
@@ -1129,10 +1150,9 @@ export default function LessonStepRenderer({
   useEffect(() => {
     if (!isShellEnterActive) return
 
+    shellScrollCompleteInvokedRef.current = false
+
     const completeShellScroll = () => {
-      if (awaitingFeedEnterBeforeTextRevealRef.current) {
-        return
-      }
       invokeShellScrollCompleteOnce()
     }
 
@@ -1247,7 +1267,13 @@ export default function LessonStepRenderer({
           ? 'new_message'
           : 'initial',
     })
-    scheduleLessonFeedScroll(scrollBehavior)
+    const onScrollComplete = tailErrorNeedsDeferredSayReveal
+      ? markErrorSayTextRevealReady
+      : undefined
+    scheduleLessonFeedScroll(
+      scrollBehavior,
+      onScrollComplete
+    )
 
     previousScrollSnapshotRef.current = nextSnapshot
   }, [
@@ -1262,14 +1288,21 @@ export default function LessonStepRenderer({
     scheduleScroll,
     hasIntroBlocks,
     openIntroPanel,
+    tailErrorNeedsDeferredSayReveal,
+    markErrorSayTextRevealReady,
   ])
 
   useEffect(() => {
     if (status !== 'feedback' || !latestFeedback) return
     if (hasIntroBlocks && openIntroPanel !== null) return
 
+    const onScrollComplete = tailErrorNeedsDeferredSayReveal
+      ? markErrorSayTextRevealReady
+      : undefined
+
     return scheduleLessonFeedScroll(
-      resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'feedback' })
+      resolveLessonScrollBehavior({ prefersReducedMotion, reason: 'feedback' }),
+      onScrollComplete
     )
   }, [
     status,
@@ -1279,11 +1312,13 @@ export default function LessonStepRenderer({
     scheduleLessonFeedScroll,
     hasIntroBlocks,
     openIntroPanel,
+    tailErrorNeedsDeferredSayReveal,
+    markErrorSayTextRevealReady,
   ])
 
   useEffect(() => {
     if (!isTextRevealActive || isFirstLessonStep) return
-    // На шагах с intro/отложенными choice-чипами доскролл — один раз при shell enter.
+    // На шагах с intro/отложенными choice-чипами доскролл - один раз при shell enter.
     if (shellScrollDeferLayoutSettling) return
 
     const mode = resolveLessonFeedScrollMode({ useFeedScrollToMax, relaxFeedTailPin })
@@ -1505,7 +1540,7 @@ export default function LessonStepRenderer({
         compact: forgivenessStackCompact,
       })
     : undefined
-  /** Пока карточка раскрывается — держим lock, иначе снятие minHeight вместе с показом чипов дёргает ленту. */
+  /** Пока карточка раскрывается - держим lock, иначе снятие minHeight вместе с показом чипов дёргает ленту. */
   const composerHeightLockReleased =
     prefersReducedMotion ||
     (isSentencePuzzle
@@ -1679,13 +1714,6 @@ export default function LessonStepRenderer({
                       isActiveRevealTarget &&
                       (isShellEnterActive || hideLessonBubbleUntilRevealReady)
 
-                    const lessonFeedEnterActive =
-                      isCurrentLessonMessage &&
-                      isActiveRevealTarget &&
-                      !returnBriefingActive &&
-                      !prefersReducedMotion &&
-                      lessonFeedEnterClassActive
-
                     const currentLessonTextRevealedThroughIndex =
                       returnBriefingActive || !isCurrentLessonMessage || !isActiveRevealTarget
                         ? message.bubbles.length - 1
@@ -1722,22 +1750,22 @@ export default function LessonStepRenderer({
                       return null
                     }
 
+                    if (hideLessonBubbleUntilRevealReady) {
+                      return null
+                    }
+
+                    const lessonBubbleFrameKey =
+                      isCurrentLessonMessage && stepTransitionKey
+                        ? `lesson-frame-${stepTransitionKey}`
+                        : message.id
+
                     return (
                       <ChatBubbleFrame
-                        key={message.id}
+                        key={lessonBubbleFrameKey}
                         role="assistant"
                         position={position}
-                        className={`w-full${lessonFeedEnterActive ? ' lesson-feed-enter' : ''}`}
+                        className="w-full"
                         rowClassName={lessonRowMargin}
-                        onAnimationEnd={
-                          lessonFeedEnterActive
-                            ? (event) => {
-                                if (event.animationName !== 'lessonFeedSlideIn') return
-                                setLessonFeedEnterClassActive(false)
-                                invokeShellScrollCompleteOnce()
-                              }
-                            : undefined
-                        }
                       >
                         {message.bubbles.length > 0 ? (
                           <LessonStepBubble
@@ -1749,6 +1777,7 @@ export default function LessonStepRenderer({
                                   : message.id
                             }
                             bubbles={message.bubbles}
+                            preferUnifiedLayout={isCurrentLessonMessage}
                             shellEnterActive={
                               isCurrentLessonMessage && !returnBriefingActive ? lessonShellEnterActive : false
                             }
@@ -1866,12 +1895,17 @@ export default function LessonStepRenderer({
                     status === 'feedback' &&
                     !prefersReducedMotion
 
+                  const feedbackStatusEnterClass =
+                    message.tone === 'error' && !prefersReducedMotion
+                      ? ''
+                      : lessonFeedStatusEnterClass(message.id)
+
                   return (
                     <ChatBubbleFrame
                       key={message.id}
                       role="assistant"
                       position={position}
-                      className={lessonFeedStatusEnterClass(message.id)}
+                      className={feedbackStatusEnterClass}
                       rowClassName={
                         pinLastRowToBottom ? 'mb-0' : isBubbleEnd ? 'mb-2.5' : 'mb-0.5'
                       }
@@ -1880,18 +1914,9 @@ export default function LessonStepRenderer({
                         <LessonFeedbackStatusBubble
                           hintText={message.text}
                           repeatAnswer={message.repeatAnswer}
+                          repeatInstructionVerb={repeatInstructionVerb}
                           animateSayText={animateSayText}
-                          onSayTextRevealComplete={
-                            animateSayText
-                              ? () =>
-                                  scheduleLessonFeedScroll(
-                                    resolveLessonScrollBehavior({
-                                      prefersReducedMotion,
-                                      reason: 'reveal',
-                                    })
-                                  )
-                              : undefined
-                          }
+                          sayTextRevealReady={errorSayTextRevealReady}
                         />
                       ) : (
                         <section

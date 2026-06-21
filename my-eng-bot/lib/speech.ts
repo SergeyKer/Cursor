@@ -51,7 +51,7 @@ function speakOnce(
   utterance.onerror = releaseSession
 
   // Вызов speak() синхронно после cancel(): setTimeout(0) выводит в macrotask и в Chromium
-  // часто ломает user activation — озвучка не стартует без ошибки.
+  // часто ломает user activation - озвучка не стартует без ошибки.
   const runSpeak = () => {
     if (synth.paused) synth.resume()
     // До onstart: чтобы второй клик «Озвучить» по тому же тексту сразу остановил очередь.
@@ -68,7 +68,7 @@ function isAndroidBrowser(): boolean {
 
 /**
  * TTS: воспроизведение текста выбранным голосом.
- * Повторный вызов с тем же текстом и voiceId, пока идёт воспроизведение или очередь не пуста — останавливает озвучку.
+ * Повторный вызов с тем же текстом и voiceId, пока идёт воспроизведение или очередь не пуста - останавливает озвучку.
  * На Android и iOS игнорирует voiceId и использует системный голос.
  */
 export function speak(text: string, voiceId: string): void {

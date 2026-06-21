@@ -320,7 +320,7 @@ function buildWhoLikesStep7Variants(variant: WhoLikesVariant) {
       frameEn: 'Who likes ___?',
       correctWord: variant.step5Object,
       distractors: pickWhoLikesObjectDistractors(variant.step5Object, variant.introObject),
-      hint: 'После likes — одно слово: название объекта на английском.',
+      hint: 'После likes - одно слово: название объекта на английском.',
     },
     {
       id: `${variant.id}_step7_hard`,
@@ -329,7 +329,7 @@ function buildWhoLikesStep7Variants(variant: WhoLikesVariant) {
       frameEn: 'Who likes ___?',
       correctWord: variant.step6CreativeObject,
       distractors: pickWhoLikesObjectDistractors(variant.step6CreativeObject, variant.introObject),
-      hint: 'В новой ситуации после likes — одно слово-объект.',
+      hint: 'В новой ситуации после likes - одно слово-объект.',
     },
   ])
 }
@@ -398,7 +398,7 @@ function buildWhoLikesFinale(): LessonFinale {
       {
         type: 'positive',
         content:
-          'Готово! Who-вопросы — ваши. Дальше — практика и кубок 🏆.',
+          'Готово! Who-вопросы - ваши. Дальше - практика и кубок 🏆.',
       },
     ],
     footerDynamic: 'Урок завершён',
@@ -445,7 +445,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
       id: `${variant.id}_step4_easy`,
       question: `Переведите на английский: "${variant.introQuestionRu}"`,
       correctAnswer: `Who ${variant.verbThird} ${variant.introObject}?`,
-      hint: '«Кто» — Who. Глагол с -s, потом объект и знак вопроса.',
+      hint: '«Кто» - Who. Глагол с -s, потом объект и знак вопроса.',
       difficulty: 'easy' as const,
       answerFormat: 'full_sentence' as const,
       answerPolicy: 'normalized' as const,
@@ -463,7 +463,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
       id: `${variant.id}_step4_hard`,
       question: `Переведите на английский: "${toWhoLikesQuestionRu(variant.verbBase, variant.step5Object)}"`,
       correctAnswer: `Who ${variant.verbThird} ${variant.step5Object}?`,
-      hint: '«Кто» — Who. Глагол с -s и объект из задания.',
+      hint: '«Кто» - Who. Глагол с -s и объект из задания.',
       difficulty: 'hard' as const,
       answerFormat: 'full_sentence' as const,
       answerPolicy: 'normalized' as const,
@@ -642,7 +642,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'Вопрос Who, затем ответ, в конце — новая пара вопрос–ответ с другими словами.',
+          content: 'Вопрос Who, затем ответ, в конце - новая пара вопрос–ответ с другими словами.',
         },
         {
           type: 'task',
@@ -664,7 +664,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         }
       })(),
       footerDynamic: 'Финальная проверка: 3 коротких предложения',
-      myEngComment: 'Три фразы подряд — вы почти у финиша.',
+      myEngComment: 'Три фразы подряд - вы почти у финиша.',
     },
     {
       stepNumber: 7,
@@ -676,7 +676,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'В каждой рамке одно слово — форма глагола с -s или без.',
+          content: 'В каждой рамке одно слово - форма глагола с -s или без.',
         },
         {
           type: 'task',
@@ -782,7 +782,7 @@ export const whoLikesLesson: LessonData = {
       points: [
         'Who здесь не просит вспомогательный do/does в начале вопроса.',
         'Форма с -s нужна и в вопросе, и в коротком полном ответе.',
-        'Главная ошибка — убрать -s, потому что по-русски такой формы нет.',
+        'Главная ошибка - убрать -s, потому что по-русски такой формы нет.',
       ],
       examples: [
         { en: 'Who drinks coffee?', ru: 'Кто пьет кофе?', note: 'drinks, не drink' },
@@ -792,7 +792,7 @@ export const whoLikesLesson: LessonData = {
     deepDive: {
       commonMistakes: [
         'Who like music? вместо Who likes music?',
-        'Who does likes music? — лишний does рядом с likes.',
+        'Who does likes music? - лишний does рядом с likes.',
         'Anna like music. вместо Anna likes music.',
       ],
       contrastNotes: ['Who likes music? = вопрос.', 'Anna likes music. = ответ.'],

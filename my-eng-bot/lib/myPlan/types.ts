@@ -1,6 +1,6 @@
 import type { PracticeEntrySource } from '@/types/practice'
 
-/** Действие по нажатию основной кнопки карточки — обрабатывается колбэками из `page.tsx`. */
+/** Действие по нажатию основной кнопки карточки - обрабатывается колбэками из `page.tsx`. */
 export type MyPlanAction =
   | { kind: 'resume_lesson'; lessonId: string }
   | { kind: 'open_lesson'; lessonId: string }

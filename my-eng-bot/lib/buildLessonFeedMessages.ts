@@ -13,6 +13,7 @@ import {
 import {
   buildLessonAnswerMessageId,
   resolveLessonAnswerAttemptNumber,
+  resolveLessonErrorFeedbackAttemptNumber,
 } from '@/lib/lessonFeedAnswerId'
 import { injectVariantQuestionIntoTaskBubble, resolveLessonTaskPromptForEntry } from '@/lib/lessonFeedBubbles'
 import { buildLessonFeedMessageBaseId } from '@/lib/lessonIntroPanelMessageId'
@@ -201,6 +202,7 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
         historyAttemptOrdinal: attemptOrdinal,
         timeline,
       })
+      const errorFeedbackAttemptNumber = resolveLessonErrorFeedbackAttemptNumber(timeline, entryIndex)
       const feedbackTone = entry.feedback.type === 'success' ? 'success' : 'error'
       const errorFeedbackParts =
         entry.feedback.type === 'error' &&
@@ -209,7 +211,7 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
           ? formatLessonErrorFeedback({
               message: entry.feedback.message,
               correctAnswer: entry.step.exercise.correctAnswer,
-              attemptNumber: feedbackAttemptNumber,
+              attemptNumber: errorFeedbackAttemptNumber,
             })
           : null
       const feedbackText = errorFeedbackParts?.hint ?? entry.feedback.message

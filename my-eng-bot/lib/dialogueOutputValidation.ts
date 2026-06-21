@@ -14,7 +14,7 @@ function stripLeadingAiPrefix(line: string): string {
 }
 
 /**
- * @param expectedNextQuestionTense — для free_talk после верного ответа: следующий вопрос должен быть в этом времени,
+ * @param expectedNextQuestionTense - для free_talk после верного ответа: следующий вопрос должен быть в этом времени,
  *   а не в requiredTense (время последнего вопроса/«Скажи»).
  */
 export type DialogueTenseValidationReason =

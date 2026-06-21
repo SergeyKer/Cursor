@@ -87,7 +87,7 @@ describe('extractPriorAssistantRepeatEnglish', () => {
     expect(extractPriorAssistantRepeatEnglish(messages)).toBe('Hidden line.')
   })
 
-  it('эталон для enforce — скрытая строка с карточки «Переведи далее», не старое Скажи из истории', () => {
+  it('эталон для enforce - скрытая строка с карточки «Переведи далее», не старое Скажи из истории', () => {
     const messages = [
       { role: 'assistant', content: 'Скажи: I love to cook pasta for dinner.' },
       { role: 'user', content: 'wrong' },
@@ -111,7 +111,7 @@ describe('extractPriorAssistantRepeatEnglish', () => {
     expect(extractPriorAssistantRepeatEnglish(messages)).toBeNull()
   })
 
-  it('не берёт Скажи из прошлой темы после нового «Переведи далее»; эталон — __TRAN__ текущего задания (книги, не color)', () => {
+  it('не берёт Скажи из прошлой темы после нового «Переведи далее»; эталон - __TRAN__ текущего задания (книги, не color)', () => {
     const messages = [
       {
         role: 'assistant',

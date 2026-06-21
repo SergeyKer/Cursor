@@ -40,7 +40,7 @@ const THEORY_TAGS: TheoryTag[] = [
     order: 10,
     menuLabelRu: 'Специальные вопросы с who',
     menuLabelEn: 'Special questions',
-    title: 'Who — special',
+    title: 'Who - special',
     focusLine: 'Who …? · вопросы с Wh-',
   },
   {
@@ -49,7 +49,7 @@ const THEORY_TAGS: TheoryTag[] = [
     order: 20,
     menuLabelRu: 'Вопрос к подлежащему',
     menuLabelEn: 'Subject questions',
-    title: 'Who — subject',
+    title: 'Who - subject',
     focusLine: 'Who likes …? · подлежащее в вопросе',
   },
   {

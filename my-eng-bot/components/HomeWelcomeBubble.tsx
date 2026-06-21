@@ -5,7 +5,7 @@ import { splitGreetingIntoBlocks } from '@/lib/homeGreeting'
 import { HomeWallpaperBubbleFrame, HOME_ASSISTANT_BUBBLE_CLASS } from '@/components/HomeWallpaperBubbleFrame'
 
 type HomeWelcomeBubbleProps = {
-  /** Текст: блоки через \\n\\n — приветствие и приглашение */
+  /** Текст: блоки через \\n\\n - приветствие и приглашение */
   text: string
   className?: string
 }

@@ -5,14 +5,14 @@ export const CHAT_COMPOSER_TYPO_CLASS = 'min-h-[44px] text-base leading-[1.45rem
 export const CHAT_COMPOSER_FORM_CLASS =
   'glass-surface flex w-full items-center gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1.5 sm:px-3'
 
-/** Обёртка нижней панели над fixed-футером (верхний padding — отдельно: `pt-2.5` или `pt-1`). */
+/** Обёртка нижней панели над fixed-футером (верхний padding - отдельно: `pt-2.5` или `pt-1`). */
 export const CHAT_COMPOSER_STACK_CLASS =
   'shrink-0 border-t border-[var(--chat-shell-border)] bg-transparent px-2.5 sm:px-3'
 
 /** Стандартный верхний отступ обёртки композера (симметричен `CHAT_COMPOSER_PADDING_BOTTOM`). */
 export const CHAT_COMPOSER_STACK_TOP_CLASS = 'pt-2.5'
 
-/** Симметричный вертикальный отступ для панелей с чипами выбора (без safe-area — его даёт футер). */
+/** Симметричный вертикальный отступ для панелей с чипами выбора (без safe-area - его даёт футер). */
 export const CHAT_COMPOSER_STACK_COMPACT_CLASS = 'py-1'
 
 /** Нижний padding chip-панели: симметричен `py-1` / `pt-1`. */
@@ -32,7 +32,7 @@ export type ChatComposerStackLayout = {
   style?: { paddingBottom: string }
 }
 
-/** Compact — chip-панели; standard — поле ввода и прочие композеры. */
+/** Compact - chip-панели; standard - поле ввода и прочие композеры. */
 export function getChatComposerStackLayout(compact: boolean): ChatComposerStackLayout {
   if (compact) {
     return { verticalClass: CHAT_COMPOSER_STACK_COMPACT_CLASS }
@@ -50,7 +50,7 @@ export const CHAT_COMPOSER_INPUT_ROW_CLASS = 'flex w-full items-center gap-2'
 export const CHAT_COMPOSER_COLUMN_SHELL_CLASS =
   'glass-surface flex w-full flex-col gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1.5 sm:px-3'
 
-/** Вертикальные метрики textarea: симметричный padding; при STT — web-metrics. */
+/** Вертикальные метрики textarea: симметричный padding; при STT - web-metrics. */
 export function getChatComposerTextareaVerticalClass(webTextMetrics: boolean): string {
   if (webTextMetrics) {
     return 'chat-composer-vertical-align chat-input-voice-web-metrics'

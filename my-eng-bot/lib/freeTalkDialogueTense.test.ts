@@ -37,7 +37,7 @@ describe('pickWeightedFreeTalkTense', () => {
     expect(only).toBe('past_simple')
   })
 
-  it('если в пуле только одно время — возвращает его даже при exclude', () => {
+  it('если в пуле только одно время - возвращает его даже при exclude', () => {
     const only = pickWeightedFreeTalkTense({
       candidates: ['future_perfect'],
       seed: 'y',
@@ -46,7 +46,7 @@ describe('pickWeightedFreeTalkTense', () => {
     expect(only).toBe('future_perfect')
   })
 
-  it('пустой пул — дефолт present_simple', () => {
+  it('пустой пул - дефолт present_simple', () => {
     expect(
       pickWeightedFreeTalkTense({
         candidates: [],

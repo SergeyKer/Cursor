@@ -92,7 +92,7 @@ export type StreakFooterSessionMode =
   | 'accent'
   | null
 
-/** XP preview belongs in idle/intro — not while a lesson or task is in progress. */
+/** XP preview belongs in idle/intro - not while a lesson or task is in progress. */
 export function shouldIncludeStreakFooterPreview(sessionMode: StreakFooterSessionMode): boolean {
   if (sessionMode === null) return true
   return sessionMode === 'lesson-intro'

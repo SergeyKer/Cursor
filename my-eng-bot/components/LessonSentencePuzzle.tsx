@@ -33,9 +33,9 @@ type LessonSentencePuzzleProps = {
     isLastVariant: boolean
   }) => void
   onInteraction?: () => void
-  /** Инкремент движка после checking+feedback успеха подпазла — запускает advance. */
+  /** Инкремент движка после checking+feedback успеха подпазла - запускает advance. */
   subPuzzleAdvanceToken?: number
-  /** Сигнал движка: прощение ошибки — автозаполнение и success. */
+  /** Сигнал движка: прощение ошибки - автозаполнение и success. */
   attemptForgivenessToken?: number
 }
 

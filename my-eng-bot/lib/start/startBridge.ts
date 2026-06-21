@@ -43,7 +43,7 @@ export function bridgeForBranchActivation(
   }
 }
 
-/** SSR-safe snapshot for hydration checks — no Date/window/random. */
+/** SSR-safe snapshot for hydration checks - no Date/window/random. */
 export function serializeBridgeForHydration(bridge: StartBridgeState): string {
   return JSON.stringify({
     audience: bridge.audience,

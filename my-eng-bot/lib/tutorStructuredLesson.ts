@@ -120,7 +120,7 @@ function buildTutorFinale(topic: string): LessonFinale {
     bubbles: [
       {
         type: 'positive',
-        content: `Готово! Урок «${safeTopic}» пройден. Дальше — практика и кубок 🏆.`,
+        content: `Готово! Урок «${safeTopic}» пройден. Дальше - практика и кубок 🏆.`,
       },
     ],
     footerDynamic: 'Урок Репетитора завершен',
@@ -157,7 +157,7 @@ function buildOpeningStep(params: {
     bubbles: [
       { type: 'positive', content: 'Начнём с главного смысла.' },
       { type: 'info', content: `Сегодня фокус: ${focusLabel}. ${tutorIntent.goalRu}` },
-      { type: 'task', content: `${tutorIntent.coreQuestion} Пример: ${firstExample.en} — ${firstExample.ru}.` },
+      { type: 'task', content: `${tutorIntent.coreQuestion} Пример: ${firstExample.en} - ${firstExample.ru}.` },
     ],
     exercise: {
       type: 'micro_quiz',
@@ -331,7 +331,7 @@ export function buildTutorStructuredLesson(params: {
         hint: `Используйте шаблон: ${tutorIntent.targetPatterns[0] ?? topic}.`,
       },
       footerDynamic: 'Применяем правило',
-      myEngComment: 'Своя фраза — первый шаг к речи.',
+      myEngComment: 'Своя фраза - первый шаг к речи.',
     },
     {
       stepNumber: 7,

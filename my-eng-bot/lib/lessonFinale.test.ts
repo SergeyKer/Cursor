@@ -7,9 +7,9 @@ describe('lessonFinale helpers', () => {
   it('replaces Готово in finale bubble content', () => {
     expect(
       normalizeFinaleBubbleContent(
-        'Готово! Короткие фразы о себе — ваши. Дальше — практика и кубок 🏆.'
+        'Готово! Короткие фразы о себе - ваши. Дальше - практика и кубок 🏆.'
       )
-    ).toBe('Урок завершён. Короткие фразы о себе — ваши. Дальше — практика и кубок 🏆.')
+    ).toBe('Урок завершён. Короткие фразы о себе - ваши. Дальше - практика и кубок 🏆.')
   })
 
   it('keeps finale outside learning steps', () => {

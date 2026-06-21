@@ -6,7 +6,7 @@ import {
 } from './dialogueOutputValidation'
 
 describe('isDialogueOutputLikelyInRequiredTense', () => {
-  it('Комментарий + вопрос в Past Simple: при requiredTense present_simple без expectedNext — несовпадение', () => {
+  it('Комментарий + вопрос в Past Simple: при requiredTense present_simple без expectedNext - несовпадение', () => {
     const content =
       'Комментарий: Отлично!\nWhat did you do at the beach last summer?'
     expect(
@@ -18,7 +18,7 @@ describe('isDialogueOutputLikelyInRequiredTense', () => {
     ).toBe(false)
   })
 
-  it('тот же текст: при expectedNextQuestionTense past_simple — валидно', () => {
+  it('тот же текст: при expectedNextQuestionTense past_simple - валидно', () => {
     const content =
       'Комментарий: Отлично!\nWhat did you do at the beach last summer?'
     expect(

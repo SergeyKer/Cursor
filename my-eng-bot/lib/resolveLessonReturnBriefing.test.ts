@@ -135,7 +135,7 @@ describe('resolveLessonReturnBriefing', () => {
     })
 
     expect(payload?.kind).toBe('first_run')
-    expect(payload?.copy.message).toContain('Золото — при отличном результате')
+    expect(payload?.copy.message).toContain('Золото - при отличном результате')
     expect(payload?.copy.message).toContain('Комбо 3/5/7')
     expect(payload?.copy.message).toContain('пропустить за монету')
   })

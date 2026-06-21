@@ -12,7 +12,7 @@ import {
 } from './translationPromptAndRef'
 
 describe('pickAuthoritativeRuPromptForTranslationClamp', () => {
-  it('берёт более длинное RU, если короткое — его префикс', () => {
+  it('берёт более длинное RU, если короткое - его префикс', () => {
     const short = 'Мне нравится смотреть фильмы.'
     const full = 'Мне нравится смотреть фильмы на выходных.'
     expect(pickAuthoritativeRuPromptForTranslationClamp(short, full)).toBe(full)

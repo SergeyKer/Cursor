@@ -15,7 +15,7 @@ type LessonIntroBlockControlsProps = {
   how: LessonIntroBlock | null
   openPanel: LessonIntroPanelKind | null
   onOpenPanelChange: (panel: LessonIntroPanelKind | null) => void
-  /** Внутри пузыря шага — без внешнего отступа под composer. */
+  /** Внутри пузыря шага - без внешнего отступа под composer. */
   embedded?: boolean
   chipsVisible?: boolean
   chipsUseEnterAnimation?: boolean

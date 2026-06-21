@@ -241,9 +241,9 @@ describe('POST /api/tutor-resolve-topic', () => {
     expect(res.status).toBe(200)
     expect(data.resolved).toBe(true)
     expect(data.suggestions).toEqual([
-      'Have / Has — possession',
-      'Has + V3 — Present Perfect',
-      'Has to — obligation',
+      'Have / Has - possession',
+      'Has + V3 - Present Perfect',
+      'Has to - obligation',
     ])
     expect(data.intentOptions?.map((option) => option.canonicalKey)).toEqual([
       'have_has_possession',

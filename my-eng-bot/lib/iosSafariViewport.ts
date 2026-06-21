@@ -17,7 +17,7 @@ export function isIosSafariUserAgent(ua: string): boolean {
   return /Safari\/\d+/i.test(ua)
 }
 
-/** iOS Safari + Chrome (CriOS) — общая WebKit-ветка dialog layout. */
+/** iOS Safari + Chrome (CriOS) - общая WebKit-ветка dialog layout. */
 export function isIosWebKitBrowser(ua: string): boolean {
   return isIosSafariUserAgent(ua) || isIosChromeUserAgent(ua)
 }
@@ -52,7 +52,7 @@ export function readIosSafariVisualBottomOverlapPx(): number {
   return computeIosSafariVisualBottomOverlapPx(window.innerHeight, vv.height, vv.offsetTop)
 }
 
-/** Overlap нижнего chrome для Safari и CriOS (у CriOS — через clientHeight). */
+/** Overlap нижнего chrome для Safari и CriOS (у CriOS - через clientHeight). */
 export function readIosWebKitVisualBottomOverlapPx(): number {
   if (typeof window === 'undefined') return 0
   const vv = window.visualViewport

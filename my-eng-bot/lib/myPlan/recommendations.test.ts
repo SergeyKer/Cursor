@@ -28,7 +28,7 @@ function emptyInput(over: Partial<MyPlanInput> = {}): MyPlanInput {
 }
 
 describe('getMyPlanRecommendations', () => {
-  it('при незавершённом уроке первая карточка — продолжить', () => {
+  it('при незавершённом уроке первая карточка - продолжить', () => {
     const input = emptyInput({
       lessons: {
         '1': {
@@ -83,7 +83,7 @@ describe('getMyPlanRecommendations', () => {
     expect(recs.find((r) => r.id === 'practice-after-theory')).toBeUndefined()
   })
 
-  it('следующий урок по программе — первый без завершённой теории', () => {
+  it('следующий урок по программе - первый без завершённой теории', () => {
     const input = emptyInput({
       lessons: {},
     })
@@ -92,7 +92,7 @@ describe('getMyPlanRecommendations', () => {
     expect(next?.action).toEqual({ kind: 'open_lesson', lessonId: '1' })
   })
 
-  it('после перерыва и без карточки quick уже — приоритет возврата', () => {
+  it('после перерыва и без карточки quick уже - приоритет возврата', () => {
     const input = emptyInput({
       rewards: {
         lastActiveDate: '2026-05-01',

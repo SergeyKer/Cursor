@@ -53,14 +53,14 @@ describe('formatFooterDynamicLine', () => {
   it('uses compact text when main line exceeds default limit', () => {
     expect(
       formatFooterDynamicLine(
-        'Поздравляем! Золотая медаль — отличный результат!',
-        'Золотая медаль — отлично!'
+        'Поздравляем! Золотая медаль - отличный результат!',
+        'Золотая медаль - отлично!'
       )
-    ).toBe('Золотая медаль — отлично!')
+    ).toBe('Золотая медаль - отлично!')
   })
 
   it('defaults to FOOTER_DYNAMIC_MAX_LENGTH of 38', () => {
     expect(FOOTER_DYNAMIC_MAX_LENGTH).toBe(38)
-    expect('Золотая медаль — отлично!'.length).toBeLessThanOrEqual(FOOTER_DYNAMIC_MAX_LENGTH)
+    expect('Золотая медаль - отлично!'.length).toBeLessThanOrEqual(FOOTER_DYNAMIC_MAX_LENGTH)
   })
 })

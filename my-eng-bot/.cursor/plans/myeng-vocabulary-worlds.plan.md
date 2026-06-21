@@ -42,12 +42,12 @@ isProject: true
 
 ## Контекст проекта
 
-- Точка входа и переключение режимов: [`app/page.tsx`](c:/dev/Cursor/my-eng-bot/app/page.tsx) — уже есть ветвление `isAccentActive` / `isPracticeActive` / уроки / чат.
-- Меню «Уроки»: [`components/MenuSectionPanels.tsx`](c:/dev/Cursor/my-eng-bot/components/MenuSectionPanels.tsx) — тип [`LessonsPanel`](c:/dev/Cursor/my-eng-bot/components/MenuSectionPanels.tsx), список панелей и колбэки (`onOpenPracticeSession`, `onOpenAccentTrainer` и т.д.).
-- Чат и протоколы: [`components/Chat.tsx`](c:/dev/Cursor/my-eng-bot/components/Chat.tsx), API [`app/api/chat/route.ts`](c:/dev/Cursor/my-eng-bot/app/api/chat/route.ts) — существующие режимы не трогаем; на этом заходе нужен только UI-выход в чат как заглушка.
+- Точка входа и переключение режимов: [`app/page.tsx`](c:/dev/Cursor/my-eng-bot/app/page.tsx) - уже есть ветвление `isAccentActive` / `isPracticeActive` / уроки / чат.
+- Меню «Уроки»: [`components/MenuSectionPanels.tsx`](c:/dev/Cursor/my-eng-bot/components/MenuSectionPanels.tsx) - тип [`LessonsPanel`](c:/dev/Cursor/my-eng-bot/components/MenuSectionPanels.tsx), список панелей и колбэки (`onOpenPracticeSession`, `onOpenAccentTrainer` и т.д.).
+- Чат и протоколы: [`components/Chat.tsx`](c:/dev/Cursor/my-eng-bot/components/Chat.tsx), API [`app/api/chat/route.ts`](c:/dev/Cursor/my-eng-bot/app/api/chat/route.ts) - существующие режимы не трогаем; на этом заходе нужен только UI-выход в чат как заглушка.
 - Паттерн локального прогресса: [`lib/practice/storage/practiceStorage.ts`](c:/dev/Cursor/my-eng-bot/lib/practice/storage/practiceStorage.ts) (отдельные ключи `localStorage`, версия payload).
 
-Источник слов: [`english_words_with_russian.txt`](c:/dev/Cursor/my-eng-bot/english_words_with_russian.txt) — в файле **нет** полей `tags` / `status`; их нужно ввести **рядом** с распарсенными записями (merge по `id`). Для этого захода используется один очищенный набор «самых необходимых слов» без взрослого сленга и без отдельной взрослой ветки.
+Источник слов: [`english_words_with_russian.txt`](c:/dev/Cursor/my-eng-bot/english_words_with_russian.txt) - в файле **нет** полей `tags` / `status`; их нужно ввести **рядом** с распарсенными записями (merge по `id`). Для этого захода используется один очищенный набор «самых необходимых слов» без взрослого сленга и без отдельной взрослой ветки.
 
 ---
 
@@ -81,8 +81,8 @@ flowchart LR
    - полного удаления взрослого сленга и спорных слов из этого упражнения.
 3. **Метаданные и фильтрация**: файл [`lib/vocabulary/wordMeta.ts`](c:/dev/Cursor/my-eng-bot/lib/vocabulary/wordMeta.ts) или JSON по `id`: массив `tags`, редакторский `status` (`active`, `excluded`, `needsReview`), при необходимости `primaryWorld`. В активное обучение попадают только записи со `status: active`. `needsReview` по умолчанию не показывается.
 4. **Единый набор «самых необходимых слов»**: в этом заходе делается только один продуктовый набор без child/adult split и без adult-режима. Название в UI и коде должно отражать именно «самые необходимые слова», а не «1000 слов».
-5. **Пять миров**: модуль [`lib/vocabulary/worlds.ts`](c:/dev/Cursor/my-eng-bot/lib/vocabulary/worlds.ts) — функция `getWorldId(word): 1..5` по приоритету тегов (например: digital/social → мир 4, travel → 3, school/hobby → 2, home/family/body/food/animals → 1, иначе мир 5 «глаголы/грамматика/остаток»). Явно задокументировать приоритет, чтобы не дублировать слово в нескольких мирах.
-6. **SRS и геймификация в хранилище**: [`lib/vocabulary/vocabularyStorage.ts`](c:/dev/Cursor/my-eng-bot/lib/vocabulary/vocabularyStorage.ts) — отдельный ключ (аналог practice), структура: по `wordId` — `ease`, `nextReviewAt`, `lastResult`; глобально — `coins`, `streak`, `unlockedWorld`, `level`. Интервалы 0→1→3→7→14→30 как в ТЗ.
+5. **Пять миров**: модуль [`lib/vocabulary/worlds.ts`](c:/dev/Cursor/my-eng-bot/lib/vocabulary/worlds.ts) - функция `getWorldId(word): 1..5` по приоритету тегов (например: digital/social → мир 4, travel → 3, school/hobby → 2, home/family/body/food/animals → 1, иначе мир 5 «глаголы/грамматика/остаток»). Явно задокументировать приоритет, чтобы не дублировать слово в нескольких мирах.
+6. **SRS и геймификация в хранилище**: [`lib/vocabulary/vocabularyStorage.ts`](c:/dev/Cursor/my-eng-bot/lib/vocabulary/vocabularyStorage.ts) - отдельный ключ (аналог practice), структура: по `wordId` - `ease`, `nextReviewAt`, `lastResult`; глобально - `coins`, `streak`, `unlockedWorld`, `level`. Интервалы 0→1→3→7→14→30 как в ТЗ.
 
 ---
 
@@ -114,27 +114,27 @@ flowchart LR
 
 ## Логика чата и «особое» внутри раздела
 
-Цель — **не ломать** существующий поток [`AppMode`](c:/dev/Cursor/my-eng-bot/lib/types.ts) и не подмешивать карточки слов в парсеры протокола перевода в [`Chat.tsx`](c:/dev/Cursor/my-eng-bot/components/Chat.tsx).
+Цель - **не ломать** существующий поток [`AppMode`](c:/dev/Cursor/my-eng-bot/lib/types.ts) и не подмешивать карточки слов в парсеры протокола перевода в [`Chat.tsx`](c:/dev/Cursor/my-eng-bot/components/Chat.tsx).
 
 Рекомендуемая связка из двух слоёв:
 
 1. **Локальный «компаньон-чат» (без API)** внутри [`VocabularyWorldsScreen.tsx`](c:/dev/Cursor/my-eng-bot/components/vocabulary/VocabularyWorldsScreen.tsx): короткие реплики питомца по шагам сессии (приветствие → разминка → новые слова → мини-игра → прощание), визуально переиспользовать [`ChatBubbleFrame`](c:/dev/Cursor/my-eng-bot/components/chat/ChatBubble.tsx) / те же отступы и обои, что у чата (`bg-[linear-gradient(...)]` в `page.tsx`), чтобы ощущение было единым с приложением, но **без** записи в `messages` и без вызова `/api/chat`.
-2. **Выход в чат как заглушка** после сессии (или из хаба мира): кнопка вроде «Поговорить с MyEng про сегодняшние слова» — пока только UI-заглушка с промптом/текстом-подсказкой для будущего перехода, без реального запуска `communication`, без изменений в API и без вмешательства в существующую чат-логику.
+2. **Выход в чат как заглушка** после сессии (или из хаба мира): кнопка вроде «Поговорить с MyEng про сегодняшние слова» - пока только UI-заглушка с промптом/текстом-подсказкой для будущего перехода, без реального запуска `communication`, без изменений в API и без вмешательства в существующую чат-логику.
 
-Так алгоритм приложения остаётся: главная → разделы; чат — отдельный поток с ИИ; миры слов — автономный клиентский цикл с локальным компаньоном и заглушкой выхода в чат.
+Так алгоритм приложения остаётся: главная → разделы; чат - отдельный поток с ИИ; миры слов - автономный клиентский цикл с локальным компаньоном и заглушкой выхода в чат.
 
 ---
 
 ## Мини-игры и голос (итерация 1)
 
 - Первая итерация: **одна** простая механика (например выбор перевода / «картинка-заглушка») + экран «произнеси» с уже существующими хуками из [`lib/voice/useVoiceComposer.ts`](c:/dev/Cursor/my-eng-bot/lib/voice/useVoiceComposer.ts) или упрощённым Web Speech API, без строгой «ИИ-проверки» произношения.
-- Остальные механики из ТЗ — следующими этапами, общий [`lib/vocabulary/sessionPlan.ts`](c:/dev/Cursor/my-eng-bot/lib/vocabulary/sessionPlan.ts) по аналогии с [`lib/practice/engine/sessionPlan.ts`](c:/dev/Cursor/my-eng-bot/lib/practice/engine/sessionPlan.ts).
+- Остальные механики из ТЗ - следующими этапами, общий [`lib/vocabulary/sessionPlan.ts`](c:/dev/Cursor/my-eng-bot/lib/vocabulary/sessionPlan.ts) по аналогии с [`lib/practice/engine/sessionPlan.ts`](c:/dev/Cursor/my-eng-bot/lib/practice/engine/sessionPlan.ts).
 
 ---
 
 ## Статистика и локальная история
 
-- Минимум: экран «Статистика» внутри раздела или ссылка из существующего [`MenuView` progress](c:/dev/Cursor/my-eng-bot/components/MenuSectionPanels.tsx) — чтение из `vocabularyStorage` (слова, стрик, монеты).
+- Минимум: экран «Статистика» внутри раздела или ссылка из существующего [`MenuView` progress](c:/dev/Cursor/my-eng-bot/components/MenuSectionPanels.tsx) - чтение из `vocabularyStorage` (слова, стрик, монеты).
 - История обучения хранится локально по схеме «мир → слово → попытки / повторения / дата следующего показа».
 - Профиль и облачная синхронизация в этот заход не входят.
 
@@ -142,8 +142,8 @@ flowchart LR
 
 ## Риски и порядок работ
 
-- В начале TXT есть сленг и шум: без кураторства качество фильтра будет слабым — заложить **явный список id** для полного исключения взрослого сленга и спорных записей из упражнения.
-- Производительность: не тащить весь JSON в клиентский бандл без нужды — отдавать из `public/data/...` с `fetch` + ленивая подгрузка по миру (как в ТЗ).
+- В начале TXT есть сленг и шум: без кураторства качество фильтра будет слабым - заложить **явный список id** для полного исключения взрослого сленга и спорных записей из упражнения.
+- Производительность: не тащить весь JSON в клиентский бандл без нужды - отдавать из `public/data/...` с `fetch` + ленивая подгрузка по миру (как в ТЗ).
 - Контентный риск выше технического: если не сделать явный этап очистки, ребёнок увидит слова, которые либо неинтересны, либо не подходят по возрасту, и сама игровая оболочка это не компенсирует.
 - Риск расползания scope: изменения должны остаться внутри раздела «Самые необходимые слова» и не затронуть существующие режимы и ветки приложения.
 

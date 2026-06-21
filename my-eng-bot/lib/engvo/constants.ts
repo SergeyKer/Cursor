@@ -90,7 +90,7 @@ export function buildEngvoInputAudioTranscriptionConfig(): {
   }
 }
 
-/** Порог активации server VAD (0–1): выше — меньше ложных срабатываний на кашель/шум. */
+/** Порог активации server VAD (0–1): выше - меньше ложных срабатываний на кашель/шум. */
 export const ENGVO_VAD_THRESHOLD = 0.72
 
 /** Тишина (мс) перед концом реплики пользователя. */

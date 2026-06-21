@@ -2,7 +2,7 @@ import { replaceTranslationRepeatInContent } from '@/lib/translationRepeatClamp'
 
 /**
  * Модель иногда вставляет в «Повтори:» англоязычную мета-инструкцию (про раздел Repeat, проверку грамматики)
- * вместо фразы для повторения — убираем и подставляем эталон из предыдущего хода.
+ * вместо фразы для повторения - убираем и подставляем эталон из предыдущего хода.
  */
 const REPEAT_META_INSTRUCTION_PATTERNS: ReadonlyArray<RegExp> = [
   /\blet['']?s\s+check\b/i,
@@ -49,7 +49,7 @@ export function isRepeatLineMetaInstruction(englishBody: string): boolean {
 }
 
 /**
- * Если тело «Повтори:» — служебная инструкция, заменяет на fallback (эталон из прошлого ассистента).
+ * Если тело «Повтори:» - служебная инструкция, заменяет на fallback (эталон из прошлого ассистента).
  * Без fallback возвращает исходный текст.
  */
 export function sanitizeRepeatMetaInstructionInContent(

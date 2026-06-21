@@ -5,10 +5,10 @@ function hasAny(text: string, patterns: RegExp[]): boolean {
 }
 
 function normalizeTenseContrastPunctuation(text: string): string {
-  // "..., а не Past Simple; ..." -> "..., а не Past Simple — ..."
+  // "..., а не Past Simple; ..." -> "..., а не Past Simple - ..."
   return text.replace(
     /(,\s*а\s+не\s+(?:Present|Past|Future)\s+[A-Za-z ]{3,40})\s*;\s*/g,
-    '$1 — '
+    '$1 - '
   )
 }
 

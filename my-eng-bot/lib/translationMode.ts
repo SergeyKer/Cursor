@@ -36,7 +36,7 @@ function applyRuSentenceTypeForDrill(sentence: string, sentenceType: SentenceTyp
   }
 
   /**
-   * После «уже» одно слово — не подменяем на «ещё не $1», если это не глагол/участие
+   * После «уже» одно слово - не подменяем на «ещё не $1», если это не глагол/участие
    * (иначе «…не несколько дней…», «…ещё не много сделал…»).
    */
   const skipJaUjeSingleWordNegation = (w: string) => /^(несколько|пару|целых|много|мало)$/i.test(w)
@@ -73,7 +73,7 @@ function applyRuSentenceTypeForDrill(sentence: string, sentenceType: SentenceTyp
     .replace(new RegExp(`^Я пришёл${cyrBoundary}`, 'i'), 'Я не пришёл')
 
   if (!hasRussianNegationHint(u)) {
-    // «\b» после кириллицы ненадёжен — якоримся на «уже» + пробел.
+    // «\b» после кириллицы ненадёжен - якоримся на «уже» + пробел.
     u = u
       .replace(/^Я (?!уже\s)([А-Яа-яЁё][а-яё]*)/iu, 'Я не $1')
       .replace(/^Мы (?!уже\s)([А-Яа-яЁё][а-яё]*)/iu, 'Мы не $1')

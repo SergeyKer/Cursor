@@ -85,7 +85,7 @@ function tryExtendedTopicSwitchPatterns(text: string): FreeTalkTopicChangeDetect
     return { isTopicChange: true, topicHintText: null, needsClarification: true }
   }
 
-  // EN: (I) want to talk about X — короче, если не попало в EXPLICIT
+  // EN: (I) want to talk about X - короче, если не попало в EXPLICIT
   m = /^\s*i\s+want\s+(?:to\s+)?(?:talk|discuss)(?:\s+about)?\s+(.+)$/i.exec(text)
   if (m) {
     const tail = cleanTopicTail(m[1] ?? '')
@@ -95,7 +95,7 @@ function tryExtendedTopicSwitchPatterns(text: string): FreeTalkTopicChangeDetect
   return null
 }
 
-/** Короткие эмоциональные / отказ — без названия темы (как «скучно» → короткий переспрос темы). */
+/** Короткие эмоциональные / отказ - без названия темы (как «скучно» → короткий переспрос темы). */
 function tryGenericEmotionalTopicSwitch(text: string): FreeTalkTopicChangeDetection | null {
   const t = normalizeSpaces(text)
   if (!t) return null
@@ -176,7 +176,7 @@ export function looksLikeFreeTalkTopicSwitchIntent(userText: string): boolean {
 const TOPIC_CLARIFICATION_MARKER_CHILD = 'Please tell me the topic in one or two words.'
 const TOPIC_CLARIFICATION_MARKER_ADULT = 'Please tell me the topic you want to switch to.'
 
-/** Вежливый переспрос при неясной смене темы (free_talk). Диалог — только английский; child/adult различаются тоном. */
+/** Вежливый переспрос при неясной смене темы (free_talk). Диалог - только английский; child/adult различаются тоном. */
 export function buildPoliteTopicClarificationReply(audience: 'child' | 'adult'): string {
   if (audience === 'child') {
     return TOPIC_CLARIFICATION_MARKER_CHILD

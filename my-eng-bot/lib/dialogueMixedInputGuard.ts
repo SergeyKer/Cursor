@@ -30,7 +30,7 @@ function hasCommentTranslation(comment: string, userText: string): boolean {
   if (!mentionsRuToken) return false
   const hasEnglish = /[A-Za-z]/.test(comment)
   if (!hasEnglish) return false
-  return /(?:=|->|means|означает|это\s+|—|–|-)/i.test(comment)
+  return /(?:=|->|means|означает|это\s+|-|–|-)/i.test(comment)
 }
 
 export function validateDialogueMixedInputOutput(params: {

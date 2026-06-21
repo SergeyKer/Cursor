@@ -42,8 +42,8 @@ function buildForgivenessLine(): string {
 
 function buildGoldGoalLine(audience: FooterCopyAudience): string {
   return audience === 'child'
-    ? '🥇 Золото — если отличный результат!'
-    : '🥇 Золото — при отличном результате.'
+    ? '🥇 Золото - если отличный результат!'
+    : '🥇 Золото - при отличном результате.'
 }
 
 function buildGoldInGeneratedVariantLine(audience: FooterCopyAudience): string {

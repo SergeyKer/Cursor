@@ -107,9 +107,9 @@ export type LessonsPanel =
   | 'theory'
   | 'theoryCefrLevels'
   | 'theoryGrammarCategories'
-  /** Теория по теме: шаг 1 — только уровни, на которых есть уроки по выбранным тегам. */
+  /** Теория по теме: шаг 1 - только уровни, на которых есть уроки по выбранным тегам. */
   | 'theoryTagLevels'
-  /** Теория по теме: шаг 2 — список уроков выбранного уровня (как экран A1/A2 по CEFR). */
+  /** Теория по теме: шаг 2 - список уроков выбранного уровня (как экран A1/A2 по CEFR). */
   | 'theoryTagLessons'
   | 'a1'
   | 'a2'
@@ -413,7 +413,7 @@ export interface MenuSectionPanelsProps {
   /** Стартовый уровень lessons-панели при открытии меню. */
   initialLessonsPanel?: LessonsPanel
   /** Поля контекста вместе со `initialLessonsPanel` (восстановление навигации). */
-  /** Инкремент после практики — обновить бейджи 🏆 в списке уроков. */
+  /** Инкремент после практики - обновить бейджи 🏆 в списке уроков. */
   practiceProgressRevision?: number
   initialLessonMenuContext?: Pick<
     LessonMenuContext,
@@ -2026,7 +2026,7 @@ export default function MenuSectionPanels({
                   )}
                   {theoryTagsSearchQuery.trim() && theoryTagGlobalSearchHits.length === 0 ? (
                     <p className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
-                      Совпадений не нашли — уточните запрос или очистите поле, чтобы увидеть список тем.
+                      Совпадений не нашли - уточните запрос или очистите поле, чтобы увидеть список тем.
                     </p>
                   ) : null}
                 </div>
@@ -2859,7 +2859,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                 Уровень английского: {rewardsState?.profile.englishLevel ?? 'not_set'}
               </p>
               <p className="text-[13px] text-[var(--text-muted)]">
-                Регистрация: {rewardsState?.profile.registrationDate ?? '—'}
+                Регистрация: {rewardsState?.profile.registrationDate ?? '-'}
               </p>
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
@@ -3160,11 +3160,11 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                 <p className="mt-1 text-[15px] font-semibold text-[var(--text)]">{bestPracticeOpportunity.label}</p>
                 <p className="mt-1 text-[12px] text-[var(--text-muted)]">
                   {bestPracticeOpportunity.reason === 'gems_pending'
-                    ? 'Золото уже есть — практика закрепит 💎.'
+                    ? 'Золото уже есть - практика закрепит 💎.'
                     : bestPracticeOpportunity.reason === 'gold_ring'
                       ? featureFlags.practiceTopicCupsV1
-                        ? 'Золотая медаль + 5 практик — кубок темы 🏆.'
-                        : 'Золотая медаль + практики 📝 — лучший путь к камням.'
+                        ? 'Золотая медаль + 5 практик - кубок темы 🏆.'
+                        : 'Золотая медаль + практики 📝 - лучший путь к камням.'
                       : 'Практика по пройденному уроку даёт XP к уровню.'}
                 </p>
                 {onOpenPracticeSession ? (
@@ -3200,7 +3200,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
               <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-2 py-2 text-center">
                 <p className="text-[10px] font-medium text-[var(--text-muted)]">Цель дня</p>
                 <p className="mt-0.5 text-[12px] font-semibold leading-tight text-[var(--text)]">
-                  {focusGoal ? `${focusGoal.goalProgress}/${focusGoal.goalTarget}` : '—'}
+                  {focusGoal ? `${focusGoal.goalProgress}/${focusGoal.goalTarget}` : '-'}
                 </p>
                 <p className="text-[10px] text-[var(--text-muted)]">{focusGoal?.label ?? 'Готово'}</p>
               </div>
@@ -3256,7 +3256,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                         🏆 тем: {cupStats.cups}/{cupStats.withMedal || 0}
                       </p>
                       <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-                        Тема сдана 🏆 — золотая медаль в уроке и 5 практик (от 50% в сессии).
+                        Тема сдана 🏆 - золотая медаль в уроке и 5 практик (от 50% в сессии).
                       </p>
                     </>
                   ) : null}
@@ -3310,7 +3310,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                             : ''
                       return (
                         <li key={lessonId}>
-                          {topic}: {progress.medal ?? (progress.cycle1Closed ? 'начат' : '—')} · {progress.corePercent ?? 0}% core
+                          {topic}: {progress.medal ?? (progress.cycle1Closed ? 'начат' : '-')} · {progress.corePercent ?? 0}% core
                           {cycleLabel}
                           {badge && !progress.lessonBadgeEarned ? ` · бейдж ${progress.lessonBadgeCriteriaMet?.length ?? 0}/3` : ''}
                           {progress.lessonBadgeEarned ? ' · бейдж ✓' : ''}

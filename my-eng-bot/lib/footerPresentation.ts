@@ -32,7 +32,7 @@ interface ResolveFooterPresentationParams {
 
 const ADAPTIVE_FOOTER_PRESENTATION_ENABLED = process.env.NEXT_PUBLIC_ADAPTIVE_FOOTER_PRESENTATION !== '0'
 
-/** Нижняя строка статов — тот же размер, что в structured lesson footer. */
+/** Нижняя строка статов - тот же размер, что в structured lesson footer. */
 const FOOTER_BOTTOM_LINE_CLASS = 'text-[13px] leading-none text-gray-400'
 
 export const CHILD_EMOJI_BY_TONE: Record<FooterVoiceTone, readonly string[]> = {

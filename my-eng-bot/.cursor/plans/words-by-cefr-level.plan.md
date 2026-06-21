@@ -4,15 +4,15 @@
 
 - Архитектура (глобальный прогресс по `wordId`) согласована с [`lib/vocabulary/storage.ts`](lib/vocabulary/storage.ts).
 - Источник слов: формат строк совместим с [`lib/vocabulary/parser.ts`](lib/vocabulary/parser.ts).
-- В репозитории уже есть канон CEFR — [`lib/cefr/cefrConfig.ts`](lib/cefr/cefrConfig.ts) и `CEFR_Levels.xlsx`; классификатор уровня желательно опирать на него, чтобы не плодить вторую «правду» только эвристиками.
-- Уточнение по порогам (согласовано с пользователем): **два понятия** — «в прогрессе» (мягко, для счётчиков на карточках) и «выучено» (строго: фильтр в SRS-сессиях + попадание во вкладку «Выученные»).
+- В репозитории уже есть канон CEFR - [`lib/cefr/cefrConfig.ts`](lib/cefr/cefrConfig.ts) и `CEFR_Levels.xlsx`; классификатор уровня желательно опирать на него, чтобы не плодить вторую «правду» только эвристиками.
+- Уточнение по порогам (согласовано с пользователем): **два понятия** - «в прогрессе» (мягко, для счётчиков на карточках) и «выучено» (строго: фильтр в SRS-сессиях + попадание во вкладку «Выученные»).
 
 ## Два понятия прогресса
 
 | Понятие | Назначение | Критерий (черновик для реализации) |
 |--------|------------|-----------------------------------|
 | В прогрессе | Счётчик «Пройдено слов: X / Y» на карточках миров и уровней/тем | Как сейчас: `(progress.words[id]?.successes ?? 0) > 0` |
-| Выучено | Исключение из новых сессий + список «Выученные» | Отдельный helper `isWordStrictlyLearned` — например `stage >= 4` и `successes >= 3` (точные числа зафиксировать в `lib/vocabulary/learned.ts` и тестах) |
+| Выучено | Исключение из новых сессий + список «Выученные» | Отдельный helper `isWordStrictlyLearned` - например `stage >= 4` и `successes >= 3` (точные числа зафиксировать в `lib/vocabulary/learned.ts` и тестах) |
 
 - [`buildSessionWords`](lib/vocabulary/srs.ts) (алиас к текущему `buildWorldSessionWords`) фильтрует только **строго выученные** слова.
 - Счётчики на карточках используют **мягкий** критерий.
@@ -38,10 +38,10 @@ flowchart LR
 Файл: [`types/vocabulary.ts`](types/vocabulary.ts)
 
 - `VocabularyLevelId = 'a1' | 'a2' | 'b1' | 'b2' | 'c1' | 'c2'`
-- `VocabularyTopicId` — тематические разделы внутри уровня (travel, food, work, family, health, tech, education, culture, core и т.д.). **Имя поля в словаре:** `vocabularyTopic` / `primaryVocabularyTopic`, чтобы не путать с `primaryTopic` репетитора в приложении.
+- `VocabularyTopicId` - тематические разделы внутри уровня (travel, food, work, family, health, tech, education, culture, core и т.д.). **Имя поля в словаре:** `vocabularyTopic` / `primaryVocabularyTopic`, чтобы не путать с `primaryTopic` репетитора в приложении.
 - `NecessaryWord`: добавить `primaryLevel`, опционально `secondaryLevel`, `primaryVocabularyTopic`, опционально `secondaryVocabularyTopic`.
 - `NecessaryWordsCatalog`: массивы определений уровней и тем для UI.
-- **История сессий:** расширить `VocabularySessionHistoryItem` — не только `worldId`. Вариант: `route: { kind: 'world'; worldId } | { kind: 'level'; levelId: VocabularyLevelId; topicId: VocabularyTopicId }`. Иначе статистика «по миру» ломается для сессий уровня.
+- **История сессий:** расширить `VocabularySessionHistoryItem` - не только `worldId`. Вариант: `route: { kind: 'world'; worldId } | { kind: 'level'; levelId: VocabularyLevelId; topicId: VocabularyTopicId }`. Иначе статистика «по миру» ломается для сессий уровня.
 
 ## 2. Классификация и сборка
 
@@ -65,7 +65,7 @@ flowchart LR
 ## 5. Сопутствующие правки
 
 - [`scripts/export-necessary-words-txt.ts`](scripts/export-necessary-words-txt.ts): экспорт/сводка по уровню и теме.
-- Документация в плане: для уровней **нет** отдельной цепочки `unlockWorld` — только бейдж «Скоро», если в каталоге нет слов для уровня/темы.
+- Документация в плане: для уровней **нет** отдельной цепочки `unlockWorld` - только бейдж «Скоро», если в каталоге нет слов для уровня/темы.
 
 ## 6. Тесты
 

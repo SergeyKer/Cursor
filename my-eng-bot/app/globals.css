@@ -9,7 +9,7 @@
     padding-right: max(0.5rem, env(safe-area-inset-right, 0px), var(--vv-right-inset));
   }
 
-  /* Р—Р°РіРѕР»РѕРІРѕРє С…РµРґРµСЂР°: С†РµРЅС‚СЂ РїРѕ РІСЃРµР№ С€РёСЂРёРЅРµ РєРѕР»РѕРЅРєРё, РЅРµ РјРµР¶РґСѓ grid-РєРѕР»РѕРЅРєР°РјРё. */
+  /* Р-Р°РіРѕР»РѕРІРѕРє С…РµРґРµСЂР°: С†РµРЅС‚СЂ РїРѕ РІСЃРµР№ С€РёСЂРёРЅРµ РєРѕР»РѕРЅРєРё, РЅРµ РјРµР¶РґСѓ grid-РєРѕР»РѕРЅРєР°РјРё. */
   .app-header-title-layer {
     pointer-events: none;
     position: absolute;
@@ -87,7 +87,7 @@
     }
   }
 
-  /* РўР° Р¶Рµ СЃРµС‚РєР° 22Г—22, С‡С‚Рѕ Сѓ emoji РІ С„СѓС‚РµСЂРµ вЂ” РјРµРґР°Р»СЊ рџҐ‡рџҐ€рџҐ‰ РїРѕ С†РµРЅС‚СЂСѓ. */
+  /* РўР° Р¶Рµ СЃРµС‚РєР° 22Г-22, С‡С‚Рѕ Сѓ emoji РІ С„СѓС‚РµСЂРµ вЂ” РјРµРґР°Р»СЊ рџҐ‡рџҐ€рџҐ‰ РїРѕ С†РµРЅС‚СЂСѓ. */
   .footer-stat-medal-slot {
     display: inline-flex;
     flex-shrink: 0;
@@ -127,7 +127,7 @@
     }
   }
 
-  /* РЈСЂРѕРє / practice: С‚Р° Р¶Рµ СЏС‡РµР№РєР° 22Г—22, emoji С‡СѓС‚СЊ РјРµРЅСЊС€Рµ вЂ” РЅРµ РѕР±СЂРµР·Р°РµС‚СЃСЏ СЃРЅРёР·Сѓ. */
+  /* РЈСЂРѕРє / practice: С‚Р° Р¶Рµ СЏС‡РµР№РєР° 22Г-22, emoji С‡СѓС‚СЊ РјРµРЅСЊС€Рµ вЂ” РЅРµ РѕР±СЂРµР·Р°РµС‚СЃСЏ СЃРЅРёР·Сѓ. */
   .live-footer-stats-row {
     overflow: visible;
   }
@@ -188,7 +188,7 @@
   animation: lessonSlideIn 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Статус feedback в уроке: текст и кнопки (🪙) в одном пузыре — без both кнопка «догоняет» после скролла. */
+/* Статус feedback в уроке: текст и кнопки (🪙) в одном пузыре - без both кнопка «догоняет» после скролла. */
 .lesson-feed-status-enter {
   animation: lessonSlideIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -472,7 +472,7 @@
   --app-chrome-elev-color: rgba(0, 0, 0, 0.1);
   --app-header-shadow: 0 var(--app-chrome-elev-y) var(--app-chrome-elev-blur) var(--app-chrome-elev-color);
   --app-footer-border: var(--app-header-border);
-  /* Р—РµСЂРєР°Р»Рѕ С…РµРґРµСЂР°: С‚Р° Р¶Рµ С‚РѕР»С‰РёРЅР° (3px blur, 0.1), Р±РµР· inset вЂ” РѕРЅ РґР°РІР°Р» Р»РёС€РЅСЋСЋ РїРѕР»РѕСЃСѓ СЃРІРµСЂС…Сѓ. */
+  /* Р-РµСЂРєР°Р»Рѕ С…РµРґРµСЂР°: С‚Р° Р¶Рµ С‚РѕР»С‰РёРЅР° (3px blur, 0.1), Р±РµР· inset вЂ” РѕРЅ РґР°РІР°Р» Р»РёС€РЅСЋСЋ РїРѕР»РѕСЃСѓ СЃРІРµСЂС…Сѓ. */
   --app-footer-shadow: 0 calc(-1 * var(--app-chrome-elev-y)) var(--app-chrome-elev-blur) var(--app-chrome-elev-color);
   --app-header-control-bg: rgba(255, 255, 255, 0.9);
   --app-header-control-border: #e5e7eb;
@@ -515,7 +515,7 @@
   --app-footer-chrome-height: calc(var(--app-footer-row-height) + var(--app-footer-safe-inset));
   /* РќРёР¶РЅРёР№ РєСЂР°Р№ РїР°РЅРµР»Рё РјРµРЅСЋ вЂ” РІРµСЂС… С„СѓС‚РµСЂР° (СЃ СѓС‡С‘С‚РѕРј vv, РєР°Рє Сѓ СЃРїРµР№СЃРµСЂР°). */
   --app-menu-panel-bottom: var(--app-bottom-offset);
-  /* Р—Р°РїР°СЃ РІ РїРѕС‚РѕРєРµ СЃС‚СЂР°РЅРёС†С‹: С„СѓС‚РµСЂ + safe-area + РєР»Р°РІРёР°С‚СѓСЂР° (vv). */
+  /* Р-Р°РїР°СЃ РІ РїРѕС‚РѕРєРµ СЃС‚СЂР°РЅРёС†С‹: С„СѓС‚РµСЂ + safe-area + РєР»Р°РІРёР°С‚СѓСЂР° (vv). */
   --app-bottom-offset: calc(var(--app-footer-chrome-height) + var(--vv-bottom-inset, 0px));
   /* Safe-area СЃРЅРёР·Сѓ (Р±РµР· vv). Р”Р»СЏ СЌРєСЂР°РЅРѕРІ СѓСЂРѕРєР° Рё РїСЂ. */
   --app-bottom-inset: var(--app-footer-safe-inset);
@@ -1534,7 +1534,7 @@ html[data-ios-webkit-dialog]:not([data-ios-safari-dialog]) .lesson-scroll-viewpo
   scroll-padding-bottom: 0.625rem !important;
 }
 
-/* iOS Safari: fixed композер (backdrop-filter на карточке отключён — containing block не мешает). */
+/* iOS Safari: fixed композер (backdrop-filter на карточке отключён - containing block не мешает). */
 html[data-ios-safari-dialog] .dialog-composer-dock {
   position: fixed;
   left: 0;
@@ -1742,7 +1742,7 @@ html[data-ios-safari-dialog] .dialog-composer-dock-inner {
   }
 }
 
-/* РћРґРЅР° Р»РёРЅРёСЏ СЃ emoji-СЏС‡РµР№РєРѕР№ 22Г—22 (РєР°Рє .footer-stat-glyph). */
+/* РћРґРЅР° Р»РёРЅРёСЏ СЃ emoji-СЏС‡РµР№РєРѕР№ 22Г-22 (РєР°Рє .footer-stat-glyph). */
 .app-footer-body .footer-dynamic-line {
   display: block;
   font-size: 0.875rem;

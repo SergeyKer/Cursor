@@ -25,9 +25,9 @@ export function resolveLessonSectionRevealPauseMs(params: {
   return LESSON_TEXT_SECTION_PAUSE_MS
 }
 
-/** Интервал между появлением карточек интро — совпадает с циклом softText в пузыре урока. */
+/** Интервал между появлением карточек интро - совпадает с циклом softText в пузыре урока. */
 export const LESSON_SECTION_REVEAL_INTERVAL_MS =
   LESSON_TEXT_FADE_MS + LESSON_TEXT_SECTION_PAUSE_MS
 
-/** Длительность slide-in отдельной карточки интро — совпадает с fade текста. */
+/** Длительность slide-in отдельной карточки интро - совпадает с fade текста. */
 export const LESSON_CARD_ENTER_MS = LESSON_TEXT_FADE_MS

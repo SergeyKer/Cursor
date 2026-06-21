@@ -97,7 +97,7 @@ describe('buildLessonFooterLive', () => {
     expect(start.lessonSegments[3].medalVisual).toEqual({
       mode: 'frozen',
       glyph: 'military',
-      title: 'Старт — медаль появится с первых очков',
+      title: 'Старт - медаль появится с первых очков',
     })
 
     const reset = buildLessonFooterLive({
@@ -204,7 +204,7 @@ describe('resolveLessonHeaderMedal', () => {
       resolveLessonHeaderMedal({ coreXp: 0, maxCoreXp: 140, isFinale: false })
     ).toEqual({
       frozen: 'military',
-      title: 'Старт — медаль появится с первых очков',
+      title: 'Старт - медаль появится с первых очков',
     })
 
     expect(
@@ -218,7 +218,7 @@ describe('resolveLessonHeaderMedal', () => {
 
 describe('formatLessonCompletionFooter', () => {
   it('returns gold congratulations', () => {
-    expect(formatLessonCompletionFooter('gold')).toBe('Золотая медаль — отлично!')
+    expect(formatLessonCompletionFooter('gold')).toBe('Золотая медаль - отлично!')
   })
 
   it('returns silver and bronze variants', () => {
@@ -272,7 +272,7 @@ describe('resolveLessonCardMedal', () => {
       })
     ).toEqual({
       frozen: 'military',
-      title: 'Старт — медаль появится с первых очков',
+      title: 'Старт - медаль появится с первых очков',
     })
   })
 
@@ -284,7 +284,7 @@ describe('resolveLessonCardMedal', () => {
       })
     ).toEqual({
       frozen: 'military',
-      title: 'Старт — медаль появится с первых очков',
+      title: 'Старт - медаль появится с первых очков',
     })
   })
 

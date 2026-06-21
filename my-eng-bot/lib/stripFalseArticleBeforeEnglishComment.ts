@@ -1,5 +1,5 @@
 ﻿/**
- * Если в «Повтори» нет артикля перед English (study English, I studied English — норма),
+ * Если в «Повтори» нет артикля перед English (study English, I studied English - норма),
  * убираем из «Комментарий» вводящие в заблуждение фразы про добавление the перед English.
  */
 

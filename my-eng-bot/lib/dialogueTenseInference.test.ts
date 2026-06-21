@@ -127,11 +127,11 @@ describe('isUserLikelyCorrectForTense', () => {
 })
 
 describe('isLikelyQuestionInRequiredTense', () => {
-  it('Future Simple: "Are you going to …?" — не Present Continuous', () => {
+  it('Future Simple: "Are you going to …?" - не Present Continuous', () => {
     expect(isLikelyQuestionInRequiredTense('Are you going to swim tomorrow?', 'future_simple')).toBe(true)
     expect(isLikelyQuestionInRequiredTense('Are you going to swim tomorrow?', 'present_continuous')).toBe(false)
   })
-  it('Present Continuous: "Are you going to the pool?" — движение, не going to + инфинитив', () => {
+  it('Present Continuous: "Are you going to the pool?" - движение, не going to + инфинитив', () => {
     expect(isLikelyQuestionInRequiredTense('Are you going to the pool?', 'present_continuous')).toBe(true)
   })
 })

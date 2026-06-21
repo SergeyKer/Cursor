@@ -1,6 +1,6 @@
 /**
  * Сводит к одному виду пары вроде «I like cooking» / «I like to cook» для глаголов отношения:
- * like, hate, don't like, don't mind (после базовой нормализации — lower case, одиночные пробелы).
+ * like, hate, don't like, don't mind (после базовой нормализации - lower case, одиночные пробелы).
  */
 
 const ATTITUDE_PATTERN = String.raw`don't like|don't mind|like|hate`

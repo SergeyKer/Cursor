@@ -42,7 +42,7 @@ interface SlideOutMenuProps {
   onEngvoSpeechSpeedChange?: (preset: EngvoSpeechSpeedPresetId) => void
   /** Кнопка «домик»: на стартовый экран приложения. */
   onGoHome?: () => void
-  /** Если чат уже идёт — при открытии меню сразу «Чат с MyEng»; если нет — корень списка разделов. */
+  /** Если чат уже идёт - при открытии меню сразу «Чат с MyEng»; если нет - корень списка разделов. */
   chatActive?: boolean
   /** Режим звонка Engvo: при открытии меню показать «Позвонить» (как при переходе к звонку). */
   engvoVoiceMode?: boolean

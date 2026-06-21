@@ -4,10 +4,10 @@ import { stripFalseArticleBeforeEnglishComment } from './stripFalseArticleBefore
 describe('stripFalseArticleBeforeEnglishComment', () => {
   it('removes misleading add the before English when repeat has study English without article', () => {
     const comment =
-      'Тут нужно другое слово — "studi" неправильно, нужно "studied". Также нужно добавить "the" перед "English", чтобы было правильно.'
+      'Тут нужно другое слово - "studi" неправильно, нужно "studied". Также нужно добавить "the" перед "English", чтобы было правильно.'
     const repeat = 'I studied English.'
     expect(stripFalseArticleBeforeEnglishComment(comment, repeat)).toBe(
-      'Тут нужно другое слово — "studi" неправильно, нужно "studied".',
+      'Тут нужно другое слово - "studi" неправильно, нужно "studied".',
     )
   })
 

@@ -16,7 +16,7 @@ describe('buildLessonRepeatBriefingThesisLines', () => {
       bestTotalXp: 0,
     })
     expect(lines).toHaveLength(5)
-    expect(lines[0]).toBe('🥇 Золото — при отличном результате.')
+    expect(lines[0]).toBe('🥇 Золото - при отличном результате.')
     expect(lines[1]).toContain('За золото награда +1 монета')
     expect(lines[2]).toContain('Комбо 3/5/7')
     expect(lines[3]).toContain('сейчас рекорд 0 XP')
@@ -42,7 +42,7 @@ describe('buildLessonRepeatBriefingThesisLines', () => {
     expect(lines[3]).toContain('Комбо 3/5/7')
     expect(lines[4]).toContain('сейчас рекорд 60 XP')
     expect(lines[5]).toContain('пропустить за монету')
-    expect(lines.join('\n')).not.toContain('—')
+    expect(lines.join('\n')).not.toMatch(/\u2014/)
   })
 
   it('generated run shows gold in new variant without silver cap line', () => {
@@ -100,7 +100,7 @@ describe('buildLessonRepeatBriefingThesisLines', () => {
       context: 'menu_reopen',
       bestTotalXp: 0,
     })
-    expect(lines[0]).toBe('🥇 Золото — при отличном результате.')
+    expect(lines[0]).toBe('🥇 Золото - при отличном результате.')
     expect(lines.join('\n')).not.toContain('новом варианте')
   })
 })

@@ -134,7 +134,7 @@ const CURRENT_INFO_PATTERNS = [
   /\branking\b/i,
   /\brank(?:ed|ing)?\b/i,
   /\bposition\s+in\s+(?:the\s+)?rankings?\b/i,
-  // Местное время в городе — нужен веб-поиск, иначе модель может ошибиться.
+  // Местное время в городе - нужен веб-поиск, иначе модель может ошибиться.
   /сколько\s+времени\s+(?:во|в|на)\s+/i,
   /какое\s+время\s+(?:во|в|на)\s+/i,
   /который\s+час\s+(?:во|в|на)\s+/i,
@@ -142,7 +142,7 @@ const CURRENT_INFO_PATTERNS = [
   /\bwhat\s+time\s+is\s+it\b/i,
   /\bwhat\s+time\s+in\s+/i,
   /\bcurrent\s+time\s+in\s+/i,
-  // Цены, рейтинги, статистика по годам, события — без веб-поиска модель уходит в общие фразы.
+  // Цены, рейтинги, статистика по годам, события - без веб-поиска модель уходит в общие фразы.
   /сколько\s+сто(?:ит|ят)(?![а-яё])/i,
   /(?:^|\s)в\s+20\d{2}\s*году/i,
   /сам(?:ое|ый|ая|ые)\s+популярн/i,
@@ -334,7 +334,7 @@ function keepOnlyCelsius(text: string): string {
   return next.trim()
 }
 
-/** Сноски вида (example.com), (rostov.rbc.ru) без http — убираем из текста ответа. */
+/** Сноски вида (example.com), (rostov.rbc.ru) без http - убираем из текста ответа. */
 export function stripParentheticalDomainCitations(text: string): string {
   // Поддерживаем обычные домены и punycode-TLD, например "(xn--80aidamjr3akke.xn--p1ai)".
   return text.replace(/\(\s*(?:[a-z0-9-]+\.)+[a-z0-9-]{2,}(?:\/[^\s)]*)?\s*\)/gi, '')
@@ -365,7 +365,7 @@ function isWebSearchRequest(text: string): boolean {
 }
 
 /**
- * Явная просьба «посмотри в интернете» / look online / force code «иии» —
+ * Явная просьба «посмотри в интернете» / look online / force code «иии» -
  * без широких паттернов актуальности (CURRENT_INFO_PATTERNS).
  */
 export function isExplicitInternetLookupRequest(text: string): boolean {
@@ -419,7 +419,7 @@ function detectSourcePublishedAt(source: WebSearchSource): string | undefined {
 }
 
 /**
- * Одно слово/фраза про «тему погоды» без города и без запроса факта — разговорный триггер,
+ * Одно слово/фраза про «тему погоды» без города и без запроса факта - разговорный триггер,
  * не повод для веб-поиска и индикатора «ищет в интернете» (см. также gismeteoWeather).
  */
 function isBareWeatherTopicOnly(text: string): boolean {
@@ -448,7 +448,7 @@ function isBareWeatherTopicOnly(text: string): boolean {
 }
 
 /**
- * Повествовательная реплика о погоде (без явной команды "в интернете") — это обычный диалог,
+ * Повествовательная реплика о погоде (без явной команды "в интернете") - это обычный диалог,
  * а не запрос на веб-поиск.
  */
 function isNarrativeWeatherStatementWithoutInternetIntent(text: string): boolean {
@@ -637,7 +637,7 @@ function extractEnglishTimeLocationPhrase(query: string): string | null {
 }
 
 /**
- * Если веб-поиск вернул одну строку даты/времени без живой фразы — оборачиваем в связный ответ.
+ * Если веб-поиск вернул одну строку даты/времени без живой фразы - оборачиваем в связный ответ.
  */
 export function embellishBareFactsAnswer(params: {
   rawAnswer: string
@@ -775,7 +775,7 @@ function clampByWordBoundary(input: string, maxChars: number): string {
   const lastSpace = rough.lastIndexOf(' ')
   const minBoundary = Math.floor(maxChars * 0.6)
   const cut = lastSpace >= minBoundary ? rough.slice(0, lastSpace) : rough.slice(0, maxChars)
-  const normalizedCut = cut.trim().replace(/[,:;\-–—\s]+$/g, '')
+  const normalizedCut = cut.trim().replace(/[,:;\-\u2013\u2014\s]+$/g, '')
   if (!normalizedCut) return input.slice(0, maxChars).trim()
   return /[.!?…]$/.test(normalizedCut) ? normalizedCut : `${normalizedCut}...`
 }
@@ -787,7 +787,7 @@ function clampByWordBoundary(input: string, maxChars: number): string {
 export function compressRussianWebSearchAnswer(params: {
   answer: string
   detailLevel: RussianWebSearchCompressionDetailLevel
-  /** Явный запрос «поищи в интернете» — ответ не ужимаем по символам/предложениям. */
+  /** Явный запрос «поищи в интернете» - ответ не ужимаем по символам/предложениям. */
   skipCompression?: boolean
 }): string {
   const normalized = normalizeText(params.answer)

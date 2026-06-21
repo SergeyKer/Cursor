@@ -13,7 +13,7 @@ interface TypingTextProps {
   singleLine?: boolean
   startDelayMs?: number
   fadeWhileTyping?: boolean
-  /** Без посимвольной анимации — текст сразу (футер при подгрузке storage). */
+  /** Без посимвольной анимации - текст сразу (футер при подгрузке storage). */
   instant?: boolean
   /** Стили контейнера: footer (default) или chat bubble body. */
   variant?: 'footer' | 'chat'

@@ -13,7 +13,7 @@ export type AppColumnBounds = {
   /** Правый край контентной области chat-shell-x (оболочка приложения). */
   shellRight: number
   isFullBleed: boolean
-  /** Viewport уже телефона — меню на всю ширину экрана. */
+  /** Viewport уже телефона - меню на всю ширину экрана. */
   isPhoneViewport: boolean
 }
 

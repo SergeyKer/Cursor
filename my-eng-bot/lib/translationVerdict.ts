@@ -78,7 +78,7 @@ function goldMatchesPromptKeywords(ruPrompt: string, goldEnglish: string): boole
 }
 
 /**
- * Длинный эталон — строгая проверка ключей; короткий (≤5 токенов после нормализации) — как на карточке:
+ * Длинный эталон - строгая проверка ключей; короткий (≤5 токенов после нормализации) - как на карточке:
  * достаточно одного совпадения тематического ключа с RU (согласовано с мягкой plausibility для «Скажи»).
  */
 function goldPlausibleForRuPrompt(ruPrompt: string, goldEnglish: string): boolean {

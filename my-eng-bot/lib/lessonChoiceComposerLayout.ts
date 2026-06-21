@@ -45,7 +45,7 @@ export function resolveLessonChoiceComposerLayout(
     return {
       mountChips: true,
       reserveMinHeight: true,
-      // Держим lock при показе чипов — снятие minHeight вместе с mount дёргает ленту.
+      // Держим lock при показе чипов - снятие minHeight вместе с mount дёргает ленту.
       lockReleased: false,
     }
   }

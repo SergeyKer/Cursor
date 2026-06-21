@@ -51,7 +51,7 @@ export function isPracticeChoiceInteractionDisabled(
   )
 }
 
-/** @deprecated Используй isPracticeAnswerPanelLocked — композер больше не скрывается из DOM. */
+/** @deprecated Используй isPracticeAnswerPanelLocked - композер больше не скрывается из DOM. */
 export function isPracticeComposerLocked(
   state: PracticeFlowState,
   feedbackType?: PracticeAnswerFeedbackType,

@@ -8,7 +8,7 @@ function isComposerTextarea(target: EventTarget | null): boolean {
   return Boolean(target.closest('.dialog-composer-dock'))
 }
 
-/** Доскролл ленты при фокусе в textarea и открытии клавиатуры — последний пузырь над композером. */
+/** Доскролл ленты при фокусе в textarea и открытии клавиатуры - последний пузырь над композером. */
 export function useDialogFeedKeyboardScroll(
   scrollContainerRef: RefObject<HTMLElement | null>,
   enabled: boolean

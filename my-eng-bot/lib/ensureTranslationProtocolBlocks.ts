@@ -178,7 +178,7 @@ export function ensureTranslationProtocolBlocks(
         repeatRu = `Скажи: ${body}`
         continue
       }
-      // Иначе — как общий случай (Скажи|Say): не терять строку, если тело не распарсилось.
+      // Иначе - как общий случай (Скажи|Say): не терять строку, если тело не распарсилось.
     }
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*(Скажи|Say)\s*:/i.test(line)) {
       repeat = line.replace(
@@ -198,7 +198,7 @@ export function ensureTranslationProtocolBlocks(
   }
   if (!hasPraise && repeat) {
     const repeatBody = repeat.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Скажи\s*:\s*/i, '').trim()
-    if (!repeatBody || /^[–—-]\s*$/.test(repeatBody)) {
+    if (!repeatBody || /^[-\u2013\u2014]\s*$/.test(repeatBody)) {
       repeat = null
     }
   }

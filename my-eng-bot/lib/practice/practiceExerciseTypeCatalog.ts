@@ -2,7 +2,7 @@ import type { PracticeExerciseType } from '@/types/practice'
 
 /**
  * Канонический порядок типов практики (1–12), совпадает с объявлением `PracticeExerciseType` в `types/practice.ts`.
- * При добавлении нового типа — расширить union и этот массив.
+ * При добавлении нового типа - расширить union и этот массив.
  */
 export const PRACTICE_EXERCISE_TYPES_CATALOG_ORDER: readonly PracticeExerciseType[] = [
   'choice',

@@ -16,7 +16,7 @@ const KNOWN_LEVELS = new Set<LevelId>([
 
 /**
  * Кумулятивные времёна по CEFR (в духе LEVEL_PROFILES в API): на уровне доступны
- * только то, что введено на нём и ниже. Пункт `all` — только при level === `all`.
+ * только то, что введено на нём и ниже. Пункт `all` - только при level === `all`.
  */
 const LEVEL_ORDER: Exclude<LevelId, 'all'>[] = ['starter', 'a1', 'a2', 'b1', 'b2', 'c1', 'c2']
 
@@ -44,7 +44,7 @@ function normalizeLevelKey(level: string): LevelId {
   return 'a1'
 }
 
-/** Допустимые `TenseId` для уровня. Для неизвестного `level` — как для `a1`. */
+/** Допустимые `TenseId` для уровня. Для неизвестного `level` - как для `a1`. */
 export function getAllowedTensesForLevel(level: LevelId | string): TenseId[] {
   const id = typeof level === 'string' ? normalizeLevelKey(level) : level
   if (!KNOWN_LEVELS.has(id)) return cumulativeTensesUpTo('a1')

@@ -33,7 +33,7 @@ export type LessonIntroDepth = 'quick' | 'details' | 'deep'
 type LessonIntroScreenProps = {
   intro: LessonIntro
   depth: LessonIntroDepth
-  /** Стабильный id сессии intro (lessonId) — для stagger и latch CTA. */
+  /** Стабильный id сессии intro (lessonId) - для stagger и latch CTA. */
   introSessionKey: string
   loadingLesson?: boolean
   /** Фоновая подмена варианта урока: кнопка показывает прогресс подготовки. */

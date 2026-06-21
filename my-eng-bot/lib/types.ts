@@ -83,7 +83,7 @@ export interface Settings {
   sentenceType: SentenceType
   topic: TopicId
   level: LevelId
-  /** Выбранные времена (несколько — ИИ выбирает одно на каждый запрос). */
+  /** Выбранные времена (несколько - ИИ выбирает одно на каждый запрос). */
   tenses: TenseId[]
   audience: Audience
   voiceId: string

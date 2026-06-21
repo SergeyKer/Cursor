@@ -17,7 +17,7 @@ export function hasRecentWebSearchContext(messages: WebSearchContextMessage[]): 
     if (m.role !== 'assistant') return false
     if (m.webSearchTriggered) return true
     const sourcesLen = m.webSearchSources?.length ?? 0
-    // (i) без флага и без сохранённых источников — не считаем «контекстом веб-поиска» (избегаем ложных follow-up).
+    // (i) без флага и без сохранённых источников - не считаем «контекстом веб-поиска» (избегаем ложных follow-up).
     return /^\s*\(i\)/i.test(m.content ?? '') && sourcesLen > 0
   })
 }

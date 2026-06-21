@@ -213,7 +213,7 @@ describe('hasWeekendConceptInRuPrompt', () => {
 })
 
 describe('applyTranslationRepeatSourceClampToContent', () => {
-  it('регрессия: payload как после forceTranslationWordErrorProtocol — не срезает on weekends при RU без «выходн»', () => {
+  it('регрессия: payload как после forceTranslationWordErrorProtocol - не срезает on weekends при RU без «выходн»', () => {
     const content = `Комментарий_перевод: Проверь формулировку.
 Ошибки:
 🔤 Здесь речь о привычке или факте, а не о действии прямо сейчас.
@@ -227,7 +227,7 @@ describe('applyTranslationRepeatSourceClampToContent', () => {
   it('replaces Скажи line in full assistant payload', () => {
     const content = `Комментарий_перевод: Исправь по промпту.
 Ошибки:
-🔤 Present Simple — привычка.
+🔤 Present Simple - привычка.
 Скажи: I often meet with friends on the weekend.`
     const out = applyTranslationRepeatSourceClampToContent(content, 'Я часто встречаюсь с друзьями.')
     expect(out).toContain('Скажи:')

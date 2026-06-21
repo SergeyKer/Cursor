@@ -12,7 +12,7 @@ export function isTranslationSinglePassGoldEnabled(): boolean {
   return v !== '0' && v !== 'false' && v !== 'no'
 }
 
-/** Если нет ref после single-pass — вызывать translateRussianPromptToGoldEnglish. */
+/** Если нет ref после single-pass - вызывать translateRussianPromptToGoldEnglish. */
 export function isTranslationGoldApiFallbackEnabled(): boolean {
   const v = process.env.TRANSLATION_GOLD_API_FALLBACK
   if (v === undefined || v === '') return true

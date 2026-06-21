@@ -1,6 +1,6 @@
 /**
  * Разбор и оформление «Комментарий:» в режиме перевода.
- * Следующий протокольный блок — не часть комментария (Комментарий_перевод, Ошибки, Скажи, …).
+ * Следующий протокольный блок - не часть комментария (Комментарий_перевод, Ошибки, Скажи, …).
  */
 const TRANSLATION_PROTOCOL_LINE =
   /^\s*(Комментарий_перевод|Ошибки|Скажи|Повтори|Переведи(?:\s+далее)?|Следующ(?:ее|ие)?\s+предложени)\s*:/i
@@ -50,7 +50,7 @@ export function inferTranslationCommentErrorType(raw: string): string {
 
 function inferCommentErrorType(raw: string): string {
   const s = raw.toLowerCase()
-  // Русская лексика в английской фразе / «рус. → eng» — ошибка перевода, не «тип предложения».
+  // Русская лексика в английской фразе / «рус. → eng» - ошибка перевода, не «тип предложения».
   if (/['"`«]?[а-яё]{2,}['"`»]?\s*(?:→|->)\s*['"`«]?[a-z]{2,}/i.test(raw)) {
     return 'Ошибка перевода.'
   }
@@ -131,8 +131,8 @@ export function applyTranslationCommentCoachVoice(params: {
   const rest = commentText
     .slice(prefixLen)
     .trimStart()
-    .replace(/^[:\-–—]\s*/, '')
-    .replace(/^(Смотри|Смотрите)\s*[-–—:]\s*/i, '')
+    .replace(/^[:\-\u2013\u2014]\s*/, '')
+    .replace(/^(Смотри|Смотрите)\s*[-\u2013\u2014:]\s*/i, '')
 
   if (!rest) {
     return spliceKommentariyBlock(lines, start, endExclusive, errorTypeDisplay).join('\n').trim()
@@ -141,17 +141,17 @@ export function applyTranslationCommentCoachVoice(params: {
   if (errorTypeClean === 'Ошибка времени') {
     const timeReason =
       audience === 'child'
-        ? 'проверь глагол по смыслу русской фразы из задания — подробности в блоке «Ошибки:» ниже.'
-        : 'выровняй английскую форму под смысл русской фразы из задания; название времени и пояснение — в блоке «Ошибки:» ниже.'
+        ? 'проверь глагол по смыслу русской фразы из задания - подробности в блоке «Ошибки:» ниже.'
+        : 'выровняй английскую форму под смысл русской фразы из задания; название времени и пояснение - в блоке «Ошибки:» ниже.'
 
-    const head = `${errorTypeDisplay} — ${timeReason}`
+    const head = `${errorTypeDisplay} - ${timeReason}`
     const newBody = rest.includes('\n') ? `${head}\n${rest.trim()}` : `${head} ${rest}`.replace(/\s{2,}/g, ' ').trim()
     return spliceKommentariyBlock(lines, start, endExclusive, newBody).join('\n').trim()
   }
 
   const newBody = rest.includes('\n')
-    ? `${errorTypeDisplay} — ${rest.trimStart()}`
-    : `${errorTypeDisplay} — ${rest}`.replace(/\s{2,}/g, ' ').trim()
+    ? `${errorTypeDisplay} - ${rest.trimStart()}`
+    : `${errorTypeDisplay} - ${rest}`.replace(/\s{2,}/g, ' ').trim()
   return spliceKommentariyBlock(lines, start, endExclusive, newBody).join('\n').trim()
 }
 
@@ -163,7 +163,7 @@ export function injectSentenceTypePopravImperative(content: string, audience: 'c
   if (!content) return content
   const imperative = audience === 'child' ? 'Поправь' : 'Поправьте'
   return content.replace(
-    /(Ошибка\s+типа\s+предложения)(\s*\.(?:\s*\*+)*\s*|\s*:\s*)(?!\s*Поправь(?:те)?\s*[—–-]\s*)(вопрос\s+должен[^\n]*)/gi,
-    (_, label: string, sep: string, rest: string) => `${label}${sep}${imperative} — ${rest}`
+    /(Ошибка\s+типа\s+предложения)(\s*\.(?:\s*\*+)*\s*|\s*:\s*)(?!\s*Поправь(?:те)?\s*[-\u2013\u2014]\s*)(вопрос\s+должен[^\n]*)/gi,
+    (_, label: string, sep: string, rest: string) => `${label}${sep}${imperative} - ${rest}`
   )
 }

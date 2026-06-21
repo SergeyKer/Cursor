@@ -4,7 +4,7 @@
  * короткие шумовые реплики (кхе, hm, uh…) не показываем.
  */
 
-const ENGVO_ALLOWED_NON_LETTER = /^[\s0-9.,!?;:'"«»„""''\u2018\u2019\u201C\u201D\-–—…()[\]{}]$/u
+const ENGVO_ALLOWED_NON_LETTER = /^[\s0-9.,!?;:'"«»„""''\u2018\u2019\u201C\u201D\-\u2013\u2014…()[\]{}]$/u
 
 function engvoVoiceTranscriptHasOnlyLatinOrCyrillicLetters(text: string): boolean {
   const s = text.trim().normalize('NFC')

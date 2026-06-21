@@ -145,7 +145,7 @@ interface ChatProps {
   communicationVoiceInputMode?: 'ru' | 'en' | 'mix'
   learningActions?: LearningLessonAction[]
   onSelectLearningAction?: (actionId: string) => void
-  /** Счётчик увеличения — сброс поля ввода/голоса (напр. «Начать общение» из меню). */
+  /** Счётчик увеличения - сброс поля ввода/голоса (напр. «Начать общение» из меню). */
   composerSessionKey?: number
   /** Якорь левого края колонки приложения (glass-surface) для выдвижного меню. */
   appColumnAnchorRef?: React.RefObject<HTMLDivElement>
@@ -194,7 +194,7 @@ export function filterTranslationErrorsDisplayText(raw: string): string {
     let t = body.replace(/\u00a0/g, ' ').trim()
     t = t.replace(/^["'`«]+|["'`»]+$/g, '').trim()
     if (!t) return true
-    if (/^[-—–]+\.?$/u.test(t)) return true
+    if (/^[-\u2013\u2014]+\.?$/u.test(t)) return true
     if (/^нет\.?$/iu.test(t)) return true
     if (/^(н\/д|n\/a)\.?$/iu.test(t)) return true
     if (/^none\.?$/iu.test(t)) return true
@@ -295,7 +295,7 @@ function stripTranslationInvitationPrefix(text: string): string {
   return text.replace(/^\s*(?:\d+\)\s*)?(?:Переведи|Переведите)(?:\s+далее)?\s*:\s*/i, '').trim()
 }
 
-/** Тело карточки задания без дубля префикса «Переведи(те) [далее]:» — лейбл секции уже показывает его. */
+/** Тело карточки задания без дубля префикса «Переведи(те) [далее]:» - лейбл секции уже показывает его. */
 function translationDrillCardBodyForDisplay(raw: string): string {
   const t = raw.trim()
   if (!t) return t
@@ -324,7 +324,7 @@ function isLikelyRussianTranslationDrill(text: string): boolean {
   return true
 }
 
-/** Похвала — лёгкий зелёный тон; иначе янтарь (ошибка/коррекция), как до введения praise. */
+/** Похвала - лёгкий зелёный тон; иначе янтарь (ошибка/коррекция), как до введения praise. */
 export function commentToneForContent(comment: string): SectionTone {
   const normalized = comment.trim()
   const hasCorrectionSignal = /(?:проверь|исправ|ошиб|неверн|неправил|нужн|орфограф|лексическ|грамматик|spelling|word choice|verb form)/i.test(
@@ -339,7 +339,7 @@ type CommentIcon = '✅' | '💡' | '⏱️' | '🔤' | '📖' | '✏️'
 /** Подбирает Unicode-иконку для комментария по типу похвалы или ошибки. */
 export function commentIconForContent(comment: string): CommentIcon {
   const normalized = comment.trim()
-  const followsTypeBoundary = '(?:\\s|$|[:\\-–—.,!?])'
+  const followsTypeBoundary = '(?:\\s|$|[:\\-\\u2013\\u2014.,!?])'
   const lexicalPattern = `(?:Лексическая\\s+ошибка|Ошибка\\s+лексическая|Ошибка\\s+лексики)`
   const spellingPattern = `(?:Орфографическая\\s+ошибка|Ошибка\\s+орфографическая|Ошибка\\s+правописания)`
   const grammarPattern = `(?:Ошибка\\s+типа\\s+предложения|Ошибка\\s+формы\\s+глагола|Ошибка\\s+согласования|Грамматическая\\s+ошибка|Ошибка\\s+грамматики)`
@@ -364,7 +364,7 @@ export function commentLabelForTranslationFirstBlock(comment: string): CommentIc
   return '💡'
 }
 
-/** Карточка «Прочитай вслух (+, ?, −)» в режиме «Перевод». Сейчас скрыта; включить — `true`. */
+/** Карточка «Прочитай вслух (+, ?, −)» в режиме «Перевод». Сейчас скрыта; включить - `true`. */
 function buildAssistantSections(params: {
   comment: string | null
   /** Режим перевод, ошибка: только тело «Комментарий_перевод:» для первой янтарной карточки. */
@@ -372,7 +372,7 @@ function buildAssistantSections(params: {
   /** Режим перевод, мусорный ввод: отдельный комментарий с тем же визуальным стилем, что и support. */
   translationJunkComment?: string | null
   translationErrorCoachUi?: boolean
-  /** Успешный drill перевода: первая карточка — ✅ (тон praise), а не янтарная 💡. */
+  /** Успешный drill перевода: первая карточка - ✅ (тон praise), а не янтарная 💡. */
   translationSuccessPraiseCard?: boolean
   /** Режим перевод, сценарий ошибки: разбор по пунктам под «Комментарий». */
   translationErrorsText?: string | null
@@ -387,7 +387,7 @@ function buildAssistantSections(params: {
   invitationText: string | null
   mainAfter: string
   mode: 'dialogue' | 'translation' | 'communication'
-  /** Первое задание в чате — «Переведи:»; далее — «Переведи далее:». */
+  /** Первое задание в чате - «Переведи:»; далее - «Переведи далее:». */
   translationHeadingWelcome?: boolean
 }): AssistantSection[] {
   const {
@@ -437,7 +437,7 @@ function buildAssistantSections(params: {
   }
 
   const hideAiLabel = mode === 'dialogue' || mode === 'communication'
-  /** Режим перевода: приветственное задание — «Переведи:», следующие — «Переведи далее:». */
+  /** Режим перевода: приветственное задание - «Переведи:», следующие - «Переведи далее:». */
   const assistantMainHeadingLabel = (): string => {
     if (hideAiLabel) return ''
     return translationHeadingWelcome ? 'Переведи' : 'Переведи далее'
@@ -562,8 +562,8 @@ function buildAssistantSections(params: {
       singleLine: true,
     })
   }
-  // Блок с текстом «Переведи на английский.» не показываем — режим перевода уже задан в UI.
-  // Хвост после «Переведи…» дублирует подсказку — отдельный блок «Доп. комментарий» не показываем.
+  // Блок с текстом «Переведи на английский.» не показываем - режим перевода уже задан в UI.
+  // Хвост после «Переведи…» дублирует подсказку - отдельный блок «Доп. комментарий» не показываем.
   if (!hidePromptBlocks && mainAfter && !(mainBefore || invitationText) && !isTranslationErrorCoach) {
     sections.push({
       key: 'main-after',
@@ -597,7 +597,7 @@ export function buildAssistantSectionsForTranslationSuccessTest(
   })
 }
 
-/** Узкий экспорт для тестов: русское задание + служебное приглашение — без дубля карточки «Переведи на английский». */
+/** Узкий экспорт для тестов: русское задание + служебное приглашение - без дубля карточки «Переведи на английский». */
 export function buildAssistantSectionsForTranslationDrillWithInvitationTest(options: {
   mainBefore: string
   invitationText: string | null
@@ -619,7 +619,7 @@ export function buildAssistantSectionsForTranslationDrillWithInvitationTest(opti
   })
 }
 
-/** Узкий экспорт для тестов: ошибка drill перевода — в UI должен остаться только repeat из `Скажи`. */
+/** Узкий экспорт для тестов: ошибка drill перевода - в UI должен остаться только repeat из `Скажи`. */
 export function buildAssistantSectionsForTranslationErrorRepeatTest(options: {
   repeatTextForCard?: string | null
   repeatRuTextForCard?: string | null
@@ -653,7 +653,7 @@ export function buildAssistantSectionsForTranslationErrorRepeatTest(options: {
   })
 }
 
-/** Узкий экспорт для тестов: junk drill — только «Комментарий_мусор» + «Скажи». */
+/** Узкий экспорт для тестов: junk drill - только «Комментарий_мусор» + «Скажи». */
 export function buildAssistantSectionsForTranslationJunkRepeatTest(options: {
   translationJunkComment: string | null
   repeatTextForCard?: string | null
@@ -748,7 +748,7 @@ export function parseTranslationCoachBlocks(text: string): {
       const firstColon = line.indexOf(':')
       const tail = firstColon >= 0 ? line.slice(firstColon + 1) : ''
       // Не одна строка-приглашение, если после первого «:» есть второе «Переведи…» (склейка с «…английский»).
-      // Не используем \b — в JS границы слова не работают для кириллицы.
+      // Не используем \b - в JS границы слова не работают для кириллицы.
       const hasSecondInviteInTail = /\s+(?:Переведи|Переведите)\s+/i.test(tail)
       if (!hasSecondInviteInTail) {
         return { before: '', invitation: onlyColonInvite[1].trim() }
@@ -843,12 +843,12 @@ export function parseTranslationCoachBlocks(text: string): {
       }
     }
 
-    // Только «Переведи на английский.» / «…английский язык.» без русского задания — не «Переведи далее: …».
+    // Только «Переведи на английский.» / «…английский язык.» без русского задания - не «Переведи далее: …».
     const pureMetaInvitation =
       /^\s*(?:\d+\)\s*)*((?:Переведи|Переведите)\s+на\s+английский(?:\s+язык)?\.)\s*$/i.exec(line)
     if (pureMetaInvitation?.[1]) {
       const meta = pureMetaInvitation[1].trim()
-      // Не затираем уже выставленное «Переведи далее: …» / «Переведи: …» — иначе карточка пропадает в UI.
+      // Не затираем уже выставленное «Переведи далее: …» / «Переведи: …» - иначе карточка пропадает в UI.
       if (!invitation || isGenericTranslationMetaInvitation(invitation)) {
         invitation = meta
       }
@@ -880,7 +880,7 @@ export function parseTranslationCoachBlocks(text: string): {
         const splitAt = inlineProtocolMatch.index
         const commentHead = rawComment
           .slice(0, splitAt)
-          .replace(/[—–\-:;,\s]+$/g, '')
+          .replace(/[-–\-:;,\s]+$/g, '')
           .trim()
         const protocolTail = rawComment.slice(splitAt).trim()
         comment = commentHead || null
@@ -978,9 +978,9 @@ export function condenseTranslationCommentToErrors(comment: string): string {
 
   const normalizeSmotri = (s: string) =>
     s
-      // Приводим: "Ошибка ... . Смотри — ..." -> "Ошибка ... — ..."
-      .replace(/(Ошибка[^.!?]*?)\.\s*(Смотри|Смотрите)\s*—/gi, '$1 —')
-      .replace(/(Ошибка[^.!?]*?)\s*(Смотри|Смотрите)\s*—/gi, '$1 —')
+      // Приводим: "Ошибка ... . Смотри - ..." -> "Ошибка ... - ..."
+      .replace(/(Ошибка[^.!?]*?)\.\s*(Смотри|Смотрите)\s*-/gi, '$1 -')
+      .replace(/(Ошибка[^.!?]*?)\s*(Смотри|Смотрите)\s*-/gi, '$1 -')
 
   return normalized.map(normalizeSmotri).join('\n')
 }
@@ -1809,7 +1809,7 @@ export default function Chat({
   const typingDelayTimerRef = useRef<number | null>(null)
   const isEngvoActive = Boolean(engvo?.active)
   const isEngvoAssistantPending = Boolean(engvo?.active && engvo.showAssistantPending)
-  /** Нижний bootstrap-индикатор Engvo: родитель может на один кадр отставать от messages — не показываем, если пузырь уже в ленте. */
+  /** Нижний bootstrap-индикатор Engvo: родитель может на один кадр отставать от messages - не показываем, если пузырь уже в ленте. */
   const engvoBootstrapTypingActive =
     isEngvoAssistantPending && !hasEngvoAssistantChatBubble(messages)
 
@@ -2098,7 +2098,7 @@ export default function Chat({
     if (messages.length === 0) setSelectedLessonActionByMessage({})
   }, [messages.length])
 
-  /** Текст индикатора ожидания ответа: «Engvo печатает…»; при веб-поиске — отдельные строки. */
+  /** Текст индикатора ожидания ответа: «Engvo печатает…»; при веб-поиске - отдельные строки. */
   const isSearchingIndicatorEnglish = settings.mode === 'communication' && searchingInternetLang === 'en'
   const sendButtonAriaLabel =
     isEngvoActive
@@ -2621,18 +2621,18 @@ function MessageBubble({
   voiceId: string
   mode: 'dialogue' | 'translation' | 'communication'
   bubblePosition: BubblePosition
-  /** В звонке Engvo — такое же появление пузыря снизу, как в уроках (`.lesson-enter`). */
+  /** В звонке Engvo - такое же появление пузыря снизу, как в уроках (`.lesson-enter`). */
   engvoSlideEnter?: boolean
-  /** Активен звонок Engvo — показываем «Перевод_звонок», скрываем обычную «Перевод». */
+  /** Активен звонок Engvo - показываем «Перевод_звонок», скрываем обычную «Перевод». */
   isEngvoCall?: boolean
   onRequestTranslation?: (index: number, text: string) => void
   isLoadingTranslation?: boolean
   onRequestEngvoCallTranslation?: (index: number, text: string) => void
   isLoadingEngvoCallTranslation?: boolean
   isPrefetchingEngvoCallTranslation?: boolean
-  /** Первое задание перевода в чате — подпись «Переведи:»; иначе «Переведи далее:». */
+  /** Первое задание перевода в чате - подпись «Переведи:»; иначе «Переведи далее:». */
   translationHeadingWelcome?: boolean
-  /** Если в ответе только протокол ошибки — подставить русское задание из предыдущего хода ассистента. */
+  /** Если в ответе только протокол ошибки - подставить русское задание из предыдущего хода ассистента. */
   translationDrillRuFallback?: string | null
 }) {
   const isUser = message.role === 'user'
@@ -2653,7 +2653,7 @@ function MessageBubble({
     message.role === 'assistant' ? parseCorrection(visibleContent) : { comment: null, rest: visibleContent }
 
   const displayText = message.role === 'assistant' ? rest : visibleContent
-  /** На ошибке перевода не показываем «Переведи далее:» — только «Переведи:» для того же задания. */
+  /** На ошибке перевода не показываем «Переведи далее:» - только «Переведи:» для того же задания. */
   let translationMainDrillHeadingWelcome = translationHeadingWelcome
   const isTranslationMode = mode === 'translation' && !isUser
   const { mainBefore, invitation: invitationText, mainAfter } =
@@ -2662,7 +2662,7 @@ function MessageBubble({
       : { mainBefore: displayText ?? '', invitation: null as string | null, mainAfter: '' }
   const isCommunicationEnglish = !isUser && mode === 'communication' && detectTextLang(displayText ?? '') === 'en'
 
-  // При правильном ответе ИИ пишет похвалу (Комментарий: Отлично! / Молодец! и т.д.) — блок "Правильно:" не показываем
+  // При правильном ответе ИИ пишет похвалу (Комментарий: Отлично! / Молодец! и т.д.) - блок "Правильно:" не показываем
   const isCorrectAnswerPraise = Boolean(comment && /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)[!.]?\s*/i.test(comment.trim()))
   const repeatPrompt = !isUser && !isTranslationMode ? extractRepeatPrompt(mainBefore) : null
   // Если это похвала (ответ правильный), игнорируем "Скажи:" даже если модель его вывела.
@@ -2697,7 +2697,7 @@ function MessageBubble({
   const webSearchSourcesHiddenCount = message.webSearchSourcesHiddenCount ?? 0
   const showWebSearchSources = !isUser && Boolean(message.webSearchSourcesRequested)
   // Дополнительная UI-страховка: если модель нарушила формат и выдала русскую "мета" строку
-  // (кириллица, без вопроса) — не показываем её как "AI: ...".
+  // (кириллица, без вопроса) - не показываем её как "AI: ...".
   const hideRussianNonQuestionMainBefore =
     !isUser &&
     !isTranslationMode &&
@@ -3016,7 +3016,7 @@ function MessageBubble({
     messageIndex,
   ])
 
-  // В звонке во время prefetch/загрузки — нейтральная серая точка (как idle в Диалоге), без оранжевого loading.
+  // В звонке во время prefetch/загрузки - нейтральная серая точка (как idle в Диалоге), без оранжевого loading.
   const engvoCallTranslationDotState: TranslationDotState = hasTranslationError
     ? 'error'
     : hasTranslationData
@@ -3368,7 +3368,7 @@ function SectionCard({
   const isCompactServiceLine = singleLine && italic && !hasLabel
   const isTextItalic = textItalic ?? italic
   const bodyContent = inlineMarkdownBold ? renderCommunicationBoldInline(textResolved as string) : textResolved
-  // Смотрим исходный text: при inlineMarkdownBold тело часто ReactNode, не string — иначе теряем pre-wrap.
+  // Смотрим исходный text: при inlineMarkdownBold тело часто ReactNode, не string - иначе теряем pre-wrap.
   const preserveNewLines = singleLine && typeof textResolved === 'string' && textResolved.includes('\n')
 
   return (

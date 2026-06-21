@@ -29,7 +29,7 @@ type UseLessonSectionRevealResult = {
   textRevealedThroughIndex: number
   textAnimatingIndex: number | null
   isRevealInProgress: boolean
-  /** false на кадр после смены revealKey — пока layout-effect не инициализировал сессию. */
+  /** false на кадр после смены revealKey - пока layout-effect не инициализировал сессию. */
   isRevealInitializedForKey: boolean
   onShellScrollComplete: () => void
   onTextSectionRevealComplete: (sectionIndex: number) => void

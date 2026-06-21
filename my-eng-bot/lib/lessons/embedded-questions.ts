@@ -69,13 +69,13 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
     theoryRuleRu:
       'После do you know, tell me, can you say внутри второй части сохраняем обычный порядок слов: вопросительное слово + подлежащее + глагол.',
     theoryContrastRu:
-      'Сравните: прямой вопрос — "What does she like?", а во встроенной части — "what she likes".',
+      'Сравните: прямой вопрос - "What does she like?", а во встроенной части - "what she likes".',
     step3Variants: [
       {
         id: 'home-lives_step3_easy',
         question: 'Дополните одним словом: "I know what she ___."',
         correctAnswer: 'likes',
-        hint: 'После she — глагол с -s, без does перед she.',
+        hint: 'После she - глагол с -s, без does перед she.',
         difficulty: 'easy',
         answerFormat: 'single_word',
         answerPolicy: 'strict',
@@ -84,7 +84,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         id: 'home-lives_step3_medium',
         question: "Дополните одним словом: \"I don't know where he ___.\"",
         correctAnswer: 'lives',
-        hint: '«Где» — where. После he — глагол с -s, без does перед he.',
+        hint: '«Где» - where. После he - глагол с -s, без does перед he.',
         difficulty: 'medium',
         answerFormat: 'single_word',
         answerPolicy: 'strict',
@@ -93,7 +93,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         id: 'home-lives_step3_hard',
         question: 'Дополните одним словом: "Tell me where the station ___."',
         correctAnswer: 'is',
-        hint: '«Где» — where. После the station — be-форма, не переставляй слова.',
+        hint: '«Где» - where. После the station - be-форма, не переставляй слова.',
         difficulty: 'hard',
         answerFormat: 'single_word',
         answerPolicy: 'strict',
@@ -104,7 +104,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         id: 'home-lives_step4_easy',
         question: 'Переведите на английский: "Я знаю, что ей нравится."',
         correctAnswer: 'I know what she likes.',
-        hint: '«Что» — what. Начни с I know, потом she + глагол с -s, без does.',
+        hint: '«Что» - what. Начни с I know, потом she + глагол с -s, без does.',
         difficulty: 'easy',
         answerFormat: 'full_sentence',
         answerPolicy: 'normalized',
@@ -113,7 +113,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         id: 'home-lives_step4_medium',
         question: 'Переведите на английский: "Ты знаешь, что ей нравится?"',
         correctAnswer: 'Do you know what she likes?',
-        hint: '«Что» — what. Do you know, потом she + глагол с -s, без does.',
+        hint: '«Что» - what. Do you know, потом she + глагол с -s, без does.',
         difficulty: 'medium',
         answerFormat: 'full_sentence',
         answerPolicy: 'normalized',
@@ -122,7 +122,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         id: 'home-lives_step4_hard',
         question: 'Переведите на английский: "Скажи мне, где находится станция."',
         correctAnswer: 'Tell me where the station is.',
-        hint: '«Где» — where. Tell me, потом the station + be-форма.',
+        hint: '«Где» - where. Tell me, потом the station + be-форма.',
         difficulty: 'hard',
         answerFormat: 'full_sentence',
         answerPolicy: 'normalized',
@@ -168,13 +168,13 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
     theoryRuleRu:
       'Во вложенном вопросе после can you say или do you know не ставим does перед подлежащим.',
     theoryContrastRu:
-      'Сравните: прямой вопрос — "When does the film start?", а во встроенной части — "when the film starts".',
+      'Сравните: прямой вопрос - "When does the film start?", а во встроенной части - "when the film starts".',
     step3Variants: [
       {
         id: 'music-likes_step3_easy',
         question: 'Дополните одним словом: "Do you know what she ___?"',
         correctAnswer: 'likes',
-        hint: 'После she — глагол с -s, без does.',
+        hint: 'После she - глагол с -s, без does.',
         difficulty: 'easy',
         answerFormat: 'single_word',
         answerPolicy: 'strict',
@@ -183,7 +183,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         id: 'music-likes_step3_medium',
         question: 'Дополните одним словом: "Can you say when the film ___?"',
         correctAnswer: 'starts',
-        hint: '«Когда» — when. После the film — глагол с -s.',
+        hint: '«Когда» - when. После the film - глагол с -s.',
         difficulty: 'medium',
         answerFormat: 'single_word',
         answerPolicy: 'strict',
@@ -192,7 +192,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         id: 'music-likes_step3_hard',
         question: 'Дополните одним словом: "I do not know where he ___."',
         correctAnswer: 'works',
-        hint: '«Где» — where. После he — глагол с -s, без does.',
+        hint: '«Где» - where. После he - глагол с -s, без does.',
         difficulty: 'hard',
         answerFormat: 'single_word',
         answerPolicy: 'strict',
@@ -203,7 +203,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         id: 'music-likes_step4_easy',
         question: 'Переведите на английский: "Ты знаешь, что ей нравится?"',
         correctAnswer: 'Do you know what she likes?',
-        hint: '«Что» — what. Do you know, потом she + глагол с -s, без does.',
+        hint: '«Что» - what. Do you know, потом she + глагол с -s, без does.',
         difficulty: 'easy',
         answerFormat: 'full_sentence',
         answerPolicy: 'normalized',
@@ -213,7 +213,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         question: 'Переведите на английский: "Я не знаю, где он работает."',
         correctAnswer: "I don't know where he works.",
         acceptedAnswers: ['I do not know where he works.'],
-        hint: '«Где» — where. I don\'t know, потом he + глагол с -s, без does.',
+        hint: '«Где» - where. I don\'t know, потом he + глагол с -s, без does.',
         difficulty: 'medium',
         answerFormat: 'full_sentence',
         answerPolicy: 'normalized',
@@ -222,7 +222,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         id: 'music-likes_step4_hard',
         question: 'Переведите на английский: "Скажи, когда начинается фильм."',
         correctAnswer: 'Can you say when the film starts?',
-        hint: '«Когда» — when. Can you say, потом the film + глагол с -s.',
+        hint: '«Когда» - when. Can you say, потом the film + глагол с -s.',
         difficulty: 'hard',
         answerFormat: 'full_sentence',
         answerPolicy: 'normalized',
@@ -269,13 +269,13 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
     theoryRuleRu:
       'Во второй части после tell me и can you say используем порядок слов как в обычном сообщении.',
     theoryContrastRu:
-      'Сравните: прямой вопрос — "Where is the cafe?", а во встроенной части — "where the cafe is".',
+      'Сравните: прямой вопрос - "Where is the cafe?", а во встроенной части - "where the cafe is".',
     step3Variants: [
       {
         id: 'lesson-starts_step3_easy',
         question: 'Дополните одним словом: "Can you say when the lesson ___?"',
         correctAnswer: 'starts',
-        hint: '«Когда» — when. После the lesson — глагол с -s.',
+        hint: '«Когда» - when. После the lesson - глагол с -s.',
         difficulty: 'easy',
         answerFormat: 'single_word',
         answerPolicy: 'strict',
@@ -284,7 +284,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         id: 'lesson-starts_step3_medium',
         question: 'Дополните одним словом: "Tell me where the cafe ___."',
         correctAnswer: 'is',
-        hint: '«Где» — where. После the cafe — be-форма, не переставляй слова.',
+        hint: '«Где» - where. После the cafe - be-форма, не переставляй слова.',
         difficulty: 'medium',
         answerFormat: 'single_word',
         answerPolicy: 'strict',
@@ -293,7 +293,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         id: 'lesson-starts_step3_hard',
         question: "Дополните одним словом: \"I don't know what she ___.\"",
         correctAnswer: 'wants',
-        hint: '«Чего» — what. После she — глагол с -s, без does.',
+        hint: '«Чего» - what. После she - глагол с -s, без does.',
         difficulty: 'hard',
         answerFormat: 'single_word',
         answerPolicy: 'strict',
@@ -304,7 +304,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         id: 'lesson-starts_step4_easy',
         question: 'Переведите на английский: "Скажи, когда начинается урок."',
         correctAnswer: 'Can you say when the lesson starts?',
-        hint: '«Когда» — when. Can you say, потом the lesson + глагол с -s.',
+        hint: '«Когда» - when. Can you say, потом the lesson + глагол с -s.',
         difficulty: 'easy',
         answerFormat: 'full_sentence',
         answerPolicy: 'normalized',
@@ -313,7 +313,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         id: 'lesson-starts_step4_medium',
         question: 'Переведите на английский: "Скажи мне, где находится кафе."',
         correctAnswer: 'Tell me where the cafe is.',
-        hint: '«Где» — where. Tell me, потом the station + be-форма.',
+        hint: '«Где» - where. Tell me, потом the station + be-форма.',
         difficulty: 'medium',
         answerFormat: 'full_sentence',
         answerPolicy: 'normalized',
@@ -323,7 +323,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         question: 'Переведите на английский: "Я не знаю, чего она хочет."',
         correctAnswer: "I don't know what she wants.",
         acceptedAnswers: ['I do not know what she wants.'],
-        hint: '«Чего» — what. I don\'t know, потом she + глагол с -s, без does.',
+        hint: '«Чего» - what. I don\'t know, потом she + глагол с -s, без does.',
         difficulty: 'hard',
         answerFormat: 'full_sentence',
         answerPolicy: 'normalized',
@@ -370,13 +370,13 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
     theoryRuleRu:
       'После I do not know, tell me и can you say во встроенном вопросе порядок слов остаётся обычным.',
     theoryContrastRu:
-      'Сравните: прямой вопрос — "When do they start?", а во встроенной части — "when they start".',
+      'Сравните: прямой вопрос - "When do they start?", а во встроенной части - "when they start".',
     step3Variants: [
       {
         id: 'station-is_step3_easy',
         question: 'Дополните одним словом: "Tell me where the station ___."',
         correctAnswer: 'is',
-        hint: '«Где» — where. После the station — be-форма.',
+        hint: '«Где» - where. После the station - be-форма.',
         difficulty: 'easy',
         answerFormat: 'single_word',
         answerPolicy: 'strict',
@@ -385,7 +385,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         id: 'station-is_step3_medium',
         question: "Дополните одним словом: \"I don't know when they ___.\"",
         correctAnswer: 'start',
-        hint: '«Когда» — when. После they — глагол без -s и без do.',
+        hint: '«Когда» - when. После they - глагол без -s и без do.',
         difficulty: 'medium',
         answerFormat: 'single_word',
         answerPolicy: 'strict',
@@ -394,7 +394,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         id: 'station-is_step3_hard',
         question: 'Дополните одним словом: "Do you know what he ___?"',
         correctAnswer: 'needs',
-        hint: '«Что» — what. После he — глагол с -s, без does.',
+        hint: '«Что» - what. После he - глагол с -s, без does.',
         difficulty: 'hard',
         answerFormat: 'single_word',
         answerPolicy: 'strict',
@@ -405,7 +405,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         id: 'station-is_step4_easy',
         question: 'Переведите на английский: "Скажи мне, где находится станция."',
         correctAnswer: 'Tell me where the station is.',
-        hint: '«Где» — where. Tell me, потом the station + be-форма.',
+        hint: '«Где» - where. Tell me, потом the station + be-форма.',
         difficulty: 'easy',
         answerFormat: 'full_sentence',
         answerPolicy: 'normalized',
@@ -415,7 +415,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         question: 'Переведите на английский: "Я не знаю, когда они начинают."',
         correctAnswer: "I don't know when they start.",
         acceptedAnswers: ['I do not know when they start.'],
-        hint: 'В задании «когда» — это when, не where. После they — глагол без -s и без do.',
+        hint: 'В задании «когда» - это when, не where. После they - глагол без -s и без do.',
         difficulty: 'medium',
         answerFormat: 'full_sentence',
         answerPolicy: 'normalized',
@@ -424,7 +424,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
         id: 'station-is_step4_hard',
         question: 'Переведите на английский: "Ты знаешь, что ему нужно?"',
         correctAnswer: 'Do you know what he needs?',
-        hint: '«Что» — what. Do you know, потом he + глагол с -s, без does.',
+        hint: '«Что» - what. Do you know, потом he + глагол с -s, без does.',
         difficulty: 'hard',
         answerFormat: 'full_sentence',
         answerPolicy: 'normalized',
@@ -655,28 +655,28 @@ const EMBEDDED_STEP7_HARD: Record<
     frameEn: "I don't know when the bus ___.",
     correctWord: 'arrives',
     distractors: ['arrive', 'arriving'],
-    hint: '«Когда» — when. После the bus — глагол с -s.',
+    hint: '«Когда» - when. После the bus - глагол с -s.',
   },
   'music-likes': {
     situationRu: 'Новая ситуация: где он работает',
     frameEn: "I don't know where he ___.",
     correctWord: 'works',
     distractors: ['work', 'working'],
-    hint: '«Где» — where. После he — глагол с -s, без does.',
+    hint: '«Где» - where. После he - глагол с -s, без does.',
   },
   'lesson-starts': {
     situationRu: 'Новая ситуация: чего она хочет',
     frameEn: "I don't know what she ___.",
     correctWord: 'wants',
     distractors: ['want', 'wanting'],
-    hint: '«Чего» — what. После she — глагол с -s, без does.',
+    hint: '«Чего» - what. После she - глагол с -s, без does.',
   },
   'station-is': {
     situationRu: 'Новая ситуация: чего нужно учителю',
     frameEn: 'Do you know what he ___?',
     correctWord: 'needs',
     distractors: ['need', 'needing'],
-    hint: '«Что» — what. После he — глагол с -s, без does.',
+    hint: '«Что» - what. После he - глагол с -s, без does.',
   },
 }
 
@@ -723,16 +723,16 @@ function buildEmbeddedStep6Hint(question: string, multiSentence: boolean): strin
   const normalizedQuestion = question.toLowerCase()
   if (normalizedQuestion.includes('когда')) {
     return multiSentence
-      ? '«Когда» — when. Две фразы: вопрос и короткий ответ.'
-      : '«Когда» — when. Сохрани порядок: when + слова без do перед they/he/she.'
+      ? '«Когда» - when. Две фразы: вопрос и короткий ответ.'
+      : '«Когда» - when. Сохрани порядок: when + слова без do перед they/he/she.'
   }
   if (normalizedQuestion.includes('где')) {
     return multiSentence
-      ? '«Где» — where. Две фразы: вопрос и короткий ответ.'
-      : '«Где» — where. После where — подлежащее и глагол, без перестановки.'
+      ? '«Где» - where. Две фразы: вопрос и короткий ответ.'
+      : '«Где» - where. После where - подлежащее и глагол, без перестановки.'
   }
   if (normalizedQuestion.includes('что') || normalizedQuestion.includes('чего')) {
-    return '«Что/чего» — what. После what — подлежащее и глагол, без does.'
+    return '«Что/чего» - what. После what - подлежащее и глагол, без does.'
   }
   return 'Сохрани шаблон: вводная фраза + when/where/what + слова по порядку.'
 }
@@ -795,7 +795,7 @@ function buildEmbeddedQuestionsFinale(): LessonFinale {
       {
         type: 'positive',
         content:
-          'Готово! Встроенные вопросы — ваши. Дальше — практика и кубок 🏆.',
+          'Готово! Встроенные вопросы - ваши. Дальше - практика и кубок 🏆.',
       },
     ],
     footerDynamic: 'Урок завершен',
@@ -982,7 +982,7 @@ function buildEmbeddedQuestionSteps(variant: EmbeddedQuestionVariant): LessonSte
         puzzleVariants: buildEmbeddedSentencePuzzleVariants(variant),
       },
       footerDynamic: 'Пазл: порядок слов во встроенном вопросе',
-      myEngComment: 'Соберите фразу — и правило станет заметнее.',
+      myEngComment: 'Соберите фразу - и правило станет заметнее.',
     },
     {
       stepNumber: 6,
@@ -994,7 +994,7 @@ function buildEmbeddedQuestionSteps(variant: EmbeddedQuestionVariant): LessonSte
         },
         {
           type: 'info',
-          content: 'Одна фраза, затем мини-диалог, в конце — новая лексика в том же шаблоне.',
+          content: 'Одна фраза, затем мини-диалог, в конце - новая лексика в том же шаблоне.',
         },
         {
           type: 'task',
@@ -1016,7 +1016,7 @@ function buildEmbeddedQuestionSteps(variant: EmbeddedQuestionVariant): LessonSte
         }
       })(),
       footerDynamic: 'Финальная проверка: 3 коротких предложения',
-      myEngComment: 'Три фразы подряд — вы почти у финиша.',
+      myEngComment: 'Три фразы подряд - вы почти у финиша.',
     },
     {
       stepNumber: 7,
@@ -1028,7 +1028,7 @@ function buildEmbeddedQuestionSteps(variant: EmbeddedQuestionVariant): LessonSte
         },
         {
           type: 'info',
-          content: 'В каждой рамке одно слово — обычный порядок слов во встроенной части.',
+          content: 'В каждой рамке одно слово - обычный порядок слов во встроенной части.',
         },
         {
           type: 'task',

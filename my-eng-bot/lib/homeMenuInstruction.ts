@@ -7,8 +7,8 @@ const SECTION_INSTRUCTIONS: Record<Exclude<MenuView, 'root' | 'aiChat'>, string>
   lessons: 'Уроки: теория, произношение\nи новые слова.',
   settings: 'Провайдер ИИ и голос озвучки.',
   progress: 'Медали, кубки тем 🏆, XP и стрик.',
-  myPlan: 'Три шага: что сделать дальше.\nКубки тем — в Прогрессе.',
-  profile: 'Профиль и аккаунт — позже.',
+  myPlan: 'Три шага: что сделать дальше.\nКубки тем - в Прогрессе.',
+  profile: 'Профиль и аккаунт - позже.',
 }
 
 export function getHomeMenuInstruction(

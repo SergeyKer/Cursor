@@ -73,7 +73,7 @@ export function userMatchesPriorAssistantRepeatOrVisibleSay(
 function looksLikeEnglishDrillRepeatLine(s: string): boolean {
   const t = s.trim()
   if (t.length < 2) return false
-  if (/^[-–—*•]\s/.test(t) && (/→|->/.test(t) || /[А-Яа-яЁё]/.test(t))) return false
+  if (/^[-\u2013\u2014*•]\s/.test(t) && (/→|->/.test(t) || /[А-Яа-яЁё]/.test(t))) return false
   const lat = (t.match(/[A-Za-z]/g) ?? []).length
   const cyr = (t.match(/[А-Яа-яЁё]/g) ?? []).length
   if (cyr > 0 && lat < cyr * 2) return false
@@ -160,12 +160,12 @@ function extractDrillCardGoldEnglishForRepeat(content: string, ruTask: string | 
  * Учитывается только сегмент **текущего** «Переведи / Переведи далее»: карточки **раньше** индекса
  * последнего ассистента с этим русским заданием игнорируются (не подтягиваем Скажи из прошлой темы).
  *
- * Внутри сегмента: «Скажи:» согласуется с русским промптом по ключевым словам; при нескольких —
- * максимум пересечения с ответом пользователя, при равенстве — более ранняя карточка.
+ * Внутри сегмента: «Скажи:» согласуется с русским промптом по ключевым словам; при нескольких -
+ * максимум пересечения с ответом пользователя, при равенстве - более ранняя карточка.
  *
  * Иначе эталон с карточки перед user (видимый Скажи / __TRAN_REPEAT_REF__);
  * приоритет у видимого Скажи (то, что реально видит ученик).
- * Если не бьётся с промптом — берём с карточки-источника задания.
+ * Если не бьётся с промптом - берём с карточки-источника задания.
  */
 export function extractPriorAssistantRepeatEnglish(
   messages: ReadonlyArray<{ role: string; content: string }>

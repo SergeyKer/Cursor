@@ -25,7 +25,7 @@ interface Props {
 const SELECT_DELAY_MS = 200
 const DEFAULT_BACK_TO_LESSON_LIST_LABEL = 'К списку уроков'
 const DEFAULT_TIPS_LABEL = 'Фишки'
-/** Сразу открывают оверлей — без задержки и без промежуточного «синего» состояния. */
+/** Сразу открывают оверлей - без задержки и без промежуточного «синего» состояния. */
 const INSTANT_OVERLAY_ACTIONS: PostLessonAction[] = ['independent_practice', 'myeng_training']
 
 export default function PostLessonMenu({

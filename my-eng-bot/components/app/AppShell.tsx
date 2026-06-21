@@ -528,7 +528,7 @@ const ENGVO_RESPONSE_DONE_FALLBACK_MS = 1_200
 const LESSON_MENU_GENERATE_TIMEOUT_MS = lessonMenuGenerateClientTimeoutMs(readPublicLessonProviderTimeoutMs())
 const MAX_ATTEMPTS = 3
 const RETRY_DELAY_MS = 2500
-/** При 429 OpenRouter даёт 20 запросов в минуту — пауза должна увести попытку в следующую минуту. */
+/** При 429 OpenRouter даёт 20 запросов в минуту - пауза должна увести попытку в следующую минуту. */
 const RETRY_DELAY_RATE_LIMIT_MS = 20_000
 const RETRY_DELAY_RATE_LIMIT_BASE_MS = 5_000
 const {
@@ -609,7 +609,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [rewardsState, setRewardsState] = useState<RewardsState>(createDefaultRewardsState)
-  /** После useLayoutEffect storage — иначе hydration mismatch (localStorage только на клиенте). */
+  /** После useLayoutEffect storage - иначе hydration mismatch (localStorage только на клиенте). */
   const [footerHydrated, setFooterHydrated] = useState(false)
   const [rewardPopupText, setRewardPopupText] = useState<string | null>(null)
   const [lessonReturnBriefingAckRunKey, setLessonReturnBriefingAckRunKey] = useState<string | null>(null)
@@ -851,7 +851,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [engvoBootstrapServiceStatusVisible, setEngvoBootstrapServiceStatusVisible] = useState(false)
   const [engvoLocalAudioStream, setEngvoLocalAudioStream] = useState<MediaStream | null>(null)
   const [engvoRemoteAudioStream, setEngvoRemoteAudioStream] = useState<MediaStream | null>(null)
-  /** Пока `<audio>` реально играет удалённый WebRTC-поток — метер в чате должен смотреть на remote, даже если фаза уже `listening` (эхо/VAD). */
+  /** Пока `<audio>` реально играет удалённый WebRTC-поток - метер в чате должен смотреть на remote, даже если фаза уже `listening` (эхо/VAD). */
   const [engvoRemotePlaybackActive, setEngvoRemotePlaybackActive] = useState(false)
   const [engvoCallStartedAt, setEngvoCallStartedAt] = useState<number | null>(null)
   const structuredLessonChoiceShuffleSeed =
@@ -916,7 +916,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const firstMessageInFlightRef = React.useRef(false)
   const ensureFirstMessageRef = React.useRef<(() => Promise<void>) | null>(null)
   const dialogSeedRef = React.useRef(createDialogSeed())
-  /** Актуальный язык ожидаемого ввода в общении — для тела fetch без гонки замыкания sendToApi/setTimeout. */
+  /** Актуальный язык ожидаемого ввода в общении - для тела fetch без гонки замыкания sendToApi/setTimeout. */
   const communicationInputExpectedLangRef = React.useRef(settings.communicationInputExpectedLang)
   communicationInputExpectedLangRef.current = settings.communicationInputExpectedLang
   const communicationVoiceInputMode = getCommunicationVoiceInputMode(settings)
@@ -1035,7 +1035,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     if (typeof navigator === 'undefined') return false
     return isIosSafariUserAgent(navigator.userAgent)
   }, [])
-  /** iOS Safari + Chrome (CriOS) — общая WebKit-ветка dialog layout. */
+  /** iOS Safari + Chrome (CriOS) - общая WebKit-ветка dialog layout. */
   const isIosWebKitClient = React.useMemo(() => {
     if (typeof navigator === 'undefined') return false
     return isIosWebKitBrowser(navigator.userAgent)
@@ -2478,7 +2478,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               const errorCode = data.errorCode
               const providerFromServer = data.provider ?? settings.provider
 
-              // 429: ретраим только для OpenRouter (как было), для OpenAI — без ретраев.
+              // 429: ретраим только для OpenRouter (как было), для OpenAI - без ретраев.
               if (
                 errorCode === 'rate_limit' &&
                 providerFromServer === 'openrouter' &&
@@ -3297,7 +3297,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           if (error instanceof Error && error.name === 'AbortError') {
             if (!timedOutRef.current) return
             setMenuLessonBgError(
-              'Подготовка нового варианта заняла слишком много времени. Урок уже открыт — позже можно снова нажать «Новый вариант».'
+              'Подготовка нового варианта заняла слишком много времени. Урок уже открыт - позже можно снова нажать «Новый вариант».'
             )
             return
           }
@@ -3468,7 +3468,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     (config: PracticeBuildConfig) => {
       // Закрытие меню после запуска практики триггерит эффект «снимок настроек при открытии меню»:
       // при расхождении он вызывает restartChatForNewModeFromMenu → abandonPracticeSession и сносит сессию.
-      // Сбрасываем снимок: переход в практику — намеренное действие, не «закрыли меню после правок чата».
+      // Сбрасываем снимок: переход в практику - намеренное действие, не «закрыли меню после правок чата».
       menuOpenSnapshotRef.current = null
       resetStructuredLessonSession()
       firstMessageRequestIdRef.current += 1
@@ -4069,7 +4069,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         setLessonOverlay({
           title: action === 'independent_practice' ? 'Практика' : 'Тренировка в Engvo',
           lines: [
-            finaleCopy.goalLine ?? 'Практика с генерацией вариантов — по подписке.',
+            finaleCopy.goalLine ?? 'Практика с генерацией вариантов - по подписке.',
             'Раздел скоро появится.',
           ],
         })
@@ -4143,7 +4143,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     persistActiveStructuredLessonProgress({ lastCompleted: new Date().toISOString() })
   }, [activeStructuredLessonStatus, persistActiveStructuredLessonProgress])
 
-  // DEBUG: удалить после редактирования урока — запасной путь, если финал не выставился в reset движка.
+  // DEBUG: удалить после редактирования урока - запасной путь, если финал не выставился в reset движка.
   useEffect(() => {
     const pendingLessonId = debugFinalePendingRef.current
     if (!pendingLessonId) return
@@ -4446,7 +4446,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     maybeFetchUsage()
   }, [menuOpen, maybeFetchUsage])
 
-  // Если пользователь переключил аудиторию на "Ребёнок" — автоматически принудим тему и уровень.
+  // Если пользователь переключил аудиторию на "Ребёнок" - автоматически принудим тему и уровень.
   useEffect(() => {
     if (!storageLoaded) return
     setSettings((prev) => normalizeSettingsForAudience(prev))
@@ -5082,7 +5082,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       | { ok: true; content: string }
       | { ok: false; error: string; errorCode?: TranslateErrorCode; provider: TranslateProvider }
 
-    /** Строго выбранный в меню провайдер — без автоматического переключения OpenAI ↔ OpenRouter. */
+    /** Строго выбранный в меню провайдер - без автоматического переключения OpenAI ↔ OpenRouter. */
     const provider: TranslateProvider = settings.provider === 'openai' ? 'openai' : 'openrouter'
 
     const requestTranslateOnce = async (): Promise<AttemptResult> => {
@@ -5170,7 +5170,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     }
   }, [messages, settings.provider, settings.openAiChatPreset, settings.audience, settings.mode, settings.tenses])
 
-  /** Сравнение для баннера в шапке. В «Диалог» и «Перевод»: предупреждение только если изменился только уровень (без перезапуска из меню). Смена темы/времени/ребёнок–взрослый/типа даёт новый чат — баннер не нужен. */
+  /** Сравнение для баннера в шапке. В «Диалог» и «Перевод»: предупреждение только если изменился только уровень (без перезапуска из меню). Смена темы/времени/ребёнок–взрослый/типа даёт новый чат - баннер не нужен. */
   function settingsDiffersFromLastSendForBanner(current: Settings, last: Settings | null): boolean {
     if (!last) return false
     const sameTenses =
@@ -5792,9 +5792,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   : 'Ru: можно говорить свободно.',
             compactText:
               communicationVoiceInputMode === 'mix'
-                ? 'En/Ru — говори, я помогу.'
+                ? 'En/Ru - говори, я помогу.'
                 : settings.communicationInputExpectedLang === 'en'
-                  ? 'En: говори — я помогу.'
+                  ? 'En: говори - я помогу.'
                   : 'Ru: жду реплику.',
             tone: 'neutral',
           }
@@ -5856,7 +5856,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     lessonExtraTipsStatus === 'cached'
       ? 'Фишки уже готовы. Можно сразу смотреть примеры.'
       : lessonExtraTipsStatus === 'fallback'
-        ? 'Локальные фишки — смотри карточки.'
+        ? 'Локальные фишки - смотри карточки.'
         : lessonExtraTipsStatus === 'error'
           ? 'Фишки остались на месте. Попробуем позже.'
           : lessonExtraTipsStatus === 'more-loading'
@@ -5904,7 +5904,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     rewardsState.ui.footerTicker,
     rewardsState.ui.lastReward,
   ])
-  // Тикер награды (например «Хороший шаг. +8 к уровню») — только в активной сессии (чат, шаги урока, практика).
+  // Тикер награды (например «Хороший шаг. +8 к уровню») - только в активной сессии (чат, шаги урока, практика).
   // На доме, введении и фишках не подмешиваем: иначе после возврата на intro остаётся текст прошлого урока до TTL.
   const footerContextRewardTicker =
     (dialogStarted ||
@@ -6096,7 +6096,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       : isLessonTipsActive
       ? resolveFooterWithStreakLayer(tipsFooterDynamicText, null, null)
       : isLessonBriefingActive
-      ? resolveFooterWithStreakLayer('Прочитайте правила — затем к заданию.', null, null)
+      ? resolveFooterWithStreakLayer('Прочитайте правила - затем к заданию.', null, null)
       : isStructuredLessonActive
       ? resolveFooterWithStreakLayer(
           structuredLessonCompletionFooterText ??
@@ -7175,7 +7175,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onDismiss={() => setRewardPopupText(null)}
       />
 
-      {/* В чате — спейсер под fixed-футер; на главной отступ только у колонки контента. */}
+      {/* В чате - спейсер под fixed-футер; на главной отступ только у колонки контента. */}
       {dialogStarted ? (
         <div
           className={`shrink-0 ${

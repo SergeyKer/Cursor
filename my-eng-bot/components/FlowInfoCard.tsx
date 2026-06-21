@@ -19,9 +19,9 @@ export type FlowInfoCardProps = {
   secondaryMessage?: string
   /** Иконка сразу после title в одной строке (экономит высоту). */
   iconAfterTitle?: boolean
-  /** Отступ между заголовком и message: section — как оглавление. */
+  /** Отступ между заголовком и message: section - как оглавление. */
   messageSpacing?: 'tight' | 'default' | 'section'
-  /** Каждая строка message — отдельный тезис с небольшим интервалом. */
+  /** Каждая строка message - отдельный тезис с небольшим интервалом. */
   thesisMessage?: boolean
   className?: string
 }

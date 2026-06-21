@@ -21,8 +21,8 @@ export function formatStreakProgressCopy(
     return {
       bonusTodayLabel: null,
       statusLine: claimed ? 'Бонус серии получен сегодня' : 'Сделайте первый шаг с XP сегодня',
-      nextThresholdLine: 'С 3 дней подряд — +10 XP к первому шагу каждый день',
-      introLine: 'С 3 дней подряд — +10 XP к первому шагу каждый день',
+      nextThresholdLine: 'С 3 дней подряд - +10 XP к первому шагу каждый день',
+      introLine: 'С 3 дней подряд - +10 XP к первому шагу каждый день',
     }
   }
 

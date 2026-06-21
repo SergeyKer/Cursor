@@ -62,7 +62,7 @@ describe('buildLessonMedalRevealCopy', () => {
     })
 
     expect(copy.statsLine).toBe('Неплохо! 66 XP · до золота ещё 60 XP')
-    expect(copy.goalLine).toBe('Хочешь медаль выше — жми «Новый вариант». Практика скоро.')
+    expect(copy.goalLine).toBe('Хочешь медаль выше - жми «Новый вариант». Практика скоро.')
   })
 
   it('compares with previous pass on message line', () => {
@@ -108,7 +108,7 @@ describe('buildLessonMedalRevealCopy', () => {
       totalScoredUnits: 8,
     })
 
-    expect(copy.firstTryLine).toBe('6 из 8 с первого раза — отлично!')
+    expect(copy.firstTryLine).toBe('6 из 8 с первого раза - отлично!')
   })
 })
 

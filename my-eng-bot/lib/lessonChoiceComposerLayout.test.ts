@@ -17,7 +17,7 @@ const baseChoiceInput = {
 }
 
 describe('resolveLessonChoiceComposerLayout', () => {
-  it('non-choice exercise — mount chips, no reserve', () => {
+  it('non-choice exercise - mount chips, no reserve', () => {
     expect(
       resolveLessonChoiceComposerLayout({
         exercise: { type: 'translate', correctAnswer: 'Hi' },
@@ -30,7 +30,7 @@ describe('resolveLessonChoiceComposerLayout', () => {
     ).toEqual({ mountChips: true, reserveMinHeight: false, lockReleased: false })
   })
 
-  it('theory phase — reserve height for entire reveal, no chips', () => {
+  it('theory phase - reserve height for entire reveal, no chips', () => {
     expect(resolveLessonChoiceComposerLayout(baseChoiceInput)).toEqual({
       mountChips: false,
       reserveMinHeight: true,
@@ -38,7 +38,7 @@ describe('resolveLessonChoiceComposerLayout', () => {
     })
   })
 
-  it('before reveal init on step transition — reserve height', () => {
+  it('before reveal init on step transition - reserve height', () => {
     expect(
       resolveLessonChoiceComposerLayout({
         ...baseChoiceInput,
@@ -52,7 +52,7 @@ describe('resolveLessonChoiceComposerLayout', () => {
     })
   })
 
-  it('chips ready — mount, keep lock until height stabilizes', () => {
+  it('chips ready - mount, keep lock until height stabilizes', () => {
     expect(
       resolveLessonChoiceComposerLayout({
         ...baseChoiceInput,
@@ -62,7 +62,7 @@ describe('resolveLessonChoiceComposerLayout', () => {
     ).toEqual({ mountChips: true, reserveMinHeight: true, lockReleased: false })
   })
 
-  it('checking phase with visible chips — keep reserve height', () => {
+  it('checking phase with visible chips - keep reserve height', () => {
     expect(
       resolveLessonChoiceComposerLayout({
         exercise: fillChoiceExercise,
@@ -75,7 +75,7 @@ describe('resolveLessonChoiceComposerLayout', () => {
     ).toEqual({ mountChips: true, reserveMinHeight: true, lockReleased: true })
   })
 
-  it('reduced motion — immediate chips', () => {
+  it('reduced motion - immediate chips', () => {
     expect(
       resolveLessonChoiceComposerLayout({
         ...baseChoiceInput,

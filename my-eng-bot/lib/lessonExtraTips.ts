@@ -81,7 +81,7 @@ export const LESSON_TIP_CATEGORIES: readonly LessonTipCard[] = [
     category: 'native_speech',
     icon: '🔊',
     title: 'Как говорят носители',
-    rule: 'Носители чаще выбирают короткую живую форму: сокращение, готовый чанк или другой ритм — смотри на ситуацию и тему.',
+    rule: 'Носители чаще выбирают короткую живую форму: сокращение, готовый чанк или другой ритм - смотри на ситуацию и тему.',
     examples: [],
   },
   {
@@ -529,7 +529,7 @@ function nativeSpeechFromIntroContrast(intro: LessonIntro): LessonTipExample | n
   return toSingleSentenceSwapExample({
     wrong: ordered.wrong,
     right: ordered.right,
-    note: 'Одна мысль — две формы: полная звучит книжнее, сокращение естественнее в разговоре.',
+    note: 'Одна мысль - две формы: полная звучит книжнее, сокращение естественнее в разговоре.',
   })
 }
 
@@ -545,7 +545,7 @@ function nativeSpeechBePairFromIntro(intro: LessonIntro): LessonTipExample | nul
     return toSingleSentenceSwapExample({
       wrong: ordered.wrong,
       right: ordered.right,
-      note: 'Одна мысль — две формы: I am … в учебнике, I\'m … вслух.',
+      note: 'Одна мысль - две формы: I am … в учебнике, I\'m … вслух.',
     })
   }
 
@@ -561,7 +561,7 @@ function nativeSpeechBePairFromIntro(intro: LessonIntro): LessonTipExample | nul
       return toSingleSentenceSwapExample({
         wrong: ordered.wrong,
         right: ordered.right,
-        note: 'Одна мысль — две формы: полная звучит книжнее, сокращение естественнее в разговоре.',
+        note: 'Одна мысль - две формы: полная звучит книжнее, сокращение естественнее в разговоре.',
       })
     }
   }
@@ -573,7 +573,7 @@ function nativeSpeechBePairFromIntro(intro: LessonIntro): LessonTipExample | nul
         return toSingleSentenceSwapExample({
           wrong: full,
           right: en,
-          note: 'Одна мысль — две формы: I am … в учебнике, I\'m … вслух.',
+          note: 'Одна мысль - две формы: I am … в учебнике, I\'m … вслух.',
         })
       }
     }
@@ -583,7 +583,7 @@ function nativeSpeechBePairFromIntro(intro: LessonIntro): LessonTipExample | nul
         return toSingleSentenceSwapExample({
           wrong: en,
           right: contracted,
-          note: 'Одна мысль — две формы: I am … в учебнике, I\'m … вслух.',
+          note: 'Одна мысль - две формы: I am … в учебнике, I\'m … вслух.',
         })
       }
     }
@@ -596,7 +596,7 @@ function nativeSpeechSwapContractions(): LessonTipExample {
   return {
     wrong: 'I am happy.',
     right: "I'm happy.",
-    note: 'Сокращения — норма живой речи. Полная форма в быту часто звучит книжно; в неформальном тоне — I\'m, you\'re, he\'s.',
+    note: 'Сокращения - норма живой речи. Полная форма в быту часто звучит книжно; в неформальном тоне - I\'m, you\'re, he\'s.',
   }
 }
 
@@ -626,7 +626,7 @@ function nativeSpeechFromIntroGrammar(intro: LessonIntro): LessonTipExample | nu
         const pair = toSingleSentenceSwapExample({
           wrong,
           right: takeFirstEnglishSentence(rightFromQuick, 120),
-          note: 'После Who в Present Simple часто нужен -s у глагола — так звучит естественно.',
+          note: 'После Who в Present Simple часто нужен -s у глагола - так звучит естественно.',
         })
         if (nativeSpeechSwapSameMeaning(pair.wrong ?? '', pair.right)) return pair
       }
@@ -641,14 +641,14 @@ function nativeSpeechSwapSafeGeneric(lessonCefrLevel?: LessonCatalogLevel): Less
     return {
       wrong: 'I am happy.',
       right: "I'm happy.",
-      note: 'В разговоре чаще короткая форма I\'m — так звучит естественнее.',
+      note: 'В разговоре чаще короткая форма I\'m - так звучит естественнее.',
     }
   }
   if (lessonCefrLevel === 'A2') {
     return {
       wrong: 'I do not know.',
       right: "I don't know.",
-      note: 'Сокращение don\'t — обычная живая форма в речи.',
+      note: 'Сокращение don\'t - обычная живая форма в речи.',
     }
   }
   return {
@@ -741,7 +741,7 @@ function buildNativeSpeechQuickTrickFallback(intro: LessonIntro, topic: string):
     return {
       wrong: 'I know what does she like.',
       right: 'I know what she likes.',
-      note: 'Убери does внутри второй части — порядок как в утверждении.',
+      note: 'Убери does внутри второй части - порядок как в утверждении.',
     }
   }
   if (isLikelyBeContractionTopic(topic)) {
@@ -765,14 +765,14 @@ function buildNativeSpeechQuickTrickFallback(intro: LessonIntro, topic: string):
       return {
         wrong: takeFirstEnglishSentence(quickEn, 120),
         right: shortened,
-        note: 'Сократи: полная форма звучит книжно, сокращение — вслух.',
+        note: 'Сократи: полная форма звучит книжно, сокращение - вслух.',
       }
     }
   }
   return {
     wrong: 'I would like to ask you a quick question about this.',
     right: 'Can I ask you something real quick?',
-    note: 'Убери would like — короче Can I...',
+    note: 'Убери would like - короче Can I...',
   }
 }
 
@@ -907,7 +907,7 @@ function buildQuestionsQuickFixFallback(intro: LessonIntro, firstExample: Lesson
 function buildContextStyleRuleFallback(intro: LessonIntro, firstExample: LessonTipExample): LessonTipExample {
   const formal = takeFirstEnglishSentence(firstExample.right, 120)
   return {
-    note: 'Если друг в чате — короче. Если начальник — вежливее и полнее.',
+    note: 'Если друг в чате - короче. Если начальник - вежливее и полнее.',
     right: formal && /formal|writing|email|work/i.test(formal) ? formal : "I'd be happy to help with that.",
   }
 }
@@ -1042,11 +1042,11 @@ function buildFallbackExamples(
         {
           wrong: 'Can you say when the lesson starts?',
           right: 'Could you tell me when the lesson starts?',
-          note: 'к коллеге или начальнику — вежливее could you tell me',
+          note: 'к коллеге или начальнику - вежливее could you tell me',
         },
         {
           right: 'Do you know what she likes?',
-          note: 'Если друг в чате — короче. Если формально — Could you tell me what she likes?',
+          note: 'Если друг в чате - короче. Если формально - Could you tell me what she likes?',
         },
         ...introExamples,
       ])
@@ -1097,19 +1097,19 @@ function buildFallbackRule(
   const topic = normalizeTopic(intro.topic) || 'тема'
   if (isLikelyEmbeddedQuestionTopic(intro)) {
     if (category === 'native_speech') {
-      return `В теме «${topic}» вторая часть фразы — как обычное предложение: вопросительное слово + подлежащее + глагол, без лишнего does.`
+      return `В теме «${topic}» вторая часть фразы - как обычное предложение: вопросительное слово + подлежащее + глагол, без лишнего does.`
     }
     if (category === 'russian_traps') {
-      return 'Сначала вводная фраза, потом обычный порядок слов — как в утверждении, не как в прямом вопросе.'
+      return 'Сначала вводная фраза, потом обычный порядок слов - как в утверждении, не как в прямом вопросе.'
     }
     if (category === 'questions_negatives') {
-      return 'Does нужен только в первой части, если она сама вопрос. Внутри второй части — без does.'
+      return 'Does нужен только в первой части, если она сама вопрос. Внутри второй части - без does.'
     }
     if (category === 'emphasis_emotion') {
-      return 'Усилитель добавляй к уже правильной фразе — сначала порядок слов, потом really или please.'
+      return 'Усилитель добавляй к уже правильной фразе - сначала порядок слов, потом really или please.'
     }
     if (category === 'context_culture') {
-      return 'В чате короче Do you know…; вежливее — Could you tell me…'
+      return 'В чате короче Do you know…; вежливее - Could you tell me…'
     }
   }
   if (intent) {
@@ -1121,7 +1121,7 @@ function buildFallbackRule(
     if (category === 'context_culture') return `Ситуация меняет тон, но не должна уводить от главного фокуса: ${intent.mustTrain[0] ?? intent.title}.`
   }
   if (category === 'native_speech') {
-    return `В неформальной речи по теме «${topic}» носители чаще берут короткую живую форму — часто со сокращениями. Длинная полная форма в быту легко звучит книжно или как робот.`
+    return `В неформальной речи по теме «${topic}» носители чаще берут короткую живую форму - часто со сокращениями. Длинная полная форма в быту легко звучит книжно или как робот.`
   }
   if (category === 'russian_traps') {
     return `С ${topic} сначала ищи английский шаблон. Потом добавляй смысл, не копируя русский порядок.`

@@ -2,7 +2,7 @@ export type Theme = 'basic' | 'futuristic' | 'bubble1' | 'bubble2'
 
 export const THEME_STORAGE_KEY = 'myeng_theme'
 
-/** Тема по умолчанию — Bubble2 (стартовый экран и первый paint). */
+/** Тема по умолчанию - Bubble2 (стартовый экран и первый paint). */
 export const DEFAULT_THEME: Theme = 'bubble2'
 
 const THEMES: Theme[] = ['basic', 'futuristic', 'bubble1', 'bubble2']

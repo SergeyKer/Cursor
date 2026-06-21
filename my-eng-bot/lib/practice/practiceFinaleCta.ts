@@ -19,8 +19,8 @@ export function getPracticeFinalePrimaryAction(params: {
       action: 'repeat',
       label: `Повторить (${formatPracticeProgressText(PRACTICE_RING_MAX)})`,
       hint: featureFlags.practiceTopicCupsV1
-        ? 'Золотая медаль есть — до кубка темы 🏆 осталось 5 практик.'
-        : 'Золотая медаль есть — закрепите тему для 💎.',
+        ? 'Золотая медаль есть - до кубка темы 🏆 осталось 5 практик.'
+        : 'Золотая медаль есть - закрепите тему для 💎.',
     }
   }
 
@@ -43,7 +43,7 @@ export function getPracticeFinalePrimaryAction(params: {
     return {
       action: 'repeat',
       label: 'Повторить (новый вариант)',
-      hint: 'Session XP начнётся с нуля — это нормально.',
+      hint: 'Session XP начнётся с нуля - это нормально.',
     }
   }
 
@@ -51,7 +51,7 @@ export function getPracticeFinalePrimaryAction(params: {
     return {
       action: 'repeat',
       label: 'Повторить Challenge',
-      hint: 'Повтор даст меньше XP к уровню — это ожидаемо.',
+      hint: 'Повтор даст меньше XP к уровню - это ожидаемо.',
     }
   }
 

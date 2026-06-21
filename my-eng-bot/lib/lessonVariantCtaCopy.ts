@@ -14,11 +14,11 @@ export type LessonVariantDualCtaLabels = {
 
 export type LessonVariantDualCtaLayout = LessonVariantDualCtaLabels & {
 
-  /** «Новый вариант» сверху, тёмно-синий — после броска или медали. */
+  /** «Новый вариант» сверху, тёмно-синий - после броска или медали. */
 
   emphasizeNewVariant: boolean
 
-  /** «Новый вариант» снизу, disabled — до броска и медали. */
+  /** «Новый вариант» снизу, disabled - до броска и медали. */
 
   freezeNewVariant: boolean
 
@@ -43,7 +43,7 @@ export function formatLessonVariantDualCtaTwoLineLabel(label: string): string {
 
 export const LESSON_VARIANT_FROZEN_UNTIL_START_TITLE =
 
-  'Сначала начните урок — новый вариант откроется после первого прохода.'
+  'Сначала начните урок - новый вариант откроется после первого прохода.'
 
 
 

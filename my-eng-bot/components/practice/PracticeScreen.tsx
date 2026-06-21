@@ -107,7 +107,7 @@ function useLessonUserEnterClass() {
   }, [])
 }
 
-/** Статус «Верно/Неверно» — как в уроках (`.lesson-feed-status-enter`). */
+/** Статус «Верно/Неверно» - как в уроках (`.lesson-feed-status-enter`). */
 function useLessonFeedStatusEnterClass(prefersReducedMotion: boolean) {
   const enteredIdsRef = useRef<Set<string>>(new Set())
   return useCallback(

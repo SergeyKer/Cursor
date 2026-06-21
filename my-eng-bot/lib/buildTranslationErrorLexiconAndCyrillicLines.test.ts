@@ -29,7 +29,7 @@ describe('buildTranslationErrorLexiconAndCyrillicLines', () => {
     expect(joined).toMatch(/для предпочтений/i)
   })
 
-  it('без кириллицы и без пар — возвращает fallback в новом формате', () => {
+  it('без кириллицы и без пар - возвращает fallback в новом формате', () => {
     const lines = buildTranslationErrorLexiconAndCyrillicLines('Hello.', 'Hello.')
     expect(lines.length).toBe(1)
     expect(lines[0]).toMatch(/^-\s+"[^"]+"\s+→\s+"[^"]+"(?:\s+\(.+\))?$/)

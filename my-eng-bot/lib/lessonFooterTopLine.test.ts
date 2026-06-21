@@ -113,7 +113,7 @@ describe('resolveLessonFooterTopLine', () => {
         comboMilestoneBlocked: true,
         voiceFallback: null,
       })
-    ).toBe('🔥 COMBO ×3 — в счёте урока.')
+    ).toBe('🔥 COMBO ×3 - в счёте урока.')
   })
 })
 

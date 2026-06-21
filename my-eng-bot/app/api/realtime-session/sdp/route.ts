@@ -16,7 +16,7 @@ import type { Audience, TopicId } from '@/lib/types'
 
 export const runtime = 'nodejs'
 
-/** GA unified WebRTC — raw `POST /v1/realtime?model=` (beta SDP-only) отключён на стороне OpenAI. */
+/** GA unified WebRTC - raw `POST /v1/realtime?model=` (beta SDP-only) отключён на стороне OpenAI. */
 const OPENAI_REALTIME_CALLS_URL = 'https://api.openai.com/v1/realtime/calls'
 const EGRESS_IP_URL = 'https://api.ipify.org?format=json'
 const EGRESS_GEO_URL = 'http://ip-api.com/json'

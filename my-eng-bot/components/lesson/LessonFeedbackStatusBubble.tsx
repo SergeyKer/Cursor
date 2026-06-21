@@ -1,96 +1,87 @@
 'use client'
 
-import { useEffect, useRef, useState, type AnimationEvent } from 'react'
+import { useEffect, useState } from 'react'
 import FeedbackStatusText from '@/components/FeedbackStatusText'
-import { LESSON_CARD_RADIUS_CLASS } from '@/components/chat/ChatBubble'
-import { LESSON_SECTION_REVEAL_INTERVAL_MS } from '@/lib/lessonRevealTiming'
+import { LESSON_TEXT_SECTION_PAUSE_MS } from '@/lib/lessonRevealTiming'
 import { renderTaskInstructionText } from '@/lib/lessonBubbleTextRender'
 
-const lessonCardSurfaceClass =
-  'chat-section-surface glass-surface border border-[var(--chat-section-neutral-border)] bg-white/95'
+const feedbackCardSurfaceClass =
+  'chat-section-surface glass-surface rounded-xl border px-3 py-2'
 
 const errorStatusCardClass =
   'border-amber-200/90 bg-amber-50/95 text-amber-800'
 
+const repeatInstructionCardClass =
+  'border-[var(--chat-section-emerald-border)] bg-[var(--chat-section-emerald)]'
+
 type LessonFeedbackStatusBubbleProps = {
   hintText: string
   repeatAnswer?: string
+  repeatInstructionVerb?: string
   animateSayText?: boolean
-  onSayTextRevealComplete?: () => void
+  sayTextRevealReady?: boolean
 }
 
 export default function LessonFeedbackStatusBubble({
   hintText,
   repeatAnswer,
+  repeatInstructionVerb = 'Скажи',
   animateSayText = false,
-  onSayTextRevealComplete,
+  sayTextRevealReady = true,
 }: LessonFeedbackStatusBubbleProps) {
   const [sayTextRevealing, setSayTextRevealing] = useState(!animateSayText)
-  const sayRevealCompleteRef = useRef(false)
 
   useEffect(() => {
-    sayRevealCompleteRef.current = false
     if (!repeatAnswer || !animateSayText) {
       setSayTextRevealing(!animateSayText && Boolean(repeatAnswer))
+      return
+    }
+
+    if (!sayTextRevealReady) {
+      setSayTextRevealing(false)
       return
     }
 
     setSayTextRevealing(false)
     const timer = setTimeout(() => {
       setSayTextRevealing(true)
-    }, LESSON_SECTION_REVEAL_INTERVAL_MS)
+    }, LESSON_TEXT_SECTION_PAUSE_MS)
 
     return () => clearTimeout(timer)
-  }, [repeatAnswer, animateSayText, hintText])
-
-  const handleSayTextAnimationEnd = (event: AnimationEvent<HTMLDivElement>) => {
-    if (event.animationName !== 'lessonTextSoftIn') return
-    if (sayRevealCompleteRef.current) return
-    sayRevealCompleteRef.current = true
-    onSayTextRevealComplete?.()
-  }
+  }, [repeatAnswer, animateSayText, hintText, sayTextRevealReady])
 
   if (!repeatAnswer) {
     return (
-      <section
-        className={`chat-section-surface glass-surface rounded-xl border px-2.5 py-1.5 ${errorStatusCardClass}`}
-        role="alert"
-      >
+      <section className={`${feedbackCardSurfaceClass} ${errorStatusCardClass}`} role="alert">
         <FeedbackStatusText text={hintText} />
       </section>
     )
   }
 
-  const sayInstructionText = `Скажи: ${repeatAnswer}`
+  const sayInstructionText = `${repeatInstructionVerb}: ${repeatAnswer}`
   const showSaySoftEnter = animateSayText && sayTextRevealing
 
   return (
     <div className="space-y-1.5">
-      <section
-        className={`chat-section-surface glass-surface rounded-xl border px-2.5 py-1.5 ${errorStatusCardClass}`}
-        role="alert"
-      >
+      <section className={`${feedbackCardSurfaceClass} ${errorStatusCardClass}`} role="alert">
         <FeedbackStatusText text={hintText} />
       </section>
 
       <section
-        className={`overflow-hidden ${lessonCardSurfaceClass} ${LESSON_CARD_RADIUS_CLASS}`}
+        className={`overflow-hidden ${feedbackCardSurfaceClass} ${repeatInstructionCardClass}`}
         role="note"
       >
-        <div className="bg-[#F0FDF4] px-3 py-2.5 text-[15px] leading-[1.45] text-[var(--text)]">
-          <div
-            className={
-              sayTextRevealing
-                ? showSaySoftEnter
-                  ? 'lesson-text-soft-enter'
-                  : ''
-                : 'opacity-0'
-            }
-            aria-hidden={!sayTextRevealing}
-            onAnimationEnd={showSaySoftEnter ? handleSayTextAnimationEnd : undefined}
-          >
-            {renderTaskInstructionText(sayInstructionText)}
-          </div>
+        <div
+          className={`text-[15px] leading-[1.45] text-[var(--text)] ${
+            sayTextRevealing
+              ? showSaySoftEnter
+                ? 'lesson-text-soft-enter'
+                : ''
+              : 'invisible'
+          }`}
+          aria-hidden={!sayTextRevealing}
+        >
+          {renderTaskInstructionText(sayInstructionText)}
         </div>
       </section>
     </div>

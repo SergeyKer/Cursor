@@ -525,7 +525,7 @@ export function buildPresetTutorLearningIntents(query: string): TutorLearningInt
       makeIntent({
         id: 'have-has-possession',
         canonicalKey: 'have_has_possession',
-        title: 'Have / Has — possession',
+        title: 'Have / Has - possession',
         intentType: 'single_rule',
         learnerQuestionRu: 'Понять has как “имеет/есть у него или неё”.',
         topicType: 'grammar',
@@ -546,7 +546,7 @@ export function buildPresetTutorLearningIntents(query: string): TutorLearningInt
       makeIntent({
         id: 'present-perfect-with-has',
         canonicalKey: 'present_perfect_has',
-        title: 'Has + V3 — Present Perfect',
+        title: 'Has + V3 - Present Perfect',
         intentType: 'form_practice',
         learnerQuestionRu: 'Понять has как часть Present Perfect.',
         topicType: 'grammar',
@@ -567,7 +567,7 @@ export function buildPresetTutorLearningIntents(query: string): TutorLearningInt
       makeIntent({
         id: 'has-to-obligation',
         canonicalKey: 'has_to_obligation',
-        title: 'Has to — obligation',
+        title: 'Has to - obligation',
         intentType: 'single_rule',
         learnerQuestionRu: 'Понять has to как “должен/вынужден”.',
         topicType: 'grammar',

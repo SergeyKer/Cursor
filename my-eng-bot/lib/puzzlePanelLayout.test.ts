@@ -20,7 +20,7 @@ describe('resolvePuzzleAttemptChatMessage', () => {
       resolvePuzzleAttemptChatMessage({
         attempts: 1,
         errorText: DEFAULT_PUZZLE_ERROR_TEXT,
-        hintText: 'Подсказка: первое слово — I.',
+        hintText: 'Подсказка: первое слово - I.',
         wordCount: 6,
       })
     ).toBe(DEFAULT_PUZZLE_ERROR_TEXT)
@@ -31,10 +31,10 @@ describe('resolvePuzzleAttemptChatMessage', () => {
       resolvePuzzleAttemptChatMessage({
         attempts: 2,
         errorText: DEFAULT_PUZZLE_ERROR_TEXT,
-        hintText: 'Подсказка: первое слово — I.',
+        hintText: 'Подсказка: первое слово - I.',
         wordCount: 6,
       })
-    ).toBe('Подсказка: первое слово — I.')
+    ).toBe('Подсказка: первое слово - I.')
   })
 
   it('appends Выбери with variant answer on second attempt when word bank is short', () => {
@@ -42,7 +42,7 @@ describe('resolvePuzzleAttemptChatMessage', () => {
       resolvePuzzleAttemptChatMessage({
         attempts: 2,
         errorText: DEFAULT_PUZZLE_ERROR_TEXT,
-        hintText: 'Подсказка: первое слово — I.',
+        hintText: 'Подсказка: первое слово - I.',
         wordCount: 3,
         correctAnswer: 'I am a student.',
       })
@@ -54,7 +54,7 @@ describe('resolvePuzzleAttemptChatMessage', () => {
       resolvePuzzleAttemptChatMessage({
         attempts: 2,
         errorText: DEFAULT_PUZZLE_ERROR_TEXT,
-        hintText: 'Подсказка: первое слово — I.',
+        hintText: 'Подсказка: первое слово - I.',
         wordCount: 3,
       })
     ).toBe(DEFAULT_PUZZLE_ERROR_TEXT)

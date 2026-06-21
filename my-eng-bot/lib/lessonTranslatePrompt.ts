@@ -1,6 +1,6 @@
 const TRANSLATE_PROMPT_PREFIX = 'Переведите на английский:'
 
-/** Убирает хвостовую пунктуацию — фраза в кавычках без точки в конце. */
+/** Убирает хвостовую пунктуацию - фраза в кавычках без точки в конце. */
 export function normalizeRuTranslatePhrase(text: string): string {
   return text.trim().replace(/[.!?…]+$/u, '')
 }

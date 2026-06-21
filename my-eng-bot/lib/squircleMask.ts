@@ -11,7 +11,7 @@ export function iosSquircleBorderRadiusPercent(): string {
 }
 
 /**
- * SVG mask: white squircle on black — use with mask-image / sharp dest-in.
+ * SVG mask: white squircle on black - use with mask-image / sharp dest-in.
  */
 export function squircleMaskSvg(size: number): string {
   const s = Math.max(1, Math.round(size))

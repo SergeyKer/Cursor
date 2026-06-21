@@ -43,7 +43,7 @@ function looksLikeHeader(cells: string[]): boolean {
 }
 
 function splitDelimitedLine(line: string): string[] {
-  const delimiters = ['\t', '|', ';', ',', ' - ', ' – ', ' — ']
+  const delimiters = ['\t', '|', ';', ',', ' - ', ' – ', ' - ']
   for (const delimiter of delimiters) {
     if (line.includes(delimiter)) {
       return line.split(delimiter).map(normalizeCell)

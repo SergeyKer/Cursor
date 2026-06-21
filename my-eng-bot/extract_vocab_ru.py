@@ -1,4 +1,4 @@
-"""Извлечение словаря из words.pdf: N. English [ipa] — русский."""
+"""Извлечение словаря из words.pdf: N. English [ipa] - русский."""
 
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ def parse_segment(seg: str) -> tuple[str, str, str] | None:
         return None
     num, rest = m.group(1), m.group(2).strip()
 
-    for sep in (" \u2014 ", " — ", " \u2013 ", " - "):
+    for sep in (" \u2014 ", " - ", " \u2013 ", " - "):
         if sep in rest:
             left, ru = rest.split(sep, 1)
             return num, left.strip(), trim_trailing_next_entry(ru)
@@ -107,7 +107,7 @@ def parse_missing_entry(text: str, num: int) -> tuple[str, str, str] | None:
     if not m:
         return None
     body = " ".join(m.group(1).split())
-    for sep in (" — ", " – ", " - "):
+    for sep in (" - ", " – ", " - "):
         if sep in body:
             left, ru = body.split(sep, 1)
             return str(num), left.strip(), ru.strip()
@@ -191,7 +191,7 @@ def main() -> None:
     for i in range(1, 1001):
         if i in by_num:
             num_s, eng_ipa, ru = by_num[i]
-            out_lines.append(f"{num_s}. {eng_ipa} — {ru}")
+            out_lines.append(f"{num_s}. {eng_ipa} - {ru}")
             english, ipa = split_english_and_ipa(eng_ipa)
             csv_rows.append([num_s, english, ipa, ru])
 

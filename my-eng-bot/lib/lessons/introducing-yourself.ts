@@ -156,7 +156,7 @@ const selfIntroVariants: SelfIntroVariant[] = [
     wrongArticle2: 'the',
     step3FillWord: 'Britain',
     step3HintEn: 'I am from ___.',
-    step3StateRu: 'Одно слово — название страны',
+    step3StateRu: 'Одно слово - название страны',
     step3MediumRu: 'Ты из Великобритании',
     step3HardRu: 'В короткой фразе часто говорят Britain после from',
     step4AltAdj1: 'happy',
@@ -196,7 +196,7 @@ const selfIntroVariants: SelfIntroVariant[] = [
     wrongArticle2: 'the',
     step3FillWord: 'France',
     step3HintEn: 'I am from ___.',
-    step3StateRu: 'Одно слово — страна',
+    step3StateRu: 'Одно слово - страна',
     step3MediumRu: 'Ты родом из Франции',
     step3HardRu: 'После from нужно английское France',
     step4AltAdj1: 'fine',
@@ -408,7 +408,7 @@ function buildSelfIntroStep7Variants(variant: SelfIntroVariant) {
       frameEn: "I'm ___.",
       correctWord: variant.feelingAdj,
       distractors: moodDistractors,
-      hint: 'Чувство в задании — прилагательное после I\'m.',
+      hint: 'Чувство в задании - прилагательное после I\'m.',
     },
     {
       id: `${variant.id}_step7_medium`,
@@ -417,12 +417,12 @@ function buildSelfIntroStep7Variants(variant: SelfIntroVariant) {
       frameEn: "I'm from ___.",
       correctWord: variant.step6CreativeCountry,
       distractors: pickStep7CountryDistractors(variant.step6CreativeCountry),
-      hint: 'Страна из задания — одно слово после from.',
+      hint: 'Страна из задания - одно слово после from.',
     },
     {
       id: `${variant.id}_step7_hard`,
       difficulty: 'hard',
-      situationRu: `В коротком представлении вы — ${variant.roleNoun}.`,
+      situationRu: `В коротком представлении вы - ${variant.roleNoun}.`,
       frameEn: `I am ___ ${variant.roleNoun}.`,
       correctWord: variant.roleArticle,
       distractors: [variant.wrongArticle1, variant.wrongArticle2],
@@ -493,7 +493,7 @@ function buildSelfIntroFinale(): LessonFinale {
       {
         type: 'positive',
         content:
-          'Готово! Короткие фразы о себе — ваши. Дальше — практика и кубок 🏆.',
+          'Готово! Короткие фразы о себе - ваши. Дальше - практика и кубок 🏆.',
       },
     ],
     footerDynamic: 'Урок завершен',
@@ -511,7 +511,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       id: `${variant.id}_step3_easy`,
       question: `Переведите на английский: "${variant.sourceSituations[0]}." - "${variant.step3HintEn}"`,
       correctAnswer: variant.step3FillWord,
-      hint: 'После from напишите одно английское слово — название страны.',
+      hint: 'После from напишите одно английское слово - название страны.',
       difficulty: 'easy' as const,
       answerFormat: 'single_word' as const,
       answerPolicy: 'strict' as const,
@@ -520,7 +520,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       id: `${variant.id}_step3_medium`,
       question: `Переведите на английский: "${variant.step3MediumRu}." - "${variant.step3HintEn}"`,
       correctAnswer: variant.step3FillWord,
-      hint: '«Из …» — from. Одно слово: страна по-английски.',
+      hint: '«Из …» - from. Одно слово: страна по-английски.',
       difficulty: 'medium' as const,
       answerFormat: 'single_word' as const,
       answerPolicy: 'strict' as const,
@@ -529,7 +529,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       id: `${variant.id}_step3_hard`,
       question: `Переведите на английский: "${variant.step3HardRu}." - "${variant.step3HintEn}"`,
       correctAnswer: variant.step3FillWord,
-      hint: 'Одно слово после from — как Russia или France.',
+      hint: 'Одно слово после from - как Russia или France.',
       difficulty: 'hard' as const,
       answerFormat: 'single_word' as const,
       answerPolicy: 'strict' as const,
@@ -564,7 +564,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'I am / I’m + прилагательное — про чувство. I am from + место — про страну. I am a/an + роль — про работу или статус.',
+          content: 'I am / I’m + прилагательное - про чувство. I am from + место - про страну. I am a/an + роль - про работу или статус.',
         },
         {
           type: 'task',
@@ -580,7 +580,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
         answerFormat: 'choice',
         answerPolicy: 'strict',
       },
-      footerDynamic: 'Правило 1: настроение — I am / I’m + прилагательное',
+      footerDynamic: 'Правило 1: настроение - I am / I’m + прилагательное',
       myEngComment: 'Вижу, вы готовы к новой конструкции.',
     },
     {
@@ -720,7 +720,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'Сначала страна, потом роль, в конце — та же грамматика, но новая страна.',
+          content: 'Сначала страна, потом роль, в конце - та же грамматика, но новая страна.',
         },
         {
           type: 'task',
@@ -742,7 +742,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
         }
       })(),
       footerDynamic: 'Финальная проверка: 3 коротких предложения',
-      myEngComment: 'Три фразы подряд — вы почти у финиша.',
+      myEngComment: 'Три фразы подряд - вы почти у финиша.',
     },
     {
       stepNumber: 7,
@@ -754,7 +754,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'В каждой рамке одно слово закрывает пропуск — без подсказки из карточки.',
+          content: 'В каждой рамке одно слово закрывает пропуск - без подсказки из карточки.',
         },
         {
           type: 'task',
@@ -854,12 +854,12 @@ export const introducingYourselfLesson: LessonData = {
         { en: 'I am from Russia.', ru: 'Я из России.', note: 'страна' },
         { en: 'I am a student.', ru: 'Я студент.', note: 'роль' },
       ],
-      takeaway: 'Сначала подумай: настроение, страна или роль — потом выбери короткий шаблон.',
+      takeaway: 'Сначала подумай: настроение, страна или роль - потом выбери короткий шаблон.',
     },
     details: {
       points: [
         'В I am happy слово happy описывает чувство, а не место.',
-        'После from пишут страну по-английски: Russia, Spain — чаще всего одно слово.',
+        'После from пишут страну по-английски: Russia, Spain - чаще всего одно слово.',
         'Перед профессией почти всегда нужен артикль a или an: a teacher, an engineer.',
       ],
       examples: [
@@ -873,7 +873,7 @@ export const introducingYourselfLesson: LessonData = {
         'I am student вместо I am a student.',
         'Писать длинно, когда достаточно трёх слов: I am a student.',
       ],
-      contrastNotes: ["I'm happy — про настроение.", 'I am from Russia — про страну.', 'I am a doctor — про работу.'],
+      contrastNotes: ["I'm happy - про настроение.", 'I am from Russia - про страну.', 'I am a doctor - про работу.'],
       selfCheckRule: 'Если называете страну после from, не добавляйте лишний предлог in перед названием.',
     },
     learningPlan: {

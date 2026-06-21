@@ -28,18 +28,18 @@ describe('buildFreeTalkTopicChoiceKeywordList', () => {
     expect(buildFreeTalkTopicChoiceKeywordList("let's talk about life")).toContain('life')
   })
 
-  it('I want to talk about — хвост из детектора', () => {
+  it('I want to talk about - хвост из детектора', () => {
     const kw = buildFreeTalkTopicChoiceKeywordList('I want to talk about space travel')
     expect(kw.some((w) => /space|travel/i.test(w))).toBe(true)
     expect(kw).not.toContain('want')
   })
 
-  it('tell me about — снятие вводной без детектора', () => {
+  it('tell me about - снятие вводной без детектора', () => {
     const kw = buildFreeTalkTopicChoiceKeywordList('Tell me about ancient Rome')
     expect(kw.some((w) => /rome|ancient/i.test(w))).toBe(true)
   })
 
-  it('расскажи о — вводная снята', () => {
+  it('расскажи о - вводная снята', () => {
     const kw = buildFreeTalkTopicChoiceKeywordList('расскажи о море')
     expect(kw).toContain('sea')
   })
@@ -49,12 +49,12 @@ describe('buildFreeTalkTopicChoiceKeywordList', () => {
     expect(buildFreeTalkTopicChoiceKeywordList('океан')).toEqual(['ocean'])
   })
 
-  it('явная смена без названия темы — не подменяем весь текст пустым', () => {
+  it('явная смена без названия темы - не подменяем весь текст пустым', () => {
     const kw = buildFreeTalkTopicChoiceKeywordList('другая тема')
     expect(Array.isArray(kw)).toBe(true)
   })
 
-  it('RU: давай поговорим о — хвост из детектора', () => {
+  it('RU: давай поговорим о - хвост из детектора', () => {
     const kw = buildFreeTalkTopicChoiceKeywordList('давай поговорим о реке')
     expect(kw).toContain('river')
   })

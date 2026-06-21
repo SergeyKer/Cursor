@@ -52,7 +52,7 @@ export function buildPracticeRewardTopLine(params: {
 
   if (ringIncremented && ringCount > 0) {
     const progress = formatPracticeProgressText(ringCount)
-    parts.push(audience === 'child' ? `${progress} — ещё ближе!` : `${progress} за тему.`)
+    parts.push(audience === 'child' ? `${progress} - ещё ближе!` : `${progress} за тему.`)
   }
 
   if (cupAwarded > 0) {

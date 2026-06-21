@@ -228,10 +228,10 @@ function stripLeadingWebSearchGreeting(text: string): string {
   if (!trimmed) return trimmed
   return trimmed
     .replace(
-      /^(?:\(i\)\s*)?(?:здравствуй(?:те)?|привет(?:ствую|ик|ики|ики\W*всем)?|добрый\s+(?:день|вечер|утро))\s*[!.,:\-—]*\s*/i,
+      /^(?:\(i\)\s*)?(?:здравствуй(?:те)?|привет(?:ствую|ик|ики|ики\W*всем)?|добрый\s+(?:день|вечер|утро))\s*[!.,:\u2013\u2014-]*\s*/i,
       ''
     )
-    .replace(/^(?:\(i\)\s*)?(?:hello|hi|hey|good\s+(?:morning|afternoon|evening))\s*[!.,:\-—]*\s*/i, '')
+    .replace(/^(?:\(i\)\s*)?(?:hello|hi|hey|good\s+(?:morning|afternoon|evening))\s*[!.,:\u2013\u2014-]*\s*/i, '')
     .trim()
 }
 

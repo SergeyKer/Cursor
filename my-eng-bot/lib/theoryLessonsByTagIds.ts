@@ -25,7 +25,7 @@ export function groupTheoryLessonsByLevel(lessons: LessonTopicCatalogItem[]): Th
 
 /**
  * Каталожные уроки с теорией, у которых tagIds пересекается с любым из переданных тегов.
- * Один урок — одна запись, сортировка: уровень CEFR, затем order.
+ * Один урок - одна запись, сортировка: уровень CEFR, затем order.
  */
 export function getTheoryLessonsForTagIdsUnion(tagIds: string[]): LessonTopicCatalogItem[] {
   const want = new Set(tagIds.filter(Boolean))

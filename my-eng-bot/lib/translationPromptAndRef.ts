@@ -72,8 +72,8 @@ function shouldSkipLineWhenScanningForRuTask(rawLine: string): boolean {
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:/i.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:/i.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*Ошибки\s*:/i.test(rawLine)) return true
-  /** Пункты блока «Ошибки:» — не русское задание drill. */
-  if (/^[\s\-•]*[-–—]\s*(?:Лексическая|Грамматическая|Орфографическая)\s+ошибка/i.test(rawLine)) return true
+  /** Пункты блока «Ошибки:» - не русское задание drill. */
+  if (/^[\s\-•]*[-\u2013\u2014]\s*(?:Лексическая|Грамматическая|Орфографическая)\s+ошибка/i.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*Формы\s*:/i.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*(?:\+|\?|-)\s*:/.test(rawLine)) return true
   if (/^[\s\-•]*(?:\d+[\.)]\s*)*Скажи\s*:/i.test(rawLine)) return true
@@ -214,7 +214,7 @@ export function extractVisibleRepeatCueEnglishFromAssistantCard(content: string)
 
 /**
  * Снятые с карточки эталоны после clamp: скрытый ref и видимый «Скажи» (если проходит plausibility).
- * Нужен для вердикта, когда оба присутствуют, но расходятся — выбираем тот, с которым совпал ответ.
+ * Нужен для вердикта, когда оба присутствуют, но расходятся - выбираем тот, с которым совпал ответ.
  */
 export function getClampedHiddenAndVisibleGold(
   assistantContent: string,
@@ -296,7 +296,7 @@ export function replaceTranslationCanonicalRepeatRefInContent(content: string, a
 
 /**
  * Выравнивает видимое «Скажи:» со скрытым `__TRAN_REPEAT_REF__`, если после клампа к RU они расходятся.
- * Авторитет — скрытый ref (API/инструкция модели); видимое не должно копировать черновик ученика.
+ * Авторитет - скрытый ref (API/инструкция модели); видимое не должно копировать черновик ученика.
  */
 export function reconcileTranslationSayWithHiddenRef(content: string, ruPrompt: string | null): string {
   const ru = ruPrompt?.trim() ?? ''

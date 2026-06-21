@@ -16,7 +16,7 @@ export function shouldUseFirstWordPuzzleHint(wordCount: number): boolean {
 }
 
 export function buildPuzzleFirstWordHintText(firstWord: string): string {
-  return `Подсказка: первое слово — ${firstWord}.`
+  return `Подсказка: первое слово - ${firstWord}.`
 }
 
 export function buildPuzzleVariantHintText(correctOrder: string[]): string {
@@ -51,7 +51,7 @@ export function resolvePuzzleAttemptChatMessage(params: {
 export const PUZZLE_WORD_CHIP_HEIGHT_PX = resolveFlexChipHeightPx('puzzle')
 export { PUZZLE_WORD_BANK_ROW_GAP_PX }
 
-/** До замера ResizeObserver — верхняя граница панели пазла. */
+/** До замера ResizeObserver - верхняя граница панели пазла. */
 export const PUZZLE_BOTTOM_STACK_FALLBACK = '18rem'
 
 const PUZZLE_PANEL_SECTION_PADDING_Y_PX = 16

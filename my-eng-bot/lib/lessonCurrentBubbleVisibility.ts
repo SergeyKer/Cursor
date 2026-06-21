@@ -31,7 +31,7 @@ export function hasSameTaskPromptHistoryForCurrentStep(
   )
 }
 
-/** На 2+ попытке не дублируем блок задания, если вопрос тот же (retry). Новый вариант — показываем. */
+/** На 2+ попытке не дублируем блок задания, если вопрос тот же (retry). Новый вариант - показываем. */
 export function shouldSkipRepeatHistoryLessonBubble(params: {
   isPuzzleStep: boolean
   isCurrent: boolean

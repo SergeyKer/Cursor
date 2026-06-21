@@ -14,7 +14,7 @@ type EngvoCallTranslationButtonProps = {
   onToggle: () => void
 }
 
-/** Кнопка «Перевод_звонок» — только звонок Engvo; не заменяет «Перевод» в Диалоге. */
+/** Кнопка «Перевод_звонок» - только звонок Engvo; не заменяет «Перевод» в Диалоге. */
 export function EngvoCallTranslationButton({ expanded, dotState, onToggle }: EngvoCallTranslationButtonProps) {
   return (
     <button

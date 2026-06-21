@@ -55,7 +55,7 @@ export function cancelEngvoPendingInterrupt(state: EngvoInterruptDebounceState):
   return true
 }
 
-/** Шумовой транскрипт во время речи ассистента без commit interrupt — не менять фазу звонка. */
+/** Шумовой транскрипт во время речи ассистента без commit interrupt - не менять фазу звонка. */
 export function shouldIgnoreNoiseTranscriptDuringAssistantSpeech(params: {
   isLikelyNoise: boolean
   hasActiveAssistantResponse: boolean

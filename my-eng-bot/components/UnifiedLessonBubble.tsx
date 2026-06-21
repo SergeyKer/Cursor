@@ -10,7 +10,7 @@ export type UnifiedLessonBubbleLayout = 'unified' | 'detached'
 type UnifiedLessonBubbleProps = {
   bubbles: Bubble[]
   animateSections?: boolean
-  /** `detached` — отдельные карточки (интро), как в LessonExtraTipsScreen; `unified` — слитная карточка урока. */
+  /** `detached` - отдельные карточки (интро), как в LessonExtraTipsScreen; `unified` - слитная карточка урока. */
   layout?: UnifiedLessonBubbleLayout
   /** Только для `detached`: сколько секций уже показано; скрытые остаются в layout (`opacity-0`). */
   visibleSectionCount?: number

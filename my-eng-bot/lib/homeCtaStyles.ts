@@ -10,13 +10,13 @@ export const BTN_DISABLED_CLASS = 'disabled:cursor-not-allowed disabled:opacity-
 const BTN_FONT_FAMILY =
   '[font-family:system-ui,-apple-system,"Segoe_UI",Roboto,"Noto_Sans",Arial,sans-serif]'
 
-/** Типографика кнопок: medium вместо semibold — на синем градиенте читается легче. */
+/** Типографика кнопок: medium вместо semibold - на синем градиенте читается легче. */
 export const BTN_FONT_MENU = `text-[15px] font-medium leading-snug antialiased ${BTN_FONT_FAMILY}`
 export const BTN_FONT_LARGE = `text-base font-medium leading-snug antialiased ${BTN_FONT_FAMILY}`
 export const BTN_FONT_INLINE = `text-sm font-medium leading-snug antialiased ${BTN_FONT_FAMILY}`
 export const BTN_FONT_COMPACT = `text-[11px] font-medium leading-snug antialiased sm:text-xs ${BTN_FONT_FAMILY}`
 export const BTN_FONT_SMALL = `text-[13px] font-medium leading-snug antialiased ${BTN_FONT_FAMILY}`
-/** Briefing: две строки в узкой кнопке — как меню по кеглю и плотности строк. */
+/** Briefing: две строки в узкой кнопке - как меню по кеглю и плотности строк. */
 export const BTN_FONT_DUAL_ROW = `text-[15px] font-medium leading-snug antialiased ${BTN_FONT_FAMILY}`
 
 export const BLUE_PRIMARY_SKIN =
@@ -70,7 +70,7 @@ export const APP_BTN_SECONDARY_MENU = [
   BTN_DISABLED_CLASS,
 ].join(' ')
 
-/** Меню: зафризенный «Новый вариант» — светло-синий, без сильного «серого» disabled. */
+/** Меню: зафризенный «Новый вариант» - светло-синий, без сильного «серого» disabled. */
 export const APP_BTN_SECONDARY_MENU_FROZEN = [
   BTN_INTERACTION_BASE,
   BLUE_SECONDARY_SKIN,

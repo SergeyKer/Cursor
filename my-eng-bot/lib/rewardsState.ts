@@ -72,7 +72,7 @@ export function applyGlobalCoinsGrantMigration(state: RewardsState): RewardsStat
 }
 
 /**
- * Если после миграций баланс всё ещё 0 (флаги уже стояли, монеты потратили) —
+ * Если после миграций баланс всё ещё 0 (флаги уже стояли, монеты потратили) -
  * один раз выставить 10 🪙.
  */
 export function applyZeroCoinsTopUpMigration(state: RewardsState): RewardsState {

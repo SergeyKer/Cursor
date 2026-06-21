@@ -236,11 +236,11 @@ describe('POST /api/chat repeat cycle stability', () => {
     callProviderChatMock
       .mockResolvedValueOnce({
         ok: true,
-        content: 'Комментарий: Тут нужно другое слово. "Мясо" по-английски — "meat".\nПовтори: I usually answer in English.',
+        content: 'Комментарий: Тут нужно другое слово. "Мясо" по-английски - "meat".\nПовтори: I usually answer in English.',
       })
       .mockResolvedValueOnce({
         ok: true,
-        content: 'Комментарий: Тут нужно другое слово. "Мясо" по-английски — "meat".\nПовтори: I usually answer in English.',
+        content: 'Комментарий: Тут нужно другое слово. "Мясо" по-английски - "meat".\nПовтори: I usually answer in English.',
       })
 
     const req = makeRequest({
@@ -485,7 +485,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,
       content:
-        'Комментарий: Лексическая ошибка — colore нужно заменить на color.\n' +
+        'Комментарий: Лексическая ошибка - colore нужно заменить на color.\n' +
         'Скажи: It\'s great that you started with a question!',
     })
 
@@ -520,7 +520,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     const truncatedRepeatPayload = {
       ok: true,
       content:
-        'Комментарий: Лексическая ошибка — проверь выбор слова.\nСкажи: I often cook.',
+        'Комментарий: Лексическая ошибка - проверь выбор слова.\nСкажи: I often cook.',
     }
     callProviderChatMock.mockResolvedValueOnce(truncatedRepeatPayload)
 
@@ -1414,11 +1414,11 @@ describe('POST /api/chat repeat cycle stability', () => {
     callProviderChatMock
       .mockResolvedValueOnce({
         ok: true,
-        content: 'Комментарий: Тут нужно другое слово — "кино" по-английски будет "to the cinema". Кроме того, ты говоришь о будущем, поэтому нужно will.\nСкажи: I will go to the cinema.',
+        content: 'Комментарий: Тут нужно другое слово - "кино" по-английски будет "to the cinema". Кроме того, ты говоришь о будущем, поэтому нужно will.\nСкажи: I will go to the cinema.',
       })
       .mockResolvedValueOnce({
         ok: true,
-        content: 'Комментарий: Тут нужно другое слово — "кино" по-английски будет "to the cinema". Кроме того, ты говоришь о будущем, поэтому нужно will.\nСкажи: I will go to the cinema.',
+        content: 'Комментарий: Тут нужно другое слово - "кино" по-английски будет "to the cinema". Кроме того, ты говоришь о будущем, поэтому нужно will.\nСкажи: I will go to the cinema.',
       })
 
     const req = makeRequest({
@@ -2068,7 +2068,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       .mockResolvedValueOnce({
         ok: true,
         content:
-          'Комментарий: Отлично!\nВремя: Present Simple — здесь речь о привычке или факте.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I play football every day.\n?: Do I play football every day?\n-: I do not play football every day.\nСкажи: I play games every day.',
+          'Комментарий: Отлично!\nВремя: Present Simple - здесь речь о привычке или факте.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I play football every day.\n?: Do I play football every day?\n-: I do not play football every day.\nСкажи: I play games every day.',
       })
       .mockResolvedValueOnce({ ok: true, content: 'I play football every day.' })
 
@@ -2137,7 +2137,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       .mockResolvedValueOnce({
         ok: true,
         content:
-          'Комментарий: Отлично! Ты правильно указал смысл, но проверь правильность написания слов.\nВремя: Present Simple — действие повторяется регулярно; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I like to play football with friends.\n?: Do you like to play football with friends?\n-: I do not like to play football with friends.\nЯ люблю играть в футбол с друзьями.\nПереведи на английский.',
+          'Комментарий: Отлично! Ты правильно указал смысл, но проверь правильность написания слов.\nВремя: Present Simple - действие повторяется регулярно; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I like to play football with friends.\n?: Do you like to play football with friends?\n-: I do not like to play football with friends.\nЯ люблю играть в футбол с друзьями.\nПереведи на английский.',
       })
       .mockResolvedValueOnce({ ok: true, content: 'I like to play football with my friends.' })
 
@@ -2174,7 +2174,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       .mockResolvedValueOnce({
         ok: true,
         content:
-          'Комментарий: Отлично! Ты правильно указал, что любишь пиццу.\nВремя: Present Simple — здесь речь о привычке; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: Do you like pizza.\n?: Do you like pizza?\n-: You do not like pizza.\nТы любишь пиццу?\nПереведи на английский.',
+          'Комментарий: Отлично! Ты правильно указал, что любишь пиццу.\nВремя: Present Simple - здесь речь о привычке; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: Do you like pizza.\n?: Do you like pizza?\n-: You do not like pizza.\nТы любишь пиццу?\nПереведи на английский.',
       })
       .mockResolvedValueOnce({ ok: true, content: 'Do you like pizza?' })
 
@@ -2209,7 +2209,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       .mockResolvedValueOnce({
         ok: true,
         content:
-          'Комментарий: Ошибка времени.\nВремя: Present Simple — действие повторяется регулярно; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nСкажи: I like to read in the evening.\nЯ часто хожу в парк.\nПереведи на английский.',
+          'Комментарий: Ошибка времени.\nВремя: Present Simple - действие повторяется регулярно; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nСкажи: I like to read in the evening.\nЯ часто хожу в парк.\nПереведи на английский.',
       })
       .mockResolvedValueOnce({ ok: true, content: 'I often walk in the park.' })
 
@@ -2247,7 +2247,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       .mockResolvedValueOnce({
         ok: true,
         content:
-          'Комментарий_перевод: Исправь время.\nОшибки:\n🔤 Нужен Present Simple — действие повторяется регулярно.\nСкажи: I read in the evening.\nСкажи: I read in the evening.\nЯ люблю читать утром.\nПереведи на английский.',
+          'Комментарий_перевод: Исправь время.\nОшибки:\n🔤 Нужен Present Simple - действие повторяется регулярно.\nСкажи: I read in the evening.\nСкажи: I read in the evening.\nЯ люблю читать утром.\nПереведи на английский.',
       })
       .mockResolvedValueOnce({ ok: true, content: 'I like to read in the morning.' })
 
@@ -2278,7 +2278,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       .mockResolvedValueOnce({
         ok: true,
         content:
-          'Комментарий: Лексическая ошибка.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nСкажи: I have a car.',
+          'Комментарий: Лексическая ошибка.\nВремя: Present Simple - факт.\nКонструкция: Subject + V1(s/es).\nСкажи: I have a car.',
       })
       .mockResolvedValueOnce({ ok: true, content: 'I have a cat.' })
 
@@ -2309,7 +2309,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       .mockResolvedValueOnce({
         ok: true,
         content:
-          'Комментарий: Лексическая ошибка.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nСкажи: I love to play outside with my cats.',
+          'Комментарий: Лексическая ошибка.\nВремя: Present Simple - факт.\nКонструкция: Subject + V1(s/es).\nСкажи: I love to play outside with my cats.',
       })
       .mockResolvedValueOnce({ ok: true, content: 'I love to play outside with my friends.' })
 
@@ -2340,7 +2340,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       .mockResolvedValueOnce({
         ok: true,
         content:
-          'Комментарий: Лексическая ошибка.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nСкажи: I always add a lot of yellow cheese.',
+          'Комментарий: Лексическая ошибка.\nВремя: Present Simple - факт.\nКонструкция: Subject + V1(s/es).\nСкажи: I always add a lot of yellow cheese.',
       })
       .mockResolvedValueOnce({ ok: true, content: 'I always add a lot of cheese.' })
 
@@ -2374,7 +2374,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       .mockResolvedValueOnce({
         ok: true,
         content:
-          'Комментарий: Лексическая ошибка.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nСкажи: I usually cook pasta for dinner with my friends.',
+          'Комментарий: Лексическая ошибка.\nВремя: Present Simple - факт.\nКонструкция: Subject + V1(s/es).\nСкажи: I usually cook pasta for dinner with my friends.',
       })
       .mockResolvedValueOnce({ ok: true, content: 'I usually cook pasta for dinner.' })
 
@@ -2406,7 +2406,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       .mockResolvedValueOnce({
         ok: true,
         content:
-          'Комментарий: Ошибка времени.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nСкажи: I rarely play football with my friends.',
+          'Комментарий: Ошибка времени.\nВремя: Present Simple - факт.\nКонструкция: Subject + V1(s/es).\nСкажи: I rarely play football with my friends.',
       })
       .mockResolvedValueOnce({ ok: true, content: 'I sometimes play football with my friends.' })
 
@@ -2439,7 +2439,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       .mockResolvedValueOnce({
         ok: true,
         content:
-          'Комментарий: Ошибка артикля: перед mom нужен артикль a.\nВремя: Present Simple — факт.\nКонструкция: Subject + V1(s/es).\nСкажи: Do you have a mom?',
+          'Комментарий: Ошибка артикля: перед mom нужен артикль a.\nВремя: Present Simple - факт.\nКонструкция: Subject + V1(s/es).\nСкажи: Do you have a mom?',
       })
       .mockResolvedValueOnce({ ok: true, content: 'Do you have a brother or sister?' })
 
@@ -2475,7 +2475,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       .mockResolvedValueOnce({
         ok: true,
         content:
-          'Комментарий: Отлично! Твоя форма вопроса правильная.\nВремя: Present Simple — факт.\nСкажи: I like to play with my friends.',
+          'Комментарий: Отлично! Твоя форма вопроса правильная.\nВремя: Present Simple - факт.\nСкажи: I like to play with my friends.',
       })
       .mockResolvedValueOnce({ ok: true, content: 'He visits his cousins every month.' })
 
@@ -2613,7 +2613,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       .mockResolvedValueOnce({
         ok: true,
         content:
-          'Комментарий: Отлично! Ты правильно использовал вопросительное слово "Do" в начале.\nВремя: Present Simple — здесь речь о привычке; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: Do you like to bake pies.\n?: Do you like to bake pies?\n-: You do not like to bake pies.\nТы любишь печь пироги.\nПереведи на английский.',
+          'Комментарий: Отлично! Ты правильно использовал вопросительное слово "Do" в начале.\nВремя: Present Simple - здесь речь о привычке; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: Do you like to bake pies.\n?: Do you like to bake pies?\n-: You do not like to bake pies.\nТы любишь печь пироги.\nПереведи на английский.',
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -2653,7 +2653,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       .mockResolvedValueOnce({
         ok: true,
         content:
-          'Комментарий: Лексическая ошибка — проверь написание и выбор слова.\nВремя: Present Simple — здесь речь о привычке или факте; маркеры usually, often, every day, always.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I often play football with my friends.\n?: Do you often play football with your friends?\n-: I do not often play football with my friends.\nПереведи далее: Я люблю играть в видеоигры вечером.',
+          'Комментарий: Лексическая ошибка - проверь написание и выбор слова.\nВремя: Present Simple - здесь речь о привычке или факте; маркеры usually, often, every day, always.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: I often play football with my friends.\n?: Do you often play football with your friends?\n-: I do not often play football with my friends.\nПереведи далее: Я люблю играть в видеоигры вечером.',
       })
       .mockResolvedValueOnce({ ok: true, content: 'I love playing video games in the evening.' })
 
@@ -3177,7 +3177,7 @@ describe('POST /api/chat repeat cycle stability', () => {
       .mockResolvedValueOnce({
         ok: true,
         content:
-          "Комментарий: Отлично!\nВремя: Present Simple — здесь речь о факте; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: Do you have brothers or sisters.\n?: Do you have brothers or sisters?\n-: You don't have brothers or sisters.\nЯ работаю дома.\nПереведи на английский.",
+          "Комментарий: Отлично!\nВремя: Present Simple - здесь речь о факте; маркеры usually, often, every day.\nКонструкция: Subject + V1(s/es).\nФормы:\n+: Do you have brothers or sisters.\n?: Do you have brothers or sisters?\n-: You don't have brothers or sisters.\nЯ работаю дома.\nПереведи на английский.",
       })
       .mockResolvedValueOnce({ ok: true, content: 'I work from home.' })
 
@@ -3415,7 +3415,7 @@ describe('POST /api/chat repeat cycle stability', () => {
 
   it('translation: multi-tense pick stays stable on 2nd user turn (same seed trim as dialogue)', async () => {
     const drillReply =
-      'Комментарий: Тест.\nВремя: Past Simple — тест.\nКонструкция: Subject + V2.\nСкажи: I went home.\nНовое предложение.\nПереведи на английский.'
+      'Комментарий: Тест.\nВремя: Past Simple - тест.\nКонструкция: Subject + V2.\nСкажи: I went home.\nНовое предложение.\nПереведи на английский.'
 
     callProviderChatMock.mockResolvedValue({ ok: true, content: drillReply })
 
@@ -3599,7 +3599,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     callProviderChatMock
       .mockResolvedValueOnce({
         ok: true,
-        content: 'Комментарий: Лексическая ошибка — Проверь написание и выбор слова. Скажи: I will start a new project.',
+        content: 'Комментарий: Лексическая ошибка - Проверь написание и выбор слова. Скажи: I will start a new project.',
       })
       .mockResolvedValueOnce({ ok: true, content: 'I will start a new project.' })
       .mockResolvedValueOnce({ ok: true, content: 'I will start a new project.' })
@@ -3617,7 +3617,7 @@ describe('POST /api/chat repeat cycle stability', () => {
           content: [
             'Комментарий_перевод: 💡 Есть хорошая основа, но нужно исправить основную неточность по образцу ниже.',
             'Ошибки:',
-            '📖 Ошибка перевода — русские слова в ответе нужно перевести на английский.',
+            '📖 Ошибка перевода - русские слова в ответе нужно перевести на английский.',
             "- проект → project",
             "- new project → a new project",
             'Скажи: I will start a new project.',
@@ -3879,7 +3879,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     callProviderChatMock
       .mockResolvedValueOnce({
         ok: true,
-        content: 'Комментарий: Отлично!\nПереведи далее: Поправь — и я помог вам исправить.',
+        content: 'Комментарий: Отлично!\nПереведи далее: Поправь - и я помог вам исправить.',
       })
       .mockResolvedValueOnce({ ok: true, content: 'I read books in the evening.' })
 
@@ -3905,7 +3905,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     expect(res.status).toBe(200)
     expect(data.content).toContain('Комментарий:')
     expect(data.content).toContain('Переведи далее:')
-    expect(data.content).not.toContain('Поправь — и я помог вам исправить')
+    expect(data.content).not.toContain('Поправь - и я помог вам исправить')
   })
 
   it('translation final output lock removes stray Скажи from success payload', async () => {

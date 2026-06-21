@@ -6,7 +6,7 @@ import type { Audience, LevelId } from '@/lib/types'
  * `CEFR_Levels.xlsx`, лист `Levels_Config`.
  */
 export const CEFR_LEVELS_CONFIG_PROMPT_REF =
-  'Authoritative full CEFR parameters per level (columns AllowedVocabulary, AvoidVocabulary, Grammar, etc.): project file CEFR_Levels.xlsx, sheet Levels_Config — use it as the single source of truth when generating or judging level-appropriate English.'
+  'Authoritative full CEFR parameters per level (columns AllowedVocabulary, AvoidVocabulary, Grammar, etc.): project file CEFR_Levels.xlsx, sheet Levels_Config - use it as the single source of truth when generating or judging level-appropriate English.'
 
 export interface CefrLevelSpec {
   id: SupportedCefrLevel

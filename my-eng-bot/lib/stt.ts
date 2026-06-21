@@ -27,7 +27,7 @@ export function normalizeSttLanguage(lang: string | null | undefined): string {
 export async function transcribeWithOpenAI(params: {
   audioBlob: Blob
   fileName?: string
-  /** `undefined` / пусто / `auto` — без поля `language` в запросе к OpenAI. */
+  /** `undefined` / пусто / `auto` - без поля `language` в запросе к OpenAI. */
   language?: string | null
 }): Promise<string> {
   const key = normalizeKey(process.env.OPENAI_API_KEY ?? '')

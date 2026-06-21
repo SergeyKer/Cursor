@@ -9,13 +9,13 @@ describe('parseCorrection', () => {
         'Second point.',
         'Third point.',
         'Ошибки:',
-        '🔤 Present Simple — привычка.',
+        '🔤 Present Simple - привычка.',
         'Скажи: I often do my homework.',
       ].join('\n')
     )
 
     expect(result.comment).toBe('First point.\nSecond point.\nThird point.')
-    expect(result.rest).toBe('Ошибки:\n🔤 Present Simple — привычка.\nСкажи: I often do my homework.')
+    expect(result.rest).toBe('Ошибки:\n🔤 Present Simple - привычка.\nСкажи: I often do my homework.')
   })
 
   it('legacy: строка «Время:» по-прежнему завершает блок Комментарий (старые карточки)', () => {
@@ -30,7 +30,7 @@ describe('parseCorrection', () => {
         'Комментарий: Кратко.',
         'Ошибки:',
         '✏️ x → y',
-        '🔤 Present Simple — кратко.',
+        '🔤 Present Simple - кратко.',
         'Скажи: I run.',
       ].join('\n')
     )

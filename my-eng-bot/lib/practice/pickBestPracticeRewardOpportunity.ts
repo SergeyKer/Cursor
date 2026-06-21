@@ -173,7 +173,7 @@ export function practiceProgressBadgeTitle(
     const left = Math.max(0, 5 - progress.ringCount)
     return left > 0
       ? `До сдачи темы: ${left} практик при золотой медали`
-      : 'Закрепление темы — кубок при следующей eligible-практике'
+      : 'Закрепление темы - кубок при следующей eligible-практике'
   }
   if (tier === 1) return 'Кубок только при золотой медали'
   if (tier === 2) return 'Закрепление темы'

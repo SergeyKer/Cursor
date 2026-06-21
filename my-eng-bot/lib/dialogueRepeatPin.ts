@@ -102,7 +102,7 @@ function extractRepeatBodyFromAssistantContent(content: string): string | null {
 
 /**
  * Первое по времени тело «Повтори»/«Скажи» после последнего ассистентского сообщения без маркера повтора.
- * Если вся история ассистента только с повторами — null (не закрепляем).
+ * Если вся история ассистента только с повторами - null (не закрепляем).
  */
 export function findDialoguePinCandidateFromMessages(messages: DialogueMessageLike[]): string | null {
   let boundaryIdx = -1

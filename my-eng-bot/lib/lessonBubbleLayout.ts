@@ -4,7 +4,7 @@ export type LessonBubbleSplit = {
   theoryBubbles: Bubble[]
   taskBubble: Bubble | null
   taskIndex: number
-  /** false — один слитный блок как раньше (finale, нет task). */
+  /** false - один слитный блок как раньше (finale, нет task). */
   useSplitLayout: boolean
 }
 

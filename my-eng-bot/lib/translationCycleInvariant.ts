@@ -47,10 +47,10 @@ export function shouldEnterTranslationJunkFlow(params: ShouldEnterTranslationJun
   )
   if (hasWhitelistedVerdictReason) return true
 
-  // Чисто кириллический ответ без английских букв — крайний случай для junk.
+  // Чисто кириллический ответ без английских букв - крайний случай для junk.
   if (params.hasCyrillicLetters && !params.hasLatinLetters) return true
 
-  // Полный мусор в латинице — тоже крайний случай.
+  // Полный мусор в латинице - тоже крайний случай.
   if (params.likelyLatinNoise) return true
 
   // Низкосигнальный ответ считаем junk только когда совсем нет латиницы.

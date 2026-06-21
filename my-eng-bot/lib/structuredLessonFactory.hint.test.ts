@@ -35,8 +35,8 @@ describe('lesson hint helpers', () => {
   it('detects generic puzzle and vague hints', () => {
     expect(isGenericLessonHint('Порядок неверный. Попробуйте ещё раз.')).toBe(true)
     expect(isGenericLessonHint('Во второй части используйте обычный порядок слов.')).toBe(true)
-    expect(isGenericLessonHint('В задании «когда» — это when, не where.')).toBe(false)
-    expect(isGenericLessonHint('После Who — глагол с -s.')).toBe(false)
+    expect(isGenericLessonHint('В задании «когда» - это when, не where.')).toBe(false)
+    expect(isGenericLessonHint('После Who - глагол с -s.')).toBe(false)
   })
 
   it('collects hints from exercise, variants and puzzle texts', () => {

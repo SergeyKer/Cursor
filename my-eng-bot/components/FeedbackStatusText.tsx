@@ -20,14 +20,16 @@ export default function FeedbackStatusText({ text, className = '' }: FeedbackSta
 
   return (
     <p
-      className={`flex items-start gap-1.5 text-[15px] leading-[1.45] ${className}`.trim()}
+      className={`whitespace-pre-line break-words text-[15px] leading-[1.45] ${className}`.trim()}
       aria-label={text}
     >
       <span
-        className={`mt-[0.4em] h-2.5 w-2.5 shrink-0 rounded-full ${parsed.dotClass}`}
+        className="mr-1.5 inline-flex h-[1.45em] w-2.5 shrink-0 items-center align-text-top"
         aria-hidden
-      />
-      <span className="min-w-0 flex-1 whitespace-pre-line break-words">{parsed.text}</span>
+      >
+        <span className={`h-2.5 w-2.5 rounded-full ${parsed.dotClass}`} />
+      </span>
+      {parsed.text}
     </p>
   )
 }

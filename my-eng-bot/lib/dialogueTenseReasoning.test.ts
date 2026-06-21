@@ -66,6 +66,6 @@ describe('enrichDialogueCommentWithLearningReason', () => {
       userText: 'I played forward',
       repeatSentence: 'I play forward.',
     })
-    expect(out).toContain('а не Past Simple — нужен правильный перевод')
+    expect(out).toContain('а не Past Simple - нужен правильный перевод')
   })
 })

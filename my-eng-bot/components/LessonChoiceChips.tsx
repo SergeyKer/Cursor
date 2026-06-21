@@ -16,14 +16,14 @@ interface Props {
   disabled?: boolean;
   /** Застывшая панель после верного ответа: без hover, приглушённые невыбранные чипсы. */
   frozen?: boolean;
-  /** Увеличивается при новой ошибочной попытке — сброс выделения без remount. */
+  /** Увеличивается при новой ошибочной попытке - сброс выделения без remount. */
   clearSelectionSignal?: number;
-  /** Текст неверно выбранного варианта — красная кнопка до повторного выбора. */
+  /** Текст неверно выбранного варианта - красная кнопка до повторного выбора. */
   wrongChoiceText?: string | null;
   resetKey?: string;
   autoSelectText?: string | null;
   autoSelectNonce?: number;
-  /** Без bounce/fade при отложенном показе — иначе лента дёргается при снятии invisible. */
+  /** Без bounce/fade при отложенном показе - иначе лента дёргается при снятии invisible. */
   suppressEnterAnimation?: boolean;
 }
 

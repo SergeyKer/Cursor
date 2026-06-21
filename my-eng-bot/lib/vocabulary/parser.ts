@@ -22,7 +22,7 @@ export function parseNecessaryWordLine(line: string): ParsedNecessaryWord | null
   if (!Number.isInteger(id) || id <= 0) return null
 
   const body = numbered[2] ?? ''
-  const separatorIndex = body.indexOf(' — ')
+  const separatorIndex = body.indexOf(' - ')
   if (separatorIndex === -1) return null
 
   const leftPart = body.slice(0, separatorIndex).trim()

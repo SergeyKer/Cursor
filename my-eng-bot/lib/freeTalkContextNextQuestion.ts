@@ -105,7 +105,7 @@ function scoreKeywordsFromAssistantQuestions(questions: string[], scored: Map<st
 
 /**
  * Следующий вопрос для free_talk по недавней истории (вопросы ассистента + ответы пользователя).
- * Возвращает null, если тему выделить нельзя — тогда вызывающий код подставляет defaultNextQuestion.
+ * Возвращает null, если тему выделить нельзя - тогда вызывающий код подставляет defaultNextQuestion.
  */
 export function buildNextFreeTalkQuestionFromContext(params: {
   recentMessages: ChatMessage[]

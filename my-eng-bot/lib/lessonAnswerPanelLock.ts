@@ -10,15 +10,15 @@ export type LessonAnswerFeedbackType = 'success' | 'error'
 
 /**
  * Service-строка в ленте урока при проверке ответа (как в практике).
- * Клиентская UX-имитация Engvo; не анти-чит (награды — lessonAntiFarm и сервер).
+ * Клиентская UX-имитация Engvo; не анти-чит (награды - lessonAntiFarm и сервер).
  */
 export const LESSON_CHECKING_MESSAGE = ENGVO_CHECKING_MESSAGE
 
-/** Пауза после верного ответа до auto-advance — как в practice. */
+/** Пауза после верного ответа до auto-advance - как в practice. */
 export const LESSON_SUCCESS_HOLD_MS = PRACTICE_FEEDBACK_MS
 
 /**
- * Задержка перед «Engvo проверяет ответ...» — как submitting в практике.
+ * Задержка перед «Engvo проверяет ответ...» - как submitting в практике.
  * Значение = PRACTICE_ANSWER_REVEAL_MS (файлы практики не редактируются).
  */
 export const LESSON_CHECKING_REVEAL_MS = PRACTICE_ANSWER_REVEAL_MS

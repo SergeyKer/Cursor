@@ -20,7 +20,7 @@ describe('buildSyntheticErrorsBlockFromComment', () => {
 
   it('builds lexical line and strips leading label', () => {
     const out = buildSyntheticErrorsBlockFromComment(
-      'Лексическая ошибка — используйте salad вместо «салат». Вы правильно использовали often.'
+      'Лексическая ошибка - используйте salad вместо «салат». Вы правильно использовали often.'
     )
     expect(out).toMatch(/^📖 /)
     expect(out?.toLowerCase()).toContain('salad')
@@ -37,7 +37,7 @@ describe('buildSyntheticErrorsBlockFromComment', () => {
 
   it('uses grammar line for agreement wording', () => {
     const out = buildSyntheticErrorsBlockFromComment(
-      'Ошибка согласования подлежащего и сказуемого — проверьте has/have.'
+      'Ошибка согласования подлежащего и сказуемого - проверьте has/have.'
     )
     expect(out).toMatch(/^🔤 /)
   })
@@ -71,7 +71,7 @@ describe('buildSyntheticErrorsBlockFromComment', () => {
 describe('extractTranslationErrorSynthAndPraiseFromComment', () => {
   it('отделяет похвалу «Вижу, что…» от синтетической строки ошибки', () => {
     const comment =
-      "Ошибка перевода — замените 'фильмы' на 'movies'. Вижу, что вы правильно использовали 'I like to watch'."
+      "Ошибка перевода - замените 'фильмы' на 'movies'. Вижу, что вы правильно использовали 'I like to watch'."
     const { synthetic, praiseFromComment } = extractTranslationErrorSynthAndPraiseFromComment(comment)
     expect(synthetic?.toLowerCase()).toContain('фильмы')
     expect(synthetic?.toLowerCase()).toContain('movies')
@@ -115,7 +115,7 @@ describe('mergeErrorsBlockWithSyntheticFromComment', () => {
 
   it('dedupes semantically overlapping grammar lines in the final error block', () => {
     const body = [
-      '🔤 "sister" требует артикль "a" перед ним — "a sister".',
+      '🔤 "sister" требует артикль "a" перед ним - "a sister".',
       '🔤 Ошибка формы: добавь "a" перед "sister" в предложении.',
       '📖 sister is the right word.',
     ].join('\n')
@@ -178,7 +178,7 @@ describe('stripConflictingContinuousTenseErrorLines', () => {
   })
 
   it('leaves errors unchanged for non-continuous tense', () => {
-    const body = "🔤 'learning' → 'learned'\n🔤 Ошибка времени — нужен V3."
+    const body = "🔤 'learning' → 'learned'\n🔤 Ошибка времени - нужен V3."
     const out = stripConflictingContinuousTenseErrorLines(body, 'present_perfect', repeat)
     expect(out).toBe(body)
   })

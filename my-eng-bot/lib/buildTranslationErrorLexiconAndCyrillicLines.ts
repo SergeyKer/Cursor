@@ -413,7 +413,7 @@ function collectRussianLexiconPairs(userText: string): ReplacementPair[] {
   return pairs
 }
 
-export const STATIC_TRANSLATION_LINE = 'В ответе остались русские слова — переведи их на английский.'
+export const STATIC_TRANSLATION_LINE = 'В ответе остались русские слова - переведи их на английский.'
 
 /**
  * Строки для блока «Ошибки:» в fallback-ветке.

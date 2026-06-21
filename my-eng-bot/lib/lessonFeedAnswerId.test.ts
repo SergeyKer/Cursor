@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildLessonAnswerMessageId,
   resolveLessonAnswerAttemptNumber,
+  resolveLessonErrorFeedbackAttemptNumber,
 } from '@/lib/lessonFeedAnswerId'
 import type { LessonTimelineEntry } from '@/hooks/useLessonEngine'
 
@@ -62,5 +63,29 @@ describe('lessonFeedAnswerId', () => {
     })
 
     expect(buildLessonAnswerMessageId(3, retryAttempt)).toBe('answer-step-3-try-2')
+  })
+
+  it('counts only error attempts for repeatAnswer, not prior success on same step', () => {
+    const step = entry({ isCurrent: false }).step
+    const variantSuccess = entry({
+      isCurrent: false,
+      submittedAnswer: 'Russia',
+      feedback: { type: 'success', message: 'Верно.' },
+      step,
+    })
+    const firstErrorAfterSuccess = entry({
+      isCurrent: false,
+      submittedAnswer: 'Rus',
+      feedback: { type: 'error', message: 'После from - одно слово.' },
+      step,
+    })
+    const timeline = [variantSuccess, firstErrorAfterSuccess]
+
+    expect(resolveLessonErrorFeedbackAttemptNumber(timeline, 1)).toBe(1)
+    expect(resolveLessonAnswerAttemptNumber({
+      entry: firstErrorAfterSuccess,
+      historyAttemptOrdinal: 2,
+      timeline,
+    })).toBe(2)
   })
 })

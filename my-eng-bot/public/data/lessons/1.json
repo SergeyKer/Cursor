@@ -80,7 +80,7 @@
     "bubbles": [
       {
         "type": "positive",
-        "content": "Готово! It is и It is time to — ваши. Дальше — практика и кубок 🏆."
+        "content": "Готово! It is и It is time to - ваши. Дальше - практика и кубок 🏆."
       }
     ],
     "footerDynamic": "Урок завершен",
@@ -716,7 +716,7 @@
                   "id": "evening-dark_step3_medium",
                   "question": "Переведите на английский: \"Сейчас холодно, поэтому пора что-то сделать.\" - \"It's cold. It is time to ___ tea.\"",
                   "correctAnswer": "drink",
-                  "hint": "«Пора» — time to. После to — глагол в начальной форме, одно слово.",
+                  "hint": "«Пора» - time to. После to - глагол в начальной форме, одно слово.",
                   "difficulty": "medium",
                   "answerFormat": "single_word",
                   "answerPolicy": "strict",
@@ -728,7 +728,7 @@
                   "id": "evening-dark_step3_hard",
                   "question": "Переведите на английский: \"По обстановке видно, что пора согреться.\" - \"It's cold. It is time to ___ tea.\"",
                   "correctAnswer": "drink",
-                  "hint": "Прочитай действие в задании. После to — глагол без -s и без -ing.",
+                  "hint": "Прочитай действие в задании. После to - глагол без -s и без -ing.",
                   "difficulty": "hard",
                   "answerFormat": "single_word",
                   "answerPolicy": "strict",
@@ -904,7 +904,7 @@
                   "correctAnswer": "It's time to go home.",
                   "successText": "Верно! It's time to go home.",
                   "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
-                  "hintText": "Подсказка: первое слово — It's.",
+                  "hintText": "Подсказка: первое слово - It's.",
                   "hintFirstWord": "It's",
                   "myEngComment": "Отлично. Берём следующий вариант."
                 }
@@ -922,7 +922,7 @@
               },
               {
                 "type": "info",
-                "content": "Состояние, действие по шаблону, затем новое действие — без подсказки из урока."
+                "content": "Состояние, действие по шаблону, затем новое действие - без подсказки из урока."
               },
               {
                 "type": "task",
@@ -983,7 +983,7 @@
               ]
             },
             "footerDynamic": "Финальная проверка: 3 коротких предложения",
-            "myEngComment": "Три фразы подряд — вы почти у финиша."
+            "myEngComment": "Три фразы подряд - вы почти у финиша."
           },
           {
             "stepNumber": 7,
@@ -994,7 +994,7 @@
               },
               {
                 "type": "info",
-                "content": "В каждой рамке одно слово — прилагательное, нужная частица или глагол."
+                "content": "В каждой рамке одно слово - прилагательное, нужная частица или глагол."
               },
               {
                 "type": "task",
@@ -1003,7 +1003,7 @@
             ],
             "exercise": {
               "type": "fill_choice",
-              "question": "Выберите слово для пропуска: На улице темно — «It's ___.»",
+              "question": "Выберите слово для пропуска: На улице темно - «It's ___.»",
               "options": [
                 "dark",
                 "cold",
@@ -1012,25 +1012,25 @@
               "correctAnswer": "dark",
               "answerFormat": "choice",
               "answerPolicy": "strict",
-              "hint": "Состояние в задании — одно прилагательное после It's.",
+              "hint": "Состояние в задании - одно прилагательное после It's.",
               "variants": [
                 {
                   "id": "evening-dark_step7_easy",
-                  "question": "Выберите слово для пропуска: На улице темно — «It's ___.»",
+                  "question": "Выберите слово для пропуска: На улице темно - «It's ___.»",
                   "options": [
                     "dark",
                     "cold",
                     "late"
                   ],
                   "correctAnswer": "dark",
-                  "hint": "Состояние в задании — одно прилагательное после It's.",
+                  "hint": "Состояние в задании - одно прилагательное после It's.",
                   "difficulty": "easy",
                   "answerFormat": "choice",
                   "answerPolicy": "strict"
                 },
                 {
                   "id": "evening-dark_step7_medium",
-                  "question": "Выберите слово для пропуска: Пора спать — «It's time ___ sleep.»",
+                  "question": "Выберите слово для пропуска: Пора спать - «It's time ___ sleep.»",
                   "options": [
                     "to",
                     "for",
@@ -1044,14 +1044,14 @@
                 },
                 {
                   "id": "evening-dark_step7_hard",
-                  "question": "Выберите слово для пропуска: Пора почитать книгу — «It's time to ___.»",
+                  "question": "Выберите слово для пропуска: Пора почитать книгу - «It's time to ___.»",
                   "options": [
                     "read",
                     "sleep",
                     "drink"
                   ],
                   "correctAnswer": "read",
-                  "hint": "После to — глагол в начальной форме, одно слово.",
+                  "hint": "После to - глагол в начальной форме, одно слово.",
                   "difficulty": "hard",
                   "answerFormat": "choice",
                   "answerPolicy": "strict"
@@ -1416,7 +1416,7 @@
                   "id": "cold-study_step3_medium",
                   "question": "Переведите на английский: \"Сейчас голодно, поэтому пора что-то сделать.\" - \"It's hungry. It is time to ___ lunch.\"",
                   "correctAnswer": "eat",
-                  "hint": "«Пора» — time to. После to — глагол в начальной форме, одно слово.",
+                  "hint": "«Пора» - time to. После to - глагол в начальной форме, одно слово.",
                   "difficulty": "medium",
                   "answerFormat": "single_word",
                   "answerPolicy": "strict",
@@ -1428,7 +1428,7 @@
                   "id": "cold-study_step3_hard",
                   "question": "Переведите на английский: \"По обстановке видно, что пора перекусить.\" - \"It's hungry. It is time to ___ lunch.\"",
                   "correctAnswer": "eat",
-                  "hint": "Прочитай действие в задании. После to — глагол без -s и без -ing.",
+                  "hint": "Прочитай действие в задании. После to - глагол без -s и без -ing.",
                   "difficulty": "hard",
                   "answerFormat": "single_word",
                   "answerPolicy": "strict",
@@ -1604,7 +1604,7 @@
                   "correctAnswer": "It's time to do homework.",
                   "successText": "Верно! It's time to do homework.",
                   "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
-                  "hintText": "Подсказка: первое слово — It's.",
+                  "hintText": "Подсказка: первое слово - It's.",
                   "hintFirstWord": "It's",
                   "myEngComment": "Отлично. Берём следующий вариант."
                 }
@@ -1622,7 +1622,7 @@
               },
               {
                 "type": "info",
-                "content": "Состояние, действие по шаблону, затем новое действие — без подсказки из урока."
+                "content": "Состояние, действие по шаблону, затем новое действие - без подсказки из урока."
               },
               {
                 "type": "task",
@@ -1683,7 +1683,7 @@
               ]
             },
             "footerDynamic": "Финальная проверка: 3 коротких предложения",
-            "myEngComment": "Три фразы подряд — вы почти у финиша."
+            "myEngComment": "Три фразы подряд - вы почти у финиша."
           },
           {
             "stepNumber": 7,
@@ -1694,7 +1694,7 @@
               },
               {
                 "type": "info",
-                "content": "В каждой рамке одно слово — прилагательное, нужная частица или глагол."
+                "content": "В каждой рамке одно слово - прилагательное, нужная частица или глагол."
               },
               {
                 "type": "task",
@@ -1703,7 +1703,7 @@
             ],
             "exercise": {
               "type": "fill_choice",
-              "question": "Выберите слово для пропуска: Сегодня холодно — «It's ___.»",
+              "question": "Выберите слово для пропуска: Сегодня холодно - «It's ___.»",
               "options": [
                 "cold",
                 "hungry",
@@ -1712,25 +1712,25 @@
               "correctAnswer": "cold",
               "answerFormat": "choice",
               "answerPolicy": "strict",
-              "hint": "Состояние в задании — одно прилагательное после It's.",
+              "hint": "Состояние в задании - одно прилагательное после It's.",
               "variants": [
                 {
                   "id": "cold-study_step7_easy",
-                  "question": "Выберите слово для пропуска: Сегодня холодно — «It's ___.»",
+                  "question": "Выберите слово для пропуска: Сегодня холодно - «It's ___.»",
                   "options": [
                     "cold",
                     "hungry",
                     "dark"
                   ],
                   "correctAnswer": "cold",
-                  "hint": "Состояние в задании — одно прилагательное после It's.",
+                  "hint": "Состояние в задании - одно прилагательное после It's.",
                   "difficulty": "easy",
                   "answerFormat": "choice",
                   "answerPolicy": "strict"
                 },
                 {
                   "id": "cold-study_step7_medium",
-                  "question": "Выберите слово для пропуска: Пора заниматься — «It's time ___ study.»",
+                  "question": "Выберите слово для пропуска: Пора заниматься - «It's time ___ study.»",
                   "options": [
                     "to",
                     "for",
@@ -1744,14 +1744,14 @@
                 },
                 {
                   "id": "cold-study_step7_hard",
-                  "question": "Выберите слово для пропуска: Пора вымыть руки — «It's time to ___.»",
+                  "question": "Выберите слово для пропуска: Пора вымыть руки - «It's time to ___.»",
                   "options": [
                     "wash",
                     "study",
                     "eat"
                   ],
                   "correctAnswer": "wash",
-                  "hint": "После to — глагол в начальной форме, одно слово.",
+                  "hint": "После to - глагол в начальной форме, одно слово.",
                   "difficulty": "hard",
                   "answerFormat": "choice",
                   "answerPolicy": "strict"
@@ -2116,7 +2116,7 @@
                   "id": "hot-rest_step3_medium",
                   "question": "Переведите на английский: \"Сейчас хочется пить, поэтому пора что-то сделать.\" - \"It's thirsty. It is time to ___ water.\"",
                   "correctAnswer": "drink",
-                  "hint": "«Пора» — time to. После to — глагол в начальной форме, одно слово.",
+                  "hint": "«Пора» - time to. После to - глагол в начальной форме, одно слово.",
                   "difficulty": "medium",
                   "answerFormat": "single_word",
                   "answerPolicy": "strict",
@@ -2128,7 +2128,7 @@
                   "id": "hot-rest_step3_hard",
                   "question": "Переведите на английский: \"По состоянию понятно, что пора утолить жажду.\" - \"It's thirsty. It is time to ___ water.\"",
                   "correctAnswer": "drink",
-                  "hint": "Прочитай действие в задании. После to — глагол без -s и без -ing.",
+                  "hint": "Прочитай действие в задании. После to - глагол без -s и без -ing.",
                   "difficulty": "hard",
                   "answerFormat": "single_word",
                   "answerPolicy": "strict",
@@ -2306,7 +2306,7 @@
                   "correctAnswer": "It's time to open the window.",
                   "successText": "Верно! It's time to open the window.",
                   "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
-                  "hintText": "Подсказка: первое слово — It's.",
+                  "hintText": "Подсказка: первое слово - It's.",
                   "hintFirstWord": "It's",
                   "myEngComment": "Отлично. Берём следующий вариант."
                 }
@@ -2324,7 +2324,7 @@
               },
               {
                 "type": "info",
-                "content": "Состояние, действие по шаблону, затем новое действие — без подсказки из урока."
+                "content": "Состояние, действие по шаблону, затем новое действие - без подсказки из урока."
               },
               {
                 "type": "task",
@@ -2385,7 +2385,7 @@
               ]
             },
             "footerDynamic": "Финальная проверка: 3 коротких предложения",
-            "myEngComment": "Три фразы подряд — вы почти у финиша."
+            "myEngComment": "Три фразы подряд - вы почти у финиша."
           },
           {
             "stepNumber": 7,
@@ -2396,7 +2396,7 @@
               },
               {
                 "type": "info",
-                "content": "В каждой рамке одно слово — прилагательное, нужная частица или глагол."
+                "content": "В каждой рамке одно слово - прилагательное, нужная частица или глагол."
               },
               {
                 "type": "task",
@@ -2405,7 +2405,7 @@
             ],
             "exercise": {
               "type": "fill_choice",
-              "question": "Выберите слово для пропуска: В комнате жарко — «It's ___.»",
+              "question": "Выберите слово для пропуска: В комнате жарко - «It's ___.»",
               "options": [
                 "hot",
                 "thirsty",
@@ -2414,25 +2414,25 @@
               "correctAnswer": "hot",
               "answerFormat": "choice",
               "answerPolicy": "strict",
-              "hint": "Состояние в задании — одно прилагательное после It's.",
+              "hint": "Состояние в задании - одно прилагательное после It's.",
               "variants": [
                 {
                   "id": "hot-rest_step7_easy",
-                  "question": "Выберите слово для пропуска: В комнате жарко — «It's ___.»",
+                  "question": "Выберите слово для пропуска: В комнате жарко - «It's ___.»",
                   "options": [
                     "hot",
                     "thirsty",
                     "dark"
                   ],
                   "correctAnswer": "hot",
-                  "hint": "Состояние в задании — одно прилагательное после It's.",
+                  "hint": "Состояние в задании - одно прилагательное после It's.",
                   "difficulty": "easy",
                   "answerFormat": "choice",
                   "answerPolicy": "strict"
                 },
                 {
                   "id": "hot-rest_step7_medium",
-                  "question": "Выберите слово для пропуска: Пора отдыхать — «It's time ___ rest.»",
+                  "question": "Выберите слово для пропуска: Пора отдыхать - «It's time ___ rest.»",
                   "options": [
                     "to",
                     "for",
@@ -2446,14 +2446,14 @@
                 },
                 {
                   "id": "hot-rest_step7_hard",
-                  "question": "Выберите слово для пропуска: Пора принять душ — «It's time to ___.»",
+                  "question": "Выберите слово для пропуска: Пора принять душ - «It's time to ___.»",
                   "options": [
                     "take",
                     "rest",
                     "drink"
                   ],
                   "correctAnswer": "take",
-                  "hint": "После to — глагол в начальной форме, одно слово.",
+                  "hint": "После to - глагол в начальной форме, одно слово.",
                   "difficulty": "hard",
                   "answerFormat": "choice",
                   "answerPolicy": "strict"
@@ -2818,7 +2818,7 @@
                   "id": "late-cook_step3_medium",
                   "question": "Переведите на английский: \"Сейчас идет дождь, поэтому пора что-то сделать.\" - \"It's rainy. It is time to ___ an umbrella.\"",
                   "correctAnswer": "take",
-                  "hint": "«Пора» — time to. После to — глагол в начальной форме, одно слово.",
+                  "hint": "«Пора» - time to. После to - глагол в начальной форме, одно слово.",
                   "difficulty": "medium",
                   "answerFormat": "single_word",
                   "answerPolicy": "strict",
@@ -2830,7 +2830,7 @@
                   "id": "late-cook_step3_hard",
                   "question": "Переведите на английский: \"По погоде ясно, что пора взять защиту от дождя.\" - \"It's rainy. It is time to ___ an umbrella.\"",
                   "correctAnswer": "take",
-                  "hint": "Прочитай действие в задании. После to — глагол без -s и без -ing.",
+                  "hint": "Прочитай действие в задании. После to - глагол без -s и без -ing.",
                   "difficulty": "hard",
                   "answerFormat": "single_word",
                   "answerPolicy": "strict",
@@ -3006,7 +3006,7 @@
                   "correctAnswer": "It's time to call mom.",
                   "successText": "Верно! It's time to call mom.",
                   "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
-                  "hintText": "Подсказка: первое слово — It's.",
+                  "hintText": "Подсказка: первое слово - It's.",
                   "hintFirstWord": "It's",
                   "myEngComment": "Отлично. Берём следующий вариант."
                 }
@@ -3024,7 +3024,7 @@
               },
               {
                 "type": "info",
-                "content": "Состояние, действие по шаблону, затем новое действие — без подсказки из урока."
+                "content": "Состояние, действие по шаблону, затем новое действие - без подсказки из урока."
               },
               {
                 "type": "task",
@@ -3085,7 +3085,7 @@
               ]
             },
             "footerDynamic": "Финальная проверка: 3 коротких предложения",
-            "myEngComment": "Три фразы подряд — вы почти у финиша."
+            "myEngComment": "Три фразы подряд - вы почти у финиша."
           },
           {
             "stepNumber": 7,
@@ -3096,7 +3096,7 @@
               },
               {
                 "type": "info",
-                "content": "В каждой рамке одно слово — прилагательное, нужная частица или глагол."
+                "content": "В каждой рамке одно слово - прилагательное, нужная частица или глагол."
               },
               {
                 "type": "task",
@@ -3105,7 +3105,7 @@
             ],
             "exercise": {
               "type": "fill_choice",
-              "question": "Выберите слово для пропуска: Уже поздно — «It's ___.»",
+              "question": "Выберите слово для пропуска: Уже поздно - «It's ___.»",
               "options": [
                 "late",
                 "rainy",
@@ -3114,25 +3114,25 @@
               "correctAnswer": "late",
               "answerFormat": "choice",
               "answerPolicy": "strict",
-              "hint": "Состояние в задании — одно прилагательное после It's.",
+              "hint": "Состояние в задании - одно прилагательное после It's.",
               "variants": [
                 {
                   "id": "late-cook_step7_easy",
-                  "question": "Выберите слово для пропуска: Уже поздно — «It's ___.»",
+                  "question": "Выберите слово для пропуска: Уже поздно - «It's ___.»",
                   "options": [
                     "late",
                     "rainy",
                     "dark"
                   ],
                   "correctAnswer": "late",
-                  "hint": "Состояние в задании — одно прилагательное после It's.",
+                  "hint": "Состояние в задании - одно прилагательное после It's.",
                   "difficulty": "easy",
                   "answerFormat": "choice",
                   "answerPolicy": "strict"
                 },
                 {
                   "id": "late-cook_step7_medium",
-                  "question": "Выберите слово для пропуска: Пора готовить — «It's time ___ cook.»",
+                  "question": "Выберите слово для пропуска: Пора готовить - «It's time ___ cook.»",
                   "options": [
                     "to",
                     "for",
@@ -3146,14 +3146,14 @@
                 },
                 {
                   "id": "late-cook_step7_hard",
-                  "question": "Выберите слово для пропуска: Пора почистить зубы — «It's time to ___.»",
+                  "question": "Выберите слово для пропуска: Пора почистить зубы - «It's time to ___.»",
                   "options": [
                     "brush",
                     "cook",
                     "take"
                   ],
                   "correctAnswer": "brush",
-                  "hint": "После to — глагол в начальной форме, одно слово.",
+                  "hint": "После to - глагол в начальной форме, одно слово.",
                   "difficulty": "hard",
                   "answerFormat": "choice",
                   "answerPolicy": "strict"
@@ -3297,7 +3297,7 @@
             "id": "evening-dark_step3_medium",
             "question": "Переведите на английский: \"Сейчас холодно, поэтому пора что-то сделать.\" - \"It's cold. It is time to ___ tea.\"",
             "correctAnswer": "drink",
-            "hint": "«Пора» — time to. После to — глагол в начальной форме, одно слово.",
+            "hint": "«Пора» - time to. После to - глагол в начальной форме, одно слово.",
             "difficulty": "medium",
             "answerFormat": "single_word",
             "answerPolicy": "strict",
@@ -3309,7 +3309,7 @@
             "id": "evening-dark_step3_hard",
             "question": "Переведите на английский: \"По обстановке видно, что пора согреться.\" - \"It's cold. It is time to ___ tea.\"",
             "correctAnswer": "drink",
-            "hint": "Прочитай действие в задании. После to — глагол без -s и без -ing.",
+            "hint": "Прочитай действие в задании. После to - глагол без -s и без -ing.",
             "difficulty": "hard",
             "answerFormat": "single_word",
             "answerPolicy": "strict",
@@ -3487,7 +3487,7 @@
             "correctAnswer": "It's time to go home.",
             "successText": "Верно! It's time to go home.",
             "errorText": "Начни с It's, потом прилагательное или time to + глагол.",
-            "hintText": "Подсказка: первое слово — It's.",
+            "hintText": "Подсказка: первое слово - It's.",
             "hintFirstWord": "It's",
             "myEngComment": "Отлично. Берём следующий вариант."
           }
@@ -3506,7 +3506,7 @@
         },
         {
           "type": "info",
-          "content": "Состояние, действие по шаблону, затем новое действие — без подсказки из урока."
+          "content": "Состояние, действие по шаблону, затем новое действие - без подсказки из урока."
         },
         {
           "type": "task",
@@ -3567,7 +3567,7 @@
         ]
       },
       "footerDynamic": "Финальная проверка: 3 коротких предложения",
-      "myEngComment": "Три фразы подряд — вы почти у финиша."
+      "myEngComment": "Три фразы подряд - вы почти у финиша."
     },
     {
       "stepNumber": 7,
@@ -3579,7 +3579,7 @@
         },
         {
           "type": "info",
-          "content": "В каждой рамке одно слово — прилагательное, нужная частица или глагол."
+          "content": "В каждой рамке одно слово - прилагательное, нужная частица или глагол."
         },
         {
           "type": "task",
@@ -3588,7 +3588,7 @@
       ],
       "exercise": {
         "type": "fill_choice",
-        "question": "Выберите слово для пропуска: На улице темно — «It's ___.»",
+        "question": "Выберите слово для пропуска: На улице темно - «It's ___.»",
         "options": [
           "dark",
           "cold",
@@ -3597,25 +3597,25 @@
         "correctAnswer": "dark",
         "answerFormat": "choice",
         "answerPolicy": "strict",
-        "hint": "Состояние в задании — одно прилагательное после It's.",
+        "hint": "Состояние в задании - одно прилагательное после It's.",
         "variants": [
           {
             "id": "evening-dark_step7_easy",
-            "question": "Выберите слово для пропуска: На улице темно — «It's ___.»",
+            "question": "Выберите слово для пропуска: На улице темно - «It's ___.»",
             "options": [
               "dark",
               "cold",
               "late"
             ],
             "correctAnswer": "dark",
-            "hint": "Состояние в задании — одно прилагательное после It's.",
+            "hint": "Состояние в задании - одно прилагательное после It's.",
             "difficulty": "easy",
             "answerFormat": "choice",
             "answerPolicy": "strict"
           },
           {
             "id": "evening-dark_step7_medium",
-            "question": "Выберите слово для пропуска: Пора спать — «It's time ___ sleep.»",
+            "question": "Выберите слово для пропуска: Пора спать - «It's time ___ sleep.»",
             "options": [
               "to",
               "for",
@@ -3629,14 +3629,14 @@
           },
           {
             "id": "evening-dark_step7_hard",
-            "question": "Выберите слово для пропуска: Пора почитать книгу — «It's time to ___.»",
+            "question": "Выберите слово для пропуска: Пора почитать книгу - «It's time to ___.»",
             "options": [
               "read",
               "sleep",
               "drink"
             ],
             "correctAnswer": "read",
-            "hint": "После to — глагол в начальной форме, одно слово.",
+            "hint": "После to - глагол в начальной форме, одно слово.",
             "difficulty": "hard",
             "answerFormat": "choice",
             "answerPolicy": "strict"

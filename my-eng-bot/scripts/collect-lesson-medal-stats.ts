@@ -1,5 +1,5 @@
 /**
- * One-off stats collector. Imports existing lessonScore only — does not change prod logic.
+ * One-off stats collector. Imports existing lessonScore only - does not change prod logic.
  * Run: npx tsx scripts/collect-lesson-medal-stats.ts
  */
 import { writeFileSync } from 'node:fs'

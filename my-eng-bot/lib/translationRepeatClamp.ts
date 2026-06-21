@@ -10,7 +10,7 @@ export type TranslationRepeatClampResult = {
 
 const TRANSLATION_REPEAT_KEYWORDS_EN = new Set(Object.values(RU_TOPIC_KEYWORD_TO_EN))
 
-/** Наречия частотности из словаря — выравниваем только если в русском задании есть своя пара. */
+/** Наречия частотности из словаря - выравниваем только если в русском задании есть своя пара. */
 const FREQUENCY_EN = new Set(['sometimes', 'rarely', 'often', 'usually', 'always', 'never'])
 
 function escapeRegExp(s: string): string {
@@ -259,9 +259,9 @@ export function replaceTranslationRepeatInContent(content: string, newRepeatEngl
 
 /**
  * Финальная нормализация «Скажи:» под русское задание.
- * Если есть prior (скрытый __TRAN_REPEAT_REF__ или прошлое «Скажи:») — подставляем его; при наличии ruPrompt дополнительно clamp к русскому.
+ * Если есть prior (скрытый __TRAN_REPEAT_REF__ или прошлое «Скажи:») - подставляем его; при наличии ruPrompt дополнительно clamp к русскому.
  * Если русского задания нет (цепочка только «Скажи»), prior всё равно заменяет несвязный текст модели.
- * Без prior и с ruPrompt — clamp ответа модели под русский промпт.
+ * Без prior и с ruPrompt - clamp ответа модели под русский промпт.
  */
 export function enforceAuthoritativeTranslationRepeat(
   content: string,
@@ -283,7 +283,7 @@ export function enforceAuthoritativeTranslationRepeat(
 }
 
 /**
- * Если «Скажи» можно сузить под ruPrompt — заменяет строку в полном тексте ответа.
+ * Если «Скажи» можно сузить под ruPrompt - заменяет строку в полном тексте ответа.
  */
 export function applyTranslationRepeatSourceClampToContent(content: string, ruPrompt: string | null): string {
   if (!ruPrompt?.trim()) return content

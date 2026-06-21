@@ -26,16 +26,16 @@
 - Уход без золотого финиша → `cycle1Closed: true`, в меню **приглушённая бронза** (серый слот).
 - Повтор **локального** урока (`menu_reopen`, variant 1) после закрытия цикла 1 → **максимум серебро**.
 - **«Сгенерировать урок»** (`menu_generate`) → золото снова возможно при высоком счёте.
-- Пороги 90%/50%, XP к уровню, движок шагов — **не менялись**.
+- Пороги 90%/50%, XP к уровню, движок шагов - **не менялись**.
 
 ### Файлы P4
 
-- `types/userProgress.ts` — `cycle1Started`, `cycle1Closed`, `lessonCycle`
-- `lib/lessonAntiFarm.ts` (новый), `lib/featureFlags.ts` — `lessonLocalSilverCapV1`
-- `lib/lessonProgressMigration.ts` — cap через `capLessonMedalForRun`
-- `lib/lessonFooter.ts` — `resolveLessonCardMedal` при `cycle1Closed`
-- `app/page.tsx` — begin/close цикла, `structuredLessonSilverCap`, reveal/footer
-- `components/MenuSectionPanels.tsx` — подпись в профиле
+- `types/userProgress.ts` - `cycle1Started`, `cycle1Closed`, `lessonCycle`
+- `lib/lessonAntiFarm.ts` (новый), `lib/featureFlags.ts` - `lessonLocalSilverCapV1`
+- `lib/lessonProgressMigration.ts` - cap через `capLessonMedalForRun`
+- `lib/lessonFooter.ts` - `resolveLessonCardMedal` при `cycle1Closed`
+- `app/page.tsx` - begin/close цикла, `structuredLessonSilverCap`, reveal/footer
+- `components/MenuSectionPanels.tsx` - подпись в профиле
 - Тесты: `lessonAntiFarm.test.ts`, обновлены `lessonProgressMigration.test.ts`, `lessonFooter.test.ts`
 
 ### Тесты P4
@@ -58,7 +58,7 @@ npx vitest run lib/lessonAntiFarm.test.ts lib/lessonProgressMigration.test.ts li
 
 ## Изменённые файлы (этапы 1–3)
 
-- `types/userProgress.ts` — `bestTotalXp`
+- `types/userProgress.ts` - `bestTotalXp`
 - `lib/lessonGlobalXpAward.ts`, `lib/lessonReturnHint.ts`, `lib/lessonFooterTopLine.ts`
 - `lib/lessonProgressMigration.ts`, `lib/lessonScore.ts`
 - `lib/lessonFooter.ts`, `lib/footerTopLinePhrases.ts`, `lib/rewardsEvents.ts`
@@ -76,7 +76,7 @@ npx vitest run lib/lessonGlobalXpAward.test.ts lib/lessonReturnHint.test.ts lib/
 
 **Результат:** 51/51 passed (scope анти-фарм).
 
-Полный `npm test`: 10 падений **вне scope** (tutor-resolve-topic, translation routes — были до изменений).
+Полный `npm test`: 10 падений **вне scope** (tutor-resolve-topic, translation routes - были до изменений).
 
 ---
 
@@ -88,15 +88,15 @@ npx vitest run lib/lessonGlobalXpAward.test.ts lib/lessonReturnHint.test.ts lib/
 | Улучшение 100→130 | +130 за сессию | **+30** к уровню |
 | Бронза 31 + combo | +61 global | **~+31** global |
 | Всплывашка | только 🔁 (в плане) | при **любой** медали в профиле: меню 2 строки, 🔁 3 строки |
-| Верхняя строка футера | «+N к прогрессу» = шаг | «+N **к уровню**» = global delta; при 0 — без ложного XP |
+| Верхняя строка футера | «+N к прогрессу» = шаг | «+N **к уровню**» = global delta; при 0 - без ложного XP |
 
 ---
 
 ## Футер: до/после
 
-- **⭐** — очки прохода; title поясняет отличие от уровня.
-- **🔥** — `(+N)` без «XP» в сегменте; при blocked combo — «веха».
-- **Верхняя строка** — `resolveLessonFooterTopLine` вместо тикера `lesson_xp_awarded` в уроке.
+- **⭐** - очки прохода; title поясняет отличие от уровня.
+- **🔥** - `(+N)` без «XP» в сегменте; при blocked combo - «веха».
+- **Верхняя строка** - `resolveLessonFooterTopLine` вместо тикера `lesson_xp_awarded` в уроке.
 
 ---
 
@@ -107,7 +107,7 @@ npx vitest run lib/lessonGlobalXpAward.test.ts lib/lessonReturnHint.test.ts lib/
 3. Улучшение счёта → только дельта.
 4. COMBO 3 при core &lt; 50% → без «+5 XP» в 🔥.
 5. Gold в профиле → меню: hint 2 строки; 🔁: 3 строки + silver за проход.
-6. Ошибка / checking — «Почти» / «Смотрю ответ».
+6. Ошибка / checking - «Почти» / «Смотрю ответ».
 
 ---
 

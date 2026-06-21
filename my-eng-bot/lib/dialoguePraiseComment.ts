@@ -3,7 +3,7 @@
  * Нужно, чтобы не удалять «Повтори:» при смешанных комментариях вроде
  * «Правильно, но нужно Future Perfect».
  *
- * Примечание: `\b` в JS не надёжен для кириллицы — используем явные префиксы.
+ * Примечание: `\b` в JS не надёжен для кириллицы - используем явные префиксы.
  */
 
 const PRAISE_STARTERS = ['Отлично', 'Молодец', 'Верно', 'Хорошо', 'Супер', 'Правильно'] as const
@@ -29,7 +29,7 @@ function bodyStartsWithPraiseWord(body: string): boolean {
   )
 }
 
-/** Тело первой строки «Комментарий:» — только одно из слов похвалы + необязательная пунктуация. */
+/** Тело первой строки «Комментарий:» - только одно из слов похвалы + необязательная пунктуация. */
 export function isKommentariyPurePraiseOnly(content: string): boolean {
   const body = getFirstLineAfterKommentariyLabel(content)
   if (!body) return false

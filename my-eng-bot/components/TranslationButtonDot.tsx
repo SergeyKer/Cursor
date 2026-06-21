@@ -1,6 +1,6 @@
 'use client'
 
-/** Фиксированные цвета точки «Перевод» — не зависят от темы (basic / futuristic / bubble). */
+/** Фиксированные цвета точки «Перевод» - не зависят от темы (basic / futuristic / bubble). */
 export const TRANSLATION_BUTTON_DOT_BG = {
   ready: 'bg-[#22c55e]',
   loading: 'bg-[#ea580c]',

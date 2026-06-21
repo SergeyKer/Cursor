@@ -13,7 +13,7 @@ export function resolvePracticeScrollPaddingPx(bottomStackHeightPx: number, root
   return remToPx(LESSON_SCROLL_GAP_REM, rootPx) + bottomStackHeightPx + LESSON_INPUT_GAP_PX
 }
 
-/** Композер снаружи scroll-контейнера — для pin не дублируем его высоту в viewport. */
+/** Композер снаружи scroll-контейнера - для pin не дублируем его высоту в viewport. */
 export function resolvePracticePinBottomInsetPx(): number {
   return LESSON_INPUT_GAP_PX + PRACTICE_PIN_BLOCK_GAP_PX
 }

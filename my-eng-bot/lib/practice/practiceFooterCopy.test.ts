@@ -72,7 +72,7 @@ describe('buildPracticeFooterDynamicText', () => {
         questionType: 'choice',
         isWrongLimitAdvance: false,
       })
-    ).toBe('Попробуйте снова. Текст — карандаш.')
+    ).toBe('Попробуйте снова. Текст - карандаш.')
   })
 
   it('guides text correction for non-choice exercises', () => {

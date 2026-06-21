@@ -6,7 +6,7 @@ export const LESSON_FEED_KEYBOARD_SCROLL_GAP_PX = 8
 export const LESSON_SCROLL_GAP_REM = 0.625
 /** Симметричный padding scroll-контейнера (tailwind p-2.5). */
 export const LESSON_SCROLL_CONTAINER_PADDING_REM = LESSON_SCROLL_GAP_REM
-/** Fallback из globals.css — высота input на шагах 1–4. */
+/** Fallback из globals.css - высота input на шагах 1–4. */
 export const CHAT_INPUT_HEIGHT_REM = 5.5
 
 export type LessonScrollLayoutInput = {
@@ -14,7 +14,7 @@ export type LessonScrollLayoutInput = {
   hasPostLessonOptions: boolean
   isSentencePuzzle: boolean
   bottomStackHeightPx: number
-  /** Нижняя панель — sibling вне scroll (LessonStepRenderer). */
+  /** Нижняя панель - sibling вне scroll (LessonStepRenderer). */
   composerOutsideScroll?: boolean
 }
 
@@ -37,11 +37,11 @@ export function resolveLessonScrollBehavior(input: {
   return 'smooth'
 }
 
-/** Плавный scroll только при reveal новой карточки шага; первый шаг — без сдвига. */
+/** Плавный scroll только при reveal новой карточки шага; первый шаг - без сдвига. */
 export function resolveLessonShellScrollBehavior(input: {
   prefersReducedMotion: boolean
   isFirstLessonStep: boolean
-  /** Intro-полоска / отложенные choice-чипы меняют высоту ленты во время enter — smooth lerp дёргает. */
+  /** Intro-полоска / отложенные choice-чипы меняют высоту ленты во время enter - smooth lerp дёргает. */
   deferLayoutSettling?: boolean
 }): ScrollBehavior {
   if (input.prefersReducedMotion || input.isFirstLessonStep || input.deferLayoutSettling) {
@@ -86,7 +86,7 @@ export function shouldSkipRevealEndOverflowScroll(input: {
 
 export const LESSON_REVEAL_END_OVERFLOW_SETTLE_MS = 300
 
-/** Короткое окно после конца reveal — не догонять ленту из ResizeObserver messagesStack. */
+/** Короткое окно после конца reveal - не догонять ленту из ResizeObserver messagesStack. */
 export function isWithinRevealEndOverflowSettleWindow(
   revealEndedAtMs: number | null,
   nowMs: number = Date.now()
@@ -145,7 +145,7 @@ export function resolvePracticeFeedScrollRequest(input: {
 /** Fallback, если scrollend не сработал (уже у дна ленты или старый браузер). */
 export const LESSON_FEED_SCROLL_COMPLETE_FALLBACK_MS = 650
 
-/** Lerp-шаг follow-tail scroll в уроках (не замедление — стабильный догон хвоста). */
+/** Lerp-шаг follow-tail scroll в уроках (не замедление - стабильный догон хвоста). */
 export const LESSON_FEED_SCROLL_LERP = 0.2
 export const LESSON_FEED_SCROLL_STABLE_FRAMES = 2
 export const LESSON_FEED_SCROLL_MAX_MS = 650
@@ -409,7 +409,7 @@ export function resolveRelaxFeedTailPin(input: {
   showAdvancingStatusLine: boolean
   isAdvancingToNextStep: boolean
   isAdvancingToNextVariant: boolean
-  /** На sentence_puzzle pin и scroll_to_max держим и во время checking — отступ «Engvo проверяет…» как на 1/3. */
+  /** На sentence_puzzle pin и scroll_to_max держим и во время checking - отступ «Engvo проверяет…» как на 1/3. */
   isSentencePuzzle?: boolean
 }): boolean {
   if (input.isSentencePuzzle && input.status === 'checking') {
@@ -434,7 +434,7 @@ const PUZZLE_FEED_OVERFLOW_STACK_CLASS = 'flex min-h-full flex-col'
 
 /**
  * justify-end работает только пока лента короче viewport.
- * При переполнении (2+ попытка пазла) — mt-auto на checking + scroll_to_max.
+ * При переполнении (2+ попытка пазла) - mt-auto на checking + scroll_to_max.
  */
 export function resolvePuzzleFeedMessagesStackClass(input: {
   pinFeedTailNearComposer: boolean
@@ -504,7 +504,7 @@ export function computeMaxScrollTop(scrollHeight: number, clientHeight: number):
   return Math.max(0, scrollHeight - clientHeight)
 }
 
-/** Хвост ленты уже у целевой позиции — не скроллить (без тика вверх). */
+/** Хвост ленты уже у целевой позиции - не скроллить (без тика вверх). */
 export function isLessonFeedScrolledToTail(
   scrollContainer: HTMLElement | null,
   mode: LessonFeedScrollMode = 'tail_if_needed'
@@ -566,7 +566,7 @@ export function scheduleScrollAfterLayout(run: () => void): () => void {
 export const LESSON_SCROLL_VIEWPORT_CLASS =
   'lesson-scroll-viewport min-h-0 flex-1 overflow-y-auto overflow-x-hidden'
 
-/** scrollTo(max) — для puzzle / post-lesson. */
+/** scrollTo(max) - для puzzle / post-lesson. */
 export function scrollLessonFeedToMax(
   scrollContainer: HTMLElement | null,
   behavior: ScrollBehavior = 'auto'
@@ -577,7 +577,7 @@ export function scrollLessonFeedToMax(
 }
 
 /**
- * Скролл к хвосту ленты — как в Chat.tsx: scrollTo(scrollHeight, behavior).
+ * Скролл к хвосту ленты - как в Chat.tsx: scrollTo(scrollHeight, behavior).
  * При короткой ленте браузер остаётся на scrollTop = 0.
  */
 export function scrollLessonFeedTailIfNeeded(
@@ -645,7 +645,7 @@ export function scrollLessonFeedToAlignLastAssistantBubbleTop(
 
 /**
  * Минимальный доскролл: последний пузырь виден над композером (не scrollToMax в padding).
- * Только вниз — не откатываем scrollTop, если хвост уже виден (фокус без клавиатуры).
+ * Только вниз - не откатываем scrollTop, если хвост уже виден (фокус без клавиатуры).
  */
 export function scrollLessonFeedTailMessageIntoView(
   scrollContainer: HTMLElement | null,
@@ -704,7 +704,7 @@ export function isLessonFeedOverflowing(scrollContainer: HTMLElement | null): bo
 
 /**
  * Модель scrollIntoView({ block: 'end' }) для нулевого якоря в конце контента.
- * Если идеальный scrollTop < 0 — браузер остаётся на 0 (контент «липнет» к верху).
+ * Если идеальный scrollTop < 0 - браузер остаётся на 0 (контент «липнет» к верху).
  */
 export function simulateScrollTopAfterIntoViewEnd(params: {
   contentHeightPx: number

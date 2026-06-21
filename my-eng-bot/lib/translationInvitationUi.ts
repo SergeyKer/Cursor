@@ -10,7 +10,7 @@ export function isGenericTranslationMetaInvitation(text: string): boolean {
 
 /**
  * Разбор приглашения «Переведи …» для UI режима перевода.
- * Нельзя обрезать на первой точке — иначе «Переведи далее: Теперь. Я люблю…» превращается в «…: Теперь.».
+ * Нельзя обрезать на первой точке - иначе «Переведи далее: Теперь. Я люблю…» превращается в «…: Теперь.».
  */
 export function splitTranslationInvitation(text: string): {
   mainBefore: string

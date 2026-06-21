@@ -21,9 +21,9 @@ import {
 /** Текст карточек: тот же формат, что ожидает `UnifiedLessonBubble` (см. вступление `LessonIntroScreen`). */
 const BUBBLE_CONTENT_FORMAT_RULES = [
   'Оформление поля content в bubbles (как у локальных уроков в приложении):',
-  'Если в одном bubble больше одной строки: первая строка — короткий заголовок; для type positive префикс заголовка «🟡 », для info — «⚪ », для task — «🟢 ».',
+  'Если в одном bubble больше одной строки: первая строка - короткий заголовок; для type positive префикс заголовка «🟡 », для info - «⚪ », для task - «🟢 ».',
   'Списки: строки с префиксом «• ». Примеры: «✓ English sentence → русский (краткое пояснение)».',
-  'Без markdown (** __ #) и без HTML — только обычный текст с переносами строк.',
+  'Без markdown (** __ #) и без HTML - только обычный текст с переносами строк.',
 ].join('\n')
 
 export type GeneratedExercisePayload = {
@@ -156,21 +156,21 @@ export function buildStructuredHintAuthoringRules(audience: Audience = 'adult'):
   const childLines =
     audience === 'child'
       ? [
-          'Для детской аудитории: не используй «подлежащее», «инверсия», «вторая часть» — пиши «сначала …, потом …».',
+          'Для детской аудитории: не используй «подлежащее», «инверсия», «вторая часть» - пиши «сначала …, потом …».',
         ]
       : []
 
   return [
     'Правила для hint, errorText и hintText при ошибке:',
     '1–2 коротких предложения, простой русский.',
-    'Привязывай hint к заданию: если в question есть «когда», «где», «что» — назови английский эквивалент (when, where, what).',
+    'Привязывай hint к заданию: если в question есть «когда», «где», «что» - назови английский эквивалент (when, where, what).',
     'Объясняй одну главную ось ошибки именно этого задания, а не всё правило урока целиком.',
     'Не упоминай грамматику, которой нет в задании (например, «не нужен do», если ученик мог перепутать when/where).',
     'Не пиши только «обычный порядок слов» или «во второй части» без конкретики, что менять.',
     'Для translate: прочитай русскую фразу в question и назови ключевые слова в hint.',
     'Для fill_choice: объясни, чем правильный вариант отличается от distractors по смыслу шага.',
     'Для fill_text и gap: какая форма слова нужна и почему (likes vs like, is vs are).',
-    'Для sentence_puzzle: errorText не должен быть только «Порядок неверный» — добавь учебную ось в одну фразу.',
+    'Для sentence_puzzle: errorText не должен быть только «Порядок неверный» - добавь учебную ось в одну фразу.',
     'Можно назвать 1–2 английских слова-якоря, но не полный correctAnswer.',
     'У каждого exercise.variants[i] должен быть свой hint, согласованный с question этого variant.',
     ...childLines,
@@ -660,7 +660,7 @@ function validateGeneratedStepShape(
                 issue(
                   'hard',
                   'step7_answer_must_be_single_word',
-                  `step7 variant ${variantIndex + 1}: correctAnswer — одно слово без пробелов.`,
+                  `step7 variant ${variantIndex + 1}: correctAnswer - одно слово без пробелов.`,
                   sourceStep.stepNumber
                 )
               )
@@ -685,7 +685,7 @@ function validateGeneratedStepShape(
                   issue(
                     'hard',
                     'invalid_step7_variant_options',
-                    `step7 variant ${variantIndex + 1}: options — 3 однословных строки, correctAnswer ∈ options.`,
+                    `step7 variant ${variantIndex + 1}: options - 3 однословных строки, correctAnswer ∈ options.`,
                     sourceStep.stepNumber
                   )
                 )
@@ -1396,23 +1396,23 @@ export function buildStructuredCreationSystemPrompt(audience: Audience = 'adult'
     '- На hard-вариантах переформулируй ситуацию по смыслу, но не раскрывай ответ ни на русском, ни английском до рамки с пропуском.',
     'Не добавляй новую грамматику вне указанного grammar focus.',
     'Если передан selectedVariantId, sourceSituations и sourceSteps, считай их обязательными смысловыми рельсами для нового варианта.',
-    'Для fill_choice на шагах 1–2: ровно 3 options — полные грамматически корректные предложения; correctAnswer ∈ options.',
-    'Для fill_choice на шагах 1–2: distractors — естественные фразы. Нельзя ломанный английский вроде "It\'s dark to go.".',
+    'Для fill_choice на шагах 1–2: ровно 3 options - полные грамматически корректные предложения; correctAnswer ∈ options.',
+    'Для fill_choice на шагах 1–2: distractors - естественные фразы. Нельзя ломанный английский вроде "It\'s dark to go.".',
     'Для sentence_puzzle всегда давай ровно 3 puzzleVariants. В каждом puzzle-варианте нужны title, instruction, words, correctOrder, correctAnswer, successText, errorText, hintText, myEngComment.',
-    'Для sentence_puzzle: смысл под-задачи в title (например «Пазл 2/3: …»). instruction — пустая строка или нейтральная «Расставьте слова по порядку»; без грамматических шаблонов (I am from + …, It is time to …).',
-    'Для sentence_puzzle: hintText — пустая строка, если в words не больше 4 токенов; при 5+ — короткая подсказка без полного ответа (допустимо «Подсказка: первое слово — …»).',
-    'Для sentence_puzzle: у каждого puzzleVariants[i] свой correctAnswer, совпадающий с correctOrder и набором words; exercise.correctAnswer шага 5 — ответ первого пазла или нейтральная подпись.',
-    'Для sentence_puzzle: words и correctOrder в каждом варианте — один и тот же список токенов из correctAnswer этого варианта.',
+    'Для sentence_puzzle: смысл под-задачи в title (например «Пазл 2/3: …»). instruction - пустая строка или нейтральная «Расставьте слова по порядку»; без грамматических шаблонов (I am from + …, It is time to …).',
+    'Для sentence_puzzle: hintText - пустая строка, если в words не больше 4 токенов; при 5+ - короткая подсказка без полного ответа (допустимо «Подсказка: первое слово - …»).',
+    'Для sentence_puzzle: у каждого puzzleVariants[i] свой correctAnswer, совпадающий с correctOrder и набором words; exercise.correctAnswer шага 5 - ответ первого пазла или нейтральная подпись.',
+    'Для sentence_puzzle: words и correctOrder в каждом варианте - один и тот же список токенов из correctAnswer этого варианта.',
     'Шаг 5 всегда должен быть sentence_puzzle с ровно 3 puzzleVariants.',
-    'Шаг 6 — финальная проверка: translate или write_own, answerFormat full_sentence, ровно 3 exercise.variants (easy, medium, hard), без options и без puzzleVariants.',
-    'Шаг 6: цикл easy — первая ось урока; medium — вторая ось, correctAnswer не должен совпадать с ответами шагов 3–4; hard — тот же шаблон, новая лексика, не из ключевых слов шагов 1–5.',
+    'Шаг 6 - финальная проверка: translate или write_own, answerFormat full_sentence, ровно 3 exercise.variants (easy, medium, hard), без options и без puzzleVariants.',
+    'Шаг 6: цикл easy - первая ось урока; medium - вторая ось, correctAnswer не должен совпадать с ответами шагов 3–4; hard - тот же шаблон, новая лексика, не из ключевых слов шагов 1–5.',
     'Шаг 6: у каждого variant свои question, correctAnswer, hint; difficulty: easy / medium / hard.',
-    'Шаг 7 — быстрый contrast-gap: fill_choice, ровно 3 exercise.variants (easy, medium, hard).',
-    'Шаг 7: у каждого variant — question (RU-ситуация + EN-рамка с ___), correctAnswer — одно слово без пробелов, options — 3 однословных чипа, correctAnswer ∈ options, свой hint.',
+    'Шаг 7 - быстрый contrast-gap: fill_choice, ровно 3 exercise.variants (easy, medium, hard).',
+    'Шаг 7: у каждого variant - question (RU-ситуация + EN-рамка с ___), correctAnswer - одно слово без пробелов, options - 3 однословных чипа, correctAnswer ∈ options, свой hint.',
     'Шаг 7: distractors грамматические (like/likes/liking, a/an/the, to/for/at), не три целых предложения.',
     'Шаг 7: без шпаргалки «настроение / страна / роль» в info; новая лексика; не копируй correctAnswer шагов 3–4 и 6.',
     'Шаг 7: верхний exercise.question / correctAnswer / options = копия variant[0] (для валидатора).',
-    'Шаги 3, 4, 6 и 7 используют exercise.variants — смотри контракт sourceSteps.',
+    'Шаги 3, 4, 6 и 7 используют exercise.variants - смотри контракт sourceSteps.',
     'Для шагов 1-4 с options показывай только выбор из вариантов.',
     'Для practice_fill, practice_match и translate шагов примеры и пояснения обязаны использовать другой контекст и другую лексику, чем само задание.',
     'На translate-шагах пример в info и любая английская фраза в кавычках не должны быть эквивалентны ни одному ожидаемому ответу (correctAnswer, acceptedAnswers и все exercise.variants), включая пары I am / I’m.',
@@ -1451,7 +1451,7 @@ export function buildStructuredVariantDiversifyInstruction(): string {
     'Меняй формулировки, примеры, микро-ситуации и лексику, сохраняя тот же grammar focus и шаги.',
     'Недостаточно заменить she на he, имя персонажа, одно слово или порядок двух фраз.',
     'Новый вариант должен ощущаться как другой сценарий той же учебной цели.',
-    'На шаге 7 — три новых gap-слова в новых ситуациях, не копируй старый MCQ из целых предложений.',
+    'На шаге 7 - три новых gap-слова в новых ситуациях, не копируй старый MCQ из целых предложений.',
   ].join(' ')
 }
 
@@ -1471,23 +1471,23 @@ export function buildStructuredRepeatSystemPrompt(audience: Audience = 'adult'):
     '- Английский допустим только во второй части после дефиса (рамка с ___ или подсказка).',
     '- Не подставляй correctAnswer, глагол из ответа и объекты ответа в русскую формулировку.',
     '- На hard-вариантах переформулируй ситуацию по смыслу, но не раскрывай ответ ни на русском, ни английском до рамки с пропуском.',
-    'Для fill_choice на шагах 1–2: ровно 3 options — полные грамматически корректные предложения; correctAnswer ∈ options.',
-    'Для fill_choice на шагах 1–2: distractors — естественные фразы. Нельзя ломанный английский вроде "It\'s dark to go.".',
+    'Для fill_choice на шагах 1–2: ровно 3 options - полные грамматически корректные предложения; correctAnswer ∈ options.',
+    'Для fill_choice на шагах 1–2: distractors - естественные фразы. Нельзя ломанный английский вроде "It\'s dark to go.".',
     'Для sentence_puzzle всегда давай ровно 3 puzzleVariants. В каждом puzzle-варианте нужны title, instruction, words, correctOrder, correctAnswer, successText, errorText, hintText, myEngComment.',
-    'Для sentence_puzzle: смысл под-задачи в title (например «Пазл 2/3: …»). instruction — пустая строка или нейтральная «Расставьте слова по порядку»; без грамматических шаблонов (I am from + …, It is time to …).',
-    'Для sentence_puzzle: hintText — пустая строка, если в words не больше 4 токенов; при 5+ — короткая подсказка без полного ответа (допустимо «Подсказка: первое слово — …»).',
-    'Для sentence_puzzle: у каждого puzzleVariants[i] свой correctAnswer, совпадающий с correctOrder и набором words; exercise.correctAnswer шага 5 — ответ первого пазла или нейтральная подпись.',
-    'Для sentence_puzzle: words и correctOrder в каждом варианте — один и тот же список токенов из correctAnswer этого варианта.',
+    'Для sentence_puzzle: смысл под-задачи в title (например «Пазл 2/3: …»). instruction - пустая строка или нейтральная «Расставьте слова по порядку»; без грамматических шаблонов (I am from + …, It is time to …).',
+    'Для sentence_puzzle: hintText - пустая строка, если в words не больше 4 токенов; при 5+ - короткая подсказка без полного ответа (допустимо «Подсказка: первое слово - …»).',
+    'Для sentence_puzzle: у каждого puzzleVariants[i] свой correctAnswer, совпадающий с correctOrder и набором words; exercise.correctAnswer шага 5 - ответ первого пазла или нейтральная подпись.',
+    'Для sentence_puzzle: words и correctOrder в каждом варианте - один и тот же список токенов из correctAnswer этого варианта.',
     'Шаг 5 всегда должен быть sentence_puzzle с ровно 3 puzzleVariants.',
-    'Шаг 6 — финальная проверка: translate или write_own, answerFormat full_sentence, ровно 3 exercise.variants (easy, medium, hard), без options и без puzzleVariants.',
-    'Шаг 6: цикл easy — первая ось урока; medium — вторая ось, correctAnswer не должен совпадать с ответами шагов 3–4; hard — тот же шаблон, новая лексика, не из ключевых слов шагов 1–5.',
+    'Шаг 6 - финальная проверка: translate или write_own, answerFormat full_sentence, ровно 3 exercise.variants (easy, medium, hard), без options и без puzzleVariants.',
+    'Шаг 6: цикл easy - первая ось урока; medium - вторая ось, correctAnswer не должен совпадать с ответами шагов 3–4; hard - тот же шаблон, новая лексика, не из ключевых слов шагов 1–5.',
     'Шаг 6: у каждого variant свои question, correctAnswer, hint; difficulty: easy / medium / hard.',
-    'Шаг 7 — быстрый contrast-gap: fill_choice, ровно 3 exercise.variants (easy, medium, hard).',
-    'Шаг 7: у каждого variant — question (RU-ситуация + EN-рамка с ___), correctAnswer — одно слово без пробелов, options — 3 однословных чипа, correctAnswer ∈ options, свой hint.',
+    'Шаг 7 - быстрый contrast-gap: fill_choice, ровно 3 exercise.variants (easy, medium, hard).',
+    'Шаг 7: у каждого variant - question (RU-ситуация + EN-рамка с ___), correctAnswer - одно слово без пробелов, options - 3 однословных чипа, correctAnswer ∈ options, свой hint.',
     'Шаг 7: distractors грамматические (like/likes/liking, a/an/the, to/for/at), не три целых предложения.',
     'Шаг 7: без шпаргалки «настроение / страна / роль» в info; новая лексика; не копируй correctAnswer шагов 3–4 и 6.',
     'Шаг 7: верхний exercise.question / correctAnswer / options = копия variant[0] (для валидатора).',
-    'Шаги 3, 4, 6 и 7 используют exercise.variants — смотри контракт sourceSteps.',
+    'Шаги 3, 4, 6 и 7 используют exercise.variants - смотри контракт sourceSteps.',
     'Для шагов 1-4 с options показывай только выбор из вариантов.',
     'Для practice_fill, practice_match и translate шагов примеры и пояснения обязаны использовать другой контекст и другую лексику, чем само задание.',
     'На translate-шагах пример в info и любая английская фраза в кавычках не должны быть эквивалентны ни одному ожидаемому ответу (correctAnswer, acceptedAnswers и все exercise.variants), включая пары I am / I’m.',
@@ -1536,7 +1536,7 @@ export function buildLessonRepairUserMessage(params: {
     }
     if (issues.some((issueItem) => issueItem.code === 'hint_not_instructional_enough' || issueItem.code === 'hint_too_generic')) {
       lines.push(
-        'Для hint: привяжи текст к русским словам задания (когда→when, где→where) и объясни одну конкретную ошибку. Пример: «В задании «когда» — это when, не where. После they — start, без -s.»'
+        'Для hint: привяжи текст к русским словам задания (когда→when, где→where) и объясни одну конкретную ошибку. Пример: «В задании «когда» - это when, не where. После they - start, без -s.»'
       )
     }
   }
