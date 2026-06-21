@@ -30,15 +30,15 @@ describe('resolveLessonChoiceComposerLayout', () => {
     ).toEqual({ mountChips: true, reserveMinHeight: false, lockReleased: false })
   })
 
-  it('theory phase - reserve height for entire reveal, no chips', () => {
+  it('theory phase - mount chips invisibly, reserve height for entire reveal', () => {
     expect(resolveLessonChoiceComposerLayout(baseChoiceInput)).toEqual({
-      mountChips: false,
+      mountChips: true,
       reserveMinHeight: true,
       lockReleased: false,
     })
   })
 
-  it('before reveal init on step transition - reserve height', () => {
+  it('before reveal init on step transition - mount chips invisibly, reserve height', () => {
     expect(
       resolveLessonChoiceComposerLayout({
         ...baseChoiceInput,
@@ -46,7 +46,7 @@ describe('resolveLessonChoiceComposerLayout', () => {
         isRevealInProgress: false,
       })
     ).toEqual({
-      mountChips: false,
+      mountChips: true,
       reserveMinHeight: true,
       lockReleased: false,
     })

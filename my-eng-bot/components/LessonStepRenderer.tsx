@@ -56,7 +56,6 @@ import { useDialogFeedKeyboardScroll } from '@/hooks/useDialogFeedKeyboardScroll
 import { resyncIosWebKitDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
 import { useLessonComposerHeightLock } from '@/hooks/useLessonComposerHeightLock'
 import {
-  estimateLessonChoiceChipsMinHeight,
   measureChoiceChipsLaneWidthPx,
   estimateLessonComposerMinHeight,
   resolveLessonComposerPanelKind,
@@ -1448,8 +1447,6 @@ export default function LessonStepRenderer({
         prefersReducedMotion,
       })
     : null
-  const mountChoiceChips = !shouldRenderChoiceChips || (choiceComposerLayout?.mountChips ?? true)
-
   const showLessonFinale = Boolean(lessonMedalReveal && hasPostLessonOptions)
   const canShowLessonIntroControls =
     hasIntroBlocks &&
@@ -2023,10 +2020,10 @@ export default function LessonStepRenderer({
                       })
                     }
                   />
-                ) : shouldRenderChoiceChips && mountChoiceChips ? (
+                ) : shouldRenderChoiceChips ? (
                   <div
                     className={
-                      !isChoiceChipsVisible ? 'pointer-events-none' : undefined
+                      !isChoiceChipsVisible ? 'pointer-events-none invisible' : undefined
                     }
                     aria-hidden={!isChoiceChipsVisible}
                   >
@@ -2044,18 +2041,6 @@ export default function LessonStepRenderer({
                       autoSelectNonce={forgivenessAutofillNonce || undefined}
                     />
                   </div>
-                ) : shouldRenderChoiceChips ? (
-                  <div
-                    className="pointer-events-none invisible"
-                    aria-hidden
-                    style={{
-                      minHeight: estimateLessonChoiceChipsMinHeight(
-                        displayChoiceOptions.length,
-                        displayChoiceOptions,
-                        composerInnerWidthPx
-                      ),
-                    }}
-                  />
                 ) : null}
 
                 {exercise &&

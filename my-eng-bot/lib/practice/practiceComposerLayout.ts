@@ -58,14 +58,14 @@ export function resolvePracticeChoiceComposerLayout(input: {
 
   if (!input.isRevealInitializedForKey || input.isRevealInProgress) {
     return {
-      mountChips: false,
+      mountChips: true,
       reserveMinHeight: true,
       lockReleased: false,
     }
   }
 
   return {
-    mountChips: false,
+    mountChips: true,
     reserveMinHeight: false,
     lockReleased: true,
   }

@@ -52,9 +52,9 @@ describe('resolvePracticeChoiceComposerLayout', () => {
     prefersReducedMotion: false,
   }
 
-  it('hides chips while reveal in progress', () => {
+  it('mounts chips invisibly while reveal in progress', () => {
     expect(resolvePracticeChoiceComposerLayout(base)).toEqual({
-      mountChips: false,
+      mountChips: true,
       reserveMinHeight: true,
       lockReleased: false,
     })

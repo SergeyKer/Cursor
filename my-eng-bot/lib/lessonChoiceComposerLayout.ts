@@ -55,14 +55,14 @@ export function resolveLessonChoiceComposerLayout(
     input.isRevealInProgress
   ) {
     return {
-      mountChips: false,
+      mountChips: true,
       reserveMinHeight: true,
       lockReleased: false,
     }
   }
 
   return {
-    mountChips: false,
+    mountChips: true,
     reserveMinHeight: false,
     lockReleased: true,
   }

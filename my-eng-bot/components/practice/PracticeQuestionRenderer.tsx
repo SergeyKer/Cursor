@@ -49,10 +49,8 @@ interface PracticeQuestionRendererProps {
   wrongAttemptsOnCurrentQuestion?: number
   audience?: Audience
   onSubmit: (answer: string) => void
-  mountChoiceChips?: boolean
   suppressChoiceChipEnterAnimation?: boolean
   choiceChipsVisible?: boolean
-  choiceChipsMinHeight?: number
 }
 
 function inputPlaceholder(
@@ -136,10 +134,8 @@ export default function PracticeQuestionRenderer({
   wrongAttemptsOnCurrentQuestion = 0,
   audience = 'adult',
   onSubmit,
-  mountChoiceChips = true,
   suppressChoiceChipEnterAnimation = false,
   choiceChipsVisible = true,
-  choiceChipsMinHeight,
 }: PracticeQuestionRendererProps) {
   const [draft, setDraft] = useState('')
   const [voiceTextDraft, setVoiceTextDraft] = useState('')
@@ -534,19 +530,6 @@ export default function PracticeQuestionRenderer({
   }, [finishChoiceVoiceSession, hardResetSpeechRecognition])
 
   if (canUseChoices) {
-    if (!mountChoiceChips) {
-      if (choiceChipsMinHeight) {
-        return (
-          <div
-            className="pointer-events-none invisible"
-            aria-hidden
-            style={{ minHeight: choiceChipsMinHeight }}
-          />
-        )
-      }
-      return null
-    }
-
     const chips = (
       <LessonChoiceChips
         key={question.id}
@@ -564,7 +547,7 @@ export default function PracticeQuestionRenderer({
         <div className={`${getPracticeComposerEnterClass(correctionMode)} space-y-1`}>
           <AudioPracticeButton text={question.audioText ?? question.targetAnswer} disabled={disabled} />
           <div
-            className={!choiceChipsVisible ? 'pointer-events-none' : undefined}
+            className={!choiceChipsVisible ? 'pointer-events-none invisible' : undefined}
             aria-hidden={!choiceChipsVisible}
           >
             {chips}
@@ -575,7 +558,7 @@ export default function PracticeQuestionRenderer({
 
     return (
       <div
-        className={!choiceChipsVisible ? 'pointer-events-none' : undefined}
+        className={!choiceChipsVisible ? 'pointer-events-none invisible' : undefined}
         aria-hidden={!choiceChipsVisible}
       >
         {chips}

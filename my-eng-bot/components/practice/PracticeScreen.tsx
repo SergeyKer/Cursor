@@ -890,10 +890,8 @@ export default function PracticeScreen({
                   wrongAttemptsOnCurrentQuestion={session.wrongAttemptsOnCurrentQuestion ?? 0}
                   audience={audience}
                   onSubmit={onSubmitAnswer}
-                  mountChoiceChips={choiceComposerLayout?.mountChips ?? true}
                   suppressChoiceChipEnterAnimation={!isChoiceChipsVisible}
                   choiceChipsVisible={isChoiceChipsVisible}
-                  choiceChipsMinHeight={choiceComposerMinHeightEstimate}
                 />
               ) : null}
             </DialogComposerStack>
