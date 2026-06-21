@@ -4404,7 +4404,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   useEffect(() => {
     if (!storageLoaded) return
-    void loadLessonById('1')
+    void loadLessonById('1').catch(() => {})
   }, [storageLoaded])
 
   useEffect(() => {

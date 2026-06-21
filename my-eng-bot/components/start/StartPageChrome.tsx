@@ -35,7 +35,7 @@ export default function StartPageChrome({
               disabled={menuDisabled}
               className="app-header-control chat-action-button pointer-events-auto relative z-20 col-start-1 row-start-1 flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center border text-[var(--app-header-text)] touch-manipulation disabled:opacity-50"
               style={{ borderRadius: 'var(--app-header-control-radius)' }}
-              aria-label={menuDisabled ? 'Меню, загрузка' : 'Меню'}
+              aria-label="Меню"
               title={menuDisabled ? 'Меню скоро будет доступно' : 'Меню'}
             >
               <MenuToggleIcon />
@@ -58,6 +58,7 @@ export default function StartPageChrome({
             dynamicText={START_FOOTER_DYNAMIC}
             typingKey="start-footer-placeholder"
             showWhenIdle
+            instantDynamicText
           />
         </div>
         <div

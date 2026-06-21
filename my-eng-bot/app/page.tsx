@@ -9,18 +9,19 @@ import { isIosSafariUserAgent } from '@/lib/iosSafariViewport'
 
 type AppShellComponent = ComponentType<AppShellProps>
 
-const RUNTIME_READY_TIMEOUT_MS = 20_000
-
 export default function Page() {
   const [AppShellComponent, setAppShellComponent] = useState<AppShellComponent | null>(null)
   const [bridge, setBridge] = useState<StartBridgeState>(createEmptyBridge)
-  const [appReady, setAppReady] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    void import('@/components/app/AppShell').then((mod) => {
-      if (!cancelled) setAppShellComponent(() => mod.default)
-    })
+    void import('@/components/app/AppShell')
+      .then((mod) => {
+        if (!cancelled && mod?.default) setAppShellComponent(() => mod.default)
+      })
+      .catch((error) => {
+        console.error('Failed to load AppShell', error)
+      })
     return () => {
       cancelled = true
     }
@@ -28,34 +29,25 @@ export default function Page() {
 
   const handleRuntimeReady = useCallback(() => {
     setBridge((current) => mergeBridgeState(current, { runtimeLoading: false }))
-    setAppReady(true)
   }, [])
-
-  useEffect(() => {
-    if (appReady || !AppShellComponent) return
-    const timeout = window.setTimeout(() => {
-      setAppReady(true)
-    }, RUNTIME_READY_TIMEOUT_MS)
-    return () => window.clearTimeout(timeout)
-  }, [appReady, AppShellComponent])
 
   const isIosSafariClient =
     typeof navigator !== 'undefined' && isIosSafariUserAgent(navigator.userAgent)
 
+  const showStartFallback = !AppShellComponent
+
   return (
     <>
       {AppShellComponent ? (
-        <div className={appReady ? undefined : 'hidden'} aria-hidden={!appReady}>
-          <AppShellComponent entryBridge={bridge} onRuntimeReady={handleRuntimeReady} />
-        </div>
+        <AppShellComponent entryBridge={bridge} onRuntimeReady={handleRuntimeReady} />
       ) : null}
 
-      {!appReady ? (
+      {showStartFallback ? (
         <div
           data-audience={bridge.audience ?? undefined}
           className="start-screen-surface fixed inset-0 z-50 flex min-h-[100dvh] h-[100dvh] flex-col"
         >
-          <StartPageChrome menuDisabled={!AppShellComponent} />
+          <StartPageChrome />
           <main
             className="flex min-h-0 flex-1 flex-col overflow-hidden"
             style={{
