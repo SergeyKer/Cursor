@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type AnimationEvent } from 'react'
 import FeedbackStatusText from '@/components/FeedbackStatusText'
 import LessonFeedbackStatusBubble from '@/components/lesson/LessonFeedbackStatusBubble'
 import LessonStepBubble from '@/components/lesson/LessonStepBubble'
@@ -125,18 +125,24 @@ function useLessonUserEnterClass(prefersReducedMotion: boolean) {
   )
 }
 
-/** Статус «Верно/Неверно» - как в уроках (`.lesson-feed-status-enter`). */
+/** Статус «Верно/Неверно» - как в уроках (`.lesson-feed-status-enter`). Id завершается в onAnimationEnd, не при render. */
 function useLessonFeedStatusEnterClass(prefersReducedMotion: boolean) {
-  const enteredIdsRef = useRef<Set<string>>(new Set())
-  return useCallback(
+  const finishedIdsRef = useRef<Set<string>>(new Set())
+
+  const getEnterClass = useCallback(
     (messageId: string) => {
       if (prefersReducedMotion) return ''
-      if (enteredIdsRef.current.has(messageId)) return ''
-      enteredIdsRef.current.add(messageId)
+      if (finishedIdsRef.current.has(messageId)) return ''
       return 'lesson-feed-status-enter'
     },
     [prefersReducedMotion]
   )
+
+  const markEnterFinished = useCallback((messageId: string) => {
+    finishedIdsRef.current.add(messageId)
+  }, [])
+
+  return { getEnterClass, markEnterFinished }
 }
 
 export default function PracticeScreen({
@@ -185,7 +191,16 @@ export default function PracticeScreen({
 
   const prefersReducedMotion = usePrefersReducedMotion()
   const lessonUserEnterClass = useLessonUserEnterClass(prefersReducedMotion)
-  const lessonFeedStatusEnterClass = useLessonFeedStatusEnterClass(prefersReducedMotion)
+  const { getEnterClass: lessonFeedStatusEnterClass, markEnterFinished: markStatusEnterFinished } =
+    useLessonFeedStatusEnterClass(prefersReducedMotion)
+
+  const handleStatusBubbleAnimationEnd = useCallback(
+    (messageId: string, event: AnimationEvent<HTMLDivElement>) => {
+      if (event.animationName !== 'lessonSlideIn') return
+      markStatusEnterFinished(messageId)
+    },
+    [markStatusEnterFinished]
+  )
 
   const resolvedFeedbackType = useMemo(() => {
     if (feedback?.type) return feedback.type
@@ -1072,10 +1087,7 @@ export default function PracticeScreen({
                       )
                     }
 
-                    const statusEnterClass =
-                      message.tone === 'error' || prefersReducedMotion
-                        ? ''
-                        : lessonFeedStatusEnterClass(message.id)
+                    const statusEnterClass = lessonFeedStatusEnterClass(message.id)
 
                     if (message.tone === 'error') {
                       const isTailChoiceCorrectionError =
@@ -1095,6 +1107,7 @@ export default function PracticeScreen({
                           position={position}
                           className={statusEnterClass}
                           rowClassName={rowMargin}
+                          onAnimationEnd={(event) => handleStatusBubbleAnimationEnd(message.id, event)}
                         >
                           <LessonFeedbackStatusBubble
                             hintText={message.text ?? ''}
@@ -1118,6 +1131,7 @@ export default function PracticeScreen({
                         position={position}
                         className={statusEnterClass}
                         rowClassName={rowMargin}
+                        onAnimationEnd={(event) => handleStatusBubbleAnimationEnd(message.id, event)}
                       >
                         <section
                           className={`chat-section-surface glass-surface rounded-xl border ${

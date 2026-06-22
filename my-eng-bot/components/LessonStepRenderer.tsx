@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type AnimationEvent,
   type CSSProperties,
 } from 'react'
 import FeedbackStatusText from '@/components/FeedbackStatusText'
@@ -261,18 +262,24 @@ function normalizeLessonChoiceText(text: string): string {
   return text.trim().replace(/\s+/g, ' ').toLowerCase()
 }
 
-/** Анимация входа только при первом появлении id в ленте (без повторов при смене state). */
+/** Анимация входа только при первом появлении id в ленте; завершение — в onAnimationEnd, не при render. */
 function useLessonFeedStatusEnterClass(prefersReducedMotion: boolean) {
-  const enteredIdsRef = useRef<Set<string>>(new Set())
-  return useCallback(
+  const finishedIdsRef = useRef<Set<string>>(new Set())
+
+  const getEnterClass = useCallback(
     (messageId: string) => {
       if (prefersReducedMotion) return ''
-      if (enteredIdsRef.current.has(messageId)) return ''
-      enteredIdsRef.current.add(messageId)
+      if (finishedIdsRef.current.has(messageId)) return ''
       return 'lesson-feed-status-enter'
     },
     [prefersReducedMotion]
   )
+
+  const markEnterFinished = useCallback((messageId: string) => {
+    finishedIdsRef.current.add(messageId)
+  }, [])
+
+  return { getEnterClass, markEnterFinished }
 }
 
 export default function LessonStepRenderer({
@@ -365,7 +372,16 @@ export default function LessonStepRenderer({
   const [showAdvancingStatusLine, setShowAdvancingStatusLine] = useState(false)
   const [isPuzzleFeedOverflowing, setIsPuzzleFeedOverflowing] = useState(false)
   const prefersReducedMotion = usePrefersReducedMotion()
-  const lessonFeedStatusEnterClass = useLessonFeedStatusEnterClass(prefersReducedMotion)
+  const { getEnterClass: lessonFeedStatusEnterClass, markEnterFinished: markStatusEnterFinished } =
+    useLessonFeedStatusEnterClass(prefersReducedMotion)
+
+  const handleStatusBubbleAnimationEnd = useCallback(
+    (messageId: string, event: AnimationEvent<HTMLDivElement>) => {
+      if (event.animationName !== 'lessonSlideIn') return
+      markStatusEnterFinished(messageId)
+    },
+    [markStatusEnterFinished]
+  )
   const currentEntry = timeline.find((entry) => entry.isCurrent) ?? null
   const currentStep = currentEntry?.step ?? null
   const latestFeedback = useMemo(
@@ -1883,10 +1899,7 @@ export default function LessonStepRenderer({
                     status === 'feedback' &&
                     !prefersReducedMotion
 
-                  const feedbackStatusEnterClass =
-                    message.tone === 'error' && !prefersReducedMotion
-                      ? ''
-                      : lessonFeedStatusEnterClass(message.id)
+                  const feedbackStatusEnterClass = lessonFeedStatusEnterClass(message.id)
 
                   return (
                     <ChatBubbleFrame
@@ -1897,6 +1910,7 @@ export default function LessonStepRenderer({
                       rowClassName={
                         pinLastRowToBottom ? 'mb-0' : isBubbleEnd ? 'mb-2.5' : 'mb-0.5'
                       }
+                      onAnimationEnd={(event) => handleStatusBubbleAnimationEnd(message.id, event)}
                     >
                       {message.tone === 'error' ? (
                         <LessonFeedbackStatusBubble
