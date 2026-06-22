@@ -68,19 +68,12 @@ export function getChoiceCorrectionTapHint(audience: Audience): string {
   return `${choiceCorrectionSayVerb(audience)} ответ...`
 }
 
-export function buildChoiceCorrectionInviteLine(targetAnswer: string, audience: Audience): string {
-  const verb = choiceCorrectionSayVerb(audience)
-  const trimmed = targetAnswer.trim()
-  return trimmed ? `${verb}: ${trimmed}` : `${verb}:`
-}
-
 export function getChoiceCorrectionOverlayLine(params: {
   showTapHint: boolean
   showTextEditButton: boolean
-  targetAnswer: string
   audience: Audience
 }): string {
-  if (!params.showTapHint) return buildChoiceCorrectionInviteLine(params.targetAnswer, params.audience)
+  if (!params.showTapHint) return getChoiceCorrectionTapHint(params.audience)
   return params.showTextEditButton
     ? CHOICE_CORRECTION_TAP_HINT_WITH_TEXT_EDIT
     : getChoiceCorrectionTapHint(params.audience)

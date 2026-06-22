@@ -38,6 +38,10 @@ import {
   useVoiceComposer,
 } from '@/lib/voice/useVoiceComposer'
 import type { Audience } from '@/lib/types'
+import {
+  showVoiceCorrectionComposer,
+  type PracticeChoiceCorrectionPhase,
+} from '@/lib/practice/practiceChoiceCorrectionPhase'
 import type { PracticeQuestion } from '@/types/practice'
 
 interface PracticeQuestionRendererProps {
@@ -46,20 +50,24 @@ interface PracticeQuestionRendererProps {
   choicePanelFrozen?: boolean
   answerPanelLocked?: boolean
   correctionMode?: boolean
+  choiceCorrectionPhase?: PracticeChoiceCorrectionPhase
   wrongAttemptsOnCurrentQuestion?: number
   audience?: Audience
   onSubmit: (answer: string) => void
   suppressChoiceChipEnterAnimation?: boolean
   choiceChipsVisible?: boolean
+  wrongChoiceText?: string | null
+  clearSelectionSignal?: number
 }
 
 function inputPlaceholder(
   question: PracticeQuestion,
+  isChoiceCorrection: boolean,
   correctionMode: boolean,
   audience: Audience,
   choiceTextEditUnlocked?: boolean
 ): string {
-  if (correctionMode && question.type === 'choice') {
+  if (isChoiceCorrection && question.type === 'choice') {
     return choiceCorrectionPlaceholder({
       targetAnswer: question.targetAnswer,
       isTextEditUnlocked: Boolean(choiceTextEditUnlocked),
@@ -95,9 +103,13 @@ function wordBank(question: PracticeQuestion): string[] {
 
 const ANSWER_PANEL_LOCK_CLASS = 'pointer-events-none opacity-60'
 
-/** В correction (1–2 ошибка) - только лёгкое появление, без slide снизу. */
-function getPracticeComposerEnterClass(correctionMode: boolean): string {
-  return correctionMode ? 'practice-section-appear' : 'lesson-enter'
+/** Voice correction choice: lesson-enter; text correction: practice-section-appear. */
+function getPracticeComposerEnterClass(options: {
+  isChoiceVoiceCorrection: boolean
+  correctionMode: boolean
+}): string {
+  if (options.isChoiceVoiceCorrection) return 'lesson-enter'
+  return options.correctionMode ? 'practice-section-appear' : 'lesson-enter'
 }
 const PRACTICE_MULTI_ROW_INPUT_ROW_CLASS = 'flex w-full items-stretch gap-2'
 
@@ -131,11 +143,14 @@ export default function PracticeQuestionRenderer({
   choicePanelFrozen = false,
   answerPanelLocked = false,
   correctionMode = false,
+  choiceCorrectionPhase = 'idle',
   wrongAttemptsOnCurrentQuestion = 0,
   audience = 'adult',
   onSubmit,
   suppressChoiceChipEnterAnimation = false,
   choiceChipsVisible = true,
+  wrongChoiceText = null,
+  clearSelectionSignal = 0,
 }: PracticeQuestionRendererProps) {
   const [draft, setDraft] = useState('')
   const [voiceTextDraft, setVoiceTextDraft] = useState('')
@@ -163,19 +178,28 @@ export default function PracticeQuestionRenderer({
     }
     return raw
   }, [question.options, question.targetAnswer, question.type])
+  const isChoiceVoiceCorrectionComposer = showVoiceCorrectionComposer(
+    choiceCorrectionPhase,
+    question.type
+  )
+  const composerEnterClass = getPracticeComposerEnterClass({
+    isChoiceVoiceCorrection: isChoiceVoiceCorrectionComposer,
+    correctionMode,
+  })
   const canUseChoices =
     choices.length > 0 &&
     !correctionMode &&
     (question.type === 'choice' ||
       question.type === 'speed-round' ||
       question.type === 'context-clue' ||
-      question.type === 'listening-select')
+      question.type === 'listening-select') &&
+    (choiceCorrectionPhase === 'idle' || choiceCorrectionPhase === 'chips')
   const canUseDropdown = choices.length > 0 && !correctionMode && question.type === 'dropdown-fill'
   const canUseWordBank =
     !correctionMode && (question.type === 'sentence-surgery' || question.type === 'word-builder-pro')
   const canUseAudio =
     question.type === 'dictation' || question.type === 'listening-select' || question.type === 'voice-shadow'
-  const isChoiceCorrectionComposer = correctionMode && question.type === 'choice'
+  const isChoiceCorrectionComposer = isChoiceVoiceCorrectionComposer
   const isDictationLikeComposer = !correctionMode && question.type === 'dictation'
   const isMultiRowTextComposer =
     question.type === 'roleplay-mini' ||
@@ -236,18 +260,25 @@ export default function PracticeQuestionRenderer({
     ? getChoiceCorrectionOverlayLine({
         showTapHint: choiceTapHintVisible,
         showTextEditButton: showMicOffInline,
-        targetAnswer: question.targetAnswer,
         audience,
       })
     : ''
   const hideChoiceComposerTextForTapHint =
     showChoiceInviteOverlay && choiceTapHintVisible && Boolean(choiceComposerText.trim())
+  const micInviteAllowed = choiceCorrectionPhase === 'voiceReady'
+  const resolvedPlaceholder = inputPlaceholder(
+    question,
+    isChoiceCorrectionComposer,
+    correctionMode,
+    audience,
+    isTextEditUnlocked
+  )
   const { micVisualState, resetMicAnimation } = useMicInviteAnimation({
     inviteKey:
-      isChoiceCorrectionComposer && !disabled
+      isChoiceCorrectionComposer && micInviteAllowed && !disabled
         ? `${question.id}-correction-${wrongAttemptsOnCurrentQuestion}`
         : null,
-    pauseInvite: choiceVoiceActive,
+    pauseInvite: choiceCorrectionPhase !== 'voiceReady' || choiceVoiceActive,
   })
 
   useAutoGrowTextarea({
@@ -437,7 +468,7 @@ export default function PracticeQuestionRenderer({
   }, [disabled, hardResetSpeechRecognition, isChoiceCorrectionComposer])
 
   useLayoutEffect(() => {
-    if (!isChoiceCorrectionComposer) return
+    if (!isChoiceVoiceCorrectionComposer) return
     setTextFallbackUnlocked(false)
     setFieldTapEngaged(false)
     setChoiceTapHintVisible(false)
@@ -446,7 +477,7 @@ export default function PracticeQuestionRenderer({
     resetMicAnimation()
   }, [
     hardResetSpeechRecognition,
-    isChoiceCorrectionComposer,
+    isChoiceVoiceCorrectionComposer,
     question.id,
     resetChoiceVoiceComposer,
     resetMicAnimation,
@@ -537,14 +568,16 @@ export default function PracticeQuestionRenderer({
         onChoose={onSubmit}
         disabled={disabled || !choiceChipsVisible}
         frozen={choicePanelFrozen}
-        resetKey={`${question.id}-${correctionMode ? 'correction' : 'answer'}`}
+        wrongChoiceText={wrongChoiceText}
+        clearSelectionSignal={clearSelectionSignal}
+        resetKey={`${question.id}-${choiceCorrectionPhase !== 'idle' ? 'correction' : 'answer'}`}
         suppressEnterAnimation={suppressChoiceChipEnterAnimation}
       />
     )
 
     if (canUseAudio) {
       return (
-        <div className={`${getPracticeComposerEnterClass(correctionMode)} space-y-1`}>
+        <div className={`${composerEnterClass} space-y-1`}>
           <AudioPracticeButton text={question.audioText ?? question.targetAnswer} disabled={disabled} />
           <div
             className={!choiceChipsVisible ? 'pointer-events-none invisible' : undefined}
@@ -575,7 +608,7 @@ export default function PracticeQuestionRenderer({
           onSubmit(selectedOption)
         }}
         className={withAnswerPanelLockClass(
-          `${getPracticeComposerEnterClass(correctionMode)} ${CHAT_COMPOSER_COLUMN_SHELL_CLASS}`,
+          `${composerEnterClass} ${CHAT_COMPOSER_COLUMN_SHELL_CLASS}`,
           answerPanelLocked
         )}
         style={{ boxShadow: 'var(--chat-composer-shadow)' }}
@@ -605,7 +638,7 @@ export default function PracticeQuestionRenderer({
     return (
       <div
         className={withAnswerPanelLockClass(
-          `${getPracticeComposerEnterClass(correctionMode)} ${CHAT_COMPOSER_COLUMN_SHELL_CLASS}`,
+          `${composerEnterClass} ${CHAT_COMPOSER_COLUMN_SHELL_CLASS}`,
           answerPanelLocked
         )}
         style={{ boxShadow: 'var(--chat-composer-shadow)' }}
@@ -659,7 +692,7 @@ export default function PracticeQuestionRenderer({
     return (
       <div
         className={withAnswerPanelLockClass(
-          `${getPracticeComposerEnterClass(correctionMode)} ${CHAT_COMPOSER_COLUMN_SHELL_CLASS}`,
+          `${composerEnterClass} ${CHAT_COMPOSER_COLUMN_SHELL_CLASS}`,
           answerPanelLocked
         )}
         style={{ boxShadow: 'var(--chat-composer-shadow)' }}
@@ -756,7 +789,7 @@ export default function PracticeQuestionRenderer({
           disabled={disabled}
           rows={question.type === 'boss-challenge' ? 3 : 2}
           className={`chat-input-field lesson-chat-input-field min-w-0 w-full flex-1 resize-none rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(false)} text-[var(--text)] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70`}
-          placeholder={inputPlaceholder(question, correctionMode, audience)}
+          placeholder={inputPlaceholder(question, isChoiceCorrectionComposer, correctionMode, audience)}
         />
       ) : isChoiceCorrectionComposer ? (
         <div className="relative isolate min-w-0 flex-1">
@@ -815,13 +848,13 @@ export default function PracticeQuestionRenderer({
             className={`chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${choiceCorrectionComposerMetricsClass(
               { voiceWebMetrics: choiceVoiceWebMetricsActive, micOffPr12: showMicOffInline }
             )} ${
-              showChoiceVoiceOverlay || hideChoiceComposerTextForTapHint
+              showChoiceVoiceOverlay || hideChoiceComposerTextForTapHint || showChoiceInviteOverlay
                 ? 'text-transparent caret-transparent placeholder:text-transparent'
                 : choiceVoiceFrozenDisplay
                   ? 'text-[var(--text-muted)]'
                   : 'text-[var(--text)]'
             } ${choiceTextareaReadOnly ? 'cursor-default' : ''}`}
-            placeholder={inputPlaceholder(question, correctionMode, audience, isTextEditUnlocked)}
+            placeholder={resolvedPlaceholder}
             autoComplete="off"
             style={{ maxHeight: `${CHOICE_CORRECTION_INPUT_MAX_HEIGHT_PX}px` }}
           />
@@ -862,7 +895,7 @@ export default function PracticeQuestionRenderer({
             className={`chat-input-field lesson-chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(false)} outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${
               isComposerFrozen ? 'text-[var(--text-muted)]' : 'text-[var(--text)]'
             }`}
-            placeholder={inputPlaceholder(question, correctionMode, audience)}
+            placeholder={inputPlaceholder(question, isChoiceCorrectionComposer, correctionMode, audience)}
             style={{ maxHeight: `${DEFAULT_INPUT_MAX_HEIGHT_PX}px` }}
           />
         </div>
@@ -880,7 +913,7 @@ export default function PracticeQuestionRenderer({
         submitText()
       }}
       className={withAnswerPanelLockClass(
-        `${getPracticeComposerEnterClass(correctionMode)} ${composerShellClass}`,
+        `${composerEnterClass} ${composerShellClass}`,
         answerPanelLocked
       )}
       style={{ boxShadow: 'var(--chat-composer-shadow)' }}

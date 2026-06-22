@@ -297,4 +297,41 @@ describe('buildPracticeFeedMessages sequence', () => {
     expect(firstFeedbackAfterSecond?.text).toBe("🟡 Неверно. Правильно: It's dark.")
     expect(afterSecondWrong.filter((m) => m.tone === 'error')).toHaveLength(2)
   })
+
+  it('includes repeatAnswer for choice errors on attempts 1 and 2', () => {
+    const afterFirstWrong = buildPracticeFeedMessages({
+      session: makeSession({ answers: [wrongAttempt1] }),
+      state: 'correction',
+      audience: 'adult',
+      feedbackType: 'error',
+    })
+    const afterSecondWrong = buildPracticeFeedMessages({
+      session: makeSession({ answers: [wrongAttempt1, wrongAttempt2] }),
+      state: 'correction',
+      audience: 'adult',
+      feedbackType: 'error',
+    })
+
+    expect(afterFirstWrong.find((m) => m.tone === 'error')?.repeatAnswer).toBe("It's dark.")
+    expect(afterSecondWrong.filter((m) => m.tone === 'error').every((m) => m.repeatAnswer === "It's dark.")).toBe(
+      true
+    )
+  })
+
+  it('omits repeatAnswer on third wrong-limit advance', () => {
+    const wrongLimit = {
+      ...wrongAttempt1,
+      timestamp: 3,
+      feedbackMessage: "Три раза не вышло - ничего страшного. Правильно: It's dark.",
+      feedbackTone: 'success' as const,
+    }
+    const messages = buildPracticeFeedMessages({
+      session: makeSession({ answers: [wrongAttempt1, wrongAttempt2, wrongLimit] }),
+      state: 'feedback',
+      audience: 'adult',
+      feedbackType: 'success',
+    })
+    const limitFeedback = messages.filter((m) => m.tone === 'success').at(-1)
+    expect(limitFeedback?.repeatAnswer).toBeUndefined()
+  })
 })

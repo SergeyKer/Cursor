@@ -20,6 +20,10 @@ type LessonFeedbackStatusBubbleProps = {
   repeatInstructionVerb?: string
   animateSayText?: boolean
   sayTextRevealReady?: boolean
+  /** Показывать пустую карточку «Скажите» до раскрытия текста (практика). */
+  reserveEmptySayBlock?: boolean
+  /** Задержка перед текстом «Скажите»; 0 — одновременно с внешним UI (поле ввода). */
+  sayRevealDelayMs?: number
 }
 
 export default function LessonFeedbackStatusBubble({
@@ -28,12 +32,14 @@ export default function LessonFeedbackStatusBubble({
   repeatInstructionVerb = 'Скажи',
   animateSayText = false,
   sayTextRevealReady = true,
+  reserveEmptySayBlock = false,
+  sayRevealDelayMs,
 }: LessonFeedbackStatusBubbleProps) {
   const [sayTextRevealing, setSayTextRevealing] = useState(!animateSayText)
 
   useEffect(() => {
     if (!repeatAnswer || !animateSayText) {
-      setSayTextRevealing(!animateSayText && Boolean(repeatAnswer))
+      setSayTextRevealing(!animateSayText && Boolean(repeatAnswer) && sayTextRevealReady)
       return
     }
 
@@ -42,13 +48,19 @@ export default function LessonFeedbackStatusBubble({
       return
     }
 
+    const delay = sayRevealDelayMs ?? LESSON_TEXT_SECTION_PAUSE_MS
+    if (delay <= 0) {
+      setSayTextRevealing(true)
+      return
+    }
+
     setSayTextRevealing(false)
     const timer = setTimeout(() => {
       setSayTextRevealing(true)
-    }, LESSON_TEXT_SECTION_PAUSE_MS)
+    }, delay)
 
     return () => clearTimeout(timer)
-  }, [repeatAnswer, animateSayText, hintText, sayTextRevealReady])
+  }, [repeatAnswer, animateSayText, hintText, sayTextRevealReady, sayRevealDelayMs])
 
   if (!repeatAnswer) {
     return (
@@ -68,21 +80,29 @@ export default function LessonFeedbackStatusBubble({
       </section>
 
       <section
-        className={`overflow-hidden ${feedbackCardSurfaceClass} ${repeatInstructionCardClass}`}
+        className={`overflow-hidden ${feedbackCardSurfaceClass} ${repeatInstructionCardClass}${
+          reserveEmptySayBlock && !sayTextRevealing ? ' min-h-[2.75rem]' : ''
+        }`}
         role="note"
       >
-        <div
-          className={`text-[15px] leading-[1.45] text-[var(--text)] ${
-            sayTextRevealing
-              ? showSaySoftEnter
-                ? 'lesson-text-soft-enter'
-                : ''
-              : 'invisible'
-          }`}
-          aria-hidden={!sayTextRevealing}
-        >
-          {renderTaskInstructionText(sayInstructionText)}
-        </div>
+        {sayTextRevealing ? (
+          <div
+            className={`text-[15px] leading-[1.45] text-[var(--text)]${
+              showSaySoftEnter ? ' lesson-text-soft-enter' : ''
+            }`}
+          >
+            {renderTaskInstructionText(sayInstructionText)}
+          </div>
+        ) : reserveEmptySayBlock ? (
+          <div className="min-h-[1.45rem]" aria-hidden="true" />
+        ) : (
+          <div
+            className="invisible text-[15px] leading-[1.45] text-[var(--text)]"
+            aria-hidden="true"
+          >
+            {renderTaskInstructionText(sayInstructionText)}
+          </div>
+        )}
       </section>
     </div>
   )

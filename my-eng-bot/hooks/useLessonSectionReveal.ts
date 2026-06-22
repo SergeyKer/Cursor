@@ -126,7 +126,7 @@ export function useLessonSectionReveal({
       setRevealPhase(done.revealPhase)
       setTextRevealedThroughIndex(done.textRevealedThroughIndex)
       setTextAnimatingIndex(done.textAnimatingIndex)
-      initializedRevealKeyRef.current = revealKey
+      initializedRevealKeyRef.current = null
       return
     }
 

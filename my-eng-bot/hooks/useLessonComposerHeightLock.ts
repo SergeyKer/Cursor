@@ -2,6 +2,10 @@
 
 import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import {
+  mergeComposerHeightLockOnParamChange,
+  resolveComposerHeightLockSync,
+} from '@/lib/lessonComposerHeightLockLogic'
+import {
   estimateLessonComposerMinHeight,
   type LessonComposerPanelKind,
 } from '@/lib/lessonComposerLayout'
@@ -110,18 +114,9 @@ export function useLessonComposerHeightLock({
     }
 
     setLockedMinHeight((current) => {
-      const next = incoming > 0 ? incoming : undefined
-      if (next == null) return undefined
-      if (current == null) return next
-      if (next < current) {
-        const stack = stackRef.current
-        const contentHeight = stack ? measureComposerContentHeight(stack) : 0
-        if (contentHeight > 0 && contentHeight <= next) {
-          return next
-        }
-        return current
-      }
-      return Math.max(current, next)
+      const stack = stackRef.current
+      const contentHeight = stack ? measureComposerContentHeight(stack) : 0
+      return mergeComposerHeightLockOnParamChange(current, incoming, contentHeight)
     })
   }, [
     compact,
@@ -151,11 +146,14 @@ export function useLessonComposerHeightLock({
       const measuredContent = measureStack()
       if (measuredContent <= 0) return
       const incoming = resolveIncomingComposerMinHeight(incomingParams)
-      setLockedMinHeight((current) => {
-        const baseline = current ?? incoming
-        const next = measuredContent > baseline ? measuredContent : baseline
-        return next > 0 ? next : undefined
-      })
+      setLockedMinHeight((current) =>
+        resolveComposerHeightLockSync({
+          panelKind,
+          measuredContent,
+          incoming,
+          current,
+        })
+      )
     }
 
     sync()

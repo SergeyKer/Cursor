@@ -6,6 +6,7 @@ import type { LessonFooterSegment } from '@/lib/lessonFooter'
 import { formatComboSegmentText } from '@/lib/gamificationGlyphs'
 import { featureFlags } from '@/lib/featureFlags'
 import { formatPracticeProgressText, formatTopicCupBadgeText } from '@/lib/practice/practiceGlyphs'
+import { resolvePracticeTargetQuestionCount } from '@/lib/practice/practiceSessionProgress'
 
 export function mapPracticeFlowToFooterState(
   state:
@@ -32,7 +33,7 @@ export function buildPracticeFooterLive(params: {
   gemsPending: boolean
 }): { lessonSegments: LessonFooterSegment[]; lessonTitle: string } {
   const { session, state, tier, progress, gemsPending } = params
-  const total = session.questions.length
+  const total = resolvePracticeTargetQuestionCount(session)
   const current = Math.min(session.currentIndex + 1, Math.max(1, total))
 
   if (state === 'briefing') {

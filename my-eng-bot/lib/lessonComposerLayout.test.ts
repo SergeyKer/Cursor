@@ -147,6 +147,12 @@ describe('estimateLessonChoiceChipsMinHeight', () => {
   it('uses two rows for four options', () => {
     expect(estimateLessonChoiceChipsMinHeight(4)).toBe(90)
   })
+
+  it('documents practice reference options row estimate on typical lane widths', () => {
+    const practiceRefOptions = ["It's dark.", "It's time to sleep.", "It's time to drink."]
+    expect(estimateLessonChoiceChipsMinHeight(3, practiceRefOptions, 360)).toBe(90)
+    expect(estimateLessonChoiceChipsMinHeight(3, practiceRefOptions, 432)).toBe(48)
+  })
 })
 
 describe('estimateIntroComposerMinHeight', () => {

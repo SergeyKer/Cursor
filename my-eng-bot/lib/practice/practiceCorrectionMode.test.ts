@@ -1,7 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { isPracticeCorrectionComposerActive } from '@/lib/practice/practiceCorrectionMode'
+import { isPracticeCorrectionSession, isPracticeCorrectionComposerActive } from '@/lib/practice/practiceCorrectionMode'
 
-describe('isPracticeCorrectionComposerActive', () => {
+describe('isPracticeCorrectionSession', () => {
+  it('returns false on first-attempt submitting/checking', () => {
+    expect(isPracticeCorrectionSession('submitting', 0)).toBe(false)
+    expect(isPracticeCorrectionSession('checking', 0)).toBe(false)
+  })
+
+  it('returns true in correction after first wrong attempt', () => {
+    expect(isPracticeCorrectionSession('correction', 1)).toBe(true)
+    expect(isPracticeCorrectionSession('correction', 2)).toBe(true)
+  })
+
+  it('returns true on re-submit checking after error', () => {
+    expect(isPracticeCorrectionSession('submitting', 1)).toBe(true)
+    expect(isPracticeCorrectionSession('checking', 1)).toBe(true)
+  })
+})
+
+describe('isPracticeCorrectionComposerActive (deprecated alias)', () => {
   it('returns false on first-attempt submitting/checking', () => {
     expect(isPracticeCorrectionComposerActive('submitting', 0)).toBe(false)
     expect(isPracticeCorrectionComposerActive('checking', 0)).toBe(false)

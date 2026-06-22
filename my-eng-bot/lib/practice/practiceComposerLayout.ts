@@ -1,3 +1,4 @@
+import type { PracticeChoiceCorrectionPhase } from '@/lib/practice/practiceChoiceCorrectionPhase'
 import type { PracticeQuestion } from '@/types/practice'
 
 export type PracticeChoiceComposerLayout = {
@@ -13,14 +14,16 @@ const CHOICE_CHIPS_TYPES = new Set<PracticeQuestion['type']>([
   'listening-select',
 ])
 
-/** Нижняя панель с LessonChoiceChips (не dropdown-fill и не correction). */
+/** Нижняя панель с LessonChoiceChips (не dropdown-fill, не voice-фаза коррекции). */
 export function isPracticeChoiceChipsPanel(
   question: PracticeQuestion | null,
-  correctionMode: boolean
+  correctionPhase: PracticeChoiceCorrectionPhase = 'idle'
 ): boolean {
-  if (!question || correctionMode) return false
+  if (!question) return false
   if (!CHOICE_CHIPS_TYPES.has(question.type)) return false
-  return (question.options?.length ?? 0) > 0
+  if ((question.options?.length ?? 0) === 0) return false
+  if (correctionPhase === 'voiceLocked' || correctionPhase === 'voiceReady') return false
+  return true
 }
 
 /** Фазы композера choice-чипов в практике (как resolveLessonChoiceComposerLayout). */

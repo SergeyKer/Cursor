@@ -223,7 +223,7 @@ const lessonStatusCardClassByTone: Record<'service' | 'success' | 'error', strin
   error: 'border-amber-200/90 bg-amber-50/95 text-amber-800',
 }
 
-const CHOICE_REOPEN_DELAY_MS = 900
+import { CHOICE_REOPEN_DELAY_MS } from '@/lib/lessonChoiceHighlight'
 
 const LESSON_HIDDEN_VOICE_STATUS_MESSAGES = new Set([
   'Голосовой ввод...',

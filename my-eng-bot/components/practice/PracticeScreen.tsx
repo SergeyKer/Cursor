@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import FeedbackStatusText from '@/components/FeedbackStatusText'
+import LessonFeedbackStatusBubble from '@/components/lesson/LessonFeedbackStatusBubble'
 import LessonStepBubble from '@/components/lesson/LessonStepBubble'
 import PracticeBriefingScreen from '@/components/practice/PracticeBriefingScreen'
 import PracticeFinale from '@/components/practice/PracticeFinale'
@@ -17,22 +18,30 @@ import {
 import DialogComposerStack from '@/components/DialogComposerStack'
 import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
 import {
-  CHAT_COMPOSER_STACK_TOP_CLASS,
   DIALOG_COMPOSER_PADDING_BOTTOM,
   getChatComposerStackLayout,
 } from '@/lib/chatComposerMetrics'
+import { resyncIosWebKitDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
 import { ensurePracticeChoiceOptions } from '@/lib/practice/ensurePracticeChoiceOptions'
 import {
   isPracticeChoiceChipsPanel,
   resolvePracticeChoiceComposerLayout,
 } from '@/lib/practice/practiceComposerLayout'
-import { isPracticeCorrectionComposerActive } from '@/lib/practice/practiceCorrectionMode'
+import {
+  shouldHighlightWrongPracticeChoice,
+} from '@/lib/lessonChoiceHighlight'
+import {
+  canCompleteChipPhase,
+  PRACTICE_CORRECTION_CHIP_PHASE_MS,
+  type PracticeChoiceCorrectionPhase,
+} from '@/lib/practice/practiceChoiceCorrectionPhase'
+import { isPracticeCorrectionSession } from '@/lib/practice/practiceCorrectionMode'
 import { useDialogFeedKeyboardScroll } from '@/hooks/useDialogFeedKeyboardScroll'
 import { useLessonComposerHeightLock } from '@/hooks/useLessonComposerHeightLock'
 import { useLessonSectionReveal } from '@/hooks/useLessonSectionReveal'
 import { resolveTaskBubbleIndex } from '@/lib/lessonBubbleLayout'
 import {
-  estimateLessonChoiceChipsMinHeight,
+  estimateLessonComposerMinHeight,
   measureChoiceChipsLaneWidthPx,
 } from '@/lib/lessonComposerLayout'
 import {
@@ -47,6 +56,7 @@ import {
   scrollLessonFeedToModeWithCompleteIfNeeded,
   shouldSkipLessonFeedOverflowFollow,
   shouldSkipRevealEndOverflowScroll,
+  LESSON_FEED_SCROLL_COMPLETE_FALLBACK_MS,
 } from '@/lib/lessonFeedScroll'
 import {
   CHAT_FEED_SERVICE_STATUS_ROW_CLASS,
@@ -85,6 +95,7 @@ interface PracticeScreenProps {
   onRetryAfterError?: () => void
   onAcknowledgeInstruction: () => void
   generationBusy?: boolean
+  onChoiceCorrectionPhaseChange?: (phase: PracticeChoiceCorrectionPhase) => void
 }
 
 const statusCardClassByTone: Record<'success' | 'error', string> = {
@@ -141,6 +152,7 @@ export default function PracticeScreen({
   onRetryAfterError,
   onAcknowledgeInstruction,
   generationBusy = false,
+  onChoiceCorrectionPhaseChange,
 }: PracticeScreenProps) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const messagesStackRef = useRef<HTMLDivElement | null>(null)
@@ -157,6 +169,15 @@ export default function PracticeScreen({
   const [lessonFeedEnterClassActive, setLessonFeedEnterClassActive] = useState(false)
   const [composerInnerWidthPx, setComposerInnerWidthPx] = useState<number | undefined>()
   const [showCheckingStatusLine, setShowCheckingStatusLine] = useState(false)
+  const [correctionPhase, setCorrectionPhase] = useState<PracticeChoiceCorrectionPhase>('idle')
+  const [errorSayTextRevealReady, setErrorSayTextRevealReady] = useState(true)
+  const [wrongChoiceHighlight, setWrongChoiceHighlight] = useState<string | null>(null)
+  const wrongHighlightSuppressedRef = useRef(false)
+  const chipTimerDoneRef = useRef(false)
+  const scrollDoneRef = useRef(false)
+  const chipPhaseTimerRef = useRef<number | null>(null)
+  const correctionPhaseGenerationRef = useRef(0)
+  const scrollCleanupOnCompleteRef = useRef<(() => void) | null>(null)
 
   const lessonUserEnterClass = useLessonUserEnterClass()
   const prefersReducedMotion = usePrefersReducedMotion()
@@ -188,6 +209,36 @@ export default function PracticeScreen({
   )
 
   const tailMessageId = messages.at(-1)?.id ?? ''
+
+  const markErrorSayTextRevealReady = useCallback(() => {
+    setErrorSayTextRevealReady(true)
+  }, [])
+
+  const scheduleScroll = useCallback(
+    (scrollFn: (behavior: ScrollBehavior) => void, behavior: ScrollBehavior = 'auto') => {
+      let innerRaf = 0
+      let extraRaf = 0
+      const needsSafariDialogLayoutPass =
+        typeof document !== 'undefined' &&
+        document.documentElement.hasAttribute('data-ios-safari-dialog')
+      const outerRaf = requestAnimationFrame(() => {
+        innerRaf = requestAnimationFrame(() => {
+          const run = () => scrollFn(behavior)
+          if (needsSafariDialogLayoutPass) {
+            extraRaf = requestAnimationFrame(run)
+          } else {
+            run()
+          }
+        })
+      })
+      return () => {
+        cancelAnimationFrame(outerRaf)
+        if (innerRaf) cancelAnimationFrame(innerRaf)
+        if (extraRaf) cancelAnimationFrame(extraRaf)
+      }
+    },
+    []
+  )
 
   const currentLessonMessage = useMemo(
     () => messages.find((message) => message.kind === 'lesson' && !message.isHistorical) ?? null,
@@ -268,10 +319,205 @@ export default function PracticeScreen({
     return () => window.clearTimeout(timer)
   }, [state, session.currentIndex, currentQuestion?.id])
 
-  const isCorrectionComposerActive = isPracticeCorrectionComposerActive(
+  const isCorrectionSession = isPracticeCorrectionSession(
     state,
     session.wrongAttemptsOnCurrentQuestion ?? 0
   )
+
+  const wrongAttemptsOnCurrentQuestion = session.wrongAttemptsOnCurrentQuestion ?? 0
+
+  const tailChoiceErrorWithRepeat = useMemo(() => {
+    const tail = messages.at(-1)
+    return (
+      tail?.kind === 'status' &&
+      tail.tone === 'error' &&
+      Boolean(tail.repeatAnswer) &&
+      currentQuestion?.type === 'choice'
+    )
+  }, [messages, currentQuestion?.type])
+
+  const isChoiceVoiceCorrectionFlow =
+    currentQuestion?.type === 'choice' &&
+    wrongAttemptsOnCurrentQuestion >= 1 &&
+    (correctionPhase === 'chips' ||
+      correctionPhase === 'voiceLocked' ||
+      correctionPhase === 'voiceReady' ||
+      (isCorrectionSession && tailChoiceErrorWithRepeat))
+
+  const clearCorrectionPhaseTimers = useCallback(() => {
+    if (chipPhaseTimerRef.current != null) {
+      window.clearTimeout(chipPhaseTimerRef.current)
+      chipPhaseTimerRef.current = null
+    }
+    if (scrollCleanupOnCompleteRef.current) {
+      scrollCleanupOnCompleteRef.current()
+      scrollCleanupOnCompleteRef.current = null
+    }
+  }, [])
+
+  const tryCompleteChipPhase = useCallback(() => {
+    if (!canCompleteChipPhase(chipTimerDoneRef.current, scrollDoneRef.current)) return
+    wrongHighlightSuppressedRef.current = true
+    setWrongChoiceHighlight(null)
+    markErrorSayTextRevealReady()
+    setCorrectionPhase('voiceReady')
+  }, [markErrorSayTextRevealReady])
+
+  const correctionCycleKeyRef = useRef<string | null>(null)
+  const tryCompleteChipPhaseRef = useRef(tryCompleteChipPhase)
+  tryCompleteChipPhaseRef.current = tryCompleteChipPhase
+
+  useLayoutEffect(() => {
+    if (!tailChoiceErrorWithRepeat || state !== 'correction') {
+      if (!isCorrectionSession || currentQuestion?.type !== 'choice') {
+        correctionCycleKeyRef.current = null
+        setCorrectionPhase('idle')
+      }
+      return
+    }
+
+    const cycleKey = `${tailMessageId}:${wrongAttemptsOnCurrentQuestion}`
+    if (correctionCycleKeyRef.current === cycleKey) return
+    correctionCycleKeyRef.current = cycleKey
+
+    correctionPhaseGenerationRef.current += 1
+    const generation = correctionPhaseGenerationRef.current
+    clearCorrectionPhaseTimers()
+    chipTimerDoneRef.current = false
+    scrollDoneRef.current = false
+    wrongHighlightSuppressedRef.current = false
+    setErrorSayTextRevealReady(prefersReducedMotion)
+
+    if (prefersReducedMotion) {
+      wrongHighlightSuppressedRef.current = true
+      setWrongChoiceHighlight(null)
+      setCorrectionPhase('voiceReady')
+      return
+    }
+
+    setCorrectionPhase('chips')
+    setErrorSayTextRevealReady(false)
+
+    chipPhaseTimerRef.current = window.setTimeout(() => {
+      if (generation !== correctionPhaseGenerationRef.current) return
+      chipPhaseTimerRef.current = null
+      chipTimerDoneRef.current = true
+      tryCompleteChipPhaseRef.current()
+    }, PRACTICE_CORRECTION_CHIP_PHASE_MS)
+  }, [
+    tailMessageId,
+    state,
+    tailChoiceErrorWithRepeat,
+    prefersReducedMotion,
+    wrongAttemptsOnCurrentQuestion,
+    currentQuestion?.type,
+    isCorrectionSession,
+    clearCorrectionPhaseTimers,
+  ])
+
+  useEffect(() => {
+    if (!tailChoiceErrorWithRepeat || state !== 'correction' || prefersReducedMotion) return
+    if (correctionPhase !== 'chips') return
+
+    const generation = correctionPhaseGenerationRef.current
+
+    const onScrollDone = () => {
+      if (generation !== correctionPhaseGenerationRef.current) return
+      scrollDoneRef.current = true
+      tryCompleteChipPhaseRef.current()
+    }
+
+    const scrollBehavior = resolvePracticeFeedScrollRequest({
+      prefersReducedMotion,
+      reason: 'feedback',
+      state,
+    })
+
+    let cleanupSchedule: (() => void) | undefined
+    let cleanupScrollComplete: (() => void) | undefined
+
+    cleanupSchedule = scheduleScroll((scrollBehaviorArg) => {
+      const scrollContainer = scrollContainerRef.current
+      if (!scrollContainer) {
+        scrollDoneRef.current = true
+        tryCompleteChipPhaseRef.current()
+        return
+      }
+      cleanupScrollComplete = scrollLessonFeedToModeWithCompleteIfNeeded(
+        scrollContainer,
+        'tail_if_needed',
+        scrollBehaviorArg,
+        onScrollDone
+      )
+      scrollCleanupOnCompleteRef.current = cleanupScrollComplete ?? null
+    }, scrollBehavior)
+
+    const fallbackTimer = window.setTimeout(() => {
+      if (generation !== correctionPhaseGenerationRef.current) return
+      scrollDoneRef.current = true
+      tryCompleteChipPhaseRef.current()
+    }, LESSON_FEED_SCROLL_COMPLETE_FALLBACK_MS)
+
+    return () => {
+      cleanupSchedule?.()
+      cleanupScrollComplete?.()
+      scrollCleanupOnCompleteRef.current = null
+      window.clearTimeout(fallbackTimer)
+    }
+  }, [
+    tailMessageId,
+    state,
+    correctionPhase,
+    tailChoiceErrorWithRepeat,
+    prefersReducedMotion,
+    scheduleScroll,
+  ])
+
+  useEffect(() => {
+    if (state !== 'checking' && state !== 'submitting') return
+    clearCorrectionPhaseTimers()
+    setWrongChoiceHighlight(null)
+  }, [state, clearCorrectionPhaseTimers])
+
+  useEffect(() => {
+    if (!isChoiceVoiceCorrectionFlow || currentQuestion?.type !== 'choice') {
+      setWrongChoiceHighlight(null)
+      return
+    }
+
+    if (state === 'checking') {
+      setWrongChoiceHighlight(null)
+      return
+    }
+
+    if (!shouldHighlightWrongPracticeChoice(state, resolvedFeedbackType)) return
+
+    const lastAnswer = session.answers
+      .filter((answer) => answer.questionId === currentQuestion?.id)
+      .at(-1)
+    const submitted = lastAnswer?.userAnswer?.trim() ?? ''
+    if (!submitted) return
+    if (wrongHighlightSuppressedRef.current) return
+
+    setWrongChoiceHighlight(submitted)
+  }, [
+    isChoiceVoiceCorrectionFlow,
+    currentQuestion?.id,
+    currentQuestion?.type,
+    session.answers,
+    state,
+    resolvedFeedbackType,
+  ])
+
+  useEffect(() => {
+    onChoiceCorrectionPhaseChange?.(correctionPhase)
+  }, [correctionPhase, onChoiceCorrectionPhaseChange])
+
+  useEffect(() => {
+    return () => {
+      onChoiceCorrectionPhaseChange?.('idle')
+    }
+  }, [onChoiceCorrectionPhaseChange])
 
   const showQuestionComposer =
     currentQuestion != null &&
@@ -279,7 +525,7 @@ export default function PracticeScreen({
     state !== 'error'
 
   const isChoiceChipsPanel =
-    showQuestionComposer && isPracticeChoiceChipsPanel(currentQuestion, isCorrectionComposerActive)
+    showQuestionComposer && isPracticeChoiceChipsPanel(currentQuestion, correctionPhase)
 
   const deferChoiceChipsUntilCardReveal =
     isChoiceChipsPanel &&
@@ -312,22 +558,33 @@ export default function PracticeScreen({
 
   const choiceComposerMinHeightEstimate =
     isChoiceChipsPanel && choiceComposerLayout?.reserveMinHeight
-      ? estimateLessonChoiceChipsMinHeight(choiceOptions.length, choiceOptions, composerInnerWidthPx)
+      ? estimateLessonComposerMinHeight({
+          panelKind: 'choice',
+          optionCount: choiceOptions.length,
+          choiceOptions,
+          containerWidthPx: composerInnerWidthPx,
+          compact: true,
+        })
       : undefined
 
   const composerHeightLockReleased =
     prefersReducedMotion ||
     (choiceComposerLayout ? choiceComposerLayout.lockReleased : !isRevealInProgress)
 
+  const composerPanelKind =
+    correctionPhase === 'voiceLocked' || correctionPhase === 'voiceReady'
+      ? ('text-input' as const)
+      : ('choice' as const)
+
   const lockedComposerMinHeight = useLessonComposerHeightLock({
     stackRef: composerStackRef,
-    transitionKey: currentQuestion?.id ?? null,
-    panelKind: 'choice',
+    transitionKey: `${currentQuestion?.id ?? ''}-${composerPanelKind}`,
+    panelKind: composerPanelKind,
     optionCount: choiceOptions.length,
     choiceOptions,
     containerWidthPx: composerInnerWidthPx,
     compact: true,
-    enabled: isChoiceChipsPanel,
+    enabled: isChoiceChipsPanel || isChoiceVoiceCorrectionFlow,
     lockReleased: composerHeightLockReleased,
   })
 
@@ -337,11 +594,13 @@ export default function PracticeScreen({
       ? choiceComposerMinHeightEstimate
       : undefined)
 
-  const isAnswerPanelLocked = isPracticeAnswerPanelLocked(
+  const baseAnswerPanelLocked = isPracticeAnswerPanelLocked(
     state,
     resolvedFeedbackType,
     isRevealInProgress
   )
+
+  const isAnswerPanelLocked = baseAnswerPanelLocked
   const isChoicePanelFrozen = isPracticeChoicePanelFrozen(
     state,
     resolvedFeedbackType,
@@ -352,6 +611,10 @@ export default function PracticeScreen({
     resolvedFeedbackType,
     isRevealInProgress
   )
+  const isChoiceChipsCorrectionFrozen =
+    currentQuestion?.type === 'choice' &&
+    state === 'correction' &&
+    correctionPhase !== 'voiceReady'
 
   const scrollBottomPadding = resolveScrollBottomPadding({
     hasCurrentStep: state !== 'completed',
@@ -360,32 +623,6 @@ export default function PracticeScreen({
     bottomStackHeightPx: 0,
     composerOutsideScroll: true,
   })
-
-  const scheduleScroll = useCallback(
-    (scrollFn: (behavior: ScrollBehavior) => void, behavior: ScrollBehavior = 'auto') => {
-      let innerRaf = 0
-      let extraRaf = 0
-      const needsSafariDialogLayoutPass =
-        typeof document !== 'undefined' &&
-        document.documentElement.hasAttribute('data-ios-safari-dialog')
-      const outerRaf = requestAnimationFrame(() => {
-        innerRaf = requestAnimationFrame(() => {
-          const run = () => scrollFn(behavior)
-          if (needsSafariDialogLayoutPass) {
-            extraRaf = requestAnimationFrame(run)
-          } else {
-            run()
-          }
-        })
-      })
-      return () => {
-        cancelAnimationFrame(outerRaf)
-        if (innerRaf) cancelAnimationFrame(innerRaf)
-        if (extraRaf) cancelAnimationFrame(extraRaf)
-      }
-    },
-    []
-  )
 
   const scheduleScrollPracticeFeedTail = useCallback(
     (behavior: ScrollBehavior = 'auto') =>
@@ -647,6 +884,22 @@ export default function PracticeScreen({
     ...(composerMinHeight != null ? { minHeight: composerMinHeight } : {}),
   }
 
+  useLayoutEffect(() => {
+    if (
+      deferChoiceChipsUntilCardReveal &&
+      isWithinRevealEndOverflowSettleWindow(revealEndedAtRef.current)
+    ) {
+      return
+    }
+    return resyncIosWebKitDialogComposerStackHeight(composerStackRef.current)
+  }, [
+    currentQuestion?.id,
+    composerMinHeight,
+    deferChoiceChipsUntilCardReveal,
+    isChoiceChipsVisible,
+    isChoiceChipsPanel,
+  ])
+
   useDialogFeedKeyboardScroll(scrollContainerRef, showQuestionComposer)
 
   if (state === 'briefing') {
@@ -809,12 +1062,48 @@ export default function PracticeScreen({
                       )
                     }
 
+                    const statusEnterClass =
+                      message.tone === 'error' || prefersReducedMotion
+                        ? ''
+                        : lessonFeedStatusEnterClass(message.id)
+
+                    if (message.tone === 'error') {
+                      const isTailChoiceCorrectionError =
+                        Boolean(message.repeatAnswer) &&
+                        message.id === tailMessageId &&
+                        state === 'correction' &&
+                        currentQuestion?.type === 'choice'
+                      const animateSayText = isTailChoiceCorrectionError && !prefersReducedMotion
+                      const sayTextRevealReadyForBubble = isTailChoiceCorrectionError
+                        ? correctionPhase === 'voiceReady' && errorSayTextRevealReady
+                        : errorSayTextRevealReady
+
+                      return (
+                        <ChatBubbleFrame
+                          key={message.id}
+                          role="assistant"
+                          position={position}
+                          className={statusEnterClass}
+                          rowClassName={rowMargin}
+                        >
+                          <LessonFeedbackStatusBubble
+                            hintText={message.text ?? ''}
+                            repeatAnswer={message.repeatAnswer}
+                            repeatInstructionVerb={audience === 'child' ? 'Скажи' : 'Скажите'}
+                            animateSayText={animateSayText}
+                            sayTextRevealReady={sayTextRevealReadyForBubble}
+                            reserveEmptySayBlock={animateSayText}
+                          />
+                        </ChatBubbleFrame>
+                      )
+                    }
+
                     return (
                       <ChatBubbleFrame
                         key={message.id}
                         role="assistant"
                         position={position}
-                        className={lessonFeedStatusEnterClass(message.id)}
+                        className={statusEnterClass}
                         rowClassName={rowMargin}
                       >
                         <section
@@ -839,9 +1128,8 @@ export default function PracticeScreen({
 
             <DialogComposerStack
               ref={composerStackRef}
-              className={`${CHAT_COMPOSER_STACK_TOP_CLASS} ${composerStackLayout.verticalClass}`}
+              className={composerStackLayout.verticalClass}
               style={composerStackStyle}
-              contentMaxWidthClass={isChoiceChipsPanel ? undefined : 'max-w-[22rem]'}
             >
               {state === 'completed' ? (
                 <PracticeFinale
@@ -883,15 +1171,17 @@ export default function PracticeScreen({
                 <PracticeQuestionRenderer
                   key={currentQuestion.id}
                   question={currentQuestion}
-                  disabled={!canSubmit || isChoiceInteractionDisabled}
-                  choicePanelFrozen={isChoicePanelFrozen}
+                  disabled={!canSubmit || isChoiceInteractionDisabled || isChoiceChipsCorrectionFrozen}
+                  choicePanelFrozen={isChoicePanelFrozen || isChoiceChipsCorrectionFrozen}
                   answerPanelLocked={isAnswerPanelLocked}
-                  correctionMode={isCorrectionComposerActive}
+                  correctionMode={isCorrectionSession && currentQuestion.type !== 'choice'}
+                  choiceCorrectionPhase={correctionPhase}
                   wrongAttemptsOnCurrentQuestion={session.wrongAttemptsOnCurrentQuestion ?? 0}
                   audience={audience}
                   onSubmit={onSubmitAnswer}
                   suppressChoiceChipEnterAnimation={!isChoiceChipsVisible}
                   choiceChipsVisible={isChoiceChipsVisible}
+                  wrongChoiceText={wrongChoiceHighlight}
                 />
               ) : null}
             </DialogComposerStack>

@@ -17,28 +17,36 @@ function question(overrides: Partial<PracticeQuestion>): PracticeQuestion {
 }
 
 describe('isPracticeChoiceChipsPanel', () => {
-  it('returns true for choice with options', () => {
-    expect(isPracticeChoiceChipsPanel(question({ type: 'choice' }), false)).toBe(true)
+  it('returns true for choice with options in idle phase', () => {
+    expect(isPracticeChoiceChipsPanel(question({ type: 'choice' }), 'idle')).toBe(true)
   })
 
   it('returns true for listening-select with options', () => {
-    expect(isPracticeChoiceChipsPanel(question({ type: 'listening-select' }), false)).toBe(true)
+    expect(isPracticeChoiceChipsPanel(question({ type: 'listening-select' }), 'idle')).toBe(true)
   })
 
   it('returns false for dropdown-fill (form, not chips)', () => {
-    expect(isPracticeChoiceChipsPanel(question({ type: 'dropdown-fill' }), false)).toBe(false)
+    expect(isPracticeChoiceChipsPanel(question({ type: 'dropdown-fill' }), 'idle')).toBe(false)
   })
 
-  it('returns false in correction mode', () => {
-    expect(isPracticeChoiceChipsPanel(question({ type: 'choice' }), true)).toBe(false)
+  it('returns false in voiceLocked correction phase', () => {
+    expect(isPracticeChoiceChipsPanel(question({ type: 'choice' }), 'voiceLocked')).toBe(false)
+  })
+
+  it('returns true in chips correction phase', () => {
+    expect(isPracticeChoiceChipsPanel(question({ type: 'choice' }), 'chips')).toBe(true)
+  })
+
+  it('returns false in voiceReady correction phase', () => {
+    expect(isPracticeChoiceChipsPanel(question({ type: 'choice' }), 'voiceReady')).toBe(false)
   })
 
   it('returns false without options', () => {
-    expect(isPracticeChoiceChipsPanel(question({ options: [] }), false)).toBe(false)
+    expect(isPracticeChoiceChipsPanel(question({ options: [] }), 'idle')).toBe(false)
   })
 
   it('returns false for null question', () => {
-    expect(isPracticeChoiceChipsPanel(null, false)).toBe(false)
+    expect(isPracticeChoiceChipsPanel(null, 'idle')).toBe(false)
   })
 })
 

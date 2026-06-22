@@ -89,7 +89,7 @@ describe('buildPracticeInstructionCopy', () => {
       session: baseSession({ mode: 'relaxed' }),
       audience: 'adult',
     })
-    expect(copy.statsLine).toMatch(/Практика Relaxed · 1 шаг · без спешки/)
+    expect(copy.statsLine).toMatch(/Практика Relaxed · 6 шагов · без спешки/)
     expect(copy.secondaryMessage).toBe(
       'Ошибки ведут к победам.\nНавык говорения - со временем и тренировками.'
     )

@@ -2,6 +2,7 @@ import type { FlowInfoCardVariant } from '@/lib/lessonMedalRevealCopy'
 import type { Audience } from '@/lib/types'
 import type { Bubble } from '@/types/lesson'
 import type { PracticeMode, PracticeSession } from '@/types/practice'
+import { resolvePracticeTargetQuestionCount } from '@/lib/practice/practiceSessionProgress'
 
 export type PracticeInstructionCopy = {
   variant: FlowInfoCardVariant
@@ -21,7 +22,7 @@ function modeLabel(mode: PracticeMode): string {
 }
 
 function stepCount(session: PracticeSession): number {
-  return session.targetQuestionCount ?? session.questions.length
+  return resolvePracticeTargetQuestionCount(session)
 }
 
 export function sessionHasChoiceQuestion(session: PracticeSession): boolean {

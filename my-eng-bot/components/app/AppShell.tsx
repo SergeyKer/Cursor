@@ -173,12 +173,14 @@ import { usePracticeSession } from '@/hooks/usePracticeSession'
 import type { AccentFooterView } from '@/components/branches/AccentBranch'
 import { getPracticeFooterView } from '@/lib/practice/practiceFooter'
 import { isPracticeWrongLimitAdvance } from '@/lib/practice/practiceFooterCopy'
+import type { PracticeChoiceCorrectionPhase } from '@/lib/practice/practiceChoiceCorrectionPhase'
 import { buildPracticeFooterLive, mapPracticeFlowToFooterState } from '@/lib/practice/practiceFooterLive'
 import { resolvePracticeCompletion } from '@/lib/practice/resolvePracticeCompletion'
 import { getPracticeTopicProgress } from '@/lib/practice/practiceTopicProgressStorage'
 import { resolvePracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
 import type { PracticeRewardUi } from '@/lib/practice/practiceRewardUi'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
+import { resolvePracticeTargetQuestionCount } from '@/lib/practice/practiceSessionProgress'
 import { buildPracticeQuestionFingerprintFromQuestion } from '@/lib/practice/questionFingerprint'
 import { FOOTER_DYNAMIC_MAX_LENGTH, pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
@@ -830,6 +832,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   const practiceSession = usePracticeSession({ audience: settings.audience })
   const { abandonSession: abandonPracticeSession, startSession: startPracticeSession } = practiceSession
+  const [choiceCorrectionPhase, setChoiceCorrectionPhase] =
+    React.useState<PracticeChoiceCorrectionPhase>('idle')
+  React.useEffect(() => {
+    setChoiceCorrectionPhase('idle')
+  }, [practiceSession.session?.id])
   const [accentTrainerActive, setAccentTrainerActive] = useState(false)
   const [activeAccentLessonId, setActiveAccentLessonId] = useState<string | null>(null)
   const [accentLessonRequestKey, setAccentLessonRequestKey] = useState(0)
@@ -3819,7 +3826,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       return
     if (practicePrefetchInFlightRef.current) return
 
-    const target = session.targetQuestionCount ?? getPracticeModePlan(session.mode).length
+    const target = resolvePracticeTargetQuestionCount(session)
     const remaining = target - session.questions.length
     if (remaining <= 0) return
 
@@ -3909,7 +3916,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       practicePrefetchInFlightRef.current = false
     }
 
-    const target = session.targetQuestionCount ?? getPracticeModePlan(session.mode).length
+    const target = resolvePracticeTargetQuestionCount(session)
     if (session.questions.length >= target) {
       beginPracticeQuestion()
       return
@@ -5548,6 +5555,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           isWrongLimitAdvance:
             practiceSession.state === 'feedback' &&
             isPracticeWrongLimitAdvance(practiceSession.session),
+          correctionPhase: choiceCorrectionPhase,
         }
       )
     : null
@@ -6914,6 +6922,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   completionMeta={practiceCompletionMeta}
                   onSubmitAnswer={practiceSession.submitAnswer}
                   onAcknowledgeInstruction={practiceSession.acknowledgeInstruction}
+                  onChoiceCorrectionPhaseChange={setChoiceCorrectionPhase}
                   onRetryAfterError={() => {
                     if (!practiceSession.session) return
                     void restartPracticeFromExistingSession(

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  buildChoiceCorrectionInviteLine,
   CHOICE_CORRECTION_TAP_HINT_WITH_TEXT_EDIT,
   choiceCorrectionPlaceholder,
   getChoiceCorrectionInputMode,
@@ -88,16 +87,20 @@ describe('choiceCorrectionComposer', () => {
     ).toBe('Поправь и отправь')
   })
 
-  it('builds invite and tap-hint lines for child and adult', () => {
-    expect(buildChoiceCorrectionInviteLine("It's cold.", 'adult')).toBe("Скажите: It's cold.")
-    expect(buildChoiceCorrectionInviteLine("It's cold.", 'child')).toBe("Скажи: It's cold.")
+  it('builds tap-hint overlay lines for child and adult', () => {
     expect(getChoiceCorrectionTapHint('adult')).toBe('Скажите ответ...')
     expect(getChoiceCorrectionTapHint('child')).toBe('Скажи ответ...')
     expect(
       getChoiceCorrectionOverlayLine({
+        showTapHint: false,
+        showTextEditButton: false,
+        audience: 'adult',
+      })
+    ).toBe('Скажите ответ...')
+    expect(
+      getChoiceCorrectionOverlayLine({
         showTapHint: true,
         showTextEditButton: false,
-        targetAnswer: "It's cold.",
         audience: 'child',
       })
     ).toBe('Скажи ответ...')
@@ -105,7 +108,6 @@ describe('choiceCorrectionComposer', () => {
       getChoiceCorrectionOverlayLine({
         showTapHint: true,
         showTextEditButton: true,
-        targetAnswer: "It's cold.",
         audience: 'adult',
       })
     ).toBe(CHOICE_CORRECTION_TAP_HINT_WITH_TEXT_EDIT)

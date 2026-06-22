@@ -15,6 +15,10 @@ import { resolvePracticeRetryPolicy } from '@/lib/practice/practiceRetryPolicy'
 import type { Audience } from '@/lib/types'
 import { practiceStorage, type PracticeStorage } from '@/lib/practice/storage/practiceStorage'
 import { resolvePracticeFlowStateForSession } from '@/lib/practice/practiceSessionFlow'
+import {
+  isPracticeAwaitingAiGeneration,
+  normalizePracticeSessionTargetCount,
+} from '@/lib/practice/practiceSessionProgress'
 import { validatePracticeAnswer, type PracticeAnswerValidationContext } from '@/lib/practice/practiceValidation'
 import type {
   PracticeAnswer,
@@ -130,11 +134,11 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
   useEffect(() => {
     const restored = storage.loadActiveSession()
     if (!restored || restored.status !== 'active') return
-    const normalized = {
+    const normalized = normalizePracticeSessionTargetCount({
       ...restored,
       wrongAttemptsOnCurrentQuestion: restored.wrongAttemptsOnCurrentQuestion ?? 0,
       instructionAcknowledged: restored.instructionAcknowledged ?? false,
-    }
+    })
     setSession(normalized)
     setState(resolvePracticeFlowStateForSession(normalized))
     questionStartedAtRef.current = Date.now()
@@ -211,11 +215,11 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
     setPendingAnswer(null)
     const restored = storage.loadActiveSession()
     if (!restored || restored.status !== 'active') return null
-    const normalized = {
+    const normalized = normalizePracticeSessionTargetCount({
       ...restored,
       wrongAttemptsOnCurrentQuestion: restored.wrongAttemptsOnCurrentQuestion ?? 0,
       instructionAcknowledged: restored.instructionAcknowledged ?? false,
-    }
+    })
     pendingCorrectionRef.current = null
     questionStartedAtRef.current = Date.now()
     setFeedback(null)
@@ -328,19 +332,8 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
         })
         setPendingAnswer(null)
 
-        if (isCorrect) {
-          pendingCorrectionRef.current = null
-          const targetQuestionCount = session.targetQuestionCount ?? session.questions.length
-          const isAiAwaitingGeneration =
-            session.generationSource === 'ai_generated' &&
-            session.currentIndex >= session.questions.length - 1 &&
-            session.questions.length < targetQuestionCount
-          setFeedback({
-            type: answerFeedbackTone,
-            message: answerFeedbackMessage,
-          })
-          setState('feedback')
-          if (isAiAwaitingGeneration) {
+        const advanceAfterAcceptedAnswer = () => {
+          if (isPracticeAwaitingAiGeneration(session)) {
             scheduleFeedbackAdvance(() => {
               setFeedback(null)
               setState('generating_next')
@@ -350,6 +343,16 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
               beginNextQuestionRef.current()
             })
           }
+        }
+
+        if (isCorrect) {
+          pendingCorrectionRef.current = null
+          setFeedback({
+            type: answerFeedbackTone,
+            message: answerFeedbackMessage,
+          })
+          setState('feedback')
+          advanceAfterAcceptedAnswer()
         } else {
           if (shouldAutoAdvanceAfterWrongLimit) {
             pendingCorrectionRef.current = null
@@ -358,9 +361,7 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
               message: answerFeedbackMessage,
             })
             setState('feedback')
-            scheduleFeedbackAdvance(() => {
-              beginNextQuestionRef.current()
-            })
+            advanceAfterAcceptedAnswer()
           } else {
             pendingCorrectionRef.current = questionToValidate
             setFeedback({

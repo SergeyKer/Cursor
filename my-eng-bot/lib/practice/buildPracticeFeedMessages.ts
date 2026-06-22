@@ -2,6 +2,7 @@ import type { PracticeFlowState } from '@/hooks/usePracticeSession'
 import { ENGVO_TYPING_MESSAGE } from '@/lib/engvoPersonaCopy'
 import { prefixFeedbackMarker, resolveFeedbackMarker } from '@/lib/feedbackMarkers'
 import { buildPracticeWrongAnswerFeedback } from '@/lib/practice/practiceFeedbackCopy'
+import { resolvePracticeRepeatAnswer } from '@/lib/practice/practiceRepeatFeedback'
 import {
   PRACTICE_CHECKING_MESSAGE,
   shouldHideCurrentPracticeQuestionBubbles,
@@ -26,6 +27,7 @@ export type PracticeFeedMessage = {
   tone?: 'service' | 'success' | 'error'
   bubbles?: Bubble[]
   isHistorical?: boolean
+  repeatAnswer?: string
 }
 
 function practiceTypeLabel(question: PracticeQuestion): string {
@@ -106,6 +108,30 @@ function feedbackTextForAnswer(
 
 function feedbackToneForAnswer(answer: PracticeAnswer): 'success' | 'error' {
   return answer.feedbackTone ?? (answer.isCorrect ? 'success' : 'error')
+}
+
+function buildAnswerFeedbackMessage(params: {
+  id: string
+  answer: PracticeAnswer
+  audience: Audience
+  attemptNumber: number
+  questionType: PracticeQuestion['type']
+}): PracticeFeedMessage {
+  const tone = feedbackToneForAnswer(params.answer)
+  const repeatAnswer = resolvePracticeRepeatAnswer({
+    answer: params.answer,
+    attemptNumber: params.attemptNumber,
+    questionType: params.questionType,
+  })
+
+  return {
+    id: params.id,
+    role: 'assistant',
+    kind: 'status',
+    text: feedbackTextForAnswer(params.answer, params.audience, params.attemptNumber),
+    tone,
+    ...(repeatAnswer ? { repeatAnswer } : {}),
+  }
 }
 
 /** Фидбек последней committed-попытки: и в correction, и пока идёт следующая отправка. */
@@ -189,13 +215,15 @@ export function buildPracticeFeedMessages(params: {
           kind: 'answer',
           text: answer.userAnswer,
         })
-        result.push({
-          id: `practice-feedback-${answer.questionId}-${answer.timestamp}-${answerIndex}`,
-          role: 'assistant',
-          kind: 'status',
-          text: feedbackTextForAnswer(answer, audience, answerIndex + 1),
-          tone: feedbackToneForAnswer(answer),
-        })
+        result.push(
+          buildAnswerFeedbackMessage({
+            id: `practice-feedback-${answer.questionId}-${answer.timestamp}-${answerIndex}`,
+            answer,
+            audience,
+            attemptNumber: answerIndex + 1,
+            questionType: question.type,
+          })
+        )
       })
       return
     }
@@ -216,13 +244,15 @@ export function buildPracticeFeedMessages(params: {
         text: answer.userAnswer,
       })
       if (!isLatestAnswer || shouldShowLatestCommittedAnswerFeedback(state)) {
-        result.push({
-          id: feedbackId,
-          role: 'assistant',
-          kind: 'status',
-          text: feedbackTextForAnswer(answer, audience, answerIndex + 1),
-          tone: feedbackToneForAnswer(answer),
-        })
+        result.push(
+          buildAnswerFeedbackMessage({
+            id: feedbackId,
+            answer,
+            audience,
+            attemptNumber: answerIndex + 1,
+            questionType: question.type,
+          })
+        )
       }
     })
 

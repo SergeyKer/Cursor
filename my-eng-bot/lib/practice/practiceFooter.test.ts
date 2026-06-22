@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { formatFooterDynamicLine, FOOTER_DYNAMIC_MAX_LENGTH } from '@/lib/footerVoice'
 import { getPracticeFooterView } from '@/lib/practice/practiceFooter'
+import { buildPracticeFooterLive } from '@/lib/practice/practiceFooterLive'
 import type { PracticeSession } from '@/types/practice'
 
 function baseSession(): PracticeSession {
@@ -33,5 +34,49 @@ describe('getPracticeFooterView briefing', () => {
     expect(shown).toBe(dynamicText)
     expect(shown.length).toBeLessThanOrEqual(FOOTER_DYNAMIC_MAX_LENGTH)
     expect(shown.endsWith('…')).toBe(false)
+  })
+})
+
+describe('getPracticeFooterView progress total', () => {
+  it('shows target question count for incremental AI reference sessions', () => {
+    const session: PracticeSession = {
+      ...baseSession(),
+      mode: 'reference',
+      generationSource: 'ai_generated',
+      targetQuestionCount: 7,
+      questions: [baseSession().questions[0]!],
+      currentIndex: 0,
+    }
+    const { staticText } = getPracticeFooterView(session, 'active')
+    expect(staticText).toContain('1/7')
+  })
+})
+
+describe('buildPracticeFooterLive progress total', () => {
+  it('shows target question count in goal segment for incremental AI reference sessions', () => {
+    const session: PracticeSession = {
+      ...baseSession(),
+      mode: 'reference',
+      generationSource: 'ai_generated',
+      targetQuestionCount: 7,
+      questions: [baseSession().questions[0]!],
+      currentIndex: 0,
+    }
+    const { lessonSegments } = buildPracticeFooterLive({
+      session,
+      state: 'idle',
+      tier: 0,
+      progress: {
+        lessonId: '1',
+        ringCount: 0,
+        slotScores: [],
+        ringBonusClaimed: false,
+        gemsClaimed: false,
+        cupClaimed: false,
+        fingerprints: [],
+      },
+      gemsPending: false,
+    })
+    expect(lessonSegments[0]?.text).toBe('🎯 1/7')
   })
 })

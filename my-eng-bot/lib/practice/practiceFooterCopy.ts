@@ -1,4 +1,5 @@
 import type { PracticeFooterState } from '@/lib/practice/practiceFooter'
+import type { PracticeChoiceCorrectionPhase } from '@/lib/practice/practiceChoiceCorrectionPhase'
 import type { Audience } from '@/lib/types'
 import type { PracticeQuestion, PracticeSession } from '@/types/practice'
 
@@ -7,6 +8,13 @@ export type PracticeFooterContext = {
   wrongAttemptsOnCurrentQuestion: number
   questionType?: PracticeQuestion['type']
   isWrongLimitAdvance: boolean
+  correctionPhase?: PracticeChoiceCorrectionPhase
+}
+
+export function buildPracticeCorrectionChipsFooterHint(audience: Audience): string {
+  return audience === 'child'
+    ? 'Если выбрал неверно — скажи правильную фразу вслух.'
+    : 'После неверного выбора закрепите правильную фразу вслух.'
 }
 
 export function isPracticeWrongLimitAdvance(session: PracticeSession): boolean {
@@ -20,9 +28,17 @@ export function buildPracticeFooterDynamicText(params: {
   wrongAttemptsOnCurrentQuestion: number
   questionType?: PracticeQuestion['type']
   isWrongLimitAdvance: boolean
+  correctionPhase?: PracticeChoiceCorrectionPhase
 }): string | null {
   if (params.state === 'correction') {
     if (params.questionType === 'choice') {
+      const phase = params.correctionPhase ?? 'idle'
+      if (phase === 'chips') {
+        return buildPracticeCorrectionChipsFooterHint(params.audience)
+      }
+      if (phase !== 'voiceReady') {
+        return null
+      }
       if (params.wrongAttemptsOnCurrentQuestion >= 2) {
         return params.audience === 'child'
           ? 'Попробуй ещё раз. Карандаш - текст.'

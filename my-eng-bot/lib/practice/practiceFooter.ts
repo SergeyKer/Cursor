@@ -3,6 +3,7 @@ import {
   buildPracticeFooterDynamicText,
   type PracticeFooterContext,
 } from '@/lib/practice/practiceFooterCopy'
+import { resolvePracticeTargetQuestionCount } from '@/lib/practice/practiceSessionProgress'
 import type { PracticeSession } from '@/types/practice'
 
 export type PracticeFooterState =
@@ -41,13 +42,14 @@ export function getPracticeFooterView(
       context?.wrongAttemptsOnCurrentQuestion ?? session.wrongAttemptsOnCurrentQuestion ?? 0,
     questionType: context?.questionType,
     isWrongLimitAdvance: context?.isWrongLimitAdvance ?? false,
+    correctionPhase: context?.correctionPhase ?? 'idle',
   }
   const dynamicOverride = buildPracticeFooterDynamicText({
     state,
     ...footerContext,
   })
 
-  const total = session.questions.length
+  const total = resolvePracticeTargetQuestionCount(session)
   const current = Math.min(session.currentIndex + 1, Math.max(1, total))
   const staticText =
     state === 'briefing'

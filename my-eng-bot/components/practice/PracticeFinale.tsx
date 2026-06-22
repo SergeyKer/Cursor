@@ -4,6 +4,7 @@ import type { PracticeMode, PracticeSession } from '@/types/practice'
 import type { PracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
 import { featureFlags } from '@/lib/featureFlags'
 import { getPracticeFinalePrimaryAction } from '@/lib/practice/practiceFinaleCta'
+import { resolvePracticeTargetQuestionCount } from '@/lib/practice/practiceSessionProgress'
 import { formatPracticeProgressText } from '@/lib/practice/practiceGlyphs'
 import {
   APP_BTN_NEUTRAL_WHITE_LARGE,
@@ -45,7 +46,7 @@ export default function PracticeFinale({
   onBackToPracticeMenu,
   busy = false,
 }: PracticeFinaleProps) {
-  const total = Math.max(1, session.questions.length)
+  const total = Math.max(1, resolvePracticeTargetQuestionCount(session))
   const percent = Math.round((session.score / total) * 100)
   const correctedCount = session.answers.filter((answer) => answer.corrected).length
   const primary = getPracticeFinalePrimaryAction({

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { formatFooterDynamicLine, FOOTER_DYNAMIC_MAX_LENGTH } from '@/lib/footerVoice'
 import {
+  buildPracticeCorrectionChipsFooterHint,
   buildPracticeFooterDynamicText,
   isPracticeWrongLimitAdvance,
 } from '@/lib/practice/practiceFooterCopy'
@@ -50,19 +51,43 @@ function expectFitsFooter(text: string): void {
   expect(shown.endsWith('…')).toBe(false)
 }
 
+describe('buildPracticeCorrectionChipsFooterHint', () => {
+  it('guides chips phase for adult and child', () => {
+    expect(buildPracticeCorrectionChipsFooterHint('adult')).toBe(
+      'После неверного выбора закрепите правильную фразу вслух.'
+    )
+    expect(buildPracticeCorrectionChipsFooterHint('child')).toBe(
+      'Если выбрал неверно — скажи правильную фразу вслух.'
+    )
+  })
+})
+
 describe('buildPracticeFooterDynamicText', () => {
-  it('guides choice correction with mic on first wrong attempt', () => {
+  it('shows chips hint during chips phase', () => {
     expect(
       buildPracticeFooterDynamicText({
         state: 'correction',
-        audience: 'child',
+        audience: 'adult',
         wrongAttemptsOnCurrentQuestion: 1,
         questionType: 'choice',
         isWrongLimitAdvance: false,
+        correctionPhase: 'chips',
       })
-    ).toBe('Ничего страшного. Скажи в микрофон.')
+    ).toBe('После неверного выбора закрепите правильную фразу вслух.')
   })
 
+  it('shows mic footer on voiceReady', () => {
+    expect(
+      buildPracticeFooterDynamicText({
+        state: 'correction',
+        audience: 'adult',
+        wrongAttemptsOnCurrentQuestion: 1,
+        questionType: 'choice',
+        isWrongLimitAdvance: false,
+        correctionPhase: 'voiceReady',
+      })
+    ).toBe('Скажите фразу вслух в микрофон.')
+  })
   it('guides choice correction with pencil on second wrong attempt for adult', () => {
     expect(
       buildPracticeFooterDynamicText({
@@ -71,6 +96,7 @@ describe('buildPracticeFooterDynamicText', () => {
         wrongAttemptsOnCurrentQuestion: 2,
         questionType: 'choice',
         isWrongLimitAdvance: false,
+        correctionPhase: 'voiceReady',
       })
     ).toBe('Попробуйте снова. Текст - карандаш.')
   })
@@ -156,6 +182,7 @@ describe('getPracticeFooterView correction and feedback', () => {
       audience: 'child',
       wrongAttemptsOnCurrentQuestion: 1,
       questionType: 'choice',
+      correctionPhase: 'voiceReady',
     })
     expect(dynamicText).toBe('Ничего страшного. Скажи в микрофон.')
     expectFitsFooter(dynamicText)
