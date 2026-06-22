@@ -3,6 +3,7 @@ import { callProviderChat } from '@/lib/callProviderChat'
 import { buildEtalonChoicePromptForLesson, findFirstLessonChoiceStep } from '@/lib/practice/buildChoicePrompt'
 import { buildLocalPracticeSession } from '@/lib/practice/builders/localPracticeBuilder'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
+import { buildReferenceFallbackQuestion } from '@/lib/practice/referenceFallbackQuestion'
 import { buildPracticeQuestionFingerprintFromQuestion, normalizePracticeFingerprintPart } from '@/lib/practice/questionFingerprint'
 import { normalizeAiPracticeQuestion } from '@/lib/practice/normalizeAiPracticeQuestion'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
@@ -28,6 +29,7 @@ type Body = {
 
 type PracticeGenerateFallbackReason = 'provider' | 'parse' | 'validation' | 'exception' | 'no_lesson'
 const MAX_GENERATE_ATTEMPTS = 2
+const MAX_REFERENCE_GENERATE_ATTEMPTS = 4
 
 function extractJsonObject(raw: string): string {
   const trimmed = raw.trim()
@@ -66,40 +68,6 @@ function fallbackQuestions(lesson: LessonData, mode: PracticeMode): PracticeQues
     entrySource: 'menu',
     generationSource: 'local',
   }).questions
-}
-
-function buildReferenceFallbackQuestion(params: {
-  lesson: LessonData
-  mode: PracticeMode
-  referenceExerciseType: PracticeExerciseType
-  recentPrompts?: string[]
-  seenKeys?: string[]
-}): PracticeQuestion | null {
-  const normalizedRecent = new Set(
-    (params.recentPrompts ?? [])
-      .map((prompt) => prompt.trim().toLowerCase())
-      .filter(Boolean)
-  )
-  const seen = new Set((params.seenKeys ?? []).filter(Boolean))
-  const candidates = fallbackQuestions(params.lesson, params.mode).filter(
-    (question) => question.type === params.referenceExerciseType
-  )
-  for (const candidate of candidates) {
-    const promptKey = candidate.prompt.trim().toLowerCase()
-    if (normalizedRecent.has(promptKey)) continue
-    const fingerprint = buildPracticeQuestionFingerprintFromQuestion(candidate)
-    if (fingerprint && seen.has(fingerprint)) continue
-    return {
-      ...candidate,
-      id: `${candidate.id}-rfb-${Date.now()}`,
-    }
-  }
-  const first = candidates[0]
-  if (!first) return null
-  return {
-    ...first,
-    id: `${first.id}-rfb-${Date.now()}`,
-  }
 }
 
 function normalizeQuestions(
@@ -283,7 +251,8 @@ export async function POST(req: NextRequest) {
     const usedFingerprints = new Set(seenKeys)
     let fallbackReason: PracticeGenerateFallbackReason = 'validation'
 
-    for (let attempt = 0; attempt < MAX_GENERATE_ATTEMPTS && accumulated.length < requestedCount; attempt += 1) {
+    const maxGenerateAttempts = mode === 'reference' ? MAX_REFERENCE_GENERATE_ATTEMPTS : MAX_GENERATE_ATTEMPTS
+    for (let attempt = 0; attempt < maxGenerateAttempts && accumulated.length < requestedCount; attempt += 1) {
       const model = await callProviderChat({
         provider,
         req,
@@ -361,6 +330,8 @@ export async function POST(req: NextRequest) {
           lesson,
           mode,
           referenceExerciseType,
+          referenceStepIndex,
+          referenceTotal,
           recentPrompts,
           seenKeys,
         })

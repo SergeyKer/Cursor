@@ -96,23 +96,29 @@ export default function LessonFeedbackStatusBubble({
         }`}
         role="note"
       >
-        {sayTextRevealing ? (
-          <div
-            className={`${sayInstructionTextClass}${
-              showSaySoftEnter ? ' lesson-text-soft-enter' : ''
-            }`}
-          >
-            {sayInstructionContent}
-          </div>
-        ) : emptySayTypingIndicator ? (
-          <div className="relative">
-            <div className={`invisible ${sayInstructionTextClass}`} aria-hidden="true">
+        {animateSayText ? (
+          sayTextRevealing ? (
+            <div
+              className={`${sayInstructionTextClass}${
+                showSaySoftEnter ? ' lesson-text-soft-enter' : ''
+              }`}
+            >
               {sayInstructionContent}
             </div>
-            <div className="pointer-events-none absolute inset-0" role="status" aria-live="polite">
-              <EngvoFeedServiceTypingText text={ENGVO_TYPING_MESSAGE} />
+          ) : (
+            <div className="relative">
+              <div className={`invisible ${sayInstructionTextClass}`} aria-hidden="true">
+                {sayInstructionContent}
+              </div>
+              {emptySayTypingIndicator ? (
+                <div className="pointer-events-none absolute inset-0" role="status" aria-live="polite">
+                  <EngvoFeedServiceTypingText text={ENGVO_TYPING_MESSAGE} />
+                </div>
+              ) : null}
             </div>
-          </div>
+          )
+        ) : sayTextRevealing ? (
+          <div className={`${sayInstructionTextClass}`}>{sayInstructionContent}</div>
         ) : reserveEmptySayBlock ? (
           <div className="min-h-[1.45rem]" aria-hidden="true" />
         ) : (

@@ -181,7 +181,10 @@ import { resolvePracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
 import type { PracticeRewardUi } from '@/lib/practice/practiceRewardUi'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
 import { resolvePracticeTargetQuestionCount } from '@/lib/practice/practiceSessionProgress'
-import { buildPracticeQuestionFingerprintFromQuestion } from '@/lib/practice/questionFingerprint'
+import {
+  buildSeenPracticeKeys,
+  pickUniquePracticeQuestions,
+} from '@/lib/practice/pickUniquePracticeQuestions'
 import { FOOTER_DYNAMIC_MAX_LENGTH, pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
@@ -323,31 +326,10 @@ type LessonRepeatResponse = {
 
 const PRACTICE_AI_INITIAL_BATCH_SIZE = 2
 const PRACTICE_PREFETCH_BUFFER_TARGET = 1
-const PRACTICE_SEEN_KEYS_LIMIT = 80
 const PRACTICE_PREFETCH_TIMEOUT_MS = 12_000
 const PRACTICE_GENERATE_NEXT_TIMEOUT_MS = 16_000
-
-function buildSeenPracticeKeys(questions: PracticeQuestion[]): string[] {
-  const unique = new Set<string>()
-  for (const question of questions) {
-    const key = buildPracticeQuestionFingerprintFromQuestion(question)
-    if (!key) continue
-    unique.add(key)
-  }
-  return Array.from(unique).slice(-PRACTICE_SEEN_KEYS_LIMIT)
-}
-
-function pickUniquePracticeQuestions(candidates: PracticeQuestion[], existing: PracticeQuestion[]): PracticeQuestion[] {
-  const seen = new Set(buildSeenPracticeKeys(existing))
-  const fresh: PracticeQuestion[] = []
-  for (const candidate of candidates) {
-    const key = buildPracticeQuestionFingerprintFromQuestion(candidate)
-    if (!key || seen.has(key)) continue
-    seen.add(key)
-    fresh.push(candidate)
-  }
-  return fresh
-}
+const PRACTICE_PREFETCH_UNIQUE_RETRIES = 1
+const PRACTICE_GENERATE_NEXT_UNIQUE_RETRIES = 2
 
 function cloneStructuredLessonWithRunKey(lesson: LessonData): LessonData {
   const cloned = typeof structuredClone === 'function' ? structuredClone(lesson) : JSON.parse(JSON.stringify(lesson))
@@ -3846,31 +3828,36 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
     void (async () => {
       try {
-        const response = await fetch('/api/practice-generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: abortController.signal,
-          body: JSON.stringify({
-            provider: settings.provider,
-            openAiChatPreset: settings.openAiChatPreset,
-            audience: settings.audience,
-            lessonId: session.source.kind === 'static_lesson' ? session.source.lessonId : undefined,
-            lesson: session.source.kind === 'runtime_lesson' ? session.source.lesson : undefined,
-            mode: session.mode,
-            referenceExerciseType: session.mode === 'reference' ? session.questions[0]?.type : undefined,
-            referenceStepIndex: session.mode === 'reference' ? session.questions.length : undefined,
-            referenceTotal: target,
-            recentPrompts: session.mode === 'reference' ? session.questions.slice(-3).map((item) => item.prompt) : undefined,
-            count: fetchCount,
-            fromIndex: session.questions.length,
-            seenKeys: buildSeenPracticeKeys(session.questions),
-          }),
-        })
-        const data = (await response.json()) as PracticeGenerateResponse
-        if (!response.ok || !Array.isArray(data.questions) || data.questions.length === 0) {
-          return
+        let freshQuestions: PracticeQuestion[] = []
+        for (let attempt = 0; attempt <= PRACTICE_PREFETCH_UNIQUE_RETRIES; attempt += 1) {
+          if (abortController.signal.aborted) return
+          const response = await fetch('/api/practice-generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: abortController.signal,
+            body: JSON.stringify({
+              provider: settings.provider,
+              openAiChatPreset: settings.openAiChatPreset,
+              audience: settings.audience,
+              lessonId: session.source.kind === 'static_lesson' ? session.source.lessonId : undefined,
+              lesson: session.source.kind === 'runtime_lesson' ? session.source.lesson : undefined,
+              mode: session.mode,
+              referenceExerciseType: session.mode === 'reference' ? session.questions[0]?.type : undefined,
+              referenceStepIndex: session.mode === 'reference' ? session.questions.length : undefined,
+              referenceTotal: target,
+              recentPrompts: session.mode === 'reference' ? session.questions.slice(-3).map((item) => item.prompt) : undefined,
+              count: fetchCount,
+              fromIndex: session.questions.length,
+              seenKeys: buildSeenPracticeKeys(session.questions),
+            }),
+          })
+          const data = (await response.json()) as PracticeGenerateResponse
+          if (!response.ok || !Array.isArray(data.questions) || data.questions.length === 0) {
+            continue
+          }
+          freshQuestions = pickUniquePracticeQuestions(data.questions, session.questions)
+          if (freshQuestions.length > 0) break
         }
-        const freshQuestions = pickUniquePracticeQuestions(data.questions, session.questions)
         if (freshQuestions.length === 0) return
         for (const question of freshQuestions) {
           appendGeneratedPracticeQuestion(question)
@@ -3935,33 +3922,42 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     void (async () => {
       setLoading(true)
       try {
-        const response = await fetch('/api/practice-generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: abortController.signal,
-          body: JSON.stringify({
-            provider: settings.provider,
-            openAiChatPreset: settings.openAiChatPreset,
-            audience: settings.audience,
-            lessonId: session.source.kind === 'static_lesson' ? session.source.lessonId : undefined,
-            lesson: session.source.kind === 'runtime_lesson' ? session.source.lesson : undefined,
-            mode: session.mode,
-            referenceExerciseType: session.mode === 'reference' ? session.questions[0]?.type : undefined,
-            referenceStepIndex: session.mode === 'reference' ? session.questions.length : undefined,
-            referenceTotal: target,
-            recentPrompts: session.mode === 'reference' ? session.questions.slice(-3).map((item) => item.prompt) : undefined,
-            count: 1,
-            fromIndex: session.questions.length,
-            seenKeys: buildSeenPracticeKeys(session.questions),
-          }),
-        })
-        const data = (await response.json()) as PracticeGenerateResponse
-        if (!response.ok || !Array.isArray(data.questions) || data.questions.length === 0) {
-          throw new Error(data.error ?? 'Не удалось подготовить следующее задание.')
+        let freshQuestions: PracticeQuestion[] = []
+        let lastError = 'Не удалось подготовить следующее задание.'
+        let gotDuplicateOnly = false
+        for (let attempt = 0; attempt <= PRACTICE_GENERATE_NEXT_UNIQUE_RETRIES; attempt += 1) {
+          if (abortController.signal.aborted) return
+          const response = await fetch('/api/practice-generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: abortController.signal,
+            body: JSON.stringify({
+              provider: settings.provider,
+              openAiChatPreset: settings.openAiChatPreset,
+              audience: settings.audience,
+              lessonId: session.source.kind === 'static_lesson' ? session.source.lessonId : undefined,
+              lesson: session.source.kind === 'runtime_lesson' ? session.source.lesson : undefined,
+              mode: session.mode,
+              referenceExerciseType: session.mode === 'reference' ? session.questions[0]?.type : undefined,
+              referenceStepIndex: session.mode === 'reference' ? session.questions.length : undefined,
+              referenceTotal: target,
+              recentPrompts: session.mode === 'reference' ? session.questions.slice(-3).map((item) => item.prompt) : undefined,
+              count: 1,
+              fromIndex: session.questions.length,
+              seenKeys: buildSeenPracticeKeys(session.questions),
+            }),
+          })
+          const data = (await response.json()) as PracticeGenerateResponse
+          if (!response.ok || !Array.isArray(data.questions) || data.questions.length === 0) {
+            lastError = data.error ?? lastError
+            continue
+          }
+          freshQuestions = pickUniquePracticeQuestions(data.questions, session.questions)
+          if (freshQuestions.length > 0) break
+          gotDuplicateOnly = true
         }
-        const freshQuestions = pickUniquePracticeQuestions(data.questions, session.questions)
         if (freshQuestions.length === 0) {
-          throw new Error('Не удалось получить уникальное следующее задание.')
+          throw new Error(gotDuplicateOnly ? 'Не удалось получить уникальное следующее задание.' : lastError)
         }
         appendGeneratedPracticeQuestion(freshQuestions[0]!)
         beginPracticeQuestion()
@@ -6925,6 +6921,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   onChoiceCorrectionPhaseChange={setChoiceCorrectionPhase}
                   onRetryAfterError={() => {
                     if (!practiceSession.session) return
+                    if (practiceSession.session.mode === 'reference') {
+                      practiceSession.retryGeneratingNext()
+                      return
+                    }
                     void restartPracticeFromExistingSession(
                       practiceSession.session,
                       practiceSession.session.mode,

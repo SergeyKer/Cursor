@@ -21,7 +21,7 @@ import {
   DIALOG_COMPOSER_PADDING_BOTTOM,
   getChatComposerStackLayout,
 } from '@/lib/chatComposerMetrics'
-import { resyncIosWebKitDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
+import { syncDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
 import { ensurePracticeChoiceOptions } from '@/lib/practice/ensurePracticeChoiceOptions'
 import {
   isPracticeChoiceChipsPanel,
@@ -54,6 +54,7 @@ import {
   resolveScrollBottomPadding,
   scrollLessonFeedToModeIfNeeded,
   scrollLessonFeedToModeWithCompleteIfNeeded,
+  scrollLessonFeedTailIfNeeded,
   shouldSkipLessonFeedOverflowFollow,
   shouldSkipRevealEndOverflowScroll,
   LESSON_FEED_SCROLL_COMPLETE_FALLBACK_MS,
@@ -894,13 +895,28 @@ export default function PracticeScreen({
     ) {
       return
     }
-    return resyncIosWebKitDialogComposerStackHeight(composerStackRef.current)
+    return syncDialogComposerStackHeight(composerStackRef.current)
   }, [
     currentQuestion?.id,
     composerMinHeight,
     deferChoiceChipsUntilCardReveal,
     isChoiceChipsVisible,
     isChoiceChipsPanel,
+    correctionPhase,
+  ])
+
+  useLayoutEffect(() => {
+    if (state !== 'correction' || correctionPhase !== 'voiceReady') return
+    if (currentQuestion?.type !== 'choice') return
+    const scroll = scrollContainerRef.current
+    if (!scroll || scroll.scrollHeight <= scroll.clientHeight) return
+    scrollLessonFeedTailIfNeeded(scroll, 'auto')
+  }, [
+    state,
+    correctionPhase,
+    currentQuestion?.type,
+    composerMinHeight,
+    messages.length,
   ])
 
   useDialogFeedKeyboardScroll(scrollContainerRef, showQuestionComposer)
@@ -1086,7 +1102,9 @@ export default function PracticeScreen({
                             repeatInstructionVerb={audience === 'child' ? 'Скажи' : 'Скажите'}
                             animateSayText={animateSayText}
                             sayTextRevealReady={sayTextRevealReadyForBubble}
-                            emptySayTypingIndicator={animateSayText}
+                            emptySayTypingIndicator={
+                              animateSayText && correctionPhase !== 'voiceReady'
+                            }
                             sayRevealDelayMs={animateSayText ? 0 : undefined}
                           />
                         </ChatBubbleFrame>

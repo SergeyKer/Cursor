@@ -62,14 +62,22 @@ function measureAndSyncComposerStack(stack: HTMLElement, root: HTMLElement): {
   return { height, topFromBottom }
 }
 
-/** iOS WebKit dialog: повторный замер высоты композера после layout (intro/tips, смена чипов). */
-export function resyncIosWebKitDialogComposerStackHeight(stack: HTMLElement | null): () => void {
-  if (typeof window === 'undefined' || !stack || !isIosWebKitBrowser(navigator.userAgent)) {
+/** Синхронизирует --chat-composer-stack-height и iOS inset после layout. */
+export function syncDialogComposerStackHeight(stack: HTMLElement | null): () => void {
+  if (typeof window === 'undefined' || !stack) {
     return () => {}
   }
   return scheduleScrollAfterLayout(() => {
     measureAndSyncComposerStack(stack, document.documentElement)
   })
+}
+
+/** iOS WebKit dialog: повторный замер высоты композера после layout (intro/tips, смена чипов). */
+export function resyncIosWebKitDialogComposerStackHeight(stack: HTMLElement | null): () => void {
+  if (typeof window === 'undefined' || !stack || !isIosWebKitBrowser(navigator.userAgent)) {
+    return () => {}
+  }
+  return syncDialogComposerStackHeight(stack)
 }
 
 /** Синхронизирует высоту композера для scroll-padding и RewardPopup. */

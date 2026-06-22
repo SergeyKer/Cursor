@@ -60,6 +60,7 @@ export interface PracticeSessionControls {
   nextQuestion: () => void
   appendGeneratedQuestion: (question: PracticeQuestion) => void
   failGeneratingNext: (message: string) => void
+  retryGeneratingNext: () => void
   completeSession: () => void
   abandonSession: () => void
   acknowledgeInstruction: () => void
@@ -405,6 +406,11 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
     setState('error')
   }, [])
 
+  const retryGeneratingNext = useCallback(() => {
+    setFeedback(null)
+    setState('generating_next')
+  }, [])
+
   return {
     session,
     currentQuestion,
@@ -419,6 +425,7 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
     nextQuestion: beginNextQuestion,
     appendGeneratedQuestion,
     failGeneratingNext,
+    retryGeneratingNext,
     completeSession,
     abandonSession,
     acknowledgeInstruction,
