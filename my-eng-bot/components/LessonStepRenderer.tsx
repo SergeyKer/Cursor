@@ -60,8 +60,7 @@ import {
   estimateLessonComposerMinHeight,
   resolveLessonComposerPanelKind,
 } from '@/lib/lessonComposerLayout'
-import { ENGVO_SERVICE_TYPEWRITER_CHAR_MS } from '@/lib/practice/practiceRevealTiming'
-import TypingText from '@/components/TypingText'
+import EngvoFeedServiceTypingText from '@/components/engvo/EngvoFeedServiceTypingText'
 import { buildLessonFeedMessages, type LessonFeedMessage } from '@/lib/buildLessonFeedMessages'
 import { shouldHighlightWrongLessonChoice } from '@/lib/lessonChoiceHighlight'
 import { injectVariantQuestionIntoTaskBubble } from '@/lib/lessonFeedBubbles'
@@ -1865,16 +1864,7 @@ export default function LessonStepRenderer({
                       .join(' ')
                     return (
                       <div key={message.id} dir="ltr" className={serviceRowClass}>
-                        <TypingText
-                          key={message.id}
-                          text={message.text ?? ''}
-                          mode="char"
-                          speed={ENGVO_SERVICE_TYPEWRITER_CHAR_MS}
-                          startDelayMs={0}
-                          fadeWhileTyping={false}
-                          singleLine
-                          className="w-fit text-[14px] italic typing-indicator-text-shimmer"
-                        />
+                        <EngvoFeedServiceTypingText text={message.text ?? ''} />
                       </div>
                     )
                   }

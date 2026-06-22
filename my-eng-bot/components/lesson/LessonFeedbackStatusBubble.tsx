@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import EngvoFeedServiceTypingText from '@/components/engvo/EngvoFeedServiceTypingText'
 import FeedbackStatusText from '@/components/FeedbackStatusText'
+import { ENGVO_TYPING_MESSAGE } from '@/lib/engvoPersonaCopy'
 import { LESSON_TEXT_SECTION_PAUSE_MS } from '@/lib/lessonRevealTiming'
 import { renderTaskInstructionText } from '@/lib/lessonBubbleTextRender'
 
@@ -14,6 +16,8 @@ const errorStatusCardClass =
 const repeatInstructionCardClass =
   'border-[var(--chat-section-emerald-border)] bg-[var(--chat-section-emerald)]'
 
+const sayInstructionTextClass = 'text-[15px] leading-[1.45] text-[var(--text)]'
+
 type LessonFeedbackStatusBubbleProps = {
   hintText: string
   repeatAnswer?: string
@@ -22,6 +26,8 @@ type LessonFeedbackStatusBubbleProps = {
   sayTextRevealReady?: boolean
   /** Показывать пустую карточку «Скажите» до раскрытия текста (практика). */
   reserveEmptySayBlock?: boolean
+  /** «Engvo печатает...» поверх invisible-якоря финального текста (практика). */
+  emptySayTypingIndicator?: boolean
   /** Задержка перед текстом «Скажите»; 0 — одновременно с внешним UI (поле ввода). */
   sayRevealDelayMs?: number
 }
@@ -33,6 +39,7 @@ export default function LessonFeedbackStatusBubble({
   animateSayText = false,
   sayTextRevealReady = true,
   reserveEmptySayBlock = false,
+  emptySayTypingIndicator = false,
   sayRevealDelayMs,
 }: LessonFeedbackStatusBubbleProps) {
   const [sayTextRevealing, setSayTextRevealing] = useState(!animateSayText)
@@ -72,6 +79,10 @@ export default function LessonFeedbackStatusBubble({
 
   const sayInstructionText = `${repeatInstructionVerb}: ${repeatAnswer}`
   const showSaySoftEnter = animateSayText && sayTextRevealing
+  const useEmptySayMinHeight =
+    reserveEmptySayBlock && !sayTextRevealing && !emptySayTypingIndicator
+
+  const sayInstructionContent = renderTaskInstructionText(sayInstructionText)
 
   return (
     <div className="space-y-1.5">
@@ -81,26 +92,32 @@ export default function LessonFeedbackStatusBubble({
 
       <section
         className={`overflow-hidden ${feedbackCardSurfaceClass} ${repeatInstructionCardClass}${
-          reserveEmptySayBlock && !sayTextRevealing ? ' min-h-[2.75rem]' : ''
+          useEmptySayMinHeight ? ' min-h-[2.75rem]' : ''
         }`}
         role="note"
       >
         {sayTextRevealing ? (
           <div
-            className={`text-[15px] leading-[1.45] text-[var(--text)]${
+            className={`${sayInstructionTextClass}${
               showSaySoftEnter ? ' lesson-text-soft-enter' : ''
             }`}
           >
-            {renderTaskInstructionText(sayInstructionText)}
+            {sayInstructionContent}
+          </div>
+        ) : emptySayTypingIndicator ? (
+          <div className="relative">
+            <div className={`invisible ${sayInstructionTextClass}`} aria-hidden="true">
+              {sayInstructionContent}
+            </div>
+            <div className="pointer-events-none absolute inset-0" role="status" aria-live="polite">
+              <EngvoFeedServiceTypingText text={ENGVO_TYPING_MESSAGE} />
+            </div>
           </div>
         ) : reserveEmptySayBlock ? (
           <div className="min-h-[1.45rem]" aria-hidden="true" />
         ) : (
-          <div
-            className="invisible text-[15px] leading-[1.45] text-[var(--text)]"
-            aria-hidden="true"
-          >
-            {renderTaskInstructionText(sayInstructionText)}
+          <div className={`invisible ${sayInstructionTextClass}`} aria-hidden="true">
+            {sayInstructionContent}
           </div>
         )}
       </section>

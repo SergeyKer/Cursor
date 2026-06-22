@@ -58,6 +58,7 @@ interface PracticeQuestionRendererProps {
   choiceChipsVisible?: boolean
   wrongChoiceText?: string | null
   clearSelectionSignal?: number
+  prefersReducedMotion?: boolean
 }
 
 function inputPlaceholder(
@@ -103,12 +104,14 @@ function wordBank(question: PracticeQuestion): string[] {
 
 const ANSWER_PANEL_LOCK_CLASS = 'pointer-events-none opacity-60'
 
-/** Voice correction choice: lesson-enter; text correction: practice-section-appear. */
+/** Voice correction choice: soft fade (в такт с «Скажите»); text correction: practice-section-appear. */
 function getPracticeComposerEnterClass(options: {
   isChoiceVoiceCorrection: boolean
   correctionMode: boolean
+  prefersReducedMotion: boolean
 }): string {
-  if (options.isChoiceVoiceCorrection) return 'lesson-enter'
+  if (options.prefersReducedMotion) return ''
+  if (options.isChoiceVoiceCorrection) return 'lesson-text-soft-enter'
   return options.correctionMode ? 'practice-section-appear' : 'lesson-enter'
 }
 const PRACTICE_MULTI_ROW_INPUT_ROW_CLASS = 'flex w-full items-stretch gap-2'
@@ -151,6 +154,7 @@ export default function PracticeQuestionRenderer({
   choiceChipsVisible = true,
   wrongChoiceText = null,
   clearSelectionSignal = 0,
+  prefersReducedMotion = false,
 }: PracticeQuestionRendererProps) {
   const [draft, setDraft] = useState('')
   const [voiceTextDraft, setVoiceTextDraft] = useState('')
@@ -185,6 +189,7 @@ export default function PracticeQuestionRenderer({
   const composerEnterClass = getPracticeComposerEnterClass({
     isChoiceVoiceCorrection: isChoiceVoiceCorrectionComposer,
     correctionMode,
+    prefersReducedMotion,
   })
   const canUseChoices =
     choices.length > 0 &&
@@ -752,7 +757,7 @@ export default function PracticeQuestionRenderer({
   }
 
   const hasComposerHeader =
-    !correctionMode && Boolean(helperText(question) || question.keywords?.length || canUseAudio)
+    !correctionMode && Boolean(helperText(question) || canUseAudio)
   const composerShellClass = hasComposerHeader
     ? `${CHAT_COMPOSER_COLUMN_SHELL_CLASS}${isDictationLikeComposer ? ' gap-1' : ''}`
     : CHAT_COMPOSER_FORM_CLASS
@@ -924,9 +929,6 @@ export default function PracticeQuestionRenderer({
           {helperText(question) && (
             <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{helperText(question)}</p>
           )}
-          {question.keywords?.length ? (
-            <p className="text-[12px] leading-relaxed text-[var(--text-muted)]">Ключевые слова: {question.keywords.join(', ')}</p>
-          ) : null}
         </div>
       ) : null}
       {hasComposerHeader ? <div className={inputRowClass}>{composerInputRow}</div> : composerInputRow}

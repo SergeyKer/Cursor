@@ -67,8 +67,7 @@ import {
 } from '@/components/chat/ChatBubble'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import type { PracticeFlowState } from '@/hooks/usePracticeSession'
-import TypingText from '@/components/TypingText'
-import { ENGVO_SERVICE_TYPEWRITER_CHAR_MS } from '@/lib/practice/practiceRevealTiming'
+import EngvoFeedServiceTypingText from '@/components/engvo/EngvoFeedServiceTypingText'
 import type { Audience } from '@/lib/types'
 import type { PracticeMode, PracticeQuestion, PracticeSession } from '@/types/practice'
 
@@ -112,13 +111,17 @@ function nextMode(mode: PracticeMode): PracticeMode {
   return 'challenge'
 }
 
-function useLessonUserEnterClass() {
+function useLessonUserEnterClass(prefersReducedMotion: boolean) {
   const enteredIdsRef = useRef<Set<string>>(new Set())
-  return useCallback((messageId: string) => {
-    if (enteredIdsRef.current.has(messageId)) return ''
-    enteredIdsRef.current.add(messageId)
-    return 'lesson-enter'
-  }, [])
+  return useCallback(
+    (messageId: string) => {
+      if (prefersReducedMotion) return ''
+      if (enteredIdsRef.current.has(messageId)) return ''
+      enteredIdsRef.current.add(messageId)
+      return 'lesson-text-soft-enter'
+    },
+    [prefersReducedMotion]
+  )
 }
 
 /** Статус «Верно/Неверно» - как в уроках (`.lesson-feed-status-enter`). */
@@ -179,8 +182,8 @@ export default function PracticeScreen({
   const correctionPhaseGenerationRef = useRef(0)
   const scrollCleanupOnCompleteRef = useRef<(() => void) | null>(null)
 
-  const lessonUserEnterClass = useLessonUserEnterClass()
   const prefersReducedMotion = usePrefersReducedMotion()
+  const lessonUserEnterClass = useLessonUserEnterClass(prefersReducedMotion)
   const lessonFeedStatusEnterClass = useLessonFeedStatusEnterClass(prefersReducedMotion)
 
   const resolvedFeedbackType = useMemo(() => {
@@ -1048,16 +1051,7 @@ export default function PracticeScreen({
                         : CHAT_FEED_SERVICE_STATUS_ROW_CLASS
                       return (
                         <div key={message.id} dir="ltr" className={serviceRowClass}>
-                          <TypingText
-                            key={message.id}
-                            text={message.text ?? ''}
-                            mode="char"
-                            speed={ENGVO_SERVICE_TYPEWRITER_CHAR_MS}
-                            startDelayMs={0}
-                            fadeWhileTyping={false}
-                            singleLine
-                            className="w-fit text-[14px] italic typing-indicator-text-shimmer"
-                          />
+                          <EngvoFeedServiceTypingText text={message.text ?? ''} />
                         </div>
                       )
                     }
@@ -1092,7 +1086,8 @@ export default function PracticeScreen({
                             repeatInstructionVerb={audience === 'child' ? 'Скажи' : 'Скажите'}
                             animateSayText={animateSayText}
                             sayTextRevealReady={sayTextRevealReadyForBubble}
-                            reserveEmptySayBlock={animateSayText}
+                            emptySayTypingIndicator={animateSayText}
+                            sayRevealDelayMs={animateSayText ? 0 : undefined}
                           />
                         </ChatBubbleFrame>
                       )
@@ -1178,6 +1173,7 @@ export default function PracticeScreen({
                   choiceCorrectionPhase={correctionPhase}
                   wrongAttemptsOnCurrentQuestion={session.wrongAttemptsOnCurrentQuestion ?? 0}
                   audience={audience}
+                  prefersReducedMotion={prefersReducedMotion}
                   onSubmit={onSubmitAnswer}
                   suppressChoiceChipEnterAnimation={!isChoiceChipsVisible}
                   choiceChipsVisible={isChoiceChipsVisible}
