@@ -7,10 +7,6 @@ import { squircleMaskSvg } from '../lib/squircleMask'
 
 const ALPHA_CUTOFF = 16
 
-/** W3C maskable safe zone: logo fits in central 80% diameter circle. */
-const MASKABLE_SAFE_ZONE_RATIO = 0.8
-const MASKABLE_BG = '#5093EE'
-
 const RESIZE_OPTIONS = { kernel: 'lanczos3' as const }
 
 type RawRgba = { data: Uint8Array; width: number; height: number }
@@ -55,16 +51,24 @@ async function buildSquircleIcon(sourceBuffer: Buffer, size: number): Promise<Bu
     .toBuffer()
 }
 
-/** Android maskable: full-bleed background, logo in safe zone (launcher applies its own mask). */
-async function buildMaskableIcon(sourceBuffer: Buffer, size: number): Promise<Buffer> {
-  const innerSize = Math.round(size * MASKABLE_SAFE_ZONE_RATIO)
-  const logo = await sharp(sourceBuffer).resize(innerSize, innerSize, RESIZE_OPTIONS).png().toBuffer()
-  const offset = Math.floor((size - innerSize) / 2)
+/** Android maskable: dedicated source with built-in safe zone, full-bleed resize. */
+async function buildMaskableIcon(androidSourceBuffer: Buffer, size: number): Promise<Buffer> {
+  return sharp(androidSourceBuffer).resize(size, size, RESIZE_OPTIONS).png().toBuffer()
+}
 
-  return sharp({
-    create: { width: size, height: size, channels: 4, background: MASKABLE_BG },
-  })
-    .composite([{ input: logo, left: offset, top: offset }])
+async function loadSquareSource(sourcePath: string): Promise<Buffer> {
+  const input = await fs.readFile(sourcePath)
+  const meta = await sharp(input).metadata()
+  if (!meta.width || !meta.height) {
+    throw new Error(`Не удалось определить размеры изображения ${sourcePath}`)
+  }
+
+  const cropSize = Math.min(meta.width, meta.height)
+  const left = Math.floor((meta.width - cropSize) / 2)
+  const top = Math.floor((meta.height - cropSize) / 2)
+
+  return sharp(input)
+    .extract({ left, top, width: cropSize, height: cropSize })
     .png()
     .toBuffer()
 }
@@ -92,22 +96,11 @@ function countLightFringePixels(data: Uint8Array, width: number, height: number,
 async function main() {
   const cwd = process.cwd()
   const sourcePath = path.join(cwd, 'assets', 'icon-source.png')
+  const androidSourcePath = path.join(cwd, 'assets', 'icon-android-source.png')
   const publicDir = path.join(cwd, 'public')
 
-  const input = await fs.readFile(sourcePath)
-  const meta = await sharp(input).metadata()
-  if (!meta.width || !meta.height) {
-    throw new Error('Не удалось определить размеры изображения assets/icon-source.png')
-  }
-
-  const cropSize = Math.min(meta.width, meta.height)
-  const left = Math.floor((meta.width - cropSize) / 2)
-  const top = Math.floor((meta.height - cropSize) / 2)
-
-  const sourceBuffer = await sharp(input)
-    .extract({ left, top, width: cropSize, height: cropSize })
-    .png()
-    .toBuffer()
+  const sourceBuffer = await loadSquareSource(sourcePath)
+  const androidSourceBuffer = await loadSquareSource(androidSourcePath)
 
   const squircleOutputs: { file: string; size: number }[] = [
     { file: 'icon-32.png', size: 32 },
@@ -136,7 +129,7 @@ async function main() {
   }
 
   for (const { file, size } of maskableOutputs) {
-    const out = await buildMaskableIcon(sourceBuffer, size)
+    const out = await buildMaskableIcon(androidSourceBuffer, size)
     await fs.writeFile(path.join(publicDir, file), out)
   }
 
