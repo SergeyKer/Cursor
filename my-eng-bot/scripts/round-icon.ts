@@ -7,6 +7,9 @@ import { squircleMaskSvg } from '../lib/squircleMask'
 
 const ALPHA_CUTOFF = 16
 
+/** Android adaptive icon safe zone: keep white artwork ~20%+ from canvas edges. */
+const MASKABLE_LOGO_RATIO = 0.8
+
 const RESIZE_OPTIONS = { kernel: 'lanczos3' as const }
 
 type RawRgba = { data: Uint8Array; width: number; height: number }
@@ -51,9 +54,18 @@ async function buildSquircleIcon(sourceBuffer: Buffer, size: number): Promise<Bu
     .toBuffer()
 }
 
-/** Android maskable: dedicated source with built-in safe zone, full-bleed resize. */
+/** Android maskable: full-bleed gradient bg + centered logo in safe zone. */
 async function buildMaskableIcon(androidSourceBuffer: Buffer, size: number): Promise<Buffer> {
-  return sharp(androidSourceBuffer).resize(size, size, RESIZE_OPTIONS).png().toBuffer()
+  const background = await sharp(androidSourceBuffer).resize(size, size, RESIZE_OPTIONS).png().toBuffer()
+
+  const innerSize = Math.round(size * MASKABLE_LOGO_RATIO)
+  const logo = await sharp(androidSourceBuffer).resize(innerSize, innerSize, RESIZE_OPTIONS).png().toBuffer()
+  const offset = Math.floor((size - innerSize) / 2)
+
+  return sharp(background)
+    .composite([{ input: logo, left: offset, top: offset }])
+    .png()
+    .toBuffer()
 }
 
 async function loadSquareSource(sourcePath: string): Promise<Buffer> {
@@ -131,6 +143,12 @@ async function main() {
   for (const { file, size } of maskableOutputs) {
     const out = await buildMaskableIcon(androidSourceBuffer, size)
     await fs.writeFile(path.join(publicDir, file), out)
+
+    const raw = await toRawRgba(out)
+    const fringe = countLightFringePixels(raw.data, size, size, Math.floor(size * 0.18))
+    if (fringe > 0) {
+      console.warn(`${file}: белый контур в outer ring 18% — ${fringe} px (проверьте MASKABLE_LOGO_RATIO)`)
+    }
   }
 
   const icon512Path = path.join(publicDir, 'icon-512.png')
