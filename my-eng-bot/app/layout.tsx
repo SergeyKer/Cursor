@@ -22,10 +22,10 @@ export default function RootLayout({
           name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover, interactive-widget=resizes-content"
         />
-        <meta name="theme-color" content="#c3d6e2" />
+        <meta name="theme-color" content="#5093EE" />
         <link rel="icon" href="/icon-32.png" sizes="32x32" type="image/png" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
-        <meta name="msapplication-TileColor" content="#C1E9D5" />
+        <meta name="msapplication-TileColor" content="#5093EE" />
         <meta name="msapplication-TileImage" content="/icon-192.png" />
       </head>
       <body className="min-h-screen antialiased">
