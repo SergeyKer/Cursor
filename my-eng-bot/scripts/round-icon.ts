@@ -7,6 +7,10 @@ import { squircleMaskSvg } from '../lib/squircleMask'
 
 const ALPHA_CUTOFF = 16
 
+/** W3C maskable safe zone: logo fits in central 80% diameter circle. */
+const MASKABLE_SAFE_ZONE_RATIO = 0.8
+const MASKABLE_BG = '#5093EE'
+
 const RESIZE_OPTIONS = { kernel: 'lanczos3' as const }
 
 type RawRgba = { data: Uint8Array; width: number; height: number }
@@ -51,9 +55,18 @@ async function buildSquircleIcon(sourceBuffer: Buffer, size: number): Promise<Bu
     .toBuffer()
 }
 
-/** Android maskable: square full-bleed, no corner rounding (launcher applies its own mask). */
+/** Android maskable: full-bleed background, logo in safe zone (launcher applies its own mask). */
 async function buildMaskableIcon(sourceBuffer: Buffer, size: number): Promise<Buffer> {
-  return sharp(sourceBuffer).resize(size, size, RESIZE_OPTIONS).png().toBuffer()
+  const innerSize = Math.round(size * MASKABLE_SAFE_ZONE_RATIO)
+  const logo = await sharp(sourceBuffer).resize(innerSize, innerSize, RESIZE_OPTIONS).png().toBuffer()
+  const offset = Math.floor((size - innerSize) / 2)
+
+  return sharp({
+    create: { width: size, height: size, channels: 4, background: MASKABLE_BG },
+  })
+    .composite([{ input: logo, left: offset, top: offset }])
+    .png()
+    .toBuffer()
 }
 
 function countLightFringePixels(data: Uint8Array, width: number, height: number, ringPx: number): number {
