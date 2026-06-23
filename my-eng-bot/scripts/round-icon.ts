@@ -5,12 +5,6 @@ import sharp from 'sharp'
 
 import { squircleMaskSvg } from '../lib/squircleMask'
 
-/** PWA theme / maskable canvas background — keep in sync with app/manifest.ts */
-const MASKABLE_BG = '#5093EE'
-
-/** Logo inset for Android maskable safe zone (W3C: critical content within ~80%). */
-const MASKABLE_INSET_RATIO = 0.8
-
 const ALPHA_CUTOFF = 16
 
 const RESIZE_OPTIONS = { kernel: 'lanczos3' as const }
@@ -57,27 +51,9 @@ async function buildSquircleIcon(sourceBuffer: Buffer, size: number): Promise<Bu
     .toBuffer()
 }
 
-/** Android maskable: full-bleed background, logo scaled to safe zone. */
-async function buildMaskableIcon(sourceBuffer: Buffer, size: number, bgColor: string): Promise<Buffer> {
-  const logoSide = Math.max(1, Math.round(size * MASKABLE_INSET_RATIO))
-  const offset = Math.round((size - logoSide) / 2)
-
-  const logo = await sharp(sourceBuffer)
-    .resize(logoSide, logoSide, RESIZE_OPTIONS)
-    .png()
-    .toBuffer()
-
-  return sharp({
-    create: {
-      width: size,
-      height: size,
-      channels: 4,
-      background: bgColor,
-    },
-  })
-    .composite([{ input: logo, left: offset, top: offset }])
-    .png()
-    .toBuffer()
+/** Android maskable: full etalon + squircle rounding (launcher-safe shape). */
+async function buildMaskableIcon(sourceBuffer: Buffer, size: number): Promise<Buffer> {
+  return buildSquircleIcon(sourceBuffer, size)
 }
 
 function countLightFringePixels(data: Uint8Array, width: number, height: number, ringPx: number): number {
@@ -147,7 +123,7 @@ async function main() {
   }
 
   for (const { file, size } of maskableOutputs) {
-    const out = await buildMaskableIcon(sourceBuffer, size, MASKABLE_BG)
+    const out = await buildMaskableIcon(sourceBuffer, size)
     await fs.writeFile(path.join(publicDir, file), out)
   }
 
