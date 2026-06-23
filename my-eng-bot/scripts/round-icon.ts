@@ -51,9 +51,9 @@ async function buildSquircleIcon(sourceBuffer: Buffer, size: number): Promise<Bu
     .toBuffer()
 }
 
-/** Android maskable: full etalon + squircle rounding (launcher-safe shape). */
+/** Android maskable: square full-bleed, no corner rounding (launcher applies its own mask). */
 async function buildMaskableIcon(sourceBuffer: Buffer, size: number): Promise<Buffer> {
-  return buildSquircleIcon(sourceBuffer, size)
+  return sharp(sourceBuffer).resize(size, size, RESIZE_OPTIONS).png().toBuffer()
 }
 
 function countLightFringePixels(data: Uint8Array, width: number, height: number, ringPx: number): number {
