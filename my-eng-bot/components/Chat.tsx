@@ -31,7 +31,11 @@ import {
   getChatComposerTextareaVerticalClass,
 } from '@/lib/chatComposerMetrics'
 import { useDialogFeedKeyboardScroll } from '@/hooks/useDialogFeedKeyboardScroll'
-import { LESSON_SCROLL_VIEWPORT_CLASS, scheduleScrollAfterLayout } from '@/lib/lessonFeedScroll'
+import {
+  LESSON_SCROLL_VIEWPORT_CLASS,
+  scheduleScrollAfterLayout,
+  scrollLessonFeedMessageRowIntoViewIfNeeded,
+} from '@/lib/lessonFeedScroll'
 import {
   isIosChromeBrowser,
   isIosLikeDevice,
@@ -1897,6 +1901,12 @@ export default function Chat({
       ? `${messages.length}:${messages[messages.length - 1]?.content ?? ''}`
       : null
 
+  /** Ключ хвоста ленты без translation-метаданных — как в PracticeScreen. */
+  const chatFeedScrollTailKey = React.useMemo(() => {
+    const last = messages[messages.length - 1]
+    return last ? `${last.role}:${last.content}` : ''
+  }, [messages])
+
   React.useEffect(() => {
     if (!lastAssistantInviteKey) return
     if (loading || listening || isVoiceActive) return
@@ -2043,15 +2053,11 @@ export default function Chat({
     const el = scrollContainerRef.current
     if (!el) return
     return scheduleScrollAfterLayout(() => {
-      // Для первого экрана урока показываем начало сообщения (верх),
-      // а не прокручиваем к кнопкам внизу.
       if (isLearningFlow && messages.length === 1) {
         el.scrollTop = 0
         return
       }
       if (isLearningFlow && messages.length > 1) {
-        // В уроке после выбора кнопки выравниваем по новому пузырю ИИ:
-        // предыдущая неактивная кнопка должна уходить выше видимой области.
         const lastAssistantIndex = messages.length - 1
         const target = el.querySelector<HTMLElement>(
           `[data-message-index="${lastAssistantIndex}"][data-role="assistant"]`
@@ -2066,7 +2072,7 @@ export default function Chat({
       const maxTop = Math.max(0, el.scrollHeight - el.clientHeight)
       el.scrollTo({ top: maxTop, behavior: 'smooth' })
     })
-  }, [messages, isLearningFlow, engvo?.showAssistantPending])
+  }, [messages.length, chatFeedScrollTailKey, isLearningFlow, engvo?.showAssistantPending])
 
   useDialogFeedKeyboardScroll(scrollContainerRef, !isEngvoActive)
 
@@ -2986,6 +2992,27 @@ function MessageBubble({
         mode,
         translationHeadingWelcome: translationMainDrillHeadingWelcome,
       })
+
+  React.useLayoutEffect(() => {
+    const panelOpen = isEngvoCall ? showEngvoCallTranslation : showTranslation
+    if (!panelOpen) return
+    const rowEl = document.querySelector<HTMLElement>(
+      `[data-message-index="${messageIndex}"][data-role="${message.role}"]`
+    )
+    const scrollEl = rowEl?.closest<HTMLElement>('.lesson-scroll-viewport') ?? null
+    if (!scrollEl || !rowEl) return
+    return scheduleScrollAfterLayout(() => {
+      scrollLessonFeedMessageRowIntoViewIfNeeded(scrollEl, rowEl, 'auto')
+    })
+  }, [
+    isEngvoCall,
+    message.role,
+    message.translation,
+    message.translationError,
+    messageIndex,
+    showEngvoCallTranslation,
+    showTranslation,
+  ])
 
   // До paint: иначе один кадр без loadingTranslationIndex → мигание «Не удалось загрузить…».
   React.useLayoutEffect(() => {

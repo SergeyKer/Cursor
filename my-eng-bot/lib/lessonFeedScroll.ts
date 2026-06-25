@@ -588,10 +588,58 @@ export function scrollLessonFeedTailIfNeeded(
   scrollLessonFeedToMax(scrollContainer, behavior)
 }
 
-function getOffsetTopWithinAncestor(ancestor: HTMLElement, element: HTMLElement): number {
+export function getOffsetTopWithinAncestor(ancestor: HTMLElement, element: HTMLElement): number {
   const ancestorRect = ancestor.getBoundingClientRect()
   const elementRect = element.getBoundingClientRect()
   return elementRect.top - ancestorRect.top + ancestor.scrollTop
+}
+
+/** Минимальные поля сообщения для snapshot-скролла чата (без translation-метаданных). */
+export type ChatFeedScrollMessage = {
+  role: string
+  content: string
+  translation?: string
+  translationError?: string
+}
+
+export type ChatFeedScrollSnapshot = {
+  messageCount: number
+  tailKey: string
+}
+
+export function buildChatFeedScrollSnapshot(
+  messages: readonly ChatFeedScrollMessage[]
+): ChatFeedScrollSnapshot {
+  const last = messages[messages.length - 1]
+  const tailKey = last ? `${last.role}:${last.content}` : ''
+  return { messageCount: messages.length, tailKey }
+}
+
+/** Скролл к хвосту только при новой реплике или смене текста последнего сообщения. */
+export function shouldScrollChatFeed(
+  prev: ChatFeedScrollSnapshot,
+  next: ChatFeedScrollSnapshot
+): boolean {
+  return next.messageCount > prev.messageCount || next.tailKey !== prev.tailKey
+}
+
+/** Изменились только поля перевода (prefetch / загрузка по кнопке). */
+export function chatFeedTranslationFieldsChanged(
+  prevMessages: readonly ChatFeedScrollMessage[],
+  nextMessages: readonly ChatFeedScrollMessage[]
+): boolean {
+  if (prevMessages.length !== nextMessages.length) return false
+  for (let i = 0; i < prevMessages.length; i++) {
+    const prev = prevMessages[i]
+    const next = nextMessages[i]
+    if (
+      prev?.translation !== next?.translation ||
+      prev?.translationError !== next?.translationError
+    ) {
+      return true
+    }
+  }
+  return false
 }
 
 /** Последний пузырь user/assistant в ленте (для доскролла при клавиатуре). */
@@ -644,17 +692,15 @@ export function scrollLessonFeedToAlignLastAssistantBubbleTop(
 }
 
 /**
- * Минимальный доскролл: последний пузырь виден над композером (не scrollToMax в padding).
- * Только вниз - не откатываем scrollTop, если хвост уже виден (фокус без клавиатуры).
+ * Минимальный доскролл: низ пузыря виден в viewport (только вниз, без отката вверх).
  */
-export function scrollLessonFeedTailMessageIntoView(
+export function scrollLessonFeedMessageRowIntoViewIfNeeded(
   scrollContainer: HTMLElement | null,
+  target: HTMLElement | null,
   behavior: ScrollBehavior = 'auto',
   gapPx = LESSON_FEED_KEYBOARD_SCROLL_GAP_PX
 ): boolean {
-  if (!scrollContainer) return false
-  const target = findLessonFeedLastMessageRow(scrollContainer)
-  if (!target) return false
+  if (!scrollContainer || !target) return false
 
   const targetTop = getOffsetTopWithinAncestor(scrollContainer, target)
   const targetBottom = targetTop + target.offsetHeight
@@ -666,6 +712,20 @@ export function scrollLessonFeedTailMessageIntoView(
   if (Math.abs(scrollContainer.scrollTop - nextTop) < LESSON_FEED_SCROLL_SNAP_PX) return false
   scrollContainer.scrollTo({ top: nextTop, behavior })
   return true
+}
+
+/**
+ * Минимальный доскролл: последний пузырь виден над композером (не scrollToMax в padding).
+ * Только вниз - не откатываем scrollTop, если хвост уже виден (фокус без клавиатуры).
+ */
+export function scrollLessonFeedTailMessageIntoView(
+  scrollContainer: HTMLElement | null,
+  behavior: ScrollBehavior = 'auto',
+  gapPx = LESSON_FEED_KEYBOARD_SCROLL_GAP_PX
+): boolean {
+  if (!scrollContainer) return false
+  const target = findLessonFeedLastMessageRow(scrollContainer)
+  return scrollLessonFeedMessageRowIntoViewIfNeeded(scrollContainer, target, behavior, gapPx)
 }
 
 export function wasLessonFeedNearTail(

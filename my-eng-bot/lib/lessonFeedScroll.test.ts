@@ -31,6 +31,9 @@ import {
   shouldMtAutoPinPuzzleCheckingRow,
   shouldPinLessonFeedTailNearComposer,
   shouldSkipRevealEndOverflowScroll,
+  buildChatFeedScrollSnapshot,
+  chatFeedTranslationFieldsChanged,
+  shouldScrollChatFeed,
   simulateScrollTopAfterIntoViewEnd,
   simulateScrollTopAfterScrollToMax,
   simulateScrollTopAfterTailIfNeeded,
@@ -756,5 +759,70 @@ describe('computeLessonFeedScrollTopForTailMessage (клавиатура)', () =
     })
     expect(needTop).toBeGreaterThan(scrollTopAtMax)
     expect(Math.max(scrollTopAtMax, needTop)).toBe(needTop)
+  })
+})
+
+describe('buildChatFeedScrollSnapshot / shouldScrollChatFeed', () => {
+  const base = [
+    { role: 'user', content: 'Hi' },
+    { role: 'assistant', content: 'Hello!' },
+  ] as const
+
+  it('не меняет snapshot при обновлении только translation', () => {
+    const prev = buildChatFeedScrollSnapshot(base)
+    const next = buildChatFeedScrollSnapshot([
+      ...base.slice(0, -1),
+      { ...base[1], translation: 'Привет!' },
+    ])
+    expect(next).toEqual(prev)
+    expect(shouldScrollChatFeed(prev, next)).toBe(false)
+  })
+
+  it('не меняет snapshot при очистке translation перед повторным запросом', () => {
+    const withTranslation = [
+      base[0],
+      { ...base[1], translation: 'Привет!' },
+    ]
+    const prev = buildChatFeedScrollSnapshot(withTranslation)
+    const next = buildChatFeedScrollSnapshot([
+      base[0],
+      { role: 'assistant', content: 'Hello!', translation: undefined, translationError: undefined },
+    ])
+    expect(next).toEqual(prev)
+    expect(shouldScrollChatFeed(prev, next)).toBe(false)
+  })
+
+  it('меняет snapshot при новом сообщении', () => {
+    const prev = buildChatFeedScrollSnapshot(base)
+    const next = buildChatFeedScrollSnapshot([...base, { role: 'user', content: 'Bye' }])
+    expect(shouldScrollChatFeed(prev, next)).toBe(true)
+  })
+
+  it('меняет snapshot при смене content хвоста', () => {
+    const prev = buildChatFeedScrollSnapshot(base)
+    const next = buildChatFeedScrollSnapshot([
+      base[0],
+      { role: 'assistant', content: 'Hello again!' },
+    ])
+    expect(shouldScrollChatFeed(prev, next)).toBe(true)
+  })
+})
+
+describe('chatFeedTranslationFieldsChanged', () => {
+  it('true только при смене translation / translationError', () => {
+    const prev = [
+      { role: 'assistant', content: 'Hi', translation: undefined },
+    ]
+    const next = [{ role: 'assistant', content: 'Hi', translation: 'Привет' }]
+    expect(chatFeedTranslationFieldsChanged(prev, next)).toBe(true)
+    expect(chatFeedTranslationFieldsChanged(next, next)).toBe(false)
+  })
+
+  it('false при смене content или count', () => {
+    const prev = [{ role: 'assistant', content: 'Hi' }]
+    const nextContent = [{ role: 'assistant', content: 'Hey' }]
+    const nextCount = [...prev, { role: 'user', content: 'Ok' }]
+    expect(chatFeedTranslationFieldsChanged(prev, nextContent)).toBe(false)
+    expect(chatFeedTranslationFieldsChanged(prev, nextCount)).toBe(false)
   })
 })
