@@ -41,6 +41,7 @@ import {
   isPracticeRepeatCorrectionType,
   isPracticeVoiceRepeatCorrectionType,
 } from '@/lib/practice/practiceCorrectionFamily'
+import { shouldSuppressPracticeComposerEnterAnimation } from '@/lib/practice/practiceComposerEnter'
 import { useDialogFeedKeyboardScroll } from '@/hooks/useDialogFeedKeyboardScroll'
 import { useLessonComposerHeightLock } from '@/hooks/useLessonComposerHeightLock'
 import { useLessonSectionReveal } from '@/hooks/useLessonSectionReveal'
@@ -671,6 +672,13 @@ export default function PracticeScreen({
     currentQuestion != null &&
     state !== 'completed' &&
     state !== 'error'
+
+  const suppressComposerEnterAnimation =
+    currentQuestion != null &&
+    shouldSuppressPracticeComposerEnterAnimation({
+      questionType: currentQuestion.type,
+      questionIndex: session.currentIndex,
+    })
 
   const isChoiceChipsPanel =
     showQuestionComposer && isPracticeChoiceChipsPanel(currentQuestion, correctionPhase)
@@ -1354,6 +1362,7 @@ export default function PracticeScreen({
                   wrongAttemptsOnCurrentQuestion={session.wrongAttemptsOnCurrentQuestion ?? 0}
                   audience={audience}
                   prefersReducedMotion={prefersReducedMotion}
+                  suppressComposerEnterAnimation={suppressComposerEnterAnimation}
                   onSubmit={onSubmitAnswer}
                   suppressChoiceChipEnterAnimation={!isChoiceChipsVisible}
                   choiceChipsVisible={isChoiceChipsVisible}

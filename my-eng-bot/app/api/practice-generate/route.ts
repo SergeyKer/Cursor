@@ -118,6 +118,8 @@ function buildSystemPrompt(): string {
     'If type is choice, dropdown-fill, listening-select, speed-round, or context-clue, you must provide at least 3 English options and include targetAnswer in the options.',
     'For type choice: prompt MUST include a Russian situational context (Ситуация / Тема + clear task). Never use vague prompts like "Choose the best option" without context.',
     'For type choice: provide exactly 3 natural English options when possible; distractors should be near-miss (same pattern, wrong fit), not broken English.',
+    'For type voice-shadow: prompt MUST be Russian situational context only (Ситуация / Тема) or a neutral listen-and-repeat instruction. Never include targetAnswer or phrases like "Повторите фразу: ..." in prompt.',
+    'For type voice-shadow: put the full English phrase only in audioText and targetAnswer. Leave hint empty.',
     'Do not omit options for choice-like question types.',
     'All English answers and options must be natural, grammatical English. Wrong options may be incorrect for the task, but never nonsense or broken phrases like "It\'s dark to go.".',
     'Prompts can be in Russian with English targets. Keep the tone warm and concise.',

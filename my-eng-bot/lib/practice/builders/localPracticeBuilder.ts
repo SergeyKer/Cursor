@@ -1,4 +1,5 @@
 import { buildChoicePrompt } from '@/lib/practice/buildChoicePrompt'
+import { buildVoiceShadowPrompt } from '@/lib/practice/buildVoiceShadowPrompt'
 import { ensurePracticeChoiceOptions } from '@/lib/practice/ensurePracticeChoiceOptions'
 import { getPracticeExerciseMetadata } from '@/lib/practice/registry'
 import { resolveLessonExerciseVariant } from '@/lib/practice/resolveLessonExerciseVariant'
@@ -86,8 +87,10 @@ function createQuestion(params: {
   const meta = getPracticeExerciseMetadata(params.type)
   const acceptedAnswers = acceptedAnswersFor(params.exercise)
   const targetAnswer = acceptedAnswers[0] ?? params.exercise.correctAnswer
-  const prompt =
-    params.type === 'choice' || params.exercise.answerFormat === 'choice'
+  const isVoiceShadow = params.type === 'voice-shadow'
+  const prompt = isVoiceShadow
+    ? buildVoiceShadowPrompt(params.step, params.exercise, params.lesson)
+    : params.type === 'choice' || params.exercise.answerFormat === 'choice'
       ? buildChoicePrompt(params.step, params.exercise, params.lesson)
       : params.exercise.question?.trim() || params.step.bubbles.at(-1)?.content || 'Ответьте по теме урока.'
   const variantSuffix = params.variantIndex != null ? `-v${params.variantIndex}` : ''
@@ -106,7 +109,7 @@ function createQuestion(params: {
     audioText: params.type === 'dictation' || params.type === 'listening-select' || params.type === 'voice-shadow' ? targetAnswer : undefined,
     keywords: params.type === 'free-response' || params.type === 'roleplay-mini' ? targetAnswer.split(/\s+/).slice(0, 3) : undefined,
     minWords: params.type === 'boss-challenge' ? 5 : params.type === 'free-response' || params.type === 'roleplay-mini' ? 3 : undefined,
-    hint: params.exercise.hint,
+    hint: isVoiceShadow ? undefined : params.exercise.hint,
     explanation: params.step.footerDynamic,
     correctionPrompt: `Закрепим правильный вариант: ${targetAnswer}`,
     xpBase: meta.xpBase,
@@ -215,4 +218,26 @@ export function buildPracticeSessionFromQuestions(config: PracticeBuildConfig, q
 
 export function buildLocalPracticeSession(config: PracticeBuildConfig): PracticeSession {
   return createPracticeSession(config, buildQuestions(config.lesson, config.mode))
+}
+
+export function buildSinglePracticeQuestion(params: {
+  lesson: LessonData
+  type: PracticeExerciseType
+  questionIndex?: number
+}): PracticeQuestion | null {
+  const sourceSteps = getExerciseSteps(params.lesson)
+  if (sourceSteps.length === 0) return null
+  const index = params.questionIndex ?? 0
+  const source = sourceSteps[index % sourceSteps.length]!
+  const variantCount = source.exercise.variants?.length ?? 0
+  const variantIndex = variantCount > 0 ? index % variantCount : 0
+  const exercise = variantCount > 0 ? resolveLessonExerciseVariant(source.exercise, variantIndex) : source.exercise
+  return createQuestion({
+    lesson: params.lesson,
+    step: source.step,
+    exercise,
+    type: params.type,
+    index,
+    variantIndex: variantCount > 0 ? variantIndex : undefined,
+  })
 }

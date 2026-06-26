@@ -5,6 +5,7 @@ import {
   choicePromptHasContext,
   findFirstLessonChoiceStep,
 } from '@/lib/practice/buildChoicePrompt'
+import { buildVoiceShadowPrompt, sanitizeVoiceShadowPrompt } from '@/lib/practice/buildVoiceShadowPrompt'
 import { ensurePracticeChoiceOptions, isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
 import type { LessonData } from '@/types/lesson'
 import type { PracticeExerciseType, PracticeQuestion } from '@/types/practice'
@@ -65,6 +66,16 @@ export function normalizeAiPracticeQuestion(row: unknown, lesson: LessonData, in
     }
   }
 
+  if (type === 'voice-shadow') {
+    prompt = prompt ? sanitizeVoiceShadowPrompt(prompt, targetAnswer) : ''
+    if (!prompt || !/[А-Яа-яЁё]/.test(prompt)) {
+      const sourceStep = lesson.steps.find((step) => step.exercise && step.stepType !== 'completion')
+      if (sourceStep?.exercise) {
+        prompt = buildVoiceShadowPrompt(sourceStep, sourceStep.exercise, lesson)
+      }
+    }
+  }
+
   if (!prompt) return null
   if (type === 'choice' && !choicePromptHasContext(prompt)) return null
 
@@ -94,6 +105,13 @@ export function normalizeAiPracticeQuestion(row: unknown, lesson: LessonData, in
 
   if (isChoiceLikePracticeType(type) && !options) return null
 
+  const audioText =
+    type === 'voice-shadow' || type === 'dictation' || type === 'listening-select'
+      ? targetAnswer
+      : typeof source.audioText === 'string'
+        ? source.audioText.trim()
+        : targetAnswer
+
   return {
     id: `ai-practice-${lesson.id}-${index}-${Math.random().toString(36).slice(2, 8)}`,
     lessonId: lesson.id,
@@ -104,10 +122,10 @@ export function normalizeAiPracticeQuestion(row: unknown, lesson: LessonData, in
     options,
     shuffledWords: shuffledWords && shuffledWords.length > 0 ? shuffledWords : undefined,
     extraWords: extraWords && extraWords.length > 0 ? extraWords : undefined,
-    audioText: typeof source.audioText === 'string' ? source.audioText.trim() : targetAnswer,
+    audioText,
     keywords: keywords && keywords.length > 0 ? keywords : undefined,
     minWords: typeof source.minWords === 'number' && source.minWords > 0 ? Math.min(20, source.minWords) : undefined,
-    hint: typeof source.hint === 'string' ? source.hint.trim() : undefined,
+    hint: type === 'voice-shadow' ? undefined : typeof source.hint === 'string' ? source.hint.trim() : undefined,
     explanation: typeof source.explanation === 'string' ? source.explanation.trim() : undefined,
     correctionPrompt: `Закрепим правильный вариант: ${targetAnswer}`,
     xpBase: meta.xpBase,

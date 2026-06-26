@@ -23,8 +23,20 @@ export const PRACTICE_VOICE_REPEAT_CORRECTION_TYPES = [
 export type PracticeChoiceChipCorrectionType = (typeof PRACTICE_CHOICE_CHIP_CORRECTION_TYPES)[number]
 export type PracticeVoiceRepeatCorrectionType = (typeof PRACTICE_VOICE_REPEAT_CORRECTION_TYPES)[number]
 
+/** Voice-repeat types with mic + textarea on primary (not dropdown / word-bank). */
+export const PRACTICE_VOICE_PRIMARY_COMPOSER_TYPES = [
+  'voice-shadow',
+  'free-response',
+  'dictation',
+  'roleplay-mini',
+  'boss-challenge',
+] as const satisfies readonly PracticeQuestion['type'][]
+
+export type PracticeVoicePrimaryComposerType = (typeof PRACTICE_VOICE_PRIMARY_COMPOSER_TYPES)[number]
+
 const CHOICE_CHIP_SET = new Set<string>(PRACTICE_CHOICE_CHIP_CORRECTION_TYPES)
 const VOICE_REPEAT_SET = new Set<string>(PRACTICE_VOICE_REPEAT_CORRECTION_TYPES)
+const VOICE_PRIMARY_COMPOSER_SET = new Set<string>(PRACTICE_VOICE_PRIMARY_COMPOSER_TYPES)
 
 export function isPracticeChoiceChipCorrectionType(
   type: PracticeQuestion['type'] | undefined
@@ -36,6 +48,12 @@ export function isPracticeVoiceRepeatCorrectionType(
   type: PracticeQuestion['type'] | undefined
 ): type is PracticeVoiceRepeatCorrectionType {
   return type != null && VOICE_REPEAT_SET.has(type)
+}
+
+export function isPracticeVoicePrimaryComposerType(
+  type: PracticeQuestion['type'] | undefined
+): type is PracticeVoicePrimaryComposerType {
+  return type != null && VOICE_PRIMARY_COMPOSER_SET.has(type)
 }
 
 export function isPracticeRepeatCorrectionType(type: PracticeQuestion['type'] | undefined): boolean {

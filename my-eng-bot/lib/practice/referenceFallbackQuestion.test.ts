@@ -84,3 +84,24 @@ describe('synthesizeReferenceFallbackPrompt', () => {
     expect(synthesizeReferenceFallbackPrompt('Ситуация: вечер.', 2, 7)).toBe('Сценарий 3 из 7: Ситуация: вечер.')
   })
 })
+
+describe('buildReferenceFallbackQuestion voice-shadow', () => {
+  it('builds a voice-shadow fallback when local reference session has no matching type', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const question = buildReferenceFallbackQuestion({
+      lesson: lesson!,
+      mode: 'reference',
+      referenceExerciseType: 'voice-shadow',
+      referenceStepIndex: 0,
+      referenceTotal: 7,
+    })
+
+    expect(question).not.toBeNull()
+    expect(question!.type).toBe('voice-shadow')
+    expect(question!.audioText).toBeTruthy()
+    expect(question!.hint).toBeUndefined()
+    expect(question!.prompt).not.toContain(question!.targetAnswer)
+  })
+})

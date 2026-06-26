@@ -47,6 +47,7 @@ import {
   shouldKeepAudioInChoiceChipVoiceCorrection,
   shouldKeepAudioInVoiceRepeatCorrection,
 } from '@/lib/practice/practiceCorrectionFamily'
+import { getPracticeComposerEnterClass } from '@/lib/practice/practiceComposerEnter'
 import type { PracticeQuestion } from '@/types/practice'
 
 interface PracticeQuestionRendererProps {
@@ -64,6 +65,7 @@ interface PracticeQuestionRendererProps {
   wrongChoiceText?: string | null
   clearSelectionSignal?: number
   prefersReducedMotion?: boolean
+  suppressComposerEnterAnimation?: boolean
 }
 
 function inputPlaceholder(
@@ -116,17 +118,6 @@ function wordBank(question: PracticeQuestion): string[] {
 
 const ANSWER_PANEL_LOCK_CLASS = 'pointer-events-none opacity-60'
 
-/** Voice correction choice: soft fade (в такт с «Скажите»); text correction: practice-section-appear. */
-function getPracticeComposerEnterClass(options: {
-  isChoiceVoiceCorrection: boolean
-  isVoiceRepeatCorrection: boolean
-  correctionMode: boolean
-  prefersReducedMotion: boolean
-}): string {
-  if (options.prefersReducedMotion) return ''
-  if (options.isChoiceVoiceCorrection || options.isVoiceRepeatCorrection) return 'lesson-text-soft-enter'
-  return options.correctionMode ? 'practice-section-appear' : 'lesson-enter'
-}
 const PRACTICE_MULTI_ROW_INPUT_ROW_CLASS = 'flex w-full items-stretch gap-2'
 
 function withAnswerPanelLockClass(className: string, answerPanelLocked: boolean): string {
@@ -166,6 +157,7 @@ export default function PracticeQuestionRenderer({
   wrongChoiceText = null,
   clearSelectionSignal = 0,
   prefersReducedMotion = false,
+  suppressComposerEnterAnimation = false,
 }: PracticeQuestionRendererProps) {
   const [draft, setDraft] = useState('')
   const choiceVoice = useVoiceComposer()
@@ -221,6 +213,7 @@ export default function PracticeQuestionRenderer({
     isVoiceRepeatCorrection: isVoiceRepeatCorrection || isVoiceRepeatInCorrectionPause,
     correctionMode,
     prefersReducedMotion,
+    suppressEnterAnimation: suppressComposerEnterAnimation,
   })
   const canUseChoices =
     choices.length > 0 &&

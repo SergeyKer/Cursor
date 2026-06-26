@@ -55,6 +55,24 @@ describe('normalizeAiPracticeQuestion', () => {
     expect(q).not.toBeNull()
     expect(q!.options).toBeUndefined()
   })
+
+  it('strips leaked answer from voice-shadow AI prompt and clears hint', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+    const row = {
+      type: 'voice-shadow',
+      prompt: "Ситуация: На улице темно. Повторите фразу: 'It's dark.'",
+      targetAnswer: "It's dark.",
+      hint: "Начните с It's и добавьте прилагательное.",
+      acceptedAnswers: [],
+    }
+    const q = normalizeAiPracticeQuestion(row, lesson!, 0)
+    expect(q).not.toBeNull()
+    expect(q!.prompt).toBe('Ситуация: На улице темно.')
+    expect(q!.prompt).not.toContain("It's dark")
+    expect(q!.hint).toBeUndefined()
+    expect(q!.audioText).toBe("It's dark.")
+  })
 })
 
 describe('isChoiceLikePracticeType', () => {

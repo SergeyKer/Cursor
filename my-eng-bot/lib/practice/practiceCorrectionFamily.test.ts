@@ -4,8 +4,10 @@ import {
   isPracticeChipSelectionType,
   isPracticeChoiceChipCorrectionType,
   isPracticeRepeatCorrectionType,
+  isPracticeVoicePrimaryComposerType,
   isPracticeVoiceRepeatCorrectionType,
   PRACTICE_CHOICE_CHIP_CORRECTION_TYPES,
+  PRACTICE_VOICE_PRIMARY_COMPOSER_TYPES,
   PRACTICE_VOICE_REPEAT_CORRECTION_TYPES,
   shouldKeepAudioInChoiceChipVoiceCorrection,
   shouldKeepAudioInVoiceRepeatCorrection,
@@ -49,5 +51,15 @@ describe('practiceCorrectionFamily', () => {
     for (const type of PRACTICE_VOICE_REPEAT_CORRECTION_TYPES) {
       expect(isPracticeChoiceChipCorrectionType(type)).toBe(false)
     }
+  })
+
+  it('voice-primary composer types are a subset of voice-repeat without dropdown/word-bank', () => {
+    for (const type of PRACTICE_VOICE_PRIMARY_COMPOSER_TYPES) {
+      expect(isPracticeVoiceRepeatCorrectionType(type)).toBe(true)
+      expect(isPracticeVoicePrimaryComposerType(type)).toBe(true)
+    }
+    expect(isPracticeVoicePrimaryComposerType('dropdown-fill')).toBe(false)
+    expect(isPracticeVoicePrimaryComposerType('sentence-surgery')).toBe(false)
+    expect(isPracticeVoicePrimaryComposerType('word-builder-pro')).toBe(false)
   })
 })

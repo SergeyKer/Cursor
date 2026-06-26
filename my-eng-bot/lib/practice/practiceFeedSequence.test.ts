@@ -335,7 +335,7 @@ describe('buildPracticeFeedMessages sequence', () => {
     expect(limitFeedback?.repeatAnswer).toBeUndefined()
   })
 
-  it('voice-shadow active lesson omits service type label', () => {
+  it('voice-shadow shows neutral info label without pedagogical hint', () => {
     const messages = buildPracticeFeedMessages({
       session: makeSession({
         questions: [
@@ -353,6 +353,33 @@ describe('buildPracticeFeedMessages sequence', () => {
     })
     const lesson = messages.find((message) => message.kind === 'lesson')
     const infoBubble = lesson?.bubbles?.find((bubble) => bubble.type === 'info')
-    expect(infoBubble?.content ?? '').not.toContain('Прослушайте')
+    expect(infoBubble?.content).toMatch(/Прослушайте фразу/i)
+  })
+
+  it('voice-shadow keeps info bubble and answer out of task prompt', () => {
+    const messages = buildPracticeFeedMessages({
+      session: makeSession({
+        questions: [
+          {
+            id: 'q1',
+            type: 'voice-shadow',
+            prompt: 'Ситуация: На улице темно.',
+            targetAnswer: "It's dark.",
+            audioText: "It's dark.",
+            hint: "Начните с It's и добавьте прилагательное.",
+          },
+        ],
+      }),
+      state: 'active',
+      audience: 'adult',
+    })
+    const lesson = messages.find((message) => message.kind === 'lesson')
+    expect(lesson?.bubbles?.some((bubble) => bubble.type === 'info')).toBe(true)
+    const infoBubble = lesson?.bubbles?.find((bubble) => bubble.type === 'info')
+    expect(infoBubble?.content).toMatch(/Прослушайте фразу/i)
+    expect(infoBubble?.content).not.toMatch(/прилагательн/i)
+    const taskBubble = lesson?.bubbles?.find((bubble) => bubble.type === 'task')
+    expect(taskBubble?.content).toBe('Ситуация: На улице темно.')
+    expect(taskBubble?.content).not.toContain("It's dark")
   })
 })

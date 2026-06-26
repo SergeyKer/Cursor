@@ -65,6 +65,10 @@ describe('buildLocalPracticeSession', () => {
 
     expect([...questionsByType.keys()]).toEqual(expectedTypes)
     expect(questionsByType.get('voice-shadow')?.audioText).toBeTruthy()
+    const voiceShadow = questionsByType.get('voice-shadow')
+    expect(voiceShadow?.hint).toBeUndefined()
+    expect(voiceShadow?.prompt).not.toContain(voiceShadow?.targetAnswer ?? '')
+    expect(voiceShadow?.prompt).toMatch(/Ситуация:|Тема:|Прослушайте/i)
     expect(questionsByType.get('listening-select')?.audioText).toBeTruthy()
     expect(questionsByType.get('dictation')?.audioText).toBeTruthy()
     expect(questionsByType.get('sentence-surgery')?.shuffledWords?.length).toBeGreaterThan(0)

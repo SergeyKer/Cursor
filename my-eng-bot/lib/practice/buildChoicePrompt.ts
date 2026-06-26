@@ -25,7 +25,7 @@ const LESSON_CHOICE_FRAMES: Record<string, string> = {
   '4': 'Какой ответ про настроение?',
 }
 
-function findBubbleContent(step: LessonStep, type: 'task' | 'info'): string {
+export function findLessonStepBubbleContent(step: LessonStep, type: 'task' | 'info'): string {
   for (let index = step.bubbles.length - 1; index >= 0; index -= 1) {
     const bubble = step.bubbles[index]
     if (bubble?.type === type && bubble.content.trim()) {
@@ -47,7 +47,7 @@ function isGenericTaskContent(task: string): boolean {
   return GENERIC_TASK_PATTERNS.some((pattern) => pattern.test(normalized))
 }
 
-function extractSituationLabel(task: string): string | null {
+export function extractSituationLabel(task: string): string | null {
   const situationMatch = task.match(/(?:ситуации|ситуация)\s*:?\s*"([^"]+)"/i)
   if (situationMatch?.[1]) {
     return `Ситуация: ${situationMatch[1].replace(/[.!?…]+$/u, '')}.`
@@ -79,7 +79,7 @@ export function buildChoicePrompt(
   lesson: Pick<LessonData, 'id' | 'topic'>
 ): string {
   const question = exercise.question?.trim() ?? ''
-  const taskContent = findBubbleContent(step, 'task')
+  const taskContent = findLessonStepBubbleContent(step, 'task')
   const situation = extractSituationLabel(taskContent)
 
   if (question && !isAbstractChoiceQuestion(question) && question.length >= 24) {

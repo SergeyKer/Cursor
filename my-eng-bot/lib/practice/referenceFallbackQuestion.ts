@@ -1,4 +1,4 @@
-import { buildLocalPracticeSession } from '@/lib/practice/builders/localPracticeBuilder'
+import { buildLocalPracticeSession, buildSinglePracticeQuestion } from '@/lib/practice/builders/localPracticeBuilder'
 import { buildPracticeQuestionFingerprintFromQuestion } from '@/lib/practice/questionFingerprint'
 import type { LessonData } from '@/types/lesson'
 import type { PracticeExerciseType, PracticeMode, PracticeQuestion } from '@/types/practice'
@@ -68,7 +68,18 @@ export function buildReferenceFallbackQuestion(params: BuildReferenceFallbackQue
   const candidates = fallbackQuestions(params.lesson, params.mode).filter(
     (question) => question.type === params.referenceExerciseType
   )
-  if (candidates.length === 0) return null
+  if (candidates.length === 0) {
+    const synthesized = buildSinglePracticeQuestion({
+      lesson: params.lesson,
+      type: params.referenceExerciseType,
+      questionIndex: referenceStepIndex,
+    })
+    if (!synthesized) return null
+    return {
+      ...synthesized,
+      id: `${synthesized.id}-rfb-${Date.now()}`,
+    }
+  }
 
   for (const candidate of rotateCandidates(candidates, referenceStepIndex)) {
     const promptKey = candidate.prompt.trim().toLowerCase()

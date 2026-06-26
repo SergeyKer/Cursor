@@ -14,6 +14,7 @@ import {
   getPracticeExerciseTypeCatalogNumber,
   PRACTICE_EXERCISE_TYPE_CATALOG_SIZE,
 } from '@/lib/practice/practiceExerciseTypeCatalog'
+import { VOICE_SHADOW_INFO_LABEL } from '@/lib/practice/buildVoiceShadowPrompt'
 import type { Bubble } from '@/types/lesson'
 import type { PracticeAnswer, PracticeQuestion, PracticeSession } from '@/types/practice'
 
@@ -32,7 +33,7 @@ export type PracticeFeedMessage = {
 
 function practiceTypeLabel(question: PracticeQuestion): string {
   if (question.type === 'choice') return 'Выберите лучший вариант.'
-  if (question.type === 'voice-shadow') return ''
+  if (question.type === 'voice-shadow') return VOICE_SHADOW_INFO_LABEL
   if (question.type === 'dropdown-fill') return 'Восстановите пропуск.'
   if (question.type === 'listening-select') return 'Прослушайте и выберите правильный вариант.'
   if (question.type === 'sentence-surgery') return 'Соберите правильную фразу.'
@@ -52,7 +53,7 @@ function normalizeInstruction(text: string | undefined): string {
 }
 
 function practiceInfoLabel(question: PracticeQuestion): string {
-  const hint = normalizeInstruction(question.hint)
+  const hint = question.type === 'voice-shadow' ? '' : normalizeInstruction(question.hint)
   const base = normalizeInstruction(practiceTypeLabel(question))
   if (!hint) return base
   const normalizedHint = hint.toLowerCase().replace(/[.!?…]/g, '').replace(/\s+/g, ' ').trim()
@@ -73,16 +74,18 @@ function buildQuestionBubbles(params: {
       : params.previousWasCorrect
         ? 'Предыдущий ответ засчитан. Держим темп.'
         : 'Ошибку уже разобрали. Теперь закрепим похожий паттерн.'
-  return [
-    { type: 'positive', content: opening },
-    { type: 'info', content: practiceInfoLabel(params.question) },
-    {
-      type: 'task',
-      content: showDebugQuestionIndex
-        ? `шаг ${params.questionIndex + 1} · тип ${getPracticeExerciseTypeCatalogNumber(params.question.type)}/${PRACTICE_EXERCISE_TYPE_CATALOG_SIZE} (${params.question.type}) · ${params.question.prompt}`
-        : params.question.prompt,
-    },
-  ]
+  const infoLabel = practiceInfoLabel(params.question)
+  const bubbles: Bubble[] = [{ type: 'positive', content: opening }]
+  if (infoLabel) {
+    bubbles.push({ type: 'info', content: infoLabel })
+  }
+  bubbles.push({
+    type: 'task',
+    content: showDebugQuestionIndex
+      ? `шаг ${params.questionIndex + 1} · тип ${getPracticeExerciseTypeCatalogNumber(params.question.type)}/${PRACTICE_EXERCISE_TYPE_CATALOG_SIZE} (${params.question.type}) · ${params.question.prompt}`
+      : params.question.prompt,
+  })
+  return bubbles
 }
 
 function feedbackTextForAnswer(
