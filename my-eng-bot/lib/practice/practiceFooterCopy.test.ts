@@ -101,6 +101,32 @@ describe('buildPracticeFooterDynamicText', () => {
     ).toBe('Попробуйте снова. Текст - карандаш.')
   })
 
+  it('shows mic footer on voiceReady for voice-shadow correction', () => {
+    expect(
+      buildPracticeFooterDynamicText({
+        state: 'correction',
+        audience: 'adult',
+        wrongAttemptsOnCurrentQuestion: 1,
+        questionType: 'voice-shadow',
+        isWrongLimitAdvance: false,
+        correctionPhase: 'voiceReady',
+      })
+    ).toBe('Скажите фразу вслух в микрофон.')
+  })
+
+  it('returns null footer during voice-shadow voiceLocked pause', () => {
+    expect(
+      buildPracticeFooterDynamicText({
+        state: 'correction',
+        audience: 'adult',
+        wrongAttemptsOnCurrentQuestion: 1,
+        questionType: 'voice-shadow',
+        isWrongLimitAdvance: false,
+        correctionPhase: 'voiceLocked',
+      })
+    ).toBeNull()
+  })
+
   it('guides text correction for non-choice exercises', () => {
     expect(
       buildPracticeFooterDynamicText({

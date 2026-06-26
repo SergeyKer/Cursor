@@ -26,5 +26,6 @@ export function showVoiceCorrectionComposer(
   phase: PracticeChoiceCorrectionPhase,
   questionType: string | undefined,
 ): boolean {
-  return questionType === 'choice' && (phase === 'voiceLocked' || phase === 'voiceReady')
+  if (phase !== 'voiceLocked' && phase !== 'voiceReady') return false
+  return questionType === 'choice' || questionType === 'voice-shadow'
 }

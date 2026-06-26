@@ -32,7 +32,7 @@ export type PracticeFeedMessage = {
 
 function practiceTypeLabel(question: PracticeQuestion): string {
   if (question.type === 'choice') return 'Выберите лучший вариант.'
-  if (question.type === 'voice-shadow') return 'Прослушайте и повторите фразу вслух.'
+  if (question.type === 'voice-shadow') return ''
   if (question.type === 'dropdown-fill') return 'Восстановите пропуск.'
   if (question.type === 'listening-select') return 'Прослушайте и выберите правильный вариант.'
   if (question.type === 'sentence-surgery') return 'Соберите правильную фразу.'

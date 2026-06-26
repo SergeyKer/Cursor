@@ -31,9 +31,9 @@ export function buildPracticeFooterDynamicText(params: {
   correctionPhase?: PracticeChoiceCorrectionPhase
 }): string | null {
   if (params.state === 'correction') {
-    if (params.questionType === 'choice') {
+    if (params.questionType === 'choice' || params.questionType === 'voice-shadow') {
       const phase = params.correctionPhase ?? 'idle'
-      if (phase === 'chips') {
+      if (params.questionType === 'choice' && phase === 'chips') {
         return buildPracticeCorrectionChipsFooterHint(params.audience)
       }
       if (phase !== 'voiceReady') {

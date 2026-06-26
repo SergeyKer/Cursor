@@ -26,11 +26,20 @@ describe('practiceChoiceCorrectionPhase', () => {
     expect(canCompleteChipPhase(true, true)).toBe(true)
   })
 
-  it('showVoiceCorrectionComposer only for choice voice phases', () => {
+  it('voice-shadow correction uses same gate as choice chips (pause timer + scroll)', () => {
+    expect(canCompleteChipPhase(true, false)).toBe(false)
+    expect(canCompleteChipPhase(false, true)).toBe(false)
+    expect(canCompleteChipPhase(true, true)).toBe(true)
+  })
+
+  it('showVoiceCorrectionComposer for choice and voice-shadow voice phases', () => {
     expect(showVoiceCorrectionComposer('idle', 'choice')).toBe(false)
     expect(showVoiceCorrectionComposer('chips', 'choice')).toBe(false)
     expect(showVoiceCorrectionComposer('voiceLocked', 'choice')).toBe(true)
     expect(showVoiceCorrectionComposer('voiceReady', 'choice')).toBe(true)
     expect(showVoiceCorrectionComposer('voiceReady', 'dictation')).toBe(false)
+    expect(showVoiceCorrectionComposer('voiceLocked', 'voice-shadow')).toBe(true)
+    expect(showVoiceCorrectionComposer('voiceReady', 'voice-shadow')).toBe(true)
+    expect(showVoiceCorrectionComposer('chips', 'voice-shadow')).toBe(false)
   })
 })

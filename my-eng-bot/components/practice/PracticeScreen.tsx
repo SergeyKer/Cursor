@@ -185,7 +185,9 @@ export default function PracticeScreen({
   const wrongHighlightSuppressedRef = useRef(false)
   const chipTimerDoneRef = useRef(false)
   const scrollDoneRef = useRef(false)
+  const voiceShadowPauseTimerDoneRef = useRef(false)
   const chipPhaseTimerRef = useRef<number | null>(null)
+  const voiceShadowPauseTimerRef = useRef<number | null>(null)
   const correctionPhaseGenerationRef = useRef(0)
   const scrollCleanupOnCompleteRef = useRef<(() => void) | null>(null)
 
@@ -355,6 +357,21 @@ export default function PracticeScreen({
     )
   }, [messages, currentQuestion?.type])
 
+  const tailVoiceShadowErrorWithRepeat = useMemo(() => {
+    const tail = messages.at(-1)
+    return (
+      tail?.kind === 'status' &&
+      tail.tone === 'error' &&
+      Boolean(tail.repeatAnswer) &&
+      currentQuestion?.type === 'voice-shadow'
+    )
+  }, [messages, currentQuestion?.type])
+
+  const tailVoiceRepeatError = tailChoiceErrorWithRepeat || tailVoiceShadowErrorWithRepeat
+
+  const isRepeatCorrectionQuestionType =
+    currentQuestion?.type === 'choice' || currentQuestion?.type === 'voice-shadow'
+
   const isChoiceVoiceCorrectionFlow =
     currentQuestion?.type === 'choice' &&
     wrongAttemptsOnCurrentQuestion >= 1 &&
@@ -367,6 +384,10 @@ export default function PracticeScreen({
     if (chipPhaseTimerRef.current != null) {
       window.clearTimeout(chipPhaseTimerRef.current)
       chipPhaseTimerRef.current = null
+    }
+    if (voiceShadowPauseTimerRef.current != null) {
+      window.clearTimeout(voiceShadowPauseTimerRef.current)
+      voiceShadowPauseTimerRef.current = null
     }
     if (scrollCleanupOnCompleteRef.current) {
       scrollCleanupOnCompleteRef.current()
@@ -382,18 +403,58 @@ export default function PracticeScreen({
     setCorrectionPhase('voiceReady')
   }, [markErrorSayTextRevealReady])
 
+  const tryCompleteVoiceShadowPhase = useCallback(() => {
+    if (!canCompleteChipPhase(voiceShadowPauseTimerDoneRef.current, scrollDoneRef.current)) return
+    markErrorSayTextRevealReady()
+    setCorrectionPhase('voiceReady')
+  }, [markErrorSayTextRevealReady])
+
+  const tryCompleteVoiceShadowPhaseRef = useRef(tryCompleteVoiceShadowPhase)
+  tryCompleteVoiceShadowPhaseRef.current = tryCompleteVoiceShadowPhase
+
   const correctionCycleKeyRef = useRef<string | null>(null)
   const tryCompleteChipPhaseRef = useRef(tryCompleteChipPhase)
   tryCompleteChipPhaseRef.current = tryCompleteChipPhase
 
   useLayoutEffect(() => {
-    if (!tailChoiceErrorWithRepeat || state !== 'correction') {
-      if (!isCorrectionSession || currentQuestion?.type !== 'choice') {
+    if (!tailVoiceRepeatError || state !== 'correction') {
+      if (!isCorrectionSession || !isRepeatCorrectionQuestionType) {
         correctionCycleKeyRef.current = null
         setCorrectionPhase('idle')
       }
       return
     }
+
+    if (currentQuestion?.type === 'voice-shadow') {
+      const cycleKey = `${tailMessageId}:${wrongAttemptsOnCurrentQuestion}:voice-shadow`
+      if (correctionCycleKeyRef.current === cycleKey) return
+      correctionCycleKeyRef.current = cycleKey
+
+      correctionPhaseGenerationRef.current += 1
+      const generation = correctionPhaseGenerationRef.current
+      clearCorrectionPhaseTimers()
+      scrollDoneRef.current = false
+      voiceShadowPauseTimerDoneRef.current = false
+      setErrorSayTextRevealReady(prefersReducedMotion)
+
+      if (prefersReducedMotion) {
+        setCorrectionPhase('voiceReady')
+        return
+      }
+
+      setCorrectionPhase('voiceLocked')
+      setErrorSayTextRevealReady(false)
+
+      voiceShadowPauseTimerRef.current = window.setTimeout(() => {
+        if (generation !== correctionPhaseGenerationRef.current) return
+        voiceShadowPauseTimerRef.current = null
+        voiceShadowPauseTimerDoneRef.current = true
+        tryCompleteVoiceShadowPhaseRef.current()
+      }, PRACTICE_CORRECTION_CHIP_PHASE_MS)
+      return
+    }
+
+    if (!tailChoiceErrorWithRepeat) return
 
     const cycleKey = `${tailMessageId}:${wrongAttemptsOnCurrentQuestion}`
     if (correctionCycleKeyRef.current === cycleKey) return
@@ -426,12 +487,74 @@ export default function PracticeScreen({
   }, [
     tailMessageId,
     state,
+    tailVoiceRepeatError,
     tailChoiceErrorWithRepeat,
     prefersReducedMotion,
     wrongAttemptsOnCurrentQuestion,
     currentQuestion?.type,
     isCorrectionSession,
+    isRepeatCorrectionQuestionType,
     clearCorrectionPhaseTimers,
+  ])
+
+  useEffect(() => {
+    if (!tailVoiceShadowErrorWithRepeat || state !== 'correction' || prefersReducedMotion) return
+    if (correctionPhase !== 'voiceLocked') return
+    if (currentQuestion?.type !== 'voice-shadow') return
+
+    const generation = correctionPhaseGenerationRef.current
+
+    const onScrollDone = () => {
+      if (generation !== correctionPhaseGenerationRef.current) return
+      scrollDoneRef.current = true
+      tryCompleteVoiceShadowPhaseRef.current()
+    }
+
+    const scrollBehavior = resolvePracticeFeedScrollRequest({
+      prefersReducedMotion,
+      reason: 'feedback',
+      state,
+    })
+
+    let cleanupSchedule: (() => void) | undefined
+    let cleanupScrollComplete: (() => void) | undefined
+
+    cleanupSchedule = scheduleScroll((scrollBehaviorArg) => {
+      const scrollContainer = scrollContainerRef.current
+      if (!scrollContainer) {
+        scrollDoneRef.current = true
+        tryCompleteVoiceShadowPhaseRef.current()
+        return
+      }
+      cleanupScrollComplete = scrollLessonFeedToModeWithCompleteIfNeeded(
+        scrollContainer,
+        'tail_if_needed',
+        scrollBehaviorArg,
+        onScrollDone
+      )
+      scrollCleanupOnCompleteRef.current = cleanupScrollComplete ?? null
+    }, scrollBehavior)
+
+    const fallbackTimer = window.setTimeout(() => {
+      if (generation !== correctionPhaseGenerationRef.current) return
+      scrollDoneRef.current = true
+      tryCompleteVoiceShadowPhaseRef.current()
+    }, LESSON_FEED_SCROLL_COMPLETE_FALLBACK_MS)
+
+    return () => {
+      cleanupSchedule?.()
+      cleanupScrollComplete?.()
+      scrollCleanupOnCompleteRef.current = null
+      window.clearTimeout(fallbackTimer)
+    }
+  }, [
+    tailMessageId,
+    state,
+    correctionPhase,
+    tailVoiceShadowErrorWithRepeat,
+    prefersReducedMotion,
+    scheduleScroll,
+    currentQuestion?.type,
   ])
 
   useEffect(() => {
@@ -634,6 +757,14 @@ export default function PracticeScreen({
     currentQuestion?.type === 'choice' &&
     state === 'correction' &&
     correctionPhase !== 'voiceReady'
+
+  const isVoiceShadowCorrectionFrozen =
+    currentQuestion?.type === 'voice-shadow' &&
+    state === 'correction' &&
+    correctionPhase !== 'voiceReady'
+
+  const isComposerCorrectionPaused =
+    isChoiceChipsCorrectionFrozen || isVoiceShadowCorrectionFrozen
 
   const scrollBottomPadding = resolveScrollBottomPadding({
     hasCurrentStep: state !== 'completed',
@@ -922,7 +1053,7 @@ export default function PracticeScreen({
 
   useLayoutEffect(() => {
     if (state !== 'correction' || correctionPhase !== 'voiceReady') return
-    if (currentQuestion?.type !== 'choice') return
+    if (currentQuestion?.type !== 'choice' && currentQuestion?.type !== 'voice-shadow') return
     const scroll = scrollContainerRef.current
     if (!scroll || scroll.scrollHeight <= scroll.clientHeight) return
     scrollLessonFeedTailIfNeeded(scroll, 'auto')
@@ -1090,13 +1221,14 @@ export default function PracticeScreen({
                     const statusEnterClass = lessonFeedStatusEnterClass(message.id)
 
                     if (message.tone === 'error') {
-                      const isTailChoiceCorrectionError =
+                      const isTailVoiceRepeatCorrectionError =
                         Boolean(message.repeatAnswer) &&
                         message.id === tailMessageId &&
                         state === 'correction' &&
-                        currentQuestion?.type === 'choice'
-                      const animateSayText = isTailChoiceCorrectionError && !prefersReducedMotion
-                      const sayTextRevealReadyForBubble = isTailChoiceCorrectionError
+                        (currentQuestion?.type === 'choice' ||
+                          currentQuestion?.type === 'voice-shadow')
+                      const animateSayText = isTailVoiceRepeatCorrectionError && !prefersReducedMotion
+                      const sayTextRevealReadyForBubble = isTailVoiceRepeatCorrectionError
                         ? correctionPhase === 'voiceReady' && errorSayTextRevealReady
                         : errorSayTextRevealReady
 
@@ -1198,10 +1330,23 @@ export default function PracticeScreen({
                 <PracticeQuestionRenderer
                   key={currentQuestion.id}
                   question={currentQuestion}
-                  disabled={!canSubmit || isChoiceInteractionDisabled || isChoiceChipsCorrectionFrozen}
-                  choicePanelFrozen={isChoicePanelFrozen || isChoiceChipsCorrectionFrozen}
-                  answerPanelLocked={isAnswerPanelLocked}
-                  correctionMode={isCorrectionSession && currentQuestion.type !== 'choice'}
+                  disabled={
+                    !canSubmit ||
+                    isChoiceInteractionDisabled ||
+                    isChoiceChipsCorrectionFrozen ||
+                    isVoiceShadowCorrectionFrozen
+                  }
+                  choicePanelFrozen={
+                    isChoicePanelFrozen ||
+                    isChoiceChipsCorrectionFrozen ||
+                    isVoiceShadowCorrectionFrozen
+                  }
+                  answerPanelLocked={isAnswerPanelLocked || isComposerCorrectionPaused}
+                  correctionMode={
+                    isCorrectionSession &&
+                    currentQuestion.type !== 'choice' &&
+                    currentQuestion.type !== 'voice-shadow'
+                  }
                   choiceCorrectionPhase={correctionPhase}
                   wrongAttemptsOnCurrentQuestion={session.wrongAttemptsOnCurrentQuestion ?? 0}
                   audience={audience}

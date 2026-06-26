@@ -31,7 +31,17 @@ describe('resolvePracticeRepeatAnswer', () => {
     ).toBe("It's dark.")
   })
 
-  it('skips repeat for non-choice types', () => {
+  it('returns correct answer for voice-shadow errors on attempts 1 and 2', () => {
+    expect(
+      resolvePracticeRepeatAnswer({
+        answer: wrongChoiceAnswer,
+        attemptNumber: 1,
+        questionType: 'voice-shadow',
+      })
+    ).toBe("It's dark.")
+  })
+
+  it('skips repeat for other non-voice types', () => {
     expect(
       resolvePracticeRepeatAnswer({
         answer: wrongChoiceAnswer,

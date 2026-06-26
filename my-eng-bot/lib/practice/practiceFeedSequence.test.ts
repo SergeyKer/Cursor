@@ -334,4 +334,25 @@ describe('buildPracticeFeedMessages sequence', () => {
     const limitFeedback = messages.filter((m) => m.tone === 'success').at(-1)
     expect(limitFeedback?.repeatAnswer).toBeUndefined()
   })
+
+  it('voice-shadow active lesson omits service type label', () => {
+    const messages = buildPracticeFeedMessages({
+      session: makeSession({
+        questions: [
+          {
+            id: 'q1',
+            type: 'voice-shadow',
+            prompt: 'Repeat the phrase.',
+            targetAnswer: "I'm happy.",
+            audioText: "I'm happy.",
+          },
+        ],
+      }),
+      state: 'active',
+      audience: 'adult',
+    })
+    const lesson = messages.find((message) => message.kind === 'lesson')
+    const infoBubble = lesson?.bubbles?.find((bubble) => bubble.type === 'info')
+    expect(infoBubble?.content ?? '').not.toContain('Прослушайте')
+  })
 })
