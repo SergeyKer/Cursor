@@ -3,6 +3,8 @@ import {
   LESSON_TEXT_SECTION_PAUSE_MS,
 } from '@/lib/lessonRevealTiming'
 import { LESSON_REVEAL_END_OVERFLOW_SETTLE_MS } from '@/lib/lessonFeedScroll'
+import { isPracticeRepeatCorrectionType } from '@/lib/practice/practiceCorrectionFamily'
+import type { PracticeQuestion } from '@/types/practice'
 
 export type PracticeChoiceCorrectionPhase = 'idle' | 'chips' | 'voiceLocked' | 'voiceReady'
 
@@ -24,8 +26,9 @@ export function canCompleteChipPhase(chipTimerDone: boolean, scrollDone: boolean
 
 export function showVoiceCorrectionComposer(
   phase: PracticeChoiceCorrectionPhase,
-  questionType: string | undefined,
+  questionType: PracticeQuestion['type'] | string | undefined,
 ): boolean {
   if (phase !== 'voiceLocked' && phase !== 'voiceReady') return false
-  return questionType === 'choice' || questionType === 'voice-shadow'
+  if (!questionType) return false
+  return isPracticeRepeatCorrectionType(questionType as PracticeQuestion['type'])
 }

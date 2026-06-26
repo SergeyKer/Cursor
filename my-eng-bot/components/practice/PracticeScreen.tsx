@@ -36,6 +36,11 @@ import {
   type PracticeChoiceCorrectionPhase,
 } from '@/lib/practice/practiceChoiceCorrectionPhase'
 import { isPracticeCorrectionSession } from '@/lib/practice/practiceCorrectionMode'
+import {
+  isPracticeChoiceChipCorrectionType,
+  isPracticeRepeatCorrectionType,
+  isPracticeVoiceRepeatCorrectionType,
+} from '@/lib/practice/practiceCorrectionFamily'
 import { useDialogFeedKeyboardScroll } from '@/hooks/useDialogFeedKeyboardScroll'
 import { useLessonComposerHeightLock } from '@/hooks/useLessonComposerHeightLock'
 import { useLessonSectionReveal } from '@/hooks/useLessonSectionReveal'
@@ -185,9 +190,9 @@ export default function PracticeScreen({
   const wrongHighlightSuppressedRef = useRef(false)
   const chipTimerDoneRef = useRef(false)
   const scrollDoneRef = useRef(false)
-  const voiceShadowPauseTimerDoneRef = useRef(false)
+  const voiceRepeatPauseTimerDoneRef = useRef(false)
   const chipPhaseTimerRef = useRef<number | null>(null)
-  const voiceShadowPauseTimerRef = useRef<number | null>(null)
+  const voiceRepeatPauseTimerRef = useRef<number | null>(null)
   const correctionPhaseGenerationRef = useRef(0)
   const scrollCleanupOnCompleteRef = useRef<(() => void) | null>(null)
 
@@ -347,15 +352,17 @@ export default function PracticeScreen({
 
   const wrongAttemptsOnCurrentQuestion = session.wrongAttemptsOnCurrentQuestion ?? 0
 
+  const questionType = currentQuestion?.type
+
   const tailChoiceErrorWithRepeat = useMemo(() => {
     const tail = messages.at(-1)
     return (
       tail?.kind === 'status' &&
       tail.tone === 'error' &&
       Boolean(tail.repeatAnswer) &&
-      currentQuestion?.type === 'choice'
+      isPracticeChoiceChipCorrectionType(questionType)
     )
-  }, [messages, currentQuestion?.type])
+  }, [messages, questionType])
 
   const tailVoiceShadowErrorWithRepeat = useMemo(() => {
     const tail = messages.at(-1)
@@ -363,17 +370,16 @@ export default function PracticeScreen({
       tail?.kind === 'status' &&
       tail.tone === 'error' &&
       Boolean(tail.repeatAnswer) &&
-      currentQuestion?.type === 'voice-shadow'
+      isPracticeVoiceRepeatCorrectionType(questionType)
     )
-  }, [messages, currentQuestion?.type])
+  }, [messages, questionType])
 
   const tailVoiceRepeatError = tailChoiceErrorWithRepeat || tailVoiceShadowErrorWithRepeat
 
-  const isRepeatCorrectionQuestionType =
-    currentQuestion?.type === 'choice' || currentQuestion?.type === 'voice-shadow'
+  const isRepeatCorrectionQuestionType = isPracticeRepeatCorrectionType(questionType)
 
   const isChoiceVoiceCorrectionFlow =
-    currentQuestion?.type === 'choice' &&
+    isPracticeChoiceChipCorrectionType(questionType) &&
     wrongAttemptsOnCurrentQuestion >= 1 &&
     (correctionPhase === 'chips' ||
       correctionPhase === 'voiceLocked' ||
@@ -385,9 +391,9 @@ export default function PracticeScreen({
       window.clearTimeout(chipPhaseTimerRef.current)
       chipPhaseTimerRef.current = null
     }
-    if (voiceShadowPauseTimerRef.current != null) {
-      window.clearTimeout(voiceShadowPauseTimerRef.current)
-      voiceShadowPauseTimerRef.current = null
+    if (voiceRepeatPauseTimerRef.current != null) {
+      window.clearTimeout(voiceRepeatPauseTimerRef.current)
+      voiceRepeatPauseTimerRef.current = null
     }
     if (scrollCleanupOnCompleteRef.current) {
       scrollCleanupOnCompleteRef.current()
@@ -403,14 +409,14 @@ export default function PracticeScreen({
     setCorrectionPhase('voiceReady')
   }, [markErrorSayTextRevealReady])
 
-  const tryCompleteVoiceShadowPhase = useCallback(() => {
-    if (!canCompleteChipPhase(voiceShadowPauseTimerDoneRef.current, scrollDoneRef.current)) return
+  const tryCompleteVoiceRepeatPhase = useCallback(() => {
+    if (!canCompleteChipPhase(voiceRepeatPauseTimerDoneRef.current, scrollDoneRef.current)) return
     markErrorSayTextRevealReady()
     setCorrectionPhase('voiceReady')
   }, [markErrorSayTextRevealReady])
 
-  const tryCompleteVoiceShadowPhaseRef = useRef(tryCompleteVoiceShadowPhase)
-  tryCompleteVoiceShadowPhaseRef.current = tryCompleteVoiceShadowPhase
+  const tryCompleteVoiceRepeatPhaseRef = useRef(tryCompleteVoiceRepeatPhase)
+  tryCompleteVoiceRepeatPhaseRef.current = tryCompleteVoiceRepeatPhase
 
   const correctionCycleKeyRef = useRef<string | null>(null)
   const tryCompleteChipPhaseRef = useRef(tryCompleteChipPhase)
@@ -425,8 +431,8 @@ export default function PracticeScreen({
       return
     }
 
-    if (currentQuestion?.type === 'voice-shadow') {
-      const cycleKey = `${tailMessageId}:${wrongAttemptsOnCurrentQuestion}:voice-shadow`
+    if (isPracticeVoiceRepeatCorrectionType(questionType)) {
+      const cycleKey = `${tailMessageId}:${wrongAttemptsOnCurrentQuestion}:${questionType}`
       if (correctionCycleKeyRef.current === cycleKey) return
       correctionCycleKeyRef.current = cycleKey
 
@@ -434,7 +440,7 @@ export default function PracticeScreen({
       const generation = correctionPhaseGenerationRef.current
       clearCorrectionPhaseTimers()
       scrollDoneRef.current = false
-      voiceShadowPauseTimerDoneRef.current = false
+      voiceRepeatPauseTimerDoneRef.current = false
       setErrorSayTextRevealReady(prefersReducedMotion)
 
       if (prefersReducedMotion) {
@@ -445,11 +451,11 @@ export default function PracticeScreen({
       setCorrectionPhase('voiceLocked')
       setErrorSayTextRevealReady(false)
 
-      voiceShadowPauseTimerRef.current = window.setTimeout(() => {
+      voiceRepeatPauseTimerRef.current = window.setTimeout(() => {
         if (generation !== correctionPhaseGenerationRef.current) return
-        voiceShadowPauseTimerRef.current = null
-        voiceShadowPauseTimerDoneRef.current = true
-        tryCompleteVoiceShadowPhaseRef.current()
+        voiceRepeatPauseTimerRef.current = null
+        voiceRepeatPauseTimerDoneRef.current = true
+        tryCompleteVoiceRepeatPhaseRef.current()
       }, PRACTICE_CORRECTION_CHIP_PHASE_MS)
       return
     }
@@ -491,7 +497,7 @@ export default function PracticeScreen({
     tailChoiceErrorWithRepeat,
     prefersReducedMotion,
     wrongAttemptsOnCurrentQuestion,
-    currentQuestion?.type,
+    questionType,
     isCorrectionSession,
     isRepeatCorrectionQuestionType,
     clearCorrectionPhaseTimers,
@@ -500,14 +506,14 @@ export default function PracticeScreen({
   useEffect(() => {
     if (!tailVoiceShadowErrorWithRepeat || state !== 'correction' || prefersReducedMotion) return
     if (correctionPhase !== 'voiceLocked') return
-    if (currentQuestion?.type !== 'voice-shadow') return
+    if (!isPracticeVoiceRepeatCorrectionType(questionType)) return
 
     const generation = correctionPhaseGenerationRef.current
 
     const onScrollDone = () => {
       if (generation !== correctionPhaseGenerationRef.current) return
       scrollDoneRef.current = true
-      tryCompleteVoiceShadowPhaseRef.current()
+      tryCompleteVoiceRepeatPhaseRef.current()
     }
 
     const scrollBehavior = resolvePracticeFeedScrollRequest({
@@ -523,7 +529,7 @@ export default function PracticeScreen({
       const scrollContainer = scrollContainerRef.current
       if (!scrollContainer) {
         scrollDoneRef.current = true
-        tryCompleteVoiceShadowPhaseRef.current()
+        tryCompleteVoiceRepeatPhaseRef.current()
         return
       }
       cleanupScrollComplete = scrollLessonFeedToModeWithCompleteIfNeeded(
@@ -538,7 +544,7 @@ export default function PracticeScreen({
     const fallbackTimer = window.setTimeout(() => {
       if (generation !== correctionPhaseGenerationRef.current) return
       scrollDoneRef.current = true
-      tryCompleteVoiceShadowPhaseRef.current()
+      tryCompleteVoiceRepeatPhaseRef.current()
     }, LESSON_FEED_SCROLL_COMPLETE_FALLBACK_MS)
 
     return () => {
@@ -554,7 +560,7 @@ export default function PracticeScreen({
     tailVoiceShadowErrorWithRepeat,
     prefersReducedMotion,
     scheduleScroll,
-    currentQuestion?.type,
+    questionType,
   ])
 
   useEffect(() => {
@@ -622,7 +628,7 @@ export default function PracticeScreen({
   }, [state, clearCorrectionPhaseTimers])
 
   useEffect(() => {
-    if (!isChoiceVoiceCorrectionFlow || currentQuestion?.type !== 'choice') {
+    if (!isChoiceVoiceCorrectionFlow || !isPracticeChoiceChipCorrectionType(questionType)) {
       setWrongChoiceHighlight(null)
       return
     }
@@ -754,12 +760,12 @@ export default function PracticeScreen({
     isRevealInProgress
   )
   const isChoiceChipsCorrectionFrozen =
-    currentQuestion?.type === 'choice' &&
+    isPracticeChoiceChipCorrectionType(questionType) &&
     state === 'correction' &&
     correctionPhase !== 'voiceReady'
 
   const isVoiceShadowCorrectionFrozen =
-    currentQuestion?.type === 'voice-shadow' &&
+    isPracticeVoiceRepeatCorrectionType(questionType) &&
     state === 'correction' &&
     correctionPhase !== 'voiceReady'
 
@@ -1053,14 +1059,14 @@ export default function PracticeScreen({
 
   useLayoutEffect(() => {
     if (state !== 'correction' || correctionPhase !== 'voiceReady') return
-    if (currentQuestion?.type !== 'choice' && currentQuestion?.type !== 'voice-shadow') return
+    if (!isPracticeRepeatCorrectionType(questionType)) return
     const scroll = scrollContainerRef.current
     if (!scroll || scroll.scrollHeight <= scroll.clientHeight) return
     scrollLessonFeedTailIfNeeded(scroll, 'auto')
   }, [
     state,
     correctionPhase,
-    currentQuestion?.type,
+    questionType,
     composerMinHeight,
     messages.length,
   ])
@@ -1225,8 +1231,7 @@ export default function PracticeScreen({
                         Boolean(message.repeatAnswer) &&
                         message.id === tailMessageId &&
                         state === 'correction' &&
-                        (currentQuestion?.type === 'choice' ||
-                          currentQuestion?.type === 'voice-shadow')
+                        isPracticeRepeatCorrectionType(questionType)
                       const animateSayText = isTailVoiceRepeatCorrectionError && !prefersReducedMotion
                       const sayTextRevealReadyForBubble = isTailVoiceRepeatCorrectionError
                         ? correctionPhase === 'voiceReady' && errorSayTextRevealReady
@@ -1343,9 +1348,7 @@ export default function PracticeScreen({
                   }
                   answerPanelLocked={isAnswerPanelLocked || isComposerCorrectionPaused}
                   correctionMode={
-                    isCorrectionSession &&
-                    currentQuestion.type !== 'choice' &&
-                    currentQuestion.type !== 'voice-shadow'
+                    isCorrectionSession && !isPracticeRepeatCorrectionType(currentQuestion.type)
                   }
                   choiceCorrectionPhase={correctionPhase}
                   wrongAttemptsOnCurrentQuestion={session.wrongAttemptsOnCurrentQuestion ?? 0}

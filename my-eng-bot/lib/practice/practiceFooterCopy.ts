@@ -1,5 +1,9 @@
 import type { PracticeFooterState } from '@/lib/practice/practiceFooter'
 import type { PracticeChoiceCorrectionPhase } from '@/lib/practice/practiceChoiceCorrectionPhase'
+import {
+  isPracticeChoiceChipCorrectionType,
+  isPracticeRepeatCorrectionType,
+} from '@/lib/practice/practiceCorrectionFamily'
 import type { Audience } from '@/lib/types'
 import type { PracticeQuestion, PracticeSession } from '@/types/practice'
 
@@ -31,9 +35,9 @@ export function buildPracticeFooterDynamicText(params: {
   correctionPhase?: PracticeChoiceCorrectionPhase
 }): string | null {
   if (params.state === 'correction') {
-    if (params.questionType === 'choice' || params.questionType === 'voice-shadow') {
+    if (isPracticeRepeatCorrectionType(params.questionType)) {
       const phase = params.correctionPhase ?? 'idle'
-      if (params.questionType === 'choice' && phase === 'chips') {
+      if (isPracticeChoiceChipCorrectionType(params.questionType) && phase === 'chips') {
         return buildPracticeCorrectionChipsFooterHint(params.audience)
       }
       if (phase !== 'voiceReady') {

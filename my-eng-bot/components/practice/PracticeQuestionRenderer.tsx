@@ -42,6 +42,11 @@ import {
   showVoiceCorrectionComposer,
   type PracticeChoiceCorrectionPhase,
 } from '@/lib/practice/practiceChoiceCorrectionPhase'
+import {
+  isPracticeVoiceRepeatCorrectionType,
+  shouldKeepAudioInChoiceChipVoiceCorrection,
+  shouldKeepAudioInVoiceRepeatCorrection,
+} from '@/lib/practice/practiceCorrectionFamily'
 import type { PracticeQuestion } from '@/types/practice'
 
 interface PracticeQuestionRendererProps {
@@ -78,10 +83,10 @@ function inputPlaceholder(
       audience: options.audience,
     })
   }
-  if (options.isVoiceFirstComposer && question.type === 'voice-shadow' && options.isTextEditUnlocked) {
+  if (options.isVoiceFirstComposer && isPracticeVoiceRepeatCorrectionType(question.type) && options.isTextEditUnlocked) {
     return options.audience === 'child' ? 'Поправь и отправь' : 'Поправьте и отправьте'
   }
-  if (options.isVoiceFirstComposer && question.type === 'voice-shadow') return ''
+  if (options.isVoiceFirstComposer && isPracticeVoiceRepeatCorrectionType(question.type)) return ''
   if (options.correctionMode) return 'Напиши правильный вариант...'
   if (question.type === 'dictation') return 'Напиши то, что услышал...'
   if (question.type === 'roleplay-mini') return 'Ответь как в мини-диалоге...'
@@ -114,12 +119,12 @@ const ANSWER_PANEL_LOCK_CLASS = 'pointer-events-none opacity-60'
 /** Voice correction choice: soft fade (в такт с «Скажите»); text correction: practice-section-appear. */
 function getPracticeComposerEnterClass(options: {
   isChoiceVoiceCorrection: boolean
-  isVoiceShadowCorrection: boolean
+  isVoiceRepeatCorrection: boolean
   correctionMode: boolean
   prefersReducedMotion: boolean
 }): string {
   if (options.prefersReducedMotion) return ''
-  if (options.isChoiceVoiceCorrection || options.isVoiceShadowCorrection) return 'lesson-text-soft-enter'
+  if (options.isChoiceVoiceCorrection || options.isVoiceRepeatCorrection) return 'lesson-text-soft-enter'
   return options.correctionMode ? 'practice-section-appear' : 'lesson-enter'
 }
 const PRACTICE_MULTI_ROW_INPUT_ROW_CLASS = 'flex w-full items-stretch gap-2'
@@ -187,30 +192,33 @@ export default function PracticeQuestionRenderer({
     }
     return raw
   }, [question.options, question.targetAnswer, question.type])
-  const isVoiceShadowPrimaryRef = useRef(false)
+  const isVoiceRepeatPrimaryRef = useRef(false)
   const isChoiceVoiceCorrectionComposer = showVoiceCorrectionComposer(
     choiceCorrectionPhase,
     question.type
   )
-  const isVoiceShadowCorrection =
-    question.type === 'voice-shadow' && isChoiceVoiceCorrectionComposer
-  const isVoiceShadowInCorrectionPause =
-    question.type === 'voice-shadow' &&
+  const isVoiceRepeatType = isPracticeVoiceRepeatCorrectionType(question.type)
+  const isVoiceRepeatCorrection = isVoiceRepeatType && isChoiceVoiceCorrectionComposer
+  const isVoiceRepeatInCorrectionPause =
+    isVoiceRepeatType &&
     wrongAttemptsOnCurrentQuestion >= 1 &&
     choiceCorrectionPhase !== 'voiceReady'
-  const isVoiceShadowPrimary =
-    question.type === 'voice-shadow' &&
-    wrongAttemptsOnCurrentQuestion === 0 &&
-    !isVoiceShadowCorrection
+  const isVoiceRepeatPrimary =
+    isVoiceRepeatType && wrongAttemptsOnCurrentQuestion === 0 && !isVoiceRepeatCorrection
+  const isVoiceRepeatCorrectionUI =
+    isVoiceRepeatType &&
+    (wrongAttemptsOnCurrentQuestion >= 1 ||
+      isVoiceRepeatInCorrectionPause ||
+      isVoiceRepeatCorrection)
   const isVoiceFirstComposer =
     isChoiceVoiceCorrectionComposer ||
-    isVoiceShadowPrimary ||
-    isVoiceShadowCorrection ||
-    isVoiceShadowInCorrectionPause
-  isVoiceShadowPrimaryRef.current = isVoiceShadowPrimary
+    isVoiceRepeatPrimary ||
+    isVoiceRepeatCorrection ||
+    isVoiceRepeatInCorrectionPause
+  isVoiceRepeatPrimaryRef.current = isVoiceRepeatPrimary
   const composerEnterClass = getPracticeComposerEnterClass({
     isChoiceVoiceCorrection: isChoiceVoiceCorrectionComposer && question.type === 'choice',
-    isVoiceShadowCorrection: isVoiceShadowCorrection || isVoiceShadowInCorrectionPause,
+    isVoiceRepeatCorrection: isVoiceRepeatCorrection || isVoiceRepeatInCorrectionPause,
     correctionMode,
     prefersReducedMotion,
   })
@@ -222,17 +230,22 @@ export default function PracticeQuestionRenderer({
       question.type === 'context-clue' ||
       question.type === 'listening-select') &&
     (choiceCorrectionPhase === 'idle' || choiceCorrectionPhase === 'chips')
-  const canUseDropdown = choices.length > 0 && !correctionMode && question.type === 'dropdown-fill'
+  const canUseDropdown =
+    choices.length > 0 && !correctionMode && !isVoiceRepeatCorrectionUI && question.type === 'dropdown-fill'
   const canUseWordBank =
-    !correctionMode && (question.type === 'sentence-surgery' || question.type === 'word-builder-pro')
+    !correctionMode &&
+    !isVoiceRepeatCorrectionUI &&
+    (question.type === 'sentence-surgery' || question.type === 'word-builder-pro')
   const canUseAudio =
     question.type === 'dictation' || question.type === 'listening-select' || question.type === 'voice-shadow'
   const isChoiceCorrectionComposer = isChoiceVoiceCorrectionComposer
-  const isDictationLikeComposer = !correctionMode && question.type === 'dictation'
+  const isDictationLikeComposer =
+    !correctionMode && !isVoiceRepeatCorrectionUI && question.type === 'dictation'
   const isMultiRowTextComposer =
-    question.type === 'roleplay-mini' ||
-    question.type === 'boss-challenge' ||
-    question.type === 'free-response'
+    !isVoiceFirstComposer &&
+    (question.type === 'roleplay-mini' ||
+      question.type === 'boss-challenge' ||
+      question.type === 'free-response')
   const BROWSER_SILENCE_MS = 1200
   const CHOICE_CORRECTION_INPUT_MAX_HEIGHT_PX = 132
   const DEFAULT_INPUT_MAX_HEIGHT_PX = 132
@@ -294,9 +307,9 @@ export default function PracticeQuestionRenderer({
   const hideChoiceComposerTextForTapHint =
     showChoiceInviteOverlay && choiceTapHintVisible && Boolean(choiceComposerText.trim())
   const micInviteAllowed =
-    isVoiceShadowPrimary ||
+    isVoiceRepeatPrimary ||
     (choiceCorrectionPhase === 'voiceReady' &&
-      (isChoiceVoiceCorrectionComposer || isVoiceShadowCorrection))
+      (isChoiceVoiceCorrectionComposer || isVoiceRepeatCorrection))
   const resolvedPlaceholder = inputPlaceholder(question, {
     isChoiceCorrection: isChoiceCorrectionComposer,
     isVoiceFirstComposer,
@@ -307,9 +320,9 @@ export default function PracticeQuestionRenderer({
   const { micVisualState, resetMicAnimation } = useMicInviteAnimation({
     inviteKey:
       isVoiceFirstComposer && micInviteAllowed && !disabled
-        ? `${question.id}-${isVoiceShadowPrimary ? 'primary' : 'correction'}-${wrongAttemptsOnCurrentQuestion}`
+        ? `${question.id}-${isVoiceRepeatPrimary ? 'primary' : 'correction'}-${wrongAttemptsOnCurrentQuestion}`
         : null,
-    pauseInvite: isVoiceShadowPrimary
+    pauseInvite: isVoiceRepeatPrimary
       ? choiceVoiceActive
       : choiceCorrectionPhase !== 'voiceReady' || choiceVoiceActive,
   })
@@ -425,7 +438,7 @@ export default function PracticeQuestionRenderer({
       if (resolvedFinalText) {
         commitChoiceVoiceText(resolvedFinalText)
         setDraft(resolvedFinalText)
-        if (isVoiceShadowPrimaryRef.current) setTextFallbackUnlocked(true)
+        if (isVoiceRepeatPrimaryRef.current) setTextFallbackUnlocked(true)
       } else {
         finishChoiceVoiceSession()
       }
@@ -442,7 +455,7 @@ export default function PracticeQuestionRenderer({
       if (resolvedFinalText) {
         commitChoiceVoiceText(resolvedFinalText)
         setDraft(resolvedFinalText)
-        if (isVoiceShadowPrimaryRef.current) setTextFallbackUnlocked(true)
+        if (isVoiceRepeatPrimaryRef.current) setTextFallbackUnlocked(true)
       } else {
         finishChoiceVoiceSession()
       }
@@ -502,7 +515,7 @@ export default function PracticeQuestionRenderer({
   }, [disabled, hardResetSpeechRecognition, isVoiceFirstComposer])
 
   useLayoutEffect(() => {
-    if (!isChoiceVoiceCorrectionComposer && !isVoiceShadowCorrection) return
+    if (!isChoiceVoiceCorrectionComposer && !isVoiceRepeatCorrection) return
     setTextFallbackUnlocked(false)
     setFieldTapEngaged(false)
     setChoiceTapHintVisible(false)
@@ -512,7 +525,7 @@ export default function PracticeQuestionRenderer({
   }, [
     hardResetSpeechRecognition,
     isChoiceVoiceCorrectionComposer,
-    isVoiceShadowCorrection,
+    isVoiceRepeatCorrection,
     question.id,
     resetChoiceVoiceComposer,
     resetMicAnimation,
@@ -719,11 +732,17 @@ export default function PracticeQuestionRenderer({
     )
   }
 
-  const isVoiceShadowComposer = question.type === 'voice-shadow'
+  const showAudioInComposer =
+    (canUseAudio && !correctionMode) ||
+    (isVoiceRepeatCorrection && shouldKeepAudioInVoiceRepeatCorrection(question.type)) ||
+    (isChoiceVoiceCorrectionComposer && shouldKeepAudioInChoiceChipVoiceCorrection(question.type))
+  const isAudioAlignedComposer =
+    shouldKeepAudioInVoiceRepeatCorrection(question.type) ||
+    (isChoiceVoiceCorrectionComposer && shouldKeepAudioInChoiceChipVoiceCorrection(question.type))
   const hasComposerHeader =
-    !correctionMode && Boolean(helperText(question) || canUseAudio)
+    Boolean(helperText(question)) || showAudioInComposer
   const composerShellClass = hasComposerHeader
-    ? `${CHAT_COMPOSER_COLUMN_SHELL_CLASS}${isDictationLikeComposer ? ' gap-1' : ''}`
+    ? `${CHAT_COMPOSER_COLUMN_SHELL_CLASS}${isDictationLikeComposer || (showAudioInComposer && isAudioAlignedComposer) ? ' gap-1' : ''}`
     : CHAT_COMPOSER_FORM_CLASS
   const inputRowClass = isMultiRowTextComposer ? PRACTICE_MULTI_ROW_INPUT_ROW_CLASS : CHAT_COMPOSER_INPUT_ROW_CLASS
 
@@ -751,7 +770,7 @@ export default function PracticeQuestionRenderer({
           }
         />
       ) : null}
-      {question.type === 'roleplay-mini' || question.type === 'boss-challenge' || question.type === 'free-response' ? (
+      {isMultiRowTextComposer ? (
         <textarea
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
@@ -900,11 +919,13 @@ export default function PracticeQuestionRenderer({
       style={{ boxShadow: 'var(--chat-composer-shadow)' }}
     >
       {hasComposerHeader ? (
-        <div className={`space-y-1 px-1${isVoiceShadowComposer ? ' flex w-full flex-col items-end' : ''}`}>
-          {canUseAudio && <AudioPracticeButton text={question.audioText ?? question.targetAnswer} disabled={disabled} />}
-          {helperText(question) && (
+        <div className={`space-y-1 px-1${isAudioAlignedComposer ? ' flex w-full flex-col items-end' : ''}`}>
+          {showAudioInComposer ? (
+            <AudioPracticeButton text={question.audioText ?? question.targetAnswer} disabled={disabled} />
+          ) : null}
+          {helperText(question) && !isVoiceRepeatCorrectionUI ? (
             <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{helperText(question)}</p>
-          )}
+          ) : null}
         </div>
       ) : null}
       {hasComposerHeader ? <div className={inputRowClass}>{composerInputRow}</div> : composerInputRow}

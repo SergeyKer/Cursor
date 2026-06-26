@@ -41,14 +41,31 @@ describe('resolvePracticeRepeatAnswer', () => {
     ).toBe("It's dark.")
   })
 
-  it('skips repeat for other non-voice types', () => {
+  it('returns repeat answer for listening-select and dictation on attempts 1 and 2', () => {
     expect(
       resolvePracticeRepeatAnswer({
         answer: wrongChoiceAnswer,
         attemptNumber: 1,
+        questionType: 'listening-select',
+      })
+    ).toBe("It's dark.")
+    expect(
+      resolvePracticeRepeatAnswer({
+        answer: wrongChoiceAnswer,
+        attemptNumber: 2,
         questionType: 'dictation',
       })
-    ).toBeUndefined()
+    ).toBe("It's dark.")
+  })
+
+  it('returns repeat answer for free-response on attempt 1', () => {
+    expect(
+      resolvePracticeRepeatAnswer({
+        answer: wrongChoiceAnswer,
+        attemptNumber: 1,
+        questionType: 'free-response',
+      })
+    ).toBe("It's dark.")
   })
 
   it('skips repeat on third wrong-limit success feedback', () => {

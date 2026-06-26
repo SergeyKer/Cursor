@@ -20,6 +20,7 @@ import {
   normalizePracticeSessionTargetCount,
 } from '@/lib/practice/practiceSessionProgress'
 import { validatePracticeAnswer, type PracticeAnswerValidationContext } from '@/lib/practice/practiceValidation'
+import { isPracticeChipSelectionType } from '@/lib/practice/practiceCorrectionFamily'
 import type {
   PracticeAnswer,
   PracticeBuildConfig,
@@ -279,7 +280,7 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
         const questionToValidate = correctionQuestion ?? currentQuestion
         const validationContext: PracticeAnswerValidationContext = correctionQuestion
           ? 'typed'
-          : questionToValidate.options?.length && questionToValidate.type === 'choice'
+          : questionToValidate.options?.length && isPracticeChipSelectionType(questionToValidate.type)
             ? 'chip'
             : 'typed'
         const isCorrect = validatePracticeAnswer(cleanAnswer, questionToValidate, validationContext)

@@ -127,7 +127,7 @@ describe('buildPracticeFooterDynamicText', () => {
     ).toBeNull()
   })
 
-  it('guides text correction for non-choice exercises', () => {
+  it('guides voice-repeat correction instead of plain textarea for dictation', () => {
     expect(
       buildPracticeFooterDynamicText({
         state: 'correction',
@@ -135,8 +135,22 @@ describe('buildPracticeFooterDynamicText', () => {
         wrongAttemptsOnCurrentQuestion: 1,
         questionType: 'dictation',
         isWrongLimitAdvance: false,
+        correctionPhase: 'voiceReady',
       })
-    ).toBe('Напиши правильный ответ.')
+    ).toBe('Ничего страшного. Скажи в микрофон.')
+  })
+
+  it('shows chips hint for listening-select during chips phase', () => {
+    expect(
+      buildPracticeFooterDynamicText({
+        state: 'correction',
+        audience: 'adult',
+        wrongAttemptsOnCurrentQuestion: 1,
+        questionType: 'listening-select',
+        isWrongLimitAdvance: false,
+        correctionPhase: 'chips',
+      })
+    ).toBe('После неверного выбора закрепите правильную фразу вслух.')
   })
 
   it('supports wrong-limit advance in feedback state', () => {
