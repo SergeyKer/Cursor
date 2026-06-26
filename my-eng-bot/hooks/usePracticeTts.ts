@@ -34,9 +34,11 @@ export function usePracticeTts({
   const [speedIndex, setSpeedIndex] = useState(0)
   const activeTextRef = useRef('')
   const speedIndexRef = useRef(0)
+  const isPlayingRef = useRef(false)
   const playbackGenerationRef = useRef(0)
 
   speedIndexRef.current = speedIndex
+  isPlayingRef.current = isPlaying
 
   const invalidatePlayback = useCallback(() => {
     playbackGenerationRef.current += 1
@@ -90,18 +92,19 @@ export function usePracticeTts({
   const cycleSpeed = useCallback(() => {
     if (disabled) return
 
-    setSpeedIndex((current) => {
-      const next = cyclePracticeTtsSpeedIndex(current)
-      if (isPlaying && text.trim()) {
-        invalidatePlayback()
-        stopSpeaking()
-        startPlayback(text, getPracticeTtsRateByIndex(next))
-      }
-      return next
-    })
-  }, [disabled, invalidatePlayback, isPlaying, startPlayback, text])
+    const next = cyclePracticeTtsSpeedIndex(speedIndexRef.current)
+    speedIndexRef.current = next
+    setSpeedIndex(next)
+
+    if (isPlayingRef.current && text.trim()) {
+      invalidatePlayback()
+      stopSpeaking()
+      startPlayback(text, getPracticeTtsRateByIndex(next))
+    }
+  }, [disabled, invalidatePlayback, startPlayback, text])
 
   useEffect(() => {
+    speedIndexRef.current = 0
     setSpeedIndex(0)
     stop()
   }, [questionId, stop])

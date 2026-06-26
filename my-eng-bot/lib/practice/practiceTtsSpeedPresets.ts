@@ -7,18 +7,18 @@ export type PracticeTtsSpeedPreset = {
 export const PRACTICE_TTS_SPEED_PRESETS: readonly PracticeTtsSpeedPreset[] = [
   {
     rate: 1,
-    label: '1.0×',
-    ariaLabel: 'Скорость воспроизведения: 1.0×. Нажмите, чтобы сменить',
+    label: '1×',
+    ariaLabel: 'Скорость воспроизведения: 1×. Нажмите, чтобы сменить',
   },
   {
-    rate: 0.85,
-    label: '0.85×',
-    ariaLabel: 'Скорость воспроизведения: 0.85×. Нажмите, чтобы сменить',
+    rate: 0.8,
+    label: '0.8×',
+    ariaLabel: 'Скорость воспроизведения: 0.8×. Нажмите, чтобы сменить',
   },
   {
-    rate: 0.7,
-    label: '0.7×',
-    ariaLabel: 'Скорость воспроизведения: 0.7×. Нажмите, чтобы сменить',
+    rate: 0.6,
+    label: '0.6×',
+    ariaLabel: 'Скорость воспроизведения: 0.6×. Нажмите, чтобы сменить',
   },
 ] as const
 

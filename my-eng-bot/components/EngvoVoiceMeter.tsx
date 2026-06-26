@@ -14,9 +14,12 @@ type EngvoVoiceMeterProps = {
   role?: EngvoVoiceMeterRole
   /** Анимация без аудиопотока: wave — связанная волна; semiRandom — независимые столбцы с random targets. */
   idleAnimation?: IdleAnimation
+  /** Число столбцов (по умолчанию 9). Меньшее значение — компактный метр для симметричных панелей. */
+  barCount?: number
+  className?: string
 }
 
-const BAR_COUNT = 9
+const DEFAULT_BAR_COUNT = 9
 const BAR_PIXEL_MAX = 22
 const MAX_SCALE = 1
 const IDLE_MAX_SCALE = 0.42
@@ -31,14 +34,14 @@ const SEMI_RANDOM_EDGE_BAR_HEIGHT_FACTOR = 0.5
 
 type BarEq = { target: number; nextRetargetAt: number }
 
-function semiRandomMaxScaleForBar(baselineScale: number, barIndex: number): number {
-  const isEdge = barIndex === 0 || barIndex === BAR_COUNT - 1
+function semiRandomMaxScaleForBar(baselineScale: number, barIndex: number, barCount: number): number {
+  const isEdge = barIndex === 0 || barIndex === barCount - 1
   const range = SEMI_RANDOM_MAX_SCALE - baselineScale
   return baselineScale + range * (isEdge ? SEMI_RANDOM_EDGE_BAR_HEIGHT_FACTOR : 1)
 }
 
-function randomSemiRandomTarget(baselineScale: number, barIndex: number): number {
-  const maxScale = semiRandomMaxScaleForBar(baselineScale, barIndex)
+function randomSemiRandomTarget(baselineScale: number, barIndex: number, barCount: number): number {
+  const maxScale = semiRandomMaxScaleForBar(baselineScale, barIndex, barCount)
   return baselineScale + Math.random() * (maxScale - baselineScale)
 }
 
@@ -49,10 +52,10 @@ function randomRetargetDelayMs(): number {
   )
 }
 
-function createBarEqStates(baselineScale: number): BarEq[] {
+function createBarEqStates(baselineScale: number, barCount: number): BarEq[] {
   const now = performance.now()
-  return Array.from({ length: BAR_COUNT }, (_, barIndex) => ({
-    target: randomSemiRandomTarget(baselineScale, barIndex),
+  return Array.from({ length: barCount }, (_, barIndex) => ({
+    target: randomSemiRandomTarget(baselineScale, barIndex, barCount),
     nextRetargetAt: now + randomRetargetDelayMs(),
   }))
 }
@@ -102,8 +105,12 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
-function animateBars(barNodesRef: React.MutableRefObject<Array<HTMLSpanElement | null>>, levels: number[]) {
-  for (let index = 0; index < BAR_COUNT; index += 1) {
+function animateBars(
+  barNodesRef: React.MutableRefObject<Array<HTMLSpanElement | null>>,
+  levels: number[],
+  barCount: number
+) {
+  for (let index = 0; index < barCount; index += 1) {
     const bar = barNodesRef.current[index]
     if (!bar) continue
     const h = Math.max(2, levels[index] * BAR_PIXEL_MAX)
@@ -118,7 +125,10 @@ export default function EngvoVoiceMeter({
   ariaLabel = 'Индикатор голоса',
   role = 'assistant',
   idleAnimation = 'wave',
+  barCount: barCountProp = DEFAULT_BAR_COUNT,
+  className = '',
 }: EngvoVoiceMeterProps) {
+  const barCount = Math.max(3, Math.min(15, barCountProp))
   const tuning = METER_TUNING[role]
   const baselineScale = tuning.baselineScale
   const levelDecay = 1 - tuning.levelAttack
@@ -127,9 +137,14 @@ export default function EngvoVoiceMeter({
   const animationFrameRef = React.useRef<number | null>(null)
   const sourceNodeRef = React.useRef<MediaStreamAudioSourceNode | null>(null)
   const analyserNodeRef = React.useRef<AnalyserNode | null>(null)
-  const currentLevelsRef = React.useRef<number[]>(Array(BAR_COUNT).fill(baselineScale))
+  const currentLevelsRef = React.useRef<number[]>(Array(barCount).fill(baselineScale))
   const idlePhaseRef = React.useRef(0)
   const barEqRef = React.useRef<BarEq[] | null>(null)
+
+  React.useEffect(() => {
+    currentLevelsRef.current = Array(barCount).fill(baselineScale)
+    barsRef.current = []
+  }, [barCount, baselineScale])
 
   React.useEffect(() => {
     const stop = () => {
@@ -160,9 +175,9 @@ export default function EngvoVoiceMeter({
 
       if (shouldSettle) {
         const settleTick = () => {
-          const nextLevels = new Array<number>(BAR_COUNT)
+          const nextLevels = new Array<number>(barCount)
           let allSettled = true
-          for (let i = 0; i < BAR_COUNT; i += 1) {
+          for (let i = 0; i < barCount; i += 1) {
             const prev = currentLevelsRef.current[i] ?? baselineScale
             if (prev > baselineScale + SEMI_RANDOM_SETTLE_EPSILON) {
               allSettled = false
@@ -172,7 +187,7 @@ export default function EngvoVoiceMeter({
             }
           }
           currentLevelsRef.current = nextLevels
-          animateBars(barsRef, nextLevels)
+          animateBars(barsRef, nextLevels, barCount)
           if (!allSettled) {
             animationFrameRef.current = window.requestAnimationFrame(settleTick)
           } else {
@@ -183,31 +198,31 @@ export default function EngvoVoiceMeter({
         return stop
       }
 
-      currentLevelsRef.current = Array(BAR_COUNT).fill(baselineScale)
-      animateBars(barsRef, currentLevelsRef.current)
+      currentLevelsRef.current = Array(barCount).fill(baselineScale)
+      animateBars(barsRef, currentLevelsRef.current, barCount)
       return stop
     }
 
     if (!active) {
-      currentLevelsRef.current = Array(BAR_COUNT).fill(baselineScale)
-      animateBars(barsRef, currentLevelsRef.current)
+      currentLevelsRef.current = Array(barCount).fill(baselineScale)
+      animateBars(barsRef, currentLevelsRef.current, barCount)
       return stop
     }
 
     if (!stream) {
       const idleTick = () => {
-        const nextLevels = new Array<number>(BAR_COUNT)
+        const nextLevels = new Array<number>(barCount)
 
         if (idleAnimation === 'semiRandom') {
-          if (!barEqRef.current) {
-            barEqRef.current = createBarEqStates(baselineScale)
+          if (!barEqRef.current || barEqRef.current.length !== barCount) {
+            barEqRef.current = createBarEqStates(baselineScale, barCount)
           }
           const barEq = barEqRef.current
           const now = performance.now()
-          for (let i = 0; i < BAR_COUNT; i += 1) {
+          for (let i = 0; i < barCount; i += 1) {
             const bar = barEq[i]
             if (now >= bar.nextRetargetAt) {
-              bar.target = randomSemiRandomTarget(baselineScale, i)
+              bar.target = randomSemiRandomTarget(baselineScale, i, barCount)
               bar.nextRetargetAt = now + randomRetargetDelayMs()
             }
             const prev = currentLevelsRef.current[i] ?? baselineScale
@@ -216,8 +231,8 @@ export default function EngvoVoiceMeter({
           }
         } else {
           idlePhaseRef.current += 0.16
-          const center = (BAR_COUNT - 1) / 2
-          for (let i = 0; i < BAR_COUNT; i += 1) {
+          const center = (barCount - 1) / 2
+          for (let i = 0; i < barCount; i += 1) {
             const distance = Math.abs(i - center)
             const envelope = Math.max(0.3, 1 - distance * 0.2)
             const pulse = (Math.sin(idlePhaseRef.current + i * 0.45) + 1) * 0.5
@@ -228,7 +243,7 @@ export default function EngvoVoiceMeter({
         }
 
         currentLevelsRef.current = nextLevels
-        animateBars(barsRef, nextLevels)
+        animateBars(barsRef, nextLevels, barCount)
         animationFrameRef.current = window.requestAnimationFrame(idleTick)
       }
       animationFrameRef.current = window.requestAnimationFrame(idleTick)
@@ -237,8 +252,8 @@ export default function EngvoVoiceMeter({
 
     const shared = getSharedAudioState()
     if (!shared) {
-      currentLevelsRef.current = Array(BAR_COUNT).fill(baselineScale)
-      animateBars(barsRef, currentLevelsRef.current)
+      currentLevelsRef.current = Array(barCount).fill(baselineScale)
+      animateBars(barsRef, currentLevelsRef.current, barCount)
       return stop
     }
 
@@ -251,8 +266,8 @@ export default function EngvoVoiceMeter({
     try {
       sourceNode = context.createMediaStreamSource(stream)
     } catch {
-      currentLevelsRef.current = Array(BAR_COUNT).fill(baselineScale)
-      animateBars(barsRef, currentLevelsRef.current)
+      currentLevelsRef.current = Array(barCount).fill(baselineScale)
+      animateBars(barsRef, currentLevelsRef.current, barCount)
       return stop
     }
 
@@ -277,10 +292,10 @@ export default function EngvoVoiceMeter({
       const rms = Math.sqrt(energy / timeDomainData.length)
       const boosted = clamp(rms * tuning.rmsToLevel, 0, 1)
 
-      const nextLevels = new Array<number>(BAR_COUNT)
-      const center = (BAR_COUNT - 1) / 2
+      const nextLevels = new Array<number>(barCount)
+      const center = (barCount - 1) / 2
 
-      for (let barIndex = 0; barIndex < BAR_COUNT; barIndex += 1) {
+      for (let barIndex = 0; barIndex < barCount; barIndex += 1) {
         const distance = Math.abs(barIndex - center)
         const envelope = clamp(1 - distance * 0.18, 0.32, 1)
         const microMotion = (Math.sin((performance.now() * 0.012) + barIndex * 0.55) + 1) * 0.5
@@ -294,22 +309,22 @@ export default function EngvoVoiceMeter({
       }
 
       currentLevelsRef.current = nextLevels
-      animateBars(barsRef, nextLevels)
+      animateBars(barsRef, nextLevels, barCount)
       animationFrameRef.current = window.requestAnimationFrame(tick)
     }
 
     animationFrameRef.current = window.requestAnimationFrame(tick)
     return stop
-  }, [active, baselineScale, frozen, idleAnimation, levelDecay, role, stream, tuning])
+  }, [active, barCount, baselineScale, frozen, idleAnimation, levelDecay, role, stream, tuning])
 
   return (
     <div
       role="status"
       aria-label={ariaLabel}
-      className="flex w-full min-w-0 items-center justify-center overflow-hidden"
+      className={`flex items-center justify-center overflow-hidden ${className || 'w-full min-w-0'}`}
     >
-      <div className="flex h-[22px] w-full items-end justify-center gap-[4px]">
-        {Array.from({ length: BAR_COUNT }).map((_, index) => (
+      <div className="flex h-[22px] items-end justify-center gap-[4px]">
+        {Array.from({ length: barCount }).map((_, index) => (
           <span
             key={index}
             ref={(element) => {

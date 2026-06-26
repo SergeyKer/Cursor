@@ -12,6 +12,9 @@ const PLAY_BUTTON_CLASS = `${APP_BTN_SECONDARY_SUBMIT} inline-flex h-11 min-h-[4
 
 const ICON_SLOT_CLASS = 'inline-flex h-4 w-4 shrink-0 items-center justify-center'
 
+/** 5 столбцов ≈ ширина чипа скорости (5×4px + 4×4px gap). */
+const PRACTICE_METER_BAR_COUNT = 5
+
 export type PracticeAudioDeckHandle = {
   stopTts: () => void
 }
@@ -66,11 +69,11 @@ const PracticeAudioDeck = forwardRef<PracticeAudioDeckHandle, PracticeAudioDeckP
 
   return (
     <div
-      className={`grid h-11 w-full grid-cols-[auto_1fr_auto] items-center gap-2 px-1${className ? ` ${className}` : ''}`}
+      className={`grid h-11 w-full grid-cols-[1fr_auto_1fr] items-center gap-2 px-1${className ? ` ${className}` : ''}`}
       role="group"
       aria-label="Прослушивание фразы"
     >
-      <div className="flex shrink-0 justify-start">
+      <div className="flex min-w-0 justify-center">
         <button
           type="button"
           onClick={cycleSpeed}
@@ -80,24 +83,13 @@ const PracticeAudioDeck = forwardRef<PracticeAudioDeckHandle, PracticeAudioDeckP
           title={`Скорость: ${speedPreset.label}`}
         >
           <span className="relative inline-grid">
-            <span className="invisible col-start-1 row-start-1">0.85×</span>
+            <span className="invisible col-start-1 row-start-1">0.8×</span>
             <span className="col-start-1 row-start-1">{speedPreset.label}</span>
           </span>
         </button>
       </div>
 
-      <div className="flex h-[22px] min-w-0 items-center justify-center overflow-hidden">
-        <EngvoVoiceMeter
-          stream={null}
-          active
-          frozen={!isPlaying}
-          role="assistant"
-          idleAnimation="semiRandom"
-          ariaLabel={isPlaying ? 'Воспроизведение фразы' : 'Готов к прослушиванию'}
-        />
-      </div>
-
-      <div className="flex shrink-0 justify-end">
+      <div className="flex justify-center">
         <button
           type="button"
           onClick={togglePlay}
@@ -117,6 +109,19 @@ const PracticeAudioDeck = forwardRef<PracticeAudioDeckHandle, PracticeAudioDeckP
             </span>
           </span>
         </button>
+      </div>
+
+      <div className="flex min-w-0 justify-center">
+        <EngvoVoiceMeter
+          stream={null}
+          active
+          frozen={!isPlaying}
+          role="assistant"
+          idleAnimation="semiRandom"
+          barCount={PRACTICE_METER_BAR_COUNT}
+          className="w-auto shrink-0"
+          ariaLabel={isPlaying ? 'Воспроизведение фразы' : 'Готов к прослушиванию'}
+        />
       </div>
     </div>
   )
