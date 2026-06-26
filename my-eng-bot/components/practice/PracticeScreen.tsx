@@ -80,6 +80,7 @@ import type { PracticeMode, PracticeQuestion, PracticeSession } from '@/types/pr
 
 interface PracticeScreenProps {
   session: PracticeSession
+  voiceId?: string
   audience?: Audience
   state: PracticeFlowState
   feedback?: { type: 'success' | 'error'; message: string } | null
@@ -153,6 +154,7 @@ function useLessonFeedStatusEnterClass(prefersReducedMotion: boolean) {
 
 export default function PracticeScreen({
   session,
+  voiceId = '',
   audience = 'adult',
   state,
   feedback = null,
@@ -1343,6 +1345,7 @@ export default function PracticeScreen({
                 <PracticeQuestionRenderer
                   key={currentQuestion.id}
                   question={currentQuestion}
+                  voiceId={voiceId}
                   disabled={
                     !canSubmit ||
                     isChoiceInteractionDisabled ||

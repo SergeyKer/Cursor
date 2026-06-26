@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
-import { APP_BTN_SECONDARY_SUBMIT } from '@/lib/homeCtaStyles'
+import PracticeAudioDeck, { type PracticeAudioDeckHandle } from '@/components/practice/PracticeAudioDeck'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import VoiceMicButton, { TextEditIcon } from '@/components/voice/VoiceMicButton'
 import {
@@ -52,6 +52,7 @@ import type { PracticeQuestion } from '@/types/practice'
 
 interface PracticeQuestionRendererProps {
   question: PracticeQuestion
+  voiceId?: string
   disabled?: boolean
   choicePanelFrozen?: boolean
   answerPanelLocked?: boolean
@@ -96,15 +97,6 @@ function inputPlaceholder(
   return 'Напиши ответ...'
 }
 
-function speak(text: string): void {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
-  window.speechSynthesis.cancel()
-  const utterance = new SpeechSynthesisUtterance(text)
-  utterance.lang = 'en-US'
-  utterance.rate = 0.9
-  window.speechSynthesis.speak(utterance)
-}
-
 function wordBank(question: PracticeQuestion): string[] {
   const words =
     question.shuffledWords && question.shuffledWords.length > 0
@@ -144,6 +136,7 @@ function choiceCorrectionComposerMetricsClass(options: {
 
 export default function PracticeQuestionRenderer({
   question,
+  voiceId = '',
   disabled = false,
   choicePanelFrozen = false,
   answerPanelLocked = false,
@@ -184,7 +177,9 @@ export default function PracticeQuestionRenderer({
     }
     return raw
   }, [question.options, question.targetAnswer, question.type])
+  const audioDeckRef = useRef<PracticeAudioDeckHandle | null>(null)
   const isVoiceRepeatPrimaryRef = useRef(false)
+  const practiceAudioText = question.audioText ?? question.targetAnswer
   const isChoiceVoiceCorrectionComposer = showVoiceCorrectionComposer(
     choiceCorrectionPhase,
     question.type
@@ -232,8 +227,6 @@ export default function PracticeQuestionRenderer({
   const canUseAudio =
     question.type === 'dictation' || question.type === 'listening-select' || question.type === 'voice-shadow'
   const isChoiceCorrectionComposer = isChoiceVoiceCorrectionComposer
-  const isDictationLikeComposer =
-    !correctionMode && !isVoiceRepeatCorrectionUI && question.type === 'dictation'
   const isMultiRowTextComposer =
     !isVoiceFirstComposer &&
     (question.type === 'roleplay-mini' ||
@@ -570,6 +563,7 @@ export default function PracticeQuestionRenderer({
   }, [DEFAULT_INPUT_MAX_HEIGHT_PX, adjustTextareaHeight, draft, isVoiceFirstComposer, question.type])
 
   const handleChoiceCorrectionMicClick = useCallback(() => {
+    audioDeckRef.current?.stopTts()
     resetMicAnimation()
     setChoiceTapHintVisible(false)
     setFieldTapEngaged(false)
@@ -615,7 +609,13 @@ export default function PracticeQuestionRenderer({
     if (canUseAudio) {
       return (
         <div className={`${composerEnterClass} space-y-1`}>
-          <AudioPracticeButton text={question.audioText ?? question.targetAnswer} disabled={disabled} />
+          <PracticeAudioDeck
+            ref={audioDeckRef}
+            text={practiceAudioText}
+            voiceId={voiceId}
+            questionId={question.id}
+            disabled={disabled || answerPanelLocked}
+          />
           <div
             className={!choiceChipsVisible ? 'pointer-events-none invisible' : undefined}
             aria-hidden={!choiceChipsVisible}
@@ -729,14 +729,15 @@ export default function PracticeQuestionRenderer({
     (canUseAudio && !correctionMode) ||
     (isVoiceRepeatCorrection && shouldKeepAudioInVoiceRepeatCorrection(question.type)) ||
     (isChoiceVoiceCorrectionComposer && shouldKeepAudioInChoiceChipVoiceCorrection(question.type))
-  const isAudioAlignedComposer =
-    shouldKeepAudioInVoiceRepeatCorrection(question.type) ||
-    (isChoiceVoiceCorrectionComposer && shouldKeepAudioInChoiceChipVoiceCorrection(question.type))
-  const hasComposerHeader =
-    Boolean(helperText(question)) || showAudioInComposer
-  const composerShellClass = hasComposerHeader
-    ? `${CHAT_COMPOSER_COLUMN_SHELL_CLASS}${isDictationLikeComposer || (showAudioInComposer && isAudioAlignedComposer) ? ' gap-1' : ''}`
-    : CHAT_COMPOSER_FORM_CLASS
+  const showComposerHelper =
+    Boolean(helperText(question)) && !showAudioInComposer && !isVoiceRepeatCorrectionUI
+  const composerFormClass = withAnswerPanelLockClass(
+    showAudioInComposer
+      ? `${composerEnterClass} flex w-full flex-col gap-1`
+      : `${composerEnterClass} ${showComposerHelper ? CHAT_COMPOSER_COLUMN_SHELL_CLASS : CHAT_COMPOSER_FORM_CLASS}`,
+    answerPanelLocked
+  )
+  const composerGlassShadow = { boxShadow: 'var(--chat-composer-shadow)' } as const
   const inputRowClass = isMultiRowTextComposer ? PRACTICE_MULTI_ROW_INPUT_ROW_CLASS : CHAT_COMPOSER_INPUT_ROW_CLASS
 
   const composerInputRow = (
@@ -905,37 +906,33 @@ export default function PracticeQuestionRenderer({
         event.preventDefault()
         submitText()
       }}
-      className={withAnswerPanelLockClass(
-        `${composerEnterClass} ${composerShellClass}`,
-        answerPanelLocked
-      )}
-      style={{ boxShadow: 'var(--chat-composer-shadow)' }}
+      className={composerFormClass}
+      style={showAudioInComposer ? undefined : composerGlassShadow}
     >
-      {hasComposerHeader ? (
-        <div className={`space-y-1 px-1${isAudioAlignedComposer ? ' flex w-full flex-col items-end' : ''}`}>
-          {showAudioInComposer ? (
-            <AudioPracticeButton text={question.audioText ?? question.targetAnswer} disabled={disabled} />
-          ) : null}
-          {helperText(question) && !isVoiceRepeatCorrectionUI ? (
-            <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{helperText(question)}</p>
-          ) : null}
+      {showAudioInComposer ? (
+        <div className={CHAT_COMPOSER_FORM_CLASS} style={composerGlassShadow}>
+          <PracticeAudioDeck
+            ref={audioDeckRef}
+            text={practiceAudioText}
+            voiceId={voiceId}
+            questionId={question.id}
+            disabled={disabled || answerPanelLocked}
+          />
         </div>
       ) : null}
-      {hasComposerHeader ? <div className={inputRowClass}>{composerInputRow}</div> : composerInputRow}
+      {showComposerHelper ? (
+        <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{helperText(question)}</p>
+      ) : null}
+      {showAudioInComposer ? (
+        <div className={CHAT_COMPOSER_FORM_CLASS} style={composerGlassShadow}>
+          {composerInputRow}
+        </div>
+      ) : showComposerHelper ? (
+        <div className={inputRowClass}>{composerInputRow}</div>
+      ) : (
+        composerInputRow
+      )}
     </form>
-  )
-}
-
-function AudioPracticeButton({ text, disabled }: { text: string; disabled?: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={() => speak(text)}
-      disabled={disabled || !text.trim()}
-      className={APP_BTN_SECONDARY_SUBMIT}
-    >
-      Прослушать
-    </button>
   )
 }
 

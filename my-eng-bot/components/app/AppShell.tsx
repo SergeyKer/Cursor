@@ -6909,6 +6909,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               ) : isPracticeActive && practiceSession.session ? (
                 <PracticeScreen
                   session={practiceSession.session}
+                  voiceId={settings.voiceId}
                   audience={settings.audience}
                   state={practiceSession.state}
                   feedback={practiceSession.feedback}

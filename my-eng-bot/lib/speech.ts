@@ -2,8 +2,15 @@
 let activeSpeakSessionKey: string | null = null
 let androidSpeakRetryTimer: number | null = null
 
-function makeSpeakSessionKey(text: string, voiceId: string): string {
-  return `${text}\0${voiceId}`
+export type SpeakOptions = {
+  rate?: number
+  onStart?: () => void
+  onEnd?: () => void
+  onError?: () => void
+}
+
+function makeSpeakSessionKey(text: string, voiceId: string, rate: number): string {
+  return `${text}\0${voiceId}\0${rate}`
 }
 
 function selectVoice(
@@ -32,13 +39,13 @@ function speakOnce(
   text: string,
   voiceId: string,
   allowCustomVoice: boolean,
-  sessionKey: string
+  sessionKey: string,
+  options: SpeakOptions
 ): void {
   const utterance = new SpeechSynthesisUtterance(text)
-  // Автодетект языка по кириллице: для общения на русском/английском TTS должен звучать на нужном языке.
   const isRu = /[А-Яа-яЁё]/.test(text)
   utterance.lang = isRu ? 'ru-RU' : 'en-US'
-  utterance.rate = 0.9
+  utterance.rate = options.rate ?? 0.9
 
   const voices = synth.getVoices()
   const selectedVoice = selectVoice(voices, voiceId, allowCustomVoice, isRu ? 'ru' : 'en')
@@ -47,14 +54,21 @@ function speakOnce(
   const releaseSession = () => {
     if (activeSpeakSessionKey === sessionKey) activeSpeakSessionKey = null
   }
-  utterance.onend = releaseSession
-  utterance.onerror = releaseSession
 
-  // Вызов speak() синхронно после cancel(): setTimeout(0) выводит в macrotask и в Chromium
-  // часто ломает user activation - озвучка не стартует без ошибки.
+  utterance.onstart = () => {
+    options.onStart?.()
+  }
+  utterance.onend = () => {
+    releaseSession()
+    options.onEnd?.()
+  }
+  utterance.onerror = () => {
+    releaseSession()
+    options.onError?.()
+  }
+
   const runSpeak = () => {
     if (synth.paused) synth.resume()
-    // До onstart: чтобы второй клик «Озвучить» по тому же тексту сразу остановил очередь.
     activeSpeakSessionKey = sessionKey
     synth.speak(utterance)
   }
@@ -66,12 +80,24 @@ function isAndroidBrowser(): boolean {
   return /Android/i.test(navigator.userAgent)
 }
 
+export function stopSpeaking(): void {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return
+
+  if (androidSpeakRetryTimer != null) {
+    window.clearTimeout(androidSpeakRetryTimer)
+    androidSpeakRetryTimer = null
+  }
+
+  window.speechSynthesis.cancel()
+  activeSpeakSessionKey = null
+}
+
 /**
  * TTS: воспроизведение текста выбранным голосом.
- * Повторный вызов с тем же текстом и voiceId, пока идёт воспроизведение или очередь не пуста - останавливает озвучку.
+ * Повторный вызов с тем же текстом, voiceId и rate, пока идёт воспроизведение или очередь не пуста - останавливает озвучку.
  * На Android и iOS игнорирует voiceId и использует системный голос.
  */
-export function speak(text: string, voiceId: string): void {
+export function speak(text: string, voiceId: string, options: SpeakOptions = {}): void {
   if (typeof window === 'undefined' || !window.speechSynthesis) return
 
   const normalized = text.trim()
@@ -80,7 +106,8 @@ export function speak(text: string, voiceId: string): void {
   const synth = window.speechSynthesis
   const allowCustomVoice = true
   const androidBrowser = isAndroidBrowser()
-  const sessionKey = makeSpeakSessionKey(normalized, voiceId)
+  const rate = options.rate ?? 0.9
+  const sessionKey = makeSpeakSessionKey(normalized, voiceId, rate)
 
   if (androidSpeakRetryTimer != null) {
     window.clearTimeout(androidSpeakRetryTimer)
@@ -88,35 +115,29 @@ export function speak(text: string, voiceId: string): void {
   }
 
   if ((synth.speaking || synth.pending) && activeSpeakSessionKey === sessionKey) {
-    synth.cancel()
-    activeSpeakSessionKey = null
+    stopSpeaking()
     return
   }
 
-  // На Android cancel() перед каждым speak() может прервать и следующий utterance.
-  // Поэтому отменяем только когда очередь реально занята.
   if (!androidBrowser || synth.speaking || synth.pending) {
     synth.cancel()
   }
-  speakOnce(synth, normalized, voiceId, allowCustomVoice, sessionKey)
+  speakOnce(synth, normalized, voiceId, allowCustomVoice, sessionKey, options)
 
-  // На части Android-устройств первый запуск "молчит" без явной ошибки.
-  // Повторяем один раз с системным голосом.
   if (androidBrowser) {
     androidSpeakRetryTimer = window.setTimeout(() => {
       androidSpeakRetryTimer = null
       if (!synth.speaking && !synth.pending) {
-        speakOnce(synth, normalized, '', false, sessionKey)
+        speakOnce(synth, normalized, '', false, sessionKey, options)
       }
     }, 180)
   }
 
-  // Safari/Chromium иногда отдают голоса не сразу. Делаем один авто-ретрай.
   if (synth.getVoices().length === 0) {
     const onVoicesReady = () => {
       synth.removeEventListener('voiceschanged', onVoicesReady)
       if (!synth.speaking) {
-        speakOnce(synth, normalized, voiceId, allowCustomVoice, sessionKey)
+        speakOnce(synth, normalized, voiceId, allowCustomVoice, sessionKey, options)
       }
     }
     synth.addEventListener('voiceschanged', onVoicesReady, { once: true })
