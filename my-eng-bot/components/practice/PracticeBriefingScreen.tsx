@@ -6,6 +6,8 @@ import PracticeInstructionFlowInfoStep from '@/components/practice/PracticeInstr
 import { ChatBubbleFrame, getBubblePosition } from '@/components/chat/ChatBubble'
 import DialogComposerStack from '@/components/DialogComposerStack'
 import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
+import { useBriefingComposerEnter } from '@/hooks/useBriefingComposerEnter'
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
 import { estimateLessonComposerMinHeight } from '@/lib/lessonComposerLayout'
 import { buildPracticeBriefingBubbles } from '@/lib/practice/practiceInstructionCopy'
@@ -25,6 +27,16 @@ export default function PracticeBriefingScreen({
   onContinue,
 }: PracticeBriefingScreenProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const {
+    cardEnterClassName,
+    actionsReady,
+    onBubbleAnimationEnd,
+    onCardAnimationEnd,
+  } = useBriefingComposerEnter({
+    resetKey: session.id,
+    prefersReducedMotion,
+  })
   const briefingBubbles = buildPracticeBriefingBubbles(session, audience)
   const composerMinHeight = estimateLessonComposerMinHeight({
     panelKind: 'briefing',
@@ -56,6 +68,7 @@ export default function PracticeBriefingScreen({
                   position={getBubblePosition(undefined, 'assistant', undefined)}
                   className="lesson-enter"
                   rowClassName="mb-2.5"
+                  onAnimationEnd={onBubbleAnimationEnd}
                 >
                   <UnifiedLessonBubble bubbles={briefingBubbles} layout="detached" />
                 </ChatBubbleFrame>
@@ -74,6 +87,9 @@ export default function PracticeBriefingScreen({
                 session={session}
                 audience={audience}
                 onContinue={onContinue}
+                enterClassName={cardEnterClassName}
+                actionsReady={actionsReady}
+                onCardEnterAnimationEnd={onCardAnimationEnd}
               />
             </DialogComposerStack>
           </div>

@@ -16,6 +16,7 @@ import LessonChoiceChips from '@/components/LessonChoiceChips'
 import LessonSentencePuzzle from '@/components/LessonSentencePuzzle'
 import LessonFinalePanel from '@/components/LessonFinalePanel'
 import LessonReturnBriefingFlowInfoStep from '@/components/LessonReturnBriefingFlowInfoStep'
+import { useBriefingComposerEnter } from '@/hooks/useBriefingComposerEnter'
 import type { LessonMedalTierOrNull } from '@/lib/lessonScore'
 import LessonStepBubble from '@/components/lesson/LessonStepBubble'
 import LessonIntroBlockControls, {
@@ -372,6 +373,15 @@ export default function LessonStepRenderer({
   const [showAdvancingStatusLine, setShowAdvancingStatusLine] = useState(false)
   const [isPuzzleFeedOverflowing, setIsPuzzleFeedOverflowing] = useState(false)
   const prefersReducedMotion = usePrefersReducedMotion()
+  const {
+    cardEnterClassName: returnBriefingCardEnterClassName,
+    actionsReady: returnBriefingActionsReady,
+    onCardAnimationEnd: onReturnBriefingCardAnimationEnd,
+  } = useBriefingComposerEnter({
+    resetKey: returnBriefing?.runKey ?? 'lesson-briefing-inactive',
+    prefersReducedMotion,
+    skipBubbleWait: returnBriefingActive,
+  })
   const { getEnterClass: lessonFeedStatusEnterClass, markEnterFinished: markStatusEnterFinished } =
     useLessonFeedStatusEnterClass(prefersReducedMotion)
 
@@ -1977,6 +1987,9 @@ export default function LessonStepRenderer({
                     actions={returnBriefing.actions}
                     onContinue={() => onAcknowledgeReturnBriefing?.()}
                     onGenerateVariant={onGenerateVariantFromReturnBriefing}
+                    enterClassName={returnBriefingCardEnterClassName}
+                    actionsReady={returnBriefingActionsReady}
+                    onCardEnterAnimationEnd={onReturnBriefingCardAnimationEnd}
                   />
                 ) : showLessonFinale && lessonMedalReveal ? (
                   <LessonFinalePanel

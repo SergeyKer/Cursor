@@ -1,5 +1,6 @@
 'use client'
 
+import type { AnimationEventHandler } from 'react'
 import FlowInfoCard, { type FlowInfoCardProps } from '@/components/FlowInfoCard'
 import ProgressCtaButton from '@/components/ProgressCtaButton'
 import { useMountTapGuard } from '@/hooks/useMountTapGuard'
@@ -35,6 +36,9 @@ export type FlowInfoStepProps = FlowInfoCardProps & {
   generateVariantGhostLabel?: string
   /** Ключ шага: блокирует CTA сразу после mount (защита от сквозного тапа на мобильных). */
   guardMountTapResetKey?: string
+  /** Внешний контроль готовности CTA (briefing reveal). Если задан — mount guard не используется. */
+  actionsReady?: boolean
+  onCardEnterAnimationEnd?: AnimationEventHandler<HTMLDivElement>
 }
 
 export default function FlowInfoStep({
@@ -54,10 +58,16 @@ export default function FlowInfoStep({
   generateVariantLabel,
   generateVariantGhostLabel = LESSON_BRIEFING_PREPARE_GHOST_LABEL,
   guardMountTapResetKey,
+  actionsReady: actionsReadyOverride,
+  onCardEnterAnimationEnd,
   className: _unusedClassName,
   ...cardProps
 }: FlowInfoStepProps) {
-  const { isActionReady, guardAction } = useMountTapGuard(guardMountTapResetKey)
+  const useExternalActionsReady = actionsReadyOverride !== undefined
+  const { isActionReady: mountActionReady, guardAction } = useMountTapGuard(
+    useExternalActionsReady ? undefined : guardMountTapResetKey
+  )
+  const isActionReady = useExternalActionsReady ? actionsReadyOverride : mountActionReady
   const hasSecondary = Boolean(secondaryActionLabel && onSecondaryAction)
   const primaryButtonClass = `${APP_BTN_PRIMARY_LARGE} focus:outline-none focus-visible:ring-2 focus-visible:ring-[#93c5fd]`
   const secondaryButtonClass = `${APP_BTN_SECONDARY_LARGE} focus:outline-none focus-visible:ring-2 focus-visible:ring-[#93c5fd]`
@@ -194,7 +204,7 @@ export default function FlowInfoStep({
       role="region"
       aria-label={ariaLabel}
     >
-      <div className={enterClassName}>
+      <div className={enterClassName} onAnimationEnd={onCardEnterAnimationEnd}>
         <FlowInfoCard {...cardProps} className={cardClassName} />
       </div>
       <div className={actionsFooterClass}>{dualRowActions ?? stackedActions}</div>

@@ -31,3 +31,19 @@ export const LESSON_SECTION_REVEAL_INTERVAL_MS =
 
 /** Длительность slide-in отдельной карточки интро - совпадает с fade текста. */
 export const LESSON_CARD_ENTER_MS = LESSON_TEXT_FADE_MS
+
+/** Длительность .lesson-enter (lessonSlideIn) — синхрон с globals.css. */
+export const LESSON_BUBBLE_ENTER_MS = 420
+
+/** Пауза после пузыря briefing перед fade карточки composer. */
+export const LESSON_BRIEFING_CARD_PAUSE_MS = LESSON_TEXT_SECTION_PAUSE_MS
+
+/** Пауза после fade карточки briefing перед разморозкой CTA. */
+export const LESSON_BRIEFING_ACTIONS_PAUSE_MS = LESSON_TEXT_SECTION_PAUSE_MS
+
+/** Fallback: полная цепочка bubble → pause → card fade → pause → CTA. */
+export const LESSON_BRIEFING_COMPOSER_REVEAL_MS =
+  LESSON_BUBBLE_ENTER_MS +
+  LESSON_BRIEFING_CARD_PAUSE_MS +
+  LESSON_TEXT_FADE_MS +
+  LESSON_BRIEFING_ACTIONS_PAUSE_MS

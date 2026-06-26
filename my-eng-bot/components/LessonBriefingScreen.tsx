@@ -6,6 +6,8 @@ import LessonReturnBriefingFlowInfoStep from '@/components/LessonReturnBriefingF
 import { ChatBubbleFrame, getBubblePosition } from '@/components/chat/ChatBubble'
 import DialogComposerStack from '@/components/DialogComposerStack'
 import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
+import { useBriefingComposerEnter } from '@/hooks/useBriefingComposerEnter'
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
 import {
   estimateLessonComposerMinHeight,
@@ -31,6 +33,16 @@ export default function LessonBriefingScreen({
   generateVariantLabel,
 }: LessonBriefingScreenProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const {
+    cardEnterClassName,
+    actionsReady,
+    onBubbleAnimationEnd,
+    onCardAnimationEnd,
+  } = useBriefingComposerEnter({
+    resetKey: briefing.runKey,
+    prefersReducedMotion,
+  })
   const composerMinHeight = estimateLessonComposerMinHeight({
     panelKind: 'briefing',
     compact: false,
@@ -61,6 +73,7 @@ export default function LessonBriefingScreen({
                   position={getBubblePosition(undefined, 'assistant', undefined)}
                   className="lesson-enter"
                   rowClassName="mb-2.5"
+                  onAnimationEnd={onBubbleAnimationEnd}
                 >
                   <UnifiedLessonBubble bubbles={briefing.bubbles} layout="detached" />
                 </ChatBubbleFrame>
@@ -84,6 +97,9 @@ export default function LessonBriefingScreen({
                 generateVariantBusy={generateVariantBusy}
                 generateVariantProgress={generateVariantProgress}
                 generateVariantLabel={generateVariantLabel}
+                enterClassName={cardEnterClassName}
+                actionsReady={actionsReady}
+                onCardEnterAnimationEnd={onCardAnimationEnd}
               />
             </DialogComposerStack>
           </div>
