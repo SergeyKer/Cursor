@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   getPracticeComposerEnterClass,
+  resolvePracticeComposerEnterClassOnce,
   shouldSuppressPracticeComposerEnterAnimation,
 } from '@/lib/practice/practiceComposerEnter'
 import {
@@ -122,5 +123,56 @@ describe('getPracticeComposerEnterClass', () => {
         expect(enterClass).toBe('lesson-enter')
       }
     }
+  })
+})
+
+describe('resolvePracticeComposerEnterClassOnce', () => {
+  const base = {
+    isChoiceVoiceCorrection: false,
+    isVoiceRepeatCorrection: false,
+    correctionMode: false,
+    prefersReducedMotion: false,
+    suppressEnterAnimation: false,
+  }
+
+  it('skips enter after suppress lifts (freeze then unfreeze)', () => {
+    let state = { questionId: '', consumed: false }
+    const afterFreeze = resolvePracticeComposerEnterClassOnce(state, 'q2', {
+      ...base,
+      suppressEnterAnimation: true,
+    })
+    state = afterFreeze.next
+    expect(afterFreeze.enterClass).toBe('')
+
+    const afterUnfreeze = resolvePracticeComposerEnterClassOnce(state, 'q2', base)
+    expect(afterUnfreeze.enterClass).toBe('')
+    expect(afterUnfreeze.next.consumed).toBe(true)
+  })
+
+  it('plays enter once when never suppressed for the question', () => {
+    let state = { questionId: '', consumed: false }
+    const first = resolvePracticeComposerEnterClassOnce(state, 'q1', base)
+    state = first.next
+    expect(first.enterClass).toBe('lesson-enter')
+
+    const second = resolvePracticeComposerEnterClassOnce(state, 'q1', base)
+    expect(second.enterClass).toBe('')
+  })
+
+  it('resets consumed state when question id changes', () => {
+    let state = { questionId: '', consumed: false }
+    const q1 = resolvePracticeComposerEnterClassOnce(state, 'q1', base)
+    state = q1.next
+
+    const q2Suppressed = resolvePracticeComposerEnterClassOnce(state, 'q2', {
+      ...base,
+      suppressEnterAnimation: true,
+    })
+    state = q2Suppressed.next
+    expect(q2Suppressed.next.questionId).toBe('q2')
+    expect(q2Suppressed.next.consumed).toBe(true)
+
+    const q2Unfreeze = resolvePracticeComposerEnterClassOnce(state, 'q2', base)
+    expect(q2Unfreeze.enterClass).toBe('')
   })
 })

@@ -12,6 +12,36 @@ export type PracticeComposerEnterClassOptions = {
   suppressEnterAnimation?: boolean
 }
 
+export type PracticeComposerEnterOnceState = {
+  questionId: string
+  consumed: boolean
+}
+
+/** Enter-анимация один раз за вопрос; при suppress (freeze/reveal) — без выезда при отморозке. */
+export function resolvePracticeComposerEnterClassOnce(
+  prev: PracticeComposerEnterOnceState,
+  questionId: string,
+  options: PracticeComposerEnterClassOptions
+): { enterClass: string; next: PracticeComposerEnterOnceState } {
+  const next: PracticeComposerEnterOnceState =
+    prev.questionId === questionId ? prev : { questionId, consumed: false }
+
+  if (options.suppressEnterAnimation) {
+    return { enterClass: '', next: { ...next, consumed: true } }
+  }
+
+  if (next.consumed) {
+    return { enterClass: '', next }
+  }
+
+  const enterClass = getPracticeComposerEnterClass(options)
+  if (!enterClass) {
+    return { enterClass: '', next }
+  }
+
+  return { enterClass, next: { ...next, consumed: true } }
+}
+
 /** Voice correction choice: soft fade; text correction: practice-section-appear; voice-primary step 1: no slide-in. */
 export function getPracticeComposerEnterClass(options: PracticeComposerEnterClassOptions): string {
   if (options.prefersReducedMotion) return ''

@@ -3,6 +3,7 @@
 import React from 'react'
 
 type EngvoVoiceMeterRole = 'user' | 'assistant'
+type IdleAnimation = 'wave' | 'semiRandom'
 
 type EngvoVoiceMeterProps = {
   stream: MediaStream | null
@@ -11,12 +12,50 @@ type EngvoVoiceMeterProps = {
   ariaLabel?: string
   /** user - микрофон (AGC сжимает сигнал); assistant - удалённый поток Engvo. */
   role?: EngvoVoiceMeterRole
+  /** Анимация без аудиопотока: wave — связанная волна; semiRandom — независимые столбцы с random targets. */
+  idleAnimation?: IdleAnimation
 }
 
 const BAR_COUNT = 9
 const BAR_PIXEL_MAX = 22
 const MAX_SCALE = 1
 const IDLE_MAX_SCALE = 0.42
+const SEMI_RANDOM_MAX_SCALE = 0.68
+const SEMI_RANDOM_ATTACK = 0.42
+const SEMI_RANDOM_RELEASE = 0.18
+const SEMI_RANDOM_RETARGET_MIN_MS = 90
+const SEMI_RANDOM_RETARGET_MAX_MS = 220
+const SEMI_RANDOM_SETTLE_BLEND = 0.32
+const SEMI_RANDOM_SETTLE_EPSILON = 0.01
+const SEMI_RANDOM_EDGE_BAR_HEIGHT_FACTOR = 0.5
+
+type BarEq = { target: number; nextRetargetAt: number }
+
+function semiRandomMaxScaleForBar(baselineScale: number, barIndex: number): number {
+  const isEdge = barIndex === 0 || barIndex === BAR_COUNT - 1
+  const range = SEMI_RANDOM_MAX_SCALE - baselineScale
+  return baselineScale + range * (isEdge ? SEMI_RANDOM_EDGE_BAR_HEIGHT_FACTOR : 1)
+}
+
+function randomSemiRandomTarget(baselineScale: number, barIndex: number): number {
+  const maxScale = semiRandomMaxScaleForBar(baselineScale, barIndex)
+  return baselineScale + Math.random() * (maxScale - baselineScale)
+}
+
+function randomRetargetDelayMs(): number {
+  return (
+    SEMI_RANDOM_RETARGET_MIN_MS
+    + Math.random() * (SEMI_RANDOM_RETARGET_MAX_MS - SEMI_RANDOM_RETARGET_MIN_MS)
+  )
+}
+
+function createBarEqStates(baselineScale: number): BarEq[] {
+  const now = performance.now()
+  return Array.from({ length: BAR_COUNT }, (_, barIndex) => ({
+    target: randomSemiRandomTarget(baselineScale, barIndex),
+    nextRetargetAt: now + randomRetargetDelayMs(),
+  }))
+}
 
 const METER_TUNING: Record<
   EngvoVoiceMeterRole,
@@ -78,6 +117,7 @@ export default function EngvoVoiceMeter({
   frozen = false,
   ariaLabel = 'Индикатор голоса',
   role = 'assistant',
+  idleAnimation = 'wave',
 }: EngvoVoiceMeterProps) {
   const tuning = METER_TUNING[role]
   const baselineScale = tuning.baselineScale
@@ -89,6 +129,7 @@ export default function EngvoVoiceMeter({
   const analyserNodeRef = React.useRef<AnalyserNode | null>(null)
   const currentLevelsRef = React.useRef<number[]>(Array(BAR_COUNT).fill(baselineScale))
   const idlePhaseRef = React.useRef(0)
+  const barEqRef = React.useRef<BarEq[] | null>(null)
 
   React.useEffect(() => {
     const stop = () => {
@@ -104,11 +145,44 @@ export default function EngvoVoiceMeter({
         analyserNodeRef.current.disconnect()
         analyserNodeRef.current = null
       }
+      barEqRef.current = null
     }
 
     stop()
 
     if (frozen) {
+      barEqRef.current = null
+
+      const shouldSettle =
+        idleAnimation === 'semiRandom'
+        && !stream
+        && currentLevelsRef.current.some((level) => level > baselineScale + SEMI_RANDOM_SETTLE_EPSILON)
+
+      if (shouldSettle) {
+        const settleTick = () => {
+          const nextLevels = new Array<number>(BAR_COUNT)
+          let allSettled = true
+          for (let i = 0; i < BAR_COUNT; i += 1) {
+            const prev = currentLevelsRef.current[i] ?? baselineScale
+            if (prev > baselineScale + SEMI_RANDOM_SETTLE_EPSILON) {
+              allSettled = false
+              nextLevels[i] = prev * (1 - SEMI_RANDOM_SETTLE_BLEND) + baselineScale * SEMI_RANDOM_SETTLE_BLEND
+            } else {
+              nextLevels[i] = baselineScale
+            }
+          }
+          currentLevelsRef.current = nextLevels
+          animateBars(barsRef, nextLevels)
+          if (!allSettled) {
+            animationFrameRef.current = window.requestAnimationFrame(settleTick)
+          } else {
+            animationFrameRef.current = null
+          }
+        }
+        animationFrameRef.current = window.requestAnimationFrame(settleTick)
+        return stop
+      }
+
       currentLevelsRef.current = Array(BAR_COUNT).fill(baselineScale)
       animateBars(barsRef, currentLevelsRef.current)
       return stop
@@ -122,17 +196,37 @@ export default function EngvoVoiceMeter({
 
     if (!stream) {
       const idleTick = () => {
-        idlePhaseRef.current += 0.16
         const nextLevels = new Array<number>(BAR_COUNT)
-        const center = (BAR_COUNT - 1) / 2
-        for (let i = 0; i < BAR_COUNT; i += 1) {
-          const distance = Math.abs(i - center)
-          const envelope = Math.max(0.3, 1 - distance * 0.2)
-          const pulse = (Math.sin(idlePhaseRef.current + i * 0.45) + 1) * 0.5
-          const target = baselineScale + pulse * (IDLE_MAX_SCALE - baselineScale) * envelope
-          const prev = currentLevelsRef.current[i] ?? baselineScale
-          nextLevels[i] = prev * 0.72 + target * 0.28
+
+        if (idleAnimation === 'semiRandom') {
+          if (!barEqRef.current) {
+            barEqRef.current = createBarEqStates(baselineScale)
+          }
+          const barEq = barEqRef.current
+          const now = performance.now()
+          for (let i = 0; i < BAR_COUNT; i += 1) {
+            const bar = barEq[i]
+            if (now >= bar.nextRetargetAt) {
+              bar.target = randomSemiRandomTarget(baselineScale, i)
+              bar.nextRetargetAt = now + randomRetargetDelayMs()
+            }
+            const prev = currentLevelsRef.current[i] ?? baselineScale
+            const blend = bar.target > prev ? SEMI_RANDOM_ATTACK : SEMI_RANDOM_RELEASE
+            nextLevels[i] = prev * (1 - blend) + bar.target * blend
+          }
+        } else {
+          idlePhaseRef.current += 0.16
+          const center = (BAR_COUNT - 1) / 2
+          for (let i = 0; i < BAR_COUNT; i += 1) {
+            const distance = Math.abs(i - center)
+            const envelope = Math.max(0.3, 1 - distance * 0.2)
+            const pulse = (Math.sin(idlePhaseRef.current + i * 0.45) + 1) * 0.5
+            const target = baselineScale + pulse * (IDLE_MAX_SCALE - baselineScale) * envelope
+            const prev = currentLevelsRef.current[i] ?? baselineScale
+            nextLevels[i] = prev * 0.72 + target * 0.28
+          }
         }
+
         currentLevelsRef.current = nextLevels
         animateBars(barsRef, nextLevels)
         animationFrameRef.current = window.requestAnimationFrame(idleTick)
@@ -206,7 +300,7 @@ export default function EngvoVoiceMeter({
 
     animationFrameRef.current = window.requestAnimationFrame(tick)
     return stop
-  }, [active, baselineScale, frozen, levelDecay, role, stream, tuning])
+  }, [active, baselineScale, frozen, idleAnimation, levelDecay, role, stream, tuning])
 
   return (
     <div

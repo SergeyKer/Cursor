@@ -92,6 +92,7 @@ const PracticeAudioDeck = forwardRef<PracticeAudioDeckHandle, PracticeAudioDeckP
           active
           frozen={!isPlaying}
           role="assistant"
+          idleAnimation="semiRandom"
           ariaLabel={isPlaying ? 'Воспроизведение фразы' : 'Готов к прослушиванию'}
         />
       </div>

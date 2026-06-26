@@ -47,7 +47,7 @@ import {
   shouldKeepAudioInChoiceChipVoiceCorrection,
   shouldKeepAudioInVoiceRepeatCorrection,
 } from '@/lib/practice/practiceCorrectionFamily'
-import { getPracticeComposerEnterClass } from '@/lib/practice/practiceComposerEnter'
+import { usePracticeComposerEnterClass } from '@/hooks/usePracticeComposerEnterClass'
 import type { PracticeQuestion } from '@/types/practice'
 
 interface PracticeQuestionRendererProps {
@@ -203,13 +203,14 @@ export default function PracticeQuestionRenderer({
     isVoiceRepeatCorrection ||
     isVoiceRepeatInCorrectionPause
   isVoiceRepeatPrimaryRef.current = isVoiceRepeatPrimary
-  const composerEnterClass = getPracticeComposerEnterClass({
+  const composerEnterClass = usePracticeComposerEnterClass(question.id, {
     isChoiceVoiceCorrection: isChoiceVoiceCorrectionComposer && question.type === 'choice',
     isVoiceRepeatCorrection: isVoiceRepeatCorrection || isVoiceRepeatInCorrectionPause,
     correctionMode,
     prefersReducedMotion,
     suppressEnterAnimation: suppressComposerEnterAnimation,
   })
+
   const canUseChoices =
     choices.length > 0 &&
     !correctionMode &&
@@ -262,6 +263,7 @@ export default function PracticeQuestionRenderer({
   const isComposerFrozen = answerPanelLocked
   const choiceTextareaReadOnly =
     isComposerFrozen || isChoiceCorrectionTextareaReadOnly(choiceInputMode)
+
   const choiceVoiceFrozenDisplay =
     isComposerFrozen ||
     isChoiceCorrectionVoiceFrozenDisplay({
@@ -486,7 +488,7 @@ export default function PracticeQuestionRenderer({
     setVoiceCapability(getInitialPracticeVoiceCapability())
     resetChoiceVoiceComposer()
     resetMicAnimation()
-  }, [hardResetSpeechRecognition, question, resetChoiceVoiceComposer, resetMicAnimation])
+  }, [hardResetSpeechRecognition, question.id, resetChoiceVoiceComposer, resetMicAnimation])
 
   useEffect(
     () => () => {
@@ -496,9 +498,10 @@ export default function PracticeQuestionRenderer({
   )
 
   useEffect(() => {
+    if (answerPanelLocked) return
     if (isVoiceFirstComposer && !disabled) return
     hardResetSpeechRecognition()
-  }, [disabled, hardResetSpeechRecognition, isVoiceFirstComposer])
+  }, [disabled, answerPanelLocked, hardResetSpeechRecognition, isVoiceFirstComposer])
 
   useLayoutEffect(() => {
     if (!isChoiceVoiceCorrectionComposer && !isVoiceRepeatCorrection) return
@@ -521,13 +524,19 @@ export default function PracticeQuestionRenderer({
   const submitText = () => {
     const answer = (isVoiceFirstComposer ? choiceComposerText : draft).trim()
     if (!answer || disabled) return
-    hardResetSpeechRecognition()
+
+    if (voiceListening) {
+      stopSpeechRecognition()
+    } else {
+      clearRecognitionSilenceTimeout()
+    }
     setChoiceTapHintVisible(false)
     setFieldTapEngaged(false)
-    if (!correctionMode) {
-      setDraft('')
-      resetChoiceVoiceComposer()
+    setDraft(answer)
+    if (isVoiceFirstComposer) {
+      commitChoiceVoiceText(answer)
     }
+
     onSubmit(answer)
   }
 

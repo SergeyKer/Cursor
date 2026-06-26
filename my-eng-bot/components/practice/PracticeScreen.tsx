@@ -110,8 +110,6 @@ const statusCardClassByTone: Record<'success' | 'error', string> = {
   error: 'border-amber-200/90 bg-amber-50/95 text-amber-800',
 }
 
-const LESSON_FEED_ENTER_ANIM_MS = 800
-
 function nextMode(mode: PracticeMode): PracticeMode {
   if (mode === 'reference') return 'challenge'
   if (mode === 'relaxed') return 'balanced'
@@ -182,9 +180,7 @@ export default function PracticeScreen({
   } | null>(null)
   const previousRevealInProgressRef = useRef(false)
   const revealEndedAtRef = useRef<number | null>(null)
-  const awaitingFeedEnterBeforeTextRevealRef = useRef(false)
   const shellScrollCompleteInvokedRef = useRef(false)
-  const [lessonFeedEnterClassActive, setLessonFeedEnterClassActive] = useState(false)
   const [composerInnerWidthPx, setComposerInnerWidthPx] = useState<number | undefined>()
   const [showCheckingStatusLine, setShowCheckingStatusLine] = useState(false)
   const [correctionPhase, setCorrectionPhase] = useState<PracticeChoiceCorrectionPhase>('idle')
@@ -305,35 +301,8 @@ export default function PracticeScreen({
   const invokeShellScrollCompleteOnce = useCallback(() => {
     if (shellScrollCompleteInvokedRef.current) return
     shellScrollCompleteInvokedRef.current = true
-    awaitingFeedEnterBeforeTextRevealRef.current = false
     onShellScrollComplete()
   }, [onShellScrollComplete])
-
-  useLayoutEffect(() => {
-    if (!isShellEnterActive) {
-      setLessonFeedEnterClassActive(false)
-      awaitingFeedEnterBeforeTextRevealRef.current = false
-      return
-    }
-    if (prefersReducedMotion) {
-      awaitingFeedEnterBeforeTextRevealRef.current = false
-      setLessonFeedEnterClassActive(false)
-      return
-    }
-    shellScrollCompleteInvokedRef.current = false
-    awaitingFeedEnterBeforeTextRevealRef.current = true
-    setLessonFeedEnterClassActive(true)
-  }, [isShellEnterActive, prefersReducedMotion, revealKey])
-
-  useEffect(() => {
-    if (!lessonFeedEnterClassActive) return
-    const fallbackTimer = window.setTimeout(() => {
-      if (!awaitingFeedEnterBeforeTextRevealRef.current) return
-      setLessonFeedEnterClassActive(false)
-      invokeShellScrollCompleteOnce()
-    }, LESSON_FEED_ENTER_ANIM_MS + 80)
-    return () => window.clearTimeout(fallbackTimer)
-  }, [invokeShellScrollCompleteOnce, lessonFeedEnterClassActive, revealKey])
 
   useEffect(() => {
     if (state !== 'checking') {
@@ -675,13 +644,6 @@ export default function PracticeScreen({
     state !== 'completed' &&
     state !== 'error'
 
-  const suppressComposerEnterAnimation =
-    currentQuestion != null &&
-    shouldSuppressPracticeComposerEnterAnimation({
-      questionType: currentQuestion.type,
-      questionIndex: session.currentIndex,
-    })
-
   const isChoiceChipsPanel =
     showQuestionComposer && isPracticeChoiceChipsPanel(currentQuestion, correctionPhase)
 
@@ -734,6 +696,26 @@ export default function PracticeScreen({
       ? ('text-input' as const)
       : ('choice' as const)
 
+  const isQuestionRevealGateActive =
+    state === 'active' &&
+    revealEnabled &&
+    (!isRevealInitializedForKey || isRevealInProgress)
+
+  const composerFreezeCycleActive =
+    state === 'submitting' ||
+    state === 'checking' ||
+    (state === 'feedback' && resolvedFeedbackType === 'success') ||
+    state === 'generating_next' ||
+    isQuestionRevealGateActive
+
+  const suppressComposerEnterAnimation =
+    currentQuestion != null &&
+    (shouldSuppressPracticeComposerEnterAnimation({
+      questionType: currentQuestion.type,
+      questionIndex: session.currentIndex,
+    }) ||
+      composerFreezeCycleActive)
+
   const lockedComposerMinHeight = useLessonComposerHeightLock({
     stackRef: composerStackRef,
     transitionKey: `${currentQuestion?.id ?? ''}-${composerPanelKind}`,
@@ -755,19 +737,19 @@ export default function PracticeScreen({
   const baseAnswerPanelLocked = isPracticeAnswerPanelLocked(
     state,
     resolvedFeedbackType,
-    isRevealInProgress
+    isQuestionRevealGateActive
   )
 
   const isAnswerPanelLocked = baseAnswerPanelLocked
   const isChoicePanelFrozen = isPracticeChoicePanelFrozen(
     state,
     resolvedFeedbackType,
-    isRevealInProgress
+    isQuestionRevealGateActive
   )
   const isChoiceInteractionDisabled = isPracticeChoiceInteractionDisabled(
     state,
     resolvedFeedbackType,
-    isRevealInProgress
+    isQuestionRevealGateActive
   )
   const isChoiceChipsCorrectionFrozen =
     isPracticeChoiceChipCorrectionType(questionType) &&
@@ -803,8 +785,9 @@ export default function PracticeScreen({
   useEffect(() => {
     if (!isShellEnterActive) return
 
+    shellScrollCompleteInvokedRef.current = false
+
     const completeShellScroll = () => {
-      if (awaitingFeedEnterBeforeTextRevealRef.current) return
       invokeShellScrollCompleteOnce()
     }
 
@@ -1138,12 +1121,6 @@ export default function PracticeScreen({
                         isActiveRevealTarget &&
                         (isShellEnterActive || hideLessonBubbleUntilRevealReady)
 
-                      const lessonFeedEnterActive =
-                        isCurrentQuestion &&
-                        isActiveRevealTarget &&
-                        !prefersReducedMotion &&
-                        lessonFeedEnterClassActive
-
                       const currentLessonTextRevealedThroughIndex =
                         !isCurrentQuestion || !isActiveRevealTarget
                           ? (message.bubbles?.length ?? 0) - 1
@@ -1155,7 +1132,7 @@ export default function PracticeScreen({
                                 : (message.bubbles?.length ?? 0) - 1
                             : (message.bubbles?.length ?? 0) - 1
 
-                      if (hideLessonBubbleUntilRevealReady && !lessonFeedEnterActive) {
+                      if (hideLessonBubbleUntilRevealReady) {
                         return null
                       }
 
@@ -1164,17 +1141,8 @@ export default function PracticeScreen({
                           key={message.id}
                           role="assistant"
                           position={position}
-                          className={`w-full${lessonFeedEnterActive ? ' lesson-feed-enter' : ''}`}
+                          className="w-full"
                           rowClassName={rowMargin}
-                          onAnimationEnd={
-                            lessonFeedEnterActive
-                              ? (event) => {
-                                  if (event.animationName !== 'lessonFeedSlideIn') return
-                                  setLessonFeedEnterClassActive(false)
-                                  invokeShellScrollCompleteOnce()
-                                }
-                              : undefined
-                          }
                         >
                           <LessonStepBubble
                             key={
@@ -1183,6 +1151,7 @@ export default function PracticeScreen({
                                 : message.id
                             }
                             bubbles={message.bubbles ?? []}
+                            preferUnifiedLayout={isCurrentQuestion && isActiveRevealTarget}
                             shellEnterActive={
                               isCurrentQuestion && isActiveRevealTarget ? lessonShellEnterActive : false
                             }
@@ -1343,7 +1312,6 @@ export default function PracticeScreen({
                 </div>
               ) : showQuestionComposer ? (
                 <PracticeQuestionRenderer
-                  key={currentQuestion.id}
                   question={currentQuestion}
                   voiceId={voiceId}
                   disabled={
