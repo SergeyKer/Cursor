@@ -53,6 +53,8 @@ import type { PracticeQuestion } from '@/types/practice'
 interface PracticeQuestionRendererProps {
   question: PracticeQuestion
   voiceId?: string
+  ttsSpeedIndex: number
+  onTtsSpeedIndexChange: (index: number) => void
   disabled?: boolean
   choicePanelFrozen?: boolean
   answerPanelLocked?: boolean
@@ -137,6 +139,8 @@ function choiceCorrectionComposerMetricsClass(options: {
 export default function PracticeQuestionRenderer({
   question,
   voiceId = '',
+  ttsSpeedIndex,
+  onTtsSpeedIndexChange,
   disabled = false,
   choicePanelFrozen = false,
   answerPanelLocked = false,
@@ -623,6 +627,8 @@ export default function PracticeQuestionRenderer({
             text={practiceAudioText}
             voiceId={voiceId}
             questionId={question.id}
+            speedIndex={ttsSpeedIndex}
+            onSpeedIndexChange={onTtsSpeedIndexChange}
             disabled={disabled || answerPanelLocked}
           />
           <div
@@ -925,6 +931,8 @@ export default function PracticeQuestionRenderer({
             text={practiceAudioText}
             voiceId={voiceId}
             questionId={question.id}
+            speedIndex={ttsSpeedIndex}
+            onSpeedIndexChange={onTtsSpeedIndexChange}
             disabled={disabled || answerPanelLocked}
           />
         </div>

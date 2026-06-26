@@ -77,10 +77,12 @@ import type { PracticeFlowState } from '@/hooks/usePracticeSession'
 import EngvoFeedServiceTypingText from '@/components/engvo/EngvoFeedServiceTypingText'
 import type { Audience } from '@/lib/types'
 import type { PracticeMode, PracticeQuestion, PracticeSession } from '@/types/practice'
+import { resolveEffectivePracticeTtsSpeedIndex } from '@/lib/practice/practiceTtsPreferences'
 
 interface PracticeScreenProps {
   session: PracticeSession
   voiceId?: string
+  ttsSpeedDefaultIndex?: number
   audience?: Audience
   state: PracticeFlowState
   feedback?: { type: 'success' | 'error'; message: string } | null
@@ -153,6 +155,7 @@ function useLessonFeedStatusEnterClass(prefersReducedMotion: boolean) {
 export default function PracticeScreen({
   session,
   voiceId = '',
+  ttsSpeedDefaultIndex = 0,
   audience = 'adult',
   state,
   feedback = null,
@@ -194,6 +197,20 @@ export default function PracticeScreen({
   const voiceRepeatPauseTimerRef = useRef<number | null>(null)
   const correctionPhaseGenerationRef = useRef(0)
   const scrollCleanupOnCompleteRef = useRef<(() => void) | null>(null)
+  const [sessionTtsSpeedIndex, setSessionTtsSpeedIndex] = useState<number | null>(null)
+
+  useEffect(() => {
+    setSessionTtsSpeedIndex(null)
+  }, [session.id])
+
+  const effectiveTtsSpeedIndex = resolveEffectivePracticeTtsSpeedIndex(
+    sessionTtsSpeedIndex,
+    ttsSpeedDefaultIndex
+  )
+
+  const handleTtsSpeedIndexChange = useCallback((index: number) => {
+    setSessionTtsSpeedIndex(index)
+  }, [])
 
   const prefersReducedMotion = usePrefersReducedMotion()
   const lessonUserEnterClass = useLessonUserEnterClass(prefersReducedMotion)
@@ -1314,6 +1331,8 @@ export default function PracticeScreen({
                 <PracticeQuestionRenderer
                   question={currentQuestion}
                   voiceId={voiceId}
+                  ttsSpeedIndex={effectiveTtsSpeedIndex}
+                  onTtsSpeedIndexChange={handleTtsSpeedIndexChange}
                   disabled={
                     !canSubmit ||
                     isChoiceInteractionDisabled ||

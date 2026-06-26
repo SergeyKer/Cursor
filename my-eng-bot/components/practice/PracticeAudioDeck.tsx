@@ -23,6 +23,8 @@ type PracticeAudioDeckProps = {
   text: string
   voiceId: string
   questionId: string
+  speedIndex: number
+  onSpeedIndexChange: (index: number) => void
   disabled?: boolean
   className?: string
 }
@@ -44,7 +46,7 @@ function StopIcon() {
 }
 
 const PracticeAudioDeck = forwardRef<PracticeAudioDeckHandle, PracticeAudioDeckProps>(function PracticeAudioDeck(
-  { text, voiceId, questionId, disabled = false, className },
+  { text, voiceId, questionId, speedIndex, onSpeedIndexChange, disabled = false, className },
   ref
 ) {
   const trimmedText = text.trim()
@@ -53,6 +55,8 @@ const PracticeAudioDeck = forwardRef<PracticeAudioDeckHandle, PracticeAudioDeckP
     text,
     voiceId,
     questionId,
+    speedIndex,
+    onSpeedIndexChange,
     disabled: controlsDisabled,
   })
 

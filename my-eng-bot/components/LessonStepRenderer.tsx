@@ -172,6 +172,7 @@ type LessonStepRendererProps = {
   postLessonOverlayOpen?: boolean
   audience: 'child' | 'adult'
   voiceId: string
+  defaultTtsSpeechRate?: number
   /** Новый ключ (например `runKey` урока) - новый порядок вариантов в fill_choice на каждый проход. */
   choiceShuffleSeed?: string
   returnBriefing?: LessonReturnBriefingPayload | null
@@ -306,6 +307,7 @@ export default function LessonStepRenderer({
   postLessonOverlayOpen = false,
   audience,
   voiceId,
+  defaultTtsSpeechRate = 1,
   choiceShuffleSeed,
   returnBriefing = null,
   onAcknowledgeReturnBriefing,
@@ -2207,7 +2209,11 @@ export default function LessonStepRenderer({
                         <div className="pointer-events-none absolute inset-y-0 right-2 z-10 flex items-center">
                           <button
                             type="button"
-                            onClick={() => speak(lessonVoiceInput.lastCommittedVoiceText, voiceId)}
+                            onClick={() =>
+                              speak(lessonVoiceInput.lastCommittedVoiceText, voiceId, {
+                                rate: defaultTtsSpeechRate,
+                              })
+                            }
                             className="chat-input-inline-speaker-button chat-action-button pointer-events-auto inline-flex h-8 w-8 min-h-8 min-w-8 max-h-8 max-w-8 shrink-0 items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)]"
                             title="Прослушать"
                             aria-label="Прослушать распознанный текст"

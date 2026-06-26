@@ -40,6 +40,8 @@ interface SlideOutMenuProps {
   onEngvoVoiceChange?: (voice: EngvoRealtimeVoice) => void
   onEngvoLevelChange?: (level: EngvoCefrLevel) => void
   onEngvoSpeechSpeedChange?: (preset: EngvoSpeechSpeedPresetId) => void
+  practiceTtsSpeedDefaultIndex?: number
+  onPracticeTtsSpeedDefaultChange?: (index: number) => void
   /** Кнопка «домик»: на стартовый экран приложения. */
   onGoHome?: () => void
   /** Если чат уже идёт - при открытии меню сразу «Чат с MyEng»; если нет - корень списка разделов. */
@@ -113,6 +115,8 @@ export default function SlideOutMenu({
   onEngvoVoiceChange,
   onEngvoLevelChange,
   onEngvoSpeechSpeedChange,
+  practiceTtsSpeedDefaultIndex,
+  onPracticeTtsSpeedDefaultChange,
   onGoHome,
   chatActive = false,
   engvoVoiceMode = false,
@@ -246,6 +250,8 @@ export default function SlideOutMenu({
         onEngvoVoiceChange={onEngvoVoiceChange}
         onEngvoLevelChange={onEngvoLevelChange}
         onEngvoSpeechSpeedChange={onEngvoSpeechSpeedChange}
+        practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}
+        onPracticeTtsSpeedDefaultChange={onPracticeTtsSpeedDefaultChange}
         onGoHome={onGoHome}
         onCloseMenu={open ? () => onToggle() : undefined}
         onOpenLearningLesson={onOpenLearningLesson}

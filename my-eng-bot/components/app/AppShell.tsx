@@ -230,6 +230,11 @@ import {
   saveEngvoSpeechSpeedPreset,
 } from '@/lib/engvo/preferences'
 import {
+  loadPracticeTtsSpeedDefaultIndex,
+  savePracticeTtsSpeedDefaultIndex,
+} from '@/lib/practice/practiceTtsPreferences'
+import { getPracticeTtsRateByIndex } from '@/lib/practice/practiceTtsSpeedPresets'
+import {
   canCommitEngvoAssistantMessage,
   getEngvoBootstrapServiceIndicatorText,
   getEngvoFooterView,
@@ -832,6 +837,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [engvoCefrLevel, setEngvoCefrLevel] = useState<EngvoCefrLevel>(ENGVO_DEFAULT_LEVEL)
   const [engvoSpeechSpeedPreset, setEngvoSpeechSpeedPreset] =
     useState<EngvoSpeechSpeedPresetId>('conversational')
+  const [practiceTtsSpeedDefaultIndex, setPracticeTtsSpeedDefaultIndex] = useState(0)
   const [engvoCallPhase, setEngvoCallPhase] = useState<EngvoCallPhase>('idle')
   const [engvoErrorText, setEngvoErrorText] = useState<string | null>(null)
   const [engvoUserInterimText, setEngvoUserInterimText] = useState('')
@@ -2311,6 +2317,16 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       }
     },
     [engvoVoiceMode]
+  )
+
+  const handlePracticeTtsSpeedDefaultChange = useCallback((index: number) => {
+    setPracticeTtsSpeedDefaultIndex(index)
+    savePracticeTtsSpeedDefaultIndex(index)
+  }, [])
+
+  const defaultTtsSpeechRate = React.useMemo(
+    () => getPracticeTtsRateByIndex(practiceTtsSpeedDefaultIndex),
+    [practiceTtsSpeedDefaultIndex]
   )
 
   useEffect(() => {
@@ -4391,6 +4407,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             level: loadedEngvoLevel,
           })
         )
+        setPracticeTtsSpeedDefaultIndex(loadPracticeTtsSpeedDefaultIndex())
       }
       setRewardsState(rewards)
       rewardsPersistReadyRef.current = true
@@ -6829,6 +6846,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     onEngvoVoiceChange={handleEngvoVoiceChange}
                     onEngvoLevelChange={handleEngvoLevelChange}
                     onEngvoSpeechSpeedChange={handleEngvoSpeechSpeedChange}
+                    practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}
+                    onPracticeTtsSpeedDefaultChange={handlePracticeTtsSpeedDefaultChange}
                     onOpenLearningLesson={openOrContinueLearningLesson}
                     onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}
                     onGenerateLearningLesson={openGeneratedLearningLesson}
@@ -6910,6 +6929,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 <PracticeScreen
                   session={practiceSession.session}
                   voiceId={settings.voiceId}
+                  ttsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}
                   audience={settings.audience}
                   state={practiceSession.state}
                   feedback={practiceSession.feedback}
@@ -7034,6 +7054,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   status={activeStructuredLessonStatus}
                   blockProgress={activeStructuredLessonBlockProgress}
                   exerciseErrors={activeStructuredLessonExerciseErrors}
+                  defaultTtsSpeechRate={defaultTtsSpeechRate}
                   onAnswer={handleStructuredLessonAnswer}
                   onCompleteStep={completeStructuredLessonStep}
                   onPuzzleSubStep={({ subIndex, attempts }) =>
@@ -7127,6 +7148,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   appColumnAnchorRef={chatGlassRef}
                   messages={messages}
                   settings={settings}
+                  defaultTtsSpeechRate={defaultTtsSpeechRate}
                   loading={loading}
                   searchingInternet={searchingInternet}
                   searchingInternetLang={searchingInternetLang}
@@ -7242,6 +7264,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onEngvoVoiceChange={handleEngvoVoiceChange}
         onEngvoLevelChange={handleEngvoLevelChange}
         onEngvoSpeechSpeedChange={handleEngvoSpeechSpeedChange}
+        practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}
+        onPracticeTtsSpeedDefaultChange={handlePracticeTtsSpeedDefaultChange}
         onGoHome={goToStartScreen}
         onOpenLearningLesson={openOrContinueLearningLesson}
         onGenerateLearningLesson={openGeneratedLearningLesson}

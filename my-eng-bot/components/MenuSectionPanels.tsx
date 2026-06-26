@@ -62,6 +62,10 @@ import {
   type EngvoRealtimeVoice,
   type EngvoSpeechSpeedPresetId,
 } from '@/lib/engvo/constants'
+import {
+  getPracticeTtsSpeedPreset,
+  PRACTICE_TTS_SPEED_PRESETS,
+} from '@/lib/practice/practiceTtsSpeedPresets'
 import { DAILY_STREAK_GLYPH, DAILY_STREAK_LABEL } from '@/lib/gamificationGlyphs'
 import { formatStreakProgressCopy } from '@/lib/streakProgressCopy'
 import { pickFocusModeGoal } from '@/lib/progressFocusGoal'
@@ -168,7 +172,7 @@ const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
   level: 'Уровень',
 }
 
-type SettingsMenuPanel = 'summary' | 'provider' | 'openAiModel' | 'voice' | 'theme'
+type SettingsMenuPanel = 'summary' | 'provider' | 'openAiModel' | 'voice' | 'playbackSpeed' | 'theme'
 type EngvoPanel = 'summary' | 'audience' | 'topic' | 'voice' | 'level' | 'speed'
 
 const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
@@ -176,6 +180,7 @@ const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
   provider: 'ИИ',
   openAiModel: 'Модель чата',
   voice: 'Голос',
+  playbackSpeed: 'Скорость',
   theme: 'Внешний вид',
 }
 const ENGVO_PANEL_TITLE: Record<EngvoPanel, string> = {
@@ -372,6 +377,8 @@ export interface MenuSectionPanelsProps {
   onEngvoVoiceChange?: (voice: EngvoRealtimeVoice) => void
   onEngvoLevelChange?: (level: EngvoCefrLevel) => void
   onEngvoSpeechSpeedChange?: (preset: EngvoSpeechSpeedPresetId) => void
+  practiceTtsSpeedDefaultIndex?: number
+  onPracticeTtsSpeedDefaultChange?: (index: number) => void
   /** Стартовый экран: синхронизация подпанели «Чат с MyEng» для подсказки под меню. */
   onAiChatPanelChange?: (panel: AiChatPanel) => void
   /** Открыть урок из ветки «Обучение». */
@@ -451,6 +458,8 @@ export default function MenuSectionPanels({
   onEngvoVoiceChange,
   onEngvoLevelChange,
   onEngvoSpeechSpeedChange,
+  practiceTtsSpeedDefaultIndex = 0,
+  onPracticeTtsSpeedDefaultChange,
   onAiChatPanelChange,
   onOpenLearningLesson,
   onDebugSkipToLessonFinale,
@@ -1040,6 +1049,7 @@ export default function MenuSectionPanels({
   const engvoSpeechSpeedLabel =
     ENGVO_SPEECH_SPEED_PRESETS.find((p) => p.id === (engvoSpeechSpeedPreset ?? 'conversational'))?.label ??
     'Разговорная'
+  const practiceTtsSpeedLabel = getPracticeTtsSpeedPreset(practiceTtsSpeedDefaultIndex).label
 
   const handleMenuBack = () => {
     if (menuView === 'lessons' && lessonsPanel !== 'summary') {
@@ -3099,8 +3109,27 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                 preferredLangPrefixes={VOICE_DROPDOWN_LANG_PREFIXES}
                 onOpen={() => setSettingsPanel('voice')}
               />
+              <MenuSettingRow
+                label="Скорость"
+                value={practiceTtsSpeedLabel}
+                onClick={() => setSettingsPanel('playbackSpeed')}
+              />
             </div>
           </div>
+        )}
+
+        {menuView === 'settings' && settingsPanel === 'playbackSpeed' && (
+          <PickerList
+            options={PRACTICE_TTS_SPEED_PRESETS.map((preset, index) => ({
+              id: String(index),
+              label: preset.label,
+            }))}
+            value={String(practiceTtsSpeedDefaultIndex)}
+            onSelect={(id) => {
+              onPracticeTtsSpeedDefaultChange?.(Number.parseInt(id, 10))
+              setSettingsPanel('summary')
+            }}
+          />
         )}
 
         {menuView === 'settings' && settingsPanel === 'provider' && (

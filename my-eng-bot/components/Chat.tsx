@@ -128,6 +128,7 @@ function shouldHideVoiceStatusMessage(message: string | null): boolean {
 interface ChatProps {
   messages: ChatMessageType[]
   settings: Settings
+  defaultTtsSpeechRate?: number
   loading: boolean
   searchingInternet?: boolean
   searchingInternetLang?: 'ru' | 'en'
@@ -1105,6 +1106,7 @@ function findPriorTranslationDrillRussianLine(messages: ChatMessageType[], befor
 export default function Chat({
   messages,
   settings,
+  defaultTtsSpeechRate = 1,
   loading,
   searchingInternet = false,
   searchingInternetLang = 'ru',
@@ -2195,6 +2197,7 @@ export default function Chat({
                       messageIndex={i}
                       activeAssistantIndex={lastAssistantIndex}
                       voiceId={settings.voiceId}
+                      defaultTtsSpeechRate={defaultTtsSpeechRate}
                       mode={isEngvoActive ? 'communication' : settings.mode}
                       bubblePosition={bubblePosition}
                       engvoSlideEnter={isEngvoActive}
@@ -2518,7 +2521,9 @@ export default function Chat({
                         <div className="pointer-events-none absolute inset-y-0 right-2 z-10 flex items-center">
                           <button
                             type="button"
-                            onClick={() => speak(lastCommittedVoiceText, settings.voiceId)}
+                            onClick={() =>
+                              speak(lastCommittedVoiceText, settings.voiceId, { rate: defaultTtsSpeechRate })
+                            }
                             className="chat-input-inline-speaker-button chat-action-button pointer-events-auto inline-flex h-8 w-8 min-h-8 min-w-8 max-h-8 max-w-8 shrink-0 items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)]"
                             title="Прослушать"
                             aria-label="Прослушать распознанный текст"
@@ -2609,6 +2614,7 @@ function MessageBubble({
   messageIndex,
   activeAssistantIndex,
   voiceId,
+  defaultTtsSpeechRate,
   mode,
   bubblePosition,
   engvoSlideEnter = false,
@@ -2625,6 +2631,7 @@ function MessageBubble({
   messageIndex: number
   activeAssistantIndex: number
   voiceId: string
+  defaultTtsSpeechRate: number
   mode: 'dialogue' | 'translation' | 'communication'
   bubblePosition: BubblePosition
   /** В звонке Engvo - такое же появление пузыря снизу, как в уроках (`.lesson-enter`). */
@@ -2918,7 +2925,7 @@ function MessageBubble({
 
   const handleSpeak = () => {
     const speakText = stripRepeatLeadForSpeak(speakSourceText)
-    if (speakText) speak(speakText, voiceId)
+    if (speakText) speak(speakText, voiceId, { rate: defaultTtsSpeechRate })
   }
 
   /**

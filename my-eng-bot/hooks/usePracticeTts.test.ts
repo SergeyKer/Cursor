@@ -28,17 +28,22 @@ function lastSpeakCall(): SpeakCall | undefined {
   }
 }
 
-/** Минимальная симуляция логики togglePlay / cycleSpeed из usePracticeTts. */
-function createPracticeTtsPlaybackModel() {
-  let speedIndex = 0
+/** Минимальная симуляция контролируемого usePracticeTts. */
+function createControlledPracticeTtsPlaybackModel(initialSpeedIndex = 0) {
+  let speedIndex = initialSpeedIndex
+  let questionId = 'q-1'
   let isPlaying = false
   const text = 'It is dark outside.'
   const voiceId = 'voice-1'
 
+  const stop = () => {
+    isPlaying = false
+    stopSpeakingMock()
+  }
+
   const togglePlay = () => {
     if (isPlaying) {
-      isPlaying = false
-      stopSpeakingMock()
+      stop()
       return
     }
     speakMock(text, voiceId, { rate: getPracticeTtsRateByIndex(speedIndex) })
@@ -54,12 +59,26 @@ function createPracticeTtsPlaybackModel() {
     }
   }
 
+  const changeQuestion = (nextQuestionId: string) => {
+    questionId = nextQuestionId
+    stop()
+  }
+
+  const setSpeedFromParent = (next: number) => {
+    speedIndex = next
+  }
+
   return {
     get speedIndex() {
       return speedIndex
     },
+    get questionId() {
+      return questionId
+    },
     togglePlay,
     cycleSpeed,
+    changeQuestion,
+    setSpeedFromParent,
   }
 }
 
@@ -69,18 +88,20 @@ describe('usePracticeTts speed integration', () => {
     stopSpeakingMock.mockClear()
   })
 
-  it('passes selected preset rate when playback starts', async () => {
-    const model = createPracticeTtsPlaybackModel()
-
-    model.cycleSpeed()
-    expect(model.speedIndex).toBe(1)
+  it('passes selected preset rate when playback starts', () => {
+    const model = createControlledPracticeTtsPlaybackModel(1)
     model.togglePlay()
-
     expect(lastSpeakCall()?.options.rate).toBe(0.8)
   })
 
+  it('does not reset speed when questionId changes', () => {
+    const model = createControlledPracticeTtsPlaybackModel(2)
+    model.changeQuestion('q-2')
+    expect(model.speedIndex).toBe(2)
+  })
+
   it('restarts playback with new rate when speed changes during playback', () => {
-    const model = createPracticeTtsPlaybackModel()
+    const model = createControlledPracticeTtsPlaybackModel()
 
     model.togglePlay()
     expect(lastSpeakCall()?.options.rate).toBe(1)
@@ -94,7 +115,7 @@ describe('usePracticeTts speed integration', () => {
   })
 
   it('cycles through 1, 0.8 and 0.6 rates', () => {
-    const model = createPracticeTtsPlaybackModel()
+    const model = createControlledPracticeTtsPlaybackModel()
     const rates: number[] = []
 
     for (let step = 0; step < 3; step += 1) {
@@ -105,5 +126,12 @@ describe('usePracticeTts speed integration', () => {
     }
 
     expect(rates).toEqual([1, 0.8, 0.6])
+  })
+
+  it('uses parent-provided speed index after session override', () => {
+    const model = createControlledPracticeTtsPlaybackModel(0)
+    model.setSpeedFromParent(2)
+    model.togglePlay()
+    expect(lastSpeakCall()?.options.rate).toBe(0.6)
   })
 })

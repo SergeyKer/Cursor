@@ -12,6 +12,8 @@ export type UsePracticeTtsOptions = {
   text: string
   voiceId: string
   questionId: string
+  speedIndex: number
+  onSpeedIndexChange: (index: number) => void
   disabled?: boolean
 }
 
@@ -28,12 +30,13 @@ export function usePracticeTts({
   text,
   voiceId,
   questionId,
+  speedIndex,
+  onSpeedIndexChange,
   disabled = false,
 }: UsePracticeTtsOptions): UsePracticeTtsResult {
   const [isPlaying, setIsPlaying] = useState(false)
-  const [speedIndex, setSpeedIndex] = useState(0)
   const activeTextRef = useRef('')
-  const speedIndexRef = useRef(0)
+  const speedIndexRef = useRef(speedIndex)
   const isPlayingRef = useRef(false)
   const playbackGenerationRef = useRef(0)
 
@@ -93,19 +96,16 @@ export function usePracticeTts({
     if (disabled) return
 
     const next = cyclePracticeTtsSpeedIndex(speedIndexRef.current)
-    speedIndexRef.current = next
-    setSpeedIndex(next)
+    onSpeedIndexChange(next)
 
     if (isPlayingRef.current && text.trim()) {
       invalidatePlayback()
       stopSpeaking()
       startPlayback(text, getPracticeTtsRateByIndex(next))
     }
-  }, [disabled, invalidatePlayback, startPlayback, text])
+  }, [disabled, invalidatePlayback, onSpeedIndexChange, startPlayback, text])
 
   useEffect(() => {
-    speedIndexRef.current = 0
-    setSpeedIndex(0)
     stop()
   }, [questionId, stop])
 
