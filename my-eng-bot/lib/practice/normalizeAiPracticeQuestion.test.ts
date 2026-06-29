@@ -21,7 +21,9 @@ describe('normalizeAiPracticeQuestion', () => {
     const q = normalizeAiPracticeQuestion(row, lesson!, 0)
     expect(q).not.toBeNull()
     expect(q!.options?.length).toBeGreaterThanOrEqual(3)
-    expect(q!.options).toEqual(sourceStep!.exercise!.options)
+    for (const option of sourceStep!.exercise!.options ?? []) {
+      expect(q!.options).toContain(option)
+    }
     expect(q!.prompt).toMatch(/Ситуация:|Тема:/i)
     expect(q!.prompt).not.toMatch(/^Pick one\./i)
   })

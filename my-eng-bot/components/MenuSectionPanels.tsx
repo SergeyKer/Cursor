@@ -79,6 +79,7 @@ import LessonMenuRewardIcons from '@/components/LessonMenuRewardIcons'
 import type { LessonMenuRewardIconsState } from '@/lib/practice/pickBestPracticeRewardOpportunity'
 import { countTopicCupStats } from '@/lib/practice/topicCupStats'
 import { getPracticeTopicProgress } from '@/lib/practice/practiceTopicProgressStorage'
+import { REFERENCE_EXERCISE_OPTIONS } from '@/lib/practice/referenceExerciseOptions'
 import type { RewardsState } from '@/lib/rewardsState'
 import { createDefaultRewardsState } from '@/lib/rewardsState'
 import { buildMyPlanLiveInput } from '@/lib/myPlan/buildInput'
@@ -279,21 +280,6 @@ const PRACTICE_MODE_OPTIONS: { id: PracticeMode; title: string; meta: string; de
     meta: '7 повторов',
     description: 'Одно упражнение по кругу для отладки и полировки.',
   },
-]
-
-const REFERENCE_EXERCISE_OPTIONS: Array<{ id: PracticeExerciseType; label: string; summary: string }> = [
-  { id: 'choice', label: 'Выбор варианта', summary: 'Нужно выбрать лучший ответ из нескольких вариантов.' },
-  { id: 'voice-shadow', label: 'Повтори за диктором', summary: 'Прослушайте фразу и повторите ее вслух или текстом.' },
-  { id: 'dropdown-fill', label: 'Пропуск в предложении', summary: 'Выберите правильный вариант из выпадающего списка.' },
-  { id: 'listening-select', label: 'Слушай и выбирай', summary: 'Сначала прослушайте фразу, затем выберите ответ.' },
-  { id: 'sentence-surgery', label: 'Собери предложение', summary: 'Соберите правильную фразу из набора слов.' },
-  { id: 'free-response', label: 'Свободный ответ', summary: 'Ответьте своим предложением по теме задания.' },
-  { id: 'word-builder-pro', label: 'Конструктор фразы', summary: 'Постройте фразу из слов в правильном порядке.' },
-  { id: 'dictation', label: 'Диктант', summary: 'Прослушайте и напишите фразу по памяти.' },
-  { id: 'roleplay-mini', label: 'Мини-диалог', summary: 'Дайте короткий ответ как в реальном диалоге.' },
-  { id: 'boss-challenge', label: 'Финальный вызов', summary: 'Расширенный ответ с применением темы целиком.' },
-  { id: 'speed-round', label: 'Быстрый раунд', summary: 'Серия быстрых выборов без длинных пауз.' },
-  { id: 'context-clue', label: 'Подсказка по контексту', summary: 'Выберите ответ, опираясь на контекст задачи.' },
 ]
 
 const ACCENT_QUICK_START_LESSON_ID = getFirstAccentLessonId()
@@ -1216,6 +1202,8 @@ export default function MenuSectionPanels({
     0,
     REFERENCE_EXERCISE_OPTIONS.findIndex((item) => item.id === selectedReferenceExerciseOption?.id)
   )
+  const selectedReferenceChallengeStep =
+    selectedReferenceExerciseOption?.challengeStep ?? selectedReferenceExerciseIndex + 1
   const selectedPracticeLessonLabel = selectedPracticeTopic?.label ?? 'Выберите урок'
   const selectedPracticeModeLabel = selectedPracticeModeOption
     ? `${selectedPracticeModeOption.title} · ${selectedPracticeModeOption.meta}`
@@ -2341,7 +2329,7 @@ export default function MenuSectionPanels({
                     {isReferenceMode && selectedReferenceExerciseOption ? (
                       <MenuSettingRow
                         label="Упражнение"
-                        value={`#${selectedReferenceExerciseIndex + 1} ${selectedReferenceExerciseOption.label}`}
+                        value={`#${selectedReferenceChallengeStep} ${selectedReferenceExerciseOption.label}`}
                         onClick={() => setLessonsPanel('practiceReferenceType')}
                       />
                     ) : null}
@@ -2612,10 +2600,10 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                   Выберите эталонный тип упражнения. В сессии будет 7 повторов именно этого типа.
                 </div>
                 <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-                  {REFERENCE_EXERCISE_OPTIONS.map((item, index) => (
+                  {REFERENCE_EXERCISE_OPTIONS.map((item) => (
                     <PracticeModeChoiceCard
                       key={item.id}
-                      title={`#${index + 1} ${item.label}`}
+                      title={`#${item.challengeStep} ${item.label}`}
                       meta="Эталон"
                       description={item.summary}
                       selected={selectedReferenceExerciseType === item.id}

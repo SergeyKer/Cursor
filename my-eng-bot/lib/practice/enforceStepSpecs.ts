@@ -1,0 +1,70 @@
+import { buildTieredChoiceOptions, buildWordBankExtraWords } from '@/lib/practice/distractorTier'
+import { getPracticeStepSpec, resolveAdaptiveTierForStep, resolveTierForStep } from '@/lib/practice/engine/stepSpec'
+import { isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
+import { collectLessonChoicePool } from '@/lib/practice/lessonChoicePool'
+import { normalizeAiPracticeQuestion } from '@/lib/practice/normalizeAiPracticeQuestion'
+import type { LessonData } from '@/types/lesson'
+import type { PracticeMode, PracticeQuestion } from '@/types/practice'
+
+const CHALLENGE_SPEED_ROUND_INDEX = 10
+
+function resolveTierForEnforce(
+  mode: PracticeMode,
+  stepIndex: number,
+  choiceLikeWrongCountBefore?: number
+): ReturnType<typeof resolveTierForStep> {
+  const spec = getPracticeStepSpec(mode, stepIndex)
+  if (!spec?.distractorTier) return undefined
+  if (
+    mode === 'challenge' &&
+    stepIndex === CHALLENGE_SPEED_ROUND_INDEX &&
+    choiceLikeWrongCountBefore != null
+  ) {
+    return resolveAdaptiveTierForStep(mode, stepIndex, choiceLikeWrongCountBefore)
+  }
+  return resolveTierForStep(mode, spec)
+}
+
+export function enforceStepSpecs(
+  questions: PracticeQuestion[],
+  lesson: LessonData,
+  mode: PracticeMode,
+  fromIndex: number,
+  rawRows: unknown[],
+  choiceLikeWrongCountBefore?: number
+): PracticeQuestion[] {
+  if (mode === 'reference') return questions
+
+  return questions.map((question, offset) => {
+    const stepIndex = fromIndex + offset
+    const spec = getPracticeStepSpec(mode, stepIndex)
+    if (!spec) return question
+
+    const raw = rawRows[offset]
+    const tier = resolveTierForEnforce(mode, stepIndex, choiceLikeWrongCountBefore)
+    let normalized =
+      question.type === spec.type
+        ? question
+        : normalizeAiPracticeQuestion(raw, lesson, stepIndex, {
+            forcedType: spec.type,
+            distractorTier: tier,
+          })
+
+    if (!normalized) return question
+
+    if (tier && isChoiceLikePracticeType(normalized.type)) {
+      const lessonPool = collectLessonChoicePool(lesson, normalized.targetAnswer)
+      normalized = {
+        ...normalized,
+        options: buildTieredChoiceOptions(normalized.targetAnswer, tier, lessonPool),
+      }
+    }
+
+    let extraWords = normalized.extraWords
+    if (spec.type === 'word-builder-pro' && spec.wordBankMode === 'extra' && !extraWords?.length) {
+      extraWords = buildWordBankExtraWords(normalized.targetAnswer, 'extra')
+    }
+
+    return { ...normalized, extraWords }
+  })
+}

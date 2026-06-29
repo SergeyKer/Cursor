@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { callProviderChat } from '@/lib/callProviderChat'
 import { buildEtalonChoicePromptForLesson, findFirstLessonChoiceStep } from '@/lib/practice/buildChoicePrompt'
 import { buildLocalPracticeSession } from '@/lib/practice/builders/localPracticeBuilder'
+import { enforceStepSpecs } from '@/lib/practice/enforceStepSpecs'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
+import { getPracticeStepsForRange } from '@/lib/practice/engine/stepSpec'
 import { buildReferenceFallbackQuestion } from '@/lib/practice/referenceFallbackQuestion'
 import { buildPracticeQuestionFingerprintFromQuestion, normalizePracticeFingerprintPart } from '@/lib/practice/questionFingerprint'
 import { normalizeAiPracticeQuestion } from '@/lib/practice/normalizeAiPracticeQuestion'
@@ -25,6 +27,7 @@ type Body = {
   count?: number
   fromIndex?: number
   seenKeys?: string[]
+  choiceLikeWrongCountBefore?: number
 }
 
 type PracticeGenerateFallbackReason = 'provider' | 'parse' | 'validation' | 'exception' | 'no_lesson'
@@ -75,21 +78,34 @@ function normalizeQuestions(
   lesson: LessonData,
   mode: PracticeMode,
   requestedCount: number,
+  fromIndex: number,
   referenceExerciseType?: PracticeExerciseType,
-  recentPrompts: string[] = []
+  recentPrompts: string[] = [],
+  choiceLikeWrongCountBefore?: number
 ): PracticeQuestion[] {
   if (!Array.isArray(rawQuestions)) return []
   const plan = getPracticeModePlan(mode)
   const clampedCount = Math.max(1, Math.min(requestedCount, plan.length))
   const allowedTypes = new Set(plan.types)
-  const normalized = rawQuestions
-    .slice(0, plan.length)
-    .map((row, index) => normalizeAiPracticeQuestion(row, lesson, index))
+  const rawSlice = rawQuestions.slice(0, plan.length)
+  const normalized = rawSlice
+    .map((row, index) => normalizeAiPracticeQuestion(row, lesson, fromIndex + index))
     .filter((question): question is PracticeQuestion => Boolean(question))
-  const questions =
+  let questions =
     mode === 'reference'
       ? normalized
       : normalized.filter((question) => allowedTypes.has(question.type) || (plan.boss && question.type === 'boss-challenge'))
+
+  if (mode !== 'reference' && questions.length > 0) {
+    questions = enforceStepSpecs(
+      questions,
+      lesson,
+      mode,
+      fromIndex,
+      rawSlice.slice(0, questions.length),
+      choiceLikeWrongCountBefore
+    )
+  }
 
   if (mode === 'reference') {
     const normalizedRecent = recentPrompts.map((prompt) => prompt.trim().toLowerCase()).filter(Boolean)
@@ -117,7 +133,10 @@ function buildSystemPrompt(): string {
     'Each question must have: type, prompt, targetAnswer, acceptedAnswers, shuffledWords, audioText, keywords, minWords, hint, explanation.',
     'If type is choice, dropdown-fill, listening-select, speed-round, or context-clue, you must provide at least 3 English options and include targetAnswer in the options.',
     'For type choice: prompt MUST include a Russian situational context (Ситуация / Тема + clear task). Never use vague prompts like "Choose the best option" without context.',
-    'For type choice: provide exactly 3 natural English options when possible; distractors should be near-miss (same pattern, wrong fit), not broken English.',
+    'For type choice: provide exactly 3 natural English options when possible; distractors depend on distractorTier in steps payload.',
+    'distractorTier obvious: different scenario/pattern, clearly wrong but grammatical.',
+    'distractorTier semantic-near: same semantic field, wrong fit for context.',
+    'distractorTier minimal-pair: spelling/phonetic confusables, 1-2 character differences.',
     'For type voice-shadow: prompt MUST be Russian situational context only (Ситуация / Тема) or a neutral listen-and-repeat instruction. Never include targetAnswer or phrases like "Повторите фразу: ..." in prompt.',
     'For type voice-shadow: put the full English phrase only in audioText and targetAnswer. Leave hint empty.',
     'Do not omit options for choice-like question types.',
@@ -125,6 +144,7 @@ function buildSystemPrompt(): string {
     'Prompts can be in Russian with English targets. Keep the tone warm and concise.',
     'If referenceExerciseType is provided, every generated question.type must exactly match it.',
     'If etalonChoicePrompt is provided, follow the same pedagogical logic but use a new scenario and wording.',
+    'If steps array is provided, each question at steps[N].stepIndex must use exactly steps[N].type and steps[N].distractorTier when set.',
     'Do not include markdown.',
   ].join('\n')
 }
@@ -143,6 +163,7 @@ function buildUserPayload(
 ): string {
   const etalonChoice = findFirstLessonChoiceStep(lesson)
   const plan = getPracticeModePlan(mode)
+  const steps = mode === 'reference' ? undefined : getPracticeStepsForRange(mode, fromIndex, count)
   return JSON.stringify(
     {
       topic: lesson.topic,
@@ -152,6 +173,7 @@ function buildUserPayload(
       length: mode === 'reference' ? 1 : count,
       fromIndex,
       allowedTypes: plan.types,
+      steps,
       seenKeys: seenKeys.slice(-40),
       referenceExerciseType: mode === 'reference' ? referenceExerciseType : undefined,
       referenceStepIndex: mode === 'reference' ? referenceStepIndex : undefined,
@@ -214,6 +236,10 @@ export async function POST(req: NextRequest) {
         .filter(Boolean)
         .slice(-80)
     : []
+  const choiceLikeWrongCountBefore =
+    Number.isFinite(body.choiceLikeWrongCountBefore) && body.choiceLikeWrongCountBefore! >= 0
+      ? Math.floor(Number(body.choiceLikeWrongCountBefore))
+      : undefined
   const lesson = body.lesson ?? (body.lessonId ? getStructuredLessonById(body.lessonId) : null)
   if (!lesson) {
     return NextResponse.json({ error: 'Нет данных урока для практики.' }, { status: 400 })
@@ -305,8 +331,10 @@ export async function POST(req: NextRequest) {
         lesson,
         mode,
         requestedCount,
+        fromIndex + accumulated.length,
         referenceExerciseType,
-        recentPrompts
+        recentPrompts,
+        choiceLikeWrongCountBefore
       )
       if (candidates.length === 0) {
         fallbackReason = 'validation'

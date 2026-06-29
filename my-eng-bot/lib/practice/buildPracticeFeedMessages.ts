@@ -14,7 +14,7 @@ import {
   getPracticeExerciseTypeCatalogNumber,
   PRACTICE_EXERCISE_TYPE_CATALOG_SIZE,
 } from '@/lib/practice/practiceExerciseTypeCatalog'
-import { VOICE_SHADOW_INFO_LABEL } from '@/lib/practice/buildVoiceShadowPrompt'
+import { buildPracticeFeedOpening } from '@/lib/practice/practiceRouteCopy'
 import type { Bubble } from '@/types/lesson'
 import type { PracticeAnswer, PracticeQuestion, PracticeSession } from '@/types/practice'
 
@@ -31,9 +31,17 @@ export type PracticeFeedMessage = {
   repeatAnswer?: string
 }
 
-function practiceTypeLabel(question: PracticeQuestion): string {
+function practiceTypeLabel(question: PracticeQuestion, session: PracticeSession): string {
+  if (session.mode === 'challenge') {
+    if (question.type === 'choice') return 'Лёгкий выбор: один вариант явно подходит.'
+    if (question.type === 'context-clue') return 'Смотрите на ситуацию: варианты похожи по смыслу.'
+    if (question.type === 'dropdown-fill') return 'Выберите форму без подсказки чипов.'
+    if (question.type === 'word-builder-pro') return 'Соберите фразу: в банке есть лишние ловушки.'
+    if (question.type === 'speed-round') return 'Финальная проверка на внимательность: варианты очень близкие.'
+    if (question.type === 'boss-challenge') return 'Соберите всё вместе в живом ответе.'
+  }
   if (question.type === 'choice') return 'Выберите лучший вариант.'
-  if (question.type === 'voice-shadow') return VOICE_SHADOW_INFO_LABEL
+  if (question.type === 'voice-shadow') return 'Прослушайте фразу и повторите её вслух или текстом.'
   if (question.type === 'dropdown-fill') return 'Восстановите пропуск.'
   if (question.type === 'listening-select') return 'Прослушайте и выберите правильный вариант.'
   if (question.type === 'sentence-surgery') return 'Соберите правильную фразу.'
@@ -52,9 +60,9 @@ function normalizeInstruction(text: string | undefined): string {
   return /[.!?…]$/.test(trimmed) ? trimmed : `${trimmed}.`
 }
 
-function practiceInfoLabel(question: PracticeQuestion): string {
+function practiceInfoLabel(question: PracticeQuestion, session: PracticeSession): string {
   const hint = question.type === 'voice-shadow' ? '' : normalizeInstruction(question.hint)
-  const base = normalizeInstruction(practiceTypeLabel(question))
+  const base = normalizeInstruction(practiceTypeLabel(question, session))
   if (!hint) return base
   const normalizedHint = hint.toLowerCase().replace(/[.!?…]/g, '').replace(/\s+/g, ' ').trim()
   const normalizedBase = base.toLowerCase().replace(/[.!?…]/g, '').replace(/\s+/g, ' ').trim()
@@ -67,23 +75,26 @@ function buildQuestionBubbles(params: {
   question: PracticeQuestion
   questionIndex: number
   previousWasCorrect: boolean | null
+  audience: Audience
 }): Bubble[] {
-  const opening =
-    params.questionIndex === 0
-      ? `Начинаем практику по теме "${params.session.topic}". Первый шаг сделаем мягким.`
-      : params.previousWasCorrect
-        ? 'Предыдущий ответ засчитан. Держим темп.'
-        : 'Ошибку уже разобрали. Теперь закрепим похожий паттерн.'
-  const infoLabel = practiceInfoLabel(params.question)
-  const bubbles: Bubble[] = [{ type: 'positive', content: opening }]
+  const opening = buildPracticeFeedOpening({
+    session: params.session,
+    questionIndex: params.questionIndex,
+    audience: params.audience,
+    previousWasCorrect: params.previousWasCorrect,
+  })
+  const infoLabel = practiceInfoLabel(params.question, params.session)
+  const debugPrefix = showDebugQuestionIndex
+    ? `шаг ${params.questionIndex + 1} · тип ${getPracticeExerciseTypeCatalogNumber(params.question.type)}/${PRACTICE_EXERCISE_TYPE_CATALOG_SIZE} (${params.question.type})`
+    : ''
+  const routeContent = debugPrefix ? `${debugPrefix}\n${opening}` : opening
+  const bubbles: Bubble[] = [{ type: 'positive', content: routeContent }]
   if (infoLabel) {
     bubbles.push({ type: 'info', content: infoLabel })
   }
   bubbles.push({
     type: 'task',
-    content: showDebugQuestionIndex
-      ? `шаг ${params.questionIndex + 1} · тип ${getPracticeExerciseTypeCatalogNumber(params.question.type)}/${PRACTICE_EXERCISE_TYPE_CATALOG_SIZE} (${params.question.type}) · ${params.question.prompt}`
-      : params.question.prompt,
+    content: params.question.prompt,
   })
   return bubbles
 }
@@ -205,6 +216,7 @@ export function buildPracticeFeedMessages(params: {
           question,
           questionIndex: index,
           previousWasCorrect: previousAnswer ? previousAnswer.isCorrect : null,
+          audience,
         }),
         isHistorical,
       })

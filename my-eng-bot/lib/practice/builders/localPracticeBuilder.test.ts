@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
 import { buildLocalPracticeSession } from '@/lib/practice/builders/localPracticeBuilder'
 import { isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
-import type { PracticeExerciseType } from '@/types/practice'
+import { CHALLENGE_STEP_SPECS } from '@/lib/practice/engine/stepSpec'
 
 describe('buildLocalPracticeSession', () => {
   it('builds relaxed practice from a structured lesson without AI', () => {
@@ -48,20 +48,7 @@ describe('buildLocalPracticeSession', () => {
       entrySource: 'menu',
     })
     const questionsByType = new Map(session.questions.map((question) => [question.type, question]))
-    const expectedTypes: PracticeExerciseType[] = [
-      'choice',
-      'voice-shadow',
-      'dropdown-fill',
-      'listening-select',
-      'context-clue',
-      'sentence-surgery',
-      'free-response',
-      'word-builder-pro',
-      'dictation',
-      'roleplay-mini',
-      'speed-round',
-      'boss-challenge',
-    ]
+    const expectedTypes = CHALLENGE_STEP_SPECS.map((spec) => spec.type)
 
     expect([...questionsByType.keys()]).toEqual(expectedTypes)
     expect(questionsByType.get('voice-shadow')?.audioText).toBeTruthy()

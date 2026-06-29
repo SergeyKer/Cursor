@@ -2,6 +2,7 @@ import type { FlowInfoCardVariant } from '@/lib/lessonMedalRevealCopy'
 import type { Audience } from '@/lib/types'
 import type { Bubble } from '@/types/lesson'
 import type { PracticeMode, PracticeSession } from '@/types/practice'
+import { buildChallengeBriefingRouteLine } from '@/lib/practice/practiceRouteCopy'
 import { resolvePracticeTargetQuestionCount } from '@/lib/practice/practiceSessionProgress'
 
 export type PracticeInstructionCopy = {
@@ -69,7 +70,11 @@ export function buildPracticeBriefingBubbles(session: PracticeSession, audience:
     audience === 'child'
       ? `Практика по теме «${topic}». Сначала - короткие правила.`
       : `Практика по теме «${topic}». Сначала - как устроен процесс.`
-  return [{ type: 'positive', content: intro }]
+  const bubbles: Bubble[] = [{ type: 'positive', content: intro }]
+  if (session.mode === 'challenge') {
+    bubbles.push({ type: 'info', content: buildChallengeBriefingRouteLine(audience) })
+  }
+  return bubbles
 }
 
 /** Полная инструкция для нижнего composer (FlowInfoStep): правила, режим, CTA. */

@@ -73,6 +73,7 @@ export function buildReferenceFallbackQuestion(params: BuildReferenceFallbackQue
       lesson: params.lesson,
       type: params.referenceExerciseType,
       questionIndex: referenceStepIndex,
+      mode: params.mode,
     })
     if (!synthesized) return null
     return {

@@ -180,6 +180,7 @@ import { getPracticeTopicProgress } from '@/lib/practice/practiceTopicProgressSt
 import { resolvePracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
 import type { PracticeRewardUi } from '@/lib/practice/practiceRewardUi'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
+import { countWrongChoiceLikeBefore } from '@/lib/practice/engine/stepSpec'
 import { resolvePracticeTargetQuestionCount } from '@/lib/practice/practiceSessionProgress'
 import {
   buildSeenPracticeKeys,
@@ -327,6 +328,11 @@ type LessonRepeatResponse = {
   fallback?: boolean
   fallbackReason?: LessonRepeatFallbackReason
   error?: string
+}
+
+function buildPracticeGenerateAdaptiveContext(session: PracticeSession): { choiceLikeWrongCountBefore?: number } {
+  if (session.mode !== 'challenge') return {}
+  return { choiceLikeWrongCountBefore: countWrongChoiceLikeBefore(session, 10) }
 }
 
 const PRACTICE_AI_INITIAL_BATCH_SIZE = 2
@@ -3865,6 +3871,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               count: fetchCount,
               fromIndex: session.questions.length,
               seenKeys: buildSeenPracticeKeys(session.questions),
+              ...buildPracticeGenerateAdaptiveContext(session),
             }),
           })
           const data = (await response.json()) as PracticeGenerateResponse
@@ -3961,6 +3968,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               count: 1,
               fromIndex: session.questions.length,
               seenKeys: buildSeenPracticeKeys(session.questions),
+              ...buildPracticeGenerateAdaptiveContext(session),
             }),
           })
           const data = (await response.json()) as PracticeGenerateResponse

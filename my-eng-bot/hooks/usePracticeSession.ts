@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { normalizeAdaptiveQuestionInSession } from '@/lib/practice/applyAdaptiveQuestionTier'
 import { buildLocalPracticeSession, buildPracticeSessionFromQuestions } from '@/lib/practice/builders/localPracticeBuilder'
 import {
   buildPracticeWrongAnswerFeedback,
@@ -136,11 +137,13 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
   useEffect(() => {
     const restored = storage.loadActiveSession()
     if (!restored || restored.status !== 'active') return
-    const normalized = normalizePracticeSessionTargetCount({
-      ...restored,
-      wrongAttemptsOnCurrentQuestion: restored.wrongAttemptsOnCurrentQuestion ?? 0,
-      instructionAcknowledged: restored.instructionAcknowledged ?? false,
-    })
+    const normalized = normalizeAdaptiveQuestionInSession(
+      normalizePracticeSessionTargetCount({
+        ...restored,
+        wrongAttemptsOnCurrentQuestion: restored.wrongAttemptsOnCurrentQuestion ?? 0,
+        instructionAcknowledged: restored.instructionAcknowledged ?? false,
+      })
+    )
     setSession(normalized)
     setState(resolvePracticeFlowStateForSession(normalized))
     questionStartedAtRef.current = Date.now()
@@ -178,7 +181,11 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
         setState('completed')
         return completed
       }
-      const next = { ...current, currentIndex: current.currentIndex + 1, wrongAttemptsOnCurrentQuestion: 0 }
+      const next = normalizeAdaptiveQuestionInSession({
+        ...current,
+        currentIndex: current.currentIndex + 1,
+        wrongAttemptsOnCurrentQuestion: 0,
+      })
       questionStartedAtRef.current = Date.now()
       pendingCorrectionRef.current = null
       setFeedback(null)
@@ -217,11 +224,13 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
     setPendingAnswer(null)
     const restored = storage.loadActiveSession()
     if (!restored || restored.status !== 'active') return null
-    const normalized = normalizePracticeSessionTargetCount({
-      ...restored,
-      wrongAttemptsOnCurrentQuestion: restored.wrongAttemptsOnCurrentQuestion ?? 0,
-      instructionAcknowledged: restored.instructionAcknowledged ?? false,
-    })
+    const normalized = normalizeAdaptiveQuestionInSession(
+      normalizePracticeSessionTargetCount({
+        ...restored,
+        wrongAttemptsOnCurrentQuestion: restored.wrongAttemptsOnCurrentQuestion ?? 0,
+        instructionAcknowledged: restored.instructionAcknowledged ?? false,
+      })
+    )
     pendingCorrectionRef.current = null
     questionStartedAtRef.current = Date.now()
     setFeedback(null)

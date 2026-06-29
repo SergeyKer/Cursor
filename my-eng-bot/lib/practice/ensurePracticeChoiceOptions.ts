@@ -1,4 +1,5 @@
 import { normalizeEnglishLearnerContractions } from '@/lib/englishLearnerContractions'
+import type { PracticeDistractorTier } from '@/lib/practice/engine/stepSpec'
 import type { PracticeExerciseType } from '@/types/practice'
 
 const CHOICE_LIKE: PracticeExerciseType[] = [
@@ -78,11 +79,23 @@ function withoutSoftSkipOption(options: string[]): string[] {
 }
 
 /** Минимум три уникальных варианта; эталон всегда в списке. */
-export function ensurePracticeChoiceOptions(options: string[] | undefined, targetAnswer: string): string[] {
+export function ensurePracticeChoiceOptions(
+  options: string[] | undefined,
+  targetAnswer: string,
+  tier?: PracticeDistractorTier
+): string[] {
   const trimmedTarget = targetAnswer.trim()
   const result = withoutSoftSkipOption(
     Array.from(new Set([trimmedTarget, ...(options ?? [])].map((item) => item.trim()).filter(Boolean)))
   ).filter((item, index, list) => list.findIndex((other) => optionKey(other) === optionKey(item)) === index)
+
+  if (result.length < PRACTICE_CHOICE_MIN_OPTIONS) {
+    if (tier === 'obvious') {
+      appendUniqueOptions(result, [`It's Tuesday.`, `I'm at home.`, `She is reading.`])
+    } else {
+      appendUniqueOptions(result, buildPatternDistractors(trimmedTarget))
+    }
+  }
 
   if (result.length < PRACTICE_CHOICE_MIN_OPTIONS) {
     appendUniqueOptions(result, buildPatternDistractors(trimmedTarget))

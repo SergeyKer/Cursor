@@ -1,3 +1,9 @@
+import {
+  BALANCED_STEP_SPECS,
+  CHALLENGE_STEP_SPECS,
+  getPracticeStepSpecs,
+  RELAXED_STEP_SPECS,
+} from '@/lib/practice/engine/stepSpec'
 import type { PracticeExerciseType, PracticeMode } from '@/types/practice'
 
 export interface PracticeModePlan {
@@ -7,65 +13,48 @@ export interface PracticeModePlan {
   boss: boolean
 }
 
+const ALL_REGISTERED_TYPES: PracticeExerciseType[] = [
+  'choice',
+  'voice-shadow',
+  'dropdown-fill',
+  'listening-select',
+  'sentence-surgery',
+  'free-response',
+  'word-builder-pro',
+  'dictation',
+  'roleplay-mini',
+  'boss-challenge',
+  'speed-round',
+  'context-clue',
+]
+
+function typesFromSpecs(specs: readonly { type: PracticeExerciseType }[]): PracticeExerciseType[] {
+  return specs.map((spec) => spec.type)
+}
+
 export const PRACTICE_MODE_PLANS: Record<PracticeMode, PracticeModePlan> = {
   relaxed: {
-    length: 6,
+    length: RELAXED_STEP_SPECS.length,
     timeBudgetMinutes: [2, 4],
-    types: ['choice', 'dropdown-fill', 'context-clue', 'sentence-surgery', 'free-response'],
+    types: typesFromSpecs(RELAXED_STEP_SPECS),
     boss: false,
   },
   balanced: {
-    length: 9,
+    length: BALANCED_STEP_SPECS.length,
     timeBudgetMinutes: [5, 8],
-    types: [
-      'choice',
-      'dropdown-fill',
-      'listening-select',
-      'sentence-surgery',
-      'free-response',
-      'word-builder-pro',
-      'dictation',
-      'speed-round',
-      'context-clue',
-    ],
+    types: typesFromSpecs(BALANCED_STEP_SPECS),
     boss: false,
   },
   challenge: {
-    length: 12,
+    length: CHALLENGE_STEP_SPECS.length,
     timeBudgetMinutes: [8, 12],
-    types: [
-      'choice',
-      'voice-shadow',
-      'dropdown-fill',
-      'listening-select',
-      'context-clue',
-      'sentence-surgery',
-      'free-response',
-      'word-builder-pro',
-      'dictation',
-      'roleplay-mini',
-      'speed-round',
-      'boss-challenge',
-    ],
+    types: typesFromSpecs(CHALLENGE_STEP_SPECS),
     boss: true,
   },
   reference: {
     length: 7,
     timeBudgetMinutes: [4, 7],
-    types: [
-      'choice',
-      'voice-shadow',
-      'dropdown-fill',
-      'listening-select',
-      'context-clue',
-      'sentence-surgery',
-      'free-response',
-      'word-builder-pro',
-      'dictation',
-      'roleplay-mini',
-      'speed-round',
-      'boss-challenge',
-    ],
+    types: ALL_REGISTERED_TYPES,
     boss: false,
   },
 }
@@ -73,3 +62,5 @@ export const PRACTICE_MODE_PLANS: Record<PracticeMode, PracticeModePlan> = {
 export function getPracticeModePlan(mode: PracticeMode): PracticeModePlan {
   return PRACTICE_MODE_PLANS[mode]
 }
+
+export { getPracticeStepSpecs }

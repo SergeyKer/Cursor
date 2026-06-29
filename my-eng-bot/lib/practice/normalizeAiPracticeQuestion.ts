@@ -6,7 +6,10 @@ import {
   findFirstLessonChoiceStep,
 } from '@/lib/practice/buildChoicePrompt'
 import { buildVoiceShadowPrompt, sanitizeVoiceShadowPrompt } from '@/lib/practice/buildVoiceShadowPrompt'
+import { buildTieredChoiceOptions } from '@/lib/practice/distractorTier'
 import { ensurePracticeChoiceOptions, isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
+import type { PracticeDistractorTier } from '@/lib/practice/engine/stepSpec'
+import { collectLessonChoicePool } from '@/lib/practice/lessonChoicePool'
 import type { LessonData } from '@/types/lesson'
 import type { PracticeExerciseType, PracticeQuestion } from '@/types/practice'
 
@@ -27,34 +30,15 @@ function isPracticeExerciseType(value: unknown): value is PracticeExerciseType {
   )
 }
 
-function normalizeChoiceText(value: string): string {
-  return normalizeChoiceTextKey(normalizeEnglishLearnerContractions(value))
-}
-
-function normalizeChoiceTextKey(value: string): string {
-  return value.trim().toLowerCase().replace(/[.,!?;:]/g, '').replace(/\s+/g, ' ')
-}
-
-function answerMatchesTarget(candidate: string, targetAnswer: string): boolean {
-  const key = normalizeChoiceTextKey(normalizeEnglishLearnerContractions(candidate))
-  const targetKey = normalizeChoiceText(targetAnswer)
-  return key === targetKey
-}
-
-function findLessonChoiceOptions(lesson: LessonData, targetAnswer: string): string[] | undefined {
-  const matchedExercise = lesson.steps.find((step) => {
-    const exercise = step.exercise
-    if (!exercise || !Array.isArray(exercise.options) || exercise.options.length < 2) return false
-    if (answerMatchesTarget(exercise.correctAnswer, targetAnswer)) return true
-    return (exercise.acceptedAnswers ?? []).some((answer) => answerMatchesTarget(answer, targetAnswer))
-  })?.exercise
-  return matchedExercise?.options && matchedExercise.options.length >= 2 ? [...matchedExercise.options] : undefined
-}
-
-export function normalizeAiPracticeQuestion(row: unknown, lesson: LessonData, index: number): PracticeQuestion | null {
+export function normalizeAiPracticeQuestion(
+  row: unknown,
+  lesson: LessonData,
+  index: number,
+  normalizeOptions?: { forcedType?: PracticeExerciseType; distractorTier?: PracticeDistractorTier }
+): PracticeQuestion | null {
   if (!row || typeof row !== 'object') return null
   const source = row as Record<string, unknown>
-  const type = isPracticeExerciseType(source.type) ? source.type : null
+  const type = normalizeOptions?.forcedType ?? (isPracticeExerciseType(source.type) ? source.type : null)
   let prompt = typeof source.prompt === 'string' ? source.prompt.trim() : ''
   const targetAnswer = typeof source.targetAnswer === 'string' ? source.targetAnswer.trim() : ''
   if (!type || !targetAnswer) return null
@@ -95,15 +79,17 @@ export function normalizeAiPracticeQuestion(row: unknown, lesson: LessonData, in
   const keywords = Array.isArray(source.keywords)
     ? source.keywords.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
     : undefined
-  const lessonChoiceOptions = isChoiceLikePracticeType(type) ? findLessonChoiceOptions(lesson, targetAnswer) : undefined
+  const lessonChoiceOptions = isChoiceLikePracticeType(type) ? collectLessonChoicePool(lesson, targetAnswer) : undefined
 
-  const options = isChoiceLikePracticeType(type)
-    ? ensurePracticeChoiceOptions(lessonChoiceOptions ?? rawOptions ?? [], targetAnswer)
+  const choiceOptions = isChoiceLikePracticeType(type)
+    ? normalizeOptions?.distractorTier
+      ? buildTieredChoiceOptions(targetAnswer, normalizeOptions.distractorTier, lessonChoiceOptions ?? rawOptions ?? [])
+      : ensurePracticeChoiceOptions(lessonChoiceOptions ?? rawOptions ?? [], targetAnswer)
     : rawOptions && rawOptions.length >= 2
       ? rawOptions
       : undefined
 
-  if (isChoiceLikePracticeType(type) && !options) return null
+  if (isChoiceLikePracticeType(type) && !choiceOptions) return null
 
   const audioText =
     type === 'voice-shadow' || type === 'dictation' || type === 'listening-select'
@@ -119,7 +105,7 @@ export function normalizeAiPracticeQuestion(row: unknown, lesson: LessonData, in
     prompt,
     targetAnswer,
     acceptedAnswers: Array.from(new Set([targetAnswer, ...acceptedAnswers])),
-    options,
+    options: choiceOptions,
     shuffledWords: shuffledWords && shuffledWords.length > 0 ? shuffledWords : undefined,
     extraWords: extraWords && extraWords.length > 0 ? extraWords : undefined,
     audioText,

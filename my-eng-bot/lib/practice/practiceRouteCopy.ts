@@ -1,0 +1,124 @@
+import {
+  CHALLENGE_ROUTE_STAGES,
+  getRouteStageForIndex,
+  type PracticeRouteStageId,
+} from '@/lib/practice/engine/stepSpec'
+import { resolvePracticeTargetQuestionCount } from '@/lib/practice/practiceSessionProgress'
+import type { Audience } from '@/lib/types'
+import type { PracticeMode, PracticeSession } from '@/types/practice'
+
+export interface PracticeRouteStepCopy {
+  stageId: PracticeRouteStageId
+  stageTitle: string
+  progressLabel: string
+  opening: string
+}
+
+const STAGE_TITLE: Record<PracticeRouteStageId, { adult: string; child: string }> = {
+  warmup: { adult: 'Разогрев', child: 'Старт' },
+  understanding: { adult: 'Понимание', child: 'Поймай смысл' },
+  reinforcement: { adult: 'Закрепление', child: 'Ловушки' },
+  check: { adult: 'Проверка', child: 'Финал' },
+}
+
+const CHALLENGE_OPENING: Record<PracticeRouteStageId, { adult: string; child: string }> = {
+  warmup: {
+    adult: 'Сначала спокойно узнаём паттерн.',
+    child: 'Сначала лёгкий выбор.',
+  },
+  understanding: {
+    adult: 'Теперь паттерн нужно поймать по контексту.',
+    child: 'Смотри, что происходит в истории.',
+  },
+  reinforcement: {
+    adult: 'Варианты ближе друг к другу, выбираем внимательнее.',
+    child: 'Не все слова и варианты подходят.',
+  },
+  check: {
+    adult: 'Применяем тему как в живой ситуации.',
+    child: 'Финальная проверка.',
+  },
+}
+
+function legacyOpening(session: PracticeSession, questionIndex: number, previousWasCorrect: boolean | null): string {
+  if (questionIndex === 0) {
+    return `Начинаем практику по теме "${session.topic}". Первый шаг сделаем мягким.`
+  }
+  if (previousWasCorrect) return 'Предыдущий ответ засчитан. Держим темп.'
+  return 'Ошибку уже разобрали. Теперь закрепим похожий паттерн.'
+}
+
+function shortModeOpening(mode: PracticeMode, questionIndex: number, total: number, audience: Audience): string | null {
+  if (mode === 'reference') return null
+  if (mode === 'challenge') return null
+  const step = questionIndex + 1
+  if (mode === 'relaxed') {
+    return audience === 'child'
+      ? `Шаг ${step}/${total} · Старт.`
+      : `Шаг ${step}/${total} · Старт. Сначала лёгкий выбор.`
+  }
+  return audience === 'child'
+    ? `Шаг ${step}/${total} · Закрепление.`
+    : `Шаг ${step}/${total} · Закрепление. Слушаем и выбираем.`
+}
+
+export function buildPracticeRouteStepCopy(params: {
+  session: PracticeSession
+  questionIndex: number
+  audience: Audience
+  previousWasCorrect: boolean | null
+}): PracticeRouteStepCopy | null {
+  const { session, questionIndex, audience, previousWasCorrect } = params
+  const total = resolvePracticeTargetQuestionCount(session)
+
+  if (session.mode === 'reference') {
+    return null
+  }
+
+  if (session.mode !== 'challenge') {
+    const opening = shortModeOpening(session.mode, questionIndex, total, audience)
+    if (!opening) return null
+    return {
+      stageId: 'warmup',
+      stageTitle: audience === 'child' ? 'Старт' : 'Старт',
+      progressLabel: `Шаг ${questionIndex + 1}/${total}`,
+      opening,
+    }
+  }
+
+  const stage = getRouteStageForIndex(session.mode, questionIndex)
+  if (!stage) return null
+
+  const titles = STAGE_TITLE[stage.stageId]
+  const stageTitle = audience === 'child' ? titles.child : titles.adult
+  const body = audience === 'child' ? CHALLENGE_OPENING[stage.stageId].child : CHALLENGE_OPENING[stage.stageId].adult
+  const trap =
+    questionIndex === 10 ? (audience === 'child' ? ' · финальная ловушка' : ' · финальная ловушка') : ''
+
+  return {
+    stageId: stage.stageId,
+    stageTitle,
+    progressLabel: `Шаг ${questionIndex + 1}/${total}`,
+    opening: `Шаг ${questionIndex + 1}/${total} · ${stageTitle}${trap}. ${body}`,
+  }
+}
+
+export function buildPracticeFeedOpening(params: {
+  session: PracticeSession
+  questionIndex: number
+  audience: Audience
+  previousWasCorrect: boolean | null
+}): string {
+  const route = buildPracticeRouteStepCopy(params)
+  if (route) return route.opening
+  return legacyOpening(params.session, params.questionIndex, params.previousWasCorrect)
+}
+
+export function buildChallengeBriefingRouteLine(audience: Audience): string {
+  if (audience === 'child') {
+    return 'У тебя 4 мини-раунда: Разогрев → Понимание → Ловушки → Финальный вызов.'
+  }
+  return '12 шагов: разогрев → понимание → закрепление → проверка.'
+}
+
+export { CHALLENGE_ROUTE_STAGES }
