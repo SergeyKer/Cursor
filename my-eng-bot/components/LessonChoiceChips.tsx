@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import { choiceChipTextsMatch } from '@/utils/validateAnswer';
 
 interface Choice {
@@ -121,7 +121,7 @@ export default function LessonChoiceChips({
     onChooseRef.current(autoSelectText, getChoiceCorrectness(matchedChoice));
   }, [autoSelectNonce, autoSelectText, choices, disabled]);
 
-  const handleSelect = (choice: ChoiceInput) => {
+  const handleSelect = (choice: ChoiceInput, event: MouseEvent<HTMLButtonElement>) => {
     if (disabled) return;
     const text = getChoiceText(choice);
     if (!text) return;
@@ -131,6 +131,7 @@ export default function LessonChoiceChips({
     }
     setSelected(text);
     onChoose(text, getChoiceCorrectness(choice));
+    event.currentTarget.blur();
   };
 
   const isFrozenPanel = frozen && disabled;
@@ -154,13 +155,16 @@ export default function LessonChoiceChips({
         return (
           <button
             key={`${resetKey}-enter-${chipEnterGeneration}-slot-${index}`}
+            type="button"
             disabled={disabled}
-            onClick={() => handleSelect(choice)}
+            onClick={(event) => handleSelect(choice, event)}
             style={{ animationDelay: `${index * 85}ms` }}
             className={`
+              lesson-choice-chip
               ${useEnterAnimation ? 'lesson-choice-chip-enter' : ''}
               max-w-full shrink-0 break-words px-3 py-1.5 text-left
               rounded-xl text-[15px] leading-[1.5] font-normal transition-all duration-200
+              touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300
               ${disabled && !frozen && !isWrongHighlighted ? 'opacity-90' : ''}
               ${isWrongHighlighted
                 ? 'bg-amber-50 text-amber-800 border border-amber-300 shadow-sm scale-[1.02]'
@@ -172,7 +176,7 @@ export default function LessonChoiceChips({
                     : 'bg-blue-50/90 text-blue-700 border border-blue-200 opacity-75'
                   : isFrozenPanel
                     ? 'bg-blue-50/90 text-blue-700 border border-blue-200 opacity-50 cursor-not-allowed'
-                    : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+                    : 'bg-blue-50 text-blue-700 [@media(hover:hover)]:hover:bg-blue-100 border border-blue-200'
               }
             `}
           >

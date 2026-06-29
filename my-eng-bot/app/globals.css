@@ -1626,6 +1626,10 @@ html[data-ios-safari-dialog] .dialog-composer-dock-inner {
   animation: lessonChoiceChipEnterFromLeftBounce 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+.lesson-choice-chip {
+  -webkit-tap-highlight-color: transparent;
+}
+
 /*
  * РўРѕР»СЊРєРѕ РѕРІРµСЂР»РµР№ СЃС‚Р°С‚СѓСЃР° РіРѕР»РѕСЃР° РґР»СЏ iOS Chrome (СЃРј. iosChromeVoiceStatusMessage РІ Chat.tsx).
  * Blink РЅР° iOS РґР°С‘С‚ СЃРјРµС‰РµРЅРёРµ baseline/line-box РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ padding вЂ” flex С†РµРЅС‚СЂРёСЂСѓРµС‚ СЃС‚СЂРѕРєСѓ РІ РїРѕР»Рµ.
@@ -1946,8 +1950,11 @@ html[data-ios-safari-dialog] .dialog-composer-dock-inner {
   button.chat-assistant-chip-button {
     min-height: 36px;
   }
+  button.lesson-choice-chip {
+    min-height: auto;
+  }
 
-  /* РљСЂСѓРі В«РџСЂРѕСЃР»СѓС€Р°С‚СЊВ» РІ РїРѕР»Рµ РІРІРѕРґР°: РЅРµ СЂР°СЃС‚СЏРіРёРІР°С‚СЊ РїРѕ РІС‹СЃРѕС‚Рµ РјРЅРѕРіРѕСЃС‚СЂРѕС‡РЅРѕРіРѕ textarea. */
+  /* Круг «Прослушать» в поле ввода: не растягивать по высоте многострочного textarea. */
   button.chat-input-inline-speaker-button {
     min-height: 2rem;
     min-width: 2rem;
