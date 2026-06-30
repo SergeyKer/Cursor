@@ -1,7 +1,6 @@
 'use client'
 
 import Image from 'next/image'
-import dynamic from 'next/dynamic'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import type { AiChatPanel } from '@/lib/aiChatPanel'
 import { getHomeMenuInstruction } from '@/lib/homeMenuInstruction'
@@ -272,30 +271,35 @@ import {
 
 import {
   LESSON_PROVIDER_FETCH_TIMEOUT_MS_DEFAULT,
+  fetchWithLessonProviderDeadline,
   lessonMenuGenerateClientTimeoutMs,
 } from '@/lib/lessonProviderTimeouts'
+import { branchDynamic } from '@/lib/start/branchDynamicLoading'
+import { shouldFinalizeTutorLessonOpen } from '@/lib/lessons/tutorLessonInflight'
 
-const MenuSectionPanels = dynamic(() => import('@/components/branches/HubBranch'))
-const Chat = dynamic(() => import('@/components/branches/ChatBranch'))
-const LessonIntroScreen = dynamic(() =>
-  import('@/components/branches/LessonBranch').then((m) => ({ default: m.LessonIntroScreen }))
+const MenuSectionPanels = branchDynamic(() => import('@/components/branches/HubBranch'))
+const Chat = branchDynamic(() => import('@/components/branches/ChatBranch'))
+const LessonIntroScreen = branchDynamic(
+  () => import('@/components/branches/LessonBranch').then((m) => ({ default: m.LessonIntroScreen }))
 )
-const LessonBriefingScreen = dynamic(() =>
-  import('@/components/branches/LessonBranch').then((m) => ({ default: m.LessonBriefingScreen }))
+const LessonBriefingScreen = branchDynamic(
+  () => import('@/components/branches/LessonBranch').then((m) => ({ default: m.LessonBriefingScreen }))
 )
-const LessonExtraTipsScreen = dynamic(() =>
-  import('@/components/branches/LessonBranch').then((m) => ({ default: m.LessonExtraTipsScreen }))
+const LessonExtraTipsScreen = branchDynamic(
+  () => import('@/components/branches/LessonBranch').then((m) => ({ default: m.LessonExtraTipsScreen }))
 )
-const LessonStepRenderer = dynamic(() =>
-  import('@/components/branches/LessonBranch').then((m) => ({ default: m.LessonStepRenderer }))
+const LessonStepRenderer = branchDynamic(
+  () => import('@/components/branches/LessonBranch').then((m) => ({ default: m.LessonStepRenderer }))
 )
-const PracticeScreen = dynamic(() => import('@/components/branches/PracticeBranch'))
-const AccentTrainer = dynamic(() => import('@/components/branches/AccentBranch'))
-const VocabularyWorldsScreen = dynamic(() =>
-  import('@/components/branches/VocabularyBranch').then((m) => ({ default: m.VocabularyWorldsScreen }))
+const PracticeScreen = branchDynamic(() => import('@/components/branches/PracticeBranch'))
+const AccentTrainer = branchDynamic(() => import('@/components/branches/AccentBranch'))
+const VocabularyWorldsScreen = branchDynamic(
+  () =>
+    import('@/components/branches/VocabularyBranch').then((m) => ({ default: m.VocabularyWorldsScreen }))
 )
-const VocabularyByLevelScreen = dynamic(() =>
-  import('@/components/branches/VocabularyBranch').then((m) => ({ default: m.VocabularyByLevelScreen }))
+const VocabularyByLevelScreen = branchDynamic(
+  () =>
+    import('@/components/branches/VocabularyBranch').then((m) => ({ default: m.VocabularyByLevelScreen }))
 )
 import SlideOutMenu from '@/components/SlideOutMenu'
 type StructuredLessonRuntimeMode = 'generate' | 'repeat'
@@ -521,6 +525,12 @@ const ENGVO_SESSION_ACK_TIMEOUT_MS = 15_000
 const ENGVO_RESPONSE_DONE_FALLBACK_MS = 1_200
 /** Меню «Сгенерировать урок» → `/api/lesson-repeat` с bypassCache; клиентский бюджет: `lessonMenuGenerateClientTimeoutMs` (попытки из `resolveLessonRepeatMenuBypassMaxAttempts`, см. `lib/lessonProviderTimeouts.ts`). */
 const LESSON_MENU_GENERATE_TIMEOUT_MS = lessonMenuGenerateClientTimeoutMs(readPublicLessonProviderTimeoutMs())
+const TUTOR_LESSON_GENERATE_TIMEOUT_MS = LESSON_MENU_GENERATE_TIMEOUT_MS
+const STRUCTURED_LESSON_RUNTIME_TIMEOUT_MS = lessonMenuGenerateClientTimeoutMs(
+  readPublicLessonProviderTimeoutMs()
+)
+
+const PREFETCH_BRANCH_IDS: BranchId[] = ['hub', 'lesson', 'chat']
 const MAX_ATTEMPTS = 3
 const RETRY_DELAY_MS = 2500
 /** При 429 OpenRouter даёт 20 запросов в минуту - пауза должна увести попытку в следующую минуту. */
@@ -595,7 +605,8 @@ import { AppShellProvider } from '@/components/app/AppShellContext'
 import type { StartBridgeState } from '@/lib/start/startBridge'
 import { resolveActiveBranch } from '@/lib/start/activeBranch'
 import type { BranchId } from '@/lib/start/branchRegistry'
-import { useBranchLoader } from '@/hooks/useBranchLoader'
+import { prefetchBranch } from '@/lib/start/branchRegistry'
+import { useBranchLoader, usePrefetchBranchesOnIdle } from '@/hooks/useBranchLoader'
 import type { AppShellProps } from '@/components/app/AppShell.types'
 
 export type { AppShellProps } from '@/components/app/AppShell.types'
@@ -622,6 +633,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [homeAiChatPanel, setHomeAiChatPanel] = useState<AiChatPanel>('summary')
   const [homeAudienceChosen, setHomeAudienceChosen] = useState(false)
   const { ensureBranchMounted, isBranchMounted } = useBranchLoader()
+  usePrefetchBranchesOnIdle(PREFETCH_BRANCH_IDS)
   /** На стартовом экране при выходе из чата домой сбрасывается в false. */
   const [welcomeCompact, setWelcomeCompact] = useState(false)
   /** Смена «сессии» старта: новый факт и фраза футера (в т.ч. после выхода из чата домой). */
@@ -2848,17 +2860,22 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         const fetchStartedAt = Date.now()
         try {
           const recentVariantIds = structuredLessonVariantHistoryRef.current[lessonId] ?? []
-          const response = await fetch(mode === 'repeat' ? '/api/lesson-repeat' : '/api/structured-lesson-generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              provider: settings.provider,
-              openAiChatPreset: settings.openAiChatPreset,
-              audience: settings.audience,
-              lessonId,
-              recentVariantIds,
-            }),
-          })
+          const response = await fetchWithLessonProviderDeadline(
+            (signal) =>
+              fetch(mode === 'repeat' ? '/api/lesson-repeat' : '/api/structured-lesson-generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  provider: settings.provider,
+                  openAiChatPreset: settings.openAiChatPreset,
+                  audience: settings.audience,
+                  lessonId,
+                  recentVariantIds,
+                }),
+                signal,
+              }),
+            { deadlineMs: STRUCTURED_LESSON_RUNTIME_TIMEOUT_MS }
+          )
           const data = (await response.json()) as { lesson?: LessonData }
           if (response.ok && data.lesson) {
             if (data.lesson.variantId && !options?.cacheResult) {
@@ -3370,7 +3387,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setStructuredLessonVariantRegenerating(false)
       resetVariantPrepareRef.current()
       abandonPracticeSession()
-      let lesson: LessonBlueprint | null = null
       firstMessageRequestIdRef.current += 1
       firstMessageInFlightRef.current = false
       suppressSettingsChangeBannerRef.current = true
@@ -3398,61 +3414,73 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setLessonExtraTipsStatus('idle')
       setLessonExtraTipsState(null)
       setMessages([])
+      let lesson: LessonBlueprint | null = null
       try {
-        const response = await fetch('/api/lesson-generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            provider: settings.provider,
-            openAiChatPreset: settings.openAiChatPreset,
-            topic,
-            originalQuery: request.originalQuery,
-            intent: request.selectedIntent,
-            level: settings.level,
-            audience: settings.audience,
-            analysisSummary: request.analysisSummary,
-          }),
+        try {
+          const response = await fetchWithLessonProviderDeadline(
+            (signal) =>
+              fetch('/api/lesson-generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  provider: settings.provider,
+                  openAiChatPreset: settings.openAiChatPreset,
+                  topic,
+                  originalQuery: request.originalQuery,
+                  intent: request.selectedIntent,
+                  level: settings.level,
+                  audience: settings.audience,
+                  analysisSummary: request.analysisSummary,
+                }),
+                signal,
+              }),
+            { deadlineMs: TUTOR_LESSON_GENERATE_TIMEOUT_MS }
+          )
+          const data = (await response.json()) as {
+            lesson?: LessonBlueprint
+            error?: string
+          }
+          if (response.ok && data.lesson) {
+            lesson = data.lesson
+          } else if (data.error) {
+            console.warn('lesson-generate error:', data.error)
+          }
+        } catch (error) {
+          console.warn('lesson-generate failed, fallback blueprint will be used:', error)
+        }
+
+        if (!lesson) {
+          lesson = buildTutorFallbackBlueprint(topic)
+        }
+        const tutorIntent = lesson.tutorIntent ?? request.selectedIntent
+        if (!shouldFinalizeTutorLessonOpen(requestId, lessonOpenRequestIdRef.current)) return
+
+        const lessonId = registerRuntimeLearningLesson({
+          title: lesson.title,
+          intro: lesson.intro,
+          theoryIntro: lesson.theoryIntro,
+          actions: lesson.actions,
+          followups: lesson.followups,
+          adaptiveTemplate: lesson.adaptiveTemplate,
+          tutorIntent,
         })
-        const data = (await response.json()) as {
-          lesson?: LessonBlueprint
-          error?: string
-        }
-        if (response.ok && data.lesson) {
-          lesson = data.lesson
-        } else if (data.error) {
-          console.warn('lesson-generate error:', data.error)
-        }
-      } catch (error) {
-        console.warn('lesson-generate failed, fallback blueprint will be used:', error)
+        const runtimeLesson = buildTutorStructuredLesson({
+          id: lessonId,
+          topic: lesson.title || topic,
+          level: settings.level,
+          blueprint: { ...lesson, tutorIntent },
+        })
+        setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'tutor' })
+        setActiveLearningLessonId(lessonId)
+        setActiveStructuredLessonRuntime(runtimeLesson)
+        setPendingTutorLessonTitle(null)
+      } finally {
+        if (!shouldFinalizeTutorLessonOpen(requestId, lessonOpenRequestIdRef.current)) return
+        suppressSettingsChangeBannerRef.current = false
+        setStructuredLessonLoadingId(null)
+        setPendingTutorLessonTitle(null)
+        setLoading(false)
       }
-
-      if (!lesson) {
-        lesson = buildTutorFallbackBlueprint(topic)
-      }
-      const tutorIntent = lesson.tutorIntent ?? request.selectedIntent
-      if (requestId !== lessonOpenRequestIdRef.current) return
-
-      const lessonId = registerRuntimeLearningLesson({
-        title: lesson.title,
-        intro: lesson.intro,
-        theoryIntro: lesson.theoryIntro,
-        actions: lesson.actions,
-        followups: lesson.followups,
-        adaptiveTemplate: lesson.adaptiveTemplate,
-        tutorIntent,
-      })
-      const runtimeLesson = buildTutorStructuredLesson({
-        id: lessonId,
-        topic: lesson.title || topic,
-        level: settings.level,
-        blueprint: { ...lesson, tutorIntent },
-      })
-      setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'tutor' })
-      setActiveLearningLessonId(lessonId)
-      setActiveStructuredLessonRuntime(runtimeLesson)
-      setStructuredLessonLoadingId(null)
-      setPendingTutorLessonTitle(null)
-      setLoading(false)
     },
     [
       abandonPracticeSession,
@@ -5308,9 +5336,33 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   )
 
   useEffect(() => {
-    if (!activeBranchResolved) return
+    if (!storageLoaded || !activeBranchResolved) return
     void ensureBranchMounted(activeBranchResolved)
-  }, [activeBranchResolved, ensureBranchMounted])
+  }, [storageLoaded, activeBranchResolved, ensureBranchMounted])
+
+  useEffect(() => {
+    if (!storageLoaded || !homeAudienceChosen) return
+    prefetchBranch('hub')
+  }, [storageLoaded, homeAudienceChosen])
+
+  useEffect(() => {
+    if (!storageLoaded) return
+    if (homeMenuView === 'lessons') {
+      prefetchBranch('lesson')
+      prefetchBranch('practice')
+      return
+    }
+    if (homeMenuView === 'aiChat') {
+      prefetchBranch('chat')
+    }
+  }, [storageLoaded, homeMenuView])
+
+  useEffect(() => {
+    if (!storageLoaded || !dialogStarted) return
+    if (activeStructuredLesson || structuredLessonLoadingId) {
+      prefetchBranch('lesson')
+    }
+  }, [storageLoaded, dialogStarted, activeStructuredLesson, structuredLessonLoadingId])
 
   useEffect(() => {
     handleStructuredLessonPuzzleProgressChange(null)
