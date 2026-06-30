@@ -274,33 +274,20 @@ import {
   fetchWithLessonProviderDeadline,
   lessonMenuGenerateClientTimeoutMs,
 } from '@/lib/lessonProviderTimeouts'
-import { branchDynamic } from '@/lib/start/branchDynamicLoading'
+import {
+  AccentTrainer,
+  Chat,
+  LessonBriefingScreen,
+  LessonExtraTipsScreen,
+  LessonIntroScreen,
+  LessonStepRenderer,
+  MenuSectionPanels,
+  PracticeScreen,
+  VocabularyByLevelScreen,
+  VocabularyWorldsScreen,
+} from '@/lib/start/appBranchComponents'
 import { shouldFinalizeTutorLessonOpen } from '@/lib/lessons/tutorLessonInflight'
 
-const MenuSectionPanels = branchDynamic(() => import('@/components/branches/HubBranch'))
-const Chat = branchDynamic(() => import('@/components/branches/ChatBranch'))
-const LessonIntroScreen = branchDynamic(
-  () => import('@/components/branches/LessonBranch').then((m) => ({ default: m.LessonIntroScreen }))
-)
-const LessonBriefingScreen = branchDynamic(
-  () => import('@/components/branches/LessonBranch').then((m) => ({ default: m.LessonBriefingScreen }))
-)
-const LessonExtraTipsScreen = branchDynamic(
-  () => import('@/components/branches/LessonBranch').then((m) => ({ default: m.LessonExtraTipsScreen }))
-)
-const LessonStepRenderer = branchDynamic(
-  () => import('@/components/branches/LessonBranch').then((m) => ({ default: m.LessonStepRenderer }))
-)
-const PracticeScreen = branchDynamic(() => import('@/components/branches/PracticeBranch'))
-const AccentTrainer = branchDynamic(() => import('@/components/branches/AccentBranch'))
-const VocabularyWorldsScreen = branchDynamic(
-  () =>
-    import('@/components/branches/VocabularyBranch').then((m) => ({ default: m.VocabularyWorldsScreen }))
-)
-const VocabularyByLevelScreen = branchDynamic(
-  () =>
-    import('@/components/branches/VocabularyBranch').then((m) => ({ default: m.VocabularyByLevelScreen }))
-)
 import SlideOutMenu from '@/components/SlideOutMenu'
 type StructuredLessonRuntimeMode = 'generate' | 'repeat'
 type LessonRepeatFallbackReason = 'provider' | 'parse' | 'validation' | 'exception' | 'no_steps'

@@ -20,7 +20,7 @@ function scheduleIdlePrefetch(): void {
     window.requestIdleCallback(run)
     return
   }
-  window.setTimeout(run, 1500)
+  setTimeout(run, 1500)
 }
 
 export default function Page() {
