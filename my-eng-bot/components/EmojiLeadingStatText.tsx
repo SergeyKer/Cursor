@@ -5,6 +5,7 @@ import {
   FOOTER_STAT_GLYPH_CLASS,
   FOOTER_STAT_VALUE_CLASS,
   TRUNCATE_X_CLASS,
+  footerStatGlyphNudgeClass,
   splitLeadingEmoji,
 } from '@/lib/emojiText'
 
@@ -34,7 +35,10 @@ export default function EmojiLeadingStatText({
       <span
         className={`inline-flex max-w-full min-w-0 items-center justify-start gap-2 overflow-visible ${className}`.trim()}
       >
-        <span className={`${FOOTER_STAT_GLYPH_CLASS} ${highlight}`.trim()} aria-hidden>
+        <span
+          className={`${FOOTER_STAT_GLYPH_CLASS} ${footerStatGlyphNudgeClass(parts.emoji)} ${highlight}`.trim()}
+          aria-hidden
+        >
           {parts.emoji}
         </span>
         <span className={textClassName}>{parts.rest.trimStart()}</span>

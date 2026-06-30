@@ -63,6 +63,11 @@
     overflow: visible;
   }
 
+  /* 💎 sits low in emoji fonts — lift to match ⭐🪙⚡ baseline in footer stats. */
+  .footer-stat-glyph--nudge-up {
+    transform: translateY(-0.125rem);
+  }
+
   @media (min-width: 640px) {
     .footer-stat-glyph {
       width: 1.5rem;

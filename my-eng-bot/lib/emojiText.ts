@@ -33,3 +33,12 @@ export const FOOTER_STAT_VALUE_CLASS = 'footer-stat-value'
 
 /** SVG medal - same cell size as footer-stat-glyph. */
 export const FOOTER_STAT_MEDAL_SLOT_CLASS = 'footer-stat-medal-slot'
+
+/** Per-emoji vertical nudge in fixed footer-stat-glyph cells (font metrics differ). */
+const FOOTER_STAT_GLYPH_NUDGE_CLASS_BY_EMOJI: Readonly<Record<string, string>> = {
+  '💎': 'footer-stat-glyph--nudge-up',
+}
+
+export function footerStatGlyphNudgeClass(emoji: string): string {
+  return FOOTER_STAT_GLYPH_NUDGE_CLASS_BY_EMOJI[emoji] ?? ''
+}
