@@ -5,9 +5,10 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'Engvo AI - English Voice',
     short_name: 'Engvo AI',
     description: 'Диалог и тренировка перевода на английском с ИИ',
+    id: '/',
     start_url: '/',
-    // Чтобы браузер реже предлагал установку как приложение, используем обычный режим.
-    display: 'browser',
+    scope: '/',
+    display: 'standalone',
     orientation: 'portrait',
     background_color: '#5093EE',
     theme_color: '#5093EE',
