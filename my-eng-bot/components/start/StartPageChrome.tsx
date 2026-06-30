@@ -2,7 +2,6 @@
 
 import AppFooter from '@/components/AppFooter'
 import { MenuToggleIcon } from '@/components/MenuToggleIcon'
-import RuntimeLoadingOverlay from '@/components/start/RuntimeLoadingOverlay'
 import { START_RUNTIME_COPY } from '@/lib/uiCopy/startRuntimeCopy'
 import {
   createFooterSsrPlaceholderRewardsState,
@@ -56,15 +55,6 @@ export default function StartPageChrome({
           </div>
         </div>
       </header>
-
-      {appShellLoadState === 'pending' ? (
-        <div
-          className="pointer-events-none fixed left-0 right-0 z-[60]"
-          style={{ top: 'var(--app-top-offset)' }}
-        >
-          <RuntimeLoadingOverlay variant="appShell" />
-        </div>
-      ) : null}
 
       {appShellLoadState === 'error' ? (
         <div
