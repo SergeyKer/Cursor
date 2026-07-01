@@ -705,6 +705,7 @@ export function scrollLessonFeedMessageRowIntoViewIfNeeded(
   const targetTop = getOffsetTopWithinAncestor(scrollContainer, target)
   const targetBottom = targetTop + target.offsetHeight
   const visibleBottom = scrollContainer.scrollTop + scrollContainer.clientHeight
+  const maxTop = computeMaxScrollTop(scrollContainer.scrollHeight, scrollContainer.clientHeight)
   if (targetBottom + gapPx <= visibleBottom + LESSON_FEED_SCROLL_SNAP_PX) return false
 
   const top = computeLessonFeedScrollTopForTailMessage(scrollContainer, target, gapPx)

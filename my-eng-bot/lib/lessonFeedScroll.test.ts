@@ -760,6 +760,29 @@ describe('computeLessonFeedScrollTopForTailMessage (клавиатура)', () =
     expect(needTop).toBeGreaterThan(scrollTopAtMax)
     expect(Math.max(scrollTopAtMax, needTop)).toBe(needTop)
   })
+
+  it('typing indicator ниже пузыря требует больший scrollTop', () => {
+    const rowHeight = 80
+    const indicatorHeight = 48
+    const indicatorGapPx = 6
+    const rowTopPx = LONG_CONTENT_PX - rowHeight
+    const bubbleScrollTop = tailScrollTopModel({
+      contentHeightPx: LONG_CONTENT_PX,
+      rowTopPx,
+      rowHeightPx: rowHeight,
+      scrollPaddingBottomPx: SYMMETRIC_PADDING_PX,
+      clientHeightPx: CLIENT_HEIGHT_PX,
+    })
+    const indicatorTopPx = rowTopPx + rowHeight + indicatorGapPx
+    const indicatorScrollTop = tailScrollTopModel({
+      contentHeightPx: LONG_CONTENT_PX + indicatorGapPx + indicatorHeight,
+      rowTopPx: indicatorTopPx,
+      rowHeightPx: indicatorHeight,
+      scrollPaddingBottomPx: SYMMETRIC_PADDING_PX,
+      clientHeightPx: CLIENT_HEIGHT_PX,
+    })
+    expect(indicatorScrollTop).toBeGreaterThanOrEqual(bubbleScrollTop)
+  })
 })
 
 describe('buildChatFeedScrollSnapshot / shouldScrollChatFeed', () => {

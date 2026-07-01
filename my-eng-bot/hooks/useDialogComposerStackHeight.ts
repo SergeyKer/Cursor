@@ -108,7 +108,7 @@ export function useDialogComposerStackHeight(stackRef: RefObject<HTMLElement | n
     if (height !== previousHeight) {
       lastHeightRef.current = height
       if (
-        root.hasAttribute('data-ios-safari-dialog') &&
+        usesFixedDialogComposerScrollInset(root) &&
         !root.hasAttribute('data-lesson-feed-scroll-settle') &&
         previousHeight > 0 &&
         Math.abs(height - previousHeight) >= 12

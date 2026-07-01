@@ -76,8 +76,9 @@ import {
   APP_BTN_SECONDARY_INLINE_MUTED,
 } from '@/lib/homeCtaStyles'
 import type { LearningLessonAction } from '@/lib/learningLessons'
-import { ChatBubbleFrame, getBubblePosition, type BubblePosition } from '@/components/chat/ChatBubble'
+import { ChatBubbleFrame, getBubblePosition, type BubblePosition, CHAT_FEED_SERVICE_STATUS_ROW_CLASS } from '@/components/chat/ChatBubble'
 import TypingIndicator from '@/components/TypingIndicator'
+import EngvoFeedServiceTypingText from '@/components/engvo/EngvoFeedServiceTypingText'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import { applyTypoFixes } from '@/lib/voice/applyTypoFixes'
 import { isLikelySttSilenceHallucination } from '@/lib/voice/isLikelySttSilenceHallucination'
@@ -1888,13 +1889,13 @@ export default function Chat({
     }
   }, [typingIndicatorSourceActive, messages.length, engvoBootstrapTypingActive, isEngvoAssistantPending])
 
-  /** Синхронно гасим «типинг» при появлении пузыря Engvo, чтобы не было кадра с showTypingIndicator=true. */
+  /** Синхронно гасим «типинг» при появлении пузыря Engvo/общения, чтобы не было кадра с showTypingIndicator=true. */
   React.useLayoutEffect(() => {
-    if (!isEngvoActive || loading) return
+    if ((!isEngvoActive && settings.mode !== 'communication') || loading) return
     if (!engvoBootstrapTypingActive && showTypingIndicator) {
       setShowTypingIndicator(false)
     }
-  }, [isEngvoActive, loading, engvoBootstrapTypingActive, showTypingIndicator])
+  }, [isEngvoActive, settings.mode, loading, engvoBootstrapTypingActive, showTypingIndicator])
 
   const lastMessageRole = messages[messages.length - 1]?.role ?? null
   const lastAssistantInviteKeyRef = useRef<string | null>(null)
@@ -2051,33 +2052,6 @@ export default function Chat({
     }
   }, [syncComposerHeight])
 
-  React.useEffect(() => {
-    const el = scrollContainerRef.current
-    if (!el) return
-    return scheduleScrollAfterLayout(() => {
-      if (isLearningFlow && messages.length === 1) {
-        el.scrollTop = 0
-        return
-      }
-      if (isLearningFlow && messages.length > 1) {
-        const lastAssistantIndex = messages.length - 1
-        const target = el.querySelector<HTMLElement>(
-          `[data-message-index="${lastAssistantIndex}"][data-role="assistant"]`
-        )
-        if (target) {
-          const maxTop = Math.max(0, el.scrollHeight - el.clientHeight)
-          const top = Math.min(maxTop, Math.max(0, target.offsetTop - 8))
-          el.scrollTo({ top, behavior: 'smooth' })
-          return
-        }
-      }
-      const maxTop = Math.max(0, el.scrollHeight - el.clientHeight)
-      el.scrollTo({ top: maxTop, behavior: 'smooth' })
-    })
-  }, [messages.length, chatFeedScrollTailKey, isLearningFlow, engvo?.showAssistantPending])
-
-  useDialogFeedKeyboardScroll(scrollContainerRef, !isEngvoActive)
-
   // Индекс последнего assistant-сообщения нужен, чтобы автоскрывать
   // карточку перевода у предыдущих сообщений.
   const lastAssistantIndex = React.useMemo(() => {
@@ -2101,6 +2075,42 @@ export default function Chat({
   const canShowTypingIndicator =
     showTypingIndicator &&
     ((loading && lastMessageRole === 'user') || engvoBootstrapTypingActive)
+
+  const isCommunicationFeed = settings.mode === 'communication' && !isEngvoActive
+  const feedSlideEnter = isEngvoActive || isCommunicationFeed
+
+  React.useEffect(() => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    return scheduleScrollAfterLayout(() => {
+      if (isLearningFlow && messages.length === 1) {
+        el.scrollTop = 0
+        return
+      }
+      if (isLearningFlow && messages.length > 1) {
+        const lastAssistantIndex = messages.length - 1
+        const target = el.querySelector<HTMLElement>(
+          `[data-message-index="${lastAssistantIndex}"][data-role="assistant"]`
+        )
+        if (target) {
+          const maxTop = Math.max(0, el.scrollHeight - el.clientHeight)
+          const top = Math.min(maxTop, Math.max(0, target.offsetTop - 8))
+          el.scrollTo({ top, behavior: 'smooth' })
+          return
+        }
+      }
+      const maxTop = Math.max(0, el.scrollHeight - el.clientHeight)
+      el.scrollTo({ top: maxTop, behavior: 'smooth' })
+    })
+  }, [
+    messages.length,
+    chatFeedScrollTailKey,
+    isLearningFlow,
+    engvo?.showAssistantPending,
+    canShowTypingIndicator,
+  ])
+
+  useDialogFeedKeyboardScroll(scrollContainerRef, !isEngvoActive)
 
   React.useEffect(() => {
     if (messages.length === 0) setSelectedLessonActionByMessage({})
@@ -2177,11 +2187,19 @@ export default function Chat({
                 className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
               >
               {messages.length === 0 && !isEngvoActive && (
-                <div className="flex justify-center">
-                  <p dir="ltr" className={CHAT_CENTERED_TYPING_STATUS_P_CLASS}>
-                    {isLessonBranch ? 'Урок загружается...' : 'Engvo печатает...'}
-                  </p>
-                </div>
+                isCommunicationFeed ? (
+                  <div dir="ltr" className={CHAT_FEED_SERVICE_STATUS_ROW_CLASS}>
+                    <EngvoFeedServiceTypingText
+                      text={isLessonBranch ? 'Урок загружается...' : 'Engvo печатает...'}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex justify-center">
+                    <p dir="ltr" className={CHAT_CENTERED_TYPING_STATUS_P_CLASS}>
+                      {isLessonBranch ? 'Урок загружается...' : 'Engvo печатает...'}
+                    </p>
+                  </div>
+                )
               )}
               {messages.map((msg, i) => {
                 const defaultBubblePosition = getBubblePosition(messages[i - 1]?.role, msg.role, messages[i + 1]?.role)
@@ -2200,7 +2218,7 @@ export default function Chat({
                       defaultTtsSpeechRate={defaultTtsSpeechRate}
                       mode={isEngvoActive ? 'communication' : settings.mode}
                       bubblePosition={bubblePosition}
-                      engvoSlideEnter={isEngvoActive}
+                      engvoSlideEnter={feedSlideEnter}
                       isEngvoCall={isEngvoActive}
                       onRequestTranslation={onRequestTranslation}
                       isLoadingTranslation={loadingTranslationIndex === i}
@@ -2313,21 +2331,28 @@ export default function Chat({
                   </React.Fragment>
                 )
               })}
-              {(messages.length > 0 || isEngvoAssistantPending) && (
-                <TypingIndicator
-                  isVisible={canShowTypingIndicator}
-                  exitTransitionMs={isEngvoActive ? 0 : undefined}
-                  plainStatus={engvoBootstrapTypingActive}
-                  label={typingIndicatorText}
-                  title={
-                    engvoBootstrapTypingActive
-                      ? 'Ожидание ответа от Engvo'
-                      : searchingInternet
-                        ? 'Поиск информации в интернете'
-                        : 'Ожидание ответа от ИИ'
-                  }
-                />
-              )}
+              {(messages.length > 0 || isEngvoAssistantPending) &&
+                (isCommunicationFeed ? (
+                  canShowTypingIndicator ? (
+                    <div dir="ltr" className={CHAT_FEED_SERVICE_STATUS_ROW_CLASS}>
+                      <EngvoFeedServiceTypingText text={typingIndicatorText} />
+                    </div>
+                  ) : null
+                ) : (
+                  <TypingIndicator
+                    isVisible={canShowTypingIndicator}
+                    exitTransitionMs={isEngvoActive ? 0 : undefined}
+                    plainStatus={engvoBootstrapTypingActive}
+                    label={typingIndicatorText}
+                    title={
+                      engvoBootstrapTypingActive
+                        ? 'Ожидание ответа от Engvo'
+                        : searchingInternet
+                          ? 'Поиск информации в интернете'
+                          : 'Ожидание ответа от ИИ'
+                    }
+                  />
+                ))}
               </div>
             </DialogGlassScrollHost>
             <DialogComposerStack
@@ -2634,7 +2659,7 @@ function MessageBubble({
   defaultTtsSpeechRate: number
   mode: 'dialogue' | 'translation' | 'communication'
   bubblePosition: BubblePosition
-  /** В звонке Engvo - такое же появление пузыря снизу, как в уроках (`.lesson-enter`). */
+  /** В общении и звонке Engvo - такое же появление пузыря снизу, как в уроках (`.lesson-enter`). */
   engvoSlideEnter?: boolean
   /** Активен звонок Engvo - показываем «Перевод_звонок», скрываем обычную «Перевод». */
   isEngvoCall?: boolean
