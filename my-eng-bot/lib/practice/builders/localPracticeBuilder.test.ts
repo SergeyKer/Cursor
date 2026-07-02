@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
-import { buildLocalPracticeSession } from '@/lib/practice/builders/localPracticeBuilder'
+import { buildLocalPracticeSession, buildSinglePracticeQuestion } from '@/lib/practice/builders/localPracticeBuilder'
 import { isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
 import { CHALLENGE_STEP_SPECS } from '@/lib/practice/engine/stepSpec'
+import { isCompleteSentence } from '@/lib/practice/choiceOptionGranularity'
 
 describe('buildLocalPracticeSession', () => {
   it('builds relaxed practice from a structured lesson without AI', () => {
@@ -86,6 +87,97 @@ describe('buildLocalPracticeSession', () => {
     expect(new Set(session.questions.map((question) => question.prompt)).size).toBe(1)
     expect(session.questions[0]?.prompt).toMatch(/Ситуация:/i)
     expect(session.questions[0]?.prompt).not.toMatch(/^Какое предложение подходит/i)
+  })
+
+  it('lesson 1 challenge choice uses 3 sentence options without word chips', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const session = buildLocalPracticeSession({
+      lesson: lesson!,
+      source: { kind: 'static_lesson', lessonId: '1' },
+      mode: 'challenge',
+      entrySource: 'menu',
+    })
+
+    const choice = session.questions[0]
+    expect(choice?.type).toBe('choice')
+    expect(choice?.targetAnswer).toBe("It's dark.")
+    expect(choice?.options).toHaveLength(3)
+    expect(choice?.options?.every((item) => isCompleteSentence(item))).toBe(true)
+    expect(choice?.options?.some((item) => item === 'sleeps' || item === 'sleeping')).toBe(false)
+  })
+
+  it('lesson 1 challenge context-clue uses 3 word options on gap-fill', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const session = buildLocalPracticeSession({
+      lesson: lesson!,
+      source: { kind: 'static_lesson', lessonId: '1' },
+      mode: 'challenge',
+      entrySource: 'menu',
+    })
+
+    const contextClue = session.questions[2]
+    expect(contextClue?.type).toBe('context-clue')
+    expect(contextClue?.targetAnswer).toBe('drink')
+    expect(contextClue?.options).toHaveLength(3)
+    expect(contextClue?.options?.every((item) => !isCompleteSentence(item))).toBe(true)
+    expect(contextClue?.options?.some((item) => /^It's /i.test(item))).toBe(false)
+  })
+
+  it('lesson 1 relaxed context-clue uses 3 sentence options on translate step', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const session = buildLocalPracticeSession({
+      lesson: lesson!,
+      source: { kind: 'static_lesson', lessonId: '1' },
+      mode: 'relaxed',
+      entrySource: 'menu',
+    })
+
+    const contextClue = session.questions[3]
+    expect(contextClue?.type).toBe('context-clue')
+    expect(contextClue?.targetAnswer).toBe("It's dark.")
+    expect(contextClue?.options).toHaveLength(3)
+    expect(contextClue?.options?.every((item) => isCompleteSentence(item))).toBe(true)
+    expect(contextClue?.options?.some((item) => item === 'sleeps' || item === 'sleeping')).toBe(false)
+  })
+
+  it('lesson 1 balanced context-clue uses 3 sentence options away from sentence_puzzle', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const session = buildLocalPracticeSession({
+      lesson: lesson!,
+      source: { kind: 'static_lesson', lessonId: '1' },
+      mode: 'balanced',
+      entrySource: 'menu',
+    })
+
+    const contextClue = session.questions[4]
+    expect(contextClue?.type).toBe('context-clue')
+    expect(contextClue?.options).toHaveLength(3)
+    expect(contextClue?.options?.every((item) => isCompleteSentence(item))).toBe(true)
+    expect(contextClue?.prompt).not.toMatch(/sentence_puzzle/i)
+  })
+
+  it('buildSinglePracticeQuestion reference context-clue aligns to lesson step 3', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const question = buildSinglePracticeQuestion({
+      lesson: lesson!,
+      type: 'context-clue',
+      mode: 'reference',
+      referenceExerciseType: 'context-clue',
+    })
+
+    expect(question).not.toBeNull()
+    expect(question!.targetAnswer).toBe('drink')
+    expect(question!.options).toHaveLength(3)
   })
 })
 

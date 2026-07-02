@@ -31,4 +31,18 @@ describe('distractorTier', () => {  it('produces different option sets per tier'
     expect(options).toContain(target)
     expect(options.some((item) => item === "It's Tuesday.")).toBe(false)
   })
+
+  it('keeps lesson 1 dark choice free of single-word chips', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+    const target = "It's dark."
+    const pool = collectLessonChoicePool(lesson!, target, { sourceStepNumber: 1, granularity: 'sentence' })
+    const options = buildTieredChoiceOptions(target, 'obvious', pool, {
+      granularity: 'sentence',
+      canonicalOptions: ["It's dark.", "It's time to sleep.", "It's time to drink."],
+      sourceStepOptionCount: 3,
+    })
+    expect(options).toHaveLength(3)
+    expect(options.some((item) => item === 'sleeps' || item === 'sleeping')).toBe(false)
+  })
 })

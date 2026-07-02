@@ -105,3 +105,24 @@ describe('buildReferenceFallbackQuestion voice-shadow', () => {
     expect(question!.prompt).not.toContain(question!.targetAnswer)
   })
 })
+
+describe('buildReferenceFallbackQuestion context-clue', () => {
+  it('aligns reference #3 fallback to lesson step 3 gap-fill words', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const question = buildReferenceFallbackQuestion({
+      lesson: lesson!,
+      mode: 'reference',
+      referenceExerciseType: 'context-clue',
+      referenceStepIndex: 0,
+      referenceTotal: 7,
+    })
+
+    expect(question).not.toBeNull()
+    expect(question!.targetAnswer).toBe('drink')
+    expect(question!.options).toHaveLength(3)
+    expect(question!.options?.every((item) => !/\s/.test(item.trim()) || item.split(/\s+/).length === 1)).toBe(true)
+    expect(question!.options?.some((item) => /^It's /i.test(item))).toBe(false)
+  })
+})

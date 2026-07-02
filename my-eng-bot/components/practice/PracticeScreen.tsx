@@ -1115,6 +1115,11 @@ export default function PracticeScreen({
                 }
               >
                 <div ref={messagesStackRef}>
+                  {session.generationNotice ? (
+                    <div className="mb-2.5 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] leading-[1.45] text-[var(--status-warning-text)]">
+                      {session.generationNotice}
+                    </div>
+                  ) : null}
                   {messages.map((message, index) => {
                     const previousRole = messages[index - 1]?.role as BubbleRole | undefined
                     const nextRole = messages[index + 1]?.role as BubbleRole | undefined

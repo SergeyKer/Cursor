@@ -12,7 +12,7 @@ import type {
 import { CHILD_TENSES } from '@/lib/constants'
 import { getAllowedTensesForLevel } from '@/lib/levelAllowedTenses'
 import { detectLangFromText } from '@/lib/detectLang'
-import { classifyOpenAiForbidden } from '@/lib/openAiForbidden'
+import { buildProviderUserMessage } from '@/lib/buildProviderUserMessage'
 import { callGismeteoWeatherAnswer } from '@/lib/gismeteoWeather'
 import { extractWeatherLocationQuery, getLastWeatherLocationQuery } from '@/lib/weatherLocationQuery'
 import { shouldAllowGismeteoByIntent } from '@/lib/weatherIntentGuard'
@@ -7498,32 +7498,11 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     })
     if (!res1.ok) {
       const errText = res1.errText
-      const forbiddenType =
-        res1.status === 403 && provider === 'openai' ? classifyOpenAiForbidden(errText) : null
-      let userMessage: string
-      let errorCode: 'rate_limit' | 'unauthorized' | 'forbidden' | 'upstream_error' | undefined
-      if (res1.status === 401) {
-        errorCode = 'unauthorized'
-        userMessage =
-          provider === 'openai'
-            ? 'Неверный ключ OpenAI. Проверьте OPENAI_API_KEY.'
-            : 'Неверный ключ OpenRouter. Проверьте OPENROUTER_API_KEY.'
-      } else if (res1.status === 403 && provider === 'openai') {
-        errorCode = 'forbidden'
-        userMessage =
-          forbiddenType === 'unsupported_region'
-            ? 'OpenAI недоступен из вашего региона (403 unsupported_country_region_territory). Переключитесь на OpenRouter или используйте деплой (например, Vercel) в поддерживаемом регионе.'
-            : 'Доступ к OpenAI запрещён (403). Проверьте доступность сервиса в вашем регионе и права проекта/аккаунта.'
-      } else if (res1.status === 429) {
-        errorCode = 'rate_limit'
-        userMessage = 'Слишком много запросов к ИИ. Подождите немного и попробуйте ещё раз.'
-      } else if (res1.status === 502 && /fetch failed|econnreset|tls|enotfound|etimedout|proxy/i.test(errText)) {
-        errorCode = 'upstream_error'
-        userMessage = 'Нет соединения с провайдером ИИ (сеть/прокси/VPN). Проверьте прокси и попробуйте ещё раз.'
-      } else {
-        errorCode = 'upstream_error'
-        userMessage = 'Сейчас ИИ недоступен. Подождите немного и попробуйте ещё раз.'
-      }
+      const { userMessage, errorCode } = buildProviderUserMessage({
+        provider,
+        status: res1.status,
+        errText,
+      })
       return NextResponse.json(
         { error: userMessage, errorCode, provider, details: errText },
         { status: res1.status }

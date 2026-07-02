@@ -1,5 +1,6 @@
-import { buildChoicePrompt } from '@/lib/practice/buildChoicePrompt'
+import { buildChoicePrompt, choicePromptHasContext } from '@/lib/practice/buildChoicePrompt'
 import { buildVoiceShadowPrompt } from '@/lib/practice/buildVoiceShadowPrompt'
+import { inferChoiceGranularity, filterByChoiceGranularity } from '@/lib/practice/choiceOptionGranularity'
 import { buildTieredChoiceOptions, buildWordBankExtraWords } from '@/lib/practice/distractorTier'
 import { ensurePracticeChoiceOptions, isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
 import {
@@ -11,6 +12,10 @@ import { collectLessonChoicePool } from '@/lib/practice/lessonChoicePool'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
 import { getPracticeExerciseMetadata } from '@/lib/practice/registry'
 import { resolveLessonExerciseVariant } from '@/lib/practice/resolveLessonExerciseVariant'
+import {
+  resolvePracticeLessonStep,
+  type ResolvedPracticeLessonStep,
+} from '@/lib/practice/resolvePracticeLessonStep'
 import type { Exercise, LessonData, LessonStep } from '@/types/lesson'
 import type {
   PracticeBuildConfig,
@@ -38,16 +43,37 @@ function optionsForType(
   exercise: Exercise,
   targetAnswer: string,
   lesson: LessonData,
-  tier?: ReturnType<typeof resolveTierForStep>
+  tier?: ReturnType<typeof resolveTierForStep>,
+  resolvedStep?: ResolvedPracticeLessonStep
 ): string[] | undefined {
   if (!isChoiceLikePracticeType(type)) {
     return cloneOptions(exercise.options)
   }
-  const lessonPool = collectLessonChoicePool(lesson, targetAnswer)
-  if (tier) {
-    return buildTieredChoiceOptions(targetAnswer, tier, lessonPool)
+
+  const granularity = inferChoiceGranularity({
+    targetAnswer,
+    answerFormat: exercise.answerFormat,
+    prompt: exercise.question,
+    exerciseType: exercise.type,
+  })
+  const canonicalOptions = resolvedStep?.canonicalOptions ?? []
+  const filteredCanonical = filterByChoiceGranularity(canonicalOptions, granularity)
+  const lessonPool = collectLessonChoicePool(lesson, targetAnswer, {
+    sourceStepNumber: resolvedStep?.sourceStepNumber,
+    granularity,
+  })
+  const buildParams = {
+    granularity,
+    canonicalOptions,
+    sourceStepOptionCount: filteredCanonical.length,
   }
-  return ensurePracticeChoiceOptions(lessonPool.length > 0 ? lessonPool : exercise.options, targetAnswer)
+
+  if (tier) {
+    return buildTieredChoiceOptions(targetAnswer, tier, lessonPool, buildParams)
+  }
+  return ensurePracticeChoiceOptions(lessonPool.length > 0 ? lessonPool : exercise.options, targetAnswer, {
+    targetCount: filteredCanonical.length >= 3 ? 3 : undefined,
+  })
 }
 function wordTokensInPedagogicalOrder(exercise: Exercise, targetAnswer: string): string[] {
   if (exercise.type === 'sentence_puzzle' && exercise.puzzleVariants?.[0]) {
@@ -96,6 +122,7 @@ function createQuestion(params: {
   mode: PracticeMode
   variantIndex?: number
   stepSpec?: ReturnType<typeof getPracticeStepSpec>
+  resolvedStep?: ResolvedPracticeLessonStep
 }): PracticeQuestion {
   const meta = getPracticeExerciseMetadata(params.type)
   const acceptedAnswers = acceptedAnswersFor(params.exercise)
@@ -104,11 +131,25 @@ function createQuestion(params: {
     ? resolveTierForStep(params.mode, params.stepSpec)
     : undefined
   const isVoiceShadow = params.type === 'voice-shadow'
-  const prompt = isVoiceShadow
+  const granularity = inferChoiceGranularity({
+    targetAnswer,
+    answerFormat: params.exercise.answerFormat,
+    prompt: params.exercise.question,
+    exerciseType: params.exercise.type,
+  })
+  let prompt = isVoiceShadow
     ? buildVoiceShadowPrompt(params.step, params.exercise, params.lesson)
     : params.type === 'choice' || params.exercise.answerFormat === 'choice'
       ? buildChoicePrompt(params.step, params.exercise, params.lesson)
       : params.exercise.question?.trim() || params.step.bubbles.at(-1)?.content || 'Ответьте по теме урока.'
+  if (
+    params.type === 'context-clue' &&
+    granularity === 'sentence' &&
+    !choicePromptHasContext(prompt) &&
+    (params.exercise.answerFormat === 'choice' || params.exercise.type === 'fill_choice')
+  ) {
+    prompt = buildChoicePrompt(params.step, params.exercise, params.lesson)
+  }
   const variantSuffix = params.variantIndex != null ? `-v${params.variantIndex}` : ''
   const extraWords =
     params.type === 'word-builder-pro' && params.stepSpec?.wordBankMode
@@ -122,7 +163,7 @@ function createQuestion(params: {
     prompt,
     targetAnswer,
     acceptedAnswers,
-    options: optionsForType(params.type, params.exercise, targetAnswer, params.lesson, tier),
+    options: optionsForType(params.type, params.exercise, targetAnswer, params.lesson, tier, params.resolvedStep),
     shuffledWords:
       params.type === 'sentence-surgery' || params.type === 'word-builder-pro'
         ? shuffledWordBank(params.exercise, targetAnswer)
@@ -201,22 +242,40 @@ function buildQuestions(lesson: LessonData, mode: PracticeBuildConfig['mode']): 
 
   const questions: PracticeQuestion[] = []
   for (let index = 0; index < plan.length; index += 1) {
-    const resolved = resolveExerciseForIndex(sourceSteps, index, mode)
+    const stepSpec = usesPracticeStepSpec(mode) ? getPracticeStepSpec(mode, index) ?? undefined : undefined
     const preferredType = resolvePreferredType(mode, index, plan.length, plan.boss)
-    let type = mapExerciseType(resolved.exercise, preferredType)
+    const fallbackResolved = resolveExerciseForIndex(sourceSteps, index, mode)
 
+    let type = mapExerciseType(fallbackResolved.exercise, preferredType)
     if (preferredType === 'voice-shadow' && mode === 'challenge' && index === 1) {
       type = 'voice-shadow'
     }
 
-    const stepSpec = usesPracticeStepSpec(mode) ? getPracticeStepSpec(mode, index) ?? undefined : undefined
     const finalType =
       usesPracticeStepSpec(mode) || stepSpec
         ? type
         : (() => {
             const previous = questions.at(-1)
-            return previous?.type === type && resolved.exercise.options?.length ? 'choice' : type
+            return previous?.type === type && fallbackResolved.exercise.options?.length ? 'choice' : type
           })()
+
+    const resolved =
+      mode === 'reference'
+        ? {
+            step: fallbackResolved.step,
+            exercise: fallbackResolved.exercise,
+            sourceStepNumber: fallbackResolved.step.stepNumber,
+            canonicalOptions: fallbackResolved.exercise.options ? [...fallbackResolved.exercise.options] : [],
+            variantIndex: fallbackResolved.variantIndex,
+          }
+        : resolvePracticeLessonStep({
+            lesson,
+            practiceIndex: index,
+            practiceType: finalType,
+            mode,
+          })
+
+    if (!resolved) continue
 
     questions.push(
       createQuestion({
@@ -226,8 +285,9 @@ function buildQuestions(lesson: LessonData, mode: PracticeBuildConfig['mode']): 
         type: finalType,
         index,
         mode,
-        variantIndex: resolved.variantIndex,
+        variantIndex: resolved.variantIndex ?? fallbackResolved.variantIndex,
         stepSpec,
+        resolvedStep: resolved,
       })
     )
   }
@@ -258,6 +318,7 @@ function createPracticeSession(config: PracticeBuildConfig, questions: PracticeQ
     targetQuestionCount: config.targetQuestionCount ?? questions.length,
     wrongAttemptsOnCurrentQuestion: 0,
     instructionAcknowledged: false,
+    generationNotice: config.generationNotice,
   }
 }
 
@@ -274,25 +335,29 @@ export function buildSinglePracticeQuestion(params: {
   type: PracticeExerciseType
   questionIndex?: number
   mode?: PracticeMode
+  referenceExerciseType?: PracticeExerciseType
 }): PracticeQuestion | null {
-  const sourceSteps = getExerciseSteps(params.lesson)
-  if (sourceSteps.length === 0) return null
   const index = params.questionIndex ?? 0
   const mode = params.mode ?? 'challenge'
-  const source = sourceSteps[index % sourceSteps.length]!
-  const variantCount = source.exercise.variants?.length ?? 0
-  const variantIndex = variantCount > 0 ? index % variantCount : 0
-  const exercise = variantCount > 0 ? resolveLessonExerciseVariant(source.exercise, variantIndex) : source.exercise
+  const resolved = resolvePracticeLessonStep({
+    lesson: params.lesson,
+    practiceIndex: index,
+    practiceType: params.type,
+    mode,
+    referenceExerciseType: params.referenceExerciseType ?? (mode === 'reference' ? params.type : undefined),
+  })
+  if (!resolved) return null
   const stepSpec = usesPracticeStepSpec(mode) ? getPracticeStepSpec(mode, index) ?? undefined : undefined
   return createQuestion({
     lesson: params.lesson,
-    step: source.step,
-    exercise,
+    step: resolved.step,
+    exercise: resolved.exercise,
     type: params.type,
     index,
     mode,
-    variantIndex: variantCount > 0 ? variantIndex : undefined,
+    variantIndex: resolved.variantIndex,
     stepSpec: stepSpec?.type === params.type ? stepSpec : undefined,
+    resolvedStep: resolved,
   })
 }
 

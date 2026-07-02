@@ -38,8 +38,9 @@ describe('isPracticeVoicePrimaryComposerType', () => {
     expect(isPracticeVoicePrimaryComposerType('context-clue')).toBe(false)
   })
 
-  it('maps voice-shadow to catalog type 2', () => {
+  it('maps voice-shadow to catalog type 2 and context-clue to 3 (etalon menu order)', () => {
     expect(getPracticeExerciseTypeCatalogNumber('voice-shadow')).toBe(2)
+    expect(getPracticeExerciseTypeCatalogNumber('context-clue')).toBe(3)
   })
 })
 

@@ -2338,8 +2338,7 @@ export default function MenuSectionPanels({
                     <button
                       type="button"
                       onClick={() => {
-                        const handler = isReferenceMode ? onGeneratePracticeSession : onOpenPracticeSession
-                        void runPracticeRequest(handler, {
+                        void runPracticeRequest(onOpenPracticeSession, {
                           lessonId: selectedPracticeLessonId ?? undefined,
                           mode: selectedPracticeMode,
                           entrySource: 'menu',
@@ -2347,7 +2346,7 @@ export default function MenuSectionPanels({
                         })
                       }}
                       disabled={
-                        !(isReferenceMode ? onGeneratePracticeSession : onOpenPracticeSession) ||
+                        !onOpenPracticeSession ||
                         !selectedPracticeLessonId ||
                         practiceBusy ||
                         (isReferenceMode && !selectedReferenceExerciseType)
@@ -2369,7 +2368,7 @@ export default function MenuSectionPanels({
                       disabled={!onGeneratePracticeSession || !selectedPracticeLessonId || practiceBusy}
                       className={APP_BTN_SECONDARY_MENU}
                     >
-                      {practiceBusy ? 'Генерируем практику...' : isReferenceMode ? 'Перегенерировать эталон' : 'Сгенерировать вариант'}
+                      {practiceBusy ? 'Генерируем практику...' : isReferenceMode ? 'Сгенерировать эталон' : 'Сгенерировать вариант'}
                     </button>
                     {practiceError && (
                       <p className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
@@ -2459,13 +2458,13 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                       <button
                         type="button"
                         disabled={
-                          !(isReferenceMode ? onGeneratePracticeSession : onOpenPracticeSession) ||
+                          !onOpenPracticeSession ||
                           !selectedCustomPracticeLessonId ||
-                          practiceBusy
+                          practiceBusy ||
+                          (isReferenceMode && !selectedReferenceExerciseType)
                         }
                         onClick={() => {
-                          const handler = isReferenceMode ? onGeneratePracticeSession : onOpenPracticeSession
-                          void runPracticeRequest(handler, {
+                          void runPracticeRequest(onOpenPracticeSession, {
                             lessonId: selectedCustomPracticeLessonId ?? undefined,
                             mode: selectedPracticeMode,
                             entrySource: 'custom_topic',

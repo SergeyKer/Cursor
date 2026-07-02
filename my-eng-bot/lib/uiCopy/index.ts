@@ -4,3 +4,4 @@ export {
   getMenuGenerationFallbackMessage,
 } from '@/lib/uiCopy/appShellCopy'
 export { START_RUNTIME_COPY } from '@/lib/uiCopy/startRuntimeCopy'
+export { PRACTICE_REFERENCE_COPY } from '@/lib/uiCopy/practiceCopy'

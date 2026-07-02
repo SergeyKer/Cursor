@@ -1,8 +1,10 @@
+import { filterByChoiceGranularity, inferChoiceGranularity } from '@/lib/practice/choiceOptionGranularity'
 import { buildTieredChoiceOptions, buildWordBankExtraWords } from '@/lib/practice/distractorTier'
 import { getPracticeStepSpec, resolveAdaptiveTierForStep, resolveTierForStep } from '@/lib/practice/engine/stepSpec'
 import { isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
 import { collectLessonChoicePool } from '@/lib/practice/lessonChoicePool'
 import { normalizeAiPracticeQuestion } from '@/lib/practice/normalizeAiPracticeQuestion'
+import { resolvePracticeLessonStep } from '@/lib/practice/resolvePracticeLessonStep'
 import type { LessonData } from '@/types/lesson'
 import type { PracticeMode, PracticeQuestion } from '@/types/practice'
 
@@ -48,15 +50,36 @@ export function enforceStepSpecs(
         : normalizeAiPracticeQuestion(raw, lesson, stepIndex, {
             forcedType: spec.type,
             distractorTier: tier,
+            mode,
           })
 
     if (!normalized) return question
 
     if (tier && isChoiceLikePracticeType(normalized.type)) {
-      const lessonPool = collectLessonChoicePool(lesson, normalized.targetAnswer)
+      const resolved = resolvePracticeLessonStep({
+        lesson,
+        practiceIndex: stepIndex,
+        practiceType: normalized.type,
+        mode,
+      })
+      const granularity = inferChoiceGranularity({
+        targetAnswer: normalized.targetAnswer,
+        answerFormat: resolved?.exercise.answerFormat,
+        prompt: normalized.prompt,
+        exerciseType: resolved?.exercise.type,
+      })
+      const filteredCanonical = filterByChoiceGranularity(resolved?.canonicalOptions ?? [], granularity)
+      const lessonPool = collectLessonChoicePool(lesson, normalized.targetAnswer, {
+        sourceStepNumber: resolved?.sourceStepNumber,
+        granularity,
+      })
       normalized = {
         ...normalized,
-        options: buildTieredChoiceOptions(normalized.targetAnswer, tier, lessonPool),
+        options: buildTieredChoiceOptions(normalized.targetAnswer, tier, lessonPool, {
+          granularity,
+          canonicalOptions: resolved?.canonicalOptions,
+          sourceStepOptionCount: filteredCanonical.length,
+        }),
       }
     }
 

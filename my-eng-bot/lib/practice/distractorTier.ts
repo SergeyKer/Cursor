@@ -1,4 +1,13 @@
-import { ensurePracticeChoiceOptions } from '@/lib/practice/ensurePracticeChoiceOptions'
+import {
+  filterByChoiceGranularity,
+  type ChoiceGranularity,
+  isCompleteSentence,
+} from '@/lib/practice/choiceOptionGranularity'
+import {
+  ensurePracticeChoiceOptions,
+  PRACTICE_CHOICE_MIN_OPTIONS,
+  resolvePracticeChoiceTargetCount,
+} from '@/lib/practice/ensurePracticeChoiceOptions'
 import type { PracticeDistractorTier, PracticeWordBankMode } from '@/lib/practice/engine/stepSpec'
 
 const OBVIOUS_DISTRACTORS = [
@@ -18,6 +27,12 @@ const SEMANTIC_NEAR_BY_STATE: Record<string, string[]> = {
   dark: ['cold', 'late'],
   late: ['early', 'tired'],
   early: ['late', 'tired'],
+}
+
+export type BuildTieredChoiceOptionsParams = {
+  granularity?: ChoiceGranularity
+  canonicalOptions?: string[]
+  sourceStepOptionCount?: number
 }
 
 function tokenCount(value: string): number {
@@ -91,12 +106,13 @@ function pickLessonDistractorsForTier(
   return minimal.length > 0 ? minimal : wrong
 }
 
-function buildObviousDistractors(targetAnswer: string): string[] {
+function buildObviousDistractors(targetAnswer: string, granularity?: ChoiceGranularity): string[] {
+  if (granularity === 'word') return buildWordSemanticNearDistractors(targetAnswer)
   const normalized = targetAnswer.trim()
   const result: string[] = []
   for (const candidate of OBVIOUS_DISTRACTORS) {
     if (candidate.toLowerCase() !== normalized.toLowerCase()) result.push(candidate)
-    if (result.length >= 4) break
+    if (result.length >= 3) break
   }
   return result
 }
@@ -118,7 +134,25 @@ function buildSemanticNearDistractors(targetAnswer: string): string[] {
   return [`I'm tired.`, `I'm thirsty.`, `It's late.`]
 }
 
-function buildMinimalPairDistractors(targetAnswer: string): string[] {
+export function buildWordSemanticNearDistractors(targetAnswer: string): string[] {
+  const word = targetAnswer.replace(/[.!?]/g, '').trim().split(/\s+/).pop() ?? targetAnswer
+  const lower = word.toLowerCase()
+  const variants = new Set<string>()
+  if (lower.endsWith('y')) variants.add(`${word.slice(0, -1)}ie`)
+  variants.add(`${word}s`)
+  variants.add(`${word}ing`)
+  variants.add(`${word}e`)
+  if (lower.includes('ie')) variants.add(word.replace(/ie/i, 'ei'))
+  if (word.length > 2) variants.add(`${word.slice(0, -1)}${word.slice(-1)}${word.slice(-1)}`)
+  return Array.from(variants)
+    .filter((item) => item.toLowerCase() !== lower)
+    .slice(0, 3)
+}
+
+function buildMinimalPairDistractors(targetAnswer: string, granularity?: ChoiceGranularity): string[] {
+  if (granularity === 'word' || tokenCount(targetAnswer) <= 1) {
+    return buildWordSemanticNearDistractors(targetAnswer)
+  }
   if (tokenCount(targetAnswer) > 3) {
     return buildSemanticNearDistractors(targetAnswer)
   }
@@ -136,20 +170,66 @@ function buildMinimalPairDistractors(targetAnswer: string): string[] {
     .map((item) => targetAnswer.replace(new RegExp(`${word}$`), item))
 }
 
-function genericDistractorsForTier(targetAnswer: string, tier: PracticeDistractorTier): string[] {
-  if (tier === 'obvious') return buildObviousDistractors(targetAnswer)
-  if (tier === 'minimal-pair') return buildMinimalPairDistractors(targetAnswer)
+function genericDistractorsForTier(
+  targetAnswer: string,
+  tier: PracticeDistractorTier,
+  granularity?: ChoiceGranularity
+): string[] {
+  if (granularity === 'word') {
+    if (tier === 'obvious' || tier === 'semantic-near' || tier === 'minimal-pair') {
+      return buildWordSemanticNearDistractors(targetAnswer)
+    }
+  }
+  if (tier === 'obvious') return buildObviousDistractors(targetAnswer, granularity)
+  if (tier === 'minimal-pair') return buildMinimalPairDistractors(targetAnswer, granularity)
   return buildSemanticNearDistractors(targetAnswer)
+}
+
+function buildFromCanonicalOptions(
+  targetAnswer: string,
+  tier: PracticeDistractorTier,
+  canonicalOptions: string[],
+  granularity?: ChoiceGranularity
+): string[] {
+  const filtered = granularity ? filterByChoiceGranularity(canonicalOptions, granularity) : canonicalOptions
+  const wrong = filtered.filter((item) => isWrongLessonOption(item, targetAnswer))
+  const tiered = pickLessonDistractorsForTier(targetAnswer, tier, wrong.length > 0 ? wrong : filtered)
+  return [targetAnswer, ...tiered]
 }
 
 export function buildTieredChoiceOptions(
   targetAnswer: string,
   tier: PracticeDistractorTier,
-  lessonOptions?: string[]
+  lessonOptions?: string[],
+  params?: BuildTieredChoiceOptionsParams
 ): string[] {
-  const fromLesson = pickLessonDistractorsForTier(targetAnswer, tier, lessonOptions ?? [])
-  const generic = genericDistractorsForTier(targetAnswer, tier)
-  return ensurePracticeChoiceOptions([...fromLesson, ...generic], targetAnswer, tier)
+  const granularity = params?.granularity
+  const canonicalOptions = params?.canonicalOptions ?? []
+  const filteredCanonical = granularity
+    ? filterByChoiceGranularity(canonicalOptions, granularity)
+    : canonicalOptions
+  const filteredLesson = granularity
+    ? filterByChoiceGranularity(lessonOptions ?? [], granularity)
+    : lessonOptions ?? []
+
+  const sourceStepOptionCount = params?.sourceStepOptionCount ?? filteredCanonical.length
+  const targetCount = resolvePracticeChoiceTargetCount({ tier, sourceStepOptionCount })
+
+  if (filteredCanonical.length >= PRACTICE_CHOICE_MIN_OPTIONS) {
+    const fromCanonical = buildFromCanonicalOptions(targetAnswer, tier, filteredCanonical, granularity)
+    return ensurePracticeChoiceOptions(fromCanonical, targetAnswer, { tier, targetCount })
+  }
+
+  const fromLesson = pickLessonDistractorsForTier(targetAnswer, tier, filteredLesson)
+  const candidates = [...fromLesson]
+  if (candidates.length + 1 < targetCount) {
+    const generic = genericDistractorsForTier(targetAnswer, tier, granularity).filter(
+      (item) => granularity !== 'word' || !isCompleteSentence(item)
+    )
+    candidates.push(...generic)
+  }
+
+  return ensurePracticeChoiceOptions(candidates, targetAnswer, { tier, targetCount })
 }
 
 export function buildWordBankExtraWords(targetAnswer: string, mode: PracticeWordBankMode): string[] | undefined {

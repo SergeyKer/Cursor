@@ -181,10 +181,12 @@ import type { PracticeRewardUi } from '@/lib/practice/practiceRewardUi'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
 import { countWrongChoiceLikeBefore } from '@/lib/practice/engine/stepSpec'
 import { resolvePracticeTargetQuestionCount } from '@/lib/practice/practiceSessionProgress'
+import { buildSeenPracticeKeys } from '@/lib/practice/pickUniquePracticeQuestions'
 import {
-  buildSeenPracticeKeys,
-  pickUniquePracticeQuestions,
-} from '@/lib/practice/pickUniquePracticeQuestions'
+  resolvePracticeQuestionsFromGenerateResponse,
+  type PracticeGenerateApiResponse,
+} from '@/lib/practice/practiceGenerateResponse'
+import { resolveLocalReferencePracticeQuestions } from '@/lib/practice/resolveLocalReferencePracticeQuestions'
 import { FOOTER_DYNAMIC_MAX_LENGTH, pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
@@ -298,13 +300,7 @@ type PracticeOpenRequest = {
   customTopic?: string
   referenceExerciseType?: PracticeExerciseType
 }
-type PracticeGenerateResponse = {
-  questions?: PracticeQuestion[]
-  generated?: boolean
-  fallback?: boolean
-  fallbackReason?: string
-  error?: string
-}
+type PracticeGenerateResponse = PracticeGenerateApiResponse
 type PracticeTopicResolutionResponse = {
   resolved?: boolean
   primaryTopic?: string
@@ -3518,9 +3514,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   const resolvePracticeRequest = useCallback(
     async (request: PracticeOpenRequest, generationSource: PracticeBuildConfig['generationSource']): Promise<PracticeBuildConfig> => {
-      if (request.mode === 'reference' && generationSource !== 'ai_generated') {
-        throw new Error('Эталонный режим доступен только с генерацией от ИИ.')
-      }
       const customTopic = request.customTopic?.trim()
       let resolvedLessonId = request.lessonId ?? null
       let lesson: LessonData | null = null
@@ -3622,7 +3615,20 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
       const totalQuestionCount = request.mode === 'reference' ? 7 : getPracticeModePlan(request.mode).length
       let questions: PracticeQuestion[] | undefined
-      if (generationSource === 'ai_generated') {
+      let resolvedGenerationSource = generationSource
+      let generationNotice: string | undefined
+      let targetQuestionCount: number | undefined
+      if (generationSource === 'local' && request.mode === 'reference') {
+        const localReference = resolveLocalReferencePracticeQuestions({
+          lesson,
+          referenceExerciseType: request.referenceExerciseType,
+        })
+        if ('error' in localReference) {
+          throw new Error(localReference.error)
+        }
+        questions = localReference.questions
+        targetQuestionCount = totalQuestionCount
+      } else if (generationSource === 'ai_generated') {
         const initialCount = Math.min(PRACTICE_AI_INITIAL_BATCH_SIZE, totalQuestionCount)
         const response = await fetch('/api/practice-generate', {
           method: 'POST',
@@ -3647,11 +3653,26 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         if (!response.ok) {
           throw new Error(data.error ?? 'Не удалось сгенерировать практику.')
         }
-        const nextQuestions = Array.isArray(data.questions) ? pickUniquePracticeQuestions(data.questions, []) : []
-        if (nextQuestions.length === 0) {
-          throw new Error('Не удалось получить стартовые задания для сгенерированного варианта.')
+        const resolved = resolvePracticeQuestionsFromGenerateResponse(data, {
+          mode: request.mode,
+          lesson,
+          referenceExerciseType: request.referenceExerciseType,
+          referenceTotal: request.mode === 'reference' ? 7 : undefined,
+          referenceStepIndex: request.mode === 'reference' ? 0 : undefined,
+          fromIndex: 0,
+          existingQuestions: [],
+        })
+        if ('error' in resolved) {
+          throw new Error(resolved.error)
         }
-        questions = nextQuestions
+        questions = resolved.questions
+        generationNotice = resolved.generationNotice
+        if (resolved.useLocalGenerationSource) {
+          resolvedGenerationSource = 'local'
+          targetQuestionCount = undefined
+        } else {
+          targetQuestionCount = totalQuestionCount
+        }
       }
 
       return {
@@ -3659,9 +3680,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         lesson,
         mode: request.mode,
         entrySource: request.entrySource,
-        generationSource,
+        generationSource: resolvedGenerationSource,
         questions,
-        targetQuestionCount: generationSource === 'ai_generated' ? totalQuestionCount : undefined,
+        generationNotice,
+        targetQuestionCount,
       }
     },
     [settings.audience, settings.level, settings.openAiChatPreset, settings.provider]
@@ -3770,6 +3792,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       let questions: PracticeQuestion[] | undefined
       const lesson = session.source.lesson
       const totalQuestionCount = mode === 'reference' ? 7 : getPracticeModePlan(mode).length
+      let resolvedGenerationSource = generationSource
+      let generationNotice: string | undefined
+      let targetQuestionCount: number | undefined
       if (generationSource === 'ai_generated') {
         const initialCount = Math.min(PRACTICE_AI_INITIAL_BATCH_SIZE, totalQuestionCount)
         const response = await fetch('/api/practice-generate', {
@@ -3791,10 +3816,24 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           }),
         })
         const data = (await response.json()) as PracticeGenerateResponse
-        if (response.ok && Array.isArray(data.questions) && data.questions.length > 0) {
-          const fresh = pickUniquePracticeQuestions(data.questions, [])
-          if (fresh.length > 0) {
-            questions = fresh
+        if (response.ok) {
+          const resolved = resolvePracticeQuestionsFromGenerateResponse(data, {
+            mode,
+            lesson,
+            referenceExerciseType: mode === 'reference' ? session.questions[0]?.type : undefined,
+            referenceTotal: mode === 'reference' ? 7 : undefined,
+            referenceStepIndex: mode === 'reference' ? 0 : undefined,
+            fromIndex: 0,
+            existingQuestions: [],
+          })
+          if (!('error' in resolved)) {
+            questions = resolved.questions
+            generationNotice = resolved.generationNotice
+            if (resolved.useLocalGenerationSource) {
+              resolvedGenerationSource = 'local'
+            } else {
+              targetQuestionCount = totalQuestionCount
+            }
           }
         }
       }
@@ -3804,9 +3843,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         lesson,
         mode,
         entrySource: 'menu',
-        generationSource,
+        generationSource: resolvedGenerationSource,
         questions,
-        targetQuestionCount: generationSource === 'ai_generated' ? totalQuestionCount : undefined,
+        generationNotice,
+        targetQuestionCount,
       })
     },
     [
@@ -3890,10 +3930,27 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             }),
           })
           const data = (await response.json()) as PracticeGenerateResponse
-          if (!response.ok || !Array.isArray(data.questions) || data.questions.length === 0) {
+          if (!response.ok) {
             continue
           }
-          freshQuestions = pickUniquePracticeQuestions(data.questions, session.questions)
+          const practiceLesson =
+            session.source.kind === 'runtime_lesson'
+              ? session.source.lesson
+              : getPracticeLessonById(session.source.lessonId)
+          if (!practiceLesson) continue
+          const resolved = resolvePracticeQuestionsFromGenerateResponse(data, {
+            mode: session.mode,
+            lesson: practiceLesson,
+            referenceExerciseType: session.mode === 'reference' ? session.questions[0]?.type : undefined,
+            referenceTotal: target,
+            referenceStepIndex: session.mode === 'reference' ? session.questions.length : undefined,
+            fromIndex: session.questions.length,
+            existingQuestions: session.questions,
+          })
+          if ('error' in resolved) {
+            continue
+          }
+          freshQuestions = resolved.questions
           if (freshQuestions.length > 0) break
         }
         if (freshQuestions.length === 0) return
@@ -3987,11 +4044,33 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             }),
           })
           const data = (await response.json()) as PracticeGenerateResponse
-          if (!response.ok || !Array.isArray(data.questions) || data.questions.length === 0) {
-            lastError = data.error ?? lastError
+          if (!response.ok) {
+            lastError = data.error ?? data.providerError ?? lastError
             continue
           }
-          freshQuestions = pickUniquePracticeQuestions(data.questions, session.questions)
+          const practiceLesson =
+            session.source.kind === 'runtime_lesson'
+              ? session.source.lesson
+              : getPracticeLessonById(session.source.lessonId)
+          if (!practiceLesson) {
+            lastError = 'Не удалось загрузить урок для генерации.'
+            continue
+          }
+          const resolved = resolvePracticeQuestionsFromGenerateResponse(data, {
+            mode: session.mode,
+            lesson: practiceLesson,
+            referenceExerciseType: session.mode === 'reference' ? session.questions[0]?.type : undefined,
+            referenceTotal: target,
+            referenceStepIndex: session.mode === 'reference' ? session.questions.length : undefined,
+            fromIndex: session.questions.length,
+            existingQuestions: session.questions,
+          })
+          if ('error' in resolved) {
+            lastError = resolved.error
+            gotDuplicateOnly = true
+            continue
+          }
+          freshQuestions = resolved.questions
           if (freshQuestions.length > 0) break
           gotDuplicateOnly = true
         }

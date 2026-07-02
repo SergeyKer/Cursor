@@ -5,6 +5,7 @@ import {
   collectLessonChoicePool,
   collectLessonWideChoiceOptions,
   findLessonChoiceOptionsForTarget,
+  resolveCanonicalChoiceOptions,
 } from '@/lib/practice/lessonChoicePool'
 
 describe('lessonChoicePool', () => {
@@ -24,6 +25,21 @@ describe('lessonChoicePool', () => {
     const target = "It's cold."
     const wide = collectLessonWideChoiceOptions(lesson!, target)
     expect(wide.every((item) => !answerMatchesTarget(item, target))).toBe(true)
+  })
+
+  it('borrows sentence canonical trio for translate without options', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+    const translateStep = lesson!.steps.find((step) => step.exercise?.type === 'translate')
+    expect(translateStep?.exercise).toBeTruthy()
+
+    const canonical = resolveCanonicalChoiceOptions(
+      lesson!,
+      { ...translateStep!.exercise!, correctAnswer: "It's cold." },
+      "It's cold."
+    )
+
+    expect(canonical).toEqual(["It's cold.", "It's time to sleep.", "It's time to drink."])
   })
 
   it('merges matched step and lesson-wide options', () => {

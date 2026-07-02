@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { AppMode, TenseId } from '@/lib/types'
 import { buildProxyFetchExtra } from '@/lib/proxyFetch'
-import { classifyOpenAiForbidden } from '@/lib/openAiForbidden'
+import { buildProviderUserMessage } from '@/lib/buildProviderUserMessage'
 import { applyTranslationQualityGate, normalizeTranslationResult } from '@/lib/translationPostProcess'
 import { RUSSIAN_EN_TO_RU_SHORT_HINTS } from '@/lib/russianDrillAndTranslateHints'
 
@@ -259,27 +259,13 @@ export async function POST(req: NextRequest) {
 
     if (!res.ok) {
       const errText = await res.text()
-      const userMessage =
-        res.status === 429
-          ? 'Превышен лимит запросов. Попробуйте позже.'
-          : res.status === 401
-            ? provider === 'openai'
-              ? 'Неверный ключ OpenAI. Проверьте OPENAI_API_KEY.'
-              : 'Неверный ключ OpenRouter. Проверьте OPENROUTER_API_KEY.'
-            : res.status === 403 && provider === 'openai'
-              ? classifyOpenAiForbidden(errText) === 'unsupported_region'
-                ? 'OpenAI недоступен из вашего региона (403 unsupported_country_region_territory). Переключитесь на OpenRouter или используйте деплой (например, Vercel) в поддерживаемом регионе.'
-                : 'Доступ к OpenAI запрещён (403). Проверьте доступность сервиса в вашем регионе и права проекта/аккаунта.'
-            : 'Не удалось получить перевод.'
-
-      const errorCode: 'rate_limit' | 'unauthorized' | 'forbidden' | 'upstream_error' =
-        res.status === 429
-          ? 'rate_limit'
-          : res.status === 401
-            ? 'unauthorized'
-            : res.status === 403 && provider === 'openai'
-              ? 'forbidden'
-              : 'upstream_error'
+      const { userMessage, errorCode } = buildProviderUserMessage({
+        provider,
+        status: res.status,
+        errText,
+        defaultMessage: 'Не удалось получить перевод.',
+        rateLimitMessage: 'Превышен лимит запросов. Попробуйте позже.',
+      })
       return NextResponse.json(
         { error: userMessage, errorCode, provider, details: errText },
         { status: res.status }

@@ -1,23 +1,13 @@
+import { CHALLENGE_STEP_SPECS } from '@/lib/practice/engine/stepSpec'
 import type { PracticeExerciseType } from '@/types/practice'
 
 /**
- * Канонический порядок типов практики (1–12), совпадает с объявлением `PracticeExerciseType` в `types/practice.ts`.
- * При добавлении нового типа - расширить union и этот массив.
+ * Канонический порядок типов практики (1–12): совпадает с меню «Эталон» и маршрутом Challenge.
+ * При добавлении нового типа — расширить union, CHALLENGE_STEP_SPECS и этот каталог.
  */
-export const PRACTICE_EXERCISE_TYPES_CATALOG_ORDER: readonly PracticeExerciseType[] = [
-  'choice',
-  'voice-shadow',
-  'dropdown-fill',
-  'listening-select',
-  'sentence-surgery',
-  'free-response',
-  'word-builder-pro',
-  'dictation',
-  'roleplay-mini',
-  'boss-challenge',
-  'speed-round',
-  'context-clue',
-] as const
+export const PRACTICE_EXERCISE_TYPES_CATALOG_ORDER: readonly PracticeExerciseType[] = CHALLENGE_STEP_SPECS.map(
+  (spec) => spec.type
+)
 
 type CatalogMember = (typeof PRACTICE_EXERCISE_TYPES_CATALOG_ORDER)[number]
 type _CatalogMatchesPracticeExerciseType = Exclude<PracticeExerciseType, CatalogMember> extends never ? true : never
@@ -27,7 +17,7 @@ const CATALOG_NUMBER_BY_TYPE: ReadonlyMap<PracticeExerciseType, number> = new Ma
   PRACTICE_EXERCISE_TYPES_CATALOG_ORDER.map((type, index) => [type, index + 1])
 )
 
-/** Номер типа по каталогу кода: 1 … 12 */
+/** Номер типа по каталогу: 1 … 12 (как #N в меню эталона). */
 export function getPracticeExerciseTypeCatalogNumber(type: PracticeExerciseType): number {
   const n = CATALOG_NUMBER_BY_TYPE.get(type)
   if (n == null) {

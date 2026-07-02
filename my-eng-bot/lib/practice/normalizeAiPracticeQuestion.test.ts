@@ -58,6 +58,35 @@ describe('normalizeAiPracticeQuestion', () => {
     expect(q!.options).toBeUndefined()
   })
 
+  it('rejects vague reference choice prompts instead of substituting lesson copy', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+    const row = {
+      type: 'choice',
+      prompt: 'Pick one.',
+      targetAnswer: "It's dark.",
+      acceptedAnswers: [],
+      options: ["It's dark.", "It's time to sleep.", "It's time to drink."],
+    }
+    const vague = normalizeAiPracticeQuestion(row, lesson!, 0, {
+      mode: 'reference',
+      referenceExerciseType: 'choice',
+    })
+    expect(vague).toBeNull()
+
+    const contextual = normalizeAiPracticeQuestion(
+      {
+        ...row,
+        prompt: 'Ситуация: Вечером в парке темно. Что описывает состояние?',
+      },
+      lesson!,
+      1,
+      { mode: 'reference', referenceExerciseType: 'choice' }
+    )
+    expect(contextual).not.toBeNull()
+    expect(contextual!.prompt).toContain('Вечером в парке темно')
+  })
+
   it('strips leaked answer from voice-shadow AI prompt and clears hint', () => {
     const lesson = getStructuredLessonById('1')
     expect(lesson).not.toBeNull()

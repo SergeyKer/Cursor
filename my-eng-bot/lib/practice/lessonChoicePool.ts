@@ -1,5 +1,10 @@
 import { normalizeEnglishLearnerContractions } from '@/lib/englishLearnerContractions'
-import type { LessonData } from '@/types/lesson'
+import {
+  filterByChoiceGranularity,
+  inferChoiceGranularity,
+  type ChoiceGranularity,
+} from '@/lib/practice/choiceOptionGranularity'
+import type { Exercise, LessonData } from '@/types/lesson'
 
 function normalizeChoiceTextKey(value: string): string {
   return value.trim().toLowerCase().replace(/[.,!?;:]/g, '').replace(/\s+/g, ' ')
@@ -41,8 +46,82 @@ export function findLessonChoiceOptionsForTarget(lesson: LessonData, targetAnswe
   return matchedExercise?.options && matchedExercise.options.length >= 2 ? [...matchedExercise.options] : undefined
 }
 
+export function getSourceStepChoiceOptions(lesson: LessonData, sourceStepNumber: number): string[] | undefined {
+  const step = lesson.steps.find((item) => item.stepNumber === sourceStepNumber)
+  const options = step?.exercise?.options
+  if (!options || options.length < 2) return undefined
+  return [...options]
+}
+
+/** Canonical trio for choice-like practice: step options or word-pattern borrow for gap-fill. */
+export function resolveCanonicalChoiceOptions(
+  lesson: LessonData,
+  exercise: Exercise,
+  targetAnswer: string
+): string[] {
+  if (Array.isArray(exercise.options) && exercise.options.length >= 2) {
+    return [...exercise.options]
+  }
+
+  const matched = findLessonChoiceOptionsForTarget(lesson, targetAnswer)
+  if (matched && matched.length >= 2) return [...matched]
+
+  const granularity = inferChoiceGranularity({
+    targetAnswer,
+    answerFormat: exercise.answerFormat,
+    prompt: exercise.question,
+    exerciseType: exercise.type,
+  })
+
+  if (granularity === 'sentence') {
+    for (const step of lesson.steps) {
+      const candidate = step.exercise
+      if (!candidate?.options || candidate.options.length < 2) continue
+      const candidateGranularity = inferChoiceGranularity({
+        targetAnswer: candidate.correctAnswer,
+        answerFormat: candidate.answerFormat,
+        prompt: candidate.question,
+        exerciseType: candidate.type,
+      })
+      if (candidateGranularity !== 'sentence') continue
+      const wrong = candidate.options.filter(
+        (item) => !answerMatchesTarget(item, candidate.correctAnswer)
+      )
+      if (wrong.length >= 2) {
+        return [targetAnswer.trim(), wrong[0]!.trim(), wrong[1]!.trim()]
+      }
+    }
+  }
+
+  if (granularity !== 'word') return []
+
+  for (const step of lesson.steps) {
+    const candidate = step.exercise
+    if (!candidate?.options || candidate.options.length < 2) continue
+    const candidateGranularity = inferChoiceGranularity({
+      targetAnswer: candidate.correctAnswer,
+      answerFormat: candidate.answerFormat,
+      prompt: candidate.question,
+      exerciseType: candidate.type,
+    })
+    if (candidateGranularity !== 'word') continue
+    const wrong = candidate.options.filter(
+      (item) => !answerMatchesTarget(item, candidate.correctAnswer)
+    )
+    if (wrong.length >= 2) {
+      return [targetAnswer.trim(), wrong[0]!.trim(), wrong[1]!.trim()]
+    }
+  }
+
+  return []
+}
+
 /** All choice options from lesson steps, excluding target and accepted variants. */
-export function collectLessonWideChoiceOptions(lesson: LessonData, targetAnswer: string): string[] {
+export function collectLessonWideChoiceOptions(
+  lesson: LessonData,
+  targetAnswer: string,
+  granularity?: ChoiceGranularity
+): string[] {
   const acceptedAnswers: string[] = []
   const result: string[] = []
 
@@ -55,6 +134,7 @@ export function collectLessonWideChoiceOptions(lesson: LessonData, targetAnswer:
     appendUniqueOptions(acceptedAnswers, stepAccepted)
     for (const option of exercise.options) {
       if (isExcludedAnswer(option, targetAnswer, acceptedAnswers)) continue
+      if (granularity && !filterByChoiceGranularity([option], granularity).length) continue
       appendUniqueOptions(result, [option])
     }
   }
@@ -62,11 +142,32 @@ export function collectLessonWideChoiceOptions(lesson: LessonData, targetAnswer:
   return result
 }
 
-/** Matched step options first, then lesson-wide wrong answers. */
-export function collectLessonChoicePool(lesson: LessonData, targetAnswer: string): string[] {
+export type CollectLessonChoicePoolOptions = {
+  sourceStepNumber?: number
+  granularity?: ChoiceGranularity
+}
+
+/** Matched step options first, then lesson-wide wrong answers of the same granularity. */
+export function collectLessonChoicePool(
+  lesson: LessonData,
+  targetAnswer: string,
+  opts?: CollectLessonChoicePoolOptions
+): string[] {
   const pool: string[] = []
+  const granularity = opts?.granularity
+
+  if (opts?.sourceStepNumber != null) {
+    const sourceOptions = getSourceStepChoiceOptions(lesson, opts.sourceStepNumber)
+    if (sourceOptions) {
+      appendUniqueOptions(pool, granularity ? filterByChoiceGranularity(sourceOptions, granularity) : sourceOptions)
+    }
+  }
+
   const matched = findLessonChoiceOptionsForTarget(lesson, targetAnswer)
-  if (matched) appendUniqueOptions(pool, matched)
-  appendUniqueOptions(pool, collectLessonWideChoiceOptions(lesson, targetAnswer))
+  if (matched) {
+    appendUniqueOptions(pool, granularity ? filterByChoiceGranularity(matched, granularity) : matched)
+  }
+
+  appendUniqueOptions(pool, collectLessonWideChoiceOptions(lesson, targetAnswer, granularity))
   return pool
 }

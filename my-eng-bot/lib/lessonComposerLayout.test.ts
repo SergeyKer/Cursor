@@ -270,4 +270,22 @@ describe('estimateLessonComposerMinHeight', () => {
     expect(puzzleHeight).toBeGreaterThan(100)
     expect(puzzleHeight).toBeLessThan(320)
   })
+
+  it('practice canonical word chips are shorter than sentence chips', () => {
+    const wordHeight = estimateLessonComposerMinHeight({
+      panelKind: 'choice',
+      choiceOptions: ['drink', 'sleeps', 'sleeping'],
+      compact: true,
+      containerWidthPx: 360,
+    })
+    const sentenceHeight = estimateLessonComposerMinHeight({
+      panelKind: 'choice',
+      choiceOptions: ["It's dark.", "It's time to sleep.", "It's time to drink."],
+      compact: true,
+      containerWidthPx: 360,
+    })
+    expect(wordHeight).toBeLessThan(sentenceHeight)
+    expect(wordHeight).toBeGreaterThanOrEqual(40)
+    expect(sentenceHeight).toBeGreaterThanOrEqual(80)
+  })
 })

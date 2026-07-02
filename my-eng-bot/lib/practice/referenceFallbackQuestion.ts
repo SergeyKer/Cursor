@@ -74,6 +74,7 @@ export function buildReferenceFallbackQuestion(params: BuildReferenceFallbackQue
       type: params.referenceExerciseType,
       questionIndex: referenceStepIndex,
       mode: params.mode,
+      referenceExerciseType: params.referenceExerciseType,
     })
     if (!synthesized) return null
     return {
@@ -95,4 +96,35 @@ export function buildReferenceFallbackQuestion(params: BuildReferenceFallbackQue
 
   const base = candidates[referenceStepIndex % candidates.length] ?? candidates[0]!
   return buildSynthesizedReferenceFallback(base, referenceStepIndex, referenceTotal, seen)
+}
+
+/** Local reference session: one question per scenario index (debug loop). */
+export function buildReferenceFallbackQuestions(params: {
+  lesson: LessonData
+  referenceExerciseType: PracticeExerciseType
+  referenceTotal?: number
+}): PracticeQuestion[] {
+  const total = params.referenceTotal ?? 7
+  const questions: PracticeQuestion[] = []
+  const seenKeys: string[] = []
+  const recentPrompts: string[] = []
+
+  for (let index = 0; index < total; index += 1) {
+    const question = buildReferenceFallbackQuestion({
+      lesson: params.lesson,
+      mode: 'reference',
+      referenceExerciseType: params.referenceExerciseType,
+      referenceStepIndex: index,
+      referenceTotal: total,
+      recentPrompts,
+      seenKeys,
+    })
+    if (!question) break
+    questions.push(question)
+    recentPrompts.push(question.prompt)
+    const fingerprint = buildPracticeQuestionFingerprintFromQuestion(question)
+    if (fingerprint) seenKeys.push(fingerprint)
+  }
+
+  return questions
 }

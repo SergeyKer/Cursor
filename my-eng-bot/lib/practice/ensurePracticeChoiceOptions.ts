@@ -11,6 +11,7 @@ const CHOICE_LIKE: PracticeExerciseType[] = [
 ]
 
 export const PRACTICE_CHOICE_MIN_OPTIONS = 3
+export const PRACTICE_CHOICE_MAX_OPTIONS = 5
 
 const SOFT_SKIP_OPTION = "I don't know yet"
 
@@ -33,9 +34,9 @@ function optionKey(value: string): string {
   return normalizeOptionKey(normalizeEnglishLearnerContractions(value))
 }
 
-function appendUniqueOptions(target: string[], candidates: string[]): void {
+function appendUniqueOptions(target: string[], candidates: string[], maxLength?: number): void {
   for (const candidate of candidates) {
-    if (target.length >= PRACTICE_CHOICE_MIN_OPTIONS) return
+    if (maxLength != null && target.length >= maxLength) return
     const trimmed = candidate.trim()
     if (!trimmed) continue
     if (target.some((item) => optionKey(item) === optionKey(trimmed))) continue
@@ -50,7 +51,7 @@ function buildPatternDistractors(targetAnswer: string): string[] {
   const timeToMatch = normalized.match(/^It's time to\s+(.+?)\.?$/i)
 
   if (stateMatch) {
-    const adjective = stateMatch[1].toLowerCase()
+    const adjective = stateMatch[1]!.toLowerCase()
     for (const verb of TIME_TO_VERBS) {
       distractors.push(`It's time to ${verb}.`)
     }
@@ -59,7 +60,7 @@ function buildPatternDistractors(targetAnswer: string): string[] {
       distractors.push(`It's ${adjectiveCandidate}.`)
     }
   } else if (timeToMatch) {
-    const verbPhrase = timeToMatch[1].trim().toLowerCase()
+    const verbPhrase = timeToMatch[1]!.trim().toLowerCase()
     for (const adjective of STATE_ADJECTIVES) {
       distractors.push(`It's ${adjective}.`)
     }
@@ -78,12 +79,38 @@ function withoutSoftSkipOption(options: string[]): string[] {
   return options.filter((item) => optionKey(item) !== skipKey)
 }
 
+export function resolvePracticeChoiceTargetCount(params: {
+  tier?: PracticeDistractorTier
+  sourceStepOptionCount?: number
+}): number {
+  const canonicalCount = params.sourceStepOptionCount ?? 0
+  if (params.tier === 'obvious') return 3
+  if (params.tier === 'semantic-near') return canonicalCount >= 3 ? 3 : 4
+  if (params.tier === 'minimal-pair') return canonicalCount >= 3 ? 3 : 4
+  return canonicalCount >= 3 ? 3 : PRACTICE_CHOICE_MIN_OPTIONS
+}
+
+export type EnsurePracticeChoiceOptionsParams = {
+  tier?: PracticeDistractorTier
+  targetCount?: number
+}
+
 /** Минимум три уникальных варианта; эталон всегда в списке. */
 export function ensurePracticeChoiceOptions(
   options: string[] | undefined,
   targetAnswer: string,
-  tier?: PracticeDistractorTier
+  tierOrParams?: PracticeDistractorTier | EnsurePracticeChoiceOptionsParams
 ): string[] {
+  const params =
+    typeof tierOrParams === 'string' || tierOrParams == null
+      ? { tier: tierOrParams }
+      : tierOrParams
+  const tier = params.tier
+  const targetCount = Math.min(
+    params.targetCount ?? resolvePracticeChoiceTargetCount({ tier }),
+    PRACTICE_CHOICE_MAX_OPTIONS
+  )
+
   const trimmedTarget = targetAnswer.trim()
   const result = withoutSoftSkipOption(
     Array.from(new Set([trimmedTarget, ...(options ?? [])].map((item) => item.trim()).filter(Boolean)))
@@ -91,19 +118,19 @@ export function ensurePracticeChoiceOptions(
 
   if (result.length < PRACTICE_CHOICE_MIN_OPTIONS) {
     if (tier === 'obvious') {
-      appendUniqueOptions(result, [`It's Tuesday.`, `I'm at home.`, `She is reading.`])
+      appendUniqueOptions(result, [`It's Tuesday.`, `I'm at home.`, `She is reading.`], targetCount)
     } else {
-      appendUniqueOptions(result, buildPatternDistractors(trimmedTarget))
+      appendUniqueOptions(result, buildPatternDistractors(trimmedTarget), targetCount)
     }
   }
 
   if (result.length < PRACTICE_CHOICE_MIN_OPTIONS) {
-    appendUniqueOptions(result, buildPatternDistractors(trimmedTarget))
+    appendUniqueOptions(result, buildPatternDistractors(trimmedTarget), targetCount)
   }
 
   if (result.length < PRACTICE_CHOICE_MIN_OPTIONS) {
-    appendUniqueOptions(result, [`It's time to go.`, `It's late.`, `It's dark.`, `It's hot.`])
+    appendUniqueOptions(result, [`It's time to go.`, `It's late.`, `It's dark.`, `It's hot.`], targetCount)
   }
 
-  return result.slice(0, 5)
+  return result.slice(0, Math.max(PRACTICE_CHOICE_MIN_OPTIONS, targetCount))
 }

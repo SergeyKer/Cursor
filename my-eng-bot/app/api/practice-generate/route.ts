@@ -5,7 +5,10 @@ import { buildLocalPracticeSession } from '@/lib/practice/builders/localPractice
 import { enforceStepSpecs } from '@/lib/practice/enforceStepSpecs'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
 import { getPracticeStepsForRange } from '@/lib/practice/engine/stepSpec'
+import { buildProviderUserMessage, PRACTICE_REFERENCE_FALLBACK_NOTICE } from '@/lib/buildProviderUserMessage'
 import { buildReferenceFallbackQuestion } from '@/lib/practice/referenceFallbackQuestion'
+import { getReferenceExerciseChallengeStep } from '@/lib/practice/referenceExerciseOptions'
+import { resolvePracticeLessonStep } from '@/lib/practice/resolvePracticeLessonStep'
 import { buildPracticeQuestionFingerprintFromQuestion, normalizePracticeFingerprintPart } from '@/lib/practice/questionFingerprint'
 import { normalizeAiPracticeQuestion } from '@/lib/practice/normalizeAiPracticeQuestion'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
@@ -89,7 +92,12 @@ function normalizeQuestions(
   const allowedTypes = new Set(plan.types)
   const rawSlice = rawQuestions.slice(0, plan.length)
   const normalized = rawSlice
-    .map((row, index) => normalizeAiPracticeQuestion(row, lesson, fromIndex + index))
+    .map((row, index) =>
+      normalizeAiPracticeQuestion(row, lesson, fromIndex + index, {
+        mode,
+        referenceExerciseType: mode === 'reference' ? referenceExerciseType : undefined,
+      })
+    )
     .filter((question): question is PracticeQuestion => Boolean(question))
   let questions =
     mode === 'reference'
@@ -110,8 +118,7 @@ function normalizeQuestions(
   if (mode === 'reference') {
     const normalizedRecent = recentPrompts.map((prompt) => prompt.trim().toLowerCase()).filter(Boolean)
     const filteredByType = referenceExerciseType ? questions.filter((question) => question.type === referenceExerciseType) : []
-    const fresh =
-      filteredByType.find((question) => !normalizedRecent.includes(question.prompt.trim().toLowerCase())) ?? filteredByType[0]
+    const fresh = filteredByType.find((question) => !normalizedRecent.includes(question.prompt.trim().toLowerCase()))
     if (!fresh) return []
     return [{ ...fresh, id: `${fresh.id}-r${Date.now()}` }].slice(0, clampedCount)
   }
@@ -132,6 +139,9 @@ function buildSystemPrompt(): string {
     'Return ONLY valid JSON object: {"questions":[...]}',
     'Each question must have: type, prompt, targetAnswer, acceptedAnswers, shuffledWords, audioText, keywords, minWords, hint, explanation.',
     'If type is choice, dropdown-fill, listening-select, speed-round, or context-clue, you must provide at least 3 English options and include targetAnswer in the options.',
+    'Never mix single-word options and full-sentence options in one question.',
+    'When canonicalSourceExercise is provided, mirror its answerFormat, prompt structure, and exactly 3 options when the lesson step has 3.',
+    'context-clue with ___ in prompt: options must be single words only. context-clue with translation/situation: options must be full sentences only.',
     'For type choice: prompt MUST include a Russian situational context (Ситуация / Тема + clear task). Never use vague prompts like "Choose the best option" without context.',
     'For type choice: provide exactly 3 natural English options when possible; distractors depend on distractorTier in steps payload.',
     'distractorTier obvious: different scenario/pattern, clearly wrong but grammatical.',
@@ -163,7 +173,46 @@ function buildUserPayload(
 ): string {
   const etalonChoice = findFirstLessonChoiceStep(lesson)
   const plan = getPracticeModePlan(mode)
-  const steps = mode === 'reference' ? undefined : getPracticeStepsForRange(mode, fromIndex, count)
+  const steps =
+    mode === 'reference'
+      ? undefined
+      : getPracticeStepsForRange(mode, fromIndex, count).map((step) => {
+          const resolved = resolvePracticeLessonStep({
+            lesson,
+            practiceIndex: step.stepIndex,
+            practiceType: step.type,
+            mode,
+          })
+          return {
+            ...step,
+            canonicalSourceExercise: resolved
+              ? {
+                  stepNumber: resolved.sourceStepNumber,
+                  exercise: resolved.exercise,
+                  options: resolved.canonicalOptions,
+                }
+              : undefined,
+          }
+        })
+  const referenceCanonicalStep =
+    mode === 'reference' && referenceExerciseType
+      ? (() => {
+          const resolved = resolvePracticeLessonStep({
+            lesson,
+            practiceIndex: referenceStepIndex ?? 0,
+            practiceType: referenceExerciseType,
+            mode,
+            referenceExerciseType,
+          })
+          if (!resolved) return undefined
+          return {
+            challengeStep: getReferenceExerciseChallengeStep(referenceExerciseType),
+            stepNumber: resolved.sourceStepNumber,
+            exercise: resolved.exercise,
+            options: resolved.canonicalOptions,
+          }
+        })()
+      : undefined
   return JSON.stringify(
     {
       topic: lesson.topic,
@@ -174,6 +223,7 @@ function buildUserPayload(
       fromIndex,
       allowedTypes: plan.types,
       steps,
+      referenceCanonicalStep,
       seenKeys: seenKeys.slice(-40),
       referenceExerciseType: mode === 'reference' ? referenceExerciseType : undefined,
       referenceStepIndex: mode === 'reference' ? referenceStepIndex : undefined,
@@ -181,7 +231,7 @@ function buildUserPayload(
       recentPrompts: mode === 'reference' ? recentPrompts.slice(-3) : undefined,
       diversityRule:
         mode === 'reference'
-          ? 'Generate a new wording and scenario different from recentPrompts while keeping the same exercise type.'
+          ? `Scenario ${(referenceStepIndex ?? 0) + 1} of ${referenceTotal ?? 7}: generate a new Russian situation wording. Do not repeat recentPrompts. Keep referenceExerciseType and mirror referenceCanonicalStep options when provided.`
           : 'Avoid repeating seenKeys and generate fresh prompts and answers.',
       mustEndWithBossChallenge: plan.boss,
       etalonChoicePrompt: buildEtalonChoicePromptForLesson(lesson) ?? undefined,
@@ -265,6 +315,32 @@ export async function POST(req: NextRequest) {
     fallbackReason,
   })
 
+  const buildReferenceFallbackApiPayload = (
+    fallbackReason: PracticeGenerateFallbackReason,
+    questions: PracticeQuestion[],
+    lastProviderFailure: { status: number; errText: string } | null
+  ) => {
+    let providerError: string | undefined
+    let fallbackNotice: string | undefined
+    if (fallbackReason === 'provider' && lastProviderFailure) {
+      providerError = buildProviderUserMessage({
+        provider,
+        status: lastProviderFailure.status,
+        errText: lastProviderFailure.errText,
+      }).userMessage
+    } else {
+      fallbackNotice = PRACTICE_REFERENCE_FALLBACK_NOTICE
+    }
+    return {
+      questions,
+      generated: false,
+      fallback: true,
+      fallbackReason,
+      providerError,
+      fallbackNotice,
+    }
+  }
+
   const provider = body.provider === 'openrouter' ? 'openrouter' : 'openai'
   const openAiChatPreset =
     body.openAiChatPreset === 'gpt-5.4-mini-none'
@@ -278,6 +354,7 @@ export async function POST(req: NextRequest) {
     const accumulated: PracticeQuestion[] = []
     const usedFingerprints = new Set(seenKeys)
     let fallbackReason: PracticeGenerateFallbackReason = 'validation'
+    let lastProviderFailure: { status: number; errText: string } | null = null
 
     const maxGenerateAttempts = mode === 'reference' ? MAX_REFERENCE_GENERATE_ATTEMPTS : MAX_GENERATE_ATTEMPTS
     for (let attempt = 0; attempt < maxGenerateAttempts && accumulated.length < requestedCount; attempt += 1) {
@@ -309,6 +386,7 @@ export async function POST(req: NextRequest) {
 
       if (!model.ok) {
         fallbackReason = 'provider'
+        lastProviderFailure = { status: model.status, errText: model.errText }
         continue
       }
 
@@ -366,12 +444,9 @@ export async function POST(req: NextRequest) {
           seenKeys,
         })
         if (referenceFallback) {
-          return NextResponse.json({
-            questions: [referenceFallback],
-            generated: false,
-            fallback: true,
-            fallbackReason,
-          })
+          return NextResponse.json(
+            buildReferenceFallbackApiPayload(fallbackReason, [referenceFallback], lastProviderFailure)
+          )
         }
         return NextResponse.json(
           {

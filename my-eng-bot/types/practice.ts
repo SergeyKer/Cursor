@@ -105,6 +105,8 @@ export interface PracticeSession {
   completedAt?: number
   version: number
   targetQuestionCount?: number
+  /** Предупреждение при fallback (ИИ недоступен / локальный эталон). */
+  generationNotice?: string
   wrongAttemptsOnCurrentQuestion?: number
   /** Пользователь прочитал блок инструкций перед первым заданием. */
   instructionAcknowledged?: boolean
@@ -119,4 +121,5 @@ export interface PracticeBuildConfig {
   questions?: PracticeQuestion[]
   seed?: string
   targetQuestionCount?: number
+  generationNotice?: string
 }

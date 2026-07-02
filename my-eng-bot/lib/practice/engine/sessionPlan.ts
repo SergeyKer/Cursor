@@ -4,6 +4,7 @@ import {
   getPracticeStepSpecs,
   RELAXED_STEP_SPECS,
 } from '@/lib/practice/engine/stepSpec'
+import { PRACTICE_EXERCISE_TYPES_CATALOG_ORDER } from '@/lib/practice/practiceExerciseTypeCatalog'
 import type { PracticeExerciseType, PracticeMode } from '@/types/practice'
 
 export interface PracticeModePlan {
@@ -12,21 +13,6 @@ export interface PracticeModePlan {
   types: PracticeExerciseType[]
   boss: boolean
 }
-
-const ALL_REGISTERED_TYPES: PracticeExerciseType[] = [
-  'choice',
-  'voice-shadow',
-  'dropdown-fill',
-  'listening-select',
-  'sentence-surgery',
-  'free-response',
-  'word-builder-pro',
-  'dictation',
-  'roleplay-mini',
-  'boss-challenge',
-  'speed-round',
-  'context-clue',
-]
 
 function typesFromSpecs(specs: readonly { type: PracticeExerciseType }[]): PracticeExerciseType[] {
   return specs.map((spec) => spec.type)
@@ -54,7 +40,7 @@ export const PRACTICE_MODE_PLANS: Record<PracticeMode, PracticeModePlan> = {
   reference: {
     length: 7,
     timeBudgetMinutes: [4, 7],
-    types: ALL_REGISTERED_TYPES,
+    types: [...PRACTICE_EXERCISE_TYPES_CATALOG_ORDER],
     boss: false,
   },
 }

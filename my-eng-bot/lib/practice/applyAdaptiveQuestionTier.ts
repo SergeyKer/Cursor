@@ -1,3 +1,4 @@
+import { filterByChoiceGranularity, inferChoiceGranularity } from '@/lib/practice/choiceOptionGranularity'
 import { buildTieredChoiceOptions } from '@/lib/practice/distractorTier'
 import {
   getPracticeStepSpec,
@@ -8,6 +9,7 @@ import {
 import { isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
 import { collectLessonChoicePool } from '@/lib/practice/lessonChoicePool'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
+import { resolvePracticeLessonStep } from '@/lib/practice/resolvePracticeLessonStep'
 import type { LessonData } from '@/types/lesson'
 import type { PracticeQuestion, PracticeSession } from '@/types/practice'
 
@@ -46,8 +48,28 @@ export function applyAdaptiveChoiceTier(
   const effectiveTier = effectiveSpec?.distractorTier
   if (!effectiveTier || !isTierDowngrade(baseTier, effectiveTier)) return null
 
-  const lessonPool = collectLessonChoicePool(lesson, question.targetAnswer)
-  const options = buildTieredChoiceOptions(question.targetAnswer, effectiveTier, lessonPool)
+  const resolved = resolvePracticeLessonStep({
+    lesson,
+    practiceIndex: questionIndex,
+    practiceType: question.type,
+    mode: session.mode,
+  })
+  const granularity = inferChoiceGranularity({
+    targetAnswer: question.targetAnswer,
+    answerFormat: resolved?.exercise.answerFormat,
+    prompt: question.prompt,
+    exerciseType: resolved?.exercise.type,
+  })
+  const filteredCanonical = filterByChoiceGranularity(resolved?.canonicalOptions ?? [], granularity)
+  const lessonPool = collectLessonChoicePool(lesson, question.targetAnswer, {
+    sourceStepNumber: resolved?.sourceStepNumber,
+    granularity,
+  })
+  const options = buildTieredChoiceOptions(question.targetAnswer, effectiveTier, lessonPool, {
+    granularity,
+    canonicalOptions: resolved?.canonicalOptions,
+    sourceStepOptionCount: filteredCanonical.length,
+  })
   return { ...question, options }
 }
 
