@@ -39,7 +39,8 @@ function isExerciseCompatibleWithPracticeType(
     case 'dropdown-fill':
       return (
         exercise.type === 'fill_text' ||
-        (exercise.type === 'fill_choice' && (exercise.question?.includes('___') || exercise.options?.length))
+        (exercise.type === 'fill_choice' &&
+          (exercise.question?.includes('___') || Boolean(exercise.options?.length)))
       )
     case 'listening-select':
     case 'speed-round':
