@@ -1,3 +1,4 @@
+import { lessonForPracticeStep, pickVariantProfileForStep } from '@/lib/practice/buildPracticeDiversity'
 import type { Exercise, LessonData, LessonStep } from '@/types/lesson'
 
 const ABSTRACT_CHOICE_QUESTION_PATTERNS = [
@@ -129,8 +130,19 @@ export function findFirstLessonChoiceStep(lesson: LessonData): { step: LessonSte
   return { step: match, exercise: match.exercise }
 }
 
-export function buildEtalonChoicePromptForLesson(lesson: LessonData): string | null {
-  const source = findFirstLessonChoiceStep(lesson)
+export function findLessonChoiceStepForPractice(
+  lesson: LessonData,
+  stepIndex = 0
+): { step: LessonStep; exercise: Exercise; variantProfileId?: string } | null {
+  const profile = pickVariantProfileForStep(lesson, stepIndex)
+  const scopedLesson = profile ? lessonForPracticeStep(lesson, stepIndex) : lesson
+  const source = findFirstLessonChoiceStep(scopedLesson)
+  if (!source) return null
+  return { ...source, variantProfileId: profile?.id }
+}
+
+export function buildEtalonChoicePromptForLesson(lesson: LessonData, stepIndex = 0): string | null {
+  const source = findLessonChoiceStepForPractice(lesson, stepIndex)
   if (!source) return null
   return buildChoicePrompt(source.step, source.exercise, lesson)
 }

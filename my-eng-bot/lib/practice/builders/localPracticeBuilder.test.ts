@@ -71,7 +71,7 @@ describe('buildLocalPracticeSession', () => {
     }
   })
 
-  it('repeats one reference exercise 7 times in reference mode', () => {
+  it('rotates reference prompts across variant profiles in reference mode', () => {
     const lesson = getStructuredLessonById('1')
     expect(lesson).not.toBeNull()
 
@@ -84,8 +84,10 @@ describe('buildLocalPracticeSession', () => {
 
     expect(session.questions).toHaveLength(7)
     expect(new Set(session.questions.map((question) => question.type)).size).toBe(1)
-    expect(new Set(session.questions.map((question) => question.prompt)).size).toBe(1)
+    expect(new Set(session.questions.map((question) => question.prompt)).size).toBe(4)
     expect(session.questions[0]?.prompt).toMatch(/Ситуация:/i)
+    expect(session.questions[0]?.prompt).toMatch(/темно/i)
+    expect(session.questions[1]?.prompt).toMatch(/холодно/i)
     expect(session.questions[0]?.prompt).not.toMatch(/^Какое предложение подходит/i)
   })
 

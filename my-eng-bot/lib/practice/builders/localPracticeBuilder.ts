@@ -1,3 +1,4 @@
+import { lessonForPracticeStep } from '@/lib/practice/buildPracticeDiversity'
 import { buildChoicePrompt, choicePromptHasContext } from '@/lib/practice/buildChoicePrompt'
 import { buildVoiceShadowPrompt } from '@/lib/practice/buildVoiceShadowPrompt'
 import { inferChoiceGranularity, filterByChoiceGranularity } from '@/lib/practice/choiceOptionGranularity'
@@ -216,15 +217,23 @@ function getExerciseSteps(lesson: LessonData): Array<{ step: LessonStep; exercis
 }
 
 function resolveExerciseForIndex(
+  lesson: LessonData,
   sourceSteps: Array<{ step: LessonStep; exercise: Exercise }>,
   index: number,
   mode: PracticeBuildConfig['mode']
-): { step: LessonStep; exercise: Exercise; variantIndex?: number } {
-  const source = mode === 'reference' ? sourceSteps[0]! : sourceSteps[index % sourceSteps.length]!
+): { step: LessonStep; exercise: Exercise; variantIndex?: number; scopedLesson: LessonData } {
+  const scopedLesson = mode === 'reference' ? lessonForPracticeStep(lesson, index) : lesson
+  const stepsForIndex = mode === 'reference' ? getExerciseSteps(scopedLesson) : sourceSteps
+  const source = stepsForIndex[0] ?? sourceSteps[index % sourceSteps.length]!
   const variantCount = source.exercise.variants?.length ?? 0
   const variantIndex = variantCount > 0 ? index % variantCount : 0
   const exercise = variantCount > 0 ? resolveLessonExerciseVariant(source.exercise, variantIndex) : source.exercise
-  return { step: source.step, exercise, variantIndex: variantCount > 0 ? variantIndex : undefined }
+  return {
+    step: source.step,
+    exercise,
+    variantIndex: variantCount > 0 ? variantIndex : undefined,
+    scopedLesson,
+  }
 }
 
 function resolvePreferredType(mode: PracticeMode, index: number, planLength: number, boss: boolean): PracticeExerciseType | undefined {
@@ -244,7 +253,7 @@ function buildQuestions(lesson: LessonData, mode: PracticeBuildConfig['mode']): 
   for (let index = 0; index < plan.length; index += 1) {
     const stepSpec = usesPracticeStepSpec(mode) ? getPracticeStepSpec(mode, index) ?? undefined : undefined
     const preferredType = resolvePreferredType(mode, index, plan.length, plan.boss)
-    const fallbackResolved = resolveExerciseForIndex(sourceSteps, index, mode)
+    const fallbackResolved = resolveExerciseForIndex(lesson, sourceSteps, index, mode)
 
     let type = mapExerciseType(fallbackResolved.exercise, preferredType)
     if (preferredType === 'voice-shadow' && mode === 'challenge' && index === 1) {
@@ -279,7 +288,7 @@ function buildQuestions(lesson: LessonData, mode: PracticeBuildConfig['mode']): 
 
     questions.push(
       createQuestion({
-        lesson,
+        lesson: fallbackResolved.scopedLesson,
         step: resolved.step,
         exercise: resolved.exercise,
         type: finalType,
@@ -339,8 +348,9 @@ export function buildSinglePracticeQuestion(params: {
 }): PracticeQuestion | null {
   const index = params.questionIndex ?? 0
   const mode = params.mode ?? 'challenge'
+  const lesson = mode === 'reference' ? lessonForPracticeStep(params.lesson, index) : params.lesson
   const resolved = resolvePracticeLessonStep({
-    lesson: params.lesson,
+    lesson,
     practiceIndex: index,
     practiceType: params.type,
     mode,
@@ -349,7 +359,7 @@ export function buildSinglePracticeQuestion(params: {
   if (!resolved) return null
   const stepSpec = usesPracticeStepSpec(mode) ? getPracticeStepSpec(mode, index) ?? undefined : undefined
   return createQuestion({
-    lesson: params.lesson,
+    lesson,
     step: resolved.step,
     exercise: resolved.exercise,
     type: params.type,

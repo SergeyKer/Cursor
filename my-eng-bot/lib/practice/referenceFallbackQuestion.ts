@@ -56,6 +56,30 @@ function buildSynthesizedReferenceFallback(
   return null
 }
 
+function collectReferenceFallbackCandidates(
+  lesson: LessonData,
+  mode: PracticeMode,
+  referenceExerciseType: PracticeExerciseType
+): PracticeQuestion[] {
+  const profiles = lesson.repeatConfig?.variantProfiles ?? []
+  if (profiles.length === 0) {
+    return fallbackQuestions(lesson, mode).filter((question) => question.type === referenceExerciseType)
+  }
+
+  const candidates: PracticeQuestion[] = []
+  for (let index = 0; index < profiles.length; index += 1) {
+    const question = buildSinglePracticeQuestion({
+      lesson,
+      type: referenceExerciseType,
+      questionIndex: index,
+      mode,
+      referenceExerciseType,
+    })
+    if (question) candidates.push(question)
+  }
+  return candidates
+}
+
 export function buildReferenceFallbackQuestion(params: BuildReferenceFallbackQuestionParams): PracticeQuestion | null {
   const referenceStepIndex = params.referenceStepIndex ?? 0
   const referenceTotal = params.referenceTotal ?? 7
@@ -65,8 +89,10 @@ export function buildReferenceFallbackQuestion(params: BuildReferenceFallbackQue
       .filter(Boolean)
   )
   const seen = new Set((params.seenKeys ?? []).filter(Boolean))
-  const candidates = fallbackQuestions(params.lesson, params.mode).filter(
-    (question) => question.type === params.referenceExerciseType
+  const candidates = collectReferenceFallbackCandidates(
+    params.lesson,
+    params.mode,
+    params.referenceExerciseType
   )
   if (candidates.length === 0) {
     const synthesized = buildSinglePracticeQuestion({

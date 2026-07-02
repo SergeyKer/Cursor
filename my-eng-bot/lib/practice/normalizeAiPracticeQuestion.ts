@@ -2,8 +2,9 @@ import { normalizeEnglishLearnerContractions } from '@/lib/englishLearnerContrac
 import {
   buildChoicePrompt,
   choicePromptHasContext,
-  findFirstLessonChoiceStep,
+  findLessonChoiceStepForPractice,
 } from '@/lib/practice/buildChoicePrompt'
+import { lessonForPracticeStep } from '@/lib/practice/buildPracticeDiversity'
 import { buildVoiceShadowPrompt, sanitizeVoiceShadowPrompt } from '@/lib/practice/buildVoiceShadowPrompt'
 import {
   filterByChoiceGranularity,
@@ -54,8 +55,9 @@ export function normalizeAiPracticeQuestion(
   if (!type || !targetAnswer) return null
 
   const mode = normalizeOptions?.mode ?? 'challenge'
+  const scopedLesson = mode === 'reference' ? lessonForPracticeStep(lesson, index) : lesson
   const resolved = resolvePracticeLessonStep({
-    lesson,
+    lesson: scopedLesson,
     practiceIndex: index,
     practiceType: type,
     mode,
@@ -67,7 +69,7 @@ export function normalizeAiPracticeQuestion(
     if (mode === 'reference') return null
     const etalonStep = resolved
       ? { step: resolved.step, exercise: resolved.exercise }
-      : findFirstLessonChoiceStep(lesson)
+      : findLessonChoiceStepForPractice(lesson, index)
     if (etalonStep) {
       prompt = buildChoicePrompt(etalonStep.step, etalonStep.exercise, lesson)
     }

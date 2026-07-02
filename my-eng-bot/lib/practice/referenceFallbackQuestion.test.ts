@@ -47,7 +47,8 @@ describe('buildReferenceFallbackQuestion', () => {
     expect(second).not.toBeNull()
     const secondKey = buildPracticeQuestionFingerprintFromQuestion(second!)
     expect(secondKey).not.toBe(seenKey)
-    expect(second!.prompt).toContain('Сценарий')
+    expect(second!.prompt).toMatch(/холодно/i)
+    expect(second!.prompt).not.toBe(first!.prompt)
   })
 
   it('synthesizes unique prompts for repeated local reference content', () => {

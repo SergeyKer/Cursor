@@ -5,6 +5,7 @@ import {
   buildEtalonChoicePromptForLesson,
   choicePromptHasContext,
   findFirstLessonChoiceStep,
+  findLessonChoiceStepForPractice,
   isAbstractChoiceQuestion,
 } from '@/lib/practice/buildChoicePrompt'
 
@@ -26,6 +27,26 @@ describe('buildChoicePrompt', () => {
     expect(prompt).toMatch(/состояние/i)
     expect(choicePromptHasContext(prompt)).toBe(true)
     expect(isAbstractChoiceQuestion(prompt)).toBe(false)
+  })
+
+  it('rotates etalon choice prompt across variant profiles for lesson 1', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const first = buildEtalonChoicePromptForLesson(lesson!, 0)
+    const third = buildEtalonChoicePromptForLesson(lesson!, 2)
+    expect(first).toMatch(/темно/i)
+    expect(third).toMatch(/жарко/i)
+    expect(first).not.toBe(third)
+  })
+
+  it('rotates etalon choice prompt for lesson 2 across profiles', () => {
+    const lesson = getStructuredLessonById('2')
+    expect(lesson).not.toBeNull()
+
+    const first = findLessonChoiceStepForPractice(lesson!, 0)
+    const second = findLessonChoiceStepForPractice(lesson!, 1)
+    expect(first?.exercise.correctAnswer).not.toBe(second?.exercise.correctAnswer)
   })
 
   it('builds lesson-specific frame for lesson 2 (Who)', () => {

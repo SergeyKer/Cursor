@@ -49,6 +49,18 @@ function toItsTimeStateTranslation(adjective: string): string {
   return ITS_TIME_STATE_TRANSLATIONS[adjective] ?? 'Выберите описание состояния.'
 }
 
+const FORMAL_IT_EXTRA_SOURCE_SITUATIONS = [
+  'Сегодня тепло',
+  'Сейчас прохладно',
+  'На улице солнечно',
+  'Сильный ветер',
+  'Ещё рано',
+  'Сейчас пять часов',
+  'Пора пить чай',
+  'Далеко отсюда',
+  'Отсюда недалеко',
+] as const
+
 const itsTimeVariants: ItsTimeVariant[] = [
   {
     id: 'evening-dark',
@@ -811,7 +823,12 @@ export const itsTimeToLesson: LessonData = {
   repeatConfig: {
     ruleSummary: 'Различаем It is + прилагательное для состояния и It is time to + глагол для действия.',
     grammarFocus: ['It is + adjective', 'It is time to + verb'],
-    sourceSituations: Array.from(new Set(itsTimeVariants.flatMap((variant) => variant.sourceSituations))),
+    sourceSituations: Array.from(
+      new Set([
+        ...itsTimeVariants.flatMap((variant) => variant.sourceSituations),
+        ...FORMAL_IT_EXTRA_SOURCE_SITUATIONS,
+      ])
+    ),
     stepBlueprints: buildItsTimeBlueprints(baseVariant),
     variantProfiles: itsTimeVariants.map((variant) => buildItsTimeVariantProfile(variant)),
     antiRepeatWindow: 3,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callProviderChat } from '@/lib/callProviderChat'
-import { buildEtalonChoicePromptForLesson, findFirstLessonChoiceStep } from '@/lib/practice/buildChoicePrompt'
+import { buildEtalonChoicePromptForLesson, findLessonChoiceStepForPractice } from '@/lib/practice/buildChoicePrompt'
+import { buildPracticeDiversityPayload, lessonForPracticeStep } from '@/lib/practice/buildPracticeDiversity'
 import { buildLocalPracticeSession } from '@/lib/practice/builders/localPracticeBuilder'
 import { enforceStepSpecs } from '@/lib/practice/enforceStepSpecs'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
@@ -154,6 +155,9 @@ function buildSystemPrompt(): string {
     'Prompts can be in Russian with English targets. Keep the tone warm and concise.',
     'If referenceExerciseType is provided, every generated question.type must exactly match it.',
     'If etalonChoicePrompt is provided, follow the same pedagogical logic but use a new scenario and wording.',
+    'If sourceSituations is provided, vary Russian situations across that pool; do not copy etalonChoiceSource taskBubble verbatim.',
+    'If suggestedScenario is provided, use it as the situational anchor unless recentPrompts forbid it.',
+    'When referenceCanonicalStep options are provided, mirror option structure and grammar pattern but adapt sentences to the new scenario.',
     'If steps array is provided, each question at steps[N].stepIndex must use exactly steps[N].type and steps[N].distractorTier when set.',
     'Do not include markdown.',
   ].join('\n')
@@ -171,7 +175,17 @@ function buildUserPayload(
   referenceTotal?: number,
   recentPrompts: string[] = []
 ): string {
-  const etalonChoice = findFirstLessonChoiceStep(lesson)
+  const practiceStepIndex =
+    mode === 'reference' ? (referenceStepIndex ?? 0) : fromIndex
+  const diversity = buildPracticeDiversityPayload({
+    lesson,
+    mode,
+    stepIndex: practiceStepIndex,
+    total: referenceTotal,
+    recentPrompts: mode === 'reference' ? recentPrompts : undefined,
+  })
+  const scopedLesson = lessonForPracticeStep(lesson, practiceStepIndex)
+  const etalonChoice = findLessonChoiceStepForPractice(lesson, practiceStepIndex)
   const plan = getPracticeModePlan(mode)
   const steps =
     mode === 'reference'
@@ -198,7 +212,7 @@ function buildUserPayload(
     mode === 'reference' && referenceExerciseType
       ? (() => {
           const resolved = resolvePracticeLessonStep({
-            lesson,
+            lesson: scopedLesson,
             practiceIndex: referenceStepIndex ?? 0,
             practiceType: referenceExerciseType,
             mode,
@@ -229,15 +243,14 @@ function buildUserPayload(
       referenceStepIndex: mode === 'reference' ? referenceStepIndex : undefined,
       referenceTotal: mode === 'reference' ? referenceTotal : undefined,
       recentPrompts: mode === 'reference' ? recentPrompts.slice(-3) : undefined,
-      diversityRule:
-        mode === 'reference'
-          ? `Scenario ${(referenceStepIndex ?? 0) + 1} of ${referenceTotal ?? 7}: generate a new Russian situation wording. Do not repeat recentPrompts. Keep referenceExerciseType and mirror referenceCanonicalStep options when provided.`
-          : 'Avoid repeating seenKeys and generate fresh prompts and answers.',
+      ...diversity,
+      diversityRule: diversity.diversityRule,
       mustEndWithBossChallenge: plan.boss,
-      etalonChoicePrompt: buildEtalonChoicePromptForLesson(lesson) ?? undefined,
+      etalonChoicePrompt: buildEtalonChoicePromptForLesson(lesson, practiceStepIndex) ?? undefined,
       etalonChoiceSource: etalonChoice
         ? {
             stepNumber: etalonChoice.step.stepNumber,
+            variantProfileId: etalonChoice.variantProfileId,
             taskBubble: etalonChoice.step.bubbles.find((bubble) => bubble.type === 'task')?.content,
             question: etalonChoice.exercise.question,
             options: etalonChoice.exercise.options,
