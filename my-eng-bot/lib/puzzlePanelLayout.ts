@@ -58,7 +58,7 @@ export const PUZZLE_BOTTOM_STACK_FALLBACK = '18rem'
 const PUZZLE_PANEL_SECTION_PADDING_Y_PX = 16
 const PUZZLE_PANEL_HEADER_BLOCK_PX = 34
 const PUZZLE_PANEL_INSTRUCTION_BLOCK_PX = 28
-const PUZZLE_PANEL_SLOT_ROW_GAP_PX = 6
+export const PUZZLE_PANEL_SLOT_ROW_GAP_PX = 6
 const PUZZLE_PANEL_CHECK_BUTTON_PX = 40
 const PUZZLE_PANEL_WORD_BANK_MARGIN_PX = 8
 /** @deprecated Слоты следуют layoutFlexChipRows, не фиксированной сетке. */
