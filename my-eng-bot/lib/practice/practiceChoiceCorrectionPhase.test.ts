@@ -33,6 +33,18 @@ describe('practiceChoiceCorrectionPhase', () => {
     expect(canCompleteChipPhase(true, true)).toBe(true)
   })
 
+  it('shouldResetCorrectionPhase holds voice panel on feedback even when wrongAttempts reset to 0', () => {
+    expect(
+      shouldResetCorrectionPhase({
+        isRepeatCorrectionType: true,
+        isCorrectionSession: false,
+        wrongAttemptsOnCurrentQuestion: 0,
+        correctionPhase: 'voiceReady',
+        state: 'feedback',
+      })
+    ).toBe(false)
+  })
+
   it('shouldResetCorrectionPhase holds voice panel on feedback and generating_next', () => {
     expect(
       shouldResetCorrectionPhase({

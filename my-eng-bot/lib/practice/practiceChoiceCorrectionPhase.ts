@@ -45,7 +45,6 @@ export function shouldResetCorrectionPhase(params: {
   if (!params.isRepeatCorrectionType) return true
 
   const holdVoicePanel =
-    params.wrongAttemptsOnCurrentQuestion > 0 &&
     (params.correctionPhase === 'voiceReady' || params.correctionPhase === 'voiceLocked') &&
     (params.state === 'feedback' || params.state === 'generating_next')
 

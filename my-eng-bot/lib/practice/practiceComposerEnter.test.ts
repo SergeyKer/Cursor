@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildChoiceVoiceComposerEnterKey,
   getPracticeComposerEnterClass,
+  isChoiceChipVoiceCorrectionEnter,
   resolvePracticeComposerEnterClassOnce,
   shouldSuppressPracticeComposerEnterAnimation,
 } from '@/lib/practice/practiceComposerEnter'
 import {
   isPracticeVoicePrimaryComposerType,
+  PRACTICE_CHOICE_CHIP_CORRECTION_TYPES,
   PRACTICE_VOICE_PRIMARY_COMPOSER_TYPES,
 } from '@/lib/practice/practiceCorrectionFamily'
 import {
@@ -44,7 +47,28 @@ describe('isPracticeVoicePrimaryComposerType', () => {
   })
 })
 
+describe('isChoiceChipVoiceCorrectionEnter', () => {
+  it('is true for all choice-chip correction types when voice composer is shown', () => {
+    for (const type of PRACTICE_CHOICE_CHIP_CORRECTION_TYPES) {
+      expect(isChoiceChipVoiceCorrectionEnter(type, true)).toBe(true)
+    }
+  })
+
+  it('is false when voice composer is hidden or type is not choice-chip', () => {
+    expect(isChoiceChipVoiceCorrectionEnter('context-clue', false)).toBe(false)
+    expect(isChoiceChipVoiceCorrectionEnter('voice-shadow', true)).toBe(false)
+    expect(isChoiceChipVoiceCorrectionEnter('dropdown-fill', true)).toBe(false)
+  })
+})
+
+describe('buildChoiceVoiceComposerEnterKey', () => {
+  it('appends :choice-voice segment to question id', () => {
+    expect(buildChoiceVoiceComposerEnterKey('q1')).toBe('q1:choice-voice')
+  })
+})
+
 describe('shouldSuppressPracticeComposerEnterAnimation', () => {
+
   it('suppresses on step 1 for voice-primary types', () => {
     for (const type of PRACTICE_VOICE_PRIMARY_COMPOSER_TYPES) {
       expect(
@@ -175,6 +199,19 @@ describe('resolvePracticeComposerEnterClassOnce', () => {
 
     const q2Unfreeze = resolvePracticeComposerEnterClassOnce(state, 'q2', base)
     expect(q2Unfreeze.enterClass).toBe('')
+  })
+
+  it('plays soft enter on choice-voice segment even when suppressed (checking freeze)', () => {
+    let state = { questionId: '', consumed: false }
+    const primary = resolvePracticeComposerEnterClassOnce(state, 'q1', base)
+    state = primary.next
+
+    const voice = resolvePracticeComposerEnterClassOnce(state, 'q1:choice-voice', {
+      ...base,
+      isChoiceVoiceCorrection: true,
+      suppressEnterAnimation: true,
+    })
+    expect(voice.enterClass).toBe('lesson-text-soft-enter')
   })
 
   it('plays soft enter on choice-voice segment after primary consumed', () => {

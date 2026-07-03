@@ -463,7 +463,14 @@ export default function PracticeScreen({
 
     if (!tailChoiceErrorWithRepeat) return
 
-    const cycleKey = `${tailMessageId}:${wrongAttemptsOnCurrentQuestion}`
+    if (correctionPhase === 'voiceReady' || correctionPhase === 'voiceLocked') {
+      if (tailMessageId) {
+        correctionCycleKeyRef.current = tailMessageId
+      }
+      return
+    }
+
+    const cycleKey = tailMessageId ?? ''
     if (correctionCycleKeyRef.current === cycleKey) return
     correctionCycleKeyRef.current = cycleKey
 

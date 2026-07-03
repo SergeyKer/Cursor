@@ -1,8 +1,20 @@
 import {
+  isPracticeChoiceChipCorrectionType,
   isPracticeVoicePrimaryComposerType,
   type PracticeVoicePrimaryComposerType,
 } from '@/lib/practice/practiceCorrectionFamily'
 import type { PracticeQuestion } from '@/types/practice'
+
+export function buildChoiceVoiceComposerEnterKey(questionId: string): string {
+  return `${questionId}:choice-voice`
+}
+
+export function isChoiceChipVoiceCorrectionEnter(
+  questionType: PracticeQuestion['type'],
+  showVoiceComposer: boolean
+): boolean {
+  return showVoiceComposer && isPracticeChoiceChipCorrectionType(questionType)
+}
 
 export type PracticeComposerEnterClassOptions = {
   isChoiceVoiceCorrection: boolean
@@ -26,7 +38,11 @@ export function resolvePracticeComposerEnterClassOnce(
   const next: PracticeComposerEnterOnceState =
     prev.questionId === questionId ? prev : { questionId, consumed: false }
 
-  if (options.suppressEnterAnimation) {
+  const wantsSoftEnter =
+    !options.prefersReducedMotion &&
+    (options.isChoiceVoiceCorrection || options.isVoiceRepeatCorrection)
+
+  if (options.suppressEnterAnimation && !wantsSoftEnter) {
     return { enterClass: '', next: { ...next, consumed: true } }
   }
 

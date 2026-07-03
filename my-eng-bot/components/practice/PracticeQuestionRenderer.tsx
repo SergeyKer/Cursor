@@ -49,6 +49,10 @@ import {
   shouldKeepAudioInVoiceRepeatCorrection,
 } from '@/lib/practice/practiceCorrectionFamily'
 import { usePracticeComposerEnterClass } from '@/hooks/usePracticeComposerEnterClass'
+import {
+  buildChoiceVoiceComposerEnterKey,
+  isChoiceChipVoiceCorrectionEnter,
+} from '@/lib/practice/practiceComposerEnter'
 import { buildPracticePuzzleExercise } from '@/lib/practice/buildPracticePuzzleExercise'
 import type { PracticeQuestion } from '@/types/practice'
 
@@ -197,14 +201,17 @@ export default function PracticeQuestionRenderer({
     isVoiceRepeatCorrection ||
     isVoiceRepeatInCorrectionPause
   isVoiceRepeatPrimaryRef.current = isVoiceRepeatPrimary
-  const composerEnterKey =
-    isChoiceVoiceCorrectionComposer && question.type === 'choice'
-      ? `${question.id}:choice-voice`
-      : isVoiceRepeatCorrection || isVoiceRepeatInCorrectionPause
-        ? `${question.id}:voice-repeat`
-        : question.id
+  const choiceChipVoiceEnter = isChoiceChipVoiceCorrectionEnter(
+    question.type,
+    isChoiceVoiceCorrectionComposer
+  )
+  const composerEnterKey = choiceChipVoiceEnter
+    ? buildChoiceVoiceComposerEnterKey(question.id)
+    : isVoiceRepeatCorrection || isVoiceRepeatInCorrectionPause
+      ? `${question.id}:voice-repeat`
+      : question.id
   const composerEnterClass = usePracticeComposerEnterClass(composerEnterKey, {
-    isChoiceVoiceCorrection: isChoiceVoiceCorrectionComposer && question.type === 'choice',
+    isChoiceVoiceCorrection: choiceChipVoiceEnter,
     isVoiceRepeatCorrection: isVoiceRepeatCorrection || isVoiceRepeatInCorrectionPause,
     correctionMode,
     prefersReducedMotion,
@@ -705,10 +712,14 @@ export default function PracticeQuestionRenderer({
     (isChoiceVoiceCorrectionComposer && shouldKeepAudioInChoiceChipVoiceCorrection(question.type))
   const showComposerHelper =
     Boolean(helperText(question)) && !showAudioInComposer && !isVoiceRepeatCorrectionUI
+  const effectiveComposerEnterClass =
+    isVoiceFirstComposer && !prefersReducedMotion
+      ? 'lesson-text-soft-enter'
+      : composerEnterClass
   const composerFormClass = withAnswerPanelLockClass(
     showAudioInComposer
-      ? `${composerEnterClass} flex w-full flex-col gap-1`
-      : `${composerEnterClass} ${showComposerHelper ? CHAT_COMPOSER_COLUMN_SHELL_CLASS : CHAT_COMPOSER_FORM_CLASS}`,
+      ? `${effectiveComposerEnterClass} flex w-full flex-col gap-1`
+      : `${effectiveComposerEnterClass} ${showComposerHelper ? CHAT_COMPOSER_COLUMN_SHELL_CLASS : CHAT_COMPOSER_FORM_CLASS}`,
     answerPanelLocked
   )
   const composerGlassShadow = { boxShadow: 'var(--chat-composer-shadow)' } as const
@@ -876,6 +887,7 @@ export default function PracticeQuestionRenderer({
 
   return (
     <form
+      key={composerEnterKey}
       onSubmit={(event) => {
         event.preventDefault()
         submitText()
