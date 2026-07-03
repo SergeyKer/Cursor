@@ -176,4 +176,29 @@ describe('resolvePracticeComposerEnterClassOnce', () => {
     const q2Unfreeze = resolvePracticeComposerEnterClassOnce(state, 'q2', base)
     expect(q2Unfreeze.enterClass).toBe('')
   })
+
+  it('plays soft enter on choice-voice segment after primary consumed', () => {
+    let state = { questionId: '', consumed: false }
+    const primary = resolvePracticeComposerEnterClassOnce(state, 'q1', base)
+    state = primary.next
+    expect(primary.enterClass).toBe('lesson-enter')
+
+    const voice = resolvePracticeComposerEnterClassOnce(state, 'q1:choice-voice', {
+      ...base,
+      isChoiceVoiceCorrection: true,
+    })
+    expect(voice.enterClass).toBe('lesson-text-soft-enter')
+  })
+
+  it('plays soft enter on voice-repeat segment after primary consumed', () => {
+    let state = { questionId: '', consumed: false }
+    const primary = resolvePracticeComposerEnterClassOnce(state, 'q1', base)
+    state = primary.next
+
+    const voice = resolvePracticeComposerEnterClassOnce(state, 'q1:voice-repeat', {
+      ...base,
+      isVoiceRepeatCorrection: true,
+    })
+    expect(voice.enterClass).toBe('lesson-text-soft-enter')
+  })
 })

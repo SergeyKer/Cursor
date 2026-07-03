@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
+import LessonSentencePuzzle from '@/components/LessonSentencePuzzle'
 import PracticeAudioDeck, { type PracticeAudioDeckHandle } from '@/components/practice/PracticeAudioDeck'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import VoiceMicButton, { TextEditIcon } from '@/components/voice/VoiceMicButton'
@@ -48,6 +49,7 @@ import {
   shouldKeepAudioInVoiceRepeatCorrection,
 } from '@/lib/practice/practiceCorrectionFamily'
 import { usePracticeComposerEnterClass } from '@/hooks/usePracticeComposerEnterClass'
+import { buildPracticePuzzleExercise } from '@/lib/practice/buildPracticePuzzleExercise'
 import type { PracticeQuestion } from '@/types/practice'
 
 interface PracticeQuestionRendererProps {
@@ -65,6 +67,7 @@ interface PracticeQuestionRendererProps {
   onSubmit: (answer: string) => void
   suppressChoiceChipEnterAnimation?: boolean
   choiceChipsVisible?: boolean
+  puzzlePanelVisible?: boolean
   wrongChoiceText?: string | null
   clearSelectionSignal?: number
   prefersReducedMotion?: boolean
@@ -99,15 +102,11 @@ function inputPlaceholder(
   return 'Напиши ответ...'
 }
 
-function wordBank(question: PracticeQuestion): string[] {
-  const words =
-    question.shuffledWords && question.shuffledWords.length > 0
-      ? question.shuffledWords
-      : question.targetAnswer
-          .replace(/[.!?]$/g, '')
-          .split(/\s+/)
-          .filter(Boolean)
-  return [...words, ...(question.extraWords ?? [])]
+function helperText(question: PracticeQuestion): string {
+  if (question.type === 'dropdown-fill') return 'Выберите вариант и отправьте ответ.'
+  if (question.type === 'listening-select') return 'Сначала прослушайте фразу, затем выберите ответ.'
+  if (question.type === 'dictation') return 'Прослушайте фразу и напишите её по памяти.'
+  return ''
 }
 
 const ANSWER_PANEL_LOCK_CLASS = 'pointer-events-none opacity-60'
@@ -116,14 +115,6 @@ const PRACTICE_MULTI_ROW_INPUT_ROW_CLASS = 'flex w-full items-stretch gap-2'
 
 function withAnswerPanelLockClass(className: string, answerPanelLocked: boolean): string {
   return answerPanelLocked ? `${className} ${ANSWER_PANEL_LOCK_CLASS}` : className
-}
-
-function helperText(question: PracticeQuestion): string {
-  if (question.type === 'dropdown-fill') return 'Выберите вариант и отправьте ответ.'
-  if (question.type === 'listening-select') return 'Сначала прослушайте фразу, затем выберите ответ.'
-  if (question.type === 'word-builder-pro') return 'Нажимайте слова в правильном порядке.'
-  if (question.type === 'dictation') return 'Прослушайте фразу и напишите её по памяти.'
-  return ''
 }
 
 /** Метрики как communication в Chat; при STT - web-metrics через chatComposerMetrics. */
@@ -151,6 +142,7 @@ export default function PracticeQuestionRenderer({
   onSubmit,
   suppressChoiceChipEnterAnimation = false,
   choiceChipsVisible = true,
+  puzzlePanelVisible = true,
   wrongChoiceText = null,
   clearSelectionSignal = 0,
   prefersReducedMotion = false,
@@ -172,8 +164,6 @@ export default function PracticeQuestionRenderer({
   } = choiceVoice
   const [voiceWebMetricsClient, setVoiceWebMetricsClient] = useState(false)
   const [selectedOption, setSelectedOption] = useState('')
-  const [selectedWords, setSelectedWords] = useState<string[]>([])
-  const [remainingWords, setRemainingWords] = useState<string[]>(() => wordBank(question))
   const choices = useMemo(() => {
     const raw = question.options ?? []
     if (isChoiceLikePracticeType(question.type)) {
@@ -207,7 +197,13 @@ export default function PracticeQuestionRenderer({
     isVoiceRepeatCorrection ||
     isVoiceRepeatInCorrectionPause
   isVoiceRepeatPrimaryRef.current = isVoiceRepeatPrimary
-  const composerEnterClass = usePracticeComposerEnterClass(question.id, {
+  const composerEnterKey =
+    isChoiceVoiceCorrectionComposer && question.type === 'choice'
+      ? `${question.id}:choice-voice`
+      : isVoiceRepeatCorrection || isVoiceRepeatInCorrectionPause
+        ? `${question.id}:voice-repeat`
+        : question.id
+  const composerEnterClass = usePracticeComposerEnterClass(composerEnterKey, {
     isChoiceVoiceCorrection: isChoiceVoiceCorrectionComposer && question.type === 'choice',
     isVoiceRepeatCorrection: isVoiceRepeatCorrection || isVoiceRepeatInCorrectionPause,
     correctionMode,
@@ -225,7 +221,7 @@ export default function PracticeQuestionRenderer({
     (choiceCorrectionPhase === 'idle' || choiceCorrectionPhase === 'chips')
   const canUseDropdown =
     choices.length > 0 && !correctionMode && !isVoiceRepeatCorrectionUI && question.type === 'dropdown-fill'
-  const canUseWordBank =
+  const canUsePuzzlePanel =
     !correctionMode &&
     !isVoiceRepeatCorrectionUI &&
     (question.type === 'sentence-surgery' || question.type === 'word-builder-pro')
@@ -484,8 +480,6 @@ export default function PracticeQuestionRenderer({
     hardResetSpeechRecognition()
     setDraft('')
     setSelectedOption('')
-    setSelectedWords([])
-    setRemainingWords(wordBank(question))
     setTextFallbackUnlocked(false)
     setChoiceTapHintVisible(false)
     setFieldTapEngaged(false)
@@ -541,12 +535,6 @@ export default function PracticeQuestionRenderer({
       commitChoiceVoiceText(answer)
     }
 
-    onSubmit(answer)
-  }
-
-  const submitSelectedWords = () => {
-    const answer = selectedWords.join(' ').trim()
-    if (!answer || disabled) return
     onSubmit(answer)
   }
 
@@ -686,55 +674,26 @@ export default function PracticeQuestionRenderer({
     )
   }
 
-  if (canUseWordBank) {
+  if (canUsePuzzlePanel) {
     return (
       <div
         className={withAnswerPanelLockClass(
-          `${composerEnterClass} ${CHAT_COMPOSER_COLUMN_SHELL_CLASS}`,
+          `${composerEnterClass} w-full`,
           answerPanelLocked
         )}
-        style={{ boxShadow: 'var(--chat-composer-shadow)' }}
       >
-        <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{helperText(question)}</p>
-        <div className="min-h-[44px] rounded-xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-3 py-2 text-[15px] text-[var(--text)]">
-          {selectedWords.length > 0 ? selectedWords.join(' ') : 'Соберите ответ из слов ниже'}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {remainingWords.map((word, index) => (
-            <button
-              key={`${word}-${index}`}
-              type="button"
-              disabled={disabled}
-              onClick={() => {
-                setSelectedWords((current) => [...current, word])
-                setRemainingWords((current) => current.filter((_, itemIndex) => itemIndex !== index))
-              }}
-              className="rounded-full border border-[var(--border)] bg-white px-3 py-2 text-sm font-medium text-[var(--text)] disabled:opacity-60"
-            >
-              {word}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedWords([])
-              setRemainingWords(wordBank(question))
-            }}
-            disabled={disabled || selectedWords.length === 0}
-            className="min-h-[44px] flex-1 rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm font-semibold text-[var(--text)] disabled:opacity-50"
-          >
-            Сбросить
-          </button>
-          <button
-            type="button"
-            onClick={submitSelectedWords}
-            disabled={disabled || selectedWords.length === 0}
-            className="min-h-[44px] flex-1 rounded-xl bg-[var(--chat-send-bg)] px-3 py-2 text-sm font-semibold text-[var(--chat-send-text)] disabled:opacity-50"
-          >
-            Проверить
-          </button>
+        <div
+          className={!puzzlePanelVisible ? 'pointer-events-none invisible' : undefined}
+          aria-hidden={!puzzlePanelVisible}
+        >
+          <LessonSentencePuzzle
+            key={question.id}
+            exercise={buildPracticePuzzleExercise(question)}
+            submitMode="practice"
+            onPracticeSubmit={onSubmit}
+            disabled={disabled || answerPanelLocked}
+            compact
+          />
         </div>
       </div>
     )

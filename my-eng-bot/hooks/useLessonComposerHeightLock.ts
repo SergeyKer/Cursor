@@ -17,7 +17,9 @@ type UseLessonComposerHeightLockParams = {
   optionCount: number
   choiceOptions?: string[]
   containerWidthPx?: number
-  puzzleWords?: string[]
+  puzzleSlotTokens?: string[]
+  puzzleBankWords?: string[]
+  puzzleHasTitle?: boolean
   puzzleHasInstruction?: boolean
   compact: boolean
   /** Только шаги с чипами: не трогаем text/puzzle/translate композер. */
@@ -30,7 +32,9 @@ function resolveIncomingComposerMinHeight(params: {
   optionCount: number
   choiceOptions?: string[]
   containerWidthPx?: number
-  puzzleWords?: string[]
+  puzzleSlotTokens?: string[]
+  puzzleBankWords?: string[]
+  puzzleHasTitle?: boolean
   puzzleHasInstruction?: boolean
   compact: boolean
 }): number {
@@ -39,7 +43,9 @@ function resolveIncomingComposerMinHeight(params: {
     optionCount: params.optionCount,
     choiceOptions: params.choiceOptions,
     containerWidthPx: params.containerWidthPx,
-    puzzleWords: params.puzzleWords,
+    puzzleSlotTokens: params.puzzleSlotTokens,
+    puzzleBankWords: params.puzzleBankWords,
+    puzzleHasTitle: params.puzzleHasTitle,
     puzzleHasInstruction: params.puzzleHasInstruction,
     compact: params.compact,
   })
@@ -72,7 +78,9 @@ export function useLessonComposerHeightLock({
   optionCount,
   choiceOptions,
   containerWidthPx,
-  puzzleWords,
+  puzzleSlotTokens,
+  puzzleBankWords,
+  puzzleHasTitle,
   puzzleHasInstruction,
   compact,
   enabled,
@@ -92,7 +100,9 @@ export function useLessonComposerHeightLock({
     optionCount,
     choiceOptions,
     containerWidthPx,
-    puzzleWords,
+    puzzleSlotTokens,
+    puzzleBankWords,
+    puzzleHasTitle,
     puzzleHasInstruction,
     compact,
   }
@@ -126,7 +136,9 @@ export function useLessonComposerHeightLock({
     optionCount,
     panelKind,
     puzzleHasInstruction,
-    puzzleWords,
+    puzzleSlotTokens,
+    puzzleBankWords,
+    puzzleHasTitle,
     transitionKey,
   ])
 
@@ -173,7 +185,9 @@ export function useLessonComposerHeightLock({
     containerWidthPx,
     panelKind,
     puzzleHasInstruction,
-    puzzleWords,
+    puzzleSlotTokens,
+    puzzleBankWords,
+    puzzleHasTitle,
     stackRef,
     transitionKey,
   ])

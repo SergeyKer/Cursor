@@ -30,29 +30,88 @@ export function estimateFlexChipWidth(text: string, style: FlexChipStyle): numbe
   return Math.max(FLEX_CHIP_MIN_WIDTH_PX, Math.ceil(contentWidth))
 }
 
-export function countFlexChipRows(
+export function layoutFlexChipRows(
   items: string[],
   containerWidthPx: number,
-  gapPx: number,
-  style: FlexChipStyle
-): number {
-  if (items.length === 0) return 0
+  style: FlexChipStyle,
+  gapPx: number = PUZZLE_WORD_BANK_ROW_GAP_PX
+): string[][] {
+  if (items.length === 0) return []
+
   const width = Math.max(1, containerWidthPx)
-  let rows = 1
+  const rows: string[][] = [[]]
   let rowWidth = 0
 
   for (const item of items) {
     const chipWidth = estimateFlexChipWidth(item, style)
     const needed = rowWidth === 0 ? chipWidth : rowWidth + gapPx + chipWidth
     if (rowWidth > 0 && needed > width) {
-      rows += 1
+      rows.push([item])
       rowWidth = chipWidth
     } else {
+      rows[rows.length - 1].push(item)
       rowWidth = needed
     }
   }
 
   return rows
+}
+
+export type FlexChipRowWithIndex = {
+  token: string
+  index: number
+}
+
+export function layoutFlexChipRowsWithIndices(
+  items: string[],
+  containerWidthPx: number,
+  style: FlexChipStyle,
+  gapPx: number = PUZZLE_WORD_BANK_ROW_GAP_PX
+): FlexChipRowWithIndex[][] {
+  if (items.length === 0) return []
+
+  const width = Math.max(1, containerWidthPx)
+  const rows: FlexChipRowWithIndex[][] = [[]]
+  let rowWidth = 0
+
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index]
+    const chipWidth = estimateFlexChipWidth(item, style)
+    const needed = rowWidth === 0 ? chipWidth : rowWidth + gapPx + chipWidth
+    if (rowWidth > 0 && needed > width) {
+      rows.push([{ token: item, index }])
+      rowWidth = chipWidth
+    } else {
+      rows[rows.length - 1].push({ token: item, index })
+      rowWidth = needed
+    }
+  }
+
+  return rows
+}
+
+export function resolveFlexRowSlotWidthPx(
+  laneWidthPx: number,
+  slotBasisCount: number,
+  gapPx: number = PUZZLE_WORD_BANK_ROW_GAP_PX
+): number {
+  if (slotBasisCount <= 0) return 0
+  const width = Math.max(1, laneWidthPx)
+  return Math.max(0, Math.floor((width - (slotBasisCount - 1) * gapPx) / slotBasisCount))
+}
+
+export function resolveFlexChipRowBasisCount(rows: string[][]): number {
+  if (rows.length === 0) return 0
+  return Math.max(...rows.map((row) => row.length))
+}
+
+export function countFlexChipRows(
+  items: string[],
+  containerWidthPx: number,
+  gapPx: number,
+  style: FlexChipStyle
+): number {
+  return layoutFlexChipRows(items, containerWidthPx, style, gapPx).length
 }
 
 export function estimateFlexChipBlockMinHeight(params: {

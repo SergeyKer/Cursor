@@ -692,6 +692,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   // DEBUG: удалить после редактирования урока
   const debugFinalePendingRef = React.useRef<string | null>(null)
   const debugSkipToFinaleAfterResetRef = React.useRef(false)
+  const debugPracticeFinalePendingRef = React.useRef<PracticeOpenRequest | null>(null)
   const activeStructuredLesson =
     activeStructuredLessonRuntime ??
     (structuredLessonLoadingId ? null : activeLearningLessonId ? getStructuredLessonById(activeLearningLessonId) : null)
@@ -3715,6 +3716,25 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     [resolvePracticeRequest, startPracticeFromLesson]
   )
 
+  // DEBUG: remove after practice editing
+  const handleDebugSkipToPracticeFinale = useCallback(
+    (request?: PracticeOpenRequest) => {
+      menuOpenSnapshotRef.current = null
+      setMenuOpen(false)
+
+      const activeSession = practiceSession.session
+      if (dialogStarted && activeSession?.status === 'active') {
+        practiceSession.completeSession()
+        return
+      }
+
+      if (!request?.lessonId) return
+      debugPracticeFinalePendingRef.current = request
+      void openPracticeSession(request)
+    },
+    [dialogStarted, openPracticeSession, practiceSession]
+  )
+
   const openAccentTrainer = useCallback((lessonId?: string) => {
     resetStructuredLessonSession()
     setActiveAccentLessonId(lessonId ?? null)
@@ -4280,6 +4300,16 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     )
     goToStructuredLessonFinale()
   }, [activeStructuredLesson, lessonViewStage, goToStructuredLessonFinale])
+
+  // DEBUG: remove after practice editing - fallback if finale did not apply on session start
+  useEffect(() => {
+    if (!debugPracticeFinalePendingRef.current) return
+    const session = practiceSession.session
+    if (!session || session.status !== 'active') return
+
+    debugPracticeFinalePendingRef.current = null
+    practiceSession.completeSession()
+  }, [practiceSession.session?.id, practiceSession.session?.status, practiceSession])
 
   useEffect(() => {
     if (!selectedPostLessonAction) return
@@ -5358,6 +5388,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const activeLearningLesson = activeLearningLessonId ? getLearningLessonById(activeLearningLessonId) : null
   const isLessonActive = Boolean(activeLearningLesson)
   const isPracticeActive = dialogStarted && Boolean(practiceSession.session)
+  const practiceSessionActiveForDebug =
+    isPracticeActive && practiceSession.session?.status === 'active'
   const isAccentActive = accentTrainerActive
   const isVocabularyHubActive = vocabularyWorldsActive || vocabularyByLevelActive
   const activeLessonIntro =
@@ -6976,6 +7008,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     onPracticeTtsSpeedDefaultChange={handlePracticeTtsSpeedDefaultChange}
                     onOpenLearningLesson={openOrContinueLearningLesson}
                     onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}
+                    onDebugSkipToPracticeFinale={handleDebugSkipToPracticeFinale}
+                    practiceSessionActiveForDebug={practiceSessionActiveForDebug}
                     onGenerateLearningLesson={openGeneratedLearningLesson}
                     onOpenPracticeSession={openPracticeSession}
                     onGeneratePracticeSession={generatePracticeSession}
@@ -7396,6 +7430,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onOpenLearningLesson={openOrContinueLearningLesson}
         onGenerateLearningLesson={openGeneratedLearningLesson}
         onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}
+        onDebugSkipToPracticeFinale={handleDebugSkipToPracticeFinale}
+        practiceSessionActiveForDebug={practiceSessionActiveForDebug}
         onOpenPracticeSession={openPracticeSession}
         onGeneratePracticeSession={generatePracticeSession}
         onOpenAccentTrainer={openAccentTrainer}

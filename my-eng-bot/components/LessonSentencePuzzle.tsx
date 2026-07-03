@@ -1,15 +1,28 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Exercise, SentencePuzzleVariant } from '@/types/lesson'
-import { estimatePuzzleWordBankMinHeight } from '@/lib/puzzlePanelLayout'
+import {
+  CHIP_PANEL_DEFAULT_WIDTH_PX,
+  layoutFlexChipRowsWithIndices,
+  resolveFlexChipRowBasisCount,
+  resolveFlexRowSlotWidthPx,
+} from '@/lib/chipFlexLayout'
+import {
+  estimatePuzzleWordBankMinHeight,
+  PUZZLE_PANEL_SLOT_ROW_GAP_PX,
+} from '@/lib/puzzlePanelLayout'
+import { resolveLessonSentencePuzzleCheckAction } from '@/lib/practice/resolveLessonSentencePuzzleCheckAction'
 import { LESSON_PUZZLE_COMPLETE_MESSAGE } from '@/utils/footerMessages'
 
 type LessonSentencePuzzleProps = {
   exercise: Exercise
   disabled?: boolean
   progressKey?: string
-  onComplete: (summary: {
+  submitMode?: 'lesson' | 'practice'
+  compact?: boolean
+  onPracticeSubmit?: (submittedAnswer: string) => void
+  onComplete?: (summary: {
     submittedAnswer: string
     baseMessage?: string
     taskCurrent?: number
@@ -111,6 +124,9 @@ export default function LessonSentencePuzzle({
   exercise,
   disabled = false,
   progressKey,
+  submitMode = 'lesson',
+  compact = false,
+  onPracticeSubmit,
   onComplete,
   onSubPuzzleComplete,
   onPuzzleProgressChange,
@@ -127,6 +143,8 @@ export default function LessonSentencePuzzle({
   const [selectedWords, setSelectedWords] = useState<string[]>([])
   const [attempts, setAttempts] = useState(0)
   const [locked, setLocked] = useState(false)
+  const laneRef = useRef<HTMLDivElement>(null)
+  const [laneWidthPx, setLaneWidthPx] = useState<number | undefined>(undefined)
 
   const activeVariant = variants[variantIndex]
   const availableWords = useMemo(() => {
@@ -144,10 +162,45 @@ export default function LessonSentencePuzzle({
     })
   }, [activeVariant, selectedWords])
 
-  const wordBankMinHeight = useMemo(
-    () => (activeVariant ? estimatePuzzleWordBankMinHeight(getVariantWords(activeVariant)) : 0),
-    [activeVariant]
-  )
+  const wordBankMinHeight = useMemo(() => {
+    if (!activeVariant) return 0
+    const width = laneWidthPx ?? CHIP_PANEL_DEFAULT_WIDTH_PX
+    return estimatePuzzleWordBankMinHeight(getVariantWords(activeVariant), width)
+  }, [activeVariant, laneWidthPx])
+
+  const slotRows = useMemo(() => {
+    if (!activeVariant) return []
+    const width = laneWidthPx ?? CHIP_PANEL_DEFAULT_WIDTH_PX
+    return layoutFlexChipRowsWithIndices(activeVariant.correctOrder, width, 'puzzle', PUZZLE_PANEL_SLOT_ROW_GAP_PX)
+  }, [activeVariant, laneWidthPx])
+
+  const slotWidthPx = useMemo(() => {
+    const width = laneWidthPx ?? CHIP_PANEL_DEFAULT_WIDTH_PX
+    const tokenRows = slotRows.map((row) => row.map((item) => item.token))
+    const basisCount =
+      resolveFlexChipRowBasisCount(tokenRows) || activeVariant?.correctOrder.length || 0
+    return resolveFlexRowSlotWidthPx(width, basisCount, PUZZLE_PANEL_SLOT_ROW_GAP_PX)
+  }, [activeVariant?.correctOrder.length, laneWidthPx, slotRows])
+
+  useLayoutEffect(() => {
+    const lane = laneRef.current
+    if (!lane) return
+
+    const measure = () => {
+      const width = Math.round(lane.clientWidth)
+      if (width > 0) {
+        setLaneWidthPx(width)
+      }
+    }
+
+    measure()
+
+    if (typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver(measure)
+    observer.observe(lane)
+    return () => observer.disconnect()
+  }, [activeVariant?.id, variantIndex])
 
   useEffect(() => {
     const stored = readStoredProgress(progressKey, variants.length)
@@ -209,7 +262,7 @@ export default function LessonSentencePuzzle({
     if (isLastVariant) {
       onSubPuzzleComplete?.({ subIndex: variantIndex, attempts: attemptsAfterForgiveness })
       clearStoredProgress(progressKey)
-      onComplete({
+      onComplete?.({
         submittedAnswer: activeVariant.correctAnswer,
         baseMessage: LESSON_PUZZLE_COMPLETE_MESSAGE,
         taskCurrent: variantIndex + 1,
@@ -264,10 +317,23 @@ export default function LessonSentencePuzzle({
     if (isBusy || !isFilled) return
     const submittedAnswer = selectedWords.join(' ')
     const isCorrect = sameOrder(selectedWords, activeVariant.correctOrder)
-    if (!isCorrect) {
+    const action = resolveLessonSentencePuzzleCheckAction({
+      submitMode,
+      isFilled,
+      isCorrect,
+    })
+
+    if (action === 'practiceSubmit') {
+      onPracticeSubmit?.(submittedAnswer)
+      return
+    }
+
+    if (action === 'lessonRetry') {
       resetAttempt(attempts + 1, submittedAnswer)
       return
     }
+
+    if (action !== 'lessonSuccess') return
 
     const isLastVariant = variantIndex >= variants.length - 1
     setLocked(true)
@@ -275,7 +341,7 @@ export default function LessonSentencePuzzle({
     if (isLastVariant) {
       onSubPuzzleComplete?.({ subIndex: variantIndex, attempts })
       clearStoredProgress(progressKey)
-      onComplete({
+      onComplete?.({
         submittedAnswer: activeVariant.correctAnswer,
         baseMessage: LESSON_PUZZLE_COMPLETE_MESSAGE,
         taskCurrent: variantIndex + 1,
@@ -304,46 +370,55 @@ export default function LessonSentencePuzzle({
     setSelectedWords((current) => current.filter((_, itemIndex) => itemIndex !== index))
   }
 
-  const slotCount = activeVariant.correctOrder.length
-  const slotGridClass =
-    slotCount <= 3 ? 'grid-cols-3' : slotCount <= 4 ? 'grid-cols-4' : 'grid-cols-2 sm:grid-cols-4'
   const instructionText = activeVariant.instruction.trim()
+  const slotStyle =
+    slotWidthPx > 0
+      ? { flex: `0 0 ${slotWidthPx}px`, width: slotWidthPx, maxWidth: slotWidthPx }
+      : undefined
 
   return (
-    <section className="rounded-[1.1rem] border border-blue-100 bg-white/95 px-2.5 py-2 shadow-sm sm:px-3" aria-label={activeVariant.title}>
-      <h3 className="mb-1.5 text-sm font-semibold leading-tight text-slate-900">{activeVariant.title}</h3>
+    <section className="rounded-[1.1rem] border border-blue-100 bg-white/95 px-2.5 py-2 shadow-sm sm:px-3" aria-label={activeVariant.title || 'Пазл'}>
+      {!compact && activeVariant.title ? (
+        <h3 className="mb-1.5 text-sm font-semibold leading-tight text-slate-900">{activeVariant.title}</h3>
+      ) : null}
 
-      {instructionText ? (
+      {!compact && instructionText ? (
         <p className="mb-2 text-[13px] leading-snug text-slate-600">{instructionText}</p>
       ) : null}
 
-      <div className={`mb-2 grid gap-1.5 ${slotGridClass}`} aria-label="Слоты предложения">
-        {activeVariant.correctOrder.map((_, index) => {
-          const word = selectedWords[index]
-          return (
-            <button
-              key={`slot-${activeVariant.id}-${index}`}
-              type="button"
-              disabled={!word || isBusy}
-              onClick={() => handleReturnWord(index)}
-              className={`inline-flex h-9 min-w-0 items-center justify-center rounded-lg border px-2 text-sm font-semibold transition ${
-                word
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                  : 'border-dashed border-slate-300 bg-slate-50 text-slate-400'
-              }`}
-              aria-label={word ? `Убрать слово ${word}` : `Пустой слот ${index + 1}`}
-            >
-              {word ?? '...'}
-            </button>
-          )
-        })}
-      </div>
+      <div ref={laneRef}>
+        <div className="mb-2 flex flex-col gap-1.5" aria-label="Слоты предложения">
+          {slotRows.map((row, rowIndex) => (
+            <div key={`slot-row-${activeVariant.id}-${rowIndex}`} className="flex justify-start gap-1.5">
+              {row.map(({ index }) => {
+                const word = selectedWords[index]
+                return (
+                  <button
+                    key={`slot-${activeVariant.id}-${index}`}
+                    type="button"
+                    disabled={!word || isBusy}
+                    onClick={() => handleReturnWord(index)}
+                    style={slotStyle}
+                    className={`inline-flex h-9 min-w-0 shrink-0 items-center justify-center rounded-lg border px-2 text-sm font-semibold transition ${
+                      word
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                        : 'border-dashed border-slate-300 bg-slate-50 text-slate-400'
+                    }`}
+                    aria-label={word ? `Убрать слово ${word}` : `Пустой слот ${index + 1}`}
+                  >
+                    {word ?? '...'}
+                  </button>
+                )
+              })}
+            </div>
+          ))}
+        </div>
 
-      <div
-        className="mb-2 flex flex-wrap content-start gap-1.5"
-        style={wordBankMinHeight > 0 ? { minHeight: wordBankMinHeight } : undefined}
-        aria-label="Доступные слова"
-      >
+        <div
+          className="mb-2 flex flex-wrap content-start gap-1.5"
+          style={wordBankMinHeight > 0 ? { minHeight: wordBankMinHeight } : undefined}
+          aria-label="Доступные слова"
+        >
         {availableWords.map((word, index) => (
           <button
             key={`${activeVariant.id}-${word}-${index}`}
@@ -356,6 +431,7 @@ export default function LessonSentencePuzzle({
             {word}
           </button>
         ))}
+        </div>
       </div>
 
       <button

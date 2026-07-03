@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   isPracticeChoiceChipsPanel,
+  isPracticePuzzlePanel,
   resolvePracticeChoiceComposerLayout,
+  resolvePracticePuzzleComposerLayout,
 } from '@/lib/practice/practiceComposerLayout'
 import type { PracticeQuestion } from '@/types/practice'
 
@@ -50,6 +52,22 @@ describe('isPracticeChoiceChipsPanel', () => {
   })
 })
 
+describe('isPracticePuzzlePanel', () => {
+  it('returns true for sentence-surgery in idle phase', () => {
+    expect(isPracticePuzzlePanel(question({ type: 'sentence-surgery', options: undefined }), 'idle')).toBe(
+      true
+    )
+  })
+
+  it('returns false in voiceReady correction phase', () => {
+    expect(isPracticePuzzlePanel(question({ type: 'sentence-surgery' }), 'voiceReady')).toBe(false)
+  })
+
+  it('returns false for choice type', () => {
+    expect(isPracticePuzzlePanel(question({ type: 'choice' }), 'idle')).toBe(false)
+  })
+})
+
 describe('resolvePracticeChoiceComposerLayout', () => {
   const base = {
     isChoicePanel: true,
@@ -77,6 +95,25 @@ describe('resolvePracticeChoiceComposerLayout', () => {
       })
     ).toEqual({
       mountChips: true,
+      reserveMinHeight: true,
+      lockReleased: false,
+    })
+  })
+})
+
+describe('resolvePracticePuzzleComposerLayout', () => {
+  const base = {
+    isPuzzlePanel: true,
+    deferUntilReveal: true,
+    isRevealInProgress: true,
+    isRevealInitializedForKey: true,
+    isPuzzleVisible: false,
+    prefersReducedMotion: false,
+  }
+
+  it('reserves min height while puzzle hidden during reveal', () => {
+    expect(resolvePracticePuzzleComposerLayout(base)).toEqual({
+      mountPuzzle: true,
       reserveMinHeight: true,
       lockReleased: false,
     })

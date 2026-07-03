@@ -141,7 +141,9 @@ export function estimateLessonComposerMinHeight(params: {
   panelKind: LessonComposerPanelKind
   optionCount?: number
   choiceOptions?: string[]
-  puzzleWords?: string[]
+  puzzleSlotTokens?: string[]
+  puzzleBankWords?: string[]
+  puzzleHasTitle?: boolean
   puzzleHasInstruction?: boolean
   containerWidthPx?: number
   compact?: boolean
@@ -162,12 +164,15 @@ export function estimateLessonComposerMinHeight(params: {
     case 'text-input':
       return stackPadding + TEXT_INPUT_COMPOSER_HEIGHT_PX
     case 'puzzle': {
-      const words = params.puzzleWords ?? []
+      const slotTokens = params.puzzleSlotTokens ?? []
+      const bankWords = params.puzzleBankWords ?? slotTokens
       const fallback = parseRemToPx(PUZZLE_BOTTOM_STACK_FALLBACK)
       const panelHeight =
-        words.length > 0
+        slotTokens.length > 0 || bankWords.length > 0
           ? estimatePuzzlePanelMinHeight({
-              words,
+              slotTokens,
+              bankWords,
+              hasTitle: params.puzzleHasTitle,
               hasInstruction: params.puzzleHasInstruction ?? true,
               containerWidthPx: params.containerWidthPx,
             })

@@ -371,6 +371,16 @@ export interface MenuSectionPanelsProps {
   onOpenLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void | Promise<void>
   /** DEBUG: сразу к финалу выбранного structured-урока. Удалить после редактирования. */
   onDebugSkipToLessonFinale?: (lessonId: string, panel: LessonsPanel) => void
+  /** DEBUG: сразу к финалу практики. Удалить после редактирования. */
+  onDebugSkipToPracticeFinale?: (request?: {
+    lessonId?: string
+    mode: PracticeMode
+    entrySource: PracticeEntrySource
+    customTopic?: string
+    referenceExerciseType?: PracticeExerciseType
+  }) => void
+  /** DEBUG: активная сессия практики (для skip-to-finale из меню). */
+  practiceSessionActiveForDebug?: boolean
   /** Сгенерировать новый вариант урока через LLM, не открывая локальную версию. */
   onGenerateLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void | Promise<void>
   onOpenPracticeSession?: (request: {
@@ -449,6 +459,8 @@ export default function MenuSectionPanels({
   onAiChatPanelChange,
   onOpenLearningLesson,
   onDebugSkipToLessonFinale,
+  onDebugSkipToPracticeFinale,
+  practiceSessionActiveForDebug = false,
   onGenerateLearningLesson,
   onOpenPracticeSession,
   onGeneratePracticeSession,
@@ -1293,6 +1305,31 @@ export default function MenuSectionPanels({
     selectedTheoryTopicLessonId,
   ])
 
+  // DEBUG: удалить после редактирования практики
+  const debugSelectedPractice = React.useMemo((): {
+    lessonId: string
+    mode: PracticeMode
+    entrySource: PracticeEntrySource
+    referenceExerciseType?: PracticeExerciseType
+  } | null => {
+    if (menuView !== 'lessons' || lessonsPanel !== 'practice') return null
+    if (!selectedPracticeLessonId) return null
+    if (selectedPracticeMode === 'reference' && !selectedReferenceExerciseType) return null
+    return {
+      lessonId: selectedPracticeLessonId,
+      mode: selectedPracticeMode,
+      entrySource: 'menu',
+      referenceExerciseType:
+        selectedPracticeMode === 'reference' ? selectedReferenceExerciseType : undefined,
+    }
+  }, [
+    menuView,
+    lessonsPanel,
+    selectedPracticeLessonId,
+    selectedPracticeMode,
+    selectedReferenceExerciseType,
+  ])
+
   const resetTutorState = React.useCallback(() => {
     setTutorImageError(null)
     setTutorLoading(false)
@@ -1578,6 +1615,25 @@ export default function MenuSectionPanels({
                 className={menuNavIconButtonClass}
                 aria-label="DEBUG: финал урока"
                 title="DEBUG: финал урока"
+              >
+                <span className="text-[13px] font-bold leading-none text-[var(--text-muted)]">⏭</span>
+              </button>
+            ) : null}
+            {onDebugSkipToPracticeFinale && (practiceSessionActiveForDebug || debugSelectedPractice) ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (practiceSessionActiveForDebug) {
+                    onDebugSkipToPracticeFinale()
+                    return
+                  }
+                  if (debugSelectedPractice) {
+                    onDebugSkipToPracticeFinale(debugSelectedPractice)
+                  }
+                }}
+                className={menuNavIconButtonClass}
+                aria-label="DEBUG: финал практики"
+                title="DEBUG: финал практики"
               >
                 <span className="text-[13px] font-bold leading-none text-[var(--text-muted)]">⏭</span>
               </button>

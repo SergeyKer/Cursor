@@ -104,6 +104,23 @@ describe('normalizeAiPracticeQuestion', () => {
     expect(q!.hint).toBeUndefined()
     expect(q!.audioText).toBe("It's dark.")
   })
+
+  it('replaces stale sentence-surgery prompt and rebuilds shuffledWords from lesson puzzle', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+    const row = {
+      type: 'sentence-surgery',
+      prompt: 'Соберите три предложения из слов.',
+      targetAnswer: "It's dark.",
+      acceptedAnswers: [],
+      shuffledWords: ["It's", 'dark'],
+    }
+    const q = normalizeAiPracticeQuestion(row, lesson!, 3)
+    expect(q).not.toBeNull()
+    expect(q!.prompt).not.toMatch(/три предложен/i)
+    expect(q!.targetAnswer).toMatch(/go home/i)
+    expect(q!.shuffledWords).toEqual(["It's", 'time', 'to', 'go', 'home'])
+  })
 })
 
 describe('isChoiceLikePracticeType', () => {

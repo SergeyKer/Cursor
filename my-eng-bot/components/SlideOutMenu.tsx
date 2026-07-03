@@ -54,6 +54,15 @@ interface SlideOutMenuProps {
   onGenerateLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => Promise<void> | void
   /** DEBUG: сразу к финалу выбранного structured-урока. Удалить после редактирования. */
   onDebugSkipToLessonFinale?: (lessonId: string, panel: LessonsPanel) => void
+  /** DEBUG: сразу к финалу практики. Удалить после редактирования. */
+  onDebugSkipToPracticeFinale?: (request?: {
+    lessonId?: string
+    mode: PracticeMode
+    entrySource: PracticeEntrySource
+    customTopic?: string
+    referenceExerciseType?: PracticeExerciseType
+  }) => void
+  practiceSessionActiveForDebug?: boolean
   onOpenPracticeSession?: (request: {
     lessonId?: string
     mode: PracticeMode
@@ -123,6 +132,8 @@ export default function SlideOutMenu({
   onOpenLearningLesson,
   onGenerateLearningLesson,
   onDebugSkipToLessonFinale,
+  onDebugSkipToPracticeFinale,
+  practiceSessionActiveForDebug = false,
   onOpenPracticeSession,
   onGeneratePracticeSession,
   onOpenAccentTrainer,
@@ -257,6 +268,8 @@ export default function SlideOutMenu({
         onOpenLearningLesson={onOpenLearningLesson}
         onGenerateLearningLesson={onGenerateLearningLesson}
         onDebugSkipToLessonFinale={onDebugSkipToLessonFinale}
+        onDebugSkipToPracticeFinale={onDebugSkipToPracticeFinale}
+        practiceSessionActiveForDebug={practiceSessionActiveForDebug}
         onOpenPracticeSession={onOpenPracticeSession}
         onGeneratePracticeSession={onGeneratePracticeSession}
         onOpenAccentTrainer={onOpenAccentTrainer}

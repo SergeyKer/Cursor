@@ -1,3 +1,4 @@
+import type { PracticeFlowState } from '@/hooks/usePracticeSession'
 import {
   LESSON_TEXT_FADE_MS,
   LESSON_TEXT_SECTION_PAUSE_MS,
@@ -31,4 +32,24 @@ export function showVoiceCorrectionComposer(
   if (phase !== 'voiceLocked' && phase !== 'voiceReady') return false
   if (!questionType) return false
   return isPracticeRepeatCorrectionType(questionType as PracticeQuestion['type'])
+}
+
+/** Сброс correctionPhase в idle при уходе из correction-flow. */
+export function shouldResetCorrectionPhase(params: {
+  isRepeatCorrectionType: boolean
+  isCorrectionSession: boolean
+  wrongAttemptsOnCurrentQuestion: number
+  correctionPhase: PracticeChoiceCorrectionPhase
+  state: PracticeFlowState
+}): boolean {
+  if (!params.isRepeatCorrectionType) return true
+
+  const holdVoicePanel =
+    params.wrongAttemptsOnCurrentQuestion > 0 &&
+    (params.correctionPhase === 'voiceReady' || params.correctionPhase === 'voiceLocked') &&
+    (params.state === 'feedback' || params.state === 'generating_next')
+
+  if (holdVoicePanel) return false
+  if (!params.isCorrectionSession) return true
+  return false
 }

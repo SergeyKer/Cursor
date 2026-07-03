@@ -150,6 +150,7 @@ function buildSystemPrompt(): string {
     'distractorTier minimal-pair: spelling/phonetic confusables, 1-2 character differences.',
     'For type voice-shadow: prompt MUST be Russian situational context only (Ситуация / Тема) or a neutral listen-and-repeat instruction. Never include targetAnswer or phrases like "Повторите фразу: ..." in prompt.',
     'For type voice-shadow: put the full English phrase only in audioText and targetAnswer. Leave hint empty.',
+    'For type sentence-surgery or word-builder-pro: one phrase only — never "three sentences" lesson copy. shuffledWords must be exact word tokens of targetAnswer (no period token). prompt: ask to arrange words in order.',
     'Do not omit options for choice-like question types.',
     'All English answers and options must be natural, grammatical English. Wrong options may be incorrect for the task, but never nonsense or broken phrases like "It\'s dark to go.".',
     'Prompts can be in Russian with English targets. Keep the tone warm and concise.',

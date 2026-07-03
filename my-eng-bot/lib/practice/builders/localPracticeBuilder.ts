@@ -17,6 +17,8 @@ import {
   resolvePracticeLessonStep,
   type ResolvedPracticeLessonStep,
 } from '@/lib/practice/resolvePracticeLessonStep'
+import { resolvePracticeSentencePuzzleSlice } from '@/lib/practice/resolvePracticeSentencePuzzleSlice'
+import { tokensFromTargetAnswer } from '@/lib/practice/rebuildPracticeWordTokensFromAnswer'
 import type { Exercise, LessonData, LessonStep } from '@/types/lesson'
 import type {
   PracticeBuildConfig,
@@ -76,20 +78,7 @@ function optionsForType(
     targetCount: filteredCanonical.length >= 3 ? 3 : undefined,
   })
 }
-function wordTokensInPedagogicalOrder(exercise: Exercise, targetAnswer: string): string[] {
-  if (exercise.type === 'sentence_puzzle' && exercise.puzzleVariants?.[0]) {
-    const variant = exercise.puzzleVariants[0]
-    const order = variant.correctOrder.length > 0 ? variant.correctOrder : variant.words
-    if (order.length > 0) return order.map((word) => word.trim()).filter(Boolean)
-  }
-  return targetAnswer
-    .replace(/[.!?]$/g, '')
-    .split(/\s+/)
-    .filter(Boolean)
-}
-
-function shuffledWordBank(exercise: Exercise, targetAnswer: string): string[] {
-  const tokens = wordTokensInPedagogicalOrder(exercise, targetAnswer)
+function shuffleWordTokens(tokens: string[]): string[] {
   if (tokens.length === 0) return []
   const copy = [...tokens]
   for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -99,6 +88,10 @@ function shuffledWordBank(exercise: Exercise, targetAnswer: string): string[] {
     copy[j] = tmp
   }
   return copy
+}
+
+function shuffledWordBankFromTokens(tokens: string[]): string[] {
+  return shuffleWordTokens(tokens)
 }
 
 function acceptedAnswersFor(exercise: Exercise): string[] {
@@ -126,8 +119,12 @@ function createQuestion(params: {
   resolvedStep?: ResolvedPracticeLessonStep
 }): PracticeQuestion {
   const meta = getPracticeExerciseMetadata(params.type)
-  const acceptedAnswers = acceptedAnswersFor(params.exercise)
-  const targetAnswer = acceptedAnswers[0] ?? params.exercise.correctAnswer
+  const isPuzzlePracticeType =
+    params.type === 'sentence-surgery' || params.type === 'word-builder-pro'
+  const puzzleSlice =
+    isPuzzlePracticeType ? resolvePracticeSentencePuzzleSlice(params.exercise) : null
+  let acceptedAnswers = acceptedAnswersFor(params.exercise)
+  let targetAnswer = acceptedAnswers[0] ?? params.exercise.correctAnswer
   const tier = params.stepSpec?.distractorTier
     ? resolveTierForStep(params.mode, params.stepSpec)
     : undefined
@@ -151,6 +148,11 @@ function createQuestion(params: {
   ) {
     prompt = buildChoicePrompt(params.step, params.exercise, params.lesson)
   }
+  if (puzzleSlice) {
+    targetAnswer = puzzleSlice.targetAnswer
+    acceptedAnswers = puzzleSlice.acceptedAnswers
+    prompt = puzzleSlice.prompt
+  }
   const variantSuffix = params.variantIndex != null ? `-v${params.variantIndex}` : ''
   const extraWords =
     params.type === 'word-builder-pro' && params.stepSpec?.wordBankMode
@@ -165,10 +167,11 @@ function createQuestion(params: {
     targetAnswer,
     acceptedAnswers,
     options: optionsForType(params.type, params.exercise, targetAnswer, params.lesson, tier, params.resolvedStep),
-    shuffledWords:
-      params.type === 'sentence-surgery' || params.type === 'word-builder-pro'
-        ? shuffledWordBank(params.exercise, targetAnswer)
-        : undefined,
+    shuffledWords: isPuzzlePracticeType
+      ? shuffledWordBankFromTokens(
+          puzzleSlice?.wordTokens ?? tokensFromTargetAnswer(targetAnswer)
+        )
+      : undefined,
     extraWords,
     audioText:
       params.type === 'dictation' || params.type === 'listening-select' || params.type === 'voice-shadow'
@@ -184,7 +187,7 @@ function createQuestion(params: {
         : params.type === 'free-response' || params.type === 'roleplay-mini'
           ? 3
           : undefined,
-    hint: isVoiceShadow ? undefined : params.exercise.hint,
+    hint: isVoiceShadow ? undefined : puzzleSlice?.hint ?? params.exercise.hint,
     explanation: params.step.footerDynamic,
     correctionPrompt: `Закрепим правильный вариант: ${targetAnswer}`,
     xpBase: meta.xpBase,

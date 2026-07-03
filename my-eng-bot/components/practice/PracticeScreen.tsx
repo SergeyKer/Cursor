@@ -23,9 +23,12 @@ import {
 } from '@/lib/chatComposerMetrics'
 import { syncDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
 import { ensurePracticeChoiceOptions } from '@/lib/practice/ensurePracticeChoiceOptions'
+import { tokensFromTargetAnswer } from '@/lib/practice/rebuildPracticeWordTokensFromAnswer'
 import {
   isPracticeChoiceChipsPanel,
+  isPracticePuzzlePanel,
   resolvePracticeChoiceComposerLayout,
+  resolvePracticePuzzleComposerLayout,
 } from '@/lib/practice/practiceComposerLayout'
 import {
   shouldHighlightWrongPracticeChoice,
@@ -33,6 +36,7 @@ import {
 import {
   canCompleteChipPhase,
   PRACTICE_CORRECTION_CHIP_PHASE_MS,
+  shouldResetCorrectionPhase,
   type PracticeChoiceCorrectionPhase,
 } from '@/lib/practice/practiceChoiceCorrectionPhase'
 import { isPracticeCorrectionSession } from '@/lib/practice/practiceCorrectionMode'
@@ -413,7 +417,15 @@ export default function PracticeScreen({
 
   useLayoutEffect(() => {
     if (!tailVoiceRepeatError || state !== 'correction') {
-      if (!isCorrectionSession || !isRepeatCorrectionQuestionType) {
+      if (
+        shouldResetCorrectionPhase({
+          isRepeatCorrectionType: isRepeatCorrectionQuestionType,
+          isCorrectionSession,
+          wrongAttemptsOnCurrentQuestion,
+          correctionPhase,
+          state,
+        })
+      ) {
         correctionCycleKeyRef.current = null
         setCorrectionPhase('idle')
       }
@@ -486,6 +498,7 @@ export default function PracticeScreen({
     tailChoiceErrorWithRepeat,
     prefersReducedMotion,
     wrongAttemptsOnCurrentQuestion,
+    correctionPhase,
     questionType,
     isCorrectionSession,
     isRepeatCorrectionQuestionType,
@@ -651,6 +664,12 @@ export default function PracticeScreen({
   }, [correctionPhase, onChoiceCorrectionPhaseChange])
 
   useEffect(() => {
+    correctionCycleKeyRef.current = null
+    setCorrectionPhase('idle')
+    setWrongChoiceHighlight(null)
+  }, [currentQuestion?.id])
+
+  useEffect(() => {
     return () => {
       onChoiceCorrectionPhaseChange?.('idle')
     }
@@ -664,6 +683,9 @@ export default function PracticeScreen({
   const isChoiceChipsPanel =
     showQuestionComposer && isPracticeChoiceChipsPanel(currentQuestion, correctionPhase)
 
+  const isPuzzlePanel =
+    showQuestionComposer && isPracticePuzzlePanel(currentQuestion, correctionPhase)
+
   const deferChoiceChipsUntilCardReveal =
     isChoiceChipsPanel &&
     state === 'active' &&
@@ -672,6 +694,16 @@ export default function PracticeScreen({
 
   const isChoiceChipsVisible =
     !deferChoiceChipsUntilCardReveal ||
+    (isRevealInitializedForKey && !isRevealInProgress)
+
+  const deferPuzzleUntilCardReveal =
+    isPuzzlePanel &&
+    state === 'active' &&
+    revealSectionCount > 0 &&
+    !prefersReducedMotion
+
+  const isPuzzleVisible =
+    !deferPuzzleUntilCardReveal ||
     (isRevealInitializedForKey && !isRevealInProgress)
 
   const choiceOptions = useMemo(
@@ -693,6 +725,43 @@ export default function PracticeScreen({
       })
     : null
 
+  const puzzleSlotWords = useMemo(() => {
+    if (!currentQuestion || !isPuzzlePanel) return []
+    return currentQuestion.shuffledWords ?? tokensFromTargetAnswer(currentQuestion.targetAnswer)
+  }, [currentQuestion, isPuzzlePanel])
+
+  const puzzleBankWords = useMemo(() => {
+    if (!currentQuestion || !isPuzzlePanel) return []
+    if (currentQuestion.type === 'word-builder-pro') {
+      return [...puzzleSlotWords, ...(currentQuestion.extraWords ?? [])]
+    }
+    return puzzleSlotWords
+  }, [currentQuestion, isPuzzlePanel, puzzleSlotWords])
+
+  const puzzleComposerLayout = isPuzzlePanel
+    ? resolvePracticePuzzleComposerLayout({
+        isPuzzlePanel: true,
+        deferUntilReveal: deferPuzzleUntilCardReveal,
+        isRevealInProgress,
+        isRevealInitializedForKey,
+        isPuzzleVisible,
+        prefersReducedMotion,
+      })
+    : null
+
+  const puzzleComposerMinHeightEstimate =
+    isPuzzlePanel && puzzleComposerLayout?.reserveMinHeight
+      ? estimateLessonComposerMinHeight({
+          panelKind: 'puzzle',
+          puzzleSlotTokens: puzzleSlotWords,
+          puzzleBankWords,
+          puzzleHasTitle: false,
+          puzzleHasInstruction: false,
+          containerWidthPx: composerInnerWidthPx,
+          compact: true,
+        })
+      : undefined
+
   const choiceComposerMinHeightEstimate =
     isChoiceChipsPanel && choiceComposerLayout?.reserveMinHeight
       ? estimateLessonComposerMinHeight({
@@ -706,12 +775,20 @@ export default function PracticeScreen({
 
   const composerHeightLockReleased =
     prefersReducedMotion ||
-    (choiceComposerLayout ? choiceComposerLayout.lockReleased : !isRevealInProgress)
+    (isPuzzlePanel
+      ? false
+      : choiceComposerLayout
+        ? choiceComposerLayout.lockReleased
+        : !isRevealInProgress)
 
   const composerPanelKind =
     correctionPhase === 'voiceLocked' || correctionPhase === 'voiceReady'
       ? ('text-input' as const)
-      : ('choice' as const)
+      : isPuzzlePanel
+        ? ('puzzle' as const)
+        : isChoiceChipsPanel
+          ? ('choice' as const)
+          : ('text-input' as const)
 
   const isQuestionRevealGateActive =
     state === 'active' &&
@@ -740,8 +817,12 @@ export default function PracticeScreen({
     optionCount: choiceOptions.length,
     choiceOptions,
     containerWidthPx: composerInnerWidthPx,
-    compact: true,
-    enabled: isChoiceChipsPanel || isChoiceVoiceCorrectionFlow,
+    puzzleSlotTokens: puzzleSlotWords,
+    puzzleBankWords,
+    puzzleHasTitle: false,
+    puzzleHasInstruction: false,
+    compact: isChoiceChipsPanel || isPuzzlePanel,
+    enabled: isChoiceChipsPanel || isPuzzlePanel || isChoiceVoiceCorrectionFlow,
     lockReleased: composerHeightLockReleased,
   })
 
@@ -749,7 +830,9 @@ export default function PracticeScreen({
     lockedComposerMinHeight ??
     (choiceComposerLayout?.reserveMinHeight && !isChoiceChipsVisible
       ? choiceComposerMinHeightEstimate
-      : undefined)
+      : puzzleComposerLayout?.reserveMinHeight && !isPuzzleVisible
+        ? puzzleComposerMinHeightEstimate
+        : undefined)
 
   const baseAnswerPanelLocked = isPracticeAnswerPanelLocked(
     state,
@@ -784,7 +867,7 @@ export default function PracticeScreen({
   const scrollBottomPadding = resolveScrollBottomPadding({
     hasCurrentStep: state !== 'completed',
     hasPostLessonOptions: false,
-    isSentencePuzzle: false,
+    isSentencePuzzle: isPuzzlePanel,
     bottomStackHeightPx: 0,
     composerOutsideScroll: true,
   })
@@ -850,6 +933,10 @@ export default function PracticeScreen({
         (isRevealInProgress ||
           !isChoiceChipsVisible ||
           isWithinRevealEndOverflowSettleWindow(revealEndedAtRef.current))) ||
+      (deferPuzzleUntilCardReveal &&
+        (isRevealInProgress ||
+          !isPuzzleVisible ||
+          isWithinRevealEndOverflowSettleWindow(revealEndedAtRef.current))) ||
       (state === 'checking' && showCheckingStatusLine)
     if (inSettle) {
       root.setAttribute('data-lesson-feed-scroll-settle', '')
@@ -859,7 +946,15 @@ export default function PracticeScreen({
     return () => {
       root.removeAttribute('data-lesson-feed-scroll-settle')
     }
-  }, [deferChoiceChipsUntilCardReveal, isRevealInProgress, isChoiceChipsVisible, state, showCheckingStatusLine])
+  }, [
+    deferChoiceChipsUntilCardReveal,
+    deferPuzzleUntilCardReveal,
+    isRevealInProgress,
+    isChoiceChipsVisible,
+    isPuzzleVisible,
+    state,
+    showCheckingStatusLine,
+  ])
 
   useLayoutEffect(() => {
     if (!isChoiceChipsPanel) return
@@ -1052,7 +1147,7 @@ export default function PracticeScreen({
 
   useLayoutEffect(() => {
     if (
-      deferChoiceChipsUntilCardReveal &&
+      (deferChoiceChipsUntilCardReveal || deferPuzzleUntilCardReveal) &&
       isWithinRevealEndOverflowSettleWindow(revealEndedAtRef.current)
     ) {
       return
@@ -1062,8 +1157,11 @@ export default function PracticeScreen({
     currentQuestion?.id,
     composerMinHeight,
     deferChoiceChipsUntilCardReveal,
+    deferPuzzleUntilCardReveal,
     isChoiceChipsVisible,
+    isPuzzleVisible,
     isChoiceChipsPanel,
+    isPuzzlePanel,
     correctionPhase,
   ])
 
@@ -1361,6 +1459,7 @@ export default function PracticeScreen({
                   onSubmit={onSubmitAnswer}
                   suppressChoiceChipEnterAnimation={!isChoiceChipsVisible}
                   choiceChipsVisible={isChoiceChipsVisible}
+                  puzzlePanelVisible={isPuzzleVisible}
                   wrongChoiceText={wrongChoiceHighlight}
                 />
               ) : null}

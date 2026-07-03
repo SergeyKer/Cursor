@@ -36,6 +36,7 @@ function practiceTypeLabel(question: PracticeQuestion, session: PracticeSession)
     if (question.type === 'choice') return 'Лёгкий выбор: один вариант явно подходит.'
     if (question.type === 'context-clue') return 'Смотрите на ситуацию: варианты похожи по смыслу.'
     if (question.type === 'dropdown-fill') return 'Выберите форму без подсказки чипов.'
+    if (question.type === 'sentence-surgery') return 'Соберите фразу из слов в правильном порядке.'
     if (question.type === 'word-builder-pro') return 'Соберите фразу: в банке есть лишние ловушки.'
     if (question.type === 'speed-round') return 'Финальная проверка на внимательность: варианты очень близкие.'
     if (question.type === 'boss-challenge') return 'Соберите всё вместе в живом ответе.'

@@ -181,5 +181,30 @@ describe('buildLocalPracticeSession', () => {
     expect(question!.targetAnswer).toBe('drink')
     expect(question!.options).toHaveLength(3)
   })
+
+  it('lesson 1 challenge sentence-surgery aligns chips with target answer', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const session = buildLocalPracticeSession({
+      lesson: lesson!,
+      source: { kind: 'static_lesson', lessonId: '1' },
+      mode: 'challenge',
+      entrySource: 'menu',
+    })
+
+    const sentenceSurgery = session.questions[3]
+    expect(sentenceSurgery?.type).toBe('sentence-surgery')
+    expect(sentenceSurgery?.targetAnswer).toMatch(/go home/i)
+    expect(sentenceSurgery?.prompt).not.toMatch(/три предложен/i)
+    const answerTokens = sentenceSurgery!.targetAnswer
+      .replace(/[.!?]$/g, '')
+      .split(/\s+/)
+      .filter(Boolean)
+    for (const token of sentenceSurgery!.shuffledWords ?? []) {
+      expect(answerTokens).toContain(token)
+    }
+    expect(sentenceSurgery?.shuffledWords).not.toContain('dark')
+  })
 })
 

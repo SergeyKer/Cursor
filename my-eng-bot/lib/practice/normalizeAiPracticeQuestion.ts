@@ -16,6 +16,16 @@ import type { PracticeDistractorTier } from '@/lib/practice/engine/stepSpec'
 import { collectLessonChoicePool } from '@/lib/practice/lessonChoicePool'
 import { getPracticeExerciseMetadata } from '@/lib/practice/registry'
 import { resolvePracticeLessonStep } from '@/lib/practice/resolvePracticeLessonStep'
+import {
+  DEFAULT_PRACTICE_SENTENCE_PUZZLE_PROMPT,
+  isStaleLessonPuzzlePrompt,
+  resolvePracticeSentencePuzzleSlice,
+} from '@/lib/practice/resolvePracticeSentencePuzzleSlice'
+import {
+  practiceWordMultisetsEqual,
+  rebuildPracticeWordTokensFromAnswer,
+  tokensFromTargetAnswer,
+} from '@/lib/practice/rebuildPracticeWordTokensFromAnswer'
 import type { LessonData } from '@/types/lesson'
 import type { PracticeExerciseType, PracticeMode, PracticeQuestion } from '@/types/practice'
 
@@ -98,18 +108,58 @@ export function normalizeAiPracticeQuestion(
     }
   }
 
+  const rawAcceptedAnswers = Array.isArray(source.acceptedAnswers)
+    ? source.acceptedAnswers.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : []
+  const rawShuffledWords = Array.isArray(source.shuffledWords)
+    ? source.shuffledWords.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : undefined
+
+  const puzzleSlice =
+    (type === 'sentence-surgery' || type === 'word-builder-pro') && canonicalExercise
+      ? resolvePracticeSentencePuzzleSlice(canonicalExercise)
+      : null
+
+  let normalizedTargetAnswer = targetAnswer
+  let normalizedAcceptedAnswers = rawAcceptedAnswers
+  let normalizedShuffledWords = rawShuffledWords
+  let normalizedHint = typeof source.hint === 'string' ? source.hint.trim() : undefined
+
+  if (puzzleSlice) {
+    normalizedTargetAnswer = puzzleSlice.targetAnswer
+    normalizedAcceptedAnswers = puzzleSlice.acceptedAnswers.filter(
+      (item) => item.trim().toLowerCase() !== normalizedTargetAnswer.trim().toLowerCase()
+    )
+    normalizedHint = puzzleSlice.hint
+    if (!prompt || isStaleLessonPuzzlePrompt(prompt)) {
+      prompt = puzzleSlice.prompt
+    }
+    const answerTokens = tokensFromTargetAnswer(normalizedTargetAnswer)
+    const candidateShuffle = normalizedShuffledWords ?? []
+    normalizedShuffledWords =
+      candidateShuffle.length > 0 && practiceWordMultisetsEqual(candidateShuffle, answerTokens)
+        ? candidateShuffle
+        : rebuildPracticeWordTokensFromAnswer(normalizedTargetAnswer)
+  } else if (
+    (type === 'sentence-surgery' || type === 'word-builder-pro') &&
+    isStaleLessonPuzzlePrompt(prompt)
+  ) {
+    prompt = DEFAULT_PRACTICE_SENTENCE_PUZZLE_PROMPT
+    const answerTokens = tokensFromTargetAnswer(normalizedTargetAnswer)
+    if (
+      !normalizedShuffledWords?.length ||
+      !practiceWordMultisetsEqual(normalizedShuffledWords, answerTokens)
+    ) {
+      normalizedShuffledWords = rebuildPracticeWordTokensFromAnswer(normalizedTargetAnswer)
+    }
+  }
+
   if (!prompt) return null
   if (type === 'choice' && !choicePromptHasContext(prompt)) return null
 
   const meta = getPracticeExerciseMetadata(type)
-  const acceptedAnswers = Array.isArray(source.acceptedAnswers)
-    ? source.acceptedAnswers.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-    : []
   const rawOptions = Array.isArray(source.options)
     ? source.options.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-    : undefined
-  const shuffledWords = Array.isArray(source.shuffledWords)
-    ? source.shuffledWords.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
     : undefined
   const extraWords = Array.isArray(source.extraWords)
     ? source.extraWords.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
@@ -119,7 +169,7 @@ export function normalizeAiPracticeQuestion(
     : undefined
 
   const granularity = inferChoiceGranularity({
-    targetAnswer,
+    targetAnswer: normalizedTargetAnswer,
     answerFormat: canonicalExercise?.answerFormat,
     prompt: prompt || canonicalExercise?.question,
     exerciseType: canonicalExercise?.type,
@@ -127,7 +177,7 @@ export function normalizeAiPracticeQuestion(
   const canonicalOptions = resolved?.canonicalOptions ?? []
   const filteredCanonical = filterByChoiceGranularity(canonicalOptions, granularity)
   const lessonChoiceOptions = isChoiceLikePracticeType(type)
-    ? collectLessonChoicePool(lesson, targetAnswer, {
+    ? collectLessonChoicePool(lesson, normalizedTargetAnswer, {
         sourceStepNumber: resolved?.sourceStepNumber,
         granularity,
       })
@@ -141,12 +191,12 @@ export function normalizeAiPracticeQuestion(
   const choiceOptions = isChoiceLikePracticeType(type)
     ? normalizeOptions?.distractorTier
       ? buildTieredChoiceOptions(
-          targetAnswer,
+          normalizedTargetAnswer,
           normalizeOptions.distractorTier,
           lessonChoiceOptions ?? rawOptions ?? [],
           buildParams
         )
-      : ensurePracticeChoiceOptions(lessonChoiceOptions ?? rawOptions ?? [], targetAnswer, {
+      : ensurePracticeChoiceOptions(lessonChoiceOptions ?? rawOptions ?? [], normalizedTargetAnswer, {
           targetCount: filteredCanonical.length >= 3 ? 3 : undefined,
         })
     : rawOptions && rawOptions.length >= 2
@@ -157,27 +207,28 @@ export function normalizeAiPracticeQuestion(
 
   const audioText =
     type === 'voice-shadow' || type === 'dictation' || type === 'listening-select'
-      ? targetAnswer
+      ? normalizedTargetAnswer
       : typeof source.audioText === 'string'
         ? source.audioText.trim()
-        : targetAnswer
+        : normalizedTargetAnswer
 
   return {
     id: `ai-practice-${lesson.id}-${index}-${Math.random().toString(36).slice(2, 8)}`,
     lessonId: lesson.id,
     type,
     prompt,
-    targetAnswer,
-    acceptedAnswers: Array.from(new Set([targetAnswer, ...acceptedAnswers])),
+    targetAnswer: normalizedTargetAnswer,
+    acceptedAnswers: Array.from(new Set([normalizedTargetAnswer, ...normalizedAcceptedAnswers])),
     options: choiceOptions,
-    shuffledWords: shuffledWords && shuffledWords.length > 0 ? shuffledWords : undefined,
+    shuffledWords:
+      normalizedShuffledWords && normalizedShuffledWords.length > 0 ? normalizedShuffledWords : undefined,
     extraWords: extraWords && extraWords.length > 0 ? extraWords : undefined,
     audioText,
     keywords: keywords && keywords.length > 0 ? keywords : undefined,
     minWords: typeof source.minWords === 'number' && source.minWords > 0 ? Math.min(20, source.minWords) : undefined,
-    hint: type === 'voice-shadow' ? undefined : typeof source.hint === 'string' ? source.hint.trim() : undefined,
+    hint: type === 'voice-shadow' ? undefined : normalizedHint,
     explanation: typeof source.explanation === 'string' ? source.explanation.trim() : undefined,
-    correctionPrompt: `Закрепим правильный вариант: ${normalizeEnglishLearnerContractions(targetAnswer)}`,
+    correctionPrompt: `Закрепим правильный вариант: ${normalizeEnglishLearnerContractions(normalizedTargetAnswer)}`,
     xpBase: meta.xpBase,
     difficulty: meta.difficulty,
     tolerance: meta.tolerance,

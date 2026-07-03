@@ -8,11 +8,11 @@ import {
   PUZZLE_BOTTOM_STACK_FALLBACK,
   buildPuzzleFooterVoiceCandidate,
   resolvePuzzleAttemptChatMessage,
-  resolvePuzzleSlotColumns,
 } from '@/lib/puzzlePanelLayout'
 import { CHIP_PANEL_DEFAULT_WIDTH_PX } from '@/lib/chipFlexLayout'
 
 const I_KNOW_WORDS = ['I', 'know', 'what', 'she', 'likes']
+const ITS_TIME_WORDS = ["It's", 'time', 'to', 'go', 'home']
 
 describe('resolvePuzzleAttemptChatMessage', () => {
   it('returns errorText on first attempt', () => {
@@ -73,12 +73,50 @@ describe('resolvePuzzleAttemptChatMessage', () => {
 })
 
 describe('puzzle slot layout', () => {
-  it('uses two columns for five slots on a narrow panel', () => {
-    expect(resolvePuzzleSlotColumns(5, CHIP_PANEL_DEFAULT_WIDTH_PX)).toBe(2)
+  it('estimates one slot row for five short words on a wide panel', () => {
+    expect(estimatePuzzleSlotBlockMinHeight(ITS_TIME_WORDS, CHIP_PANEL_DEFAULT_WIDTH_PX)).toBe(36)
   })
 
-  it('estimates three slot rows for five words on a narrow panel', () => {
-    expect(estimatePuzzleSlotBlockMinHeight(5, CHIP_PANEL_DEFAULT_WIDTH_PX)).toBe(120)
+  it('uses slotTokens for slot rows, not bankWords length', () => {
+    const slotTokens = ITS_TIME_WORDS
+    const bankWithTraps = [...ITS_TIME_WORDS, 'dark', 'sleep', 'midnight', 'away']
+    expect(estimatePuzzleSlotBlockMinHeight(slotTokens, CHIP_PANEL_DEFAULT_WIDTH_PX)).toBe(36)
+
+    const panel = estimatePuzzlePanelMinHeight({
+      slotTokens,
+      bankWords: bankWithTraps,
+      hasTitle: false,
+      hasInstruction: false,
+      containerWidthPx: CHIP_PANEL_DEFAULT_WIDTH_PX,
+    })
+    const panelCoreOnly = estimatePuzzlePanelMinHeight({
+      slotTokens,
+      bankWords: slotTokens,
+      hasTitle: false,
+      hasInstruction: false,
+      containerWidthPx: CHIP_PANEL_DEFAULT_WIDTH_PX,
+    })
+    const bankCore = estimatePuzzleWordBankMinHeight(slotTokens, CHIP_PANEL_DEFAULT_WIDTH_PX)
+    const bankWithExtra = estimatePuzzleWordBankMinHeight(bankWithTraps, CHIP_PANEL_DEFAULT_WIDTH_PX)
+    expect(panel - panelCoreOnly).toBe(bankWithExtra - bankCore)
+  })
+
+  it('omits title block when hasTitle is false', () => {
+    const withTitle = estimatePuzzlePanelMinHeight({
+      slotTokens: ITS_TIME_WORDS,
+      bankWords: ITS_TIME_WORDS,
+      hasTitle: true,
+      hasInstruction: false,
+      containerWidthPx: CHIP_PANEL_DEFAULT_WIDTH_PX,
+    })
+    const withoutTitle = estimatePuzzlePanelMinHeight({
+      slotTokens: ITS_TIME_WORDS,
+      bankWords: ITS_TIME_WORDS,
+      hasTitle: false,
+      hasInstruction: false,
+      containerWidthPx: CHIP_PANEL_DEFAULT_WIDTH_PX,
+    })
+    expect(withTitle - withoutTitle).toBe(34)
   })
 })
 
@@ -97,7 +135,9 @@ describe('puzzle word bank height', () => {
 
   it('estimates full panel height from real words', () => {
     const height = estimatePuzzlePanelMinHeight({
-      words: I_KNOW_WORDS,
+      slotTokens: I_KNOW_WORDS,
+      bankWords: I_KNOW_WORDS,
+      hasTitle: true,
       hasInstruction: true,
       containerWidthPx: CHIP_PANEL_DEFAULT_WIDTH_PX,
     })

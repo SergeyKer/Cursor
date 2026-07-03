@@ -7,6 +7,8 @@ import {
   resolveLessonComposerPanelKind,
 } from '@/lib/lessonComposerLayout'
 
+const ITS_TIME_WORDS = ["It's", 'time', 'to', 'go', 'home']
+
 describe('isLessonChoiceChipsPanel', () => {
   it('detects fill_choice with options', () => {
     expect(
@@ -263,12 +265,34 @@ describe('estimateLessonComposerMinHeight', () => {
   it('puzzle panel uses width-aware estimate for short sentences', () => {
     const puzzleHeight = estimateLessonComposerMinHeight({
       panelKind: 'puzzle',
-      puzzleWords: ['I', 'know', 'what', 'she', 'likes'],
+      puzzleSlotTokens: ['I', 'know', 'what', 'she', 'likes'],
+      puzzleBankWords: ['I', 'know', 'what', 'she', 'likes'],
+      puzzleHasTitle: true,
       puzzleHasInstruction: true,
       compact: true,
     })
     expect(puzzleHeight).toBeGreaterThan(100)
     expect(puzzleHeight).toBeLessThan(320)
+  })
+
+  it('practice compact puzzle omits title block from estimate', () => {
+    const withTitle = estimateLessonComposerMinHeight({
+      panelKind: 'puzzle',
+      puzzleSlotTokens: ITS_TIME_WORDS,
+      puzzleBankWords: ITS_TIME_WORDS,
+      puzzleHasTitle: true,
+      puzzleHasInstruction: false,
+      compact: true,
+    })
+    const withoutTitle = estimateLessonComposerMinHeight({
+      panelKind: 'puzzle',
+      puzzleSlotTokens: ITS_TIME_WORDS,
+      puzzleBankWords: ITS_TIME_WORDS,
+      puzzleHasTitle: false,
+      puzzleHasInstruction: false,
+      compact: true,
+    })
+    expect(withTitle - withoutTitle).toBe(34)
   })
 
   it('practice canonical word chips are shorter than sentence chips', () => {

@@ -1553,7 +1553,9 @@ export default function LessonStepRenderer({
   const puzzleComposerMinHeightEstimate = isSentencePuzzle
     ? estimateLessonComposerMinHeight({
         panelKind: 'puzzle',
-        puzzleWords: activePuzzleWords,
+        puzzleSlotTokens: activePuzzleVariant?.correctOrder ?? [],
+        puzzleBankWords: activePuzzleWords,
+        puzzleHasTitle: Boolean(activePuzzleVariant?.title.trim()),
         puzzleHasInstruction: Boolean(activePuzzleVariant?.instruction.trim()),
         compact: true,
       })
@@ -1580,7 +1582,9 @@ export default function LessonStepRenderer({
     optionCount: displayChoiceOptions.length,
     choiceOptions: displayChoiceOptions,
     containerWidthPx: composerInnerWidthPx,
-    puzzleWords: activePuzzleWords,
+    puzzleSlotTokens: activePuzzleVariant?.correctOrder ?? [],
+    puzzleBankWords: activePuzzleWords,
+    puzzleHasTitle: Boolean(activePuzzleVariant?.title.trim()),
     puzzleHasInstruction: Boolean(activePuzzleVariant?.instruction.trim()),
     compact: shouldRenderChoiceChips || isSentencePuzzle,
     enabled: shouldUseComposerHeightLock,

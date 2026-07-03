@@ -6,6 +6,7 @@ import {
   PRACTICE_CORRECTION_SAY_FADE_MS,
   PRACTICE_CORRECTION_SAY_PAUSE_MS,
   PRACTICE_CORRECTION_VOICE_READY_MS,
+  shouldResetCorrectionPhase,
   showVoiceCorrectionComposer,
 } from '@/lib/practice/practiceChoiceCorrectionPhase'
 import { LESSON_TEXT_FADE_MS, LESSON_TEXT_SECTION_PAUSE_MS } from '@/lib/lessonRevealTiming'
@@ -30,6 +31,86 @@ describe('practiceChoiceCorrectionPhase', () => {
     expect(canCompleteChipPhase(true, false)).toBe(false)
     expect(canCompleteChipPhase(false, true)).toBe(false)
     expect(canCompleteChipPhase(true, true)).toBe(true)
+  })
+
+  it('shouldResetCorrectionPhase holds voice panel on feedback and generating_next', () => {
+    expect(
+      shouldResetCorrectionPhase({
+        isRepeatCorrectionType: true,
+        isCorrectionSession: false,
+        wrongAttemptsOnCurrentQuestion: 1,
+        correctionPhase: 'voiceReady',
+        state: 'feedback',
+      })
+    ).toBe(false)
+
+    expect(
+      shouldResetCorrectionPhase({
+        isRepeatCorrectionType: true,
+        isCorrectionSession: false,
+        wrongAttemptsOnCurrentQuestion: 2,
+        correctionPhase: 'voiceReady',
+        state: 'generating_next',
+      })
+    ).toBe(false)
+
+    expect(
+      shouldResetCorrectionPhase({
+        isRepeatCorrectionType: true,
+        isCorrectionSession: false,
+        wrongAttemptsOnCurrentQuestion: 1,
+        correctionPhase: 'voiceLocked',
+        state: 'feedback',
+      })
+    ).toBe(false)
+  })
+
+  it('shouldResetCorrectionPhase does not reset during checking with voiceReady', () => {
+    expect(
+      shouldResetCorrectionPhase({
+        isRepeatCorrectionType: true,
+        isCorrectionSession: true,
+        wrongAttemptsOnCurrentQuestion: 1,
+        correctionPhase: 'voiceReady',
+        state: 'checking',
+      })
+    ).toBe(false)
+  })
+
+  it('shouldResetCorrectionPhase does not reset during correction chips phase', () => {
+    expect(
+      shouldResetCorrectionPhase({
+        isRepeatCorrectionType: true,
+        isCorrectionSession: true,
+        wrongAttemptsOnCurrentQuestion: 1,
+        correctionPhase: 'chips',
+        state: 'correction',
+      })
+    ).toBe(false)
+  })
+
+  it('shouldResetCorrectionPhase resets on feedback when not in voice panel', () => {
+    expect(
+      shouldResetCorrectionPhase({
+        isRepeatCorrectionType: true,
+        isCorrectionSession: false,
+        wrongAttemptsOnCurrentQuestion: 0,
+        correctionPhase: 'idle',
+        state: 'feedback',
+      })
+    ).toBe(true)
+  })
+
+  it('shouldResetCorrectionPhase resets for non-repeat-correction types', () => {
+    expect(
+      shouldResetCorrectionPhase({
+        isRepeatCorrectionType: false,
+        isCorrectionSession: false,
+        wrongAttemptsOnCurrentQuestion: 1,
+        correctionPhase: 'voiceReady',
+        state: 'feedback',
+      })
+    ).toBe(true)
   })
 
   it('showVoiceCorrectionComposer for choice and voice-shadow voice phases', () => {
