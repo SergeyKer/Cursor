@@ -58,6 +58,43 @@ describe('normalizeAiPracticeQuestion', () => {
     expect(q!.options).toBeUndefined()
   })
 
+  it('accepts translate prompt for reference free-response', () => {
+    const lesson = getStructuredLessonById('4')
+    expect(lesson).not.toBeNull()
+    const row = {
+      type: 'free-response',
+      prompt: 'Переведите на английский: "Я счастлив."',
+      targetAnswer: "I'm happy.",
+      acceptedAnswers: ["I'm happy.", 'I am happy.'],
+    }
+    const q = normalizeAiPracticeQuestion(row, lesson!, 0, {
+      mode: 'reference',
+      referenceExerciseType: 'free-response',
+    })
+    expect(q).not.toBeNull()
+    expect(q!.prompt).toMatch(/Переведите на английский/i)
+    expect(q!.tolerance).toBe('normalized')
+    expect(q!.keywords).toBeUndefined()
+  })
+
+  it('rebuilds vague situational reference free-response to translate prompt', () => {
+    const lesson = getStructuredLessonById('4')
+    expect(lesson).not.toBeNull()
+    const row = {
+      type: 'free-response',
+      prompt: 'Опишите настроение.',
+      targetAnswer: "I'm happy.",
+      acceptedAnswers: ["I'm happy."],
+    }
+    const rebuilt = normalizeAiPracticeQuestion(row, lesson!, 0, {
+      mode: 'reference',
+      referenceExerciseType: 'free-response',
+    })
+    expect(rebuilt).not.toBeNull()
+    expect(rebuilt!.prompt).toMatch(/Переведите на английский/i)
+    expect(rebuilt!.tolerance).toBe('normalized')
+  })
+
   it('rejects vague reference choice prompts instead of substituting lesson copy', () => {
     const lesson = getStructuredLessonById('1')
     expect(lesson).not.toBeNull()

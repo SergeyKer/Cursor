@@ -16,6 +16,7 @@ import {
   buildReferencePromptFromLesson,
   isReferenceStepMapType,
 } from '@/lib/practice/prompt/practicePromptBuilders'
+import { isTranslateBackedFreeResponseExercise } from '@/lib/practice/prompt/freeResponseTranslateMode'
 import { extractSemanticKeywords, stripAnswerLeakFromHint } from '@/lib/practice/prompt/promptSourceUtils'
 import { resolveLessonExerciseVariant } from '@/lib/practice/resolveLessonExerciseVariant'
 import {
@@ -104,6 +105,9 @@ function acceptedAnswersFor(exercise: Exercise): string[] {
 }
 
 function toleranceFor(exercise: Exercise, type: PracticeExerciseType): PracticeTolerance {
+  if (type === 'free-response' && isTranslateBackedFreeResponseExercise(exercise)) {
+    return exercise.answerPolicy === 'strict' ? 'strict' : 'normalized'
+  }
   if (type === 'free-response' || type === 'roleplay-mini' || type === 'boss-challenge' || type === 'voice-shadow') {
     return 'soft'
   }
@@ -175,6 +179,9 @@ function createQuestion(params: {
       ? buildWordBankExtraWords(targetAnswer, params.stepSpec.wordBankMode)
       : undefined
 
+  const isTranslateBackedFreeResponse =
+    params.type === 'free-response' && isTranslateBackedFreeResponseExercise(params.exercise)
+
   return {
     id: `${params.lesson.id}-${params.step.stepNumber}-${params.type}-${params.index}${variantSuffix}`,
     lessonId: params.lesson.id,
@@ -194,17 +201,21 @@ function createQuestion(params: {
         ? targetAnswer
         : undefined,
     keywords:
-      params.type === 'free-response' || params.type === 'roleplay-mini' || params.type === 'boss-challenge'
-        ? useEtalonPromptBuilder
-          ? extractSemanticKeywords(targetAnswer)
-          : targetAnswer.split(/\s+/).slice(0, 3)
-        : undefined,
+      isTranslateBackedFreeResponse
+        ? undefined
+        : params.type === 'free-response' || params.type === 'roleplay-mini' || params.type === 'boss-challenge'
+          ? useEtalonPromptBuilder
+            ? extractSemanticKeywords(targetAnswer)
+            : targetAnswer.split(/\s+/).slice(0, 3)
+          : undefined,
     minWords:
       params.type === 'boss-challenge'
         ? 5
-        : params.type === 'free-response' || params.type === 'roleplay-mini'
-          ? 3
-          : undefined,
+        : isTranslateBackedFreeResponse
+          ? undefined
+          : params.type === 'free-response' || params.type === 'roleplay-mini'
+            ? 3
+            : undefined,
     hint: isVoiceShadow
       ? undefined
       : stripAnswerLeakFromHint(puzzleSlice?.hint ?? params.exercise.hint, targetAnswer),

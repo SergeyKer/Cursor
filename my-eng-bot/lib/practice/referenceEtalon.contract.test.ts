@@ -35,7 +35,7 @@ describe('reference etalon contract', () => {
           for (const question of questions) {
             expect(question.prompt).toMatch(/[А-Яа-яЁё]/)
             if (referenceType === 'free-response') {
-              expect(isTranslateStylePrompt(question.prompt)).toBe(false)
+              expect(isTranslateStylePrompt(question.prompt)).toBe(true)
             }
             if (referenceType === 'dropdown-fill') {
               expect(question.options?.length ?? 0).toBeGreaterThanOrEqual(3)
@@ -87,5 +87,11 @@ describe('reference etalon contract', () => {
 
     expect(even?.sourceStepNumber).toBe(4)
     expect(odd?.sourceStepNumber).toBe(6)
+    expect(even?.variantIndex).toBe(0)
+    expect(resolveReferenceLessonStep({
+      lesson: lesson!,
+      referenceExerciseType: 'free-response',
+      stepIndex: 2,
+    })?.variantIndex).toBe(1)
   })
 })

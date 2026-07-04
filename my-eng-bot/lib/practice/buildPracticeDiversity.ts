@@ -86,7 +86,10 @@ function buildReferenceDiversityRule(params: {
   ]
 
   if (params.referenceExerciseType === 'free-response') {
-    parts.push('Open-ended writing task; never use "Переведите на английский".')
+    parts.push(
+      'Translate task: prompt must be Переведите на английский: "…" with a Russian phrase from referenceCanonicalStep.exercise.variants.',
+      'Each scenario must use a different Russian phrase and matching targetAnswer; do not set keywords or minWords.'
+    )
   } else if (params.referenceExerciseType === 'dropdown-fill') {
     parts.push('Single-word gap fill; at least 3 single-word English options.')
   } else if (params.referenceExerciseType === 'dictation' || params.referenceExerciseType === 'listening-select') {

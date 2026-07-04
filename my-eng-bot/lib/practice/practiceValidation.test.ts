@@ -58,5 +58,19 @@ describe('validatePracticeAnswer', () => {
     expect(validatePracticeAnswer('I think it is time now', softQuestion)).toBe(true)
     expect(validatePracticeAnswer('time', softQuestion)).toBe(false)
   })
+
+  it('accepts normalized translate-backed free-response variants', () => {
+    const translateQuestion: PracticeQuestion = {
+      ...baseQuestion,
+      type: 'free-response',
+      targetAnswer: "I'm fine.",
+      acceptedAnswers: ["I'm fine.", 'I am fine.'],
+      tolerance: 'normalized',
+      keywords: undefined,
+    }
+
+    expect(validatePracticeAnswer('I am fine', translateQuestion)).toBe(true)
+    expect(validatePracticeAnswer("I'm happy", translateQuestion)).toBe(false)
+  })
 })
 

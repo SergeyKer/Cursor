@@ -12,6 +12,11 @@ import {
   isReferenceStepMapType,
 } from '@/lib/practice/prompt/practicePromptBuilders'
 import {
+  canonicalAcceptedAnswersForExercise,
+  freeResponsePromptHasValidContext,
+  isTranslateBackedFreeResponseExercise,
+} from '@/lib/practice/prompt/freeResponseTranslateMode'
+import {
   extractSemanticKeywords,
   isTranslateStylePrompt,
   stripAnswerLeakFromHint,
@@ -84,6 +89,10 @@ export function normalizeAiPracticeQuestion(
     referenceExerciseType: normalizeOptions?.referenceExerciseType,
   })
   const canonicalExercise = resolved?.exercise
+  const isTranslateBackedFreeResponse =
+    type === 'free-response' &&
+    canonicalExercise != null &&
+    isTranslateBackedFreeResponseExercise(canonicalExercise)
 
   if (type === 'choice' && !choicePromptHasContext(prompt)) {
     if (mode === 'reference') return null
@@ -124,8 +133,7 @@ export function normalizeAiPracticeQuestion(
 
   if (useReferencePromptBuilder) {
     const builder = getPracticePromptBuilder(referenceType)
-    if (type === 'free-response' && (isTranslateStylePrompt(prompt) || !builder?.hasContext(prompt))) {
-      if (mode === 'reference' && isTranslateStylePrompt(prompt)) return null
+    if (type === 'free-response' && builder && !builder.hasContext(prompt)) {
       const rebuilt = buildReferencePromptFromLesson({
         lesson: scopedLesson,
         type: referenceType,
@@ -152,6 +160,13 @@ export function normalizeAiPracticeQuestion(
         targetAnswer,
       })
       if (rebuilt) prompt = rebuilt
+    }
+  }
+
+  if (isTranslateBackedFreeResponse && canonicalExercise) {
+    if (!isTranslateStylePrompt(prompt)) {
+      const rebuilt = canonicalExercise.question?.trim()
+      if (rebuilt && isTranslateStylePrompt(rebuilt)) prompt = rebuilt
     }
   }
 
@@ -201,13 +216,21 @@ export function normalizeAiPracticeQuestion(
     }
   }
 
+  if (isTranslateBackedFreeResponse && canonicalExercise) {
+    normalizedTargetAnswer = canonicalExercise.correctAnswer
+    const canonicalAccepted = canonicalAcceptedAnswersForExercise(canonicalExercise)
+    normalizedAcceptedAnswers = canonicalAccepted.filter(
+      (item) => item.trim().toLowerCase() !== normalizedTargetAnswer.trim().toLowerCase()
+    )
+  }
+
   if (!prompt) return null
   if (type === 'choice' && !choicePromptHasContext(prompt)) return null
   if (useReferencePromptBuilder) {
     const builder = getPracticePromptBuilder(referenceType)
     if (builder && !builder.hasContext(prompt)) return null
-    if (type === 'free-response' && isTranslateStylePrompt(prompt)) return null
   }
+  if (isTranslateBackedFreeResponse && !freeResponsePromptHasValidContext(prompt)) return null
 
   const meta = getPracticeExerciseMetadata(type)
   const rawOptions = Array.isArray(source.options)
@@ -268,11 +291,20 @@ export function normalizeAiPracticeQuestion(
         : undefined
 
   const normalizedKeywords =
-    keywords && keywords.length > 0
-      ? keywords
-      : type === 'free-response' || type === 'roleplay-mini' || type === 'boss-challenge'
-        ? extractSemanticKeywords(normalizedTargetAnswer)
-        : undefined
+    isTranslateBackedFreeResponse
+      ? undefined
+      : keywords && keywords.length > 0
+        ? keywords
+        : type === 'free-response' || type === 'roleplay-mini' || type === 'boss-challenge'
+          ? extractSemanticKeywords(normalizedTargetAnswer)
+          : undefined
+
+  const tolerance =
+    isTranslateBackedFreeResponse && canonicalExercise
+      ? canonicalExercise.answerPolicy === 'strict'
+        ? 'strict'
+        : 'normalized'
+      : meta.tolerance
 
   return {
     id: `ai-practice-${lesson.id}-${index}-${Math.random().toString(36).slice(2, 8)}`,
@@ -287,12 +319,17 @@ export function normalizeAiPracticeQuestion(
     extraWords: extraWords && extraWords.length > 0 ? extraWords : undefined,
     audioText,
     keywords: normalizedKeywords && normalizedKeywords.length > 0 ? normalizedKeywords : undefined,
-    minWords: typeof source.minWords === 'number' && source.minWords > 0 ? Math.min(20, source.minWords) : undefined,
+    minWords:
+      isTranslateBackedFreeResponse
+        ? undefined
+        : typeof source.minWords === 'number' && source.minWords > 0
+          ? Math.min(20, source.minWords)
+          : undefined,
     hint: type === 'voice-shadow' ? undefined : stripAnswerLeakFromHint(normalizedHint, normalizedTargetAnswer),
     explanation: typeof source.explanation === 'string' ? source.explanation.trim() : undefined,
     correctionPrompt: `Закрепим правильный вариант: ${normalizeEnglishLearnerContractions(normalizedTargetAnswer)}`,
     xpBase: meta.xpBase,
     difficulty: meta.difficulty,
-    tolerance: meta.tolerance,
+    tolerance,
   }
 }

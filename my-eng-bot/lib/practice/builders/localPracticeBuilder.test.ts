@@ -182,6 +182,43 @@ describe('buildLocalPracticeSession', () => {
     expect(question!.options).toHaveLength(3)
   })
 
+  it('lesson 1 challenge free-response uses translate prompt with normalized tolerance', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const session = buildLocalPracticeSession({
+      lesson: lesson!,
+      source: { kind: 'static_lesson', lessonId: '1' },
+      mode: 'challenge',
+      entrySource: 'menu',
+    })
+
+    const freeResponse = session.questions[4]
+    expect(freeResponse?.type).toBe('free-response')
+    expect(freeResponse?.prompt).toMatch(/Переведите на английский/i)
+    expect(freeResponse?.tolerance).toBe('normalized')
+    expect(freeResponse?.keywords).toBeUndefined()
+    expect(freeResponse?.minWords).toBeUndefined()
+  })
+
+  it('lesson 4 challenge free-response uses translate prompt with normalized tolerance', () => {
+    const lesson = getStructuredLessonById('4')
+    expect(lesson).not.toBeNull()
+
+    const session = buildLocalPracticeSession({
+      lesson: lesson!,
+      source: { kind: 'static_lesson', lessonId: '4' },
+      mode: 'challenge',
+      entrySource: 'menu',
+    })
+
+    const freeResponse = session.questions[4]
+    expect(freeResponse?.type).toBe('free-response')
+    expect(freeResponse?.prompt).toMatch(/Переведите на английский/i)
+    expect(freeResponse?.tolerance).toBe('normalized')
+    expect(freeResponse?.keywords).toBeUndefined()
+  })
+
   it('lesson 1 challenge sentence-surgery aligns chips with target answer', () => {
     const lesson = getStructuredLessonById('1')
     expect(lesson).not.toBeNull()

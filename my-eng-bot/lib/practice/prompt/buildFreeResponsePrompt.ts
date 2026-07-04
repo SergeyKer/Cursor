@@ -1,7 +1,11 @@
 import {
+  buildTranslateBackedFreeResponsePrompt,
+  freeResponsePromptHasValidContext,
+  isTranslateBackedFreeResponseExercise,
+} from '@/lib/practice/prompt/freeResponseTranslateMode'
+import {
   mergePromptParts,
   resolveSituationLine,
-  situationalPromptHasContext,
 } from '@/lib/practice/prompt/promptSourceUtils'
 import type { PracticePromptAxis, PracticePromptSource } from '@/lib/practice/prompt/promptSourceTypes'
 import { resolveReferenceLessonStep } from '@/lib/practice/resolveReferenceLessonStep'
@@ -61,6 +65,9 @@ export function buildFreeResponsePrompt(
   lesson: LessonData,
   stepIndex: number
 ): string {
+  if (isTranslateBackedFreeResponseExercise(source.exercise)) {
+    return buildTranslateBackedFreeResponsePrompt(source.exercise)
+  }
   const axis = source.axis ?? 'state'
   const situation = resolveSituationLine(source.step, lesson, stepIndex)
   const frame = defaultFrame(lesson.id, axis)
@@ -74,13 +81,13 @@ export function buildEtalonFreeResponsePromptForLesson(lesson: LessonData, stepI
 }
 
 export function freeResponsePromptHasContext(prompt: string): boolean {
-  return situationalPromptHasContext(prompt)
+  return freeResponsePromptHasValidContext(prompt)
 }
 
 export const FREE_RESPONSE_SYSTEM_RULES = [
-  'For type free-response: prompt MUST be Russian situational context (Ситуация / Тема) plus an open-ended writing task.',
-  'Never use "Переведите на английский" for free-response.',
-  'targetAnswer is one canonical English sentence; acceptedAnswers may include It is / It\'s variants.',
-  'keywords: 2-4 meaningful content words (not It, time, to). minWords: 3.',
+  'For type free-response with translate source: prompt MUST start with Переведите на английский: "…" using a Russian phrase from referenceCanonicalStep.exercise.variants.',
+  'targetAnswer is the exact English translation of that Russian phrase; acceptedAnswers must mirror lesson variants (It is/It\'s, I am/I\'m, etc.).',
+  'Do not set keywords or minWords for translate-backed free-response.',
   'hint: short grammar cue without the full answer.',
+  'Rotate Russian phrases across scenarios; each prompt must match its targetAnswer.',
 ] as const

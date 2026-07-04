@@ -82,7 +82,7 @@ function resolveSlotForType(
     return {
       profileIndex: stepIndex,
       stepNumber: useStepFour ? 4 : 6,
-      variantIndex: useStepFour ? 0 : Math.floor(stepIndex / 2) % 3,
+      variantIndex: Math.floor(stepIndex / 2) % 3,
       axis: useStepFour ? 'state' : undefined,
     }
   }
