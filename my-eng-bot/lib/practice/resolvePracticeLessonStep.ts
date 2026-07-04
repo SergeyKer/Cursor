@@ -1,5 +1,8 @@
 import { inferChoiceGranularity } from '@/lib/practice/choiceOptionGranularity'
+import { isExerciseCompatibleWithPracticeType } from '@/lib/practice/practiceStepCompatibility'
+import { REFERENCE_STEP_MAP_TYPES } from '@/lib/practice/prompt/promptSourceTypes'
 import { getReferenceExerciseChallengeStep } from '@/lib/practice/referenceExerciseOptions'
+import { resolveReferenceLessonStep } from '@/lib/practice/resolveReferenceLessonStep'
 import { resolveLessonExerciseVariant } from '@/lib/practice/resolveLessonExerciseVariant'
 import { resolveCanonicalChoiceOptions } from '@/lib/practice/lessonChoicePool'
 import type { Exercise, LessonData, LessonStep } from '@/types/lesson'
@@ -11,6 +14,8 @@ export type ResolvedPracticeLessonStep = {
   sourceStepNumber: number
   canonicalOptions: string[]
   variantIndex?: number
+  variantProfileId?: string
+  axis?: 'state' | 'action' | 'creative'
 }
 
 function getExerciseSteps(lesson: LessonData): Array<{ step: LessonStep; exercise: Exercise }> {
@@ -21,37 +26,6 @@ function getExerciseSteps(lesson: LessonData): Array<{ step: LessonStep; exercis
 
 function exerciseHasSentenceOptions(exercise: Exercise): boolean {
   return (exercise.options ?? []).some((option) => inferChoiceGranularity({ targetAnswer: option }) === 'sentence')
-}
-
-function isExerciseCompatibleWithPracticeType(
-  practiceType: PracticeExerciseType,
-  exercise: Exercise
-): boolean {
-  switch (practiceType) {
-    case 'context-clue':
-      if (exercise.type === 'sentence_puzzle') return false
-      if (exercise.type === 'fill_text') return true
-      if (exercise.type === 'translate') return exercise.answerFormat === 'full_sentence' || !exercise.answerFormat
-      if (exercise.type === 'fill_choice') return exerciseHasSentenceOptions(exercise) || Boolean(exercise.options?.length)
-      return Boolean(exercise.options?.length)
-    case 'choice':
-      return exercise.type === 'fill_choice' && (exercise.options?.length ?? 0) >= 2
-    case 'dropdown-fill':
-      return (
-        exercise.type === 'fill_text' ||
-        (exercise.type === 'fill_choice' &&
-          (exercise.question?.includes('___') || Boolean(exercise.options?.length)))
-      )
-    case 'listening-select':
-    case 'speed-round':
-      return Boolean(exercise.options?.length) || exercise.type === 'fill_choice' || exercise.type === 'translate'
-    case 'sentence-surgery':
-      return exercise.type === 'sentence_puzzle'
-    case 'free-response':
-      return exercise.type === 'translate' || exercise.type === 'write_own'
-    default:
-      return true
-  }
 }
 
 function findCompatibleStep(
@@ -88,6 +62,17 @@ export function resolvePracticeLessonStep(params: {
   mode: PracticeMode
   referenceExerciseType?: PracticeExerciseType
 }): ResolvedPracticeLessonStep | null {
+  const referenceType = params.referenceExerciseType ?? params.practiceType
+  if (params.referenceExerciseType && REFERENCE_STEP_MAP_TYPES.has(referenceType)) {
+    const resolved = resolveReferenceLessonStep({
+      lesson: params.lesson,
+      referenceExerciseType: referenceType,
+      stepIndex: params.practiceIndex,
+    })
+    if (!resolved) return null
+    return resolved
+  }
+
   const sourceSteps = getExerciseSteps(params.lesson)
   if (sourceSteps.length === 0) return null
 

@@ -1,5 +1,5 @@
 import type { LessonData, LessonRepeatVariantProfile } from '@/types/lesson'
-import type { PracticeMode } from '@/types/practice'
+import type { PracticeMode, PracticeExerciseType } from '@/types/practice'
 import { applyStructuredLessonVariant } from '@/lib/structuredLessonVariants'
 
 export type PracticeScenarioCategory = 'weather' | 'time' | 'distance' | 'general'
@@ -73,6 +73,7 @@ function buildReferenceDiversityRule(params: {
   total: number
   suggestedScenario?: string
   sourceSituations: string[]
+  referenceExerciseType?: PracticeExerciseType
 }): string {
   const scenarioNumber = params.stepIndex + 1
   const parts = [
@@ -83,6 +84,20 @@ function buildReferenceDiversityRule(params: {
     'Do not repeat recentPrompts or seenKeys.',
     'Keep referenceExerciseType and mirror referenceCanonicalStep answer pattern (state vs action, not literal wording).',
   ]
+
+  if (params.referenceExerciseType === 'free-response') {
+    parts.push('Open-ended writing task; never use "Переведите на английский".')
+  } else if (params.referenceExerciseType === 'dropdown-fill') {
+    parts.push('Single-word gap fill; at least 3 single-word English options.')
+  } else if (params.referenceExerciseType === 'dictation' || params.referenceExerciseType === 'listening-select') {
+    parts.push('Put English phrase only in audioText/targetAnswer; Russian situational prompt without the answer.')
+  } else if (params.referenceExerciseType === 'roleplay-mini') {
+    parts.push('Mini-dialogue lead in Russian; learner replies in 1-2 English sentences.')
+  } else if (params.referenceExerciseType === 'speed-round') {
+    parts.push('Quick situational choice with exactly 3 options.')
+  } else if (params.referenceExerciseType === 'boss-challenge') {
+    parts.push('Final challenge; minWords 5; apply lesson theme creatively.')
+  }
 
   if (params.lesson.id === '1') {
     const category = params.suggestedScenario ? inferScenarioCategory(params.suggestedScenario) : 'general'
@@ -131,6 +146,7 @@ export function buildPracticeDiversityPayload(params: {
   stepIndex: number
   total?: number
   recentPrompts?: string[]
+  referenceExerciseType?: PracticeExerciseType
 }): PracticeDiversityPayload {
   const sourceSituations = collectPracticeSourceSituations(params.lesson)
   const suggestedScenario = pickSuggestedScenario(sourceSituations, params.stepIndex, params.recentPrompts)
@@ -145,6 +161,7 @@ export function buildPracticeDiversityPayload(params: {
           total: params.total ?? 7,
           suggestedScenario,
           sourceSituations,
+          referenceExerciseType: params.referenceExerciseType,
         })
       : buildSessionDiversityRule({
           lesson: params.lesson,

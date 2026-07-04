@@ -99,4 +99,20 @@ describe('resolvePracticeLessonStep', () => {
       expect(resolved!.exercise.type).not.toBe('sentence_puzzle')
     }
   })
+
+  it('delegates reference free-response to resolveReferenceLessonStep', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const resolved = resolvePracticeLessonStep({
+      lesson: lesson!,
+      practiceIndex: 0,
+      practiceType: 'free-response',
+      mode: 'reference',
+      referenceExerciseType: 'free-response',
+    })
+
+    expect(resolved).not.toBeNull()
+    expect(resolved!.sourceStepNumber).toBe(4)
+  })
 })

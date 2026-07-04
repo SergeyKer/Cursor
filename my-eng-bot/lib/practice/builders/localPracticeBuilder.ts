@@ -12,6 +12,11 @@ import {
 import { collectLessonChoicePool } from '@/lib/practice/lessonChoicePool'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
 import { getPracticeExerciseMetadata } from '@/lib/practice/registry'
+import {
+  buildReferencePromptFromLesson,
+  isReferenceStepMapType,
+} from '@/lib/practice/prompt/practicePromptBuilders'
+import { extractSemanticKeywords, stripAnswerLeakFromHint } from '@/lib/practice/prompt/promptSourceUtils'
 import { resolveLessonExerciseVariant } from '@/lib/practice/resolveLessonExerciseVariant'
 import {
   resolvePracticeLessonStep,
@@ -129,6 +134,9 @@ function createQuestion(params: {
     ? resolveTierForStep(params.mode, params.stepSpec)
     : undefined
   const isVoiceShadow = params.type === 'voice-shadow'
+  const useEtalonPromptBuilder =
+    isReferenceStepMapType(params.type) &&
+    (params.mode === 'reference' || params.stepSpec?.type === params.type)
   const granularity = inferChoiceGranularity({
     targetAnswer,
     answerFormat: params.exercise.answerFormat,
@@ -152,6 +160,14 @@ function createQuestion(params: {
     targetAnswer = puzzleSlice.targetAnswer
     acceptedAnswers = puzzleSlice.acceptedAnswers
     prompt = puzzleSlice.prompt
+  } else if (useEtalonPromptBuilder) {
+    const built = buildReferencePromptFromLesson({
+      lesson: params.lesson,
+      type: params.type,
+      stepIndex: params.index,
+      targetAnswer,
+    })
+    if (built) prompt = built
   }
   const variantSuffix = params.variantIndex != null ? `-v${params.variantIndex}` : ''
   const extraWords =
@@ -178,8 +194,10 @@ function createQuestion(params: {
         ? targetAnswer
         : undefined,
     keywords:
-      params.type === 'free-response' || params.type === 'roleplay-mini'
-        ? targetAnswer.split(/\s+/).slice(0, 3)
+      params.type === 'free-response' || params.type === 'roleplay-mini' || params.type === 'boss-challenge'
+        ? useEtalonPromptBuilder
+          ? extractSemanticKeywords(targetAnswer)
+          : targetAnswer.split(/\s+/).slice(0, 3)
         : undefined,
     minWords:
       params.type === 'boss-challenge'
@@ -187,7 +205,9 @@ function createQuestion(params: {
         : params.type === 'free-response' || params.type === 'roleplay-mini'
           ? 3
           : undefined,
-    hint: isVoiceShadow ? undefined : puzzleSlice?.hint ?? params.exercise.hint,
+    hint: isVoiceShadow
+      ? undefined
+      : stripAnswerLeakFromHint(puzzleSlice?.hint ?? params.exercise.hint, targetAnswer),
     explanation: params.step.footerDynamic,
     correctionPrompt: `Закрепим правильный вариант: ${targetAnswer}`,
     xpBase: meta.xpBase,
@@ -273,13 +293,13 @@ function buildQuestions(lesson: LessonData, mode: PracticeBuildConfig['mode']): 
 
     const resolved =
       mode === 'reference'
-        ? {
-            step: fallbackResolved.step,
-            exercise: fallbackResolved.exercise,
-            sourceStepNumber: fallbackResolved.step.stepNumber,
-            canonicalOptions: fallbackResolved.exercise.options ? [...fallbackResolved.exercise.options] : [],
-            variantIndex: fallbackResolved.variantIndex,
-          }
+        ? resolvePracticeLessonStep({
+            lesson: fallbackResolved.scopedLesson,
+            practiceIndex: index,
+            practiceType: finalType,
+            mode,
+            referenceExerciseType: finalType,
+          })
         : resolvePracticeLessonStep({
             lesson,
             practiceIndex: index,

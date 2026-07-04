@@ -7,6 +7,16 @@ import {
 import { lessonForPracticeStep } from '@/lib/practice/buildPracticeDiversity'
 import { buildVoiceShadowPrompt, sanitizeVoiceShadowPrompt } from '@/lib/practice/buildVoiceShadowPrompt'
 import {
+  buildReferencePromptFromLesson,
+  getPracticePromptBuilder,
+  isReferenceStepMapType,
+} from '@/lib/practice/prompt/practicePromptBuilders'
+import {
+  extractSemanticKeywords,
+  isTranslateStylePrompt,
+  stripAnswerLeakFromHint,
+} from '@/lib/practice/prompt/promptSourceUtils'
+import {
   filterByChoiceGranularity,
   inferChoiceGranularity,
 } from '@/lib/practice/choiceOptionGranularity'
@@ -108,6 +118,43 @@ export function normalizeAiPracticeQuestion(
     }
   }
 
+  const referenceType = normalizeOptions?.referenceExerciseType ?? type
+  const useReferencePromptBuilder =
+    mode === 'reference' && isReferenceStepMapType(referenceType)
+
+  if (useReferencePromptBuilder) {
+    const builder = getPracticePromptBuilder(referenceType)
+    if (type === 'free-response' && (isTranslateStylePrompt(prompt) || !builder?.hasContext(prompt))) {
+      if (mode === 'reference' && isTranslateStylePrompt(prompt)) return null
+      const rebuilt = buildReferencePromptFromLesson({
+        lesson: scopedLesson,
+        type: referenceType,
+        stepIndex: index,
+        targetAnswer,
+      })
+      if (rebuilt) prompt = rebuilt
+    } else if (
+      (type === 'dictation' || type === 'listening-select') &&
+      (!builder?.hasContext(prompt) || prompt.includes(targetAnswer))
+    ) {
+      const rebuilt = buildReferencePromptFromLesson({
+        lesson: scopedLesson,
+        type: referenceType,
+        stepIndex: index,
+        targetAnswer,
+      })
+      if (rebuilt) prompt = rebuilt
+    } else if (builder && !builder.hasContext(prompt)) {
+      const rebuilt = buildReferencePromptFromLesson({
+        lesson: scopedLesson,
+        type: referenceType,
+        stepIndex: index,
+        targetAnswer,
+      })
+      if (rebuilt) prompt = rebuilt
+    }
+  }
+
   const rawAcceptedAnswers = Array.isArray(source.acceptedAnswers)
     ? source.acceptedAnswers.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
     : []
@@ -156,6 +203,11 @@ export function normalizeAiPracticeQuestion(
 
   if (!prompt) return null
   if (type === 'choice' && !choicePromptHasContext(prompt)) return null
+  if (useReferencePromptBuilder) {
+    const builder = getPracticePromptBuilder(referenceType)
+    if (builder && !builder.hasContext(prompt)) return null
+    if (type === 'free-response' && isTranslateStylePrompt(prompt)) return null
+  }
 
   const meta = getPracticeExerciseMetadata(type)
   const rawOptions = Array.isArray(source.options)
@@ -199,18 +251,28 @@ export function normalizeAiPracticeQuestion(
       : ensurePracticeChoiceOptions(lessonChoiceOptions ?? rawOptions ?? [], normalizedTargetAnswer, {
           targetCount: filteredCanonical.length >= 3 ? 3 : undefined,
         })
-    : rawOptions && rawOptions.length >= 2
-      ? rawOptions
-      : undefined
+    : type === 'dropdown-fill'
+      ? ensurePracticeChoiceOptions(rawOptions ?? [], normalizedTargetAnswer, { targetCount: 3 })
+      : rawOptions && rawOptions.length >= 2
+        ? rawOptions
+        : undefined
 
   if (isChoiceLikePracticeType(type) && !choiceOptions) return null
+  if (type === 'dropdown-fill' && (!choiceOptions || choiceOptions.length < 3)) return null
 
   const audioText =
     type === 'voice-shadow' || type === 'dictation' || type === 'listening-select'
       ? normalizedTargetAnswer
       : typeof source.audioText === 'string'
         ? source.audioText.trim()
-        : normalizedTargetAnswer
+        : undefined
+
+  const normalizedKeywords =
+    keywords && keywords.length > 0
+      ? keywords
+      : type === 'free-response' || type === 'roleplay-mini' || type === 'boss-challenge'
+        ? extractSemanticKeywords(normalizedTargetAnswer)
+        : undefined
 
   return {
     id: `ai-practice-${lesson.id}-${index}-${Math.random().toString(36).slice(2, 8)}`,
@@ -224,9 +286,9 @@ export function normalizeAiPracticeQuestion(
       normalizedShuffledWords && normalizedShuffledWords.length > 0 ? normalizedShuffledWords : undefined,
     extraWords: extraWords && extraWords.length > 0 ? extraWords : undefined,
     audioText,
-    keywords: keywords && keywords.length > 0 ? keywords : undefined,
+    keywords: normalizedKeywords && normalizedKeywords.length > 0 ? normalizedKeywords : undefined,
     minWords: typeof source.minWords === 'number' && source.minWords > 0 ? Math.min(20, source.minWords) : undefined,
-    hint: type === 'voice-shadow' ? undefined : normalizedHint,
+    hint: type === 'voice-shadow' ? undefined : stripAnswerLeakFromHint(normalizedHint, normalizedTargetAnswer),
     explanation: typeof source.explanation === 'string' ? source.explanation.trim() : undefined,
     correctionPrompt: `Закрепим правильный вариант: ${normalizeEnglishLearnerContractions(normalizedTargetAnswer)}`,
     xpBase: meta.xpBase,

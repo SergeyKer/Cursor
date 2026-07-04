@@ -1,5 +1,6 @@
 import { buildLocalPracticeSession, buildSinglePracticeQuestion } from '@/lib/practice/builders/localPracticeBuilder'
 import { buildPracticeQuestionFingerprintFromQuestion } from '@/lib/practice/questionFingerprint'
+import { REFERENCE_STEP_MAP_TYPES } from '@/lib/practice/prompt/promptSourceTypes'
 import type { LessonData } from '@/types/lesson'
 import type { PracticeExerciseType, PracticeMode, PracticeQuestion } from '@/types/practice'
 
@@ -62,12 +63,16 @@ function collectReferenceFallbackCandidates(
   referenceExerciseType: PracticeExerciseType
 ): PracticeQuestion[] {
   const profiles = lesson.repeatConfig?.variantProfiles ?? []
-  if (profiles.length === 0) {
+  const candidateCount = REFERENCE_STEP_MAP_TYPES.has(referenceExerciseType)
+    ? 12
+    : Math.max(profiles.length, 1)
+
+  if (profiles.length === 0 && !REFERENCE_STEP_MAP_TYPES.has(referenceExerciseType)) {
     return fallbackQuestions(lesson, mode).filter((question) => question.type === referenceExerciseType)
   }
 
   const candidates: PracticeQuestion[] = []
-  for (let index = 0; index < profiles.length; index += 1) {
+  for (let index = 0; index < candidateCount; index += 1) {
     const question = buildSinglePracticeQuestion({
       lesson,
       type: referenceExerciseType,

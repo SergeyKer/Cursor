@@ -7,9 +7,15 @@ import { enforceStepSpecs } from '@/lib/practice/enforceStepSpecs'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
 import { getPracticeStepsForRange } from '@/lib/practice/engine/stepSpec'
 import { buildProviderUserMessage, PRACTICE_REFERENCE_FALLBACK_NOTICE } from '@/lib/buildProviderUserMessage'
+import {
+  buildEtalonPromptForReferenceType,
+  collectReferencePromptBuilderSystemRules,
+  isReferenceStepMapType,
+} from '@/lib/practice/prompt/practicePromptBuilders'
 import { buildReferenceFallbackQuestion } from '@/lib/practice/referenceFallbackQuestion'
 import { getReferenceExerciseChallengeStep } from '@/lib/practice/referenceExerciseOptions'
 import { resolvePracticeLessonStep } from '@/lib/practice/resolvePracticeLessonStep'
+import { resolveReferenceLessonStep } from '@/lib/practice/resolveReferenceLessonStep'
 import { buildPracticeQuestionFingerprintFromQuestion, normalizePracticeFingerprintPart } from '@/lib/practice/questionFingerprint'
 import { normalizeAiPracticeQuestion } from '@/lib/practice/normalizeAiPracticeQuestion'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
@@ -134,7 +140,12 @@ function normalizeQuestions(
   return questions.slice(0, clampedCount)
 }
 
-function buildSystemPrompt(): string {
+function buildSystemPrompt(referenceExerciseType?: PracticeExerciseType): string {
+  const typeRules =
+    referenceExerciseType && isReferenceStepMapType(referenceExerciseType)
+      ? collectReferencePromptBuilderSystemRules(referenceExerciseType)
+      : []
+
   return [
     'You generate short English practice exercises for a learner app.',
     'Return ONLY valid JSON object: {"questions":[...]}',
@@ -156,10 +167,12 @@ function buildSystemPrompt(): string {
     'Prompts can be in Russian with English targets. Keep the tone warm and concise.',
     'If referenceExerciseType is provided, every generated question.type must exactly match it.',
     'If etalonChoicePrompt is provided, follow the same pedagogical logic but use a new scenario and wording.',
+    'If etalonReferencePrompt is provided, mirror its pedagogical frame but use fresh scenario wording.',
     'If sourceSituations is provided, vary Russian situations across that pool; do not copy etalonChoiceSource taskBubble verbatim.',
     'If suggestedScenario is provided, use it as the situational anchor unless recentPrompts forbid it.',
     'When referenceCanonicalStep options are provided, mirror option structure and grammar pattern but adapt sentences to the new scenario.',
     'If steps array is provided, each question at steps[N].stepIndex must use exactly steps[N].type and steps[N].distractorTier when set.',
+    ...typeRules,
     'Do not include markdown.',
   ].join('\n')
 }
@@ -184,6 +197,7 @@ function buildUserPayload(
     stepIndex: practiceStepIndex,
     total: referenceTotal,
     recentPrompts: mode === 'reference' ? recentPrompts : undefined,
+    referenceExerciseType: mode === 'reference' ? referenceExerciseType : undefined,
   })
   const scopedLesson = lessonForPracticeStep(lesson, practiceStepIndex)
   const etalonChoice = findLessonChoiceStepForPractice(lesson, practiceStepIndex)
@@ -212,21 +226,33 @@ function buildUserPayload(
   const referenceCanonicalStep =
     mode === 'reference' && referenceExerciseType
       ? (() => {
-          const resolved = resolvePracticeLessonStep({
-            lesson: scopedLesson,
-            practiceIndex: referenceStepIndex ?? 0,
-            practiceType: referenceExerciseType,
-            mode,
-            referenceExerciseType,
-          })
+          const stepIndex = referenceStepIndex ?? 0
+          const resolved = isReferenceStepMapType(referenceExerciseType)
+            ? resolveReferenceLessonStep({
+                lesson,
+                referenceExerciseType,
+                stepIndex,
+              })
+            : resolvePracticeLessonStep({
+                lesson: scopedLesson,
+                practiceIndex: stepIndex,
+                practiceType: referenceExerciseType,
+                mode,
+                referenceExerciseType,
+              })
           if (!resolved) return undefined
           return {
             challengeStep: getReferenceExerciseChallengeStep(referenceExerciseType),
             stepNumber: resolved.sourceStepNumber,
             exercise: resolved.exercise,
             options: resolved.canonicalOptions,
+            axis: resolved.axis,
           }
         })()
+      : undefined
+  const etalonReferencePrompt =
+    mode === 'reference' && referenceExerciseType
+      ? buildEtalonPromptForReferenceType(lesson, referenceExerciseType, practiceStepIndex) ?? undefined
       : undefined
   return JSON.stringify(
     {
@@ -248,6 +274,7 @@ function buildUserPayload(
       diversityRule: diversity.diversityRule,
       mustEndWithBossChallenge: plan.boss,
       etalonChoicePrompt: buildEtalonChoicePromptForLesson(lesson, practiceStepIndex) ?? undefined,
+      etalonReferencePrompt,
       etalonChoiceSource: etalonChoice
         ? {
             stepNumber: etalonChoice.step.stepNumber,
@@ -376,7 +403,7 @@ export async function POST(req: NextRequest) {
         provider,
         req,
         apiMessages: [
-          { role: 'system', content: buildSystemPrompt() },
+          { role: 'system', content: buildSystemPrompt(referenceExerciseType) },
           {
             role: 'user',
             content: buildUserPayload(
