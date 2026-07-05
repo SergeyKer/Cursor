@@ -1,4 +1,5 @@
-import type { PracticeDistractorTier, PracticeMode } from '@/lib/practice/engine/stepSpec'
+import type { PracticeDistractorTier } from '@/lib/practice/engine/stepSpec'
+import type { PracticeMode } from '@/types/practice'
 import { PRACTICE_CHOICE_MAX_OPTIONS } from '@/lib/practice/ensurePracticeChoiceOptions'
 import type { GapWordSlot } from '@/lib/practice/gapWordSlot'
 import type { LessonData } from '@/types/lesson'

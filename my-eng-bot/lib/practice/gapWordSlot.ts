@@ -107,7 +107,7 @@ function collectCountriesFromLesson(lesson?: LessonData): string[] {
   const fromProfiles =
     lesson?.repeatConfig?.variantProfiles
       ?.flatMap((profile) => {
-        const fields = profile as Record<string, unknown>
+        const fields = profile as unknown as Record<string, unknown>
         const values = [fields.country, fields.step6CreativeCountry, fields.step3FillWord]
         return values.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
       }) ?? []

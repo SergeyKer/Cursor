@@ -54,7 +54,7 @@ import type { PracticeExerciseType } from '@/types/practice'
 
 export type PracticePromptBuilderEntry = {
   findSource: (lesson: LessonData, stepIndex: number) => PracticePromptSource | null
-  buildPrompt: (source: PracticePromptSource, lesson: LessonData, stepIndex: number, targetAnswer: string) => string
+  buildPrompt: (source: PracticePromptSource, lesson: LessonData, stepIndex: number, targetAnswer: string) => string | null
   buildEtalonForLesson: (lesson: LessonData, stepIndex: number) => string | null
   hasContext: (prompt: string) => boolean
   systemRules: readonly string[]
