@@ -1,5 +1,6 @@
 import type { LessonData, LessonRepeatVariantProfile } from '@/types/lesson'
 import type { PracticeMode, PracticeExerciseType } from '@/types/practice'
+import { getPracticeStepSpec } from '@/lib/practice/engine/stepSpec'
 import { applyStructuredLessonVariant } from '@/lib/structuredLessonVariants'
 
 export type PracticeScenarioCategory = 'weather' | 'time' | 'distance' | 'general'
@@ -104,6 +105,11 @@ function buildReferenceDiversityRule(params: {
     parts.push('Quick situational choice with exactly 3 options.')
   } else if (params.referenceExerciseType === 'boss-challenge') {
     parts.push('Final challenge; minWords 5; apply lesson theme creatively.')
+  } else if (params.referenceExerciseType === 'word-builder-pro') {
+    parts.push(
+      'word-builder-pro: full phrase puzzle + exactly 2 grammar-precision traps in extraWords (a/an/the swap preferred; morph +s/+es only on content words).',
+      'Never use lesson verb alternates (sleep, drink) as traps. Prompt: Russian situation aligned with targetAnswer; no ___ gap-fill.'
+    )
   }
 
   if (params.lesson.id === '1') {
@@ -124,6 +130,7 @@ function buildSessionDiversityRule(params: {
   lesson: LessonData
   suggestedScenario?: string
   sourceSituations: string[]
+  practiceType?: PracticeExerciseType
 }): string {
   const parts = [
     'Avoid repeating seenKeys; generate fresh prompts and answers.',
@@ -131,6 +138,11 @@ function buildSessionDiversityRule(params: {
       ? `Prefer a scenario related to: "${params.suggestedScenario}".`
       : 'Vary micro-situations across sourceSituations.',
   ]
+  if (params.practiceType === 'word-builder-pro') {
+    parts.push(
+      'word-builder-pro: full phrase puzzle + exactly 2 grammar traps in extraWords; Russian situation aligned with targetAnswer; no gap-fill.'
+    )
+  }
   if (params.lesson.id === '1') {
     parts.push('Rotate weather, time, and distance; avoid repeating "темно" / It\'s dark in consecutive items.')
   }
@@ -160,6 +172,7 @@ export function buildPracticeDiversityPayload(params: {
   const profile = pickVariantProfileForStep(params.lesson, params.stepIndex)
   const repeatConfig = params.lesson.repeatConfig
 
+  const stepSpec = getPracticeStepSpec(params.mode, params.stepIndex)
   const diversityRule =
     params.mode === 'reference'
       ? buildReferenceDiversityRule({
@@ -174,6 +187,7 @@ export function buildPracticeDiversityPayload(params: {
           lesson: params.lesson,
           suggestedScenario,
           sourceSituations,
+          practiceType: params.referenceExerciseType ?? stepSpec?.type,
         })
 
   return {

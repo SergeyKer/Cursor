@@ -62,6 +62,10 @@ describe('buildLocalPracticeSession', () => {
     expect(questionsByType.get('dictation')?.audioText).toBeTruthy()
     expect(questionsByType.get('sentence-surgery')?.shuffledWords?.length).toBeGreaterThan(0)
     expect(questionsByType.get('word-builder-pro')?.shuffledWords?.length).toBeGreaterThan(0)
+    const wordBuilder = questionsByType.get('word-builder-pro')
+    expect(wordBuilder?.extraWords?.length).toBe(2)
+    expect(wordBuilder?.targetAnswer).not.toBe('to')
+    expect(wordBuilder?.prompt).not.toMatch(/___/)
     expect(questionsByType.get('roleplay-mini')?.keywords?.length).toBeGreaterThan(0)
     expect(questionsByType.get('boss-challenge')?.minWords).toBeGreaterThanOrEqual(5)
 
@@ -265,6 +269,24 @@ describe('buildLocalPracticeSession', () => {
     expect(dropdown?.options).toContain('Russia')
     expect(dropdown?.options?.some((item) => ['a', 'an', 'the'].includes(item.toLowerCase()))).toBe(false)
     expect(dropdown?.options?.every((item) => !isCompleteSentence(item))).toBe(true)
+  })
+
+  it('reference word-builder-pro builds phrase puzzle with grammar traps', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+    const question = buildSinglePracticeQuestion({
+      lesson: lesson!,
+      type: 'word-builder-pro',
+      questionIndex: 0,
+      mode: 'reference',
+      referenceExerciseType: 'word-builder-pro',
+    })
+    expect(question).not.toBeNull()
+    expect(question!.targetAnswer).not.toBe('to')
+    expect(question!.extraWords?.length).toBe(2)
+    expect(question!.shuffledWords!.length).toBeGreaterThanOrEqual(5)
+    expect(question!.prompt).toMatch(/Ситуация:|Расставьте/i)
+    expect(question!.extraWords).toEqual(expect.arrayContaining(['goes', 'times']))
   })
 })
 

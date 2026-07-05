@@ -158,6 +158,29 @@ describe('normalizeAiPracticeQuestion', () => {
     expect(q!.targetAnswer).toMatch(/go home/i)
     expect(q!.shuffledWords).toEqual(["It's", 'time', 'to', 'go', 'home'])
   })
+
+  it('normalizes word-builder-pro with morph extraWords and rejects semantic traps', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+    const row = {
+      type: 'word-builder-pro',
+      prompt: 'Выберите слово для пропуска: «It\'s ___ to go home.»',
+      targetAnswer: "It's time to go home.",
+      acceptedAnswers: [],
+      extraWords: ['sleep', 'goes'],
+    }
+    const q = normalizeAiPracticeQuestion(row, lesson!, 6, {
+      mode: 'challenge',
+      referenceExerciseType: 'word-builder-pro',
+    })
+    expect(q).not.toBeNull()
+    expect(q!.prompt).not.toMatch(/___/)
+    expect(q!.prompt).toMatch(/Ситуация:|Расставьте/i)
+    expect(q!.extraWords).toBeDefined()
+    expect(q!.extraWords).not.toContain('sleep')
+    expect(q!.extraWords).toContain('goes')
+    expect(q!.extraWords!.length).toBe(2)
+  })
 })
 
 describe('isChoiceLikePracticeType', () => {

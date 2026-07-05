@@ -1,5 +1,6 @@
 import { filterByChoiceGranularity, inferChoiceGranularity } from '@/lib/practice/choiceOptionGranularity'
-import { buildTieredChoiceOptions, buildWordBankExtraWords } from '@/lib/practice/distractorTier'
+import { buildWordBuilderProExtraWords } from '@/lib/practice/buildWordBuilderProTraps'
+import { buildTieredChoiceOptions, sanitizeWordBuilderProExtraWords } from '@/lib/practice/distractorTier'
 import { getPracticeStepSpec, resolveAdaptiveTierForStep, resolveTierForStep } from '@/lib/practice/engine/stepSpec'
 import { isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
 import { collectLessonChoicePool } from '@/lib/practice/lessonChoicePool'
@@ -103,8 +104,13 @@ export function enforceStepSpecs(
     }
 
     let extraWords = normalized.extraWords
-    if (spec.type === 'word-builder-pro' && spec.wordBankMode === 'extra' && !extraWords?.length) {
-      extraWords = buildWordBankExtraWords(normalized.targetAnswer, 'extra')
+    if (spec.type === 'word-builder-pro') {
+      extraWords =
+        sanitizeWordBuilderProExtraWords({
+          targetAnswer: normalized.targetAnswer,
+          candidates: extraWords,
+          lesson,
+        }) ?? buildWordBuilderProExtraWords(normalized.targetAnswer, lesson)
     }
 
     return { ...normalized, extraWords }

@@ -30,11 +30,12 @@ describe('buildPracticePuzzleExercise', () => {
     const exercise = buildPracticePuzzleExercise(
       baseQuestion({
         type: 'word-builder-pro',
-        extraWords: ['sleep'],
+        extraWords: ['goes', 'times'],
       })
     )
     const variant = exercise.puzzleVariants?.[0]
-    expect(variant?.words).toContain('sleep')
-    expect(variant?.correctOrder).not.toContain('sleep')
+    expect(variant?.words).toContain('goes')
+    expect(variant?.correctOrder).not.toContain('goes')
+    expect((variant?.words.length ?? 0)).toBeGreaterThan(variant?.correctOrder.length ?? 0)
   })
 })

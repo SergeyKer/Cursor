@@ -14,6 +14,7 @@ import {
   PRACTICE_CHOICE_MIN_OPTIONS,
   resolvePracticeChoiceTargetCount,
 } from '@/lib/practice/ensurePracticeChoiceOptions'
+import { buildWordBuilderProExtraWords, GRAMMAR_TRAP_WHITELIST } from '@/lib/practice/buildWordBuilderProTraps'
 import type { PracticeDistractorTier, PracticeWordBankMode } from '@/lib/practice/engine/stepSpec'
 import type { LessonData } from '@/types/lesson'
 import type { PracticeExerciseType, PracticeMode } from '@/types/practice'
@@ -309,13 +310,166 @@ export function buildTieredChoiceOptions(
   return ensurePracticeChoiceOptions(candidates, targetAnswer, { tier, targetCount })
 }
 
+const PUZZLE_TRAP_SKIP_TOKENS = new Set([
+  "it's",
+  "i'm",
+  'to',
+  'a',
+  'an',
+  'the',
+  'at',
+  'in',
+  'on',
+  'of',
+  'for',
+  'and',
+  'or',
+])
+
+function normalizeTrapToken(token: string): string {
+  return token.replace(/[.,!?]/g, '').trim().toLowerCase()
+}
+
+function morphVariantsForToken(token: string): string[] {
+  const cleaned = token.replace(/[.,!?]/g, '').trim()
+  if (!cleaned) return []
+  const lower = cleaned.toLowerCase()
+  const variants = new Set<string>()
+
+  if (lower.endsWith('y') && cleaned.length > 2) {
+    variants.add(`${cleaned.slice(0, -1)}ies`)
+  }
+  if (lower === 'go' || lower === 'do' || /[^aeiou]o$/i.test(cleaned)) {
+    variants.add(`${cleaned}es`)
+  } else if (
+    lower.endsWith('s') ||
+    lower.endsWith('x') ||
+    lower.endsWith('z') ||
+    lower.endsWith('ch') ||
+    lower.endsWith('sh')
+  ) {
+    variants.add(`${cleaned}es`)
+  } else {
+    variants.add(`${cleaned}s`)
+  }
+  variants.add(`${cleaned}ing`)
+
+  return Array.from(variants).filter((item) => item.toLowerCase() !== lower)
+}
+
+function significantPuzzleTokens(targetAnswer: string): string[] {
+  return targetAnswer
+    .replace(/[.!?]$/g, '')
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .filter((token) => !PUZZLE_TRAP_SKIP_TOKENS.has(normalizeTrapToken(token)))
+}
+
 export function buildWordBankExtraWords(targetAnswer: string, mode: PracticeWordBankMode): string[] | undefined {
   if (mode !== 'extra') return undefined
-  const tokens = targetAnswer.replace(/[.!?]$/g, '').split(/\s+/).filter(Boolean)
-  if (tokens.length === 0) return ['go', 'the']
+
+  const answerTokens = new Set(
+    targetAnswer
+      .replace(/[.!?]$/g, '')
+      .split(/\s+/)
+      .map(normalizeTrapToken)
+      .filter(Boolean)
+  )
+
   const extras: string[] = []
-  if (tokens.some((t) => t.toLowerCase() === 'to')) extras.push('go')
-  if (tokens.some((t) => /^a$/i.test(t))) extras.push('an')
-  if (extras.length === 0) extras.push('to', 'go')
-  return extras.slice(0, 2)
+  const seen = new Set<string>()
+
+  const addExtra = (word: string) => {
+    const key = normalizeTrapToken(word)
+    if (!key || answerTokens.has(key) || seen.has(key)) return
+    seen.add(key)
+    extras.push(word)
+  }
+
+  const tokens = significantPuzzleTokens(targetAnswer)
+  const variantsByToken = tokens.map((token) =>
+    morphVariantsForToken(token).filter((variant) => {
+      const key = normalizeTrapToken(variant)
+      return key && !answerTokens.has(key)
+    })
+  )
+
+  let round = 0
+  while (extras.length < 2 && round < 6) {
+    let added = false
+    for (const variants of variantsByToken) {
+      const variant = variants[round]
+      if (!variant) continue
+      const before = extras.length
+      addExtra(variant)
+      if (extras.length > before) added = true
+      if (extras.length >= 2) return extras
+    }
+    if (!added) break
+    round += 1
+  }
+
+  return extras.length > 0 ? extras.slice(0, 2) : undefined
+}
+
+export function sanitizeWordBuilderProExtraWords(params: {
+  targetAnswer: string
+  candidates?: string[]
+  lesson?: LessonData
+}): string[] | undefined {
+  const built = buildWordBuilderProExtraWords(params.targetAnswer, params.lesson) ?? []
+  const pool = new Set<string>()
+  if (params.lesson) {
+    for (const step of params.lesson.steps) {
+      const exercise = step.exercise
+      if (!exercise) continue
+      for (const option of exercise.options ?? []) {
+        const normalized = normalizeTrapToken(option)
+        if (normalized) pool.add(normalized)
+      }
+      const correct = exercise.correctAnswer?.trim()
+      if (correct) {
+        for (const token of correct.replace(/[.!?]$/g, '').split(/\s+/)) {
+          const normalized = normalizeTrapToken(token)
+          if (normalized) pool.add(normalized)
+        }
+      }
+    }
+  }
+
+  const answerTokens = new Set(
+    params.targetAnswer
+      .replace(/[.!?]$/g, '')
+      .split(/\s+/)
+      .map(normalizeTrapToken)
+      .filter(Boolean)
+  )
+
+  const merged = [...(params.candidates ?? []), ...built]
+  const extras: string[] = []
+  const seen = new Set<string>()
+
+  for (const word of merged) {
+    const key = normalizeTrapToken(word)
+    if (!key || answerTokens.has(key) || seen.has(key)) continue
+    if (pool.has(key) && !GRAMMAR_TRAP_WHITELIST.has(key) && !built.some((item) => normalizeTrapToken(item) === key)) {
+      continue
+    }
+    seen.add(key)
+    extras.push(word.trim())
+    if (extras.length >= 2) break
+  }
+
+  if (extras.length < 2) {
+    for (const word of built) {
+      const key = normalizeTrapToken(word)
+      if (!key || answerTokens.has(key) || seen.has(key)) continue
+      seen.add(key)
+      extras.push(word)
+      if (extras.length >= 2) break
+    }
+  }
+
+  return extras.length > 0 ? extras.slice(0, 2) : undefined
 }

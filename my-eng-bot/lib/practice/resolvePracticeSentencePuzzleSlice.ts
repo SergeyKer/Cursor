@@ -11,6 +11,7 @@ export type PracticeSentencePuzzleSlice = {
   wordTokens: string[]
   prompt: string
   hint?: string
+  matchedVariant?: SentencePuzzleVariant
 }
 
 export function isStaleLessonPuzzlePrompt(text: string): boolean {
@@ -45,11 +46,18 @@ function mergeAcceptedAnswers(variant: SentencePuzzleVariant, exercise: Exercise
   return unique
 }
 
-function findMatchingVariant(exercise: Exercise): SentencePuzzleVariant | null {
+export function findMatchingPuzzleVariant(
+  exercise: Exercise,
+  targetAnswer?: string
+): SentencePuzzleVariant | null {
   const variants = exercise.puzzleVariants ?? []
   if (variants.length === 0) return null
 
-  const answerKeys = [exercise.correctAnswer, ...(exercise.acceptedAnswers ?? [])]
+  const answerKeys = [
+    ...(targetAnswer ? [targetAnswer] : []),
+    exercise.correctAnswer,
+    ...(exercise.acceptedAnswers ?? []),
+  ]
     .map((item) => item.trim())
     .filter(Boolean)
 
@@ -64,7 +72,7 @@ function findMatchingVariant(exercise: Exercise): SentencePuzzleVariant | null {
 
 export function resolvePracticeSentencePuzzleSlice(exercise: Exercise): PracticeSentencePuzzleSlice | null {
   if (exercise.type !== 'sentence_puzzle') return null
-  const variant = findMatchingVariant(exercise)
+  const variant = findMatchingPuzzleVariant(exercise)
   if (!variant) return null
 
   const acceptedAnswers = mergeAcceptedAnswers(variant, exercise)
@@ -82,5 +90,6 @@ export function resolvePracticeSentencePuzzleSlice(exercise: Exercise): Practice
     wordTokens: getVariantWordTokens(variant),
     prompt,
     hint: hintText || undefined,
+    matchedVariant: variant,
   }
 }

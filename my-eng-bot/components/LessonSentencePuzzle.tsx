@@ -423,7 +423,7 @@ export default function LessonSentencePuzzle({
           <button
             key={`${activeVariant.id}-${word}-${index}`}
             type="button"
-            disabled={isBusy}
+            disabled={isBusy || isFilled}
             onClick={() => handleSelectWord(word)}
             className="inline-flex h-9 items-center rounded-lg border border-blue-200 bg-blue-50 px-2.5 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-100 disabled:opacity-60"
             aria-label={`Добавить слово ${word}`}

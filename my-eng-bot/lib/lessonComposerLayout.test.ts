@@ -275,6 +275,33 @@ describe('estimateLessonComposerMinHeight', () => {
     expect(puzzleHeight).toBeLessThan(320)
   })
 
+  it('word-builder-pro bank with traps reserves more height than clean bank', () => {
+    const slots = ["It's", 'time', 'to', 'go', 'home']
+    const bank7 = [...slots, 'goes', 'times']
+    const bank5 = [...slots]
+    const compact = true
+    const width = 360
+    const withTraps = estimateLessonComposerMinHeight({
+      panelKind: 'puzzle',
+      puzzleSlotTokens: slots,
+      puzzleBankWords: bank7,
+      puzzleHasTitle: false,
+      puzzleHasInstruction: false,
+      compact,
+      containerWidthPx: width,
+    })
+    const clean = estimateLessonComposerMinHeight({
+      panelKind: 'puzzle',
+      puzzleSlotTokens: slots,
+      puzzleBankWords: bank5,
+      puzzleHasTitle: false,
+      puzzleHasInstruction: false,
+      compact,
+      containerWidthPx: width,
+    })
+    expect(withTraps).toBeGreaterThanOrEqual(clean)
+  })
+
   it('practice compact puzzle omits title block from estimate', () => {
     const withTitle = estimateLessonComposerMinHeight({
       panelKind: 'puzzle',

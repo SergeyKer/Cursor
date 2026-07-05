@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTieredChoiceOptions } from '@/lib/practice/distractorTier'
+import { buildTieredChoiceOptions, buildWordBankExtraWords, sanitizeWordBuilderProExtraWords } from '@/lib/practice/distractorTier'
 import { ensurePracticeChoiceOptions } from '@/lib/practice/ensurePracticeChoiceOptions'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
 import { collectLessonChoicePool } from '@/lib/practice/lessonChoicePool'
@@ -44,5 +44,34 @@ describe('distractorTier', () => {  it('produces different option sets per tier'
     })
     expect(options).toHaveLength(3)
     expect(options.some((item) => item === 'sleeps' || item === 'sleeping')).toBe(false)
+  })
+
+  it('buildWordBankExtraWords produces morph traps for go home phrase', () => {
+    const extras = buildWordBankExtraWords("It's time to go home.", 'extra')
+    expect(extras).toHaveLength(2)
+    expect(extras).toContain('goes')
+    expect(extras).toContain('times')
+    expect(extras).not.toContain('sleep')
+    expect(extras).not.toContain('go')
+  })
+
+  it('buildWordBankExtraWords produces morph traps for short dark phrase', () => {
+    const extras = buildWordBankExtraWords("It's dark.", 'extra')
+    expect(extras?.length).toBeGreaterThanOrEqual(1)
+    expect(extras?.every((word) => !["It's", 'dark'].includes(word))).toBe(true)
+  })
+
+  it('sanitizeWordBuilderProExtraWords filters semantic lesson pool words', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+    const sanitized = sanitizeWordBuilderProExtraWords({
+      targetAnswer: "It's time to go home.",
+      candidates: ['sleep', 'drink', 'goes'],
+      lesson: lesson!,
+    })
+    expect(sanitized).toBeDefined()
+    expect(sanitized).not.toContain('sleep')
+    expect(sanitized).not.toContain('drink')
+    expect(sanitized!.length).toBe(2)
   })
 })

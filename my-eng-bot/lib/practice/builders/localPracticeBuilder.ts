@@ -1,8 +1,11 @@
 import { lessonForPracticeStep } from '@/lib/practice/buildPracticeDiversity'
 import { buildChoicePrompt, choicePromptHasContext } from '@/lib/practice/buildChoicePrompt'
+import { buildWordBuilderProPrompt } from '@/lib/practice/prompt/buildWordBuilderProPrompt'
+import { resolveWordBuilderProHint } from '@/lib/practice/prompt/resolveWordBuilderProHint'
 import { buildVoiceShadowPrompt } from '@/lib/practice/buildVoiceShadowPrompt'
 import { inferChoiceGranularity, filterByChoiceGranularity } from '@/lib/practice/choiceOptionGranularity'
-import { buildTieredChoiceOptions, buildWordBankExtraWords } from '@/lib/practice/distractorTier'
+import { buildWordBuilderProExtraWords } from '@/lib/practice/buildWordBuilderProTraps'
+import { buildTieredChoiceOptions } from '@/lib/practice/distractorTier'
 import { ensurePracticeChoiceOptions, isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
 import {
   getPracticeStepSpec,
@@ -195,10 +198,21 @@ function createQuestion(params: {
     })
     if (built) prompt = built
   }
+  if (params.type === 'word-builder-pro' && puzzleSlice) {
+    prompt = buildWordBuilderProPrompt({
+      step: params.step,
+      exercise: params.exercise,
+      lesson: params.lesson,
+      puzzlePrompt: puzzleSlice.prompt,
+      stepIndex: params.index,
+      targetAnswer,
+      matchedVariant: puzzleSlice.matchedVariant,
+    })
+  }
   const variantSuffix = params.variantIndex != null ? `-v${params.variantIndex}` : ''
   const extraWords =
-    params.type === 'word-builder-pro' && params.stepSpec?.wordBankMode
-      ? buildWordBankExtraWords(targetAnswer, params.stepSpec.wordBankMode)
+    params.type === 'word-builder-pro'
+      ? buildWordBuilderProExtraWords(targetAnswer, params.lesson)
       : undefined
 
   const isTranslateBackedFreeResponse =
@@ -240,11 +254,22 @@ function createQuestion(params: {
             : undefined,
     hint: isVoiceShadow
       ? undefined
-      : params.type === 'dropdown-fill'
-        ? sanitizeDropdownHint(
-            stripAnswerLeakFromHint(puzzleSlice?.hint ?? params.exercise.hint, targetAnswer)
+      : params.type === 'word-builder-pro' && puzzleSlice
+        ? stripAnswerLeakFromHint(
+            resolveWordBuilderProHint({
+              targetAnswer,
+              lesson: params.lesson,
+              exercise: params.exercise,
+              variantHint: puzzleSlice.hint,
+              matchedVariant: puzzleSlice.matchedVariant,
+            }),
+            targetAnswer
           )
-        : stripAnswerLeakFromHint(puzzleSlice?.hint ?? params.exercise.hint, targetAnswer),
+        : params.type === 'dropdown-fill'
+          ? sanitizeDropdownHint(
+              stripAnswerLeakFromHint(puzzleSlice?.hint ?? params.exercise.hint, targetAnswer)
+            )
+          : stripAnswerLeakFromHint(puzzleSlice?.hint ?? params.exercise.hint, targetAnswer),
     explanation: params.step.footerDynamic,
     correctionPrompt: `Закрепим правильный вариант: ${targetAnswer}`,
     xpBase: meta.xpBase,

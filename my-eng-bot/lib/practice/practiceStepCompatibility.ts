@@ -29,6 +29,7 @@ export function isExerciseCompatibleWithPracticeType(
     case 'speed-round':
       return Boolean(exercise.options?.length) || exercise.type === 'fill_choice' || exercise.type === 'translate'
     case 'sentence-surgery':
+    case 'word-builder-pro':
       return exercise.type === 'sentence_puzzle'
     case 'free-response':
       return exercise.type === 'translate' || exercise.type === 'write_own'

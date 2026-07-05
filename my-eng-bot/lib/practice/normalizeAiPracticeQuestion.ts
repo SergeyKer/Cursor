@@ -26,7 +26,8 @@ import {
   inferChoiceGranularity,
 } from '@/lib/practice/choiceOptionGranularity'
 import { resolveDropdownOptionCount } from '@/lib/practice/dropdownOptionCount'
-import { buildTieredChoiceOptions } from '@/lib/practice/distractorTier'
+import { buildWordBuilderProExtraWords } from '@/lib/practice/buildWordBuilderProTraps'
+import { buildTieredChoiceOptions, sanitizeWordBuilderProExtraWords } from '@/lib/practice/distractorTier'
 import { inferGapWordSlot, validateDropdownFillOptions } from '@/lib/practice/gapWordSlot'
 import { ensurePracticeChoiceOptions, isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
 import type { PracticeDistractorTier } from '@/lib/practice/engine/stepSpec'
@@ -37,6 +38,8 @@ import {
   normalizeGapFillPrompt,
   sanitizeDropdownHint,
 } from '@/lib/practice/prompt/dropdownFillPromptFormat'
+import { buildWordBuilderProPrompt } from '@/lib/practice/prompt/buildWordBuilderProPrompt'
+import { resolveWordBuilderProHint } from '@/lib/practice/prompt/resolveWordBuilderProHint'
 import { getPracticeExerciseMetadata } from '@/lib/practice/registry'
 import { resolvePracticeLessonStep } from '@/lib/practice/resolvePracticeLessonStep'
 import {
@@ -236,6 +239,18 @@ export function normalizeAiPracticeQuestion(
     }
   }
 
+  if (type === 'word-builder-pro' && resolved?.step && resolved.exercise) {
+    prompt = buildWordBuilderProPrompt({
+      step: resolved.step,
+      exercise: resolved.exercise,
+      lesson: scopedLesson,
+      puzzlePrompt: puzzleSlice?.prompt ?? prompt ?? DEFAULT_PRACTICE_SENTENCE_PUZZLE_PROMPT,
+      stepIndex: index,
+      targetAnswer: normalizedTargetAnswer,
+      matchedVariant: puzzleSlice?.matchedVariant,
+    })
+  }
+
   if (isTranslateBackedFreeResponse && canonicalExercise) {
     normalizedTargetAnswer = canonicalExercise.correctAnswer
     const canonicalAccepted = canonicalAcceptedAnswersForExercise(canonicalExercise)
@@ -370,6 +385,17 @@ export function normalizeAiPracticeQuestion(
         : 'normalized'
       : meta.tolerance
 
+  const normalizedExtraWords =
+    type === 'word-builder-pro'
+      ? sanitizeWordBuilderProExtraWords({
+          targetAnswer: normalizedTargetAnswer,
+          candidates: extraWords,
+          lesson: scopedLesson,
+        })
+      : extraWords && extraWords.length > 0
+        ? extraWords
+        : undefined
+
   return {
     id: `ai-practice-${lesson.id}-${index}-${Math.random().toString(36).slice(2, 8)}`,
     lessonId: lesson.id,
@@ -380,7 +406,7 @@ export function normalizeAiPracticeQuestion(
     options: choiceOptions,
     shuffledWords:
       normalizedShuffledWords && normalizedShuffledWords.length > 0 ? normalizedShuffledWords : undefined,
-    extraWords: extraWords && extraWords.length > 0 ? extraWords : undefined,
+    extraWords: normalizedExtraWords,
     audioText,
     keywords: normalizedKeywords && normalizedKeywords.length > 0 ? normalizedKeywords : undefined,
     minWords:
@@ -392,9 +418,20 @@ export function normalizeAiPracticeQuestion(
     hint:
       type === 'voice-shadow'
         ? undefined
-        : type === 'dropdown-fill'
-          ? sanitizeDropdownHint(stripAnswerLeakFromHint(normalizedHint, normalizedTargetAnswer))
-          : stripAnswerLeakFromHint(normalizedHint, normalizedTargetAnswer),
+        : type === 'word-builder-pro' && resolved?.exercise
+          ? stripAnswerLeakFromHint(
+              resolveWordBuilderProHint({
+                targetAnswer: normalizedTargetAnswer,
+                lesson: scopedLesson,
+                exercise: resolved.exercise,
+                variantHint: puzzleSlice?.hint ?? normalizedHint,
+                matchedVariant: puzzleSlice?.matchedVariant,
+              }),
+              normalizedTargetAnswer
+            )
+          : type === 'dropdown-fill'
+            ? sanitizeDropdownHint(stripAnswerLeakFromHint(normalizedHint, normalizedTargetAnswer))
+            : stripAnswerLeakFromHint(normalizedHint, normalizedTargetAnswer),
     explanation: typeof source.explanation === 'string' ? source.explanation.trim() : undefined,
     correctionPrompt: `Закрепим правильный вариант: ${normalizeEnglishLearnerContractions(normalizedTargetAnswer)}`,
     xpBase: meta.xpBase,

@@ -68,4 +68,30 @@ describe('buildPracticeDiversity', () => {
     expect(task).toContain('холодно')
     expect(task).not.toContain('темно')
   })
+
+  it('includes word-builder-pro grammar trap rules in reference diversity', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+    const payload = buildPracticeDiversityPayload({
+      lesson: lesson!,
+      mode: 'reference',
+      stepIndex: 0,
+      total: 7,
+      referenceExerciseType: 'word-builder-pro',
+    })
+    expect(payload.diversityRule).toMatch(/grammar/i)
+    expect(payload.diversityRule).toMatch(/sleep|drink/i)
+  })
+
+  it('includes word-builder-pro rules in challenge session diversity', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+    const payload = buildPracticeDiversityPayload({
+      lesson: lesson!,
+      mode: 'challenge',
+      stepIndex: 6,
+    })
+    expect(payload.diversityRule).toMatch(/word-builder-pro/i)
+    expect(payload.diversityRule).toMatch(/grammar traps/i)
+  })
 })
