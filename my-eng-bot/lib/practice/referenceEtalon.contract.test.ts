@@ -40,6 +40,7 @@ describe('reference etalon contract', () => {
             }
             if (referenceType === 'dropdown-fill') {
               expect(isGapFillStylePrompt(question.prompt)).toBe(true)
+              expect((question.prompt.match(/___/g) ?? []).length).toBe(1)
               expect(question.options?.length ?? 0).toBeGreaterThanOrEqual(3)
               expect(question.options?.some((item) => ['a', 'an', 'the'].includes(item.toLowerCase()))).toBe(false)
             }

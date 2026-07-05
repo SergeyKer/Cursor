@@ -17,7 +17,7 @@ export type PracticeFooterContext = {
 
 export function buildPracticeCorrectionChipsFooterHint(audience: Audience): string {
   return audience === 'child'
-    ? 'Если выбрал неверно — скажи правильную фразу вслух.'
+    ? 'Если выбрал неверно - скажи правильную фразу вслух.'
     : 'После неверного выбора закрепите правильную фразу вслух.'
 }
 

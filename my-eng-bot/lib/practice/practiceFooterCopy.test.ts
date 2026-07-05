@@ -57,7 +57,7 @@ describe('buildPracticeCorrectionChipsFooterHint', () => {
       'После неверного выбора закрепите правильную фразу вслух.'
     )
     expect(buildPracticeCorrectionChipsFooterHint('child')).toBe(
-      'Если выбрал неверно — скажи правильную фразу вслух.'
+      'Если выбрал неверно - скажи правильную фразу вслух.'
     )
   })
 })

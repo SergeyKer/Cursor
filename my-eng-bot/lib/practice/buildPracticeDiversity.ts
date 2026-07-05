@@ -92,7 +92,7 @@ function buildReferenceDiversityRule(params: {
     )
   } else if (params.referenceExerciseType === 'dropdown-fill') {
     parts.push(
-      'Gap-fill task: prompt must be Выберите слово для пропуска: {RU} — «{English frame with ___}».',
+      'Gap-fill task: prompt must be Выберите слово для пропуска: "{RU}" - «{English frame with ___}».',
       'Russian phrase must name what maps to targetAnswer; options must be single words of the same class (3 closed / 4 open lexical).',
       'Never mix articles into country gaps.'
     )

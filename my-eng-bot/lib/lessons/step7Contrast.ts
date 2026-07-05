@@ -1,3 +1,4 @@
+import { normalizeRuTranslatePhrase } from '@/lib/lessonTranslatePrompt'
 import type { ExerciseVariant } from '@/types/lesson'
 
 export type Step7ContrastVariantInput = {
@@ -29,7 +30,7 @@ function buildContrastOptions(correctWord: string, distractors: [string, string]
 export function buildStep7ContrastVariants(items: Step7ContrastVariantInput[]): ExerciseVariant[] {
   return items.map((item) => ({
     id: item.id,
-    question: `Выберите слово для пропуска: ${item.situationRu} - «${item.frameEn}»`,
+    question: `Выберите слово для пропуска: "${normalizeRuTranslatePhrase(item.situationRu)}" - «${item.frameEn}»`,
     options: buildContrastOptions(item.correctWord, item.distractors),
     correctAnswer: item.correctWord,
     hint: item.hint,

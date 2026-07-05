@@ -129,6 +129,27 @@ describe('buildReferenceFallbackQuestion dropdown-fill', () => {
     expect(question!.options).toContain('Russia')
     expect(question!.options?.some((item) => ['a', 'an', 'the'].includes(item.toLowerCase()))).toBe(false)
   })
+
+  it('lesson 3 reference dropdown uses single embedded-question frame', () => {
+    const lesson = getStructuredLessonById('3')
+    expect(lesson).not.toBeNull()
+
+    const question = buildReferenceFallbackQuestion({
+      lesson: lesson!,
+      mode: 'reference',
+      referenceExerciseType: 'dropdown-fill',
+      referenceStepIndex: 0,
+      referenceTotal: 7,
+    })
+
+    expect(question).not.toBeNull()
+    expect(question!.type).toBe('dropdown-fill')
+    expect(question!.targetAnswer).toBe('likes')
+    expect(isGapFillStylePrompt(question!.prompt)).toBe(true)
+    expect(question!.prompt).toMatch(/I know what she ___/i)
+    expect(question!.prompt).not.toMatch(/I am from/i)
+    expect((question!.prompt.match(/___/g) ?? []).length).toBe(1)
+  })
 })
 describe('buildReferenceFallbackQuestion context-clue', () => {
   it('aligns reference #3 fallback to lesson step 3 gap-fill words', () => {

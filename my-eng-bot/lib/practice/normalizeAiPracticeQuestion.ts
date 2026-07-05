@@ -34,6 +34,7 @@ import { collectLessonChoicePool } from '@/lib/practice/lessonChoicePool'
 import {
   gapFillPromptHasValidContext,
   isGapFillStylePrompt,
+  normalizeGapFillPrompt,
   sanitizeDropdownHint,
 } from '@/lib/practice/prompt/dropdownFillPromptFormat'
 import { getPracticeExerciseMetadata } from '@/lib/practice/registry'
@@ -244,6 +245,9 @@ export function normalizeAiPracticeQuestion(
   }
 
   if (!prompt) return null
+  if (type === 'dropdown-fill') {
+    prompt = normalizeGapFillPrompt(prompt)
+  }
   if (type === 'choice' && !choicePromptHasContext(prompt)) return null
   if (useReferencePromptBuilder) {
     const builder = getPracticePromptBuilder(referenceType)
