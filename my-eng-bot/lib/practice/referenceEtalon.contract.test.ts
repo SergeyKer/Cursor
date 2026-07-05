@@ -3,6 +3,7 @@ import { getStructuredLessonById } from '@/lib/structuredLessons'
 import { buildPracticeQuestionFingerprintFromQuestion } from '@/lib/practice/questionFingerprint'
 import { buildReferenceFallbackQuestions } from '@/lib/practice/referenceFallbackQuestion'
 import { isTranslateStylePrompt } from '@/lib/practice/prompt/promptSourceUtils'
+import { isGapFillStylePrompt } from '@/lib/practice/prompt/dropdownFillPromptFormat'
 import { REFERENCE_STEP_MAP_TYPES } from '@/lib/practice/prompt/promptSourceTypes'
 import { resolvePracticeLessonStep } from '@/lib/practice/resolvePracticeLessonStep'
 import { resolveReferenceLessonStep } from '@/lib/practice/resolveReferenceLessonStep'
@@ -38,7 +39,9 @@ describe('reference etalon contract', () => {
               expect(isTranslateStylePrompt(question.prompt)).toBe(true)
             }
             if (referenceType === 'dropdown-fill') {
+              expect(isGapFillStylePrompt(question.prompt)).toBe(true)
               expect(question.options?.length ?? 0).toBeGreaterThanOrEqual(3)
+              expect(question.options?.some((item) => ['a', 'an', 'the'].includes(item.toLowerCase()))).toBe(false)
             }
             if (referenceType === 'dictation' || referenceType === 'listening-select') {
               expect(question.audioText).toBeTruthy()

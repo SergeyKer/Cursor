@@ -4,6 +4,7 @@ import { buildLocalPracticeSession, buildSinglePracticeQuestion } from '@/lib/pr
 import { isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
 import { CHALLENGE_STEP_SPECS } from '@/lib/practice/engine/stepSpec'
 import { isCompleteSentence } from '@/lib/practice/choiceOptionGranularity'
+import { isGapFillStylePrompt } from '@/lib/practice/prompt/dropdownFillPromptFormat'
 
 describe('buildLocalPracticeSession', () => {
   it('builds relaxed practice from a structured lesson without AI', () => {
@@ -242,6 +243,28 @@ describe('buildLocalPracticeSession', () => {
       expect(answerTokens).toContain(token)
     }
     expect(sentenceSurgery?.shuffledWords).not.toContain('dark')
+  })
+
+  it('lesson 4 challenge dropdown-fill uses gap prompt and country options', () => {
+    const lesson = getStructuredLessonById('4')
+    expect(lesson).not.toBeNull()
+
+    const session = buildLocalPracticeSession({
+      lesson: lesson!,
+      source: { kind: 'static_lesson', lessonId: '4' },
+      mode: 'challenge',
+      entrySource: 'menu',
+    })
+
+    const dropdown = session.questions[5]
+    expect(dropdown?.type).toBe('dropdown-fill')
+    expect(dropdown?.targetAnswer).toBe('Russia')
+    expect(isGapFillStylePrompt(dropdown?.prompt ?? '')).toBe(true)
+    expect(dropdown?.prompt).toMatch(/Я из России/i)
+    expect(dropdown?.options?.length ?? 0).toBeGreaterThanOrEqual(4)
+    expect(dropdown?.options).toContain('Russia')
+    expect(dropdown?.options?.some((item) => ['a', 'an', 'the'].includes(item.toLowerCase()))).toBe(false)
+    expect(dropdown?.options?.every((item) => !isCompleteSentence(item))).toBe(true)
   })
 })
 

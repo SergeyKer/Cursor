@@ -91,7 +91,11 @@ function buildReferenceDiversityRule(params: {
       'Each scenario must use a different Russian phrase and matching targetAnswer; do not set keywords or minWords.'
     )
   } else if (params.referenceExerciseType === 'dropdown-fill') {
-    parts.push('Single-word gap fill; at least 3 single-word English options.')
+    parts.push(
+      'Gap-fill task: prompt must be Выберите слово для пропуска: {RU} — «{English frame with ___}».',
+      'Russian phrase must name what maps to targetAnswer; options must be single words of the same class (3 closed / 4 open lexical).',
+      'Never mix articles into country gaps.'
+    )
   } else if (params.referenceExerciseType === 'dictation' || params.referenceExerciseType === 'listening-select') {
     parts.push('Put English phrase only in audioText/targetAnswer; Russian situational prompt without the answer.')
   } else if (params.referenceExerciseType === 'roleplay-mini') {

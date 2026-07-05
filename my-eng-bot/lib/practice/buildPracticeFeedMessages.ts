@@ -35,7 +35,7 @@ function practiceTypeLabel(question: PracticeQuestion, session: PracticeSession)
   if (session.mode === 'challenge') {
     if (question.type === 'choice') return 'Лёгкий выбор: один вариант явно подходит.'
     if (question.type === 'context-clue') return 'Смотрите на ситуацию: варианты похожи по смыслу.'
-    if (question.type === 'dropdown-fill') return 'Выберите форму без подсказки чипов.'
+    if (question.type === 'dropdown-fill') return 'Выберите одно слово из выпадающего списка.'
     if (question.type === 'sentence-surgery') return 'Соберите фразу из слов в правильном порядке.'
     if (question.type === 'word-builder-pro') return 'Соберите фразу: в банке есть лишние ловушки.'
     if (question.type === 'speed-round') return 'Финальная проверка на внимательность: варианты очень близкие.'
@@ -43,7 +43,7 @@ function practiceTypeLabel(question: PracticeQuestion, session: PracticeSession)
   }
   if (question.type === 'choice') return 'Выберите лучший вариант.'
   if (question.type === 'voice-shadow') return 'Прослушайте фразу и повторите её вслух или текстом.'
-  if (question.type === 'dropdown-fill') return 'Восстановите пропуск.'
+  if (question.type === 'dropdown-fill') return 'Выберите слово из списка.'
   if (question.type === 'listening-select') return 'Прослушайте и выберите правильный вариант.'
   if (question.type === 'sentence-surgery') return 'Соберите правильную фразу.'
   if (question.type === 'word-builder-pro') return 'Постройте фразу из слов.'

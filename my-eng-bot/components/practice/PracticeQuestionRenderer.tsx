@@ -107,7 +107,6 @@ function inputPlaceholder(
 }
 
 function helperText(question: PracticeQuestion): string {
-  if (question.type === 'dropdown-fill') return 'Выберите вариант и отправьте ответ.'
   if (question.type === 'listening-select') return 'Сначала прослушайте фразу, затем выберите ответ.'
   if (question.type === 'dictation') return 'Прослушайте фразу и напишите её по памяти.'
   return ''
@@ -660,13 +659,12 @@ export default function PracticeQuestionRenderer({
         )}
         style={{ boxShadow: 'var(--chat-composer-shadow)' }}
       >
-        <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{helperText(question)}</p>
         <div className={CHAT_COMPOSER_INPUT_ROW_CLASS}>
           <select
             value={selectedOption}
             onChange={(event) => setSelectedOption(event.target.value)}
             disabled={disabled}
-            className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-3 py-2 text-base text-[var(--text)] outline-none disabled:opacity-70"
+            className="select-chevron min-h-[44px] min-w-0 flex-1 rounded-xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-3 py-2 text-base text-[var(--text)] outline-none disabled:opacity-70"
           >
             <option value="">Выберите ответ</option>
             {choices.map((choice) => (

@@ -7,6 +7,9 @@ import { enforceStepSpecs } from '@/lib/practice/enforceStepSpecs'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
 import { getPracticeStepsForRange } from '@/lib/practice/engine/stepSpec'
 import { buildProviderUserMessage, PRACTICE_REFERENCE_FALLBACK_NOTICE } from '@/lib/buildProviderUserMessage'
+import { inferGapWordSlot } from '@/lib/practice/gapWordSlot'
+import { DROPDOWN_FILL_SYSTEM_RULES } from '@/lib/practice/prompt/buildDropdownFillPrompt'
+import { sanitizeCanonicalOptions } from '@/lib/practice/sanitizeCanonicalOptions'
 import {
   buildEtalonPromptForReferenceType,
   collectReferencePromptBuilderSystemRules,
@@ -150,7 +153,9 @@ function buildSystemPrompt(referenceExerciseType?: PracticeExerciseType): string
     'You generate short English practice exercises for a learner app.',
     'Return ONLY valid JSON object: {"questions":[...]}',
     'Each question must have: type, prompt, targetAnswer, acceptedAnswers, shuffledWords, audioText, keywords, minWords, hint, explanation.',
-    'If type is choice, dropdown-fill, listening-select, speed-round, or context-clue, you must provide at least 3 English options and include targetAnswer in the options.',
+    'If type is choice, listening-select, speed-round, or context-clue, you must provide at least 3 English options and include targetAnswer in the options.',
+    'For type dropdown-fill: options count is 3 for closed-class slots (articles, pronouns) or 4 for open lexical slots (countries, names); include targetAnswer.',
+    ...DROPDOWN_FILL_SYSTEM_RULES,
     'Never mix single-word options and full-sentence options in one question.',
     'When canonicalSourceExercise is provided, mirror its answerFormat, prompt structure, and exactly 3 options when the lesson step has 3.',
     'context-clue with ___ in prompt: options must be single words only. context-clue with translation/situation: options must be full sentences only.',
@@ -241,12 +246,28 @@ function buildUserPayload(
                 referenceExerciseType,
               })
           if (!resolved) return undefined
+          const gapSlot =
+            referenceExerciseType === 'dropdown-fill'
+              ? inferGapWordSlot({
+                  targetAnswer: resolved.exercise.correctAnswer,
+                  prompt: resolved.exercise.question,
+                })
+              : undefined
+          const sanitizedOptions =
+            referenceExerciseType === 'dropdown-fill'
+              ? sanitizeCanonicalOptions({
+                  options: resolved.canonicalOptions ?? [],
+                  targetAnswer: resolved.exercise.correctAnswer,
+                  prompt: resolved.exercise.question,
+                })
+              : resolved.canonicalOptions
           return {
             challengeStep: getReferenceExerciseChallengeStep(referenceExerciseType),
             stepNumber: resolved.sourceStepNumber,
             exercise: resolved.exercise,
-            options: resolved.canonicalOptions,
+            options: sanitizedOptions ?? resolved.canonicalOptions,
             axis: resolved.axis,
+            gapWordSlot: gapSlot,
           }
         })()
       : undefined

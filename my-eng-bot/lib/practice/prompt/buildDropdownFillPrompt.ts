@@ -1,4 +1,9 @@
-import { resolveSituationLine, mergePromptParts, situationalPromptHasContext } from '@/lib/practice/prompt/promptSourceUtils'
+import {
+  buildGapFillPrompt,
+  gapFillPromptHasValidContext,
+  isGapFillStylePrompt,
+  parseLegacyTranslateGapQuestion,
+} from '@/lib/practice/prompt/dropdownFillPromptFormat'
 import type { PracticePromptSource } from '@/lib/practice/prompt/promptSourceTypes'
 import { resolveReferenceLessonStep } from '@/lib/practice/resolveReferenceLessonStep'
 import type { LessonData } from '@/types/lesson'
@@ -24,13 +29,16 @@ export function findLessonDropdownFillSourceForPractice(
 
 export function buildDropdownFillPrompt(
   source: PracticePromptSource,
-  lesson: LessonData,
-  stepIndex: number
+  _lesson: LessonData,
+  _stepIndex: number
 ): string {
-  const situation = resolveSituationLine(source.step, lesson, stepIndex)
   const question = source.exercise.question?.trim() ?? ''
-  const gapLine = question.includes('___') ? question : 'Впишите одно слово в пропуск в английской фразе.'
-  return mergePromptParts([situation, 'Выберите одно слово для пропуска.', gapLine])
+  const parsed = parseLegacyTranslateGapQuestion(question)
+  if (parsed) {
+    return buildGapFillPrompt(parsed.ruPhrase, parsed.gapFrameEn)
+  }
+  if (isGapFillStylePrompt(question)) return question
+  return buildGapFillPrompt(question || 'Ответьте по заданию', 'I am from ___.')
 }
 
 export function buildEtalonDropdownFillPromptForLesson(lesson: LessonData, stepIndex = 0): string | null {
@@ -40,10 +48,15 @@ export function buildEtalonDropdownFillPromptForLesson(lesson: LessonData, stepI
 }
 
 export function dropdownFillPromptHasContext(prompt: string): boolean {
-  return situationalPromptHasContext(prompt)
+  return gapFillPromptHasValidContext(prompt)
 }
 
 export const DROPDOWN_FILL_SYSTEM_RULES = [
-  'For type dropdown-fill: prompt in Russian with situation; targetAnswer is a single word; provide at least 3 single-word options including targetAnswer.',
+  'For type dropdown-fill: prompt MUST be one line: Выберите слово для пропуска: {Russian phrase} — «{English frame with ___}».',
+  'Russian phrase MUST explicitly name what maps to targetAnswer (Я из России → Russia).',
+  'Never stack Ситуация + Переведите + Выберите in one prompt.',
+  'targetAnswer is exactly one word matching the gap slot.',
+  'options: 3 single words for closed slots (article, auxiliary); 4 for open lexical slots; ALL same word class as targetAnswer.',
+  'country gap (from ___): distractors = other country names only, never articles.',
   'Never use full-sentence options for dropdown-fill.',
 ] as const

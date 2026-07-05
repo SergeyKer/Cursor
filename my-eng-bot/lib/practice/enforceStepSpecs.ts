@@ -3,6 +3,8 @@ import { buildTieredChoiceOptions, buildWordBankExtraWords } from '@/lib/practic
 import { getPracticeStepSpec, resolveAdaptiveTierForStep, resolveTierForStep } from '@/lib/practice/engine/stepSpec'
 import { isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
 import { collectLessonChoicePool } from '@/lib/practice/lessonChoicePool'
+import { inferGapWordSlot } from '@/lib/practice/gapWordSlot'
+import { sanitizeCanonicalOptions } from '@/lib/practice/sanitizeCanonicalOptions'
 import { normalizeAiPracticeQuestion } from '@/lib/practice/normalizeAiPracticeQuestion'
 import { resolvePracticeLessonStep } from '@/lib/practice/resolvePracticeLessonStep'
 import type { LessonData } from '@/types/lesson'
@@ -68,17 +70,34 @@ export function enforceStepSpecs(
         prompt: normalized.prompt,
         exerciseType: resolved?.exercise.type,
       })
+      const isDropdown = normalized.type === 'dropdown-fill'
+      const gapSlot = isDropdown
+        ? inferGapWordSlot({ targetAnswer: normalized.targetAnswer, prompt: normalized.prompt })
+        : undefined
       const filteredCanonical = filterByChoiceGranularity(resolved?.canonicalOptions ?? [], granularity)
+      const sanitizedCanonical = sanitizeCanonicalOptions({
+        options: filteredCanonical,
+        targetAnswer: normalized.targetAnswer,
+        prompt: normalized.prompt,
+        granularity,
+      })
       const lessonPool = collectLessonChoicePool(lesson, normalized.targetAnswer, {
         sourceStepNumber: resolved?.sourceStepNumber,
         granularity,
+        applyGapWordSlot: isDropdown,
+        gapSlot,
+        lesson,
       })
       normalized = {
         ...normalized,
         options: buildTieredChoiceOptions(normalized.targetAnswer, tier, lessonPool, {
           granularity,
-          canonicalOptions: resolved?.canonicalOptions,
-          sourceStepOptionCount: filteredCanonical.length,
+          canonicalOptions: sanitizedCanonical ?? resolved?.canonicalOptions,
+          sourceStepOptionCount: sanitizedCanonical?.length ?? filteredCanonical.length,
+          practiceType: normalized.type,
+          prompt: normalized.prompt,
+          lesson,
+          mode,
         }),
       }
     }

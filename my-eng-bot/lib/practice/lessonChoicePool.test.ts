@@ -42,6 +42,31 @@ describe('lessonChoicePool', () => {
     expect(canonical).toEqual(["It's cold.", "It's time to sleep.", "It's time to drink."])
   })
 
+  it('lesson 4 resolveCanonicalChoiceOptions for Russia excludes articles', () => {
+    const lesson = getStructuredLessonById('4')
+    expect(lesson).not.toBeNull()
+    const fillStep = lesson!.steps.find((step) => step.stepNumber === 3)
+    expect(fillStep?.exercise?.correctAnswer).toBe('Russia')
+
+    const canonical = resolveCanonicalChoiceOptions(lesson!, fillStep!.exercise!, 'Russia')
+    expect(canonical.length).toBeGreaterThanOrEqual(3)
+    expect(canonical).toContain('Russia')
+    expect(canonical.some((item) => ['a', 'an', 'the'].includes(item.toLowerCase()))).toBe(false)
+    expect(canonical.every((item) => !/\s/.test(item.trim()) || item.split(/\s+/).length === 1)).toBe(true)
+  })
+
+  it('lesson 4 collectLessonChoicePool with gap slot filters articles', () => {
+    const lesson = getStructuredLessonById('4')
+    expect(lesson).not.toBeNull()
+    const pool = collectLessonChoicePool(lesson!, 'Russia', {
+      applyGapWordSlot: true,
+      gapSlot: 'country',
+      lesson,
+    })
+    expect(pool.length).toBeGreaterThanOrEqual(3)
+    expect(pool.some((item) => ['a', 'an', 'the'].includes(item.toLowerCase()))).toBe(false)
+  })
+
   it('merges matched step and lesson-wide options', () => {
     const lesson = getStructuredLessonById('3')
     expect(lesson).not.toBeNull()

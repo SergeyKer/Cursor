@@ -2628,24 +2628,27 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                 <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2 text-[13px] leading-relaxed text-[var(--text-muted)] shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
                   Формат определяет длину тренировки и плотность проверки.
                 </div>
-                <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-                  {PRACTICE_MODE_OPTIONS.map((mode) => (
-                    <PracticeModeChoiceCard
-                      key={mode.id}
-                      title={mode.title}
-                      meta={mode.meta}
-                      description={mode.description}
-                      selected={selectedPracticeMode === mode.id}
-                      onClick={() => {
-                        setSelectedPracticeMode(mode.id)
-                        if (mode.id === 'reference') {
-                          setLessonsPanel('practiceReferenceType')
-                          return
-                        }
-                        setLessonsPanel('practice')
-                      }}
-                    />
-                  ))}
+                <div className={MENU_GROUP_OUTER}>
+                  <div className={MENU_GROUP_CLASS}>
+                    {PRACTICE_MODE_OPTIONS.map((mode) => (
+                      <A2LessonChoiceRow
+                        key={mode.id}
+                        label={mode.title}
+                        subtitle={mode.meta}
+                        description={mode.description}
+                        selected={selectedPracticeMode === mode.id}
+                        enabled
+                        onClick={() => {
+                          setSelectedPracticeMode(mode.id)
+                          if (mode.id === 'reference') {
+                            setLessonsPanel('practiceReferenceType')
+                            return
+                          }
+                          setLessonsPanel('practice')
+                        }}
+                      />
+                    ))}
+                  </div>
                 </div>
               </>
             )}
@@ -2654,21 +2657,23 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                 <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2 text-[13px] leading-relaxed text-[var(--text-muted)] shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
                   Выберите эталонный тип упражнения. В сессии будет 7 повторов именно этого типа.
                 </div>
-                <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-                  {REFERENCE_EXERCISE_OPTIONS.map((item) => (
-                    <PracticeModeChoiceCard
-                      key={item.id}
-                      title={`#${item.challengeStep} ${item.label}`}
-                      meta="Эталон"
-                      description={item.summary}
-                      selected={selectedReferenceExerciseType === item.id}
-                      onClick={() => {
-                        setSelectedPracticeMode('reference')
-                        setSelectedReferenceExerciseType(item.id)
-                        setLessonsPanel('practice')
-                      }}
-                    />
-                  ))}
+                <div className={MENU_GROUP_OUTER}>
+                  <div className={MENU_GROUP_CLASS}>
+                    {REFERENCE_EXERCISE_OPTIONS.map((item) => (
+                      <A2LessonChoiceRow
+                        key={item.id}
+                        label={`#${item.challengeStep} ${item.label}`}
+                        description={item.summary}
+                        selected={selectedReferenceExerciseType === item.id}
+                        enabled
+                        onClick={() => {
+                          setSelectedPracticeMode('reference')
+                          setSelectedReferenceExerciseType(item.id)
+                          setLessonsPanel('practice')
+                        }}
+                      />
+                    ))}
+                  </div>
                 </div>
               </>
             )}
@@ -3562,49 +3567,6 @@ function A2LessonChoiceRow({
           <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">{description}</span>
         ) : null}
       </span>
-    </button>
-  )
-}
-
-function PracticeModeChoiceCard({
-  title,
-  meta,
-  description,
-  selected,
-  onClick,
-}: {
-  title: string
-  meta: string
-  description: string
-  selected: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full rounded-xl border px-3 py-2.5 text-left transition-colors touch-manipulation ${
-        selected
-          ? 'border-[var(--accent)] bg-[var(--status-info-bg)]'
-          : 'border-[var(--border)] bg-[var(--menu-control-bg)] hover:bg-[var(--border)]/20 active:bg-[var(--border)]/30'
-      }`}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <span className="min-w-0">
-          <span className="block text-[14px] font-semibold leading-snug text-[var(--text)]">{title}</span>
-          <span className="block text-[12px] leading-snug text-[var(--text-muted)]">{description}</span>
-        </span>
-        <span className="flex shrink-0 items-center gap-1.5">
-          <span className="rounded-full border border-[var(--border)] bg-[var(--menu-card-bg)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
-            {meta}
-          </span>
-          {selected ? (
-            <CheckIcon className="h-4 w-4 text-[var(--accent)]" aria-hidden />
-          ) : (
-            <span className="h-4 w-4" aria-hidden />
-          )}
-        </span>
-      </div>
     </button>
   )
 }

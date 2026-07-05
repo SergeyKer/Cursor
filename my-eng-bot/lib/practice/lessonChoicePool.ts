@@ -4,6 +4,13 @@ import {
   inferChoiceGranularity,
   type ChoiceGranularity,
 } from '@/lib/practice/choiceOptionGranularity'
+import {
+  buildSlotAwareWordDistractors,
+  inferGapWordSlot,
+  isOptionCompatibleWithSlot,
+  validateDropdownFillOptions,
+  type GapWordSlot,
+} from '@/lib/practice/gapWordSlot'
 import type { Exercise, LessonData } from '@/types/lesson'
 
 function normalizeChoiceTextKey(value: string): string {
@@ -35,6 +42,10 @@ function appendUniqueOptions(target: string[], candidates: string[]): void {
   }
 }
 
+function filterPoolBySlot(pool: string[], slot: GapWordSlot, targetAnswer: string): string[] {
+  return pool.filter((item) => isOptionCompatibleWithSlot(item, slot, targetAnswer))
+}
+
 /** Options from the lesson step whose correct answer matches target. */
 export function findLessonChoiceOptionsForTarget(lesson: LessonData, targetAnswer: string): string[] | undefined {
   const matchedExercise = lesson.steps.find((step) => {
@@ -51,6 +62,73 @@ export function getSourceStepChoiceOptions(lesson: LessonData, sourceStepNumber:
   const options = step?.exercise?.options
   if (!options || options.length < 2) return undefined
   return [...options]
+}
+
+function collectWordOptionSteps(exercise: Exercise): Array<{ options: string[]; correctAnswer: string; question?: string }> {
+  const rows: Array<{ options: string[]; correctAnswer: string; question?: string }> = []
+  if (exercise.options && exercise.options.length >= 2) {
+    rows.push({
+      options: exercise.options,
+      correctAnswer: exercise.correctAnswer,
+      question: exercise.question,
+    })
+  }
+  for (const variant of exercise.variants ?? []) {
+    if (!variant.options || variant.options.length < 2) continue
+    rows.push({
+      options: variant.options,
+      correctAnswer: variant.correctAnswer,
+      question: variant.question,
+    })
+  }
+  return rows
+}
+
+function borrowWordOptionsForSlot(
+  lesson: LessonData,
+  targetAnswer: string,
+  targetSlot: GapWordSlot,
+  exercise: Exercise
+): string[] {
+  const compatibleSteps: Array<{ wrong: string[] }> = []
+
+  for (const step of lesson.steps) {
+    const candidate = step.exercise
+    if (!candidate) continue
+    for (const row of collectWordOptionSteps(candidate)) {
+      const candidateGranularity = inferChoiceGranularity({
+        targetAnswer: row.correctAnswer,
+        answerFormat: candidate.answerFormat,
+        prompt: row.question ?? candidate.question,
+        exerciseType: candidate.type,
+      })
+      if (candidateGranularity !== 'word') continue
+
+      const candidateSlot = inferGapWordSlot({
+        targetAnswer: row.correctAnswer,
+        prompt: row.question ?? candidate.question,
+      })
+      if (candidateSlot !== targetSlot && targetSlot !== 'unknown') continue
+
+      const wrong = row.options
+        .filter((item) => !answerMatchesTarget(item, row.correctAnswer))
+        .filter((item) => !answerMatchesTarget(item, targetAnswer))
+        .filter((item) =>
+          targetSlot === 'country' || targetSlot === 'article'
+            ? isOptionCompatibleWithSlot(item, targetSlot, targetAnswer)
+            : true
+        )
+      if (wrong.length >= 2) {
+        compatibleSteps.push({ wrong })
+      }
+    }
+  }
+
+  if (compatibleSteps.length === 0) return []
+
+  const preferred = compatibleSteps.find((entry) => entry.wrong.length >= 2)
+  if (!preferred) return []
+  return [targetAnswer.trim(), preferred.wrong[0]!.trim(), preferred.wrong[1]!.trim()]
 }
 
 /** Canonical trio for choice-like practice: step options or word-pattern borrow for gap-fill. */
@@ -95,23 +173,12 @@ export function resolveCanonicalChoiceOptions(
 
   if (granularity !== 'word') return []
 
-  for (const step of lesson.steps) {
-    const candidate = step.exercise
-    if (!candidate?.options || candidate.options.length < 2) continue
-    const candidateGranularity = inferChoiceGranularity({
-      targetAnswer: candidate.correctAnswer,
-      answerFormat: candidate.answerFormat,
-      prompt: candidate.question,
-      exerciseType: candidate.type,
-    })
-    if (candidateGranularity !== 'word') continue
-    const wrong = candidate.options.filter(
-      (item) => !answerMatchesTarget(item, candidate.correctAnswer)
-    )
-    if (wrong.length >= 2) {
-      return [targetAnswer.trim(), wrong[0]!.trim(), wrong[1]!.trim()]
-    }
-  }
+  const targetSlot = inferGapWordSlot({
+    targetAnswer,
+    prompt: exercise.question,
+  })
+  const slotBorrowed = borrowWordOptionsForSlot(lesson, targetAnswer, targetSlot, exercise)
+  if (slotBorrowed.length >= 3) return slotBorrowed
 
   return []
 }
@@ -145,6 +212,9 @@ export function collectLessonWideChoiceOptions(
 export type CollectLessonChoicePoolOptions = {
   sourceStepNumber?: number
   granularity?: ChoiceGranularity
+  applyGapWordSlot?: boolean
+  gapSlot?: GapWordSlot
+  lesson?: LessonData
 }
 
 /** Matched step options first, then lesson-wide wrong answers of the same granularity. */
@@ -155,19 +225,50 @@ export function collectLessonChoicePool(
 ): string[] {
   const pool: string[] = []
   const granularity = opts?.granularity
+  const slot =
+    opts?.gapSlot ??
+    (opts?.applyGapWordSlot
+      ? inferGapWordSlot({ targetAnswer, prompt: undefined })
+      : undefined)
 
   if (opts?.sourceStepNumber != null) {
     const sourceOptions = getSourceStepChoiceOptions(lesson, opts.sourceStepNumber)
     if (sourceOptions) {
-      appendUniqueOptions(pool, granularity ? filterByChoiceGranularity(sourceOptions, granularity) : sourceOptions)
+      let filtered = granularity ? filterByChoiceGranularity(sourceOptions, granularity) : sourceOptions
+      if (opts.applyGapWordSlot && slot) {
+        filtered = filterPoolBySlot(filtered, slot, targetAnswer)
+      }
+      appendUniqueOptions(pool, filtered)
     }
   }
 
   const matched = findLessonChoiceOptionsForTarget(lesson, targetAnswer)
   if (matched) {
-    appendUniqueOptions(pool, granularity ? filterByChoiceGranularity(matched, granularity) : matched)
+    let filtered = granularity ? filterByChoiceGranularity(matched, granularity) : matched
+    if (opts?.applyGapWordSlot && slot) {
+      filtered = filterPoolBySlot(filtered, slot, targetAnswer)
+    }
+    appendUniqueOptions(pool, filtered)
   }
 
-  appendUniqueOptions(pool, collectLessonWideChoiceOptions(lesson, targetAnswer, granularity))
+  let wide = collectLessonWideChoiceOptions(lesson, targetAnswer, granularity)
+  if (opts?.applyGapWordSlot && slot) {
+    wide = filterPoolBySlot(wide, slot, targetAnswer)
+  }
+  appendUniqueOptions(pool, wide)
+
+  if (opts?.applyGapWordSlot && slot && pool.length < 3) {
+    appendUniqueOptions(
+      pool,
+      buildSlotAwareWordDistractors({
+        slot,
+        targetAnswer,
+        lesson: opts.lesson ?? lesson,
+      }).filter((item) => !answerMatchesTarget(item, targetAnswer))
+    )
+  }
+
   return pool
 }
+
+export { validateDropdownFillOptions }

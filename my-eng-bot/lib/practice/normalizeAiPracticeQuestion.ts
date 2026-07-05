@@ -25,10 +25,17 @@ import {
   filterByChoiceGranularity,
   inferChoiceGranularity,
 } from '@/lib/practice/choiceOptionGranularity'
+import { resolveDropdownOptionCount } from '@/lib/practice/dropdownOptionCount'
 import { buildTieredChoiceOptions } from '@/lib/practice/distractorTier'
+import { inferGapWordSlot, validateDropdownFillOptions } from '@/lib/practice/gapWordSlot'
 import { ensurePracticeChoiceOptions, isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
 import type { PracticeDistractorTier } from '@/lib/practice/engine/stepSpec'
 import { collectLessonChoicePool } from '@/lib/practice/lessonChoicePool'
+import {
+  gapFillPromptHasValidContext,
+  isGapFillStylePrompt,
+  sanitizeDropdownHint,
+} from '@/lib/practice/prompt/dropdownFillPromptFormat'
 import { getPracticeExerciseMetadata } from '@/lib/practice/registry'
 import { resolvePracticeLessonStep } from '@/lib/practice/resolvePracticeLessonStep'
 import {
@@ -142,6 +149,18 @@ export function normalizeAiPracticeQuestion(
       })
       if (rebuilt) prompt = rebuilt
     } else if (
+      type === 'dropdown-fill' &&
+      builder &&
+      (!isGapFillStylePrompt(prompt) || !builder.hasContext(prompt))
+    ) {
+      const rebuilt = buildReferencePromptFromLesson({
+        lesson: scopedLesson,
+        type: referenceType,
+        stepIndex: index,
+        targetAnswer,
+      })
+      if (rebuilt) prompt = rebuilt
+    } else if (
       (type === 'dictation' || type === 'listening-select') &&
       (!builder?.hasContext(prompt) || prompt.includes(targetAnswer))
     ) {
@@ -231,6 +250,7 @@ export function normalizeAiPracticeQuestion(
     if (builder && !builder.hasContext(prompt)) return null
   }
   if (isTranslateBackedFreeResponse && !freeResponsePromptHasValidContext(prompt)) return null
+  if (type === 'dropdown-fill' && useReferencePromptBuilder && !gapFillPromptHasValidContext(prompt)) return null
 
   const meta = getPracticeExerciseMetadata(type)
   const rawOptions = Array.isArray(source.options)
@@ -251,19 +271,38 @@ export function normalizeAiPracticeQuestion(
   })
   const canonicalOptions = resolved?.canonicalOptions ?? []
   const filteredCanonical = filterByChoiceGranularity(canonicalOptions, granularity)
+  const isDropdown = type === 'dropdown-fill'
+  const gapSlot = isDropdown
+    ? inferGapWordSlot({ targetAnswer: normalizedTargetAnswer, prompt })
+    : undefined
+  const dropdownTargetCount = isDropdown
+    ? resolveDropdownOptionCount({
+        slot: gapSlot ?? 'unknown',
+        lesson: scopedLesson,
+        mode,
+        tier: normalizeOptions?.distractorTier,
+      })
+    : undefined
   const lessonChoiceOptions = isChoiceLikePracticeType(type)
-    ? collectLessonChoicePool(lesson, normalizedTargetAnswer, {
+    ? collectLessonChoicePool(scopedLesson, normalizedTargetAnswer, {
         sourceStepNumber: resolved?.sourceStepNumber,
         granularity,
+        applyGapWordSlot: isDropdown,
+        gapSlot,
+        lesson: scopedLesson,
       })
     : undefined
   const buildParams = {
     granularity,
     canonicalOptions,
     sourceStepOptionCount: filteredCanonical.length,
+    practiceType: type,
+    prompt,
+    lesson: scopedLesson,
+    mode,
   }
 
-  const choiceOptions = isChoiceLikePracticeType(type)
+  let choiceOptions = isChoiceLikePracticeType(type)
     ? normalizeOptions?.distractorTier
       ? buildTieredChoiceOptions(
           normalizedTargetAnswer,
@@ -272,16 +311,37 @@ export function normalizeAiPracticeQuestion(
           buildParams
         )
       : ensurePracticeChoiceOptions(lessonChoiceOptions ?? rawOptions ?? [], normalizedTargetAnswer, {
-          targetCount: filteredCanonical.length >= 3 ? 3 : undefined,
+          targetCount: isDropdown
+            ? dropdownTargetCount
+            : filteredCanonical.length >= 3
+              ? 3
+              : undefined,
         })
-    : type === 'dropdown-fill'
-      ? ensurePracticeChoiceOptions(rawOptions ?? [], normalizedTargetAnswer, { targetCount: 3 })
-      : rawOptions && rawOptions.length >= 2
-        ? rawOptions
-        : undefined
+    : rawOptions && rawOptions.length >= 2
+      ? rawOptions
+      : undefined
+
+  if (
+    isDropdown &&
+    choiceOptions &&
+    !validateDropdownFillOptions({
+      options: choiceOptions,
+      targetAnswer: normalizedTargetAnswer,
+      prompt,
+      slot: gapSlot,
+      targetCount: dropdownTargetCount,
+    })
+  ) {
+    choiceOptions = buildTieredChoiceOptions(
+      normalizedTargetAnswer,
+      normalizeOptions?.distractorTier ?? 'semantic-near',
+      lessonChoiceOptions ?? [],
+      buildParams
+    )
+  }
 
   if (isChoiceLikePracticeType(type) && !choiceOptions) return null
-  if (type === 'dropdown-fill' && (!choiceOptions || choiceOptions.length < 3)) return null
+  if (isDropdown && (!choiceOptions || choiceOptions.length < 3)) return null
 
   const audioText =
     type === 'voice-shadow' || type === 'dictation' || type === 'listening-select'
@@ -325,7 +385,12 @@ export function normalizeAiPracticeQuestion(
         : typeof source.minWords === 'number' && source.minWords > 0
           ? Math.min(20, source.minWords)
           : undefined,
-    hint: type === 'voice-shadow' ? undefined : stripAnswerLeakFromHint(normalizedHint, normalizedTargetAnswer),
+    hint:
+      type === 'voice-shadow'
+        ? undefined
+        : type === 'dropdown-fill'
+          ? sanitizeDropdownHint(stripAnswerLeakFromHint(normalizedHint, normalizedTargetAnswer))
+          : stripAnswerLeakFromHint(normalizedHint, normalizedTargetAnswer),
     explanation: typeof source.explanation === 'string' ? source.explanation.trim() : undefined,
     correctionPrompt: `Закрепим правильный вариант: ${normalizeEnglishLearnerContractions(normalizedTargetAnswer)}`,
     xpBase: meta.xpBase,

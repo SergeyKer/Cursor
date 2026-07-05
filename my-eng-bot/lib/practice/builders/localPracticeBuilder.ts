@@ -16,6 +16,9 @@ import {
   buildReferencePromptFromLesson,
   isReferenceStepMapType,
 } from '@/lib/practice/prompt/practicePromptBuilders'
+import { resolveDropdownOptionCount } from '@/lib/practice/dropdownOptionCount'
+import { inferGapWordSlot } from '@/lib/practice/gapWordSlot'
+import { sanitizeDropdownHint } from '@/lib/practice/prompt/dropdownFillPromptFormat'
 import { isTranslateBackedFreeResponseExercise } from '@/lib/practice/prompt/freeResponseTranslateMode'
 import { extractSemanticKeywords, stripAnswerLeakFromHint } from '@/lib/practice/prompt/promptSourceUtils'
 import { resolveLessonExerciseVariant } from '@/lib/practice/resolveLessonExerciseVariant'
@@ -52,6 +55,7 @@ function optionsForType(
   exercise: Exercise,
   targetAnswer: string,
   lesson: LessonData,
+  mode: PracticeMode,
   tier?: ReturnType<typeof resolveTierForStep>,
   resolvedStep?: ResolvedPracticeLessonStep
 ): string[] | undefined {
@@ -67,21 +71,39 @@ function optionsForType(
   })
   const canonicalOptions = resolvedStep?.canonicalOptions ?? []
   const filteredCanonical = filterByChoiceGranularity(canonicalOptions, granularity)
+  const isDropdown = type === 'dropdown-fill'
+  const gapSlot = isDropdown
+    ? inferGapWordSlot({ targetAnswer, prompt: exercise.question })
+    : undefined
   const lessonPool = collectLessonChoicePool(lesson, targetAnswer, {
     sourceStepNumber: resolvedStep?.sourceStepNumber,
     granularity,
+    applyGapWordSlot: isDropdown,
+    gapSlot,
+    lesson,
   })
   const buildParams = {
     granularity,
     canonicalOptions,
     sourceStepOptionCount: filteredCanonical.length,
+    practiceType: type,
+    prompt: exercise.question,
+    lesson,
+    mode,
   }
 
   if (tier) {
     return buildTieredChoiceOptions(targetAnswer, tier, lessonPool, buildParams)
   }
+
+  const targetCount = isDropdown
+    ? resolveDropdownOptionCount({ slot: gapSlot ?? 'unknown', lesson, mode, tier })
+    : filteredCanonical.length >= 3
+      ? 3
+      : undefined
+
   return ensurePracticeChoiceOptions(lessonPool.length > 0 ? lessonPool : exercise.options, targetAnswer, {
-    targetCount: filteredCanonical.length >= 3 ? 3 : undefined,
+    targetCount,
   })
 }
 function shuffleWordTokens(tokens: string[]): string[] {
@@ -168,7 +190,7 @@ function createQuestion(params: {
     const built = buildReferencePromptFromLesson({
       lesson: params.lesson,
       type: params.type,
-      stepIndex: params.index,
+      stepIndex: params.mode === 'reference' ? params.index : 0,
       targetAnswer,
     })
     if (built) prompt = built
@@ -189,7 +211,7 @@ function createQuestion(params: {
     prompt,
     targetAnswer,
     acceptedAnswers,
-    options: optionsForType(params.type, params.exercise, targetAnswer, params.lesson, tier, params.resolvedStep),
+    options: optionsForType(params.type, params.exercise, targetAnswer, params.lesson, params.mode, tier, params.resolvedStep),
     shuffledWords: isPuzzlePracticeType
       ? shuffledWordBankFromTokens(
           puzzleSlice?.wordTokens ?? tokensFromTargetAnswer(targetAnswer)
@@ -218,7 +240,11 @@ function createQuestion(params: {
             : undefined,
     hint: isVoiceShadow
       ? undefined
-      : stripAnswerLeakFromHint(puzzleSlice?.hint ?? params.exercise.hint, targetAnswer),
+      : params.type === 'dropdown-fill'
+        ? sanitizeDropdownHint(
+            stripAnswerLeakFromHint(puzzleSlice?.hint ?? params.exercise.hint, targetAnswer)
+          )
+        : stripAnswerLeakFromHint(puzzleSlice?.hint ?? params.exercise.hint, targetAnswer),
     explanation: params.step.footerDynamic,
     correctionPrompt: `Закрепим правильный вариант: ${targetAnswer}`,
     xpBase: meta.xpBase,

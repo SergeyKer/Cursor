@@ -5,6 +5,7 @@ import {
   buildReferenceFallbackQuestion,
   synthesizeReferenceFallbackPrompt,
 } from '@/lib/practice/referenceFallbackQuestion'
+import { isGapFillStylePrompt } from '@/lib/practice/prompt/dropdownFillPromptFormat'
 
 describe('buildReferenceFallbackQuestion', () => {
   it('returns a question with a different fingerprint when Q1 is already seen', () => {
@@ -107,6 +108,28 @@ describe('buildReferenceFallbackQuestion voice-shadow', () => {
   })
 })
 
+describe('buildReferenceFallbackQuestion dropdown-fill', () => {
+  it('lesson 4 reference dropdown uses gap-fill prompt and country options', () => {
+    const lesson = getStructuredLessonById('4')
+    expect(lesson).not.toBeNull()
+
+    const question = buildReferenceFallbackQuestion({
+      lesson: lesson!,
+      mode: 'reference',
+      referenceExerciseType: 'dropdown-fill',
+      referenceStepIndex: 0,
+      referenceTotal: 7,
+    })
+
+    expect(question).not.toBeNull()
+    expect(question!.type).toBe('dropdown-fill')
+    expect(question!.targetAnswer).toBe('Russia')
+    expect(isGapFillStylePrompt(question!.prompt)).toBe(true)
+    expect(question!.options?.length ?? 0).toBeGreaterThanOrEqual(3)
+    expect(question!.options).toContain('Russia')
+    expect(question!.options?.some((item) => ['a', 'an', 'the'].includes(item.toLowerCase()))).toBe(false)
+  })
+})
 describe('buildReferenceFallbackQuestion context-clue', () => {
   it('aligns reference #3 fallback to lesson step 3 gap-fill words', () => {
     const lesson = getStructuredLessonById('1')

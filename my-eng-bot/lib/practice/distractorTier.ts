@@ -3,12 +3,20 @@ import {
   type ChoiceGranularity,
   isCompleteSentence,
 } from '@/lib/practice/choiceOptionGranularity'
+import { resolveDropdownOptionCount } from '@/lib/practice/dropdownOptionCount'
+import {
+  buildSlotAwareWordDistractors,
+  inferGapWordSlot,
+  isOptionCompatibleWithSlot,
+} from '@/lib/practice/gapWordSlot'
 import {
   ensurePracticeChoiceOptions,
   PRACTICE_CHOICE_MIN_OPTIONS,
   resolvePracticeChoiceTargetCount,
 } from '@/lib/practice/ensurePracticeChoiceOptions'
 import type { PracticeDistractorTier, PracticeWordBankMode } from '@/lib/practice/engine/stepSpec'
+import type { LessonData } from '@/types/lesson'
+import type { PracticeExerciseType, PracticeMode } from '@/types/practice'
 
 const OBVIOUS_DISTRACTORS = [
   "It's Tuesday.",
@@ -33,6 +41,10 @@ export type BuildTieredChoiceOptionsParams = {
   granularity?: ChoiceGranularity
   canonicalOptions?: string[]
   sourceStepOptionCount?: number
+  practiceType?: PracticeExerciseType
+  prompt?: string
+  lesson?: LessonData
+  mode?: PracticeMode
 }
 
 function tokenCount(value: string): number {
@@ -189,12 +201,40 @@ function buildFromCanonicalOptions(
   targetAnswer: string,
   tier: PracticeDistractorTier,
   canonicalOptions: string[],
-  granularity?: ChoiceGranularity
+  granularity?: ChoiceGranularity,
+  prompt?: string
 ): string[] {
   const filtered = granularity ? filterByChoiceGranularity(canonicalOptions, granularity) : canonicalOptions
-  const wrong = filtered.filter((item) => isWrongLessonOption(item, targetAnswer))
+  let wrong = filtered.filter((item) => isWrongLessonOption(item, targetAnswer))
+  if (granularity === 'word' && wrong.length > 0) {
+    const slot = inferGapWordSlot({ targetAnswer, prompt })
+    const compatible = wrong.filter((item) => isOptionCompatibleWithSlot(item, slot, targetAnswer))
+    if (compatible.length >= 2) wrong = compatible
+    else if (compatible.length !== wrong.length) wrong = []
+  }
   const tiered = pickLessonDistractorsForTier(targetAnswer, tier, wrong.length > 0 ? wrong : filtered)
   return [targetAnswer, ...tiered]
+}
+
+function buildDropdownWordOptions(
+  targetAnswer: string,
+  tier: PracticeDistractorTier,
+  params: BuildTieredChoiceOptionsParams
+): string[] {
+  const slot = inferGapWordSlot({ targetAnswer, prompt: params.prompt })
+  const targetCount = resolveDropdownOptionCount({
+    slot,
+    lesson: params.lesson,
+    mode: params.mode,
+    tier,
+  })
+  return buildSlotAwareWordDistractors({
+    slot,
+    targetAnswer,
+    tier,
+    lesson: params.lesson,
+    targetCount,
+  })
 }
 
 export function buildTieredChoiceOptions(
@@ -213,20 +253,57 @@ export function buildTieredChoiceOptions(
     : lessonOptions ?? []
 
   const sourceStepOptionCount = params?.sourceStepOptionCount ?? filteredCanonical.length
-  const targetCount = resolvePracticeChoiceTargetCount({ tier, sourceStepOptionCount })
+  const isDropdown = params?.practiceType === 'dropdown-fill'
+  const targetCount = isDropdown
+    ? resolveDropdownOptionCount({
+        slot: inferGapWordSlot({ targetAnswer, prompt: params?.prompt }),
+        lesson: params?.lesson,
+        mode: params?.mode,
+        tier,
+      })
+    : resolvePracticeChoiceTargetCount({ tier, sourceStepOptionCount })
+
+  if (isDropdown && granularity === 'word') {
+    const slotOptions = buildDropdownWordOptions(targetAnswer, tier, params ?? {})
+    if (slotOptions.length >= PRACTICE_CHOICE_MIN_OPTIONS) {
+      return ensurePracticeChoiceOptions(slotOptions, targetAnswer, { tier, targetCount })
+    }
+  }
 
   if (filteredCanonical.length >= PRACTICE_CHOICE_MIN_OPTIONS) {
-    const fromCanonical = buildFromCanonicalOptions(targetAnswer, tier, filteredCanonical, granularity)
-    return ensurePracticeChoiceOptions(fromCanonical, targetAnswer, { tier, targetCount })
+    const fromCanonical = buildFromCanonicalOptions(
+      targetAnswer,
+      tier,
+      filteredCanonical,
+      granularity,
+      params?.prompt
+    )
+    if (fromCanonical.length >= PRACTICE_CHOICE_MIN_OPTIONS && (!isDropdown || fromCanonical.every((item) => !isCompleteSentence(item)))) {
+      const slot = inferGapWordSlot({ targetAnswer, prompt: params?.prompt })
+      const compatible =
+        !isDropdown ||
+        fromCanonical.every((item) => isOptionCompatibleWithSlot(item, slot, targetAnswer))
+      if (compatible) {
+        return ensurePracticeChoiceOptions(fromCanonical, targetAnswer, { tier, targetCount })
+      }
+    }
   }
 
   const fromLesson = pickLessonDistractorsForTier(targetAnswer, tier, filteredLesson)
   const candidates = [...fromLesson]
   if (candidates.length + 1 < targetCount) {
-    const generic = genericDistractorsForTier(targetAnswer, tier, granularity).filter(
-      (item) => granularity !== 'word' || !isCompleteSentence(item)
-    )
-    candidates.push(...generic)
+    if (isDropdown && granularity === 'word') {
+      candidates.push(
+        ...buildDropdownWordOptions(targetAnswer, tier, params ?? {}).filter(
+          (item) => item.toLowerCase() !== targetAnswer.trim().toLowerCase()
+        )
+      )
+    } else {
+      const generic = genericDistractorsForTier(targetAnswer, tier, granularity).filter(
+        (item) => granularity !== 'word' || !isCompleteSentence(item)
+      )
+      candidates.push(...generic)
+    }
   }
 
   return ensurePracticeChoiceOptions(candidates, targetAnswer, { tier, targetCount })

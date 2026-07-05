@@ -63,11 +63,11 @@ export function resolvePracticeLessonStep(params: {
   referenceExerciseType?: PracticeExerciseType
 }): ResolvedPracticeLessonStep | null {
   const referenceType = params.referenceExerciseType ?? params.practiceType
-  if (params.referenceExerciseType && REFERENCE_STEP_MAP_TYPES.has(referenceType)) {
+  if (REFERENCE_STEP_MAP_TYPES.has(referenceType)) {
     const resolved = resolveReferenceLessonStep({
       lesson: params.lesson,
       referenceExerciseType: referenceType,
-      stepIndex: params.practiceIndex,
+      stepIndex: params.mode === 'reference' ? params.practiceIndex : 0,
     })
     if (!resolved) return null
     return resolved
