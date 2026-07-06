@@ -62,7 +62,10 @@ function normalizeInstruction(text: string | undefined): string {
 }
 
 function practiceInfoLabel(question: PracticeQuestion, session: PracticeSession): string {
-  const hint = question.type === 'voice-shadow' ? '' : normalizeInstruction(question.hint)
+  const hint =
+    question.type === 'voice-shadow' || question.type === 'dictation'
+      ? ''
+      : normalizeInstruction(question.hint)
   const base = normalizeInstruction(practiceTypeLabel(question, session))
   if (!hint) return base
   const normalizedHint = hint.toLowerCase().replace(/[.!?…]/g, '').replace(/\s+/g, ' ').trim()

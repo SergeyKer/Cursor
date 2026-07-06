@@ -1,6 +1,37 @@
 import { describe, expect, it } from 'vitest'
 import { isExerciseCompatibleWithPracticeType } from '@/lib/practice/practiceStepCompatibility'
 
+describe('isExerciseCompatibleWithPracticeType - dictation', () => {
+  it('accepts translate full_sentence', () => {
+    expect(
+      isExerciseCompatibleWithPracticeType('dictation', {
+        type: 'translate',
+        answerFormat: 'full_sentence',
+        correctAnswer: "It's dark.",
+        question: 'Переведите',
+      })
+    ).toBe(true)
+  })
+
+  it('rejects fill_text and one-word fill_choice', () => {
+    expect(
+      isExerciseCompatibleWithPracticeType('dictation', {
+        type: 'fill_text',
+        correctAnswer: 'dark',
+        question: 'It is ___',
+      })
+    ).toBe(false)
+    expect(
+      isExerciseCompatibleWithPracticeType('dictation', {
+        type: 'fill_choice',
+        correctAnswer: 'dark',
+        options: ['dark', 'cold'],
+        question: 'It is ___',
+      })
+    ).toBe(false)
+  })
+})
+
 describe('isExerciseCompatibleWithPracticeType - word-builder-pro', () => {
   it('accepts sentence_puzzle only', () => {
     expect(

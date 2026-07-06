@@ -1,4 +1,5 @@
 import { inferChoiceGranularity } from '@/lib/practice/choiceOptionGranularity'
+import { isDictationSentenceSource } from '@/lib/practice/dictationSentenceSource'
 import type { Exercise } from '@/types/lesson'
 import type { PracticeExerciseType } from '@/types/practice'
 
@@ -34,7 +35,7 @@ export function isExerciseCompatibleWithPracticeType(
     case 'free-response':
       return exercise.type === 'translate' || exercise.type === 'write_own'
     case 'dictation':
-      return exercise.type === 'translate' || exercise.type === 'fill_choice' || exercise.type === 'fill_text'
+      return isDictationSentenceSource(exercise)
     case 'roleplay-mini':
       return exercise.type === 'translate' || exercise.type === 'write_own'
     case 'boss-challenge':

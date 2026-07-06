@@ -5,6 +5,7 @@ import { isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOpt
 import { CHALLENGE_STEP_SPECS } from '@/lib/practice/engine/stepSpec'
 import { isCompleteSentence } from '@/lib/practice/choiceOptionGranularity'
 import { isGapFillStylePrompt } from '@/lib/practice/prompt/dropdownFillPromptFormat'
+import { isDictationStylePrompt } from '@/lib/practice/prompt/dictationPromptFormat'
 
 describe('buildLocalPracticeSession', () => {
   it('builds relaxed practice from a structured lesson without AI', () => {
@@ -60,6 +61,11 @@ describe('buildLocalPracticeSession', () => {
     expect(voiceShadow?.prompt).toMatch(/Ситуация:|Тема:|Прослушайте/i)
     expect(questionsByType.get('listening-select')?.audioText).toBeTruthy()
     expect(questionsByType.get('dictation')?.audioText).toBeTruthy()
+    const dictation = questionsByType.get('dictation')
+    expect(dictation?.hint).toBeFalsy()
+    expect(isCompleteSentence(dictation?.targetAnswer ?? '')).toBe(true)
+    expect(isDictationStylePrompt(dictation?.prompt ?? '')).toBe(true)
+    expect(dictation?.prompt).not.toMatch(/переведите/i)
     expect(questionsByType.get('sentence-surgery')?.shuffledWords?.length).toBeGreaterThan(0)
     expect(questionsByType.get('word-builder-pro')?.shuffledWords?.length).toBeGreaterThan(0)
     const wordBuilder = questionsByType.get('word-builder-pro')

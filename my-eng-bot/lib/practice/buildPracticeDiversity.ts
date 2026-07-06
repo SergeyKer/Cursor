@@ -97,7 +97,13 @@ function buildReferenceDiversityRule(params: {
       'Russian phrase must name what maps to targetAnswer; options must be single words of the same class (3 closed / 4 open lexical).',
       'Never mix articles into country gaps.'
     )
-  } else if (params.referenceExerciseType === 'dictation' || params.referenceExerciseType === 'listening-select') {
+  } else if (params.referenceExerciseType === 'dictation') {
+    parts.push(
+      'Dictation task: prompt must be one line: Ситуация: "{RU from sourceSituations}". Прослушайте английскую фразу и запишите её целиком.',
+      'Put English phrase only in audioText/targetAnswer; leave hint empty; never use Переведите or gap-fill wording.',
+      'Rotate weather / time / distance contexts; never reuse identical Russian situation in prompt.'
+    )
+  } else if (params.referenceExerciseType === 'listening-select') {
     parts.push('Put English phrase only in audioText/targetAnswer; Russian situational prompt without the answer.')
   } else if (params.referenceExerciseType === 'roleplay-mini') {
     parts.push('Mini-dialogue lead in Russian; learner replies in 1-2 English sentences.')
@@ -141,6 +147,11 @@ function buildSessionDiversityRule(params: {
   if (params.practiceType === 'word-builder-pro') {
     parts.push(
       'word-builder-pro: full phrase puzzle + exactly 2 grammar traps in extraWords; Russian situation aligned with targetAnswer; no gap-fill.'
+    )
+  }
+  if (params.practiceType === 'dictation') {
+    parts.push(
+      'dictation: one-line prompt Ситуация: "{RU}". Прослушайте английскую фразу и запишите её целиком; full sentence in audioText/targetAnswer; hint empty; ignore translate wording in canonicalSourceExercise.'
     )
   }
   if (params.lesson.id === '1') {

@@ -9,6 +9,7 @@ import { getPracticeStepsForRange } from '@/lib/practice/engine/stepSpec'
 import { buildProviderUserMessage, PRACTICE_REFERENCE_FALLBACK_NOTICE } from '@/lib/buildProviderUserMessage'
 import { inferGapWordSlot } from '@/lib/practice/gapWordSlot'
 import { DROPDOWN_FILL_SYSTEM_RULES } from '@/lib/practice/prompt/buildDropdownFillPrompt'
+import { DICTATION_SYSTEM_RULES } from '@/lib/practice/prompt/buildDictationPrompt'
 import { sanitizeCanonicalOptions } from '@/lib/practice/sanitizeCanonicalOptions'
 import {
   buildEtalonPromptForReferenceType,
@@ -156,6 +157,7 @@ function buildSystemPrompt(referenceExerciseType?: PracticeExerciseType): string
     'If type is choice, listening-select, speed-round, or context-clue, you must provide at least 3 English options and include targetAnswer in the options.',
     'For type dropdown-fill: options count is 3 for closed-class slots (articles, pronouns) or 4 for open lexical slots (countries, names); include targetAnswer.',
     ...DROPDOWN_FILL_SYSTEM_RULES,
+    ...DICTATION_SYSTEM_RULES,
     'Never mix single-word options and full-sentence options in one question.',
     'When canonicalSourceExercise is provided, mirror its answerFormat, prompt structure, and exactly 3 options when the lesson step has 3.',
     'context-clue with ___ in prompt: options must be single words only. context-clue with translation/situation: options must be full sentences only.',

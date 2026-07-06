@@ -1,8 +1,20 @@
 import { sanitizeVoiceShadowPrompt } from '@/lib/practice/buildVoiceShadowPrompt'
-import { mergePromptParts, resolveSituationLine, situationalPromptHasContext } from '@/lib/practice/prompt/promptSourceUtils'
+import {
+  buildDictationTaskPrompt,
+  dictationPromptHasValidContext,
+  resolveDictationRuSituation,
+} from '@/lib/practice/prompt/dictationPromptFormat'
 import type { PracticePromptSource } from '@/lib/practice/prompt/promptSourceTypes'
 import { resolveReferenceLessonStep } from '@/lib/practice/resolveReferenceLessonStep'
 import type { LessonData } from '@/types/lesson'
+
+export {
+  DICTATION_INSTRUCTION,
+  buildDictationTaskPrompt,
+  dictationPromptHasValidContext,
+  isDictationStylePrompt,
+  resolveDictationRuSituation,
+} from '@/lib/practice/prompt/dictationPromptFormat'
 
 export function findLessonDictationSourceForPractice(
   lesson: LessonData,
@@ -29,8 +41,8 @@ export function buildDictationPrompt(
   stepIndex: number,
   targetAnswer: string
 ): string {
-  const situation = resolveSituationLine(source.step, lesson, stepIndex)
-  const base = mergePromptParts([situation, 'Прослушайте и напишите услышанное по-английски.'])
+  const ruSituation = resolveDictationRuSituation(source, lesson, stepIndex)
+  const base = buildDictationTaskPrompt(ruSituation)
   return sanitizeVoiceShadowPrompt(base, targetAnswer)
 }
 
@@ -41,10 +53,14 @@ export function buildEtalonDictationPromptForLesson(lesson: LessonData, stepInde
 }
 
 export function dictationPromptHasContext(prompt: string): boolean {
-  return situationalPromptHasContext(prompt)
+  return dictationPromptHasValidContext(prompt)
 }
 
 export const DICTATION_SYSTEM_RULES = [
-  'For type dictation: Russian prompt with listen instruction and situation; never include the English phrase in prompt.',
-  'audioText and targetAnswer must be the full English phrase; leave hint empty.',
+  'For type dictation: prompt MUST be one line only: Ситуация: "{short Russian phrase from sourceSituations}". Прослушайте английскую фразу и запишите её целиком.',
+  'Never use Переведите, Выберите слово, ___ gap-fill, or дополните одним словом in dictation prompts.',
+  'When canonicalSourceExercise has translate wording, ignore it; use dictation prompt template only.',
+  'audioText and targetAnswer must be the same full English sentence; leave hint empty.',
+  'Rotate Russian situations across sourceSituations; do not repeat identical prompt text across scenarios.',
+  'Never include the English phrase or targetAnswer in prompt.',
 ] as const

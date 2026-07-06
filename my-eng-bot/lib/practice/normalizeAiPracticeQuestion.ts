@@ -24,6 +24,7 @@ import {
 import {
   filterByChoiceGranularity,
   inferChoiceGranularity,
+  isCompleteSentence,
 } from '@/lib/practice/choiceOptionGranularity'
 import { resolveDropdownOptionCount } from '@/lib/practice/dropdownOptionCount'
 import { buildWordBuilderProExtraWords } from '@/lib/practice/buildWordBuilderProTraps'
@@ -39,6 +40,10 @@ import {
   sanitizeDropdownHint,
 } from '@/lib/practice/prompt/dropdownFillPromptFormat'
 import { buildWordBuilderProPrompt } from '@/lib/practice/prompt/buildWordBuilderProPrompt'
+import {
+  dictationPromptHasLeakMarkers,
+  isDictationStylePrompt,
+} from '@/lib/practice/prompt/dictationPromptFormat'
 import { resolveWordBuilderProHint } from '@/lib/practice/prompt/resolveWordBuilderProHint'
 import { getPracticeExerciseMetadata } from '@/lib/practice/registry'
 import { resolvePracticeLessonStep } from '@/lib/practice/resolvePracticeLessonStep'
@@ -136,6 +141,27 @@ export function normalizeAiPracticeQuestion(
         prompt = buildVoiceShadowPrompt(sourceStep, sourceExercise, lesson)
       }
     }
+  }
+
+  if (type === 'dictation') {
+    if (!isCompleteSentence(targetAnswer)) return null
+    const needsRebuild =
+      !isDictationStylePrompt(prompt) ||
+      dictationPromptHasLeakMarkers(prompt) ||
+      prompt.includes(targetAnswer)
+    if (needsRebuild) {
+      const rebuilt = buildReferencePromptFromLesson({
+        lesson: scopedLesson,
+        type: 'dictation',
+        stepIndex: index,
+        targetAnswer,
+      })
+      if (rebuilt) prompt = rebuilt
+    }
+    if (prompt) {
+      prompt = sanitizeVoiceShadowPrompt(prompt, targetAnswer)
+    }
+    if (!isDictationStylePrompt(prompt)) return null
   }
 
   const referenceType = normalizeOptions?.referenceExerciseType ?? type
@@ -416,7 +442,7 @@ export function normalizeAiPracticeQuestion(
           ? Math.min(20, source.minWords)
           : undefined,
     hint:
-      type === 'voice-shadow'
+      type === 'voice-shadow' || type === 'dictation'
         ? undefined
         : type === 'word-builder-pro' && resolved?.exercise
           ? stripAnswerLeakFromHint(

@@ -45,4 +45,37 @@ describe('practiceRouteCopy', () => {
     expect(opening).toContain('Шаг 1/12')
     expect(opening).toContain('Разогрев')
   })
+
+  it('uses dictation opening on challenge index 7', () => {
+    const challenge = session('challenge')
+    const opening = buildPracticeFeedOpening({
+      session: challenge,
+      questionIndex: 7,
+      audience: 'adult',
+      previousWasCorrect: null,
+    })
+    expect(opening).toContain('фразу')
+    expect(opening).toContain('прослушайте')
+    expect(opening.length).toBeLessThan(120)
+  })
+
+  it('does not use dictation opening on challenge index 6', () => {
+    const opening = buildPracticeFeedOpening({
+      session: session('challenge'),
+      questionIndex: 6,
+      audience: 'adult',
+      previousWasCorrect: null,
+    })
+    expect(opening).not.toContain('Без подсказок')
+  })
+
+  it('uses dictation opening on balanced index 7', () => {
+    const opening = buildPracticeFeedOpening({
+      session: session('balanced'),
+      questionIndex: 7,
+      audience: 'adult',
+      previousWasCorrect: null,
+    })
+    expect(opening).toContain('фразу')
+  })
 })

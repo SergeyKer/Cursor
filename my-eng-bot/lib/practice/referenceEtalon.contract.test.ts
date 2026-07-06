@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
 import { buildPracticeQuestionFingerprintFromQuestion } from '@/lib/practice/questionFingerprint'
 import { buildReferenceFallbackQuestions } from '@/lib/practice/referenceFallbackQuestion'
+import { isCompleteSentence } from '@/lib/practice/choiceOptionGranularity'
+import { isDictationStylePrompt } from '@/lib/practice/prompt/dictationPromptFormat'
 import { isTranslateStylePrompt } from '@/lib/practice/prompt/promptSourceUtils'
 import { isGapFillStylePrompt } from '@/lib/practice/prompt/dropdownFillPromptFormat'
 import { REFERENCE_STEP_MAP_TYPES } from '@/lib/practice/prompt/promptSourceTypes'
@@ -33,6 +35,11 @@ describe('reference etalon contract', () => {
             .filter(Boolean)
           expect(new Set(fingerprints).size).toBeGreaterThanOrEqual(6)
 
+          if (referenceType === 'dictation') {
+            const uniquePrompts = new Set(questions.map((question) => question.prompt.trim().toLowerCase()))
+            expect(uniquePrompts.size).toBeGreaterThanOrEqual(5)
+          }
+
           for (const question of questions) {
             expect(question.prompt).toMatch(/[А-Яа-яЁё]/)
             if (referenceType === 'free-response') {
@@ -44,7 +51,14 @@ describe('reference etalon contract', () => {
               expect(question.options?.length ?? 0).toBeGreaterThanOrEqual(3)
               expect(question.options?.some((item) => ['a', 'an', 'the'].includes(item.toLowerCase()))).toBe(false)
             }
-            if (referenceType === 'dictation' || referenceType === 'listening-select') {
+            if (referenceType === 'dictation') {
+              expect(isDictationStylePrompt(question.prompt)).toBe(true)
+              expect(isCompleteSentence(question.targetAnswer)).toBe(true)
+              expect(question.audioText).toBe(question.targetAnswer)
+              expect(question.hint).toBeFalsy()
+              expect(question.prompt).not.toContain(question.targetAnswer)
+            }
+            if (referenceType === 'listening-select') {
               expect(question.audioText).toBeTruthy()
               expect(question.prompt).not.toContain(question.targetAnswer)
             }

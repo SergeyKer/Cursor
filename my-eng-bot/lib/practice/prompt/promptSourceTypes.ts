@@ -32,7 +32,7 @@ export const REFERENCE_STEP_MAP_TYPES = new Set<PracticeExerciseType>([
 const PREFERRED_STEP_NUMBERS: Partial<Record<PracticeExerciseType, readonly number[]>> = {
   'free-response': [4, 6],
   'dropdown-fill': [3],
-  dictation: [6, 2],
+  dictation: [6],
   'listening-select': [1, 3],
   'roleplay-mini': [6],
   'speed-round': [1, 3],

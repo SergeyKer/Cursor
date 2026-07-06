@@ -181,6 +181,32 @@ describe('normalizeAiPracticeQuestion', () => {
     expect(q!.extraWords).toContain('goes')
     expect(q!.extraWords!.length).toBe(2)
   })
+
+  it('rebuilds bad dictation prompt in challenge and rejects one-word answers', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const badRow = {
+      type: 'dictation',
+      prompt: 'Переведите на английский: "Темно"',
+      targetAnswer: "It's dark.",
+      hint: 'Используйте It is',
+      audioText: "It's dark.",
+    }
+    const rebuilt = normalizeAiPracticeQuestion(badRow, lesson!, 7, { mode: 'challenge' })
+    expect(rebuilt).not.toBeNull()
+    expect(rebuilt!.hint).toBeFalsy()
+    expect(rebuilt!.prompt).toMatch(/фразу/i)
+    expect(rebuilt!.prompt).not.toMatch(/переведите/i)
+
+    const oneWord = normalizeAiPracticeQuestion(
+      { ...badRow, targetAnswer: 'dark' },
+      lesson!,
+      7,
+      { mode: 'challenge' }
+    )
+    expect(oneWord).toBeNull()
+  })
 })
 
 describe('isChoiceLikePracticeType', () => {

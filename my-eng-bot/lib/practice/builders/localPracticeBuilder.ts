@@ -22,6 +22,7 @@ import {
 import { resolveDropdownOptionCount } from '@/lib/practice/dropdownOptionCount'
 import { inferGapWordSlot } from '@/lib/practice/gapWordSlot'
 import { sanitizeDropdownHint } from '@/lib/practice/prompt/dropdownFillPromptFormat'
+import { DICTATION_INSTRUCTION } from '@/lib/practice/prompt/dictationPromptFormat'
 import { isTranslateBackedFreeResponseExercise } from '@/lib/practice/prompt/freeResponseTranslateMode'
 import { extractSemanticKeywords, stripAnswerLeakFromHint } from '@/lib/practice/prompt/promptSourceUtils'
 import { resolveLessonExerciseVariant } from '@/lib/practice/resolveLessonExerciseVariant'
@@ -163,6 +164,7 @@ function createQuestion(params: {
     ? resolveTierForStep(params.mode, params.stepSpec)
     : undefined
   const isVoiceShadow = params.type === 'voice-shadow'
+  const isDictation = params.type === 'dictation'
   const useEtalonPromptBuilder =
     isReferenceStepMapType(params.type) &&
     (params.mode === 'reference' || params.stepSpec?.type === params.type)
@@ -174,7 +176,9 @@ function createQuestion(params: {
   })
   let prompt = isVoiceShadow
     ? buildVoiceShadowPrompt(params.step, params.exercise, params.lesson)
-    : params.type === 'choice' || params.exercise.answerFormat === 'choice'
+    : isDictation
+      ? DICTATION_INSTRUCTION
+      : params.type === 'choice' || params.exercise.answerFormat === 'choice'
       ? buildChoicePrompt(params.step, params.exercise, params.lesson)
       : params.exercise.question?.trim() || params.step.bubbles.at(-1)?.content || 'Ответьте по теме урока.'
   if (
@@ -252,7 +256,7 @@ function createQuestion(params: {
           : params.type === 'free-response' || params.type === 'roleplay-mini'
             ? 3
             : undefined,
-    hint: isVoiceShadow
+    hint: isVoiceShadow || isDictation
       ? undefined
       : params.type === 'word-builder-pro' && puzzleSlice
         ? stripAnswerLeakFromHint(

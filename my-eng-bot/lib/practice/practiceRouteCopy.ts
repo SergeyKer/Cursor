@@ -1,5 +1,6 @@
 import {
   CHALLENGE_ROUTE_STAGES,
+  getPracticeStepSpec,
   getRouteStageForIndex,
   type PracticeRouteStageId,
 } from '@/lib/practice/engine/stepSpec'
@@ -19,6 +20,11 @@ const STAGE_TITLE: Record<PracticeRouteStageId, { adult: string; child: string }
   understanding: { adult: 'Понимание', child: 'Поймай смысл' },
   reinforcement: { adult: 'Закрепление', child: 'Ловушки' },
   check: { adult: 'Проверка', child: 'Финал' },
+}
+
+const DICTATION_STEP_OPENING = {
+  adult: 'Без подсказок: прослушайте и запишите фразу целиком.',
+  child: 'Только слух: запиши фразу целиком.',
 }
 
 const CHALLENGE_OPENING: Record<PracticeRouteStageId, { adult: string; child: string }> = {
@@ -48,7 +54,13 @@ function legacyOpening(session: PracticeSession, questionIndex: number, previous
   return 'Ошибку уже разобрали. Теперь закрепим похожий паттерн.'
 }
 
-function shortModeOpening(mode: PracticeMode, questionIndex: number, total: number, audience: Audience): string | null {
+function shortModeOpening(
+  mode: PracticeMode,
+  questionIndex: number,
+  total: number,
+  audience: Audience,
+  dictationOpening: string | null
+): string | null {
   if (mode === 'reference') return null
   if (mode === 'challenge') return null
   const step = questionIndex + 1
@@ -57,9 +69,16 @@ function shortModeOpening(mode: PracticeMode, questionIndex: number, total: numb
       ? `Шаг ${step}/${total} · Старт.`
       : `Шаг ${step}/${total} · Старт. Сначала лёгкий выбор.`
   }
+  const body = dictationOpening ?? (audience === 'child' ? '' : 'Слушаем и выбираем.')
   return audience === 'child'
-    ? `Шаг ${step}/${total} · Закрепление.`
-    : `Шаг ${step}/${total} · Закрепление. Слушаем и выбираем.`
+    ? `Шаг ${step}/${total} · Закрепление.${body ? ` ${body}` : ''}`
+    : `Шаг ${step}/${total} · Закрепление.${body ? ` ${body}` : ''}`
+}
+
+function resolveDictationOpening(session: PracticeSession, questionIndex: number, audience: Audience): string | null {
+  const stepSpec = getPracticeStepSpec(session.mode, questionIndex)
+  if (stepSpec?.type !== 'dictation') return null
+  return audience === 'child' ? DICTATION_STEP_OPENING.child : DICTATION_STEP_OPENING.adult
 }
 
 export function buildPracticeRouteStepCopy(params: {
@@ -76,7 +95,8 @@ export function buildPracticeRouteStepCopy(params: {
   }
 
   if (session.mode !== 'challenge') {
-    const opening = shortModeOpening(session.mode, questionIndex, total, audience)
+    const dictationOpening = resolveDictationOpening(session, questionIndex, audience)
+    const opening = shortModeOpening(session.mode, questionIndex, total, audience, dictationOpening)
     if (!opening) return null
     return {
       stageId: 'warmup',
@@ -91,7 +111,12 @@ export function buildPracticeRouteStepCopy(params: {
 
   const titles = STAGE_TITLE[stage.stageId]
   const stageTitle = audience === 'child' ? titles.child : titles.adult
-  const body = audience === 'child' ? CHALLENGE_OPENING[stage.stageId].child : CHALLENGE_OPENING[stage.stageId].adult
+  const dictationOpening = resolveDictationOpening(session, questionIndex, audience)
+  const body = dictationOpening
+    ? dictationOpening
+    : audience === 'child'
+      ? CHALLENGE_OPENING[stage.stageId].child
+      : CHALLENGE_OPENING[stage.stageId].adult
   const trap =
     questionIndex === 10 ? (audience === 'child' ? ' · финальная ловушка' : ' · финальная ловушка') : ''
 
