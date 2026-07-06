@@ -317,7 +317,7 @@ export default function AccentTrainer({
                     </p>
                   </div>
                   <ChatBubbleFrame role="assistant" position="solo" className="lesson-enter" rowClassName="mb-2.5">
-                    <section className="chat-section-surface glass-surface rounded-xl border border-[var(--chat-section-neutral-border)] bg-white/95 px-3 py-3">
+                    <section className="chat-section-surface glass-surface rounded-xl border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)] px-3 py-3">
                       <div className="mb-3 flex items-center justify-between gap-3">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">{blockLabels[blockType]}</p>
@@ -347,7 +347,7 @@ export default function AccentTrainer({
                           }}
                           rows={3}
                           placeholder="Здесь появится распознанный текст. Если браузер не распознал речь, можно ввести вручную."
-                          className="w-full rounded-xl border border-[var(--border)] bg-white/95 px-3 py-2 text-[14px] text-[var(--text)]"
+                          className="w-full rounded-xl border border-[var(--border)] bg-[var(--chat-input-bg)] px-3 py-2 text-[14px] text-[var(--text)]"
                         />
                       </div>
                     </ChatBubbleFrame>
@@ -366,7 +366,7 @@ export default function AccentTrainer({
                   )}
                   {stateMachine.runtime.state === 'complete' && isLastBlock && selectedSession.kind === 'full' && progressSummary && (
                     <ChatBubbleFrame role="assistant" position="solo" className="lesson-enter" rowClassName="mb-2.5">
-                      <section className="chat-section-surface glass-surface rounded-xl border border-[var(--chat-section-neutral-border)] bg-white/95 px-3 py-3 text-[var(--text)]">
+                      <section className="chat-section-surface glass-surface rounded-xl border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)] px-3 py-3 text-[var(--text)]">
                         <h3 className="text-sm font-semibold">Прогресс по блокам</h3>
                         <p className="mt-1 text-sm">Слова: {progressSummary.progress.segmentSuccessfulAttempts.words}/20</p>
                         <p className="text-sm">Пары: {progressSummary.progress.segmentSuccessfulAttempts.pairs}/20</p>
@@ -557,7 +557,7 @@ function AccentLessonModePicker({
           animateSections
         />
       </ChatBubbleFrame>
-      <section className="chat-section-surface glass-surface rounded-xl border border-[var(--chat-section-neutral-border)] bg-white/95 px-3 py-3">
+      <section className="chat-section-surface glass-surface rounded-xl border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)] px-3 py-3">
         <h2 className="text-base font-semibold text-[var(--text)]">{lesson.title}</h2>
         <p className="mt-1 text-sm text-[var(--text-muted)]">
           С {segment.words}/20 · П {segment.pairs}/20 · Ц {segment.progressive}/20

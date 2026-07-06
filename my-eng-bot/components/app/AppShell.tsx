@@ -7146,7 +7146,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 />
               ) : isTutorLessonPending ? (
                 <div className="flex h-full min-h-0 items-center justify-center bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)] px-4">
-                  <div className="lesson-enter glass-surface w-full max-w-[24rem] rounded-[1.5rem] border border-[var(--chat-section-neutral-border)] bg-white/95 px-4 py-5 text-center shadow-sm">
+                  <div className="lesson-enter glass-surface w-full max-w-[24rem] rounded-[1.5rem] border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)] px-4 py-5 text-center shadow-sm">
                     <p className="text-[15px] font-semibold text-[var(--text)]">Engvo составляет урок...</p>
                     <p className="mt-2 text-[14px] leading-relaxed text-[var(--text-muted)]">
                       Тема: {pendingTutorLessonTitle}. Сейчас подготовлю короткие примеры и задания по выбранному смыслу.

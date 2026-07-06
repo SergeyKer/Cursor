@@ -14,8 +14,8 @@ interface BlockRecorderProps {
 export default function BlockRecorder({ blockType, words, pairs, progressiveLines, targetSound }: BlockRecorderProps) {
   if (blockType === 'pairs') {
     return (
-      <div className="overflow-hidden rounded-xl border border-[var(--chat-section-neutral-border)] bg-white/90">
-        <div className="grid grid-cols-2 border-b border-[var(--chat-section-neutral-border)] bg-white/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+      <div className="overflow-hidden rounded-xl border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)]">
+        <div className="grid grid-cols-2 border-b border-[var(--chat-section-neutral-border)] bg-[var(--chat-section-slate)] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
           <span>Цель {targetSound}</span>
           <span>Контраст</span>
         </div>

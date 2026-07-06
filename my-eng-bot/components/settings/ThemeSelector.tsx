@@ -2,8 +2,9 @@
 
 import React from 'react'
 import { useTheme } from '@/contexts/ThemeContext'
+import type { Theme } from '@/lib/theme'
 
-const THEMES: Array<{ id: 'basic' | 'futuristic' | 'bubble1' | 'bubble2'; name: string; description: string; glow?: boolean }> = [
+const THEMES: Array<{ id: Theme; name: string; description: string; glow?: boolean }> = [
   {
     id: 'basic',
     name: 'Basic',
@@ -25,6 +26,24 @@ const THEMES: Array<{ id: 'basic' | 'futuristic' | 'bubble1' | 'bubble2'; name: 
     id: 'bubble2',
     name: 'Bubble2',
     description: 'Liquid Glass / Glassmorphism 2026 с фиксированными adult/child палитрами.',
+    glow: true,
+  },
+  {
+    id: 'glass1',
+    name: 'Glass1',
+    description: 'Стеклянный UI, зелёный акцент. Одна палитра для всех возрастов.',
+    glow: true,
+  },
+  {
+    id: 'glass2',
+    name: 'Glass2',
+    description: 'Стеклянный UI, синий акцент. Одна палитра для всех возрастов.',
+    glow: true,
+  },
+  {
+    id: 'glass3',
+    name: 'Glass3',
+    description: 'Нейтральное стекло, прозрачные бабблы. Одна палитра для всех возрастов.',
     glow: true,
   },
 ]

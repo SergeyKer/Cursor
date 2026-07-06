@@ -31,7 +31,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen antialiased">
         <Script id="theme-bootstrap" strategy="beforeInteractive">
-          {`(function(){try{var k='myeng_theme';var t=localStorage.getItem(k);var ok=t==='basic'||t==='futuristic'||t==='bubble1'||t==='bubble2';document.documentElement.setAttribute('data-theme',ok?t:'bubble2')}catch(e){document.documentElement.setAttribute('data-theme','bubble2')}})();`}
+          {`(function(){try{var k='myeng_theme';var t=localStorage.getItem(k);var ok=t==='basic'||t==='futuristic'||t==='bubble1'||t==='bubble2'||t==='glass1'||t==='glass2'||t==='glass3';document.documentElement.setAttribute('data-theme',ok?t:'bubble2')}catch(e){document.documentElement.setAttribute('data-theme','bubble2')}})();`}
         </Script>
         <Script id="mobile-vv-bootstrap" strategy="beforeInteractive">
           {`(function(){try{var ua=navigator.userAgent;var ios=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&/Mobile/.test(ua));var android=/Android/i.test(ua);if(ios){if(/FxiOS\\/\\d+/i.test(ua)||/EdgiOS\\/\\d+/i.test(ua)||/OPiOS\\/\\d+/i.test(ua))return;var isCriOS=/CriOS\\/\\d+/i.test(ua);if(!isCriOS&&!/Safari\\/\\d+/i.test(ua))return;}else if(!android)return;var vv=window.visualViewport;if(!vv)return;var h=vv.height;if(!(typeof h==='number'&&isFinite(h)&&h>0))return;var px=Math.round(h)+'px';document.documentElement.style.setProperty('--app-vv-height',px);document.documentElement.style.setProperty('--ios-safari-vv-height',px)}catch(e){}})();`}

@@ -197,7 +197,7 @@ export default function RewardPopup({ text, visible, onDismiss }: RewardPopupPro
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
         style={pillStyle}
-        className="reward-popup-pill pointer-events-auto relative touch-manipulation rounded-2xl border border-[var(--chat-section-neutral-border)] bg-white/95 py-2 pl-4 pr-9 text-center text-[13px] font-semibold text-[var(--text)] shadow-lg backdrop-blur [touch-action:pan-y]"
+        className="reward-popup-pill pointer-events-auto relative touch-manipulation rounded-2xl border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)] py-2 pl-4 pr-9 text-center text-[13px] font-semibold text-[var(--text)] shadow-lg backdrop-blur [touch-action:pan-y]"
       >
         <span className="emoji-line block line-clamp-2 leading-[1.35]">{layer.text}</span>
         <button

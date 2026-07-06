@@ -61,7 +61,7 @@ export default function StartPageChrome({
           className="fixed left-0 right-0 z-[60] flex justify-center px-4"
           style={{ top: 'var(--app-top-offset)' }}
         >
-          <div className="glass-surface max-w-[23.2rem] rounded-[1rem] border border-[var(--chat-section-neutral-border)] bg-white/95 px-4 py-3 text-center shadow-sm">
+          <div className="glass-surface max-w-[23.2rem] rounded-[1rem] border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)] px-4 py-3 text-center shadow-sm">
             <p className="text-[14px] leading-relaxed text-[var(--text-muted)]">
               {START_RUNTIME_COPY.appShellLoadError}
             </p>

@@ -391,7 +391,7 @@ export default function LessonExtraTipsScreen({
                 ref={scrollAreaRef}
                 className={`${LESSON_SCROLL_VIEWPORT_CLASS} ${LESSON_INTRO_SCROLL_CLASS} scroll-smooth bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
               >
-              <div className="lesson-enter mb-2.5 flex items-center gap-2 rounded-[1.25rem] border border-[var(--chat-section-neutral-border)] bg-white/85 px-3 py-2 shadow-sm">
+              <div className="lesson-enter mb-2.5 flex items-center gap-2 rounded-[1.25rem] border border-[var(--chat-section-neutral-border)] bg-[var(--chat-section-slate)] px-3 py-2 shadow-sm">
                 <span className="shrink-0 text-[13px] font-semibold uppercase tracking-[0.02em] text-slate-600">Фишки</span>
                 <span className="h-1 w-1 shrink-0 rounded-full bg-slate-300" aria-hidden />
                 <h2 className="min-w-0 truncate text-[15px] font-semibold leading-tight text-[var(--text)]">{tips.topic}</h2>
@@ -437,7 +437,7 @@ export default function LessonExtraTipsScreen({
                   return (
                     <section
                       key={card.category}
-                      className="lesson-enter chat-section-surface glass-surface overflow-hidden rounded-[1.5rem] border border-[var(--chat-section-neutral-border)] bg-white/95"
+                      className="lesson-enter chat-section-surface glass-surface overflow-hidden rounded-[1.5rem] border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)]"
                       style={{ animationDelay: `${index * 80}ms` }}
                     >
                       <button
@@ -743,7 +743,7 @@ export default function LessonExtraTipsScreen({
                 })}
               </div>
 
-              <section className="lesson-enter chat-section-surface glass-surface mt-2.5 overflow-hidden rounded-[1.5rem] border border-[var(--chat-section-neutral-border)] bg-white/95">
+              <section className="lesson-enter chat-section-surface glass-surface mt-2.5 overflow-hidden rounded-[1.5rem] border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)]">
                 <div className="border-b border-[var(--chat-section-neutral-border)] bg-[#F0FDF4] px-3 py-2">
                   <h3 className="text-[13px] font-semibold uppercase tracking-[0.02em] text-slate-700">Проверь себя</h3>
                 </div>

@@ -1040,7 +1040,13 @@ export default function MenuSectionPanels({
         ? 'Bubble1'
         : theme === 'bubble2'
           ? 'Bubble2'
-          : 'Basic'
+          : theme === 'glass1'
+            ? 'Glass1'
+            : theme === 'glass2'
+              ? 'Glass2'
+              : theme === 'glass3'
+                ? 'Glass3'
+                : 'Basic'
   const engvoVoiceLabel = engvoRealtimeVoice ?? ENGVO_DEFAULT_VOICE
   const engvoLevelLabel =
     ENGVO_LEVEL_OPTIONS.find((l) => l.id === (engvoCefrLevel ?? 'a2'))?.label ?? 'A2'

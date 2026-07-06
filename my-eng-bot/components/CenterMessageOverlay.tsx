@@ -58,7 +58,7 @@ export default function CenterMessageOverlay({
       onAnimationEnd={handleAnimationEnd}
     >
       <div
-        className={`w-full max-w-md rounded-2xl border border-[var(--border)] bg-white/95 p-5 shadow-xl backdrop-blur-sm ${cardClass}`}
+        className={`w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--chat-assistant-shell)] p-5 shadow-xl backdrop-blur-sm ${cardClass}`}
       >
         <div className="mb-4 flex items-start justify-between gap-4">
           <h2 className="text-base font-semibold text-[var(--text)]">{title}</h2>

@@ -24,7 +24,7 @@ const unifiedSectionClassByType: Record<Bubble['type'], string> = {
 }
 
 const lessonCardSurfaceClass =
-  'chat-section-surface glass-surface border border-[var(--chat-section-neutral-border)] bg-white/95'
+  'chat-section-surface glass-surface border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)]'
 
 export default function UnifiedLessonBubble({
   bubbles,
