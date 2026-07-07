@@ -31,6 +31,16 @@ describe('footer sheet CSS guards', () => {
     expect(css).toMatch(/\.footer-sheet-backdrop[\s\S]*z-index:\s*54/)
   })
 
+  it('footer chrome wrapper stays above sheet in AppShell', () => {
+    const appShell = readFileSync(join(process.cwd(), 'components', 'app', 'AppShell.tsx'), 'utf8')
+    const harness = readFileSync(
+      join(process.cwd(), 'app', '__test__', 'footer-sheet', 'FooterSheetHarness.tsx'),
+      'utf8'
+    )
+    expect(appShell).toMatch(/app-dialog-chrome-footer[\s\S]*z-\[55\]/)
+    expect(harness).toMatch(/app-dialog-chrome-footer[\s\S]*z-\[55\]/)
+  })
+
   it('animates panel with 300ms material easing', () => {
     expect(css).toMatch(
       /\.footer-sheet-panel[\s\S]*transition:\s*transform 300ms cubic-bezier\(0\.4,\s*0,\s*0\.2,\s*1\)/

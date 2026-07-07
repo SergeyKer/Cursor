@@ -108,7 +108,7 @@ export default function FooterSheetHarness() {
           />
         </div>
         <div
-          className="shrink-0 bg-[var(--app-header-bg)]"
+          className="shrink-0 bg-[var(--app-footer-bg)]"
           style={{ height: 'var(--app-footer-safe-inset)' }}
           aria-hidden
         />
