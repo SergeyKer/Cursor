@@ -1,7 +1,6 @@
 import type { StoredState, Settings, ChatMessage, TenseId, OpenAiChatPreset } from './types'
 
-export function normalizeOpenAiChatPreset(value: unknown): OpenAiChatPreset {
-  if (value === 'gpt-5.4-mini-none' || value === 'gpt-5.4-mini-low') return value
+export function normalizeOpenAiChatPreset(_value: unknown): OpenAiChatPreset {
   return 'gpt-4o-mini'
 }
 

@@ -11,7 +11,6 @@ import type {
   UsageInfo,
   AppMode,
   AiProvider,
-  OpenAiChatPreset,
   TenseId,
   SentenceType,
   TopicId,
@@ -48,8 +47,8 @@ import { findTheoryTagCandidatesGlobally } from '@/lib/theoryTagSearch'
 import { ACCENT_SECTIONS, RUSSIAN_SPEAKER_GROUPS, getAccentLessonById, getFirstAccentLessonId } from '@/lib/accent/soundCatalog'
 import AccentProgressBadge from '@/components/accent/AccentProgressBadge'
 import type { ImageAnalysisResult } from '@/lib/types'
-import ThemeSelector from '@/components/settings/ThemeSelector'
 import { useTheme } from '@/contexts/ThemeContext'
+import type { Theme } from '@/lib/theme'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
@@ -173,13 +172,12 @@ const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
   level: 'Уровень',
 }
 
-type SettingsMenuPanel = 'summary' | 'provider' | 'openAiModel' | 'voice' | 'playbackSpeed' | 'theme'
+type SettingsMenuPanel = 'summary' | 'provider' | 'voice' | 'playbackSpeed' | 'theme'
 type EngvoPanel = 'summary' | 'audience' | 'topic' | 'voice' | 'level' | 'speed'
 
 const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
   summary: 'Настройки',
   provider: 'ИИ',
-  openAiModel: 'Модель чата',
   voice: 'Голос',
   playbackSpeed: 'Скорость',
   theme: 'Внешний вид',
@@ -300,10 +298,42 @@ const PROVIDER_OPTIONS: { id: AiProvider; label: string }[] = [
   { id: 'openrouter', label: 'Медленно (Free)' },
 ]
 
-const OPENAI_MODEL_OPTIONS: { id: OpenAiChatPreset; label: string }[] = [
-  { id: 'gpt-4o-mini', label: 'GPT-4o mini (как раньше)' },
-  { id: 'gpt-5.4-mini-none', label: 'GPT-5.4 mini · reasoning none' },
-  { id: 'gpt-5.4-mini-low', label: 'GPT-5.4 mini · reasoning low' },
+const THEME_OPTIONS: Array<{ id: Theme; name: string; description: string }> = [
+  {
+    id: 'basic',
+    name: 'Basic',
+    description: 'Минимализм, фокус на тексте и спокойные цвета.',
+  },
+  {
+    id: 'futuristic',
+    name: 'Futuristic',
+    description: 'Градиенты, glass-эффект и выразительный акцент.',
+  },
+  {
+    id: 'bubble1',
+    name: 'Bubble1',
+    description: 'Пастельный glass-дизайн с отдельными adult/child палитрами.',
+  },
+  {
+    id: 'bubble2',
+    name: 'Bubble2',
+    description: 'Liquid Glass / Glassmorphism 2026 с фиксированными adult/child палитрами.',
+  },
+  {
+    id: 'glass1',
+    name: 'Glass1',
+    description: 'Стеклянный UI, зелёный акцент. Одна палитра для всех возрастов.',
+  },
+  {
+    id: 'glass2',
+    name: 'Glass2',
+    description: 'Стеклянный UI, синий акцент. Одна палитра для всех возрастов.',
+  },
+  {
+    id: 'glass3',
+    name: 'Glass3',
+    description: 'Нейтральное стекло, прозрачные бабблы. Одна палитра для всех возрастов.',
+  },
 ]
 
 const MENU_GROUP_CLASS =
@@ -1022,10 +1052,6 @@ export default function MenuSectionPanels({
   const audienceLabel = AUDIENCE_OPTIONS.find((a) => a.id === settings.audience)?.label ?? settings.audience
   const levelLabel = levelOptions.find((l) => l.id === settings.level)?.label ?? settings.level
   const providerLabel = PROVIDER_OPTIONS.find((p) => p.id === settings.provider)?.label ?? settings.provider
-  const openAiModelLabel =
-    OPENAI_MODEL_OPTIONS.find((p) => p.id === (settings.openAiChatPreset ?? 'gpt-4o-mini'))?.label ??
-    settings.openAiChatPreset ??
-    'gpt-4o-mini'
   const tenseLabel =
     tenseOptions.find((t) => t.id === (settings.tenses[0] ?? 'present_simple'))?.label ??
     TENSES.find((t) => t.id === (settings.tenses[0] ?? 'present_simple'))?.label ??
@@ -1157,10 +1183,6 @@ export default function MenuSectionPanels({
       return
     }
     if (menuView === 'settings' && settingsPanel !== 'summary') {
-      if (settingsPanel === 'openAiModel') {
-        setSettingsPanel('summary')
-        return
-      }
       setSettingsPanel('summary')
       return
     }
@@ -3150,13 +3172,6 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
             <div className={MENU_GROUP_CLASS}>
               <MenuSettingRow label="Тема" value={themeLabel} onClick={() => setSettingsPanel('theme')} />
               <MenuSettingRow label="ИИ" value={providerLabel} onClick={() => setSettingsPanel('provider')} />
-              {settings.provider === 'openai' && (
-                <MenuSettingRow
-                  label="Модель ChatGPT"
-                  value={openAiModelLabel}
-                  onClick={() => setSettingsPanel('openAiModel')}
-                />
-              )}
               <VoiceSummaryRow
                 label="Голос"
                 voiceId={settings.voiceId}
@@ -3197,17 +3212,6 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
           />
         )}
 
-        {menuView === 'settings' && settingsPanel === 'openAiModel' && settings.provider === 'openai' && (
-          <PickerList
-            options={OPENAI_MODEL_OPTIONS}
-            value={settings.openAiChatPreset ?? 'gpt-4o-mini'}
-            onSelect={(id) => {
-              update({ openAiChatPreset: id })
-              setSettingsPanel('summary')
-            }}
-          />
-        )}
-
         {menuView === 'settings' && settingsPanel === 'voice' && (
           <VoicePickerPanel
             value={settings.voiceId}
@@ -3216,13 +3220,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
           />
         )}
 
-        {menuView === 'settings' && settingsPanel === 'theme' && (
-          <div className={MENU_GROUP_OUTER}>
-            <div className={MENU_GROUP_CLASS}>
-              <ThemeSelector />
-            </div>
-          </div>
-        )}
+        {menuView === 'settings' && settingsPanel === 'theme' && <ThemePickerPanel />}
 
         {menuView === 'progress' && (() => {
           const focusGoal = pickFocusModeGoal(rewardsState)
@@ -3680,6 +3678,41 @@ function PickerList<T extends string>({
           )}
         </button>
       ))}
+      </div>
+    </div>
+  )
+}
+
+function ThemePickerPanel() {
+  const { theme, setTheme } = useTheme()
+
+  return (
+    <div className={MENU_GROUP_OUTER}>
+      <div className={MENU_GROUP_CLASS}>
+        {THEME_OPTIONS.map((themeOption) => {
+          const selected = theme === themeOption.id
+          return (
+            <button
+              key={themeOption.id}
+              type="button"
+              onClick={() => setTheme(themeOption.id)}
+              className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
+              aria-pressed={selected}
+            >
+              <span className="min-w-0 flex-1 text-left leading-snug">
+                <span className="block text-[15px] font-normal text-[var(--text)]">{themeOption.name}</span>
+                <span className="mt-0.5 block text-[12px] leading-snug text-[var(--text-muted)]">
+                  {themeOption.description}
+                </span>
+              </span>
+              {selected ? (
+                <CheckIcon className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden />
+              ) : (
+                <span className="h-4 w-4 shrink-0" aria-hidden />
+              )}
+            </button>
+          )
+        })}
       </div>
     </div>
   )
