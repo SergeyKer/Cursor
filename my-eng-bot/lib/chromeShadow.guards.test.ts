@@ -21,8 +21,15 @@ describe('chrome shadow CSS guards', () => {
     expect(footerRule).not.toMatch(/box-shadow:\s*none/)
   })
 
-  it('footer surface has no ::before edge-shadow rule', () => {
+  it('footer surface has no ::before or ::after edge rules', () => {
     expect(css).not.toMatch(/\.app-footer-surface::before/)
+    expect(css).not.toMatch(/\.app-footer-surface::after/)
+  })
+
+  it('footer shadow has no extra fade or ambient tokens', () => {
+    expect(css).not.toContain('--app-footer-chrome-elev-y:')
+    expect(css).not.toContain('--app-footer-shadow-ambient:')
+    expect(css).not.toContain('--app-footer-edge-fade')
   })
 
   it('footer surface has isolation isolate', () => {

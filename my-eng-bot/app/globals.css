@@ -490,8 +490,8 @@
   --app-header-backdrop-filter: blur(2px);
   --app-header-avatar-bg: transparent;
   --app-header-avatar-shadow: 0 0 0 rgba(0, 0, 0, 0);
-  --app-footer-bg: #ffffff;
-  --app-footer-backdrop-filter: none;
+  --app-footer-bg: var(--app-header-bg);
+  --app-footer-backdrop-filter: var(--app-header-backdrop-filter);
   --footer-sheet-bg: #f9fafb;
   --footer-sheet-divider: color-mix(in srgb, var(--text) 14%, transparent);
   --chat-backdrop-filter: blur(2px);
@@ -513,7 +513,6 @@
   --app-header-border-width: 1px;
   --app-footer-row-height: calc(2 * var(--app-header-row-height));
   --app-footer-border-width: 1px;
-  /* Р’С‹СЃРѕС‚Р° РїРѕР»РѕСЃС‹ Р±РµР· border-t (surface СЃ border-box). */
   --app-footer-content-height: calc(var(--app-footer-row-height) - var(--app-footer-border-width));
   --app-footer-half-height: calc(var(--app-footer-content-height) / 2);
   --app-footer-line-height: 1.375rem;
@@ -1044,9 +1043,9 @@ html[data-theme='glass3'] {
   --app-header-control-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
   --app-header-backdrop-filter: blur(24px) saturate(190%);
   --app-header-text: rgba(0, 0, 0, 0.85);
-  --app-footer-bg: color-mix(in srgb, #ffffff 78%, var(--app-header-bg) 22%);
-  --app-footer-border: color-mix(in srgb, var(--app-header-border) 70%, rgba(0, 0, 0, 0.25) 30%);
-  --app-footer-backdrop-filter: none;
+  --app-footer-bg: var(--app-header-bg);
+  --app-footer-border: var(--app-header-border);
+  --app-footer-backdrop-filter: var(--app-header-backdrop-filter);
 }
 
 html[data-theme='glass1'] {

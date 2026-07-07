@@ -38,9 +38,9 @@ describe('glass theme CSS guards', () => {
     )?.[0]
     expect(sharedBlock).toBeTruthy()
     expect(sharedBlock).toContain('--accent-text: #ffffff')
-    expect(sharedBlock).toMatch(/--app-footer-bg:\s*color-mix\(/)
-    expect(sharedBlock).toContain('--app-footer-backdrop-filter: none')
-    expect(sharedBlock).toMatch(/--app-footer-border:\s*color-mix\(/)
+    expect(sharedBlock).toContain('--app-footer-bg: var(--app-header-bg)')
+    expect(sharedBlock).toContain('--app-footer-backdrop-filter: var(--app-header-backdrop-filter)')
+    expect(sharedBlock).toContain('--app-footer-border: var(--app-header-border)')
     expect(sharedBlock).not.toContain('--app-footer-bg: rgba(255, 255, 255, 0.92)')
     expect(sharedBlock).not.toContain('--app-footer-backdrop-filter: blur(2px)')
   })

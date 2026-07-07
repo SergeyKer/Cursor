@@ -34,6 +34,13 @@ describe('chrome footer layout guards', () => {
     }
   })
 
+  it('app-footer-surface has border-t in footer chrome files', () => {
+    for (const file of FOOTER_CHROME_FILES) {
+      const source = readProjectFile(file)
+      expect(source).toMatch(/app-footer-surface[^"\n]*border-t[^"\n]*border-\[var\(--app-footer-border\)\]/)
+    }
+  })
+
   it('footer chrome z-index above sheet in AppShell and harness', () => {
     for (const file of ['components/app/AppShell.tsx', 'app/__test__/footer-sheet/FooterSheetHarness.tsx']) {
       const source = readProjectFile(file)
@@ -46,8 +53,8 @@ describe('chrome footer layout guards', () => {
     expect(css).toContain('--app-menu-panel-bottom: var(--app-bottom-offset)')
   })
 
-  it('root footer bg is opaque white with no backdrop blur', () => {
-    expect(css).toMatch(/--app-footer-bg:\s*#ffffff/)
-    expect(css).toMatch(/--app-footer-backdrop-filter:\s*none/)
+  it('root footer chrome mirrors header bg and backdrop', () => {
+    expect(css).toMatch(/--app-footer-bg:\s*var\(--app-header-bg\)/)
+    expect(css).toMatch(/--app-footer-backdrop-filter:\s*var\(--app-header-backdrop-filter\)/)
   })
 })
