@@ -158,6 +158,7 @@ import type {
   PracticeSource,
 } from '@/types/practice'
 import AppFooter from '@/components/AppFooter'
+import FooterDetailSheet, { type FooterDetailSheetHandle } from '@/components/FooterDetailSheet'
 import RewardPopup from '@/components/RewardPopup'
 import type { LessonIntroDepth } from '@/components/branches/LessonBranch'
 import type {
@@ -189,6 +190,12 @@ import {
 } from '@/lib/practice/practiceGenerateResponse'
 import { resolveLocalReferencePracticeQuestions } from '@/lib/practice/resolveLocalReferencePracticeQuestions'
 import { FOOTER_DYNAMIC_MAX_LENGTH, pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
+import {
+  buildFooterSheetContext,
+  shouldCloseFooterSheetOnRowPress,
+  type FooterSheetContext,
+  type FooterSheetSource,
+} from '@/lib/footerSheet'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 import { isIosSafariUserAgent, isIosWebKitBrowser } from '@/lib/iosSafariViewport'
@@ -608,6 +615,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [streakHintConsumedForMode, setStreakHintConsumedForMode] = useState<string | null>(null)
   const [footerTransitionText, setFooterTransitionText] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [footerSheetContext, setFooterSheetContext] = useState<FooterSheetContext | null>(null)
+  const footerSheetRef = React.useRef<FooterDetailSheetHandle>(null)
   const [communicationVoiceDropdownOpen, setCommunicationVoiceDropdownOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [usage, setUsage] = useState<UsageInfo>({ used: 0, limit: 50 })
@@ -922,9 +931,16 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const appColumnRef = React.useRef<HTMLDivElement | null>(null)
   const homeColumnRef = React.useRef<HTMLDivElement | null>(null)
   const chatGlassRef = React.useRef<HTMLDivElement>(null)
-  const headerColumnBounds = useAppColumnBounds(appColumnRef, { remeasureWhen: menuOpen })
-  const homeColumnBounds = useAppColumnBounds(homeColumnRef, { remeasureWhen: menuOpen })
-  const chatColumnBounds = useAppColumnBounds(chatGlassRef, { remeasureWhen: menuOpen })
+  const footerSheetOpen = Boolean(footerSheetContext)
+  const headerColumnBounds = useAppColumnBounds(appColumnRef, {
+    remeasureWhen: menuOpen || footerSheetOpen,
+  })
+  const homeColumnBounds = useAppColumnBounds(homeColumnRef, {
+    remeasureWhen: menuOpen || footerSheetOpen,
+  })
+  const chatColumnBounds = useAppColumnBounds(chatGlassRef, {
+    remeasureWhen: menuOpen || footerSheetOpen,
+  })
   const appColumnBounds = React.useMemo(() => {
     const primary =
       dialogStarted && chatColumnBounds ? chatColumnBounds : headerColumnBounds
@@ -6497,6 +6513,46 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     : null
   const footerDisplayVariantProgress = footerHydrated ? activeStructuredLessonFooterVariantProgress : null
   const footerDisplayTypingKey = footerHydrated ? footerTypingKey : 'footer-ssr-placeholder'
+  const handleFooterRowPress = useCallback(
+    (source: FooterSheetSource) => {
+      if (shouldCloseFooterSheetOnRowPress(footerSheetContext, source)) {
+        footerSheetRef.current?.close()
+        return
+      }
+      const openSheet = () => {
+        setFooterSheetContext(
+          buildFooterSheetContext({
+            source,
+            dynamicText: footerDisplayDynamicText,
+            staticText: footerDisplayStaticText,
+            typingKey: footerDisplayTypingKey,
+            tone: footerHydrated ? footerVoiceTone : 'neutral',
+            emphasis: footerHydrated ? footerVoiceEmphasis : 'none',
+            lessonTitle: footerDisplayLessonTitle,
+            segmentKinds: footerDisplayLessonSegments?.map((segment) => segment.kind) ?? [],
+          })
+        )
+      }
+      if (menuOpen) {
+        setMenuOpen(false)
+        requestAnimationFrame(openSheet)
+        return
+      }
+      openSheet()
+    },
+    [
+      footerDisplayDynamicText,
+      footerDisplayLessonSegments,
+      footerDisplayLessonTitle,
+      footerDisplayStaticText,
+      footerDisplayTypingKey,
+      footerHydrated,
+      footerSheetContext,
+      footerVoiceEmphasis,
+      footerVoiceTone,
+      menuOpen,
+    ]
+  )
   const engvoBootstrapServiceIndicatorText = getEngvoBootstrapServiceIndicatorText(engvoCallPhase)
   const showEngvoBootstrapServiceIndicator =
     engvoVoiceMode &&
@@ -7407,6 +7463,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             showWhenIdle={!dialogStarted}
             lessonFooterLessonTitle={footerDisplayLessonTitle}
             lessonFooterSegments={footerDisplayLessonSegments}
+            onFooterRowPress={handleFooterRowPress}
           />
         </div>
         <div
@@ -7482,6 +7539,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           onClose={() => setCoinForgivenessHelpOverlay(null)}
         />
       ) : null}
+
+      <FooterDetailSheet
+        ref={footerSheetRef}
+        context={footerSheetContext}
+        columnBounds={appColumnBounds}
+        onClose={() => setFooterSheetContext(null)}
+      />
     </div>
     </AppShellProvider>
   )

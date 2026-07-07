@@ -13,6 +13,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run && npm run check:cyrillic",
+    "test:visual": "playwright test",
+    "test:visual:update": "playwright test --update-snapshots",
     "check:cyrillic": "node scripts/check-cyrillic-integrity.mjs",
     "check:bundle:baseline": "node scripts/check-bundle-budget.mjs --baseline --save-baseline",
     "check:bundle": "node scripts/check-bundle-budget.mjs --enforce",
@@ -27,6 +29,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.51.0",
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",

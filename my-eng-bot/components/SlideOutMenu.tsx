@@ -15,6 +15,7 @@ import type { EngvoCefrLevel, EngvoRealtimeVoice, EngvoSpeechSpeedPresetId } fro
 import type { RewardsState } from '@/lib/rewardsState'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import type { AppColumnBounds } from '@/hooks/useAppColumnBounds'
+import { resolveAppPanelHorizontalLayout } from '@/lib/appPanelLayout'
 import { MenuToggleIcon } from '@/components/MenuToggleIcon'
 
 export type { LessonMenuContext, LearningLessonMenuMeta }
@@ -157,29 +158,29 @@ export default function SlideOutMenu({
   /** Восстановить подпанель уроков только при открытии меню из активного урока/практики, не при ручном «Уроки». */
   const [lessonsRestorePanel, setLessonsRestorePanel] = React.useState<LessonsPanel | undefined>(undefined)
   const panelPositioned = columnBounds != null
-  const shellWidth = columnBounds
-    ? Math.max(0, columnBounds.shellRight - columnBounds.shellLeft)
-    : 0
-  const columnFillsShell =
-    columnBounds != null && shellWidth > 0 && columnBounds.width / shellWidth >= 0.85
-  // Телефон: left 0 / right 0. ПК и планшет: колонка приложения.
-  const useFullWidthPanel = columnBounds
-    ? columnBounds.isPhoneViewport || columnBounds.isFullBleed || columnFillsShell
-    : false
+  const horizontalLayout = resolveAppPanelHorizontalLayout(columnBounds)
+  const useFullWidthPanel = horizontalLayout != null && 'right' in horizontalLayout
   const panelContainerStyle = columnBounds
-    ? useFullWidthPanel
+    ? horizontalLayout && 'right' in horizontalLayout
       ? {
-          left: 0,
-          right: 0,
+          left: horizontalLayout.left,
+          right: horizontalLayout.right,
           top: topOffset,
           bottom: bottomOffset,
         }
-      : {
-          left: columnBounds.left,
-          width: columnBounds.width,
-          top: topOffset,
-          bottom: bottomOffset,
-        }
+      : horizontalLayout
+        ? {
+            left: horizontalLayout.left,
+            width: horizontalLayout.width,
+            top: topOffset,
+            bottom: bottomOffset,
+          }
+        : {
+            left: 0,
+            right: 0,
+            top: topOffset,
+            bottom: bottomOffset,
+          }
     : undefined
   const panelBoxShadow =
     '4px 0 15px -3px rgba(0, 0, 0, 0.1), 2px 0 6px -4px rgba(0, 0, 0, 0.08)'

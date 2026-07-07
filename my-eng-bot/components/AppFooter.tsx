@@ -12,6 +12,7 @@ import {
   TRUNCATE_X_CLASS,
 } from '@/lib/emojiText'
 import { splitFooterStaticSegments } from '@/lib/footerStaticSegments'
+import type { FooterSheetSource } from '@/lib/footerSheet'
 import type {
   LessonFooterAccountSegment,
   LessonFooterMedalVisual,
@@ -42,6 +43,7 @@ type AppFooterProps = {
   hideDynamicMarker?: boolean
   /** Без посимвольной анимации динамической строки (стартовый экран). */
   instantDynamicText?: boolean
+  onFooterRowPress?: (source: FooterSheetSource) => void
 }
 
 function normalizeFooterText(text?: string | null): string {
@@ -154,6 +156,7 @@ export default function AppFooter({
   lessonFooterSegments = null,
   hideDynamicMarker = false,
   instantDynamicText = false,
+  onFooterRowPress,
 }: AppFooterProps) {
   const topLine = formatFooterDynamicLine(normalizeFooterText(dynamicText))
   const bottomLine = normalizeFooterText(staticText)
@@ -177,6 +180,9 @@ export default function AppFooter({
     text: topLine,
     hideDynamicMarker,
   })
+  const footerRowPressClassName = onFooterRowPress
+    ? 'pointer-events-auto cursor-pointer touch-manipulation'
+    : ''
 
   return (
     <div
@@ -193,8 +199,26 @@ export default function AppFooter({
         } ${lessonFooterMode ? 'px-1.5 sm:px-3' : 'px-2 sm:px-3'}`}
       >
         <div
-          className={`${FOOTER_TOP_ROW_CLASS} ${showFooterContent ? '' : 'opacity-0'}`}
+          className={`${FOOTER_TOP_ROW_CLASS} ${showFooterContent ? '' : 'opacity-0'} ${footerRowPressClassName}`}
           suppressHydrationWarning
+          role={onFooterRowPress && showFooterContent ? 'button' : undefined}
+          tabIndex={onFooterRowPress && showFooterContent ? 0 : undefined}
+          aria-label={onFooterRowPress && showFooterContent ? 'Подсказка' : undefined}
+          onClick={
+            onFooterRowPress && showFooterContent
+              ? () => onFooterRowPress('dynamic')
+              : undefined
+          }
+          onKeyDown={
+            onFooterRowPress && showFooterContent
+              ? (event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    onFooterRowPress('dynamic')
+                  }
+                }
+              : undefined
+          }
         >
           {showFooterContent && topLine ? (
             <div className={`app-footer-body__row-inner ${presentation.topLineRowClassName} min-w-0 flex-1`}>
@@ -222,8 +246,26 @@ export default function AppFooter({
           )}
         </div>
         <div
-          className={`${FOOTER_BOTTOM_ROW_CLASS} ${showFooterContent ? '' : 'opacity-0'}`}
+          className={`${FOOTER_BOTTOM_ROW_CLASS} ${showFooterContent ? '' : 'opacity-0'} ${footerRowPressClassName}`}
           suppressHydrationWarning
+          role={onFooterRowPress && showFooterContent ? 'button' : undefined}
+          tabIndex={onFooterRowPress && showFooterContent ? 0 : undefined}
+          aria-label={onFooterRowPress && showFooterContent ? 'Статистика' : undefined}
+          onClick={
+            onFooterRowPress && showFooterContent
+              ? () => onFooterRowPress('static')
+              : undefined
+          }
+          onKeyDown={
+            onFooterRowPress && showFooterContent
+              ? (event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    onFooterRowPress('static')
+                  }
+                }
+              : undefined
+          }
         >
           {showFooterContent ? (
             <div

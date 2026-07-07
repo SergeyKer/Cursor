@@ -1,6 +1,15 @@
 'use client'
 
 import AppFooter from '@/components/AppFooter'
+import FooterDetailSheet, { type FooterDetailSheetHandle } from '@/components/FooterDetailSheet'
+import { useAppColumnBounds } from '@/hooks/useAppColumnBounds'
+import {
+  buildFooterSheetContext,
+  shouldCloseFooterSheetOnRowPress,
+  type FooterSheetContext,
+  type FooterSheetSource,
+} from '@/lib/footerSheet'
+import { useCallback, useRef, useState } from 'react'
 import { MenuToggleIcon } from '@/components/MenuToggleIcon'
 import { START_RUNTIME_COPY } from '@/lib/uiCopy/startRuntimeCopy'
 import {
@@ -26,6 +35,31 @@ export default function StartPageChrome({
   appShellLoadState = 'pending',
   onRetryAppShellLoad,
 }: StartPageChromeProps) {
+  const appColumnRef = useRef<HTMLDivElement | null>(null)
+  const footerSheetRef = useRef<FooterDetailSheetHandle>(null)
+  const [footerSheetContext, setFooterSheetContext] = useState<FooterSheetContext | null>(null)
+  const columnBounds = useAppColumnBounds(appColumnRef, {
+    remeasureWhen: Boolean(footerSheetContext),
+  })
+
+  const handleFooterRowPress = useCallback(
+    (source: FooterSheetSource) => {
+      if (shouldCloseFooterSheetOnRowPress(footerSheetContext, source)) {
+        footerSheetRef.current?.close()
+        return
+      }
+      setFooterSheetContext(
+        buildFooterSheetContext({
+          source,
+          dynamicText: START_FOOTER_DYNAMIC,
+          staticText: START_FOOTER_STATIC,
+          typingKey: 'start-footer-placeholder',
+        })
+      )
+    },
+    [footerSheetContext]
+  )
+
   return (
     <>
       <header
@@ -33,7 +67,10 @@ export default function StartPageChrome({
         style={{ paddingTop: 'var(--app-safe-top-inset)' }}
       >
         <div className="chat-shell-x flex w-full min-h-[var(--app-header-row-height)] items-center">
-          <div className="relative mx-auto grid w-full max-w-[23.2rem] grid-cols-[2.5rem_1fr_2.5rem] items-center gap-2">
+          <div
+            ref={appColumnRef}
+            className="relative mx-auto grid w-full max-w-[23.2rem] grid-cols-[2.5rem_1fr_2.5rem] items-center gap-2"
+          >
             <button
               type="button"
               onClick={onMenuClick}
@@ -86,6 +123,7 @@ export default function StartPageChrome({
             typingKey="start-footer-placeholder"
             showWhenIdle
             instantDynamicText
+            onFooterRowPress={handleFooterRowPress}
           />
         </div>
         <div
@@ -94,6 +132,13 @@ export default function StartPageChrome({
           aria-hidden
         />
       </footer>
+
+      <FooterDetailSheet
+        ref={footerSheetRef}
+        context={footerSheetContext}
+        columnBounds={columnBounds}
+        onClose={() => setFooterSheetContext(null)}
+      />
     </>
   )
 }
