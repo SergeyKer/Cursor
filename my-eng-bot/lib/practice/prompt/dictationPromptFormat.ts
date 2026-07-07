@@ -1,6 +1,6 @@
 import { pickSuggestedScenario } from '@/lib/practice/buildPracticeDiversity'
 import { isInstructionalRuPhrase } from '@/lib/practice/prompt/dropdownFillPromptFormat'
-import { situationalPromptHasContext } from '@/lib/practice/prompt/promptSourceUtils'
+import { resolveSituationLine, situationalPromptHasContext } from '@/lib/practice/prompt/promptSourceUtils'
 import type { PracticePromptSource } from '@/lib/practice/prompt/promptSourceTypes'
 import type { LessonData } from '@/types/lesson'
 
