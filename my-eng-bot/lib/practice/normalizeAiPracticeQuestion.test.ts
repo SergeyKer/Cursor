@@ -196,7 +196,8 @@ describe('normalizeAiPracticeQuestion', () => {
     const rebuilt = normalizeAiPracticeQuestion(badRow, lesson!, 7, { mode: 'challenge' })
     expect(rebuilt).not.toBeNull()
     expect(rebuilt!.hint).toBeFalsy()
-    expect(rebuilt!.prompt).toMatch(/фразу/i)
+    expect(rebuilt!.prompt).toMatch(/Ситуация:|Тема:/i)
+    expect(rebuilt!.prompt).not.toMatch(/Прослушайте/i)
     expect(rebuilt!.prompt).not.toMatch(/переведите/i)
 
     const oneWord = normalizeAiPracticeQuestion(
@@ -206,6 +207,59 @@ describe('normalizeAiPracticeQuestion', () => {
       { mode: 'challenge' }
     )
     expect(oneWord).toBeNull()
+  })
+
+  it('rebuilds bad listening-select prompt in challenge and clears hint', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const badRow = {
+      type: 'listening-select',
+      prompt: "Ситуация: На улице темно. Правильный ответ: It's dark.",
+      targetAnswer: "It's dark.",
+      hint: 'Выберите предложение с It is',
+      audioText: "It's dark.",
+      options: ["It's dark.", "It's cold.", "It's time to sleep."],
+    }
+    const rebuilt = normalizeAiPracticeQuestion(badRow, lesson!, 8, { mode: 'challenge' })
+    expect(rebuilt).not.toBeNull()
+    expect(rebuilt!.hint).toBeFalsy()
+    expect(rebuilt!.prompt).toMatch(/Ситуация:|Тема:/i)
+    expect(rebuilt!.prompt).not.toMatch(/Прослушайте/i)
+    expect(rebuilt!.prompt).not.toContain("It's dark")
+    expect(rebuilt!.audioText).toBe("It's dark.")
+    expect(rebuilt!.options?.length).toBeGreaterThanOrEqual(3)
+
+    const vague = normalizeAiPracticeQuestion(
+      { ...badRow, prompt: 'Choose the best option.' },
+      lesson!,
+      8,
+      { mode: 'challenge' }
+    )
+    expect(vague).not.toBeNull()
+    expect(vague!.prompt).toMatch(/Ситуация:|Тема:/i)
+  })
+
+  it('rebuilds vague listening-select prompt from lesson context', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const rebuilt = normalizeAiPracticeQuestion(
+      {
+        type: 'listening-select',
+        prompt: 'Pick one.',
+        targetAnswer: 'drink',
+        options: ['drink', 'sleeps', 'sleeping'],
+        audioText: 'drink',
+      },
+      lesson!,
+      99,
+      { mode: 'challenge' }
+    )
+    expect(rebuilt).not.toBeNull()
+    expect(rebuilt!.prompt).toMatch(/Ситуация:|Тема:/i)
+    expect(rebuilt!.prompt).not.toMatch(/Прослушайте/i)
+    expect(rebuilt!.prompt).not.toContain('drink')
   })
 })
 

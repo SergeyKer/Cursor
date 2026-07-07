@@ -382,4 +382,53 @@ describe('buildPracticeFeedMessages sequence', () => {
     expect(taskBubble?.content).toBe('Ситуация: На улице темно.')
     expect(taskBubble?.content).not.toContain("It's dark")
   })
+
+  it('dictation keeps info instruction and situation-only task prompt', () => {
+    const messages = buildPracticeFeedMessages({
+      session: makeSession({
+        questions: [
+          {
+            id: 'q1',
+            type: 'dictation',
+            prompt: 'Ситуация: На улице холодно. Прослушайте английскую фразу и запишите её целиком.',
+            targetAnswer: "It's cold.",
+            audioText: "It's cold.",
+          },
+        ],
+      }),
+      state: 'active',
+      audience: 'adult',
+    })
+    const lesson = messages.find((message) => message.kind === 'lesson')
+    const infoBubble = lesson?.bubbles?.find((bubble) => bubble.type === 'info')
+    expect(infoBubble?.content).toMatch(/Напишите фразу на слух/i)
+    const taskBubble = lesson?.bubbles?.find((bubble) => bubble.type === 'task')
+    expect(taskBubble?.content).toBe('Ситуация: На улице холодно.')
+    expect(taskBubble?.content).not.toMatch(/Прослушайте/i)
+  })
+
+  it('listening-select keeps info instruction and situation-only task prompt', () => {
+    const messages = buildPracticeFeedMessages({
+      session: makeSession({
+        questions: [
+          {
+            id: 'q1',
+            type: 'listening-select',
+            prompt: 'Ситуация: Ты говоришь, что немного устал после дня. Прослушайте фразу и выберите правильный ответ.',
+            targetAnswer: "I'm tired.",
+            audioText: "I'm tired.",
+            options: ["I'm tired.", "I'm from Spain.", 'I am an engineer.'],
+          },
+        ],
+      }),
+      state: 'active',
+      audience: 'adult',
+    })
+    const lesson = messages.find((message) => message.kind === 'lesson')
+    const infoBubble = lesson?.bubbles?.find((bubble) => bubble.type === 'info')
+    expect(infoBubble?.content).toMatch(/Прослушайте и выберите/i)
+    const taskBubble = lesson?.bubbles?.find((bubble) => bubble.type === 'task')
+    expect(taskBubble?.content).toBe('Ситуация: Ты говоришь, что немного устал после дня.')
+    expect(taskBubble?.content).not.toMatch(/Прослушайте/i)
+  })
 })

@@ -94,4 +94,17 @@ describe('buildPracticeDiversity', () => {
     expect(payload.diversityRule).toMatch(/word-builder-pro/i)
     expect(payload.diversityRule).toMatch(/grammar traps/i)
   })
+
+  it('includes listening-select rules in challenge session diversity at step 9', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+    const payload = buildPracticeDiversityPayload({
+      lesson: lesson!,
+      mode: 'challenge',
+      stepIndex: 8,
+    })
+    expect(payload.diversityRule).toMatch(/listening-select/i)
+    expect(payload.diversityRule).toMatch(/hint empty/i)
+    expect(payload.diversityRule).toMatch(/exactly 3 options/i)
+  })
 })

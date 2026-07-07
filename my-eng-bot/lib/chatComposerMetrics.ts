@@ -15,6 +15,9 @@ export const CHAT_COMPOSER_STACK_TOP_CLASS = 'pt-2.5'
 /** Симметричный вертикальный отступ для панелей с чипами выбора (без safe-area - его даёт футер). */
 export const CHAT_COMPOSER_STACK_COMPACT_CLASS = 'py-1'
 
+/** listening-select: верх как у text-input (pt-2.5), низ compact для chip-dock (pb-1). */
+export const CHAT_COMPOSER_STACK_LISTENING_SELECT_CLASS = 'pt-2.5 pb-1'
+
 /** Нижний padding chip-панели: симметричен `py-1` / `pt-1`. */
 export const CHAT_COMPOSER_PADDING_BOTTOM_COMPACT = '0.25rem'
 
@@ -41,6 +44,17 @@ export function getChatComposerStackLayout(compact: boolean): ChatComposerStackL
     verticalClass: CHAT_COMPOSER_STACK_TOP_CLASS,
     style: { paddingBottom: CHAT_COMPOSER_PADDING_BOTTOM },
   }
+}
+
+/** Практика: listening-select совмещает audio-deck (верх как dictation) и chip-dock (низ compact). */
+export function getPracticeComposerStackLayout(params: {
+  isChoiceChipsPanel: boolean
+  isListeningSelect: boolean
+}): ChatComposerStackLayout {
+  if (params.isListeningSelect && params.isChoiceChipsPanel) {
+    return { verticalClass: CHAT_COMPOSER_STACK_LISTENING_SELECT_CLASS }
+  }
+  return getChatComposerStackLayout(params.isChoiceChipsPanel)
 }
 
 /** Строка ввода внутри flex-col формы (когда над полем есть helper-текст). */

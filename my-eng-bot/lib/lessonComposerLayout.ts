@@ -20,6 +20,9 @@ const CHOICE_CHIP_HEIGHT_PX = 36
 const CHOICE_CHIP_ROW_GAP_PX = 6
 const CHOICE_CHIPS_PER_ROW = 3
 const CHOICE_PANEL_VERTICAL_PADDING_PX = 12
+/** py-1.5*2 + h-11 deck inside CHAT_COMPOSER_FORM_CLASS */
+export const PRACTICE_AUDIO_DECK_SHELL_HEIGHT_PX = 56
+export const PRACTICE_AUDIO_TO_CHIPS_GAP_PX = 4
 const TEXT_INPUT_COMPOSER_HEIGHT_PX = 88
 const POST_LESSON_COMPOSER_HEIGHT_PX = 240
 const MEDAL_FLOW_COMPOSER_HEIGHT_PX = 180
@@ -111,6 +114,26 @@ export function estimateLessonChoiceChipsMinHeight(
     CHOICE_PANEL_VERTICAL_PADDING_PX +
     rows * CHOICE_CHIP_HEIGHT_PX +
     Math.max(0, rows - 1) * CHOICE_CHIP_ROW_GAP_PX
+  )
+}
+
+export function estimateListeningSelectComposerMinHeight(params: {
+  optionCount?: number
+  choiceOptions?: string[]
+  containerWidthPx?: number
+}): number {
+/** py-1 top+bottom */
+const LISTENING_SELECT_STACK_VERTICAL_PADDING_PX = 14
+  const chips = estimateLessonChoiceChipsMinHeight(
+    params.optionCount ?? params.choiceOptions?.length ?? 0,
+    params.choiceOptions,
+    params.containerWidthPx
+  )
+  return (
+    LISTENING_SELECT_STACK_VERTICAL_PADDING_PX +
+    PRACTICE_AUDIO_DECK_SHELL_HEIGHT_PX +
+    PRACTICE_AUDIO_TO_CHIPS_GAP_PX +
+    chips
   )
 }
 

@@ -3,7 +3,10 @@ import {
   estimateIntroComposerMinHeight,
   estimateLessonChoiceChipsMinHeight,
   estimateLessonComposerMinHeight,
+  estimateListeningSelectComposerMinHeight,
   isLessonChoiceChipsPanel,
+  PRACTICE_AUDIO_DECK_SHELL_HEIGHT_PX,
+  PRACTICE_AUDIO_TO_CHIPS_GAP_PX,
   resolveLessonComposerPanelKind,
 } from '@/lib/lessonComposerLayout'
 
@@ -120,6 +123,14 @@ describe('estimateLessonComposerMinHeight', () => {
       briefingDualCta: true,
     })
     expect(dual - single).toBe(0)
+  })
+})
+
+describe('estimateListeningSelectComposerMinHeight', () => {
+  it('adds audio glass shell and gap above choice chips', () => {
+    const chipsStack = 14 + estimateLessonChoiceChipsMinHeight(3)
+    const full = estimateListeningSelectComposerMinHeight({ optionCount: 3 })
+    expect(full - chipsStack).toBe(PRACTICE_AUDIO_DECK_SHELL_HEIGHT_PX + PRACTICE_AUDIO_TO_CHIPS_GAP_PX)
   })
 })
 

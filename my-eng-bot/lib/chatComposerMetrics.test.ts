@@ -7,10 +7,12 @@ import {
   CHAT_COMPOSER_PADDING_BOTTOM_COMPACT,
   CHAT_COMPOSER_STACK_COMPACT_CLASS,
   CHAT_COMPOSER_STACK_CLASS,
+  CHAT_COMPOSER_STACK_LISTENING_SELECT_CLASS,
   CHAT_COMPOSER_STACK_TOP_CLASS,
   CHAT_COMPOSER_TYPO_CLASS,
   getChatComposerOverlayVerticalClass,
   getChatComposerStackLayout,
+  getPracticeComposerStackLayout,
   getChatComposerTextareaVerticalClass,
 } from '@/lib/chatComposerMetrics'
 
@@ -53,5 +55,35 @@ describe('chatComposerMetrics', () => {
     const standard = getChatComposerStackLayout(false)
     expect(standard.verticalClass).toBe(CHAT_COMPOSER_STACK_TOP_CLASS)
     expect(standard.style).toEqual({ paddingBottom: CHAT_COMPOSER_PADDING_BOTTOM })
+  })
+
+  it('uses asymmetric stack padding for practice listening-select', () => {
+    expect(CHAT_COMPOSER_STACK_LISTENING_SELECT_CLASS).toBe('pt-2.5 pb-1')
+
+    const listeningSelect = getPracticeComposerStackLayout({
+      isChoiceChipsPanel: true,
+      isListeningSelect: true,
+    })
+    expect(listeningSelect.verticalClass).toBe(CHAT_COMPOSER_STACK_LISTENING_SELECT_CLASS)
+    expect(listeningSelect.style).toBeUndefined()
+
+    const choice = getPracticeComposerStackLayout({
+      isChoiceChipsPanel: true,
+      isListeningSelect: false,
+    })
+    expect(choice.verticalClass).toBe(CHAT_COMPOSER_STACK_COMPACT_CLASS)
+
+    const dictation = getPracticeComposerStackLayout({
+      isChoiceChipsPanel: false,
+      isListeningSelect: false,
+    })
+    expect(dictation.verticalClass).toBe(CHAT_COMPOSER_STACK_TOP_CLASS)
+
+    const listeningSelectVoice = getPracticeComposerStackLayout({
+      isChoiceChipsPanel: false,
+      isListeningSelect: true,
+    })
+    expect(listeningSelectVoice.verticalClass).toBe(CHAT_COMPOSER_STACK_TOP_CLASS)
+    expect(listeningSelectVoice.style).toEqual({ paddingBottom: CHAT_COMPOSER_PADDING_BOTTOM })
   })
 })

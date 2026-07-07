@@ -1,6 +1,6 @@
 import { pickSuggestedScenario } from '@/lib/practice/buildPracticeDiversity'
 import { isInstructionalRuPhrase } from '@/lib/practice/prompt/dropdownFillPromptFormat'
-import { resolveSituationLine } from '@/lib/practice/prompt/promptSourceUtils'
+import { situationalPromptHasContext } from '@/lib/practice/prompt/promptSourceUtils'
 import type { PracticePromptSource } from '@/lib/practice/prompt/promptSourceTypes'
 import type { LessonData } from '@/types/lesson'
 
@@ -15,7 +15,14 @@ const DICTATION_LEAK_MARKERS = [
 
 export function buildDictationTaskPrompt(ruSituation: string): string {
   const situation = ruSituation.trim().replace(/[.!?…]+$/u, '')
-  return `Ситуация: ${situation}. ${DICTATION_INSTRUCTION}`
+  return `Ситуация: ${situation}.`
+}
+
+const DICTATION_INSTRUCTION_TAIL =
+  /\s*прослушайте\s+английскую\s+фразу\s+и\s+запишите\s+е[ёе]\s+целиком\.?\s*$/iu
+
+export function stripDictationTaskInstruction(prompt: string): string {
+  return prompt.trim().replace(DICTATION_INSTRUCTION_TAIL, '').trim()
 }
 
 export function dictationPromptHasLeakMarkers(prompt: string): boolean {
@@ -31,14 +38,13 @@ function normalizeDictationPromptForValidation(prompt: string): string {
 }
 
 export function isDictationStylePrompt(prompt: string): boolean {
-  const trimmed = normalizeDictationPromptForValidation(prompt)
+  const trimmed = normalizeDictationPromptForValidation(stripDictationTaskInstruction(prompt))
   if (!trimmed) return false
   if (dictationPromptHasLeakMarkers(trimmed)) return false
   if (!/[А-Яа-яЁё]/.test(trimmed)) return false
-  if (!/^ситуация\s*:/iu.test(trimmed)) return false
-  if (!/фразу/iu.test(trimmed) || !/целиком/iu.test(trimmed)) return false
+  if (!/^ситуация\s*:/iu.test(trimmed) && !/^тема\s*:/iu.test(trimmed)) return false
   if (trimmed.includes('\n')) return false
-  return true
+  return situationalPromptHasContext(trimmed)
 }
 
 export function dictationPromptHasValidContext(prompt: string): boolean {

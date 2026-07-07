@@ -4,6 +4,7 @@ import {
   isPracticePuzzlePanel,
   resolvePracticeChoiceComposerLayout,
   resolvePracticePuzzleComposerLayout,
+  shouldWrapPracticeAudioDeckInGlassShell,
 } from '@/lib/practice/practiceComposerLayout'
 import type { PracticeQuestion } from '@/types/practice'
 
@@ -117,5 +118,23 @@ describe('resolvePracticePuzzleComposerLayout', () => {
       reserveMinHeight: true,
       lockReleased: false,
     })
+  })
+})
+
+describe('shouldWrapPracticeAudioDeckInGlassShell', () => {
+  it('wraps listening-select when choices and audio are available', () => {
+    expect(shouldWrapPracticeAudioDeckInGlassShell('listening-select', true, true)).toBe(true)
+  })
+
+  it('does not wrap dictation (audio lives in text composer)', () => {
+    expect(shouldWrapPracticeAudioDeckInGlassShell('dictation', false, true)).toBe(false)
+  })
+
+  it('does not wrap when choices are unavailable', () => {
+    expect(shouldWrapPracticeAudioDeckInGlassShell('listening-select', false, true)).toBe(false)
+  })
+
+  it('does not wrap when audio is unavailable', () => {
+    expect(shouldWrapPracticeAudioDeckInGlassShell('listening-select', true, false)).toBe(false)
   })
 })

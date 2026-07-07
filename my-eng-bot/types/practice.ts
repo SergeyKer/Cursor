@@ -112,6 +112,13 @@ export interface PracticeSession {
   instructionAcknowledged?: boolean
 }
 
+/** Снимок активной сессии для синхронизации меню практики. */
+export type ActivePracticeMenuSnapshot = {
+  lessonId: string
+  mode: PracticeMode
+  referenceExerciseType?: PracticeExerciseType
+}
+
 export interface PracticeBuildConfig {
   source: PracticeSource
   lesson: LessonData

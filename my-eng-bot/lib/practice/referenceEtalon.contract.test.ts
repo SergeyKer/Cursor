@@ -33,7 +33,9 @@ describe('reference etalon contract', () => {
           const fingerprints = questions
             .map((question) => buildPracticeQuestionFingerprintFromQuestion(question))
             .filter(Boolean)
-          expect(new Set(fingerprints).size).toBeGreaterThanOrEqual(6)
+          expect(new Set(fingerprints).size).toBeGreaterThanOrEqual(
+            referenceType === 'listening-select' ? 7 : 6
+          )
 
           if (referenceType === 'dictation') {
             const uniquePrompts = new Set(questions.map((question) => question.prompt.trim().toLowerCase()))
@@ -61,6 +63,10 @@ describe('reference etalon contract', () => {
             if (referenceType === 'listening-select') {
               expect(question.audioText).toBeTruthy()
               expect(question.prompt).not.toContain(question.targetAnswer)
+              expect(question.hint).toBeFalsy()
+              expect(question.options?.length ?? 0).toBeGreaterThanOrEqual(3)
+              expect(question.prompt).toMatch(/Ситуация:|Тема:/i)
+              expect(question.prompt).not.toMatch(/Прослушайте/i)
             }
             if (referenceType === 'boss-challenge') {
               expect(question.minWords).toBeGreaterThanOrEqual(5)

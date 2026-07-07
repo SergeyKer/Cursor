@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
 import { resolvePracticeLessonStep } from '@/lib/practice/resolvePracticeLessonStep'
+import { resolveReferenceLessonStep } from '@/lib/practice/resolveReferenceLessonStep'
 
 describe('resolvePracticeLessonStep', () => {
   it('maps challenge context-clue step 3 to lesson gap-fill step', () => {
@@ -114,5 +115,43 @@ describe('resolvePracticeLessonStep', () => {
 
     expect(resolved).not.toBeNull()
     expect(resolved!.sourceStepNumber).toBe(4)
+  })
+
+  it('maps challenge listening-select step 9 to lesson step 1', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const resolved = resolvePracticeLessonStep({
+      lesson: lesson!,
+      practiceIndex: 8,
+      practiceType: 'listening-select',
+      mode: 'challenge',
+    })
+
+    expect(resolved).not.toBeNull()
+    expect(resolved!.sourceStepNumber).toBe(1)
+    expect(resolved!.exercise.correctAnswer).toBe("It's dark.")
+  })
+
+  it('delegates reference listening-select to resolveReferenceLessonStep', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const fromResolver = resolveReferenceLessonStep({
+      lesson: lesson!,
+      referenceExerciseType: 'listening-select',
+      stepIndex: 0,
+    })
+    const fromPractice = resolvePracticeLessonStep({
+      lesson: lesson!,
+      practiceIndex: 0,
+      practiceType: 'listening-select',
+      mode: 'reference',
+      referenceExerciseType: 'listening-select',
+    })
+
+    expect(fromPractice).toEqual(fromResolver)
+    expect(fromPractice?.sourceStepNumber).toBe(1)
+    expect(fromPractice?.exercise.correctAnswer).toBe("It's dark.")
   })
 })

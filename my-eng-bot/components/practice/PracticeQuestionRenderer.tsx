@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import LessonSentencePuzzle from '@/components/LessonSentencePuzzle'
 import PracticeAudioDeck, { type PracticeAudioDeckHandle } from '@/components/practice/PracticeAudioDeck'
@@ -120,6 +120,21 @@ function withAnswerPanelLockClass(className: string, answerPanelLocked: boolean)
   return answerPanelLocked ? `${className} ${ANSWER_PANEL_LOCK_CLASS}` : className
 }
 
+function practiceAudioDeckGlassShell(params: {
+  answerPanelLocked: boolean
+  glassShadow: { readonly boxShadow: string }
+  children: ReactNode
+}) {
+  return (
+    <div
+      className={withAnswerPanelLockClass(CHAT_COMPOSER_FORM_CLASS, params.answerPanelLocked)}
+      style={params.glassShadow}
+    >
+      {params.children}
+    </div>
+  )
+}
+
 /** Метрики как communication в Chat; при STT - web-metrics через chatComposerMetrics. */
 function choiceCorrectionComposerMetricsClass(options: {
   voiceWebMetrics: boolean
@@ -216,6 +231,24 @@ export default function PracticeQuestionRenderer({
     prefersReducedMotion,
     suppressEnterAnimation: suppressComposerEnterAnimation,
   })
+  const listeningSelectPrimaryEnterClass = usePracticeComposerEnterClass(question.id, {
+    isChoiceVoiceCorrection: false,
+    isVoiceRepeatCorrection: false,
+    correctionMode,
+    prefersReducedMotion,
+    suppressEnterAnimation: suppressComposerEnterAnimation,
+  })
+  const listeningSelectVoiceEnterClass = usePracticeComposerEnterClass(
+    buildChoiceVoiceComposerEnterKey(question.id),
+    {
+      isChoiceVoiceCorrection: true,
+      isVoiceRepeatCorrection: false,
+      correctionMode,
+      prefersReducedMotion,
+      suppressEnterAnimation: suppressComposerEnterAnimation,
+    }
+  )
+  const composerGlassShadow = { boxShadow: 'var(--chat-composer-shadow)' } as const
 
   const canUseChoices =
     choices.length > 0 &&
@@ -598,7 +631,7 @@ export default function PracticeQuestionRenderer({
     })
   }, [finishChoiceVoiceSession, hardResetSpeechRecognition])
 
-  if (canUseChoices) {
+  if (canUseChoices && question.type !== 'listening-select') {
     const chips = (
       <LessonChoiceChips
         key={question.id}
@@ -612,28 +645,6 @@ export default function PracticeQuestionRenderer({
         suppressEnterAnimation={suppressChoiceChipEnterAnimation}
       />
     )
-
-    if (canUseAudio) {
-      return (
-        <div className={`${composerEnterClass} space-y-1`}>
-          <PracticeAudioDeck
-            ref={audioDeckRef}
-            text={practiceAudioText}
-            voiceId={voiceId}
-            questionId={question.id}
-            speedIndex={ttsSpeedIndex}
-            onSpeedIndexChange={onTtsSpeedIndexChange}
-            disabled={disabled || answerPanelLocked}
-          />
-          <div
-            className={!choiceChipsVisible ? 'pointer-events-none invisible' : undefined}
-            aria-hidden={!choiceChipsVisible}
-          >
-            {chips}
-          </div>
-        </div>
-      )
-    }
 
     return (
       <div
@@ -720,7 +731,6 @@ export default function PracticeQuestionRenderer({
       : `${effectiveComposerEnterClass} ${showComposerHelper ? CHAT_COMPOSER_COLUMN_SHELL_CLASS : CHAT_COMPOSER_FORM_CLASS}`,
     answerPanelLocked
   )
-  const composerGlassShadow = { boxShadow: 'var(--chat-composer-shadow)' } as const
   const inputRowClass = isMultiRowTextComposer ? PRACTICE_MULTI_ROW_INPUT_ROW_CLASS : CHAT_COMPOSER_INPUT_ROW_CLASS
 
   const composerInputRow = (
@@ -883,6 +893,68 @@ export default function PracticeQuestionRenderer({
     </>
   )
 
+  if (question.type === 'listening-select' && canUseAudio && !correctionMode) {
+    const showListeningSelectVoice = showVoiceCorrectionComposer(choiceCorrectionPhase, question.type)
+    const listeningSelectChips = (
+      <LessonChoiceChips
+        key={question.id}
+        choices={choices}
+        onChoose={onSubmit}
+        disabled={disabled || !choiceChipsVisible}
+        frozen={choicePanelFrozen}
+        wrongChoiceText={wrongChoiceText}
+        clearSelectionSignal={clearSelectionSignal}
+        resetKey={`${question.id}-${choiceCorrectionPhase !== 'idle' ? 'correction' : 'answer'}`}
+        suppressEnterAnimation={suppressChoiceChipEnterAnimation}
+      />
+    )
+
+    return (
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          submitText()
+        }}
+        className={`${listeningSelectPrimaryEnterClass} flex w-full flex-col gap-1`}
+      >
+        {practiceAudioDeckGlassShell({
+          answerPanelLocked,
+          glassShadow: composerGlassShadow,
+          children: (
+            <PracticeAudioDeck
+              ref={audioDeckRef}
+              text={practiceAudioText}
+              voiceId={voiceId}
+              questionId={question.id}
+              speedIndex={ttsSpeedIndex}
+              onSpeedIndexChange={onTtsSpeedIndexChange}
+              disabled={disabled || answerPanelLocked}
+            />
+          ),
+        })}
+        {canUseChoices ? (
+          <div
+            className={!choiceChipsVisible ? 'pointer-events-none invisible' : undefined}
+            aria-hidden={!choiceChipsVisible}
+          >
+            {listeningSelectChips}
+          </div>
+        ) : null}
+        {showListeningSelectVoice ? (
+          <div
+            className={withAnswerPanelLockClass(
+              `${CHAT_COMPOSER_FORM_CLASS}${listeningSelectVoiceEnterClass ? ` ${listeningSelectVoiceEnterClass}` : ''}`.trim(),
+              answerPanelLocked
+            )}
+            style={composerGlassShadow}
+          >
+            {composerInputRow}
+          </div>
+        ) : null}
+      </form>
+    )
+  }
+
   return (
     <form
       key={composerEnterKey}
@@ -894,17 +966,21 @@ export default function PracticeQuestionRenderer({
       style={showAudioInComposer ? undefined : composerGlassShadow}
     >
       {showAudioInComposer ? (
-        <div className={CHAT_COMPOSER_FORM_CLASS} style={composerGlassShadow}>
-          <PracticeAudioDeck
-            ref={audioDeckRef}
-            text={practiceAudioText}
-            voiceId={voiceId}
-            questionId={question.id}
-            speedIndex={ttsSpeedIndex}
-            onSpeedIndexChange={onTtsSpeedIndexChange}
-            disabled={disabled || answerPanelLocked}
-          />
-        </div>
+        practiceAudioDeckGlassShell({
+          answerPanelLocked,
+          glassShadow: composerGlassShadow,
+          children: (
+            <PracticeAudioDeck
+              ref={audioDeckRef}
+              text={practiceAudioText}
+              voiceId={voiceId}
+              questionId={question.id}
+              speedIndex={ttsSpeedIndex}
+              onSpeedIndexChange={onTtsSpeedIndexChange}
+              disabled={disabled || answerPanelLocked}
+            />
+          ),
+        })
       ) : null}
       {showComposerHelper ? (
         <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{helperText(question)}</p>

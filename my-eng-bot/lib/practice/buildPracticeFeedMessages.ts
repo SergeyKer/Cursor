@@ -1,4 +1,6 @@
 import type { PracticeFlowState } from '@/hooks/usePracticeSession'
+import { stripDictationTaskInstruction } from '@/lib/practice/prompt/dictationPromptFormat'
+import { stripListeningSelectTaskInstruction } from '@/lib/practice/prompt/buildListeningSelectPrompt'
 import { ENGVO_TYPING_MESSAGE } from '@/lib/engvoPersonaCopy'
 import { prefixFeedbackMarker, resolveFeedbackMarker } from '@/lib/feedbackMarkers'
 import { buildPracticeWrongAnswerFeedback } from '@/lib/practice/practiceFeedbackCopy'
@@ -63,7 +65,9 @@ function normalizeInstruction(text: string | undefined): string {
 
 function practiceInfoLabel(question: PracticeQuestion, session: PracticeSession): string {
   const hint =
-    question.type === 'voice-shadow' || question.type === 'dictation'
+    question.type === 'voice-shadow' ||
+    question.type === 'dictation' ||
+    question.type === 'listening-select'
       ? ''
       : normalizeInstruction(question.hint)
   const base = normalizeInstruction(practiceTypeLabel(question, session))
@@ -72,6 +76,16 @@ function practiceInfoLabel(question: PracticeQuestion, session: PracticeSession)
   const normalizedBase = base.toLowerCase().replace(/[.!?…]/g, '').replace(/\s+/g, ' ').trim()
   if (normalizedHint === normalizedBase) return base
   return `${hint} ${base}`
+}
+
+function taskBubbleContent(question: PracticeQuestion): string {
+  if (question.type === 'dictation') {
+    return stripDictationTaskInstruction(question.prompt)
+  }
+  if (question.type === 'listening-select') {
+    return stripListeningSelectTaskInstruction(question.prompt)
+  }
+  return question.prompt
 }
 
 function buildQuestionBubbles(params: {
@@ -98,7 +112,7 @@ function buildQuestionBubbles(params: {
   }
   bubbles.push({
     type: 'task',
-    content: params.question.prompt,
+    content: taskBubbleContent(params.question),
   })
   return bubbles
 }

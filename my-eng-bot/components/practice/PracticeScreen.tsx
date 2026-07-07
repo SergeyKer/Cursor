@@ -20,6 +20,7 @@ import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
 import {
   DIALOG_COMPOSER_PADDING_BOTTOM,
   getChatComposerStackLayout,
+  getPracticeComposerStackLayout,
 } from '@/lib/chatComposerMetrics'
 import { syncDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
 import { ensurePracticeChoiceOptions } from '@/lib/practice/ensurePracticeChoiceOptions'
@@ -52,6 +53,7 @@ import { useLessonSectionReveal } from '@/hooks/useLessonSectionReveal'
 import { resolveTaskBubbleIndex } from '@/lib/lessonBubbleLayout'
 import {
   estimateLessonComposerMinHeight,
+  estimateListeningSelectComposerMinHeight,
   measureChoiceChipsLaneWidthPx,
 } from '@/lib/lessonComposerLayout'
 import {
@@ -771,13 +773,19 @@ export default function PracticeScreen({
 
   const choiceComposerMinHeightEstimate =
     isChoiceChipsPanel && choiceComposerLayout?.reserveMinHeight
-      ? estimateLessonComposerMinHeight({
-          panelKind: 'choice',
-          optionCount: choiceOptions.length,
-          choiceOptions,
-          containerWidthPx: composerInnerWidthPx,
-          compact: true,
-        })
+      ? currentQuestion?.type === 'listening-select'
+        ? estimateListeningSelectComposerMinHeight({
+            optionCount: choiceOptions.length,
+            choiceOptions,
+            containerWidthPx: composerInnerWidthPx,
+          })
+        : estimateLessonComposerMinHeight({
+            panelKind: 'choice',
+            optionCount: choiceOptions.length,
+            choiceOptions,
+            containerWidthPx: composerInnerWidthPx,
+            compact: true,
+          })
       : undefined
 
   const composerHeightLockReleased =
@@ -1144,7 +1152,10 @@ export default function PracticeScreen({
     session.currentIndex,
   ])
 
-  const composerStackLayout = getChatComposerStackLayout(isChoiceChipsPanel)
+  const composerStackLayout = getPracticeComposerStackLayout({
+    isChoiceChipsPanel,
+    isListeningSelect: currentQuestion?.type === 'listening-select',
+  })
   const composerStackStyle = {
     ...(composerStackLayout.style
       ? { ...composerStackLayout.style, paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }

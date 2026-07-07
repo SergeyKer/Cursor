@@ -52,6 +52,65 @@ describe('buildPracticeFeedMessages - dictation', () => {
 
     const task = current?.bubbles?.find((bubble) => bubble.type === 'task')?.content ?? ''
     expect(task).not.toContain('\n')
+    expect(task).toMatch(/Ситуация:/i)
+    expect(task).not.toMatch(/Прослушайте/i)
     expect(isDictationStylePrompt(task)).toBe(true)
+  })
+})
+
+function listeningSelectSession(): PracticeSession {
+  return {
+    id: 's-listening-select',
+    mode: 'challenge',
+    topic: 'Тема',
+    status: 'active',
+    currentIndex: 8,
+    questions: Array.from({ length: 12 }, (_, index) => ({
+      id: `q${index}`,
+      lessonId: '1',
+      type: index === 8 ? ('listening-select' as const) : 'choice',
+      prompt:
+        index === 8
+          ? 'Ситуация: На улице темно. Прослушайте фразу и выберите правильный ответ.'
+          : 'Ситуация: test',
+      targetAnswer: index === 8 ? "It's dark." : 'A',
+      hint: index === 8 ? 'Начните с It is' : undefined,
+      audioText: index === 8 ? "It's dark." : undefined,
+      options:
+        index === 8 ? ["It's dark.", "It's cold.", "It's time to sleep."] : ['A', 'B', 'C'],
+      acceptedAnswers: [],
+      xpBase: 10,
+      difficulty: 1,
+      tolerance: 'soft',
+    })),
+    answers: [],
+    score: 0,
+    xp: 0,
+    streak: 0,
+    instructionAcknowledged: true,
+  }
+}
+
+describe('buildPracticeFeedMessages - listening-select', () => {
+  it('renders three bubbles with listening info and no hint leak', () => {
+    const messages = buildPracticeFeedMessages({
+      session: listeningSelectSession(),
+      state: 'answering',
+      audience: 'adult',
+    })
+
+    const current = messages.find((message) => message.id === 'practice-question-q8')
+    expect(current?.bubbles).toHaveLength(3)
+    expect(current?.bubbles?.map((bubble) => bubble.type)).toEqual(['positive', 'info', 'task'])
+
+    const info = current?.bubbles?.find((bubble) => bubble.type === 'info')?.content ?? ''
+    expect(info).toContain('Прослушайте и выберите')
+    expect(info).not.toContain('It is')
+
+    const task = current?.bubbles?.find((bubble) => bubble.type === 'task')?.content ?? ''
+    expect(task).not.toContain('\n')
+    expect(task).toMatch(/Ситуация:/i)
+    expect(task).not.toContain("It's dark")
+    expect(task).not.toMatch(/Прослушайте/i)
   })
 })

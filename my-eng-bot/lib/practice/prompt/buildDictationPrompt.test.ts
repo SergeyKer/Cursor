@@ -16,6 +16,7 @@ describe('buildDictationPrompt', () => {
     expect(prompt).toBeTruthy()
     expect(isDictationStylePrompt(prompt!)).toBe(true)
     expect(prompt).not.toMatch(/переведите/i)
+    expect(prompt).not.toMatch(/Прослушайте/i)
     expect(prompt).not.toContain('\n')
   })
 

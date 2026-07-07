@@ -99,12 +99,14 @@ function buildReferenceDiversityRule(params: {
     )
   } else if (params.referenceExerciseType === 'dictation') {
     parts.push(
-      'Dictation task: prompt must be one line: Ситуация: "{RU from sourceSituations}". Прослушайте английскую фразу и запишите её целиком.',
+      'Dictation task: prompt is Russian situational context only: Ситуация: "{RU from sourceSituations}".',
       'Put English phrase only in audioText/targetAnswer; leave hint empty; never use Переведите or gap-fill wording.',
       'Rotate weather / time / distance contexts; never reuse identical Russian situation in prompt.'
     )
   } else if (params.referenceExerciseType === 'listening-select') {
-    parts.push('Put English phrase only in audioText/targetAnswer; Russian situational prompt without the answer.')
+    parts.push(
+      'Put English phrase only in audioText/targetAnswer; Russian situational prompt (Ситуация/Тема) without listening instruction.'
+    )
   } else if (params.referenceExerciseType === 'roleplay-mini') {
     parts.push('Mini-dialogue lead in Russian; learner replies in 1-2 English sentences.')
   } else if (params.referenceExerciseType === 'speed-round') {
@@ -151,7 +153,12 @@ function buildSessionDiversityRule(params: {
   }
   if (params.practiceType === 'dictation') {
     parts.push(
-      'dictation: one-line prompt Ситуация: "{RU}". Прослушайте английскую фразу и запишите её целиком; full sentence in audioText/targetAnswer; hint empty; ignore translate wording in canonicalSourceExercise.'
+      'dictation: one-line Russian situation Ситуация: "{RU}"; full sentence in audioText/targetAnswer; hint empty; no listening instruction in prompt.'
+    )
+  }
+  if (params.practiceType === 'listening-select') {
+    parts.push(
+      'listening-select: Russian situational prompt only; English phrase in audioText/targetAnswer; exactly 3 options; hint empty; never repeat targetAnswer in prompt.'
     )
   }
   if (params.lesson.id === '1') {

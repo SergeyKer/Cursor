@@ -10,7 +10,7 @@ import MenuSectionPanels, {
 } from '@/components/MenuSectionPanels'
 import { SLIDE_OUT_NEW_CHAT_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
-import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
+import type { PracticeEntrySource, PracticeExerciseType, PracticeMode, ActivePracticeMenuSnapshot } from '@/types/practice'
 import type { EngvoCefrLevel, EngvoRealtimeVoice, EngvoSpeechSpeedPresetId } from '@/lib/engvo/constants'
 import type { RewardsState } from '@/lib/rewardsState'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
@@ -63,6 +63,8 @@ interface SlideOutMenuProps {
     referenceExerciseType?: PracticeExerciseType
   }) => void
   practiceSessionActiveForDebug?: boolean
+  /** Активная сессия практики — синхронизация выбора в меню при reopen. */
+  activePracticeMenuSnapshot?: ActivePracticeMenuSnapshot | null
   onOpenPracticeSession?: (request: {
     lessonId?: string
     mode: PracticeMode
@@ -134,6 +136,7 @@ export default function SlideOutMenu({
   onDebugSkipToLessonFinale,
   onDebugSkipToPracticeFinale,
   practiceSessionActiveForDebug = false,
+  activePracticeMenuSnapshot = null,
   onOpenPracticeSession,
   onGeneratePracticeSession,
   onOpenAccentTrainer,
@@ -270,6 +273,7 @@ export default function SlideOutMenu({
         onDebugSkipToLessonFinale={onDebugSkipToLessonFinale}
         onDebugSkipToPracticeFinale={onDebugSkipToPracticeFinale}
         practiceSessionActiveForDebug={practiceSessionActiveForDebug}
+        activePracticeMenuSnapshot={activePracticeMenuSnapshot}
         onOpenPracticeSession={onOpenPracticeSession}
         onGeneratePracticeSession={onGeneratePracticeSession}
         onOpenAccentTrainer={onOpenAccentTrainer}
@@ -292,6 +296,8 @@ export default function SlideOutMenu({
                 theoryTagBrowseLevel: lessonMenuContext.theoryTagBrowseLevel,
                 practiceTheoryTagFilterId: lessonMenuContext.practiceTheoryTagFilterId,
                 selectedLessonId: lessonMenuContext.selectedLessonId,
+                practiceMode: lessonMenuContext.practiceMode,
+                referenceExerciseType: lessonMenuContext.referenceExerciseType,
               }
             : null
         }

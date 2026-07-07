@@ -66,6 +66,8 @@ describe('buildLocalPracticeSession', () => {
     expect(isCompleteSentence(dictation?.targetAnswer ?? '')).toBe(true)
     expect(isDictationStylePrompt(dictation?.prompt ?? '')).toBe(true)
     expect(dictation?.prompt).not.toMatch(/переведите/i)
+    expect(dictation?.prompt).not.toMatch(/Прослушайте/i)
+    expect(questionsByType.get('listening-select')?.prompt).not.toMatch(/Прослушайте/i)
     expect(questionsByType.get('sentence-surgery')?.shuffledWords?.length).toBeGreaterThan(0)
     expect(questionsByType.get('word-builder-pro')?.shuffledWords?.length).toBeGreaterThan(0)
     const wordBuilder = questionsByType.get('word-builder-pro')
@@ -293,6 +295,44 @@ describe('buildLocalPracticeSession', () => {
     expect(question!.shuffledWords!.length).toBeGreaterThanOrEqual(5)
     expect(question!.prompt).toMatch(/Ситуация:|Расставьте/i)
     expect(question!.extraWords).toEqual(expect.arrayContaining(['goes', 'times']))
+  })
+
+  it('challenge listening-select step 9 has audio, options, and empty hint', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const session = buildLocalPracticeSession({
+      lesson: lesson!,
+      source: { kind: 'static_lesson', lessonId: '1' },
+      mode: 'challenge',
+      entrySource: 'menu',
+    })
+
+    const listeningSelect = session.questions[8]
+    expect(listeningSelect?.type).toBe('listening-select')
+    expect(listeningSelect?.audioText).toBeTruthy()
+    expect(listeningSelect?.options?.length).toBeGreaterThanOrEqual(3)
+    expect(listeningSelect?.hint).toBeFalsy()
+    expect(listeningSelect?.prompt).toMatch(/Ситуация:|Тема:/i)
+    expect(listeningSelect?.prompt).not.toMatch(/Прослушайте/i)
+  })
+
+  it('balanced listening-select has audio, options, and empty hint', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const session = buildLocalPracticeSession({
+      lesson: lesson!,
+      source: { kind: 'static_lesson', lessonId: '1' },
+      mode: 'balanced',
+      entrySource: 'menu',
+    })
+
+    const listeningSelect = session.questions[2]
+    expect(listeningSelect?.type).toBe('listening-select')
+    expect(listeningSelect?.audioText).toBeTruthy()
+    expect(listeningSelect?.options?.length).toBeGreaterThanOrEqual(3)
+    expect(listeningSelect?.hint).toBeFalsy()
   })
 })
 

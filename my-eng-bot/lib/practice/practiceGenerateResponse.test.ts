@@ -57,4 +57,14 @@ describe('practiceGenerateResponse', () => {
     expect(questions).toHaveLength(7)
     expect(questions.every((item) => item.type === 'choice')).toBe(true)
   })
+
+  it('builds seven local reference questions for listening-select type', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+    const questions = buildFullReferenceFallbackSessionQuestions(lesson!, 'listening-select', 7)
+    expect(questions).toHaveLength(7)
+    expect(questions.every((item) => item.type === 'listening-select')).toBe(true)
+    expect(questions.every((item) => !item.hint)).toBe(true)
+    expect(questions.every((item) => (item.options?.length ?? 0) >= 3)).toBe(true)
+  })
 })

@@ -16,6 +16,7 @@ import {
   collectReferencePromptBuilderSystemRules,
   isReferenceStepMapType,
 } from '@/lib/practice/prompt/practicePromptBuilders'
+import { pickFreshReferencePracticeQuestion } from '@/lib/practice/pickFreshReferencePracticeQuestion'
 import { buildReferenceFallbackQuestion } from '@/lib/practice/referenceFallbackQuestion'
 import { getReferenceExerciseChallengeStep } from '@/lib/practice/referenceExerciseOptions'
 import { resolvePracticeLessonStep } from '@/lib/practice/resolvePracticeLessonStep'
@@ -95,6 +96,7 @@ function normalizeQuestions(
   fromIndex: number,
   referenceExerciseType?: PracticeExerciseType,
   recentPrompts: string[] = [],
+  seenKeys: string[] = [],
   choiceLikeWrongCountBefore?: number
 ): PracticeQuestion[] {
   if (!Array.isArray(rawQuestions)) return []
@@ -127,9 +129,8 @@ function normalizeQuestions(
   }
 
   if (mode === 'reference') {
-    const normalizedRecent = recentPrompts.map((prompt) => prompt.trim().toLowerCase()).filter(Boolean)
     const filteredByType = referenceExerciseType ? questions.filter((question) => question.type === referenceExerciseType) : []
-    const fresh = filteredByType.find((question) => !normalizedRecent.includes(question.prompt.trim().toLowerCase()))
+    const fresh = pickFreshReferencePracticeQuestion(filteredByType, recentPrompts, seenKeys)
     if (!fresh) return []
     return [{ ...fresh, id: `${fresh.id}-r${Date.now()}` }].slice(0, clampedCount)
   }
@@ -293,7 +294,7 @@ function buildUserPayload(
       referenceExerciseType: mode === 'reference' ? referenceExerciseType : undefined,
       referenceStepIndex: mode === 'reference' ? referenceStepIndex : undefined,
       referenceTotal: mode === 'reference' ? referenceTotal : undefined,
-      recentPrompts: mode === 'reference' ? recentPrompts.slice(-3) : undefined,
+      recentPrompts: mode === 'reference' ? recentPrompts : undefined,
       ...diversity,
       diversityRule: diversity.diversityRule,
       mustEndWithBossChallenge: plan.boss,
@@ -477,6 +478,7 @@ export async function POST(req: NextRequest) {
         fromIndex + accumulated.length,
         referenceExerciseType,
         recentPrompts,
+        seenKeys,
         choiceLikeWrongCountBefore
       )
       if (candidates.length === 0) {

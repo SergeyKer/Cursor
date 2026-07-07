@@ -5,7 +5,7 @@ import {
   findLessonChoiceStepForPractice,
 } from '@/lib/practice/buildChoicePrompt'
 import { lessonForPracticeStep } from '@/lib/practice/buildPracticeDiversity'
-import { buildVoiceShadowPrompt, sanitizeVoiceShadowPrompt } from '@/lib/practice/buildVoiceShadowPrompt'
+import { buildVoiceShadowPrompt, sanitizeVoiceShadowPrompt, VOICE_SHADOW_FALLBACK_PROMPT } from '@/lib/practice/buildVoiceShadowPrompt'
 import {
   buildReferencePromptFromLesson,
   getPracticePromptBuilder,
@@ -43,7 +43,12 @@ import { buildWordBuilderProPrompt } from '@/lib/practice/prompt/buildWordBuilde
 import {
   dictationPromptHasLeakMarkers,
   isDictationStylePrompt,
+  stripDictationTaskInstruction,
 } from '@/lib/practice/prompt/dictationPromptFormat'
+import {
+  listeningSelectPromptHasContext,
+  stripListeningSelectTaskInstruction,
+} from '@/lib/practice/prompt/buildListeningSelectPrompt'
 import { resolveWordBuilderProHint } from '@/lib/practice/prompt/resolveWordBuilderProHint'
 import { getPracticeExerciseMetadata } from '@/lib/practice/registry'
 import { resolvePracticeLessonStep } from '@/lib/practice/resolvePracticeLessonStep'
@@ -145,6 +150,9 @@ export function normalizeAiPracticeQuestion(
 
   if (type === 'dictation') {
     if (!isCompleteSentence(targetAnswer)) return null
+    if (prompt) {
+      prompt = stripDictationTaskInstruction(prompt)
+    }
     const needsRebuild =
       !isDictationStylePrompt(prompt) ||
       dictationPromptHasLeakMarkers(prompt) ||
@@ -159,9 +167,33 @@ export function normalizeAiPracticeQuestion(
       if (rebuilt) prompt = rebuilt
     }
     if (prompt) {
-      prompt = sanitizeVoiceShadowPrompt(prompt, targetAnswer)
+      prompt = stripDictationTaskInstruction(sanitizeVoiceShadowPrompt(prompt, targetAnswer))
     }
     if (!isDictationStylePrompt(prompt)) return null
+  }
+
+  if (type === 'listening-select') {
+    if (prompt) {
+      prompt = stripListeningSelectTaskInstruction(sanitizeVoiceShadowPrompt(prompt, targetAnswer))
+      if (prompt === VOICE_SHADOW_FALLBACK_PROMPT) prompt = ''
+    }
+    const needsRebuild =
+      !prompt ||
+      !listeningSelectPromptHasContext(prompt) ||
+      prompt.includes(targetAnswer)
+    if (needsRebuild) {
+      const rebuilt = buildReferencePromptFromLesson({
+        lesson: scopedLesson,
+        type: 'listening-select',
+        stepIndex: index,
+        targetAnswer,
+      })
+      if (rebuilt) prompt = rebuilt
+    }
+    if (prompt) {
+      prompt = stripListeningSelectTaskInstruction(sanitizeVoiceShadowPrompt(prompt, targetAnswer))
+      if (prompt === VOICE_SHADOW_FALLBACK_PROMPT) prompt = ''
+    }
   }
 
   const referenceType = normalizeOptions?.referenceExerciseType ?? type
@@ -290,6 +322,7 @@ export function normalizeAiPracticeQuestion(
     prompt = normalizeGapFillPrompt(prompt)
   }
   if (type === 'choice' && !choicePromptHasContext(prompt)) return null
+  if (type === 'listening-select' && !listeningSelectPromptHasContext(prompt)) return null
   if (useReferencePromptBuilder) {
     const builder = getPracticePromptBuilder(referenceType)
     if (builder && !builder.hasContext(prompt)) return null
@@ -442,7 +475,7 @@ export function normalizeAiPracticeQuestion(
           ? Math.min(20, source.minWords)
           : undefined,
     hint:
-      type === 'voice-shadow' || type === 'dictation'
+      type === 'voice-shadow' || type === 'dictation' || type === 'listening-select'
         ? undefined
         : type === 'word-builder-pro' && resolved?.exercise
           ? stripAnswerLeakFromHint(

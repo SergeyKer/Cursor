@@ -93,6 +93,14 @@ export function isPracticeChoiceChipsPanel(
   return true
 }
 
+export function shouldWrapPracticeAudioDeckInGlassShell(
+  type: PracticeQuestion['type'] | undefined,
+  canUseChoices: boolean,
+  canUseAudio: boolean
+): boolean {
+  return type === 'listening-select' && canUseChoices && canUseAudio
+}
+
 /** Фазы композера choice-чипов в практике (как resolveLessonChoiceComposerLayout). */
 export function resolvePracticeChoiceComposerLayout(input: {
   isChoicePanel: boolean

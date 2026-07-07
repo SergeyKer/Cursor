@@ -182,6 +182,7 @@ import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
 import { countWrongChoiceLikeBefore } from '@/lib/practice/engine/stepSpec'
 import { resolvePracticeTargetQuestionCount } from '@/lib/practice/practiceSessionProgress'
 import { buildSeenPracticeKeys } from '@/lib/practice/pickUniquePracticeQuestions'
+import { buildActivePracticeMenuSnapshot } from '@/lib/practice/buildActivePracticeMenuSnapshot'
 import {
   resolvePracticeQuestionsFromGenerateResponse,
   type PracticeGenerateApiResponse,
@@ -3507,7 +3508,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setLoadingTranslationIndex(null)
       setForceNextMicLang(null)
       setSettingsAtLastSend(null)
-      setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'practice' })
+      setLessonMenuContext({
+        menuView: 'lessons',
+        lessonsPanel: 'practice',
+        selectedLessonId: config.lesson.id,
+        practiceMode: config.mode,
+        referenceExerciseType:
+          config.mode === 'reference' ? config.questions?.[0]?.type : undefined,
+      })
       startPracticeSession(config)
     },
     [resetStructuredLessonSession, startPracticeSession]
@@ -3942,7 +3950,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               referenceExerciseType: session.mode === 'reference' ? session.questions[0]?.type : undefined,
               referenceStepIndex: session.mode === 'reference' ? session.questions.length : undefined,
               referenceTotal: target,
-              recentPrompts: session.mode === 'reference' ? session.questions.slice(-3).map((item) => item.prompt) : undefined,
+              recentPrompts: session.mode === 'reference' ? session.questions.map((item) => item.prompt) : undefined,
               count: fetchCount,
               fromIndex: session.questions.length,
               seenKeys: buildSeenPracticeKeys(session.questions),
@@ -4056,7 +4064,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               referenceExerciseType: session.mode === 'reference' ? session.questions[0]?.type : undefined,
               referenceStepIndex: session.mode === 'reference' ? session.questions.length : undefined,
               referenceTotal: target,
-              recentPrompts: session.mode === 'reference' ? session.questions.slice(-3).map((item) => item.prompt) : undefined,
+              recentPrompts: session.mode === 'reference' ? session.questions.map((item) => item.prompt) : undefined,
               count: 1,
               fromIndex: session.questions.length,
               seenKeys: buildSeenPracticeKeys(session.questions),
@@ -5390,6 +5398,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const isPracticeActive = dialogStarted && Boolean(practiceSession.session)
   const practiceSessionActiveForDebug =
     isPracticeActive && practiceSession.session?.status === 'active'
+  const activePracticeMenuSnapshot = useMemo(
+    () => buildActivePracticeMenuSnapshot(practiceSession.session),
+    [practiceSession.session]
+  )
   const isAccentActive = accentTrainerActive
   const isVocabularyHubActive = vocabularyWorldsActive || vocabularyByLevelActive
   const activeLessonIntro =
@@ -7432,6 +7444,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}
         onDebugSkipToPracticeFinale={handleDebugSkipToPracticeFinale}
         practiceSessionActiveForDebug={practiceSessionActiveForDebug}
+        activePracticeMenuSnapshot={activePracticeMenuSnapshot}
         onOpenPracticeSession={openPracticeSession}
         onGeneratePracticeSession={generatePracticeSession}
         onOpenAccentTrainer={openAccentTrainer}

@@ -14,6 +14,7 @@ export {
   dictationPromptHasValidContext,
   isDictationStylePrompt,
   resolveDictationRuSituation,
+  stripDictationTaskInstruction,
 } from '@/lib/practice/prompt/dictationPromptFormat'
 
 export function findLessonDictationSourceForPractice(
@@ -57,9 +58,10 @@ export function dictationPromptHasContext(prompt: string): boolean {
 }
 
 export const DICTATION_SYSTEM_RULES = [
-  'For type dictation: prompt MUST be one line only: Ситуация: "{short Russian phrase from sourceSituations}". Прослушайте английскую фразу и запишите её целиком.',
+  'For type dictation: prompt is one line of Russian situational context only: Ситуация: "{short Russian phrase from sourceSituations}".',
+  'Do not include listening/writing instructions in prompt; those appear in the UI info label.',
   'Never use Переведите, Выберите слово, ___ gap-fill, or дополните одним словом in dictation prompts.',
-  'When canonicalSourceExercise has translate wording, ignore it; use dictation prompt template only.',
+  'When canonicalSourceExercise has translate wording, ignore it; use dictation situation template only.',
   'audioText and targetAnswer must be the same full English sentence; leave hint empty.',
   'Rotate Russian situations across sourceSituations; do not repeat identical prompt text across scenarios.',
   'Never include the English phrase or targetAnswer in prompt.',

@@ -50,7 +50,12 @@ import type { ImageAnalysisResult } from '@/lib/types'
 import { useTheme } from '@/contexts/ThemeContext'
 import type { Theme } from '@/lib/theme'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
-import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
+import type {
+  ActivePracticeMenuSnapshot,
+  PracticeEntrySource,
+  PracticeExerciseType,
+  PracticeMode,
+} from '@/types/practice'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import {
   ENGVO_DEFAULT_VOICE,
@@ -150,6 +155,10 @@ export type LessonMenuContext = {
   theoryTagBrowseLevel?: LessonCatalogLevel | null
   /** Выбранный урок при запуске (восстановление подсветки в списке). */
   selectedLessonId?: string | null
+  /** Темп практики при последнем запуске из меню. */
+  practiceMode?: PracticeMode | null
+  /** Тип эталонного упражнения при последнем запуске. */
+  referenceExerciseType?: PracticeExerciseType | null
 }
 
 export type LearningLessonMenuMeta = Pick<
@@ -411,6 +420,8 @@ export interface MenuSectionPanelsProps {
   }) => void
   /** DEBUG: активная сессия практики (для skip-to-finale из меню). */
   practiceSessionActiveForDebug?: boolean
+  /** Активная сессия практики — синхронизация выбора в меню при reopen. */
+  activePracticeMenuSnapshot?: ActivePracticeMenuSnapshot | null
   /** Сгенерировать новый вариант урока через LLM, не открывая локальную версию. */
   onGenerateLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void | Promise<void>
   onOpenPracticeSession?: (request: {
@@ -458,6 +469,8 @@ export interface MenuSectionPanelsProps {
     | 'theoryTagBrowseLevel'
     | 'practiceTheoryTagFilterId'
     | 'selectedLessonId'
+    | 'practiceMode'
+    | 'referenceExerciseType'
   > | null
 }
 
@@ -491,6 +504,7 @@ export default function MenuSectionPanels({
   onDebugSkipToLessonFinale,
   onDebugSkipToPracticeFinale,
   practiceSessionActiveForDebug = false,
+  activePracticeMenuSnapshot = null,
   onGenerateLearningLesson,
   onOpenPracticeSession,
   onGeneratePracticeSession,
@@ -809,8 +823,27 @@ export default function MenuSectionPanels({
       pt: initialLessonMenuContext.practiceTheoryTagFilterId ?? null,
       ttbl: initialLessonMenuContext.theoryTagBrowseLevel ?? null,
       sl: initialLessonMenuContext.selectedLessonId ?? null,
+      pm: initialLessonMenuContext.practiceMode ?? null,
+      ret: initialLessonMenuContext.referenceExerciseType ?? null,
     })
   }, [initialLessonMenuContext])
+
+  const activePracticeMenuSnapshotKey = React.useMemo(() => {
+    if (!activePracticeMenuSnapshot) return ''
+    return JSON.stringify(activePracticeMenuSnapshot)
+  }, [activePracticeMenuSnapshot])
+
+  React.useEffect(() => {
+    if (menuView !== 'lessons') return
+    if (initialLessonsPanel !== 'practice') return
+    if (!activePracticeMenuSnapshot) return
+
+    setSelectedPracticeLessonId(activePracticeMenuSnapshot.lessonId)
+    setSelectedPracticeMode(activePracticeMenuSnapshot.mode)
+    if (activePracticeMenuSnapshot.referenceExerciseType) {
+      setSelectedReferenceExerciseType(activePracticeMenuSnapshot.referenceExerciseType)
+    }
+  }, [menuView, initialLessonsPanel, activePracticeMenuSnapshotKey, activePracticeMenuSnapshot])
 
   React.useEffect(() => {
     if (menuView !== 'lessons') return
@@ -869,11 +902,23 @@ export default function MenuSectionPanels({
         setSelectedA2LessonId(selectedLessonId)
       } else if (initialLessonsPanel === 'theoryTagLessons') {
         setSelectedTheoryTopicLessonId(selectedLessonId)
-      } else if (initialLessonsPanel === 'practice') {
+      } else if (initialLessonsPanel === 'practice' && !activePracticeMenuSnapshot) {
         setSelectedPracticeLessonId(selectedLessonId)
+        if (initialLessonMenuContext.practiceMode) {
+          setSelectedPracticeMode(initialLessonMenuContext.practiceMode)
+        }
+        if (initialLessonMenuContext.referenceExerciseType) {
+          setSelectedReferenceExerciseType(initialLessonMenuContext.referenceExerciseType)
+        }
       }
     }
-  }, [menuView, initialLessonsPanel, initialLessonMenuContextKey, initialLessonMenuContext])
+  }, [
+    menuView,
+    initialLessonsPanel,
+    initialLessonMenuContextKey,
+    initialLessonMenuContext,
+    activePracticeMenuSnapshot,
+  ])
 
   React.useEffect(() => {
     if (!rewardsState) return

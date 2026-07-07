@@ -108,6 +108,41 @@ describe('buildReferenceFallbackQuestion voice-shadow', () => {
   })
 })
 
+describe('buildReferenceFallbackQuestion listening-select', () => {
+  it('builds seven unique listening-select fallbacks for lesson 1', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const seenKeys: string[] = []
+    const recentPrompts: string[] = []
+    const questions = []
+
+    for (let stepIndex = 0; stepIndex < 7; stepIndex += 1) {
+      const question = buildReferenceFallbackQuestion({
+        lesson: lesson!,
+        mode: 'reference',
+        referenceExerciseType: 'listening-select',
+        referenceStepIndex: stepIndex,
+        referenceTotal: 7,
+        recentPrompts,
+        seenKeys,
+      })
+      expect(question).not.toBeNull()
+      questions.push(question!)
+      const fingerprint = buildPracticeQuestionFingerprintFromQuestion(question!)
+      expect(fingerprint).toBeTruthy()
+      expect(seenKeys).not.toContain(fingerprint)
+      seenKeys.push(fingerprint!)
+      recentPrompts.push(question!.prompt)
+    }
+
+    expect(questions).toHaveLength(7)
+    expect(new Set(questions.map((item) => buildPracticeQuestionFingerprintFromQuestion(item))).size).toBe(7)
+    expect(questions.every((item) => item.type === 'listening-select')).toBe(true)
+    expect(questions.every((item) => !item.hint)).toBe(true)
+  })
+})
+
 describe('buildReferenceFallbackQuestion dropdown-fill', () => {
   it('lesson 4 reference dropdown uses gap-fill prompt and country options', () => {
     const lesson = getStructuredLessonById('4')
