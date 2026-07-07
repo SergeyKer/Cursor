@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { AppIconFrame } from '@/components/AppIconFrame'
 import type { AppColumnBounds } from '@/hooks/useAppColumnBounds'
 import { resolveAppPanelHorizontalStyle } from '@/lib/appPanelLayout'
 import {
@@ -205,7 +206,16 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
             <div className="footer-sheet__handle" aria-hidden />
             <div className="footer-sheet__head">
               <h2 id="footer-sheet-title" className="footer-sheet__title">
-                {context.title}
+                <span className="footer-sheet__title-row">
+                  <AppIconFrame
+                    variant="header"
+                    src="/engvo-logo-1024-plus5-eqletters.png"
+                    alt=""
+                    className="footer-sheet__title-icon"
+                    sizes="40px"
+                  />
+                  <span className="footer-sheet__title-text">{context.title}</span>
+                </span>
               </h2>
               <button
                 type="button"

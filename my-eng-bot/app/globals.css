@@ -1969,6 +1969,23 @@ html[data-theme='glass3'] {
   color: var(--text);
 }
 
+.footer-sheet__title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.footer-sheet__title-text {
+  min-width: 0;
+}
+
+.footer-sheet__title-icon.app-header-mascot-icon {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
 .footer-sheet__close {
   display: grid;
   flex-shrink: 0;

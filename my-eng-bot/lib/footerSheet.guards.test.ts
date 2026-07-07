@@ -65,4 +65,12 @@ describe('footer sheet CSS guards', () => {
     )
     expect(css).toMatch(/html\[data-theme='glass1'\][\s\S]*--footer-sheet-bg:\s*#ffffff/)
   })
+
+  it('shows Engvo chat emblem in sheet title row', () => {
+    expect(css).toMatch(/\.footer-sheet__title-row[\s\S]*display:\s*flex/)
+    expect(css).toMatch(/\.footer-sheet__title-row[\s\S]*align-items:\s*center/)
+    expect(css).toMatch(/\.footer-sheet__title-row[\s\S]*gap:\s*10px/)
+    expect(css).toMatch(/\.footer-sheet__title-icon\.app-header-mascot-icon[\s\S]*background:\s*transparent/)
+    expect(css).not.toMatch(/\.footer-sheet__title-icon\.app-header-mascot-icon[\s\S]*width:\s*20px/)
+  })
 })
