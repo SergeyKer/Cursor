@@ -131,7 +131,7 @@ export function resolveRoleplayTargetAnswer(step6Target: string, lessonId: strin
   const trimmed = step6Target.trim()
   if (lessonId !== '2') return trimmed
 
-  const pairMatch = /^(Who\s[^?]+\?)\s+(.+)$/isu.exec(trimmed)
+  const pairMatch = /^(Who\s[^?]+\?)\s+(.+)$/iu.exec(trimmed)
   if (pairMatch?.[2]?.trim()) return pairMatch[2].trim()
   return trimmed
 }
