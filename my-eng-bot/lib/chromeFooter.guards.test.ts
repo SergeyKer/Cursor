@@ -53,8 +53,12 @@ describe('chrome footer layout guards', () => {
     expect(css).toContain('--app-menu-panel-bottom: var(--app-bottom-offset)')
   })
 
-  it('root footer chrome mirrors header bg and backdrop', () => {
-    expect(css).toMatch(/--app-footer-bg:\s*var\(--app-header-bg\)/)
-    expect(css).toMatch(/--app-footer-backdrop-filter:\s*var\(--app-header-backdrop-filter\)/)
+  it('root footer chrome uses opaque Basic-etalon bg without header mirror', () => {
+    expect(css).toMatch(
+      /--app-footer-bg:\s*color-mix\(in srgb,\s*#ffffff 92%,\s*#cfe2c6 8%\)/
+    )
+    expect(css).toMatch(/--app-footer-backdrop-filter:\s*none/)
+    expect(css).not.toMatch(/--app-footer-bg:\s*var\(--app-header-bg\)/)
+    expect(css).not.toMatch(/--app-footer-backdrop-filter:\s*var\(--app-header-backdrop-filter\)/)
   })
 })

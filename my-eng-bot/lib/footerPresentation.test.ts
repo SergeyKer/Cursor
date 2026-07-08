@@ -30,6 +30,9 @@ describe('resolveFooterPresentation', () => {
     expect(first.markerText).toBe(second.markerText)
     expect(first.typingSpeed).toBe(44)
     expect(first.bottomLineRowClassName).toBe('pl-2')
+    expect(first.topLineRowClassName.includes('rounded-full')).toBe(false)
+    expect(first.topLineRowClassName.includes('bg-white')).toBe(false)
+    expect(first.topLineRowClassName.includes('pl-1')).toBe(true)
   })
 
   it('falls back to stable text-based seed when typing key is missing', () => {

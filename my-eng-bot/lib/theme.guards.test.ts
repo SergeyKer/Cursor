@@ -38,11 +38,15 @@ describe('glass theme CSS guards', () => {
     )?.[0]
     expect(sharedBlock).toBeTruthy()
     expect(sharedBlock).toContain('--accent-text: #ffffff')
-    expect(sharedBlock).toContain('--app-footer-bg: var(--app-header-bg)')
-    expect(sharedBlock).toContain('--app-footer-backdrop-filter: var(--app-header-backdrop-filter)')
+    expect(sharedBlock).toContain(
+      '--app-footer-bg: color-mix(in srgb, #ffffff 92%, #cfe2c6 8%)'
+    )
+    expect(sharedBlock).toContain('--app-footer-backdrop-filter: none')
     expect(sharedBlock).toContain('--app-footer-border: var(--app-header-border)')
-    expect(sharedBlock).not.toContain('--app-footer-bg: rgba(255, 255, 255, 0.92)')
-    expect(sharedBlock).not.toContain('--app-footer-backdrop-filter: blur(2px)')
+    expect(sharedBlock).not.toContain('--app-footer-bg: var(--app-header-bg)')
+    expect(sharedBlock).not.toContain(
+      '--app-footer-backdrop-filter: var(--app-header-backdrop-filter)'
+    )
   })
 
   it('does not set chat-control or chat-send in per-glass accent blocks', () => {

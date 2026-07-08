@@ -12,7 +12,7 @@ export interface FooterPresentation {
   typingSpeed: number
   topLineRowClassName: string
   topLineClassName: string
-  /** Горизонтальный отступ нижней строки, чтобы совпадать с началом текста верхней (после маркера / внутреннего padding «таблетки»). */
+  /** Горизонтальный отступ нижней строки, чтобы совпадать с началом текста верхней (после маркера / мягкого pl верхней строки). */
   bottomLineRowClassName: string
   bottomLineClassName: string
   markerKind: FooterMarkerKind
@@ -147,7 +147,7 @@ export function resolveFooterPresentation({
       mode: 'playful',
       typingSpeed: 44,
       topLineRowClassName:
-        'flex h-full min-w-0 items-center gap-2 overflow-visible rounded-full bg-white/35 px-2 py-0 backdrop-blur-[2px]',
+        'flex h-full min-w-0 items-center gap-2 overflow-hidden pl-1',
       topLineClassName,
       bottomLineRowClassName: hideDynamicMarker ? '' : 'pl-2',
       bottomLineClassName: FOOTER_BOTTOM_LINE_CLASS,
