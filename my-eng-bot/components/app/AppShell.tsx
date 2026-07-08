@@ -247,6 +247,22 @@ import {
   loadPracticeTtsSpeedDefaultIndex,
   savePracticeTtsSpeedDefaultIndex,
 } from '@/lib/practice/practiceTtsPreferences'
+import {
+  applyChatPatternState,
+  getDefaultChatPatternTuning,
+  loadChatPatternTuningMap,
+  normalizeChatPatternTuning,
+  resolveChatPatternTuning,
+  saveChatPatternTuningMap,
+  type ChatPatternTuning,
+  type ChatPatternTuningMap,
+  type TunableChatPatternId,
+} from '@/lib/chatPatternTuning'
+import {
+  loadChatPattern,
+  saveChatPattern,
+  type ChatPatternId,
+} from '@/lib/chatPattern'
 import { getPracticeTtsRateByIndex } from '@/lib/practice/practiceTtsSpeedPresets'
 import { requestPhraseTranslation } from '@/lib/client/requestPhraseTranslation'
 import {
@@ -855,6 +871,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [engvoSpeechSpeedPreset, setEngvoSpeechSpeedPreset] =
     useState<EngvoSpeechSpeedPresetId>('conversational')
   const [practiceTtsSpeedDefaultIndex, setPracticeTtsSpeedDefaultIndex] = useState(0)
+  const [chatPatternId, setChatPatternId] = useState<ChatPatternId>('none')
+  const [chatPatternTuningMap, setChatPatternTuningMap] = useState<ChatPatternTuningMap>({})
+  const chatPatternTuningMapRef = React.useRef(chatPatternTuningMap)
+  chatPatternTuningMapRef.current = chatPatternTuningMap
   const [engvoCallPhase, setEngvoCallPhase] = useState<EngvoCallPhase>('idle')
   const [engvoErrorText, setEngvoErrorText] = useState<string | null>(null)
   const [engvoUserInterimText, setEngvoUserInterimText] = useState('')
@@ -2347,6 +2367,46 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setPracticeTtsSpeedDefaultIndex(index)
     savePracticeTtsSpeedDefaultIndex(index)
   }, [])
+
+  const handleChatPatternChange = useCallback((id: ChatPatternId) => {
+    setChatPatternId(id)
+    saveChatPattern(id)
+    applyChatPatternState(id, chatPatternTuningMapRef.current)
+  }, [])
+
+  const handleChatPatternTuningChange = useCallback(
+    (id: TunableChatPatternId, patch: Partial<ChatPatternTuning>) => {
+      setChatPatternTuningMap((prev) => {
+        const resolved = resolveChatPatternTuning(prev, id)
+        const nextTuning = normalizeChatPatternTuning(
+          { ...resolved, ...patch },
+          getDefaultChatPatternTuning(id)
+        )
+        const next: ChatPatternTuningMap = { ...prev, [id]: nextTuning }
+        saveChatPatternTuningMap(next)
+        if (chatPatternId === id) {
+          applyChatPatternState(id, next)
+        }
+        return next
+      })
+    },
+    [chatPatternId]
+  )
+
+  const handleChatPatternTuningReset = useCallback(
+    (id: TunableChatPatternId) => {
+      setChatPatternTuningMap((prev) => {
+        const next = { ...prev }
+        delete next[id]
+        saveChatPatternTuningMap(next)
+        if (chatPatternId === id) {
+          applyChatPatternState(id, next)
+        }
+        return next
+      })
+    },
+    [chatPatternId]
+  )
 
   const defaultTtsSpeechRate = React.useMemo(
     () => getPracticeTtsRateByIndex(practiceTtsSpeedDefaultIndex),
@@ -4573,6 +4633,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           })
         )
         setPracticeTtsSpeedDefaultIndex(loadPracticeTtsSpeedDefaultIndex())
+        const loadedChatPattern = loadChatPattern()
+        const loadedChatPatternTuningMap = loadChatPatternTuningMap()
+        setChatPatternId(loadedChatPattern)
+        setChatPatternTuningMap(loadedChatPatternTuningMap)
+        applyChatPatternState(loadedChatPattern, loadedChatPatternTuningMap)
       }
       setRewardsState(rewards)
       rewardsPersistReadyRef.current = true
@@ -7098,6 +7163,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     onEngvoSpeechSpeedChange={handleEngvoSpeechSpeedChange}
                     practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}
                     onPracticeTtsSpeedDefaultChange={handlePracticeTtsSpeedDefaultChange}
+                    chatPatternId={chatPatternId}
+                    onChatPatternChange={handleChatPatternChange}
+                    chatPatternTuningMap={chatPatternTuningMap}
+                    onChatPatternTuningChange={handleChatPatternTuningChange}
+                    onChatPatternTuningReset={handleChatPatternTuningReset}
                     onOpenLearningLesson={openOrContinueLearningLesson}
                     onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}
                     onDebugSkipToPracticeFinale={handleDebugSkipToPracticeFinale}
@@ -7520,6 +7590,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onEngvoSpeechSpeedChange={handleEngvoSpeechSpeedChange}
         practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}
         onPracticeTtsSpeedDefaultChange={handlePracticeTtsSpeedDefaultChange}
+        chatPatternId={chatPatternId}
+        onChatPatternChange={handleChatPatternChange}
+        chatPatternTuningMap={chatPatternTuningMap}
+        onChatPatternTuningChange={handleChatPatternTuningChange}
+        onChatPatternTuningReset={handleChatPatternTuningReset}
         onGoHome={goToStartScreen}
         onOpenLearningLesson={openOrContinueLearningLesson}
         onGenerateLearningLesson={openGeneratedLearningLesson}

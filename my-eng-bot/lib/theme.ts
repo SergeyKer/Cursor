@@ -11,6 +11,10 @@ export const ALL_THEME_IDS: readonly Theme[] = THEMES
 
 export const GLASS_THEME_IDS = ['glass1', 'glass2', 'glass3'] as const satisfies readonly Theme[]
 
+export function isGlassTheme(theme: Theme): boolean {
+  return (GLASS_THEME_IDS as readonly string[]).includes(theme)
+}
+
 export function isTheme(value: unknown): value is Theme {
   return typeof value === 'string' && (THEMES as string[]).includes(value)
 }

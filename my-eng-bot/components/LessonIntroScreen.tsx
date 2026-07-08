@@ -493,7 +493,7 @@ export default function LessonIntroScreen({
             <DialogGlassScrollHost>
               <div
                 ref={scrollContainerRef}
-                className={`${LESSON_SCROLL_VIEWPORT_CLASS} ${LESSON_INTRO_SCROLL_CLASS} bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
+                className={`${LESSON_SCROLL_VIEWPORT_CLASS} ${LESSON_INTRO_SCROLL_CLASS} chat-feed-wallpaper p-2.5 sm:p-3`}
               >
                 <div>
                   {messages.map((message, index) => {

@@ -12,6 +12,8 @@ import { SLIDE_OUT_NEW_CHAT_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { PracticeEntrySource, PracticeExerciseType, PracticeMode, ActivePracticeMenuSnapshot } from '@/types/practice'
 import type { EngvoCefrLevel, EngvoRealtimeVoice, EngvoSpeechSpeedPresetId } from '@/lib/engvo/constants'
+import type { ChatPatternId } from '@/lib/chatPattern'
+import type { ChatPatternTuning, ChatPatternTuningMap, TunableChatPatternId } from '@/lib/chatPatternTuning'
 import type { RewardsState } from '@/lib/rewardsState'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import type { AppColumnBounds } from '@/hooks/useAppColumnBounds'
@@ -43,6 +45,11 @@ interface SlideOutMenuProps {
   onEngvoSpeechSpeedChange?: (preset: EngvoSpeechSpeedPresetId) => void
   practiceTtsSpeedDefaultIndex?: number
   onPracticeTtsSpeedDefaultChange?: (index: number) => void
+  chatPatternId?: ChatPatternId
+  onChatPatternChange?: (id: ChatPatternId) => void
+  chatPatternTuningMap?: ChatPatternTuningMap
+  onChatPatternTuningChange?: (id: TunableChatPatternId, patch: Partial<ChatPatternTuning>) => void
+  onChatPatternTuningReset?: (id: TunableChatPatternId) => void
   /** Кнопка «домик»: на стартовый экран приложения. */
   onGoHome?: () => void
   /** Если чат уже идёт - при открытии меню сразу «Чат с MyEng»; если нет - корень списка разделов. */
@@ -129,6 +136,11 @@ export default function SlideOutMenu({
   onEngvoSpeechSpeedChange,
   practiceTtsSpeedDefaultIndex,
   onPracticeTtsSpeedDefaultChange,
+  chatPatternId,
+  onChatPatternChange,
+  chatPatternTuningMap,
+  onChatPatternTuningChange,
+  onChatPatternTuningReset,
   onGoHome,
   chatActive = false,
   engvoVoiceMode = false,
@@ -267,6 +279,11 @@ export default function SlideOutMenu({
         onEngvoSpeechSpeedChange={onEngvoSpeechSpeedChange}
         practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}
         onPracticeTtsSpeedDefaultChange={onPracticeTtsSpeedDefaultChange}
+        chatPatternId={chatPatternId}
+        onChatPatternChange={onChatPatternChange}
+        chatPatternTuningMap={chatPatternTuningMap}
+        onChatPatternTuningChange={onChatPatternTuningChange}
+        onChatPatternTuningReset={onChatPatternTuningReset}
         onGoHome={onGoHome}
         onCloseMenu={open ? () => onToggle() : undefined}
         onOpenLearningLesson={onOpenLearningLesson}

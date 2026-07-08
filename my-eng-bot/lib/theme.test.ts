@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_THEME, isTheme, readStoredTheme, type Theme } from '@/lib/theme'
+import { DEFAULT_THEME, isGlassTheme, isTheme, readStoredTheme, type Theme } from '@/lib/theme'
 
 const ALL_THEMES: Theme[] = [
   'basic',
@@ -26,5 +26,13 @@ describe('theme', () => {
 
   it('readStoredTheme falls back to bubble2 without window storage', () => {
     expect(readStoredTheme()).toBe('bubble2')
+  })
+
+  it('detects glass themes', () => {
+    expect(isGlassTheme('glass1')).toBe(true)
+    expect(isGlassTheme('glass2')).toBe(true)
+    expect(isGlassTheme('glass3')).toBe(true)
+    expect(isGlassTheme('bubble2')).toBe(false)
+    expect(isGlassTheme('basic')).toBe(false)
   })
 })

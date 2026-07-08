@@ -2365,3 +2365,46 @@ html[data-theme='glass3'][data-audience] {
   --chat-control-active-text: rgba(72, 128, 214, 0.95);
   --chat-control-dot: #ef4444;
 }
+
+/* Chat feed wallpaper gradient + optional muted pattern overlay */
+.chat-feed-wallpaper {
+  position: relative;
+  background-image: linear-gradient(
+    180deg,
+    var(--chat-message-wallpaper) 0%,
+    var(--chat-message-wallpaper-soft) 100%
+  );
+}
+
+.chat-feed-wallpaper::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background-repeat: repeat;
+  background-position: center;
+}
+
+.chat-feed-wallpaper > * {
+  position: relative;
+  z-index: 1;
+}
+
+html[data-chat-pattern='study-doodles'] .chat-feed-wallpaper::before {
+  background-image: url('/patterns/study-doodles.png');
+}
+
+html[data-chat-pattern]:not([data-chat-pattern='none']) .chat-feed-wallpaper::before {
+  opacity: var(--chat-pattern-opacity, 0.06);
+  mix-blend-mode: var(--chat-pattern-blend-mode, multiply);
+  background-size: var(--chat-pattern-tile-width, 190px) auto;
+  filter: saturate(0.72);
+}
+
+html[data-theme='glass1'][data-chat-pattern]:not([data-chat-pattern='none']) .chat-feed-wallpaper::before,
+html[data-theme='glass2'][data-chat-pattern]:not([data-chat-pattern='none']) .chat-feed-wallpaper::before,
+html[data-theme='glass3'][data-chat-pattern]:not([data-chat-pattern='none']) .chat-feed-wallpaper::before {
+  opacity: var(--chat-pattern-glass-opacity, 0.04);
+}

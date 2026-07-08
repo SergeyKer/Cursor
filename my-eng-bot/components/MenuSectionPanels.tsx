@@ -48,7 +48,23 @@ import { ACCENT_SECTIONS, RUSSIAN_SPEAKER_GROUPS, getAccentLessonById, getFirstA
 import AccentProgressBadge from '@/components/accent/AccentProgressBadge'
 import type { ImageAnalysisResult } from '@/lib/types'
 import { useTheme } from '@/contexts/ThemeContext'
-import type { Theme } from '@/lib/theme'
+import { isGlassTheme, type Theme } from '@/lib/theme'
+import {
+  CHAT_PATTERN_OPTIONS,
+  getChatPatternLabel,
+  type ChatPatternId,
+} from '@/lib/chatPattern'
+import {
+  CHAT_PATTERN_BLEND_MODE_OPTIONS,
+  CHAT_PATTERN_TUNING_LIMITS,
+  getDefaultChatPatternTuning,
+  isTunableChatPatternId,
+  resolveChatPatternTuning,
+  type ChatPatternBlendMode,
+  type ChatPatternTuning,
+  type ChatPatternTuningMap,
+  type TunableChatPatternId,
+} from '@/lib/chatPatternTuning'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type {
   ActivePracticeMenuSnapshot,
@@ -181,7 +197,15 @@ const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
   level: 'Уровень',
 }
 
-type SettingsMenuPanel = 'summary' | 'provider' | 'voice' | 'playbackSpeed' | 'theme'
+type SettingsMenuPanel =
+  | 'summary'
+  | 'provider'
+  | 'voice'
+  | 'playbackSpeed'
+  | 'theme'
+  | 'pattern'
+  | 'patternPick'
+  | 'patternBlend'
 type EngvoPanel = 'summary' | 'audience' | 'topic' | 'voice' | 'level' | 'speed'
 
 const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
@@ -190,6 +214,9 @@ const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
   voice: 'Голос',
   playbackSpeed: 'Скорость',
   theme: 'Внешний вид',
+  pattern: 'Фон чата',
+  patternPick: 'Паттерн',
+  patternBlend: 'Режим смешивания',
 }
 const ENGVO_PANEL_TITLE: Record<EngvoPanel, string> = {
   summary: 'Позвонить',
@@ -404,6 +431,11 @@ export interface MenuSectionPanelsProps {
   onEngvoSpeechSpeedChange?: (preset: EngvoSpeechSpeedPresetId) => void
   practiceTtsSpeedDefaultIndex?: number
   onPracticeTtsSpeedDefaultChange?: (index: number) => void
+  chatPatternId?: ChatPatternId
+  onChatPatternChange?: (id: ChatPatternId) => void
+  chatPatternTuningMap?: ChatPatternTuningMap
+  onChatPatternTuningChange?: (id: TunableChatPatternId, patch: Partial<ChatPatternTuning>) => void
+  onChatPatternTuningReset?: (id: TunableChatPatternId) => void
   /** Стартовый экран: синхронизация подпанели «Чат с MyEng» для подсказки под меню. */
   onAiChatPanelChange?: (panel: AiChatPanel) => void
   /** Открыть урок из ветки «Обучение». */
@@ -499,6 +531,11 @@ export default function MenuSectionPanels({
   onEngvoSpeechSpeedChange,
   practiceTtsSpeedDefaultIndex = 0,
   onPracticeTtsSpeedDefaultChange,
+  chatPatternId = 'none',
+  onChatPatternChange,
+  chatPatternTuningMap = {},
+  onChatPatternTuningChange,
+  onChatPatternTuningReset,
   onAiChatPanelChange,
   onOpenLearningLesson,
   onDebugSkipToLessonFinale,
@@ -1125,6 +1162,7 @@ export default function MenuSectionPanels({
     ENGVO_SPEECH_SPEED_PRESETS.find((p) => p.id === (engvoSpeechSpeedPreset ?? 'conversational'))?.label ??
     'Разговорная'
   const practiceTtsSpeedLabel = getPracticeTtsSpeedPreset(practiceTtsSpeedDefaultIndex).label
+  const chatPatternLabel = getChatPatternLabel(chatPatternId)
 
   const handleMenuBack = () => {
     if (menuView === 'lessons' && lessonsPanel !== 'summary') {
@@ -1228,6 +1266,10 @@ export default function MenuSectionPanels({
       return
     }
     if (menuView === 'settings' && settingsPanel !== 'summary') {
+      if (settingsPanel === 'patternBlend' || settingsPanel === 'patternPick') {
+        setSettingsPanel('pattern')
+        return
+      }
       setSettingsPanel('summary')
       return
     }
@@ -1251,7 +1293,10 @@ export default function MenuSectionPanels({
   const menuBackAriaLabel =
     menuView === 'aiChat' && aiChatPanel !== 'summary'
       ? 'К настройкам чата'
-      : menuView === 'settings' && settingsPanel !== 'summary'
+      : menuView === 'settings' &&
+          (settingsPanel === 'patternBlend' || settingsPanel === 'patternPick')
+        ? 'К фону чата'
+        : menuView === 'settings' && settingsPanel !== 'summary'
         ? 'К настройкам'
         : menuView === 'engvo' &&
             (engvoPanel === 'audience' ||
@@ -3216,6 +3261,11 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
           <div className={MENU_GROUP_OUTER}>
             <div className={MENU_GROUP_CLASS}>
               <MenuSettingRow label="Тема" value={themeLabel} onClick={() => setSettingsPanel('theme')} />
+              <MenuSettingRow
+                label="Фон чата"
+                value={chatPatternLabel}
+                onClick={() => setSettingsPanel('pattern')}
+              />
               <MenuSettingRow label="ИИ" value={providerLabel} onClick={() => setSettingsPanel('provider')} />
               <VoiceSummaryRow
                 label="Голос"
@@ -3266,6 +3316,45 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
         )}
 
         {menuView === 'settings' && settingsPanel === 'theme' && <ThemePickerPanel />}
+
+        {menuView === 'settings' && settingsPanel === 'pattern' && (
+          <ChatPatternPanel
+            chatPatternId={chatPatternId}
+            chatPatternTuningMap={chatPatternTuningMap}
+            onChatPatternTuningChange={onChatPatternTuningChange}
+            onChatPatternTuningReset={onChatPatternTuningReset}
+            onOpenPatternPicker={() => setSettingsPanel('patternPick')}
+            onOpenBlendPicker={() => setSettingsPanel('patternBlend')}
+          />
+        )}
+
+        {menuView === 'settings' && settingsPanel === 'patternPick' && (
+          <PickerList
+            options={CHAT_PATTERN_OPTIONS.map((option) => ({
+              id: option.id,
+              label: option.name,
+            }))}
+            value={chatPatternId}
+            onSelect={(id) => {
+              onChatPatternChange?.(id as ChatPatternId)
+              setSettingsPanel('pattern')
+            }}
+          />
+        )}
+
+        {menuView === 'settings' && settingsPanel === 'patternBlend' && isTunableChatPatternId(chatPatternId) && (
+          <PickerList
+            options={CHAT_PATTERN_BLEND_MODE_OPTIONS.map((option) => ({
+              id: option.id,
+              label: option.label,
+            }))}
+            value={resolveChatPatternTuning(chatPatternTuningMap, chatPatternId).blendMode}
+            onSelect={(id) => {
+              onChatPatternTuningChange?.(chatPatternId, { blendMode: id as ChatPatternBlendMode })
+              setSettingsPanel('pattern')
+            }}
+          />
+        )}
 
         {menuView === 'progress' && (() => {
           const focusGoal = pickFocusModeGoal(rewardsState)
@@ -3630,6 +3719,126 @@ function AccentLessonRow({ label, lessonId, onClick }: { label: string; lessonId
       <span className="min-w-0 text-[15px] font-normal leading-normal text-[var(--text)]">{label}</span>
       <AccentProgressBadge lessonId={lessonId} />
     </button>
+  )
+}
+
+function MenuTuningSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  formatValue,
+  onChange,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  formatValue: (value: number) => string
+  onChange: (value: number) => void
+}) {
+  return (
+    <div className="border-b border-[var(--border)]/70 px-3 py-3 last:border-b-0">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium text-[var(--text-muted)]">{label}</span>
+        <span className="text-sm tabular-nums text-[var(--text)]">{formatValue(value)}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="mt-2 h-2 w-full cursor-pointer accent-[var(--accent)]"
+        aria-label={label}
+      />
+    </div>
+  )
+}
+
+function ChatPatternPanel({
+  chatPatternId,
+  chatPatternTuningMap,
+  onChatPatternTuningChange,
+  onChatPatternTuningReset,
+  onOpenPatternPicker,
+  onOpenBlendPicker,
+}: {
+  chatPatternId: ChatPatternId
+  chatPatternTuningMap: ChatPatternTuningMap
+  onChatPatternTuningChange?: (id: TunableChatPatternId, patch: Partial<ChatPatternTuning>) => void
+  onChatPatternTuningReset?: (id: TunableChatPatternId) => void
+  onOpenPatternPicker: () => void
+  onOpenBlendPicker: () => void
+}) {
+  const { theme } = useTheme()
+  const glassTheme = isGlassTheme(theme)
+  const tunable = isTunableChatPatternId(chatPatternId)
+  const tuning = tunable ? resolveChatPatternTuning(chatPatternTuningMap, chatPatternId) : null
+  const blendLabel =
+    tuning != null
+      ? (CHAT_PATTERN_BLEND_MODE_OPTIONS.find((option) => option.id === tuning.blendMode)?.label ??
+        tuning.blendMode)
+      : ''
+  const hasCustomTuning =
+    tunable &&
+    JSON.stringify(tuning) !== JSON.stringify(getDefaultChatPatternTuning(chatPatternId))
+
+  return (
+    <div className="space-y-2">
+      <div className={MENU_GROUP_OUTER}>
+        <div className={MENU_GROUP_CLASS}>
+          <MenuSettingRow
+            label="Паттерн"
+            value={getChatPatternLabel(chatPatternId)}
+            onClick={onOpenPatternPicker}
+          />
+        </div>
+      </div>
+
+      {tunable && tuning != null ? (
+        <div className={MENU_GROUP_OUTER}>
+          <div className={MENU_GROUP_CLASS}>
+            <MenuTuningSlider
+              label="Размер плитки"
+              value={tuning.tileWidthPx}
+              min={CHAT_PATTERN_TUNING_LIMITS.tileWidthPx.min}
+              max={CHAT_PATTERN_TUNING_LIMITS.tileWidthPx.max}
+              step={CHAT_PATTERN_TUNING_LIMITS.tileWidthPx.step}
+              formatValue={(value) => `${value}px`}
+              onChange={(value) => onChatPatternTuningChange?.(chatPatternId, { tileWidthPx: value })}
+            />
+            <MenuTuningSlider
+              label="Прозрачность"
+              value={glassTheme ? tuning.glassOpacity : tuning.opacity}
+              min={CHAT_PATTERN_TUNING_LIMITS.opacity.min}
+              max={CHAT_PATTERN_TUNING_LIMITS.opacity.max}
+              step={CHAT_PATTERN_TUNING_LIMITS.opacity.step}
+              formatValue={(value) => `${Math.round(value * 100)}%`}
+              onChange={(value) =>
+                onChatPatternTuningChange?.(
+                  chatPatternId,
+                  glassTheme ? { glassOpacity: value } : { opacity: value }
+                )
+              }
+            />
+            <MenuSettingRow label="Смешивание" value={blendLabel} onClick={onOpenBlendPicker} />
+            {hasCustomTuning ? (
+              <button
+                type="button"
+                onClick={() => onChatPatternTuningReset?.(chatPatternId)}
+                className="flex w-full min-h-[44px] items-center justify-center border-t border-[var(--border)]/70 px-3 py-2.5 text-sm font-medium text-[var(--accent)] transition-colors hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
+              >
+                Сбросить для этого паттерна
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
   )
 }
 

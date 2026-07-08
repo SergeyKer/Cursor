@@ -66,7 +66,7 @@ export default function LessonBriefingScreen({
             <DialogGlassScrollHost>
               <div
                 ref={scrollContainerRef}
-                className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
+                className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper p-2.5 sm:p-3`}
               >
                 <ChatBubbleFrame
                   role="assistant"

@@ -389,7 +389,7 @@ export default function LessonExtraTipsScreen({
             <DialogGlassScrollHost>
               <div
                 ref={scrollAreaRef}
-                className={`${LESSON_SCROLL_VIEWPORT_CLASS} ${LESSON_INTRO_SCROLL_CLASS} scroll-smooth bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3`}
+                className={`${LESSON_SCROLL_VIEWPORT_CLASS} ${LESSON_INTRO_SCROLL_CLASS} scroll-smooth chat-feed-wallpaper p-2.5 sm:p-3`}
               >
               <div className="lesson-enter mb-2.5 flex items-center gap-2 rounded-[1.25rem] border border-[var(--chat-section-neutral-border)] bg-[var(--chat-section-slate)] px-3 py-2 shadow-sm">
                 <span className="shrink-0 text-[13px] font-semibold uppercase tracking-[0.02em] text-slate-600">Фишки</span>
