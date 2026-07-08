@@ -248,6 +248,7 @@ import {
   savePracticeTtsSpeedDefaultIndex,
 } from '@/lib/practice/practiceTtsPreferences'
 import { getPracticeTtsRateByIndex } from '@/lib/practice/practiceTtsSpeedPresets'
+import { requestPhraseTranslation } from '@/lib/client/requestPhraseTranslation'
 import {
   canCommitEngvoAssistantMessage,
   getEngvoBootstrapServiceIndicatorText,
@@ -5354,6 +5355,21 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     }
   }, [messages, settings.provider, settings.openAiChatPreset, settings.audience, settings.mode, settings.tenses])
 
+  const handleRequestPhraseTranslation = useCallback(
+    async (text: string, signal: AbortSignal) => {
+      const result = await requestPhraseTranslation({
+        text,
+        provider: settings.provider === 'openai' ? 'openai' : 'openrouter',
+        openAiChatPreset: settings.openAiChatPreset,
+        audience: settings.audience,
+        signal,
+      })
+      if (result.ok) return { translation: result.translation }
+      return { error: result.error }
+    },
+    [settings.provider, settings.openAiChatPreset, settings.audience]
+  )
+
   /** Сравнение для баннера в шапке. В «Диалог» и «Перевод»: предупреждение только если изменился только уровень (без перезапуска из меню). Смена темы/времени/ребёнок–взрослый/типа даёт новый чат - баннер не нужен. */
   function settingsDiffersFromLastSendForBanner(current: Settings, last: Settings | null): boolean {
     if (!last) return false
@@ -7176,6 +7192,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   onSubmitAnswer={practiceSession.submitAnswer}
                   onAcknowledgeInstruction={practiceSession.acknowledgeInstruction}
                   onChoiceCorrectionPhaseChange={setChoiceCorrectionPhase}
+                  onRequestPhraseTranslation={handleRequestPhraseTranslation}
                   onRetryAfterError={() => {
                     if (!practiceSession.session) return
                     if (practiceSession.session.mode === 'reference') {

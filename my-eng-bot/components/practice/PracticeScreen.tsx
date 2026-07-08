@@ -83,7 +83,18 @@ import type { PracticeFlowState } from '@/hooks/usePracticeSession'
 import EngvoFeedServiceTypingText from '@/components/engvo/EngvoFeedServiceTypingText'
 import type { Audience } from '@/lib/types'
 import type { PracticeMode, PracticeQuestion, PracticeSession } from '@/types/practice'
+import SpeakTranslationControls from '@/components/chat/SpeakTranslationControls'
+import { usePhraseTranslation } from '@/hooks/usePhraseTranslation'
+import { getPracticeTtsRateByIndex } from '@/lib/practice/practiceTtsSpeedPresets'
+import {
+  resolveIntroBlockChipsVisible,
+  resolveIntroBlockTaskCardReached,
+} from '@/lib/lessonIntroBlockReveal'
+import { parseInterlocutorFromPrompt } from '@/lib/practice/prompt/roleplayPromptEngine'
 import { resolveEffectivePracticeTtsSpeedIndex } from '@/lib/practice/practiceTtsPreferences'
+import { speak, stopSpeaking } from '@/lib/speech'
+
+type PhraseTranslationResult = { translation?: string; error?: string }
 
 interface PracticeScreenProps {
   session: PracticeSession
@@ -111,6 +122,10 @@ interface PracticeScreenProps {
   onAcknowledgeInstruction: () => void
   generationBusy?: boolean
   onChoiceCorrectionPhaseChange?: (phase: PracticeChoiceCorrectionPhase) => void
+  onRequestPhraseTranslation?: (
+    text: string,
+    signal: AbortSignal
+  ) => Promise<PhraseTranslationResult>
 }
 
 const statusCardClassByTone: Record<'success' | 'error', string> = {
@@ -178,6 +193,7 @@ export default function PracticeScreen({
   onAcknowledgeInstruction,
   generationBusy = false,
   onChoiceCorrectionPhaseChange,
+  onRequestPhraseTranslation,
 }: PracticeScreenProps) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const messagesStackRef = useRef<HTMLDivElement | null>(null)
@@ -204,6 +220,50 @@ export default function PracticeScreen({
   const correctionPhaseGenerationRef = useRef(0)
   const scrollCleanupOnCompleteRef = useRef<(() => void) | null>(null)
   const [sessionTtsSpeedIndex, setSessionTtsSpeedIndex] = useState<number | null>(null)
+  const [translationCloseNonce, setTranslationCloseNonce] = useState(0)
+
+  const roleplayEnglishPhrase = useMemo(() => {
+    if (currentQuestion?.type !== 'roleplay-mini') return null
+    return parseInterlocutorFromPrompt(currentQuestion.prompt)
+  }, [currentQuestion])
+
+  const requestRoleplayTranslation = useCallback(
+    async (text: string, signal: AbortSignal): Promise<PhraseTranslationResult> => {
+      if (!onRequestPhraseTranslation) {
+        return { error: 'Не удалось загрузить перевод.' }
+      }
+      return onRequestPhraseTranslation(text, signal)
+    },
+    [onRequestPhraseTranslation]
+  )
+
+  const {
+    showTranslation,
+    toggleTranslation,
+    closeTranslation,
+    translation,
+    translationError,
+    isLoadingTranslation,
+    translationDotState,
+  } = usePhraseTranslation({
+    phraseKey: currentQuestion?.type === 'roleplay-mini' ? (currentQuestion?.id ?? '') : 'inactive',
+    text: roleplayEnglishPhrase ?? '',
+    closeKey:
+      currentQuestion?.type === 'roleplay-mini'
+        ? `${currentQuestion?.id ?? ''}:${translationCloseNonce}`
+        : null,
+    onRequest: onRequestPhraseTranslation ? requestRoleplayTranslation : undefined,
+  })
+
+  const handleSubmitAnswerWithTranslationClose = useCallback(
+    (answer: string) => {
+      closeTranslation()
+      setTranslationCloseNonce((value) => value + 1)
+      stopSpeaking()
+      onSubmitAnswer(answer)
+    },
+    [closeTranslation, onSubmitAnswer]
+  )
 
   useEffect(() => {
     setSessionTtsSpeedIndex(null)
@@ -213,6 +273,12 @@ export default function PracticeScreen({
     sessionTtsSpeedIndex,
     ttsSpeedDefaultIndex
   )
+
+  const handleRoleplaySpeak = useCallback(() => {
+    const phrase = roleplayEnglishPhrase?.trim()
+    if (!phrase) return
+    speak(phrase, voiceId, { rate: getPracticeTtsRateByIndex(effectiveTtsSpeedIndex) })
+  }, [roleplayEnglishPhrase, voiceId, effectiveTtsSpeedIndex])
 
   const handleTtsSpeedIndexChange = useCallback((index: number) => {
     setSessionTtsSpeedIndex(index)
@@ -1274,6 +1340,38 @@ export default function PracticeScreen({
                         return null
                       }
 
+                      const showRoleplayControls =
+                        isCurrentQuestion &&
+                        !message.isHistorical &&
+                        currentQuestion?.type === 'roleplay-mini' &&
+                        Boolean(roleplayEnglishPhrase)
+
+                      const roleplayRevealParams = {
+                        revealEnabled,
+                        taskBubbleIndex,
+                        isRevealInitializedForKey,
+                        isShellEnterActive: lessonShellEnterActive,
+                        textRevealedThroughIndex: currentLessonTextRevealedThroughIndex,
+                        textAnimatingIndex:
+                          isActiveRevealTarget && isTextRevealActive ? textAnimatingIndex : null,
+                      }
+
+                      const roleplayStripVisible =
+                        showRoleplayControls &&
+                        resolveIntroBlockTaskCardReached(roleplayRevealParams)
+
+                      const roleplayChipsVisible = resolveIntroBlockChipsVisible({
+                        ...roleplayRevealParams,
+                        stripVisible: roleplayStripVisible,
+                      })
+
+                      const roleplayChipsUseEnter =
+                        isActiveRevealTarget &&
+                        isTextRevealActive &&
+                        revealEnabled &&
+                        !prefersReducedMotion &&
+                        textAnimatingIndex === taskBubbleIndex
+
                       return (
                         <ChatBubbleFrame
                           key={message.id}
@@ -1310,6 +1408,22 @@ export default function PracticeScreen({
                                 : undefined
                             }
                           />
+                          {roleplayStripVisible ? (
+                            <div className="mt-1.5 flex w-full flex-wrap items-center gap-2">
+                              <SpeakTranslationControls
+                                embedded
+                                chipsVisible={roleplayChipsVisible}
+                                chipsUseEnterAnimation={roleplayChipsUseEnter}
+                                onSpeak={handleRoleplaySpeak}
+                                showTranslation={showTranslation}
+                                onToggleTranslation={toggleTranslation}
+                                translationDotState={translationDotState}
+                                translation={translation}
+                                translationError={translationError}
+                                isLoadingTranslation={isLoadingTranslation}
+                              />
+                            </div>
+                          ) : null}
                         </ChatBubbleFrame>
                       )
                     }
@@ -1474,7 +1588,7 @@ export default function PracticeScreen({
                   audience={audience}
                   prefersReducedMotion={prefersReducedMotion}
                   suppressComposerEnterAnimation={suppressComposerEnterAnimation}
-                  onSubmit={onSubmitAnswer}
+                  onSubmit={handleSubmitAnswerWithTranslationClose}
                   suppressChoiceChipEnterAnimation={!isChoiceChipsVisible}
                   choiceChipsVisible={isChoiceChipsVisible}
                   puzzlePanelVisible={isPuzzleVisible}
