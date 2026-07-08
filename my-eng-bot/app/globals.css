@@ -412,10 +412,10 @@
   --chat-section-slate: #f4f7fb;
   --chat-section-correction: #f8fafc;
   /* Р¤РѕРЅ РєР°СЂС‚РѕС‡РєРё РјРµРЅСЋ РЅР° РіР»Р°РІРЅРѕР№ (РёР·РѕР»РёСЂРѕРІР°РЅ РѕС‚ РІС‹РґРІРёР¶РЅРѕРіРѕ РјРµРЅСЋ). */
-  --home-menu-bg: #e4f2fe;
-  --menu-panel-bg: #f3f4f6;
-  --menu-card-bg: #f9fafb;
-  --menu-control-bg: #f3f4f6;
+  --home-menu-bg: #e3f2ff;
+  --menu-panel-bg: #e3f2ff;
+  --menu-card-bg: #ffffff;
+  --menu-control-bg: #eaf4ff;
   --chat-shell-bg: rgba(255, 255, 255, 0.28);
   --chat-shell-border: rgba(255, 255, 255, 0.55);
   --chat-composer-bg: rgba(255, 255, 255, 0.9);
@@ -591,10 +591,10 @@ html[data-theme='futuristic'] {
   --chat-section-slate: rgba(241, 245, 249, 0.8);
   --chat-section-correction: #f8fbff;
   --chat-label-praise: #2f4f4f;
-  --home-menu-bg: rgba(228, 242, 254, 0.72);
-  --menu-panel-bg: #eef4ff;
+  --home-menu-bg: #e3f2ff;
+  --menu-panel-bg: #e3f2ff;
   --menu-card-bg: #ffffff;
-  --menu-control-bg: #f7faff;
+  --menu-control-bg: #eaf4ff;
   --chat-shell-bg: rgba(255, 255, 255, 0.32);
   --chat-shell-border: rgba(255, 255, 255, 0.45);
   --chat-composer-bg: rgba(255, 255, 255, 0.72);
@@ -670,10 +670,10 @@ html[data-theme='bubble1'] {
   --chat-section-slate: rgba(247, 251, 255, 0.82);
   --chat-section-correction: #f9fbff;
   --chat-label-praise: #2e5f52;
-  --home-menu-bg: rgba(245, 250, 255, 0.72);
-  --menu-panel-bg: rgba(243, 247, 255, 0.95);
-  --menu-card-bg: rgba(255, 255, 255, 0.82);
-  --menu-control-bg: rgba(255, 255, 255, 0.86);
+  --home-menu-bg: #e3f2ff;
+  --menu-panel-bg: #e3f2ff;
+  --menu-card-bg: #ffffff;
+  --menu-control-bg: #eaf4ff;
   --chat-shell-bg: rgba(255, 255, 255, 0.34);
   --chat-shell-border: rgba(255, 255, 255, 0.58);
   --chat-composer-bg: rgba(255, 255, 255, 0.68);
@@ -834,7 +834,7 @@ html[data-theme='bubble2'] {
   --chat-section-correction: #f7fbff;
   --chat-label-praise: var(--bubble2-color-text-accent);
   --home-menu-bg: #e3f2ff;
-  --menu-panel-bg: #f3f9ff;
+  --menu-panel-bg: #e3f2ff;
   --menu-card-bg: #ffffff;
   --menu-control-bg: #eaf4ff;
   --chat-shell-bg: rgba(255, 255, 255, 0.18);
@@ -988,10 +988,10 @@ html[data-theme='glass3'] {
   --chat-section-praise: rgba(255, 255, 255, 0.42);
   --chat-section-slate: rgba(255, 255, 255, 0.58);
   --chat-section-correction: rgba(247, 251, 255, 0.72);
-  --home-menu-bg: rgba(227, 242, 255, 0.62);
-  --menu-panel-bg: rgba(243, 249, 255, 0.88);
-  --menu-card-bg: rgba(255, 255, 255, 0.72);
-  --menu-control-bg: rgba(234, 244, 255, 0.78);
+  --home-menu-bg: #e3f2ff;
+  --menu-panel-bg: #e3f2ff;
+  --menu-card-bg: #ffffff;
+  --menu-control-bg: #eaf4ff;
   --chat-shell-bg: rgba(255, 255, 255, 0.14);
   --chat-shell-border: var(--glass-border-subtle);
   --chat-composer-bg: rgba(255, 255, 255, 0.2);

@@ -49,6 +49,50 @@ describe('glass theme CSS guards', () => {
     )
   })
 
+  it('keeps identical opaque menu surfaces across all themes so home content does not show through', () => {
+    const menuTokens = [
+      '--home-menu-bg: #e3f2ff',
+      '--menu-panel-bg: #e3f2ff',
+      '--menu-card-bg: #ffffff',
+      '--menu-control-bg: #eaf4ff',
+    ] as const
+    const rgbaMenuToken =
+      /--(?:home-menu|menu-panel|menu-card|menu-control)-bg:\s*rgba\(/
+
+    const themeBlocks: Array<{ label: string; block: string | undefined }> = [
+      {
+        label: ':root (basic)',
+        block: css.match(/:root\s*\{[\s\S]*?\n\}/)?.[0],
+      },
+      {
+        label: 'futuristic',
+        block: css.match(/html\[data-theme='futuristic'\]\s*\{[\s\S]*?\n\}/)?.[0],
+      },
+      {
+        label: 'bubble1',
+        block: css.match(/html\[data-theme='bubble1'\]\s*\{[\s\S]*?\n\}/)?.[0],
+      },
+      {
+        label: 'bubble2',
+        block: css.match(/html\[data-theme='bubble2'\]\s*\{[\s\S]*?\n\}/)?.[0],
+      },
+      {
+        label: 'glass shared',
+        block: css.match(
+          /html\[data-theme='glass1'\],\s*html\[data-theme='glass2'\],\s*html\[data-theme='glass3'\]\s*\{[\s\S]*?\n\}/
+        )?.[0],
+      },
+    ]
+
+    for (const { label, block } of themeBlocks) {
+      expect(block, label).toBeTruthy()
+      for (const token of menuTokens) {
+        expect(block, `${label}: ${token}`).toContain(token)
+      }
+      expect(block, `${label}: no rgba menu tokens`).not.toMatch(rgbaMenuToken)
+    }
+  })
+
   it('does not set chat-control or chat-send in per-glass accent blocks', () => {
     for (const glassId of GLASS_THEME_IDS) {
       const block = css.match(new RegExp(`html\\[data-theme='${glassId}'\\] \\{[\\s\\S]*?\\n\\}`))?.[0]
