@@ -55,11 +55,11 @@ describe('buildEngvoRealtimeInstructions', () => {
       audience: 'adult',
       level: 'a2',
       topic: 'free_talk',
-      speechSpeed: 0.7,
+      speechSpeed: 0.8,
     })
 
     expect(fast).toContain(buildEngvoSpeechSpeedRule(1))
-    expect(slow).toContain(buildEngvoSpeechSpeedRule(0.7))
+    expect(slow).toContain(buildEngvoSpeechSpeedRule(0.8))
     expect(fast).not.toEqual(slow)
   })
 

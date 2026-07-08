@@ -16,8 +16,8 @@ describe('Engvo speech speed helpers', () => {
 
   it('maps presets to numeric speed', () => {
     expect(engvoSpeechSpeedFromPreset('conversational')).toBe(1.0)
-    expect(engvoSpeechSpeedFromPreset('normal')).toBe(0.85)
-    expect(engvoSpeechSpeedFromPreset('calm')).toBe(0.7)
+    expect(engvoSpeechSpeedFromPreset('normal')).toBe(0.9)
+    expect(engvoSpeechSpeedFromPreset('calm')).toBe(0.8)
   })
 
   it('defaults preset by audience when level is not A1', () => {

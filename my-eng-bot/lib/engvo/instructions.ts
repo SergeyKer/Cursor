@@ -174,7 +174,7 @@ export function buildEngvoSpeechSpeedRule(speechSpeed: number): string {
   if (speed >= 0.95) {
     return 'Speech pace: natural conversational speed.'
   }
-  if (speed >= 0.75) {
+  if (speed >= 0.85) {
     return 'Speech pace: speak slightly slower than normal, with clear pauses between short phrases.'
   }
   return 'Speech pace: speak slowly and calmly, with extra pauses; prioritize clarity over speed.'

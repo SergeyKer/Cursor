@@ -35,9 +35,9 @@ describe('buildEngvoCallsApiSession', () => {
       model: 'gpt-realtime-mini',
       voice: 'alloy',
       instructions: 'Speak slowly.',
-      speed: 0.7,
+      speed: 0.8,
     })
-    expect(session.audio.output.speed).toBe(0.7)
+    expect(session.audio.output.speed).toBe(0.8)
   })
 })
 
@@ -74,10 +74,10 @@ describe('buildEngvoClientSessionUpdate', () => {
     const session = buildEngvoClientSessionUpdate({
       model: 'gpt-realtime-mini',
       voice: 'alloy',
-      speed: 0.85,
+      speed: 0.9,
       instructions: 'Hello.',
     })
-    expect(session.audio.output).toEqual({ voice: 'alloy', speed: 0.85 })
+    expect(session.audio.output).toEqual({ voice: 'alloy', speed: 0.9 })
   })
 })
 

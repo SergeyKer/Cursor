@@ -22,8 +22,8 @@ export const ENGVO_REALTIME_SPEED_MAX = 1.5
 
 export const ENGVO_SPEECH_SPEED_PRESETS = [
   { id: 'conversational', label: 'Разговорная', speed: 1.0 },
-  { id: 'normal', label: 'Обычная', speed: 0.85 },
-  { id: 'calm', label: 'Спокойная', speed: 0.7 },
+  { id: 'normal', label: 'Обычная', speed: 0.9 },
+  { id: 'calm', label: 'Спокойная', speed: 0.8 },
 ] as const
 
 export type EngvoSpeechSpeedPresetId = (typeof ENGVO_SPEECH_SPEED_PRESETS)[number]['id']
