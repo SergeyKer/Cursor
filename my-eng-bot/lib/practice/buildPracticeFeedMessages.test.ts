@@ -114,3 +114,52 @@ describe('buildPracticeFeedMessages - listening-select', () => {
     expect(task).not.toMatch(/Прослушайте/i)
   })
 })
+
+describe('buildPracticeFeedMessages - roleplay-mini', () => {
+  it('renders interlocutor task bubble and challenge anchor cue', () => {
+    const session: PracticeSession = {
+      id: 's-roleplay',
+      mode: 'challenge',
+      topic: 'Тема',
+      status: 'active',
+      currentIndex: 9,
+      questions: Array.from({ length: 12 }, (_, index) => ({
+        id: `q${index}`,
+        lessonId: '1',
+        type: index === 9 ? ('roleplay-mini' as const) : 'choice',
+        prompt:
+          index === 9
+            ? 'Уже поздно, пора спать.\nСобеседник: «What should we do now?»'
+            : 'Ситуация: test',
+        targetAnswer: index === 9 ? "It's time to go." : 'A',
+        acceptedAnswers: [],
+        xpBase: 10,
+        difficulty: 4,
+        tolerance: 'soft',
+        minWords: 2,
+      })),
+      answers: [],
+      score: 0,
+      xp: 0,
+      streak: 0,
+      instructionAcknowledged: true,
+    }
+
+    const messages = buildPracticeFeedMessages({
+      session,
+      state: 'answering',
+      audience: 'adult',
+    })
+
+    const current = messages.find((message) => message.id === 'practice-question-q9')
+    const info = current?.bubbles?.find((bubble) => bubble.type === 'info')?.content ?? ''
+    expect(info).toContain('Нужна та же фраза, что на предыдущих шагах')
+
+    const task = current?.bubbles?.find((bubble) => bubble.type === 'task')?.content ?? ''
+    expect(task).toContain('What should we do now?')
+    expect(task).toContain('пора спать')
+    expect(task).toContain('Скажите ответ.')
+    expect(task).not.toContain('Ответьте по-английски')
+    expect(task).not.toContain('\n')
+  })
+})

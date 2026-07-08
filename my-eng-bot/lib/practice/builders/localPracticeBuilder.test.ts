@@ -6,6 +6,7 @@ import { CHALLENGE_STEP_SPECS } from '@/lib/practice/engine/stepSpec'
 import { isCompleteSentence } from '@/lib/practice/choiceOptionGranularity'
 import { isGapFillStylePrompt } from '@/lib/practice/prompt/dropdownFillPromptFormat'
 import { isDictationStylePrompt } from '@/lib/practice/prompt/dictationPromptFormat'
+import { roleplayPromptHasContext } from '@/lib/practice/prompt/buildRoleplayPrompt'
 
 describe('buildLocalPracticeSession', () => {
   it('builds relaxed practice from a structured lesson without AI', () => {
@@ -38,6 +39,27 @@ describe('buildLocalPracticeSession', () => {
 
     expect(session.questions).toHaveLength(12)
     expect(session.questions.at(-1)?.type).toBe('boss-challenge')
+  })
+
+  it('reuses anchor phrase at challenge step 10 for lessons 1, 2, and 4', () => {
+    for (const lessonId of ['1', '2', '4'] as const) {
+      const lesson = getStructuredLessonById(lessonId)
+      expect(lesson).not.toBeNull()
+
+      const session = buildLocalPracticeSession({
+        lesson: lesson!,
+        source: { kind: 'static_lesson', lessonId },
+        mode: 'challenge',
+        entrySource: 'menu',
+      })
+
+      const anchor = session.questions[4]
+      const roleplay = session.questions[9]
+      expect(roleplay?.type).toBe('roleplay-mini')
+      expect(roleplay?.targetAnswer.trim().toLowerCase()).toBe(anchor?.targetAnswer.trim().toLowerCase())
+      expect(roleplayPromptHasContext(roleplay?.prompt ?? '')).toBe(true)
+      expect(roleplay?.minWords).toBe(2)
+    }
   })
 
   it('builds UI-ready data for all 12 exercise types in challenge mode', () => {

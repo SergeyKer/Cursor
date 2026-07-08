@@ -1,6 +1,8 @@
 import { buildLocalPracticeSession, buildSinglePracticeQuestion } from '@/lib/practice/builders/localPracticeBuilder'
 import { buildPracticeQuestionFingerprintFromQuestion } from '@/lib/practice/questionFingerprint'
+import { pickFreshReferencePracticeQuestion } from '@/lib/practice/pickFreshReferencePracticeQuestion'
 import { REFERENCE_STEP_MAP_TYPES } from '@/lib/practice/prompt/promptSourceTypes'
+import { collectRecentInterlocutorLines, collectRecentRoleIntroLines, collectRecentTargetAnswers } from '@/lib/practice/roleplaySessionDedup'
 import type { LessonData } from '@/types/lesson'
 import type { PracticeExerciseType, PracticeMode, PracticeQuestion } from '@/types/practice'
 
@@ -12,6 +14,9 @@ export type BuildReferenceFallbackQuestionParams = {
   referenceTotal?: number
   recentPrompts?: string[]
   seenKeys?: string[]
+  recentTargetAnswers?: string[]
+  recentInterlocutorLines?: string[]
+  recentRoleIntroLines?: string[]
 }
 
 function fallbackQuestions(lesson: LessonData, mode: PracticeMode): PracticeQuestion[] {
@@ -94,6 +99,9 @@ export function buildReferenceFallbackQuestion(params: BuildReferenceFallbackQue
       .filter(Boolean)
   )
   const seen = new Set((params.seenKeys ?? []).filter(Boolean))
+  const recentTargetAnswers = params.recentTargetAnswers ?? []
+  const recentInterlocutorLines = params.recentInterlocutorLines ?? []
+  const recentRoleIntroLines = params.recentRoleIntroLines ?? []
   const candidates = collectReferenceFallbackCandidates(
     params.lesson,
     params.mode,
@@ -119,9 +127,33 @@ export function buildReferenceFallbackQuestion(params: BuildReferenceFallbackQue
     if (normalizedRecent.has(promptKey)) continue
     const fingerprint = buildPracticeQuestionFingerprintFromQuestion(candidate)
     if (fingerprint && seen.has(fingerprint)) continue
+    const fresh = pickFreshReferencePracticeQuestion(
+      [candidate],
+      params.recentPrompts ?? [],
+      params.seenKeys ?? [],
+      recentTargetAnswers,
+      recentInterlocutorLines,
+      recentRoleIntroLines
+    )
+    if (!fresh) continue
     return {
-      ...candidate,
-      id: `${candidate.id}-rfb-${Date.now()}`,
+      ...fresh,
+      id: `${fresh.id}-rfb-${Date.now()}`,
+    }
+  }
+
+  const freshFromPool = pickFreshReferencePracticeQuestion(
+    candidates,
+    params.recentPrompts ?? [],
+    params.seenKeys ?? [],
+    recentTargetAnswers,
+    recentInterlocutorLines,
+    recentRoleIntroLines
+  )
+  if (freshFromPool) {
+    return {
+      ...freshFromPool,
+      id: `${freshFromPool.id}-rfb-${Date.now()}`,
     }
   }
 
@@ -139,6 +171,9 @@ export function buildReferenceFallbackQuestions(params: {
   const questions: PracticeQuestion[] = []
   const seenKeys: string[] = []
   const recentPrompts: string[] = []
+  const recentTargetAnswers: string[] = []
+  const recentInterlocutorLines: string[] = []
+  const recentRoleIntroLines: string[] = []
 
   for (let index = 0; index < total; index += 1) {
     const question = buildReferenceFallbackQuestion({
@@ -149,12 +184,20 @@ export function buildReferenceFallbackQuestions(params: {
       referenceTotal: total,
       recentPrompts,
       seenKeys,
+      recentTargetAnswers,
+      recentInterlocutorLines,
+      recentRoleIntroLines,
     })
     if (!question) break
     questions.push(question)
     recentPrompts.push(question.prompt)
     const fingerprint = buildPracticeQuestionFingerprintFromQuestion(question)
     if (fingerprint) seenKeys.push(fingerprint)
+    if (params.referenceExerciseType === 'roleplay-mini') {
+      recentTargetAnswers.push(...collectRecentTargetAnswers([question]))
+      recentInterlocutorLines.push(...collectRecentInterlocutorLines([question]))
+      recentRoleIntroLines.push(...collectRecentRoleIntroLines([question]))
+    }
   }
 
   return questions

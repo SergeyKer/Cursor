@@ -17,7 +17,14 @@ import {
   PRACTICE_EXERCISE_TYPE_CATALOG_SIZE,
 } from '@/lib/practice/practiceExerciseTypeCatalog'
 import { buildPracticeFeedOpening } from '@/lib/practice/practiceRouteCopy'
+import {
+  formatRoleplayInfoLabel,
+  formatRoleplayTaskDisplay,
+  inferRoleplayAxis,
+} from '@/lib/practice/prompt/roleplayPromptEngine'
+import { getStructuredLessonById } from '@/lib/structuredLessons'
 import type { Bubble } from '@/types/lesson'
+import type { LessonData } from '@/types/lesson'
 import type { PracticeAnswer, PracticeQuestion, PracticeSession } from '@/types/practice'
 
 export type PracticeFeedMessageKind = 'lesson' | 'answer' | 'status'
@@ -42,6 +49,7 @@ function practiceTypeLabel(question: PracticeQuestion, session: PracticeSession)
     if (question.type === 'word-builder-pro') return 'Соберите фразу: в банке есть грамматические ловушки.'
     if (question.type === 'speed-round') return 'Финальная проверка на внимательность: варианты очень близкие.'
     if (question.type === 'boss-challenge') return 'Соберите всё вместе в живом ответе.'
+    if (question.type === 'roleplay-mini') return 'Ответьте собеседнику по-английски.'
   }
   if (question.type === 'choice') return 'Выберите лучший вариант.'
   if (question.type === 'voice-shadow') return 'Прослушайте фразу и повторите её вслух или текстом.'
@@ -63,7 +71,27 @@ function normalizeInstruction(text: string | undefined): string {
   return /[.!?…]$/.test(trimmed) ? trimmed : `${trimmed}.`
 }
 
-function practiceInfoLabel(question: PracticeQuestion, session: PracticeSession): string {
+function practiceInfoLabel(
+  question: PracticeQuestion,
+  session: PracticeSession,
+  audience: Audience,
+  questionIndex: number
+): string {
+  if (question.type === 'roleplay-mini') {
+    const lesson = getStructuredLessonById(question.lessonId)
+    const axis = inferRoleplayAxis(
+      question.targetAnswer,
+      lesson ?? ({ id: question.lessonId } as LessonData)
+    )
+    return formatRoleplayInfoLabel({
+      axis,
+      mode: session.mode,
+      stepIndex: questionIndex,
+      lessonId: question.lessonId,
+      audience,
+    })
+  }
+
   const hint =
     question.type === 'voice-shadow' ||
     question.type === 'dictation' ||
@@ -78,12 +106,16 @@ function practiceInfoLabel(question: PracticeQuestion, session: PracticeSession)
   return `${hint} ${base}`
 }
 
-function taskBubbleContent(question: PracticeQuestion): string {
+function taskBubbleContent(question: PracticeQuestion, audience: Audience): string {
   if (question.type === 'dictation') {
     return stripDictationTaskInstruction(question.prompt)
   }
   if (question.type === 'listening-select') {
     return stripListeningSelectTaskInstruction(question.prompt)
+  }
+  if (question.type === 'roleplay-mini') {
+    const display = formatRoleplayTaskDisplay(question.prompt, audience)
+    return display.trim().length > 0 ? display : question.prompt
   }
   return question.prompt
 }
@@ -101,7 +133,7 @@ function buildQuestionBubbles(params: {
     audience: params.audience,
     previousWasCorrect: params.previousWasCorrect,
   })
-  const infoLabel = practiceInfoLabel(params.question, params.session)
+  const infoLabel = practiceInfoLabel(params.question, params.session, params.audience, params.questionIndex)
   const debugPrefix = showDebugQuestionIndex
     ? `шаг ${params.questionIndex + 1} · тип ${getPracticeExerciseTypeCatalogNumber(params.question.type)}/${PRACTICE_EXERCISE_TYPE_CATALOG_SIZE} (${params.question.type})`
     : ''
@@ -112,7 +144,7 @@ function buildQuestionBubbles(params: {
   }
   bubbles.push({
     type: 'task',
-    content: taskBubbleContent(params.question),
+    content: taskBubbleContent(params.question, params.audience),
   })
   return bubbles
 }

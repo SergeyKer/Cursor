@@ -56,6 +56,22 @@ export function splitLeadingTaskImperative(line: string): { verb: string; rest: 
   return { verb: match[1], rest: `${match[2]}${match[3]}` }
 }
 
+const TRAILING_ROLEPLAY_TASK_LABELS = ['Скажите ответ', 'Скажи ответ'] as const
+
+export function splitTrailingTaskImperative(line: string): { body: string; imperative: string } | null {
+  if (!/Собеседник:/u.test(line)) return null
+
+  for (const label of TRAILING_ROLEPLAY_TASK_LABELS) {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const match = new RegExp(`^(.*?)\\s+(${escaped})([.!?…]*)$`, 'u').exec(line.trim())
+    if (!match) continue
+    const punctuation = match[3] || '.'
+    return { body: match[1].trimEnd(), imperative: `${match[2]}${punctuation}` }
+  }
+
+  return null
+}
+
 function renderHighlightedCorePhrases(text: string) {
   const parts = text.split(LESSON_HIGHLIGHT_SPLIT_REGEX)
   if (parts.length === 1) return text
@@ -71,6 +87,16 @@ function renderHighlightedCorePhrases(text: string) {
 }
 
 export function renderTaskInstructionText(text: string) {
+  const trailing = splitTrailingTaskImperative(text)
+  if (trailing) {
+    return (
+      <>
+        {trailing.body}{' '}
+        <span className={TASK_INSTRUCTION_EMPHASIS_CLASS}>{trailing.imperative}</span>
+      </>
+    )
+  }
+
   const label = splitLabel(text)
   if (label) {
     return (

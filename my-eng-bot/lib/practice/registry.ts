@@ -123,8 +123,8 @@ export const PRACTICE_EXERCISE_REGISTRY: Record<PracticeExerciseType, PracticeEx
     xpBase: 10,
     isBossEligible: true,
     tolerance: 'soft',
-    locallyAvailable: false,
-    modes: ['challenge'],
+    locallyAvailable: true,
+    modes: ['challenge', 'reference'],
     weight: 0.5,
   },
   'boss-challenge': {

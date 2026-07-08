@@ -71,6 +71,12 @@ describe('reference etalon contract', () => {
             if (referenceType === 'boss-challenge') {
               expect(question.minWords).toBeGreaterThanOrEqual(5)
             }
+            if (referenceType === 'roleplay-mini') {
+              expect(question.prompt).toMatch(/Собеседник:\s*«[^»]+\?»/)
+              expect(question.prompt).not.toMatch(/Собеседник:\s*«[^»]*[а-яё][^»]*»/iu)
+              expect(question.minWords).toBe(2)
+              expect(question.keywords?.length ?? 0).toBeGreaterThan(0)
+            }
           }
         })
       }

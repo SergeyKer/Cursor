@@ -27,6 +27,11 @@ const DICTATION_STEP_OPENING = {
   child: 'Только слух: запиши фразу целиком.',
 }
 
+const ROLEPLAY_CHALLENGE_OPENING = {
+  adult: 'Ответьте собеседнику — нужна та же фраза, что на предыдущих шагах.',
+  child: 'Ответь собеседнику — нужна та же фраза, что на прошлых шагах.',
+}
+
 const CHALLENGE_OPENING: Record<PracticeRouteStageId, { adult: string; child: string }> = {
   warmup: {
     adult: 'Сначала спокойно узнаём паттерн.',
@@ -81,6 +86,15 @@ function resolveDictationOpening(session: PracticeSession, questionIndex: number
   return audience === 'child' ? DICTATION_STEP_OPENING.child : DICTATION_STEP_OPENING.adult
 }
 
+function resolveRoleplayOpening(session: PracticeSession, questionIndex: number, audience: Audience): string | null {
+  const stepSpec = getPracticeStepSpec(session.mode, questionIndex)
+  if (stepSpec?.type !== 'roleplay-mini') return null
+  if (session.mode === 'challenge' && questionIndex === 9) {
+    return audience === 'child' ? ROLEPLAY_CHALLENGE_OPENING.child : ROLEPLAY_CHALLENGE_OPENING.adult
+  }
+  return null
+}
+
 export function buildPracticeRouteStepCopy(params: {
   session: PracticeSession
   questionIndex: number
@@ -112,7 +126,8 @@ export function buildPracticeRouteStepCopy(params: {
   const titles = STAGE_TITLE[stage.stageId]
   const stageTitle = audience === 'child' ? titles.child : titles.adult
   const dictationOpening = resolveDictationOpening(session, questionIndex, audience)
-  const body = dictationOpening
+  const roleplayOpening = resolveRoleplayOpening(session, questionIndex, audience)
+  const body = roleplayOpening ?? dictationOpening
     ? dictationOpening
     : audience === 'child'
       ? CHALLENGE_OPENING[stage.stageId].child

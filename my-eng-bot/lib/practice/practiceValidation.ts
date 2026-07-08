@@ -1,4 +1,6 @@
 import { normalizeEnglishForLearnerAnswerMatch } from '@/lib/normalizeEnglishForLearnerAnswerMatch'
+import { validateRoleplayAnswer } from '@/lib/practice/roleplayAnswerValidation'
+import { getStructuredLessonById } from '@/lib/structuredLessons'
 import type { PracticeQuestion } from '@/types/practice'
 
 export type PracticeAnswerValidationContext = 'chip' | 'typed'
@@ -35,6 +37,11 @@ export function validatePracticeAnswer(
     (candidate) => normalizeEnglishForLearnerAnswerMatch(candidate, 'translation') === normalizedInput
   )
   if (exactNormalizedMatch) return true
+
+  if (question.type === 'roleplay-mini') {
+    const lesson = getStructuredLessonById(question.lessonId)
+    if (lesson) return validateRoleplayAnswer(userInput, question, lesson)
+  }
 
   if (question.tolerance !== 'soft') return false
 

@@ -23,6 +23,18 @@ import { resolveDropdownOptionCount } from '@/lib/practice/dropdownOptionCount'
 import { inferGapWordSlot } from '@/lib/practice/gapWordSlot'
 import { sanitizeDropdownHint } from '@/lib/practice/prompt/dropdownFillPromptFormat'
 import { buildDictationPrompt } from '@/lib/practice/prompt/buildDictationPrompt'
+import { buildRoleplayPrompt, roleplayPromptHasContext } from '@/lib/practice/prompt/buildRoleplayPrompt'
+import {
+  buildRoleplayHint,
+  extractRoleplayKeywords,
+  inferRoleplayAxis,
+  resolveRoleplayTargetAnswer,
+} from '@/lib/practice/prompt/roleplayPromptEngine'
+import {
+  buildRoleplayPromptFromAnchor,
+  collectPriorSessionPhrases,
+  selectRoleplayAnchor,
+} from '@/lib/practice/roleplaySessionContinuity'
 import { isTranslateBackedFreeResponseExercise } from '@/lib/practice/prompt/freeResponseTranslateMode'
 import { extractSemanticKeywords, stripAnswerLeakFromHint } from '@/lib/practice/prompt/promptSourceUtils'
 import { resolveLessonExerciseVariant } from '@/lib/practice/resolveLessonExerciseVariant'
@@ -152,6 +164,7 @@ function createQuestion(params: {
   variantIndex?: number
   stepSpec?: ReturnType<typeof getPracticeStepSpec>
   resolvedStep?: ResolvedPracticeLessonStep
+  priorQuestions?: PracticeQuestion[]
 }): PracticeQuestion {
   const meta = getPracticeExerciseMetadata(params.type)
   const isPuzzlePracticeType =
@@ -221,6 +234,53 @@ function createQuestion(params: {
       matchedVariant: puzzleSlice.matchedVariant,
     })
   }
+
+  if (params.type === 'roleplay-mini') {
+    targetAnswer = resolveRoleplayTargetAnswer(targetAnswer, params.lesson.id)
+    acceptedAnswers = acceptedAnswers
+      .map((item) => resolveRoleplayTargetAnswer(item, params.lesson.id))
+      .filter(Boolean)
+    if (params.mode === 'challenge' && params.index === 9 && params.priorQuestions?.length) {
+      const priorPhrases = collectPriorSessionPhrases(params.priorQuestions, params.index)
+      const anchor = selectRoleplayAnchor(priorPhrases)
+      if (anchor) {
+        const anchorQuestion = params.priorQuestions[anchor.stepIndex]
+        targetAnswer = anchor.targetAnswer
+        if (anchorQuestion) {
+          acceptedAnswers = Array.from(
+            new Set([
+              anchor.targetAnswer,
+              anchorQuestion.targetAnswer,
+              ...(anchorQuestion.acceptedAnswers ?? []),
+            ])
+          )
+            .map((item) => item.trim())
+            .filter(Boolean)
+        }
+        prompt = buildRoleplayPromptFromAnchor(anchor, params.lesson)
+      }
+    }
+    if (!roleplayPromptHasContext(prompt)) {
+      const built = buildReferencePromptFromLesson({
+        lesson: params.lesson,
+        type: 'roleplay-mini',
+        stepIndex: params.mode === 'reference' ? params.index : 0,
+        targetAnswer,
+      })
+      if (built) prompt = built
+    }
+  }
+
+  const roleplayAxis =
+    params.type === 'roleplay-mini'
+      ? inferRoleplayAxis(targetAnswer, params.lesson, params.variantIndex)
+      : undefined
+  const roleplayHint =
+    params.type === 'roleplay-mini' && roleplayAxis
+      ? buildRoleplayHint(roleplayAxis, params.lesson.id)
+      : undefined
+  const roleplayKeywords =
+    params.type === 'roleplay-mini' ? extractRoleplayKeywords(targetAnswer, params.lesson) : undefined
   const variantSuffix = params.variantIndex != null ? `-v${params.variantIndex}` : ''
   const extraWords =
     params.type === 'word-builder-pro'
@@ -251,22 +311,28 @@ function createQuestion(params: {
     keywords:
       isTranslateBackedFreeResponse
         ? undefined
-        : params.type === 'free-response' || params.type === 'roleplay-mini' || params.type === 'boss-challenge'
+        : params.type === 'free-response' || params.type === 'boss-challenge'
           ? useEtalonPromptBuilder
             ? extractSemanticKeywords(targetAnswer)
             : targetAnswer.split(/\s+/).slice(0, 3)
-          : undefined,
+          : params.type === 'roleplay-mini'
+            ? roleplayKeywords
+            : undefined,
     minWords:
       params.type === 'boss-challenge'
         ? 5
         : isTranslateBackedFreeResponse
           ? undefined
-          : params.type === 'free-response' || params.type === 'roleplay-mini'
+          : params.type === 'free-response'
             ? 3
-            : undefined,
+            : params.type === 'roleplay-mini'
+              ? 2
+              : undefined,
     hint: isVoiceShadow || isDictation || isListeningSelect
       ? undefined
-      : params.type === 'word-builder-pro' && puzzleSlice
+      : params.type === 'roleplay-mini'
+        ? roleplayHint
+        : params.type === 'word-builder-pro' && puzzleSlice
         ? stripAnswerLeakFromHint(
             resolveWordBuilderProHint({
               targetAnswer,
@@ -394,6 +460,7 @@ function buildQuestions(lesson: LessonData, mode: PracticeBuildConfig['mode']): 
         variantIndex: resolved.variantIndex ?? fallbackResolved.variantIndex,
         stepSpec,
         resolvedStep: resolved,
+        priorQuestions: index === 9 && mode === 'challenge' ? questions : undefined,
       })
     )
   }

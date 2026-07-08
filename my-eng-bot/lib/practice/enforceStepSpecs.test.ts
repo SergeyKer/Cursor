@@ -25,4 +25,30 @@ describe('enforceStepSpecs', () => {
     expect(enforced[0]?.options).toBeDefined()
     expect(enforced[0]?.options).not.toEqual(question.options)
   })
+
+  it('reuses anchor targetAnswer for challenge roleplay at step 10', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const priorSessionPhrases = [
+      { stepIndex: 4, type: 'free-response' as const, targetAnswer: "It's time to go.", prompt: 'Ситуация: test' },
+    ]
+    const question: PracticeQuestion = {
+      id: 'q10',
+      lessonId: '1',
+      type: 'roleplay-mini',
+      prompt: 'Собеседник: «Погода?»',
+      targetAnswer: "It's cold.",
+      acceptedAnswers: ["It's cold."],
+      xpBase: 10,
+      difficulty: 4,
+      tolerance: 'soft',
+      minWords: 2,
+    }
+
+    const enforced = enforceStepSpecs([question], lesson!, 'challenge', 9, [{}], undefined, priorSessionPhrases)
+    expect(enforced[0]?.targetAnswer).toBe("It's time to go.")
+    expect(enforced[0]?.prompt).toMatch(/Собеседник:/)
+    expect(enforced[0]?.minWords).toBe(2)
+  })
 })

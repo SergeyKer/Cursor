@@ -46,17 +46,18 @@ describe('validatePracticeAnswer', () => {
     expect(validatePracticeAnswer("It's time to drink.", choiceQuestion, 'typed')).toBe(false)
   })
 
-  it('accepts soft free responses by length and keyword', () => {
-    const softQuestion: PracticeQuestion = {
+  it('accepts roleplay answers with lesson-aware validation', () => {
+    const roleplayQuestion: PracticeQuestion = {
       ...baseQuestion,
       type: 'roleplay-mini',
+      targetAnswer: "It's time to go.",
       tolerance: 'soft',
-      keywords: ['time'],
-      minWords: 3,
+      minWords: 2,
+      keywords: ['time', 'to', 'go'],
     }
 
-    expect(validatePracticeAnswer('I think it is time now', softQuestion)).toBe(true)
-    expect(validatePracticeAnswer('time', softQuestion)).toBe(false)
+    expect(validatePracticeAnswer("It's time to go now", roleplayQuestion)).toBe(true)
+    expect(validatePracticeAnswer('time', roleplayQuestion)).toBe(false)
   })
 
   it('accepts normalized translate-backed free-response variants', () => {

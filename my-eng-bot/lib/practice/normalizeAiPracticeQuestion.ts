@@ -41,6 +41,19 @@ import {
 } from '@/lib/practice/prompt/dropdownFillPromptFormat'
 import { buildWordBuilderProPrompt } from '@/lib/practice/prompt/buildWordBuilderProPrompt'
 import {
+  buildRoleplayHint,
+  extractRoleplayKeywords,
+  inferRoleplayAxis,
+  resolveRoleplayTargetAnswer,
+} from '@/lib/practice/prompt/roleplayPromptEngine'
+import { roleplayPromptHasContext } from '@/lib/practice/prompt/buildRoleplayPrompt'
+import {
+  buildRoleplayPromptFromAnchor,
+  collectPriorSessionPhrases,
+  selectRoleplayAnchor,
+  type PriorSessionPhrase,
+} from '@/lib/practice/roleplaySessionContinuity'
+import {
   dictationPromptHasLeakMarkers,
   isDictationStylePrompt,
   stripDictationTaskInstruction,
@@ -91,6 +104,8 @@ export function normalizeAiPracticeQuestion(
     distractorTier?: PracticeDistractorTier
     mode?: PracticeMode
     referenceExerciseType?: PracticeExerciseType
+    priorSessionPhrases?: PriorSessionPhrase[]
+    priorQuestionsInBatch?: PracticeQuestion[]
   }
 ): PracticeQuestion | null {
   if (!row || typeof row !== 'object') return null
@@ -317,6 +332,44 @@ export function normalizeAiPracticeQuestion(
     )
   }
 
+  if (type === 'roleplay-mini') {
+    const priorPhrases: PriorSessionPhrase[] = [
+      ...(normalizeOptions?.priorSessionPhrases ?? []),
+      ...(normalizeOptions?.priorQuestionsInBatch ?? []).map((question, stepIndex) => ({
+        stepIndex,
+        type: question.type,
+        targetAnswer: question.targetAnswer,
+        prompt: question.prompt,
+      })),
+    ]
+    if (mode === 'challenge' && index === 9) {
+      const anchor = selectRoleplayAnchor(priorPhrases)
+      if (anchor) {
+        normalizedTargetAnswer = anchor.targetAnswer
+        prompt = buildRoleplayPromptFromAnchor(anchor, lesson)
+      }
+    }
+    const needsRebuild =
+      !roleplayPromptHasContext(prompt) ||
+      isTranslateStylePrompt(prompt) ||
+      Boolean(normalizedHint?.toLowerCase().includes('переведите'))
+    if (needsRebuild) {
+      const rebuilt = buildReferencePromptFromLesson({
+        lesson: scopedLesson,
+        type: 'roleplay-mini',
+        stepIndex: mode === 'reference' ? index : 0,
+        targetAnswer: normalizedTargetAnswer,
+      })
+      if (rebuilt) prompt = rebuilt
+    }
+    normalizedTargetAnswer = resolveRoleplayTargetAnswer(normalizedTargetAnswer, scopedLesson.id)
+    normalizedAcceptedAnswers = normalizedAcceptedAnswers.map((item) =>
+      resolveRoleplayTargetAnswer(item, scopedLesson.id)
+    )
+    const axis = inferRoleplayAxis(normalizedTargetAnswer, scopedLesson, index % 3)
+    normalizedHint = buildRoleplayHint(axis, scopedLesson.id)
+  }
+
   if (!prompt) return null
   if (type === 'dropdown-fill') {
     prompt = normalizeGapFillPrompt(prompt)
@@ -431,11 +484,13 @@ export function normalizeAiPracticeQuestion(
   const normalizedKeywords =
     isTranslateBackedFreeResponse
       ? undefined
-      : keywords && keywords.length > 0
-        ? keywords
-        : type === 'free-response' || type === 'roleplay-mini' || type === 'boss-challenge'
-          ? extractSemanticKeywords(normalizedTargetAnswer)
-          : undefined
+      : type === 'roleplay-mini'
+        ? extractRoleplayKeywords(normalizedTargetAnswer, scopedLesson)
+        : keywords && keywords.length > 0
+          ? keywords
+          : type === 'free-response' || type === 'boss-challenge'
+            ? extractSemanticKeywords(normalizedTargetAnswer)
+            : undefined
 
   const tolerance =
     isTranslateBackedFreeResponse && canonicalExercise
@@ -471,9 +526,11 @@ export function normalizeAiPracticeQuestion(
     minWords:
       isTranslateBackedFreeResponse
         ? undefined
-        : typeof source.minWords === 'number' && source.minWords > 0
-          ? Math.min(20, source.minWords)
-          : undefined,
+        : type === 'roleplay-mini'
+          ? 2
+          : typeof source.minWords === 'number' && source.minWords > 0
+            ? Math.min(20, source.minWords)
+            : undefined,
     hint:
       type === 'voice-shadow' || type === 'dictation' || type === 'listening-select'
         ? undefined

@@ -183,6 +183,10 @@ import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
 import { countWrongChoiceLikeBefore } from '@/lib/practice/engine/stepSpec'
 import { resolvePracticeTargetQuestionCount } from '@/lib/practice/practiceSessionProgress'
 import { buildSeenPracticeKeys } from '@/lib/practice/pickUniquePracticeQuestions'
+import {
+  buildPracticeGenerateDedupPayload,
+  buildPracticeGenerateInitialDedupPayload,
+} from '@/lib/practice/buildPracticeGenerateClientPayload'
 import { buildActivePracticeMenuSnapshot } from '@/lib/practice/buildActivePracticeMenuSnapshot'
 import {
   resolvePracticeQuestionsFromGenerateResponse,
@@ -3672,6 +3676,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             count: request.mode === 'reference' ? 1 : initialCount,
             fromIndex: 0,
             seenKeys: [],
+            ...buildPracticeGenerateInitialDedupPayload(request.mode),
           }),
         })
         const data = (await response.json()) as PracticeGenerateResponse
@@ -3857,6 +3862,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             count: mode === 'reference' ? 1 : initialCount,
             fromIndex: 0,
             seenKeys: [],
+            ...buildPracticeGenerateInitialDedupPayload(mode),
           }),
         })
         const data = (await response.json()) as PracticeGenerateResponse
@@ -3971,6 +3977,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               fromIndex: session.questions.length,
               seenKeys: buildSeenPracticeKeys(session.questions),
               ...buildPracticeGenerateAdaptiveContext(session),
+              ...buildPracticeGenerateDedupPayload(session),
             }),
           })
           const data = (await response.json()) as PracticeGenerateResponse
@@ -4085,6 +4092,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               fromIndex: session.questions.length,
               seenKeys: buildSeenPracticeKeys(session.questions),
               ...buildPracticeGenerateAdaptiveContext(session),
+              ...buildPracticeGenerateDedupPayload(session),
             }),
           })
           const data = (await response.json()) as PracticeGenerateResponse

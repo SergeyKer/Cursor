@@ -47,7 +47,7 @@ const REFERENCE_EXERCISE_META: Record<
   },
   'roleplay-mini': {
     label: 'Мини-диалог',
-    summary: 'Дайте короткий ответ как в реальном диалоге.',
+    summary: 'Ответьте собеседнику одним-двумя предложениями по шаблону темы.',
   },
   'boss-challenge': {
     label: 'Финальный вызов',

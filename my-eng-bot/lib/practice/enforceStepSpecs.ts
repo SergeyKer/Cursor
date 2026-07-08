@@ -8,10 +8,18 @@ import { inferGapWordSlot } from '@/lib/practice/gapWordSlot'
 import { sanitizeCanonicalOptions } from '@/lib/practice/sanitizeCanonicalOptions'
 import { normalizeAiPracticeQuestion } from '@/lib/practice/normalizeAiPracticeQuestion'
 import { resolvePracticeLessonStep } from '@/lib/practice/resolvePracticeLessonStep'
+import {
+  buildRoleplayPromptFromAnchor,
+  selectRoleplayAnchor,
+  type PriorSessionPhrase,
+} from '@/lib/practice/roleplaySessionContinuity'
+import { roleplayPromptHasContext } from '@/lib/practice/prompt/buildRoleplayPrompt'
+import { buildRoleplayHint, extractRoleplayKeywords, inferRoleplayAxis } from '@/lib/practice/prompt/roleplayPromptEngine'
 import type { LessonData } from '@/types/lesson'
 import type { PracticeMode, PracticeQuestion } from '@/types/practice'
 
 const CHALLENGE_SPEED_ROUND_INDEX = 10
+const CHALLENGE_ROLEPLAY_INDEX = 9
 
 function resolveTierForEnforce(
   mode: PracticeMode,
@@ -36,7 +44,8 @@ export function enforceStepSpecs(
   mode: PracticeMode,
   fromIndex: number,
   rawRows: unknown[],
-  choiceLikeWrongCountBefore?: number
+  choiceLikeWrongCountBefore?: number,
+  priorSessionPhrases: PriorSessionPhrase[] = []
 ): PracticeQuestion[] {
   if (mode === 'reference') return questions
 
@@ -111,6 +120,42 @@ export function enforceStepSpecs(
           candidates: extraWords,
           lesson,
         }) ?? buildWordBuilderProExtraWords(normalized.targetAnswer, lesson)
+    }
+
+    if (spec.type === 'roleplay-mini' && stepIndex === CHALLENGE_ROLEPLAY_INDEX) {
+      const prior = [
+        ...priorSessionPhrases,
+        ...questions.slice(0, offset).map((item, batchOffset) => ({
+          stepIndex: fromIndex + batchOffset,
+          type: item.type,
+          targetAnswer: item.targetAnswer,
+          prompt: item.prompt,
+        })),
+      ]
+      const anchor = selectRoleplayAnchor(prior)
+      if (anchor) {
+        const axis = inferRoleplayAxis(anchor.targetAnswer, lesson)
+        normalized = {
+          ...normalized,
+          type: 'roleplay-mini',
+          targetAnswer: anchor.targetAnswer,
+          acceptedAnswers: Array.from(
+            new Set([anchor.targetAnswer, ...normalized.acceptedAnswers])
+          ),
+          prompt: buildRoleplayPromptFromAnchor(anchor, lesson),
+          hint: buildRoleplayHint(axis, lesson.id),
+          keywords: extractRoleplayKeywords(anchor.targetAnswer, lesson),
+          minWords: 2,
+        }
+      } else if (!roleplayPromptHasContext(normalized.prompt)) {
+        const axis = inferRoleplayAxis(normalized.targetAnswer, lesson)
+        normalized = {
+          ...normalized,
+          hint: buildRoleplayHint(axis, lesson.id),
+          keywords: extractRoleplayKeywords(normalized.targetAnswer, lesson),
+          minWords: 2,
+        }
+      }
     }
 
     return { ...normalized, extraWords }

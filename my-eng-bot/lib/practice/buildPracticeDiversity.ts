@@ -57,7 +57,7 @@ export function collectPracticeSourceSituations(lesson: LessonData): string[] {
   return (lesson.repeatConfig?.sourceSituations ?? []).filter((item) => item.trim().length > 0)
 }
 
-function inferScenarioCategory(situation: string): PracticeScenarioCategory {
+export function inferScenarioCategory(situation: string): PracticeScenarioCategory {
   const normalized = situation.toLowerCase()
   for (const [category, hints] of Object.entries(LESSON_1_SCENARIO_CATEGORY_HINTS) as Array<
     [PracticeScenarioCategory, string[]]
@@ -108,7 +108,13 @@ function buildReferenceDiversityRule(params: {
       'Put English phrase only in audioText/targetAnswer; Russian situational prompt (Ситуация/Тема) without listening instruction.'
     )
   } else if (params.referenceExerciseType === 'roleplay-mini') {
-    parts.push('Mini-dialogue lead in Russian; learner replies in 1-2 English sentences.')
+    parts.push(
+      'Mini-dialogue: prompt MUST include RU role intro + Собеседник: «{EN question}?».',
+      'Each scenario needs a unique targetAnswer, intro, and interlocutor EN question.',
+      'Never reuse targetAnswer from recentTargetAnswers or interlocutor from recentInterlocutorLines.',
+      'targetAnswer is declarative EN; lesson 2 uses declarative part only from step 6 pairs.',
+      'targetAnswer follows lesson blueprint step 6; minWords: 2; keywords must all match in validation.'
+    )
   } else if (params.referenceExerciseType === 'speed-round') {
     parts.push('Quick situational choice with exactly 3 options.')
   } else if (params.referenceExerciseType === 'boss-challenge') {
@@ -139,6 +145,7 @@ function buildSessionDiversityRule(params: {
   suggestedScenario?: string
   sourceSituations: string[]
   practiceType?: PracticeExerciseType
+  stepIndex?: number
 }): string {
   const parts = [
     'Avoid repeating seenKeys; generate fresh prompts and answers.',
@@ -160,6 +167,16 @@ function buildSessionDiversityRule(params: {
     parts.push(
       'listening-select: Russian situational prompt only; English phrase in audioText/targetAnswer; exactly 3 options; hint empty; never repeat targetAnswer in prompt.'
     )
+  }
+  if (params.practiceType === 'roleplay-mini') {
+    parts.push(
+      'roleplay-mini: RU intro + Собеседник EN question ending with ?; targetAnswer declarative EN; minWords 2.'
+    )
+    if (params.stepIndex === 9) {
+      parts.push(
+        'CHALLENGE step 10: targetAnswer MUST equal anchor phrase from priorSessionPhrases; interlocutor elicits that same phrase.'
+      )
+    }
   }
   if (params.lesson.id === '1') {
     parts.push('Rotate weather, time, and distance; avoid repeating "темно" / It\'s dark in consecutive items.')
@@ -206,6 +223,7 @@ export function buildPracticeDiversityPayload(params: {
           suggestedScenario,
           sourceSituations,
           practiceType: params.referenceExerciseType ?? stepSpec?.type,
+          stepIndex: params.stepIndex,
         })
 
   return {

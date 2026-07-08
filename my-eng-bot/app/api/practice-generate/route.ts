@@ -10,6 +10,7 @@ import { buildProviderUserMessage, PRACTICE_REFERENCE_FALLBACK_NOTICE } from '@/
 import { inferGapWordSlot } from '@/lib/practice/gapWordSlot'
 import { DROPDOWN_FILL_SYSTEM_RULES } from '@/lib/practice/prompt/buildDropdownFillPrompt'
 import { DICTATION_SYSTEM_RULES } from '@/lib/practice/prompt/buildDictationPrompt'
+import { ROLEPLAY_MINI_SYSTEM_RULES } from '@/lib/practice/prompt/buildRoleplayPrompt'
 import { sanitizeCanonicalOptions } from '@/lib/practice/sanitizeCanonicalOptions'
 import {
   buildEtalonPromptForReferenceType,
@@ -23,6 +24,7 @@ import { resolvePracticeLessonStep } from '@/lib/practice/resolvePracticeLessonS
 import { resolveReferenceLessonStep } from '@/lib/practice/resolveReferenceLessonStep'
 import { buildPracticeQuestionFingerprintFromQuestion, normalizePracticeFingerprintPart } from '@/lib/practice/questionFingerprint'
 import { normalizeAiPracticeQuestion } from '@/lib/practice/normalizeAiPracticeQuestion'
+import type { PriorSessionPhrase } from '@/lib/practice/roleplaySessionContinuity'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
 import type { AiProvider, Audience, OpenAiChatPreset } from '@/lib/types'
 import type { LessonData } from '@/types/lesson'
@@ -43,6 +45,9 @@ type Body = {
   fromIndex?: number
   seenKeys?: string[]
   choiceLikeWrongCountBefore?: number
+  priorSessionPhrases?: PriorSessionPhrase[]
+  recentTargetAnswers?: string[]
+  recentInterlocutorLines?: string[]
 }
 
 type PracticeGenerateFallbackReason = 'provider' | 'parse' | 'validation' | 'exception' | 'no_lesson'
@@ -97,21 +102,26 @@ function normalizeQuestions(
   referenceExerciseType?: PracticeExerciseType,
   recentPrompts: string[] = [],
   seenKeys: string[] = [],
-  choiceLikeWrongCountBefore?: number
+  choiceLikeWrongCountBefore?: number,
+  priorSessionPhrases: PriorSessionPhrase[] = [],
+  recentTargetAnswers: string[] = [],
+  recentInterlocutorLines: string[] = []
 ): PracticeQuestion[] {
   if (!Array.isArray(rawQuestions)) return []
   const plan = getPracticeModePlan(mode)
   const clampedCount = Math.max(1, Math.min(requestedCount, plan.length))
   const allowedTypes = new Set(plan.types)
   const rawSlice = rawQuestions.slice(0, plan.length)
-  const normalized = rawSlice
-    .map((row, index) =>
-      normalizeAiPracticeQuestion(row, lesson, fromIndex + index, {
-        mode,
-        referenceExerciseType: mode === 'reference' ? referenceExerciseType : undefined,
-      })
-    )
-    .filter((question): question is PracticeQuestion => Boolean(question))
+  const normalized: PracticeQuestion[] = []
+  for (let index = 0; index < rawSlice.length; index += 1) {
+    const question = normalizeAiPracticeQuestion(rawSlice[index], lesson, fromIndex + index, {
+      mode,
+      referenceExerciseType: mode === 'reference' ? referenceExerciseType : undefined,
+      priorSessionPhrases,
+      priorQuestionsInBatch: normalized,
+    })
+    if (question) normalized.push(question)
+  }
   let questions =
     mode === 'reference'
       ? normalized
@@ -124,13 +134,20 @@ function normalizeQuestions(
       mode,
       fromIndex,
       rawSlice.slice(0, questions.length),
-      choiceLikeWrongCountBefore
+      choiceLikeWrongCountBefore,
+      priorSessionPhrases
     )
   }
 
   if (mode === 'reference') {
     const filteredByType = referenceExerciseType ? questions.filter((question) => question.type === referenceExerciseType) : []
-    const fresh = pickFreshReferencePracticeQuestion(filteredByType, recentPrompts, seenKeys)
+    const fresh = pickFreshReferencePracticeQuestion(
+      filteredByType,
+      recentPrompts,
+      seenKeys,
+      recentTargetAnswers,
+      recentInterlocutorLines
+    )
     if (!fresh) return []
     return [{ ...fresh, id: `${fresh.id}-r${Date.now()}` }].slice(0, clampedCount)
   }
@@ -159,6 +176,7 @@ function buildSystemPrompt(referenceExerciseType?: PracticeExerciseType): string
     'For type dropdown-fill: options count is 3 for closed-class slots (articles, pronouns) or 4 for open lexical slots (countries, names); include targetAnswer.',
     ...DROPDOWN_FILL_SYSTEM_RULES,
     ...DICTATION_SYSTEM_RULES,
+    ...ROLEPLAY_MINI_SYSTEM_RULES,
     'Never mix single-word options and full-sentence options in one question.',
     'When canonicalSourceExercise is provided, mirror its answerFormat, prompt structure, and exactly 3 options when the lesson step has 3.',
     'context-clue with ___ in prompt: options must be single words only. context-clue with translation/situation: options must be full sentences only.',
@@ -196,7 +214,10 @@ function buildUserPayload(
   referenceExerciseType?: PracticeExerciseType,
   referenceStepIndex?: number,
   referenceTotal?: number,
-  recentPrompts: string[] = []
+  recentPrompts: string[] = [],
+  priorSessionPhrases: PriorSessionPhrase[] = [],
+  recentTargetAnswers: string[] = [],
+  recentInterlocutorLines: string[] = []
 ): string {
   const practiceStepIndex =
     mode === 'reference' ? (referenceStepIndex ?? 0) : fromIndex
@@ -295,6 +316,9 @@ function buildUserPayload(
       referenceStepIndex: mode === 'reference' ? referenceStepIndex : undefined,
       referenceTotal: mode === 'reference' ? referenceTotal : undefined,
       recentPrompts: mode === 'reference' ? recentPrompts : undefined,
+      priorSessionPhrases: mode === 'challenge' ? priorSessionPhrases : undefined,
+      recentTargetAnswers: mode === 'reference' ? recentTargetAnswers : undefined,
+      recentInterlocutorLines: mode === 'reference' ? recentInterlocutorLines : undefined,
       ...diversity,
       diversityRule: diversity.diversityRule,
       mustEndWithBossChallenge: plan.boss,
@@ -356,6 +380,23 @@ export async function POST(req: NextRequest) {
     Number.isFinite(body.choiceLikeWrongCountBefore) && body.choiceLikeWrongCountBefore! >= 0
       ? Math.floor(Number(body.choiceLikeWrongCountBefore))
       : undefined
+  const priorSessionPhrases = Array.isArray(body.priorSessionPhrases)
+    ? body.priorSessionPhrases
+        .filter((item): item is PriorSessionPhrase => Boolean(item && typeof item === 'object'))
+        .map((item) => ({
+          stepIndex: Number.isFinite(item.stepIndex) ? Number(item.stepIndex) : 0,
+          type: isPracticeExerciseType(item.type) ? item.type : 'choice',
+          targetAnswer: typeof item.targetAnswer === 'string' ? item.targetAnswer : '',
+          prompt: typeof item.prompt === 'string' ? item.prompt : undefined,
+        }))
+        .filter((item) => item.targetAnswer.trim().length > 0)
+    : []
+  const recentTargetAnswers = Array.isArray(body.recentTargetAnswers)
+    ? body.recentTargetAnswers.filter((item): item is string => typeof item === 'string')
+    : []
+  const recentInterlocutorLines = Array.isArray(body.recentInterlocutorLines)
+    ? body.recentInterlocutorLines.filter((item): item is string => typeof item === 'string')
+    : []
   const lesson = body.lesson ?? (body.lessonId ? getStructuredLessonById(body.lessonId) : null)
   if (!lesson) {
     return NextResponse.json({ error: 'Нет данных урока для практики.' }, { status: 400 })
@@ -441,7 +482,10 @@ export async function POST(req: NextRequest) {
               referenceExerciseType,
               referenceStepIndex,
               referenceTotal,
-              recentPrompts
+              recentPrompts,
+              priorSessionPhrases,
+              recentTargetAnswers,
+              recentInterlocutorLines
             ),
           },
         ],
@@ -479,7 +523,10 @@ export async function POST(req: NextRequest) {
         referenceExerciseType,
         recentPrompts,
         seenKeys,
-        choiceLikeWrongCountBefore
+        choiceLikeWrongCountBefore,
+        priorSessionPhrases,
+        recentTargetAnswers,
+        recentInterlocutorLines
       )
       if (candidates.length === 0) {
         fallbackReason = 'validation'
@@ -509,6 +556,8 @@ export async function POST(req: NextRequest) {
           referenceTotal,
           recentPrompts,
           seenKeys,
+          recentTargetAnswers,
+          recentInterlocutorLines,
         })
         if (referenceFallback) {
           return NextResponse.json(

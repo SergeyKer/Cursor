@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   splitLabel,
   splitLeadingTaskImperative,
+  splitTrailingTaskImperative,
   normalizeTranslatePromptPunctuation,
 } from '@/lib/lessonBubbleTextRender'
 
@@ -18,6 +19,13 @@ describe('lessonBubbleTextRender', () => {
       expect(splitLabel('Переведите на английский: "Я знаю, что ей нравится."')).toEqual({
         label: 'Переведите на английский',
         rest: '"Я знаю, что ей нравится."',
+      })
+    })
+
+    it('splits roleplay interlocutor label', () => {
+      expect(splitLabel('Собеседник: «На улице холодно.»')).toEqual({
+        label: 'Собеседник',
+        rest: '«На улице холодно.»',
       })
     })
 
@@ -57,6 +65,36 @@ describe('lessonBubbleTextRender', () => {
 
     it('returns null for text without imperative', () => {
       expect(splitLeadingTaskImperative('шаг 1 · тип 3/12 (choice) · prompt')).toBeNull()
+    })
+  })
+
+  describe('splitTrailingTaskImperative', () => {
+    it('splits roleplay task label at end for adult', () => {
+      expect(
+        splitTrailingTaskImperative(
+          'На улице темно. Собеседник: «What is it like outside?». Скажите ответ.'
+        )
+      ).toEqual({
+        body: 'На улице темно. Собеседник: «What is it like outside?».',
+        imperative: 'Скажите ответ.',
+      })
+    })
+
+    it('splits roleplay task label at end for child', () => {
+      expect(
+        splitTrailingTaskImperative('Вы студент. Собеседник: «Who are you?». Скажи ответ.')
+      ).toEqual({
+        body: 'Вы студент. Собеседник: «Who are you?».',
+        imperative: 'Скажи ответ.',
+      })
+    })
+
+    it('returns null without Собеседник marker', () => {
+      expect(splitTrailingTaskImperative('Переведите на английский: "фраза". Скажите ответ.')).toBeNull()
+    })
+
+    it('returns null for leading imperative tasks', () => {
+      expect(splitTrailingTaskImperative('Впишите одно слово так, чтобы внутри остался порядок слов.')).toBeNull()
     })
   })
 
