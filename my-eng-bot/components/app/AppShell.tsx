@@ -1719,7 +1719,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     }): boolean => {
       const provider = engvoActiveProviderRef.current
       const speechSpeed = clampEngvoRealtimeSpeed(
-        payload.speed ?? engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset),
+        payload.speed ?? engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset, provider),
         provider
       )
       const instructions = buildEngvoRealtimeInstructionsClient({
@@ -2319,7 +2319,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     engvoActiveProviderRef.current = engvoProvider
     engvoLastAppliedRealtimeVoiceRef.current =
       engvoProvider === 'xai' ? engvoXaiVoice : engvoRealtimeVoice
-    const speechSpeedForCall = engvoSpeechSpeedFromPreset(presetForCall)
+    const speechSpeedForCall = engvoSpeechSpeedFromPreset(presetForCall, engvoProvider)
     engvoLastAppliedRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(
       speechSpeedForCall,
       engvoProvider
@@ -2739,7 +2739,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         const nextPreset = getEngvoDefaultSpeechSpeedPreset(settings.audience, level)
         setEngvoSpeechSpeedPreset(nextPreset)
         if (engvoVoiceMode) {
-          engvoPendingRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(engvoSpeechSpeedFromPreset(nextPreset))
+          engvoPendingRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(
+            engvoSpeechSpeedFromPreset(nextPreset, engvoActiveProviderRef.current),
+            engvoActiveProviderRef.current
+          )
           setEngvoSessionUpdateTick((prev) => prev + 1)
         }
       }
@@ -2755,7 +2758,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setEngvoSpeechSpeedPreset(preset)
       saveEngvoSpeechSpeedPreset(preset)
       if (engvoVoiceMode) {
-        engvoPendingRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(engvoSpeechSpeedFromPreset(preset))
+        engvoPendingRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(
+          engvoSpeechSpeedFromPreset(preset, engvoActiveProviderRef.current),
+          engvoActiveProviderRef.current
+        )
         setEngvoSessionUpdateTick((prev) => prev + 1)
       }
     },

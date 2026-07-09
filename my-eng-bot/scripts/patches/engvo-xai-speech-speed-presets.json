@@ -1,0 +1,18 @@
+[
+  [
+    "      const speechSpeed = clampEngvoRealtimeSpeed(\n        payload.speed ?? engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset),\n        provider\n      )",
+    "      const speechSpeed = clampEngvoRealtimeSpeed(\n        payload.speed ?? engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset, provider),\n        provider\n      )"
+  ],
+  [
+    "    const speechSpeedForCall = engvoSpeechSpeedFromPreset(presetForCall)\n    engvoLastAppliedRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(\n      speechSpeedForCall,\n      engvoProvider\n    )",
+    "    const speechSpeedForCall = engvoSpeechSpeedFromPreset(presetForCall, engvoProvider)\n    engvoLastAppliedRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(\n      speechSpeedForCall,\n      engvoProvider\n    )"
+  ],
+  [
+    "          engvoPendingRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(engvoSpeechSpeedFromPreset(nextPreset))\n          setEngvoSessionUpdateTick((prev) => prev + 1)",
+    "          engvoPendingRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(\n            engvoSpeechSpeedFromPreset(nextPreset, engvoActiveProviderRef.current),\n            engvoActiveProviderRef.current\n          )\n          setEngvoSessionUpdateTick((prev) => prev + 1)"
+  ],
+  [
+    "        engvoPendingRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(engvoSpeechSpeedFromPreset(preset))\n        setEngvoSessionUpdateTick((prev) => prev + 1)",
+    "        engvoPendingRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(\n          engvoSpeechSpeedFromPreset(preset, engvoActiveProviderRef.current),\n          engvoActiveProviderRef.current\n        )\n        setEngvoSessionUpdateTick((prev) => prev + 1)"
+  ]
+]

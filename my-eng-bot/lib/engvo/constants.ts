@@ -81,11 +81,22 @@ export const ENGVO_DIALING_ASSISTANT_TEXT = 'Набираем Engvo…'
 export const ENGVO_REALTIME_SPEED_MIN = 0.25
 export const ENGVO_REALTIME_SPEED_MAX = 1.5
 
+/** OpenAI Realtime preset speeds (UI labels shared with xAI). */
 export const ENGVO_SPEECH_SPEED_PRESETS = [
   { id: 'conversational', label: 'Разговорная', speed: 1.0 },
   { id: 'normal', label: 'Обычная', speed: 0.9 },
   { id: 'calm', label: 'Спокойная', speed: 0.8 },
 ] as const
+
+/** Grok Voice Agent: slightly slower ladder than OpenAI. */
+export const ENGVO_XAI_SPEECH_SPEED_BY_PRESET: Record<
+  (typeof ENGVO_SPEECH_SPEED_PRESETS)[number]['id'],
+  number
+> = {
+  conversational: 1.0,
+  normal: 0.85,
+  calm: 0.7,
+}
 
 export type EngvoSpeechSpeedPresetId = (typeof ENGVO_SPEECH_SPEED_PRESETS)[number]['id']
 
@@ -166,7 +177,13 @@ export function shouldSendOutputAudioBufferClear(provider: EngvoProvider): boole
   return provider === 'openai'
 }
 
-export function engvoSpeechSpeedFromPreset(id: EngvoSpeechSpeedPresetId): number {
+export function engvoSpeechSpeedFromPreset(
+  id: EngvoSpeechSpeedPresetId,
+  provider: EngvoProvider = 'openai'
+): number {
+  if (provider === 'xai') {
+    return ENGVO_XAI_SPEECH_SPEED_BY_PRESET[id] ?? 1.0
+  }
   const row = ENGVO_SPEECH_SPEED_PRESETS.find((p) => p.id === id)
   return row?.speed ?? 1.0
 }

@@ -14,10 +14,17 @@ describe('Engvo speech speed helpers', () => {
     expect(clampEngvoRealtimeSpeed(Number.NaN)).toBe(1)
   })
 
-  it('maps presets to numeric speed', () => {
+  it('maps presets to numeric speed for OpenAI', () => {
     expect(engvoSpeechSpeedFromPreset('conversational')).toBe(1.0)
     expect(engvoSpeechSpeedFromPreset('normal')).toBe(0.9)
     expect(engvoSpeechSpeedFromPreset('calm')).toBe(0.8)
+    expect(engvoSpeechSpeedFromPreset('conversational', 'openai')).toBe(1.0)
+  })
+
+  it('maps presets to numeric speed for xAI (1 / 0.85 / 0.7)', () => {
+    expect(engvoSpeechSpeedFromPreset('conversational', 'xai')).toBe(1.0)
+    expect(engvoSpeechSpeedFromPreset('normal', 'xai')).toBe(0.85)
+    expect(engvoSpeechSpeedFromPreset('calm', 'xai')).toBe(0.7)
   })
 
   it('defaults preset by audience when level is not A1', () => {
