@@ -54,26 +54,41 @@ function passwordHeader(password: string): HeadersInit {
 }
 
 const fieldClass =
-  'mt-1.5 w-full border border-neutral-200 bg-white px-3 py-2.5 font-mono text-sm text-neutral-900 outline-none transition focus:border-neutral-900'
+  'mt-1.5 w-full rounded-xl border border-sky-100/80 bg-white/90 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-300 focus:border-sky-400 focus:ring-2 focus:ring-sky-200/70'
 const btnPrimary =
-  'inline-flex items-center justify-center border border-neutral-900 bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40'
+  'inline-flex items-center justify-center rounded-xl bg-[#5093EE] px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-sky-200/60 transition hover:bg-[#3f82dd] disabled:cursor-not-allowed disabled:opacity-40'
 const btnGhost =
-  'inline-flex items-center justify-center border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900'
+  'inline-flex items-center justify-center rounded-full border border-sky-100 bg-white/70 px-3.5 py-1.5 text-sm text-slate-600 shadow-sm transition hover:border-sky-200 hover:bg-white hover:text-slate-900'
 const btnDanger =
-  'inline-flex items-center justify-center border border-red-600 bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-700'
-const btnTabActive = 'border-neutral-900 bg-neutral-900 text-white'
-const btnTabIdle = 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900'
+  'inline-flex items-center justify-center rounded-xl bg-rose-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-rose-200/50 transition hover:bg-rose-600'
+const btnTabActive = 'border-transparent bg-[#5093EE] text-white shadow-sm shadow-sky-200/70 hover:bg-[#3f82dd] hover:text-white'
+const btnTabIdle = 'border-sky-100 bg-white/70 text-slate-500 hover:border-sky-200 hover:bg-white hover:text-slate-800'
+const panelClass = 'rounded-2xl border border-white/70 bg-white/75 p-4 shadow-[0_8px_30px_rgba(80,147,238,0.08)] backdrop-blur-sm'
+const labelClass = 'block text-xs font-medium uppercase tracking-[0.12em] text-slate-400'
+const sectionLabelClass = 'font-mono text-[11px] uppercase tracking-[0.14em] text-sky-500/80'
+const alertErrorClass =
+  'rounded-xl border border-rose-200/80 bg-rose-50/90 px-3.5 py-2.5 font-mono text-xs text-rose-700'
+const alertOkClass =
+  'rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3.5 py-2.5 font-mono text-xs text-emerald-700'
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="h-[100dvh] overflow-y-auto overscroll-y-contain bg-white text-neutral-900 antialiased">
+    <div className="h-[100dvh] overflow-y-auto overscroll-y-contain text-slate-800 antialiased">
       <div
-        className="pointer-events-none fixed inset-0 opacity-[0.35]"
+        className="pointer-events-none fixed inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse 80% 50% at 10% -10%, rgba(80,147,238,0.28), transparent 55%), radial-gradient(ellipse 70% 45% at 95% 5%, rgba(125,211,252,0.35), transparent 50%), linear-gradient(165deg, #e8f1f8 0%, #f4f8fc 42%, #eef4fa 100%)',
+        }}
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none fixed inset-0 opacity-[0.22]"
         style={{
           backgroundImage:
-            'linear-gradient(to right, #e5e5e5 1px, transparent 1px), linear-gradient(to bottom, #e5e5e5 1px, transparent 1px)',
-          backgroundSize: '24px 24px',
-          maskImage: 'linear-gradient(to bottom, black 0%, transparent 72%)',
+            'linear-gradient(to right, rgba(80,147,238,0.18) 1px, transparent 1px), linear-gradient(to bottom, rgba(80,147,238,0.18) 1px, transparent 1px)',
+          backgroundSize: '28px 28px',
+          maskImage: 'linear-gradient(to bottom, black 0%, transparent 65%)',
         }}
         aria-hidden
       />
@@ -84,10 +99,10 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-neutral-400">
+    <div className="flex items-baseline gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-sky-500/70">
       <span>{label}</span>
-      <span className="h-px flex-1 bg-neutral-200" />
-      <span className="text-neutral-600 normal-case tracking-normal">{value}</span>
+      <span className="h-px flex-1 bg-sky-200/60" />
+      <span className="normal-case tracking-normal text-slate-500">{value}</span>
     </div>
   )
 }
@@ -355,13 +370,13 @@ export default function VoiceLabApp() {
         <div className="mx-auto flex min-h-[70dvh] max-w-md flex-col justify-center gap-8">
           <div className="space-y-3">
             <MetaRow label="module" value="voice-lab" />
-            <h1 className="text-2xl font-semibold tracking-tight">Engvo Voice Lab</h1>
-            <p className="text-sm leading-relaxed text-neutral-500">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Engvo Voice Lab</h1>
+            <p className="text-sm leading-relaxed text-slate-500">
               Служебная панель клонирования голосов для меню Other.
             </p>
           </div>
-          <form onSubmit={onUnlock} className="space-y-4 border border-neutral-200 bg-white p-5">
-            <label className="block text-xs font-medium uppercase tracking-[0.12em] text-neutral-500">
+          <form onSubmit={onUnlock} className={`${panelClass} space-y-4 p-5`}>
+            <label className={labelClass}>
               Access key
               <input
                 type="password"
@@ -371,11 +386,7 @@ export default function VoiceLabApp() {
                 autoComplete="off"
               />
             </label>
-            {gateError && (
-              <p className="border border-red-200 bg-red-50 px-3 py-2 font-mono text-xs text-red-700">
-                {gateError}
-              </p>
-            )}
+            {gateError && <p className={alertErrorClass}>{gateError}</p>}
             <button type="submit" className={`${btnPrimary} w-full`}>
               Unlock
             </button>
@@ -388,11 +399,11 @@ export default function VoiceLabApp() {
 
   return (
     <Shell>
-      <header className="mb-8 space-y-5 border-b border-neutral-200 pb-6">
+      <header className="mb-8 space-y-5 border-b border-sky-100/80 pb-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
             <MetaRow label="module" value="voice-lab / custom-voices" />
-            <h1 className="text-2xl font-semibold tracking-tight">Engvo Voice Lab</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Engvo Voice Lab</h1>
           </div>
           <div className="flex gap-2">
             <button
@@ -411,53 +422,41 @@ export default function VoiceLabApp() {
             </button>
           </div>
         </div>
-        <p className="max-w-xl text-sm leading-relaxed text-neutral-500">
+        <p className="max-w-xl text-sm leading-relaxed text-slate-500">
           Запись reference-аудио → create / register voice_id → голос появляется в Other.
         </p>
       </header>
 
       {(error || status) && (
         <div className="mb-6 space-y-2">
-          {error && (
-            <p className="border border-red-200 bg-red-50 px-3 py-2 font-mono text-xs text-red-700">
-              ERR · {error}
-            </p>
-          )}
-          {status && (
-            <p className="border border-neutral-200 bg-neutral-50 px-3 py-2 font-mono text-xs text-neutral-700">
-              OK · {status}
-            </p>
-          )}
+          {error && <p className={alertErrorClass}>ERR · {error}</p>}
+          {status && <p className={alertOkClass}>OK · {status}</p>}
         </div>
       )}
 
       {tab === 'record' && (
         <section className="space-y-6">
           <div className="space-y-2">
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.14em] text-neutral-400">
-              01 · Script
-            </h2>
-            <p className="text-sm leading-relaxed text-neutral-600">{ENGVO_VOICE_LAB_SCRIPT_HINT}</p>
+            <h2 className={sectionLabelClass}>01 · Script</h2>
+            <p className="text-sm leading-relaxed text-slate-600">{ENGVO_VOICE_LAB_SCRIPT_HINT}</p>
           </div>
 
-          <ol className="divide-y divide-neutral-100 border border-neutral-200 bg-white">
+          <ol className="divide-y divide-sky-50/90 overflow-hidden rounded-2xl border border-white/70 bg-white/75 shadow-[0_8px_30px_rgba(80,147,238,0.08)] backdrop-blur-sm">
             {ENGVO_VOICE_LAB_SCRIPT_LINES.map((line, index) => (
               <li key={line.en} className="grid gap-1 px-4 py-3.5 sm:grid-cols-[2.5rem_1fr]">
-                <span className="font-mono text-[11px] text-neutral-300">
+                <span className="font-mono text-[11px] text-sky-300">
                   {String(index + 1).padStart(2, '0')}
                 </span>
                 <div>
-                  <p className="text-[15px] leading-snug text-neutral-900">{line.en}</p>
-                  <p className="mt-1 text-sm text-neutral-400">{line.ru}</p>
+                  <p className="text-[15px] leading-snug text-slate-800">{line.en}</p>
+                  <p className="mt-1 text-sm text-slate-400">{line.ru}</p>
                 </div>
               </li>
             ))}
           </ol>
 
-          <div className="space-y-3 border border-neutral-200 bg-white p-4">
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.14em] text-neutral-400">
-              02 · Capture
-            </h2>
+          <div className={`${panelClass} space-y-3`}>
+            <h2 className={sectionLabelClass}>02 · Capture</h2>
             <div className="flex flex-wrap items-center gap-3">
               {!recording ? (
                 <button type="button" className={btnDanger} onClick={() => void startRecording()}>
@@ -468,27 +467,27 @@ export default function VoiceLabApp() {
                   ■ Stop
                 </button>
               )}
-              <span className="font-mono text-sm tabular-nums text-neutral-800">
+              <span className="font-mono text-sm tabular-nums text-slate-700">
                 {elapsedLabel}
-                <span className="ml-2 text-neutral-400">
+                <span className="ml-2 text-slate-400">
                   {elapsedMs >= TARGET_RECORD_MS ? 'ready ≥ 1:30' : 'target ≥ 1:30'}
                 </span>
               </span>
             </div>
             <div className="space-y-1.5">
-              <div className="flex justify-between font-mono text-[10px] uppercase tracking-wider text-neutral-400">
+              <div className="flex justify-between font-mono text-[10px] uppercase tracking-wider text-slate-400">
                 <span>level</span>
                 <span>progress {progressPct}%</span>
               </div>
-              <div className="h-1.5 w-full bg-neutral-100">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-sky-50">
                 <div
-                  className="h-full bg-emerald-500 transition-[width]"
+                  className="h-full rounded-full bg-emerald-400 transition-[width]"
                   style={{ width: `${Math.round(level * 100)}%` }}
                 />
               </div>
-              <div className="h-1 w-full bg-neutral-100">
+              <div className="h-1 w-full overflow-hidden rounded-full bg-sky-50">
                 <div
-                  className="h-full bg-neutral-900 transition-[width]"
+                  className="h-full rounded-full bg-[#5093EE] transition-[width]"
                   style={{ width: `${progressPct}%` }}
                 />
               </div>
@@ -496,11 +495,9 @@ export default function VoiceLabApp() {
             {audioUrl && <audio controls src={audioUrl} className="mt-2 w-full" />}
           </div>
 
-          <div className="space-y-3 border border-neutral-200 bg-white p-4">
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.14em] text-neutral-400">
-              03 · Create
-            </h2>
-            <label className="block text-xs font-medium uppercase tracking-[0.12em] text-neutral-500">
+          <div className={`${panelClass} space-y-3`}>
+            <h2 className={sectionLabelClass}>03 · Create</h2>
+            <label className={labelClass}>
               Voice name
               <input
                 className={fieldClass}
@@ -522,25 +519,23 @@ export default function VoiceLabApp() {
       )}
 
       {tab === 'register' && (
-        <section className="space-y-4 border border-neutral-200 bg-white p-4">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.14em] text-neutral-400">
-            Register existing voice_id
-          </h2>
-          <p className="text-sm leading-relaxed text-neutral-600">
+        <section className={`${panelClass} space-y-4`}>
+          <h2 className={sectionLabelClass}>Register existing voice_id</h2>
+          <p className="text-sm leading-relaxed text-slate-600">
             Если create API недоступен: создайте голос в xAI Console, скопируйте voice_id и
             зарегистрируйте здесь.
           </p>
-          <label className="block text-xs font-medium uppercase tracking-[0.12em] text-neutral-500">
+          <label className={labelClass}>
             voice_id
             <input
-              className={fieldClass}
+              className={`${fieldClass} font-mono`}
               value={registerId}
               onChange={(e) => setRegisterId(e.target.value)}
               placeholder="nlbqfwie"
               maxLength={8}
             />
           </label>
-          <label className="block text-xs font-medium uppercase tracking-[0.12em] text-neutral-500">
+          <label className={labelClass}>
             Name
             <input
               className={fieldClass}
@@ -556,11 +551,9 @@ export default function VoiceLabApp() {
       )}
 
       {manifestSnippet && (
-        <section className="mt-8 space-y-3 border border-neutral-200 bg-white p-4">
+        <section className={`mt-8 ${panelClass} space-y-3`}>
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.14em] text-neutral-400">
-              Manifest · commit payload
-            </h2>
+            <h2 className={sectionLabelClass}>Manifest · commit payload</h2>
             <button
               type="button"
               className={btnGhost}
@@ -569,7 +562,7 @@ export default function VoiceLabApp() {
               Copy
             </button>
           </div>
-          <pre className="overflow-x-auto border border-neutral-100 bg-neutral-50 p-3 font-mono text-xs leading-relaxed text-neutral-700">
+          <pre className="overflow-x-auto rounded-xl border border-sky-50 bg-slate-50/80 p-3 font-mono text-xs leading-relaxed text-slate-600">
             {manifestSnippet}
           </pre>
         </section>
@@ -577,29 +570,27 @@ export default function VoiceLabApp() {
 
       <section className="mt-8 space-y-3">
         <div className="flex items-baseline gap-2">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.14em] text-neutral-400">
-            Other · roster
-          </h2>
-          <span className="font-mono text-[11px] text-neutral-300">{voices.length}</span>
+          <h2 className={sectionLabelClass}>Other · roster</h2>
+          <span className="font-mono text-[11px] text-sky-300">{voices.length}</span>
         </div>
         {voices.length === 0 ? (
-          <p className="border border-dashed border-neutral-200 px-4 py-6 text-sm text-neutral-400">
+          <p className="rounded-2xl border border-dashed border-sky-200/70 bg-white/40 px-4 py-6 text-sm text-slate-400">
             Пока пусто — создайте или зарегистрируйте голос.
           </p>
         ) : (
-          <ul className="divide-y divide-neutral-100 border border-neutral-200 bg-white">
+          <ul className="divide-y divide-sky-50/90 overflow-hidden rounded-2xl border border-white/70 bg-white/75 shadow-[0_8px_30px_rgba(80,147,238,0.08)] backdrop-blur-sm">
             {voices.map((v) => (
               <li
                 key={v.voiceId}
                 className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
               >
                 <span className="min-w-0">
-                  <span className="font-medium text-neutral-900">{v.name}</span>{' '}
-                  <span className="font-mono text-neutral-400">{v.voiceId}</span>
+                  <span className="font-medium text-slate-800">{v.name}</span>{' '}
+                  <span className="font-mono text-sky-400/80">{v.voiceId}</span>
                 </span>
                 <button
                   type="button"
-                  className="shrink-0 font-mono text-xs text-red-600 hover:underline"
+                  className="shrink-0 font-mono text-xs text-rose-500 hover:underline"
                   onClick={() => void deleteVoice(v.voiceId)}
                 >
                   delete

@@ -34,23 +34,25 @@ export const CHAT_PATTERN_BLEND_MODE_OPTIONS: ReadonlyArray<{
   { id: 'darken', label: 'Darken' },
 ]
 
-/** Старые дефолты v1 — мигрируем на новые, если пользователь их не менял. */
-const LEGACY_CHAT_PATTERN_TUNING_BY_ID: Record<TunableChatPatternId, ChatPatternTuning> = {
-  'study-doodles': {
-    tileWidthPx: 300,
-    opacity: 0.14,
-    glassOpacity: 0.1,
-    blendMode: 'multiply',
-  },
+const SHARED_DEFAULT_CHAT_PATTERN_TUNING: ChatPatternTuning = {
+  tileWidthPx: 230,
+  opacity: 0.06,
+  glassOpacity: 0.06,
+  blendMode: 'multiply',
+}
+
+/** Старые дефолты — мигрируем на новые, если пользователь их не менял. */
+const LEGACY_CHAT_PATTERN_TUNING_BY_ID: Record<TunableChatPatternId, readonly ChatPatternTuning[]> = {
+  'study-doodles': [
+    { tileWidthPx: 300, opacity: 0.14, glassOpacity: 0.1, blendMode: 'multiply' },
+    { tileWidthPx: 190, opacity: 0.06, glassOpacity: 0.04, blendMode: 'multiply' },
+  ],
+  cosmos: [],
 }
 
 export const DEFAULT_CHAT_PATTERN_TUNING_BY_ID: Record<TunableChatPatternId, ChatPatternTuning> = {
-  'study-doodles': {
-    tileWidthPx: 190,
-    opacity: 0.06,
-    glassOpacity: 0.04,
-    blendMode: 'multiply',
-  },
+  'study-doodles': { ...SHARED_DEFAULT_CHAT_PATTERN_TUNING },
+  cosmos: { ...SHARED_DEFAULT_CHAT_PATTERN_TUNING },
 }
 
 export type ChatPatternTuningMap = Partial<Record<TunableChatPatternId, ChatPatternTuning>>
@@ -122,12 +124,12 @@ export function resolveChatPatternTuning(
 }
 
 function isLegacyDefaultTuning(id: TunableChatPatternId, tuning: ChatPatternTuning): boolean {
-  const legacy = LEGACY_CHAT_PATTERN_TUNING_BY_ID[id]
-  return (
-    tuning.tileWidthPx === legacy.tileWidthPx &&
-    tuning.opacity === legacy.opacity &&
-    tuning.glassOpacity === legacy.glassOpacity &&
-    tuning.blendMode === legacy.blendMode
+  return LEGACY_CHAT_PATTERN_TUNING_BY_ID[id].some(
+    (legacy) =>
+      tuning.tileWidthPx === legacy.tileWidthPx &&
+      tuning.opacity === legacy.opacity &&
+      tuning.glassOpacity === legacy.glassOpacity &&
+      tuning.blendMode === legacy.blendMode
   )
 }
 

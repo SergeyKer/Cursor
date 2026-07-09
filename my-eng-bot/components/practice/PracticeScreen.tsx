@@ -37,6 +37,7 @@ import {
 import {
   canCompleteChipPhase,
   PRACTICE_CORRECTION_CHIP_PHASE_MS,
+  resolvePracticeSayTextRevealReady,
   shouldResetCorrectionPhase,
   type PracticeChoiceCorrectionPhase,
 } from '@/lib/practice/practiceChoiceCorrectionPhase'
@@ -1464,9 +1465,11 @@ export default function PracticeScreen({
                         state === 'correction' &&
                         isPracticeRepeatCorrectionType(questionType)
                       const animateSayText = isTailVoiceRepeatCorrectionError && !prefersReducedMotion
-                      const sayTextRevealReadyForBubble = isTailVoiceRepeatCorrectionError
-                        ? correctionPhase === 'voiceReady' && errorSayTextRevealReady
-                        : errorSayTextRevealReady
+                      const sayTextRevealReadyForBubble = resolvePracticeSayTextRevealReady({
+                        isTailVoiceRepeatCorrectionError,
+                        correctionPhase,
+                        errorSayTextRevealReady,
+                      })
 
                       return (
                         <ChatBubbleFrame

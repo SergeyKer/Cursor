@@ -9,6 +9,11 @@ import {
   useState,
 } from 'react'
 import { AppIconFrame } from '@/components/AppIconFrame'
+import {
+  LanguageNoteSheetError,
+  LanguageNoteSheetLoading,
+  LanguageNoteSheetReady,
+} from '@/components/chat/LanguageNoteSheetBody'
 import type { AppColumnBounds } from '@/hooks/useAppColumnBounds'
 import { resolveAppPanelHorizontalStyle } from '@/lib/appPanelLayout'
 import {
@@ -29,6 +34,7 @@ export type FooterDetailSheetProps = {
   context: FooterSheetContext | null
   columnBounds?: AppColumnBounds | null
   onClose: () => void
+  onLanguageNoteRetry?: (messageIndex: number, originalText: string) => void
 }
 
 function usePrefersReducedMotion(): boolean {
@@ -44,7 +50,10 @@ function usePrefersReducedMotion(): boolean {
 }
 
 const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetProps>(
-  function FooterDetailSheet({ context, columnBounds = null, onClose }, ref) {
+  function FooterDetailSheet(
+    { context, columnBounds = null, onClose, onLanguageNoteRetry },
+    ref
+  ) {
     const prefersReducedMotion = usePrefersReducedMotion()
     const [open, setOpen] = useState(false)
     const [closing, setClosing] = useState(false)
@@ -54,6 +63,7 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
     const swipeStartYRef = useRef<number | null>(null)
     const swipeActiveRef = useRef(false)
     const dragDeltaRef = useRef(0)
+    const hadContextRef = useRef(false)
 
     const resetInlineSwipeStyles = useCallback(() => {
       const panel = panelRef.current
@@ -91,10 +101,20 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
 
     useEffect(() => {
       if (!context) {
+        hadContextRef.current = false
         setOpen(false)
         setClosing(false)
         return
       }
+
+      const isFirstOpen = !hadContextRef.current
+      hadContextRef.current = true
+
+      if (!isFirstOpen) {
+        setClosing(false)
+        return
+      }
+
       setClosing(false)
       setOpen(false)
       const frame = requestAnimationFrame(() => {
@@ -170,15 +190,51 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
 
     if (!context) return null
 
+    const isLanguageNote = context.source === 'language-note'
     const panelClassName = [
       'footer-sheet-panel',
+      isLanguageNote ? 'footer-sheet-panel--language-note' : '',
       open && !closing ? 'footer-sheet-panel--open' : '',
       closing ? 'footer-sheet-panel--closing' : '',
     ]
       .filter(Boolean)
       .join(' ')
 
+    const bodyClassName = [
+      'footer-sheet__body',
+      isLanguageNote ? 'footer-sheet__body--language-note' : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+
     const panelHorizontalStyle = resolveAppPanelHorizontalStyle(columnBounds)
+
+    const renderBody = () => {
+      if (context.mode === 'placeholder') {
+        return <p className="footer-sheet__placeholder">{FOOTER_SHEET_PLACEHOLDER_TEXT}</p>
+      }
+      if (context.source !== 'language-note') return null
+
+      const status = context.languageNoteStatus ?? 'loading'
+      if (status === 'loading') return <LanguageNoteSheetLoading />
+      if (status === 'error') {
+        return (
+          <LanguageNoteSheetError
+            message={context.languageNoteError ?? 'Не удалось загрузить подсказку.'}
+            onRetry={() => {
+              const index = context.languageNoteMessageIndex
+              const original = context.languageNoteOriginalText
+              if (index == null || !original || !onLanguageNoteRetry) return
+              onLanguageNoteRetry(index, original)
+            }}
+          />
+        )
+      }
+      if (context.languageNote) {
+        return <LanguageNoteSheetReady note={context.languageNote} />
+      }
+      return <LanguageNoteSheetLoading />
+    }
 
     return (
       <>
@@ -196,6 +252,7 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
           role="dialog"
           aria-modal="true"
           aria-labelledby="footer-sheet-title"
+          aria-busy={isLanguageNote && context.languageNoteStatus === 'loading' ? true : undefined}
           onTransitionEnd={handlePanelTransitionEnd}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -241,10 +298,8 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
               </button>
             </div>
           </div>
-          <div ref={bodyRef} className="footer-sheet__body">
-            {context.mode === 'placeholder' ? (
-              <p className="footer-sheet__placeholder">{FOOTER_SHEET_PLACEHOLDER_TEXT}</p>
-            ) : null}
+          <div ref={bodyRef} className={bodyClassName}>
+            {renderBody()}
           </div>
         </div>
       </>

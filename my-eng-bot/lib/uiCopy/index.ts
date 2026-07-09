@@ -5,3 +5,4 @@ export {
 } from '@/lib/uiCopy/appShellCopy'
 export { START_RUNTIME_COPY } from '@/lib/uiCopy/startRuntimeCopy'
 export { PRACTICE_REFERENCE_COPY } from '@/lib/uiCopy/practiceCopy'
+export { LANGUAGE_NOTE_COPY } from '@/lib/uiCopy/languageNote'

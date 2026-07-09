@@ -97,7 +97,13 @@ describe('buildLocalPracticeSession', () => {
     expect(wordBuilder?.targetAnswer).not.toBe('to')
     expect(wordBuilder?.prompt).not.toMatch(/___/)
     expect(questionsByType.get('roleplay-mini')?.keywords?.length).toBeGreaterThan(0)
-    expect(questionsByType.get('boss-challenge')?.minWords).toBeGreaterThanOrEqual(5)
+    expect(questionsByType.get('boss-challenge')?.minWords).toBeGreaterThanOrEqual(4)
+    expect(questionsByType.get('boss-challenge')?.tolerance).toBe('soft')
+    expect(questionsByType.get('boss-challenge')?.hint).toBeFalsy()
+    expect(questionsByType.get('boss-challenge')?.prompt).toMatch(/Ситуация:|Тема:/i)
+    expect(questionsByType.get('boss-challenge')?.prompt).not.toMatch(
+      /Финальный вызов|примените тему|соберите всё|Переведите/iu
+    )
 
     const choiceLikeTypes = session.questions.filter((q) => isChoiceLikePracticeType(q.type))
     expect(choiceLikeTypes.length).toBeGreaterThan(0)

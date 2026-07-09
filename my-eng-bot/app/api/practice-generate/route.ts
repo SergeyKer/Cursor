@@ -11,6 +11,7 @@ import { inferGapWordSlot } from '@/lib/practice/gapWordSlot'
 import { DROPDOWN_FILL_SYSTEM_RULES } from '@/lib/practice/prompt/buildDropdownFillPrompt'
 import { DICTATION_SYSTEM_RULES } from '@/lib/practice/prompt/buildDictationPrompt'
 import { ROLEPLAY_MINI_SYSTEM_RULES } from '@/lib/practice/prompt/buildRoleplayPrompt'
+import { BOSS_CHALLENGE_SYSTEM_RULES } from '@/lib/practice/prompt/buildBossChallengePrompt'
 import { sanitizeCanonicalOptions } from '@/lib/practice/sanitizeCanonicalOptions'
 import {
   buildEtalonPromptForReferenceType,
@@ -183,6 +184,7 @@ function buildSystemPrompt(referenceExerciseType?: PracticeExerciseType): string
     ...DROPDOWN_FILL_SYSTEM_RULES,
     ...DICTATION_SYSTEM_RULES,
     ...ROLEPLAY_MINI_SYSTEM_RULES,
+    ...BOSS_CHALLENGE_SYSTEM_RULES,
     'Never mix single-word options and full-sentence options in one question.',
     'When canonicalSourceExercise is provided, mirror its answerFormat, prompt structure, and exactly 3 options when the lesson step has 3.',
     'context-clue with ___ in prompt: options must be single words only. context-clue with translation/situation: options must be full sentences only.',

@@ -6,6 +6,7 @@ import {
   PRACTICE_CORRECTION_SAY_FADE_MS,
   PRACTICE_CORRECTION_SAY_PAUSE_MS,
   PRACTICE_CORRECTION_VOICE_READY_MS,
+  resolvePracticeSayTextRevealReady,
   shouldResetCorrectionPhase,
   showVoiceCorrectionComposer,
 } from '@/lib/practice/practiceChoiceCorrectionPhase'
@@ -136,5 +137,29 @@ describe('practiceChoiceCorrectionPhase', () => {
     expect(showVoiceCorrectionComposer('voiceLocked', 'voice-shadow')).toBe(true)
     expect(showVoiceCorrectionComposer('voiceReady', 'voice-shadow')).toBe(true)
     expect(showVoiceCorrectionComposer('chips', 'voice-shadow')).toBe(false)
+  })
+
+  it('keeps historical Скажи visible while tail correction defers reveal', () => {
+    expect(
+      resolvePracticeSayTextRevealReady({
+        isTailVoiceRepeatCorrectionError: false,
+        correctionPhase: 'voiceLocked',
+        errorSayTextRevealReady: false,
+      })
+    ).toBe(true)
+    expect(
+      resolvePracticeSayTextRevealReady({
+        isTailVoiceRepeatCorrectionError: true,
+        correctionPhase: 'voiceLocked',
+        errorSayTextRevealReady: false,
+      })
+    ).toBe(false)
+    expect(
+      resolvePracticeSayTextRevealReady({
+        isTailVoiceRepeatCorrectionError: true,
+        correctionPhase: 'voiceReady',
+        errorSayTextRevealReady: true,
+      })
+    ).toBe(true)
   })
 })

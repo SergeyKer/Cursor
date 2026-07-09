@@ -91,7 +91,7 @@ function resolveSlotForType(
     return {
       profileIndex: stepIndex,
       stepNumber: 6,
-      variantIndex: 2,
+      variantIndex: stepIndex % 3,
       axis: 'creative',
     }
   }

@@ -261,6 +261,34 @@ describe('normalizeAiPracticeQuestion', () => {
     expect(rebuilt!.prompt).not.toMatch(/Прослушайте/i)
     expect(rebuilt!.prompt).not.toContain('drink')
   })
+
+  it('normalizes boss-challenge to soft contract with pattern anchors', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const q = normalizeAiPracticeQuestion(
+      {
+        type: 'boss-challenge',
+        prompt: 'Финальный вызов: примените тему урока.',
+        targetAnswer: "It's time to go home.",
+        acceptedAnswers: ["It's time to go home."],
+        keywords: ['go', 'home'],
+        minWords: 5,
+        hint: 'Переведите',
+        tolerance: 'normalized',
+      },
+      lesson!,
+      11,
+      { mode: 'challenge' }
+    )
+    expect(q).not.toBeNull()
+    expect(q!.tolerance).toBe('soft')
+    expect(q!.minWords).toBe(4)
+    expect(q!.hint).toBeFalsy()
+    expect(q!.keywords).toEqual(['time to'])
+    expect(q!.prompt).toMatch(/Ситуация:|Тема:/i)
+    expect(q!.prompt).not.toMatch(/Финальный вызов|примените тему|Переведите/iu)
+  })
 })
 
 describe('isChoiceLikePracticeType', () => {

@@ -52,3 +52,16 @@ export function shouldResetCorrectionPhase(params: {
   if (!params.isCorrectionSession) return true
   return false
 }
+
+/**
+ * Historical / non-tail «Скажи» must stay visible while the current correction
+ * defers reveal via the global errorSayTextRevealReady flag.
+ */
+export function resolvePracticeSayTextRevealReady(params: {
+  isTailVoiceRepeatCorrectionError: boolean
+  correctionPhase: PracticeChoiceCorrectionPhase
+  errorSayTextRevealReady: boolean
+}): boolean {
+  if (!params.isTailVoiceRepeatCorrectionError) return true
+  return params.correctionPhase === 'voiceReady' && params.errorSayTextRevealReady
+}

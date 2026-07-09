@@ -56,6 +56,13 @@ describe('footer sheet CSS guards', () => {
     expect(css).toMatch(/\.footer-sheet__body[\s\S]*overflow-y:\s*auto/)
   })
 
+  it('fixes language-note sheet height and wider body inset', () => {
+    expect(css).toContain('--footer-sheet-language-note-height')
+    expect(css).toMatch(/\.footer-sheet-panel--language-note[\s\S]*height:\s*var\(--footer-sheet-language-note-height\)/)
+    expect(css).toMatch(/\.footer-sheet__body--language-note[\s\S]*padding-left:\s*26px/)
+    expect(css).toMatch(/\.footer-sheet__body--language-note[\s\S]*padding-right:\s*26px/)
+  })
+
   it('uses single contour and svg-centered close button', () => {
     expect(css).toMatch(/\.footer-sheet__close[\s\S]*border:\s*1px solid var\(--footer-sheet-divider\)/)
     expect(css).toMatch(/\.footer-sheet__close[\s\S]*background:\s*var\(--footer-sheet-bg\)/)

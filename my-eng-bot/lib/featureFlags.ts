@@ -8,5 +8,6 @@ export const featureFlags = {
   engvoVoiceV1: process.env.NEXT_PUBLIC_FEATURE_ENGVO_VOICE_V1 !== 'false',
   communicationMixVoiceInputV1: process.env.NEXT_PUBLIC_FEATURE_COMMUNICATION_MIX_VOICE_INPUT_V1 !== 'false',
   lessonLocalSilverCapV1: process.env.NEXT_PUBLIC_FEATURE_LESSON_LOCAL_SILVER_CAP_V1 !== 'false',
+  languageNoteV1: process.env.NEXT_PUBLIC_FEATURE_LANGUAGE_NOTE_V1 !== 'false',
 } as const
 

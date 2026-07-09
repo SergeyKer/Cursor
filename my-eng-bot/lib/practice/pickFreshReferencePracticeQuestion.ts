@@ -1,5 +1,6 @@
 import { normalizeEnglishForLearnerAnswerMatch } from '@/lib/normalizeEnglishForLearnerAnswerMatch'
 import { buildPracticeQuestionFingerprintFromQuestion } from '@/lib/practice/questionFingerprint'
+import { extractBossSituationKey } from '@/lib/practice/bossChallengeAnswerValidation'
 import { extractSituationKeyFromErrorFixPrompt } from '@/lib/practice/prompt/errorFixBrokenPhrase'
 import {
   parseInterlocutorFromPrompt,
@@ -52,6 +53,10 @@ export function pickFreshReferencePracticeQuestion(
       if (situationKey && usedSituations.has(situationKey)) continue
       const answerKey = normalizeAnswerKey(candidate.targetAnswer)
       if (answerKey && usedAnswers.has(answerKey)) continue
+    }
+    if (candidate.type === 'boss-challenge') {
+      const situationKey = extractBossSituationKey(candidate.prompt)
+      if (situationKey && usedSituations.has(situationKey)) continue
     }
     return candidate
   }

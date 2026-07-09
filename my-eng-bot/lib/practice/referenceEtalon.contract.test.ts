@@ -56,6 +56,18 @@ describe('reference etalon contract', () => {
             expect(uniqueTargets.size).toBeGreaterThanOrEqual(3)
           }
 
+          if (referenceType === 'boss-challenge') {
+            const uniqueSituations = new Set(
+              questions.map((question) => {
+                const match = /(?:Ситуация|Тема)\s*:\s*([^.]*)/iu.exec(question.prompt)
+                return (match?.[1] ?? question.prompt).trim().toLowerCase()
+              })
+            )
+            const uniquePrompts = new Set(questions.map((question) => question.prompt.trim().toLowerCase()))
+            expect(uniqueSituations.size).toBeGreaterThanOrEqual(4)
+            expect(uniquePrompts.size).toBeGreaterThanOrEqual(5)
+          }
+
           for (const question of questions) {
             expect(question.prompt).toMatch(/[А-Яа-яЁё]/)
             if (referenceType === 'free-response') {
@@ -91,7 +103,12 @@ describe('reference etalon contract', () => {
               expect(question.audioText).toBeFalsy()
             }
             if (referenceType === 'boss-challenge') {
-              expect(question.minWords).toBeGreaterThanOrEqual(5)
+              expect(question.minWords).toBeGreaterThanOrEqual(4)
+              expect(question.tolerance).toBe('soft')
+              expect(question.hint).toBeFalsy()
+              expect(question.prompt).toMatch(/Ситуация:|Тема:/i)
+              expect(question.prompt).not.toMatch(/Переведите|Финальный вызов|примените тему|соберите всё/iu)
+              expect(question.prompt).toMatch(/напиш|скажи|спроси|ответь/iu)
             }
             if (referenceType === 'roleplay-mini') {
               expect(question.prompt).toMatch(/Собеседник:\s*«[^»]+\?»/)

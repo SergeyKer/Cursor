@@ -40,6 +40,7 @@ import {
   selectRoleplayAnchor,
 } from '@/lib/practice/roleplaySessionContinuity'
 import { isTranslateBackedFreeResponseExercise } from '@/lib/practice/prompt/freeResponseTranslateMode'
+import { resolveBossPatternAnchors } from '@/lib/practice/bossChallengeAnswerValidation'
 import { extractSemanticKeywords, resolveSituationLine, stripAnswerLeakFromHint } from '@/lib/practice/prompt/promptSourceUtils'
 import { resolveLessonExerciseVariant } from '@/lib/practice/resolveLessonExerciseVariant'
 import {
@@ -295,6 +296,16 @@ function createQuestion(params: {
     }
   }
 
+  if (params.type === 'boss-challenge') {
+    const built = buildReferencePromptFromLesson({
+      lesson: params.lesson,
+      type: 'boss-challenge',
+      stepIndex: params.mode === 'reference' ? params.index : 0,
+      targetAnswer,
+    })
+    if (built) prompt = built
+  }
+
   const roleplayAxis =
     params.type === 'roleplay-mini'
       ? inferRoleplayAxis(targetAnswer, params.lesson, params.variantIndex)
@@ -313,6 +324,10 @@ function createQuestion(params: {
 
   const isTranslateBackedFreeResponse =
     params.type === 'free-response' && isTranslateBackedFreeResponseExercise(params.exercise)
+  const isBossChallenge = params.type === 'boss-challenge'
+  const bossKeywords = isBossChallenge
+    ? resolveBossPatternAnchors({ lesson: params.lesson, targetAnswer })
+    : undefined
 
   return {
     id: `${params.lesson.id}-${params.step.stepNumber}-${params.type}-${params.index}${variantSuffix}`,
@@ -335,16 +350,20 @@ function createQuestion(params: {
     keywords:
       isTranslateBackedFreeResponse
         ? undefined
-        : params.type === 'free-response' || params.type === 'boss-challenge'
-          ? useEtalonPromptBuilder
-            ? extractSemanticKeywords(targetAnswer)
-            : targetAnswer.split(/\s+/).slice(0, 3)
-          : params.type === 'roleplay-mini'
-            ? roleplayKeywords
-            : undefined,
+        : isBossChallenge
+          ? bossKeywords && bossKeywords.length > 0
+            ? bossKeywords
+            : undefined
+          : params.type === 'free-response'
+            ? useEtalonPromptBuilder
+              ? extractSemanticKeywords(targetAnswer)
+              : targetAnswer.split(/\s+/).slice(0, 3)
+            : params.type === 'roleplay-mini'
+              ? roleplayKeywords
+              : undefined,
     minWords:
-      params.type === 'boss-challenge'
-        ? 5
+      isBossChallenge
+        ? 4
         : isTranslateBackedFreeResponse
           ? undefined
           : params.type === 'free-response'
@@ -352,7 +371,7 @@ function createQuestion(params: {
             : params.type === 'roleplay-mini'
               ? 2
               : undefined,
-    hint: isVoiceShadow || isDictation || isListeningSelect || isErrorFix
+    hint: isVoiceShadow || isDictation || isListeningSelect || isErrorFix || isBossChallenge
       ? undefined
       : params.type === 'roleplay-mini'
         ? roleplayHint

@@ -196,10 +196,15 @@ import { resolveLocalReferencePracticeQuestions } from '@/lib/practice/resolveLo
 import { FOOTER_DYNAMIC_MAX_LENGTH, pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
 import {
   buildFooterSheetContext,
+  buildLanguageNoteFooterSheetContext,
   shouldCloseFooterSheetOnRowPress,
   type FooterSheetContext,
   type FooterSheetSource,
 } from '@/lib/footerSheet'
+import { requestLanguageNote } from '@/lib/client/requestLanguageNote'
+import { truncateLanguageNoteInput } from '@/lib/languageNote/eligibility'
+import type { LanguageNote } from '@/lib/languageNote/types'
+import { LANGUAGE_NOTE_COPY } from '@/lib/uiCopy/languageNote'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 import { isIosSafariUserAgent, isIosWebKitBrowser } from '@/lib/iosSafariViewport'
@@ -677,6 +682,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [menuOpen, setMenuOpen] = useState(false)
   const [footerSheetContext, setFooterSheetContext] = useState<FooterSheetContext | null>(null)
   const footerSheetRef = React.useRef<FooterDetailSheetHandle>(null)
+  const languageNoteAbortRef = React.useRef<AbortController | null>(null)
+  const languageNoteRequestIdRef = React.useRef(0)
   const [communicationVoiceDropdownOpen, setCommunicationVoiceDropdownOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [usage, setUsage] = useState<UsageInfo>({ used: 0, limit: 50 })
@@ -7071,9 +7078,125 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     : null
   const footerDisplayVariantProgress = footerHydrated ? activeStructuredLessonFooterVariantProgress : null
   const footerDisplayTypingKey = footerHydrated ? footerTypingKey : 'footer-ssr-placeholder'
+  const abortLanguageNoteRequest = useCallback(() => {
+    languageNoteAbortRef.current?.abort()
+    languageNoteAbortRef.current = null
+    languageNoteRequestIdRef.current += 1
+  }, [])
+
+  useEffect(() => {
+    abortLanguageNoteRequest()
+    setFooterSheetContext((prev) => (prev?.source === 'language-note' ? null : prev))
+  }, [settings.mode, engvoVoiceMode, abortLanguageNoteRequest])
+
+  const handleLanguageNoteInfoPress = useCallback(
+    async (messageIndex: number, options?: { forceRefresh?: boolean }) => {
+      const message = messages[messageIndex]
+      if (!message || message.role !== 'user') return
+      const originalText = truncateLanguageNoteInput(message.content)
+      if (!originalText) return
+
+      const cached = !options?.forceRefresh ? message.languageNote : undefined
+      if (cached) {
+        abortLanguageNoteRequest()
+        setFooterSheetContext(
+          buildLanguageNoteFooterSheetContext({
+            status: 'ready',
+            messageIndex,
+            originalText,
+            note: cached,
+          })
+        )
+        return
+      }
+
+      abortLanguageNoteRequest()
+      const requestId = languageNoteRequestIdRef.current + 1
+      languageNoteRequestIdRef.current = requestId
+      const controller = new AbortController()
+      languageNoteAbortRef.current = controller
+
+      setFooterSheetContext(
+        buildLanguageNoteFooterSheetContext({
+          status: 'loading',
+          messageIndex,
+          originalText,
+        })
+      )
+
+      let recentAssistantText: string | null = null
+      for (let i = messageIndex - 1; i >= 0; i--) {
+        const prev = messages[i]
+        if (prev?.role === 'assistant' && !prev.engvoServiceLine) {
+          recentAssistantText = prev.content
+          break
+        }
+      }
+
+      const result = await requestLanguageNote({
+        text: originalText,
+        provider: settings.provider === 'openai' ? 'openai' : 'openrouter',
+        openAiChatPreset: settings.openAiChatPreset,
+        audience: settings.audience,
+        mode: engvoVoiceMode ? 'engvo' : 'communication',
+        recentAssistantText,
+        signal: controller.signal,
+      })
+
+      if (requestId !== languageNoteRequestIdRef.current) return
+      if (!result.ok) {
+        if (result.aborted) return
+        setFooterSheetContext(
+          buildLanguageNoteFooterSheetContext({
+            status: 'error',
+            messageIndex,
+            originalText,
+            error: result.error || LANGUAGE_NOTE_COPY.error,
+          })
+        )
+        return
+      }
+
+      const note: LanguageNote = result.note
+      setMessages((prev) => {
+        const current = prev[messageIndex]
+        if (!current || current.role !== 'user') return prev
+        if (current.content.trim() !== message.content.trim()) return prev
+        const next = [...prev]
+        next[messageIndex] = { ...current, languageNote: note }
+        return next
+      })
+
+      setFooterSheetContext(
+        buildLanguageNoteFooterSheetContext({
+          status: 'ready',
+          messageIndex,
+          originalText,
+          note,
+        })
+      )
+    },
+    [
+      abortLanguageNoteRequest,
+      engvoVoiceMode,
+      messages,
+      settings.audience,
+      settings.openAiChatPreset,
+      settings.provider,
+    ]
+  )
+
+  const handleLanguageNoteRetry = useCallback(
+    (messageIndex: number, _originalText: string) => {
+      void handleLanguageNoteInfoPress(messageIndex, { forceRefresh: true })
+    },
+    [handleLanguageNoteInfoPress]
+  )
+
   const handleFooterRowPress = useCallback(
-    (source: FooterSheetSource) => {
+    (source: Exclude<FooterSheetSource, 'language-note'>) => {
       if (shouldCloseFooterSheetOnRowPress(footerSheetContext, source)) {
+        abortLanguageNoteRequest()
         footerSheetRef.current?.close()
         return
       }
@@ -7099,6 +7222,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       openSheet()
     },
     [
+      abortLanguageNoteRequest,
       footerDisplayDynamicText,
       footerDisplayLessonSegments,
       footerDisplayLessonTitle,
@@ -7962,6 +8086,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   retryMessage={retryMessage}
                   onRequestTranslation={handleRequestTranslation}
                   loadingTranslationIndex={loadingTranslationIndex}
+                  onLanguageNoteInfoPress={handleLanguageNoteInfoPress}
                   onRequestEngvoCallTranslation={handleRequestEngvoCallTranslation}
                   loadingEngvoCallTranslationIndex={loadingEngvoCallTranslationIndex}
                   engvoCallTranslationPrefetchText={engvoCallTranslationPrefetchText}
@@ -8129,7 +8254,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         ref={footerSheetRef}
         context={footerSheetContext}
         columnBounds={appColumnBounds}
-        onClose={() => setFooterSheetContext(null)}
+        onClose={() => {
+          abortLanguageNoteRequest()
+          setFooterSheetContext(null)
+        }}
+        onLanguageNoteRetry={handleLanguageNoteRetry}
       />
     </div>
     </AppShellProvider>

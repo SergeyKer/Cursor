@@ -19,6 +19,7 @@ import type { LessonData } from '@/types/lesson'
 import type { PracticeMode, PracticeQuestion } from '@/types/practice'
 
 const CHALLENGE_ROLEPLAY_INDEX = 9
+const CHALLENGE_BOSS_INDEX = 11
 
 function resolveTierForEnforce(
   mode: PracticeMode,
@@ -147,6 +148,16 @@ export function enforceStepSpecs(
           keywords: extractRoleplayKeywords(normalized.targetAnswer, lesson),
           minWords: 2,
         }
+      }
+    }
+
+    if (spec.type === 'boss-challenge' && stepIndex === CHALLENGE_BOSS_INDEX) {
+      normalized = {
+        ...normalized,
+        type: 'boss-challenge',
+        tolerance: 'soft',
+        minWords: 4,
+        hint: undefined,
       }
     }
 

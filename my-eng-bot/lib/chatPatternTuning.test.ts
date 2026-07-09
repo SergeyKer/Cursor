@@ -12,6 +12,13 @@ import {
   saveChatPatternTuningMap,
 } from '@/lib/chatPatternTuning'
 
+const SHARED_DEFAULT = {
+  tileWidthPx: 230,
+  opacity: 0.06,
+  glassOpacity: 0.06,
+  blendMode: 'multiply' as const,
+}
+
 function stubBrowser() {
   const store = new Map<string, string>()
   const localStorageMock = {
@@ -55,10 +62,11 @@ describe('chatPatternTuning', () => {
     vi.unstubAllGlobals()
   })
 
-  it('returns defaults per pattern', () => {
-    expect(getDefaultChatPatternTuning('study-doodles')).toEqual(
-      DEFAULT_CHAT_PATTERN_TUNING_BY_ID['study-doodles']
-    )
+  it('returns shared defaults for all patterns', () => {
+    expect(getDefaultChatPatternTuning('study-doodles')).toEqual(SHARED_DEFAULT)
+    expect(getDefaultChatPatternTuning('cosmos')).toEqual(SHARED_DEFAULT)
+    expect(DEFAULT_CHAT_PATTERN_TUNING_BY_ID['study-doodles']).toEqual(SHARED_DEFAULT)
+    expect(DEFAULT_CHAT_PATTERN_TUNING_BY_ID.cosmos).toEqual(SHARED_DEFAULT)
   })
 
   it('clamps tuning values to allowed ranges', () => {
@@ -87,12 +95,12 @@ describe('chatPatternTuning', () => {
     expect(resolveChatPatternTuning(map, 'study-doodles')).toEqual({
       tileWidthPx: 220,
       opacity: 0.2,
-      glassOpacity: 0.04,
+      glassOpacity: 0.06,
       blendMode: 'multiply',
     })
   })
 
-  it('ignores legacy default tuning in storage', () => {
+  it('ignores v1 legacy default tuning in storage', () => {
     saveChatPatternTuningMap({
       'study-doodles': {
         tileWidthPx: 300,
@@ -102,12 +110,23 @@ describe('chatPatternTuning', () => {
       },
     })
     expect(loadChatPatternTuningMap()).toEqual({})
-    expect(resolveChatPatternTuning({}, 'study-doodles')).toEqual(
-      DEFAULT_CHAT_PATTERN_TUNING_BY_ID['study-doodles']
-    )
+    expect(resolveChatPatternTuning({}, 'study-doodles')).toEqual(SHARED_DEFAULT)
   })
 
-  it('loads and saves tuning map', () => {
+  it('ignores previous 190px default tuning in storage', () => {
+    saveChatPatternTuningMap({
+      'study-doodles': {
+        tileWidthPx: 190,
+        opacity: 0.06,
+        glassOpacity: 0.04,
+        blendMode: 'multiply',
+      },
+    })
+    expect(loadChatPatternTuningMap()).toEqual({})
+    expect(resolveChatPatternTuning({}, 'study-doodles')).toEqual(SHARED_DEFAULT)
+  })
+
+  it('keeps custom tuning that is not a legacy default', () => {
     const map = {
       'study-doodles': {
         tileWidthPx: 260,

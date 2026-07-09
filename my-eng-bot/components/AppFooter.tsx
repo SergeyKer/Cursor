@@ -20,6 +20,8 @@ import type {
 } from '@/lib/lessonFooter'
 import type { Audience } from '@/lib/types'
 
+type FooterRowSheetSource = Exclude<FooterSheetSource, 'language-note'>
+
 type AppFooterProps = {
   dynamicText?: string | null
   staticText?: string | null
@@ -43,7 +45,7 @@ type AppFooterProps = {
   hideDynamicMarker?: boolean
   /** Без посимвольной анимации динамической строки (стартовый экран). */
   instantDynamicText?: boolean
-  onFooterRowPress?: (source: FooterSheetSource) => void
+  onFooterRowPress?: (source: FooterRowSheetSource) => void
 }
 
 function normalizeFooterText(text?: string | null): string {

@@ -17,6 +17,10 @@ import {
   isTranslateBackedFreeResponseExercise,
 } from '@/lib/practice/prompt/freeResponseTranslateMode'
 import {
+  bossChallengePromptHasContext,
+} from '@/lib/practice/prompt/buildBossChallengePrompt'
+import { resolveBossPatternAnchors } from '@/lib/practice/bossChallengeAnswerValidation'
+import {
   extractSemanticKeywords,
   isTranslateStylePrompt,
   stripAnswerLeakFromHint,
@@ -381,6 +385,23 @@ export function normalizeAiPracticeQuestion(
     normalizedHint = buildRoleplayHint(axis, scopedLesson.id)
   }
 
+  if (type === 'boss-challenge') {
+    const needsRebuild =
+      !prompt ||
+      !bossChallengePromptHasContext(prompt) ||
+      isTranslateStylePrompt(prompt)
+    if (needsRebuild) {
+      const rebuilt = buildReferencePromptFromLesson({
+        lesson: scopedLesson,
+        type: 'boss-challenge',
+        stepIndex: mode === 'reference' ? index : 0,
+        targetAnswer: normalizedTargetAnswer,
+      })
+      if (rebuilt) prompt = rebuilt
+    }
+    normalizedHint = undefined
+  }
+
   if (!prompt) return null
   if (type === 'dropdown-fill') {
     prompt = normalizeGapFillPrompt(prompt)
@@ -510,23 +531,34 @@ export function normalizeAiPracticeQuestion(
         ? source.audioText.trim()
         : undefined
 
+  const bossAnchors =
+    type === 'boss-challenge'
+      ? resolveBossPatternAnchors({ lesson: scopedLesson, targetAnswer: normalizedTargetAnswer })
+      : undefined
+
   const normalizedKeywords =
     isTranslateBackedFreeResponse
       ? undefined
-      : type === 'roleplay-mini'
-        ? extractRoleplayKeywords(normalizedTargetAnswer, scopedLesson)
-        : keywords && keywords.length > 0
-          ? keywords
-          : type === 'free-response' || type === 'boss-challenge'
-            ? extractSemanticKeywords(normalizedTargetAnswer)
-            : undefined
+      : type === 'boss-challenge'
+        ? bossAnchors && bossAnchors.length > 0
+          ? bossAnchors
+          : undefined
+        : type === 'roleplay-mini'
+          ? extractRoleplayKeywords(normalizedTargetAnswer, scopedLesson)
+          : keywords && keywords.length > 0
+            ? keywords
+            : type === 'free-response'
+              ? extractSemanticKeywords(normalizedTargetAnswer)
+              : undefined
 
   const tolerance =
-    isTranslateBackedFreeResponse && canonicalExercise
-      ? canonicalExercise.answerPolicy === 'strict'
-        ? 'strict'
-        : 'normalized'
-      : meta.tolerance
+    type === 'boss-challenge'
+      ? 'soft'
+      : isTranslateBackedFreeResponse && canonicalExercise
+        ? canonicalExercise.answerPolicy === 'strict'
+          ? 'strict'
+          : 'normalized'
+        : meta.tolerance
 
   const normalizedExtraWords =
     type === 'word-builder-pro'
@@ -555,13 +587,19 @@ export function normalizeAiPracticeQuestion(
     minWords:
       isTranslateBackedFreeResponse
         ? undefined
-        : type === 'roleplay-mini'
-          ? 2
-          : typeof source.minWords === 'number' && source.minWords > 0
-            ? Math.min(20, source.minWords)
-            : undefined,
+        : type === 'boss-challenge'
+          ? 4
+          : type === 'roleplay-mini'
+            ? 2
+            : typeof source.minWords === 'number' && source.minWords > 0
+              ? Math.min(20, source.minWords)
+              : undefined,
     hint:
-      type === 'voice-shadow' || type === 'dictation' || type === 'listening-select' || type === 'error-fix'
+      type === 'voice-shadow' ||
+      type === 'dictation' ||
+      type === 'listening-select' ||
+      type === 'error-fix' ||
+      type === 'boss-challenge'
         ? undefined
         : type === 'word-builder-pro' && resolved?.exercise
           ? stripAnswerLeakFromHint(

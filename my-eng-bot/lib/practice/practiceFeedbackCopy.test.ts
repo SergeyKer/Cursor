@@ -1,8 +1,84 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildBossPrimarySuccessFeedback,
   buildPracticeWrongAnswerFeedback,
   buildPracticeWrongLimitEncouragement,
 } from '@/lib/practice/practiceFeedbackCopy'
+
+describe('buildBossPrimarySuccessFeedback', () => {
+  const target = "It's time to go."
+
+  it('uses praise only for exact normalized match', () => {
+    expect(
+      buildBossPrimarySuccessFeedback({
+        audience: 'adult',
+        userAnswer: "It's time to go.",
+        targetAnswer: target,
+      })
+    ).toBe('Засчитано. Хороший ответ.')
+  })
+
+  it('treats contractions as exact', () => {
+    expect(
+      buildBossPrimarySuccessFeedback({
+        audience: 'adult',
+        userAnswer: 'It is time to go.',
+        targetAnswer: target,
+      })
+    ).toBe('Засчитано. Хороший ответ.')
+  })
+
+  it('shows etalon sample when soft-accepted answer differs', () => {
+    expect(
+      buildBossPrimarySuccessFeedback({
+        audience: 'adult',
+        userAnswer: "It's time to stydy",
+        targetAnswer: target,
+      })
+    ).toBe(`Засчитано. Образец: ${target}`)
+  })
+
+  it('uses child copy with sample', () => {
+    expect(
+      buildBossPrimarySuccessFeedback({
+        audience: 'child',
+        userAnswer: "It's time to stydy",
+        targetAnswer: target,
+      })
+    ).toBe(`Засчитано. Вот так правильно: ${target}`)
+  })
+
+  it('uses child praise for exact match', () => {
+    expect(
+      buildBossPrimarySuccessFeedback({
+        audience: 'child',
+        userAnswer: "It's time to go.",
+        targetAnswer: target,
+      })
+    ).toBe('Засчитано. Молодец!')
+  })
+
+  it('treats acceptedAnswers match as exact without sample', () => {
+    expect(
+      buildBossPrimarySuccessFeedback({
+        audience: 'adult',
+        userAnswer: 'It is time to go home.',
+        targetAnswer: "It's time to go.",
+        acceptedAnswers: ['It is time to go home.'],
+      })
+    ).toBe('Засчитано. Хороший ответ.')
+  })
+
+  it('omits sample when targetAnswer is empty', () => {
+    expect(
+      buildBossPrimarySuccessFeedback({
+        audience: 'adult',
+        userAnswer: "It's time to stydy",
+        targetAnswer: '   ',
+      })
+    ).toBe('Засчитано. Хороший ответ.')
+  })
+})
 
 describe('buildPracticeWrongAnswerFeedback', () => {
   it('uses the same first-attempt copy for child and adult', () => {

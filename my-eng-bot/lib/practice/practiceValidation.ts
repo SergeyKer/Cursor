@@ -1,9 +1,10 @@
 import { normalizeEnglishForLearnerAnswerMatch } from '@/lib/normalizeEnglishForLearnerAnswerMatch'
+import { validateBossChallengeAnswer } from '@/lib/practice/bossChallengeAnswerValidation'
 import { validateRoleplayAnswer } from '@/lib/practice/roleplayAnswerValidation'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
 import type { PracticeQuestion } from '@/types/practice'
 
-export type PracticeAnswerValidationContext = 'chip' | 'typed'
+export type PracticeAnswerValidationContext = 'chip' | 'typed' | 'correction'
 
 function normalizeStrict(value: string): string {
   return value.trim().toLowerCase().replace(/[.,!?;:]/g, '')
@@ -38,9 +39,23 @@ export function validatePracticeAnswer(
   )
   if (exactNormalizedMatch) return true
 
+  // Boss correction ("Скажи"): only etalon match — no pattern-soft.
+  if (context === 'correction' && question.type === 'boss-challenge') {
+    return false
+  }
+
+  if (question.type === 'boss-challenge') {
+    const lesson = getStructuredLessonById(question.lessonId)
+    if (lesson) return validateBossChallengeAnswer(userInput, question, lesson)
+  }
+
   if (question.type === 'roleplay-mini') {
     const lesson = getStructuredLessonById(question.lessonId)
     if (lesson) return validateRoleplayAnswer(userInput, question, lesson)
+  }
+
+  if (context === 'correction') {
+    // Non-boss correction keeps typed soft path below when tolerance is soft.
   }
 
   if (question.tolerance !== 'soft') return false

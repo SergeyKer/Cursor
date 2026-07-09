@@ -121,7 +121,12 @@ function buildReferenceDiversityRule(params: {
       'Rotate situations; never reuse identical Russian situation text across scenarios in one reference pass.'
     )
   } else if (params.referenceExerciseType === 'boss-challenge') {
-    parts.push('Final challenge; minWords 5; apply lesson theme creatively.')
+    parts.push(
+      'boss-challenge: Russian Ситуация:/Тема: + short concrete action frame from lesson pattern; minWords 4; soft; no exam meta.',
+      'Never use Финальный вызов / примените тему / соберите всё / Переведите / Исправьте / Собеседник.',
+      'Rotate situations; never reuse identical Russian situation text across scenarios in one reference pass.',
+      'keywords = pattern anchors (time to, I am, who…), not full target lexicon; hint empty; no options/audioText.'
+    )
   } else if (params.referenceExerciseType === 'word-builder-pro') {
     parts.push(
       'word-builder-pro: full phrase puzzle + exactly 2 grammar-precision traps in extraWords (a/an/the swap preferred; morph +s/+es only on content words).',
@@ -185,6 +190,11 @@ function buildSessionDiversityRule(params: {
         'CHALLENGE step 10: targetAnswer MUST equal anchor phrase from priorSessionPhrases; interlocutor elicits that same phrase.'
       )
     }
+  }
+  if (params.practiceType === 'boss-challenge') {
+    parts.push(
+      'boss-challenge: situational final; Russian Ситуация + concrete action frame; minWords 4; soft; no translate/exam meta.'
+    )
   }
   if (params.lesson.id === '1') {
     parts.push('Rotate weather, time, and distance; avoid repeating "темно" / It\'s dark in consecutive items.')

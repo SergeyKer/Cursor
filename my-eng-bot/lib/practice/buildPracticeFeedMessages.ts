@@ -52,7 +52,11 @@ function practiceTypeLabel(question: PracticeQuestion, session: PracticeSession,
         ? 'Фраза не подходит к ситуации — скажи или напиши правильно.'
         : 'Фраза не подходит к ситуации — скажите или напишите правильный вариант.'
     }
-    if (question.type === 'boss-challenge') return 'Соберите всё вместе в живом ответе.'
+    if (question.type === 'boss-challenge') {
+      return audience === 'child'
+        ? 'Скажи по теме своими словами.'
+        : 'Своими словами — проверим, что тема с вами.'
+    }
     if (question.type === 'roleplay-mini') return 'Ответьте собеседнику по-английски.'
   }
   if (question.type === 'choice') return 'Выберите лучший вариант.'
@@ -68,7 +72,11 @@ function practiceTypeLabel(question: PracticeQuestion, session: PracticeSession,
       ? 'Скажи или напиши фразу, которая подходит к ситуации.'
       : 'Скажите или напишите фразу, которая подходит к ситуации.'
   }
-  if (question.type === 'boss-challenge') return 'Финальный вызов: примените тему целиком.'
+  if (question.type === 'boss-challenge') {
+    return audience === 'child'
+      ? 'Скажи по теме своими словами.'
+      : 'Своими словами — проверим, что тема с вами.'
+  }
   if (question.type === 'context-clue') return 'Найдите ответ по контексту.'
   return 'Ответьте самостоятельно.'
 }
@@ -161,7 +169,8 @@ function buildQuestionBubbles(params: {
 function feedbackTextForAnswer(
   answer: PracticeAnswer,
   audience: Audience,
-  attemptNumber: number
+  attemptNumber: number,
+  question?: PracticeQuestion
 ): string {
   const tone = feedbackToneForAnswer(answer)
   const raw =
@@ -174,6 +183,7 @@ function feedbackTextForAnswer(
           correctAnswer: answer.correctAnswer,
           attemptNumber: Math.min(2, attemptNumber) as 1 | 2,
           audience,
+          question,
         }))
   const marker = resolveFeedbackMarker({ tone, attemptNumber })
   return prefixFeedbackMarker(marker, raw)
@@ -188,20 +198,25 @@ function buildAnswerFeedbackMessage(params: {
   answer: PracticeAnswer
   audience: Audience
   attemptNumber: number
-  questionType: PracticeQuestion['type']
+  question: PracticeQuestion
 }): PracticeFeedMessage {
   const tone = feedbackToneForAnswer(params.answer)
   const repeatAnswer = resolvePracticeRepeatAnswer({
     answer: params.answer,
     attemptNumber: params.attemptNumber,
-    questionType: params.questionType,
+    questionType: params.question.type,
   })
 
   return {
     id: params.id,
     role: 'assistant',
     kind: 'status',
-    text: feedbackTextForAnswer(params.answer, params.audience, params.attemptNumber),
+    text: feedbackTextForAnswer(
+      params.answer,
+      params.audience,
+      params.attemptNumber,
+      params.question
+    ),
     tone,
     ...(repeatAnswer ? { repeatAnswer } : {}),
   }
@@ -295,7 +310,7 @@ export function buildPracticeFeedMessages(params: {
             answer,
             audience,
             attemptNumber: answerIndex + 1,
-            questionType: question.type,
+            question,
           })
         )
       })
@@ -324,7 +339,7 @@ export function buildPracticeFeedMessages(params: {
             answer,
             audience,
             attemptNumber: answerIndex + 1,
-            questionType: question.type,
+            question,
           })
         )
       }

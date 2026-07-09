@@ -495,6 +495,11 @@
   --app-footer-backdrop-filter: none;
   --footer-sheet-bg: #f9fafb;
   --footer-sheet-divider: color-mix(in srgb, var(--text) 14%, transparent);
+  /* Language-note sheet almost fills to the header, with a small breathing gap. */
+  --footer-sheet-language-note-gap: 12px;
+  --footer-sheet-language-note-height: calc(
+    100dvh - var(--app-top-offset) - var(--footer-sheet-language-note-gap)
+  );
   --chat-backdrop-filter: blur(2px);
   --chat-shell-shadow: var(--shadow-soft);
   --chat-composer-shadow: var(--shadow-soft);
@@ -1939,6 +1944,34 @@ html[data-theme='glass3'] {
   transform: translateY(100%);
 }
 
+.footer-sheet-panel--language-note {
+  height: var(--footer-sheet-language-note-height);
+  max-height: min(
+    var(--footer-sheet-language-note-height),
+    calc(100dvh - var(--app-top-offset) - var(--footer-sheet-language-note-gap))
+  );
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', Arial,
+    sans-serif;
+  /* Body: soft Engvo blue; head chrome sits one step darker on the same hue. */
+  --footer-sheet-bg: color-mix(in srgb, #5b8ff9 18%, #ffffff);
+  --language-note-sheet-head-bg: color-mix(in srgb, #5b8ff9 34%, #ffffff);
+  background: var(--footer-sheet-bg);
+}
+
+.footer-sheet-panel--language-note .footer-sheet__grab,
+.footer-sheet-panel--language-note .footer-sheet__head {
+  background: var(--language-note-sheet-head-bg);
+}
+
+.footer-sheet-panel--language-note .footer-sheet__close {
+  background: var(--language-note-sheet-head-bg);
+}
+
+.footer-sheet-panel--language-note .footer-sheet__title,
+.footer-sheet-panel--language-note .footer-sheet__body {
+  font-family: inherit;
+}
+
 .footer-sheet__grab {
   flex-shrink: 0;
   touch-action: none;
@@ -2043,10 +2076,109 @@ html[data-theme='glass3'] {
   padding: 16px 18px 18px;
 }
 
+.footer-sheet__body--language-note {
+  padding-left: 26px;
+  padding-right: 26px;
+  --language-note-card-bg: color-mix(in srgb, #5b8ff9 6%, #f3f4f6);
+  --language-note-card-border: color-mix(in srgb, #5b8ff9 48%, #cbd5e1);
+  --language-note-card-label: #2f5fad;
+  /* Neutral chips — denser gray so they read as chips on soft cards. */
+  --language-note-topic-bg: #e5e7eb;
+  --language-note-topic-border: #9ca3af;
+}
+
+.language-note-card--shared {
+  border-color: var(--language-note-card-border);
+  background: var(--language-note-card-bg);
+  box-shadow:
+    0 4px 14px color-mix(in srgb, #5b8ff9 24%, transparent),
+    0 2px 4px rgba(15, 23, 42, 0.1);
+}
+
+.language-note-topic-chip {
+  border-color: var(--language-note-topic-border);
+  background: var(--language-note-topic-bg);
+  box-shadow: none;
+}
+
 .footer-sheet__placeholder {
   font-size: 0.9375rem;
   line-height: 1.5;
   color: var(--text);
+}
+
+.language-note-skeleton-bar {
+  height: 0.65rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+.language-note-skeleton-bar--label {
+  width: 42%;
+  height: 0.55rem;
+}
+
+.language-note-skeleton-bar--w92 {
+  width: 92%;
+}
+
+.language-note-skeleton-bar--w70 {
+  width: 70%;
+}
+
+.language-note-skeleton-bar--w55 {
+  width: 55%;
+}
+
+.language-note-info-mark {
+  position: absolute;
+  right: 10px;
+  /* Center the 18px glyph on the last text line (line-height 1.45 × 15px, bubble py-2). */
+  bottom: calc(0.5rem + (1.45 * 15px - 18px) / 2);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: color-mix(in srgb, var(--chat-user-text) 72%, transparent);
+  cursor: pointer;
+}
+
+/* Hit-area ≥32px without forcing an empty second line. */
+.language-note-info-mark::before {
+  content: '';
+  position: absolute;
+  inset: -7px;
+}
+
+.language-note-info-mark__glyph {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--chat-user-text) 28%, transparent);
+  background: color-mix(in srgb, var(--chat-user-bubble) 82%, white 18%);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.language-note-info-mark:hover .language-note-info-mark__glyph,
+.language-note-info-mark:focus-visible .language-note-info-mark__glyph {
+  border-color: color-mix(in srgb, var(--chat-user-text) 48%, transparent);
+  color: var(--chat-user-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .language-note-skeleton-shimmer {
+    animation: none !important;
+    opacity: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2397,15 +2529,19 @@ html[data-chat-pattern='study-doodles'] .chat-feed-wallpaper::before {
   background-image: url('/patterns/study-doodles.png');
 }
 
+html[data-chat-pattern='cosmos'] .chat-feed-wallpaper::before {
+  background-image: url('/patterns/cosmos.png');
+}
+
 html[data-chat-pattern]:not([data-chat-pattern='none']) .chat-feed-wallpaper::before {
   opacity: var(--chat-pattern-opacity, 0.06);
   mix-blend-mode: var(--chat-pattern-blend-mode, multiply);
-  background-size: var(--chat-pattern-tile-width, 190px) auto;
+  background-size: var(--chat-pattern-tile-width, 230px) auto;
   filter: saturate(0.72);
 }
 
 html[data-theme='glass1'][data-chat-pattern]:not([data-chat-pattern='none']) .chat-feed-wallpaper::before,
 html[data-theme='glass2'][data-chat-pattern]:not([data-chat-pattern='none']) .chat-feed-wallpaper::before,
 html[data-theme='glass3'][data-chat-pattern]:not([data-chat-pattern='none']) .chat-feed-wallpaper::before {
-  opacity: var(--chat-pattern-glass-opacity, 0.04);
+  opacity: var(--chat-pattern-glass-opacity, 0.06);
 }

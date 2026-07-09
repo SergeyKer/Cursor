@@ -1,4 +1,5 @@
 import type { WebSearchSource } from './openAiWebSearchShared'
+import type { LanguageNote } from '@/lib/languageNote/types'
 
 export type ChatRole = 'user' | 'assistant' | 'system'
 
@@ -25,6 +26,8 @@ export interface ChatMessage {
   engvoLocalWelcome?: boolean
   /** Служебная строка Engvo (например «Набираем…»), без озвучки/перевода. */
   engvoServiceLine?: boolean
+  /** Кэш языковой подсказки (?) для user-реплики в Общении/Звонке. */
+  languageNote?: LanguageNote
 }
 
 export type AiProvider = 'openrouter' | 'openai'

@@ -1,4 +1,42 @@
+import { getBossPatternHint } from '@/lib/practice/bossChallengeAnswerValidation'
+import { normalizeEnglishForLearnerAnswerMatch } from '@/lib/normalizeEnglishForLearnerAnswerMatch'
+import { getStructuredLessonById } from '@/lib/structuredLessons'
 import type { Audience } from '@/lib/types'
+import type { PracticeQuestion } from '@/types/practice'
+
+export function isBossExactNormalizedMatch(
+  userAnswer: string,
+  targetAnswer: string,
+  acceptedAnswers: string[] = []
+): boolean {
+  const normalizedUser = normalizeEnglishForLearnerAnswerMatch(userAnswer, 'translation')
+  if (!normalizedUser) return false
+  const candidates = [targetAnswer, ...acceptedAnswers].map((item) => item.trim()).filter(Boolean)
+  return candidates.some(
+    (candidate) => normalizeEnglishForLearnerAnswerMatch(candidate, 'translation') === normalizedUser
+  )
+}
+
+export function buildBossPrimarySuccessFeedback(params: {
+  audience?: Audience
+  userAnswer: string
+  targetAnswer: string
+  acceptedAnswers?: string[]
+}): string {
+  const etalon = params.targetAnswer.trim()
+  const child = params.audience === 'child'
+  const exact = isBossExactNormalizedMatch(
+    params.userAnswer,
+    params.targetAnswer,
+    params.acceptedAnswers
+  )
+
+  if (exact || !etalon) {
+    return child ? 'Засчитано. Молодец!' : 'Засчитано. Хороший ответ.'
+  }
+
+  return child ? `Засчитано. Вот так правильно: ${etalon}` : `Засчитано. Образец: ${etalon}`
+}
 
 const PRACTICE_WRONG_LIMIT_ENCOURAGEMENTS_ADULT = [
   (answer: string) =>
@@ -59,8 +97,20 @@ export function buildPracticeWrongAnswerFeedback(params: {
   correctAnswer: string
   attemptNumber: 1 | 2
   audience?: Audience
+  question?: PracticeQuestion
 }): string {
   const answer = params.correctAnswer.trim()
+  if (params.question?.type === 'boss-challenge') {
+    const lesson = getStructuredLessonById(params.question.lessonId)
+    if (lesson) {
+      return getBossPatternHint({
+        lesson,
+        targetAnswer: answer,
+        audience: params.audience,
+      })
+    }
+    return `Почти. Образец: ${answer}`
+  }
   if (params.attemptNumber === 1) {
     return `Неверно. Правильно: ${answer}`
   }

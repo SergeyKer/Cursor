@@ -1,6 +1,7 @@
 import { buildLocalPracticeSession, buildSinglePracticeQuestion } from '@/lib/practice/builders/localPracticeBuilder'
 import { buildPracticeQuestionFingerprintFromQuestion } from '@/lib/practice/questionFingerprint'
 import { pickFreshReferencePracticeQuestion } from '@/lib/practice/pickFreshReferencePracticeQuestion'
+import { extractBossSituationKey } from '@/lib/practice/bossChallengeAnswerValidation'
 import { extractSituationKeyFromErrorFixPrompt } from '@/lib/practice/prompt/errorFixBrokenPhrase'
 import { REFERENCE_STEP_MAP_TYPES } from '@/lib/practice/prompt/promptSourceTypes'
 import { collectRecentInterlocutorLines, collectRecentRoleIntroLines, collectRecentTargetAnswers } from '@/lib/practice/roleplaySessionDedup'
@@ -208,6 +209,10 @@ export function buildReferenceFallbackQuestions(params: {
     if (params.referenceExerciseType === 'error-fix') {
       recentTargetAnswers.push(question.targetAnswer)
       const situationKey = extractSituationKeyFromErrorFixPrompt(question.prompt)
+      if (situationKey) recentSituationKeys.push(situationKey)
+    }
+    if (params.referenceExerciseType === 'boss-challenge') {
+      const situationKey = extractBossSituationKey(question.prompt)
       if (situationKey) recentSituationKeys.push(situationKey)
     }
   }

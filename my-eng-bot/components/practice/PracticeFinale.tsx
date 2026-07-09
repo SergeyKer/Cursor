@@ -57,16 +57,27 @@ export default function PracticeFinale({
     gemsPending,
   })
 
+  const bossQuestion = session.questions.find((item) => item.type === 'boss-challenge')
+  const bossAnswer = bossQuestion
+    ? session.answers.filter((answer) => answer.questionId === bossQuestion.id).at(-1)
+    : undefined
+  const bossCorrected = Boolean(bossAnswer?.corrected)
+  const bossPassed = Boolean(bossAnswer?.isCorrect)
+
   const supportiveText =
-    globalAmount > 0
-      ? `+${globalAmount} XP к уровню за этот проход.`
-      : tier === 0
-        ? `${session.xp} XP за сессию - к уровню не идёт без урока с медалью.`
-        : percent >= 80
-          ? 'Тема держится уверенно. Повтор даст меньше XP к уровню - это нормально.'
-          : correctedCount > 0
-            ? 'Ошибки закрепили правильным вариантом.'
-            : 'Хорошая тренировка. Следующий круг сделает ответы быстрее.'
+    session.mode === 'challenge' && bossPassed
+      ? bossCorrected
+        ? 'Финал сдан: тему закрепили.'
+        : 'Финал сдан: тему применил сам.'
+      : globalAmount > 0
+        ? `+${globalAmount} XP к уровню за этот проход.`
+        : tier === 0
+          ? `${session.xp} XP за сессию - к уровню не идёт без урока с медалью.`
+          : percent >= 80
+            ? 'Тема держится уверенно. Повтор даст меньше XP к уровню - это нормально.'
+            : correctedCount > 0
+              ? 'Ошибки закрепили правильным вариантом.'
+              : 'Хорошая тренировка. Следующий круг сделает ответы быстрее.'
 
   const handlePrimary = () => {
     if (primary.action === 'repeat') onRepeat()

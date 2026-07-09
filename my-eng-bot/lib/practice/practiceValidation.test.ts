@@ -73,5 +73,22 @@ describe('validatePracticeAnswer', () => {
     expect(validatePracticeAnswer('I am fine', translateQuestion)).toBe(true)
     expect(validatePracticeAnswer("I'm happy", translateQuestion)).toBe(false)
   })
+
+  it('uses soft pattern for boss primary and exact match for boss correction', () => {
+    const bossQuestion: PracticeQuestion = {
+      ...baseQuestion,
+      type: 'boss-challenge',
+      targetAnswer: "It's time to go home.",
+      acceptedAnswers: ["It's time to go home."],
+      tolerance: 'soft',
+      minWords: 4,
+      keywords: ['time to'],
+    }
+
+    expect(validatePracticeAnswer('Its time to sleep noww', bossQuestion, 'typed')).toBe(true)
+    expect(validatePracticeAnswer("It's time to goes home", bossQuestion, 'typed')).toBe(false)
+    expect(validatePracticeAnswer('Its time to sleep noww', bossQuestion, 'correction')).toBe(false)
+    expect(validatePracticeAnswer("It's time to go home.", bossQuestion, 'correction')).toBe(true)
+  })
 })
 

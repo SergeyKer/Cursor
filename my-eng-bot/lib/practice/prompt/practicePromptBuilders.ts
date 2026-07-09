@@ -108,7 +108,8 @@ const BUILDERS: Partial<Record<PracticeExerciseType, PracticePromptBuilderEntry>
   },
   'boss-challenge': {
     findSource: findLessonBossChallengeSourceForPractice,
-    buildPrompt: (source, lesson, stepIndex) => buildBossChallengePrompt(source, lesson, stepIndex),
+    buildPrompt: (source, lesson, stepIndex, targetAnswer) =>
+      buildBossChallengePrompt(source, lesson, stepIndex, targetAnswer),
     buildEtalonForLesson: buildEtalonBossChallengePromptForLesson,
     hasContext: bossChallengePromptHasContext,
     systemRules: BOSS_CHALLENGE_SYSTEM_RULES,

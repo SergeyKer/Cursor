@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { normalizeAdaptiveQuestionInSession } from '@/lib/practice/applyAdaptiveQuestionTier'
 import { buildLocalPracticeSession, buildPracticeSessionFromQuestions } from '@/lib/practice/builders/localPracticeBuilder'
 import {
+  buildBossPrimarySuccessFeedback,
   buildPracticeWrongAnswerFeedback,
   buildPracticeWrongLimitEncouragement,
 } from '@/lib/practice/practiceFeedbackCopy'
@@ -288,7 +289,7 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
         const correctionQuestion = pendingCorrectionRef.current
         const questionToValidate = correctionQuestion ?? currentQuestion
         const validationContext: PracticeAnswerValidationContext = correctionQuestion
-          ? 'typed'
+          ? 'correction'
           : questionToValidate.options?.length && isPracticeChipSelectionType(questionToValidate.type)
             ? 'chip'
             : 'typed'
@@ -301,8 +302,19 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
         const answerFeedbackTone: 'success' | 'error' = isCorrect || shouldAutoAdvanceAfterWrongLimit ? 'success' : 'error'
         const answerFeedbackMessage = isCorrect
           ? correctionQuestion
-            ? 'Отлично, закрепили. Идём дальше.'
-            : 'Верно. Хороший ответ.'
+            ? questionToValidate.type === 'boss-challenge'
+              ? audience === 'child'
+                ? 'Отлично, закрепили. Финал твой.'
+                : 'Отлично, закрепили. Финал ваш.'
+              : 'Отлично, закрепили. Идём дальше.'
+            : questionToValidate.type === 'boss-challenge'
+              ? buildBossPrimarySuccessFeedback({
+                  audience,
+                  userAnswer: cleanAnswer,
+                  targetAnswer: questionToValidate.targetAnswer,
+                  acceptedAnswers: questionToValidate.acceptedAnswers,
+                })
+              : 'Верно. Хороший ответ.'
           : shouldAutoAdvanceAfterWrongLimit
             ? buildPracticeWrongLimitEncouragement({
                 correctAnswer: questionToValidate.targetAnswer,
@@ -316,6 +328,7 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
                   (session.wrongAttemptsOnCurrentQuestion ?? 0) + 1
                 ) as 1 | 2,
                 audience,
+                question: questionToValidate,
               })
 
         const answerRecord = createAnswer({
