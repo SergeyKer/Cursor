@@ -1,0 +1,10 @@
+[
+  [
+    "import {\n  connectEngvoXaiRealtime,\n  getEngvoStopPlaybackEvents,\n  type EngvoXaiTransport,\n} from '@/lib/engvo/xaiRealtimeTransport'",
+    "import {\n  connectEngvoXaiRealtime,\n  getEngvoStopPlaybackEvents,\n  type EngvoXaiTransport,\n} from '@/lib/engvo/xaiRealtimeTransport'\nimport { primeEngvoVoiceMeterAudio } from '@/components/EngvoVoiceMeter'"
+  ],
+  [
+    "      engvoMediaStreamRef.current = mediaStream\n      setEngvoLocalAudioStream(mediaStream)\n\n      if (engvoProvider === 'xai') {",
+    "      engvoMediaStreamRef.current = mediaStream\n      setEngvoLocalAudioStream(mediaStream)\n      // Prime shared meter AudioContext in the same gesture (Android/iOS otherwise keep user EQ flat).\n      await primeEngvoVoiceMeterAudio()\n\n      if (engvoProvider === 'xai') {"
+  ]
+]

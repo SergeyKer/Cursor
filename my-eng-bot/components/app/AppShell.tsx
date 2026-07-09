@@ -252,6 +252,7 @@ import {
   getEngvoStopPlaybackEvents,
   type EngvoXaiTransport,
 } from '@/lib/engvo/xaiRealtimeTransport'
+import { primeEngvoVoiceMeterAudio } from '@/components/EngvoVoiceMeter'
 import {
   loadEngvoCefrLevel,
   loadEngvoProvider,
@@ -2213,6 +2214,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       })
       engvoMediaStreamRef.current = mediaStream
       setEngvoLocalAudioStream(mediaStream)
+      // Prime shared meter AudioContext in the same gesture (Android/iOS otherwise keep user EQ flat).
+      await primeEngvoVoiceMeterAudio()
 
       if (engvoProvider === 'xai') {
         const AudioContextCtor =

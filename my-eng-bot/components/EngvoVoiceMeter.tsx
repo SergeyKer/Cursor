@@ -75,7 +75,8 @@ const METER_TUNING: Record<
 > = {
   user: {
     baselineScale: REST_BASELINE_SCALE,
-    rmsToLevel: 14,
+    // Mobile AGC often compresses mic; keep bars readable during dictation.
+    rmsToLevel: 22,
     analyserSmoothing: 0.28,
     levelAttack: 0.52,
     voiceEnvelope: 1,
@@ -102,6 +103,16 @@ function getSharedAudioState(): SharedAudioState | null {
   const state: SharedAudioState = { context: new AudioContextCtor() }
   win.__myEngEngvoAudioState = state
   return state
+}
+
+/** Call inside the same user gesture as getUserMedia so Android/iOS can resume the meter AudioContext. */
+export async function primeEngvoVoiceMeterAudio(): Promise<boolean> {
+  const shared = getSharedAudioState()
+  if (!shared) return false
+  if (shared.context.state === 'suspended') {
+    await shared.context.resume().catch(() => {})
+  }
+  return shared.context.state === 'running'
 }
 
 function clamp(value: number, min: number, max: number): number {
