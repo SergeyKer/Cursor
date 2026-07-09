@@ -76,20 +76,26 @@ import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import {
   ENGVO_DEFAULT_PROVIDER,
   ENGVO_DEFAULT_VOICE,
+  ENGVO_DEFAULT_XAI_VOICE_ROTATION_MODE,
   ENGVO_LEVEL_OPTIONS,
   ENGVO_PROVIDER_OPTIONS,
   ENGVO_REALTIME_VOICES,
   ENGVO_SPEECH_SPEED_PRESETS,
   ENGVO_XAI_DEFAULT_VOICE,
+  ENGVO_XAI_VOICE_ROTATION_MODE_OPTIONS,
   ENGVO_XAI_VOICE_SECTIONS,
+  formatEngvoXaiVoiceRotationSummary,
+  getEngvoXaiVoiceSection,
   type EngvoCefrLevel,
   type EngvoProvider,
   type EngvoRealtimeVoice,
   type EngvoSpeechSpeedPresetId,
   type EngvoXaiCallVoice,
+  type EngvoXaiVoiceRotationMode,
   type EngvoXaiVoiceSectionId,
 } from '@/lib/engvo/constants'
-import { findEngvoCustomVoice, listEngvoCustomVoices } from '@/lib/engvo/voiceLab/customVoicesManifest'
+import { formatEngvoVoiceDisplayName } from '@/lib/engvo/voiceDisplayName'
+import { listEngvoCustomVoices } from '@/lib/engvo/voiceLab/customVoicesManifest'
 import {
   getPracticeTtsSpeedPreset,
   PRACTICE_TTS_SPEED_PRESETS,
@@ -214,7 +220,16 @@ type SettingsMenuPanel =
   | 'pattern'
   | 'patternPick'
   | 'patternBlend'
-type EngvoPanel = 'summary' | 'provider' | 'audience' | 'topic' | 'voice' | 'voiceSection' | 'level' | 'speed'
+type EngvoPanel =
+  | 'summary'
+  | 'provider'
+  | 'audience'
+  | 'topic'
+  | 'voice'
+  | 'voiceRotation'
+  | 'voiceSection'
+  | 'level'
+  | 'speed'
 
 const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
   summary: 'Настройки',
@@ -232,6 +247,7 @@ const ENGVO_PANEL_TITLE: Record<EngvoPanel, string> = {
   audience: 'Стиль общения',
   topic: 'Тема',
   voice: 'Голос',
+  voiceRotation: 'Случайный',
   voiceSection: 'Голос',
   level: 'Уровень',
   speed: 'Скорость речи',
@@ -436,11 +452,13 @@ export interface MenuSectionPanelsProps {
   engvoProvider?: EngvoProvider
   engvoRealtimeVoice?: EngvoRealtimeVoice
   engvoXaiVoice?: EngvoXaiCallVoice
+  engvoXaiVoiceRotationMode?: EngvoXaiVoiceRotationMode
   engvoCefrLevel?: EngvoCefrLevel
   engvoSpeechSpeedPreset?: EngvoSpeechSpeedPresetId
   onEngvoProviderChange?: (provider: EngvoProvider) => void
   onEngvoVoiceChange?: (voice: EngvoRealtimeVoice) => void
   onEngvoXaiVoiceChange?: (voice: EngvoXaiCallVoice) => void
+  onEngvoXaiVoiceRotationModeChange?: (mode: EngvoXaiVoiceRotationMode) => void
   onEngvoLevelChange?: (level: EngvoCefrLevel) => void
   onEngvoSpeechSpeedChange?: (preset: EngvoSpeechSpeedPresetId) => void
   practiceTtsSpeedDefaultIndex?: number
@@ -540,11 +558,13 @@ export default function MenuSectionPanels({
   engvoProvider = ENGVO_DEFAULT_PROVIDER,
   engvoRealtimeVoice,
   engvoXaiVoice,
+  engvoXaiVoiceRotationMode = ENGVO_DEFAULT_XAI_VOICE_ROTATION_MODE,
   engvoCefrLevel,
   engvoSpeechSpeedPreset,
   onEngvoProviderChange,
   onEngvoVoiceChange,
   onEngvoXaiVoiceChange,
+  onEngvoXaiVoiceRotationModeChange,
   onEngvoLevelChange,
   onEngvoSpeechSpeedChange,
   practiceTtsSpeedDefaultIndex = 0,
@@ -1178,12 +1198,18 @@ export default function MenuSectionPanels({
   const engvoProviderLabel =
     ENGVO_PROVIDER_OPTIONS.find((p) => p.id === engvoProvider)?.label ?? 'ChatGPT'
   const customXaiVoices = React.useMemo(() => listEngvoCustomVoices(), [])
+  const engvoVoiceDisplayName =
+    engvoProvider === 'xai'
+      ? formatEngvoVoiceDisplayName(engvoXaiVoice ?? ENGVO_XAI_DEFAULT_VOICE)
+      : formatEngvoVoiceDisplayName(engvoRealtimeVoice ?? ENGVO_DEFAULT_VOICE)
   const engvoVoiceLabel =
     engvoProvider === 'xai'
-      ? findEngvoCustomVoice(engvoXaiVoice ?? '')?.name ??
-        engvoXaiVoice ??
-        ENGVO_XAI_DEFAULT_VOICE
-      : engvoRealtimeVoice ?? ENGVO_DEFAULT_VOICE
+      ? formatEngvoXaiVoiceRotationSummary(engvoXaiVoiceRotationMode, engvoVoiceDisplayName)
+      : engvoVoiceDisplayName
+  const engvoXaiRotationModeLabel =
+    ENGVO_XAI_VOICE_ROTATION_MODE_OPTIONS.find((o) => o.id === engvoXaiVoiceRotationMode)?.label ??
+    'Нет'
+  const currentXaiVoiceSection = getEngvoXaiVoiceSection(engvoXaiVoice ?? ENGVO_XAI_DEFAULT_VOICE)
   const selectedXaiVoiceSection =
     selectedXaiVoiceSectionId === 'other'
       ? null
@@ -1307,7 +1333,7 @@ export default function MenuSectionPanels({
       return
     }
     if (menuView === 'engvo' && engvoPanel !== 'summary') {
-      if (engvoPanel === 'voiceSection') {
+      if (engvoPanel === 'voiceSection' || engvoPanel === 'voiceRotation') {
         setEngvoPanel('voice')
         return
       }
@@ -1341,6 +1367,7 @@ export default function MenuSectionPanels({
               engvoPanel === 'audience' ||
               engvoPanel === 'topic' ||
               engvoPanel === 'voice' ||
+              engvoPanel === 'voiceRotation' ||
               engvoPanel === 'voiceSection' ||
               engvoPanel === 'level' ||
               engvoPanel === 'speed')
@@ -1903,10 +1930,18 @@ export default function MenuSectionPanels({
             {engvoPanel === 'voice' && engvoProvider === 'xai' && (
               <div className={MENU_GROUP_OUTER}>
                 <div className={MENU_GROUP_CLASS}>
+                  <MenuSettingRow
+                    label="Случайный"
+                    value={engvoXaiRotationModeLabel}
+                    onClick={() => setEngvoPanel('voiceRotation')}
+                  />
                   {ENGVO_XAI_VOICE_SECTIONS.map((section) => (
-                    <MenuNavRow
+                    <MenuSettingRow
                       key={section.id}
                       label={section.label}
+                      value={
+                        currentXaiVoiceSection === section.id ? engvoVoiceDisplayName : ''
+                      }
                       onClick={() => {
                         setSelectedXaiVoiceSectionId(section.id)
                         setEngvoPanel('voiceSection')
@@ -1914,8 +1949,11 @@ export default function MenuSectionPanels({
                     />
                   ))}
                   {customXaiVoices.length > 0 && (
-                    <MenuNavRow
+                    <MenuSettingRow
                       label="Other"
+                      value={
+                        currentXaiVoiceSection === 'other' ? engvoVoiceDisplayName : ''
+                      }
                       onClick={() => {
                         setSelectedXaiVoiceSectionId('other')
                         setEngvoPanel('voiceSection')
@@ -1925,9 +1963,25 @@ export default function MenuSectionPanels({
                 </div>
               </div>
             )}
+            {engvoPanel === 'voiceRotation' && engvoProvider === 'xai' && (
+              <PickerList
+                options={ENGVO_XAI_VOICE_ROTATION_MODE_OPTIONS.map((o) => ({
+                  id: o.id,
+                  label: o.label,
+                }))}
+                value={engvoXaiVoiceRotationMode}
+                onSelect={(id) => {
+                  onEngvoXaiVoiceRotationModeChange?.(id as EngvoXaiVoiceRotationMode)
+                  setEngvoPanel('voice')
+                }}
+              />
+            )}
             {engvoPanel === 'voice' && engvoProvider !== 'xai' && (
               <PickerList
-                options={ENGVO_REALTIME_VOICES.map((voice) => ({ id: voice, label: voice }))}
+                options={ENGVO_REALTIME_VOICES.map((voice) => ({
+                  id: voice,
+                  label: formatEngvoVoiceDisplayName(voice),
+                }))}
                 value={engvoRealtimeVoice ?? ENGVO_DEFAULT_VOICE}
                 onSelect={(id) => {
                   onEngvoVoiceChange?.(id as EngvoRealtimeVoice)
@@ -1947,7 +2001,10 @@ export default function MenuSectionPanels({
             )}
             {engvoPanel === 'voiceSection' && engvoProvider === 'xai' && selectedXaiVoiceSection && (
               <PickerList
-                options={selectedXaiVoiceSection.voices.map((voice) => ({ id: voice, label: voice }))}
+                options={selectedXaiVoiceSection.voices.map((voice) => ({
+                  id: voice,
+                  label: formatEngvoVoiceDisplayName(voice),
+                }))}
                 value={engvoXaiVoice ?? ENGVO_XAI_DEFAULT_VOICE}
                 onSelect={(id) => {
                   onEngvoXaiVoiceChange?.(id)

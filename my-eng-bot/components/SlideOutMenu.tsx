@@ -17,6 +17,7 @@ import type {
   EngvoRealtimeVoice,
   EngvoSpeechSpeedPresetId,
   EngvoXaiCallVoice,
+  EngvoXaiVoiceRotationMode,
 } from '@/lib/engvo/constants'
 import type { ChatPatternId } from '@/lib/chatPattern'
 import type { ChatPatternTuning, ChatPatternTuningMap, TunableChatPatternId } from '@/lib/chatPatternTuning'
@@ -46,11 +47,13 @@ interface SlideOutMenuProps {
   engvoProvider?: EngvoProvider
   engvoRealtimeVoice?: EngvoRealtimeVoice
   engvoXaiVoice?: EngvoXaiCallVoice
+  engvoXaiVoiceRotationMode?: EngvoXaiVoiceRotationMode
   engvoCefrLevel?: EngvoCefrLevel
   engvoSpeechSpeedPreset?: EngvoSpeechSpeedPresetId
   onEngvoProviderChange?: (provider: EngvoProvider) => void
   onEngvoVoiceChange?: (voice: EngvoRealtimeVoice) => void
   onEngvoXaiVoiceChange?: (voice: EngvoXaiCallVoice) => void
+  onEngvoXaiVoiceRotationModeChange?: (mode: EngvoXaiVoiceRotationMode) => void
   onEngvoLevelChange?: (level: EngvoCefrLevel) => void
   onEngvoSpeechSpeedChange?: (preset: EngvoSpeechSpeedPresetId) => void
   practiceTtsSpeedDefaultIndex?: number
@@ -141,11 +144,13 @@ export default function SlideOutMenu({
   engvoProvider,
   engvoRealtimeVoice,
   engvoXaiVoice,
+  engvoXaiVoiceRotationMode,
   engvoCefrLevel,
   engvoSpeechSpeedPreset,
   onEngvoProviderChange,
   onEngvoVoiceChange,
   onEngvoXaiVoiceChange,
+  onEngvoXaiVoiceRotationModeChange,
   onEngvoLevelChange,
   onEngvoSpeechSpeedChange,
   practiceTtsSpeedDefaultIndex,
@@ -288,11 +293,13 @@ export default function SlideOutMenu({
         engvoProvider={engvoProvider}
         engvoRealtimeVoice={engvoRealtimeVoice}
         engvoXaiVoice={engvoXaiVoice}
+        engvoXaiVoiceRotationMode={engvoXaiVoiceRotationMode}
         engvoCefrLevel={engvoCefrLevel}
         engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}
         onEngvoProviderChange={onEngvoProviderChange}
         onEngvoVoiceChange={onEngvoVoiceChange}
         onEngvoXaiVoiceChange={onEngvoXaiVoiceChange}
+        onEngvoXaiVoiceRotationModeChange={onEngvoXaiVoiceRotationModeChange}
         onEngvoLevelChange={onEngvoLevelChange}
         onEngvoSpeechSpeedChange={onEngvoSpeechSpeedChange}
         practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}

@@ -9,6 +9,7 @@ import {
   ENGVO_STATUS_IDLE_CHILD,
   ENGVO_STATUS_IN_CALL,
   ENGVO_STATUS_SPEAKING,
+  formatEngvoInCallFooterText,
   getEngvoBootstrapServiceIndicatorText,
   getEngvoFooterView,
   hasEngvoAssistantChatBubble,
@@ -17,7 +18,7 @@ import {
 } from './state'
 
 describe('engvo state helpers', () => {
-  it('maps phases to stable footer text for adult (live = in call)', () => {
+  it('maps phases to stable footer text for adult (live = in call with voice)', () => {
     expect(getEngvoFooterView({ phase: 'idle', userInterimText: '', audience: 'adult' })).toEqual({
       text: ENGVO_STATUS_IDLE_ADULT,
       tone: 'neutral',
@@ -26,20 +27,48 @@ describe('engvo state helpers', () => {
       text: ENGVO_STATUS_CONNECTING,
       tone: 'thinking',
     })
-    expect(getEngvoFooterView({ phase: 'listening', userInterimText: 'hello', audience: 'adult' })).toEqual({
-      text: ENGVO_STATUS_IN_CALL,
+    expect(
+      getEngvoFooterView({
+        phase: 'listening',
+        userInterimText: 'hello',
+        audience: 'adult',
+        voiceDisplayName: 'Eve',
+      })
+    ).toEqual({
+      text: 'В эфире с Eve',
       tone: 'neutral',
     })
-    expect(getEngvoFooterView({ phase: 'userFinalizing', userInterimText: '', audience: 'adult' })).toEqual({
-      text: ENGVO_STATUS_IN_CALL,
+    expect(
+      getEngvoFooterView({
+        phase: 'userFinalizing',
+        userInterimText: '',
+        audience: 'adult',
+        voiceDisplayName: 'Eve',
+      })
+    ).toEqual({
+      text: 'В эфире с Eve',
       tone: 'neutral',
     })
-    expect(getEngvoFooterView({ phase: 'assistantPending', userInterimText: '', audience: 'adult' })).toEqual({
-      text: ENGVO_STATUS_IN_CALL,
+    expect(
+      getEngvoFooterView({
+        phase: 'assistantPending',
+        userInterimText: '',
+        audience: 'adult',
+        voiceDisplayName: 'Luna',
+      })
+    ).toEqual({
+      text: 'В эфире с Luna',
       tone: 'neutral',
     })
-    expect(getEngvoFooterView({ phase: 'assistantSpeaking', userInterimText: '', audience: 'adult' })).toEqual({
-      text: ENGVO_STATUS_IN_CALL,
+    expect(
+      getEngvoFooterView({
+        phase: 'assistantSpeaking',
+        userInterimText: '',
+        audience: 'adult',
+        voiceDisplayName: 'Marin',
+      })
+    ).toEqual({
+      text: 'В эфире с Marin',
       tone: 'neutral',
     })
     expect(getEngvoFooterView({ phase: 'ended', userInterimText: '', audience: 'adult' })).toEqual({
@@ -52,20 +81,45 @@ describe('engvo state helpers', () => {
     })
   })
 
-  it('maps phases to footer text for child (ты on idle/error; live shared)', () => {
+  it('maps phases to footer text for child (ты on idle/error; live shared with voice)', () => {
     expect(getEngvoFooterView({ phase: 'idle', userInterimText: '', audience: 'child' })).toEqual({
       text: ENGVO_STATUS_IDLE_CHILD,
       tone: 'neutral',
     })
-    expect(getEngvoFooterView({ phase: 'listening', userInterimText: '', audience: 'child' })).toEqual({
-      text: ENGVO_STATUS_IN_CALL,
+    expect(
+      getEngvoFooterView({
+        phase: 'listening',
+        userInterimText: '',
+        audience: 'child',
+        voiceDisplayName: 'Eve',
+      })
+    ).toEqual({
+      text: 'В эфире с Eve',
       tone: 'neutral',
     })
     expect(getEngvoFooterView({ phase: 'error', userInterimText: '', audience: 'child' })).toEqual({
       text: ENGVO_STATUS_ERROR_CHILD,
       tone: 'error',
     })
-    expect(getEngvoFooterView({ phase: 'assistantSpeaking', userInterimText: '', audience: 'child' })).toEqual({
+    expect(
+      getEngvoFooterView({
+        phase: 'assistantSpeaking',
+        userInterimText: '',
+        audience: 'child',
+        voiceDisplayName: 'Eve',
+      })
+    ).toEqual({
+      text: 'В эфире с Eve',
+      tone: 'neutral',
+    })
+  })
+
+  it('falls back to plain in-call text without voice name', () => {
+    expect(formatEngvoInCallFooterText(null)).toBe(ENGVO_STATUS_IN_CALL)
+    expect(formatEngvoInCallFooterText('')).toBe(ENGVO_STATUS_IN_CALL)
+    expect(
+      getEngvoFooterView({ phase: 'listening', userInterimText: '', audience: 'adult' })
+    ).toEqual({
       text: ENGVO_STATUS_IN_CALL,
       tone: 'neutral',
     })

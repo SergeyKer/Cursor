@@ -1,0 +1,54 @@
+[
+  [
+    "  ENGVO_XAI_DEFAULT_VOICE,\n  ENGVO_XAI_MODEL,\n  clampEngvoRealtimeSpeed,",
+    "  ENGVO_XAI_DEFAULT_VOICE,\n  ENGVO_XAI_MODEL,\n  ENGVO_DEFAULT_XAI_VOICE_ROTATION_MODE,\n  isEngvoXaiVoice,\n  clampEngvoRealtimeSpeed,"
+  ],
+  [
+    "  type EngvoXaiCallVoice,\n  ENGVO_CALL_FINISHED_ASSISTANT_TEXT,\n  ENGVO_DIALING_ASSISTANT_TEXT,\n} from '@/lib/engvo/constants'",
+    "  type EngvoXaiCallVoice,\n  type EngvoXaiVoiceRotationMode,\n  ENGVO_CALL_FINISHED_ASSISTANT_TEXT,\n  ENGVO_DIALING_ASSISTANT_TEXT,\n} from '@/lib/engvo/constants'\nimport { formatEngvoVoiceDisplayName } from '@/lib/engvo/voiceDisplayName'\nimport {\n  ensureBuiltInXaiVoiceForRotation,\n  pickNextXaiVoice,\n} from '@/lib/engvo/xaiVoiceRotation'"
+  ],
+  [
+    "  loadEngvoXaiVoice,\n  resolveEngvoSpeechSpeedPreset,\n  saveEngvoCefrLevel,\n  saveEngvoProvider,\n  saveEngvoRealtimeVoice,\n  saveEngvoSpeechSpeedPreset,\n  saveEngvoXaiVoice,\n} from '@/lib/engvo/preferences'",
+    "  loadEngvoXaiVoice,\n  loadEngvoXaiVoiceRotationMode,\n  loadEngvoXaiVoiceShuffleRemaining,\n  resolveEngvoSpeechSpeedPreset,\n  saveEngvoCefrLevel,\n  saveEngvoProvider,\n  saveEngvoRealtimeVoice,\n  saveEngvoSpeechSpeedPreset,\n  saveEngvoXaiVoice,\n  saveEngvoXaiVoiceRotationMode,\n  saveEngvoXaiVoiceShuffleRemaining,\n  clearEngvoXaiVoiceShuffleRemaining,\n} from '@/lib/engvo/preferences'"
+  ],
+  [
+    "  const [engvoXaiVoice, setEngvoXaiVoice] = useState<EngvoXaiCallVoice>(ENGVO_XAI_DEFAULT_VOICE)\n  const engvoActiveProviderRef = React.useRef<EngvoProvider>(ENGVO_DEFAULT_PROVIDER)",
+    "  const [engvoXaiVoice, setEngvoXaiVoice] = useState<EngvoXaiCallVoice>(ENGVO_XAI_DEFAULT_VOICE)\n  const [engvoXaiVoiceRotationMode, setEngvoXaiVoiceRotationMode] =\n    useState<EngvoXaiVoiceRotationMode>(ENGVO_DEFAULT_XAI_VOICE_ROTATION_MODE)\n  const engvoActiveProviderRef = React.useRef<EngvoProvider>(ENGVO_DEFAULT_PROVIDER)"
+  ],
+  [
+    "    engvoActiveProviderRef.current = engvoProvider\n    engvoLastAppliedRealtimeVoiceRef.current =\n      engvoProvider === 'xai' ? engvoXaiVoice : engvoRealtimeVoice\n    const speechSpeedForCall = engvoSpeechSpeedFromPreset(presetForCall, engvoProvider)",
+    "    engvoActiveProviderRef.current = engvoProvider\n\n    let callXaiVoice = engvoXaiVoice\n    if (engvoProvider === 'xai' && engvoXaiVoiceRotationMode !== 'none') {\n      const picked = pickNextXaiVoice({\n        mode: engvoXaiVoiceRotationMode,\n        lastVoice: engvoXaiVoice,\n        shuffleRemaining: loadEngvoXaiVoiceShuffleRemaining(),\n      })\n      callXaiVoice = picked.voice\n      setEngvoXaiVoice(picked.voice)\n      saveEngvoXaiVoice(picked.voice)\n      if (engvoXaiVoiceRotationMode === 'shuffle') {\n        saveEngvoXaiVoiceShuffleRemaining(picked.shuffleRemaining)\n      } else {\n        clearEngvoXaiVoiceShuffleRemaining()\n      }\n    }\n\n    engvoLastAppliedRealtimeVoiceRef.current =\n      engvoProvider === 'xai' ? callXaiVoice : engvoRealtimeVoice\n    const speechSpeedForCall = engvoSpeechSpeedFromPreset(presetForCall, engvoProvider)"
+  ],
+  [
+    "            voice: engvoXaiVoice,\n            level: engvoCefrLevel,\n            speed: clampEngvoRealtimeSpeed(speechSpeedForCall, 'xai'),",
+    "            voice: callXaiVoice,\n            level: engvoCefrLevel,\n            speed: clampEngvoRealtimeSpeed(speechSpeedForCall, 'xai'),"
+  ],
+  [
+    "                  voice: engvoXaiVoice,\n                  speed: speechSpeed,\n                })\n              )\n              if (!sent) {\n                setEngvoSessionError('Не удалось отправить параметры Grok-сессии.')",
+    "                  voice: callXaiVoice,\n                  speed: speechSpeed,\n                })\n              )\n              if (!sent) {\n                setEngvoSessionError('Не удалось отправить параметры Grok-сессии.')"
+  ],
+  [
+    "    engvoSpeechSpeedPreset,\n    engvoXaiVoice,\n    handleEngvoRealtimeMessage,",
+    "    engvoSpeechSpeedPreset,\n    engvoXaiVoice,\n    engvoXaiVoiceRotationMode,\n    handleEngvoRealtimeMessage,"
+  ],
+  [
+    "  const handleEngvoXaiVoiceChange = useCallback(\n    (voice: EngvoXaiCallVoice) => {\n      setEngvoXaiVoice(voice)\n      saveEngvoXaiVoice(voice)\n      if (engvoVoiceMode && engvoActiveProviderRef.current === 'xai') {\n        engvoPendingRealtimeVoiceRef.current = voice\n        setEngvoSessionUpdateTick((prev) => prev + 1)\n      }\n    },\n    [engvoVoiceMode]\n  )",
+    "  const handleEngvoXaiVoiceChange = useCallback(\n    (voice: EngvoXaiCallVoice) => {\n      setEngvoXaiVoice(voice)\n      saveEngvoXaiVoice(voice)\n      setEngvoXaiVoiceRotationMode('none')\n      saveEngvoXaiVoiceRotationMode('none')\n      clearEngvoXaiVoiceShuffleRemaining()\n      if (engvoVoiceMode && engvoActiveProviderRef.current === 'xai') {\n        engvoPendingRealtimeVoiceRef.current = voice\n        setEngvoSessionUpdateTick((prev) => prev + 1)\n      }\n    },\n    [engvoVoiceMode]\n  )\n\n  const handleEngvoXaiVoiceRotationModeChange = useCallback(\n    (mode: EngvoXaiVoiceRotationMode) => {\n      setEngvoXaiVoiceRotationMode(mode)\n      saveEngvoXaiVoiceRotationMode(mode)\n      if (mode !== 'shuffle') {\n        clearEngvoXaiVoiceShuffleRemaining()\n      }\n      if (mode !== 'none') {\n        const fallback = ensureBuiltInXaiVoiceForRotation(engvoXaiVoice)\n        if (fallback) {\n          setEngvoXaiVoice(fallback)\n          saveEngvoXaiVoice(fallback)\n        }\n      }\n    },\n    [engvoXaiVoice]\n  )"
+  ],
+  [
+    "        setEngvoXaiVoice(loadEngvoXaiVoice())\n        const loadedEngvoLevel = loadEngvoCefrLevel(mergedSettings.audience)",
+    "        setEngvoXaiVoice(loadEngvoXaiVoice())\n        setEngvoXaiVoiceRotationMode(loadEngvoXaiVoiceRotationMode())\n        const loadedEngvoLevel = loadEngvoCefrLevel(mergedSettings.audience)"
+  ],
+  [
+    "      const engvoFooter = getEngvoFooterView({\n        phase: engvoCallPhase,\n        userInterimText: engvoUserInterimText,\n        errorText: engvoErrorText,\n        audience: settings.audience,\n      })",
+    "      const activeCallVoice =\n        engvoActiveProviderRef.current === 'xai' ? engvoXaiVoice : engvoRealtimeVoice\n      const engvoFooter = getEngvoFooterView({\n        phase: engvoCallPhase,\n        userInterimText: engvoUserInterimText,\n        errorText: engvoErrorText,\n        audience: settings.audience,\n        voiceDisplayName: formatEngvoVoiceDisplayName(activeCallVoice),\n      })"
+  ],
+  [
+    "                    engvoXaiVoice={engvoXaiVoice}\n                    engvoCefrLevel={engvoCefrLevel}\n                    engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}\n                    onEngvoProviderChange={handleEngvoProviderChange}\n                    onEngvoVoiceChange={handleEngvoVoiceChange}\n                    onEngvoXaiVoiceChange={handleEngvoXaiVoiceChange}\n                    onEngvoLevelChange={handleEngvoLevelChange}",
+    "                    engvoXaiVoice={engvoXaiVoice}\n                    engvoXaiVoiceRotationMode={engvoXaiVoiceRotationMode}\n                    engvoCefrLevel={engvoCefrLevel}\n                    engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}\n                    onEngvoProviderChange={handleEngvoProviderChange}\n                    onEngvoVoiceChange={handleEngvoVoiceChange}\n                    onEngvoXaiVoiceChange={handleEngvoXaiVoiceChange}\n                    onEngvoXaiVoiceRotationModeChange={handleEngvoXaiVoiceRotationModeChange}\n                    onEngvoLevelChange={handleEngvoLevelChange}"
+  ],
+  [
+    "        engvoXaiVoice={engvoXaiVoice}\n        engvoCefrLevel={engvoCefrLevel}\n        engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}\n        onEngvoProviderChange={handleEngvoProviderChange}\n        onEngvoVoiceChange={handleEngvoVoiceChange}\n        onEngvoXaiVoiceChange={handleEngvoXaiVoiceChange}\n        onEngvoLevelChange={handleEngvoLevelChange}",
+    "        engvoXaiVoice={engvoXaiVoice}\n        engvoXaiVoiceRotationMode={engvoXaiVoiceRotationMode}\n        engvoCefrLevel={engvoCefrLevel}\n        engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}\n        onEngvoProviderChange={handleEngvoProviderChange}\n        onEngvoVoiceChange={handleEngvoVoiceChange}\n        onEngvoXaiVoiceChange={handleEngvoXaiVoiceChange}\n        onEngvoXaiVoiceRotationModeChange={handleEngvoXaiVoiceRotationModeChange}\n        onEngvoLevelChange={handleEngvoLevelChange}"
+  ]
+]

@@ -18,6 +18,8 @@ export type EngvoFooterView = {
 /** Shared / audience-split call status copy for footer and chat bootstrap. */
 export const ENGVO_STATUS_CONNECTING = 'Набираем Engvo…'
 export const ENGVO_STATUS_IN_CALL = 'В эфире.'
+/** Live footer prefix; full text is `В эфире с ${voiceDisplayName}`. */
+export const ENGVO_STATUS_IN_CALL_WITH = 'В эфире с'
 export const ENGVO_STATUS_SPEAKING = 'Engvo говорит…'
 export const ENGVO_STATUS_ENDED = 'Звонок завершён'
 
@@ -68,11 +70,19 @@ export function getEngvoBootstrapServiceIndicatorText(
   return null
 }
 
+export function formatEngvoInCallFooterText(voiceDisplayName?: string | null): string {
+  const name = voiceDisplayName?.trim()
+  if (!name) return ENGVO_STATUS_IN_CALL
+  return `${ENGVO_STATUS_IN_CALL_WITH} ${name}`
+}
+
 export function getEngvoFooterView(params: {
   phase: EngvoCallPhase
   userInterimText: string
   errorText?: string | null
   audience?: Audience
+  /** Capitalized voice name for live footer (`Eve`). */
+  voiceDisplayName?: string | null
 }): EngvoFooterView {
   const audience = params.audience ?? 'adult'
   if (params.phase === 'error') {
@@ -90,7 +100,7 @@ export function getEngvoFooterView(params: {
     params.phase === 'assistantPending' ||
     params.phase === 'assistantSpeaking'
   ) {
-    return { text: ENGVO_STATUS_IN_CALL, tone: 'neutral' }
+    return { text: formatEngvoInCallFooterText(params.voiceDisplayName), tone: 'neutral' }
   }
   if (params.phase === 'ended') {
     return { text: ENGVO_STATUS_ENDED, tone: 'neutral' }

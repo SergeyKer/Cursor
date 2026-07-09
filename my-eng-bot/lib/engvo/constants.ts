@@ -8,6 +8,9 @@ export const ENGVO_DEFAULT_VOICE = 'marin'
 export const ENGVO_DEFAULT_LEVEL: Extract<LevelId, 'a1' | 'a2' | 'b1' | 'b2' | 'c1' | 'c2'> = 'a2'
 export const ENGVO_VOICE_STORAGE_KEY = 'myeng-engvo-realtime-voice'
 export const ENGVO_XAI_VOICE_STORAGE_KEY = 'myeng-engvo-xai-voice'
+export const ENGVO_XAI_VOICE_ROTATION_MODE_STORAGE_KEY = 'myeng-engvo-xai-voice-rotation-mode'
+export const ENGVO_XAI_VOICE_SHUFFLE_REMAINING_STORAGE_KEY =
+  'myeng-engvo-xai-voice-shuffle-remaining'
 export const ENGVO_PROVIDER_STORAGE_KEY = 'myeng-engvo-provider'
 export const ENGVO_LEVEL_STORAGE_KEY = 'myeng-engvo-cefr-level'
 export const ENGVO_SPEECH_SPEED_STORAGE_KEY = 'myeng-engvo-speech-speed-preset'
@@ -60,6 +63,37 @@ export type EngvoXaiVoice = (typeof ENGVO_XAI_VOICES)[number]
 /** Built-in Grok voice or custom voice_id from Voice Lab manifest. */
 export type EngvoXaiCallVoice = EngvoXaiVoice | string
 export type EngvoXaiVoiceSectionId = 'classic' | 'new' | 'other'
+
+export const ENGVO_XAI_VOICE_ROTATION_MODES = [
+  'none',
+  'sequential',
+  'random',
+  'shuffle',
+] as const
+export type EngvoXaiVoiceRotationMode = (typeof ENGVO_XAI_VOICE_ROTATION_MODES)[number]
+export const ENGVO_DEFAULT_XAI_VOICE_ROTATION_MODE: EngvoXaiVoiceRotationMode = 'none'
+
+export const ENGVO_XAI_VOICE_ROTATION_MODE_OPTIONS = [
+  { id: 'none' as const, label: 'Нет' },
+  { id: 'sequential' as const, label: 'Подряд' },
+  { id: 'random' as const, label: 'Случайно' },
+  { id: 'shuffle' as const, label: 'Без повторов' },
+] as const
+
+export function isEngvoXaiVoiceRotationMode(value: string): value is EngvoXaiVoiceRotationMode {
+  return (ENGVO_XAI_VOICE_ROTATION_MODES as readonly string[]).includes(value)
+}
+
+export function formatEngvoXaiVoiceRotationSummary(
+  mode: EngvoXaiVoiceRotationMode,
+  voiceDisplayName: string
+): string {
+  const name = voiceDisplayName.trim() || '—'
+  if (mode === 'none') return name
+  const modeLabel =
+    ENGVO_XAI_VOICE_ROTATION_MODE_OPTIONS.find((o) => o.id === mode)?.label ?? mode
+  return `${modeLabel} · ${name}`
+}
 
 export const ENGVO_XAI_VOICE_SECTIONS = [
   { id: 'classic' as const, label: 'Classic', voices: ENGVO_XAI_CLASSIC_VOICES },

@@ -218,6 +218,7 @@ import {
   ENGVO_XAI_USER_COALESCE_WINDOW_MS,
   ENGVO_XAI_DEFAULT_VOICE,
   ENGVO_XAI_MODEL,
+  ENGVO_DEFAULT_XAI_VOICE_ROTATION_MODE,
   clampEngvoRealtimeSpeed,
   engvoSpeechSpeedFromPreset,
   getEngvoDefaultSpeechSpeedPreset,
@@ -226,9 +227,15 @@ import {
   type EngvoRealtimeVoice,
   type EngvoSpeechSpeedPresetId,
   type EngvoXaiCallVoice,
+  type EngvoXaiVoiceRotationMode,
   ENGVO_CALL_FINISHED_ASSISTANT_TEXT,
   ENGVO_DIALING_ASSISTANT_TEXT,
 } from '@/lib/engvo/constants'
+import { formatEngvoVoiceDisplayName } from '@/lib/engvo/voiceDisplayName'
+import {
+  ensureBuiltInXaiVoiceForRotation,
+  pickNextXaiVoice,
+} from '@/lib/engvo/xaiVoiceRotation'
 import type { EngvoRealtimeReplayItem } from '@/lib/engvo/realtimeReplay'
 import {
   buildEngvoContinuationResponseInstructions,
@@ -263,12 +270,17 @@ import {
   loadEngvoRealtimeVoice,
   loadEngvoSpeechSpeedPreset,
   loadEngvoXaiVoice,
+  loadEngvoXaiVoiceRotationMode,
+  loadEngvoXaiVoiceShuffleRemaining,
   resolveEngvoSpeechSpeedPreset,
   saveEngvoCefrLevel,
   saveEngvoProvider,
   saveEngvoRealtimeVoice,
   saveEngvoSpeechSpeedPreset,
   saveEngvoXaiVoice,
+  saveEngvoXaiVoiceRotationMode,
+  saveEngvoXaiVoiceShuffleRemaining,
+  clearEngvoXaiVoiceShuffleRemaining,
 } from '@/lib/engvo/preferences'
 import {
   loadPracticeTtsSpeedDefaultIndex,
@@ -896,6 +908,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [engvoProvider, setEngvoProvider] = useState<EngvoProvider>(ENGVO_DEFAULT_PROVIDER)
   const [engvoRealtimeVoice, setEngvoRealtimeVoice] = useState<EngvoRealtimeVoice>(ENGVO_DEFAULT_VOICE)
   const [engvoXaiVoice, setEngvoXaiVoice] = useState<EngvoXaiCallVoice>(ENGVO_XAI_DEFAULT_VOICE)
+  const [engvoXaiVoiceRotationMode, setEngvoXaiVoiceRotationMode] =
+    useState<EngvoXaiVoiceRotationMode>(ENGVO_DEFAULT_XAI_VOICE_ROTATION_MODE)
   const engvoActiveProviderRef = React.useRef<EngvoProvider>(ENGVO_DEFAULT_PROVIDER)
   const engvoXaiTransportRef = React.useRef<EngvoXaiTransport | null>(null)
   const engvoXaiTokenRef = React.useRef<string | null>(null)
@@ -2317,8 +2331,26 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     engvoPendingRealtimeVoiceRef.current = null
     engvoPendingRealtimeSpeedRef.current = null
     engvoActiveProviderRef.current = engvoProvider
+
+    let callXaiVoice = engvoXaiVoice
+    if (engvoProvider === 'xai' && engvoXaiVoiceRotationMode !== 'none') {
+      const picked = pickNextXaiVoice({
+        mode: engvoXaiVoiceRotationMode,
+        lastVoice: engvoXaiVoice,
+        shuffleRemaining: loadEngvoXaiVoiceShuffleRemaining(),
+      })
+      callXaiVoice = picked.voice
+      setEngvoXaiVoice(picked.voice)
+      saveEngvoXaiVoice(picked.voice)
+      if (engvoXaiVoiceRotationMode === 'shuffle') {
+        saveEngvoXaiVoiceShuffleRemaining(picked.shuffleRemaining)
+      } else {
+        clearEngvoXaiVoiceShuffleRemaining()
+      }
+    }
+
     engvoLastAppliedRealtimeVoiceRef.current =
-      engvoProvider === 'xai' ? engvoXaiVoice : engvoRealtimeVoice
+      engvoProvider === 'xai' ? callXaiVoice : engvoRealtimeVoice
     const speechSpeedForCall = engvoSpeechSpeedFromPreset(presetForCall, engvoProvider)
     engvoLastAppliedRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(
       speechSpeedForCall,
@@ -2365,7 +2397,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           body: JSON.stringify({
             audience: settings.audience,
             topic: settings.topic,
-            voice: engvoXaiVoice,
+            voice: callXaiVoice,
             level: engvoCefrLevel,
             speed: clampEngvoRealtimeSpeed(speechSpeedForCall, 'xai'),
           }),
@@ -2407,7 +2439,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     topic: settings.topic,
                     speechSpeed,
                   }),
-                  voice: engvoXaiVoice,
+                  voice: callXaiVoice,
                   speed: speechSpeed,
                 })
               )
@@ -2626,6 +2658,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     engvoRealtimeVoice,
     engvoSpeechSpeedPreset,
     engvoXaiVoice,
+    engvoXaiVoiceRotationMode,
     handleEngvoRealtimeMessage,
     maybeCommitEngvoAssistantMessage,
     sendEngvoRealtimeEvent,
@@ -2724,12 +2757,33 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     (voice: EngvoXaiCallVoice) => {
       setEngvoXaiVoice(voice)
       saveEngvoXaiVoice(voice)
+      setEngvoXaiVoiceRotationMode('none')
+      saveEngvoXaiVoiceRotationMode('none')
+      clearEngvoXaiVoiceShuffleRemaining()
       if (engvoVoiceMode && engvoActiveProviderRef.current === 'xai') {
         engvoPendingRealtimeVoiceRef.current = voice
         setEngvoSessionUpdateTick((prev) => prev + 1)
       }
     },
     [engvoVoiceMode]
+  )
+
+  const handleEngvoXaiVoiceRotationModeChange = useCallback(
+    (mode: EngvoXaiVoiceRotationMode) => {
+      setEngvoXaiVoiceRotationMode(mode)
+      saveEngvoXaiVoiceRotationMode(mode)
+      if (mode !== 'shuffle') {
+        clearEngvoXaiVoiceShuffleRemaining()
+      }
+      if (mode !== 'none') {
+        const fallback = ensureBuiltInXaiVoiceForRotation(engvoXaiVoice)
+        if (fallback) {
+          setEngvoXaiVoice(fallback)
+          saveEngvoXaiVoice(fallback)
+        }
+      }
+    },
+    [engvoXaiVoice]
   )
 
   const handleEngvoLevelChange = useCallback(
@@ -5031,6 +5085,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         setEngvoProvider(loadEngvoProvider())
         setEngvoRealtimeVoice(loadEngvoRealtimeVoice())
         setEngvoXaiVoice(loadEngvoXaiVoice())
+        setEngvoXaiVoiceRotationMode(loadEngvoXaiVoiceRotationMode())
         const loadedEngvoLevel = loadEngvoCefrLevel(mergedSettings.audience)
         setEngvoCefrLevel(loadedEngvoLevel)
         setEngvoSpeechSpeedPreset(
@@ -6395,11 +6450,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const chatFooterVoice = React.useMemo(() => {
     if (!dialogStarted || isLessonActive) return null
     if (engvoVoiceMode) {
+      const activeCallVoice =
+        engvoActiveProviderRef.current === 'xai' ? engvoXaiVoice : engvoRealtimeVoice
       const engvoFooter = getEngvoFooterView({
         phase: engvoCallPhase,
         userInterimText: engvoUserInterimText,
         errorText: engvoErrorText,
         audience: settings.audience,
+        voiceDisplayName: formatEngvoVoiceDisplayName(activeCallVoice),
       })
       if (!engvoFooter.text) return null
       return {
@@ -6512,8 +6570,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     dialogStarted,
     engvoCallPhase,
     engvoErrorText,
+    engvoRealtimeVoice,
     engvoUserInterimText,
     engvoVoiceMode,
+    engvoXaiVoice,
     isLessonActive,
     lastMessageIsError,
     loading,
@@ -7570,11 +7630,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     engvoProvider={engvoProvider}
                     engvoRealtimeVoice={engvoRealtimeVoice}
                     engvoXaiVoice={engvoXaiVoice}
+                    engvoXaiVoiceRotationMode={engvoXaiVoiceRotationMode}
                     engvoCefrLevel={engvoCefrLevel}
                     engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}
                     onEngvoProviderChange={handleEngvoProviderChange}
                     onEngvoVoiceChange={handleEngvoVoiceChange}
                     onEngvoXaiVoiceChange={handleEngvoXaiVoiceChange}
+                    onEngvoXaiVoiceRotationModeChange={handleEngvoXaiVoiceRotationModeChange}
                     onEngvoLevelChange={handleEngvoLevelChange}
                     onEngvoSpeechSpeedChange={handleEngvoSpeechSpeedChange}
                     practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}
@@ -8002,11 +8064,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         engvoProvider={engvoProvider}
         engvoRealtimeVoice={engvoRealtimeVoice}
         engvoXaiVoice={engvoXaiVoice}
+        engvoXaiVoiceRotationMode={engvoXaiVoiceRotationMode}
         engvoCefrLevel={engvoCefrLevel}
         engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}
         onEngvoProviderChange={handleEngvoProviderChange}
         onEngvoVoiceChange={handleEngvoVoiceChange}
         onEngvoXaiVoiceChange={handleEngvoXaiVoiceChange}
+        onEngvoXaiVoiceRotationModeChange={handleEngvoXaiVoiceRotationModeChange}
         onEngvoLevelChange={handleEngvoLevelChange}
         onEngvoSpeechSpeedChange={handleEngvoSpeechSpeedChange}
         practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}
