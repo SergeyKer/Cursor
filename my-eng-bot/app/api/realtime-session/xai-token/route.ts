@@ -4,7 +4,7 @@ import {
   ENGVO_XAI_DEFAULT_VOICE,
   ENGVO_XAI_MODEL,
   isEngvoCefrLevel,
-  isEngvoXaiVoice,
+  isEngvoAllowedXaiVoice,
   ENGVO_DEFAULT_LEVEL,
 } from '@/lib/engvo/constants'
 import {
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     const requestedVoice = body.voice ?? ''
     const requestedLevel = body.level ?? ''
     const requestedTopic = body.topic ?? ''
-    const voice = isEngvoXaiVoice(requestedVoice) ? requestedVoice : ENGVO_XAI_DEFAULT_VOICE
+    const voice = isEngvoAllowedXaiVoice(requestedVoice) ? requestedVoice : ENGVO_XAI_DEFAULT_VOICE
     const level = isEngvoCefrLevel(requestedLevel) ? requestedLevel : ENGVO_DEFAULT_LEVEL
     const topicIds = new Set<TopicId>(TOPICS.map((item) => item.id))
     const topic = topicIds.has(requestedTopic as TopicId) ? (requestedTopic as TopicId) : 'free_talk'

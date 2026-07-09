@@ -222,7 +222,7 @@ import {
   type EngvoProvider,
   type EngvoRealtimeVoice,
   type EngvoSpeechSpeedPresetId,
-  type EngvoXaiVoice,
+  type EngvoXaiCallVoice,
   ENGVO_CALL_FINISHED_ASSISTANT_TEXT,
   ENGVO_DIALING_ASSISTANT_TEXT,
 } from '@/lib/engvo/constants'
@@ -891,7 +891,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [engvoVoiceMode, setEngvoVoiceMode] = useState(false)
   const [engvoProvider, setEngvoProvider] = useState<EngvoProvider>(ENGVO_DEFAULT_PROVIDER)
   const [engvoRealtimeVoice, setEngvoRealtimeVoice] = useState<EngvoRealtimeVoice>(ENGVO_DEFAULT_VOICE)
-  const [engvoXaiVoice, setEngvoXaiVoice] = useState<EngvoXaiVoice>(ENGVO_XAI_DEFAULT_VOICE)
+  const [engvoXaiVoice, setEngvoXaiVoice] = useState<EngvoXaiCallVoice>(ENGVO_XAI_DEFAULT_VOICE)
   const engvoActiveProviderRef = React.useRef<EngvoProvider>(ENGVO_DEFAULT_PROVIDER)
   const engvoXaiTransportRef = React.useRef<EngvoXaiTransport | null>(null)
   const engvoXaiTokenRef = React.useRef<string | null>(null)
@@ -1045,11 +1045,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const prefetchEngvoCallTranslationRef = React.useRef<(text: string, responseId: string | null) => void>(
     () => {}
   )
-  const engvoPendingRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | EngvoXaiVoice | null>(null)
+  const engvoPendingRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | EngvoXaiCallVoice | null>(null)
   const engvoPendingRealtimeSpeedRef = React.useRef<number | null>(null)
-  const engvoLastAppliedRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | EngvoXaiVoice | null>(null)
+  const engvoLastAppliedRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | EngvoXaiCallVoice | null>(null)
   const engvoLastAppliedRealtimeSpeedRef = React.useRef<number | null>(null)
-  const engvoApplyingRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | EngvoXaiVoice | null>(null)
+  const engvoApplyingRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | EngvoXaiCallVoice | null>(null)
   const engvoApplyingRealtimeSpeedRef = React.useRef<number | null>(null)
   const engvoSessionUpdateInFlightRef = React.useRef(false)
   const engvoSessionUpdateRetryTimeoutRef = React.useRef<number | null>(null)
@@ -1646,7 +1646,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   const updateEngvoRealtimeSession = useCallback(
     (payload: {
-      voice?: EngvoRealtimeVoice | EngvoXaiVoice
+      voice?: EngvoRealtimeVoice | EngvoXaiCallVoice
       level?: EngvoCefrLevel
       speed?: number
     }): boolean => {
@@ -1662,7 +1662,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         speechSpeed,
       })
       if (provider === 'xai') {
-        const voice = (payload.voice as EngvoXaiVoice | undefined) ?? engvoXaiVoice
+        const voice = (payload.voice as EngvoXaiCallVoice | undefined) ?? engvoXaiVoice
         return sendEngvoRealtimeEvent(
           buildEngvoXaiClientSessionUpdate({
             instructions,
@@ -2567,7 +2567,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   )
 
   const handleEngvoXaiVoiceChange = useCallback(
-    (voice: EngvoXaiVoice) => {
+    (voice: EngvoXaiCallVoice) => {
       setEngvoXaiVoice(voice)
       saveEngvoXaiVoice(voice)
       if (engvoVoiceMode && engvoActiveProviderRef.current === 'xai') {

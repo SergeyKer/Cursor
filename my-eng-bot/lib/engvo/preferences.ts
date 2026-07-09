@@ -14,13 +14,13 @@ import {
   isEngvoCefrLevel,
   isEngvoProvider,
   isEngvoRealtimeVoice,
+  isEngvoAllowedXaiVoice,
   isEngvoSpeechSpeedPreset,
-  isEngvoXaiVoice,
   type EngvoCefrLevel,
   type EngvoProvider,
   type EngvoRealtimeVoice,
   type EngvoSpeechSpeedPresetId,
-  type EngvoXaiVoice,
+  type EngvoXaiCallVoice,
 } from '@/lib/engvo/constants'
 import type { Audience } from '@/lib/types'
 
@@ -62,18 +62,19 @@ export function saveEngvoRealtimeVoice(value: EngvoRealtimeVoice): void {
   }
 }
 
-export function loadEngvoXaiVoice(): EngvoXaiVoice {
+export function loadEngvoXaiVoice(): EngvoXaiCallVoice {
   if (typeof window === 'undefined') return ENGVO_XAI_DEFAULT_VOICE
   try {
     const raw = localStorage.getItem(ENGVO_XAI_VOICE_STORAGE_KEY)?.trim() ?? ''
-    return isEngvoXaiVoice(raw) ? raw : ENGVO_XAI_DEFAULT_VOICE
+    return isEngvoAllowedXaiVoice(raw) ? raw : ENGVO_XAI_DEFAULT_VOICE
   } catch {
     return ENGVO_XAI_DEFAULT_VOICE
   }
 }
 
-export function saveEngvoXaiVoice(value: EngvoXaiVoice): void {
+export function saveEngvoXaiVoice(value: EngvoXaiCallVoice): void {
   if (typeof window === 'undefined') return
+  if (!isEngvoAllowedXaiVoice(value)) return
   try {
     localStorage.setItem(ENGVO_XAI_VOICE_STORAGE_KEY, value)
   } catch {
@@ -81,7 +82,7 @@ export function saveEngvoXaiVoice(value: EngvoXaiVoice): void {
   }
 }
 
-export function loadEngvoVoiceForProvider(provider: EngvoProvider): EngvoRealtimeVoice | EngvoXaiVoice {
+export function loadEngvoVoiceForProvider(provider: EngvoProvider): EngvoRealtimeVoice | EngvoXaiCallVoice {
   return provider === 'xai' ? loadEngvoXaiVoice() : loadEngvoRealtimeVoice()
 }
 
@@ -90,14 +91,14 @@ export function saveEngvoVoiceForProvider(
   value: string
 ): void {
   if (provider === 'xai') {
-    if (isEngvoXaiVoice(value)) saveEngvoXaiVoice(value)
+    if (isEngvoAllowedXaiVoice(value)) saveEngvoXaiVoice(value)
     return
   }
   if (isEngvoRealtimeVoice(value)) saveEngvoRealtimeVoice(value)
 }
 
 /** When switching provider, keep each roster's last voice; return voice for the new provider. */
-export function resolveVoiceAfterProviderChange(provider: EngvoProvider): EngvoRealtimeVoice | EngvoXaiVoice {
+export function resolveVoiceAfterProviderChange(provider: EngvoProvider): EngvoRealtimeVoice | EngvoXaiCallVoice {
   const loaded = loadEngvoVoiceForProvider(provider)
   return loaded || getEngvoDefaultVoice(provider)
 }

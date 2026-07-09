@@ -86,9 +86,10 @@ import {
   type EngvoProvider,
   type EngvoRealtimeVoice,
   type EngvoSpeechSpeedPresetId,
-  type EngvoXaiVoice,
+  type EngvoXaiCallVoice,
   type EngvoXaiVoiceSectionId,
 } from '@/lib/engvo/constants'
+import { findEngvoCustomVoice, listEngvoCustomVoices } from '@/lib/engvo/voiceLab/customVoicesManifest'
 import {
   getPracticeTtsSpeedPreset,
   PRACTICE_TTS_SPEED_PRESETS,
@@ -434,12 +435,12 @@ export interface MenuSectionPanelsProps {
   onOpenEngvoVoiceChat?: () => void
   engvoProvider?: EngvoProvider
   engvoRealtimeVoice?: EngvoRealtimeVoice
-  engvoXaiVoice?: EngvoXaiVoice
+  engvoXaiVoice?: EngvoXaiCallVoice
   engvoCefrLevel?: EngvoCefrLevel
   engvoSpeechSpeedPreset?: EngvoSpeechSpeedPresetId
   onEngvoProviderChange?: (provider: EngvoProvider) => void
   onEngvoVoiceChange?: (voice: EngvoRealtimeVoice) => void
-  onEngvoXaiVoiceChange?: (voice: EngvoXaiVoice) => void
+  onEngvoXaiVoiceChange?: (voice: EngvoXaiCallVoice) => void
   onEngvoLevelChange?: (level: EngvoCefrLevel) => void
   onEngvoSpeechSpeedChange?: (preset: EngvoSpeechSpeedPresetId) => void
   practiceTtsSpeedDefaultIndex?: number
@@ -1176,13 +1177,18 @@ export default function MenuSectionPanels({
                 : 'Basic'
   const engvoProviderLabel =
     ENGVO_PROVIDER_OPTIONS.find((p) => p.id === engvoProvider)?.label ?? 'ChatGPT'
+  const customXaiVoices = React.useMemo(() => listEngvoCustomVoices(), [])
   const engvoVoiceLabel =
     engvoProvider === 'xai'
-      ? engvoXaiVoice ?? ENGVO_XAI_DEFAULT_VOICE
+      ? findEngvoCustomVoice(engvoXaiVoice ?? '')?.name ??
+        engvoXaiVoice ??
+        ENGVO_XAI_DEFAULT_VOICE
       : engvoRealtimeVoice ?? ENGVO_DEFAULT_VOICE
   const selectedXaiVoiceSection =
-    ENGVO_XAI_VOICE_SECTIONS.find((s) => s.id === selectedXaiVoiceSectionId) ??
-    ENGVO_XAI_VOICE_SECTIONS[0]
+    selectedXaiVoiceSectionId === 'other'
+      ? null
+      : ENGVO_XAI_VOICE_SECTIONS.find((s) => s.id === selectedXaiVoiceSectionId) ??
+        ENGVO_XAI_VOICE_SECTIONS[0]
   const engvoLevelLabel =
     ENGVO_LEVEL_OPTIONS.find((l) => l.id === (engvoCefrLevel ?? 'a2'))?.label ?? 'A2'
   const engvoSpeechSpeedLabel =
@@ -1907,6 +1913,15 @@ export default function MenuSectionPanels({
                       }}
                     />
                   ))}
+                  {customXaiVoices.length > 0 && (
+                    <MenuNavRow
+                      label="Other"
+                      onClick={() => {
+                        setSelectedXaiVoiceSectionId('other')
+                        setEngvoPanel('voiceSection')
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             )}
@@ -1920,12 +1935,22 @@ export default function MenuSectionPanels({
                 }}
               />
             )}
+            {engvoPanel === 'voiceSection' && engvoProvider === 'xai' && selectedXaiVoiceSectionId === 'other' && (
+              <PickerList
+                options={customXaiVoices.map((voice) => ({ id: voice.voiceId, label: voice.name }))}
+                value={engvoXaiVoice ?? ENGVO_XAI_DEFAULT_VOICE}
+                onSelect={(id) => {
+                  onEngvoXaiVoiceChange?.(id)
+                  setEngvoPanel('summary')
+                }}
+              />
+            )}
             {engvoPanel === 'voiceSection' && engvoProvider === 'xai' && selectedXaiVoiceSection && (
               <PickerList
                 options={selectedXaiVoiceSection.voices.map((voice) => ({ id: voice, label: voice }))}
                 value={engvoXaiVoice ?? ENGVO_XAI_DEFAULT_VOICE}
                 onSelect={(id) => {
-                  onEngvoXaiVoiceChange?.(id as EngvoXaiVoice)
+                  onEngvoXaiVoiceChange?.(id)
                   setEngvoPanel('summary')
                 }}
               />

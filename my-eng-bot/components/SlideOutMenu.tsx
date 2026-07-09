@@ -16,7 +16,7 @@ import type {
   EngvoProvider,
   EngvoRealtimeVoice,
   EngvoSpeechSpeedPresetId,
-  EngvoXaiVoice,
+  EngvoXaiCallVoice,
 } from '@/lib/engvo/constants'
 import type { ChatPatternId } from '@/lib/chatPattern'
 import type { ChatPatternTuning, ChatPatternTuningMap, TunableChatPatternId } from '@/lib/chatPatternTuning'
@@ -45,12 +45,12 @@ interface SlideOutMenuProps {
   onOpenEngvoVoiceChat?: () => void
   engvoProvider?: EngvoProvider
   engvoRealtimeVoice?: EngvoRealtimeVoice
-  engvoXaiVoice?: EngvoXaiVoice
+  engvoXaiVoice?: EngvoXaiCallVoice
   engvoCefrLevel?: EngvoCefrLevel
   engvoSpeechSpeedPreset?: EngvoSpeechSpeedPresetId
   onEngvoProviderChange?: (provider: EngvoProvider) => void
   onEngvoVoiceChange?: (voice: EngvoRealtimeVoice) => void
-  onEngvoXaiVoiceChange?: (voice: EngvoXaiVoice) => void
+  onEngvoXaiVoiceChange?: (voice: EngvoXaiCallVoice) => void
   onEngvoLevelChange?: (level: EngvoCefrLevel) => void
   onEngvoSpeechSpeedChange?: (preset: EngvoSpeechSpeedPresetId) => void
   practiceTtsSpeedDefaultIndex?: number

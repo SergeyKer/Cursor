@@ -1,0 +1,4 @@
+[
+  ["React.useRef<EngvoRealtimeVoice | EngvoXaiVoice | null>(null)", "React.useRef<EngvoRealtimeVoice | EngvoXaiCallVoice | null>(null)"],
+  ["voice?: EngvoRealtimeVoice | EngvoXaiVoice", "voice?: EngvoRealtimeVoice | EngvoXaiCallVoice"]
+]

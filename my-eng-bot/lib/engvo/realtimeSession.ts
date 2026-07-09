@@ -5,7 +5,7 @@ import {
   ENGVO_XAI_MODEL,
   ENGVO_XAI_PCM_SAMPLE_RATE,
   type EngvoRealtimeVoice,
-  type EngvoXaiVoice,
+  type EngvoXaiCallVoice,
 } from '@/lib/engvo/constants'
 
 function buildEngvoAudioOutput(params: {
@@ -106,7 +106,7 @@ const ENGVO_XAI_PCM_FORMAT = {
 /** xAI Voice Agent `session.update` — PCM 24 kHz, language_hint ru, reasoning none. */
 export function buildEngvoXaiClientSessionUpdate(params: {
   instructions: string
-  voice: EngvoXaiVoice
+  voice: EngvoXaiCallVoice
   speed?: number
 }): { type: 'session.update'; session: Record<string, unknown> } {
   const speed = clampEngvoRealtimeSpeed(params.speed ?? 1, 'xai')

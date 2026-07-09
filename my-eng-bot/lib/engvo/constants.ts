@@ -1,5 +1,6 @@
 import type { Audience, LevelId } from '@/lib/types'
 import { LEVELS } from '@/lib/constants'
+import { isEngvoCustomVoiceId } from '@/lib/engvo/voiceLab/customVoicesManifest'
 
 export const ENGVO_REALTIME_MODEL = 'gpt-realtime-mini'
 export const ENGVO_TRANSCRIPTION_MODEL = 'gpt-4o-mini-transcribe'
@@ -54,7 +55,9 @@ export const ENGVO_XAI_NEW_VOICES = [
 export const ENGVO_XAI_VOICES = [...ENGVO_XAI_CLASSIC_VOICES, ...ENGVO_XAI_NEW_VOICES] as const
 
 export type EngvoXaiVoice = (typeof ENGVO_XAI_VOICES)[number]
-export type EngvoXaiVoiceSectionId = 'classic' | 'new'
+/** Built-in Grok voice or custom voice_id from Voice Lab manifest. */
+export type EngvoXaiCallVoice = EngvoXaiVoice | string
+export type EngvoXaiVoiceSectionId = 'classic' | 'new' | 'other'
 
 export const ENGVO_XAI_VOICE_SECTIONS = [
   { id: 'classic' as const, label: 'Classic', voices: ENGVO_XAI_CLASSIC_VOICES },
@@ -98,7 +101,7 @@ export const ENGVO_REALTIME_VOICES = [
 ] as const
 
 export type EngvoRealtimeVoice = (typeof ENGVO_REALTIME_VOICES)[number]
-export type EngvoCallVoice = EngvoRealtimeVoice | EngvoXaiVoice
+export type EngvoCallVoice = EngvoRealtimeVoice | EngvoXaiCallVoice
 export type EngvoCefrLevel = Extract<LevelId, 'a1' | 'a2' | 'b1' | 'b2' | 'c1' | 'c2'>
 
 export const ENGVO_LEVEL_OPTIONS = LEVELS.filter((item): item is { id: EngvoCefrLevel; label: string } =>
@@ -117,8 +120,15 @@ export function isEngvoXaiVoice(value: string): value is EngvoXaiVoice {
   return (ENGVO_XAI_VOICES as readonly string[]).includes(value)
 }
 
+/** Built-in Grok voice or custom id listed in Voice Lab manifest. */
+export function isEngvoAllowedXaiVoice(value: string): value is EngvoXaiCallVoice {
+  const id = value.trim()
+  if (!id) return false
+  return isEngvoXaiVoice(id) || isEngvoCustomVoiceId(id)
+}
+
 export function isEngvoVoiceForProvider(provider: EngvoProvider, value: string): boolean {
-  return provider === 'xai' ? isEngvoXaiVoice(value) : isEngvoRealtimeVoice(value)
+  return provider === 'xai' ? isEngvoAllowedXaiVoice(value) : isEngvoRealtimeVoice(value)
 }
 
 export function getEngvoDefaultVoice(provider: EngvoProvider): EngvoCallVoice {
@@ -129,7 +139,8 @@ export function getEngvoVoicesForProvider(provider: EngvoProvider): readonly str
   return provider === 'xai' ? ENGVO_XAI_VOICES : ENGVO_REALTIME_VOICES
 }
 
-export function getEngvoXaiVoiceSection(voice: EngvoXaiVoice): EngvoXaiVoiceSectionId {
+export function getEngvoXaiVoiceSection(voice: EngvoXaiCallVoice): EngvoXaiVoiceSectionId {
+  if (isEngvoCustomVoiceId(voice)) return 'other'
   return (ENGVO_XAI_CLASSIC_VOICES as readonly string[]).includes(voice) ? 'classic' : 'new'
 }
 

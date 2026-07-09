@@ -1,0 +1,5 @@
+[
+  ["EngvoRealtimeVoice | EngvoXaiVoice", "EngvoRealtimeVoice | EngvoXaiCallVoice"],
+  ["as EngvoXaiVoice | undefined", "as EngvoXaiCallVoice | undefined"],
+  ["(voice: EngvoXaiVoice) => {", "(voice: EngvoXaiCallVoice) => {"]
+]
