@@ -6239,10 +6239,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         phase: engvoCallPhase,
         userInterimText: engvoUserInterimText,
         errorText: engvoErrorText,
+        audience: settings.audience,
       })
       if (!engvoFooter.text) return null
       return {
-        typingKey: `engvo-${engvoCallPhase}`,
+        typingKey: 'engvo-call-status',
         text: engvoFooter.text,
         compactText: engvoFooter.text,
         tone: engvoFooter.tone,
@@ -6360,6 +6361,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     retryMessage,
     searchingInternet,
     communicationVoiceInputMode,
+    settings.audience,
     settings.communicationInputExpectedLang,
     settings.mode,
   ])
@@ -6889,7 +6891,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       menuOpen,
     ]
   )
-  const engvoBootstrapServiceIndicatorText = getEngvoBootstrapServiceIndicatorText(engvoCallPhase)
+  const engvoBootstrapServiceIndicatorText = getEngvoBootstrapServiceIndicatorText(
+    engvoCallPhase,
+    settings.audience
+  )
   const showEngvoBootstrapServiceIndicator =
     engvoVoiceMode &&
     engvoBootstrapServiceStatusVisible &&
@@ -7759,7 +7764,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     remoteAssistantPlaybackActive: engvoRemotePlaybackActive,
                     callStartedAt: engvoCallStartedAt,
                     showAssistantPending: showEngvoBootstrapServiceIndicator,
-                    assistantIndicatorText: engvoBootstrapServiceIndicatorText ?? 'Engvo отвечает...',
+                    assistantIndicatorText: engvoBootstrapServiceIndicatorText ?? 'Engvo говорит…',
                     onStartCall: () => {
                       void startEngvoCall()
                     },
@@ -7804,6 +7809,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             dynamicTone={footerHydrated ? footerVoiceTone : 'neutral'}
             dynamicEmphasis={footerHydrated ? footerVoiceEmphasis : 'none'}
             hideDynamicMarker={engvoVoiceMode}
+            instantDynamicText={engvoVoiceMode}
             isLessonActive={isLessonActive}
             isDialogStarted={dialogStarted}
             showWhenIdle={!dialogStarted}

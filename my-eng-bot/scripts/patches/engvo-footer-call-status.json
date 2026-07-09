@@ -1,0 +1,22 @@
+[
+  [
+    "      const engvoFooter = getEngvoFooterView({\n        phase: engvoCallPhase,\n        userInterimText: engvoUserInterimText,\n        errorText: engvoErrorText,\n      })\n      if (!engvoFooter.text) return null\n      return {\n        typingKey: `engvo-${engvoCallPhase}`,\n        text: engvoFooter.text,\n        compactText: engvoFooter.text,\n        tone: engvoFooter.tone,\n        emphasis: 'none' as const,\n      }",
+    "      const engvoFooter = getEngvoFooterView({\n        phase: engvoCallPhase,\n        userInterimText: engvoUserInterimText,\n        errorText: engvoErrorText,\n        audience: settings.audience,\n      })\n      if (!engvoFooter.text) return null\n      return {\n        typingKey: 'engvo-call-status',\n        text: engvoFooter.text,\n        compactText: engvoFooter.text,\n        tone: engvoFooter.tone,\n        emphasis: 'none' as const,\n      }"
+  ],
+  [
+    "    engvoCallPhase,\n    engvoErrorText,\n    engvoUserInterimText,\n    engvoVoiceMode,\n    isLessonActive,\n    lastMessageIsError,\n    loading,\n    loadingTranslationIndex,\n    retryMessage,\n    searchingInternet,\n    communicationVoiceInputMode,\n    settings.communicationInputExpectedLang,\n    settings.mode,\n  ])",
+    "    engvoCallPhase,\n    engvoErrorText,\n    engvoUserInterimText,\n    engvoVoiceMode,\n    isLessonActive,\n    lastMessageIsError,\n    loading,\n    loadingTranslationIndex,\n    retryMessage,\n    searchingInternet,\n    communicationVoiceInputMode,\n    settings.audience,\n    settings.communicationInputExpectedLang,\n    settings.mode,\n  ])"
+  ],
+  [
+    "  const engvoBootstrapServiceIndicatorText = getEngvoBootstrapServiceIndicatorText(engvoCallPhase)",
+    "  const engvoBootstrapServiceIndicatorText = getEngvoBootstrapServiceIndicatorText(\n    engvoCallPhase,\n    settings.audience\n  )"
+  ],
+  [
+    "            hideDynamicMarker={engvoVoiceMode}\n            isLessonActive={isLessonActive}\n            isDialogStarted={dialogStarted}\n            showWhenIdle={!dialogStarted}",
+    "            hideDynamicMarker={engvoVoiceMode}\n            instantDynamicText={engvoVoiceMode}\n            isLessonActive={isLessonActive}\n            isDialogStarted={dialogStarted}\n            showWhenIdle={!dialogStarted}"
+  ],
+  [
+    "assistantIndicatorText: engvoBootstrapServiceIndicatorText ?? 'Engvo отвечает...',",
+    "assistantIndicatorText: engvoBootstrapServiceIndicatorText ?? 'Engvo говорит…',"
+  ]
+]

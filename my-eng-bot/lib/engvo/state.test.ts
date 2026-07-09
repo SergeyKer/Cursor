@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
   canCommitEngvoAssistantMessage,
-  ENGVO_STATUS_ASSISTANT_PENDING,
-  ENGVO_STATUS_ASSISTANT_SPEAKING,
   ENGVO_STATUS_CONNECTING,
+  ENGVO_STATUS_ENDED,
+  ENGVO_STATUS_ERROR_ADULT,
+  ENGVO_STATUS_ERROR_CHILD,
+  ENGVO_STATUS_IDLE_ADULT,
+  ENGVO_STATUS_IDLE_CHILD,
+  ENGVO_STATUS_LISTENING_ADULT,
+  ENGVO_STATUS_LISTENING_CHILD,
+  ENGVO_STATUS_SPEAKING,
   getEngvoBootstrapServiceIndicatorText,
   getEngvoFooterView,
   hasEngvoAssistantChatBubble,
@@ -12,38 +18,70 @@ import {
 } from './state'
 
 describe('engvo state helpers', () => {
-  it('maps phases to footer text', () => {
-    expect(getEngvoFooterView({ phase: 'connecting', userInterimText: '' })).toEqual({
+  it('maps phases to footer text for adult (no interim flicker)', () => {
+    expect(getEngvoFooterView({ phase: 'idle', userInterimText: '', audience: 'adult' })).toEqual({
+      text: ENGVO_STATUS_IDLE_ADULT,
+      tone: 'neutral',
+    })
+    expect(getEngvoFooterView({ phase: 'connecting', userInterimText: '', audience: 'adult' })).toEqual({
       text: ENGVO_STATUS_CONNECTING,
       tone: 'thinking',
     })
-    expect(getEngvoFooterView({ phase: 'listening', userInterimText: 'hello' })).toEqual({
-      text: 'Слышу…',
+    expect(getEngvoFooterView({ phase: 'listening', userInterimText: 'hello', audience: 'adult' })).toEqual({
+      text: ENGVO_STATUS_LISTENING_ADULT,
       tone: 'neutral',
     })
-    expect(getEngvoFooterView({ phase: 'userFinalizing', userInterimText: '' })).toEqual({
-      text: 'Фиксирую фразу…',
+    expect(getEngvoFooterView({ phase: 'userFinalizing', userInterimText: '', audience: 'adult' })).toEqual({
+      text: ENGVO_STATUS_LISTENING_ADULT,
+      tone: 'neutral',
+    })
+    expect(getEngvoFooterView({ phase: 'assistantPending', userInterimText: '', audience: 'adult' })).toEqual({
+      text: ENGVO_STATUS_SPEAKING,
       tone: 'thinking',
     })
-    expect(getEngvoFooterView({ phase: 'assistantPending', userInterimText: '' })).toEqual({
-      text: ENGVO_STATUS_ASSISTANT_PENDING,
+    expect(getEngvoFooterView({ phase: 'assistantSpeaking', userInterimText: '', audience: 'adult' })).toEqual({
+      text: ENGVO_STATUS_SPEAKING,
       tone: 'thinking',
     })
-    expect(getEngvoFooterView({ phase: 'assistantSpeaking', userInterimText: '' })).toEqual({
-      text: ENGVO_STATUS_ASSISTANT_SPEAKING,
+    expect(getEngvoFooterView({ phase: 'ended', userInterimText: '', audience: 'adult' })).toEqual({
+      text: ENGVO_STATUS_ENDED,
+      tone: 'neutral',
+    })
+    expect(getEngvoFooterView({ phase: 'error', userInterimText: '', audience: 'adult' })).toEqual({
+      text: ENGVO_STATUS_ERROR_ADULT,
+      tone: 'error',
+    })
+  })
+
+  it('maps phases to footer text for child (ты)', () => {
+    expect(getEngvoFooterView({ phase: 'idle', userInterimText: '', audience: 'child' })).toEqual({
+      text: ENGVO_STATUS_IDLE_CHILD,
+      tone: 'neutral',
+    })
+    expect(getEngvoFooterView({ phase: 'listening', userInterimText: '', audience: 'child' })).toEqual({
+      text: ENGVO_STATUS_LISTENING_CHILD,
+      tone: 'neutral',
+    })
+    expect(getEngvoFooterView({ phase: 'error', userInterimText: '', audience: 'child' })).toEqual({
+      text: ENGVO_STATUS_ERROR_CHILD,
+      tone: 'error',
+    })
+    expect(getEngvoFooterView({ phase: 'assistantSpeaking', userInterimText: '', audience: 'child' })).toEqual({
+      text: ENGVO_STATUS_SPEAKING,
       tone: 'thinking',
     })
   })
 
-  it('maps chat bootstrap indicator to two stable strings (not footer phases)', () => {
-    expect(getEngvoBootstrapServiceIndicatorText('connecting')).toBe(ENGVO_STATUS_CONNECTING)
-    expect(getEngvoBootstrapServiceIndicatorText('listening')).toBe(ENGVO_STATUS_ASSISTANT_SPEAKING)
-    expect(getEngvoBootstrapServiceIndicatorText('userFinalizing')).toBe(ENGVO_STATUS_ASSISTANT_SPEAKING)
-    expect(getEngvoBootstrapServiceIndicatorText('assistantPending')).toBe(ENGVO_STATUS_ASSISTANT_SPEAKING)
-    expect(getEngvoBootstrapServiceIndicatorText('assistantSpeaking')).toBe(ENGVO_STATUS_ASSISTANT_SPEAKING)
-    expect(getEngvoBootstrapServiceIndicatorText('idle')).toBeNull()
-    expect(getEngvoBootstrapServiceIndicatorText('ended')).toBeNull()
-    expect(getEngvoBootstrapServiceIndicatorText('error')).toBeNull()
+  it('maps chat bootstrap indicator to footer-aligned strings', () => {
+    expect(getEngvoBootstrapServiceIndicatorText('connecting', 'adult')).toBe(ENGVO_STATUS_CONNECTING)
+    expect(getEngvoBootstrapServiceIndicatorText('listening', 'adult')).toBe(ENGVO_STATUS_LISTENING_ADULT)
+    expect(getEngvoBootstrapServiceIndicatorText('listening', 'child')).toBe(ENGVO_STATUS_LISTENING_CHILD)
+    expect(getEngvoBootstrapServiceIndicatorText('userFinalizing', 'adult')).toBe(ENGVO_STATUS_LISTENING_ADULT)
+    expect(getEngvoBootstrapServiceIndicatorText('assistantPending', 'adult')).toBe(ENGVO_STATUS_SPEAKING)
+    expect(getEngvoBootstrapServiceIndicatorText('assistantSpeaking', 'adult')).toBe(ENGVO_STATUS_SPEAKING)
+    expect(getEngvoBootstrapServiceIndicatorText('idle', 'adult')).toBeNull()
+    expect(getEngvoBootstrapServiceIndicatorText('ended', 'adult')).toBeNull()
+    expect(getEngvoBootstrapServiceIndicatorText('error', 'adult')).toBeNull()
   })
 
   it('detects assistant chat bubble excluding welcome and service line', () => {

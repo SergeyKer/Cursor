@@ -2161,7 +2161,7 @@ export default function Chat({
       : 'Reply...'
   const typingIndicatorText =
     engvoBootstrapTypingActive
-      ? engvo?.assistantIndicatorText ?? 'Engvo отвечает...'
+      ? engvo?.assistantIndicatorText ?? 'Engvo говорит…'
       : settings.mode === 'translation'
       ? `Engvo печатает${retryMessage ? `… ${retryMessage}` : '…'}`
       : searchingInternet

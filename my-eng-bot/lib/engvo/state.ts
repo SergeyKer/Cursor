@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@/lib/types'
+import type { Audience, ChatMessage } from '@/lib/types'
 
 export type EngvoCallPhase =
   | 'idle'
@@ -15,12 +15,33 @@ export type EngvoFooterView = {
   tone: 'neutral' | 'thinking' | 'error'
 }
 
-/** Общие подписи для футера и индикатора ожидания в чате при звонке Engvo. */
+/** Shared / audience-split call status copy for footer and chat bootstrap. */
 export const ENGVO_STATUS_CONNECTING = 'Набираем Engvo…'
-export const ENGVO_STATUS_LISTENING_CHAT = 'В эфире.'
-export const ENGVO_STATUS_USER_FINALIZING_CHAT = 'Фиксирую фразу…'
-export const ENGVO_STATUS_ASSISTANT_PENDING = 'Получаю ответ…'
-export const ENGVO_STATUS_ASSISTANT_SPEAKING = 'Engvo отвечает…'
+export const ENGVO_STATUS_SPEAKING = 'Engvo говорит…'
+export const ENGVO_STATUS_ENDED = 'Звонок завершён'
+
+export const ENGVO_STATUS_IDLE_ADULT = 'Нажмите зелёную трубку'
+export const ENGVO_STATUS_IDLE_CHILD = 'Нажми зелёную трубку'
+export const ENGVO_STATUS_LISTENING_ADULT = 'Слушаю вас…'
+export const ENGVO_STATUS_LISTENING_CHILD = 'Слушаю тебя…'
+export const ENGVO_STATUS_ERROR_ADULT = 'Связь подвела. Попробуйте снова.'
+export const ENGVO_STATUS_ERROR_CHILD = 'Связь подвела. Попробуй снова.'
+
+function isChildAudience(audience: Audience | undefined): boolean {
+  return audience === 'child'
+}
+
+export function getEngvoIdleStatusText(audience: Audience = 'adult'): string {
+  return isChildAudience(audience) ? ENGVO_STATUS_IDLE_CHILD : ENGVO_STATUS_IDLE_ADULT
+}
+
+export function getEngvoListeningStatusText(audience: Audience = 'adult'): string {
+  return isChildAudience(audience) ? ENGVO_STATUS_LISTENING_CHILD : ENGVO_STATUS_LISTENING_ADULT
+}
+
+export function getEngvoErrorStatusText(audience: Audience = 'adult'): string {
+  return isChildAudience(audience) ? ENGVO_STATUS_ERROR_CHILD : ENGVO_STATUS_ERROR_ADULT
+}
 
 /** Содержательный ответ ассистента в ленте (не приветствие и не служебная строка набора). */
 export function hasEngvoAssistantChatBubble(messages: readonly ChatMessage[]): boolean {
@@ -39,17 +60,18 @@ export function hasEngvoDialingServiceLineInThread(messages: readonly ChatMessag
 
 /**
  * Текст полоски ожидания в чате до первого ответа ассистента в ленте.
- * Два стабильных состояния: набор, затем «Engvo отвечает…» без смены подписи на каждую фазу.
+ * Согласован с футером: набор / слушаю / говорит.
  */
-export function getEngvoBootstrapServiceIndicatorText(phase: EngvoCallPhase): string | null {
+export function getEngvoBootstrapServiceIndicatorText(
+  phase: EngvoCallPhase,
+  audience: Audience = 'adult'
+): string | null {
   if (phase === 'connecting') return ENGVO_STATUS_CONNECTING
-  if (
-    phase === 'listening' ||
-    phase === 'userFinalizing' ||
-    phase === 'assistantPending' ||
-    phase === 'assistantSpeaking'
-  ) {
-    return ENGVO_STATUS_ASSISTANT_SPEAKING
+  if (phase === 'listening' || phase === 'userFinalizing') {
+    return getEngvoListeningStatusText(audience)
+  }
+  if (phase === 'assistantPending' || phase === 'assistantSpeaking') {
+    return ENGVO_STATUS_SPEAKING
   }
   return null
 }
@@ -58,30 +80,29 @@ export function getEngvoFooterView(params: {
   phase: EngvoCallPhase
   userInterimText: string
   errorText?: string | null
+  audience?: Audience
 }): EngvoFooterView {
+  const audience = params.audience ?? 'adult'
   if (params.phase === 'error') {
     return {
-      text: params.errorText?.trim() || 'Связь подвела. Попробуйте снова.',
+      text: params.errorText?.trim() || getEngvoErrorStatusText(audience),
       tone: 'error',
     }
-  }
-  if (params.phase === 'userFinalizing') {
-    return { text: ENGVO_STATUS_USER_FINALIZING_CHAT, tone: 'thinking' }
-  }
-  if (params.phase === 'listening' && params.userInterimText.trim()) {
-    return { text: 'Слышу…', tone: 'neutral' }
-  }
-  if (params.phase === 'listening') {
-    return { text: ENGVO_STATUS_LISTENING_CHAT, tone: 'neutral' }
   }
   if (params.phase === 'connecting') {
     return { text: ENGVO_STATUS_CONNECTING, tone: 'thinking' }
   }
-  if (params.phase === 'assistantPending') {
-    return { text: ENGVO_STATUS_ASSISTANT_PENDING, tone: 'thinking' }
+  if (params.phase === 'listening' || params.phase === 'userFinalizing') {
+    return { text: getEngvoListeningStatusText(audience), tone: 'neutral' }
   }
-  if (params.phase === 'assistantSpeaking') {
-    return { text: ENGVO_STATUS_ASSISTANT_SPEAKING, tone: 'thinking' }
+  if (params.phase === 'assistantPending' || params.phase === 'assistantSpeaking') {
+    return { text: ENGVO_STATUS_SPEAKING, tone: 'thinking' }
+  }
+  if (params.phase === 'ended') {
+    return { text: ENGVO_STATUS_ENDED, tone: 'neutral' }
+  }
+  if (params.phase === 'idle') {
+    return { text: getEngvoIdleStatusText(audience), tone: 'neutral' }
   }
   return { text: null, tone: 'neutral' }
 }
