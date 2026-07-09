@@ -63,7 +63,7 @@ describe('POST /api/realtime-session/xai-token', () => {
     expect(res.status).toBe(200)
     expect(data.token).toBe('ephemeral-token-abc')
     expect(data.model).toBe(ENGVO_XAI_MODEL)
-    expect(data.voice).toBe('carina')
+    expect(data.voice).toBe('luna')
     expect(data.expiresAt).toBe(1_700_000_000)
     expect(JSON.stringify(data)).not.toContain('xai-test-secret-key-do-not-leak')
     expect(fetchMock).toHaveBeenCalledTimes(1)

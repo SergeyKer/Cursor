@@ -17,7 +17,7 @@ export type EngvoProvider = (typeof ENGVO_PROVIDERS)[number]
 export const ENGVO_DEFAULT_PROVIDER: EngvoProvider = 'openai'
 
 export const ENGVO_XAI_MODEL = 'grok-voice-latest'
-export const ENGVO_XAI_DEFAULT_VOICE = 'carina'
+export const ENGVO_XAI_DEFAULT_VOICE = 'luna'
 export const ENGVO_XAI_SPEED_MIN = 0.7
 export const ENGVO_XAI_SPEED_MAX = 1.5
 export const ENGVO_XAI_PCM_SAMPLE_RATE = 24_000

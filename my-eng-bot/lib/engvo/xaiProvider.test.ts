@@ -49,7 +49,7 @@ describe('Engvo xAI voices and clamp', () => {
     expect(isEngvoVoiceForProvider('xai', 'eve')).toBe(true)
     expect(isEngvoVoiceForProvider('xai', 'marin')).toBe(false)
     expect(getEngvoDefaultVoice('openai')).toBe('marin')
-    expect(getEngvoDefaultVoice('xai')).toBe('carina')
+    expect(getEngvoDefaultVoice('xai')).toBe('luna')
   })
 
   it('stop policy differs by provider', () => {

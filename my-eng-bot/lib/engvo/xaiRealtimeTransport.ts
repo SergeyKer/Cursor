@@ -5,6 +5,15 @@ import {
   shouldSendOutputAudioBufferClear,
   type EngvoProvider,
 } from '@/lib/engvo/constants'
+import {
+  applyInputGain,
+  arrayBufferToBase64,
+  base64ToArrayBuffer,
+  downsampleToRate,
+  ENGVO_XAI_SCRIPT_PROCESSOR_BUFFER,
+  ENGVO_XAI_WS_BUFFERED_AMOUNT_LIMIT,
+  floatTo16BitPCM,
+} from '@/lib/engvo/pcm'
 
 export { shouldSendOutputAudioBufferClear }
 
@@ -24,49 +33,6 @@ export type EngvoXaiTransport = {
   getRemoteMediaStream: () => MediaStream | null
 }
 
-function floatTo16BitPCM(input: Float32Array): ArrayBuffer {
-  const buffer = new ArrayBuffer(input.length * 2)
-  const view = new DataView(buffer)
-  for (let i = 0; i < input.length; i++) {
-    const sample = Math.max(-1, Math.min(1, input[i] ?? 0))
-    view.setInt16(i * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true)
-  }
-  return buffer
-}
-
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer)
-  let binary = ''
-  const chunk = 0x8000
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
-  }
-  return btoa(binary)
-}
-
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-  return bytes.buffer
-}
-
-function downsampleToRate(
-  input: Float32Array,
-  inputSampleRate: number,
-  outputSampleRate: number
-): Float32Array {
-  if (inputSampleRate === outputSampleRate) return input
-  const ratio = inputSampleRate / outputSampleRate
-  const newLength = Math.max(1, Math.round(input.length / ratio))
-  const result = new Float32Array(newLength)
-  for (let i = 0; i < newLength; i++) {
-    const start = Math.floor(i * ratio)
-    result[i] = input[start] ?? 0
-  }
-  return result
-}
-
 export function buildXaiRealtimeWsUrl(model: string = ENGVO_XAI_MODEL): string {
   const url = new URL(ENGVO_XAI_REALTIME_URL)
   url.searchParams.set('model', model)
@@ -77,6 +43,8 @@ export function connectEngvoXaiRealtime(params: {
   token: string
   model?: string
   mediaStream: MediaStream
+  /** Owned by AppShell; must be resumed in the same user gesture as getUserMedia. */
+  audioContext: AudioContext
   handlers: EngvoXaiTransportHandlers
 }): EngvoXaiTransport {
   const model = params.model ?? ENGVO_XAI_MODEL
@@ -84,7 +52,7 @@ export function connectEngvoXaiRealtime(params: {
   const ws = new WebSocket(wsUrl, [`xai-client-secret.${params.token}`])
 
   let closed = false
-  let audioContext: AudioContext | null = null
+  const audioContext = params.audioContext
   let micSource: MediaStreamAudioSourceNode | null = null
   let processor: ScriptProcessorNode | null = null
   let speakerGain: GainNode | null = null
@@ -92,6 +60,7 @@ export function connectEngvoXaiRealtime(params: {
   let nextPlayTime = 0
   const activeSources = new Set<AudioBufferSourceNode>()
   let playbackActive = false
+  let graphReady = false
 
   const setPlaybackActive = (active: boolean) => {
     if (playbackActive === active) return
@@ -99,18 +68,17 @@ export function connectEngvoXaiRealtime(params: {
     params.handlers.onPlaybackActiveChange?.(active)
   }
 
-  const ensureAudioGraph = async () => {
-    if (audioContext) return audioContext
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-    audioContext = new Ctx({ sampleRate: ENGVO_XAI_PCM_SAMPLE_RATE })
+  const ensureAudioGraph = () => {
+    if (graphReady && speakerGain && mediaStreamDest) return audioContext
     if (audioContext.state === 'suspended') {
-      await audioContext.resume().catch(() => {})
+      void audioContext.resume().catch(() => {})
     }
     speakerGain = audioContext.createGain()
     mediaStreamDest = audioContext.createMediaStreamDestination()
     speakerGain.connect(audioContext.destination)
     speakerGain.connect(mediaStreamDest)
     params.handlers.onRemoteStream?.(mediaStreamDest.stream)
+    graphReady = true
     return audioContext
   }
 
@@ -127,8 +95,8 @@ export function connectEngvoXaiRealtime(params: {
     setPlaybackActive(false)
   }
 
-  const playPcmBase64 = async (base64: string) => {
-    const ctx = await ensureAudioGraph()
+  const playPcmBase64 = (base64: string) => {
+    const ctx = ensureAudioGraph()
     if (!ctx || !speakerGain || closed) return
     const pcm = base64ToArrayBuffer(base64)
     const int16 = new Int16Array(pcm)
@@ -153,16 +121,17 @@ export function connectEngvoXaiRealtime(params: {
     source.start(startAt)
   }
 
-  const startMicCapture = async () => {
-    const ctx = await ensureAudioGraph()
-    if (!ctx || closed) return
+  const startMicCapture = () => {
+    const ctx = ensureAudioGraph()
+    if (!ctx || closed || micSource || processor) return
     micSource = ctx.createMediaStreamSource(params.mediaStream)
-    // ScriptProcessor is deprecated but widely supported for PCM capture without AudioWorklet bundling.
-    processor = ctx.createScriptProcessor(4096, 1, 1)
+    processor = ctx.createScriptProcessor(ENGVO_XAI_SCRIPT_PROCESSOR_BUFFER, 1, 1)
     processor.onaudioprocess = (event) => {
       if (closed || ws.readyState !== WebSocket.OPEN) return
+      if (ws.bufferedAmount > ENGVO_XAI_WS_BUFFERED_AMOUNT_LIMIT) return
       const input = event.inputBuffer.getChannelData(0)
-      const down = downsampleToRate(input, ctx.sampleRate, ENGVO_XAI_PCM_SAMPLE_RATE)
+      const boosted = applyInputGain(input)
+      const down = downsampleToRate(boosted, ctx.sampleRate, ENGVO_XAI_PCM_SAMPLE_RATE)
       const pcm = floatTo16BitPCM(down)
       const delta = arrayBufferToBase64(pcm)
       try {
@@ -172,20 +141,29 @@ export function connectEngvoXaiRealtime(params: {
             audio: delta,
           })
         )
-      } catch {
-        // ignore
+      } catch (error) {
+        console.warn('[engvo][xai] input_audio_buffer.append failed', error)
       }
     }
     micSource.connect(processor)
-    // Keep processor in the graph without routing mic to speakers (avoid feedback).
     const silent = ctx.createGain()
     silent.gain.value = 0
     processor.connect(silent)
     silent.connect(ctx.destination)
   }
 
+  try {
+    ensureAudioGraph()
+    startMicCapture()
+  } catch (error) {
+    console.warn('[engvo][xai] failed to start mic capture graph', error)
+  }
+
   ws.addEventListener('open', () => {
-    void startMicCapture()
+    if (audioContext.state === 'suspended') {
+      void audioContext.resume().catch(() => {})
+    }
+    startMicCapture()
     params.handlers.onOpen?.()
   })
 
@@ -199,7 +177,7 @@ export function connectEngvoXaiRealtime(params: {
         typeof parsed.delta === 'string' &&
         parsed.delta
       ) {
-        void playPcmBase64(parsed.delta)
+        playPcmBase64(parsed.delta)
       }
     } catch {
       // still forward raw
@@ -243,12 +221,10 @@ export function connectEngvoXaiRealtime(params: {
         // ignore
       }
       params.handlers.onRemoteStream?.(null)
-      if (audioContext) {
-        void audioContext.close().catch(() => {})
-        audioContext = null
-      }
+      // AppShell owns audioContext lifecycle — do not close here.
       speakerGain = null
       mediaStreamDest = null
+      graphReady = false
     },
     getRemoteMediaStream: () => mediaStreamDest?.stream ?? null,
   }

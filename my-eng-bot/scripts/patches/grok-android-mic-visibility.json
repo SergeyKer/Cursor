@@ -1,0 +1,6 @@
+[
+  [
+    "    [clearEngvoInactivityTimeout, clearEngvoSessionUpdateRetry, clearEngvoTimeout, stopEngvoPlayback]\n  )\n\n  const finishEngvoCall = useCallback(() => {",
+    "    [clearEngvoInactivityTimeout, clearEngvoSessionUpdateRetry, clearEngvoTimeout, stopEngvoPlayback]\n  )\n\n  React.useEffect(() => {\n    const resumeXaiAudioContext = () => {\n      const ctx = engvoXaiAudioContextRef.current\n      if (!ctx || ctx.state !== 'suspended') return\n      void ctx.resume().catch(() => {})\n    }\n    document.addEventListener('visibilitychange', resumeXaiAudioContext)\n    window.addEventListener('pageshow', resumeXaiAudioContext)\n    return () => {\n      document.removeEventListener('visibilitychange', resumeXaiAudioContext)\n      window.removeEventListener('pageshow', resumeXaiAudioContext)\n    }\n  }, [])\n\n  const finishEngvoCall = useCallback(() => {"
+  ]
+]

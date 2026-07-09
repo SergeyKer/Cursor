@@ -894,6 +894,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const engvoActiveProviderRef = React.useRef<EngvoProvider>(ENGVO_DEFAULT_PROVIDER)
   const engvoXaiTransportRef = React.useRef<EngvoXaiTransport | null>(null)
   const engvoXaiTokenRef = React.useRef<string | null>(null)
+  const engvoXaiAudioContextRef = React.useRef<AudioContext | null>(null)
   const [engvoCefrLevel, setEngvoCefrLevel] = useState<EngvoCefrLevel>(ENGVO_DEFAULT_LEVEL)
   const [engvoSpeechSpeedPreset, setEngvoSpeechSpeedPreset] =
     useState<EngvoSpeechSpeedPresetId>('conversational')
@@ -1507,6 +1508,15 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           // ignore
         }
       }
+      const xaiAudioContext = engvoXaiAudioContextRef.current
+      engvoXaiAudioContextRef.current = null
+      if (xaiAudioContext) {
+        try {
+          void xaiAudioContext.close().catch(() => {})
+        } catch {
+          // ignore
+        }
+      }
 
       engvoPeerConnectionRef.current = null
       engvoDataChannelRef.current = null
@@ -1575,6 +1585,20 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     },
     [clearEngvoInactivityTimeout, clearEngvoSessionUpdateRetry, clearEngvoTimeout, stopEngvoPlayback]
   )
+
+  React.useEffect(() => {
+    const resumeXaiAudioContext = () => {
+      const ctx = engvoXaiAudioContextRef.current
+      if (!ctx || ctx.state !== 'suspended') return
+      void ctx.resume().catch(() => {})
+    }
+    document.addEventListener('visibilitychange', resumeXaiAudioContext)
+    window.addEventListener('pageshow', resumeXaiAudioContext)
+    return () => {
+      document.removeEventListener('visibilitychange', resumeXaiAudioContext)
+      window.removeEventListener('pageshow', resumeXaiAudioContext)
+    }
+  }, [])
 
   const finishEngvoCall = useCallback(() => {
     engvoRedialWithoutWelcomeRef.current = true
@@ -2191,6 +2215,24 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setEngvoLocalAudioStream(mediaStream)
 
       if (engvoProvider === 'xai') {
+        const AudioContextCtor =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+        if (!AudioContextCtor) {
+          throw new Error('Web Audio API недоступен в этом браузере.')
+        }
+        const audioContext = new AudioContextCtor()
+        await audioContext.resume().catch(() => {})
+        if (audioContext.state !== 'running') {
+          try {
+            await audioContext.close()
+          } catch {
+            // ignore
+          }
+          throw new Error('Не удалось активировать аудио. Нажмите трубку ещё раз.')
+        }
+        engvoXaiAudioContextRef.current = audioContext
+
         const tokenController = new AbortController()
         const tokenTimeoutId = window.setTimeout(() => tokenController.abort(), ENGVO_SDP_FETCH_TIMEOUT_MS)
         const tokenResponse = await fetch('/api/realtime-session/xai-token', {
@@ -2226,6 +2268,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           token: tokenData.token,
           model: tokenData.model ?? ENGVO_XAI_MODEL,
           mediaStream,
+          audioContext,
           handlers: {
             onEvent: (raw) => {
               void handleEngvoRealtimeMessage(raw)

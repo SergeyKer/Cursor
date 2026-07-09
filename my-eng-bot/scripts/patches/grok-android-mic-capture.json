@@ -1,0 +1,18 @@
+[
+  [
+    "  const engvoXaiTransportRef = React.useRef<EngvoXaiTransport | null>(null)\n  const engvoXaiTokenRef = React.useRef<string | null>(null)",
+    "  const engvoXaiTransportRef = React.useRef<EngvoXaiTransport | null>(null)\n  const engvoXaiTokenRef = React.useRef<string | null>(null)\n  const engvoXaiAudioContextRef = React.useRef<AudioContext | null>(null)"
+  ],
+  [
+    "      const xaiTransport = engvoXaiTransportRef.current\n      engvoXaiTransportRef.current = null\n      engvoXaiTokenRef.current = null\n      if (xaiTransport) {\n        try {\n          xaiTransport.disconnect()\n        } catch {\n          // ignore\n        }\n      }",
+    "      const xaiTransport = engvoXaiTransportRef.current\n      engvoXaiTransportRef.current = null\n      engvoXaiTokenRef.current = null\n      if (xaiTransport) {\n        try {\n          xaiTransport.disconnect()\n        } catch {\n          // ignore\n        }\n      }\n      const xaiAudioContext = engvoXaiAudioContextRef.current\n      engvoXaiAudioContextRef.current = null\n      if (xaiAudioContext) {\n        try {\n          void xaiAudioContext.close().catch(() => {})\n        } catch {\n          // ignore\n        }\n      }"
+  ],
+  [
+    "      engvoMediaStreamRef.current = mediaStream\n      setEngvoLocalAudioStream(mediaStream)\n\n      if (engvoProvider === 'xai') {\n        const tokenController = new AbortController()",
+    "      engvoMediaStreamRef.current = mediaStream\n      setEngvoLocalAudioStream(mediaStream)\n\n      if (engvoProvider === 'xai') {\n        const AudioContextCtor =\n          window.AudioContext ||\n          (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext\n        if (!AudioContextCtor) {\n          throw new Error('Web Audio API недоступен в этом браузере.')\n        }\n        const audioContext = new AudioContextCtor()\n        await audioContext.resume().catch(() => {})\n        if (audioContext.state !== 'running') {\n          try {\n            await audioContext.close()\n          } catch {\n            // ignore\n          }\n          throw new Error('Не удалось активировать аудио. Нажмите трубку ещё раз.')\n        }\n        engvoXaiAudioContextRef.current = audioContext\n\n        const tokenController = new AbortController()"
+  ],
+  [
+    "        const transport = connectEngvoXaiRealtime({\n          token: tokenData.token,\n          model: tokenData.model ?? ENGVO_XAI_MODEL,\n          mediaStream,\n          handlers: {",
+    "        const transport = connectEngvoXaiRealtime({\n          token: tokenData.token,\n          model: tokenData.model ?? ENGVO_XAI_MODEL,\n          mediaStream,\n          audioContext,\n          handlers: {"
+  ]
+]
