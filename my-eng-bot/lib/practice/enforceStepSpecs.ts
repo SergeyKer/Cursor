@@ -1,7 +1,7 @@
 import { filterByChoiceGranularity, inferChoiceGranularity } from '@/lib/practice/choiceOptionGranularity'
 import { buildWordBuilderProExtraWords } from '@/lib/practice/buildWordBuilderProTraps'
 import { buildTieredChoiceOptions, sanitizeWordBuilderProExtraWords } from '@/lib/practice/distractorTier'
-import { getPracticeStepSpec, resolveAdaptiveTierForStep, resolveTierForStep } from '@/lib/practice/engine/stepSpec'
+import { getPracticeStepSpec, resolveTierForStep } from '@/lib/practice/engine/stepSpec'
 import { isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
 import { collectLessonChoicePool } from '@/lib/practice/lessonChoicePool'
 import { inferGapWordSlot } from '@/lib/practice/gapWordSlot'
@@ -18,23 +18,15 @@ import { buildRoleplayHint, extractRoleplayKeywords, inferRoleplayAxis } from '@
 import type { LessonData } from '@/types/lesson'
 import type { PracticeMode, PracticeQuestion } from '@/types/practice'
 
-const CHALLENGE_SPEED_ROUND_INDEX = 10
 const CHALLENGE_ROLEPLAY_INDEX = 9
 
 function resolveTierForEnforce(
   mode: PracticeMode,
   stepIndex: number,
-  choiceLikeWrongCountBefore?: number
+  _choiceLikeWrongCountBefore?: number
 ): ReturnType<typeof resolveTierForStep> {
   const spec = getPracticeStepSpec(mode, stepIndex)
   if (!spec?.distractorTier) return undefined
-  if (
-    mode === 'challenge' &&
-    stepIndex === CHALLENGE_SPEED_ROUND_INDEX &&
-    choiceLikeWrongCountBefore != null
-  ) {
-    return resolveAdaptiveTierForStep(mode, stepIndex, choiceLikeWrongCountBefore)
-  }
   return resolveTierForStep(mode, spec)
 }
 

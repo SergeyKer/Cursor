@@ -101,6 +101,7 @@ function inputPlaceholder(
   if (options.isVoiceFirstComposer && isPracticeVoiceRepeatCorrectionType(question.type)) return ''
   if (options.correctionMode) return 'Напиши правильный вариант...'
   if (question.type === 'dictation') return 'Напиши то, что услышал...'
+  if (question.type === 'error-fix') return 'Напиши правильную фразу...'
   if (question.type === 'roleplay-mini') {
     return options.audience === 'child' ? 'Ответь как в мини-диалоге...' : 'Ответьте как в мини-диалоге...'
   }
@@ -256,7 +257,6 @@ export default function PracticeQuestionRenderer({
     choices.length > 0 &&
     !correctionMode &&
     (question.type === 'choice' ||
-      question.type === 'speed-round' ||
       question.type === 'context-clue' ||
       question.type === 'listening-select') &&
     (choiceCorrectionPhase === 'idle' || choiceCorrectionPhase === 'chips')

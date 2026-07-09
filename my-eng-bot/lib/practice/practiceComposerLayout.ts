@@ -15,7 +15,6 @@ export type PracticePuzzleComposerLayout = {
 
 const CHOICE_CHIPS_TYPES = new Set<PracticeQuestion['type']>([
   'choice',
-  'speed-round',
   'context-clue',
   'listening-select',
 ])

@@ -5,7 +5,6 @@ export type PracticeCorrectionFamily = 'choiceChips' | 'voiceRepeat' | 'none'
 export const PRACTICE_CHOICE_CHIP_CORRECTION_TYPES = [
   'choice',
   'listening-select',
-  'speed-round',
   'context-clue',
 ] as const satisfies readonly PracticeQuestion['type'][]
 
@@ -18,6 +17,7 @@ export const PRACTICE_VOICE_REPEAT_CORRECTION_TYPES = [
   'free-response',
   'roleplay-mini',
   'boss-challenge',
+  'error-fix',
 ] as const satisfies readonly PracticeQuestion['type'][]
 
 export type PracticeChoiceChipCorrectionType = (typeof PRACTICE_CHOICE_CHIP_CORRECTION_TYPES)[number]
@@ -30,6 +30,7 @@ export const PRACTICE_VOICE_PRIMARY_COMPOSER_TYPES = [
   'dictation',
   'roleplay-mini',
   'boss-challenge',
+  'error-fix',
 ] as const satisfies readonly PracticeQuestion['type'][]
 
 export type PracticeVoicePrimaryComposerType = (typeof PRACTICE_VOICE_PRIMARY_COMPOSER_TYPES)[number]

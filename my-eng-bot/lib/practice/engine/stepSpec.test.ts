@@ -43,16 +43,17 @@ describe('stepSpec', () => {
     expect(new Set(CHALLENGE_STEP_SPECS.map((s) => s.type)).size).toBe(12)
     expect(CHALLENGE_STEP_SPECS[0]?.type).toBe('choice')
     expect(CHALLENGE_STEP_SPECS[1]?.type).toBe('voice-shadow')
+    expect(CHALLENGE_STEP_SPECS[10]?.type).toBe('error-fix')
     expect(CHALLENGE_STEP_SPECS.at(-1)?.type).toBe('boss-challenge')
   })
 
-  it('caps balanced speed-round at semantic-near', () => {
+  it('keeps balanced error-fix without distractor tier', () => {
     const spec = getPracticeStepSpec('balanced', 8)
-    expect(spec?.type).toBe('speed-round')
-    expect(resolveTierForStep('balanced', spec!)).toBe('semantic-near')
+    expect(spec?.type).toBe('error-fix')
+    expect(spec?.distractorTier).toBeUndefined()
   })
 
-  it('downgrades speed-round tier after choice-like errors', () => {
+  it('keeps challenge error-fix without adaptive choice tier', () => {
     const session = baseSession({
       answers: [
         {
@@ -67,8 +68,8 @@ describe('stepSpec', () => {
       ],
     })
     const effective = resolveEffectivePracticeStepSpec(session, 10)
-    expect(effective?.type).toBe('speed-round')
-    expect(effective?.distractorTier).toBe('semantic-near')
+    expect(effective?.type).toBe('error-fix')
+    expect(effective?.distractorTier).toBeUndefined()
   })
 
   it('exports countWrongChoiceLikeBefore for distractor-tier steps only', () => {
@@ -95,7 +96,7 @@ describe('stepSpec', () => {
       ],
     })
     expect(countWrongChoiceLikeBefore(session, 10)).toBe(1)
-    expect(resolveAdaptiveTierForStep('challenge', 10, 1)).toBe('semantic-near')
-    expect(resolveAdaptiveTierForStep('challenge', 10, 0)).toBe('minimal-pair')
+    expect(resolveAdaptiveTierForStep('challenge', 0, 1)).toBe('obvious')
+    expect(resolveTierForStep('challenge', getPracticeStepSpec('challenge', 0)!)).toBe('obvious')
   })
 })

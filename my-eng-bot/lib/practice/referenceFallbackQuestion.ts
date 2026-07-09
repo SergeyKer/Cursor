@@ -1,6 +1,7 @@
 import { buildLocalPracticeSession, buildSinglePracticeQuestion } from '@/lib/practice/builders/localPracticeBuilder'
 import { buildPracticeQuestionFingerprintFromQuestion } from '@/lib/practice/questionFingerprint'
 import { pickFreshReferencePracticeQuestion } from '@/lib/practice/pickFreshReferencePracticeQuestion'
+import { extractSituationKeyFromErrorFixPrompt } from '@/lib/practice/prompt/errorFixBrokenPhrase'
 import { REFERENCE_STEP_MAP_TYPES } from '@/lib/practice/prompt/promptSourceTypes'
 import { collectRecentInterlocutorLines, collectRecentRoleIntroLines, collectRecentTargetAnswers } from '@/lib/practice/roleplaySessionDedup'
 import type { LessonData } from '@/types/lesson'
@@ -17,6 +18,7 @@ export type BuildReferenceFallbackQuestionParams = {
   recentTargetAnswers?: string[]
   recentInterlocutorLines?: string[]
   recentRoleIntroLines?: string[]
+  recentSituationKeys?: string[]
 }
 
 function fallbackQuestions(lesson: LessonData, mode: PracticeMode): PracticeQuestion[] {
@@ -102,6 +104,7 @@ export function buildReferenceFallbackQuestion(params: BuildReferenceFallbackQue
   const recentTargetAnswers = params.recentTargetAnswers ?? []
   const recentInterlocutorLines = params.recentInterlocutorLines ?? []
   const recentRoleIntroLines = params.recentRoleIntroLines ?? []
+  const recentSituationKeys = params.recentSituationKeys ?? []
   const candidates = collectReferenceFallbackCandidates(
     params.lesson,
     params.mode,
@@ -133,7 +136,8 @@ export function buildReferenceFallbackQuestion(params: BuildReferenceFallbackQue
       params.seenKeys ?? [],
       recentTargetAnswers,
       recentInterlocutorLines,
-      recentRoleIntroLines
+      recentRoleIntroLines,
+      recentSituationKeys
     )
     if (!fresh) continue
     return {
@@ -148,7 +152,8 @@ export function buildReferenceFallbackQuestion(params: BuildReferenceFallbackQue
     params.seenKeys ?? [],
     recentTargetAnswers,
     recentInterlocutorLines,
-    recentRoleIntroLines
+    recentRoleIntroLines,
+    recentSituationKeys
   )
   if (freshFromPool) {
     return {
@@ -174,6 +179,7 @@ export function buildReferenceFallbackQuestions(params: {
   const recentTargetAnswers: string[] = []
   const recentInterlocutorLines: string[] = []
   const recentRoleIntroLines: string[] = []
+  const recentSituationKeys: string[] = []
 
   for (let index = 0; index < total; index += 1) {
     const question = buildReferenceFallbackQuestion({
@@ -187,6 +193,7 @@ export function buildReferenceFallbackQuestions(params: {
       recentTargetAnswers,
       recentInterlocutorLines,
       recentRoleIntroLines,
+      recentSituationKeys,
     })
     if (!question) break
     questions.push(question)
@@ -197,6 +204,11 @@ export function buildReferenceFallbackQuestions(params: {
       recentTargetAnswers.push(...collectRecentTargetAnswers([question]))
       recentInterlocutorLines.push(...collectRecentInterlocutorLines([question]))
       recentRoleIntroLines.push(...collectRecentRoleIntroLines([question]))
+    }
+    if (params.referenceExerciseType === 'error-fix') {
+      recentTargetAnswers.push(question.targetAnswer)
+      const situationKey = extractSituationKeyFromErrorFixPrompt(question.prompt)
+      if (situationKey) recentSituationKeys.push(situationKey)
     }
   }
 

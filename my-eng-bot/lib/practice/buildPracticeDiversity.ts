@@ -115,8 +115,11 @@ function buildReferenceDiversityRule(params: {
       'targetAnswer is declarative EN; lesson 2 uses declarative part only from step 6 pairs.',
       'targetAnswer follows lesson blueprint step 6; minWords: 2; keywords must all match in validation.'
     )
-  } else if (params.referenceExerciseType === 'speed-round') {
-    parts.push('Quick situational choice with exactly 3 options.')
+  } else if (params.referenceExerciseType === 'error-fix') {
+    parts.push(
+      'error-fix: Russian Ситуация:/Тема: + Исправьте: "{broken}."; lexical wrong-word preferred; no options/audioText/hint.',
+      'Rotate situations; never reuse identical Russian situation text across scenarios in one reference pass.'
+    )
   } else if (params.referenceExerciseType === 'boss-challenge') {
     parts.push('Final challenge; minWords 5; apply lesson theme creatively.')
   } else if (params.referenceExerciseType === 'word-builder-pro') {
@@ -166,6 +169,11 @@ function buildSessionDiversityRule(params: {
   if (params.practiceType === 'listening-select') {
     parts.push(
       'listening-select: Russian situational prompt only; English phrase in audioText/targetAnswer; exactly 3 options; hint empty; never repeat targetAnswer in prompt.'
+    )
+  }
+  if (params.practiceType === 'error-fix') {
+    parts.push(
+      'error-fix: Ситуация + Исправьте broken phrase; STT-safe lexical error; no options; hint empty; rotate situations.'
     )
   }
   if (params.practiceType === 'roleplay-mini') {

@@ -33,7 +33,14 @@ describe('practiceCorrectionFamily', () => {
   it('maps chip selection to choice-chip family only', () => {
     expect(isPracticeChipSelectionType('choice')).toBe(true)
     expect(isPracticeChipSelectionType('listening-select')).toBe(true)
+    expect(isPracticeChipSelectionType('error-fix')).toBe(false)
     expect(isPracticeChipSelectionType('dictation')).toBe(false)
+  })
+
+  it('places error-fix in voice-repeat and voice-primary', () => {
+    expect(getPracticeCorrectionFamily('error-fix')).toBe('voiceRepeat')
+    expect(isPracticeVoicePrimaryComposerType('error-fix')).toBe(true)
+    expect(isPracticeChoiceChipCorrectionType('error-fix')).toBe(false)
   })
 
   it('keeps audio helpers separate by family', () => {

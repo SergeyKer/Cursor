@@ -78,9 +78,14 @@ function isPracticeExerciseType(value: unknown): value is PracticeExerciseType {
     value === 'dictation' ||
     value === 'roleplay-mini' ||
     value === 'boss-challenge' ||
-    value === 'speed-round' ||
+    value === 'error-fix' ||
     value === 'context-clue'
   )
+}
+
+function resolveBodyPracticeType(value: unknown): PracticeExerciseType | undefined {
+  if (value === 'speed-round') return 'error-fix'
+  return isPracticeExerciseType(value) ? value : undefined
 }
 
 function fallbackQuestions(lesson: LessonData, mode: PracticeMode): PracticeQuestion[] {
@@ -172,8 +177,9 @@ function buildSystemPrompt(referenceExerciseType?: PracticeExerciseType): string
     'You generate short English practice exercises for a learner app.',
     'Return ONLY valid JSON object: {"questions":[...]}',
     'Each question must have: type, prompt, targetAnswer, acceptedAnswers, shuffledWords, audioText, keywords, minWords, hint, explanation.',
-    'If type is choice, listening-select, speed-round, or context-clue, you must provide at least 3 English options and include targetAnswer in the options.',
+    'If type is choice, listening-select, or context-clue, you must provide at least 3 English options and include targetAnswer in the options.',
     'For type dropdown-fill: options count is 3 for closed-class slots (articles, pronouns) or 4 for open lexical slots (countries, names); include targetAnswer.',
+    'For type error-fix: prompt must be Russian Ситуация:/Тема: + Исправьте: "{broken}."; no options; no audioText; hint empty; broken must stay wrong after normalize vs targetAnswer.',
     ...DROPDOWN_FILL_SYSTEM_RULES,
     ...DICTATION_SYSTEM_RULES,
     ...ROLEPLAY_MINI_SYSTEM_RULES,
@@ -357,7 +363,7 @@ export async function POST(req: NextRequest) {
 
   const mode = isPracticeMode(body.mode) ? body.mode : 'relaxed'
   const plan = getPracticeModePlan(mode)
-  const referenceExerciseType = isPracticeExerciseType(body.referenceExerciseType) ? body.referenceExerciseType : undefined
+  const referenceExerciseType = resolveBodyPracticeType(body.referenceExerciseType)
   const referenceStepIndex = Number.isFinite(body.referenceStepIndex) ? Math.max(0, Number(body.referenceStepIndex)) : 0
   const referenceTotal = Number.isFinite(body.referenceTotal) ? Math.max(1, Number(body.referenceTotal)) : 7
   const fromIndex = Number.isFinite(body.fromIndex) ? Math.max(0, Number(body.fromIndex)) : 0
@@ -385,7 +391,7 @@ export async function POST(req: NextRequest) {
         .filter((item): item is PriorSessionPhrase => Boolean(item && typeof item === 'object'))
         .map((item) => ({
           stepIndex: Number.isFinite(item.stepIndex) ? Number(item.stepIndex) : 0,
-          type: isPracticeExerciseType(item.type) ? item.type : 'choice',
+          type: resolveBodyPracticeType(item.type) ?? 'choice',
           targetAnswer: typeof item.targetAnswer === 'string' ? item.targetAnswer : '',
           prompt: typeof item.prompt === 'string' ? item.prompt : undefined,
         }))

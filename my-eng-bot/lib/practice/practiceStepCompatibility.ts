@@ -27,7 +27,7 @@ export function isExerciseCompatibleWithPracticeType(
           (exercise.question?.includes('___') || Boolean(exercise.options?.length)))
       )
     case 'listening-select':
-    case 'speed-round':
+    case 'error-fix':
       return Boolean(exercise.options?.length) || exercise.type === 'fill_choice' || exercise.type === 'translate'
     case 'sentence-surgery':
     case 'word-builder-pro':

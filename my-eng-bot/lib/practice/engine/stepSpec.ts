@@ -34,7 +34,7 @@ export const CHALLENGE_STEP_SPECS: readonly PracticeStepSpec[] = [
   { type: 'dictation' },
   { type: 'listening-select', distractorTier: 'semantic-near' },
   { type: 'roleplay-mini' },
-  { type: 'speed-round', distractorTier: 'minimal-pair' },
+  { type: 'error-fix' },
   { type: 'boss-challenge' },
 ] as const
 
@@ -56,7 +56,7 @@ export const BALANCED_STEP_SPECS: readonly PracticeStepSpec[] = [
   { type: 'dropdown-fill', distractorTier: 'semantic-near' },
   { type: 'word-builder-pro', wordBankMode: 'extra' },
   { type: 'dictation' },
-  { type: 'speed-round', distractorTier: 'semantic-near' },
+  { type: 'error-fix' },
 ] as const
 
 export const CHALLENGE_ROUTE_STAGES: readonly PracticeRouteStageRange[] = [
@@ -142,17 +142,14 @@ export function countWrongChoiceLikeBefore(session: PracticeSession, beforeIndex
 export function resolveAdaptiveTierForStep(
   mode: PracticeMode,
   stepIndex: number,
-  choiceLikeWrongCount: number
+  _choiceLikeWrongCount: number
 ): PracticeDistractorTier | undefined {
   const base = getPracticeStepSpec(mode, stepIndex)
   if (!base?.distractorTier) return undefined
-  const capped = resolveTierForStep(mode, base)
-  if (!capped) return undefined
-  if (mode !== 'challenge' || stepIndex !== 10) return capped
-  return choiceLikeWrongCount > 0 ? 'semantic-near' : capped
+  return resolveTierForStep(mode, base)
 }
 
-/** Adaptive tier: downgrade speed-round (step 11) after choice-like errors. */
+/** Effective step spec for the current session index (mode caps applied). */
 export function resolveEffectivePracticeStepSpec(
   session: PracticeSession,
   stepIndex: number
@@ -161,13 +158,7 @@ export function resolveEffectivePracticeStepSpec(
   if (!base) return null
 
   const effectiveTier = base.distractorTier ? resolveTierForStep(session.mode, base) : undefined
-  if (session.mode !== 'challenge' || stepIndex !== 10) {
-    return { ...base, distractorTier: effectiveTier }
-  }
-
-  const wrongChoiceLike = countWrongChoiceLikeBefore(session, stepIndex)
-  const tier = resolveAdaptiveTierForStep(session.mode, stepIndex, wrongChoiceLike) ?? effectiveTier ?? base.distractorTier
-  return { ...base, distractorTier: tier }
+  return { ...base, distractorTier: effectiveTier }
 }
 
 export function usesPracticeStepSpec(mode: PracticeMode): boolean {

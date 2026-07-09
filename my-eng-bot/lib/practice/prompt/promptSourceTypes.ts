@@ -25,7 +25,7 @@ export const REFERENCE_STEP_MAP_TYPES = new Set<PracticeExerciseType>([
   'dictation',
   'listening-select',
   'roleplay-mini',
-  'speed-round',
+  'error-fix',
   'boss-challenge',
 ])
 
@@ -35,7 +35,7 @@ const PREFERRED_STEP_NUMBERS: Partial<Record<PracticeExerciseType, readonly numb
   dictation: [6],
   'listening-select': [1, 3],
   'roleplay-mini': [6],
-  'speed-round': [1, 3],
+  'error-fix': [1, 3],
   'boss-challenge': [6],
 }
 

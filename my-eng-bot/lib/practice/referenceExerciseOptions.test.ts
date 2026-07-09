@@ -5,6 +5,7 @@ describe('referenceExerciseOptions', () => {
   it('maps context-clue to challenge step 3', () => {
     expect(getReferenceExerciseChallengeStep('context-clue')).toBe(3)
     expect(getReferenceExerciseChallengeStep('dropdown-fill')).toBe(6)
+    expect(getReferenceExerciseChallengeStep('error-fix')).toBe(11)
     expect(getReferenceExerciseChallengeStep('boss-challenge')).toBe(12)
   })
 

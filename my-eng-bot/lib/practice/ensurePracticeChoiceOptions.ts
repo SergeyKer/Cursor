@@ -6,7 +6,6 @@ const CHOICE_LIKE: PracticeExerciseType[] = [
   'choice',
   'dropdown-fill',
   'listening-select',
-  'speed-round',
   'context-clue',
 ]
 

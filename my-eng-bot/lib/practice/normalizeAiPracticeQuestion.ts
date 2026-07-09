@@ -22,6 +22,11 @@ import {
   stripAnswerLeakFromHint,
 } from '@/lib/practice/prompt/promptSourceUtils'
 import {
+  extractErrorFixBrokenPhrase,
+  isErrorFixBrokenValid,
+} from '@/lib/practice/prompt/errorFixBrokenPhrase'
+import { errorFixPromptHasContext } from '@/lib/practice/prompt/buildErrorFixPrompt'
+import {
   filterByChoiceGranularity,
   inferChoiceGranularity,
   isCompleteSentence,
@@ -90,9 +95,14 @@ function isPracticeExerciseType(value: unknown): value is PracticeExerciseType {
     value === 'dictation' ||
     value === 'roleplay-mini' ||
     value === 'boss-challenge' ||
-    value === 'speed-round' ||
+    value === 'error-fix' ||
     value === 'context-clue'
   )
+}
+
+function resolvePracticeType(value: unknown): PracticeExerciseType | null {
+  if (value === 'speed-round') return 'error-fix'
+  return isPracticeExerciseType(value) ? value : null
 }
 
 export function normalizeAiPracticeQuestion(
@@ -110,7 +120,8 @@ export function normalizeAiPracticeQuestion(
 ): PracticeQuestion | null {
   if (!row || typeof row !== 'object') return null
   const source = row as Record<string, unknown>
-  const type = normalizeOptions?.forcedType ?? (isPracticeExerciseType(source.type) ? source.type : null)
+  const type =
+    normalizeOptions?.forcedType ?? resolvePracticeType(source.type)
   let prompt = typeof source.prompt === 'string' ? source.prompt.trim() : ''
   const targetAnswer = typeof source.targetAnswer === 'string' ? source.targetAnswer.trim() : ''
   if (!type || !targetAnswer) return null
@@ -376,6 +387,23 @@ export function normalizeAiPracticeQuestion(
   }
   if (type === 'choice' && !choicePromptHasContext(prompt)) return null
   if (type === 'listening-select' && !listeningSelectPromptHasContext(prompt)) return null
+  if (type === 'error-fix') {
+    const needsRebuild = !errorFixPromptHasContext(prompt)
+    const broken = extractErrorFixBrokenPhrase(prompt)
+    const brokenOk = broken != null && isErrorFixBrokenValid(broken, normalizedTargetAnswer)
+    if (needsRebuild || !brokenOk) {
+      const rebuilt = buildReferencePromptFromLesson({
+        lesson: scopedLesson,
+        type: 'error-fix',
+        stepIndex: mode === 'reference' ? index : index,
+        targetAnswer: normalizedTargetAnswer,
+      })
+      if (!rebuilt || !errorFixPromptHasContext(rebuilt)) return null
+      const rebuiltBroken = extractErrorFixBrokenPhrase(rebuilt)
+      if (!rebuiltBroken || !isErrorFixBrokenValid(rebuiltBroken, normalizedTargetAnswer)) return null
+      prompt = rebuilt
+    }
+  }
   if (useReferencePromptBuilder) {
     const builder = getPracticePromptBuilder(referenceType)
     if (builder && !builder.hasContext(prompt)) return null
@@ -473,6 +501,7 @@ export function normalizeAiPracticeQuestion(
 
   if (isChoiceLikePracticeType(type) && !choiceOptions) return null
   if (isDropdown && (!choiceOptions || choiceOptions.length < 3)) return null
+  if (type === 'error-fix') choiceOptions = undefined
 
   const audioText =
     type === 'voice-shadow' || type === 'dictation' || type === 'listening-select'
@@ -532,7 +561,7 @@ export function normalizeAiPracticeQuestion(
             ? Math.min(20, source.minWords)
             : undefined,
     hint:
-      type === 'voice-shadow' || type === 'dictation' || type === 'listening-select'
+      type === 'voice-shadow' || type === 'dictation' || type === 'listening-select' || type === 'error-fix'
         ? undefined
         : type === 'word-builder-pro' && resolved?.exercise
           ? stripAnswerLeakFromHint(

@@ -36,8 +36,8 @@ describe('isPracticeVoicePrimaryComposerType', () => {
     expect(isPracticeVoicePrimaryComposerType('sentence-surgery')).toBe(false)
     expect(isPracticeVoicePrimaryComposerType('word-builder-pro')).toBe(false)
     expect(isPracticeVoicePrimaryComposerType('choice')).toBe(false)
+    expect(isPracticeVoicePrimaryComposerType('error-fix')).toBe(true)
     expect(isPracticeVoicePrimaryComposerType('listening-select')).toBe(false)
-    expect(isPracticeVoicePrimaryComposerType('speed-round')).toBe(false)
     expect(isPracticeVoicePrimaryComposerType('context-clue')).toBe(false)
   })
 

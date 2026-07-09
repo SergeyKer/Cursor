@@ -40,14 +40,18 @@ export type PracticeFeedMessage = {
   repeatAnswer?: string
 }
 
-function practiceTypeLabel(question: PracticeQuestion, session: PracticeSession): string {
+function practiceTypeLabel(question: PracticeQuestion, session: PracticeSession, audience: Audience = 'adult'): string {
   if (session.mode === 'challenge') {
     if (question.type === 'choice') return 'Лёгкий выбор: один вариант явно подходит.'
     if (question.type === 'context-clue') return 'Смотрите на ситуацию: варианты похожи по смыслу.'
     if (question.type === 'dropdown-fill') return 'Выберите одно слово из выпадающего списка.'
     if (question.type === 'sentence-surgery') return 'Соберите фразу из слов в правильном порядке.'
     if (question.type === 'word-builder-pro') return 'Соберите фразу: в банке есть грамматические ловушки.'
-    if (question.type === 'speed-round') return 'Финальная проверка на внимательность: варианты очень близкие.'
+    if (question.type === 'error-fix') {
+      return audience === 'child'
+        ? 'Фраза не подходит к ситуации — скажи или напиши правильно.'
+        : 'Фраза не подходит к ситуации — скажите или напишите правильный вариант.'
+    }
     if (question.type === 'boss-challenge') return 'Соберите всё вместе в живом ответе.'
     if (question.type === 'roleplay-mini') return 'Ответьте собеседнику по-английски.'
   }
@@ -59,7 +63,11 @@ function practiceTypeLabel(question: PracticeQuestion, session: PracticeSession)
   if (question.type === 'word-builder-pro') return 'Соберите фразу: в банке есть грамматические ловушки.'
   if (question.type === 'dictation') return 'Напишите фразу на слух.'
   if (question.type === 'roleplay-mini') return 'Ответьте в мини-диалоге.'
-  if (question.type === 'speed-round') return 'Быстрый раунд: отвечайте без долгих пауз.'
+  if (question.type === 'error-fix') {
+    return audience === 'child'
+      ? 'Скажи или напиши фразу, которая подходит к ситуации.'
+      : 'Скажите или напишите фразу, которая подходит к ситуации.'
+  }
   if (question.type === 'boss-challenge') return 'Финальный вызов: примените тему целиком.'
   if (question.type === 'context-clue') return 'Найдите ответ по контексту.'
   return 'Ответьте самостоятельно.'
@@ -95,10 +103,11 @@ function practiceInfoLabel(
   const hint =
     question.type === 'voice-shadow' ||
     question.type === 'dictation' ||
-    question.type === 'listening-select'
+    question.type === 'listening-select' ||
+    question.type === 'error-fix'
       ? ''
       : normalizeInstruction(question.hint)
-  const base = normalizeInstruction(practiceTypeLabel(question, session))
+  const base = normalizeInstruction(practiceTypeLabel(question, session, audience))
   if (!hint) return base
   const normalizedHint = hint.toLowerCase().replace(/[.!?…]/g, '').replace(/\s+/g, ' ').trim()
   const normalizedBase = base.toLowerCase().replace(/[.!?…]/g, '').replace(/\s+/g, ' ').trim()

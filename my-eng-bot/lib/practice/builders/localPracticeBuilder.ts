@@ -23,6 +23,10 @@ import { resolveDropdownOptionCount } from '@/lib/practice/dropdownOptionCount'
 import { inferGapWordSlot } from '@/lib/practice/gapWordSlot'
 import { sanitizeDropdownHint } from '@/lib/practice/prompt/dropdownFillPromptFormat'
 import { buildDictationPrompt } from '@/lib/practice/prompt/buildDictationPrompt'
+import {
+  formatErrorFixPrompt,
+} from '@/lib/practice/prompt/buildErrorFixPrompt'
+import { buildBrokenPhraseFromTarget } from '@/lib/practice/prompt/errorFixBrokenPhrase'
 import { buildRoleplayPrompt, roleplayPromptHasContext } from '@/lib/practice/prompt/buildRoleplayPrompt'
 import {
   buildRoleplayHint,
@@ -36,7 +40,7 @@ import {
   selectRoleplayAnchor,
 } from '@/lib/practice/roleplaySessionContinuity'
 import { isTranslateBackedFreeResponseExercise } from '@/lib/practice/prompt/freeResponseTranslateMode'
-import { extractSemanticKeywords, stripAnswerLeakFromHint } from '@/lib/practice/prompt/promptSourceUtils'
+import { extractSemanticKeywords, resolveSituationLine, stripAnswerLeakFromHint } from '@/lib/practice/prompt/promptSourceUtils'
 import { resolveLessonExerciseVariant } from '@/lib/practice/resolveLessonExerciseVariant'
 import {
   resolvePracticeLessonStep,
@@ -75,6 +79,7 @@ function optionsForType(
   tier?: ReturnType<typeof resolveTierForStep>,
   resolvedStep?: ResolvedPracticeLessonStep
 ): string[] | undefined {
+  if (type === 'error-fix') return undefined
   if (!isChoiceLikePracticeType(type)) {
     return cloneOptions(exercise.options)
   }
@@ -149,6 +154,7 @@ function toleranceFor(exercise: Exercise, type: PracticeExerciseType): PracticeT
   if (type === 'free-response' || type === 'roleplay-mini' || type === 'boss-challenge' || type === 'voice-shadow') {
     return 'soft'
   }
+  if (type === 'error-fix') return 'normalized'
   if (exercise.answerPolicy === 'strict' || exercise.answerFormat === 'choice' || type === 'choice') return 'strict'
   if (exercise.answerPolicy === 'normalized') return 'normalized'
   return getPracticeExerciseMetadata(type).tolerance
@@ -179,6 +185,7 @@ function createQuestion(params: {
   const isVoiceShadow = params.type === 'voice-shadow'
   const isDictation = params.type === 'dictation'
   const isListeningSelect = params.type === 'listening-select'
+  const isErrorFix = params.type === 'error-fix'
   const useEtalonPromptBuilder =
     isReferenceStepMapType(params.type) &&
     (params.mode === 'reference' || params.stepSpec?.type === params.type)
@@ -233,6 +240,23 @@ function createQuestion(params: {
       targetAnswer,
       matchedVariant: puzzleSlice.matchedVariant,
     })
+  }
+
+  if (isErrorFix) {
+    const built = buildReferencePromptFromLesson({
+      lesson: params.lesson,
+      type: 'error-fix',
+      stepIndex: params.index,
+      targetAnswer,
+    })
+    if (built) {
+      prompt = built
+    } else {
+      const broken = buildBrokenPhraseFromTarget(targetAnswer, params.lesson)
+      if (broken) {
+        prompt = formatErrorFixPrompt(resolveSituationLine(params.step, params.lesson, params.index), broken)
+      }
+    }
   }
 
   if (params.type === 'roleplay-mini') {
@@ -328,7 +352,7 @@ function createQuestion(params: {
             : params.type === 'roleplay-mini'
               ? 2
               : undefined,
-    hint: isVoiceShadow || isDictation || isListeningSelect
+    hint: isVoiceShadow || isDictation || isListeningSelect || isErrorFix
       ? undefined
       : params.type === 'roleplay-mini'
         ? roleplayHint
@@ -363,7 +387,7 @@ function mapExerciseType(exercise: Exercise, preferred?: PracticeExerciseType): 
   if (preferred === 'dictation') return 'dictation'
   if (preferred === 'roleplay-mini') return 'roleplay-mini'
   if (preferred === 'word-builder-pro') return 'word-builder-pro'
-  if (preferred === 'speed-round') return 'speed-round'
+  if (preferred === 'error-fix') return 'error-fix'
   if (preferred === 'context-clue') return 'context-clue'
   if (preferred === 'sentence-surgery') return 'sentence-surgery'
   if (preferred === 'dropdown-fill') return 'dropdown-fill'

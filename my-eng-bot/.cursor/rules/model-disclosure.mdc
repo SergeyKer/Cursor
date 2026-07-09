@@ -1,0 +1,31 @@
+---
+description: Mandatory model disclosure; Grok/Composer once per chat
+alwaysApply: true
+---
+
+# Model disclosure
+
+## First reply of a new chat
+
+In the **very first** reply of each new conversation, start with a model disclosure:
+
+- If available: `Running on model X (provider Y)`.
+- If not available: `The exact model name / provider is not available to me.`
+
+Put it at the **beginning** of the first reply only. Do not bury it in the middle or end. Do not repeat it in later replies of the same chat.
+
+## Grok and Composer (any version)
+
+If the session runs on **Grok** or **Composer** (any version), one disclosure at the start of the new chat is enough.
+
+- Do **not** repeat the disclosure later in the same chat.
+- Do **not** notify about version switches within the same family (e.g. Grok 4.5 → another Grok, Composer → another Composer) unless the user asks.
+
+## Other models / real provider change
+
+If the underlying model or provider changes to something **outside** the Grok/Composer family (or becomes unknown), in the **very next** reply inform the user, for example:
+
+- `The model has changed to Y`
+- `The provider has changed to Z`
+
+Do not skip that notification.

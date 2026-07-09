@@ -42,6 +42,20 @@ describe('reference etalon contract', () => {
             expect(uniquePrompts.size).toBeGreaterThanOrEqual(5)
           }
 
+          if (referenceType === 'error-fix') {
+            const uniqueSituations = new Set(
+              questions.map((question) => {
+                const match = /(?:Ситуация|Тема)\s*:\s*([^.]*)/iu.exec(question.prompt)
+                return (match?.[1] ?? question.prompt).trim().toLowerCase()
+              })
+            )
+            const uniqueTargets = new Set(
+              questions.map((question) => question.targetAnswer.trim().toLowerCase())
+            )
+            expect(uniqueSituations.size).toBeGreaterThanOrEqual(4)
+            expect(uniqueTargets.size).toBeGreaterThanOrEqual(3)
+          }
+
           for (const question of questions) {
             expect(question.prompt).toMatch(/[А-Яа-яЁё]/)
             if (referenceType === 'free-response') {
@@ -67,6 +81,14 @@ describe('reference etalon contract', () => {
               expect(question.options?.length ?? 0).toBeGreaterThanOrEqual(3)
               expect(question.prompt).toMatch(/Ситуация:|Тема:/i)
               expect(question.prompt).not.toMatch(/Прослушайте/i)
+            }
+            if (referenceType === 'error-fix') {
+              expect(question.prompt).toMatch(/Ситуация:|Тема:/i)
+              expect(question.prompt).toMatch(/Исправьте:/i)
+              expect(question.prompt).not.toContain(question.targetAnswer)
+              expect(question.options).toBeUndefined()
+              expect(question.hint).toBeFalsy()
+              expect(question.audioText).toBeFalsy()
             }
             if (referenceType === 'boss-challenge') {
               expect(question.minWords).toBeGreaterThanOrEqual(5)

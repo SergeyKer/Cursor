@@ -1,5 +1,6 @@
 import { normalizeEnglishForLearnerAnswerMatch } from '@/lib/normalizeEnglishForLearnerAnswerMatch'
 import { buildPracticeQuestionFingerprintFromQuestion } from '@/lib/practice/questionFingerprint'
+import { extractSituationKeyFromErrorFixPrompt } from '@/lib/practice/prompt/errorFixBrokenPhrase'
 import {
   parseInterlocutorFromPrompt,
   parseRoleIntroFromPrompt,
@@ -21,13 +22,15 @@ export function pickFreshReferencePracticeQuestion(
   seenKeys: string[],
   recentTargetAnswers: string[] = [],
   recentInterlocutorLines: string[] = [],
-  recentRoleIntroLines: string[] = []
+  recentRoleIntroLines: string[] = [],
+  recentSituationKeys: string[] = []
 ): PracticeQuestion | null {
   const normalizedRecent = new Set(recentPrompts.map(normalizePromptKey).filter(Boolean))
   const seen = new Set(seenKeys.filter(Boolean))
   const usedAnswers = new Set(recentTargetAnswers.map(normalizeAnswerKey).filter(Boolean))
   const usedInterlocutors = new Set(recentInterlocutorLines.map((line) => line.trim().toLowerCase()).filter(Boolean))
   const usedIntros = new Set(recentRoleIntroLines.map((line) => line.trim().toLowerCase()).filter(Boolean))
+  const usedSituations = new Set(recentSituationKeys.map((key) => key.trim().toLowerCase()).filter(Boolean))
 
   for (const candidate of candidates) {
     const promptKey = normalizePromptKey(candidate.prompt)
@@ -43,6 +46,12 @@ export function pickFreshReferencePracticeQuestion(
       if (interlocutor && usedInterlocutors.has(interlocutor)) continue
       const intro = parseRoleIntroFromPrompt(candidate.prompt)?.trim().toLowerCase()
       if (intro && usedIntros.has(intro)) continue
+    }
+    if (candidate.type === 'error-fix') {
+      const situationKey = extractSituationKeyFromErrorFixPrompt(candidate.prompt)
+      if (situationKey && usedSituations.has(situationKey)) continue
+      const answerKey = normalizeAnswerKey(candidate.targetAnswer)
+      if (answerKey && usedAnswers.has(answerKey)) continue
     }
     return candidate
   }

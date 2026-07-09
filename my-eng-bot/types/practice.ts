@@ -14,7 +14,7 @@ export type PracticeExerciseType =
   | 'dictation'
   | 'roleplay-mini'
   | 'boss-challenge'
-  | 'speed-round'
+  | 'error-fix'
   | 'context-clue'
 
 export type PracticeSkill = 'grammar' | 'vocabulary' | 'listening' | 'speaking' | 'pronunciation'

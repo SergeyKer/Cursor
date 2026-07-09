@@ -41,12 +41,12 @@ import {
   roleplayPromptHasContext,
 } from '@/lib/practice/prompt/buildRoleplayPrompt'
 import {
-  SPEED_ROUND_SYSTEM_RULES,
-  buildEtalonSpeedRoundPromptForLesson,
-  buildSpeedRoundPrompt,
-  findLessonSpeedRoundSourceForPractice,
-  speedRoundPromptHasContext,
-} from '@/lib/practice/prompt/buildSpeedRoundPrompt'
+  ERROR_FIX_SYSTEM_RULES,
+  buildErrorFixPrompt,
+  buildEtalonErrorFixPromptForLesson,
+  errorFixPromptHasContext,
+  findLessonErrorFixSourceForPractice,
+} from '@/lib/practice/prompt/buildErrorFixPrompt'
 import type { PracticePromptSource } from '@/lib/practice/prompt/promptSourceTypes'
 import { REFERENCE_STEP_MAP_TYPES } from '@/lib/practice/prompt/promptSourceTypes'
 import type { LessonData } from '@/types/lesson'
@@ -98,12 +98,13 @@ const BUILDERS: Partial<Record<PracticeExerciseType, PracticePromptBuilderEntry>
     hasContext: roleplayPromptHasContext,
     systemRules: ROLEPLAY_MINI_SYSTEM_RULES,
   },
-  'speed-round': {
-    findSource: findLessonSpeedRoundSourceForPractice,
-    buildPrompt: (source, lesson) => buildSpeedRoundPrompt(source, lesson),
-    buildEtalonForLesson: buildEtalonSpeedRoundPromptForLesson,
-    hasContext: speedRoundPromptHasContext,
-    systemRules: SPEED_ROUND_SYSTEM_RULES,
+  'error-fix': {
+    findSource: findLessonErrorFixSourceForPractice,
+    buildPrompt: (source, lesson, stepIndex, targetAnswer) =>
+      buildErrorFixPrompt(source, lesson, stepIndex, targetAnswer),
+    buildEtalonForLesson: buildEtalonErrorFixPromptForLesson,
+    hasContext: errorFixPromptHasContext,
+    systemRules: ERROR_FIX_SYSTEM_RULES,
   },
   'boss-challenge': {
     findSource: findLessonBossChallengeSourceForPractice,
