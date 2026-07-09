@@ -2223,6 +2223,7 @@ export default function Chat({
                       bubblePosition={bubblePosition}
                       engvoSlideEnter={feedSlideEnter}
                       isEngvoCall={isEngvoActive}
+                      engvoCallInProgress={engvoCallInProgress}
                       onRequestTranslation={onRequestTranslation}
                       isLoadingTranslation={loadingTranslationIndex === i}
                       onLanguageNoteInfoPress={onLanguageNoteInfoPress}
@@ -2645,6 +2646,7 @@ function MessageBubble({
   bubblePosition,
   engvoSlideEnter = false,
   isEngvoCall = false,
+  engvoCallInProgress = false,
   onRequestTranslation,
   isLoadingTranslation,
   onLanguageNoteInfoPress,
@@ -2665,6 +2667,8 @@ function MessageBubble({
   engvoSlideEnter?: boolean
   /** Активен звонок Engvo - показываем «Перевод_звонок», скрываем обычную «Перевод». */
   isEngvoCall?: boolean
+  /** Live Engvo call (before hang-up) — language-note `?` stays hidden. */
+  engvoCallInProgress?: boolean
   onRequestTranslation?: (index: number, text: string) => void
   isLoadingTranslation?: boolean
   onLanguageNoteInfoPress?: (index: number) => void
@@ -3165,6 +3169,7 @@ function MessageBubble({
                   engvoVoiceMode: Boolean(isEngvoCall),
                   content: message.content,
                   isEngvoServiceLine: message.engvoServiceLine,
+                  callInProgress: Boolean(isEngvoCall && engvoCallInProgress),
                 }) && Boolean(onLanguageNoteInfoPress)
               return (
                 <>

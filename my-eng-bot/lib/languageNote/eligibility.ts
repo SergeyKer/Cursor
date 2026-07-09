@@ -47,6 +47,8 @@ export function shouldShowLanguageNoteMark(params: {
   engvoVoiceMode: boolean
   content: string
   isEngvoServiceLine?: boolean
+  /** Active Engvo call (not ended) — hide mark so tips don't burn call tokens mid-call. */
+  callInProgress?: boolean
   featureEnabled?: boolean
 }): boolean {
   const flagOn = params.featureEnabled ?? featureFlags.languageNoteV1
@@ -55,6 +57,10 @@ export function shouldShowLanguageNoteMark(params: {
 
   const inScope = params.engvoVoiceMode || params.mode === 'communication'
   if (!inScope) return false
+
+  // During an active call the mark exists in eligibility history but must stay invisible
+  // until hang-up; tips can be opened thoughtfully afterwards.
+  if (params.engvoVoiceMode && params.callInProgress) return false
 
   return canShowLanguageNoteInfo(params.content)
 }

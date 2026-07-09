@@ -7089,8 +7089,22 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setFooterSheetContext((prev) => (prev?.source === 'language-note' ? null : prev))
   }, [settings.mode, engvoVoiceMode, abortLanguageNoteRequest])
 
+  const engvoCallInProgressForTips =
+    engvoVoiceMode &&
+    ['connecting', 'listening', 'userFinalizing', 'assistantPending', 'assistantSpeaking'].includes(
+      engvoCallPhase
+    )
+
+  // During a live call tips stay closed so opening a sheet cannot burn call tokens.
+  useEffect(() => {
+    if (!engvoCallInProgressForTips) return
+    abortLanguageNoteRequest()
+    setFooterSheetContext((prev) => (prev?.source === 'language-note' ? null : prev))
+  }, [engvoCallInProgressForTips, abortLanguageNoteRequest])
+
   const handleLanguageNoteInfoPress = useCallback(
     async (messageIndex: number, options?: { forceRefresh?: boolean }) => {
+      if (engvoCallInProgressForTips) return
       const message = messages[messageIndex]
       if (!message || message.role !== 'user') return
       const originalText = truncateLanguageNoteInput(message.content)
@@ -7178,6 +7192,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     },
     [
       abortLanguageNoteRequest,
+      engvoCallInProgressForTips,
       engvoVoiceMode,
       messages,
       settings.audience,

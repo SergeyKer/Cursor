@@ -64,6 +64,22 @@ describe('languageNote eligibility', () => {
         isEngvoServiceLine: true,
       })
     ).toBe(false)
+    expect(
+      shouldShowLanguageNoteMark({
+        mode: 'dialogue',
+        engvoVoiceMode: true,
+        content: 'I like music',
+        callInProgress: true,
+      })
+    ).toBe(false)
+    expect(
+      shouldShowLanguageNoteMark({
+        mode: 'dialogue',
+        engvoVoiceMode: true,
+        content: 'I like music',
+        callInProgress: false,
+      })
+    ).toBe(true)
   })
 
   it('truncates long input to 500 chars', () => {

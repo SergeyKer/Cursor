@@ -22,5 +22,7 @@ describe('language-note cache write guard in AppShell', () => {
     expect(source).toContain('current.content.trim() !== message.content.trim()')
     expect(source).toContain('languageNoteAbortRef')
     expect(source).toContain('languageNoteRequestIdRef')
+    expect(source).toContain('engvoCallInProgressForTips')
+    expect(source).toContain('if (engvoCallInProgressForTips) return')
   })
 })
